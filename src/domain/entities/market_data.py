@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+
 @dataclass(frozen=True)
 class MarketData:
     """
     @brief Domain Entity representing a single OHLCV Kline (Candlestick).
     """
+
     symbol: str
     interval: str
     open_time: datetime
@@ -19,3 +21,4 @@ class MarketData:
     number_of_trades: int
     taker_buy_base_asset_volume: float
     taker_buy_quote_asset_volume: float
+    is_closed: bool = True

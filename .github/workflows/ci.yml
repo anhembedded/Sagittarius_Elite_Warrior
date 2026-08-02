@@ -1,0 +1,55 @@
+name: Binance Bot CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          
+          # Install Sagittarius Engine from GitHub
+          pip install git+https://github.com/anhembedded/Sagittarius-Engine.git
+          
+          # Install Bot specific dependencies
+          pip install python-binance pytest pytest-asyncio pytest-cov sqlalchemy ruff mypy
+
+      - name: Ruff — Lint
+        run: ruff check src tests
+
+      - name: Ruff — Format Check
+        run: ruff format --check src tests
+
+      - name: Run Pytest with Coverage
+        run: |
+          # PYTHONPATH=. is used to import src module correctly from the root of Binace_Bot
+          PYTHONPATH=. pytest tests/ \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -v

@@ -1,0 +1,7 @@
+{
+    "DEFAULT_SYMBOLS": ["BTCUSDT", "ETHUSDT"],
+    "DEFAULT_INTERVAL": "1m",
+    "DEFAULT_SYNC_DAYS": 30,
+    "API_KEY": "",
+    "API_SECRET": ""
+}

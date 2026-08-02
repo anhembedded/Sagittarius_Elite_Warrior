@@ -2,7 +2,9 @@
 
 Dự án này là một Trading Bot chuyên nghiệp được xây dựng dựa trên **Sagittarius Engine** và tuân thủ tuyệt đối **Clean Architecture**.
 
-Hiện tại, dự án đã hoàn thành **Phase 1: Data Synchronizer**. Nó có khả năng đồng bộ dữ liệu nến (OHLCV) từ sàn Binance về lưu trữ cục bộ tại SQLite (sử dụng WAL mode để đảm bảo an toàn đọc/ghi tốc độ cao).
+Hiện tại, dự án đã hoàn thành **Phase 1: Data Synchronizer** và **Phase 2: Live Market Stream**. 
+- Nó có khả năng đồng bộ dữ liệu nến (OHLCV) tĩnh từ sàn Binance về lưu trữ cục bộ tại SQLite (sử dụng WAL mode).
+- Nó có khả năng kết nối Websocket Async để hứng sự kiện thị trường biến động theo thời gian thực (Real-time).
 
 ---
 
@@ -13,9 +15,9 @@ Dự án được phân rã thành các lớp độc lập:
 ```text
 Binace_Bot/
 ├── src/                        # 🟢 Chứa toàn bộ mã nguồn bot
-│   ├── domain/                 # Các thực thể cốt lõi (MarketData, TimeFrame)
-│   ├── application/            # Logic nghiệp vụ (SyncMarketDataCommand)
-│   ├── infrastructure/         # Các Adapter kết nối (python-binance, SQLAlchemy)
+│   ├── domain/                 # Các thực thể cốt lõi (MarketData, TimeFrame, MarketTickEvent)
+│   ├── application/            # Logic nghiệp vụ (Use cases) và cấu hình DI (extensions)
+│   ├── infrastructure/         # Các Adapter kết nối (python-binance, SQLAlchemy, WebSocket)
 │   ├── presentation/           # (Tương lai) Các API FastAPI / Streamlit
 │   └── main.py                 # File thực thi chính để khởi chạy CLI
 ├── tests/                      # 🔵 Chứa toàn bộ test
@@ -27,24 +29,57 @@ Binace_Bot/
 
 ---
 
-## 🚀 Hướng dẫn Chạy thử (Phase 1)
+## 🚀 Hướng dẫn Chạy thử (Dual-Mode CLI)
 
-Bạn có thể chạy thử công cụ đồng bộ dữ liệu từ Binance. Nó sẽ tải dữ liệu lịch sử và lưu vào `database/trading.db`.
+Dự án hỗ trợ 2 chế độ khởi chạy linh hoạt: **Interactive Menu** (cho người dùng cá nhân) và **Headless Mode** (cho môi trường Server/Docker).
 
-1. **Kích hoạt môi trường ảo (từ thư mục gốc `Sagittarius_ForkBoy`):**
-   ```powershell
-   .\.venv\Scripts\Activate.ps1
-   ```
+### Chế độ 1: Interactive Terminal Menu
+Khi khởi chạy không có tham số, Bot sẽ tự động mở Menu tương tác trực quan:
+```powershell
+$env:PYTHONPATH="."
+python Binace_Bot/src/main.py
+```
+*Kết quả:* Bạn sẽ được đưa vào vòng lặp Menu:
+```text
+========================================
+ 🤖 BINANCE TRADING BOT - INTERACTIVE 
+========================================
+1. Sync Market Data (Historical)
+2. Start Live Stream (Websocket)
+3. Stop Live Stream
+4. Exit
+```
 
-2. **Chạy lệnh đồng bộ dữ liệu (Sync):**
-   Cú pháp:
-   ```powershell
-   $env:PYTHONPATH="."
-   python Binace_Bot/src/main.py sync --symbols BTCUSDT,ETHUSDT --interval 1m --days 1
-   ```
-   *Lệnh này sẽ lấy dữ liệu nến 1 phút (`1m`) của `BTCUSDT` và `ETHUSDT` trong vòng `1 ngày` vừa qua.*
+### Chế độ 2: Headless CLI (Tự động hóa)
+Nếu bạn truyền tham số, Bot sẽ bỏ qua Menu và chạy thẳng lệnh tương ứng, rất phù hợp cho Crontab hoặc Background Tasks.
 
-   **Lưu ý:** Bot được thiết kế để **tải nối tiếp**. Nếu bạn chạy lại lệnh trên lần thứ 2, nó sẽ kiểm tra trong Database nến cuối cùng là giờ nào, và chỉ tải những nến mới nhất phát sinh sau thời điểm đó!
+**1. Đồng bộ dữ liệu (Sync):**
+```powershell
+$env:PYTHONPATH="."
+python Binace_Bot/src/main.py sync --symbols BTCUSDT,ETHUSDT --interval 1m --days 1
+```
+
+**2. Khởi chạy nền Live Stream:**
+```powershell
+$env:PYTHONPATH="."
+python Binace_Bot/src/main.py stream
+```
+
+---
+
+## 🚫 Lầm tưởng Kiến trúc (Anti-patterns đã được né tránh)
+
+Khi triển khai các hệ thống vòng lặp (CLI menu, Background loops) cho Trading Bot, người mới rất dễ mắc các sai lầm kiến trúc sau đây. Dự án này đã xử lý triệt để:
+
+1. **God Object ở Presentation Layer:**
+   - *Sai lầm:* Nhồi nhét logic hỏi/đáp của toàn bộ 10 tính năng vào một file `menu.py` khổng lồ, vi phạm Single Responsibility Principle (SRP).
+   - *Cách giải quyết:* Áp dụng Command/Handler pattern, chia Menu thành `SyncMenuHandler` và `StartStreamMenuHandler`. `TerminalMenuService` chỉ đóng vai trò Router điều hướng giao diện.
+2. **Loại bỏ CLI Parser khi làm UI:**
+   - *Sai lầm:* Khi nâng cấp lên UI hoặc Interactive Menu, lập trình viên thường xóa luôn `argparse` dẫn tới việc mất khả năng chạy Headless Mode (cực kỳ quan trọng để deploy bot lên Cloud VPS).
+   - *Cách giải quyết:* Kiến trúc **Dual-Mode**, hỗ trợ cả tương tác trực tiếp lẫn truyền tham số từ script automation.
+3. **Blocking I/O gây chết luồng:**
+   - *Sai lầm:* Chạy hàm `input()` (Synchronous Blocking) trên luồng chính của ứng dụng, khiến ứng dụng không thể nhận tín hiệu Graceful Shutdown (Ctrl+C).
+   - *Cách giải quyết:* Tách Terminal Menu ra một `IHostedService` chạy trên `ThreadPool`. Xử lý exception `KeyboardInterrupt` triệt để nhằm đảm bảo mọi Data Base connection và Websocket connection được dọn dẹp (clean up) trước khi thoát.
 
 ---
 
@@ -78,7 +113,6 @@ pytest Binace_Bot/tests -v --cov=Binace_Bot.src
 
 ## 📈 Lộ trình Tiếp theo
 
-- **Phase 2:** Live Market Stream (Kết nối Binance Websocket, bắn Event real-time).
 - **Phase 3:** Strategy Engine (Xử lý tín hiệu mua bán với Sliding Window).
 - **Phase 4:** Backtesting Engine (vectorbt).
 - **Phase 5:** UI Dashboard (FastAPI + Streamlit).

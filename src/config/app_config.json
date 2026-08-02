@@ -1,0 +1,12 @@
+{
+    "DATABASE_URL": "sqlite:///Binace_Bot/database/trading.db",
+    "BINANCE_WS_URL": "wss://stream.binance.com:9443",
+    "BINANCE_REST_URL": "https://api.binance.com",
+    "LOG_FORMAT": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "log.level": "INFO",
+    "log.console.enabled": false,
+    "log.viewer.enabled": true,
+    "log.viewer.host": "127.0.0.1",
+    "log.viewer.port": 9999,
+    "log.viewer.module": "binance-bot"
+}
