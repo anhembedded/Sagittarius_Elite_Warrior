@@ -28,16 +28,17 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
+          cache-dependency-path: "requirements.txt"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          
+
           # Install Sagittarius Engine from GitHub
           pip install git+https://github.com/anhembedded/Sagittarius-Engine.git
-          
-          # Install Bot specific dependencies
-          pip install python-binance pytest pytest-asyncio pytest-cov sqlalchemy ruff mypy
+
+          # Install Bot specific dependencies from requirements.txt
+          pip install -r requirements.txt
 
       - name: Ruff — Lint
         run: ruff check src tests
