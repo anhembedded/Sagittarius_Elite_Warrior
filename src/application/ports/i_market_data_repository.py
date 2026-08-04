@@ -34,6 +34,7 @@ class IMarketDataRepository(ABC):
         interval: TimeFrame,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
     ) -> list[MarketData]:
         """
         @brief Retrieves historical klines from the repository.

@@ -111,3 +111,18 @@ def test_get_klines_with_time_range(repo):
     assert len(fetched2) == 2
     assert fetched2[0].open_time == dt2
     assert fetched2[1].open_time == dt3
+
+def test_get_klines_with_limit(repo):
+    from datetime import timedelta
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    klines = [create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)]
+    repo.save_klines(klines)
+    
+    # Get last 3 klines
+    fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE, limit=3)
+    
+    assert len(fetched) == 3
+    # Check that they are in chronological order and represent the latest 3
+    assert fetched[0].open_time == base_dt + timedelta(minutes=7)
+    assert fetched[1].open_time == base_dt + timedelta(minutes=8)
+    assert fetched[2].open_time == base_dt + timedelta(minutes=9)

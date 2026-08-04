@@ -21,6 +21,10 @@ from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamCommandHandler,
 )
+from Binace_Bot.src.application.use_cases.run_backtest import (
+    RunBacktestCommand,
+    RunBacktestCommandHandler,
+)
 from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
@@ -63,6 +67,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
         app.container.bind(ProcessMarketTickCommand, ProcessMarketTickCommandHandler)
+        app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
 
         # Register the WebsocketService as bound to its Interface
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)

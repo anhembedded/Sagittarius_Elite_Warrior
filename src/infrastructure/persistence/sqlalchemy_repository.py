@@ -119,6 +119,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         interval: TimeFrame,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
     ) -> list[MarketData]:
         with self.Session() as session:
             query = session.query(KlineModel).filter_by(
@@ -130,10 +131,17 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             if end_time:
                 query = query.filter(KlineModel.open_time <= end_time)
 
-            query = query.order_by(KlineModel.open_time.asc())
+            if limit is not None:
+                # When using limit, we usually want the *latest* N candles.
+                # To do that, we order by open_time DESC, limit, and then reverse the result.
+                query = query.order_by(KlineModel.open_time.desc()).limit(limit)
+                rows = list(reversed(query.all()))
+            else:
+                query = query.order_by(KlineModel.open_time.asc())
+                rows = query.all()
 
             results = []
-            for row in query.all():
+            for row in rows:
                 results.append(
                     MarketData(
                         symbol=row.symbol,
