@@ -8,7 +8,8 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 def test_parse_kline():
     event_bus = Mock()
-    service = BinanceWebsocketService(event_bus)
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
 
     mock_payload = {
         "e": "kline",
@@ -55,12 +56,15 @@ def test_parse_kline():
 @pytest.mark.asyncio
 async def test_websocket_auto_reconnect():
     event_bus = Mock()
-    service = BinanceWebsocketService(event_bus)
-    
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
+
     token = Mock()
     is_cancelled_flag = False
+
     def check_cancelled():
         return is_cancelled_flag
+
     token.is_cancelled.side_effect = check_cancelled
 
     # Mock AsyncClient and BinanceSocketManager

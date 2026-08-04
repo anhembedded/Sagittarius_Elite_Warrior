@@ -7,6 +7,7 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.application.interfaces.i_market_data_repository import (
     IMarketDataRepository,
 )
+from sagittarius_engine.interfaces.i_config import IConfig
 import os
 import logging
 
@@ -41,14 +42,11 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
     @details Ensures WAL mode is enabled for concurrent reads and writes.
     """
 
-    def __init__(self, db_url: Optional[str] = None) -> None:
-        if db_url is None:
-            # Use absolute path to avoid SQLAlchemy parsing issues
-            db_path = os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "../../..", "database", "trading.db"
-                )
-            )
+    def __init__(self, config: IConfig) -> None:
+        db_url = config.get("database.url")
+        if not db_url:
+            # Fallback to an in-memory SQLite DB or safe relative path
+            db_path = os.path.join(os.getcwd(), "database", "trading.db")
             os.makedirs(os.path.dirname(db_path), exist_ok=True)
             db_url = f"sqlite:///{db_path}"
 

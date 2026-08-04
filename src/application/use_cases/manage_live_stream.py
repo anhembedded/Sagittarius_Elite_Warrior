@@ -5,6 +5,7 @@ from Binace_Bot.src.application.contracts.i_live_stream_service import (
     ILiveStreamService,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from sagittarius_engine.extensions.cqrs import ICommand
 import logging
 
 logger = logging.getLogger("App.LiveStreamUseCase")
@@ -35,7 +36,9 @@ class StartLiveStreamResponse:
     message: str
 
 
-class StartLiveStreamCommandHandler:
+class StartLiveStreamCommandHandler(
+    ICommand[StartLiveStreamCommand, StartLiveStreamResponse]
+):
     def __init__(self, stream_service: ILiveStreamService):
         self._stream_service = stream_service
 
@@ -74,7 +77,9 @@ class StopLiveStreamResponse:
     message: str
 
 
-class StopLiveStreamCommandHandler:
+class StopLiveStreamCommandHandler(
+    ICommand[StopLiveStreamCommand, StopLiveStreamResponse]
+):
     def __init__(self, stream_service: ILiveStreamService):
         self._stream_service = stream_service
 

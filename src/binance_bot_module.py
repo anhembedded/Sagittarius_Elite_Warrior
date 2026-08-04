@@ -25,6 +25,10 @@ from Binace_Bot.src.application.contracts.i_live_stream_service import (
 from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
+from Binace_Bot.src.infrastructure.engine_adapters.live_stream_adapter import (
+    LiveStreamEngineAdapter,
+)
+from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 
 class BinanceBotModule(BaseModule):
@@ -37,6 +41,9 @@ class BinanceBotModule(BaseModule):
         pass
 
     def register(self, app: App) -> None:
+        # Bind engine context dependencies for infrastructure services
+        app.container.singleton(ITaskManager, app.context.tasks)
+
         # Register Repositories & Clients
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
@@ -46,12 +53,13 @@ class BinanceBotModule(BaseModule):
         app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
 
-        # Register the WebsocketService as both a Singleton and bound to its Interface
+        # Register the WebsocketService as bound to its Interface
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
-        app.container.singleton(BinanceWebsocketService, BinanceWebsocketService)
+        # Register the Adapter
+        app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
 
     def boot(self, app: App) -> None:
-        # Register it as a HostedService so it receives the EngineContext and is managed
-        # by the App lifecycle. It will NOT start streaming until start_stream() is explicitly called.
-        service = app.container.resolve(BinanceWebsocketService)
-        app.context.hosted_services.register(service)
+        # Register the adapter as a HostedService so it receives the EngineContext and is managed
+        # by the App lifecycle, delegating to the pure ILiveStreamService.
+        adapter = app.container.resolve(LiveStreamEngineAdapter)
+        app.context.hosted_services.register(adapter)

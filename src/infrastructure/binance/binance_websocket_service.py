@@ -1,17 +1,15 @@
-﻿import asyncio
+import asyncio
 import logging
 from datetime import datetime, timezone
 
 from binance import AsyncClient, BinanceSocketManager
-from sagittarius_engine.interfaces.i_engine_context import IEngineContext
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
-from sagittarius_engine.interfaces.i_task_manager import ITaskHandle
-from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
+from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
-
 from Binace_Bot.src.application.contracts.i_live_stream_service import (
     ILiveStreamService,
 )
+
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
@@ -19,49 +17,27 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 logger = logging.getLogger("App.LiveStream")
 
 
-class BinanceWebsocketService(IHostedService, ILiveStreamService):
+class BinanceWebsocketService(ILiveStreamService):
     """
-    @brief Infrastructure implementation of ILiveStreamService and IHostedService.
-    @details Manages a live Binance Kline WebSocket stream as a background task
-    using the Sagittarius Engine runtime (ITaskManager + CancellationToken).
+    @brief Infrastructure implementation of ILiveStreamService.
+    @details Manages a live Binance Kline WebSocket stream using the injected ITaskManager.
     """
 
-    def __init__(self, event_bus: IEventBus) -> None:
+    def __init__(self, event_bus: IEventBus, task_manager: ITaskManager) -> None:
         self._event_bus = event_bus
-        self._context: IEngineContext | None = None
+        self._task_manager = task_manager
         self._task_handle: ITaskHandle | None = None
         self._token: CancellationToken | None = None
-
-    # -- IHostedService --------------------------------------------------------
-
-    def start(self, context: IEngineContext) -> None:
-        """
-        @brief Called by the Engine on boot. Stores context for later use.
-        Does NOT start the stream automatically.
-        """
-        self._context = context
-        logger.info("BinanceWebsocketService initialized and awaiting commands.")
-
-    def stop(self, context: IEngineContext) -> None:
-        """
-        @brief Called by the Engine on shutdown. Stops the stream if running.
-        """
-        if self._task_handle is not None:
-            self.stop_stream()
 
     # -- ILiveStreamService ----------------------------------------------------
 
     def start_stream(self, symbols: list[str], interval_str: str) -> bool:
         """
         @brief Spawns the WebSocket stream as a background task via ITaskManager.
-        @return True if started, False if already running or context unavailable.
+        @return True if started, False if already running.
         """
         if self._task_handle is not None:
             logger.warning("Stream is already running. Stop it first.")
-            return False
-
-        if self._context is None:
-            logger.error("Engine context not available. Was start() called?")
             return False
 
         interval = TimeFrame(interval_str)
@@ -71,7 +47,7 @@ class BinanceWebsocketService(IHostedService, ILiveStreamService):
             f"Starting Binance WebSocket stream for {symbols} at {interval.value}"
         )
 
-        self._task_handle = self._context.tasks.spawn(
+        self._task_handle = self._task_manager.spawn(
             self._run_stream(symbols, interval, self._token),
             name=f"BinanceStream[{','.join(symbols)}@{interval.value}]",
             token=self._token,
@@ -118,9 +94,7 @@ class BinanceWebsocketService(IHostedService, ILiveStreamService):
         try:
             client = await AsyncClient.create()
             bsm = BinanceSocketManager(client)
-            streams = [
-                f"{symbol.lower()}@kline_{interval.value}" for symbol in symbols
-            ]
+            streams = [f"{symbol.lower()}@kline_{interval.value}" for symbol in symbols]
 
             while not token.is_cancelled():
                 try:

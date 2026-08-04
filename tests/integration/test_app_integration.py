@@ -55,9 +55,10 @@ def test_app_boot_and_stream_use_case(app_instance):
 
         assert response.success is True
 
-        # Give the background thread's asyncio loop a moment to start the coroutine 
+        # Give the background thread's asyncio loop a moment to start the coroutine
         # so it doesn't get cancelled before being awaited (which causes a warning)
         import time
+
         time.sleep(0.1)
 
         # Stop the stream

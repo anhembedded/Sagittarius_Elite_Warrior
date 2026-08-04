@@ -7,10 +7,15 @@ from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
 )
 
 
+from unittest.mock import Mock
+
+
 @pytest.fixture
 def repo():
     # Use in-memory SQLite for testing
-    return SQLAlchemyMarketDataRepository(db_url="sqlite:///:memory:")
+    config = Mock()
+    config.get.return_value = "sqlite:///:memory:"
+    return SQLAlchemyMarketDataRepository(config)
 
 
 def create_mock_kline(symbol: str, timestamp: datetime) -> MarketData:

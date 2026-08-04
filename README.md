@@ -2,7 +2,8 @@
 
 Dự án này là một Trading Bot chuyên nghiệp được xây dựng dựa trên **Sagittarius Engine** và tuân thủ tuyệt đối **Clean Architecture**.
 
-Hiện tại, dự án đã hoàn thành **Phase 1: Data Synchronizer** và **Phase 2: Live Market Stream**. 
+Hiện tại, dự án đã hoàn thành **Phase 1: Data Synchronizer** và **Phase 2: Live Market Stream**.
+
 - Nó có khả năng đồng bộ dữ liệu nến (OHLCV) tĩnh từ sàn Binance về lưu trữ cục bộ tại SQLite (sử dụng WAL mode).
 - Nó có khả năng kết nối Websocket Async để hứng sự kiện thị trường biến động theo thời gian thực (Real-time).
 
@@ -34,12 +35,16 @@ Binace_Bot/
 Dự án hỗ trợ 2 chế độ khởi chạy linh hoạt: **Interactive Menu** (cho người dùng cá nhân) và **Headless Mode** (cho môi trường Server/Docker).
 
 ### Chế độ 1: Interactive Terminal Menu
+
 Khi khởi chạy không có tham số, Bot sẽ tự động mở Menu tương tác trực quan:
+
 ```powershell
 $env:PYTHONPATH="."
 python Binace_Bot/src/main.py
 ```
+
 *Kết quả:* Bạn sẽ được đưa vào vòng lặp Menu:
+
 ```text
 ========================================
  🤖 BINANCE TRADING BOT - INTERACTIVE 
@@ -51,15 +56,18 @@ python Binace_Bot/src/main.py
 ```
 
 ### Chế độ 2: Headless CLI (Tự động hóa)
+
 Nếu bạn truyền tham số, Bot sẽ bỏ qua Menu và chạy thẳng lệnh tương ứng, rất phù hợp cho Crontab hoặc Background Tasks.
 
 **1. Đồng bộ dữ liệu (Sync):**
+
 ```powershell
 $env:PYTHONPATH="."
 python Binace_Bot/src/main.py sync --symbols BTCUSDT,ETHUSDT --interval 1m --days 1
 ```
 
 **2. Khởi chạy nền Live Stream:**
+
 ```powershell
 $env:PYTHONPATH="."
 python Binace_Bot/src/main.py stream
@@ -88,6 +96,7 @@ Khi triển khai các hệ thống vòng lặp (CLI menu, Background loops) cho 
 Toàn bộ dữ liệu bạn tải về được lưu tại `Binace_Bot/database/trading.db`.
 
 Để xem dữ liệu, bạn có thể:
+
 1. Cài đặt Extension **SQLite Viewer** trong VS Code.
 2. Bấm chuột phải vào file `trading.db` -> Chọn **Open to the Side** (hoặc mở bằng SQLite Viewer).
 3. Xem bảng `klines` để thấy danh sách hàng ngàn cây nến đã được lưu cực kỳ ngăn nắp với định dạng UTC Timezone.
@@ -105,6 +114,7 @@ pytest Binace_Bot/tests -v
 ```
 
 Hoặc để xem độ phủ mã (Coverage):
+
 ```powershell
 pytest Binace_Bot/tests -v --cov=Binace_Bot.src
 ```
