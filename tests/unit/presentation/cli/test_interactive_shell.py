@@ -40,7 +40,105 @@ def test_interactive_shell_execute_sync():
 
 def test_interactive_shell_do_exit():
     app = Mock(spec=App)
+    app.container.resolve.return_value = Mock(spec=IConfig)
     shell = InteractiveShell(app)
 
     result = shell.do_exit("")
     assert result is True
+
+def test_interactive_shell_do_quit():
+    app = Mock(spec=App)
+    app.container.resolve.return_value = Mock(spec=IConfig)
+    shell = InteractiveShell(app)
+
+    result = shell.do_quit("")
+    assert result is True
+
+def test_interactive_shell_emptyline():
+    app = Mock(spec=App)
+    app.container.resolve.return_value = Mock(spec=IConfig)
+    shell = InteractiveShell(app)
+    
+    # Should not raise or repeat
+    shell.emptyline()
+    
+def test_interactive_shell_default_unknown_cmd(capsys):
+    app = Mock(spec=App)
+    config = Mock(spec=IConfig)
+    config.get.return_value = {}
+    app.container.resolve.return_value = config
+    shell = InteractiveShell(app)
+    
+    shell.default("unknown_cmd")
+    captured = capsys.readouterr()
+    assert "*** Unknown syntax: unknown_cmd" in captured.out
+    
+def test_interactive_shell_default_empty(capsys):
+    app = Mock(spec=App)
+    config = Mock(spec=IConfig)
+    config.get.return_value = {}
+    app.container.resolve.return_value = config
+    shell = InteractiveShell(app)
+    
+    shell.default("")
+    captured = capsys.readouterr()
+    assert captured.out == ""
+
+def test_interactive_shell_do_help(capsys):
+    app = Mock(spec=App)
+    config = Mock(spec=IConfig)
+    config.get.return_value = {
+        "sync": {"help": "Sync cmd"}
+    }
+    app.container.resolve.return_value = config
+    shell = InteractiveShell(app)
+    
+    shell.do_help("")
+    captured = capsys.readouterr()
+    assert "Sync cmd" in captured.out
+    assert "exit" in captured.out
+    
+def test_interactive_shell_do_help_specific(capsys):
+    app = Mock(spec=App)
+    config = Mock(spec=IConfig)
+    config.get.return_value = {
+        "sync": {"help": "Sync cmd"}
+    }
+    app.container.resolve.return_value = config
+    shell = InteractiveShell(app)
+    
+    shell.do_help("sync")
+    captured = capsys.readouterr()
+    assert "Sync cmd" in captured.out
+    
+def test_interactive_shell_do_help_unknown(capsys):
+    app = Mock(spec=App)
+    config = Mock(spec=IConfig)
+    config.get.return_value = {}
+    app.container.resolve.return_value = config
+    shell = InteractiveShell(app)
+    
+    shell.do_help("unknown")
+    captured = capsys.readouterr()
+    assert "*** No help on unknown" in captured.out
+    
+def test_interactive_shell_lifecycle():
+    app = Mock(spec=App)
+    app.container.resolve.return_value = Mock(spec=IConfig)
+    shell = InteractiveShell(app)
+    
+    context = Mock()
+    context.tasks = Mock()
+    mock_task = Mock()
+    context.tasks.spawn.return_value = mock_task
+    
+    shell.start(context)
+    context.tasks.spawn.assert_called_once()
+    assert shell.task == mock_task
+    
+    # Wait for exit
+    shell.wait_for_exit()
+    mock_task.future.result.assert_called_once()
+    
+    # Stop
+    shell.stop(context)
