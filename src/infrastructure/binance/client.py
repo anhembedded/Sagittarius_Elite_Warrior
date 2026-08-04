@@ -1,6 +1,6 @@
 from binance.client import Client
 from datetime import datetime, timezone
-from Binace_Bot.src.application.interfaces.i_exchange_client import IExchangeClient
+from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 import logging

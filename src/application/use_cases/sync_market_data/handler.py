@@ -1,8 +1,8 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from Binace_Bot.src.application.interfaces.cqrs import ICommandHandler
-from Binace_Bot.src.application.interfaces.i_exchange_client import IExchangeClient
-from Binace_Bot.src.application.interfaces.i_market_data_repository import IMarketDataRepository
+from Binace_Bot.src.application.ports.cqrs import ICommandHandler
+from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
+from Binace_Bot.src.application.ports.i_market_data_repository import IMarketDataRepository
 from .command import SyncMarketDataCommand
 
 class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None]):

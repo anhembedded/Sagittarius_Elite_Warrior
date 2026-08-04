@@ -1,6 +1,6 @@
 import logging
-from Binace_Bot.src.application.contracts.i_live_stream_service import ILiveStreamService
-from Binace_Bot.src.application.interfaces.cqrs import ICommandHandler
+from Binace_Bot.src.application.ports.i_live_stream_service import ILiveStreamService
+from Binace_Bot.src.application.ports.cqrs import ICommandHandler
 from .command import StopLiveStreamCommand, StopLiveStreamResponse
 
 logger = logging.getLogger("App.LiveStreamUseCase")

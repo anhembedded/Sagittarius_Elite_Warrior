@@ -1,13 +1,13 @@
 from sagittarius_engine.base import BaseModule
 from sagittarius_engine import App
 
-from Binace_Bot.src.application.interfaces.i_market_data_repository import (
+from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
-from Binace_Bot.src.application.interfaces.i_exchange_client import IExchangeClient
+from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
 from Binace_Bot.src.application.use_cases.sync_market_data import (
     SyncMarketDataCommand,
@@ -21,7 +21,7 @@ from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamCommandHandler,
 )
-from Binace_Bot.src.application.contracts.i_live_stream_service import (
+from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (

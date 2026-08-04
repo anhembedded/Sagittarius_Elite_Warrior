@@ -1,5 +1,5 @@
 import logging
-from Binace_Bot.src.application.interfaces.cqrs import ICommandHandler
+from Binace_Bot.src.application.ports.cqrs import ICommandHandler
 from .command import ProcessMarketTickCommand
 
 class ProcessMarketTickCommandHandler(ICommandHandler[ProcessMarketTickCommand, None]):

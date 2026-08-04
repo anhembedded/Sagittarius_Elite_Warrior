@@ -2,7 +2,7 @@ import logging
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
 from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
 
-from Binace_Bot.src.application.contracts.i_live_stream_service import (
+from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 

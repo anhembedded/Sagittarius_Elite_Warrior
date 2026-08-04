@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.application.interfaces.i_market_data_repository import (
+from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 from sagittarius_engine.interfaces.i_config import IConfig

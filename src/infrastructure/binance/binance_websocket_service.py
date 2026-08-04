@@ -6,7 +6,7 @@ from binance import AsyncClient, BinanceSocketManager
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
-from Binace_Bot.src.application.contracts.i_live_stream_service import (
+from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 

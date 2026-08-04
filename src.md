@@ -269,7 +269,7 @@ class IMarketDataRepository(ABC):
 from dataclasses import dataclass
 from pydantic import BaseModel, field_validator
 from typing import List
-from Binace_Bot.src.application.contracts.i_live_stream_service import (
+from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
@@ -362,8 +362,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sagittarius_engine.interfaces import ILogger
 from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
-from Binace_Bot.src.application.interfaces.i_exchange_client import IExchangeClient
-from Binace_Bot.src.application.interfaces.i_market_data_repository import (
+from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
+from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 
@@ -452,13 +452,13 @@ symbols: list[str]
 from sagittarius_engine.base import BaseModule
 from sagittarius_engine import App
 
-from Binace_Bot.src.application.interfaces.i_market_data_repository import (
+from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
-from Binace_Bot.src.application.interfaces.i_exchange_client import IExchangeClient
+from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
 from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
 from Binace_Bot.src.application.use_cases.sync_market_data_handler import (
@@ -470,7 +470,7 @@ from Binace_Bot.src.application.use_cases.manage_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamCommandHandler,
 )
-from Binace_Bot.src.application.contracts.i_live_stream_service import (
+from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
@@ -580,7 +580,7 @@ from binance import AsyncClient, BinanceSocketManager
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
-from Binace_Bot.src.application.contracts.i_live_stream_service import (
+from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 
@@ -722,7 +722,7 @@ if "data" in res:
 ```python
 from binance.client import Client
 from datetime import datetime, timezone
-from Binace_Bot.src.application.interfaces.i_exchange_client import IExchangeClient
+from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 import logging
@@ -785,7 +785,7 @@ import logging
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
 from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
 
-from Binace_Bot.src.application.contracts.i_live_stream_service import (
+from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 
@@ -815,7 +815,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.application.interfaces.i_market_data_repository import (
+from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
