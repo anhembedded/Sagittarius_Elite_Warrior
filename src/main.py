@@ -60,17 +60,17 @@ def main() -> None:
     app = create_app()
 
     if interactive_mode:
-        # Register the Interactive Terminal Menu Hosted Service
-        from Binace_Bot.src.presentation.cli.menu_service import TerminalMenuService
+        # Register the Interactive Shell Hosted Service
+        from Binace_Bot.src.presentation.cli.interactive_shell import InteractiveShell
 
-        menu = TerminalMenuService(app)
-        app.context.hosted_services.register(menu)
+        shell = InteractiveShell(app)
+        app.context.hosted_services.register(shell)
 
         # Boot Engine
         app.boot()
 
-        # Block main thread until the menu loop exits
-        menu.wait_for_exit()
+        # Block main thread until the shell loop exits
+        shell.wait_for_exit()
         app.stop()
 
     else:
