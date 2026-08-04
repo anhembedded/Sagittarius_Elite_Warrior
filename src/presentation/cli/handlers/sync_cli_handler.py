@@ -32,10 +32,10 @@ class SyncCliHandler:
             )
             print(f"🔄 Syncing historical data for {symbols}...")
             response = app.dispatch(SyncMarketDataCommand, cmd)
-            if response.success:
+            if response is None or getattr(response, 'success', True):
                 print(f"✅ Sync complete.")
             else:
-                print(f"❌ Sync failed: {response.message}")
+                print(f"❌ Sync failed: {getattr(response, 'message', 'Unknown error')}")
         except ValueError as e:
             print(f"❌ Validation Error: {e}")
         except ValidationError as e:

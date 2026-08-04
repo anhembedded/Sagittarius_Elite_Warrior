@@ -32,9 +32,14 @@ class PythonBinanceClient(IExchangeClient):
             f"Fetching historical klines for {symbol} at {interval.value} from {start_str}"
         )
         try:
-            raw_klines = self.client.get_historical_klines(
+            raw_klines = []
+            generator = self.client.get_historical_klines_generator(
                 symbol, interval.value, start_str
             )
+            for i, k in enumerate(generator):
+                raw_klines.append(k)
+                if (i + 1) % 10000 == 0:
+                    logger.info(f"[{symbol}] Downloaded {i + 1} klines so far...")
             logger.debug(f"Successfully fetched {len(raw_klines)} klines for {symbol}.")
         except Exception as e:
             logger.error(f"Failed to fetch historical klines for {symbol}: {e}")

@@ -6,6 +6,7 @@ class TimeFrame(str, Enum):
     @brief Domain Value Object representing standard trading timeframes.
     """
 
+    ONE_SECOND = "1s"
     ONE_MINUTE = "1m"
     THREE_MINUTES = "3m"
     FIVE_MINUTES = "5m"

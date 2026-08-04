@@ -4,7 +4,7 @@
     "BINANCE_REST_URL": "https://api.binance.com",
     "LOG_FORMAT": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "log.level": "INFO",
-    "log.console.enabled": false,
+    "log.console.enabled": true,
     "log.viewer.enabled": true,
     "log.viewer.host": "127.0.0.1",
     "log.viewer.port": 9999,
