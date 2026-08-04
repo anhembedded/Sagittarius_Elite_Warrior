@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sagittarius_engine.interfaces import ILogger
+from sagittarius_engine.extensions.cqrs import ICommand
 from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
 from Binace_Bot.src.application.interfaces.i_exchange_client import IExchangeClient
 from Binace_Bot.src.application.interfaces.i_market_data_repository import (
@@ -9,7 +10,7 @@ from Binace_Bot.src.application.interfaces.i_market_data_repository import (
 )
 
 
-class SyncMarketDataCommandHandler:
+class SyncMarketDataCommandHandler(ICommand[SyncMarketDataCommand, None]):
     """
     @brief Handler for SyncMarketDataCommand.
     """

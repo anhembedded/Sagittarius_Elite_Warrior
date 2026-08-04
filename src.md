@@ -4,7 +4,7 @@
 - `C:\Users\hoang\Documents\Sagittarius_ForkBoy\Binace_Bot`
 
 **Pattern:** `*.py, *.ps1`
-**Generated:** 2026-08-04 20:45:17
+**Generated:** 2026-08-04 21:21:13
 
 ## Directory Tree: C:\Users\hoang\Documents\Sagittarius_ForkBoy\Binace_Bot
 
@@ -36,6 +36,8 @@ Binace_Bot
 │   │   ├── binance
 │   │   │   ├── binance_websocket_service.py
 │   │   │   └── client.py
+│   │   ├── engine_adapters
+│   │   │   └── live_stream_adapter.py
 │   │   └── persistence
 │   │       └── sqlalchemy_repository.py
 │   ├── main.py
@@ -195,21 +197,17 @@ if ($failed.Count -eq 0) {
 # FILE: src\application\contracts\i_live_stream_service.py
 
 ```python
-from abc import abstractmethod
-from typing import List
-from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
+from typing import List, Protocol
 
-class ILiveStreamService(IHostedService):
+class ILiveStreamService(Protocol):
 
-@abstractmethod
-    def start_stream(self, symbols: List[str], interval_str: str) -> bool:
+def start_stream(self, symbols: List[str], interval_str: str) -> bool:
         
-        pass
+        ...
 
-    @abstractmethod
     def stop_stream(self) -> bool:
         
-        pass
+        ...
 ``````
 
 # FILE: src\application\interfaces\i_exchange_client.py
@@ -275,6 +273,7 @@ from Binace_Bot.src.application.contracts.i_live_stream_service import (
     ILiveStreamService,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from sagittarius_engine.extensions.cqrs import ICommand
 import logging
 
 logger = logging.getLogger("App.LiveStreamUseCase")
@@ -299,7 +298,9 @@ class StartLiveStreamResponse:
     success: bool
     message: str
 
-class StartLiveStreamCommandHandler:
+class StartLiveStreamCommandHandler(
+    ICommand[StartLiveStreamCommand, StartLiveStreamResponse]
+):
     def __init__(self, stream_service: ILiveStreamService):
         self._stream_service = stream_service
 
@@ -332,7 +333,9 @@ class StopLiveStreamResponse:
     success: bool
     message: str
 
-class StopLiveStreamCommandHandler:
+class StopLiveStreamCommandHandler(
+    ICommand[StopLiveStreamCommand, StopLiveStreamResponse]
+):
     def __init__(self, stream_service: ILiveStreamService):
         self._stream_service = stream_service
 
@@ -473,6 +476,10 @@ from Binace_Bot.src.application.contracts.i_live_stream_service import (
 from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
+from Binace_Bot.src.infrastructure.engine_adapters.live_stream_adapter import (
+    LiveStreamEngineAdapter,
+)
+from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 class BinanceBotModule(BaseModule):
 
@@ -481,7 +488,9 @@ def __init__(self):
 
     def register(self, app: App) -> None:
 
-        app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
+        app.container.singleton(ITaskManager, app.context.tasks)
+
+app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
 
 app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
@@ -489,12 +498,13 @@ app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
 
 app.container.singleton(ILiveStreamService, BinanceWebsocketService)
-        app.container.singleton(BinanceWebsocketService, BinanceWebsocketService)
+
+        app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
 
     def boot(self, app: App) -> None:
 
-service = app.container.resolve(BinanceWebsocketService)
-        app.context.hosted_services.register(service)
+adapter = app.container.resolve(LiveStreamEngineAdapter)
+        app.context.hosted_services.register(adapter)
 ``````
 
 # FILE: src\domain\entities\market_data.py
@@ -526,11 +536,11 @@ symbol: str
 
 ```python
 from dataclasses import dataclass
-from sagittarius_engine.domain.base_event import BaseEvent
+
 from Binace_Bot.src.domain.entities.market_data import MarketData
 
 @dataclass(frozen=True)
-class MarketTickEvent(BaseEvent):
+class MarketTickEvent:
 
 market_data: MarketData
 ``````
@@ -567,10 +577,8 @@ import logging
 from datetime import datetime, timezone
 
 from binance import AsyncClient, BinanceSocketManager
-from sagittarius_engine.interfaces.i_engine_context import IEngineContext
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
-from sagittarius_engine.interfaces.i_task_manager import ITaskHandle
-from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
+from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 from Binace_Bot.src.application.contracts.i_live_stream_service import (
     ILiveStreamService,
@@ -584,30 +592,16 @@ logger = logging.getLogger("App.LiveStream")
 
 class BinanceWebsocketService(ILiveStreamService):
 
-def __init__(self, event_bus: IEventBus) -> None:
+def __init__(self, event_bus: IEventBus, task_manager: ITaskManager) -> None:
         self._event_bus = event_bus
-        self._context: IEngineContext | None = None
+        self._task_manager = task_manager
         self._task_handle: ITaskHandle | None = None
         self._token: CancellationToken | None = None
-
-def start(self, context: IEngineContext) -> None:
-        
-        self._context = context
-        logger.info("BinanceWebsocketService initialized and awaiting commands.")
-
-    def stop(self, context: IEngineContext) -> None:
-        
-        if self._task_handle is not None:
-            self.stop_stream()
 
 def start_stream(self, symbols: list[str], interval_str: str) -> bool:
         
         if self._task_handle is not None:
             logger.warning("Stream is already running. Stop it first.")
-            return False
-
-        if self._context is None:
-            logger.error("Engine context not available. Was start() called?")
             return False
 
         interval = TimeFrame(interval_str)
@@ -617,7 +611,7 @@ def start_stream(self, symbols: list[str], interval_str: str) -> bool:
             f"Starting Binance WebSocket stream for {symbols} at {interval.value}"
         )
 
-        self._task_handle = self._context.tasks.spawn(
+        self._task_handle = self._task_manager.spawn(
             self._run_stream(symbols, interval, self._token),
             name=f"BinanceStream[{','.join(symbols)}@{interval.value}]",
             token=self._token,
@@ -784,6 +778,34 @@ if isinstance(start_str, datetime):
         return market_data_list
 ``````
 
+# FILE: src\infrastructure\engine_adapters\live_stream_adapter.py
+
+```python
+import logging
+from sagittarius_engine.interfaces.i_engine_context import IEngineContext
+from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
+
+from Binace_Bot.src.application.contracts.i_live_stream_service import (
+    ILiveStreamService,
+)
+
+logger = logging.getLogger("App.LiveStreamAdapter")
+
+class LiveStreamEngineAdapter(IHostedService):
+
+def __init__(self, stream_service: ILiveStreamService) -> None:
+        self._stream_service = stream_service
+
+    def start(self, context: IEngineContext) -> None:
+        
+        logger.info("LiveStreamEngineAdapter started.")
+
+    def stop(self, context: IEngineContext) -> None:
+        
+        logger.info("Engine shutting down, ensuring stream is stopped...")
+        self._stream_service.stop_stream()
+``````
+
 # FILE: src\infrastructure\persistence\sqlalchemy_repository.py
 
 ```python
@@ -796,6 +818,7 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.application.interfaces.i_market_data_repository import (
     IMarketDataRepository,
 )
+from sagittarius_engine.interfaces.i_config import IConfig
 import os
 import logging
 
@@ -823,14 +846,11 @@ symbol = sa.Column(sa.String, primary_key=True)
 
 class SQLAlchemyMarketDataRepository(IMarketDataRepository):
 
-def __init__(self, db_url: Optional[str] = None) -> None:
-        if db_url is None:
+def __init__(self, config: IConfig) -> None:
+        db_url = config.get("database.url")
+        if not db_url:
 
-            db_path = os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "../../..", "database", "trading.db"
-                )
-            )
+            db_path = os.path.join(os.getcwd(), "database", "trading.db")
             os.makedirs(os.path.dirname(db_path), exist_ok=True)
             db_url = f"sqlite:///{db_path}"
 
@@ -1471,10 +1491,14 @@ from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
 
+from unittest.mock import Mock
+
 @pytest.fixture
 def repo():
 
-    return SQLAlchemyMarketDataRepository(db_url="sqlite:///:memory:")
+    config = Mock()
+    config.get.return_value = "sqlite:///:memory:"
+    return SQLAlchemyMarketDataRepository(config)
 
 def create_mock_kline(symbol: str, timestamp: datetime) -> MarketData:
     return MarketData(
@@ -1741,7 +1765,8 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 def test_parse_kline():
     event_bus = Mock()
-    service = BinanceWebsocketService(event_bus)
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
 
     mock_payload = {
         "e": "kline",
@@ -1786,7 +1811,8 @@ mock_payload["k"]["x"] = True
 @pytest.mark.asyncio
 async def test_websocket_auto_reconnect():
     event_bus = Mock()
-    service = BinanceWebsocketService(event_bus)
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
 
     token = Mock()
     is_cancelled_flag = False
