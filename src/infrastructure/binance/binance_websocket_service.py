@@ -1,113 +1,174 @@
-import asyncio
+﻿import asyncio
 import logging
-from typing import List, Optional
 from datetime import datetime, timezone
 
 from binance import AsyncClient, BinanceSocketManager
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
-from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
+from sagittarius_engine.interfaces.i_task_manager import ITaskHandle
 from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
+
 from Binace_Bot.src.application.contracts.i_live_stream_service import (
     ILiveStreamService,
 )
-
 from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 logger = logging.getLogger("App.LiveStream")
 
 
 class BinanceWebsocketService(IHostedService, ILiveStreamService):
-    def __init__(self, event_bus: IEventBus, config: IConfig):
+    """
+    @brief Infrastructure implementation of ILiveStreamService and IHostedService.
+    @details Manages a live Binance Kline WebSocket stream as a background task
+    using the Sagittarius Engine runtime (ITaskManager + CancellationToken).
+    """
+
+    def __init__(self, event_bus: IEventBus) -> None:
         self._event_bus = event_bus
-        self._config = config
-        self._client: Optional[AsyncClient] = None
-        self._bsm: Optional[BinanceSocketManager] = None
-        self._running = False
-        self._task = None
-        self._engine_context: Optional[IEngineContext] = None
+        self._context: IEngineContext | None = None
+        self._task_handle: ITaskHandle | None = None
+        self._token: CancellationToken | None = None
+
+    # -- IHostedService --------------------------------------------------------
 
     def start(self, context: IEngineContext) -> None:
         """
-        @brief HostedService start. Called on boot.
-        Stores context for later use but does NOT start the stream automatically.
+        @brief Called by the Engine on boot. Stores context for later use.
+        Does NOT start the stream automatically.
         """
-        self._engine_context = context
+        self._context = context
         logger.info("BinanceWebsocketService initialized and awaiting commands.")
 
-    def start_stream(self, symbols: List[str], interval_str: str) -> bool:
+    def stop(self, context: IEngineContext) -> None:
         """
-        @brief Triggers the stream. Safe to call multiple times (checks _running).
+        @brief Called by the Engine on shutdown. Stops the stream if running.
         """
-        if self._running:
+        if self._task_handle is not None:
+            self.stop_stream()
+
+    # -- ILiveStreamService ----------------------------------------------------
+
+    def start_stream(self, symbols: list[str], interval_str: str) -> bool:
+        """
+        @brief Spawns the WebSocket stream as a background task via ITaskManager.
+        @return True if started, False if already running or context unavailable.
+        """
+        if self._task_handle is not None:
             logger.warning("Stream is already running. Stop it first.")
             return False
 
-        if not self._engine_context:
-            logger.error("Engine context not available.")
+        if self._context is None:
+            logger.error("Engine context not available. Was start() called?")
             return False
 
         interval = TimeFrame(interval_str)
-        self._running = True
+        self._token = CancellationToken()
+
         logger.info(
             f"Starting Binance WebSocket stream for {symbols} at {interval.value}"
         )
 
-        self._task = self._engine_context.async_runtime.run_coroutine(
-            self._run_stream(symbols, interval)
+        self._task_handle = self._context.tasks.spawn(
+            self._run_stream(symbols, interval, self._token),
+            name=f"BinanceStream[{','.join(symbols)}@{interval.value}]",
+            token=self._token,
         )
         return True
 
-    async def _run_stream(self, symbols: List[str], interval: TimeFrame) -> None:
+    def stop_stream(self) -> bool:
+        """
+        @brief Signals cooperative cancellation and cancels the background task.
+        @return True if stopped, False if no stream was running.
+        """
+        if self._task_handle is None:
+            logger.warning("Stream is not running.")
+            return False
 
-        # Initialize AsyncClient. API keys are not needed for public streams.
-        self._client = await AsyncClient.create()
-        self._bsm = BinanceSocketManager(self._client)
+        logger.info("Stopping Binance WebSocket stream...")
 
-        # Create a multiplex socket if multiple symbols, or single socket if one.
-        # kline format: <symbol>@kline_<interval>
-        streams = [f"{symbol.lower()}@kline_{interval.value}" for symbol in symbols]
+        # Signal the stream loop to exit cooperatively via CancellationToken
+        if self._token is not None:
+            self._token.cancel()
 
-        while self._running:
-            try:
-                if len(streams) == 1:
-                    socket = self._bsm.kline_socket(
-                        symbols[0].upper(), interval=interval.value
+        # Cancel the underlying future via ITaskHandle
+        self._task_handle.cancel()
+
+        self._task_handle = None
+        self._token = None
+
+        logger.info("Binance WebSocket stream stopped.")
+        return True
+
+    # -- Private ---------------------------------------------------------------
+
+    async def _run_stream(
+        self,
+        symbols: list[str],
+        interval: TimeFrame,
+        token: CancellationToken,
+    ) -> None:
+        """
+        @brief Main async stream loop. Runs inside the Engine background task pool.
+        Exits cooperatively when the CancellationToken is cancelled.
+        """
+        client: AsyncClient | None = None
+        try:
+            client = await AsyncClient.create()
+            bsm = BinanceSocketManager(client)
+            streams = [
+                f"{symbol.lower()}@kline_{interval.value}" for symbol in symbols
+            ]
+
+            while not token.is_cancelled():
+                try:
+                    socket = (
+                        bsm.kline_socket(symbols[0].upper(), interval=interval.value)
+                        if len(streams) == 1
+                        else bsm.multiplex_socket(streams)
                     )
-                else:
-                    socket = self._bsm.multiplex_socket(streams)
 
-                async with socket as tscm:
-                    while self._running:
-                        res = await tscm.recv()
+                    async with socket as tscm:
+                        while not token.is_cancelled():
+                            res = await tscm.recv()
 
-                        if res:
-                            # Multiplex stream wraps the message in a "data" property
+                            if not res:
+                                continue
+
+                            # Multiplex stream wraps data in a "data" property
                             if "data" in res:
                                 res = res["data"]
 
-                            # 'e' == 'kline'
                             if res.get("e") == "kline":
                                 market_data = self._parse_kline(res)
-
-                                # Log data tick (this will be sent to the Log Viewer via TCP)
                                 logger.info(
-                                    f"[Live Stream] {market_data.symbol} | Price: {market_data.close_price} | Vol: {market_data.volume} | Closed: {market_data.is_closed}"
+                                    f"[Live Stream] {market_data.symbol}"
+                                    f" | Price: {market_data.close_price}"
+                                    f" | Vol: {market_data.volume}"
+                                    f" | Closed: {market_data.is_closed}"
                                 )
-
-                                # Publish event to the bus
                                 self._event_bus.emit(
                                     MarketTickEvent(market_data=market_data)
                                 )
 
-            except Exception as e:
-                if self._running:
-                    logger.error(
-                        f"Error receiving from websocket: {e}. Reconnecting in 5 seconds..."
-                    )
-                    await asyncio.sleep(5)
+                except asyncio.CancelledError:
+                    logger.info("Stream task was cancelled.")
+                    break
+                except OSError as e:
+                    if not token.is_cancelled():
+                        logger.error(
+                            f"WebSocket connection error: {e}. Reconnecting in 5s..."
+                        )
+                        await asyncio.sleep(5)
+        finally:
+            if client is not None:
+                try:
+                    await client.close_connection()
+                    logger.info("Binance AsyncClient connection closed.")
+                except OSError as e:
+                    logger.warning(f"Error closing Binance client: {e}")
 
     def _parse_kline(self, msg: dict) -> MarketData:
         k = msg["k"]
@@ -127,42 +188,3 @@ class BinanceWebsocketService(IHostedService, ILiveStreamService):
             taker_buy_quote_asset_volume=float(k["Q"]),
             is_closed=bool(k["x"]),
         )
-
-    def stop_stream(self) -> bool:
-        """
-        @brief Stops the running stream.
-        """
-        if not self._running:
-            logger.warning("Stream is not running.")
-            return False
-
-        logger.info("Stopping Binance WebSocket stream...")
-        self._running = False
-
-        if self._task:
-            self._task.cancel()
-            try:
-                # Wait for the stream loop to actually finish cancelling
-                self._task.result(timeout=2.0)
-            except Exception:
-                pass
-
-        if self._client and self._engine_context:
-            try:
-                # Synchronously wait for the connection to close to prevent RuntimeWarning
-                future = self._engine_context.async_runtime.run_coroutine(
-                    self._client.close_connection()
-                )
-                future.result(timeout=2.0)
-            except Exception:
-                pass
-
-        logger.info("Binance WebSocket stream stopped.")
-        return True
-
-    def stop(self, context: IEngineContext) -> None:
-        """
-        @brief HostedService stop. Called on engine shutdown.
-        """
-        if self._running:
-            self.stop_stream()

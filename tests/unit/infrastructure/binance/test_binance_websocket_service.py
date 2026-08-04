@@ -8,8 +8,7 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 def test_parse_kline():
     event_bus = Mock()
-    config = Mock()
-    service = BinanceWebsocketService(event_bus, config)
+    service = BinanceWebsocketService(event_bus)
 
     mock_payload = {
         "e": "kline",
@@ -56,9 +55,13 @@ def test_parse_kline():
 @pytest.mark.asyncio
 async def test_websocket_auto_reconnect():
     event_bus = Mock()
-    config = Mock()
-    service = BinanceWebsocketService(event_bus, config)
-    service._running = True
+    service = BinanceWebsocketService(event_bus)
+    
+    token = Mock()
+    is_cancelled_flag = False
+    def check_cancelled():
+        return is_cancelled_flag
+    token.is_cancelled.side_effect = check_cancelled
 
     # Mock AsyncClient and BinanceSocketManager
     mock_bsm = Mock()
@@ -81,10 +84,10 @@ async def test_websocket_auto_reconnect():
     call_count = 0
 
     async def mock_recv():
-        nonlocal call_count
+        nonlocal call_count, is_cancelled_flag
         call_count += 1
         if call_count == 1:
-            raise Exception("Network Dropped")
+            raise OSError("Network Dropped")
         elif call_count == 2:
             return {
                 "e": "kline",
@@ -106,7 +109,7 @@ async def test_websocket_auto_reconnect():
                 },
             }
         else:
-            service._running = False  # break the loop
+            is_cancelled_flag = True  # break the loop
             return None
 
     mock_socket.recv = mock_recv
@@ -128,6 +131,10 @@ async def test_websocket_auto_reconnect():
         async def mock_create():
             return mock_client
 
+        async def mock_close_connection():
+            pass
+
+        mock_client.close_connection.side_effect = mock_close_connection
         mock_async_client.create.side_effect = mock_create
 
         # Mock BinanceSocketManager to return our mock_bsm
@@ -139,7 +146,7 @@ async def test_websocket_auto_reconnect():
 
         mock_sleep.side_effect = mock_sleep_coro
 
-        await service._run_stream(["BTCUSDT"], TimeFrame("1m"))
+        await service._run_stream(["BTCUSDT"], TimeFrame("1m"), token)
 
     # Assertions
     # It should have called kline_socket at least twice (initial + 1 reconnect)
