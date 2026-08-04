@@ -4,7 +4,7 @@
 - `C:\Users\hoang\Documents\Sagittarius_ForkBoy\Binace_Bot`
 
 **Pattern:** `*.py, *.ps1`
-**Generated:** 2026-08-04 21:21:13
+**Generated:** 2026-08-04 21:52:43
 
 ## Directory Tree: C:\Users\hoang\Documents\Sagittarius_ForkBoy\Binace_Bot
 
@@ -15,15 +15,28 @@ Binace_Bot
 │   └── ci-local.ps1
 ├── src
 │   ├── application
-│   │   ├── contracts
-│   │   │   └── i_live_stream_service.py
-│   │   ├── interfaces
+│   │   ├── ports
+│   │   │   ├── cqrs.py
 │   │   │   ├── i_exchange_client.py
+│   │   │   ├── i_live_stream_service.py
 │   │   │   └── i_market_data_repository.py
 │   │   └── use_cases
-│   │       ├── manage_live_stream.py
-│   │       ├── sync_market_data_handler.py
-│   │       └── sync_market_data.py
+│   │       ├── process_market_tick
+│   │       │   ├── __init__.py
+│   │       │   ├── command.py
+│   │       │   └── handler.py
+│   │       ├── start_live_stream
+│   │       │   ├── __init__.py
+│   │       │   ├── command.py
+│   │       │   └── handler.py
+│   │       ├── stop_live_stream
+│   │       │   ├── __init__.py
+│   │       │   ├── command.py
+│   │       │   └── handler.py
+│   │       └── sync_market_data
+│   │           ├── __init__.py
+│   │           ├── command.py
+│   │           └── handler.py
 │   ├── binance_bot_module.py
 │   ├── domain
 │   │   ├── entities
@@ -42,15 +55,17 @@ Binace_Bot
 │   │       └── sqlalchemy_repository.py
 │   ├── main.py
 │   └── presentation
-│       └── cli
-│           ├── cli_parser.py
-│           ├── handlers
-│           │   ├── base_handler.py
-│           │   ├── stream_handler.py
-│           │   └── sync_handler.py
-│           ├── menu_service.py
-│           ├── stream_cmd.py
-│           └── sync_cmd.py
+│       ├── cli
+│       │   ├── cli_parser.py
+│       │   ├── handlers
+│       │   │   ├── base_handler.py
+│       │   │   ├── stream_handler.py
+│       │   │   └── sync_handler.py
+│       │   ├── menu_service.py
+│       │   ├── stream_cmd.py
+│       │   └── sync_cmd.py
+│       └── event_handlers
+│           └── market_tick_reactor.py
 └── tests
     ├── integration
     │   ├── infrastructure
@@ -194,23 +209,21 @@ if ($failed.Count -eq 0) {
 }
 ``````
 
-# FILE: src\application\contracts\i_live_stream_service.py
+# FILE: src\application\ports\cqrs.py
 
 ```python
-from typing import List, Protocol
+from typing import Protocol, TypeVar, Generic
 
-class ILiveStreamService(Protocol):
+TCommand = TypeVar("TCommand", contravariant=True)
+TResponse = TypeVar("TResponse", covariant=True)
 
-def start_stream(self, symbols: List[str], interval_str: str) -> bool:
-        
-        ...
-
-    def stop_stream(self) -> bool:
-        
+class ICommandHandler(Protocol, Generic[TCommand, TResponse]):
+    
+    def execute(self, command: TCommand) -> TResponse:
         ...
 ``````
 
-# FILE: src\application\interfaces\i_exchange_client.py
+# FILE: src\application\ports\i_exchange_client.py
 
 ```python
 from abc import ABC, abstractmethod
@@ -228,7 +241,23 @@ class IExchangeClient(ABC):
         pass
 ``````
 
-# FILE: src\application\interfaces\i_market_data_repository.py
+# FILE: src\application\ports\i_live_stream_service.py
+
+```python
+from typing import List, Protocol
+
+class ILiveStreamService(Protocol):
+
+def start_stream(self, symbols: List[str], interval_str: str) -> bool:
+        
+        ...
+
+    def stop_stream(self) -> bool:
+        
+        ...
+``````
+
+# FILE: src\application\ports\i_market_data_repository.py
 
 ```python
 from abc import ABC, abstractmethod
@@ -263,24 +292,61 @@ class IMarketDataRepository(ABC):
         pass
 ``````
 
-# FILE: src\application\use_cases\manage_live_stream.py
+# FILE: src\application\use_cases\process_market_tick\__init__.py
 
 ```python
-from dataclasses import dataclass
+from .command import ProcessMarketTickCommand
+from .handler import ProcessMarketTickCommandHandler
+``````
+
+# FILE: src\application\use_cases\process_market_tick\command.py
+
+```python
+from pydantic import BaseModel
+from Binace_Bot.src.domain.entities.market_data import MarketData
+
+class ProcessMarketTickCommand(BaseModel):
+    
+    market_data: MarketData
+    model_config = {"arbitrary_types_allowed": True}
+``````
+
+# FILE: src\application\use_cases\process_market_tick\handler.py
+
+```python
+import logging
+from Binace_Bot.src.application.ports.cqrs import ICommandHandler
+from .command import ProcessMarketTickCommand
+
+class ProcessMarketTickCommandHandler(ICommandHandler[ProcessMarketTickCommand, None]):
+    
+    def __init__(self) -> None:
+        self.logger = logging.getLogger("App.TradingStrategy")
+
+    def execute(self, command: ProcessMarketTickCommand) -> None:
+        
+        md = command.market_data
+        self.logger.info(f"Processing tick for {md.symbol} at {md.close_price}")
+``````
+
+# FILE: src\application\use_cases\start_live_stream\__init__.py
+
+```python
+from .command import StartLiveStreamCommand, StartLiveStreamResponse
+from .handler import StartLiveStreamCommandHandler
+``````
+
+# FILE: src\application\use_cases\start_live_stream\command.py
+
+```python
 from pydantic import BaseModel, field_validator
 from typing import List
-from Binace_Bot.src.application.ports.i_live_stream_service import (
-    ILiveStreamService,
-)
+from dataclasses import dataclass
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from sagittarius_engine.extensions.cqrs import ICommand
-import logging
-
-logger = logging.getLogger("App.LiveStreamUseCase")
 
 class StartLiveStreamCommand(BaseModel):
-
-symbols: List[str]
+    
+    symbols: List[str]
     interval: TimeFrame
 
     @field_validator("symbols")
@@ -288,25 +354,33 @@ symbols: List[str]
     def validate_symbols(cls, v: List[str]) -> List[str]:
         if not v:
             raise ValueError("Symbols list cannot be empty")
-        for s in v:
-            if len(s) < 3 or not s.isalnum():
-                raise ValueError(f"'{s}' is not a valid trading pair symbol.")
-        return [s.upper() for s in v]
+        return [symbol.upper() for symbol in v]
 
 @dataclass(frozen=True)
 class StartLiveStreamResponse:
     success: bool
     message: str
+``````
+
+# FILE: src\application\use_cases\start_live_stream\handler.py
+
+```python
+import logging
+from Binace_Bot.src.application.ports.i_live_stream_service import ILiveStreamService
+from Binace_Bot.src.application.ports.cqrs import ICommandHandler
+from .command import StartLiveStreamCommand, StartLiveStreamResponse
+
+logger = logging.getLogger("App.LiveStreamUseCase")
 
 class StartLiveStreamCommandHandler(
-    ICommand[StartLiveStreamCommand, StartLiveStreamResponse]
+    ICommandHandler[StartLiveStreamCommand, StartLiveStreamResponse]
 ):
     def __init__(self, stream_service: ILiveStreamService):
         self._stream_service = stream_service
 
     def execute(self, request: StartLiveStreamCommand) -> StartLiveStreamResponse:
         logger.info(
-            f"Executing StartLiveStreamCommand for symbols: {request.symbols}, interval: {request.interval.value}"
+            f"Executing StartLiveStreamCommand for {request.symbols} at {request.interval.value}"
         )
         success = self._stream_service.start_stream(
             request.symbols, request.interval.value
@@ -314,27 +388,50 @@ class StartLiveStreamCommandHandler(
         if success:
             logger.info("StartLiveStreamCommand executed successfully.")
             return StartLiveStreamResponse(
-                success=True, message="Stream started successfully."
+                success=True, message="Live stream started successfully."
             )
         else:
-            logger.warning(
-                "StartLiveStreamCommand failed: Stream is already running or failed to start."
-            )
+            logger.warning("Failed to start live stream.")
             return StartLiveStreamResponse(
-                success=False, message="Stream is already running or failed to start."
+                success=False, message="Failed to start live stream."
             )
+``````
+
+# FILE: src\application\use_cases\stop_live_stream\__init__.py
+
+```python
+from .command import StopLiveStreamCommand, StopLiveStreamResponse
+from .handler import StopLiveStreamCommandHandler
+``````
+
+# FILE: src\application\use_cases\stop_live_stream\command.py
+
+```python
+from pydantic import BaseModel
+from dataclasses import dataclass
 
 class StopLiveStreamCommand(BaseModel):
-
-pass
+    
+    pass
 
 @dataclass(frozen=True)
 class StopLiveStreamResponse:
     success: bool
     message: str
+``````
+
+# FILE: src\application\use_cases\stop_live_stream\handler.py
+
+```python
+import logging
+from Binace_Bot.src.application.ports.i_live_stream_service import ILiveStreamService
+from Binace_Bot.src.application.ports.cqrs import ICommandHandler
+from .command import StopLiveStreamCommand, StopLiveStreamResponse
+
+logger = logging.getLogger("App.LiveStreamUseCase")
 
 class StopLiveStreamCommandHandler(
-    ICommand[StopLiveStreamCommand, StopLiveStreamResponse]
+    ICommandHandler[StopLiveStreamCommand, StopLiveStreamResponse]
 ):
     def __init__(self, stream_service: ILiveStreamService):
         self._stream_service = stream_service
@@ -345,39 +442,64 @@ class StopLiveStreamCommandHandler(
         if success:
             logger.info("StopLiveStreamCommand executed successfully.")
             return StopLiveStreamResponse(
-                success=True, message="Stream stopped successfully."
+                success=True, message="Live stream stopped successfully."
             )
         else:
-            logger.warning("StopLiveStreamCommand failed: Stream is not running.")
+            logger.warning("Failed to stop live stream. It might not be running.")
             return StopLiveStreamResponse(
-                success=False, message="Stream is not running."
+                success=False,
+                message="Failed to stop live stream. It might not be running.",
             )
 ``````
 
-# FILE: src\application\use_cases\sync_market_data_handler.py
+# FILE: src\application\use_cases\sync_market_data\__init__.py
+
+```python
+from .command import SyncMarketDataCommand
+from .handler import SyncMarketDataCommandHandler
+``````
+
+# FILE: src\application\use_cases\sync_market_data\command.py
+
+```python
+from pydantic import BaseModel, Field, field_validator
+from typing import List
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+
+class SyncMarketDataCommand(BaseModel):
+    
+    symbols: List[str] = Field(description="List of trading pairs (e.g., BTCUSDT)")
+    interval: TimeFrame = Field(description="Candlestick timeframe")
+    days_back_if_empty: int = Field(default=30, description="How far back to sync if no data")
+
+    @field_validator("symbols")
+    @classmethod
+    def validate_symbols(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("Symbols list cannot be empty")
+        return [symbol.upper() for symbol in v]
+``````
+
+# FILE: src\application\use_cases\sync_market_data\handler.py
 
 ```python
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-from sagittarius_engine.interfaces import ILogger
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
+from Binace_Bot.src.application.ports.cqrs import ICommandHandler
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
-from Binace_Bot.src.application.ports.i_market_data_repository import (
-    IMarketDataRepository,
-)
+from Binace_Bot.src.application.ports.i_market_data_repository import IMarketDataRepository
+from .command import SyncMarketDataCommand
 
-class SyncMarketDataCommandHandler:
-
-def __init__(
+class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None]):
+    
+    def __init__(
         self,
         exchange_client: IExchangeClient,
-        repo: IMarketDataRepository,
-        logger: Optional[ILogger] = None,
+        repo: IMarketDataRepository
     ) -> None:
         self.exchange_client = exchange_client
         self.repo = repo
-        self.logger = logger or logging.getLogger("App.SyncMarketData")
+        self.logger = logging.getLogger("App.SyncMarketData")
 
     def execute(self, command: SyncMarketDataCommand) -> None:
         
@@ -389,7 +511,6 @@ def __init__(
             latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
 
             if latest_time is None:
-
                 start_time = datetime.now(timezone.utc) - timedelta(
                     days=command.days_back_if_empty
                 )
@@ -397,7 +518,6 @@ def __init__(
                     f"[{symbol}] No existing data found. Syncing from {command.days_back_if_empty} days ago: {start_time}"
                 )
             else:
-
                 start_time = latest_time
                 self.logger.info(
                     f"[{symbol}] Syncing from latest timestamp: {start_time}"
@@ -416,36 +536,6 @@ def __init__(
                 self.logger.info(f"[{symbol}] Already up to date.")
 ``````
 
-# FILE: src\application\use_cases\sync_market_data.py
-
-```python
-from pydantic import BaseModel, field_validator
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-
-class SyncMarketDataCommand(BaseModel):
-
-symbols: list[str]
-    interval: TimeFrame
-    days_back_if_empty: int = 30
-
-    @field_validator("symbols")
-    @classmethod
-    def validate_symbols(cls, v: list[str]) -> list[str]:
-        if not v:
-            raise ValueError("Symbols list cannot be empty")
-        for s in v:
-            if len(s) < 3 or not s.isalnum():
-                raise ValueError(f"'{s}' is not a valid trading pair symbol.")
-        return [s.upper() for s in v]
-
-    @field_validator("days_back_if_empty")
-    @classmethod
-    def validate_days(cls, v: int) -> int:
-        if v <= 0:
-            raise ValueError("days_back_if_empty must be greater than 0")
-        return v
-``````
-
 # FILE: src\binance_bot_module.py
 
 ```python
@@ -460,13 +550,15 @@ from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
 )
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
-from Binace_Bot.src.application.use_cases.sync_market_data_handler import (
+from Binace_Bot.src.application.use_cases.sync_market_data import (
+    SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.manage_live_stream import (
+from Binace_Bot.src.application.use_cases.start_live_stream import (
     StartLiveStreamCommand,
     StartLiveStreamCommandHandler,
+)
+from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamCommandHandler,
 )
@@ -478,6 +570,14 @@ from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
 )
 from Binace_Bot.src.infrastructure.engine_adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
+)
+from Binace_Bot.src.application.use_cases.process_market_tick import (
+    ProcessMarketTickCommand,
+    ProcessMarketTickCommandHandler,
+)
+from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Binace_Bot.src.presentation.event_handlers.market_tick_reactor import (
+    MarketTickReactor,
 )
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
@@ -496,6 +596,7 @@ app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
 app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
         app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
+        app.container.bind(ProcessMarketTickCommand, ProcessMarketTickCommandHandler)
 
 app.container.singleton(ILiveStreamService, BinanceWebsocketService)
 
@@ -505,6 +606,9 @@ app.container.singleton(ILiveStreamService, BinanceWebsocketService)
 
 adapter = app.container.resolve(LiveStreamEngineAdapter)
         app.context.hosted_services.register(adapter)
+
+reactor = MarketTickReactor(app)
+        app.event_bus.on(MarketTickEvent, reactor.handle)
 ``````
 
 # FILE: src\domain\entities\market_data.py
@@ -978,10 +1082,6 @@ from Binace_Bot.src.presentation.cli.sync_cmd import execute_sync
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_config import IConfig
 
-def _on_market_tick(event: MarketTickEvent):
-
-    pass
-
 def create_app() -> App:
 
     config_manager = ConfigManager()
@@ -997,8 +1097,6 @@ def create_app() -> App:
 
 container.singleton(IEventBus, event_bus)
     container.singleton(IConfig, config_manager)
-
-event_bus.on(MarketTickEvent, _on_market_tick)
 
     app = App(container, event_bus)
 
@@ -1114,9 +1212,11 @@ class IMenuHandler(ABC):
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.presentation.cli.handlers.base_handler import IMenuHandler
-from Binace_Bot.src.application.use_cases.manage_live_stream import (
+from Binace_Bot.src.application.use_cases.start_live_stream import (
     StartLiveStreamCommand,
     StartLiveStreamResponse,
+)
+from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamResponse,
 )
@@ -1348,7 +1448,7 @@ self.handlers = {
 import sys
 import time
 from sagittarius_engine import App
-from Binace_Bot.src.application.use_cases.manage_live_stream import (
+from Binace_Bot.src.application.use_cases.start_live_stream import (
     StartLiveStreamCommand,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
@@ -1404,6 +1504,27 @@ def execute_sync(app: App, args):
     )
 
 app.dispatch(SyncMarketDataCommand, command)
+``````
+
+# FILE: src\presentation\event_handlers\market_tick_reactor.py
+
+```python
+from sagittarius_engine import App
+
+from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Binace_Bot.src.application.use_cases.process_market_tick import (
+    ProcessMarketTickCommand,
+)
+
+class MarketTickReactor:
+
+def __init__(self, app: App) -> None:
+        self.app = app
+
+    def handle(self, event: MarketTickEvent) -> None:
+        
+        cmd = ProcessMarketTickCommand(market_data=event.market_data)
+        self.app.dispatch(ProcessMarketTickCommand, cmd)
 ``````
 
 # FILE: tests\integration\infrastructure\binance\test_python_binance_client.py
@@ -1602,8 +1723,10 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 from sagittarius_engine import App
 
 from Binace_Bot.src.binance_bot_module import BinanceBotModule
-from Binace_Bot.src.application.use_cases.manage_live_stream import (
+from Binace_Bot.src.application.use_cases.start_live_stream import (
     StartLiveStreamCommand,
+)
+from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
@@ -1660,8 +1783,8 @@ stop_cmd = StopLiveStreamCommand()
 import pytest
 from unittest.mock import Mock
 from datetime import datetime, timezone
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
-from Binace_Bot.src.application.use_cases.sync_market_data_handler import (
+from Binace_Bot.src.application.use_cases.sync_market_data import (
+    SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
@@ -1915,9 +2038,11 @@ from Binace_Bot.src.presentation.cli.handlers.stream_handler import (
     StartStreamMenuHandler,
     StopStreamMenuHandler,
 )
-from Binace_Bot.src.application.use_cases.manage_live_stream import (
+from Binace_Bot.src.application.use_cases.start_live_stream import (
     StartLiveStreamCommand,
     StartLiveStreamResponse,
+)
+from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamResponse,
 )
