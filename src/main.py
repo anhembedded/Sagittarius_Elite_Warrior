@@ -1,10 +1,4 @@
 import sys
-from pathlib import Path
-
-# Automatically add the Sagittarius_ForkBoy root directory to sys.path
-# so that both 'sagittarius_engine' and 'Binace_Bot' can be resolved
-# when running `python src/main.py` directly.
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
