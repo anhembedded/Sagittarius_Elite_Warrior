@@ -17,16 +17,7 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 from sagittarius_engine.interfaces.i_config import IConfig
 
 
-def create_app() -> App:
-    # Set up configuration manager using common utility
-    config_manager = ConfigManager()
-
-    app_json = PathUtils.get_relative_path(__file__, "config", "app_config.json")
-    user_json = PathUtils.get_relative_path(__file__, "config", "user_config.json")
-
-    config_manager.load_json(app_json)
-    config_manager.load_json(user_json)
-
+def create_app(config_manager: ConfigManager) -> App:
     container = StdLibContainer()
     event_bus = MemoryEventBus()
 
@@ -49,15 +40,28 @@ def create_app() -> App:
 
 
 def main() -> None:
+    config_manager = ConfigManager()
+    
+    app_json = PathUtils.get_relative_path(__file__, "config", "app_config.json")
+    user_json = PathUtils.get_relative_path(__file__, "config", "user_config.json")
+    cli_json = PathUtils.get_relative_path(__file__, "config", "cli_commands.json")
+
+    config_manager.load_json(app_json)
+    config_manager.load_json(user_json)
+    try:
+        config_manager.load_json(cli_json)
+    except FileNotFoundError:
+        pass # Will fail if missing
+
     # If no arguments are provided, switch to Interactive Menu Mode
     if len(sys.argv) == 1:
         interactive_mode = True
     else:
         interactive_mode = False
-        parser = build_parser()
+        parser = build_parser(config_manager)
         args = parser.parse_args()
 
-    app = create_app()
+    app = create_app(config_manager)
 
     if interactive_mode:
         # Register the Interactive Shell Hosted Service

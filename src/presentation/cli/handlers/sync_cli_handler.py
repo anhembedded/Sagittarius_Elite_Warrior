@@ -3,28 +3,16 @@ import shlex
 from pydantic import ValidationError
 
 from sagittarius_engine import App
+from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Binace_Bot.src.presentation.cli.cli_parser import build_handler_parser
 
 class SyncCliHandler:
     @staticmethod
     def handle(arg_str: str, app: App) -> None:
-        parser = argparse.ArgumentParser(prog="sync", exit_on_error=False, description="Synchronize market data from Binance")
-        parser.add_argument(
-            "--symbols",
-            type=str,
-            required=True,
-            help="Comma separated list of symbols (e.g. BTCUSDT,ETHUSDT)",
-        )
-        parser.add_argument(
-            "--interval",
-            type=str,
-            default="1m",
-            help="Timeframe interval (e.g. 1m, 1h, 1d)",
-        )
-        parser.add_argument(
-            "--days", type=int, default=30, help="Days back to sync if DB is empty"
-        )
+        config = app.container.resolve(IConfig)
+        parser = build_handler_parser(config, "sync")
         
         try:
             args = parser.parse_args(shlex.split(arg_str))

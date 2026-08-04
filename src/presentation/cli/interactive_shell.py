@@ -1,7 +1,9 @@
 import cmd
+import shlex
 from typing import Optional
 
 from sagittarius_engine import App
+from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
 from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle
@@ -13,20 +15,25 @@ class InteractiveShell(cmd.Cmd, IHostedService):
     """
     @brief Modular REPL Shell for the Binance Bot.
     @details Implements Python's cmd.Cmd and runs as a Sagittarius IHostedService.
-             It routes commands to modular CLI Handlers.
+             It routes commands dynamically based on CLI_COMMANDS json config.
     """
     intro = "\n========================================\n 🤖 BINANCE TRADING BOT - INTERACTIVE \n========================================\nType 'help' or '?' to list commands.\n"
     prompt = "🤖 binance-bot> "
 
     def __init__(self, app: App):
-        # cmd.Cmd is an old-style class in some python versions, but in 3.x it is new-style.
-        # Call super().__init__() to initialize it safely.
         super().__init__()
         self.app = app
         self.task: Optional[ITaskHandle] = None
+        self.config = app.container.resolve(IConfig)
+        
+        # Hardcode the routing map to handlers. 
+        # (A true registry would inject this, but this is a simple implementation)
+        self.handlers = {
+            "sync": SyncCliHandler,
+            "stream": StreamCliHandler
+        }
 
     def start(self, context: IEngineContext) -> None:
-        # Run the blocking cmdloop in a background task
         self.task = context.tasks.spawn(self._run_loop, name="InteractiveShell")
 
     def stop(self, context: IEngineContext) -> None:
@@ -45,15 +52,45 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         except KeyboardInterrupt:
             print("\nExiting...")
 
-    # --- Routing Commands ---
-    
-    def do_sync(self, arg: str):
-        """Synchronize market data from Binance."""
-        SyncCliHandler.handle(arg, self.app)
+    def default(self, line: str) -> None:
+        """Dynamic routing based on JSON configuration."""
+        if not line:
+            return
+            
+        args = shlex.split(line)
+        cmd_name = args[0]
+        
+        cli_commands = self.config.get("CLI_COMMANDS", {})
+        
+        if cmd_name in cli_commands and cmd_name in self.handlers:
+            handler = self.handlers[cmd_name]
+            handler.handle(" ".join(args[1:]), self.app)
+        else:
+            print(f"*** Unknown syntax: {line}")
 
-    def do_stream(self, arg: str):
-        """Manage live websocket market stream. Use 'start' or 'stop'."""
-        StreamCliHandler.handle(arg, self.app)
+    def do_help(self, arg: str) -> None:
+        """Dynamically builds help texts from configuration."""
+        cli_commands = self.config.get("CLI_COMMANDS", {})
+        
+        if not arg:
+            print("\nDocumented commands (type help <topic>):")
+            print("========================================")
+            for cmd_name, cmd_config in cli_commands.items():
+                help_text = cmd_config.get("help", "No description available")
+                print(f"  {cmd_name:<15} {help_text}")
+            print(f"  {'exit':<15} Exit the interactive shell")
+            print(f"  {'quit':<15} Alias for exit")
+            print()
+            return
+            
+        if arg in cli_commands:
+            from Binace_Bot.src.presentation.cli.cli_parser import build_handler_parser
+            parser = build_handler_parser(self.config, arg)
+            parser.print_help()
+        elif arg in ("exit", "quit"):
+            print("Exit the interactive shell")
+        else:
+            print(f"*** No help on {arg}")
 
     def do_exit(self, arg: str) -> bool:
         """Exit the interactive shell."""

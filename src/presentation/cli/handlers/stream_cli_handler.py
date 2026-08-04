@@ -3,28 +3,17 @@ import shlex
 from pydantic import ValidationError
 
 from sagittarius_engine import App
+from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.application.use_cases.start_live_stream import StartLiveStreamCommand
 from Binace_Bot.src.application.use_cases.stop_live_stream import StopLiveStreamCommand
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Binace_Bot.src.presentation.cli.cli_parser import build_handler_parser
 
 class StreamCliHandler:
     @staticmethod
     def handle(arg_str: str, app: App) -> None:
-        parser = argparse.ArgumentParser(prog="stream", exit_on_error=False, description="Manage live websocket market stream")
-        subparsers = parser.add_subparsers(dest="action", required=True)
-        
-        start_parser = subparsers.add_parser("start", help="Start live stream")
-        start_parser.add_argument(
-            "--symbols",
-            type=str,
-            required=True,
-            help="Comma-separated list of symbols (e.g. BTCUSDT)",
-        )
-        start_parser.add_argument(
-            "--interval", type=str, required=True, help="Timeframe (e.g. 1m)"
-        )
-        
-        subparsers.add_parser("stop", help="Stop live stream")
+        config = app.container.resolve(IConfig)
+        parser = build_handler_parser(config, "stream")
 
         try:
             args = parser.parse_args(shlex.split(arg_str))
@@ -32,6 +21,11 @@ class StreamCliHandler:
             return
         except argparse.ArgumentError as e:
             print(f"❌ Argument Error: {e}")
+            return
+
+        # Fallback if no action is provided but argparse didn't catch it
+        if not hasattr(args, "action") or not args.action:
+            parser.print_help()
             return
 
         if args.action == "start":
