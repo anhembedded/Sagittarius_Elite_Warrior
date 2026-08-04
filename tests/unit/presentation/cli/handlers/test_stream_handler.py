@@ -5,9 +5,11 @@ from Binace_Bot.src.presentation.cli.handlers.stream_handler import (
     StartStreamMenuHandler,
     StopStreamMenuHandler,
 )
-from Binace_Bot.src.application.use_cases.manage_live_stream import (
+from Binace_Bot.src.application.use_cases.start_live_stream import (
     StartLiveStreamCommand,
     StartLiveStreamResponse,
+)
+from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamResponse,
 )

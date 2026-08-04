@@ -17,11 +17,6 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 from sagittarius_engine.interfaces.i_config import IConfig
 
 
-def _on_market_tick(event: MarketTickEvent):
-    # Log handled by the framework's configured logger
-    pass
-
-
 def create_app() -> App:
     # Set up configuration manager using common utility
     config_manager = ConfigManager()
@@ -38,9 +33,6 @@ def create_app() -> App:
     # Register core ports
     container.singleton(IEventBus, event_bus)
     container.singleton(IConfig, config_manager)
-
-    # Register core events
-    event_bus.on(MarketTickEvent, _on_market_tick)
 
     app = App(container, event_bus)
 

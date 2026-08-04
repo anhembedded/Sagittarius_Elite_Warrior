@@ -9,8 +9,10 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 from sagittarius_engine import App
 
 from Binace_Bot.src.binance_bot_module import BinanceBotModule
-from Binace_Bot.src.application.use_cases.manage_live_stream import (
+from Binace_Bot.src.application.use_cases.start_live_stream import (
     StartLiveStreamCommand,
+)
+from Binace_Bot.src.application.use_cases.stop_live_stream import (
     StopLiveStreamCommand,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame

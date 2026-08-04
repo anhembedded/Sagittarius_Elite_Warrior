@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import Mock
 from datetime import datetime, timezone
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
-from Binace_Bot.src.application.use_cases.sync_market_data_handler import (
+from Binace_Bot.src.application.use_cases.sync_market_data import (
+    SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
