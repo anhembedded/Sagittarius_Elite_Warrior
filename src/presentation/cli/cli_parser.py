@@ -2,7 +2,8 @@ import argparse
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Binance Trading Bot CLI")
+    # Use exit_on_error=False (Python 3.9+) so it raises ArgumentError instead of exiting on bad args in the REPL
+    parser = argparse.ArgumentParser(description="Binance Trading Bot CLI", exit_on_error=False)
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # sync command
@@ -37,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     stream_parser.add_argument(
         "--interval", type=str, required=True, help="Timeframe (e.g. 1m)"
+    )
+    
+    # stop-stream command
+    stop_stream_parser = subparsers.add_parser(
+        "stop-stream", help="Stop live websocket market stream"
     )
 
     return parser
