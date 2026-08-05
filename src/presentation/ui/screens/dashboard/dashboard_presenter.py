@@ -87,7 +87,7 @@ class DashboardPresenter(QObject):
     # ==========================================
     @Slot()
     def _on_load_history(self):
-        self.view.monitor_card.append_log("⏳ Đang tải dữ liệu tĩnh từ Local Database...")
+        self.view.monitor_card.append_log("Loading historical data from local database...")
         
         symbols = ["BTCUSDT", "ETHUSDT"]
         interval = "1m"
@@ -109,11 +109,11 @@ class DashboardPresenter(QObject):
                 klines = getattr(response, 'data', response) if response else []
                 
                 if not isinstance(klines, list):
-                    self.ui_log_signal.emit(f"❌ Lỗi định dạng dữ liệu cho {card.symbol}.")
+                    self.ui_log_signal.emit(f"Data format error for {card.symbol}.")
                     continue
                     
                 if not klines:
-                    self.ui_log_signal.emit(f"⚠️ Không có dữ liệu lịch sử cho {card.symbol}.")
+                    self.ui_log_signal.emit(f"No historical data found for {card.symbol}.")
                     continue
                     
                 # Đảo ngược mảng (Reverse) để có thứ tự Cũ -> Mới vẽ biểu đồ
@@ -131,14 +131,14 @@ class DashboardPresenter(QObject):
                 ]
                 
                 card.render_historical_data(mapped_data)
-                self.ui_log_signal.emit(f"✅ Đã render {len(mapped_data)} nến lịch sử cho {card.symbol}.")
+                self.ui_log_signal.emit(f"Rendered {len(mapped_data)} historical klines for {card.symbol}.")
                 
             except Exception as e:
-                self.ui_log_signal.emit(f"❌ Exception khi load lịch sử {card.symbol}: {str(e)}")
+                self.ui_log_signal.emit(f"Exception while loading history for {card.symbol}: {str(e)}")
 
     @Slot()
     def _on_start_stream(self):
-        self.view.monitor_card.append_log("⏳ Khởi động Live Stream (Auto-Sync)...")
+        self.view.monitor_card.append_log("Starting Live Stream (Auto-Sync)...")
         
         # 1. UI Locking - Prevent spamming
         self.view.control_card.set_stream_active(True)
@@ -151,7 +151,7 @@ class DashboardPresenter(QObject):
         # Tái sử dụng chart
         chart_cards = self._ensure_chart_cards(symbols)
             
-        self.ui_log_signal.emit(f"Đã chuẩn bị {len(chart_cards)} biểu đồ.")
+        self.ui_log_signal.emit(f"Prepared {len(chart_cards)} charts.")
 
         # 2. Managed Background Task
         def sync_and_start_task():
@@ -159,12 +159,12 @@ class DashboardPresenter(QObject):
                 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import SyncMarketDataCommand
                 
                 # Bước 1: Auto-Sync (Fill Gap)
-                self.ui_log_signal.emit("🔄 Đang Sync dữ liệu còn thiếu từ Binance...")
+                self.ui_log_signal.emit("Syncing missing data from Binance...")
                 sync_cmd = SyncMarketDataCommand(symbols=symbols, interval=interval)
                 self.app.dispatch(SyncMarketDataCommand, sync_cmd)
                 
                 # Bước 2: Truy vấn lại Database để cập nhật Chart
-                self.ui_log_signal.emit("🔄 Đang Reload dữ liệu lịch sử lên Chart...")
+                self.ui_log_signal.emit("Reloading historical data onto charts...")
                 for symbol in symbols:
                     query = GetHistoricalKlinesQuery(
                         symbol=symbol,
@@ -190,18 +190,18 @@ class DashboardPresenter(QObject):
                         self.ui_history_reloaded_signal.emit(symbol, mapped_data)
                 
                 # Bước 4: Khởi động Live Stream
-                self.ui_log_signal.emit("🚀 Mở luồng Websocket...")
+                self.ui_log_signal.emit("Opening Websocket stream...")
                 cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
                 response = self.app.dispatch(StartLiveStreamCommand, cmd)
                 
                 if response and getattr(response, 'success', True):
-                    self.ui_stream_success_signal.emit(f"✅ Live stream {symbols} đã chạy.")
+                    self.ui_stream_success_signal.emit(f"Live stream for {symbols} is running.")
                 else:
-                    msg = getattr(response, 'message', 'Lỗi không xác định')
-                    self.ui_stream_failed_signal.emit(f"❌ Khởi động thất bại: {msg}")
+                    msg = getattr(response, 'message', 'Unknown error')
+                    self.ui_stream_failed_signal.emit(f"Failed to start: {msg}")
                     
             except Exception as e:
-                self.ui_stream_failed_signal.emit(f"❌ Lỗi hệ thống: {str(e)}")
+                self.ui_stream_failed_signal.emit(f"System error: {str(e)}")
                 
         # Thực thi qua Engine Task Manager
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -216,7 +216,7 @@ class DashboardPresenter(QObject):
         card = self.active_charts.get(symbol)
         if card:
             card.render_historical_data(mapped_data)
-            self.ui_log_signal.emit(f"✅ Đã refresh {len(mapped_data)} nến lịch sử cho {symbol}.")
+            self.ui_log_signal.emit(f"Refreshed {len(mapped_data)} historical klines for {symbol}.")
             
     @Slot(str)
     def _on_stream_start_success(self, msg: str):
@@ -231,25 +231,25 @@ class DashboardPresenter(QObject):
 
     @Slot()
     def _on_stop_stream(self):
-        self.view.monitor_card.append_log("⏳ Đang dừng Live Stream...")
+        self.view.monitor_card.append_log("Stopping Live Stream...")
         
         try:
             cmd = StopLiveStreamCommand()
             response = self.app.dispatch(StopLiveStreamCommand, cmd)
-            self.ui_log_signal.emit("🛑 Đã dừng Live Stream.")
+            self.ui_log_signal.emit("Live Stream stopped.")
             self.view.control_card.set_stream_active(False)
         except Exception as e:
-            self.ui_log_signal.emit(f"❌ Lỗi khi dừng: {str(e)}")
+            self.ui_log_signal.emit(f"Error while stopping: {str(e)}")
 
     @Slot()
     def _on_run_backtest(self):
-        self.ui_log_signal.emit("⚙️ Bắt đầu giả lập Backtest...")
+        self.ui_log_signal.emit("Starting Backtest simulation...")
         self.view.control_card.set_backtest_active(True)
         # TODO: Dispatch RunBacktestCommand
 
     @Slot()
     def _on_stop_backtest(self):
-        self.ui_log_signal.emit("🛑 Đã dừng Backtest.")
+        self.ui_log_signal.emit("Backtest stopped.")
         self.view.control_card.set_backtest_active(False)
 
     @Slot()

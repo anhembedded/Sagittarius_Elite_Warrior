@@ -91,7 +91,7 @@ class DataManagementPresenter(QObject):
         symbol = self.view.cbo_symbol.currentText().strip()
         interval = self.view.cbo_interval.currentText().strip()
         
-        self.ui_log_signal.emit(f"🔍 Scanning DB status for {symbol} ({interval})...")
+        self.ui_log_signal.emit(f"Scanning DB status for {symbol} ({interval})...")
         
         query = GetDatabaseStatusQuery(symbol=symbol, interval=interval)
         try:
@@ -107,16 +107,16 @@ class DataManagementPresenter(QObject):
             self.ui_status_table_signal.emit(
                 symbol, interval, first_record, last_record, total, status_text
             )
-            self.ui_log_signal.emit("✅ Scan complete.")
+            self.ui_log_signal.emit("Scan complete.")
         except Exception as e:
-            self.ui_log_signal.emit(f"❌ Error scanning database: {str(e)}")
+            self.ui_log_signal.emit(f"Error scanning database: {str(e)}")
 
     @Slot()
     def _on_sync_data(self):
         symbol = self.view.cbo_symbol.currentText().strip()
         interval = self.view.cbo_interval.currentText().strip()
         
-        self.ui_log_signal.emit(f"⬇️ Starting sync from Binance for {symbol} ({interval})...")
+        self.ui_log_signal.emit(f"Starting sync from Binance for {symbol} ({interval})...")
         
         # UI Lock Mechanism
         self._lock_ui()
@@ -146,11 +146,11 @@ class DataManagementPresenter(QObject):
                     end_time=end_time
                 )
                 self.app.dispatch(SyncMarketDataCommand, cmd)
-                self.ui_log_signal.emit(f"✅ Sync completed successfully for {symbol}.")
+                self.ui_log_signal.emit(f"Sync completed successfully for {symbol}.")
                 self.ui_sync_complete_signal.emit()
             except Exception as e:
                 # Add detailed log for validation errors
-                self.ui_log_signal.emit(f"❌ Sync failed: {str(e)}")
+                self.ui_log_signal.emit(f"Sync failed: {str(e)}")
                 self.ui_unlock_signal.emit()
                 
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -162,4 +162,4 @@ class DataManagementPresenter(QObject):
         symbol = self.view.cbo_symbol.currentText().strip()
         interval = self.view.cbo_interval.currentText().strip()
         
-        self.ui_log_signal.emit(f"🗑️ Clearing local data for {symbol} ({interval}) is not yet implemented.")
+        self.ui_log_signal.emit(f"Clearing local data for {symbol} ({interval}) is not yet implemented.")
