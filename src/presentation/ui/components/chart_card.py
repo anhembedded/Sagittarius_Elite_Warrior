@@ -188,7 +188,8 @@ class ChartCard(BaseCard):
         self.main_plot.showGrid(x=True, y=True, alpha=0.2)
         
         # Enable TradingView style: Scroll zooms X, Y auto-scales to visible X
-        self.main_plot.setMouseEnabled(x=True, y=False) # Disable manual Y panning to allow auto-scale
+        # Cho phép tương tác chuột trên cả 2 trục để có thể kéo (pan/scale) trục Y
+        self.main_plot.setMouseEnabled(x=True, y=True) 
         self.main_plot.vb.setAutoVisible(y=True)
         self.main_plot.vb.enableAutoRange(axis='y', enable=True)
         
