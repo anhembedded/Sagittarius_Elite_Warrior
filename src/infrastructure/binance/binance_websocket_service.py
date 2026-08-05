@@ -51,6 +51,7 @@ class BinanceWebsocketService(ILiveStreamService):
             self._run_stream(symbols, interval, self._token),
             name=f"BinanceStream[{','.join(symbols)}@{interval.value}]",
             token=self._token,
+            critical=True, # Đảm bảo Engine chờ task này close gracefully khi shutdown
         )
         return True
 
@@ -90,7 +91,7 @@ class BinanceWebsocketService(ILiveStreamService):
         @brief Main async stream loop. Runs inside the Engine background task pool.
         Exits cooperatively when the CancellationToken is cancelled.
         """
-        client: AsyncClient | None = None
+        is_closing = False
         try:
             client = await AsyncClient.create()
             bsm = BinanceSocketManager(client)
@@ -136,12 +137,15 @@ class BinanceWebsocketService(ILiveStreamService):
                             f"WebSocket connection error: {e}. Reconnecting in 5s..."
                         )
                         await asyncio.sleep(5)
+        except GeneratorExit:
+            is_closing = True
+            raise
         finally:
-            if client is not None:
+            if client is not None and not is_closing:
                 try:
                     await client.close_connection()
                     logger.info("Binance AsyncClient connection closed.")
-                except OSError as e:
+                except Exception as e:
                     logger.warning(f"Error closing Binance client: {e}")
 
     def _parse_kline(self, msg: dict) -> MarketData:

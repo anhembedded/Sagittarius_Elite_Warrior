@@ -52,9 +52,18 @@ class DashboardView(QWidget):
         """
         # Clear existing cards first (except stretch)
         for i in reversed(range(self.charts_layout.count() - 1)): 
-            widget = self.charts_layout.itemAt(i).widget()
+            item = self.charts_layout.itemAt(i)
+            widget = item.widget()
             if widget:
-                widget.setParent(None)
+                # 1. Clear dữ liệu đồ họa ngầm của pyqtgraph
+                if hasattr(widget, 'cleanup'):
+                    widget.cleanup()
+                
+                # 2. Xóa widget khỏi layout
+                self.charts_layout.removeItem(item)
+                
+                # 3. Ra lệnh hủy hoàn toàn trong bộ nhớ C++
+                widget.deleteLater()
                 
         self.chart_cards = []
         

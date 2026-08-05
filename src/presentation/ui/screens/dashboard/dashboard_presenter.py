@@ -5,6 +5,7 @@ from sagittarius_engine import App
 from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import StartLiveStreamCommand
 from Binace_Bot.src.application.use_cases.stream.stop_live_stream.command import StopLiveStreamCommand
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 
 class DashboardPresenter(QObject):
     """
@@ -19,12 +20,13 @@ class DashboardPresenter(QObject):
     # Dùng để truyền dữ liệu từ Background Thread về Main UI Thread
     # ==========================================
     ui_log_signal = Signal(str)
-    # ui_chart_update_signal = Signal(dict) # Bỏ comment khi tích hợp ChartCard
+    ui_chart_update_signal = Signal(str, float, float, float, float, float)
 
     def __init__(self, view, app: App):
         super().__init__()
         self.view = view
         self.app = app
+        self.active_charts = {}
 
         self._connect_ui_signals()
         self._connect_engine_events()
@@ -43,14 +45,13 @@ class DashboardPresenter(QObject):
 
         # 3. Nối cầu tín hiệu cập nhật an toàn vào giao diện
         self.ui_log_signal.connect(self.view.monitor_card.append_log)
+        self.ui_chart_update_signal.connect(self._on_ui_chart_update)
 
     def _connect_engine_events(self):
         """
         Đăng ký lắng nghe các sự kiện ngầm (EventBus) từ sagittarius_engine.
         """
-        # Ví dụ: Bắt sự kiện khi WebSocket nhận tick giá mới hoặc khi lưu Database
-        # self.app.event_bus.on(SystemLogEvent, self._handle_background_log)
-        pass
+        self.app.event_bus.on(MarketTickEvent, self._handle_market_tick)
 
     # ==========================================
     # XỬ LÝ LỆNH TỪ USER (UI -> Engine)
@@ -65,12 +66,11 @@ class DashboardPresenter(QObject):
         
         # 1. Báo View tự động render danh sách ChartCard
         chart_cards = self.view.render_symbol_cards(symbols)
+        self.active_charts.clear()
         
         # 2. Vòng lặp: Connect tự động toàn bộ tín hiệu của các Card động mới sinh ra
         for card in chart_cards:
-            # Ví dụ: Nếu ChartCard có nút "Stop riêng", ta sẽ connect ở đây
-            # card.stop_clicked.connect(self._on_stop_single_stream)
-            pass
+            self.active_charts[card.symbol] = card
             
         self.ui_log_signal.emit(f"Đã render {len(chart_cards)} biểu đồ động.")
 
@@ -118,11 +118,27 @@ class DashboardPresenter(QObject):
     # ==========================================
     # XỬ LÝ SỰ KIỆN HỆ THỐNG (Engine -> UI)
     # ==========================================
-    def _handle_background_log(self, event):
+    def _handle_market_tick(self, event: MarketTickEvent):
         """
         [CẢNH BÁO TỬ THẦN]: Hàm này bị EventBus gọi từ Background Thread.
-        Tuyệt đối không gọi `self.view.monitor_card.append_log()` trực tiếp tại đây.
+        Tuyệt đối không gọi UI Update trực tiếp tại đây. Phải ném qua Signal.
         """
-        # Lấy dữ liệu từ event và ném qua luồng chính thông qua Signal
-        log_message = f"Hệ thống: {event.message}"
-        self.ui_log_signal.emit(log_message)
+        # Trích xuất dữ liệu từ MarketData
+        symbol = event.market_data.symbol
+        t = event.market_data.close_time.timestamp()
+        o = event.market_data.open_price
+        h = event.market_data.high_price
+        l = event.market_data.low_price
+        c = event.market_data.close_price
+        
+        self.ui_chart_update_signal.emit(symbol, t, o, h, l, c)
+
+    @Slot(str, float, float, float, float, float)
+    def _on_ui_chart_update(self, symbol: str, t: float, o: float, h: float, l: float, c: float):
+        """
+        Được gọi trong Main UI Thread một cách an toàn thông qua Signal.
+        Chỉ thực hiện tra cứu O(1) và đẩy data vào đúng ChartCard tương ứng.
+        """
+        card = self.active_charts.get(symbol)
+        if card:
+            card.update_last_candle(t, o, h, l, c)
