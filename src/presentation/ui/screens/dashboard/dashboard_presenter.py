@@ -4,6 +4,7 @@ from sagittarius_engine import App
 # Import Commands 
 from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import StartLiveStreamCommand
 from Binace_Bot.src.application.use_cases.stream.stop_live_stream.command import StopLiveStreamCommand
+from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import GetHistoricalKlinesQuery
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 
@@ -35,6 +36,7 @@ class DashboardPresenter(QObject):
         """Kết nối các thao tác bấm nút từ thẻ Card vào Presenter"""
         
         # 1. Tín hiệu từ ControlCard
+        self.view.control_card.load_history_clicked.connect(self._on_load_history)
         self.view.control_card.start_stream_clicked.connect(self._on_start_stream)
         self.view.control_card.stop_stream_clicked.connect(self._on_stop_stream)
         self.view.control_card.run_backtest_clicked.connect(self._on_run_backtest)
@@ -56,6 +58,61 @@ class DashboardPresenter(QObject):
     # ==========================================
     # XỬ LÝ LỆNH TỪ USER (UI -> Engine)
     # ==========================================
+    @Slot()
+    def _on_load_history(self):
+        self.view.monitor_card.append_log("⏳ Đang tải dữ liệu tĩnh từ Local Database...")
+        
+        symbols = ["BTCUSDT", "ETHUSDT"]
+        interval = "1m"
+        limit = 5000 # Lấy 5000 nến mới nhất
+        
+        # Tạo/Render danh sách Card trống
+        chart_cards = self.view.render_symbol_cards(symbols)
+        self.active_charts.clear()
+        
+        for card in chart_cards:
+            self.active_charts[card.symbol] = card
+            
+            # Khởi tạo Query lấy data
+            query = GetHistoricalKlinesQuery(
+                symbol=card.symbol,
+                interval=interval,
+                limit=limit,
+                order_by_desc=True # Phải set True để DB lấy 5000 nến MỚI NHẤT
+            )
+            
+            try:
+                response = self.app.dispatch(GetHistoricalKlinesQuery, query)
+                klines = getattr(response, 'data', response) if response else []
+                
+                if not isinstance(klines, list):
+                    self.ui_log_signal.emit(f"❌ Lỗi định dạng dữ liệu cho {card.symbol}.")
+                    continue
+                    
+                if not klines:
+                    self.ui_log_signal.emit(f"⚠️ Không có dữ liệu lịch sử cho {card.symbol}.")
+                    continue
+                    
+                # Đảo ngược mảng (Reverse) để có thứ tự Cũ -> Mới vẽ biểu đồ
+                klines = list(reversed(klines))
+                
+                # Mapping chuẩn format của FastCandlestickItem (t, o, h, l, c)
+                mapped_data = [
+                    (
+                        float(item.close_time.timestamp()), # Dùng close_time giống tick event
+                        float(item.open_price),
+                        float(item.high_price),
+                        float(item.low_price),
+                        float(item.close_price)
+                    ) for item in klines
+                ]
+                
+                card.render_historical_data(mapped_data)
+                self.ui_log_signal.emit(f"✅ Đã render {len(mapped_data)} nến lịch sử cho {card.symbol}.")
+                
+            except Exception as e:
+                self.ui_log_signal.emit(f"❌ Exception khi load lịch sử {card.symbol}: {str(e)}")
+
     @Slot()
     def _on_start_stream(self):
         self.view.monitor_card.append_log("⏳ Đang khởi động Live Stream...")
