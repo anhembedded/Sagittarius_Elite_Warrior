@@ -179,7 +179,7 @@ class ChartCard(BaseCard):
         pg.setConfigOptions(antialias=True)
         
         self.layout_widget = pg.GraphicsLayoutWidget()
-        self.layout_widget.setBackground('#1e1e24')
+        self.layout_widget.setBackground('default')
         self.body_layout.addWidget(self.layout_widget)
         
         # Crosshair Info Label (Row 0)
@@ -217,8 +217,8 @@ class ChartCard(BaseCard):
         """Helper to register a plot and attach crosshair lines to it."""
         self.plots.append(plot)
         
-        v_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen(color='#555555', style=QtCore.Qt.DashLine))
-        h_line = pg.InfiniteLine(angle=0, movable=False, pen=pg.mkPen(color='#555555', style=QtCore.Qt.DashLine))
+        v_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen(color='#aaaaaa', style=QtCore.Qt.DashLine))
+        h_line = pg.InfiniteLine(angle=0, movable=False, pen=pg.mkPen(color='#aaaaaa', style=QtCore.Qt.DashLine))
         
         v_line.hide()
         h_line.hide()

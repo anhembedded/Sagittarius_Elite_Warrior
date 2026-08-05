@@ -140,13 +140,13 @@ def main():
 
     # 2. Boot PySide UI
     app = QApplication(sys.argv)
-    app.setStyle("Fusion") # Clean look across all OS
     
-    # Load Global QSS
-    qss_path = os.path.join(base_dir, "src", "presentation", "ui", "qss", "style.qss")
-    if os.path.exists(qss_path):
-        with open(qss_path, "r", encoding="utf-8") as f:
-            app.setStyleSheet(f.read())
+    # Apply global Dark Theme matching Binance Bot identity
+    import qdarktheme
+    qdarktheme.setup_theme(
+        theme="dark",
+        custom_colors={"primary": "#F3BA2F"}  # Binance Yellow
+    )
             
     window = MainWindow(app_engine)
     window.show()
