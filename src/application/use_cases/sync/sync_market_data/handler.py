@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from datetime import datetime, timedelta, timezone
 from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
@@ -27,23 +27,26 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         )
 
         for symbol in command.symbols:
-            latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
-
-            if latest_time is None:
-                start_time = datetime.now(timezone.utc) - timedelta(
-                    days=command.days_back_if_empty
-                )
-                self.logger.info(
-                    f"[{symbol}] No existing data found. Syncing from {command.days_back_if_empty} days ago: {start_time}"
-                )
+            if command.start_time:
+                start_time = command.start_time
+                self.logger.info(f"[{symbol}] Syncing from explicit start time: {start_time}")
             else:
-                start_time = latest_time
-                self.logger.info(
-                    f"[{symbol}] Syncing from latest timestamp: {start_time}"
-                )
+                latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
+                if latest_time is None:
+                    start_time = datetime.now(timezone.utc) - timedelta(
+                        days=command.days_back_if_empty
+                    )
+                    self.logger.info(
+                        f"[{symbol}] No existing data found. Syncing from {command.days_back_if_empty} days ago: {start_time}"
+                    )
+                else:
+                    start_time = latest_time
+                    self.logger.info(
+                        f"[{symbol}] Syncing from latest timestamp: {start_time}"
+                    )
 
             klines = self.exchange_client.get_historical_klines(
-                symbol, command.interval, start_time
+                symbol, command.interval, start_time, command.end_time
             )
 
             if klines:

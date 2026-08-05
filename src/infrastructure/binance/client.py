@@ -19,22 +19,24 @@ class PythonBinanceClient(IExchangeClient):
         self.client = Client(api_key, api_secret)
 
     def get_historical_klines(
-        self, symbol: str, interval: TimeFrame, start_str: str | datetime
+        self, symbol: str, interval: TimeFrame, start_str: str | datetime, end_str: str | datetime | None = None
     ) -> list[MarketData]:
         # Convert datetime to string or millisecond timestamp for python-binance if needed
         # python-binance accepts datetime, string ('1 day ago UTC'), or ms timestamp
 
         if isinstance(start_str, datetime):
-            # Convert to UTC string if it's a datetime
             start_str = start_str.astimezone(timezone.utc).strftime("%d %b %Y %H:%M:%S")
+            
+        if isinstance(end_str, datetime):
+            end_str = end_str.astimezone(timezone.utc).strftime("%d %b %Y %H:%M:%S")
 
         logger.info(
-            f"Fetching historical klines for {symbol} at {interval.value} from {start_str}"
+            f"Fetching historical klines for {symbol} at {interval.value} from {start_str} to {end_str or 'NOW'}"
         )
         try:
             raw_klines = []
             generator = self.client.get_historical_klines_generator(
-                symbol, interval.value, start_str
+                symbol, interval.value, start_str, end_str
             )
             for i, k in enumerate(generator):
                 raw_klines.append(k)

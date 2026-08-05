@@ -39,6 +39,25 @@ class DataManagementView(QWidget):
         self.cbo_interval = QComboBox()
         self.cbo_interval.addItems(["1m", "5m", "15m", "1h", "1d", "1w"])
 
+        # Date Pickers
+        from PySide6.QtWidgets import QDateTimeEdit, QCheckBox
+        from PySide6.QtCore import QDateTime
+        
+        self.chk_custom_time = QCheckBox("Use Custom Time Range")
+        
+        self.dt_from = QDateTimeEdit(QDateTime.currentDateTime().addDays(-30))
+        self.dt_from.setCalendarPopup(True)
+        self.dt_from.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.dt_from.setEnabled(False)
+        
+        self.dt_to = QDateTimeEdit(QDateTime.currentDateTime())
+        self.dt_to.setCalendarPopup(True)
+        self.dt_to.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.dt_to.setEnabled(False)
+        
+        self.chk_custom_time.toggled.connect(self.dt_from.setEnabled)
+        self.chk_custom_time.toggled.connect(self.dt_to.setEnabled)
+
         self.btn_check_status = QPushButton("🔍 Scan DB Status")
         self.btn_sync_data = QPushButton("⬇️ Sync from Binance")
         self.btn_clear_data = QPushButton("🗑️ Clear Local Data")
@@ -48,6 +67,14 @@ class DataManagementView(QWidget):
         left_layout.addWidget(self.cbo_symbol)
         left_layout.addWidget(lbl_interval)
         left_layout.addWidget(self.cbo_interval)
+        
+        left_layout.addSpacing(10)
+        left_layout.addWidget(self.chk_custom_time)
+        left_layout.addWidget(QLabel("From:"))
+        left_layout.addWidget(self.dt_from)
+        left_layout.addWidget(QLabel("To:"))
+        left_layout.addWidget(self.dt_to)
+        
         left_layout.addSpacing(20)
         left_layout.addWidget(self.btn_check_status)
         left_layout.addWidget(self.btn_sync_data)
@@ -103,11 +130,23 @@ class DataManagementView(QWidget):
         
     def update_status_table(self, symbol, interval, first, last, total, status):
         """Updates or adds a row in the status table."""
-        self.table_status.setRowCount(0) 
-        self.table_status.insertRow(0)
-        self.table_status.setItem(0, 0, QTableWidgetItem(symbol))
-        self.table_status.setItem(0, 1, QTableWidgetItem(interval))
-        self.table_status.setItem(0, 2, QTableWidgetItem(str(first)))
-        self.table_status.setItem(0, 3, QTableWidgetItem(str(last)))
-        self.table_status.setItem(0, 4, QTableWidgetItem(str(total)))
-        self.table_status.setItem(0, 5, QTableWidgetItem(status))
+        row_idx = -1
+        # Search for existing row
+        for i in range(self.table_status.rowCount()):
+            item_symbol = self.table_status.item(i, 0)
+            item_interval = self.table_status.item(i, 1)
+            if item_symbol and item_interval and item_symbol.text() == symbol and item_interval.text() == interval:
+                row_idx = i
+                break
+                
+        # If not found, append a new row
+        if row_idx == -1:
+            row_idx = self.table_status.rowCount()
+            self.table_status.insertRow(row_idx)
+            
+        self.table_status.setItem(row_idx, 0, QTableWidgetItem(symbol))
+        self.table_status.setItem(row_idx, 1, QTableWidgetItem(interval))
+        self.table_status.setItem(row_idx, 2, QTableWidgetItem(str(first)))
+        self.table_status.setItem(row_idx, 3, QTableWidgetItem(str(last)))
+        self.table_status.setItem(row_idx, 4, QTableWidgetItem(str(total)))
+        self.table_status.setItem(row_idx, 5, QTableWidgetItem(status))

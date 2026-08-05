@@ -126,7 +126,25 @@ class DataManagementPresenter(QObject):
         # Background task for dispatching sync
         def sync_task():
             try:
-                cmd = SyncMarketDataCommand(symbols=[symbol], interval=TimeFrame(interval))
+                # Extract custom times if checked
+                start_time = None
+                end_time = None
+                if self.view.chk_custom_time.isChecked():
+                    # Get UTC timestamp from QDateTime
+                    start_time = self.view.dt_from.dateTime().toPython()
+                    end_time = self.view.dt_to.dateTime().toPython()
+                    
+                    # Convert to UTC timezone aware
+                    from datetime import timezone
+                    start_time = start_time.replace(tzinfo=timezone.utc)
+                    end_time = end_time.replace(tzinfo=timezone.utc)
+                    
+                cmd = SyncMarketDataCommand(
+                    symbols=[symbol], 
+                    interval=TimeFrame(interval),
+                    start_time=start_time,
+                    end_time=end_time
+                )
                 self.app.dispatch(SyncMarketDataCommand, cmd)
                 self.ui_log_signal.emit(f"✅ Sync completed successfully for {symbol}.")
                 self.ui_sync_complete_signal.emit()
