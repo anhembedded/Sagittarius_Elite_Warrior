@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.application.use_cases.run_backtest import RunBacktestCommand, RunBacktestCommandHandler
+from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import RunBacktestCommandHandler, BacktestState
+from Binace_Bot.src.application.use_cases.backtest.run_backtest.command import RunBacktestCommand
 
 @pytest.fixture
 def repo_mock():
@@ -16,7 +17,8 @@ def event_bus_mock():
 
 @pytest.fixture
 def handler(repo_mock, event_bus_mock):
-    return RunBacktestCommandHandler(repo_mock, event_bus_mock)
+    state = BacktestState()
+    return RunBacktestCommandHandler(repo_mock, event_bus_mock, state)
 
 def create_mock_kline(timestamp: datetime) -> MarketData:
     return MarketData(

@@ -120,6 +120,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         limit: Optional[int] = None,
+        order_by_desc: bool = False,
     ) -> list[MarketData]:
         with self.Session() as session:
             query = session.query(KlineModel).filter_by(
@@ -131,14 +132,22 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             if end_time:
                 query = query.filter(KlineModel.open_time <= end_time)
 
-            if limit is not None:
-                # When using limit, we usually want the *latest* N candles.
-                # To do that, we order by open_time DESC, limit, and then reverse the result.
-                query = query.order_by(KlineModel.open_time.desc()).limit(limit)
-                rows = list(reversed(query.all()))
+            if order_by_desc:
+                query = query.order_by(KlineModel.open_time.desc())
             else:
                 query = query.order_by(KlineModel.open_time.asc())
-                rows = query.all()
+                
+            if limit is not None:
+                query = query.limit(limit)
+
+            rows = query.all()
+
+            # If the caller didn't explicitly ask for desc, but we used limit, 
+            # we should reverse it ONLY if we manually applied desc under the hood 
+            # to get the latest, which we don't do anymore unless order_by_desc is True.
+            # Wait, if order_by_desc is False, and limit=1000, we get the *oldest* 1000 candles.
+            # If order_by_desc is True, we get the *newest* 1000 candles in descending order.
+            # This makes the behavior predictable.
 
             results = []
             for row in rows:

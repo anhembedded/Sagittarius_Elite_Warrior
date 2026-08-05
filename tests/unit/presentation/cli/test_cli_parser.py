@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 from unittest.mock import Mock
 from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.presentation.cli.cli_parser import build_parser, build_handler_parser

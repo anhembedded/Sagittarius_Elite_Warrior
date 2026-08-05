@@ -29,7 +29,7 @@ def client():
         #     "0"                 // Unused field. Ignore.
         #   ]
         # ]
-        mock_instance.get_historical_klines.return_value = [
+        mock_instance.get_historical_klines_generator.return_value = [
             [
                 1672531200000,
                 "16500.0",
@@ -86,6 +86,6 @@ def test_get_historical_klines_arguments(client):
 
     # Check what the mocked underlying client received
     underlying_mock = client.client
-    underlying_mock.get_historical_klines.assert_called_once_with(
+    underlying_mock.get_historical_klines_generator.assert_called_once_with(
         "ETHUSDT", "1m", "01 Jan 2023 12:00:00"
     )

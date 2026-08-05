@@ -9,21 +9,30 @@ from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
 )
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
-from Binace_Bot.src.application.use_cases.sync_market_data import (
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.start_live_stream import (
+from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
     StartLiveStreamCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.stop_live_stream import (
+from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.run_backtest import (
+from Binace_Bot.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
     RunBacktestCommandHandler,
+)
+from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import BacktestState
+from Binace_Bot.src.application.use_cases.backtest.stop_backtest import (
+    StopBacktestCommand,
+    StopBacktestCommandHandler,
+)
+from Binace_Bot.src.application.use_cases.queries.get_historical_klines import (
+    GetHistoricalKlinesQuery,
+    GetHistoricalKlinesQueryHandler,
 )
 from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
@@ -34,11 +43,7 @@ from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
 from Binace_Bot.src.infrastructure.engine_adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
-from Binace_Bot.src.application.use_cases.process_market_tick import (
-    ProcessMarketTickCommand,
-    ProcessMarketTickCommandHandler,
-)
-from Binace_Bot.src.application.event_handlers.market_data import (
+from Binace_Bot.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
@@ -61,13 +66,19 @@ class BinanceBotModule(BaseModule):
         # Register Repositories & Clients
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
+        
+        # State Singletons
+        app.container.singleton(BacktestState, BacktestState)
 
         # Bind UseCases (Command -> Handler)
         app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
         app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
-        app.container.bind(ProcessMarketTickCommand, ProcessMarketTickCommandHandler)
         app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
+        app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
+        
+        # Bind Queries
+        app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
 
         # Register the WebsocketService as bound to its Interface
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)

@@ -1,4 +1,4 @@
-import cmd
+﻿import cmd
 import shlex
 from typing import Optional
 

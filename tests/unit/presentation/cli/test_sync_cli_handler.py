@@ -1,8 +1,8 @@
-from unittest.mock import Mock, patch
+﻿from unittest.mock import Mock, patch
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import SyncMarketDataCommand
 
 
 def _get_mock_config():

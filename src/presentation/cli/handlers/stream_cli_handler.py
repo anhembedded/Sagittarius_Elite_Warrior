@@ -1,11 +1,11 @@
-import argparse
+﻿import argparse
 import shlex
 from pydantic import ValidationError
 
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
-from Binace_Bot.src.application.use_cases.start_live_stream import StartLiveStreamCommand
-from Binace_Bot.src.application.use_cases.stop_live_stream import StopLiveStreamCommand
+from Binace_Bot.src.application.use_cases.stream.start_live_stream import StartLiveStreamCommand
+from Binace_Bot.src.application.use_cases.stream.stop_live_stream import StopLiveStreamCommand
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.presentation.cli.cli_parser import build_handler_parser
 

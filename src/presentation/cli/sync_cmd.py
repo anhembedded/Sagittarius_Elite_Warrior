@@ -1,6 +1,6 @@
-import sys
+﻿import sys
 from sagittarius_engine import App
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import SyncMarketDataCommand
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 

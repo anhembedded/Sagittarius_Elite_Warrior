@@ -10,3 +10,13 @@ class ICommandHandler(Protocol, Generic[TCommand, TResponse]):
     """
     def execute(self, command: TCommand) -> TResponse:
         ...
+
+TQuery = TypeVar("TQuery", contravariant=True)
+TQueryResult = TypeVar("TQueryResult", covariant=True)
+
+class IQueryHandler(Protocol, Generic[TQuery, TQueryResult]):
+    """
+    @brief Pure Application Layer definition for CQRS Query Handlers.
+    """
+    def execute(self, query: TQuery) -> TQueryResult:
+        ...

@@ -1,10 +1,10 @@
-import argparse
+﻿import argparse
 import shlex
 from pydantic import ValidationError
 
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import SyncMarketDataCommand
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.presentation.cli.cli_parser import build_handler_parser
 

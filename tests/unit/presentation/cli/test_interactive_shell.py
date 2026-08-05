@@ -1,8 +1,8 @@
-from unittest.mock import Mock, patch
+﻿from unittest.mock import Mock, patch
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.presentation.cli.interactive_shell import InteractiveShell
-from Binace_Bot.src.application.use_cases.sync_market_data import SyncMarketDataCommand
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import SyncMarketDataCommand
 
 
 def test_interactive_shell_execute_sync():
