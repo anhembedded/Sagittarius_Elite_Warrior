@@ -1,28 +1,61 @@
 $ErrorActionPreference = "Stop"
 
-# Get the directory of the current script and navigate to the project root
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ProjectRoot = Split-Path -Parent $ScriptDir
+$BotRoot = Split-Path -Parent $ScriptDir
+$ProjectRoot = Split-Path -Parent $BotRoot
 
-# Set the working directory to the project root
-Set-Location $ProjectRoot
+$env:PYTHONPATH = $ProjectRoot
 
-# Define the path to the virtual environment activation script
-$VenvActivate = Join-Path $ProjectRoot "..\.venv\Scripts\Activate.ps1"
-
-# Check if the virtual environment exists
-if (-Not (Test-Path $VenvActivate)) {
-    Write-Host "Virtual environment not found at $VenvActivate" -ForegroundColor Red
-    Write-Host "Please create it first (e.g., python -m venv .venv)" -ForegroundColor Yellow
-    exit 1
+$PythonCandidates = @("python", "python3")
+$PythonCommand = $null
+foreach ($candidate in $PythonCandidates) {
+    $command = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($command) {
+        $PythonCommand = $command.Source
+        break
+    }
 }
 
-# Activate the virtual environment
-& $VenvActivate
+if (-not $PythonCommand) {
+    throw "Python was not found. Install Python 3 and ensure 'python' or 'python3' is available."
+}
 
-# Set PYTHONPATH so absolute imports work correctly
-$env:PYTHONPATH = (Get-Item "..").FullName
+$VenvRoot = Join-Path $BotRoot ".venv"
+if (-not (Test-Path $VenvRoot)) {
+    Write-Host "Creating virtual environment at $VenvRoot..." -ForegroundColor Cyan
+    & $PythonCommand -m venv $VenvRoot
+}
 
-# Run Streamlit
+$ActivateScript = if ($IsWindows) {
+    Join-Path $VenvRoot "Scripts/Activate.ps1"
+} else {
+    Join-Path $VenvRoot "bin/Activate.ps1"
+}
+
+if (-not (Test-Path $ActivateScript)) {
+    throw "Virtual environment activation script was not found at $ActivateScript"
+}
+
+Write-Host "Activating virtual environment..." -ForegroundColor Cyan
+. $ActivateScript
+
+$VenvPython = if ($IsWindows) {
+    Join-Path $VenvRoot "Scripts/python.exe"
+} else {
+    Join-Path $VenvRoot "bin/python"
+}
+
+if (-not (Test-Path $VenvPython)) {
+    $VenvPython = Join-Path $VenvRoot "bin/python3"
+}
+
+if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
+    Write-Host "Installing Python dependencies from requirements.txt..." -ForegroundColor Cyan
+    & $VenvPython -m pip install --upgrade pip
+    & $VenvPython -m pip install -r (Join-Path $BotRoot "requirements.txt")
+}
+
+Set-Location $BotRoot
+$DashboardEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "dashboard.py")
 Write-Host "Starting Streamlit UI Dashboard..." -ForegroundColor Green
-streamlit run src/presentation/ui/dashboard.py
+& $VenvPython -m streamlit run $DashboardEntry

@@ -1,36 +1,60 @@
 $ErrorActionPreference = "Stop"
 
-# Get absolute paths to calculate the root of the project
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $BotRoot = Split-Path -Parent $PSScriptRoot
 $ProjectRoot = Split-Path -Parent $BotRoot
 
-# Inject the parent root directory into PYTHONPATH so sagittarius_engine can be resolved
 $env:PYTHONPATH = $ProjectRoot
 
-# Attempt to find and activate the virtual environment
-$VenvPaths = @(
-    Join-Path $ProjectRoot ".venv"
-    Join-Path $ProjectRoot "venv"
-    Join-Path $BotRoot ".venv"
-    Join-Path $BotRoot "venv"
-)
-
-$VenvActivated = $false
-foreach ($path in $VenvPaths) {
-    $ActivateScript = Join-Path $path "Scripts\Activate.ps1"
-    if (Test-Path $ActivateScript) {
-        Write-Host "Activating virtual environment at $path..." -ForegroundColor Cyan
-        . $ActivateScript
-        $VenvActivated = $true
+$PythonCandidates = @("python", "python3")
+$PythonCommand = $null
+foreach ($candidate in $PythonCandidates) {
+    $command = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($command) {
+        $PythonCommand = $command.Source
         break
     }
 }
 
-if (-not $VenvActivated) {
-    Write-Host "WARNING: No Python virtual environment (.venv or venv) found in $ProjectRoot or $BotRoot. Using global python environment." -ForegroundColor Yellow
+if (-not $PythonCommand) {
+    throw "Python was not found. Install Python 3 and ensure 'python' or 'python3' is available."
 }
 
-# Change working directory to the Bot root and execute the main entrypoint
+$VenvRoot = Join-Path $BotRoot ".venv"
+if (-not (Test-Path $VenvRoot)) {
+    Write-Host "Creating virtual environment at $VenvRoot..." -ForegroundColor Cyan
+    & $PythonCommand -m venv $VenvRoot
+}
+
+$ActivateScript = if ($IsWindows) {
+    Join-Path $VenvRoot "Scripts/Activate.ps1"
+} else {
+    Join-Path $VenvRoot "bin/Activate.ps1"
+}
+
+if (-not (Test-Path $ActivateScript)) {
+    throw "Virtual environment activation script was not found at $ActivateScript"
+}
+
+Write-Host "Activating virtual environment..." -ForegroundColor Cyan
+. $ActivateScript
+
+$VenvPython = if ($IsWindows) {
+    Join-Path $VenvRoot "Scripts/python.exe"
+} else {
+    Join-Path $VenvRoot "bin/python"
+}
+
+if (-not (Test-Path $VenvPython)) {
+    $VenvPython = Join-Path $VenvRoot "bin/python3"
+}
+
+if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
+    Write-Host "Installing Python dependencies from requirements.txt..." -ForegroundColor Cyan
+    & $VenvPython -m pip install --upgrade pip
+    & $VenvPython -m pip install -r (Join-Path $BotRoot "requirements.txt")
+}
+
 Set-Location -Path $BotRoot
-python .\src\main.py $args
+$EntryPoint = [System.IO.Path]::Combine($BotRoot, "src", "main.py")
+& $VenvPython $EntryPoint @args
