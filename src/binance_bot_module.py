@@ -38,10 +38,10 @@ from Binace_Bot.src.application.use_cases.process_market_tick import (
     ProcessMarketTickCommand,
     ProcessMarketTickCommandHandler,
 )
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.presentation.event_handlers.market_tick_reactor import (
-    MarketTickReactor,
+from Binace_Bot.src.application.event_handlers.market_data import (
+    MarketTickEventHandler,
 )
+from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 
@@ -80,6 +80,6 @@ class BinanceBotModule(BaseModule):
         adapter = app.container.resolve(LiveStreamEngineAdapter)
         app.context.hosted_services.register(adapter)
 
-        # Initialize Event Reactors and subscribe to the Event Bus
-        reactor = MarketTickReactor(app)
-        app.event_bus.on(MarketTickEvent, reactor.handle)
+        # Initialize Event Handlers and subscribe to the Event Bus
+        event_handler = MarketTickEventHandler(app)
+        app.event_bus.on(MarketTickEvent, event_handler.handle)

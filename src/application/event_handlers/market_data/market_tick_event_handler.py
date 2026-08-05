@@ -6,10 +6,10 @@ from Binace_Bot.src.application.use_cases.process_market_tick import (
 )
 
 
-class MarketTickReactor:
+class MarketTickEventHandler:
     """
-    @brief Event Reactor in the Presentation Layer (Interface Adapters).
-    @details Listens to MarketTickEvent from the Domain/Infrastructure and translates it into an Application Command.
+    @brief Application Event Handler for MarketTickEvent.
+    @details Listens to MarketTickEvent emitted by the Domain/Infrastructure and dispatches ProcessMarketTickCommand.
     """
 
     def __init__(self, app: App) -> None:
@@ -17,7 +17,7 @@ class MarketTickReactor:
 
     def handle(self, event: MarketTickEvent) -> None:
         """
-        @brief Transforms the event into a DTO and dispatches to the Application layer.
+        @brief Handles the MarketTickEvent by dispatching a ProcessMarketTickCommand.
         """
         cmd = ProcessMarketTickCommand(market_data=event.market_data)
         self.app.dispatch(ProcessMarketTickCommand, cmd)
