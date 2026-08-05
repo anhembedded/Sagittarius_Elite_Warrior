@@ -21,7 +21,7 @@ class DashboardPresenter(QObject):
     # Dùng để truyền dữ liệu từ Background Thread về Main UI Thread
     # ==========================================
     ui_log_signal = Signal(str)
-    ui_chart_update_signal = Signal(str, float, float, float, float, float)
+    ui_chart_update_signal = Signal(str, float, float, float, float, float, bool)
 
     def __init__(self, view, app: App):
         super().__init__()
@@ -187,15 +187,19 @@ class DashboardPresenter(QObject):
         h = event.market_data.high_price
         l = event.market_data.low_price
         c = event.market_data.close_price
+        is_closed = event.market_data.is_closed
         
-        self.ui_chart_update_signal.emit(symbol, t, o, h, l, c)
+        self.ui_chart_update_signal.emit(symbol, t, o, h, l, c, is_closed)
 
-    @Slot(str, float, float, float, float, float)
-    def _on_ui_chart_update(self, symbol: str, t: float, o: float, h: float, l: float, c: float):
+    @Slot(str, float, float, float, float, float, bool)
+    def _on_ui_chart_update(self, symbol: str, t: float, o: float, h: float, l: float, c: float, is_closed: bool):
         """
         Được gọi trong Main UI Thread một cách an toàn thông qua Signal.
         Chỉ thực hiện tra cứu O(1) và đẩy data vào đúng ChartCard tương ứng.
         """
         card = self.active_charts.get(symbol)
         if card:
-            card.update_last_candle(t, o, h, l, c)
+            if is_closed:
+                card.append_closed_candle(t, o, h, l, c)
+            else:
+                card.update_last_candle(t, o, h, l, c)

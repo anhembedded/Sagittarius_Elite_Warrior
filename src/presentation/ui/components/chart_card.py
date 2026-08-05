@@ -82,17 +82,23 @@ class FastCandlestickItem(pg.GraphicsObject):
             rect = QtCore.QRectF(t - self.candle_width, o, self.candle_width * 2, c - o)
             p.drawRect(rect)
             
-    def update_live_candle(self, t: float, o: float, h: float, l: float, c: float):
+    def update_live_candle(self, timestamp: float, open_p: float, high_p: float, low_p: float, close_p: float) -> None:
+        self.live_candle = (timestamp, open_p, high_p, low_p, close_p)
+        self.update() 
+        
+    def append_closed_candle(self, timestamp: float, open_p: float, high_p: float, low_p: float, close_p: float) -> None:
         """
-        @brief Updates the live candle data and requests a minimal repaint.
+        @brief Explicitly push a closed candle into the historical cache.
         """
-        # Nếu nến mới xuất hiện (timestamp thay đổi), đẩy nến cũ vào lịch sử và render lại QPicture
-        if self.live_candle is not None and t != self.live_candle[0]:
-            self.history_data.append(self.live_candle)
-            self.generate_picture(self.history_data)
-            
-        self.live_candle = (t, o, h, l, c)
-        self.update() # Only triggers paint(), does NOT rebuild QPicture
+        closed_candle = (timestamp, open_p, high_p, low_p, close_p)
+        self.history_data.append(closed_candle)
+        
+        # O(1) Re-cache the entire history (fast enough for once per minute)
+        self.generate_picture(self.history_data)
+        
+        # Reset live candle state so a new one can form
+        self.live_candle = None
+        self.update()# Only triggers paint(), does NOT rebuild QPicture
         
     def boundingRect(self) -> QtCore.QRectF:
         """
@@ -276,6 +282,9 @@ class ChartCard(BaseCard):
         
     def update_last_candle(self, timestamp: float, open_p: float, high_p: float, low_p: float, close_p: float) -> None:
         self.candlestick.update_live_candle(timestamp, open_p, high_p, low_p, close_p)
+        
+    def append_closed_candle(self, timestamp: float, open_p: float, high_p: float, low_p: float, close_p: float) -> None:
+        self.candlestick.append_closed_candle(timestamp, open_p, high_p, low_p, close_p)
         
     def add_overlay_indicator(self, name: str, color: str) -> None:
         """Adds a line indicator on top of the main candlestick plot (e.g. SMA)"""

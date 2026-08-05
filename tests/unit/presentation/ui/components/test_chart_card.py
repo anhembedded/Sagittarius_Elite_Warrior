@@ -36,7 +36,7 @@ def test_chart_card_historical_data_render(qtbot):
     
 def test_chart_card_live_tick_rollover(qtbot):
     """
-    Test that when a new candle timestamp arrives, the old candle is pushed to history.
+    Test that explicitly calling append_closed_candle pushes the old candle to history.
     """
     card = ChartCard("BNBUSDT")
     qtbot.addWidget(card)
@@ -44,23 +44,23 @@ def test_chart_card_live_tick_rollover(qtbot):
     # Giả sử chưa có nến lịch sử nào, chỉ có nến Live đầu tiên đang nhấp nháy
     card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)
     
-    # Trước khi sang phút mới, mảng lịch sử phải RỖNG (vì nến 2000.0 đang là Live)
+    # Mảng lịch sử phải RỖNG (vì nến 2000.0 đang là Live)
     assert len(card.candlestick.history_data) == 0
     assert card.candlestick.live_candle[0] == 2000.0
     
-    # Sàn bắn về giá mới (nhấp nháy) CÙNG MỘT PHÚT (timestamp 2000.0)
+    # Sàn bắn về giá mới (nhấp nháy) CÙNG MỘT PHÚT (is_closed=False)
     card.update_last_candle(2000.0, 100.0, 106.0, 95.0, 104.0)
     assert len(card.candlestick.history_data) == 0 # Vẫn chưa sang nến mới
     
-    # Sàn bắn về TICK MỚI NHẤT thuộc PHÚT TIẾP THEO (timestamp 2060.0) -> ROLLOVER!
-    card.update_last_candle(2060.0, 104.0, 110.0, 103.0, 108.0)
+    # Sàn thông báo đóng nến hiện tại (is_closed=True)
+    card.append_closed_candle(2000.0, 100.0, 106.0, 95.0, 104.0)
     
-    # Lúc này, cây nến cũ (2000.0) BẮT BUỘC phải được đẩy vào mảng Lịch sử
+    # Lúc này, cây nến (2000.0) BẮT BUỘC phải được đẩy vào mảng Lịch sử
     assert len(card.candlestick.history_data) == 1
     assert card.candlestick.history_data[0][0] == 2000.0
     
-    # Và biến Live Candle hiện tại phải chứa cây nến mới (2060.0)
-    assert card.candlestick.live_candle[0] == 2060.0
+    # Và biến Live Candle hiện tại phải trống (chờ tick tiếp theo)
+    assert card.candlestick.live_candle is None
 
 def test_chart_card_crosshair_mouse_hover(qtbot):
     """
