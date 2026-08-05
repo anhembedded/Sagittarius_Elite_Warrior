@@ -1,7 +1,8 @@
-﻿python-binance
+python-binance
 sqlalchemy
 pydantic
 pytest
 pytest-asyncio
 pytest-cov
 ruff
+pyqtdarktheme
