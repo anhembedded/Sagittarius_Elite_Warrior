@@ -108,6 +108,50 @@ class FastCandlestickItem(pg.GraphicsObject):
             rect = rect.united(live_rect)
             
         return rect
+        
+    def dataBounds(self, ax, frac=1.0, orthoRange=None):
+        """
+        @brief Required by ViewBox to auto-scale Y axis based on visible X range (TradingView style).
+        """
+        if ax == 0:
+            if not self.history_data and not self.live_candle:
+                return [None, None]
+            min_x = self.history_data[0][0] if self.history_data else self.live_candle[0]
+            max_x = self.history_data[-1][0] if self.history_data else self.live_candle[0]
+            if self.live_candle and self.live_candle[0] > max_x:
+                max_x = self.live_candle[0]
+            return [min_x, max_x]
+            
+        elif ax == 1:
+            if not self.history_data and not self.live_candle:
+                return [None, None]
+                
+            # Calculate Y bounds based ONLY on the visible X range
+            if orthoRange is not None:
+                min_x, max_x = orthoRange
+                
+                # O(N) lookup for visible candles. For 10k candles, this takes < 1ms.
+                visible_lows = [l for (t, o, h, l, c) in self.history_data if min_x <= t <= max_x]
+                visible_highs = [h for (t, o, h, l, c) in self.history_data if min_x <= t <= max_x]
+                
+                if self.live_candle and min_x <= self.live_candle[0] <= max_x:
+                    visible_lows.append(self.live_candle[3])
+                    visible_highs.append(self.live_candle[2])
+                    
+                if visible_lows and visible_highs:
+                    return [min(visible_lows), max(visible_highs)]
+            
+            # Fallback to global bounds
+            all_lows = [l for (_, _, _, l, _) in self.history_data]
+            all_highs = [h for (_, _, h, _, _) in self.history_data]
+            if self.live_candle:
+                all_lows.append(self.live_candle[3])
+                all_highs.append(self.live_candle[2])
+                
+            if all_lows and all_highs:
+                return [min(all_lows), max(all_highs)]
+                
+        return [None, None]
 
 
 class ChartCard(BaseCard):
@@ -142,6 +186,11 @@ class ChartCard(BaseCard):
         date_axis = pg.DateAxisItem(orientation='bottom')
         self.main_plot = self.layout_widget.addPlot(row=1, col=0, axisItems={'bottom': date_axis})
         self.main_plot.showGrid(x=True, y=True, alpha=0.2)
+        
+        # Enable TradingView style: Scroll zooms X, Y auto-scales to visible X
+        self.main_plot.setMouseEnabled(x=True, y=False) # Disable manual Y panning to allow auto-scale
+        self.main_plot.vb.setAutoVisible(y=True)
+        self.main_plot.vb.enableAutoRange(axis='y', enable=True)
         
         # Candlestick Object
         self.candlestick = FastCandlestickItem()
