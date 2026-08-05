@@ -56,6 +56,6 @@ if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
 }
 
 Set-Location $BotRoot
-$DashboardEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "dashboard.py")
-Write-Host "Starting Streamlit UI Dashboard..." -ForegroundColor Green
-& $VenvPython -m streamlit run $DashboardEntry
+$UIEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "main_window.py")
+Write-Host "Starting PySide6 Trading Bot UI..." -ForegroundColor Green
+& $VenvPython $UIEntry

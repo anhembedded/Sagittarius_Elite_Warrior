@@ -1,0 +1,103 @@
+/* =========================================================================
+   Binance Bot - Global PySide6 Stylesheet (Dark Theme Standard)
+   ========================================================================= */
+
+/* 1. MAIN WINDOW & GLOBALS */
+QMainWindow {
+    background-color: #121212;
+}
+
+QWidget {
+    font-family: "Segoe UI", "Inter", sans-serif;
+    color: #e0e0e0;
+}
+
+/* 2. SIDEBAR */
+#sidebar_widget {
+    background-color: #1e1e24;
+    border-right: 1px solid #333333;
+}
+
+QPushButton {
+    background-color: #333333;
+    border: 1px solid #444444;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #ffffff;
+}
+
+QPushButton:hover {
+    background-color: #4a4a4a;
+    border-color: #555555;
+}
+
+QPushButton:pressed, QPushButton:checked {
+    background-color: #007acc;
+    border-color: #005f9e;
+}
+
+QPushButton:disabled {
+    background-color: #2b2b2b;
+    color: #777777;
+    border-color: #333333;
+}
+
+/* 3. BASE CARD (QFrame) */
+#base_card {
+    background-color: #1e1e24;
+    border: 1px solid #333333;
+    border-radius: 8px;
+}
+
+#base_card_header {
+    background-color: #25252b;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom: 1px solid #333333;
+    padding: 10px;
+}
+
+#base_card_title {
+    font-weight: bold;
+    font-size: 14px;
+    color: #ffffff;
+}
+
+/* 4. SCROLL AREA */
+QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollBar:vertical {
+    background-color: #121212;
+    width: 12px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #444444;
+    min-height: 20px;
+    border-radius: 6px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #666666;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+    background: none;
+}
+
+/* 5. MONITOR TERMINAL */
+QTextEdit#terminal_log {
+    background-color: #0d0d0d;
+    color: #00ff00;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    padding: 8px;
+}
