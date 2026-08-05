@@ -169,7 +169,56 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                         quote_asset_volume=row.quote_asset_volume,
                         number_of_trades=row.number_of_trades,
                         taker_buy_base_asset_volume=row.taker_buy_base_asset_volume,
-                        taker_buy_quote_asset_volume=row.taker_buy_quote_asset_volume,
                     )
                 )
             return results
+
+    def get_database_status(self, symbol: str, interval: TimeFrame) -> dict:
+        """
+        @brief Retrieves status and gap count using SQLite Window Functions.
+        """
+        expected_seconds = interval.to_seconds()
+        
+        # We use a CTE or subquery with LAG to compute the previous candle time.
+        # Then we aggregate the results in the outer query.
+        # This executes entirely inside the SQLite engine, preventing OOM.
+        query = sa.text(f"""
+            WITH ordered_klines AS (
+                SELECT 
+                    open_time,
+                    LAG(open_time) OVER (ORDER BY open_time ASC) as prev_time
+                FROM klines
+                WHERE symbol = :symbol AND interval = :interval
+            )
+            SELECT
+                MIN(open_time) as first_record,
+                MAX(open_time) as last_record,
+                COUNT(*) as total_candles,
+                SUM(CASE 
+                    WHEN prev_time IS NOT NULL AND 
+                         (strftime('%s', open_time) - strftime('%s', prev_time)) > :expected_seconds 
+                    THEN 1 ELSE 0 
+                END) as gaps
+            FROM ordered_klines
+        """)
+        
+        with self.Session() as session:
+            result = session.execute(
+                query, 
+                {"symbol": symbol, "interval": interval.value, "expected_seconds": expected_seconds}
+            ).fetchone()
+            
+            if not result or result[2] == 0:
+                return {
+                    "first_record": None,
+                    "last_record": None,
+                    "total_candles": 0,
+                    "gaps": 0
+                }
+                
+            return {
+                "first_record": result[0].replace(tzinfo=timezone.utc) if isinstance(result[0], datetime) else (datetime.fromisoformat(result[0]).replace(tzinfo=timezone.utc) if result[0] else None),
+                "last_record": result[1].replace(tzinfo=timezone.utc) if isinstance(result[1], datetime) else (datetime.fromisoformat(result[1]).replace(tzinfo=timezone.utc) if result[1] else None),
+                "total_candles": result[2],
+                "gaps": result[3] if result[3] is not None else 0
+            }

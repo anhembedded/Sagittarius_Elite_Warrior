@@ -34,6 +34,10 @@ from Binace_Bot.src.application.use_cases.queries.get_historical_klines import (
     GetHistoricalKlinesQuery,
     GetHistoricalKlinesQueryHandler,
 )
+from Binace_Bot.src.application.use_cases.queries.get_database_status import (
+    GetDatabaseStatusQuery,
+    GetDatabaseStatusQueryHandler,
+)
 from Binace_Bot.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
@@ -79,6 +83,7 @@ class BinanceBotModule(BaseModule):
         
         # Bind Queries
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
+        app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
 
         # Register the WebsocketService as bound to its Interface
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)

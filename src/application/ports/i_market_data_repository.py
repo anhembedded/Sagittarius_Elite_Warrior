@@ -41,3 +41,11 @@ class IMarketDataRepository(ABC):
         @brief Retrieves historical klines from the repository.
         """
         pass
+
+    @abstractmethod
+    def get_database_status(self, symbol: str, interval: TimeFrame) -> dict:
+        """
+        @brief Gets database status for a specific symbol/interval.
+        @return dict containing first_record, last_record, total_candles, gaps.
+        """
+        pass

@@ -22,3 +22,15 @@ class TimeFrame(str, Enum):
     THREE_DAYS = "3d"
     ONE_WEEK = "1w"
     ONE_MONTH = "1M"
+    
+    def to_seconds(self) -> int:
+        multiplier = 1
+        unit = self.value[-1]
+        val = int(self.value[:-1])
+        if unit == 's': multiplier = 1
+        elif unit == 'm': multiplier = 60
+        elif unit == 'h': multiplier = 3600
+        elif unit == 'd': multiplier = 86400
+        elif unit == 'w': multiplier = 604800
+        elif unit == 'M': multiplier = 2592000 # Approx 30 days
+        return val * multiplier

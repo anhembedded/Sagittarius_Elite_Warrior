@@ -62,9 +62,16 @@ class MainWindow(QMainWindow):
         self.btn_backtest.setCheckable(True)
         self.btn_backtest.setMinimumHeight(40)
         self.btn_backtest.clicked.connect(lambda: self.switch_screen("backtest"))
+
+        # Database Button
+        self.btn_database = QPushButton("Database")
+        self.btn_database.setCheckable(True)
+        self.btn_database.setMinimumHeight(40)
+        self.btn_database.clicked.connect(lambda: self.switch_screen("data_management"))
         
         self.sidebar.addWidget(self.btn_dashboard)
         self.sidebar.addWidget(self.btn_backtest)
+        self.sidebar.addWidget(self.btn_database)
 
     def _setup_screens(self):
         from Binace_Bot.src.presentation.ui.router import RouterManager
@@ -74,6 +81,7 @@ class MainWindow(QMainWindow):
         # Register Factory functions for screens
         self.router.register_route("dashboard", self._factory_dashboard)
         self.router.register_route("backtest", self._factory_backtest)
+        self.router.register_route("data_management", self._factory_data_management)
         
         # Navigate to default screen
         self.router.navigate("dashboard")
@@ -95,11 +103,20 @@ class MainWindow(QMainWindow):
         backtest_widget.setStyleSheet("font-size: 24px; color: #d4d4d4;")
         return backtest_widget
 
+    def _factory_data_management(self, app):
+        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import DataManagementView
+        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import DataManagementPresenter
+        
+        view = DataManagementView()
+        view.presenter = DataManagementPresenter(view, app)
+        return view
+
     def switch_screen(self, route_name: str):
         self.router.navigate(route_name)
         # Update button states manually
         self.btn_dashboard.setChecked(route_name == "dashboard")
         self.btn_backtest.setChecked(route_name == "backtest")
+        self.btn_database.setChecked(route_name == "data_management")
 
 def main():
     import sys
