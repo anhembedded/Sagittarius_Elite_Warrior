@@ -108,11 +108,12 @@ class DataManagementPresenter(QObject):
         # Background task for dispatching sync
         def sync_task():
             try:
-                cmd = SyncMarketDataCommand(symbol=symbol, interval=TimeFrame(interval))
+                cmd = SyncMarketDataCommand(symbols=[symbol], interval=TimeFrame(interval))
                 self.app.dispatch(SyncMarketDataCommand, cmd)
                 self.ui_log_signal.emit(f"✅ Sync completed successfully for {symbol}.")
                 self.ui_sync_complete_signal.emit()
             except Exception as e:
+                # Add detailed log for validation errors
                 self.ui_log_signal.emit(f"❌ Sync failed: {str(e)}")
                 self.ui_unlock_signal.emit()
                 
