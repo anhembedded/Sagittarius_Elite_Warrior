@@ -141,12 +141,12 @@ def main():
     # 2. Boot PySide UI
     app = QApplication(sys.argv)
     
-    # Apply global Dark Theme matching Binance Bot identity
+    # Apply global Dark Theme matching Binance Bot identity (Compatible with pyqtdarktheme v0.1.x)
     import qdarktheme
-    qdarktheme.setup_theme(
-        theme="dark",
-        custom_colors={"primary": "#F3BA2F"}  # Binance Yellow
-    )
+    raw_stylesheet = qdarktheme.load_stylesheet("dark")
+    # Override default Material Blue with Binance Yellow
+    custom_stylesheet = raw_stylesheet.replace("rgba(138.000, 180.000, 247.000, 1.000)", "#F3BA2F")
+    app.setStyleSheet(custom_stylesheet)
             
     window = MainWindow(app_engine)
     window.show()
