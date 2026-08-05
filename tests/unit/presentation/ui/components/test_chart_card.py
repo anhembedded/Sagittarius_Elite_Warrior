@@ -1,4 +1,5 @@
 import pytest
+from PySide6 import QtCore
 from PySide6.QtCore import Qt
 from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
 
@@ -60,3 +61,29 @@ def test_chart_card_live_tick_rollover(qtbot):
     
     # Và biến Live Candle hiện tại phải chứa cây nến mới (2060.0)
     assert card.candlestick.live_candle[0] == 2060.0
+
+def test_chart_card_crosshair_mouse_hover(qtbot):
+    """
+    Test that mouse movement triggers crosshair updates without crashing (AttributeError).
+    """
+    card = ChartCard("XRPUSDT")
+    qtbot.addWidget(card)
+    
+    # Thêm 1 sub-plot để test multi-plot crosshair
+    card.add_subplot_indicator("RSI", color="blue")
+    
+    # Bắt buộc PySide/Qt tính toán geometry trước khi test tọa độ
+    with qtbot.waitExposed(card):
+        card.show()
+    
+    # Giả lập sự kiện chuột thông qua Proxy (evt là 1 tuple chứa tọa độ pos)
+    # Chúng ta truyền tọa độ ngẫu nhiên nằm trong màn hình
+    mock_pos = QtCore.QPointF(100.0, 150.0)
+    
+    try:
+        # Gọi trực tiếp hàm xử lý chuột để đảm bảo không văng AttributeError
+        card._mouse_moved((mock_pos,))
+    except Exception as e:
+        pytest.fail(f"_mouse_moved crashed with: {e}")
+        
+    # Test passed nếu không có exception nào văng ra
