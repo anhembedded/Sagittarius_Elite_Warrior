@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from unittest.mock import Mock
 from datetime import datetime, timezone
 from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
@@ -63,7 +63,30 @@ def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
     handler.execute(command)
 
     mock_exchange_client.get_historical_klines.assert_called_once_with(
-        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time
+        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None
+    )
+    mock_repo.save_klines.assert_called_once_with(mock_klines)
+
+
+def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
+    # Setup: repo should NOT be called to get latest_time
+    mock_klines = [Mock(spec=MarketData)]
+    mock_exchange_client.get_historical_klines.return_value = mock_klines
+
+    start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    
+    command = SyncMarketDataCommand(
+        symbols=["SOLUSDT"], 
+        interval=TimeFrame.ONE_HOUR,
+        start_time=start_time,
+        end_time=end_time
+    )
+    handler.execute(command)
+
+    mock_repo.get_latest_kline_time.assert_not_called()
+    mock_exchange_client.get_historical_klines.assert_called_once_with(
+        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time
     )
     mock_repo.save_klines.assert_called_once_with(mock_klines)
 
