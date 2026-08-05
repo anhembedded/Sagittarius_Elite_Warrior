@@ -1,9 +1,22 @@
 from PySide6.QtCore import QObject, Signal, Slot
 from sagittarius_engine import App
+import logging
 
 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import SyncMarketDataCommand
 from Binace_Bot.src.application.use_cases.queries.get_database_status.query import GetDatabaseStatusQuery
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+
+class SignalLogHandler(logging.Handler):
+    """Bridges standard Python logging to a Qt Signal for UI display."""
+    def __init__(self, signal: Signal):
+        super().__init__()
+        self.signal = signal
+        # Optional: Add a simple formatter so it looks clean in the UI
+        self.setFormatter(logging.Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S'))
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.signal.emit(msg)
 
 class DataManagementPresenter(QObject):
     """
@@ -25,6 +38,11 @@ class DataManagementPresenter(QObject):
 
         self._connect_ui_signals()
         self._connect_engine_events()
+        
+        # Attach the custom log handler to the "App" logger (catches App.ExchangeClient, etc.)
+        self.log_handler = SignalLogHandler(self.ui_log_signal)
+        self.log_handler.setLevel(logging.INFO)
+        logging.getLogger("App").addHandler(self.log_handler)
 
     def _connect_ui_signals(self):
         """Connect UI button clicks to Presenter slots."""
