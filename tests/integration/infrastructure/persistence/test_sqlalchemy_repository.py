@@ -50,6 +50,13 @@ def test_save_and_get_klines(repo):
     assert fetched[0].open_time == dt1
     assert fetched[1].open_time == dt2
     assert fetched[0].close_price == 105.0
+    
+    # Assert all volumes and fields to prevent silent mapping bugs
+    assert fetched[0].volume == 1000.0
+    assert fetched[0].quote_asset_volume == 105000.0
+    assert fetched[0].number_of_trades == 50
+    assert fetched[0].taker_buy_base_asset_volume == 500.0
+    assert fetched[0].taker_buy_quote_asset_volume == 52500.0
 
 
 def test_upsert_behavior(repo):

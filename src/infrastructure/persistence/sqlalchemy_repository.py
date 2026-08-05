@@ -169,6 +169,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                         quote_asset_volume=row.quote_asset_volume,
                         number_of_trades=row.number_of_trades,
                         taker_buy_base_asset_volume=row.taker_buy_base_asset_volume,
+                        taker_buy_quote_asset_volume=row.taker_buy_quote_asset_volume,
                     )
                 )
             return results
