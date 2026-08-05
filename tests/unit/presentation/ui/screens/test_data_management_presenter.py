@@ -8,7 +8,11 @@ from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import S
 @pytest.fixture
 def mock_app():
     app = Mock()
-    app.context.tasks = Mock()
+    app.container = Mock()
+    mock_thread_mgr = Mock()
+    # Assume any resolve calls return the mock_thread_mgr for simplicity in this isolated test
+    app.container.resolve.return_value = mock_thread_mgr
+    app.mock_thread_mgr = mock_thread_mgr
     return app
 
 @pytest.fixture
@@ -28,11 +32,11 @@ def test_on_sync_data_no_custom_time(mock_view, mock_app):
     # Assert UI lock was called
     mock_view.cbo_symbol.setEnabled.assert_called_with(False)
     
-    # Assert background task was spawned
-    assert mock_app.context.tasks.spawn.call_count == 1
+    # Assert background task was submitted to thread manager
+    assert mock_app.mock_thread_mgr.submit.call_count == 1
     
     # Extract the spawned task (it's a local function)
-    task_func = mock_app.context.tasks.spawn.call_args[0][0]
+    task_func = mock_app.mock_thread_mgr.submit.call_args[0][0]
     
     # Execute the task manually
     task_func()
@@ -69,7 +73,7 @@ def test_on_sync_data_with_custom_time(mock_view, mock_app):
     presenter._on_sync_data()
     
     # Extract the spawned task
-    task_func = mock_app.context.tasks.spawn.call_args[0][0]
+    task_func = mock_app.mock_thread_mgr.submit.call_args[0][0]
     
     # Execute the task manually
     task_func()

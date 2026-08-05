@@ -204,7 +204,9 @@ class DashboardPresenter(QObject):
                 self.ui_stream_failed_signal.emit(f"❌ Lỗi hệ thống: {str(e)}")
                 
         # Thực thi qua Engine Task Manager
-        self.app.context.tasks.spawn(sync_and_start_task, name="LiveStreamAutoSync")
+        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+        thread_mgr: IThreadManager = self.app.container.resolve(IThreadManager)
+        thread_mgr.submit(sync_and_start_task)
 
     # ==========================================
     # SLOTS XỬ LÝ BACKGROUND SIGNALS (Chạy trên UI Thread)

@@ -153,7 +153,9 @@ class DataManagementPresenter(QObject):
                 self.ui_log_signal.emit(f"❌ Sync failed: {str(e)}")
                 self.ui_unlock_signal.emit()
                 
-        self.app.context.tasks.spawn(sync_task, name=f"Sync_{symbol}_{interval}")
+        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+        thread_mgr: IThreadManager = self.app.container.resolve(IThreadManager)
+        thread_mgr.submit(sync_task)
 
     @Slot()
     def _on_clear_data(self):

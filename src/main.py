@@ -29,6 +29,8 @@ def create_app(config_manager: ConfigManager) -> App:
 
     # Load Framework Extensions
     app.use(LoggerExtension())
+    from sagittarius_engine.extensions.thread_manager.thread_manager_module import ThreadManagerExtension
+    app.use(ThreadManagerExtension())
 
     # Load Domain Module (Registers Repositories & UseCases)
     app.use(BinanceBotModule())
