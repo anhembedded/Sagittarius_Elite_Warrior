@@ -54,7 +54,8 @@ class FastCandlestickItem(pg.GraphicsObject):
             p.drawLine(QtCore.QPointF(t, l), QtCore.QPointF(t, h))
             
             # Draw body (Width is drawn outward from center t)
-            rect = QtCore.QRectF(t - self.candle_width, o, self.candle_width * 2, c - o)
+            # Use min/abs to strictly enforce positive height to prevent Qt drawRect anti-aliasing bugs
+            rect = QtCore.QRectF(t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o))
             p.drawRect(rect)
             
         p.end()
@@ -79,7 +80,8 @@ class FastCandlestickItem(pg.GraphicsObject):
                 p.setBrush(pg.mkBrush(self.bear_color))
                 
             p.drawLine(QtCore.QPointF(t, l), QtCore.QPointF(t, h))
-            rect = QtCore.QRectF(t - self.candle_width, o, self.candle_width * 2, c - o)
+            # Use min/abs to strictly enforce positive height
+            rect = QtCore.QRectF(t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o))
             p.drawRect(rect)
             
     def update_live_candle(self, timestamp: float, open_p: float, high_p: float, low_p: float, close_p: float) -> None:
