@@ -141,6 +141,16 @@ def main():
     # 2. Boot PySide UI
     app = QApplication(sys.argv)
     
+    from PySide6.QtGui import QFont
+    app_font = QFont("JetBrainsMono Nerd Font", 10)
+    app_font.setStyleHint(QFont.Monospace)
+    app_font.insertSubstitutions("JetBrainsMono Nerd Font", [
+        "CaskaydiaCove Nerd Font", 
+        "FiraCode Nerd Font", 
+        "MesloLGS NF", 
+        "Consolas"
+    ])
+    app.setFont(app_font)
     # Apply global Dark Theme matching Binance Bot identity (Compatible with pyqtdarktheme v0.1.x)
     import qdarktheme
     raw_stylesheet = qdarktheme.load_stylesheet("dark")
