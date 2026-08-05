@@ -22,6 +22,11 @@ class DashboardPresenter(QObject):
     # ==========================================
     ui_log_signal = Signal(str)
     ui_chart_update_signal = Signal(str, float, float, float, float, float, bool)
+    
+    # Tín hiệu chuyên dụng cho Auto-Sync Workflow
+    ui_history_reloaded_signal = Signal(str, list)
+    ui_stream_success_signal = Signal(str)
+    ui_stream_failed_signal = Signal(str)
 
     def __init__(self, view, app: App):
         super().__init__()
@@ -48,12 +53,34 @@ class DashboardPresenter(QObject):
         # 3. Nối cầu tín hiệu cập nhật an toàn vào giao diện
         self.ui_log_signal.connect(self.view.monitor_card.append_log)
         self.ui_chart_update_signal.connect(self._on_ui_chart_update)
+        
+        # Signals for Auto-Sync Workflow
+        self.ui_history_reloaded_signal.connect(self._on_history_reloaded)
+        self.ui_stream_success_signal.connect(self._on_stream_start_success)
+        self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
 
     def _connect_engine_events(self):
         """
         Đăng ký lắng nghe các sự kiện ngầm (EventBus) từ sagittarius_engine.
         """
         self.app.event_bus.on(MarketTickEvent, self._handle_market_tick)
+        
+    def _ensure_chart_cards(self, symbols: list[str]) -> list:
+        """
+        @brief Reuse existing chart cards to prevent history wipeout. 
+        Only recreates layout if symbols change or no charts exist.
+        """
+        current_symbols = list(self.active_charts.keys())
+        if set(current_symbols) == set(symbols):
+            # Same symbols, reuse existing cards
+            return list(self.active_charts.values())
+            
+        # Different symbols, re-render
+        chart_cards = self.view.render_symbol_cards(symbols)
+        self.active_charts.clear()
+        for card in chart_cards:
+            self.active_charts[card.symbol] = card
+        return chart_cards
 
     # ==========================================
     # XỬ LÝ LỆNH TỪ USER (UI -> Engine)
@@ -66,13 +93,9 @@ class DashboardPresenter(QObject):
         interval = "1m"
         limit = 5000 # Lấy 5000 nến mới nhất
         
-        # Tạo/Render danh sách Card trống
-        chart_cards = self.view.render_symbol_cards(symbols)
-        self.active_charts.clear()
+        chart_cards = self._ensure_chart_cards(symbols)
         
         for card in chart_cards:
-            self.active_charts[card.symbol] = card
-            
             # Khởi tạo Query lấy data
             query = GetHistoricalKlinesQuery(
                 symbol=card.symbol,
@@ -115,35 +138,94 @@ class DashboardPresenter(QObject):
 
     @Slot()
     def _on_start_stream(self):
-        self.view.monitor_card.append_log("⏳ Đang khởi động Live Stream...")
+        self.view.monitor_card.append_log("⏳ Khởi động Live Stream (Auto-Sync)...")
         
-        # Lấy danh sách symbol (hiện tại hardcode, sau này lấy từ Model/Config)
+        # 1. UI Locking - Prevent spamming
+        self.view.control_card.set_stream_active(True)
+        
         symbols = ["BTCUSDT", "ETHUSDT"]
-        interval = TimeFrame("1m")
+        interval_str = "1m"
+        interval = TimeFrame(interval_str)
+        limit = 5000
         
-        # 1. Báo View tự động render danh sách ChartCard
-        chart_cards = self.view.render_symbol_cards(symbols)
-        self.active_charts.clear()
-        
-        # 2. Vòng lặp: Connect tự động toàn bộ tín hiệu của các Card động mới sinh ra
-        for card in chart_cards:
-            self.active_charts[card.symbol] = card
+        # Tái sử dụng chart
+        chart_cards = self._ensure_chart_cards(symbols)
             
-        self.ui_log_signal.emit(f"Đã render {len(chart_cards)} biểu đồ động.")
+        self.ui_log_signal.emit(f"Đã chuẩn bị {len(chart_cards)} biểu đồ.")
 
-        try:
-            cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
-            response = self.app.dispatch(StartLiveStreamCommand, cmd)
-            
-            if response and getattr(response, 'success', True):
-                self.ui_log_signal.emit(f"✅ Live stream {symbols} đã chạy ngầm.")
-                self.view.control_card.set_stream_active(True)
-            else:
-                msg = getattr(response, 'message', 'Lỗi không xác định')
-                self.ui_log_signal.emit(f"❌ Khởi động thất bại: {msg}")
+        # 2. Managed Background Task
+        def sync_and_start_task():
+            try:
+                from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import SyncMarketDataCommand
                 
-        except Exception as e:
-            self.ui_log_signal.emit(f"❌ Lỗi hệ thống: {str(e)}")
+                # Bước 1: Auto-Sync (Fill Gap)
+                self.ui_log_signal.emit("🔄 Đang Sync dữ liệu còn thiếu từ Binance...")
+                sync_cmd = SyncMarketDataCommand(symbols=symbols, interval=interval)
+                self.app.dispatch(SyncMarketDataCommand, sync_cmd)
+                
+                # Bước 2: Truy vấn lại Database để cập nhật Chart
+                self.ui_log_signal.emit("🔄 Đang Reload dữ liệu lịch sử lên Chart...")
+                for symbol in symbols:
+                    query = GetHistoricalKlinesQuery(
+                        symbol=symbol,
+                        interval=interval_str,
+                        limit=limit,
+                        order_by_desc=True
+                    )
+                    response = self.app.dispatch(GetHistoricalKlinesQuery, query)
+                    klines = getattr(response, 'data', response) if response else []
+                    
+                    if klines and isinstance(klines, list):
+                        klines = list(reversed(klines))
+                        mapped_data = [
+                            (
+                                float(item.close_time.timestamp()),
+                                float(item.open_price),
+                                float(item.high_price),
+                                float(item.low_price),
+                                float(item.close_price)
+                            ) for item in klines
+                        ]
+                        # Bước 3: Đẩy data an toàn về Main Thread
+                        self.ui_history_reloaded_signal.emit(symbol, mapped_data)
+                
+                # Bước 4: Khởi động Live Stream
+                self.ui_log_signal.emit("🚀 Mở luồng Websocket...")
+                cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
+                response = self.app.dispatch(StartLiveStreamCommand, cmd)
+                
+                if response and getattr(response, 'success', True):
+                    self.ui_stream_success_signal.emit(f"✅ Live stream {symbols} đã chạy.")
+                else:
+                    msg = getattr(response, 'message', 'Lỗi không xác định')
+                    self.ui_stream_failed_signal.emit(f"❌ Khởi động thất bại: {msg}")
+                    
+            except Exception as e:
+                self.ui_stream_failed_signal.emit(f"❌ Lỗi hệ thống: {str(e)}")
+                
+        # Thực thi qua Engine Task Manager
+        self.app.context.tasks.spawn(sync_and_start_task, name="LiveStreamAutoSync")
+
+    # ==========================================
+    # SLOTS XỬ LÝ BACKGROUND SIGNALS (Chạy trên UI Thread)
+    # ==========================================
+    @Slot(str, list)
+    def _on_history_reloaded(self, symbol: str, mapped_data: list):
+        card = self.active_charts.get(symbol)
+        if card:
+            card.render_historical_data(mapped_data)
+            self.ui_log_signal.emit(f"✅ Đã refresh {len(mapped_data)} nến lịch sử cho {symbol}.")
+            
+    @Slot(str)
+    def _on_stream_start_success(self, msg: str):
+        self.ui_log_signal.emit(msg)
+        # Nút bấm đã khóa ở trạng thái STOP, giữ nguyên
+        
+    @Slot(str)
+    def _on_stream_start_failed(self, msg: str):
+        self.ui_log_signal.emit(msg)
+        # Unlock UI nếu thất bại
+        self.view.control_card.set_stream_active(False)
 
     @Slot()
     def _on_stop_stream(self):
