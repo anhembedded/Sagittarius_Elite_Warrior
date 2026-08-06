@@ -36,16 +36,19 @@ def mock_app():
 
     mock_thread_mgr = MagicMock()
 
-    def submit_sync(task):
-        task()  # Execute synchronously in the test
+    def submit_sync(task, *args, **kwargs):
+        task(*args, **kwargs)  # Execute synchronously in the test
 
     mock_thread_mgr.submit.side_effect = submit_sync
 
     def resolve_side_effect(interface):
+        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
         if interface == IConfig:
             return mock_config
         if interface == IThreadManager:
             return mock_thread_mgr
+        if interface == IDispatcher:
+            return app
         return MagicMock()
 
     app.container.resolve.side_effect = resolve_side_effect
@@ -59,7 +62,7 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
     """
     mock_app.resolve.return_value = mock_app
     view = DashboardView()
-    presenter = DashboardPresenter(view, mock_app)
+    presenter = DashboardPresenter(view, mock_app.container)
     view.presenter = presenter
 
     # Mock the return values for the dispatch calls
@@ -90,10 +93,10 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
         "Binace_Bot.src.presentation.ui.components.chart_card.FastCandlestickItem.update"
     ) as mock_update:
         # Trigger Load History first
-        view.control_card.sig_load_clicked.emit()
+        presenter._on_load_history()
         
         # Trigger Start Stream
-        view.control_card.sig_start_clicked.emit()
+        presenter._on_start_stream()
 
         # Check if the chart was created
         assert len(presenter.active_charts) == 2

@@ -3,5 +3,15 @@
     "DEFAULT_INTERVAL": "1m",
     "DEFAULT_SYNC_DAYS": 30,
     "API_KEY": "",
-    "API_SECRET": ""
+    "API_SECRET": "",
+    "ui.font.family": "JetBrainsMono Nerd Font",
+    "ui.font.size": 10,
+    "ui.font.fallbacks": [
+        "CaskaydiaCove Nerd Font",
+        "FiraCode Nerd Font",
+        "MesloLGS NF",
+        "Consolas"
+    ],
+    "ui.theme.accent_color": "#F3BA2F",
+    "ui.theme.replace_color": "rgba(138.000, 180.000, 247.000, 1.000)"
 }

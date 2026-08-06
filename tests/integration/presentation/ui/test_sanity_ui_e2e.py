@@ -72,10 +72,11 @@ def test_sanity_boot_and_dashboard(qtbot, main_window):
     qtbot.addWidget(main_window)
 
     # Navigate to dashboard
-    qtbot.mouseClick(main_window.btn_dashboard, Qt.LeftButton)
+    btn_dashboard = main_window._sidebar._buttons["dashboard"]
+    qtbot.mouseClick(btn_dashboard, Qt.LeftButton)
 
     # Get the Dashboard Presenter and View from the Router
-    dashboard_cfg = main_window.router._registry.get("dashboard")
+    dashboard_cfg = main_window._router._registry.get("dashboard")
     assert dashboard_cfg is not None
     assert dashboard_cfg["view_instance"] is not None
 
@@ -106,9 +107,10 @@ def test_sanity_data_management_sync(qtbot, main_window):
     qtbot.addWidget(main_window)
 
     # Navigate to data management
-    qtbot.mouseClick(main_window.btn_database, Qt.LeftButton)
+    btn_database = main_window._sidebar._buttons["data_management"]
+    qtbot.mouseClick(btn_database, Qt.LeftButton)
 
-    data_mgt_cfg = main_window.router._registry.get("data_management")
+    data_mgt_cfg = main_window._router._registry.get("data_management")
     assert data_mgt_cfg is not None
     assert data_mgt_cfg["view_instance"] is not None
 

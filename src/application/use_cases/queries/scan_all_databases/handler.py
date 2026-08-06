@@ -1,0 +1,90 @@
+import logging
+from typing import List
+
+from Binace_Bot.src.application.ports.i_cqrs import IQueryHandler
+from Binace_Bot.src.application.ports.i_market_data_repository import (
+    IMarketDataRepository,
+)
+from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+    DatabaseStatusDTO,
+    ScanAllDatabasesQuery,
+)
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+
+logger = logging.getLogger("App.QueryHandler")
+
+STATUS_OK = "OK"
+
+
+class ScanAllDatabasesQueryHandler(
+    IQueryHandler[ScanAllDatabasesQuery, List[DatabaseStatusDTO]]
+):
+    """
+    @brief Handler for ScanAllDatabasesQuery.
+    @details Owns the nested iteration logic over all symbol/interval combinations,
+    removing this orchestration responsibility from the Presenter (Domain Leakage fix).
+    Entries with zero candles are skipped to avoid table clutter during bulk scans.
+    Returns a typed list of DatabaseStatusDTO — no raw dicts.
+    """
+
+    def __init__(self, repository: IMarketDataRepository) -> None:
+        self._repository = repository
+
+    def execute(self, query: ScanAllDatabasesQuery) -> List[DatabaseStatusDTO]:
+        """
+        @brief Scans all symbol/interval pairs and returns formatted status DTOs.
+        @param query ScanAllDatabasesQuery carrying the lists of symbols and intervals.
+        @return List of DatabaseStatusDTO, one per non-empty symbol/interval pair.
+        """
+        logger.debug(
+            f"Handling ScanAllDatabasesQuery for {len(query.symbols)} symbols "
+            f"x {len(query.intervals)} intervals."
+        )
+
+        results: List[DatabaseStatusDTO] = []
+
+        for symbol in query.symbols:
+            for interval in query.intervals:
+                dto = self._scan_single(symbol, interval)
+                if dto is not None:
+                    results.append(dto)
+
+        return results
+
+    def _scan_single(self, symbol: str, interval: str) -> DatabaseStatusDTO | None:
+        """
+        @brief Fetches and formats the status for a single symbol/interval pair.
+        @return A DatabaseStatusDTO, or None if the database is empty (total_candles == 0).
+        """
+        try:
+            interval_vo = TimeFrame(interval)
+        except ValueError:
+            logger.warning(f"Skipping invalid interval: {interval!r}")
+            return None
+
+        try:
+            raw = self._repository.get_database_status(
+                symbol=symbol, interval=interval_vo
+            )
+        except Exception as exc:
+            logger.error(f"Error scanning {symbol} ({interval}): {exc}")
+            return None
+
+        total_candles = int(raw.get("total_candles") or 0)
+
+        # Skip empty databases to prevent clutter during a "Scan All" operation.
+        if total_candles == 0:
+            return None
+
+        gaps_count = int(raw.get("gaps") or 0)
+        status_text = STATUS_OK if gaps_count == 0 else f"{gaps_count} gaps found!"
+
+        return DatabaseStatusDTO(
+            symbol=symbol,
+            interval=interval,
+            first_record=str(raw.get("first_record") or "N/A"),
+            last_record=str(raw.get("last_record") or "N/A"),
+            total_candles=str(total_candles),
+            gaps=str(gaps_count),
+            status_text=status_text,
+        )

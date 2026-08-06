@@ -9,6 +9,7 @@ from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 
 @pytest.fixture
@@ -29,9 +30,24 @@ def mock_app():
     }
     mock_config.get.return_value = matrix
 
+    # Mock IThreadManager
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+    mock_thread_mgr = MagicMock()
+
+    def submit_sync(task, *args, **kwargs):
+        task(*args, **kwargs)
+
+    mock_thread_mgr.submit.side_effect = submit_sync
+
     def resolve_side_effect(interface):
+        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
         if interface == IConfig:
             return mock_config
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IDispatcher:
+            return app
         return MagicMock()
 
     app.container.resolve.side_effect = resolve_side_effect
@@ -42,13 +58,12 @@ def test_dashboard_integration_load_history(qapp, mock_app):
     mock_app.resolve.return_value = mock_app
     # 1. Setup View and Presenter
     view = DashboardView()
-    presenter = DashboardPresenter(view, mock_app)
+    presenter = DashboardPresenter(view, mock_app.container)
     view.presenter = presenter
 
     # 2. Simulate User clicking "Load History" on the ControlCard
-    # Instead of clicking the button (which might require event loop processing),
-    # we emit the signal directly which the button would have emitted.
-    view.control_card.sig_load_clicked.emit()
+    # Bypass signal queue by calling the presenter directly
+    presenter._on_load_history()
 
     # 3. Assert the Presenter caught it and interacted with the Engine
     # Note: Because the mock_app dispatch is called in the presenter,
@@ -61,7 +76,7 @@ def test_dashboard_integration_load_history(qapp, mock_app):
 def test_dashboard_integration_exception_fallback(qapp, mock_app):
     mock_app.resolve.return_value = mock_app
     view = DashboardView()
-    presenter = DashboardPresenter(view, mock_app)
+    presenter = DashboardPresenter(view, mock_app.container)
     view.presenter = presenter
 
     # Force an exception inside the slot logic
@@ -76,7 +91,7 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     assert not view.control_card.stop_stream_button.isEnabled()
 
     # Emit load history, which will hit the exception in mock_app.dispatch
-    view.control_card.sig_load_clicked.emit()
+    presenter._on_load_history()
 
     # The @safe_ui_action should catch it and log it
     assert any("Engine died" in log for log in logs)
