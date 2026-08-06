@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.application.ports.i_market_data_repository import (
+    DatabaseStatusSnapshot,
     IMarketDataRepository,
 )
 from Binace_Bot.src.infrastructure.persistence.models import KlineModel
@@ -158,7 +159,9 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 )
             return results
 
-    def get_database_status(self, symbol: str, interval: TimeFrame) -> dict:
+    def get_database_status(
+        self, symbol: str, interval: TimeFrame
+    ) -> DatabaseStatusSnapshot:
         """
         @brief Retrieves status and gap count using SQLite Window Functions.
         """
@@ -198,28 +201,28 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             ).fetchone()
 
             if not result or result[2] == 0:
-                return {
-                    "first_record": None,
-                    "last_record": None,
-                    "total_candles": 0,
-                    "gaps": 0,
-                }
+                return DatabaseStatusSnapshot(
+                    first_record=None,
+                    last_record=None,
+                    total_candles=0,
+                    gaps=0,
+                )
 
-            return {
-                "first_record": result[0].replace(tzinfo=timezone.utc)
+            return DatabaseStatusSnapshot(
+                first_record=result[0].replace(tzinfo=timezone.utc)
                 if isinstance(result[0], datetime)
                 else (
                     datetime.fromisoformat(result[0]).replace(tzinfo=timezone.utc)
                     if result[0]
                     else None
                 ),
-                "last_record": result[1].replace(tzinfo=timezone.utc)
+                last_record=result[1].replace(tzinfo=timezone.utc)
                 if isinstance(result[1], datetime)
                 else (
                     datetime.fromisoformat(result[1]).replace(tzinfo=timezone.utc)
                     if result[1]
                     else None
                 ),
-                "total_candles": result[2],
-                "gaps": result[3] if result[3] is not None else 0,
-            }
+                total_candles=result[2],
+                gaps=result[3] if result[3] is not None else 0,
+            )

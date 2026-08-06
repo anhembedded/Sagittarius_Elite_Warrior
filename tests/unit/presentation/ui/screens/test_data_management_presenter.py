@@ -191,6 +191,33 @@ def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
     assert dispatched_query.intervals == ["1m"]
 
 
+def test_on_check_status_emits_dto_fields(presenter, mock_dispatcher):
+    """_on_check_status reads DatabaseStatusDTO attributes (not dict keys) from dispatch."""
+    dto = DatabaseStatusDTO(
+        symbol="BTCUSDT",
+        interval="1m",
+        first_record="2024-01-01",
+        last_record="2024-06-01",
+        total_candles="500",
+        gaps="2",
+        status_text="2 gaps found!",
+    )
+    mock_dispatcher.dispatch.return_value = dto
+
+    emitted = []
+    presenter.ui_status_table_signal.connect(
+        lambda sym, intv, fr, lr, tot, stat: emitted.append(
+            (sym, intv, fr, lr, tot, stat)
+        )
+    )
+
+    presenter._on_check_status()
+
+    assert emitted == [
+        ("BTCUSDT", "1m", "2024-01-01", "2024-06-01", "500", "2 gaps found!")
+    ]
+
+
 def test_run_scan_all_emits_signal_per_dto(presenter, mock_dispatcher):
     """Each DatabaseStatusDTO in the result emits one ui_status_table_signal."""
     dtos = [

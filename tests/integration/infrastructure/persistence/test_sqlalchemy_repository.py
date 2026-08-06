@@ -9,6 +9,9 @@ from Binace_Bot.src.infrastructure.persistence.database_manager import (
     DatabaseManager,
     DatabaseConfig,
 )
+from Binace_Bot.src.application.ports.i_market_data_repository import (
+    DatabaseStatusSnapshot,
+)
 
 
 @pytest.fixture
@@ -191,3 +194,38 @@ def test_multi_symbol_db_separation(repo):
     assert len(repo.db_manager._sessions) == 2
     assert "BTCUSDT" in repo.db_manager._sessions
     assert "ETHUSDT" in repo.db_manager._sessions
+
+
+def test_get_database_status_empty_database(repo):
+    """An empty database returns a zeroed, typed DatabaseStatusSnapshot — not a dict."""
+    status = repo.get_database_status("NOSUCHCOIN", TimeFrame.ONE_MINUTE)
+
+    assert isinstance(status, DatabaseStatusSnapshot)
+    assert status.first_record is None
+    assert status.last_record is None
+    assert status.total_candles == 0
+    assert status.gaps == 0
+
+
+def test_get_database_status_detects_gap(repo):
+    """A missing candle between two stored ones is counted as a gap."""
+    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=timezone.utc)
+    # dt3 skips minute 12:02 entirely -> one gap at the expected 1-minute interval.
+    dt3 = datetime(2023, 1, 1, 12, 5, tzinfo=timezone.utc)
+
+    repo.save_klines(
+        [
+            create_mock_kline("BTCUSDT", dt1),
+            create_mock_kline("BTCUSDT", dt2),
+            create_mock_kline("BTCUSDT", dt3),
+        ]
+    )
+
+    status = repo.get_database_status("BTCUSDT", TimeFrame.ONE_MINUTE)
+
+    assert isinstance(status, DatabaseStatusSnapshot)
+    assert status.first_record == dt1
+    assert status.last_record == dt3
+    assert status.total_candles == 3
+    assert status.gaps == 1

@@ -3,13 +3,11 @@ import logging
 from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from .command import BulkSyncMarketDataCommand
 from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
-)
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.handler import (
-    SyncMarketDataCommandHandler,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.config.config_keys import ConfigKeys
@@ -20,17 +18,21 @@ class BulkSyncMarketDataCommandHandler(
 ):
     """
     @brief Handler for BulkSyncMarketDataCommand. Orchestrates bulk sync sequentially.
+    @details Depends on IDispatcher rather than the concrete SyncMarketDataCommandHandler
+    (Dependency Inversion) — dispatches SyncMarketDataCommand the same way the
+    Presenter layer already does, instead of holding a direct reference to another
+    use case's handler.
     """
 
     def __init__(
         self,
         event_bus: IEventBus,
         config: IConfig,
-        sync_handler: SyncMarketDataCommandHandler,
+        dispatcher: IDispatcher,
     ) -> None:
         self.event_bus = event_bus
         self.config = config
-        self.sync_handler = sync_handler
+        self.dispatcher = dispatcher
         self.logger = logging.getLogger("App.BulkSync")
 
     def execute(self, command: BulkSyncMarketDataCommand) -> None:
@@ -72,7 +74,7 @@ class BulkSyncMarketDataCommandHandler(
                     start_time=None,
                     end_time=None,
                 )
-                self.sync_handler.execute(sync_cmd)
+                self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
                 # Emit progress event
                 self.event_bus.emit(

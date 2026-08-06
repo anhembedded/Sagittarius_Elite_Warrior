@@ -13,8 +13,6 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 logger = logging.getLogger("App.QueryHandler")
 
-STATUS_OK = "OK"
-
 
 class ScanAllDatabasesQueryHandler(
     IQueryHandler[ScanAllDatabasesQuery, List[DatabaseStatusDTO]]
@@ -63,28 +61,15 @@ class ScanAllDatabasesQueryHandler(
             return None
 
         try:
-            raw = self._repository.get_database_status(
+            snapshot = self._repository.get_database_status(
                 symbol=symbol, interval=interval_vo
             )
         except Exception as exc:
             logger.error(f"Error scanning {symbol} ({interval}): {exc}")
             return None
 
-        total_candles = int(raw.get("total_candles") or 0)
-
         # Skip empty databases to prevent clutter during a "Scan All" operation.
-        if total_candles == 0:
+        if snapshot.total_candles == 0:
             return None
 
-        gaps_count = int(raw.get("gaps") or 0)
-        status_text = STATUS_OK if gaps_count == 0 else f"{gaps_count} gaps found!"
-
-        return DatabaseStatusDTO(
-            symbol=symbol,
-            interval=interval,
-            first_record=str(raw.get("first_record") or "N/A"),
-            last_record=str(raw.get("last_record") or "N/A"),
-            total_candles=str(total_candles),
-            gaps=str(gaps_count),
-            status_text=status_text,
-        )
+        return DatabaseStatusDTO.from_snapshot(symbol, interval, snapshot)

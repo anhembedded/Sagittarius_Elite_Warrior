@@ -1,8 +1,10 @@
-from typing import Dict, Any
 import logging
 from Binace_Bot.src.application.ports.i_cqrs import IQueryHandler
 from Binace_Bot.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
+)
+from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+    DatabaseStatusDTO,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.application.ports.i_market_data_repository import (
@@ -13,17 +15,19 @@ logger = logging.getLogger("App.QueryHandler")
 
 
 class GetDatabaseStatusQueryHandler(
-    IQueryHandler[GetDatabaseStatusQuery, Dict[str, Any]]
+    IQueryHandler[GetDatabaseStatusQuery, DatabaseStatusDTO]
 ):
     """
     @brief Handler for GetDatabaseStatusQuery.
     @details Fetches the status of the local database for a specific symbol/interval.
+    Returns a typed DatabaseStatusDTO — consistent with ScanAllDatabasesQueryHandler,
+    no raw dict.
     """
 
     def __init__(self, repository: IMarketDataRepository) -> None:
         self.repository = repository
 
-    def execute(self, query: GetDatabaseStatusQuery) -> Dict[str, Any]:
+    def execute(self, query: GetDatabaseStatusQuery) -> DatabaseStatusDTO:
         logger.debug(
             f"Handling GetDatabaseStatusQuery for {query.symbol} at {query.interval}"
         )
@@ -34,6 +38,7 @@ class GetDatabaseStatusQueryHandler(
             logger.error(f"Invalid interval provided to query: {query.interval}")
             raise ValueError(f"Invalid interval: {query.interval}") from e
 
-        return self.repository.get_database_status(
+        snapshot = self.repository.get_database_status(
             symbol=query.symbol, interval=interval_vo
         )
+        return DatabaseStatusDTO.from_snapshot(query.symbol, query.interval, snapshot)

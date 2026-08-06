@@ -27,22 +27,22 @@ def mock_config():
 
 
 @pytest.fixture
-def mock_sync_handler():
+def mock_dispatcher():
     return Mock()
 
 
 @pytest.fixture
-def handler(mock_event_bus, mock_config, mock_sync_handler):
+def handler(mock_event_bus, mock_config, mock_dispatcher):
     return BulkSyncMarketDataCommandHandler(
-        event_bus=mock_event_bus, config=mock_config, sync_handler=mock_sync_handler
+        event_bus=mock_event_bus, config=mock_config, dispatcher=mock_dispatcher
     )
 
 
-def test_bulk_sync_empty_targets(handler, mock_event_bus, mock_sync_handler):
+def test_bulk_sync_empty_targets(handler, mock_event_bus, mock_dispatcher):
     cmd = BulkSyncMarketDataCommand(targets=[])
     handler.execute(cmd)
 
-    mock_sync_handler.execute.assert_not_called()
+    mock_dispatcher.dispatch.assert_not_called()
     assert mock_event_bus.emit.call_count == 1
 
     event = mock_event_bus.emit.call_args[0][0]
@@ -53,7 +53,7 @@ def test_bulk_sync_empty_targets(handler, mock_event_bus, mock_sync_handler):
 
 @patch("time.sleep")
 def test_bulk_sync_success(
-    mock_sleep, handler, mock_event_bus, mock_sync_handler, mock_config
+    mock_sleep, handler, mock_event_bus, mock_dispatcher, mock_config
 ):
     # Set config rate limit delay to 100ms
     mock_config.get.side_effect = lambda key, default: (
@@ -65,20 +65,22 @@ def test_bulk_sync_success(
 
     handler.execute(cmd)
 
-    # Check that individual sync handler was called twice
-    assert mock_sync_handler.execute.call_count == 2
+    # Check that the dispatcher was used (DIP: no direct SyncMarketDataCommandHandler ref)
+    assert mock_dispatcher.dispatch.call_count == 2
 
-    # First sync call
-    call1 = mock_sync_handler.execute.call_args_list[0][0][0]
-    assert isinstance(call1, SyncMarketDataCommand)
-    assert call1.symbols == ["BTCUSDT"]
-    assert call1.interval.value == "1m"
+    # First dispatch call
+    call1_type, call1_cmd = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert call1_type == SyncMarketDataCommand
+    assert isinstance(call1_cmd, SyncMarketDataCommand)
+    assert call1_cmd.symbols == ["BTCUSDT"]
+    assert call1_cmd.interval.value == "1m"
 
-    # Second sync call
-    call2 = mock_sync_handler.execute.call_args_list[1][0][0]
-    assert isinstance(call2, SyncMarketDataCommand)
-    assert call2.symbols == ["ETHUSDT"]
-    assert call2.interval.value == "5m"
+    # Second dispatch call
+    call2_type, call2_cmd = mock_dispatcher.dispatch.call_args_list[1][0]
+    assert call2_type == SyncMarketDataCommand
+    assert isinstance(call2_cmd, SyncMarketDataCommand)
+    assert call2_cmd.symbols == ["ETHUSDT"]
+    assert call2_cmd.interval.value == "5m"
 
     # Check that sleep was called exactly once (between 2 targets)
     assert mock_sleep.call_count == 1
@@ -101,19 +103,17 @@ def test_bulk_sync_success(
 
 
 @patch("time.sleep")
-def test_bulk_sync_error_handling(
-    mock_sleep, handler, mock_event_bus, mock_sync_handler
-):
+def test_bulk_sync_error_handling(mock_sleep, handler, mock_event_bus, mock_dispatcher):
     targets = [("BTCUSDT", "1m"), ("ETHUSDT", "5m")]
     cmd = BulkSyncMarketDataCommand(targets=targets)
 
     # Simulate an error on the first sync
-    mock_sync_handler.execute.side_effect = [Exception("Network Error"), None]
+    mock_dispatcher.dispatch.side_effect = [Exception("Network Error"), None]
 
     handler.execute(cmd)
 
-    # Sync was called twice despite the first one failing
-    assert mock_sync_handler.execute.call_count == 2
+    # Dispatch was called twice despite the first one failing
+    assert mock_dispatcher.dispatch.call_count == 2
 
     # Events emitted: 1 error progress, 1 success progress, 1 complete = 3 total
     assert mock_event_bus.emit.call_count == 3

@@ -9,6 +9,9 @@ from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query impor
 from Binace_Bot.src.application.use_cases.queries.scan_all_databases.handler import (
     ScanAllDatabasesQueryHandler,
 )
+from Binace_Bot.src.application.ports.i_market_data_repository import (
+    DatabaseStatusSnapshot,
+)
 
 
 @pytest.fixture
@@ -23,12 +26,12 @@ def handler(mock_repo):
 
 def test_returns_dto_list_for_non_empty_databases(handler, mock_repo):
     """Handler returns one DatabaseStatusDTO per non-empty symbol/interval pair."""
-    mock_repo.get_database_status.return_value = {
-        "first_record": datetime(2024, 1, 1, tzinfo=timezone.utc),
-        "last_record": datetime(2024, 6, 1, tzinfo=timezone.utc),
-        "total_candles": 500,
-        "gaps": 0,
-    }
+    mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
+        first_record=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        last_record=datetime(2024, 6, 1, tzinfo=timezone.utc),
+        total_candles=500,
+        gaps=0,
+    )
 
     query = ScanAllDatabasesQuery(symbols=["BTCUSDT"], intervals=["1h"])
     results = handler.execute(query)
@@ -45,12 +48,12 @@ def test_returns_dto_list_for_non_empty_databases(handler, mock_repo):
 
 def test_skips_empty_databases(handler, mock_repo):
     """Entries with total_candles == 0 are silently skipped."""
-    mock_repo.get_database_status.return_value = {
-        "first_record": None,
-        "last_record": None,
-        "total_candles": 0,
-        "gaps": 0,
-    }
+    mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
+        first_record=None,
+        last_record=None,
+        total_candles=0,
+        gaps=0,
+    )
 
     query = ScanAllDatabasesQuery(symbols=["BTCUSDT", "ETHUSDT"], intervals=["1m"])
     results = handler.execute(query)
@@ -62,12 +65,12 @@ def test_skips_empty_databases(handler, mock_repo):
 
 def test_gap_detected_sets_correct_status_text(handler, mock_repo):
     """When gaps > 0, status_text should contain the gap count."""
-    mock_repo.get_database_status.return_value = {
-        "first_record": datetime(2024, 1, 1, tzinfo=timezone.utc),
-        "last_record": datetime(2024, 6, 1, tzinfo=timezone.utc),
-        "total_candles": 1000,
-        "gaps": 3,
-    }
+    mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
+        first_record=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        last_record=datetime(2024, 6, 1, tzinfo=timezone.utc),
+        total_candles=1000,
+        gaps=3,
+    )
 
     query = ScanAllDatabasesQuery(symbols=["BTCUSDT"], intervals=["1m"])
     results = handler.execute(query)
@@ -79,12 +82,12 @@ def test_gap_detected_sets_correct_status_text(handler, mock_repo):
 
 def test_iterates_all_symbol_interval_combinations(handler, mock_repo):
     """Handler iterates the full cartesian product of symbols × intervals."""
-    mock_repo.get_database_status.return_value = {
-        "first_record": "2024-01-01",
-        "last_record": "2024-12-01",
-        "total_candles": 100,
-        "gaps": 0,
-    }
+    mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
+        first_record=None,
+        last_record=None,
+        total_candles=100,
+        gaps=0,
+    )
 
     query = ScanAllDatabasesQuery(
         symbols=["BTCUSDT", "ETHUSDT"],
@@ -118,12 +121,9 @@ def test_repository_exception_is_caught_per_pair(handler, mock_repo):
     """A repository error on one pair does not abort the whole scan."""
     mock_repo.get_database_status.side_effect = [
         Exception("DB connection failed"),
-        {
-            "first_record": "2024-01-01",
-            "last_record": "2024-12-01",
-            "total_candles": 200,
-            "gaps": 0,
-        },
+        DatabaseStatusSnapshot(
+            first_record=None, last_record=None, total_candles=200, gaps=0
+        ),
     ]
 
     query = ScanAllDatabasesQuery(symbols=["BTCUSDT", "ETHUSDT"], intervals=["1h"])
@@ -136,12 +136,9 @@ def test_repository_exception_is_caught_per_pair(handler, mock_repo):
 
 def test_dto_is_frozen(handler, mock_repo):
     """DatabaseStatusDTO must be immutable (frozen=True)."""
-    mock_repo.get_database_status.return_value = {
-        "first_record": "2024-01-01",
-        "last_record": "2024-12-01",
-        "total_candles": 50,
-        "gaps": 0,
-    }
+    mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
+        first_record=None, last_record=None, total_candles=50, gaps=0
+    )
 
     query = ScanAllDatabasesQuery(symbols=["BTCUSDT"], intervals=["1m"])
     results = handler.execute(query)

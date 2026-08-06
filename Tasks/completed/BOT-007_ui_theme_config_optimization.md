@@ -9,10 +9,15 @@
 Tập hợp các cải tiến UI giúp giao diện chuyên nghiệp hơn, tùy biến màu sắc linh hoạt mà không cần sửa code Python, đồng thời chuẩn hóa cấu trúc component.
 
 ## 3. Các bước thực hiện (Action Items)
-- [ ] **Đổi QWidget thành QFrame cho các Card:** Chuyển class cha của `ControlCard` và `MonitorCard` từ `QWidget` sang `QFrame` (hoặc kế thừa `BaseCard`) để hỗ trợ QSS styling tốt hơn.
-- [ ] **Cấu hình UI linh hoạt:** Bổ sung section `ui` trong `src/config/user_config.json` chứa: `font_family`, `font_size`, `colors.primary`, `colors.accent`.
-- [ ] **Tái cấu trúc Layout DashboardView:** Chuyển từ `QHBoxLayout` cứng sang `QGridLayout` linh hoạt hơn khi cần chèn thêm các Sub-card (PnL summary, Order History) bên dưới.
-- [ ] **Lắp ráp Presenter chuẩn MVP:** Khởi tạo `DashboardPresenter` trong `app_bootstrapper.py` / `main_window.py` và truyền `container` của engine vào MainWindow.
+- [x] **Đổi QWidget thành QFrame cho các Card:** `ControlCard`/`MonitorCard` đã kế thừa `BaseCard` (là `QFrame`) từ một đợt refactor trước đó — không còn `QWidget` trực tiếp.
+- [x] **Cấu hình UI linh hoạt:** `user_config.json` đã có `ui.font.family`, `ui.font.size`, `ui.font.fallbacks`, `ui.theme.accent_color`, `ui.theme.replace_color`; được đọc qua `ConfigKeys` trong `app_bootstrapper.py::_apply_font()`/`_apply_theme()`.
+- [~] **Tái cấu trúc Layout DashboardView:** *Bỏ qua có chủ đích* — xem Ghi chú hoàn thành.
+- [x] **Lắp ráp Presenter chuẩn MVP:** `DashboardPresenter` đã được đăng ký qua `PresenterManager`/`RouterManager` trong `main_window.py::_setup_router()`, nhận `container` của engine lazy khi navigate tới màn hình.
 
 ## 4. Rủi ro / Lưu ý (Constraints & Risks)
 - Đảm bảo fallback font hợp lý nếu hệ thống thiếu `JetBrainsMono Nerd Font`.
+
+## 5. Ghi chú hoàn thành (Completion Notes)
+- Khi rà soát lại, 3/4 mục đã được hoàn thành từ một đợt refactor UI trước đó (task doc này bị lỗi thời, chưa cập nhật theo).
+- **Mục "Chuyển sang QGridLayout" bị hoãn có chủ đích**: lý do ban đầu là "để dễ chèn sub-card (PnL summary, Order History)", nhưng các sub-card đó chưa tồn tại trong code. Đổi layout ngay bây giờ sẽ là đoán trước hình dạng grid mà không có gì để kiểm chứng — rủi ro đoán sai rồi phải sửa lại khi sub-card thật xuất hiện. Sẽ làm khi PnL/Order History card được đặc tả cụ thể.
+- Verify: `scripts/ci-local.ps1` pass (không có thay đổi code, chỉ audit lại trạng thái).

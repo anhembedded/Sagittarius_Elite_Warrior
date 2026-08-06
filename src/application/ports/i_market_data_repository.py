@@ -1,8 +1,26 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+
+
+@dataclass(frozen=True)
+class DatabaseStatusSnapshot:
+    """
+    @brief Raw, typed result of a database status lookup — replaces the untyped
+    dict this port used to return (Primitive Obsession).
+    @details Deliberately NOT the display-formatted DatabaseStatusDTO used by the
+    query handlers: keeping repository results in their natural types (datetime,
+    int) keeps formatting/"OK" vs "N gaps found!" text out of the infrastructure
+    layer. See DatabaseStatusDTO.from_snapshot() for the mapping.
+    """
+
+    first_record: Optional[datetime]
+    last_record: Optional[datetime]
+    total_candles: int
+    gaps: int
 
 
 class IMarketDataRepository(ABC):
@@ -43,9 +61,11 @@ class IMarketDataRepository(ABC):
         pass
 
     @abstractmethod
-    def get_database_status(self, symbol: str, interval: TimeFrame) -> dict:
+    def get_database_status(
+        self, symbol: str, interval: TimeFrame
+    ) -> DatabaseStatusSnapshot:
         """
         @brief Gets database status for a specific symbol/interval.
-        @return dict containing first_record, last_record, total_candles, gaps.
+        @return A DatabaseStatusSnapshot with first_record, last_record, total_candles, gaps.
         """
         pass

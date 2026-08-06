@@ -177,18 +177,21 @@ class DataManagementPresenter(BasePresenter):
         query = GetDatabaseStatusQuery(symbol=symbol, interval=interval)
         try:
             response = self.dispatcher.dispatch(GetDatabaseStatusQuery, query)
-            status = getattr(response, "data", response) if response else {}
-
-            first_record = str(status.get("first_record") or "N/A")
-            last_record = str(status.get("last_record") or "N/A")
-            total = str(status.get("total_candles") or "0")
-            gaps = str(status.get("gaps") or "0")
-            status_text = (
-                self.STATUS_OK if status.get("gaps") == 0 else f"{gaps} gaps found!"
+            status: DatabaseStatusDTO | None = (
+                getattr(response, "data", response) if response else None
             )
 
+            if status is None:
+                self.ui_log_signal.emit("No status data returned.")
+                return
+
             self.ui_status_table_signal.emit(
-                symbol, interval, first_record, last_record, total, status_text
+                symbol,
+                interval,
+                status.first_record,
+                status.last_record,
+                status.total_candles,
+                status.status_text,
             )
             self.ui_log_signal.emit("Scan complete.")
         except Exception as exc:
