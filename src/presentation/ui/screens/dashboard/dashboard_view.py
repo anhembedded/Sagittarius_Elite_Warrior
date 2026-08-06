@@ -44,7 +44,9 @@ class DashboardView(QWidget):
         self.charts_layout = QVBoxLayout(self.charts_container)
         self.charts_layout.setContentsMargins(0, 0, 0, 0)
         self.charts_layout.setSpacing(15)
-        self.charts_layout.addStretch()  # Push items up
+        # No trailing stretch here: chart cards are added with a stretch factor
+        # (see render_symbol_cards) so they expand to fill the available height
+        # instead of being squeezed to their minimum size with empty space below.
 
         self.scroll_area.setWidget(self.charts_container)
 
@@ -70,8 +72,8 @@ class DashboardView(QWidget):
         @brief Dynamically instantiates ChartCards for given symbols.
         @returns A list of the created ChartCards.
         """
-        # Clear existing cards first (except stretch)
-        for i in reversed(range(self.charts_layout.count() - 1)):
+        # Clear existing cards first
+        for i in reversed(range(self.charts_layout.count())):
             item = self.charts_layout.itemAt(i)
             widget = item.widget()
             if widget:
@@ -87,15 +89,13 @@ class DashboardView(QWidget):
 
         self.chart_cards = []
 
-        # We need to insert before the stretch item
-        stretch_index = self.charts_layout.count() - 1
-
         for symbol in symbols:
             from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
 
             card = ChartCard(symbol)
             self.chart_cards.append(card)
-            self.charts_layout.insertWidget(stretch_index, card)
-            stretch_index += 1
+            # Stretch factor 1: cards share the full available height instead of
+            # shrinking to their minimum size (there is no trailing spacer item).
+            self.charts_layout.addWidget(card, 1)
 
         return self.chart_cards

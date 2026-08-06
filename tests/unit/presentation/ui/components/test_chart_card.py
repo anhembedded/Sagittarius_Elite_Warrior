@@ -1,3 +1,4 @@
+import pyqtgraph as pg
 import pytest
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
@@ -139,22 +140,27 @@ def test_chart_card_indicator_toggle_and_remove(qapp):
     assert "SMA_20" not in card.indicators._legend_labels
 
 
-def test_chart_card_zoom_controls(qapp):
+def test_chart_card_zoom_controls_horizontal(qapp):
     """
-    Test that the +/-/reset zoom buttons work via click alone — no scroll wheel needed —
-    narrowing/widening the visible X range, and that reset restores the full-data view.
+    Test that H+/H-/reset work via click alone — no scroll wheel needed — narrowing/
+    widening the visible X range (Y untouched), and that reset restores the full view.
     """
     card = ChartCard("BTCUSDT")
     data = [(1000.0 + i * 60, 100 + i, 105 + i, 95 + i, 102 + i) for i in range(50)]
     card.render_historical_data(data)
 
-    (x_min_before, x_max_before), _ = card.plot_layout.main_plot.vb.viewRange()
+    (x_min_before, x_max_before), (y_min_before, y_max_before) = (
+        card.plot_layout.main_plot.vb.viewRange()
+    )
 
-    card.zoom_controls._zoom_in_btn.click()
-    (x_min_in, x_max_in), _ = card.plot_layout.main_plot.vb.viewRange()
+    card.zoom_controls._h_in_btn.click()
+    (x_min_in, x_max_in), (y_min_in, y_max_in) = (
+        card.plot_layout.main_plot.vb.viewRange()
+    )
     assert (x_max_in - x_min_in) < (x_max_before - x_min_before)
+    assert (y_min_in, y_max_in) == (y_min_before, y_max_before)  # Y untouched
 
-    card.zoom_controls._zoom_out_btn.click()
+    card.zoom_controls._h_out_btn.click()
     (x_min_out, x_max_out), _ = card.plot_layout.main_plot.vb.viewRange()
     assert (x_max_out - x_min_out) > (x_max_in - x_min_in)
 
@@ -166,6 +172,51 @@ def test_chart_card_zoom_controls(qapp):
     assert (x_max_reset - x_min_reset) > (x_max_in - x_min_in)
     assert x_min_reset <= data[0][0]
     assert x_max_reset >= data[-1][0]
+
+
+def test_chart_card_zoom_controls_vertical(qapp):
+    """
+    Test that V+/V- scale the Y axis only (X untouched), disabling Y auto-range as a
+    side effect, and that reset re-enables Y auto-range afterwards.
+    """
+    card = ChartCard("BTCUSDT")
+    data = [(1000.0 + i * 60, 100 + i, 105 + i, 95 + i, 102 + i) for i in range(50)]
+    card.render_historical_data(data)
+    vb = card.plot_layout.main_plot.vb
+
+    (x_min_before, x_max_before), (y_min_before, y_max_before) = vb.viewRange()
+
+    card.zoom_controls._v_in_btn.click()
+    (x_min_in, x_max_in), (y_min_in, y_max_in) = vb.viewRange()
+    assert (x_min_in, x_max_in) == (x_min_before, x_max_before)  # X untouched
+    assert (y_max_in - y_min_in) < (y_max_before - y_min_before)
+    assert vb.state["autoRange"][1] is False  # Manual Y zoom disables Y auto-range
+
+    card.zoom_controls._v_out_btn.click()
+    (_, _), (y_min_out, y_max_out) = vb.viewRange()
+    assert (y_max_out - y_min_out) > (y_max_in - y_min_in)
+
+    card.zoom_controls._reset_btn.click()
+    assert vb.state["autoRange"][1]  # Reset restores continuous Y auto-range
+
+
+def test_chart_card_zoom_controls_box_zoom_toggle(qapp):
+    """
+    Test that the box-zoom button toggles the ViewBox into RectMode, and that it
+    auto-reverts to normal pan mode once the user finishes a drag (one-shot tool).
+    """
+    card = ChartCard("BTCUSDT")
+    vb = card.plot_layout.main_plot.vb
+    assert vb.state["mouseMode"] == pg.ViewBox.PanMode
+
+    card.zoom_controls._box_btn.setChecked(True)
+    assert vb.state["mouseMode"] == pg.ViewBox.RectMode
+
+    # A completed drag (of any kind) emits sigRangeChangedManually — box zoom should
+    # treat that as "the one drag it was armed for" and revert itself.
+    vb.sigRangeChangedManually.emit([True, True])
+    assert card.zoom_controls._box_btn.isChecked() is False
+    assert vb.state["mouseMode"] == pg.ViewBox.PanMode
 
 
 def test_chart_card_viewport_follow_and_jump_to_live(qapp):
