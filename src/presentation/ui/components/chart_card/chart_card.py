@@ -7,16 +7,17 @@ from .plot_layout import ChartPlotLayout
 from .price_line import LastPriceLine
 from .viewport_controller import ViewportController
 from .volume_renderer import VolumeItem
+from .zoom_controls import ZoomControls
 
 
 class ChartCard(BaseCard):
     """
     @brief The Chart component for visualizing Candlestick data & Extensible Technical Indicators.
     @details Facade Pattern — composes ChartPlotLayout, CrosshairController, IndicatorManager,
-    VolumeItem, LastPriceLine, ViewportController and FastCandlestickItem, and exposes one stable
-    API surface to the Presenter. Each collaborator owns exactly one concern (layout, crosshair,
-    indicators, volume, last-price, viewport-follow, rendering), keeping this class a thin
-    orchestrator instead of a God Object.
+    VolumeItem, LastPriceLine, ViewportController, ZoomControls and FastCandlestickItem, and
+    exposes one stable API surface to the Presenter. Each collaborator owns exactly one concern
+    (layout, crosshair, indicators, volume, last-price, viewport-follow, zoom, rendering), keeping
+    this class a thin orchestrator instead of a God Object.
     """
 
     def __init__(self, symbol: str, parent=None):
@@ -49,6 +50,11 @@ class ChartCard(BaseCard):
         )
 
         self.viewport = ViewportController(
+            plot=self.plot_layout.main_plot,
+            canvas=self.plot_layout.widget,
+        )
+
+        self.zoom_controls = ZoomControls(
             plot=self.plot_layout.main_plot,
             canvas=self.plot_layout.widget,
         )
@@ -135,6 +141,7 @@ class ChartCard(BaseCard):
         """
         @brief Garbage collection method. Strict cleanup of C++ bindings.
         """
+        self.zoom_controls.dispose()
         self.viewport.dispose()
         self.crosshair.dispose()
         self.indicators.clear()

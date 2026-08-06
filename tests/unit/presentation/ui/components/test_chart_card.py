@@ -139,6 +139,35 @@ def test_chart_card_indicator_toggle_and_remove(qapp):
     assert "SMA_20" not in card.indicators._legend_labels
 
 
+def test_chart_card_zoom_controls(qapp):
+    """
+    Test that the +/-/reset zoom buttons work via click alone — no scroll wheel needed —
+    narrowing/widening the visible X range, and that reset restores the full-data view.
+    """
+    card = ChartCard("BTCUSDT")
+    data = [(1000.0 + i * 60, 100 + i, 105 + i, 95 + i, 102 + i) for i in range(50)]
+    card.render_historical_data(data)
+
+    (x_min_before, x_max_before), _ = card.plot_layout.main_plot.vb.viewRange()
+
+    card.zoom_controls._zoom_in_btn.click()
+    (x_min_in, x_max_in), _ = card.plot_layout.main_plot.vb.viewRange()
+    assert (x_max_in - x_min_in) < (x_max_before - x_min_before)
+
+    card.zoom_controls._zoom_out_btn.click()
+    (x_min_out, x_max_out), _ = card.plot_layout.main_plot.vb.viewRange()
+    assert (x_max_out - x_min_out) > (x_max_in - x_min_in)
+
+    card.zoom_controls._reset_btn.click()
+    (x_min_reset, x_max_reset), _ = card.plot_layout.main_plot.vb.viewRange()
+    # Reset must show the full data range again — wider than the zoomed-in view and
+    # covering every candle (not pinned to the exact pre-zoom pixel padding, which
+    # pyqtgraph itself doesn't guarantee to reproduce bit-for-bit via autoRange()).
+    assert (x_max_reset - x_min_reset) > (x_max_in - x_min_in)
+    assert x_min_reset <= data[0][0]
+    assert x_max_reset >= data[-1][0]
+
+
 def test_chart_card_viewport_follow_and_jump_to_live(qapp):
     """
     Test that a user-driven pan/zoom (sigRangeChangedManually) stops auto-follow and
