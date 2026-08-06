@@ -7,8 +7,9 @@ Key design changes from the refactor:
   via thread_manager.submit(method, *args) — NOT as inline closures.
 - _on_check_all_status dispatches ScanAllDatabasesQuery (single dispatch, no loop).
 """
+
 import pytest
-from unittest.mock import Mock, call
+from unittest.mock import Mock
 from datetime import datetime, timezone
 
 from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import (
@@ -26,6 +27,7 @@ from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query impor
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_thread_mgr():
@@ -83,6 +85,7 @@ def presenter(mock_view, mock_container):
 # _on_sync_data — no custom time
 # ---------------------------------------------------------------------------
 
+
 def test_on_sync_data_submits_background_task(presenter, mock_thread_mgr):
     """_on_sync_data must lock FSM and submit _run_single_sync to thread manager."""
     presenter._on_sync_data()
@@ -93,10 +96,10 @@ def test_on_sync_data_submits_background_task(presenter, mock_thread_mgr):
     # Submitted as (method, symbol, interval, start_time, end_time)
     submit_args = mock_thread_mgr.submit.call_args[0]
     assert submit_args[0] == presenter._run_single_sync
-    assert submit_args[1] == "BTCUSDT"   # symbol
-    assert submit_args[2] == "1m"        # interval
-    assert submit_args[3] is None        # start_time
-    assert submit_args[4] is None        # end_time
+    assert submit_args[1] == "BTCUSDT"  # symbol
+    assert submit_args[2] == "1m"  # interval
+    assert submit_args[3] is None  # start_time
+    assert submit_args[4] is None  # end_time
 
 
 def test_run_single_sync_dispatches_command(presenter, mock_dispatcher):
@@ -117,6 +120,7 @@ def test_run_single_sync_dispatches_command(presenter, mock_dispatcher):
 # ---------------------------------------------------------------------------
 # _on_sync_data — with custom time
 # ---------------------------------------------------------------------------
+
 
 def test_on_sync_data_with_custom_time_passes_timestamps(
     presenter, mock_thread_mgr, mock_view
@@ -142,7 +146,9 @@ def test_on_sync_data_with_custom_time_passes_timestamps(
     assert submit_args[4] == end_dt.replace(tzinfo=timezone.utc)
 
 
-def test_run_single_sync_with_timestamps_dispatches_correctly(presenter, mock_dispatcher):
+def test_run_single_sync_with_timestamps_dispatches_correctly(
+    presenter, mock_dispatcher
+):
     """_run_single_sync correctly passes start/end times into the command."""
     start = datetime(2023, 1, 1, tzinfo=timezone.utc)
     end = datetime(2023, 1, 2, tzinfo=timezone.utc)
@@ -157,6 +163,7 @@ def test_run_single_sync_with_timestamps_dispatches_correctly(presenter, mock_di
 # ---------------------------------------------------------------------------
 # _on_check_all_status — dispatches ScanAllDatabasesQuery (single dispatch)
 # ---------------------------------------------------------------------------
+
 
 def test_on_check_all_status_submits_background_task(presenter, mock_thread_mgr):
     """_on_check_all_status must lock FSM and submit _run_scan_all."""
@@ -188,14 +195,22 @@ def test_run_scan_all_emits_signal_per_dto(presenter, mock_dispatcher):
     """Each DatabaseStatusDTO in the result emits one ui_status_table_signal."""
     dtos = [
         DatabaseStatusDTO(
-            symbol="BTCUSDT", interval="1m",
-            first_record="2024-01-01", last_record="2024-06-01",
-            total_candles="500", gaps="0", status_text="OK",
+            symbol="BTCUSDT",
+            interval="1m",
+            first_record="2024-01-01",
+            last_record="2024-06-01",
+            total_candles="500",
+            gaps="0",
+            status_text="OK",
         ),
         DatabaseStatusDTO(
-            symbol="ETHUSDT", interval="1m",
-            first_record="2024-01-01", last_record="2024-06-01",
-            total_candles="300", gaps="2", status_text="2 gaps found!",
+            symbol="ETHUSDT",
+            interval="1m",
+            first_record="2024-01-01",
+            last_record="2024-06-01",
+            total_candles="300",
+            gaps="2",
+            status_text="2 gaps found!",
         ),
     ]
     mock_dispatcher.dispatch.return_value = dtos

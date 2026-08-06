@@ -57,9 +57,7 @@ class Sidebar(QWidget):
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-    def _build_nav_buttons(
-        self, layout: QVBoxLayout, routes: List[NavRoute]
-    ) -> None:
+    def _build_nav_buttons(self, layout: QVBoxLayout, routes: List[NavRoute]) -> None:
         for label, route_name in routes:
             btn = QPushButton(label)
             btn.setCheckable(True)

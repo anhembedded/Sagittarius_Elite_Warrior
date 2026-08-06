@@ -2,6 +2,8 @@ import pytest
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
 from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
+
+
 def test_chart_card_initialization(qapp):
     """
     Test that ChartCard initializes correctly with the given symbol.

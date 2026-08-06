@@ -84,6 +84,7 @@ def main() -> None:
 # Private helpers — each owns exactly one bootstrap concern
 # ------------------------------------------------------------------ #
 
+
 def _install_exception_handler(app_engine) -> None:
     """Install a global Qt exception handler that logs and shows a dialog."""
 

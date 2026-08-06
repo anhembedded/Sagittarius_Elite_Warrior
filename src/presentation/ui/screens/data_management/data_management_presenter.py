@@ -220,11 +220,11 @@ class DataManagementPresenter(BasePresenter):
         start_time: Optional[datetime] = None
         end_time: Optional[datetime] = None
         if self.view.chk_custom_time.isChecked():
-            start_time = self.view.dt_from.dateTime().toPython().replace(
-                tzinfo=timezone.utc
+            start_time = (
+                self.view.dt_from.dateTime().toPython().replace(tzinfo=timezone.utc)
             )
-            end_time = self.view.dt_to.dateTime().toPython().replace(
-                tzinfo=timezone.utc
+            end_time = (
+                self.view.dt_to.dateTime().toPython().replace(tzinfo=timezone.utc)
             )
 
         self._thread_manager.submit(

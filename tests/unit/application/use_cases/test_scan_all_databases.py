@@ -9,7 +9,6 @@ from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query impor
 from Binace_Bot.src.application.use_cases.queries.scan_all_databases.handler import (
     ScanAllDatabasesQueryHandler,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 
 @pytest.fixture
@@ -108,9 +107,7 @@ def test_iterates_all_symbol_interval_combinations(handler, mock_repo):
 
 def test_invalid_interval_is_skipped_gracefully(handler, mock_repo):
     """Invalid interval strings are skipped without raising an exception."""
-    query = ScanAllDatabasesQuery(
-        symbols=["BTCUSDT"], intervals=["invalid_interval"]
-    )
+    query = ScanAllDatabasesQuery(symbols=["BTCUSDT"], intervals=["invalid_interval"])
     results = handler.execute(query)
 
     assert results == []
@@ -129,9 +126,7 @@ def test_repository_exception_is_caught_per_pair(handler, mock_repo):
         },
     ]
 
-    query = ScanAllDatabasesQuery(
-        symbols=["BTCUSDT", "ETHUSDT"], intervals=["1h"]
-    )
+    query = ScanAllDatabasesQuery(symbols=["BTCUSDT", "ETHUSDT"], intervals=["1h"])
     results = handler.execute(query)
 
     # First pair failed (skipped), second succeeded

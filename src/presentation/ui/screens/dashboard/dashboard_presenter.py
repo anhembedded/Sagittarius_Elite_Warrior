@@ -26,6 +26,10 @@ from Binace_Bot.src.presentation.ui.constants import UIMode
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
 
+    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+        DashboardView,
+    )
+
 # ---------------------------------------------------------------------------
 # Constants — no magic values scattered in method bodies
 # ---------------------------------------------------------------------------
@@ -265,7 +269,9 @@ class DashboardPresenter(BasePresenter):
 
         # Only log on candle close to avoid freezing the UI with per-tick log spam.
         if is_closed:
-            self.ui_log_signal.emit(f"[Live] {symbol} candle closed at {md.close_price}")
+            self.ui_log_signal.emit(
+                f"[Live] {symbol} candle closed at {md.close_price}"
+            )
 
         self.ui_chart_update_signal.emit(
             symbol,
@@ -284,7 +290,7 @@ class DashboardPresenter(BasePresenter):
         t: float,
         o: float,
         h: float,
-        l: float,
+        low: float,
         c: float,
         is_closed: bool,
     ) -> None:
@@ -295,9 +301,9 @@ class DashboardPresenter(BasePresenter):
         card = self.active_charts.get(symbol)
         if card:
             if is_closed:
-                card.append_closed_candle(t, o, h, l, c)
+                card.append_closed_candle(t, o, h, low, c)
             else:
-                card.update_last_candle(t, o, h, l, c)
+                card.update_last_candle(t, o, h, low, c)
 
     # ================================================================== #
     # Background methods — submitted to IThreadManager.
@@ -323,9 +329,7 @@ class DashboardPresenter(BasePresenter):
                 klines = getattr(response, "data", response) if response else []
 
                 if not isinstance(klines, list) or not klines:
-                    self.ui_log_signal.emit(
-                        f"No historical data found for {symbol}."
-                    )
+                    self.ui_log_signal.emit(f"No historical data found for {symbol}.")
                     continue
 
                 # Reverse: DB returned newest-first, chart expects oldest-first

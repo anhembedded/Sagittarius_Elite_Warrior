@@ -8,8 +8,9 @@ Key design changes from the refactor:
 - _on_start_stream submits _run_sync_and_start to the thread manager.
 - No inline closures anywhere.
 """
+
 import pytest
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
@@ -29,6 +30,7 @@ from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_thread_mgr():
     return MagicMock()
@@ -44,8 +46,6 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     container = MagicMock()
 
     from sagittarius_engine.interfaces.i_config import IConfig
-    from sagittarius_engine.interfaces.i_event_bus import IEventBus
-    from sagittarius_engine.interfaces.i_logger import ILogger
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -87,6 +87,7 @@ def presenter(qapp, mock_view, mock_container):
 # Initialization
 # ---------------------------------------------------------------------------
 
+
 def test_initialization(presenter, mock_view, mock_container):
     assert presenter.view == mock_view
     assert presenter.container == mock_container
@@ -96,6 +97,7 @@ def test_initialization(presenter, mock_view, mock_container):
 # ---------------------------------------------------------------------------
 # _on_load_history — must NOT block the main thread
 # ---------------------------------------------------------------------------
+
 
 def test_on_load_history_submits_background_task(presenter, mock_thread_mgr):
     """_on_load_history submits _run_load_history to thread manager — no direct dispatch."""
@@ -158,6 +160,7 @@ def test_run_load_history_handles_exception_per_symbol(presenter, mock_dispatche
 # _on_start_stream — submits full sync+stream workflow to background
 # ---------------------------------------------------------------------------
 
+
 def test_on_start_stream_locks_ui_and_submits_task(presenter, mock_thread_mgr):
     """_on_start_stream must lock FSM and submit _run_sync_and_start."""
     presenter._on_start_stream()
@@ -175,9 +178,7 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
 
     from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
-    presenter._run_sync_and_start(
-        ["BTCUSDT"], TimeFrame("1m"), "1m", 5000
-    )
+    presenter._run_sync_and_start(["BTCUSDT"], TimeFrame("1m"), "1m", 5000)
 
     call_types = [args[0][0] for args in mock_dispatcher.dispatch.call_args_list]
     assert SyncMarketDataCommand in call_types
@@ -195,9 +196,8 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
 # Exception safety
 # ---------------------------------------------------------------------------
 
-def test_on_load_history_exception_is_caught_by_safe_ui_action(
-    presenter, mock_view
-):
+
+def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter, mock_view):
     """@safe_ui_action catches exceptions from _ensure_chart_cards without crashing."""
     presenter._ensure_chart_cards = MagicMock(side_effect=ValueError("Test Exception"))
 
@@ -206,4 +206,6 @@ def test_on_load_history_exception_is_caught_by_safe_ui_action(
 
     presenter._on_load_history()
 
-    assert any("Test Exception" in log or "_on_load_history failed" in log for log in logs)
+    assert any(
+        "Test Exception" in log or "_on_load_history failed" in log for log in logs
+    )

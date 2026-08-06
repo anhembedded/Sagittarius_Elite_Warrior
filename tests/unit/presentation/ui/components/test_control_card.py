@@ -1,4 +1,3 @@
-import pytest
 from Binace_Bot.src.presentation.ui.components.control_card import ControlCard
 
 

@@ -34,8 +34,6 @@ def app_engine(monkeypatch):
 
     # Mock the internal dispatcher to intercept commands and queries
     # instead of doing real Binance/DB calls.
-    original_dispatch = engine.dispatch
-
     def mock_dispatch(command_type, command_obj):
         # Always return success structure
         response = MagicMock()

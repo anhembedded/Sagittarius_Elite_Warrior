@@ -31,7 +31,6 @@ def mock_app():
     mock_config.get.return_value = matrix
 
     # Mock IThreadManager
-    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
     mock_thread_mgr = MagicMock()
 
@@ -42,6 +41,7 @@ def mock_app():
 
     def resolve_side_effect(interface):
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+
         if interface == IConfig:
             return mock_config
         if interface == IThreadManager:

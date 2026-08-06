@@ -1,7 +1,5 @@
 import os
-import pytest
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine.utils.path_utils import PathUtils
 
 
 def test_all_config_files_loaded():

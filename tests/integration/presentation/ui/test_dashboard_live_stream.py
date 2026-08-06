@@ -43,6 +43,7 @@ def mock_app():
 
     def resolve_side_effect(interface):
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+
         if interface == IConfig:
             return mock_config
         if interface == IThreadManager:
@@ -91,10 +92,10 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
 
     with patch(
         "Binace_Bot.src.presentation.ui.components.chart_card.FastCandlestickItem.update"
-    ) as mock_update:
+    ):
         # Trigger Load History first
         presenter._on_load_history()
-        
+
         # Trigger Start Stream
         presenter._on_start_stream()
 

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
 
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
@@ -121,4 +120,5 @@ class MainWindow(QMainWindow):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     from Binace_Bot.src.presentation.ui.app_bootstrapper import main as main
+
     main()
