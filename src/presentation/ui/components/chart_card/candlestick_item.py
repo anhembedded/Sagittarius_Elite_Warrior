@@ -1,6 +1,8 @@
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui
 
+from . import theme
+
 
 class FastCandlestickItem(pg.GraphicsObject):
     """
@@ -13,8 +15,8 @@ class FastCandlestickItem(pg.GraphicsObject):
         self.picture = QtGui.QPicture()
 
         # Colors (Dark Theme)
-        self.bull_color = QtGui.QColor("#26a69a")
-        self.bear_color = QtGui.QColor("#ef5350")
+        self.bull_color = QtGui.QColor(theme.BULL_COLOR)
+        self.bear_color = QtGui.QColor(theme.BEAR_COLOR)
 
         self.candle_width = 20.0  # Default width, updated dynamically
         self.live_candle = None  # Holds (t, o, h, l, c) for the live tick
@@ -119,6 +121,19 @@ class FastCandlestickItem(pg.GraphicsObject):
         # Reset live candle state so a new one can form
         self.live_candle = None
         self.update()  # Only triggers paint(), does NOT rebuild QPicture
+
+    def get_ohlc_at(self, x: float) -> tuple[float, float, float, float, float] | None:
+        """
+        @brief Returns the (t, o, h, l, c) candle nearest to x, for crosshair OHLC readouts.
+        @details O(N) nearest-timestamp scan — acceptable at hover-throttled (60fps) rates,
+        consistent with the O(N) bounds lookups already used elsewhere in this class.
+        """
+        candidates = list(self.history_data)
+        if self.live_candle:
+            candidates.append(self.live_candle)
+        if not candidates:
+            return None
+        return min(candidates, key=lambda candle: abs(candle[0] - x))
 
     def boundingRect(self) -> QtCore.QRectF:
         """

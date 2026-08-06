@@ -60,6 +60,63 @@ def test_chart_card_live_tick_rollover(qapp):
     assert card.candlestick.live_candle is None
 
 
+def test_chart_card_volume_rendering(qapp):
+    """
+    Test that historical/live/closed volume bars update VolumeItem's internal state
+    (colored by candle direction) without touching the candlestick's own data.
+    """
+    card = ChartCard("BTCUSDT")
+
+    # Mock data: (timestamp, volume, is_bullish)
+    history = [(1000.0, 10.0, True), (1060.0, 20.0, False)]
+    card.render_historical_volume(history)
+
+    assert card.volume._timestamps == [1000.0, 1060.0]
+    assert card.volume._heights == [10.0, 20.0]
+
+    # Live (unclosed) tick updates the last bar in place — history length unchanged.
+    card.update_last_volume(1120.0, 5.0, True)
+    assert len(card.volume._timestamps) == 3
+    assert card.volume._heights[-1] == 5.0
+
+    card.update_last_volume(1120.0, 8.0, True)
+    assert len(card.volume._timestamps) == 3  # Still the same live bar, not a new one
+    assert card.volume._heights[-1] == 8.0
+
+    # Closing the candle finalizes the bar; next tick starts a new one.
+    card.append_closed_volume(1120.0, 8.0, True)
+    card.update_last_volume(1180.0, 3.0, False)
+    assert len(card.volume._timestamps) == 4
+
+
+def test_chart_card_price_line_tracks_last_close(qapp):
+    """
+    Test that the last-price line follows the latest close price from historical
+    render, live ticks, and candle close — colored by bull/bear direction.
+    """
+    card = ChartCard("ETHUSDT")
+
+    data = [(1000.0, 50.0, 55.0, 48.0, 52.0)]
+    card.render_historical_data(data)
+    assert card.price_line._line.value() == 52.0
+
+    card.update_last_candle(1060.0, 52.0, 53.0, 51.0, 51.0)  # Bearish tick
+    assert card.price_line._line.value() == 51.0
+
+
+def test_chart_card_ohlc_lookup_for_crosshair(qapp):
+    """
+    Test that FastCandlestickItem.get_ohlc_at (used by the crosshair's OHLC info box)
+    returns the nearest candle to a given x position.
+    """
+    card = ChartCard("BTCUSDT")
+    data = [(1000.0, 50.0, 55.0, 48.0, 52.0), (1060.0, 52.0, 58.0, 50.0, 57.0)]
+    card.render_historical_data(data)
+
+    assert card.candlestick.get_ohlc_at(1000.0) == data[0]
+    assert card.candlestick.get_ohlc_at(1055.0) == data[1]  # Nearest to 1060.0
+
+
 def test_chart_card_crosshair_mouse_hover(qapp):
     """
     Test that mouse movement triggers crosshair updates without crashing (AttributeError).

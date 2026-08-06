@@ -57,10 +57,10 @@ class DashboardPresenter(BasePresenter):
     # Dùng để truyền dữ liệu từ Background Thread về Main UI Thread
     # ------------------------------------------------------------------ #
     ui_log_signal = Signal(str)
-    ui_chart_update_signal = Signal(str, float, float, float, float, float, bool)
+    ui_chart_update_signal = Signal(str, float, float, float, float, float, float, bool)
 
     # Dedicated signals for the Auto-Sync Workflow
-    ui_history_reloaded_signal = Signal(str, list)
+    ui_history_reloaded_signal = Signal(str, list, list)
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
@@ -243,12 +243,15 @@ class DashboardPresenter(BasePresenter):
     # Background Signal Slots — called on the main thread via Qt signals.
     # ================================================================== #
 
-    @Slot(str, list)
-    def _on_history_reloaded(self, symbol: str, mapped_data: list) -> None:
-        """Receives pre-mapped kline data from the background and renders to chart."""
+    @Slot(str, list, list)
+    def _on_history_reloaded(
+        self, symbol: str, mapped_data: list, volume_data: list
+    ) -> None:
+        """Receives pre-mapped kline/volume data from the background and renders to chart."""
         card = self.active_charts.get(symbol)
         if card:
             card.render_historical_data(mapped_data)
+            card.render_historical_volume(volume_data)
             self.ui_log_signal.emit(
                 f"Refreshed {len(mapped_data)} historical klines for {symbol}."
             )
@@ -280,10 +283,11 @@ class DashboardPresenter(BasePresenter):
             float(md.high_price),
             float(md.low_price),
             float(md.close_price),
+            float(md.volume),
             is_closed,
         )
 
-    @Slot(str, float, float, float, float, float, bool)
+    @Slot(str, float, float, float, float, float, float, bool)
     def _on_ui_chart_update(
         self,
         symbol: str,
@@ -292,6 +296,7 @@ class DashboardPresenter(BasePresenter):
         h: float,
         low: float,
         c: float,
+        volume: float,
         is_closed: bool,
     ) -> None:
         """
@@ -300,10 +305,13 @@ class DashboardPresenter(BasePresenter):
         """
         card = self.active_charts.get(symbol)
         if card:
+            is_bullish = c >= o
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
+                card.append_closed_volume(t, volume, is_bullish)
             else:
                 card.update_last_candle(t, o, h, low, c)
+                card.update_last_volume(t, volume, is_bullish)
 
     # ================================================================== #
     # Background methods — submitted to IThreadManager.
@@ -333,8 +341,10 @@ class DashboardPresenter(BasePresenter):
                     continue
 
                 # Reverse: DB returned newest-first, chart expects oldest-first
-                mapped_data = self._map_klines(list(reversed(klines)))
-                self.ui_history_reloaded_signal.emit(symbol, mapped_data)
+                ordered_klines = list(reversed(klines))
+                mapped_data = self._map_klines(ordered_klines)
+                volume_data = self._map_volume(ordered_klines)
+                self.ui_history_reloaded_signal.emit(symbol, mapped_data, volume_data)
 
             except Exception as exc:
                 self.ui_log_signal.emit(
@@ -372,8 +382,12 @@ class DashboardPresenter(BasePresenter):
                 klines = getattr(response, "data", response) if response else []
 
                 if klines and isinstance(klines, list):
-                    mapped_data = self._map_klines(list(reversed(klines)))
-                    self.ui_history_reloaded_signal.emit(symbol, mapped_data)
+                    ordered_klines = list(reversed(klines))
+                    mapped_data = self._map_klines(ordered_klines)
+                    volume_data = self._map_volume(ordered_klines)
+                    self.ui_history_reloaded_signal.emit(
+                        symbol, mapped_data, volume_data
+                    )
 
             # Step 3: Start the Live WebSocket stream
             self.ui_log_signal.emit("Opening Websocket stream...")
@@ -405,6 +419,21 @@ class DashboardPresenter(BasePresenter):
                 float(item.high_price),
                 float(item.low_price),
                 float(item.close_price),
+            )
+            for item in klines
+        ]
+
+    @staticmethod
+    def _map_volume(klines: list) -> list:
+        """
+        @brief Converts a list of MarketData entities to the
+        (t, volume, is_bullish) tuple format expected by VolumeItem.
+        """
+        return [
+            (
+                float(item.close_time.timestamp()),
+                float(item.volume),
+                item.close_price >= item.open_price,
             )
             for item in klines
         ]

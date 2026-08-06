@@ -76,6 +76,7 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
             mock_kline.high_price = 1100.0
             mock_kline.low_price = 900.0
             mock_kline.close_price = 1050.0
+            mock_kline.volume = 250.0
             response = MagicMock()
             response.data = [mock_kline]
             return response

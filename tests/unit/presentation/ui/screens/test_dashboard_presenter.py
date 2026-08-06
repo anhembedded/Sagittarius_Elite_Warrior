@@ -124,6 +124,7 @@ def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher
     mock_kline.high_price = 41000
     mock_kline.low_price = 39000
     mock_kline.close_price = 40500
+    mock_kline.volume = 12.5
 
     mock_dispatcher.dispatch.return_value = [mock_kline]
 
