@@ -21,7 +21,9 @@ class ZoomControls(QtCore.QObject):
     """
 
     _MARGIN = 12
-    _BUTTON_SIZE = 24
+    # Must fit "H+"/"H−"/"V+"/"V−" (24px wide under the app's dark QSS font) plus that
+    # stylesheet's QToolButton { padding: 3px } on each side — 24 was eliding to "...".
+    _BUTTON_SIZE = 32
     _GAP = 4
     _ZOOM_IN_FACTOR = 0.85
     _ZOOM_OUT_FACTOR = 1.0 / 0.85

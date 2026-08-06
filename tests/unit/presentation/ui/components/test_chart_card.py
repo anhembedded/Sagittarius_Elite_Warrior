@@ -140,6 +140,37 @@ def test_chart_card_indicator_toggle_and_remove(qapp):
     assert "SMA_20" not in card.indicators._legend_labels
 
 
+def test_chart_card_zoom_buttons_are_wide_enough_for_their_labels(qapp):
+    """
+    Regression test: the app's global dark theme applies QToolButton { padding: 3px }
+    on all sides. At the previous _BUTTON_SIZE (24px), "H+"/"H-"/"V+"/"V-" (24px wide
+    under that theme's font) didn't fit in the remaining ~18px and got elided to "...".
+    Assert every button's label fits within its size minus a safety padding allowance,
+    so a future size/label change can't silently reintroduce this.
+    """
+    from PySide6.QtGui import QFontMetrics
+
+    card = ChartCard("BTCUSDT")
+    zc = card.zoom_controls
+    padding_allowance = 8  # >= the real theme's 3px-per-side (6px) + a small margin
+
+    buttons = [
+        zc._h_in_btn,
+        zc._h_out_btn,
+        zc._v_in_btn,
+        zc._v_out_btn,
+        zc._box_btn,
+        zc._reset_btn,
+    ]
+    for btn in buttons:
+        text_width = QFontMetrics(btn.font()).horizontalAdvance(btn.text())
+        available_width = zc._BUTTON_SIZE - padding_allowance
+        assert text_width <= available_width, (
+            f"Button {btn.text()!r} needs {text_width}px but only has "
+            f"{available_width}px after padding — would be elided to '...'."
+        )
+
+
 def test_chart_card_zoom_controls_horizontal(qapp):
     """
     Test that H+/H-/reset work via click alone — no scroll wheel needed — narrowing/
