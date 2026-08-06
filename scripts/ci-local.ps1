@@ -13,15 +13,32 @@
 .PARAMETER SkipTests
     Skip Pytest step.
 
+.PARAMETER SanityOnly
+    Run only tests/sanity (boot/import-time checks, no coverage instrumentation —
+    meant to finish in well under a second). Implies -SkipLint.
+
+.PARAMETER UnitOnly
+    Run only tests/unit (isolated logic, mocked I/O). Implies -SkipLint.
+
+.PARAMETER Full
+    Explicit alias for the default behavior: lint + format + the full test suite
+    with the --cov-fail-under=80 gate enforced.
+
 .EXAMPLE
     .\scripts\ci-local.ps1
     .\scripts\ci-local.ps1 -SkipLint
     .\scripts\ci-local.ps1 -SkipTests
+    .\scripts\ci-local.ps1 -SanityOnly
+    .\scripts\ci-local.ps1 -UnitOnly
+    .\scripts\ci-local.ps1 -Full
 #>
 [CmdletBinding()]
 param(
     [switch]$SkipLint,
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [switch]$SanityOnly,
+    [switch]$UnitOnly,
+    [switch]$Full
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +64,27 @@ function Write-Failure {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot   = Split-Path -Parent $scriptDir
 $repoRoot  = Split-Path -Parent $botRoot
+
+# ---------------------------------------------------------------------------
+# Resolve which test tier to run and whether coverage/lint apply.
+# -SanityOnly / -UnitOnly are fast dev-loop subsets: no lint, no --cov-fail-under
+# (a partial test run always under-reports total coverage). -Full is just the
+# default full-suite-with-coverage-gate behavior, spelled out explicitly.
+# ---------------------------------------------------------------------------
+$pytestTarget = "Binace_Bot/tests"
+$useCoverage = $true
+$enforceCoverageGate = $true
+
+if ($SanityOnly) {
+    $pytestTarget = "Binace_Bot/tests/sanity"
+    $useCoverage = $false
+    $enforceCoverageGate = $false
+    $SkipLint = $true
+} elseif ($UnitOnly) {
+    $pytestTarget = "Binace_Bot/tests/unit"
+    $enforceCoverageGate = $false
+    $SkipLint = $true
+}
 
 $venvActivateWin = Join-Path $repoRoot ".venv\Scripts\Activate.ps1"
 $venvActivateLin = Join-Path $botRoot ".venv/bin/activate"
@@ -90,12 +128,20 @@ if (-not $SkipLint) {
 }
 
 if (-not $SkipTests) {
-    Write-Step "Pytest with Coverage"
+    Write-Step "Pytest ($pytestTarget)"
     Push-Location $repoRoot
     try {
         $env:PYTHONPATH = $repoRoot
         $env:QT_QPA_PLATFORM = "offscreen"
-        pytest Binace_Bot/tests --cov=Binace_Bot/src --cov-report=term-missing -v
+
+        $pytestArgs = @($pytestTarget, "-v")
+        if ($useCoverage) {
+            $pytestArgs += "--cov=Binace_Bot/src"
+            $pytestArgs += "--cov-report=term-missing"
+            if ($enforceCoverageGate) { $pytestArgs += "--cov-fail-under=80" }
+        }
+
+        pytest @pytestArgs
         if ($LASTEXITCODE -ne 0) { $failed += "Pytest"; Write-Failure "Pytest" }
         else { Write-Success "Pytest" }
     } catch {

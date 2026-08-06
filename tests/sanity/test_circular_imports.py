@@ -9,7 +9,7 @@ def test_main_window_no_toplevel_bootstrapper_import():
     """
     # Note: Adjust path resolution for test execution context
     path = (
-        Path(__file__).parent.parent.parent.parent.parent
+        Path(__file__).parent.parent.parent
         / "src"
         / "presentation"
         / "ui"
