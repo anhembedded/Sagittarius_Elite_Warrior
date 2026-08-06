@@ -6,3 +6,5 @@ pytest-asyncio
 pytest-cov
 ruff
 pyqtdarktheme
+pytest-qt
+flake8

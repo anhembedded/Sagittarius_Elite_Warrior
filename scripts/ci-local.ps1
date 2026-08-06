@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Local CI runner - mirrors the GitHub Actions CI pipeline for Binance Bot.
@@ -87,6 +87,7 @@ if (-not $SkipTests) {
     Push-Location $repoRoot
     try {
         $env:PYTHONPATH = $repoRoot
+        $env:QT_QPA_PLATFORM = "offscreen"
         pytest Binace_Bot/tests --cov=Binace_Bot/src --cov-report=term-missing -v
         if ($LASTEXITCODE -ne 0) { $failed += "Pytest"; Write-Failure "Pytest" }
         else { Write-Success "Pytest" }

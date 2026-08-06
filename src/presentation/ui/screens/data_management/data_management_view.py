@@ -15,9 +15,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal
 import functools
+from sagittarius_engine.extensions.pyside_mvc.ui_matrix_mixin import UIMatrixMixin
 
 
-class DataManagementView(QWidget):
+class DataManagementView(QWidget, UIMatrixMixin):
     """
     @brief The View for the Data Management Screen.
     @details Allows the user to select symbols, view DB status, and trigger syncs.
@@ -246,29 +247,3 @@ class DataManagementView(QWidget):
 
     def clear_table(self):
         self.table_status.setRowCount(0)
-
-    def set_ui_matrix(self, matrix_config: dict) -> None:
-        """Injects the configuration matrix for dynamic UI toggling."""
-        self._ui_matrix = matrix_config
-
-    def apply_ui_mode(self, mode: str) -> None:
-        """Applies a specific UI mode dynamically using reflection."""
-        if not hasattr(self, "_ui_matrix") or not self._ui_matrix:
-            print("Warning: UI Matrix not set. Cannot apply mode.")
-            return
-
-        if mode not in self._ui_matrix:
-            print(f"Warning: Mode '{mode}' not found in UI matrix.")
-            return
-
-        config = self._ui_matrix[mode]
-        for widget_name, is_enabled in config.items():
-            if hasattr(self, widget_name):
-                widget = getattr(self, widget_name)
-                # Ensure it's a QWidget with setEnabled capability
-                if hasattr(widget, "setEnabled"):
-                    widget.setEnabled(is_enabled)
-            else:
-                print(
-                    f"Warning: Widget '{widget_name}' not found in DataManagementView."
-                )

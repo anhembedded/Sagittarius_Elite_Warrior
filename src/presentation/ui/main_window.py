@@ -84,32 +84,38 @@ class MainWindow(QMainWindow):
         self.sidebar.addWidget(self.btn_database)
 
     def _setup_screens(self):
-        from Binace_Bot.src.presentation.ui.router import RouterManager
+        from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
-        self.router = RouterManager(self.stacked_widget, self.app)
+        self.router = PresenterManager(self.app.context.container, self.stacked_widget)
 
         # Register Factory functions for screens
-        self.router.register_route("dashboard", self._factory_dashboard)
-        self.router.register_route("backtest", self._factory_backtest)
-        self.router.register_route("data_management", self._factory_data_management)
+        # Backtest is currently a placeholder without a presenter class
+        self.router.register("dashboard", self._get_dashboard_presenter_class(), self._factory_dashboard_view)
+        
+        # We handle backtest uniquely since it doesn't have a presenter yet
+        self.router._registry["backtest"] = {
+            "presenter_class": None,
+            "view_factory": self._factory_backtest,
+            "view_instance": None,
+            "presenter_instance": None,
+            "stacked_index": -1,
+        }
+        
+        self.router.register("data_management", self._get_data_management_presenter_class(), self._factory_data_management_view)
 
         # Navigate to default screen
-        self.router.navigate("dashboard")
+        self.router.navigate_to("dashboard")
 
-    def _factory_dashboard(self, app):
-        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
-            DashboardView,
-        )
-        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
-            DashboardPresenter,
-        )
+    def _get_dashboard_presenter_class(self):
+        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import DashboardPresenter
+        return DashboardPresenter
 
+    def _factory_dashboard_view(self):
+        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import DashboardView
         view = DashboardView()
-        # Keep a reference to the presenter so it isn't garbage collected
-        view.presenter = DashboardPresenter(view, app)
         return view
 
-    def _factory_backtest(self, app):
+    def _factory_backtest(self):
         from PySide6.QtWidgets import QLabel
 
         # Placeholder for Backtest Screen (To be replaced by BacktestView)
@@ -118,20 +124,29 @@ class MainWindow(QMainWindow):
         backtest_widget.setStyleSheet("font-size: 24px; color: #d4d4d4;")
         return backtest_widget
 
-    def _factory_data_management(self, app):
-        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import (
-            DataManagementView,
-        )
-        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import (
-            DataManagementPresenter,
-        )
+    def _get_data_management_presenter_class(self):
+        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import DataManagementPresenter
+        return DataManagementPresenter
 
+    def _factory_data_management_view(self):
+        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import DataManagementView
         view = DataManagementView()
-        view.presenter = DataManagementPresenter(view, app)
         return view
 
     def switch_screen(self, route_name: str):
-        self.router.navigate(route_name)
+        # Handle backtest explicitly since it doesn't have a presenter
+        if route_name == "backtest":
+            config = self.router._registry["backtest"]
+            if config["view_instance"] is None:
+                view = config["view_factory"]()
+                config["view_instance"] = view
+                index = self.router.stacked_widget.addWidget(view)
+                config["stacked_index"] = index
+            self.router.stacked_widget.setCurrentIndex(config["stacked_index"])
+            self.router._current_screen_name = "backtest"
+            self.router.sig_screen_changed.emit("backtest", None)
+        else:
+            self.router.navigate_to(route_name)
         # Update button states manually
         self.btn_dashboard.setChecked(route_name == "dashboard")
         self.btn_backtest.setChecked(route_name == "backtest")
@@ -148,9 +163,14 @@ def main():
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     app_json = os.path.join(base_dir, "config", "app_config.json")
     user_json = os.path.join(base_dir, "config", "user_config.json")
+    ui_matrix_json = os.path.join(base_dir, "config", "ui_matrix.json")
 
     config_manager.load_json(app_json)
     config_manager.load_json(user_json)
+    try:
+        config_manager.load_json(ui_matrix_json)
+    except FileNotFoundError:
+        print("Warning: ui_matrix.json not found")
 
     app_engine = create_app(config_manager)
     app_engine.boot()

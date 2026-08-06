@@ -9,12 +9,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal, QDateTime
 from Binace_Bot.src.presentation.ui.components.base_card import BaseCard
+from sagittarius_engine.extensions.pyside_mvc.ui_matrix_mixin import UIMatrixMixin
 import sys
 
 
-class ControlCard(BaseCard):
+class ControlCard(BaseCard, UIMatrixMixin):
     """
-    @brief A UI component containing action buttons and settings for controlling the bot.
+    @brief Widget for User Controls on the Dashboard.n buttons and settings for controlling the bot.
     @details Inherits from BaseCard. Follows Rule 1: No DB imports, no business logic.
     """
 
@@ -95,29 +96,7 @@ class ControlCard(BaseCard):
         self.start_stream_button.clicked.connect(self.sig_start_clicked)
         self.stop_stream_button.clicked.connect(self.sig_stop_clicked)
 
-    def set_ui_matrix(self, matrix_config: dict) -> None:
-        """Injects the configuration matrix for dynamic UI toggling."""
-        self._ui_matrix = matrix_config
-
-    def apply_ui_mode(self, mode: str) -> None:
-        """Applies a specific UI mode dynamically using reflection."""
-        if not hasattr(self, "_ui_matrix") or not self._ui_matrix:
-            print("Warning: UI Matrix not set. Cannot apply mode.")
-            return
-
-        if mode not in self._ui_matrix:
-            print(f"Warning: Mode '{mode}' not found in UI matrix.")
-            return
-
-        config = self._ui_matrix[mode]
-        for widget_name, is_enabled in config.items():
-            if hasattr(self, widget_name):
-                widget = getattr(self, widget_name)
-                # Ensure it's a QWidget with setEnabled capability
-                if hasattr(widget, "setEnabled"):
-                    widget.setEnabled(is_enabled)
-            else:
-                print(f"Warning: Widget '{widget_name}' not found in ControlCard.")
+        # Removed manual set_ui_matrix and apply_ui_mode as they are provided by UIMatrixMixin
 
 
 # Test block for independent rendering

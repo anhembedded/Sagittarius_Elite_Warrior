@@ -1,47 +1,49 @@
 {
-    "IDLE": {
-        "market_dropdown": true,
-        "symbol_dropdown": true,
-        "timeframe_dropdown": true,
-        "strategy_dropdown": true,
-        "start_date_picker": true,
-        "end_date_picker": true,
-        "load_history_button": true,
-        "start_stream_button": true,
-        "stop_stream_button": false
-    },
-    "LIVE": {
-        "market_dropdown": false,
-        "symbol_dropdown": false,
-        "timeframe_dropdown": false,
-        "strategy_dropdown": false,
-        "start_date_picker": false,
-        "end_date_picker": false,
-        "load_history_button": false,
-        "start_stream_button": false,
-        "stop_stream_button": true
-    },
-    "LOCKED": {
-        "market_dropdown": false,
-        "symbol_dropdown": false,
-        "timeframe_dropdown": false,
-        "strategy_dropdown": false,
-        "start_date_picker": false,
-        "end_date_picker": false,
-        "load_history_button": false,
-        "start_stream_button": false,
-        "stop_stream_button": false
-    },
-    "ERROR": {
-        "market_dropdown": true,
-        "symbol_dropdown": true,
-        "timeframe_dropdown": true,
-        "strategy_dropdown": true,
-        "start_date_picker": true,
-        "end_date_picker": true,
-        "load_history_button": true,
-        "start_stream_button": true,
-        "stop_stream_button": false
+    "main": {
+        "IDLE": {
+            "market_dropdown": true,
+            "symbol_dropdown": true,
+            "timeframe_dropdown": true,
+            "strategy_dropdown": true,
+            "start_date_picker": true,
+            "end_date_picker": true,
+            "load_history_button": true,
+            "start_stream_button": true,
+            "stop_stream_button": false
+        },
+        "LIVE": {
+            "market_dropdown": false,
+            "symbol_dropdown": false,
+            "timeframe_dropdown": false,
+            "strategy_dropdown": false,
+            "start_date_picker": false,
+            "end_date_picker": false,
+            "load_history_button": false,
+            "start_stream_button": false,
+            "stop_stream_button": true
+        },
+        "LOCKED": {
+            "market_dropdown": false,
+            "symbol_dropdown": false,
+            "timeframe_dropdown": false,
+            "strategy_dropdown": false,
+            "start_date_picker": false,
+            "end_date_picker": false,
+            "load_history_button": false,
+            "start_stream_button": false,
+            "stop_stream_button": false
+        },
+        "ERROR": {
+            "market_dropdown": true,
+            "symbol_dropdown": true,
+            "timeframe_dropdown": true,
+            "strategy_dropdown": true,
+            "start_date_picker": true,
+            "end_date_picker": true,
+            "load_history_button": true,
+            "start_stream_button": true,
+            "stop_stream_button": false
+        }
     },
     "data_management": {
         "IDLE": {

@@ -14,7 +14,7 @@ from Binace_Bot.src.application.use_cases.queries.get_database_status.query impo
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
-from Binace_Bot.src.presentation.ui.base.base_presenter import BasePresenter
+from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 
 
 class SignalLogHandler(logging.Handler):
@@ -40,6 +40,9 @@ class DataManagementPresenter(BasePresenter):
     """
 
     STATUS_OK = "OK"
+    UI_MATRIX_SECTION_KEY = "data_management"
+    from Binace_Bot.src.presentation.ui.constants import UIMode
+    INITIAL_STATE = UIMode.IDLE
 
     # Thread-safe signals to update UI from background tasks
     ui_log_signal = Signal(str)
@@ -49,35 +52,26 @@ class DataManagementPresenter(BasePresenter):
     ui_unlock_signal = Signal()
     ui_sync_complete_signal = Signal()
 
-    def __init__(self, view: "DataManagementView", app: "App"):
-        super().__init__(view, app)
+    def __init__(self, view: "DataManagementView", container: "IContainer"):
+        super().__init__(view, container)
 
         self.log_handler = None
-        self._load_ui_matrix()
 
         # Attach the custom log handler to the "App" logger (catches App.ExchangeClient, etc.)
         self.log_handler = SignalLogHandler(self.ui_log_signal)
         self.log_handler.setLevel(logging.INFO)
         logging.getLogger("App").addHandler(self.log_handler)
 
+        from Binace_Bot.src.presentation.ui.constants import UIMode
+        if self.fsm:
+            self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
+            self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
+            self.fsm.add_transition(UIMode.LOCKED, UIMode.ERROR)
+            self.fsm.add_transition(UIMode.ERROR, UIMode.IDLE)
+
         # Connect internal signals to view
         self._connect_ui_signals()
         self._connect_engine_events()
-
-    def _load_ui_matrix(self):
-        import json
-        import os
-
-        base_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        )
-        config_path = os.path.join(base_dir, "config", "ui_matrix.json")
-        try:
-            with open(config_path, "r") as f:
-                matrix = json.load(f)
-            self.view.set_ui_matrix(matrix.get("data_management", {}))
-        except Exception as e:
-            logging.getLogger("App").error(f"Failed to load ui_matrix.json: {e}")
 
     def _connect_ui_signals(self):
         """Connect UI button clicks to Presenter slots."""
@@ -97,8 +91,8 @@ class DataManagementPresenter(BasePresenter):
         self.ui_sync_complete_signal.connect(self._on_sync_complete)
 
     def _connect_engine_events(self):
-        """Listen to EventBus for sync progress if needed."""
-        self.app.event_bus.on(BulkSyncProgressEvent, self._handle_bulk_sync_progress)
+        """Listen to background events from Engine."""
+        self.event_bus.on(BulkSyncProgressEvent, self._handle_bulk_sync_progress)
 
     def _handle_bulk_sync_progress(self, event: BulkSyncProgressEvent):
         """Bridging Domain Events to Qt UI Signals (Thread Safe)"""
@@ -116,12 +110,14 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     def _unlock_ui(self):
         self.view.progress_bar.hide()
-        self.view.apply_ui_mode("IDLE")
+        from Binace_Bot.src.presentation.ui.constants import UIMode
+        self.fsm.transition_to(UIMode.IDLE)
 
     @Slot()
     def _on_sync_complete(self):
         self.view.append_log("UI Restored.")
-        self.view.apply_ui_mode("IDLE")
+        from Binace_Bot.src.presentation.ui.constants import UIMode
+        self.fsm.transition_to(UIMode.IDLE)
         self._on_check_status()  # Auto refresh status after sync
 
     @Slot()
@@ -136,7 +132,7 @@ class DataManagementPresenter(BasePresenter):
 
         query = GetDatabaseStatusQuery(symbol=symbol, interval=interval)
         try:
-            response = self.app.dispatch(GetDatabaseStatusQuery, query)
+            response = self.dispatcher.dispatch(GetDatabaseStatusQuery, query)
             status = getattr(response, "data", response) if response else {}
 
             first_record = str(status.get("first_record") or "N/A")
@@ -164,7 +160,8 @@ class DataManagementPresenter(BasePresenter):
         )
 
         # UI Lock Mechanism
-        self.view.apply_ui_mode("LOCKED")
+        from Binace_Bot.src.presentation.ui.constants import UIMode
+        self.fsm.transition_to(UIMode.LOCKED)
         self.view.progress_bar.setRange(0, 0)  # Indeterminate mode
         self.view.progress_bar.show()
 
@@ -191,7 +188,7 @@ class DataManagementPresenter(BasePresenter):
                     start_time=start_time,
                     end_time=end_time,
                 )
-                self.app.dispatch(SyncMarketDataCommand, cmd)
+                self.dispatcher.dispatch(SyncMarketDataCommand, cmd)
                 self.ui_log_signal.emit(f"Sync completed successfully for {symbol}.")
                 self.ui_sync_complete_signal.emit()
             except Exception as e:
@@ -201,14 +198,15 @@ class DataManagementPresenter(BasePresenter):
 
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-        thread_mgr: IThreadManager = self.app.container.resolve(IThreadManager)
+        thread_mgr: IThreadManager = self.container.resolve(IThreadManager)
         thread_mgr.submit(sync_task)
 
     @Slot()
     def _on_check_all_status(self):
         self.ui_clear_table_signal.emit()
         self.ui_log_signal.emit("Scanning DB status for ALL symbols and intervals...")
-        self.view.apply_ui_mode("LOCKED")
+        from Binace_Bot.src.presentation.ui.constants import UIMode
+        self.fsm.transition_to(UIMode.LOCKED)
 
         def scan_all_task():
             try:
@@ -224,7 +222,7 @@ class DataManagementPresenter(BasePresenter):
                 for symbol in symbols:
                     for interval in intervals:
                         query = GetDatabaseStatusQuery(symbol=symbol, interval=interval)
-                        response = self.app.dispatch(GetDatabaseStatusQuery, query)
+                        response = self.dispatcher.dispatch(GetDatabaseStatusQuery, query)
                         status = getattr(response, "data", response) if response else {}
 
                         first_record = str(status.get("first_record") or "N/A")
@@ -258,7 +256,7 @@ class DataManagementPresenter(BasePresenter):
 
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-        thread_mgr: IThreadManager = self.app.container.resolve(IThreadManager)
+        thread_mgr: IThreadManager = self.container.resolve(IThreadManager)
         thread_mgr.submit(scan_all_task)
 
     @Slot()
@@ -279,7 +277,8 @@ class DataManagementPresenter(BasePresenter):
         self.ui_log_signal.emit(
             f"Found {len(targets)} targets to sync. Starting sequential bulk sync..."
         )
-        self.view.apply_ui_mode("LOCKED")
+        from Binace_Bot.src.presentation.ui.constants import UIMode
+        self.fsm.transition_to(UIMode.LOCKED)
 
         self.view.progress_bar.setRange(0, len(targets))
         self.view.progress_bar.setValue(0)
@@ -288,14 +287,14 @@ class DataManagementPresenter(BasePresenter):
         def dispatch_bulk_sync():
             try:
                 cmd = BulkSyncMarketDataCommand(targets=targets)
-                self.app.dispatch(BulkSyncMarketDataCommand, cmd)
+                self.dispatcher.dispatch(BulkSyncMarketDataCommand, cmd)
             except Exception as e:
                 self.ui_log_signal.emit(f"Failed to dispatch bulk sync: {str(e)}")
                 self.ui_unlock_signal.emit()
 
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-        thread_mgr: IThreadManager = self.app.container.resolve(IThreadManager)
+        thread_mgr: IThreadManager = self.container.resolve(IThreadManager)
         thread_mgr.submit(dispatch_bulk_sync)
 
     @Slot()
@@ -306,4 +305,5 @@ class DataManagementPresenter(BasePresenter):
         self.ui_log_signal.emit(
             f"Clearing local data for {symbol} ({interval}) is not yet implemented."
         )
-        self.view.apply_ui_mode("LOCKED")
+        from Binace_Bot.src.presentation.ui.constants import UIMode
+        self.fsm.transition_to(UIMode.LOCKED)

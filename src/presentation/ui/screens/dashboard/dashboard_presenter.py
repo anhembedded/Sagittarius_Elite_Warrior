@@ -12,9 +12,9 @@ from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query im
     GetHistoricalKlinesQuery,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.presentation.ui.utils.ui_safeguard import safe_ui_action
-from Binace_Bot.src.presentation.ui.base.base_presenter import BasePresenter
+from Binace_Bot.src.presentation.ui.constants import UIMode
 
 
 class DashboardPresenter(BasePresenter):
@@ -37,30 +37,10 @@ class DashboardPresenter(BasePresenter):
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
-    def __init__(self, view: "DashboardView", app: "App"):
-        super().__init__(view, app)
+    INITIAL_STATE = UIMode.IDLE
 
-        # Extract UI Matrix from config file and inject it
-        import os
-        import json
-        from Binace_Bot.src.presentation.ui.constants import UIMode
-        from sagittarius_engine.extensions.fsm.state_machine import BaseStateMachine
-
-        try:
-            base_dir = os.path.dirname(
-                os.path.dirname(
-                    os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-                )
-            )
-            matrix_path = os.path.join(base_dir, "config", "ui_matrix.json")
-            with open(matrix_path, "r") as f:
-                ui_matrix = json.load(f)
-            self.view.control_card.set_ui_matrix(ui_matrix)
-        except Exception as e:
-            print(f"Failed to load UI Matrix from config: {e}")
-
-        # Initialize FSM for UI State Management
-        self.fsm = BaseStateMachine[UIMode](UIMode.IDLE)
+    def __init__(self, view: "DashboardView", container: "IContainer"):
+        super().__init__(view, container)
 
         # Define allowed transitions
         self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
@@ -72,10 +52,10 @@ class DashboardPresenter(BasePresenter):
             UIMode.LIVE, UIMode.ERROR
         )  # E.g., for unexpected websocket drops
 
-        # Register Lifecycle Hooks (executed on transition)
-        self.fsm.on_enter(UIMode.IDLE, self._on_fsm_idle)
-        self.fsm.on_enter(UIMode.LOCKED, self._on_fsm_locked)
-        self.fsm.on_enter(UIMode.LIVE, self._on_fsm_live)
+        # Automatically bind FSM state changes to UI Matrix
+        self._bind_fsm_to_ui()
+
+        # Register Lifecycle Hooks for custom behaviors
         self.fsm.on_enter(UIMode.ERROR, self._on_fsm_error)
 
         # Force initial UI apply
@@ -99,6 +79,9 @@ class DashboardPresenter(BasePresenter):
         self.view.monitor_card.clear_logs_clicked.connect(self._on_clear_logs)
 
         # 3. Nối cầu tín hiệu cập nhật an toàn vào giao diện
+        if self.logger:
+            # We don't route ALL logger traffic to UI, just our own custom log signals.
+            pass
         self.ui_log_signal.connect(self.view.monitor_card.append_log)
         self.ui_chart_update_signal.connect(self._on_ui_chart_update)
 
@@ -108,33 +91,13 @@ class DashboardPresenter(BasePresenter):
         self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
 
     def _connect_engine_events(self):
-        """
-        Đăng ký lắng nghe các sự kiện ngầm (EventBus) từ sagittarius_engine.
-        """
-        self.app.event_bus.on(MarketTickEvent, self._handle_market_tick)
+        """Đăng ký lắng nghe sự kiện từ Engine EventBus"""
+        self.event_bus.on(MarketTickEvent, self._handle_market_tick)
 
     # ==========================================
     # FSM HOOKS (Only modify UI state here)
     # ==========================================
-    def _on_fsm_idle(self):
-        from Binace_Bot.src.presentation.ui.constants import UIMode
-
-        self.view.control_card.apply_ui_mode(UIMode.IDLE)
-
-    def _on_fsm_locked(self):
-        from Binace_Bot.src.presentation.ui.constants import UIMode
-
-        self.view.control_card.apply_ui_mode(UIMode.LOCKED)
-
-    def _on_fsm_live(self):
-        from Binace_Bot.src.presentation.ui.constants import UIMode
-
-        self.view.control_card.apply_ui_mode(UIMode.LIVE)
-
     def _on_fsm_error(self):
-        from Binace_Bot.src.presentation.ui.constants import UIMode
-
-        self.view.control_card.apply_ui_mode(UIMode.ERROR)
         # Auto-recover to IDLE immediately after applying ERROR state (or wait 1 frame)
         # We can emit a signal or call it directly since we are on MainThread.
         self.fsm.transition_to(UIMode.IDLE)
@@ -182,7 +145,7 @@ class DashboardPresenter(BasePresenter):
             )
 
             try:
-                response = self.app.dispatch(GetHistoricalKlinesQuery, query)
+                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
                 klines = getattr(response, "data", response) if response else []
 
                 if not isinstance(klines, list):
@@ -251,8 +214,11 @@ class DashboardPresenter(BasePresenter):
 
                 # Bước 1: Auto-Sync (Fill Gap)
                 self.ui_log_signal.emit("Syncing missing data from Binance...")
-                sync_cmd = SyncMarketDataCommand(symbols=symbols, interval=interval)
-                self.app.dispatch(SyncMarketDataCommand, sync_cmd)
+                sync_cmd = SyncMarketDataCommand(
+                    symbols=symbols, interval=interval
+                )
+                # Note: Dispatcher returns response directly
+                self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
                 # Bước 2: Truy vấn lại Database để cập nhật Chart
                 self.ui_log_signal.emit("Reloading historical data onto charts...")
@@ -263,7 +229,8 @@ class DashboardPresenter(BasePresenter):
                         limit=limit,
                         order_by_desc=True,
                     )
-                    response = self.app.dispatch(GetHistoricalKlinesQuery, query)
+                    # Use self.dispatcher instead of self.app.dispatch
+                    response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
                     klines = getattr(response, "data", response) if response else []
 
                     if klines and isinstance(klines, list):
@@ -284,7 +251,7 @@ class DashboardPresenter(BasePresenter):
                 # Bước 4: Khởi động Live Stream
                 self.ui_log_signal.emit("Opening Websocket stream...")
                 cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
-                response = self.app.dispatch(StartLiveStreamCommand, cmd)
+                response = self.dispatcher.dispatch(StartLiveStreamCommand, cmd)
 
                 if response and getattr(response, "success", True):
                     self.ui_stream_success_signal.emit(
@@ -297,10 +264,10 @@ class DashboardPresenter(BasePresenter):
             except Exception as e:
                 self.ui_stream_failed_signal.emit(f"System error: {str(e)}")
 
-        # Thực thi qua Engine Task Manager
+        # Get IThreadManager from self.container
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-        thread_mgr: IThreadManager = self.app.container.resolve(IThreadManager)
+        thread_mgr: IThreadManager = self.container.resolve(IThreadManager)
         thread_mgr.submit(sync_and_start_task)
 
     # ==========================================
@@ -337,15 +304,11 @@ class DashboardPresenter(BasePresenter):
 
         try:
             cmd = StopLiveStreamCommand()
-            response = self.app.dispatch(StopLiveStreamCommand, cmd)
+            response = self.dispatcher.dispatch(StopLiveStreamCommand, cmd)
             self.ui_log_signal.emit("Live Stream stopped.")
-            from Binace_Bot.src.presentation.ui.constants import UIMode
-
             self.fsm.transition_to(UIMode.IDLE)
         except Exception as e:
             self.ui_log_signal.emit(f"Error while stopping: {str(e)}")
-            from Binace_Bot.src.presentation.ui.constants import UIMode
-
             self.fsm.transition_to(UIMode.ERROR)
 
     @Slot()

@@ -18,13 +18,14 @@ def qapp():
 
 
 @pytest.fixture
-def mock_app():
-    app = MagicMock()
-    app.event_bus = MagicMock()
-    app.container = MagicMock()
+def mock_container():
+    container = MagicMock()
 
     # Mock IConfig
     from sagittarius_engine.interfaces.i_config import IConfig
+    from sagittarius_engine.interfaces.i_event_bus import IEventBus
+    from sagittarius_engine.interfaces.i_logger import ILogger
+    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 
     mock_config = MagicMock()
     matrix = {
@@ -33,15 +34,15 @@ def mock_app():
         "LOCKED": {"start_stream_button": False, "stop_stream_button": False},
         "ERROR": {"start_stream_button": True, "stop_stream_button": False},
     }
-    mock_config.get.return_value = matrix
+    mock_config.get_all.return_value = {"main": matrix}
 
     def resolve_side_effect(interface):
         if interface == IConfig:
             return mock_config
         return MagicMock()
 
-    app.container.resolve.side_effect = resolve_side_effect
-    return app
+    container.resolve.side_effect = resolve_side_effect
+    return container
 
 
 @pytest.fixture
@@ -55,14 +56,14 @@ def mock_view():
     return view
 
 
-def test_dashboard_presenter_initialization(qapp, mock_view, mock_app):
-    presenter = DashboardPresenter(mock_view, mock_app)
+def test_dashboard_presenter_initialization(qapp, mock_view, mock_container):
+    presenter = DashboardPresenter(mock_view, mock_container)
     assert presenter.view == mock_view
-    assert presenter.app == mock_app
+    assert presenter.container == mock_container
 
 
-def test_dashboard_presenter_load_history_dispatches_query(qapp, mock_view, mock_app):
-    presenter = DashboardPresenter(mock_view, mock_app)
+def test_dashboard_presenter_load_history_dispatches_query(qapp, mock_view, mock_container):
+    presenter = DashboardPresenter(mock_view, mock_container)
 
     # Mocking ensure_chart_cards to return a mock card
     mock_card = MagicMock()
@@ -73,14 +74,14 @@ def test_dashboard_presenter_load_history_dispatches_query(qapp, mock_view, mock
     presenter._on_load_history()
 
     # Assert dispatch was called with GetHistoricalKlinesQuery
-    mock_app.dispatch.assert_called()
-    call_args = mock_app.dispatch.call_args[0]
+    mock_container.dispatch.assert_called()
+    call_args = mock_container.dispatch.call_args[0]
     assert call_args[0] == GetHistoricalKlinesQuery
     assert call_args[1].symbol == "BTCUSDT"
 
 
-def test_dashboard_presenter_load_history_handles_exception(qapp, mock_view, mock_app):
-    presenter = DashboardPresenter(mock_view, mock_app)
+def test_dashboard_presenter_load_history_handles_exception(qapp, mock_view, mock_container):
+    presenter = DashboardPresenter(mock_view, mock_container)
 
     # Force _ensure_chart_cards to raise an exception
     presenter._ensure_chart_cards = MagicMock(side_effect=ValueError("Test Exception"))
