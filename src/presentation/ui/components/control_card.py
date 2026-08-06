@@ -7,8 +7,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QApplication,
 )
-from PySide6.QtCore import Signal, QDateTime
+from PySide6.QtCore import Signal, QDateTime, QSize
 from Binace_Bot.src.presentation.ui.components.base_card import BaseCard
+from Binace_Bot.src.presentation.ui.assets import IconTheme, get_icon_loader
 from sagittarius_engine.extensions.pyside_mvc.ui_matrix_mixin import UIMatrixMixin
 import sys
 
@@ -71,14 +72,29 @@ class ControlCard(BaseCard, UIMatrixMixin):
         group_actions = QGroupBox("Điều khiển")
         layout_actions = QHBoxLayout(group_actions)
 
+        icon_loader = get_icon_loader()
+        icon_size = QSize(16, 16)
+
         self.load_history_button = QPushButton("Load History")
         self.load_history_button.setObjectName("btnLoadHistory")
+        self.load_history_button.setIcon(
+            icon_loader.get_icon("clock", color=IconTheme.MUTED)
+        )
+        self.load_history_button.setIconSize(icon_size)
 
         self.start_stream_button = QPushButton("Start Live")
         self.start_stream_button.setObjectName("btnStart")
+        self.start_stream_button.setIcon(
+            icon_loader.get_icon("play", color=IconTheme.SUCCESS)
+        )
+        self.start_stream_button.setIconSize(icon_size)
 
         self.stop_stream_button = QPushButton("Stop")
         self.stop_stream_button.setObjectName("btnStop")
+        self.stop_stream_button.setIcon(
+            icon_loader.get_icon("square", color=IconTheme.DANGER)
+        )
+        self.stop_stream_button.setIconSize(icon_size)
         self.stop_stream_button.setEnabled(False)  # Disabled by default
 
         layout_actions.addWidget(self.load_history_button)

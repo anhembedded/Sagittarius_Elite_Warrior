@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
+from Binace_Bot.src.presentation.ui.assets import IconTheme, get_icon_loader
 
 # ---------------------------------------------------------------------------
-# Type alias: (display_label, route_name)
+# Type alias: (display_label, route_name, icon_name)
 # ---------------------------------------------------------------------------
-NavRoute = Tuple[str, str]
+NavRoute = Tuple[str, str, str]
 
 
 class Sidebar(QWidget):
@@ -22,7 +23,7 @@ class Sidebar(QWidget):
     upward via sig_navigate — this widget knows nothing about screens.
 
     Usage:
-        routes = [("Dashboard", "dashboard"), ("Database", "data_management")]
+        routes = [("Dashboard", "dashboard", "layout-dashboard"), ("Database", "data_management", "database")]
         sidebar = Sidebar(routes=routes)
         sidebar.sig_navigate.connect(main_window.switch_screen)
         sidebar.set_active("dashboard")  # Set initial active state
@@ -58,8 +59,11 @@ class Sidebar(QWidget):
         layout.addWidget(title)
 
     def _build_nav_buttons(self, layout: QVBoxLayout, routes: List[NavRoute]) -> None:
-        for label, route_name in routes:
+        icon_loader = get_icon_loader()
+        for label, route_name, icon_name in routes:
             btn = QPushButton(label)
+            btn.setIcon(icon_loader.get_icon(icon_name, color=IconTheme.MUTED))
+            btn.setIconSize(QSize(18, 18))
             btn.setCheckable(True)
             btn.setMinimumHeight(self._MIN_BUTTON_HEIGHT)
             # Capture route_name in default arg to avoid late-binding closure issue

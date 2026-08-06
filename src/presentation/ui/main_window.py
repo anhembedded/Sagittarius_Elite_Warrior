@@ -35,12 +35,12 @@ if TYPE_CHECKING:
     pass
 
 # ---------------------------------------------------------------------------
-# Navigation routes — (display_label, route_name)
+# Navigation routes — (display_label, route_name, icon_name)
 # Adding a new screen: add one entry here and register it in _setup_router().
 # ---------------------------------------------------------------------------
 _NAV_ROUTES = [
-    ("Dev Board", "dashboard"),
-    ("Database", "data_management"),
+    ("Dev Board", "dashboard", "layout-dashboard"),
+    ("Database", "data_management", "database"),
 ]
 
 _WINDOW_TITLE = "Binance Bot Desktop - Clean Architecture"
