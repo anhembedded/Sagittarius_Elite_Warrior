@@ -24,3 +24,11 @@ Welcome to the Task Tracking for the Binance Trading Bot.
 | Phase | Title | Spec File |
 | --- | --- | --- |
 | **Phase 3** | Strategy Engine & Paper Trading | [Phase3_Strategy.md](backlog/Phase3_Strategy.md) |
+
+### 🟣 Dev / Upcoming (`Tasks/dev/`)
+
+| Phase | Title | Spec File |
+| --- | --- | --- |
+| **Phase 5** | Data Management Screen | [Task_Data_Management_Screen.md](dev/Task_Data_Management_Screen.md) |
+| **Phase 5** | Live Charting | [Task_Live_Charting.md](dev/Task_Live_Charting.md) |
+| **Phase 4** | Backtest Engine Execution | [Task_Backtest_Engine.md](dev/Task_Backtest_Engine.md) |
