@@ -21,10 +21,10 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 12 | 80% |
+| 🟢 **Completed** | 12 | 67% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 3 | 20% |
-| 📈 **Tổng số Task** | **15** | **100%** |
+| 🔴 **Backlog** | 6 | 33% |
+| 📈 **Tổng số Task** | **18** | **100%** |
 
 ---
 
@@ -58,5 +58,8 @@ Binace_Bot/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :--- |
 | **P1** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Sẵn sàng bắt đầu — mọi phụ thuộc đã hoàn thành. |
-| **P2** | **[BOT-011](backlog/BOT-011_chart_tradingview_tier3_advanced.md)** | **TradingView Chart — Tier 3 Advanced** *(Ưu tiên thấp)* | `BOT-010` ✅ | Drawing tools (Trendline, Fibonacci), Context Menu chuột phải & Multi-chart/Snapshot. Giá trị thấp cho tự động hóa bot (task tự ghi chú); cần test tương tác chuột thật — cân nhắc kỹ trước khi làm toàn bộ. |
+| **P2** | **[BOT-017](backlog/BOT-017_settings_screen.md)** | **Settings Screen** | — | UI chỉnh API key/symbol/interval/sync days thay vì sửa tay `user_config.json`. Không phụ thuộc gì, rủi ro thấp, giá trị UX cao. |
+| **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
+| **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
+| **P3** | **[BOT-011](backlog/BOT-011_chart_tradingview_tier3_advanced.md)** | **TradingView Chart — Tier 3 Advanced** *(Ưu tiên thấp)* | `BOT-010` ✅ | Drawing tools (Trendline, Fibonacci), Context Menu chuột phải & Multi-chart/Snapshot. Giá trị thấp cho tự động hóa bot (task tự ghi chú); cần test tương tác chuột thật — cân nhắc kỹ trước khi làm toàn bộ. |
 | **P3** | **[BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine Execution** *(Thấp nhất)* | `BOT-001` ✅, `BOT-008` | Cỗ máy backtest chiến lược giả lập (Paper Exchange & Virtual Event Loop). Phụ thuộc `BOT-008` chưa xong. |
