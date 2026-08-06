@@ -1,5 +1,5 @@
 {
-    "DATABASE_URL": "sqlite:///Binace_Bot/database/trading.db",
+    "database.dir": "Binace_Bot/database",
     "BINANCE_WS_URL": "wss://stream.binance.com:9443",
     "BINANCE_REST_URL": "https://api.binance.com",
     "LOG_FORMAT": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",

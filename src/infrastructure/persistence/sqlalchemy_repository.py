@@ -1,5 +1,4 @@
 import sqlalchemy as sa
-from sqlalchemy.orm import declarative_base, sessionmaker
 from typing import Optional
 from datetime import datetime, timezone
 from Binace_Bot.src.domain.entities.market_data import MarketData
@@ -7,65 +6,22 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from sagittarius_engine.interfaces.i_config import IConfig
-import os
+from Binace_Bot.src.infrastructure.persistence.models import KlineModel
+from Binace_Bot.src.infrastructure.persistence.database_manager import DatabaseManager
 import logging
 
 logger = logging.getLogger("App.Database")
-
-Base = declarative_base()
-
-
-class KlineModel(Base):
-    __tablename__ = "klines"
-
-    # Composite Primary Key to ensure we don't duplicate klines
-    symbol = sa.Column(sa.String, primary_key=True)
-    interval = sa.Column(sa.String, primary_key=True)
-    open_time = sa.Column(sa.DateTime, primary_key=True)
-
-    open_price = sa.Column(sa.Float, nullable=False)
-    high_price = sa.Column(sa.Float, nullable=False)
-    low_price = sa.Column(sa.Float, nullable=False)
-    close_price = sa.Column(sa.Float, nullable=False)
-    volume = sa.Column(sa.Float, nullable=False)
-    close_time = sa.Column(sa.DateTime, nullable=False)
-    quote_asset_volume = sa.Column(sa.Float, nullable=False)
-    number_of_trades = sa.Column(sa.Integer, nullable=False)
-    taker_buy_base_asset_volume = sa.Column(sa.Float, nullable=False)
-    taker_buy_quote_asset_volume = sa.Column(sa.Float, nullable=False)
 
 
 class SQLAlchemyMarketDataRepository(IMarketDataRepository):
     """
     @brief SQLite/SQLAlchemy implementation of IMarketDataRepository.
     @details Ensures WAL mode is enabled for concurrent reads and writes.
+             Delegates connection pooling to DatabaseManager.
     """
 
-    def __init__(self, config: IConfig) -> None:
-        db_url = config.get("database.url")
-        if not db_url:
-            # Fallback to an in-memory SQLite DB or safe relative path
-            db_path = os.path.join(os.getcwd(), "database", "trading.db")
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
-            db_url = f"sqlite:///{db_path}"
-
-        # connect_args to configure SQLite with WAL and a high timeout to prevent locking
-        engine = sa.create_engine(
-            db_url, connect_args={"check_same_thread": False, "timeout": 15}
-        )
-
-        # Enforce WAL mode on connect
-        @sa.event.listens_for(engine, "connect")
-        def set_sqlite_pragma(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA synchronous=NORMAL")
-            cursor.close()
-
-        Base.metadata.create_all(engine)
-        self.Session = sessionmaker(bind=engine)
-        logger.info(f"Database initialized at {db_url}")
+    def __init__(self, db_manager: DatabaseManager) -> None:
+        self.db_manager = db_manager
 
     def save_klines(self, klines: list[MarketData]) -> None:
         """
@@ -78,51 +34,57 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         from sqlalchemy.dialects.sqlite import insert
 
         try:
-            with self.Session() as session:
-                # Prepare the SQLite UPSERT statement
-                stmt = insert(KlineModel)
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=['symbol', 'interval', 'open_time'],
-                    set_={
-                        "open_price": stmt.excluded.open_price,
-                        "high_price": stmt.excluded.high_price,
-                        "low_price": stmt.excluded.low_price,
-                        "close_price": stmt.excluded.close_price,
-                        "volume": stmt.excluded.volume,
-                        "close_time": stmt.excluded.close_time,
-                        "quote_asset_volume": stmt.excluded.quote_asset_volume,
-                        "number_of_trades": stmt.excluded.number_of_trades,
-                        "taker_buy_base_asset_volume": stmt.excluded.taker_buy_base_asset_volume,
-                        "taker_buy_quote_asset_volume": stmt.excluded.taker_buy_quote_asset_volume,
-                    }
-                )
+            # Group klines by symbol to ensure they go to their respective databases
+            symbol_groups: dict[str, list[MarketData]] = {}
+            for k in klines:
+                symbol_groups.setdefault(k.symbol, []).append(k)
 
-                # Execute in chunks to avoid locking the DB for too long
-                chunk_size = 5000
-                for i in range(0, len(klines), chunk_size):
-                    chunk = klines[i : i + chunk_size]
-                    params = [
-                        {
-                            "symbol": k.symbol,
-                            "interval": k.interval,
-                            "open_time": k.open_time,
-                            "open_price": k.open_price,
-                            "high_price": k.high_price,
-                            "low_price": k.low_price,
-                            "close_price": k.close_price,
-                            "volume": k.volume,
-                            "close_time": k.close_time,
-                            "quote_asset_volume": k.quote_asset_volume,
-                            "number_of_trades": k.number_of_trades,
-                            "taker_buy_base_asset_volume": k.taker_buy_base_asset_volume,
-                            "taker_buy_quote_asset_volume": k.taker_buy_quote_asset_volume,
-                        }
-                        for k in chunk
-                    ]
-                    session.execute(stmt, params)
-                    session.commit()
-                    
-                logger.debug(f"Saved {len(klines)} klines to database in chunks of {chunk_size}.")
+            # Prepare the SQLite UPSERT statement
+            stmt = insert(KlineModel)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['symbol', 'interval', 'open_time'],
+                set_={
+                    "open_price": stmt.excluded.open_price,
+                    "high_price": stmt.excluded.high_price,
+                    "low_price": stmt.excluded.low_price,
+                    "close_price": stmt.excluded.close_price,
+                    "volume": stmt.excluded.volume,
+                    "close_time": stmt.excluded.close_time,
+                    "quote_asset_volume": stmt.excluded.quote_asset_volume,
+                    "number_of_trades": stmt.excluded.number_of_trades,
+                    "taker_buy_base_asset_volume": stmt.excluded.taker_buy_base_asset_volume,
+                    "taker_buy_quote_asset_volume": stmt.excluded.taker_buy_quote_asset_volume,
+                }
+            )
+
+            for symbol, group_klines in symbol_groups.items():
+                with self.db_manager.get_session(symbol) as session:
+                    # Execute in chunks to avoid locking the DB for too long
+                    chunk_size = 5000
+                    for i in range(0, len(group_klines), chunk_size):
+                        chunk = group_klines[i : i + chunk_size]
+                        params = [
+                            {
+                                "symbol": k.symbol,
+                                "interval": k.interval,
+                                "open_time": k.open_time,
+                                "open_price": k.open_price,
+                                "high_price": k.high_price,
+                                "low_price": k.low_price,
+                                "close_price": k.close_price,
+                                "volume": k.volume,
+                                "close_time": k.close_time,
+                                "quote_asset_volume": k.quote_asset_volume,
+                                "number_of_trades": k.number_of_trades,
+                                "taker_buy_base_asset_volume": k.taker_buy_base_asset_volume,
+                                "taker_buy_quote_asset_volume": k.taker_buy_quote_asset_volume,
+                            }
+                            for k in chunk
+                        ]
+                        session.execute(stmt, params)
+                        session.commit()
+                        
+                logger.debug(f"Saved {len(group_klines)} klines for {symbol} to database in chunks of {chunk_size}.")
         except Exception as e:
             logger.error(f"Failed to save klines to database: {e}")
             raise
@@ -130,7 +92,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
     def get_latest_kline_time(
         self, symbol: str, interval: TimeFrame
     ) -> Optional[datetime]:
-        with self.Session() as session:
+        with self.db_manager.get_session(symbol) as session:
             latest = (
                 session.query(sa.func.max(KlineModel.open_time))
                 .filter_by(symbol=symbol, interval=interval.value)
@@ -149,7 +111,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         limit: Optional[int] = None,
         order_by_desc: bool = False,
     ) -> list[MarketData]:
-        with self.Session() as session:
+        with self.db_manager.get_session(symbol) as session:
             query = session.query(KlineModel).filter_by(
                 symbol=symbol, interval=interval.value
             )
@@ -168,13 +130,6 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 query = query.limit(limit)
 
             rows = query.all()
-
-            # If the caller didn't explicitly ask for desc, but we used limit, 
-            # we should reverse it ONLY if we manually applied desc under the hood 
-            # to get the latest, which we don't do anymore unless order_by_desc is True.
-            # Wait, if order_by_desc is False, and limit=1000, we get the *oldest* 1000 candles.
-            # If order_by_desc is True, we get the *newest* 1000 candles in descending order.
-            # This makes the behavior predictable.
 
             results = []
             for row in rows:
@@ -230,7 +185,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             FROM ordered_klines
         """)
         
-        with self.Session() as session:
+        with self.db_manager.get_session(symbol) as session:
             result = session.execute(
                 query, 
                 {"symbol": symbol, "interval": interval.value, "expected_seconds": expected_seconds}

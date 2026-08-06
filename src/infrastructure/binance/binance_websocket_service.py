@@ -92,6 +92,7 @@ class BinanceWebsocketService(ILiveStreamService):
         Exits cooperatively when the CancellationToken is cancelled.
         """
         is_closing = False
+        client = None
         try:
             client = await AsyncClient.create()
             bsm = BinanceSocketManager(client)

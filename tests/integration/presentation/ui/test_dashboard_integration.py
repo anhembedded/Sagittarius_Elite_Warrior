@@ -68,8 +68,8 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     presenter.ui_log_signal.connect(lambda msg: logs.append(msg))
     
     # Before click: stream buttons are default
-    assert view.control_card.btn_start_stream.isEnabled()
-    assert not view.control_card.btn_stop_stream.isEnabled()
+    assert view.control_card.start_stream_button.isEnabled()
+    assert not view.control_card.stop_stream_button.isEnabled()
     
     # Emit load history, which will hit the exception in mock_app.dispatch
     view.control_card.sig_load_clicked.emit()
@@ -79,5 +79,5 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     
     # The UI should have triggered the fallback recovery (set_stream_active(False))
     # which ensures the UI is unlocked.
-    assert view.control_card.btn_start_stream.isEnabled()
-    assert not view.control_card.btn_stop_stream.isEnabled()
+    assert view.control_card.start_stream_button.isEnabled()
+    assert not view.control_card.stop_stream_button.isEnabled()

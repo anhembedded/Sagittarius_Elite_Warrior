@@ -34,14 +34,16 @@ class DashboardPresenter(QObject):
         self.view = view
         self.app = app
         
-        # Extract UI Matrix from config and inject it
-        from sagittarius_engine.interfaces.i_config import IConfig
+        # Extract UI Matrix from config file and inject it
+        import os, json
         from Binace_Bot.src.presentation.ui.constants import UIMode
         from sagittarius_engine.extensions.fsm.state_machine import BaseStateMachine
         
         try:
-            config_manager = self.app.container.resolve(IConfig)
-            ui_matrix = config_manager.get("ui_state_matrix", {})
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+            matrix_path = os.path.join(base_dir, "config", "ui_matrix.json")
+            with open(matrix_path, "r") as f:
+                ui_matrix = json.load(f)
             self.view.control_card.set_ui_matrix(ui_matrix)
         except Exception as e:
             print(f"Failed to load UI Matrix from config: {e}")

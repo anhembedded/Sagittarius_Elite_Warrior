@@ -7,6 +7,9 @@ from Binace_Bot.src.application.ports.i_market_data_repository import (
 from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
+from Binace_Bot.src.infrastructure.persistence.database_manager import DatabaseManager, DatabaseConfig
+from sagittarius_engine.interfaces.i_config import IConfig
+import os
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
 from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
@@ -68,6 +71,11 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(ITaskManager, app.context.tasks)
 
         # Register Repositories & Clients
+        config: IConfig = app.container.resolve(IConfig)
+        db_dir = config.get("database.dir") or os.path.join(os.getcwd(), "database")
+        app.container.singleton(DatabaseConfig, DatabaseConfig(db_dir=db_dir))
+        
+        app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
         

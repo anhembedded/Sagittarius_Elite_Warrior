@@ -87,5 +87,5 @@ def test_get_historical_klines_arguments(client):
     # Check what the mocked underlying client received
     underlying_mock = client.client
     underlying_mock.get_historical_klines_generator.assert_called_once_with(
-        "ETHUSDT", "1m", "01 Jan 2023 12:00:00"
+        "ETHUSDT", "1m", "01 Jan 2023 12:00:00", None
     )
