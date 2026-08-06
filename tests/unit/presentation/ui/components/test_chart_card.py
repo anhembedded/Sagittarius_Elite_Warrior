@@ -117,6 +117,54 @@ def test_chart_card_ohlc_lookup_for_crosshair(qapp):
     assert card.candlestick.get_ohlc_at(1055.0) == data[1]  # Nearest to 1060.0
 
 
+def test_chart_card_indicator_toggle_and_remove(qapp):
+    """
+    Test that indicators get a legend entry with a live value, that set_indicator_visible
+    toggles curve visibility, and that remove_indicator drops it from tracking entirely.
+    """
+    card = ChartCard("BTCUSDT")
+    card.add_overlay_indicator("SMA_20", color="#f39c12")
+    card.update_indicator_data("SMA_20", [1000.0, 1060.0], [50.0, 55.0])
+
+    # Legend text reflects the latest value pushed via update_indicator_data.
+    assert card.indicators._legend_labels["SMA_20"].text == "SMA_20: 55.0000"
+
+    card.set_indicator_visible("SMA_20", False)
+    assert card.indicators._curves["SMA_20"].isVisible() is False
+    card.set_indicator_visible("SMA_20", True)
+    assert card.indicators._curves["SMA_20"].isVisible() is True
+
+    card.remove_indicator("SMA_20")
+    assert "SMA_20" not in card.indicators._curves
+    assert "SMA_20" not in card.indicators._legend_labels
+
+
+def test_chart_card_viewport_follow_and_jump_to_live(qapp):
+    """
+    Test that a user-driven pan/zoom (sigRangeChangedManually) stops auto-follow and
+    reveals the "Jump to Live" button, and that resume_follow() restores it.
+    """
+    card = ChartCard("BTCUSDT")
+    card.show()  # QWidget.isVisible() requires a shown top-level ancestor
+    QApplication.processEvents()
+    assert card.viewport._following is True
+    assert card.viewport._button.isVisible() is False
+
+    # Simulate the user dragging/zooming the main plot.
+    card.plot_layout.main_plot.vb.sigRangeChangedManually.emit(None)
+    assert card.viewport._following is False
+    assert card.viewport._button.isVisible() is True
+
+    # A programmatic data update must NOT silently resume following.
+    card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)
+    assert card.viewport._following is False
+
+    # Clicking "Jump to Live" (or calling its handler) resumes auto-follow.
+    card.viewport.resume_follow()
+    assert card.viewport._following is True
+    assert card.viewport._button.isVisible() is False
+
+
 def test_chart_card_crosshair_mouse_hover(qapp):
     """
     Test that mouse movement triggers crosshair updates without crashing (AttributeError).
