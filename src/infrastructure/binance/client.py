@@ -1,5 +1,6 @@
 from binance.client import Client
 from datetime import datetime, timezone
+from typing import Optional
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
@@ -13,10 +14,20 @@ class PythonBinanceClient(IExchangeClient):
     @brief Infrastructure Adapter for python-binance.
     """
 
-    def __init__(self, api_key: str = "", api_secret: str = "") -> None:
-        # For public endpoints like klines, api_key/secret aren't strictly required,
-        # but good to have for rate limits or private endpoints later.
-        self.client = Client(api_key, api_secret)
+    def __init__(
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        client: Optional[Client] = None,
+    ) -> None:
+        """
+        @param client Optional pre-built binance.client.Client (or a test double). Lets
+        callers (and unit tests) inject a client directly instead of this class always
+        constructing the concrete SDK client itself — Dependency Inversion. Defaults to
+        constructing the real Client from api_key/api_secret when not provided, so
+        existing call sites (and app_bootstrapper's container wiring) are unaffected.
+        """
+        self.client = client if client is not None else Client(api_key, api_secret)
 
     def get_historical_klines(
         self,

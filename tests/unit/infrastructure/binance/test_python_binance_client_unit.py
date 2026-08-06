@@ -4,6 +4,52 @@ from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 
+def test_injected_client_is_used_directly_without_patching_the_sdk():
+    """
+    DIP: a pre-built client can be injected via __init__, so tests (and callers) don't
+    need unittest.mock.patch reaching into the binance.client.Client construction.
+    """
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = []
+
+    client = PythonBinanceClient(client=injected_client)
+
+    assert client.client is injected_client
+
+    client.get_historical_klines(
+        "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=timezone.utc)
+    )
+    injected_client.get_historical_klines_generator.assert_called_once()
+
+
+@patch("Binace_Bot.src.infrastructure.binance.client.Client")
+def test_no_injected_client_falls_back_to_constructing_the_real_sdk_client(
+    mock_client_class,
+):
+    """When no client is injected, the real Client(api_key, api_secret) is built — the
+    existing default behavior every current call site (container wiring) relies on."""
+    PythonBinanceClient(api_key="k", api_secret="s")
+    mock_client_class.assert_called_once_with("k", "s")
+
+
+def test_get_historical_klines_propagates_underlying_client_errors():
+    """Errors from the injected client must not be swallowed."""
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.side_effect = RuntimeError(
+        "API rate limit"
+    )
+
+    client = PythonBinanceClient(client=injected_client)
+
+    try:
+        client.get_historical_klines(
+            "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=timezone.utc)
+        )
+        raise AssertionError("Expected RuntimeError to propagate")
+    except RuntimeError as exc:
+        assert "API rate limit" in str(exc)
+
+
 @patch("Binace_Bot.src.infrastructure.binance.client.Client")
 def test_python_binance_client_with_end_str(mock_client_class):
     mock_binance_client_instance = Mock()

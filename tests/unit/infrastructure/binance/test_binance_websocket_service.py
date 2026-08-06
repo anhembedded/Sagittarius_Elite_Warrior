@@ -1,9 +1,99 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+
+
+def test_create_socket_uses_plain_kline_socket_for_a_single_symbol():
+    """A single symbol should use the plain kline_socket, not the multiplex one."""
+    service = BinanceWebsocketService(Mock(), Mock())
+    bsm = Mock()
+    interval = TimeFrame.ONE_MINUTE
+
+    socket = service._create_socket(bsm, ["BTCUSDT"], ["btcusdt@kline_1m"], interval)
+
+    bsm.kline_socket.assert_called_once_with("BTCUSDT", interval="1m")
+    bsm.multiplex_socket.assert_not_called()
+    assert socket is bsm.kline_socket.return_value
+
+
+def test_create_socket_uses_multiplex_socket_for_multiple_symbols():
+    service = BinanceWebsocketService(Mock(), Mock())
+    bsm = Mock()
+    streams = ["btcusdt@kline_1m", "ethusdt@kline_1m"]
+
+    socket = service._create_socket(
+        bsm, ["BTCUSDT", "ETHUSDT"], streams, TimeFrame.ONE_MINUTE
+    )
+
+    bsm.multiplex_socket.assert_called_once_with(streams)
+    bsm.kline_socket.assert_not_called()
+    assert socket is bsm.multiplex_socket.return_value
+
+
+@pytest.mark.asyncio
+async def test_process_socket_message_ignores_empty_message():
+    event_bus = Mock()
+    service = BinanceWebsocketService(event_bus, Mock())
+    tscm = Mock()
+    tscm.recv = AsyncMock(return_value=None)
+
+    await service._process_socket_message(tscm)
+
+    event_bus.emit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_socket_message_ignores_non_kline_events():
+    event_bus = Mock()
+    service = BinanceWebsocketService(event_bus, Mock())
+    tscm = Mock()
+    tscm.recv = AsyncMock(return_value={"e": "trade"})
+
+    await service._process_socket_message(tscm)
+
+    event_bus.emit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_socket_message_unwraps_multiplex_envelope_and_emits():
+    """Multiplex streams wrap the real payload in a top-level "data" key."""
+    event_bus = Mock()
+    service = BinanceWebsocketService(event_bus, Mock())
+    tscm = Mock()
+    tscm.recv = AsyncMock(
+        return_value={
+            "stream": "btcusdt@kline_1m",
+            "data": {
+                "e": "kline",
+                "k": {
+                    "s": "BTCUSDT",
+                    "i": "1m",
+                    "t": 0,
+                    "T": 0,
+                    "o": "1",
+                    "h": "1",
+                    "l": "1",
+                    "c": "1",
+                    "v": "1",
+                    "q": "1",
+                    "n": 1,
+                    "V": "1",
+                    "Q": "1",
+                    "x": True,
+                },
+            },
+        }
+    )
+
+    await service._process_socket_message(tscm)
+
+    assert event_bus.emit.call_count == 1
+    emitted_event = event_bus.emit.call_args[0][0]
+    assert emitted_event.market_data.symbol == "BTCUSDT"
+    assert emitted_event.market_data.is_closed is True
 
 
 def test_parse_kline():

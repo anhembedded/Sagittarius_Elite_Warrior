@@ -100,34 +100,10 @@ class BinanceWebsocketService(ILiveStreamService):
 
             while not token.is_cancelled():
                 try:
-                    socket = (
-                        bsm.kline_socket(symbols[0].upper(), interval=interval.value)
-                        if len(streams) == 1
-                        else bsm.multiplex_socket(streams)
-                    )
-
+                    socket = self._create_socket(bsm, symbols, streams, interval)
                     async with socket as tscm:
                         while not token.is_cancelled():
-                            res = await tscm.recv()
-
-                            if not res:
-                                continue
-
-                            # Multiplex stream wraps data in a "data" property
-                            if "data" in res:
-                                res = res["data"]
-
-                            if res.get("e") == "kline":
-                                market_data = self._parse_kline(res)
-                                logger.info(
-                                    f"[Live Stream] {market_data.symbol}"
-                                    f" | Price: {market_data.close_price}"
-                                    f" | Vol: {market_data.volume}"
-                                    f" | Closed: {market_data.is_closed}"
-                                )
-                                self._event_bus.emit(
-                                    MarketTickEvent(market_data=market_data)
-                                )
+                            await self._process_socket_message(tscm)
 
                 except asyncio.CancelledError:
                     logger.info("Stream task was cancelled.")
@@ -148,6 +124,35 @@ class BinanceWebsocketService(ILiveStreamService):
                     logger.info("Binance AsyncClient connection closed.")
                 except Exception as e:
                     logger.warning(f"Error closing Binance client: {e}")
+
+    @staticmethod
+    def _create_socket(
+        bsm, symbols: list[str], streams: list[str], interval: TimeFrame
+    ):
+        """@brief A single symbol uses the plain kline socket; multiple share a multiplex socket."""
+        if len(streams) == 1:
+            return bsm.kline_socket(symbols[0].upper(), interval=interval.value)
+        return bsm.multiplex_socket(streams)
+
+    async def _process_socket_message(self, tscm) -> None:
+        """@brief Receives one message, unwraps the multiplex envelope, and emits on a kline event."""
+        res = await tscm.recv()
+        if not res:
+            return
+
+        # Multiplex stream wraps data in a "data" property
+        if "data" in res:
+            res = res["data"]
+
+        if res.get("e") == "kline":
+            market_data = self._parse_kline(res)
+            logger.info(
+                f"[Live Stream] {market_data.symbol}"
+                f" | Price: {market_data.close_price}"
+                f" | Vol: {market_data.volume}"
+                f" | Closed: {market_data.is_closed}"
+            )
+            self._event_bus.emit(MarketTickEvent(market_data=market_data))
 
     def _parse_kline(self, msg: dict) -> MarketData:
         k = msg["k"]

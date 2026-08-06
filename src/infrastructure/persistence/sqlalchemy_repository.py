@@ -21,6 +21,8 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
              Delegates connection pooling to DatabaseManager.
     """
 
+    _UPSERT_CHUNK_SIZE = 5000
+
     def __init__(self, db_manager: DatabaseManager) -> None:
         self.db_manager = db_manager
 
@@ -32,65 +34,76 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         if not klines:
             return
 
-        from sqlalchemy.dialects.sqlite import insert
-
         try:
-            # Group klines by symbol to ensure they go to their respective databases
-            symbol_groups: dict[str, list[MarketData]] = {}
-            for k in klines:
-                symbol_groups.setdefault(k.symbol, []).append(k)
-
-            # Prepare the SQLite UPSERT statement
-            stmt = insert(KlineModel)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["symbol", "interval", "open_time"],
-                set_={
-                    "open_price": stmt.excluded.open_price,
-                    "high_price": stmt.excluded.high_price,
-                    "low_price": stmt.excluded.low_price,
-                    "close_price": stmt.excluded.close_price,
-                    "volume": stmt.excluded.volume,
-                    "close_time": stmt.excluded.close_time,
-                    "quote_asset_volume": stmt.excluded.quote_asset_volume,
-                    "number_of_trades": stmt.excluded.number_of_trades,
-                    "taker_buy_base_asset_volume": stmt.excluded.taker_buy_base_asset_volume,
-                    "taker_buy_quote_asset_volume": stmt.excluded.taker_buy_quote_asset_volume,
-                },
-            )
+            symbol_groups = self._group_by_symbol(klines)
+            stmt = self._build_upsert_stmt()
 
             for symbol, group_klines in symbol_groups.items():
                 with self.db_manager.get_session(symbol) as session:
-                    # Execute in chunks to avoid locking the DB for too long
-                    chunk_size = 5000
-                    for i in range(0, len(group_klines), chunk_size):
-                        chunk = group_klines[i : i + chunk_size]
-                        params = [
-                            {
-                                "symbol": k.symbol,
-                                "interval": k.interval,
-                                "open_time": k.open_time,
-                                "open_price": k.open_price,
-                                "high_price": k.high_price,
-                                "low_price": k.low_price,
-                                "close_price": k.close_price,
-                                "volume": k.volume,
-                                "close_time": k.close_time,
-                                "quote_asset_volume": k.quote_asset_volume,
-                                "number_of_trades": k.number_of_trades,
-                                "taker_buy_base_asset_volume": k.taker_buy_base_asset_volume,
-                                "taker_buy_quote_asset_volume": k.taker_buy_quote_asset_volume,
-                            }
-                            for k in chunk
-                        ]
-                        session.execute(stmt, params)
-                        session.commit()
+                    self._execute_chunked_upsert(session, stmt, group_klines)
 
                 logger.debug(
-                    f"Saved {len(group_klines)} klines for {symbol} to database in chunks of {chunk_size}."
+                    f"Saved {len(group_klines)} klines for {symbol} to database "
+                    f"in chunks of {self._UPSERT_CHUNK_SIZE}."
                 )
         except Exception as e:
             logger.error(f"Failed to save klines to database: {e}")
             raise
+
+    @staticmethod
+    def _group_by_symbol(klines: list[MarketData]) -> dict[str, list[MarketData]]:
+        symbol_groups: dict[str, list[MarketData]] = {}
+        for k in klines:
+            symbol_groups.setdefault(k.symbol, []).append(k)
+        return symbol_groups
+
+    @staticmethod
+    def _build_upsert_stmt():
+        """@brief Builds the SQLite-dialect ON CONFLICT DO UPDATE statement for KlineModel."""
+        from sqlalchemy.dialects.sqlite import insert
+
+        stmt = insert(KlineModel)
+        return stmt.on_conflict_do_update(
+            index_elements=["symbol", "interval", "open_time"],
+            set_={
+                "open_price": stmt.excluded.open_price,
+                "high_price": stmt.excluded.high_price,
+                "low_price": stmt.excluded.low_price,
+                "close_price": stmt.excluded.close_price,
+                "volume": stmt.excluded.volume,
+                "close_time": stmt.excluded.close_time,
+                "quote_asset_volume": stmt.excluded.quote_asset_volume,
+                "number_of_trades": stmt.excluded.number_of_trades,
+                "taker_buy_base_asset_volume": stmt.excluded.taker_buy_base_asset_volume,
+                "taker_buy_quote_asset_volume": stmt.excluded.taker_buy_quote_asset_volume,
+            },
+        )
+
+    @staticmethod
+    def _kline_to_upsert_params(k: MarketData) -> dict:
+        return {
+            "symbol": k.symbol,
+            "interval": k.interval,
+            "open_time": k.open_time,
+            "open_price": k.open_price,
+            "high_price": k.high_price,
+            "low_price": k.low_price,
+            "close_price": k.close_price,
+            "volume": k.volume,
+            "close_time": k.close_time,
+            "quote_asset_volume": k.quote_asset_volume,
+            "number_of_trades": k.number_of_trades,
+            "taker_buy_base_asset_volume": k.taker_buy_base_asset_volume,
+            "taker_buy_quote_asset_volume": k.taker_buy_quote_asset_volume,
+        }
+
+    def _execute_chunked_upsert(self, session, stmt, klines: list[MarketData]) -> None:
+        """@brief Executes the upsert in chunks of _UPSERT_CHUNK_SIZE, committing each chunk."""
+        for i in range(0, len(klines), self._UPSERT_CHUNK_SIZE):
+            chunk = klines[i : i + self._UPSERT_CHUNK_SIZE]
+            params = [self._kline_to_upsert_params(k) for k in chunk]
+            session.execute(stmt, params)
+            session.commit()
 
     def get_latest_kline_time(
         self, symbol: str, interval: TimeFrame
@@ -132,32 +145,29 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             if limit is not None:
                 query = query.limit(limit)
 
-            rows = query.all()
+            return [self._to_market_data_entity(row) for row in query.all()]
 
-            results = []
-            for row in rows:
-                results.append(
-                    MarketData(
-                        symbol=row.symbol,
-                        interval=row.interval,
-                        open_time=row.open_time.replace(tzinfo=timezone.utc)
-                        if row.open_time
-                        else None,
-                        open_price=row.open_price,
-                        high_price=row.high_price,
-                        low_price=row.low_price,
-                        close_price=row.close_price,
-                        volume=row.volume,
-                        close_time=row.close_time.replace(tzinfo=timezone.utc)
-                        if row.close_time
-                        else None,
-                        quote_asset_volume=row.quote_asset_volume,
-                        number_of_trades=row.number_of_trades,
-                        taker_buy_base_asset_volume=row.taker_buy_base_asset_volume,
-                        taker_buy_quote_asset_volume=row.taker_buy_quote_asset_volume,
-                    )
-                )
-            return results
+    @staticmethod
+    def _to_market_data_entity(row: KlineModel) -> MarketData:
+        return MarketData(
+            symbol=row.symbol,
+            interval=row.interval,
+            open_time=row.open_time.replace(tzinfo=timezone.utc)
+            if row.open_time
+            else None,
+            open_price=row.open_price,
+            high_price=row.high_price,
+            low_price=row.low_price,
+            close_price=row.close_price,
+            volume=row.volume,
+            close_time=row.close_time.replace(tzinfo=timezone.utc)
+            if row.close_time
+            else None,
+            quote_asset_volume=row.quote_asset_volume,
+            number_of_trades=row.number_of_trades,
+            taker_buy_base_asset_volume=row.taker_buy_base_asset_volume,
+            taker_buy_quote_asset_volume=row.taker_buy_quote_asset_volume,
+        )
 
     def get_database_status(
         self, symbol: str, interval: TimeFrame
@@ -209,20 +219,22 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 )
 
             return DatabaseStatusSnapshot(
-                first_record=result[0].replace(tzinfo=timezone.utc)
-                if isinstance(result[0], datetime)
-                else (
-                    datetime.fromisoformat(result[0]).replace(tzinfo=timezone.utc)
-                    if result[0]
-                    else None
-                ),
-                last_record=result[1].replace(tzinfo=timezone.utc)
-                if isinstance(result[1], datetime)
-                else (
-                    datetime.fromisoformat(result[1]).replace(tzinfo=timezone.utc)
-                    if result[1]
-                    else None
-                ),
+                first_record=self._parse_db_datetime(result[0]),
+                last_record=self._parse_db_datetime(result[1]),
                 total_candles=result[2],
                 gaps=result[3] if result[3] is not None else 0,
             )
+
+    @staticmethod
+    def _parse_db_datetime(value) -> Optional[datetime]:
+        """
+        @brief Normalizes a raw SQLite datetime result to a UTC-aware datetime.
+        @details SQLite may return either a native datetime (typed column) or an ISO
+        string (raw SQL aggregate result, as used by get_database_status's window
+        function query) depending on the query path — this handles both.
+        """
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return value.replace(tzinfo=timezone.utc)
+        return datetime.fromisoformat(value).replace(tzinfo=timezone.utc)
