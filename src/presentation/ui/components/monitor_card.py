@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QTextEdit, QPushButton
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 from datetime import datetime
 from Binace_Bot.src.presentation.ui.components.base_card import BaseCard
 
@@ -21,6 +21,8 @@ class MonitorCard(BaseCard):
         # Add clear button to the header of the BaseCard
         self.btn_clear = QPushButton("Clear")
         self.btn_clear.setMaximumWidth(80)
+        self.btn_clear.setToolTip("Clear all system logs")
+        self.btn_clear.setCursor(Qt.PointingHandCursor)
         self.btn_clear.clicked.connect(self.clear_logs_clicked.emit)
         self.add_to_header(self.btn_clear)
 
@@ -28,6 +30,7 @@ class MonitorCard(BaseCard):
         self.text_edit = QTextEdit()
         self.text_edit.setObjectName("terminal_log")
         self.text_edit.setReadOnly(True)
+        self.text_edit.setPlaceholderText("System logs will appear here...")
 
         self.body_layout.addWidget(self.text_edit)
 
