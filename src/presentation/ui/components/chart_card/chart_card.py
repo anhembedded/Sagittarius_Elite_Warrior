@@ -1,7 +1,10 @@
 from Binace_Bot.src.presentation.ui.components.base_card import BaseCard
 
 from .candlestick_item import FastCandlestickItem
+from .chart_toolbar import ChartToolbar
+from .chart_type_renderer import CANDLESTICK, HEIKIN_ASHI, ChartTypeRenderer
 from .crosshair_controller import CrosshairController
+from .heikin_ashi import to_heikin_ashi
 from .indicator_manager import IndicatorManager
 from .plot_layout import ChartPlotLayout
 from .price_line import LastPriceLine
@@ -9,26 +12,38 @@ from .viewport_controller import ViewportController
 from .volume_renderer import VolumeItem
 from .zoom_controls import ZoomControls
 
+OhlcCandle = tuple[float, float, float, float, float]
+
 
 class ChartCard(BaseCard):
     """
     @brief The Chart component for visualizing Candlestick data & Extensible Technical Indicators.
     @details Facade Pattern — composes ChartPlotLayout, CrosshairController, IndicatorManager,
-    VolumeItem, LastPriceLine, ViewportController, ZoomControls and FastCandlestickItem, and
-    exposes one stable API surface to the Presenter. Each collaborator owns exactly one concern
-    (layout, crosshair, indicators, volume, last-price, viewport-follow, zoom, rendering), keeping
-    this class a thin orchestrator instead of a God Object.
+    VolumeItem, LastPriceLine, ViewportController, ZoomControls, ChartTypeRenderer, ChartToolbar
+    and FastCandlestickItem, and exposes one stable API surface to the Presenter. Each collaborator
+    owns exactly one concern (layout, crosshair, indicators, volume, last-price, viewport-follow,
+    zoom, chart-type rendering, timeframe UI), keeping this class a thin orchestrator instead of
+    a God Object.
     """
 
     def __init__(self, symbol: str, parent=None):
         super().__init__(title=f"Live Chart: {symbol}", parent=parent)
         self.symbol = symbol
+        self._raw_history: list[OhlcCandle] = []
+        self._live_candle: OhlcCandle | None = None
+
+        self.toolbar = ChartToolbar()
+        self.add_to_header(self.toolbar)
 
         self.plot_layout = ChartPlotLayout()
         self.body_layout.addWidget(self.plot_layout.widget)
 
         self.candlestick = FastCandlestickItem()
         self.plot_layout.main_plot.addItem(self.candlestick)
+
+        self.chart_type_renderer = ChartTypeRenderer(
+            self.plot_layout.main_plot, self.candlestick
+        )
 
         self.price_line = LastPriceLine(self.plot_layout.main_plot)
 
@@ -66,10 +81,13 @@ class ChartCard(BaseCard):
         self.symbol = symbol
         self.lbl_title.setText(f"Live Chart: {symbol}")
 
-    def render_historical_data(
-        self, data: list[tuple[float, float, float, float, float]]
-    ) -> None:
-        self.candlestick.generate_picture(data)
+    def render_historical_data(self, data: list[OhlcCandle]) -> None:
+        self._raw_history = list(data)
+        self._live_candle = None
+        if self.chart_type_renderer.chart_type == CANDLESTICK:
+            self.candlestick.generate_picture(self._raw_history)
+        else:
+            self._render_chart_type()
         self.plot_layout.main_plot.autoRange()
         if data:
             last_t, open_p, _, _, close_p = data[-1]
@@ -84,7 +102,13 @@ class ChartCard(BaseCard):
         low_p: float,
         close_p: float,
     ) -> None:
-        self.candlestick.update_live_candle(timestamp, open_p, high_p, low_p, close_p)
+        self._live_candle = (timestamp, open_p, high_p, low_p, close_p)
+        if self.chart_type_renderer.chart_type == CANDLESTICK:
+            self.candlestick.update_live_candle(
+                timestamp, open_p, high_p, low_p, close_p
+            )
+        else:
+            self._render_chart_type()
         self.price_line.update_price(close_p, close_p >= open_p)
         self.viewport.notify_new_data(timestamp)
 
@@ -96,9 +120,45 @@ class ChartCard(BaseCard):
         low_p: float,
         close_p: float,
     ) -> None:
-        self.candlestick.append_closed_candle(timestamp, open_p, high_p, low_p, close_p)
+        self._raw_history.append((timestamp, open_p, high_p, low_p, close_p))
+        self._live_candle = None
+        if self.chart_type_renderer.chart_type == CANDLESTICK:
+            self.candlestick.append_closed_candle(
+                timestamp, open_p, high_p, low_p, close_p
+            )
+        else:
+            self._render_chart_type()
         self.price_line.update_price(close_p, close_p >= open_p)
         self.viewport.notify_new_data(timestamp)
+
+    def set_chart_type(self, chart_type: str) -> None:
+        """
+        @brief Switches between "candlestick" / "line" / "area" / "heikin_ashi" rendering
+        of the same underlying OHLC data — no re-fetch needed.
+        @details Candlestick keeps its dedicated O(1) live-tick fast path; the other modes
+        recompute from the retained history on every update (acceptable at typical kline
+        tick rates — same O(N) tolerance already used elsewhere in this package, e.g.
+        FastCandlestickItem.append_closed_candle).
+        """
+        self.chart_type_renderer.set_chart_type(chart_type)
+        if chart_type == CANDLESTICK:
+            # self.candlestick's last picture may hold transformed (e.g. Heikin Ashi)
+            # data from a previous mode — rebuild it from the raw OHLC we retained.
+            self.candlestick.generate_picture(self._raw_history)
+            if self._live_candle:
+                self.candlestick.update_live_candle(*self._live_candle)
+        else:
+            self._render_chart_type()
+
+    def _render_chart_type(self) -> None:
+        full_data = list(self._raw_history)
+        if self._live_candle:
+            full_data.append(self._live_candle)
+
+        if self.chart_type_renderer.chart_type == HEIKIN_ASHI:
+            self.candlestick.generate_picture(to_heikin_ashi(full_data))
+        else:
+            self.chart_type_renderer.render_line_data(full_data)
 
     def render_historical_volume(self, data: list[tuple[float, float, bool]]) -> None:
         """@param data: list of (timestamp, volume, is_bullish)."""

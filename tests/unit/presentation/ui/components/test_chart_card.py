@@ -245,6 +245,62 @@ def test_chart_card_viewport_follow_and_jump_to_live(qapp):
     assert card.viewport._button.isVisible() is False
 
 
+def test_chart_card_chart_type_switch_line_and_area(qapp):
+    """
+    Test that switching to line/area mode hides the candlestick item and plots close
+    prices, and that live ticks keep the line curve updated.
+    """
+    card = ChartCard("BTCUSDT")
+    data = [(1000.0 + i * 60, 100 + i, 105 + i, 95 + i, 102 + i) for i in range(10)]
+    card.render_historical_data(data)
+
+    card.set_chart_type("line")
+    assert card.chart_type_renderer.chart_type == "line"
+    assert card.candlestick.isVisible() is False
+    assert list(card.chart_type_renderer._curve.xData) == [d[0] for d in data]
+    assert list(card.chart_type_renderer._curve.yData) == [d[4] for d in data]
+
+    # A live tick must extend the line curve too, not just the (hidden) candlestick.
+    card.update_last_candle(1600.0, 109.0, 112.0, 108.0, 111.0)
+    assert len(card.chart_type_renderer._curve.xData) == 11
+    assert card.chart_type_renderer._curve.yData[-1] == 111.0
+
+    card.set_chart_type("area")
+    assert card.candlestick.isVisible() is False
+    assert card.chart_type_renderer._curve.opts["fillLevel"] == 0
+
+
+def test_chart_card_chart_type_switch_heikin_ashi(qapp):
+    """
+    Test that Heikin Ashi mode still renders through the candlestick item (transformed
+    data) and that switching back to "candlestick" restores the original raw OHLC.
+    """
+    card = ChartCard("BTCUSDT")
+    data = [(1000.0 + i * 60, 100 + i, 105 + i, 95 + i, 102 + i) for i in range(10)]
+    card.render_historical_data(data)
+
+    card.set_chart_type("heikin_ashi")
+    assert card.candlestick.isVisible() is True
+    assert len(card.candlestick.history_data) == 10
+    assert card.candlestick.history_data != data  # transformed, not raw
+
+    card.set_chart_type("candlestick")
+    assert card.candlestick.history_data == data  # raw OHLC restored, not left as HA
+
+
+def test_chart_card_toolbar_emits_timeframe_and_tracks_active_button(qapp):
+    card = ChartCard("BTCUSDT")
+
+    changes = []
+    card.toolbar.sig_timeframe_changed.connect(changes.append)
+
+    card.toolbar._buttons["15m"].click()
+
+    assert changes == ["15m"]
+    assert card.toolbar._buttons["15m"].isChecked() is True
+    assert card.toolbar._buttons["1m"].isChecked() is False
+
+
 def test_chart_card_crosshair_mouse_hover(qapp):
     """
     Test that mouse movement triggers crosshair updates without crashing (AttributeError).
