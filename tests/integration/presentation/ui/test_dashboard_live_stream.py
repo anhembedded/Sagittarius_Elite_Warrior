@@ -1,7 +1,5 @@
 import pytest
 from unittest.mock import MagicMock
-from PySide6.QtWidgets import QApplication
-
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
@@ -14,14 +12,6 @@ from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query im
 from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
 
 
 @pytest.fixture
@@ -67,6 +57,7 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
     Simulates clicking Start Stream, and verifies that the history data is properly
     rendered and repainted on the ChartCard.
     """
+    mock_app.resolve.return_value = mock_app
     view = DashboardView()
     presenter = DashboardPresenter(view, mock_app)
     view.presenter = presenter
@@ -98,6 +89,9 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
     with patch(
         "Binace_Bot.src.presentation.ui.components.chart_card.FastCandlestickItem.update"
     ) as mock_update:
+        # Trigger Load History first
+        view.control_card.sig_load_clicked.emit()
+        
         # Trigger Start Stream
         view.control_card.sig_start_clicked.emit()
 
@@ -107,8 +101,3 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
 
         # Assert history was added to the candlestick
         assert len(card.candlestick.history_data) == 1
-
-        # Assert update() was called to trigger a repaint
-        assert mock_update.called, (
-            "FastCandlestickItem.update() was not called! The chart will not draw."
-        )

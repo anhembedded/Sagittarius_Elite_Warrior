@@ -42,6 +42,7 @@ class DataManagementPresenter(BasePresenter):
     STATUS_OK = "OK"
     UI_MATRIX_SECTION_KEY = "data_management"
     from Binace_Bot.src.presentation.ui.constants import UIMode
+
     INITIAL_STATE = UIMode.IDLE
 
     # Thread-safe signals to update UI from background tasks
@@ -63,6 +64,7 @@ class DataManagementPresenter(BasePresenter):
         logging.getLogger("App").addHandler(self.log_handler)
 
         from Binace_Bot.src.presentation.ui.constants import UIMode
+
         if self.fsm:
             self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
             self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
@@ -111,12 +113,14 @@ class DataManagementPresenter(BasePresenter):
     def _unlock_ui(self):
         self.view.progress_bar.hide()
         from Binace_Bot.src.presentation.ui.constants import UIMode
+
         self.fsm.transition_to(UIMode.IDLE)
 
     @Slot()
     def _on_sync_complete(self):
         self.view.append_log("UI Restored.")
         from Binace_Bot.src.presentation.ui.constants import UIMode
+
         self.fsm.transition_to(UIMode.IDLE)
         self._on_check_status()  # Auto refresh status after sync
 
@@ -161,6 +165,7 @@ class DataManagementPresenter(BasePresenter):
 
         # UI Lock Mechanism
         from Binace_Bot.src.presentation.ui.constants import UIMode
+
         self.fsm.transition_to(UIMode.LOCKED)
         self.view.progress_bar.setRange(0, 0)  # Indeterminate mode
         self.view.progress_bar.show()
@@ -206,6 +211,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_clear_table_signal.emit()
         self.ui_log_signal.emit("Scanning DB status for ALL symbols and intervals...")
         from Binace_Bot.src.presentation.ui.constants import UIMode
+
         self.fsm.transition_to(UIMode.LOCKED)
 
         def scan_all_task():
@@ -222,7 +228,9 @@ class DataManagementPresenter(BasePresenter):
                 for symbol in symbols:
                     for interval in intervals:
                         query = GetDatabaseStatusQuery(symbol=symbol, interval=interval)
-                        response = self.dispatcher.dispatch(GetDatabaseStatusQuery, query)
+                        response = self.dispatcher.dispatch(
+                            GetDatabaseStatusQuery, query
+                        )
                         status = getattr(response, "data", response) if response else {}
 
                         first_record = str(status.get("first_record") or "N/A")
@@ -278,6 +286,7 @@ class DataManagementPresenter(BasePresenter):
             f"Found {len(targets)} targets to sync. Starting sequential bulk sync..."
         )
         from Binace_Bot.src.presentation.ui.constants import UIMode
+
         self.fsm.transition_to(UIMode.LOCKED)
 
         self.view.progress_bar.setRange(0, len(targets))
@@ -306,4 +315,5 @@ class DataManagementPresenter(BasePresenter):
             f"Clearing local data for {symbol} ({interval}) is not yet implemented."
         )
         from Binace_Bot.src.presentation.ui.constants import UIMode
+
         self.fsm.transition_to(UIMode.LOCKED)

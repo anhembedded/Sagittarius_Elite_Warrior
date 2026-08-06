@@ -1,14 +1,5 @@
 import pytest
-from PySide6.QtWidgets import QApplication
 from Binace_Bot.src.presentation.ui.components.control_card import ControlCard
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
 
 
 def test_control_card_initialization(qapp):
@@ -62,9 +53,11 @@ def test_control_card_apply_ui_mode(qapp):
     card = ControlCard()
 
     matrix = {
-        "IDLE": {"start_stream_button": True, "stop_stream_button": False},
-        "LIVE": {"start_stream_button": False, "stop_stream_button": True},
-        "ERROR": {"start_stream_button": True, "stop_stream_button": False},
+        "main": {
+            "IDLE": {"start_stream_button": True, "stop_stream_button": False},
+            "LIVE": {"start_stream_button": False, "stop_stream_button": True},
+            "ERROR": {"start_stream_button": True, "stop_stream_button": False},
+        }
     }
     card.set_ui_matrix(matrix)
     from Binace_Bot.src.presentation.ui.constants import UIMode

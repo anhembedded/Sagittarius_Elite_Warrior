@@ -1,20 +1,11 @@
 import pytest
 from unittest.mock import MagicMock
-from PySide6.QtWidgets import QApplication
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
 
 
 @pytest.fixture
@@ -39,6 +30,8 @@ def mock_container():
     def resolve_side_effect(interface):
         if interface == IConfig:
             return mock_config
+        if interface == IDispatcher:
+            return container
         return MagicMock()
 
     container.resolve.side_effect = resolve_side_effect
@@ -62,7 +55,9 @@ def test_dashboard_presenter_initialization(qapp, mock_view, mock_container):
     assert presenter.container == mock_container
 
 
-def test_dashboard_presenter_load_history_dispatches_query(qapp, mock_view, mock_container):
+def test_dashboard_presenter_load_history_dispatches_query(
+    qapp, mock_view, mock_container
+):
     presenter = DashboardPresenter(mock_view, mock_container)
 
     # Mocking ensure_chart_cards to return a mock card
@@ -80,7 +75,9 @@ def test_dashboard_presenter_load_history_dispatches_query(qapp, mock_view, mock
     assert call_args[1].symbol == "BTCUSDT"
 
 
-def test_dashboard_presenter_load_history_handles_exception(qapp, mock_view, mock_container):
+def test_dashboard_presenter_load_history_handles_exception(
+    qapp, mock_view, mock_container
+):
     presenter = DashboardPresenter(mock_view, mock_container)
 
     # Force _ensure_chart_cards to raise an exception

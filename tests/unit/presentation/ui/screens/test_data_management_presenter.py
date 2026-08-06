@@ -14,27 +14,24 @@ def mock_container():
     container = Mock()
     mock_thread_mgr = Mock()
     mock_dispatcher = Mock()
-    
+
     def resolve_mock(interface):
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
         from sagittarius_engine.interfaces.i_config import IConfig
-        
+
         if interface == IThreadManager:
             return mock_thread_mgr
         if interface == IDispatcher:
             return mock_dispatcher
         if interface == IConfig:
             mock_config = Mock()
-            matrix = {
-                "IDLE": {"btn_sync": True},
-                "LOCKED": {"btn_sync": False}
-            }
+            matrix = {"IDLE": {"btn_sync": True}, "LOCKED": {"btn_sync": False}}
             mock_config.get_all.return_value = {"data_management": matrix}
             return mock_config
-            
+
         return Mock()
-        
+
     container.resolve.side_effect = resolve_mock
     container.mock_thread_mgr = mock_thread_mgr
     container.mock_dispatcher = mock_dispatcher
@@ -56,8 +53,8 @@ def test_on_sync_data_no_custom_time(mock_view, mock_container):
     # Trigger sync
     presenter._on_sync_data()
 
-    # Assert UI lock was called
-    mock_view.apply_ui_mode.assert_called_with("LOCKED", "data_management")
+    # Assert UI lock was called via FSM
+    assert presenter.fsm.current_state.name == "LOCKED"
 
     # Assert background task was submitted to thread manager
     assert mock_container.mock_thread_mgr.submit.call_count == 1

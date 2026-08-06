@@ -48,12 +48,19 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot   = Split-Path -Parent $scriptDir
 $repoRoot  = Split-Path -Parent $botRoot
 
-$venvActivate = Join-Path $repoRoot ".venv\Scripts\Activate.ps1"
-if (Test-Path $venvActivate) {
-    Write-Host "Activating venv..." -ForegroundColor DarkGray
-    & $venvActivate
+$venvActivateWin = Join-Path $repoRoot ".venv\Scripts\Activate.ps1"
+$venvActivateLin = Join-Path $botRoot ".venv/bin/activate"
+
+if (Test-Path $venvActivateWin) {
+    Write-Host "Activating venv (Windows)..." -ForegroundColor DarkGray
+    & $venvActivateWin
+} elseif (Test-Path $venvActivateLin) {
+    Write-Host "Activating venv (Linux)..." -ForegroundColor DarkGray
+    # In pwsh on Linux, sourcing a bash script doesn't work natively the same way,
+    # but we can just run the commands directly using the venv python/ruff/pytest binaries.
+    $env:PATH = "$(Join-Path $botRoot '.venv/bin'):$env:PATH"
 } else {
-    Write-Warning "Virtual environment not found at '$venvActivate'. Using system Python."
+    Write-Warning "Virtual environment not found. Using system Python."
 }
 
 $failed = @()

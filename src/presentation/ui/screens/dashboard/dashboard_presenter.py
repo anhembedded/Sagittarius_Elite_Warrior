@@ -214,9 +214,7 @@ class DashboardPresenter(BasePresenter):
 
                 # Bước 1: Auto-Sync (Fill Gap)
                 self.ui_log_signal.emit("Syncing missing data from Binance...")
-                sync_cmd = SyncMarketDataCommand(
-                    symbols=symbols, interval=interval
-                )
+                sync_cmd = SyncMarketDataCommand(symbols=symbols, interval=interval)
                 # Note: Dispatcher returns response directly
                 self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 

@@ -66,7 +66,9 @@ def main() -> None:
     try:
         print(f"[DEBUG] Loading UI Matrix from: {ui_matrix_json}")
         config_manager.load_json(ui_matrix_json)
-        print(f"[DEBUG] UI Matrix loaded successfully. Keys: {list(config_manager.get_all().keys())}")
+        print(
+            f"[DEBUG] UI Matrix loaded successfully. Keys: {list(config_manager.get_all().keys())}"
+        )
     except FileNotFoundError:
         print(f"[DEBUG] FileNotFoundError: {ui_matrix_json}")
         pass  # Optional/fail-safe if matrix is not strictly required for headless mode

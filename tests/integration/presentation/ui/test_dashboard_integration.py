@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock
-from PySide6.QtWidgets import QApplication
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
@@ -10,14 +9,6 @@ from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
 
 
 @pytest.fixture
@@ -48,6 +39,7 @@ def mock_app():
 
 
 def test_dashboard_integration_load_history(qapp, mock_app):
+    mock_app.resolve.return_value = mock_app
     # 1. Setup View and Presenter
     view = DashboardView()
     presenter = DashboardPresenter(view, mock_app)
@@ -67,6 +59,7 @@ def test_dashboard_integration_load_history(qapp, mock_app):
 
 
 def test_dashboard_integration_exception_fallback(qapp, mock_app):
+    mock_app.resolve.return_value = mock_app
     view = DashboardView()
     presenter = DashboardPresenter(view, mock_app)
     view.presenter = presenter

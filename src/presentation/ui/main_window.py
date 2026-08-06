@@ -90,8 +90,12 @@ class MainWindow(QMainWindow):
 
         # Register Factory functions for screens
         # Backtest is currently a placeholder without a presenter class
-        self.router.register("dashboard", self._get_dashboard_presenter_class(), self._factory_dashboard_view)
-        
+        self.router.register(
+            "dashboard",
+            self._get_dashboard_presenter_class(),
+            self._factory_dashboard_view,
+        )
+
         # We handle backtest uniquely since it doesn't have a presenter yet
         self.router._registry["backtest"] = {
             "presenter_class": None,
@@ -100,18 +104,28 @@ class MainWindow(QMainWindow):
             "presenter_instance": None,
             "stacked_index": -1,
         }
-        
-        self.router.register("data_management", self._get_data_management_presenter_class(), self._factory_data_management_view)
+
+        self.router.register(
+            "data_management",
+            self._get_data_management_presenter_class(),
+            self._factory_data_management_view,
+        )
 
         # Navigate to default screen
         self.router.navigate_to("dashboard")
 
     def _get_dashboard_presenter_class(self):
-        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import DashboardPresenter
+        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+            DashboardPresenter,
+        )
+
         return DashboardPresenter
 
     def _factory_dashboard_view(self):
-        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import DashboardView
+        from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+            DashboardView,
+        )
+
         view = DashboardView()
         return view
 
@@ -125,11 +139,17 @@ class MainWindow(QMainWindow):
         return backtest_widget
 
     def _get_data_management_presenter_class(self):
-        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import DataManagementPresenter
+        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import (
+            DataManagementPresenter,
+        )
+
         return DataManagementPresenter
 
     def _factory_data_management_view(self):
-        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import DataManagementView
+        from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import (
+            DataManagementView,
+        )
+
         view = DataManagementView()
         return view
 
