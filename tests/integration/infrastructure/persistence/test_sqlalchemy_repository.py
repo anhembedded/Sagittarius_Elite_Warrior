@@ -133,3 +133,18 @@ def test_get_klines_with_limit(repo):
     assert fetched[0].open_time == base_dt + timedelta(minutes=9)
     assert fetched[1].open_time == base_dt + timedelta(minutes=8)
     assert fetched[2].open_time == base_dt + timedelta(minutes=7)
+
+def test_save_klines_bulk_chunking(repo):
+    from datetime import timedelta
+    # Create 12000 mock klines to ensure chunking logic (5000 per chunk) is executed
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    klines = [create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(12000)]
+    
+    # This should not raise any exceptions and should insert in chunks
+    repo.save_klines(klines)
+    
+    # Verify count
+    fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
+    assert len(fetched) == 12000
+    assert fetched[0].open_time == base_dt
+    assert fetched[-1].open_time == base_dt + timedelta(minutes=11999)

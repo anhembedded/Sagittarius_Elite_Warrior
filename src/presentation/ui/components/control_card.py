@@ -1,52 +1,130 @@
-from PySide6.QtWidgets import QPushButton
-from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+    QPushButton, QFormLayout, QGroupBox, QComboBox, 
+    QDateTimeEdit, QHBoxLayout, QVBoxLayout, QApplication
+)
+from PySide6.QtCore import Signal, QDateTime
 from Binace_Bot.src.presentation.ui.components.base_card import BaseCard
+import sys
 
 class ControlCard(BaseCard):
     """
-    @brief A dumb component containing action buttons for controlling the bot.
+    @brief A UI component containing action buttons and settings for controlling the bot.
     @details Inherits from BaseCard. Follows Rule 1: No DB imports, no business logic.
     """
     
-    start_stream_clicked = Signal()
-    stop_stream_clicked = Signal()
-    run_backtest_clicked = Signal()
-    stop_backtest_clicked = Signal()
-    load_history_clicked = Signal()
+    # Custom signals for UI interactions
+    sig_load_clicked = Signal()
+    sig_start_clicked = Signal()
+    sig_stop_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(title="System Controls", parent=parent)
+        self.setObjectName("TradingControlCard")
         self._setup_content()
-        self.set_stream_active(False)
-        self.set_backtest_active(False)
 
     def _setup_content(self):
-        # Action Buttons
-        self.btn_load_history = QPushButton("Load Local History")
-        self.btn_start_stream = QPushButton("Start Live Stream")
-        self.btn_stop_stream = QPushButton("Stop Live Stream")
-        self.btn_run_backtest = QPushButton("Run Backtest")
-        self.btn_stop_backtest = QPushButton("Stop Backtest")
-
-        # Connect button click events
-        self.btn_load_history.clicked.connect(self.load_history_clicked.emit)
-        self.btn_start_stream.clicked.connect(self.start_stream_clicked.emit)
-        self.btn_stop_stream.clicked.connect(self.stop_stream_clicked.emit)
-        self.btn_run_backtest.clicked.connect(self.run_backtest_clicked.emit)
-        self.btn_stop_backtest.clicked.connect(self.stop_backtest_clicked.emit)
-
-        # Add buttons to the BaseCard's body layout
-        self.body_layout.addWidget(self.btn_load_history)
-        self.body_layout.addWidget(self.btn_start_stream)
-        self.body_layout.addWidget(self.btn_stop_stream)
-        self.body_layout.addWidget(self.btn_run_backtest)
-        self.body_layout.addWidget(self.btn_stop_backtest)
-        self.body_layout.addStretch()
-
-    def set_stream_active(self, is_active: bool) -> None:
-        self.btn_start_stream.setEnabled(not is_active)
-        self.btn_stop_stream.setEnabled(is_active)
+        # 1. Market Settings GroupBox
+        group_market = QGroupBox("Thị trường")
+        layout_market = QFormLayout(group_market)
         
-    def set_backtest_active(self, is_active: bool) -> None:
-        self.btn_run_backtest.setEnabled(not is_active)
-        self.btn_stop_backtest.setEnabled(is_active)
+        self.market_dropdown = QComboBox()
+        self.market_dropdown.addItems(["Spot", "Futures"])
+        
+        self.symbol_dropdown = QComboBox()
+        self.symbol_dropdown.setEditable(True)
+        self.symbol_dropdown.addItems(["BTCUSDT", "ETHUSDT"])
+        
+        self.timeframe_dropdown = QComboBox()
+        self.timeframe_dropdown.addItems(["1m", "5m", "15m", "1h", "1d"])
+        
+        layout_market.addRow("Market:", self.market_dropdown)
+        layout_market.addRow("Symbol:", self.symbol_dropdown)
+        layout_market.addRow("Timeframe:", self.timeframe_dropdown)
+        
+        # 2. Strategy & Range GroupBox
+        group_strategy = QGroupBox("Chiến lược & Dữ liệu")
+        layout_strategy = QFormLayout(group_strategy)
+        
+        self.strategy_dropdown = QComboBox()
+        self.strategy_dropdown.addItems(["Manual", "SMA Crossover"])
+        
+        self.start_date_picker = QDateTimeEdit(QDateTime.currentDateTime().addDays(-7))
+        self.start_date_picker.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.start_date_picker.setCalendarPopup(True)
+        
+        self.end_date_picker = QDateTimeEdit(QDateTime.currentDateTime())
+        self.end_date_picker.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.end_date_picker.setCalendarPopup(True)
+        
+        layout_strategy.addRow("Strategy:", self.strategy_dropdown)
+        layout_strategy.addRow("Start Date:", self.start_date_picker)
+        layout_strategy.addRow("End Date:", self.end_date_picker)
+        
+        # 3. Action Triggers GroupBox
+        group_actions = QGroupBox("Điều khiển")
+        layout_actions = QHBoxLayout(group_actions)
+        
+        self.load_history_button = QPushButton("Load History")
+        self.load_history_button.setObjectName("btnLoadHistory")
+        
+        self.start_stream_button = QPushButton("Start Live")
+        self.start_stream_button.setObjectName("btnStart")
+        
+        self.stop_stream_button = QPushButton("Stop")
+        self.stop_stream_button.setObjectName("btnStop")
+        self.stop_stream_button.setEnabled(False) # Disabled by default
+        
+        layout_actions.addWidget(self.load_history_button)
+        layout_actions.addWidget(self.start_stream_button)
+        layout_actions.addWidget(self.stop_stream_button)
+        
+        # Add groups to the BaseCard's body layout
+        self.body_layout.addWidget(group_market)
+        self.body_layout.addWidget(group_strategy)
+        self.body_layout.addWidget(group_actions)
+        self.body_layout.addStretch()
+        
+        # Connect button click events to signals
+        self.load_history_button.clicked.connect(self.sig_load_clicked)
+        self.start_stream_button.clicked.connect(self.sig_start_clicked)
+        self.stop_stream_button.clicked.connect(self.sig_stop_clicked)
+
+    def set_ui_matrix(self, matrix_config: dict) -> None:
+        """Injects the configuration matrix for dynamic UI toggling."""
+        self._ui_matrix = matrix_config
+
+    def apply_ui_mode(self, mode: str) -> None:
+        """Applies a specific UI mode dynamically using reflection."""
+        if not hasattr(self, '_ui_matrix') or not self._ui_matrix:
+            print("Warning: UI Matrix not set. Cannot apply mode.")
+            return
+            
+        if mode not in self._ui_matrix:
+            print(f"Warning: Mode '{mode}' not found in UI matrix.")
+            return
+            
+        config = self._ui_matrix[mode]
+        for widget_name, is_enabled in config.items():
+            if hasattr(self, widget_name):
+                widget = getattr(self, widget_name)
+                # Ensure it's a QWidget with setEnabled capability
+                if hasattr(widget, 'setEnabled'):
+                    widget.setEnabled(is_enabled)
+            else:
+                print(f"Warning: Widget '{widget_name}' not found in ControlCard.")
+
+
+
+# Test block for independent rendering
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    
+    # Optional: Set a basic style or theme
+    app.setStyle("Fusion")
+    
+    window = ControlCard()
+    window.setWindowTitle("Trading Control Card Test")
+    window.resize(300, 450)
+    window.show()
+    
+    sys.exit(app.exec())

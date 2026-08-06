@@ -2,24 +2,30 @@ import pytest
 from PySide6 import QtCore
 from PySide6.QtCore import Qt
 from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
+from PySide6.QtWidgets import QApplication
 
-def test_chart_card_initialization(qtbot):
+@pytest.fixture(scope="module")
+def qapp():
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    yield app
+
+def test_chart_card_initialization(qapp):
     """
     Test that ChartCard initializes correctly with the given symbol.
     """
     card = ChartCard("BTCUSDT")
-    qtbot.addWidget(card) # Đăng ký widget với qtbot để tự động dọn dẹp sau khi test xong
     
     # Kiểm tra tiêu đề có được set đúng không
     assert card.symbol == "BTCUSDT"
     assert card.lbl_title.text() == "Live Chart: BTCUSDT"
     
-def test_chart_card_historical_data_render(qtbot):
+def test_chart_card_historical_data_render(qapp):
     """
     Test rendering historical data doesn't crash and generates the QPicture cache.
     """
     card = ChartCard("ETHUSDT")
-    qtbot.addWidget(card)
     
     # Mock data: (timestamp, open, high, low, close)
     data = [
@@ -34,12 +40,11 @@ def test_chart_card_historical_data_render(qtbot):
     assert len(card.candlestick.history_data) == 2
     assert card.candlestick.history_data[0][0] == 1000.0
     
-def test_chart_card_live_tick_rollover(qtbot):
+def test_chart_card_live_tick_rollover(qapp):
     """
     Test that explicitly calling append_closed_candle pushes the old candle to history.
     """
     card = ChartCard("BNBUSDT")
-    qtbot.addWidget(card)
     
     # Giả sử chưa có nến lịch sử nào, chỉ có nến Live đầu tiên đang nhấp nháy
     card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)
@@ -62,19 +67,18 @@ def test_chart_card_live_tick_rollover(qtbot):
     # Và biến Live Candle hiện tại phải trống (chờ tick tiếp theo)
     assert card.candlestick.live_candle is None
 
-def test_chart_card_crosshair_mouse_hover(qtbot):
+def test_chart_card_crosshair_mouse_hover(qapp):
     """
     Test that mouse movement triggers crosshair updates without crashing (AttributeError).
     """
     card = ChartCard("XRPUSDT")
-    qtbot.addWidget(card)
     
     # Thêm 1 sub-plot để test multi-plot crosshair
     card.add_subplot_indicator("RSI", color="blue")
     
     # Bắt buộc PySide/Qt tính toán geometry trước khi test tọa độ
-    with qtbot.waitExposed(card):
-        card.show()
+    card.show()
+    QApplication.processEvents()
     
     # Giả lập sự kiện chuột thông qua Proxy (evt là 1 tuple chứa tọa độ pos)
     # Chúng ta truyền tọa độ ngẫu nhiên nằm trong màn hình

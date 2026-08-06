@@ -69,33 +69,60 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
 
     def save_klines(self, klines: list[MarketData]) -> None:
         """
-        @brief Upserts a batch of klines. SQLite doesn't natively support ON CONFLICT easily in standard ORM bulk,
-               so we use the modern SQLite 'INSERT OR REPLACE' equivalent or merge.
+        @brief Upserts a batch of klines using SQLite's native ON CONFLICT DO UPDATE for high performance.
+               Chunks the inserts to prevent database locks on massive syncs.
         """
         if not klines:
             return
 
+        from sqlalchemy.dialects.sqlite import insert
+
         try:
             with self.Session() as session:
-                for kline in klines:
-                    model = KlineModel(
-                        symbol=kline.symbol,
-                        interval=kline.interval,
-                        open_time=kline.open_time,
-                        open_price=kline.open_price,
-                        high_price=kline.high_price,
-                        low_price=kline.low_price,
-                        close_price=kline.close_price,
-                        volume=kline.volume,
-                        close_time=kline.close_time,
-                        quote_asset_volume=kline.quote_asset_volume,
-                        number_of_trades=kline.number_of_trades,
-                        taker_buy_base_asset_volume=kline.taker_buy_base_asset_volume,
-                        taker_buy_quote_asset_volume=kline.taker_buy_quote_asset_volume,
-                    )
-                    session.merge(model)
-                session.commit()
-                logger.debug(f"Saved {len(klines)} klines to database.")
+                # Prepare the SQLite UPSERT statement
+                stmt = insert(KlineModel)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['symbol', 'interval', 'open_time'],
+                    set_={
+                        "open_price": stmt.excluded.open_price,
+                        "high_price": stmt.excluded.high_price,
+                        "low_price": stmt.excluded.low_price,
+                        "close_price": stmt.excluded.close_price,
+                        "volume": stmt.excluded.volume,
+                        "close_time": stmt.excluded.close_time,
+                        "quote_asset_volume": stmt.excluded.quote_asset_volume,
+                        "number_of_trades": stmt.excluded.number_of_trades,
+                        "taker_buy_base_asset_volume": stmt.excluded.taker_buy_base_asset_volume,
+                        "taker_buy_quote_asset_volume": stmt.excluded.taker_buy_quote_asset_volume,
+                    }
+                )
+
+                # Execute in chunks to avoid locking the DB for too long
+                chunk_size = 5000
+                for i in range(0, len(klines), chunk_size):
+                    chunk = klines[i : i + chunk_size]
+                    params = [
+                        {
+                            "symbol": k.symbol,
+                            "interval": k.interval,
+                            "open_time": k.open_time,
+                            "open_price": k.open_price,
+                            "high_price": k.high_price,
+                            "low_price": k.low_price,
+                            "close_price": k.close_price,
+                            "volume": k.volume,
+                            "close_time": k.close_time,
+                            "quote_asset_volume": k.quote_asset_volume,
+                            "number_of_trades": k.number_of_trades,
+                            "taker_buy_base_asset_volume": k.taker_buy_base_asset_volume,
+                            "taker_buy_quote_asset_volume": k.taker_buy_quote_asset_volume,
+                        }
+                        for k in chunk
+                    ]
+                    session.execute(stmt, params)
+                    session.commit()
+                    
+                logger.debug(f"Saved {len(klines)} klines to database in chunks of {chunk_size}.")
         except Exception as e:
             logger.error(f"Failed to save klines to database: {e}")
             raise

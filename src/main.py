@@ -28,6 +28,14 @@ def create_app(config_manager: ConfigManager) -> App:
     app = App(container, event_bus)
 
     # Load Framework Extensions
+    from sagittarius_engine.extensions.dependency_validator import DependencyValidatorExtension
+    app.use(DependencyValidatorExtension([
+        "PySide6",
+        "pyqtgraph",
+        "qdarktheme",
+        "sqlalchemy"
+    ]))
+    
     app.use(LoggerExtension())
     from sagittarius_engine.extensions.thread_manager.thread_manager_module import ThreadManagerExtension
     app.use(ThreadManagerExtension())
@@ -47,9 +55,15 @@ def main() -> None:
     app_json = PathUtils.get_relative_path(__file__, "config", "app_config.json")
     user_json = PathUtils.get_relative_path(__file__, "config", "user_config.json")
     cli_json = PathUtils.get_relative_path(__file__, "config", "cli_commands.json")
+    ui_matrix_json = PathUtils.get_relative_path(__file__, "config", "ui_matrix.json")
 
     config_manager.load_json(app_json)
     config_manager.load_json(user_json)
+    try:
+        config_manager.load_json(ui_matrix_json)
+    except FileNotFoundError:
+        pass # Optional/fail-safe if matrix is not strictly required for headless mode
+
     try:
         config_manager.load_json(cli_json)
     except FileNotFoundError:

@@ -141,6 +141,30 @@ def main():
     # 2. Boot PySide UI
     app = QApplication(sys.argv)
     
+    # Setup Global Exception Handler for Qt
+    def global_exception_handler(exc_type, exc_value, exc_traceback):
+        from PySide6.QtWidgets import QMessageBox
+        import traceback
+        
+        tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        
+        # Log to Sagittarius Engine if possible
+        if hasattr(app_engine, 'context') and hasattr(app_engine.context, 'logger'):
+            app_engine.context.logger.error(f"Uncaught UI Exception: {exc_value}\n{tb_str}")
+        else:
+            print(f"Uncaught UI Exception: {tb_str}")
+            
+        # Display Native Error Dialog
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setWindowTitle("Critical System Error")
+        msg_box.setText("An unexpected error occurred in the UI layer.")
+        msg_box.setInformativeText(str(exc_value))
+        msg_box.setDetailedText(tb_str)
+        msg_box.exec()
+
+    sys.excepthook = global_exception_handler
+    
     from PySide6.QtGui import QFont
     app_font = QFont("JetBrainsMono Nerd Font", 10)
     app_font.setStyleHint(QFont.Monospace)
