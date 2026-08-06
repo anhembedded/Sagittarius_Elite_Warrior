@@ -21,10 +21,10 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 12 | 67% |
+| 🟢 **Completed** | 12 | 52% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 6 | 33% |
-| 📈 **Tổng số Task** | **18** | **100%** |
+| 🔴 **Backlog** | 11 | 48% |
+| 📈 **Tổng số Task** | **23** | **100%** |
 
 ---
 
@@ -61,5 +61,18 @@ Binace_Bot/Tasks/
 | **P2** | **[BOT-017](backlog/BOT-017_settings_screen.md)** | **Settings Screen** | — | UI chỉnh API key/symbol/interval/sync days thay vì sửa tay `user_config.json`. Không phụ thuộc gì, rủi ro thấp, giá trị UX cao. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
+| **P2** | **[Epic BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine — Màn hình Backtest Thực thụ** | `BOT-001` ✅ | Epic, chia theo Phase — xem bảng chi tiết bên dưới. Không còn phụ thuộc `BOT-008` (backtest dùng Paper Exchange giả lập, không cần order thật). |
 | **P3** | **[BOT-011](backlog/BOT-011_chart_tradingview_tier3_advanced.md)** | **TradingView Chart — Tier 3 Advanced** *(Ưu tiên thấp)* | `BOT-010` ✅ | Drawing tools (Trendline, Fibonacci), Context Menu chuột phải & Multi-chart/Snapshot. Giá trị thấp cho tự động hóa bot (task tự ghi chú); cần test tương tác chuột thật — cân nhắc kỹ trước khi làm toàn bộ. |
-| **P3** | **[BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine Execution** *(Thấp nhất)* | `BOT-001` ✅, `BOT-008` | Cỗ máy backtest chiến lược giả lập (Paper Exchange & Virtual Event Loop). Phụ thuộc `BOT-008` chưa xong. |
+
+#### 🎯 Epic BOT-006 — Chi tiết theo Phase
+
+| Phase | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
+| :---: | :--- | :--- | :---: | :--- |
+| **0** | **[BOT-020](backlog/BOT-020_indicator_strategy_engine_core.md)** | **Indicator & Strategy Engine (Core)** | — | RSI/EMA/MACD + `StrategyEngine` chạy được batch (static) lẫn incremental (dynamic/live). Nền tảng dùng chung với `BOT-008`. |
+| **1** | **[BOT-021](backlog/BOT-021_static_backtest_execution_engine.md)** | **Static Backtest Execution Engine** | `BOT-020` | Chạy chiến lược trên toàn bộ dữ liệu lịch sử trong 1 lượt nhanh (không throttle), trả `BacktestResult` (trades, equity curve, metrics). |
+| **1** | **[BOT-022](backlog/BOT-022_backtest_screen_static_ui.md)** | **Backtest Screen — Static UI** | `BOT-021` | Màn hình Backtest thực thụ đầu tiên: cấu hình chiến lược, chạy, xem kết quả (equity curve, trade list, stat cards). |
+| **2** | **[BOT-023](backlog/BOT-023_dynamic_backtest_engine.md)** | **Dynamic Backtest Engine** | `BOT-020`, `BOT-021` | Mở rộng vòng lặp replay hiện có (`run_backtest/handler.py`) thành Paper Exchange & Virtual Event Loop — chạy chiến lược theo từng nến, tua nhanh/chậm/tạm dừng. |
+| **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Dynamic UI** | `BOT-022`, `BOT-023` | Mở rộng màn hình Phase 1 với replay controls (play/pause/speed) + cập nhật chart/equity/trade log trực tiếp theo từng nến. |
+| **X** | **[BOT-025](backlog/BOT-025_backtest_domain_events_completeness.md)** | **Backtest Domain Events — Completeness Pass** | `BOT-021`, `BOT-023` | Chuẩn hoá toàn bộ event Backtest (Static + Dynamic) vào 1 module, tài liệu hoá rõ khi nào phát/ai lắng nghe. |
+
+> Thứ tự khuyến nghị: `BOT-020` → `BOT-021` → `BOT-022` → *(đánh giá lại)* → `BOT-023` → `BOT-024` → `BOT-025`.

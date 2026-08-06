@@ -1,49 +1,31 @@
-# 📋 BOT-006: Xây dựng Cỗ máy Backtest Chiến lược (Backtesting Engine Core)
+# Epic: Backtest Engine — Màn hình Backtest Thực thụ
 
-> [!IMPORTANT]
-> **Độ ưu tiên:** 🔴 P9 (Thấp nhất trong Backlog)  
-> **Trạng thái:** Backlog  
-> **Lớp liên quan:** Application Layer, Domain Layer, Infrastructure Layer  
+## 1. Mục tiêu (Objective)
+Xây dựng 1 màn hình Backtest hoàn chỉnh, đúng nghĩa: cấu hình chiến lược, chạy chỉ báo + chiến lược trên dữ liệu lịch sử, xem kết quả trực quan — triển khai theo 2 giai đoạn tăng dần độ phức tạp: **Static trước, Dynamic sau**.
 
----
+## 2. Vì sao chia thành Epic + Phase
+Bản `BOT-006` trước đây là 1 task lớn, mô tả chung chung ("Cỗ máy backtest chiến lược giả lập") và bị đánh dấu block bởi `BOT-008` — điều đó **không chính xác**: backtest vốn dùng Paper Exchange (khớp lệnh giả lập nội bộ), không cần `BinanceExchangeClient` thật của `BOT-008`. Gộp chung 1 task cũng khiến phạm vi quá lớn để làm/verify trong 1 lượt. Epic này thay thế bản cũ, chia nhỏ theo phase có thứ tự phụ thuộc rõ ràng, **không còn phụ thuộc `BOT-008`**.
 
-## 1. 🎯 Mục tiêu (Objective)
+## 3. Sơ đồ Phase
 
-Tận dụng cơ sở dữ liệu nến lịch sử khổng lồ (SQL Sharding theo Symbol/Timeframe) đã thu thập để chạy mô phỏng các thuật toán và chiến lược giao dịch trong quá khứ. Cho phép kết xuất báo cáo tỷ lệ thắng/thua (Win/Loss Ratio), PnL, Drawdown và Sharpe Ratio.
+### Phase 0 — Nền tảng dùng chung
+- **[BOT-020](BOT-020_indicator_strategy_engine_core.md)**: Indicator & Strategy Engine (Core) — dùng chung cho cả Backtest lẫn `BOT-008` Live Trading.
 
----
+### Phase 1 — Static Backtest (làm trước)
+- **[BOT-021](BOT-021_static_backtest_execution_engine.md)**: Static Backtest Execution Engine — chạy 1 lượt nhanh, không mô phỏng thời gian thực.
+- **[BOT-022](BOT-022_backtest_screen_static_ui.md)**: Backtest Screen — Static UI — màn hình thực thụ đầu tiên: cấu hình, chạy, xem kết quả (equity curve, trade list, stat cards).
 
-## 2. 📝 Mô tả Chi tiết (Description)
+### Phase 2 — Dynamic Backtest (làm sau, khi Phase 1 đã ổn định)
+- **[BOT-023](BOT-023_dynamic_backtest_engine.md)**: Dynamic Backtest Engine — Paper Exchange & Virtual Event Loop, replay có thể tua nhanh/chậm/tạm dừng.
+- **[BOT-024](BOT-024_backtest_screen_dynamic_ui.md)**: Backtest Screen — Dynamic UI — mở rộng màn hình Phase 1 với replay controls, cập nhật trực tiếp theo từng nến.
 
-Hệ thống hiện tại đã có bộ khung CQRS sơ bộ thông qua `RunBacktestCommand` và `BacktestState`.  
-Nhiệm vụ này đưa cỗ máy Backtest vào thực tế hoạt động:
-1. Truy vấn mảng lớn dữ liệu nến từ SQLite Sharding Database.
-2. Đưa nến vào vòng lặp sự kiện ảo (**Virtual Event Loop**).
-3. Đánh giá tín hiệu từ chiến lược (`IStrategy`).
-4. Khớp lệnh mô phỏng qua Sàn giao dịch ảo (**Paper Trading Exchange**).
-5. Theo dõi tiến trình và đẩy phần trăm hoàn thành (Progress Event) về UI qua EventBus.
+### Cross-cutting
+- **[BOT-025](BOT-025_backtest_domain_events_completeness.md)**: Backtest Domain Events — Completeness Pass — chuẩn hoá toàn bộ event sau khi Phase 1 & 2 có code thật.
 
----
+## 4. Thứ tự khuyến nghị
+`BOT-020` → `BOT-021` → `BOT-022` → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-023` → `BOT-024` → `BOT-025`.
 
-## 3. 🛠️ Các bước Thực hiện (Action Items)
-
-### Phase 1: Core Domain & Application Protocols
-- [ ] **Thiết kế Interface `IStrategy`:** Khai báo các hàm callback chuẩn `on_tick()`, `on_candle()`, `buy()`, `sell()`.
-- [ ] **Xây dựng `PaperExchange` (Virtual Exchange):** Quản lý số dư giả lập (Fake Balance), khớp lệnh thị trường/giới hạn (Market/Limit Orders), hỗ trợ mô phỏng trượt giá (Slippage) và phí giao dịch (Commission).
-
-### Phase 2: Command Handler Implementation
-- [ ] **Truy vấn Dữ liệu Nến hiệu năng cao:** Đọc nến theo chunk từ SQLite Repository nhằm tránh tràn bộ nhớ (OOM).
-- [ ] **Virtual Event Loop:** Chạy vòng lặp phát tín hiệu sự kiện mô phỏng theo thứ tự thời gian tăng dần.
-- [ ] **Phát sự kiện Tiến trình:** Emit `BacktestProgressEvent` báo phần trăm hoàn thành về UI.
-
-### Phase 3: Reports & Unit Tests
-- [ ] **Kết xuất Báo cáo PnL:** Tính toán các chỉ số Win/Loss Rate, Max Drawdown, Profit Factor.
-- [ ] **Bổ sung Unit Tests:** Viết bộ test `tests/unit/application/use_cases/test_run_backtest.py` kiểm thử độc lập luồng backtest với dữ liệu mock.
-
----
-
-## 4. ⚠️ Rủi ro & Lưu ý (Constraints & Risks)
-
-> [!WARNING]
-> - Vòng lặp Backtest khi xử lý hàng triệu nến có thể gây **đóng băng UI thread**. Bắt buộc phải chạy trong worker thread thông qua `IThreadManager` hoặc `ITaskManager`.
-> - Cần đảm bảo giải phóng bộ nhớ (garbage collection) giữa các lần chạy backtest liên tiếp.
+## 5. Lưu ý
+- Không bắt đầu Phase 2 trước khi Phase 1 chạy đúng và có unit test đầy đủ — logic `PaperExchange`/`StrategyEngine` nên được xác thực ở chế độ static (dễ debug, deterministic, không có yếu tố thời gian) trước khi đưa vào vòng lặp động.
+- `BOT-020` nên được đồng bộ với `BOT-008` (Live Trading) để tránh xây 2 bộ Indicator/Strategy khác nhau cho cùng 1 logic.
+- Có sẵn 1 điểm khởi đầu ở `src/application/use_cases/backtest/run_backtest/` (`RunBacktestCommand`/`RunBacktestCommandHandler`) — hiện tại đây **chỉ là vòng lặp phát `MarketTickEvent` có throttle**, chưa chạy chiến lược/khớp lệnh gì cả. Đây chính là điểm mà `BOT-023` (Dynamic) sẽ mở rộng, **không phải** điểm khởi đầu cho `BOT-021` (Static, cần đường dẫn tính toán riêng, không throttle).
