@@ -1,9 +1,10 @@
-﻿import logging
+import logging
 from Binace_Bot.src.application.ports.i_live_stream_service import ILiveStreamService
 from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
 from .command import StartLiveStreamCommand, StartLiveStreamResponse
 
 logger = logging.getLogger("App.LiveStreamUseCase")
+
 
 class StartLiveStreamCommandHandler(
     ICommandHandler[StartLiveStreamCommand, StartLiveStreamResponse]

@@ -75,12 +75,12 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
 
     start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
     end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
-    
+
     command = SyncMarketDataCommand(
-        symbols=["SOLUSDT"], 
+        symbols=["SOLUSDT"],
         interval=TimeFrame.ONE_HOUR,
         start_time=start_time,
-        end_time=end_time
+        end_time=end_time,
     )
     handler.execute(command)
 

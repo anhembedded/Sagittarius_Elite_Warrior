@@ -1,13 +1,18 @@
-﻿import argparse
+import argparse
 import shlex
 from pydantic import ValidationError
 
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
-from Binace_Bot.src.application.use_cases.stream.start_live_stream import StartLiveStreamCommand
-from Binace_Bot.src.application.use_cases.stream.stop_live_stream import StopLiveStreamCommand
+from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
+    StartLiveStreamCommand,
+)
+from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
+    StopLiveStreamCommand,
+)
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.presentation.cli.cli_parser import build_handler_parser
+
 
 class StreamCliHandler:
     @staticmethod
@@ -36,18 +41,20 @@ class StreamCliHandler:
                 )
                 response = app.dispatch(StartLiveStreamCommand, cmd)
                 if response.success:
-                    print(f"✅ Live stream started for {symbols} at {args.interval} in the background.")
+                    print(
+                        f"✅ Live stream started for {symbols} at {args.interval} in the background."
+                    )
                 else:
                     print(f"❌ Failed to start stream: {response.message}")
             except ValueError as e:
                 print(f"❌ Validation Error: {e}")
             except ValidationError as e:
                 print(f"❌ Validation Error: {e}")
-                
+
         elif args.action == "stop":
             cmd = StopLiveStreamCommand()
             response = app.dispatch(StopLiveStreamCommand, cmd)
             if response.success:
-                print(f"✅ Live stream stopped.")
+                print("✅ Live stream stopped.")
             else:
                 print(f"❌ Failed to stop stream: {response.message}")

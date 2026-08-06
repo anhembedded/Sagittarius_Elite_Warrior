@@ -11,7 +11,11 @@ class IExchangeClient(ABC):
 
     @abstractmethod
     def get_historical_klines(
-        self, symbol: str, interval: TimeFrame, start_str: str | datetime, end_str: str | datetime | None = None
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_str: str | datetime,
+        end_str: str | datetime | None = None,
     ) -> list[MarketData]:
         """
         @brief Fetches historical kline data for a symbol.

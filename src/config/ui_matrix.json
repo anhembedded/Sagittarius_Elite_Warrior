@@ -42,5 +42,25 @@
         "load_history_button": true,
         "start_stream_button": true,
         "stop_stream_button": false
+    },
+    "data_management": {
+        "IDLE": {
+            "cbo_symbol": true,
+            "cbo_interval": true,
+            "btn_check_status": true,
+            "btn_check_all": true,
+            "btn_sync_data": true,
+            "btn_sync_all_gaps": true,
+            "btn_clear_data": true
+        },
+        "LOCKED": {
+            "cbo_symbol": false,
+            "cbo_interval": false,
+            "btn_check_status": false,
+            "btn_check_all": false,
+            "btn_sync_data": false,
+            "btn_sync_all_gaps": false,
+            "btn_clear_data": false
+        }
     }
 }

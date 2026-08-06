@@ -42,7 +42,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             # Prepare the SQLite UPSERT statement
             stmt = insert(KlineModel)
             stmt = stmt.on_conflict_do_update(
-                index_elements=['symbol', 'interval', 'open_time'],
+                index_elements=["symbol", "interval", "open_time"],
                 set_={
                     "open_price": stmt.excluded.open_price,
                     "high_price": stmt.excluded.high_price,
@@ -54,7 +54,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                     "number_of_trades": stmt.excluded.number_of_trades,
                     "taker_buy_base_asset_volume": stmt.excluded.taker_buy_base_asset_volume,
                     "taker_buy_quote_asset_volume": stmt.excluded.taker_buy_quote_asset_volume,
-                }
+                },
             )
 
             for symbol, group_klines in symbol_groups.items():
@@ -83,8 +83,10 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                         ]
                         session.execute(stmt, params)
                         session.commit()
-                        
-                logger.debug(f"Saved {len(group_klines)} klines for {symbol} to database in chunks of {chunk_size}.")
+
+                logger.debug(
+                    f"Saved {len(group_klines)} klines for {symbol} to database in chunks of {chunk_size}."
+                )
         except Exception as e:
             logger.error(f"Failed to save klines to database: {e}")
             raise
@@ -125,7 +127,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 query = query.order_by(KlineModel.open_time.desc())
             else:
                 query = query.order_by(KlineModel.open_time.asc())
-                
+
             if limit is not None:
                 query = query.limit(limit)
 
@@ -161,11 +163,11 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         @brief Retrieves status and gap count using SQLite Window Functions.
         """
         expected_seconds = interval.to_seconds()
-        
+
         # We use a CTE or subquery with LAG to compute the previous candle time.
         # Then we aggregate the results in the outer query.
         # This executes entirely inside the SQLite engine, preventing OOM.
-        query = sa.text(f"""
+        query = sa.text("""
             WITH ordered_klines AS (
                 SELECT 
                     open_time,
@@ -184,24 +186,40 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 END) as gaps
             FROM ordered_klines
         """)
-        
+
         with self.db_manager.get_session(symbol) as session:
             result = session.execute(
-                query, 
-                {"symbol": symbol, "interval": interval.value, "expected_seconds": expected_seconds}
+                query,
+                {
+                    "symbol": symbol,
+                    "interval": interval.value,
+                    "expected_seconds": expected_seconds,
+                },
             ).fetchone()
-            
+
             if not result or result[2] == 0:
                 return {
                     "first_record": None,
                     "last_record": None,
                     "total_candles": 0,
-                    "gaps": 0
+                    "gaps": 0,
                 }
-                
+
             return {
-                "first_record": result[0].replace(tzinfo=timezone.utc) if isinstance(result[0], datetime) else (datetime.fromisoformat(result[0]).replace(tzinfo=timezone.utc) if result[0] else None),
-                "last_record": result[1].replace(tzinfo=timezone.utc) if isinstance(result[1], datetime) else (datetime.fromisoformat(result[1]).replace(tzinfo=timezone.utc) if result[1] else None),
+                "first_record": result[0].replace(tzinfo=timezone.utc)
+                if isinstance(result[0], datetime)
+                else (
+                    datetime.fromisoformat(result[0]).replace(tzinfo=timezone.utc)
+                    if result[0]
+                    else None
+                ),
+                "last_record": result[1].replace(tzinfo=timezone.utc)
+                if isinstance(result[1], datetime)
+                else (
+                    datetime.fromisoformat(result[1]).replace(tzinfo=timezone.utc)
+                    if result[1]
+                    else None
+                ),
                 "total_candles": result[2],
-                "gaps": result[3] if result[3] is not None else 0
+                "gaps": result[3] if result[3] is not None else 0,
             }

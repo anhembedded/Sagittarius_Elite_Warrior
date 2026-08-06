@@ -51,7 +51,7 @@ class BinanceWebsocketService(ILiveStreamService):
             self._run_stream(symbols, interval, self._token),
             name=f"BinanceStream[{','.join(symbols)}@{interval.value}]",
             token=self._token,
-            critical=True, # Đảm bảo Engine chờ task này close gracefully khi shutdown
+            critical=True,  # Đảm bảo Engine chờ task này close gracefully khi shutdown
         )
         return True
 

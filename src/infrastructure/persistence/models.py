@@ -3,6 +3,7 @@ from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
+
 class KlineModel(Base):
     __tablename__ = "klines"
 

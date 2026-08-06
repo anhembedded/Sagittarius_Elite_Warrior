@@ -20,6 +20,5 @@ class MarketTickEventHandler:
         """
         md = event.market_data
         self.logger.info(f"Processing tick for {md.symbol} at {md.close_price}")
-        
-        # Here we will later invoke domain logic for strategy processing
 
+        # Here we will later invoke domain logic for strategy processing

@@ -10,7 +10,6 @@ from sagittarius_engine.middleware.pydantic_validation_middleware import (
 )
 
 from Binace_Bot.src.binance_bot_module import BinanceBotModule
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 from Binace_Bot.src.presentation.cli.cli_parser import build_parser
 from Binace_Bot.src.presentation.cli.sync_cmd import execute_sync
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
@@ -28,16 +27,21 @@ def create_app(config_manager: ConfigManager) -> App:
     app = App(container, event_bus)
 
     # Load Framework Extensions
-    from sagittarius_engine.extensions.dependency_validator import DependencyValidatorExtension
-    app.use(DependencyValidatorExtension([
-        "PySide6",
-        "pyqtgraph",
-        "qdarktheme",
-        "sqlalchemy"
-    ]))
-    
+    from sagittarius_engine.extensions.dependency_validator import (
+        DependencyValidatorExtension,
+    )
+
+    app.use(
+        DependencyValidatorExtension(
+            ["PySide6", "pyqtgraph", "qdarktheme", "sqlalchemy"]
+        )
+    )
+
     app.use(LoggerExtension())
-    from sagittarius_engine.extensions.thread_manager.thread_manager_module import ThreadManagerExtension
+    from sagittarius_engine.extensions.thread_manager.thread_manager_module import (
+        ThreadManagerExtension,
+    )
+
     app.use(ThreadManagerExtension())
 
     # Load Domain Module (Registers Repositories & UseCases)
@@ -51,7 +55,7 @@ def create_app(config_manager: ConfigManager) -> App:
 
 def main() -> None:
     config_manager = ConfigManager()
-    
+
     app_json = PathUtils.get_relative_path(__file__, "config", "app_config.json")
     user_json = PathUtils.get_relative_path(__file__, "config", "user_config.json")
     cli_json = PathUtils.get_relative_path(__file__, "config", "cli_commands.json")
@@ -62,12 +66,12 @@ def main() -> None:
     try:
         config_manager.load_json(ui_matrix_json)
     except FileNotFoundError:
-        pass # Optional/fail-safe if matrix is not strictly required for headless mode
+        pass  # Optional/fail-safe if matrix is not strictly required for headless mode
 
     try:
         config_manager.load_json(cli_json)
     except FileNotFoundError:
-        pass # Will fail if missing
+        pass  # Will fail if missing
 
     # If no arguments are provided, switch to Interactive Menu Mode
     if len(sys.argv) == 1:

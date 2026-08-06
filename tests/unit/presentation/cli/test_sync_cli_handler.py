@@ -1,8 +1,10 @@
-﻿from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
-from Binace_Bot.src.application.use_cases.sync.sync_market_data import SyncMarketDataCommand
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
+    SyncMarketDataCommand,
+)
 
 
 def _get_mock_config():
@@ -13,16 +15,17 @@ def _get_mock_config():
             "args": [
                 {"name": "--symbols", "type": "str", "required": True},
                 {"name": "--interval", "type": "str", "default": "1m"},
-                {"name": "--days", "type": "int", "default": 30}
-            ]
+                {"name": "--days", "type": "int", "default": 30},
+            ],
         }
     }
     return config
 
+
 def test_sync_cli_handler_success(capsys):
     app = Mock(spec=App)
     app.container.resolve.return_value = _get_mock_config()
-    
+
     mock_response = Mock()
     mock_response.success = True
     app.dispatch.return_value = mock_response
@@ -35,23 +38,25 @@ def test_sync_cli_handler_success(capsys):
     cmd = args[1]
     assert cmd.symbols == ["ETHUSDT", "BTCUSDT"]
     assert cmd.days_back_if_empty == 2
-    
+
     captured = capsys.readouterr()
     assert "✅ Sync complete." in captured.out
+
 
 def test_sync_cli_handler_failure(capsys):
     app = Mock(spec=App)
     app.container.resolve.return_value = _get_mock_config()
-    
+
     mock_response = Mock()
     mock_response.success = False
     mock_response.message = "Network error"
     app.dispatch.return_value = mock_response
 
     SyncCliHandler.handle("--symbols BTCUSDT", app)
-    
+
     captured = capsys.readouterr()
     assert "❌ Sync failed: Network error" in captured.out
+
 
 def test_sync_cli_handler_missing_args(capsys):
     app = Mock(spec=App)
@@ -60,8 +65,9 @@ def test_sync_cli_handler_missing_args(capsys):
     # --symbols is required, so this will trigger argparse error
     # Because exit_on_error=False, it should print Argument Error or exit
     SyncCliHandler.handle("--interval 1m", app)
-    
+
     app.dispatch.assert_not_called()
+
 
 def test_sync_cli_handler_help(capsys):
     app = Mock(spec=App)
@@ -70,13 +76,14 @@ def test_sync_cli_handler_help(capsys):
     SyncCliHandler.handle("-h", app)
     app.dispatch.assert_not_called()
 
+
 def test_sync_cli_handler_validation_error(capsys):
     app = Mock(spec=App)
     app.container.resolve.return_value = _get_mock_config()
-    
+
     # Trigger value error by passing invalid interval
     SyncCliHandler.handle("--symbols BTCUSDT --interval INVALID", app)
-    
+
     captured = capsys.readouterr()
     assert "❌ Validation Error" in captured.out
     app.dispatch.assert_not_called()

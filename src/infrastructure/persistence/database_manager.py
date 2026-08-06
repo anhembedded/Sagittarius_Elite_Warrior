@@ -7,23 +7,25 @@ from Binace_Bot.src.infrastructure.persistence.models import Base
 
 logger = logging.getLogger("App.Database")
 
+
 @dataclass(frozen=True)
 class DatabaseConfig:
     db_dir: str
+
 
 class DatabaseManager:
     """
     @brief Singleton manager for handling SQLite Multi-Database connections (Sharding).
     @details Creates and caches database engines/sessions per symbol.
     """
-    
+
     def __init__(self, config: DatabaseConfig) -> None:
         self.db_dir = config.db_dir
-        
+
         # Don't create directory if memory DB is intended
         if self.db_dir != ":memory:":
             os.makedirs(self.db_dir, exist_ok=True)
-            
+
         self._sessions = {}  # Symbol -> SessionMaker
         logger.info(f"Database Manager initialized at directory: {self.db_dir}")
 
@@ -57,6 +59,6 @@ class DatabaseManager:
         Base.metadata.create_all(engine)
         SessionMaker = sessionmaker(bind=engine)
         self._sessions[symbol] = SessionMaker
-        
+
         logger.info(f"Created dedicated database for symbol {symbol} at {db_path}")
         return SessionMaker()

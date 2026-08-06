@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from unittest.mock import patch
 
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer

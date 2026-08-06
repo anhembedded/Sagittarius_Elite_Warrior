@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import time
 from sagittarius_engine import App
 from Binace_Bot.src.application.use_cases.stream.start_live_stream import (

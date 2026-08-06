@@ -7,7 +7,10 @@ from Binace_Bot.src.application.ports.i_market_data_repository import (
 from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
-from Binace_Bot.src.infrastructure.persistence.database_manager import DatabaseManager, DatabaseConfig
+from Binace_Bot.src.infrastructure.persistence.database_manager import (
+    DatabaseManager,
+    DatabaseConfig,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 import os
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
@@ -15,6 +18,10 @@ from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
 from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
+)
+from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data import (
+    BulkSyncMarketDataCommand,
+    BulkSyncMarketDataCommandHandler,
 )
 from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
@@ -28,7 +35,9 @@ from Binace_Bot.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
     RunBacktestCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import BacktestState
+from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import (
+    BacktestState,
+)
 from Binace_Bot.src.application.use_cases.backtest.stop_backtest import (
     StopBacktestCommand,
     StopBacktestCommandHandler,
@@ -74,21 +83,22 @@ class BinanceBotModule(BaseModule):
         config: IConfig = app.container.resolve(IConfig)
         db_dir = config.get("database.dir") or os.path.join(os.getcwd(), "database")
         app.container.singleton(DatabaseConfig, DatabaseConfig(db_dir=db_dir))
-        
+
         app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
-        
+
         # State Singletons
         app.container.singleton(BacktestState, BacktestState)
 
         # Bind UseCases (Command -> Handler)
         app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
+        app.container.bind(BulkSyncMarketDataCommand, BulkSyncMarketDataCommandHandler)
         app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
         app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
-        
+
         # Bind Queries
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
         app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)

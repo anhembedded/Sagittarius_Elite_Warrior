@@ -2,17 +2,19 @@ import logging
 from datetime import datetime, timedelta, timezone
 from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
-from Binace_Bot.src.application.ports.i_market_data_repository import IMarketDataRepository
+from Binace_Bot.src.application.ports.i_market_data_repository import (
+    IMarketDataRepository,
+)
 from .command import SyncMarketDataCommand
+
 
 class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None]):
     """
     @brief Handler for SyncMarketDataCommand.
     """
+
     def __init__(
-        self,
-        exchange_client: IExchangeClient,
-        repo: IMarketDataRepository
+        self, exchange_client: IExchangeClient, repo: IMarketDataRepository
     ) -> None:
         self.exchange_client = exchange_client
         self.repo = repo
@@ -29,7 +31,9 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         for symbol in command.symbols:
             if command.start_time:
                 start_time = command.start_time
-                self.logger.info(f"[{symbol}] Syncing from explicit start time: {start_time}")
+                self.logger.info(
+                    f"[{symbol}] Syncing from explicit start time: {start_time}"
+                )
             else:
                 latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
                 if latest_time is None:

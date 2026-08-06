@@ -1,4 +1,4 @@
-﻿import cmd
+import cmd
 import shlex
 from typing import Optional
 
@@ -11,12 +11,14 @@ from sagittarius_engine.interfaces.i_task_manager import ITaskHandle
 from Binace_Bot.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
 from Binace_Bot.src.presentation.cli.handlers.stream_cli_handler import StreamCliHandler
 
+
 class InteractiveShell(cmd.Cmd, IHostedService):
     """
     @brief Modular REPL Shell for the Binance Bot.
     @details Implements Python's cmd.Cmd and runs as a Sagittarius IHostedService.
              It routes commands dynamically based on CLI_COMMANDS json config.
     """
+
     intro = "\n========================================\n 🤖 BINANCE TRADING BOT - INTERACTIVE \n========================================\nType 'help' or '?' to list commands.\n"
     prompt = "🤖 binance-bot> "
 
@@ -25,13 +27,10 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         self.app = app
         self.task: Optional[ITaskHandle] = None
         self.config = app.container.resolve(IConfig)
-        
-        # Hardcode the routing map to handlers. 
+
+        # Hardcode the routing map to handlers.
         # (A true registry would inject this, but this is a simple implementation)
-        self.handlers = {
-            "sync": SyncCliHandler,
-            "stream": StreamCliHandler
-        }
+        self.handlers = {"sync": SyncCliHandler, "stream": StreamCliHandler}
 
     def start(self, context: IEngineContext) -> None:
         self.task = context.tasks.spawn(self._run_loop, name="InteractiveShell")
@@ -56,12 +55,12 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         """Dynamic routing based on JSON configuration."""
         if not line:
             return
-            
+
         args = shlex.split(line)
         cmd_name = args[0]
-        
+
         cli_commands = self.config.get("CLI_COMMANDS", {})
-        
+
         if cmd_name in cli_commands and cmd_name in self.handlers:
             handler = self.handlers[cmd_name]
             handler.handle(" ".join(args[1:]), self.app)
@@ -71,7 +70,7 @@ class InteractiveShell(cmd.Cmd, IHostedService):
     def do_help(self, arg: str) -> None:
         """Dynamically builds help texts from configuration."""
         cli_commands = self.config.get("CLI_COMMANDS", {})
-        
+
         if not arg:
             print("\nDocumented commands (type help <topic>):")
             print("========================================")
@@ -82,9 +81,10 @@ class InteractiveShell(cmd.Cmd, IHostedService):
             print(f"  {'quit':<15} Alias for exit")
             print()
             return
-            
+
         if arg in cli_commands:
             from Binace_Bot.src.presentation.cli.cli_parser import build_handler_parser
+
             parser = build_handler_parser(self.config, arg)
             parser.print_help()
         elif arg in ("exit", "quit"):
@@ -96,11 +96,11 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         """Exit the interactive shell."""
         print("Goodbye!")
         return True
-        
+
     def do_quit(self, arg: str) -> bool:
         """Alias for exit."""
         return self.do_exit(arg)
-        
+
     def emptyline(self):
         """Do nothing on empty input line instead of repeating last command."""
         pass

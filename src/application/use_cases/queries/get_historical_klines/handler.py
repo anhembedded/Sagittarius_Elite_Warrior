@@ -1,4 +1,4 @@
-﻿from typing import List
+from typing import List
 import logging
 from Binace_Bot.src.application.ports.i_cqrs import IQueryHandler
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
@@ -28,7 +28,7 @@ class GetHistoricalKlinesQueryHandler(
         logger.debug(
             f"Handling GetHistoricalKlinesQuery for {query.symbol} at {query.interval} (limit={query.limit})"
         )
-        
+
         try:
             interval_vo = TimeFrame(query.interval)
         except ValueError as e:

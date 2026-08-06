@@ -1,13 +1,15 @@
-﻿from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 from Binace_Bot.src.presentation.cli.interactive_shell import InteractiveShell
-from Binace_Bot.src.application.use_cases.sync.sync_market_data import SyncMarketDataCommand
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
+    SyncMarketDataCommand,
+)
 
 
 def test_interactive_shell_execute_sync():
     app = Mock(spec=App)
-    
+
     # Mock config
     config = Mock(spec=IConfig)
     config.get.return_value = {
@@ -16,12 +18,12 @@ def test_interactive_shell_execute_sync():
             "args": [
                 {"name": "--symbols", "type": "str", "required": True},
                 {"name": "--interval", "type": "str", "default": "1m"},
-                {"name": "--days", "type": "int", "default": 30}
-            ]
+                {"name": "--days", "type": "int", "default": 30},
+            ],
         }
     }
     app.container.resolve.return_value = config
-    
+
     mock_response = Mock()
     mock_response.success = True
     app.dispatch.return_value = mock_response
@@ -38,6 +40,7 @@ def test_interactive_shell_execute_sync():
     assert cmd.symbols == ["ETHUSDT"]
     assert cmd.days_back_if_empty == 2
 
+
 def test_interactive_shell_do_exit():
     app = Mock(spec=App)
     app.container.resolve.return_value = Mock(spec=IConfig)
@@ -45,6 +48,7 @@ def test_interactive_shell_do_exit():
 
     result = shell.do_exit("")
     assert result is True
+
 
 def test_interactive_shell_do_quit():
     app = Mock(spec=App)
@@ -54,91 +58,94 @@ def test_interactive_shell_do_quit():
     result = shell.do_quit("")
     assert result is True
 
+
 def test_interactive_shell_emptyline():
     app = Mock(spec=App)
     app.container.resolve.return_value = Mock(spec=IConfig)
     shell = InteractiveShell(app)
-    
+
     # Should not raise or repeat
     shell.emptyline()
-    
+
+
 def test_interactive_shell_default_unknown_cmd(capsys):
     app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {}
     app.container.resolve.return_value = config
     shell = InteractiveShell(app)
-    
+
     shell.default("unknown_cmd")
     captured = capsys.readouterr()
     assert "*** Unknown syntax: unknown_cmd" in captured.out
-    
+
+
 def test_interactive_shell_default_empty(capsys):
     app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {}
     app.container.resolve.return_value = config
     shell = InteractiveShell(app)
-    
+
     shell.default("")
     captured = capsys.readouterr()
     assert captured.out == ""
 
+
 def test_interactive_shell_do_help(capsys):
     app = Mock(spec=App)
     config = Mock(spec=IConfig)
-    config.get.return_value = {
-        "sync": {"help": "Sync cmd"}
-    }
+    config.get.return_value = {"sync": {"help": "Sync cmd"}}
     app.container.resolve.return_value = config
     shell = InteractiveShell(app)
-    
+
     shell.do_help("")
     captured = capsys.readouterr()
     assert "Sync cmd" in captured.out
     assert "exit" in captured.out
-    
+
+
 def test_interactive_shell_do_help_specific(capsys):
     app = Mock(spec=App)
     config = Mock(spec=IConfig)
-    config.get.return_value = {
-        "sync": {"help": "Sync cmd"}
-    }
+    config.get.return_value = {"sync": {"help": "Sync cmd"}}
     app.container.resolve.return_value = config
     shell = InteractiveShell(app)
-    
+
     shell.do_help("sync")
     captured = capsys.readouterr()
     assert "Sync cmd" in captured.out
-    
+
+
 def test_interactive_shell_do_help_unknown(capsys):
     app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {}
     app.container.resolve.return_value = config
     shell = InteractiveShell(app)
-    
+
     shell.do_help("unknown")
     captured = capsys.readouterr()
     assert "*** No help on unknown" in captured.out
-    
+
+
 def test_interactive_shell_lifecycle():
     app = Mock(spec=App)
     app.container.resolve.return_value = Mock(spec=IConfig)
     shell = InteractiveShell(app)
-    
+
     context = Mock()
     context.tasks = Mock()
     mock_task = Mock()
     context.tasks.spawn.return_value = mock_task
-    
+
     shell.start(context)
     context.tasks.spawn.assert_called_once()
     assert shell.task == mock_task
-    
+
     # Wait for exit
     shell.wait_for_exit()
     mock_task.future.result.assert_called_once()
-    
+
     # Stop
     shell.stop(context)

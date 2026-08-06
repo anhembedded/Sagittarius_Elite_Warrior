@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from unittest.mock import Mock, patch
 from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,

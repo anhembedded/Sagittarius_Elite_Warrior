@@ -5,10 +5,10 @@ from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
-from Binace_Bot.src.infrastructure.persistence.database_manager import DatabaseManager, DatabaseConfig
-
-
-from unittest.mock import Mock
+from Binace_Bot.src.infrastructure.persistence.database_manager import (
+    DatabaseManager,
+    DatabaseConfig,
+)
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def test_save_and_get_klines(repo):
     assert fetched[0].open_time == dt1
     assert fetched[1].open_time == dt2
     assert fetched[0].close_price == 105.0
-    
+
     # Assert all volumes and fields to prevent silent mapping bugs
     assert fetched[0].volume == 1000.0
     assert fetched[0].quote_asset_volume == 105000.0
@@ -119,57 +119,74 @@ def test_get_klines_with_time_range(repo):
     assert fetched2[0].open_time == dt2
     assert fetched2[1].open_time == dt3
 
+
 def test_get_klines_with_limit(repo):
     from datetime import timedelta
+
     base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    klines = [create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)]
+    klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
+    ]
     repo.save_klines(klines)
-    
+
     # Get last 3 klines efficiently descending
-    fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE, limit=3, order_by_desc=True)
-    
+    fetched = repo.get_klines(
+        "BTCUSDT", TimeFrame.ONE_MINUTE, limit=3, order_by_desc=True
+    )
+
     assert len(fetched) == 3
     # Check that they are the latest 3 in DESCENDING order
     assert fetched[0].open_time == base_dt + timedelta(minutes=9)
     assert fetched[1].open_time == base_dt + timedelta(minutes=8)
     assert fetched[2].open_time == base_dt + timedelta(minutes=7)
 
+
 def test_save_klines_bulk_chunking(repo):
     from datetime import timedelta
+
     # Create 12000 mock klines to ensure chunking logic (5000 per chunk) is executed
     base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    klines = [create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(12000)]
-    
+    klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i))
+        for i in range(12000)
+    ]
+
     # This should not raise any exceptions and should insert in chunks
     repo.save_klines(klines)
-    
+
     # Verify count
     fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
     assert len(fetched) == 12000
     assert fetched[0].open_time == base_dt
     assert fetched[-1].open_time == base_dt + timedelta(minutes=11999)
 
+
 def test_multi_symbol_db_separation(repo):
     from datetime import timedelta
+
     base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    
+
     # Save klines for BTC and ETH in the same batch
-    btc_klines = [create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(5)]
-    eth_klines = [create_mock_kline("ETHUSDT", base_dt + timedelta(minutes=i)) for i in range(5)]
-    
+    btc_klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(5)
+    ]
+    eth_klines = [
+        create_mock_kline("ETHUSDT", base_dt + timedelta(minutes=i)) for i in range(5)
+    ]
+
     repo.save_klines(btc_klines + eth_klines)
-    
+
     # Retrieve independently
     btc_fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
     eth_fetched = repo.get_klines("ETHUSDT", TimeFrame.ONE_MINUTE)
-    
+
     assert len(btc_fetched) == 5
     assert len(eth_fetched) == 5
-    
+
     # Ensure they don't leak into each other (symbol check is intrinsic, but we also know they use different engines)
     assert all(k.symbol == "BTCUSDT" for k in btc_fetched)
     assert all(k.symbol == "ETHUSDT" for k in eth_fetched)
-    
+
     # Verify internal session pool created two engines
     assert len(repo.db_manager._sessions) == 2
     assert "BTCUSDT" in repo.db_manager._sessions
