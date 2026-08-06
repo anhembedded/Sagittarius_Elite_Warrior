@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 # Adding a new screen: add one entry here and register it in _setup_router().
 # ---------------------------------------------------------------------------
 _NAV_ROUTES = [
-    ("Dashboard", "dashboard"),
+    ("Dev Board", "dashboard"),
     ("Database", "data_management"),
 ]
 

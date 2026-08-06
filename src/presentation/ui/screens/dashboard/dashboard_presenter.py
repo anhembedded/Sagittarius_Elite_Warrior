@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Constants — no magic values scattered in method bodies
 # ---------------------------------------------------------------------------
-_DEFAULT_SYMBOLS: Tuple[str, ...] = ("BTCUSDT", "ETHUSDT")
+_DEFAULT_SYMBOLS: Tuple[str, ...] = ("ETHUSDT",)
 _DEFAULT_INTERVAL_STR: str = "1m"
 _DEFAULT_KLINE_LIMIT: int = 5000
 

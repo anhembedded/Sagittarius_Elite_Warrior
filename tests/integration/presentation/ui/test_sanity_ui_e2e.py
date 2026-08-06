@@ -71,6 +71,9 @@ def test_sanity_boot_and_dashboard(qtbot, main_window):
 
     # Navigate to dashboard
     btn_dashboard = main_window._sidebar._buttons["dashboard"]
+    # Labeled "Dev Board" (not "Dashboard") to avoid implying this is the
+    # app's end-user dashboard — it's a developer testbed screen (BOT-014).
+    assert btn_dashboard.text() == "Dev Board"
     qtbot.mouseClick(btn_dashboard, Qt.LeftButton)
 
     # Get the Dashboard Presenter and View from the Router

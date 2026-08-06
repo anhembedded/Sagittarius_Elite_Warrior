@@ -101,8 +101,8 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
         presenter._on_start_stream()
 
         # Check if the chart was created
-        assert len(presenter.active_charts) == 2
-        card = presenter.active_charts["BTCUSDT"]
+        assert len(presenter.active_charts) == 1
+        card = presenter.active_charts["ETHUSDT"]
 
         # Assert history was added to the candlestick
         assert len(card.candlestick.history_data) == 1

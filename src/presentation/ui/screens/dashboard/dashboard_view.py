@@ -1,11 +1,20 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QScrollArea
+from PySide6.QtWidgets import (
+    QWidget,
+    QHBoxLayout,
+    QVBoxLayout,
+    QScrollArea,
+    QLabel,
+)
 from Binace_Bot.src.presentation.ui.components.control_card import ControlCard
 from Binace_Bot.src.presentation.ui.components.monitor_card import MonitorCard
+
+_HEADER_TITLE = "Developer Board (Live Testbed)"
 
 
 class DashboardView(QWidget):
     """
-    @brief The View for the Dashboard Screen. Assembles dumb components into a layout.
+    @brief The View for the Dev Board Screen — a developer testbed, not the app's
+    end-user dashboard. Assembles dumb components into a layout.
     @details Contains ControlCard, MonitorCard, and a placeholder for ChartCard.
     """
 
@@ -14,9 +23,17 @@ class DashboardView(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(20, 20, 20, 20)
+        outer_layout.setSpacing(15)
+
+        self.lbl_header = QLabel(_HEADER_TITLE)
+        self.lbl_header.setObjectName("PanelTitle")
+        outer_layout.addWidget(self.lbl_header)
+
+        main_layout = QHBoxLayout()
         main_layout.setSpacing(20)
+        outer_layout.addLayout(main_layout)
 
         # Left Column: QScrollArea for Dynamic ChartCards
         self.scroll_area = QScrollArea()
