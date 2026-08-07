@@ -33,6 +33,31 @@ def test_chart_card_historical_data_render(qapp):
     assert card.candlestick.history_data[0][0] == 1000.0
 
 
+def test_chart_card_append_after_historical_render_does_not_duplicate(qapp):
+    """
+    Regression test: FastCandlestickItem.generate_picture() used to store its
+    `data` argument by reference (`self.history_data = data`), so after
+    ChartCard.render_historical_data() -> candlestick.generate_picture(self._raw_history),
+    `candlestick.history_data` and `card._raw_history` silently became the SAME
+    list object. append_closed_candle() then appended to both
+    `card._raw_history` explicitly AND `candlestick.history_data` (via
+    `candlestick.append_closed_candle`'s own `self.history_data.append(...)`),
+    duplicating every closed candle during live streaming — only visible once
+    historical data had been rendered first, which is why this slipped past
+    test_chart_card_live_tick_rollover (which never calls
+    render_historical_data before appending).
+    """
+    card = ChartCard("BNBUSDT")
+    history = [(1000.0, 50.0, 55.0, 48.0, 52.0), (1060.0, 52.0, 58.0, 50.0, 57.0)]
+    card.render_historical_data(history)
+
+    card.append_closed_candle(1120.0, 57.0, 60.0, 56.0, 59.0)
+
+    assert len(card._raw_history) == 3
+    assert len(card.candlestick.history_data) == 3
+    assert card._raw_history is not card.candlestick.history_data
+
+
 def test_chart_card_live_tick_rollover(qapp):
     """
     Test that explicitly calling append_closed_candle pushes the old candle to history.

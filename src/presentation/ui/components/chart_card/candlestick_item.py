@@ -23,14 +23,19 @@ class FastCandlestickItem(pg.GraphicsObject):
         self.history_data = []  # Tracks all historical data
 
         if data:
-            self.history_data = data
-            self.generate_picture(data)
+            self.history_data = list(data)
+            self.generate_picture(self.history_data)
 
     def generate_picture(self, data: list[tuple[float, float, float, float, float]]):
         """
         @brief Generates a cached QPicture for historical data. O(N) complexity once.
+        @details Stores its own copy of `data` — callers (e.g. ChartCard, which
+        owns `_raw_history`) must be able to independently append to their own
+        list without silently duplicating entries in this cache's `history_data`
+        (and vice versa).
         """
-        self.history_data = data
+        if data is not self.history_data:
+            self.history_data = list(data)
         self.picture = QtGui.QPicture()
         p = QtGui.QPainter(self.picture)
 
