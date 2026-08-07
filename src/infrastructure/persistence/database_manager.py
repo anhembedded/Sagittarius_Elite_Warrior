@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
@@ -33,6 +34,9 @@ class DatabaseManager:
         """
         @brief Retrieves or creates a SQLAlchemy session bound to a symbol-specific database.
         """
+        if not re.match(r"^[A-Za-z0-9_-]+$", symbol):
+            raise ValueError(f"Invalid symbol: {symbol}")
+
         if symbol in self._sessions:
             return self._sessions[symbol]()
 
