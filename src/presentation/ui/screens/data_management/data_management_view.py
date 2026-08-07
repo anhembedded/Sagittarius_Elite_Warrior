@@ -2,10 +2,8 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QSplitter
 from PySide6.QtCore import Signal, Qt
 
 from Binace_Bot.src.presentation.ui.components.monitor_card import MonitorCard
-from Binace_Bot.src.presentation.ui.screens.data_management.sync_control_card import (
-    SyncControlCard,
-)
-from Binace_Bot.src.presentation.ui.screens.data_management.database_status_card import (
+from Binace_Bot.src.presentation.ui.components.sync_control_card import SyncControlCard
+from Binace_Bot.src.presentation.ui.components.database_status_card import (
     DatabaseStatusCard,
 )
 
