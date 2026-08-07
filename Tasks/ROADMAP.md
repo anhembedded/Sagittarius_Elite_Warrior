@@ -21,10 +21,10 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 13 | 57% |
+| 🟢 **Completed** | 13 | 54% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 10 | 43% |
-| 📈 **Tổng số Task** | **23** | **100%** |
+| 🔴 **Backlog** | 11 | 46% |
+| 📈 **Tổng số Task** | **24** | **100%** |
 
 ---
 
@@ -59,6 +59,7 @@ Binace_Bot/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :--- |
 | **P1** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Sẵn sàng bắt đầu — mọi phụ thuộc đã hoàn thành. |
+| **P2** | **[BOT-026](backlog/BOT-026_dev_board_strategy_signals_and_markers.md)** | **Dev Board — Concrete Strategy + Buy/Sell Markers** | `BOT-020` ✅ | Chiến lược cụ thể đầu tiên (vd. EMA Crossover) dùng `StrategyEngine`, hiển thị tín hiệu Buy/Sell trên Dev Board (log + marker trên chart). Nối tiếp Indicator Control Card, chủ động hoãn từ phiên làm indicator ("chưa cần strategy bây giờ"). |
 | **P2** | **[BOT-017](backlog/BOT-017_settings_screen.md)** | **Settings Screen** | — | UI chỉnh API key/symbol/interval/sync days thay vì sửa tay `user_config.json`. Không phụ thuộc gì, rủi ro thấp, giá trị UX cao. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
