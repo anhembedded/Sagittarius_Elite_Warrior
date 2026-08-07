@@ -231,6 +231,24 @@ class DashboardPresenter(BasePresenter):
             card.add_subplot_indicator(name, active_indicator.color)
         active_indicator.registered_on_chart = True
 
+    def _clear_registered_indicators(self) -> None:
+        """
+        @brief Removes every currently-registered indicator curve from the
+        chart before rebuilding fresh instances.
+        @details _build_active_indicators() always returns brand new
+        _ActiveIndicator objects (registered_on_chart=False) — without this,
+        re-clicking Load History/Start Stream would leave the OLD curves on
+        the chart (never removed) while registering a second, duplicate set
+        for the same names, since the chart card itself is reused across runs
+        (see _ensure_chart_cards).
+        """
+        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        if card is None:
+            return
+        for name, active_indicator in self.active_indicators.items():
+            if active_indicator.registered_on_chart:
+                card.remove_indicator(name)
+
     # ================================================================== #
     # Qt Slots — execute on the main thread.
     # Long-running work is delegated to dedicated background methods.
@@ -248,6 +266,7 @@ class DashboardPresenter(BasePresenter):
         )
         symbols = list(_DEFAULT_SYMBOLS)
         self._ensure_chart_cards(symbols)
+        self._clear_registered_indicators()
         self.active_indicators = self._build_active_indicators()
         self._thread_manager.submit(
             self._run_load_history, symbols, _DEFAULT_INTERVAL_STR, _DEFAULT_KLINE_LIMIT
@@ -268,6 +287,7 @@ class DashboardPresenter(BasePresenter):
 
         # Prepare chart cards on the main thread (safe: view state only).
         chart_cards = self._ensure_chart_cards(symbols)
+        self._clear_registered_indicators()
         self.active_indicators = self._build_active_indicators()
         self.ui_log_signal.emit(f"Prepared {len(chart_cards)} charts.")
 

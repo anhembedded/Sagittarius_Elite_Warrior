@@ -67,6 +67,7 @@ class ChartCard(BaseCard):
         self.indicators = IndicatorManager(
             plot_layout=self.plot_layout,
             on_new_plot=self.crosshair.register_plot,
+            on_remove_plot=self.crosshair.unregister_plot,
         )
 
         self.viewport = ViewportController(

@@ -22,9 +22,11 @@ class IndicatorManager:
         self,
         plot_layout: ChartPlotLayout,
         on_new_plot: Callable[[pg.PlotItem], None],
+        on_remove_plot: Callable[[pg.PlotItem], None] = lambda plot: None,
     ) -> None:
         self._plot_layout = plot_layout
         self._on_new_plot = on_new_plot
+        self._on_remove_plot = on_remove_plot
         self._curves: dict[str, pg.PlotDataItem] = {}
         self._plots: dict[str, pg.PlotItem] = {}
         self._legend_labels: dict[str, pg.LabelItem] = {}
@@ -67,7 +69,14 @@ class IndicatorManager:
             curve.setVisible(visible)
 
     def remove(self, name: str) -> None:
-        """Removes an indicator's curve and legend entry entirely."""
+        """
+        @brief Removes an indicator's curve and legend entry entirely.
+        @details If it was a subplot-style indicator (e.g. RSI/MACD, not an
+        overlay drawn on the main plot), also removes its dedicated subplot
+        row and crosshair registration — otherwise the empty row/crosshair
+        line pair is orphaned in the layout, which is what made repeated
+        Load History/Start Stream clicks accumulate duplicate-looking panels.
+        """
         curve = self._curves.pop(name, None)
         plot = self._plots.pop(name, None)
         self._legend_labels.pop(name, None)
@@ -76,6 +85,9 @@ class IndicatorManager:
         plot.removeItem(curve)
         if plot.legend:
             plot.legend.removeItem(curve)
+        if plot is not self._plot_layout.main_plot:
+            self._on_remove_plot(plot)
+            self._plot_layout.remove_subplot(plot)
 
     def clear(self) -> None:
         self._curves.clear()

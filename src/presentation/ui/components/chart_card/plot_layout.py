@@ -66,6 +66,23 @@ class ChartPlotLayout:
         self._next_row += 1
         return sub_plot
 
+    def remove_subplot(self, sub_plot: pg.PlotItem) -> None:
+        """
+        @brief Removes a previously-added subplot row entirely, not just the
+        curve drawn on it.
+        @details add_subplot() always appends a brand new row; without a
+        matching removal, repeatedly deregistering and re-registering an
+        indicator (e.g. clicking Load History/Start Stream again) leaves the
+        old, now-empty subplot row stacked in the layout underneath the new
+        one instead of freeing it — the panel duplication itself, distinct
+        from (and in addition to) any duplicate curve.
+        """
+        if sub_plot not in self.sub_plots:
+            return
+        self.sub_plots.remove(sub_plot)
+        self.plots.remove(sub_plot)
+        self.widget.removeItem(sub_plot)
+
     def clear(self) -> None:
         self.sub_plots.clear()
         self.plots.clear()

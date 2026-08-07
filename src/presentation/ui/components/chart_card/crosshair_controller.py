@@ -54,6 +54,26 @@ class CrosshairController:
         self._v_lines.append(v_line)
         self._h_lines.append(h_line)
 
+    def unregister_plot(self, plot: pg.PlotItem) -> None:
+        """
+        @brief Detaches the crosshair line pair previously attached via
+        register_plot.
+        @details Needed whenever a subplot row itself is removed (e.g. an
+        indicator being deregistered before rebuild) — otherwise
+        _on_mouse_moved keeps iterating over a PlotItem no longer in the
+        layout/scene.
+        """
+        if plot not in self._plots:
+            return
+        idx = self._plots.index(plot)
+        self._plots.pop(idx)
+        v_line = self._v_lines.pop(idx)
+        h_line = self._h_lines.pop(idx)
+        plot.removeItem(v_line)
+        plot.removeItem(h_line)
+        if plot is self._primary_plot:
+            self._primary_plot = None
+
     def handle_mouse_moved(self, evt) -> None:
         """Public entry point mirroring the SignalProxy slot (used directly by tests)."""
         self._on_mouse_moved(evt)
