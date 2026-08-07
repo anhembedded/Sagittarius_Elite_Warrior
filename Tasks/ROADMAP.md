@@ -21,10 +21,10 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 13 | 54% |
+| 🟢 **Completed** | 13 | 52% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 11 | 46% |
-| 📈 **Tổng số Task** | **24** | **100%** |
+| 🔴 **Backlog** | 12 | 48% |
+| 📈 **Tổng số Task** | **25** | **100%** |
 
 ---
 
@@ -59,6 +59,7 @@ Binace_Bot/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :--- |
 | **P1** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Sẵn sàng bắt đầu — mọi phụ thuộc đã hoàn thành. |
+| **P1** | **[BOT-027](backlog/BOT-027_fix_concurrent_load_history_race_condition.md)** | **Fix Race Condition — "Load History" click chồng** | `BOT-020` ✅ | Bấm "Load History" ≥2 lần liên tiếp làm dữ liệu nến bị feed 2 lần vào cùng bộ indicator (RSI/EMA/MACD sai số liệu) — đã tái hiện bằng test thật (`xfail` có chủ đích) trong `test_dev_board_async_race_conditions.py`. 📄 [Test Case Catalog](reports/dev_board_user_end_test_cases.md). |
 | **P2** | **[BOT-026](backlog/BOT-026_dev_board_strategy_signals_and_markers.md)** | **Dev Board — Concrete Strategy + Buy/Sell Markers** | `BOT-020` ✅ | Chiến lược cụ thể đầu tiên (vd. EMA Crossover) dùng `StrategyEngine`, hiển thị tín hiệu Buy/Sell trên Dev Board (log + marker trên chart). Nối tiếp Indicator Control Card, chủ động hoãn từ phiên làm indicator ("chưa cần strategy bây giờ"). |
 | **P2** | **[BOT-017](backlog/BOT-017_settings_screen.md)** | **Settings Screen** | — | UI chỉnh API key/symbol/interval/sync days thay vì sửa tay `user_config.json`. Không phụ thuộc gì, rủi ro thấp, giá trị UX cao. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
