@@ -44,7 +44,11 @@ _NAV_ROUTES = [
 ]
 
 _WINDOW_TITLE = "Binance Bot Desktop - Clean Architecture"
-_WINDOW_SIZE = (1200, 800)
+# 1200x800 used to be enough, but the Dev Board's right column has grown
+# (System Controls + Indicators + System Monitor) — a bigger default avoids
+# content being clipped the instant the window opens, before the user ever
+# touches the (now resizable) splitter.
+_WINDOW_SIZE = (1440, 860)
 _CONTENT_BG_STYLE = "background-color: #1e1e1e; color: white;"
 
 

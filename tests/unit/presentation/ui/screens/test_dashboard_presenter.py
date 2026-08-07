@@ -75,6 +75,12 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
 def mock_view():
     view = MagicMock()
     view.render_symbol_cards.return_value = []
+    # Indicators default to disabled — matches the real IndicatorControlCard's
+    # unchecked-by-default checkboxes, and avoids MagicMock() (always truthy)
+    # flowing into RSI/EMA period comparisons as a fake "enabled" indicator.
+    view.indicator_control_card.chk_rsi.isChecked.return_value = False
+    view.indicator_control_card.chk_ema.isChecked.return_value = False
+    view.indicator_control_card.chk_macd.isChecked.return_value = False
     return view
 
 
@@ -209,4 +215,125 @@ def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter, mock_v
 
     assert any(
         "Test Exception" in log or "_on_load_history failed" in log for log in logs
+    )
+
+
+# ---------------------------------------------------------------------------
+# Indicator control — reads IndicatorControlCard, computes via BOT-020's
+# RSI/EMA/MACD, and pushes series onto the chart.
+# ---------------------------------------------------------------------------
+
+
+def _make_kline(timestamp: float, close_price: float) -> MagicMock:
+    kline = MagicMock()
+    kline.close_time.timestamp.return_value = timestamp
+    kline.close_price = close_price
+    return kline
+
+
+def test_build_active_indicators_returns_empty_dict_when_none_checked(presenter):
+    """mock_view's checkboxes default to unchecked — no indicators built."""
+    assert presenter._build_active_indicators() == {}
+
+
+def test_build_active_indicators_builds_enabled_indicators_with_configured_periods(
+    presenter, mock_view
+):
+    mock_view.indicator_control_card.chk_rsi.isChecked.return_value = True
+    mock_view.indicator_control_card.spin_rsi_period.value.return_value = 21
+    mock_view.indicator_control_card.chk_macd.isChecked.return_value = True
+
+    indicators = presenter._build_active_indicators()
+
+    assert set(indicators.keys()) == {"RSI(21)", "MACD"}
+    assert indicators["RSI(21)"].kind == "subplot"
+    assert indicators["MACD"].kind == "subplot"
+
+
+def test_on_load_history_builds_active_indicators_from_current_card_state(
+    presenter, mock_view
+):
+    mock_view.indicator_control_card.chk_ema.isChecked.return_value = True
+    mock_view.indicator_control_card.spin_ema_period.value.return_value = 50
+
+    presenter._on_load_history()
+
+    assert "EMA(50)" in presenter.active_indicators
+    assert presenter.active_indicators["EMA(50)"].kind == "overlay"
+
+
+def test_compute_indicator_series_emits_signal_once_warmed_up(presenter, mock_view):
+    """A short RSI period warms up quickly — the emitted series must be
+    non-empty and shorter than the input (None outputs during warm-up are
+    dropped, matching IIndicator's own warm-up contract from BOT-020)."""
+    mock_view.indicator_control_card.chk_rsi.isChecked.return_value = True
+    mock_view.indicator_control_card.spin_rsi_period.value.return_value = 2
+    presenter.active_indicators = presenter._build_active_indicators()
+
+    emitted = []
+    presenter.ui_indicator_data_signal.connect(
+        lambda name, x, y: emitted.append((name, x, y))
+    )
+
+    klines = [_make_kline(1000.0 + i, 100.0 + i) for i in range(5)]
+    presenter._compute_indicator_series(klines)
+
+    assert len(emitted) == 1
+    name, x_data, y_data = emitted[0]
+    assert name == "RSI(2)"
+    assert len(x_data) == len(y_data) > 0
+    assert len(y_data) < len(klines)  # fewer points than input (warm-up dropped)
+
+
+def test_on_indicator_data_registers_overlay_once_then_only_updates(presenter):
+    """First call registers the overlay curve; subsequent calls must not
+    re-register it (would create duplicate curves on the real chart)."""
+    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+        _ActiveIndicator,
+    )
+
+    active_indicator = _ActiveIndicator(
+        indicator=MagicMock(), extract_value=lambda v: v, kind="overlay", color="#fff"
+    )
+    presenter.active_indicators = {"EMA(20)": active_indicator}
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+
+    presenter._on_indicator_data("EMA(20)", [1.0], [100.0])
+    presenter._on_indicator_data("EMA(20)", [1.0, 2.0], [100.0, 101.0])
+
+    mock_card.add_overlay_indicator.assert_called_once_with("EMA(20)", "#fff")
+    assert mock_card.update_indicator_data.call_count == 2
+    mock_card.update_indicator_data.assert_called_with(
+        "EMA(20)", [1.0, 2.0], [100.0, 101.0]
+    )
+
+
+def test_update_indicators_on_closed_candle_appends_and_pushes_to_chart(presenter):
+    """A live closed candle must append to the running series (not replace
+    it) and push the full accumulated series to the chart."""
+    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+        _ActiveIndicator,
+    )
+    from Binace_Bot.src.domain.indicators.ema import EMA
+
+    # period=1 warms up on the very first update() call.
+    active_indicator = _ActiveIndicator(
+        indicator=EMA(period=1),
+        extract_value=lambda v: v,
+        kind="overlay",
+        color="#e67e22",
+        x_data=[1000.0],
+        y_data=[100.0],
+    )
+    presenter.active_indicators = {"EMA(1)": active_indicator}
+    mock_card = MagicMock()
+
+    presenter._update_indicators_on_closed_candle(mock_card, 1060.0, 105.0)
+
+    assert active_indicator.x_data == [1000.0, 1060.0]
+    assert active_indicator.y_data == [100.0, 105.0]
+    mock_card.add_overlay_indicator.assert_called_once_with("EMA(1)", "#e67e22")
+    mock_card.update_indicator_data.assert_called_once_with(
+        "EMA(1)", [1000.0, 1060.0], [100.0, 105.0]
     )

@@ -1,13 +1,17 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
-    QHBoxLayout,
     QVBoxLayout,
     QScrollArea,
+    QSplitter,
     QLabel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from Binace_Bot.src.presentation.ui.components.control_card import ControlCard
+from Binace_Bot.src.presentation.ui.components.indicator_control_card import (
+    IndicatorControlCard,
+)
 from Binace_Bot.src.presentation.ui.components.monitor_card import MonitorCard
 
 _HEADER_TITLE = "Developer Board (Live Testbed)"
@@ -33,9 +37,12 @@ class DashboardView(BaseView):
         self.lbl_header.setObjectName("PanelTitle")
         outer_layout.addWidget(self.lbl_header)
 
-        main_layout = QHBoxLayout()
-        main_layout.setSpacing(20)
-        outer_layout.addLayout(main_layout)
+        # Horizontal split between the chart column and the right column —
+        # a QSplitter (not a fixed-ratio QHBoxLayout) so the user can drag
+        # the divider to give either side more room instead of content
+        # silently clipping at a fixed proportion of a fixed window size.
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        outer_layout.addWidget(main_splitter, 1)
 
         # Left Column: QScrollArea for Dynamic ChartCards
         self.scroll_area = QScrollArea()
@@ -52,22 +59,39 @@ class DashboardView(BaseView):
 
         self.scroll_area.setWidget(self.charts_container)
 
-        # Right Column: Controls and Monitor
-        right_column = QVBoxLayout()
+        # Right Column: Controls and Monitor — QScrollArea so a growing set of
+        # cards (ControlCard, IndicatorControlCard, MonitorCard, ...) never
+        # gets clipped by the window height; it scrolls instead.
+        right_scroll_area = QScrollArea()
+        right_scroll_area.setWidgetResizable(True)
+        # Deliberately no horizontal scrollbar policy override — default
+        # AsNeeded means content is scrollable, not silently clipped, if the
+        # splitter is ever dragged narrower than a card's natural width.
+
+        right_container = QWidget()
+        right_column = QVBoxLayout(right_container)
+        right_column.setContentsMargins(0, 0, 0, 0)
         right_column.setSpacing(20)
 
         # Initialize Global Cards
         self.control_card = ControlCard()
+        self.indicator_control_card = IndicatorControlCard()
         self.monitor_card = MonitorCard()
 
-        right_column.addWidget(self.control_card, 1)  # Control takes less space
-        right_column.addWidget(
-            self.monitor_card, 3
-        )  # Monitor takes more vertical space
+        right_column.addWidget(self.control_card)
+        right_column.addWidget(self.indicator_control_card)
+        right_column.addWidget(self.monitor_card)
+        right_column.addStretch()
 
-        # Add to main layout
-        main_layout.addWidget(self.scroll_area, 3)  # Charts take 3 parts width
-        main_layout.addLayout(right_column, 1)  # Right column takes 1 part width
+        right_scroll_area.setWidget(right_container)
+
+        # Add to the splitter — initial sizes only (a hint, not a cap); the
+        # user can drag the handle to resize either side at any time.
+        main_splitter.addWidget(self.scroll_area)
+        main_splitter.addWidget(right_scroll_area)
+        main_splitter.setStretchFactor(0, 3)  # Charts get more room initially
+        main_splitter.setStretchFactor(1, 1)
+        main_splitter.setSizes([900, 400])
 
     def render_symbol_cards(self, symbols: list[str]) -> list:
         """

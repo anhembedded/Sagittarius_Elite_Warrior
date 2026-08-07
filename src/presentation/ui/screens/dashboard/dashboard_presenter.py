@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Tuple
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Callable, List, Tuple
 
 from PySide6.QtCore import Signal, Slot
 
@@ -20,6 +21,9 @@ from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Binace_Bot.src.domain.indicators.ema import EMA
+from Binace_Bot.src.domain.indicators.macd import MACD
+from Binace_Bot.src.domain.indicators.rsi import RSI
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.presentation.ui.constants import UIMode
 
@@ -36,6 +40,32 @@ if TYPE_CHECKING:
 _DEFAULT_SYMBOLS: Tuple[str, ...] = ("ETHUSDT",)
 _DEFAULT_INTERVAL_STR: str = "1m"
 _DEFAULT_KLINE_LIMIT: int = 5000
+
+_INDICATOR_KIND_OVERLAY = "overlay"  # same price scale as candles, e.g. EMA
+_INDICATOR_KIND_SUBPLOT = "subplot"  # own scale, e.g. RSI/MACD
+_RSI_COLOR = "#8e44ad"
+_EMA_COLOR = "#e67e22"
+_MACD_COLOR = "#2980b9"
+
+
+@dataclass
+class _ActiveIndicator:
+    """
+    @brief Presenter-only bookkeeping for one enabled chart indicator.
+    @details `extract_value` turns a raw IIndicator reading into a plain
+    float (MACD.update() returns a MACDValue, not a float). `x_data`/
+    `y_data` accumulate the full series pushed to the chart across both the
+    historical batch and subsequent live ticks — ChartCard.update_indicator_data
+    always takes the complete series, not an append.
+    """
+
+    indicator: object
+    extract_value: Callable[[object], float]
+    kind: str
+    color: str
+    registered_on_chart: bool = False
+    x_data: list = field(default_factory=list)
+    y_data: list = field(default_factory=list)
 
 
 class DashboardPresenter(BasePresenter):
@@ -64,6 +94,9 @@ class DashboardPresenter(BasePresenter):
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
+    # Indicator name -> full (x, y) series computed so far
+    ui_indicator_data_signal = Signal(str, list, list)
+
     INITIAL_STATE = UIMode.IDLE
 
     def __init__(self, view: "DashboardView", container: "IContainer") -> None:
@@ -91,6 +124,7 @@ class DashboardPresenter(BasePresenter):
         self.view.control_card.apply_ui_mode(UIMode.IDLE)
 
         self.active_charts: dict = {}
+        self.active_indicators: dict[str, _ActiveIndicator] = {}
 
         # Must be called explicitly at the end of __init__ per BasePresenter contract.
         self._connect_ui_signals()
@@ -118,6 +152,7 @@ class DashboardPresenter(BasePresenter):
         self.ui_history_reloaded_signal.connect(self._on_history_reloaded)
         self.ui_stream_success_signal.connect(self._on_stream_start_success)
         self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
+        self.ui_indicator_data_signal.connect(self._on_indicator_data)
 
     def _connect_engine_events(self) -> None:
         """Đăng ký lắng nghe sự kiện từ Engine EventBus."""
@@ -150,6 +185,52 @@ class DashboardPresenter(BasePresenter):
             self.active_charts[card.symbol] = card
         return chart_cards
 
+    def _build_active_indicators(self) -> dict[str, _ActiveIndicator]:
+        """
+        @brief Reads the IndicatorControlCard's checkboxes/periods and builds
+        fresh indicator instances — never reused across runs, so a changed
+        period or a fresh Load History/Start Stream always starts clean.
+        """
+        card = self.view.indicator_control_card
+        indicators: dict[str, _ActiveIndicator] = {}
+
+        if card.chk_rsi.isChecked():
+            period = card.spin_rsi_period.value()
+            indicators[f"RSI({period})"] = _ActiveIndicator(
+                indicator=RSI(period=period),
+                extract_value=lambda reading: reading,
+                kind=_INDICATOR_KIND_SUBPLOT,
+                color=_RSI_COLOR,
+            )
+        if card.chk_ema.isChecked():
+            period = card.spin_ema_period.value()
+            indicators[f"EMA({period})"] = _ActiveIndicator(
+                indicator=EMA(period=period),
+                extract_value=lambda reading: reading,
+                kind=_INDICATOR_KIND_OVERLAY,
+                color=_EMA_COLOR,
+            )
+        if card.chk_macd.isChecked():
+            indicators["MACD"] = _ActiveIndicator(
+                indicator=MACD(),
+                extract_value=lambda reading: reading.macd,
+                kind=_INDICATOR_KIND_SUBPLOT,
+                color=_MACD_COLOR,
+            )
+        return indicators
+
+    def _ensure_indicator_registered(
+        self, card, name: str, active_indicator: _ActiveIndicator
+    ) -> None:
+        """Adds the overlay/subplot curve to the chart on its first data point."""
+        if active_indicator.registered_on_chart:
+            return
+        if active_indicator.kind == _INDICATOR_KIND_OVERLAY:
+            card.add_overlay_indicator(name, active_indicator.color)
+        else:
+            card.add_subplot_indicator(name, active_indicator.color)
+        active_indicator.registered_on_chart = True
+
     # ================================================================== #
     # Qt Slots — execute on the main thread.
     # Long-running work is delegated to dedicated background methods.
@@ -167,6 +248,7 @@ class DashboardPresenter(BasePresenter):
         )
         symbols = list(_DEFAULT_SYMBOLS)
         self._ensure_chart_cards(symbols)
+        self.active_indicators = self._build_active_indicators()
         self._thread_manager.submit(
             self._run_load_history, symbols, _DEFAULT_INTERVAL_STR, _DEFAULT_KLINE_LIMIT
         )
@@ -186,6 +268,7 @@ class DashboardPresenter(BasePresenter):
 
         # Prepare chart cards on the main thread (safe: view state only).
         chart_cards = self._ensure_chart_cards(symbols)
+        self.active_indicators = self._build_active_indicators()
         self.ui_log_signal.emit(f"Prepared {len(chart_cards)} charts.")
 
         self._thread_manager.submit(
@@ -256,6 +339,18 @@ class DashboardPresenter(BasePresenter):
                 f"Refreshed {len(mapped_data)} historical klines for {symbol}."
             )
 
+    @Slot(str, list, list)
+    def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
+        """Pushes a computed indicator series onto the chart (single-symbol
+        Dev Board — see _DEFAULT_SYMBOLS), registering its overlay/subplot
+        curve on first use."""
+        active_indicator = self.active_indicators.get(name)
+        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        if active_indicator is None or card is None:
+            return
+        self._ensure_indicator_registered(card, name, active_indicator)
+        card.update_indicator_data(name, x_data, y_data)
+
     # ================================================================== #
     # Engine Event Bridge — called from background threads.
     # MUST NOT touch Qt widgets. Use signals only.
@@ -309,9 +404,32 @@ class DashboardPresenter(BasePresenter):
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
+                self._update_indicators_on_closed_candle(card, t, c)
             else:
                 card.update_last_candle(t, o, h, low, c)
                 card.update_last_volume(t, volume, is_bullish)
+
+    def _update_indicators_on_closed_candle(
+        self, card, timestamp: float, close_price: float
+    ) -> None:
+        """
+        @brief Feeds a newly-closed live candle into every active indicator.
+        @details Runs on the main thread (called from _on_ui_chart_update),
+        so it's safe to mutate the same _ActiveIndicator instances the
+        historical batch (background thread) used — that batch always
+        finishes before live ticks start, per _run_sync_and_start's Step 2
+        (reload history) -> Step 3 (start stream) ordering.
+        """
+        for name, active_indicator in self.active_indicators.items():
+            reading = active_indicator.indicator.update(close_price)
+            if reading is None:
+                continue
+            active_indicator.x_data.append(timestamp)
+            active_indicator.y_data.append(active_indicator.extract_value(reading))
+            self._ensure_indicator_registered(card, name, active_indicator)
+            card.update_indicator_data(
+                name, active_indicator.x_data, active_indicator.y_data
+            )
 
     # ================================================================== #
     # Background methods — submitted to IThreadManager.
@@ -345,6 +463,7 @@ class DashboardPresenter(BasePresenter):
                 mapped_data = self._map_klines(ordered_klines)
                 volume_data = self._map_volume(ordered_klines)
                 self.ui_history_reloaded_signal.emit(symbol, mapped_data, volume_data)
+                self._compute_indicator_series(ordered_klines)
 
             except Exception as exc:
                 self.ui_log_signal.emit(
@@ -388,6 +507,7 @@ class DashboardPresenter(BasePresenter):
                     self.ui_history_reloaded_signal.emit(
                         symbol, mapped_data, volume_data
                     )
+                    self._compute_indicator_series(ordered_klines)
 
             # Step 3: Start the Live WebSocket stream
             self.ui_log_signal.emit("Opening Websocket stream...")
@@ -404,6 +524,34 @@ class DashboardPresenter(BasePresenter):
 
         except Exception as exc:
             self.ui_stream_failed_signal.emit(f"System error: {exc}")
+
+    def _compute_indicator_series(self, ordered_klines: List) -> None:
+        """
+        @brief Feeds each historical candle's close price through every
+        active indicator and emits the resulting series via
+        ui_indicator_data_signal for safe main-thread chart rendering.
+        @details Runs on a background thread (called from _run_load_history/
+        _run_sync_and_start) — safe because this always completes before any
+        live tick could touch the same _ActiveIndicator instances (Step 2
+        reload-history precedes Step 3 start-stream). Captures
+        `active_indicators` once so a mid-run rebuild on the main thread
+        (e.g. the user re-clicking Load History) can't be observed
+        mid-iteration.
+        """
+        active_indicators = self.active_indicators
+        for candle in ordered_klines:
+            timestamp = float(candle.close_time.timestamp())
+            for active_indicator in active_indicators.values():
+                reading = active_indicator.indicator.update(candle.close_price)
+                if reading is None:
+                    continue
+                active_indicator.x_data.append(timestamp)
+                active_indicator.y_data.append(active_indicator.extract_value(reading))
+
+        for name, active_indicator in active_indicators.items():
+            self.ui_indicator_data_signal.emit(
+                name, active_indicator.x_data, active_indicator.y_data
+            )
 
     @staticmethod
     def _map_klines(klines: list) -> list:
