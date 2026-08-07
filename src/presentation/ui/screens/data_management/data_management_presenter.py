@@ -158,6 +158,7 @@ class DataManagementPresenter(BasePresenter):
     @safe_ui_action
     def _on_sync_complete(self) -> None:
         """Handle successful single-sync completion: log and auto-refresh status."""
+        self.view.progress_bar.hide()
         self.view.append_log("UI Restored.")
         self.fsm.transition_to(UIMode.IDLE)
         self._on_check_status()

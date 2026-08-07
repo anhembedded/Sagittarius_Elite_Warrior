@@ -101,3 +101,53 @@ QTextEdit#terminal_log {
     border-radius: 4px;
     padding: 8px;
 }
+
+/* 6. DATA TABLES (e.g. Data Management screen's status table) */
+QTableWidget#db_status_table {
+    background-color: transparent;
+    alternate-background-color: #25252b;
+    color: #e0e0e0;
+    border: 1px solid #333333;
+    border-radius: 8px;
+    outline: none;
+}
+
+QTableWidget#db_status_table::item {
+    padding: 8px;
+    border: none;
+}
+
+QTableWidget#db_status_table QHeaderView::section {
+    background-color: #1e1e24;
+    color: #848E9C;
+    padding: 8px;
+    border: none;
+    font-weight: bold;
+    border-bottom: 2px solid #333333;
+}
+
+/* Compact variant of the global QPushButton style for in-row table actions */
+QPushButton#btnRowSync {
+    padding: 4px 10px;
+    min-height: 22px;
+}
+
+/* 7. PROGRESS BAR */
+QProgressBar {
+    background-color: #121212;
+    border: 1px solid #333333;
+    border-radius: 6px;
+    text-align: center;
+    color: #e0e0e0;
+}
+
+QProgressBar::chunk {
+    background-color: #007acc;
+    border-radius: 5px;
+}
+
+/* 8. CARD HEADER STAT LABEL (e.g. row-count summary next to a card title) */
+#card_stat_label {
+    color: #848E9C;
+    font-size: 12px;
+}
