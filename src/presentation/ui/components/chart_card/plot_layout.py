@@ -43,10 +43,21 @@ class ChartPlotLayout:
         self._next_row = self.MAIN_PLOT_ROW + 1
 
     def add_subplot(self, height_ratio: int = 1) -> pg.PlotItem:
-        """Adds a new subplot row below existing plots, X-linked to the main plot."""
+        """
+        Adds a new subplot row below existing plots (e.g. Volume, RSI, MACD),
+        X-linked to the main plot, with its own independent Y auto-scale/zoom
+        — same "TradingView style" setup as main_plot (see its __init__
+        comment). Without this, a subplot's Y-axis auto-ranges to the FULL
+        loaded history instead of the currently visible X window, so a
+        single outlier (e.g. one huge volume spike) squashes every other bar
+        flat — and mouse-wheel Y-zoom on the subplot silently does nothing.
+        """
         sub_plot = self.widget.addPlot(row=self._next_row, col=0)
         sub_plot.showGrid(x=True, y=True, alpha=0.2)
         sub_plot.setXLink(self.main_plot)
+        sub_plot.setMouseEnabled(x=True, y=True)
+        sub_plot.vb.setAutoVisible(y=True)
+        sub_plot.vb.enableAutoRange(axis="y", enable=True)
 
         self.widget.ci.layout.setRowStretchFactor(self._next_row, height_ratio)
 

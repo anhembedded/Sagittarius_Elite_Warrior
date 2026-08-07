@@ -14,6 +14,11 @@ from .zoom_controls import ZoomControls
 
 OhlcCandle = tuple[float, float, float, float, float]
 
+# Historical loads can bring in thousands of candles; showing all of them at
+# once by default makes every subplot's auto-visible Y-range (Volume/RSI/
+# MACD) span the ENTIRE history instead of a readable recent window.
+_DEFAULT_INITIAL_VISIBLE_CANDLES = 150
+
 
 class ChartCard(BaseCard):
     """
@@ -88,11 +93,29 @@ class ChartCard(BaseCard):
             self.candlestick.generate_picture(self._raw_history)
         else:
             self._render_chart_type()
-        self.plot_layout.main_plot.autoRange()
+        self._set_initial_view_range(data)
         if data:
             last_t, open_p, _, _, close_p = data[-1]
             self.price_line.update_price(close_p, close_p >= open_p)
             self.viewport.notify_new_data(last_t)
+
+    def _set_initial_view_range(self, data: list[OhlcCandle]) -> None:
+        """
+        @brief Shows a recent, readable window by default instead of fitting
+        the entire loaded history into view at once.
+        @details Volume/RSI/MACD subplots auto-follow the main plot's visible
+        X range (see ChartPlotLayout.add_subplot) — starting zoomed out to
+        thousands of candles makes their Y-axis span the whole history too,
+        so a handful of outliers (e.g. one huge volume spike) flatten
+        everything else. A short recent window keeps them readable from the
+        moment data loads, not just after the user manually zooms in.
+        """
+        if len(data) <= _DEFAULT_INITIAL_VISIBLE_CANDLES:
+            self.plot_layout.main_plot.autoRange()
+            return
+        first_t = data[-_DEFAULT_INITIAL_VISIBLE_CANDLES][0]
+        last_t = data[-1][0]
+        self.plot_layout.main_plot.setXRange(first_t, last_t, padding=0.02)
 
     def update_last_candle(
         self,
