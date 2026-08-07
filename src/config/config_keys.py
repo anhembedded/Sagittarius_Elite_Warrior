@@ -24,3 +24,6 @@ class ConfigKeys(str, Enum):
     UI_FONT_FALLBACKS = "ui.font.fallbacks"
     UI_THEME_ACCENT_COLOR = "ui.theme.accent_color"
     UI_THEME_REPLACE_COLOR = "ui.theme.replace_color"
+
+    # Developer mode — enables extra UI instrumentation (e.g. click logging)
+    DEV_MODE = "dev.mode"

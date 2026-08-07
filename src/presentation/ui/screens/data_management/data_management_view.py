@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QSplitter
+from PySide6.QtWidgets import QHBoxLayout, QSplitter
 from PySide6.QtCore import Signal, Qt
+from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from Binace_Bot.src.presentation.ui.components.monitor_card import MonitorCard
 from Binace_Bot.src.presentation.ui.components.sync_control_card import SyncControlCard
@@ -8,7 +9,7 @@ from Binace_Bot.src.presentation.ui.components.database_status_card import (
 )
 
 
-class DataManagementView(QWidget):
+class DataManagementView(BaseView):
     """
     @brief The View for the Data Management Screen.
     @details Assembles three dumb BaseCards: `control_card` (symbol/interval/time

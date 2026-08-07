@@ -53,6 +53,13 @@ def main() -> None:
     except FileNotFoundError:
         print("Warning: ui_matrix.json not found")
 
+    if "--dev" in sys.argv:
+        config_manager.load_dict({ConfigKeys.DEV_MODE.value: True})
+        print(
+            "Dev mode enabled — button clicks will be logged to each "
+            "screen's System Monitor."
+        )
+
     app_engine = create_app(config_manager)
     app_engine.boot()
 

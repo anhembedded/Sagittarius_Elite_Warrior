@@ -1,3 +1,14 @@
+param(
+    # Enables dev-mode UI instrumentation (currently: logs every button
+    # click to each screen's System Monitor). Usage: run-ui.ps1 -Dev
+    [switch]$Dev
+)
+
+# Also accept the literal GNU-style "--dev" form some users may type.
+if ($args -contains "--dev") {
+    $Dev = $true
+}
+
 $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -57,5 +68,13 @@ if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
 
 Set-Location $BotRoot
 $UIEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "main_window.py")
-Write-Host "Starting PySide6 Trading Bot UI..." -ForegroundColor Green
-& $VenvPython $UIEntry
+
+$UIArgs = @()
+if ($Dev) {
+    $UIArgs += "--dev"
+    Write-Host "Starting PySide6 Trading Bot UI (dev mode)..." -ForegroundColor Green
+} else {
+    Write-Host "Starting PySide6 Trading Bot UI..." -ForegroundColor Green
+}
+
+& $VenvPython $UIEntry @UIArgs

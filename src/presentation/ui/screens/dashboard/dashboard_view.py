@@ -5,13 +5,15 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QLabel,
 )
+from sagittarius_engine.extensions.pyside_mvc import BaseView
+
 from Binace_Bot.src.presentation.ui.components.control_card import ControlCard
 from Binace_Bot.src.presentation.ui.components.monitor_card import MonitorCard
 
 _HEADER_TITLE = "Developer Board (Live Testbed)"
 
 
-class DashboardView(QWidget):
+class DashboardView(BaseView):
     """
     @brief The View for the Dev Board Screen — a developer testbed, not the app's
     end-user dashboard. Assembles dumb components into a layout.
