@@ -21,9 +21,9 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 12 | 52% |
+| 🟢 **Completed** | 13 | 57% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 11 | 48% |
+| 🔴 **Backlog** | 10 | 43% |
 | 📈 **Tổng số Task** | **23** | **100%** |
 
 ---
@@ -44,6 +44,7 @@ Binace_Bot/Tasks/
 - [x] **BOT-014**: [Dev Board Single Chart Config](completed/BOT-014_dev_board_single_chart.md) — *Chuyển Dashboard thành Dev Board, đổi mặc định sang 1 chart `ETHUSDT` & cập nhật test suites.*
 - [x] **BOT-015**: [QA & Testing Strategy Audit](completed/BOT-015_qa_testing_strategy_audit.md) — *(một phần)* Thêm tầng `tests/sanity/`, testing guidelines, cờ `-SanityOnly`/`-UnitOnly`/`-Full` + `--cov-fail-under=80` cho `ci-local.ps1`. 📄 [Báo cáo Audit](reports/qa_testing_strategy_report.md). Hoãn Concurrency/Thread-Safety tests.
 - [x] **BOT-016**: [UI Icon Pack & Assets Management](completed/BOT-016_ui_icon_pack_integration.md) — *Tích hợp Lucide Icons (SVG) vào Sidebar/ControlCard/MonitorCard qua `IconLoader` (cache, recolor, fallback).*
+- [x] **BOT-020**: [Indicator & Strategy Engine (Core)](completed/BOT-020_indicator_strategy_engine_core.md) — *Epic `BOT-006` Phase 0. `IIndicator`/`RSI`/`EMA`/`MACD` + `IStrategy`/`StrategyEngine` (batch & incremental, cùng 1 code path đảm bảo 2 chế độ luôn khớp kết quả). Nền tảng dùng chung cho `BOT-008`/`BOT-021`/`BOT-023`.*
 
 ---
 
@@ -68,11 +69,11 @@ Binace_Bot/Tasks/
 
 | Phase | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :--- |
-| **0** | **[BOT-020](backlog/BOT-020_indicator_strategy_engine_core.md)** | **Indicator & Strategy Engine (Core)** | — | RSI/EMA/MACD + `StrategyEngine` chạy được batch (static) lẫn incremental (dynamic/live). Nền tảng dùng chung với `BOT-008`. |
-| **1** | **[BOT-021](backlog/BOT-021_static_backtest_execution_engine.md)** | **Static Backtest Execution Engine** | `BOT-020` | Chạy chiến lược trên toàn bộ dữ liệu lịch sử trong 1 lượt nhanh (không throttle), trả `BacktestResult` (trades, equity curve, metrics). |
+| **0** | ✅ **[BOT-020](completed/BOT-020_indicator_strategy_engine_core.md)** | **Indicator & Strategy Engine (Core)** | — | RSI/EMA/MACD + `StrategyEngine` chạy được batch (static) lẫn incremental (dynamic/live). Nền tảng dùng chung với `BOT-008`. |
+| **1** | **[BOT-021](backlog/BOT-021_static_backtest_execution_engine.md)** | **Static Backtest Execution Engine** | `BOT-020` ✅ | Chạy chiến lược trên toàn bộ dữ liệu lịch sử trong 1 lượt nhanh (không throttle), trả `BacktestResult` (trades, equity curve, metrics). |
 | **1** | **[BOT-022](backlog/BOT-022_backtest_screen_static_ui.md)** | **Backtest Screen — Static UI** | `BOT-021` | Màn hình Backtest thực thụ đầu tiên: cấu hình chiến lược, chạy, xem kết quả (equity curve, trade list, stat cards). |
-| **2** | **[BOT-023](backlog/BOT-023_dynamic_backtest_engine.md)** | **Dynamic Backtest Engine** | `BOT-020`, `BOT-021` | Mở rộng vòng lặp replay hiện có (`run_backtest/handler.py`) thành Paper Exchange & Virtual Event Loop — chạy chiến lược theo từng nến, tua nhanh/chậm/tạm dừng. |
+| **2** | **[BOT-023](backlog/BOT-023_dynamic_backtest_engine.md)** | **Dynamic Backtest Engine** | `BOT-020` ✅, `BOT-021` | Mở rộng vòng lặp replay hiện có (`run_backtest/handler.py`) thành Paper Exchange & Virtual Event Loop — chạy chiến lược theo từng nến, tua nhanh/chậm/tạm dừng. |
 | **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Dynamic UI** | `BOT-022`, `BOT-023` | Mở rộng màn hình Phase 1 với replay controls (play/pause/speed) + cập nhật chart/equity/trade log trực tiếp theo từng nến. |
 | **X** | **[BOT-025](backlog/BOT-025_backtest_domain_events_completeness.md)** | **Backtest Domain Events — Completeness Pass** | `BOT-021`, `BOT-023` | Chuẩn hoá toàn bộ event Backtest (Static + Dynamic) vào 1 module, tài liệu hoá rõ khi nào phát/ai lắng nghe. |
 
-> Thứ tự khuyến nghị: `BOT-020` → `BOT-021` → `BOT-022` → *(đánh giá lại)* → `BOT-023` → `BOT-024` → `BOT-025`.
+> Thứ tự khuyến nghị: `BOT-020` ✅ → `BOT-021` → `BOT-022` → *(đánh giá lại)* → `BOT-023` → `BOT-024` → `BOT-025`.
