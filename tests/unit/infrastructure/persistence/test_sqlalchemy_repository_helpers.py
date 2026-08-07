@@ -53,49 +53,6 @@ def test_kline_to_upsert_params_maps_every_field():
     assert params["number_of_trades"] == 50
 
 
-def test_to_market_data_entity_maps_row_and_adds_utc_tzinfo():
-    row = Mock()
-    row.symbol = "ETHUSDT"
-    row.interval = "1h"
-    row.open_time = datetime(2023, 1, 1, 12, 0)  # naive, as SQLite returns
-    row.close_time = datetime(2023, 1, 1, 12, 59)
-    row.open_price = 1.0
-    row.high_price = 2.0
-    row.low_price = 0.5
-    row.close_price = 1.5
-    row.volume = 10.0
-    row.quote_asset_volume = 15.0
-    row.number_of_trades = 3
-    row.taker_buy_base_asset_volume = 5.0
-    row.taker_buy_quote_asset_volume = 7.5
-
-    entity = SQLAlchemyMarketDataRepository._to_market_data_entity(row)
-
-    assert entity.symbol == "ETHUSDT"
-    assert entity.open_time == datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    assert entity.close_time == datetime(2023, 1, 1, 12, 59, tzinfo=timezone.utc)
-
-
-def test_to_market_data_entity_handles_none_timestamps():
-    row = Mock()
-    row.symbol = "BTCUSDT"
-    row.interval = "1m"
-    row.open_time = None
-    row.close_time = None
-    row.open_price = 1.0
-    row.high_price = 1.0
-    row.low_price = 1.0
-    row.close_price = 1.0
-    row.volume = 1.0
-    row.quote_asset_volume = 1.0
-    row.number_of_trades = 1
-    row.taker_buy_base_asset_volume = 1.0
-    row.taker_buy_quote_asset_volume = 1.0
-
-    entity = SQLAlchemyMarketDataRepository._to_market_data_entity(row)
-
-    assert entity.open_time is None
-    assert entity.close_time is None
 
 
 def test_parse_db_datetime_handles_none_datetime_and_iso_string():

@@ -1,0 +1,3 @@
+## 2024-08-07 - SQLAlchemy ORM Bottleneck on Bulk Reads
+**Learning:** Bulk reading rows using SQLAlchemy ORM (e.g. `session.query(KlineModel)`) and converting them to domain objects adds massive instantiation and proxy-handling overhead. For retrieving tens of thousands of klines (which is common here for rendering charts), this is extremely slow and acts as a significant bottleneck.
+**Action:** Use SQLAlchemy Core (`session.execute(select(...)).fetchall()`) for bulk read operations, selecting specific columns and mapping the returned tuples directly to Domain objects (Dataclasses) to bypass the ORM layer altogether.
