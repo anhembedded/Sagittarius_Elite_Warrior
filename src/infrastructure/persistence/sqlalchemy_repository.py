@@ -194,7 +194,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 COUNT(*) as total_candles,
                 SUM(CASE 
                     WHEN prev_time IS NOT NULL AND 
-                         (strftime('%s', open_time) - strftime('%s', prev_time)) > :expected_seconds 
+                         (unixepoch(open_time) - unixepoch(prev_time)) > :expected_seconds
                     THEN 1 ELSE 0 
                 END) as gaps
             FROM ordered_klines
