@@ -1,59 +1,88 @@
 /* =========================================================================
-   Binance Bot - Global PySide6 Stylesheet (Dark Theme Standard)
+   Sagittarius Elite Warrior - Global PySide6 Stylesheet (Black/Gold Theme)
+   Accent color mirrors IconTheme.ACCENT / user_config.json's
+   ui.theme.accent_color ("#F3BA2F") - single palette across icons + QSS.
    ========================================================================= */
 
 /* 1. MAIN WINDOW & GLOBALS */
 QMainWindow {
-    background-color: #121212;
+    background-color: #0a0a0c;
 }
 
 QWidget {
     font-family: "Segoe UI", "Inter", sans-serif;
-    color: #e0e0e0;
+    color: #e8e9ec;
 }
 
-/* 2. SIDEBAR */
-#sidebar_widget {
-    background-color: #1e1e24;
-    border-right: 1px solid #333333;
+QGroupBox {
+    background-color: transparent;
+    border: 1px solid #23262e;
+    border-radius: 6px;
+    margin-top: 14px;
+    padding-top: 6px;
+    font-weight: bold;
+    color: #848E9C;
 }
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 4px;
+    color: #848E9C;
+}
+
+/* 2. SIDEBAR — removed (BOT-030 Phase 1): the sidebar is QML now and styles
+   itself from the shared Theme singleton (screens/_qml_shared/theme_bridge.py).
+   The old #sidebar_* rules matched objectNames that no longer exist. */
 
 QPushButton {
-    background-color: #333333;
-    border: 1px solid #444444;
+    background-color: #17181d;
+    border: 1px solid #2a2d36;
     border-radius: 6px;
     padding: 8px 12px;
-    color: #ffffff;
+    color: #e8e9ec;
 }
 
 QPushButton:hover {
-    background-color: #4a4a4a;
-    border-color: #555555;
+    background-color: #1f2127;
+    border-color: #3a3d47;
 }
 
-QPushButton:pressed, QPushButton:checked {
-    background-color: #007acc;
-    border-color: #005f9e;
+QPushButton:pressed {
+    background-color: #F3BA2F;
+    border-color: #F3BA2F;
+    color: #0a0a0c;
+}
+
+QPushButton:checked {
+    background-color: rgba(243, 186, 47, 0.12);
+    border: 1px solid #F3BA2F;
+    color: #F3BA2F;
 }
 
 QPushButton:disabled {
-    background-color: #2b2b2b;
-    color: #777777;
-    border-color: #333333;
+    background-color: #131418;
+    color: #4a4e58;
+    border-color: #1c1e24;
 }
+
+/* Semantic action-button variants — removed (BOT-030 Phase 4): the Dev
+   Board's Start/Stop buttons are QML now (DevBoardPanel.qml), styled
+   directly via Theme.success/Theme.danger instead of objectName + QSS. */
 
 /* 3. BASE CARD (QFrame) */
 #base_card {
-    background-color: #1e1e24;
-    border: 1px solid #333333;
+    background-color: #111318;
+    border: 1px solid #23262e;
     border-radius: 8px;
 }
 
 #base_card_header {
-    background-color: #25252b;
+    background-color: #15171d;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
-    border-bottom: 1px solid #333333;
+    border-bottom: 1px solid #23262e;
     padding: 10px;
 }
 
@@ -70,20 +99,20 @@ QScrollArea {
 }
 
 QScrollBar:vertical {
-    background-color: #121212;
+    background-color: #0a0a0c;
     width: 12px;
     margin: 0px;
 }
 
 QScrollBar::handle:vertical {
-    background-color: #444444;
+    background-color: #2a2d36;
     min-height: 20px;
     border-radius: 6px;
     margin: 2px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background-color: #666666;
+    background-color: #3a3d47;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -91,63 +120,64 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     background: none;
 }
 
-/* 5. MONITOR TERMINAL */
-QTextEdit#terminal_log {
-    background-color: #0d0d0d;
-    color: #00ff00;
-    font-family: Consolas, monospace;
-    font-size: 12px;
-    border: 1px solid #333333;
-    border-radius: 4px;
-    padding: 8px;
-}
+/* 5. MONITOR TERMINAL — removed (BOT-030 Phase 4): the Dev Board's system
+   monitor is LogPanel.qml now (shared with the Database sync log since
+   Phase 3), styled from the Theme singleton instead of QSS. */
 
-/* 6. DATA TABLES (e.g. Data Management screen's status table) */
-QTableWidget#db_status_table {
-    background-color: transparent;
-    alternate-background-color: #25252b;
-    color: #e0e0e0;
-    border: 1px solid #333333;
-    border-radius: 8px;
-    outline: none;
-}
+/* 6-8. DATA TABLE / PROGRESS BAR / CARD STAT LABEL — removed (BOT-030
+   Phase 3): the Database screen is QML now. Its table, progress bar and
+   row-count summary are QML items styled from the Theme singleton, so
+   #db_status_table / #btnRowSync / #card_stat_label matched nothing. */
 
-QTableWidget#db_status_table::item {
-    padding: 8px;
-    border: none;
-}
+/* 8b. DEV BOARD TOP BAR — removed (BOT-030 Phase 4): the price ticker and
+   WS status badge moved into DevBoardPanel.qml alongside the rest of the
+   Dev Board's non-chart UI. */
 
-QTableWidget#db_status_table QHeaderView::section {
-    background-color: #1e1e24;
-    color: #848E9C;
-    padding: 8px;
-    border: none;
-    font-weight: bold;
-    border-bottom: 2px solid #333333;
-}
+/* 9. STAT TILE — removed (BOT-030): added speculatively in BOT-029 for a
+   QtWidgets Database restyle that was superseded by the QML one, so these
+   rules never matched a real widget. The QML Database screen styles its own
+   tiles from the Theme singleton. */
 
-/* Compact variant of the global QPushButton style for in-row table actions */
-QPushButton#btnRowSync {
-    padding: 4px 10px;
-    min-height: 22px;
-}
-
-/* 7. PROGRESS BAR */
-QProgressBar {
-    background-color: #121212;
-    border: 1px solid #333333;
+/* 10. FORM INPUTS (QComboBox / QDateTimeEdit / QLineEdit) */
+QComboBox, QDateTimeEdit, QLineEdit {
+    background-color: #17181d;
+    border: 1px solid #2a2d36;
     border-radius: 6px;
-    text-align: center;
-    color: #e0e0e0;
+    padding: 5px 8px;
+    color: #e8e9ec;
 }
 
-QProgressBar::chunk {
-    background-color: #007acc;
-    border-radius: 5px;
+QComboBox:hover, QDateTimeEdit:hover, QLineEdit:hover {
+    border-color: #3a3d47;
 }
 
-/* 8. CARD HEADER STAT LABEL (e.g. row-count summary next to a card title) */
-#card_stat_label {
-    color: #848E9C;
-    font-size: 12px;
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #17181d;
+    border: 1px solid #2a2d36;
+    color: #e8e9ec;
+    selection-background-color: rgba(243, 186, 47, 0.18);
+    selection-color: #F3BA2F;
+}
+
+/* 11. CHECKBOX (e.g. Indicator toggles) */
+QCheckBox {
+    color: #e8e9ec;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #2a2d36;
+    border-radius: 3px;
+    background-color: #17181d;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #F3BA2F;
+    border-color: #F3BA2F;
 }

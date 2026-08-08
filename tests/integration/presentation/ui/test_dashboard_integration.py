@@ -9,6 +9,7 @@ from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Binace_Bot.src.presentation.ui.constants import UIMode
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 
@@ -86,9 +87,9 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     logs = []
     presenter.ui_log_signal.connect(lambda msg: logs.append(msg))
 
-    # Before click: stream buttons are default
-    assert view.control_card.start_stream_button.isEnabled()
-    assert not view.control_card.stop_stream_button.isEnabled()
+    # Before click: FSM is IDLE (System Controls active, Stop disabled — see
+    # DevBoardPanel.qml's `root.controlsActive` / `uiMode === "LIVE"` bindings).
+    assert presenter.fsm.current_state == UIMode.IDLE
 
     # Emit load history, which will hit the exception in mock_app.dispatch
     presenter._on_load_history()
@@ -96,7 +97,7 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     # The @safe_ui_action should catch it and log it
     assert any("Engine died" in log for log in logs)
 
-    # The UI should have triggered the fallback recovery (set_stream_active(False))
-    # which ensures the UI is unlocked.
-    assert view.control_card.start_stream_button.isEnabled()
-    assert not view.control_card.stop_stream_button.isEnabled()
+    # _on_load_history never locks the FSM (only _on_start_stream does), so
+    # an exception here must leave it exactly where it started — IDLE, i.e.
+    # the UI stays/ends up unlocked rather than stuck mid-load.
+    assert presenter.fsm.current_state == UIMode.IDLE

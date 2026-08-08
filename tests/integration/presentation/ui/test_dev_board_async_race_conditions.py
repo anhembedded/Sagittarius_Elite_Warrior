@@ -29,23 +29,29 @@ These are confirmed, NOT-yet-fixed bugs — marked `xfail(strict=True)` so:
     unexpectedly PASSING, which `strict=True` turns into a hard failure —
     a forcing function to come back and delete the xfail marker (and
     update the report) instead of the fix going unnoticed.
+
+BOT-030 Phase 4: Load History is now a QML button (DevBoardPanel.qml) and
+RSI's enabled/period toggles live on DashboardQmlViewModel
+(view._view_model) instead of ControlCard/IndicatorControlCard widgets.
 """
 
 import time
 
 import pytest
-from PySide6.QtCore import Qt
 
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
 
 
-def _open_dashboard(qtbot, main_window):
-    btn_dashboard = main_window._sidebar._buttons["dashboard"]
-    qtbot.mouseClick(btn_dashboard, Qt.LeftButton)
-    cfg = main_window._router._registry["dashboard"]
+def _open_dashboard(navigate):
+    cfg = navigate("dashboard")
     return cfg["presenter_instance"], cfg["view_instance"]
+
+
+def _click_load_history(view, qml_item):
+    root = view.quick_widget.rootObject()
+    qml_item(root, "btnLoadHistory").clicked.emit()
 
 
 def _slow_down_history_queries(monkeypatch, presenter, delay_seconds: float) -> None:
@@ -66,19 +72,22 @@ def _slow_down_history_queries(monkeypatch, presenter, delay_seconds: float) -> 
     monkeypatch.setattr(presenter.dispatcher, "dispatch", slow_dispatch)
 
 
-def test_load_history_button_stays_enabled_during_background_load(qtbot, main_window):
+def test_load_history_button_stays_enabled_during_background_load(
+    qtbot, main_window, navigate, qml_item
+):
     """
     TC-ASY-01 precondition check (not itself xfail — this is real, current
     behavior, and is exactly what makes the race below possible): unlike
-    start_stream_button (gated via FSM -> LOCKED), load_history_button has
-    no matching guard, so a user really can click it again before the
-    first background load finishes.
+    the Start button (gated via FSM -> LOCKED), Load History has no
+    matching guard, so a user really can click it again before the first
+    background load finishes.
     """
     qtbot.addWidget(main_window)
-    _, view = _open_dashboard(qtbot, main_window)
+    _, view = _open_dashboard(navigate)
+    root = view.quick_widget.rootObject()
 
-    qtbot.mouseClick(view.control_card.load_history_button, Qt.LeftButton)
-    assert view.control_card.load_history_button.isEnabled()
+    _click_load_history(view, qml_item)
+    assert qml_item(root, "btnLoadHistory").property("enabled") is True
 
 
 @pytest.mark.xfail(
@@ -94,23 +103,23 @@ def test_load_history_button_stays_enabled_during_background_load(qtbot, main_wi
     ),
 )
 def test_concurrent_load_history_clicks_corrupt_indicator_series(
-    qtbot, main_window, monkeypatch
+    qtbot, main_window, monkeypatch, navigate, qml_item
 ):
     qtbot.addWidget(main_window)
-    presenter, view = _open_dashboard(qtbot, main_window)
+    presenter, view = _open_dashboard(navigate)
     # period=2 (the minimum) so 5 mock candles produce readings (unlike the
     # default period=14, which would just stay empty either way and hide
     # the corruption instead of exposing it).
-    view.indicator_control_card.chk_rsi.setChecked(True)
-    view.indicator_control_card.spin_rsi_period.setValue(2)
+    view._view_model.rsiEnabled = True
+    view._view_model.rsiPeriod = 2
     _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.05)
 
     with qtbot.waitSignals(
         [presenter.ui_indicator_data_signal, presenter.ui_indicator_data_signal],
         timeout=3000,
     ):
-        qtbot.mouseClick(view.control_card.load_history_button, Qt.LeftButton)
-        qtbot.mouseClick(view.control_card.load_history_button, Qt.LeftButton)
+        _click_load_history(view, qml_item)
+        _click_load_history(view, qml_item)
 
     # Correct behavior: 5 candles at RSI period=2 warm up after 2 candles,
     # producing exactly 3 readings — regardless of how many times the user
@@ -129,23 +138,25 @@ def test_concurrent_load_history_clicks_corrupt_indicator_series(
     ),
 )
 def test_four_concurrent_load_history_clicks_corrupt_indicator_series(
-    qtbot, main_window, monkeypatch
+    qtbot, main_window, monkeypatch, navigate, qml_item
 ):
     qtbot.addWidget(main_window)
-    presenter, view = _open_dashboard(qtbot, main_window)
-    view.indicator_control_card.chk_rsi.setChecked(True)
-    view.indicator_control_card.spin_rsi_period.setValue(2)
+    presenter, view = _open_dashboard(navigate)
+    view._view_model.rsiEnabled = True
+    view._view_model.rsiPeriod = 2
     _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.05)
 
     with qtbot.waitSignals([presenter.ui_indicator_data_signal] * 4, timeout=4000):
         for _ in range(4):
-            qtbot.mouseClick(view.control_card.load_history_button, Qt.LeftButton)
+            _click_load_history(view, qml_item)
 
     rsi = presenter.active_indicators["RSI(2)"]
     assert len(rsi.y_data) == 3
 
 
-def test_duplicate_closed_tick_for_same_timestamp_appends_twice(qtbot, main_window):
+def test_duplicate_closed_tick_for_same_timestamp_appends_twice(
+    qtbot, main_window, navigate, qml_item
+):
     """
     TC-ASY-10: MarketTickEvent delivering `is_closed=True` twice for the
     same candle (e.g. a WebSocket reconnect re-sending the last closed
@@ -163,10 +174,10 @@ def test_duplicate_closed_tick_for_same_timestamp_appends_twice(qtbot, main_wind
     from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 
     qtbot.addWidget(main_window)
-    presenter, view = _open_dashboard(qtbot, main_window)
+    presenter, view = _open_dashboard(navigate)
 
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
-        qtbot.mouseClick(view.control_card.load_history_button, Qt.LeftButton)
+        _click_load_history(view, qml_item)
     card = view.chart_cards[0]
     history_before = len(card._raw_history)
 

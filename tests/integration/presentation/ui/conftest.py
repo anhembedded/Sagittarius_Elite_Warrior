@@ -71,11 +71,9 @@ def app_engine(request, monkeypatch):
     )
     app_json = os.path.join(base_dir, "src", "config", "app_config.json")
     user_json = os.path.join(base_dir, "src", "config", "user_config.json")
-    ui_matrix_json = os.path.join(base_dir, "src", "config", "ui_matrix.json")
 
     config_manager.load_json(app_json)
     config_manager.load_json(user_json)
-    config_manager.load_json(ui_matrix_json)
     if dev_mode:
         config_manager.load_dict({"dev.mode": True})
 
@@ -108,3 +106,26 @@ def main_window(qapp, app_engine):
     window = MainWindow(app_engine)
     window.show()
     return window
+
+
+@pytest.fixture
+def navigate(qapp, main_window, qml_item):
+    """
+    Clicks a sidebar entry the way a user would and returns that route's
+    router registry entry (which holds the lazily-created view/presenter).
+
+    The sidebar is QML (BOT-030 Phase 1), so navigation goes through the
+    QML button's `clicked` signal rather than `qtbot.mouseClick` on a
+    QPushButton. Centralized here so every screen test shares one
+    implementation instead of repeating the item lookup.
+    """
+
+    def _navigate(route: str) -> dict:
+        root = main_window._sidebar.quick_widget.rootObject()
+        button = qml_item(root, f"navButton_{route}")
+        assert button is not None, f"No sidebar nav button for route {route!r}"
+        button.clicked.emit()
+        qapp.processEvents()
+        return main_window._router._registry[route]
+
+    return _navigate

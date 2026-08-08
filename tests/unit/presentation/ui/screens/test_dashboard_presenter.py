@@ -1,28 +1,41 @@
 """
-Tests for DashboardPresenter.
+Tests for DashboardPresenter (BOT-030 Phase 4 — hybrid QML/Widgets).
 
-Key design changes from the refactor:
+Key design points this file pins down:
 - IThreadManager resolved once in __init__.
-- _on_load_history no longer calls dispatcher directly on the main thread.
-  It submits _run_load_history(symbols, interval_str, limit) to the thread manager.
-- _on_start_stream submits _run_sync_and_start to the thread manager.
-- No inline closures anywhere.
+- _on_load_history/_on_start_stream submit dedicated background methods to
+  the thread manager — no inline closures, no direct dispatch on the main
+  thread.
+- Indicator toggles/periods are now read from DashboardQmlViewModel
+  (presenter._view_model), not from IndicatorControlCard widgets — a real
+  DashboardView is used (not a MagicMock) because BasePresenter's FSM/UI
+  matrix wiring does `hasattr(view, "control_card")` checks that a
+  MagicMock always satisfies (auto-attribute creation), which would
+  silently mask the fact that the real DashboardView has no `control_card`
+  anymore.
 """
 
-import pytest
-from unittest.mock import MagicMock
+import os
 
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
-    DashboardPresenter,
-)
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+import pytest  # noqa: E402
+from unittest.mock import MagicMock  # noqa: E402
+
+from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (  # noqa: E402
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
+from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (  # noqa: E402
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
+from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (  # noqa: E402
     SyncMarketDataCommand,
+)
+from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (  # noqa: E402
+    DashboardPresenter,
+)
+from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (  # noqa: E402
+    DashboardView,
 )
 
 
@@ -50,13 +63,8 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
     mock_config = MagicMock()
-    matrix = {
-        "IDLE": {"start_stream_button": True, "stop_stream_button": False},
-        "LIVE": {"start_stream_button": False, "stop_stream_button": True},
-        "LOCKED": {"start_stream_button": False, "stop_stream_button": False},
-        "ERROR": {"start_stream_button": True, "stop_stream_button": False},
-    }
-    mock_config.get_all.return_value = {"main": matrix}
+    mock_config.get.return_value = False
+    mock_config.get_all.return_value = {}
 
     def resolve_side_effect(interface):
         if interface == IConfig:
@@ -72,21 +80,17 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
 
 
 @pytest.fixture
-def mock_view():
-    view = MagicMock()
-    view.render_symbol_cards.return_value = []
-    # Indicators default to disabled — matches the real IndicatorControlCard's
-    # unchecked-by-default checkboxes, and avoids MagicMock() (always truthy)
-    # flowing into RSI/EMA period comparisons as a fake "enabled" indicator.
-    view.indicator_control_card.chk_rsi.isChecked.return_value = False
-    view.indicator_control_card.chk_ema.isChecked.return_value = False
-    view.indicator_control_card.chk_macd.isChecked.return_value = False
-    return view
+def view(qapp):
+    v = DashboardView()
+    v.resize(1200, 800)
+    v.show()
+    qapp.processEvents()
+    return v
 
 
 @pytest.fixture
-def presenter(qapp, mock_view, mock_container):
-    return DashboardPresenter(mock_view, mock_container)
+def presenter(view, mock_container):
+    return DashboardPresenter(view, mock_container)
 
 
 # ---------------------------------------------------------------------------
@@ -94,8 +98,8 @@ def presenter(qapp, mock_view, mock_container):
 # ---------------------------------------------------------------------------
 
 
-def test_initialization(presenter, mock_view, mock_container):
-    assert presenter.view == mock_view
+def test_initialization(presenter, view, mock_container):
+    assert presenter.view == view
     assert presenter.container == mock_container
     assert presenter.fsm.current_state.name == "IDLE"
 
@@ -204,7 +208,7 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
 # ---------------------------------------------------------------------------
 
 
-def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter, mock_view):
+def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter):
     """@safe_ui_action catches exceptions from _ensure_chart_cards without crashing."""
     presenter._ensure_chart_cards = MagicMock(side_effect=ValueError("Test Exception"))
 
@@ -219,8 +223,8 @@ def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter, mock_v
 
 
 # ---------------------------------------------------------------------------
-# Indicator control — reads IndicatorControlCard, computes via BOT-020's
-# RSI/EMA/MACD, and pushes series onto the chart.
+# Indicator control — reads DashboardQmlViewModel's rsi/ema/macd properties,
+# computes via BOT-020's RSI/EMA/MACD, and pushes series onto the chart.
 # ---------------------------------------------------------------------------
 
 
@@ -232,16 +236,16 @@ def _make_kline(timestamp: float, close_price: float) -> MagicMock:
 
 
 def test_build_active_indicators_returns_empty_dict_when_none_checked(presenter):
-    """mock_view's checkboxes default to unchecked — no indicators built."""
+    """The view model's toggles default to unchecked — no indicators built."""
     assert presenter._build_active_indicators() == {}
 
 
 def test_build_active_indicators_builds_enabled_indicators_with_configured_periods(
-    presenter, mock_view
+    presenter,
 ):
-    mock_view.indicator_control_card.chk_rsi.isChecked.return_value = True
-    mock_view.indicator_control_card.spin_rsi_period.value.return_value = 21
-    mock_view.indicator_control_card.chk_macd.isChecked.return_value = True
+    presenter._view_model.rsiEnabled = True
+    presenter._view_model.rsiPeriod = 21
+    presenter._view_model.macdEnabled = True
 
     indicators = presenter._build_active_indicators()
 
@@ -250,11 +254,11 @@ def test_build_active_indicators_builds_enabled_indicators_with_configured_perio
     assert indicators["MACD"].kind == "subplot"
 
 
-def test_on_load_history_builds_active_indicators_from_current_card_state(
-    presenter, mock_view
+def test_on_load_history_builds_active_indicators_from_current_view_model_state(
+    presenter,
 ):
-    mock_view.indicator_control_card.chk_ema.isChecked.return_value = True
-    mock_view.indicator_control_card.spin_ema_period.value.return_value = 50
+    presenter._view_model.emaEnabled = True
+    presenter._view_model.emaPeriod = 50
 
     presenter._on_load_history()
 
@@ -262,12 +266,12 @@ def test_on_load_history_builds_active_indicators_from_current_card_state(
     assert presenter.active_indicators["EMA(50)"].kind == "overlay"
 
 
-def test_compute_indicator_series_emits_signal_once_warmed_up(presenter, mock_view):
+def test_compute_indicator_series_emits_signal_once_warmed_up(presenter):
     """A short RSI period warms up quickly — the emitted series must be
     non-empty and shorter than the input (None outputs during warm-up are
     dropped, matching IIndicator's own warm-up contract from BOT-020)."""
-    mock_view.indicator_control_card.chk_rsi.isChecked.return_value = True
-    mock_view.indicator_control_card.spin_rsi_period.value.return_value = 2
+    presenter._view_model.rsiEnabled = True
+    presenter._view_model.rsiPeriod = 2
     presenter.active_indicators = presenter._build_active_indicators()
 
     emitted = []
@@ -337,3 +341,25 @@ def test_update_indicators_on_closed_candle_appends_and_pushes_to_chart(presente
     mock_card.update_indicator_data.assert_called_once_with(
         "EMA(1)", [1000.0, 1060.0], [100.0, 105.0]
     )
+
+
+# ---------------------------------------------------------------------------
+# ViewModel bridging — top bar / WS badge / log panel
+# ---------------------------------------------------------------------------
+
+
+def test_price_ticker_updates_on_chart_tick(presenter):
+    presenter.active_charts = {"ETHUSDT": MagicMock()}
+
+    presenter._on_ui_chart_update("ETHUSDT", 1.0, 100.0, 101.0, 99.0, 100.5, 5.0, True)
+
+    assert "ETHUSDT" in presenter._view_model.priceTickerText
+    assert "100.50" in presenter._view_model.priceTickerText
+
+
+def test_ws_status_badge_reflects_fsm_state(presenter):
+    from Binace_Bot.src.presentation.ui.constants import UIMode
+
+    presenter.fsm.transition_to(UIMode.LOCKED)
+
+    assert presenter._view_model.wsStatusText == "WS: SYNCING"

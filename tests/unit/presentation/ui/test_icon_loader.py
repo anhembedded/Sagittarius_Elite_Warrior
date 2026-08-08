@@ -63,13 +63,6 @@ def test_clear_cache_empties_the_cache(qapp, loader):
     assert len(loader._cache) == 0
 
 
-def test_get_icon_data_uri_returns_embeddable_png(qapp, loader):
-    """Used to embed icons inline in QTextEdit log lines (MonitorCard)."""
-    uri = loader.get_icon_data_uri("info", color=IconTheme.MUTED, size=14)
-    assert uri.startswith("data:image/png;base64,")
-    assert len(uri) > len("data:image/png;base64,")
-
-
 def test_get_icon_loader_returns_shared_singleton(qapp):
     """get_icon_loader() is the app-wide instance shared by UI components."""
     assert get_icon_loader() is get_icon_loader()

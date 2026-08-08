@@ -80,6 +80,13 @@ class ChartCard(BaseCard):
             canvas=self.plot_layout.widget,
         )
 
+        # Keeps volume bars + indicator curves windowed to the visible X
+        # range on every pan/zoom (same technique FastCandlestickItem uses
+        # internally for its own paint() — see its docstring) — a shared,
+        # one-time wire-up here covers every indicator added through
+        # IndicatorManager automatically, current and future.
+        self.plot_layout.main_plot.vb.sigXRangeChanged.connect(self._on_x_range_changed)
+
     # ==========================================
     # PUBLIC API FOR PRESENTER
     # ==========================================
@@ -200,11 +207,13 @@ class ChartCard(BaseCard):
 
     def add_overlay_indicator(self, name: str, color: str) -> None:
         self.indicators.add_overlay(name, color)
+        self._sync_indicator_window()
 
     def add_subplot_indicator(
         self, name: str, color: str, height_ratio: int = 1
     ) -> None:
         self.indicators.add_subplot(name, color, height_ratio)
+        self._sync_indicator_window()
 
     def update_indicator_data(
         self, name: str, x_data: list[float], y_data: list[float]
@@ -220,6 +229,21 @@ class ChartCard(BaseCard):
     def _mouse_moved(self, evt) -> None:
         """Back-compat entry point (also used directly by tests); delegates to CrosshairController."""
         self.crosshair.handle_mouse_moved(evt)
+
+    def _on_x_range_changed(self, _viewbox, x_range: tuple[float, float]) -> None:
+        """Fired by pyqtgraph on every pan/zoom — keeps volume + indicators
+        windowed to what's actually visible (see IndicatorManager/VolumeItem
+        docstrings)."""
+        min_x, max_x = x_range
+        self.volume.refresh_window(min_x, max_x)
+        self.indicators.refresh_window(min_x, max_x)
+
+    def _sync_indicator_window(self) -> None:
+        """Applies the CURRENT view range to indicators immediately after one
+        is added — otherwise a freshly-added indicator shows its full series
+        unwindowed until the next pan/zoom fires sigXRangeChanged."""
+        (min_x, max_x), _ = self.plot_layout.main_plot.vb.viewRange()
+        self.indicators.refresh_window(min_x, max_x)
 
     def cleanup(self) -> None:
         """

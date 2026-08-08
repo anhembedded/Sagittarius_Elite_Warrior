@@ -21,10 +21,10 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 13 | 52% |
+| 🟢 **Completed** | 16 | 57% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 12 | 48% |
-| 📈 **Tổng số Task** | **25** | **100%** |
+| 🔴 **Backlog** | 12 | 43% |
+| 📈 **Tổng số Task** | **28** | **100%** |
 
 ---
 
@@ -45,12 +45,9 @@ Binace_Bot/Tasks/
 - [x] **BOT-015**: [QA & Testing Strategy Audit](completed/BOT-015_qa_testing_strategy_audit.md) — *(một phần)* Thêm tầng `tests/sanity/`, testing guidelines, cờ `-SanityOnly`/`-UnitOnly`/`-Full` + `--cov-fail-under=80` cho `ci-local.ps1`. 📄 [Báo cáo Audit](reports/qa_testing_strategy_report.md). Hoãn Concurrency/Thread-Safety tests.
 - [x] **BOT-016**: [UI Icon Pack & Assets Management](completed/BOT-016_ui_icon_pack_integration.md) — *Tích hợp Lucide Icons (SVG) vào Sidebar/ControlCard/MonitorCard qua `IconLoader` (cache, recolor, fallback).*
 - [x] **BOT-020**: [Indicator & Strategy Engine (Core)](completed/BOT-020_indicator_strategy_engine_core.md) — *Epic `BOT-006` Phase 0. `IIndicator`/`RSI`/`EMA`/`MACD` + `IStrategy`/`StrategyEngine` (batch & incremental, cùng 1 code path đảm bảo 2 chế độ luôn khớp kết quả). Nền tảng dùng chung cho `BOT-008`/`BOT-021`/`BOT-023`.*
-
----
-
-### 🟡 In Progress (Đang thực hiện)
-
-> *(Hiện tại chưa có task nào trong Sprint. Hãy chọn 1 task từ Backlog bên dưới để bắt đầu).*
+- [x] **BOT-028**: [QML Hybrid Prototype Spike — Settings Screen](completed/BOT-028_qml_hybrid_prototype_spike.md) — *Kiểm chứng khả thi Hybrid (giữ `ChartCard`/pyqtgraph, phần còn lại chuyển QML qua `QQuickWidget`). Kết quả chính: `QQuickWidget` render đúng dưới `QT_QPA_PLATFORM=offscreen`, `PresenterManager` KHÔNG cần sửa gì để host QML. Chưa rút abstraction vào `pyside_mvc` (đợi màn hình QML thứ 2).*
+- [x] **BOT-029**: [UI Restyle — Theme "Sagittarius Elite Warrior"](completed/BOT-029_ui_restyle_sagittarius_theme.md) — *Đổi giao diện đen+gold theo mockup, branding "Sagittarius Elite Warrior". Phase 1-2 (theme/branding/sidebar/Dev Board top bar) + Phase 4 (đảo QML→Widgets cho Settings) xong bằng QtWidgets. Phase 3 (restyle Database) **supersede bởi `BOT-030`** — thiết kế gộp thẳng vào bản QML thay vì làm 2 lần.*
+- [x] **BOT-030**: [Full QML Migration (chart giữ QtWidgets)](completed/BOT-030_full_qml_migration.md) — *Chuyển toàn bộ UI sang QML trừ `ChartCard` — lý do là AI dịch mockup→code trực tiếp hơn ở QML (không phải hiệu năng — bug pan giật đã tìm ra và sửa xong ở Widgets, thuần thuật toán, đảo ngược quyết định QML→Widgets của `BOT-029` Phase 4). 5 phase: nền tảng QML dùng chung → Sidebar → Settings → Database → Dev Board (hybrid `QSplitter` + `ChartCard`) → dọn dẹp (`ui_matrix.json`, dead code). `ci-local.ps1 -Full`: 283 passed, 2 xfailed, coverage 92.31%. Chưa promote hạ tầng QML vào `pyside_mvc` — chỉ 1 app dùng, đợi consumer thứ 2 thật sự.*
 
 ---
 

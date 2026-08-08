@@ -37,7 +37,6 @@ _CONFIG_DIR = os.path.join(
 )
 _APP_CONFIG = os.path.join(_CONFIG_DIR, "app_config.json")
 _USER_CONFIG = os.path.join(_CONFIG_DIR, "user_config.json")
-_UI_MATRIX_CONFIG = os.path.join(_CONFIG_DIR, "ui_matrix.json")
 
 
 def main() -> None:
@@ -48,16 +47,13 @@ def main() -> None:
     config_manager = ConfigManager()
     config_manager.load_json(_APP_CONFIG)
     config_manager.load_json(_USER_CONFIG)
-    try:
-        config_manager.load_json(_UI_MATRIX_CONFIG)
-    except FileNotFoundError:
-        print("Warning: ui_matrix.json not found")
 
     if "--dev" in sys.argv:
         config_manager.load_dict({ConfigKeys.DEV_MODE.value: True})
         print(
-            "Dev mode enabled — button clicks will be logged to each "
-            "screen's System Monitor."
+            "Dev mode enabled — button clicks are auto-logged for real "
+            "QPushButtons only (e.g. ChartCard's timeframe toolbar); QML "
+            "screens are not instrumented (see BaseView._ButtonClickWatcher)."
         )
 
     app_engine = create_app(config_manager)

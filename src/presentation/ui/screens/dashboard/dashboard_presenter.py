@@ -25,7 +25,13 @@ from Binace_Bot.src.domain.indicators.ema import EMA
 from Binace_Bot.src.domain.indicators.macd import MACD
 from Binace_Bot.src.domain.indicators.rsi import RSI
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
+)
 from Binace_Bot.src.presentation.ui.constants import UIMode
+
+from .dashboard_view_model import DashboardQmlViewModel
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -46,6 +52,15 @@ _INDICATOR_KIND_SUBPLOT = "subplot"  # own scale, e.g. RSI/MACD
 _RSI_COLOR = "#8e44ad"
 _EMA_COLOR = "#e67e22"
 _MACD_COLOR = "#2980b9"
+
+# WS status badge (top bar) text/color per FSM state — presentational only,
+# derived from the state DashboardPresenter already tracks.
+_WS_STATUS_BY_MODE = {
+    UIMode.IDLE: ("WS: IDLE", "#848E9C"),
+    UIMode.LOCKED: ("WS: SYNCING", "#F3BA2F"),
+    UIMode.LIVE: ("WS: LIVE", BULL_COLOR),
+    UIMode.ERROR: ("WS: ERROR", BEAR_COLOR),
+}
 
 
 @dataclass
@@ -80,6 +95,11 @@ class DashboardPresenter(BasePresenter):
     - All UI mutations go through Qt Signals (thread-safe bridge).
     - Background work is submitted via self._thread_manager.submit(self._method, *args).
     - No inline closures. No per-method container.resolve() calls.
+
+    BOT-030 Phase 4: ChartCard stays a QtWidgets sibling this Presenter talks
+    to directly (unchanged); System Controls/Indicators/Monitor moved to QML
+    behind a DashboardQmlViewModel, following the same pattern as
+    SettingsPresenter/DataManagementPresenter.
     """
 
     # ------------------------------------------------------------------ #
@@ -102,6 +122,9 @@ class DashboardPresenter(BasePresenter):
     def __init__(self, view: "DashboardView", container: "IContainer") -> None:
         super().__init__(view, container)
 
+        self._view_model = DashboardQmlViewModel()
+        view.set_view_model(self._view_model)
+
         # Resolve IThreadManager exactly once — stored as an instance attribute.
         # No further container.resolve(IThreadManager) calls anywhere else.
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
@@ -117,35 +140,39 @@ class DashboardPresenter(BasePresenter):
         # Automatically bind FSM state changes to UI Matrix
         self._bind_fsm_to_ui()
 
+        # Top-bar WS status badge — a second, independent global callback
+        # (BaseStateMachine supports multiple; see _bind_fsm_to_ui above).
+        self.fsm.add_global_callback(self._on_fsm_state_changed_update_ws_badge)
+
         # Register Lifecycle Hooks for custom behaviors
         self.fsm.on_enter(UIMode.ERROR, self._on_fsm_error)
 
-        # Force initial UI apply
-        self.view.control_card.apply_ui_mode(UIMode.IDLE)
+        self._apply_ws_status_badge(UIMode.IDLE)
 
         self.active_charts: dict = {}
         self.active_indicators: dict[str, _ActiveIndicator] = {}
 
-        # Must be called explicitly at the end of __init__ per BasePresenter contract.
+        # Must be called explicitly at the end of BasePresenter's contract,
+        # and before load_qml() so QML parses against a ready view model.
         self._connect_ui_signals()
         self._connect_engine_events()
+
+        view.load_qml("DevBoardPanel.qml")
 
     # ================================================================== #
     # BasePresenter contract implementations
     # ================================================================== #
 
     def _connect_ui_signals(self) -> None:
-        """Kết nối các thao tác bấm nút từ thẻ Card vào Presenter."""
-        # ControlCard signals
-        self.view.control_card.sig_load_clicked.connect(self._on_load_history)
-        self.view.control_card.sig_start_clicked.connect(self._on_start_stream)
-        self.view.control_card.sig_stop_clicked.connect(self._on_stop_stream)
+        """Kết nối các thao tác bấm nút từ ViewModel vào Presenter."""
+        view_model = self._view_model
+        view_model.loadHistoryRequested.connect(self._on_load_history)
+        view_model.startStreamRequested.connect(self._on_start_stream)
+        view_model.stopStreamRequested.connect(self._on_stop_stream)
 
-        # MonitorCard signals
-        self.view.monitor_card.clear_logs_clicked.connect(self._on_clear_logs)
-
-        # Internal signals → view update slots (all execute on the Qt main thread)
-        self.ui_log_signal.connect(self.view.monitor_card.append_log)
+        # Internal signals → view model update slots (all execute on the Qt
+        # main thread).
+        self.ui_log_signal.connect(self._append_log)
         self.ui_chart_update_signal.connect(self._on_ui_chart_update)
 
         # Signals for Auto-Sync Workflow
@@ -166,9 +193,20 @@ class DashboardPresenter(BasePresenter):
         """Auto-recover to IDLE immediately after entering the ERROR state."""
         self.fsm.transition_to(UIMode.IDLE)
 
+    def _on_fsm_state_changed_update_ws_badge(self, old_state, new_state) -> None:
+        self._apply_ws_status_badge(new_state)
+
+    def _apply_ws_status_badge(self, mode) -> None:
+        text, color = _WS_STATUS_BY_MODE.get(mode, _WS_STATUS_BY_MODE[UIMode.IDLE])
+        self._view_model.set_ws_status(text, color)
+
     # ================================================================== #
     # UI Helpers
     # ================================================================== #
+
+    @Slot(str)
+    def _append_log(self, message: str) -> None:
+        self._view_model.log_model.append(message, level="info")
 
     def _ensure_chart_cards(self, symbols: List[str]) -> list:
         """
@@ -187,30 +225,30 @@ class DashboardPresenter(BasePresenter):
 
     def _build_active_indicators(self) -> dict[str, _ActiveIndicator]:
         """
-        @brief Reads the IndicatorControlCard's checkboxes/periods and builds
+        @brief Reads the ViewModel's indicator toggles/periods and builds
         fresh indicator instances — never reused across runs, so a changed
         period or a fresh Load History/Start Stream always starts clean.
         """
-        card = self.view.indicator_control_card
+        view_model = self._view_model
         indicators: dict[str, _ActiveIndicator] = {}
 
-        if card.chk_rsi.isChecked():
-            period = card.spin_rsi_period.value()
+        if view_model.rsiEnabled:
+            period = view_model.rsiPeriod
             indicators[f"RSI({period})"] = _ActiveIndicator(
                 indicator=RSI(period=period),
                 extract_value=lambda reading: reading,
                 kind=_INDICATOR_KIND_SUBPLOT,
                 color=_RSI_COLOR,
             )
-        if card.chk_ema.isChecked():
-            period = card.spin_ema_period.value()
+        if view_model.emaEnabled:
+            period = view_model.emaPeriod
             indicators[f"EMA({period})"] = _ActiveIndicator(
                 indicator=EMA(period=period),
                 extract_value=lambda reading: reading,
                 kind=_INDICATOR_KIND_OVERLAY,
                 color=_EMA_COLOR,
             )
-        if card.chk_macd.isChecked():
+        if view_model.macdEnabled:
             indicators["MACD"] = _ActiveIndicator(
                 indicator=MACD(),
                 extract_value=lambda reading: reading.macd,
@@ -261,7 +299,7 @@ class DashboardPresenter(BasePresenter):
         Lock the UI and submit a background task to load historical klines.
         The blocking DB query loop runs in the background — no UI freeze.
         """
-        self.view.monitor_card.append_log(
+        self._view_model.log_model.append(
             "Loading historical data from local database..."
         )
         symbols = list(_DEFAULT_SYMBOLS)
@@ -279,7 +317,7 @@ class DashboardPresenter(BasePresenter):
         Lock the UI and submit the full Auto-Sync → Stream startup workflow
         as a single background task.
         """
-        self.view.monitor_card.append_log("Starting Live Stream (Auto-Sync)...")
+        self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
         self.fsm.transition_to(UIMode.LOCKED)
 
         symbols = list(_DEFAULT_SYMBOLS)
@@ -289,7 +327,7 @@ class DashboardPresenter(BasePresenter):
         chart_cards = self._ensure_chart_cards(symbols)
         self._clear_registered_indicators()
         self.active_indicators = self._build_active_indicators()
-        self.ui_log_signal.emit(f"Prepared {len(chart_cards)} charts.")
+        self._view_model.log_model.append(f"Prepared {len(chart_cards)} charts.")
 
         self._thread_manager.submit(
             self._run_sync_and_start,
@@ -314,33 +352,17 @@ class DashboardPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_stop_stream(self) -> None:
-        self.view.monitor_card.append_log("Stopping Live Stream...")
+        self._view_model.log_model.append("Stopping Live Stream...")
         try:
             cmd = StopLiveStreamCommand()
             self.dispatcher.dispatch(StopLiveStreamCommand, cmd)
-            self.ui_log_signal.emit("Live Stream stopped.")
+            self._view_model.log_model.append("Live Stream stopped.")
             self.fsm.transition_to(UIMode.IDLE)
         except Exception as exc:
-            self.ui_log_signal.emit(f"Error while stopping: {exc}")
+            self._view_model.log_model.append(
+                f"Error while stopping: {exc}", level="error"
+            )
             self.fsm.transition_to(UIMode.ERROR)
-
-    @Slot()
-    @safe_ui_action
-    def _on_run_backtest(self) -> None:
-        self.ui_log_signal.emit("Starting Backtest simulation...")
-        self.view.control_card.set_backtest_active(True)
-        # TODO: Dispatch RunBacktestCommand
-
-    @Slot()
-    @safe_ui_action
-    def _on_stop_backtest(self) -> None:
-        self.ui_log_signal.emit("Backtest stopped.")
-        self.view.control_card.set_backtest_active(False)
-
-    @Slot()
-    @safe_ui_action
-    def _on_clear_logs(self) -> None:
-        self.view.monitor_card.clear_logs()
 
     # ================================================================== #
     # Background Signal Slots — called on the main thread via Qt signals.
@@ -373,13 +395,13 @@ class DashboardPresenter(BasePresenter):
 
     # ================================================================== #
     # Engine Event Bridge — called from background threads.
-    # MUST NOT touch Qt widgets. Use signals only.
+    # MUST NOT touch Qt widgets/models here. Use signals only.
     # ================================================================== #
 
     def _handle_market_tick(self, event: MarketTickEvent) -> None:
         """
         @warning Called by EventBus from a background thread.
-        Never touch UI widgets here — emit signals only.
+        Never touch UI widgets/models here — emit signals only.
         """
         md = event.market_data
         symbol = md.symbol
@@ -418,9 +440,12 @@ class DashboardPresenter(BasePresenter):
         @brief Được gọi trong Main UI Thread một cách an toàn thông qua Signal.
         Chỉ thực hiện tra cứu O(1) và đẩy data vào đúng ChartCard tương ứng.
         """
+        is_bullish = c >= o
+        price_color = BULL_COLOR if is_bullish else BEAR_COLOR
+        self._view_model.set_price_ticker(f"{symbol}  {c:,.2f}", price_color)
+
         card = self.active_charts.get(symbol)
         if card:
-            is_bullish = c >= o
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
@@ -453,7 +478,7 @@ class DashboardPresenter(BasePresenter):
 
     # ================================================================== #
     # Background methods — submitted to IThreadManager.
-    # MUST NOT touch Qt widgets directly. Use signals only.
+    # MUST NOT touch Qt widgets/models directly. Use signals only.
     # ================================================================== #
 
     def _run_load_history(
