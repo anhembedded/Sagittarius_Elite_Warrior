@@ -29,6 +29,7 @@ class MonitorCard(BaseCard):
     def _setup_content(self):
         # Add clear button to the header of the BaseCard
         self.btn_clear = QPushButton("Clear")
+        self.btn_clear.setToolTip("Clear all system logs")
         self.btn_clear.setIcon(
             get_icon_loader().get_icon("trash-2", color=IconTheme.MUTED)
         )
@@ -40,6 +41,7 @@ class MonitorCard(BaseCard):
         # Log Text Area in the body
         self.text_edit = QTextEdit()
         self.text_edit.setObjectName("terminal_log")
+        self.text_edit.setPlaceholderText("No logs yet. Waiting for system events...")
         self.text_edit.setReadOnly(True)
 
         self.body_layout.addWidget(self.text_edit)
