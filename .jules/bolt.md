@@ -1,0 +1,3 @@
+## 2026-08-09 - UI Rendering Optimization: Candlestick Bounds Caching
+**Learning:** O(N) operations inside high-frequency UI rendering callbacks like PyQtGraph's `dataBounds()` (called on every panning frame) can introduce severe stutter. Pre-computing min/max list comprehensions based on visible slices was slow.
+**Action:** Next time, cache the computed bounds keyed by the window slicing bounds (like binary search index bounds `lo` and `hi`). Combine this with using cached full bounding boxes (e.g. `self._full_bounds_rect.top()`) instead of doing a full history scan for global bounds fallback. Use generator expressions to save memory overhead if cache re-population is required. Always measure with a benchmark script.
