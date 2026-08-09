@@ -154,6 +154,7 @@ class DashboardPresenter(BasePresenter):
 
     # Dedicated signals for the Auto-Sync Workflow
     ui_history_reloaded_signal = Signal(str, list, list)
+    ui_history_load_finished_signal = Signal()
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
@@ -230,6 +231,7 @@ class DashboardPresenter(BasePresenter):
 
         # Signals for Auto-Sync Workflow
         self.ui_history_reloaded_signal.connect(self._on_history_reloaded)
+        self.ui_history_load_finished_signal.connect(self._on_history_load_finished)
         self.ui_stream_success_signal.connect(self._on_stream_start_success)
         self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
         self.ui_indicator_data_signal.connect(self._on_indicator_data)
@@ -374,6 +376,11 @@ class DashboardPresenter(BasePresenter):
         Lock the UI and submit a background task to load historical klines.
         The blocking DB query loop runs in the background — no UI freeze.
         """
+        if self._view_model.historyLoading:
+            self._view_model.log_model.append("History load is already in progress.")
+            return
+
+        self._view_model.set_history_loading(True)
         self._view_model.log_model.append(
             "Loading historical data from local database..."
         )
@@ -383,7 +390,11 @@ class DashboardPresenter(BasePresenter):
         self.active_indicators = self._build_active_indicators()
         self._rebuild_scripts()
         self._thread_manager.submit(
-            self._run_load_history, symbols, _DEFAULT_INTERVAL_STR, _DEFAULT_KLINE_LIMIT
+            self._run_load_history,
+            symbols,
+            _DEFAULT_INTERVAL_STR,
+            _DEFAULT_KLINE_LIMIT,
+            self.active_indicators,
         )
 
     @Slot()
@@ -393,6 +404,12 @@ class DashboardPresenter(BasePresenter):
         Lock the UI and submit the full Auto-Sync → Stream startup workflow
         as a single background task.
         """
+        if self._view_model.historyLoading:
+            self._view_model.log_model.append(
+                "Wait for the current history load before starting live stream."
+            )
+            return
+
         self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
         self.fsm.transition_to(UIMode.LOCKED)
 
@@ -457,6 +474,11 @@ class DashboardPresenter(BasePresenter):
             self.ui_log_signal.emit(
                 f"Refreshed {len(mapped_data)} historical klines for {symbol}."
             )
+
+    @Slot()
+    def _on_history_load_finished(self) -> None:
+        """Re-enable Dev Board actions after every history-worker outcome."""
+        self._view_model.set_history_loading(False)
 
     @Slot(str, list, list)
     def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
@@ -572,39 +594,53 @@ class DashboardPresenter(BasePresenter):
     # ================================================================== #
 
     def _run_load_history(
-        self, symbols: List[str], interval_str: str, limit: int
+        self,
+        symbols: List[str],
+        interval_str: str,
+        limit: int,
+        active_indicators: dict[str, _ActiveIndicator] | None = None,
     ) -> None:
         """
         @brief Background worker: queries historical klines for each symbol and
         emits results via ui_history_reloaded_signal for safe main-thread rendering.
         """
-        for symbol in symbols:
-            query = GetHistoricalKlinesQuery(
-                symbol=symbol,
-                interval=interval_str,
-                limit=limit,
-                order_by_desc=True,  # Fetch the LATEST N candles from DB
-            )
-            try:
-                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                klines = getattr(response, "data", response) if response else []
-
-                if not isinstance(klines, list) or not klines:
-                    self.ui_log_signal.emit(f"No historical data found for {symbol}.")
-                    continue
-
-                # Reverse: DB returned newest-first, chart expects oldest-first
-                ordered_klines = list(reversed(klines))
-                mapped_data = self._map_klines(ordered_klines)
-                volume_data = self._map_volume(ordered_klines)
-                self.ui_history_reloaded_signal.emit(symbol, mapped_data, volume_data)
-                self._compute_indicator_series(ordered_klines)
-                self._script_runner.feed_all(ordered_klines)
-
-            except Exception as exc:
-                self.ui_log_signal.emit(
-                    f"Exception while loading history for {symbol}: {exc}"
+        indicator_snapshot = (
+            self.active_indicators if active_indicators is None else active_indicators
+        )
+        try:
+            for symbol in symbols:
+                query = GetHistoricalKlinesQuery(
+                    symbol=symbol,
+                    interval=interval_str,
+                    limit=limit,
+                    order_by_desc=True,  # Fetch the LATEST N candles from DB
                 )
+                try:
+                    response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+                    klines = getattr(response, "data", response) if response else []
+
+                    if not isinstance(klines, list) or not klines:
+                        self.ui_log_signal.emit(
+                            f"No historical data found for {symbol}."
+                        )
+                        continue
+
+                    # Reverse: DB returned newest-first, chart expects oldest-first
+                    ordered_klines = list(reversed(klines))
+                    mapped_data = self._map_klines(ordered_klines)
+                    volume_data = self._map_volume(ordered_klines)
+                    self.ui_history_reloaded_signal.emit(
+                        symbol, mapped_data, volume_data
+                    )
+                    self._compute_indicator_series(ordered_klines, indicator_snapshot)
+                    self._script_runner.feed_all(ordered_klines)
+
+                except Exception as exc:
+                    self.ui_log_signal.emit(
+                        f"Exception while loading history for {symbol}: {exc}"
+                    )
+        finally:
+            self.ui_history_load_finished_signal.emit()
 
     def _run_sync_and_start(
         self,
@@ -662,7 +698,11 @@ class DashboardPresenter(BasePresenter):
         except Exception as exc:
             self.ui_stream_failed_signal.emit(f"System error: {exc}")
 
-    def _compute_indicator_series(self, ordered_klines: List) -> None:
+    def _compute_indicator_series(
+        self,
+        ordered_klines: List,
+        active_indicators: dict[str, _ActiveIndicator] | None = None,
+    ) -> None:
         """
         @brief Feeds each historical candle's close price through every
         active indicator and emits the resulting series via
@@ -675,7 +715,9 @@ class DashboardPresenter(BasePresenter):
         (e.g. the user re-clicking Load History) can't be observed
         mid-iteration.
         """
-        active_indicators = self.active_indicators
+        active_indicators = (
+            self.active_indicators if active_indicators is None else active_indicators
+        )
         for candle in ordered_klines:
             timestamp = float(candle.close_time.timestamp())
             for active_indicator in active_indicators.values():

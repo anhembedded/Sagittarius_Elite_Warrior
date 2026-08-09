@@ -8,14 +8,15 @@ kỳ vọng sai và còn có race condition đã được tái hiện.
 
 ## 2. Phạm vi đã chốt
 
-### Phase 1 — an toàn thao tác bất đồng bộ (thực hiện trước)
+### Phase 1 — an toàn thao tác bất đồng bộ ✅
 
-- Loại bỏ việc `Load History` chạy chồng nhau và xung đột với `Start Live`.
-- Mỗi worker nhận snapshot riêng của cấu hình và indicator; không đọc lại state
+- [x] Loại bỏ việc `Load History` chạy chồng nhau và xung đột với `Start Live`.
+- [x] Mỗi worker nhận snapshot riêng của cấu hình và indicator; không đọc lại state
   mutable của Presenter khi đang chạy nền.
-- Hiển thị trạng thái đang tải, disable các action không hợp lệ, và khôi phục UI
+- [x] Hiển thị trạng thái đang tải, disable các action không hợp lệ, và khôi phục UI
   đúng sau thành công hoặc lỗi.
-- Test hồi quy cho các case `TC-ASY-01` đến `TC-ASY-04` của catalog Dev Board.
+- [x] Test hồi quy cho `TC-ASY-01` và `TC-ASY-04`; `TC-ASY-02`/`TC-ASY-03`
+  được chặn ở entry point và sẽ được mở rộng khi Phase 2 thay hard-code config.
 
 ### Phase 2 — cấu hình dữ liệu của Developer Board
 

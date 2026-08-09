@@ -37,8 +37,6 @@ RSI's enabled/period toggles live on DashboardQmlViewModel
 
 import time
 
-import pytest
-
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
@@ -72,37 +70,22 @@ def _slow_down_history_queries(monkeypatch, presenter, delay_seconds: float) -> 
     monkeypatch.setattr(presenter.dispatcher, "dispatch", slow_dispatch)
 
 
-def test_load_history_button_stays_enabled_during_background_load(
+def test_load_history_button_is_disabled_during_background_load(
     qtbot, main_window, navigate, qml_item
 ):
     """
-    TC-ASY-01 precondition check (not itself xfail — this is real, current
-    behavior, and is exactly what makes the race below possible): unlike
-    the Start button (gated via FSM -> LOCKED), Load History has no
-    matching guard, so a user really can click it again before the first
-    background load finishes.
+    TC-ASY-01 guard: a background history query owns a configuration snapshot,
+    so QML disables every incompatible Dev Board action until it completes.
     """
     qtbot.addWidget(main_window)
     _, view = _open_dashboard(navigate)
     root = view.quick_widget.rootObject()
 
     _click_load_history(view, qml_item)
-    assert qml_item(root, "btnLoadHistory").property("enabled") is True
+    assert qml_item(root, "btnLoadHistory").property("enabled") is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "TC-ASY-01: two overlapping Load History clicks feed the same "
-        "candle data twice into the indicator objects the second click "
-        "installs as `active_indicators`, corrupting the resulting "
-        "RSI series length/values. Fix per the report: either disable "
-        "load_history_button while a load is in flight, or pass "
-        "active_indicators into _run_load_history/_compute_indicator_series "
-        "as a parameter instead of re-reading self.active_indicators."
-    ),
-)
-def test_concurrent_load_history_clicks_corrupt_indicator_series(
+def test_concurrent_load_history_clicks_keep_indicator_series_correct(
     qtbot, main_window, monkeypatch, navigate, qml_item
 ):
     qtbot.addWidget(main_window)
@@ -114,10 +97,7 @@ def test_concurrent_load_history_clicks_corrupt_indicator_series(
     view._view_model.rsiPeriod = 2
     _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.05)
 
-    with qtbot.waitSignals(
-        [presenter.ui_indicator_data_signal, presenter.ui_indicator_data_signal],
-        timeout=3000,
-    ):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=3000):
         _click_load_history(view, qml_item)
         _click_load_history(view, qml_item)
 
@@ -128,16 +108,7 @@ def test_concurrent_load_history_clicks_corrupt_indicator_series(
     assert len(rsi.y_data) == 3
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "TC-ASY-04: with 4 background workers (ThreadPoolExecutor default "
-        "in this app, see ThreadManagerExtension), 4 rapid Load History "
-        "clicks can all overlap simultaneously rather than just 2 — same "
-        "root cause as TC-ASY-01, wider blast radius."
-    ),
-)
-def test_four_concurrent_load_history_clicks_corrupt_indicator_series(
+def test_four_rapid_load_history_clicks_keep_indicator_series_correct(
     qtbot, main_window, monkeypatch, navigate, qml_item
 ):
     qtbot.addWidget(main_window)
@@ -146,7 +117,7 @@ def test_four_concurrent_load_history_clicks_corrupt_indicator_series(
     view._view_model.rsiPeriod = 2
     _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.05)
 
-    with qtbot.waitSignals([presenter.ui_indicator_data_signal] * 4, timeout=4000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=4000):
         for _ in range(4):
             _click_load_history(view, qml_item)
 

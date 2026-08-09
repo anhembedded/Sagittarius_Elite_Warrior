@@ -29,6 +29,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
     priceTickerChanged = Signal()
     wsStatusChanged = Signal()
+    historyLoadingChanged = Signal()
     rsiChanged = Signal()
     emaChanged = Signal()
     macdChanged = Signal()
@@ -45,6 +46,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._price_ticker_color = _IDLE_STATUS_COLOR
         self._ws_status_text = _IDLE_STATUS_TEXT
         self._ws_status_color = _IDLE_STATUS_COLOR
+        self._history_loading = False
 
         self._rsi_enabled = False
         self._rsi_period = _DEFAULT_RSI_PERIOD
@@ -100,6 +102,17 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._ws_status_text = text
         self._ws_status_color = color
         self.wsStatusChanged.emit()
+
+    def _get_history_loading(self) -> bool:
+        return self._history_loading
+
+    historyLoading = Property(bool, _get_history_loading, notify=historyLoadingChanged)
+
+    def set_history_loading(self, value: bool) -> None:
+        if value == self._history_loading:
+            return
+        self._history_loading = value
+        self.historyLoadingChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Indicator toggles — read by the Presenter's _build_active_indicators,

@@ -18,7 +18,8 @@ Rectangle {
 
     color: Theme.bg
 
-    property bool controlsActive: viewModel.uiMode === "IDLE" || viewModel.uiMode === "ERROR"
+    property bool controlsActive: (viewModel.uiMode === "IDLE" || viewModel.uiMode === "ERROR")
+                                  && !viewModel.historyLoading
 
     component FieldBackground: Rectangle {
         color: "#17181d"
@@ -142,7 +143,7 @@ Rectangle {
             Button {
                 id: reloadButton
                 objectName: "btnReload"
-                text: "Reload"
+                text: viewModel.historyLoading ? "Loading…" : "Reload"
                 enabled: root.controlsActive
                 // Same action as System Controls' "Load History" button —
                 // not a second code path (mirrors the QtWidgets version's
@@ -321,7 +322,7 @@ Rectangle {
                                 id: loadButton
                                 objectName: "btnLoadHistory"
                                 Layout.fillWidth: true
-                                text: "Load History"
+                                text: viewModel.historyLoading ? "Loading…" : "Load History"
                                 enabled: root.controlsActive
                                 onClicked: viewModel.requestLoadHistory()
 
