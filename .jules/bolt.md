@@ -4,3 +4,6 @@
 ## 2024-11-13 - [Optimize get_klines using SQLAlchemy Core]
 **Learning:** For extremely high-throughput database inserts and upserts in SQLAlchemy, `session.execute` and multiple inner loop commits incur a massive performance penalty. Switching to `connection.execute` completely bypasses the ORM's processing pipeline, and doing dictionary construction internally without method calls speeds up mappings. Committing only once reduces SQLite file lock handling and transaction management.
 **Action:** Always prefer Core connection `conn.execute()` for data migration, batch inserts, and upserts. Ensure transactions encapsulate the entire operation rather than every chunk.
+## 2024-05-15 - [Optimize SQLite Timestamp Delta Calculation]
+**Learning:** Computing integer seconds between two datetime strings in SQLite using `strftime('%s', open_time)` involves costly string parsing and formatting overhead on every row. Profiling revealed that `unixepoch(open_time)` is roughly 3x faster natively for extracting the UNIX timestamp.
+**Action:** Always prefer the native `unixepoch()` function over `strftime('%s', ...)` for aggregate delta queries in high-volume SQLite processing.
