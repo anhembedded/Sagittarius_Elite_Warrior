@@ -252,22 +252,6 @@ Rectangle {
                                 }
                             }
 
-                            Text { text: "Timeframe:"; color: Theme.textPrimary; font.pixelSize: 12 }
-                            ComboBox {
-                                objectName: "cboTimeframe"
-                                Layout.fillWidth: true
-                                model: ["1m", "5m", "15m", "1h", "1d"]
-                                enabled: root.controlsActive
-                                background: FieldBackground {}
-                                contentItem: Text {
-                                    leftPadding: 8
-                                    text: parent.displayText
-                                    color: Theme.textPrimary
-                                    font.pixelSize: 12
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                            }
-
                             Text { text: "Strategy:"; color: Theme.textPrimary; font.pixelSize: 12 }
                             ComboBox {
                                 objectName: "cboStrategy"

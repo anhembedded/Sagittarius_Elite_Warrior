@@ -63,48 +63,47 @@ def test_market_dropdown_has_no_presenter_effect(
     assert list(view._view_model.log_model.entries) == log_before
 
 
-def test_control_card_timeframe_dropdown_does_not_change_interval(
+def test_chart_toolbar_timeframe_click_triggers_a_reload(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-GAP-03: the System Controls "Timeframe" dropdown is not read
-    anywhere — Load History always requests the hard-coded "1m" interval."""
+    """TC-GAP-03 / TC-GAP-06 — FIXED by BOT-033: clicking "5m" on the
+    chart's own toolbar now changes DashboardPresenter._active_interval and
+    immediately reloads history with it. The old System Controls
+    "Timeframe" dropdown (`cboTimeframe`) was removed entirely — this
+    toolbar is the single source of truth now (see BOT-033 task file §6)."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    root = view.quick_widget.rootObject()
 
-    qml_item(root, "cboTimeframe").setProperty("currentIndex", 3)  # "1h"
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         _click_load_history(view, qml_item)
+    assert presenter._active_interval == "1m"
+    card = view.chart_cards[0]
 
-    # No direct getter for the interval used, but a successful reload with
-    # the dropdown on "1h" proves the click path never raised on/consulted
-    # it — combined with the source-level grep in the report (zero reads of
-    # this dropdown's value in the Presenter), this pins down the current
-    # no-op behavior.
-    assert view.chart_cards[0]._raw_history  # reload still succeeded, ignoring "1h"
+    btn_5m = card.toolbar._buttons["5m"]
+    with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
+        qtbot.mouseClick(btn_5m, Qt.LeftButton)
+
+    assert presenter._active_interval == "5m"
 
 
-def test_chart_toolbar_timeframe_click_only_changes_highlight(
+def test_reclicking_the_same_timeframe_does_not_reload(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-GAP-06 / TC-CHT-11: clicking "5m" on the chart's own toolbar only
-    updates which button looks active — ChartToolbar.sig_timeframe_changed
-    is never connected to the presenter, so no data changes. ChartCard
-    stays QtWidgets (BOT-030's one permanent exception), so this toolbar is
-    unaffected by the QML migration."""
+    """Clicking the already-active timeframe must be a no-op — otherwise
+    every redundant click would re-fetch history for no reason."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
 
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         _click_load_history(view, qml_item)
     card = view.chart_cards[0]
-    history_before = list(card._raw_history)
 
-    btn_5m = card.toolbar._buttons["5m"]
-    qtbot.mouseClick(btn_5m, Qt.LeftButton)
-    qtbot.wait(50)
+    reloaded = []
+    presenter.ui_history_reloaded_signal.connect(lambda *a: reloaded.append(1))
+    qtbot.mouseClick(card.toolbar._buttons["1m"], Qt.LeftButton)
+    qtbot.wait(100)
 
-    assert card._raw_history == history_before
+    assert reloaded == []
 
 
 def test_strategy_and_date_fields_have_no_presenter_effect(

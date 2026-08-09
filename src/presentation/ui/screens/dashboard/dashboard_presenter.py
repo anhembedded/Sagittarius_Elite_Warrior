@@ -204,6 +204,12 @@ class DashboardPresenter(BasePresenter):
         self.active_charts: dict = {}
         self.active_indicators: dict[str, _ActiveIndicator] = {}
 
+        # BOT-033 — interval actually used by Load History/Start Live, set by
+        # ChartToolbar.sig_timeframe_changed (see _ensure_chart_cards). An
+        # instance attribute rather than the module constant so it can change
+        # per-run without a restart.
+        self._active_interval: str = _DEFAULT_INTERVAL_STR
+
         # Custom indicator scripts (BOT-032), keyed by registry key. Kept in a
         # separate dict from active_indicators because one script produces N
         # named lines from a single compute() call, unlike the 1-to-1
@@ -296,6 +302,11 @@ class DashboardPresenter(BasePresenter):
         self.active_charts.clear()
         for card in chart_cards:
             self.active_charts[card.symbol] = card
+            # BOT-033 — freshly-created cards only; render_symbol_cards()
+            # tears down and rebuilds the old ones on every call, so a
+            # connection made here would otherwise accumulate on a widget
+            # that no longer exists.
+            card.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
         return chart_cards
 
     def _build_active_indicators(self) -> dict[str, _ActiveIndicator]:
@@ -413,7 +424,7 @@ class DashboardPresenter(BasePresenter):
         self._thread_manager.submit(
             self._run_load_history,
             symbols,
-            _DEFAULT_INTERVAL_STR,
+            self._active_interval,
             _DEFAULT_KLINE_LIMIT,
             self.active_indicators,
         )
@@ -435,7 +446,7 @@ class DashboardPresenter(BasePresenter):
         self.fsm.transition_to(UIMode.LOCKED)
 
         symbols = list(_DEFAULT_SYMBOLS)
-        interval = TimeFrame(_DEFAULT_INTERVAL_STR)
+        interval = TimeFrame(self._active_interval)
 
         # Prepare chart cards on the main thread (safe: view state only).
         chart_cards = self._ensure_chart_cards(symbols)
@@ -448,7 +459,7 @@ class DashboardPresenter(BasePresenter):
             self._run_sync_and_start,
             symbols,
             interval,
-            _DEFAULT_INTERVAL_STR,
+            self._active_interval,
             _DEFAULT_KLINE_LIMIT,
         )
 
@@ -478,6 +489,28 @@ class DashboardPresenter(BasePresenter):
                 f"Error while stopping: {exc}", level="error"
             )
             self.fsm.transition_to(UIMode.ERROR)
+
+    @Slot(str)
+    @safe_ui_action
+    def _on_timeframe_changed(self, timeframe: str) -> None:
+        """
+        @brief BOT-033 — ChartToolbar.sig_timeframe_changed handler.
+        @details Unlike the Indicators checkboxes (deliberately no effect
+        until the next Load/Start click, see TC-GAP-07), this control lives
+        on the chart itself — clicking "5m" reads as "show me 5m now", so it
+        reloads immediately: stop-then-restart if a stream is LIVE, otherwise
+        a plain reload (skipped if a load is already in flight, same guard
+        _on_load_history uses).
+        """
+        if timeframe == self._active_interval:
+            return
+        self._active_interval = timeframe
+
+        if self.fsm.current_state == UIMode.LIVE:
+            self._on_stop_stream()
+            self._on_start_stream()
+        elif not self._view_model.historyLoading:
+            self._on_load_history()
 
     # ================================================================== #
     # Background Signal Slots — called on the main thread via Qt signals.

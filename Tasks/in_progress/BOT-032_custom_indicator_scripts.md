@@ -1,8 +1,9 @@
 # Nhiệm vụ: Custom Indicator Scripts (kiểu Pine Script, thuần Python)
 
 > **Đọc file này trước khi code.** Phase 0-5 đã xong và đã chốt kiến trúc — đừng thiết kế
-> lại, hãy extend theo đúng khuôn đã có. Mục §3 (RULES) là bắt buộc. Chỉ còn Phase 6
-> (chuyển RSI/EMA/MACD thành script, §9) là **chưa làm, cố ý để sau** theo quyết định user.
+> lại, hãy extend theo đúng khuôn đã có. Mục §3 (RULES) là bắt buộc. **Phase 6 (§9) đã được
+> chốt làm** (đảo ngược quyết định "để sau" ban đầu — xem lý do đầu mục §9) — đây là phần việc
+> còn lại duy nhất của task này, và là phần lớn/rủi ro nhất (xoá code hardcode đang chạy tốt).
 
 ## 1. Mục tiêu (Objective)
 Cho phép **tự viết indicator** bằng 1 class Python thường — cảm giác giống TradingView Pine
@@ -332,11 +333,93 @@ luôn emit mỗi bar). `draw_markers(card, key, markers)` — không trả bool,
   phiên làm việc này làm chậm lịch thread OS. Không sửa trong task này (ngoài phạm vi BOT-032) —
   nếu gặp lại, thử tăng `timeout=2000` lên cao hơn hoặc chạy riêng lẻ thay vì cả suite.
 
-## 9. Phase 6 — chuyển RSI/EMA/MACD hardcode thành script  *(để sau, có thể tách task)*
-User đã chốt "update 3 cái đó sau". **Blocker đã biết**: script hiện zero-arg, còn RSI/EMA có
-spinbox period → cần dùng `params` đã chừa sẵn ở `create(key, params=None)`, cộng cách khai báo
-param trong script (kiểu Pine `input()`) và render spinbox động trong QML. **Không phải đổi
-signature** khi làm, đó là lý do `params` có từ Phase 0.
+## 9. Phase 6 — chuyển RSI/EMA/MACD hardcode thành script  *(ĐÃ CHỐT LÀM — quyết định mới, xem dưới)*
+
+> ⚠️ **Đảo ngược quyết định trước đó.** User đã từng chốt "update 3 cái đó sau" (để Phase 6 làm
+> sau). Quyết định mới (phiên sau): *"US-07 có nghĩa là bây giờ không có indicator nào là hardcode
+> trong engine hết, tất cả phải load từ indicator script."* Tức là Phase 6 **không còn optional**
+> — `_ActiveIndicator`/`_build_active_indicators`/RSI/EMA/MACD hardcode trong
+> `dashboard_presenter.py` phải bị xoá hẳn, không giữ song song với hệ thống script nữa.
+
+### 9.1. Quyết định kỹ thuật: KHÔNG dùng `params` runtime — dùng nhiều script cố định period
+
+**Blocker cũ**: RSI/EMA hiện có spinbox cho phép gõ period tuỳ ý (2-200) — script hiện tại
+zero-arg, muốn giữ spinbox thì cần cơ chế "params" (kiểu Pine `input()`) + render spinbox động
+trong QML. Nhưng user **đã chốt trong chính phiên viết BOT-032**: *"khong cần chức năng rutime
+input đâu"* (không cần config runtime). Hai quyết định này mâu thuẫn nếu cố giữ spinbox.
+
+**Cách giải quyết** (khớp với chính cách US-07 đề xuất — mỗi period là 1 file riêng, không phải
+1 script nhận tham số): bỏ hẳn spinbox, thay bằng **nhiều script cố định period**, mỗi cái tự
+đứng — đúng pattern `ema_20/50/100/200` mà `ema_ribbon_script.py` đã minh hoạ (chỉ khác là tách
+ra 4 script riêng thay vì 1 script vẽ cả 4 đường, để mỗi cái bật/tắt độc lập được):
+
+| Script mới | Thay thế | File |
+|---|---|---|
+| `rsi_14` | `RSI(14)` hardcode | `domain/indicator_scripts/rsi_14_script.py` (mới) |
+| `ema_20` / `ema_50` / `ema_100` / `ema_200` | `EMA(period)` hardcode với spinbox | 4 file mới, mỗi file 1 EMA — **không phải** tái dùng `ema_ribbon_script.py` (script đó cố tình vẽ cả 4 chung 1 lần, không tách bật/tắt riêng được) |
+| `macd_full` | `MACD()` hardcode | **đã có sẵn**, chỉ cần đặt `default_enabled` |
+
+⚠️ **Đánh đổi cần user biết** (không tự quyết âm thầm): sau khi làm Phase 6, RSI/EMA **không còn
+gõ được period tuỳ ý (2-200) như trước** — chỉ chọn được trong các period cố định đã đăng ký sẵn.
+Muốn thêm period khác (vd. EMA 34) → thêm 1 file script mới, không phải gõ số vào ô input.
+
+### 9.2. `default_enabled` — khái niệm mới cần thêm
+
+Hiện tại **mọi** script đăng ký đều mặc định tắt (`IndicatorScriptListModel._enabled` rỗng lúc
+khởi tạo — xem test `test_no_scripts_run_until_the_ui_enables_one`). RSI(14)/EMA(20)/MACD hiện có
+sẵn từ trước cho user dùng ngay không cần bật gì — hành vi này **phải giữ nguyên** sau khi
+chuyển thành script, nên cần 1 khái niệm mới:
+
+```python
+class BaseIndicatorScript(ABC):
+    title: str
+    overlay: bool
+    default_enabled: bool = False   # MỚI — script này tự bật sẵn lần đầu app chạy
+
+class IndicatorScriptListModel(QAbstractListModel):
+    def set_available(self, scripts: Mapping[str, type[BaseIndicatorScript]]) -> None:
+        # MỚI: key có default_enabled=True VÀ chưa từng bị user đổi trạng thái tay
+        # → thêm vào self._enabled ngay lần load đầu.
+        ...
+```
+⚠️ Chỉ áp dụng lúc **lần đầu** danh sách được nạp (app khởi động) — không được ép user bật lại 1
+script họ đã chủ động tắt, nếu `set_available()` được gọi lại (vd. registry đổi) giữa chừng.
+
+### 9.3. Xoá — file/chỗ cần dọn trong `dashboard_presenter.py`
+`_ActiveIndicator` (dataclass), `_build_active_indicators()`, `_ensure_indicator_registered()`,
+`_compute_indicator_series()`, phần RSI/EMA/MACD trong `_update_indicators_on_closed_candle()`,
+`_clear_registered_indicators()`, hằng số `_RSI_COLOR`/`_EMA_COLOR`/`_MACD_COLOR`,
+`_INDICATOR_KIND_OVERLAY`/`_INDICATOR_KIND_SUBPLOT`, import `EMA`/`MACD`/`RSI` trực tiếp (script
+vẫn compose 3 class này bên trong domain, chỉ Presenter không còn gọi thẳng).
+`self.active_indicators: dict[str, _ActiveIndicator]` biến mất — mọi thứ đi qua
+`self._script_runner` (đã có sẵn từ Phase 2).
+
+### 9.4. Xoá — `dashboard_view_model.py`
+`rsiEnabled`/`rsiPeriod`/`emaEnabled`/`emaPeriod`/`macdEnabled` (+ signal `rsiChanged`/
+`emaChanged`/`macdChanged`) — toàn bộ đã thay bằng `scriptModel`/`IndicatorScriptListModel` có
+sẵn từ Phase 3.
+
+### 9.5. Xoá — `DevBoardPanel.qml`
+3 `RowLayout` cho RSI/EMA (checkbox + `PeriodSpin`) và `StyledCheck` MACD trong card INDICATORS —
+Repeater "CUSTOM SCRIPTS" (Phase 3) đã đủ để hiển thị mọi script kể cả RSI(14)/EMA(20/50/100/200)/
+MACD mới. Có thể đổi tên section từ "CUSTOM SCRIPTS" thành chỉ "INDICATORS" luôn (không còn 2 loại
+song song để phân biệt) — cân nhắc lúc làm, không bắt buộc.
+
+### 9.6. Test cần sửa/xoá
+`test_dashboard_presenter.py` có nhiều test dựa trên `_build_active_indicators`/`_ActiveIndicator`
+(`test_build_active_indicators_*`, `test_on_load_history_builds_active_indicators_*`,
+`test_compute_indicator_series_*`, `test_update_indicators_on_closed_candle_*`) — xoá, thay bằng
+test tương đương qua `_script_runner` (đã có khuôn ở các test `test_script_lines_are_routed_to_the_runner_*`).
+`test_dev_board_indicators.py` (integration) toàn bộ dựa vào `view._view_model.rsiEnabled = True`
+kiểu cũ — phải viết lại dùng `view._view_model.script_model.setEnabled(row, True)`.
+
+### 9.7. Gate
+Guard test R1/R3 (BOT-032) đã bắt buộc mọi script phải đăng ký — tự động áp dụng cho 6 script mới.
+Sau khi xong, chạy lại toàn bộ `test_dev_board_known_gaps.py`/`test_dev_board_indicators.py` để
+đảm bảo không có hành vi cũ nào (màu, tên curve `RSI(14)` không đổi thành `rsi_14:...` — **cân
+nhắc: giữ curve name legacy `RSI(14)` cho 6 script default hay chấp nhận đổi sang
+`rsi_14:RSI` namespaced?** Đổi tên ảnh hưởng bất kỳ test/tool nào đang match tên cũ — kiểm tra kỹ
+trước khi merge).
 
 ## 10. Để ngỏ cho Strategy (không xây bây giờ)
 - `domain/scripting/` (Series + cross) dùng lại nguyên si cho `BaseStrategyScript`.

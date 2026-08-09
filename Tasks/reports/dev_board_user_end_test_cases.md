@@ -179,10 +179,10 @@ năng này, để không lặp lại lỗi TC-ASY-15 khi triển khai thật.
 |---|---|---|---|
 | TC-GAP-01 | `market_dropdown` (Spot/Futures) | Không đọc giá trị ở đâu trong `dashboard_presenter.py` | grep "market_dropdown" → 0 match ngoài `control_card.py` |
 | TC-GAP-02 | `symbol_dropdown` (BTCUSDT/ETHUSDT) | Symbol thật luôn là hard-code `_DEFAULT_SYMBOLS = ("ETHUSDT",)`, không đọc dropdown | idem |
-| TC-GAP-03 | `timeframe_dropdown` (System Controls) | Interval thật luôn `_DEFAULT_INTERVAL_STR = "1m"` | idem |
+| TC-GAP-03 | ~~`timeframe_dropdown` (System Controls)~~ | ✅ **FIXED (BOT-033)** — control đã bị xoá khỏi `DevBoardPanel.qml`, `ChartToolbar` (TC-GAP-06) là nguồn sự thật duy nhất giờ | `test_chart_toolbar_timeframe_click_triggers_a_reload` |
 | TC-GAP-04 | `strategy_dropdown` (Manual/SMA Crossover) | Không có logic nào đọc — đúng theo quyết định phạm vi trước đó ("chưa cần strategy") | Xem BOT-026 backlog |
 | TC-GAP-05 | `start_date_picker` / `end_date_picker` | Không đọc — `GetHistoricalKlinesQuery` luôn dùng `limit=5000`, không dùng date range | idem |
-| TC-GAP-06 | `ChartToolbar` 1m/5m/15m/1h/1d | `sig_timeframe_changed` tồn tại nhưng 0 kết nối tới presenter | grep "toolbar\." trong `dashboard_presenter.py`/`chart_card.py` → 0 match |
+| TC-GAP-06 | ~~`ChartToolbar` 1m/5m/15m/1h/1d~~ | ✅ **FIXED (BOT-033)** — `sig_timeframe_changed` nối vào `DashboardPresenter._on_timeframe_changed`, đổi timeframe reload ngay lập tức (kể cả khi đang Live: dừng → reload → start lại) | `test_chart_toolbar_timeframe_click_triggers_a_reload`, `test_reclicking_the_same_timeframe_does_not_reload` |
 | TC-GAP-07 | Checkbox/Period indicator khi đang chạy | Chỉ đọc tại thời điểm click Load/Start, không có `toggled`/`valueChanged` signal nào connect | grep xác nhận 0 signal connection |
 | TC-GAP-08 | `_on_run_backtest`/`_on_stop_backtest` | Có slot, có `set_backtest_active`, nhưng chưa có nút UI thật gọi tới, và TODO dispatch command còn bỏ trống | Xem comment `# TODO: Dispatch RunBacktestCommand` |
 

@@ -220,6 +220,57 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
 
 
 # ---------------------------------------------------------------------------
+# _on_timeframe_changed (BOT-033) — ChartToolbar.sig_timeframe_changed handler
+# ---------------------------------------------------------------------------
+
+
+def test_timeframe_changed_to_the_same_value_is_a_no_op(presenter, mock_thread_mgr):
+    assert presenter._active_interval == "1m"
+
+    presenter._on_timeframe_changed("1m")
+
+    assert mock_thread_mgr.submit.call_count == 0
+
+
+def test_timeframe_changed_while_idle_updates_interval_and_reloads(
+    presenter, mock_thread_mgr
+):
+    presenter._on_timeframe_changed("5m")
+
+    assert presenter._active_interval == "5m"
+    assert mock_thread_mgr.submit.call_count == 1
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[0] == presenter._run_load_history
+    assert submit_args[2] == "5m"  # interval_str positional arg
+
+
+def test_timeframe_changed_while_history_loading_does_not_reload(
+    presenter, mock_thread_mgr
+):
+    presenter._view_model.set_history_loading(True)
+
+    presenter._on_timeframe_changed("5m")
+
+    assert presenter._active_interval == "5m"
+    assert mock_thread_mgr.submit.call_count == 0
+
+
+def test_timeframe_changed_while_live_stops_then_restarts(presenter, mock_thread_mgr):
+    from Binace_Bot.src.presentation.ui.constants import UIMode
+
+    presenter.fsm.transition_to(UIMode.LOCKED)
+    presenter.fsm.transition_to(UIMode.LIVE)
+
+    presenter._on_timeframe_changed("15m")
+
+    assert presenter._active_interval == "15m"
+    assert presenter.fsm.current_state.name == "LOCKED"  # _on_start_stream re-locked it
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[0] == presenter._run_sync_and_start
+    assert submit_args[3] == "15m"  # interval_str positional arg
+
+
+# ---------------------------------------------------------------------------
 # Exception safety
 # ---------------------------------------------------------------------------
 
