@@ -145,14 +145,17 @@ class BinanceWebsocketService(ILiveStreamService):
             res = res["data"]
 
         if res.get("e") == "kline":
-            market_data = self._parse_kline(res)
-            logger.info(
-                f"[Live Stream] {market_data.symbol}"
-                f" | Price: {market_data.close_price}"
-                f" | Vol: {market_data.volume}"
-                f" | Closed: {market_data.is_closed}"
-            )
-            self._event_bus.emit(MarketTickEvent(market_data=market_data))
+            try:
+                market_data = self._parse_kline(res)
+                logger.info(
+                    f"[Live Stream] {market_data.symbol}"
+                    f" | Price: {market_data.close_price}"
+                    f" | Vol: {market_data.volume}"
+                    f" | Closed: {market_data.is_closed}"
+                )
+                self._event_bus.emit(MarketTickEvent(market_data=market_data))
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error(f"Error parsing kline message: {e} | Message: {res}")
 
     def _parse_kline(self, msg: dict) -> MarketData:
         k = msg["k"]
