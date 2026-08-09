@@ -247,3 +247,73 @@ async def test_websocket_auto_reconnect():
     assert mock_bsm.kline_socket.call_count >= 2
     # It should have emitted the event for the second successful recv
     assert event_bus.emit.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_process_socket_message_handles_parsing_exceptions_gracefully():
+    event_bus = Mock()
+    service = BinanceWebsocketService(event_bus, Mock())
+    tscm = Mock()
+
+    # Missing 'k' key in kline message
+    tscm.recv = AsyncMock(
+        return_value={
+            "stream": "btcusdt@kline_1m",
+            "data": {
+                "e": "kline",
+                # "k": {} is missing
+            },
+        }
+    )
+
+    with patch(
+        "Binace_Bot.src.infrastructure.binance.binance_websocket_service.logger"
+    ) as mock_logger:
+        await service._process_socket_message(tscm)
+
+        # Event should not be emitted due to parsing exception
+        event_bus.emit.assert_not_called()
+
+        # Logger should log the error
+        mock_logger.error.assert_called_once()
+        log_args = mock_logger.error.call_args[0][0]
+        assert "Error parsing kline message" in log_args
+
+    # Malformed data type (e.g. string where number is expected)
+    tscm.recv = AsyncMock(
+        return_value={
+            "stream": "btcusdt@kline_1m",
+            "data": {
+                "e": "kline",
+                "k": {
+                    "s": "BTCUSDT",
+                    "i": "1m",
+                    "t": "INVALID_TIMESTAMP",
+                    "T": 0,
+                    "o": "1",
+                    "h": "1",
+                    "l": "1",
+                    "c": "1",
+                    "v": "1",
+                    "q": "1",
+                    "n": 1,
+                    "V": "1",
+                    "Q": "1",
+                    "x": True,
+                },
+            },
+        }
+    )
+
+    with patch(
+        "Binace_Bot.src.infrastructure.binance.binance_websocket_service.logger"
+    ) as mock_logger:
+        await service._process_socket_message(tscm)
+
+        # Event should not be emitted due to parsing exception
+        event_bus.emit.assert_not_called()
+
+        # Logger should log the error
+        mock_logger.error.assert_called_once()
+        log_args = mock_logger.error.call_args[0][0]
+        assert "Error parsing kline message" in log_args

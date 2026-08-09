@@ -32,6 +32,9 @@ class GetDatabaseStatusQueryHandler(
             f"Handling GetDatabaseStatusQuery for {query.symbol} at {query.interval}"
         )
 
+        if not query.symbol:
+            raise ValueError("Invalid symbol")
+
         try:
             interval_vo = TimeFrame(query.interval)
         except ValueError as e:
