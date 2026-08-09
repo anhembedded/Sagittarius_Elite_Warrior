@@ -7,6 +7,7 @@ from PySide6.QtCore import Signal, Slot
 
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
@@ -32,6 +33,7 @@ from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
 )
 from Binace_Bot.src.presentation.ui.constants import UIMode
 
+from .autostart_controller import AutoStartController
 from .dashboard_view_model import DashboardQmlViewModel
 from .indicator_script_runner import IndicatorScriptRunner
 
@@ -59,6 +61,15 @@ _RENDER_WINDOW_CANDLES: int = 75
 #: window itself — no extra padding unless the user asks for one.
 _MIN_FETCH_CANDLES_CONFIG_KEY: str = "DEV_BOARD_MIN_FETCH_CANDLES"
 _DEFAULT_MIN_FETCH_CANDLES: int = 75
+
+#: How long AutoStartController waits for a real MarketTickEvent before
+#: falling back to Load History (see autostart_controller.py). Configurable
+#: so integration tests — which take real wall-clock time to run and offer
+#: no real WS ticks ever — can push this window far out and get a
+#: deterministic run instead of racing a fallback callback that fires mid
+#: assertion. Production keeps the 2s default the design was built around.
+_AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_FALLBACK_SECONDS"
+_DEFAULT_AUTOSTART_FALLBACK_SECONDS: float = 2.0
 
 # WS status badge (top bar) text/color per FSM state — presentational only,
 # derived from the state DashboardPresenter already tracks.
@@ -182,6 +193,19 @@ class DashboardPresenter(BasePresenter):
 
         self._apply_ws_status_badge(UIMode.IDLE)
 
+        # BOT-034 — cooperative cancellation for background Load History/
+        # Start Live work, checked at each step that would otherwise touch a
+        # possibly-torn-down chart/view. "Individual tasks should still
+        # implement cancellation tokens" is literally what
+        # ThreadManagerExtension.shutdown()'s docstring asks for — it calls
+        # thread_manager.shutdown(wait=False), so nothing else stops an
+        # in-flight background method from continuing to run past app
+        # shutdown. Reset on explicit Stop (see _on_stop_stream) so the next
+        # Start Live isn't born pre-cancelled — mirrors how
+        # BinanceWebsocketService makes a fresh CancellationToken per
+        # start_stream() call rather than reusing one for its whole lifetime.
+        self._cancellation_token = CancellationToken()
+
         self.active_charts: dict = {}
 
         # BOT-033 — interval actually used by Load History/Start Live, set by
@@ -216,6 +240,24 @@ class DashboardPresenter(BasePresenter):
         self._connect_engine_events()
 
         view.load_qml("DevBoardPanel.qml")
+
+        # BOT-034 — auto-start Start Live the moment the Dev Board opens,
+        # falling back to Load History if no MarketTickEvent proves a real
+        # connection within a few seconds. Constructed last: it immediately
+        # calls _on_start_stream(), which needs everything above already set
+        # up (script runner, signal connections, FSM).
+        fallback_seconds = self.config.get(
+            _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY,
+            _DEFAULT_AUTOSTART_FALLBACK_SECONDS,
+            cast=float,
+        )
+        self._autostart = AutoStartController(
+            start_stream=self._on_start_stream,
+            load_history=self._on_load_history,
+            fallback_seconds=fallback_seconds,
+            parent=self,
+        )
+        self._autostart.begin()
 
     # ================================================================== #
     # BasePresenter contract implementations
@@ -351,6 +393,23 @@ class DashboardPresenter(BasePresenter):
         if self._view_model.historyLoading:
             self._view_model.log_model.append("History load is already in progress.")
             return
+        # BOT-034: auto-start's own Start Live workflow (_run_sync_and_start)
+        # locks the FSM to LOCKED while it runs and, like _run_load_history,
+        # feeds candles through _script_runner from that same background
+        # thread. historyLoading alone doesn't cover this case — auto-start
+        # never sets it (only _on_load_history does) — so without this guard
+        # a Load History click that lands while auto-start is still LOCKED
+        # would submit a second background workflow that runs concurrently
+        # against the same IndicatorScriptRunner/chart-card state as the
+        # first. This was a real, reproduced Windows access violation, not a
+        # hypothetical one: two background threads driving the same chart
+        # cards at once, previously near-impossible to trigger by hand since
+        # nothing used to auto-submit a workflow on Dev Board open.
+        if self.fsm.current_state == UIMode.LOCKED:
+            self._view_model.log_model.append(
+                "Wait for Start Live to finish before loading history."
+            )
+            return
 
         self._view_model.set_history_loading(True)
         self._view_model.log_model.append(
@@ -364,6 +423,7 @@ class DashboardPresenter(BasePresenter):
             symbols,
             self._active_interval,
             self._compute_fetch_limit(),
+            self._cancellation_token,
         )
 
     @Slot()
@@ -377,6 +437,14 @@ class DashboardPresenter(BasePresenter):
             self._view_model.log_model.append(
                 "Wait for the current history load before starting live stream."
             )
+            return
+        # BOT-034: with auto-start, the FSM is LOCKED (or already LIVE)
+        # immediately on open — a manual Start Live click during that window
+        # used to be unreachable (the app always started IDLE), so this
+        # guard never existed. Without it, transition_to(LOCKED) raises
+        # InvalidStateTransitionError for anything but IDLE.
+        if self.fsm.current_state != UIMode.IDLE:
+            self._view_model.log_model.append("Already starting or running — ignoring.")
             return
 
         self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
@@ -396,6 +464,7 @@ class DashboardPresenter(BasePresenter):
             interval,
             self._active_interval,
             self._compute_fetch_limit(),
+            self._cancellation_token,
         )
 
     @Slot(str)
@@ -414,6 +483,13 @@ class DashboardPresenter(BasePresenter):
     @safe_ui_action
     def _on_stop_stream(self) -> None:
         self._view_model.log_model.append("Stopping Live Stream...")
+        # BOT-034: cancel any in-flight Load History/Start Live background
+        # work so it stops touching the chart once the user has explicitly
+        # said "stop" — then hand out a fresh token so the *next* Start Live
+        # isn't born pre-cancelled (mirrors BinanceWebsocketService minting a
+        # new CancellationToken per start_stream() call).
+        self._cancellation_token.cancel()
+        self._cancellation_token = CancellationToken()
         try:
             cmd = StopLiveStreamCommand()
             self.dispatcher.dispatch(StopLiveStreamCommand, cmd)
@@ -547,6 +623,12 @@ class DashboardPresenter(BasePresenter):
         @brief Được gọi trong Main UI Thread một cách an toàn thông qua Signal.
         Chỉ thực hiện tra cứu O(1) và đẩy data vào đúng ChartCard tương ứng.
         """
+        # BOT-034 — any tick is proof of a real connection, cancelling the
+        # auto-start fallback timer. Must happen here (main thread), NOT in
+        # _handle_market_tick (background thread) — QTimer.stop() from a
+        # foreign thread is a Qt threading violation.
+        self._autostart.on_market_tick()
+
         is_bullish = c >= o
         price_color = BULL_COLOR if is_bullish else BEAR_COLOR
         self._view_model.set_price_ticker(f"{symbol}  {c:,.2f}", price_color)
@@ -573,13 +655,20 @@ class DashboardPresenter(BasePresenter):
         symbols: List[str],
         interval_str: str,
         limit: int,
+        token: CancellationToken,
     ) -> None:
         """
         @brief Background worker: queries historical klines for each symbol and
         emits results via ui_history_reloaded_signal for safe main-thread rendering.
+        @param token Checked before each symbol — set by _on_stop_stream, not
+        by navigating away (see DashboardPresenter's _cancellation_token
+        docstring). Nothing after a cancelled check touches the chart, so a
+        torn-down view is never reached mid-emit.
         """
         try:
             for symbol in symbols:
+                if token.is_cancelled():
+                    break
                 query = GetHistoricalKlinesQuery(
                     symbol=symbol,
                     interval=interval_str,
@@ -618,11 +707,14 @@ class DashboardPresenter(BasePresenter):
         interval: TimeFrame,
         interval_str: str,
         limit: int,
+        token: CancellationToken,
     ) -> None:
         """
         @brief Background worker for the full Auto-Sync → Load History → Start Stream
         workflow. All three steps run sequentially in one background thread.
         Results are communicated back to the UI exclusively via signals.
+        @param token Checked between steps and per-symbol — see
+        _run_load_history's docstring for the cancellation contract.
         """
         try:
             # Step 1: Auto-Sync (fill any data gaps)
@@ -630,9 +722,14 @@ class DashboardPresenter(BasePresenter):
             sync_cmd = SyncMarketDataCommand(symbols=symbols, interval=interval)
             self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
+            if token.is_cancelled():
+                return
+
             # Step 2: Reload historical data onto charts
             self.ui_log_signal.emit("Reloading historical data onto charts...")
             for symbol in symbols:
+                if token.is_cancelled():
+                    return
                 query = GetHistoricalKlinesQuery(
                     symbol=symbol,
                     interval=interval_str,
@@ -650,6 +747,9 @@ class DashboardPresenter(BasePresenter):
                         symbol, mapped_data, volume_data
                     )
                     self._script_runner.feed_all(ordered_klines)
+
+            if token.is_cancelled():
+                return
 
             # Step 3: Start the Live WebSocket stream
             self.ui_log_signal.emit("Opening Websocket stream...")

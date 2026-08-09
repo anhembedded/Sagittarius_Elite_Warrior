@@ -150,7 +150,98 @@ liệu tải về đã gần khớp render window rồi (trước đây phải z
 
 ---
 
-## 5. Auto-start Live Stream với fallback (US-08)
+## 5. Auto-start Live Stream với fallback (US-08)  *(ĐÃ XONG)*
+
+### §9 — Đã build gì thực tế (khác thiết kế ban đầu ở đâu, và tại sao)
+
+**`AutoStartController`** (`screens/dashboard/autostart_controller.py`) — khớp thiết kế ở dưới, 2
+khác biệt:
+- `make_timer: Callable[...]` bị bỏ — dùng thẳng `QTimer(self)` thật bên trong, không inject factory.
+  Test (`test_autostart_controller.py`) dùng `fallback_seconds` cực nhỏ (0.05s) + `qtbot.wait(...)`
+  thay vì fake clock — khớp convention có sẵn của repo này (xem `test_dev_board_async_race_conditions.py`),
+  đơn giản hơn mà vẫn test được hành vi thật.
+- `fallback_seconds` không hardcode `2` — đọc từ `IConfig` (key `DEV_BOARD_AUTOSTART_FALLBACK_SECONDS`,
+  default `2.0`), theo đúng tinh thần "đọc từ config, đừng hardcode" đã áp dụng cho §4's safety floor.
+  Lý do cụ thể: test tích hợp cần đẩy giá trị này ra rất lớn (xem "Cạm bẫy" bên dưới) — nếu hardcode
+  thì không có cách nào làm được việc đó từ test.
+- Thêm `shutdown()` (khác `on_market_tick()`): dừng timer đang chờ mà KHÔNG coi đó là "đã có tick".
+  Cần cho fixture teardown (xem "Cạm bẫy") — gọi `on_market_tick()` ở đó sẽ sai ngữ nghĩa (chưa
+  có tick thật nào xảy ra).
+
+**`_on_load_history` — thêm guard mới**: kiểm tra `self.fsm.current_state == UIMode.LOCKED` (bên
+cạnh guard `historyLoading` có sẵn) — auto-start's `_run_sync_and_start` khoá FSM ở LOCKED trong
+lúc chạy nhưng KHÔNG set `historyLoading` (chỉ `_on_load_history` tự set), nên trước khi có guard
+này, 1 lần bấm "Load History" thủ công đúng lúc auto-start đang LOCKED sẽ submit thêm 1 background
+task chạy song song với task auto-start — điều mà trước đây gần như không thể xảy ra (không có gì
+tự bấm Start Live khi mở màn hình).
+
+**`_on_start_stream` — thêm guard mới**: `if self.fsm.current_state != UIMode.IDLE: return` — lý do
+tương tự, trước auto-start hàm này chỉ có thể được gọi khi FSM đang IDLE (unreachable case nào
+khác), giờ auto-start tự gọi ngay lúc `__init__`, nên 1 click "Start Live" thủ công trong lúc auto-start
+đang LOCKED/LIVE giờ **có thể** xảy ra và phải được chặn thay vì raise `InvalidStateTransitionError`.
+
+**`CancellationToken`** (theo đúng yêu cầu của user, nguyên văn: *"không cần stop stream khi nhảy
+tab nhé, khi nào thoát app hoặc user stop thui. Sagitarius có cancellToken, hay tận dụng"*) —
+**KHÔNG** build cơ chế "cancel khi navigate away/đổi tab". `DashboardPresenter` giữ 1
+`self._cancellation_token: CancellationToken` (từ `sagittarius_engine.runtime.tasks.cancellation_token`
+— primitive có sẵn, không viết mới), truyền vào `_run_load_history`/`_run_sync_and_start` làm tham
+số cuối, kiểm tra `token.is_cancelled()` ở đầu mỗi vòng lặp theo symbol. Chỉ 2 nơi cancel:
+`_on_stop_stream()` (user bấm Stop — cancel token cũ, phát token mới để lần Start Live tiếp theo
+không bị cancel sẵn) và test fixture teardown (tương đương "thoát app" trong môi trường test — xem
+"Cạm bẫy" bên dưới). KHÔNG có hook nào khác cancel token này.
+
+### Cạm bẫy đã dính khi verify — 1 crash thật, đã root-cause đầy đủ
+
+**Windows access violation** (crash C++ thật, không phải Python exception) xuất hiện khi chạy
+integration test suite cho Dev Board sau khi auto-start hoạt động — không xuất hiện trước đó (đã
+bisect bằng cách chạy lại đúng tổ hợp test trên commit trước auto-start, pass sạch). Đã tốn nhiều
+vòng điều tra vì có tới **3 nguyên nhân riêng biệt**, mỗi cái chỉ giảm tần suất crash chứ không hết
+hẳn — chỉ khi sửa đủ cả 3 mới hết crash 100%:
+
+1. **QTimer fallback không bị huỷ khi test kết thúc**: `AutoStartController.begin()` luôn hẹn giờ
+   2 giây, chỉ bị huỷ bởi `on_market_tick()` (tick thật từ WebSocket) — dispatcher giả lập trong
+   test không bao giờ phát tick, nên timer này luôn tồn tại tới khi hết hạn, kể cả sau khi test đã
+   kết thúc và widget đã bị huỷ. **Sửa**: thêm `AutoStartController.shutdown()` gọi ở
+   `main_window` fixture teardown (`conftest.py`), huỷ timer trước khi widget bị destroy.
+2. **`ChartCard.viewport` không có cha C++ (`ViewportController.__init__` không nhận `parent`)**:
+   `installEventFilter()` chỉ lưu raw pointer, không giữ vòng đời — nếu widget bị Qt destroy trước
+   khi Python object của `ViewportController` bị GC (hoặc ngược lại), bên còn sống giữ 1 con trỏ
+   treo. `ChartCard.cleanup()` (đã có sẵn, gọi đúng lúc `render_symbol_cards()` thay card) chưa từng
+   được gọi ở lúc **kết thúc test hẳn** (card cuối cùng của 1 test không bị thay, chỉ bị destroy
+   thẳng qua Qt). **Sửa**: gọi `card.cleanup()` cho mọi `view.chart_cards` trong `main_window`
+   fixture teardown, trước khi để Qt destroy widget.
+3. **Nguyên nhân chính, khó thấy nhất**: `qtbot.waitSignal(presenter.ui_script_region_signal, ...)`
+   — tín hiệu này bắn **1 lần mỗi bar mỗi script đang bật** (`IndicatorScriptRunner.feed()`), nên 1
+   click Load History với 4 EMA mặc định bật sẵn đã bắn dồn dập nhiều lần liên tiếp từ 1 background
+   thread. `pytest-qt`'s `SignalBlocker` disconnect ngay sau lần bắn ĐẦU TIÊN nó nhận được — nhưng
+   Qt **không huỷ ngược các event đã post vào queue trước đó** cho 1 kết nối queued connection.
+   Nếu server thread bắn dồn dập nhanh hơn main thread xử lý+disconnect kịp, các event còn lại
+   trong queue vẫn được deliver vào `SignalBlocker` đã (hoặc sắp) chết → dùng object đã chết →
+   crash. Bisect xuống được 1 test **chạy đơn lẻ, crash 100% mỗi lần** để xác nhận (không cần test
+   nào khác, không cần race 2 luồng nền chồng nhau — chỉ cần 1 lần Load History với vài script bật
+   sẵn là đủ dồn dập). **Sửa đúng chỗ**: đổi các `qtbot.waitSignal(presenter.ui_script_region_signal, ...)`
+   sang `qtbot.waitSignal(presenter.ui_history_load_finished_signal, ...)` (tín hiệu bắn ĐÚNG 1 lần,
+   trong `finally` của `_run_load_history`) ở `test_dev_board_indicators.py` +
+   `test_dev_board_custom_scripts.py`. Bài học chung: **không `qtbot.waitSignal()` trên tín hiệu có
+   thể bắn nhiều lần liên tiếp từ background thread** — luôn chọn tín hiệu "xong hẳn 1 lần" làm
+   điểm đồng bộ.
+
+Ngoài 3 cái trên, còn 2 việc phụ đi kèm để test ổn định:
+- `mock_config.get.return_value = <blanket>` (không key-aware) từng "vô hại" trước khi §5 thêm 1
+  key config mới (`DEV_BOARD_AUTOSTART_FALLBACK_SECONDS`) — dính lại đúng cạm bẫy đã ghi ở §4, lần
+  này ở `test_dashboard_presenter.py` (unit test, không phải integration) chứ không phải 2 file đã
+  sửa ở §4. Sửa theo đúng pattern cũ: `side_effect = lambda key, default=None, cast=None: default`.
+- `test_sanity_ui_e2e.py` từng tự định nghĩa `app_engine`/`main_window` riêng (trùng gần như y hệt
+  `conftest.py`, có trước khi `conftest.py`'s fixture tồn tại) — nghĩa là mọi fix teardown ở trên
+  KHÔNG áp dụng cho file này. Đã xoá bản duplicate, để file này dùng chung fixture với các file
+  khác — tránh việc phải sửa cùng 1 bug ở 2 chỗ trong tương lai. 2 assertion cũ giả định FSM luôn
+  IDLE sau khi navigate tới Dev Board cũng cần sửa thành LOCKED/LIVE/ERROR (do auto-start), và bước
+  "click Start Live thủ công" trong `test_sanity_dev_board_full_feature_walkthrough` bị xoá vì auto-start
+  đã làm việc đó rồi — click lại giờ là no-op theo guard mới ở trên.
+
+### Kết quả cuối
+396 unit test + 29 integration test (thư mục `presentation/ui/`) pass sạch, chạy lại 3 lần liên
+tiếp không crash, không flaky.
 
 ### Hiện trạng quan trọng (đã verify, không phải suy đoán)
 - `StartLiveStreamCommandHandler.execute()` → `BinanceWebsocketService.start_stream()` trả `True`

@@ -37,6 +37,7 @@ from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (  # noqa: E402
     DashboardView,
 )
+from Binace_Bot.src.presentation.ui.constants import UIMode  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +78,15 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     script_registry.register("ema_cross", EmaCrossScript)
 
     mock_config = MagicMock()
-    mock_config.get.return_value = False
+    # Key-aware, not a blanket stub: a blanket `return_value = False` used to
+    # be harmless (only _compute_fetch_limit's floor read it, and
+    # max(75, slowest, 0) doesn't care) but BOT-034's fallback_seconds read
+    # made it a real bug — False * 1000 == 0, so AutoStartController's
+    # fallback timer fired almost immediately instead of never, racing the
+    # test body's own action against a background _load_history() call it
+    # never expected. Falling through to the caller's own `default` matches
+    # what the real ConfigManager.get() does for an unset key.
+    mock_config.get.side_effect = lambda key, default=None, cast=None: default
     mock_config.get_all.return_value = {}
 
     def resolve_side_effect(interface):
@@ -105,8 +114,22 @@ def view(qapp):
 
 
 @pytest.fixture
-def presenter(view, mock_container):
-    return DashboardPresenter(view, mock_container)
+def presenter(view, mock_container, mock_thread_mgr):
+    """
+    @details BOT-034: construction now auto-starts (AutoStartController.begin()
+    calls _on_start_stream(), which submits a background task and locks the
+    FSM) — this mock thread manager never actually runs that task, so left
+    alone the FSM would sit LOCKED forever, an artifact of the mock rather
+    than real behavior (in the real app the task completes quickly one way
+    or the other). Reset both the submit call history and the FSM back to
+    IDLE here so every *other* test's assertions reflect only its own
+    action — see test_autostart_controller_integration.py for tests that
+    exercise auto-start's own effect on a freshly-constructed presenter.
+    """
+    p = DashboardPresenter(view, mock_container)
+    mock_thread_mgr.submit.reset_mock()
+    p.fsm.transition_to(UIMode.ERROR)  # auto-recovers to IDLE via _on_fsm_error
+    return p
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +178,7 @@ def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher
     mock_dispatcher.dispatch.return_value = [mock_kline]
 
     symbols = ["BTCUSDT", "ETHUSDT"]
-    presenter._run_load_history(symbols, "1m", 5000)
+    presenter._run_load_history(symbols, "1m", 5000, presenter._cancellation_token)
 
     assert mock_dispatcher.dispatch.call_count == 2
     for i, call_args in enumerate(mock_dispatcher.dispatch.call_args_list):
@@ -178,7 +201,9 @@ def test_run_load_history_handles_exception_per_symbol(presenter, mock_dispatche
     presenter.ui_log_signal.connect(logs.append)
 
     # Should not raise
-    presenter._run_load_history(["BTCUSDT", "ETHUSDT"], "1m", 100)
+    presenter._run_load_history(
+        ["BTCUSDT", "ETHUSDT"], "1m", 100, presenter._cancellation_token
+    )
 
     assert any("BTCUSDT" in log for log in logs)
 
@@ -268,7 +293,9 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
 
     from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
-    presenter._run_sync_and_start(["BTCUSDT"], TimeFrame("1m"), "1m", 5000)
+    presenter._run_sync_and_start(
+        ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
+    )
 
     call_types = [args[0][0] for args in mock_dispatcher.dispatch.call_args_list]
     assert SyncMarketDataCommand in call_types
@@ -280,6 +307,54 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
     query_idx = call_types.index(GetHistoricalKlinesQuery)
     stream_idx = call_types.index(StartLiveStreamCommand)
     assert sync_idx < query_idx < stream_idx
+
+
+# ---------------------------------------------------------------------------
+# Cancellation token (BOT-034) — cooperative early-exit for background work,
+# so a torn-down chart/view is never touched after the user has stopped.
+# ---------------------------------------------------------------------------
+
+
+def test_run_load_history_does_nothing_with_an_already_cancelled_token(
+    presenter, mock_dispatcher
+):
+    from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
+
+    token = CancellationToken()
+    token.cancel()
+
+    presenter._run_load_history(["BTCUSDT"], "1m", 100, token)
+
+    mock_dispatcher.dispatch.assert_not_called()
+
+
+def test_run_sync_and_start_stops_after_step_1_when_cancelled(
+    presenter, mock_dispatcher
+):
+    """Sync (Step 1) always runs — cancellation is checked *between* steps,
+    not before the first one — but History (Step 2) and Start Stream
+    (Step 3) must not run once cancelled."""
+    from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+    from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
+
+    token = CancellationToken()
+    token.cancel()
+    mock_dispatcher.dispatch.return_value = []
+
+    presenter._run_sync_and_start(["BTCUSDT"], TimeFrame("1m"), "1m", 5000, token)
+
+    call_types = [args[0][0] for args in mock_dispatcher.dispatch.call_args_list]
+    assert call_types == [SyncMarketDataCommand]
+
+
+def test_stop_stream_cancels_the_current_token_and_issues_a_fresh_one(presenter):
+    old_token = presenter._cancellation_token
+
+    presenter._on_stop_stream()
+
+    assert old_token.is_cancelled()
+    assert presenter._cancellation_token is not old_token
+    assert not presenter._cancellation_token.is_cancelled()
 
 
 # ---------------------------------------------------------------------------
@@ -436,6 +511,46 @@ def test_ws_status_badge_reflects_fsm_state(presenter):
     presenter.fsm.transition_to(UIMode.LOCKED)
 
     assert presenter._view_model.wsStatusText == "WS: SYNCING"
+
+
+# ---------------------------------------------------------------------------
+# Auto-start (BOT-034) — construction-time wiring. Uses `view`/`mock_container`
+# directly (not the `presenter` fixture, which deliberately resets past
+# auto-start's own effect for every other test — see its docstring) so these
+# can observe the real moment of construction.
+# ---------------------------------------------------------------------------
+
+
+def test_construction_auto_starts_immediately(view, mock_container, mock_thread_mgr):
+    p = DashboardPresenter(view, mock_container)
+
+    assert p.fsm.current_state.name == "LOCKED"
+    assert mock_thread_mgr.submit.call_count == 1
+    assert mock_thread_mgr.submit.call_args[0][0] == p._run_sync_and_start
+
+
+def test_starting_live_manually_while_autostart_pending_is_rejected(
+    view, mock_container, mock_thread_mgr
+):
+    """The FSM-state guard added alongside auto-start (BOT-034) — without
+    it, a manual Start Live click during the auto-start window would raise
+    InvalidStateTransitionError (LOCKED -> LOCKED)."""
+    p = DashboardPresenter(view, mock_container)
+    mock_thread_mgr.submit.reset_mock()
+
+    p._on_start_stream()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert p.fsm.current_state.name == "LOCKED"
+
+
+def test_a_market_tick_cancels_the_autostart_fallback_timer(view, mock_container):
+    p = DashboardPresenter(view, mock_container)
+    assert p._autostart._timer is not None  # fallback armed by construction
+
+    p._on_ui_chart_update("ETHUSDT", 1.0, 100.0, 101.0, 99.0, 100.5, 5.0, False)
+
+    assert p._autostart._timer is None
 
 
 # ---------------------------------------------------------------------------

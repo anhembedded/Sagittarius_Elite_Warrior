@@ -69,11 +69,19 @@ def test_enabling_a_script_then_load_history_registers_it_as_active(
     constraint test_dev_board_indicators.py's MACD warm-up test documents) —
     ui_indicator_data_signal never fires for a script line under warm-up (see
     BaseIndicatorScript.plot(): a None value isn't entered into the buffer at
-    all, so compute() has nothing to emit). ui_script_region_signal is used
-    instead as the synchronization point because IndicatorScriptRunner.feed()
-    emits it unconditionally every bar, regardless of warm-up. Curve
-    rendering itself is already covered with properly warmed-up synthetic
-    data in test_indicator_script_runner.py/test_chart_card.py.
+    all, so compute() has nothing to emit). Curve rendering itself is already
+    covered with properly warmed-up synthetic data in
+    test_indicator_script_runner.py/test_chart_card.py.
+
+    Synchronizes on ui_history_load_finished_signal (fires exactly once per
+    _run_load_history call) rather than ui_script_region_signal — the latter
+    fires once per bar per active script, which can burst multiple times in
+    quick succession from a background thread and race
+    qtbot.waitSignal()'s single-shot disconnect (Qt does not retroactively
+    cancel already-posted queued events for a cross-thread signal emission
+    once disconnected) — a real, reproduced Windows access violation, not a
+    hypothetical one. See test_dev_board_indicators.py's module docstring
+    for the full bisection.
     """
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
@@ -82,7 +90,7 @@ def test_enabling_a_script_then_load_history_registers_it_as_active(
     row = _row_index(script_model, "ema_ribbon")
     script_model.setEnabled(row, True)
 
-    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
     assert "ema_ribbon" in presenter._script_runner.active
@@ -99,7 +107,7 @@ def test_unchecking_a_script_stops_it_from_running_on_the_next_load(
     script_model = view._view_model.script_model
     row = _row_index(script_model, "ema_ribbon")
     script_model.setEnabled(row, True)
-    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
         _click_load_history(view, qml_item)
     assert "ema_ribbon" in presenter._script_runner.active
 

@@ -92,9 +92,13 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     logs = []
     presenter.ui_log_signal.connect(lambda msg: logs.append(msg))
 
-    # Before click: FSM is IDLE (System Controls active, Stop disabled — see
-    # DevBoardPanel.qml's `root.controlsActive` / `uiMode === "LIVE"` bindings).
-    assert presenter.fsm.current_state == UIMode.IDLE
+    # BOT-034: construction already auto-started Start Live, and this
+    # fixture's mock_thread_mgr runs submitted tasks synchronously — so by
+    # the time we get here, that background run already completed (dispatch
+    # wasn't broken yet) and landed on LIVE. Not this test's concern (it's
+    # about _on_load_history's exception handling, not FSM state) — just
+    # documenting why this isn't IDLE anymore.
+    assert presenter.fsm.current_state == UIMode.LIVE
 
     # Emit load history, which will hit the exception in mock_app.dispatch
     presenter._on_load_history()
@@ -103,6 +107,6 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     assert any("Engine died" in log for log in logs)
 
     # _on_load_history never locks the FSM (only _on_start_stream does), so
-    # an exception here must leave it exactly where it started — IDLE, i.e.
-    # the UI stays/ends up unlocked rather than stuck mid-load.
-    assert presenter.fsm.current_state == UIMode.IDLE
+    # an exception here must leave it exactly where it started (LIVE, from
+    # auto-start above) — not stuck mid-load in some other state.
+    assert presenter.fsm.current_state == UIMode.LIVE

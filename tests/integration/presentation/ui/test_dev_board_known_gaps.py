@@ -29,6 +29,41 @@ def _click_load_history(view, qml_item):
     qml_item(root, "btnLoadHistory").clicked.emit()
 
 
+def _wait_for_reload_or_restart(qtbot, presenter, action, timeout=3000):
+    """
+    @brief Waits for `action` to finish settling, whichever background path
+    it took.
+    @details A timeframe change (or Load History) can resolve through either
+    _run_load_history (emits ui_history_reloaded_signal /
+    ui_history_load_finished_signal) or, if the FSM is already LIVE (which
+    BOT-034 auto-start often leaves it in — navigate() only waits for the
+    *first* Start Live attempt to settle, not every later action),
+    _run_sync_and_start's stop-then-restart path (emits
+    ui_stream_success_signal / ui_stream_failed_signal instead). Waiting on
+    only one of these signal families is what made this test flaky —
+    whichever path the code didn't take left the test waiting for a signal
+    that would never come.
+    """
+    settled = {"done": False}
+
+    def _mark_settled(*_args) -> None:
+        settled["done"] = True
+
+    signals = [
+        presenter.ui_history_reloaded_signal,
+        presenter.ui_stream_success_signal,
+        presenter.ui_stream_failed_signal,
+    ]
+    for sig in signals:
+        sig.connect(_mark_settled)
+    try:
+        action()
+        qtbot.waitUntil(lambda: settled["done"], timeout=timeout)
+    finally:
+        for sig in signals:
+            sig.disconnect(_mark_settled)
+
+
 def test_symbol_dropdown_does_not_change_loaded_symbol(
     qtbot, main_window, navigate, qml_item
 ):
@@ -74,14 +109,21 @@ def test_chart_toolbar_timeframe_click_triggers_a_reload(
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
 
-    with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
-        _click_load_history(view, qml_item)
+    # BOT-034 auto-start likely already left the FSM at LIVE by the time
+    # this test starts (navigate() only waits for the *first* Start Live
+    # attempt to settle) — see _wait_for_reload_or_restart's docstring for
+    # why that means either action below could take the plain-reload path
+    # or the stop-then-restart path.
+    _wait_for_reload_or_restart(
+        qtbot, presenter, lambda: _click_load_history(view, qml_item)
+    )
     assert presenter._active_interval == "1m"
     card = view.chart_cards[0]
 
     btn_5m = card.toolbar._buttons["5m"]
-    with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
-        qtbot.mouseClick(btn_5m, Qt.LeftButton)
+    _wait_for_reload_or_restart(
+        qtbot, presenter, lambda: qtbot.mouseClick(btn_5m, Qt.LeftButton)
+    )
 
     assert presenter._active_interval == "5m"
 
@@ -94,8 +136,9 @@ def test_reclicking_the_same_timeframe_does_not_reload(
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
 
-    with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
-        _click_load_history(view, qml_item)
+    _wait_for_reload_or_restart(
+        qtbot, presenter, lambda: _click_load_history(view, qml_item)
+    )
     card = view.chart_cards[0]
 
     reloaded = []

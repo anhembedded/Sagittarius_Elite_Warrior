@@ -13,12 +13,25 @@ wiring itself; this file only pins down that the *default* indicators are
 wired correctly.
 
 conftest.MOCK_KLINE_COUNT is 5 — too few to warm up RSI(14)/EMA(20+)/MACD
-(needs 14/20/35 bars respectively), so these tests synchronize on
-ui_script_region_signal (fires every bar regardless of warm-up, see
-IndicatorScriptRunner.feed()) rather than ui_indicator_data_signal, and
-assert against presenter._script_runner.active rather than rendered curves
-— curve rendering with properly warmed-up data is already covered in
+(needs 14/20/35 bars respectively), so these tests assert against
+presenter._script_runner.active rather than rendered curves — curve
+rendering with properly warmed-up data is already covered in
 test_indicator_script_runner.py/test_chart_card.py.
+
+BOT-034: synchronize on ui_history_load_finished_signal (fires exactly once
+per _run_load_history call, unconditionally, in its `finally`), not
+ui_script_region_signal/ui_indicator_data_signal — those fire once per bar
+per active script, so a single Load History click against
+MOCK_KLINE_COUNT=5 candles times 4 pre-enabled EMA scripts already bursts
+several of them in quick succession from a background thread.
+qtbot.waitSignal()'s SignalBlocker disconnects after the first hit, but Qt
+does not retroactively cancel already-posted queued events for a signal
+emitted cross-thread — any of the burst's later events still land on the
+now-stale/disconnecting SignalBlocker. This was a real, reproduced Windows
+access violation (bisected to a single, deterministic test, independent of
+any other test or of BOT-034's auto-start actually racing anything — the
+burst alone is enough), not a hypothetical one. Waiting on a signal that
+fires exactly once avoids the whole class of failure.
 """
 
 
@@ -63,7 +76,7 @@ def test_rsi_14_registers_as_a_subplot_script(qtbot, main_window, navigate, qml_
     presenter, view = _open_dashboard(navigate)
     view._view_model.script_model.setEnabled(_row_index(view, "rsi_14"), True)
 
-    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
     assert presenter._script_runner.active["rsi_14"].overlay is False
@@ -75,7 +88,7 @@ def test_ema_registers_as_overlay_not_subplot(qtbot, main_window, navigate, qml_
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
 
-    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
     assert presenter._script_runner.active["ema_20"].overlay is True
@@ -91,7 +104,7 @@ def test_all_default_scripts_together_no_key_collisions(
     for key in ("rsi_14", "macd_full"):
         view._view_model.script_model.setEnabled(_row_index(view, key), True)
 
-    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
     active = presenter._script_runner.active
@@ -144,7 +157,7 @@ def test_macd_produces_no_series_with_too_little_history(
     presenter, view = _open_dashboard(navigate)
     view._view_model.script_model.setEnabled(_row_index(view, "macd_full"), True)
 
-    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
     assert presenter._script_runner.active["macd_full"].series == {}

@@ -1,122 +1,34 @@
 import os
 import pytest
-from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
+from datetime import datetime, timezone
 
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-# Delay importing PySide6 and app code until within the test or fixture
-# to ensure QT_QPA_PLATFORM is evaluated early.
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.main import create_app
-from Binace_Bot.src.presentation.ui.main_window import MainWindow
 
+# app_engine/main_window come from conftest.py — this file used to define
+# its own near-duplicate copies (predating BOT-034), which meant the
+# auto-start fallback-window override and the teardown fixes (cancellation,
+# thread-pool drain, chart-card cleanup — see conftest.py's main_window
+# docstring for why each exists) silently didn't apply to any test here.
+# That gap didn't crash outright in this file, but nothing here was actually
+# protected from the same race either — deleting the local duplicates
+# instead of re-patching them a second place keeps there being exactly one
+# fixture to keep correct.
+#
+# Must match conftest.MOCK_KLINE_COUNT (not imported: this directory's test
+# modules have no __init__.py, so they're collected as top-level modules,
+# not a package — a relative `from .conftest import` would fail).
 _MOCK_KLINE_COUNT = 5
-
-
-def _build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
-    """Newest-first MarketData list, matching what the real repository
-    returns (DashboardPresenter reverses it before rendering)."""
-    base_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    klines = []
-    for i in range(_MOCK_KLINE_COUNT):
-        open_time = base_time + timedelta(minutes=i)
-        close_time = open_time + timedelta(minutes=1)
-        klines.append(
-            MarketData(
-                symbol=symbol,
-                interval=interval,
-                open_time=open_time,
-                open_price=100.0 + i,
-                high_price=101.0 + i,
-                low_price=99.0 + i,
-                close_price=100.5 + i,
-                volume=10.0,
-                close_time=close_time,
-                quote_asset_volume=1000.0,
-                number_of_trades=5,
-                taker_buy_base_asset_volume=5.0,
-                taker_buy_quote_asset_volume=500.0,
-            )
-        )
-    klines.reverse()
-    return klines
-
-
-@pytest.fixture
-def app_engine(request, monkeypatch):
-    """
-    Boot the Sagittarius Engine with all configurations but mock the
-    dispatcher backend. Defaults to dev.mode=False (matching app_config.json);
-    parametrize indirectly with `True` to boot with dev mode on, e.g.:
-    `@pytest.mark.parametrize("app_engine", [True], indirect=True)`.
-    """
-    dev_mode = getattr(request, "param", False)
-    config_manager = ConfigManager()
-
-    # Resolve the config path relative to this test file — 5 levels up from
-    # tests/integration/presentation/ui/<this file> reaches the Binace_Bot
-    # root (previously only 4, which silently resolved to tests/ instead:
-    # every JsonSource.read() returned {} on a missing file, so app/user
-    # config was a silent no-op in every test in this file).
-    base_dir = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    )
-    app_json = os.path.join(base_dir, "src", "config", "app_config.json")
-    user_json = os.path.join(base_dir, "src", "config", "user_config.json")
-
-    config_manager.load_json(app_json)
-    config_manager.load_json(user_json)
-    if dev_mode:
-        config_manager.load_dict({"dev.mode": True})
-
-    engine = create_app(config_manager)
-
-    # Mock the internal dispatcher to intercept commands and queries
-    # instead of doing real Binance/DB calls.
-    def mock_dispatch(command_type, command_obj):
-        # Always return success structure
-        response = MagicMock()
-        response.success = True
-        if command_type is GetHistoricalKlinesQuery:
-            # Real candles so chart-rendering features have something to
-            # render, instead of the generic empty-list default below.
-            response.data = _build_mock_klines(command_obj.symbol)
-        else:
-            response.data = []  # Empty list to avoid DB operations
-        return response
-
-    monkeypatch.setattr(engine, "dispatch", mock_dispatch)
-
-    # We must also mock the dispatcher inside the container
-    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-
-    container_dispatcher = engine.context.container.resolve(IDispatcher)
-    monkeypatch.setattr(container_dispatcher, "dispatch", mock_dispatch)
-
-    engine.boot()
-    yield engine
-    engine.stop()
-
-
-@pytest.fixture
-def main_window(qapp, app_engine):
-    """Instantiate the MainWindow with the mocked engine."""
-    window = MainWindow(app_engine)
-    window.show()
-    return window
 
 
 def test_sanity_boot_and_dashboard(qtbot, main_window, navigate, qml_item):
     """
-    Test that the app boots correctly, navigation to Dashboard works,
-    and Start Stream safely triggers FSM transition to LOCKED.
+    Test that the app boots correctly, navigation to Dashboard works, and
+    BOT-034's auto-start safely drives the FSM through LOCKED to a settled
+    state with no user click needed.
     """
     qtbot.addWidget(main_window)
 
@@ -131,20 +43,13 @@ def test_sanity_boot_and_dashboard(qtbot, main_window, navigate, qml_item):
     assert dashboard_cfg["view_instance"] is not None
 
     presenter = dashboard_cfg["presenter_instance"]
-    view = dashboard_cfg["view_instance"]
 
-    # Ensure starting mode is IDLE
-    assert presenter.fsm.current_state.value == "IDLE"
-
-    # Simulate user clicking "Start Live" on the Dev Board (BOT-030 Phase 4 —
-    # QML button, in the System Controls card of DevBoardPanel.qml).
-    with qtbot.waitSignal(presenter.ui_stream_success_signal, timeout=2000):
-        qml_item(view.quick_widget.rootObject(), "btnStart").clicked.emit()
-
-    # After a successful mock dispatch, the state should ideally return to LIVE
-    # but the sequence in _on_start_stream triggers async thread.
-    # Our mocked dispatcher returns instantly, so we can verify if
-    # FSM at least transitioned correctly.
+    # BOT-034: opening the Dev Board auto-starts Start Live — navigate()
+    # already waited for it to settle (success or failure), so by the time
+    # we get here the FSM has already gone IDLE -> LOCKED -> LIVE (or ERROR
+    # on a failed mock dispatch), with no click involved. A manual "Start
+    # Live" click on top of that is now a deliberate no-op (see
+    # DashboardPresenter._on_start_stream's FSM-not-IDLE guard).
     assert presenter.fsm.current_state.value in ["LOCKED", "LIVE", "ERROR"]
 
 
@@ -192,6 +97,15 @@ def test_sanity_dev_board_full_feature_walkthrough(
     development, so a broken button here blocks manual testing entirely.
     Covers: Load History, live-tick chart updates, Start/Stop Stream, and
     Clear Logs — driven through DevBoardPanel.qml (BOT-030 Phase 4).
+
+    BOT-034: opening the Dev Board now auto-starts Start Live, and
+    navigate() already waited for it to settle — so by the time this test's
+    body runs, FSM is already LIVE (not IDLE) with no click involved. A
+    manual "Start Stream" click at this point is a deliberate no-op (see
+    DashboardPresenter._on_start_stream's FSM-not-IDLE guard, added
+    specifically because auto-start made this reachable for the first
+    time) — Step 2 below asserts the auto-started state directly instead of
+    re-clicking a button that would otherwise just log "ignoring".
     """
     qtbot.addWidget(main_window)
 
@@ -200,9 +114,9 @@ def test_sanity_dev_board_full_feature_walkthrough(
     view = dashboard_cfg["view_instance"]
     assert view.quick_widget.errors() == []
     root = view.quick_widget.rootObject()
-    assert presenter.fsm.current_state.value == "IDLE"
+    assert presenter.fsm.current_state.value == "LIVE"
 
-    # --- 1. Load History -------------------------------------------------
+    # --- 1. Load History (manual re-load, on top of auto-start's own) ----
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         qml_item(root, "btnLoadHistory").clicked.emit()
 
@@ -210,10 +124,7 @@ def test_sanity_dev_board_full_feature_walkthrough(
     assert chart_card.symbol == "ETHUSDT"
     assert len(chart_card._raw_history) == _MOCK_KLINE_COUNT
 
-    # --- 2. Start Stream (Auto-Sync -> reload history -> open stream) ----
-    with qtbot.waitSignal(presenter.ui_stream_success_signal, timeout=2000):
-        qml_item(root, "btnStart").clicked.emit()
-    qapp.processEvents()
+    # --- 2. Start Stream — already running via auto-start ----------------
     assert presenter.fsm.current_state.value == "LIVE"
     assert qml_item(root, "btnStop").property("enabled") is True
 
