@@ -62,6 +62,20 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+    from Binace_Bot.src.application.services.indicator_script_registry import (
+        IndicatorScriptRegistry,
+    )
+    from Binace_Bot.src.domain.indicator_scripts import (
+        EmaCrossScript,
+        EmaRibbonScript,
+    )
+
+    # A real registry with the real scripts — they are pure state with no
+    # I/O, so mocking them would only test the mock (ui_architecture.md S10).
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("ema_ribbon", EmaRibbonScript)
+    script_registry.register("ema_cross", EmaCrossScript)
+
     mock_config = MagicMock()
     mock_config.get.return_value = False
     mock_config.get_all.return_value = {}
@@ -73,6 +87,8 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
             return mock_dispatcher
         if interface == IThreadManager:
             return mock_thread_mgr
+        if interface == IndicatorScriptRegistry:
+            return script_registry
         return MagicMock()
 
     container.resolve.side_effect = resolve_side_effect
@@ -363,3 +379,91 @@ def test_ws_status_badge_reflects_fsm_state(presenter):
     presenter.fsm.transition_to(UIMode.LOCKED)
 
     assert presenter._view_model.wsStatusText == "WS: SYNCING"
+
+
+# ---------------------------------------------------------------------------
+# Custom indicator scripts (BOT-032) — presenter side only.
+# The runner's own behaviour is covered in test_indicator_script_runner.py.
+# ---------------------------------------------------------------------------
+
+
+def _make_market_data(close: float, index: int):
+    """A real MarketData — scripts take the whole candle, so a MagicMock would
+    not exercise the real path."""
+    from datetime import UTC, datetime, timedelta
+
+    from Binace_Bot.src.domain.entities.market_data import MarketData
+
+    open_time = datetime(2024, 1, 1, tzinfo=UTC) + timedelta(minutes=index)
+    return MarketData(
+        symbol="ETHUSDT",
+        interval="1m",
+        open_time=open_time,
+        open_price=close,
+        high_price=close + 1,
+        low_price=close - 1,
+        close_price=close,
+        volume=10.0,
+        close_time=open_time + timedelta(minutes=1),
+        quote_asset_volume=1000.0,
+        number_of_trades=5,
+        taker_buy_base_asset_volume=5.0,
+        taker_buy_quote_asset_volume=500.0,
+    )
+
+
+def test_presenter_owns_a_script_runner_wired_to_its_signals(presenter):
+    assert presenter._script_runner is not None
+    # Emitting through the runner's callback must reach the presenter's signal,
+    # which is what keeps script output on the existing thread-safe path.
+    emitted = []
+    presenter.ui_indicator_data_signal.connect(lambda name, x, y: emitted.append(name))
+    presenter._script_runner._emit_line("ema_ribbon:EMA 20", [1.0], [2.0])
+
+    assert emitted == ["ema_ribbon:EMA 20"]
+
+
+def test_no_scripts_run_until_the_ui_enables_one(presenter):
+    """Registering a script must not silently draw it — the user opts in."""
+    presenter._rebuild_scripts()
+
+    assert presenter._script_runner.active == {}
+
+
+def test_script_lines_are_routed_to_the_runner_not_the_builtin_path(presenter):
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
+    presenter._rebuild_scripts()
+    active = presenter._script_runner.active["ema_ribbon"]
+    # line_colors() only fills in after a bar has run through the script.
+    active.script.compute(_make_market_data(100.0, 0))
+
+    presenter._on_indicator_data("ema_ribbon:EMA 20", [1.0], [100.0])
+
+    mock_card.add_overlay_indicator.assert_called_once_with(
+        "ema_ribbon:EMA 20", "#e74c3c"
+    )
+
+
+def test_built_in_indicator_curves_still_route_the_old_way(presenter):
+    """The `:` separator is the only thing distinguishing the two systems —
+    a bare name must never be mistaken for a script line."""
+    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+        _ActiveIndicator,
+    )
+
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    presenter.active_indicators = {
+        "EMA(20)": _ActiveIndicator(
+            indicator=MagicMock(),
+            extract_value=lambda v: v,
+            kind="overlay",
+            color="#fff",
+        )
+    }
+
+    presenter._on_indicator_data("EMA(20)", [1.0], [100.0])
+
+    mock_card.add_overlay_indicator.assert_called_once_with("EMA(20)", "#fff")

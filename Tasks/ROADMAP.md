@@ -21,10 +21,10 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 16 | 57% |
-| 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 12 | 43% |
-| 📈 **Tổng số Task** | **28** | **100%** |
+| 🟢 **Completed** | 16 | 53% |
+| 🟡 **In Progress** | 1 | 3% |
+| 🔴 **Backlog** | 13 | 44% |
+| 📈 **Tổng số Task** | **30** | **100%** |
 
 ---
 
@@ -51,6 +51,12 @@ Binace_Bot/Tasks/
 
 ---
 
+### 🟡 In Progress (Đang thực hiện)
+
+- [ ] **BOT-032**: [Custom Indicator Scripts (kiểu Pine Script, thuần Python)](in_progress/BOT-032_custom_indicator_scripts.md) — *Tự viết indicator bằng 1 class Python thường (`setup()` khai báo, `execute()` gọi `self.plot()`/`self.mark()`), không tạo DSL mới. **Phase 0-1 xong**: `BaseIndicatorScript` + `IndicatorScriptRegistry` + `domain/scripting/` (Series index kiểu Pine `a[1]`, `crossed_above/below`, cắt giá, cắt mức hằng, so sánh None-safe) + `WMA` + 3 script mẫu (`ema_ribbon`/`macd_full`/`ema_cross`) + guard test. Còn Phase 2 (Presenter vẽ line), Phase 3 (UI bật/tắt), Phase 4 (**chart chưa vẽ được marker/màu-động/fill — giao nhau với BOT-026**), Phase 5 (docs), Phase 6 (chuyển RSI/EMA/MACD thành script). Task file có design + rule chi tiết cho model khác implement tiếp.*
+
+---
+
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
 | Priority | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
@@ -63,6 +69,7 @@ Binace_Bot/Tasks/
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
 | **P2** | **[Epic BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine — Màn hình Backtest Thực thụ** | `BOT-001` ✅ | Epic, chia theo Phase — xem bảng chi tiết bên dưới. Không còn phụ thuộc `BOT-008` (backtest dùng Paper Exchange giả lập, không cần order thật). |
 | **P3** | **[BOT-011](backlog/BOT-011_chart_tradingview_tier3_advanced.md)** | **TradingView Chart — Tier 3 Advanced** *(Ưu tiên thấp)* | `BOT-010` ✅ | Drawing tools (Trendline, Fibonacci), Context Menu chuột phải & Multi-chart/Snapshot. Giá trị thấp cho tự động hóa bot (task tự ghi chú); cần test tương tác chuột thật — cân nhắc kỹ trước khi làm toàn bộ. |
+| **P3** | **[BOT-031](backlog/BOT-031_ui_preview_convention_and_tool.md)** | **UI Preview Convention — mock file/màn + tool auto-discover** *(dev tooling)* | `BOT-030` ✅ | Chuẩn hoá `scripts/preview_qml.py` (prototype có sẵn, hardcode 4 màn) thành convention chính thức: mỗi View có 1 file `preview.py` cùng cấp, tool tự quét `screens/`/`components/` để phát hiện thay vì danh sách cứng, có guard test enforce. Do user chủ động đề xuất, hoãn ưu tiên. |
 
 #### 🎯 Epic BOT-006 — Chi tiết theo Phase
 

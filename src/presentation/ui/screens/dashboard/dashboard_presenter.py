@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Callable, List, Tuple
 
 from PySide6.QtCore import Signal, Slot
@@ -20,6 +21,10 @@ from Binace_Bot.src.application.use_cases.stream.stop_live_stream.command import
 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
+from Binace_Bot.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 from Binace_Bot.src.domain.indicators.ema import EMA
 from Binace_Bot.src.domain.indicators.macd import MACD
@@ -32,6 +37,7 @@ from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
 from Binace_Bot.src.presentation.ui.constants import UIMode
 
 from .dashboard_view_model import DashboardQmlViewModel
+from .indicator_script_runner import IndicatorScriptRunner
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -81,6 +87,43 @@ class _ActiveIndicator:
     registered_on_chart: bool = False
     x_data: list = field(default_factory=list)
     y_data: list = field(default_factory=list)
+
+
+def _tick_to_candle(
+    symbol: str,
+    close_timestamp: float,
+    open_price: float,
+    high_price: float,
+    low_price: float,
+    close_price: float,
+    volume: float,
+) -> MarketData:
+    """
+    @brief Rebuilds a MarketData from the flattened floats a live tick arrives as.
+    @details ui_chart_update_signal carries primitives (Qt signals can't ferry a
+    domain entity across threads cleanly), but a script's compute() takes the
+    whole candle so it can read high/low/volume. Only the OHLCV fields a script
+    can actually reach are real; the trade-count/quote-volume fields are filled
+    with zeroes because nothing downstream of here reads them — if a script ever
+    needs them, widen the signal rather than inventing values.
+    """
+    close_time = datetime.fromtimestamp(close_timestamp, tz=timezone.utc)
+    return MarketData(
+        symbol=symbol,
+        interval=_DEFAULT_INTERVAL_STR,
+        open_time=close_time,
+        open_price=open_price,
+        high_price=high_price,
+        low_price=low_price,
+        close_price=close_price,
+        volume=volume,
+        close_time=close_time,
+        quote_asset_volume=0.0,
+        number_of_trades=0,
+        taker_buy_base_asset_volume=0.0,
+        taker_buy_quote_asset_volume=0.0,
+        is_closed=True,
+    )
 
 
 class DashboardPresenter(BasePresenter):
@@ -151,6 +194,16 @@ class DashboardPresenter(BasePresenter):
 
         self.active_charts: dict = {}
         self.active_indicators: dict[str, _ActiveIndicator] = {}
+
+        # Custom indicator scripts (BOT-032), keyed by registry key. Kept in a
+        # separate dict from active_indicators because one script produces N
+        # named lines from a single compute() call, unlike the 1-to-1
+        # indicator-to-curve relationship above.
+        self._script_runner = IndicatorScriptRunner(
+            registry=container.resolve(IndicatorScriptRegistry),
+            emit_line=self.ui_indicator_data_signal.emit,
+            on_error=self.ui_log_signal.emit,
+        )
 
         # Must be called explicitly at the end of BasePresenter's contract,
         # and before load_qml() so QML parses against a ready view model.
@@ -288,6 +341,28 @@ class DashboardPresenter(BasePresenter):
                 card.remove_indicator(name)
 
     # ================================================================== #
+    # Custom indicator scripts (BOT-032) — orchestration lives in
+    # IndicatorScriptRunner; this presenter only says *when* things happen.
+    # ================================================================== #
+
+    def _enabled_script_keys(self) -> List[str]:
+        """
+        @brief Which scripts to run.
+        @details Phase 3 replaces this with the view model's script list model
+        (`self._view_model.script_model.enabled_keys`). Until that UI exists
+        there is no way for a user to choose, so nothing runs by default —
+        returning every registered script would silently draw lines the user
+        never asked for.
+        """
+        return []
+
+    def _rebuild_scripts(self) -> None:
+        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        if card is not None:
+            self._script_runner.clear_from_chart(card)
+        self._script_runner.rebuild(self._enabled_script_keys())
+
+    # ================================================================== #
     # Qt Slots — execute on the main thread.
     # Long-running work is delegated to dedicated background methods.
     # ================================================================== #
@@ -306,6 +381,7 @@ class DashboardPresenter(BasePresenter):
         self._ensure_chart_cards(symbols)
         self._clear_registered_indicators()
         self.active_indicators = self._build_active_indicators()
+        self._rebuild_scripts()
         self._thread_manager.submit(
             self._run_load_history, symbols, _DEFAULT_INTERVAL_STR, _DEFAULT_KLINE_LIMIT
         )
@@ -327,6 +403,7 @@ class DashboardPresenter(BasePresenter):
         chart_cards = self._ensure_chart_cards(symbols)
         self._clear_registered_indicators()
         self.active_indicators = self._build_active_indicators()
+        self._rebuild_scripts()
         self._view_model.log_model.append(f"Prepared {len(chart_cards)} charts.")
 
         self._thread_manager.submit(
@@ -385,10 +462,20 @@ class DashboardPresenter(BasePresenter):
     def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
         """Pushes a computed indicator series onto the chart (single-symbol
         Dev Board — see _DEFAULT_SYMBOLS), registering its overlay/subplot
-        curve on first use."""
-        active_indicator = self.active_indicators.get(name)
+        curve on first use.
+
+        Carries both built-in indicators (bare `name`) and script lines
+        (`key:line`) — the separator is what tells them apart, which is why
+        script curve names are namespaced."""
         card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
-        if active_indicator is None or card is None:
+        if card is None:
+            return
+
+        if self._script_runner.draw(card, name, x_data, y_data):
+            return
+
+        active_indicator = self.active_indicators.get(name)
+        if active_indicator is None:
             return
         self._ensure_indicator_registered(card, name, active_indicator)
         card.update_indicator_data(name, x_data, y_data)
@@ -450,6 +537,9 @@ class DashboardPresenter(BasePresenter):
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
                 self._update_indicators_on_closed_candle(card, t, c)
+                self._script_runner.feed(
+                    _tick_to_candle(symbol, t, o, h, low, c, volume)
+                )
             else:
                 card.update_last_candle(t, o, h, low, c)
                 card.update_last_volume(t, volume, is_bullish)
@@ -509,6 +599,7 @@ class DashboardPresenter(BasePresenter):
                 volume_data = self._map_volume(ordered_klines)
                 self.ui_history_reloaded_signal.emit(symbol, mapped_data, volume_data)
                 self._compute_indicator_series(ordered_klines)
+                self._script_runner.feed_all(ordered_klines)
 
             except Exception as exc:
                 self.ui_log_signal.emit(
@@ -553,6 +644,7 @@ class DashboardPresenter(BasePresenter):
                         symbol, mapped_data, volume_data
                     )
                     self._compute_indicator_series(ordered_klines)
+                    self._script_runner.feed_all(ordered_klines)
 
             # Step 3: Start the Live WebSocket stream
             self.ui_log_signal.emit("Opening Websocket stream...")

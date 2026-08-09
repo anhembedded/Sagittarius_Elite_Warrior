@@ -67,6 +67,15 @@ from Binace_Bot.src.application.event_handlers.market_data.market_tick_event_han
     MarketTickEventHandler,
 )
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Binace_Bot.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Binace_Bot.src.domain.indicator_scripts.dev_indicator_script import (
+    DevIndicatorScript,
+)
+from Binace_Bot.src.domain.indicator_scripts.ema_cross_script import EmaCrossScript
+from Binace_Bot.src.domain.indicator_scripts.ema_ribbon_script import EmaRibbonScript
+from Binace_Bot.src.domain.indicator_scripts.macd_full_script import MacdFullScript
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 
@@ -107,6 +116,16 @@ class BinanceBotModule(BaseModule):
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
         app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
+
+        # Indicator scripts — registered explicitly (no directory auto-scan) so
+        # what's installed is greppable here. A guard test fails if a script
+        # class exists under domain/indicator_scripts/ but is missing below.
+        script_registry = IndicatorScriptRegistry()
+        script_registry.register("ema_ribbon", EmaRibbonScript)
+        script_registry.register("macd_full", MacdFullScript)
+        script_registry.register("ema_cross", EmaCrossScript)
+        script_registry.register("dev_showcase", DevIndicatorScript)
+        app.container.singleton(IndicatorScriptRegistry, script_registry)
 
         # Register the WebsocketService as bound to its Interface
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
