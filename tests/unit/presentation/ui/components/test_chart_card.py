@@ -58,6 +58,53 @@ def test_chart_card_append_after_historical_render_does_not_duplicate(qapp):
     assert card._raw_history is not card.candlestick.history_data
 
 
+def test_chart_card_candle_width_is_robust_to_anomalous_first_gap(qapp):
+    """
+    Regression test: candle_width used to be computed once from ONLY
+    data[1][0] - data[0][0]. A single anomalous first gap (e.g. a missing
+    candle / exchange downtime right at the start of the loaded history)
+    then miscalibrated the width for every candle in the whole chart —
+    rendering them all far too wide (overlapping into a solid block) since
+    the rest of the series is evenly spaced at a much smaller interval.
+    Fixed by using the MEDIAN gap across the series, which is robust to a
+    minority of outlier gaps.
+    """
+    interval = 60.0
+    uniform_pairs = [(o, o + 2, o - 2, o + 1) for o in range(10)]
+    data = [
+        (1000.0 + i * interval, o, h, low, c)
+        for i, (o, h, low, c) in enumerate(uniform_pairs)
+    ]
+    # Corrupt only the first gap to be 10x larger than every other gap.
+    data[1] = (data[0][0] + interval * 10, *data[1][1:])
+
+    card = ChartCard("ETHUSDT")
+    card.render_historical_data(data)
+
+    assert card.candlestick.candle_width == pytest.approx(interval / 3.0)
+
+
+def test_chart_card_candle_width_is_positive_even_for_descending_data(qapp):
+    """
+    Regression test: candle_width was computed without abs(), so if `data`
+    were ever descending in time (should never happen given
+    DashboardPresenter always reverses to ascending before rendering, but
+    this class has no way to enforce that itself), every gap is negative and
+    candle_width goes negative — QRectF with a negative width breaks the
+    candle body rendering.
+    """
+    interval = 60.0
+    data = [
+        (1000.0 - i * interval, 50.0, 55.0, 48.0, 52.0) for i in range(5)
+    ]  # descending timestamps
+
+    card = ChartCard("ETHUSDT")
+    card.render_historical_data(data)
+
+    assert card.candlestick.candle_width > 0
+    assert card.candlestick.candle_width == pytest.approx(interval / 3.0)
+
+
 def test_chart_card_live_tick_rollover(qapp):
     """
     Test that explicitly calling append_closed_candle pushes the old candle to history.
@@ -141,6 +188,115 @@ def test_chart_card_ohlc_lookup_for_crosshair(qapp):
 
     assert card.candlestick.get_ohlc_at(1000.0) == data[0]
     assert card.candlestick.get_ohlc_at(1055.0) == data[1]  # Nearest to 1060.0
+
+
+def test_chart_card_ohlc_lookup_boundaries_and_live_candle(qapp):
+    """
+    Regression test for the bisect-based get_ohlc_at rewrite: out-of-range x
+    clamps to the nearest endpoint (not an IndexError), and a live (in-progress)
+    candle closer to x than anything in history still wins, matching the old
+    min()-over-all-candidates behavior it replaced.
+    """
+    card = ChartCard("BTCUSDT")
+    data = [(1000.0, 50.0, 55.0, 48.0, 52.0), (1060.0, 52.0, 58.0, 50.0, 57.0)]
+    card.render_historical_data(data)
+
+    assert card.candlestick.get_ohlc_at(0.0) == data[0]  # before first candle
+    assert card.candlestick.get_ohlc_at(999_999.0) == data[1]  # after last candle
+
+    card.candlestick.live_candle = (1062.0, 57.0, 60.0, 56.0, 59.0)
+    # 1061.5 is 1.5 from the historical candle (1060.0) but only 0.5 from
+    # the live one (1062.0) — clearly closer to live, not a tie.
+    assert card.candlestick.get_ohlc_at(1061.5) == card.candlestick.live_candle
+
+
+def test_chart_card_data_bounds_windows_to_visible_x_range(qapp):
+    """
+    Regression test for the bisect-based dataBounds(ax=1, orthoRange=...)
+    rewrite — this drives pyqtgraph's Y-axis auto-range on every pan/zoom
+    range-changed event, so an O(N) scan here (the old approach) was a real
+    source of drag stutter with a few thousand candles loaded. Confirms the
+    windowed min/max still matches only the candles inside orthoRange, not
+    the whole history.
+    """
+    card = ChartCard("BTCUSDT")
+    data = [
+        (1000.0, 50.0, 55.0, 48.0, 52.0),  # outside window (below)
+        (1060.0, 100.0, 110.0, 90.0, 105.0),  # inside window: low=90, high=110
+        (1120.0, 105.0, 120.0, 95.0, 108.0),  # inside window: low=95, high=120
+        (1180.0, 500.0, 900.0, 400.0, 600.0),  # outside window (above)
+    ]
+    card.render_historical_data(data)
+
+    bounds = card.candlestick.dataBounds(ax=1, orthoRange=(1050.0, 1130.0))
+    assert bounds == [90.0, 120.0]
+
+
+def test_chart_card_paint_draws_only_the_visible_slice(qapp):
+    """
+    Regression test for the QPicture-replay perf fix: paint() used to
+    replay a QPicture baked from the FULL history on every call — cost
+    proportional to total candle count regardless of what's clipped/visible
+    (profiled: ~4.2s of QPicture.play() across 200 simulated pan frames on
+    5000 candles). paint() now draws only the candles inside the current
+    viewport's X range (+ padding), found via _visible_history_slice().
+    """
+    interval = 60.0
+    data = [(1000.0 + i * interval, 100.0, 101.0, 99.0, 100.5) for i in range(50)]
+    card = ChartCard("ETHUSDT")
+    card.resize(400, 300)
+    card.show()
+    card.render_historical_data(data)
+    QApplication.processEvents()
+
+    # Zoom to a narrow window covering only ~5 candles.
+    narrow_min = data[20][0]
+    narrow_max = data[25][0]
+    card.plot_layout.main_plot.setXRange(narrow_min, narrow_max, padding=0)
+    QApplication.processEvents()
+
+    visible = card.candlestick._visible_history_slice()
+    assert len(visible) < len(data)
+    pad = card.candlestick.candle_width * card.candlestick._VISIBLE_PADDING_WIDTHS
+    assert all(narrow_min - pad <= row[0] <= narrow_max + pad for row in visible)
+
+
+def test_chart_card_volume_refresh_window_slices_to_visible_range(qapp):
+    """Regression test: VolumeItem used to push the FULL history to
+    BarGraphItem.setOpts() on every update; refresh_window() (called by
+    ChartCard on every pan/zoom) now windows it to the visible range."""
+    card = ChartCard("ETHUSDT")
+    interval = 60.0
+    volume_data = [(1000.0 + i * interval, 10.0 + i, i % 2 == 0) for i in range(50)]
+    card.render_historical_volume(volume_data)
+
+    card.volume.refresh_window(volume_data[20][0], volume_data[25][0])
+
+    applied_x = card.volume.graphics_item.opts["x"]
+    assert len(applied_x) < len(volume_data)
+    assert len(applied_x) == len(card.volume.graphics_item.opts["height"])
+
+
+def test_chart_card_indicator_refresh_window_slices_to_visible_range(qapp):
+    """Regression test: IndicatorManager used to push an indicator's FULL
+    (x, y) series to its curve on every update() call; refresh_window()
+    (called by ChartCard on every pan/zoom, and once right after an
+    indicator is added) now windows it — applies to every indicator added
+    through this manager, current and future (e.g. strategy signal
+    overlays), not just RSI/EMA/MACD specifically."""
+    card = ChartCard("ETHUSDT")
+    card.add_subplot_indicator("RSI", color="#8e44ad")
+
+    interval = 60.0
+    x_data = [1000.0 + i * interval for i in range(50)]
+    y_data = [float(i) for i in range(50)]
+    card.update_indicator_data("RSI", x_data, y_data)
+
+    card.indicators.refresh_window(x_data[20], x_data[25])
+
+    applied_x, applied_y = card.indicators._curves["RSI"].getData()
+    assert len(applied_x) < len(x_data)
+    assert len(applied_x) == len(applied_y)
 
 
 def test_chart_card_indicator_toggle_and_remove(qapp):

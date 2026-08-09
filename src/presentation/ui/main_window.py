@@ -17,7 +17,11 @@ from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
 
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
-from Binace_Bot.src.presentation.ui.components.sidebar import Sidebar
+from Binace_Bot.src.presentation.ui.components.sidebar import (
+    NavItem,
+    NavSection,
+    Sidebar,
+)
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
@@ -30,26 +34,46 @@ from Binace_Bot.src.presentation.ui.screens.data_management.data_management_pres
 from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
+from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (
+    SettingsPresenter,
+)
+from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (
+    SettingsView,
+)
 
 if TYPE_CHECKING:
     pass
 
 # ---------------------------------------------------------------------------
-# Navigation routes — (display_label, route_name, icon_name)
+# Navigation sections. A NavItem with route=None is a placeholder for a screen
+# that doesn't exist yet (e.g. "Backtest Engine" — BOT-021/022 still backlog);
+# those are never navigable regardless of `enabled` (see NavItem.is_navigable).
 # Adding a new screen: add one entry here and register it in _setup_router().
 # ---------------------------------------------------------------------------
-_NAV_ROUTES = [
-    ("Dev Board", "dashboard", "layout-dashboard"),
-    ("Database", "data_management", "database"),
+_NAV_SECTIONS = [
+    NavSection(
+        "NAVIGATION",
+        (
+            NavItem("Dev Board", "dashboard", "layout-dashboard"),
+            NavItem("Database", "data_management", "database"),
+        ),
+    ),
+    NavSection(
+        "QUANT ENGINE",
+        (
+            NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),
+            NavItem("API & Credentials", "settings", "settings"),
+        ),
+    ),
 ]
 
-_WINDOW_TITLE = "Binance Bot Desktop - Clean Architecture"
+_WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # 1200x800 used to be enough, but the Dev Board's right column has grown
 # (System Controls + Indicators + System Monitor) — a bigger default avoids
 # content being clipped the instant the window opens, before the user ever
 # touches the (now resizable) splitter.
 _WINDOW_SIZE = (1440, 860)
-_CONTENT_BG_STYLE = "background-color: #1e1e1e; color: white;"
+_CONTENT_BG_STYLE = "background-color: #0a0a0c; color: #e8e9ec;"
 
 
 class MainWindow(QMainWindow):
@@ -77,7 +101,7 @@ class MainWindow(QMainWindow):
         shell_layout.setSpacing(0)
 
         # ---- Sidebar component -------------------------------------------
-        self._sidebar = Sidebar(routes=_NAV_ROUTES)
+        self._sidebar = Sidebar(sections=_NAV_SECTIONS)
         self._sidebar.sig_navigate.connect(self.switch_screen)
 
         # ---- Content area -----------------------------------------------
@@ -106,6 +130,11 @@ class MainWindow(QMainWindow):
             "data_management",
             DataManagementPresenter,
             lambda: DataManagementView(),
+        )
+        self._router.register(
+            "settings",
+            SettingsPresenter,
+            lambda: SettingsView(),
         )
 
     def switch_screen(self, route_name: str) -> None:

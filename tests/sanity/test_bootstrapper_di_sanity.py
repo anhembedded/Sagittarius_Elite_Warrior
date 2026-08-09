@@ -31,7 +31,6 @@ def booted_app():
     config_manager.load_json(
         os.path.join(base_dir, "src", "config", "user_config.json")
     )
-    config_manager.load_json(os.path.join(base_dir, "src", "config", "ui_matrix.json"))
 
     app = create_app(config_manager)
 

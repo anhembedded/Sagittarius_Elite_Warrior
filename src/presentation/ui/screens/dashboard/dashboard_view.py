@@ -1,31 +1,32 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QScrollArea,
-    QSplitter,
-    QLabel,
-)
+from pathlib import Path
+
+from PySide6.QtCore import QUrl, Qt
+from PySide6.QtWidgets import QScrollArea, QSplitter, QVBoxLayout, QWidget
+
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
-from Binace_Bot.src.presentation.ui.components.control_card import ControlCard
-from Binace_Bot.src.presentation.ui.components.indicator_control_card import (
-    IndicatorControlCard,
-)
-from Binace_Bot.src.presentation.ui.components.monitor_card import MonitorCard
+from Binace_Bot.src.presentation.ui.screens._qml_shared import create_quick_widget
 
-_HEADER_TITLE = "Developer Board (Live Testbed)"
+_QML_DIR = Path(__file__).parent
 
 
 class DashboardView(BaseView):
     """
-    @brief The View for the Dev Board Screen — a developer testbed, not the app's
-    end-user dashboard. Assembles dumb components into a layout.
-    @details Contains ControlCard, MonitorCard, and a placeholder for ChartCard.
+    @brief The View for the Dev Board Screen — a developer testbed, not the
+    app's end-user dashboard.
+
+    @details
+    Hybrid layout (BOT-030 Phase 4): a QSplitter with the dynamic ChartCards
+    (QtWidgets/pyqtgraph — stays that way permanently, see the task's plan)
+    on the left, and a single QQuickWidget hosting DevBoardPanel.qml (top
+    bar, System Controls, Indicators, Monitor log) on the right. FSM state
+    reaches the QML side through `apply_ui_mode` -> the view model's
+    `uiMode` property, same mechanism every other QML screen uses.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._view_model = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -33,22 +34,13 @@ class DashboardView(BaseView):
         outer_layout.setContentsMargins(20, 20, 20, 20)
         outer_layout.setSpacing(15)
 
-        self.lbl_header = QLabel(_HEADER_TITLE)
-        self.lbl_header.setObjectName("PanelTitle")
-        outer_layout.addWidget(self.lbl_header)
-
-        # Horizontal split between the chart column and the right column —
-        # a QSplitter (not a fixed-ratio QHBoxLayout) so the user can drag
-        # the divider to give either side more room instead of content
-        # silently clipping at a fixed proportion of a fixed window size.
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         outer_layout.addWidget(main_splitter, 1)
 
-        # Left Column: QScrollArea for Dynamic ChartCards
+        # Left column: QScrollArea for dynamic ChartCards.
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
 
-        # Container for the dynamic cards inside the scroll area
         self.charts_container = QWidget()
         self.charts_layout = QVBoxLayout(self.charts_container)
         self.charts_layout.setContentsMargins(0, 0, 0, 0)
@@ -59,39 +51,34 @@ class DashboardView(BaseView):
 
         self.scroll_area.setWidget(self.charts_container)
 
-        # Right Column: Controls and Monitor — QScrollArea so a growing set of
-        # cards (ControlCard, IndicatorControlCard, MonitorCard, ...) never
-        # gets clipped by the window height; it scrolls instead.
-        right_scroll_area = QScrollArea()
-        right_scroll_area.setWidgetResizable(True)
-        # Deliberately no horizontal scrollbar policy override — default
-        # AsNeeded means content is scrollable, not silently clipped, if the
-        # splitter is ever dragged narrower than a card's natural width.
+        # Right column: the QML panel (top bar + System Controls + Indicators
+        # + Monitor log).
+        self.quick_widget = create_quick_widget()
 
-        right_container = QWidget()
-        right_column = QVBoxLayout(right_container)
-        right_column.setContentsMargins(0, 0, 0, 0)
-        right_column.setSpacing(20)
-
-        # Initialize Global Cards
-        self.control_card = ControlCard()
-        self.indicator_control_card = IndicatorControlCard()
-        self.monitor_card = MonitorCard()
-
-        right_column.addWidget(self.control_card)
-        right_column.addWidget(self.indicator_control_card)
-        right_column.addWidget(self.monitor_card)
-        right_column.addStretch()
-
-        right_scroll_area.setWidget(right_container)
-
-        # Add to the splitter — initial sizes only (a hint, not a cap); the
-        # user can drag the handle to resize either side at any time.
         main_splitter.addWidget(self.scroll_area)
-        main_splitter.addWidget(right_scroll_area)
+        main_splitter.addWidget(self.quick_widget)
         main_splitter.setStretchFactor(0, 3)  # Charts get more room initially
         main_splitter.setStretchFactor(1, 1)
         main_splitter.setSizes([900, 400])
+
+    def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
+        """Registers the screen's ViewModel as a QML context property. Must
+        be called before load_qml() — QML resolves the name at parse time."""
+        self._view_model = view_model
+        self.quick_widget.rootContext().setContextProperty(context_name, view_model)
+
+    def load_qml(self, qml_filename: str = "DevBoardPanel.qml") -> None:
+        qml_path = _QML_DIR / qml_filename
+        self.quick_widget.setSource(QUrl.fromLocalFile(str(qml_path)))
+
+    def apply_ui_mode(self, mode, section_key: str = "main") -> None:
+        """Receives FSM state changes from BasePresenter (duck-typed fallback
+        branch — this view has no `control_card`) and forwards them to the
+        ViewModel's `uiMode` property, which DevBoardPanel.qml binds against."""
+        if self._view_model is None:
+            return
+        mode_value = getattr(mode, "value", mode)
+        self._view_model.set_ui_mode(str(mode_value))
 
     def render_symbol_cards(self, symbols: list[str]) -> list:
         """

@@ -4,8 +4,12 @@ from enum import Enum
 class UIMode(str, Enum):
     """
     @brief Defines the operational modes of the Trading UI.
-    @details These modes map directly to the keys defined in `ui_matrix.json`.
-    Using an Enum prevents magic string typos and ensures strict state transitions.
+    @details Every screen's FSM (BasePresenter) transitions through these
+    values; each QML screen's ViewModel mirrors the current one as a
+    `uiMode` string property, which the QML binds `enabled:`/`visible:`
+    states against directly (e.g. `enabled: viewModel.uiMode !== "LOCKED"`).
+    Using an Enum prevents magic string typos and ensures strict state
+    transitions.
     """
 
     IDLE = "IDLE"  # System is idle, user can configure all parameters.

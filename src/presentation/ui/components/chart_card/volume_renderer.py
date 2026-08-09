@@ -1,16 +1,24 @@
 import pyqtgraph as pg
 
 from . import theme
+from .viewport_windowing import visible_slice_indices
 
 _DEFAULT_BAR_WIDTH = 13.33
+# Extra margin (in bar-widths) applied beyond the visible X range so bars
+# don't visibly pop in/out right at the viewport edge — mirrors
+# FastCandlestickItem._VISIBLE_PADDING_WIDTHS.
+_VISIBLE_PADDING_WIDTHS = 2.0
 
 
 class VolumeItem:
     """
     @brief Renders a TradingView-style volume histogram, colored by candle direction.
-    @details Mirrors FastCandlestickItem's historical/live-tick lifecycle, but delegates
-    drawing to pyqtgraph's BarGraphItem — no custom QPicture caching needed, bar redraws
-    stay cheap even for thousands of candles.
+    @details Mirrors FastCandlestickItem's historical/live-tick lifecycle. Keeps the
+    full series in `_timestamps`/`_heights`/`_colors`, but only pushes the bars inside
+    the last-known visible X range to pyqtgraph's BarGraphItem via `refresh_window()`
+    (called by ChartCard on every pan/zoom) — pushing the full history to setOpts() on
+    every such change was a real cost once a few thousand candles were loaded, same
+    category of issue fixed in FastCandlestickItem (see its docstring).
     """
 
     def __init__(self) -> None:
@@ -19,6 +27,7 @@ class VolumeItem:
         self._heights: list[float] = []
         self._colors: list[str] = []
         self._live_index: int | None = None
+        self._visible_range: tuple[float, float] | None = None
 
         self.graphics_item = pg.BarGraphItem(
             x=[], height=[], width=self._bar_width, brushes=[]
@@ -55,10 +64,29 @@ class VolumeItem:
         self.update_live(timestamp, volume, is_bullish)
         self._live_index = None
 
+    def refresh_window(self, min_x: float, max_x: float) -> None:
+        """
+        @brief Re-applies just the bars inside the visible X range (+ padding)
+        to the underlying BarGraphItem, via O(log N) binary search.
+        @details Called by ChartCard whenever the chart's viewport changes
+        (pan/zoom). Remembers the range so subsequent data updates
+        (update_live/append_closed) stay windowed too, without ChartCard
+        having to re-call this on every single tick.
+        """
+        self._visible_range = (min_x, max_x)
+        self._apply()
+
     def _apply(self) -> None:
+        if self._visible_range is not None:
+            min_x, max_x = self._visible_range
+            padding = self._bar_width * _VISIBLE_PADDING_WIDTHS
+            lo, hi = visible_slice_indices(self._timestamps, min_x, max_x, padding)
+        else:
+            lo, hi = 0, len(self._timestamps)
+
         self.graphics_item.setOpts(
-            x=self._timestamps,
-            height=self._heights,
+            x=self._timestamps[lo:hi],
+            height=self._heights[lo:hi],
             width=self._bar_width,
-            brushes=[pg.mkBrush(c) for c in self._colors],
+            brushes=[pg.mkBrush(c) for c in self._colors[lo:hi]],
         )

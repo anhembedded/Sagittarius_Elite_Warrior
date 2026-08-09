@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Callable, List, Tuple
 
 from PySide6.QtCore import Signal, Slot
@@ -20,12 +21,23 @@ from Binace_Bot.src.application.use_cases.stream.stop_live_stream.command import
 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
+from Binace_Bot.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 from Binace_Bot.src.domain.indicators.ema import EMA
 from Binace_Bot.src.domain.indicators.macd import MACD
 from Binace_Bot.src.domain.indicators.rsi import RSI
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
+)
 from Binace_Bot.src.presentation.ui.constants import UIMode
+
+from .dashboard_view_model import DashboardQmlViewModel
+from .indicator_script_runner import IndicatorScriptRunner
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -46,6 +58,15 @@ _INDICATOR_KIND_SUBPLOT = "subplot"  # own scale, e.g. RSI/MACD
 _RSI_COLOR = "#8e44ad"
 _EMA_COLOR = "#e67e22"
 _MACD_COLOR = "#2980b9"
+
+# WS status badge (top bar) text/color per FSM state — presentational only,
+# derived from the state DashboardPresenter already tracks.
+_WS_STATUS_BY_MODE = {
+    UIMode.IDLE: ("WS: IDLE", "#848E9C"),
+    UIMode.LOCKED: ("WS: SYNCING", "#F3BA2F"),
+    UIMode.LIVE: ("WS: LIVE", BULL_COLOR),
+    UIMode.ERROR: ("WS: ERROR", BEAR_COLOR),
+}
 
 
 @dataclass
@@ -68,6 +89,43 @@ class _ActiveIndicator:
     y_data: list = field(default_factory=list)
 
 
+def _tick_to_candle(
+    symbol: str,
+    close_timestamp: float,
+    open_price: float,
+    high_price: float,
+    low_price: float,
+    close_price: float,
+    volume: float,
+) -> MarketData:
+    """
+    @brief Rebuilds a MarketData from the flattened floats a live tick arrives as.
+    @details ui_chart_update_signal carries primitives (Qt signals can't ferry a
+    domain entity across threads cleanly), but a script's compute() takes the
+    whole candle so it can read high/low/volume. Only the OHLCV fields a script
+    can actually reach are real; the trade-count/quote-volume fields are filled
+    with zeroes because nothing downstream of here reads them — if a script ever
+    needs them, widen the signal rather than inventing values.
+    """
+    close_time = datetime.fromtimestamp(close_timestamp, tz=timezone.utc)
+    return MarketData(
+        symbol=symbol,
+        interval=_DEFAULT_INTERVAL_STR,
+        open_time=close_time,
+        open_price=open_price,
+        high_price=high_price,
+        low_price=low_price,
+        close_price=close_price,
+        volume=volume,
+        close_time=close_time,
+        quote_asset_volume=0.0,
+        number_of_trades=0,
+        taker_buy_base_asset_volume=0.0,
+        taker_buy_quote_asset_volume=0.0,
+        is_closed=True,
+    )
+
+
 class DashboardPresenter(BasePresenter):
     """
     @brief Não bộ của màn hình Dashboard.
@@ -80,6 +138,11 @@ class DashboardPresenter(BasePresenter):
     - All UI mutations go through Qt Signals (thread-safe bridge).
     - Background work is submitted via self._thread_manager.submit(self._method, *args).
     - No inline closures. No per-method container.resolve() calls.
+
+    BOT-030 Phase 4: ChartCard stays a QtWidgets sibling this Presenter talks
+    to directly (unchanged); System Controls/Indicators/Monitor moved to QML
+    behind a DashboardQmlViewModel, following the same pattern as
+    SettingsPresenter/DataManagementPresenter.
     """
 
     # ------------------------------------------------------------------ #
@@ -91,6 +154,7 @@ class DashboardPresenter(BasePresenter):
 
     # Dedicated signals for the Auto-Sync Workflow
     ui_history_reloaded_signal = Signal(str, list, list)
+    ui_history_load_finished_signal = Signal()
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
@@ -101,6 +165,9 @@ class DashboardPresenter(BasePresenter):
 
     def __init__(self, view: "DashboardView", container: "IContainer") -> None:
         super().__init__(view, container)
+
+        self._view_model = DashboardQmlViewModel()
+        view.set_view_model(self._view_model)
 
         # Resolve IThreadManager exactly once — stored as an instance attribute.
         # No further container.resolve(IThreadManager) calls anywhere else.
@@ -117,39 +184,54 @@ class DashboardPresenter(BasePresenter):
         # Automatically bind FSM state changes to UI Matrix
         self._bind_fsm_to_ui()
 
+        # Top-bar WS status badge — a second, independent global callback
+        # (BaseStateMachine supports multiple; see _bind_fsm_to_ui above).
+        self.fsm.add_global_callback(self._on_fsm_state_changed_update_ws_badge)
+
         # Register Lifecycle Hooks for custom behaviors
         self.fsm.on_enter(UIMode.ERROR, self._on_fsm_error)
 
-        # Force initial UI apply
-        self.view.control_card.apply_ui_mode(UIMode.IDLE)
+        self._apply_ws_status_badge(UIMode.IDLE)
 
         self.active_charts: dict = {}
         self.active_indicators: dict[str, _ActiveIndicator] = {}
 
-        # Must be called explicitly at the end of __init__ per BasePresenter contract.
+        # Custom indicator scripts (BOT-032), keyed by registry key. Kept in a
+        # separate dict from active_indicators because one script produces N
+        # named lines from a single compute() call, unlike the 1-to-1
+        # indicator-to-curve relationship above.
+        self._script_runner = IndicatorScriptRunner(
+            registry=container.resolve(IndicatorScriptRegistry),
+            emit_line=self.ui_indicator_data_signal.emit,
+            on_error=self.ui_log_signal.emit,
+        )
+
+        # Must be called explicitly at the end of BasePresenter's contract,
+        # and before load_qml() so QML parses against a ready view model.
         self._connect_ui_signals()
         self._connect_engine_events()
+
+        view.load_qml("DevBoardPanel.qml")
 
     # ================================================================== #
     # BasePresenter contract implementations
     # ================================================================== #
 
     def _connect_ui_signals(self) -> None:
-        """Kết nối các thao tác bấm nút từ thẻ Card vào Presenter."""
-        # ControlCard signals
-        self.view.control_card.sig_load_clicked.connect(self._on_load_history)
-        self.view.control_card.sig_start_clicked.connect(self._on_start_stream)
-        self.view.control_card.sig_stop_clicked.connect(self._on_stop_stream)
+        """Kết nối các thao tác bấm nút từ ViewModel vào Presenter."""
+        view_model = self._view_model
+        view_model.loadHistoryRequested.connect(self._on_load_history)
+        view_model.startStreamRequested.connect(self._on_start_stream)
+        view_model.stopStreamRequested.connect(self._on_stop_stream)
 
-        # MonitorCard signals
-        self.view.monitor_card.clear_logs_clicked.connect(self._on_clear_logs)
-
-        # Internal signals → view update slots (all execute on the Qt main thread)
-        self.ui_log_signal.connect(self.view.monitor_card.append_log)
+        # Internal signals → view model update slots (all execute on the Qt
+        # main thread).
+        self.ui_log_signal.connect(self._append_log)
         self.ui_chart_update_signal.connect(self._on_ui_chart_update)
 
         # Signals for Auto-Sync Workflow
         self.ui_history_reloaded_signal.connect(self._on_history_reloaded)
+        self.ui_history_load_finished_signal.connect(self._on_history_load_finished)
         self.ui_stream_success_signal.connect(self._on_stream_start_success)
         self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
         self.ui_indicator_data_signal.connect(self._on_indicator_data)
@@ -166,9 +248,20 @@ class DashboardPresenter(BasePresenter):
         """Auto-recover to IDLE immediately after entering the ERROR state."""
         self.fsm.transition_to(UIMode.IDLE)
 
+    def _on_fsm_state_changed_update_ws_badge(self, old_state, new_state) -> None:
+        self._apply_ws_status_badge(new_state)
+
+    def _apply_ws_status_badge(self, mode) -> None:
+        text, color = _WS_STATUS_BY_MODE.get(mode, _WS_STATUS_BY_MODE[UIMode.IDLE])
+        self._view_model.set_ws_status(text, color)
+
     # ================================================================== #
     # UI Helpers
     # ================================================================== #
+
+    @Slot(str)
+    def _append_log(self, message: str) -> None:
+        self._view_model.log_model.append(message, level="info")
 
     def _ensure_chart_cards(self, symbols: List[str]) -> list:
         """
@@ -187,30 +280,30 @@ class DashboardPresenter(BasePresenter):
 
     def _build_active_indicators(self) -> dict[str, _ActiveIndicator]:
         """
-        @brief Reads the IndicatorControlCard's checkboxes/periods and builds
+        @brief Reads the ViewModel's indicator toggles/periods and builds
         fresh indicator instances — never reused across runs, so a changed
         period or a fresh Load History/Start Stream always starts clean.
         """
-        card = self.view.indicator_control_card
+        view_model = self._view_model
         indicators: dict[str, _ActiveIndicator] = {}
 
-        if card.chk_rsi.isChecked():
-            period = card.spin_rsi_period.value()
+        if view_model.rsiEnabled:
+            period = view_model.rsiPeriod
             indicators[f"RSI({period})"] = _ActiveIndicator(
                 indicator=RSI(period=period),
                 extract_value=lambda reading: reading,
                 kind=_INDICATOR_KIND_SUBPLOT,
                 color=_RSI_COLOR,
             )
-        if card.chk_ema.isChecked():
-            period = card.spin_ema_period.value()
+        if view_model.emaEnabled:
+            period = view_model.emaPeriod
             indicators[f"EMA({period})"] = _ActiveIndicator(
                 indicator=EMA(period=period),
                 extract_value=lambda reading: reading,
                 kind=_INDICATOR_KIND_OVERLAY,
                 color=_EMA_COLOR,
             )
-        if card.chk_macd.isChecked():
+        if view_model.macdEnabled:
             indicators["MACD"] = _ActiveIndicator(
                 indicator=MACD(),
                 extract_value=lambda reading: reading.macd,
@@ -250,6 +343,28 @@ class DashboardPresenter(BasePresenter):
                 card.remove_indicator(name)
 
     # ================================================================== #
+    # Custom indicator scripts (BOT-032) — orchestration lives in
+    # IndicatorScriptRunner; this presenter only says *when* things happen.
+    # ================================================================== #
+
+    def _enabled_script_keys(self) -> List[str]:
+        """
+        @brief Which scripts to run.
+        @details Phase 3 replaces this with the view model's script list model
+        (`self._view_model.script_model.enabled_keys`). Until that UI exists
+        there is no way for a user to choose, so nothing runs by default —
+        returning every registered script would silently draw lines the user
+        never asked for.
+        """
+        return []
+
+    def _rebuild_scripts(self) -> None:
+        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        if card is not None:
+            self._script_runner.clear_from_chart(card)
+        self._script_runner.rebuild(self._enabled_script_keys())
+
+    # ================================================================== #
     # Qt Slots — execute on the main thread.
     # Long-running work is delegated to dedicated background methods.
     # ================================================================== #
@@ -261,15 +376,25 @@ class DashboardPresenter(BasePresenter):
         Lock the UI and submit a background task to load historical klines.
         The blocking DB query loop runs in the background — no UI freeze.
         """
-        self.view.monitor_card.append_log(
+        if self._view_model.historyLoading:
+            self._view_model.log_model.append("History load is already in progress.")
+            return
+
+        self._view_model.set_history_loading(True)
+        self._view_model.log_model.append(
             "Loading historical data from local database..."
         )
         symbols = list(_DEFAULT_SYMBOLS)
         self._ensure_chart_cards(symbols)
         self._clear_registered_indicators()
         self.active_indicators = self._build_active_indicators()
+        self._rebuild_scripts()
         self._thread_manager.submit(
-            self._run_load_history, symbols, _DEFAULT_INTERVAL_STR, _DEFAULT_KLINE_LIMIT
+            self._run_load_history,
+            symbols,
+            _DEFAULT_INTERVAL_STR,
+            _DEFAULT_KLINE_LIMIT,
+            self.active_indicators,
         )
 
     @Slot()
@@ -279,7 +404,13 @@ class DashboardPresenter(BasePresenter):
         Lock the UI and submit the full Auto-Sync → Stream startup workflow
         as a single background task.
         """
-        self.view.monitor_card.append_log("Starting Live Stream (Auto-Sync)...")
+        if self._view_model.historyLoading:
+            self._view_model.log_model.append(
+                "Wait for the current history load before starting live stream."
+            )
+            return
+
+        self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
         self.fsm.transition_to(UIMode.LOCKED)
 
         symbols = list(_DEFAULT_SYMBOLS)
@@ -289,7 +420,8 @@ class DashboardPresenter(BasePresenter):
         chart_cards = self._ensure_chart_cards(symbols)
         self._clear_registered_indicators()
         self.active_indicators = self._build_active_indicators()
-        self.ui_log_signal.emit(f"Prepared {len(chart_cards)} charts.")
+        self._rebuild_scripts()
+        self._view_model.log_model.append(f"Prepared {len(chart_cards)} charts.")
 
         self._thread_manager.submit(
             self._run_sync_and_start,
@@ -314,33 +446,17 @@ class DashboardPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_stop_stream(self) -> None:
-        self.view.monitor_card.append_log("Stopping Live Stream...")
+        self._view_model.log_model.append("Stopping Live Stream...")
         try:
             cmd = StopLiveStreamCommand()
             self.dispatcher.dispatch(StopLiveStreamCommand, cmd)
-            self.ui_log_signal.emit("Live Stream stopped.")
+            self._view_model.log_model.append("Live Stream stopped.")
             self.fsm.transition_to(UIMode.IDLE)
         except Exception as exc:
-            self.ui_log_signal.emit(f"Error while stopping: {exc}")
+            self._view_model.log_model.append(
+                f"Error while stopping: {exc}", level="error"
+            )
             self.fsm.transition_to(UIMode.ERROR)
-
-    @Slot()
-    @safe_ui_action
-    def _on_run_backtest(self) -> None:
-        self.ui_log_signal.emit("Starting Backtest simulation...")
-        self.view.control_card.set_backtest_active(True)
-        # TODO: Dispatch RunBacktestCommand
-
-    @Slot()
-    @safe_ui_action
-    def _on_stop_backtest(self) -> None:
-        self.ui_log_signal.emit("Backtest stopped.")
-        self.view.control_card.set_backtest_active(False)
-
-    @Slot()
-    @safe_ui_action
-    def _on_clear_logs(self) -> None:
-        self.view.monitor_card.clear_logs()
 
     # ================================================================== #
     # Background Signal Slots — called on the main thread via Qt signals.
@@ -359,27 +475,42 @@ class DashboardPresenter(BasePresenter):
                 f"Refreshed {len(mapped_data)} historical klines for {symbol}."
             )
 
+    @Slot()
+    def _on_history_load_finished(self) -> None:
+        """Re-enable Dev Board actions after every history-worker outcome."""
+        self._view_model.set_history_loading(False)
+
     @Slot(str, list, list)
     def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
         """Pushes a computed indicator series onto the chart (single-symbol
         Dev Board — see _DEFAULT_SYMBOLS), registering its overlay/subplot
-        curve on first use."""
-        active_indicator = self.active_indicators.get(name)
+        curve on first use.
+
+        Carries both built-in indicators (bare `name`) and script lines
+        (`key:line`) — the separator is what tells them apart, which is why
+        script curve names are namespaced."""
         card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
-        if active_indicator is None or card is None:
+        if card is None:
+            return
+
+        if self._script_runner.draw(card, name, x_data, y_data):
+            return
+
+        active_indicator = self.active_indicators.get(name)
+        if active_indicator is None:
             return
         self._ensure_indicator_registered(card, name, active_indicator)
         card.update_indicator_data(name, x_data, y_data)
 
     # ================================================================== #
     # Engine Event Bridge — called from background threads.
-    # MUST NOT touch Qt widgets. Use signals only.
+    # MUST NOT touch Qt widgets/models here. Use signals only.
     # ================================================================== #
 
     def _handle_market_tick(self, event: MarketTickEvent) -> None:
         """
         @warning Called by EventBus from a background thread.
-        Never touch UI widgets here — emit signals only.
+        Never touch UI widgets/models here — emit signals only.
         """
         md = event.market_data
         symbol = md.symbol
@@ -418,13 +549,19 @@ class DashboardPresenter(BasePresenter):
         @brief Được gọi trong Main UI Thread một cách an toàn thông qua Signal.
         Chỉ thực hiện tra cứu O(1) và đẩy data vào đúng ChartCard tương ứng.
         """
+        is_bullish = c >= o
+        price_color = BULL_COLOR if is_bullish else BEAR_COLOR
+        self._view_model.set_price_ticker(f"{symbol}  {c:,.2f}", price_color)
+
         card = self.active_charts.get(symbol)
         if card:
-            is_bullish = c >= o
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
                 self._update_indicators_on_closed_candle(card, t, c)
+                self._script_runner.feed(
+                    _tick_to_candle(symbol, t, o, h, low, c, volume)
+                )
             else:
                 card.update_last_candle(t, o, h, low, c)
                 card.update_last_volume(t, volume, is_bullish)
@@ -453,42 +590,57 @@ class DashboardPresenter(BasePresenter):
 
     # ================================================================== #
     # Background methods — submitted to IThreadManager.
-    # MUST NOT touch Qt widgets directly. Use signals only.
+    # MUST NOT touch Qt widgets/models directly. Use signals only.
     # ================================================================== #
 
     def _run_load_history(
-        self, symbols: List[str], interval_str: str, limit: int
+        self,
+        symbols: List[str],
+        interval_str: str,
+        limit: int,
+        active_indicators: dict[str, _ActiveIndicator] | None = None,
     ) -> None:
         """
         @brief Background worker: queries historical klines for each symbol and
         emits results via ui_history_reloaded_signal for safe main-thread rendering.
         """
-        for symbol in symbols:
-            query = GetHistoricalKlinesQuery(
-                symbol=symbol,
-                interval=interval_str,
-                limit=limit,
-                order_by_desc=True,  # Fetch the LATEST N candles from DB
-            )
-            try:
-                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                klines = getattr(response, "data", response) if response else []
-
-                if not isinstance(klines, list) or not klines:
-                    self.ui_log_signal.emit(f"No historical data found for {symbol}.")
-                    continue
-
-                # Reverse: DB returned newest-first, chart expects oldest-first
-                ordered_klines = list(reversed(klines))
-                mapped_data = self._map_klines(ordered_klines)
-                volume_data = self._map_volume(ordered_klines)
-                self.ui_history_reloaded_signal.emit(symbol, mapped_data, volume_data)
-                self._compute_indicator_series(ordered_klines)
-
-            except Exception as exc:
-                self.ui_log_signal.emit(
-                    f"Exception while loading history for {symbol}: {exc}"
+        indicator_snapshot = (
+            self.active_indicators if active_indicators is None else active_indicators
+        )
+        try:
+            for symbol in symbols:
+                query = GetHistoricalKlinesQuery(
+                    symbol=symbol,
+                    interval=interval_str,
+                    limit=limit,
+                    order_by_desc=True,  # Fetch the LATEST N candles from DB
                 )
+                try:
+                    response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+                    klines = getattr(response, "data", response) if response else []
+
+                    if not isinstance(klines, list) or not klines:
+                        self.ui_log_signal.emit(
+                            f"No historical data found for {symbol}."
+                        )
+                        continue
+
+                    # Reverse: DB returned newest-first, chart expects oldest-first
+                    ordered_klines = list(reversed(klines))
+                    mapped_data = self._map_klines(ordered_klines)
+                    volume_data = self._map_volume(ordered_klines)
+                    self.ui_history_reloaded_signal.emit(
+                        symbol, mapped_data, volume_data
+                    )
+                    self._compute_indicator_series(ordered_klines, indicator_snapshot)
+                    self._script_runner.feed_all(ordered_klines)
+
+                except Exception as exc:
+                    self.ui_log_signal.emit(
+                        f"Exception while loading history for {symbol}: {exc}"
+                    )
+        finally:
+            self.ui_history_load_finished_signal.emit()
 
     def _run_sync_and_start(
         self,
@@ -528,6 +680,7 @@ class DashboardPresenter(BasePresenter):
                         symbol, mapped_data, volume_data
                     )
                     self._compute_indicator_series(ordered_klines)
+                    self._script_runner.feed_all(ordered_klines)
 
             # Step 3: Start the Live WebSocket stream
             self.ui_log_signal.emit("Opening Websocket stream...")
@@ -545,7 +698,11 @@ class DashboardPresenter(BasePresenter):
         except Exception as exc:
             self.ui_stream_failed_signal.emit(f"System error: {exc}")
 
-    def _compute_indicator_series(self, ordered_klines: List) -> None:
+    def _compute_indicator_series(
+        self,
+        ordered_klines: List,
+        active_indicators: dict[str, _ActiveIndicator] | None = None,
+    ) -> None:
         """
         @brief Feeds each historical candle's close price through every
         active indicator and emits the resulting series via
@@ -558,7 +715,9 @@ class DashboardPresenter(BasePresenter):
         (e.g. the user re-clicking Load History) can't be observed
         mid-iteration.
         """
-        active_indicators = self.active_indicators
+        active_indicators = (
+            self.active_indicators if active_indicators is None else active_indicators
+        )
         for candle in ordered_klines:
             timestamp = float(candle.close_time.timestamp())
             for active_indicator in active_indicators.values():

@@ -1,32 +1,38 @@
 """
-Tests for DataManagementPresenter.
+Tests for the Database screen's presenter (BOT-030 Phase 3 — QML).
 
-Key design changes from the refactor:
+Design notes carried over from the QtWidgets version and still enforced here:
 - IThreadManager is resolved once in __init__ (not per-method).
-- Background work is submitted as self._run_single_sync(symbol, interval, start, end)
-  via thread_manager.submit(method, *args) — NOT as inline closures.
-- _on_check_all_status dispatches ScanAllDatabasesQuery (single dispatch, no loop).
+- Background work is submitted as `self._run_x(args...)` via
+  thread_manager.submit(method, *args) — NOT as inline closures.
+- _on_check_all_status dispatches ScanAllDatabasesQuery (single dispatch).
+
+Uses the REAL DataManagementViewModel and its item models (pure state, no
+I/O), mocking only the genuine external dependencies.
 """
 
-import pytest
-from unittest.mock import Mock
+import os
 from datetime import datetime, timezone
+from unittest.mock import Mock
 
-from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import (
-    DataManagementPresenter,
-)
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (  # noqa: E402
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
-
-
-# ---------------------------------------------------------------------------
-# Shared fixtures
-# ---------------------------------------------------------------------------
+from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (  # noqa: E402
+    SyncMarketDataCommand,
+)
+from Binace_Bot.src.presentation.ui.constants import UIMode  # noqa: E402
+from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import (  # noqa: E402
+    DataManagementPresenter,
+)
+from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import (  # noqa: E402
+    DataManagementView,
+)
 
 
 @pytest.fixture
@@ -44,9 +50,9 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     container = Mock()
 
     def resolve_mock(interface):
-        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
         from sagittarius_engine.interfaces.i_config import IConfig
+        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
         if interface == IThreadManager:
             return mock_thread_mgr
@@ -54,8 +60,8 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
             return mock_dispatcher
         if interface == IConfig:
             mock_config = Mock()
-            matrix = {"IDLE": {"btn_sync": True}, "LOCKED": {"btn_sync": False}}
-            mock_config.get_all.return_value = {"data_management": matrix}
+            mock_config.get_all.return_value = {}
+            mock_config.get.return_value = None
             return mock_config
         return Mock()
 
@@ -64,169 +70,113 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
 
 
 @pytest.fixture
-def mock_view():
-    view = Mock()
-    view.cbo_symbol.currentText.return_value = "BTCUSDT"
-    view.cbo_interval.currentText.return_value = "1m"
-    view.cbo_symbol.count.return_value = 2
-    view.cbo_symbol.itemText.side_effect = lambda i: ["BTCUSDT", "ETHUSDT"][i]
-    view.cbo_interval.count.return_value = 1
-    view.cbo_interval.itemText.side_effect = lambda i: ["1m"][i]
-    view.chk_custom_time.isChecked.return_value = False
-    return view
+def presenter(qapp, mock_container, request):
+    view = DataManagementView()
+    view.resize(1400, 800)
+    view.show()
+    qapp.processEvents()
+    request.addfinalizer(view.deleteLater)
+    return DataManagementPresenter(view, mock_container)
 
 
 @pytest.fixture
-def presenter(mock_view, mock_container):
-    return DataManagementPresenter(mock_view, mock_container)
+def view_model(presenter):
+    return presenter._view_model
 
 
 # ---------------------------------------------------------------------------
-# _on_sync_data — no custom time
+# Single sync
 # ---------------------------------------------------------------------------
 
 
-def test_on_sync_data_submits_background_task(presenter, mock_thread_mgr):
-    """_on_sync_data must lock FSM and submit _run_single_sync to thread manager."""
-    presenter._on_sync_data()
+def test_on_sync_data_submits_background_task(presenter, view_model, mock_thread_mgr):
+    """Must lock the FSM and submit _run_single_sync to the thread manager,
+    never dispatch on the main thread."""
+    view_model.selectedSymbol = "BTCUSDT"
+    view_model.selectedInterval = "1m"
 
-    assert presenter.fsm.current_state.name == "LOCKED"
-    assert mock_thread_mgr.submit.call_count == 1
+    view_model.requestSync()
 
-    # Submitted as (method, symbol, interval, start_time, end_time)
-    submit_args = mock_thread_mgr.submit.call_args[0]
-    assert submit_args[0] == presenter._run_single_sync
-    assert submit_args[1] == "BTCUSDT"  # symbol
-    assert submit_args[2] == "1m"  # interval
-    assert submit_args[3] is None  # start_time
-    assert submit_args[4] is None  # end_time
+    assert presenter.fsm.current_state == UIMode.LOCKED
+    mock_thread_mgr.submit.assert_called_once_with(
+        presenter._run_single_sync, "BTCUSDT", "1m", None, None
+    )
 
 
 def test_run_single_sync_dispatches_command(presenter, mock_dispatcher):
-    """_run_single_sync (background method) dispatches SyncMarketDataCommand."""
-    presenter._run_single_sync("BTCUSDT", "1m", None, None)
+    presenter._run_single_sync("ETHUSDT", "1h", None, None)
 
-    assert mock_dispatcher.dispatch.call_count >= 1
-    dispatched_type, dispatched_cmd = mock_dispatcher.dispatch.call_args_list[0][0]
-
-    assert dispatched_type == SyncMarketDataCommand
-    assert isinstance(dispatched_cmd, SyncMarketDataCommand)
-    assert dispatched_cmd.symbols == ["BTCUSDT"]
-    assert dispatched_cmd.interval.value == "1m"
-    assert dispatched_cmd.start_time is None
-    assert dispatched_cmd.end_time is None
+    command_type, command = mock_dispatcher.dispatch.call_args.args
+    assert command_type is SyncMarketDataCommand
+    assert command.symbols == ["ETHUSDT"]
 
 
-# ---------------------------------------------------------------------------
-# _on_sync_data — with custom time
-# ---------------------------------------------------------------------------
-
-
-def test_on_sync_data_with_custom_time_passes_timestamps(
-    presenter, mock_thread_mgr, mock_view
+def test_custom_time_range_is_parsed_and_passed_through(
+    presenter, view_model, mock_thread_mgr
 ):
-    """When chk_custom_time is checked, start/end times are captured on the main thread."""
-    mock_view.chk_custom_time.isChecked.return_value = True
+    view_model.selectedSymbol = "BTCUSDT"
+    view_model.selectedInterval = "1m"
+    view_model.useCustomTime = True
+    view_model.fromDateTime = "2024-01-01 00:00"
+    view_model.toDateTime = "2024-01-02 12:30"
 
-    start_dt = datetime(2023, 1, 1)
-    end_dt = datetime(2023, 1, 2)
+    view_model.requestSync()
 
-    dt_from_mock = Mock()
-    dt_from_mock.toPython.return_value = start_dt
-    dt_to_mock = Mock()
-    dt_to_mock.toPython.return_value = end_dt
-
-    mock_view.dt_from.dateTime.return_value = dt_from_mock
-    mock_view.dt_to.dateTime.return_value = dt_to_mock
-
-    presenter._on_sync_data()
-
-    submit_args = mock_thread_mgr.submit.call_args[0]
-    assert submit_args[3] == start_dt.replace(tzinfo=timezone.utc)
-    assert submit_args[4] == end_dt.replace(tzinfo=timezone.utc)
+    _, _, _, start, end = mock_thread_mgr.submit.call_args.args
+    assert start == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert end == datetime(2024, 1, 2, 12, 30, tzinfo=timezone.utc)
 
 
-def test_run_single_sync_with_timestamps_dispatches_correctly(
-    presenter, mock_dispatcher
+def test_invalid_custom_time_range_is_rejected_without_syncing(
+    presenter, view_model, mock_thread_mgr
 ):
-    """_run_single_sync correctly passes start/end times into the command."""
-    start = datetime(2023, 1, 1, tzinfo=timezone.utc)
-    end = datetime(2023, 1, 2, tzinfo=timezone.utc)
+    """Opting into a custom range then typing garbage must NOT silently fall
+    back to the default window — that would quietly fetch the wrong data."""
+    view_model.useCustomTime = True
+    view_model.fromDateTime = "not-a-date"
+    view_model.toDateTime = "2024-01-02 12:30"
 
-    presenter._run_single_sync("BTCUSDT", "1m", start, end)
+    view_model.requestSync()
 
-    _, dispatched_cmd = mock_dispatcher.dispatch.call_args_list[0][0]
-    assert dispatched_cmd.start_time == start
-    assert dispatched_cmd.end_time == end
+    mock_thread_mgr.submit.assert_not_called()
+    assert presenter.fsm.current_state == UIMode.IDLE
+    assert view_model.log_model.entries[-1].level == "error"
 
 
 # ---------------------------------------------------------------------------
-# _on_check_all_status — dispatches ScanAllDatabasesQuery (single dispatch)
+# Scanning
 # ---------------------------------------------------------------------------
 
 
-def test_on_check_all_status_submits_background_task(presenter, mock_thread_mgr):
-    """_on_check_all_status must lock FSM and submit _run_scan_all."""
-    presenter._on_check_all_status()
+def test_on_check_all_status_submits_background_task(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestCheckAllStatus()
 
-    assert presenter.fsm.current_state.name == "LOCKED"
-    assert mock_thread_mgr.submit.call_count == 1
-
-    submit_args = mock_thread_mgr.submit.call_args[0]
-    assert submit_args[0] == presenter._run_scan_all
+    assert presenter.fsm.current_state == UIMode.LOCKED
+    method, symbols, intervals = mock_thread_mgr.submit.call_args.args
+    assert method == presenter._run_scan_all
+    assert symbols == list(view_model.symbols)
+    assert intervals == list(view_model.intervals)
 
 
 def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
-    """_run_scan_all dispatches exactly ONE ScanAllDatabasesQuery — no per-pair loop."""
-    mock_dispatcher.dispatch.return_value = []  # Empty result list
+    mock_dispatcher.dispatch.return_value = []
 
-    presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m"])
+    presenter._run_scan_all(["BTCUSDT"], ["1m"])
 
     assert mock_dispatcher.dispatch.call_count == 1
-    dispatched_type, dispatched_query = mock_dispatcher.dispatch.call_args[0]
-
-    assert dispatched_type == ScanAllDatabasesQuery
-    assert isinstance(dispatched_query, ScanAllDatabasesQuery)
-    assert dispatched_query.symbols == ["BTCUSDT", "ETHUSDT"]
-    assert dispatched_query.intervals == ["1m"]
+    assert mock_dispatcher.dispatch.call_args.args[0] is ScanAllDatabasesQuery
 
 
-def test_on_check_status_emits_dto_fields(presenter, mock_dispatcher):
-    """_on_check_status reads DatabaseStatusDTO attributes (not dict keys) from dispatch."""
-    dto = DatabaseStatusDTO(
-        symbol="BTCUSDT",
-        interval="1m",
-        first_record="2024-01-01",
-        last_record="2024-06-01",
-        total_candles="500",
-        gaps="2",
-        status_text="2 gaps found!",
-    )
-    mock_dispatcher.dispatch.return_value = dto
-
-    emitted = []
-    presenter.ui_status_table_signal.connect(
-        lambda sym, intv, fr, lr, tot, stat: emitted.append(
-            (sym, intv, fr, lr, tot, stat)
-        )
-    )
-
-    presenter._on_check_status()
-
-    assert emitted == [
-        ("BTCUSDT", "1m", "2024-01-01", "2024-06-01", "500", "2 gaps found!")
-    ]
-
-
-def test_run_scan_all_emits_signal_per_dto(presenter, mock_dispatcher):
-    """Each DatabaseStatusDTO in the result emits one ui_status_table_signal."""
-    dtos = [
+def test_run_scan_all_fills_the_table_model(presenter, view_model, mock_dispatcher):
+    mock_dispatcher.dispatch.return_value = [
         DatabaseStatusDTO(
             symbol="BTCUSDT",
             interval="1m",
             first_record="2024-01-01",
-            last_record="2024-06-01",
-            total_candles="500",
+            last_record="2024-01-02",
+            total_candles="1440",
             gaps="0",
             status_text="OK",
         ),
@@ -234,19 +184,133 @@ def test_run_scan_all_emits_signal_per_dto(presenter, mock_dispatcher):
             symbol="ETHUSDT",
             interval="1m",
             first_record="2024-01-01",
-            last_record="2024-06-01",
-            total_candles="300",
-            gaps="2",
-            status_text="2 gaps found!",
+            last_record="2024-01-02",
+            total_candles="1200",
+            gaps="3",
+            status_text="3 gaps found!",
         ),
     ]
-    mock_dispatcher.dispatch.return_value = dtos
-
-    emitted = []
-    presenter.ui_status_table_signal.connect(
-        lambda sym, intv, fr, lr, tot, stat: emitted.append(sym)
-    )
 
     presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m"])
 
-    assert emitted == ["BTCUSDT", "ETHUSDT"]
+    assert view_model.status_model.rowCount() == 2
+    assert view_model.status_model.gap_targets() == [("ETHUSDT", "1m")]
+
+
+def test_on_check_status_populates_the_row_for_the_selection(
+    presenter, view_model, mock_dispatcher
+):
+    response = Mock()
+    response.data = DatabaseStatusDTO(
+        symbol="BTCUSDT",
+        interval="1m",
+        first_record="2024-01-01",
+        last_record="2024-01-02",
+        total_candles="1440",
+        gaps="0",
+        status_text="OK",
+    )
+    mock_dispatcher.dispatch.return_value = response
+    view_model.selectedSymbol = "BTCUSDT"
+    view_model.selectedInterval = "1m"
+
+    view_model.requestCheckStatus()
+
+    rows = view_model.status_model.rows
+    assert len(rows) == 1
+    assert rows[0].symbol == "BTCUSDT"
+    assert rows[0].status_text == "OK"
+
+
+# ---------------------------------------------------------------------------
+# Bulk gap sync
+# ---------------------------------------------------------------------------
+
+
+def test_sync_all_gaps_uses_only_unhealthy_rows(presenter, view_model, mock_thread_mgr):
+    view_model.status_model.upsert_row("BTCUSDT", "1m", "a", "b", "10", "OK")
+    view_model.status_model.upsert_row("ETHUSDT", "1m", "a", "b", "5", "2 gaps found!")
+
+    view_model.requestSyncAllGaps()
+
+    method, targets = mock_thread_mgr.submit.call_args.args
+    assert method == presenter._run_bulk_sync
+    assert targets == [("ETHUSDT", "1m")]
+    assert view_model.progressMaximum == 1
+    assert view_model.progressVisible is True
+
+
+def test_sync_all_gaps_with_no_gaps_does_nothing(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.status_model.upsert_row("BTCUSDT", "1m", "a", "b", "10", "OK")
+
+    view_model.requestSyncAllGaps()
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+
+# ---------------------------------------------------------------------------
+# Stat tiles
+# ---------------------------------------------------------------------------
+
+
+def test_stored_records_tile_sums_scanned_totals(
+    presenter, view_model, mock_dispatcher
+):
+    mock_dispatcher.dispatch.return_value = [
+        DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "1440", "0", "OK"),
+        DatabaseStatusDTO("ETHUSDT", "1m", "a", "b", "1,200", "0", "OK"),
+    ]
+    presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m"])
+
+    presenter._refresh_stats()
+
+    assert view_model.storedRecords == "2,640"
+
+
+def test_non_numeric_totals_do_not_break_the_stat_tile(presenter, view_model):
+    """total_candles is a display string from the DTO — an "N/A" must be
+    skipped rather than crash the tile."""
+    view_model.status_model.upsert_row("BTCUSDT", "1m", "a", "b", "N/A", "OK")
+    view_model.status_model.upsert_row("ETHUSDT", "1m", "a", "b", "100", "OK")
+
+    presenter._refresh_stats()
+
+    assert view_model.storedRecords == "100"
+
+
+def test_dead_screen_does_not_break_app_wide_logging(qapp, mock_container, request):
+    """
+    Regression test: SignalLogHandler is attached to the app-wide "App"
+    logger, so it outlives the screen that installed it. Once that screen's
+    C++ object is deleted the bound signal raises, and because every `App.*`
+    logger propagates there, ONE dead screen used to break logging for the
+    whole app (first seen as unrelated IconLoader tests failing).
+    """
+    import logging
+
+    view = DataManagementView()
+    presenter = DataManagementPresenter(view, mock_container)
+    handler = presenter._log_handler
+    assert handler in logging.getLogger("App").handlers
+
+    del presenter
+    view.deleteLater()
+    view.destroyed.emit()  # what Qt fires when the C++ object goes away
+    qapp.processEvents()
+
+    # Logging through any App.* child must still work, not raise.
+    logging.getLogger("App.IconLoader").warning("icon missing")
+    assert handler not in logging.getLogger("App").handlers
+
+
+def test_database_size_is_unknown_when_config_has_no_usable_path(presenter, view_model):
+    """A stat tile must never be able to take the screen down, whatever the
+    config holds."""
+    presenter.config.get.return_value = None
+    assert presenter._database_size_text() == "—"
+
+    presenter.config.get.return_value = Mock()  # not a path at all
+    assert presenter._database_size_text() == "—"

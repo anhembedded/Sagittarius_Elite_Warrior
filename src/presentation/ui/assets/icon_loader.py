@@ -1,11 +1,12 @@
 import logging
-from base64 import b64encode
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from PySide6.QtCore import QBuffer, QIODeviceBase, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
+
+from .palette import Palette
 
 logger = logging.getLogger("App.IconLoader")
 
@@ -17,12 +18,15 @@ class IconTheme:
     """
     @brief Fixed palette icons are recolored against — matches the Binance-style dark
     theme already used across the UI (chart_card bull/bear colors, accent color).
+    @details Values sourced from `Palette` (the single cross-widgets/QML source of
+    truth, see palette.py) — kept as its own class since existing code imports
+    `IconTheme` specifically for icon coloring.
     """
 
-    ACCENT = "#F3BA2F"  # Binance yellow
-    SUCCESS = "#0ECB81"  # green
-    DANGER = "#F6465D"  # red
-    MUTED = "#848E9C"  # gray (default icon color)
+    ACCENT = Palette.ACCENT
+    SUCCESS = Palette.SUCCESS
+    DANGER = Palette.DANGER
+    MUTED = Palette.MUTED
 
 
 class IconLoader:
@@ -78,21 +82,6 @@ class IconLoader:
         renderer.render(painter)
         painter.end()
         return QIcon(pixmap)
-
-    def get_icon_data_uri(
-        self, name: str, color: str = IconTheme.MUTED, size: int = _DEFAULT_SIZE
-    ) -> str:
-        """
-        @brief Returns a `data:image/png;base64,...` URI for embedding an icon inline in
-        rich text (e.g. an `<img>` tag in a QTextEdit log line) — QTextEdit has no notion
-        of a QIcon, only image sources it can resolve.
-        """
-        pixmap = self.get_icon(name, color, size).pixmap(size, size)
-        buffer = QBuffer()
-        buffer.open(QIODeviceBase.OpenModeFlag.WriteOnly)
-        pixmap.save(buffer, "PNG")
-        encoded = b64encode(bytes(buffer.data())).decode("ascii")
-        return f"data:image/png;base64,{encoded}"
 
     @staticmethod
     def _blank_icon(size: int) -> QIcon:

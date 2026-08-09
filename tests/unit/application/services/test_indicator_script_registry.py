@@ -1,0 +1,78 @@
+"""Tests for IndicatorScriptRegistry (BOT-032 Phase 0)."""
+
+import pytest
+
+from Binace_Bot.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Binace_Bot.src.domain.entities.market_data import MarketData
+from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript
+
+
+class _DummyScript(BaseIndicatorScript):
+    title = "Dummy"
+    overlay = True
+
+    def setup(self) -> None:
+        self.e = self.ema(2)
+
+    def execute(self, candle: MarketData) -> None:
+        self.plot(self.e(candle.close_price), "LINE", color="#ffffff")
+
+
+class _OtherScript(_DummyScript):
+    title = "Other"
+
+
+@pytest.fixture
+def registry() -> IndicatorScriptRegistry:
+    return IndicatorScriptRegistry()
+
+
+def test_register_then_create_returns_an_instance(registry):
+    registry.register("dummy", _DummyScript)
+
+    assert isinstance(registry.create("dummy"), _DummyScript)
+
+
+def test_create_returns_a_fresh_instance_every_call(registry):
+    """Indicators carry warm-up state and have no reset(), so each run must
+    start from a brand new object."""
+    registry.register("dummy", _DummyScript)
+
+    assert registry.create("dummy") is not registry.create("dummy")
+
+
+def test_duplicate_key_raises_instead_of_silently_overwriting(registry):
+    registry.register("dummy", _DummyScript)
+
+    with pytest.raises(ValueError, match="already registered"):
+        registry.register("dummy", _OtherScript)
+
+
+def test_unknown_key_raises_keyerror(registry):
+    with pytest.raises(KeyError):
+        registry.create("nope")
+
+
+def test_create_accepts_and_ignores_params_for_forward_compatibility(registry):
+    """`params` is reserved for parameterised scripts (period spin boxes) —
+    accepting it now means adding them later isn't a breaking signature change."""
+    registry.register("dummy", _DummyScript)
+
+    assert isinstance(registry.create("dummy", {"period": 20}), _DummyScript)
+
+
+def test_available_lists_registered_scripts(registry):
+    registry.register("dummy", _DummyScript)
+    registry.register("other", _OtherScript)
+
+    assert registry.available() == {"dummy": _DummyScript, "other": _OtherScript}
+
+
+def test_available_returns_a_copy(registry):
+    registry.register("dummy", _DummyScript)
+
+    registry.available()["injected"] = _OtherScript
+
+    assert "injected" not in registry.available()

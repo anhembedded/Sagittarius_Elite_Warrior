@@ -1,18 +1,37 @@
+import bisect
+
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui
 
 from . import theme
+from .viewport_windowing import visible_slice_indices
 
 
 class FastCandlestickItem(pg.GraphicsObject):
     """
-    @brief Custom PyQtGraph GraphicsObject for rendering O(1) candlesticks.
-    @details Uses QPicture for historical caching and manual paint for live updates.
+    @brief Custom PyQtGraph GraphicsObject for rendering candlesticks.
+
+    @details
+    Draws only the candles inside the current viewport's visible X range
+    (plus a small padding) directly with QPainter in paint(), found via
+    O(log N) binary search — NOT a QPicture baked from the full history.
+
+    That QPicture approach was the original design ("O(1) rendering"), but
+    profiling a 5000-candle chart showed `QPicture.play()` alone cost ~4.2s
+    across 200 simulated pan frames: Qt still has to walk every recorded
+    draw command when replaying a QPicture, even the ones clipped outside
+    the visible area — caching only skips *rebuilding* the picture, not
+    *replaying* the unseen parts of it. Drawing only the visible slice each
+    paint() call is O(visible candle count), independent of total history
+    size, which is what actually fixes pan/zoom smoothness.
     """
+
+    # Extra margin (in candle-widths) drawn beyond the visible X range so
+    # candles don't visibly pop in/out right at the viewport edge.
+    _VISIBLE_PADDING_WIDTHS = 2.0
 
     def __init__(self, data=None):
         pg.GraphicsObject.__init__(self)
-        self.picture = QtGui.QPicture()
 
         # Colors (Dark Theme)
         self.bull_color = QtGui.QColor(theme.BULL_COLOR)
@@ -21,6 +40,7 @@ class FastCandlestickItem(pg.GraphicsObject):
         self.candle_width = 20.0  # Default width, updated dynamically
         self.live_candle = None  # Holds (t, o, h, l, c) for the live tick
         self.history_data = []  # Tracks all historical data
+        self._full_bounds_rect = QtCore.QRectF()
 
         if data:
             self.history_data = list(data)
@@ -28,7 +48,10 @@ class FastCandlestickItem(pg.GraphicsObject):
 
     def generate_picture(self, data: list[tuple[float, float, float, float, float]]):
         """
-        @brief Generates a cached QPicture for historical data. O(N) complexity once.
+        @brief Recomputes candle_width and the cached full-history bounding
+        rect for new/updated data. O(N) — called once per historical load
+        or closed candle, not per paint/pan frame (see class docstring for
+        why no picture is baked here anymore).
         @details Stores its own copy of `data` — callers (e.g. ChartCard, which
         owns `_raw_history`) must be able to independently append to their own
         list without silently duplicating entries in this cache's `history_data`
@@ -36,19 +59,74 @@ class FastCandlestickItem(pg.GraphicsObject):
         """
         if data is not self.history_data:
             self.history_data = list(data)
-        self.picture = QtGui.QPicture()
-        p = QtGui.QPainter(self.picture)
 
+        # Dynamically calculate candle width from the time interval between
+        # candles. Uses the MEDIAN gap across the whole series, not just
+        # data[1]-data[0] — a single anomalous first gap (e.g. a missing
+        # candle / exchange downtime right at the start of the loaded
+        # history) used to miscalibrate the width for every candle in the
+        # chart, making them render far too wide (overlapping into a solid
+        # block) or too thin. The median is robust to a few such outliers.
+        # abs() guards against a negative width if `data` were ever
+        # descending (would otherwise make candles vanish — see
+        # boundingRect/dataBounds, which assume ascending time).
+        if len(data) > 1:
+            gaps = sorted(data[i + 1][0] - data[i][0] for i in range(len(data) - 1))
+            median_gap = gaps[len(gaps) // 2]
+            self.candle_width = abs(median_gap) / 3.0
+
+        self._recompute_full_bounds()
+        self.prepareGeometryChange()
+        self.informViewBoundsChanged()
+        self.update()
+
+    def _recompute_full_bounds(self) -> None:
+        """Caches the full-history bounding rect (used by boundingRect(),
+        which Qt calls frequently) so it doesn't need an O(N) min/max scan
+        on every call — only recomputed here, when data actually changes."""
+        if not self.history_data:
+            self._full_bounds_rect = QtCore.QRectF()
+            return
+        w = self.candle_width
+        min_t = self.history_data[0][0] - w
+        max_t = self.history_data[-1][0] + w
+        min_y = min(row[3] for row in self.history_data)
+        max_y = max(row[2] for row in self.history_data)
+        self._full_bounds_rect = QtCore.QRectF(
+            min_t, min_y, max_t - min_t, max_y - min_y
+        )
+
+    def _visible_history_slice(self) -> list[tuple[float, float, float, float, float]]:
+        """
+        @brief Returns the history_data slice inside the current viewport's
+        X range (+ padding), via O(log N) binary search.
+        @details Falls back to the full history if this item isn't attached
+        to a ViewBox yet (e.g. under a unit test that never adds it to a
+        scene) — correctness over the perf fast-path in that edge case.
+        """
+        view_box = self.getViewBox()
+        if view_box is None or not self.history_data:
+            return self.history_data
+
+        (min_x, max_x), _ = view_box.viewRange()
+        padding = self.candle_width * self._VISIBLE_PADDING_WIDTHS
+        lo, hi = visible_slice_indices(
+            self.history_data, min_x, max_x, padding, key=lambda row: row[0]
+        )
+        return self.history_data[lo:hi]
+
+    def paint(self, p: QtGui.QPainter, *args):
+        """
+        @brief Draws only the currently-visible candles (+ padding), plus
+        the live candle. O(visible count), not O(total history) — see
+        class docstring.
+        """
         bull_brush = pg.mkBrush(self.bull_color)
         bull_pen = pg.mkPen(self.bull_color)
         bear_brush = pg.mkBrush(self.bear_color)
         bear_pen = pg.mkPen(self.bear_color)
 
-        # Dynamically calculate candle width based on the time interval between candles
-        if len(data) > 1:
-            self.candle_width = (data[1][0] - data[0][0]) / 3.0
-
-        for t, o, h, low, c in data:
+        for t, o, h, low, c in self._visible_history_slice():
             if c >= o:
                 p.setPen(bull_pen)
                 p.setBrush(bull_brush)
@@ -66,30 +144,17 @@ class FastCandlestickItem(pg.GraphicsObject):
             )
             p.drawRect(rect)
 
-        p.end()
-        self.prepareGeometryChange()
-        self.informViewBoundsChanged()
-        self.update()
-
-    def paint(self, p: QtGui.QPainter, *args):
-        """
-        @brief O(1) rendering method. Draws historical cache + live candle.
-        """
-        # 1. Draw 10,000+ cached historical candles instantly
-        p.drawPicture(0, 0, self.picture)
-
-        # 2. Draw ONLY the last live candle dynamically
+        # Draw the live (in-progress) candle, always — it's a single item.
         if self.live_candle:
             t, o, h, low, c = self.live_candle
             if c >= o:
-                p.setPen(pg.mkPen(self.bull_color))
-                p.setBrush(pg.mkBrush(self.bull_color))
+                p.setPen(bull_pen)
+                p.setBrush(bull_brush)
             else:
-                p.setPen(pg.mkPen(self.bear_color))
-                p.setBrush(pg.mkBrush(self.bear_color))
+                p.setPen(bear_pen)
+                p.setBrush(bear_brush)
 
             p.drawLine(QtCore.QPointF(t, low), QtCore.QPointF(t, h))
-            # Use min/abs to strictly enforce positive height
             rect = QtCore.QRectF(
                 t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o)
             )
@@ -120,31 +185,47 @@ class FastCandlestickItem(pg.GraphicsObject):
         closed_candle = (timestamp, open_p, high_p, low_p, close_p)
         self.history_data.append(closed_candle)
 
-        # O(1) Re-cache the entire history (fast enough for once per minute)
+        # Recompute width + cached bounds only — no picture to rebuild
+        # anymore (fast enough for once per minute either way).
         self.generate_picture(self.history_data)
 
         # Reset live candle state so a new one can form
         self.live_candle = None
-        self.update()  # Only triggers paint(), does NOT rebuild QPicture
+        self.update()
 
     def get_ohlc_at(self, x: float) -> tuple[float, float, float, float, float] | None:
         """
         @brief Returns the (t, o, h, l, c) candle nearest to x, for crosshair OHLC readouts.
-        @details O(N) nearest-timestamp scan — acceptable at hover-throttled (60fps) rates,
-        consistent with the O(N) bounds lookups already used elsewhere in this class.
+        @details O(log N) via bisect on history_data (assumed ascending-sorted by time —
+        the same invariant generate_picture()'s width calculation relies on). Panning is a
+        mouse-move gesture, so this fires on every 60fps-throttled crosshair update *during*
+        a drag, same as dataBounds() below — an O(N) scan here (the old approach) was a
+        second, compounding source of the pan/drag stutter fixed by this class's dataBounds.
         """
-        candidates = list(self.history_data)
-        if self.live_candle:
-            candidates.append(self.live_candle)
-        if not candidates:
-            return None
-        return min(candidates, key=lambda candle: abs(candle[0] - x))
+        if not self.history_data:
+            return self.live_candle
+
+        idx = bisect.bisect_left(self.history_data, x, key=lambda row: row[0])
+        if idx <= 0:
+            nearest = self.history_data[0]
+        elif idx >= len(self.history_data):
+            nearest = self.history_data[-1]
+        else:
+            before, after = self.history_data[idx - 1], self.history_data[idx]
+            nearest = before if (x - before[0]) <= (after[0] - x) else after
+
+        if self.live_candle and abs(self.live_candle[0] - x) < abs(nearest[0] - x):
+            return self.live_candle
+        return nearest
 
     def boundingRect(self) -> QtCore.QRectF:
         """
         @brief Calculates the bounding box for Qt's rendering engine.
+        @details O(1) — reads the cached full-history rect (see
+        _recompute_full_bounds) instead of scanning history_data, since Qt
+        can call this frequently.
         """
-        rect = QtCore.QRectF(self.picture.boundingRect())
+        rect = QtCore.QRectF(self._full_bounds_rect)
 
         if self.live_candle:
             t, o, h, low, c = self.live_candle
@@ -180,15 +261,20 @@ class FastCandlestickItem(pg.GraphicsObject):
             if orthoRange is not None:
                 min_x, max_x = orthoRange
 
-                # O(N) lookup for visible candles. For 10k candles, this takes < 1ms.
-                visible_lows = [
-                    low
-                    for (t, o, h, low, c) in self.history_data
-                    if min_x <= t <= max_x
-                ]
-                visible_highs = [
-                    h for (t, o, h, low, c) in self.history_data if min_x <= t <= max_x
-                ]
+                # pyqtgraph's ViewBox calls dataBounds(ax=1, orthoRange=...) to
+                # re-autoscale Y on EVERY range-changed event — which fires
+                # continuously while the user drags/pans, not just on zoom.
+                # An O(N) scan over the full history here (the old approach)
+                # was one cause of visible pan/drag stutter with a few
+                # thousand candles loaded: bisect narrows to the visible
+                # slice in O(log N) first, so min()/max() only run over the
+                # (typically small) visible window instead of all of history.
+                lo, hi = visible_slice_indices(
+                    self.history_data, min_x, max_x, key=lambda row: row[0]
+                )
+                visible = self.history_data[lo:hi]
+                visible_lows = [row[3] for row in visible]
+                visible_highs = [row[2] for row in visible]
 
                 if self.live_candle and min_x <= self.live_candle[0] <= max_x:
                     visible_lows.append(self.live_candle[3])

@@ -21,10 +21,10 @@ Binace_Bot/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 13 | 52% |
-| 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 12 | 48% |
-| 📈 **Tổng số Task** | **25** | **100%** |
+| 🟢 **Completed** | 16 | 53% |
+| 🟡 **In Progress** | 1 | 3% |
+| 🔴 **Backlog** | 13 | 44% |
+| 📈 **Tổng số Task** | **30** | **100%** |
 
 ---
 
@@ -45,12 +45,15 @@ Binace_Bot/Tasks/
 - [x] **BOT-015**: [QA & Testing Strategy Audit](completed/BOT-015_qa_testing_strategy_audit.md) — *(một phần)* Thêm tầng `tests/sanity/`, testing guidelines, cờ `-SanityOnly`/`-UnitOnly`/`-Full` + `--cov-fail-under=80` cho `ci-local.ps1`. 📄 [Báo cáo Audit](reports/qa_testing_strategy_report.md). Hoãn Concurrency/Thread-Safety tests.
 - [x] **BOT-016**: [UI Icon Pack & Assets Management](completed/BOT-016_ui_icon_pack_integration.md) — *Tích hợp Lucide Icons (SVG) vào Sidebar/ControlCard/MonitorCard qua `IconLoader` (cache, recolor, fallback).*
 - [x] **BOT-020**: [Indicator & Strategy Engine (Core)](completed/BOT-020_indicator_strategy_engine_core.md) — *Epic `BOT-006` Phase 0. `IIndicator`/`RSI`/`EMA`/`MACD` + `IStrategy`/`StrategyEngine` (batch & incremental, cùng 1 code path đảm bảo 2 chế độ luôn khớp kết quả). Nền tảng dùng chung cho `BOT-008`/`BOT-021`/`BOT-023`.*
+- [x] **BOT-028**: [QML Hybrid Prototype Spike — Settings Screen](completed/BOT-028_qml_hybrid_prototype_spike.md) — *Kiểm chứng khả thi Hybrid (giữ `ChartCard`/pyqtgraph, phần còn lại chuyển QML qua `QQuickWidget`). Kết quả chính: `QQuickWidget` render đúng dưới `QT_QPA_PLATFORM=offscreen`, `PresenterManager` KHÔNG cần sửa gì để host QML. Chưa rút abstraction vào `pyside_mvc` (đợi màn hình QML thứ 2).*
+- [x] **BOT-029**: [UI Restyle — Theme "Sagittarius Elite Warrior"](completed/BOT-029_ui_restyle_sagittarius_theme.md) — *Đổi giao diện đen+gold theo mockup, branding "Sagittarius Elite Warrior". Phase 1-2 (theme/branding/sidebar/Dev Board top bar) + Phase 4 (đảo QML→Widgets cho Settings) xong bằng QtWidgets. Phase 3 (restyle Database) **supersede bởi `BOT-030`** — thiết kế gộp thẳng vào bản QML thay vì làm 2 lần.*
+- [x] **BOT-030**: [Full QML Migration (chart giữ QtWidgets)](completed/BOT-030_full_qml_migration.md) — *Chuyển toàn bộ UI sang QML trừ `ChartCard` — lý do là AI dịch mockup→code trực tiếp hơn ở QML (không phải hiệu năng — bug pan giật đã tìm ra và sửa xong ở Widgets, thuần thuật toán, đảo ngược quyết định QML→Widgets của `BOT-029` Phase 4). 5 phase: nền tảng QML dùng chung → Sidebar → Settings → Database → Dev Board (hybrid `QSplitter` + `ChartCard`) → dọn dẹp (`ui_matrix.json`, dead code). `ci-local.ps1 -Full`: 283 passed, 2 xfailed, coverage 92.31%. Chưa promote hạ tầng QML vào `pyside_mvc` — chỉ 1 app dùng, đợi consumer thứ 2 thật sự.*
 
 ---
 
 ### 🟡 In Progress (Đang thực hiện)
 
-> *(Hiện tại chưa có task nào trong Sprint. Hãy chọn 1 task từ Backlog bên dưới để bắt đầu).*
+- [ ] **BOT-032**: [Custom Indicator Scripts (kiểu Pine Script, thuần Python)](in_progress/BOT-032_custom_indicator_scripts.md) — *Tự viết indicator bằng 1 class Python thường (`setup()` khai báo, `execute()` gọi `self.plot()`/`self.mark()`), không tạo DSL mới. **Phase 0-1 xong**: `BaseIndicatorScript` + `IndicatorScriptRegistry` + `domain/scripting/` (Series index kiểu Pine `a[1]`, `crossed_above/below`, cắt giá, cắt mức hằng, so sánh None-safe) + `WMA` + 3 script mẫu (`ema_ribbon`/`macd_full`/`ema_cross`) + guard test. Còn Phase 2 (Presenter vẽ line), Phase 3 (UI bật/tắt), Phase 4 (**chart chưa vẽ được marker/màu-động/fill — giao nhau với BOT-026**), Phase 5 (docs), Phase 6 (chuyển RSI/EMA/MACD thành script). Task file có design + rule chi tiết cho model khác implement tiếp.*
 
 ---
 
@@ -66,6 +69,7 @@ Binace_Bot/Tasks/
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
 | **P2** | **[Epic BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine — Màn hình Backtest Thực thụ** | `BOT-001` ✅ | Epic, chia theo Phase — xem bảng chi tiết bên dưới. Không còn phụ thuộc `BOT-008` (backtest dùng Paper Exchange giả lập, không cần order thật). |
 | **P3** | **[BOT-011](backlog/BOT-011_chart_tradingview_tier3_advanced.md)** | **TradingView Chart — Tier 3 Advanced** *(Ưu tiên thấp)* | `BOT-010` ✅ | Drawing tools (Trendline, Fibonacci), Context Menu chuột phải & Multi-chart/Snapshot. Giá trị thấp cho tự động hóa bot (task tự ghi chú); cần test tương tác chuột thật — cân nhắc kỹ trước khi làm toàn bộ. |
+| **P3** | **[BOT-031](backlog/BOT-031_ui_preview_convention_and_tool.md)** | **UI Preview Convention — mock file/màn + tool auto-discover** *(dev tooling)* | `BOT-030` ✅ | Chuẩn hoá `scripts/preview_qml.py` (prototype có sẵn, hardcode 4 màn) thành convention chính thức: mỗi View có 1 file `preview.py` cùng cấp, tool tự quét `screens/`/`components/` để phát hiện thay vì danh sách cứng, có guard test enforce. Do user chủ động đề xuất, hoãn ưu tiên. |
 
 #### 🎯 Epic BOT-006 — Chi tiết theo Phase
 
