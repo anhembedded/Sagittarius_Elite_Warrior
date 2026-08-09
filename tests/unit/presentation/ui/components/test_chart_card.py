@@ -537,3 +537,137 @@ def test_chart_card_crosshair_mouse_hover(qapp):
         pytest.fail(f"_mouse_moved crashed with: {e}")
 
     # Test passed nếu không có exception nào văng ra
+
+
+# ---------------------------------------------------------------------------
+# BOT-032 — custom indicator script backgrounds & status panel
+# ---------------------------------------------------------------------------
+
+
+def test_script_regions_are_drawn_as_linear_region_items_on_the_main_plot(qapp):
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
+
+    items = card.indicators._region_items["ema_cross"]
+    assert len(items) == 1
+    assert isinstance(items[0], pg.LinearRegionItem)
+    assert items[0] in card.plot_layout.main_plot.items
+
+
+def test_a_growing_region_updates_the_existing_item_instead_of_duplicating(qapp):
+    """Mirrors update_indicator_data()'s "always the full series" contract —
+    re-sending a longer span list must not pile up extra chart items."""
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
+    card.set_script_regions("ema_cross", [(1000.0, 1120.0, "#0ECB81", 0.1)])
+
+    items = card.indicators._region_items["ema_cross"]
+    assert len(items) == 1
+    assert items[0].getRegion() == (1000.0, 1120.0)
+
+
+def test_a_new_span_after_a_colour_change_adds_a_second_item(qapp):
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
+    card.set_script_regions(
+        "ema_cross",
+        [(1000.0, 1060.0, "#0ECB81", 0.1), (1060.0, 1120.0, "#F6465D", 0.1)],
+    )
+
+    assert len(card.indicators._region_items["ema_cross"]) == 2
+
+
+def test_clear_script_regions_removes_every_item_for_that_key(qapp):
+    card = ChartCard("BTCUSDT")
+    card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
+    region_item = card.indicators._region_items["ema_cross"][0]
+
+    card.clear_script_regions("ema_cross")
+
+    assert card.indicators._region_items == {}
+    assert region_item not in card.plot_layout.main_plot.items
+
+
+def test_two_scripts_regions_do_not_interfere_with_each_other(qapp):
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
+    card.set_script_regions("dev_showcase", [(2000.0, 2060.0, "#F6465D", 0.1)])
+    card.clear_script_regions("ema_cross")
+
+    assert "ema_cross" not in card.indicators._region_items
+    assert len(card.indicators._region_items["dev_showcase"]) == 1
+
+
+def test_script_info_renders_label_value_pairs_into_the_panel(qapp):
+    from Binace_Bot.src.domain.indicator_scripts import InfoField
+
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_info(
+        "ema_cross", [InfoField(label="Trend", value="UP", color="#0ECB81")]
+    )
+
+    text = card.plot_layout.script_info_label.text
+    assert "Trend" in text
+    assert "UP" in text
+
+
+def test_script_info_from_two_scripts_both_appear(qapp):
+    from Binace_Bot.src.domain.indicator_scripts import InfoField
+
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_info("ema_cross", [InfoField(label="Trend", value="UP")])
+    card.set_script_info("dev_showcase", [InfoField(label="RSI(14)", value="55.0")])
+
+    text = card.plot_layout.script_info_label.text
+    assert "Trend" in text
+    assert "RSI(14)" in text
+
+
+def test_clearing_one_scripts_info_leaves_the_others_visible(qapp):
+    from Binace_Bot.src.domain.indicator_scripts import InfoField
+
+    card = ChartCard("BTCUSDT")
+    card.set_script_info("ema_cross", [InfoField(label="Trend", value="UP")])
+    card.set_script_info("dev_showcase", [InfoField(label="RSI(14)", value="55.0")])
+
+    card.clear_script_info("ema_cross")
+
+    text = card.plot_layout.script_info_label.text
+    assert "Trend" not in text
+    assert "RSI(14)" in text
+
+
+def test_replacing_a_scripts_info_with_an_empty_list_clears_its_rows(qapp):
+    """set_script_info(key, []) is how a script author expresses "nothing to
+    report this bar" — it must not leave the previous bar's rows stuck."""
+    from Binace_Bot.src.domain.indicator_scripts import InfoField
+
+    card = ChartCard("BTCUSDT")
+    card.set_script_info("ema_cross", [InfoField(label="Trend", value="UP")])
+
+    card.set_script_info("ema_cross", [])
+
+    assert card.plot_layout.script_info_label.text == ""
+
+
+def test_main_plot_still_spans_the_full_width_with_the_info_column_present(qapp):
+    """Regression guard: adding script_info_label as a second grid column
+    must not silently narrow the chart — main_plot needs colspan=2."""
+    card = ChartCard("BTCUSDT")
+
+    layout_item = card.plot_layout.widget.ci.layout.itemAt(
+        card.plot_layout.MAIN_PLOT_ROW, 0
+    )
+    assert layout_item is card.plot_layout.main_plot
+    # A colspan=2 item occupies col 1 too — querying col 1 for the same row
+    # must resolve to the very same plot, not an empty cell.
+    assert (
+        card.plot_layout.widget.ci.layout.itemAt(card.plot_layout.MAIN_PLOT_ROW, 1)
+        is card.plot_layout.main_plot
+    )

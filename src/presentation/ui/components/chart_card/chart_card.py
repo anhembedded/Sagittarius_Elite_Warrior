@@ -226,6 +226,24 @@ class ChartCard(BaseCard):
     def remove_indicator(self, name: str) -> None:
         self.indicators.remove(name)
 
+    # ------------------------------------------------------------------ #
+    # BOT-032 — custom indicator script backgrounds & status panel
+    # ------------------------------------------------------------------ #
+
+    def set_script_regions(
+        self, key: str, spans: list[tuple[float, float, str, float]]
+    ) -> None:
+        self.indicators.set_script_regions(key, spans)
+
+    def clear_script_regions(self, key: str) -> None:
+        self.indicators.clear_script_regions(key)
+
+    def set_script_info(self, key: str, fields: list) -> None:
+        self.indicators.set_script_info(key, fields)
+
+    def clear_script_info(self, key: str) -> None:
+        self.indicators.clear_script_info(key)
+
     def _mouse_moved(self, evt) -> None:
         """Back-compat entry point (also used directly by tests); delegates to CrosshairController."""
         self.crosshair.handle_mouse_moved(evt)

@@ -161,6 +161,13 @@ class DashboardPresenter(BasePresenter):
     # Indicator name -> full (x, y) series computed so far
     ui_indicator_data_signal = Signal(str, list, list)
 
+    # BOT-032 — script key -> its full current set of background-tint spans /
+    # status-panel fields. Separate signals from ui_indicator_data_signal
+    # because these carry a different shape (per-script, not per-line) and
+    # have no built-in-indicator equivalent to share a contract with.
+    ui_script_region_signal = Signal(str, list)
+    ui_script_info_signal = Signal(str, list)
+
     INITIAL_STATE = UIMode.IDLE
 
     def __init__(self, view: "DashboardView", container: "IContainer") -> None:
@@ -203,6 +210,8 @@ class DashboardPresenter(BasePresenter):
         self._script_runner = IndicatorScriptRunner(
             registry=container.resolve(IndicatorScriptRegistry),
             emit_line=self.ui_indicator_data_signal.emit,
+            emit_region=self.ui_script_region_signal.emit,
+            emit_info=self.ui_script_info_signal.emit,
             on_error=self.ui_log_signal.emit,
         )
 
@@ -235,6 +244,8 @@ class DashboardPresenter(BasePresenter):
         self.ui_stream_success_signal.connect(self._on_stream_start_success)
         self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
         self.ui_indicator_data_signal.connect(self._on_indicator_data)
+        self.ui_script_region_signal.connect(self._on_script_region_data)
+        self.ui_script_info_signal.connect(self._on_script_info_data)
 
     def _connect_engine_events(self) -> None:
         """Đăng ký lắng nghe sự kiện từ Engine EventBus."""
@@ -501,6 +512,20 @@ class DashboardPresenter(BasePresenter):
             return
         self._ensure_indicator_registered(card, name, active_indicator)
         card.update_indicator_data(name, x_data, y_data)
+
+    @Slot(str, list)
+    def _on_script_region_data(self, key: str, spans: list) -> None:
+        """Pushes a script's background-tint spans onto the chart."""
+        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        if card is not None:
+            self._script_runner.draw_region(card, key, spans)
+
+    @Slot(str, list)
+    def _on_script_info_data(self, key: str, fields: list) -> None:
+        """Pushes a script's status-panel fields onto the chart."""
+        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        if card is not None:
+            self._script_runner.draw_info(card, key, fields)
 
     # ================================================================== #
     # Engine Event Bridge — called from background threads.

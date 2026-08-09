@@ -20,6 +20,7 @@ from Binace_Bot.src.domain.indicators.wma import WMA
 from Binace_Bot.src.domain.scripting import (
     DEFAULT_HISTORY,
     Series,
+    Streak,
     constant_series,
     crossed,
     crossed_above,
@@ -68,6 +69,39 @@ class PlottedMarker:
     #: "up" hangs the label below the point, "down" above it — matching Pine's
     #: shape.labelup / shape.labeldown, which point *at* the price.
     direction: str = "up"
+
+
+@dataclass(frozen=True)
+class PlottedRegion:
+    """
+    @brief A background tint for the current bar (Pine's `bgcolor`).
+    @details One region per bar, not per name — unlike lines, a bar's
+    background is a single tint, not several independent series. `opacity`
+    (0=invisible, 1=solid) is separate from `color` rather than baked into an
+    8-digit hex, because a script is far more likely to vary it deliberately
+    (Pine typically uses 85-90% transparency for a trend wash) than to want a
+    literal alpha-channel hex code.
+    """
+
+    color: str
+    opacity: float = 0.15
+
+
+@dataclass(frozen=True)
+class InfoField:
+    """
+    @brief One row of a script's status panel (Pine's `table.cell`), e.g.
+    ("Trend", "UP", color=green).
+    @details Only ever shown for the most recently computed bar — a status
+    panel reports "where things stand now", not a time series, so there is no
+    history to keep. That also removes any need for Pine's `barstate.islast`
+    guard: whichever bar was computed last is definitionally the one whose
+    info is current.
+    """
+
+    label: str
+    value: str
+    color: str | None = None
 
 
 class IndicatorHandle(Generic[T]):
@@ -146,6 +180,8 @@ class BaseIndicatorScript(ABC):
     def __init__(self) -> None:
         self._buffer: dict[str, PlottedLine] = {}
         self._markers: list[PlottedMarker] = []
+        self._region: PlottedRegion | None = None
+        self._info: dict[str, InfoField] = {}
         self._line_colors: dict[str, str] = {}
 
         self.open = Series(self.history)
@@ -192,6 +228,10 @@ class BaseIndicatorScript(ABC):
     def level(self, value: float) -> Series:
         """A constant line (RSI 70, MACD zero) usable as a cross operand."""
         return constant_series(value, self.history)
+
+    def streak(self) -> Streak:
+        """A consecutive-bars-true counter — see Streak's own docstring."""
+        return Streak()
 
     # ------------------------------------------------------------------ #
     # Comparison helpers — call these from execute().
@@ -257,6 +297,27 @@ class BaseIndicatorScript(ABC):
             PlottedMarker(value=value, text=text, color=color, direction=direction)
         )
 
+    def shade(self, color: str | None, opacity: float = 0.15) -> None:
+        """
+        @brief Tints the chart background for this bar (Pine's `bgcolor`).
+        @param color None means no tint this bar — the common
+        `condition ? color : na` shape is `self.shade(color if condition else None)`.
+        @details Calling this more than once in the same bar simply overwrites
+        — a bar has one background, not a stack of them, which is also how
+        the last `bgcolor()` call in a Pine script wins on a given bar.
+        """
+        self._region = None if color is None else PlottedRegion(color, opacity)
+
+    def info(self, label: str, value: object, color: str | None = None) -> None:
+        """
+        @brief Adds a row to this bar's status panel (Pine's `table.cell`).
+        @details Calling this every bar is normal and expected — see
+        InfoField's docstring for why there is no `barstate.islast` guard to
+        write. Calling it twice with the same `label` in one bar replaces the
+        row rather than duplicating it.
+        """
+        self._info[label] = InfoField(label=label, value=str(value), color=color)
+
     # ------------------------------------------------------------------ #
     # Framework-facing — script authors do not call these
     # ------------------------------------------------------------------ #
@@ -273,6 +334,8 @@ class BaseIndicatorScript(ABC):
         """
         self._buffer = {}
         self._markers = []
+        self._region = None
+        self._info = {}
 
         self.open.push(candle.open_price)
         self.high.push(candle.high_price)
@@ -287,6 +350,14 @@ class BaseIndicatorScript(ABC):
         """Markers produced by the most recent `compute()`. Separate call so
         adding markers didn't change `compute()`'s established return type."""
         return list(self._markers)
+
+    def drain_region(self) -> PlottedRegion | None:
+        """This bar's background tint, or None for no tint."""
+        return self._region
+
+    def drain_info(self) -> list[InfoField]:
+        """This bar's status panel rows, in the order `info()` was called."""
+        return list(self._info.values())
 
     def line_colors(self) -> Mapping[str, str]:
         """

@@ -40,6 +40,14 @@ class DevIndicatorScript(BaseIndicatorScript):
     | 10 | Indicator crossing a constant | `crossover(rsi, 70)` |
     | 11 | Fanning a compound reading out | `macd`, `signal`, `hist` |
     | 12 | Markers with labels | `plotshape(..., text="Buy")` |
+    | 13 | Background tint | `bgcolor(cond ? color.new(green, 90) : na)` |
+    | 14 | Status panel rows | `table.cell(t, 0, 1, "Trend", ...)` |
+    | 15 | Consecutive-bar counter | a hand-rolled `var int consecutiveBars` |
+
+    Persistent state across bars (Pine's `var`) needs no technique of its own:
+    a script is a plain Python object that lives for the whole run, so
+    `self.x = 0` in `setup()` and mutating it in `execute()` already behaves
+    exactly like `var` — technique 15 uses this for its own bookkeeping.
 
     `overlay = True`, so every plotted line shares the candles' price scale.
     For a study that needs its own row instead (RSI 0-100, MACD around zero),
@@ -65,6 +73,12 @@ class DevIndicatorScript(BaseIndicatorScript):
 
         # --- 3. A constant, so a level can be crossed like any other line.
         self.overbought = self.level(70.0)
+
+        # --- 15. A consecutive-bars counter, plus plain instance attributes
+        # (technique 15's "var" equivalent) tracking the running state.
+        self.trend_confirmation = self.streak()
+        self.confirmed_side = 0  # -1 / 0 / +1, persists across bars like `var`
+        self.last_direction_up: bool | None = None
 
     def execute(self, candle: MarketData) -> None:
         # --- 4. Price. `candle` carries the raw bar, while self.close/high/...
@@ -134,3 +148,29 @@ class DevIndicatorScript(BaseIndicatorScript):
                 color=_ACCENT,
                 direction="up",
             )
+
+        # --- 15. A consecutive-bars counter, confirming a trend only after it
+        # has held for 3 bars running — resets the moment the trend flips.
+        trending_up = self.is_above(self.fast, self.slow)
+        held_since_last_bar = trending_up == self.last_direction_up
+        bars_in_trend = self.trend_confirmation.update(held_since_last_bar)
+        self.last_direction_up = trending_up
+        if bars_in_trend >= 3:
+            self.confirmed_side = 1 if trending_up else -1
+
+        # --- 13. Background tint — only while a *confirmed* trend is running,
+        # so the wash is calmer than the raw (noisier) per-bar EMA colour.
+        if self.confirmed_side == 1:
+            self.shade(_BULL, opacity=0.08)
+        elif self.confirmed_side == -1:
+            self.shade(_BEAR, opacity=0.08)
+        # else: no self.shade() call this bar — no tint, same as passing None.
+
+        # --- 14. Status panel — reports current values every bar; only the
+        # most recent bar's rows are ever shown (see InfoField's docstring).
+        self.info(
+            "Trend", "UP" if self.confirmed_side == 1 else "DOWN", color=trend_color
+        )
+        self.info("Bars confirming", bars_in_trend)
+        if momentum is not None:
+            self.info("RSI(14)", f"{momentum:.1f}")

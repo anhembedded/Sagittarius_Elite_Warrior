@@ -24,9 +24,21 @@ class ChartPlotLayout:
             justify="right",
         )
 
+        # A second header-row label for custom indicator scripts' status
+        # panels (BOT-032 — Pine's `table.cell`). Its own column rather than
+        # sharing crosshair_label's, so script status and hover data never
+        # overwrite each other; empty by default, so it takes no visible
+        # space until a script actually calls self.info(...). Every plot row
+        # below it uses colspan=2 (see main_plot/add_subplot) so this extra
+        # column's own width never narrows the chart.
+        self.script_info_label = self.widget.addLabel("", row=0, col=1, justify="left")
+
         date_axis = pg.DateAxisItem(orientation="bottom")
         self.main_plot = self.widget.addPlot(
-            row=self.MAIN_PLOT_ROW, col=0, axisItems={"bottom": date_axis}
+            row=self.MAIN_PLOT_ROW,
+            col=0,
+            colspan=2,
+            axisItems={"bottom": date_axis},
         )
         self.main_plot.showGrid(x=True, y=True, alpha=0.2)
 
@@ -52,7 +64,7 @@ class ChartPlotLayout:
         single outlier (e.g. one huge volume spike) squashes every other bar
         flat — and mouse-wheel Y-zoom on the subplot silently does nothing.
         """
-        sub_plot = self.widget.addPlot(row=self._next_row, col=0)
+        sub_plot = self.widget.addPlot(row=self._next_row, col=0, colspan=2)
         sub_plot.showGrid(x=True, y=True, alpha=0.2)
         sub_plot.setXLink(self.main_plot)
         sub_plot.setMouseEnabled(x=True, y=True)

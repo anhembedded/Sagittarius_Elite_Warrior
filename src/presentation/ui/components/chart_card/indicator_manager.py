@@ -1,9 +1,17 @@
 from typing import Callable
 
 import pyqtgraph as pg
+from PySide6 import QtGui
+
+from Binace_Bot.src.domain.indicator_scripts import InfoField
 
 from .plot_layout import ChartPlotLayout
 from .viewport_windowing import visible_slice_indices
+
+#: Default text colour for an InfoField that didn't specify one.
+_DEFAULT_INFO_COLOR = "#c9cdd3"
+#: Drawn beneath candles/curves/volume so a background tint never occludes them.
+_REGION_Z_VALUE = -10
 
 
 class IndicatorManager:
@@ -41,6 +49,13 @@ class IndicatorManager:
         self._legend_labels: dict[str, pg.LabelItem] = {}
         self._full_data: dict[str, tuple[list[float], list[float]]] = {}
         self._visible_range: tuple[float, float] | None = None
+
+        # BOT-032 — custom indicator scripts' background tints and status
+        # panel, each keyed by script registry key (not by line name: unlike
+        # curves, a script has exactly one tint timeline and one status block,
+        # not one per line).
+        self._region_items: dict[str, list[pg.LinearRegionItem]] = {}
+        self._script_info: dict[str, list[InfoField]] = {}
 
     def add_overlay(self, name: str, color: str) -> None:
         """Adds a line indicator on top of the main candlestick plot (e.g. SMA)."""
@@ -136,3 +151,81 @@ class IndicatorManager:
         self._plots.clear()
         self._legend_labels.clear()
         self._full_data.clear()
+        self._region_items.clear()
+        self._script_info.clear()
+
+    # ------------------------------------------------------------------ #
+    # BOT-032 — custom indicator script backgrounds & status panel
+    # ------------------------------------------------------------------ #
+
+    def set_script_regions(
+        self, key: str, spans: list[tuple[float, float, str, float]]
+    ) -> None:
+        """
+        @brief Draws (or extends) a script's background tint spans.
+        @param spans (start_x, end_x, color, opacity) tuples, always the full
+        current set — same "always the whole series" contract as
+        update_data(). Existing spans are updated in place via setRegion()
+        rather than being torn down and recreated, since the common case is
+        one previous span growing by exactly one bar; only genuinely new spans
+        allocate a new LinearRegionItem.
+        @details Regions always draw on the main price plot regardless of the
+        owning script's `overlay` flag — a background tint is a property of
+        the whole timeline, not of one particular price/subplot scale.
+        """
+        items = self._region_items.setdefault(key, [])
+        for index, (start, end, color, opacity) in enumerate(spans):
+            if index < len(items):
+                items[index].setRegion((start, end))
+                continue
+            region_item = pg.LinearRegionItem(
+                values=(start, end),
+                brush=pg.mkBrush(_color_with_alpha(color, opacity)),
+                pen=pg.mkPen(None),
+                movable=False,
+            )
+            region_item.setZValue(_REGION_Z_VALUE)
+            self._plot_layout.main_plot.addItem(region_item)
+            items.append(region_item)
+
+    def clear_script_regions(self, key: str) -> None:
+        """Removes every background span belonging to one script."""
+        for item in self._region_items.pop(key, []):
+            self._plot_layout.main_plot.removeItem(item)
+
+    def set_script_info(self, key: str, fields: list[InfoField]) -> None:
+        """
+        @brief Replaces one script's status-panel rows and re-renders the
+        shared panel label.
+        @details All active scripts' rows are shown together (grouped by
+        script) rather than each script getting its own label, so the panel
+        doesn't grow a new widget per enabled script.
+        """
+        if fields:
+            self._script_info[key] = fields
+        else:
+            self._script_info.pop(key, None)
+        self._render_script_info_panel()
+
+    def clear_script_info(self, key: str) -> None:
+        self._script_info.pop(key, None)
+        self._render_script_info_panel()
+
+    def _render_script_info_panel(self) -> None:
+        rows = [
+            f"<span style='color:{field.color or _DEFAULT_INFO_COLOR}'>"
+            f"{field.label}: {field.value}</span>"
+            for fields in self._script_info.values()
+            for field in fields
+        ]
+        self._plot_layout.script_info_label.setText("<br>".join(rows))
+
+
+def _color_with_alpha(color: str, opacity: float) -> QtGui.QColor:
+    """@brief Turns a plain hex color + a 0..1 opacity into a QColor with alpha.
+    @details Kept separate from PlottedRegion itself, which deliberately has
+    no QColor/UI-toolkit dependency (see the domain layer's guard test) —
+    this is the one place that dependency is allowed to exist."""
+    qcolor = pg.mkColor(color)
+    qcolor.setAlphaF(max(0.0, min(1.0, opacity)))
+    return qcolor

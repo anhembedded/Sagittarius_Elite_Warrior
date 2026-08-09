@@ -17,7 +17,11 @@ from Binace_Bot.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
 from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.indicator_scripts import EmaRibbonScript, MacdFullScript
+from Binace_Bot.src.domain.indicator_scripts import (
+    DevIndicatorScript,
+    EmaRibbonScript,
+    MacdFullScript,
+)
 from Binace_Bot.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
     qualified_line_name,
@@ -50,18 +54,31 @@ def emitted() -> list:
 
 
 @pytest.fixture
+def regions() -> list:
+    return []
+
+
+@pytest.fixture
+def infos() -> list:
+    return []
+
+
+@pytest.fixture
 def errors() -> list:
     return []
 
 
 @pytest.fixture
-def runner(emitted, errors) -> IndicatorScriptRunner:
+def runner(emitted, regions, infos, errors) -> IndicatorScriptRunner:
     registry = IndicatorScriptRegistry()
     registry.register("ema_ribbon", EmaRibbonScript)
     registry.register("macd_full", MacdFullScript)
+    registry.register("dev_showcase", DevIndicatorScript)
     return IndicatorScriptRunner(
         registry=registry,
         emit_line=lambda name, x, y: emitted.append((name, list(x), list(y))),
+        emit_region=lambda key, spans: regions.append((key, list(spans))),
+        emit_info=lambda key, fields: infos.append((key, list(fields))),
         on_error=errors.append,
     )
 
@@ -228,3 +245,85 @@ def test_draw_declines_before_the_script_has_produced_a_colour(runner):
     runner.rebuild(["ema_ribbon"])
 
     assert runner.draw(card, "ema_ribbon:EMA 20", [1.0], [100.0]) is False
+
+
+# ---------------------------------------------------------------------------
+# Regions & info (BOT-032 — background tint / status panel)
+# ---------------------------------------------------------------------------
+
+
+def test_feeding_emits_a_region_snapshot_every_bar(runner, regions):
+    """Even bars with no tint must emit — an empty list is how a chart clears
+    a span that no longer applies, not a reason to skip the callback."""
+    runner.rebuild(["dev_showcase"])
+
+    runner.feed(make_candle(100.0, 0))
+
+    assert any(key == "dev_showcase" for key, _ in regions)
+
+
+def test_confirmed_trend_produces_a_growing_region_span(runner, regions):
+    runner.rebuild(["dev_showcase"])
+
+    runner.feed_all(make_candle(100.0 + index, index) for index in range(40))
+
+    _, last_spans = regions[-1]
+    assert len(last_spans) >= 1
+
+
+def test_feeding_emits_an_info_snapshot_every_bar(runner, infos):
+    runner.rebuild(["dev_showcase"])
+
+    runner.feed(make_candle(100.0, 0))
+
+    _, fields = infos[-1]
+    labels = {field.label for field in fields}
+    assert "Trend" in labels
+    assert "Bars confirming" in labels
+
+
+def test_disabled_script_emits_no_region_or_info(runner, regions, infos):
+    runner.rebuild([])
+
+    runner.feed(make_candle(100.0, 0))
+
+    assert regions == []
+    assert infos == []
+
+
+def test_draw_region_forwards_to_the_chart_for_an_active_script(runner):
+    card = MagicMock()
+    runner.rebuild(["dev_showcase"])
+
+    runner.draw_region(card, "dev_showcase", [(1.0, 61.0, "#0ECB81", 0.08)])
+
+    card.set_script_regions.assert_called_once_with(
+        "dev_showcase", [(1.0, 61.0, "#0ECB81", 0.08)]
+    )
+
+
+def test_draw_region_is_a_no_op_for_an_inactive_script(runner):
+    card = MagicMock()
+    runner.rebuild([])
+
+    runner.draw_region(card, "dev_showcase", [(1.0, 61.0, "#0ECB81", 0.08)])
+
+    card.set_script_regions.assert_not_called()
+
+
+def test_draw_info_forwards_to_the_chart_for_an_active_script(runner):
+    card = MagicMock()
+    runner.rebuild(["dev_showcase"])
+
+    runner.draw_info(card, "dev_showcase", [])
+
+    card.set_script_info.assert_called_once_with("dev_showcase", [])
+
+
+def test_draw_info_is_a_no_op_for_an_inactive_script(runner):
+    card = MagicMock()
+    runner.rebuild([])
+
+    runner.draw_info(card, "dev_showcase", [])
+
+    card.set_script_info.assert_not_called()

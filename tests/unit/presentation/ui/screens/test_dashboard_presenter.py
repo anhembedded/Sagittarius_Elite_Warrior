@@ -467,3 +467,42 @@ def test_built_in_indicator_curves_still_route_the_old_way(presenter):
     presenter._on_indicator_data("EMA(20)", [1.0], [100.0])
 
     mock_card.add_overlay_indicator.assert_called_once_with("EMA(20)", "#fff")
+
+
+def test_script_region_signal_reaches_the_runner_and_the_chart(presenter):
+    """Emitting through the runner's region callback must reach the
+    presenter's own signal, and the presenter's slot must forward it to the
+    active chart card — the same round trip as line data."""
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
+    presenter._rebuild_scripts()
+
+    reached = []
+    presenter.ui_script_region_signal.connect(lambda key, spans: reached.append(key))
+    presenter._script_runner._emit_region("ema_ribbon", [(1.0, 61.0, "#e74c3c", 0.08)])
+
+    assert reached == ["ema_ribbon"]
+    mock_card.set_script_regions.assert_called_once_with(
+        "ema_ribbon", [(1.0, 61.0, "#e74c3c", 0.08)]
+    )
+
+
+def test_script_info_signal_reaches_the_runner_and_the_chart(presenter):
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
+    presenter._rebuild_scripts()
+
+    reached = []
+    presenter.ui_script_info_signal.connect(lambda key, fields: reached.append(key))
+    presenter._script_runner._emit_info("ema_ribbon", [])
+
+    assert reached == ["ema_ribbon"]
+    mock_card.set_script_info.assert_called_once_with("ema_ribbon", [])
+
+
+def test_script_region_signal_is_a_no_op_with_no_active_chart(presenter):
+    """No chart yet (e.g. signal arrives before Load History) must not raise."""
+    presenter._on_script_region_data("ema_ribbon", [])
+    presenter._on_script_info_data("ema_ribbon", [])

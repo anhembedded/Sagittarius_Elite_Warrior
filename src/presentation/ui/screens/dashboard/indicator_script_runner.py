@@ -7,13 +7,22 @@ from Binace_Bot.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
 from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript
+from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript, InfoField
+
+from .script_region_tracker import RegionSpan, ScriptRegionTracker
 
 #: Separates a script's registry key from its line name in a chart curve name
 #: ("ema_cross:EMA 12"). Built-in RSI/EMA/MACD curves carry bare names with no
 #: separator, so the two systems can never collide — and neither can two
 #: scripts that happen to name a line the same thing.
 LINE_SEPARATOR = ":"
+
+#: Used to convert a bar's close timestamp into a span end (see
+#: ScriptRegionTracker). "1m" matches DashboardPresenter's _DEFAULT_INTERVAL_STR
+#: — if the Dev Board ever supports other intervals, this needs to become a
+#: constructor parameter fed from the same place that decides the interval,
+#: rather than a second hard-coded assumption of what it is.
+_DEFAULT_BAR_WIDTH_SECONDS = 60.0
 
 
 def qualified_line_name(script_key: str, line_name: str) -> str:
@@ -36,12 +45,17 @@ class ActiveScript:
     ChartCard.update_indicator_data() always takes the complete series rather
     than appending. `registered_lines` tracks which curves already exist on the
     chart, so a line is added exactly once no matter how many bars arrive.
+    `region_tracker` and `latest_info` are the same idea applied to a script's
+    background tint and status panel (BOT-032) — one timeline / one snapshot
+    per script, not per line.
     """
 
     script: BaseIndicatorScript
     overlay: bool
+    region_tracker: ScriptRegionTracker
     registered_lines: set = field(default_factory=set)
     series: dict[str, tuple[list, list]] = field(default_factory=dict)
+    latest_info: list[InfoField] = field(default_factory=list)
 
     def record(
         self, line_name: str, timestamp: float, value: float
@@ -56,8 +70,8 @@ class ActiveScript:
 class IndicatorScriptRunner:
     """
     @brief Owns everything about running custom indicator scripts for one
-    chart: which are active, feeding them bars, and getting their lines onto
-    the chart.
+    chart: which are active, feeding them bars, and getting their lines,
+    background tints, and status panel onto the chart.
 
     @details
     Deliberately a separate collaborator rather than more methods on
@@ -65,8 +79,8 @@ class IndicatorScriptRunner:
     stream workflow, the log and the built-in indicators, and this keeps
     script handling in a file that can be worked on without touching that one.
 
-    Knows nothing about Qt threading. It reports computed lines through the
-    `emit_line` callback it was constructed with, so the presenter stays the
+    Knows nothing about Qt threading. It reports computed output through the
+    `emit_*` callbacks it was constructed with, so the presenter stays the
     only thing that decides what a signal is — which is what lets the same
     runner serve both the background history replay and main-thread live ticks.
     """
@@ -75,11 +89,17 @@ class IndicatorScriptRunner:
         self,
         registry: IndicatorScriptRegistry,
         emit_line: Callable[[str, list, list], None],
+        emit_region: Callable[[str, list[RegionSpan]], None],
+        emit_info: Callable[[str, list[InfoField]], None],
         on_error: Callable[[str], None],
+        bar_width_seconds: float = _DEFAULT_BAR_WIDTH_SECONDS,
     ) -> None:
         self._registry = registry
         self._emit_line = emit_line
+        self._emit_region = emit_region
+        self._emit_info = emit_info
         self._on_error = on_error
+        self._bar_width_seconds = bar_width_seconds
         self.active: dict[str, ActiveScript] = {}
 
     # ------------------------------------------------------------------ #
@@ -103,26 +123,40 @@ class IndicatorScriptRunner:
                 # take the whole Load History down.
                 self._on_error(f"Unknown indicator script: {key}")
                 continue
-            active[key] = ActiveScript(script=script, overlay=script.overlay)
+            active[key] = ActiveScript(
+                script=script,
+                overlay=script.overlay,
+                region_tracker=ScriptRegionTracker(self._bar_width_seconds),
+            )
         self.active = active
 
     def clear_from_chart(self, card) -> None:
-        """Removes every script-drawn curve before a rebuild."""
+        """Removes every script-drawn curve, background tint, and status
+        panel row before a rebuild."""
         for key, active in self.active.items():
             for line_name in active.registered_lines:
                 card.remove_indicator(qualified_line_name(key, line_name))
+            card.clear_script_regions(key)
+            card.clear_script_info(key)
 
     # ------------------------------------------------------------------ #
     # Computation — safe to call from either thread (emits, never draws)
     # ------------------------------------------------------------------ #
 
     def feed(self, candle: MarketData) -> None:
-        """Runs one bar through every active script and reports what it plotted."""
+        """Runs one bar through every active script and reports what it produced."""
         timestamp = float(candle.close_time.timestamp())
         for key, active in self.active.items():
             for line_name, line in active.script.compute(candle).items():
                 x_data, y_data = active.record(line_name, timestamp, line.value)
                 self._emit_line(qualified_line_name(key, line_name), x_data, y_data)
+
+            active.region_tracker.record(timestamp, active.script.drain_region())
+            self._emit_region(key, list(active.region_tracker.spans))
+
+            active.latest_info = active.script.drain_info()
+            self._emit_info(key, active.latest_info)
+
             # TODO(BOT-032 Phase 4): active.script.drain_markers() carries the
             # Buy/Sell labels a script asked for. ChartCard has no marker API
             # yet — wire it here once add_markers() exists, and coordinate with
@@ -168,3 +202,20 @@ class IndicatorScriptRunner:
 
         card.update_indicator_data(qualified, x_data, y_data)
         return True
+
+    def draw_region(self, card, key: str, spans: list[RegionSpan]) -> None:
+        """
+        @brief Puts a script's background tint spans on the chart.
+        @details No "is this mine" check like draw() needs: regions and info
+        have no built-in-indicator equivalent to fall back to, so the caller
+        never has ambiguity about whether this signal was meant for the runner.
+        """
+        if key not in self.active:
+            return
+        card.set_script_regions(key, spans)
+
+    def draw_info(self, card, key: str, fields: list[InfoField]) -> None:
+        """Puts a script's status-panel rows on the chart."""
+        if key not in self.active:
+            return
+        card.set_script_info(key, fields)

@@ -18,10 +18,12 @@ from .series import (
     is_below,
     series_of,
 )
+from .streak import Streak
 
 __all__ = [
     "DEFAULT_HISTORY",
     "Series",
+    "Streak",
     "constant_series",
     "crossed",
     "crossed_above",
