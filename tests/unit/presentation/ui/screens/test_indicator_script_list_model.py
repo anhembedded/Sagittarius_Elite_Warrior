@@ -15,6 +15,11 @@ class _FakeScriptNoTitle:
     pass
 
 
+class _FakeDefaultOnScript:
+    title = "EMA 20"
+    default_enabled = True
+
+
 def test_set_available_populates_rows_in_registration_order(qapp):
     model = IndicatorScriptListModel()
 
@@ -114,3 +119,46 @@ def test_data_returns_none_for_an_invalid_index(qapp):
     model.set_available({"ema_ribbon": _FakeScript})
 
     assert model.data(QModelIndex()) is None
+
+
+# ---------------------------------------------------------------------------
+# default_enabled (BOT-032 Phase 6)
+# ---------------------------------------------------------------------------
+
+
+def test_a_default_enabled_script_starts_on(qapp):
+    model = IndicatorScriptListModel()
+
+    model.set_available({"ema_20": _FakeDefaultOnScript})
+
+    assert model.enabled_keys == ["ema_20"]
+
+
+def test_a_script_without_default_enabled_still_starts_off(qapp):
+    model = IndicatorScriptListModel()
+
+    model.set_available({"ema_ribbon": _FakeScript, "ema_20": _FakeDefaultOnScript})
+
+    assert model.enabled_keys == ["ema_20"]
+
+
+def test_turning_off_a_default_enabled_script_sticks_across_a_reload(qapp):
+    """set_available() re-applying its own default would make the checkbox
+    un-uncheckable — the user's manual choice must win."""
+    model = IndicatorScriptListModel()
+    model.set_available({"ema_20": _FakeDefaultOnScript})
+    model.setEnabled(0, False)
+
+    model.set_available({"ema_20": _FakeDefaultOnScript})
+
+    assert model.enabled_keys == []
+
+
+def test_turning_on_a_normally_off_script_also_sticks_across_a_reload(qapp):
+    model = IndicatorScriptListModel()
+    model.set_available({"ema_ribbon": _FakeScript})
+    model.setEnabled(0, True)
+
+    model.set_available({"ema_ribbon": _FakeScript})
+
+    assert model.enabled_keys == ["ema_ribbon"]

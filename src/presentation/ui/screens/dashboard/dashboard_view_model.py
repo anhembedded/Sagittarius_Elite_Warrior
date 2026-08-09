@@ -9,8 +9,6 @@ from Binace_Bot.src.presentation.ui.screens._qml_shared import (
 
 from .indicator_script_list_model import IndicatorScriptListModel
 
-_DEFAULT_RSI_PERIOD = 14
-_DEFAULT_EMA_PERIOD = 20
 _IDLE_STATUS_TEXT = "WS: IDLE"
 _IDLE_STATUS_COLOR = "#848E9C"
 
@@ -32,9 +30,6 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     priceTickerChanged = Signal()
     wsStatusChanged = Signal()
     historyLoadingChanged = Signal()
-    rsiChanged = Signal()
-    emaChanged = Signal()
-    macdChanged = Signal()
 
     loadHistoryRequested = Signal()
     startStreamRequested = Signal()
@@ -50,12 +45,6 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._ws_status_text = _IDLE_STATUS_TEXT
         self._ws_status_color = _IDLE_STATUS_COLOR
         self._history_loading = False
-
-        self._rsi_enabled = False
-        self._rsi_period = _DEFAULT_RSI_PERIOD
-        self._ema_enabled = False
-        self._ema_period = _DEFAULT_EMA_PERIOD
-        self._macd_enabled = False
 
     # ------------------------------------------------------------------ #
     # Log model — exposed to LogPanel.qml, mutated by the Presenter's
@@ -130,68 +119,6 @@ class DashboardQmlViewModel(BaseQmlViewModel):
             return
         self._history_loading = value
         self.historyLoadingChanged.emit()
-
-    # ------------------------------------------------------------------ #
-    # Indicator toggles — read by the Presenter's _build_active_indicators,
-    # same "cosmetic until the next Load History/Start Live click" contract
-    # the old chk_rsi/spin_rsi_period widgets had (see the Known Gaps tests).
-    # ------------------------------------------------------------------ #
-    def _get_rsi_enabled(self) -> bool:
-        return self._rsi_enabled
-
-    def _set_rsi_enabled(self, value: bool) -> None:
-        if value == self._rsi_enabled:
-            return
-        self._rsi_enabled = value
-        self.rsiChanged.emit()
-
-    rsiEnabled = Property(bool, _get_rsi_enabled, _set_rsi_enabled, notify=rsiChanged)
-
-    def _get_rsi_period(self) -> int:
-        return self._rsi_period
-
-    def _set_rsi_period(self, value: int) -> None:
-        if value == self._rsi_period:
-            return
-        self._rsi_period = value
-        self.rsiChanged.emit()
-
-    rsiPeriod = Property(int, _get_rsi_period, _set_rsi_period, notify=rsiChanged)
-
-    def _get_ema_enabled(self) -> bool:
-        return self._ema_enabled
-
-    def _set_ema_enabled(self, value: bool) -> None:
-        if value == self._ema_enabled:
-            return
-        self._ema_enabled = value
-        self.emaChanged.emit()
-
-    emaEnabled = Property(bool, _get_ema_enabled, _set_ema_enabled, notify=emaChanged)
-
-    def _get_ema_period(self) -> int:
-        return self._ema_period
-
-    def _set_ema_period(self, value: int) -> None:
-        if value == self._ema_period:
-            return
-        self._ema_period = value
-        self.emaChanged.emit()
-
-    emaPeriod = Property(int, _get_ema_period, _set_ema_period, notify=emaChanged)
-
-    def _get_macd_enabled(self) -> bool:
-        return self._macd_enabled
-
-    def _set_macd_enabled(self, value: bool) -> None:
-        if value == self._macd_enabled:
-            return
-        self._macd_enabled = value
-        self.macdChanged.emit()
-
-    macdEnabled = Property(
-        bool, _get_macd_enabled, _set_macd_enabled, notify=macdChanged
-    )
 
     # ------------------------------------------------------------------ #
     # Requests — QML calls these; only the Presenter connects to them.

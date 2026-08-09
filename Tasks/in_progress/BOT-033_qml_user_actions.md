@@ -26,6 +26,12 @@ kỳ vọng sai và còn có race condition đã được tái hiện.
 - Định danh dữ liệu/chart theo `(symbol, interval)` để tick hoặc result cũ không
   bị trộn vào lựa chọn mới.
 - Nối Chart toolbar với cùng timeframe selection, không chỉ thay highlight.
+  ✅ **Đã làm** (bởi 1 task khác chạy song song, số hiệu bị trùng nên đã đổi thành `BOT-034` —
+  xem `Tasks/backlog/BOT-034_dev_board_autostart_and_data_lifecycle.md` §6):
+  `ChartToolbar.sig_timeframe_changed` đã nối vào `DashboardPresenter._on_timeframe_changed`,
+  `cboTimeframe` (System Controls) đã bị xoá khỏi `DevBoardPanel.qml` để tránh 2 nguồn sự thật.
+  Đổi timeframe reload ngay lập tức, kể cả khi đang Live (dừng → reload → start lại). Nếu Phase 2
+  của task này cũng định làm lại phần toolbar, **đọc file đó trước** để tránh làm trùng/xung đột.
 
 ### Phase 3 — thao tác phụ thuộc quyết định sản phẩm (không tự ý bật)
 

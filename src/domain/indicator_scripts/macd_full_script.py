@@ -15,18 +15,20 @@ class MacdFullScript(BaseIndicatorScript):
     1. **A subplot** (`overlay = False`) — MACD oscillates around zero, so
        plotting it on the candles' price scale would be meaningless.
     2. **Fanning one reading out into several lines.** `MACD.update()` returns a
-       `MACDValue`, and the Dev Board's built-in MACD checkbox keeps only
-       `.macd`, discarding `.signal`/`.histogram`. Here one handle call feeds
-       three separate plotted lines — the reason a script is more expressive
-       than a bare IIndicator.
+       `MACDValue`; here one handle call feeds three separate plotted lines
+       (`.macd`/`.signal`/`.histogram`) — the reason a script is more
+       expressive than a bare IIndicator. This is also the Dev Board's default
+       MACD replacement (BOT-032 Phase 6 — no indicator is hardcoded in the
+       engine anymore).
 
     The `if reading is not None` guard is needed because this reads *fields off*
     the reading; `plot()`'s own None-handling only covers passing a None value
     straight through.
     """
 
-    title = "MACD (12/26/9) — full"
+    title = "MACD (12/26/9)"
     overlay = False
+    min_warmup_bars = 35  # 26 (slow EMA) + 9 (signal EMA of the MACD line)
 
     def setup(self) -> None:
         self.m = self.macd()

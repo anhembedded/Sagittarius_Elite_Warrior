@@ -17,6 +17,7 @@ class EmaRibbonScript(BaseIndicatorScript):
 
     title = "EMA Ribbon 20/50/100/200"
     overlay = True
+    min_warmup_bars = 200  # EMA 200 is the slowest of the four
 
     def setup(self) -> None:
         self.a1 = self.ema(20)

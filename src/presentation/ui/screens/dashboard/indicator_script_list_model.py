@@ -25,12 +25,10 @@ class IndicatorScriptListModel(QAbstractListModel):
     scripts appear here automatically as soon as they're registered in
     binance_bot_module.py, with no QML change needed.
 
-    Enabled state lives here, in the ViewModel layer, not in DashboardPresenter
-    — matches how rsiEnabled/emaEnabled/macdEnabled already live on
-    DashboardQmlViewModel rather than the Presenter. The Presenter only reads
-    `enabled_keys` at the moment Load History/Start Live is clicked (see
-    DashboardPresenter._enabled_script_keys), the same "no retroactive effect"
-    contract the existing indicator toggles have (TC-GAP-07).
+    Enabled state lives here, in the ViewModel layer, not in DashboardPresenter.
+    The Presenter only reads `enabled_keys` at the moment Load History/Start
+    Live is clicked (see DashboardPresenter._enabled_script_keys) — ticking a
+    box mid-run has no retroactive effect (TC-GAP-07).
     """
 
     KeyRole = Qt.ItemDataRole.UserRole + 1
@@ -49,6 +47,11 @@ class IndicatorScriptListModel(QAbstractListModel):
         super().__init__(parent)
         self._rows: list[_ScriptRow] = []
         self._enabled: set[str] = set()
+        #: Keys the user has explicitly toggled by hand — set_available()
+        #: only auto-enables a `default_enabled` script the FIRST time it's
+        #: seen, never re-applying that default over a choice the user
+        #: already made (e.g. after they turned a default-on script off).
+        self._user_touched: set[str] = set()
 
     def rowCount(self, parent=QModelIndex()) -> int:
         return 0 if parent.isValid() else len(self._rows)
@@ -75,7 +78,9 @@ class IndicatorScriptListModel(QAbstractListModel):
         IndicatorScriptRegistry.available().
         @details A key that stays available keeps its enabled state; a key
         that disappears (script unregistered) is dropped from `_enabled` too
-        — otherwise a stale key could leak into enabled_keys forever.
+        — otherwise a stale key could leak into enabled_keys forever. A key
+        with `default_enabled = True` that the user has never manually
+        touched is switched on — see `_user_touched`.
         """
         self.beginResetModel()
         self._rows = [
@@ -83,6 +88,9 @@ class IndicatorScriptListModel(QAbstractListModel):
             for key, cls in scripts.items()
         ]
         self._enabled &= {row.key for row in self._rows}
+        for key, cls in scripts.items():
+            if getattr(cls, "default_enabled", False) and key not in self._user_touched:
+                self._enabled.add(key)
         self.endResetModel()
         self.enabledKeysChanged.emit()
 
@@ -93,6 +101,7 @@ class IndicatorScriptListModel(QAbstractListModel):
         if not 0 <= row < len(self._rows):
             return
         key = self._rows[row].key
+        self._user_touched.add(key)
         if value:
             self._enabled.add(key)
         else:

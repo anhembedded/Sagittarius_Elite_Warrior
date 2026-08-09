@@ -177,6 +177,20 @@ class BaseIndicatorScript(ABC):
     #: Bars of lookback kept for every Series this script creates.
     history: int = DEFAULT_HISTORY
 
+    #: How many bars this script needs before its slowest line produces a
+    #: real (non-None) value — e.g. an EMA(200) needs 200. Author-declared,
+    #: not computed by trial-running the script: a script can compose several
+    #: indicators of different periods, so only the author knows the true
+    #: figure (BOT-033 — used to decide how much history to fetch, decoupled
+    #: from how many bars the chart actually renders).
+    min_warmup_bars: int = 0
+
+    #: True if this script should already be enabled the first time its
+    #: registry is loaded (BOT-032 Phase 6) — e.g. the built-in EMA 20/50/
+    #: 100/200 replacements. Everything else opts in only when the user
+    #: checks it (see IndicatorScriptListModel.set_available).
+    default_enabled: bool = False
+
     def __init__(self) -> None:
         self._buffer: dict[str, PlottedLine] = {}
         self._markers: list[PlottedMarker] = []

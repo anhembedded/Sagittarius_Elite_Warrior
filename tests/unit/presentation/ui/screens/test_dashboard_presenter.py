@@ -290,8 +290,11 @@ def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter):
 
 
 # ---------------------------------------------------------------------------
-# Indicator control — reads DashboardQmlViewModel's rsi/ema/macd properties,
-# computes via BOT-020's RSI/EMA/MACD, and pushes series onto the chart.
+# Indicator control (BOT-032 Phase 6) — every indicator is a script now, no
+# RSI/EMA/MACD is hardcoded in the engine. Reading the enabled set and
+# feeding candles through it is IndicatorScriptRunner's job (see
+# test_indicator_script_runner.py); these tests only pin down that the
+# Presenter actually calls it at the right times.
 # ---------------------------------------------------------------------------
 
 
@@ -302,112 +305,52 @@ def _make_kline(timestamp: float, close_price: float) -> MagicMock:
     return kline
 
 
-def test_build_active_indicators_returns_empty_dict_when_none_checked(presenter):
-    """The view model's toggles default to unchecked — no indicators built."""
-    assert presenter._build_active_indicators() == {}
+def test_on_load_history_runs_no_scripts_when_none_enabled(presenter):
+    """The view model's checklist starts unchecked — nothing runs."""
+    presenter._on_load_history()
+
+    assert presenter._script_runner.active == {}
 
 
-def test_build_active_indicators_builds_enabled_indicators_with_configured_periods(
-    presenter,
-):
-    presenter._view_model.rsiEnabled = True
-    presenter._view_model.rsiPeriod = 21
-    presenter._view_model.macdEnabled = True
-
-    indicators = presenter._build_active_indicators()
-
-    assert set(indicators.keys()) == {"RSI(21)", "MACD"}
-    assert indicators["RSI(21)"].kind == "subplot"
-    assert indicators["MACD"].kind == "subplot"
-
-
-def test_on_load_history_builds_active_indicators_from_current_view_model_state(
-    presenter,
-):
-    presenter._view_model.emaEnabled = True
-    presenter._view_model.emaPeriod = 50
+def test_on_load_history_runs_the_enabled_scripts(presenter):
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
 
     presenter._on_load_history()
 
-    assert "EMA(50)" in presenter.active_indicators
-    assert presenter.active_indicators["EMA(50)"].kind == "overlay"
+    assert "ema_ribbon" in presenter._script_runner.active
 
 
-def test_compute_indicator_series_emits_signal_once_warmed_up(presenter):
-    """A short RSI period warms up quickly — the emitted series must be
-    non-empty and shorter than the input (None outputs during warm-up are
-    dropped, matching IIndicator's own warm-up contract from BOT-020)."""
-    presenter._view_model.rsiEnabled = True
-    presenter._view_model.rsiPeriod = 2
-    presenter.active_indicators = presenter._build_active_indicators()
+def test_a_historical_batch_emits_indicator_data_once_warmed_up(presenter):
+    """Feeding enough candles for ema_cross (EMA 12/26) must reach
+    ui_indicator_data_signal with a namespaced curve name — the same
+    warm-up-drops-None contract BOT-020's indicators always had, now
+    observed through the script path instead of a hardcoded one."""
+    presenter._enabled_script_keys = lambda: ["ema_cross"]
+    presenter._rebuild_scripts()
 
     emitted = []
     presenter.ui_indicator_data_signal.connect(
         lambda name, x, y: emitted.append((name, x, y))
     )
 
-    klines = [_make_kline(1000.0 + i, 100.0 + i) for i in range(5)]
-    presenter._compute_indicator_series(klines)
+    klines = [_make_kline(1000.0 + i, 100.0 + i) for i in range(30)]
+    presenter._script_runner.feed_all(klines)
 
-    assert len(emitted) == 1
-    name, x_data, y_data = emitted[0]
-    assert name == "RSI(2)"
-    assert len(x_data) == len(y_data) > 0
-    assert len(y_data) < len(klines)  # fewer points than input (warm-up dropped)
+    names = {name for name, _, _ in emitted}
+    assert any(name.startswith("ema_cross:") for name in names)
 
 
-def test_on_indicator_data_registers_overlay_once_then_only_updates(presenter):
-    """First call registers the overlay curve; subsequent calls must not
-    re-register it (would create duplicate curves on the real chart)."""
-    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
-        _ActiveIndicator,
-    )
-
-    active_indicator = _ActiveIndicator(
-        indicator=MagicMock(), extract_value=lambda v: v, kind="overlay", color="#fff"
-    )
-    presenter.active_indicators = {"EMA(20)": active_indicator}
+def test_on_indicator_data_ignores_an_unrecognised_bare_name(presenter):
+    """A name with no `key:line` separator has no script to route to — must
+    be a silent no-op, not a crash (there is no "built-in" fallback anymore,
+    BOT-032 Phase 6 removed the last one)."""
     mock_card = MagicMock()
     presenter.active_charts = {"ETHUSDT": mock_card}
 
     presenter._on_indicator_data("EMA(20)", [1.0], [100.0])
-    presenter._on_indicator_data("EMA(20)", [1.0, 2.0], [100.0, 101.0])
 
-    mock_card.add_overlay_indicator.assert_called_once_with("EMA(20)", "#fff")
-    assert mock_card.update_indicator_data.call_count == 2
-    mock_card.update_indicator_data.assert_called_with(
-        "EMA(20)", [1.0, 2.0], [100.0, 101.0]
-    )
-
-
-def test_update_indicators_on_closed_candle_appends_and_pushes_to_chart(presenter):
-    """A live closed candle must append to the running series (not replace
-    it) and push the full accumulated series to the chart."""
-    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
-        _ActiveIndicator,
-    )
-    from Binace_Bot.src.domain.indicators.ema import EMA
-
-    # period=1 warms up on the very first update() call.
-    active_indicator = _ActiveIndicator(
-        indicator=EMA(period=1),
-        extract_value=lambda v: v,
-        kind="overlay",
-        color="#e67e22",
-        x_data=[1000.0],
-        y_data=[100.0],
-    )
-    presenter.active_indicators = {"EMA(1)": active_indicator}
-    mock_card = MagicMock()
-
-    presenter._update_indicators_on_closed_candle(mock_card, 1060.0, 105.0)
-
-    assert active_indicator.x_data == [1000.0, 1060.0]
-    assert active_indicator.y_data == [100.0, 105.0]
-    mock_card.add_overlay_indicator.assert_called_once_with("EMA(1)", "#e67e22")
-    mock_card.update_indicator_data.assert_called_once_with(
-        "EMA(1)", [1000.0, 1060.0], [100.0, 105.0]
-    )
+    mock_card.add_overlay_indicator.assert_not_called()
+    mock_card.update_indicator_data.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -481,7 +424,7 @@ def test_no_scripts_run_until_the_ui_enables_one(presenter):
     assert presenter._script_runner.active == {}
 
 
-def test_script_lines_are_routed_to_the_runner_not_the_builtin_path(presenter):
+def test_script_lines_are_routed_to_the_runner(presenter):
     mock_card = MagicMock()
     presenter.active_charts = {"ETHUSDT": mock_card}
     presenter._enabled_script_keys = lambda: ["ema_ribbon"]
@@ -495,29 +438,6 @@ def test_script_lines_are_routed_to_the_runner_not_the_builtin_path(presenter):
     mock_card.add_overlay_indicator.assert_called_once_with(
         "ema_ribbon:EMA 20", "#e74c3c"
     )
-
-
-def test_built_in_indicator_curves_still_route_the_old_way(presenter):
-    """The `:` separator is the only thing distinguishing the two systems —
-    a bare name must never be mistaken for a script line."""
-    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
-        _ActiveIndicator,
-    )
-
-    mock_card = MagicMock()
-    presenter.active_charts = {"ETHUSDT": mock_card}
-    presenter.active_indicators = {
-        "EMA(20)": _ActiveIndicator(
-            indicator=MagicMock(),
-            extract_value=lambda v: v,
-            kind="overlay",
-            color="#fff",
-        )
-    }
-
-    presenter._on_indicator_data("EMA(20)", [1.0], [100.0])
-
-    mock_card.add_overlay_indicator.assert_called_once_with("EMA(20)", "#fff")
 
 
 def test_script_region_signal_reaches_the_runner_and_the_chart(presenter):

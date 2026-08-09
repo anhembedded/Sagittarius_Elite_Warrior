@@ -132,17 +132,27 @@ def test_indicator_checkbox_toggle_has_no_effect_until_next_load(
 ):
     """TC-GAP-07: enabling RSI after Load History already ran does not
     retroactively add it — DashboardPresenter only reads
-    view_model.rsiEnabled inside _build_active_indicators, called at
-    Load History/Start Live click time, never on a live property change."""
+    script_model.enabled_keys inside _enabled_script_keys, called at Load
+    History/Start Live click time, never on a live checklist change. (See
+    also test_dev_board_custom_scripts.py for the generic/any-script
+    version of this contract.)"""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
 
-    with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
         _click_load_history(view, qml_item)
-    assert presenter.active_indicators == {}
+    assert "rsi_14" not in presenter._script_runner.active
 
-    view._view_model.rsiEnabled = True
+    model = view._view_model.script_model
+    rsi_row = next(
+        row
+        for row in range(model.rowCount())
+        if model.data(model.index(row, 0), model.KeyRole) == "rsi_14"
+    )
+    model.setEnabled(rsi_row, True)
     qtbot.wait(50)
 
-    assert presenter.active_indicators == {}
-    assert "RSI(14)" not in view.chart_cards[0].indicators._curves
+    assert "rsi_14" not in presenter._script_runner.active
+    assert not any(
+        name.startswith("rsi_14:") for name in view.chart_cards[0].indicators._curves
+    )

@@ -73,9 +73,14 @@ from Binace_Bot.src.application.services.indicator_script_registry import (
 from Binace_Bot.src.domain.indicator_scripts.dev_indicator_script import (
     DevIndicatorScript,
 )
+from Binace_Bot.src.domain.indicator_scripts.ema_20_script import Ema20Script
+from Binace_Bot.src.domain.indicator_scripts.ema_50_script import Ema50Script
+from Binace_Bot.src.domain.indicator_scripts.ema_100_script import Ema100Script
+from Binace_Bot.src.domain.indicator_scripts.ema_200_script import Ema200Script
 from Binace_Bot.src.domain.indicator_scripts.ema_cross_script import EmaCrossScript
 from Binace_Bot.src.domain.indicator_scripts.ema_ribbon_script import EmaRibbonScript
 from Binace_Bot.src.domain.indicator_scripts.macd_full_script import MacdFullScript
+from Binace_Bot.src.domain.indicator_scripts.rsi_14_script import Rsi14Script
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 
@@ -120,9 +125,18 @@ class BinanceBotModule(BaseModule):
         # Indicator scripts — registered explicitly (no directory auto-scan) so
         # what's installed is greppable here. A guard test fails if a script
         # class exists under domain/indicator_scripts/ but is missing below.
+        #
+        # BOT-032 Phase 6: no indicator is hardcoded in the engine anymore —
+        # rsi_14/ema_20/50/100/200/macd_full are the Dev Board's defaults,
+        # replacing the old _ActiveIndicator/RSI/EMA/MACD checkboxes.
         script_registry = IndicatorScriptRegistry()
-        script_registry.register("ema_ribbon", EmaRibbonScript)
+        script_registry.register("rsi_14", Rsi14Script)
+        script_registry.register("ema_20", Ema20Script)
+        script_registry.register("ema_50", Ema50Script)
+        script_registry.register("ema_100", Ema100Script)
+        script_registry.register("ema_200", Ema200Script)
         script_registry.register("macd_full", MacdFullScript)
+        script_registry.register("ema_ribbon", EmaRibbonScript)
         script_registry.register("ema_cross", EmaCrossScript)
         script_registry.register("dev_showcase", DevIndicatorScript)
         app.container.singleton(IndicatorScriptRegistry, script_registry)

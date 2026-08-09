@@ -14,32 +14,36 @@ test suite, e.g. test_dashboard_live_stream.py) would silently make every
 one of these tests pass by construction, defeating their purpose.
 
 Root cause (see the report's "Tổng kết & đề xuất hành động" section):
-`_run_load_history`/`_compute_indicator_series` read the presenter's
-`self.active_indicators` at CALL time, not at submit time, and
+`_run_load_history`/`IndicatorScriptRunner.feed_all` read the presenter's
+`self._script_runner.active` at CALL time, not at submit time, and
 `load_history_button` is never disabled while a background load is in
 flight (only Start/Stop are gated by the FSM). Two overlapping Load
 History clicks therefore feed the same candle data twice into whichever
-indicator objects happen to be `self.active_indicators` by the time each
-background task gets around to computing.
+script instances happen to be `active` by the time each background task
+gets around to computing — this is still the case after BOT-032 Phase 6
+(RSI/EMA/MACD became scripts; the race is a property of the Runner/
+Presenter interaction, not of what's hardcoded vs scripted). This is a
+confirmed, NOT-yet-fixed bug tracked as `BOT-027`.
 
-These are confirmed, NOT-yet-fixed bugs — marked `xfail(strict=True)` so:
-  - today, they document the exact reproduction and count as "expected
-    failures" instead of breaking the green test suite;
-  - the moment someone fixes the underlying race, the test starts
-    unexpectedly PASSING, which `strict=True` turns into a hard failure —
-    a forcing function to come back and delete the xfail marker (and
-    update the report) instead of the fix going unnoticed.
+BOT-032 Phase 6: RSI/EMA/MACD are ordinary registered scripts now (no
+`rsiEnabled`/`rsiPeriod` on the ViewModel to force a fast-warming period —
+scripts take no runtime parameters) — these tests use `ema_cross`
+(EMA 12/26) with a monkeypatched synthetic kline response long enough to
+warm it up, instead of overriding conftest.MOCK_KLINE_COUNT globally.
 
 BOT-030 Phase 4: Load History is now a QML button (DevBoardPanel.qml) and
-RSI's enabled/period toggles live on DashboardQmlViewModel
+script enablement lives on DashboardQmlViewModel.script_model
 (view._view_model) instead of ControlCard/IndicatorControlCard widgets.
 """
 
 import time
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
 
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Binace_Bot.src.domain.entities.market_data import MarketData
 
 
 def _open_dashboard(navigate):
@@ -70,6 +74,66 @@ def _slow_down_history_queries(monkeypatch, presenter, delay_seconds: float) -> 
     monkeypatch.setattr(presenter.dispatcher, "dispatch", slow_dispatch)
 
 
+def _use_synthetic_klines(monkeypatch, presenter, count: int) -> None:
+    """
+    @brief Makes the mocked dispatcher return `count` synthetic candles for
+    GetHistoricalKlinesQuery instead of conftest's fixed 5.
+    @details Needed because fixed-period default scripts (BOT-032 Phase 6)
+    can't be parametrized down to a fast-warming period the way the old
+    hardcoded `RSI(period=2)` override could — ema_cross needs 26 bars to
+    warm up its slow EMA, more than MOCK_KLINE_COUNT provides. Composes with
+    `_slow_down_history_queries` regardless of call order — both capture
+    whatever `presenter.dispatcher.dispatch` currently is and wrap it.
+    """
+    base_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    klines = []
+    for i in range(count):
+        open_time = base_time + timedelta(minutes=i)
+        close_time = open_time + timedelta(minutes=1)
+        klines.append(
+            MarketData(
+                symbol="ETHUSDT",
+                interval="1m",
+                open_time=open_time,
+                open_price=100.0 + i,
+                high_price=101.0 + i,
+                low_price=99.0 + i,
+                close_price=100.5 + i,
+                volume=10.0,
+                close_time=close_time,
+                quote_asset_volume=1000.0,
+                number_of_trades=5,
+                taker_buy_base_asset_volume=5.0,
+                taker_buy_quote_asset_volume=500.0,
+            )
+        )
+    klines.reverse()  # newest-first, matching the real repository's contract
+
+    original_dispatch = presenter.dispatcher.dispatch
+
+    def dispatch_with_synthetic_klines(command_type, command_obj):
+        if command_type is GetHistoricalKlinesQuery:
+            response = MagicMock()
+            response.success = True
+            response.data = klines
+            return response
+        return original_dispatch(command_type, command_obj)
+
+    monkeypatch.setattr(
+        presenter.dispatcher, "dispatch", dispatch_with_synthetic_klines
+    )
+
+
+def _enable_script(view, key: str) -> None:
+    model = view._view_model.script_model
+    row = next(
+        r
+        for r in range(model.rowCount())
+        if model.data(model.index(r, 0), model.KeyRole) == key
+    )
+    model.setEnabled(row, True)
+
+
 def test_load_history_button_is_disabled_during_background_load(
     qtbot, main_window, navigate, qml_item
 ):
@@ -90,22 +154,24 @@ def test_concurrent_load_history_clicks_keep_indicator_series_correct(
 ):
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    # period=2 (the minimum) so 5 mock candles produce readings (unlike the
-    # default period=14, which would just stay empty either way and hide
-    # the corruption instead of exposing it).
-    view._view_model.rsiEnabled = True
-    view._view_model.rsiPeriod = 2
+    _enable_script(view, "ema_cross")
+    # 40 synthetic candles so EMA 26 (the slower of the pair) actually warms
+    # up — see _use_synthetic_klines' docstring for why this replaces the
+    # old RSI(period=2) trick.
+    _use_synthetic_klines(monkeypatch, presenter, count=40)
     _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.05)
 
     with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=3000):
         _click_load_history(view, qml_item)
         _click_load_history(view, qml_item)
 
-    # Correct behavior: 5 candles at RSI period=2 warm up after 2 candles,
-    # producing exactly 3 readings — regardless of how many times the user
-    # clicked, since each click is supposed to start clean.
-    rsi = presenter.active_indicators["RSI(2)"]
-    assert len(rsi.y_data) == 3
+    # Correct behavior: each click is supposed to start clean, so no line's
+    # timestamp series should ever contain a duplicate — a duplicate is
+    # exactly what "the same candle batch got fed into two different script
+    # instances that got merged" would produce.
+    x_data, y_data = presenter._script_runner.active["ema_cross"].series["EMA 12"]
+    assert y_data, "expected EMA 12 to have actually warmed up"
+    assert len(x_data) == len(set(x_data))
 
 
 def test_four_rapid_load_history_clicks_keep_indicator_series_correct(
@@ -113,16 +179,17 @@ def test_four_rapid_load_history_clicks_keep_indicator_series_correct(
 ):
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    view._view_model.rsiEnabled = True
-    view._view_model.rsiPeriod = 2
+    _enable_script(view, "ema_cross")
+    _use_synthetic_klines(monkeypatch, presenter, count=40)
     _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.05)
 
     with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=4000):
         for _ in range(4):
             _click_load_history(view, qml_item)
 
-    rsi = presenter.active_indicators["RSI(2)"]
-    assert len(rsi.y_data) == 3
+    x_data, y_data = presenter._script_runner.active["ema_cross"].series["EMA 12"]
+    assert y_data, "expected EMA 12 to have actually warmed up"
+    assert len(x_data) == len(set(x_data))
 
 
 def test_duplicate_closed_tick_for_same_timestamp_appends_twice(

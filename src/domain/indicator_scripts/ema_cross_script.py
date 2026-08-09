@@ -32,6 +32,7 @@ class EmaCrossScript(BaseIndicatorScript):
 
     title = "EMA Cross 12/26"
     overlay = True
+    min_warmup_bars = 26  # EMA 26 is the slower of the pair
 
     def setup(self) -> None:
         self.fast = self.ema(12)

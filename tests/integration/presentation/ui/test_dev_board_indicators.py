@@ -3,11 +3,22 @@ Automates Section B ("Indicators") of
 Tasks/reports/dev_board_user_end_test_cases.md. Each test docstring cites
 its TC-IND-## id so the two documents stay traceable to each other.
 
-BOT-030 Phase 4: indicator toggles/periods now live on DashboardQmlViewModel
-(view._view_model) instead of IndicatorControlCard widgets, and Load
-History is a QML button (DevBoardPanel.qml) driven via `qml_item(...)
-.clicked.emit()` — the same pattern already used for the Database/Settings
-QML screens.
+BOT-032 Phase 6: RSI/EMA/MACD are no longer hardcoded — rsi_14/ema_20/
+ema_50/ema_100/ema_200/macd_full are ordinary registered scripts (see
+binance_bot_module.py), driven through the same "CUSTOM SCRIPTS" checklist
+(now just called "INDICATORS") as any user-authored script. Enabling/
+disabling goes through view._view_model.script_model, not a per-indicator
+Property — see test_dev_board_custom_scripts.py for the checklist/Repeater
+wiring itself; this file only pins down that the *default* indicators are
+wired correctly.
+
+conftest.MOCK_KLINE_COUNT is 5 — too few to warm up RSI(14)/EMA(20+)/MACD
+(needs 14/20/35 bars respectively), so these tests synchronize on
+ui_script_region_signal (fires every bar regardless of warm-up, see
+IndicatorScriptRunner.feed()) rather than ui_indicator_data_signal, and
+assert against presenter._script_runner.active rather than rendered curves
+— curve rendering with properly warmed-up data is already covered in
+test_indicator_script_runner.py/test_chart_card.py.
 """
 
 
@@ -21,168 +32,128 @@ def _click_load_history(view, qml_item):
     qml_item(root, "btnLoadHistory").clicked.emit()
 
 
-def test_rsi_only_registers_one_subplot(qtbot, main_window, navigate, qml_item):
-    """TC-IND-01: enabling RSI then Load History adds exactly one subplot
-    row with a legend entry, nothing else."""
+def test_ema_20_50_100_200_are_pre_enabled_by_default(qtbot, main_window, navigate):
+    """US-07: "no indicator hardcoded in the engine, default is EMA
+    200/100/50/20" — these four must already be checked the first time the
+    Dev Board opens, with no user action."""
+    qtbot.addWidget(main_window)
+    _presenter, view = _open_dashboard(navigate)
+
+    enabled = set(view._view_model.script_model.enabled_keys)
+
+    assert {"ema_20", "ema_50", "ema_100", "ema_200"} <= enabled
+
+
+def test_rsi_and_macd_are_not_pre_enabled(qtbot, main_window, navigate):
+    """Only the EMAs are called out as defaults in US-07 — RSI/MACD stay
+    opt-in, same as every other registered script."""
+    qtbot.addWidget(main_window)
+    _presenter, view = _open_dashboard(navigate)
+
+    enabled = set(view._view_model.script_model.enabled_keys)
+
+    assert "rsi_14" not in enabled
+    assert "macd_full" not in enabled
+
+
+def test_rsi_14_registers_as_a_subplot_script(qtbot, main_window, navigate, qml_item):
+    """TC-IND-01: RSI must be a subplot script, not drawn on the main
+    price plot."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    view._view_model.rsiEnabled = True
+    view._view_model.script_model.setEnabled(_row_index(view, "rsi_14"), True)
 
-    with qtbot.waitSignal(presenter.ui_indicator_data_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
-    card = view.chart_cards[0]
-    assert list(card.indicators._curves.keys()) == ["RSI(14)"]
-    # Volume (always present) + RSI = 2 subplot rows, no more.
-    assert len(card.plot_layout.sub_plots) == 2
+    assert presenter._script_runner.active["rsi_14"].overlay is False
 
 
 def test_ema_registers_as_overlay_not_subplot(qtbot, main_window, navigate, qml_item):
     """TC-IND-02: EMA must be drawn on the main price plot, not its own
-    subplot row."""
+    subplot row. ema_20 is pre-enabled (US-07), so no toggle needed."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    view._view_model.emaEnabled = True
 
-    with qtbot.waitSignal(presenter.ui_indicator_data_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
-    card = view.chart_cards[0]
-    assert card.indicators._plots["EMA(20)"] is card.plot_layout.main_plot
-    # Volume is the only subplot row — EMA did not add one.
-    assert len(card.plot_layout.sub_plots) == 1
+    assert presenter._script_runner.active["ema_20"].overlay is True
 
 
-def test_macd_extracts_macd_field_not_signal_or_histogram(
+def test_all_default_scripts_together_no_key_collisions(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-IND-03: the presenter's extract_value for MACD must read
-    `reading.macd`, not `.signal`/`.histogram`."""
+    """TC-IND-04: RSI+EMA(x4)+MACD together must all register under their
+    own distinct keys — no overwriting each other."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    view._view_model.macdEnabled = True
+    for key in ("rsi_14", "macd_full"):
+        view._view_model.script_model.setEnabled(_row_index(view, key), True)
 
-    with qtbot.waitSignal(presenter.ui_indicator_data_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
-    active = presenter.active_indicators["MACD"]
-    assert active.kind == "subplot"
-
-    from Binace_Bot.src.domain.indicators.macd import MACDValue
-
-    fake_reading = MACDValue(macd=1.23, signal=9.99, histogram=-8.76)
-    assert active.extract_value(fake_reading) == 1.23
-
-
-def test_all_three_indicators_together_no_overlap(
-    qtbot, main_window, navigate, qml_item
-):
-    """TC-IND-04: RSI+EMA+MACD together must not collide — EMA overlay on
-    main plot, RSI and MACD each on their own subplot row."""
-    qtbot.addWidget(main_window)
-    presenter, view = _open_dashboard(navigate)
-    view._view_model.rsiEnabled = True
-    view._view_model.emaEnabled = True
-    view._view_model.macdEnabled = True
-
-    with qtbot.waitSignals(
-        [presenter.ui_indicator_data_signal] * 3, timeout=2000, order="none"
-    ):
-        _click_load_history(view, qml_item)
-
-    card = view.chart_cards[0]
-    assert set(card.indicators._curves.keys()) == {"RSI(14)", "EMA(20)", "MACD"}
-    assert card.indicators._plots["EMA(20)"] is card.plot_layout.main_plot
-    assert card.indicators._plots["RSI(14)"] is not card.plot_layout.main_plot
-    assert card.indicators._plots["MACD"] is not card.plot_layout.main_plot
-    assert card.indicators._plots["RSI(14)"] is not card.indicators._plots["MACD"]
-    # Volume + RSI + MACD = 3 subplot rows.
-    assert len(card.plot_layout.sub_plots) == 3
+    active = presenter._script_runner.active
+    assert set(active) >= {
+        "rsi_14",
+        "macd_full",
+        "ema_20",
+        "ema_50",
+        "ema_100",
+        "ema_200",
+    }
+    assert active["ema_20"].overlay is True
+    assert active["rsi_14"].overlay is False
+    assert active["macd_full"].overlay is False
 
 
-def test_unchecking_then_reload_removes_subplot_row_entirely(
-    qtbot, main_window, navigate, qml_item
-):
-    """TC-IND-06: unchecking RSI then reloading must remove the subplot ROW
-    (not just its curve) — regression test for the "empty panel left
-    behind" half of the duplicate-indicator bug fixed this session."""
-    qtbot.addWidget(main_window)
-    presenter, view = _open_dashboard(navigate)
-    view._view_model.rsiEnabled = True
-
-    with qtbot.waitSignal(presenter.ui_indicator_data_signal, timeout=2000):
-        _click_load_history(view, qml_item)
-    card = view.chart_cards[0]
-    assert len(card.plot_layout.sub_plots) == 2  # Volume + RSI
-
-    view._view_model.rsiEnabled = False
-    with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
-        _click_load_history(view, qml_item)
-
-    assert "RSI(14)" not in card.indicators._curves
-    assert len(card.plot_layout.sub_plots) == 1  # only Volume remains
-
-
-def test_repeated_load_history_does_not_duplicate_indicators(
+def test_repeated_load_history_keeps_exactly_one_registration_per_script(
     qtbot, main_window, navigate, qml_item
 ):
     """TC-IND-07: clicking "Load History" 3 times in a row with the same
-    indicator set must leave exactly one curve/subplot per indicator —
-    the exact bug reported by the user this session ("start nhieu lan no
-    bi loi nay")."""
+    scripts enabled must leave exactly one ActiveScript per key — the
+    original bug this pinned down ("start nhieu lan no bi loi nay") was
+    about duplicate curves, which rebuild() structurally can't produce
+    anymore (it always replaces `active` with a fresh dict) — this proves
+    the rebuild itself doesn't raise or drop keys across repeats."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    view._view_model.rsiEnabled = True
-    view._view_model.emaEnabled = True
-    view._view_model.macdEnabled = True
 
     for _ in range(3):
-        with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
+        # ui_history_load_finished_signal always fires (unconditional
+        # `finally` in _run_load_history) and is what resets historyLoading
+        # back to False — the most reliable point to synchronize repeated
+        # clicks on, unlike ui_history_reloaded_signal which some of this
+        # suite's other tests have found racy under real ThreadPoolExecutor
+        # scheduling (see BOT-032 task file's Phase 5 notes).
+        with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
             _click_load_history(view, qml_item)
 
-    card = view.chart_cards[0]
-    assert sorted(card.indicators._curves.keys()) == ["EMA(20)", "MACD", "RSI(14)"]
-    assert len(card.plot_layout.sub_plots) == 3  # Volume + RSI + MACD, never more
-    assert len(card.crosshair._plots) == 4  # main + Volume + RSI + MACD
+    active = presenter._script_runner.active
+    assert set(active) == {"ema_20", "ema_50", "ema_100", "ema_200"}
 
 
-def test_macd_warmup_produces_no_readings_with_too_little_history(
+def test_macd_produces_no_series_with_too_little_history(
     qtbot, main_window, navigate, qml_item
 ):
     """TC-IND-11: MACD needs 26+9 closes to warm up; with only 5 mock
-    candles (see conftest.MOCK_KLINE_COUNT) every update() call must
-    return None — no NaN/garbage point should reach the chart."""
+    candles (see conftest.MOCK_KLINE_COUNT) it must produce nothing — no
+    NaN/garbage point should reach the chart."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    view._view_model.macdEnabled = True
+    view._view_model.script_model.setEnabled(_row_index(view, "macd_full"), True)
 
-    with qtbot.waitSignal(presenter.ui_indicator_data_signal, timeout=2000):
+    with qtbot.waitSignal(presenter.ui_script_region_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
-    active = presenter.active_indicators["MACD"]
-    assert active.x_data == []
-    assert active.y_data == []
+    assert presenter._script_runner.active["macd_full"].series == {}
 
 
-def test_toggling_period_after_load_has_no_live_effect(
-    qtbot, main_window, navigate, qml_item
-):
-    """TC-IND-05 / TC-GAP-07: changing the period after Load History has
-    already run must NOT retroactively change the already-registered
-    indicator — the ViewModel's rsiPeriod is only read at click time by
-    _build_active_indicators, so the effect only applies on the *next*
-    Load History/Start Live click."""
-    qtbot.addWidget(main_window)
-    presenter, view = _open_dashboard(navigate)
-    view._view_model.rsiEnabled = True
-    view._view_model.rsiPeriod = 14
-
-    with qtbot.waitSignal(presenter.ui_indicator_data_signal, timeout=2000):
-        _click_load_history(view, qml_item)
-    assert "RSI(14)" in presenter.active_indicators
-
-    view._view_model.rsiPeriod = 7
-    qtbot.wait(50)  # give any (nonexistent) signal a chance to fire
-
-    assert "RSI(14)" in presenter.active_indicators
-    assert "RSI(7)" not in presenter.active_indicators
+def _row_index(view, key: str) -> int:
+    model = view._view_model.script_model
+    keys = [
+        model.data(model.index(row, 0), model.KeyRole)
+        for row in range(model.rowCount())
+    ]
+    return keys.index(key)

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Callable, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 from PySide6.QtCore import Signal, Slot
 
@@ -26,9 +25,6 @@ from Binace_Bot.src.application.services.indicator_script_registry import (
 )
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.domain.indicators.ema import EMA
-from Binace_Bot.src.domain.indicators.macd import MACD
-from Binace_Bot.src.domain.indicators.rsi import RSI
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
@@ -53,12 +49,6 @@ _DEFAULT_SYMBOLS: Tuple[str, ...] = ("ETHUSDT",)
 _DEFAULT_INTERVAL_STR: str = "1m"
 _DEFAULT_KLINE_LIMIT: int = 5000
 
-_INDICATOR_KIND_OVERLAY = "overlay"  # same price scale as candles, e.g. EMA
-_INDICATOR_KIND_SUBPLOT = "subplot"  # own scale, e.g. RSI/MACD
-_RSI_COLOR = "#8e44ad"
-_EMA_COLOR = "#e67e22"
-_MACD_COLOR = "#2980b9"
-
 # WS status badge (top bar) text/color per FSM state — presentational only,
 # derived from the state DashboardPresenter already tracks.
 _WS_STATUS_BY_MODE = {
@@ -67,26 +57,6 @@ _WS_STATUS_BY_MODE = {
     UIMode.LIVE: ("WS: LIVE", BULL_COLOR),
     UIMode.ERROR: ("WS: ERROR", BEAR_COLOR),
 }
-
-
-@dataclass
-class _ActiveIndicator:
-    """
-    @brief Presenter-only bookkeeping for one enabled chart indicator.
-    @details `extract_value` turns a raw IIndicator reading into a plain
-    float (MACD.update() returns a MACDValue, not a float). `x_data`/
-    `y_data` accumulate the full series pushed to the chart across both the
-    historical batch and subsequent live ticks — ChartCard.update_indicator_data
-    always takes the complete series, not an append.
-    """
-
-    indicator: object
-    extract_value: Callable[[object], float]
-    kind: str
-    color: str
-    registered_on_chart: bool = False
-    x_data: list = field(default_factory=list)
-    y_data: list = field(default_factory=list)
 
 
 def _tick_to_candle(
@@ -202,7 +172,6 @@ class DashboardPresenter(BasePresenter):
         self._apply_ws_status_badge(UIMode.IDLE)
 
         self.active_charts: dict = {}
-        self.active_indicators: dict[str, _ActiveIndicator] = {}
 
         # BOT-033 — interval actually used by Load History/Start Live, set by
         # ChartToolbar.sig_timeframe_changed (see _ensure_chart_cards). An
@@ -210,10 +179,9 @@ class DashboardPresenter(BasePresenter):
         # per-run without a restart.
         self._active_interval: str = _DEFAULT_INTERVAL_STR
 
-        # Custom indicator scripts (BOT-032), keyed by registry key. Kept in a
-        # separate dict from active_indicators because one script produces N
-        # named lines from a single compute() call, unlike the 1-to-1
-        # indicator-to-curve relationship above.
+        # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
+        # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD
+        # ship as default-registered scripts, see binance_bot_module.py).
         script_registry: IndicatorScriptRegistry = container.resolve(
             IndicatorScriptRegistry
         )
@@ -309,70 +277,6 @@ class DashboardPresenter(BasePresenter):
             card.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
         return chart_cards
 
-    def _build_active_indicators(self) -> dict[str, _ActiveIndicator]:
-        """
-        @brief Reads the ViewModel's indicator toggles/periods and builds
-        fresh indicator instances — never reused across runs, so a changed
-        period or a fresh Load History/Start Stream always starts clean.
-        """
-        view_model = self._view_model
-        indicators: dict[str, _ActiveIndicator] = {}
-
-        if view_model.rsiEnabled:
-            period = view_model.rsiPeriod
-            indicators[f"RSI({period})"] = _ActiveIndicator(
-                indicator=RSI(period=period),
-                extract_value=lambda reading: reading,
-                kind=_INDICATOR_KIND_SUBPLOT,
-                color=_RSI_COLOR,
-            )
-        if view_model.emaEnabled:
-            period = view_model.emaPeriod
-            indicators[f"EMA({period})"] = _ActiveIndicator(
-                indicator=EMA(period=period),
-                extract_value=lambda reading: reading,
-                kind=_INDICATOR_KIND_OVERLAY,
-                color=_EMA_COLOR,
-            )
-        if view_model.macdEnabled:
-            indicators["MACD"] = _ActiveIndicator(
-                indicator=MACD(),
-                extract_value=lambda reading: reading.macd,
-                kind=_INDICATOR_KIND_SUBPLOT,
-                color=_MACD_COLOR,
-            )
-        return indicators
-
-    def _ensure_indicator_registered(
-        self, card, name: str, active_indicator: _ActiveIndicator
-    ) -> None:
-        """Adds the overlay/subplot curve to the chart on its first data point."""
-        if active_indicator.registered_on_chart:
-            return
-        if active_indicator.kind == _INDICATOR_KIND_OVERLAY:
-            card.add_overlay_indicator(name, active_indicator.color)
-        else:
-            card.add_subplot_indicator(name, active_indicator.color)
-        active_indicator.registered_on_chart = True
-
-    def _clear_registered_indicators(self) -> None:
-        """
-        @brief Removes every currently-registered indicator curve from the
-        chart before rebuilding fresh instances.
-        @details _build_active_indicators() always returns brand new
-        _ActiveIndicator objects (registered_on_chart=False) — without this,
-        re-clicking Load History/Start Stream would leave the OLD curves on
-        the chart (never removed) while registering a second, duplicate set
-        for the same names, since the chart card itself is reused across runs
-        (see _ensure_chart_cards).
-        """
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
-        if card is None:
-            return
-        for name, active_indicator in self.active_indicators.items():
-            if active_indicator.registered_on_chart:
-                card.remove_indicator(name)
-
     # ================================================================== #
     # Custom indicator scripts (BOT-032) — orchestration lives in
     # IndicatorScriptRunner; this presenter only says *when* things happen.
@@ -418,15 +322,12 @@ class DashboardPresenter(BasePresenter):
         )
         symbols = list(_DEFAULT_SYMBOLS)
         self._ensure_chart_cards(symbols)
-        self._clear_registered_indicators()
-        self.active_indicators = self._build_active_indicators()
         self._rebuild_scripts()
         self._thread_manager.submit(
             self._run_load_history,
             symbols,
             self._active_interval,
             _DEFAULT_KLINE_LIMIT,
-            self.active_indicators,
         )
 
     @Slot()
@@ -450,8 +351,6 @@ class DashboardPresenter(BasePresenter):
 
         # Prepare chart cards on the main thread (safe: view state only).
         chart_cards = self._ensure_chart_cards(symbols)
-        self._clear_registered_indicators()
-        self.active_indicators = self._build_active_indicators()
         self._rebuild_scripts()
         self._view_model.log_model.append(f"Prepared {len(chart_cards)} charts.")
 
@@ -536,25 +435,13 @@ class DashboardPresenter(BasePresenter):
 
     @Slot(str, list, list)
     def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
-        """Pushes a computed indicator series onto the chart (single-symbol
-        Dev Board — see _DEFAULT_SYMBOLS), registering its overlay/subplot
-        curve on first use.
-
-        Carries both built-in indicators (bare `name`) and script lines
-        (`key:line`) — the separator is what tells them apart, which is why
-        script curve names are namespaced."""
+        """Pushes a computed indicator script line onto the chart
+        (single-symbol Dev Board — see _DEFAULT_SYMBOLS), registering its
+        overlay/subplot curve on first use. Every indicator is a script
+        (BOT-032 Phase 6 — none are hardcoded), so this is a pure delegate."""
         card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
-        if card is None:
-            return
-
-        if self._script_runner.draw(card, name, x_data, y_data):
-            return
-
-        active_indicator = self.active_indicators.get(name)
-        if active_indicator is None:
-            return
-        self._ensure_indicator_registered(card, name, active_indicator)
-        card.update_indicator_data(name, x_data, y_data)
+        if card is not None:
+            self._script_runner.draw(card, name, x_data, y_data)
 
     @Slot(str, list)
     def _on_script_region_data(self, key: str, spans: list) -> None:
@@ -633,35 +520,12 @@ class DashboardPresenter(BasePresenter):
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
-                self._update_indicators_on_closed_candle(card, t, c)
                 self._script_runner.feed(
                     _tick_to_candle(symbol, t, o, h, low, c, volume)
                 )
             else:
                 card.update_last_candle(t, o, h, low, c)
                 card.update_last_volume(t, volume, is_bullish)
-
-    def _update_indicators_on_closed_candle(
-        self, card, timestamp: float, close_price: float
-    ) -> None:
-        """
-        @brief Feeds a newly-closed live candle into every active indicator.
-        @details Runs on the main thread (called from _on_ui_chart_update),
-        so it's safe to mutate the same _ActiveIndicator instances the
-        historical batch (background thread) used — that batch always
-        finishes before live ticks start, per _run_sync_and_start's Step 2
-        (reload history) -> Step 3 (start stream) ordering.
-        """
-        for name, active_indicator in self.active_indicators.items():
-            reading = active_indicator.indicator.update(close_price)
-            if reading is None:
-                continue
-            active_indicator.x_data.append(timestamp)
-            active_indicator.y_data.append(active_indicator.extract_value(reading))
-            self._ensure_indicator_registered(card, name, active_indicator)
-            card.update_indicator_data(
-                name, active_indicator.x_data, active_indicator.y_data
-            )
 
     # ================================================================== #
     # Background methods — submitted to IThreadManager.
@@ -673,15 +537,11 @@ class DashboardPresenter(BasePresenter):
         symbols: List[str],
         interval_str: str,
         limit: int,
-        active_indicators: dict[str, _ActiveIndicator] | None = None,
     ) -> None:
         """
         @brief Background worker: queries historical klines for each symbol and
         emits results via ui_history_reloaded_signal for safe main-thread rendering.
         """
-        indicator_snapshot = (
-            self.active_indicators if active_indicators is None else active_indicators
-        )
         try:
             for symbol in symbols:
                 query = GetHistoricalKlinesQuery(
@@ -707,7 +567,6 @@ class DashboardPresenter(BasePresenter):
                     self.ui_history_reloaded_signal.emit(
                         symbol, mapped_data, volume_data
                     )
-                    self._compute_indicator_series(ordered_klines, indicator_snapshot)
                     self._script_runner.feed_all(ordered_klines)
 
                 except Exception as exc:
@@ -754,7 +613,6 @@ class DashboardPresenter(BasePresenter):
                     self.ui_history_reloaded_signal.emit(
                         symbol, mapped_data, volume_data
                     )
-                    self._compute_indicator_series(ordered_klines)
                     self._script_runner.feed_all(ordered_klines)
 
             # Step 3: Start the Live WebSocket stream
@@ -772,40 +630,6 @@ class DashboardPresenter(BasePresenter):
 
         except Exception as exc:
             self.ui_stream_failed_signal.emit(f"System error: {exc}")
-
-    def _compute_indicator_series(
-        self,
-        ordered_klines: List,
-        active_indicators: dict[str, _ActiveIndicator] | None = None,
-    ) -> None:
-        """
-        @brief Feeds each historical candle's close price through every
-        active indicator and emits the resulting series via
-        ui_indicator_data_signal for safe main-thread chart rendering.
-        @details Runs on a background thread (called from _run_load_history/
-        _run_sync_and_start) — safe because this always completes before any
-        live tick could touch the same _ActiveIndicator instances (Step 2
-        reload-history precedes Step 3 start-stream). Captures
-        `active_indicators` once so a mid-run rebuild on the main thread
-        (e.g. the user re-clicking Load History) can't be observed
-        mid-iteration.
-        """
-        active_indicators = (
-            self.active_indicators if active_indicators is None else active_indicators
-        )
-        for candle in ordered_klines:
-            timestamp = float(candle.close_time.timestamp())
-            for active_indicator in active_indicators.values():
-                reading = active_indicator.indicator.update(candle.close_price)
-                if reading is None:
-                    continue
-                active_indicator.x_data.append(timestamp)
-                active_indicator.y_data.append(active_indicator.extract_value(reading))
-
-        for name, active_indicator in active_indicators.items():
-            self.ui_indicator_data_signal.emit(
-                name, active_indicator.x_data, active_indicator.y_data
-            )
 
     @staticmethod
     def _map_klines(klines: list) -> list:

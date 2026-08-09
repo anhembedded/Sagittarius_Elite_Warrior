@@ -1,21 +1,22 @@
 """
-BOT-032 Phase 3 — the "CUSTOM SCRIPTS" checklist in DevBoardPanel.qml.
+BOT-032 Phase 3 — the indicator checklist in DevBoardPanel.qml (originally
+"CUSTOM SCRIPTS"; since Phase 6 it's the ONLY indicator checklist — RSI/EMA/
+MACD are registered scripts too, see test_dev_board_indicators.py).
 
-Mirrors test_dev_board_indicators.py's style: toggles go through the
-ViewModel directly (view._view_model.script_model.setEnabled(...)), the same
-way those tests set view._view_model.rsiEnabled = True rather than simulating
-a real QML mouse click — there is no existing precedent in this repo for
-clicking a QML CheckBox (only QtWidgets buttons, see
-test_dev_board_known_gaps.py), so this file doesn't invent one.
+Mirrors test_dev_board_known_gaps.py's style: toggles go through the
+ViewModel directly (view._view_model.script_model.setEnabled(...)) rather
+than simulating a real QML mouse click — there is no existing precedent in
+this repo for clicking a QML CheckBox (only QtWidgets buttons), so this file
+doesn't invent one.
 
 What IS specific to this file: the checklist is built by a Repeater bound to
 a QAbstractListModel (IndicatorScriptRegistry.available() at runtime), not a
-handful of hand-written StyledCheck instances like RSI/EMA/MACD — so there is
-a real risk (flagged in the BOT-032 task file) that the Repeater/role-binding
-wiring itself is broken even if the underlying model is fine. That risk is
-covered by test_custom_scripts_checklist_renders_every_registered_script,
-which walks the real QML visual tree with qml_item — Repeater delegates are
-NOT QObject children, so requires walk_qml_items/qml_item, not findChild().
+handful of hand-written StyledCheck instances — so there is a real risk
+(flagged in the BOT-032 task file) that the Repeater/role-binding wiring
+itself is broken even if the underlying model is fine. That risk is covered
+by test_custom_scripts_checklist_renders_every_registered_script, which
+walks the real QML visual tree with qml_item — Repeater delegates are NOT
+QObject children, so requires walk_qml_items/qml_item, not findChild().
 """
 
 
@@ -49,7 +50,10 @@ def test_custom_scripts_checklist_renders_every_registered_script(
         checkbox = qml_item(root, f"chkScript_{key}")
         assert checkbox is not None, f"no checkbox rendered for script {key!r}"
         assert checkbox.property("text") == script_cls.title
-        assert checkbox.property("checked") is False
+        # default_enabled scripts (BOT-032 Phase 6 — e.g. ema_20/50/100/200)
+        # start pre-checked; every other script starts opted-out.
+        expected_checked = getattr(script_cls, "default_enabled", False)
+        assert checkbox.property("checked") is expected_checked
 
 
 def test_enabling_a_script_then_load_history_registers_it_as_active(

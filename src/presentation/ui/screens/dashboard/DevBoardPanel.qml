@@ -56,42 +56,6 @@ Rectangle {
         }
     }
 
-    component PeriodSpin: SpinBox {
-        id: spin
-        from: 2
-        to: 200
-        editable: true
-
-        contentItem: TextInput {
-            text: spin.textFromValue(spin.value, spin.locale)
-            color: Theme.textPrimary
-            horizontalAlignment: Qt.AlignHCenter
-            verticalAlignment: Qt.AlignVCenter
-            readOnly: !spin.editable
-            validator: spin.validator
-            selectByMouse: true
-            selectionColor: Theme.accent
-        }
-
-        background: FieldBackground { implicitWidth: 90 }
-
-        up.indicator: Rectangle {
-            x: spin.mirrored ? 0 : parent.width - width
-            height: parent.height
-            implicitWidth: 24
-            color: spin.up.pressed ? "#2a2d36" : "transparent"
-            Text { anchors.centerIn: parent; text: "+"; color: Theme.muted; font.pixelSize: 12 }
-        }
-
-        down.indicator: Rectangle {
-            x: spin.mirrored ? parent.width - width : 0
-            height: parent.height
-            implicitWidth: 24
-            color: spin.down.pressed ? "#2a2d36" : "transparent"
-            Text { anchors.centerIn: parent; text: "−"; color: Theme.muted; font.pixelSize: 12 }
-        }
-    }
-
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
@@ -435,59 +399,13 @@ Rectangle {
                             font.bold: true
                         }
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 10
-                            StyledCheck {
-                                objectName: "chkRsi"
-                                text: "RSI"
-                                checked: viewModel.rsiEnabled
-                                onToggled: viewModel.rsiEnabled = checked
-                            }
-                            Text { text: "Period:"; color: Theme.muted; font.pixelSize: 11 }
-                            PeriodSpin {
-                                objectName: "spinRsiPeriod"
-                                value: viewModel.rsiPeriod
-                                onValueModified: viewModel.rsiPeriod = value
-                            }
-                            Item { Layout.fillWidth: true }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 10
-                            StyledCheck {
-                                objectName: "chkEma"
-                                text: "EMA"
-                                checked: viewModel.emaEnabled
-                                onToggled: viewModel.emaEnabled = checked
-                            }
-                            Text { text: "Period:"; color: Theme.muted; font.pixelSize: 11 }
-                            PeriodSpin {
-                                objectName: "spinEmaPeriod"
-                                value: viewModel.emaPeriod
-                                onValueModified: viewModel.emaPeriod = value
-                            }
-                            Item { Layout.fillWidth: true }
-                        }
-
-                        StyledCheck {
-                            objectName: "chkMacd"
-                            text: "MACD (12/26/9)"
-                            checked: viewModel.macdEnabled
-                            onToggled: viewModel.macdEnabled = checked
-                        }
-
-                        // BOT-032 — user-authored scripts, populated at runtime
-                        // from IndicatorScriptRegistry via viewModel.scriptModel.
-                        // Unlike the RSI/EMA/MACD checks above, this list is not
-                        // hand-written — a new registered script appears here
-                        // with no QML change.
-                        SectionLabel {
-                            text: "CUSTOM SCRIPTS"
-                            visible: scriptRepeater.count > 0
-                        }
-
+                        // BOT-032 Phase 6 — every indicator is a script, none
+                        // hardcoded here anymore. Populated at runtime from
+                        // IndicatorScriptRegistry via viewModel.scriptModel —
+                        // a new registered script appears with no QML change.
+                        // RSI(14)/EMA 20/50/100/200/MACD(12/26/9) are the
+                        // built-in defaults (see binance_bot_module.py); the
+                        // EMA ones start pre-checked (default_enabled).
                         Repeater {
                             id: scriptRepeater
                             model: viewModel.scriptModel

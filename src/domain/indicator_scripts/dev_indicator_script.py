@@ -56,6 +56,7 @@ class DevIndicatorScript(BaseIndicatorScript):
 
     title = "DEV — scripting API showcase"
     overlay = True
+    min_warmup_bars = 35  # self.trend (MACD 12/26/9, 26+9) is the slowest handle used
 
     def setup(self) -> None:
         # --- 1. Declare indicators. These are the building blocks; the script

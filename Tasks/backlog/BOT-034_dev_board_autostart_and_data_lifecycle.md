@@ -4,6 +4,15 @@
 > `Tasks/UserStory_Propose.md` (US-03/05/06/08) cho ngữ cảnh gốc. Đã qua 2 vòng hỏi-đáp với user
 > (ý nghĩa auto-start/render-vs-fetch, rồi 4 câu hỏi kỹ thuật ở §2.1) — **không còn quyết định
 > treo**, sẵn sàng implement.
+>
+> ⚠️ **Trùng số với task có sẵn — đã đổi từ BOT-033 sang BOT-034.** File này ban đầu tạo nhầm số
+> `BOT-033` mà không kiểm tra `Tasks/in_progress/` trước — `BOT-033` đã có sẵn
+> (`BOT-033_qml_user_actions.md`, một task khác đang chạy song song). §6 (timeframe) của file
+> này **trùng phạm vi** với `BOT-033_qml_user_actions.md` Phase 2 ("Nối Chart toolbar với cùng
+> timeframe selection") — §6 đã được implement và commit (nhầm dưới nhãn "BOT-033" trong message
+> commit, không sửa lại lịch sử git) **trước khi** phát hiện ra collision này. Đã ghi chú chéo
+> sang `BOT-033_qml_user_actions.md` để task đó không làm lại. Nếu bạn đang chạy song song
+> `BOT-033_qml_user_actions.md`, hãy đọc kỹ §6 trước khi động vào `ChartToolbar`/`_on_timeframe_changed`.
 
 ## 1. Mục tiêu (Objective)
 Đóng 3 gap: (a) timeframe selector trên Dev Board hiện chỉ là cosmetic (TC-GAP-03/06), (b) Load
@@ -177,7 +186,7 @@ qua `qtbot.wait`.
 
 ---
 
-## 6. Timeframe selector thật (US-05 + US-06)
+## 6. Timeframe selector thật (US-05 + US-06)  *(ĐÃ XONG)*
 
 ### Hiện trạng
 2 nơi chọn timeframe cùng tồn tại, cả 2 đều cosmetic:
@@ -217,15 +226,18 @@ interval được dùng ở lần Load History/Start Live kế tiếp (mirror st
 ---
 
 ## 7. Phụ thuộc & thứ tự đề xuất
-1. Làm §6 (timeframe) trước — không phụ thuộc gì, rủi ro thấp nhất.
-2. Làm §4 (render-window/fetch) sau — cần `min_warmup_bars` trên script, nên làm sau khi ít nhất
-   một phần `BOT-032` Phase 6 xong (hoặc ít nhất RSI/EMA/MACD đã có bản script tương đương) để
-   không phải viết 2 lần logic "tính warmup" cho cả hệ cũ lẫn hệ mới.
-3. Làm §5 (auto-start) sau cùng — phụ thuộc §6 (interval nào để auto-start) gián tiếp, và là
-   phần rủi ro UX cao nhất (đổi hành vi mặc định khi mở màn hình mỗi lần vào Dev Board).
+1. ~~Làm §6 (timeframe) trước~~ — **đã xong**.
+2. Làm §4 (render-window/fetch) tiếp — cần `min_warmup_bars` trên script, `BOT-032` Phase 6 (RSI/
+   EMA/MACD → script) **đã xong** nên không còn blocker.
+3. Làm §5 (auto-start) sau cùng — phụ thuộc §6 (interval nào để auto-start, đã xong) gián tiếp,
+   và là phần rủi ro UX cao nhất (đổi hành vi mặc định khi mở màn hình mỗi lần vào Dev Board).
 
 ## 8. Phụ thuộc (Dependencies)
-- `BOT-032` ✅ (Phase 0-5) + Phase 6 (đang làm/sắp làm) — `IndicatorScriptRegistry`,
-  `min_warmup_bars` cắm vào đây.
+- `BOT-032` ✅ (toàn bộ, kể cả Phase 6) — `IndicatorScriptRegistry`, `min_warmup_bars` cắm vào đây.
 - Không phụ thuộc `BOT-026` (strategy) — task này chỉ động tới indicator + timeframe + stream
   lifecycle.
+- ⚠️ `BOT-033_qml_user_actions.md` (task khác, đang chạy song song) — Phase 2 của task đó cũng
+  định nối `Symbol`/`Start date`/`End date` với Presenter, phạm vi **không trùng** §4/§5 của file
+  này (fetch-amount/auto-start), chỉ trùng đúng phần timeframe (§6, đã xong — xem cảnh báo đầu
+  file). Đọc task đó trước khi làm §4/§5 để tránh xung đột nếu nó cũng động tới
+  `_on_load_history`/`_on_start_stream`.
