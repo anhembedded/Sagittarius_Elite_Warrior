@@ -1,0 +1,3 @@
+## 2024-08-09 - PySide6 Pointer Cursor Limitations
+**Learning:** PySide6 QSS doesn't reliably support setting hover cursors (e.g., `cursor: pointing-hand;`) via stylesheets, which can lead to a lack of visual feedback on interactive elements.
+**Action:** When creating new interactive widgets (like `QPushButton`), explicitly set the cursor programmatically using `widget.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)` to ensure a consistent user experience.
