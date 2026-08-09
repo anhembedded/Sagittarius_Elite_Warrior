@@ -1,7 +1,8 @@
 # Nhiệm vụ: Custom Indicator Scripts (kiểu Pine Script, thuần Python)
 
-> **Đọc file này trước khi code.** Phase 0-1 đã xong và đã chốt kiến trúc — đừng thiết kế
-> lại, hãy extend theo đúng khuôn đã có. Mục §3 (RULES) là bắt buộc.
+> **Đọc file này trước khi code.** Phase 0-5 đã xong và đã chốt kiến trúc — đừng thiết kế
+> lại, hãy extend theo đúng khuôn đã có. Mục §3 (RULES) là bắt buộc. Chỉ còn Phase 6
+> (chuyển RSI/EMA/MACD thành script, §9) là **chưa làm, cố ý để sau** theo quyết định user.
 
 ## 1. Mục tiêu (Objective)
 Cho phép **tự viết indicator** bằng 1 class Python thường — cảm giác giống TradingView Pine
@@ -312,11 +313,24 @@ luôn emit mỗi bar). `draw_markers(card, key, markers)` — không trả bool,
 
 ---
 
-## 8. Phase 5 — Docs + full CI  *(CHƯA LÀM)*
-- Thêm mục vào `Docs/Diagrams/ui_architecture.md`: cách viết 1 script mới (3 bước: tạo file →
-  `register()` → tự hiện trong UI), kèm mermaid luồng
-  `execute() → plot()/mark() → buffer → compute() → signal → chart`.
-- `ci-local.ps1 -Full` xanh.
+## 8. Phase 5 — Docs + full CI  *(ĐÃ XONG)*
+- `Docs/Diagrams/ui_architecture.md` §11 (mới): cách viết 1 script mới (3 bước: tạo file →
+  `register()` → tự hiện trong UI), bảng map output primitive → chart result, mermaid luồng
+  `execute() → plot()/mark()/shade()/info() → buffer → compute() → Runner → signal → chart`, và
+  phần "để ngỏ cho Strategy" tóm tắt lại §10 của file này cho người đọc chỉ mở doc kiến trúc.
+- Full suite qua `../.venv/Scripts/python.exe -m pytest` (không dùng `ci-local.ps1 -Full` trực
+  tiếp — coverage gate của nó không liên quan tới việc verify riêng task này): 373 unit test +
+  6 sanity test + 44 integration test (43 pass, 1 flaky có sẵn từ trước — xem cảnh báo dưới),
+  `ruff check`/`ruff format --check` sạch.
+- ⚠️ **1 integration test có sẵn từ trước, KHÔNG liên quan BOT-032, đang flaky trên máy này**:
+  `test_dev_board_indicators.py::test_repeated_load_history_does_not_duplicate_indicators` timeout
+  chờ `ui_history_reloaded_signal` ở lần Load History thứ 2-3 trong 3 lần bấm liên tiếp. Đã
+  **bisect xác nhận** bằng cách checkout code ở commit ngay trước Phase 3 của task này rồi chạy
+  lại — vẫn fail y hệt → **không phải regression từ BOT-032**. Nguyên nhân nhiều khả năng: budget
+  2000ms cho 3 vòng round-trip qua `ThreadPoolExecutor` thật (test cố tình không mock thread pool
+  — xem docstring `conftest.py`) quá sát, và máy chạy nhiều tiến trình Python/Qt liên tục trong
+  phiên làm việc này làm chậm lịch thread OS. Không sửa trong task này (ngoài phạm vi BOT-032) —
+  nếu gặp lại, thử tăng `timeout=2000` lên cao hơn hoặc chạy riêng lẻ thay vì cả suite.
 
 ## 9. Phase 6 — chuyển RSI/EMA/MACD hardcode thành script  *(để sau, có thể tách task)*
 User đã chốt "update 3 cái đó sau". **Blocker đã biết**: script hiện zero-arg, còn RSI/EMA có

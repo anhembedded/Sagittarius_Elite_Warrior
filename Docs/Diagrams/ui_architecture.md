@@ -357,3 +357,103 @@ Two related things were left alone for the same reason:
 - Screenshot-verify visually in addition to assertions, using an offscreen
   `QT_QPA_PLATFORM=offscreen` driver + `window.grab()`, for every phase of
   every screen migration.
+
+---
+
+## 11. Custom indicator scripts (`BOT-032`) — user-extensible chart studies
+
+The Dev Board's RSI/EMA/MACD checkboxes are each ~4 hand-wired places
+(`dashboard_presenter.py`, `dashboard_view_model.py`, `DevBoardPanel.qml`).
+`BOT-032` adds a **second, user-extensible path** alongside them: a plain
+Python class, written like a TradingView Pine Script study, that appears in
+the Dev Board's UI automatically — no QML change, no Presenter change —
+the moment it's registered.
+
+### Writing a new script — 3 steps
+
+1. **Create a file** under `domain/indicator_scripts/`, subclassing
+   `BaseIndicatorScript`. Declare indicators in `setup()`, compute and call
+   `self.plot()`/`self.mark()`/`self.shade()`/`self.info()` in `execute()`.
+   `dev_indicator_script.py` is the reference — it exercises all 15
+   techniques the base class supports, each mapped to its Pine equivalent
+   in its own docstring table.
+2. **Register it** — one line in `binance_bot_module.py::register()`:
+   `script_registry.register("my_script", MyScript)`. Deliberately
+   explicit, not an auto-scanned directory (same reasoning as every other
+   DI registration in this app — greppable, reviewable, and a guard test
+   catches a script class that forgot this step).
+3. **Nothing else.** `DashboardPresenter` populates
+   `viewModel.scriptModel` from `IndicatorScriptRegistry.available()` at
+   construction time, and `DevBoardPanel.qml`'s Repeater renders one
+   checkbox per available script — the new study appears in the "CUSTOM
+   SCRIPTS" list the next time the app runs.
+
+### Why a script is a plain object, not a signal-emitting one
+
+A script never touches Qt, a chart, or a signal. `self.plot(...)` only
+writes into a buffer *inside the script instance itself*; nothing is drawn
+by that call. This indirection is what keeps a script pure enough to unit
+test by just calling `compute()` and reading the return value, and what
+lets the exact same script run identically in a historical batch replay and
+a live incremental tick — there is only one code path, `compute()`, and
+whether it's called once per stored candle or once per live tick is
+invisible to the script.
+
+```mermaid
+flowchart LR
+    subgraph Script["A BaseIndicatorScript subclass (domain layer — no PySide6)"]
+        Execute["execute(candle)"]
+        Output["self.plot() / .mark() / .shade() / .info()"]
+        Buffer[("per-bar buffers")]
+        Compute["compute(candle)<br/>clears buffers, calls execute(), drains"]
+    end
+    subgraph Runner["IndicatorScriptRunner (presentation layer)"]
+        Feed["feed(candle)"]
+        Emit["emit_line / emit_region / emit_info / emit_markers<br/>(plain callbacks — no Qt import here either)"]
+    end
+    subgraph Presenter["DashboardPresenter"]
+        Signals["ui_indicator_data_signal / ui_script_region_signal /<br/>ui_script_info_signal / ui_script_marker_signal"]
+        Slots["@Slot draw* handlers (main thread only)"]
+    end
+    subgraph Chart["ChartCard (QtWidgets/pyqtgraph)"]
+        Curves["IndicatorManager — curves"]
+        Regions["IndicatorManager — LinearRegionItem tints"]
+        Info["ChartPlotLayout.script_info_label"]
+        Markers["MarkerLayer — TextItem badges"]
+    end
+
+    Execute --> Output --> Buffer
+    Feed --> Compute
+    Compute --> Buffer
+    Buffer --> Emit
+    Emit -- "background thread OK: only .emit(), never draws" --> Signals
+    Signals --> Slots
+    Slots --> Curves & Regions & Info & Markers
+```
+
+### What each output primitive draws
+
+| Script call | Chart result | Notes |
+|---|---|---|
+| `self.plot(value, name, color)` | A curve — overlay on the price plot if `overlay=True`, or its own subplot row if `False` | `value=None` skips the bar (Pine's `na`); no placeholder point is drawn |
+| `self.mark(value, text, color, direction)` | A colored label badge at that bar | Always drawn on the main price plot regardless of `overlay` — a marker's value is read against visible price action, not the owning script's own scale |
+| `self.shade(color, opacity)` | A background tint spanning that bar | Consecutive same-color/opacity bars merge into one span (`ScriptRegionTracker`) rather than one shape per bar |
+| `self.info(label, value, color)` | A row in the shared status panel (top-right of the chart) | Only the most recent bar's rows are shown — same idea as Pine's `table.cell` redrawing every bar |
+
+Curve names are namespaced `f"{script_key}:{line_name}"`
+(`indicator_script_runner.qualified_line_name`) so a script's lines can
+never collide with RSI/EMA/MACD's bare names, or with another script's line
+of the same name.
+
+### Design left open for strategies
+
+`domain/scripting/` (the `Series`/`crossed_above`/`Streak` primitives) is
+factored out of `domain/indicator_scripts/` specifically so a future
+`BaseStrategyScript` can reuse it without moving files — a strategy is the
+same `setup()`/`execute()`/pure-compute shape, just producing `Signal`s
+instead of plotted lines. `IndicatorScriptRegistry`'s explicit
+`register()`/`create()`/`available()` shape is meant to be copied wholesale
+into a `StrategyScriptRegistry`, not generalized into a shared
+`ScriptRegistry[T]` ahead of a second real consumer (this repo's established
+YAGNI precedent — see `IIndicator` never growing a `reset()` method it
+didn't need yet).
