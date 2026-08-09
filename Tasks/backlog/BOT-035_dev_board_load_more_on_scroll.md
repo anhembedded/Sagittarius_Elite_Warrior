@@ -1,10 +1,9 @@
 # Nhiệm vụ: Dev Board — Tự tải thêm dữ liệu cũ khi kéo/scroll ra rìa trái chart (US-04)
 
-> **Đọc file này trước khi code.** Đây là task **thiết kế → còn 3 câu hỏi mở** (xem §2.1) — KHÔNG
-> code trước khi user trả lời, vì mỗi câu đều đổi hành vi observable, không phải chi tiết kỹ thuật
-> nội bộ. Nguồn gốc: `Tasks/UserStory_Propose.md` US-04, đã đánh giá sơ bộ trong phiên tư vấn ban
-> đầu (xem ROADMAP/BOT-034 — US-04 bị hoãn có chủ đích ra khỏi `BOT-034` vì lớn hơn 3 story còn
-> lại cộng lại).
+> **Đọc file này trước khi code.** 3 câu hỏi mở ở §2.1 **đã được user chốt** — sẵn sàng implement,
+> Phase 1 KHÔNG bao gồm auto-sync-from-Binance khi DB thiếu dữ liệu (để Phase 2, task riêng).
+> Nguồn gốc: `Tasks/UserStory_Propose.md` US-04, đã đánh giá sơ bộ trong phiên tư vấn ban đầu (xem
+> ROADMAP/BOT-034 — US-04 bị hoãn có chủ đích ra khỏi `BOT-034` vì lớn hơn 3 story còn lại cộng lại).
 
 ## 1. Mục tiêu (Objective)
 
@@ -201,18 +200,13 @@ def _run_load_more_history(
 | `history_pagination_controller.py` (MỚI) | orchestration, chặn tải chồng |
 | `dashboard_presenter.py` | `_run_load_more_history`, `_on_history_prepended`, wiring `HistoryPaginationController` ở `__init__` (giống `AutoStartController`) |
 
-## 2.1. Câu hỏi mở — CẦN user trả lời trước khi code (đổi hành vi observable)
+## 2.1. Quyết định (user chốt: dùng đúng 3 đề xuất ban đầu, code luôn — không hỏi lại)
 
-| # | Câu hỏi | Vì sao quan trọng |
+| # | Câu hỏi | Quyết định |
 |---|---|---|
-| 1 | Ngưỡng "gần rìa trái" bao nhiêu nến thì trigger tải thêm? (vd. còn 20 nến nữa mới hết) | Quá gần → user thấy khoảng trống trước khi data kịp tải; quá xa → tải thừa khi user chỉ lướt qua rồi quay lại. |
-| 2 | Mỗi lần tải thêm bao nhiêu nến? Cố định 75 (bằng `_RENDER_WINDOW_CANDLES`, đúng chữ AC "75 nến") hay theo `_compute_fetch_limit()` như lần đầu (đồng bộ với warm-up indicator)? | Nếu chỉ 75 mà 1 script cần warmup 200, prepend xong script đó vẫn "trống" ở phần đầu — có thể user không nhận ra tại sao. |
-| 3 | Nếu DB local đã hết dữ liệu cũ hơn (không đủ 75)? AC gốc ghi "sync nếu thiếu dữ liệu" — có nghĩa tự động gọi `SyncMarketDataCommand` để kéo thêm từ Binance về DB trước khi trả lời user, hay chỉ hiển thị bấy nhiêu nến tìm được (có thể ít hơn 75) + log, không tự sync? Tự sync tốn thời gian hơn nhiều (gọi Binance API thật) — cần xác nhận có chấp nhận độ trễ đó không, hay để Phase 2 riêng. | Quyết định phạm vi Phase 1 vs Phase 2 — sync-from-Binance là việc lớn hơn hẳn phần còn lại của task này cộng lại. |
-
-**Đề xuất** (không phải quyết định, chỉ là gợi ý nếu user muốn chốt nhanh): ngưỡng 20 nến (#1), 75
-nến cố định mỗi lần (#2, đúng đúng nghĩa đen AC, đơn giản nhất), Phase 1 KHÔNG tự sync — chỉ hiển
-thị bao nhiêu tìm được trong DB + log "không còn dữ liệu cũ hơn trong DB" nếu về 0 (#3) — vì
-sync-from-Binance nên là Phase 2 riêng có task file riêng (đúng tinh thần "chia nhỏ").
+| 1 | Ngưỡng "gần rìa trái" | **20 nến** còn lại tính từ rìa trái thì trigger. |
+| 2 | Số nến tải mỗi lần | **Cố định 75** (đúng nghĩa đen AC, không đồng bộ theo `_compute_fetch_limit()`). |
+| 3 | DB thiếu dữ liệu cũ hơn | **Phase 1: KHÔNG tự sync** — chỉ hiển thị bấy nhiêu nến tìm được (có thể 0) + log "No older data found". Sync-from-Binance để Phase 2, task riêng. |
 
 ## 6. Test gate
 
