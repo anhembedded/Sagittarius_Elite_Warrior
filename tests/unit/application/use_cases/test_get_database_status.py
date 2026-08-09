@@ -74,3 +74,12 @@ def test_get_database_status_invalid_interval(handler, mock_repo):
         handler.execute(query)
 
     mock_repo.get_database_status.assert_not_called()
+
+
+def test_get_database_status_invalid_symbol(handler, mock_repo):
+    query = GetDatabaseStatusQuery(symbol="", interval="1m")
+
+    with pytest.raises(ValueError, match="Invalid symbol"):
+        handler.execute(query)
+
+    mock_repo.get_database_status.assert_not_called()
