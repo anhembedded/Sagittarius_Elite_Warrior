@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+
+from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Signal, Slot
+
+
+@dataclass(frozen=True)
+class _ScriptRow:
+    key: str
+    title: str
+
+
+class IndicatorScriptListModel(QAbstractListModel):
+    """
+    @brief Backs the "CUSTOM SCRIPTS" checklist in DevBoardPanel.qml — which
+    registered indicator scripts exist, and which ones the user has enabled.
+
+    @details
+    Shape copied from LogListModel (see its docstring for the general
+    roleNames()/beginInsertRows() idiom this repo uses for QAbstractListModel).
+    The list of available scripts comes from IndicatorScriptRegistry.available()
+    at runtime, not a static QML array like DatabaseScreen.qml's Repeater — new
+    scripts appear here automatically as soon as they're registered in
+    binance_bot_module.py, with no QML change needed.
+
+    Enabled state lives here, in the ViewModel layer, not in DashboardPresenter
+    — matches how rsiEnabled/emaEnabled/macdEnabled already live on
+    DashboardQmlViewModel rather than the Presenter. The Presenter only reads
+    `enabled_keys` at the moment Load History/Start Live is clicked (see
+    DashboardPresenter._enabled_script_keys), the same "no retroactive effect"
+    contract the existing indicator toggles have (TC-GAP-07).
+    """
+
+    KeyRole = Qt.ItemDataRole.UserRole + 1
+    TitleRole = Qt.ItemDataRole.UserRole + 2
+    EnabledRole = Qt.ItemDataRole.UserRole + 3
+
+    _ROLE_NAMES = {
+        KeyRole: b"key",
+        TitleRole: b"title",
+        EnabledRole: b"enabled",
+    }
+
+    enabledKeysChanged = Signal()
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._rows: list[_ScriptRow] = []
+        self._enabled: set[str] = set()
+
+    def rowCount(self, parent=QModelIndex()) -> int:
+        return 0 if parent.isValid() else len(self._rows)
+
+    def roleNames(self) -> dict:
+        return dict(self._ROLE_NAMES)
+
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._rows):
+            return None
+
+        row = self._rows[index.row()]
+        if role == self.KeyRole:
+            return row.key
+        if role == self.TitleRole:
+            return row.title
+        if role == self.EnabledRole:
+            return row.key in self._enabled
+        return None
+
+    def set_available(self, scripts: Mapping[str, type]) -> None:
+        """
+        @brief Replaces the selectable script list, e.g. from
+        IndicatorScriptRegistry.available().
+        @details A key that stays available keeps its enabled state; a key
+        that disappears (script unregistered) is dropped from `_enabled` too
+        — otherwise a stale key could leak into enabled_keys forever.
+        """
+        self.beginResetModel()
+        self._rows = [
+            _ScriptRow(key=key, title=getattr(cls, "title", key))
+            for key, cls in scripts.items()
+        ]
+        self._enabled &= {row.key for row in self._rows}
+        self.endResetModel()
+        self.enabledKeysChanged.emit()
+
+    @Slot(int, bool)
+    def setEnabled(self, row: int, value: bool) -> None:
+        """Callable from QML — the Repeater delegate's checkbox calls this
+        directly, same as LogListModel.clear()."""
+        if not 0 <= row < len(self._rows):
+            return
+        key = self._rows[row].key
+        if value:
+            self._enabled.add(key)
+        else:
+            self._enabled.discard(key)
+        index = self.index(row, 0)
+        self.dataChanged.emit(index, index, [self.EnabledRole])
+        self.enabledKeysChanged.emit()
+
+    @property
+    def enabled_keys(self) -> list[str]:
+        """Read by the Presenter at Load History/Start Live click time —
+        order matches registration order, not click order."""
+        return [row.key for row in self._rows if row.key in self._enabled]

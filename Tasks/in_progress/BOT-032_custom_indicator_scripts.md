@@ -146,18 +146,20 @@ qualified_line_name(key, line) -> str
 split_line_name(qualified) -> tuple|None   # None = curve của indicator built-in
 
 @dataclass ActiveScript: script, overlay, region_tracker, registered_lines: set,
-                          series: dict, latest_info: list[InfoField]
+                          series: dict, latest_info: list[InfoField],
+                          markers: list[MarkerPoint]   # markers CỘNG DỒN cả run, khác latest_info
     record(line, ts, value) -> (x_data, y_data)   # trả nguyên series tích luỹ
 
 class IndicatorScriptRunner:
-    __init__(registry, emit_line, emit_region, emit_info, on_error,
+    __init__(registry, emit_line, emit_region, emit_info, emit_markers, on_error,
               bar_width_seconds=60.0)          # KHÔNG biết Qt
     rebuild(enabled_keys)          # instance mới mỗi lần (indicator không có reset())
-    clear_from_chart(card)         # xoá cả curve, region, info panel của mọi script active
+    clear_from_chart(card)         # xoá cả curve, region, info panel, marker của mọi script active
     feed(candle) / feed_all(candles)   # gọi được từ CẢ 2 thread — chỉ emit qua callback
     draw(card, qualified, x, y) -> bool     # False = không phải script line -> caller tự xử lý
-    draw_region(card, key, spans)  # không trả bool — region/info không có built-in fallback
+    draw_region(card, key, spans)  # không trả bool — region/info/marker không có built-in fallback
     draw_info(card, key, fields)
+    draw_markers(card, key, markers)
 ```
 
 **File mới** `screens/dashboard/script_region_tracker.py` — gộp các bar được `shade()` liên tiếp
@@ -192,52 +194,77 @@ Test: `tests/unit/presentation/ui/screens/test_indicator_script_runner.py`,
 `tests/unit/presentation/ui/components/test_chart_card.py` (thêm 12 test region/info + 1 test
 guard colspan), + test delegation trong `test_dashboard_presenter.py`.
 
-**Còn thiếu của Phase 2** (để model khác làm): test tích hợp thật trên Dev Board qua UI thật
-(bật script → Load History → assert curve/tint/panel) chạy trong app thật, không chỉ offscreen
-script — xem `scripts/run-ui.ps1 -Dev` ở mục Verification cuối file.
+Verify thật trong app: `tests/integration/presentation/ui/test_dev_board_custom_scripts.py` boot
+toàn bộ app qua DI container thật (`main_window`/`navigate` fixture), không chỉ offscreen script
+lẻ — xem §9 để biết vì sao chỉ chờ được `ui_script_region_signal` chứ không phải
+`ui_indicator_data_signal` khi test với `conftest.MOCK_KLINE_COUNT=5`.
 
-## 6. Phase 3 — UI bật/tắt script  *(CHƯA LÀM)*
+## 6. Phase 3 — UI bật/tắt script  *(ĐÃ XONG)*
 
-> **File ownership** (để chạy song song không conflict): task này chỉ tạo mới
-> `indicator_script_list_model.py` và sửa `dashboard_view_model.py` + `DevBoardPanel.qml`.
-> **Không đụng** `indicator_script_runner.py`, `script_region_tracker.py`,
-> `dashboard_presenter.py`, hay bất kỳ file nào trong `chart_card/` — tất cả đã xong ở §5.
-> `dashboard_presenter.py` chỉ đổi đúng 1 dòng: `_enabled_script_keys()` trả
-> `self._view_model.script_model.enabled_keys`.
+**File mới** `screens/dashboard/indicator_script_list_model.py` — `QAbstractListModel`, shape
+giống `log_list_model.py`:
+```python
+class IndicatorScriptListModel(QAbstractListModel):
+    KeyRole; TitleRole; EnabledRole
+    set_available(scripts: Mapping[str, type[BaseIndicatorScript]])  # đọc .title qua getattr(cls,
+        # "title", key) — KHÔNG instantiate script chỉ để liệt kê. Giữ enabled state cho key còn
+        # sống, xoá cho key biến mất (không leak enabled_keys sau khi 1 script bị unregister).
+    @Slot(int, bool) setEnabled(row, value) -> None   # gọi từ QML, emit dataChanged + enabledKeysChanged
+    @property enabled_keys -> list[str]   # thứ tự đăng ký, KHÔNG phải thứ tự bấm
+```
 
-1. **File mới** `screens/dashboard/indicator_script_list_model.py` — `QAbstractListModel`,
-   copy shape từ `screens/_qml_shared/log_list_model.py`:
-   roles `key`/`title`/`enabled`; `set_available(scripts)` (beginResetModel/…/endResetModel);
-   `@Slot(int, bool) setEnabled(row, value)` + `dataChanged`; `@property enabled_keys`.
-2. `dashboard_view_model.py`: `self._script_model = IndicatorScriptListModel(self)` +
-   `@Property(QObject, constant=True) scriptModel` + `@property script_model`
-   (cặp accessor giống `logModel`/`log_model` đang có).
-3. Presenter đổ danh sách: `self._view_model.script_model.set_available(registry.available())`.
-   **ViewModel không tự resolve container** (giữ tính chất "ViewModel không có DI dependency").
-4. `DevBoardPanel.qml` — thêm vào card INDICATORS:
-   ```qml
-   SectionLabel { text: "CUSTOM SCRIPTS" }
-   Repeater {
-       model: viewModel.scriptModel
-       RowLayout {
-           Layout.fillWidth: true
-           required property var model
-           required property int index
-           StyledCheck {
-               objectName: "chkScript_" + model.key
-               text: model.title
-               checked: model.enabled
-               onToggled: viewModel.scriptModel.setEnabled(index, checked)
-           }
-       }
-   }
-   ```
-   ⚠️ Khác Repeater ở `DatabaseScreen.qml` (array JS **tĩnh**) — ở đây **bắt buộc**
-   `QAbstractListModel` thật vì danh sách đến từ registry lúc runtime và `enabled` đổi được.
+`dashboard_view_model.py`: `self._script_model = IndicatorScriptListModel(self)` +
+`scriptModel`/`script_model` accessor pair (giống `logModel`/`log_model`).
 
-**Test gate**: click `chkScript_ema_cross` qua fixture `qml_item(...)`
-⚠️ **delegate của Repeater KHÔNG phải QObject child → `findChild()` trả None**, bắt buộc dùng
-`qml_item`/`walk_qml_items`. **+ screenshot.**
+`dashboard_presenter.py`: `self._view_model.script_model.set_available(script_registry.available())`
+gọi 1 lần trong `__init__` (ViewModel không tự resolve container — Presenter vẫn là nơi duy nhất
+chạm DI). `_enabled_script_keys()` đổi 1 dòng: trả `self._view_model.script_model.enabled_keys`.
+
+`DevBoardPanel.qml` — thêm vào card INDICATORS, sau checkbox MACD:
+```qml
+SectionLabel { text: "CUSTOM SCRIPTS"; visible: scriptRepeater.count > 0 }
+Repeater {
+    id: scriptRepeater
+    model: viewModel.scriptModel
+    RowLayout {
+        Layout.fillWidth: true
+        required property var model
+        required property int index
+        StyledCheck {
+            // ⚠️ KHÔNG dùng `model`/`index` trần bên trong StyledCheck — nó
+            // resolve theo scope CỦA STYLEDCHECK (không có), không phải của
+            // RowLayout cha. Phải qua `parent.model`/`parent.index` vì
+            // StyledCheck là CON của RowLayout (Repeater's delegate root).
+            objectName: "chkScript_" + parent.model.key
+            text: parent.model.title
+            checked: parent.model.enabled
+            onToggled: viewModel.scriptModel.setEnabled(parent.index, checked)
+        }
+        Item { Layout.fillWidth: true }
+    }
+}
+```
+Khác Repeater ở `DatabaseScreen.qml` (array JS **tĩnh**) đúng như dự tính — danh sách này đến từ
+`IndicatorScriptRegistry.available()` lúc runtime, thêm 1 script mới vào `binance_bot_module.py`
+là tự hiện trong UI, không cần sửa QML.
+
+⚠️ **Cạm bẫy đã dính khi verify**: `CheckBox.toggle()` (gọi từ Python qua
+`QMetaObject.invokeMethod`) chỉ đổi `checked`, **KHÔNG emit `toggled()`** — signal đó chỉ bắn khi
+người dùng bấm thật (chuột/phím). Test tích hợp vì vậy set thẳng qua ViewModel
+(`view._view_model.script_model.setEnabled(row, True)`), đúng y hệt cách
+`test_dev_board_indicators.py` set `view._view_model.rsiEnabled = True` thay vì giả lập click —
+repo này **chưa có tiền lệ** test click chuột lên 1 QML control (chỉ có `qtbot.mouseClick` cho
+QtWidgets button thật ở `test_dev_board_known_gaps.py`), nên không tự bịa cách mới ở đây.
+
+**Test gate đã chạy** (không phải "click qua `qml_item`" như dự tính ban đầu — xem cạm bẫy trên):
+- `tests/unit/presentation/ui/screens/test_indicator_script_list_model.py` (10 test, thuần Python).
+- `tests/integration/presentation/ui/test_dev_board_custom_scripts.py` (3 test, boot app thật):
+  Repeater render đúng 1 checkbox/script với đúng `text`/`objectName` (đọc qua
+  `qml_item`/`walk_qml_items` — delegate của Repeater **không phải** QObject child, `findChild()`
+  luôn trả `None`); bật script qua ViewModel rồi Load History → script chạy thật
+  (`presenter._script_runner.active`); tắt lại → dừng ở lần Load kế tiếp (TC-GAP-07 parity).
+- Screenshot offscreen xác nhận checklist render đúng vị trí (dưới MACD, trong cùng card
+  INDICATORS, cùng style checkbox).
 
 ---
 

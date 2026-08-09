@@ -493,6 +493,35 @@ Rectangle {
                             checked: viewModel.macdEnabled
                             onToggled: viewModel.macdEnabled = checked
                         }
+
+                        // BOT-032 — user-authored scripts, populated at runtime
+                        // from IndicatorScriptRegistry via viewModel.scriptModel.
+                        // Unlike the RSI/EMA/MACD checks above, this list is not
+                        // hand-written — a new registered script appears here
+                        // with no QML change.
+                        SectionLabel {
+                            text: "CUSTOM SCRIPTS"
+                            visible: scriptRepeater.count > 0
+                        }
+
+                        Repeater {
+                            id: scriptRepeater
+                            model: viewModel.scriptModel
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                required property var model
+                                required property int index
+
+                                StyledCheck {
+                                    objectName: "chkScript_" + parent.model.key
+                                    text: parent.model.title
+                                    checked: parent.model.enabled
+                                    onToggled: viewModel.scriptModel.setEnabled(parent.index, checked)
+                                }
+                                Item { Layout.fillWidth: true }
+                            }
+                        }
                     }
                 }
             }

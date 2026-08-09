@@ -208,14 +208,20 @@ class DashboardPresenter(BasePresenter):
         # separate dict from active_indicators because one script produces N
         # named lines from a single compute() call, unlike the 1-to-1
         # indicator-to-curve relationship above.
+        script_registry: IndicatorScriptRegistry = container.resolve(
+            IndicatorScriptRegistry
+        )
         self._script_runner = IndicatorScriptRunner(
-            registry=container.resolve(IndicatorScriptRegistry),
+            registry=script_registry,
             emit_line=self.ui_indicator_data_signal.emit,
             emit_region=self.ui_script_region_signal.emit,
             emit_info=self.ui_script_info_signal.emit,
             emit_markers=self.ui_script_marker_signal.emit,
             on_error=self.ui_log_signal.emit,
         )
+        # ViewModel owns the enabled/disabled state (Phase 3) — the Presenter
+        # only ever hands it what's available, once, same as logModel.
+        self._view_model.script_model.set_available(script_registry.available())
 
         # Must be called explicitly at the end of BasePresenter's contract,
         # and before load_qml() so QML parses against a ready view model.
@@ -363,14 +369,15 @@ class DashboardPresenter(BasePresenter):
 
     def _enabled_script_keys(self) -> List[str]:
         """
-        @brief Which scripts to run.
-        @details Phase 3 replaces this with the view model's script list model
-        (`self._view_model.script_model.enabled_keys`). Until that UI exists
-        there is no way for a user to choose, so nothing runs by default —
-        returning every registered script would silently draw lines the user
-        never asked for.
+        @brief Which scripts to run — read fresh every call, not cached.
+        @details Backed by the view model's IndicatorScriptListModel
+        (DevBoardPanel.qml's "CUSTOM SCRIPTS" checklist). Only read at Load
+        History/Start Live click time (see _rebuild_scripts' callers) — the
+        same "no retroactive effect" contract RSI/EMA/MACD's toggles already
+        have (TC-GAP-07): ticking a box mid-run has no effect until the next
+        click.
         """
-        return []
+        return self._view_model.script_model.enabled_keys
 
     def _rebuild_scripts(self) -> None:
         card = self.active_charts.get(_DEFAULT_SYMBOLS[0])

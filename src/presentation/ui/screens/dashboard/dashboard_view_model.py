@@ -7,6 +7,8 @@ from Binace_Bot.src.presentation.ui.screens._qml_shared import (
     LogListModel,
 )
 
+from .indicator_script_list_model import IndicatorScriptListModel
+
 _DEFAULT_RSI_PERIOD = 14
 _DEFAULT_EMA_PERIOD = 20
 _IDLE_STATUS_TEXT = "WS: IDLE"
@@ -41,6 +43,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._log_model = LogListModel(self)
+        self._script_model = IndicatorScriptListModel(self)
 
         self._price_ticker_text = ""
         self._price_ticker_color = _IDLE_STATUS_COLOR
@@ -66,6 +69,20 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     def log_model(self) -> LogListModel:
         """Pythonic accessor for the Presenter (mirrors DataManagementViewModel)."""
         return self._log_model
+
+    # ------------------------------------------------------------------ #
+    # Script model (BOT-032) — exposed to DevBoardPanel.qml's "CUSTOM
+    # SCRIPTS" checklist, populated by the Presenter from
+    # IndicatorScriptRegistry.available().
+    # ------------------------------------------------------------------ #
+    @Property(QObject, constant=True)
+    def scriptModel(self) -> IndicatorScriptListModel:
+        return self._script_model
+
+    @property
+    def script_model(self) -> IndicatorScriptListModel:
+        """Pythonic accessor for the Presenter (mirrors log_model)."""
+        return self._script_model
 
     # ------------------------------------------------------------------ #
     # Price ticker — set by the Presenter on every market tick.
