@@ -2,6 +2,7 @@
     "DEFAULT_SYMBOLS": ["BTCUSDT", "ETHUSDT"],
     "DEFAULT_INTERVAL": "1m",
     "DEFAULT_SYNC_DAYS": 30,
+    "DEV_BOARD_MIN_FETCH_CANDLES": 75,
     "API_KEY": "",
     "API_SECRET": "",
     "ui.font.family": "JetBrainsMono Nerd Font",

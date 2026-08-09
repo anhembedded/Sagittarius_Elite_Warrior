@@ -54,7 +54,7 @@ thủ công, và khi bấm mà mất mạng thì không có fallback nào.
 
 ---
 
-## 4. Render-window (75) tách khỏi Fetch-amount (US-03)
+## 4. Render-window (75) tách khỏi Fetch-amount (US-03)  *(ĐÃ XONG)*
 
 ### Hiện trạng
 `dashboard_presenter.py`: `_DEFAULT_KLINE_LIMIT = 5000`, dùng thẳng làm `limit` cho
@@ -114,15 +114,33 @@ class BaseIndicatorScript(ABC):
                                 # KHÔNG tự tính bằng cách chạy thử — script có thể compose nhiều
                                 # indicator khác period nhau, chỉ tác giả biết con số đúng.
 ```
-Mỗi script mẫu hiện có cần khai báo lại: `ema_ribbon` → 200 (EMA 200 là chậm nhất), `macd_full` →
-~35 (26 slow + 9 signal), `ema_cross` → 26, `dev_showcase` → 200 (EMA slowest trong đó). Guard
-test mới: mọi subclass `BaseIndicatorScript` phải có `min_warmup_bars > 0` nếu dùng bất kỳ
-indicator nào có warmup (tránh quên khai báo) — cân nhắc, có thể chỉ warning log thay vì fail
-cứng nếu thấy quá chặt.
+**Đã khai báo** (khớp gần đúng dự kiến, 1 sửa: `dev_showcase` không dùng EMA 200 — slowest handle
+thật của nó là MACD 12/26/9): `ema_ribbon` → 200, `macd_full` → 35, `ema_cross` → 26,
+`dev_showcase` → 35 (không phải 200 như đoán ban đầu — đã tự soát lại khi code). **Không thêm**
+guard test bắt buộc `min_warmup_bars > 0` — cân nhắc rồi bỏ qua: mặc định 0 vẫn an toàn (chỉ
+khiến `_compute_fetch_limit()` không "nới" fetch cho riêng script đó, floor 75 vẫn áp dụng), rủi
+ro thấp hơn giá trị của 1 guard test cứng nhắc.
 
-`_on_load_history`/`_run_load_history`/`_run_sync_and_start`: thay `_DEFAULT_KLINE_LIMIT` bằng
+`_on_load_history`/`_on_start_stream`: đã thay `_DEFAULT_KLINE_LIMIT` (hằng số đã xoá hẳn) bằng
 `self._compute_fetch_limit()` gọi tại đúng thời điểm click (giữ đúng hợp đồng "không hồi tố" của
-TC-GAP-07 — đổi script bật/tắt sau khi đã Load không ảnh hưởng ngược).
+TC-GAP-07 — đổi script bật/tắt sau khi đã Load không ảnh hưởng ngược). Đã thêm key
+`DEV_BOARD_MIN_FETCH_CANDLES: 75` vào `src/config/user_config.json`.
+
+⚠️ **Cạm bẫy đã dính khi verify**: 2 fixture test tích hợp có sẵn từ trước
+(`test_dashboard_integration.py`, `test_dashboard_live_stream.py`) stub `mock_config.get.return_value
+= matrix` (1 dict UI-matrix) **bất kể key nào được hỏi** — `_compute_fetch_limit()` gọi
+`self.config.get(DEV_BOARD_MIN_FETCH_CANDLES, 75, cast=int)` nên nhận nhầm cái dict đó, gây
+`TypeError: '>' not supported between instances of 'dict' and 'int'` trong `max()`. Sửa: đổi
+2 fixture đó sang `mock_config.get_all.return_value = matrix` (đúng API `BasePresenter` thật sự
+dùng để đọc UI matrix) + `mock_config.get.side_effect = lambda key, default=None, cast=None:
+default` (key-aware, giả lập đúng hành vi `IConfig.get()` thật). Nếu thấy fixture nào khác trong
+repo có kiểu `mock_config.get.return_value = <blanket>`, cùng cảnh giác — bất kỳ code nào gọi
+`self.config.get()` với key khác sẽ ăn nhầm giá trị đó.
+
+Test mới: `tests/unit/presentation/ui/screens/test_dashboard_presenter.py` — 5 test cho
+`_compute_fetch_limit()` (mặc định = render window, lớn hơn theo warmup script, floor config cao
+hơn thắng, floor thấp hơn render window bị bỏ qua) + 2 test xác nhận `_on_load_history`/
+`_on_start_stream` submit đúng limit đã tính.
 
 `_set_initial_view_range` bên `ChartCard` **không cần sửa** — nó tự động hoạt động đúng vì giờ dữ
 liệu tải về đã gần khớp render window rồi (trước đây phải zoom từ 5000 xuống 150, giờ zoom từ vd.

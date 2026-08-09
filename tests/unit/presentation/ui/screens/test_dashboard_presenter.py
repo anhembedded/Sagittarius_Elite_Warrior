@@ -184,6 +184,59 @@ def test_run_load_history_handles_exception_per_symbol(presenter, mock_dispatche
 
 
 # ---------------------------------------------------------------------------
+# _compute_fetch_limit (BOT-034) — render window decoupled from fetch amount
+# ---------------------------------------------------------------------------
+
+
+def _use_real_config_defaults(presenter) -> None:
+    """The shared mock_config fixture stubs .get() to always return False —
+    fine for the boolean checks elsewhere, but _compute_fetch_limit needs a
+    config that actually honors the `default` argument it's passed."""
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: default
+
+
+def test_fetch_limit_defaults_to_the_render_window_with_nothing_enabled(presenter):
+    _use_real_config_defaults(presenter)
+
+    assert presenter._compute_fetch_limit() == 75
+
+
+def test_fetch_limit_grows_for_an_enabled_scripts_warmup(presenter):
+    """ema_ribbon's slowest line is EMA 200 — min_warmup_bars=200 must win
+    over the 75-candle render window."""
+    _use_real_config_defaults(presenter)
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
+
+    assert presenter._compute_fetch_limit() == 200
+
+
+def test_fetch_limit_honors_a_higher_config_floor(presenter):
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: (
+        500 if key == "DEV_BOARD_MIN_FETCH_CANDLES" else default
+    )
+
+    assert presenter._compute_fetch_limit() == 500
+
+
+def test_fetch_limit_ignores_a_config_floor_lower_than_the_render_window(presenter):
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: (
+        10 if key == "DEV_BOARD_MIN_FETCH_CANDLES" else default
+    )
+
+    assert presenter._compute_fetch_limit() == 75
+
+
+def test_on_load_history_submits_the_computed_fetch_limit(presenter, mock_thread_mgr):
+    _use_real_config_defaults(presenter)
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
+
+    presenter._on_load_history()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[3] == 200  # limit positional arg
+
+
+# ---------------------------------------------------------------------------
 # _on_start_stream — submits full sync+stream workflow to background
 # ---------------------------------------------------------------------------
 
@@ -197,6 +250,16 @@ def test_on_start_stream_locks_ui_and_submits_task(presenter, mock_thread_mgr):
 
     submit_args = mock_thread_mgr.submit.call_args[0]
     assert submit_args[0] == presenter._run_sync_and_start
+
+
+def test_on_start_stream_submits_the_computed_fetch_limit(presenter, mock_thread_mgr):
+    _use_real_config_defaults(presenter)
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
+
+    presenter._on_start_stream()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[4] == 200  # limit positional arg
 
 
 def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):

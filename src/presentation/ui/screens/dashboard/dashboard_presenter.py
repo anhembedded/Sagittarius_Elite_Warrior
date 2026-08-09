@@ -47,7 +47,18 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 _DEFAULT_SYMBOLS: Tuple[str, ...] = ("ETHUSDT",)
 _DEFAULT_INTERVAL_STR: str = "1m"
-_DEFAULT_KLINE_LIMIT: int = 5000
+
+# BOT-034 — how many candles to RENDER is not how many to FETCH: 75 is what
+# the chart shows by default (see ChartCard._DEFAULT_INITIAL_VISIBLE_CANDLES,
+# a separate, zoom-level concept this doesn't replace), but a script's
+# slowest indicator may need far more history than that just to produce its
+# first point. _compute_fetch_limit() reconciles the two.
+_RENDER_WINDOW_CANDLES: int = 75
+#: User-configurable floor (IConfig key), so a fetch is never smaller than
+#: this even with nothing enabled that needs more. Defaults to the render
+#: window itself — no extra padding unless the user asks for one.
+_MIN_FETCH_CANDLES_CONFIG_KEY: str = "DEV_BOARD_MIN_FETCH_CANDLES"
+_DEFAULT_MIN_FETCH_CANDLES: int = 75
 
 # WS status badge (top bar) text/color per FSM state — presentational only,
 # derived from the state DashboardPresenter already tracks.
@@ -182,11 +193,13 @@ class DashboardPresenter(BasePresenter):
         # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
         # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD
         # ship as default-registered scripts, see binance_bot_module.py).
-        script_registry: IndicatorScriptRegistry = container.resolve(
+        # Stored on self (not a local) — BOT-034's _compute_fetch_limit() also
+        # needs it, to look up an enabled script's min_warmup_bars.
+        self._script_registry: IndicatorScriptRegistry = container.resolve(
             IndicatorScriptRegistry
         )
         self._script_runner = IndicatorScriptRunner(
-            registry=script_registry,
+            registry=self._script_registry,
             emit_line=self.ui_indicator_data_signal.emit,
             emit_region=self.ui_script_region_signal.emit,
             emit_info=self.ui_script_info_signal.emit,
@@ -195,7 +208,7 @@ class DashboardPresenter(BasePresenter):
         )
         # ViewModel owns the enabled/disabled state (Phase 3) — the Presenter
         # only ever hands it what's available, once, same as logModel.
-        self._view_model.script_model.set_available(script_registry.available())
+        self._view_model.script_model.set_available(self._script_registry.available())
 
         # Must be called explicitly at the end of BasePresenter's contract,
         # and before load_qml() so QML parses against a ready view model.
@@ -300,6 +313,29 @@ class DashboardPresenter(BasePresenter):
             self._script_runner.clear_from_chart(card)
         self._script_runner.rebuild(self._enabled_script_keys())
 
+    def _compute_fetch_limit(self) -> int:
+        """
+        @brief BOT-034 — how many candles to fetch, as opposed to how many to
+        render (_RENDER_WINDOW_CANDLES stays a separate, smaller number).
+        @details max(render window, the slowest enabled script's declared
+        warm-up requirement, a user-configurable floor). Reads
+        `_enabled_script_keys()` fresh (same "read at click time" contract as
+        `_rebuild_scripts`) and looks up each key's class in the registry
+        without instantiating it — `min_warmup_bars` is a class attribute.
+        """
+        slowest = max(
+            (
+                self._script_registry.available()[key].min_warmup_bars
+                for key in self._enabled_script_keys()
+                if key in self._script_registry.available()
+            ),
+            default=0,
+        )
+        floor = self.config.get(
+            _MIN_FETCH_CANDLES_CONFIG_KEY, _DEFAULT_MIN_FETCH_CANDLES, cast=int
+        )
+        return max(_RENDER_WINDOW_CANDLES, slowest, floor)
+
     # ================================================================== #
     # Qt Slots — execute on the main thread.
     # Long-running work is delegated to dedicated background methods.
@@ -327,7 +363,7 @@ class DashboardPresenter(BasePresenter):
             self._run_load_history,
             symbols,
             self._active_interval,
-            _DEFAULT_KLINE_LIMIT,
+            self._compute_fetch_limit(),
         )
 
     @Slot()
@@ -359,7 +395,7 @@ class DashboardPresenter(BasePresenter):
             symbols,
             interval,
             self._active_interval,
-            _DEFAULT_KLINE_LIMIT,
+            self._compute_fetch_limit(),
         )
 
     @Slot(str)
