@@ -1,15 +1,15 @@
-import sqlalchemy as sa
-from typing import Optional
+import logging
 from datetime import datetime, timezone
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+
+import sqlalchemy as sa
 from Binace_Bot.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     IMarketDataRepository,
 )
-from Binace_Bot.src.infrastructure.persistence.models import KlineModel
+from Binace_Bot.src.domain.entities.market_data import MarketData
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.infrastructure.persistence.database_manager import DatabaseManager
-import logging
+from Binace_Bot.src.infrastructure.persistence.models import KlineModel
 
 logger = logging.getLogger("App.Database")
 
@@ -79,35 +79,39 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             },
         )
 
-    @staticmethod
-    def _kline_to_upsert_params(k: MarketData) -> dict:
-        return {
-            "symbol": k.symbol,
-            "interval": k.interval,
-            "open_time": k.open_time,
-            "open_price": k.open_price,
-            "high_price": k.high_price,
-            "low_price": k.low_price,
-            "close_price": k.close_price,
-            "volume": k.volume,
-            "close_time": k.close_time,
-            "quote_asset_volume": k.quote_asset_volume,
-            "number_of_trades": k.number_of_trades,
-            "taker_buy_base_asset_volume": k.taker_buy_base_asset_volume,
-            "taker_buy_quote_asset_volume": k.taker_buy_quote_asset_volume,
-        }
-
     def _execute_chunked_upsert(self, session, stmt, klines: list[MarketData]) -> None:
-        """@brief Executes the upsert in chunks of _UPSERT_CHUNK_SIZE, committing each chunk."""
+        """@brief Executes the upsert in chunks of _UPSERT_CHUNK_SIZE using a core connection."""
+        # Using Core connection directly bypasses ORM overhead for bulk execution.
+        conn = session.connection()
+
+        # We can map the chunk directly to dictionaries in one pass
+        # avoiding unnecessary comprehension overhead
         for i in range(0, len(klines), self._UPSERT_CHUNK_SIZE):
             chunk = klines[i : i + self._UPSERT_CHUNK_SIZE]
-            params = [self._kline_to_upsert_params(k) for k in chunk]
-            session.execute(stmt, params)
-            session.commit()
+            params = [
+                {
+                    "symbol": k.symbol,
+                    "interval": k.interval,
+                    "open_time": k.open_time,
+                    "open_price": k.open_price,
+                    "high_price": k.high_price,
+                    "low_price": k.low_price,
+                    "close_price": k.close_price,
+                    "volume": k.volume,
+                    "close_time": k.close_time,
+                    "quote_asset_volume": k.quote_asset_volume,
+                    "number_of_trades": k.number_of_trades,
+                    "taker_buy_base_asset_volume": k.taker_buy_base_asset_volume,
+                    "taker_buy_quote_asset_volume": k.taker_buy_quote_asset_volume,
+                }
+                for k in chunk
+            ]
+            conn.execute(stmt, params)
+        session.commit()
 
     def get_latest_kline_time(
         self, symbol: str, interval: TimeFrame
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         with self.db_manager.get_session(symbol) as session:
             latest = (
                 session.query(sa.func.max(KlineModel.open_time))
@@ -122,9 +126,9 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         self,
         symbol: str,
         interval: TimeFrame,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        limit: Optional[int] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int | None = None,
         order_by_desc: bool = False,
     ) -> list[MarketData]:
         with self.db_manager.get_session(symbol) as session:
@@ -226,7 +230,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             )
 
     @staticmethod
-    def _parse_db_datetime(value) -> Optional[datetime]:
+    def _parse_db_datetime(value) -> datetime | None:
         """
         @brief Normalizes a raw SQLite datetime result to a UTC-aware datetime.
         @details SQLite may return either a native datetime (typed column) or an ISO

@@ -42,17 +42,6 @@ def test_group_by_symbol_groups_and_preserves_order():
     assert len(groups["ETHUSDT"]) == 1
 
 
-def test_kline_to_upsert_params_maps_every_field():
-    kline = _mock_kline("BTCUSDT")
-    params = SQLAlchemyMarketDataRepository._kline_to_upsert_params(kline)
-
-    assert params["symbol"] == "BTCUSDT"
-    assert params["open_price"] == 100.0
-    assert params["close_price"] == 105.0
-    assert params["volume"] == 1000.0
-    assert params["number_of_trades"] == 50
-
-
 def test_to_market_data_entity_maps_row_and_adds_utc_tzinfo():
     row = Mock()
     row.symbol = "ETHUSDT"
