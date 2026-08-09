@@ -41,6 +41,7 @@ class FastCandlestickItem(pg.GraphicsObject):
         self.live_candle = None  # Holds (t, o, h, l, c) for the live tick
         self.history_data = []  # Tracks all historical data
         self._full_bounds_rect = QtCore.QRectF()
+        self._cached_visible_bounds = None  # (lo, hi, min_y, max_y)
 
         if data:
             self.history_data = list(data)
@@ -191,6 +192,9 @@ class FastCandlestickItem(pg.GraphicsObject):
 
         # Reset live candle state so a new one can form
         self.live_candle = None
+
+        # Invalidate bounds cache since history changed
+        self._cached_visible_bounds = None
         self.update()
 
     def get_ohlc_at(self, x: float) -> tuple[float, float, float, float, float] | None:
@@ -228,7 +232,7 @@ class FastCandlestickItem(pg.GraphicsObject):
         rect = QtCore.QRectF(self._full_bounds_rect)
 
         if self.live_candle:
-            t, o, h, low, c = self.live_candle
+            t, _o, h, low, _c = self.live_candle
             w = self.candle_width
             # Height spans from low to high
             live_rect = QtCore.QRectF(t - w, low, w * 2, h - low)
@@ -267,30 +271,72 @@ class FastCandlestickItem(pg.GraphicsObject):
                 # An O(N) scan over the full history here (the old approach)
                 # was one cause of visible pan/drag stutter with a few
                 # thousand candles loaded: bisect narrows to the visible
-                # slice in O(log N) first, so min()/max() only run over the
-                # (typically small) visible window instead of all of history.
+                # slice in O(log N) first. Furthermore, we cache the result
+                # by window indices (lo, hi) to prevent re-scanning the visible
+                # slice continuously on sub-pixel/same-candle pan boundaries.
                 lo, hi = visible_slice_indices(
                     self.history_data, min_x, max_x, key=lambda row: row[0]
                 )
-                visible = self.history_data[lo:hi]
-                visible_lows = [row[3] for row in visible]
-                visible_highs = [row[2] for row in visible]
+
+                # Use cache if valid
+                if (
+                    self._cached_visible_bounds
+                    and self._cached_visible_bounds[0] == lo
+                    and self._cached_visible_bounds[1] == hi
+                ):
+                    cached_min_y, cached_max_y = (
+                        self._cached_visible_bounds[2],
+                        self._cached_visible_bounds[3],
+                    )
+                else:
+                    visible = self.history_data[lo:hi]
+                    if visible:
+                        cached_min_y = min(row[3] for row in visible)
+                        cached_max_y = max(row[2] for row in visible)
+                        self._cached_visible_bounds = (
+                            lo,
+                            hi,
+                            cached_min_y,
+                            cached_max_y,
+                        )
+                    else:
+                        cached_min_y, cached_max_y = None, None
+                        self._cached_visible_bounds = (lo, hi, None, None)
+
+                min_y, max_y = cached_min_y, cached_max_y
 
                 if self.live_candle and min_x <= self.live_candle[0] <= max_x:
-                    visible_lows.append(self.live_candle[3])
-                    visible_highs.append(self.live_candle[2])
+                    live_low = self.live_candle[3]
+                    live_high = self.live_candle[2]
+                    min_y = min(min_y, live_low) if min_y is not None else live_low
+                    max_y = max(max_y, live_high) if max_y is not None else live_high
 
-                if visible_lows and visible_highs:
-                    return [min(visible_lows), max(visible_highs)]
+                if min_y is not None and max_y is not None:
+                    return [min_y, max_y]
 
-            # Fallback to global bounds
-            all_lows = [low for (_, _, _, low, _) in self.history_data]
-            all_highs = [h for (_, _, h, _, _) in self.history_data]
+            # Fallback to global bounds (O(1) using cached rect, avoids O(N) fallback scan)
+            min_y, max_y = None, None
+            if self._full_bounds_rect and self._full_bounds_rect.isValid():
+                min_y = self._full_bounds_rect.top()
+                max_y = self._full_bounds_rect.bottom()
+            elif self.history_data:
+                # Fallback if somehow called before bounds rect generated
+                min_y = min(row[3] for row in self.history_data)
+                max_y = max(row[2] for row in self.history_data)
+
             if self.live_candle:
-                all_lows.append(self.live_candle[3])
-                all_highs.append(self.live_candle[2])
+                min_y = (
+                    min(min_y, self.live_candle[3])
+                    if min_y is not None
+                    else self.live_candle[3]
+                )
+                max_y = (
+                    max(max_y, self.live_candle[2])
+                    if max_y is not None
+                    else self.live_candle[2]
+                )
 
-            if all_lows and all_highs:
-                return [min(all_lows), max(all_highs)]
+            if min_y is not None and max_y is not None:
+                return [min_y, max_y]
 
         return [None, None]
