@@ -167,6 +167,7 @@ class DashboardPresenter(BasePresenter):
     # have no built-in-indicator equivalent to share a contract with.
     ui_script_region_signal = Signal(str, list)
     ui_script_info_signal = Signal(str, list)
+    ui_script_marker_signal = Signal(str, list)
 
     INITIAL_STATE = UIMode.IDLE
 
@@ -212,6 +213,7 @@ class DashboardPresenter(BasePresenter):
             emit_line=self.ui_indicator_data_signal.emit,
             emit_region=self.ui_script_region_signal.emit,
             emit_info=self.ui_script_info_signal.emit,
+            emit_markers=self.ui_script_marker_signal.emit,
             on_error=self.ui_log_signal.emit,
         )
 
@@ -246,6 +248,7 @@ class DashboardPresenter(BasePresenter):
         self.ui_indicator_data_signal.connect(self._on_indicator_data)
         self.ui_script_region_signal.connect(self._on_script_region_data)
         self.ui_script_info_signal.connect(self._on_script_info_data)
+        self.ui_script_marker_signal.connect(self._on_script_marker_data)
 
     def _connect_engine_events(self) -> None:
         """Đăng ký lắng nghe sự kiện từ Engine EventBus."""
@@ -526,6 +529,13 @@ class DashboardPresenter(BasePresenter):
         card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
         if card is not None:
             self._script_runner.draw_info(card, key, fields)
+
+    @Slot(str, list)
+    def _on_script_marker_data(self, key: str, markers: list) -> None:
+        """Pushes a script's Buy/Sell-style labelled markers onto the chart."""
+        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        if card is not None:
+            self._script_runner.draw_markers(card, key, markers)
 
     # ================================================================== #
     # Engine Event Bridge — called from background threads.

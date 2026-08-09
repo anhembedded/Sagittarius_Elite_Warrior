@@ -506,3 +506,22 @@ def test_script_region_signal_is_a_no_op_with_no_active_chart(presenter):
     """No chart yet (e.g. signal arrives before Load History) must not raise."""
     presenter._on_script_region_data("ema_ribbon", [])
     presenter._on_script_info_data("ema_ribbon", [])
+    presenter._on_script_marker_data("ema_ribbon", [])
+
+
+def test_script_marker_signal_reaches_the_runner_and_the_chart(presenter):
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    presenter._enabled_script_keys = lambda: ["ema_cross"]
+    presenter._rebuild_scripts()
+
+    reached = []
+    presenter.ui_script_marker_signal.connect(lambda key, points: reached.append(key))
+    presenter._script_runner._emit_markers(
+        "ema_cross", [(1.0, 100.0, "Buy", "#0ECB81", "up")]
+    )
+
+    assert reached == ["ema_cross"]
+    mock_card.set_script_markers.assert_called_once_with(
+        "ema_cross", [(1.0, 100.0, "Buy", "#0ECB81", "up")]
+    )

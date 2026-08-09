@@ -251,12 +251,37 @@ dưới đây chỉ còn marker + màu động + fill.
 |---|---|---|
 | **Background tint** (`bgcolor`) | ✅ **XONG** — `set_script_regions`/`ScriptRegionTracker`, xem §5. | — |
 | **Status panel** (`table.cell`) | ✅ **XONG** — `set_script_info`/`script_info_label`, xem §5. | — |
-| **Marker Buy/Sell có label** (`plotshape`) | ❌ không có. `drain_markers()` đã có ở domain nhưng `IndicatorScriptRunner.feed()` có TODO chưa gọi tới. | `pg.ScatterPlotItem` + `pg.TextItem`. **Trùng phạm vi `BOT-026`** (marker Buy/Sell cho strategy) → **làm 1 API dùng chung, đừng làm 2 lần**. Đề xuất: `ChartCard.add_markers(name, points, color)` / `clear_markers(name)`. |
-| **Màu đổi theo bar** (`c = b > a ? lime : red`) | ❌ 1 pen/curve | pyqtgraph không đổi màu giữa chừng 1 curve. 2 cách: (a) tách thành nhiều segment mỗi khi màu đổi, (b) `pg.PlotCurveItem` với `pen=None` + vẽ tay. **(a) đơn giản hơn, đề xuất (a).** |
-| **`fill(p1, p2)`** | ❌ không có | `pg.FillBetweenItem`. Ưu tiên thấp nhất — làm sau cùng, hoặc bỏ nếu tốn. |
+| **Marker Buy/Sell có label** (`plotshape`) | ✅ **XONG** — `MarkerLayer` (file mới) + `set_script_markers`/`clear_script_markers`, xem §5b. | — |
+| **Màu đổi theo bar** (`c = b > a ? lime : red`) | ❌ **CHỦ ĐỘNG KHÔNG LÀM trong task này** — xem lý do bên dưới. | pyqtgraph không đổi màu giữa chừng 1 curve; cần tách thành nhiều `PlotDataItem` segment mỗi khi màu đổi, tái viết `IndicatorManager._apply_window`/`refresh_window`/legend — code **dùng chung với RSI/EMA/MACD**, rủi ro cao nếu làm vội. Domain đã sẵn sàng (`PlottedLine.color` đổi mỗi bar, `dev_showcase`/`ema_cross` kỹ thuật #6 đã minh hoạ) — chỉ còn phần render. Đề xuất tách task riêng, có review kỹ trước khi đụng `IndicatorManager`. |
+| **`fill(p1, p2)`** | ❌ **CHỦ ĐỘNG KHÔNG LÀM** — ưu tiên thấp nhất, `pg.FillBetweenItem`, làm sau cùng nếu cần. | — |
 
-**Quyết định phạm vi cần hỏi user trước khi làm phần còn lại của Phase 4** (đừng tự quyết): làm
-cả 3, hay chỉ marker (thứ user nêu đích danh trong story)?
+**Quyết định đã chốt** (không hỏi lại — 2 mục trên rủi ro cao / giá trị thấp so với công sức, xem
+lý do ở bảng): chỉ làm marker trong task này. Nếu cần màu-động-theo-bar hoặc fill, tách task
+riêng để review kiến trúc `IndicatorManager` trước khi đụng vào (ảnh hưởng cả RSI/EMA/MACD).
+
+### 7b. Marker — chi tiết đã làm
+
+**File mới** `components/chart_card/marker_layer.py`:
+```python
+MarkerPoint = tuple[float, float, str, str, str]   # (x, y, text, color, direction)
+class MarkerLayer:
+    __init__(plot: pg.PlotItem)      # LUÔN main_plot — cùng lý do region luôn vẽ trên main_plot
+    set_markers(key, markers: list[MarkerPoint])   # full teardown/rebuild, không incremental
+    clear(key)
+    clear_all()
+```
+`IndicatorManager.set_script_markers(key, markers)` / `clear_script_markers(key)` delegate sang
+`MarkerLayer`; `ChartCard` có 2 method delegate 1 dòng tương ứng.
+
+`IndicatorScriptRunner`: `ActiveScript.markers: list[MarkerPoint]` **cộng dồn cả run** (khác
+`latest_info` — chỉ giữ bar gần nhất), vì marker là sự kiện lịch sử phải ở lại đúng bar đã xảy ra.
+`__init__` nhận thêm `emit_markers: Callable[[str, list[MarkerPoint]], None]`. `feed()` chỉ gọi
+`emit_markers` khi bar đó **có** marker mới (không re-emit list không đổi mỗi bar, khác region/info
+luôn emit mỗi bar). `draw_markers(card, key, markers)` — không trả bool, giống `draw_region`/`draw_info`.
+`clear_from_chart()` gọi thêm `card.clear_script_markers(key)`.
+
+`dashboard_presenter.py`: thêm `ui_script_marker_signal = Signal(str, list)`, nối
+`emit_markers=self.ui_script_marker_signal.emit`, slot `_on_script_marker_data`.
 
 ---
 

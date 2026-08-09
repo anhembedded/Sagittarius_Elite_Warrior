@@ -244,6 +244,12 @@ class ChartCard(BaseCard):
     def clear_script_info(self, key: str) -> None:
         self.indicators.clear_script_info(key)
 
+    def set_script_markers(self, key: str, markers: list) -> None:
+        self.indicators.set_script_markers(key, markers)
+
+    def clear_script_markers(self, key: str) -> None:
+        self.indicators.clear_script_markers(key)
+
     def _mouse_moved(self, evt) -> None:
         """Back-compat entry point (also used directly by tests); delegates to CrosshairController."""
         self.crosshair.handle_mouse_moved(evt)

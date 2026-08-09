@@ -11,6 +11,9 @@ from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript, InfoFie
 
 from .script_region_tracker import RegionSpan, ScriptRegionTracker
 
+#: One marker as forwarded to the chart: (x, y, text, color, direction).
+MarkerPoint = tuple[float, float, str, str, str]
+
 #: Separates a script's registry key from its line name in a chart curve name
 #: ("ema_cross:EMA 12"). Built-in RSI/EMA/MACD curves carry bare names with no
 #: separator, so the two systems can never collide — and neither can two
@@ -56,6 +59,10 @@ class ActiveScript:
     registered_lines: set = field(default_factory=set)
     series: dict[str, tuple[list, list]] = field(default_factory=dict)
     latest_info: list[InfoField] = field(default_factory=list)
+    #: Every marker ever produced this run — unlike latest_info (only the most
+    #: recent bar's snapshot matters), markers stay on the chart at the bar
+    #: they fired on, so this only ever grows.
+    markers: list[MarkerPoint] = field(default_factory=list)
 
     def record(
         self, line_name: str, timestamp: float, value: float
@@ -91,6 +98,7 @@ class IndicatorScriptRunner:
         emit_line: Callable[[str, list, list], None],
         emit_region: Callable[[str, list[RegionSpan]], None],
         emit_info: Callable[[str, list[InfoField]], None],
+        emit_markers: Callable[[str, list[MarkerPoint]], None],
         on_error: Callable[[str], None],
         bar_width_seconds: float = _DEFAULT_BAR_WIDTH_SECONDS,
     ) -> None:
@@ -98,6 +106,7 @@ class IndicatorScriptRunner:
         self._emit_line = emit_line
         self._emit_region = emit_region
         self._emit_info = emit_info
+        self._emit_markers = emit_markers
         self._on_error = on_error
         self._bar_width_seconds = bar_width_seconds
         self.active: dict[str, ActiveScript] = {}
@@ -138,6 +147,7 @@ class IndicatorScriptRunner:
                 card.remove_indicator(qualified_line_name(key, line_name))
             card.clear_script_regions(key)
             card.clear_script_info(key)
+            card.clear_script_markers(key)
 
     # ------------------------------------------------------------------ #
     # Computation — safe to call from either thread (emits, never draws)
@@ -157,10 +167,19 @@ class IndicatorScriptRunner:
             active.latest_info = active.script.drain_info()
             self._emit_info(key, active.latest_info)
 
-            # TODO(BOT-032 Phase 4): active.script.drain_markers() carries the
-            # Buy/Sell labels a script asked for. ChartCard has no marker API
-            # yet — wire it here once add_markers() exists, and coordinate with
-            # BOT-026 so there is only one marker implementation.
+            new_markers = active.script.drain_markers()
+            if new_markers:
+                active.markers.extend(
+                    (
+                        timestamp,
+                        marker.value,
+                        marker.text,
+                        marker.color,
+                        marker.direction,
+                    )
+                    for marker in new_markers
+                )
+                self._emit_markers(key, list(active.markers))
 
     def feed_all(self, candles: Iterable[MarketData]) -> None:
         """Replays a whole history. Used by the background load."""
@@ -219,3 +238,9 @@ class IndicatorScriptRunner:
         if key not in self.active:
             return
         card.set_script_info(key, fields)
+
+    def draw_markers(self, card, key: str, markers: list[MarkerPoint]) -> None:
+        """Puts a script's Buy/Sell-style labelled markers on the chart."""
+        if key not in self.active:
+            return
+        card.set_script_markers(key, markers)

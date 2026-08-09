@@ -5,6 +5,7 @@ from PySide6 import QtGui
 
 from Binace_Bot.src.domain.indicator_scripts import InfoField
 
+from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout
 from .viewport_windowing import visible_slice_indices
 
@@ -56,6 +57,7 @@ class IndicatorManager:
         # not one per line).
         self._region_items: dict[str, list[pg.LinearRegionItem]] = {}
         self._script_info: dict[str, list[InfoField]] = {}
+        self._marker_layer = MarkerLayer(self._plot_layout.main_plot)
 
     def add_overlay(self, name: str, color: str) -> None:
         """Adds a line indicator on top of the main candlestick plot (e.g. SMA)."""
@@ -153,6 +155,7 @@ class IndicatorManager:
         self._full_data.clear()
         self._region_items.clear()
         self._script_info.clear()
+        self._marker_layer.clear_all()
 
     # ------------------------------------------------------------------ #
     # BOT-032 — custom indicator script backgrounds & status panel
@@ -210,6 +213,13 @@ class IndicatorManager:
     def clear_script_info(self, key: str) -> None:
         self._script_info.pop(key, None)
         self._render_script_info_panel()
+
+    def set_script_markers(self, key: str, markers: list[MarkerPoint]) -> None:
+        """Draws (replacing) one script's Buy/Sell-style labelled markers."""
+        self._marker_layer.set_markers(key, markers)
+
+    def clear_script_markers(self, key: str) -> None:
+        self._marker_layer.clear(key)
 
     def _render_script_info_panel(self) -> None:
         rows = [

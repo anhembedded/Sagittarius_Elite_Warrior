@@ -19,6 +19,7 @@ from Binace_Bot.src.application.services.indicator_script_registry import (
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.indicator_scripts import (
     DevIndicatorScript,
+    EmaCrossScript,
     EmaRibbonScript,
     MacdFullScript,
 )
@@ -64,21 +65,28 @@ def infos() -> list:
 
 
 @pytest.fixture
+def markers() -> list:
+    return []
+
+
+@pytest.fixture
 def errors() -> list:
     return []
 
 
 @pytest.fixture
-def runner(emitted, regions, infos, errors) -> IndicatorScriptRunner:
+def runner(emitted, regions, infos, markers, errors) -> IndicatorScriptRunner:
     registry = IndicatorScriptRegistry()
     registry.register("ema_ribbon", EmaRibbonScript)
     registry.register("macd_full", MacdFullScript)
     registry.register("dev_showcase", DevIndicatorScript)
+    registry.register("ema_cross", EmaCrossScript)
     return IndicatorScriptRunner(
         registry=registry,
         emit_line=lambda name, x, y: emitted.append((name, list(x), list(y))),
         emit_region=lambda key, spans: regions.append((key, list(spans))),
         emit_info=lambda key, fields: infos.append((key, list(fields))),
+        emit_markers=lambda key, points: markers.append((key, list(points))),
         on_error=errors.append,
     )
 
@@ -327,3 +335,60 @@ def test_draw_info_is_a_no_op_for_an_inactive_script(runner):
     runner.draw_info(card, "dev_showcase", [])
 
     card.set_script_info.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Markers (BOT-032 Phase 4a — Buy/Sell labels)
+# ---------------------------------------------------------------------------
+
+
+def _reversal_candles(count: int = 80):
+    """A decline then a rally — guarantees at least one EMA(12)/EMA(26) cross."""
+    for index in range(count):
+        close = (
+            200.0 - index
+            if index < count // 2
+            else 200.0 - (count // 2) + (index - count // 2)
+        )
+        yield make_candle(close, index)
+
+
+def test_a_crossover_produces_an_accumulated_marker(runner, markers):
+    runner.rebuild(["ema_cross"])
+
+    runner.feed_all(_reversal_candles())
+
+    assert markers, "expected at least one emit_markers call"
+    _, last_points = markers[-1]
+    assert any(text in ("Buy", "Sell") for _, _, text, _, _ in last_points)
+
+
+def test_bars_with_no_new_marker_do_not_re_emit(runner, markers):
+    """Markers only ever grow — a quiet bar must not resend the same list."""
+    runner.rebuild(["ema_cross"])
+
+    runner.feed_all(_reversal_candles())
+    emit_count_after_run = len(markers)
+    runner.feed(make_candle(500.0, 999))  # one more quiet bar, no new cross
+
+    assert len(markers) == emit_count_after_run
+
+
+def test_draw_markers_forwards_to_the_chart_for_an_active_script(runner):
+    card = MagicMock()
+    runner.rebuild(["ema_cross"])
+
+    runner.draw_markers(card, "ema_cross", [(1.0, 100.0, "Buy", "#0ECB81", "up")])
+
+    card.set_script_markers.assert_called_once_with(
+        "ema_cross", [(1.0, 100.0, "Buy", "#0ECB81", "up")]
+    )
+
+
+def test_draw_markers_is_a_no_op_for_an_inactive_script(runner):
+    card = MagicMock()
+    runner.rebuild([])
+
+    runner.draw_markers(card, "ema_cross", [(1.0, 100.0, "Buy", "#0ECB81", "up")])
+
+    card.set_script_markers.assert_not_called()

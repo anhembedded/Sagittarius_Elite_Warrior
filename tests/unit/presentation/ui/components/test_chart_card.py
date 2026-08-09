@@ -671,3 +671,58 @@ def test_main_plot_still_spans_the_full_width_with_the_info_column_present(qapp)
         card.plot_layout.widget.ci.layout.itemAt(card.plot_layout.MAIN_PLOT_ROW, 1)
         is card.plot_layout.main_plot
     )
+
+
+# ---------------------------------------------------------------------------
+# BOT-032 Phase 4a — custom indicator script markers (Buy/Sell labels)
+# ---------------------------------------------------------------------------
+
+
+def test_script_markers_are_drawn_as_text_items_on_the_main_plot(qapp):
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_markers("ema_cross", [(1000.0, 100.0, "Buy", "#0ECB81", "up")])
+
+    items = card.indicators._marker_layer._items["ema_cross"]
+    assert len(items) == 1
+    assert isinstance(items[0], pg.TextItem)
+    assert items[0] in card.plot_layout.main_plot.items
+
+
+def test_setting_markers_again_replaces_rather_than_accumulates(qapp):
+    """The runner always resends the FULL accumulated marker list — the chart
+    must not double-draw the ones it already has."""
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_markers("ema_cross", [(1000.0, 100.0, "Buy", "#0ECB81", "up")])
+    card.set_script_markers(
+        "ema_cross",
+        [
+            (1000.0, 100.0, "Buy", "#0ECB81", "up"),
+            (2000.0, 90.0, "Sell", "#F6465D", "down"),
+        ],
+    )
+
+    assert len(card.indicators._marker_layer._items["ema_cross"]) == 2
+
+
+def test_clear_script_markers_removes_every_item_for_that_key(qapp):
+    card = ChartCard("BTCUSDT")
+    card.set_script_markers("ema_cross", [(1000.0, 100.0, "Buy", "#0ECB81", "up")])
+    marker_item = card.indicators._marker_layer._items["ema_cross"][0]
+
+    card.clear_script_markers("ema_cross")
+
+    assert card.indicators._marker_layer._items == {}
+    assert marker_item not in card.plot_layout.main_plot.items
+
+
+def test_two_scripts_markers_do_not_interfere_with_each_other(qapp):
+    card = ChartCard("BTCUSDT")
+
+    card.set_script_markers("ema_cross", [(1000.0, 100.0, "Buy", "#0ECB81", "up")])
+    card.set_script_markers("dev_showcase", [(2000.0, 90.0, "Sell", "#F6465D", "down")])
+    card.clear_script_markers("ema_cross")
+
+    assert "ema_cross" not in card.indicators._marker_layer._items
+    assert len(card.indicators._marker_layer._items["dev_showcase"]) == 1
