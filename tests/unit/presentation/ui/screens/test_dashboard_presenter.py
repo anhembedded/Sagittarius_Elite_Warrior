@@ -37,6 +37,10 @@ from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
+from Binace_Bot.src.presentation.ui.screens.dashboard.kline_mapping import (
+    map_klines,
+    map_volume,
+)
 from Binace_Bot.src.presentation.ui.constants import UIMode  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -503,8 +507,8 @@ def _make_full_kline(
     volume: float = 10.0,
 ):
     """Unlike _make_kline (feed()-only tests), this fills every field
-    _map_klines/_map_volume actually read — real float() coercion, not a
-    MagicMock stand-in, since those two are @staticmethod and would raise on
+    map_klines/map_volume actually read — real float() coercion, not a
+    MagicMock stand-in, since those two are module-level functions and would raise on
     an un-configured attribute."""
     kline = MagicMock()
     kline.close_time.timestamp.return_value = close_timestamp
@@ -649,8 +653,8 @@ def test_on_history_prepended_prepends_to_the_chart_and_rebuilds_scripts(present
     presenter._enabled_script_keys = lambda: ["ema_ribbon"]
     presenter._raw_klines_by_symbol["ETHUSDT"] = [_make_full_kline(1000.0)]
     older = [_make_full_kline(940.0)]
-    mapped = presenter._map_klines(older)
-    volume = presenter._map_volume(older)
+    mapped = map_klines(older)
+    volume = map_volume(older)
 
     presenter._on_history_prepended("ETHUSDT", mapped, volume)
 
