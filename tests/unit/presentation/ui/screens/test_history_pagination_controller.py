@@ -126,33 +126,34 @@ def test_cooldown_is_tracked_per_symbol(qapp):
 
     assert calls == [("ETHUSDT", 1000.0), ("BTCUSDT", 2000.0)]
 
+
 def test_massive_zoom_out_triggers_continuous_fetches_until_gap_filled(qapp, qtbot):
     """
-    If the user zooms out massively with a single scroll wheel tick, we get 
-    exactly one sigRangeChangedManually event. It triggers a fetch, but doesn't 
+    If the user zooms out massively with a single scroll wheel tick, we get
+    exactly one sigRangeChangedManually event. It triggers a fetch, but doesn't
     fill the gap.
-    We assert that HistoryPaginationController unconditionally calls recheck_edge 
-    after the cooldown, which in reality will cause another near_left_edge event, 
+    We assert that HistoryPaginationController unconditionally calls recheck_edge
+    after the cooldown, which in reality will cause another near_left_edge event,
     forming a self-sustaining loop until the gap is gone.
     """
     calls = []
     rechecks = []
-    
+
     controller = HistoryPaginationController(
-        fetch_older=lambda s, t: calls.append((s, t)), 
+        fetch_older=lambda s, t: calls.append((s, t)),
         cooldown_seconds=_TINY_COOLDOWN,
-        recheck_edge=lambda s: rechecks.append(s)
+        recheck_edge=lambda s: rechecks.append(s),
     )
-    
+
     # 1. User zooms out massively -> one event is fired.
     controller.on_near_left_edge("ETHUSDT", 1000.0)
     assert len(calls) == 1
-    
+
     # 2. Fetch finishes. Cooldown starts.
     controller.on_load_more_finished("ETHUSDT")
-    
+
     # 3. Wait for cooldown to expire
     qtbot.wait(int(_TINY_COOLDOWN * 1000) + 50)
-    
+
     # 4. _recheck_edge should have been called automatically by the QTimer
     assert rechecks == ["ETHUSDT"]

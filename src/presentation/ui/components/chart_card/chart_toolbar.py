@@ -30,6 +30,7 @@ class ChartToolbar(QtWidgets.QWidget):
 
         for timeframe in timeframes:
             btn = QtWidgets.QPushButton(timeframe)
+            btn.setCursor(QtCore.Qt.PointingHandCursor)
             btn.setCheckable(True)
             btn.setMaximumWidth(40)
             btn.clicked.connect(lambda checked, t=timeframe: self._on_clicked(t))

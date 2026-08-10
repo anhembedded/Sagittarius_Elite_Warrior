@@ -83,10 +83,10 @@ class HistoryPaginationController(QObject):
         symbol's cooldown window."""
         self._in_flight.discard(symbol)
         self._last_finished_at[symbol] = time.monotonic()
-        
+
         QTimer.singleShot(
-            int(self._cooldown_seconds * 1000), 
-            lambda: self._on_cooldown_finished(symbol)
+            int(self._cooldown_seconds * 1000),
+            lambda: self._on_cooldown_finished(symbol),
         )
 
     def _on_cooldown_finished(self, symbol: str) -> None:

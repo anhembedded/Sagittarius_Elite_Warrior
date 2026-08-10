@@ -240,9 +240,9 @@ class DashboardPresenter(BasePresenter):
         # pattern as AutoStartController: constructed once here, torn down
         # implicitly with the presenter (parented to self).
         self._pagination = HistoryPaginationController(
-            fetch_older=self._fetch_older_history, 
+            fetch_older=self._fetch_older_history,
             recheck_edge=self._recheck_edge,
-            parent=self
+            parent=self,
         )
 
         # BOT-033 — interval actually used by Load History/Start Live, set by
