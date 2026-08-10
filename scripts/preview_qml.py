@@ -29,13 +29,16 @@ sys.path.insert(0, str(REPO_ROOT))
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication
 
+from sagittarius_engine.extensions.pyside_mvc import (
+    configure_app_qml,
+    create_quick_widget,
+)
+
+from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
 from Binace_Bot.src.presentation.ui.components.sidebar import Sidebar
 from Binace_Bot.src.presentation.ui.components.sidebar.nav_section import (
     NavItem,
     NavSection,
-)
-from Binace_Bot.src.presentation.ui.screens._qml_shared import (
-    create_quick_widget,
 )
 from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
@@ -145,6 +148,7 @@ def main() -> None:
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
+    configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
     widget = _SCREENS[args.screen]()
     widget.setWindowTitle(f"QML Preview — {args.screen}")
     widget.show()

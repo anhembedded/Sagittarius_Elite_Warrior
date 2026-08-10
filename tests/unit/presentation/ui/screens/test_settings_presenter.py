@@ -4,15 +4,22 @@ Tests for the API & Credentials screen (BOT-030 Phase 2 — QML).
 Uses the REAL SettingsViewModel rather than a mock: it is a plain state
 holder with no I/O, so exercising it end-to-end catches property/signal
 wiring mistakes that a Mock would silently absorb. Only IConfig (the actual
-external dependency) is mocked.
+external dependency) is mocked — except in the persistence test below, which
+uses a real ConfigManager to prove the disk-write path actually works, since
+a Mock would happily "pass" even if save() were never called.
 """
 
+import json
 import os
 
 import pytest
 from unittest.mock import Mock, call
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from sagittarius_engine.infrastructure.config.config_manager import (  # noqa: E402
+    ConfigManager,
+)
 
 from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (  # noqa: E402
     SettingsPresenter,
@@ -138,6 +145,44 @@ def test_save_with_empty_symbols_is_rejected_without_writing_anything(
     mock_config.set.assert_not_called()
     assert view_model.statusIsError is True
     assert view_model.statusMessage != ""
+
+
+def test_save_persists_to_disk_through_a_real_config_manager(qapp, tmp_path, request):
+    """
+    The gap this closes: IConfig.set() alone was in-memory only, so a real
+    ConfigManager is used here (not the mock_config fixture) to prove Save
+    actually reaches the writable JSON file on disk, end to end.
+    """
+    user_file = tmp_path / "user_config.json"
+    # DEFAULT_SYMBOLS seeded non-empty: an empty value is rejected by Save's
+    # own validation, which would make this test pass for the wrong reason.
+    user_file.write_text(json.dumps({"DEFAULT_SYMBOLS": ["BTCUSDT"]}))
+
+    config = ConfigManager()
+    config.load_json(str(user_file), writable=True)
+
+    container = Mock()
+    container.resolve.side_effect = lambda interface: (
+        config if interface.__name__ == "IConfig" else Mock()
+    )
+
+    view = SettingsView()
+    view.resize(1200, 800)
+    view.show()
+    qapp.processEvents()
+    request.addfinalizer(view.deleteLater)
+
+    # Keeping `presenter` alive matters: saveRequested is connected to its
+    # bound method, and PySide6 doesn't keep that connection's target alive
+    # on its own — an unreferenced presenter gets garbage-collected right
+    # after construction, silently dropping the connection before emit().
+    presenter = SettingsPresenter(view, container)
+    view_model = presenter._settings_view_model
+    view_model.apiKey = "real-key"
+    view_model.saveRequested.emit()
+
+    on_disk = json.loads(user_file.read_text())
+    assert on_disk["API_KEY"] == "real-key"
 
 
 def test_qml_request_save_slot_triggers_the_same_path(

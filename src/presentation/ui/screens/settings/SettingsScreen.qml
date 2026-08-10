@@ -133,9 +133,8 @@ Rectangle {
                     Text {
                         objectName: "lblRestartWarning"
                         Layout.fillWidth: true
-                        text: "Thay đổi chỉ áp dụng trong bộ nhớ của phiên chạy hiện tại "
-                              + "— chưa ghi xuống user_config.json. API Key/Secret cần "
-                              + "khởi động lại app để có hiệu lực."
+                        text: "Thay đổi được ghi xuống user_config.json ngay khi lưu. "
+                              + "Riêng API Key/Secret cần khởi động lại app để có hiệu lực."
                         color: Theme.accent
                         font.pixelSize: 11
                         wrapMode: Text.WordWrap

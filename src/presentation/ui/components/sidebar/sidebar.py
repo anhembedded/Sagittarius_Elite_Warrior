@@ -6,7 +6,7 @@ from typing import Sequence
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
 
-from Binace_Bot.src.presentation.ui.screens._qml_shared import QmlHostView
+from sagittarius_engine.extensions.pyside_mvc import QmlHostView
 
 from .nav_section import NavSection
 from .sidebar_view_model import SidebarViewModel

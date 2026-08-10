@@ -5,6 +5,32 @@ Root conftest.py — shared fixtures available to all tests.
 import pytest
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _configure_app_qml():
+    """
+    Every QmlHostView subclass (SettingsView, DashboardView,
+    DataManagementView, Sidebar, ...) requires configure_app_qml() to have
+    run before construction — see app_bootstrapper.py for why this is a
+    one-time bootstrap call rather than a constructor parameter on each
+    screen. Tests construct these Views directly, bypassing the
+    bootstrapper, so this fixture stands in for it, once per session, using
+    the real Palette/IconLoader so tests exercise the real wiring.
+    """
+    from sagittarius_engine.extensions.pyside_mvc import (
+        configure_app_qml,
+        get_theme_bridge,
+    )
+
+    from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
+
+    configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
+    # Also primes the theme-bridge singleton itself (normally lazy, first
+    # created inside create_quick_widget()) — some tests call
+    # get_theme_bridge() with no palette arg, which only works once the
+    # singleton already exists, and test execution order isn't guaranteed.
+    get_theme_bridge(Palette.as_ui_dict())
+
+
 @pytest.fixture(scope="session")
 def qapp():
     """

@@ -61,7 +61,7 @@ def main() -> None:
     cli_json = PathUtils.get_relative_path(__file__, "config", "cli_commands.json")
 
     config_manager.load_json(app_json)
-    config_manager.load_json(user_json)
+    config_manager.load_json(user_json, writable=True)
 
     try:
         config_manager.load_json(cli_json)

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../_qml_shared"
+import QmlShared 1.0
 
 // Database screen (BOT-030 Phase 3). Folds in the visual design BOT-029
 // Phase 3 planned for QtWidgets (stat tiles, search, placeholder actions)

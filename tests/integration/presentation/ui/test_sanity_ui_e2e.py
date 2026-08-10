@@ -50,7 +50,7 @@ def _build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
 
 
 @pytest.fixture
-def app_engine(request, monkeypatch):
+def app_engine(request, monkeypatch, tmp_path):
     """
     Boot the Sagittarius Engine with all configurations but mock the
     dispatcher backend. Defaults to dev.mode=False (matching app_config.json);
@@ -69,10 +69,21 @@ def app_engine(request, monkeypatch):
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     )
     app_json = os.path.join(base_dir, "src", "config", "app_config.json")
-    user_json = os.path.join(base_dir, "src", "config", "user_config.json")
+    real_user_json = os.path.join(base_dir, "src", "config", "user_config.json")
+
+    # The writable source is a tmp copy of the real user_config.json, not
+    # the real file: Settings' Save button now calls ConfigManager.save(),
+    # and a sanity test overwriting the actual repo config on every run
+    # would be both a bad side effect and non-hermetic across parallel runs.
+    user_json = tmp_path / "user_config.json"
+    if os.path.exists(real_user_json):
+        with open(real_user_json) as src:
+            user_json.write_text(src.read())
+    else:
+        user_json.write_text("{}")
 
     config_manager.load_json(app_json)
-    config_manager.load_json(user_json)
+    config_manager.load_json(str(user_json), writable=True)
     if dev_mode:
         config_manager.load_dict({"dev.mode": True})
 

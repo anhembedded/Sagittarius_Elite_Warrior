@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../_qml_shared"
+import QmlShared 1.0
 
 // Dev Board's QML half (BOT-030 Phase 4): top bar, System Controls,
 // Indicators, and the monitor log. Hosted in a QQuickWidget that sits next
