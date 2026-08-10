@@ -350,6 +350,7 @@ Rectangle {
                         // empty line of padding while there's no message — a fair
                         // trade for a layout that is always correct.
                         text: viewModel.statusMessage
+                        textFormat: Text.PlainText
                         color: viewModel.statusIsError ? Theme.danger : Theme.success
                         font.pixelSize: 11
                         wrapMode: Text.WordWrap

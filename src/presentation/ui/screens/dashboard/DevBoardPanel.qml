@@ -81,6 +81,7 @@ Rectangle {
             Text {
                 objectName: "lblPriceTicker"
                 text: viewModel.priceTickerText
+                textFormat: Text.PlainText
                 color: viewModel.priceTickerColor
                 font.pixelSize: 13
                 font.bold: true
@@ -98,6 +99,7 @@ Rectangle {
                     objectName: "lblWsStatus"
                     anchors.centerIn: parent
                     text: viewModel.wsStatusText
+                    textFormat: Text.PlainText
                     color: viewModel.wsStatusColor
                     font.pixelSize: 10
                     font.bold: true

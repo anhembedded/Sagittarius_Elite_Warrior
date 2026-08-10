@@ -488,6 +488,7 @@ Rectangle {
                                 text: viewModel.searchText === ""
                                       ? "No scan results yet — run a status scan."
                                       : "No rows match “" + viewModel.searchText + "”."
+                                textFormat: Text.PlainText
                                 color: Theme.muted
                                 font.pixelSize: 12
                             }
@@ -515,6 +516,7 @@ Rectangle {
 
                                     Text {
                                         text: statusRow.symbol
+                                        textFormat: Text.PlainText
                                         color: Theme.textPrimary
                                         font.pixelSize: 11
                                         Layout.fillWidth: true
@@ -553,6 +555,7 @@ Rectangle {
                                     }
                                     Text {
                                         text: statusRow.statusText
+                                        textFormat: Text.PlainText
                                         color: statusRow.isHealthy ? Theme.success : Theme.danger
                                         font.pixelSize: 11
                                         Layout.fillWidth: true
