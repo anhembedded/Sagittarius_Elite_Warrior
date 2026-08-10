@@ -5,6 +5,8 @@ pytest
 pytest-asyncio
 pytest-cov
 ruff
+PySide6
+pyqtgraph
 pyqtdarktheme
 pytest-qt
 flake8
