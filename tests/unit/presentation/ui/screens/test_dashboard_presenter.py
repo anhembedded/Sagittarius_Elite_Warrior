@@ -235,7 +235,7 @@ def test_fetch_limit_grows_for_an_enabled_scripts_warmup(presenter):
 
 def test_fetch_limit_honors_a_higher_config_floor(presenter):
     presenter.config.get.side_effect = lambda key, default=None, cast=None: (
-        500 if key == "DEV_BOARD_MIN_FETCH_CANDLES" else default
+        500 if key == "CHART_CARD_MIN_FETCH_CANDLES" else default
     )
 
     assert presenter._compute_fetch_limit() == 500
@@ -243,7 +243,7 @@ def test_fetch_limit_honors_a_higher_config_floor(presenter):
 
 def test_fetch_limit_ignores_a_config_floor_lower_than_the_render_window(presenter):
     presenter.config.get.side_effect = lambda key, default=None, cast=None: (
-        10 if key == "DEV_BOARD_MIN_FETCH_CANDLES" else default
+        10 if key == "CHART_CARD_MIN_FETCH_CANDLES" else default
     )
 
     assert presenter._compute_fetch_limit() == 75
@@ -556,6 +556,17 @@ def test_fetch_older_history_submits_the_load_more_background_task(
         75,
     )
     assert submit_args[5] is presenter._cancellation_token
+
+
+def test_fetch_older_history_honors_a_configured_batch_size(presenter, mock_thread_mgr):
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: (
+        250 if key == "CHART_CARD_LOAD_MORE_BATCH_CANDLES" else default
+    )
+
+    presenter._fetch_older_history("ETHUSDT", 1000.0)
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[1:5] == ("ETHUSDT", presenter._active_interval, 1000.0, 250)
 
 
 def test_run_load_more_history_dispatches_with_end_time_and_desc_order(

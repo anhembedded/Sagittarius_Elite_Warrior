@@ -33,7 +33,7 @@ def mock_app():
     mock_config.get_all.return_value = matrix
     # Key-aware, not a blanket stub: BasePresenter reads the UI matrix via
     # get_all() (above), but also reads individual keys via get() (e.g.
-    # dev.mode, BOT-034's DEV_BOARD_MIN_FETCH_CANDLES) — those must fall
+    # dev.mode, BOT-034's CHART_CARD_MIN_FETCH_CANDLES) — those must fall
     # through to the caller's own `default`, not receive the matrix dict.
     mock_config.get.side_effect = lambda key, default=None, cast=None: default
 

@@ -176,16 +176,74 @@ def test_slow_lines_emit_nothing_until_warmed_up(runner, emitted):
     assert not any(name.endswith("EMA 200") for name, _, _ in emitted)
 
 
-def test_each_emission_carries_the_full_series_so_far(runner, emitted):
+def test_the_batched_emission_carries_the_full_series(runner, emitted):
     """ChartCard.update_indicator_data() replaces the curve's data rather than
-    appending, so a partial series would truncate the drawn line."""
+    appending, so a partial series would truncate the drawn line. BOT-036 made
+    feed_all() emit once at the end instead of once per bar — that single
+    emission must therefore carry every warmed-up point."""
     runner.rebuild(["ema_ribbon"])
 
     runner.feed_all(make_candle(100.0 + index, index) for index in range(25))
 
     ema20 = [(x, y) for name, x, y in emitted if name == "ema_ribbon:EMA 20"]
-    assert len(ema20[-1][0]) == len(ema20)
-    assert len(ema20[-1][0]) > len(ema20[0][0])
+    assert len(ema20) == 1
+    x_data, y_data = ema20[0]
+    assert len(x_data) == len(y_data)
+    assert len(x_data) > 1  # a real series, not a lone point
+
+
+@pytest.mark.parametrize("candle_count", [50, 500])
+def test_feed_all_emits_each_line_exactly_once(runner, emitted, candle_count):
+    """BOT-036 regression guard: emissions must be O(1) per line, not O(N) per
+    bar. Reintroducing a per-bar emit inside feed_all() fails this immediately,
+    at any history size."""
+    runner.rebuild(["ema_ribbon"])
+
+    runner.feed_all(make_candle(100.0 + i, i) for i in range(candle_count))
+
+    names = [name for name, _, _ in emitted]
+    assert len(names) == len(set(names))
+
+
+def test_a_live_bar_still_emits_immediately(runner, emitted):
+    """feed()'s default emit=True is what DashboardPresenter._on_ui_chart_update
+    relies on — batching history must not silently mute the real-time path."""
+    runner.rebuild(["ema_ribbon"])
+    runner.feed_all(make_candle(100.0 + i, i) for i in range(30))
+    before = len(emitted)
+
+    runner.feed(make_candle(200.0, 30))
+
+    assert len(emitted) > before
+
+
+def test_feed_all_with_no_candles_emits_nothing(runner, emitted):
+    """_on_history_prepended can legitimately call feed_all([]) when the DB has
+    no older data — that must stay silent, exactly as before BOT-036."""
+    runner.rebuild(["ema_ribbon"])
+
+    runner.feed_all([])
+
+    assert emitted == []
+
+
+def test_feed_all_flushes_all_secondary_channels_exactly_once(
+    runner, emitted, regions, infos, markers
+):
+    """Sanity check: feed_all() must not just batch lines, but also regions,
+    info panels, and markers, exactly once per script to avoid O(N) emissions
+    on any of those secondary channels."""
+    # dev_showcase is known to produce all 4 output types
+    runner.rebuild(["dev_showcase"])
+
+    runner.feed_all(make_candle(100.0 + i, i) for i in range(50))
+
+    # Lines: O(1) per line, dev_showcase has multiple lines
+    assert len(emitted) > 0
+    # Secondary channels: exactly 1 emission per script
+    assert len(regions) == 1
+    assert len(infos) == 1
+    assert len(markers) <= 1
 
 
 def test_feeding_nothing_enabled_emits_nothing(runner, emitted):

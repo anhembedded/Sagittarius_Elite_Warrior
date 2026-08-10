@@ -153,19 +153,29 @@ class IndicatorScriptRunner:
     # Computation — safe to call from either thread (emits, never draws)
     # ------------------------------------------------------------------ #
 
-    def feed(self, candle: MarketData) -> None:
-        """Runs one bar through every active script and reports what it produced."""
+    def feed(self, candle: MarketData, *, emit: bool = True) -> None:
+        """
+        @brief Runs one bar through every active script and reports what it produced.
+        @param emit When False, computes and accumulates exactly as normal but stays
+        silent — the caller then owes a `_flush()` once it has fed everything. Only
+        `feed_all()` passes False; the live-tick path (DashboardPresenter's
+        `_on_ui_chart_update`) keeps the default True so a real-time bar still
+        reaches the chart the moment it closes.
+        """
         timestamp = float(candle.close_time.timestamp())
         for key, active in self.active.items():
             for line_name, line in active.script.compute(candle).items():
                 x_data, y_data = active.record(line_name, timestamp, line.value)
-                self._emit_line(qualified_line_name(key, line_name), x_data, y_data)
+                if emit:
+                    self._emit_line(qualified_line_name(key, line_name), x_data, y_data)
 
             active.region_tracker.record(timestamp, active.script.drain_region())
-            self._emit_region(key, list(active.region_tracker.spans))
+            if emit:
+                self._emit_region(key, list(active.region_tracker.spans))
 
             active.latest_info = active.script.drain_info()
-            self._emit_info(key, active.latest_info)
+            if emit:
+                self._emit_info(key, active.latest_info)
 
             new_markers = active.script.drain_markers()
             if new_markers:
@@ -179,12 +189,50 @@ class IndicatorScriptRunner:
                     )
                     for marker in new_markers
                 )
-                self._emit_markers(key, list(active.markers))
+                if emit:
+                    self._emit_markers(key, list(active.markers))
+
+    def _flush(self, key: str, active: ActiveScript) -> None:
+        """
+        @brief Emits one snapshot per output channel for a script fed silently
+        via `feed(..., emit=False)`.
+        @details Mirrors exactly what `feed()` would have emitted on its LAST bar —
+        same payload shapes, just once instead of once per bar. A separate method
+        (not inlined into `feed_all`) so it can be tested on its own and so
+        `feed_all` stays readable.
+        """
+        for line_name, (x_data, y_data) in active.series.items():
+            self._emit_line(qualified_line_name(key, line_name), x_data, y_data)
+
+        self._emit_region(key, list(active.region_tracker.spans))
+        self._emit_info(key, active.latest_info)
+
+        # Same guard feed() applies: a script that never produced a marker must
+        # not suddenly receive an empty-list emission it never used to get.
+        if active.markers:
+            self._emit_markers(key, list(active.markers))
 
     def feed_all(self, candles: Iterable[MarketData]) -> None:
-        """Replays a whole history. Used by the background load."""
+        """
+        @brief Replays a whole history.
+        @details BOT-036: emits once per output channel at the END instead of once
+        per bar. With N bars the old per-bar emit re-sent an ever-growing series
+        every single bar (O(N^2) of data crossing the callback boundary); the chart
+        only ever needed the final, complete series. `_on_history_prepended` makes
+        this especially costly — it replays the whole accumulated history on the
+        MAIN thread on every scroll-back, so each emit was a synchronous pyqtgraph
+        re-render.
+        """
+        fed_any = False
         for candle in candles:
-            self.feed(candle)
+            self.feed(candle, emit=False)
+            fed_any = True
+
+        if not fed_any:
+            return
+
+        for key, active in self.active.items():
+            self._flush(key, active)
 
     # ------------------------------------------------------------------ #
     # Drawing — main thread only

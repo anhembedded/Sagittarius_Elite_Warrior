@@ -105,6 +105,10 @@ class ChartCard(BaseCard):
         # IndicatorManager automatically, current and future.
         self.plot_layout.main_plot.vb.sigXRangeChanged.connect(self._on_x_range_changed)
 
+    def check_near_left_edge(self) -> None:
+        """Manually trigger an edge check (used for re-evaluation after cooldown)."""
+        self.edge_scroll_detector.check_edge()
+
     # ==========================================
     # PUBLIC API FOR PRESENTER
     # ==========================================

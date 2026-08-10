@@ -40,9 +40,10 @@ class EdgeScrollDetector(QtCore.QObject):
         self._plot = plot
         self._get_raw_history = get_raw_history
         self._edge_threshold_bars = edge_threshold_bars
-        plot.vb.sigRangeChangedManually.connect(self._on_user_panned)
+        plot.vb.sigRangeChangedManually.connect(self.check_edge)
 
-    def _on_user_panned(self, *_args) -> None:
+    def check_edge(self, *_args) -> None:
+        """Evaluates whether the view is near the left edge, and emits sig_near_left_edge if so."""
         history = self._get_raw_history()
         if len(history) < 2:
             return

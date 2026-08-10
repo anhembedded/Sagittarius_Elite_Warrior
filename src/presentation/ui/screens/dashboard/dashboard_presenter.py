@@ -57,7 +57,10 @@ _RENDER_WINDOW_CANDLES: int = 75
 #: User-configurable floor (IConfig key), so a fetch is never smaller than
 #: this even with nothing enabled that needs more. Defaults to the render
 #: window itself — no extra padding unless the user asks for one.
-_MIN_FETCH_CANDLES_CONFIG_KEY: str = "DEV_BOARD_MIN_FETCH_CANDLES"
+#: Scoped "CHART_CARD_*", not "DEV_BOARD_*" — this governs ChartCard's own
+#: fetch behavior, not anything specific to the Dev Board screen that
+#: happens to host it today.
+_MIN_FETCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_MIN_FETCH_CANDLES"
 _DEFAULT_MIN_FETCH_CANDLES: int = 75
 
 #: How long AutoStartController waits for a real MarketTickEvent before
@@ -70,10 +73,12 @@ _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_FALLBACK_SECO
 _DEFAULT_AUTOSTART_FALLBACK_SECONDS: float = 2.0
 
 #: BOT-035 — how many older candles to fetch each time the user scrolls near
-#: the left edge of loaded history. Fixed (not run through
-#: _compute_fetch_limit()) — decided with the user: this is a literal "load
-#: 75 more" action, not a warm-up requirement.
-_LOAD_MORE_BATCH_CANDLES: int = 75
+#: the left edge of loaded history. User-configurable (IConfig key), but
+#: deliberately NOT run through _compute_fetch_limit() — this is a literal
+#: "load N more" action, not a warm-up requirement, so it doesn't grow with
+#: whatever scripts happen to be enabled.
+_LOAD_MORE_BATCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
+_DEFAULT_LOAD_MORE_BATCH_CANDLES: int = 75
 
 # WS status badge (top bar) text/color per FSM state — presentational only,
 # derived from the state DashboardPresenter already tracks.
@@ -235,7 +240,9 @@ class DashboardPresenter(BasePresenter):
         # pattern as AutoStartController: constructed once here, torn down
         # implicitly with the presenter (parented to self).
         self._pagination = HistoryPaginationController(
-            fetch_older=self._fetch_older_history, parent=self
+            fetch_older=self._fetch_older_history, 
+            recheck_edge=self._recheck_edge,
+            parent=self
         )
 
         # BOT-033 — interval actually used by Load History/Start Live, set by
@@ -575,6 +582,14 @@ class DashboardPresenter(BasePresenter):
         oldest_timestamp = card._raw_history[0][0]
         self._pagination.on_near_left_edge(symbol, oldest_timestamp)
 
+    @Slot(str)
+    @safe_ui_action
+    def _recheck_edge(self, symbol: str) -> None:
+        """Called by HistoryPaginationController after cooldown to check if we still need more data."""
+        card = self.active_charts.get(symbol)
+        if card:
+            card.check_near_left_edge()
+
     def _fetch_older_history(self, symbol: str, oldest_timestamp: float) -> None:
         """HistoryPaginationController's `fetch_older` callback — submits the
         background fetch, same convention as _on_load_history/_on_start_stream
@@ -584,7 +599,11 @@ class DashboardPresenter(BasePresenter):
             symbol,
             self._active_interval,
             oldest_timestamp,
-            _LOAD_MORE_BATCH_CANDLES,
+            self.config.get(
+                _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY,
+                _DEFAULT_LOAD_MORE_BATCH_CANDLES,
+                cast=int,
+            ),
             self._cancellation_token,
         )
 

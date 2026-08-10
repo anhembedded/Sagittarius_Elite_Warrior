@@ -24,7 +24,7 @@ skeleton gọi tạm) — public, vì `ChartCard`/tests cần gọi từ ngoài.
 `get_raw_history: Callable[[], list[OhlcCandle]]` thay vì 2 callback riêng (oldest_timestamp +
 bar_width) — tự tính cả 2 từ `history[0]`/`history[1]`, ít tham số hơn, ChartCard chỉ cần truyền 1
 lambda `lambda: self._raw_history`. Ngưỡng mặc định 20 bar đọc thẳng từ code, không qua config (US-04
-không yêu cầu user chỉnh được ngưỡng này, khác `DEV_BOARD_MIN_FETCH_CANDLES`/
+không yêu cầu user chỉnh được ngưỡng này, khác `CHART_CARD_MIN_FETCH_CANDLES`/
 `DEV_BOARD_AUTOSTART_FALLBACK_SECONDS` — 2 cái đó CẦN chỉnh được từ test, cái này thì không).
 
 **`ChartCard.sig_near_left_edge = Signal(str)`** — mang `self.symbol`, KHÔNG phải
@@ -33,7 +33,22 @@ symbol của card nào) — `ChartCard` relay: `edge_scroll_detector.sig_near_le
 self.sig_near_left_edge.emit(self.symbol))`. Giữ `EdgeScrollDetector` không biết gì về "symbol"
 (reusable, test độc lập không cần dàn dựng cả `ChartCard`).
 
-**`HistoryPaginationController`** — khớp gần như 100% với skeleton, không đổi gì đáng kể.
+**`HistoryPaginationController`** — khớp gần như 100% với skeleton, không đổi gì đáng kể. Follow-up
+sau khi lên app thật: chỉ có in-flight guard là không đủ — 1 lần scroll/kéo liên tục hay 1 cú lướt
+trackpad quán tính bắn ra rất nhiều `sigRangeChangedManually` rời rạc, hễ fetch trước xong là fetch
+kế tiếp bắn ngay (log "Loaded N older klines" lặp ~1 giây/lần trong lúc user còn đang cuộn). Thêm
+`cooldown_seconds` (mặc định 1.5s, `time.monotonic()`, tính riêng theo từng symbol) — gộp cả chùm
+sự kiện gần rìa thành đúng 1 fetch/cửa sổ thay vì 1 fetch/sự kiện.
+
+**Đổi tên config key + thêm key mới** (theo yêu cầu user, sau khi lên app thật): `75` ở quyết định
+§2.1 #2 ban đầu là hardcode (`_LOAD_MORE_BATCH_CANDLES` const), giờ đọc từ config key
+`CHART_CARD_LOAD_MORE_BATCH_CANDLES` (default vẫn `75`, KHÔNG đổi hành vi mặc định, vẫn KHÔNG đồng
+bộ theo `_compute_fetch_limit()` — quyết định gốc không đổi, chỉ thêm chỗ cho user chỉnh). Đồng thời
+key floor của Load History (`DEV_BOARD_MIN_FETCH_CANDLES`, từ `BOT-034`) đổi tên thành
+`CHART_CARD_MIN_FETCH_CANDLES` — lý do: cả 2 key đều là hành vi fetch của `ChartCard`/`ChartCard`
+component, không đặc thù riêng cho màn Dev Board (khác `DEV_BOARD_AUTOSTART_FALLBACK_SECONDS`, cái
+đó thật sự là hành vi riêng của luồng auto-start trên Dev Board nên giữ nguyên tên). Giá trị người
+dùng đã set thủ công (`2000`) được giữ nguyên qua rename, không reset về default.
 
 **`_raw_klines_by_symbol: dict[str, list[MarketData]]`** — cái DUY NHẤT skeleton ở §4.4 đánh giá
 SAI: viết "`feed_all(candles_cũ + candles_đang_có)`" như thể presenter sẵn có cả 2 phần dưới dạng
