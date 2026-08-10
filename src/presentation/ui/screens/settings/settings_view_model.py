@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, Signal, Slot
-
-from Binace_Bot.src.presentation.ui.screens._qml_shared import BaseQmlViewModel
+from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
 
 class SettingsViewModel(BaseQmlViewModel):

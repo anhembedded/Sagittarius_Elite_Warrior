@@ -1,4 +1,4 @@
-from typing import List, Protocol
+from typing import Protocol
 
 
 class ILiveStreamService(Protocol):
@@ -7,7 +7,7 @@ class ILiveStreamService(Protocol):
     @details Defined in Application Layer. Implemented by Infrastructure Layer.
     """
 
-    def start_stream(self, symbols: List[str], interval_str: str) -> bool:
+    def start_stream(self, symbols: list[str], interval_str: str) -> bool:
         """
         @brief Starts the live data stream.
         @return True if started successfully, False if already running or failed.

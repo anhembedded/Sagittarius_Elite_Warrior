@@ -4,7 +4,6 @@ Tests for Series and the cross helpers (BOT-032) — the primitives that make
 """
 
 import pytest
-
 from Binace_Bot.src.domain.scripting import (
     Series,
     constant_series,
@@ -15,7 +14,6 @@ from Binace_Bot.src.domain.scripting import (
     is_below,
     series_of,
 )
-
 
 # ---------------------------------------------------------------------------
 # Series indexing

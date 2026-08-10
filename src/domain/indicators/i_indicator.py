@@ -1,9 +1,9 @@
 from typing import Protocol, TypeVar
 
-T = TypeVar("T", covariant=True)
+T_co = TypeVar("T_co", covariant=True)
 
 
-class IIndicator(Protocol[T]):
+class IIndicator(Protocol[T_co]):
     """
     @brief Contract for a stateful, streaming technical indicator.
     @details Implementations hold their own state between calls so the exact
@@ -12,7 +12,7 @@ class IIndicator(Protocol[T]):
     what guarantees the two modes can never produce different results.
     """
 
-    def update(self, value: float) -> T | None:
+    def update(self, value: float) -> T_co | None:
         """
         @param value The latest input (e.g. a candle's close price).
         @returns The indicator's current reading, or None while still warming up.

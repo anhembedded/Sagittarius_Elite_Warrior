@@ -2,6 +2,11 @@
 Tests for IconImageProvider (BOT-030 Phase 1) — the adapter that lets QML
 consume the same recolored Lucide icons the QtWidgets UI uses via
 `image://icons/<name>/<color>`.
+
+Promoted to sagittarius_engine (BOT-032-ish "second QML consumer" work):
+the provider is now generic, taking this app's own IconLoader and icon
+color palette as constructor args instead of importing them directly —
+these tests construct it the same way app_bootstrapper.py does.
 """
 
 import os
@@ -10,17 +15,16 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QSize  # noqa: E402
+from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
+from PySide6.QtCore import QSize
+from sagittarius_engine.extensions.pyside_mvc import IconImageProvider
 
-from Binace_Bot.src.presentation.ui.assets import Palette  # noqa: E402
-from Binace_Bot.src.presentation.ui.screens._qml_shared.icon_image_provider import (  # noqa: E402
-    IconImageProvider,
-)
+_ICON_PALETTE = Palette.as_icon_dict()
 
 
 @pytest.fixture
 def provider(qapp):
-    return IconImageProvider()
+    return IconImageProvider(get_icon_loader(), _ICON_PALETTE)
 
 
 @pytest.mark.parametrize(
@@ -34,23 +38,23 @@ def provider(qapp):
         ("F3BA2F", "#F3BA2F"),  # raw hex (QML URLs can't carry '#')
     ],
 )
-def test_resolve_color_accepts_palette_keys_and_raw_hex(token, expected):
-    assert IconImageProvider._resolve_color(token) == expected
+def test_resolve_color_accepts_palette_keys_and_raw_hex(provider, token, expected):
+    assert provider._resolve_color(token) == expected
 
 
 @pytest.mark.parametrize("token", ["", "not_a_color", "ZZZZZZ", "12345"])
-def test_resolve_color_falls_back_to_muted_for_bad_input(token):
+def test_resolve_color_falls_back_to_muted_for_bad_input(provider, token):
     """Mirrors IconLoader's never-raise contract: a malformed icon URL must
     degrade to a default color, not take down the screen rendering it."""
-    assert IconImageProvider._resolve_color(token) == Palette.MUTED
+    assert provider._resolve_color(token) == Palette.MUTED
 
 
-def test_parse_id_splits_name_and_color():
-    assert IconImageProvider._parse_id("play/success") == ("play", Palette.SUCCESS)
+def test_parse_id_splits_name_and_color(provider):
+    assert provider._parse_id("play/success") == ("play", Palette.SUCCESS)
 
 
-def test_parse_id_without_color_uses_muted_default():
-    assert IconImageProvider._parse_id("play") == ("play", Palette.MUTED)
+def test_parse_id_without_color_uses_muted_default(provider):
+    assert provider._parse_id("play") == ("play", Palette.MUTED)
 
 
 def test_request_pixmap_returns_icon_at_requested_size(provider):

@@ -10,7 +10,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Binace_Bot.src.presentation.ui.components.sidebar import (  # noqa: E402
+from Binace_Bot.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,
     Sidebar,

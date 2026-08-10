@@ -1,35 +1,17 @@
-from sagittarius_engine.base import BaseModule
-from sagittarius_engine import App
+import os
 
+from Binace_Bot.src.application.event_handlers.market_data.market_tick_event_handler import (
+    MarketTickEventHandler,
+)
+from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
+from Binace_Bot.src.application.ports.i_live_stream_service import (
+    ILiveStreamService,
+)
 from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
-    SQLAlchemyMarketDataRepository,
-)
-from Binace_Bot.src.infrastructure.persistence.database_manager import (
-    DatabaseManager,
-    DatabaseConfig,
-)
-from sagittarius_engine.interfaces.i_config import IConfig
-import os
-from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
-from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
-from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
-    SyncMarketDataCommand,
-    SyncMarketDataCommandHandler,
-)
-from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data import (
-    BulkSyncMarketDataCommand,
-    BulkSyncMarketDataCommandHandler,
-)
-from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
-    StartLiveStreamCommand,
-    StartLiveStreamCommandHandler,
-)
-from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
-    StopLiveStreamCommand,
-    StopLiveStreamCommandHandler,
+from Binace_Bot.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
 )
 from Binace_Bot.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
@@ -42,34 +24,35 @@ from Binace_Bot.src.application.use_cases.backtest.stop_backtest import (
     StopBacktestCommand,
     StopBacktestCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
-    GetHistoricalKlinesQueryHandler,
-)
 from Binace_Bot.src.application.use_cases.queries.get_database_status import (
     GetDatabaseStatusQuery,
     GetDatabaseStatusQueryHandler,
+)
+from Binace_Bot.src.application.use_cases.queries.get_historical_klines import (
+    GetHistoricalKlinesQuery,
+    GetHistoricalKlinesQueryHandler,
 )
 from Binace_Bot.src.application.use_cases.queries.scan_all_databases import (
     ScanAllDatabasesQuery,
     ScanAllDatabasesQueryHandler,
 )
-from Binace_Bot.src.application.ports.i_live_stream_service import (
-    ILiveStreamService,
+from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
+    StartLiveStreamCommand,
+    StartLiveStreamCommandHandler,
 )
-from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
-    BinanceWebsocketService,
+from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
+    StopLiveStreamCommand,
+    StopLiveStreamCommandHandler,
 )
-from Binace_Bot.src.infrastructure.engine_adapters.live_stream_adapter import (
-    LiveStreamEngineAdapter,
+from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data import (
+    BulkSyncMarketDataCommand,
+    BulkSyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.application.event_handlers.market_data.market_tick_event_handler import (
-    MarketTickEventHandler,
+from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
+    SyncMarketDataCommand,
+    SyncMarketDataCommandHandler,
 )
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Binace_Bot.src.domain.indicator_scripts.dev_indicator_script import (
     DevIndicatorScript,
 )
@@ -81,6 +64,23 @@ from Binace_Bot.src.domain.indicator_scripts.ema_cross_script import EmaCrossScr
 from Binace_Bot.src.domain.indicator_scripts.ema_ribbon_script import EmaRibbonScript
 from Binace_Bot.src.domain.indicator_scripts.macd_full_script import MacdFullScript
 from Binace_Bot.src.domain.indicator_scripts.rsi_14_script import Rsi14Script
+from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
+    BinanceWebsocketService,
+)
+from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
+from Binace_Bot.src.infrastructure.engine_adapters.live_stream_adapter import (
+    LiveStreamEngineAdapter,
+)
+from Binace_Bot.src.infrastructure.persistence.database_manager import (
+    DatabaseConfig,
+    DatabaseManager,
+)
+from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
+    SQLAlchemyMarketDataRepository,
+)
+from sagittarius_engine import App
+from sagittarius_engine.base import BaseModule
+from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 

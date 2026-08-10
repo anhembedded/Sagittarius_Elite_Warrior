@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from PySide6.QtCore import (
     QAbstractTableModel,
@@ -60,7 +61,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     StatusTextRole = Qt.ItemDataRole.UserRole + 6
     IsHealthyRole = Qt.ItemDataRole.UserRole + 7
 
-    _ROLE_NAMES = {
+    _ROLE_NAMES: ClassVar[dict[int, bytes]] = {
         SymbolRole: b"symbol",
         IntervalRole: b"interval",
         FirstRecordRole: b"firstRecord",
@@ -83,10 +84,10 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     # QAbstractTableModel contract
     # ------------------------------------------------------------------ #
 
-    def rowCount(self, parent=QModelIndex()) -> int:
+    def rowCount(self, parent=QModelIndex()) -> int:  # noqa: B008 - Qt override signature requires this default
         return 0 if parent.isValid() else len(self._rows)
 
-    def columnCount(self, parent=QModelIndex()) -> int:
+    def columnCount(self, parent=QModelIndex()) -> int:  # noqa: B008 - Qt override signature requires this default
         return 0 if parent.isValid() else 1
 
     def roleNames(self) -> dict:

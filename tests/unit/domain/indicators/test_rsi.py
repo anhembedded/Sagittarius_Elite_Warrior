@@ -1,5 +1,4 @@
 import pytest
-
 from Binace_Bot.src.domain.indicators.rsi import RSI
 
 # Same fixed 20-point close series as test_ema.py.

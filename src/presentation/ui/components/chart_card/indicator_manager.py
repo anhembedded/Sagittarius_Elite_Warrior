@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import pyqtgraph as pg
 from PySide6 import QtGui

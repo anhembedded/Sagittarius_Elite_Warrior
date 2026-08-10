@@ -10,11 +10,10 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QModelIndex  # noqa: E402
-
-from Binace_Bot.src.presentation.ui.screens.data_management.database_status_table_model import (  # noqa: E402
+from Binace_Bot.src.presentation.ui.screens.data_management.database_status_table_model import (
     DatabaseStatusTableModel,
 )
+from PySide6.QtCore import QModelIndex
 
 
 @pytest.fixture

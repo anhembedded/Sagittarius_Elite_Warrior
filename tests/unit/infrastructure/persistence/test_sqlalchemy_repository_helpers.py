@@ -46,8 +46,8 @@ def test_to_market_data_entity_maps_row_and_adds_utc_tzinfo():
     row = Mock()
     row.symbol = "ETHUSDT"
     row.interval = "1h"
-    row.open_time = datetime(2023, 1, 1, 12, 0)  # naive, as SQLite returns
-    row.close_time = datetime(2023, 1, 1, 12, 59)
+    row.open_time = datetime(2023, 1, 1, 12, 0)  # noqa: DTZ001 - naive, as SQLite returns
+    row.close_time = datetime(2023, 1, 1, 12, 59)  # noqa: DTZ001 - naive, as SQLite returns
     row.open_price = 1.0
     row.high_price = 2.0
     row.low_price = 0.5
@@ -93,7 +93,7 @@ def test_parse_db_datetime_handles_none_datetime_and_iso_string():
     assert parse(None) is None
     assert parse("") is None
 
-    dt = datetime(2023, 1, 1, 12, 0)
+    dt = datetime(2023, 1, 1, 12, 0)  # noqa: DTZ001 - naive, as SQLite returns
     assert parse(dt) == datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
 
     assert parse("2023-01-01T12:00:00") == datetime(

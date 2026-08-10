@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from Binace_Bot.src.presentation.ui.screens._qml_shared import QmlHostView
+from sagittarius_engine.extensions.pyside_mvc import QmlHostView
 
 
 class SettingsView(QmlHostView):

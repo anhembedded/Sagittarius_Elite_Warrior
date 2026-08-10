@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime
+
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
@@ -17,8 +17,8 @@ class DatabaseStatusSnapshot:
     layer. See DatabaseStatusDTO.from_snapshot() for the mapping.
     """
 
-    first_record: Optional[datetime]
-    last_record: Optional[datetime]
+    first_record: datetime | None
+    last_record: datetime | None
     total_candles: int
     gaps: int
 
@@ -33,32 +33,29 @@ class IMarketDataRepository(ABC):
         """
         @brief Saves a batch of klines to the repository.
         """
-        pass
 
     @abstractmethod
     def get_latest_kline_time(
         self, symbol: str, interval: TimeFrame
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         """
         @brief Retrieves the open_time of the most recent kline stored for a given symbol and interval.
         @return The datetime of the latest kline, or None if no data exists.
         """
-        pass
 
     @abstractmethod
     def get_klines(
         self,
         symbol: str,
         interval: TimeFrame,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        limit: Optional[int] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int | None = None,
         order_by_desc: bool = False,
     ) -> list[MarketData]:
         """
         @brief Retrieves historical klines from the repository.
         """
-        pass
 
     @abstractmethod
     def get_database_status(
@@ -68,4 +65,3 @@ class IMarketDataRepository(ABC):
         @brief Gets database status for a specific symbol/interval.
         @return A DatabaseStatusSnapshot with first_record, last_record, total_candles, gaps.
         """
-        pass

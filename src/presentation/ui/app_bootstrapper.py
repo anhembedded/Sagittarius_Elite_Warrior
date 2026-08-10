@@ -19,15 +19,15 @@ import sys
 import traceback
 
 import qdarktheme
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QApplication, QMessageBox
-
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine.interfaces.i_config import IConfig
-
 from Binace_Bot.src.config.config_keys import ConfigKeys
 from Binace_Bot.src.main import create_app
+from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
 from Binace_Bot.src.presentation.ui.main_window import MainWindow
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QApplication, QMessageBox
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.interfaces.i_config import IConfig
 
 # ---------------------------------------------------------------------------
 # Config file paths — resolved relative to this file's location
@@ -46,7 +46,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     config_manager = ConfigManager()
     config_manager.load_json(_APP_CONFIG)
-    config_manager.load_json(_USER_CONFIG)
+    config_manager.load_json(_USER_CONFIG, writable=True)
 
     if "--dev" in sys.argv:
         config_manager.load_dict({ConfigKeys.DEV_MODE.value: True})
@@ -67,6 +67,7 @@ def main() -> None:
     _install_exception_handler(app_engine)
     _apply_font(app, config_manager)
     _apply_theme(app, config_manager)
+    configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
 
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow

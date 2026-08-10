@@ -1,7 +1,8 @@
-from unittest.mock import Mock, patch
 from datetime import datetime, timezone
-from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
+from unittest.mock import Mock, patch
+
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
 
 
 def test_injected_client_is_used_directly_without_patching_the_sdk():

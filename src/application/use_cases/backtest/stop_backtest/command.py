@@ -6,5 +6,3 @@ class StopBacktestCommand:
     """
     @brief Command to stop the globally running backtest simulation.
     """
-
-    pass

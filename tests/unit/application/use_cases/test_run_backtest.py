@@ -1,16 +1,17 @@
-import pytest
-from unittest.mock import Mock, patch, call
 from datetime import datetime, timezone
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import (
-    RunBacktestCommandHandler,
-    BacktestState,
-)
+from unittest.mock import Mock, call, patch
+
+import pytest
 from Binace_Bot.src.application.use_cases.backtest.run_backtest.command import (
     RunBacktestCommand,
 )
+from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import (
+    BacktestState,
+    RunBacktestCommandHandler,
+)
+from Binace_Bot.src.domain.entities.market_data import MarketData
+from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 
 @pytest.fixture

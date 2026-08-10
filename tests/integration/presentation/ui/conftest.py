@@ -7,13 +7,13 @@ import pytest
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.main import create_app
 from Binace_Bot.src.presentation.ui.main_window import MainWindow
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 # Shared with any test module in this directory that needs a real, unmocked
 # thread pool (e.g. async/race-condition reproductions) — kept in one place
@@ -51,7 +51,7 @@ def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
 
 
 @pytest.fixture
-def app_engine(request, monkeypatch):
+def app_engine(request, monkeypatch, tmp_path):
     """
     Boot the Sagittarius Engine with all configurations but mock the
     dispatcher backend. Defaults to dev.mode=False; parametrize indirectly
@@ -70,10 +70,22 @@ def app_engine(request, monkeypatch):
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     )
     app_json = os.path.join(base_dir, "src", "config", "app_config.json")
-    user_json = os.path.join(base_dir, "src", "config", "user_config.json")
+    real_user_json = os.path.join(base_dir, "src", "config", "user_config.json")
+
+    # Loaded writable from a tmp copy, not the real file: Settings' Save
+    # button calls ConfigManager.save(), and any test in this directory that
+    # exercises it (directly or incidentally, e.g. by driving the full Dev
+    # Board/Settings flow) must not overwrite the actual repo config on every
+    # run — both a bad side effect and non-hermetic across parallel runs.
+    user_json = tmp_path / "user_config.json"
+    if os.path.exists(real_user_json):
+        with open(real_user_json) as src:
+            user_json.write_text(src.read())
+    else:
+        user_json.write_text("{}")
 
     config_manager.load_json(app_json)
-    config_manager.load_json(user_json)
+    config_manager.load_json(str(user_json), writable=True)
     if dev_mode:
         config_manager.load_dict({"dev.mode": True})
 

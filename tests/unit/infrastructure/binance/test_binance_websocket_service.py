@@ -1,9 +1,10 @@
-import pytest
 from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 
 def test_create_socket_uses_plain_kline_socket_for_a_single_symbol():

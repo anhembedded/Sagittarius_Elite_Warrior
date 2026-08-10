@@ -7,7 +7,6 @@ EMA/RSI/MACD instances rather than mocks; there is no I/O to stub out.
 """
 
 import pytest
-
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript, PlottedLine
 

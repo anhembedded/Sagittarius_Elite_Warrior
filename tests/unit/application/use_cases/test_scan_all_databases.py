@@ -1,16 +1,17 @@
-import pytest
-from unittest.mock import Mock
+import dataclasses
 from datetime import datetime, timezone
+from unittest.mock import Mock
 
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
-    DatabaseStatusDTO,
-    ScanAllDatabasesQuery,
+import pytest
+from Binace_Bot.src.application.ports.i_market_data_repository import (
+    DatabaseStatusSnapshot,
 )
 from Binace_Bot.src.application.use_cases.queries.scan_all_databases.handler import (
     ScanAllDatabasesQueryHandler,
 )
-from Binace_Bot.src.application.ports.i_market_data_repository import (
-    DatabaseStatusSnapshot,
+from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+    DatabaseStatusDTO,
+    ScanAllDatabasesQuery,
 )
 
 
@@ -144,5 +145,5 @@ def test_dto_is_frozen(handler, mock_repo):
     results = handler.execute(query)
     dto = results[0]
 
-    with pytest.raises(Exception):  # FrozenInstanceError
+    with pytest.raises(dataclasses.FrozenInstanceError):
         dto.symbol = "ETHUSDT"  # type: ignore[misc]

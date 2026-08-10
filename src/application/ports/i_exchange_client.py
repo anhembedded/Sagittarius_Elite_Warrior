@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
+
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
@@ -25,4 +26,3 @@ class IExchangeClient(ABC):
         @param end_str Optional end time string or datetime
         @return A list of MarketData entities.
         """
-        pass

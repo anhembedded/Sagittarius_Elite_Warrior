@@ -1,6 +1,7 @@
 import os
-import pytest
 from datetime import datetime, timezone
+
+import pytest
 
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -16,7 +17,11 @@ from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 # That gap didn't crash outright in this file, but nothing here was actually
 # protected from the same race either — deleting the local duplicates
 # instead of re-patching them a second place keeps there being exactly one
-# fixture to keep correct.
+# fixture to keep correct. The one thing worth keeping from the old local
+# fixture — writing to a tmp_path copy of user_config.json instead of the
+# real repo file, so test_sanity_settings_screen_save's Save button doesn't
+# overwrite real config — was ported into conftest.py's shared app_engine
+# fixture instead of duplicated back here.
 #
 # Must match conftest.MOCK_KLINE_COUNT (not imported: this directory's test
 # modules have no __init__.py, so they're collected as top-level modules,

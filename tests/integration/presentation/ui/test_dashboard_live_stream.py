@@ -1,16 +1,17 @@
-import pytest
 from unittest.mock import MagicMock
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
-    DashboardView,
-)
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
-    DashboardPresenter,
-)
+
+import pytest
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
 from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
+)
+from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+    DashboardPresenter,
+)
+from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+    DashboardView,
 )
 
 

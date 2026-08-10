@@ -1,13 +1,14 @@
 from unittest.mock import Mock
-from sagittarius_engine import App
-from sagittarius_engine.interfaces.i_config import IConfig
-from Binace_Bot.src.presentation.cli.handlers.stream_cli_handler import StreamCliHandler
+
 from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
 from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
     StopLiveStreamCommand,
 )
+from Binace_Bot.src.presentation.cli.handlers.stream_cli_handler import StreamCliHandler
+from sagittarius_engine import App
+from sagittarius_engine.interfaces.i_config import IConfig
 
 
 def _get_mock_config():

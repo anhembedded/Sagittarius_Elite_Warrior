@@ -205,17 +205,23 @@ sequenceDiagram
 
 ---
 
-## 7. Shared QML infrastructure (`screens/_qml_shared/`)
+## 7. Shared QML infrastructure (`sagittarius_engine.extensions.pyside_mvc`)
 
-Built once, reused by every screen — deliberately kept *inside* `Binace_Bot`
-rather than promoted into the shared `sagittarius_engine` framework (see
-§9).
+Built once, reused by every screen. Originally kept *inside* `Binace_Bot`
+(`screens/_qml_shared/`) until a second real QML consumer arrived — see §9
+— at which point it was promoted into the shared `sagittarius_engine`
+framework (`extensions/pyside_mvc/QmlShared/`) and this app switched to
+importing it from there. `ThemeBridge` and `IconImageProvider` were
+generalized in the move: the engine has no opinion on this app's own color
+vocabulary or icon set, so both now take this app's `Palette`/`IconLoader`
+as arguments (via `configure_app_qml()`, called once in
+`app_bootstrapper.py`) rather than importing them directly.
 
 ```mermaid
 classDiagram
     class ThemeBridge {
-        <<QObject singleton>>
-        +bg, bgCard, border, accent, success, danger, muted : str [constant]
+        <<QQmlPropertyMap singleton, sagittarius_engine>>
+        exposes whatever palette dict the app passes to configure_app_qml()
     }
     class QmlHostView {
         <<BaseView subclass>>
@@ -263,24 +269,29 @@ classDiagram
 
 Key pieces:
 
-- **`ThemeBridge`** — the palette (`assets/palette.py`) exposed to QML as
-  `Theme.accent`, `Theme.bgCard`, etc., so no `.qml` file hardcodes a hex
-  color. One Python source of truth for both QtWidgets (`style.qss`,
-  hand-kept in sync) and QML (`Theme.*`, generated from the same class).
+- **`ThemeBridge`** — a `QQmlPropertyMap` exposing whatever palette dict
+  `configure_app_qml()` was given as `Theme.accent`, `Theme.bgCard`, etc.,
+  so no `.qml` file hardcodes a hex color. This app builds that dict from
+  `Palette.as_ui_dict()` (`assets/palette.py`) — one Python source of truth
+  for both QtWidgets (`style.qss`, hand-kept in sync) and QML.
 - **`create_quick_widget()`** — pins the Qt Quick Controls style to
   `"Basic"` (the native "Windows" style silently ignores all
-  `background:`/`contentItem:` overrides), wires the `Theme` singleton and
-  the icon provider. Both `QmlHostView` and the Dev Board's hybrid
-  `DashboardView` call this — factored out so the hybrid case doesn't
-  hand-roll a partial copy of the setup.
+  `background:`/`contentItem:` overrides), adds the engine's `QmlShared`
+  QML module to the import path, and wires the `Theme` singleton and the
+  icon provider from the app's `configure_app_qml()` call. Both
+  `QmlHostView` and the Dev Board's hybrid `DashboardView` call this —
+  factored out so the hybrid case doesn't hand-roll a partial copy of the
+  setup.
 - **`BaseQmlViewModel`** — every screen's ViewModel subclasses this to get
   the `uiMode` property for free (§6).
-- **`IconImageProvider`** — bridges the existing `IconLoader` (Lucide SVGs,
-  recolor + cache) into QML's `image://icons/<name>/<color>` URL scheme.
-- **`LogListModel` + `LogPanel.qml`** — one shared, bounded (500-entry)
-  timestamped log list, used by both the Database sync log and the Dev
-  Board's system monitor. Replaced two near-identical `MonitorCard`-style
-  widgets with one component.
+- **`IconImageProvider`** — bridges an app-supplied `IIconLoader` (this
+  app's own Lucide-SVG `IconLoader`: recolor + cache) into QML's
+  `image://icons/<name>/<color>` URL scheme; the color-token vocabulary is
+  this app's `Palette.as_icon_dict()`, passed in via `configure_app_qml()`.
+- **`LogListModel` + `LogPanel.qml`** (`import QmlShared 1.0` in QML) — one
+  shared, bounded (500-entry) timestamped log list, used by both the
+  Database sync log and the Dev Board's system monitor. Replaced two
+  near-identical `MonitorCard`-style widgets with one component.
 
 ---
 
@@ -312,19 +323,25 @@ that signal, guaranteed to run on the main thread.
 
 ---
 
-## 9. What's deliberately *not* promoted (yet)
+## 9. What got promoted, and what's still deliberately local
 
-The shared QML infrastructure in §7 stays local to `Binace_Bot` rather than
-moving into `sagittarius_engine/extensions/pyside_mvc`. This was a
-conscious call at the end of `BOT-030`, not an oversight: a repo-wide check
-found **no other app currently uses `pyside_mvc` at all**. Promoting a
-pattern to a shared framework package with a single real consumer is
-generalizing before there's a second data point to generalize *from* — the
-same trap `BOT-028`'s retro already flagged once ("wait for QML screen
-#2"). The trigger for promotion is a second app that actually needs to host
-QML, not a count of screens within this one app.
+The shared QML infrastructure described in §7 stayed local to `Binace_Bot`
+(`screens/_qml_shared/`) through the end of `BOT-030` — a conscious call,
+not an oversight: a repo-wide check at the time found no other app using
+`pyside_mvc` at all, and promoting a pattern to a shared framework package
+with a single real consumer is generalizing before there's a second data
+point to generalize *from* (the same trap `BOT-028`'s retro already
+flagged once, "wait for QML screen #2"). The trigger for promotion was
+always meant to be a second app that actually needs to host QML, not a
+count of screens within this one app — and that second app is what
+triggered the actual promotion into `sagittarius_engine.extensions.pyside_mvc.QmlShared`
+(§7). `ThemeBridge` and `IconImageProvider` couldn't move verbatim, since
+their property names and palette imports were this app's own vocabulary,
+not the engine's — they were generalized to take that vocabulary as
+arguments instead (`configure_app_qml()`).
 
-Two related things were left alone for the same reason:
+Two related things were left alone, for the same "wait for a real second
+consumer" reason that applied to `_qml_shared` until now:
 
 - **`dev.mode` auto click-logging** (`_ButtonClickWatcher` in
   `sagittarius_engine`) only finds real `QPushButton` instances via

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from pydantic import BaseModel, Field
 
 
 class RunBacktestCommand(BaseModel):

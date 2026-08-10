@@ -10,15 +10,13 @@ import os
 from unittest.mock import patch
 
 import pytest
-
+from Binace_Bot.src.main import create_app
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
-from Binace_Bot.src.main import create_app
 
 _CORE_INTERFACES = [IDispatcher, IEventBus, IThreadManager, IConfig, ITaskManager]
 

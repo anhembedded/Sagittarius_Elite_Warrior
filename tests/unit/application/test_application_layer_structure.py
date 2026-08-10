@@ -35,7 +35,7 @@ def _cqrs_expected_filename(class_name: str) -> str | None:
     # concrete use-case classes — the interface-name check excludes them.
     if _is_interface_name(class_name):
         return None
-    if class_name.endswith("CommandHandler") or class_name.endswith("QueryHandler"):
+    if class_name.endswith(("CommandHandler", "QueryHandler")):
         return "handler.py"
     if class_name.endswith("Command"):
         return "command.py"

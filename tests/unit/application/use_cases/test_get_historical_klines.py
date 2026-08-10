@@ -1,11 +1,12 @@
-import pytest
-from unittest.mock import Mock
 from datetime import datetime, timezone
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
+from unittest.mock import Mock
+
+import pytest
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.handler import (
     GetHistoricalKlinesQueryHandler,
+)
+from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+    GetHistoricalKlinesQuery,
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 

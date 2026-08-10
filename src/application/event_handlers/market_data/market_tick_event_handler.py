@@ -1,7 +1,7 @@
 import logging
-from sagittarius_engine import App
 
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from sagittarius_engine import App
 
 
 class MarketTickEventHandler:

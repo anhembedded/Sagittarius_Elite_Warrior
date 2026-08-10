@@ -1,10 +1,11 @@
 from unittest.mock import Mock
-from sagittarius_engine import App
-from sagittarius_engine.interfaces.i_config import IConfig
-from Binace_Bot.src.presentation.cli.interactive_shell import InteractiveShell
+
 from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
 )
+from Binace_Bot.src.presentation.cli.interactive_shell import InteractiveShell
+from sagittarius_engine import App
+from sagittarius_engine.interfaces.i_config import IConfig
 
 
 def test_interactive_shell_execute_sync():
@@ -34,7 +35,7 @@ def test_interactive_shell_execute_sync():
     shell.default("sync --symbols ETHUSDT --interval 1m --days 2")
 
     app.dispatch.assert_called_once()
-    args, kwargs = app.dispatch.call_args
+    args, _kwargs = app.dispatch.call_args
     assert args[0] == SyncMarketDataCommand
     cmd = args[1]
     assert cmd.symbols == ["ETHUSDT"]

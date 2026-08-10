@@ -1,8 +1,8 @@
 import pyqtgraph as pg
 import pytest
+from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
-from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
 
 
 def test_chart_card_initialization(qapp):
@@ -533,7 +533,7 @@ def test_chart_card_crosshair_mouse_hover(qapp):
     try:
         # Gọi trực tiếp hàm xử lý chuột để đảm bảo không văng AttributeError
         card._mouse_moved((mock_pos,))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - test asserts no exception of any kind escapes
         pytest.fail(f"_mouse_moved crashed with: {e}")
 
     # Test passed nếu không có exception nào văng ra
