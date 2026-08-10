@@ -1,14 +1,14 @@
 import os
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
+
+import pytest
 
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 # Delay importing PySide6 and app code until within the test or fixture
 # to ensure QT_QPA_PLATFORM is evaluated early.
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
@@ -16,6 +16,7 @@ from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 from Binace_Bot.src.main import create_app
 from Binace_Bot.src.presentation.ui.main_window import MainWindow
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _MOCK_KLINE_COUNT = 5
 

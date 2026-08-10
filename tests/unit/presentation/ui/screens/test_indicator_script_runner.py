@@ -12,7 +12,6 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
-
 from Binace_Bot.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )

@@ -1,11 +1,13 @@
-import time
 import logging
+import time
+
 from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
 from Binace_Bot.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
+
 from .command import RunBacktestCommand
 
 

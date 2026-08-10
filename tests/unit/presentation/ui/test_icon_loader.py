@@ -1,5 +1,4 @@
 import pytest
-
 from Binace_Bot.src.presentation.ui.assets.icon_loader import (
     IconLoader,
     IconTheme,

@@ -1,15 +1,16 @@
 import cmd
+import logging
 import shlex
-from typing import Optional
 
+from Binace_Bot.src.presentation.cli.handlers.stream_cli_handler import StreamCliHandler
+from Binace_Bot.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
-from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle
+from sagittarius_engine.runtime.hosted.hosted_service import IHostedService
 
-from Binace_Bot.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
-from Binace_Bot.src.presentation.cli.handlers.stream_cli_handler import StreamCliHandler
+logger = logging.getLogger("App.InteractiveShell")
 
 
 class InteractiveShell(cmd.Cmd, IHostedService):
@@ -25,7 +26,7 @@ class InteractiveShell(cmd.Cmd, IHostedService):
     def __init__(self, app: App):
         super().__init__()
         self.app = app
-        self.task: Optional[ITaskHandle] = None
+        self.task: ITaskHandle | None = None
         self.config = app.container.resolve(IConfig)
 
         # Hardcode the routing map to handlers.
@@ -43,7 +44,7 @@ class InteractiveShell(cmd.Cmd, IHostedService):
             try:
                 self.task.future.result()
             except Exception:
-                pass
+                logger.exception("InteractiveShell task raised during shutdown")
 
     def _run_loop(self) -> None:
         try:
@@ -103,4 +104,3 @@ class InteractiveShell(cmd.Cmd, IHostedService):
 
     def emptyline(self):
         """Do nothing on empty input line instead of repeating last command."""
-        pass

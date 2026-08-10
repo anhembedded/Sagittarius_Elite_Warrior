@@ -19,18 +19,15 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtQuickWidgets import QQuickWidget  # noqa: E402
-
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter  # noqa: E402
-
-from sagittarius_engine.extensions.pyside_mvc import (  # noqa: E402
+from Binace_Bot.src.presentation.ui.assets import IconTheme, Palette
+from Binace_Bot.src.presentation.ui.constants import UIMode
+from PySide6.QtQuickWidgets import QQuickWidget
+from sagittarius_engine.extensions.pyside_mvc import (
+    BasePresenter,
     BaseQmlViewModel,
     QmlHostView,
     get_theme_bridge,
 )
-
-from Binace_Bot.src.presentation.ui.assets import IconTheme, Palette  # noqa: E402
-from Binace_Bot.src.presentation.ui.constants import UIMode  # noqa: E402
 
 _PROBE_QML = """
 import QtQuick

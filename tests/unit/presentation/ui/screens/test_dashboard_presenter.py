@@ -19,25 +19,24 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import pytest  # noqa: E402
-from unittest.mock import MagicMock  # noqa: E402
+from unittest.mock import MagicMock
 
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (  # noqa: E402
+import pytest
+from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (  # noqa: E402
+from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (  # noqa: E402
+from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (  # noqa: E402
+from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (  # noqa: E402
+from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -58,10 +57,6 @@ def mock_dispatcher():
 def mock_container(mock_thread_mgr, mock_dispatcher):
     container = MagicMock()
 
-    from sagittarius_engine.interfaces.i_config import IConfig
-    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
     from Binace_Bot.src.application.services.indicator_script_registry import (
         IndicatorScriptRegistry,
     )
@@ -69,6 +64,9 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
         EmaCrossScript,
         EmaRibbonScript,
     )
+    from sagittarius_engine.interfaces.i_config import IConfig
+    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
     # A real registry with the real scripts — they are pure state with no
     # I/O, so mocking them would only test the mock (ui_architecture.md S10).
@@ -332,10 +330,10 @@ def test_on_indicator_data_registers_overlay_once_then_only_updates(presenter):
 def test_update_indicators_on_closed_candle_appends_and_pushes_to_chart(presenter):
     """A live closed candle must append to the running series (not replace
     it) and push the full accumulated series to the chart."""
+    from Binace_Bot.src.domain.indicators.ema import EMA
     from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
         _ActiveIndicator,
     )
-    from Binace_Bot.src.domain.indicators.ema import EMA
 
     # period=1 warms up on the very first update() call.
     active_indicator = _ActiveIndicator(

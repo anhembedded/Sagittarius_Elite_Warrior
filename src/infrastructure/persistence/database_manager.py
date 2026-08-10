@@ -1,10 +1,11 @@
+import logging
 import os
 import re
-import logging
-import sqlalchemy as sa
-from sqlalchemy.orm import sessionmaker
 from dataclasses import dataclass
+
+import sqlalchemy as sa
 from Binace_Bot.src.infrastructure.persistence.models import Base
+from sqlalchemy.orm import sessionmaker
 
 logger = logging.getLogger("App.Database")
 

@@ -11,21 +11,20 @@ a Mock would happily "pass" even if save() were never called.
 
 import json
 import os
+from unittest.mock import Mock, call
 
 import pytest
-from unittest.mock import Mock, call
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from sagittarius_engine.infrastructure.config.config_manager import (  # noqa: E402
-    ConfigManager,
-)
-
-from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (  # noqa: E402
+from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (  # noqa: E402
+from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
+)
+from sagittarius_engine.infrastructure.config.config_manager import (
+    ConfigManager,
 )
 
 

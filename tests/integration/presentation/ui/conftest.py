@@ -7,13 +7,13 @@ import pytest
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.main import create_app
 from Binace_Bot.src.presentation.ui.main_window import MainWindow
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 # Shared with any test module in this directory that needs a real, unmocked
 # thread pool (e.g. async/race-condition reproductions) — kept in one place

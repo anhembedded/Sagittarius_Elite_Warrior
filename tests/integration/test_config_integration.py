@@ -1,4 +1,5 @@
 import os
+
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 

@@ -1,13 +1,13 @@
 import argparse
-from typing import Any, Dict
-from sagittarius_engine.interfaces.i_config import IConfig
+from typing import Any
 
+from sagittarius_engine.interfaces.i_config import IConfig
 
 TYPE_MAPPING = {"str": str, "int": int, "float": float, "bool": bool}
 
 
 def _add_arguments_to_parser(
-    parser: argparse.ArgumentParser, args_list: list[Dict[str, Any]]
+    parser: argparse.ArgumentParser, args_list: list[dict[str, Any]]
 ) -> None:
     for arg in args_list:
         kwargs = {}
@@ -27,7 +27,7 @@ def _add_arguments_to_parser(
 
 
 def _build_command_parser(
-    parser_or_subparser: Any, cmd_name: str, cmd_config: Dict[str, Any]
+    parser_or_subparser: Any, cmd_name: str, cmd_config: dict[str, Any]
 ) -> argparse.ArgumentParser:
     if isinstance(parser_or_subparser, argparse._SubParsersAction):
         cmd_parser = parser_or_subparser.add_parser(

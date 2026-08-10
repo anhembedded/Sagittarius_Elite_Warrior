@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from sagittarius_engine.domain.base_event import BaseEvent
 
 

@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import patch
 from datetime import datetime, timezone
+from unittest.mock import patch
+
+import pytest
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
 

@@ -11,12 +11,6 @@ Screen-specific factory/presenter imports stay at the top level (no local import
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
-
-from sagittarius_engine.extensions.pyside_mvc import PresenterManager
-
 from Binace_Bot.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,
@@ -40,9 +34,8 @@ from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (
 from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
-
-if TYPE_CHECKING:
-    pass
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
 # ---------------------------------------------------------------------------
 # Navigation sections. A NavItem with route=None is a placeholder for a screen
@@ -152,6 +145,6 @@ class MainWindow(QMainWindow):
 # New code should use app_bootstrapper.main() instead.
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    from Binace_Bot.src.presentation.ui.app_bootstrapper import main as main
+    from Binace_Bot.src.presentation.ui.app_bootstrapper import main
 
     main()

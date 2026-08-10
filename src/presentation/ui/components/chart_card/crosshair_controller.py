@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Callable, Optional
 
 import pyqtgraph as pg
 from PySide6 import QtCore
@@ -23,11 +23,11 @@ class CrosshairController:
         self,
         scene: QtCore.QObject,
         label: pg.LabelItem,
-        ohlc_lookup: Optional[Callable[[float], Optional[OhlcCandle]]] = None,
+        ohlc_lookup: Callable[[float], OhlcCandle | None] | None = None,
     ) -> None:
         self._label = label
         self._ohlc_lookup = ohlc_lookup
-        self._primary_plot: Optional[pg.PlotItem] = None
+        self._primary_plot: pg.PlotItem | None = None
         self._plots: list[pg.PlotItem] = []
         self._v_lines: list[pg.InfiniteLine] = []
         self._h_lines: list[pg.InfiniteLine] = []

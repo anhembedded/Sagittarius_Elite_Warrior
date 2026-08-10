@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 from Binace_Bot.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
@@ -57,5 +56,5 @@ class ScanAllDatabasesQuery:
     The Handler owns the iteration logic; the Presenter simply dispatches once.
     """
 
-    symbols: List[str]
-    intervals: List[str]
+    symbols: list[str]
+    intervals: list[str]

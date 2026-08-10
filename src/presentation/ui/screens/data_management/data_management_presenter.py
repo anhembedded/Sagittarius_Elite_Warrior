@@ -3,12 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
-
-from PySide6.QtCore import Signal, Slot
-
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+from typing import TYPE_CHECKING
 
 from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
 from Binace_Bot.src.application.use_cases.queries.get_database_status.query import (
@@ -26,6 +21,9 @@ from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
 )
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.presentation.ui.constants import UIMode
+from PySide6.QtCore import Signal, Slot
+from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .data_management_view_model import DataManagementViewModel
 
@@ -104,7 +102,7 @@ class DataManagementPresenter(BasePresenter):
     ui_unlock_signal = Signal()
     ui_sync_complete_signal = Signal()
 
-    def __init__(self, view: "DataManagementView", container: "IContainer") -> None:
+    def __init__(self, view: DataManagementView, container: IContainer) -> None:
         super().__init__(view, container)
 
         self._view_model = DataManagementViewModel()
@@ -116,7 +114,7 @@ class DataManagementPresenter(BasePresenter):
         # Bridge Python logging to the UI log panel. Detached when this
         # screen's view goes away so a closed screen never keeps intercepting
         # (or breaking) app-wide logging — see SignalLogHandler's docstring.
-        self._log_handler: Optional[SignalLogHandler] = SignalLogHandler(
+        self._log_handler: SignalLogHandler | None = SignalLogHandler(
             self.ui_log_signal
         )
         self._log_handler.setLevel(logging.INFO)
@@ -245,7 +243,7 @@ class DataManagementPresenter(BasePresenter):
             )
             self.ui_log_signal.emit("Scan complete.")
             self._refresh_stats()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Error scanning database: {exc}")
 
     @Slot()
@@ -331,7 +329,7 @@ class DataManagementPresenter(BasePresenter):
 
     def _custom_time_range(
         self,
-    ) -> Tuple[Optional[datetime], Optional[datetime]]:
+    ) -> tuple[datetime | None, datetime | None]:
         """
         @returns (start, end), or (None, None) when the custom range is off.
         @details Returns (None, None) for unparseable input too; callers that
@@ -348,7 +346,7 @@ class DataManagementPresenter(BasePresenter):
         return start, end
 
     @staticmethod
-    def _parse_datetime(raw: str) -> Optional[datetime]:
+    def _parse_datetime(raw: str) -> datetime | None:
         try:
             return datetime.strptime(raw.strip(), _CUSTOM_TIME_FORMAT).replace(
                 tzinfo=timezone.utc
@@ -408,8 +406,8 @@ class DataManagementPresenter(BasePresenter):
         self,
         symbol: str,
         interval: str,
-        start_time: Optional[datetime],
-        end_time: Optional[datetime],
+        start_time: datetime | None,
+        end_time: datetime | None,
     ) -> None:
         """
         Background worker: dispatches SyncMarketDataCommand for a single target.
@@ -425,18 +423,18 @@ class DataManagementPresenter(BasePresenter):
             self.dispatcher.dispatch(SyncMarketDataCommand, cmd)
             self.ui_log_signal.emit(f"Sync completed successfully for {symbol}.")
             self.ui_sync_complete_signal.emit()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Sync failed: {exc}")
             self.ui_unlock_signal.emit()
 
-    def _run_scan_all(self, symbols: List[str], intervals: List[str]) -> None:
+    def _run_scan_all(self, symbols: list[str], intervals: list[str]) -> None:
         """
         Background worker: dispatches ScanAllDatabasesQuery and emits results
         to the status table via signals. The Handler owns all iteration logic.
         """
         try:
             query = ScanAllDatabasesQuery(symbols=symbols, intervals=intervals)
-            results: List[DatabaseStatusDTO] = self.dispatcher.dispatch(
+            results: list[DatabaseStatusDTO] = self.dispatcher.dispatch(
                 ScanAllDatabasesQuery, query
             )
 
@@ -451,12 +449,12 @@ class DataManagementPresenter(BasePresenter):
                 )
 
             self.ui_log_signal.emit("Full scan complete.")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Error scanning databases: {exc}")
         finally:
             self.ui_unlock_signal.emit()
 
-    def _run_bulk_sync(self, targets: List[Tuple[str, str]]) -> None:
+    def _run_bulk_sync(self, targets: list[tuple[str, str]]) -> None:
         """
         Background worker: dispatches BulkSyncMarketDataCommand.
         Progress and completion are reported via BulkSyncProgressEvent → signals.
@@ -464,6 +462,6 @@ class DataManagementPresenter(BasePresenter):
         try:
             cmd = BulkSyncMarketDataCommand(targets=targets)
             self.dispatcher.dispatch(BulkSyncMarketDataCommand, cmd)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Failed to dispatch bulk sync: {exc}")
             self.ui_unlock_signal.emit()

@@ -1,10 +1,10 @@
-from binance.client import Client
+import logging
 from datetime import datetime, timezone
-from typing import Optional
+
 from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-import logging
+from binance.client import Client
 
 logger = logging.getLogger("App.ExchangeClient")
 
@@ -18,7 +18,7 @@ class PythonBinanceClient(IExchangeClient):
         self,
         api_key: str = "",
         api_secret: str = "",
-        client: Optional[Client] = None,
+        client: Client | None = None,
     ) -> None:
         """
         @param client Optional pre-built binance.client.Client (or a test double). Lets

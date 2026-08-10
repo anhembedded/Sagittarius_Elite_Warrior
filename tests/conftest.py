@@ -16,12 +16,11 @@ def _configure_app_qml():
     bootstrapper, so this fixture stands in for it, once per session, using
     the real Palette/IconLoader so tests exercise the real wiring.
     """
+    from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
     from sagittarius_engine.extensions.pyside_mvc import (
         configure_app_qml,
         get_theme_bridge,
     )
-
-    from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
 
     configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
     # Also primes the theme-bridge singleton itself (normally lazy, first
@@ -39,8 +38,9 @@ def qapp():
     Creates one if PySide6 is available; skips the test if not installed.
     """
     try:
-        from PySide6.QtWidgets import QApplication
         import sys
+
+        from PySide6.QtWidgets import QApplication
 
         app = QApplication.instance()
         if app is None:

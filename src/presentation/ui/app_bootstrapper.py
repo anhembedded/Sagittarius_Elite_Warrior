@@ -19,17 +19,15 @@ import sys
 import traceback
 
 import qdarktheme
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QApplication, QMessageBox
-
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine.interfaces.i_config import IConfig
-
 from Binace_Bot.src.config.config_keys import ConfigKeys
 from Binace_Bot.src.main import create_app
 from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
 from Binace_Bot.src.presentation.ui.main_window import MainWindow
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QApplication, QMessageBox
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.interfaces.i_config import IConfig
 
 # ---------------------------------------------------------------------------
 # Config file paths — resolved relative to this file's location

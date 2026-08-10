@@ -13,7 +13,7 @@ def test_first_candle_seeds_ha_open_from_its_own_open_close():
     ha = to_heikin_ashi(data)
 
     assert len(ha) == 1
-    t, ha_open, ha_high, ha_low, ha_close = ha[0]
+    t, ha_open, _ha_high, _ha_low, ha_close = ha[0]
     assert t == 0.0
     assert ha_close == (10.0 + 12.0 + 9.0 + 11.0) / 4.0  # 10.5
     assert ha_open == (10.0 + 11.0) / 2.0  # seed: avg(open, close) = 10.5

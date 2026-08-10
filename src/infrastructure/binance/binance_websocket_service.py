@@ -2,17 +2,16 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
+from Binace_Bot.src.application.ports.i_live_stream_service import (
+    ILiveStreamService,
+)
+from Binace_Bot.src.domain.entities.market_data import MarketData
+from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from binance import AsyncClient, BinanceSocketManager
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
-from Binace_Bot.src.application.ports.i_live_stream_service import (
-    ILiveStreamService,
-)
-
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 
 logger = logging.getLogger("App.LiveStream")
 
@@ -122,7 +121,7 @@ class BinanceWebsocketService(ILiveStreamService):
                 try:
                     await client.close_connection()
                     logger.info("Binance AsyncClient connection closed.")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - boundary: log and continue teardown
                     logger.warning(f"Error closing Binance client: {e}")
 
     @staticmethod

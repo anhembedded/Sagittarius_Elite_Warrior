@@ -23,7 +23,7 @@ same way, with no per-indicator perf work needed.
 """
 
 import bisect
-from typing import Callable, Sequence
+from collections.abc import Callable, Sequence
 
 
 def visible_slice_indices(

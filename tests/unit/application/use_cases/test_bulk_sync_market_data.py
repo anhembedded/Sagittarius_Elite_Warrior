@@ -1,5 +1,7 @@
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
 from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
@@ -9,7 +11,6 @@ from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data.handler imp
 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
 from Binace_Bot.src.config.config_keys import ConfigKeys
 
 

@@ -1,6 +1,7 @@
-from datetime import datetime, timezone
-import pytest
 from dataclasses import FrozenInstanceError
+from datetime import datetime, timezone
+
+import pytest
 
 from src.domain.entities.market_data import MarketData
 

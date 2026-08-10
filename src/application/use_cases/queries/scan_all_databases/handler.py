@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 from Binace_Bot.src.application.ports.i_cqrs import IQueryHandler
 from Binace_Bot.src.application.ports.i_market_data_repository import (
@@ -15,7 +14,7 @@ logger = logging.getLogger("App.QueryHandler")
 
 
 class ScanAllDatabasesQueryHandler(
-    IQueryHandler[ScanAllDatabasesQuery, List[DatabaseStatusDTO]]
+    IQueryHandler[ScanAllDatabasesQuery, list[DatabaseStatusDTO]]
 ):
     """
     @brief Handler for ScanAllDatabasesQuery.
@@ -28,7 +27,7 @@ class ScanAllDatabasesQueryHandler(
     def __init__(self, repository: IMarketDataRepository) -> None:
         self._repository = repository
 
-    def execute(self, query: ScanAllDatabasesQuery) -> List[DatabaseStatusDTO]:
+    def execute(self, query: ScanAllDatabasesQuery) -> list[DatabaseStatusDTO]:
         """
         @brief Scans all symbol/interval pairs and returns formatted status DTOs.
         @param query ScanAllDatabasesQuery carrying the lists of symbols and intervals.
@@ -39,7 +38,7 @@ class ScanAllDatabasesQueryHandler(
             f"x {len(query.intervals)} intervals."
         )
 
-        results: List[DatabaseStatusDTO] = []
+        results: list[DatabaseStatusDTO] = []
 
         for symbol in query.symbols:
             for interval in query.intervals:
@@ -64,7 +63,7 @@ class ScanAllDatabasesQueryHandler(
             snapshot = self._repository.get_database_status(
                 symbol=symbol, interval=interval_vo
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: report per-symbol scan failure without aborting the batch
             logger.error(f"Error scanning {symbol} ({interval}): {exc}")
             return None
 

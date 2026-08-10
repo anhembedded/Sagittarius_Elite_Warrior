@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime
 
 
@@ -12,6 +11,6 @@ class GetHistoricalKlinesQuery:
     symbol: str
     interval: str
     limit: int = 1000
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     order_by_desc: bool = False

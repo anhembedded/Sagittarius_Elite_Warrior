@@ -1,9 +1,11 @@
 import logging
+
 from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
-from .command import StopBacktestCommand
 from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import (
     BacktestState,
 )
+
+from .command import StopBacktestCommand
 
 
 class StopBacktestCommandHandler(ICommandHandler[StopBacktestCommand, None]):

@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtWidgets import QScrollArea, QSplitter, QVBoxLayout, QWidget
-
 from sagittarius_engine.extensions.pyside_mvc import BaseView, create_quick_widget
 
 _QML_DIR = Path(__file__).parent

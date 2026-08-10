@@ -1,19 +1,19 @@
 import sys
-from sagittarius_engine import App
-from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
-from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
-from sagittarius_engine.utils.path_utils import PathUtils
-from sagittarius_engine.extensions.logger.logger_module import LoggerExtension
-from sagittarius_engine.middleware.pydantic_validation_middleware import (
-    PydanticValidationMiddleware,
-)
 
 from Binace_Bot.src.binance_bot_module import BinanceBotModule
 from Binace_Bot.src.presentation.cli.cli_parser import build_parser
 from Binace_Bot.src.presentation.cli.sync_cmd import execute_sync
+from sagittarius_engine import App
+from sagittarius_engine.extensions.logger.logger_module import LoggerExtension
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
+from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
+from sagittarius_engine.middleware.pydantic_validation_middleware import (
+    PydanticValidationMiddleware,
+)
+from sagittarius_engine.utils.path_utils import PathUtils
 
 
 def create_app(config_manager: ConfigManager) -> App:

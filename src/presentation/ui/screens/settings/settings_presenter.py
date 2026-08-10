@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Slot
-
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -51,7 +50,7 @@ class SettingsPresenter(BasePresenter):
     against.
     """
 
-    def __init__(self, view: "SettingsView", container: "IContainer") -> None:
+    def __init__(self, view: SettingsView, container: IContainer) -> None:
         super().__init__(view, container)
 
         self._settings_view_model = SettingsViewModel()

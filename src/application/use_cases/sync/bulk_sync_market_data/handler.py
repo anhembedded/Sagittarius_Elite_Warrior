@@ -1,16 +1,18 @@
-import time
 import logging
-from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
-from sagittarius_engine.interfaces.i_config import IConfig
-from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-from .command import BulkSyncMarketDataCommand
+import time
+
 from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
+from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from Binace_Bot.src.config.config_keys import ConfigKeys
+from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
+
+from .command import BulkSyncMarketDataCommand
 
 
 class BulkSyncMarketDataCommandHandler(
@@ -91,7 +93,7 @@ class BulkSyncMarketDataCommandHandler(
                 if idx < total - 1:
                     time.sleep(delay_sec)
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - boundary: report per-symbol sync failure without aborting the batch
                 self.logger.error(f"Error syncing {symbol} ({interval}): {e}")
                 self.event_bus.emit(
                     BulkSyncProgressEvent(
@@ -100,7 +102,7 @@ class BulkSyncMarketDataCommandHandler(
                         symbol=symbol,
                         interval=interval,
                         has_error=True,
-                        message=f"Failed: {str(e)}",
+                        message=f"Failed: {e!s}",
                     )
                 )
 

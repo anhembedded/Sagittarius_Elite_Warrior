@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Callable, List, Tuple
+from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Signal, Slot
-
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
+from Binace_Bot.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
 from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
@@ -21,9 +20,6 @@ from Binace_Bot.src.application.use_cases.stream.stop_live_stream.command import
 from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
 from Binace_Bot.src.domain.indicators.ema import EMA
@@ -35,21 +31,23 @@ from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
     BULL_COLOR,
 )
 from Binace_Bot.src.presentation.ui.constants import UIMode
+from PySide6.QtCore import Signal, Slot
+from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .dashboard_view_model import DashboardQmlViewModel
 from .indicator_script_runner import IndicatorScriptRunner
 
 if TYPE_CHECKING:
-    from sagittarius_engine.interfaces.i_container import IContainer
-
     from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
         DashboardView,
     )
+    from sagittarius_engine.interfaces.i_container import IContainer
 
 # ---------------------------------------------------------------------------
 # Constants — no magic values scattered in method bodies
 # ---------------------------------------------------------------------------
-_DEFAULT_SYMBOLS: Tuple[str, ...] = ("ETHUSDT",)
+_DEFAULT_SYMBOLS: tuple[str, ...] = ("ETHUSDT",)
 _DEFAULT_INTERVAL_STR: str = "1m"
 _DEFAULT_KLINE_LIMIT: int = 5000
 
@@ -163,7 +161,7 @@ class DashboardPresenter(BasePresenter):
 
     INITIAL_STATE = UIMode.IDLE
 
-    def __init__(self, view: "DashboardView", container: "IContainer") -> None:
+    def __init__(self, view: DashboardView, container: IContainer) -> None:
         super().__init__(view, container)
 
         self._view_model = DashboardQmlViewModel()
@@ -263,7 +261,7 @@ class DashboardPresenter(BasePresenter):
     def _append_log(self, message: str) -> None:
         self._view_model.log_model.append(message, level="info")
 
-    def _ensure_chart_cards(self, symbols: List[str]) -> list:
+    def _ensure_chart_cards(self, symbols: list[str]) -> list:
         """
         @brief Reuse existing chart cards to prevent history wipeout.
         Only recreates layout if symbols change or no charts exist.
@@ -347,7 +345,7 @@ class DashboardPresenter(BasePresenter):
     # IndicatorScriptRunner; this presenter only says *when* things happen.
     # ================================================================== #
 
-    def _enabled_script_keys(self) -> List[str]:
+    def _enabled_script_keys(self) -> list[str]:
         """
         @brief Which scripts to run.
         @details Phase 3 replaces this with the view model's script list model
@@ -452,7 +450,7 @@ class DashboardPresenter(BasePresenter):
             self.dispatcher.dispatch(StopLiveStreamCommand, cmd)
             self._view_model.log_model.append("Live Stream stopped.")
             self.fsm.transition_to(UIMode.IDLE)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self._view_model.log_model.append(
                 f"Error while stopping: {exc}", level="error"
             )
@@ -595,7 +593,7 @@ class DashboardPresenter(BasePresenter):
 
     def _run_load_history(
         self,
-        symbols: List[str],
+        symbols: list[str],
         interval_str: str,
         limit: int,
         active_indicators: dict[str, _ActiveIndicator] | None = None,
@@ -635,7 +633,7 @@ class DashboardPresenter(BasePresenter):
                     self._compute_indicator_series(ordered_klines, indicator_snapshot)
                     self._script_runner.feed_all(ordered_klines)
 
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
                     self.ui_log_signal.emit(
                         f"Exception while loading history for {symbol}: {exc}"
                     )
@@ -644,7 +642,7 @@ class DashboardPresenter(BasePresenter):
 
     def _run_sync_and_start(
         self,
-        symbols: List[str],
+        symbols: list[str],
         interval: TimeFrame,
         interval_str: str,
         limit: int,
@@ -695,12 +693,12 @@ class DashboardPresenter(BasePresenter):
                 msg = getattr(response, "message", "Unknown error")
                 self.ui_stream_failed_signal.emit(f"Failed to start: {msg}")
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_stream_failed_signal.emit(f"System error: {exc}")
 
     def _compute_indicator_series(
         self,
-        ordered_klines: List,
+        ordered_klines: list,
         active_indicators: dict[str, _ActiveIndicator] | None = None,
     ) -> None:
         """

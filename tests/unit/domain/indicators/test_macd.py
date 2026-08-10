@@ -1,5 +1,4 @@
 import pytest
-
 from Binace_Bot.src.domain.indicators.ema import EMA
 from Binace_Bot.src.domain.indicators.macd import MACD
 

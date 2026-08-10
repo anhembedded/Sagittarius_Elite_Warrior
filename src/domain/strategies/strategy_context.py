@@ -1,5 +1,5 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.indicators.macd import MACDValue

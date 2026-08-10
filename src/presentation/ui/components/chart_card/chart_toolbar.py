@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from PySide6 import QtCore, QtWidgets
 
@@ -18,8 +18,8 @@ class ChartToolbar(QtWidgets.QWidget):
     def __init__(
         self,
         timeframes: Sequence[str] = DEFAULT_TIMEFRAMES,
-        active: Optional[str] = None,
-        parent: Optional[QtWidgets.QWidget] = None,
+        active: str | None = None,
+        parent: QtWidgets.QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._buttons: dict[str, QtWidgets.QPushButton] = {}
@@ -42,6 +42,6 @@ class ChartToolbar(QtWidgets.QWidget):
         self.set_active(timeframe)
         self.sig_timeframe_changed.emit(timeframe)
 
-    def set_active(self, timeframe: Optional[str]) -> None:
+    def set_active(self, timeframe: str | None) -> None:
         for tf, btn in self._buttons.items():
             btn.setChecked(tf == timeframe)

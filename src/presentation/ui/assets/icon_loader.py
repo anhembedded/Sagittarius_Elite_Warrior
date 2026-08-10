@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap
@@ -41,7 +40,7 @@ class IconLoader:
 
     def __init__(self, icons_dir: Path = _ICONS_DIR) -> None:
         self._icons_dir = icons_dir
-        self._cache: Dict[Tuple[str, str, int], QIcon] = {}
+        self._cache: dict[tuple[str, str, int], QIcon] = {}
 
     def get_icon(
         self, name: str, color: str = IconTheme.MUTED, size: int = _DEFAULT_SIZE
@@ -93,7 +92,7 @@ class IconLoader:
         self._cache.clear()
 
 
-_default_loader: Optional[IconLoader] = None
+_default_loader: IconLoader | None = None
 
 
 def get_icon_loader() -> IconLoader:

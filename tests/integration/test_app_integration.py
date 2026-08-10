@@ -1,21 +1,20 @@
-import pytest
 from unittest.mock import patch
 
-from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
-from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
-from sagittarius_engine.interfaces.i_config import IConfig
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine import App
-
-from Binace_Bot.src.binance_bot_module import BinanceBotModule
+import pytest
 from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
 from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
     StopLiveStreamCommand,
 )
+from Binace_Bot.src.binance_bot_module import BinanceBotModule
 from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from sagittarius_engine import App
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
+from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
+from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 @pytest.fixture

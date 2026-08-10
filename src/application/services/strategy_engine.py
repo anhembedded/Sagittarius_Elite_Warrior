@@ -1,7 +1,5 @@
 from types import MappingProxyType
 
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
-
 from Binace_Bot.src.domain.entities.market_data import MarketData
 from Binace_Bot.src.domain.events.signal_generated_event import SignalGeneratedEvent
 from Binace_Bot.src.domain.indicators.i_indicator import IIndicator
@@ -12,6 +10,7 @@ from Binace_Bot.src.domain.strategies.strategy_context import (
 )
 from Binace_Bot.src.domain.value_objects.signal import Signal
 from Binace_Bot.src.domain.value_objects.signal_action import SignalAction
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 class StrategyEngine:
