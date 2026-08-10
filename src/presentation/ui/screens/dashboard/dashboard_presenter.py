@@ -278,6 +278,7 @@ class DashboardPresenter(BasePresenter):
             self._active_interval = val
 
         self._stream_controller = StreamLifecycleController(
+            default_symbols=_DEFAULT_SYMBOLS,
             thread_manager=self._thread_manager,
             dispatcher=self.dispatcher,
             config=self.config,

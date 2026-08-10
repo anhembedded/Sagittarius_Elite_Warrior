@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-_DEFAULT_SYMBOLS = ("BTCUSDT", "ETHUSDT")
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
 _DEFAULT_LOAD_MORE_BATCH_CANDLES = 75
 
@@ -54,6 +53,7 @@ class StreamLifecycleController:
     def __init__(
         self,
         *,
+        default_symbols: tuple[str, ...],
         thread_manager: IThreadManager,
         dispatcher: IDispatcher,
         config: IConfig,
@@ -76,6 +76,7 @@ class StreamLifecycleController:
         emit_stream_failed: Callable[[str], None],
         emit_log: Callable[[str], None],
     ) -> None:
+        self._default_symbols = default_symbols
         self._thread_manager = thread_manager
         self.dispatcher = dispatcher
         self.config = config
@@ -117,7 +118,7 @@ class StreamLifecycleController:
         self._view_model.log_model.append(
             "Loading historical data from local database..."
         )
-        symbols = list(_DEFAULT_SYMBOLS)
+        symbols = list(self._default_symbols)
         self._ensure_chart_cards(symbols)
         self._rebuild_scripts()
         self._thread_manager.submit(
@@ -141,7 +142,7 @@ class StreamLifecycleController:
         self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
         self.fsm.transition_to(UIMode.LOCKED)
 
-        symbols = list(_DEFAULT_SYMBOLS)
+        symbols = list(self._default_symbols)
         interval = TimeFrame(self._get_active_interval())
 
         chart_cards = self._ensure_chart_cards(symbols)
