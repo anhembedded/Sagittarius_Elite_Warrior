@@ -618,15 +618,17 @@ def test_run_load_more_history_emits_nothing_when_no_older_data_exists(
     emitted = []
     presenter.ui_history_prepended_signal.connect(lambda *a: emitted.append(a))
     finished = []
-    presenter.ui_history_prepend_finished_signal.connect(finished.append)
+    presenter.ui_history_prepend_finished_signal.connect(lambda *a: finished.append(a))
 
     presenter._run_load_more_history(
         "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
     )
 
     assert emitted == []
-    # Unconditional — the pagination controller must still unlock.
-    assert finished == ["ETHUSDT"]
+    # Unconditional — the pagination controller must still unlock. found_more
+    # is False here — nothing was found, so HistoryPaginationController must
+    # not arm an auto-recheck (it would loop forever, see its docstring).
+    assert finished == [("ETHUSDT", False)]
 
 
 def test_run_load_more_history_does_nothing_with_an_already_cancelled_token(
@@ -668,11 +670,25 @@ def test_on_history_prepended_is_a_no_op_with_no_candles(presenter):
 
 def test_on_history_prepend_finished_unlocks_the_pagination_controller(presenter):
     calls = []
-    presenter._pagination.on_load_more_finished = calls.append
+    presenter._pagination.on_load_more_finished = lambda *a: calls.append(a)
 
-    presenter._on_history_prepend_finished("ETHUSDT")
+    presenter._on_history_prepend_finished("ETHUSDT", True)
 
-    assert calls == ["ETHUSDT"]
+    assert calls == [("ETHUSDT", True)]
+
+
+def test_run_load_more_history_reports_found_more_when_data_arrives(
+    presenter, mock_dispatcher
+):
+    mock_dispatcher.dispatch.return_value = [_make_full_kline(900.0)]
+    finished = []
+    presenter.ui_history_prepend_finished_signal.connect(lambda *a: finished.append(a))
+
+    presenter._run_load_more_history(
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+    )
+
+    assert finished == [("ETHUSDT", True)]
 
 
 def test_a_live_tick_extends_the_raw_kline_cache_for_a_later_prepend_rebuild(

@@ -165,7 +165,12 @@ class DashboardPresenter(BasePresenter):
     # prepend_historical_data's docstring — it must NOT reset the user's
     # current zoom/pan the way render_historical_data does).
     ui_history_prepended_signal = Signal(str, list, list)
-    ui_history_prepend_finished_signal = Signal(str)
+    #: Second arg: whether this fetch actually found any older candles.
+    #: HistoryPaginationController's auto-recheck-after-cooldown only arms
+    #: when this is True — see its on_load_more_finished docstring for why
+    #: (an unconditional recheck loops forever once a symbol's history is
+    #: exhausted, since nothing ever moves the "near the edge" boundary).
+    ui_history_prepend_finished_signal = Signal(str, bool)
 
     # Indicator name -> full (x, y) series computed so far
     ui_indicator_data_signal = Signal(str, list, list)
@@ -240,9 +245,9 @@ class DashboardPresenter(BasePresenter):
         # pattern as AutoStartController: constructed once here, torn down
         # implicitly with the presenter (parented to self).
         self._pagination = HistoryPaginationController(
-            fetch_older=self._fetch_older_history, 
+            fetch_older=self._fetch_older_history,
             recheck_edge=self._recheck_edge,
-            parent=self
+            parent=self,
         )
 
         # BOT-033 — interval actually used by Load History/Start Live, set by
@@ -653,12 +658,14 @@ class DashboardPresenter(BasePresenter):
         self._rebuild_scripts()
         self._script_runner.feed_all(self._raw_klines_by_symbol.get(symbol, []))
 
-    @Slot(str)
-    def _on_history_prepend_finished(self, symbol: str) -> None:
+    @Slot(str, bool)
+    def _on_history_prepend_finished(self, symbol: str, found_more: bool) -> None:
         """Unconditional (success, empty result, or error alike) — unlocks
         HistoryPaginationController so the next near-edge pan can fetch
-        again."""
-        self._pagination.on_load_more_finished(symbol)
+        again. `found_more` is forwarded as-is; see
+        HistoryPaginationController.on_load_more_finished's docstring for
+        why it gates the auto-recheck."""
+        self._pagination.on_load_more_finished(symbol, found_more)
 
     @Slot(str, list, list)
     def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
@@ -843,6 +850,12 @@ class DashboardPresenter(BasePresenter):
         "what do I already have" is what actually guarantees no duplicate,
         regardless of the open_time/close_time gap between them.
         """
+        # Whether this run actually found older candles — carried out via the
+        # finished signal so HistoryPaginationController knows whether an
+        # auto-recheck-after-cooldown could possibly make progress (see its
+        # on_load_more_finished docstring). Stays False on every early exit
+        # (nothing found, cancelled, or an exception) on purpose.
+        found_more = False
         try:
             if token.is_cancelled():
                 return
@@ -878,13 +891,14 @@ class DashboardPresenter(BasePresenter):
             mapped_data = self._map_klines(ordered_klines)
             volume_data = self._map_volume(ordered_klines)
             self.ui_history_prepended_signal.emit(symbol, mapped_data, volume_data)
+            found_more = True
 
         except Exception as exc:
             self.ui_log_signal.emit(
                 f"Exception while loading more history for {symbol}: {exc}"
             )
         finally:
-            self.ui_history_prepend_finished_signal.emit(symbol)
+            self.ui_history_prepend_finished_signal.emit(symbol, found_more)
 
     def _run_sync_and_start(
         self,

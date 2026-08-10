@@ -56,7 +56,7 @@ def test_on_load_more_finished_unlocks_the_symbol_for_another_fetch(qapp):
     )
     controller.on_near_left_edge("ETHUSDT", 1000.0)
 
-    controller.on_load_more_finished("ETHUSDT")
+    controller.on_load_more_finished("ETHUSDT", found_more=True)
     controller.on_near_left_edge("ETHUSDT", 900.0)
 
     assert calls == [("ETHUSDT", 1000.0), ("ETHUSDT", 900.0)]
@@ -65,7 +65,7 @@ def test_on_load_more_finished_unlocks_the_symbol_for_another_fetch(qapp):
 def test_on_load_more_finished_for_a_symbol_never_in_flight_is_a_safe_no_op(qapp):
     controller = HistoryPaginationController(fetch_older=lambda s, t: None)
 
-    controller.on_load_more_finished("ETHUSDT")  # must not raise
+    controller.on_load_more_finished("ETHUSDT", found_more=True)  # must not raise
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +90,7 @@ def test_a_near_left_edge_shortly_after_the_last_fetch_finished_is_a_no_op(qapp)
         fetch_older=lambda s, t: calls.append((s, t)), cooldown_seconds=_TINY_COOLDOWN
     )
     controller.on_near_left_edge("ETHUSDT", 1000.0)
-    controller.on_load_more_finished("ETHUSDT")
+    controller.on_load_more_finished("ETHUSDT", found_more=True)
 
     controller.on_near_left_edge("ETHUSDT", 900.0)  # well within the cooldown window
 
@@ -103,7 +103,7 @@ def test_a_near_left_edge_after_the_cooldown_window_elapses_triggers_again(qapp)
         fetch_older=lambda s, t: calls.append((s, t)), cooldown_seconds=_TINY_COOLDOWN
     )
     controller.on_near_left_edge("ETHUSDT", 1000.0)
-    controller.on_load_more_finished("ETHUSDT")
+    controller.on_load_more_finished("ETHUSDT", found_more=True)
 
     time.sleep(_TINY_COOLDOWN * 2)
     controller.on_near_left_edge("ETHUSDT", 900.0)
@@ -119,40 +119,64 @@ def test_cooldown_is_tracked_per_symbol(qapp):
         fetch_older=lambda s, t: calls.append((s, t)), cooldown_seconds=_TINY_COOLDOWN
     )
     controller.on_near_left_edge("ETHUSDT", 1000.0)
-    controller.on_load_more_finished("ETHUSDT")
+    controller.on_load_more_finished("ETHUSDT", found_more=True)
 
     controller.on_near_left_edge("ETHUSDT", 900.0)  # blocked — still cooling down
     controller.on_near_left_edge("BTCUSDT", 2000.0)  # unaffected — different symbol
 
     assert calls == [("ETHUSDT", 1000.0), ("BTCUSDT", 2000.0)]
 
-def test_massive_zoom_out_triggers_continuous_fetches_until_gap_filled(qapp, qtbot):
-    """
-    If the user zooms out massively with a single scroll wheel tick, we get 
-    exactly one sigRangeChangedManually event. It triggers a fetch, but doesn't 
-    fill the gap.
-    We assert that HistoryPaginationController unconditionally calls recheck_edge 
-    after the cooldown, which in reality will cause another near_left_edge event, 
-    forming a self-sustaining loop until the gap is gone.
+
+def test_a_fetch_that_found_more_data_reschedules_a_recheck_after_cooldown(qapp, qtbot):
+    """If the user zooms out massively with a single scroll wheel tick, we
+    get exactly one sigRangeChangedManually event. It triggers a fetch, but
+    one batch may not be enough to fill the gap. As long as each fetch keeps
+    finding older candles (found_more=True), HistoryPaginationController
+    reschedules a recheck after cooldown — which in reality will cause
+    another near_left_edge event, closing the gap over a few cooldown
+    windows instead of getting stuck after the first one.
     """
     calls = []
     rechecks = []
-    
+
     controller = HistoryPaginationController(
-        fetch_older=lambda s, t: calls.append((s, t)), 
+        fetch_older=lambda s, t: calls.append((s, t)),
         cooldown_seconds=_TINY_COOLDOWN,
-        recheck_edge=lambda s: rechecks.append(s)
+        recheck_edge=lambda s: rechecks.append(s),
     )
-    
+
     # 1. User zooms out massively -> one event is fired.
     controller.on_near_left_edge("ETHUSDT", 1000.0)
     assert len(calls) == 1
-    
-    # 2. Fetch finishes. Cooldown starts.
-    controller.on_load_more_finished("ETHUSDT")
-    
+
+    # 2. Fetch finishes, having found more (older) candles. Cooldown starts.
+    controller.on_load_more_finished("ETHUSDT", found_more=True)
+
     # 3. Wait for cooldown to expire
     qtbot.wait(int(_TINY_COOLDOWN * 1000) + 50)
-    
+
     # 4. _recheck_edge should have been called automatically by the QTimer
     assert rechecks == ["ETHUSDT"]
+
+
+def test_a_fetch_that_found_nothing_does_not_reschedule_a_recheck(qapp, qtbot):
+    """The critical counterpart to the test above: once a fetch comes back
+    with found_more=False (the symbol's history is exhausted — Phase 1 has
+    no auto-sync-from-Binance to ever change that), nothing about the view
+    can have moved, so an auto-recheck would just refire the same fetch,
+    get nothing again, and reschedule itself forever — an unbounded loop
+    hammering the DB with zero further user interaction. Regression guard
+    for exactly that bug."""
+    rechecks = []
+    controller = HistoryPaginationController(
+        fetch_older=lambda s, t: None,
+        cooldown_seconds=_TINY_COOLDOWN,
+        recheck_edge=lambda s: rechecks.append(s),
+    )
+
+    controller.on_near_left_edge("ETHUSDT", 1000.0)
+    controller.on_load_more_finished("ETHUSDT", found_more=False)
+
+    qtbot.wait(int(_TINY_COOLDOWN * 1000) + 50)
+
+    assert rechecks == []
