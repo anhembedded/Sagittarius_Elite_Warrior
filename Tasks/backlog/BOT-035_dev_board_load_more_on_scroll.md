@@ -1,9 +1,61 @@
-# Nhiệm vụ: Dev Board — Tự tải thêm dữ liệu cũ khi kéo/scroll ra rìa trái chart (US-04)
+# Nhiệm vụ: Dev Board — Tự tải thêm dữ liệu cũ khi kéo/scroll ra rìa trái chart (US-04)  *(ĐÃ XONG — Phase 1)*
 
 > **Đọc file này trước khi code.** 3 câu hỏi mở ở §2.1 **đã được user chốt** — sẵn sàng implement,
 > Phase 1 KHÔNG bao gồm auto-sync-from-Binance khi DB thiếu dữ liệu (để Phase 2, task riêng).
 > Nguồn gốc: `Tasks/UserStory_Propose.md` US-04, đã đánh giá sơ bộ trong phiên tư vấn ban đầu (xem
 > ROADMAP/BOT-034 — US-04 bị hoãn có chủ đích ra khỏi `BOT-034` vì lớn hơn 3 story còn lại cộng lại).
+
+## 9. Đã build gì thực tế (khác skeleton ở §4 chỗ nào, và tại sao)
+
+**`ChartCard.prepend_historical_data()`/`prepend_historical_volume()`** — tách thành **2 method**
+riêng (không gộp 1 method như skeleton ở §4.1 đề xuất), vì code thật đã có sẵn
+`render_historical_data()`/`render_historical_volume()` là 2 method riêng (candle và volume KHÔNG
+bao giờ đi chung 1 lệnh — `_on_history_reloaded` gọi cả 2 tuần tự) — giữ đúng cấu trúc song song đó
+thay vì phát minh 1 API mới trộn 2 việc. `VolumeItem.as_tuples()` (không phải `_as_tuples()` như
+skeleton gọi tạm) — public, vì `ChartCard`/tests cần gọi từ ngoài.
+
+**`prepend_historical_data()` không tự windowed lại volume** — chỉ gọi `_sync_indicator_window()`
+(indicator curves); `prepend_historical_volume()` tự gọi `volume.refresh_window()` riêng — theo
+đúng nguyên tắc "mỗi method chỉ lo phần dữ liệu của chính nó", giống `render_historical_data`/
+`render_historical_volume` không đụng vào nhau.
+
+**`EdgeScrollDetector`** — file riêng trong `components/chart_card/` (không phải nhét vào
+`ViewportController` — quyết định lúc code, đúng như skeleton cho phép tự chọn). Nhận
+`get_raw_history: Callable[[], list[OhlcCandle]]` thay vì 2 callback riêng (oldest_timestamp +
+bar_width) — tự tính cả 2 từ `history[0]`/`history[1]`, ít tham số hơn, ChartCard chỉ cần truyền 1
+lambda `lambda: self._raw_history`. Ngưỡng mặc định 20 bar đọc thẳng từ code, không qua config (US-04
+không yêu cầu user chỉnh được ngưỡng này, khác `DEV_BOARD_MIN_FETCH_CANDLES`/
+`DEV_BOARD_AUTOSTART_FALLBACK_SECONDS` — 2 cái đó CẦN chỉnh được từ test, cái này thì không).
+
+**`ChartCard.sig_near_left_edge = Signal(str)`** — mang `self.symbol`, KHÔNG phải
+`EdgeScrollDetector` tự emit trực tiếp ra ngoài (nó chỉ có `Signal()` không tham số, không biết
+symbol của card nào) — `ChartCard` relay: `edge_scroll_detector.sig_near_left_edge.connect(lambda:
+self.sig_near_left_edge.emit(self.symbol))`. Giữ `EdgeScrollDetector` không biết gì về "symbol"
+(reusable, test độc lập không cần dàn dựng cả `ChartCard`).
+
+**`HistoryPaginationController`** — khớp gần như 100% với skeleton, không đổi gì đáng kể.
+
+**`_raw_klines_by_symbol: dict[str, list[MarketData]]`** — cái DUY NHẤT skeleton ở §4.4 đánh giá
+SAI: viết "`feed_all(candles_cũ + candles_đang_có)`" như thể presenter sẵn có cả 2 phần dưới dạng
+`MarketData` — **thực tế không phải vậy**. `ChartCard._raw_history` chỉ giữ tuple đã map
+`(t,o,h,l,c)` cho MỤC ĐÍCH VẼ CHART, không đủ để feed lại `IndicatorScriptRunner` (cần `MarketData`
+đầy đủ). Phải thêm cache riêng `self._raw_klines_by_symbol`, ghi đè (không append) mỗi lần
+`_run_load_history`/`_run_sync_and_start` chạy (interval đổi thì cache cũ tự bị thay), VÀ **phải
+cập nhật thêm trong `_on_ui_chart_update`'s tick-đóng-nến branch** (nến live-tick — nếu không, sau
+1 lần rebuild do load-more, các nến đến từ live stream kể từ lần Load History/Start Live gần nhất
+sẽ biến mất khỏi mọi script cho tới khi có tick mới). Đây là phần tốn nhiều suy nghĩ nhất trong
+toàn bộ task — không có trong skeleton ban đầu vì lúc viết task chưa xét tới trường hợp "vừa đang
+Live vừa load-more".
+
+**Bộ lọc trùng dữ liệu** — dùng `close_time` (không phải `open_time`) để so sánh, vì
+`_map_klines`/`_map_volume` (code thật) build timestamp của chart từ `close_time`, không phải
+`open_time` như suy đoán ban đầu trong §2.1. Lọc client-side sau khi fetch
+(`k.close_time.timestamp() < before_timestamp`), không dựa vào riêng `end_time` filter của
+repository (inclusive `<=`, sẽ trả lại đúng nến biên đã có).
+
+**Test**: 4 unit (ChartCard) + 3 unit (EdgeScrollDetector) + 5 unit (HistoryPaginationController) +
+11 unit (DashboardPresenter) + 4 integration = 27 test mới, tất cả pass. Suite tổng: 419 unit + 33
+integration.
 
 ## 1. Mục tiêu (Objective)
 
@@ -220,6 +272,26 @@ def _run_load_more_history(
   đúng các key đang bật (không bị rớt do rebuild).
 - Integration: kéo gần rìa trái 2 lần liên tiếp trước khi lần đầu kịp xong → chỉ đúng 1 lần
   `GetHistoricalKlinesQuery` được dispatch cho symbol đó (không tải chồng).
+
+**Kết quả**: 4 file mới + 5 file sửa, 27 test mới (4 ChartCard + 3 EdgeScrollDetector + 5
+HistoryPaginationController + 11 DashboardPresenter unit, + 4 integration), tất cả pass. Suite
+tổng: 419 unit + 33 integration (đếm file, không chạy hết 1 lượt được — xem cảnh báo dưới).
+
+⚠️ **Known issue — KHÔNG phải do BOT-035, đã verify bằng bisection**: chạy TOÀN BỘ
+`tests/integration/presentation/ui/` trong 1 lần (`pytest tests/integration/presentation/ui/`)
+có xác suất cao bị crash (Windows access violation thật, không phải hang) sau khoảng **~26 lượt
+test/fixture cycle** tích luỹ trong CÙNG 1 process — không liên quan tới nội dung cụ thể của các
+test đó. Đã verify: tái hiện GIỐNG HỆT (dừng ở đúng vị trí tương đối) khi chạy 26 test bất kỳ dẫn
+tới `test_sanity_dev_board_full_feature_walkthrough`, **có và không có** 4 test mới của BOT-035 —
+tức là lỗi này đã tồn tại từ trước BOT-035, chỉ là chưa ai chạy đủ số lượng test liên tiếp để chạm
+ngưỡng. Crash trace cho thấy: 1 background thread đang giữa chừng khởi tạo `unittest.mock.MagicMock()`
+(bên trong `mock_dispatch` closure của `conftest.py`) đúng lúc main thread đang chạy 1 chu kỳ
+garbage-collection — khớp với cùng 1 lớp lỗi (PySide6/shiboken C++ object lifetime không được bảo
+vệ đủ khi nhiều background thread + nhiều chu kỳ tạo/huỷ QWidget cộng dồn trong 1 process test dài)
+đã gặp và sửa một phần ở `BOT-034` §9 (đã sửa 3 nguyên nhân riêng biệt lúc đó — đây là biến thể thứ
+4, cần điều tra riêng, không chặn việc merge BOT-035). **Chạy theo từng file/nhóm nhỏ hơn (như CI
+hiện tại đang làm qua nhiều job, hoặc `pytest <file1> <file2> ...` từng phần) không gặp vấn đề này**
+— chỉ xảy ra khi dồn TẤT CẢ 33 test integration UI vào 1 lệnh `pytest` duy nhất.
 
 ## 7. Phụ thuộc (Dependencies)
 

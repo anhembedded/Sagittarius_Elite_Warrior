@@ -35,6 +35,7 @@ from Binace_Bot.src.presentation.ui.constants import UIMode
 
 from .autostart_controller import AutoStartController
 from .dashboard_view_model import DashboardQmlViewModel
+from .history_pagination_controller import HistoryPaginationController
 from .indicator_script_runner import IndicatorScriptRunner
 
 if TYPE_CHECKING:
@@ -70,6 +71,12 @@ _DEFAULT_MIN_FETCH_CANDLES: int = 75
 #: assertion. Production keeps the 2s default the design was built around.
 _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_FALLBACK_SECONDS"
 _DEFAULT_AUTOSTART_FALLBACK_SECONDS: float = 2.0
+
+#: BOT-035 — how many older candles to fetch each time the user scrolls near
+#: the left edge of loaded history. Fixed (not run through
+#: _compute_fetch_limit()) — decided with the user: this is a literal "load
+#: 75 more" action, not a warm-up requirement.
+_LOAD_MORE_BATCH_CANDLES: int = 75
 
 # WS status badge (top bar) text/color per FSM state — presentational only,
 # derived from the state DashboardPresenter already tracks.
@@ -150,6 +157,14 @@ class DashboardPresenter(BasePresenter):
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
+    # BOT-035 — load-more-on-scroll. Separate from ui_history_reloaded_signal/
+    # ui_history_load_finished_signal on purpose: "prepend older data" and
+    # "replace all data" are different operations on ChartCard (see
+    # prepend_historical_data's docstring — it must NOT reset the user's
+    # current zoom/pan the way render_historical_data does).
+    ui_history_prepended_signal = Signal(str, list, list)
+    ui_history_prepend_finished_signal = Signal(str)
+
     # Indicator name -> full (x, y) series computed so far
     ui_indicator_data_signal = Signal(str, list, list)
 
@@ -207,6 +222,24 @@ class DashboardPresenter(BasePresenter):
         self._cancellation_token = CancellationToken()
 
         self.active_charts: dict = {}
+
+        # BOT-035 — full MarketData objects behind whatever's currently
+        # rendered per symbol, kept in chronological order. ChartCard only
+        # retains the (t, o, h, l, c) tuple projection it renders from
+        # (_raw_history), which is not enough to correctly rebuild+refeed
+        # IndicatorScriptRunner after a prepend (scripts need real MarketData,
+        # and have no reset() — see history_pagination_controller.py's
+        # docstring and BOT-035's task file §2.4). Overwritten (not appended)
+        # on every Load History/Start Live, so a stale interval's klines
+        # never leak into a later one.
+        self._raw_klines_by_symbol: dict[str, list] = {}
+
+        # BOT-035 — one collaborator per Dev Board screen, same lifetime
+        # pattern as AutoStartController: constructed once here, torn down
+        # implicitly with the presenter (parented to self).
+        self._pagination = HistoryPaginationController(
+            fetch_older=self._fetch_older_history, parent=self
+        )
 
         # BOT-033 — interval actually used by Load History/Start Live, set by
         # ChartToolbar.sig_timeframe_changed (see _ensure_chart_cards). An
@@ -278,6 +311,10 @@ class DashboardPresenter(BasePresenter):
         # Signals for Auto-Sync Workflow
         self.ui_history_reloaded_signal.connect(self._on_history_reloaded)
         self.ui_history_load_finished_signal.connect(self._on_history_load_finished)
+        self.ui_history_prepended_signal.connect(self._on_history_prepended)
+        self.ui_history_prepend_finished_signal.connect(
+            self._on_history_prepend_finished
+        )
         self.ui_stream_success_signal.connect(self._on_stream_start_success)
         self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
         self.ui_indicator_data_signal.connect(self._on_indicator_data)
@@ -330,6 +367,8 @@ class DashboardPresenter(BasePresenter):
             # connection made here would otherwise accumulate on a widget
             # that no longer exists.
             card.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
+            # BOT-035 — same reasoning: fresh card, fresh connection.
+            card.sig_near_left_edge.connect(self._on_near_left_edge)
         return chart_cards
 
     # ================================================================== #
@@ -523,6 +562,35 @@ class DashboardPresenter(BasePresenter):
         elif not self._view_model.historyLoading:
             self._on_load_history()
 
+    @Slot(str)
+    @safe_ui_action
+    def _on_near_left_edge(self, symbol: str) -> None:
+        """
+        @brief BOT-035 — ChartCard.sig_near_left_edge handler.
+        @details Only reads the current oldest-loaded timestamp and hands off
+        to HistoryPaginationController, which decides whether a fetch is
+        actually needed (already-in-flight guard) — this method never
+        submits background work itself.
+        """
+        card = self.active_charts.get(symbol)
+        if card is None or not card._raw_history:
+            return
+        oldest_timestamp = card._raw_history[0][0]
+        self._pagination.on_near_left_edge(symbol, oldest_timestamp)
+
+    def _fetch_older_history(self, symbol: str, oldest_timestamp: float) -> None:
+        """HistoryPaginationController's `fetch_older` callback — submits the
+        background fetch, same convention as _on_load_history/_on_start_stream
+        (dedicated background method, CancellationToken as the last arg)."""
+        self._thread_manager.submit(
+            self._run_load_more_history,
+            symbol,
+            self._active_interval,
+            oldest_timestamp,
+            _LOAD_MORE_BATCH_CANDLES,
+            self._cancellation_token,
+        )
+
     # ================================================================== #
     # Background Signal Slots — called on the main thread via Qt signals.
     # ================================================================== #
@@ -544,6 +612,37 @@ class DashboardPresenter(BasePresenter):
     def _on_history_load_finished(self) -> None:
         """Re-enable Dev Board actions after every history-worker outcome."""
         self._view_model.set_history_loading(False)
+
+    @Slot(str, list, list)
+    def _on_history_prepended(self, symbol: str, candles: list, volume: list) -> None:
+        """
+        @brief BOT-035 — receives an older batch from _run_load_more_history
+        and prepends it to the chart.
+        @details Also rebuilds+refeeds every enabled script over the FULL
+        (now-larger) kline history for this symbol — not just the new older
+        batch. BaseIndicatorScript has no reset() and only ever computes
+        forward through time (see history_pagination_controller.py's
+        docstring), so an indicator already warmed up on the old data cannot
+        correctly absorb older candles fed in after the fact; a fresh
+        rebuild()+feed_all() over the combined history is the only correct
+        option with today's script architecture.
+        """
+        card = self.active_charts.get(symbol)
+        if card is None or not candles:
+            return
+        card.prepend_historical_data(candles)
+        card.prepend_historical_volume(volume)
+        self.ui_log_signal.emit(f"Loaded {len(candles)} older klines for {symbol}.")
+
+        self._rebuild_scripts()
+        self._script_runner.feed_all(self._raw_klines_by_symbol.get(symbol, []))
+
+    @Slot(str)
+    def _on_history_prepend_finished(self, symbol: str) -> None:
+        """Unconditional (success, empty result, or error alike) — unlocks
+        HistoryPaginationController so the next near-edge pan can fetch
+        again."""
+        self._pagination.on_load_more_finished(symbol)
 
     @Slot(str, list, list)
     def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
@@ -638,9 +737,14 @@ class DashboardPresenter(BasePresenter):
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
-                self._script_runner.feed(
-                    _tick_to_candle(symbol, t, o, h, low, c, volume)
-                )
+                candle = _tick_to_candle(symbol, t, o, h, low, c, volume)
+                # BOT-035 — keep the raw-kline cache (used to rebuild+refeed
+                # scripts after a later load-more prepend) in sync with what
+                # the chart actually shows; otherwise a prepend's rebuild
+                # would silently drop every candle that arrived live since
+                # the last full Load History/Start Live.
+                self._raw_klines_by_symbol.setdefault(symbol, []).append(candle)
+                self._script_runner.feed(candle)
             else:
                 card.update_last_candle(t, o, h, low, c)
                 card.update_last_volume(t, volume, is_bullish)
@@ -692,6 +796,7 @@ class DashboardPresenter(BasePresenter):
                     self.ui_history_reloaded_signal.emit(
                         symbol, mapped_data, volume_data
                     )
+                    self._raw_klines_by_symbol[symbol] = ordered_klines
                     self._script_runner.feed_all(ordered_klines)
 
                 except Exception as exc:
@@ -700,6 +805,70 @@ class DashboardPresenter(BasePresenter):
                     )
         finally:
             self.ui_history_load_finished_signal.emit()
+
+    def _run_load_more_history(
+        self,
+        symbol: str,
+        interval_str: str,
+        before_timestamp: float,
+        limit: int,
+        token: CancellationToken,
+    ) -> None:
+        """
+        @brief BOT-035 — background worker: fetches up to `limit` candles
+        strictly older than `before_timestamp` and emits
+        ui_history_prepended_signal for the main thread to prepend.
+        @details The repository's `end_time` filter is `open_time <= end_time`
+        (inclusive) — passing `before_timestamp` straight through would
+        re-return the boundary candle already on the chart. Filtered
+        client-side instead, on `close_time` (not `open_time`) to match
+        exactly what ChartCard._raw_history's timestamp column already is
+        (see _map_klines) — comparing on the same field the chart uses for
+        "what do I already have" is what actually guarantees no duplicate,
+        regardless of the open_time/close_time gap between them.
+        """
+        try:
+            if token.is_cancelled():
+                return
+            end_time = datetime.fromtimestamp(before_timestamp, tz=timezone.utc)
+            query = GetHistoricalKlinesQuery(
+                symbol=symbol,
+                interval=interval_str,
+                limit=limit,
+                end_time=end_time,
+                order_by_desc=True,
+            )
+            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+            klines = getattr(response, "data", response) if response else []
+
+            if not isinstance(klines, list) or not klines:
+                self.ui_log_signal.emit(f"No older data found for {symbol}.")
+                return
+
+            ordered_klines = [
+                k
+                for k in reversed(klines)
+                if k.close_time.timestamp() < before_timestamp
+            ]
+            if not ordered_klines:
+                self.ui_log_signal.emit(f"No older data found for {symbol}.")
+                return
+            if token.is_cancelled():
+                return
+
+            self._raw_klines_by_symbol[symbol] = (
+                ordered_klines + self._raw_klines_by_symbol.get(symbol, [])
+            )
+            mapped_data = self._map_klines(ordered_klines)
+            volume_data = self._map_volume(ordered_klines)
+            self.ui_history_prepended_signal.emit(symbol, mapped_data, volume_data)
+
+        except Exception as exc:
+            self.ui_log_signal.emit(
+                f"Exception while loading more history for {symbol}: {exc}"
+            )
+        finally:
+            self.ui_history_prepend_finished_signal.emit(symbol)
 
     def _run_sync_and_start(
         self,
@@ -746,6 +915,7 @@ class DashboardPresenter(BasePresenter):
                     self.ui_history_reloaded_signal.emit(
                         symbol, mapped_data, volume_data
                     )
+                    self._raw_klines_by_symbol[symbol] = ordered_klines
                     self._script_runner.feed_all(ordered_klines)
 
             if token.is_cancelled():

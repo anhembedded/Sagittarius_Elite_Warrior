@@ -46,6 +46,16 @@ class VolumeItem:
         self._live_index = None
         self._apply()
 
+    def as_tuples(self) -> list[tuple[float, float, bool]]:
+        """@brief Reconstructs the (timestamp, volume, is_bullish) rows
+        render_historical() was built from (BOT-035) — lets a caller combine
+        older + already-loaded volume before a wholesale re-render, without
+        this class needing to know anything about prepending itself."""
+        return [
+            (t, h, c == theme.BULL_COLOR)
+            for t, h, c in zip(self._timestamps, self._heights, self._colors)
+        ]
+
     def update_live(self, timestamp: float, volume: float, is_bullish: bool) -> None:
         color = theme.BULL_COLOR if is_bullish else theme.BEAR_COLOR
         if self._live_index is None:

@@ -726,3 +726,58 @@ def test_two_scripts_markers_do_not_interfere_with_each_other(qapp):
 
     assert "ema_cross" not in card.indicators._marker_layer._items
     assert len(card.indicators._marker_layer._items["dev_showcase"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# BOT-035 — load more history on scroll (prepend, not replace)
+# ---------------------------------------------------------------------------
+
+
+def test_prepend_historical_data_inserts_before_existing_history(qapp):
+    card = ChartCard("ETHUSDT")
+    existing = [(2000.0, 52.0, 58.0, 50.0, 57.0), (2060.0, 57.0, 60.0, 55.0, 59.0)]
+    card.render_historical_data(existing)
+
+    older = [(1880.0, 48.0, 50.0, 47.0, 49.0), (1940.0, 49.0, 53.0, 48.0, 52.0)]
+    card.prepend_historical_data(older)
+
+    assert card._raw_history == older + existing
+    assert card.candlestick.history_data[0][0] == 1880.0
+
+
+def test_prepend_historical_data_does_not_reset_the_current_view_range(qapp):
+    """Unlike render_historical_data (always resets zoom/pan for a fresh
+    load), prepending older data while the user is mid-scroll must leave
+    their current viewport exactly where it was."""
+    card = ChartCard("ETHUSDT")
+    existing = [(2000.0 + i * 60.0, 50.0, 55.0, 48.0, 52.0) for i in range(200)]
+    card.render_historical_data(existing)
+    card.plot_layout.main_plot.setXRange(2500.0, 2600.0, padding=0)
+    view_before = card.plot_layout.main_plot.vb.viewRange()
+
+    card.prepend_historical_data([(1940.0, 49.0, 53.0, 48.0, 52.0)])
+
+    assert card.plot_layout.main_plot.vb.viewRange() == view_before
+
+
+def test_prepend_historical_data_is_a_no_op_with_no_existing_history(qapp):
+    """Nothing to prepend BEFORE — this is what render_historical_data (the
+    first load) is for, not this method."""
+    card = ChartCard("ETHUSDT")
+
+    card.prepend_historical_data([(1000.0, 50.0, 55.0, 48.0, 52.0)])
+
+    assert card._raw_history == []
+
+
+def test_prepend_historical_volume_inserts_before_existing_bars(qapp):
+    card = ChartCard("ETHUSDT")
+    card.render_historical_volume([(2000.0, 10.0, True), (2060.0, 12.0, False)])
+
+    card.prepend_historical_volume([(1940.0, 8.0, True)])
+
+    assert card.volume.as_tuples() == [
+        (1940.0, 8.0, True),
+        (2000.0, 10.0, True),
+        (2060.0, 12.0, False),
+    ]

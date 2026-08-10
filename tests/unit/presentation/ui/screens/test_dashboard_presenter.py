@@ -492,6 +492,200 @@ def test_on_indicator_data_ignores_an_unrecognised_bare_name(presenter):
 
 
 # ---------------------------------------------------------------------------
+# BOT-035 — load more history on scroll
+# ---------------------------------------------------------------------------
+
+
+def _make_full_kline(
+    close_timestamp: float,
+    close_price: float = 100.0,
+    open_price: float = 99.0,
+    high_price: float = 101.0,
+    low_price: float = 98.0,
+    volume: float = 10.0,
+):
+    """Unlike _make_kline (feed()-only tests), this fills every field
+    _map_klines/_map_volume actually read — real float() coercion, not a
+    MagicMock stand-in, since those two are @staticmethod and would raise on
+    an un-configured attribute."""
+    kline = MagicMock()
+    kline.close_time.timestamp.return_value = close_timestamp
+    kline.close_price = close_price
+    kline.open_price = open_price
+    kline.high_price = high_price
+    kline.low_price = low_price
+    kline.volume = volume
+    return kline
+
+
+def test_on_near_left_edge_asks_pagination_controller_for_the_oldest_timestamp(
+    presenter,
+):
+    mock_card = MagicMock()
+    mock_card._raw_history = [(1000.0, 1, 2, 0, 1), (1060.0, 1, 2, 0, 1)]
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    calls = []
+    presenter._pagination.on_near_left_edge = lambda s, t: calls.append((s, t))
+
+    presenter._on_near_left_edge("ETHUSDT")
+
+    assert calls == [("ETHUSDT", 1000.0)]
+
+
+def test_on_near_left_edge_is_a_no_op_with_no_chart_or_empty_history(presenter):
+    calls = []
+    presenter._pagination.on_near_left_edge = lambda s, t: calls.append((s, t))
+
+    presenter._on_near_left_edge("UNKNOWN_SYMBOL")
+    presenter.active_charts["ETHUSDT"] = MagicMock(_raw_history=[])
+    presenter._on_near_left_edge("ETHUSDT")
+
+    assert calls == []
+
+
+def test_fetch_older_history_submits_the_load_more_background_task(
+    presenter, mock_thread_mgr
+):
+    presenter._fetch_older_history("ETHUSDT", 1000.0)
+
+    assert mock_thread_mgr.submit.call_count == 1
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[0] == presenter._run_load_more_history
+    assert submit_args[1:5] == (
+        "ETHUSDT",
+        presenter._active_interval,
+        1000.0,
+        75,
+    )
+    assert submit_args[5] is presenter._cancellation_token
+
+
+def test_run_load_more_history_dispatches_with_end_time_and_desc_order(
+    presenter, mock_dispatcher
+):
+    mock_dispatcher.dispatch.return_value = [_make_full_kline(900.0)]
+
+    presenter._run_load_more_history(
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+    )
+
+    dispatched_type, query = mock_dispatcher.dispatch.call_args[0]
+    assert dispatched_type == GetHistoricalKlinesQuery
+    assert query.symbol == "ETHUSDT"
+    assert query.limit == 75
+    assert query.order_by_desc is True
+    assert query.end_time.timestamp() == 1000.0
+
+
+def test_run_load_more_history_filters_out_the_boundary_candle(
+    presenter, mock_dispatcher
+):
+    """The repository's end_time filter is inclusive (open_time <= end_time)
+    — a returned candle at/after the timestamp we already have on the chart
+    must be dropped client-side, or it would render as a duplicate."""
+    mock_dispatcher.dispatch.return_value = [
+        _make_full_kline(1000.0),  # == the oldest already loaded — must drop
+        _make_full_kline(940.0),  # genuinely older — must keep
+    ]
+    emitted = []
+    presenter.ui_history_prepended_signal.connect(
+        lambda symbol, candles, volume: emitted.append((symbol, candles, volume))
+    )
+
+    presenter._run_load_more_history(
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+    )
+
+    assert len(emitted) == 1
+    _symbol, candles, _volume = emitted[0]
+    assert len(candles) == 1
+    assert candles[0][0] == 940.0
+
+
+def test_run_load_more_history_emits_nothing_when_no_older_data_exists(
+    presenter, mock_dispatcher
+):
+    mock_dispatcher.dispatch.return_value = []
+    emitted = []
+    presenter.ui_history_prepended_signal.connect(lambda *a: emitted.append(a))
+    finished = []
+    presenter.ui_history_prepend_finished_signal.connect(finished.append)
+
+    presenter._run_load_more_history(
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+    )
+
+    assert emitted == []
+    # Unconditional — the pagination controller must still unlock.
+    assert finished == ["ETHUSDT"]
+
+
+def test_run_load_more_history_does_nothing_with_an_already_cancelled_token(
+    presenter, mock_dispatcher
+):
+    presenter._cancellation_token.cancel()
+
+    presenter._run_load_more_history(
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+    )
+
+    mock_dispatcher.dispatch.assert_not_called()
+
+
+def test_on_history_prepended_prepends_to_the_chart_and_rebuilds_scripts(presenter):
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    presenter._enabled_script_keys = lambda: ["ema_ribbon"]
+    presenter._raw_klines_by_symbol["ETHUSDT"] = [_make_full_kline(1000.0)]
+    older = [_make_full_kline(940.0)]
+    mapped = presenter._map_klines(older)
+    volume = presenter._map_volume(older)
+
+    presenter._on_history_prepended("ETHUSDT", mapped, volume)
+
+    mock_card.prepend_historical_data.assert_called_once_with(mapped)
+    mock_card.prepend_historical_volume.assert_called_once_with(volume)
+    assert "ema_ribbon" in presenter._script_runner.active
+
+
+def test_on_history_prepended_is_a_no_op_with_no_candles(presenter):
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+
+    presenter._on_history_prepended("ETHUSDT", [], [])
+
+    mock_card.prepend_historical_data.assert_not_called()
+
+
+def test_on_history_prepend_finished_unlocks_the_pagination_controller(presenter):
+    calls = []
+    presenter._pagination.on_load_more_finished = calls.append
+
+    presenter._on_history_prepend_finished("ETHUSDT")
+
+    assert calls == ["ETHUSDT"]
+
+
+def test_a_live_tick_extends_the_raw_kline_cache_for_a_later_prepend_rebuild(
+    presenter,
+):
+    """Without this, a load-more's rebuild+refeed after some live ticks have
+    already closed would silently drop those candles from every script."""
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    presenter._raw_klines_by_symbol["ETHUSDT"] = [_make_full_kline(1000.0)]
+
+    presenter._on_ui_chart_update(
+        "ETHUSDT", 1060.0, 99.0, 101.0, 98.0, 100.0, 10.0, True
+    )
+
+    assert len(presenter._raw_klines_by_symbol["ETHUSDT"]) == 2
+    assert (
+        presenter._raw_klines_by_symbol["ETHUSDT"][-1].close_time.timestamp() == 1060.0
+    )
+
+
+# ---------------------------------------------------------------------------
 # ViewModel bridging — top bar / WS badge / log panel
 # ---------------------------------------------------------------------------
 

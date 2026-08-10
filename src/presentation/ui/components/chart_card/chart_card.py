@@ -1,9 +1,12 @@
+from PySide6.QtCore import Signal
+
 from Binace_Bot.src.presentation.ui.components.base_card import BaseCard
 
 from .candlestick_item import FastCandlestickItem
 from .chart_toolbar import ChartToolbar
 from .chart_type_renderer import CANDLESTICK, HEIKIN_ASHI, ChartTypeRenderer
 from .crosshair_controller import CrosshairController
+from .edge_scroll_detector import EdgeScrollDetector
 from .heikin_ashi import to_heikin_ashi
 from .indicator_manager import IndicatorManager
 from .plot_layout import ChartPlotLayout
@@ -30,6 +33,12 @@ class ChartCard(BaseCard):
     zoom, chart-type rendering, timeframe UI), keeping this class a thin orchestrator instead of
     a God Object.
     """
+
+    #: BOT-035 — the user panned within EdgeScrollDetector's threshold of the
+    #: left edge of currently-loaded history. Carries `self.symbol` since the
+    #: Presenter owns multiple cards and needs to know which one to fetch
+    #: more history for.
+    sig_near_left_edge = Signal(str)
 
     def __init__(self, symbol: str, parent=None):
         super().__init__(title=f"Live Chart: {symbol}", parent=parent)
@@ -80,6 +89,15 @@ class ChartCard(BaseCard):
             canvas=self.plot_layout.widget,
         )
 
+        self.edge_scroll_detector = EdgeScrollDetector(
+            plot=self.plot_layout.main_plot,
+            get_raw_history=lambda: self._raw_history,
+            parent=self,
+        )
+        self.edge_scroll_detector.sig_near_left_edge.connect(
+            lambda: self.sig_near_left_edge.emit(self.symbol)
+        )
+
         # Keeps volume bars + indicator curves windowed to the visible X
         # range on every pan/zoom (same technique FastCandlestickItem uses
         # internally for its own paint() — see its docstring) — a shared,
@@ -124,6 +142,37 @@ class ChartCard(BaseCard):
         first_t = data[-_DEFAULT_INITIAL_VISIBLE_CANDLES][0]
         last_t = data[-1][0]
         self.plot_layout.main_plot.setXRange(first_t, last_t, padding=0.02)
+
+    def prepend_historical_data(self, candles: list[OhlcCandle]) -> None:
+        """
+        @brief BOT-035 — nối thêm nến CŨ HƠN vào đầu dữ liệu đang có, khi user
+        kéo/scroll gần hết dữ liệu bên trái.
+        @details Khác hẳn render_historical_data() (dùng cho lần tải đầu
+        tiên, luôn reset zoom về mặc định và nhảy view tới nến mới nhất) —
+        ở đây KHÔNG được đổi zoom/pan hiện tại của user, vì user đang chủ
+        động nhìn đúng chỗ đó.
+        @param candles Oldest-first; caller (DashboardPresenter, qua
+        HistoryPaginationController) chịu trách nhiệm đảm bảo timestamp của
+        mỗi candle < timestamp của nến cũ nhất đang có, để tránh trùng dữ
+        liệu — phương thức này không tự lọc lại.
+        """
+        if not candles or not self._raw_history:
+            return
+        self._raw_history = candles + self._raw_history
+        if self.chart_type_renderer.chart_type == CANDLESTICK:
+            self.candlestick.generate_picture(self._raw_history)
+        else:
+            self._render_chart_type()
+        self._sync_indicator_window()
+
+    def prepend_historical_volume(self, data: list[tuple[float, float, bool]]) -> None:
+        """@param data: list of (timestamp, volume, is_bullish), oldest-first,
+        older than what's currently loaded — see prepend_historical_data()."""
+        if not data:
+            return
+        self.volume.render_historical(data + self.volume.as_tuples())
+        (min_x, max_x), _ = self.plot_layout.main_plot.vb.viewRange()
+        self.volume.refresh_window(min_x, max_x)
 
     def update_last_candle(
         self,
