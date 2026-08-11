@@ -58,24 +58,41 @@ Rectangle {
             // work — clicking must never look like it did something.
             Repeater {
                 model: [
-                    { label: "Seed Records", icon: "database" },
-                    { label: "Export JSON", icon: "clock" },
-                    { label: "Purge Vault", icon: "trash-2" }
+                    { 
+                        name: "Seed_Records", label: "Seed 1,000 Records", icon: "plus-circle", 
+                        idleBg: "#131418", hoverBg: "#131418",
+                        idleBorder: Theme.border, hoverBorder: "#ffffff",
+                        idleText: Theme.textPrimary, hoverText: Theme.textPrimary,
+                        idleIcon: "success", hoverIcon: "success"
+                    },
+                    { 
+                        name: "Export_JSON", label: "Export JSON", icon: "download", 
+                        idleBg: "#131418", hoverBg: Theme.accent,
+                        idleBorder: Theme.accent, hoverBorder: Theme.accent,
+                        idleText: Theme.accent, hoverText: Theme.bg,
+                        idleIcon: "accent", hoverIcon: "bg"
+                    },
+                    { 
+                        name: "Purge_Vault", label: "Purge Vault", icon: "trash-2", 
+                        idleBg: "#131418", hoverBg: Theme.danger,
+                        idleBorder: Theme.danger, hoverBorder: Theme.danger,
+                        idleText: Theme.danger, hoverText: Theme.textPrimary,
+                        idleIcon: "danger", hoverIcon: "text"
+                    }
                 ]
 
                 Button {
                     id: placeholderButton
                     required property var modelData
-                    objectName: "btnPlaceholder_" + modelData.label.replace(" ", "_")
+                    objectName: "btnPlaceholder_" + modelData.name
                     text: modelData.label
-                    enabled: false
                     ToolTip.visible: hovered
                     ToolTip.text: "Not implemented yet"
 
                     contentItem: RowLayout {
                         spacing: 5
                         Image {
-                            source: "image://icons/" + placeholderButton.modelData.icon + "/muted"
+                            source: "image://icons/" + placeholderButton.modelData.icon + "/" + (placeholderButton.hovered ? placeholderButton.modelData.hoverIcon : placeholderButton.modelData.idleIcon)
                             sourceSize.width: 13
                             sourceSize.height: 13
                             Layout.preferredWidth: 13
@@ -83,18 +100,18 @@ Rectangle {
                         }
                         Text {
                             text: placeholderButton.text
-                            color: Theme.muted
+                            color: placeholderButton.hovered ? placeholderButton.modelData.hoverText : placeholderButton.modelData.idleText
                             font.pixelSize: 11
+                            font.bold: true
                         }
                     }
                     background: Rectangle {
                         implicitHeight: 30
-                        implicitWidth: 118
+                        implicitWidth: 135
                         radius: 6
-                        color: "#131418"
-                        border.color: Theme.border
+                        color: placeholderButton.hovered ? placeholderButton.modelData.hoverBg : placeholderButton.modelData.idleBg
+                        border.color: placeholderButton.hovered ? placeholderButton.modelData.hoverBorder : placeholderButton.modelData.idleBorder
                         border.width: 1
-                        opacity: 0.6
                     }
                 }
             }

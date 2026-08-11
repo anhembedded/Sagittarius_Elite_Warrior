@@ -77,4 +77,5 @@ class Palette:
             "danger": cls.DANGER,
             "muted": cls.MUTED,
             "text": cls.TEXT_PRIMARY,
+            "bg": cls.BG,
         }
