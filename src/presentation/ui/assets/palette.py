@@ -29,6 +29,19 @@ class Palette:
     DANGER = "#F6465D"  # red
     MUTED = "#848E9C"  # gray
 
+    # State tokens (sagittarius_engine.extensions.pyside_mvc.QmlShared.state_tokens) —
+    # this app's real values, overriding the engine's generic placeholders.
+    # These are the exact literals every button/card in this app already
+    # hand-rolled independently before the StatefulButton/FieldBackground/
+    # BaseCard migration — kept here so migrating a screen onto those shared
+    # components changes NOTHING visually, only removes the duplication.
+    STATE_IDLE_BG = "#17181d"
+    STATE_HOVER_BG = "#1f2127"
+    #: 12%-alpha accent gold — matches Sidebar's pre-migration
+    #: `Qt.rgba(0.95, 0.73, 0.18, 0.12)` (alpha 0x1F) applied to ACCENT.
+    STATE_ACTIVE_TINT = "#1FF3BA2F"
+    STATE_NAV_BORDER = "#2a2d36"
+
     @classmethod
     def as_ui_dict(cls) -> dict[str, str]:
         """Maps QML property name -> color, for `configure_app_qml()`'s
@@ -44,6 +57,10 @@ class Palette:
             "success": cls.SUCCESS,
             "danger": cls.DANGER,
             "muted": cls.MUTED,
+            "stateIdleBg": cls.STATE_IDLE_BG,
+            "stateHoverBg": cls.STATE_HOVER_BG,
+            "stateActiveTint": cls.STATE_ACTIVE_TINT,
+            "stateNavBorder": cls.STATE_NAV_BORDER,
         }
 
     @classmethod

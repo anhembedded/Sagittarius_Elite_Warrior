@@ -40,6 +40,14 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     connected to it.
     """
 
+    #: Drives BaseQmlViewModel.controlsEnabled — matches this screen's
+    #: pre-existing `root.controlsActive` allow-list (uiMode === "IDLE" ||
+    #: uiMode === "ERROR") exactly, expressed as its complement. DevBoardPanel.qml
+    #: still ANDs this with `!historyLoading` locally — that's not FSM state,
+    #: so it isn't part of this list (see BaseQmlViewModel.DISABLED_UI_MODES'
+    #: own docstring).
+    DISABLED_UI_MODES = frozenset({"LOCKED", "LIVE"})
+
     priceTickerChanged = Signal()
     wsStatusChanged = Signal()
     historyLoadingChanged = Signal()

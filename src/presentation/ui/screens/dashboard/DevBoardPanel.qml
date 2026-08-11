@@ -18,42 +18,16 @@ Rectangle {
 
     color: Theme.bg
 
-    property bool controlsActive: (viewModel.uiMode === "IDLE" || viewModel.uiMode === "ERROR")
-                                  && !viewModel.historyLoading
-
-    component FieldBackground: Rectangle {
-        color: "#17181d"
-        border.color: Theme.border
-        border.width: 1
-        radius: 6
-        implicitHeight: 32
-    }
+    // viewModel.controlsEnabled (BaseQmlViewModel, driven by
+    // DashboardQmlViewModel.DISABLED_UI_MODES) covers the FSM half of this
+    // condition; historyLoading isn't FSM state, so it stays local here.
+    property bool controlsActive: viewModel.controlsEnabled && !viewModel.historyLoading
 
     component SectionLabel: Text {
         color: Theme.muted
         font.pixelSize: 10
         font.bold: true
         font.letterSpacing: 1
-    }
-
-    component StyledCheck: CheckBox {
-        id: check
-        contentItem: Text {
-            leftPadding: check.indicator.width + 6
-            text: check.text
-            color: Theme.textPrimary
-            font.pixelSize: 12
-            verticalAlignment: Text.AlignVCenter
-        }
-        indicator: Rectangle {
-            implicitWidth: 16
-            implicitHeight: 16
-            y: (check.height - height) / 2
-            radius: 3
-            color: check.checked ? Theme.accent : "#17181d"
-            border.color: check.checked ? Theme.accent : Theme.border
-            border.width: 1
-        }
     }
 
     ColumnLayout {
@@ -104,42 +78,17 @@ Rectangle {
                 }
             }
 
-            Button {
-                id: reloadButton
+            StatefulButton {
                 objectName: "btnReload"
                 text: viewModel.historyLoading ? "Loading…" : "Reload"
                 enabled: root.controlsActive
+                iconSource: "clock"
+                iconSize: 12
+                implicitHeight: 26
                 // Same action as System Controls' "Load History" button —
                 // not a second code path (mirrors the QtWidgets version's
                 // btn_reload.clicked.connect(load_history_button.click)).
                 onClicked: viewModel.requestLoadHistory()
-
-                contentItem: RowLayout {
-                    spacing: 4
-                    Image {
-                        source: "image://icons/clock/muted"
-                        sourceSize.width: 12
-                        sourceSize.height: 12
-                        Layout.preferredWidth: 12
-                        Layout.preferredHeight: 12
-                        opacity: reloadButton.enabled ? 1.0 : 0.4
-                    }
-                    Text {
-                        text: reloadButton.text
-                        color: Theme.textPrimary
-                        font.pixelSize: 11
-                        opacity: reloadButton.enabled ? 1.0 : 0.4
-                    }
-                }
-
-                background: Rectangle {
-                    implicitHeight: 26
-                    radius: 4
-                    color: reloadButton.hovered && reloadButton.enabled ? "#1f2127" : "#17181d"
-                    border.color: Theme.border
-                    border.width: 1
-                    opacity: reloadButton.enabled ? 1.0 : 0.5
-                }
             }
         }
 
@@ -308,112 +257,35 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 8
 
-                            Button {
-                                id: loadButton
+                            StatefulButton {
                                 objectName: "btnLoadHistory"
                                 Layout.fillWidth: true
                                 text: viewModel.historyLoading ? "Loading…" : "Load History"
                                 enabled: root.controlsActive
+                                iconSource: "clock"
                                 onClicked: viewModel.requestLoadHistory()
-
-                                contentItem: RowLayout {
-                                    spacing: 5
-                                    Image {
-                                        source: "image://icons/clock/muted"
-                                        sourceSize.width: 13
-                                        sourceSize.height: 13
-                                        Layout.preferredWidth: 13
-                                        Layout.preferredHeight: 13
-                                        opacity: loadButton.enabled ? 1.0 : 0.4
-                                    }
-                                    Text {
-                                        text: loadButton.text
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        opacity: loadButton.enabled ? 1.0 : 0.4
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: loadButton.hovered && loadButton.enabled ? "#1f2127" : "#17181d"
-                                    border.color: Theme.border
-                                    border.width: 1
-                                    opacity: loadButton.enabled ? 1.0 : 0.5
-                                }
                             }
 
-                            Button {
-                                id: startButton
+                            StatefulButton {
                                 objectName: "btnStart"
                                 Layout.fillWidth: true
                                 text: "Start Live"
                                 enabled: root.controlsActive
+                                iconSource: "play"
+                                iconTint: "success"
+                                accentBorder: Theme.success
                                 onClicked: viewModel.requestStartStream()
-
-                                contentItem: RowLayout {
-                                    spacing: 5
-                                    Image {
-                                        source: "image://icons/play/success"
-                                        sourceSize.width: 13
-                                        sourceSize.height: 13
-                                        Layout.preferredWidth: 13
-                                        Layout.preferredHeight: 13
-                                        opacity: startButton.enabled ? 1.0 : 0.4
-                                    }
-                                    Text {
-                                        text: startButton.text
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        opacity: startButton.enabled ? 1.0 : 0.4
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: startButton.hovered && startButton.enabled ? "#1f2127" : "#17181d"
-                                    border.color: Theme.success
-                                    border.width: 1
-                                    opacity: startButton.enabled ? 1.0 : 0.5
-                                }
                             }
 
-                            Button {
-                                id: stopButton
+                            StatefulButton {
                                 objectName: "btnStop"
                                 Layout.fillWidth: true
                                 text: "Stop"
                                 enabled: viewModel.uiMode === "LIVE"
+                                iconSource: "square"
+                                iconTint: "danger"
+                                accentBorder: Theme.danger
                                 onClicked: viewModel.requestStopStream()
-
-                                contentItem: RowLayout {
-                                    spacing: 5
-                                    Image {
-                                        source: "image://icons/square/danger"
-                                        sourceSize.width: 13
-                                        sourceSize.height: 13
-                                        Layout.preferredWidth: 13
-                                        Layout.preferredHeight: 13
-                                        opacity: stopButton.enabled ? 1.0 : 0.4
-                                    }
-                                    Text {
-                                        text: stopButton.text
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        opacity: stopButton.enabled ? 1.0 : 0.4
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: stopButton.hovered && stopButton.enabled ? "#1f2127" : "#17181d"
-                                    border.color: Theme.danger
-                                    border.width: 1
-                                    opacity: stopButton.enabled ? 1.0 : 0.5
-                                }
                             }
                         }
                     }

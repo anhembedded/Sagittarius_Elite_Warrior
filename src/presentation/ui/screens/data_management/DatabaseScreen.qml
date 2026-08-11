@@ -11,16 +11,6 @@ Rectangle {
 
     color: Theme.bg
 
-    // Shared field styling — every input on this screen looks the same, so
-    // the recipe lives in one place instead of being repeated per control.
-    component FieldBackground: Rectangle {
-        color: "#17181d"
-        border.color: Theme.border
-        border.width: 1
-        radius: 6
-        implicitHeight: 32
-    }
-
     component SectionLabel: Text {
         color: Theme.muted
         font.pixelSize: 10

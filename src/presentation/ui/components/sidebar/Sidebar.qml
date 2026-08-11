@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QmlShared 1.0
 
 // Navigation sidebar (BOT-030 Phase 1) — QML replacement for the QtWidgets
 // sidebar built in BOT-029 Phase 1, keeping the same visual design:
@@ -88,8 +89,7 @@ Rectangle {
                 Repeater {
                     model: modelData.items
 
-                    Button {
-                        id: navButton
+                    StatefulButton {
                         required property var modelData
 
                         // Lets tests address a specific entry without
@@ -99,49 +99,20 @@ Rectangle {
                         text: modelData.label
                         enabled: modelData.navigable
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 40
+                        implicitHeight: 40
 
-                        readonly property bool isActive:
-                            modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
+                        iconSource: modelData.icon
+                        iconSize: 18
+                        fontSize: 13
+                        contentSpacing: 8
+                        textFillWidth: true
+                        accentBorder: Theme.stateNavBorder
+                        isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
 
                         ToolTip.visible: !modelData.navigable && hovered
                         ToolTip.text: "Coming soon"
 
                         onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
-
-                        background: Rectangle {
-                            radius: 6
-                            color: navButton.isActive
-                                   ? Qt.rgba(0.95, 0.73, 0.18, 0.12)
-                                   : (navButton.hovered && navButton.enabled
-                                      ? "#1f2127" : "#17181d")
-                            border.width: 1
-                            border.color: navButton.isActive ? Theme.accent : "#2a2d36"
-                            opacity: navButton.enabled ? 1.0 : 0.45
-                        }
-
-                        contentItem: RowLayout {
-                            spacing: 8
-
-                            Image {
-                                source: "image://icons/" + navButton.modelData.icon
-                                        + "/" + (navButton.isActive ? "accent" : "muted")
-                                sourceSize.width: 18
-                                sourceSize.height: 18
-                                Layout.preferredWidth: 18
-                                Layout.preferredHeight: 18
-                                opacity: navButton.enabled ? 1.0 : 0.45
-                            }
-
-                            Text {
-                                text: navButton.text
-                                color: navButton.isActive ? Theme.accent : Theme.textPrimary
-                                font.pixelSize: 13
-                                opacity: navButton.enabled ? 1.0 : 0.45
-                                Layout.fillWidth: true
-                                elide: Text.ElideRight
-                            }
-                        }
                     }
                 }
             }
@@ -162,8 +133,7 @@ Rectangle {
         Repeater {
             model: viewModel ? viewModel.bottomActions : null
 
-            Button {
-                id: bottomNavButton
+            StatefulButton {
                 required property var modelData
 
                 objectName: "bottomNavButton_" + (modelData.route || modelData.label)
@@ -171,49 +141,20 @@ Rectangle {
                 text: modelData.label
                 enabled: modelData.navigable
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40
+                implicitHeight: 40
 
-                readonly property bool isActive:
-                    modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
+                iconSource: modelData.icon
+                iconSize: 18
+                fontSize: 13
+                contentSpacing: 8
+                textFillWidth: true
+                accentBorder: Theme.stateNavBorder
+                isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
 
                 ToolTip.visible: !modelData.navigable && hovered
                 ToolTip.text: "Coming soon"
 
                 onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
-
-                background: Rectangle {
-                    radius: 6
-                    color: bottomNavButton.isActive
-                           ? Qt.rgba(0.95, 0.73, 0.18, 0.12)
-                           : (bottomNavButton.hovered && bottomNavButton.enabled
-                              ? "#1f2127" : "#17181d")
-                    border.width: 1
-                    border.color: bottomNavButton.isActive ? Theme.accent : "#2a2d36"
-                    opacity: bottomNavButton.enabled ? 1.0 : 0.45
-                }
-
-                contentItem: RowLayout {
-                    spacing: 8
-
-                    Image {
-                        source: "image://icons/" + bottomNavButton.modelData.icon
-                                + "/" + (bottomNavButton.isActive ? "accent" : "muted")
-                        sourceSize.width: 18
-                        sourceSize.height: 18
-                        Layout.preferredWidth: 18
-                        Layout.preferredHeight: 18
-                        opacity: bottomNavButton.enabled ? 1.0 : 0.45
-                    }
-
-                    Text {
-                        text: bottomNavButton.text
-                        color: bottomNavButton.isActive ? Theme.accent : Theme.textPrimary
-                        font.pixelSize: 13
-                        opacity: bottomNavButton.enabled ? 1.0 : 0.45
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-                }
             }
         }
     }
