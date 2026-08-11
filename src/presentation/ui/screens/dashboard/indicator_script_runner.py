@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript, InfoField
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import BaseIndicatorScript, InfoField
 
 from .script_region_tracker import RegionSpan, ScriptRegionTracker
 

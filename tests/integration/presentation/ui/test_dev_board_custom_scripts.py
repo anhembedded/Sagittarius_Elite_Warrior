@@ -39,7 +39,7 @@ def test_custom_scripts_checklist_renders_every_registered_script(
     qtbot.addWidget(main_window)
     _presenter, view = _open_dashboard(navigate)
 
-    from Binace_Bot.src.application.services.indicator_script_registry import (
+    from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
         IndicatorScriptRegistry,
     )
 

@@ -3,7 +3,7 @@ from collections.abc import Callable
 import pyqtgraph as pg
 from PySide6 import QtGui
 
-from Binace_Bot.src.domain.indicator_scripts import InfoField
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
 from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout

@@ -6,10 +6,10 @@ be constructed directly and hand-fed a bit of sample data instead of
 being wired to a real Presenter.
 
 Usage (from the repo root, with the venv active):
-    python Binace_Bot/scripts/preview_qml.py sidebar
-    python Binace_Bot/scripts/preview_qml.py settings
-    python Binace_Bot/scripts/preview_qml.py database
-    python Binace_Bot/scripts/preview_qml.py devboard
+    python Sagittarius_Elite_Warrior/scripts/preview_qml.py sidebar
+    python Sagittarius_Elite_Warrior/scripts/preview_qml.py settings
+    python Sagittarius_Elite_Warrior/scripts/preview_qml.py database
+    python Sagittarius_Elite_Warrior/scripts/preview_qml.py devboard
 
 Or via the wrapper: scripts/preview-qml.ps1 <screen>
 
@@ -34,23 +34,23 @@ from sagittarius_engine.extensions.pyside_mvc import (
     create_quick_widget,
 )
 
-from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
-from Binace_Bot.src.presentation.ui.components.sidebar import Sidebar
-from Binace_Bot.src.presentation.ui.components.sidebar.nav_section import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette, get_icon_loader
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar.nav_section import (
     NavItem,
     NavSection,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
 )
-from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
     DataManagementViewModel,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_view_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view_model import (
     SettingsViewModel,
 )
 
-_SCREENS_DIR = REPO_ROOT / "Binace_Bot" / "src" / "presentation" / "ui" / "screens"
+_SCREENS_DIR = REPO_ROOT / "Sagittarius_Elite_Warrior" / "src" / "presentation" / "ui" / "screens"
 
 # Same sections MainWindow builds — kept here rather than imported so this
 # script never needs to boot main_window.py's other side effects.

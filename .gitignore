@@ -135,6 +135,6 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
-# Custom Database for Binace_Bot
+# Custom Database for Sagittarius_Elite_Warrior
 database/
 *.db

@@ -3,16 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import MarketTickEvent
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
-from Binace_Bot.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from PySide6.QtCore import Signal, Slot
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -25,7 +25,7 @@ from .indicator_script_runner import IndicatorScriptRunner
 from .stream_lifecycle_controller import StreamLifecycleController
 
 if TYPE_CHECKING:
-    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
         DashboardView,
     )
     from sagittarius_engine.interfaces.i_container import IContainer

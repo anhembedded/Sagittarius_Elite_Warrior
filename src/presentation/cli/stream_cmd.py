@@ -1,10 +1,10 @@
 import sys
 import time
 
-from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from sagittarius_engine import App
 
 

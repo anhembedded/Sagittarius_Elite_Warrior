@@ -11,27 +11,27 @@ Screen-specific factory/presenter imports stay at the top level (no local import
 
 from __future__ import annotations
 
-from Binace_Bot.src.presentation.ui.components.sidebar import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,
     Sidebar,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
@@ -145,6 +145,6 @@ class MainWindow(QMainWindow):
 # New code should use app_bootstrapper.main() instead.
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    from Binace_Bot.src.presentation.ui.app_bootstrapper import main
+    from Sagittarius_Elite_Warrior.src.presentation.ui.app_bootstrapper import main
 
     main()

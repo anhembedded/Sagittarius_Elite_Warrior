@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Thin wrapper around preview_qml.py. Activates the same venv
-    ci-local.ps1 uses (repo-root .venv, falling back to Binace_Bot/.venv on
+    ci-local.ps1 uses (repo-root .venv, falling back to Sagittarius_Elite_Warrior/.venv on
     Linux) and forwards the screen name.
 
 .PARAMETER Screen

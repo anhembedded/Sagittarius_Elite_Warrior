@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from Binace_Bot.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 
 def build_candle(close: float, index: int = 0) -> MarketData:

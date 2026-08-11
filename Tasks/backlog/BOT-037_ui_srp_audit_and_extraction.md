@@ -233,7 +233,7 @@ riêng) — đặt tên bỏ tiền tố `_` vì giờ là API công khai của 
 `presenter._map_klines(older)`/`presenter._map_volume(older)` — 2 method này SẼ KHÔNG CÒN TỒN TẠI
 trên `presenter` sau khi tách. Sửa thành:
 ```python
-from Binace_Bot.src.presentation.ui.screens.dashboard.kline_mapping import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mapping import (
     map_klines,
     map_volume,
 )
@@ -250,15 +250,15 @@ volume = map_volume(older)
 ```bash
 # Từ repo root (Sagittarius_ForkBoy)
 PYTHONPATH=. ./.venv/Scripts/python.exe -m pytest \
-  Binace_Bot/tests/unit/presentation/ui/screens/test_dashboard_presenter.py \
-  Binace_Bot/tests/unit/presentation/ui/screens/test_data_management_presenter.py -q
+  Sagittarius_Elite_Warrior/tests/unit/presentation/ui/screens/test_dashboard_presenter.py \
+  Sagittarius_Elite_Warrior/tests/unit/presentation/ui/screens/test_data_management_presenter.py -q
 
 ./.venv/Scripts/python.exe -m ruff check \
-  Binace_Bot/src/presentation/ui/screens/dashboard/dashboard_presenter.py \
-  Binace_Bot/src/presentation/ui/screens/dashboard/kline_mapping.py \
-  Binace_Bot/src/presentation/ui/screens/data_management/data_management_presenter.py \
-  Binace_Bot/src/presentation/ui/screens/data_management/signal_log_handler.py \
-  Binace_Bot/tests/unit/presentation/ui/screens/test_dashboard_presenter.py
+  Sagittarius_Elite_Warrior/src/presentation/ui/screens/dashboard/dashboard_presenter.py \
+  Sagittarius_Elite_Warrior/src/presentation/ui/screens/dashboard/kline_mapping.py \
+  Sagittarius_Elite_Warrior/src/presentation/ui/screens/data_management/data_management_presenter.py \
+  Sagittarius_Elite_Warrior/src/presentation/ui/screens/data_management/signal_log_handler.py \
+  Sagittarius_Elite_Warrior/tests/unit/presentation/ui/screens/test_dashboard_presenter.py
 
 ./.venv/Scripts/python.exe -m ruff format --check <cùng list file trên>
 ```

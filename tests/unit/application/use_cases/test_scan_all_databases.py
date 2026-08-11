@@ -3,13 +3,13 @@ from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.handler import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.handler import (
     ScanAllDatabasesQueryHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )

@@ -1,7 +1,7 @@
 from typing import Protocol
 
-from Binace_Bot.src.domain.strategies.strategy_context import StrategyContext
-from Binace_Bot.src.domain.value_objects.signal import Signal
+from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import StrategyContext
+from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 
 
 class IStrategy(Protocol):

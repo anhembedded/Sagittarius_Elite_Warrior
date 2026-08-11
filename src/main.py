@@ -1,8 +1,8 @@
 import sys
 
-from Binace_Bot.src.binance_bot_module import BinanceBotModule
-from Binace_Bot.src.presentation.cli.cli_parser import build_parser
-from Binace_Bot.src.presentation.cli.sync_cmd import execute_sync
+from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
+from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
+from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
 from sagittarius_engine import App
 from sagittarius_engine.extensions.logger.logger_module import LoggerExtension
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
@@ -80,7 +80,7 @@ def main() -> None:
 
     if interactive_mode:
         # Register the Interactive Shell Hosted Service
-        from Binace_Bot.src.presentation.cli.interactive_shell import InteractiveShell
+        from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import InteractiveShell
 
         shell = InteractiveShell(app)
         app.context.hosted_services.register(shell)
@@ -100,7 +100,7 @@ def main() -> None:
             execute_sync(app, args)
             app.stop()
         elif args.command == "stream":
-            from Binace_Bot.src.presentation.cli.stream_cmd import execute_stream
+            from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import execute_stream
 
             execute_stream(app, args)
             app.stop()

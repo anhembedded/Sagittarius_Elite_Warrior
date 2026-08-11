@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import BaseIndicatorScript
 
 
 class IndicatorScriptRegistry:

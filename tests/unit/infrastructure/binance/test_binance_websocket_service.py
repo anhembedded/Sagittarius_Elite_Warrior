@@ -1,8 +1,8 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
 
@@ -214,10 +214,10 @@ async def test_websocket_auto_reconnect():
     with (
         patch("asyncio.sleep", new_callable=Mock) as mock_sleep,
         patch(
-            "Binace_Bot.src.infrastructure.binance.binance_websocket_service.AsyncClient"
+            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient"
         ) as mock_async_client,
         patch(
-            "Binace_Bot.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
+            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
         ) as mock_bsm_class,
     ):
         # Mock AsyncClient.create to return a mock client
@@ -268,7 +268,7 @@ async def test_process_socket_message_handles_parsing_exceptions_gracefully():
     )
 
     with patch(
-        "Binace_Bot.src.infrastructure.binance.binance_websocket_service.logger"
+        "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger"
     ) as mock_logger:
         await service._process_socket_message(tscm)
 
@@ -307,7 +307,7 @@ async def test_process_socket_message_handles_parsing_exceptions_gracefully():
     )
 
     with patch(
-        "Binace_Bot.src.infrastructure.binance.binance_websocket_service.logger"
+        "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger"
     ) as mock_logger:
         await service._process_socket_message(tscm)
 

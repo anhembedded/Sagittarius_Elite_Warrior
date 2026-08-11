@@ -10,7 +10,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Binace_Bot.src.presentation.ui.screens.data_management.database_status_table_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
     DatabaseStatusTableModel,
 )
 from PySide6.QtCore import QModelIndex

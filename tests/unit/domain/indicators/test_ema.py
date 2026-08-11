@@ -1,5 +1,5 @@
 import pytest
-from Binace_Bot.src.domain.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 
 # A fixed 20-point close series with both ups and downs, used across the
 # EMA/RSI/MACD test files so their golden values are cross-comparable.

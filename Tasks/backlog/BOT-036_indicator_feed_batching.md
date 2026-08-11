@@ -292,22 +292,22 @@ def test_feed_all_with_no_candles_emits_nothing(runner, emitted):
 # Từ repo root (Sagittarius_ForkBoy)
 
 # 1. Unit — gate chính. Baseline TRƯỚC khi sửa: 420 passed
-PYTHONPATH=. ./.venv/Scripts/python.exe -m pytest Binace_Bot/tests/unit -q \
-  --ignore=Binace_Bot/tests/unit/domain/entities/test_market_data.py
+PYTHONPATH=. ./.venv/Scripts/python.exe -m pytest Sagittarius_Elite_Warrior/tests/unit -q \
+  --ignore=Sagittarius_Elite_Warrior/tests/unit/domain/entities/test_market_data.py
 
 # 2. Integration — chạy theo NHÓM (xem R7, đừng chạy cả thư mục 1 lệnh)
 PYTHONPATH=. ./.venv/Scripts/python.exe -m pytest \
-  Binace_Bot/tests/integration/presentation/ui/test_dev_board_indicators.py \
-  Binace_Bot/tests/integration/presentation/ui/test_dev_board_custom_scripts.py \
-  Binace_Bot/tests/integration/presentation/ui/test_dev_board_load_more.py -q
+  Sagittarius_Elite_Warrior/tests/integration/presentation/ui/test_dev_board_indicators.py \
+  Sagittarius_Elite_Warrior/tests/integration/presentation/ui/test_dev_board_custom_scripts.py \
+  Sagittarius_Elite_Warrior/tests/integration/presentation/ui/test_dev_board_load_more.py -q
 
 # 3. Lint (2 file đã sửa)
 ./.venv/Scripts/python.exe -m ruff check \
-  Binace_Bot/src/presentation/ui/screens/dashboard/indicator_script_runner.py \
-  Binace_Bot/tests/unit/presentation/ui/screens/test_indicator_script_runner.py
+  Sagittarius_Elite_Warrior/src/presentation/ui/screens/dashboard/indicator_script_runner.py \
+  Sagittarius_Elite_Warrior/tests/unit/presentation/ui/screens/test_indicator_script_runner.py
 ./.venv/Scripts/python.exe -m ruff format --check \
-  Binace_Bot/src/presentation/ui/screens/dashboard/indicator_script_runner.py \
-  Binace_Bot/tests/unit/presentation/ui/screens/test_indicator_script_runner.py
+  Sagittarius_Elite_Warrior/src/presentation/ui/screens/dashboard/indicator_script_runner.py \
+  Sagittarius_Elite_Warrior/tests/unit/presentation/ui/screens/test_indicator_script_runner.py
 ```
 
 **Manual (chạy app thật):**

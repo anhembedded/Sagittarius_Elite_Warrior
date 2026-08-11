@@ -207,7 +207,7 @@ sequenceDiagram
 
 ## 7. Shared QML infrastructure (`sagittarius_engine.extensions.pyside_mvc`)
 
-Built once, reused by every screen. Originally kept *inside* `Binace_Bot`
+Built once, reused by every screen. Originally kept *inside* `Sagittarius_Elite_Warrior`
 (`screens/_qml_shared/`) until a second real QML consumer arrived — see §9
 — at which point it was promoted into the shared `sagittarius_engine`
 framework (`extensions/pyside_mvc/QmlShared/`) and this app switched to
@@ -325,7 +325,7 @@ that signal, guaranteed to run on the main thread.
 
 ## 9. What got promoted, and what's still deliberately local
 
-The shared QML infrastructure described in §7 stayed local to `Binace_Bot`
+The shared QML infrastructure described in §7 stayed local to `Sagittarius_Elite_Warrior`
 (`screens/_qml_shared/`) through the end of `BOT-030` — a conscious call,
 not an oversight: a repo-wide check at the time found no other app using
 `pyside_mvc` at all, and promoting a pattern to a shared framework package
@@ -351,7 +351,7 @@ consumer" reason that applied to `_qml_shared` until now:
   "fixed" because that would mean changing shared framework code for one
   app's convenience.
 - **`UIMatrixMixin`** stays in `sagittarius_engine` even though nothing in
-  `Binace_Bot` uses it anymore — it's a framework primitive available to a
+  `Sagittarius_Elite_Warrior` uses it anymore — it's a framework primitive available to a
   future non-QML consumer, not dead code belonging to this app.
 
 ---

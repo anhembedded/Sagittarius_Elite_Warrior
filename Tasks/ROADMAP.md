@@ -8,7 +8,7 @@
 ## 📂 Thư mục Quản lý Task
 
 ```text
-Binace_Bot/Tasks/
+Sagittarius_Elite_Warrior/Tasks/
 ├── 🟢 completed/   # Các nhiệm vụ đã hoàn thành và qua kiểm thử (Passed 100% Tests)
 ├── 🟡 in_progress/ # Các nhiệm vụ đang thực hiện trong Sprint hiện tại
 ├── 🔴 backlog/     # Các nhiệm vụ chờ ưu tiên triển khai

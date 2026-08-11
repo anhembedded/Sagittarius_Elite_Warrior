@@ -12,4 +12,4 @@ Tính năng phân tích kỹ thuật thủ công dành cho người dùng quan s
 - [ ] **Multi-Chart Layouts & Snapshot:** Cho phép chia khung xem 2x2 grid và chụp ảnh màn hình biểu đồ (Export Image).
 
 ## 4. Kiến trúc & Vị trí Mã nguồn (Architectural Context)
-- `Binace_Bot/src/presentation/ui/components/chart_card/drawing_tools/`
+- `Sagittarius_Elite_Warrior/src/presentation/ui/components/chart_card/drawing_tools/`

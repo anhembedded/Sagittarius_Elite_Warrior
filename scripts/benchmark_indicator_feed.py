@@ -4,7 +4,7 @@ machinery (see `benchmarking/qt_feed_harness.py` for why this replaces the
 earlier ad-hoc script that simulated Qt's cost with a hand-rolled list copy).
 
 Run from the Sagittarius_ForkBoy repo root:
-    PYTHONPATH=. ./.venv/Scripts/python.exe Binace_Bot/scripts/benchmark_indicator_feed.py
+    PYTHONPATH=. ./.venv/Scripts/python.exe Sagittarius_Elite_Warrior/scripts/benchmark_indicator_feed.py
 
 To compare before/after a change to feed_all()'s emit strategy, run this
 same script at two commits (`git stash` / `git checkout`) rather than
@@ -23,21 +23,21 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QCoreApplication
 
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.domain.indicator_scripts import (
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
     Ema20Script,
     Ema50Script,
     Ema100Script,
     Ema200Script,
 )
-from Binace_Bot.scripts.benchmarking.candle_factory import make_mock_candles
-from Binace_Bot.scripts.benchmarking.qt_feed_harness import (
+from Sagittarius_Elite_Warrior.scripts.benchmarking.candle_factory import make_mock_candles
+from Sagittarius_Elite_Warrior.scripts.benchmarking.qt_feed_harness import (
     run_background_path,
     run_main_thread_path,
 )
-from Binace_Bot.scripts.benchmarking.report import format_result
+from Sagittarius_Elite_Warrior.scripts.benchmarking.report import format_result
 
 _DEFAULT_SCRIPT_KEYS = ["ema_20", "ema_50", "ema_100", "ema_200"]
 

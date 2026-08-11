@@ -16,7 +16,7 @@ def _configure_app_qml():
     bootstrapper, so this fixture stands in for it, once per session, using
     the real Palette/IconLoader so tests exercise the real wiring.
     """
-    from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
+    from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette, get_icon_loader
     from sagittarius_engine.extensions.pyside_mvc import (
         configure_app_qml,
         get_theme_bridge,

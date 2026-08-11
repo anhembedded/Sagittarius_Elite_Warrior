@@ -2,14 +2,14 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import PythonBinanceClient
 
 
 @pytest.fixture
 def client():
     # Patch the actual binance Client so we don't make real HTTP requests during testing
-    with patch("Binace_Bot.src.infrastructure.binance.client.Client") as MockClient:
+    with patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.client.Client") as MockClient:
         # Mock instance of the Client
         mock_instance = MockClient.return_value
 

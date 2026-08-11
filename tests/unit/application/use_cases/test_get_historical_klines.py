@@ -2,13 +2,13 @@ from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.handler import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.handler import (
     GetHistoricalKlinesQueryHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 def test_get_historical_klines_handler_success():

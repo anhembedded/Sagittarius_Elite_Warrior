@@ -10,7 +10,7 @@ import os
 from unittest.mock import patch
 
 import pytest
-from Binace_Bot.src.main import create_app
+from Sagittarius_Elite_Warrior.src.main import create_app
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -36,10 +36,10 @@ def booted_app():
     # are patched, since HostedService.start() would otherwise try to touch the network.
     with (
         patch(
-            "Binace_Bot.src.infrastructure.binance.binance_websocket_service.AsyncClient"
+            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient"
         ),
         patch(
-            "Binace_Bot.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
+            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
         ),
     ):
         app.boot()

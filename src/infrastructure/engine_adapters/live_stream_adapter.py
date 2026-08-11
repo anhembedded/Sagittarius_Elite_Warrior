@@ -1,6 +1,6 @@
 import logging
 
-from Binace_Bot.src.application.ports.i_live_stream_service import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext

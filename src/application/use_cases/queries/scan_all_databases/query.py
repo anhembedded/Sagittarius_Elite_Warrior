@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
 

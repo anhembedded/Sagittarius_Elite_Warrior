@@ -1,9 +1,9 @@
 from unittest.mock import Mock
 
-from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 

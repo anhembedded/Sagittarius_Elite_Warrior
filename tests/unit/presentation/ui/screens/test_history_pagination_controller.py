@@ -2,7 +2,7 @@
 
 import time
 
-from Binace_Bot.src.presentation.ui.screens.dashboard.history_pagination_controller import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.history_pagination_controller import (
     HistoryPaginationController,
 )
 

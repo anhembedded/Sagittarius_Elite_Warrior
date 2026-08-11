@@ -5,19 +5,19 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.indicators.ema import EMA
-from Binace_Bot.src.domain.indicators.i_indicator import IIndicator
-from Binace_Bot.src.domain.indicators.macd import (
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
+from Sagittarius_Elite_Warrior.src.domain.indicators.macd import (
     DEFAULT_MACD_FAST_PERIOD,
     DEFAULT_MACD_SIGNAL_PERIOD,
     DEFAULT_MACD_SLOW_PERIOD,
     MACD,
     MACDValue,
 )
-from Binace_Bot.src.domain.indicators.rsi import DEFAULT_RSI_PERIOD, RSI
-from Binace_Bot.src.domain.indicators.wma import WMA
-from Binace_Bot.src.domain.scripting import (
+from Sagittarius_Elite_Warrior.src.domain.indicators.rsi import DEFAULT_RSI_PERIOD, RSI
+from Sagittarius_Elite_Warrior.src.domain.indicators.wma import WMA
+from Sagittarius_Elite_Warrior.src.domain.scripting import (
     DEFAULT_HISTORY,
     Series,
     Streak,

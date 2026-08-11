@@ -40,10 +40,10 @@ import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 
 def _open_dashboard(navigate):
@@ -208,8 +208,8 @@ def test_duplicate_closed_tick_for_same_timestamp_appends_twice(
     """
     from datetime import datetime, timezone
 
-    from Binace_Bot.src.domain.entities.market_data import MarketData
-    from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+    from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import MarketTickEvent
 
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)

@@ -1,6 +1,6 @@
 import pytest
-from Binace_Bot.src.domain.indicators.ema import EMA
-from Binace_Bot.src.domain.indicators.macd import MACD
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACD
 
 # 40-point close series (extends the 20-point series from test_ema.py/
 # test_rsi.py so MACD's longer 26+9-1 warm-up has enough data).

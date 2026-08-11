@@ -17,7 +17,7 @@ def test_main_window_no_toplevel_bootstrapper_import():
     )
     if not path.exists():
         # Fallback for pytest running from repo root
-        path = Path("Binace_Bot/src/presentation/ui/main_window.py")
+        path = Path("Sagittarius_Elite_Warrior/src/presentation/ui/main_window.py")
 
     tree = ast.parse(path.read_text(encoding="utf-8"))
 

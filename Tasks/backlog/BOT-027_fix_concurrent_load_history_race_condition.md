@@ -4,7 +4,7 @@
 Loại bỏ race condition đã **xác nhận tái hiện được bằng test thật** (không chỉ suy đoán): bấm "Load History" 2 lần trở lên trước khi lần trước chạy xong khiến dữ liệu nến bị feed nhiều lần vào cùng 1 bộ indicator (`RSI`/`EMA`/`MACD`), làm sai số liệu hiển thị trên chart.
 
 ## 2. Bối cảnh (Context)
-Phát sinh từ phiên phân tích **User-End Test Case** cho Dev Board (📄 [`Tasks/reports/dev_board_user_end_test_cases.md`](../reports/dev_board_user_end_test_cases.md), mục D — Async/Race Condition). Hai test case trong đó (`TC-ASY-01`, `TC-ASY-04`) đã được viết thành automated test thật ở `Binace_Bot/tests/integration/presentation/ui/test_dev_board_async_race_conditions.py` và **XFAIL đúng như dự đoán** — tức là bug này có thật trên code hiện tại, không phải lý thuyết.
+Phát sinh từ phiên phân tích **User-End Test Case** cho Dev Board (📄 [`Tasks/reports/dev_board_user_end_test_cases.md`](../reports/dev_board_user_end_test_cases.md), mục D — Async/Race Condition). Hai test case trong đó (`TC-ASY-01`, `TC-ASY-04`) đã được viết thành automated test thật ở `Sagittarius_Elite_Warrior/tests/integration/presentation/ui/test_dev_board_async_race_conditions.py` và **XFAIL đúng như dự đoán** — tức là bug này có thật trên code hiện tại, không phải lý thuyết.
 
 **Root cause đã xác định chính xác:**
 - `DashboardPresenter._run_load_history`/`_compute_indicator_series` đọc `self.active_indicators` **tại thời điểm background thread chạy tới đó**, không phải tại thời điểm `_on_load_history()` submit task.
@@ -29,4 +29,4 @@ Chọn 1 trong 2 hướng dưới đây (đã phân tích sẵn trong report, ph
 ## 5. Phụ thuộc (Dependencies)
 - `BOT-020` ✅ (Indicator & Strategy Engine Core) — `active_indicators`/`RSI`/`EMA`/`MACD` là những gì đang bị race.
 - 📄 [`Tasks/reports/dev_board_user_end_test_cases.md`](../reports/dev_board_user_end_test_cases.md) — nguồn phân tích gốc, có đầy đủ 20 test case Async/Race Condition khác (`TC-ASY-02`...`TC-ASY-20`) nên rà thêm sau khi fix xong 2 case chính này.
-- `Binace_Bot/tests/integration/presentation/ui/test_dev_board_async_race_conditions.py` — bộ test tái hiện, dùng để verify fix.
+- `Sagittarius_Elite_Warrior/tests/integration/presentation/ui/test_dev_board_async_race_conditions.py` — bộ test tái hiện, dùng để verify fix.

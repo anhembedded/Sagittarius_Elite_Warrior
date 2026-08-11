@@ -2,14 +2,14 @@ import logging
 from datetime import datetime, timezone
 
 import sqlalchemy as sa
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     IMarketDataRepository,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.infrastructure.persistence.database_manager import DatabaseManager
-from Binace_Bot.src.infrastructure.persistence.models import KlineModel
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import DatabaseManager
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.models import KlineModel
 
 logger = logging.getLogger("App.Database")
 

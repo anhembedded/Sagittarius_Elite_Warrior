@@ -6,8 +6,8 @@ import pytest
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import MarketTickEvent
 
 # app_engine/main_window come from conftest.py — this file used to define
 # its own near-duplicate copies (predating BOT-034), which meant the

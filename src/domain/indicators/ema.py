@@ -1,4 +1,4 @@
-from Binace_Bot.src.domain.indicators.i_indicator import IIndicator
+from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
 
 
 class EMA(IIndicator[float]):

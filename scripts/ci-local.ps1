@@ -71,17 +71,17 @@ $repoRoot  = Split-Path -Parent $botRoot
 # (a partial test run always under-reports total coverage). -Full is just the
 # default full-suite-with-coverage-gate behavior, spelled out explicitly.
 # ---------------------------------------------------------------------------
-$pytestTarget = "Binace_Bot/tests"
+$pytestTarget = "Sagittarius_Elite_Warrior/tests"
 $useCoverage = $true
 $enforceCoverageGate = $true
 
 if ($SanityOnly) {
-    $pytestTarget = "Binace_Bot/tests/sanity"
+    $pytestTarget = "Sagittarius_Elite_Warrior/tests/sanity"
     $useCoverage = $false
     $enforceCoverageGate = $false
     $SkipLint = $true
 } elseif ($UnitOnly) {
-    $pytestTarget = "Binace_Bot/tests/unit"
+    $pytestTarget = "Sagittarius_Elite_Warrior/tests/unit"
     $enforceCoverageGate = $false
     $SkipLint = $true
 }
@@ -136,7 +136,7 @@ if (-not $SkipTests) {
 
         $pytestArgs = @($pytestTarget, "-v")
         if ($useCoverage) {
-            $pytestArgs += "--cov=Binace_Bot/src"
+            $pytestArgs += "--cov=Sagittarius_Elite_Warrior/src"
             $pytestArgs += "--cov-report=term-missing"
             if ($enforceCoverageGate) { $pytestArgs += "--cov-fail-under=80" }
         }

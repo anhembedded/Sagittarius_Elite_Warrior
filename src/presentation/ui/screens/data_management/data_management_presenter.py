@@ -5,22 +5,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
-from Binace_Bot.src.application.use_cases.queries.get_database_status.query import (
+from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import BulkSyncProgressEvent
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
-from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from PySide6.QtCore import Signal, Slot
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager

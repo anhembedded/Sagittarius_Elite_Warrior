@@ -9,8 +9,8 @@ tests/integration/infrastructure/persistence/test_sqlalchemy_repository.py.
 from datetime import datetime, timezone
 from unittest.mock import Mock
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
 

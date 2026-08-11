@@ -1,11 +1,11 @@
 """Tests for IndicatorScriptRegistry (BOT-032 Phase 0)."""
 
 import pytest
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import BaseIndicatorScript
 
 
 class _DummyScript(BaseIndicatorScript):

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Binace_Bot.src.domain.value_objects.signal import Signal
+from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 
 
 @dataclass(frozen=True)

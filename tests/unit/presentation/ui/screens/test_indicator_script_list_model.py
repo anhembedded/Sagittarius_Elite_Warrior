@@ -2,7 +2,7 @@
 
 from PySide6.QtCore import QModelIndex
 
-from Binace_Bot.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
     IndicatorScriptListModel,
 )
 

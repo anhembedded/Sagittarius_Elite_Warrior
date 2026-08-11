@@ -22,26 +22,26 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import MagicMock
 
 import pytest
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.kline_mapping import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mapping import (
     map_klines,
     map_volume,
 )
-from Binace_Bot.src.presentation.ui.constants import UIMode  # noqa: E402
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -62,10 +62,10 @@ def mock_dispatcher():
 def mock_container(mock_thread_mgr, mock_dispatcher):
     container = MagicMock()
 
-    from Binace_Bot.src.application.services.indicator_script_registry import (
+    from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
         IndicatorScriptRegistry,
     )
-    from Binace_Bot.src.domain.indicator_scripts import (
+    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
         EmaCrossScript,
         EmaRibbonScript,
     )
@@ -293,7 +293,7 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
     """_run_sync_and_start dispatches Sync → HistoricalKlines → StartLiveStream in order."""
     mock_dispatcher.dispatch.return_value = []
 
-    from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
     presenter._run_sync_and_start(
         ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
@@ -336,7 +336,7 @@ def test_run_sync_and_start_stops_after_step_1_when_cancelled(
     """Sync (Step 1) always runs — cancellation is checked *between* steps,
     not before the first one — but History (Step 2) and Start Stream
     (Step 3) must not run once cancelled."""
-    from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
     from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
     token = CancellationToken()
@@ -396,7 +396,7 @@ def test_timeframe_changed_while_history_loading_does_not_reload(
 
 
 def test_timeframe_changed_while_live_stops_then_restarts(presenter, mock_thread_mgr):
-    from Binace_Bot.src.presentation.ui.constants import UIMode
+    from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 
     presenter.fsm.transition_to(UIMode.LOCKED)
     presenter.fsm.transition_to(UIMode.LIVE)
@@ -729,7 +729,7 @@ def test_price_ticker_updates_on_chart_tick(presenter):
 
 
 def test_ws_status_badge_reflects_fsm_state(presenter):
-    from Binace_Bot.src.presentation.ui.constants import UIMode
+    from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 
     presenter.fsm.transition_to(UIMode.LOCKED)
 
@@ -787,7 +787,7 @@ def _make_market_data(close: float, index: int):
     not exercise the real path."""
     from datetime import UTC, datetime, timedelta
 
-    from Binace_Bot.src.domain.entities.market_data import MarketData
+    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
     open_time = datetime(2024, 1, 1, tzinfo=UTC) + timedelta(minutes=index)
     return MarketData(

@@ -1,17 +1,17 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
-from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import BulkSyncProgressEvent
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
-from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data.handler import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.handler import (
     BulkSyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 
 
 @pytest.fixture

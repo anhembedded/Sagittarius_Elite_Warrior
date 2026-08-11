@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
-from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import IExchangeClient
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 

@@ -17,10 +17,10 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
 from sagittarius_engine.infrastructure.config.config_manager import (

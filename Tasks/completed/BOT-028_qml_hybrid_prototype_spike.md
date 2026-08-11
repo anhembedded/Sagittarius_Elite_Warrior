@@ -50,7 +50,7 @@ Chia làm 4 phase, mỗi phase có test gate riêng, chỉ sang phase sau khi ph
 - `src/presentation/ui/main_window.py` (đăng ký route `"settings"`)
 - `tests/integration/presentation/ui/test_sanity_ui_e2e.py` (thêm `test_sanity_settings_screen_qml_loads`)
 
-Verify: `Binace_Bot/scripts/ci-local.ps1 -Full` — Ruff Lint ✅, Ruff Format ✅, Pytest ✅ (**218 passed, 2 xfailed** — 2 xfail thuộc `BOT-027`, có từ trước, không liên quan task này), coverage tổng **90.56%** (gate 80%), 3 file mới của Settings đều **100%** coverage.
+Verify: `Sagittarius_Elite_Warrior/scripts/ci-local.ps1 -Full` — Ruff Lint ✅, Ruff Format ✅, Pytest ✅ (**218 passed, 2 xfailed** — 2 xfail thuộc `BOT-027`, có từ trước, không liên quan task này), coverage tổng **90.56%** (gate 80%), 3 file mới của Settings đều **100%** coverage.
 
 ---
 

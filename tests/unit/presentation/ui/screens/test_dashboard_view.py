@@ -2,10 +2,10 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
 )
 from PySide6.QtQuickWidgets import QQuickWidget

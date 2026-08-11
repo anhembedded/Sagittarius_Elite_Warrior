@@ -2,12 +2,12 @@ from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
-from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 @pytest.fixture

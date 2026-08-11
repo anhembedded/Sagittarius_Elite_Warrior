@@ -19,10 +19,10 @@ import sys
 import traceback
 
 import qdarktheme
-from Binace_Bot.src.config.config_keys import ConfigKeys
-from Binace_Bot.src.main import create_app
-from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
-from Binace_Bot.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette, get_icon_loader
+from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QMessageBox
 from sagittarius_engine.extensions.pyside_mvc import configure_app_qml

@@ -1,16 +1,16 @@
 import logging
 
-from Binace_Bot.src.application.ports.i_cqrs import IQueryHandler
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from Binace_Bot.src.application.use_cases.queries.get_database_status.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 logger = logging.getLogger("App.QueryHandler")
 

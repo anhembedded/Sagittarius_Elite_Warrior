@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from Binace_Bot.src.domain.value_objects.signal_action import SignalAction
+from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import SignalAction
 
 
 @dataclass(frozen=True)
