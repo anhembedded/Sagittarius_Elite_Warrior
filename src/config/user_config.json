@@ -7,7 +7,7 @@
     "DEFAULT_SYNC_DAYS": 30,
     "CHART_CARD_MIN_FETCH_CANDLES": 2000,
     "CHART_CARD_LOAD_MORE_BATCH_CANDLES": 2000,
-    "CHART_CARD_MAX_ZOOM_OUT_CANDLES": 500,
+    "CHART_CARD_MAX_ZOOM_OUT_CANDLES": 200,
     "API_KEY": "",
     "API_SECRET": "",
     "ui.font.family": "JetBrainsMono Nerd Font",
