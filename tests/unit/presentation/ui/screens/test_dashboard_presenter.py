@@ -264,6 +264,96 @@ def test_on_load_history_submits_the_computed_fetch_limit(presenter, mock_thread
 
 
 # ---------------------------------------------------------------------------
+# Symbol / Start-End date (BOT-033 Phase 2) — read from the ViewModel and
+# validated before anything is dispatched, instead of a hard-coded symbol
+# and an ignored date range.
+# ---------------------------------------------------------------------------
+
+
+def test_on_load_history_uses_the_view_models_symbol(presenter, mock_thread_mgr):
+    presenter._view_model.symbol = "BTCUSDT"
+
+    presenter._on_load_history()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[1] == ["BTCUSDT"]  # symbols positional arg
+    assert presenter._active_symbol == "BTCUSDT"
+
+
+def test_on_load_history_normalizes_the_symbol(presenter, mock_thread_mgr):
+    """Lowercase/whitespace input is corrected, not rejected — matches every
+    other symbol entry point in this codebase (CLI handlers,
+    SyncMarketDataCommand's own validator)."""
+    presenter._view_model.symbol = "  btcusdt  "
+
+    presenter._on_load_history()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[1] == ["BTCUSDT"]
+
+
+def test_on_load_history_rejects_an_invalid_symbol(presenter, mock_thread_mgr):
+    presenter._view_model.symbol = "BT"  # too short to be a real pair
+
+    presenter._on_load_history()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_load_history_rejects_an_unparseable_date(presenter, mock_thread_mgr):
+    presenter._view_model.startDate = "not a date"
+
+    presenter._on_load_history()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_load_history_rejects_a_start_date_not_before_end_date(
+    presenter, mock_thread_mgr
+):
+    presenter._view_model.startDate = "2024-01-02 00:00"
+    presenter._view_model.endDate = "2024-01-01 00:00"
+
+    presenter._on_load_history()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_load_history_submits_the_parsed_date_range(presenter, mock_thread_mgr):
+    from datetime import datetime, timezone
+
+    presenter._view_model.startDate = "2024-01-01 00:00"
+    presenter._view_model.endDate = "2024-01-02 00:00"
+
+    presenter._on_load_history()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[5] == datetime(2024, 1, 1, tzinfo=timezone.utc)  # start_time
+    assert submit_args[6] == datetime(2024, 1, 2, tzinfo=timezone.utc)  # end_time
+
+
+def test_run_load_history_dispatches_the_date_range_to_the_query(
+    presenter, mock_dispatcher
+):
+    from datetime import datetime, timezone
+
+    mock_dispatcher.dispatch.return_value = []
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2024, 1, 2, tzinfo=timezone.utc)
+
+    presenter._run_load_history(
+        ["BTCUSDT"], "1m", 100, presenter._cancellation_token, start, end
+    )
+
+    _, dispatched_query = mock_dispatcher.dispatch.call_args[0]
+    assert dispatched_query.start_time == start
+    assert dispatched_query.end_time == end
+
+
+# ---------------------------------------------------------------------------
 # _on_start_stream — submits full sync+stream workflow to background
 # ---------------------------------------------------------------------------
 
@@ -309,6 +399,84 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
     query_idx = call_types.index(GetHistoricalKlinesQuery)
     stream_idx = call_types.index(StartLiveStreamCommand)
     assert sync_idx < query_idx < stream_idx
+
+
+def test_on_start_stream_uses_the_view_models_symbol(presenter, mock_thread_mgr):
+    presenter._view_model.symbol = "BTCUSDT"
+
+    presenter._on_start_stream()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[1] == ["BTCUSDT"]  # symbols positional arg
+    assert presenter._active_symbol == "BTCUSDT"
+
+
+def test_on_start_stream_rejects_an_invalid_symbol_without_locking_the_fsm(
+    presenter, mock_thread_mgr
+):
+    presenter._view_model.symbol = "!!"
+
+    presenter._on_start_stream()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter.fsm.current_state.name == "IDLE"
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_start_stream_rejects_a_start_date_not_before_end_date(
+    presenter, mock_thread_mgr
+):
+    presenter._view_model.startDate = "2024-01-02 00:00"
+    presenter._view_model.endDate = "2024-01-01 00:00"
+
+    presenter._on_start_stream()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter.fsm.current_state.name == "IDLE"
+
+
+def test_on_start_stream_submits_the_parsed_date_range(presenter, mock_thread_mgr):
+    from datetime import datetime, timezone
+
+    presenter._view_model.startDate = "2024-01-01 00:00"
+    presenter._view_model.endDate = "2024-01-02 00:00"
+
+    presenter._on_start_stream()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[6] == datetime(2024, 1, 1, tzinfo=timezone.utc)  # start_time
+    assert submit_args[7] == datetime(2024, 1, 2, tzinfo=timezone.utc)  # end_time
+
+
+def test_run_sync_and_start_passes_the_date_range_to_the_sync_command(
+    presenter, mock_dispatcher
+):
+    from datetime import datetime, timezone
+
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
+    mock_dispatcher.dispatch.return_value = []
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2024, 1, 2, tzinfo=timezone.utc)
+
+    presenter._run_sync_and_start(
+        ["BTCUSDT"],
+        TimeFrame("1m"),
+        "1m",
+        5000,
+        presenter._cancellation_token,
+        start,
+        end,
+    )
+
+    sync_call = next(
+        call
+        for call in mock_dispatcher.dispatch.call_args_list
+        if call[0][0] is SyncMarketDataCommand
+    )
+    sync_cmd = sync_call[0][1]
+    assert sync_cmd.start_time == start
+    assert sync_cmd.end_time == end
 
 
 # ---------------------------------------------------------------------------
@@ -491,6 +659,38 @@ def test_on_indicator_data_ignores_an_unrecognised_bare_name(presenter):
 
     mock_card.add_overlay_indicator.assert_not_called()
     mock_card.update_indicator_data.assert_not_called()
+
+
+def test_indicator_data_routes_to_the_chart_of_the_active_symbol(presenter):
+    """BOT-033 Phase 2 — regression test for a bug _active_symbol fixes:
+    _on_indicator_data used to look the chart card up by the
+    _DEFAULT_SYMBOLS[0] constant ("ETHUSDT") no matter what symbol was
+    actually loaded, so switching to e.g. BTCUSDT silently stopped every
+    indicator line from reaching its chart (the card existed, keyed
+    correctly by _ensure_chart_cards, but nothing looked it up under its
+    real key anymore)."""
+    presenter._active_symbol = "BTCUSDT"
+    mock_card = MagicMock()
+    presenter.active_charts = {"BTCUSDT": mock_card}
+    presenter._script_runner.draw = MagicMock()
+
+    presenter._on_indicator_data("ema_cross:fast", [1.0], [100.0])
+
+    presenter._script_runner.draw.assert_called_once_with(
+        mock_card, "ema_cross:fast", [1.0], [100.0]
+    )
+
+
+def test_rebuild_scripts_clears_the_chart_of_the_active_symbol(presenter):
+    """Same bug/fix as above, for _rebuild_scripts' clear_from_chart call."""
+    presenter._active_symbol = "BTCUSDT"
+    mock_card = MagicMock()
+    presenter.active_charts = {"BTCUSDT": mock_card}
+    presenter._script_runner.clear_from_chart = MagicMock()
+
+    presenter._rebuild_scripts()
+
+    presenter._script_runner.clear_from_chart.assert_called_once_with(mock_card)
 
 
 # ---------------------------------------------------------------------------
@@ -712,6 +912,24 @@ def test_a_live_tick_extends_the_raw_kline_cache_for_a_later_prepend_rebuild(
     assert (
         presenter._raw_klines_by_symbol["ETHUSDT"][-1].close_time.timestamp() == 1060.0
     )
+
+
+def test_a_live_tick_tags_the_cached_candle_with_the_active_interval(presenter):
+    """Regression: _tick_to_candle used to hard-code "1m" via the
+    _DEFAULT_INTERVAL_STR module constant regardless of _active_interval
+    (BOT-034 replaced every OTHER read site with the instance attribute but
+    missed this one) — silently mislabeling every live-tick candle appended
+    to _raw_klines_by_symbol once a user picked a timeframe other than
+    "1m"."""
+    presenter._active_interval = "5m"
+    presenter.active_charts = {"ETHUSDT": MagicMock()}
+
+    presenter._on_ui_chart_update(
+        "ETHUSDT", 1000.0, 99.0, 101.0, 98.0, 100.0, 10.0, True
+    )
+
+    candle = presenter._raw_klines_by_symbol["ETHUSDT"][-1]
+    assert candle.interval == "5m"
 
 
 # ---------------------------------------------------------------------------

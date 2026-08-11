@@ -67,7 +67,7 @@ Rectangle {
 
         // ---- Sections ------------------------------------------------
         Repeater {
-            model: viewModel.sections
+            model: viewModel ? viewModel.sections : null
 
             ColumnLayout {
                 required property var modelData
@@ -102,12 +102,12 @@ Rectangle {
                         Layout.preferredHeight: 40
 
                         readonly property bool isActive:
-                            modelData.navigable && modelData.route === viewModel.activeRoute
+                            modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
 
                         ToolTip.visible: !modelData.navigable && hovered
                         ToolTip.text: "Coming soon"
 
-                        onClicked: viewModel.navigate(modelData.route)
+                        onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
 
                         background: Rectangle {
                             radius: 6
@@ -148,5 +148,73 @@ Rectangle {
         }
 
         Item { Layout.fillHeight: true }
+
+        // ---- Bottom Actions ------------------------------------------
+        Rectangle {
+            Layout.fillWidth: true
+            height: 1
+            color: Theme.border
+            Layout.leftMargin: -10
+            Layout.rightMargin: -10
+            visible: viewModel ? viewModel.bottomActions.length > 0 : false
+        }
+
+        Repeater {
+            model: viewModel ? viewModel.bottomActions : null
+
+            Button {
+                id: bottomNavButton
+                required property var modelData
+
+                objectName: "bottomNavButton_" + (modelData.route || modelData.label)
+
+                text: modelData.label
+                enabled: modelData.navigable
+                Layout.fillWidth: true
+                Layout.preferredHeight: 40
+
+                readonly property bool isActive:
+                    modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
+
+                ToolTip.visible: !modelData.navigable && hovered
+                ToolTip.text: "Coming soon"
+
+                onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
+
+                background: Rectangle {
+                    radius: 6
+                    color: bottomNavButton.isActive
+                           ? Qt.rgba(0.95, 0.73, 0.18, 0.12)
+                           : (bottomNavButton.hovered && bottomNavButton.enabled
+                              ? "#1f2127" : "#17181d")
+                    border.width: 1
+                    border.color: bottomNavButton.isActive ? Theme.accent : "#2a2d36"
+                    opacity: bottomNavButton.enabled ? 1.0 : 0.45
+                }
+
+                contentItem: RowLayout {
+                    spacing: 8
+
+                    Image {
+                        source: "image://icons/" + bottomNavButton.modelData.icon
+                                + "/" + (bottomNavButton.isActive ? "accent" : "muted")
+                        sourceSize.width: 18
+                        sourceSize.height: 18
+                        Layout.preferredWidth: 18
+                        Layout.preferredHeight: 18
+                        opacity: bottomNavButton.enabled ? 1.0 : 0.45
+                    }
+
+                    Text {
+                        text: bottomNavButton.text
+                        color: bottomNavButton.isActive ? Theme.accent : Theme.textPrimary
+                        font.pixelSize: 13
+                        opacity: bottomNavButton.enabled ? 1.0 : 0.45
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+        }
     }
 }

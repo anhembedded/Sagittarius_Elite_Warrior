@@ -15,6 +15,7 @@ Threading contract:
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -34,6 +35,7 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
+from .dashboard_view_model import DATETIME_FORMAT
 from .kline_mapping import map_klines, map_volume
 
 if TYPE_CHECKING:
@@ -44,6 +46,28 @@ if TYPE_CHECKING:
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
 _DEFAULT_LOAD_MORE_BATCH_CANDLES = 75
 
+#: BOT-033 Phase 2 — Binance-style pair: uppercase letters/digits only (no
+#: domain Symbol value object exists yet to delegate this to), 5-20 chars
+#: covers everything from "BTCUSDT" to a long leveraged-token pair like
+#: "1000SHIBUSDT". Input is upper()'d before matching, same as every other
+#: symbol entry point in this codebase (CLI handlers, SyncMarketDataCommand's
+#: own validator) — a lowercase "btcusdt" is not itself an error.
+_SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{5,20}$")
+
+
+def _parse_datetime_utc(raw: str) -> datetime | None:
+    """Mirrors DataManagementPresenter._parse_datetime — same format, same
+    UTC assumption (Binance/repository times are all UTC), so a range typed
+    on one screen means the same thing typed on the other. Returns None for
+    unparseable input; callers must treat that as a validation error rather
+    than silently falling back to an unbounded fetch."""
+    try:
+        return datetime.strptime(raw.strip(), DATETIME_FORMAT).replace(
+            tzinfo=timezone.utc
+        )
+    except (ValueError, AttributeError):
+        return None
+
 
 class StreamLifecycleController:
     """
@@ -53,7 +77,6 @@ class StreamLifecycleController:
     def __init__(
         self,
         *,
-        default_symbols: tuple[str, ...],
         thread_manager: IThreadManager,
         dispatcher: IDispatcher,
         config: IConfig,
@@ -63,6 +86,7 @@ class StreamLifecycleController:
         raw_klines_by_symbol: dict[str, list],
         get_active_interval: Callable[[], str],
         set_active_interval: Callable[[str], None],
+        set_active_symbol: Callable[[str], None],
         ensure_chart_cards: Callable[[list[str]], list],
         rebuild_scripts: Callable[[], None],
         compute_fetch_limit: Callable[[], int],
@@ -76,7 +100,6 @@ class StreamLifecycleController:
         emit_stream_failed: Callable[[str], None],
         emit_log: Callable[[str], None],
     ) -> None:
-        self._default_symbols = default_symbols
         self._thread_manager = thread_manager
         self.dispatcher = dispatcher
         self.config = config
@@ -86,6 +109,7 @@ class StreamLifecycleController:
         self._raw_klines_by_symbol = raw_klines_by_symbol
         self._get_active_interval = get_active_interval
         self._set_active_interval = set_active_interval
+        self._set_active_symbol = set_active_symbol
         self._ensure_chart_cards = ensure_chart_cards
         self._rebuild_scripts = rebuild_scripts
         self._compute_fetch_limit = compute_fetch_limit
@@ -104,6 +128,49 @@ class StreamLifecycleController:
     # Main-Thread Slot Handlers
     # ================================================================== #
 
+    def _read_and_validate_inputs(self) -> tuple[str, str, datetime, datetime] | None:
+        """
+        @brief BOT-033 Phase 2 — reads Symbol/Start date/End date fresh from
+        the ViewModel (same "read at click time" contract _enabled_script_keys()
+        already has) and validates all three before anything is dispatched.
+        @returns (symbol, interval_str, start_time, end_time) on success, or
+        None after logging a user-facing error — callers must return
+        immediately in that case, mirroring the historyLoading/FSM guards
+        already at the top of _on_load_history/_on_start_stream.
+        """
+        symbol = self._view_model.symbol.strip().upper()
+        if not _SYMBOL_PATTERN.match(symbol):
+            self._view_model.log_model.append(
+                f"Invalid symbol '{symbol}' — expected an uppercase pair like BTCUSDT.",
+                level="error",
+            )
+            return None
+
+        interval_str = self._get_active_interval()
+        try:
+            TimeFrame(interval_str)
+        except ValueError:
+            self._view_model.log_model.append(
+                f"Invalid interval '{interval_str}'.", level="error"
+            )
+            return None
+
+        start_time = _parse_datetime_utc(self._view_model.startDate)
+        end_time = _parse_datetime_utc(self._view_model.endDate)
+        if start_time is None or end_time is None:
+            self._view_model.log_model.append(
+                f"Invalid date range — expected format {DATETIME_FORMAT}.",
+                level="error",
+            )
+            return None
+        if start_time >= end_time:
+            self._view_model.log_model.append(
+                "Start date must be before End date.", level="error"
+            )
+            return None
+
+        return symbol, interval_str, start_time, end_time
+
     def _on_load_history(self) -> None:
         if self._view_model.historyLoading:
             self._view_model.log_model.append("History load is already in progress.")
@@ -114,19 +181,27 @@ class StreamLifecycleController:
             )
             return
 
+        validated = self._read_and_validate_inputs()
+        if validated is None:
+            return
+        symbol, interval_str, start_time, end_time = validated
+        self._set_active_symbol(symbol)
+
         self._view_model.set_history_loading(True)
         self._view_model.log_model.append(
             "Loading historical data from local database..."
         )
-        symbols = list(self._default_symbols)
+        symbols = [symbol]
         self._ensure_chart_cards(symbols)
         self._rebuild_scripts()
         self._thread_manager.submit(
             self._run_load_history,
             symbols,
-            self._get_active_interval(),
+            interval_str,
             self._compute_fetch_limit(),
             self._get_cancellation_token(),
+            start_time,
+            end_time,
         )
 
     def _on_start_stream(self) -> None:
@@ -139,11 +214,17 @@ class StreamLifecycleController:
             self._view_model.log_model.append("Already starting or running — ignoring.")
             return
 
+        validated = self._read_and_validate_inputs()
+        if validated is None:
+            return
+        symbol, interval_str, start_time, end_time = validated
+        self._set_active_symbol(symbol)
+
         self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
         self.fsm.transition_to(UIMode.LOCKED)
 
-        symbols = list(self._default_symbols)
-        interval = TimeFrame(self._get_active_interval())
+        symbols = [symbol]
+        interval = TimeFrame(interval_str)
 
         chart_cards = self._ensure_chart_cards(symbols)
         self._rebuild_scripts()
@@ -153,9 +234,11 @@ class StreamLifecycleController:
             self._run_sync_and_start,
             symbols,
             interval,
-            self._get_active_interval(),
+            interval_str,
             self._compute_fetch_limit(),
             self._get_cancellation_token(),
+            start_time,
+            end_time,
         )
 
     def _on_stream_start_success(self, msg: str) -> None:
@@ -217,6 +300,8 @@ class StreamLifecycleController:
         interval_str: str,
         limit: int,
         token: CancellationToken,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> None:
         try:
             for symbol in symbols:
@@ -226,6 +311,8 @@ class StreamLifecycleController:
                     symbol=symbol,
                     interval=interval_str,
                     limit=limit,
+                    start_time=start_time,
+                    end_time=end_time,
                     order_by_desc=True,
                 )
                 try:
@@ -308,10 +395,17 @@ class StreamLifecycleController:
         interval_str: str,
         limit: int,
         token: CancellationToken,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> None:
         try:
             self._emit_log("Syncing missing data from Binance...")
-            sync_cmd = SyncMarketDataCommand(symbols=symbols, interval=interval)
+            sync_cmd = SyncMarketDataCommand(
+                symbols=symbols,
+                interval=interval,
+                start_time=start_time,
+                end_time=end_time,
+            )
             self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
             if token.is_cancelled():
@@ -325,6 +419,8 @@ class StreamLifecycleController:
                     symbol=symbol,
                     interval=interval_str,
                     limit=limit,
+                    start_time=start_time,
+                    end_time=end_time,
                     order_by_desc=True,
                 )
                 response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)

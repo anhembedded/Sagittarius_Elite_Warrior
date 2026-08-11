@@ -201,11 +201,44 @@ Rectangle {
 
                             Text { text: "Symbol:"; color: Theme.textPrimary; font.pixelSize: 12 }
                             ComboBox {
+                                id: symbolCombo
                                 objectName: "cboSymbol"
                                 Layout.fillWidth: true
-                                model: ["BTCUSDT", "ETHUSDT"]
+                                property var presetSymbols: ["BTCUSDT", "ETHUSDT"]
+                                // Guards onCurrentTextChanged below until this
+                                // ComboBox's OWN initial currentIndex (0, the
+                                // Qt-assigned default the instant `model` is set,
+                                // firing currentTextChanged with "BTCUSDT" before
+                                // Component.onCompleted below ever runs) has been
+                                // corrected to the real default from
+                                // viewModel.symbol ("ETHUSDT") — without this guard
+                                // that transient default silently overwrites the
+                                // ViewModel's real default the moment the screen
+                                // opens (reproduced: presenter._active_symbol ends
+                                // up "BTCUSDT" instead of "ETHUSDT" at construction,
+                                // caught by test_script_lines_are_routed_to_the_runner
+                                // and its siblings, not a hypothetical).
+                                property bool _initialSyncDone: false
+                                model: presetSymbols
                                 editable: true
                                 enabled: root.controlsActive
+                                // One-time initial selection, NOT a live binding to
+                                // viewModel.symbol: this field accepts free-typed
+                                // symbols outside presetSymbols (e.g. "SOLUSDT"), and
+                                // a live `currentIndex: Math.max(0, presetSymbols.indexOf(viewModel.symbol))`
+                                // binding would re-evaluate on every keystroke's
+                                // onCurrentTextChanged write-back, see indexOf return
+                                // -1 for anything not in the 2-item preset list, and
+                                // snap currentIndex back to 0 — silently overwriting
+                                // whatever the user just typed with "BTCUSDT" (a real,
+                                // reproduced binding-loop bug caught by
+                                // test_on_load_history_rejects_an_invalid_symbol during
+                                // this task, not a hypothetical).
+                                Component.onCompleted: {
+                                    currentIndex = Math.max(0, presetSymbols.indexOf(viewModel.symbol))
+                                    _initialSyncDone = true
+                                }
+                                onCurrentTextChanged: if (_initialSyncDone) viewModel.symbol = currentText
                                 background: FieldBackground {}
                                 contentItem: Text {
                                     leftPadding: 8
@@ -237,14 +270,21 @@ Rectangle {
 
                         // Plain text fields, not a calendar popup — Qt Quick
                         // Controls Basic has no date-time editor (same call
-                        // as DatabaseScreen.qml). Cosmetic only, like the
-                        // QDateTimeEdit pair they replace: Load History
-                        // always uses a fixed limit, never reads these (see
-                        // dev_board_user_end_test_cases.md TC-GAP-04/05).
+                        // as DatabaseScreen.qml). BOT-033 Phase 2: bound to
+                        // viewModel.startDate/endDate, read+validated by
+                        // DashboardPresenter at Load History/Start Live
+                        // click time (see stream_lifecycle_controller.py).
+                        // onTextEdited (not onTextChanged) fires only on
+                        // user edits, matching DatabaseScreen.qml's
+                        // txtFromDateTime/txtToDateTime — a programmatic
+                        // `text:` update from the ViewModel must not loop
+                        // back into the ViewModel it came from.
                         TextField {
                             objectName: "txtStartDate"
                             Layout.fillWidth: true
-                            text: Qt.formatDateTime(new Date(Date.now() - 7 * 86400000), "yyyy-MM-dd HH:mm")
+                            text: viewModel.startDate
+                            onTextEdited: viewModel.startDate = text
+                            placeholderText: "yyyy-MM-dd HH:mm"
                             enabled: root.controlsActive
                             color: Theme.textPrimary
                             font.pixelSize: 12
@@ -253,7 +293,9 @@ Rectangle {
                         TextField {
                             objectName: "txtEndDate"
                             Layout.fillWidth: true
-                            text: Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm")
+                            text: viewModel.endDate
+                            onTextEdited: viewModel.endDate = text
+                            placeholderText: "yyyy-MM-dd HH:mm"
                             enabled: root.controlsActive
                             color: Theme.textPrimary
                             font.pixelSize: 12

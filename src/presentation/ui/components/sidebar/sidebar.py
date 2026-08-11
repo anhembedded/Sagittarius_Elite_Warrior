@@ -43,12 +43,15 @@ class Sidebar(QmlHostView):
     sig_navigate = Signal(str)
 
     def __init__(
-        self, sections: Sequence[NavSection], parent: QWidget | None = None
+        self,
+        sections: Sequence[NavSection],
+        bottom_actions: Sequence = (),
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setMaximumWidth(_MAX_WIDTH)
 
-        view_model = SidebarViewModel(sections)
+        view_model = SidebarViewModel(sections, bottom_actions)
         # Re-emitted rather than exposing the view model, so callers depend on
         # this component's signal instead of reaching into its internals.
         view_model.navigationRequested.connect(self.sig_navigate)

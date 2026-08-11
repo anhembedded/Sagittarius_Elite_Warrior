@@ -77,6 +77,15 @@ class FastCandlestickItem(pg.GraphicsObject):
             self.candle_width = abs(median_gap) / 3.0
 
         self._recompute_full_bounds()
+        # A full data replacement (render_historical_data/prepend_historical_data/
+        # set_chart_type) can land on the same visible (lo, hi) index window as
+        # before (e.g. "last 150 candles" after a symbol/timeframe switch) even
+        # though history_data itself is now entirely different — dataBounds()'s
+        # cache is keyed only by (lo, hi), so without this it would keep
+        # returning the PREVIOUS dataset's min/max Y, feeding the ViewBox a
+        # stale auto-range while paint() draws the new candles (bug: chart
+        # shows no visible candlesticks / wrong Y-axis scale after a reload).
+        self._cached_visible_bounds = None
         self.prepareGeometryChange()
         self.informViewBoundsChanged()
         self.update()
@@ -192,9 +201,6 @@ class FastCandlestickItem(pg.GraphicsObject):
 
         # Reset live candle state so a new one can form
         self.live_candle = None
-
-        # Invalidate bounds cache since history changed
-        self._cached_visible_bounds = None
         self.update()
 
     def get_ohlc_at(self, x: float) -> tuple[float, float, float, float, float] | None:

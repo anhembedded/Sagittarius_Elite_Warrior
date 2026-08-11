@@ -58,6 +58,44 @@ def test_chart_card_append_after_historical_render_does_not_duplicate(qapp):
     assert card._raw_history is not card.candlestick.history_data
 
 
+def test_render_historical_data_invalidates_the_stale_y_bounds_cache(qapp):
+    """
+    Regression test: FastCandlestickItem.dataBounds(ax=1, orthoRange=...)
+    caches its Y min/max keyed only by the visible (lo, hi) INDEX window, not
+    by the data itself. generate_picture() (called by render_historical_data,
+    prepend_historical_data, and set_chart_type — any full data replacement)
+    used to leave that cache untouched, only append_closed_candle() cleared
+    it. So reloading a chart with brand-new price data (e.g. after a symbol
+    switch, or a second Load History call after auto-start's fallback fired)
+    could land on the SAME (lo, hi) window as before and silently keep
+    serving the PREVIOUS dataset's Y bounds — the chart then auto-scales to
+    the old price range while painting the new candles, making them appear
+    off-screen / the chart looks empty with a wrong-looking axis.
+    """
+    card = ChartCard("ETHUSDT")
+    first_load = [(t, 50.0, 55.0, 48.0, 52.0) for t in range(0, 200 * 60, 60)]
+    card.render_historical_data(first_load)
+
+    # Force dataBounds(ax=1, orthoRange=...) to populate the cache for
+    # whatever window _set_initial_view_range just selected.
+    view_range = card.plot_layout.main_plot.vb.viewRange()
+    card.candlestick.dataBounds(ax=1, orthoRange=view_range[0])
+    assert card.candlestick._cached_visible_bounds is not None
+
+    # A second load at a completely different price scale (e.g. a different
+    # symbol/timeframe), same candle count so the visible index window can
+    # coincidentally match the old one.
+    second_load = [(t, 1800.0, 1805.0, 1798.0, 1802.0) for t in range(0, 200 * 60, 60)]
+    card.render_historical_data(second_load)
+
+    assert card.candlestick._cached_visible_bounds is None
+
+    view_range = card.plot_layout.main_plot.vb.viewRange()
+    min_y, max_y = card.candlestick.dataBounds(ax=1, orthoRange=view_range[0])
+    assert min_y >= 1798.0
+    assert max_y <= 1805.0
+
+
 def test_chart_card_candle_width_is_robust_to_anomalous_first_gap(qapp):
     """
     Regression test: candle_width used to be computed once from ONLY

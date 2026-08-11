@@ -80,6 +80,7 @@ _WS_STATUS_BY_MODE = {
 
 def _tick_to_candle(
     symbol: str,
+    interval: str,
     close_timestamp: float,
     open_price: float,
     high_price: float,
@@ -95,11 +96,18 @@ def _tick_to_candle(
     can actually reach are real; the trade-count/quote-volume fields are filled
     with zeroes because nothing downstream of here reads them — if a script ever
     needs them, widen the signal rather than inventing values.
+    @param interval Caller's current `self._active_interval` — this used to be
+    the hard-coded `_DEFAULT_INTERVAL_STR` module constant regardless of the
+    timeframe actually selected (BOT-034 changed every OTHER read site to the
+    instance attribute but missed this one), which mislabeled every live-tick
+    candle appended to `_raw_klines_by_symbol` once a user picked a timeframe
+    other than "1m" — silently corrupting the cache a later load-more prepend
+    rebuild depends on.
     """
     close_time = datetime.fromtimestamp(close_timestamp, tz=timezone.utc)
     return MarketData(
         symbol=symbol,
-        interval=_DEFAULT_INTERVAL_STR,
+        interval=interval,
         open_time=close_time,
         open_price=open_price,
         high_price=high_price,
@@ -244,6 +252,18 @@ class DashboardPresenter(BasePresenter):
         # per-run without a restart.
         self._active_interval: str = _DEFAULT_INTERVAL_STR
 
+        # BOT-033 Phase 2 — symbol actually used by Load History/Start Live,
+        # set from DashboardQmlViewModel.symbol at click time (see
+        # StreamLifecycleController._on_load_history/_on_start_stream). An
+        # instance attribute, same reasoning as _active_interval above: every
+        # per-symbol chart-card lookup below (_rebuild_scripts,
+        # _on_indicator_data, _on_script_region_data, _on_script_info_data,
+        # _on_script_marker_data) must key off whatever symbol is actually
+        # loaded, not the _DEFAULT_SYMBOLS[0] constant — otherwise switching
+        # to a different symbol silently stops routing indicator data to the
+        # (correctly re-keyed) chart card _ensure_chart_cards just built.
+        self._active_symbol: str = _DEFAULT_SYMBOLS[0]
+
         # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
         # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD
         # ship as default-registered scripts, see binance_bot_module.py).
@@ -277,8 +297,10 @@ class DashboardPresenter(BasePresenter):
         def _set_active_interval(val: str):
             self._active_interval = val
 
+        def _set_active_symbol(val: str):
+            self._active_symbol = val
+
         self._stream_controller = StreamLifecycleController(
-            default_symbols=_DEFAULT_SYMBOLS,
             thread_manager=self._thread_manager,
             dispatcher=self.dispatcher,
             config=self.config,
@@ -288,6 +310,7 @@ class DashboardPresenter(BasePresenter):
             raw_klines_by_symbol=self._raw_klines_by_symbol,
             get_active_interval=_get_active_interval,
             set_active_interval=_set_active_interval,
+            set_active_symbol=_set_active_symbol,
             ensure_chart_cards=lambda symbols: self._ensure_chart_cards(symbols),
             rebuild_scripts=lambda: self._rebuild_scripts(),
             compute_fetch_limit=lambda: self._compute_fetch_limit(),
@@ -428,7 +451,7 @@ class DashboardPresenter(BasePresenter):
         return self._view_model.script_model.enabled_keys
 
     def _rebuild_scripts(self) -> None:
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.clear_from_chart(card)
         self._script_runner.rebuild(self._enabled_script_keys())
@@ -579,28 +602,28 @@ class DashboardPresenter(BasePresenter):
         (single-symbol Dev Board — see _DEFAULT_SYMBOLS), registering its
         overlay/subplot curve on first use. Every indicator is a script
         (BOT-032 Phase 6 — none are hardcoded), so this is a pure delegate."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw(card, name, x_data, y_data)
 
     @Slot(str, list)
     def _on_script_region_data(self, key: str, spans: list) -> None:
         """Pushes a script's background-tint spans onto the chart."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw_region(card, key, spans)
 
     @Slot(str, list)
     def _on_script_info_data(self, key: str, fields: list) -> None:
         """Pushes a script's status-panel fields onto the chart."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw_info(card, key, fields)
 
     @Slot(str, list)
     def _on_script_marker_data(self, key: str, markers: list) -> None:
         """Pushes a script's Buy/Sell-style labelled markers onto the chart."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw_markers(card, key, markers)
 
@@ -666,7 +689,9 @@ class DashboardPresenter(BasePresenter):
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
-                candle = _tick_to_candle(symbol, t, o, h, low, c, volume)
+                candle = _tick_to_candle(
+                    symbol, self._active_interval, t, o, h, low, c, volume
+                )
                 # BOT-035 — keep the raw-kline cache (used to rebuild+refeed
                 # scripts after a later load-more prepend) in sync with what
                 # the chart actually shows; otherwise a prepend's rebuild

@@ -66,10 +66,13 @@ _NAV_SECTIONS = [
         "QUANT ENGINE",
         (
             NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),
-            NavItem("API & Credentials", "settings", "settings"),
         ),
     ),
 ]
+
+_BOTTOM_ACTIONS = (
+    NavItem("API & Credentials", "settings", "settings"),
+)
 
 
 def _load(quick_widget, qml_dir: Path, filename: str):
@@ -78,7 +81,7 @@ def _load(quick_widget, qml_dir: Path, filename: str):
 
 
 def _preview_sidebar():
-    sidebar = Sidebar(sections=_NAV_SECTIONS)
+    sidebar = Sidebar(sections=_NAV_SECTIONS, bottom_actions=_BOTTOM_ACTIONS)
     sidebar.set_active("dashboard")
     sidebar.resize(220, 700)
     return sidebar

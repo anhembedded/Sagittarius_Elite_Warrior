@@ -28,16 +28,24 @@ class SidebarViewModel(QObject):
     #: Emitted when the user activates a navigable entry. Carries the route key.
     navigationRequested = Signal(str)
 
-    def __init__(self, sections: Sequence[NavSection], parent=None) -> None:
+    def __init__(
+        self, sections: Sequence[NavSection], bottom_actions: Sequence = (), parent=None
+    ) -> None:
         super().__init__(parent)
         self._sections = tuple(sections)
+        self._bottom_actions = tuple(bottom_actions)
         self._active_route = ""
-        self._navigable_routes = {
+        
+        routes = {
             item.route
             for section in self._sections
             for item in section.items
             if item.is_navigable
         }
+        bottom_routes = {
+            item.route for item in self._bottom_actions if item.is_navigable
+        }
+        self._navigable_routes = routes | bottom_routes
 
     @Property("QVariantList", constant=True)
     def sections(self) -> list[dict]:
@@ -57,6 +65,18 @@ class SidebarViewModel(QObject):
                 ],
             }
             for section in self._sections
+        ]
+
+    @Property("QVariantList", constant=True)
+    def bottomActions(self) -> list[dict]:
+        return [
+            {
+                "label": item.label,
+                "route": item.route or "",
+                "icon": item.icon,
+                "navigable": item.is_navigable,
+            }
+            for item in self._bottom_actions
         ]
 
     def _get_active_route(self) -> str:

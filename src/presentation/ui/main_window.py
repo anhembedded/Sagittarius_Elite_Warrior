@@ -55,10 +55,13 @@ _NAV_SECTIONS = [
         "QUANT ENGINE",
         (
             NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),
-            NavItem("API & Credentials", "settings", "settings"),
         ),
     ),
 ]
+
+_BOTTOM_ACTIONS = (
+    NavItem("API & Credentials", "settings", "settings"),
+)
 
 _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # 1200x800 used to be enough, but the Dev Board's right column has grown
@@ -94,7 +97,7 @@ class MainWindow(QMainWindow):
         shell_layout.setSpacing(0)
 
         # ---- Sidebar component -------------------------------------------
-        self._sidebar = Sidebar(sections=_NAV_SECTIONS)
+        self._sidebar = Sidebar(sections=_NAV_SECTIONS, bottom_actions=_BOTTOM_ACTIONS)
         self._sidebar.sig_navigate.connect(self.switch_screen)
 
         # ---- Content area -----------------------------------------------

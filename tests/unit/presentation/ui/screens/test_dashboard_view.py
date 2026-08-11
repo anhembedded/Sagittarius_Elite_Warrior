@@ -60,3 +60,36 @@ def test_dashboard_view_apply_ui_mode_forwards_to_view_model(qapp):
     view.apply_ui_mode("LOCKED")
 
     assert view_model.uiMode == "LOCKED"
+
+
+def test_dashboard_view_model_symbol_and_date_defaults(qapp):
+    """BOT-033 Phase 2 — the ViewModel, not QML, owns the default Symbol/
+    Start date/End date so DashboardPresenter can read the same default a
+    freshly-opened Dev Board shows without depending on QML having rendered
+    first."""
+    from datetime import datetime
+
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
+        DATETIME_FORMAT,
+    )
+
+    view_model = DashboardQmlViewModel()
+
+    assert view_model.symbol == "ETHUSDT"
+    start = datetime.strptime(view_model.startDate, DATETIME_FORMAT)
+    end = datetime.strptime(view_model.endDate, DATETIME_FORMAT)
+    assert start < end
+
+
+def test_dashboard_view_model_symbol_and_dates_are_settable(qapp):
+    """QML's cboSymbol/txtStartDate/txtEndDate write through these
+    properties (see DevBoardPanel.qml's onCurrentTextChanged/onTextEdited)."""
+    view_model = DashboardQmlViewModel()
+
+    view_model.symbol = "BTCUSDT"
+    view_model.startDate = "2024-01-01 00:00"
+    view_model.endDate = "2024-01-02 00:00"
+
+    assert view_model.symbol == "BTCUSDT"
+    assert view_model.startDate == "2024-01-01 00:00"
+    assert view_model.endDate == "2024-01-02 00:00"
