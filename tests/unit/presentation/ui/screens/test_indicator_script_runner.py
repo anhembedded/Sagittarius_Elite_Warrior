@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
+    BaseIndicatorScript,
     DevIndicatorScript,
     EmaCrossScript,
     EmaRibbonScript,
@@ -74,6 +75,32 @@ def errors() -> list:
     return []
 
 
+class _CrossMarkerScript(BaseIndicatorScript):
+    """
+    Test-only double for exercising the runner's marker accumulation/plumbing.
+    Production scripts no longer mark Buy/Sell on an EMA cross themselves
+    (BOT-026 moved that decision to `EmaCrossoverStrategy`) — this stands in
+    with the same EMA(12)/EMA(26) shape `EmaCrossScript` used to have, purely
+    so `_reversal_candles()` below still produces a marker to observe.
+    """
+
+    title = "Test — cross marker"
+    overlay = True
+    min_warmup_bars = 26
+
+    def setup(self) -> None:
+        self.fast = self.ema(12)
+        self.slow = self.ema(26)
+
+    def execute(self, candle: MarketData) -> None:
+        fast = self.fast(candle.close_price)
+        self.slow(candle.close_price)
+        if self.crossed_above(self.fast, self.slow):
+            self.mark(fast, "Buy", color="#0ECB81", direction="up")
+        elif self.crossed_below(self.fast, self.slow):
+            self.mark(fast, "Sell", color="#F6465D", direction="down")
+
+
 @pytest.fixture
 def runner(emitted, regions, infos, markers, errors) -> IndicatorScriptRunner:
     registry = IndicatorScriptRegistry()
@@ -81,6 +108,7 @@ def runner(emitted, regions, infos, markers, errors) -> IndicatorScriptRunner:
     registry.register("macd_full", MacdFullScript)
     registry.register("dev_showcase", DevIndicatorScript)
     registry.register("ema_cross", EmaCrossScript)
+    registry.register("cross_marker", _CrossMarkerScript)
     return IndicatorScriptRunner(
         registry=registry,
         emit_line=lambda name, x, y: emitted.append((name, list(x), list(y))),
@@ -412,7 +440,7 @@ def _reversal_candles(count: int = 80):
 
 
 def test_a_crossover_produces_an_accumulated_marker(runner, markers):
-    runner.rebuild(["ema_cross"])
+    runner.rebuild(["cross_marker"])
 
     runner.feed_all(_reversal_candles())
 
@@ -423,7 +451,7 @@ def test_a_crossover_produces_an_accumulated_marker(runner, markers):
 
 def test_bars_with_no_new_marker_do_not_re_emit(runner, markers):
     """Markers only ever grow — a quiet bar must not resend the same list."""
-    runner.rebuild(["ema_cross"])
+    runner.rebuild(["cross_marker"])
 
     runner.feed_all(_reversal_candles())
     emit_count_after_run = len(markers)

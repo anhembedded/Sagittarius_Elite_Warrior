@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    StrategyRegistry,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
     RunBacktestCommandHandler,
@@ -83,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.macd_full_script imp
 )
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.rsi_14_script import (
     Rsi14Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
+    EmaCrossoverStrategy,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
@@ -162,6 +168,12 @@ class BinanceBotModule(BaseModule):
         script_registry.register("ema_cross", EmaCrossScript)
         script_registry.register("dev_showcase", DevIndicatorScript)
         app.container.singleton(IndicatorScriptRegistry, script_registry)
+
+        # Strategies — same explicit-registration convention as indicator
+        # scripts above (BOT-026).
+        strategy_registry = StrategyRegistry()
+        strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
+        app.container.singleton(StrategyRegistry, strategy_registry)
 
         # Register the WebsocketService as bound to its Interface
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
