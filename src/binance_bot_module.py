@@ -25,6 +25,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest i
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.handler import (
     BacktestState,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
+    RunStaticBacktestCommand,
+    RunStaticBacktestCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest import (
     StopBacktestCommand,
     StopBacktestCommandHandler,
@@ -144,6 +148,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
         app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
+        app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
 
         # Bind Queries
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
