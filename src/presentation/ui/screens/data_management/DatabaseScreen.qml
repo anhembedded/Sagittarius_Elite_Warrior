@@ -325,6 +325,7 @@ Rectangle {
                     }
 
                     ProgressBar {
+                        id: syncProgress
                         objectName: "syncProgress"
                         Layout.fillWidth: true
                         visible: viewModel.progressVisible
@@ -332,6 +333,59 @@ Rectangle {
                         from: 0
                         to: Math.max(1, viewModel.progressMaximum)
                         value: viewModel.progressValue
+
+                        background: Rectangle {
+                            implicitHeight: 8
+                            color: "#1e1e24" // Dark, matching Theme.bgCard but recessed
+                            radius: 4
+                            border.color: "#33ffffff"
+                            border.width: 1
+                        }
+
+                        contentItem: Item {
+                            implicitHeight: 8
+
+                            // Determinate Bar
+                            Rectangle {
+                                visible: !syncProgress.indeterminate
+                                width: syncProgress.visualPosition * parent.width
+                                height: parent.height
+                                radius: 4
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0.0; color: Theme.primary }
+                                    GradientStop { position: 1.0; color: "#00f0ff" } // Neon Cyan
+                                }
+                                Behavior on width {
+                                    NumberAnimation { duration: 300; easing.type: Easing.OutQuart }
+                                }
+                            }
+
+                            // Indeterminate Bar
+                            Rectangle {
+                                id: indetRect
+                                visible: syncProgress.indeterminate
+                                width: parent.width * 0.4
+                                height: parent.height
+                                radius: 4
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0.0; color: "transparent" }
+                                    GradientStop { position: 0.5; color: Theme.primary }
+                                    GradientStop { position: 1.0; color: "transparent" }
+                                }
+                                SequentialAnimation on x {
+                                    loops: Animation.Infinite
+                                    running: syncProgress.indeterminate && syncProgress.visible
+                                    NumberAnimation {
+                                        from: -indetRect.width
+                                        to: syncProgress.width
+                                        duration: 1200
+                                        easing.type: Easing.InOutQuad
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Item { Layout.fillHeight: true }

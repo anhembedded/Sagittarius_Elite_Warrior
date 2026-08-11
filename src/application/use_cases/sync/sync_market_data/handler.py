@@ -1,6 +1,9 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
+    SingleSyncProgressEvent,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
@@ -8,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import SyncMarketDataCommand
 
@@ -18,10 +22,14 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
     """
 
     def __init__(
-        self, exchange_client: IExchangeClient, repo: IMarketDataRepository
+        self,
+        exchange_client: IExchangeClient,
+        repo: IMarketDataRepository,
+        event_bus: IEventBus,
     ) -> None:
         self.exchange_client = exchange_client
         self.repo = repo
+        self.event_bus = event_bus
         self.logger = logging.getLogger("App.SyncMarketData")
 
     def execute(self, command: SyncMarketDataCommand) -> None:
@@ -53,8 +61,31 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                         f"[{symbol}] Syncing from latest timestamp: {start_time}"
                     )
 
+            # Estimate total klines to download
+            interval_minutes = {
+                "1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30,
+                "1h": 60, "2h": 120, "4h": 240, "6h": 360, "8h": 480, "12h": 720,
+                "1d": 1440, "3d": 4320, "1w": 10080, "1M": 43200
+            }.get(command.interval.value, 1)
+
+            end_t = command.end_time or datetime.now(UTC)
+            total_seconds = (end_t - start_time).total_seconds()
+            total_klines = int(max(0, total_seconds) / (interval_minutes * 60))
+            if total_klines < 1:
+                total_klines = 1
+
+            def _progress_cb(current: int) -> None:
+                self.event_bus.emit(
+                    SingleSyncProgressEvent(
+                        symbol=symbol,
+                        interval=command.interval.value,
+                        current=current,
+                        total=total_klines
+                    )
+                )
+
             klines = self.exchange_client.get_historical_klines(
-                symbol, command.interval, start_time, command.end_time
+                symbol, command.interval, start_time, command.end_time, _progress_cb
             )
 
             if klines:
