@@ -264,13 +264,6 @@ Rectangle {
                                 enabled: root.controlsActive
                                 iconSource: "clock"
                                 iconTint: "muted"
-                                textColor: Theme.textPrimary
-                                idleBgColor: "#181a20"
-                                hoverBgColor: Theme.stateHoverBg
-                                hoverTextColor: Theme.accent
-                                hoverBorderColor: Theme.accent
-                                hoverIconTint: "accent"
-                                fontBold: true
                                 onClicked: viewModel.requestLoadHistory()
                             }
 
@@ -282,13 +275,6 @@ Rectangle {
                                 iconSource: "play"
                                 iconTint: "success"
                                 accentBorder: Theme.success
-                                textColor: Theme.success
-                                idleBgColor: "#142e23"
-                                hoverBgColor: Theme.success
-                                hoverTextColor: Theme.bg
-                                hoverIconTint: "bg"
-                                hoverBorderColor: Theme.success
-                                fontBold: true
                                 onClicked: viewModel.requestStartStream()
                             }
 
@@ -300,13 +286,6 @@ Rectangle {
                                 iconSource: "square"
                                 iconTint: "danger"
                                 accentBorder: Theme.danger
-                                textColor: Theme.danger
-                                idleBgColor: "#321a20"
-                                hoverBgColor: Theme.danger
-                                hoverTextColor: Theme.textPrimary
-                                hoverIconTint: "text"
-                                hoverBorderColor: Theme.danger
-                                fontBold: true
                                 onClicked: viewModel.requestStopStream()
                             }
                         }
