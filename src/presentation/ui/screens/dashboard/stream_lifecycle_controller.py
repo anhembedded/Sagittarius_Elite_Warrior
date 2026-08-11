@@ -16,8 +16,9 @@ Threading contract:
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
@@ -62,9 +63,7 @@ def _parse_datetime_utc(raw: str) -> datetime | None:
     unparseable input; callers must treat that as a validation error rather
     than silently falling back to an unbounded fetch."""
     try:
-        return datetime.strptime(raw.strip(), DATETIME_FORMAT).replace(
-            tzinfo=timezone.utc
-        )
+        return datetime.strptime(raw.strip(), DATETIME_FORMAT).replace(tzinfo=UTC)
     except (ValueError, AttributeError):
         return None
 
@@ -349,7 +348,7 @@ class StreamLifecycleController:
         try:
             if token.is_cancelled():
                 return
-            end_time = datetime.fromtimestamp(before_timestamp, tz=timezone.utc)
+            end_time = datetime.fromtimestamp(before_timestamp, tz=UTC)
             query = GetHistoricalKlinesQuery(
                 symbol=symbol,
                 interval=interval_str,

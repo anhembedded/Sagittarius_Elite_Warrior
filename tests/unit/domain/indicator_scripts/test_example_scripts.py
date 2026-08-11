@@ -6,7 +6,10 @@ existing EMA/MACD classes — proving a script only composes them and never
 reimplements the maths.
 """
 
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import EmaRibbonScript, MacdFullScript
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
+    EmaRibbonScript,
+    MacdFullScript,
+)
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACD
 

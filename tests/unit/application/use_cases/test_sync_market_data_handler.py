@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
@@ -54,7 +55,7 @@ def test_sync_empty_db(handler, mock_exchange_client, mock_repo):
 
 def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
     # Setup: repo returns a specific datetime
-    latest_time = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    latest_time = datetime(2023, 1, 1, tzinfo=UTC)
     mock_repo.get_latest_kline_time.return_value = latest_time
 
     mock_klines = [Mock(spec=MarketData)]
@@ -74,8 +75,8 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
     mock_klines = [Mock(spec=MarketData)]
     mock_exchange_client.get_historical_klines.return_value = mock_klines
 
-    start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    start_time = datetime(2024, 1, 1, tzinfo=UTC)
+    end_time = datetime(2024, 1, 2, tzinfo=UTC)
 
     command = SyncMarketDataCommand(
         symbols=["SOLUSDT"],
@@ -93,7 +94,7 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
 
 
 def test_sync_no_new_data(handler, mock_exchange_client, mock_repo):
-    mock_repo.get_latest_kline_time.return_value = datetime.now(timezone.utc)
+    mock_repo.get_latest_kline_time.return_value = datetime.now(UTC)
     # Exchange returns empty list
     mock_exchange_client.get_historical_klines.return_value = []
 

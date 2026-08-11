@@ -67,7 +67,7 @@ def test_does_not_fire_when_far_from_the_left_edge(qapp):
 def test_is_a_safe_no_op_with_fewer_than_two_candles_loaded(qapp):
     plot = _plot_widget(qapp)
     detector = EdgeScrollDetector(
-        plot=plot.getPlotItem(), get_raw_history=lambda: [], edge_threshold_bars=20
+        plot=plot.getPlotItem(), get_raw_history=list, edge_threshold_bars=20
     )
     fired = []
     detector.sig_near_left_edge.connect(lambda: fired.append(1))

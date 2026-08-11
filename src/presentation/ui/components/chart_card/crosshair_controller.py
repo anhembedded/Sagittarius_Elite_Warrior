@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pyqtgraph as pg
 from PySide6 import QtCore
@@ -115,9 +115,7 @@ class CrosshairController:
             self._label.setText("Hover to see data")
 
     def _update_label(self, x_val: float, y_val: float) -> None:
-        dt_str = datetime.fromtimestamp(x_val, tz=timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
         self._label.setText(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Time:</span> <span style='color: #ffffff'>{dt_str}</span> | "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Value:</span> <span style='color: {theme.BULL_COLOR}'>{y_val:.4f}</span>"
@@ -127,9 +125,7 @@ class CrosshairController:
         t, o, h, low, c = candle
         change_pct = ((c - o) / o * 100.0) if o else 0.0
         change_color = theme.BULL_COLOR if c >= o else theme.BEAR_COLOR
-        dt_str = datetime.fromtimestamp(t, tz=timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        dt_str = datetime.fromtimestamp(t, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
         self._label.setText(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>{dt_str}</span> &nbsp; "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>O</span> <span style='color: #ffffff'>{o:.4f}</span> "

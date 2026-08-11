@@ -237,6 +237,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
     map_klines,
     map_volume,
 )
+
 ...
 mapped = map_klines(older)
 volume = map_volume(older)

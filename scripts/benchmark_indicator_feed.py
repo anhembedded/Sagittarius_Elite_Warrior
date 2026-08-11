@@ -23,6 +23,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QCoreApplication
 
+from Sagittarius_Elite_Warrior.scripts.benchmarking.candle_factory import (
+    make_mock_candles,
+)
+from Sagittarius_Elite_Warrior.scripts.benchmarking.qt_feed_harness import (
+    run_background_path,
+    run_main_thread_path,
+)
+from Sagittarius_Elite_Warrior.scripts.benchmarking.report import format_result
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -32,12 +40,6 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
     Ema100Script,
     Ema200Script,
 )
-from Sagittarius_Elite_Warrior.scripts.benchmarking.candle_factory import make_mock_candles
-from Sagittarius_Elite_Warrior.scripts.benchmarking.qt_feed_harness import (
-    run_background_path,
-    run_main_thread_path,
-)
-from Sagittarius_Elite_Warrior.scripts.benchmarking.report import format_result
 
 _DEFAULT_SCRIPT_KEYS = ["ema_20", "ema_50", "ema_100", "ema_200"]
 

@@ -12,7 +12,7 @@ I/O), mocking only the genuine external dependencies.
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -123,8 +123,8 @@ def test_custom_time_range_is_parsed_and_passed_through(
     view_model.requestSync()
 
     _, _, _, start, end = mock_thread_mgr.submit.call_args.args
-    assert start == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
-    assert end == datetime(2024, 1, 2, 12, 30, tzinfo=timezone.utc)
+    assert start == datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
+    assert end == datetime(2024, 1, 2, 12, 30, tzinfo=UTC)
 
 
 def test_invalid_custom_time_range_is_rejected_without_syncing(

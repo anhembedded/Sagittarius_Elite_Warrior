@@ -1,4 +1,5 @@
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.indicators.rsi import RSI
 
 # Same fixed 20-point close series as test_ema.py.

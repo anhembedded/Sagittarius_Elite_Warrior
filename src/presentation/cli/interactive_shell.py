@@ -2,8 +2,12 @@ import cmd
 import logging
 import shlex
 
-from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.stream_cli_handler import StreamCliHandler
-from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.sync_cli_handler import SyncCliHandler
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.stream_cli_handler import (
+    StreamCliHandler,
+)
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.sync_cli_handler import (
+    SyncCliHandler,
+)
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
@@ -84,7 +88,9 @@ class InteractiveShell(cmd.Cmd, IHostedService):
             return
 
         if arg in cli_commands:
-            from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_handler_parser
+            from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
+                build_handler_parser,
+            )
 
             parser = build_handler_parser(self.config, arg)
             parser.print_help()

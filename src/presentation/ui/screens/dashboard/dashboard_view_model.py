@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
+
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
@@ -71,7 +72,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._history_loading = False
 
         self._symbol = _DEFAULT_SYMBOL
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._start_date = (now - timedelta(days=_DEFAULT_LOOKBACK_DAYS)).strftime(
             DATETIME_FORMAT
         )

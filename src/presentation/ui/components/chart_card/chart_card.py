@@ -258,6 +258,10 @@ class ChartCard(BaseCard):
     ) -> None:
         self.volume.append_closed(timestamp, volume, is_bullish)
 
+    def set_max_visible_x_range(self, max_seconds: float) -> None:
+        """Restricts how far the user can zoom out on the X axis."""
+        self.plot_layout.main_plot.setLimits(maxXRange=max_seconds)
+
     def add_overlay_indicator(self, name: str, color: str) -> None:
         self.indicators.add_overlay(name, color)
         self._sync_indicator_window()

@@ -1,14 +1,17 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
+
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     IMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import DatabaseManager
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
+    DatabaseManager,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.models import KlineModel
 
 logger = logging.getLogger("App.Database")
@@ -119,7 +122,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 .scalar()
             )
             if latest:
-                return latest.replace(tzinfo=timezone.utc)
+                return latest.replace(tzinfo=UTC)
             return None
 
     def get_klines(
@@ -156,17 +159,13 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         return MarketData(
             symbol=row.symbol,
             interval=row.interval,
-            open_time=row.open_time.replace(tzinfo=timezone.utc)
-            if row.open_time
-            else None,
+            open_time=row.open_time.replace(tzinfo=UTC) if row.open_time else None,
             open_price=row.open_price,
             high_price=row.high_price,
             low_price=row.low_price,
             close_price=row.close_price,
             volume=row.volume,
-            close_time=row.close_time.replace(tzinfo=timezone.utc)
-            if row.close_time
-            else None,
+            close_time=row.close_time.replace(tzinfo=UTC) if row.close_time else None,
             quote_asset_volume=row.quote_asset_volume,
             number_of_trades=row.number_of_trades,
             taker_buy_base_asset_volume=row.taker_buy_base_asset_volume,
@@ -240,5 +239,5 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         if not value:
             return None
         if isinstance(value, datetime):
-            return value.replace(tzinfo=timezone.utc)
-        return datetime.fromisoformat(value).replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return datetime.fromisoformat(value).replace(tzinfo=UTC)

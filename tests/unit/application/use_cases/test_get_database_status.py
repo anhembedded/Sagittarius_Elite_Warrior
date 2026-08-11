@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
@@ -30,8 +31,8 @@ def handler(mock_repo):
 def test_get_database_status_success(handler, mock_repo):
     """Handler returns a typed DatabaseStatusDTO — consistent with ScanAllDatabasesQueryHandler."""
     mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
-        first_record=datetime(2023, 1, 1, tzinfo=timezone.utc),
-        last_record=datetime(2023, 1, 2, tzinfo=timezone.utc),
+        first_record=datetime(2023, 1, 1, tzinfo=UTC),
+        last_record=datetime(2023, 1, 2, tzinfo=UTC),
         total_candles=100,
         gaps=0,
     )

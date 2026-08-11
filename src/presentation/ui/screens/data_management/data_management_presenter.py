@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import BulkSyncProgressEvent
+from PySide6.QtCore import Signal, Slot
+
+from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
+    BulkSyncProgressEvent,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
@@ -21,7 +25,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
-from PySide6.QtCore import Signal, Slot
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -318,7 +321,7 @@ class DataManagementPresenter(BasePresenter):
     def _parse_datetime(raw: str) -> datetime | None:
         try:
             return datetime.strptime(raw.strip(), _CUSTOM_TIME_FORMAT).replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             )
         except (ValueError, AttributeError):
             return None

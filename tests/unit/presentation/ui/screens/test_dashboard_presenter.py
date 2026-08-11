@@ -19,9 +19,11 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from datetime import UTC
 from unittest.mock import MagicMock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
@@ -31,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_strea
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
@@ -41,7 +44,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
     map_klines,
     map_volume,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -143,6 +145,47 @@ def test_initialization(presenter, view, mock_container):
     assert presenter.view == view
     assert presenter.container == mock_container
     assert presenter.fsm.current_state.name == "IDLE"
+
+
+def test_dashboard_presenter_enforces_zoom_limit(presenter):
+    """
+    Test that the config CHART_CARD_MAX_ZOOM_OUT_CANDLES is applied to chart cards
+    both on creation and when timeframe changes.
+    """
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: (
+        1000 if key == "CHART_CARD_MAX_ZOOM_OUT_CANDLES" else default
+    )
+
+    from enum import Enum
+
+    class PyQtGraphStateKey(str, Enum):
+        LIMITS = "limits"
+        X_RANGE = "xRange"
+
+    # 1. On creation (_ensure_chart_cards)
+    presenter._active_interval = "1m"
+    cards = presenter._ensure_chart_cards(["BTCUSDT"])
+    card = cards[0]
+
+    # 1000 candles * 60 seconds = 60000.0
+    assert (
+        card.plot_layout.main_plot.getViewBox().state[PyQtGraphStateKey.LIMITS.value][
+            PyQtGraphStateKey.X_RANGE.value
+        ][1]
+        == 60000.0
+    )
+
+    # 2. On timeframe changed
+    # Mock stream controller to avoid triggering unwanted side-effects during this test
+    presenter._stream_controller = MagicMock()
+    presenter._on_timeframe_changed("1h")
+    # The active chart card should have its limits updated in-place
+    assert (
+        card.plot_layout.main_plot.getViewBox().state[PyQtGraphStateKey.LIMITS.value][
+            PyQtGraphStateKey.X_RANGE.value
+        ][1]
+        == 3600000.0
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -323,7 +366,7 @@ def test_on_load_history_rejects_a_start_date_not_before_end_date(
 
 
 def test_on_load_history_submits_the_parsed_date_range(presenter, mock_thread_mgr):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     presenter._view_model.startDate = "2024-01-01 00:00"
     presenter._view_model.endDate = "2024-01-02 00:00"
@@ -331,18 +374,18 @@ def test_on_load_history_submits_the_parsed_date_range(presenter, mock_thread_mg
     presenter._on_load_history()
 
     submit_args = mock_thread_mgr.submit.call_args[0]
-    assert submit_args[5] == datetime(2024, 1, 1, tzinfo=timezone.utc)  # start_time
-    assert submit_args[6] == datetime(2024, 1, 2, tzinfo=timezone.utc)  # end_time
+    assert submit_args[5] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
+    assert submit_args[6] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
 
 
 def test_run_load_history_dispatches_the_date_range_to_the_query(
     presenter, mock_dispatcher
 ):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     mock_dispatcher.dispatch.return_value = []
-    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    end = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 2, tzinfo=UTC)
 
     presenter._run_load_history(
         ["BTCUSDT"], "1m", 100, presenter._cancellation_token, start, end
@@ -436,7 +479,7 @@ def test_on_start_stream_rejects_a_start_date_not_before_end_date(
 
 
 def test_on_start_stream_submits_the_parsed_date_range(presenter, mock_thread_mgr):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     presenter._view_model.startDate = "2024-01-01 00:00"
     presenter._view_model.endDate = "2024-01-02 00:00"
@@ -444,20 +487,20 @@ def test_on_start_stream_submits_the_parsed_date_range(presenter, mock_thread_mg
     presenter._on_start_stream()
 
     submit_args = mock_thread_mgr.submit.call_args[0]
-    assert submit_args[6] == datetime(2024, 1, 1, tzinfo=timezone.utc)  # start_time
-    assert submit_args[7] == datetime(2024, 1, 2, tzinfo=timezone.utc)  # end_time
+    assert submit_args[6] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
+    assert submit_args[7] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
 
 
 def test_run_sync_and_start_passes_the_date_range_to_the_sync_command(
     presenter, mock_dispatcher
 ):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
     mock_dispatcher.dispatch.return_value = []
-    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    end = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 2, tzinfo=UTC)
 
     presenter._run_sync_and_start(
         ["BTCUSDT"],

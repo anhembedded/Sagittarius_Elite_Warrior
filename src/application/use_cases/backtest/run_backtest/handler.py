@@ -5,7 +5,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandl
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import MarketTickEvent
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
+)
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import RunBacktestCommand

@@ -1,6 +1,8 @@
 from typing import Protocol
 
-from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import StrategyContext
+from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
+    StrategyContext,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 
 

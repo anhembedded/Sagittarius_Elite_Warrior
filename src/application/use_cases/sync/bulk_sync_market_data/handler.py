@@ -1,7 +1,9 @@
 import logging
 import time
 
-from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import BulkSyncProgressEvent
+from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
+    BulkSyncProgressEvent,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,

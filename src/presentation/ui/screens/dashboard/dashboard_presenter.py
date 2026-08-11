@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
+
+from PySide6.QtCore import Signal, Slot
 
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import MarketTickEvent
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
-from PySide6.QtCore import Signal, Slot
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -104,7 +107,7 @@ def _tick_to_candle(
     other than "1m" — silently corrupting the cache a later load-more prepend
     rebuild depends on.
     """
-    close_time = datetime.fromtimestamp(close_timestamp, tz=timezone.utc)
+    close_time = datetime.fromtimestamp(close_timestamp, tz=UTC)
     return MarketData(
         symbol=symbol,
         interval=interval,
@@ -422,8 +425,20 @@ class DashboardPresenter(BasePresenter):
 
         chart_cards = self.view.render_symbol_cards(symbols)
         self.active_charts.clear()
+
+        from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+        from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import (
+            TimeFrame,
+        )
+
+        bar_seconds = TimeFrame(self._active_interval).to_seconds()
+        max_candles = self.config.get(
+            ConfigKeys.CHART_CARD_MAX_ZOOM_OUT_CANDLES.value, 2000, cast=int
+        )
+
         for card in chart_cards:
             self.active_charts[card.symbol] = card
+            card.set_max_visible_x_range(max_candles * bar_seconds)
             # BOT-033 — freshly-created cards only; render_symbol_cards()
             # tears down and rebuilds the old ones on every call, so a
             # connection made here would otherwise accumulate on a widget
@@ -513,6 +528,18 @@ class DashboardPresenter(BasePresenter):
     @safe_ui_action
     def _on_timeframe_changed(self, timeframe: str) -> None:
         self._stream_controller._on_timeframe_changed(timeframe)
+
+        from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+        from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import (
+            TimeFrame,
+        )
+
+        bar_seconds = TimeFrame(timeframe).to_seconds()
+        max_candles = self.config.get(
+            ConfigKeys.CHART_CARD_MAX_ZOOM_OUT_CANDLES.value, 2000, cast=int
+        )
+        for card in self.active_charts.values():
+            card.set_max_visible_x_range(max_candles * bar_seconds)
 
     @Slot(str)
     @safe_ui_action

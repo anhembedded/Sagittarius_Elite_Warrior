@@ -1,7 +1,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import BulkSyncProgressEvent
+
+from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
+    BulkSyncProgressEvent,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )

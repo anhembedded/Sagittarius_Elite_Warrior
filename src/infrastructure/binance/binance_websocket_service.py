@@ -1,14 +1,17 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from binance import AsyncClient, BinanceSocketManager
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import MarketTickEvent
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from binance import AsyncClient, BinanceSocketManager
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -161,13 +164,13 @@ class BinanceWebsocketService(ILiveStreamService):
         return MarketData(
             symbol=k["s"],
             interval=k["i"],
-            open_time=datetime.fromtimestamp(k["t"] / 1000.0, tz=timezone.utc),
+            open_time=datetime.fromtimestamp(k["t"] / 1000.0, tz=UTC),
             open_price=float(k["o"]),
             high_price=float(k["h"]),
             low_price=float(k["l"]),
             close_price=float(k["c"]),
             volume=float(k["v"]),
-            close_time=datetime.fromtimestamp(k["T"] / 1000.0, tz=timezone.utc),
+            close_time=datetime.fromtimestamp(k["T"] / 1000.0, tz=UTC),
             quote_asset_volume=float(k["q"]),
             number_of_trades=int(k["n"]),
             taker_buy_base_asset_volume=float(k["V"]),

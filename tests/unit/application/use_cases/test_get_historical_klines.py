@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.handler import (
     GetHistoricalKlinesQueryHandler,
 )
@@ -18,7 +19,7 @@ def test_get_historical_klines_handler_success():
 
     handler = GetHistoricalKlinesQueryHandler(repo_mock)
 
-    start_dt = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    start_dt = datetime(2023, 1, 1, tzinfo=UTC)
     query = GetHistoricalKlinesQuery(
         symbol="BTCUSDT",
         interval="1h",

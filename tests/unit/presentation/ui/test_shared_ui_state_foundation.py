@@ -26,8 +26,9 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from PySide6.QtQuickWidgets import QQuickWidget
+
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc import (
     BasePresenter,
     BaseQmlViewModel,
@@ -183,12 +184,13 @@ def test_log_panel_still_constructs_after_migrating_to_base_card(qapp, request):
     """Regression guard for LogPanel.qml's Rectangle -> BaseCard root swap:
     every existing property (title/logModel/autoScroll) must still resolve,
     proving the migration was a drop-in with no behavior change."""
+    from pathlib import Path
+
+    import sagittarius_engine.extensions.pyside_mvc.QmlShared as qml_shared_pkg
     from sagittarius_engine.extensions.pyside_mvc import QmlHostView
     from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
         LogListModel,
     )
-    import sagittarius_engine.extensions.pyside_mvc.QmlShared as qml_shared_pkg
-    from pathlib import Path
 
     class _LogPanelProbeView(QmlHostView):
         QML_DIR = Path(qml_shared_pkg.__file__).parent
@@ -250,7 +252,9 @@ def test_controls_enabled_changed_signal_only_fires_on_an_actual_flip():
     assert len(calls) == 2
 
 
-def test_controls_enabled_drives_qml_end_to_end_through_a_real_fsm_transition(qapp, request):
+def test_controls_enabled_drives_qml_end_to_end_through_a_real_fsm_transition(
+    qapp, request
+):
     """Mirrors test_base_presenter_fsm_drives_qml_ui_mode_end_to_end from
     test_qml_shared_foundation.py, but for controlsEnabled specifically —
     proven through a real BasePresenter/BaseStateMachine chain, not by

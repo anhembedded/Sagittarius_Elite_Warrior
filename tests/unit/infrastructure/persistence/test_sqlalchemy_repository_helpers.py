@@ -6,7 +6,7 @@ chunking, gap detection) stays covered by
 tests/integration/infrastructure/persistence/test_sqlalchemy_repository.py.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
@@ -19,13 +19,13 @@ def _mock_kline(symbol: str) -> MarketData:
     return MarketData(
         symbol=symbol,
         interval="1m",
-        open_time=datetime(2023, 1, 1, tzinfo=timezone.utc),
+        open_time=datetime(2023, 1, 1, tzinfo=UTC),
         open_price=100.0,
         high_price=110.0,
         low_price=90.0,
         close_price=105.0,
         volume=1000.0,
-        close_time=datetime(2023, 1, 1, 0, 1, tzinfo=timezone.utc),
+        close_time=datetime(2023, 1, 1, 0, 1, tzinfo=UTC),
         quote_asset_volume=105000.0,
         number_of_trades=50,
         taker_buy_base_asset_volume=500.0,
@@ -61,8 +61,8 @@ def test_to_market_data_entity_maps_row_and_adds_utc_tzinfo():
     entity = SQLAlchemyMarketDataRepository._to_market_data_entity(row)
 
     assert entity.symbol == "ETHUSDT"
-    assert entity.open_time == datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    assert entity.close_time == datetime(2023, 1, 1, 12, 59, tzinfo=timezone.utc)
+    assert entity.open_time == datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    assert entity.close_time == datetime(2023, 1, 1, 12, 59, tzinfo=UTC)
 
 
 def test_to_market_data_entity_handles_none_timestamps():
@@ -94,8 +94,6 @@ def test_parse_db_datetime_handles_none_datetime_and_iso_string():
     assert parse("") is None
 
     dt = datetime(2023, 1, 1, 12, 0)  # noqa: DTZ001 - naive, as SQLite returns
-    assert parse(dt) == datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    assert parse(dt) == datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
 
-    assert parse("2023-01-01T12:00:00") == datetime(
-        2023, 1, 1, 12, 0, tzinfo=timezone.utc
-    )
+    assert parse("2023-01-01T12:00:00") == datetime(2023, 1, 1, 12, 0, tzinfo=UTC)

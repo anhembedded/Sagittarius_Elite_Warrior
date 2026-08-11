@@ -7,7 +7,10 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
     IndicatorScriptRegistry,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import BaseIndicatorScript, InfoField
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
+    BaseIndicatorScript,
+    InfoField,
+)
 
 from .script_region_tracker import RegionSpan, ScriptRegionTracker
 

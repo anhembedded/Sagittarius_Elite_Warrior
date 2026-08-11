@@ -35,7 +35,7 @@ class SidebarViewModel(QObject):
         self._sections = tuple(sections)
         self._bottom_actions = tuple(bottom_actions)
         self._active_route = ""
-        
+
         routes = {
             item.route
             for section in self._sections

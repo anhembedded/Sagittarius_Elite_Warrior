@@ -37,7 +37,7 @@ script enablement lives on DashboardQmlViewModel.script_model
 """
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
@@ -85,7 +85,7 @@ def _use_synthetic_klines(monkeypatch, presenter, count: int) -> None:
     `_slow_down_history_queries` regardless of call order — both capture
     whatever `presenter.dispatcher.dispatch` currently is and wrap it.
     """
-    base_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    base_time = datetime(2024, 1, 1, tzinfo=UTC)
     klines = []
     for i in range(count):
         open_time = base_time + timedelta(minutes=i)
@@ -206,10 +206,12 @@ def test_duplicate_closed_tick_for_same_timestamp_appends_twice(
     Flip this to assert a length of 1 (and drop this docstring's caveat)
     once dedupe is added.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-    from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import MarketTickEvent
+    from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+        MarketTickEvent,
+    )
 
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
@@ -222,13 +224,13 @@ def test_duplicate_closed_tick_for_same_timestamp_appends_twice(
     closed_tick = MarketData(
         symbol="ETHUSDT",
         interval="1m",
-        open_time=datetime(2024, 1, 1, 2, 0, tzinfo=timezone.utc),
+        open_time=datetime(2024, 1, 1, 2, 0, tzinfo=UTC),
         open_price=300.0,
         high_price=301.0,
         low_price=299.0,
         close_price=300.5,
         volume=5.0,
-        close_time=datetime(2024, 1, 1, 2, 1, tzinfo=timezone.utc),
+        close_time=datetime(2024, 1, 1, 2, 1, tzinfo=UTC),
         quote_asset_volume=1500.0,
         number_of_trades=3,
         taker_buy_base_asset_volume=2.0,

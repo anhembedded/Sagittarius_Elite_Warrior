@@ -80,7 +80,9 @@ def main() -> None:
 
     if interactive_mode:
         # Register the Interactive Shell Hosted Service
-        from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import InteractiveShell
+        from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
+            InteractiveShell,
+        )
 
         shell = InteractiveShell(app)
         app.context.hosted_services.register(shell)
@@ -100,7 +102,9 @@ def main() -> None:
             execute_sync(app, args)
             app.stop()
         elif args.command == "stream":
-            from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import execute_stream
+            from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
+                execute_stream,
+            )
 
             execute_stream(app, args)
             app.stop()

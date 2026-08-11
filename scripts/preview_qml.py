@@ -29,12 +29,10 @@ sys.path.insert(0, str(REPO_ROOT))
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication
 
-from sagittarius_engine.extensions.pyside_mvc import (
-    configure_app_qml,
-    create_quick_widget,
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+    Palette,
+    get_icon_loader,
 )
-
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette, get_icon_loader
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar.nav_section import (
     NavItem,
@@ -49,8 +47,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view_model import (
     SettingsViewModel,
 )
+from sagittarius_engine.extensions.pyside_mvc import (
+    configure_app_qml,
+    create_quick_widget,
+)
 
-_SCREENS_DIR = REPO_ROOT / "Sagittarius_Elite_Warrior" / "src" / "presentation" / "ui" / "screens"
+_SCREENS_DIR = (
+    REPO_ROOT / "Sagittarius_Elite_Warrior" / "src" / "presentation" / "ui" / "screens"
+)
 
 # Same sections MainWindow builds — kept here rather than imported so this
 # script never needs to boot main_window.py's other side effects.
@@ -64,15 +68,11 @@ _NAV_SECTIONS = [
     ),
     NavSection(
         "QUANT ENGINE",
-        (
-            NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),
-        ),
+        (NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),),
     ),
 ]
 
-_BOTTOM_ACTIONS = (
-    NavItem("API & Credentials", "settings", "settings"),
-)
+_BOTTOM_ACTIONS = (NavItem("API & Credentials", "settings", "settings"),)
 
 
 def _load(quick_widget, qml_dir: Path, filename: str):
@@ -117,6 +117,7 @@ def _preview_database():
     view_model.log_model.append("Checking database status for BTCUSDT (1m)...")
     view_model.log_model.append("Scan complete.", level="success")
     view_model.set_stats("414,400", "128.40 MB")
+    view_model.useCustomTime = True
     quick_widget.rootContext().setContextProperty("viewModel", view_model)
     quick_widget.resize(1400, 820)
     return _load(quick_widget, _SCREENS_DIR / "data_management", "DatabaseScreen.qml")

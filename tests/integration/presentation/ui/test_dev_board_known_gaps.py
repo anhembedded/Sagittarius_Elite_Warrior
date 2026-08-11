@@ -154,7 +154,9 @@ def test_reclicking_the_same_timeframe_does_not_reload(
     assert reloaded == []
 
 
-def test_strategy_dropdown_has_no_presenter_effect(qtbot, main_window, navigate, qml_item):
+def test_strategy_dropdown_has_no_presenter_effect(
+    qtbot, main_window, navigate, qml_item
+):
     """TC-GAP-04: Strategy dropdown is cosmetic today — out of Phase 2's
     scope (needs a concrete strategy + signal/marker plumbing, see
     BOT-026), unlike Symbol/Start date/End date which Phase 2 fixed."""
@@ -172,7 +174,9 @@ def test_strategy_dropdown_has_no_presenter_effect(qtbot, main_window, navigate,
     assert len(view.chart_cards[0]._raw_history) == 5
 
 
-def test_start_date_field_binds_to_the_view_model(qtbot, main_window, navigate, qml_item):
+def test_start_date_field_binds_to_the_view_model(
+    qtbot, main_window, navigate, qml_item
+):
     """TC-GAP-05: FIXED by BOT-033 Phase 2 — txtStartDate now displays
     viewModel.startDate (was a static `Qt.formatDateTime(...)` cosmetic
     default). Setting the ViewModel from Python — the same thing
@@ -190,7 +194,9 @@ def test_start_date_field_binds_to_the_view_model(qtbot, main_window, navigate, 
     assert qml_item(root, "txtStartDate").property("text") == "2000-01-01 00:00"
 
 
-def test_an_invalid_date_range_blocks_load_history(qtbot, main_window, navigate, qml_item):
+def test_an_invalid_date_range_blocks_load_history(
+    qtbot, main_window, navigate, qml_item
+):
     """TC-GAP-05: FIXED by BOT-033 Phase 2 — Start date/End date are now
     validated before dispatch; a Start date on/after End date must not
     reach GetHistoricalKlinesQuery at all."""

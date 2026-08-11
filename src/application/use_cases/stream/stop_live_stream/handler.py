@@ -1,7 +1,9 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import ILiveStreamService
+from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
+    ILiveStreamService,
+)
 
 from .command import StopLiveStreamCommand, StopLiveStreamResponse
 

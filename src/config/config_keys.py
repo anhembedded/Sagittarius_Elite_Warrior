@@ -25,5 +25,8 @@ class ConfigKeys(str, Enum):
     UI_THEME_ACCENT_COLOR = "ui.theme.accent_color"
     UI_THEME_REPLACE_COLOR = "ui.theme.replace_color"
 
+    # Chart Configuration
+    CHART_CARD_MAX_ZOOM_OUT_CANDLES = "CHART_CARD_MAX_ZOOM_OUT_CANDLES"
+
     # Developer mode — enables extra UI instrumentation (e.g. click logging)
     DEV_MODE = "dev.mode"

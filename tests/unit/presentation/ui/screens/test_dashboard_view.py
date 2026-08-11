@@ -2,14 +2,15 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtQuickWidgets import QQuickWidget
+from PySide6.QtWidgets import QScrollArea, QSplitter
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
 )
-from PySide6.QtQuickWidgets import QQuickWidget
-from PySide6.QtWidgets import QScrollArea, QSplitter
 
 
 def test_dashboard_view_hybrid_layout_hosts_chart_scroll_area_and_qml_panel(qapp):

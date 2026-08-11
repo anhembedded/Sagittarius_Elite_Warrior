@@ -1,8 +1,11 @@
 import pyqtgraph as pg
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import ChartCard
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
+
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+    ChartCard,
+)
 
 
 def test_chart_card_initialization(qapp):
@@ -141,6 +144,29 @@ def test_chart_card_candle_width_is_positive_even_for_descending_data(qapp):
 
     assert card.candlestick.candle_width > 0
     assert card.candlestick.candle_width == pytest.approx(interval / 3.0)
+
+
+from enum import Enum
+
+
+class PyQtGraphStateKey(str, Enum):
+    LIMITS = "limits"
+    X_RANGE = "xRange"
+
+
+def test_chart_card_set_max_visible_x_range(qapp):
+    """
+    Test that set_max_visible_x_range correctly sets the maxXRange limit on the main plot.
+    """
+    card = ChartCard("BTCUSDT")
+    card.set_max_visible_x_range(120000.0)
+
+    assert (
+        card.plot_layout.main_plot.getViewBox().state[PyQtGraphStateKey.LIMITS.value][
+            PyQtGraphStateKey.X_RANGE.value
+        ][1]
+        == 120000.0
+    )
 
 
 def test_chart_card_live_tick_rollover(qapp):

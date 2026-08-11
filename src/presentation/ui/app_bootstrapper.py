@@ -19,12 +19,16 @@ import sys
 import traceback
 
 import qdarktheme
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.main import create_app
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette, get_icon_loader
-from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QMessageBox
+
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+    Palette,
+    get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_config import IConfig

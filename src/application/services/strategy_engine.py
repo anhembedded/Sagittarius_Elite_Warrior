@@ -1,7 +1,9 @@
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import SignalGeneratedEvent
+from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+    SignalGeneratedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
 from Sagittarius_Elite_Warrior.src.domain.strategies.i_strategy import IStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
@@ -9,7 +11,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import SignalAction
+from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
+    SignalAction,
+)
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 

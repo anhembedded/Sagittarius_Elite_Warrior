@@ -1,12 +1,15 @@
 import argparse
 import shlex
 
+from pydantic import ValidationError
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_handler_parser
-from pydantic import ValidationError
+from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
+    build_handler_parser,
+)
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 

@@ -1,6 +1,7 @@
 """Tests for IndicatorScriptRegistry (BOT-032 Phase 0)."""
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )

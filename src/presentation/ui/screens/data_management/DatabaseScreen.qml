@@ -221,59 +221,18 @@ Rectangle {
                         }
                     }
 
-                    SectionLabel { text: "TIME RANGE" }
-
-                    CheckBox {
-                        id: customTimeCheck
-                        objectName: "chkCustomTime"
-                        text: "Use Custom Time Range"
-                        checked: viewModel.useCustomTime
-                        enabled: viewModel.uiMode !== "LOCKED"
-                        onToggled: viewModel.useCustomTime = checked
-                        contentItem: Text {
-                            leftPadding: customTimeCheck.indicator.width + 6
-                            text: customTimeCheck.text
-                            color: Theme.textPrimary
-                            font.pixelSize: 12
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        indicator: Rectangle {
-                            implicitWidth: 16
-                            implicitHeight: 16
-                            y: (customTimeCheck.height - height) / 2
-                            radius: 3
-                            color: customTimeCheck.checked ? Theme.accent : "#17181d"
-                            border.color: customTimeCheck.checked ? Theme.accent : Theme.border
-                            border.width: 1
-                        }
-                    }
-
-                    // Plain text fields rather than a calendar popup: Qt Quick
-                    // Controls Basic has no date-time editor, and inventing one
-                    // is out of scope for this migration. Format is stated in
-                    // the placeholder so the expected input is unambiguous.
-                    TextField {
-                        objectName: "txtFromDateTime"
+                    TimeRangeCard {
                         Layout.fillWidth: true
-                        enabled: viewModel.useCustomTime && viewModel.uiMode !== "LOCKED"
-                        text: viewModel.fromDateTime
-                        onTextEdited: viewModel.fromDateTime = text
-                        placeholderText: "From  yyyy-MM-dd HH:mm"
-                        color: Theme.textPrimary
-                        font.pixelSize: 12
-                        background: FieldBackground {}
-                    }
+                        color: "transparent"
+                        border.width: 0
+                        useCustomTime: viewModel.useCustomTime
+                        readOnly: viewModel.uiMode === "LOCKED"
+                        fromDateTime: viewModel.fromDateTime
+                        toDateTime: viewModel.toDateTime
 
-                    TextField {
-                        objectName: "txtToDateTime"
-                        Layout.fillWidth: true
-                        enabled: viewModel.useCustomTime && viewModel.uiMode !== "LOCKED"
-                        text: viewModel.toDateTime
-                        onTextEdited: viewModel.toDateTime = text
-                        placeholderText: "To  yyyy-MM-dd HH:mm"
-                        color: Theme.textPrimary
-                        font.pixelSize: 12
-                        background: FieldBackground {}
+                        onCustomTimeToggled: checked => viewModel.useCustomTime = checked
+                        onFromDateTimeEdited: text => viewModel.fromDateTime = text
+                        onToDateTimeEdited: text => viewModel.toDateTime = text
                     }
 
                     SectionLabel { text: "ACTIONS" }

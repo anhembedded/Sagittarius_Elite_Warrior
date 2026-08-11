@@ -193,8 +193,8 @@ def test_each_emission_carries_the_full_series_so_far(runner, emitted):
     runner.rebuild(["ema_ribbon"])
     runner.feed_all(make_candle(100.0 + index, index) for index in range(25))
     ema20 = [(x, y) for name, x, y in emitted if name == "ema_ribbon:EMA 20"]
-    assert len(ema20[-1][0]) == len(ema20)      # vỡ: N == 1
-    assert len(ema20[-1][0]) > len(ema20[0][0]) # vỡ: cùng 1 object
+    assert len(ema20[-1][0]) == len(ema20)  # vỡ: N == 1
+    assert len(ema20[-1][0]) > len(ema20[0][0])  # vỡ: cùng 1 object
 ```
 
 **Docstring của nó vẫn ĐÚNG và vẫn phải giữ ý nghĩa**: `update_indicator_data()` **thay thế** chứ
@@ -240,7 +240,7 @@ def test_the_batched_emission_carries_the_full_series(runner, emitted):
     assert len(ema20) == 1
     x_data, y_data = ema20[0]
     assert len(x_data) == len(y_data)
-    assert len(x_data) > 1   # a real series, not a lone point
+    assert len(x_data) > 1  # a real series, not a lone point
 ```
 
 **Thêm 3 test mới:**

@@ -1,8 +1,10 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import IExchangeClient
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    IExchangeClient,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
@@ -39,7 +41,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
             else:
                 latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
                 if latest_time is None:
-                    start_time = datetime.now(timezone.utc) - timedelta(
+                    start_time = datetime.now(UTC) - timedelta(
                         days=command.days_back_if_empty
                     )
                     self.logger.info(

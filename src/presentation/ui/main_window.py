@@ -11,6 +11,8 @@ Screen-specific factory/presenter imports stay at the top level (no local import
 
 from __future__ import annotations
 
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,
@@ -34,7 +36,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
 # ---------------------------------------------------------------------------
@@ -53,15 +54,11 @@ _NAV_SECTIONS = [
     ),
     NavSection(
         "QUANT ENGINE",
-        (
-            NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),
-        ),
+        (NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),),
     ),
 ]
 
-_BOTTOM_ACTIONS = (
-    NavItem("API & Credentials", "settings", "settings"),
-)
+_BOTTOM_ACTIONS = (NavItem("API & Credentials", "settings", "settings"),)
 
 _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # 1200x800 used to be enough, but the Dev Board's right column has grown

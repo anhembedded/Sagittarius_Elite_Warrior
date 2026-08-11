@@ -1,10 +1,13 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import IExchangeClient
+from binance.client import Client
+
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    IExchangeClient,
+)
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from binance.client import Client
 
 logger = logging.getLogger("App.ExchangeClient")
 
@@ -40,10 +43,10 @@ class PythonBinanceClient(IExchangeClient):
         # python-binance accepts datetime, string ('1 day ago UTC'), or ms timestamp
 
         if isinstance(start_str, datetime):
-            start_str = start_str.astimezone(timezone.utc).strftime("%d %b %Y %H:%M:%S")
+            start_str = start_str.astimezone(UTC).strftime("%d %b %Y %H:%M:%S")
 
         if isinstance(end_str, datetime):
-            end_str = end_str.astimezone(timezone.utc).strftime("%d %b %Y %H:%M:%S")
+            end_str = end_str.astimezone(UTC).strftime("%d %b %Y %H:%M:%S")
 
         logger.info(
             f"Fetching historical klines for {symbol} at {interval.value} from {start_str} to {end_str or 'NOW'}"
@@ -68,13 +71,13 @@ class PythonBinanceClient(IExchangeClient):
                 MarketData(
                     symbol=symbol,
                     interval=interval.value,
-                    open_time=datetime.fromtimestamp(k[0] / 1000.0, tz=timezone.utc),
+                    open_time=datetime.fromtimestamp(k[0] / 1000.0, tz=UTC),
                     open_price=float(k[1]),
                     high_price=float(k[2]),
                     low_price=float(k[3]),
                     close_price=float(k[4]),
                     volume=float(k[5]),
-                    close_time=datetime.fromtimestamp(k[6] / 1000.0, tz=timezone.utc),
+                    close_time=datetime.fromtimestamp(k[6] / 1000.0, tz=UTC),
                     quote_asset_volume=float(k[7]),
                     number_of_trades=int(k[8]),
                     taker_buy_base_asset_volume=float(k[9]),

@@ -18,12 +18,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQuickWidgets import QQuickWidget
+
+import sagittarius_engine.extensions.pyside_mvc.QmlShared as qml_shared_pkg
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, QmlHostView
 from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
     LogListModel,
 )
-
-import sagittarius_engine.extensions.pyside_mvc.QmlShared as qml_shared_pkg
 
 _QML_SHARED_DIR = Path(qml_shared_pkg.__file__).parent
 

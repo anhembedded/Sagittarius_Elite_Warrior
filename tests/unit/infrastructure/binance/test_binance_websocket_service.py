@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,

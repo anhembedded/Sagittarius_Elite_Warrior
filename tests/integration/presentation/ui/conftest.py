@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,7 +24,7 @@ MOCK_KLINE_COUNT = 5
 def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
     """Newest-first MarketData list, matching what the real repository
     returns (DashboardPresenter reverses it before rendering)."""
-    base_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    base_time = datetime(2024, 1, 1, tzinfo=UTC)
     klines = []
     for i in range(MOCK_KLINE_COUNT):
         open_time = base_time + timedelta(minutes=i)

@@ -61,9 +61,7 @@ class IndicatorManager:
 
     def add_overlay(self, name: str, color: str) -> None:
         """Adds a line indicator on top of the main candlestick plot (e.g. SMA)."""
-        curve = self._plot_layout.main_plot.plot(
-            pen=pg.mkPen(color=color, width=2)
-        )
+        curve = self._plot_layout.main_plot.plot(pen=pg.mkPen(color=color, width=2))
         self._register(name, curve, self._plot_layout.main_plot)
 
     def add_subplot(self, name: str, color: str, height_ratio: int = 1) -> None:

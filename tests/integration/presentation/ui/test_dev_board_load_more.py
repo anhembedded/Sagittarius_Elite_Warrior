@@ -22,7 +22,7 @@ they're collected as top-level modules, not a package (a relative
 by test_sanity_ui_e2e.py.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
@@ -30,7 +30,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 MOCK_KLINE_COUNT = 5
-_BASE_TIME = datetime(2024, 1, 1, tzinfo=timezone.utc)
+_BASE_TIME = datetime(2024, 1, 1, tzinfo=UTC)
 
 
 def _build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
