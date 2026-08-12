@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 40 | 65% |
+| 🟢 **Completed** | 40 | 63% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 22 | 35% |
-| 📈 **Tổng số Task** | **62** | **100%** |
+| 🔴 **Backlog** | 23 | 37% |
+| 📈 **Tổng số Task** | **63** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 
@@ -155,6 +155,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-059](completed/BOT-059_backtest_inline_data_sync_affordance.md)** | **Nút "Đồng bộ ngay" khi thiếu dữ liệu** | `BOT-022` ✅, `BOT-058` ✅ | Backtest là tính năng chính, không được ngõ cụt khi thiếu dữ liệu. Nút sync tường minh (không tự động ngầm) + state machine `BacktestUiState` riêng thay `UIMode` dùng chung. 12 test mới, `ruff` sạch. |
 | **1** | ✅ **[BOT-060](completed/BOT-060_backtest_chart_draws_strategy_own_indicators.md)** | **Chart vẽ đúng indicator của Strategy đang backtest** | `BOT-046` ✅, `BOT-047` ✅, `BOT-056` ✅ | Toggle từng cố định vẽ `ema_ribbon` (20/50/100/200) bất kể strategy nào đang chạy — marker Buy/Sell không khớp đường vẽ (bug user báo qua ảnh chụp thật). Giờ vẽ đúng `strategy.build_indicators()` — file mới `strategy_indicator_lines.py` (thuần Python), xoá hẳn phụ thuộc `IndicatorScriptRunner`/`ema_ribbon` khỏi màn Backtest. |
 | **1** | ✅ **[BOT-064](completed/BOT-064_backtest_screen_indicator_script_picker.md)** | **Danh sách chọn Indicator Script (như Dev Board)** | `BOT-060` ✅ | Nút "Chỉ báo" mới (`IndicatorPickerMenu.qml`) mở dropdown checklist, tái dùng nguyên `IndicatorScriptListModel`/`IndicatorScriptRunner` của Dev Board — chạy **song song**, không thay thế `strategy_indicator_lines.py` của `BOT-060`. Gap chưa làm: script overlay chưa tự ẩn khi chuyển "Đường Vốn" (Equity-solo). |
+| **1** | **[BOT-065](backlog/BOT-065_backtest_script_overlay_hidden_in_equity_mode.md)** | **Ẩn overlay Script khi chuyển "Đường Vốn"** | `BOT-060` ✅, `BOT-064` ✅ | Gap tự phát hiện lúc đóng `BOT-064`, tách task riêng theo yêu cầu user. **Không phải edge case hiếm**: 4 script mặc định (`ema_20/50/100/200`) đã `default_enabled=True` + `overlay=True` — user chỉ cần bấm "Đường Vốn" 1 lần là gặp ngay (đường Equity bị kéo bẹp bởi auto-range trục giá). Cách sửa đã phác thảo: thêm nhánh trong `_on_chart_mode_changed` lặp `self._chart_script_runner.active`, mirror `_on_ema_toggled` đã có cho strategy lines. Chưa bắt đầu. |
 | **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Dynamic UI** | `BOT-022` ✅…`BOT-057` ✅, `BOT-023` | Kế thừa nguyên UI Nhóm D, chỉ thêm replay controls. Không tự mở khoá phần đang chờ Nhóm A/B/C. |
 
 **Ngoài nhóm**
