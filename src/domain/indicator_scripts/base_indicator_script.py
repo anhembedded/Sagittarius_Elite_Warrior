@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
@@ -19,8 +19,12 @@ from Sagittarius_Elite_Warrior.src.domain.indicators.rsi import DEFAULT_RSI_PERI
 from Sagittarius_Elite_Warrior.src.domain.indicators.wma import WMA
 from Sagittarius_Elite_Warrior.src.domain.scripting import (
     DEFAULT_HISTORY,
+    InputDeclarations,
+    InputKind,
+    ScriptInput,
     Series,
     Streak,
+    build_input,
     constant_series,
     crossed,
     crossed_above,
@@ -191,12 +195,13 @@ class BaseIndicatorScript(ABC):
     #: checks it (see IndicatorScriptListModel.set_available).
     default_enabled: bool = False
 
-    def __init__(self) -> None:
+    def __init__(self, params: Mapping[str, Any] | None = None) -> None:
         self._buffer: dict[str, PlottedLine] = {}
         self._markers: list[PlottedMarker] = []
         self._region: PlottedRegion | None = None
         self._info: dict[str, InfoField] = {}
         self._line_colors: dict[str, str] = {}
+        self._inputs = InputDeclarations(dict(params) if params else None)
 
         self.open = Series(self.history)
         self.high = Series(self.history)
@@ -205,6 +210,101 @@ class BaseIndicatorScript(ABC):
         self.volume = Series(self.history)
 
         self.setup()
+
+        # Caught only after setup(), since that is when every declaration has
+        # been made. A param nobody declared is almost always a typo or a
+        # stale saved preset — failing loudly beats running with a setting
+        # the user believes took effect.
+        unused = self._inputs.unused_param_names()
+        if unused:
+            raise ValueError(
+                f"{type(self).__name__} got param(s) it never declares: {list(unused)}"
+            )
+
+    @property
+    def inputs(self) -> tuple[ScriptInput, ...]:
+        """
+        @brief What this script declares about its own parameters, in the
+        order `setup()` declared them.
+        @details Empty for a script that declares none — which is every
+        script written before BOT-044, so their behaviour is unchanged.
+        """
+        return self._inputs.declared
+
+    # ------------------------------------------------------------------ #
+    # Parameter declaration — call these from setup().
+    # Each records the declaration (so a UI can build a form) AND returns the
+    # value to use, mirroring Pine Script's input(). BOT-044.
+    # ------------------------------------------------------------------ #
+
+    def input_int(
+        self,
+        name: str,
+        default: int,
+        *,
+        label: str | None = None,
+        minval: int | None = None,
+        maxval: int | None = None,
+        group: str | None = None,
+        suffix: str | None = None,
+    ) -> int:
+        return self._inputs.declare(
+            build_input(
+                InputKind.INT, name, default, label, minval, maxval, None, group, suffix
+            )
+        )
+
+    def input_float(
+        self,
+        name: str,
+        default: float,
+        *,
+        label: str | None = None,
+        minval: float | None = None,
+        maxval: float | None = None,
+        group: str | None = None,
+        suffix: str | None = None,
+    ) -> float:
+        return self._inputs.declare(
+            build_input(
+                InputKind.FLOAT,
+                name,
+                default,
+                label,
+                minval,
+                maxval,
+                None,
+                group,
+                suffix,
+            )
+        )
+
+    def input_bool(
+        self,
+        name: str,
+        default: bool,
+        *,
+        label: str | None = None,
+        group: str | None = None,
+    ) -> bool:
+        return self._inputs.declare(
+            build_input(InputKind.BOOL, name, default, label, group=group)
+        )
+
+    def input_string(
+        self,
+        name: str,
+        default: str,
+        *,
+        options: Sequence[str] | None = None,
+        label: str | None = None,
+        group: str | None = None,
+    ) -> str:
+        return self._inputs.declare(
+            build_input(
+                InputKind.STRING, name, default, label, options=options, group=group
+            )
+        )
 
     # ------------------------------------------------------------------ #
     # Declaration helpers — call these from setup()

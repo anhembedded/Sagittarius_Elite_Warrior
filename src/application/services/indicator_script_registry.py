@@ -47,10 +47,10 @@ class IndicatorScriptRegistry:
     ) -> BaseIndicatorScript:
         """
         @brief Builds a fresh script instance.
-        @param params Reserved. Every script is zero-arg today, so this is
-        accepted and ignored; it exists now so that adding parameterised
-        scripts later (period spin boxes, etc.) doesn't change this signature
-        out from under existing callers.
+        @param params Values for the parameters the script declares via
+        `input_*()` in setup() (BOT-044). None uses every declared default.
+        A key the script never declares raises, rather than being ignored —
+        see BaseIndicatorScript.__init__.
         @details Always a new instance — indicators carry warm-up state and
         have no reset(), so a fresh run needs a fresh object (the same reason
         BOT-020 rejected IIndicator.reset()).
@@ -58,7 +58,7 @@ class IndicatorScriptRegistry:
         script_cls = self._scripts.get(key)
         if script_cls is None:
             raise KeyError(f"No indicator script registered under key {key!r}")
-        return script_cls()
+        return script_cls(params)
 
     def available(self) -> Mapping[str, type[BaseIndicatorScript]]:
         """Returns a copy, so a caller iterating this can't mutate the registry."""

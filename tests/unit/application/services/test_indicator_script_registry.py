@@ -24,6 +24,20 @@ class _OtherScript(_DummyScript):
     title = "Other"
 
 
+class _ParameterisedScript(BaseIndicatorScript):
+    """Declares a parameter, so `create(key, params)` has something to reach."""
+
+    title = "Parameterised"
+    overlay = True
+
+    def setup(self) -> None:
+        self.period = self.input_int("period", 2, minval=1)
+        self.e = self.ema(self.period)
+
+    def execute(self, candle: MarketData) -> None:
+        self.plot(self.e(candle.close_price), "LINE", color="#ffffff")
+
+
 @pytest.fixture
 def registry() -> IndicatorScriptRegistry:
     return IndicatorScriptRegistry()
@@ -55,12 +69,31 @@ def test_unknown_key_raises_keyerror(registry):
         registry.create("nope")
 
 
-def test_create_accepts_and_ignores_params_for_forward_compatibility(registry):
-    """`params` is reserved for parameterised scripts (period spin boxes) —
-    accepting it now means adding them later isn't a breaking signature change."""
+def test_create_passes_params_through_to_the_script(registry):
+    """BOT-044 turned the reserved `params` argument into a real one: it now
+    reaches the script's `input_*()` declarations. Before that it was
+    accepted and ignored, which is why this test changed shape rather than
+    being a regression."""
+    registry.register("parameterised", _ParameterisedScript)
+
+    script = registry.create("parameterised", {"period": 5})
+
+    assert script.period == 5
+
+
+def test_create_without_params_uses_the_scripts_own_defaults(registry):
+    registry.register("parameterised", _ParameterisedScript)
+
+    assert registry.create("parameterised").period == 2
+
+
+def test_create_rejects_a_param_the_script_never_declares(registry):
+    """Silently ignoring it would leave the caller believing a setting took
+    effect — see BaseIndicatorScript.__init__."""
     registry.register("dummy", _DummyScript)
 
-    assert isinstance(registry.create("dummy", {"period": 20}), _DummyScript)
+    with pytest.raises(ValueError, match="never declares"):
+        registry.create("dummy", {"period": 20})
 
 
 def test_available_lists_registered_scripts(registry):
