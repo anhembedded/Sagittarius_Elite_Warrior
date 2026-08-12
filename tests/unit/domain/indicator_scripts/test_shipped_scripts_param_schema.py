@@ -2,13 +2,13 @@
 BOT-044 regression guard: adding the `input_*()` mechanism to
 BaseIndicatorScript must not change how any *shipped* script behaves.
 
-Every script in the registry today was written before BOT-044 and declares no
-parameters, so each must report an empty schema and keep producing exactly the
-values it produced before. BOT-048 will convert the fixed-period ones
-(ema_20/50/100/200, rsi_14, macd_full) to declare their period as an input —
-when that lands, the scripts it converts move out of
-`test_every_shipped_script_declares_no_inputs_yet` and gain their own
-schema assertions instead. Until then this pins "nothing changed".
+BOT-048 converted the fixed-period scripts (ema_20/50/100/200, rsi_14,
+macd_full) to declare their period(s) as input_int() — each with a default
+equal to its old hardcoded value, so behavior is unchanged. Those six now
+have their own schema assertions below (`INPUT_DECLARING_SCRIPTS`); the
+remaining three (ema_ribbon, ema_cross, the dev showcase script) still
+declare nothing and stay pinned by the original "no inputs yet" checks
+(`NO_INPUT_SCRIPTS`).
 """
 
 from datetime import UTC, datetime, timedelta
@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
     MacdFullScript,
     Rsi14Script,
 )
+from Sagittarius_Elite_Warrior.src.domain.scripting import InputKind
 
 #: The nine scripts BinanceBotModule registers today.
 SHIPPED_SCRIPTS = [
@@ -40,6 +41,22 @@ SHIPPED_SCRIPTS = [
     EmaCrossScript,
     DevIndicatorScript,
 ]
+
+#: Never declared any input — still pinned "nothing changed" (BOT-032
+#: Phase 6 default fixed-period scripts, minus the six BOT-048 converted).
+NO_INPUT_SCRIPTS = [EmaRibbonScript, EmaCrossScript, DevIndicatorScript]
+
+#: BOT-048 — script class -> {input name: default value}, in declaration
+#: order. Used both to assert `.inputs` and to build a valid override dict
+#: for the "rejects an undeclared param" check below.
+INPUT_DECLARING_SCRIPTS: dict[type, dict[str, int]] = {
+    Rsi14Script: {"period": 14},
+    Ema20Script: {"period": 20},
+    Ema50Script: {"period": 50},
+    Ema100Script: {"period": 100},
+    Ema200Script: {"period": 200},
+    MacdFullScript: {"fast_period": 12, "slow_period": 26, "signal_period": 9},
+}
 
 
 def _candle(close: float, index: int) -> MarketData:
@@ -70,13 +87,13 @@ def _run(script, bar_count: int = 60) -> dict:
     return last
 
 
-@pytest.mark.parametrize("script_cls", SHIPPED_SCRIPTS, ids=lambda c: c.__name__)
-def test_every_shipped_script_declares_no_inputs_yet(script_cls):
+@pytest.mark.parametrize("script_cls", NO_INPUT_SCRIPTS, ids=lambda c: c.__name__)
+def test_every_no_input_script_declares_no_inputs(script_cls):
     assert script_cls().inputs == ()
 
 
-@pytest.mark.parametrize("script_cls", SHIPPED_SCRIPTS, ids=lambda c: c.__name__)
-def test_every_shipped_script_constructs_with_explicit_empty_params(script_cls):
+@pytest.mark.parametrize("script_cls", NO_INPUT_SCRIPTS, ids=lambda c: c.__name__)
+def test_every_no_input_script_constructs_with_explicit_empty_params(script_cls):
     """`create(key)` and `create(key, {})` must be interchangeable — an empty
     mapping is not the same object as None, and the code path differs."""
     assert script_cls({}).inputs == ()
@@ -87,7 +104,9 @@ def test_every_shipped_script_produces_identical_output_with_and_without_params(
     script_cls,
 ):
     """The real regression check: same inputs, same plotted values, whether
-    constructed the old way or through the new params-aware path."""
+    constructed the old way or through the new params-aware path. Holds for
+    all nine scripts, whether or not they declare inputs — `{}` always means
+    "every declared default", same as `None`."""
     without = _run(script_cls())
     with_empty = _run(script_cls({}))
 
@@ -96,7 +115,34 @@ def test_every_shipped_script_produces_identical_output_with_and_without_params(
         assert line.value == with_empty[name].value, f"line {name!r} changed"
 
 
-@pytest.mark.parametrize("script_cls", SHIPPED_SCRIPTS, ids=lambda c: c.__name__)
-def test_no_shipped_script_silently_accepts_an_undeclared_param(script_cls):
+@pytest.mark.parametrize("script_cls", NO_INPUT_SCRIPTS, ids=lambda c: c.__name__)
+def test_no_input_script_rejects_any_param(script_cls):
     with pytest.raises(ValueError, match="never declares"):
         script_cls({"period": 99})
+
+
+@pytest.mark.parametrize(
+    "script_cls", INPUT_DECLARING_SCRIPTS.keys(), ids=lambda c: c.__name__
+)
+def test_converted_script_declares_its_period_inputs_with_the_old_hardcoded_default(
+    script_cls,
+):
+    """BOT-048: each converted script's `.inputs` must report exactly the
+    names it used to hardcode, defaulting to the value it used to hardcode —
+    the whole point of this conversion is that nothing visibly changes."""
+    expected_defaults = INPUT_DECLARING_SCRIPTS[script_cls]
+    declared = {spec.name: spec for spec in script_cls().inputs}
+
+    assert set(declared) == set(expected_defaults)
+    for name, expected_default in expected_defaults.items():
+        assert declared[name].default == expected_default
+        assert declared[name].kind == InputKind.INT
+        assert declared[name].minval is not None and declared[name].minval >= 1
+
+
+@pytest.mark.parametrize(
+    "script_cls", INPUT_DECLARING_SCRIPTS.keys(), ids=lambda c: c.__name__
+)
+def test_converted_script_rejects_a_truly_undeclared_param(script_cls):
+    with pytest.raises(ValueError, match="never declares"):
+        script_cls({"bogus_param_nobody_declares": 1})

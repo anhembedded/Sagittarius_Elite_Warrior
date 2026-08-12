@@ -9,11 +9,12 @@ class Ema100Script(BaseIndicatorScript):
 
     title = "EMA 100"
     overlay = True
-    min_warmup_bars = 100
+    min_warmup_bars = 100  # tied to input_int's default below — see ema_20_script.py
     default_enabled = True
 
     def setup(self) -> None:
-        self.a = self.ema(100)
+        period = self.input_int("period", 100, label="Period", minval=1)
+        self.a = self.ema(period)
 
     def execute(self, candle: MarketData) -> None:
         self.plot(self.a(candle.close_price), "EMA 100", color="#00bcd4")

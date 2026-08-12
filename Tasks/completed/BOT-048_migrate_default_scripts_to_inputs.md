@@ -1,9 +1,9 @@
 # Nhiệm vụ: Chuyển 6 indicator script mặc định sang khai báo period bằng input
 
-> Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
-> **Task 4/4** nhóm "hệ thống tham số": [`BOT-044`](../completed/BOT-044_param_schema_core.md)
-> → [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) →
-> [`BOT-047`](../completed/BOT-047_dynamic_params_form_ui.md) → `BOT-048` (file này).
+> Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
+> **Task 4/4** nhóm "hệ thống tham số": [`BOT-044`](BOT-044_param_schema_core.md)
+> → [`BOT-046`](BOT-046_strategy_param_plumbing.md) →
+> [`BOT-047`](BOT-047_dynamic_params_form_ui.md) → `BOT-048` (file này).
 > Phụ thuộc `BOT-044` ✅, `BOT-047`.
 
 ## 1. Mục tiêu
@@ -55,7 +55,7 @@ trên Dev Board) — không đụng `IndicatorScriptListModel`.
 
 ## 5. Phụ thuộc
 
-- [`BOT-044`](../completed/BOT-044_param_schema_core.md) — cơ chế `input_*()`.
-- [`BOT-047`](../completed/BOT-047_dynamic_params_form_ui.md) — có UI thì việc chỉnh period
+- [`BOT-044`](BOT-044_param_schema_core.md) — cơ chế `input_*()`.
+- [`BOT-047`](BOT-047_dynamic_params_form_ui.md) — có UI thì việc chỉnh period
   mới có nghĩa với user.
 - `BOT-032` ✅ — 6 script gốc. `BOT-034` ✅ — `_compute_fetch_limit()`.
