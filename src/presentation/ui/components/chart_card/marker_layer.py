@@ -1,3 +1,4 @@
+from PySide6 import QtGui
 import pyqtgraph as pg
 
 #: One marker: (x, y, text, color, direction). direction is "up"/"down" —
@@ -54,7 +55,7 @@ class MarkerLayer:
                 anchor=anchor,
                 fill=None,
             )
-            font = item.font()
+            font = QtGui.QFont()
             font.setPixelSize(14)
             font.setBold(True)
             item.setFont(font)
