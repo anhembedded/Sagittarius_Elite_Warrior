@@ -99,6 +99,52 @@ def test_render_historical_data_invalidates_the_stale_y_bounds_cache(qapp):
     assert max_y <= 1805.0
 
 
+def test_set_initial_view_range_refits_y_axis_after_a_small_dataset(qapp):
+    """
+    Regression test (found via Backtest's chart: Nến Nhật -> Đường Vốn ->
+    Song song left the candlestick pane not redrawing). `_set_initial_view_range`
+    has 2 branches: a dataset of <= 150 points calls `main_plot.autoRange()`
+    (fits X AND Y); a bigger one only calls `main_plot.setXRange(...)` (fits X,
+    leaves Y alone) so a long history doesn't start zoomed out to unreadable
+    subplots. But pyqtgraph's `ViewBox.autoRange()` -> `setRange(rect=...)`
+    disables auto-range for BOTH axes as a side effect — once a small dataset
+    (e.g. the Equity curve, almost always <= 150 points) has gone through the
+    first branch, every later big-dataset render's `setXRange`-only call
+    leaves the Y-axis frozen at the SMALL dataset's scale, because nothing
+    re-enables Y auto-range afterward. Real prices (tens of thousands) then
+    render far outside a Y-viewport still sized for an account balance
+    (thousands), which looks exactly like "the chart doesn't redraw".
+    """
+    card = ChartCard("BTCUSDT")
+    card.resize(400, 300)
+    card.show()
+
+    real_price_candles = [
+        (float(t), 100.0, 105.0, 95.0, 102.0) for t in range(0, 300 * 60, 60)
+    ]
+    card.render_historical_data(real_price_candles)
+    QApplication.processEvents()
+
+    # A small dataset at a wildly different scale (mirrors the Equity
+    # curve's account-balance-sized numbers) — triggers the autoRange()
+    # branch, which disables Y auto-range for the plot going forward.
+    small_different_scale_candles = [
+        (0.0, 1000.0, 1000.0, 1000.0, 1000.0),
+        (float(300 * 60 - 60), 1000.0, 1000.0, 1000.0, 1000.0),
+    ]
+    card.render_historical_data(small_different_scale_candles)
+    QApplication.processEvents()
+
+    # Back to the large, real-price dataset — must refit Y to it, not stay
+    # frozen at the small dataset's ~1000 scale.
+    card.render_historical_data(real_price_candles)
+    QApplication.processEvents()
+
+    _, (min_y, max_y) = card.plot_layout.main_plot.vb.viewRange()
+    assert min_y < 110
+    assert max_y < 200
+
+
 def test_chart_card_candle_width_is_robust_to_anomalous_first_gap(qapp):
     """
     Regression test: candle_width used to be computed once from ONLY

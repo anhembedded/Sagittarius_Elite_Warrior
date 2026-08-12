@@ -145,6 +145,17 @@ class ChartCard(BaseCard):
             return
         first_t = data[-_DEFAULT_INITIAL_VISIBLE_CANDLES][0]
         last_t = data[-1][0]
+        # autoRange() (the branch above) disables Y auto-range as a pyqtgraph
+        # ViewBox.setRange(rect=...) side effect (setRange(disableAutoRange=True)
+        # turns off auto-range for BOTH axes whenever a full rect, not just an
+        # explicit xRange/yRange, is given). Once that has happened even once
+        # for this plot — e.g. a small dataset (like the Equity curve, which
+        # almost always has <=150 points) hit the branch above — every later
+        # call into THIS setXRange-only branch leaves the Y-axis frozen at
+        # whatever autoRange() last computed, because setXRange() never
+        # touches Y. Re-enabling Y auto-range here makes it refit to
+        # (data's), not the previous render's, values.
+        self.plot_layout.main_plot.enableAutoRange(y=True)
         self.plot_layout.main_plot.setXRange(first_t, last_t, padding=0.02)
 
     def prepend_historical_data(self, candles: list[OhlcCandle]) -> None:
