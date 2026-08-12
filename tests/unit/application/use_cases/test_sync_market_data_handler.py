@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 
@@ -22,8 +22,13 @@ def mock_repo():
 
 
 @pytest.fixture
-def handler(mock_exchange_client, mock_repo):
-    return SyncMarketDataCommandHandler(mock_exchange_client, mock_repo)
+def mock_event_bus():
+    return Mock()
+
+
+@pytest.fixture
+def handler(mock_exchange_client, mock_repo, mock_event_bus):
+    return SyncMarketDataCommandHandler(mock_exchange_client, mock_repo, mock_event_bus)
 
 
 def test_sync_empty_db(handler, mock_exchange_client, mock_repo):
@@ -64,8 +69,10 @@ def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
     command = SyncMarketDataCommand(symbols=["ETHUSDT"], interval=TimeFrame.ONE_HOUR)
     handler.execute(command)
 
+    # 5th arg is the per-symbol progress callback (SingleSyncProgressEvent) —
+    # a fresh closure each call, so it can't be compared by equality.
     mock_exchange_client.get_historical_klines.assert_called_once_with(
-        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None
+        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None, ANY
     )
     mock_repo.save_klines.assert_called_once_with(mock_klines)
 
@@ -88,7 +95,7 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
 
     mock_repo.get_latest_kline_time.assert_not_called()
     mock_exchange_client.get_historical_klines.assert_called_once_with(
-        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time
+        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time, ANY
     )
     mock_repo.save_klines.assert_called_once_with(mock_klines)
 
