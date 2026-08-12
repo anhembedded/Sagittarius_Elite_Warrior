@@ -9,24 +9,24 @@ Bản `BOT-006` trước đây là 1 task lớn, mô tả chung chung ("Cỗ má
 ## 3. Sơ đồ Phase
 
 ### Phase 0 — Nền tảng dùng chung
-- **[BOT-020](BOT-020_indicator_strategy_engine_core.md)**: Indicator & Strategy Engine (Core) — dùng chung cho cả Backtest lẫn `BOT-008` Live Trading.
+- ✅ **[BOT-020](../completed/BOT-020_indicator_strategy_engine_core.md)**: Indicator & Strategy Engine (Core) — dùng chung cho cả Backtest lẫn `BOT-008` Live Trading.
 
 ### Phase 0.5 — Concrete Strategy Foundation (domain-only, chặn Phase 1)
-- **[BOT-026](BOT-026_concrete_strategy_foundation.md)**: `BaseStrategy` (ABC) + `EmaCrossoverStrategy` cụ thể đầu tiên + `StrategyRegistry` — không có ít nhất 1 strategy thật thì `BOT-021` không có gì để chạy. Domain-only, không đụng `IStrategy`/`StrategyContext`/`StrategyEngine` đã test. Tách khỏi bản BOT-026 gốc (Dev Board markers) — phần UI chuyển sang `BOT-039`, sau Phase 1.
+- ✅ **[BOT-026](../completed/BOT-026_concrete_strategy_foundation.md)**: `BaseStrategy` (ABC) + `EmaCrossoverStrategy` cụ thể đầu tiên + `StrategyRegistry` — không có ít nhất 1 strategy thật thì `BOT-021` không có gì để chạy. Domain-only, không đụng `IStrategy`/`StrategyContext`/`StrategyEngine` đã test. Tách khỏi bản BOT-026 gốc (Dev Board markers) — phần UI chuyển sang `BOT-039`, sau Phase 1.
 
 ### Phase 1 — Static Backtest (làm trước)
-- **[BOT-021](BOT-021_static_backtest_execution_engine.md)**: Static Backtest Execution Engine — chạy 1 lượt nhanh, không mô phỏng thời gian thực.
-- **[BOT-022](BOT-022_backtest_screen_static_ui.md)**: Backtest Screen — Static UI — màn hình thực thụ đầu tiên: cấu hình, chạy, xem kết quả (equity curve, trade list, stat cards).
+- ✅ **[BOT-021](../completed/BOT-021_static_backtest_execution_engine.md)**: Static Backtest Execution Engine — chạy 1 lượt nhanh, không mô phỏng thời gian thực.
+- **[BOT-022](BOT-022_backtest_screen_static_ui.md)**: Backtest Screen — Static UI — màn hình thực thụ đầu tiên: cấu hình, chạy, xem kết quả (equity curve, trade list, stat cards). **Scope đã mở rộng** theo [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md) (spec đầy đủ hơn: 4 khu vực Top Toolbar/Performance Metrics/Chart Canvas/Trade Logs Table).
 
 ### Phase 2 — Dynamic Backtest (làm sau, khi Phase 1 đã ổn định)
 - **[BOT-023](BOT-023_dynamic_backtest_engine.md)**: Dynamic Backtest Engine — Paper Exchange & Virtual Event Loop, replay có thể tua nhanh/chậm/tạm dừng.
-- **[BOT-024](BOT-024_backtest_screen_dynamic_ui.md)**: Backtest Screen — Dynamic UI — mở rộng màn hình Phase 1 với replay controls, cập nhật trực tiếp theo từng nến.
+- **[BOT-024](BOT-024_backtest_screen_dynamic_ui.md)**: Backtest Screen — Dynamic UI — mở rộng màn hình Phase 1 với replay controls, cập nhật trực tiếp theo từng nến. Kế thừa scope mở rộng của `BOT-022`/`BOT-040`.
 
 ### Cross-cutting
 - **[BOT-025](BOT-025_backtest_domain_events_completeness.md)**: Backtest Domain Events — Completeness Pass — chuẩn hoá toàn bộ event sau khi Phase 1 & 2 có code thật.
 
 ## 4. Thứ tự khuyến nghị
-`BOT-020` → `BOT-026` → `BOT-021` → `BOT-022` → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-023` → `BOT-024` → `BOT-025`. `BOT-039` (UI toggle Strategy trên Dev Board) làm sau Phase 1, không nằm trên đường chặn.
+`BOT-020` ✅ → `BOT-026` ✅ → `BOT-021` ✅ → `BOT-022` → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-023` → `BOT-024` → `BOT-025`. `BOT-039` (UI toggle Strategy trên Dev Board) làm sau Phase 1, không nằm trên đường chặn. `BOT-022` giờ có thể phụ thuộc thêm `BOT-041`/`BOT-042`/`BOT-043` (xem [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md)) cho phần leverage/tick-level/named-strategy — không chặn phần còn lại của `BOT-022`.
 
 ## 5. Lưu ý
 - Không bắt đầu Phase 2 trước khi Phase 1 chạy đúng và có unit test đầy đủ — logic `PaperExchange`/`StrategyEngine` nên được xác thực ở chế độ static (dễ debug, deterministic, không có yếu tố thời gian) trước khi đưa vào vòng lặp động.

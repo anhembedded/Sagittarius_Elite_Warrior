@@ -1,6 +1,13 @@
 # Nhiệm vụ: Backtest Screen — Dynamic Replay UI — Phase 2
 
 > Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 2 (Dynamic). Phụ thuộc `BOT-022`, `BOT-023`.
+>
+> `BOT-022` đã mở rộng scope theo [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md)
+> (Top Toolbar/Performance Metrics/Chart Canvas/Trade Logs Table đầy đủ hơn
+> bản gốc). Task này kế thừa nguyên UI đó — không viết lại action items ở
+> đây, chỉ thêm phần replay động. Các phần bị BOT-040 đánh dấu "chờ
+> `BOT-041`/`BOT-042`/`BOT-043`" ở `BOT-022` vẫn chờ tương tự ở đây, không tự
+> mở khoá khi làm Dynamic mode.
 
 ## 1. Mục tiêu (Objective)
 Mở rộng màn hình Backtest (`BOT-022`) với chế độ replay động — xem lại quá khứ như đang xem live, thay vì chỉ nhận kết quả cuối cùng.
