@@ -17,6 +17,12 @@ Backtest để tự đóng vòng lặp đó.
 Backtest" (im lặng gọi API Binance tốn network/rate-limit mà user không biết)
 — hiện rõ 1 nút hành động, user **chủ động** bấm mới sync.
 
+**Quyết định kiến trúc đã chốt**: task này thêm việc chạy nền **thứ hai**
+(sync, cạnh việc chạy backtest đã có) — thay vì vá thêm 1 cờ `isSyncing:
+bool` cạnh `UIMode` dùng chung (Dashboard/Data Management cũng dùng), đổi
+hẳn sang 1 state machine riêng cho màn Backtest (`BacktestState`). Xem chi
+tiết mục 3.1.
+
 ## 2. Mô tả (Description)
 
 `SyncMarketDataCommand` (`src/application/use_cases/sync/sync_market_data/`)
@@ -40,15 +46,50 @@ sau nếu muốn progress bar đẹp).
 
 ## 3. Các bước thực hiện (Action Items)
 
+### 3.1 `BacktestState` — thay `UIMode` dùng chung bằng state machine riêng
+
+Đã phát hiện trong lúc chạy thật: `BackTestPresenter` hiện dùng chung
+`UIMode` (`IDLE`/`LIVE`/`LOCKED`/`ERROR` — `src/presentation/ui/constants.py`)
+với Dashboard/Data Management. Chỉ 1 việc chạy nền (backtest) thì `LOCKED`
+dùng tạm được, nhưng task này thêm việc chạy nền **thứ hai** (sync) — nếu cứ
+gộp chung `LOCKED` + tự thêm cờ `isSyncing: bool` bên cạnh thì UI không còn
+biết "đang khoá vì lý do gì", 2 nguồn trạng thái (`fsm.current_state` +
+`isSyncing`) phải tự tay giữ đồng bộ, dễ lệch. Sửa tận gốc thay vì vá thêm:
+
+- [ ] Tạo `src/presentation/ui/screens/backtest/backtest_state.py`:
+  ```python
+  class BacktestState(str, Enum):
+      IDLE = "IDLE"
+      RUNNING = "RUNNING"
+      SYNCING = "SYNCING"
+      ERROR = "ERROR"
+  ```
+  (`BaseStateMachine`/`BaseQmlViewModel`/`QmlHostView.apply_ui_mode` đã tổng
+  quát hoá theo *bất kỳ* enum có `.value` — xem `BasePresenter._bind_fsm_to_ui`,
+  `BackTestView.apply_ui_mode` — đổi enum không cần sửa các lớp base này.)
+- [ ] `BackTestPresenter`: đổi `INITIAL_STATE = UIMode.IDLE` →
+  `BacktestState.IDLE`; đổi toàn bộ `self.fsm.transition_to(UIMode.XXX)` /
+  `self.fsm.add_transition(UIMode.A, UIMode.B)` hiện có (`_on_run_backtest`,
+  `_on_backtest_succeeded`, `_on_backtest_empty`, `_on_backtest_failed`)
+  sang `BacktestState` tương ứng (`LOCKED` cũ → `RUNNING`). Đăng ký thêm
+  transition: `IDLE → SYNCING`, `SYNCING → RUNNING` (sync xong, tự chạy lại
+  — xem 3.3), `SYNCING → IDLE` (sync lỗi).
+- [ ] `BackTestViewModel`: đổi `DISABLED_UI_MODES = frozenset({UIMode.LOCKED.
+  value})` → `frozenset({BacktestState.RUNNING.value, BacktestState.SYNCING.
+  value})` — cả 2 trạng thái bận đều khoá control, `controlsEnabled` hiện có
+  tự động đúng, không cần đổi gì ở QML cho phần đã có.
+- [ ] Cập nhật lại toàn bộ test hiện có trong `test_backtest_presenter.py`
+  đang so `presenter.fsm.current_state == UIMode.LOCKED` (và tương tự) sang
+  `BacktestState.RUNNING`.
+
+### 3.2 Phân biệt "thiếu dữ liệu" và "0 trade"
+
 - [ ] `BackTestViewModel`: thêm `needsDataSync: bool` (đọc, Python ghi) +
-  `isSyncing: bool` (đọc, Python ghi) + `syncRequested = Signal()` (QML gọi
-  qua `requestSync()` Slot, giống `runBacktestRequested`/`requestRun()` đã
-  có).
+  `syncRequested = Signal()` (QML gọi qua `requestSync()` Slot, giống
+  `runBacktestRequested`/`requestRun()` đã có). **Không** cần `isSyncing`
+  riêng nữa — QML đọc thẳng `viewModel.uiMode === "SYNCING"`.
 - [ ] `BackTestPresenter`: cache `self._last_no_data_config:
-  BacktestRunConfig | None` mỗi lần `_on_backtest_empty` được gọi **vì
-  không có dữ liệu** (phân biệt với ca "0 trade" — xem action item tiếp
-  theo) — cần giá trị này để biết sync đúng symbol/interval/khoảng thời gian
-  nào khi user bấm nút.
+  BacktestRunConfig | None`, set mỗi lần *thật sự* thiếu dữ liệu.
 - [ ] **Phải tách 2 nhánh** hiện đang gộp chung trong `_run_backtest`:
     - "Không có dữ liệu lịch sử" (`result is None`) → set `needsDataSync =
       True`, cache config, **KHÔNG** còn dùng chung message với ca dưới.
@@ -58,49 +99,60 @@ sau nếu muốn progress bar đẹp).
   (Có thể cần 2 signal riêng thay vì gộp `_backtestEmptySignal` như hiện tại,
   hoặc thêm tham số phân biệt — tuỳ người implement chọn cách rõ ràng nhất,
   miễn giữ đúng phân biệt này.)
+
+### 3.3 Luồng sync
+
 - [ ] `_on_request_sync` (slot mới, nối `view_model.syncRequested`): guard
-  bỏ qua nếu `self._last_no_data_config is None` hoặc `isSyncing` đã `True`.
-  Set `isSyncing = True`, `self._thread_manager.submit(self._run_sync,
+  bỏ qua nếu `self._last_no_data_config is None` hoặc
+  `self.fsm.current_state != BacktestState.IDLE`. Transition
+  `IDLE → SYNCING`, `self._thread_manager.submit(self._run_sync,
   self._last_no_data_config)`.
 - [ ] `_run_sync` (method nền mới, submit qua `IThreadManager`, **chỉ được
-  emit signal, không đụng ViewModel trực tiếp** — đúng threading contract
-  của `_run_backtest`): dispatch `SyncMarketDataCommand` với đúng
+  emit signal, không đụng ViewModel/FSM trực tiếp** — đúng threading
+  contract của `_run_backtest`): dispatch `SyncMarketDataCommand` với đúng
   symbol/interval/`start_time`/`end_time` từ config đã cache; try/except
   quanh dispatch, emit `_syncSucceededSignal`/`_syncFailedSignal(message)`.
-- [ ] Khi sync thành công: set `isSyncing = False`, `needsDataSync = False`,
-  cập nhật `resultText` báo đã đồng bộ xong, rồi **tự động gọi lại
-  `_on_run_backtest()` 1 lần** với cấu hình hiện tại của toolbar (không phải
-  config đã cache — user có thể đã đổi field khác trong lúc chờ sync). Quyết
-  định: **tự chạy lại** vì user đã bấm "Chạy Backtest" 1 lần rồi — sync chỉ
-  là bước điều kiện tiên quyết được chèn vào, không phải 1 hành động user
-  yêu cầu độc lập. Nếu thấy tự động chạy lại gây khó hiểu khi implement,
-  ghi rõ lý do đổi quyết định trong PR thay vì tự ý âm thầm bỏ qua bước này.
-- [ ] Khi sync lỗi: set `isSyncing = False`, `needsDataSync` giữ `True` (cho
-  phép bấm lại), hiện lỗi trong `resultText`.
+- [ ] Khi sync thành công (main thread): `needsDataSync = False`, cập nhật
+  `resultText` báo đã đồng bộ xong, transition `SYNCING → RUNNING`, rồi
+  **tự động submit lại `_run_backtest`** 1 lần với cấu hình hiện tại của
+  toolbar (không phải config đã cache — user có thể đã đổi field khác trong
+  lúc chờ sync). Quyết định: **tự chạy lại** vì user đã bấm "Chạy Backtest"
+  1 lần rồi — sync chỉ là bước điều kiện tiên quyết được chèn vào, không
+  phải 1 hành động user yêu cầu độc lập. Nếu thấy tự động chạy lại gây khó
+  hiểu khi implement, ghi rõ lý do đổi quyết định trong PR thay vì tự ý âm
+  thầm bỏ qua bước này.
+- [ ] Khi sync lỗi: transition `SYNCING → IDLE`, `needsDataSync` giữ `True`
+  (cho phép bấm lại), hiện lỗi trong `resultText`.
 - [ ] `BackTestTopPanel.qml`: trong nhánh hiển thị khi `primaryStatCards`
   rỗng (khu vực `txtBacktestResult` hiện có), thêm 1 `Button` "Đồng bộ ngay"
-  — chỉ `visible` khi `viewModel.needsDataSync`, `enabled: !viewModel.
-  isSyncing`, text đổi thành "Đang đồng bộ..." khi `isSyncing`, `onClicked:
-  viewModel.requestSync()`.
+  — chỉ `visible` khi `viewModel.needsDataSync`, `enabled: viewModel.uiMode
+  !== "SYNCING"`, text đổi thành "Đang đồng bộ..." khi `viewModel.uiMode ===
+  "SYNCING"`, `onClicked: viewModel.requestSync()`.
 - [ ] Unit test: ca thiếu dữ liệu → `needsDataSync` bật, bấm
-  `requestSync()` → `mock_thread_mgr.submit` gọi đúng `_run_sync` với đúng
-  config đã cache; `_run_sync` dispatch đúng `SyncMarketDataCommand`; sync
-  thành công → `needsDataSync` tắt + `_run_backtest`/dispatch
-  `RunStaticBacktestCommand` được gọi lại lần 2 tự động; sync lỗi →
-  `needsDataSync` vẫn bật, lỗi hiện đúng chỗ. Ca "0 trade" (có dữ liệu, chỉ
-  là không khớp lệnh) → `needsDataSync` **không** bật (guard test riêng,
-  tránh tái phạm việc gộp nhầm 2 nhánh).
+  `requestSync()` → FSM sang `SYNCING`, `mock_thread_mgr.submit` gọi đúng
+  `_run_sync` với đúng config đã cache; `_run_sync` dispatch đúng
+  `SyncMarketDataCommand`; sync thành công → FSM `SYNCING → RUNNING`,
+  `needsDataSync` tắt, `RunStaticBacktestCommand` được dispatch lại lần 2 tự
+  động; sync lỗi → FSM `SYNCING → IDLE`, `needsDataSync` vẫn bật, lỗi hiện
+  đúng chỗ. Ca "0 trade" (có dữ liệu, chỉ là không khớp lệnh) →
+  `needsDataSync` **không** bật (guard test riêng, tránh tái phạm việc gộp
+  nhầm 2 nhánh).
 
 ## 4. Rủi ro / Lưu ý (Constraints & Risks)
 
+- Mục 3.1 đụng vào code **đã ship** của `BOT-022` (`INITIAL_STATE`, mọi
+  `fsm.transition_to`, `DISABLED_UI_MODES`) — đổi tên/giá trị enum, không
+  đổi hành vi (`RUNNING` thay thế đúng vị trí `LOCKED` cũ). Chạy lại toàn bộ
+  test suite hiện có của `test_backtest_presenter.py` sau khi đổi, không chỉ
+  test mới thêm ở task này.
 - **Không** tự sync khi user chưa từng bấm "Chạy Backtest" — nút chỉ xuất
   hiện *sau khi* 1 lần chạy thất bại vì thiếu dữ liệu, không hiện sẵn từ đầu
   (tránh mời gọi sync tốn network mà chưa chắc user cần chạy backtest ngay).
 - `SyncMarketDataCommand.execute()` là lệnh gọi mạng thật tới Binance — có
-  thể mất vài giây tới vài chục giây tuỳ khoảng thời gian; `isSyncing` phải
-  khoá nút "Đồng bộ ngay" (và khoá luôn "Chạy Backtest" — tái dùng
-  `viewModel.controlsEnabled`/FSM `LOCKED` sẵn có, không tạo state riêng)
-  tránh bấm chồng.
+  thể mất vài giây tới vài chục giây tuỳ khoảng thời gian; trạng thái
+  `SYNCING` phải khoá cả nút "Đồng bộ ngay" lẫn "Chạy Backtest" (tái dùng
+  `viewModel.controlsEnabled` đã tự đúng sau khi sửa `DISABLED_UI_MODES` ở
+  3.1) tránh bấm chồng.
 - Không vẽ progress bar chi tiết (`SingleSyncProgressEvent`) ở task này —
   1 trạng thái "đang đồng bộ..." đơn giản là đủ; nếu sau này cần progress
   bar đẹp như Data Management, tách task riêng.
