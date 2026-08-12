@@ -103,7 +103,12 @@ def app_engine(request, monkeypatch, tmp_path):
     # isolation, not a workaround — the fallback's own timing behavior is
     # covered by tests/unit/.../test_autostart_controller.py, not by this
     # integration suite.
-    config_manager.load_dict({"DEV_BOARD_AUTOSTART_FALLBACK_SECONDS": 3600.0})
+    config_manager.load_dict(
+        {
+            "DEV_BOARD_AUTOSTART_FALLBACK_SECONDS": 3600.0,
+            "DEV_BOARD_AUTOSTART_ENABLED": True,
+        }
+    )
 
     engine = create_app(config_manager)
 
@@ -249,7 +254,9 @@ def navigate(qapp, qtbot, main_window, qml_item):
 
     def _navigate(route: str) -> dict:
         root = main_window._sidebar.quick_widget.rootObject()
-        button = qml_item(root, f"navButton_{route}")
+        button = qml_item(root, f"navButton_{route}") or qml_item(
+            root, f"bottomNavButton_{route}"
+        )
         assert button is not None, f"No sidebar nav button for route {route!r}"
         button.clicked.emit()
         qapp.processEvents()
@@ -277,7 +284,7 @@ def navigate(qapp, qtbot, main_window, qml_item):
             presenter.ui_stream_failed_signal.connect(_mark_settled)
             try:
                 qtbot.waitUntil(lambda: settled["done"], timeout=2000)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
 
         return entry
