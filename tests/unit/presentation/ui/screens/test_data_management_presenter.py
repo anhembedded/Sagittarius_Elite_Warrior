@@ -93,11 +93,10 @@ def test_on_sync_data_submits_background_task(presenter, view_model, mock_thread
     """Must lock the FSM and submit _run_single_sync to the thread manager,
     never dispatch on the main thread."""
     view_model.selectedSymbol = "BTCUSDT"
-    view_model.selectedInterval = "1m"
 
     view_model.requestSync()
 
-    assert presenter.fsm.current_state == UIMode.LOCKED
+    assert presenter.fsm.current_state == UIMode.SYNCING
     mock_thread_mgr.submit.assert_called_once_with(
         presenter._run_single_sync, "BTCUSDT", "1m", None, None
     )
@@ -115,7 +114,6 @@ def test_custom_time_range_is_parsed_and_passed_through(
     presenter, view_model, mock_thread_mgr
 ):
     view_model.selectedSymbol = "BTCUSDT"
-    view_model.selectedInterval = "1m"
     view_model.useCustomTime = True
     view_model.fromDateTime = "2024-01-01 00:00"
     view_model.toDateTime = "2024-01-02 12:30"
@@ -153,11 +151,11 @@ def test_on_check_all_status_submits_background_task(
 ):
     view_model.requestCheckAllStatus()
 
-    assert presenter.fsm.current_state == UIMode.LOCKED
+    assert presenter.fsm.current_state == UIMode.SCANNING
     method, symbols, intervals = mock_thread_mgr.submit.call_args.args
     assert method == presenter._run_scan_all
     assert symbols == list(view_model.symbols)
-    assert intervals == list(view_model.intervals)
+    assert intervals == ["1m"]
 
 
 def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
@@ -194,7 +192,7 @@ def test_run_scan_all_fills_the_table_model(presenter, view_model, mock_dispatch
     presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m"])
 
     assert view_model.status_model.rowCount() == 2
-    assert view_model.status_model.gap_targets() == [("ETHUSDT", "1m")]
+    assert view_model.status_model.gap_targets() == ["ETHUSDT"]
 
 
 def test_on_check_status_populates_the_row_for_the_selection(
@@ -212,7 +210,6 @@ def test_on_check_status_populates_the_row_for_the_selection(
     )
     mock_dispatcher.dispatch.return_value = response
     view_model.selectedSymbol = "BTCUSDT"
-    view_model.selectedInterval = "1m"
 
     view_model.requestCheckStatus()
 
@@ -228,14 +225,14 @@ def test_on_check_status_populates_the_row_for_the_selection(
 
 
 def test_sync_all_gaps_uses_only_unhealthy_rows(presenter, view_model, mock_thread_mgr):
-    view_model.status_model.upsert_row("BTCUSDT", "1m", "a", "b", "10", "OK")
-    view_model.status_model.upsert_row("ETHUSDT", "1m", "a", "b", "5", "2 gaps found!")
+    view_model.status_model.upsert_row("BTCUSDT", "a", "b", "10", "OK")
+    view_model.status_model.upsert_row("ETHUSDT", "a", "b", "5", "2 gaps found!")
 
     view_model.requestSyncAllGaps()
 
     method, targets = mock_thread_mgr.submit.call_args.args
     assert method == presenter._run_bulk_sync
-    assert targets == [("ETHUSDT", "1m")]
+    assert targets == ["ETHUSDT"]
     assert view_model.progressMaximum == 1
     assert view_model.progressVisible is True
 
@@ -243,7 +240,7 @@ def test_sync_all_gaps_uses_only_unhealthy_rows(presenter, view_model, mock_thre
 def test_sync_all_gaps_with_no_gaps_does_nothing(
     presenter, view_model, mock_thread_mgr
 ):
-    view_model.status_model.upsert_row("BTCUSDT", "1m", "a", "b", "10", "OK")
+    view_model.status_model.upsert_row("BTCUSDT", "a", "b", "10", "OK")
 
     view_model.requestSyncAllGaps()
 
@@ -273,8 +270,8 @@ def test_stored_records_tile_sums_scanned_totals(
 def test_non_numeric_totals_do_not_break_the_stat_tile(presenter, view_model):
     """total_candles is a display string from the DTO — an "N/A" must be
     skipped rather than crash the tile."""
-    view_model.status_model.upsert_row("BTCUSDT", "1m", "a", "b", "N/A", "OK")
-    view_model.status_model.upsert_row("ETHUSDT", "1m", "a", "b", "100", "OK")
+    view_model.status_model.upsert_row("BTCUSDT", "a", "b", "N/A", "OK")
+    view_model.status_model.upsert_row("ETHUSDT", "a", "b", "100", "OK")
 
     presenter._refresh_stats()
 
@@ -314,3 +311,11 @@ def test_database_size_is_unknown_when_config_has_no_usable_path(presenter, view
 
     presenter.config.get.return_value = Mock()  # not a path at all
     assert presenter._database_size_text() == "—"
+
+
+def test_on_clear_data_transitions_state_and_logs(presenter, view_model):
+    view_model.selectedSymbol = "BTCUSDT"
+    view_model.requestClearData()
+
+    assert presenter.fsm.current_state == UIMode.CLEARING
+    assert view_model.log_model.entries[-1].level == "info"

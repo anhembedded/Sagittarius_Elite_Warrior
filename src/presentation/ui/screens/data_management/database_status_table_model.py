@@ -22,15 +22,14 @@ class DatabaseStatusRow:
     """One symbol/interval line in the DB status table."""
 
     symbol: str
-    interval: str
     first_record: str
     last_record: str
     total_candles: str
     status_text: str
 
     @property
-    def key(self) -> tuple[str, str]:
-        return (self.symbol, self.interval)
+    def key(self) -> str:
+        return self.symbol
 
     @property
     def is_healthy(self) -> bool:
@@ -54,16 +53,14 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     """
 
     SymbolRole = Qt.ItemDataRole.UserRole + 1
-    IntervalRole = Qt.ItemDataRole.UserRole + 2
-    FirstRecordRole = Qt.ItemDataRole.UserRole + 3
-    LastRecordRole = Qt.ItemDataRole.UserRole + 4
-    TotalCandlesRole = Qt.ItemDataRole.UserRole + 5
-    StatusTextRole = Qt.ItemDataRole.UserRole + 6
-    IsHealthyRole = Qt.ItemDataRole.UserRole + 7
+    FirstRecordRole = Qt.ItemDataRole.UserRole + 2
+    LastRecordRole = Qt.ItemDataRole.UserRole + 3
+    TotalCandlesRole = Qt.ItemDataRole.UserRole + 4
+    StatusTextRole = Qt.ItemDataRole.UserRole + 5
+    IsHealthyRole = Qt.ItemDataRole.UserRole + 6
 
     _ROLE_NAMES: ClassVar[dict[int, bytes]] = {
         SymbolRole: b"symbol",
-        IntervalRole: b"interval",
         FirstRecordRole: b"firstRecord",
         LastRecordRole: b"lastRecord",
         TotalCandlesRole: b"totalCandles",
@@ -78,7 +75,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._rows: list[DatabaseStatusRow] = []
-        self._row_index: dict[tuple[str, str], int] = {}
+        self._row_index: dict[str, int] = {}
 
     # ------------------------------------------------------------------ #
     # QAbstractTableModel contract
@@ -100,8 +97,6 @@ class DatabaseStatusTableModel(QAbstractTableModel):
         row = self._rows[index.row()]
         if role == self.SymbolRole:
             return row.symbol
-        if role == self.IntervalRole:
-            return row.interval
         if role == self.FirstRecordRole:
             return row.first_record
         if role == self.LastRecordRole:
@@ -121,7 +116,6 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     def upsert_row(
         self,
         symbol: str,
-        interval: str,
         first_record: str,
         last_record: str,
         total_candles: str,
@@ -136,7 +130,6 @@ class DatabaseStatusTableModel(QAbstractTableModel):
         """
         row = DatabaseStatusRow(
             symbol=symbol,
-            interval=interval,
             first_record=str(first_record),
             last_record=str(last_record),
             total_candles=str(total_candles),
@@ -172,12 +165,8 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     def symbolAt(self, row: int) -> str:
         return self._rows[row].symbol if 0 <= row < len(self._rows) else ""
 
-    @Slot(int, result=str)
-    def intervalAt(self, row: int) -> str:
-        return self._rows[row].interval if 0 <= row < len(self._rows) else ""
-
-    def gap_targets(self) -> list[tuple[str, str]]:
-        """(symbol, interval) pairs whose status indicates missing data —
+    def gap_targets(self) -> list[str]:
+        """symbols whose status indicates missing data —
         what "Sync All Gaps" acts on."""
         return [row.key for row in self._rows if not row.is_healthy]
 
@@ -191,7 +180,7 @@ class DatabaseStatusFilterProxy(QSortFilterProxyModel):
     @brief Client-side search over an already-loaded DatabaseStatusTableModel.
 
     @details
-    Matches the search text against symbol OR interval, case-insensitively.
+    Matches the search text against symbol, case-insensitively.
     A proxy (rather than filtering in the QML delegate) keeps the row count
     QML sees honest, so "N rows" and an empty-state message reflect what is
     actually visible.
@@ -221,5 +210,4 @@ class DatabaseStatusFilterProxy(QSortFilterProxyModel):
 
         index = model.index(source_row, 0, source_parent)
         symbol = model.data(index, DatabaseStatusTableModel.SymbolRole) or ""
-        interval = model.data(index, DatabaseStatusTableModel.IntervalRole) or ""
-        return self._needle in symbol.lower() or self._needle in interval.lower()
+        return self._needle in symbol.lower()

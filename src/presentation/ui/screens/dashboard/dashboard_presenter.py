@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -53,6 +52,9 @@ _RENDER_WINDOW_CANDLES: int = 75
 #: happens to host it today.
 _MIN_FETCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_MIN_FETCH_CANDLES"
 _DEFAULT_MIN_FETCH_CANDLES: int = 75
+
+_AUTOSTART_ENABLED_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_ENABLED"
+_DEFAULT_AUTOSTART_ENABLED: bool = False
 
 #: How long AutoStartController waits for a real MarketTickEvent before
 #: falling back to Load History (see autostart_controller.py). Configurable
@@ -344,18 +346,24 @@ class DashboardPresenter(BasePresenter):
         # connection within a few seconds. Constructed last: it immediately
         # calls _on_start_stream(), which needs everything above already set
         # up (script runner, signal connections, FSM).
-        fallback_seconds = self.config.get(
-            _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY,
-            _DEFAULT_AUTOSTART_FALLBACK_SECONDS,
-            cast=float,
+        is_autostart_enabled = self.config.get(
+            _AUTOSTART_ENABLED_CONFIG_KEY,
+            _DEFAULT_AUTOSTART_ENABLED,
+            cast=bool,
         )
-        self._autostart = AutoStartController(
-            start_stream=self._on_start_stream,
-            load_history=self._on_load_history,
-            fallback_seconds=fallback_seconds,
-            parent=self,
-        )
-        self._autostart.begin()
+        if is_autostart_enabled:
+            fallback_seconds = self.config.get(
+                _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY,
+                _DEFAULT_AUTOSTART_FALLBACK_SECONDS,
+                cast=float,
+            )
+            self._autostart = AutoStartController(
+                start_stream=self._on_start_stream,
+                load_history=self._on_load_history,
+                fallback_seconds=fallback_seconds,
+                parent=self,
+            )
+            self._autostart.begin()
 
     # ================================================================== #
     # BasePresenter contract implementations
