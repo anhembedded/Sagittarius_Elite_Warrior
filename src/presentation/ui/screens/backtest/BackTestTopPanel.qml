@@ -137,19 +137,49 @@ Rectangle {
             }
 
             // 4. Capital
-            TextField {
-                id: capitalField
-                objectName: "txtBacktestCapital"
-                implicitWidth: 100
+            Rectangle {
+                implicitWidth: 130
                 implicitHeight: 32
-                text: viewModel.initialCapitalText
-                enabled: viewModel.controlsEnabled
-                color: Theme.textPrimary
-                font.pixelSize: 11
-                horizontalAlignment: TextInput.AlignRight
-                background: FieldBackground {}
-                validator: DoubleValidator { bottom: 0 }
-                onEditingFinished: viewModel.initialCapitalText = text
+                color: "#25262B"
+                border.color: Theme.border
+                radius: 4
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    spacing: 4
+
+                    Image {
+                        source: "image://icons/dollar-sign/success"
+                        sourceSize: Qt.size(14, 14)
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    TextField {
+                        id: capitalField
+                        objectName: "txtBacktestCapital"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        text: viewModel.initialCapitalText
+                        enabled: viewModel.controlsEnabled
+                        color: Theme.textPrimary
+                        font.pixelSize: 11
+                        font.bold: true
+                        horizontalAlignment: TextInput.AlignLeft
+                        background: Rectangle { color: "transparent" }
+                        validator: DoubleValidator { bottom: 0 }
+                        onEditingFinished: viewModel.initialCapitalText = text
+                    }
+
+                    Text {
+                        text: "USD"
+                        color: Theme.textSecondary
+                        font.pixelSize: 10
+                        font.bold: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
             }
 
             // 5. Order Execution
