@@ -12,7 +12,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.time_range_p
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
 _DEFAULT_INITIAL_CAPITAL_TEXT = "10000"
-_DEFAULT_TIMEFRAME = "15m"
+#: Must match dashboard_presenter.py's own _DEFAULT_INTERVAL_STR ("1m") — the
+#: Backtest Screen has no sync button of its own, only what the Dev Board
+#: already synced to the DB. Defaulting to "15m" (the original mockup's
+#: label) meant the very first "Chạy Backtest" click always failed with
+#: "No historical data found" on a fresh sync, since only 1m data exists.
+_DEFAULT_TIMEFRAME = "1m"
 
 
 class BackTestViewModel(BaseQmlViewModel):

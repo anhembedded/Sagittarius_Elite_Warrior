@@ -218,20 +218,29 @@ Rectangle {
 
             Item { Layout.fillWidth: true }
 
-            RowLayout {
-                spacing: 4
+            Item {
+                Layout.preferredWidth: expandRow.implicitWidth
+                Layout.preferredHeight: expandRow.implicitHeight
+
+                RowLayout {
+                    id: expandRow
+                    anchors.fill: parent
+                    spacing: 4
+
+                    Text {
+                        objectName: "lnkExpandMetrics"
+                        text: "Mở rộng chỉ số chi tiết"
+                        color: Theme.accent
+                        font.pixelSize: 11
+                    }
+                    Image { source: "image://icons/chevron-down/accent"; sourceSize: Qt.size(12, 12) }
+                }
+
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: extendedMetricsPopup.open()
                 }
-                Text {
-                    objectName: "lnkExpandMetrics"
-                    text: "Mở rộng chỉ số chi tiết"
-                    color: Theme.accent
-                    font.pixelSize: 11
-                }
-                Image { source: "image://icons/chevron-down/accent"; sourceSize: Qt.size(12, 12) }
             }
         }
 

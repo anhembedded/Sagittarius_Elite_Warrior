@@ -238,7 +238,7 @@ def test_run_backtest_submits_background_task_and_locks_fsm(
     config = call_args[1]
     assert isinstance(config, BacktestRunConfig)
     assert config.strategy_key == "fake_strategy"
-    assert config.timeframe == TimeFrame("15m")
+    assert config.timeframe == TimeFrame("1m")
     assert config.initial_balance == 10000.0
 
 
@@ -309,7 +309,7 @@ def _lock_and_get_config(presenter, view_model) -> BacktestRunConfig:
     assert presenter.fsm.current_state == UIMode.LOCKED
     return presenter._build_run_config() or BacktestRunConfig(
         strategy_key="fake_strategy",
-        timeframe=TimeFrame("15m"),
+        timeframe=TimeFrame("1m"),
         initial_balance=10000.0,
         start_time=None,
         end_time=None,
@@ -350,7 +350,7 @@ def test_dispatches_run_static_backtest_command_with_the_built_config(
     assert handler_class is RunStaticBacktestCommand
     assert command.symbol == "ETHUSDT"
     assert command.strategy_key == "fake_strategy"
-    assert command.interval == TimeFrame("15m")
+    assert command.interval == TimeFrame("1m")
     assert command.initial_balance == 10000.0
 
 
@@ -462,7 +462,7 @@ def _make_klines(count: int = 3) -> list[MarketData]:
     return [
         MarketData(
             symbol="ETHUSDT",
-            interval="15m",
+            interval="1m",
             open_time=_T0,
             open_price=100.0 + i,
             high_price=105.0 + i,
