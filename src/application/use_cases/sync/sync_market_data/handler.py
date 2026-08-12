@@ -63,9 +63,21 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
 
             # Estimate total klines to download
             interval_minutes = {
-                "1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30,
-                "1h": 60, "2h": 120, "4h": 240, "6h": 360, "8h": 480, "12h": 720,
-                "1d": 1440, "3d": 4320, "1w": 10080, "1M": 43200
+                "1m": 1,
+                "3m": 3,
+                "5m": 5,
+                "15m": 15,
+                "30m": 30,
+                "1h": 60,
+                "2h": 120,
+                "4h": 240,
+                "6h": 360,
+                "8h": 480,
+                "12h": 720,
+                "1d": 1440,
+                "3d": 4320,
+                "1w": 10080,
+                "1M": 43200,
             }.get(command.interval.value, 1)
 
             end_t = command.end_time or datetime.now(UTC)
@@ -80,7 +92,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                         symbol=symbol,
                         interval=command.interval.value,
                         current=current,
-                        total=total_klines
+                        total=total_klines,
                     )
                 )
 

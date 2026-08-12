@@ -139,6 +139,7 @@ class DataManagementPresenter(BasePresenter):
         from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
             SingleSyncProgressEvent,
         )
+
         self.event_bus.on(BulkSyncProgressEvent, self._handle_bulk_sync_progress)
         self.event_bus.on(SingleSyncProgressEvent, self._handle_single_sync_progress)
 
@@ -329,16 +330,16 @@ class DataManagementPresenter(BasePresenter):
 
         start_raw = self._view_model.fromDateTime.strip()
         end_raw = self._view_model.toDateTime.strip()
-        
+
         if not start_raw:
             return None, None
-            
+
         start = self._parse_datetime(start_raw)
         if start is None:
             return None, None
-            
+
         end = self._parse_datetime(end_raw) if end_raw else None
-        
+
         return start, end
 
     @staticmethod

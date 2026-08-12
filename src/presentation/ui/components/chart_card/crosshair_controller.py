@@ -54,7 +54,7 @@ class CrosshairController:
         x_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
         x_label.hide()
         x_label.setZValue(1000)
-        
+
         y_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
         y_label.hide()
         y_label.setZValue(1000)
@@ -87,12 +87,12 @@ class CrosshairController:
         h_line = self._h_lines.pop(idx)
         x_label = self._x_labels.pop(idx)
         y_label = self._y_labels.pop(idx)
-        
+
         plot.removeItem(v_line)
         plot.removeItem(h_line)
         plot.removeItem(x_label)
         plot.removeItem(y_label)
-        
+
         if plot is self._primary_plot:
             self._primary_plot = None
 
@@ -117,17 +117,19 @@ class CrosshairController:
             hovered = True
             mouse_point = plot.vb.mapSceneToView(pos)
             x_val, y_val = mouse_point.x(), mouse_point.y()
-            
+
             view_range = plot.vb.viewRange()
             x_min = view_range[0][0]
 
             # Show & update horizontal line ONLY for the hovered plot
             self._h_lines[i].setPos(y_val)
             self._h_lines[i].show()
-            
+
             # Show Y label on the left edge (x_min)
             self._y_labels[i].setPos(x_min, y_val)
-            self._y_labels[i].setHtml(f"<div style='font-size: 11px;'>{y_val:.4f}</div>")
+            self._y_labels[i].setHtml(
+                f"<div style='font-size: 11px;'>{y_val:.4f}</div>"
+            )
             self._y_labels[i].setAnchor((0.0, 0.5))
             self._y_labels[i].show()
 
@@ -135,15 +137,19 @@ class CrosshairController:
             for v_line in self._v_lines:
                 v_line.setPos(x_val)
                 v_line.show()
-                
+
             # Show X label only on the bottom-most plot
             if self._plots:
                 bottom_plot = self._plots[-1]
                 bottom_y_min = bottom_plot.vb.viewRange()[1][0]
-                dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
-                
+                dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+
                 self._x_labels[-1].setPos(x_val, bottom_y_min)
-                self._x_labels[-1].setHtml(f"<div style='font-size: 11px;'>{dt_str}</div>")
+                self._x_labels[-1].setHtml(
+                    f"<div style='font-size: 11px;'>{dt_str}</div>"
+                )
                 self._x_labels[-1].setAnchor((0.5, 1.0))
                 self._x_labels[-1].show()
 
@@ -192,4 +198,3 @@ class CrosshairController:
         self._x_labels.clear()
         self._y_labels.clear()
         self._primary_plot = None
-
