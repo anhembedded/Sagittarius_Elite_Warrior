@@ -21,12 +21,14 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 42 | 67% |
+| 🟢 **Completed** | 42 | 61% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 21 | 33% |
-| 📈 **Tổng số Task** | **63** | **100%** |
+| 🔴 **Backlog** | 27 | 39% |
+| 📈 **Tổng số Task** | **69** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
+>
+> Lần tăng thứ hai (+6, `BOT-066`…`BOT-071`): rà soát toàn bộ lịch sử bug theo yêu cầu user, nhóm thành **6 lớp lỗi** rồi đề xuất cơ chế tầng engine chặn cả lớp thay vì vá từng ca. Đây là **nợ kỹ thuật đã tồn tại sẵn được ghi nhận ra giấy**, không phải tính năng mới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md).
 
 ---
 
@@ -84,6 +86,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :--- |
 | **P1** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Sẵn sàng bắt đầu — mọi phụ thuộc đã hoàn thành. |
+| **P1** | **[Nhóm Engine Hardening](reports/engine_defect_class_analysis.md)** *(`BOT-066`…`BOT-071`)* | **6 cơ chế engine chặn 6 lớp lỗi tái phát** | — | Sinh ra từ rà soát toàn bộ lịch sử bug: gom thành 6 **lớp lỗi** rồi hỏi "cơ chế nào khiến cả lớp đó không xảy ra được nữa". Xem bảng chi tiết bên dưới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). |
 | **P2** | **[BOT-035](backlog/BOT-035_dev_board_load_more_on_scroll.md)** | **Dev Board — Tự tải thêm dữ liệu cũ khi kéo ra rìa trái chart (US-04)** | `BOT-034` ✅ | Kéo/scroll chart ra rìa trái dữ liệu đã tải hiện không làm gì — chart chỉ trống. Query/repository layer đã hỗ trợ sẵn (`GetHistoricalKlinesQuery.end_time`), việc còn lại là: detect gần rìa trái (`ViewportController`, chưa có hook), `ChartCard.prepend_historical_data()` mới (không phá zoom hiện tại, khác `render_historical_data`), và full rebuild+refeed cho `IndicatorScriptRunner` (không có đường "feed lùi" — đã verify). **Còn 3 câu hỏi mở** (ngưỡng trigger, số nến/lần, có tự sync từ Binance khi DB thiếu hay không) — chưa code, chờ user chốt. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
@@ -93,6 +96,26 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P3** | **[BOT-031](backlog/BOT-031_ui_preview_convention_and_tool.md)** | **UI Preview Convention — mock file/màn + tool auto-discover** *(dev tooling)* | `BOT-030` ✅ | Chuẩn hoá `scripts/preview_qml.py` (prototype có sẵn, hardcode 4 màn) thành convention chính thức: mỗi View có 1 file `preview.py` cùng cấp, tool tự quét `screens/`/`components/` để phát hiện thay vì danh sách cứng, có guard test enforce. Do user chủ động đề xuất, hoãn ưu tiên. |
 | **P3** | **[BOT-039](backlog/BOT-039_dev_board_strategy_toggle_and_markers.md)** | **Dev Board — Strategy toggle + markers** *(sau khi Epic BOT-006 Phase 1 ổn định)* | `BOT-026` ✅ | Nửa UI tách ra từ BOT-026 gốc: toggle list Strategy trên Dev Board (US-02, mirror cơ chế Indicator), marker Buy/Sell vẽ qua `set_script_markers` có sẵn, mutually-exclusive với Indicators. Giá trị: thấy signal lúc live streaming + subscriber đầu tiên của `SignalGeneratedEvent` (seam cho `BOT-008`). |
 | **P?** | **[BOT-038](backlog/BOT-038_intermittent_segfault_full_ui_integration_suite.md)** | **Segfault ngẫu nhiên khi chạy toàn bộ `tests/integration/presentation/ui/`** | — | Crash native (Qt/PySide6) intermittent, không deterministic theo test hay theo outcome — cùng nghi vấn lớp bug object-lifetime đã gặp ở `BOT-034` §5. Đã điều tra 1 vòng (bisect, gdb không debuginfod), dừng theo yêu cầu user — xem §4 "Hướng điều tra tiếp theo" trong file. **Không tự ý tiếp tục điều tra nếu chưa được yêu cầu lại.** |
+
+#### 🛡️ Nhóm Engine Hardening — Chi tiết (`BOT-066`…`BOT-071`)
+
+> Nguồn: 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). Không phân tích từng bug riêng lẻ mà nhóm toàn bộ lịch sử bug thành **lớp lỗi**, rồi đề xuất cơ chế tầng engine chặn cả lớp. Xuất phát từ ghi chú của user ở [`BUG-001`](bug_report/BUG-001.md): *"tôi nghĩ engine nên có cơ chế lo điều này"*.
+>
+> **Cả 6 task đều sửa `sagittarius_engine/` (repo cha)** → commit ở cả hai repo, giống `BOT-030`/`BOT-032`/`BOT-036`.
+>
+> **Thứ tự khuyến nghị: `BOT-066` → `BOT-067` → `BOT-068`.** `BOT-066` đi trước không phải vì quan trọng nhất mà vì nó gần như miễn phí và biến mọi lớp còn lại thành lỗi **kêu to** — chừng nào 45 điểm `safe_ui_action` còn nuốt lỗi, cơ chế mới nào cũng có thể hỏng âm thầm đúng kiểu `BOT-061`. `BOT-070` rẻ nhất, không phụ thuộc gì, làm xen kẽ lúc nào cũng được.
+
+| Task ID | Cơ chế | Lớp lỗi chặn (ca thật) | Chi phí |
+| :--- | :--- | :--- | :---: |
+| **[BOT-066](backlog/BOT-066_fail_loud_ui_action_errors.md)** | **`safe_ui_action` báo lỗi thật** — log có traceback + `UiActionFailedEvent` + re-raise ở dev mode | **B. Lỗi bị nuốt im lặng** — `BOT-061` (thông số user gõ bị vứt, không báo gì). Decorator đang bọc **45 điểm**, comment trong chính file thừa nhận *"we just swallow"* | Thấp |
+| **[BOT-067](backlog/BOT-067_resource_scope_lifecycle.md)** | **`ResourceScope`** — teardown LIFO/idempotent tự động theo vòng đời lần chạy | **C. Nhân bản khi chạy lại** — 5 bug: `a84f58a`, `4ba1eae`, `dd565a0`, `5a063b5`, `f07d490`. **Lớp tái phát nhiều nhất** | Trung bình |
+| **[BOT-068](backlog/BOT-068_ui_thread_affinity_guard.md)** | **Guard thread-affinity** `@ui_mutator` + sanity test quét mọi ViewModel | **A. Chạm UI từ luồng nền** — [`BUG-001`](bug_report/BUG-001.md) (app treo, `QBasicTimer`). Engine hiện có **0** guard thread nào; `set_stats()` đã drift thiếu `@Slot` | Trung bình |
+| **[BOT-069](backlog/BOT-069_exclusive_action_single_flight.md)** | **`ExclusiveAction`** — single-flight + nhóm key xung khắc | **D. Re-entrancy** — `BOT-027` ✅ đã fix nhưng bằng **quy ước** (cờ viết tay, lặp 2 chỗ), entry point thứ 3 sẽ không tự có guard | Thấp |
+| **[BOT-070](backlog/BOT-070_qml_value_normalizer.md)** | **`from_qml()`** — unwrap `QJSValue` đệ quy | **E. Marshaling QML↔Python** — `BOT-061`. `QJSValue` xử lý ở **đúng 1 chỗ** trong cả repo → mỗi `@Slot("QVariant")` mới là một `BOT-061` mới | Rất thấp |
+| **[BOT-071](backlog/BOT-071_boot_asset_preflight.md)** | **Pre-flight asset lúc boot** — mở rộng `DependencyValidatorExtension` đã có | **F. Asset thiếu fallback im lặng** — 7 icon mất trong `git reset`, ship lỗi qua nhiều phiên tới khi user tự đọc log ([`BUG-002`](bug_report/BUG-002.md)) | Thấp |
+
+> ⏸️ **Ca cố ý KHÔNG đề xuất cơ chế**: `BOT-062`/`5c20156` (`self._autostart` chỉ gán khi config gate bật nhưng gọi vô điều kiện). Bản chất chỉ là thiếu null-guard — xây machinery tốn hơn phần tiết kiệm được. Ghi lại để lần sau không ai đề xuất rồi mất công phân tích lại.
+> 🔗 **`BOT-067` ↔ `BOT-069` là cặp đôi**: vòng đời `ResourceScope` chính là vòng đời `ExclusiveAction`. Nếu làm cả hai, `ExclusiveAction` nên là nơi mở/đóng scope. **Không ghép thành 1 task** — 2 khái niệm khác nhau, dùng độc lập được.
 
 #### 🎯 Epic BOT-006 — Chi tiết theo Phase
 

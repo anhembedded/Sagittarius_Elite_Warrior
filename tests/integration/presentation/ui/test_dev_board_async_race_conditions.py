@@ -13,17 +13,24 @@ A synchronous "submit runs immediately" mock (as used elsewhere in this
 test suite, e.g. test_dashboard_live_stream.py) would silently make every
 one of these tests pass by construction, defeating their purpose.
 
-Root cause (see the report's "Tổng kết & đề xuất hành động" section):
-`_run_load_history`/`IndicatorScriptRunner.feed_all` read the presenter's
-`self._script_runner.active` at CALL time, not at submit time, and
-`load_history_button` is never disabled while a background load is in
-flight (only Start/Stop are gated by the FSM). Two overlapping Load
-History clicks therefore feed the same candle data twice into whichever
-script instances happen to be `active` by the time each background task
-gets around to computing — this is still the case after BOT-032 Phase 6
-(RSI/EMA/MACD became scripts; the race is a property of the Runner/
-Presenter interaction, not of what's hardcoded vs scripted). This is a
-confirmed, NOT-yet-fixed bug tracked as `BOT-027`.
+Original root cause (see the report's "Tổng kết & đề xuất hành động"
+section): `_run_load_history`/`IndicatorScriptRunner.feed_all` read the
+presenter's `self._script_runner.active` at CALL time, not at submit
+time, and `load_history_button` was never disabled while a background
+load was in flight (only Start/Stop were gated by the FSM). Two
+overlapping Load History clicks therefore fed the same candle data twice
+into whichever script instances happened to be `active` by the time each
+background task got around to computing.
+
+BOT-027 ✅ FIXED — these tests now pin the CORRECT behavior (they were
+`xfail` while the bug was live; renamed from `..._corrupt_indicator_series`
+to `..._keep_indicator_series_correct` when the fix landed). The guard is
+in `StreamLifecycleController._on_load_history()`/`._on_start_stream()`:
+both check `self._view_model.historyLoading` and `self.fsm.current_state`
+at the top and return early, so overlapping runs can no longer be
+submitted at all — covering TC-ASY-01/03/04. Keep these tests on the REAL
+thread manager (see above): a synchronous `submit` mock would make them
+pass by construction and stop guarding the regression.
 
 BOT-032 Phase 6: RSI/EMA/MACD are ordinary registered scripts now (no
 `rsiEnabled`/`rsiPeriod` on the ViewModel to force a fast-warming period —
