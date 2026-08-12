@@ -69,9 +69,9 @@ class ChartCard(BaseCard):
         self.crosshair.register_plot(self.plot_layout.main_plot, is_primary=True)
 
         self.volume = VolumeItem()
-        volume_plot = self.plot_layout.add_subplot(height_ratio=1)
-        volume_plot.addItem(self.volume.graphics_item)
-        self.crosshair.register_plot(volume_plot)
+        self._volume_plot = self.plot_layout.add_subplot(height_ratio=1)
+        self._volume_plot.addItem(self.volume.graphics_item)
+        self.crosshair.register_plot(self._volume_plot)
 
         self.indicators = IndicatorManager(
             plot_layout=self.plot_layout,
@@ -257,6 +257,12 @@ class ChartCard(BaseCard):
         self, timestamp: float, volume: float, is_bullish: bool
     ) -> None:
         self.volume.append_closed(timestamp, volume, is_bullish)
+
+    def set_volume_visible(self, visible: bool) -> None:
+        """@brief Shows/hides the Volume subplot row (BOT-056 §2.2 — "đã có
+        sẵn, chỉ expose control"). Data stays loaded; only the row's own
+        visibility toggles, so re-showing it needs no re-fetch/re-render."""
+        self._volume_plot.setVisible(visible)
 
     def set_max_visible_x_range(self, max_seconds: float) -> None:
         """Restricts how far the user can zoom out on the X axis."""

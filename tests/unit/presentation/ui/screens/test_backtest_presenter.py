@@ -24,11 +24,17 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
     RunStaticBacktestCommand,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
     BacktestMetrics,
@@ -36,8 +42,13 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
+    CANDLESTICK,
+    LINE,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
@@ -47,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_run
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.chart_canvas_view import (
+    ChartDisplayMode,
 )
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
@@ -104,11 +118,35 @@ def _make_result(with_trades: bool) -> BacktestResult:
     )
 
 
+def _dispatch_stub(result: BacktestResult | None, klines: list | None = None):
+    """`_run_backtest` dispatches 2 different commands (BacktestResult, then
+    chart klines) — a single `mock.return_value` can't tell them apart, so
+    tests that reach the chart-fetch step need this instead."""
+
+    def side_effect(handler_class, command):
+        if handler_class is RunStaticBacktestCommand:
+            return result
+        if handler_class is GetHistoricalKlinesQuery:
+            return klines or []
+        raise AssertionError(f"Unexpected dispatch: {handler_class}")
+
+    return side_effect
+
+
 @pytest.fixture
 def strategy_registry():
     registry = StrategyRegistry()
     registry.register("fake_strategy", _FakeStrategy)
     return registry
+
+
+@pytest.fixture
+def indicator_script_registry():
+    # Deliberately empty and REAL (not a Mock): IndicatorScriptRunner.rebuild()
+    # then hits its own KeyError/on_error path for the unregistered
+    # "ema_ribbon" key, exactly as it would for any stale key — no need to
+    # register the real script just to prove the chart-data path is safe.
+    return IndicatorScriptRegistry()
 
 
 @pytest.fixture
@@ -122,7 +160,9 @@ def mock_dispatcher():
 
 
 @pytest.fixture
-def mock_container(mock_thread_mgr, mock_dispatcher, strategy_registry):
+def mock_container(
+    mock_thread_mgr, mock_dispatcher, strategy_registry, indicator_script_registry
+):
     container = Mock()
 
     def resolve_mock(interface):
@@ -141,6 +181,8 @@ def mock_container(mock_thread_mgr, mock_dispatcher, strategy_registry):
             return mock_config
         if interface == StrategyRegistry:
             return strategy_registry
+        if interface == IndicatorScriptRegistry:
+            return indicator_script_registry
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -278,7 +320,9 @@ def test_successful_run_with_trades_updates_view_model_and_unlocks(
     presenter, view_model, mock_dispatcher
 ):
     config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.return_value = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
 
     presenter._run_backtest(config)
 
@@ -294,12 +338,15 @@ def test_dispatches_run_static_backtest_command_with_the_built_config(
     presenter, view_model, mock_dispatcher
 ):
     config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.return_value = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
 
     presenter._run_backtest(config)
 
-    mock_dispatcher.dispatch.assert_called_once()
-    handler_class, command = mock_dispatcher.dispatch.call_args[0]
+    # First call is the backtest itself — the chart's own klines fetch
+    # (GetHistoricalKlinesQuery) happens after, tested separately below.
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
     assert handler_class is RunStaticBacktestCommand
     assert command.symbol == "ETHUSDT"
     assert command.strategy_key == "fake_strategy"
@@ -324,7 +371,9 @@ def test_zero_trades_reports_empty_message_with_the_metrics(
     presenter, view_model, mock_dispatcher
 ):
     config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.return_value = _make_result(with_trades=False)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=False)
+    )
 
     presenter._run_backtest(config)
 
@@ -359,7 +408,9 @@ def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
     presenter, view_model, qml_item, qapp, mock_dispatcher
 ):
     config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.return_value = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
 
     presenter._run_backtest(config)
     qapp.processEvents()
@@ -400,3 +451,150 @@ def test_bot_params_button_is_disabled(presenter, qml_item, qapp):
     root = presenter.view.top_widget.rootObject()
 
     assert qml_item(root, "btnBacktestBotParams").property("enabled") is False
+
+
+# ---------------------------------------------------------------------------
+# Chart canvas (BOT-056)
+# ---------------------------------------------------------------------------
+
+
+def _make_klines(count: int = 3) -> list[MarketData]:
+    return [
+        MarketData(
+            symbol="ETHUSDT",
+            interval="15m",
+            open_time=_T0,
+            open_price=100.0 + i,
+            high_price=105.0 + i,
+            low_price=95.0 + i,
+            close_price=102.0 + i,
+            volume=10.0,
+            close_time=_T0,
+            quote_asset_volume=0.0,
+            number_of_trades=1,
+            taker_buy_base_asset_volume=0.0,
+            taker_buy_quote_asset_volume=0.0,
+        )
+        for i in range(count)
+    ]
+
+
+def test_successful_run_fetches_klines_and_renders_the_ohlc_chart(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    assert len(presenter.view._last_klines) == 3
+    assert presenter.view.chart_cards[0]._raw_history
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+
+
+def test_no_klines_leaves_the_chart_unrendered_without_crashing(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+
+    presenter._run_backtest(config)
+
+    assert presenter.view._last_klines == []
+
+
+def test_switching_to_equity_mode_renders_a_line_from_the_equity_curve(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.set_chart_mode(ChartDisplayMode.EQUITY)
+
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == LINE
+
+
+def test_switching_to_both_mode_adds_an_equity_subplot(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.set_chart_mode(ChartDisplayMode.BOTH)
+
+    assert presenter.view._equity_subplot_added is True
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+
+
+def test_switching_away_from_both_mode_removes_the_equity_subplot(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    presenter.view.set_chart_mode(ChartDisplayMode.BOTH)
+
+    presenter.view.set_chart_mode(ChartDisplayMode.OHLC)
+
+    assert presenter.view._equity_subplot_added is False
+
+
+def test_ema_toggle_is_a_no_op_when_the_script_is_not_registered(
+    presenter, view_model, mock_dispatcher
+):
+    """ema_ribbon isn't in the (deliberately empty) test registry — proves
+    the toggle path degrades safely instead of crashing on a missing key."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.chart_controls.sig_ema_toggled.emit(False)  # must not raise
+
+
+def test_mode_buttons_switch_the_chart_mode_end_to_end(
+    presenter, view_model, mock_dispatcher, qapp
+):
+    """Native QPushButton click -> BacktestChartControls signal -> Presenter
+    slot -> View render, with no QML/ViewModel involved."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == LINE
+    assert presenter.view.chart_controls._trade_flags_check.isEnabled() is False
+
+
+def test_trade_flags_toggle_draws_and_clears_markers(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card = presenter.view.chart_cards[0]
+
+    presenter.view.set_trade_flags_visible(False)
+    assert card.indicators._marker_layer._items.get("backtest_trades", []) == []
+
+    presenter.view.set_trade_flags_visible(True)
+    assert len(card.indicators._marker_layer._items.get("backtest_trades", [])) == 2
