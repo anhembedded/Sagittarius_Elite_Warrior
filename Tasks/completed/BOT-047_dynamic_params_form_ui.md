@@ -1,9 +1,9 @@
 # Nhiệm vụ: Modal "Cấu hình Thông số Bot" — dựng form động từ schema
 
-> Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
-> **Task 3/4** nhóm "hệ thống tham số": [`BOT-044`](../completed/BOT-044_param_schema_core.md)
-> → [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) → `BOT-047` (file này) →
-> [`BOT-048`](BOT-048_migrate_default_scripts_to_inputs.md).
+> Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
+> **Task 3/4** nhóm "hệ thống tham số": [`BOT-044`](BOT-044_param_schema_core.md)
+> → [`BOT-046`](BOT-046_strategy_param_plumbing.md) → `BOT-047` (file này) →
+> [`BOT-048`](../backlog/BOT-048_migrate_default_scripts_to_inputs.md).
 > Phụ thuộc `BOT-044`, `BOT-046`.
 
 ## 1. Mục tiêu
@@ -51,8 +51,8 @@ Nút: **"Khôi phục Mặc định"** (trái) · **"Hủy"** · **"Lưu & Re-Ba
 ## 4. ❓ Cần chốt: SL/TP/Leverage/Risk% thuộc về ai?
 
 Trong mockup 4 field này nằm **cùng modal** với EMA period. Nhưng về kiến trúc
-chúng là cấu hình **`PaperExchange`** ([`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md),
-[`BOT-049`](BOT-049_leverage_and_liquidation.md)), không phải của strategy —
+chúng là cấu hình **`PaperExchange`** ([`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md),
+[`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md)), không phải của strategy —
 `IStrategy` theo đặc tả là hàm thuần của `context`, không biết gì về vốn/vị thế.
 
 - **(a)** `PaperExchange` có schema riêng, UI ghép 2 nguồn vào 1 modal — đúng
@@ -64,9 +64,9 @@ Không tự quyết — xác nhận với user khi bắt đầu task này.
 
 ## 5. Phụ thuộc
 
-- [`BOT-044`](../completed/BOT-044_param_schema_core.md) — schema (nguồn dữ liệu để dựng form).
-- [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) — đường truyền `params` xuống
+- [`BOT-044`](BOT-044_param_schema_core.md) — schema (nguồn dữ liệu để dựng form).
+- [`BOT-046`](BOT-046_strategy_param_plumbing.md) — đường truyền `params` xuống
   strategy để "Lưu & Re-Backtest" có tác dụng thật.
-- [`BOT-022`](../completed/BOT-022_backtest_screen_static_ui.md) — màn Backtest là nơi đặt
+- [`BOT-022`](BOT-022_backtest_screen_static_ui.md) — màn Backtest là nơi đặt
   nút mở modal này.
 - `BOT-016` ✅ / `BOT-030` ✅ — icon Lucide, hạ tầng QML dùng chung.

@@ -3,7 +3,7 @@
 > Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 1/4** của nhóm "hệ thống tham số" (đã chia nhỏ theo yêu cầu user):
 > `BOT-044` (core, file này) → [`BOT-046`](BOT-046_strategy_param_plumbing.md)
-> → [`BOT-047`](../backlog/BOT-047_dynamic_params_form_ui.md) →
+> → [`BOT-047`](BOT-047_dynamic_params_form_ui.md) →
 > [`BOT-048`](../backlog/BOT-048_migrate_default_scripts_to_inputs.md).
 > Phụ thuộc `BOT-032` ✅.
 

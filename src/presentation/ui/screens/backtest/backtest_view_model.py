@@ -83,6 +83,22 @@ class BackTestViewModel(BaseQmlViewModel):
     #: Emitted when the user clicks "Export" (BOT-057 §2.1).
     tradeLogExportRequested = Signal()
 
+    #: Fires whenever `botParamsSchema` changes (selected strategy changed,
+    #: or a save just refreshed the shown "value"s) — BOT-047.
+    botParamsSchemaChanged = Signal()
+
+    #: Empty string means "no error". Set by the Presenter after a save
+    #: attempt; the modal shows this inline rather than closing.
+    botParamsErrorChanged = Signal()
+
+    #: Emitted when the user's "Lưu & Re-Backtest" values passed validation
+    #: and were applied — QML's modal listens for this to close itself.
+    botParamsSaved = Signal()
+
+    #: Emitted with a {field_name: raw_value} JS object collected from the
+    #: modal's form — BOT-047.
+    botParamsSaveRequested = Signal(object)
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._strategy_options: list[dict[str, str]] = []
@@ -104,6 +120,8 @@ class BackTestViewModel(BaseQmlViewModel):
         self._trade_log_filter = TradeLogFilter.ALL.value
         self._trade_log_search_text = ""
         self._trade_log_current_page = 1
+        self._bot_params_schema: list[dict] = []
+        self._bot_params_error = ""
 
     # ------------------------------------------------------------------ #
     # Strategy selection
@@ -138,6 +156,36 @@ class BackTestViewModel(BaseQmlViewModel):
         _set_selected_strategy_key,
         notify=selectedStrategyKeyChanged,
     )
+
+    # ------------------------------------------------------------------ #
+    # Bot Parameters modal (BOT-047)
+    # ------------------------------------------------------------------ #
+
+    def _get_bot_params_schema(self) -> list[dict]:
+        return self._bot_params_schema
+
+    #: list[{"group": str, "fields": [...]}] — built by the Presenter from
+    #: the selected strategy's declared `input_*()` parameters
+    #: (`bot_params_form.build_bot_params_schema`). Read-only from QML: the
+    #: form only ever edits its own local copy of each field's value, never
+    #: this property directly (see BotParamsDialog.qml).
+    botParamsSchema = Property(
+        "QVariantList", _get_bot_params_schema, notify=botParamsSchemaChanged
+    )
+
+    def set_bot_params_schema(self, schema: list[dict]) -> None:
+        self._bot_params_schema = schema
+        self.botParamsSchemaChanged.emit()
+
+    def _get_bot_params_error(self) -> str:
+        return self._bot_params_error
+
+    botParamsError = Property(str, _get_bot_params_error, notify=botParamsErrorChanged)
+
+    def set_bot_params_error(self, message: str) -> None:
+        if message != self._bot_params_error:
+            self._bot_params_error = message
+            self.botParamsErrorChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Capital / timeframe
@@ -435,3 +483,9 @@ class BackTestViewModel(BaseQmlViewModel):
     def requestTradeLogExport(self) -> None:
         """Called from QML's "Export" button."""
         self.tradeLogExportRequested.emit()
+
+    @Slot("QVariant")
+    def requestBotParamsSave(self, values) -> None:
+        """Called from QML's "Lưu & Re-Backtest" button with a JS object of
+        {field_name: raw_value} collected from the form (BOT-047)."""
+        self.botParamsSaveRequested.emit(dict(values))

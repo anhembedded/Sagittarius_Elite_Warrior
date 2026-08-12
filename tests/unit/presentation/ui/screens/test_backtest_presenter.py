@@ -81,6 +81,57 @@ class _FakeStrategy(BaseStrategy):
         return {}
 
 
+class _RichParamsStrategy(BaseStrategy):
+    """Declares a couple of parameters (BOT-047) — kept out of the shared
+    `strategy_registry` fixture so it doesn't perturb `strategyOptions`-
+    related assertions elsewhere in this file; used only by the bot-params
+    tests below via `_build_presenter_with_registry`."""
+
+    def setup(self) -> None:
+        self.period = self.input_int("period", 20, label="Period", minval=1, maxval=200)
+        self.threshold = self.input_float("threshold", 1.5, label="Ngưỡng", minval=0.0)
+
+    def decide(self, context):
+        return self.hold()
+
+    def build_indicators(self):
+        return {}
+
+
+def _build_presenter_with_registry(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+) -> BackTestPresenter:
+    """Same wiring as the `mock_container`/`presenter` fixtures, but with a
+    caller-supplied `StrategyRegistry` — used by the bot-params tests that
+    need more than the shared fixture's single zero-param `_FakeStrategy`."""
+    from sagittarius_engine.interfaces.i_config import IConfig
+    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+    container = Mock()
+
+    def resolve_mock(interface):
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IDispatcher:
+            return mock_dispatcher
+        if interface == IConfig:
+            return mock_config
+        if interface == StrategyRegistry:
+            return registry
+        if interface == IndicatorScriptRegistry:
+            return IndicatorScriptRegistry()
+        return Mock()
+
+    container.resolve.side_effect = resolve_mock
+    view = BackTestView()
+    view.resize(1400, 800)
+    view.show()
+    qapp.processEvents()
+    request.addfinalizer(view.deleteLater)
+    return BackTestPresenter(view, container)
+
+
 def _make_result(with_trades: bool) -> BacktestResult:
     metrics = BacktestMetrics(
         net_profit=10.0 if with_trades else 0.0,
@@ -744,11 +795,164 @@ def test_qml_run_button_click_requests_a_run(
     mock_thread_mgr.submit.assert_called_once()
 
 
-def test_bot_params_button_is_disabled(presenter, qml_item, qapp):
+def test_bot_params_button_is_enabled(presenter, qml_item, qapp):
+    """BOT-047: unlike BOT-022's placeholder, the dialog now renders a real,
+    strategy-driven form, so the button no longer needs to stay locked."""
     qapp.processEvents()
     root = presenter.view.top_widget.rootObject()
 
-    assert qml_item(root, "btnBacktestBotParams").property("enabled") is False
+    assert qml_item(root, "btnBacktestBotParams").property("enabled") is True
+
+
+def test_bot_params_schema_is_empty_for_a_strategy_with_no_declared_params(
+    view_model,
+):
+    """`fake_strategy` (the shared fixture's registered strategy) declares
+    nothing — the modal must show "no params" rather than crash on an empty
+    schema."""
+    assert view_model.botParamsSchema == []
+
+
+def test_bot_params_schema_reflects_a_strategy_with_declared_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+
+    schema = view_model.botParamsSchema
+    assert len(schema) == 1
+    fields = {f["name"]: f for f in schema[0]["fields"]}
+    assert fields["period"]["default"] == 20
+    assert fields["period"]["value"] == 20
+    assert fields["threshold"]["default"] == 1.5
+
+
+def test_selecting_a_different_strategy_rebuilds_the_schema(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("fake_strategy", _FakeStrategy)
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    assert view_model.selectedStrategyKey == "fake_strategy"
+    assert view_model.botParamsSchema == []
+
+    view_model.selectedStrategyKey = "rich_strategy"
+
+    assert len(view_model.botParamsSchema) == 1
+
+
+def test_valid_bot_params_save_updates_params_clears_error_and_reruns(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    saved_signal_calls = []
+    view_model.botParamsSaved.connect(lambda: saved_signal_calls.append(1))
+
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+
+    assert presenter._strategy_params == {"period": 50, "threshold": 2.5}
+    assert view_model.botParamsError == ""
+    assert saved_signal_calls == [1]
+    # Values shown by the (now-refreshed) schema reflect what was just saved.
+    fields = {f["name"]: f for f in view_model.botParamsSchema[0]["fields"]}
+    assert fields["period"]["value"] == 50
+    mock_thread_mgr.submit.assert_called_once()
+    config = mock_thread_mgr.submit.call_args[0][1]
+    assert config.strategy_params == {"period": 50, "threshold": 2.5}
+
+
+def test_invalid_bot_params_save_sets_error_and_does_not_rerun(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    saved_signal_calls = []
+    view_model.botParamsSaved.connect(lambda: saved_signal_calls.append(1))
+
+    # 500 is above period's declared maxval of 200.
+    view_model.requestBotParamsSave({"period": "500", "threshold": "2.5"})
+
+    assert presenter._strategy_params is None
+    assert view_model.botParamsError != ""
+    assert saved_signal_calls == []
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_unparseable_bot_params_value_sets_error_and_does_not_rerun(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+
+    view_model.requestBotParamsSave({"period": "not-a-number"})
+
+    assert view_model.botParamsError != ""
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_changing_strategy_after_a_save_discards_the_old_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("fake_strategy", _FakeStrategy)
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    view_model.selectedStrategyKey = "rich_strategy"
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+    assert presenter._strategy_params is not None
+
+    view_model.selectedStrategyKey = "fake_strategy"
+
+    assert presenter._strategy_params is None
+    assert view_model.botParamsError == ""
+
+
+def test_run_backtest_command_carries_the_saved_strategy_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """End-to-end: a saved param actually reaches the dispatched
+    RunStaticBacktestCommand, not just BacktestRunConfig."""
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=False)
+    )
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+    config = mock_thread_mgr.submit.call_args[0][1]
+
+    presenter._run_backtest(config)
+
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert handler_class is RunStaticBacktestCommand
+    assert command.strategy_params == {"period": 50, "threshold": 2.5}
 
 
 # ---------------------------------------------------------------------------

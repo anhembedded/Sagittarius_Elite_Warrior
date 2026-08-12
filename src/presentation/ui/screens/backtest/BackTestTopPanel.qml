@@ -171,13 +171,13 @@ Rectangle {
                 objectName: "btnBacktestBotParams"
                 text: "Thông số Bot"
                 implicitHeight: 32
-                // Disabled for BOT-022 — enabled once BOT-047 (dynamic params
-                // form) exists to actually read/write something real here.
-                enabled: false
+                // BOT-047: the dialog now renders viewModel.botParamsSchema,
+                // which the Presenter keeps in sync with the selected
+                // strategy — nothing further to build here before opening.
+                enabled: viewModel.controlsEnabled
                 background: Rectangle { color: "transparent" }
                 contentItem: Text { text: parent.text; color: Theme.muted; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 onClicked: {
-                    botParamsDialog.strategyIndex = strategyCombo.currentIndex
                     botParamsDialog.strategyName = strategyCombo.currentText
                     botParamsDialog.open()
                 }

@@ -70,7 +70,7 @@
 
 | Tính năng | Task | Ghi chú |
 |---|---|---|
-| Modal "Cấu hình Thông số Bot" (form động theo schema) | [`BOT-044`](../completed/BOT-044_param_schema_core.md)/[`046`](../completed/BOT-046_strategy_param_plumbing.md)/[`047`](../backlog/BOT-047_dynamic_params_form_ui.md) | Nút đã có (`btnBacktestBotParams`), đang khoá |
+| Modal "Cấu hình Thông số Bot" (form động theo schema) | [`BOT-044`](../completed/BOT-044_param_schema_core.md)/[`046`](../completed/BOT-046_strategy_param_plumbing.md)/[`047`](../completed/BOT-047_dynamic_params_form_ui.md) | Nút đã có (`btnBacktestBotParams`), đang khoá |
 | Execution Trigger Rule — tick-level (3 lựa chọn còn lại) | [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md) | Chưa có action item cụ thể, còn câu hỏi kiến trúc |
 | SL/TP + Position sizing theo rủi ro | [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) | Phụ thuộc `BOT-045` ✅ — sẵn sàng bắt đầu |
 | Đòn bẩy & Thanh lý | [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md) | Rủi ro sai số cao nhất Epic |

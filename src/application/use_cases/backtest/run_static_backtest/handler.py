@@ -74,7 +74,10 @@ class RunStaticBacktestCommandHandler(
             return None
 
         engine = build_engine(
-            self._strategy_registry, command.strategy_key, self._event_bus
+            self._strategy_registry,
+            command.strategy_key,
+            self._event_bus,
+            params=command.strategy_params,
         )
         exchange = PaperExchange(
             symbol=command.symbol,

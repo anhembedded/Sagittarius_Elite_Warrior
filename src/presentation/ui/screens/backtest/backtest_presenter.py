@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QFileDialog
@@ -44,6 +44,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from .backtest_run_config import BacktestRunConfig
 from .backtest_state import BacktestUiState
 from .backtest_view_model import BackTestViewModel
+from .bot_params_form import build_bot_params_schema, parse_bot_params
 from .chart_canvas_view import ChartDisplayMode
 from .performance_metrics_view import (
     build_extended_stat_cards,
@@ -182,6 +183,15 @@ class BackTestPresenter(BasePresenter):
         # list, so it can't itself re-derive a different page/filter.
         self._all_trades: list[Trade] = []
 
+        # BOT-047: values for the CURRENTLY SELECTED strategy's declared
+        # input_*() parameters, from the last successful "Lưu & Re-Backtest".
+        # None (the default) runs every declared default — same as never
+        # having opened the modal. Reset to None whenever the selected
+        # strategy changes (a different strategy has a different schema
+        # entirely, so stale values would either be silently ignored or
+        # raise "param nobody declares").
+        self._strategy_params: dict[str, Any] | None = None
+
         self._strategy_registry: StrategyRegistry = container.resolve(StrategyRegistry)
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         self._script_registry: IndicatorScriptRegistry = container.resolve(
@@ -221,6 +231,7 @@ class BackTestPresenter(BasePresenter):
                 for key in sorted(self._strategy_registry.available())
             ]
         )
+        self._refresh_bot_params_schema()
 
         if self.fsm:
             self.fsm.add_transition(BacktestUiState.IDLE, BacktestUiState.RUNNING)
@@ -252,6 +263,12 @@ class BackTestPresenter(BasePresenter):
     def _connect_ui_signals(self) -> None:
         self._view_model.runBacktestRequested.connect(self._on_run_backtest)
         self._view_model.syncRequested.connect(self._on_request_sync)
+        self._view_model.selectedStrategyKeyChanged.connect(
+            self._on_strategy_selection_changed
+        )
+        self._view_model.botParamsSaveRequested.connect(
+            self._on_bot_params_save_requested
+        )
         self._backtestSucceededSignal.connect(self._on_backtest_succeeded)
         self._backtestEmptySignal.connect(self._on_backtest_empty)
         self._backtestFailedSignal.connect(self._on_backtest_failed)
@@ -407,6 +424,60 @@ class BackTestPresenter(BasePresenter):
 
     @Slot()
     @safe_ui_action
+    def _on_strategy_selection_changed(self) -> None:
+        """A different strategy has an entirely different parameter schema —
+        any values saved for the previous one would either be silently
+        ignored or raise "param nobody declares" against the new one, so
+        they're discarded rather than carried over (BOT-047)."""
+        self._strategy_params = None
+        self._view_model.set_bot_params_error("")
+        self._refresh_bot_params_schema()
+
+    @Slot(object)
+    @safe_ui_action
+    def _on_bot_params_save_requested(self, raw_values: dict) -> None:
+        """ "Lưu & Re-Backtest" (BOT-047): validates the modal's values
+        against the selected strategy's own declarations before accepting
+        anything — an out-of-range/mistyped value must show an inline error
+        and leave the modal open, never silently fall back to a default."""
+        strategy_cls = self._strategy_registry.available().get(
+            self._view_model.selectedStrategyKey
+        )
+        if strategy_cls is None:
+            return
+        try:
+            parsed = parse_bot_params(strategy_cls().inputs, raw_values)
+            strategy_cls(parsed)  # construct-and-discard: the real validator
+        except ValueError as exc:
+            self._view_model.set_bot_params_error(str(exc))
+            return
+
+        self._strategy_params = parsed
+        self._view_model.set_bot_params_error("")
+        self._refresh_bot_params_schema()
+        self._view_model.botParamsSaved.emit()
+
+        if self.fsm.current_state != BacktestUiState.IDLE:
+            return
+        config = self._build_run_config()
+        if config is None:
+            return
+        self.fsm.transition_to(BacktestUiState.RUNNING)
+        self._start_backtest_run(config)
+
+    def _refresh_bot_params_schema(self) -> None:
+        strategy_cls = self._strategy_registry.available().get(
+            self._view_model.selectedStrategyKey
+        )
+        schema = (
+            build_bot_params_schema(strategy_cls, self._strategy_params)
+            if strategy_cls is not None
+            else []
+        )
+        self._view_model.set_bot_params_schema(schema)
+
+    @Slot()
+    @safe_ui_action
     def _on_request_sync(self) -> None:
         if self._last_no_data_config is None:
             return
@@ -551,6 +622,7 @@ class BackTestPresenter(BasePresenter):
             initial_balance=initial_balance,
             start_time=start_time,
             end_time=end_time,
+            strategy_params=self._strategy_params,
         )
 
     # ================================================================== #
@@ -567,6 +639,7 @@ class BackTestPresenter(BasePresenter):
                 initial_balance=config.initial_balance,
                 start_time=config.start_time,
                 end_time=config.end_time,
+                strategy_params=config.strategy_params,
             )
             result = self.dispatcher.dispatch(RunStaticBacktestCommand, command)
         except Exception as exc:

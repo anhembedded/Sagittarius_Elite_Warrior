@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
@@ -19,3 +20,7 @@ class BacktestRunConfig:
     initial_balance: float
     start_time: datetime | None
     end_time: datetime | None
+    #: Values for the selected strategy's declared input_*() parameters
+    #: (BOT-047) — None (the default) runs every declared default, same as
+    #: never having opened the "Thông số Bot" modal at all.
+    strategy_params: dict[str, Any] | None = field(default=None)

@@ -74,4 +74,4 @@ Short-selling → [`BOT-050`](BOT-050_short_selling_support.md).
 - `BOT-021` ✅ — `PaperExchange` gốc.
 - [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) — nên làm **trước**,
   để `exit_reason` có sẵn chỗ ghi.
-- [`BOT-047`](BOT-047_dynamic_params_form_ui.md) — nơi user nhập SL%/TP%/risk%.
+- [`BOT-047`](../completed/BOT-047_dynamic_params_form_ui.md) — nơi user nhập SL%/TP%/risk%.
