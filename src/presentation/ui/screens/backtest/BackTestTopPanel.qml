@@ -136,50 +136,42 @@ Rectangle {
                 }
             }
 
-            // 4. Capital
-            Rectangle {
-                implicitWidth: 130
+            // 4. Capital Dropdown Button
+            Button {
+                id: btnCapital
+                objectName: "btnBacktestCapital"
                 implicitHeight: 32
-                color: "#25262B"
-                border.color: Theme.border
-                radius: 4
-
-                RowLayout {
-                    anchors.fill: parent
+                enabled: viewModel.controlsEnabled
+                background: Rectangle {
+                    color: "#25262B"
+                    border.color: Theme.border
+                    radius: 4
+                }
+                contentItem: RowLayout {
+                    spacing: 6
+                    anchors.centerIn: parent
                     anchors.leftMargin: 8
                     anchors.rightMargin: 8
-                    spacing: 4
 
                     Image {
                         source: "image://icons/dollar-sign/success"
                         sourceSize: Qt.size(14, 14)
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-
-                    TextField {
-                        id: capitalField
-                        objectName: "txtBacktestCapital"
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        text: viewModel.initialCapitalText
-                        enabled: viewModel.controlsEnabled
-                        color: Theme.textPrimary
-                        font.pixelSize: 11
-                        font.bold: true
-                        horizontalAlignment: TextInput.AlignLeft
-                        background: Rectangle { color: "transparent" }
-                        validator: DoubleValidator { bottom: 0 }
-                        onEditingFinished: viewModel.initialCapitalText = text
                     }
 
                     Text {
-                        text: "USD"
-                        color: Theme.textSecondary
-                        font.pixelSize: 10
+                        text: root._formatCapitalDisplay(viewModel.initialCapitalText, viewModel.selectedCurrency)
+                        color: Theme.textPrimary
+                        font.pixelSize: 11
                         font.bold: true
                         verticalAlignment: Text.AlignVCenter
                     }
+
+                    Image {
+                        source: "image://icons/chevron-down/muted"
+                        sourceSize: Qt.size(12, 12)
+                    }
                 }
+                onClicked: root.openCapitalPopup()
             }
 
             // 5. Order Execution
@@ -353,6 +345,145 @@ Rectangle {
     function _withAlpha(hex, alpha) {
         var c = Qt.color(hex)
         return Qt.rgba(c.r, c.g, c.b, alpha)
+    }
+
+    function _formatCapitalDisplay(rawText, currency) {
+        return (rawText || "0") + " " + currency
+    }
+
+    function openCapitalPopup() {
+        var pos = btnCapital.mapToItem(Overlay.overlay, 0, btnCapital.height + 4)
+        capitalPopup.x = pos.x
+        capitalPopup.y = pos.y
+        capitalInput.text = viewModel.initialCapitalText
+        var idx = viewModel.currencyOptions.indexOf(viewModel.selectedCurrency)
+        if (idx >= 0) currencyCombo.currentIndex = idx
+        capitalPopup.open()
+    }
+
+    Popup {
+        id: capitalPopup
+        width: 270
+        modal: true
+        dim: false
+        parent: Overlay.overlay
+        z: 9999
+        padding: 14
+
+        background: Rectangle {
+            color: "#1E1F24"
+            border.color: Theme.border
+            border.width: 1
+            radius: 6
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+
+            Text {
+                text: "Vốn ban đầu"
+                color: Theme.textPrimary
+                font.pixelSize: 13
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                TextField {
+                    id: capitalInput
+                    objectName: "txtBacktestCapital"
+                    Layout.fillWidth: true
+                    implicitHeight: 32
+                    text: viewModel.initialCapitalText
+                    color: Theme.textPrimary
+                    font.pixelSize: 12
+                    font.bold: true
+                    background: Rectangle {
+                        color: "#151619"
+                        border.color: Theme.border
+                        radius: 4
+                    }
+                    validator: DoubleValidator { bottom: 0 }
+                }
+
+                ComboBox {
+                    id: currencyCombo
+                    objectName: "cboBacktestCurrency"
+                    implicitWidth: 80
+                    implicitHeight: 32
+                    model: viewModel.currencyOptions
+                    background: Rectangle {
+                        color: "#25262B"
+                        border.color: Theme.border
+                        radius: 4
+                    }
+                    contentItem: Text {
+                        leftPadding: 8
+                        text: currencyCombo.displayText
+                        color: Theme.textPrimary
+                        font.pixelSize: 11
+                        font.bold: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    Component.onCompleted: {
+                        var idx = model.indexOf(viewModel.selectedCurrency)
+                        if (idx >= 0) currentIndex = idx
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "Hủy"
+                    implicitWidth: 60
+                    implicitHeight: 30
+                    background: Rectangle {
+                        color: "#2C2D35"
+                        radius: 4
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: Theme.muted
+                        font.pixelSize: 11
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: capitalPopup.close()
+                }
+
+                Button {
+                    text: "Áp dụng"
+                    implicitWidth: 80
+                    implicitHeight: 30
+                    background: Rectangle {
+                        color: "#F0B90B"
+                        radius: 4
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#000000"
+                        font.pixelSize: 11
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        viewModel.initialCapitalText = capitalInput.text
+                        viewModel.selectedCurrency = currencyCombo.currentText
+                        capitalPopup.close()
+                    }
+                }
+            }
+        }
     }
 
     Popup {

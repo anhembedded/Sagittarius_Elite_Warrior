@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
@@ -24,3 +25,4 @@ class BacktestRunConfig:
     #: (BOT-047) — None (the default) runs every declared default, same as
     #: never having opened the "Thông số Bot" modal at all.
     strategy_params: dict[str, Any] | None = field(default=None)
+    currency: Currency = Currency.USD

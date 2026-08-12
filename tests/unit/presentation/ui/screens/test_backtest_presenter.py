@@ -1461,3 +1461,24 @@ def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
     qapp.processEvents()
 
     assert qml_item(root, "detailTradeLog_1").property("visible") is False
+
+
+def test_selected_currency_default_and_change(view_model):
+    """Test selectedCurrency defaults to USD and emits signal on change."""
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+
+    assert view_model.selectedCurrency == Currency.USD
+    assert view_model.currencyOptions == Currency.list_values()
+
+    emitted = False
+
+    def on_changed():
+        nonlocal emitted
+        emitted = True
+
+    view_model.selectedCurrencyChanged.connect(on_changed)
+    view_model.selectedCurrency = Currency.VND
+
+    assert view_model.selectedCurrency == Currency.VND
+    assert emitted is True
+
