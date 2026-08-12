@@ -286,6 +286,8 @@ def test_successful_run_with_trades_updates_view_model_and_unlocks(
     assert view_model.resultIsError is False
     assert "ETHUSDT" in view_model.resultText
     assert "Closed trades: 1" in view_model.resultText
+    assert len(view_model.primaryStatCards) == 4
+    assert len(view_model.extendedStatCards) == 8
 
 
 def test_dispatches_run_static_backtest_command_with_the_built_config(
@@ -330,6 +332,9 @@ def test_zero_trades_reports_empty_message_with_the_metrics(
     assert view_model.resultIsError is False
     assert "không có giao dịch nào" in view_model.resultText
     assert "Closed trades: 0" in view_model.resultText
+    # BOT-055: 0 trades still populates the 4 cards (all reading 0), not an
+    # empty panel — only "no historical data at all" clears it.
+    assert len(view_model.primaryStatCards) == 4
 
 
 def test_dispatch_exception_reports_error_and_unlocks(
@@ -343,6 +348,26 @@ def test_dispatch_exception_reports_error_and_unlocks(
     assert presenter.fsm.current_state == UIMode.IDLE
     assert view_model.resultIsError is True
     assert "boom" in view_model.resultText
+
+
+# ---------------------------------------------------------------------------
+# Stat cards (BOT-055)
+# ---------------------------------------------------------------------------
+
+
+def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
+    presenter, view_model, qml_item, qapp, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = _make_result(with_trades=True)
+
+    presenter._run_backtest(config)
+    qapp.processEvents()
+
+    root = presenter.view.top_widget.rootObject()
+    card = qml_item(root, "cardMetric_0")
+    assert card is not None
+    assert card.property("value") != ""
 
 
 # ---------------------------------------------------------------------------

@@ -22,6 +22,11 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .backtest_run_config import BacktestRunConfig
 from .backtest_view_model import BackTestViewModel
+from .performance_metrics_view import (
+    build_extended_stat_cards,
+    build_primary_stat_cards,
+    stat_cards_to_qml,
+)
 from .result_formatter import format_result_summary
 from .time_range_preset import TimeRangePreset, resolve_time_range
 
@@ -48,6 +53,9 @@ _INVALID_CUSTOM_START_MESSAGE = (
 _INVALID_CUSTOM_RANGE_MESSAGE = "Ngày bắt đầu phải trước ngày kết thúc."
 _NO_STRATEGY_MESSAGE = "Chưa có chiến lược nào được đăng ký."
 _RUNNING_MESSAGE = "Đang chạy backtest..."
+_ZERO_TRADES_MESSAGE = (
+    "Backtest chạy xong nhưng không có giao dịch nào trong khoảng thời gian đã chọn."
+)
 
 
 def _humanize_strategy_key(key: str) -> str:
@@ -158,18 +166,34 @@ class BackTestPresenter(BasePresenter):
     @Slot(object)
     @safe_ui_action
     def _on_backtest_succeeded(self, result: BacktestResult) -> None:
-        self._view_model.set_result(format_result_summary(result), is_error=False)
+        """Fires for every real `BacktestResult`, trades or not — stat cards
+        (BOT-055) always populate from it (0 trades means every card reads
+        0/neutral, never "no cards"); only the status message differs."""
+        self._view_model.set_stat_cards(
+            stat_cards_to_qml(build_primary_stat_cards(result)),
+            stat_cards_to_qml(build_extended_stat_cards(result)),
+        )
+        message = (
+            format_result_summary(result)
+            if result.trades
+            else f"{_ZERO_TRADES_MESSAGE}\n\n{format_result_summary(result)}"
+        )
+        self._view_model.set_result(message, is_error=False)
         self.fsm.transition_to(UIMode.IDLE)
 
     @Slot(str)
     @safe_ui_action
     def _on_backtest_empty(self, message: str) -> None:
+        """Only for "no historical data at all" — there is no `BacktestResult`
+        to build stat cards from, so the panel is cleared."""
+        self._view_model.set_stat_cards([], [])
         self._view_model.set_result(message, is_error=False)
         self.fsm.transition_to(UIMode.IDLE)
 
     @Slot(str)
     @safe_ui_action
     def _on_backtest_failed(self, message: str) -> None:
+        self._view_model.set_stat_cards([], [])
         self._view_model.set_result(f"Lỗi: {message}", is_error=True)
         self.fsm.transition_to(UIMode.IDLE)
 
@@ -252,11 +276,7 @@ class BackTestPresenter(BasePresenter):
             )
             return
 
-        if not result.trades:
-            self._backtestEmptySignal.emit(
-                "Backtest chạy xong nhưng không có giao dịch nào trong khoảng "
-                "thời gian đã chọn.\n\n" + format_result_summary(result)
-            )
-            return
-
+        # Emitted whether or not there are trades — _on_backtest_succeeded
+        # always has a real BacktestResult to build stat cards from; only
+        # "no historical data at all" (result is None, above) has none.
         self._backtestSucceededSignal.emit(result)

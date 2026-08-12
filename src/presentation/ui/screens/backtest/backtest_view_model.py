@@ -42,6 +42,8 @@ class BackTestViewModel(BaseQmlViewModel):
     customStartTextChanged = Signal()
     customEndTextChanged = Signal()
     resultChanged = Signal()
+    statCardsChanged = Signal()
+    showExtendedMetricsChanged = Signal()
 
     #: Emitted when the user clicks "Chạy Backtest". The Presenter reads the
     #: current field values off this view model rather than receiving them
@@ -59,6 +61,9 @@ class BackTestViewModel(BaseQmlViewModel):
         self._custom_end_text = ""
         self._result_text = ""
         self._result_is_error = False
+        self._primary_stat_cards: list[dict[str, str]] = []
+        self._extended_stat_cards: list[dict[str, str]] = []
+        self._show_extended_metrics = False
 
     # ------------------------------------------------------------------ #
     # Strategy selection
@@ -207,6 +212,51 @@ class BackTestViewModel(BaseQmlViewModel):
         self._result_text = text
         self._result_is_error = is_error
         self.resultChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Performance stat cards (BOT-055)
+    # ------------------------------------------------------------------ #
+
+    def _get_primary_stat_cards(self) -> list[dict[str, str]]:
+        return self._primary_stat_cards
+
+    primaryStatCards = Property(
+        "QVariantList", _get_primary_stat_cards, notify=statCardsChanged
+    )
+
+    def _get_extended_stat_cards(self) -> list[dict[str, str]]:
+        return self._extended_stat_cards
+
+    extendedStatCards = Property(
+        "QVariantList", _get_extended_stat_cards, notify=statCardsChanged
+    )
+
+    def set_stat_cards(
+        self,
+        primary: list[dict[str, str]],
+        extended: list[dict[str, str]],
+    ) -> None:
+        """Empty lists clear the panel (no result yet, or the last run
+        failed/returned nothing) — QML hides the cards row when
+        `primaryStatCards` is empty."""
+        self._primary_stat_cards = primary
+        self._extended_stat_cards = extended
+        self.statCardsChanged.emit()
+
+    def _get_show_extended_metrics(self) -> bool:
+        return self._show_extended_metrics
+
+    def _set_show_extended_metrics(self, value: bool) -> None:
+        if value != self._show_extended_metrics:
+            self._show_extended_metrics = value
+            self.showExtendedMetricsChanged.emit()
+
+    showExtendedMetrics = Property(
+        bool,
+        _get_show_extended_metrics,
+        _set_show_extended_metrics,
+        notify=showExtendedMetricsChanged,
+    )
 
     # ------------------------------------------------------------------ #
     # QML entry point

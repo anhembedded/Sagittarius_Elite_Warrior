@@ -199,24 +199,139 @@ Rectangle {
             }
         }
 
-        // ================= ROW 2: RESULT (raw text — BOT-022) =================
-        // Temporary raw display so the config -> dispatch -> BacktestResult ->
-        // screen path can be verified end-to-end. Replaced by proper
-        // Performance Summary / Chart / Trade Logs panels in BOT-055/056/057.
-        ScrollView {
+        // ================= HEADER: PERFORMANCE METRICS =================
+        // Only shown once there's a real BacktestResult to summarize — BOT-057's
+        // Trade Logs Table and BOT-056's Chart Canvas still don't exist, so the
+        // status text below is what verifies a run end-to-end before that.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: viewModel.primaryStatCards.length > 0
+            spacing: 10
+
+            Text {
+                text: "CHỈ SỐ HIỆU SUẤT BACKTEST"
+                color: Theme.textPrimary
+                font.pixelSize: 13
+                font.bold: true
+                font.letterSpacing: 1
+            }
+
+            Item { Layout.fillWidth: true }
+
+            RowLayout {
+                spacing: 4
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: extendedMetricsPopup.open()
+                }
+                Text {
+                    objectName: "lnkExpandMetrics"
+                    text: "Mở rộng chỉ số chi tiết"
+                    color: Theme.accent
+                    font.pixelSize: 11
+                }
+                Image { source: "image://icons/chevron-down/accent"; sourceSize: Qt.size(12, 12) }
+            }
+        }
+
+        // ================= ROW 2: RESULT =================
+        // 4 stat cards once a BacktestResult exists (BOT-055); otherwise the
+        // raw status text (loading / no data / error) from BOT-022.
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
 
-            TextArea {
-                objectName: "txtBacktestResult"
-                text: viewModel.resultText
-                readOnly: true
-                wrapMode: TextArea.Wrap
-                color: viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
-                font.pixelSize: 11
-                font.family: "monospace"
-                background: Rectangle { color: "transparent" }
+            RowLayout {
+                anchors.fill: parent
+                visible: viewModel.primaryStatCards.length > 0
+                spacing: 10
+
+                Repeater {
+                    model: viewModel.primaryStatCards
+
+                    MetricCard {
+                        objectName: "cardMetric_" + index
+                        Layout.fillWidth: true
+                        title: modelData.title
+                        value: modelData.value
+                        valueColor: modelData.valueColor !== "" ? modelData.valueColor : Theme.textPrimary
+                        suffix: modelData.suffix
+                        badgeText: modelData.badgeText
+                        badgeBgColor: modelData.badgeColor !== "" ? root._withAlpha(modelData.badgeColor, 0.2) : "transparent"
+                        badgeTextColor: modelData.badgeColor !== "" ? modelData.badgeColor : Theme.muted
+                    }
+                }
+            }
+
+            ScrollView {
+                anchors.fill: parent
+                visible: viewModel.primaryStatCards.length === 0
+                clip: true
+
+                TextArea {
+                    objectName: "txtBacktestResult"
+                    text: viewModel.resultText
+                    readOnly: true
+                    wrapMode: TextArea.Wrap
+                    color: viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
+                    font.pixelSize: 11
+                    font.family: "monospace"
+                    background: Rectangle { color: "transparent" }
+                }
+            }
+        }
+    }
+
+    function _withAlpha(hex, alpha) {
+        var c = Qt.color(hex)
+        return Qt.rgba(c.r, c.g, c.b, alpha)
+    }
+
+    Popup {
+        id: extendedMetricsPopup
+        width: 420
+        modal: true
+        dim: true
+        anchors.centerIn: Overlay.overlay
+        padding: 15
+
+        background: Rectangle {
+            color: Theme.bg
+            border.color: Theme.border
+            border.width: 1
+            radius: 6
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 10
+
+            Text {
+                text: "CHỈ SỐ CHI TIẾT"
+                color: Theme.textPrimary
+                font.pixelSize: 12
+                font.bold: true
+                font.letterSpacing: 1
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                columnSpacing: 10
+                rowSpacing: 10
+
+                Repeater {
+                    model: viewModel.extendedStatCards
+
+                    MetricCard {
+                        objectName: "cardExtendedMetric_" + index
+                        Layout.fillWidth: true
+                        title: modelData.title
+                        value: modelData.value
+                        suffix: modelData.suffix
+                    }
+                }
             }
         }
     }
