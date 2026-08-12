@@ -75,7 +75,7 @@
 | SL/TP + Position sizing theo rủi ro | [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) | Phụ thuộc `BOT-045` ✅ — sẵn sàng bắt đầu |
 | Đòn bẩy & Thanh lý | [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md) | Rủi ro sai số cao nhất Epic |
 | Short-selling | [`BOT-050`](../backlog/BOT-050_short_selling_support.md) | — |
-| Thêm chiến lược ngoài `ema_crossover` | [`BOT-051`](../backlog/BOT-051_multi_ema_trend_follower.md)/[`052`](../backlog/BOT-052_four_ema_pullback_sideways_filter.md)/[`053`](../backlog/BOT-053_qml_structure_breakout.md) | Dropdown hiện chỉ có 1 lựa chọn thật |
+| Thêm chiến lược ngoài `ema_crossover` | [`BOT-051`](../completed/BOT-051_multi_ema_trend_follower.md)/[`052`](../backlog/BOT-052_four_ema_pullback_sideways_filter.md)/[`053`](../backlog/BOT-053_qml_structure_breakout.md) | Dropdown hiện chỉ có 1 lựa chọn thật |
 | Dynamic/replay mode (tua nến, play/pause) | [`BOT-023`](../backlog/BOT-023_dynamic_backtest_engine.md)/[`BOT-024`](../backlog/BOT-024_backtest_screen_dynamic_ui.md) | Epic BOT-006 Phase 2, chưa bắt đầu |
 | Symbol picker | *(chưa có task)* | **Gap thật, chưa ai giữ chỗ** — Backtest luôn chạy 1 symbol duy nhất, giờ đọc từ `IConfig` (`BOT-058` ✅) nhưng vẫn cố định, không chọn được trong UI |
 

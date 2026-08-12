@@ -95,3 +95,11 @@ def test_strategy_registry_has_the_default_backtest_strategy(booted_app):
     depend on at least one strategy being registered."""
     registry = booted_app.context.container.resolve(StrategyRegistry)
     assert "ema_crossover" in registry.available()
+
+
+def test_strategy_registry_has_multi_ema_trend_follower(booted_app):
+    """BOT-051 — pinned separately so an accidental un-registration in
+    `binance_bot_module.py` shows up here instead of only as a missing
+    dropdown option a user has to notice by eye."""
+    registry = booted_app.context.container.resolve(StrategyRegistry)
+    assert "multi_ema_trend_follower" in registry.available()

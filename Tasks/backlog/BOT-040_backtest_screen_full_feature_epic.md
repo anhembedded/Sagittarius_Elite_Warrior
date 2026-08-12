@@ -122,7 +122,7 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 
 | Task | Độ khó | Mô tả ngắn |
 | :--- | :---: | :--- |
-| [`BOT-051`](BOT-051_multi_ema_trend_follower.md) | Thấp | Multi-EMA Trend Follower — mở rộng từ `EmaCrossoverStrategy`. |
+| [`BOT-051`](../completed/BOT-051_multi_ema_trend_follower.md) | Thấp | Multi-EMA Trend Follower — mở rộng từ `EmaCrossoverStrategy`. |
 | [`BOT-052`](BOT-052_four_ema_pullback_sideways_filter.md) | Trung bình | 4 EMA Pullback + Sideways Filter — cần định nghĩa "sideways" bằng số liệu. |
 | [`BOT-053`](BOT-053_qml_structure_breakout.md) | Cao | QML Structure Breakout — nhận diện price-action pattern, sinh "QML Score". |
 

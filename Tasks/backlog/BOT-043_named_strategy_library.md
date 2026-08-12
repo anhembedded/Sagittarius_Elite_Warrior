@@ -9,7 +9,7 @@
 
 | Task | Chiến lược | Độ khó | Vì sao |
 | :--- | :--- | :---: | :--- |
-| [`BOT-051`](BOT-051_multi_ema_trend_follower.md) | Multi-EMA Trend Follower | Thấp | Gần giống `EmaCrossoverStrategy` đã có, chỉ nhiều đường EMA hơn. |
+| [`BOT-051`](../completed/BOT-051_multi_ema_trend_follower.md) | Multi-EMA Trend Follower | Thấp | Gần giống `EmaCrossoverStrategy` đã có, chỉ nhiều đường EMA hơn. |
 | [`BOT-052`](BOT-052_four_ema_pullback_sideways_filter.md) | 4 EMA Pullback + Sideways Filter | Trung bình | Cần định nghĩa "sideways" bằng số liệu — chưa có khái niệm này trong codebase. |
 | [`BOT-053`](BOT-053_qml_structure_breakout.md) | QML Structure Breakout | Cao | Nhận diện **price-action pattern** (Quasimodo) trên chuỗi high/low, không phải phép tính chỉ báo. |
 

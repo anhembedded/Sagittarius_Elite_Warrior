@@ -94,6 +94,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.rsi_14_script import
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
+    MultiEmaTrendFollowerStrategy,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
@@ -178,6 +181,9 @@ class BinanceBotModule(BaseModule):
         # scripts above (BOT-026).
         strategy_registry = StrategyRegistry()
         strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
+        strategy_registry.register(
+            "multi_ema_trend_follower", MultiEmaTrendFollowerStrategy
+        )
         app.container.singleton(StrategyRegistry, strategy_registry)
 
         # Register the WebsocketService as bound to its Interface
