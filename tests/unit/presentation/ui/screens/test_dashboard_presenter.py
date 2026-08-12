@@ -61,7 +61,26 @@ def mock_dispatcher():
 
 
 @pytest.fixture
-def mock_container(mock_thread_mgr, mock_dispatcher):
+def mock_config():
+    config = MagicMock()
+    # Key-aware, not a blanket stub: a blanket `return_value = False` used to
+    # be harmless (only _compute_fetch_limit's floor read it, and
+    # max(75, slowest, 0) doesn't care) but BOT-034's fallback_seconds read
+    # made it a real bug — False * 1000 == 0, so AutoStartController's
+    # fallback timer fired almost immediately instead of never, racing the
+    # test body's own action against a background _load_history() call it
+    # never expected. Falling through to the caller's own `default` matches
+    # what the real ConfigManager.get() does for an unset key — in
+    # particular, `DEV_BOARD_AUTOSTART_ENABLED` falls through to
+    # `dashboard_presenter.py`'s own `_DEFAULT_AUTOSTART_ENABLED = False`
+    # (BOT-062), so auto-start is off here same as the real default.
+    config.get.side_effect = lambda key, default=None, cast=None: default
+    config.get_all.return_value = {}
+    return config
+
+
+@pytest.fixture
+def mock_container(mock_thread_mgr, mock_dispatcher, mock_config):
     container = MagicMock()
 
     from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
@@ -80,18 +99,6 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     script_registry = IndicatorScriptRegistry()
     script_registry.register("ema_ribbon", EmaRibbonScript)
     script_registry.register("ema_cross", EmaCrossScript)
-
-    mock_config = MagicMock()
-    # Key-aware, not a blanket stub: a blanket `return_value = False` used to
-    # be harmless (only _compute_fetch_limit's floor read it, and
-    # max(75, slowest, 0) doesn't care) but BOT-034's fallback_seconds read
-    # made it a real bug — False * 1000 == 0, so AutoStartController's
-    # fallback timer fired almost immediately instead of never, racing the
-    # test body's own action against a background _load_history() call it
-    # never expected. Falling through to the caller's own `default` matches
-    # what the real ConfigManager.get() does for an unset key.
-    mock_config.get.side_effect = lambda key, default=None, cast=None: default
-    mock_config.get_all.return_value = {}
 
     def resolve_side_effect(interface):
         if interface == IConfig:
@@ -120,19 +127,20 @@ def view(qapp):
 @pytest.fixture
 def presenter(view, mock_container, mock_thread_mgr):
     """
-    @details BOT-034: construction now auto-starts (AutoStartController.begin()
-    calls _on_start_stream(), which submits a background task and locks the
-    FSM) — this mock thread manager never actually runs that task, so left
-    alone the FSM would sit LOCKED forever, an artifact of the mock rather
-    than real behavior (in the real app the task completes quickly one way
-    or the other). Reset both the submit call history and the FSM back to
-    IDLE here so every *other* test's assertions reflect only its own
-    action — see test_autostart_controller_integration.py for tests that
-    exercise auto-start's own effect on a freshly-constructed presenter.
+    @details BOT-034's auto-start (AutoStartController.begin() calling
+    _on_start_stream(), which submits a background task and locks the FSM)
+    is config-gated (BOT-062, `DEV_BOARD_AUTOSTART_ENABLED`) and off by
+    default — `mock_config.get`'s side_effect (see `mock_container` above)
+    falls through to that same off-by-default, so construction here never
+    auto-starts: the FSM stays IDLE and no background task is submitted.
+    `mock_thread_mgr.submit.reset_mock()` is kept anyway so this fixture
+    stays correct even if some *other* construction step starts submitting
+    — see test_autostart_controller_integration.py and the dedicated
+    auto-start tests below for auto-start's own effect on a freshly-
+    constructed presenter (with the config explicitly turned on).
     """
     p = DashboardPresenter(view, mock_container)
     mock_thread_mgr.submit.reset_mock()
-    p.fsm.transition_to(UIMode.ERROR)  # auto-recovers to IDLE via _on_fsm_error
     return p
 
 
@@ -607,7 +615,6 @@ def test_timeframe_changed_while_history_loading_does_not_reload(
 
 
 def test_timeframe_changed_while_live_stops_then_restarts(presenter, mock_thread_mgr):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 
     presenter.fsm.transition_to(UIMode.LOCKED)
     presenter.fsm.transition_to(UIMode.LIVE)
@@ -990,7 +997,6 @@ def test_price_ticker_updates_on_chart_tick(presenter):
 
 
 def test_ws_status_badge_reflects_fsm_state(presenter):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 
     presenter.fsm.transition_to(UIMode.LOCKED)
 
@@ -1001,11 +1007,24 @@ def test_ws_status_badge_reflects_fsm_state(presenter):
 # Auto-start (BOT-034) — construction-time wiring. Uses `view`/`mock_container`
 # directly (not the `presenter` fixture, which deliberately resets past
 # auto-start's own effect for every other test — see its docstring) so these
-# can observe the real moment of construction.
+# can observe the real moment of construction. Auto-start is config-gated
+# and off by default (BOT-062) — each test below explicitly flips
+# `DEV_BOARD_AUTOSTART_ENABLED` on via `mock_config`, since that's no longer
+# `mock_container`'s implicit behavior.
 # ---------------------------------------------------------------------------
 
 
-def test_construction_auto_starts_immediately(view, mock_container, mock_thread_mgr):
+def _enable_autostart(mock_config) -> None:
+    mock_config.get.side_effect = lambda key, default=None, cast=None: (
+        True if key == "DEV_BOARD_AUTOSTART_ENABLED" else default
+    )
+
+
+def test_construction_auto_starts_immediately(
+    view, mock_container, mock_config, mock_thread_mgr
+):
+    _enable_autostart(mock_config)
+
     p = DashboardPresenter(view, mock_container)
 
     assert p.fsm.current_state.name == "LOCKED"
@@ -1014,11 +1033,12 @@ def test_construction_auto_starts_immediately(view, mock_container, mock_thread_
 
 
 def test_starting_live_manually_while_autostart_pending_is_rejected(
-    view, mock_container, mock_thread_mgr
+    view, mock_container, mock_config, mock_thread_mgr
 ):
     """The FSM-state guard added alongside auto-start (BOT-034) — without
     it, a manual Start Live click during the auto-start window would raise
     InvalidStateTransitionError (LOCKED -> LOCKED)."""
+    _enable_autostart(mock_config)
     p = DashboardPresenter(view, mock_container)
     mock_thread_mgr.submit.reset_mock()
 
@@ -1028,13 +1048,31 @@ def test_starting_live_manually_while_autostart_pending_is_rejected(
     assert p.fsm.current_state.name == "LOCKED"
 
 
-def test_a_market_tick_cancels_the_autostart_fallback_timer(view, mock_container):
+def test_a_market_tick_cancels_the_autostart_fallback_timer(
+    view, mock_container, mock_config
+):
+    _enable_autostart(mock_config)
     p = DashboardPresenter(view, mock_container)
     assert p._autostart._timer is not None  # fallback armed by construction
 
     p._on_ui_chart_update("ETHUSDT", 1.0, 100.0, 101.0, 99.0, 100.5, 5.0, False)
 
     assert p._autostart._timer is None
+
+
+def test_a_market_tick_does_not_crash_when_autostart_is_disabled(view, mock_container):
+    """BOT-062: with `DEV_BOARD_AUTOSTART_ENABLED` at its real default
+    (`False` — `mock_config.get`'s side_effect falls through to the
+    caller's own default, same as the real `ConfigManager`), `__init__`
+    never assigns `self._autostart` at all. `_on_ui_chart_update` used to
+    call `self._autostart.on_market_tick()` unconditionally, so a live tick
+    arriving with auto-start off crashed with `AttributeError` — the
+    default configuration was unusable the moment a real tick landed."""
+    p = DashboardPresenter(view, mock_container)
+
+    p._on_ui_chart_update(
+        "ETHUSDT", 1.0, 100.0, 101.0, 99.0, 100.5, 5.0, False
+    )  # must not raise
 
 
 # ---------------------------------------------------------------------------

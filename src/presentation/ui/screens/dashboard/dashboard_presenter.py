@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
+
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -345,7 +346,12 @@ class DashboardPresenter(BasePresenter):
         # falling back to Load History if no MarketTickEvent proves a real
         # connection within a few seconds. Constructed last: it immediately
         # calls _on_start_stream(), which needs everything above already set
-        # up (script runner, signal connections, FSM).
+        # up (script runner, signal connections, FSM). Config-gated
+        # (default off — BOT-062: opening Dev Board must not silently start
+        # a live connection unless the user has opted in); `None` when
+        # disabled so `_on_ui_chart_update`'s `self._autostart.on_market_tick()`
+        # has to guard against that instead of assuming it always exists.
+        self._autostart: AutoStartController | None = None
         is_autostart_enabled = self.config.get(
             _AUTOSTART_ENABLED_CONFIG_KEY,
             _DEFAULT_AUTOSTART_ENABLED,
@@ -712,8 +718,11 @@ class DashboardPresenter(BasePresenter):
         # BOT-034 — any tick is proof of a real connection, cancelling the
         # auto-start fallback timer. Must happen here (main thread), NOT in
         # _handle_market_tick (background thread) — QTimer.stop() from a
-        # foreign thread is a Qt threading violation.
-        self._autostart.on_market_tick()
+        # foreign thread is a Qt threading violation. `_autostart` is None
+        # when BOT-062's config gate is off (the default) — nothing to
+        # cancel in that case.
+        if self._autostart is not None:
+            self._autostart.on_market_tick()
 
         is_bullish = c >= o
         price_color = BULL_COLOR if is_bullish else BEAR_COLOR
