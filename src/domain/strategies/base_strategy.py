@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
 from Sagittarius_Elite_Warrior.src.domain.scripting import DEFAULT_HISTORY, Series
@@ -30,7 +32,7 @@ class BaseStrategy(ABC):
         self._series: dict[str, Series] = {}
 
     def evaluate(self, context: StrategyContext) -> Signal:
-        action, reason = self.decide(context)
+        action, reason, metadata = self.decide(context)
         candle = context.candle
         return Signal(
             symbol=candle.symbol,
@@ -38,10 +40,13 @@ class BaseStrategy(ABC):
             reason=reason,
             price=candle.close_price,
             time=candle.close_time,
+            metadata=metadata,
         )
 
     @abstractmethod
-    def decide(self, context: StrategyContext) -> tuple[SignalAction, str]: ...
+    def decide(
+        self, context: StrategyContext
+    ) -> tuple[SignalAction, str, Mapping[str, Any]]: ...
 
     @abstractmethod
     def build_indicators(self) -> dict[str, IIndicator[IndicatorValue]]:
@@ -53,11 +58,17 @@ class BaseStrategy(ABC):
     def series(self, key: str, history: int = DEFAULT_HISTORY) -> Series:
         return self._series.setdefault(key, Series(history))
 
-    def buy(self, reason: str) -> tuple[SignalAction, str]:
-        return SignalAction.BUY, reason
+    def buy(
+        self, reason: str, **metadata: Any
+    ) -> tuple[SignalAction, str, Mapping[str, Any]]:
+        return SignalAction.BUY, reason, metadata
 
-    def sell(self, reason: str) -> tuple[SignalAction, str]:
-        return SignalAction.SELL, reason
+    def sell(
+        self, reason: str, **metadata: Any
+    ) -> tuple[SignalAction, str, Mapping[str, Any]]:
+        return SignalAction.SELL, reason, metadata
 
-    def hold(self, reason: str = _HOLD_REASON) -> tuple[SignalAction, str]:
-        return SignalAction.HOLD, reason
+    def hold(
+        self, reason: str = _HOLD_REASON, **metadata: Any
+    ) -> tuple[SignalAction, str, Mapping[str, Any]]:
+        return SignalAction.HOLD, reason, metadata

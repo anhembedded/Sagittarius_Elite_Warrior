@@ -1159,3 +1159,29 @@ def test_qml_trade_log_search_field_updates_the_view_model(
 def test_qml_trade_logs_document_loads_without_errors(presenter, qapp):
     qapp.processEvents()
     assert presenter.view.bottom_widget.errors() == []
+
+
+def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    """BOT-045 §2.2: clicking the summary row expands/collapses the entry
+    catalyst / exit execution / metadata block below it."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=3, win_count=3)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    assert qml_item(root, "detailTradeLog_1").property("visible") is False
+
+    qml_item(root, "rowTradeLog_1").clicked.emit()
+    qapp.processEvents()
+
+    assert qml_item(root, "detailTradeLog_1").property("visible") is True
+
+    qml_item(root, "rowTradeLog_1").clicked.emit()
+    qapp.processEvents()
+
+    assert qml_item(root, "detailTradeLog_1").property("visible") is False

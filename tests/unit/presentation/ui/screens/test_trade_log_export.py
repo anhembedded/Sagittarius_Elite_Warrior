@@ -1,6 +1,8 @@
 import csv
+import json
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.trade_log_export import (
     export_trades_to_csv,
@@ -21,6 +23,9 @@ def _make_trade(pnl: float) -> Trade:
         pnl=pnl,
         pnl_percent=pnl / 10,
         fees_paid=0.5,
+        entry_reason="EMA Crossover 3/5 crossed above",
+        exit_reason=ExitReason.STRATEGY_SIGNAL,
+        metadata={"qml_score": 92},
     )
 
 
@@ -44,11 +49,17 @@ def test_export_writes_a_header_and_one_row_per_trade(tmp_path):
         "pnl",
         "pnl_percent",
         "fees_paid",
+        "entry_reason",
+        "exit_reason",
+        "metadata",
     ]
     assert len(rows) == 3  # header + 2 trades
     assert rows[1][0] == "1"
     assert rows[1][1] == "ETHUSDT"
     assert rows[2][0] == "2"
+    assert rows[1][10] == "EMA Crossover 3/5 crossed above"
+    assert rows[1][11] == "strategy_signal"
+    assert json.loads(rows[1][12]) == {"qml_score": 92}
 
 
 def test_export_with_no_trades_writes_only_the_header(tmp_path):

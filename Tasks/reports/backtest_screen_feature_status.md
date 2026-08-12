@@ -5,9 +5,9 @@
 > [BOT-006](../backlog/BOT-006_backtest_engine_execution.md) Phase 1 và Epic
 > [BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md).
 >
-> Grounded trực tiếp vào code thật tại commit `2d7e643` (nhánh
-> `master-warrior`) — không suy đoán, mỗi hàng trỏ đúng file/class/control
-> thật để verify lại nhanh. Cùng tinh thần với
+> Grounded trực tiếp vào code thật (nhánh `master-warrior`, cập nhật lần cuối
+> sau khi `BOT-045` hoàn thành) — không suy đoán, mỗi hàng trỏ đúng
+> file/class/control thật để verify lại nhanh. Cùng tinh thần với
 > [Dev Board Test Case Catalog](dev_board_user_end_test_cases.md).
 >
 > **Cập nhật lại file này khi 1 task Backtest khác hoàn thành** (`BOT-057`,
@@ -64,15 +64,15 @@
 | Nút "Đồng bộ ngay" khi thiếu dữ liệu (Backtest tự sync, không phụ thuộc ngầm Dev Board) | ✅ | `BOT-059` | `_on_request_sync`/`_run_sync` dispatch `SyncMarketDataCommand`; QML `btnRequestSync` (`visible: viewModel.needsDataSync`); sync xong tự resubmit backtest bằng giá trị toolbar hiện tại | `test_request_sync_transitions_to_syncing_and_submits_background_task`, `test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest`, `test_sync_success_resubmits_with_the_toolbars_current_fields`, `test_sync_failure_keeps_the_flag_and_returns_to_idle` | `test_backtest_command_resolves_to_its_handler[SyncMarketDataCommand]` |
 | `BacktestUiState` — state machine riêng (`IDLE/RUNNING/SYNCING/ERROR`), thay `UIMode` dùng chung với Dashboard/Data Management | ✅ | `BOT-059` | `backtest_state.py` (mới) — đặt tên `BacktestUiState` chứ không phải `BacktestState` như spec gốc vì trùng tên thật với 1 class không liên quan ở `application/use_cases/backtest/run_backtest/handler.py` | — (phủ gián tiếp qua mọi test dùng `presenter.fsm.current_state`) | — |
 | Trade Logs Table — bảng thật (cột/tab lọc/tìm kiếm/export CSV/phân trang) | ✅ | `BOT-057` §2.1 | `trade_log_row.py`/`trade_log_filter.py`/`trade_log_pagination.py`/`trade_log_export.py` (mới) — `ListView` thật trong `BackTestTradeLogs.qml`, không còn mockup 5 dòng giả | `test_trade_log_row.py`, `test_trade_log_filter.py`, `test_trade_log_pagination.py`, `test_trade_log_export.py`, `test_successful_run_populates_the_trade_log_first_page` (và 9 test khác trong `test_backtest_presenter.py`) | — |
+| Trade Logs — dòng mở rộng chi tiết (lý do vào/thoát lệnh, metadata động theo chiến lược, thời lượng) | ✅ | `BOT-057` §2.2 / `BOT-045` | `Trade.entry_reason`/`exit_reason` (`ExitReason` enum, 5 member)/`metadata`; mỗi dòng `BackTestTradeLogs.qml` là `Button` bấm mở/đóng 1 `Rectangle` chi tiết 3 khối, `metadataItems` render động theo key có mặt (không hardcode) | `test_paper_exchange.py` (entry/exit reason), `test_base_strategy.py` (mới), `test_trade_log_row.py` (metadata/duration/exit-reason formatting), `test_qml_clicking_a_trade_log_row_toggles_its_detail_section` | — |
 
 ### Chưa có (🔲) — đã có task backlog giữ chỗ
 
 | Tính năng | Task | Ghi chú |
 |---|---|---|
-| Trade Logs — dòng mở rộng chi tiết (lý do vào/thoát lệnh, metadata động) | [`BOT-057`](../backlog/BOT-057_backtest_trade_logs_table.md) §2.2, chặn bởi [`BOT-045`](../backlog/BOT-045_trade_journal_detail_and_metadata.md) | `Trade.entry_reason`/`exit_reason`/`metadata` chưa tồn tại — bảng cơ bản (§2.1) đã xong và thật |
 | Modal "Cấu hình Thông số Bot" (form động theo schema) | [`BOT-044`](../backlog/BOT-044_param_schema_core.md)/[`046`](../backlog/BOT-046_strategy_param_plumbing.md)/[`047`](../backlog/BOT-047_dynamic_params_form_ui.md) | Nút đã có (`btnBacktestBotParams`), đang khoá |
 | Execution Trigger Rule — tick-level (3 lựa chọn còn lại) | [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md) | Chưa có action item cụ thể, còn câu hỏi kiến trúc |
-| SL/TP + Position sizing theo rủi ro | [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) | — |
+| SL/TP + Position sizing theo rủi ro | [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) | Phụ thuộc `BOT-045` ✅ — sẵn sàng bắt đầu |
 | Đòn bẩy & Thanh lý | [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md) | Rủi ro sai số cao nhất Epic |
 | Short-selling | [`BOT-050`](../backlog/BOT-050_short_selling_support.md) | — |
 | Thêm chiến lược ngoài `ema_crossover` | [`BOT-051`](../backlog/BOT-051_multi_ema_trend_follower.md)/[`052`](../backlog/BOT-052_four_ema_pullback_sideways_filter.md)/[`053`](../backlog/BOT-053_qml_structure_breakout.md) | Dropdown hiện chỉ có 1 lựa chọn thật |

@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
@@ -27,6 +28,9 @@ def _make_trade(pnl: float, pnl_percent: float = 1.0) -> Trade:
         pnl=pnl,
         pnl_percent=pnl_percent,
         fees_paid=0.5,
+        entry_reason="EMA Crossover 3/5 crossed above",
+        exit_reason=ExitReason.STRATEGY_SIGNAL,
+        metadata={"qml_score": 92},
     )
 
 
@@ -95,3 +99,76 @@ def test_trade_log_rows_to_qml_converts_every_row():
 
     assert len(qml_rows) == 2
     assert all(isinstance(row, dict) for row in qml_rows)
+
+
+# ================= BOT-045: Trade Journal Detail =================
+
+
+def test_build_trade_log_rows_carries_entry_exit_reason_and_metadata():
+    trades = [_make_trade(10.0)]
+
+    rows = build_trade_log_rows(trades)
+
+    assert rows[0].entry_reason == "EMA Crossover 3/5 crossed above"
+    assert rows[0].exit_reason is ExitReason.STRATEGY_SIGNAL
+    assert rows[0].metadata == {"qml_score": 92}
+
+
+def test_trade_log_row_to_qml_falls_back_to_a_placeholder_for_a_blank_entry_reason():
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, entry_reason="")
+
+    qml_row = trade_log_row_to_qml(row)
+
+    assert qml_row["entryReasonText"] == "—"
+
+
+def test_trade_log_row_to_qml_translates_exit_reason_to_vietnamese():
+    row = TradeLogRow(
+        1,
+        _T0,
+        100.0,
+        _T1,
+        110.0,
+        1.0,
+        10.0,
+        10.0,
+        exit_reason=ExitReason.END_OF_BACKTEST,
+    )
+
+    qml_row = trade_log_row_to_qml(row)
+
+    assert qml_row["exitReasonText"] == "Kết thúc backtest"
+
+
+def test_trade_log_row_to_qml_formats_duration_as_hours_and_minutes():
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)  # T0=06:00, T1=18:00
+
+    qml_row = trade_log_row_to_qml(row)
+
+    assert qml_row["durationText"] == "12h 00m"
+
+
+def test_trade_log_row_to_qml_renders_metadata_items_with_humanized_labels():
+    row = TradeLogRow(
+        1,
+        _T0,
+        100.0,
+        _T1,
+        110.0,
+        1.0,
+        10.0,
+        10.0,
+        metadata={"qml_score": 92},
+    )
+
+    qml_row = trade_log_row_to_qml(row)
+
+    assert qml_row["metadataItems"] == [{"label": "Qml Score", "value": "92"}]
+
+
+def test_trade_log_row_to_qml_renders_no_metadata_items_when_metadata_is_empty():
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, metadata={})
+
+    qml_row = trade_log_row_to_qml(row)
+
+    assert qml_row["metadataItems"] == []

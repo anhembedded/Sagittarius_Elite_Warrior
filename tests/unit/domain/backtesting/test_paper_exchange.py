@@ -1,9 +1,11 @@
 """Tests for PaperExchange (BOT-021)."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 
+from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.paper_exchange import (
     PaperExchange,
 )
@@ -16,8 +18,17 @@ _T1 = datetime(2024, 1, 1, tzinfo=UTC)
 _T2 = datetime(2024, 1, 1, 1, 0, tzinfo=UTC)
 
 
-def _signal(action: SignalAction) -> Signal:
-    return Signal(symbol="BTCUSDT", action=action, reason="test", price=0.0, time=_T1)
+def _signal(
+    action: SignalAction, reason: str = "test", metadata: dict[str, Any] | None = None
+) -> Signal:
+    return Signal(
+        symbol="BTCUSDT",
+        action=action,
+        reason=reason,
+        price=0.0,
+        time=_T1,
+        metadata=metadata or {},
+    )
 
 
 def test_constructor_rejects_non_positive_initial_balance():
@@ -119,3 +130,52 @@ def test_trades_returns_a_copy():
     exchange.trades.append("injected")
 
     assert "injected" not in exchange.trades
+
+
+# ================= BOT-045: Trade Journal Detail =================
+
+
+def test_a_trade_closed_by_a_sell_signal_records_strategy_signal_as_exit_reason():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+
+    assert trade.exit_reason is ExitReason.STRATEGY_SIGNAL
+
+
+def test_a_trade_closed_by_force_close_records_end_of_backtest_as_exit_reason():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trade = exchange.force_close(price=110.0, time=_T2)
+
+    assert trade.exit_reason is ExitReason.END_OF_BACKTEST
+
+
+def test_entry_reason_comes_from_the_opening_signal_not_the_closing_one():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(
+        _signal(SignalAction.BUY, reason="EMA Crossover 3/5 crossed above"),
+        price=100.0,
+        time=_T1,
+    )
+
+    trade = exchange.fill(
+        _signal(SignalAction.SELL, reason="EMA Crossover 3/5 crossed below"),
+        price=110.0,
+        time=_T2,
+    )
+
+    assert trade.entry_reason == "EMA Crossover 3/5 crossed above"
+
+
+def test_metadata_from_the_opening_signal_carries_through_to_the_trade():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(
+        _signal(SignalAction.BUY, metadata={"qml_score": 92}), price=100.0, time=_T1
+    )
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+
+    assert trade.metadata == {"qml_score": 92}

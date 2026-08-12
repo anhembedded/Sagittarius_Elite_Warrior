@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+from typing import Any
+
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
 from Sagittarius_Elite_Warrior.src.domain.scripting import crossed_above, crossed_below
@@ -43,7 +46,9 @@ class EmaCrossoverStrategy(BaseStrategy):
             self.SLOW_KEY: EMA(self._slow_period),
         }
 
-    def decide(self, context: StrategyContext) -> tuple[SignalAction, str]:
+    def decide(
+        self, context: StrategyContext
+    ) -> tuple[SignalAction, str, Mapping[str, Any]]:
         fast_series = self.series(self.FAST_KEY)
         slow_series = self.series(self.SLOW_KEY)
         fast_series.push(context.indicators[self.FAST_KEY])

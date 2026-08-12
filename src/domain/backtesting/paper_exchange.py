@@ -1,6 +1,9 @@
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
+from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
@@ -15,6 +18,8 @@ class _OpenPosition:
     entry_time: datetime
     balance_before_entry: float
     entry_fee: float
+    entry_reason: str
+    entry_metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
 class PaperExchange:
@@ -72,19 +77,21 @@ class PaperExchange:
         a SELL that actually closed a position, otherwise None (BUY opens
         but never itself completes a Trade; a no-op fill also returns None)."""
         if signal.action is SignalAction.BUY:
-            self._open(price, time)
+            self._open(price, time, signal.reason, signal.metadata)
             return None
         if signal.action is SignalAction.SELL:
-            return self._close(price, time)
+            return self._close(price, time, ExitReason.STRATEGY_SIGNAL)
         return None
 
     def force_close(self, price: float, time: datetime) -> Trade | None:
         """Realizes any still-open position at `price`/`time` — used at the
         end of a backtest run so every trade counted toward the metrics is a
         genuinely closed trade, never one with an unresolved open PnL."""
-        return self._close(price, time)
+        return self._close(price, time, ExitReason.END_OF_BACKTEST)
 
-    def _open(self, price: float, time: datetime) -> None:
+    def _open(
+        self, price: float, time: datetime, reason: str, metadata: Mapping[str, Any]
+    ) -> None:
         if self._position is not None:
             return  # already in a position — no pyramiding
         entry_fee = self._balance * self._fee_percent / 100
@@ -96,10 +103,14 @@ class PaperExchange:
             entry_time=time,
             balance_before_entry=self._balance,
             entry_fee=entry_fee,
+            entry_reason=reason,
+            entry_metadata=metadata,
         )
         self._balance = 0.0
 
-    def _close(self, price: float, time: datetime) -> Trade | None:
+    def _close(
+        self, price: float, time: datetime, exit_reason: ExitReason
+    ) -> Trade | None:
         if self._position is None:
             return None
         position = self._position
@@ -122,6 +133,9 @@ class PaperExchange:
             pnl=pnl,
             pnl_percent=pnl_percent,
             fees_paid=position.entry_fee + exit_fee,
+            entry_reason=position.entry_reason,
+            exit_reason=exit_reason,
+            metadata=position.entry_metadata,
         )
         self._trades.append(trade)
         self._position = None

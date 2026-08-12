@@ -20,6 +20,19 @@ Rectangle {
         { value: "loss", label: "Lệnh thua" }
     ]
 
+    //: Which rows (keyed by the trade's stable, global `modelData.index`
+    //: string) currently have their detail section expanded (BOT-045
+    //: §2.2). A plain JS object, not a Set — QML property bindings only
+    //: react to whole-value reassignment, so `toggleTradeLogRow` always
+    //: replaces it wholesale rather than mutating in place.
+    property var expandedRows: ({})
+
+    function toggleTradeLogRow(rowIndex) {
+        var next = Object.assign({}, expandedRows)
+        next[rowIndex] = !next[rowIndex]
+        expandedRows = next
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
@@ -148,26 +161,83 @@ Rectangle {
                     Layout.fillHeight: true
                     clip: true
                     model: viewModel.tradeLogRows
-                    delegate: Rectangle {
-                        width: parent.width
-                        height: 40
-                        color: index % 2 === 0 ? "transparent" : "#17181d"
+                    delegate: Column {
+                        width: parent ? parent.width : 0
+                        readonly property bool rowExpanded: root.expandedRows[modelData.index] === true
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
+                        Button {
+                            objectName: "rowTradeLog_" + modelData.index
+                            width: parent.width
+                            implicitHeight: 40
+                            background: Rectangle {
+                                color: index % 2 === 0 ? "transparent" : "#17181d"
+                            }
+                            contentItem: RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
 
-                            // "#26a69a" mirrors chart_card/theme.py's BULL_COLOR — every
-                            // trade is a long entry (PaperExchange is long-only, BOT-021),
-                            // not tied to this trade's own win/loss (that's pnlColor below).
-                            Text { text: modelData.positionLabel; color: "#26a69a"; font.pixelSize: 11; Layout.preferredWidth: 150; elide: Text.ElideRight }
-                            Text { text: "Vào\nThoát"; color: Theme.textPrimary; font.pixelSize: 11; Layout.preferredWidth: 100 }
-                            Text { text: modelData.entryTimeText + "\n" + modelData.exitTimeText; color: Theme.textPrimary; font.pixelSize: 10; Layout.preferredWidth: 150 }
-                            Text { text: modelData.entryPriceText + "\n" + modelData.exitPriceText; color: Theme.textPrimary; font.pixelSize: 11; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                            Text { text: modelData.positionSizeText + "\n" + modelData.quantityText; color: Theme.textPrimary; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
-                            Text { text: modelData.pnlText; color: modelData.pnlColor; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
-                            Text { text: modelData.returnText; color: modelData.pnlColor; font.pixelSize: 11; Layout.preferredWidth: 60; horizontalAlignment: Text.AlignRight }
+                                // "#26a69a" mirrors chart_card/theme.py's BULL_COLOR — every
+                                // trade is a long entry (PaperExchange is long-only, BOT-021),
+                                // not tied to this trade's own win/loss (that's pnlColor below).
+                                Text { text: modelData.positionLabel; color: "#26a69a"; font.pixelSize: 11; Layout.preferredWidth: 150; elide: Text.ElideRight }
+                                Text { text: "Vào\nThoát"; color: Theme.textPrimary; font.pixelSize: 11; Layout.preferredWidth: 100 }
+                                Text { text: modelData.entryTimeText + "\n" + modelData.exitTimeText; color: Theme.textPrimary; font.pixelSize: 10; Layout.preferredWidth: 150 }
+                                Text { text: modelData.entryPriceText + "\n" + modelData.exitPriceText; color: Theme.textPrimary; font.pixelSize: 11; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                                Text { text: modelData.positionSizeText + "\n" + modelData.quantityText; color: Theme.textPrimary; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
+                                Text { text: modelData.pnlText; color: modelData.pnlColor; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
+                                Text { text: modelData.returnText; color: modelData.pnlColor; font.pixelSize: 11; Layout.preferredWidth: 60; horizontalAlignment: Text.AlignRight }
+                            }
+                            onClicked: root.toggleTradeLogRow(modelData.index)
+                        }
+
+                        // ============ EXPAND ROW (BOT-045 §2.2) ============
+                        Rectangle {
+                            objectName: "detailTradeLog_" + modelData.index
+                            width: parent.width
+                            visible: rowExpanded
+                            height: visible ? detailContent.implicitHeight + 20 : 0
+                            color: "#111318"
+                            border.color: Theme.border
+                            border.width: visible ? 1 : 0
+
+                            RowLayout {
+                                id: detailContent
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 10
+                                spacing: 20
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+                                    Text { text: "LÝ DO VÀO LỆNH"; color: Theme.muted; font.pixelSize: 9; font.bold: true }
+                                    Text { text: modelData.entryReasonText; color: Theme.textPrimary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+                                    Text { text: "LÝ DO THOÁT LỆNH"; color: Theme.muted; font.pixelSize: 9; font.bold: true }
+                                    Text { text: modelData.exitReasonText; color: Theme.textPrimary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+                                    Text { text: "CHỈ SỐ ĐÁNH GIÁ & THỜI LƯỢNG"; color: Theme.muted; font.pixelSize: 9; font.bold: true }
+                                    Text { text: "Thời lượng: " + modelData.durationText; color: Theme.textPrimary; font.pixelSize: 11 }
+                                    Repeater {
+                                        model: modelData.metadataItems
+                                        Text {
+                                            text: modelData.label + ": " + modelData.value
+                                            color: Theme.textPrimary
+                                            font.pixelSize: 11
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 

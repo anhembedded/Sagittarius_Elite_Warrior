@@ -46,31 +46,68 @@ tồn tại**, chỉ là chưa được giữ lại.
 
 ## 3. Các bước thực hiện (Action Items)
 
-- [ ] Thêm `metadata: Mapping[str, Any]` (default rỗng) vào `Signal` — chỗ để
+- [x] Thêm `metadata: Mapping[str, Any]` (default rỗng) vào `Signal` — chỗ để
   strategy gắn chỉ số riêng. Dùng `Mapping` + default factory rỗng để giữ
   `Signal` vẫn `frozen=True` và không phá mọi chỗ đang dựng `Signal` (kể cả
   test suite `test_strategy_engine.py` đang pin — **không được sửa file đó**,
   xem mục 4).
-- [ ] `BaseStrategy.buy()/sell()/hold()` nhận thêm metadata optional, để
+- [x] `BaseStrategy.buy()/sell()/hold()` nhận thêm metadata optional, để
   `decide()` viết được `return self.buy("QML Liquidity Sweep", score=92)` mà
   không cần tự dựng `Signal`.
-- [ ] `_OpenPosition` lưu `entry_reason` + `entry_metadata` từ `Signal` lúc
+- [x] `_OpenPosition` lưu `entry_reason` + `entry_metadata` từ `Signal` lúc
   `_open()`.
-- [ ] Enum/`StrEnum` lý do thoát: `STRATEGY_SIGNAL`, `END_OF_BACKTEST` (2 cái
+- [x] Enum/`StrEnum` lý do thoát: `STRATEGY_SIGNAL`, `END_OF_BACKTEST` (2 cái
   hiện có); chừa sẵn `STOP_LOSS`, `TAKE_PROFIT`, `LIQUIDATION` cho `BOT-041`
   điền vào sau — khai báo trước cả 5 để `BOT-041` không phải đổi kiểu dữ liệu
   `Trade`.
-- [ ] `Trade` thêm: `entry_reason: str`, `exit_reason: <enum>`,
+- [x] `Trade` thêm: `entry_reason: str`, `exit_reason: <enum>`,
   `metadata: Mapping[str, Any]`. **Không** thêm field `duration` — tính được
   từ `exit_time - entry_time`, thêm field là dữ liệu trùng lặp có thể lệch.
-- [ ] `PaperExchange.force_close()` gắn `END_OF_BACKTEST`, đường SELL thường
+- [x] `PaperExchange.force_close()` gắn `END_OF_BACKTEST`, đường SELL thường
   gắn `STRATEGY_SIGNAL`.
-- [ ] UI (thuộc `BOT-022`): dòng mở rộng hiển thị 3 khối; khối metadata render
-  động theo key có mặt (không hardcode "QML Score"), thời lượng format kiểu
-  "4h 00m".
-- [ ] Test: 1 lệnh đóng bằng tín hiệu và 1 lệnh đóng bằng `force_close()` cho
+- [x] UI (thuộc `BOT-022`/`BOT-057`): dòng mở rộng hiển thị 3 khối; khối
+  metadata render động theo key có mặt (không hardcode "QML Score"), thời
+  lượng format kiểu "4h 00m". Đóng luôn §2.2 của `BOT-057` — xem file đó.
+- [x] Test: 1 lệnh đóng bằng tín hiệu và 1 lệnh đóng bằng `force_close()` cho
   ra đúng 2 `exit_reason` khác nhau; `entry_reason` khớp đúng `Signal.reason`
   của lệnh mở (không phải của lệnh đóng — dễ nhầm).
+
+## 6. Ghi chú triển khai thực tế
+
+Toàn bộ 8 action item ở mục 3 đã làm đúng như thiết kế, không có gì phải đảo
+ngược:
+
+- `ExitReason(str, Enum)` sống ở `domain/backtesting/exit_reason.py` — cả 5
+  member khai báo ngay từ đầu như dự tính, `BOT-041`/`BOT-049` chỉ cần bắt đầu
+  *phát ra* `STOP_LOSS`/`TAKE_PROFIT`/`LIQUIDATION`, không phải sửa kiểu dữ
+  liệu `Trade` hay bảng dịch nhãn tiếng Việt trong `trade_log_row.py`.
+- `BaseStrategy.buy()/sell()/hold()` nhận `**metadata: Any` (không phải dict
+  tường minh) — cho phép `return self.buy("QML Liquidity Sweep", score=92)`
+  đúng như ví dụ trong task; `decide()` đổi kiểu trả về sang
+  `tuple[SignalAction, str, Mapping[str, Any]]`, `evaluate()` unpack 3 phần
+  tử và gắn vào `Signal.metadata`.
+- `EmaCrossoverStrategy` — chỉ đổi type annotation của `decide()` cho khớp,
+  **0 dòng logic thay đổi** (thân hàm vẫn gọi `self.buy(...)`/`self.sell(...)`
+  nguyên vẹn), nên không tạo metadata nào — đúng thực tế "chưa chiến lược nào
+  cần metadata hôm nay".
+- `Trade`/`Signal` cả 3 field mới (`entry_reason`/`exit_reason`/`metadata`)
+  đều có default (`""`/`ExitReason.STRATEGY_SIGNAL`/`{}`) dù task không bắt
+  buộc — cần thiết để giữ nguyên ~9 file test đang dựng `Trade(...)` bằng
+  keyword args mà không phải sửa tay từng file.
+- **UI đã làm luôn**, không để lại cho `BOT-022`: `BackTestTradeLogs.qml` mỗi
+  dòng giờ là `Button` (bấm để mở rộng, không phải `Rectangle+MouseArea` —
+  giữ đúng quy ước "phải click test được từ Python" đã đúc kết ở `BOT-057`) +
+  1 `Rectangle` chi tiết ẩn/hiện theo `root.expandedRows[trade.index]` (JS
+  object, thay toàn bộ khi toggle vì QML chỉ phản ứng khi gán lại nguyên
+  giá trị). 3 khối: Lý do vào lệnh / Lý do thoát lệnh / Chỉ số & thời lượng
+  (`Repeater` trên `metadataItems`, key nào có thì hiện, không hardcode).
+- CSV export (`trade_log_export.py`) thêm 3 cột `entry_reason`/`exit_reason`/
+  `metadata` (metadata serialize JSON) — theo đúng nguyên tắc gốc của
+  `BOT-057`: export phải đầy đủ hơn bảng hiển thị trên màn hình.
+- 15 test mới xuyên domain→presentation→QML (`test_paper_exchange.py`,
+  `test_base_strategy.py` mới, `test_trade_log_row.py`, `test_trade_log_export.py`,
+  `test_backtest_presenter.py` — bao gồm test click thật mở/đóng dòng chi
+  tiết), 643 test toàn `tests/unit/` + `tests/sanity/` pass, `ruff` sạch.
 
 ## 4. Rủi ro / Lưu ý
 

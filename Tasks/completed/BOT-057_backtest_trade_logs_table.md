@@ -38,26 +38,34 @@ rộng chi tiết** cho từng lệnh.
   phải toàn bộ) — khớp với những gì user đang nhìn thấy trên bảng.
 - [x] Phân trang — `trade_log_pagination.py`, `PAGE_SIZE = 20`.
 
-### 2.2 Dòng mở rộng chi tiết — cần [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md)
+### 2.2 Dòng mở rộng chi tiết — cần [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md) ✅
 
 Bấm vào 1 lệnh → xổ ra 3 khối (theo mockup dòng `#216`):
 
-- [ ] **"Lý do vào lệnh (Entry Catalyst)"** — `Trade.entry_reason` (nguồn gốc
+- [x] **"Lý do vào lệnh (Entry Catalyst)"** — `Trade.entry_reason` (nguồn gốc
   là `Signal.reason`, vd *"QML Liquidity Sweep + EMA 21 Resistance"*).
-- [ ] **"Lý do thoát lệnh (Exit Execution)"** — `Trade.exit_reason` (vd *"Chạm
+- [x] **"Lý do thoát lệnh (Exit Execution)"** — `Trade.exit_reason` (vd *"Chạm
   Stop Loss (SL)"*). Map enum → nhãn tiếng Việt dễ đọc.
-- [ ] **"Chỉ số đánh giá & Thời lượng"** — render **động theo key** có trong
+- [x] **"Chỉ số đánh giá & Thời lượng"** — render **động theo key** có trong
   `Trade.metadata` (**không hardcode** "QML Score" — user nêu rõ *"tùy vào
   chiến thuật"*), cộng thời lượng tính từ `exit_time - entry_time`, format
   "4h 00m".
-- [ ] UI phải chịu được `metadata` **rỗng hoặc có key lạ** mà không crash —
+- [x] UI phải chịu được `metadata` **rỗng hoặc có key lạ** mà không crash —
   đây là cái giá của thiết kế mở, đã chấp nhận có chủ đích ở `BOT-045`.
+
+Làm xong trong [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md)
+(action item cuối của file đó), không phải task riêng: mỗi dòng
+`BackTestTradeLogs.qml` giờ là 1 `Button` (bấm mở/đóng — không phải
+`Rectangle+MouseArea`, giữ đúng quy ước "click test được từ Python" đã đúc
+kết ở §2.1) cộng 1 `Rectangle` chi tiết ẩn/hiện theo state `expandedRows`
+trên root. Xem chi tiết implementation ở mục 6 của file `BOT-045`.
 
 ## 3. Rủi ro / Lưu ý
 
 - 2.1 làm được độc lập; 2.2 bị chặn bởi `BOT-045`. Nếu `BOT-045` chưa xong,
   vẫn ship được 2.1 (bảng đầy đủ, chỉ chưa mở rộng được). **Đã ship theo
-  đúng kịch bản này** — `BOT-045` vẫn ở backlog tại thời điểm 2.1 hoàn thành.
+  đúng kịch bản này** — `BOT-045` ở backlog tại thời điểm 2.1 hoàn thành,
+  rồi làm xong ngay sau đó, đóng nốt 2.2.
 - Dữ liệu có thể lớn (mockup 44 lệnh, thực tế có thể hàng nghìn) — dùng model
   chuẩn của `QTableView`, không dựng list widget thủ công. **Đã làm**: panel
   này vốn đã là QML (từ `BOT-022`, hybrid layout với `ChartCard`), không phải

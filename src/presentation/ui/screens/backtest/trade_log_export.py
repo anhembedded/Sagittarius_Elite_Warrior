@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 
@@ -15,6 +16,9 @@ _CSV_HEADER = [
     "pnl",
     "pnl_percent",
     "fees_paid",
+    "entry_reason",
+    "exit_reason",
+    "metadata",
 ]
 
 
@@ -44,5 +48,8 @@ def export_trades_to_csv(trades: list[Trade], path: str) -> None:
                     trade.pnl,
                     trade.pnl_percent,
                     trade.fees_paid,
+                    trade.entry_reason,
+                    trade.exit_reason.value,
+                    json.dumps(dict(trade.metadata)),
                 ]
             )
