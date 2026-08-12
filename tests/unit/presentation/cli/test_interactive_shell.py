@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
@@ -143,7 +143,7 @@ def test_interactive_shell_lifecycle():
     context.tasks.spawn.return_value = mock_task
 
     shell.start(context)
-    context.tasks.spawn.assert_called_once()
+    context.tasks.spawn.assert_called_once_with(shell._run_loop, name="InteractiveShell")
     assert shell.task == mock_task
 
     # Wait for exit
@@ -152,3 +152,45 @@ def test_interactive_shell_lifecycle():
 
     # Stop
     shell.stop(context)
+
+
+def test_interactive_shell_wait_for_exit_exception():
+    app = Mock(spec=App)
+    app.container.resolve.return_value = Mock(spec=IConfig)
+    shell = InteractiveShell(app)
+
+    context = Mock()
+    context.tasks = Mock()
+    mock_task = Mock()
+    mock_task.future.result.side_effect = Exception("Test Error")
+    context.tasks.spawn.return_value = mock_task
+
+    shell.start(context)
+
+    with patch('src.presentation.cli.interactive_shell.logger.exception') as mock_logger:
+        shell.wait_for_exit()
+        mock_logger.assert_called_once_with("InteractiveShell task raised during shutdown")
+
+
+def test_interactive_shell_run_loop_keyboard_interrupt(capsys):
+    app = Mock(spec=App)
+    app.container.resolve.return_value = Mock(spec=IConfig)
+    shell = InteractiveShell(app)
+
+    with patch.object(shell, 'cmdloop', side_effect=KeyboardInterrupt):
+        shell._run_loop()
+
+    captured = capsys.readouterr()
+    assert "\nExiting..." in captured.out
+
+
+def test_interactive_shell_do_help_exit(capsys):
+    app = Mock(spec=App)
+    config = Mock(spec=IConfig)
+    config.get.return_value = {}
+    app.container.resolve.return_value = config
+    shell = InteractiveShell(app)
+
+    shell.do_help("exit")
+    captured = capsys.readouterr()
+    assert "Exit the interactive shell" in captured.out

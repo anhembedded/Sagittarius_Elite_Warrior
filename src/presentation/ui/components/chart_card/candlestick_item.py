@@ -140,39 +140,51 @@ class FastCandlestickItem(pg.GraphicsObject):
         bear_brush = pg.mkBrush(self.bear_color)
         bear_pen = pg.mkPen(self.bear_color)
 
+        bull_lines = []
+        bull_rects = []
+        bear_lines = []
+        bear_rects = []
+
         for t, o, h, low, c in self._visible_history_slice():
-            if c >= o:
-                p.setPen(bull_pen)
-                p.setBrush(bull_brush)
-            else:
-                p.setPen(bear_pen)
-                p.setBrush(bear_brush)
-
-            # Draw wick
-            p.drawLine(QtCore.QPointF(t, low), QtCore.QPointF(t, h))
-
+            line = QtCore.QLineF(t, low, t, h)
             # Draw body (Width is drawn outward from center t)
             # Use min/abs to strictly enforce positive height to prevent Qt drawRect anti-aliasing bugs
             rect = QtCore.QRectF(
                 t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o)
             )
-            p.drawRect(rect)
+
+            if c >= o:
+                bull_lines.append(line)
+                bull_rects.append(rect)
+            else:
+                bear_lines.append(line)
+                bear_rects.append(rect)
 
         # Draw the live (in-progress) candle, always — it's a single item.
         if self.live_candle:
             t, o, h, low, c = self.live_candle
-            if c >= o:
-                p.setPen(bull_pen)
-                p.setBrush(bull_brush)
-            else:
-                p.setPen(bear_pen)
-                p.setBrush(bear_brush)
-
-            p.drawLine(QtCore.QPointF(t, low), QtCore.QPointF(t, h))
+            line = QtCore.QLineF(t, low, t, h)
             rect = QtCore.QRectF(
                 t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o)
             )
-            p.drawRect(rect)
+            if c >= o:
+                bull_lines.append(line)
+                bull_rects.append(rect)
+            else:
+                bear_lines.append(line)
+                bear_rects.append(rect)
+
+        # Batch draw bull candles
+        p.setPen(bull_pen)
+        p.setBrush(bull_brush)
+        p.drawLines(bull_lines)
+        p.drawRects(bull_rects)
+
+        # Batch draw bear candles
+        p.setPen(bear_pen)
+        p.setBrush(bear_brush)
+        p.drawLines(bear_lines)
+        p.drawRects(bear_rects)
 
     def update_live_candle(
         self,

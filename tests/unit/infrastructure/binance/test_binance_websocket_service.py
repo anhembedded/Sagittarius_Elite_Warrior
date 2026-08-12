@@ -8,6 +8,73 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_serv
 )
 
 
+def test_start_stream_success():
+    event_bus = Mock()
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
+    task_manager.spawn.return_value = Mock()
+
+    with patch.object(service, "_run_stream") as mock_run_stream:
+        # Mock _run_stream so it returns a mock coroutine to avoid warning about unawaited coroutine
+        mock_run_stream.return_value = AsyncMock()
+        result = service.start_stream(["BTCUSDT"], "1m")
+
+    assert result is True
+    assert service._task_handle is task_manager.spawn.return_value
+    assert service._token is not None
+    assert task_manager.spawn.call_count == 1
+    call_args = task_manager.spawn.call_args
+    assert call_args[1]["name"] == "BinanceStream[BTCUSDT@1m]"
+    assert call_args[1]["token"] == service._token
+    assert call_args[1]["critical"] is True
+
+
+def test_start_stream_already_running():
+    event_bus = Mock()
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
+    service._task_handle = Mock()
+
+    with patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger") as mock_logger:
+        result = service.start_stream(["BTCUSDT"], "1m")
+
+    assert result is False
+    assert task_manager.spawn.call_count == 0
+    mock_logger.warning.assert_called_once_with("Stream is already running. Stop it first.")
+
+
+def test_stop_stream_success():
+    event_bus = Mock()
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
+
+    mock_token = Mock()
+    mock_task_handle = Mock()
+
+    service._token = mock_token
+    service._task_handle = mock_task_handle
+
+    result = service.stop_stream()
+
+    assert result is True
+    assert mock_token.cancel.call_count == 1
+    assert mock_task_handle.cancel.call_count == 1
+    assert service._task_handle is None
+    assert service._token is None
+
+
+def test_stop_stream_not_running():
+    event_bus = Mock()
+    task_manager = Mock()
+    service = BinanceWebsocketService(event_bus, task_manager)
+
+    with patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger") as mock_logger:
+        result = service.stop_stream()
+
+    assert result is False
+    mock_logger.warning.assert_called_once_with("Stream is not running.")
+
+
 def test_create_socket_uses_plain_kline_socket_for_a_single_symbol():
     """A single symbol should use the plain kline_socket, not the multiplex one."""
     service = BinanceWebsocketService(Mock(), Mock())
