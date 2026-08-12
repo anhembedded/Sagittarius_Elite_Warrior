@@ -42,6 +42,7 @@
 | Timeframe picker | ✅ | `BOT-022` | QML `cboBacktestTimeframe`, `BackTestViewModel.selectedTimeframe` | `test_run_backtest_submits_background_task_and_locks_fsm` (default `"1m"`) | — |
 | Khung thời gian: 7/30/90/365 ngày / toàn bộ / tuỳ chỉnh | ✅ | `BOT-022` | `time_range_preset.py` (`TimeRangePreset`, `resolve_time_range`), QML `cboBacktestRange`/`txtBacktestRangeStart`/`txtBacktestRangeEnd` | `test_time_range_preset.py` (5 test), `test_custom_range_*` trong `test_backtest_presenter.py` | — |
 | Vốn ban đầu | ✅ | `BOT-022` | QML `txtBacktestCapital`, validate ở `_build_run_config` | `test_invalid_capital_is_rejected_without_submitting`, `test_non_positive_capital_is_rejected` | — |
+| Symbol/Interval mặc định đọc từ `IConfig` (không hardcode, không phụ thuộc ngầm Dev Board) | ✅ | `BOT-058` | `BackTestPresenter.__init__` đọc `self.config.get_all()`, `self._symbol` thay `_DEFAULT_SYMBOL` cũ | `test_reads_default_symbol_and_interval_from_config`, `test_empty_default_symbols_falls_back_to_a_default_symbol`, `test_invalid_default_interval_keeps_the_view_models_own_default` | — |
 | Nút "Chạy Backtest" — dispatch nền, không chặn UI | ✅ | `BOT-022` | `_on_run_backtest` → `IThreadManager.submit(_run_backtest, ...)`; QML `btnRunBacktest` | `test_run_backtest_submits_background_task_and_locks_fsm`, `test_qml_run_button_click_requests_a_run` | `test_backtest_command_resolves_to_its_handler[RunStaticBacktestCommand]` |
 | Trạng thái Loading / Lỗi / Không có dữ liệu / 0 trade (phân biệt rõ) | ✅ | `BOT-022` | `_on_backtest_succeeded`/`_on_backtest_empty`/`_on_backtest_failed`, `UIMode IDLE/LOCKED/ERROR` | `test_no_historical_data_reports_empty_message_and_unlocks`, `test_zero_trades_reports_empty_message_with_the_metrics`, `test_dispatch_exception_reports_error_and_unlocks` | — |
 | "Thông số Bot" — khoá tạm | ✅ (khoá có chủ đích) | `BOT-022` | QML `btnBacktestBotParams`, `enabled: false` | `test_bot_params_button_is_disabled` | — |
@@ -66,7 +67,6 @@
 | Tính năng | Task | Ghi chú |
 |---|---|---|
 | Trade Logs Table thật (lọc/tìm/export/dòng mở rộng) | [`BOT-057`](../backlog/BOT-057_backtest_trade_logs_table.md) | `BackTestTradeLogs.qml` hiện vẫn là mockup tĩnh 5 dòng giả ("#216 vị thế mua" lặp lại) |
-| Symbol/Interval mặc định đọc từ `IConfig`, không hardcode | [`BOT-058`](../backlog/BOT-058_backtest_config_driven_symbol_and_interval.md) | Phát hiện khi chạy thật — Backtest hiện vô tình phụ thuộc cùng giá trị Dev Board hay sync |
 | Nút "Đồng bộ ngay" khi thiếu dữ liệu + `BacktestState` machine riêng | [`BOT-059`](../backlog/BOT-059_backtest_inline_data_sync_affordance.md) | Hiện gặp "No historical data" là ngõ cụt, phải tự rời màn |
 | Modal "Cấu hình Thông số Bot" (form động theo schema) | [`BOT-044`](../backlog/BOT-044_param_schema_core.md)/[`046`](../backlog/BOT-046_strategy_param_plumbing.md)/[`047`](../backlog/BOT-047_dynamic_params_form_ui.md) | Nút đã có (`btnBacktestBotParams`), đang khoá |
 | Execution Trigger Rule — tick-level (3 lựa chọn còn lại) | [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md) | Chưa có action item cụ thể, còn câu hỏi kiến trúc |
@@ -75,7 +75,7 @@
 | Short-selling | [`BOT-050`](../backlog/BOT-050_short_selling_support.md) | — |
 | Thêm chiến lược ngoài `ema_crossover` | [`BOT-051`](../backlog/BOT-051_multi_ema_trend_follower.md)/[`052`](../backlog/BOT-052_four_ema_pullback_sideways_filter.md)/[`053`](../backlog/BOT-053_qml_structure_breakout.md) | Dropdown hiện chỉ có 1 lựa chọn thật |
 | Dynamic/replay mode (tua nến, play/pause) | [`BOT-023`](../backlog/BOT-023_dynamic_backtest_engine.md)/[`BOT-024`](../backlog/BOT-024_backtest_screen_dynamic_ui.md) | Epic BOT-006 Phase 2, chưa bắt đầu |
-| Symbol picker | *(chưa có task)* | **Gap thật, chưa ai giữ chỗ** — Backtest hiện luôn chạy 1 symbol mặc định (`ETHUSDT`, sẽ đổi thành config-driven ở `BOT-058` nhưng vẫn là 1 symbol cố định, không chọn được) |
+| Symbol picker | *(chưa có task)* | **Gap thật, chưa ai giữ chỗ** — Backtest luôn chạy 1 symbol duy nhất, giờ đọc từ `IConfig` (`BOT-058` ✅) nhưng vẫn cố định, không chọn được trong UI |
 
 ### Giới hạn đã biết, cố ý không làm (không phải bug)
 

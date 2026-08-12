@@ -51,6 +51,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_t
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
+    _FALLBACK_SYMBOL,
     BackTestPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_run_config import (
@@ -160,8 +161,23 @@ def mock_dispatcher():
 
 
 @pytest.fixture
+def mock_config():
+    config = Mock()
+    # Empty by default: BOT-058's fallback path (no DEFAULT_SYMBOLS/
+    # DEFAULT_INTERVAL configured) — individual tests override
+    # get_all.return_value to exercise the config-driven path instead.
+    config.get_all.return_value = {}
+    config.get.return_value = None
+    return config
+
+
+@pytest.fixture
 def mock_container(
-    mock_thread_mgr, mock_dispatcher, strategy_registry, indicator_script_registry
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    strategy_registry,
+    indicator_script_registry,
 ):
     container = Mock()
 
@@ -175,9 +191,6 @@ def mock_container(
         if interface == IDispatcher:
             return mock_dispatcher
         if interface == IConfig:
-            mock_config = Mock()
-            mock_config.get_all.return_value = {}
-            mock_config.get.return_value = None
             return mock_config
         if interface == StrategyRegistry:
             return strategy_registry
@@ -219,6 +232,89 @@ def test_strategy_options_loaded_from_registry_on_init(view_model):
         }
     ]
     assert view_model.selectedStrategyKey == "fake_strategy"
+
+
+# ---------------------------------------------------------------------------
+# Config-driven default symbol/interval (BOT-058)
+# ---------------------------------------------------------------------------
+
+
+def test_reads_default_symbol_and_interval_from_config(
+    qapp, mock_container, mock_config, request
+):
+    mock_config.get_all.return_value = {
+        "DEFAULT_SYMBOLS": ["BTCUSDT"],
+        "DEFAULT_INTERVAL": "5m",
+    }
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._symbol == "BTCUSDT"
+    assert presenter._view_model.selectedTimeframe == "5m"
+    assert view.chart_cards[0].symbol == "BTCUSDT"
+
+
+def test_empty_default_symbols_falls_back_to_a_default_symbol(
+    qapp, mock_container, mock_config, request
+):
+    mock_config.get_all.return_value = {"DEFAULT_SYMBOLS": [], "DEFAULT_INTERVAL": ""}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._symbol == _FALLBACK_SYMBOL
+
+
+def test_missing_config_keys_fall_back_safely(
+    qapp, mock_container, mock_config, request
+):
+    """A fresh install (Settings never opened) must not crash the screen."""
+    mock_config.get_all.return_value = {}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._symbol == _FALLBACK_SYMBOL
+    assert presenter._view_model.selectedTimeframe == "1m"
+
+
+def test_invalid_default_interval_keeps_the_view_models_own_default(
+    qapp, mock_container, mock_config, request
+):
+    """A hand-edited user_config.json with a typo'd interval must not crash
+    or silently apply a value the toolbar doesn't offer."""
+    mock_config.get_all.return_value = {"DEFAULT_INTERVAL": "999x"}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._view_model.selectedTimeframe == "1m"
+
+
+def test_run_backtest_and_chart_fetch_use_the_config_driven_symbol(
+    qapp, mock_container, mock_config, mock_dispatcher, request
+):
+    mock_config.get_all.return_value = {"DEFAULT_SYMBOLS": ["BTCUSDT"]}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+    presenter = BackTestPresenter(view, mock_container)
+    view_model = presenter._view_model
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    config = _lock_and_get_config(presenter, view_model)
+    presenter._run_backtest(config)
+
+    assert mock_dispatcher.dispatch.call_args_list, "dispatch was never called"
+    for call in mock_dispatcher.dispatch.call_args_list:
+        _handler_class, command = call[0]
+        assert command.symbol == "BTCUSDT"
 
 
 # ---------------------------------------------------------------------------

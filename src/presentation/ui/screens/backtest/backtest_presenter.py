@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
+    DEFAULT_TIMEFRAMES,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
@@ -52,11 +55,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("App.BackTestPresenter")
 
-#: Mirrors dashboard_presenter.py's own `_DEFAULT_SYMBOLS` — the Backtest
-#: Screen has no symbol picker yet (out of BOT-022's scope; not requested by
-#: the task spec), so it backtests the same single default symbol the Dev
-#: Board uses.
-_DEFAULT_SYMBOL = "ETHUSDT"
+#: Only used when IConfig's own DEFAULT_SYMBOLS is empty (e.g. a fresh
+#: install, Settings never opened) — BOT-058: the real default symbol comes
+#: from config (self._symbol, set in __init__), not this constant. Backtest
+#: still has no symbol picker (out of scope, not requested), so whichever
+#: symbol this resolves to is the only one this screen ever backtests.
+_FALLBACK_SYMBOL = "ETHUSDT"
 
 _CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
 
@@ -137,6 +141,16 @@ class BackTestPresenter(BasePresenter):
     def __init__(self, view: BackTestView, container: IContainer) -> None:
         super().__init__(view, container)
 
+        # BOT-058: read from the same shared IConfig Settings edits
+        # (DEFAULT_SYMBOLS/DEFAULT_INTERVAL), instead of a hardcoded
+        # constant that happened to coincidentally match what Dev Board
+        # syncs by default — read once at construction, same as
+        # SettingsPresenter._load_from_config does for its own fields.
+        config_values = self.config.get_all()
+        default_symbols = config_values.get("DEFAULT_SYMBOLS") or []
+        self._symbol: str = default_symbols[0] if default_symbols else _FALLBACK_SYMBOL
+        default_interval = config_values.get("DEFAULT_INTERVAL") or ""
+
         self._strategy_registry: StrategyRegistry = container.resolve(StrategyRegistry)
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         self._script_registry: IndicatorScriptRegistry = container.resolve(
@@ -156,6 +170,12 @@ class BackTestPresenter(BasePresenter):
 
         self._view_model = BackTestViewModel()
         view.set_view_model(self._view_model)
+        # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
+        # user_config.json with a typo) is left alone — BackTestViewModel
+        # already defaults to DEFAULT_TIMEFRAMES[0] ("1m") internally, the
+        # fastest timeframe and so the one most likely to have synced data.
+        if default_interval in DEFAULT_TIMEFRAMES:
+            self._view_model.selectedTimeframe = default_interval
         self._view_model.set_strategy_options(
             [
                 # category/description are blank until a registered strategy
@@ -184,7 +204,7 @@ class BackTestPresenter(BasePresenter):
 
         # After render_symbol_cards(): view.chart_controls doesn't exist
         # until the ChartCard it's attached to has been built.
-        view.render_symbol_cards([_DEFAULT_SYMBOL])
+        view.render_symbol_cards([self._symbol])
         self._connect_chart_controls()
         view.load_qml()
 
@@ -378,7 +398,7 @@ class BackTestPresenter(BasePresenter):
     def _run_backtest(self, config: BacktestRunConfig) -> None:
         try:
             command = RunStaticBacktestCommand(
-                symbol=_DEFAULT_SYMBOL,
+                symbol=self._symbol,
                 interval=config.timeframe,
                 strategy_key=config.strategy_key,
                 initial_balance=config.initial_balance,
@@ -393,7 +413,7 @@ class BackTestPresenter(BasePresenter):
 
         if result is None:
             self._backtestEmptySignal.emit(
-                f"Không có dữ liệu lịch sử cho {_DEFAULT_SYMBOL} "
+                f"Không có dữ liệu lịch sử cho {self._symbol} "
                 f"({config.timeframe.value}). Hãy sync dữ liệu trước."
             )
             return
@@ -416,7 +436,7 @@ class BackTestPresenter(BasePresenter):
         """
         try:
             query = GetHistoricalKlinesQuery(
-                symbol=_DEFAULT_SYMBOL,
+                symbol=self._symbol,
                 interval=config.timeframe.value,
                 limit=_CHART_KLINES_FETCH_LIMIT,
                 start_time=config.start_time,
