@@ -14,14 +14,21 @@
 > `BOT-058`, `BOT-059`, hoặc bất kỳ task nào ở Epic `BOT-040` chạm màn
 > Backtest) — cùng bước với việc cập nhật `ROADMAP.md`, đừng để lệch.
 
-**Chú giải cột Sanity** — 2 tầng khác nhau, đừng nhầm "có sanity = test kỹ":
+**Chú giải cột Sanity** — 3 tầng khác nhau, đừng nhầm "có sanity = test kỹ":
 - **Unit**: test hành vi thật (mock dispatcher/thread manager, real ViewModel,
   đôi khi cả QML thật) — nằm ở `tests/unit/presentation/ui/screens/`.
-- **Sanity**: chỉ verify **DI có wire đúng không** (command → đúng handler,
-  registry có đúng key) qua app boot thật — nằm ở
+- **Sanity (DI)**: chỉ verify **DI có wire đúng không** (command → đúng
+  handler, registry có đúng key) qua app boot thật — nằm ở
   [`tests/sanity/test_backtest_screen_di_sanity.py`](../../tests/sanity/test_backtest_screen_di_sanity.py).
-  Không test hành vi/UI — 1 tính năng có ✅ Sanity vẫn có thể có bug hành vi
-  nếu cột Unit trống.
+- **Sanity (UI)**: verify **`BackTestView`/`BackTestPresenter` construct
+  được thật** trên container thật (không mock dispatcher) + 2 tài liệu QML
+  parse sạch — nằm ở
+  [`tests/sanity/test_backtest_screen_ui_sanity.py`](../../tests/sanity/test_backtest_screen_ui_sanity.py).
+  **Cố ý chỉ dừng ở construction** — không click nút, không dispatch thật,
+  không chạy nền — để không lấn vào vùng crash đã biết của `BOT-038`.
+
+  Không tầng Sanity nào test hành vi/UI thật (click → kết quả đúng) — 1 tính
+  năng có ✅ Sanity vẫn có thể có bug hành vi nếu cột Unit trống.
 
 ---
 
@@ -30,6 +37,7 @@
 | Tính năng | Trạng thái | Task | Grounding (code) | Unit test | Sanity |
 |---|:---:|---|---|---|:---:|
 | Sidebar route "Backtest Engine" (không còn placeholder) | ✅ | `BOT-022` | `main_window.py` — `NavItem("Backtest Engine", "backtest", ...)`, `_setup_router()` đăng ký `BackTestPresenter`/`BackTestView` | — | — |
+| Màn hình construct được thật trên container thật (không mock), 2 QML doc parse sạch | ✅ | — | `BackTestView`/`BackTestPresenter` | `test_qml_documents_load_without_errors` (mock container) | ✅ (container thật) |
 | Strategy dropdown đọc `StrategyRegistry` thật | ✅ | `BOT-022` | `BackTestPresenter.__init__` set `strategyOptions` từ `StrategyRegistry.available()`; QML `cboBacktestStrategy` | `test_strategy_options_loaded_from_registry_on_init` | `test_strategy_registry_has_the_default_backtest_strategy` |
 | Timeframe picker | ✅ | `BOT-022` | QML `cboBacktestTimeframe`, `BackTestViewModel.selectedTimeframe` | `test_run_backtest_submits_background_task_and_locks_fsm` (default `"1m"`) | — |
 | Khung thời gian: 7/30/90/365 ngày / toàn bộ / tuỳ chỉnh | ✅ | `BOT-022` | `time_range_preset.py` (`TimeRangePreset`, `resolve_time_range`), QML `cboBacktestRange`/`txtBacktestRangeStart`/`txtBacktestRangeEnd` | `test_time_range_preset.py` (5 test), `test_custom_range_*` trong `test_backtest_presenter.py` | — |
