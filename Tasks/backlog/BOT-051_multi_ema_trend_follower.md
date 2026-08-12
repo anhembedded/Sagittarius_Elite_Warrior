@@ -2,7 +2,7 @@
 
 > Thuộc [BOT-043](BOT-043_named_strategy_library.md) (chỉ mục 4 chiến lược),
 > Epic [BOT-040](BOT-040_backtest_screen_full_feature_epic.md).
-> Phụ thuộc `BOT-026` ✅, [`BOT-046`](BOT-046_strategy_param_plumbing.md).
+> Phụ thuộc `BOT-026` ✅, [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md).
 > **Độ khó: thấp** — nên làm đầu tiên trong nhóm, vừa có giá trị vừa là bài
 > kiểm chứng cho cơ chế input của `BOT-046`.
 
@@ -30,7 +30,7 @@ thứ tự bị phá.
 
 - [ ] Chốt định nghĩa ở mục 3 với user.
 - [ ] `MultiEmaTrendFollowerStrategy(BaseStrategy)`: khai báo N period làm
-  input ([`BOT-046`](BOT-046_strategy_param_plumbing.md)), `build_indicators()`
+  input ([`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md)), `build_indicators()`
   trả N `EMA`, `decide()` kiểm tra thứ tự xếp tầng.
 - [ ] Dùng lại `is_above`/`is_below` từ `domain/scripting/` — **không** viết
   lại so sánh None-safe.
@@ -45,4 +45,4 @@ thứ tự bị phá.
 ## 5. Phụ thuộc
 
 - `BOT-026` ✅ — `BaseStrategy`, `EmaCrossoverStrategy` (mẫu tham khảo).
-- [`BOT-046`](BOT-046_strategy_param_plumbing.md) — để period là input.
+- [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) — để period là input.

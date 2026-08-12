@@ -31,7 +31,9 @@ GOLDEN_CLOSE_TIME_INDEX = [16, 24]  # klines[i].close_time is (i + 1) minutes in
 
 
 def _build_engine(fast_period: int = 3, slow_period: int = 5) -> StrategyEngine:
-    strategy = EmaCrossoverStrategy(fast_period=fast_period, slow_period=slow_period)
+    strategy = EmaCrossoverStrategy(
+        {"fast_period": fast_period, "slow_period": slow_period}
+    )
     return StrategyEngine(
         indicators=strategy.build_indicators(),
         strategy=strategy,
@@ -92,7 +94,7 @@ def test_batch_and_incremental_produce_identical_signals(make_klines):
 
 
 def test_build_indicators_returns_fresh_ema_instances_per_period():
-    strategy = EmaCrossoverStrategy(fast_period=7, slow_period=21)
+    strategy = EmaCrossoverStrategy({"fast_period": 7, "slow_period": 21})
 
     indicators = strategy.build_indicators()
 

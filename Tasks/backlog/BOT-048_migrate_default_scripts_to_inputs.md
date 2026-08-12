@@ -2,9 +2,9 @@
 
 > Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 4/4** nhóm "hệ thống tham số": [`BOT-044`](../completed/BOT-044_param_schema_core.md)
-> → [`BOT-046`](BOT-046_strategy_param_plumbing.md) →
+> → [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) →
 > [`BOT-047`](BOT-047_dynamic_params_form_ui.md) → `BOT-048` (file này).
-> Phụ thuộc `BOT-044`, `BOT-047`.
+> Phụ thuộc `BOT-044` ✅, `BOT-047`.
 
 ## 1. Mục tiêu
 

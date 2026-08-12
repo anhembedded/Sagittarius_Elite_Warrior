@@ -30,15 +30,20 @@ class EmaCrossoverStrategy(BaseStrategy):
     FAST_KEY = "ema_fast"
     SLOW_KEY = "ema_slow"
 
-    def __init__(
-        self,
-        fast_period: int = _DEFAULT_FAST_PERIOD,
-        slow_period: int = _DEFAULT_SLOW_PERIOD,
-    ) -> None:
-        super().__init__()
-        self._fast_period = fast_period
-        self._slow_period = slow_period
-        self._name = f"EMA Crossover {fast_period}/{slow_period}"
+    def setup(self) -> None:
+        self._fast_period = self.input_int(
+            "fast_period",
+            _DEFAULT_FAST_PERIOD,
+            label="EMA Fast Period",
+            minval=1,
+        )
+        self._slow_period = self.input_int(
+            "slow_period",
+            _DEFAULT_SLOW_PERIOD,
+            label="EMA Slow Period",
+            minval=1,
+        )
+        self._name = f"EMA Crossover {self._fast_period}/{self._slow_period}"
 
     def build_indicators(self) -> dict[str, IIndicator[IndicatorValue]]:
         return {

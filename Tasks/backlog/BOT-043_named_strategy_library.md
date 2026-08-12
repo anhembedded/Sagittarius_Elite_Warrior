@@ -3,7 +3,7 @@
 > Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Đây là file chỉ mục** — mỗi chiến lược là 1 task riêng (chia nhỏ theo yêu
 > cầu user), vì độ khó chênh nhau rất xa. Phụ thuộc `BOT-026` ✅,
-> [`BOT-046`](BOT-046_strategy_param_plumbing.md) (để có tham số).
+> [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) (để có tham số).
 
 ## 1. Danh sách task
 
@@ -69,7 +69,7 @@ sau này (kể cả SMC nếu quay lại làm):
   nó. Viết rõ định nghĩa **trước** khi code, xác nhận với user.
 - Theo đúng khuôn `BaseStrategy` (`BOT-026`): `decide()` thuần, không tự tính
   indicator, khai báo qua `build_indicators()`.
-- Khai báo tham số qua cơ chế input ([`BOT-046`](BOT-046_strategy_param_plumbing.md)).
+- Khai báo tham số qua cơ chế input ([`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md)).
 - Gắn metadata riêng vào `Signal`
   ([`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md)) để bảng Trade
   Logs hiển thị chỉ số đặc thù (vd "QML Signal Score 92/100").

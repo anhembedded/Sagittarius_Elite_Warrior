@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 32 | 56% |
+| 🟢 **Completed** | 33 | 58% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 25 | 44% |
+| 🔴 **Backlog** | 24 | 42% |
 | 📈 **Tổng số Task** | **57** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
@@ -110,8 +110,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :--- |
 | ✅ **[BOT-044](completed/BOT-044_param_schema_core.md)** | **Param Schema Core** *(kiểu `input()` Pine Script)* | `BOT-032` ✅ | `ScriptInput`/`InputKind`/`InputDeclarations` ở `domain/scripting/` (dùng chung, `BOT-046` tái dùng nguyên) + `input_int/float/bool/string()` trên `BaseIndicatorScript` + property `inputs`. `IndicatorScriptRegistry.create(key, params)` giờ **truyền thật** thay vì bỏ qua. Validate ở domain, raise thay vì kẹp giá trị. ⚠️ **Đảo ngược `BOT-032` §9.1**. |
-| **[BOT-046](backlog/BOT-046_strategy_param_plumbing.md)** | **Param Schema cho Strategy + nối registry/factory** | `BOT-044` ✅, `BOT-026` ✅ | `BaseStrategy` chưa có hook khai báo; `StrategyRegistry.create()` chưa nhận `params`. Phải giữ vùng "diff = 0 dòng" đã cam kết ở `BOT-026`. |
-| **[BOT-047](backlog/BOT-047_dynamic_params_form_ui.md)** | **Modal "Cấu hình Thông số Bot" — form động** | `BOT-044` ✅, `BOT-046` | Dựng form từ schema (4 kiểu widget, nhóm field, "Khôi phục Mặc định", "Lưu & Re-Backtest"). Thêm chiến lược mới **không phải sửa UI**. |
+| ✅ **[BOT-046](completed/BOT-046_strategy_param_plumbing.md)** | **Param Schema cho Strategy + nối registry/factory** | `BOT-044` ✅, `BOT-026` ✅ | `BaseStrategy` thêm hook `setup()` + `input_int/float/bool/string()`/`inputs` — tái dùng nguyên `InputDeclarations`/`ScriptInput` từ `domain/scripting/` (BOT-044), không chia sẻ qua kế thừa (2 base class vẫn tách biệt). `StrategyRegistry.create(key, params)`/`build_engine(..., params)` giờ truyền thật. `EmaCrossoverStrategy` chuyển từ constructor kwargs (`fast_period=`/`slow_period=`) sang khai báo trong `setup()` — default 12/26 giữ nguyên. Bất biến "diff = 0 dòng" (`i_strategy.py`/`strategy_context.py`/`strategy_engine.py`/`test_strategy_engine.py`) giữ nguyên. 12 test mới. 730 test pass, coverage 94.86%, `ruff` sạch. |
+| **[BOT-047](backlog/BOT-047_dynamic_params_form_ui.md)** | **Modal "Cấu hình Thông số Bot" — form động** | `BOT-044` ✅, `BOT-046` ✅ | Dựng form từ schema (4 kiểu widget, nhóm field, "Khôi phục Mặc định", "Lưu & Re-Backtest"). Thêm chiến lược mới **không phải sửa UI**. |
 | **[BOT-048](backlog/BOT-048_migrate_default_scripts_to_inputs.md)** | **Chuyển 6 script mặc định sang input** | `BOT-044` ✅, `BOT-047` | **Giữ nguyên cả 6** (user đã chốt: *"cứ tạo default indicator… vẫn truyền 20 50"*), chỉ đổi period từ hardcode sang input có default. Lưu ý `min_warmup_bars` phải tính động theo period. |
 
 **Nhóm B — PaperExchange nâng cao**

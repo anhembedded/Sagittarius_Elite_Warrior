@@ -2,7 +2,7 @@
 
 > Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 3/4** nhóm "hệ thống tham số": [`BOT-044`](../completed/BOT-044_param_schema_core.md)
-> → [`BOT-046`](BOT-046_strategy_param_plumbing.md) → `BOT-047` (file này) →
+> → [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) → `BOT-047` (file này) →
 > [`BOT-048`](BOT-048_migrate_default_scripts_to_inputs.md).
 > Phụ thuộc `BOT-044`, `BOT-046`.
 
@@ -65,7 +65,7 @@ Không tự quyết — xác nhận với user khi bắt đầu task này.
 ## 5. Phụ thuộc
 
 - [`BOT-044`](../completed/BOT-044_param_schema_core.md) — schema (nguồn dữ liệu để dựng form).
-- [`BOT-046`](BOT-046_strategy_param_plumbing.md) — đường truyền `params` xuống
+- [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) — đường truyền `params` xuống
   strategy để "Lưu & Re-Backtest" có tác dụng thật.
 - [`BOT-022`](../completed/BOT-022_backtest_screen_static_ui.md) — màn Backtest là nơi đặt
   nút mở modal này.

@@ -1,9 +1,9 @@
 # Nhiệm vụ: Param Schema cho Strategy — hook khai báo + nối registry/factory
 
-> Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
-> **Task 2/4** nhóm "hệ thống tham số": [`BOT-044`](../completed/BOT-044_param_schema_core.md)
-> → `BOT-046` (file này) → [`BOT-047`](BOT-047_dynamic_params_form_ui.md) →
-> [`BOT-048`](BOT-048_migrate_default_scripts_to_inputs.md).
+> Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
+> **Task 2/4** nhóm "hệ thống tham số": [`BOT-044`](BOT-044_param_schema_core.md)
+> → `BOT-046` (file này) → [`BOT-047`](../backlog/BOT-047_dynamic_params_form_ui.md) →
+> [`BOT-048`](../backlog/BOT-048_migrate_default_scripts_to_inputs.md).
 > Phụ thuộc `BOT-044`, `BOT-026` ✅.
 
 ## 1. Mục tiêu
@@ -60,5 +60,5 @@ tham số tuỳ chỉnh.
 
 ## 5. Phụ thuộc
 
-- [`BOT-044`](../completed/BOT-044_param_schema_core.md) — value object + API `input_*()`.
+- [`BOT-044`](BOT-044_param_schema_core.md) — value object + API `input_*()`.
 - `BOT-026` ✅ — `BaseStrategy`, `StrategyRegistry`, `build_engine()`.

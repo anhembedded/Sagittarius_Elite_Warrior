@@ -2,7 +2,7 @@
 
 > Thuộc [BOT-043](BOT-043_named_strategy_library.md), Epic
 > [BOT-040](BOT-040_backtest_screen_full_feature_epic.md).
-> Phụ thuộc `BOT-026` ✅, [`BOT-046`](BOT-046_strategy_param_plumbing.md).
+> Phụ thuộc `BOT-026` ✅, [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md).
 > **Độ khó: trung bình.** Đây là chiến lược xuất hiện trong tiêu đề modal của
 > mockup user cung cấp ("4 EMA PULLBACK + SIDEWAYS FILTER + QML"), nên nhiều
 > khả năng là chiến lược user quan tâm nhất.
@@ -65,5 +65,5 @@ indicator mới (cần test riêng, đối chiếu công thức chuẩn).
 
 ## 6. Phụ thuộc
 
-- `BOT-026` ✅, [`BOT-046`](BOT-046_strategy_param_plumbing.md).
+- `BOT-026` ✅, [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md).
 - [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) — metadata.

@@ -1,9 +1,16 @@
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
-from Sagittarius_Elite_Warrior.src.domain.scripting import DEFAULT_HISTORY, Series
+from Sagittarius_Elite_Warrior.src.domain.scripting import (
+    DEFAULT_HISTORY,
+    InputDeclarations,
+    InputKind,
+    ScriptInput,
+    Series,
+    build_input,
+)
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     IndicatorValue,
     StrategyContext,
@@ -22,14 +29,122 @@ class BaseStrategy(ABC):
     @details Gathers what every strategy repeats: tracking bar-to-bar history
     of already-computed indicator values (via `Series`, mirrored from
     `domain/scripting/`) so `decide()` can detect crosses, and turning a bare
-    `(SignalAction, reason)` decision into the full `Signal` the engine
-    expects. A strategy never computes its own indicators — `StrategyEngine`
-    owns that so batch and incremental runs stay identical — so
-    `build_indicators()` only *describes* what it needs.
+    `(SignalAction, reason, metadata)` decision into the full `Signal` the
+    engine expects. A strategy never computes its own indicators —
+    `StrategyEngine` owns that so batch and incremental runs stay identical —
+    so `build_indicators()` only *describes* what it needs.
+
+    Subclasses that need configurable parameters (BOT-046) override `setup()`
+    and call `self.input_*()` there — the same declare-and-resolve mechanism
+    `BaseIndicatorScript` uses (BOT-044), reused via `domain/scripting/`
+    rather than shared through inheritance: the two base classes stay
+    deliberately separate (a strategy consumes pre-computed indicator values
+    and makes one decision per bar; a script computes its own values and
+    draws several kinds of output), but both need the same "describe a
+    parameter, get its resolved value" primitive.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, params: Mapping[str, Any] | None = None) -> None:
         self._series: dict[str, Series] = {}
+        self._inputs = InputDeclarations(dict(params) if params else None)
+
+        self.setup()
+
+        # Caught only after setup(), once every declaration has been made —
+        # see BaseIndicatorScript.__init__ for the identical reasoning.
+        unused = self._inputs.unused_param_names()
+        if unused:
+            raise ValueError(
+                f"{type(self).__name__} got param(s) it never declares: {list(unused)}"
+            )
+
+    def setup(self) -> None:
+        """Override to declare this strategy's parameters via `input_*()`.
+        Runs once per instance, before `build_indicators()`/`decide()` are
+        ever called. The default does nothing — a strategy with nothing to
+        configure needs no override."""
+
+    @property
+    def inputs(self) -> tuple[ScriptInput, ...]:
+        """What this strategy declares about its own parameters, in the
+        order `setup()` declared them. Empty for a strategy that declares
+        none."""
+        return self._inputs.declared
+
+    # ------------------------------------------------------------------ #
+    # Parameter declaration — call these from setup(). Each records the
+    # declaration (so a UI can build a form, BOT-047) AND returns the value
+    # to use, mirroring BaseIndicatorScript's input_*() (BOT-044).
+    # ------------------------------------------------------------------ #
+
+    def input_int(
+        self,
+        name: str,
+        default: int,
+        *,
+        label: str | None = None,
+        minval: int | None = None,
+        maxval: int | None = None,
+        group: str | None = None,
+        suffix: str | None = None,
+    ) -> int:
+        return self._inputs.declare(
+            build_input(
+                InputKind.INT, name, default, label, minval, maxval, None, group, suffix
+            )
+        )
+
+    def input_float(
+        self,
+        name: str,
+        default: float,
+        *,
+        label: str | None = None,
+        minval: float | None = None,
+        maxval: float | None = None,
+        group: str | None = None,
+        suffix: str | None = None,
+    ) -> float:
+        return self._inputs.declare(
+            build_input(
+                InputKind.FLOAT,
+                name,
+                default,
+                label,
+                minval,
+                maxval,
+                None,
+                group,
+                suffix,
+            )
+        )
+
+    def input_bool(
+        self,
+        name: str,
+        default: bool,
+        *,
+        label: str | None = None,
+        group: str | None = None,
+    ) -> bool:
+        return self._inputs.declare(
+            build_input(InputKind.BOOL, name, default, label, group=group)
+        )
+
+    def input_string(
+        self,
+        name: str,
+        default: str,
+        *,
+        options: Sequence[str] | None = None,
+        label: str | None = None,
+        group: str | None = None,
+    ) -> str:
+        return self._inputs.declare(
+            build_input(
+                InputKind.STRING, name, default, label, options=options, group=group
+            )
+        )
 
     def evaluate(self, context: StrategyContext) -> Signal:
         action, reason, metadata = self.decide(context)

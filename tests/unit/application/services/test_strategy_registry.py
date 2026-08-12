@@ -62,6 +62,19 @@ class _OtherStrategy(_DummyStrategy):
     pass
 
 
+class _ParameterisedStrategy(BaseStrategy):
+    """Declares a parameter, so `create(key, params)` has something to reach."""
+
+    def setup(self) -> None:
+        self.period = self.input_int("period", 20, minval=1)
+
+    def decide(self, context: StrategyContext) -> tuple[SignalAction, str]:
+        return self.hold()
+
+    def build_indicators(self) -> dict:
+        return {}
+
+
 @pytest.fixture
 def registry() -> StrategyRegistry:
     return StrategyRegistry()
@@ -77,6 +90,22 @@ def test_create_returns_a_fresh_instance_every_call(registry):
     registry.register("dummy", _DummyStrategy)
 
     assert registry.create("dummy") is not registry.create("dummy")
+
+
+def test_create_passes_params_through_to_the_strategy(registry):
+    """BOT-046: `params` reaches the strategy's `input_*()` declarations,
+    the same way `IndicatorScriptRegistry.create()` already does (BOT-044)."""
+    registry.register("parameterised", _ParameterisedStrategy)
+
+    strategy = registry.create("parameterised", {"period": 5})
+
+    assert strategy.period == 5
+
+
+def test_create_without_params_uses_the_strategys_own_defaults(registry):
+    registry.register("parameterised", _ParameterisedStrategy)
+
+    assert registry.create("parameterised").period == 20
 
 
 def test_duplicate_key_raises_instead_of_silently_overwriting(registry):

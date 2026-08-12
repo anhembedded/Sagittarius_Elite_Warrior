@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.strategies import BaseStrategy
 
@@ -34,13 +35,18 @@ class StrategyRegistry:
             )
         self._strategies[key] = strategy_cls
 
-    def create(self, key: str) -> BaseStrategy:
-        """Always a new instance — a strategy tracks cross-detection state in
-        its own `Series`, so a fresh run needs a fresh object."""
+    def create(self, key: str, params: Mapping[str, Any] | None = None) -> BaseStrategy:
+        """
+        @brief Builds a fresh strategy instance.
+        @param params Values for the parameters the strategy declares via
+        `input_*()` in setup() (BOT-046). None uses every declared default.
+        @details Always a new instance — a strategy tracks cross-detection
+        state in its own `Series`, so a fresh run needs a fresh object.
+        """
         strategy_cls = self._strategies.get(key)
         if strategy_cls is None:
             raise KeyError(f"No strategy registered under key {key!r}")
-        return strategy_cls()
+        return strategy_cls(params)
 
     def available(self) -> Mapping[str, type[BaseStrategy]]:
         """Returns a copy, so a caller iterating this can't mutate the registry."""

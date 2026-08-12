@@ -105,7 +105,7 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 | Task | Mô tả ngắn |
 | :--- | :--- |
 | [`BOT-044`](../completed/BOT-044_param_schema_core.md) | **Param Schema Core** — value object + API `input_int/float/bool/string()` trên `BaseIndicatorScript`, cơ chế 2 pha (khai báo → đọc schema → tạo lại với params). ⚠️ Đảo ngược `BOT-032` §9.1. |
-| [`BOT-046`](BOT-046_strategy_param_plumbing.md) | Mang cơ chế đó sang `BaseStrategy` + nối `StrategyRegistry.create(params)` / `build_engine(params)`. |
+| [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) | Mang cơ chế đó sang `BaseStrategy` + nối `StrategyRegistry.create(params)` / `build_engine(params)`. |
 | [`BOT-047`](BOT-047_dynamic_params_form_ui.md) | Modal "Cấu hình Thông số Bot" dựng form **động** từ schema (4 kiểu widget, nhóm field, "Khôi phục Mặc định", "Lưu & Re-Backtest"). |
 | [`BOT-048`](BOT-048_migrate_default_scripts_to_inputs.md) | Chuyển 6 script mặc định sang khai báo period bằng input (**giữ nguyên cả 6**, default 20/50/100/200/14 — user đã chốt). |
 

@@ -37,3 +37,23 @@ def test_build_engine_raises_for_an_unregistered_key():
 
     with pytest.raises(KeyError):
         build_engine(registry, "nope", event_bus=Mock())
+
+
+def test_build_engine_passes_params_through_and_builds_indicators_from_them():
+    """BOT-046: a custom period supplied through `build_engine()` must reach
+    the actual `EMA` instances the engine runs — not just the strategy's own
+    `self._fast_period` attribute."""
+    registry = StrategyRegistry()
+    registry.register("ema_crossover", EmaCrossoverStrategy)
+
+    engine = build_engine(
+        registry,
+        "ema_crossover",
+        event_bus=Mock(),
+        params={"fast_period": 7, "slow_period": 21},
+    )
+
+    fast = engine._indicators[EmaCrossoverStrategy.FAST_KEY]
+    slow = engine._indicators[EmaCrossoverStrategy.SLOW_KEY]
+    assert fast._period == 7
+    assert slow._period == 21

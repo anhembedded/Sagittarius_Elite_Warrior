@@ -32,7 +32,7 @@ mockup user cung cấp.
   (`BOT-032`). ⚠️ Lưu ý: EMA của **indicator script** không nhất thiết cùng
   period với EMA mà **strategy** đang backtest — nếu lệch dễ gây hiểu nhầm.
   Ghi chú rõ trong UI, hoặc đồng bộ period nếu làm được sau
-  [`BOT-046`](../backlog/BOT-046_strategy_param_plumbing.md).
+  [`BOT-046`](BOT-046_strategy_param_plumbing.md).
 - [ ] **Buy/Sell Flags** — marker tại `entry_time`/`entry_price` và
   `exit_time`/`exit_price` từ `BacktestResult.trades`, vẽ qua
   `set_script_markers` (hạ tầng sẵn có từ `BOT-032`). Hiện chỉ có nhãn LONG;

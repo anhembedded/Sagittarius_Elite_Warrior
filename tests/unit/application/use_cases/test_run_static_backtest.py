@@ -43,8 +43,7 @@ class _ScriptedStrategy(BaseStrategy):
         5: SignalAction.SELL,
     }
 
-    def __init__(self) -> None:
-        super().__init__()
+    def setup(self) -> None:
         self._call_index = 0
 
     def build_indicators(self) -> dict:
