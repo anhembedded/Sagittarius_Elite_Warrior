@@ -89,9 +89,9 @@ class ChartPlotLayout:
         self.sub_plots.append(sub_plot)
         self.plots.append(sub_plot)
         self._next_row += 1
-        
+
         self._update_x_axes()
-        
+
         return sub_plot
 
     def remove_subplot(self, sub_plot: pg.PlotItem) -> None:
@@ -110,7 +110,7 @@ class ChartPlotLayout:
         self.sub_plots.remove(sub_plot)
         self.plots.remove(sub_plot)
         self.widget.removeItem(sub_plot)
-        
+
         self._update_x_axes()
 
     def clear(self) -> None:
