@@ -46,6 +46,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
@@ -79,6 +80,18 @@ class _FakeStrategy(BaseStrategy):
 
     def build_indicators(self):
         return {}
+
+
+class _EmaIndicatorStrategy(BaseStrategy):
+    """A strategy that actually declares indicators (BOT-060) — unlike
+    `_FakeStrategy`, whose empty `build_indicators()` is deliberate so it
+    doesn't perturb tests that don't care about chart overlays."""
+
+    def build_indicators(self):
+        return {"ema_fast": EMA(1), "ema_slow": EMA(1)}
+
+    def decide(self, context):
+        return self.hold()
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -1053,11 +1066,12 @@ def test_switching_away_from_both_mode_removes_the_equity_subplot(
     assert presenter.view._equity_subplot_added is False
 
 
-def test_ema_toggle_is_a_no_op_when_the_script_is_not_registered(
+def test_ema_toggle_is_a_no_op_when_the_strategy_declares_no_indicators(
     presenter, view_model, mock_dispatcher
 ):
-    """ema_ribbon isn't in the (deliberately empty) test registry — proves
-    the toggle path degrades safely instead of crashing on a missing key."""
+    """`_FakeStrategy` (the shared fixture's registered strategy) declares
+    no indicators (BOT-060) — proves the toggle path degrades safely
+    instead of crashing when there is nothing drawn to show/hide."""
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result(with_trades=True), klines=_make_klines()
@@ -1067,23 +1081,81 @@ def test_ema_toggle_is_a_no_op_when_the_script_is_not_registered(
     presenter.view.chart_controls.sig_ema_toggled.emit(False)  # must not raise
 
 
-def test_clear_from_chart_is_called_before_each_new_run_not_after(
+def test_active_strategy_lines_are_cleared_before_each_new_run_not_after(
     presenter, view_model
 ):
-    """Regression test (found by running the app): clearing the previous
-    run's chart overlays must happen synchronously in _on_run_backtest (main
-    thread, before the background run even starts). Calling it later, after
-    IndicatorScriptRunner.rebuild() has already replaced `.active` on the
-    background thread, is a no-op — the old EMA curves/legend entries pile
-    up run after run instead of being replaced."""
-    presenter._chart_script_runner.clear_from_chart = Mock()
+    """Regression test (found by running the app, predates BOT-060):
+    clearing the previous run's chart overlays must happen synchronously in
+    _on_run_backtest (main thread, before the background run even starts).
+    Calling it later, after the background thread has already started
+    drawing the new run's lines, would race and could remove lines the new
+    run just added instead of the old run's stale ones."""
+    card = presenter.view.chart_cards[0]
+    card.remove_indicator = Mock()
+    presenter._active_strategy_lines = {"ema_fast", "ema_slow"}
 
     view_model.requestRun()
-    assert presenter._chart_script_runner.clear_from_chart.call_count == 1
+
+    assert card.remove_indicator.call_count == 2
+    card.remove_indicator.assert_any_call("ema_fast")
+    card.remove_indicator.assert_any_call("ema_slow")
+    assert presenter._active_strategy_lines == set()
 
     presenter.fsm.transition_to(BacktestUiState.IDLE)
+    presenter._active_strategy_lines = {"ema_fast"}
     view_model.requestRun()
-    assert presenter._chart_script_runner.clear_from_chart.call_count == 2
+
+    assert card.remove_indicator.call_count == 3
+    assert presenter._active_strategy_lines == set()
+
+
+def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-060: the chart must draw whatever the BACKTESTED strategy itself
+    declares via build_indicators() — not a fixed, unrelated indicator
+    script (the bug the user reported: Buy/Sell markers not lining up with
+    anything drawn)."""
+    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    view_model.selectedStrategyKey = "ema_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    assert config.strategy_key == "ema_strategy"
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    assert presenter._active_strategy_lines == {"ema_fast", "ema_slow"}
+    added_names = {call.args[0] for call in card.add_overlay_indicator.call_args_list}
+    assert added_names == {"ema_fast", "ema_slow"}
+    updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
+    assert updated_names == {"ema_fast", "ema_slow"}
+
+
+def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
+    presenter, view_model, mock_dispatcher
+):
+    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    view_model.selectedStrategyKey = "ema_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card.set_indicator_visible = Mock()
+
+    presenter.view.chart_controls.sig_ema_toggled.emit(False)
+
+    hidden_names = {call.args[0] for call in card.set_indicator_visible.call_args_list}
+    assert hidden_names == {"ema_fast", "ema_slow"}
+    assert all(
+        call.args[1] is False for call in card.set_indicator_visible.call_args_list
+    )
 
 
 def test_mode_buttons_switch_the_chart_mode_end_to_end(

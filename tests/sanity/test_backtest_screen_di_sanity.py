@@ -12,9 +12,6 @@ from unittest.mock import patch
 
 import pytest
 
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -98,14 +95,3 @@ def test_strategy_registry_has_the_default_backtest_strategy(booted_app):
     depend on at least one strategy being registered."""
     registry = booted_app.context.container.resolve(StrategyRegistry)
     assert "ema_crossover" in registry.available()
-
-
-def test_indicator_script_registry_has_the_chart_ema_overlay_script(booted_app):
-    """The Backtest Chart Canvas's "4 EMA" overlay (BOT-056) hardcodes the
-    key `"ema_ribbon"` (`backtest_presenter.py`'s `_CHART_EMA_SCRIPT_KEY`) —
-    if that script is ever renamed/dropped from `binance_bot_module.py`, the
-    overlay goes silently quiet instead of failing loudly
-    (`IndicatorScriptRunner.rebuild()` only logs a warning on an unknown key,
-    it never raises). Pin the key here so a rename shows up immediately."""
-    registry = booted_app.context.container.resolve(IndicatorScriptRegistry)
-    assert "ema_ribbon" in registry.available()
