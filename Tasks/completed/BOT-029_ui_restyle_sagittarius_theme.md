@@ -1,3 +1,9 @@
+---
+id: "BOT-029"
+title: "Nhiệm vụ: UI Restyle — Theme "Sagittarius Elite Warrior""
+status: "completed"
+---
+
 # Nhiệm vụ: UI Restyle — Theme "Sagittarius Elite Warrior"
 
 ## 1. Mục tiêu (Objective)

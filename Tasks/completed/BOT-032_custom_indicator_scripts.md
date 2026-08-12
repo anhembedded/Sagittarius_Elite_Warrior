@@ -1,3 +1,9 @@
+---
+id: "BOT-032"
+title: "Nhiệm vụ: Custom Indicator Scripts (kiểu Pine Script, thuần Python)"
+status: "completed"
+---
+
 # Nhiệm vụ: Custom Indicator Scripts (kiểu Pine Script, thuần Python)
 
 > **Đọc file này trước khi code.** Phase 0-6 **đã xong toàn bộ**. `BOT-032` chỉ còn phần đã

@@ -1,3 +1,9 @@
+---
+id: "BOT-015"
+title: "📋 BOT-015: Đánh giá & Chuẩn hóa Quy trình Quản lý Chất lượng (QA & Testing Strategy Audit)"
+status: "completed"
+---
+
 # 📋 BOT-015: Đánh giá & Chuẩn hóa Quy trình Quản lý Chất lượng (QA & Testing Strategy Audit)
 
 > [!IMPORTANT]

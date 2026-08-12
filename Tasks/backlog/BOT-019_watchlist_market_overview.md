@@ -1,3 +1,9 @@
+---
+id: "BOT-019"
+title: "Nhiệm vụ: Watchlist / Market Overview"
+status: "backlog"
+---
+
 # Nhiệm vụ: Watchlist / Market Overview
 
 ## 1. Mục tiêu (Objective)

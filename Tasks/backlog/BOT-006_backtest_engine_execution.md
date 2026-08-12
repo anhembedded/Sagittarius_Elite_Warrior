@@ -1,3 +1,9 @@
+---
+id: "BOT-006"
+title: "Epic: Backtest Engine — Màn hình Backtest Thực thụ"
+status: "backlog"
+---
+
 # Epic: Backtest Engine — Màn hình Backtest Thực thụ
 
 ## 1. Mục tiêu (Objective)

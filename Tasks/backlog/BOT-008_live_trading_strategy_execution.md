@@ -1,3 +1,9 @@
+---
+id: "BOT-008"
+title: "Nhiệm vụ: Xây dựng Module Chiến lược Live Trading & Tín hiệu Giao dịch"
+status: "backlog"
+---
+
 # Nhiệm vụ: Xây dựng Module Chiến lược Live Trading & Tín hiệu Giao dịch
 
 ## 1. Mục tiêu (Objective)

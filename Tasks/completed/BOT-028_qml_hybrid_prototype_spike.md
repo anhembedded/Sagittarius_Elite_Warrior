@@ -1,3 +1,9 @@
+---
+id: "BOT-028"
+title: "Nhiệm vụ: QML Hybrid Prototype Spike — Settings Screen"
+status: "completed"
+---
+
 # Nhiệm vụ: QML Hybrid Prototype Spike — Settings Screen
 
 ## 1. Mục tiêu (Objective)

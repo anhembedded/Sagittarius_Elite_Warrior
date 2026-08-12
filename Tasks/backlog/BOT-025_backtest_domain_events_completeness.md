@@ -1,3 +1,9 @@
+---
+id: "BOT-025"
+title: "Nhiệm vụ: Backtest Domain Events — Completeness Pass"
+status: "backlog"
+---
+
 # Nhiệm vụ: Backtest Domain Events — Completeness Pass
 
 > Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Cross-cutting. Phụ thuộc `BOT-021`, `BOT-023` (làm **sau** khi cả 2 đã có code thật để rà soát).

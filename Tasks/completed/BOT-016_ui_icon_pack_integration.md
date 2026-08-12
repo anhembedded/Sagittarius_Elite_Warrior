@@ -1,3 +1,9 @@
+---
+id: "BOT-016"
+title: "📋 BOT-016: Tích hợp Bộ Icon Pack Free (Lucide/Feather SVG từ GitHub) & Quản lý Assets UI"
+status: "completed"
+---
+
 # 📋 BOT-016: Tích hợp Bộ Icon Pack Free (Lucide/Feather SVG từ GitHub) & Quản lý Assets UI
 
 > [!IMPORTANT]

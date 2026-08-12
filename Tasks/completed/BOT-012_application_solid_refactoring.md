@@ -1,3 +1,9 @@
+---
+id: "BOT-012"
+title: "Nhiệm vụ: Refactor Lớp Application Chuẩn SOLID & Loại bỏ Primitive Obsession"
+status: "completed"
+---
+
 # Nhiệm vụ: Refactor Lớp Application Chuẩn SOLID & Loại bỏ Primitive Obsession
 
 ## 1. Mục tiêu (Objective)

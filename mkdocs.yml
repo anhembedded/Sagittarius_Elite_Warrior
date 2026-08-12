@@ -1,0 +1,84 @@
+site_name: Sagittarius Elite Warrior Tasks
+site_description: Task tracking and documentation for Sagittarius-Elite-Warrior
+docs_dir: Tasks
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - search.share
+
+nav:
+  - Bảng Điều Khiển: index.md
+  - 🚀 Đang Làm (In Progress):
+    - in_progress/BOT-033_qml_user_actions.md
+  - 📋 Chờ Thực Hiện (Backlog):
+    - backlog/BOT-006_backtest_engine_execution.md
+    - backlog/BOT-008_live_trading_strategy_execution.md
+    - backlog/BOT-011_chart_tradingview_tier3_advanced.md
+    - backlog/BOT-017_settings_screen.md
+    - backlog/BOT-018_notifications_alerting.md
+    - backlog/BOT-019_watchlist_market_overview.md
+    - backlog/BOT-021_static_backtest_execution_engine.md
+    - backlog/BOT-022_backtest_screen_static_ui.md
+    - backlog/BOT-023_dynamic_backtest_engine.md
+    - backlog/BOT-024_backtest_screen_dynamic_ui.md
+    - backlog/BOT-025_backtest_domain_events_completeness.md
+    - backlog/BOT-026_dev_board_strategy_signals_and_markers.md
+    - backlog/BOT-027_fix_concurrent_load_history_race_condition.md
+    - backlog/BOT-031_ui_preview_convention_and_tool.md
+    - backlog/BOT-035_dev_board_load_more_on_scroll.md
+    - backlog/BOT-036_indicator_feed_batching.md
+    - backlog/BOT-037_ui_srp_audit_and_extraction.md
+  - ✅ Đã Hoàn Thành (Completed):
+    - completed/BOT-001_data_synchronizer.md
+    - completed/BOT-002_ui_dashboard.md
+    - completed/BOT-004_data_management_screen.md
+    - completed/BOT-005_live_charting.md
+    - completed/BOT-007_ui_theme_config_optimization.md
+    - completed/BOT-009_chart_tradingview_tier1_ux.md
+    - completed/BOT-010_chart_tradingview_tier2_chrome.md
+    - completed/BOT-012_application_solid_refactoring.md
+    - completed/BOT-013_infrastructure_solid_refactoring.md
+    - completed/BOT-014_dev_board_single_chart.md
+    - completed/BOT-015_qa_testing_strategy_audit.md
+    - completed/BOT-016_ui_icon_pack_integration.md
+    - completed/BOT-020_indicator_strategy_engine_core.md
+    - completed/BOT-028_qml_hybrid_prototype_spike.md
+    - completed/BOT-029_ui_restyle_sagittarius_theme.md
+    - completed/BOT-030_full_qml_migration.md
+    - completed/BOT-032_custom_indicator_scripts.md
+    - completed/BOT-034_dev_board_autostart_and_data_lifecycle.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tasklist:
+      custom_checkbox: true

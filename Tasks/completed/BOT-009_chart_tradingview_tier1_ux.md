@@ -1,3 +1,9 @@
+---
+id: "BOT-009"
+title: "Nhiệm vụ: TradingView Chart Enhancements - Tier 1 (Core UX & Volume)"
+status: "completed"
+---
+
 # Nhiệm vụ: TradingView Chart Enhancements - Tier 1 (Core UX & Volume)
 
 ## 1. Mục tiêu (Objective)

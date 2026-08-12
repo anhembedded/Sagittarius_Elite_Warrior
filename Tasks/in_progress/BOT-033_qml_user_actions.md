@@ -1,3 +1,9 @@
+---
+id: "BOT-033"
+title: "Nhiệm vụ: Hoàn thiện thao tác người dùng trên QML"
+status: "in_progress"
+---
+
 # Nhiệm vụ: Hoàn thiện thao tác người dùng trên QML
 
 ## 1. Mục tiêu

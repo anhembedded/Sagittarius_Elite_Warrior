@@ -1,3 +1,9 @@
+---
+id: "BOT-027"
+title: "Nhiệm vụ: Fix Race Condition khi bấm "Load History" nhiều lần liên tiếp"
+status: "backlog"
+---
+
 # Nhiệm vụ: Fix Race Condition khi bấm "Load History" nhiều lần liên tiếp
 
 ## 1. Mục tiêu (Objective)

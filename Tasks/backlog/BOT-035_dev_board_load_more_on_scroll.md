@@ -1,3 +1,9 @@
+---
+id: "BOT-035"
+title: "Nhiệm vụ: Dev Board — Tự tải thêm dữ liệu cũ khi kéo/scroll ra rìa trái chart (US-04)  *(ĐÃ XONG — Phase 1)*"
+status: "backlog"
+---
+
 # Nhiệm vụ: Dev Board — Tự tải thêm dữ liệu cũ khi kéo/scroll ra rìa trái chart (US-04)  *(ĐÃ XONG — Phase 1)*
 
 > **Đọc file này trước khi code.** 3 câu hỏi mở ở §2.1 **đã được user chốt** — sẵn sàng implement,

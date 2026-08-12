@@ -1,3 +1,9 @@
+---
+id: "BOT-011"
+title: "Nhiệm vụ: TradingView Chart Enhancements - Tier 3 (Drawing Tools & Advanced Context Menu)"
+status: "backlog"
+---
+
 # Nhiệm vụ: TradingView Chart Enhancements - Tier 3 (Drawing Tools & Advanced Context Menu)
 
 ## 1. Mục tiêu (Objective)

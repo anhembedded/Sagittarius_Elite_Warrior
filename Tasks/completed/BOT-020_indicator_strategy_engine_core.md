@@ -1,3 +1,9 @@
+---
+id: "BOT-020"
+title: "Nhiệm vụ: Indicator & Strategy Engine (Core) — Phase 0"
+status: "completed"
+---
+
 # Nhiệm vụ: Indicator & Strategy Engine (Core) — Phase 0
 
 > Thuộc Epic [BOT-006 — Backtest Engine](../backlog/BOT-006_backtest_engine_execution.md), Phase 0 (Nền tảng dùng chung).

@@ -138,3 +138,7 @@ tempCodeRunnerFile.py
 # Custom Database for Binace_Bot
 database/
 *.db
+
+# MkDocs & Generated Dashboard
+site/
+Tasks/dashboard.html

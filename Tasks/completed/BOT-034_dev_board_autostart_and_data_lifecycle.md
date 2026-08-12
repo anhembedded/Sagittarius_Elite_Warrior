@@ -1,3 +1,9 @@
+---
+id: "BOT-034"
+title: "Nhiệm vụ: Dev Board — Timeframe thật, Auto-start Live, Render-window tách khỏi Fetch-amount"
+status: "completed"
+---
+
 # Nhiệm vụ: Dev Board — Timeframe thật, Auto-start Live, Render-window tách khỏi Fetch-amount
 
 > **Đọc file này trước khi code.** Đây là task **tư vấn → đã chốt toàn bộ**, xem lại

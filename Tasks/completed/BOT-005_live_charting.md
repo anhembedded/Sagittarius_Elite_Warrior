@@ -1,3 +1,9 @@
+---
+id: "BOT-005"
+title: "Nhiệm vụ: Tích hợp Vẽ Biểu Đồ (Live Charting) Real-time"
+status: "completed"
+---
+
 # Nhiệm vụ: Tích hợp Vẽ Biểu Đồ (Live Charting) Real-time
 
 ## 1. Mục tiêu (Objective)

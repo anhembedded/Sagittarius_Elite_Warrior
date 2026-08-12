@@ -1,3 +1,9 @@
+---
+id: "BOT-037"
+title: "Nhiệm vụ: SOLID/SRP audit cho `src/presentation/ui` — TRẠNG THÁI: HOÀN THÀNH (Phase 1 & Phase 2)"
+status: "backlog"
+---
+
 # Nhiệm vụ: SOLID/SRP audit cho `src/presentation/ui` — TRẠNG THÁI: HOÀN THÀNH (Phase 1 & Phase 2)
 
 > **Đã hoàn thành ngày 10/08/2026.** Cả Phase 1 (tách SignalLogHandler + kline_mapping) và Phase 2 (tách StreamLifecycleController) đã được thực hiện, test suite xanh 100%, pass ruff check & ruff format.

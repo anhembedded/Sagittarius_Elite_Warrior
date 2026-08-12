@@ -1,3 +1,9 @@
+---
+id: "BOT-013"
+title: "Nhiệm vụ: Refactor Lớp Infrastructure Chuẩn SOLID & Bổ sung Unit Tests"
+status: "completed"
+---
+
 # Nhiệm vụ: Refactor Lớp Infrastructure Chuẩn SOLID & Bổ sung Unit Tests
 
 ## 1. Mục tiêu (Objective)

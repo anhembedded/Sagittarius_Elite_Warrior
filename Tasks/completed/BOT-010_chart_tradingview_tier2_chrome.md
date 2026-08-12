@@ -1,3 +1,9 @@
+---
+id: "BOT-010"
+title: "Nhiệm vụ: TradingView Chart Enhancements - Tier 2 (Toolbar & Trade Markers)"
+status: "completed"
+---
+
 # Nhiệm vụ: TradingView Chart Enhancements - Tier 2 (Toolbar & Trade Markers)
 
 ## 1. Mục tiêu (Objective)

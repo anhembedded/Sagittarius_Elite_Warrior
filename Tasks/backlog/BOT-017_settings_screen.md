@@ -1,3 +1,9 @@
+---
+id: "BOT-017"
+title: "Nhiệm vụ: Settings Screen (Cấu hình qua UI)"
+status: "backlog"
+---
+
 # Nhiệm vụ: Settings Screen (Cấu hình qua UI)
 
 ## 1. Mục tiêu (Objective)

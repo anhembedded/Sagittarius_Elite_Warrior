@@ -1,3 +1,9 @@
+---
+id: "BOT-026"
+title: "Nhiệm vụ: Concrete Strategy + Buy/Sell Signal Markers trên Dev Board"
+status: "backlog"
+---
+
 # Nhiệm vụ: Concrete Strategy + Buy/Sell Signal Markers trên Dev Board
 
 ## 1. Mục tiêu (Objective)

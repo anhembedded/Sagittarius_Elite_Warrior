@@ -1,3 +1,9 @@
+---
+id: "BOT-036"
+title: "Nhiệm vụ: Gộp tín hiệu (Batching) khi replay lịch sử cho indicator script"
+status: "backlog"
+---
+
 # Nhiệm vụ: Gộp tín hiệu (Batching) khi replay lịch sử cho indicator script
 
 > **Đọc hết file này trước khi code.** Task này **đã được phân tích và chốt thiết kế** — không cần

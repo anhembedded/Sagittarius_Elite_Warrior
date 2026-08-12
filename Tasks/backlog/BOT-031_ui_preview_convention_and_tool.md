@@ -1,3 +1,9 @@
+---
+id: "BOT-031"
+title: "Nhiệm vụ: UI Preview Convention — "mỗi View có 1 file mock preview" + tool auto-discover"
+status: "backlog"
+---
+
 # Nhiệm vụ: UI Preview Convention — "mỗi View có 1 file mock preview" + tool auto-discover
 
 ## 1. Mục tiêu (Objective)

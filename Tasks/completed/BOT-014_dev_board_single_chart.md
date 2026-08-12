@@ -1,3 +1,9 @@
+---
+id: "BOT-014"
+title: "Nhiệm vụ: Chuyển Dashboard thành Dev Board & Đổi Mặc định 1 Biểu đồ ETHUSDT"
+status: "completed"
+---
+
 # Nhiệm vụ: Chuyển Dashboard thành Dev Board & Đổi Mặc định 1 Biểu đồ ETHUSDT
 
 ## 1. Mục tiêu (Objective)

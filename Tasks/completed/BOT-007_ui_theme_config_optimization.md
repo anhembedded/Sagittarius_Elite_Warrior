@@ -1,3 +1,9 @@
+---
+id: "BOT-007"
+title: "Nhiệm vụ: Tối ưu hóa UI Theme, Card Components & Layout Config"
+status: "completed"
+---
+
 # Nhiệm vụ: Tối ưu hóa UI Theme, Card Components & Layout Config
 
 ## 1. Mục tiêu (Objective)

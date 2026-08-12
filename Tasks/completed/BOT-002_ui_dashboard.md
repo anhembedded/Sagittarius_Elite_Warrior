@@ -1,3 +1,9 @@
+---
+id: "BOT-002"
+title: "Phase 5: UI Dashboard (Simple Demo)"
+status: "completed"
+---
+
 # Phase 5: UI Dashboard (Simple Demo)
 
 - **Status**: 🟡 In Progress

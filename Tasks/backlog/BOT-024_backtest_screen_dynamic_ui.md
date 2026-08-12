@@ -1,3 +1,9 @@
+---
+id: "BOT-024"
+title: "Nhiệm vụ: Backtest Screen — Dynamic Replay UI — Phase 2"
+status: "backlog"
+---
+
 # Nhiệm vụ: Backtest Screen — Dynamic Replay UI — Phase 2
 
 > Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 2 (Dynamic). Phụ thuộc `BOT-022`, `BOT-023`.

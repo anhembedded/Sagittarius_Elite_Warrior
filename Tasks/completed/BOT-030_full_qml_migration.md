@@ -1,3 +1,9 @@
+---
+id: "BOT-030"
+title: "Nhiệm vụ: Full QML Migration (chart giữ QtWidgets)"
+status: "completed"
+---
+
 # Nhiệm vụ: Full QML Migration (chart giữ QtWidgets)
 
 ## 1. Mục tiêu (Objective)

@@ -1,3 +1,9 @@
+---
+id: "BOT-023"
+title: "Nhiệm vụ: Dynamic Backtest Engine — Paper Exchange & Virtual Event Loop — Phase 2"
+status: "backlog"
+---
+
 # Nhiệm vụ: Dynamic Backtest Engine — Paper Exchange & Virtual Event Loop — Phase 2
 
 > Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 2 (Dynamic). Phụ thuộc `BOT-020`, `BOT-021`. Nên bắt đầu **sau khi** Phase 1 (`BOT-021`/`BOT-022`) chạy đúng và có unit test đầy đủ.

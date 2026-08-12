@@ -1,3 +1,9 @@
+---
+id: "BOT-001"
+title: "Phase 1: Data Synchronizer"
+status: "completed"
+---
+
 # Phase 1: Data Synchronizer
 
 - **Status**: ✅ Completed

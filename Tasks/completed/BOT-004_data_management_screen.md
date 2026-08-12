@@ -1,3 +1,9 @@
+---
+id: "BOT-004"
+title: "Nhiệm vụ: Tích hợp Giao diện Data Management (Quản lý Dữ liệu)"
+status: "completed"
+---
+
 # Nhiệm vụ: Tích hợp Giao diện Data Management (Quản lý Dữ liệu)
 
 ## 1. Mục tiêu (Objective)

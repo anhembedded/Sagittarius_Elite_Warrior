@@ -1,3 +1,9 @@
+---
+id: "BOT-022"
+title: "Nhiệm vụ: Backtest Screen — Static UI — Phase 1"
+status: "backlog"
+---
+
 # Nhiệm vụ: Backtest Screen — Static UI — Phase 1
 
 > Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 1 (Static). Phụ thuộc `BOT-021`.
