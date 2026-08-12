@@ -1,0 +1,113 @@
+# Nhiệm vụ: Backtest Screen — Nút "Đồng bộ ngay" khi thiếu dữ liệu lịch sử
+
+> Thuộc Epic [BOT-040 — Backtest Screen Full Feature Set](BOT-040_backtest_screen_full_feature_epic.md), Nhóm D (nối tiếp `BOT-022`). Phụ thuộc `BOT-022` ✅, khuyến nghị làm sau `BOT-058` (dùng chung symbol/interval mặc định từ config).
+
+## 1. Mục tiêu (Objective)
+
+Backtest là **tính năng chính**, không được phép phụ thuộc ngầm vào việc
+user đã lỡ mở Dev Board (hay Data Management) để sync dữ liệu trước đó.
+Hiện tại, khi DB chưa có dữ liệu cho symbol/interval/khoảng thời gian đã
+chọn, `RunStaticBacktestCommandHandler` trả `None` và màn hình chỉ hiện
+dòng chữ tĩnh "Không có dữ liệu lịch sử... Hãy sync dữ liệu trước." — **ngõ
+cụt**, user phải tự rời màn hình, đoán ra cần đi đâu để sync (Data
+Management), rồi quay lại. Task này thêm 1 nút hành động ngay trong màn
+Backtest để tự đóng vòng lặp đó.
+
+**Quyết định UX đã chốt**: **không** tự động sync ngầm khi bấm "Chạy
+Backtest" (im lặng gọi API Binance tốn network/rate-limit mà user không biết)
+— hiện rõ 1 nút hành động, user **chủ động** bấm mới sync.
+
+## 2. Mô tả (Description)
+
+`SyncMarketDataCommand` (`src/application/use_cases/sync/sync_market_data/`)
+đã có sẵn, đã dùng ở Data Management screen
+(`data_management_presenter.py::_run_single_sync`, dòng ~280 — dùng làm mẫu
+tham khảo threading, KHÔNG copy nguyên progress-bar/event phức tạp của nó,
+Backtest chỉ cần biết xong hay chưa xong):
+```python
+cmd = SyncMarketDataCommand(
+    symbols=[symbol], interval=TimeFrame(interval),
+    start_time=start_time, end_time=end_time,
+)
+self.dispatcher.dispatch(SyncMarketDataCommand, cmd)  # trả về None, block tới khi xong
+```
+`execute()` chạy đồng bộ (block hết thời gian gọi Binance + ghi DB), **không**
+trả kết quả — biết "xong" bằng việc `dispatch()` return mà không raise. Có
+phát `SingleSyncProgressEvent` qua `IEventBus` để vẽ progress bar (Data
+Management dùng) — task này **không bắt buộc** phải vẽ progress bar, chỉ
+cần trạng thái "đang đồng bộ.../xong" đơn giản (xem mục 5, có thể để task
+sau nếu muốn progress bar đẹp).
+
+## 3. Các bước thực hiện (Action Items)
+
+- [ ] `BackTestViewModel`: thêm `needsDataSync: bool` (đọc, Python ghi) +
+  `isSyncing: bool` (đọc, Python ghi) + `syncRequested = Signal()` (QML gọi
+  qua `requestSync()` Slot, giống `runBacktestRequested`/`requestRun()` đã
+  có).
+- [ ] `BackTestPresenter`: cache `self._last_no_data_config:
+  BacktestRunConfig | None` mỗi lần `_on_backtest_empty` được gọi **vì
+  không có dữ liệu** (phân biệt với ca "0 trade" — xem action item tiếp
+  theo) — cần giá trị này để biết sync đúng symbol/interval/khoảng thời gian
+  nào khi user bấm nút.
+- [ ] **Phải tách 2 nhánh** hiện đang gộp chung trong `_run_backtest`:
+    - "Không có dữ liệu lịch sử" (`result is None`) → set `needsDataSync =
+      True`, cache config, **KHÔNG** còn dùng chung message với ca dưới.
+    - "0 trade nhưng có dữ liệu" (`result` không `None`, `result.trades`
+      rỗng) → `needsDataSync = False` — đây vẫn là kết quả hợp lệ, không
+      phải thiếu dữ liệu.
+  (Có thể cần 2 signal riêng thay vì gộp `_backtestEmptySignal` như hiện tại,
+  hoặc thêm tham số phân biệt — tuỳ người implement chọn cách rõ ràng nhất,
+  miễn giữ đúng phân biệt này.)
+- [ ] `_on_request_sync` (slot mới, nối `view_model.syncRequested`): guard
+  bỏ qua nếu `self._last_no_data_config is None` hoặc `isSyncing` đã `True`.
+  Set `isSyncing = True`, `self._thread_manager.submit(self._run_sync,
+  self._last_no_data_config)`.
+- [ ] `_run_sync` (method nền mới, submit qua `IThreadManager`, **chỉ được
+  emit signal, không đụng ViewModel trực tiếp** — đúng threading contract
+  của `_run_backtest`): dispatch `SyncMarketDataCommand` với đúng
+  symbol/interval/`start_time`/`end_time` từ config đã cache; try/except
+  quanh dispatch, emit `_syncSucceededSignal`/`_syncFailedSignal(message)`.
+- [ ] Khi sync thành công: set `isSyncing = False`, `needsDataSync = False`,
+  cập nhật `resultText` báo đã đồng bộ xong, rồi **tự động gọi lại
+  `_on_run_backtest()` 1 lần** với cấu hình hiện tại của toolbar (không phải
+  config đã cache — user có thể đã đổi field khác trong lúc chờ sync). Quyết
+  định: **tự chạy lại** vì user đã bấm "Chạy Backtest" 1 lần rồi — sync chỉ
+  là bước điều kiện tiên quyết được chèn vào, không phải 1 hành động user
+  yêu cầu độc lập. Nếu thấy tự động chạy lại gây khó hiểu khi implement,
+  ghi rõ lý do đổi quyết định trong PR thay vì tự ý âm thầm bỏ qua bước này.
+- [ ] Khi sync lỗi: set `isSyncing = False`, `needsDataSync` giữ `True` (cho
+  phép bấm lại), hiện lỗi trong `resultText`.
+- [ ] `BackTestTopPanel.qml`: trong nhánh hiển thị khi `primaryStatCards`
+  rỗng (khu vực `txtBacktestResult` hiện có), thêm 1 `Button` "Đồng bộ ngay"
+  — chỉ `visible` khi `viewModel.needsDataSync`, `enabled: !viewModel.
+  isSyncing`, text đổi thành "Đang đồng bộ..." khi `isSyncing`, `onClicked:
+  viewModel.requestSync()`.
+- [ ] Unit test: ca thiếu dữ liệu → `needsDataSync` bật, bấm
+  `requestSync()` → `mock_thread_mgr.submit` gọi đúng `_run_sync` với đúng
+  config đã cache; `_run_sync` dispatch đúng `SyncMarketDataCommand`; sync
+  thành công → `needsDataSync` tắt + `_run_backtest`/dispatch
+  `RunStaticBacktestCommand` được gọi lại lần 2 tự động; sync lỗi →
+  `needsDataSync` vẫn bật, lỗi hiện đúng chỗ. Ca "0 trade" (có dữ liệu, chỉ
+  là không khớp lệnh) → `needsDataSync` **không** bật (guard test riêng,
+  tránh tái phạm việc gộp nhầm 2 nhánh).
+
+## 4. Rủi ro / Lưu ý (Constraints & Risks)
+
+- **Không** tự sync khi user chưa từng bấm "Chạy Backtest" — nút chỉ xuất
+  hiện *sau khi* 1 lần chạy thất bại vì thiếu dữ liệu, không hiện sẵn từ đầu
+  (tránh mời gọi sync tốn network mà chưa chắc user cần chạy backtest ngay).
+- `SyncMarketDataCommand.execute()` là lệnh gọi mạng thật tới Binance — có
+  thể mất vài giây tới vài chục giây tuỳ khoảng thời gian; `isSyncing` phải
+  khoá nút "Đồng bộ ngay" (và khoá luôn "Chạy Backtest" — tái dùng
+  `viewModel.controlsEnabled`/FSM `LOCKED` sẵn có, không tạo state riêng)
+  tránh bấm chồng.
+- Không vẽ progress bar chi tiết (`SingleSyncProgressEvent`) ở task này —
+  1 trạng thái "đang đồng bộ..." đơn giản là đủ; nếu sau này cần progress
+  bar đẹp như Data Management, tách task riêng.
+
+## 5. Phụ thuộc
+
+- `BOT-022` ✅ — khung màn hình, FSM, `_run_backtest`.
+- `BOT-058` — khuyến nghị làm trước, để symbol/interval mặc định đã đúng
+  nguồn config trước khi thêm luồng sync (tránh sync nhầm giá trị hardcode
+  cũ nếu làm ngược thứ tự — không bắt buộc chặn cứng, chỉ khuyến nghị).

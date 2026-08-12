@@ -23,8 +23,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | :--- | :---: | :---: |
 | 🟢 **Completed** | 27 | 49% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 28 | 51% |
-| 📈 **Tổng số Task** | **55** | **100%** |
+| 🔴 **Backlog** | 30 | 53% |
+| 📈 **Tổng số Task** | **57** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 
@@ -137,6 +137,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-055](completed/BOT-055_backtest_performance_metrics_panel.md)** | **Performance Metrics Panel** | `BOT-022` ✅ | 4 stat card (Net PnL / Max DD / Win Rate / Profit Factor) + mở rộng (Popup, 8 chỉ số). Sharpe/Sortino/Payoff ratio **chưa làm** — chưa chốt công thức. |
 | **1** | ✅ **[BOT-056](completed/BOT-056_backtest_chart_canvas.md)** | **Chart Canvas** | `BOT-022` ✅, `BOT-055` ✅, `BOT-032` ✅ | 3 chế độ: Nến Nhật / Đường Vốn (Equity) / **Song song (Cả 2)**. Overlays: 4 EMA, Buy/Sell Flags, Volume. Chấm tròn màu lãi/lỗ trên đường Equity **chưa làm** (MarkerLayer chỉ vẽ trên main_plot). QML Badges chờ `BOT-053`. |
 | **1** | **[BOT-057](backlog/BOT-057_backtest_trade_logs_table.md)** | **Trade Logs Table** | `BOT-022` ✅, `BOT-056` ✅, `BOT-045` | Bảng lệnh đầy đủ (lọc/tìm/export/phân trang) + **dòng mở rộng** 3 khối chi tiết. Mục 2.1 làm được ngay; 2.2 chặn bởi `BOT-045`. |
+| **1** | **[BOT-058](backlog/BOT-058_backtest_config_driven_symbol_and_interval.md)** | **Symbol/Interval mặc định đọc từ Config** | `BOT-022` ✅ | Phát hiện khi chạy thật: `_DEFAULT_SYMBOL`/`_DEFAULT_TIMEFRAME` hardcode trùng ngẫu nhiên với Dev Board, từng lệch (15m vs 1m thật sync) gây "No historical data" ngay lần chạy đầu. Đọc `IConfig`'s `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` (đã có, chỉnh được qua Settings) thay vì hardcode — Backtest không còn phụ thuộc ngầm vào Dev Board. |
+| **1** | **[BOT-059](backlog/BOT-059_backtest_inline_data_sync_affordance.md)** | **Nút "Đồng bộ ngay" khi thiếu dữ liệu** | `BOT-022` ✅, khuyến nghị sau `BOT-058` | Backtest là tính năng chính, không được ngõ cụt khi thiếu dữ liệu. Thêm nút sync tường minh (không tự động ngầm) ngay trong màn — dispatch `SyncMarketDataCommand` có sẵn, tự chạy lại backtest sau khi sync xong. |
 | **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Dynamic UI** | `BOT-022` ✅…`BOT-057`, `BOT-023` | Kế thừa nguyên UI Nhóm D, chỉ thêm replay controls. Không tự mở khoá phần đang chờ Nhóm A/B/C. |
 
 **Ngoài nhóm**
