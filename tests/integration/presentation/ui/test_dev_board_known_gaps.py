@@ -157,9 +157,13 @@ def test_reclicking_the_same_timeframe_does_not_reload(
 def test_strategy_dropdown_has_no_presenter_effect(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-GAP-04: Strategy dropdown is cosmetic today — out of Phase 2's
-    scope (needs a concrete strategy + signal/marker plumbing, see
-    BOT-026), unlike Symbol/Start date/End date which Phase 2 fixed."""
+    """TC-GAP-04: Strategy dropdown is cosmetic today — `EmaCrossoverStrategy`
+    now exists for real (BOT-026), but this control names a strategy
+    ("SMA Crossover") that was never built, and BOT-039 will delete this
+    ComboBox outright in favor of a toggle list (mirroring the Indicator
+    mechanism) rather than wire it up. When BOT-039 lands, this test must be
+    rewritten to cover the new control — not deleted (precedent: BOT-036
+    §6.1)."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
     root = view.quick_widget.rootObject()

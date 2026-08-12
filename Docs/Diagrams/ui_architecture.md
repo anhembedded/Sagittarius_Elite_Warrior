@@ -462,15 +462,20 @@ Curve names are namespaced `f"{script_key}:{line_name}"`
 never collide with RSI/EMA/MACD's bare names, or with another script's line
 of the same name.
 
-### Design left open for strategies
+### Strategies reuse `domain/scripting/` (BOT-026, shipped)
 
-`domain/scripting/` (the `Series`/`crossed_above`/`Streak` primitives) is
-factored out of `domain/indicator_scripts/` specifically so a future
-`BaseStrategyScript` can reuse it without moving files — a strategy is the
-same `setup()`/`execute()`/pure-compute shape, just producing `Signal`s
-instead of plotted lines. `IndicatorScriptRegistry`'s explicit
-`register()`/`create()`/`available()` shape is meant to be copied wholesale
-into a `StrategyScriptRegistry`, not generalized into a shared
-`ScriptRegistry[T]` ahead of a second real consumer (this repo's established
-YAGNI precedent — see `IIndicator` never growing a `reset()` method it
-didn't need yet).
+`domain/scripting/` (the `Series`/`crossed_above`/`Streak` primitives) was
+factored out of `domain/indicator_scripts/` specifically so strategies could
+reuse it without moving files — this section used to predict a
+`BaseStrategyScript`/`StrategyScriptRegistry` pair mirroring the indicator
+script names 1:1. `BOT-026` built it under different names instead:
+`BaseStrategy` (`domain/strategies/base_strategy.py`) and `StrategyRegistry`
+(`application/services/strategy_registry.py`) — the `_script` suffix on the
+indicator classes deliberately means "user-authored, plot-producing", which
+doesn't fit a strategy (it evaluates `StrategyContext` and returns exactly
+one `Signal`, no `plot()`/`mark()`/`shade()` output). `StrategyRegistry`'s
+`register()`/`create()`/`available()` shape *is* copied wholesale from
+`IndicatorScriptRegistry`, per this repo's established YAGNI precedent (see
+`IIndicator` never growing a `reset()` method it didn't need yet) — just not
+under a name implying it shares a base class with indicator scripts, because
+it doesn't: `BaseStrategy` doesn't touch `BaseIndicatorScript` at all.

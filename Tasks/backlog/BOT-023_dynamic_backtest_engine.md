@@ -13,8 +13,10 @@ Mở rộng vòng lặp replay **đã có sẵn** trong `run_backtest/handler.py
 - [ ] Thêm `PauseBacktestCommand`/`ResumeBacktestCommand`, `SetReplaySpeedCommand` (đổi `replay_speed_ms` khi đang chạy, không cần dừng hẳn).
 - [ ] Events: `BacktestProgressEvent(candle_index, total, current_equity)`, `BacktestTradeSimulatedEvent(trade)`, `BacktestPausedEvent`, `BacktestResumedEvent`, `BacktestCompletedEvent`, `BacktestStoppedEvent` (chuẩn hoá đầy đủ ở `BOT-025`).
 - [ ] Đảm bảo vòng lặp chạy trên `ITaskManager` (background task, cancel được qua `CancellationToken`), không chặn UI thread — theo đúng pattern `BinanceWebsocketService`.
-- [ ] Unit test: pause/resume/đổi tốc độ hoạt động đúng; events phát đúng thứ tự; **PaperExchange khớp lệnh nhất quán với Static mode (`BOT-021`)** trên cùng dữ liệu + tham số (bài test đối chiếu quan trọng — dynamic và static phải cho cùng kết quả cuối, nếu lệch nghĩa là 1 trong 2 có bug).
+- [ ] Unit test: pause/resume/đổi tốc độ hoạt động đúng; events phát đúng thứ tự.
+- [ ] **Test parity bắt buộc** — chạy cùng 1 fixture cố định (golden fixture của `BOT-021`, cùng `BacktestProperties`) qua cả 2 đường: Static (`RunStaticBacktestCommandHandler`) và Dynamic (handler của task này ở chế độ chạy hết tốc độ, không throttle). So sánh bằng **`assert dynamic_result == static_result`** trên chính dataclass `BacktestResult` (equality theo field: danh sách `Trade` từng cái, `equity_curve`, `metrics`) — không so sánh gián tiếp qua vài con số tổng hợp. Lệch bất kỳ field nào (kể cả 1 timestamp) = fail, vì nghĩa là vòng lặp động đang tự sắp lại thứ tự fill/submit/mark khác với `PaperExchange.process_candle()`.
+- [ ] Vòng lặp động **phải gọi đúng** `PaperExchange.process_candle(candle, signal)` (entry point duy nhất, đã có từ `BOT-021`) cho từng nến — không tự viết lại thứ tự fill→submit→mark ở handler này, đó chính là lý do parity được đảm bảo chứ không phải hy vọng.
 
 ## 4. Rủi ro / Lưu ý (Constraints & Risks)
-- Parity dynamic-vs-static là điều kiện bắt buộc trước khi coi task này hoàn thành — không merge nếu 2 chế độ cho kết quả khác nhau trên cùng input.
+- Parity dynamic-vs-static (dataclass equality, xem mục Action Items) là điều kiện bắt buộc trước khi coi task này hoàn thành — không merge nếu 2 chế độ cho kết quả khác nhau trên cùng input.
 - Cần cơ chế giới hạn/emergency-stop để vòng lặp replay không chạy vô hạn hoặc treo nếu dữ liệu quá lớn.
