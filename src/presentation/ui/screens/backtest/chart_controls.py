@@ -41,6 +41,7 @@ class BacktestChartControls(QtWidgets.QWidget):
             btn = QtWidgets.QPushButton(_MODE_LABELS[mode])
             btn.setObjectName(f"btnChartMode_{mode.value}")
             btn.setCheckable(True)
+            btn.setCursor(QtCore.Qt.PointingHandCursor)
             self._mode_group.addButton(btn)
             self._mode_buttons[mode] = btn
             layout.addWidget(btn)

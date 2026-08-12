@@ -3,9 +3,13 @@ from datetime import datetime
 
 import pytest
 
-from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import SignalGeneratedEvent
+from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+    SignalGeneratedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import SignalAction
+from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
+    SignalAction,
+)
 
 
 def test_signal_generated_event_initialization():
@@ -15,7 +19,7 @@ def test_signal_generated_event_initialization():
         action=SignalAction.BUY,
         reason="RSI Oversold",
         price=50000.0,
-        time=datetime(2023, 1, 1, 12, 0, 0)
+        time=datetime(2023, 1, 1, 12, 0, 0),
     )
     event = SignalGeneratedEvent(signal=signal)
 
@@ -34,7 +38,7 @@ def test_signal_generated_event_immutability():
         action=SignalAction.BUY,
         reason="RSI Oversold",
         price=50000.0,
-        time=datetime(2023, 1, 1, 12, 0, 0)
+        time=datetime(2023, 1, 1, 12, 0, 0),
     )
     event = SignalGeneratedEvent(signal=signal1)
 
@@ -43,7 +47,7 @@ def test_signal_generated_event_immutability():
         action=SignalAction.SELL,
         reason="MACD Cross",
         price=3000.0,
-        time=datetime(2023, 1, 2, 12, 0, 0)
+        time=datetime(2023, 1, 2, 12, 0, 0),
     )
 
     with pytest.raises(FrozenInstanceError):
