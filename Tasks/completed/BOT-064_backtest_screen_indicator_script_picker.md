@@ -89,5 +89,5 @@ chọn được — đây là tính năng mới, không phải việc bị bỏ 
 
 - `BOT-032` ✅ — indicator script + `IndicatorScriptRunner`/
   `IndicatorScriptListModel` gốc (viết cho Dev Board).
-- [`BOT-060`](../completed/BOT-060_backtest_chart_draws_strategy_own_indicators.md)
+- [`BOT-060`](BOT-060_backtest_chart_draws_strategy_own_indicators.md)
   — cơ chế vẽ indicator của strategy, phải giữ nguyên, chạy song song.

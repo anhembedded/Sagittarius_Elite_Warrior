@@ -1,6 +1,6 @@
 # Nhiệm vụ: Ẩn overlay của Indicator Script khi Backtest chuyển sang "Đường Vốn" (Equity-solo)
 
-> Gap tự phát hiện lúc làm [`BOT-064`](../completed/BOT-064_backtest_screen_indicator_script_picker.md)
+> Gap tự phát hiện lúc làm [`BOT-064`](BOT-064_backtest_screen_indicator_script_picker.md)
 > (danh sách chọn indicator script cho Backtest), user yêu cầu đánh giá và
 > tách thành task riêng thay vì chỉ ghi chú.
 
@@ -69,7 +69,7 @@ qualified_line_name(key, line_name), visible)` cho từng đường, y hệt cá
 
 ## 6. Phụ thuộc
 
-- [`BOT-060`](../completed/BOT-060_backtest_chart_draws_strategy_own_indicators.md)
+- [`BOT-060`](BOT-060_backtest_chart_draws_strategy_own_indicators.md)
   — mẫu đúng cách đã sửa bug tương tự cho strategy lines.
-- [`BOT-064`](../completed/BOT-064_backtest_screen_indicator_script_picker.md)
+- [`BOT-064`](BOT-064_backtest_screen_indicator_script_picker.md)
   — nguồn phát sinh `self._chart_script_runner`.
