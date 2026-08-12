@@ -18,7 +18,7 @@ only the genuine external dependencies (IDispatcher, IThreadManager, IConfig).
 
 import os
 from datetime import UTC, datetime
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -118,6 +118,50 @@ def _make_result(with_trades: bool) -> BacktestResult:
         symbol="ETHUSDT",
         initial_balance=1000.0,
         final_balance=1000.0 + (10.0 if with_trades else 0.0),
+        trades=trades,
+        equity_curve=[(_T0, 1000.0), (_T1, 1000.0)],
+        metrics=metrics,
+    )
+
+
+def _make_result_with_trades(trade_count: int, win_count: int) -> BacktestResult:
+    """@brief BOT-057: `_make_result`'s `with_trades: bool` only ever makes
+    0 or 1 trade — filter/search/pagination tests need a real spread."""
+    from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+
+    trades = [
+        Trade(
+            symbol="ETHUSDT",
+            entry_time=_T0,
+            entry_price=100.0,
+            exit_time=_T1,
+            exit_price=110.0 if i < win_count else 90.0,
+            quantity=1.0,
+            pnl=10.0 if i < win_count else -10.0,
+            pnl_percent=10.0 if i < win_count else -10.0,
+            fees_paid=0.0,
+        )
+        for i in range(trade_count)
+    ]
+    metrics = BacktestMetrics(
+        net_profit=0.0,
+        net_profit_percent=0.0,
+        gross_profit=0.0,
+        gross_loss=0.0,
+        max_drawdown_percent=0.0,
+        total_closed_trades=trade_count,
+        percent_profitable=0.0,
+        profit_factor=1.0,
+        avg_trade=0.0,
+        avg_winning_trade=0.0,
+        avg_losing_trade=0.0,
+        largest_winning_trade=0.0,
+        largest_losing_trade=0.0,
+    )
+    return BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1000.0,
         trades=trades,
         equity_curve=[(_T0, 1000.0), (_T1, 1000.0)],
         metrics=metrics,
@@ -903,3 +947,215 @@ def test_trade_flags_toggle_draws_and_clears_markers(
 
     presenter.view.set_trade_flags_visible(True)
     assert len(card.indicators._marker_layer._items.get("backtest_trades", [])) == 2
+
+
+# ---------------------------------------------------------------------------
+# Trade Logs table (BOT-057)
+# ---------------------------------------------------------------------------
+
+
+def test_successful_run_populates_the_trade_log_first_page(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=25, win_count=15)
+    )
+
+    presenter._run_backtest(config)
+
+    assert view_model.tradeLogTotalCount == 25
+    assert view_model.tradeLogTotalPages == 2
+    assert len(view_model.tradeLogRows) == 20  # PAGE_SIZE
+
+
+def test_no_historical_data_clears_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_backtest(config)
+
+    assert view_model.tradeLogRows == []
+    assert view_model.tradeLogTotalCount == 0
+
+
+def test_failed_run_clears_the_trade_log(presenter, view_model, mock_dispatcher):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
+
+    presenter._run_backtest(config)
+
+    assert view_model.tradeLogRows == []
+    assert view_model.tradeLogTotalCount == 0
+
+
+def test_changing_the_filter_recomputes_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=10, win_count=3)
+    )
+    presenter._run_backtest(config)
+
+    view_model.tradeLogFilter = "win"
+
+    assert view_model.tradeLogTotalCount == 3
+
+
+def test_changing_the_filter_resets_to_page_1(presenter, view_model, mock_dispatcher):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=25, win_count=25)
+    )
+    presenter._run_backtest(config)
+    view_model.tradeLogCurrentPage = 2
+
+    view_model.tradeLogFilter = "loss"  # narrows to 0 rows -> would strand page 2
+
+    assert view_model.tradeLogCurrentPage == 1
+
+
+def test_changing_the_search_text_recomputes_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=5, win_count=5)
+    )
+    presenter._run_backtest(config)
+
+    view_model.tradeLogSearchText = "#3"
+
+    assert view_model.tradeLogTotalCount == 1
+
+
+def test_changing_the_current_page_recomputes_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=25, win_count=25)
+    )
+    presenter._run_backtest(config)
+
+    view_model.tradeLogCurrentPage = 2
+
+    assert len(view_model.tradeLogRows) == 5  # 25 - 20 on page 1
+
+
+def test_export_writes_the_currently_filtered_trades(
+    presenter, view_model, mock_dispatcher, tmp_path
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=10, win_count=4)
+    )
+    presenter._run_backtest(config)
+    view_model.tradeLogFilter = "win"
+    export_path = str(tmp_path / "export.csv")
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=(export_path, "CSV Files (*.csv)"),
+    ):
+        view_model.requestTradeLogExport()
+
+    with open(export_path, encoding="utf-8") as f:
+        # header + 4 winning trades.
+        assert len(f.readlines()) == 5
+
+
+def test_export_does_nothing_when_the_dialog_is_cancelled(
+    presenter, view_model, mock_dispatcher, tmp_path
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=3, win_count=3)
+    )
+    presenter._run_backtest(config)
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=("", ""),
+    ):
+        view_model.requestTradeLogExport()  # must not raise
+
+
+def test_export_does_nothing_when_there_are_no_trades_yet(presenter, view_model):
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName"
+    ) as mock_dialog:
+        view_model.requestTradeLogExport()
+
+    mock_dialog.assert_not_called()
+
+
+def test_qml_trade_log_filter_tab_click_updates_the_view_model(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=5, win_count=2)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    qml_item(root, "tabTradeLogFilter_win").clicked.emit()
+    qapp.processEvents()
+
+    assert view_model.tradeLogFilter == "win"
+    assert view_model.tradeLogTotalCount == 2
+
+
+def test_qml_trade_log_export_button_click_requests_export(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=3, win_count=3)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=("", ""),
+    ) as mock_dialog:
+        qml_item(root, "btnTradeLogExport").clicked.emit()
+        qapp.processEvents()
+
+    mock_dialog.assert_called_once()
+
+
+def test_qml_trade_log_search_field_updates_the_view_model(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=5, win_count=5)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    search_field = qml_item(root, "txtTradeLogSearch")
+    search_field.setProperty("text", "#3")
+    search_field.textEdited.emit()
+    qapp.processEvents()
+
+    assert view_model.tradeLogSearchText == "#3"
+    assert view_model.tradeLogTotalCount == 1
+
+
+def test_qml_trade_logs_document_loads_without_errors(presenter, qapp):
+    qapp.processEvents()
+    assert presenter.view.bottom_widget.errors() == []

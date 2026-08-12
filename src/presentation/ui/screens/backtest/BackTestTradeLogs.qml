@@ -9,6 +9,17 @@ Rectangle {
     implicitHeight: 300
     color: Theme.bg
 
+    //: Mirrors TradeLogFilter's Python values exactly (trade_log_filter.py)
+    //: — this list IS the tab row, both label and the value written into
+    //: viewModel.tradeLogFilter.
+    readonly property var filterTabs: [
+        { value: "all", label: "Tất cả" },
+        { value: "long", label: "Mua (LONG)" },
+        { value: "short", label: "Bán (SHORT)" },
+        { value: "win", label: "Lệnh thắng" },
+        { value: "loss", label: "Lệnh thua" }
+    ]
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
@@ -19,7 +30,7 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 15
 
-            Text { 
+            Text {
                 text: "DANH SÁCH LỆNH GIAO DỊCH (TRADE LOGS)"
                 color: Theme.textPrimary
                 font.pixelSize: 12
@@ -27,41 +38,75 @@ Rectangle {
             }
 
             Rectangle {
-                width: 60
+                width: countLabel.implicitWidth + 16
                 height: 20
                 color: Theme.bgCard
                 border.color: Theme.border
                 radius: 4
                 Text {
+                    id: countLabel
                     anchors.centerIn: parent
-                    text: "49 Lệnh"
+                    text: viewModel.tradeLogTotalCount + " Lệnh"
                     color: Theme.muted
                     font.pixelSize: 10
                 }
             }
 
-            // Tabs
+            // Filter tabs
             RowLayout {
+                objectName: "tradeLogFilterTabs"
                 spacing: 5
-                Rectangle {
-                    width: 50; height: 24; color: Theme.accent; radius: 4
-                    Text { anchors.centerIn: parent; text: "Tất cả"; color: "#000"; font.pixelSize: 11; font.bold: true }
+
+                Repeater {
+                    model: root.filterTabs
+
+                    Button {
+                        objectName: "tabTradeLogFilter_" + modelData.value
+                        implicitHeight: 24
+                        background: Rectangle {
+                            radius: 4
+                            color: viewModel.tradeLogFilter === modelData.value ? Theme.accent : "transparent"
+                        }
+                        contentItem: Text {
+                            text: modelData.label
+                            color: viewModel.tradeLogFilter === modelData.value ? "#000000" : Theme.muted
+                            font.pixelSize: 11
+                            font.bold: viewModel.tradeLogFilter === modelData.value
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: viewModel.tradeLogFilter = modelData.value
+                    }
                 }
-                Text { text: "Mua (LONG)"; color: Theme.muted; font.pixelSize: 11 }
-                Text { text: "Bán (SHORT)"; color: Theme.muted; font.pixelSize: 11 }
-                Text { text: "Lệnh thắng"; color: Theme.muted; font.pixelSize: 11 }
-                Text { text: "Lệnh thua"; color: Theme.muted; font.pixelSize: 11 }
             }
 
             Item { Layout.fillWidth: true } // Spacer
 
             // Search bar
             TextField {
+                objectName: "txtTradeLogSearch"
                 placeholderText: "Tìm theo mã lệnh, ngày..."
+                text: viewModel.tradeLogSearchText
                 color: Theme.textPrimary
                 font.pixelSize: 11
                 background: FieldBackground {}
                 Layout.preferredWidth: 200
+                onTextEdited: viewModel.tradeLogSearchText = text
+            }
+
+            Button {
+                objectName: "btnTradeLogExport"
+                text: "Export"
+                implicitHeight: 26
+                background: Rectangle { color: "#25262B"; border.color: Theme.border; radius: 4 }
+                contentItem: Text {
+                    text: parent.text
+                    color: Theme.textPrimary
+                    font.pixelSize: 11
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: viewModel.requestTradeLogExport()
             }
         }
 
@@ -97,31 +142,80 @@ Rectangle {
                     }
                 }
 
-                // Dummy List (just a visual placeholder)
                 ListView {
+                    objectName: "listTradeLogRows"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    model: 5
+                    model: viewModel.tradeLogRows
                     delegate: Rectangle {
                         width: parent.width
                         height: 40
                         color: index % 2 === 0 ? "transparent" : "#17181d"
-                        
+
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 10
                             anchors.rightMargin: 10
-                            
-                            Text { text: "#216 vị thế mua"; color: "#4caf50"; font.pixelSize: 11; Layout.preferredWidth: 150 }
+
+                            // "#26a69a" mirrors chart_card/theme.py's BULL_COLOR — every
+                            // trade is a long entry (PaperExchange is long-only, BOT-021),
+                            // not tied to this trade's own win/loss (that's pnlColor below).
+                            Text { text: modelData.positionLabel; color: "#26a69a"; font.pixelSize: 11; Layout.preferredWidth: 150; elide: Text.ElideRight }
                             Text { text: "Vào\nThoát"; color: Theme.textPrimary; font.pixelSize: 11; Layout.preferredWidth: 100 }
-                            Text { text: "06:00 16 thg 7, 2026\n18:00 16 thg 7, 2026"; color: Theme.textPrimary; font.pixelSize: 10; Layout.preferredWidth: 150 }
-                            Text { text: "1,939.5 USD\n1,908.5 USD"; color: Theme.textPrimary; font.pixelSize: 11; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                            Text { text: "0.96 K USD\n0.5"; color: Theme.textPrimary; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
-                            Text { text: "+34.66 USD"; color: "#4caf50"; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
-                            Text { text: "+3.61%"; color: "#4caf50"; font.pixelSize: 11; Layout.preferredWidth: 60; horizontalAlignment: Text.AlignRight }
+                            Text { text: modelData.entryTimeText + "\n" + modelData.exitTimeText; color: Theme.textPrimary; font.pixelSize: 10; Layout.preferredWidth: 150 }
+                            Text { text: modelData.entryPriceText + "\n" + modelData.exitPriceText; color: Theme.textPrimary; font.pixelSize: 11; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                            Text { text: modelData.positionSizeText + "\n" + modelData.quantityText; color: Theme.textPrimary; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
+                            Text { text: modelData.pnlText; color: modelData.pnlColor; font.pixelSize: 11; Layout.preferredWidth: 100; horizontalAlignment: Text.AlignRight }
+                            Text { text: modelData.returnText; color: modelData.pnlColor; font.pixelSize: 11; Layout.preferredWidth: 60; horizontalAlignment: Text.AlignRight }
                         }
                     }
+
+                    // Empty state — no run yet, or the current filter/search matches nothing.
+                    Text {
+                        anchors.centerIn: parent
+                        visible: viewModel.tradeLogRows.length === 0
+                        text: "Chưa có lệnh nào"
+                        color: Theme.muted
+                        font.pixelSize: 12
+                    }
+                }
+
+                // ================= PAGINATION =================
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    visible: viewModel.tradeLogTotalPages > 1
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        objectName: "btnTradeLogPrevPage"
+                        text: "‹ Trước"
+                        implicitHeight: 24
+                        enabled: viewModel.tradeLogCurrentPage > 1
+                        background: Rectangle { color: "transparent" }
+                        contentItem: Text { text: parent.text; color: parent.enabled ? Theme.textPrimary : Theme.muted; font.pixelSize: 11 }
+                        onClicked: viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage - 1
+                    }
+
+                    Text {
+                        text: "Trang " + viewModel.tradeLogCurrentPage + " / " + viewModel.tradeLogTotalPages
+                        color: Theme.muted
+                        font.pixelSize: 11
+                    }
+
+                    Button {
+                        objectName: "btnTradeLogNextPage"
+                        text: "Sau ›"
+                        implicitHeight: 24
+                        enabled: viewModel.tradeLogCurrentPage < viewModel.tradeLogTotalPages
+                        background: Rectangle { color: "transparent" }
+                        contentItem: Text { text: parent.text; color: parent.enabled ? Theme.textPrimary : Theme.muted; font.pixelSize: 11 }
+                        onClicked: viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage + 1
+                    }
+
+                    Item { Layout.fillWidth: true }
                 }
             }
         }

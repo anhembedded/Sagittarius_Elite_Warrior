@@ -14,26 +14,29 @@ rộng chi tiết** cho từng lệnh.
 
 ## 2. Các bước thực hiện (Action Items)
 
-### 2.1 Bảng cơ bản (làm được ngay với `BacktestResult.trades`)
+### 2.1 Bảng cơ bản (làm được ngay với `BacktestResult.trades`) ✅
 
-- [ ] `QTableView` với các cột theo mockup:
-  - **STT / Tên lệnh** — đánh số ở UI (không thêm field `id` vào `Trade`:
-    không có ý nghĩa nghiệp vụ, chỉ để hiển thị). Mockup: "#216 lệnh bán".
-  - **Loại** — Vào / Thoát.
-  - **Ngày giờ** — `entry_time` / `exit_time`, **xếp chồng 2 tầng trong cùng
-    1 row** (theo mockup), không tách 2 dòng.
+- [x] `QTableView` với các cột theo mockup — làm bằng QML `ListView` (đã
+  đúng convention Backtest, không phải `QTableView` QtWidgets — panel này
+  vốn đã là QML từ `BOT-022`; xem `trade_log_row.py`):
+  - **STT / Tên lệnh** — đánh số ở UI (`TradeLogRow.index`, 1-based, ổn định
+    qua filter/search/trang — không thêm field `id` vào `Trade`).
+  - **Loại** — Vào / Thoát (nhãn tĩnh, engine long-only).
+  - **Ngày giờ** — `entry_time` / `exit_time`, xếp chồng 2 tầng trong 1 row.
   - **Giá v/t** — `entry_price` / `exit_price`, cũng 2 tầng.
-  - **Quy mô** — `quantity` + giá trị USD tính ở UI (`quantity * entry_price`).
-  - **Lãi/Lỗ ròng** — `pnl`, màu theo dấu.
+  - **Quy mô** — `quantity` + giá trị USD tính ở UI (`quantity * entry_price`,
+    dạng "K USD" khi ≥ 1000).
+  - **Lãi/Lỗ ròng** — `pnl`, màu theo dấu (`BULL_COLOR`/`BEAR_COLOR`).
   - **Return %** — `pnl_percent`.
-- [ ] Tab lọc: **Tất cả** (kèm tổng số lệnh, mockup: "44 LỆNH") / **Mua
-  (LONG)** / **Bán (SHORT)** / **Lệnh thắng** (`pnl > 0`) / **Lệnh thua**
-  (`pnl < 0`) — lọc `list[Trade]` ở UI, không cần query mới. Tab SHORT hiển
-  thị nhưng **luôn rỗng** cho tới [`BOT-050`](BOT-050_short_selling_support.md)
-  (không ẩn, để không phải sửa UI lại sau).
-- [ ] Ô tìm kiếm theo mã lệnh / ngày tháng — lọc client-side.
-- [ ] Nút **Export** (CSV) từ `list[Trade]`.
-- [ ] Phân trang.
+- [x] Tab lọc: **Tất cả** / **Mua (LONG)** / **Bán (SHORT)** / **Lệnh thắng**
+  (`pnl > 0`) / **Lệnh thua** (`pnl < 0`) — lọc `list[Trade]` ở UI/Presenter,
+  không query mới (`trade_log_filter.py`). Tab SHORT **luôn rỗng** cho tới
+  [`BOT-050`](BOT-050_short_selling_support.md) (không ẩn, đúng quyết định).
+- [x] Ô tìm kiếm theo mã lệnh (`#216` hoặc `216`) / ngày tháng — lọc
+  client-side (`search_trade_log_rows`).
+- [x] Nút **Export** (CSV) từ `list[Trade]` **đang lọc/tìm hiện tại** (không
+  phải toàn bộ) — khớp với những gì user đang nhìn thấy trên bảng.
+- [x] Phân trang — `trade_log_pagination.py`, `PAGE_SIZE = 20`.
 
 ### 2.2 Dòng mở rộng chi tiết — cần [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md)
 
@@ -53,9 +56,14 @@ Bấm vào 1 lệnh → xổ ra 3 khối (theo mockup dòng `#216`):
 ## 3. Rủi ro / Lưu ý
 
 - 2.1 làm được độc lập; 2.2 bị chặn bởi `BOT-045`. Nếu `BOT-045` chưa xong,
-  vẫn ship được 2.1 (bảng đầy đủ, chỉ chưa mở rộng được).
+  vẫn ship được 2.1 (bảng đầy đủ, chỉ chưa mở rộng được). **Đã ship theo
+  đúng kịch bản này** — `BOT-045` vẫn ở backlog tại thời điểm 2.1 hoàn thành.
 - Dữ liệu có thể lớn (mockup 44 lệnh, thực tế có thể hàng nghìn) — dùng model
-  chuẩn của `QTableView`, không dựng list widget thủ công.
+  chuẩn của `QTableView`, không dựng list widget thủ công. **Đã làm**: panel
+  này vốn đã là QML (từ `BOT-022`, hybrid layout với `ChartCard`), không phải
+  QtWidgets — "model chuẩn, không hand-roll" áp dụng thành `ListView` được
+  virtualize sẵn (chỉ render delegate cho hàng đang hiển thị) + phân trang
+  20 lệnh/trang ở Presenter, không đẩy hết list vào QML property một lần.
 
 ## 4. Phụ thuộc
 

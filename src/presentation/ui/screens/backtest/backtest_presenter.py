@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
+from PySide6.QtWidgets import QFileDialog
 
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -24,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
@@ -50,6 +52,14 @@ from .performance_metrics_view import (
 )
 from .result_formatter import format_result_summary
 from .time_range_preset import TimeRangePreset, resolve_time_range
+from .trade_log_export import export_trades_to_csv
+from .trade_log_filter import (
+    TradeLogFilter,
+    filter_trade_log_rows,
+    search_trade_log_rows,
+)
+from .trade_log_pagination import paginate_trade_log_rows, total_pages
+from .trade_log_row import TradeLogRow, build_trade_log_rows, trade_log_rows_to_qml
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -79,6 +89,10 @@ _SYNCING_MESSAGE = "Đang đồng bộ dữ liệu..."
 _ZERO_TRADES_MESSAGE = (
     "Backtest chạy xong nhưng không có giao dịch nào trong khoảng thời gian đã chọn."
 )
+
+_EXPORT_DIALOG_TITLE = "Xuất Trade Logs"
+_EXPORT_DEFAULT_FILENAME = "trade_logs.csv"
+_EXPORT_FILE_FILTER = "CSV Files (*.csv)"
 
 #: The chart's "4 EMA" overlay (BOT-056 §2.2) reuses this exact registered
 #: script rather than recomputing its own EMA lines — guarantees the periods
@@ -162,6 +176,12 @@ class BackTestPresenter(BasePresenter):
         # the single source of truth for whether "Đồng bộ ngay" is offered.
         self._last_no_data_config: BacktestRunConfig | None = None
 
+        # BOT-057: the single source of truth the Trade Logs table's
+        # filter/search/pagination all read from — the ViewModel only ever
+        # holds the CURRENT PAGE's already-formatted rows, never the full
+        # list, so it can't itself re-derive a different page/filter.
+        self._all_trades: list[Trade] = []
+
         self._strategy_registry: StrategyRegistry = container.resolve(StrategyRegistry)
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         self._script_registry: IndicatorScriptRegistry = container.resolve(
@@ -239,6 +259,10 @@ class BackTestPresenter(BasePresenter):
         self._chartEmaLineSignal.connect(self._on_chart_ema_line)
         self._syncSucceededSignal.connect(self._on_sync_succeeded)
         self._syncFailedSignal.connect(self._on_sync_failed)
+        self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
+        self._view_model.tradeLogExportRequested.connect(
+            self._on_trade_log_export_requested
+        )
 
     def _connect_engine_events(self) -> None:
         """Nothing to subscribe to: `RunStaticBacktestCommandHandler` returns
@@ -311,6 +335,8 @@ class BackTestPresenter(BasePresenter):
             else f"{_ZERO_TRADES_MESSAGE}\n\n{format_result_summary(result)}"
         )
         self._view_model.set_result(message, is_error=False)
+        self._all_trades = result.trades
+        self._refresh_trade_log()
         self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(str, object)
@@ -324,6 +350,8 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_needs_data_sync(True)
         self._view_model.set_stat_cards([], [])
         self._view_model.set_result(message, is_error=False)
+        self._all_trades = []
+        self._refresh_trade_log()
         self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(str)
@@ -331,6 +359,8 @@ class BackTestPresenter(BasePresenter):
     def _on_backtest_failed(self, message: str) -> None:
         self._view_model.set_stat_cards([], [])
         self._view_model.set_result(f"Lỗi: {message}", is_error=True)
+        self._all_trades = []
+        self._refresh_trade_log()
         self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(object, list, list)
@@ -415,9 +445,66 @@ class BackTestPresenter(BasePresenter):
         self.fsm.transition_to(BacktestUiState.IDLE)
         self._view_model.set_result(f"Đồng bộ thất bại: {message}", is_error=True)
 
+    @Slot()
+    @safe_ui_action
+    def _on_trade_log_query_changed(self) -> None:
+        self._refresh_trade_log()
+
+    @Slot()
+    @safe_ui_action
+    def _on_trade_log_export_requested(self) -> None:
+        if not self._all_trades:
+            return
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self.view,
+            _EXPORT_DIALOG_TITLE,
+            _EXPORT_DEFAULT_FILENAME,
+            _EXPORT_FILE_FILTER,
+        )
+        if not path:
+            return
+        export_trades_to_csv(self._currently_filtered_trades(), path)
+
     # ================================================================== #
     # Main-thread helpers
     # ================================================================== #
+
+    def _filtered_and_searched_trade_log_rows(self) -> list[TradeLogRow]:
+        """The rows matching the CURRENT filter tab + search text, in full
+        (not yet paginated) — shared by `_refresh_trade_log` (which then
+        paginates) and CSV export (which doesn't)."""
+        view_model = self._view_model
+        rows = build_trade_log_rows(self._all_trades)
+        filter_ = TradeLogFilter(view_model.tradeLogFilter)
+        filtered = filter_trade_log_rows(rows, filter_)
+        return search_trade_log_rows(filtered, view_model.tradeLogSearchText)
+
+    def _currently_filtered_trades(self) -> list[Trade]:
+        """The `Trade`s behind whatever's currently filtered/searched into
+        view — CSV export matches what the user is looking at, not
+        necessarily everything a run produced."""
+        matching_indexes = {
+            row.index for row in self._filtered_and_searched_trade_log_rows()
+        }
+        return [
+            trade
+            for position, trade in enumerate(self._all_trades, start=1)
+            if position in matching_indexes
+        ]
+
+    def _refresh_trade_log(self) -> None:
+        """Recomputes the Trade Logs table from `self._all_trades` — called
+        after every run (new data) and every filter/search/page change from
+        QML (`tradeLogQueryChanged`)."""
+        matched = self._filtered_and_searched_trade_log_rows()
+        page_rows = paginate_trade_log_rows(
+            matched, self._view_model.tradeLogCurrentPage
+        )
+        self._view_model.set_trade_log_page_state(
+            trade_log_rows_to_qml(page_rows),
+            len(matched),
+            total_pages(len(matched)),
+        )
 
     def _build_run_config(self) -> BacktestRunConfig | None:
         """Reads and validates the toolbar fields. Returns `None` (having
