@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
@@ -551,6 +552,7 @@ class BackTestPresenter(BasePresenter):
             initial_balance=initial_balance,
             start_time=start_time,
             end_time=end_time,
+            currency=Currency(view_model.selectedCurrency),
         )
 
     # ================================================================== #

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
@@ -19,3 +20,4 @@ class BacktestRunConfig:
     initial_balance: float
     start_time: datetime | None
     end_time: datetime | None
+    currency: Currency = Currency.USD

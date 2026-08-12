@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, Signal, Slot
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
@@ -49,6 +51,7 @@ class BackTestViewModel(BaseQmlViewModel):
     strategyOptionsChanged = Signal()
     selectedStrategyKeyChanged = Signal()
     initialCapitalTextChanged = Signal()
+    selectedCurrencyChanged = Signal()
     selectedTimeframeChanged = Signal()
     timeRangePresetChanged = Signal()
     customStartTextChanged = Signal()
@@ -88,6 +91,7 @@ class BackTestViewModel(BaseQmlViewModel):
         self._strategy_options: list[dict[str, str]] = []
         self._selected_strategy_key = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
+        self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
         self._custom_start_text = ""
@@ -157,6 +161,25 @@ class BackTestViewModel(BaseQmlViewModel):
         _set_initial_capital_text,
         notify=initialCapitalTextChanged,
     )
+
+    def _get_selected_currency(self) -> str:
+        return self._selected_currency
+
+    def _set_selected_currency(self, value: str) -> None:
+        if value != self._selected_currency:
+            self._selected_currency = value
+            self.selectedCurrencyChanged.emit()
+
+    selectedCurrency = Property(
+        str,
+        _get_selected_currency,
+        _set_selected_currency,
+        notify=selectedCurrencyChanged,
+    )
+
+    @Property("QStringList", constant=True)
+    def currencyOptions(self) -> list[str]:
+        return Currency.list_values()
 
     @Property("QStringList", constant=True)
     def timeframeOptions(self) -> list[str]:
