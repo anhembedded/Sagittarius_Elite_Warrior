@@ -17,8 +17,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BULL_COLOR,
 )
 
-_ENTRY_LABEL = "Buy"
-_EXIT_LABEL = "Sell"
+_ENTRY_LABEL = "▲"
+_EXIT_LABEL = "▼"
 
 
 class ChartDisplayMode(str, Enum):

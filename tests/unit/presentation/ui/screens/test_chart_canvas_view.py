@@ -73,8 +73,8 @@ def test_trade_flag_markers_emits_one_buy_and_one_sell_per_trade():
     markers = trade_flag_markers(_result_with_one_trade())
 
     assert markers == [
-        (_T0.timestamp(), 100.0, "Buy", BULL_COLOR, "up"),
-        (_T1.timestamp(), 110.0, "Sell", BEAR_COLOR, "down"),
+        (_T0.timestamp(), 100.0, "▲", BULL_COLOR, "up"),
+        (_T1.timestamp(), 110.0, "▼", BEAR_COLOR, "down"),
     ]
 
 

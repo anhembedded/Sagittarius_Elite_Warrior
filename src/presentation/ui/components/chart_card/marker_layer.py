@@ -41,14 +41,23 @@ class MarkerLayer:
         self.clear(key)
         items = []
         for x, y, text, color, direction in markers:
+            display_text = text
+            if text in ("Buy", "BUY"):
+                display_text = "▲"
+            elif text in ("Sell", "SELL"):
+                display_text = "▼"
+
             anchor = _UP_ANCHOR if direction == "up" else _DOWN_ANCHOR
             item = pg.TextItem(
-                text=text,
-                color="#0B0E11",
+                text=display_text,
+                color=color,
                 anchor=anchor,
-                fill=pg.mkBrush(color),
-                border=pg.mkPen(color),
+                fill=None,
             )
+            font = item.font()
+            font.setPixelSize(14)
+            font.setBold(True)
+            item.setFont(font)
             item.setPos(x, y)
             self._plot.addItem(item)
             items.append(item)
