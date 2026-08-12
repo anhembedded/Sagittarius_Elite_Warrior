@@ -1,7 +1,9 @@
 import pytest
 from datetime import datetime
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import IExchangeClient
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    IExchangeClient,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
@@ -18,6 +20,7 @@ def test_valid_implementation():
     """
     Ensure a class implementing the abstract methods can be instantiated and called.
     """
+
     class MockExchangeClient(IExchangeClient):
         def get_historical_klines(
             self,
@@ -30,5 +33,7 @@ def test_valid_implementation():
             return []
 
     client = MockExchangeClient()
-    result = client.get_historical_klines("BTCUSDT", TimeFrame.ONE_MINUTE, "1 day ago UTC")
+    result = client.get_historical_klines(
+        "BTCUSDT", TimeFrame.ONE_MINUTE, "1 day ago UTC"
+    )
     assert result == []

@@ -8,3 +8,7 @@
 ## 2026-08-12 - [Optimize datetime difference calculations using unixepoch()]
 **Learning:** For SQLite database queries computing integer seconds for time deltas, using the native `unixepoch()` function is more performant than `strftime('%s', ...)`. Since the project runs on SQLite 3.45.1+, `unixepoch()` is fully supported and natively computes the UNIX timestamp more directly than formatting the datetime string.
 **Action:** Prefer `unixepoch()` over `strftime('%s', ...)` in all SQLite queries computing timestamps or time deltas to maximize database query performance.
+## 2025-02-20 - ThreadPoolExecutor Rate Limiting
+
+**Learning:** When using `concurrent.futures.ThreadPoolExecutor` to speed up blocking tasks (like market data syncs) that also need to abide by rate limits, simple sequential `sleep` delays in the submission loop are inadequate if task processing is slow. If worker threads are occupied, tasks queue up. When multiple threads become available simultaneously, queued tasks burst into execution, violating the rate limit spacing.
+**Action:** Enforce rate limit spacing using a global thread-safe lock and track the `last_dispatch_time` *inside* the submitted worker functions. This ensures the rate limit delay dictates the execution start times, regardless of queue bursts.
