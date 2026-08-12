@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import Callable
 
 from binance.client import Client
 
@@ -38,6 +39,7 @@ class PythonBinanceClient(IExchangeClient):
         interval: TimeFrame,
         start_str: str | datetime,
         end_str: str | datetime | None = None,
+        progress_callback: Callable[[int], None] | None = None,
     ) -> list[MarketData]:
         # Convert datetime to string or millisecond timestamp for python-binance if needed
         # python-binance accepts datetime, string ('1 day ago UTC'), or ms timestamp
@@ -58,9 +60,18 @@ class PythonBinanceClient(IExchangeClient):
             )
             for i, k in enumerate(generator):
                 raw_klines.append(k)
-                if (i + 1) % 10000 == 0:
-                    logger.info(f"[{symbol}] Downloaded {i + 1} klines so far...")
-            logger.debug(f"Successfully fetched {len(raw_klines)} klines for {symbol}.")
+                # Binance usually returns up to 1000 klines per request chunk. 
+                # We can update the UI roughly every 1000 items to avoid UI blocking while still keeping it smooth.
+                if (i + 1) % 1000 == 0:
+                    logger.debug(f"[{symbol}] Downloaded {i + 1} klines so far...")
+                    if progress_callback:
+                        progress_callback(i + 1)
+            
+            # One final progress update at the end
+            if progress_callback:
+                progress_callback(len(raw_klines))
+                
+            logger.info(f"Successfully fetched {len(raw_klines)} klines for {symbol}.")
         except Exception as e:
             logger.error(f"Failed to fetch historical klines for {symbol}: {e}")
             raise

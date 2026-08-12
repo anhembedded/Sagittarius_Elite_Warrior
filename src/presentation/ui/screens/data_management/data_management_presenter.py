@@ -69,6 +69,7 @@ class DataManagementPresenter(BasePresenter):
     ui_log_signal = Signal(str)
     ui_error_log_signal = Signal(str)
     ui_progress_signal = Signal(int)
+    ui_single_sync_progress_signal = Signal(int, int, bool)
     ui_status_table_signal = Signal(str, str, str, str, str, str)
     ui_clear_table_signal = Signal()
     ui_unlock_signal = Signal()
@@ -127,6 +128,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_log_signal.connect(self._append_log)
         self.ui_error_log_signal.connect(self._append_error_log)
         self.ui_progress_signal.connect(view_model.set_progress_value)
+        self.ui_single_sync_progress_signal.connect(view_model.set_progress)
         self.ui_status_table_signal.connect(view_model.status_model.upsert_row)
         self.ui_clear_table_signal.connect(view_model.status_model.clear)
         self.ui_unlock_signal.connect(self._unlock_ui)
@@ -134,7 +136,11 @@ class DataManagementPresenter(BasePresenter):
 
     def _connect_engine_events(self) -> None:
         """Subscribe to Engine EventBus events emitted from background handlers."""
+        from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
+            SingleSyncProgressEvent,
+        )
         self.event_bus.on(BulkSyncProgressEvent, self._handle_bulk_sync_progress)
+        self.event_bus.on(SingleSyncProgressEvent, self._handle_single_sync_progress)
 
     # ================================================================== #
     # Engine event bridge — called from background threads, must only
@@ -153,6 +159,11 @@ class DataManagementPresenter(BasePresenter):
             if event.is_complete:
                 self.ui_sync_complete_signal.emit()
             self.ui_unlock_signal.emit()
+
+    def _handle_single_sync_progress(self, event: "SingleSyncProgressEvent") -> None:
+        """Bridge Single Sync Progress Events → Qt Signals."""
+        # Ensure the progress bar reflects the calculated maximum total
+        self.ui_single_sync_progress_signal.emit(event.current, event.total, True)
 
     # ================================================================== #
     # Qt Slots — execute on the main thread.
@@ -235,11 +246,17 @@ class DataManagementPresenter(BasePresenter):
         optional custom time range on the main thread before handing off.
         """
         start_time, end_time = self._custom_time_range()
-        if self._view_model.useCustomTime and start_time is None:
-            self.ui_error_log_signal.emit(
-                f"Invalid custom time range — expected format {_CUSTOM_TIME_FORMAT}."
-            )
-            return
+        if self._view_model.useCustomTime:
+            if start_time is None:
+                self.ui_error_log_signal.emit(
+                    f"Invalid custom time range — expected format {_CUSTOM_TIME_FORMAT}."
+                )
+                return
+            if end_time is not None and start_time > end_time:
+                self.ui_error_log_signal.emit(
+                    "Invalid time range: 'From' date must be before 'To' date."
+                )
+                return
 
         self.ui_log_signal.emit(
             f"Starting sync from Binance for {symbol} ({interval})..."
@@ -304,17 +321,24 @@ class DataManagementPresenter(BasePresenter):
     ) -> tuple[datetime | None, datetime | None]:
         """
         @returns (start, end), or (None, None) when the custom range is off.
-        @details Returns (None, None) for unparseable input too; callers that
-        opted into a custom range treat that as an error rather than silently
-        syncing the default window (which would quietly fetch the wrong data).
+        @details If custom time is enabled, 'start' must be valid. 'end' is optional.
+        Returns (None, None) if 'start' is invalid or missing, indicating an error.
         """
         if not self._view_model.useCustomTime:
             return None, None
 
-        start = self._parse_datetime(self._view_model.fromDateTime)
-        end = self._parse_datetime(self._view_model.toDateTime)
-        if start is None or end is None:
+        start_raw = self._view_model.fromDateTime.strip()
+        end_raw = self._view_model.toDateTime.strip()
+        
+        if not start_raw:
             return None, None
+            
+        start = self._parse_datetime(start_raw)
+        if start is None:
+            return None, None
+            
+        end = self._parse_datetime(end_raw) if end_raw else None
+        
         return start, end
 
     @staticmethod

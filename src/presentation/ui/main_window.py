@@ -36,6 +36,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
+    BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
+    BackTestView,
+)
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
 # ---------------------------------------------------------------------------
@@ -54,7 +60,7 @@ _NAV_SECTIONS = [
     ),
     NavSection(
         "QUANT ENGINE",
-        (NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),),
+        (NavItem("Backtest Engine", "backtest", "bar-chart-2"),),
     ),
 ]
 
@@ -128,6 +134,11 @@ class MainWindow(QMainWindow):
             "settings",
             SettingsPresenter,
             lambda: SettingsView(),
+        )
+        self._router.register(
+            "backtest",
+            BackTestPresenter,
+            lambda: BackTestView(),
         )
 
     def switch_screen(self, route_name: str) -> None:

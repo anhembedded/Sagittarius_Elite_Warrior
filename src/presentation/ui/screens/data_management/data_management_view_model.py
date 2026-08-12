@@ -199,6 +199,7 @@ class DataManagementViewModel(BaseQmlViewModel):
 
     progressVisible = Property(bool, _get_progress_visible, notify=progressChanged)
 
+    @Slot(int, int, bool)
     def set_progress(self, value: int, maximum: int, visible: bool) -> None:
         """`maximum == 0` means indeterminate — QML renders it as a busy bar,
         matching QProgressBar's own setRange(0, 0) convention."""
@@ -207,10 +208,12 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._progress_visible = visible
         self.progressChanged.emit()
 
+    @Slot(int)
     def set_progress_value(self, value: int) -> None:
         self._progress_value = value
         self.progressChanged.emit()
 
+    @Slot()
     def hide_progress(self) -> None:
         self.set_progress(0, 0, False)
 
