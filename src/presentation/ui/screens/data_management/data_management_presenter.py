@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
@@ -32,6 +31,9 @@ from .data_management_view_model import DataManagementViewModel
 from .signal_log_handler import SignalLogHandler
 
 if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
+        SingleSyncProgressEvent,
+    )
     from sagittarius_engine.interfaces.i_container import IContainer
 
     from .data_management_view import DataManagementView
@@ -70,7 +72,7 @@ class DataManagementPresenter(BasePresenter):
     ui_error_log_signal = Signal(str)
     ui_progress_signal = Signal(int)
     ui_single_sync_progress_signal = Signal(int, int, bool)
-    ui_status_table_signal = Signal(str, str, str, str, str, str)
+    ui_status_table_signal = Signal(str, str, str, str, str)
     ui_clear_table_signal = Signal()
     ui_unlock_signal = Signal()
     ui_sync_complete_signal = Signal()
@@ -97,9 +99,21 @@ class DataManagementPresenter(BasePresenter):
         view.destroyed.connect(self._log_handler.detach)
 
         if self.fsm:
-            self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
-            self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
-            self.fsm.add_transition(UIMode.LOCKED, UIMode.ERROR)
+            # Transitions from IDLE to new states
+            self.fsm.add_transition(UIMode.IDLE, UIMode.SCANNING)
+            self.fsm.add_transition(UIMode.IDLE, UIMode.SYNCING)
+            self.fsm.add_transition(UIMode.IDLE, UIMode.CLEARING)
+
+            # Transitions back to IDLE
+            self.fsm.add_transition(UIMode.SCANNING, UIMode.IDLE)
+            self.fsm.add_transition(UIMode.SYNCING, UIMode.IDLE)
+            self.fsm.add_transition(UIMode.CLEARING, UIMode.IDLE)
+
+            # Transitions to ERROR
+            self.fsm.add_transition(UIMode.SCANNING, UIMode.ERROR)
+            self.fsm.add_transition(UIMode.SYNCING, UIMode.ERROR)
+            self.fsm.add_transition(UIMode.CLEARING, UIMode.ERROR)
+
             self.fsm.add_transition(UIMode.ERROR, UIMode.IDLE)
 
         # Must be called explicitly at the end of __init__ per BasePresenter
@@ -161,7 +175,7 @@ class DataManagementPresenter(BasePresenter):
                 self.ui_sync_complete_signal.emit()
             self.ui_unlock_signal.emit()
 
-    def _handle_single_sync_progress(self, event: "SingleSyncProgressEvent") -> None:
+    def _handle_single_sync_progress(self, event: SingleSyncProgressEvent) -> None:
         """Bridge Single Sync Progress Events → Qt Signals."""
         # Ensure the progress bar reflects the calculated maximum total
         self.ui_single_sync_progress_signal.emit(event.current, event.total, True)
@@ -199,7 +213,7 @@ class DataManagementPresenter(BasePresenter):
     def _on_check_status(self) -> None:
         """Dispatch GetDatabaseStatusQuery for the currently selected symbol/interval."""
         symbol = self._view_model.selectedSymbol.strip()
-        interval = self._view_model.selectedInterval.strip()
+        interval = "1m"
 
         self.ui_clear_table_signal.emit()
         self.ui_log_signal.emit(
@@ -219,7 +233,6 @@ class DataManagementPresenter(BasePresenter):
 
             self.ui_status_table_signal.emit(
                 symbol,
-                interval,
                 status.first_record,
                 status.last_record,
                 status.total_candles,
@@ -233,15 +246,12 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_sync_data(self) -> None:
-        """Read the current symbol/interval selection and trigger a single sync."""
-        self._trigger_single_sync(
-            self._view_model.selectedSymbol.strip(),
-            self._view_model.selectedInterval.strip(),
-        )
+        """Read the current symbol selection and trigger a single sync."""
+        self._trigger_single_sync(self._view_model.selectedSymbol.strip())
 
-    @Slot(str, str)
+    @Slot(str)
     @safe_ui_action
-    def _trigger_single_sync(self, symbol: str, interval: str) -> None:
+    def _trigger_single_sync(self, symbol: str) -> None:
         """
         Lock the UI and submit a background single-sync task. Reads the
         optional custom time range on the main thread before handing off.
@@ -259,10 +269,11 @@ class DataManagementPresenter(BasePresenter):
                 )
                 return
 
+        interval = "1m"
         self.ui_log_signal.emit(
             f"Starting sync from Binance for {symbol} ({interval})..."
         )
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.fsm.transition_to(UIMode.SYNCING)
         self._view_model.set_progress(value=0, maximum=0, visible=True)
 
         self._thread_manager.submit(
@@ -277,13 +288,13 @@ class DataManagementPresenter(BasePresenter):
         knows about. The Handler owns all iteration and result formatting.
         """
         self.ui_clear_table_signal.emit()
-        self.ui_log_signal.emit("Scanning DB status for ALL symbols and intervals...")
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.ui_log_signal.emit("Scanning DB status for ALL symbols...")
+        self.fsm.transition_to(UIMode.SCANNING)
 
         self._thread_manager.submit(
             self._run_scan_all,
             list(self._view_model.symbols),
-            list(self._view_model.intervals),
+            ["1m"],
         )
 
     @Slot()
@@ -298,7 +309,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_log_signal.emit(
             f"Found {len(targets)} targets to sync. Starting sequential bulk sync..."
         )
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.fsm.transition_to(UIMode.SYNCING)
         self._view_model.set_progress(value=0, maximum=len(targets), visible=True)
 
         self._thread_manager.submit(self._run_bulk_sync, targets)
@@ -307,11 +318,10 @@ class DataManagementPresenter(BasePresenter):
     @safe_ui_action
     def _on_clear_data(self) -> None:
         symbol = self._view_model.selectedSymbol.strip()
-        interval = self._view_model.selectedInterval.strip()
         self.ui_log_signal.emit(
-            f"Clearing local data for {symbol} ({interval}) is not yet implemented."
+            f"Clearing local data for {symbol} is not yet implemented."
         )
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.fsm.transition_to(UIMode.CLEARING)
 
     # ================================================================== #
     # Main-thread helpers
@@ -438,7 +448,6 @@ class DataManagementPresenter(BasePresenter):
             for item in results:
                 self.ui_status_table_signal.emit(
                     item.symbol,
-                    item.interval,
                     item.first_record,
                     item.last_record,
                     item.total_candles,
@@ -451,13 +460,13 @@ class DataManagementPresenter(BasePresenter):
         finally:
             self.ui_unlock_signal.emit()
 
-    def _run_bulk_sync(self, targets: list[tuple[str, str]]) -> None:
+    def _run_bulk_sync(self, targets: list[str]) -> None:
         """
         Background worker: dispatches BulkSyncMarketDataCommand.
         Progress and completion are reported via BulkSyncProgressEvent → signals.
         """
         try:
-            cmd = BulkSyncMarketDataCommand(targets=targets)
+            cmd = BulkSyncMarketDataCommand(targets=[(t, "1m") for t in targets])
             self.dispatcher.dispatch(BulkSyncMarketDataCommand, cmd)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Failed to dispatch bulk sync: {exc}")
