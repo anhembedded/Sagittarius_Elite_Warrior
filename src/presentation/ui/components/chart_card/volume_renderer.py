@@ -25,7 +25,9 @@ class VolumeItem:
         self._bar_width = _DEFAULT_BAR_WIDTH
         self._timestamps: list[float] = []
         self._heights: list[float] = []
-        self._colors: list[str] = []
+        self._brushes: list[pg.QtGui.QBrush] = []
+        self._bull_brush = pg.mkBrush(theme.BULL_COLOR)
+        self._bear_brush = pg.mkBrush(theme.BEAR_COLOR)
         self._live_index: int | None = None
         self._visible_range: tuple[float, float] | None = None
 
@@ -40,8 +42,8 @@ class VolumeItem:
 
         self._timestamps = [row[0] for row in data]
         self._heights = [row[1] for row in data]
-        self._colors = [
-            theme.BULL_COLOR if row[2] else theme.BEAR_COLOR for row in data
+        self._brushes = [
+            self._bull_brush if row[2] else self._bear_brush for row in data
         ]
         self._live_index = None
         self._apply()
@@ -52,21 +54,21 @@ class VolumeItem:
         older + already-loaded volume before a wholesale re-render, without
         this class needing to know anything about prepending itself."""
         return [
-            (t, h, c == theme.BULL_COLOR)
-            for t, h, c in zip(self._timestamps, self._heights, self._colors)
+            (t, h, b == self._bull_brush)
+            for t, h, b in zip(self._timestamps, self._heights, self._brushes)
         ]
 
     def update_live(self, timestamp: float, volume: float, is_bullish: bool) -> None:
-        color = theme.BULL_COLOR if is_bullish else theme.BEAR_COLOR
+        brush = self._bull_brush if is_bullish else self._bear_brush
         if self._live_index is None:
             self._timestamps.append(timestamp)
             self._heights.append(volume)
-            self._colors.append(color)
+            self._brushes.append(brush)
             self._live_index = len(self._timestamps) - 1
         else:
             self._timestamps[self._live_index] = timestamp
             self._heights[self._live_index] = volume
-            self._colors[self._live_index] = color
+            self._brushes[self._live_index] = brush
         self._apply()
 
     def append_closed(self, timestamp: float, volume: float, is_bullish: bool) -> None:
@@ -98,5 +100,5 @@ class VolumeItem:
             x=self._timestamps[lo:hi],
             height=self._heights[lo:hi],
             width=self._bar_width,
-            brushes=[pg.mkBrush(c) for c in self._colors[lo:hi]],
+            brushes=self._brushes[lo:hi],
         )
