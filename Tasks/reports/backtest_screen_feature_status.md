@@ -44,7 +44,7 @@
 | Vốn ban đầu | ✅ | `BOT-022` | QML `txtBacktestCapital`, validate ở `_build_run_config` | `test_invalid_capital_is_rejected_without_submitting`, `test_non_positive_capital_is_rejected` | — |
 | Symbol/Interval mặc định đọc từ `IConfig` (không hardcode, không phụ thuộc ngầm Dev Board) | ✅ | `BOT-058` | `BackTestPresenter.__init__` đọc `self.config.get_all()`, `self._symbol` thay `_DEFAULT_SYMBOL` cũ | `test_reads_default_symbol_and_interval_from_config`, `test_empty_default_symbols_falls_back_to_a_default_symbol`, `test_invalid_default_interval_keeps_the_view_models_own_default` | — |
 | Nút "Chạy Backtest" — dispatch nền, không chặn UI | ✅ | `BOT-022` | `_on_run_backtest` → `IThreadManager.submit(_run_backtest, ...)`; QML `btnRunBacktest` | `test_run_backtest_submits_background_task_and_locks_fsm`, `test_qml_run_button_click_requests_a_run` | `test_backtest_command_resolves_to_its_handler[RunStaticBacktestCommand]` |
-| Trạng thái Loading / Lỗi / Không có dữ liệu / 0 trade (phân biệt rõ) | ✅ | `BOT-022` | `_on_backtest_succeeded`/`_on_backtest_empty`/`_on_backtest_failed`, `UIMode IDLE/LOCKED/ERROR` | `test_no_historical_data_reports_empty_message_and_unlocks`, `test_zero_trades_reports_empty_message_with_the_metrics`, `test_dispatch_exception_reports_error_and_unlocks` | — |
+| Trạng thái Loading / Lỗi / Không có dữ liệu / 0 trade (phân biệt rõ) | ✅ | `BOT-022` | `_on_backtest_succeeded`/`_on_backtest_empty`/`_on_backtest_failed`, `BacktestUiState IDLE/RUNNING/SYNCING/ERROR` (`BOT-059`, state machine riêng thay `UIMode` dùng chung) | `test_no_historical_data_reports_empty_message_and_unlocks`, `test_zero_trades_reports_empty_message_with_the_metrics`, `test_dispatch_exception_reports_error_and_unlocks` | — |
 | "Thông số Bot" — khoá tạm | ✅ (khoá có chủ đích) | `BOT-022` | QML `btnBacktestBotParams`, `enabled: false` | `test_bot_params_button_is_disabled` | — |
 | Execution Trigger Rule — khoá về "On bar close" | ✅ (khoá có chủ đích) | `BOT-022` | `OrderExecutionMenu.qml`, item 0 `locked: true`, item 1-3 disable | — | — |
 | 4 stat card thật (Net PnL / Max DD / Win Rate / Profit Factor) | ✅ | `BOT-055` | `performance_metrics_view.py` (`build_primary_stat_cards`), `MetricCard` × 4 trong `BackTestTopPanel.qml` | `test_performance_metrics_view.py` (10 test) | — |
@@ -61,13 +61,14 @@
 | Buy/Sell flags từ `result.trades` | ✅ | `BOT-056` | `trade_flag_markers()`, `set_script_markers` (hạ tầng `BOT-032`) | `test_trade_flags_toggle_draws_and_clears_markers`, `test_chart_canvas_view.py` (5 test) | — |
 | Volume toggle | ✅ | `BOT-056` | `ChartCard.set_volume_visible()` (method mới, không đụng core) | — | — |
 | Top panel đủ cao để hiện value/badge của stat card (không bị cắt) | ✅ (đã fix, tìm ra khi chạy thật) | `BOT-022`/`055` fix | `_TOP_PANEL_HEIGHT = 190` (`backtest_view.py`) | — | — |
+| Nút "Đồng bộ ngay" khi thiếu dữ liệu (Backtest tự sync, không phụ thuộc ngầm Dev Board) | ✅ | `BOT-059` | `_on_request_sync`/`_run_sync` dispatch `SyncMarketDataCommand`; QML `btnRequestSync` (`visible: viewModel.needsDataSync`); sync xong tự resubmit backtest bằng giá trị toolbar hiện tại | `test_request_sync_transitions_to_syncing_and_submits_background_task`, `test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest`, `test_sync_success_resubmits_with_the_toolbars_current_fields`, `test_sync_failure_keeps_the_flag_and_returns_to_idle` | `test_backtest_command_resolves_to_its_handler[SyncMarketDataCommand]` |
+| `BacktestUiState` — state machine riêng (`IDLE/RUNNING/SYNCING/ERROR`), thay `UIMode` dùng chung với Dashboard/Data Management | ✅ | `BOT-059` | `backtest_state.py` (mới) — đặt tên `BacktestUiState` chứ không phải `BacktestState` như spec gốc vì trùng tên thật với 1 class không liên quan ở `application/use_cases/backtest/run_backtest/handler.py` | — (phủ gián tiếp qua mọi test dùng `presenter.fsm.current_state`) | — |
 
 ### Chưa có (🔲) — đã có task backlog giữ chỗ
 
 | Tính năng | Task | Ghi chú |
 |---|---|---|
 | Trade Logs Table thật (lọc/tìm/export/dòng mở rộng) | [`BOT-057`](../backlog/BOT-057_backtest_trade_logs_table.md) | `BackTestTradeLogs.qml` hiện vẫn là mockup tĩnh 5 dòng giả ("#216 vị thế mua" lặp lại) |
-| Nút "Đồng bộ ngay" khi thiếu dữ liệu + `BacktestState` machine riêng | [`BOT-059`](../backlog/BOT-059_backtest_inline_data_sync_affordance.md) | Hiện gặp "No historical data" là ngõ cụt, phải tự rời màn |
 | Modal "Cấu hình Thông số Bot" (form động theo schema) | [`BOT-044`](../backlog/BOT-044_param_schema_core.md)/[`046`](../backlog/BOT-046_strategy_param_plumbing.md)/[`047`](../backlog/BOT-047_dynamic_params_form_ui.md) | Nút đã có (`btnBacktestBotParams`), đang khoá |
 | Execution Trigger Rule — tick-level (3 lựa chọn còn lại) | [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md) | Chưa có action item cụ thể, còn câu hỏi kiến trúc |
 | SL/TP + Position sizing theo rủi ro | [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) | — |

@@ -273,20 +273,48 @@ Rectangle {
                 }
             }
 
-            ScrollView {
+            ColumnLayout {
                 anchors.fill: parent
                 visible: viewModel.primaryStatCards.length === 0
-                clip: true
+                spacing: 6
 
-                TextArea {
-                    objectName: "txtBacktestResult"
-                    text: viewModel.resultText
-                    readOnly: true
-                    wrapMode: TextArea.Wrap
-                    color: viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
-                    font.pixelSize: 11
-                    font.family: "monospace"
-                    background: Rectangle { color: "transparent" }
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+
+                    TextArea {
+                        objectName: "txtBacktestResult"
+                        text: viewModel.resultText
+                        readOnly: true
+                        wrapMode: TextArea.Wrap
+                        color: viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
+                        font.pixelSize: 11
+                        font.family: "monospace"
+                        background: Rectangle { color: "transparent" }
+                    }
+                }
+
+                // BOT-059: only ever shown after a run comes back "no
+                // historical data" — lets the user fix that inline instead
+                // of leaving the screen to sync from Dev Board.
+                Button {
+                    objectName: "btnRequestSync"
+                    Layout.alignment: Qt.AlignLeft
+                    visible: viewModel.needsDataSync
+                    enabled: viewModel.uiMode !== "SYNCING"
+                    implicitHeight: 32
+                    text: viewModel.uiMode === "SYNCING" ? "Đang đồng bộ..." : "Đồng bộ ngay"
+                    background: Rectangle { color: enabled ? Theme.accent : Theme.border; radius: 4 }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#000000"
+                        font.pixelSize: 12
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: viewModel.requestSync()
                 }
             }
         }

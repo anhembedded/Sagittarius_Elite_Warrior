@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+    SyncMarketDataCommand,
+)
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
     BacktestMetrics,
 )
@@ -49,13 +52,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_t
     CANDLESTICK,
     LINE,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     _FALLBACK_SYMBOL,
     BackTestPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_run_config import (
     BacktestRunConfig,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state import (
+    BacktestUiState,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
@@ -327,7 +332,7 @@ def test_run_backtest_submits_background_task_and_locks_fsm(
 ):
     view_model.requestRun()
 
-    assert presenter.fsm.current_state == UIMode.LOCKED
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
     mock_thread_mgr.submit.assert_called_once()
     call_args = mock_thread_mgr.submit.call_args[0]
     assert call_args[0] == presenter._run_backtest
@@ -347,7 +352,7 @@ def test_invalid_capital_is_rejected_without_submitting(
 
     mock_thread_mgr.submit.assert_not_called()
     assert view_model.resultIsError is True
-    assert presenter.fsm.current_state == UIMode.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
 
 
 def test_non_positive_capital_is_rejected(presenter, view_model, mock_thread_mgr):
@@ -402,7 +407,7 @@ def test_run_backtest_ignored_while_already_running(
 
 def _lock_and_get_config(presenter, view_model) -> BacktestRunConfig:
     view_model.requestRun()
-    assert presenter.fsm.current_state == UIMode.LOCKED
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
     return presenter._build_run_config() or BacktestRunConfig(
         strategy_key="fake_strategy",
         timeframe=TimeFrame("1m"),
@@ -422,7 +427,7 @@ def test_successful_run_with_trades_updates_view_model_and_unlocks(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == UIMode.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
     assert view_model.resultIsError is False
     assert "ETHUSDT" in view_model.resultText
     assert "Closed trades: 1" in view_model.resultText
@@ -458,9 +463,12 @@ def test_no_historical_data_reports_empty_message_and_unlocks(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == UIMode.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
     assert view_model.resultIsError is False
     assert "Không có dữ liệu" in view_model.resultText
+    # BOT-059: "no data at all" is exactly the case "Đồng bộ ngay" exists for.
+    assert view_model.needsDataSync is True
+    assert presenter._last_no_data_config is config
 
 
 def test_zero_trades_reports_empty_message_with_the_metrics(
@@ -473,13 +481,15 @@ def test_zero_trades_reports_empty_message_with_the_metrics(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == UIMode.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
     assert view_model.resultIsError is False
     assert "không có giao dịch nào" in view_model.resultText
     assert "Closed trades: 0" in view_model.resultText
     # BOT-055: 0 trades still populates the 4 cards (all reading 0), not an
     # empty panel — only "no historical data at all" clears it.
     assert len(view_model.primaryStatCards) == 4
+    # BOT-059: 0 trades is a real result, not "no data" — must not offer sync.
+    assert view_model.needsDataSync is False
 
 
 def test_dispatch_exception_reports_error_and_unlocks(
@@ -490,9 +500,157 @@ def test_dispatch_exception_reports_error_and_unlocks(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == UIMode.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
     assert view_model.resultIsError is True
     assert "boom" in view_model.resultText
+
+
+# ---------------------------------------------------------------------------
+# "Đồng bộ ngay" (BOT-059)
+# ---------------------------------------------------------------------------
+
+
+def _run_to_no_data(presenter, view_model, mock_dispatcher) -> BacktestRunConfig:
+    """Drives the presenter into the "no historical data, needsDataSync=True"
+    state every sync test starts from."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = None
+    presenter._run_backtest(config)
+    mock_dispatcher.dispatch.reset_mock()
+    return config
+
+
+def test_request_sync_ignored_without_a_cached_no_data_config(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestSync()
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+
+
+def test_request_sync_transitions_to_syncing_and_submits_background_task(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    mock_thread_mgr.reset_mock()
+
+    view_model.requestSync()
+
+    assert presenter.fsm.current_state == BacktestUiState.SYNCING
+    mock_thread_mgr.submit.assert_called_once()
+    call_args = mock_thread_mgr.submit.call_args[0]
+    assert call_args[0] == presenter._run_sync
+    assert call_args[1] is config
+
+
+def test_request_sync_ignored_while_a_backtest_is_already_running(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestRun()  # IDLE -> RUNNING again
+    mock_thread_mgr.reset_mock()
+
+    view_model.requestSync()
+
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_run_sync_dispatches_sync_market_data_command_for_the_no_data_config(
+    presenter, view_model, mock_dispatcher
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_dispatcher.dispatch.return_value = None  # sync itself has no return value
+
+    presenter._run_sync(config)
+
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert handler_class is SyncMarketDataCommand
+    assert command.symbols == [presenter._symbol]
+    assert command.interval == config.timeframe
+
+
+def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_thread_mgr.reset_mock()
+    # _run_sync only dispatches SyncMarketDataCommand — the resubmitted
+    # RunStaticBacktestCommand is never actually dispatched in this test
+    # since mock_thread_mgr.submit is a Mock, not a real thread pool.
+    mock_dispatcher.dispatch.side_effect = None
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_sync(config)
+
+    assert view_model.needsDataSync is False
+    assert presenter._last_no_data_config is None
+    # Auto-resubmitted straight into RUNNING, no click needed.
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    mock_thread_mgr.submit.assert_called_once()
+    call_args = mock_thread_mgr.submit.call_args[0]
+    assert call_args[0] == presenter._run_backtest
+
+
+def test_sync_success_resubmits_with_the_toolbars_current_fields(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    """The user may edit the toolbar while the sync is in flight — the
+    resubmitted run must use those CURRENT fields, not the stale cached
+    config that triggered the sync."""
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    view_model.initialCapitalText = "500"
+    mock_thread_mgr.reset_mock()
+    # _run_sync only dispatches SyncMarketDataCommand — the resubmitted
+    # RunStaticBacktestCommand is never actually dispatched in this test
+    # since mock_thread_mgr.submit is a Mock, not a real thread pool.
+    mock_dispatcher.dispatch.side_effect = None
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_sync(config)
+
+    resubmitted_config = mock_thread_mgr.submit.call_args[0][1]
+    assert resubmitted_config.initial_balance == 500.0
+
+
+def test_sync_failure_keeps_the_flag_and_returns_to_idle(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_thread_mgr.reset_mock()
+    mock_dispatcher.dispatch.side_effect = RuntimeError("sync boom")
+
+    presenter._run_sync(config)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert view_model.needsDataSync is True
+    assert presenter._last_no_data_config is config
+    assert view_model.resultIsError is True
+    assert "sync boom" in view_model.resultText
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_qml_sync_button_only_visible_after_no_data_and_click_requests_sync(
+    presenter, view_model, mock_dispatcher, qml_item, qapp, mock_thread_mgr
+):
+    qapp.processEvents()
+    root = presenter.view.top_widget.rootObject()
+    assert qml_item(root, "btnRequestSync").property("visible") is False
+
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    qapp.processEvents()
+    mock_thread_mgr.reset_mock()
+
+    assert qml_item(root, "btnRequestSync").property("visible") is True
+    qml_item(root, "btnRequestSync").clicked.emit()
+    qapp.processEvents()
+
+    mock_thread_mgr.submit.assert_called_once()
+    assert mock_thread_mgr.submit.call_args[0][0] == presenter._run_sync
 
 
 # ---------------------------------------------------------------------------
@@ -675,7 +833,7 @@ def test_clear_from_chart_is_called_before_each_new_run_not_after(
     view_model.requestRun()
     assert presenter._chart_script_runner.clear_from_chart.call_count == 1
 
-    presenter.fsm.transition_to(UIMode.IDLE)
+    presenter.fsm.transition_to(BacktestUiState.IDLE)
     view_model.requestRun()
     assert presenter._chart_script_runner.clear_from_chart.call_count == 2
 

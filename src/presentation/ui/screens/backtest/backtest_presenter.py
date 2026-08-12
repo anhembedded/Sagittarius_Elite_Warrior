@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+    SyncMarketDataCommand,
+)
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
@@ -25,7 +28,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
     qualified_line_name,
@@ -38,6 +40,7 @@ from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_acti
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .backtest_run_config import BacktestRunConfig
+from .backtest_state import BacktestUiState
 from .backtest_view_model import BackTestViewModel
 from .chart_canvas_view import ChartDisplayMode
 from .performance_metrics_view import (
@@ -72,6 +75,7 @@ _INVALID_CUSTOM_START_MESSAGE = (
 _INVALID_CUSTOM_RANGE_MESSAGE = "Ngày bắt đầu phải trước ngày kết thúc."
 _NO_STRATEGY_MESSAGE = "Chưa có chiến lược nào được đăng ký."
 _RUNNING_MESSAGE = "Đang chạy backtest..."
+_SYNCING_MESSAGE = "Đang đồng bộ dữ liệu..."
 _ZERO_TRADES_MESSAGE = (
     "Backtest chạy xong nhưng không có giao dịch nào trong khoảng thời gian đã chọn."
 )
@@ -130,13 +134,15 @@ class BackTestPresenter(BasePresenter):
     to subscribe to — one dispatch, one result.
     """
 
-    INITIAL_STATE = UIMode.IDLE
+    INITIAL_STATE = BacktestUiState.IDLE
 
     _backtestSucceededSignal = Signal(object)  # BacktestResult
-    _backtestEmptySignal = Signal(str)  # message (no data, or 0 trades)
+    _backtestEmptySignal = Signal(str, object)  # message, BacktestRunConfig (no data)
     _backtestFailedSignal = Signal(str)  # error message
     _chartDataReadySignal = Signal(object, list, list)  # result, klines, volume
     _chartEmaLineSignal = Signal(str, list, list)  # qualified_name, x_data, y_data
+    _syncSucceededSignal = Signal()
+    _syncFailedSignal = Signal(str)  # error message
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
         super().__init__(view, container)
@@ -150,6 +156,11 @@ class BackTestPresenter(BasePresenter):
         default_symbols = config_values.get("DEFAULT_SYMBOLS") or []
         self._symbol: str = default_symbols[0] if default_symbols else _FALLBACK_SYMBOL
         default_interval = config_values.get("DEFAULT_INTERVAL") or ""
+
+        # BOT-059: set only by _on_backtest_empty (a real "no historical
+        # data" result), cleared by any successful run or successful sync —
+        # the single source of truth for whether "Đồng bộ ngay" is offered.
+        self._last_no_data_config: BacktestRunConfig | None = None
 
         self._strategy_registry: StrategyRegistry = container.resolve(StrategyRegistry)
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
@@ -192,10 +203,16 @@ class BackTestPresenter(BasePresenter):
         )
 
         if self.fsm:
-            self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
-            self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
-            self.fsm.add_transition(UIMode.LOCKED, UIMode.ERROR)
-            self.fsm.add_transition(UIMode.ERROR, UIMode.IDLE)
+            self.fsm.add_transition(BacktestUiState.IDLE, BacktestUiState.RUNNING)
+            self.fsm.add_transition(BacktestUiState.RUNNING, BacktestUiState.IDLE)
+            self.fsm.add_transition(BacktestUiState.RUNNING, BacktestUiState.ERROR)
+            self.fsm.add_transition(BacktestUiState.ERROR, BacktestUiState.IDLE)
+            # BOT-059: "Đồng bộ ngay" affordance — SYNCING is a distinct
+            # state, not a bool bolted onto RUNNING, so a sync-in-flight and
+            # a backtest-in-flight can never be represented at the same time.
+            self.fsm.add_transition(BacktestUiState.IDLE, BacktestUiState.SYNCING)
+            self.fsm.add_transition(BacktestUiState.SYNCING, BacktestUiState.RUNNING)
+            self.fsm.add_transition(BacktestUiState.SYNCING, BacktestUiState.IDLE)
 
         # Must be called explicitly at the end of __init__ per BasePresenter
         # contract, and before load_qml() so QML parses against a ready model.
@@ -214,11 +231,14 @@ class BackTestPresenter(BasePresenter):
 
     def _connect_ui_signals(self) -> None:
         self._view_model.runBacktestRequested.connect(self._on_run_backtest)
+        self._view_model.syncRequested.connect(self._on_request_sync)
         self._backtestSucceededSignal.connect(self._on_backtest_succeeded)
         self._backtestEmptySignal.connect(self._on_backtest_empty)
         self._backtestFailedSignal.connect(self._on_backtest_failed)
         self._chartDataReadySignal.connect(self._on_chart_data_ready)
         self._chartEmaLineSignal.connect(self._on_chart_ema_line)
+        self._syncSucceededSignal.connect(self._on_sync_succeeded)
+        self._syncFailedSignal.connect(self._on_sync_failed)
 
     def _connect_engine_events(self) -> None:
         """Nothing to subscribe to: `RunStaticBacktestCommandHandler` returns
@@ -248,12 +268,19 @@ class BackTestPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_run_backtest(self) -> None:
-        if self.fsm.current_state != UIMode.IDLE:
+        if self.fsm.current_state != BacktestUiState.IDLE:
             return
         config = self._build_run_config()
         if config is None:
             return
+        self.fsm.transition_to(BacktestUiState.RUNNING)
+        self._start_backtest_run(config)
 
+    def _start_backtest_run(self, config: BacktestRunConfig) -> None:
+        """Shared by the "Chạy Backtest" click and the post-sync auto-resubmit
+        (`_on_sync_succeeded`) — callers are responsible for their own FSM
+        transition into RUNNING first (IDLE->RUNNING vs SYNCING->RUNNING are
+        different edges), this only does the actual submit."""
         # Must happen here, on the main thread, BEFORE the background run
         # even starts — clear_from_chart() reads self._chart_script_runner
         # .active, which _fetch_and_emit_chart_data's rebuild() (background
@@ -263,7 +290,6 @@ class BackTestPresenter(BasePresenter):
         if card is not None:
             self._chart_script_runner.clear_from_chart(card)
 
-        self.fsm.transition_to(UIMode.LOCKED)
         self._view_model.set_result(_RUNNING_MESSAGE, is_error=False)
         self._thread_manager.submit(self._run_backtest, config)
 
@@ -273,6 +299,8 @@ class BackTestPresenter(BasePresenter):
         """Fires for every real `BacktestResult`, trades or not — stat cards
         (BOT-055) always populate from it (0 trades means every card reads
         0/neutral, never "no cards"); only the status message differs."""
+        self._last_no_data_config = None
+        self._view_model.set_needs_data_sync(False)
         self._view_model.set_stat_cards(
             stat_cards_to_qml(build_primary_stat_cards(result)),
             stat_cards_to_qml(build_extended_stat_cards(result)),
@@ -283,23 +311,27 @@ class BackTestPresenter(BasePresenter):
             else f"{_ZERO_TRADES_MESSAGE}\n\n{format_result_summary(result)}"
         )
         self._view_model.set_result(message, is_error=False)
-        self.fsm.transition_to(UIMode.IDLE)
+        self.fsm.transition_to(BacktestUiState.IDLE)
 
-    @Slot(str)
+    @Slot(str, object)
     @safe_ui_action
-    def _on_backtest_empty(self, message: str) -> None:
+    def _on_backtest_empty(self, message: str, config: BacktestRunConfig) -> None:
         """Only for "no historical data at all" — there is no `BacktestResult`
-        to build stat cards from, so the panel is cleared."""
+        to build stat cards from, so the panel is cleared. Caches `config` so
+        "Đồng bộ ngay" (`_on_request_sync`) knows exactly what to sync and,
+        on success, what to re-run."""
+        self._last_no_data_config = config
+        self._view_model.set_needs_data_sync(True)
         self._view_model.set_stat_cards([], [])
         self._view_model.set_result(message, is_error=False)
-        self.fsm.transition_to(UIMode.IDLE)
+        self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(str)
     @safe_ui_action
     def _on_backtest_failed(self, message: str) -> None:
         self._view_model.set_stat_cards([], [])
         self._view_model.set_result(f"Lỗi: {message}", is_error=True)
-        self.fsm.transition_to(UIMode.IDLE)
+        self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(object, list, list)
     @safe_ui_action
@@ -338,6 +370,46 @@ class BackTestPresenter(BasePresenter):
             card.set_indicator_visible(
                 qualified_line_name(_CHART_EMA_SCRIPT_KEY, line_name), visible
             )
+
+    @Slot()
+    @safe_ui_action
+    def _on_request_sync(self) -> None:
+        if self._last_no_data_config is None:
+            return
+        if self.fsm.current_state != BacktestUiState.IDLE:
+            return
+        self.fsm.transition_to(BacktestUiState.SYNCING)
+        self._view_model.set_result(_SYNCING_MESSAGE, is_error=False)
+        self._thread_manager.submit(self._run_sync, self._last_no_data_config)
+
+    @Slot()
+    @safe_ui_action
+    def _on_sync_succeeded(self) -> None:
+        # Sync is just an inserted precondition, not an independent user
+        # action — the user already asked to run a backtest, "no data" got
+        # in the way, and now that it's synced the original intent should
+        # resume automatically rather than making them click "Chạy Backtest"
+        # a second time.
+        self._view_model.set_needs_data_sync(False)
+        cached_config = self._last_no_data_config
+        self._last_no_data_config = None
+        self.fsm.transition_to(BacktestUiState.RUNNING)
+
+        # Re-read the toolbar's CURRENT config, not the cached one — the user
+        # may have edited fields (symbol/strategy/range) while the sync was
+        # in flight. Fall back to the config that triggered the sync only if
+        # the current fields are no longer valid.
+        config = self._build_run_config() or cached_config
+        self._start_backtest_run(config)
+
+    @Slot(str)
+    @safe_ui_action
+    def _on_sync_failed(self, message: str) -> None:
+        # needsDataSync / _last_no_data_config are left untouched — the sync
+        # that just failed was for genuinely missing data, so "Đồng bộ ngay"
+        # should stay offered for the user to retry.
+        self.fsm.transition_to(BacktestUiState.IDLE)
+        self._view_model.set_result(f"Đồng bộ thất bại: {message}", is_error=True)
 
     # ================================================================== #
     # Main-thread helpers
@@ -414,7 +486,8 @@ class BackTestPresenter(BasePresenter):
         if result is None:
             self._backtestEmptySignal.emit(
                 f"Không có dữ liệu lịch sử cho {self._symbol} "
-                f"({config.timeframe.value}). Hãy sync dữ liệu trước."
+                f"({config.timeframe.value}). Hãy sync dữ liệu trước.",
+                config,
             )
             return
 
@@ -423,6 +496,26 @@ class BackTestPresenter(BasePresenter):
         # "no historical data at all" (result is None, above) has none.
         self._backtestSucceededSignal.emit(result)
         self._fetch_and_emit_chart_data(config, result)
+
+    def _run_sync(self, config: BacktestRunConfig) -> None:
+        """Background worker: dispatches `SyncMarketDataCommand` for the
+        symbol/timeframe/range that just came back "no data" — mirrors
+        `DataManagementPresenter._run_single_sync`, minus the progress-bar
+        events that screen needs and this one doesn't (one sync, one
+        outcome, no multi-target loop)."""
+        try:
+            command = SyncMarketDataCommand(
+                symbols=[self._symbol],
+                interval=config.timeframe,
+                start_time=config.start_time,
+                end_time=config.end_time,
+            )
+            self.dispatcher.dispatch(SyncMarketDataCommand, command)
+        except Exception as exc:
+            logger.exception("Market data sync failed")
+            self._syncFailedSignal.emit(str(exc))
+            return
+        self._syncSucceededSignal.emit()
 
     def _fetch_and_emit_chart_data(
         self, config: BacktestRunConfig, result: BacktestResult

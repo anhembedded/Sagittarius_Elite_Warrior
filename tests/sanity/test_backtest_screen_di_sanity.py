@@ -30,16 +30,22 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+    SyncMarketDataCommand,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.handler import (
+    SyncMarketDataCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.main import create_app
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
-#: Every BackTestPresenter dispatch call (BOT-022 §the run itself, BOT-056's
-#: chart kline fetch) goes through exactly these 2 today. SyncMarketDataCommand
-#: isn't checked here yet — the Backtest screen doesn't dispatch it itself
-#: until BOT-059 lands; add it here when it does.
+#: Every BackTestPresenter dispatch call — the run itself (BOT-022), the
+#: chart kline fetch (BOT-056), and the "Đồng bộ ngay" sync (BOT-059) —
+#: goes through exactly these 3 today.
 _BACKTEST_COMMANDS = {
     RunStaticBacktestCommand: RunStaticBacktestCommandHandler,
     GetHistoricalKlinesQuery: GetHistoricalKlinesQueryHandler,
+    SyncMarketDataCommand: SyncMarketDataCommandHandler,
 }
 
 

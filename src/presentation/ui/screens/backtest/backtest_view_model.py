@@ -5,7 +5,9 @@ from PySide6.QtCore import Property, Signal, Slot
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state import (
+    BacktestUiState,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.time_range_preset import (
     TimeRangePreset,
 )
@@ -37,7 +39,9 @@ class BackTestViewModel(BaseQmlViewModel):
     instead of a hand-rolled `uiMode !== "LOCKED"` check.
     """
 
-    DISABLED_UI_MODES = frozenset({UIMode.LOCKED.value})
+    DISABLED_UI_MODES = frozenset(
+        {BacktestUiState.RUNNING.value, BacktestUiState.SYNCING.value}
+    )
 
     strategyOptionsChanged = Signal()
     selectedStrategyKeyChanged = Signal()
@@ -49,11 +53,16 @@ class BackTestViewModel(BaseQmlViewModel):
     resultChanged = Signal()
     statCardsChanged = Signal()
     showExtendedMetricsChanged = Signal()
+    needsDataSyncChanged = Signal()
 
     #: Emitted when the user clicks "Chạy Backtest". The Presenter reads the
     #: current field values off this view model rather than receiving them
     #: as arguments, so adding a field never changes this signal's signature.
     runBacktestRequested = Signal()
+
+    #: Emitted when the user clicks "Đồng bộ ngay" (BOT-059), only ever
+    #: visible in QML while `needsDataSync` is true.
+    syncRequested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -69,6 +78,7 @@ class BackTestViewModel(BaseQmlViewModel):
         self._primary_stat_cards: list[dict[str, str]] = []
         self._extended_stat_cards: list[dict[str, str]] = []
         self._show_extended_metrics = False
+        self._needs_data_sync = False
 
     # ------------------------------------------------------------------ #
     # Strategy selection
@@ -264,6 +274,24 @@ class BackTestViewModel(BaseQmlViewModel):
     )
 
     # ------------------------------------------------------------------ #
+    # Data sync affordance (BOT-059, written from Python only)
+    # ------------------------------------------------------------------ #
+
+    def _get_needs_data_sync(self) -> bool:
+        return self._needs_data_sync
+
+    #: True only after a run comes back "no historical data" — drives the
+    #: "Đồng bộ ngay" button's `visible` in QML. Read-only from QML by
+    #: design: only the Presenter (via `set_needs_data_sync`) knows whether
+    #: the last run actually hit that case.
+    needsDataSync = Property(bool, _get_needs_data_sync, notify=needsDataSyncChanged)
+
+    def set_needs_data_sync(self, value: bool) -> None:
+        if value != self._needs_data_sync:
+            self._needs_data_sync = value
+            self.needsDataSyncChanged.emit()
+
+    # ------------------------------------------------------------------ #
     # QML entry point
     # ------------------------------------------------------------------ #
 
@@ -271,3 +299,8 @@ class BackTestViewModel(BaseQmlViewModel):
     def requestRun(self) -> None:
         """Called from QML's "Chạy Backtest" button."""
         self.runBacktestRequested.emit()
+
+    @Slot()
+    def requestSync(self) -> None:
+        """Called from QML's "Đồng bộ ngay" button."""
+        self.syncRequested.emit()
