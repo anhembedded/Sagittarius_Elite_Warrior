@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_t
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
+    qualified_line_name,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mapping import (
     map_klines,
@@ -473,6 +474,7 @@ class BackTestPresenter(BasePresenter):
         controls.set_trade_flags_enabled(is_price_scale)
         controls.set_ema_enabled(is_price_scale)
         self._on_ema_toggled(is_price_scale and controls.is_ema_checked())
+        self._set_script_overlay_lines_visible(is_price_scale)
 
     @Slot(bool)
     @safe_ui_action
@@ -482,6 +484,24 @@ class BackTestPresenter(BasePresenter):
             return
         for name in self._active_strategy_lines:
             card.set_indicator_visible(name, visible)
+
+    def _set_script_overlay_lines_visible(self, visible: bool) -> None:
+        """BOT-065: the reference-script counterpart to `_on_ema_toggled` —
+        not the same checkbox/state (a script's line count isn't tied to
+        "Chỉ báo Chiến lược" at all), but the same underlying problem: an
+        overlay script left plotted through Equity-solo mode drags the
+        shared main plot's auto-range onto price values, squashing the
+        equity curve flat. Subplot scripts (RSI/MACD, `overlay=False`)
+        don't share that plot, so they're excluded — nothing to fix for
+        them."""
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is None:
+            return
+        for key, active in self._chart_script_runner.active.items():
+            if not active.overlay:
+                continue
+            for line_name in active.registered_lines:
+                card.set_indicator_visible(qualified_line_name(key, line_name), visible)
 
     @Slot()
     @safe_ui_action

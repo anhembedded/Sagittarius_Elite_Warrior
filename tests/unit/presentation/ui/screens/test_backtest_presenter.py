@@ -113,6 +113,22 @@ class _TestReferenceScript(BaseIndicatorScript):
         self.plot(self.a(candle.close_price), "R", color="#8e44ad")
 
 
+class _TestSubplotScript(BaseIndicatorScript):
+    """BOT-065: a subplot script (RSI/MACD-shaped, `overlay = False`) —
+    doesn't share the main plot's price-scale axis, so it must stay
+    visible through Equity-solo mode, unlike `_TestReferenceScript`."""
+
+    title = "Test Subplot Script"
+    overlay = False
+    default_enabled = True
+
+    def setup(self) -> None:
+        self.a = self.ema(1)
+
+    def execute(self, candle):
+        self.plot(self.a(candle.close_price), "S", color="#2980b9")
+
+
 class _RichParamsStrategy(BaseStrategy):
     """Declares a couple of parameters (BOT-047) — kept out of the shared
     `strategy_registry` fixture so it doesn't perturb `strategyOptions`-
@@ -1211,6 +1227,25 @@ def _build_presenter_with_script(
     )
 
 
+def _build_presenter_with_overlay_and_subplot_scripts(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("test_script", _TestReferenceScript)
+    script_registry.register("test_subplot", _TestSubplotScript)
+    strategy_registry = StrategyRegistry()
+    strategy_registry.register("fake_strategy", _FakeStrategy)
+    return _build_presenter_with_registry(
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        strategy_registry,
+        request,
+        script_registry=script_registry,
+    )
+
+
 def test_script_model_is_populated_from_registry_and_default_enabled_scripts_are_checked(
     qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
 ):
@@ -1266,6 +1301,45 @@ def test_disabling_a_script_before_the_next_run_stops_it_from_drawing(
     presenter._run_backtest(config)
 
     card.add_overlay_indicator.assert_not_called()
+
+
+def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-065: same bug BOT-060 already fixed for the strategy's own
+    lines (test_switching_to_equity_mode_disables_and_hides_the_ema_overlay
+    below), reproduced for BOT-064's script-picker lines — left plotted
+    through a switch to Equity-solo mode, an overlay script drags
+    pyqtgraph's auto-range onto price values, squashing the equity curve
+    flat/invisible. Not a rare case: ema_20/50/100/200 are all
+    default_enabled + overlay, so this is the very first thing a fresh
+    Backtest screen hits switching to "Đường Vốn" once. A subplot script
+    (RSI/MACD-shaped) doesn't share that plot, so it must stay visible —
+    covered here too, not just the overlay case."""
+    presenter = _build_presenter_with_overlay_and_subplot_scripts(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card.set_indicator_visible = Mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    card.set_indicator_visible.assert_any_call("test_script:R", False)
+    hidden_names = {call.args[0] for call in card.set_indicator_visible.call_args_list}
+    assert "test_subplot:S" not in hidden_names
+    card.set_indicator_visible.reset_mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.OHLC].click()
+    qapp.processEvents()
+
+    card.set_indicator_visible.assert_any_call("test_script:R", True)
 
 
 def test_mode_buttons_switch_the_chart_mode_end_to_end(
