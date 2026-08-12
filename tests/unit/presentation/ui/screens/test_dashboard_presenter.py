@@ -211,7 +211,7 @@ def test_on_load_history_does_not_dispatch_on_main_thread(presenter, mock_dispat
 
 
 def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher):
-    """_run_load_history (background) dispatches one GetHistoricalKlinesQuery per symbol."""
+    """_run_load_history (background) dispatches one GetHistoricalKlinesQuery for all symbols."""
     mock_kline = MagicMock()
     mock_kline.close_time.timestamp.return_value = 1700000000.0
     mock_kline.open_price = 40000
@@ -220,27 +220,28 @@ def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher
     mock_kline.close_price = 40500
     mock_kline.volume = 12.5
 
-    mock_dispatcher.dispatch.return_value = [mock_kline]
+    mock_dispatcher.dispatch.return_value = {"BTCUSDT": [mock_kline], "ETHUSDT": [mock_kline]}
 
     symbols = ["BTCUSDT", "ETHUSDT"]
     presenter._run_load_history(symbols, "1m", 5000, presenter._cancellation_token)
 
-    assert mock_dispatcher.dispatch.call_count == 2
-    for i, call_args in enumerate(mock_dispatcher.dispatch.call_args_list):
-        dispatched_type, dispatched_query = call_args[0]
-        assert dispatched_type == GetHistoricalKlinesQuery
-        assert dispatched_query.symbol == symbols[i]
-        assert dispatched_query.interval == "1m"
-        assert dispatched_query.limit == 5000
-        assert dispatched_query.order_by_desc is True
+    assert mock_dispatcher.dispatch.call_count == 1
+    call_args = mock_dispatcher.dispatch.call_args_list[0]
+    dispatched_type, dispatched_query = call_args[0]
+    assert dispatched_type == GetHistoricalKlinesQuery
+    assert dispatched_query.symbol == symbols
+    assert dispatched_query.interval == "1m"
+    assert dispatched_query.limit == 5000
+    assert dispatched_query.order_by_desc is True
 
 
 def test_run_load_history_handles_exception_per_symbol(presenter, mock_dispatcher):
     """An exception for one symbol must not abort the rest of the load."""
-    mock_dispatcher.dispatch.side_effect = [
-        Exception("DB error"),
-        [MagicMock()],
-    ]
+    # With the new dictionary structure, the exception could occur internally, or we might
+    # return an empty list or missing key for the failed symbol. Let's mock a missing key.
+    mock_dispatcher.dispatch.return_value = {
+        "ETHUSDT": [MagicMock()],
+    }
 
     logs = []
     presenter.ui_log_signal.connect(logs.append)

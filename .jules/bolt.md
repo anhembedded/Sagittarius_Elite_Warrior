@@ -8,3 +8,7 @@
 ## 2026-08-12 - [Optimize datetime difference calculations using unixepoch()]
 **Learning:** For SQLite database queries computing integer seconds for time deltas, using the native `unixepoch()` function is more performant than `strftime('%s', ...)`. Since the project runs on SQLite 3.45.1+, `unixepoch()` is fully supported and natively computes the UNIX timestamp more directly than formatting the datetime string.
 **Action:** Prefer `unixepoch()` over `strftime('%s', ...)` in all SQLite queries computing timestamps or time deltas to maximize database query performance.
+
+## 2024-02-12 - Batch Database Queries via ThreadPoolExecutor
+**Learning:** Sequential database queries within a loop inside the application use cases caused high latency. By utilizing a ThreadPoolExecutor inside the handler to fetch independent data sources (symbols) concurrently, we achieve significant performance improvements.
+**Action:** Next time when designing handlers that fetch multiple independent pieces of data from the database, consider accepting a batch/list of inputs and dispatching them concurrently within the handler, ensuring thread safety and minimizing roundtrips through the CQRS dispatcher.
