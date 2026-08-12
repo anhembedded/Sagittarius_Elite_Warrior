@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, Signal, Slot
+from PySide6.QtQml import QJSValue
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
@@ -487,5 +488,15 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot("QVariant")
     def requestBotParamsSave(self, values) -> None:
         """Called from QML's "Lưu & Re-Backtest" button with a JS object of
-        {field_name: raw_value} collected from the form (BOT-047)."""
+        {field_name: raw_value} collected from the form (BOT-047).
+
+        @details PySide6 marshals a `QVariant`-typed slot argument built from
+        a plain QML JS object literal as a `QJSValue`, not a Python `dict` —
+        `dict(values)` raises `TypeError: '...QJSValue' object is not
+        iterable` on the real object QML sends (only a hand-built Python
+        dict passed directly from a test bypasses this). `toVariant()`
+        recursively converts it to native Python types first.
+        """
+        if isinstance(values, QJSValue):
+            values = values.toVariant()
         self.botParamsSaveRequested.emit(dict(values))

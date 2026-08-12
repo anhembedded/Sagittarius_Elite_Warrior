@@ -11,7 +11,7 @@ import QmlShared 1.0
 Item {
     id: root
 
-    required property var fieldData
+    property var fieldData
 
     //: Marks this item for BotParamsDialog's recursive collector — see its
     //: _collectFieldItems().
