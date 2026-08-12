@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 42 | 61% |
+| 🟢 **Completed** | 42 | 60% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 27 | 39% |
-| 📈 **Tổng số Task** | **69** | **100%** |
+| 🔴 **Backlog** | 28 | 40% |
+| 📈 **Tổng số Task** | **70** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
@@ -87,6 +87,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | :---: | :--- | :--- | :---: | :--- |
 | **P1** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Sẵn sàng bắt đầu — mọi phụ thuộc đã hoàn thành. |
 | **P1** | **[Nhóm Engine Hardening](reports/engine_defect_class_analysis.md)** *(`BOT-066`…`BOT-071`)* | **6 cơ chế engine chặn 6 lớp lỗi tái phát** | — | Sinh ra từ rà soát toàn bộ lịch sử bug: gom thành 6 **lớp lỗi** rồi hỏi "cơ chế nào khiến cả lớp đó không xảy ra được nữa". Xem bảng chi tiết bên dưới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). |
+| **P1** | **[BOT-072](backlog/BOT-072_chart_stale_viewport_window_on_zoom.md)** | **Bug — Chart mất nến sau khi zoom out rồi zoom in** | — | User báo kèm ảnh ([`BUG-002`](bug_report/BUG-002.md)). **Đã điều tra xong, xác định root cause, chưa sửa**: `FastCandlestickItem.paint()` đọc `viewRange()` nhưng không override `viewRangeChanged()` của pyqtgraph nên không vẽ lại khi viewport đổi → hiện slice của lần paint trước. Phát hiện kèm: `IndicatorManager.refresh_window()`/`VolumeRenderer.set_visible_range()` **không ai gọi** (`sigRangeChanged` không được connect ở đâu trong `src/`) — tối ưu hoá viewport-windowing đang là code chết cho 2 renderer đó. |
 | **P2** | **[BOT-035](backlog/BOT-035_dev_board_load_more_on_scroll.md)** | **Dev Board — Tự tải thêm dữ liệu cũ khi kéo ra rìa trái chart (US-04)** | `BOT-034` ✅ | Kéo/scroll chart ra rìa trái dữ liệu đã tải hiện không làm gì — chart chỉ trống. Query/repository layer đã hỗ trợ sẵn (`GetHistoricalKlinesQuery.end_time`), việc còn lại là: detect gần rìa trái (`ViewportController`, chưa có hook), `ChartCard.prepend_historical_data()` mới (không phá zoom hiện tại, khác `render_historical_data`), và full rebuild+refeed cho `IndicatorScriptRunner` (không có đường "feed lùi" — đã verify). **Còn 3 câu hỏi mở** (ngưỡng trigger, số nến/lần, có tự sync từ Binance khi DB thiếu hay không) — chưa code, chờ user chốt. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
