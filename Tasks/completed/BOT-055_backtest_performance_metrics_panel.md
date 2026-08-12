@@ -3,7 +3,7 @@
 > **Task 2/4** của màn Backtest: [`BOT-022`](BOT-022_backtest_screen_static_ui.md)
 > → `BOT-055` (file này) → [`BOT-056`](BOT-056_backtest_chart_canvas.md) →
 > [`BOT-057`](BOT-057_backtest_trade_logs_table.md).
-> Thuộc Epic [BOT-040](BOT-040_backtest_screen_full_feature_epic.md).
+> Thuộc Epic [BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md).
 > Phụ thuộc [`BOT-022`](BOT-022_backtest_screen_static_ui.md), `BOT-021` ✅.
 
 ## 1. Mục tiêu

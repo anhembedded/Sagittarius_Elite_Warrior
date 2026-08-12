@@ -1,6 +1,6 @@
 # Nhiệm vụ: Backtest Screen — Symbol/Interval mặc định đọc từ Config, không phụ thuộc Dev Board
 
-> Thuộc Epic [BOT-040 — Backtest Screen Full Feature Set](BOT-040_backtest_screen_full_feature_epic.md), Nhóm D (nối tiếp `BOT-022`). Phụ thuộc `BOT-022` ✅.
+> Thuộc Epic [BOT-040 — Backtest Screen Full Feature Set](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Nhóm D (nối tiếp `BOT-022`). Phụ thuộc `BOT-022` ✅.
 
 ## 1. Mục tiêu (Objective)
 

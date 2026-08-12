@@ -58,7 +58,7 @@ Cần user cung cấp rõ:
 - [ ] `QmlStructureBreakoutStrategy(BaseStrategy)` + input "độ nhạy score"
   (default 85 theo mockup).
 - [ ] Gắn `metadata={"qml_score": ...}` vào `Signal`
-  ([`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md)) để bảng Trade
+  ([`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md)) để bảng Trade
   Logs hiện được "QML Signal Score: 92/100".
 - [ ] Lý do vào lệnh (`Signal.reason`) mô tả đúng bối cảnh, kiểu *"QML
   Liquidity Sweep + EMA 21 Resistance"* — không phải chuỗi chung chung.
@@ -70,6 +70,6 @@ Cần user cung cấp rõ:
 ## 4. Phụ thuộc
 
 - `BOT-026` ✅, [`BOT-046`](BOT-046_strategy_param_plumbing.md),
-  [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md).
-- Chart Canvas ([`BOT-056`](BOT-056_backtest_chart_canvas.md)) — nơi vẽ "QML
+  [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md).
+- Chart Canvas ([`BOT-056`](../completed/BOT-056_backtest_chart_canvas.md)) — nơi vẽ "QML
   Signal Badges".

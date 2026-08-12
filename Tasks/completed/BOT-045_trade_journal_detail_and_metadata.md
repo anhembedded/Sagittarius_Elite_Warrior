@@ -1,6 +1,6 @@
 # Nhiệm vụ: Trade Journal Detail — Lý do vào/thoát lệnh & metadata theo chiến lược
 
-> Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
+> Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > Chặn phần "dòng mở rộng" của bảng Trade Logs trong spec UI. Phụ thuộc
 > `BOT-021` ✅ (`Trade`/`PaperExchange`), `BOT-026` ✅ (`Signal.reason`).
 

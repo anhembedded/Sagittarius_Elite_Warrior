@@ -1,6 +1,6 @@
 # Nhiệm vụ: Static Backtest Execution Engine — Phase 1
 
-> Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 1 (Static). Phụ thuộc `BOT-020`.
+> Thuộc Epic [BOT-006 — Backtest Engine](../backlog/BOT-006_backtest_engine_execution.md), Phase 1 (Static). Phụ thuộc `BOT-020`.
 
 ## 1. Mục tiêu (Objective)
 Chạy chiến lược trên toàn bộ dữ liệu lịch sử trong **1 lượt tính toán nhanh** (không throttle/sleep, không mô phỏng thời gian thực), trả về kết quả đầy đủ (danh sách trade, equity curve, metrics) gần như tức thời.

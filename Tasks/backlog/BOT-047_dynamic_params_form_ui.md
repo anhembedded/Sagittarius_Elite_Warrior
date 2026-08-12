@@ -67,6 +67,6 @@ Không tự quyết — xác nhận với user khi bắt đầu task này.
 - [`BOT-044`](../completed/BOT-044_param_schema_core.md) — schema (nguồn dữ liệu để dựng form).
 - [`BOT-046`](BOT-046_strategy_param_plumbing.md) — đường truyền `params` xuống
   strategy để "Lưu & Re-Backtest" có tác dụng thật.
-- [`BOT-022`](BOT-022_backtest_screen_static_ui.md) — màn Backtest là nơi đặt
+- [`BOT-022`](../completed/BOT-022_backtest_screen_static_ui.md) — màn Backtest là nơi đặt
   nút mở modal này.
 - `BOT-016` ✅ / `BOT-030` ✅ — icon Lucide, hạ tầng QML dùng chung.

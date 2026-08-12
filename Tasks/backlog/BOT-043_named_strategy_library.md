@@ -71,7 +71,7 @@ sau này (kể cả SMC nếu quay lại làm):
   indicator, khai báo qua `build_indicators()`.
 - Khai báo tham số qua cơ chế input ([`BOT-046`](BOT-046_strategy_param_plumbing.md)).
 - Gắn metadata riêng vào `Signal`
-  ([`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md)) để bảng Trade
+  ([`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md)) để bảng Trade
   Logs hiển thị chỉ số đặc thù (vd "QML Signal Score 92/100").
 
 ## 5. Không chặn gì

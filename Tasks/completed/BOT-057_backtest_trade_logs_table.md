@@ -3,7 +3,7 @@
 > **Task 4/4** của màn Backtest: [`BOT-022`](BOT-022_backtest_screen_static_ui.md)
 > → [`BOT-055`](BOT-055_backtest_performance_metrics_panel.md) →
 > [`BOT-056`](BOT-056_backtest_chart_canvas.md) → `BOT-057` (file này).
-> Thuộc Epic [BOT-040](BOT-040_backtest_screen_full_feature_epic.md).
+> Thuộc Epic [BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md).
 > Phụ thuộc [`BOT-022`](BOT-022_backtest_screen_static_ui.md), `BOT-021` ✅;
 > phần dòng mở rộng cần [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md).
 
@@ -31,7 +31,7 @@ rộng chi tiết** cho từng lệnh.
 - [x] Tab lọc: **Tất cả** / **Mua (LONG)** / **Bán (SHORT)** / **Lệnh thắng**
   (`pnl > 0`) / **Lệnh thua** (`pnl < 0`) — lọc `list[Trade]` ở UI/Presenter,
   không query mới (`trade_log_filter.py`). Tab SHORT **luôn rỗng** cho tới
-  [`BOT-050`](BOT-050_short_selling_support.md) (không ẩn, đúng quyết định).
+  [`BOT-050`](../backlog/BOT-050_short_selling_support.md) (không ẩn, đúng quyết định).
 - [x] Ô tìm kiếm theo mã lệnh (`#216` hoặc `216`) / ngày tháng — lọc
   client-side (`search_trade_log_rows`).
 - [x] Nút **Export** (CSV) từ `list[Trade]` **đang lọc/tìm hiện tại** (không
@@ -78,4 +78,4 @@ trên root. Xem chi tiết implementation ở mục 6 của file `BOT-045`.
 - [`BOT-022`](BOT-022_backtest_screen_static_ui.md) — khung màn hình.
 - `BOT-021` ✅ — `Trade`/`BacktestResult`.
 - [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md) — **chặn** mục 2.2.
-- [`BOT-050`](BOT-050_short_selling_support.md) — dữ liệu cho tab SHORT.
+- [`BOT-050`](../backlog/BOT-050_short_selling_support.md) — dữ liệu cho tab SHORT.

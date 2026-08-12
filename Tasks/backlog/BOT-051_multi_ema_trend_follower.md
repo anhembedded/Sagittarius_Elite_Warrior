@@ -35,7 +35,7 @@ thứ tự bị phá.
 - [ ] Dùng lại `is_above`/`is_below` từ `domain/scripting/` — **không** viết
   lại so sánh None-safe.
 - [ ] Gắn metadata (vd "số đường EMA thuận xu hướng") vào `Signal` cho bảng
-  Trade Logs ([`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md)).
+  Trade Logs ([`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md)).
 - [ ] Đăng ký vào `StrategyRegistry` trong `binance_bot_module.py`.
 - [ ] Test golden signal list: chuỗi giá tính tay, so khớp danh sách action
   từng bar (theo đúng cách `test_ema_crossover_strategy.py` đã làm — chạy code

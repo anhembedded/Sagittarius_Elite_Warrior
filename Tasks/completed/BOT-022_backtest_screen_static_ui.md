@@ -1,7 +1,7 @@
 # Nhiệm vụ: Backtest Screen — Khung màn hình + Top Toolbar
 
-> Thuộc Epic [BOT-006](BOT-006_backtest_engine_execution.md) Phase 1 và Epic
-> [BOT-040](BOT-040_backtest_screen_full_feature_epic.md).
+> Thuộc Epic [BOT-006](../backlog/BOT-006_backtest_engine_execution.md) Phase 1 và Epic
+> [BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md).
 > **Task 1/4** của màn Backtest (đã chia nhỏ theo yêu cầu user):
 > `BOT-022` (file này, khung + toolbar) →
 > [`BOT-055`](BOT-055_backtest_performance_metrics_panel.md) (stat cards) →
@@ -49,13 +49,13 @@ vào Sidebar.
 - [ ] Hiển thị kết quả thô tạm thời (vd JSON/text) để verify end-to-end trước
   khi có panel đẹp — sẽ bị 3 task sau thay thế.
 - [ ] Nút mở modal "Cấu hình Thông số Bot" — **để disable** ở task này, bật
-  khi [`BOT-047`](BOT-047_dynamic_params_form_ui.md) xong.
+  khi [`BOT-047`](../backlog/BOT-047_dynamic_params_form_ui.md) xong.
 - [ ] Layout switcher: chỉ chế độ "1 cửa sổ". **Không làm** 2 biểu đồ/lưới
   (tách task sau nếu có nhu cầu thật).
 - [ ] **Không làm**: nút "AI Chẩn đoán" (user đã chốt hoãn), nhóm checkbox
   Execution Trigger Rule (mặc định luôn "on bar close" — ẩn/disable 3 lựa
   chọn còn lại thay vì hiện ra rồi không hoạt động, chờ
-  [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md)).
+  [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md)).
 - [ ] Unit test `BacktestPresenter`: mock dispatcher/event bus, assert đúng
   state UI cho thành công / không có dữ liệu / lỗi.
 
@@ -70,4 +70,4 @@ vào Sidebar.
 - `BOT-021` ✅ — `RunStaticBacktestCommand`/`BacktestResult`.
 - `BOT-026` ✅ — `StrategyRegistry`.
 - `BOT-016` ✅ / `BOT-030` ✅ — icon, hạ tầng QML.
-- [`BOT-047`](BOT-047_dynamic_params_form_ui.md) — modal cấu hình (bật nút sau).
+- [`BOT-047`](../backlog/BOT-047_dynamic_params_form_ui.md) — modal cấu hình (bật nút sau).

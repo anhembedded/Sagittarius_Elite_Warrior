@@ -1,6 +1,6 @@
 # Nhiệm vụ: Concrete Strategy Foundation — `BaseStrategy` + EMA Crossover (domain-only)
 
-> Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 0.5 (chèn giữa Phase 0 và Phase 1). Phụ thuộc `BOT-020` ✅.
+> Thuộc Epic [BOT-006 — Backtest Engine](../backlog/BOT-006_backtest_engine_execution.md), Phase 0.5 (chèn giữa Phase 0 và Phase 1). Phụ thuộc `BOT-020` ✅.
 
 ## 1. Mục tiêu (Objective)
 
@@ -14,7 +14,7 @@ indicator để phát hiện cắt lên/xuống, dựng `Signal`) để các str
 
 Task này **thay thế hoàn toàn** bản BOT-026 cũ ("Dev Board — Strategy signals
 & markers"). Phần UI/marker/Dev Board của bản cũ đã tách sang
-[BOT-039](BOT-039_dev_board_strategy_toggle_and_markers.md) (P3, làm sau khi
+[BOT-039](../backlog/BOT-039_dev_board_strategy_toggle_and_markers.md) (P3, làm sau khi
 có UI Backtest thật).
 
 ## 2. Mô tả (Description)
@@ -128,7 +128,7 @@ tự tính + tự vẽ, strategy chỉ ra quyết định từ input đã tính 
   nguyên 2 dòng `self.plot(fast, ...)` / `self.plot(slow, ...)` — 2 đường EMA
   đổi màu theo xu hướng vẫn là output hợp lệ của 1 indicator. Hệ quả: chart
   Dev Board tạm thời **mất nhãn Buy/Sell** cho tới khi
-  [BOT-039](BOT-039_dev_board_strategy_toggle_and_markers.md) chạy Strategy
+  [BOT-039](../backlog/BOT-039_dev_board_strategy_toggle_and_markers.md) chạy Strategy
   thật — chấp nhận được, đã xác nhận với user.
 
 - [ ] Unit test (`tests/unit/domain/strategies/` — thư mục mới):
@@ -171,7 +171,7 @@ tự tính + tự vẽ, strategy chỉ ra quyết định từ input đã tính 
   3 file này — diff ở 3 file này phải là **0 dòng**. Đây là bất biến quan
   trọng nhất của task (đã kiểm chứng, đã test, không được động vào).
 - **Không** làm UI/QML/presenter/marker rendering ở task này — toàn bộ phần
-  đó thuộc [BOT-039](BOT-039_dev_board_strategy_toggle_and_markers.md).
+  đó thuộc [BOT-039](../backlog/BOT-039_dev_board_strategy_toggle_and_markers.md).
 - **Không** làm PnL/Trade/Equity/`PaperExchange` ở task này — thuộc
   [BOT-021](BOT-021_static_backtest_execution_engine.md).
 - `BaseStrategy` **không** kế thừa hay dùng chung code với

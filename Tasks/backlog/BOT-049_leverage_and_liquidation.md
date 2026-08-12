@@ -29,7 +29,7 @@ sẽ lạc quan sai lệch một cách nguy hiểm.
   của `BOT-041`); liquidation **ưu tiên trước** SL/TP nếu cùng nến (sàn thật
   thanh lý trước khi lệnh SL của user khớp).
 - [ ] Lệnh bị thanh lý ghi `exit_reason = LIQUIDATION` (enum đã khai báo sẵn ở
-  [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md)) và tính là **mất
+  [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md)) và tính là **mất
   toàn bộ margin**, không phải PnL âm thông thường — ảnh hưởng
   `BacktestMetrics` (`gross_loss`, `largest_losing_trade`).
 - [ ] `Trade` thêm `leverage` + `liquidated: bool` (hoặc suy ra từ
@@ -49,4 +49,4 @@ sẽ lạc quan sai lệch một cách nguy hiểm.
 
 - [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) — cơ chế kiểm
   tra chạm giá mỗi bar + sizing.
-- [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md) — `exit_reason`.
+- [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) — `exit_reason`.

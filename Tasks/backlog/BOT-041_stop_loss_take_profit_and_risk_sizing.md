@@ -4,7 +4,7 @@
 > **Task 1/3** nhóm "PaperExchange nâng cao" (đã chia nhỏ theo yêu cầu user):
 > `BOT-041` (file này) → [`BOT-049`](BOT-049_leverage_and_liquidation.md) →
 > [`BOT-050`](BOT-050_short_selling_support.md).
-> Phụ thuộc `BOT-021` ✅, nên làm sau [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md).
+> Phụ thuộc `BOT-021` ✅, nên làm sau [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md).
 
 ## 1. Mục tiêu
 
@@ -50,7 +50,7 @@ Short-selling → [`BOT-050`](BOT-050_short_selling_support.md).
   `stop_loss_price` **biết trước lúc mở lệnh**, nên SL là điều kiện tiên quyết
   của sizing — 2 mục này không tách rời được, đó là lý do chúng nằm chung task.
 - [ ] Ghi `exit_reason` = `STOP_LOSS`/`TAKE_PROFIT` (enum do
-  [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md) khai báo sẵn).
+  [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) khai báo sẵn).
 - [ ] Handler gọi exchange mỗi bar (không chỉ khi có signal) — sửa
   `RunStaticBacktestCommandHandler`, giữ nguyên quy tắc fill tín hiệu tại
   **giá mở nến kế tiếp** đã có.
@@ -72,6 +72,6 @@ Short-selling → [`BOT-050`](BOT-050_short_selling_support.md).
 ## 5. Phụ thuộc
 
 - `BOT-021` ✅ — `PaperExchange` gốc.
-- [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md) — nên làm **trước**,
+- [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) — nên làm **trước**,
   để `exit_reason` có sẵn chỗ ghi.
 - [`BOT-047`](BOT-047_dynamic_params_form_ui.md) — nơi user nhập SL%/TP%/risk%.

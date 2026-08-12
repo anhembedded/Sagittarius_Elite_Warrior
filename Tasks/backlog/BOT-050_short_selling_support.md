@@ -58,4 +58,4 @@ Cho short nghĩa là **đổi ngữ nghĩa của SELL**, nên phải phân biệ
   chiều.
 - [`BOT-049`](BOT-049_leverage_and_liquidation.md) — nếu cần liquidation cho
   short (không bắt buộc làm trước).
-- [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md) — `Trade` metadata.
+- [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) — `Trade` metadata.

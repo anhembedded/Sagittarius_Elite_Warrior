@@ -66,4 +66,4 @@ indicator mới (cần test riêng, đối chiếu công thức chuẩn).
 ## 6. Phụ thuộc
 
 - `BOT-026` ✅, [`BOT-046`](BOT-046_strategy_param_plumbing.md).
-- [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md) — metadata.
+- [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) — metadata.

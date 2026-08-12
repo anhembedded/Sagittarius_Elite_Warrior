@@ -1,6 +1,6 @@
 # Nhiệm vụ: Backtest Screen — Nút "Đồng bộ ngay" khi thiếu dữ liệu lịch sử
 
-> Thuộc Epic [BOT-040 — Backtest Screen Full Feature Set](BOT-040_backtest_screen_full_feature_epic.md), Nhóm D (nối tiếp `BOT-022`). Phụ thuộc `BOT-022` ✅, khuyến nghị làm sau `BOT-058` (dùng chung symbol/interval mặc định từ config).
+> Thuộc Epic [BOT-040 — Backtest Screen Full Feature Set](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Nhóm D (nối tiếp `BOT-022`). Phụ thuộc `BOT-022` ✅, khuyến nghị làm sau `BOT-058` (dùng chung symbol/interval mặc định từ config).
 
 ## 1. Mục tiêu (Objective)
 
