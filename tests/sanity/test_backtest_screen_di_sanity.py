@@ -12,6 +12,9 @@ from unittest.mock import patch
 
 import pytest
 
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -103,3 +106,11 @@ def test_strategy_registry_has_multi_ema_trend_follower(booted_app):
     dropdown option a user has to notice by eye."""
     registry = booted_app.context.container.resolve(StrategyRegistry)
     assert "multi_ema_trend_follower" in registry.available()
+
+
+def test_indicator_script_registry_resolves_for_the_backtest_screen(booted_app):
+    """BOT-064 — BackTestPresenter now resolves `IndicatorScriptRegistry`
+    too (for the "Chỉ báo tham khảo" picker), same registry Dev Board
+    already depends on; at least the shipped defaults must be there."""
+    registry = booted_app.context.container.resolve(IndicatorScriptRegistry)
+    assert "ema_20" in registry.available()

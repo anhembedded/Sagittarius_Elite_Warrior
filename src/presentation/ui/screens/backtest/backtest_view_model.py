@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Property, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import QJSValue
 
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.time_range_p
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.trade_log_filter import (
     TradeLogFilter,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
+    IndicatorScriptListModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
@@ -126,6 +129,23 @@ class BackTestViewModel(BaseQmlViewModel):
         self._trade_log_current_page = 1
         self._bot_params_schema: list[dict] = []
         self._bot_params_error = ""
+        self._script_model = IndicatorScriptListModel(self)
+
+    # ------------------------------------------------------------------ #
+    # Script model (BOT-064) — exposed to IndicatorPickerMenu.qml's "Chỉ
+    # báo tham khảo" checklist, populated by the Presenter from
+    # IndicatorScriptRegistry.available() (same shape/idiom as
+    # DashboardQmlViewModel.scriptModel).
+    # ------------------------------------------------------------------ #
+
+    @Property(QObject, constant=True)
+    def scriptModel(self) -> IndicatorScriptListModel:
+        return self._script_model
+
+    @property
+    def script_model(self) -> IndicatorScriptListModel:
+        """Pythonic accessor for the Presenter."""
+        return self._script_model
 
     # ------------------------------------------------------------------ #
     # Strategy selection

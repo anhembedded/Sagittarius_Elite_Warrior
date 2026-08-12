@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
+    BaseIndicatorScript,
+)
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
@@ -94,6 +97,22 @@ class _EmaIndicatorStrategy(BaseStrategy):
         return self.hold()
 
 
+class _TestReferenceScript(BaseIndicatorScript):
+    """A minimal real indicator script (BOT-064) — `default_enabled = True`
+    so `IndicatorScriptListModel.set_available()` auto-enables it the same
+    way `Ema20Script`'s shipped default does, no manual toggle needed."""
+
+    title = "Test Reference Script"
+    overlay = True
+    default_enabled = True
+
+    def setup(self) -> None:
+        self.a = self.ema(1)
+
+    def execute(self, candle):
+        self.plot(self.a(candle.close_price), "R", color="#8e44ad")
+
+
 class _RichParamsStrategy(BaseStrategy):
     """Declares a couple of parameters (BOT-047) — kept out of the shared
     `strategy_registry` fixture so it doesn't perturb `strategyOptions`-
@@ -112,16 +131,25 @@ class _RichParamsStrategy(BaseStrategy):
 
 
 def _build_presenter_with_registry(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    qapp,
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    registry,
+    request,
+    script_registry: IndicatorScriptRegistry | None = None,
 ) -> BackTestPresenter:
     """Same wiring as the `mock_container`/`presenter` fixtures, but with a
     caller-supplied `StrategyRegistry` — used by the bot-params tests that
-    need more than the shared fixture's single zero-param `_FakeStrategy`."""
+    need more than the shared fixture's single zero-param `_FakeStrategy`.
+    `script_registry` (BOT-064) defaults to a fresh empty one, same as the
+    shared `indicator_script_registry` fixture."""
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
     container = Mock()
+    resolved_script_registry = script_registry or IndicatorScriptRegistry()
 
     def resolve_mock(interface):
         if interface == IThreadManager:
@@ -133,7 +161,7 @@ def _build_presenter_with_registry(
         if interface == StrategyRegistry:
             return registry
         if interface == IndicatorScriptRegistry:
-            return IndicatorScriptRegistry()
+            return resolved_script_registry
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -1158,6 +1186,88 @@ def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
     )
 
 
+# ---------------------------------------------------------------------------
+# Reference indicator script picker (BOT-064) — independent of the strategy's
+# own lines above; both mechanisms must coexist without name collisions
+# (qualified_line_name's ":" vs. the strategy lines' bare names).
+# ---------------------------------------------------------------------------
+
+
+def _build_presenter_with_script(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("test_script", _TestReferenceScript)
+    strategy_registry = StrategyRegistry()
+    strategy_registry.register("fake_strategy", _FakeStrategy)
+    return _build_presenter_with_registry(
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        strategy_registry,
+        request,
+        script_registry=script_registry,
+    )
+
+
+def test_script_model_is_populated_from_registry_and_default_enabled_scripts_are_checked(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+
+    assert presenter._view_model.script_model.enabled_keys == ["test_script"]
+
+
+def test_successful_run_draws_enabled_reference_script_lines_on_the_chart(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    added_names = {call.args[0] for call in card.add_overlay_indicator.call_args_list}
+    assert added_names == {"test_script:R"}
+    updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
+    assert updated_names == {"test_script:R"}
+
+
+def test_disabling_a_script_before_the_next_run_stops_it_from_drawing(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-064's own "no retroactive effect" rule: enabled_keys is
+    snapshotted at 'Chạy Backtest' click time, in `_start_backtest_run` —
+    toggling the checkbox off before the NEXT run must take effect, exactly
+    like the Dev Board checklist (TC-GAP-07)."""
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    view_model.script_model.setEnabled(0, False)
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    card.add_overlay_indicator.assert_not_called()
+
+
 def test_mode_buttons_switch_the_chart_mode_end_to_end(
     presenter, view_model, mock_dispatcher, qapp
 ):
@@ -1481,4 +1591,3 @@ def test_selected_currency_default_and_change(view_model):
 
     assert view_model.selectedCurrency == Currency.VND
     assert emitted is True
-

@@ -76,6 +76,14 @@ chọn được — đây là tính năng mới, không phải việc bị bỏ 
 - Subplot vs overlay: script không phải lúc nào cũng `overlay=True` (vd
   `rsi_14`/`macd_full` là subplot riêng, `min_warmup_bars` khác nhau) —
   `IndicatorScriptRunner.draw()` đã tự xử lý đúng, không cần code thêm.
+- **Gap đã ghi rõ, không làm**: chuyển sang chế độ "Đường Vốn" (Equity-solo)
+  hiện chỉ ẩn/disable đúng "Chỉ báo Chiến lược" (`BOT-060`'s
+  `_on_ema_toggled`/`set_ema_enabled`) — script overlay tự chọn ở task này
+  **chưa** được ẩn theo, nên 1 script `overlay=True` (vd EMA Ribbon) vẫn có
+  thể kéo lệch auto-range của trục Equity giống lỗi `BOT-060` từng sửa cho
+  strategy lines. Không thuộc scope task này (mockup gốc chưa yêu cầu),
+  nhưng nếu làm sau: lặp lại đúng cách `_on_ema_toggled` đã làm, áp dụng
+  cho `self._chart_script_runner.active[key].registered_lines`.
 
 ## 5. Phụ thuộc
 

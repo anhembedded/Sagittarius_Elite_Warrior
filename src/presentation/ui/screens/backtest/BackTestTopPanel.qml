@@ -186,6 +186,21 @@ Rectangle {
                 }
             }
 
+            // 6. Indicator picker (BOT-064) — reference scripts (RSI/MACD/EMA
+            // Ribbon/...), independent of the selected strategy's own
+            // indicators (BOT-060).
+            Button {
+                objectName: "btnBacktestIndicatorPicker"
+                implicitHeight: 32; background: Rectangle { color: "#25262B"; border.color: Theme.border; radius: 4 }
+                onClicked: indicatorPickerMenu.open()
+                contentItem: RowLayout {
+                    spacing: 6
+                    Image { source: "image://icons/sliders/accent"; sourceSize: Qt.size(14, 14) }
+                    Text { text: "Chỉ báo"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
+                    Image { source: "image://icons/chevron-down/muted"; sourceSize: Qt.size(12, 12) }
+                }
+            }
+
             Item { Layout.fillWidth: true }
 
             // Action Buttons
@@ -536,6 +551,12 @@ Rectangle {
 
     BotParamsDialog {
         id: botParamsDialog
+    }
+
+    IndicatorPickerMenu {
+        id: indicatorPickerMenu
+        x: 650
+        y: 60
     }
 
     OrderExecutionMenu {

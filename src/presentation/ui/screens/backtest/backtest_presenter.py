@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -27,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
+    IndicatorScriptRunner,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mapping import (
     map_klines,
@@ -137,6 +143,13 @@ class BackTestPresenter(BasePresenter):
     # BOT-060: line_name, color, x_data, y_data — one emit per line, after
     # the whole run has been fed (same O(N) reasoning as BOT-036's feed_all).
     _chartStrategyLineSignal = Signal(str, str, list, list)
+    # BOT-064: user-picked reference indicator scripts (RSI/MACD/...),
+    # independent of the strategy's own lines above — same 4-signal shape
+    # DashboardPresenter uses for IndicatorScriptRunner's 4 output channels.
+    _chartScriptLineSignal = Signal(str, list, list)  # qualified name, x, y
+    _chartScriptRegionSignal = Signal(str, list)  # script key, spans
+    _chartScriptInfoSignal = Signal(str, list)  # script key, info fields
+    _chartScriptMarkerSignal = Signal(str, list)  # script key, markers
     _syncSucceededSignal = Signal()
     _syncFailedSignal = Signal(str)  # error message
 
@@ -182,8 +195,30 @@ class BackTestPresenter(BasePresenter):
         # know which strategy or how many lines produced it.
         self._active_strategy_lines: set[str] = set()
 
+        self._script_registry: IndicatorScriptRegistry = container.resolve(
+            IndicatorScriptRegistry
+        )
+        # BOT-064: user-picked reference scripts, independent of the
+        # strategy's own lines above — batch-only (rebuild()+feed_all() once
+        # per run), same reasoning BOT-056 originally had for this class
+        # before BOT-060 moved the *strategy* lines to a separate mechanism.
+        # Enabled keys are snapshotted at "Chạy Backtest" click time
+        # (_start_backtest_run → self._chart_script_keys), never read live
+        # mid-run — same "no retroactive effect" rule the Dev Board
+        # checklist follows (TC-GAP-07).
+        self._chart_script_runner = IndicatorScriptRunner(
+            registry=self._script_registry,
+            emit_line=self._chartScriptLineSignal.emit,
+            emit_region=self._chartScriptRegionSignal.emit,
+            emit_info=self._chartScriptInfoSignal.emit,
+            emit_markers=self._chartScriptMarkerSignal.emit,
+            on_error=logger.warning,
+        )
+        self._chart_script_keys: list[str] = []
+
         self._view_model = BackTestViewModel()
         view.set_view_model(self._view_model)
+        self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
         # already defaults to DEFAULT_TIMEFRAMES[0] ("1m") internally, the
@@ -247,6 +282,10 @@ class BackTestPresenter(BasePresenter):
         self._backtestFailedSignal.connect(self._on_backtest_failed)
         self._chartDataReadySignal.connect(self._on_chart_data_ready)
         self._chartStrategyLineSignal.connect(self._on_chart_strategy_line)
+        self._chartScriptLineSignal.connect(self._on_chart_script_line)
+        self._chartScriptRegionSignal.connect(self._on_chart_script_region)
+        self._chartScriptInfoSignal.connect(self._on_chart_script_info)
+        self._chartScriptMarkerSignal.connect(self._on_chart_script_marker)
         self._syncSucceededSignal.connect(self._on_sync_succeeded)
         self._syncFailedSignal.connect(self._on_sync_failed)
         self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
@@ -304,7 +343,14 @@ class BackTestPresenter(BasePresenter):
         if card is not None:
             for name in self._active_strategy_lines:
                 card.remove_indicator(name)
+            self._chart_script_runner.clear_from_chart(card)
         self._active_strategy_lines.clear()
+
+        # BOT-064: snapshot which reference scripts are enabled right now —
+        # read fresh in the background thread would honor a checkbox toggle
+        # mid-run, breaking the same "no retroactive effect" rule the Dev
+        # Board checklist follows.
+        self._chart_script_keys = self._view_model.script_model.enabled_keys
 
         self._view_model.set_result(_RUNNING_MESSAGE, is_error=False)
         self._thread_manager.submit(self._run_backtest, config)
@@ -379,6 +425,38 @@ class BackTestPresenter(BasePresenter):
             card.add_overlay_indicator(name, color)
             self._active_strategy_lines.add(name)
         card.update_indicator_data(name, x_data, y_data)
+
+    @Slot(str, list, list)
+    @safe_ui_action
+    def _on_chart_script_line(self, name: str, x_data: list, y_data: list) -> None:
+        """BOT-064: one call per user-picked reference script line, mirrors
+        DashboardPresenter._on_indicator_data — pure delegate to
+        IndicatorScriptRunner.draw(), which registers the overlay/subplot
+        curve on first use and knows the script's own line color."""
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is not None:
+            self._chart_script_runner.draw(card, name, x_data, y_data)
+
+    @Slot(str, list)
+    @safe_ui_action
+    def _on_chart_script_region(self, key: str, spans: list) -> None:
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is not None:
+            self._chart_script_runner.draw_region(card, key, spans)
+
+    @Slot(str, list)
+    @safe_ui_action
+    def _on_chart_script_info(self, key: str, fields: list) -> None:
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is not None:
+            self._chart_script_runner.draw_info(card, key, fields)
+
+    @Slot(str, list)
+    @safe_ui_action
+    def _on_chart_script_marker(self, key: str, markers: list) -> None:
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is not None:
+            self._chart_script_runner.draw_markers(card, key, markers)
 
     @Slot(str)
     @safe_ui_action
@@ -702,6 +780,13 @@ class BackTestPresenter(BasePresenter):
         self._chartDataReadySignal.emit(result, mapped_klines, mapped_volume)
 
         self._emit_strategy_indicator_lines(config, raw_klines)
+
+        # BOT-064: user-picked reference scripts — batch feed, same klines
+        # already fetched above, entirely independent of the strategy lines
+        # just emitted (self._chart_script_keys was snapshotted on the main
+        # thread by _start_backtest_run before this background method ran).
+        self._chart_script_runner.rebuild(self._chart_script_keys)
+        self._chart_script_runner.feed_all(raw_klines)
 
     def _emit_strategy_indicator_lines(
         self, config: BacktestRunConfig, raw_klines: list
