@@ -206,7 +206,7 @@ Rectangle {
                             Layout.fillWidth: true
                             model: viewModel.symbols
                             editable: true
-                            enabled: viewModel.uiMode !== "LOCKED"
+                            enabled: viewModel.uiMode === "IDLE"
                             currentIndex: Math.max(0, viewModel.symbols.indexOf(viewModel.selectedSymbol))
                             onCurrentTextChanged: viewModel.selectedSymbol = currentText
                             background: FieldBackground {}
@@ -219,23 +219,7 @@ Rectangle {
                             }
                         }
 
-                        Text { text: "Interval:"; color: Theme.textPrimary; font.pixelSize: 12 }
-                        ComboBox {
-                            objectName: "cboInterval"
-                            Layout.fillWidth: true
-                            model: viewModel.intervals
-                            enabled: viewModel.uiMode !== "LOCKED"
-                            currentIndex: Math.max(0, viewModel.intervals.indexOf(viewModel.selectedInterval))
-                            onCurrentTextChanged: viewModel.selectedInterval = currentText
-                            background: FieldBackground {}
-                            contentItem: Text {
-                                leftPadding: 8
-                                text: parent.displayText
-                                color: Theme.textPrimary
-                                font.pixelSize: 12
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
+
                     }
 
                     TimeRangeCard {
@@ -243,7 +227,7 @@ Rectangle {
                         color: "transparent"
                         border.width: 0
                         useCustomTime: viewModel.useCustomTime
-                        readOnly: viewModel.uiMode === "LOCKED"
+                        readOnly: viewModel.uiMode !== "IDLE"
                         fromDateTime: viewModel.fromDateTime
                         toDateTime: viewModel.toDateTime
 
@@ -277,7 +261,7 @@ Rectangle {
                             objectName: modelData.name
                             text: modelData.label
                             Layout.fillWidth: true
-                            enabled: viewModel.uiMode !== "LOCKED"
+                            enabled: viewModel.uiMode === "IDLE"
 
                             onClicked: {
                                 switch (modelData.action) {
@@ -353,7 +337,7 @@ Rectangle {
                                 radius: 4
                                 gradient: Gradient {
                                     orientation: Gradient.Horizontal
-                                    GradientStop { position: 0.0; color: Theme.primary }
+                                    GradientStop { position: 0.0; color: Theme.accent }
                                     GradientStop { position: 1.0; color: "#00f0ff" } // Neon Cyan
                                 }
                                 Behavior on width {
@@ -371,7 +355,7 @@ Rectangle {
                                 gradient: Gradient {
                                     orientation: Gradient.Horizontal
                                     GradientStop { position: 0.0; color: "transparent" }
-                                    GradientStop { position: 0.5; color: Theme.primary }
+                                    GradientStop { position: 0.5; color: Theme.accent }
                                     GradientStop { position: 1.0; color: "transparent" }
                                 }
                                 SequentialAnimation on x {
@@ -470,7 +454,6 @@ Rectangle {
                                 Repeater {
                                     model: [
                                         { title: "SYMBOL", weight: 2 },
-                                        { title: "INTERVAL", weight: 1 },
                                         { title: "FIRST RECORD", weight: 3 },
                                         { title: "LAST RECORD", weight: 3 },
                                         { title: "TOTAL", weight: 2 },
@@ -520,7 +503,6 @@ Rectangle {
 
                                 required property int index
                                 required property string symbol
-                                required property string interval
                                 required property string firstRecord
                                 required property string lastRecord
                                 required property string totalCandles
@@ -540,13 +522,6 @@ Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 2
                                         elide: Text.ElideRight
-                                    }
-                                    Text {
-                                        text: statusRow.interval
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
                                     }
                                     Text {
                                         text: statusRow.firstRecord
@@ -583,13 +558,11 @@ Rectangle {
                                     Button {
                                         id: rowSyncButton
                                         objectName: "btnRowSync_" + statusRow.symbol
-                                                    + "_" + statusRow.interval
                                         text: "Sync"
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 2
-                                        enabled: viewModel.uiMode !== "LOCKED"
-                                        onClicked: viewModel.requestSyncRow(
-                                                       statusRow.symbol, statusRow.interval)
+                                        enabled: viewModel.uiMode === "IDLE"
+                                        onClicked: viewModel.requestSyncRow(statusRow.symbol)
 
                                         contentItem: Text {
                                             text: rowSyncButton.text
