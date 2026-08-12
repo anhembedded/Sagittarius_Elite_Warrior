@@ -89,3 +89,15 @@ class BacktestChartControls(QtWidgets.QWidget):
 
     def is_trade_flags_checked(self) -> bool:
         return self._trade_flags_check.isChecked()
+
+    def set_ema_enabled(self, enabled: bool) -> None:
+        """The 4 EMA overlay is price-scale too — left plotted through an
+        Equity-solo switch, it stays on the same main plot as the equity
+        curve and drags pyqtgraph's auto-range to the price axis (~tens of
+        thousands), squashing the equity curve flat. Same treatment as
+        `set_trade_flags_enabled`: disable the control, don't just leave the
+        stale lines drawn."""
+        self._ema_check.setEnabled(enabled)
+
+    def is_ema_checked(self) -> bool:
+        return self._ema_check.isChecked()

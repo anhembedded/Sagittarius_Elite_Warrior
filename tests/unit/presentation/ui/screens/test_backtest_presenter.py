@@ -854,6 +854,38 @@ def test_mode_buttons_switch_the_chart_mode_end_to_end(
 
     assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == LINE
     assert presenter.view.chart_controls._trade_flags_check.isEnabled() is False
+    assert presenter.view.chart_controls._ema_check.isEnabled() is False
+
+
+def test_switching_to_equity_mode_disables_and_hides_the_ema_overlay(
+    presenter, view_model, mock_dispatcher, qapp
+):
+    """Regression test (found by running the app): the 4 EMA overlay is
+    price-scale, exactly like the Buy/Sell flags already handled — left
+    plotted through a switch to Equity-solo mode, it stays on the same main
+    plot as the equity curve and drags pyqtgraph's auto-range onto price
+    values (tens of thousands), squashing the equity curve flat/invisible."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    presenter._on_ema_toggled = Mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    assert presenter.view.chart_controls._ema_check.isEnabled() is False
+    presenter._on_ema_toggled.assert_called_once_with(False)
+    presenter._on_ema_toggled.reset_mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.OHLC].click()
+    qapp.processEvents()
+
+    assert presenter.view.chart_controls._ema_check.isEnabled() is True
+    # The checkbox was never unchecked (only disabled) — back on a
+    # price-scale mode, visibility is restored to match its own state.
+    presenter._on_ema_toggled.assert_called_once_with(True)
 
 
 def test_trade_flags_toggle_draws_and_clears_markers(

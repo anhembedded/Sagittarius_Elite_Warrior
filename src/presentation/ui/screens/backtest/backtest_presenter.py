@@ -352,12 +352,16 @@ class BackTestPresenter(BasePresenter):
     def _on_chart_mode_changed(self, mode_value: str) -> None:
         mode = ChartDisplayMode(mode_value)
         self.view.set_chart_mode(mode)
-        # Entry/exit PRICE markers don't mean anything once the main plot is
-        # showing Equity instead of price — see BacktestChartControls'
-        # set_trade_flags_enabled docstring.
-        self.view.chart_controls.set_trade_flags_enabled(
-            mode is not ChartDisplayMode.EQUITY
-        )
+        is_price_scale = mode is not ChartDisplayMode.EQUITY
+        # Entry/exit PRICE markers AND the 4 EMA overlay are both
+        # price-scale — meaningless, and for EMA actively harmful (drags
+        # the shared main plot's auto-range onto price values), once the
+        # main plot is showing Equity instead of price. See
+        # BacktestChartControls' set_trade_flags_enabled/set_ema_enabled.
+        controls = self.view.chart_controls
+        controls.set_trade_flags_enabled(is_price_scale)
+        controls.set_ema_enabled(is_price_scale)
+        self._on_ema_toggled(is_price_scale and controls.is_ema_checked())
 
     @Slot(bool)
     @safe_ui_action
