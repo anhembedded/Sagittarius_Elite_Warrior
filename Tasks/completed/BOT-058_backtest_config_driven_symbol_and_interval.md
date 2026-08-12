@@ -26,8 +26,8 @@ app, **không** phụ thuộc/tham chiếu ngầm vào Dev Board.
 (`src/presentation/ui/screens/settings/settings_presenter.py`):
 ```python
 values = self.config.get_all()
-symbols = values.get("DEFAULT_SYMBOLS") or []      # list[str], vd ["ETHUSDT"]
-interval = values.get("DEFAULT_INTERVAL") or ""     # str, vd "1m"
+symbols = values.get("DEFAULT_SYMBOLS") or []  # list[str], vd ["ETHUSDT"]
+interval = values.get("DEFAULT_INTERVAL") or ""  # str, vd "1m"
 ```
 Đây là 2 chuỗi key trần (`"DEFAULT_SYMBOLS"`/`"DEFAULT_INTERVAL"`), **không**
 nằm trong enum `ConfigKeys` (`src/config/config_keys.py`) — dùng đúng chuỗi

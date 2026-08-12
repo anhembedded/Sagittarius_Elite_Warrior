@@ -32,8 +32,10 @@ tham khảo threading, KHÔNG copy nguyên progress-bar/event phức tạp của
 Backtest chỉ cần biết xong hay chưa xong):
 ```python
 cmd = SyncMarketDataCommand(
-    symbols=[symbol], interval=TimeFrame(interval),
-    start_time=start_time, end_time=end_time,
+    symbols=[symbol],
+    interval=TimeFrame(interval),
+    start_time=start_time,
+    end_time=end_time,
 )
 self.dispatcher.dispatch(SyncMarketDataCommand, cmd)  # trả về None, block tới khi xong
 ```
