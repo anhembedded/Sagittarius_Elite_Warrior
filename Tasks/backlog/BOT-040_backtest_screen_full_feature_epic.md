@@ -137,7 +137,7 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 
 | Task | Mô tả ngắn |
 | :--- | :--- |
-| [`BOT-022`](BOT-022_backtest_screen_static_ui.md) | Khung màn hình + Top Toolbar + nút Chạy Backtest. Sau task này màn hình đã **chạy được thật**. |
+| ✅ [`BOT-022`](../completed/BOT-022_backtest_screen_static_ui.md) | Khung màn hình + Top Toolbar + nút Chạy Backtest. Sau task này màn hình đã **chạy được thật**. |
 | [`BOT-055`](BOT-055_backtest_performance_metrics_panel.md) | Performance Metrics Panel (4 stat card + mở rộng). |
 | [`BOT-056`](BOT-056_backtest_chart_canvas.md) | Chart Canvas — 3 chế độ (OHLC / Equity / Song song) + overlays. |
 | [`BOT-057`](BOT-057_backtest_trade_logs_table.md) | Trade Logs Table + dòng mở rộng chi tiết. |
@@ -154,7 +154,7 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 - Không làm hết Nhóm B/C "cho đủ bộ" trước khi có nhu cầu thật — Nhóm D
   (`BOT-022`…`BOT-057`) vẫn có giá trị đứng một mình với phần ✅/⚠️ (đây đã là
   gần hết spec). Ưu tiên theo nhu cầu thật của user, không tự suy diễn thứ tự.
-- **Đường ngắn nhất tới một màn Backtest dùng được**: `BOT-022` → `BOT-055` →
+- **Đường ngắn nhất tới một màn Backtest dùng được**: `BOT-022` ✅ → `BOT-055` →
   `BOT-056` → `BOT-057` (2.1). Không cần Nhóm A/B/C nào cả. Nhóm A (`BOT-044`…)
   là thứ mở khoá nhiều tính năng nhất tiếp theo.
 - `BOT-042` (tick-level) là phần **engine tiêu thụ** dữ liệu — việc **nạp**

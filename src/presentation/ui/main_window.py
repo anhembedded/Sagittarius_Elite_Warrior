@@ -18,6 +18,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavSection,
     Sidebar,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
+    BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
+    BackTestView,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
@@ -36,18 +42,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
-    BackTestPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
-    BackTestView,
-)
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
 # ---------------------------------------------------------------------------
 # Navigation sections. A NavItem with route=None is a placeholder for a screen
-# that doesn't exist yet (e.g. "Backtest Engine" — BOT-021/022 still backlog);
-# those are never navigable regardless of `enabled` (see NavItem.is_navigable).
+# that doesn't exist yet; those are never navigable regardless of `enabled`
+# (see NavItem.is_navigable). "Backtest Engine" got its real route once
+# BackTestView/BackTestPresenter existed (BOT-022).
 # Adding a new screen: add one entry here and register it in _setup_router().
 # ---------------------------------------------------------------------------
 _NAV_SECTIONS = [

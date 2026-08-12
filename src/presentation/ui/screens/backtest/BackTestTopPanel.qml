@@ -20,75 +20,139 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 10
 
-            // 1. Strategy ComboBox
+            // 1. Strategy ComboBox — real StrategyRegistry keys (BOT-026),
+            // not a mockup list. Category/description are blank until a
+            // registry entry actually has them (BOT-046/BOT-047).
             StrategyComboBox {
                 id: strategyCombo
-                model: ListModel {
-                    ListElement { name: "4 EMA Pullback + Sideways Filter + QML"; category: "Market Structure & Trend" }
-                    ListElement { name: "QML (Quasimodo Level) Structure Breakout"; category: "Price Action Pro" }
-                    ListElement { name: "QT Smart Money Concepts (SMC + Liquidity Sweep)"; category: "Institutional Order Flow" }
-                    ListElement { name: "Multi-EMA Trend Follower (EMA 8/21/50/200)"; category: "Trend Following" }
-                }
+                objectName: "cboBacktestStrategy"
+                model: viewModel.strategyOptions
+                enabled: viewModel.controlsEnabled
                 Layout.preferredWidth: 320
-            }
-            
-            // 2. View Mode Toggle
-            Rectangle {
-                width: 90; implicitHeight: 32; color: "transparent"; border.color: Theme.border; radius: 4
-                RowLayout {
-                    anchors.fill: parent; spacing: 0
-                    Button {
-                        Layout.fillWidth: true; Layout.fillHeight: true
-                        background: Rectangle { color: Theme.accent; radius: 4; anchors.fill: parent; anchors.margins: 2 }
-                        contentItem: Image { source: "image://icons/bar-chart-2/black"; sourceSize: Qt.size(14, 14); fillMode: Image.Pad }
+
+                property bool _initialized: false
+                Component.onCompleted: {
+                    _syncFromViewModel()
+                    _initialized = true
+                }
+                Connections {
+                    target: viewModel
+                    function onSelectedStrategyKeyChanged() { strategyCombo._syncFromViewModel() }
+                }
+                function _syncFromViewModel() {
+                    for (var i = 0; i < model.length; ++i) {
+                        if (model[i].key === viewModel.selectedStrategyKey) {
+                            currentIndex = i
+                            return
+                        }
                     }
-                    Button {
-                        Layout.fillWidth: true; Layout.fillHeight: true
-                        background: Item {}
-                        contentItem: Image { source: "image://icons/activity/muted"; sourceSize: Qt.size(14, 14); fillMode: Image.Pad }
-                    }
-                    Button {
-                        Layout.fillWidth: true; Layout.fillHeight: true
-                        background: Item {}
-                        contentItem: Image { source: "image://icons/grid/muted"; sourceSize: Qt.size(14, 14); fillMode: Image.Pad }
-                    }
+                }
+                onActivated: (index) => {
+                    if (_initialized) viewModel.selectedStrategyKey = model[index].key
                 }
             }
 
-            // 3. Date Picker
-            Button {
-                implicitHeight: 32; background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
-                contentItem: RowLayout {
-                    spacing: 6
-                    Image { source: "image://icons/calendar/muted"; sourceSize: Qt.size(14, 14) }
-                    Text { text: "1 thg 1, 2025 – 11 thg 8, 2026"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
-                    Image { source: "image://icons/chevron-down/muted"; sourceSize: Qt.size(12, 12) }
+            // 2. Timeframe
+            ComboBox {
+                id: timeframeCombo
+                objectName: "cboBacktestTimeframe"
+                implicitHeight: 32
+                implicitWidth: 100
+                model: viewModel.timeframeOptions
+                enabled: viewModel.controlsEnabled
+                background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
+                contentItem: Text {
+                    leftPadding: 8
+                    text: timeframeCombo.displayText
+                    color: Theme.textPrimary
+                    font.pixelSize: 11
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                property bool _initialized: false
+                Component.onCompleted: {
+                    var idx = model.indexOf(viewModel.selectedTimeframe)
+                    if (idx >= 0) currentIndex = idx
+                    _initialized = true
+                }
+                onActivated: (index) => {
+                    if (_initialized) viewModel.selectedTimeframe = model[index]
+                }
+            }
+
+            // 3. Time range preset
+            ComboBox {
+                id: rangeCombo
+                objectName: "cboBacktestRange"
+                implicitHeight: 32
+                implicitWidth: 140
+                model: viewModel.timeRangePresetOptions
+                textRole: "label"
+                enabled: viewModel.controlsEnabled
+                background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
+                contentItem: Text {
+                    leftPadding: 8
+                    text: rangeCombo.displayText
+                    color: Theme.textPrimary
+                    font.pixelSize: 11
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                property bool _initialized: false
+                Component.onCompleted: {
+                    for (var i = 0; i < model.length; ++i) {
+                        if (model[i].value === viewModel.timeRangePreset) {
+                            currentIndex = i
+                            break
+                        }
+                    }
+                    _initialized = true
+                }
+                onActivated: (index) => {
+                    if (_initialized) viewModel.timeRangePreset = model[index].value
+                }
+            }
+
+            // 3b. Custom range fields — only relevant when preset === "custom"
+            RowLayout {
+                spacing: 6
+                visible: viewModel.timeRangePreset === "custom"
+
+                DateTimePicker {
+                    objectName: "txtBacktestRangeStart"
+                    implicitWidth: 150
+                    text: viewModel.customStartText
+                    enabled: viewModel.controlsEnabled
+                    placeholderText: "From  yyyy-MM-dd HH:mm"
+                    onTextEdited: (text) => viewModel.customStartText = text
+                }
+                DateTimePicker {
+                    objectName: "txtBacktestRangeEnd"
+                    implicitWidth: 150
+                    text: viewModel.customEndText
+                    enabled: viewModel.controlsEnabled
+                    placeholderText: "To  yyyy-MM-dd HH:mm"
+                    onTextEdited: (text) => viewModel.customEndText = text
                 }
             }
 
             // 4. Capital
-            Button {
-                implicitHeight: 32; background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
-                contentItem: RowLayout {
-                    spacing: 6
-                    Text { text: "$"; color: Theme.accent; font.pixelSize: 12; font.bold: true }
-                    Text { text: "1 K USD"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
-                    Image { source: "image://icons/chevron-down/muted"; sourceSize: Qt.size(12, 12) }
-                }
+            TextField {
+                id: capitalField
+                objectName: "txtBacktestCapital"
+                implicitWidth: 100
+                implicitHeight: 32
+                text: viewModel.initialCapitalText
+                enabled: viewModel.controlsEnabled
+                color: Theme.textPrimary
+                font.pixelSize: 11
+                horizontalAlignment: TextInput.AlignRight
+                background: FieldBackground {}
+                validator: DoubleValidator { bottom: 0 }
+                onEditingFinished: viewModel.initialCapitalText = text
             }
 
-            // 5. Timeframe
-            Button {
-                implicitHeight: 32; background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
-                contentItem: RowLayout {
-                    spacing: 6
-                    Image { source: "image://icons/clock/muted"; sourceSize: Qt.size(14, 14) }
-                    Text { text: "Khung thời gian: 15m"; color: Theme.muted; font.pixelSize: 11 }
-                    Image { source: "image://icons/chevron-down/muted"; sourceSize: Qt.size(12, 12) }
-                }
-            }
-
-            // 6. Order Execution
+            // 5. Order Execution
             Button {
                 implicitHeight: 32; background: Rectangle { color: "#25262B"; border.color: Theme.border; radius: 4 }
                 onClicked: orderExecMenu.open()
@@ -96,10 +160,6 @@ Rectangle {
                     spacing: 6
                     Image { source: "image://icons/briefcase/accent"; sourceSize: Qt.size(14, 14) }
                     Text { text: "Thực thi tập lệnh"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
-                    Rectangle {
-                        width: 16; height: 16; radius: 8; color: Theme.accent
-                        Text { anchors.centerIn: parent; text: "2"; color: "#000000"; font.pixelSize: 10; font.bold: true }
-                    }
                     Image { source: "image://icons/chevron-down/muted"; sourceSize: Qt.size(12, 12) }
                 }
             }
@@ -108,10 +168,14 @@ Rectangle {
 
             // Action Buttons
             Button {
+                objectName: "btnBacktestBotParams"
                 text: "Thông số Bot"
                 implicitHeight: 32
+                // Disabled for BOT-022 — enabled once BOT-047 (dynamic params
+                // form) exists to actually read/write something real here.
+                enabled: false
                 background: Rectangle { color: "transparent" }
-                contentItem: Text { text: parent.text; color: Theme.accent; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                contentItem: Text { text: parent.text; color: Theme.muted; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 onClicked: {
                     botParamsDialog.strategyIndex = strategyCombo.currentIndex
                     botParamsDialog.strategyName = strategyCombo.currentText
@@ -120,101 +184,39 @@ Rectangle {
             }
 
             Button {
+                objectName: "btnRunBacktest"
                 text: "Chạy Backtest"
                 implicitWidth: 140
                 implicitHeight: 32
-                background: Rectangle { color: Theme.accent; radius: 4 }
+                enabled: viewModel.controlsEnabled
+                background: Rectangle { color: enabled ? Theme.accent : Theme.border; radius: 4 }
                 contentItem: RowLayout {
                     spacing: 6; anchors.centerIn: parent
                     Image { source: "image://icons/play/black"; sourceSize: Qt.size(14, 14) }
                     Text { text: "Chạy Backtest"; color: "#000000"; font.pixelSize: 12; font.bold: true }
                 }
+                onClicked: viewModel.requestRun()
             }
         }
 
-        // ================= HEADER: PERFORMANCE METRICS =================
-        RowLayout {
+        // ================= ROW 2: RESULT (raw text — BOT-022) =================
+        // Temporary raw display so the config -> dispatch -> BacktestResult ->
+        // screen path can be verified end-to-end. Replaced by proper
+        // Performance Summary / Chart / Trade Logs panels in BOT-055/056/057.
+        ScrollView {
             Layout.fillWidth: true
-            spacing: 10
-            Layout.topMargin: 10
-            
-            Text {
-                text: "CHỈ SỐ HIỆU SUẤT BACKTEST"
-                color: Theme.textPrimary
-                font.pixelSize: 13
-                font.bold: true
-                font.letterSpacing: 1
-            }
-            
-            RowLayout {
-                spacing: 4
-                Text {
-                    text: "Mở rộng chỉ số chi tiết"
-                    color: Theme.accent
-                    font.pixelSize: 11
-                }
-                Image {
-                    source: "image://icons/chevron-down/accent"
-                    sourceSize: Qt.size(12, 12)
-                }
-            }
-        }
+            Layout.fillHeight: true
+            clip: true
 
-        // ================= ROW 2: PERFORMANCE METRICS =================
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            Repeater {
-                model: ListModel {
-                    ListElement {
-                        metricTitle: "Tổng Lãi/Lỗ (Net PnL)"
-                        metricValue: "-404.81"
-                        metricValueColor: "#ff5252"
-                        metricSuffix: "USD"
-                        metricBadgeText: "-40.48%"
-                        metricBadgeBgColor: "#33ff5252"
-                        metricBadgeTextColor: "#ff5252"
-                    }
-                    ListElement {
-                        metricTitle: "Mức sụt giảm tối đa (Max Drawdown)"
-                        metricValue: "1,074.45"
-                        metricValueColor: "#ffffff"
-                        metricSuffix: "USD"
-                        metricBadgeText: "-65.95%"
-                        metricBadgeBgColor: "#33ff5252"
-                        metricBadgeTextColor: "#ff5252"
-                    }
-                    ListElement {
-                        metricTitle: "Tỷ lệ thắng (Win Rate)"
-                        metricValue: "43.48%"
-                        metricValueColor: "#4caf50"
-                        metricSuffix: ""
-                        metricBadgeText: "(20/46 lệnh)"
-                        metricBadgeBgColor: "transparent"
-                        metricBadgeTextColor: "#848E9C" // Theme.muted
-                    }
-                    ListElement {
-                        metricTitle: "Hệ số lãi (Profit Factor)"
-                        metricValue: "0.813"
-                        metricValueColor: "#ff5252"
-                        metricSuffix: ""
-                        metricBadgeText: "Rủi ro"
-                        metricBadgeBgColor: "transparent"
-                        metricBadgeTextColor: "#848E9C"
-                    }
-                }
-
-                MetricCard {
-                    Layout.fillWidth: true
-                    title: model.metricTitle
-                    value: model.metricValue
-                    valueColor: model.metricValueColor
-                    suffix: model.metricSuffix
-                    badgeText: model.metricBadgeText
-                    badgeBgColor: model.metricBadgeBgColor
-                    badgeTextColor: model.metricBadgeTextColor
-                }
+            TextArea {
+                objectName: "txtBacktestResult"
+                text: viewModel.resultText
+                readOnly: true
+                wrapMode: TextArea.Wrap
+                color: viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
+                font.pixelSize: 11
+                font.family: "monospace"
+                background: Rectangle { color: "transparent" }
             }
         }
     }
@@ -222,7 +224,7 @@ Rectangle {
     BotParamsDialog {
         id: botParamsDialog
     }
-    
+
     OrderExecutionMenu {
         id: orderExecMenu
         x: 650 // Approx pos based on design, can be anchored dynamically if needed

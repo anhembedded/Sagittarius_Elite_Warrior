@@ -16,7 +16,7 @@ Bản `BOT-006` trước đây là 1 task lớn, mô tả chung chung ("Cỗ má
 
 ### Phase 1 — Static Backtest (làm trước)
 - ✅ **[BOT-021](../completed/BOT-021_static_backtest_execution_engine.md)**: Static Backtest Execution Engine — chạy 1 lượt nhanh, không mô phỏng thời gian thực.
-- **[BOT-022](BOT-022_backtest_screen_static_ui.md)**: Backtest Screen — Static UI — màn hình thực thụ đầu tiên: cấu hình, chạy, xem kết quả (equity curve, trade list, stat cards). **Scope đã mở rộng** theo [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md) (spec đầy đủ hơn: 4 khu vực Top Toolbar/Performance Metrics/Chart Canvas/Trade Logs Table).
+- ✅ **[BOT-022](../completed/BOT-022_backtest_screen_static_ui.md)**: Backtest Screen — Khung màn hình + Top Toolbar. Màn hình chạy được thật: chọn strategy/timeframe/khung thời gian/vốn → "Chạy Backtest" (background thread) → kết quả thô hiển thị trên màn. Panel đẹp (Performance Summary/Chart/Trade Logs) tiếp theo ở `BOT-055`/`BOT-056`/`BOT-057` (Epic BOT-040).
 
 ### Phase 2 — Dynamic Backtest (làm sau, khi Phase 1 đã ổn định)
 - **[BOT-023](BOT-023_dynamic_backtest_engine.md)**: Dynamic Backtest Engine — Paper Exchange & Virtual Event Loop, replay có thể tua nhanh/chậm/tạm dừng.
@@ -26,7 +26,7 @@ Bản `BOT-006` trước đây là 1 task lớn, mô tả chung chung ("Cỗ má
 - **[BOT-025](BOT-025_backtest_domain_events_completeness.md)**: Backtest Domain Events — Completeness Pass — chuẩn hoá toàn bộ event sau khi Phase 1 & 2 có code thật.
 
 ## 4. Thứ tự khuyến nghị
-`BOT-020` ✅ → `BOT-026` ✅ → `BOT-021` ✅ → `BOT-022` → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-023` → `BOT-024` → `BOT-025`. `BOT-039` (UI toggle Strategy trên Dev Board) làm sau Phase 1, không nằm trên đường chặn. `BOT-022` giờ có thể phụ thuộc thêm `BOT-041`/`BOT-042`/`BOT-043` (xem [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md)) cho phần leverage/tick-level/named-strategy — không chặn phần còn lại của `BOT-022`.
+`BOT-020` ✅ → `BOT-026` ✅ → `BOT-021` ✅ → `BOT-022` ✅ → `BOT-055`/`BOT-056`/`BOT-057` (Epic BOT-040 Nhóm D) → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-023` → `BOT-024` → `BOT-025`. `BOT-039` (UI toggle Strategy trên Dev Board) làm sau Phase 1, không nằm trên đường chặn.
 
 ## 5. Lưu ý
 - Không bắt đầu Phase 2 trước khi Phase 1 chạy đúng và có unit test đầy đủ — logic `PaperExchange`/`StrategyEngine` nên được xác thực ở chế độ static (dễ debug, deterministic, không có yếu tố thời gian) trước khi đưa vào vòng lặp động.
