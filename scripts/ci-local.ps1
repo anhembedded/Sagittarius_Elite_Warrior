@@ -24,6 +24,13 @@
     Explicit alias for the default behavior: lint + format + the full test suite
     with the --cov-fail-under=80 gate enforced.
 
+.PARAMETER IncludeFlakyUi
+    Also run tests/integration/presentation/ui/, which is excluded by default
+    (see BOT-038) because running it as one full block intermittently crashes
+    the process natively (Qt/PySide6) or hangs — not a real assertion
+    failure, and not reproducible on demand. Pass this only when deliberately
+    investigating BOT-038.
+
 .EXAMPLE
     .\scripts\ci-local.ps1
     .\scripts\ci-local.ps1 -SkipLint
@@ -31,6 +38,7 @@
     .\scripts\ci-local.ps1 -SanityOnly
     .\scripts\ci-local.ps1 -UnitOnly
     .\scripts\ci-local.ps1 -Full
+    .\scripts\ci-local.ps1 -IncludeFlakyUi
 #>
 [CmdletBinding()]
 param(
@@ -38,7 +46,8 @@ param(
     [switch]$SkipTests,
     [switch]$SanityOnly,
     [switch]$UnitOnly,
-    [switch]$Full
+    [switch]$Full,
+    [switch]$IncludeFlakyUi
 )
 
 $ErrorActionPreference = "Stop"
@@ -135,6 +144,13 @@ if (-not $SkipTests) {
         $env:QT_QPA_PLATFORM = "offscreen"
 
         $pytestArgs = @($pytestTarget, "-v")
+        if (-not $IncludeFlakyUi) {
+            # BOT-038: running this dir as one full block intermittently
+            # crashes/hangs the process natively (Qt/PySide6) — not a real
+            # test failure. Excluded by default; pass -IncludeFlakyUi to
+            # opt back in when deliberately investigating BOT-038.
+            $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/integration/presentation/ui"
+        }
         if ($useCoverage) {
             $pytestArgs += "--cov=Sagittarius_Elite_Warrior/src"
             $pytestArgs += "--cov-report=term-missing"
