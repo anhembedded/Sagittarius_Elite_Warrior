@@ -7,7 +7,7 @@ import "../../components"
 Rectangle {
     id: root
     implicitWidth: 1200
-    implicitHeight: 120
+    implicitHeight: 190
     color: Theme.bg
 
     ColumnLayout {

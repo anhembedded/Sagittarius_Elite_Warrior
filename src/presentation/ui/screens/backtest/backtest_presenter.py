@@ -234,6 +234,15 @@ class BackTestPresenter(BasePresenter):
         if config is None:
             return
 
+        # Must happen here, on the main thread, BEFORE the background run
+        # even starts — clear_from_chart() reads self._chart_script_runner
+        # .active, which _fetch_and_emit_chart_data's rebuild() (background
+        # thread) would otherwise overwrite first, making a later clear a
+        # no-op (nothing left to reference the previous run's curves).
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is not None:
+            self._chart_script_runner.clear_from_chart(card)
+
         self.fsm.transition_to(UIMode.LOCKED)
         self._view_model.set_result(_RUNNING_MESSAGE, is_error=False)
         self._thread_manager.submit(self._run_backtest, config)

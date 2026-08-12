@@ -19,8 +19,12 @@ _QML_DIR = Path(__file__).parent
 _TOP_PANEL_QML = "BackTestTopPanel.qml"
 _TRADE_LOGS_QML = "BackTestTradeLogs.qml"
 
-#: Approximate height for the toolbar + metrics rows in BackTestTopPanel.qml.
-_TOP_PANEL_HEIGHT = 120
+#: Toolbar row (~40px) + metrics header row (~24px) + the MetricCard row
+#: itself (MetricCard.qml's own implicitHeight: 75) + ColumnLayout's 2x10px
+#: margins + 2x10px inter-row spacing — 120 (BOT-022's original budget, sized
+#: for a single plain result-text line, before BOT-055's real stat cards
+#: existed) clipped the cards' value/badge row off entirely.
+_TOP_PANEL_HEIGHT = 190
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (

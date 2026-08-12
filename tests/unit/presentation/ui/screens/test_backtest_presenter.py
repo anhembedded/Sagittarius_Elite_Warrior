@@ -565,6 +565,25 @@ def test_ema_toggle_is_a_no_op_when_the_script_is_not_registered(
     presenter.view.chart_controls.sig_ema_toggled.emit(False)  # must not raise
 
 
+def test_clear_from_chart_is_called_before_each_new_run_not_after(
+    presenter, view_model
+):
+    """Regression test (found by running the app): clearing the previous
+    run's chart overlays must happen synchronously in _on_run_backtest (main
+    thread, before the background run even starts). Calling it later, after
+    IndicatorScriptRunner.rebuild() has already replaced `.active` on the
+    background thread, is a no-op — the old EMA curves/legend entries pile
+    up run after run instead of being replaced."""
+    presenter._chart_script_runner.clear_from_chart = Mock()
+
+    view_model.requestRun()
+    assert presenter._chart_script_runner.clear_from_chart.call_count == 1
+
+    presenter.fsm.transition_to(UIMode.IDLE)
+    view_model.requestRun()
+    assert presenter._chart_script_runner.clear_from_chart.call_count == 2
+
+
 def test_mode_buttons_switch_the_chart_mode_end_to_end(
     presenter, view_model, mock_dispatcher, qapp
 ):
