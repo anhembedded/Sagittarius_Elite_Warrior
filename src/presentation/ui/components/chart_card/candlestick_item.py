@@ -71,6 +71,11 @@ class FastCandlestickItem(pg.GraphicsObject):
         # abs() guards against a negative width if `data` were ever
         # descending (would otherwise make candles vanish — see
         # boundingRect/dataBounds, which assume ascending time).
+        # Qt requires prepareGeometryChange() to be called *before* changing state
+        # that alters boundingRect(), so it can cleanly remove the old bounds
+        # from the scene's BSP tree before inserting the new ones.
+        self.prepareGeometryChange()
+
         if len(data) > 1:
             gaps = sorted(data[i + 1][0] - data[i][0] for i in range(len(data) - 1))
             median_gap = gaps[len(gaps) // 2]
@@ -86,7 +91,6 @@ class FastCandlestickItem(pg.GraphicsObject):
         # stale auto-range while paint() draws the new candles (bug: chart
         # shows no visible candlesticks / wrong Y-axis scale after a reload).
         self._cached_visible_bounds = None
-        self.prepareGeometryChange()
         self.informViewBoundsChanged()
         self.update()
 
