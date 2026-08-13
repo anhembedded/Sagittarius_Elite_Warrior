@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from PySide6.QtQml import QJSValue
 
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
@@ -19,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
     IndicatorScriptListModel,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
+from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, from_qml
 
 _DEFAULT_INITIAL_CAPITAL_TEXT = "10000"
 #: Must match dashboard_presenter.py's own _DEFAULT_INTERVAL_STR ("1m") — the
@@ -536,9 +535,9 @@ class BackTestViewModel(BaseQmlViewModel):
         a plain QML JS object literal as a `QJSValue`, not a Python `dict` —
         `dict(values)` raises `TypeError: '...QJSValue' object is not
         iterable` on the real object QML sends (only a hand-built Python
-        dict passed directly from a test bypasses this). `toVariant()`
-        recursively converts it to native Python types first.
+        dict passed directly from a test bypasses this). `from_qml()`
+        (BOT-070) generalizes the one-off fix this used to be (BOT-061) —
+        every `@Slot("QVariant")` handler in the app should normalize its
+        argument through it before touching the value.
         """
-        if isinstance(values, QJSValue):
-            values = values.toVariant()
-        self.botParamsSaveRequested.emit(dict(values))
+        self.botParamsSaveRequested.emit(dict(from_qml(values)))

@@ -49,9 +49,9 @@ thứ 3.
       `tests/unit/presentation/ui/screens/test_bot_params_dialog_qml.py` đã có.
 - [ ] Test phải phủ: object literal phẳng, **object lồng nhau**, mảng, và giá trị đã là
       Python thuần (idempotent).
-- [ ] `from_qml()` ở engine.
-- [ ] Chuyển `backtest_view_model.py` sang dùng nó, bỏ `isinstance(values, QJSValue)` cục bộ.
-- [ ] Kiểm tra test `BOT-061` (`test_bot_params_dialog_qml.py`, 2 test) vẫn xanh **không sửa**.
+- [x] `from_qml()` ở engine.
+- [x] Chuyển `backtest_view_model.py` sang dùng nó, bỏ `isinstance(values, QJSValue)` cục bộ.
+- [x] Kiểm tra test `BOT-061` (`test_bot_params_dialog_qml.py`, 2 test) vẫn xanh **không sửa**.
 
 ## 4. Rủi ro / Lưu ý
 
@@ -63,6 +63,46 @@ thứ 3.
   sau không ai tưởng task này sẽ dọn sạch chúng.
 - Engine là framework dùng chung — `from_qml()` không được giả định shape dữ liệu riêng
   của app này.
+
+## 6. Kết quả triển khai thực tế
+
+**Verify bằng test thật trước khi tin tài liệu** (đúng yêu cầu §4): dựng 1 `QQmlEngine`
++ `QQmlComponent.setData()` với QML nguồn nạp thẳng bằng bytes (không cần file), gọi
+`receiver.receive({...})` từ `Component.onCompleted`, để 1 `@Slot("QVariant")` Python thật
+nhận giá trị. Kết quả thật (không suy đoán): `.toVariant()` ở PySide6 6.11.1 **đã** tự đệ
+quy qua dict/list lồng nhau trong 1 lần gọi (`nested`/`arr[2]` bên trong đã là `dict`/`list`
+thuần ngay sau `.toVariant()`, không còn `QJSValue` sót lại). `from_qml()` **vẫn** tự đệ quy
+thêm sau `.toVariant()` — không tin hành vi này sẽ giữ nguyên mãi ở version PySide6 khác,
+đúng tinh thần "không giả định" của task.
+
+**`from_qml()`** (`sagittarius_engine/extensions/pyside_mvc/QmlShared/qml_value_normalizer.py`,
+mới, xuất qua `QmlShared/__init__.py` + `pyside_mvc/__init__.py`): `isinstance(value, QJSValue)`
+→ `.toVariant()`, rồi đệ quy qua `dict`/`list`, trả nguyên giá trị khác (idempotent — gọi lại
+trên giá trị Python thuần không tốn gì, không lỗi).
+
+**Bẫy thật gặp khi viết test** (không phải suy đoán trong task, mà lỗi thật tự gặp): `QJSValue`
+chỉ sống được trong vòng đời `QQmlEngine` đã sinh ra nó — gọi `from_qml(qjs_value)` **sau khi**
+hàm helper dựng `engine`/`component` đã return (biến cục bộ bị Python GC dọn) khiến
+`.toVariant()` âm thầm trả `None` thay vì báo lỗi. Sửa: gọi `from_qml()` **bên trong** slot
+`receive()` (khi engine còn sống), không trì hoãn ra ngoài. Ghi lại làm bài học cho ai viết
+test QML-boundary tương tự sau này.
+
+5 test mới (`tests/extensions/pyside_mvc/test_qml_value_normalizer.py`): object phẳng, object
+lồng nhau, mảng có object lồng, giá trị đã native (idempotent, không cần QML), gọi `from_qml()`
+2 lần liên tiếp cho cùng kết quả. `backtest_view_model.py`'s `requestBotParamsSave()` đổi sang
+`from_qml(values)`, bỏ `isinstance(values, QJSValue)`/import `QJSValue` cục bộ. Test `BOT-061`
+(`test_bot_params_dialog_qml.py`, 2 test) pass **không sửa 1 dòng**, đúng yêu cầu.
+
+**Xác nhận không có regression thật**: full suite lúc verify có 3 test backtest/dashboard fail
+thêm — điều tra ra là do `BackTestTopPanel.qml`/`BackTestTradeLogs.qml`/`DevBoardPanel.qml`/
+`MetricCard.qml` đang được user chỉnh sửa dở (redesign UI, chưa commit), không liên quan gì
+đến `from_qml()`. Xác nhận bằng `git stash` tạm 4 file QML đó (giữ nguyên `backtest_view_model.py`)
+→ chỉ còn đúng 1 fail đã biết từ trước (`test_interactive_shell_wait_for_exit_exception`,
+không liên quan) → stash pop khôi phục nguyên trạng việc user đang làm dở.
+
+402 test engine (`tests/`, gồm 5 test mới) pass, `ruff` sạch cả 2 repo (2 file
+`pyside_mvc/__init__.py`/`QmlShared/__init__.py` tiện thể dọn `__all__`/import order chưa
+sort sẵn từ trước — không phải do task này gây ra, dọn luôn vì đang sửa đúng chỗ đó).
 
 ## 5. Phụ thuộc
 
