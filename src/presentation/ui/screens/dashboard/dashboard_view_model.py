@@ -118,6 +118,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
     priceTickerColor = Property(str, _get_price_ticker_color, notify=priceTickerChanged)
 
+    @Slot(str, str)
     def set_price_ticker(self, text: str, color: str) -> None:
         self._price_ticker_text = text
         self._price_ticker_color = color
@@ -136,6 +137,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
     wsStatusColor = Property(str, _get_ws_status_color, notify=wsStatusChanged)
 
+    @Slot(str, str)
     def set_ws_status(self, text: str, color: str) -> None:
         self._ws_status_text = text
         self._ws_status_color = color
@@ -146,6 +148,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
     historyLoading = Property(bool, _get_history_loading, notify=historyLoadingChanged)
 
+    @Slot(bool)
     def set_history_loading(self, value: bool) -> None:
         if value == self._history_loading:
             return

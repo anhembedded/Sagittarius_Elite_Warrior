@@ -84,7 +84,7 @@ Xếp theo ROI = (số bug chặn được × mức nghiêm trọng) ÷ chi phí
 | :---: | :--- | :--- | :---: | :---: |
 | 1 | [`BOT-066`](../completed/BOT-066_fail_loud_ui_action_errors.md) | `safe_ui_action` báo lỗi thật (log + event + re-raise ở dev mode) | B | Thấp |
 | 2 | [`BOT-067`](../completed/BOT-067_resource_scope_lifecycle.md) | `ResourceScope` — teardown tự động theo vòng đời lần chạy | C | Trung bình |
-| 3 | [`BOT-068`](../backlog/BOT-068_ui_thread_affinity_guard.md) | Guard thread-affinity + sanity test quét ViewModel | A | Trung bình |
+| 3 | [`BOT-068`](../completed/BOT-068_ui_thread_affinity_guard.md) | Guard thread-affinity + sanity test quét ViewModel | A | Trung bình |
 | 4 | [`BOT-069`](../backlog/BOT-069_exclusive_action_single_flight.md) | `ExclusiveAction` — single-flight cho hành động user | D | Thấp |
 | 5 | [`BOT-070`](../completed/BOT-070_qml_value_normalizer.md) | `from_qml()` — chuẩn hoá giá trị qua ranh giới QML | E | Rất thấp |
 | 6 | [`BOT-071`](../backlog/BOT-071_boot_asset_preflight.md) | Pre-flight asset lúc boot (mở rộng cơ chế đã có) | F | Thấp |

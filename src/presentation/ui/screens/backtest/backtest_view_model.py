@@ -159,6 +159,7 @@ class BackTestViewModel(BaseQmlViewModel):
         "QVariantList", _get_strategy_options, notify=strategyOptionsChanged
     )
 
+    @Slot("QVariantList")
     def set_strategy_options(self, options: list[dict[str, str]]) -> None:
         self._strategy_options = options
         self.strategyOptionsChanged.emit()
@@ -196,6 +197,7 @@ class BackTestViewModel(BaseQmlViewModel):
         "QVariantList", _get_bot_params_schema, notify=botParamsSchemaChanged
     )
 
+    @Slot("QVariantList")
     def set_bot_params_schema(self, schema: list[dict]) -> None:
         self._bot_params_schema = schema
         self.botParamsSchemaChanged.emit()
@@ -205,6 +207,7 @@ class BackTestViewModel(BaseQmlViewModel):
 
     botParamsError = Property(str, _get_bot_params_error, notify=botParamsErrorChanged)
 
+    @Slot(str)
     def set_bot_params_error(self, message: str) -> None:
         if message != self._bot_params_error:
             self._bot_params_error = message
@@ -338,6 +341,7 @@ class BackTestViewModel(BaseQmlViewModel):
 
     resultIsError = Property(bool, _get_result_is_error, notify=resultChanged)
 
+    @Slot(str, bool)
     def set_result(self, text: str, is_error: bool) -> None:
         self._result_text = text
         self._result_is_error = is_error
@@ -361,6 +365,7 @@ class BackTestViewModel(BaseQmlViewModel):
         "QVariantList", _get_extended_stat_cards, notify=statCardsChanged
     )
 
+    @Slot("QVariantList", "QVariantList")
     def set_stat_cards(
         self,
         primary: list[dict[str, str]],
@@ -401,6 +406,7 @@ class BackTestViewModel(BaseQmlViewModel):
     #: the last run actually hit that case.
     needsDataSync = Property(bool, _get_needs_data_sync, notify=needsDataSyncChanged)
 
+    @Slot(bool)
     def set_needs_data_sync(self, value: bool) -> None:
         if value != self._needs_data_sync:
             self._needs_data_sync = value
@@ -436,6 +442,7 @@ class BackTestViewModel(BaseQmlViewModel):
         int, _get_trade_log_total_pages, notify=tradeLogRowsChanged
     )
 
+    @Slot("QVariantList", int, int)
     def set_trade_log_page_state(
         self,
         rows: list[dict[str, str]],

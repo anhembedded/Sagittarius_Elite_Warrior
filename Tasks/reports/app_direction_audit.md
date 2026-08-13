@@ -20,7 +20,7 @@
 | 2 | **Không có bất kỳ** cơ chế chống overfitting nào | 🔴 | [`BOT-080`](../backlog/BOT-080_out_of_sample_walk_forward.md) |
 | 3 | Bot **không giao dịch được** — 21/46 task xong là backtest/chart | 🔴 | **Quyết định của user** (§3) |
 | 4 | Sắp có **3 backtest engine** với bất biến ngược nhau | 🟠 | [`BOT-023`](../backlog/BOT-023_dynamic_backtest_engine.md) (đã ghi chú) |
-| 5 | Agent tự động tối ưu **concurrency** vào vùng chưa có thread guard | 🟠 | [`BOT-068`](../backlog/BOT-068_ui_thread_affinity_guard.md) (đã nâng ưu tiên) |
+| 5 | Agent tự động tối ưu **concurrency** vào vùng chưa có thread guard | 🟠 | [`BOT-068`](../completed/BOT-068_ui_thread_affinity_guard.md) (đã nâng ưu tiên) |
 | 6 | Một test **đỏ vĩnh viễn** chưa từng pass | 🟠 | [`BOT-082`](../completed/BOT-082_fix_permanently_failing_interactive_shell_test.md) |
 | 7 | Tài liệu-như-lời-hứa **trôi khỏi code** | 🟡 | [`BOT-074`](../backlog/BOT-074_execution_trigger_rule_inverted_lock.md) (ca cụ thể) + §7 (nguyên tắc) |
 
@@ -171,7 +171,7 @@ Trong khi đó:
 
 - [`BOT-038`](../backlog/BOT-038_intermittent_segfault_full_ui_integration_suite.md) —
   **segfault ngẫu nhiên đã biết** ở integration UI suite; đã điều tra 1 vòng rồi dừng.
-- [`BOT-068`](../backlog/BOT-068_ui_thread_affinity_guard.md) — **chưa làm**. Chính
+- [`BOT-068`](../completed/BOT-068_ui_thread_affinity_guard.md) — **chưa làm**. Chính
   ROADMAP ghi: *"Engine hiện có **0** guard thread nào"*.
 - [`BUG-001`](../bug_report/BUG-001.md) — app từng treo vì chạm UI từ luồng nền.
 

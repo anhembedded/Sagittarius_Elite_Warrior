@@ -72,7 +72,7 @@ Yêu cầu bắt buộc của cơ chế:
       **Không làm cả 5 chỗ trong một lượt** — xem §4. *(Cố ý để lại — đúng quyết định gốc
       của task, xem mục 6.)*
 - [x] Ghi rõ trong docstring: dispose chạm widget Qt **phải** ở main thread (liên quan
-      [`BOT-068`](../backlog/BOT-068_ui_thread_affinity_guard.md)).
+      [`BOT-068`](BOT-068_ui_thread_affinity_guard.md)).
 
 ## 6. Kết quả triển khai thực tế
 
