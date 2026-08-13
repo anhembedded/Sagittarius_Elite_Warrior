@@ -286,14 +286,14 @@ Rectangle {
                                     Layout.fillWidth: true
                                     spacing: 4
                                     Text { text: "LÝ DO VÀO LỆNH"; color: Theme.accent; font.pixelSize: 9; font.bold: true; font.letterSpacing: 0.5 }
-                                    Text { text: modelData.entryReasonText; color: Theme.textPrimary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                    Text { text: modelData.entryReasonText; color: Theme.textPrimary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true; textFormat: Text.PlainText }
                                 }
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 4
                                     Text { text: "LÝ DO THOÁT LỆNH"; color: Theme.accent; font.pixelSize: 9; font.bold: true; font.letterSpacing: 0.5 }
-                                    Text { text: modelData.exitReasonText; color: Theme.textPrimary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                    Text { text: modelData.exitReasonText; color: Theme.textPrimary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true; textFormat: Text.PlainText }
                                 }
 
                                 ColumnLayout {
