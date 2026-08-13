@@ -1,6 +1,36 @@
 # Nhiệm vụ: Dynamic Backtest Engine — Paper Exchange & Virtual Event Loop — Phase 2
 
 > Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 2 (Dynamic). Phụ thuộc `BOT-020`, `BOT-021`. Nên bắt đầu **sau khi** Phase 1 (`BOT-021`/`BOT-022`) chạy đúng và có unit test đầy đủ.
+>
+> ## ⛔ DỪNG — chốt quan hệ với `BOT-076` trước khi bắt đầu
+>
+> Nguồn: 📄 [Rà soát định hướng App](../reports/app_direction_audit.md) §4.
+>
+> Sau khi [Epic `BOT-073`](BOT-073_realtime_tick_backtest_epic.md) ra đời, repo sắp có
+> **3 engine backtest**, trong đó 2 cái có **bất biến ngược nhau**:
+>
+> | Engine | Bất biến đã cam kết |
+> | :--- | :--- |
+> | Static (`BOT-021` ✅) | — |
+> | **Dynamic (task này)** | **"phải khớp Static tuyệt đối"** — `assert dynamic_result == static_result` |
+> | [Realtime (`BOT-076`)](BOT-076_realtime_backtest_engine.md) | **"cố ý khác Static"** |
+>
+> **Nghi vấn cần trả lời trước khi viết dòng code nào**: giá trị riêng của task này là
+> *play/pause/tốc độ để xem replay* — nhưng đó là mối quan tâm **trình bày**, không phải
+> engine. Mà `BOT-076` dù sao cũng phải có vòng lặp tick + progress + cancel.
+>
+> → Nhiều khả năng đúng là **1 engine tick (`BOT-076`) + lớp điều khiển tốc độ ở trên**,
+> chứ không phải 2 engine replay song song. Duy trì 3 engine trên cùng một
+> `PaperExchange` là bề mặt bảo trì lớn hơn hẳn phần giá trị tăng thêm.
+>
+> **3 lựa chọn** (user chốt, không tự quyết):
+> 1. **Gộp**: bỏ task này, chuyển replay control thành một phần của `BOT-076`.
+> 2. **Giữ riêng**: chứng minh được Dynamic có giá trị mà Realtime không thay thế được —
+>    ghi rõ giá trị đó ra đây.
+> 3. **Đổi vai**: giữ task này nhưng bỏ ràng buộc "khớp Static tuyệt đối", biến nó thành
+>    thuần lớp UI replay chạy trên engine bất kỳ.
+>
+> Quyết định muộn thì **đắt** — viết xong engine rồi mới phát hiện thừa.
 
 ## 1. Mục tiêu (Objective)
 Mô phỏng lại dữ liệu lịch sử **như đang chạy live** (Virtual Event Loop): chạy chỉ báo + chiến lược + khớp lệnh giả lập theo từng nến phát ra tuần tự, có thể tua nhanh/chậm/tạm dừng — khác Static ở chỗ trải nghiệm giống hệt live trading, không chỉ ra kết quả cuối cùng.

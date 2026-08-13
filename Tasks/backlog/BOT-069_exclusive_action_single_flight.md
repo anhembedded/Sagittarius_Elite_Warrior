@@ -3,7 +3,7 @@
 > Thuộc nhóm 6 task cơ chế engine sinh ra từ
 > 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — **lớp lỗi D**.
 >
-> Cặp đôi tự nhiên với [`BOT-067`](BOT-067_resource_scope_lifecycle.md) — xem §2.2.
+> Cặp đôi tự nhiên với [`BOT-067`](../completed/BOT-067_resource_scope_lifecycle.md) — xem §2.2.
 
 ## 1. Mục tiêu
 
@@ -82,5 +82,5 @@ khác nhau, mỗi cái dùng được độc lập.
 
 - 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — nguồn phân tích, lớp D.
 - [`BOT-027`](../completed/BOT-027_fix_concurrent_load_history_race_condition.md) ✅ — fix viết tay đang thay thế.
-- [`BOT-067`](BOT-067_resource_scope_lifecycle.md) — cặp đôi tự nhiên, xem §2.2.
+- [`BOT-067`](../completed/BOT-067_resource_scope_lifecycle.md) — cặp đôi tự nhiên, xem §2.2.
 - Sửa `sagittarius_engine/` (repo cha) → commit ở **cả hai** repo.

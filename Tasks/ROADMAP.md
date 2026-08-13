@@ -21,16 +21,29 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 46 | 61% |
+| 🟢 **Completed** | 46 | 58% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 29 | 39% |
-| 📈 **Tổng số Task** | **75** | **100%** |
+| 🔴 **Backlog** | 34 | 42% |
+| 📈 **Tổng số Task** | **80** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
 > Lần tăng thứ hai (+6, `BOT-066`…`BOT-071`): rà soát toàn bộ lịch sử bug theo yêu cầu user, nhóm thành **6 lớp lỗi** rồi đề xuất cơ chế tầng engine chặn cả lớp thay vì vá từng ca. Đây là **nợ kỹ thuật đã tồn tại sẵn được ghi nhận ra giấy**, không phải tính năng mới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md).
 >
 > Lần tăng thứ ba (+5, [Epic `BOT-073`](backlog/BOT-073_realtime_tick_backtest_epic.md) + `BOT-074`…`BOT-077`): user yêu cầu **chế độ backtest thứ 2 chạy theo tick** ("indicator set on tf 1m, but realtime data feed every 1s") — đây **là tính năng mới thật**, không phải nợ kỹ thuật. Kèm theo: 1 bug thật tìm được khi điều tra (`BOT-074`), và 2 câu hỏi kiến trúc treo lâu nay được user chốt dứt điểm (hướng (b) của `BOT-042`; ý nghĩa "On order filled" của `BOT-040` §2.1).
+>
+> Lần tăng thứ tư (+5, [Epic `BOT-078`](backlog/BOT-078_backtest_trustworthiness_epic.md) + `BOT-079`…`BOT-082`): user hỏi *"còn thấy vấn đề gì trong định hướng của app không?"* → rà soát toàn diện, tìm ra **7 red flag/mâu thuẫn** có bằng chứng verify được. Đây là **nợ đã tồn tại sẵn được ghi ra giấy**, không phải việc mới. 📄 [Rà soát định hướng App](reports/app_direction_audit.md).
+
+---
+
+> ## 🧭 Câu hỏi định hướng đang chờ user trả lời
+>
+> Từ 📄 [Rà soát định hướng App](reports/app_direction_audit.md) §3 — **không phải task**,
+> là quyết định chỉ user chốt được, nhưng nó xếp lại thứ tự cả backlog:
+>
+> Bot **chưa đặt được lệnh nào**. [`market_tick_event_handler.py`](../src/application/event_handlers/market_data/market_tick_event_handler.py) chỉ `logger.info()` rồi return; [`BOT-008`](backlog/BOT-008_live_trading_strategy_execution.md) là **P1**, ghi *"sẵn sàng bắt đầu"*, chưa hề động tới. Trong khi **21/46** task đã xong là backtest/chart/indicator.
+>
+> **→ Mục tiêu 3 tháng tới là "bot chạy được bằng tiền thật (dù thô)", hay "công cụ nghiên cứu chiến lược tốt nhất có thể (chưa cần giao dịch)"?** Hai câu trả lời cho 2 thứ tự backlog khác hẳn nhau.
 
 ---
 
@@ -93,7 +106,9 @@ Sagittarius_Elite_Warrior/Tasks/
 | :---: | :--- | :--- | :---: | :--- |
 | **P1** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Sẵn sàng bắt đầu — mọi phụ thuộc đã hoàn thành. |
 | **P1** | **[Nhóm Engine Hardening](reports/engine_defect_class_analysis.md)** *(`BOT-066`…`BOT-071`)* | **6 cơ chế engine chặn 6 lớp lỗi tái phát** | — | Sinh ra từ rà soát toàn bộ lịch sử bug: gom thành 6 **lớp lỗi** rồi hỏi "cơ chế nào khiến cả lớp đó không xảy ra được nữa". Xem bảng chi tiết bên dưới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). |
-| **P1** | **[Epic BOT-073](backlog/BOT-073_realtime_tick_backtest_epic.md)** | **Realtime Backtest — chạy theo tick, song song với Static** | `BOT-021` ✅ | Yêu cầu trực tiếp của user: backtest hiện tại là *static* kiểu TradingView, không tả được hành vi bot khi live (indicator khung 1m nhưng dữ liệu về mỗi 1s). Mục tiêu: **2 chế độ backtest dùng song song**, chung `PaperExchange`/`BacktestResult`. Kèm 1 bug thật (`BOT-074`) và 2 quyết định kiến trúc user vừa chốt. Xem bảng chi tiết bên dưới. |
+| **P1** | **[BOT-082](backlog/BOT-082_fix_permanently_failing_interactive_shell_test.md)** | **Sửa test đỏ vĩnh viễn** *(~1 phút)* | — | `patch('src.presentation...')` thiếu tiền tố `Sagittarius_Elite_Warrior.` → `ModuleNotFoundError`, **chưa từng pass** kể từ khi merge 12/08. Đáng ưu tiên không phải vì cái test, mà vì suite đỏ thường trực **huấn luyện cả người lẫn agent bỏ qua màu đỏ** — làm hỏng giá trị tín hiệu của mọi test khác. 📄 [Rà soát định hướng](reports/app_direction_audit.md) §6. |
+| **P1** | **[Epic BOT-078](backlog/BOT-078_backtest_trustworthiness_epic.md)** | **Backtest Trustworthiness — kết quả có đáng tin không?** | `BOT-021` ✅, `BOT-047` ✅ | Engine chạy đúng 100% vẫn có thể sinh kết luận sai. Log thật `-80.71%` hoá ra **~96% là phí giao dịch**, edge chiến lược ≈ hoà — mà app không có chỗ nào nói điều đó. Và **không một dòng nào** trong repo nhắc tới chống overfitting, dù bộ máy tinh chỉnh tham số (`BOT-044`…`048`) đã xong. Xem bảng chi tiết bên dưới. 📄 [Rà soát định hướng](reports/app_direction_audit.md). |
+| **P1** | **[Epic BOT-073](backlog/BOT-073_realtime_tick_backtest_epic.md)** | **Realtime Backtest — chạy theo tick, song song với Static** | `BOT-021` ✅ | Yêu cầu trực tiếp của user: backtest hiện tại là *static* kiểu TradingView, không tả được hành vi bot khi live (indicator khung 1m nhưng dữ liệu về mỗi 1s). Mục tiêu: **2 chế độ backtest dùng song song**, chung `PaperExchange`/`BacktestResult`. Kèm 1 bug thật (`BOT-074`) và 2 quyết định kiến trúc user vừa chốt. Xem bảng chi tiết bên dưới. ⚠️ Cân nhắc làm **sau `BOT-079`** — chân thực hơn về cơ chế mà tham số đã overfit thì vẫn vô nghĩa. |
 | **P2** | **[BOT-035](backlog/BOT-035_dev_board_load_more_on_scroll.md)** | **Dev Board — Tự tải thêm dữ liệu cũ khi kéo ra rìa trái chart (US-04)** | `BOT-034` ✅ | Kéo/scroll chart ra rìa trái dữ liệu đã tải hiện không làm gì — chart chỉ trống. Query/repository layer đã hỗ trợ sẵn (`GetHistoricalKlinesQuery.end_time`), việc còn lại là: detect gần rìa trái (`ViewportController`, chưa có hook), `ChartCard.prepend_historical_data()` mới (không phá zoom hiện tại, khác `render_historical_data`), và full rebuild+refeed cho `IndicatorScriptRunner` (không có đường "feed lùi" — đã verify). **Còn 3 câu hỏi mở** (ngưỡng trigger, số nến/lần, có tự sync từ Binance khi DB thiếu hay không) — chưa code, chờ user chốt. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
@@ -123,6 +138,21 @@ Sagittarius_Elite_Warrior/Tasks/
 
 > ⏸️ **Ca cố ý KHÔNG đề xuất cơ chế**: `BOT-062`/`5c20156` (`self._autostart` chỉ gán khi config gate bật nhưng gọi vô điều kiện). Bản chất chỉ là thiếu null-guard — xây machinery tốn hơn phần tiết kiệm được. Ghi lại để lần sau không ai đề xuất rồi mất công phân tích lại.
 > 🔗 **`BOT-067` ↔ `BOT-069` là cặp đôi**: vòng đời `ResourceScope` chính là vòng đời `ExclusiveAction`. Nếu làm cả hai, `ExclusiveAction` nên là nơi mở/đóng scope. **Không ghép thành 1 task** — 2 khái niệm khác nhau, dùng độc lập được.
+
+#### 🔬 Epic BOT-078 — Chi tiết (Backtest Trustworthiness)
+
+> Nguồn: 📄 [Rà soát định hướng App](reports/app_direction_audit.md) §1 & §2.
+>
+> **Khác `BOT-073`**: `BOT-073` lo *engine mô phỏng có giống thật không*. Epic này lo *con số engine trả ra có bị hiểu sai không* — engine đúng 100% vẫn có thể dẫn tới kết luận sai.
+
+| Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
+| :--- | :--- | :---: | :--- |
+| **[BOT-079](backlog/BOT-079_fee_transparency_and_trade_frequency.md)** | **Minh bạch phí + cảnh báo tần suất giao dịch** | `BOT-021` ✅, `BOT-055` ✅ | **Rẻ nhất, giá trị cao nhất — làm trước.** Log thật: `807 trades, -80.71%`; tính ra phí gây `-80.11%`, edge gross chỉ `-3.03%` → **phí chiếm ~96% khoản lỗ**, chiến lược thực chất *hoà*, không phải *tệ*. `Trade.fees_paid` **đã có sẵn**, chỉ chưa bao giờ tổng hợp lên `BacktestMetrics`. |
+| **[BOT-080](backlog/BOT-080_out_of_sample_walk_forward.md)** | **Kiểm định out-of-sample / walk-forward** | `BOT-047` ✅ | `grep` walk-forward/out-of-sample/overfit toàn repo → **0 kết quả**, trong khi bộ máy tinh chỉnh tham số (`BOT-044`…`048`) đã xong → **cỗ máy overfit không phanh**. Chiến lược overfit và chiến lược có edge thật **trông giống hệt nhau** trên màn hình hiện tại. ❓ Còn 4 câu hỏi cần user chốt trước khi code. |
+| **[BOT-081](backlog/BOT-081_backtest_limitation_disclosure.md)** | **Công bố giới hạn trên UI kết quả** | `BOT-079` | Gom mọi giới hạn đã biết (không slippage/latency/orderbook depth, all-in long-only, chưa SL/TP, phí, chưa out-of-sample, tick 1s ≠ tick thật) vào chỗ user thật sự nhìn. **Phải động theo trạng thái thật** — danh sách tĩnh sẽ sai ngay khi `BOT-041` xong, rồi thành nhiễu. |
+
+> ⚠️ **Thứ tự so với `BOT-073`**: `BOT-073` làm kết quả *chân thực hơn về cơ chế*, nhưng nếu tham số đã overfit thì kết quả chân thực đó **vẫn vô nghĩa** — chỉ là con số sai một cách chính xác hơn. Đề xuất: `BOT-079` (rẻ) **trước** `BOT-073`; `BOT-080` xong **trước khi** dùng `BOT-047` tinh chỉnh nghiêm túc.
+> 💡 **Cám dỗ cần đề phòng**: coi epic này là "việc phụ" vì không thêm tính năng nào nhìn thấy được. Nhưng nó quyết định **mọi kết luận** rút ra từ app — kể cả kết luận "chiến lược này tốt, đem tiền thật vào".
 
 #### ⏱️ Epic BOT-073 — Chi tiết (Realtime Backtest theo tick)
 

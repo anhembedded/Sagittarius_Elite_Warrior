@@ -59,7 +59,7 @@ lý, vì thiếu `PySide6` thì app không chạy được thật, còn thiếu 
 - [ ] Verify: xoá thử 1 icon thật → boot dev fail với thông điệp chỉ đúng tên icon và
       đúng đường dẫn nó tìm (giống format thông điệp `CRITICAL FAULT` đang có).
 - [ ] Chạy full suite — boot ở test có thể đang chạy dev mode (liên quan
-      [`BOT-066`](BOT-066_fail_loud_ui_action_errors.md)); nếu có asset nào đang thiếu sẵn,
+      [`BOT-066`](../completed/BOT-066_fail_loud_ui_action_errors.md)); nếu có asset nào đang thiếu sẵn,
       test sẽ đỏ. Đó là kết quả đúng, điều tra từng cái.
 
 ## 4. Rủi ro / Lưu ý

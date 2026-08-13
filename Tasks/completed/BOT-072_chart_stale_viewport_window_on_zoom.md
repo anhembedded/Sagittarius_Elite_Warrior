@@ -161,7 +161,7 @@ Không thuộc 6 lớp lỗi ở 📄 [Phân tích Lớp Lỗi Engine](../report
 nhưng cùng họ với **lớp F (fallback im lặng)**: `if self._visible_range is None: vẽ tất cả` là
 một fallback hợp lý-về-mặt-kết-quả, và chính nó đã **che giấu việc dây chưa được nối** — code
 chạy đúng nên không ai phát hiện tối ưu hoá không hề chạy. Nếu
-[`BOT-071`](BOT-071_boot_asset_preflight.md) mở rộng thành nguyên tắc chung "fallback phải kêu",
+[`BOT-071`](../backlog/BOT-071_boot_asset_preflight.md) mở rộng thành nguyên tắc chung "fallback phải kêu",
 ca này là ví dụ tốt để nhắc tới.
 
 ## 7. Phụ thuộc

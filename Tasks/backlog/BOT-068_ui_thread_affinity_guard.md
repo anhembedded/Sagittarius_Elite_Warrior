@@ -6,8 +6,32 @@
 > Trả lời trực tiếp ghi chú của user ở cuối [`BUG-001`](../bug_report/BUG-001.md):
 > *"tôi nghĩ engine nên có cơ chế lo điều này"*.
 >
-> Nên làm **sau** [`BOT-066`](BOT-066_fail_loud_ui_action_errors.md) — guard này chỉ có
-> tác dụng nếu vi phạm nó không bị `safe_ui_action` nuốt mất.
+> Nên làm **sau** [`BOT-066`](../completed/BOT-066_fail_loud_ui_action_errors.md) ✅ — guard này chỉ có
+> tác dụng nếu vi phạm nó không bị `safe_ui_action` nuốt mất. **Điều kiện đó nay đã thoả.**
+>
+> ## ⬆️ Đề xuất NÂNG ƯU TIÊN — rủi ro đang tăng theo thời gian
+>
+> Nguồn: 📄 [Rà soát định hướng App](../reports/app_direction_audit.md) §5.
+>
+> Repo đang nhận **commit tối ưu concurrency tự động** trong khi chưa có guard nào:
+>
+> ```
+> ⚡ Bolt: Offload blocking DB fetch in asyncio coroutine to thread
+> ⚡ Bolt: Batch concurrent fetches for GetHistoricalKlinesQuery   ← sửa stream_lifecycle_controller.py
+> ```
+>
+> Trong khi đó:
+> - [`BOT-038`](BOT-038_intermittent_segfault_full_ui_integration_suite.md) — **segfault
+>   ngẫu nhiên đã biết** ở integration UI suite, đã điều tra 1 vòng rồi dừng.
+> - [`BUG-001`](../bug_report/BUG-001.md) — app từng **treo** vì chạm UI từ luồng nền.
+> - Task này ghi rõ: *"Engine hiện có **0** guard thread nào"*.
+>
+> Thứ tự đang **ngược**: thêm concurrency vào codebase chưa có cơ chế phát hiện sai luồng
+> — cách hiệu quả nhất để tạo bug không tái hiện được.
+>
+> **Khác với các task hardening còn lại, rủi ro này tăng theo thời gian**: mỗi PR tối ưu
+> đồng thời được merge mà chưa có guard là một lớp rủi ro cộng thêm, và càng khó truy
+> ngược về sau. Đây là lý do nên nhấc lên trước `BOT-069`/`BOT-071`.
 
 ## 1. Mục tiêu
 
@@ -91,5 +115,5 @@ minh test có tác dụng thật. Sửa `set_stats()` là một phần của tas
 
 - 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — nguồn phân tích, lớp A.
 - 📄 [`BUG-001`](../bug_report/BUG-001.md) — ca thật, có chẩn đoán gốc của user.
-- [`BOT-066`](BOT-066_fail_loud_ui_action_errors.md) — nên làm trước.
+- [`BOT-066`](../completed/BOT-066_fail_loud_ui_action_errors.md) — nên làm trước.
 - Sửa `sagittarius_engine/` (repo cha) → commit ở **cả hai** repo.
