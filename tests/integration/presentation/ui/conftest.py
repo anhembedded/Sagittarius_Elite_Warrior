@@ -116,7 +116,20 @@ def app_engine(request, monkeypatch, tmp_path):
         response = MagicMock()
         response.success = True
         if command_type is GetHistoricalKlinesQuery:
-            response.data = build_mock_klines(command_obj.symbol)
+            # Mirrors GetHistoricalKlinesQueryHandler's own contract (added by
+            # the "Batch concurrent fetches" change): `symbol` is `str | list[str]`,
+            # and a list fans out to `{symbol: klines}` instead of a flat list.
+            # StreamLifecycleController._on_load_history/_on_start_stream always
+            # call with a list (even for Dev Board's single symbol) — a mock that
+            # only handled the single-`str` shape would silently short-circuit
+            # `_run_load_history`'s `isinstance(results, dict)` guard and return
+            # before ever calling `_script_runner.feed_all()`.
+            if isinstance(command_obj.symbol, list):
+                response.data = {
+                    sym: build_mock_klines(sym) for sym in command_obj.symbol
+                }
+            else:
+                response.data = build_mock_klines(command_obj.symbol)
         else:
             response.data = []
         return response

@@ -122,7 +122,16 @@ def _use_synthetic_klines(monkeypatch, presenter, count: int) -> None:
         if command_type is GetHistoricalKlinesQuery:
             response = MagicMock()
             response.success = True
-            response.data = klines
+            # GetHistoricalKlinesQueryHandler's contract: `symbol` as a list
+            # (StreamLifecycleController always sends one) returns
+            # {symbol: klines}, not a flat list — see conftest.mock_dispatch's
+            # comment for why a flat list here makes _run_load_history's
+            # `isinstance(results, dict)` guard return before ever reaching
+            # `_script_runner.feed_all()`.
+            if isinstance(command_obj.symbol, list):
+                response.data = {sym: klines for sym in command_obj.symbol}
+            else:
+                response.data = klines
             return response
         return original_dispatch(command_type, command_obj)
 
