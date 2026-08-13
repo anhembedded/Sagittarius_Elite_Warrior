@@ -1,7 +1,7 @@
 # Nhiệm vụ: Công bố giới hạn của backtest ngay trên UI kết quả
 
 > Thuộc Epic [`BOT-078`](BOT-078_backtest_trustworthiness_epic.md).
-> Phụ thuộc [`BOT-079`](BOT-079_fee_transparency_and_trade_frequency.md).
+> Phụ thuộc [`BOT-079`](../completed/BOT-079_fee_transparency_and_trade_frequency.md).
 
 ## 1. Mục tiêu
 
@@ -22,7 +22,7 @@ Lý do: màn hình Backtest hiện trình bày kết quả với độ tự tin 
 | **All-in sizing, single position, long-only** — không đòn bẩy, không short | `PaperExchange`; `BOT-049`/`BOT-050` chưa làm |
 | **Không có SL/TP** | [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) chưa làm |
 | **Fill ở open nến kế tiếp** — chặn lookahead, nhưng tạo độ trễ nhân tạo 1 bar | `BOT-021` (có chủ đích) |
-| **Phí có thể chiếm phần lớn kết quả** | [`BOT-079`](BOT-079_fee_transparency_and_trade_frequency.md) |
+| **Phí có thể chiếm phần lớn kết quả** | [`BOT-079`](../completed/BOT-079_fee_transparency_and_trade_frequency.md) |
 | **Không có kiểm định ngoài mẫu** | [`BOT-080`](BOT-080_out_of_sample_walk_forward.md) |
 | *(sau `BOT-073`)* **Tick 1s không phải tick thật** — `aggTrade` có thể nhiều lệnh/giây | [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md) §8 |
 
@@ -50,7 +50,7 @@ Lý do: màn hình Backtest hiện trình bày kết quả với độ tự tin 
 
 ## 5. Phụ thuộc
 
-- [`BOT-079`](BOT-079_fee_transparency_and_trade_frequency.md) — cung cấp số liệu phí để
+- [`BOT-079`](../completed/BOT-079_fee_transparency_and_trade_frequency.md) — cung cấp số liệu phí để
   hiển thị.
 - [`BOT-055`](../completed/BOT-055_backtest_performance_metrics_panel.md) ✅ — panel kết
   quả, nơi đặt entry point.

@@ -51,7 +51,7 @@ quả"**. Ba hướng:
 
 | Task | Tên | Phụ thuộc | Ghi chú |
 | :--- | :--- | :---: | :--- |
-| [**BOT-079**](BOT-079_fee_transparency_and_trade_frequency.md) | **Minh bạch phí + cảnh báo tần suất giao dịch** | — | **Rẻ nhất, giá trị cao nhất.** Dữ liệu đã có sẵn (`Trade.fees_paid`), chỉ cần tổng hợp + hiển thị. Làm trước. |
+| [**BOT-079**](../completed/BOT-079_fee_transparency_and_trade_frequency.md) | **Minh bạch phí + cảnh báo tần suất giao dịch** | — | **Rẻ nhất, giá trị cao nhất.** Dữ liệu đã có sẵn (`Trade.fees_paid`), chỉ cần tổng hợp + hiển thị. Làm trước. |
 | [**BOT-080**](BOT-080_out_of_sample_walk_forward.md) | **Kiểm định out-of-sample / walk-forward** | `BOT-047` ✅ | Lớn nhất epic. Còn câu hỏi mở cần user chốt — xem task. |
 | [**BOT-081**](BOT-081_backtest_limitation_disclosure.md) | **Công bố giới hạn trên UI kết quả** | `BOT-079` | Gom mọi giới hạn đã biết (phí, slippage, tick fidelity, overfit) vào một chỗ user thật sự nhìn thấy. |
 

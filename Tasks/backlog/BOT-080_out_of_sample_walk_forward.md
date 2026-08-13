@@ -84,6 +84,6 @@ lại hỏi: đây là quyết định sản phẩm, không phải chi tiết c�
   số mà task này tồn tại để bảo vệ.
 - [`BOT-021`](../completed/BOT-021_static_backtest_execution_engine.md) ✅ — chạy nhiều
   lần trên nhiều khoảng.
-- [`BOT-079`](BOT-079_fee_transparency_and_trade_frequency.md) — nên xong trước, vì kết
+- [`BOT-079`](../completed/BOT-079_fee_transparency_and_trade_frequency.md) — nên xong trước, vì kết
   quả out-of-sample cũng cần đọc đúng (không lẫn phí vào edge).
 - 📄 [Rà soát định hướng App](../reports/app_direction_audit.md) §2.

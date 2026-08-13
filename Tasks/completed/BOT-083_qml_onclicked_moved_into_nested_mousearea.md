@@ -1,6 +1,6 @@
 # Nhiệm vụ: Bug — `onClicked` chuyển vào `MouseArea` lồng bên trong `Button`, không bấm được từ test
 
-> Phát hiện khi verify [`BOT-082`](../completed/BOT-082_fix_permanently_failing_interactive_shell_test.md)
+> Phát hiện khi verify [`BOT-082`](BOT-082_fix_permanently_failing_interactive_shell_test.md)
 > (chạy full suite để xác nhận xanh hoàn toàn). Root cause đã điều tra sẵn — **chưa sửa**.
 >
 > **Regression từ chính commit `d49c656`** *"Refactor UI components in BackTestTradeLogs
@@ -136,5 +136,5 @@ Testbed)"` — **không** đổi `test_dashboard_view_header_title`, nó đã đ
 
 - Không phụ thuộc task nào khác. Sửa **chỉ trong `Sagittarius_Elite_Warrior/src/`** →
   commit submodule + bump pointer.
-- Liên quan quy ước đã ghi ở [`BOT-057`](../completed/BOT-057_backtest_trade_logs_table.md)
+- Liên quan quy ước đã ghi ở [`BOT-057`](BOT-057_backtest_trade_logs_table.md)
   §2.1 (Button thay Rectangle+MouseArea để test click được).

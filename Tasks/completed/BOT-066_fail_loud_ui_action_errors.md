@@ -87,7 +87,7 @@ Cần xác định cách bật cờ trong `tests/conftest.py` mà không phá 77
 ## 5. Phụ thuộc
 
 - 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — nguồn phân tích, lớp B.
-- [`BOT-061`](../completed/BOT-061_bot_params_save_qjsvalue_crash.md) ✅ — ca bug thật đã
+- [`BOT-061`](BOT-061_bot_params_save_qjsvalue_crash.md) ✅ — ca bug thật đã
   chứng minh hậu quả của việc nuốt lỗi.
 - Sửa `sagittarius_engine/` (repo cha) → commit ở **cả hai** repo.
 

@@ -1,6 +1,6 @@
 # Nhiệm vụ: Minh bạch phí giao dịch + cảnh báo tần suất
 
-> Thuộc Epic [`BOT-078`](BOT-078_backtest_trustworthiness_epic.md). Nguồn: 📄
+> Thuộc Epic [`BOT-078`](../backlog/BOT-078_backtest_trustworthiness_epic.md). Nguồn: 📄
 > [Rà soát định hướng App](../reports/app_direction_audit.md) §1.
 >
 > **Rẻ nhất, giá trị cao nhất trong epic — làm trước.** Dữ liệu đã có sẵn từ `BOT-021`,
@@ -114,8 +114,8 @@ Nên đây gần như thuần *tổng hợp + hiển thị*, không phải tính
 
 ## 5. Phụ thuộc
 
-- [`BOT-021`](../completed/BOT-021_static_backtest_execution_engine.md) ✅ —
+- [`BOT-021`](BOT-021_static_backtest_execution_engine.md) ✅ —
   `Trade.fees_paid`, `BacktestMetrics`.
-- [`BOT-055`](../completed/BOT-055_backtest_performance_metrics_panel.md) ✅ — panel +
+- [`BOT-055`](BOT-055_backtest_performance_metrics_panel.md) ✅ — panel +
   popup mở rộng đã có sẵn chỗ.
 - Chỉ sửa `Sagittarius_Elite_Warrior/src/` → commit submodule + bump pointer.

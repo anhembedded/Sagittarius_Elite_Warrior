@@ -10,7 +10,7 @@
 
 `QJSValue` hiện được xử lý ở **đúng 1 chỗ** trong cả repo:
 [`backtest_view_model.py:542`](../../src/presentation/ui/screens/backtest/backtest_view_model.py#L542)
-— chính là bản vá [`BOT-061`](../completed/BOT-061_bot_params_save_qjsvalue_crash.md).
+— chính là bản vá [`BOT-061`](BOT-061_bot_params_save_qjsvalue_crash.md).
 
 Nghĩa là: **mỗi `@Slot("QVariant")` viết mới sau này là một `BOT-061` mới.** PySide6 giao
 tham số dựng từ JS object literal của QML dưới dạng `QJSValue`, không tự ép sang `dict`;
@@ -107,5 +107,5 @@ sort sẵn từ trước — không phải do task này gây ra, dọn luôn vì
 ## 5. Phụ thuộc
 
 - 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — nguồn phân tích, lớp E.
-- [`BOT-061`](../completed/BOT-061_bot_params_save_qjsvalue_crash.md) ✅ — bản vá cục bộ đang được tổng quát hoá.
+- [`BOT-061`](BOT-061_bot_params_save_qjsvalue_crash.md) ✅ — bản vá cục bộ đang được tổng quát hoá.
 - Sửa `sagittarius_engine/` (repo cha) → commit ở **cả hai** repo.
