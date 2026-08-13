@@ -50,6 +50,9 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     container = Mock()
 
     def resolve_mock(interface):
+        from sagittarius_engine.extensions.pyside_mvc.base_view import (
+            DEV_MODE_CONFIG_KEY,
+        )
         from sagittarius_engine.interfaces.i_config import IConfig
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -61,7 +64,12 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
         if interface == IConfig:
             mock_config = Mock()
             mock_config.get_all.return_value = {}
-            mock_config.get.return_value = None
+            # BOT-066: dev.mode on for the whole suite, so any exception a
+            # @safe_ui_action-decorated slot swallows re-raises instead of
+            # passing a test that should have failed.
+            mock_config.get.side_effect = lambda key, default=None: (
+                True if key == DEV_MODE_CONFIG_KEY else default
+            )
             return mock_config
         return Mock()
 
@@ -103,9 +111,22 @@ def test_on_sync_data_submits_background_task(presenter, view_model, mock_thread
 
 
 def test_run_single_sync_dispatches_command(presenter, mock_dispatcher):
+    # Real callers only reach this after _on_sync_data()/_on_sync_all_gaps()
+    # has already moved the FSM to SYNCING (BOT-066: dev-mode re-raise
+    # surfaced that _on_sync_complete()'s SYNCING->IDLE is invalid from
+    # this fixture's default IDLE). With that fixed, _on_sync_complete()
+    # now runs to completion and its own _on_check_status() dispatches a
+    # second, later GetDatabaseStatusQuery call — so this must search the
+    # full call list for the sync command instead of assuming it's last.
+    presenter.fsm.transition_to(UIMode.SYNCING)
+
     presenter._run_single_sync("ETHUSDT", "1h", None, None)
 
-    command_type, command = mock_dispatcher.dispatch.call_args.args
+    command_type, command = next(
+        call.args
+        for call in mock_dispatcher.dispatch.call_args_list
+        if call.args[0] is SyncMarketDataCommand
+    )
     assert command_type is SyncMarketDataCommand
     assert command.symbols == ["ETHUSDT"]
 
@@ -160,6 +181,9 @@ def test_on_check_all_status_submits_background_task(
 
 def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
     mock_dispatcher.dispatch.return_value = []
+    # Real callers only reach this after _on_check_all_status() has already
+    # moved the FSM to SCANNING (BOT-066: see test_run_single_sync_dispatches_command).
+    presenter.fsm.transition_to(UIMode.SCANNING)
 
     presenter._run_scan_all(["BTCUSDT"], ["1m"])
 
@@ -188,6 +212,7 @@ def test_run_scan_all_fills_the_table_model(presenter, view_model, mock_dispatch
             status_text="3 gaps found!",
         ),
     ]
+    presenter.fsm.transition_to(UIMode.SCANNING)
 
     presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m"])
 
@@ -260,6 +285,7 @@ def test_stored_records_tile_sums_scanned_totals(
         DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "1440", "0", "OK"),
         DatabaseStatusDTO("ETHUSDT", "1m", "a", "b", "1,200", "0", "OK"),
     ]
+    presenter.fsm.transition_to(UIMode.SCANNING)
     presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m"])
 
     presenter._refresh_stats()

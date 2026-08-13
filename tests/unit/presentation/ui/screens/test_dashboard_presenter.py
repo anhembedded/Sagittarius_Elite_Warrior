@@ -44,6 +44,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
     map_klines,
     map_volume,
 )
+from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -74,7 +75,12 @@ def mock_config():
     # particular, `DEV_BOARD_AUTOSTART_ENABLED` falls through to
     # `dashboard_presenter.py`'s own `_DEFAULT_AUTOSTART_ENABLED = False`
     # (BOT-062), so auto-start is off here same as the real default.
-    config.get.side_effect = lambda key, default=None, cast=None: default
+    # BOT-066: dev.mode on for the whole suite, so any exception a
+    # @safe_ui_action-decorated slot swallows re-raises instead of passing
+    # a test that should have failed.
+    config.get.side_effect = lambda key, default=None, cast=None: (
+        True if key == DEV_MODE_CONFIG_KEY else default
+    )
     config.get_all.return_value = {}
     return config
 
@@ -436,6 +442,13 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
 
     from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
+    # Real callers only ever reach this method after _on_start_stream() has
+    # already moved the FSM to LOCKED (BOT-066: dev-mode re-raise surfaced
+    # that the blanket `[]` dispatch stub above makes StartLiveStreamCommand
+    # look like a failure, driving _on_stream_start_failed's IDLE->ERROR —
+    # invalid from the presenter fixture's default IDLE, only from here).
+    presenter.fsm.transition_to(UIMode.LOCKED)
+
     presenter._run_sync_and_start(
         ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
     )
@@ -510,6 +523,10 @@ def test_run_sync_and_start_passes_the_date_range_to_the_sync_command(
     start = datetime(2024, 1, 1, tzinfo=UTC)
     end = datetime(2024, 1, 2, tzinfo=UTC)
 
+    # See test_run_sync_and_start_full_workflow — real callers reach this
+    # only after the FSM is already LOCKED.
+    presenter.fsm.transition_to(UIMode.LOCKED)
+
     presenter._run_sync_and_start(
         ["BTCUSDT"],
         TimeFrame("1m"),
@@ -570,6 +587,11 @@ def test_run_sync_and_start_stops_after_step_1_when_cancelled(
 
 def test_stop_stream_cancels_the_current_token_and_issues_a_fresh_one(presenter):
     old_token = presenter._cancellation_token
+    # Real callers only reach Stop once already LIVE (BOT-066: dev-mode
+    # re-raise surfaced that _on_stop_stream()'s success path unconditionally
+    # transitions to IDLE, invalid from this fixture's default IDLE state).
+    presenter.fsm.transition_to(UIMode.LOCKED)
+    presenter.fsm.transition_to(UIMode.LIVE)
 
     presenter._on_stop_stream()
 
@@ -634,7 +656,10 @@ def test_timeframe_changed_while_live_stops_then_restarts(presenter, mock_thread
 
 
 def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter):
-    """@safe_ui_action catches exceptions from _ensure_chart_cards without crashing."""
+    """@safe_ui_action catches exceptions from _ensure_chart_cards without crashing
+    — in production mode specifically (BOT-066: this fixture's config otherwise
+    has dev.mode on for the rest of the suite, which re-raises instead)."""
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: default
     presenter._ensure_chart_cards = MagicMock(side_effect=ValueError("Test Exception"))
 
     logs = []

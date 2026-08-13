@@ -72,6 +72,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.chart_canvas_view import (
     ChartDisplayMode,
 )
+from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
@@ -324,7 +325,13 @@ def mock_config():
     # DEFAULT_INTERVAL configured) — individual tests override
     # get_all.return_value to exercise the config-driven path instead.
     config.get_all.return_value = {}
-    config.get.return_value = None
+    # BOT-066: dev.mode on for the whole suite, so any exception a
+    # @safe_ui_action-decorated slot swallows re-raises instead of passing
+    # a test that should have failed — every other key still falls back to
+    # None, matching this fixture's previous blanket behavior.
+    config.get.side_effect = lambda key, default=None: (
+        True if key == DEV_MODE_CONFIG_KEY else default
+    )
     return config
 
 
