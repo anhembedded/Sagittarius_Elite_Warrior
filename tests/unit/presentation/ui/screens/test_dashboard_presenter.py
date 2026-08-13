@@ -629,7 +629,10 @@ def test_timeframe_changed_while_idle_updates_interval_and_reloads(
 def test_timeframe_changed_while_history_loading_does_not_reload(
     presenter, mock_thread_mgr
 ):
-    presenter._view_model.set_history_loading(True)
+    # BOT-069 — historyLoading is now a display mirror, not the gate;
+    # _on_timeframe_changed reads the real source of truth,
+    # StreamLifecycleController's shared ExclusiveAction instance.
+    presenter._stream_controller._stream_actions.try_start("load_history")
 
     presenter._on_timeframe_changed("5m")
 

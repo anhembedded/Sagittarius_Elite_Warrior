@@ -34,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from sagittarius_engine.runtime.tasks import ExclusiveAction
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .dashboard_view_model import DATETIME_FORMAT
@@ -100,6 +101,13 @@ class StreamLifecycleController:
         emit_log: Callable[[str], None],
     ) -> None:
         self._thread_manager = thread_manager
+        # BOT-069 — replaces the hand-rolled historyLoading-flag +
+        # FSM-LOCKED-check pair that used to be duplicated at the top of
+        # both _on_load_history() and _on_start_stream() (BOT-027). One
+        # instance shared by both keys makes them mutually exclusive by
+        # construction — the actual TC-ASY-03 requirement (Load History and
+        # Start Live must exclude each other, not just themselves).
+        self._stream_actions = ExclusiveAction(thread_manager=thread_manager)
         self.dispatcher = dispatcher
         self.config = config
         self.fsm = fsm
@@ -171,17 +179,20 @@ class StreamLifecycleController:
         return symbol, interval_str, start_time, end_time
 
     def _on_load_history(self) -> None:
-        if self._view_model.historyLoading:
-            self._view_model.log_model.append("History load is already in progress.")
-            return
-        if self.fsm.current_state == UIMode.LOCKED:
+        # BOT-069 — this single check replaces the old historyLoading-flag
+        # check AND the FSM-LOCKED check: the ExclusiveAction instance is
+        # shared with _on_start_stream below, so it's already busy (and this
+        # rejects) whenever either a load or a stream-start is in flight,
+        # not just a same-key re-click.
+        if not self._stream_actions.try_start("load_history"):
             self._view_model.log_model.append(
-                "Wait for Start Live to finish before loading history."
+                "Wait for the current history load or live start to finish."
             )
             return
 
         validated = self._read_and_validate_inputs()
         if validated is None:
+            self._stream_actions.finish("load_history")
             return
         symbol, interval_str, start_time, end_time = validated
         self._set_active_symbol(symbol)
@@ -193,7 +204,8 @@ class StreamLifecycleController:
         symbols = [symbol]
         self._ensure_chart_cards(symbols)
         self._rebuild_scripts()
-        self._thread_manager.submit(
+        self._stream_actions.submit(
+            "load_history",
             self._run_load_history,
             symbols,
             interval_str,
@@ -204,17 +216,26 @@ class StreamLifecycleController:
         )
 
     def _on_start_stream(self) -> None:
-        if self._view_model.historyLoading:
-            self._view_model.log_model.append(
-                "Wait for the current history load before starting live stream."
-            )
-            return
+        # Kept separate from the ExclusiveAction check below on purpose —
+        # this is a DIFFERENT invariant. FSM != IDLE also covers "already
+        # LIVE" / "in ERROR", states ExclusiveAction has no opinion on (its
+        # slot is released the moment _run_sync_and_start finishes, whether
+        # that landed on LIVE or ERROR). ExclusiveAction only knows "is a
+        # start/load operation in flight right now" — ask it after this.
         if self.fsm.current_state != UIMode.IDLE:
             self._view_model.log_model.append("Already starting or running — ignoring.")
+            return
+        # BOT-069 — replaces the old historyLoading-flag check; shared
+        # instance with _on_load_history makes the two mutually exclusive.
+        if not self._stream_actions.try_start("start_stream"):
+            self._view_model.log_model.append(
+                "Wait for the current history load to finish before starting live stream."
+            )
             return
 
         validated = self._read_and_validate_inputs()
         if validated is None:
+            self._stream_actions.finish("start_stream")
             return
         symbol, interval_str, start_time, end_time = validated
         self._set_active_symbol(symbol)
@@ -229,7 +250,8 @@ class StreamLifecycleController:
         self._rebuild_scripts()
         self._view_model.log_model.append(f"Prepared {len(chart_cards)} charts.")
 
-        self._thread_manager.submit(
+        self._stream_actions.submit(
+            "start_stream",
             self._run_sync_and_start,
             symbols,
             interval,
@@ -272,7 +294,7 @@ class StreamLifecycleController:
         if self.fsm.current_state == UIMode.LIVE:
             self._on_stop_stream()
             self._on_start_stream()
-        elif not self._view_model.historyLoading:
+        elif not self._stream_actions.is_running("load_history"):
             self._on_load_history()
 
     def fetch_older_history(self, symbol: str, oldest_timestamp: float) -> None:

@@ -32,6 +32,17 @@ submitted at all — covering TC-ASY-01/03/04. Keep these tests on the REAL
 thread manager (see above): a synchronous `submit` mock would make them
 pass by construction and stop guarding the regression.
 
+BOT-069 — the historyLoading/FSM pair above was replaced by
+`ExclusiveAction`, one instance shared by both `_on_load_history()` and
+`_on_start_stream()` (see stream_lifecycle_controller.py), so a key
+running on either entry point blocks the other by construction instead of
+by each handler separately remembering to check the other's flag.
+`test_starting_the_live_stream_while_a_history_load_is_in_flight_is_rejected`
+below is this file's first REAL test of TC-ASY-03 specifically — every
+existing test above only exercised Load History against itself
+(TC-ASY-01/04); nothing here previously clicked Start Live during an
+in-flight Load History and checked what happened.
+
 BOT-032 Phase 6: RSI/EMA/MACD are ordinary registered scripts now (no
 `rsiEnabled`/`rsiPeriod` on the ViewModel to force a fast-warming period —
 scripts take no runtime parameters) — these tests use `ema_cross`
@@ -50,7 +61,11 @@ from unittest.mock import MagicMock
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
+    StartLiveStreamCommand,
+)
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 
 
 def _open_dashboard(navigate):
@@ -61,6 +76,11 @@ def _open_dashboard(navigate):
 def _click_load_history(view, qml_item):
     root = view.quick_widget.rootObject()
     qml_item(root, "btnLoadHistory").clicked.emit()
+
+
+def _click_start_stream(view, qml_item):
+    root = view.quick_widget.rootObject()
+    qml_item(root, "btnStart").clicked.emit()
 
 
 def _slow_down_history_queries(monkeypatch, presenter, delay_seconds: float) -> None:
@@ -206,6 +226,52 @@ def test_four_rapid_load_history_clicks_keep_indicator_series_correct(
     x_data, y_data = presenter._script_runner.active["ema_cross"].series["EMA 12"]
     assert y_data, "expected EMA 12 to have actually warmed up"
     assert len(x_data) == len(set(x_data))
+
+
+def test_starting_the_live_stream_while_a_history_load_is_in_flight_is_rejected(
+    qtbot, main_window, monkeypatch, navigate, qml_item
+):
+    """
+    TC-ASY-03: Load History running blocks Start Live, not just a second
+    Load History click — the cross-key exclusion ExclusiveAction (BOT-069)
+    exists to guarantee. Real thread pool, real slow dispatch (see module
+    docstring for why a synchronous mock would make this pass by
+    construction): click Load History, then click Start Live while the
+    first click's background query is still sleeping.
+    """
+    qtbot.addWidget(main_window)
+    presenter, view = _open_dashboard(navigate)
+
+    # This suite's conftest sets DEV_BOARD_AUTOSTART_ENABLED=True, so opening
+    # the screen already fired its own Start Live attempt (AutoStartController
+    # .begin(), BOT-034) via the fast (non-slowed) mocked dispatcher — settle
+    # that first so this test starts from a known IDLE state instead of
+    # racing autostart's own transition.
+    qtbot.waitUntil(lambda: presenter.fsm.current_state != UIMode.LOCKED, timeout=2000)
+    if presenter.fsm.current_state != UIMode.IDLE:
+        presenter._stream_controller._on_stop_stream()
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+    _use_synthetic_klines(monkeypatch, presenter, count=40)
+    _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.2)
+
+    dispatched_commands = []
+    original_dispatch = presenter.dispatcher.dispatch
+
+    def tracking_dispatch(command_type, command_obj):
+        dispatched_commands.append(command_type)
+        return original_dispatch(command_type, command_obj)
+
+    monkeypatch.setattr(presenter.dispatcher, "dispatch", tracking_dispatch)
+
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=3000):
+        _click_load_history(view, qml_item)
+        _click_start_stream(view, qml_item)
+
+        # Rejected synchronously, on the click itself — must be true well
+        # before the slow Load History dispatch (0.2s) even returns.
+        assert StartLiveStreamCommand not in dispatched_commands
+        assert presenter.fsm.current_state == UIMode.IDLE
 
 
 def test_duplicate_closed_tick_for_same_timestamp_appends_twice(

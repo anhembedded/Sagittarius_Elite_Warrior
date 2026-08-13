@@ -56,7 +56,7 @@ Yêu cầu bắt buộc của cơ chế:
   **trải dài qua nhiều lượt event loop** (mở scope lúc bấm nút, đóng ở lần bấm kế tiếp),
   không nằm gọn trong một khối `with`. Nhiều khả năng API rõ ràng (`dispose_all()`) đúng
   hơn `with`. Đọc call-site thật rồi quyết.
-- **Ai giữ scope?** Nếu làm cả [`BOT-069`](../backlog/BOT-069_exclusive_action_single_flight.md) thì
+- **Ai giữ scope?** Nếu làm cả [`BOT-069`](BOT-069_exclusive_action_single_flight.md) thì
   `ExclusiveAction` là nơi hợp lý nhất để mở/đóng scope (xem §3.2 của báo cáo). Nếu làm
   `BOT-067` trước, tạm để Presenter giữ, nhưng **thiết kế API sao cho chuyển giao được**.
 
@@ -130,5 +130,5 @@ quan, có sẵn từ trước) + 397 test engine pass, `ruff` sạch cả 2 repo
 
 - 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — nguồn phân tích, lớp C (§2.2).
 - [`BOT-066`](BOT-066_fail_loud_ui_action_errors.md) — nên làm trước (lỗi teardown cần kêu to).
-- [`BOT-069`](../backlog/BOT-069_exclusive_action_single_flight.md) — cặp đôi tự nhiên, xem §2.1.
+- [`BOT-069`](BOT-069_exclusive_action_single_flight.md) — cặp đôi tự nhiên, xem §2.1.
 - Sửa `sagittarius_engine/` (repo cha) → commit ở **cả hai** repo.
