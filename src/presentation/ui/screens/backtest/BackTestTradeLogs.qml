@@ -191,20 +191,15 @@ Rectangle {
                         readonly property bool rowExpanded: root.expandedRows[modelData.index] === true
 
                         Button {
+                            id: rowBtn
                             objectName: "rowTradeLog_" + modelData.index
                             width: parent.width
                             implicitHeight: 44
+                            onClicked: root.toggleTradeLogRow(modelData.index)
                             background: Rectangle {
                                 id: rowBg
-                                color: rowMouse.containsMouse ? "#1e2130" : (index % 2 === 0 ? "#12141d" : "#161823")
+                                color: rowBtn.hovered ? "#1e2130" : (index % 2 === 0 ? "#12141d" : "#161823")
                                 Behavior on color { ColorAnimation { duration: 100 } }
-                            }
-
-                            MouseArea {
-                                id: rowMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: root.toggleTradeLogRow(modelData.index)
                             }
 
                             contentItem: RowLayout {

@@ -61,12 +61,12 @@ Rectangle {
                     }
                     Text {
                         objectName: "lblHeaderTitle"
-                        text: "Dev Board"
+                        text: "Developer Board (Live Testbed)"
                         color: Theme.textPrimary
                         font.pixelSize: 13
                         font.bold: true
                         elide: Text.ElideRight
-                        Layout.preferredWidth: 90
+                        Layout.preferredWidth: 170
                     }
                 }
 

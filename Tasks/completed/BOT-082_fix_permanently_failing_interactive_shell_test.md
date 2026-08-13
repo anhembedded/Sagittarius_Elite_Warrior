@@ -74,7 +74,7 @@ lại.
 ⚠️ **Suite chưa xanh hoàn toàn, nhưng vì lý do khác và mới hơn**: commit `d49c656`
 (*"Refactor UI components in BackTestTradeLogs and DevBoardPanel"*) làm đỏ **3 test khác**
 — không liên quan task này, đã tách sang
-[`BOT-083`](../backlog/BOT-083_qml_onclicked_moved_into_nested_mousearea.md).
+[`BOT-083`](BOT-083_qml_onclicked_moved_into_nested_mousearea.md).
 
 ## 5. Rủi ro / Lưu ý
 

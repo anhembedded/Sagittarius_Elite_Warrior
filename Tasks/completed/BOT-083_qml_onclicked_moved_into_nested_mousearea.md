@@ -79,18 +79,48 @@ Testbed)"` — **không** đổi `test_dashboard_view_header_title`, nó đã đ
 
 ## 3. Các bước thực hiện
 
-- [ ] **Chờ user xác nhận `BackTestTopPanel.qml`/`BackTestTradeLogs.qml`/`DevBoardPanel.qml`
-      đã chốt bản redesign** (đang là WIP tại thời điểm phát hiện) — sửa vào lúc này có
-      thể bị đè lại bởi phần chưa commit tiếp theo.
-- [ ] §2.1: chuyển `onClicked` từ `MouseArea` con lên chính `Button` cha (xoá `MouseArea`
+- [x] **Chờ user xác nhận `BackTestTopPanel.qml`/`BackTestTradeLogs.qml`/`DevBoardPanel.qml`
+      đã chốt bản redesign** — user xác nhận xong (13/08).
+- [x] §2.1: chuyển `onClicked` từ `MouseArea` con lên chính `Button` cha (xoá `MouseArea`
       nếu nó không còn việc gì khác — `hoverEnabled`/`containsMouse` có thể thay bằng
       `Button.hovered` sẵn có, không cần `MouseArea` riêng).
-- [ ] Rà toàn bộ `BackTestTopPanel.qml`/`BackTestTradeLogs.qml` tìm pattern
+- [x] Rà toàn bộ `BackTestTopPanel.qml`/`BackTestTradeLogs.qml` tìm pattern
       `Button { ... MouseArea { onClicked: ... } }` khác — 2 ca tìm được ở §2.1 nhiều khả
       năng không phải toàn bộ, refactor có vẻ áp dụng đồng loạt.
 - [x] §2.2: **đã chốt** — sửa `lblHeaderTitle` về lại `"Developer Board (Live Testbed)"`.
-- [ ] Chạy lại `test_backtest_presenter.py` + `test_dashboard_view.py` + toàn bộ
+- [x] Chạy lại `test_backtest_presenter.py` + `test_dashboard_view.py` + toàn bộ
       `tests/unit/`/`tests/sanity/` — phải xanh hoàn toàn, không riêng 3 test này.
+
+## 6. Kết quả triển khai thực tế
+
+- **`BackTestTopPanel.qml` (`btnRunBacktest`)**: thêm `id: runBtnRoot` cho `Button`,
+  chuyển `onClicked: viewModel.requestRun()` lên chính `Button`, xoá hẳn `MouseArea` con.
+  `runBtnBg.color` (đổi màu khi hover) đổi nguồn từ `runBtnMouse.containsMouse` sang
+  `runBtnRoot.hovered` — property có sẵn của `Button`/`AbstractButton`, cùng tác dụng,
+  cùng quy ước `id.hovered` đã dùng ở `OrderExecutionMenu.qml`.
+- **`BackTestTradeLogs.qml` (`rowTradeLog_*`)**: cùng pattern sửa — `id: rowBtn`,
+  `onClicked: root.toggleTradeLogRow(modelData.index)` lên `Button`, xoá `MouseArea`,
+  `rowBg.color` đổi từ `rowMouse.containsMouse` sang `rowBtn.hovered`.
+- **Rà lại toàn bộ 2 file** (`awk` tìm mọi cặp `Button { ... MouseArea {` trong khoảng
+  40 dòng): xác nhận đúng **2 ca**, không còn ca nào khác — nghi ngờ ban đầu trong task
+  ("refactor có vẻ áp dụng đồng loạt") không đúng, chỉ 2 nút này bị dính.
+- **Không đụng** `MouseArea` ở `"lnkExpandMetrics"` (mở popup mở rộng chỉ số) — đây là
+  `Item + MouseArea` thuần, không phải `Button`, không nằm trong diện bug này (đã verify
+  qua `git show d49c656` — hunk đổi `btnRunBacktest` không đụng khối này), và **không**
+  đụng `MouseArea` mới trong `DevBoardPanel.qml` (`chkScript_*` — `Rectangle + MouseArea`
+  bọc ngoài `StyledCheck`) vì nằm ngoài phạm vi 2 file mà task này giới hạn, không thuộc
+  triệu chứng đã báo cáo.
+- **`DevBoardPanel.qml` (`lblHeaderTitle`)**: khôi phục text về
+  `"Developer Board (Live Testbed)"`. Đồng thời khôi phục `Layout.preferredWidth` từ `90`
+  (kích cỡ redesign cắt riêng cho `"Dev Board"` ngắn) về lại `170` (giá trị gốc trước
+  `d49c656`) — nếu giữ `90`, chuỗi dài mới bị `elide` cụt còn `"Developer B…"`, làm mất
+  đúng tác dụng của quyết định giữ nhãn cũ (phân biệt Dev Board ↔ dashboard người dùng
+  cuối). Không đổi gì khác trong layout.
+- **Test**: `tests/unit`+`tests/sanity` — **789 passed**, 0 fail (3 ca đỏ đã biết từ
+  `BOT-082`/lúc phát hiện task này nay đều xanh, không phải bỏ qua). Không cần test QML
+  mới — 3 test đã có từ trước (`test_qml_run_button_click_requests_a_run`,
+  `test_qml_clicking_a_trade_log_row_toggles_its_detail_section`,
+  `test_dashboard_view_header_title`) chính là guard cho đúng 3 hành vi vừa sửa.
 
 ## 4. Rủi ro / Lưu ý
 

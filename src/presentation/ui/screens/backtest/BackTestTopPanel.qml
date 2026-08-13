@@ -255,21 +255,17 @@ Rectangle {
                 }
 
                 Button {
+                    id: runBtnRoot
                     objectName: "btnRunBacktest"
                     implicitWidth: 145
                     implicitHeight: 34
                     enabled: viewModel.controlsEnabled
+                    onClicked: viewModel.requestRun()
                     background: Rectangle {
                         id: runBtnBg
-                        color: enabled ? (runBtnMouse.containsMouse ? "#12e680" : "#10b981") : "#242736"
+                        color: enabled ? (runBtnRoot.hovered ? "#12e680" : "#10b981") : "#242736"
                         radius: 6
                         Behavior on color { ColorAnimation { duration: 150 } }
-                    }
-                    MouseArea {
-                        id: runBtnMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: viewModel.requestRun()
                     }
                     contentItem: RowLayout {
                         spacing: 8
