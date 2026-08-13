@@ -8,7 +8,7 @@ class GetHistoricalKlinesQuery:
     @brief Query to fetch historical klines from the database.
     """
 
-    symbol: str
+    symbol: str | list[str]
     interval: str
     limit: int = 1000
     start_time: datetime | None = None

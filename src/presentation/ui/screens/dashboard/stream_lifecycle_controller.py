@@ -303,22 +303,31 @@ class StreamLifecycleController:
         end_time: datetime | None = None,
     ) -> None:
         try:
+            if token.is_cancelled() or not symbols:
+                return
+
+            query = GetHistoricalKlinesQuery(
+                symbol=symbols,
+                interval=interval_str,
+                limit=limit,
+                start_time=start_time,
+                end_time=end_time,
+                order_by_desc=True,
+            )
+            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+            results = getattr(response, "data", response) if response else {}
+
+            if not isinstance(results, dict):
+                self._emit_log("Unexpected response format from history query.")
+                return
+
             for symbol in symbols:
                 if token.is_cancelled():
                     break
-                query = GetHistoricalKlinesQuery(
-                    symbol=symbol,
-                    interval=interval_str,
-                    limit=limit,
-                    start_time=start_time,
-                    end_time=end_time,
-                    order_by_desc=True,
-                )
-                try:
-                    response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                    klines = getattr(response, "data", response) if response else []
 
-                    if not isinstance(klines, list) or not klines:
+                try:
+                    klines = results.get(symbol, [])
+                    if not klines or not isinstance(klines, list):
                         self._emit_log(f"No historical data found for {symbol}.")
                         continue
 
@@ -407,31 +416,34 @@ class StreamLifecycleController:
             )
             self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
-            if token.is_cancelled():
+            if token.is_cancelled() or not symbols:
                 return
 
             self._emit_log("Reloading historical data onto charts...")
-            for symbol in symbols:
-                if token.is_cancelled():
-                    return
-                query = GetHistoricalKlinesQuery(
-                    symbol=symbol,
-                    interval=interval_str,
-                    limit=limit,
-                    start_time=start_time,
-                    end_time=end_time,
-                    order_by_desc=True,
-                )
-                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                klines = getattr(response, "data", response) if response else []
+            query = GetHistoricalKlinesQuery(
+                symbol=symbols,
+                interval=interval_str,
+                limit=limit,
+                start_time=start_time,
+                end_time=end_time,
+                order_by_desc=True,
+            )
+            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+            results = getattr(response, "data", response) if response else {}
 
-                if klines and isinstance(klines, list):
-                    ordered_klines = list(reversed(klines))
-                    mapped_data = map_klines(ordered_klines)
-                    volume_data = map_volume(ordered_klines)
-                    self._emit_history_reloaded(symbol, mapped_data, volume_data)
-                    self._raw_klines_by_symbol[symbol] = ordered_klines
-                    self._script_runner.feed_all(ordered_klines)
+            if isinstance(results, dict):
+                for symbol in symbols:
+                    if token.is_cancelled():
+                        return
+
+                    klines = results.get(symbol, [])
+                    if klines and isinstance(klines, list):
+                        ordered_klines = list(reversed(klines))
+                        mapped_data = map_klines(ordered_klines)
+                        volume_data = map_volume(ordered_klines)
+                        self._emit_history_reloaded(symbol, mapped_data, volume_data)
+                        self._raw_klines_by_symbol[symbol] = ordered_klines
+                        self._script_runner.feed_all(ordered_klines)
 
             if token.is_cancelled():
                 return
