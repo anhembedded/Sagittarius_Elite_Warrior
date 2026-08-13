@@ -62,16 +62,59 @@ Yêu cầu bắt buộc của cơ chế:
 
 ## 3. Các bước thực hiện
 
-- [ ] `ResourceScope` + test đơn vị thuần Python (idempotent, LIFO, dispose lỗi không
+- [x] `ResourceScope` + test đơn vị thuần Python (idempotent, LIFO, dispose lỗi không
       chặn phần còn lại) — chưa đụng UI.
-- [ ] Áp cho **đúng 1 chỗ trước**: `IndicatorScriptRunner` (`clear_from_chart`/`rebuild`,
+- [x] Áp cho **đúng 1 chỗ trước**: `IndicatorScriptRunner` (`clear_from_chart`/`rebuild`,
       chính là nơi `5a063b5` đã sửa tay). Verify test hiện có của nó vẫn xanh.
-- [ ] Viết test tái hiện lại đúng kịch bản `5a063b5`: bấm chạy 3 lần → assert đúng 4
+- [x] Viết test tái hiện lại đúng kịch bản `5a063b5`: bấm chạy 3 lần → assert đúng 4
       đường, không phải 10. Test này phải **vỡ nếu ai đó gỡ scope ra**.
 - [ ] Chỉ khi 1 chỗ trên đã ổn: cân nhắc áp tiếp cho `ChartCard`'s indicator/marker/region.
-      **Không làm cả 5 chỗ trong một lượt** — xem §4.
-- [ ] Ghi rõ trong docstring: dispose chạm widget Qt **phải** ở main thread (liên quan
+      **Không làm cả 5 chỗ trong một lượt** — xem §4. *(Cố ý để lại — đúng quyết định gốc
+      của task, xem mục 6.)*
+- [x] Ghi rõ trong docstring: dispose chạm widget Qt **phải** ở main thread (liên quan
       [`BOT-068`](BOT-068_ui_thread_affinity_guard.md)).
+
+## 6. Kết quả triển khai thực tế
+
+**`ResourceScope`** (`sagittarius_engine/runtime/tasks/resource_scope.py`, mới, thuần
+Python — không import Qt, xuất qua `runtime/tasks/__init__.py` cạnh `CancellationToken`):
+`add(handle, dispose)` (append, khoá `threading.Lock` cho an toàn đa luồng) +
+`dispose_all()` (LIFO qua `pop()` từ cuối danh sách — tự nhiên idempotent vì danh sách
+rỗng thì vòng lặp không chạy, không cần cờ `_disposed` riêng). Lỗi teardown: mỗi
+`dispose` chạy trong `try/except`, lỗi được **gom lại**, KHÔNG chặn các dispose còn lại;
+nếu có lỗi, `dispose_all()` `raise ExceptionGroup(...)` **sau khi** đã chạy hết — khớp
+đúng "thu lại rồi báo cáo cuối qua cơ chế BOT-066": `ExceptionGroup` là subclass của
+`Exception` nên `safe_ui_action`'s `except Exception` bắt được, log+emit tự động không
+cần `ResourceScope` biết gì về logger/event bus. 7 test mới (LIFO, idempotent, lỗi không
+chặn phần còn lại, nhiều lỗi gom vào 1 group, retry sau lỗi không lặp lại lỗi cũ).
+
+**Áp dụng cho `IndicatorScriptRunner`** (đúng 1 chỗ, đúng quyết định gốc): `ActiveScript`
+thêm field `scope: ResourceScope`. `draw()` — khi đăng ký 1 đường mới — gọi thêm
+`active.scope.add(qualified, dispose=functools.partial(card.remove_indicator, qualified))`
+cạnh `registered_lines.add()` cũ (giữ nguyên `registered_lines` cho việc check "đã vẽ
+chưa", tách bạch khỏi việc "dọn thế nào" mà `scope` lo). `clear_from_chart()` đổi từ vòng
+lặp tay `for line_name in registered_lines: card.remove_indicator(...)` sang
+`active.scope.dispose_all()` — **hệ quả đúng ý**: dispose giờ luôn gọi qua đúng `card`
+đối tượng lúc `draw()` (chụp qua `functools.partial`), không phải `card` truyền vào lúc
+gọi `clear_from_chart()`, nên không còn phụ thuộc 2 lời gọi phải cùng nhận đúng 1 `card`.
+`region`/`info`/`marker` clearing **giữ nguyên không đụng** (gọi thẳng, không qua scope) —
+đúng phạm vi hẹp của task, chỉ đường vẽ (line) là nơi bug `5a063b5` xảy ra.
+
+**Verify**: test cũ `test_clear_removes_every_registered_curve_from_the_chart` từng set
+tay `registered_lines` (bỏ qua `draw()` thật) — sửa lại đi qua `feed()`+`draw()` thật, vì
+set tay không còn kích hoạt `scope`. Thêm 1 test mới
+`test_repeated_rebuild_clear_cycles_never_leave_stale_curves_registered` — chạy 3 vòng
+`clear→rebuild→draw` (đúng thứ tự `_rebuild_scripts()` thật) rồi 1 lần clear thứ 4, assert
+đúng 4 đường bị xoá (không phải 0, không phải >4). **Xác nhận bằng tay**: code hiện tại
+(trước `BOT-067`) đã tự sửa đúng từ `5a063b5` nên 2 test này **không phân biệt được**
+code cũ/mới nếu chỉ revert file — verify thật bằng cách xoá tay dòng
+`active.scope.add(...)` khỏi `draw()` (mô phỏng ai đó gỡ scope sau này) → cả 2 test fail
+đúng như kỳ vọng (`0 == 4`), rồi khôi phục lại. Đây là bằng chứng thật cho "test phải vỡ
+nếu ai đó gỡ scope ra" — không phải suy đoán.
+
+**Không mở rộng sang `ChartCard`'s indicator/marker/region** (đúng cảnh báo §4 của task —
+"cám dỗ lớn nhất là refactor cả 5 chỗ cùng lúc, đừng"). 776 test app (1 fail không liên
+quan, có sẵn từ trước) + 397 test engine pass, `ruff` sạch cả 2 repo.
 
 ## 4. Rủi ro / Lưu ý
 

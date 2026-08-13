@@ -173,12 +173,47 @@ def test_unknown_key_is_reported_without_aborting_the_rest(runner, errors):
 def test_clear_removes_every_registered_curve_from_the_chart(runner):
     card = MagicMock()
     runner.rebuild(["ema_ribbon"])
-    runner.active["ema_ribbon"].registered_lines = {"EMA 20", "EMA 50"}
+    runner.feed(make_candle(100.0, 0), emit=False)  # populates line_colors()
+    active = runner.active["ema_ribbon"]
+    for line_name in active.script.line_colors():
+        runner.draw(card, qualified_line_name("ema_ribbon", line_name), [], [])
 
     runner.clear_from_chart(card)
 
     removed = {call.args[0] for call in card.remove_indicator.call_args_list}
-    assert removed == {"ema_ribbon:EMA 20", "ema_ribbon:EMA 50"}
+    assert removed == {
+        "ema_ribbon:EMA 20",
+        "ema_ribbon:EMA 50",
+        "ema_ribbon:EMA 100",
+        "ema_ribbon:EMA 200",
+    }
+
+
+def test_repeated_rebuild_clear_cycles_never_leave_stale_curves_registered(runner):
+    """BOT-067 regression (`5a063b5`): clicking Run repeatedly used to leave
+    every prior run's curves un-removed — 10 EMA lines survived instead of 4
+    after 3 clicks — because clearing walked `registered_lines` by hand.
+    ResourceScope makes each run's teardown a property of that run's own
+    ActiveScript, so a click can only ever clear its own curves, never a
+    stale or already-replaced set. This test must fail if ResourceScope is
+    ever removed from clear_from_chart()/draw()."""
+    card = MagicMock()
+    candle = make_candle(100.0, 0)
+
+    for _ in range(3):
+        runner.clear_from_chart(card)  # what _rebuild_scripts() always does first
+        runner.rebuild(["ema_ribbon"])
+        runner.feed(candle, emit=False)
+        active = runner.active["ema_ribbon"]
+        for line_name in active.script.line_colors():
+            runner.draw(card, qualified_line_name("ema_ribbon", line_name), [], [])
+
+    card.remove_indicator.reset_mock()
+    runner.clear_from_chart(card)  # the 4th click's clear — only run 3's lines
+
+    removed = [call.args[0] for call in card.remove_indicator.call_args_list]
+    assert len(removed) == 4
+    assert len(set(removed)) == 4
 
 
 # ---------------------------------------------------------------------------
