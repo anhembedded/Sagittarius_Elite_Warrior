@@ -167,7 +167,9 @@ def test_interactive_shell_wait_for_exit_exception():
 
     shell.start(context)
 
-    with patch('src.presentation.cli.interactive_shell.logger.exception') as mock_logger:
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell.logger.exception"
+    ) as mock_logger:
         shell.wait_for_exit()
         mock_logger.assert_called_once_with("InteractiveShell task raised during shutdown")
 

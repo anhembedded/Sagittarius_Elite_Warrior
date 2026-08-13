@@ -21,7 +21,7 @@
 | 3 | Bot **không giao dịch được** — 21/46 task xong là backtest/chart | 🔴 | **Quyết định của user** (§3) |
 | 4 | Sắp có **3 backtest engine** với bất biến ngược nhau | 🟠 | [`BOT-023`](../backlog/BOT-023_dynamic_backtest_engine.md) (đã ghi chú) |
 | 5 | Agent tự động tối ưu **concurrency** vào vùng chưa có thread guard | 🟠 | [`BOT-068`](../backlog/BOT-068_ui_thread_affinity_guard.md) (đã nâng ưu tiên) |
-| 6 | Một test **đỏ vĩnh viễn** chưa từng pass | 🟠 | [`BOT-082`](../backlog/BOT-082_fix_permanently_failing_interactive_shell_test.md) |
+| 6 | Một test **đỏ vĩnh viễn** chưa từng pass | 🟠 | [`BOT-082`](../completed/BOT-082_fix_permanently_failing_interactive_shell_test.md) |
 | 7 | Tài liệu-như-lời-hứa **trôi khỏi code** | 🟡 | [`BOT-074`](../backlog/BOT-074_execution_trigger_rule_inverted_lock.md) (ca cụ thể) + §7 (nguyên tắc) |
 
 ---

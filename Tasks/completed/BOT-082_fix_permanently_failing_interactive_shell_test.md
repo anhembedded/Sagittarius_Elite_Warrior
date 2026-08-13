@@ -46,12 +46,35 @@ lý do task này ưu tiên cao, không phải vì `InteractiveShell` quan trọn
 
 ## 4. Các bước thực hiện
 
-- [ ] Sửa chuỗi patch thành `Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell.logger.exception`.
-- [ ] Chạy lại → **suite phải xanh hoàn toàn**, không còn `1 failed` nào.
-- [ ] Quét nhanh các file test khác xem có `patch('src.` nào cùng lỗi không (nhiều test
-      cùng do agent tự động sinh ra một đợt — nếu 1 cái sai thì rất có thể còn cái khác).
-- [ ] Xác nhận test sau khi sửa **thật sự kiểm tra được điều nó nói** — một test chưa từng
-      chạy thì phần assert bên trong cũng chưa từng được kiểm chứng, đừng cho là đúng sẵn.
+- [x] Sửa chuỗi patch thành `Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell.logger.exception`.
+- [x] Chạy lại → 13/13 test trong file xanh; **`test_interactive_shell_wait_for_exit_exception`
+      biến mất khỏi danh sách đỏ của toàn suite.**
+- [x] Quét nhanh các file test khác xem có `patch('src.` nào cùng lỗi không.
+      `grep -rn "patch(['\"]src\." tests/ src/` → **đúng 1 chỗ duy nhất**, không có ca thứ hai.
+- [x] Xác nhận test sau khi sửa **thật sự kiểm tra được điều nó nói**.
+
+## 5. Kết quả triển khai thực tế
+
+**Sửa**: 1 chuỗi, thêm tiền tố `Sagittarius_Elite_Warrior.` (ruff format tách thành 3 dòng).
+
+**Verify bằng mutation test** — vì bước 4 cảnh báo "test chưa từng chạy thì assert bên
+trong cũng chưa từng được kiểm chứng", không thể chỉ tin nó pass:
+
+1. Đổi thông điệp log trong `interactive_shell.py` thành `"MUTATED — test phai bat duoc"`.
+2. Chạy test → **FAILED** ✅ (đúng như phải thế).
+3. Khôi phục nguyên bản → **PASSED**, `git diff` file nguồn sạch.
+
+→ Chứng minh test thật sự đi tới nhánh `except`, gọi `logger.exception`, và assert đúng
+nội dung — không phải pass vì may.
+
+**Không có ca thứ hai**: `grep` toàn `tests/` + `src/` chỉ ra đúng 1 chỗ. Giả thuyết ban
+đầu ("agent sinh 1 đợt thì có thể sai nhiều chỗ") **không đúng** — ghi lại để khỏi đi tìm
+lại.
+
+⚠️ **Suite chưa xanh hoàn toàn, nhưng vì lý do khác và mới hơn**: commit `d49c656`
+(*"Refactor UI components in BackTestTradeLogs and DevBoardPanel"*) làm đỏ **3 test khác**
+— không liên quan task này, đã tách sang
+[`BOT-083`](../backlog/BOT-083_qml_onclicked_moved_into_nested_mousearea.md).
 
 ## 5. Rủi ro / Lưu ý
 
