@@ -6,7 +6,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
     TradeLogRow,
     build_trade_log_rows,
     trade_log_row_to_qml,

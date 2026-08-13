@@ -13,7 +13,7 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy impo
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.bot_params_form import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.bot_params_form import (
     build_bot_params_schema,
     parse_bot_params,
 )

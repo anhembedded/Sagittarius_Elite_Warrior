@@ -7,13 +7,13 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestUiState,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.time_range_preset import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
     TradeLogFilter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (

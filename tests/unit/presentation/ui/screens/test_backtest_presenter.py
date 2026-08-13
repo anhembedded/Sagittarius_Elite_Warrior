@@ -60,16 +60,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
     _FALLBACK_SYMBOL,
     BackTestPresenter,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_run_config import (
-    BacktestRunConfig,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state import (
-    BacktestUiState,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.chart_canvas_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_run_config import (
+    BacktestRunConfig,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
+    BacktestUiState,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY

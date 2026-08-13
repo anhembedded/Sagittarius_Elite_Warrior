@@ -42,30 +42,34 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-from .backtest_run_config import BacktestRunConfig
-from .backtest_state import BacktestUiState
 from .backtest_view_model import BackTestViewModel
-from .bot_params_form import build_bot_params_schema, parse_bot_params
-from .chart_canvas_view import ChartDisplayMode
-from .performance_metrics_view import (
+from .logic.backtest_run_config import BacktestRunConfig
+from .logic.backtest_state import BacktestUiState
+from .logic.bot_params_form import build_bot_params_schema, parse_bot_params
+from .logic.chart_canvas_view import ChartDisplayMode
+from .logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
     stat_cards_to_qml,
 )
-from .result_formatter import format_result_summary
-from .strategy_indicator_lines import (
+from .logic.result_formatter import format_result_summary
+from .logic.strategy_indicator_lines import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
 )
-from .time_range_preset import TimeRangePreset, resolve_time_range
-from .trade_log_export import export_trades_to_csv
-from .trade_log_filter import (
+from .logic.time_range_preset import TimeRangePreset, resolve_time_range
+from .logic.trade_log_export import export_trades_to_csv
+from .logic.trade_log_filter import (
     TradeLogFilter,
     filter_trade_log_rows,
     search_trade_log_rows,
 )
-from .trade_log_pagination import paginate_trade_log_rows, total_pages
-from .trade_log_row import TradeLogRow, build_trade_log_rows, trade_log_rows_to_qml
+from .logic.trade_log_pagination import paginate_trade_log_rows, total_pages
+from .logic.trade_log_row import (
+    TradeLogRow,
+    build_trade_log_rows,
+    trade_log_rows_to_qml,
+)
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer

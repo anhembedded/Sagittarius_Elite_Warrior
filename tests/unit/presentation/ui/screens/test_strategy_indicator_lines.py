@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.strategy_indicator_lines import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.strategy_indicator_lines import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
 )

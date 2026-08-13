@@ -11,7 +11,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.chart_canvas_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
     equity_curve_to_candles,
     equity_curve_to_line_data,
