@@ -335,6 +335,10 @@ Rectangle {
                             model: viewModel.scriptModel
 
                             Rectangle {
+                                id: scriptRow
+                                required property var model
+                                required property int index
+
                                 Layout.fillWidth: true
                                 implicitHeight: 32
                                 color: checkMouse.containsMouse ? "#181b27" : "transparent"
@@ -344,7 +348,7 @@ Rectangle {
                                     id: checkMouse
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    onClicked: viewModel.scriptModel.setEnabled(index, !modelData.enabled)
+                                    onClicked: viewModel.scriptModel.setEnabled(scriptRow.index, !scriptRow.model.enabled)
                                 }
 
                                 RowLayout {
@@ -353,10 +357,10 @@ Rectangle {
                                     anchors.rightMargin: 8
 
                                     StyledCheck {
-                                        objectName: "chkScript_" + modelData.key
-                                        text: modelData.title
-                                        checked: modelData.enabled
-                                        onToggled: viewModel.scriptModel.setEnabled(index, checked)
+                                        objectName: "chkScript_" + scriptRow.model.key
+                                        text: scriptRow.model.title
+                                        checked: scriptRow.model.enabled
+                                        onToggled: viewModel.scriptModel.setEnabled(scriptRow.index, checked)
                                     }
                                     Item { Layout.fillWidth: true }
                                 }

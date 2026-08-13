@@ -7,10 +7,15 @@
 > đây **không phải lỗi riêng `rsi_14`**, mà là **toàn bộ Repeater không render đúng
 > bất kỳ script nào** (test chỉ fail-fast ở script đầu tiên nó duyệt).
 >
-> **Đã điều tra xong, xác định root cause chính xác 100%, CHƯA sửa.** Theo
-> [`.agents/rules/code-rule.md`](../../.agents/rules/code-rule.md): viết test tái hiện
-> trước, verify fail đúng lý do, rồi mới sửa — file task này để làm đúng thứ tự đó ở
-> phiên sau, không vá vội.
+> **✅ ĐÃ SỬA.** Đúng quy trình [`.agents/rules/code-rule.md`](../../.agents/rules/code-rule.md):
+> `test_custom_scripts_checklist_renders_every_registered_script` (đã tồn tại, đang
+> fail đúng lý do — verify lại trước khi sửa) không cần viết lại, chính nó là bằng
+> chứng tái hiện. Sửa `DevBoardPanel.qml`'s Repeater delegate theo đúng pattern của
+> `IndicatorPickerMenu.qml` (thêm lại `required property var model`/`int index`, đặt
+> `id: scriptRow` để tránh chuỗi `parent.parent` mong manh, đổi mọi `modelData.*` →
+> `scriptRow.model.*`). Kết quả: 3/3 test trong file này xanh, 0 warning `modelData`
+> còn lại trong log QML (trước đó lặp ở mọi lần Dev Board render), 28/28 test tích hợp
+> UI đụng Dev Board xanh, 789 test unit+sanity không đổi.
 
 ## 1. Mức độ nghiêm trọng — ĐANG SỐNG TRÊN `main`
 
@@ -74,30 +79,26 @@ chính là bản mẫu để sửa `DevBoardPanel.qml` theo, không cần thiế
 
 ## 3. Các bước thực hiện
 
-- [ ] **Viết test tái hiện trước** — mức QML thật, không chỉ đọc code. Có 2 lựa chọn,
-      **ưu tiên cách 1**:
-  1. Sửa lại `test_custom_scripts_checklist_renders_every_registered_script` (đã tồn
-     tại, đang fail đúng lý do) — verify assertion fail vì **thiếu checkbox**, giữ
-     nguyên logic, không cần viết mới. Test này chính là bằng chứng sẵn có.
-  2. (Bổ sung nếu muốn phủ rộng hơn) 1 test riêng assert đúng cả `title`/`checked`
-     lẫn hành vi click thật (`checkMouse` MouseArea `clicked.emit()` → verify
-     `setEnabled()` được gọi đúng key/value) — click hiện tại ném exception nên phải
-     verify **không** ném nữa sau khi sửa.
-- [ ] Sửa `DevBoardPanel.qml`'s Repeater delegate theo đúng pattern của
-      `IndicatorPickerMenu.qml`: thêm lại `required property var model`/
-      `required property int index` trên `Rectangle` (delegate root), đổi
-      `modelData.key/.title/.enabled` → `model.key/.title/.enabled`, đổi
-      `index`/`!modelData.enabled` trong `MouseArea.onClicked` → `index`/`!model.enabled`
-      (dùng property `index` vừa declare, không phải context ngầm).
-- [ ] Chạy lại `test_custom_scripts_checklist_renders_every_registered_script` +
-      `test_enabling_a_script_then_load_history_registers_it_as_active` (cùng file) —
-      cả hai phải xanh.
-- [ ] Verify bằng tay/probe: `rowCount()` model = số `chkScript_*` tìm thấy trong cây
-      QML (đã lệch 9 vs 0 lúc điều tra task này).
-- [ ] Chạy toàn bộ 4 file test tích hợp UI còn lại có đụng Dev Board
-      (`test_dev_board_indicators.py`, `test_dev_board_known_gaps.py`,
-      `test_dev_board_async_race_conditions.py`, `test_sanity_ui_e2e.py`) — không
-      được có test nào mới vỡ.
+- [x] Verify `test_custom_scripts_checklist_renders_every_registered_script` fail
+      đúng lý do (*"no checkbox rendered for script 'rsi_14'"*) trước khi đụng code.
+- [x] Sửa `DevBoardPanel.qml`'s Repeater delegate theo đúng pattern của
+      `IndicatorPickerMenu.qml`: thêm `required property var model`/
+      `required property int index` + `id: scriptRow` trên `Rectangle` (delegate
+      root — đặt `id` thay vì chuỗi `parent.parent` vì `StyledCheck` nằm sâu hơn 1
+      cấp so với `IndicatorPickerMenu.qml`, qua thêm `RowLayout` trung gian), đổi
+      toàn bộ `modelData.key/.title/.enabled` → `scriptRow.model.key/.title/.enabled`,
+      `MouseArea.onClicked` → `viewModel.scriptModel.setEnabled(scriptRow.index,
+      !scriptRow.model.enabled)`.
+- [x] `test_custom_scripts_checklist_renders_every_registered_script` +
+      `test_enabling_a_script_then_load_history_registers_it_as_active` (cùng file)
+      — cả 3 test trong file xanh.
+- [x] Verify bằng probe trực tiếp: 0 warning `modelData` còn lại trong log QML (trước
+      đó lặp lại mỗi lần render).
+- [x] Chạy toàn bộ 5 file test tích hợp UI đụng Dev Board
+      (`test_dev_board_custom_scripts.py`, `test_dev_board_indicators.py`,
+      `test_dev_board_known_gaps.py`, `test_dev_board_async_race_conditions.py`,
+      `test_sanity_ui_e2e.py`) — **28/28 pass**.
+- [x] `tests/unit` + `tests/sanity` — 789 pass, không đổi.
 
 ## 4. Rủi ro / Lưu ý
 

@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 49 | 60% |
+| 🟢 **Completed** | 50 | 61% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 33 | 40% |
+| 🔴 **Backlog** | 32 | 39% |
 | 📈 **Tổng số Task** | **82** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
@@ -56,6 +56,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **BOT-084**: [Bug — Checklist "Indicators" trên Dev Board hỏng hoàn toàn](completed/BOT-084_dev_board_indicators_checklist_broken_regression.md) — Phát hiện khi điều tra 1 test fail (*"no checkbox rendered for script 'rsi_14'"*) lúc sửa fixture cho `BOT-027`: hoá ra không phải lỗi riêng `rsi_14` mà **cả checklist Indicators không hoạt động** trên `main` — không tên, không đúng trạng thái, bấm không ăn. Root cause: `DevBoardPanel.qml`'s Repeater dùng `modelData.key/.title/.enabled`, không hợp lệ cho model nhiều role (`IndicatorScriptListModel` có 3 role: `key`/`title`/`enabled`) — regression từ commit `d49c656` (refactor styling xoá mất `required property var model`/`int index` từng có, đổi `parent.model.key` thành `modelData.key` sai). Sửa theo đúng bản mẫu còn nguyên ở `IndicatorPickerMenu.qml` (`BOT-064`): thêm lại `required property`, đặt `id: scriptRow` (thay vì chuỗi `parent.parent` mong manh, do cấu trúc lồng RowLayout sâu hơn 1 cấp), đổi mọi `modelData.*` → `scriptRow.model.*`. Đúng quy trình bug-fix ([`.agents/rules/code-rule.md`](../.agents/rules/code-rule.md)): test đã tồn tại (`test_custom_scripts_checklist_renders_every_registered_script`) verify fail đúng lý do trước, không cần viết lại. 3/3 test file đó xanh, 0 warning `modelData` còn lại (trước đó lặp mỗi lần render), 28/28 test tích hợp UI đụng Dev Board xanh, 789 test unit+sanity không đổi.*
 - [x] **BOT-001**: [Data Synchronizer](completed/BOT-001_data_synchronizer.md) — *Đồng bộ dữ liệu nến lịch sử Binance vào SQLite Sharding.*
 - [x] **BOT-002**: [UI Dashboard](completed/BOT-002_ui_dashboard.md) — *Khung giao diện chính với PySide6 & CQRS Pipeline.*
 - [x] **BOT-004**: [Data Management Screen](completed/BOT-004_data_management_screen.md) — *Màn hình quét DB và xem trạng thái dữ liệu.*
@@ -112,7 +113,6 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Priority | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :--- |
-| **P0** | **[BOT-084](backlog/BOT-084_dev_board_indicators_checklist_broken_regression.md)** | **Bug — Checklist "Indicators" trên Dev Board hỏng hoàn toàn** | — | **Đang hỏng ngay trên `main` lúc này**, không phải lý thuyết: `DevBoardPanel.qml`'s Repeater dùng `modelData.key/.title/.enabled` — không hợp lệ cho model nhiều role (`IndicatorScriptListModel` có 3 role) — nên checkbox không tên, không đúng trạng thái, bấm không ăn. Regression từ `d49c656` (refactor styling xoá mất `required property var model`). Root cause đã verify 100% (kèm bản mẫu đúng còn nguyên ở `IndicatorPickerMenu.qml`), chưa sửa — phát hiện khi điều tra 1 test fail lúc sửa fixture cho BOT-027. |
 | ~~P1~~ **Sau `BOT-078`** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Mọi phụ thuộc kỹ thuật đã xong — nhưng user đã chốt **hoãn có chủ đích** cho tới khi `BOT-078` (out-of-sample) xong, vì `PythonBinanceClient` nối thẳng mainnet thật, không có testnet. Xem ghi chú định hướng ở đầu file. |
 | **P1** | **[Nhóm Engine Hardening](reports/engine_defect_class_analysis.md)** *(`BOT-066`…`BOT-071`)* | **6 cơ chế engine chặn 6 lớp lỗi tái phát** | — | Sinh ra từ rà soát toàn bộ lịch sử bug: gom thành 6 **lớp lỗi** rồi hỏi "cơ chế nào khiến cả lớp đó không xảy ra được nữa". Xem bảng chi tiết bên dưới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). |
 | **P1** | **[Epic BOT-078](backlog/BOT-078_backtest_trustworthiness_epic.md)** | **Backtest Trustworthiness — kết quả có đáng tin không?** | `BOT-021` ✅, `BOT-047` ✅ | Engine chạy đúng 100% vẫn có thể sinh kết luận sai. Log thật `-80.71%` hoá ra **~96% là phí giao dịch**, edge chiến lược ≈ hoà — mà app không có chỗ nào nói điều đó. Và **không một dòng nào** trong repo nhắc tới chống overfitting, dù bộ máy tinh chỉnh tham số (`BOT-044`…`048`) đã xong. Xem bảng chi tiết bên dưới. 📄 [Rà soát định hướng](reports/app_direction_audit.md). |
