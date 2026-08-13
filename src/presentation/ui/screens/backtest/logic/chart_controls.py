@@ -41,6 +41,7 @@ class BacktestChartControls(QtWidgets.QWidget):
             btn = QtWidgets.QPushButton(_MODE_LABELS[mode])
             btn.setObjectName(f"btnChartMode_{mode.value}")
             btn.setCheckable(True)
+            btn.setCursor(QtCore.Qt.PointingHandCursor)
             self._mode_group.addButton(btn)
             self._mode_buttons[mode] = btn
             layout.addWidget(btn)
@@ -49,7 +50,11 @@ class BacktestChartControls(QtWidgets.QWidget):
 
         layout.addSpacing(12)
 
-        self._ema_check = self._add_checkbox(layout, "chkChartEma", "4 EMA")
+        # BOT-060: no longer a fixed "4 EMA" — draws whatever the selected
+        # strategy's own build_indicators() declares (name/count vary).
+        self._ema_check = self._add_checkbox(
+            layout, "chkChartEma", "Chỉ báo Chiến lược"
+        )
         self._ema_check.setChecked(True)
         self._ema_check.toggled.connect(self.sig_ema_toggled.emit)
 
@@ -91,7 +96,7 @@ class BacktestChartControls(QtWidgets.QWidget):
         return self._trade_flags_check.isChecked()
 
     def set_ema_enabled(self, enabled: bool) -> None:
-        """The 4 EMA overlay is price-scale too — left plotted through an
+        """The strategy indicator overlay is price-scale too — left plotted through an
         Equity-solo switch, it stays on the same main plot as the equity
         curve and drags pyqtgraph's auto-range to the price axis (~tens of
         thousands), squashing the equity curve flat. Same treatment as

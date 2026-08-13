@@ -46,6 +46,10 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
+    BaseIndicatorScript,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
@@ -56,18 +60,19 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
     _FALLBACK_SYMBOL,
     BackTestPresenter,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_run_config import (
-    BacktestRunConfig,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state import (
-    BacktestUiState,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.chart_canvas_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_run_config import (
+    BacktestRunConfig,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
+    BacktestUiState,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
 )
+from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
@@ -79,6 +84,110 @@ class _FakeStrategy(BaseStrategy):
 
     def build_indicators(self):
         return {}
+
+
+class _EmaIndicatorStrategy(BaseStrategy):
+    """A strategy that actually declares indicators (BOT-060) — unlike
+    `_FakeStrategy`, whose empty `build_indicators()` is deliberate so it
+    doesn't perturb tests that don't care about chart overlays."""
+
+    def build_indicators(self):
+        return {"ema_fast": EMA(1), "ema_slow": EMA(1)}
+
+    def decide(self, context):
+        return self.hold()
+
+
+class _TestReferenceScript(BaseIndicatorScript):
+    """A minimal real indicator script (BOT-064) — `default_enabled = True`
+    so `IndicatorScriptListModel.set_available()` auto-enables it the same
+    way `Ema20Script`'s shipped default does, no manual toggle needed."""
+
+    title = "Test Reference Script"
+    overlay = True
+    default_enabled = True
+
+    def setup(self) -> None:
+        self.a = self.ema(1)
+
+    def execute(self, candle):
+        self.plot(self.a(candle.close_price), "R", color="#8e44ad")
+
+
+class _TestSubplotScript(BaseIndicatorScript):
+    """BOT-065: a subplot script (RSI/MACD-shaped, `overlay = False`) —
+    doesn't share the main plot's price-scale axis, so it must stay
+    visible through Equity-solo mode, unlike `_TestReferenceScript`."""
+
+    title = "Test Subplot Script"
+    overlay = False
+    default_enabled = True
+
+    def setup(self) -> None:
+        self.a = self.ema(1)
+
+    def execute(self, candle):
+        self.plot(self.a(candle.close_price), "S", color="#2980b9")
+
+
+class _RichParamsStrategy(BaseStrategy):
+    """Declares a couple of parameters (BOT-047) — kept out of the shared
+    `strategy_registry` fixture so it doesn't perturb `strategyOptions`-
+    related assertions elsewhere in this file; used only by the bot-params
+    tests below via `_build_presenter_with_registry`."""
+
+    def setup(self) -> None:
+        self.period = self.input_int("period", 20, label="Period", minval=1, maxval=200)
+        self.threshold = self.input_float("threshold", 1.5, label="Ngưỡng", minval=0.0)
+
+    def decide(self, context):
+        return self.hold()
+
+    def build_indicators(self):
+        return {}
+
+
+def _build_presenter_with_registry(
+    qapp,
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    registry,
+    request,
+    script_registry: IndicatorScriptRegistry | None = None,
+) -> BackTestPresenter:
+    """Same wiring as the `mock_container`/`presenter` fixtures, but with a
+    caller-supplied `StrategyRegistry` — used by the bot-params tests that
+    need more than the shared fixture's single zero-param `_FakeStrategy`.
+    `script_registry` (BOT-064) defaults to a fresh empty one, same as the
+    shared `indicator_script_registry` fixture."""
+    from sagittarius_engine.interfaces.i_config import IConfig
+    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+    container = Mock()
+    resolved_script_registry = script_registry or IndicatorScriptRegistry()
+
+    def resolve_mock(interface):
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IDispatcher:
+            return mock_dispatcher
+        if interface == IConfig:
+            return mock_config
+        if interface == StrategyRegistry:
+            return registry
+        if interface == IndicatorScriptRegistry:
+            return resolved_script_registry
+        return Mock()
+
+    container.resolve.side_effect = resolve_mock
+    view = BackTestView()
+    view.resize(1400, 800)
+    view.show()
+    qapp.processEvents()
+    request.addfinalizer(view.deleteLater)
+    return BackTestPresenter(view, container)
 
 
 def _make_result(with_trades: bool) -> BacktestResult:
@@ -216,7 +325,13 @@ def mock_config():
     # DEFAULT_INTERVAL configured) — individual tests override
     # get_all.return_value to exercise the config-driven path instead.
     config.get_all.return_value = {}
-    config.get.return_value = None
+    # BOT-066: dev.mode on for the whole suite, so any exception a
+    # @safe_ui_action-decorated slot swallows re-raises instead of passing
+    # a test that should have failed — every other key still falls back to
+    # None, matching this fixture's previous blanket behavior.
+    config.get.side_effect = lambda key, default=None: (
+        True if key == DEV_MODE_CONFIG_KEY else default
+    )
     return config
 
 
@@ -744,11 +859,164 @@ def test_qml_run_button_click_requests_a_run(
     mock_thread_mgr.submit.assert_called_once()
 
 
-def test_bot_params_button_is_disabled(presenter, qml_item, qapp):
+def test_bot_params_button_is_enabled(presenter, qml_item, qapp):
+    """BOT-047: unlike BOT-022's placeholder, the dialog now renders a real,
+    strategy-driven form, so the button no longer needs to stay locked."""
     qapp.processEvents()
     root = presenter.view.top_widget.rootObject()
 
-    assert qml_item(root, "btnBacktestBotParams").property("enabled") is False
+    assert qml_item(root, "btnBacktestBotParams").property("enabled") is True
+
+
+def test_bot_params_schema_is_empty_for_a_strategy_with_no_declared_params(
+    view_model,
+):
+    """`fake_strategy` (the shared fixture's registered strategy) declares
+    nothing — the modal must show "no params" rather than crash on an empty
+    schema."""
+    assert view_model.botParamsSchema == []
+
+
+def test_bot_params_schema_reflects_a_strategy_with_declared_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+
+    schema = view_model.botParamsSchema
+    assert len(schema) == 1
+    fields = {f["name"]: f for f in schema[0]["fields"]}
+    assert fields["period"]["default"] == 20
+    assert fields["period"]["value"] == 20
+    assert fields["threshold"]["default"] == 1.5
+
+
+def test_selecting_a_different_strategy_rebuilds_the_schema(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("fake_strategy", _FakeStrategy)
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    assert view_model.selectedStrategyKey == "fake_strategy"
+    assert view_model.botParamsSchema == []
+
+    view_model.selectedStrategyKey = "rich_strategy"
+
+    assert len(view_model.botParamsSchema) == 1
+
+
+def test_valid_bot_params_save_updates_params_clears_error_and_reruns(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    saved_signal_calls = []
+    view_model.botParamsSaved.connect(lambda: saved_signal_calls.append(1))
+
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+
+    assert presenter._strategy_params == {"period": 50, "threshold": 2.5}
+    assert view_model.botParamsError == ""
+    assert saved_signal_calls == [1]
+    # Values shown by the (now-refreshed) schema reflect what was just saved.
+    fields = {f["name"]: f for f in view_model.botParamsSchema[0]["fields"]}
+    assert fields["period"]["value"] == 50
+    mock_thread_mgr.submit.assert_called_once()
+    config = mock_thread_mgr.submit.call_args[0][1]
+    assert config.strategy_params == {"period": 50, "threshold": 2.5}
+
+
+def test_invalid_bot_params_save_sets_error_and_does_not_rerun(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    saved_signal_calls = []
+    view_model.botParamsSaved.connect(lambda: saved_signal_calls.append(1))
+
+    # 500 is above period's declared maxval of 200.
+    view_model.requestBotParamsSave({"period": "500", "threshold": "2.5"})
+
+    assert presenter._strategy_params is None
+    assert view_model.botParamsError != ""
+    assert saved_signal_calls == []
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_unparseable_bot_params_value_sets_error_and_does_not_rerun(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+
+    view_model.requestBotParamsSave({"period": "not-a-number"})
+
+    assert view_model.botParamsError != ""
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_changing_strategy_after_a_save_discards_the_old_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("fake_strategy", _FakeStrategy)
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    view_model.selectedStrategyKey = "rich_strategy"
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+    assert presenter._strategy_params is not None
+
+    view_model.selectedStrategyKey = "fake_strategy"
+
+    assert presenter._strategy_params is None
+    assert view_model.botParamsError == ""
+
+
+def test_run_backtest_command_carries_the_saved_strategy_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """End-to-end: a saved param actually reaches the dispatched
+    RunStaticBacktestCommand, not just BacktestRunConfig."""
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=False)
+    )
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+    config = mock_thread_mgr.submit.call_args[0][1]
+
+    presenter._run_backtest(config)
+
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert handler_class is RunStaticBacktestCommand
+    assert command.strategy_params == {"period": 50, "threshold": 2.5}
 
 
 # ---------------------------------------------------------------------------
@@ -849,11 +1117,12 @@ def test_switching_away_from_both_mode_removes_the_equity_subplot(
     assert presenter.view._equity_subplot_added is False
 
 
-def test_ema_toggle_is_a_no_op_when_the_script_is_not_registered(
+def test_ema_toggle_is_a_no_op_when_the_strategy_declares_no_indicators(
     presenter, view_model, mock_dispatcher
 ):
-    """ema_ribbon isn't in the (deliberately empty) test registry — proves
-    the toggle path degrades safely instead of crashing on a missing key."""
+    """`_FakeStrategy` (the shared fixture's registered strategy) declares
+    no indicators (BOT-060) — proves the toggle path degrades safely
+    instead of crashing when there is nothing drawn to show/hide."""
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result(with_trades=True), klines=_make_klines()
@@ -863,23 +1132,221 @@ def test_ema_toggle_is_a_no_op_when_the_script_is_not_registered(
     presenter.view.chart_controls.sig_ema_toggled.emit(False)  # must not raise
 
 
-def test_clear_from_chart_is_called_before_each_new_run_not_after(
+def test_active_strategy_lines_are_cleared_before_each_new_run_not_after(
     presenter, view_model
 ):
-    """Regression test (found by running the app): clearing the previous
-    run's chart overlays must happen synchronously in _on_run_backtest (main
-    thread, before the background run even starts). Calling it later, after
-    IndicatorScriptRunner.rebuild() has already replaced `.active` on the
-    background thread, is a no-op — the old EMA curves/legend entries pile
-    up run after run instead of being replaced."""
-    presenter._chart_script_runner.clear_from_chart = Mock()
+    """Regression test (found by running the app, predates BOT-060):
+    clearing the previous run's chart overlays must happen synchronously in
+    _on_run_backtest (main thread, before the background run even starts).
+    Calling it later, after the background thread has already started
+    drawing the new run's lines, would race and could remove lines the new
+    run just added instead of the old run's stale ones."""
+    card = presenter.view.chart_cards[0]
+    card.remove_indicator = Mock()
+    presenter._active_strategy_lines = {"ema_fast", "ema_slow"}
 
     view_model.requestRun()
-    assert presenter._chart_script_runner.clear_from_chart.call_count == 1
+
+    assert card.remove_indicator.call_count == 2
+    card.remove_indicator.assert_any_call("ema_fast")
+    card.remove_indicator.assert_any_call("ema_slow")
+    assert presenter._active_strategy_lines == set()
 
     presenter.fsm.transition_to(BacktestUiState.IDLE)
+    presenter._active_strategy_lines = {"ema_fast"}
     view_model.requestRun()
-    assert presenter._chart_script_runner.clear_from_chart.call_count == 2
+
+    assert card.remove_indicator.call_count == 3
+    assert presenter._active_strategy_lines == set()
+
+
+def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-060: the chart must draw whatever the BACKTESTED strategy itself
+    declares via build_indicators() — not a fixed, unrelated indicator
+    script (the bug the user reported: Buy/Sell markers not lining up with
+    anything drawn)."""
+    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    view_model.selectedStrategyKey = "ema_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    assert config.strategy_key == "ema_strategy"
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    assert presenter._active_strategy_lines == {"ema_fast", "ema_slow"}
+    added_names = {call.args[0] for call in card.add_overlay_indicator.call_args_list}
+    assert added_names == {"ema_fast", "ema_slow"}
+    updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
+    assert updated_names == {"ema_fast", "ema_slow"}
+
+
+def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
+    presenter, view_model, mock_dispatcher
+):
+    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    view_model.selectedStrategyKey = "ema_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card.set_indicator_visible = Mock()
+
+    presenter.view.chart_controls.sig_ema_toggled.emit(False)
+
+    hidden_names = {call.args[0] for call in card.set_indicator_visible.call_args_list}
+    assert hidden_names == {"ema_fast", "ema_slow"}
+    assert all(
+        call.args[1] is False for call in card.set_indicator_visible.call_args_list
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reference indicator script picker (BOT-064) — independent of the strategy's
+# own lines above; both mechanisms must coexist without name collisions
+# (qualified_line_name's ":" vs. the strategy lines' bare names).
+# ---------------------------------------------------------------------------
+
+
+def _build_presenter_with_script(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("test_script", _TestReferenceScript)
+    strategy_registry = StrategyRegistry()
+    strategy_registry.register("fake_strategy", _FakeStrategy)
+    return _build_presenter_with_registry(
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        strategy_registry,
+        request,
+        script_registry=script_registry,
+    )
+
+
+def _build_presenter_with_overlay_and_subplot_scripts(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("test_script", _TestReferenceScript)
+    script_registry.register("test_subplot", _TestSubplotScript)
+    strategy_registry = StrategyRegistry()
+    strategy_registry.register("fake_strategy", _FakeStrategy)
+    return _build_presenter_with_registry(
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        strategy_registry,
+        request,
+        script_registry=script_registry,
+    )
+
+
+def test_script_model_is_populated_from_registry_and_default_enabled_scripts_are_checked(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+
+    assert presenter._view_model.script_model.enabled_keys == ["test_script"]
+
+
+def test_successful_run_draws_enabled_reference_script_lines_on_the_chart(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    added_names = {call.args[0] for call in card.add_overlay_indicator.call_args_list}
+    assert added_names == {"test_script:R"}
+    updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
+    assert updated_names == {"test_script:R"}
+
+
+def test_disabling_a_script_before_the_next_run_stops_it_from_drawing(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-064's own "no retroactive effect" rule: enabled_keys is
+    snapshotted at 'Chạy Backtest' click time, in `_start_backtest_run` —
+    toggling the checkbox off before the NEXT run must take effect, exactly
+    like the Dev Board checklist (TC-GAP-07)."""
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    view_model.script_model.setEnabled(0, False)
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    card.add_overlay_indicator.assert_not_called()
+
+
+def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-065: same bug BOT-060 already fixed for the strategy's own
+    lines (test_switching_to_equity_mode_disables_and_hides_the_ema_overlay
+    below), reproduced for BOT-064's script-picker lines — left plotted
+    through a switch to Equity-solo mode, an overlay script drags
+    pyqtgraph's auto-range onto price values, squashing the equity curve
+    flat/invisible. Not a rare case: ema_20/50/100/200 are all
+    default_enabled + overlay, so this is the very first thing a fresh
+    Backtest screen hits switching to "Đường Vốn" once. A subplot script
+    (RSI/MACD-shaped) doesn't share that plot, so it must stay visible —
+    covered here too, not just the overlay case."""
+    presenter = _build_presenter_with_overlay_and_subplot_scripts(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card.set_indicator_visible = Mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    card.set_indicator_visible.assert_any_call("test_script:R", False)
+    hidden_names = {call.args[0] for call in card.set_indicator_visible.call_args_list}
+    assert "test_subplot:S" not in hidden_names
+    card.set_indicator_visible.reset_mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.OHLC].click()
+    qapp.processEvents()
+
+    card.set_indicator_visible.assert_any_call("test_script:R", True)
 
 
 def test_mode_buttons_switch_the_chart_mode_end_to_end(
@@ -1185,3 +1652,23 @@ def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
     qapp.processEvents()
 
     assert qml_item(root, "detailTradeLog_1").property("visible") is False
+
+
+def test_selected_currency_default_and_change(view_model):
+    """Test selectedCurrency defaults to USD and emits signal on change."""
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+
+    assert view_model.selectedCurrency == Currency.USD
+    assert view_model.currencyOptions == Currency.list_values()
+
+    emitted = False
+
+    def on_changed():
+        nonlocal emitted
+        emitted = True
+
+    view_model.selectedCurrencyChanged.connect(on_changed)
+    view_model.selectedCurrency = Currency.VND
+
+    assert view_model.selectedCurrency == Currency.VND
+    assert emitted is True

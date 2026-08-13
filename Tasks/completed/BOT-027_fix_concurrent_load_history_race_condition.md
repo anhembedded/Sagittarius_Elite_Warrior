@@ -1,5 +1,37 @@
 # Nhiệm vụ: Fix Race Condition khi bấm "Load History" nhiều lần liên tiếp
 
+## ✅ Kết quả đóng task
+
+Đã fix — nhưng **không phải trong lần đóng task này**. Điều tra trước khi sửa (đúng quy trình
+`.agents/rules/code-rule.md`) phát hiện fix đã nằm sẵn trong code từ một commit không gắn mã task,
+`22166fa fix(ui): prevent concurrent history loads`, ra đời cùng lúc `DashboardPresenter` được tách
+thành `StreamLifecycleController` (`BOT-037` Phase 2). Xác nhận qua cả code lẫn test thật:
+
+- `StreamLifecycleController._on_load_history()` và `._on_start_stream()` đều check
+  `self._view_model.historyLoading` **và** `self.fsm.current_state` ngay đầu hàm, trả về sớm nếu
+  có tác vụ nền khác đang chạy — đúng "Hướng nhanh" mà task này đề xuất, áp dụng cho **cả 2** entry
+  point (không chỉ Load History), nên `TC-ASY-03` (Load History chồng Start Live) cũng được chặn.
+- `test_dev_board_async_race_conditions.py`: 4 test pass, **0 xfail** — 2 test từng `xfail` đã đổi
+  tên (`..._corrupt_indicator_series` → `..._keep_indicator_series_correct`) và hết `xfail`, cộng
+  thêm `test_load_history_button_is_disabled_during_background_load` mới xác nhận đúng cơ chế
+  disable button.
+
+Rà theo đúng 5 action item gốc bên dưới:
+- [x] Hướng nhanh (disable trong lúc chạy nền) — đã có, xem trên.
+- [x] Hướng cấu trúc (snapshot tham số thay vì đọc lại instance attribute) — không cần nữa, vì
+      guard chặn hoàn toàn việc 2 tác vụ nền chạy chồng nhau (không còn 2 lần đọc cùng lúc để đối
+      chiếu snapshot vs instance attribute).
+- [x] Gỡ `xfail` khỏi 2 test — đã gỡ (tên test cũng đã đổi).
+- [x] Cập nhật [Test Case Catalog](../reports/dev_board_user_end_test_cases.md) đánh dấu
+      `TC-ASY-01`/`TC-ASY-04` đã fix — bổ sung trong lần đóng task này (kèm `TC-ASY-03`, cùng root
+      cause nên cập nhật luôn cho nhất quán).
+- [x] Rà `_on_start_stream()` — đã có cùng guard, xem trên.
+
+Không có dòng code nguồn nào bị đổi khi đóng task này — thuần cập nhật tài liệu (báo cáo test case
++ Kanban board) cho khớp thực tế đã fix từ trước.
+
+---
+
 ## 1. Mục tiêu (Objective)
 Loại bỏ race condition đã **xác nhận tái hiện được bằng test thật** (không chỉ suy đoán): bấm "Load History" 2 lần trở lên trước khi lần trước chạy xong khiến dữ liệu nến bị feed nhiều lần vào cùng 1 bộ indicator (`RSI`/`EMA`/`MACD`), làm sai số liệu hiển thị trên chart.
 

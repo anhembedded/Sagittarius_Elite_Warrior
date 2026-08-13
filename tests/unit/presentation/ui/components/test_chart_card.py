@@ -1,6 +1,8 @@
 import pyqtgraph as pg
 import pytest
 from PySide6 import QtCore
+from unittest.mock import patch
+
 from PySide6.QtWidgets import QApplication
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
@@ -213,6 +215,49 @@ def test_chart_card_set_max_visible_x_range(qapp):
         ][1]
         == 120000.0
     )
+
+
+def test_chart_card_update_last_candle_interactions(qapp):
+    """
+    Test that update_last_candle correctly updates internal state (_live_candle)
+    and calls the appropriate subcomponents for rendering, price line, and viewport.
+    """
+    card = ChartCard("BTCUSDT")
+
+    with patch.object(card.candlestick, "update_live_candle") as mock_candlestick, \
+         patch.object(card, "_render_chart_type") as mock_render, \
+         patch.object(card.price_line, "update_price") as mock_price_line, \
+         patch.object(card.viewport, "notify_new_data") as mock_viewport:
+
+        # Test Candlestick mode
+        card.set_chart_type("candlestick")
+        card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)
+
+        assert card._live_candle == (2000.0, 100.0, 105.0, 95.0, 102.0)
+        mock_candlestick.assert_called_once_with(2000.0, 100.0, 105.0, 95.0, 102.0)
+        mock_render.assert_not_called()
+        mock_price_line.assert_called_once_with(102.0, True)
+
+        mock_viewport.assert_called_once_with(2000.0)
+
+        # Reset mocks
+        mock_candlestick.reset_mock()
+        mock_price_line.reset_mock()
+        mock_viewport.reset_mock()
+        mock_render.reset_mock()
+
+        # Test non-Candlestick mode (e.g., line)
+        card.set_chart_type("line")
+        mock_render.reset_mock()  # Reset because set_chart_type calls it
+
+        card.update_last_candle(2060.0, 102.0, 103.0, 99.0, 100.0)
+
+        assert card._live_candle == (2060.0, 102.0, 103.0, 99.0, 100.0)
+        mock_candlestick.assert_not_called()
+        mock_render.assert_called_once()
+        mock_price_line.assert_called_once_with(100.0, False)
+
+        mock_viewport.assert_called_once_with(2060.0)
 
 
 def test_chart_card_live_tick_rollover(qapp):

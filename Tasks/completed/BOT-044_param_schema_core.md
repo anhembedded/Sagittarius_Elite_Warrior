@@ -3,8 +3,8 @@
 > Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 1/4** của nhóm "hệ thống tham số" (đã chia nhỏ theo yêu cầu user):
 > `BOT-044` (core, file này) → [`BOT-046`](BOT-046_strategy_param_plumbing.md)
-> → [`BOT-047`](../backlog/BOT-047_dynamic_params_form_ui.md) →
-> [`BOT-048`](../backlog/BOT-048_migrate_default_scripts_to_inputs.md).
+> → [`BOT-047`](BOT-047_dynamic_params_form_ui.md) →
+> [`BOT-048`](BOT-048_migrate_default_scripts_to_inputs.md).
 > Phụ thuộc `BOT-032` ✅.
 
 ## 1. Mục tiêu
@@ -35,7 +35,7 @@ là được mà. vẫn truyền 20 50…"*
 20/50/100/200** — vẫn hiện sẵn trong danh sách như hôm nay, nhưng user chỉnh
 được period nếu muốn. Không đụng `default_enabled`/US-07 (EMA 20/50/100/200
 vẫn bật sẵn trên Dev Board). Việc chuyển đổi này nằm ở
-[`BOT-048`](../backlog/BOT-048_migrate_default_scripts_to_inputs.md), không phải task
+[`BOT-048`](BOT-048_migrate_default_scripts_to_inputs.md), không phải task
 này.
 
 ## 3. Thiết kế — vấn đề "2 pha"

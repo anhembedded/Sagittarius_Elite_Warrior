@@ -28,10 +28,16 @@ class MacdFullScript(BaseIndicatorScript):
 
     title = "MACD (12/26/9)"
     overlay = False
-    min_warmup_bars = 35  # 26 (slow EMA) + 9 (signal EMA of the MACD line)
+    # 26 (slow EMA) + 9 (signal EMA of the MACD line) — tied to the input
+    # defaults below (BOT-048), see ema_20_script.py for why this stays a
+    # class attribute rather than computed per-instance for now.
+    min_warmup_bars = 35
 
     def setup(self) -> None:
-        self.m = self.macd()
+        fast = self.input_int("fast_period", 12, label="Fast Period", minval=1)
+        slow = self.input_int("slow_period", 26, label="Slow Period", minval=1)
+        signal = self.input_int("signal_period", 9, label="Signal Period", minval=1)
+        self.m = self.macd(fast, slow, signal)
 
     def execute(self, candle: MarketData) -> None:
         reading = self.m(candle.close_price)

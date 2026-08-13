@@ -136,20 +136,42 @@ Rectangle {
                 }
             }
 
-            // 4. Capital
-            TextField {
-                id: capitalField
-                objectName: "txtBacktestCapital"
-                implicitWidth: 100
+            // 4. Capital Dropdown Button
+            Button {
+                id: btnCapital
+                objectName: "btnBacktestCapital"
                 implicitHeight: 32
-                text: viewModel.initialCapitalText
                 enabled: viewModel.controlsEnabled
-                color: Theme.textPrimary
-                font.pixelSize: 11
-                horizontalAlignment: TextInput.AlignRight
-                background: FieldBackground {}
-                validator: DoubleValidator { bottom: 0 }
-                onEditingFinished: viewModel.initialCapitalText = text
+                background: Rectangle {
+                    color: "#25262B"
+                    border.color: Theme.border
+                    radius: 4
+                }
+                contentItem: RowLayout {
+                    spacing: 6
+                    anchors.centerIn: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+
+                    Image {
+                        source: "image://icons/dollar-sign/success"
+                        sourceSize: Qt.size(14, 14)
+                    }
+
+                    Text {
+                        text: root._formatCapitalDisplay(viewModel.initialCapitalText, viewModel.selectedCurrency)
+                        color: Theme.textPrimary
+                        font.pixelSize: 11
+                        font.bold: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Image {
+                        source: "image://icons/chevron-down/muted"
+                        sourceSize: Qt.size(12, 12)
+                    }
+                }
+                onClicked: root.openCapitalPopup()
             }
 
             // 5. Order Execution
@@ -164,6 +186,21 @@ Rectangle {
                 }
             }
 
+            // 6. Indicator picker (BOT-064) — reference scripts (RSI/MACD/EMA
+            // Ribbon/...), independent of the selected strategy's own
+            // indicators (BOT-060).
+            Button {
+                objectName: "btnBacktestIndicatorPicker"
+                implicitHeight: 32; background: Rectangle { color: "#25262B"; border.color: Theme.border; radius: 4 }
+                onClicked: indicatorPickerMenu.open()
+                contentItem: RowLayout {
+                    spacing: 6
+                    Image { source: "image://icons/sliders/accent"; sourceSize: Qt.size(14, 14) }
+                    Text { text: "Chỉ báo"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
+                    Image { source: "image://icons/chevron-down/muted"; sourceSize: Qt.size(12, 12) }
+                }
+            }
+
             Item { Layout.fillWidth: true }
 
             // Action Buttons
@@ -171,13 +208,13 @@ Rectangle {
                 objectName: "btnBacktestBotParams"
                 text: "Thông số Bot"
                 implicitHeight: 32
-                // Disabled for BOT-022 — enabled once BOT-047 (dynamic params
-                // form) exists to actually read/write something real here.
-                enabled: false
+                // BOT-047: the dialog now renders viewModel.botParamsSchema,
+                // which the Presenter keeps in sync with the selected
+                // strategy — nothing further to build here before opening.
+                enabled: viewModel.controlsEnabled
                 background: Rectangle { color: "transparent" }
                 contentItem: Text { text: parent.text; color: Theme.muted; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 onClicked: {
-                    botParamsDialog.strategyIndex = strategyCombo.currentIndex
                     botParamsDialog.strategyName = strategyCombo.currentText
                     botParamsDialog.open()
                 }
@@ -325,6 +362,145 @@ Rectangle {
         return Qt.rgba(c.r, c.g, c.b, alpha)
     }
 
+    function _formatCapitalDisplay(rawText, currency) {
+        return (rawText || "0") + " " + currency
+    }
+
+    function openCapitalPopup() {
+        var pos = btnCapital.mapToItem(Overlay.overlay, 0, btnCapital.height + 4)
+        capitalPopup.x = pos.x
+        capitalPopup.y = pos.y
+        capitalInput.text = viewModel.initialCapitalText
+        var idx = viewModel.currencyOptions.indexOf(viewModel.selectedCurrency)
+        if (idx >= 0) currencyCombo.currentIndex = idx
+        capitalPopup.open()
+    }
+
+    Popup {
+        id: capitalPopup
+        width: 270
+        modal: true
+        dim: false
+        parent: Overlay.overlay
+        z: 9999
+        padding: 14
+
+        background: Rectangle {
+            color: "#1E1F24"
+            border.color: Theme.border
+            border.width: 1
+            radius: 6
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+
+            Text {
+                text: "Vốn ban đầu"
+                color: Theme.textPrimary
+                font.pixelSize: 13
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                TextField {
+                    id: capitalInput
+                    objectName: "txtBacktestCapital"
+                    Layout.fillWidth: true
+                    implicitHeight: 32
+                    text: viewModel.initialCapitalText
+                    color: Theme.textPrimary
+                    font.pixelSize: 12
+                    font.bold: true
+                    background: Rectangle {
+                        color: "#151619"
+                        border.color: Theme.border
+                        radius: 4
+                    }
+                    validator: DoubleValidator { bottom: 0 }
+                }
+
+                ComboBox {
+                    id: currencyCombo
+                    objectName: "cboBacktestCurrency"
+                    implicitWidth: 80
+                    implicitHeight: 32
+                    model: viewModel.currencyOptions
+                    background: Rectangle {
+                        color: "#25262B"
+                        border.color: Theme.border
+                        radius: 4
+                    }
+                    contentItem: Text {
+                        leftPadding: 8
+                        text: currencyCombo.displayText
+                        color: Theme.textPrimary
+                        font.pixelSize: 11
+                        font.bold: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    Component.onCompleted: {
+                        var idx = model.indexOf(viewModel.selectedCurrency)
+                        if (idx >= 0) currentIndex = idx
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "Hủy"
+                    implicitWidth: 60
+                    implicitHeight: 30
+                    background: Rectangle {
+                        color: "#2C2D35"
+                        radius: 4
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: Theme.muted
+                        font.pixelSize: 11
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: capitalPopup.close()
+                }
+
+                Button {
+                    text: "Áp dụng"
+                    implicitWidth: 80
+                    implicitHeight: 30
+                    background: Rectangle {
+                        color: "#F0B90B"
+                        radius: 4
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#000000"
+                        font.pixelSize: 11
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        viewModel.initialCapitalText = capitalInput.text
+                        viewModel.selectedCurrency = currencyCombo.currentText
+                        capitalPopup.close()
+                    }
+                }
+            }
+        }
+    }
+
     Popup {
         id: extendedMetricsPopup
         width: 420
@@ -375,6 +551,12 @@ Rectangle {
 
     BotParamsDialog {
         id: botParamsDialog
+    }
+
+    IndicatorPickerMenu {
+        id: indicatorPickerMenu
+        x: 650
+        y: 60
     }
 
     OrderExecutionMenu {

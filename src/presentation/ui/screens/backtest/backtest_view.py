@@ -7,13 +7,13 @@ from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from sagittarius_engine.extensions.pyside_mvc import BaseView, create_quick_widget
 
-from .chart_canvas_view import (
+from .logic.chart_canvas_view import (
     ChartDisplayMode,
     equity_curve_to_candles,
     equity_curve_to_line_data,
     trade_flag_markers,
 )
-from .chart_controls import BacktestChartControls
+from .logic.chart_controls import BacktestChartControls
 
 _QML_DIR = Path(__file__).parent
 _TOP_PANEL_QML = "BackTestTopPanel.qml"

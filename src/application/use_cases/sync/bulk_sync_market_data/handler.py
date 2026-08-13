@@ -1,4 +1,6 @@
+import concurrent.futures
 import logging
+import threading
 import time
 
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
@@ -64,12 +66,14 @@ class BulkSyncMarketDataCommandHandler(
         delay_sec = delay_ms / 1000.0
 
         self.logger.info(
-            f"Starting sequential bulk sync for {total} targets with a {delay_ms}ms delay."
+            f"Starting concurrent bulk sync for {total} targets with a {delay_ms}ms start delay."
         )
 
-        for idx, (symbol, interval) in enumerate(targets):
-            self.logger.info(f"[{idx + 1}/{total}] Syncing {symbol} ({interval})...")
+        completed_count = 0
+        lock = threading.Lock()
 
+        def _sync_target(symbol: str, interval: str) -> tuple[str, str, bool, str]:
+            """Helper function to execute the sync in a thread."""
             try:
                 # Dispatch the single sync command
                 sync_cmd = SyncMarketDataCommand(
@@ -79,34 +83,67 @@ class BulkSyncMarketDataCommandHandler(
                     end_time=None,
                 )
                 self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
-
-                # Emit progress event
-                self.event_bus.emit(
-                    BulkSyncProgressEvent(
-                        current_index=idx + 1,
-                        total_targets=total,
-                        symbol=symbol,
-                        interval=interval,
-                        message=f"[{idx + 1}/{total}] {symbol} ({interval}) complete.",
-                    )
-                )
-
-                # Rate Limiting
-                if idx < total - 1:
-                    time.sleep(delay_sec)
-
+                return symbol, interval, False, ""
             except Exception as e:  # noqa: BLE001 - boundary: report per-symbol sync failure without aborting the batch
                 self.logger.error(f"Error syncing {symbol} ({interval}): {e}")
-                self.event_bus.emit(
-                    BulkSyncProgressEvent(
-                        current_index=idx + 1,
-                        total_targets=total,
-                        symbol=symbol,
-                        interval=interval,
-                        has_error=True,
-                        message=f"Failed: {e!s}",
-                    )
+                return symbol, interval, True, str(e)
+
+        # Global state for rate limiting inside worker threads
+        last_dispatch_time = [0.0]
+        rate_limit_lock = threading.Lock()
+
+        def _sync_target_with_rate_limit(
+            symbol: str, interval: str
+        ) -> tuple[str, str, bool, str]:
+            """Helper function to execute the sync in a thread, respecting global rate limit."""
+            with rate_limit_lock:
+                now = time.time()
+                elapsed = now - last_dispatch_time[0]
+                if elapsed < delay_sec:
+                    time.sleep(delay_sec - elapsed)
+                last_dispatch_time[0] = time.time()
+
+            return _sync_target(symbol, interval)
+
+        max_workers = max(1, min(10, total))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for idx, (symbol, interval) in enumerate(targets):
+                self.logger.info(
+                    f"[{idx + 1}/{total}] Submitting {symbol} ({interval})..."
                 )
+                futures.append(
+                    executor.submit(_sync_target_with_rate_limit, symbol, interval)
+                )
+
+            # Wait and report progress as they complete
+            for future in concurrent.futures.as_completed(futures):
+                symbol, interval, has_error, error_msg = future.result()
+
+                completed_count += 1
+                current_idx = completed_count
+
+                if not has_error:
+                    self.event_bus.emit(
+                        BulkSyncProgressEvent(
+                            current_index=current_idx,
+                            total_targets=total,
+                            symbol=symbol,
+                            interval=interval,
+                            message=f"[{current_idx}/{total}] {symbol} ({interval}) complete.",
+                        )
+                    )
+                else:
+                    self.event_bus.emit(
+                        BulkSyncProgressEvent(
+                            current_index=current_idx,
+                            total_targets=total,
+                            symbol=symbol,
+                            interval=interval,
+                            has_error=True,
+                            message=f"Failed: {error_msg}",
+                        )
+                    )
 
         self.logger.info("Bulk sync completed.")
         self.event_bus.emit(

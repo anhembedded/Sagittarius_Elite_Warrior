@@ -96,10 +96,10 @@
 
 | ID | Pri | Scenario | Grounding | Expected / Câu hỏi cần trả lời |
 |---|---|---|---|---|
-| TC-ASY-01 | 🔴 | Click "Load History" 2 lần liên tiếp trong <200ms (trước khi lần 1 xong) | `load_history_button` không bị disable ở IDLE matrix → 2 lệnh `self._thread_manager.submit(self._run_load_history, ...)` chạy **song song thật** trên 2 worker thread khác nhau | Cả 2 thread đều gọi `_compute_indicator_series` đọc `self.active_indicators` — vì đây là **cùng 1 object reference** (indicator set giống nhau, do checkbox không đổi giữa 2 lần), cả 2 sẽ feed **CÙNG MỘT** bộ `RSI`/`EMA`/`MACD` instance 2 lần với cùng dữ liệu 5000 nến → mỗi indicator instance bị `update()` **gấp đôi** số lần cần thiết → giá trị RSI/EMA/MACD cuối cùng SAI (không phải giá trị thật của 5000 nến, mà là như thể có 10000 nến). Đây là **data corruption thật**, không chỉ UI glitch. |
+| ~~TC-ASY-01~~ | ✅ | Click "Load History" 2 lần liên tiếp trong <200ms (trước khi lần 1 xong) | ~~`load_history_button` không bị disable ở IDLE matrix~~ | **FIXED (BOT-027)** — `StreamLifecycleController._on_load_history` giờ check `self._view_model.historyLoading` ở đầu hàm và trả về ngay nếu đang `True`, chặn hoàn toàn lần click chồng thay vì cho 2 background task chạy song song đọc chung 1 snapshot indicator. Verify bằng test thật (không mock `submit`): `test_concurrent_load_history_clicks_keep_indicator_series_correct`, `test_load_history_button_is_disabled_during_background_load` (`tests/integration/presentation/ui/test_dev_board_async_race_conditions.py`). |
 | TC-ASY-02 | 🔴 | Click "Load History" đổi RSI period=14, rồi NGAY LẬP TỨC đổi period=7 và click "Load History" lần nữa (trước khi lần 1 chạy xong `_compute_indicator_series`) | `self.active_indicators = self._build_active_indicators()` gán lại object **mới toanh** (period=7) trên main thread — nhưng thread #1 (period=14) đã capture `ordered_klines` của riêng nó và gọi `self._compute_indicator_series(ordered_klines)` sau đó | Vì `_compute_indicator_series` đọc `self.active_indicators` **tại thời điểm gọi**, không phải tại thời điểm submit — nếu thread #1 chạy chậm hơn main thread kịp gán lại, thread #1 sẽ vô tình feed dữ liệu (klines) của chính nó vào **indicator period=7 (của lần click #2)** thay vì period=14 của chính nó → kết quả hiển thị "RSI(7)" nhưng thực chất bị feed 2 lần dữ liệu bởi cả 2 thread, cho ra trị số sai. Đây chính là kịch bản "đổi period liên tục" ở TC-IND-14. |
-| TC-ASY-03 | 🟠 | Click "Load History" rồi trong lúc đang chạy, click "Start Live" | Cả 2 đều gọi `_ensure_chart_cards`, `_clear_registered_indicators`, gán lại `self.active_indicators`, rồi submit background task riêng (`_run_load_history` và `_run_sync_and_start`) — 2 workflow này **không loại trừ lẫn nhau** | 2 background task cùng query DB, cùng gọi `_compute_indicator_series` trên khả năng cùng 1 `active_indicators` snapshot → tương tự TC-ASY-01 nhưng xuyên workflow. Ngoài ra `_run_sync_and_start` còn dispatch `SyncMarketDataCommand` — nếu `_run_load_history` đang đọc DB đúng lúc Sync đang ghi DB, cần verify DB layer (SQLite WAL) không bị lock/corrupt. |
-| TC-ASY-04 | 🔴 | 4 click "Load History" liên tục thật nhanh (chạm max_workers=4) | Cả 4 worker thread của pool đều bận với 4 lần `_run_load_history` chồng nhau | Verify: (a) app không deadlock, (b) `self.active_charts`/`self.active_indicators` cuối cùng ở trạng thái nhất quán (không half-updated), (c) UI cuối cùng hội tụ về đúng 1 bộ dữ liệu — không phải hợp nhất lộn xộn từ 4 lần chạy |
+| ~~TC-ASY-03~~ | ✅ | Click "Load History" rồi trong lúc đang chạy, click "Start Live" | ~~2 workflow này không loại trừ lẫn nhau~~ | **FIXED (BOT-027)** — `_on_start_stream` giờ cũng check `self._view_model.historyLoading` (trả về sớm nếu đang `True`) và `_on_load_history` check `self.fsm.current_state == UIMode.LOCKED` (trả về sớm nếu Start Live đang chạy) — chặn chồng chéo theo cả 2 chiều giữa 2 entry point, không chỉ trong nội bộ 1 nút. Vẫn còn phần "SQLite WAL lock khi Sync ghi đúng lúc Load đọc" chưa có test riêng — không còn tái hiện được nữa vì giờ 2 workflow không thể chạy đồng thời. |
+| ~~TC-ASY-04~~ | ✅ | 4 click "Load History" liên tục thật nhanh (chạm max_workers=4) | ~~Cả 4 worker thread của pool đều bận với 4 lần `_run_load_history` chồng nhau~~ | **FIXED (BOT-027)** — cùng guard `historyLoading` ở trên: chỉ click đầu tiên submit task, 3 lần còn lại bị chặn ngay trên main thread nên không còn 4 worker nào chạy chồng để so sánh. Verify: `test_four_rapid_load_history_clicks_keep_indicator_series_correct`. |
 | TC-ASY-05 | 🔴 | Click "Load History" lần 5 khi 4 worker đã bận | `ThreadPoolExecutor` sẽ **queue** lệnh thứ 5, không chạy song song nữa | Verify lệnh thứ 5 chạy đúng SAU khi 1 trong 4 lệnh trước giải phóng worker — không bị mất/silently dropped |
 | TC-ASY-06 | 🔴 | Start Live thành công, đợi vài giây có tick "live" thật, rồi RÚT MẠNG (hoặc kill WebSocket ở tầng infra) | `ui_stream_failed_signal` **không có đường phát sinh** cho lỗi xảy ra sau khi đã vào LIVE (chỉ emit từ `_run_sync_and_start`'s startup path) | **Câu hỏi cần trả lời bởi team**: FSM có bị kẹt ở "LIVE" mãi mãi dù không còn tick nào đổ về, không có bất kỳ chỉ báo lỗi nào cho user? Nếu đúng vậy, đây là gap UX nghiêm trọng — user tưởng vẫn đang live nhưng thực ra đã chết luồng. |
 | TC-ASY-07 | 🟠 | Click "Stop" trong lúc UI thread đang bận xử lý 1 signal khác (vd. `_on_ui_chart_update` đang chạy) | `_on_stop_stream` dispatch `StopLiveStreamCommand` **đồng bộ trên main thread** (không qua `_thread_manager.submit`) | Nếu command handler có I/O chặn (đóng socket, join thread nền), UI sẽ **đứng hình** trong lúc đó — verify thời gian phản hồi của nút Stop, đo bằng ms, không được > vài trăm ms |
@@ -204,14 +204,18 @@ năng này, để không lặp lại lỗi TC-ASY-15 khi triển khai thật.
 
 ## Tổng kết & đề xuất hành động
 
+- **✅ FIXED (BOT-027)**: TC-ASY-01, TC-ASY-03, TC-ASY-04 — `historyLoading`/FSM guard ở đầu
+  `_on_load_history`/`_on_start_stream` (`stream_lifecycle_controller.py`) chặn mọi lần click
+  chồng chéo ngay trên main thread, cả trong nội bộ 1 nút lẫn xuyên 2 entry point. Đây chính là
+  "Fix đơn giản, rủi ro thấp" từng đề xuất bên dưới, đã triển khai.
 - **Ưu tiên fix trước** (🔴, có thể tái hiện ngay hôm nay, không cần chờ tính năng mới):
-  TC-ASY-01, TC-ASY-02, TC-ASY-04, TC-ASY-09, TC-ASY-10, TC-ASY-15/TC-TF-02 (root cause chung: thiếu khoá đồng bộ quanh `self.active_indicators` + thiếu định danh `interval` trong routing).
-- **Fix đơn giản, rủi ro thấp**: disable `load_history_button` trong lúc background đang chạy
-  (giống cách `start_stream_button` đã làm qua FSM) — chặn được phần lớn TC-ASY-01/02/04/05 ngay
-  lập tức mà không cần refactor lớn.
-- **Fix cấu trúc hơn**: truyền `active_indicators` như tham số vào `_run_load_history`/
-  `_compute_indicator_series` thay vì đọc lại `self.active_indicators` (biến instance dùng
-  chung) — loại bỏ hoàn toàn race class TC-ASY-01/02/13.
+  TC-ASY-02, TC-ASY-09, TC-ASY-10, TC-ASY-15/TC-TF-02 (root cause chung: thiếu khoá đồng bộ quanh
+  `self.active_indicators`/dữ liệu chart cũ + thiếu định danh `interval` trong routing).
+- **Fix cấu trúc hơn (còn mở, chưa cần thiết nữa cho TC-ASY-01/03/04 vì guard trên đã chặn từ
+  gốc)**: truyền `active_indicators` như tham số vào `_run_load_history`/`_compute_indicator_series`
+  thay vì đọc lại biến instance dùng chung — vẫn còn giá trị cho TC-ASY-02/13 (đổi period rồi
+  click lại, vẫn cùng 1 nút nên vẫn bị chặn bởi guard, nhưng nếu sau này nới guard để cho phép
+  hàng đợi thay vì chặn cứng thì cần fix cấu trúc này).
 - **Trước khi wire timeframe/symbol switch thật (Section E)**: bắt buộc giải quyết TC-TF-02
   (định danh theo `(symbol, interval)` thay vì chỉ `symbol`) — nếu không, tính năng mới sẽ tái
   hiện đúng lỗi TC-ASY-15 ngay khi ra mắt.

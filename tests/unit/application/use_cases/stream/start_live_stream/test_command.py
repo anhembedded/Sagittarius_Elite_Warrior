@@ -39,9 +39,7 @@ def test_start_live_stream_command_invalid_interval():
     """Test that invalid intervals fail validation."""
     with pytest.raises(ValidationError) as excinfo:
         # Pydantic will raise validation error for not being an enum member
-        StartLiveStreamCommand(
-            symbols=["BTCUSDT"], interval="invalid_interval"
-        )
+        StartLiveStreamCommand(symbols=["BTCUSDT"], interval="invalid_interval")
 
     assert "Input should be" in str(excinfo.value)
 

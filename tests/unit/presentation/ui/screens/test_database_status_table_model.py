@@ -11,7 +11,6 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QModelIndex
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
     DatabaseStatusTableModel,
 )
@@ -22,10 +21,9 @@ def model(qapp):
     return DatabaseStatusTableModel()
 
 
-def _upsert(model, symbol="BTCUSDT", interval="1m", status="OK", total="100"):
+def _upsert(model, symbol="BTCUSDT", status="OK", total="100"):
     model.upsert_row(
         symbol=symbol,
-        interval=interval,
         first_record="2024-01-01",
         last_record="2024-01-02",
         total_candles=total,
@@ -47,7 +45,6 @@ def test_first_upsert_appends_a_row(model):
 
     assert model.rowCount() == 1
     assert _role_value(model, 0, DatabaseStatusTableModel.SymbolRole) == "BTCUSDT"
-    assert _role_value(model, 0, DatabaseStatusTableModel.IntervalRole) == "1m"
 
 
 def test_re_upserting_same_key_updates_in_place_without_duplicating(model):
@@ -59,13 +56,6 @@ def test_re_upserting_same_key_updates_in_place_without_duplicating(model):
     assert model.rowCount() == 1
     assert _role_value(model, 0, DatabaseStatusTableModel.StatusTextRole) == "OK"
     assert _role_value(model, 0, DatabaseStatusTableModel.TotalCandlesRole) == "120"
-
-
-def test_different_interval_for_same_symbol_is_a_separate_row(model):
-    _upsert(model, symbol="BTCUSDT", interval="1m")
-    _upsert(model, symbol="BTCUSDT", interval="1h")
-
-    assert model.rowCount() == 2
 
 
 def test_in_place_update_emits_data_changed_not_insert(model, qapp):
@@ -89,7 +79,7 @@ def test_in_place_update_emits_data_changed_not_insert(model, qapp):
 def test_role_names_are_exposed_for_qml_binding(model):
     names = set(model.roleNames().values())
 
-    assert {b"symbol", b"interval", b"statusText", b"isHealthy"} <= names
+    assert {b"symbol", b"statusText", b"isHealthy"} <= names
 
 
 @pytest.mark.parametrize(
@@ -148,22 +138,20 @@ def test_clear_then_reinsert_does_not_reuse_stale_key_index(model):
 
 
 def test_gap_targets_lists_only_unhealthy_rows(model):
-    _upsert(model, symbol="BTCUSDT", interval="1m", status="OK")
-    _upsert(model, symbol="ETHUSDT", interval="1m", status="4 gaps found!")
-    _upsert(model, symbol="SOLUSDT", interval="1h", status="1 gaps found!")
+    _upsert(model, symbol="BTCUSDT", status="OK")
+    _upsert(model, symbol="ETHUSDT", status="4 gaps found!")
+    _upsert(model, symbol="SOLUSDT", status="1 gaps found!")
 
-    assert model.gap_targets() == [("ETHUSDT", "1m"), ("SOLUSDT", "1h")]
+    assert model.gap_targets() == ["ETHUSDT", "SOLUSDT"]
 
 
-def test_symbol_and_interval_at_row_are_qml_callable(model):
-    _upsert(model, symbol="ETHUSDT", interval="15m")
+def test_symbol_at_row_is_qml_callable(model):
+    _upsert(model, symbol="ETHUSDT")
 
     assert model.symbolAt(0) == "ETHUSDT"
-    assert model.intervalAt(0) == "15m"
 
 
 def test_row_accessors_are_bounds_safe(model):
     """QML delegates can momentarily hold a stale row index while the model
     resets, so out-of-range lookups must return empty rather than raise."""
     assert model.symbolAt(0) == ""
-    assert model.intervalAt(-1) == ""

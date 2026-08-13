@@ -3,37 +3,54 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
 
+// Dynamic "Cấu hình Thông số Bot" form (BOT-047). Renders whatever
+// `viewModel.botParamsSchema` says — a list of {group, fields} built from
+// the SELECTED strategy's own declared input_*() parameters
+// (BOT-044/BOT-046) — so a new strategy with different parameters needs no
+// change here at all, only a `.register()` call.
+//
+// Field widgets are picked purely from each row's `kind` (int/float/bool/
+// string), never from the strategy's identity — that is what keeps this
+// component strategy-agnostic. Every group uses the same "sliders" icon
+// (matching the toolbar button that opens this dialog) rather than guessing
+// an icon from the group's name text, which would be exactly the kind of
+// per-strategy hardcoding this mechanism exists to avoid.
 Popup {
     id: root
+    property string strategyName: ""
+
     width: 650
-    height: 500
+    height: Math.min(600, contentColumn.implicitHeight + 170)
     modal: true
     dim: true
     anchors.centerIn: Overlay.overlay
-
-    // Pass the currently selected strategy index and name from the parent
-    property int strategyIndex: 0
-    property string strategyName: "4 EMA PULLBACK + SIDEWAYS FILTER + QML"
+    padding: 20
 
     background: Rectangle {
         color: Theme.bg
         border.color: Theme.border
         border.width: 1
-        radius: 6
+        radius: 8
     }
 
-    // Title Bar
-    Rectangle {
-        id: titleBar
-        width: parent.width
-        height: 45
-        color: "transparent"
-        
+    // Closed by the Presenter's own signal, not a local `root.close()` call
+    // in the save handler — a validation failure must leave the dialog open
+    // (see requestBotParamsSave below), so only a genuine save success ever
+    // triggers this.
+    Connections {
+        target: viewModel
+        function onBotParamsSaved() { root.close() }
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 14
+
+        // ================= Title =================
         RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 15
-            anchors.rightMargin: 15
-            
+            Layout.fillWidth: true
+            spacing: 8
+
             Image {
                 source: "image://icons/sliders/accent"
                 sourceSize: Qt.size(16, 16)
@@ -41,477 +58,199 @@ Popup {
             Text {
                 text: "CẤU HÌNH THÔNG SỐ BOT: " + root.strategyName.toUpperCase()
                 color: Theme.textPrimary
-                font.pixelSize: 12
+                font.pixelSize: 13
                 font.bold: true
                 Layout.fillWidth: true
+                elide: Text.ElideRight
             }
-            
-            // Close Button
-            MouseArea {
-                implicitWidth: 20
-                implicitHeight: 20
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.close()
-                Text {
-                    anchors.centerIn: parent
+            Button {
+                objectName: "btnBotParamsClose"
+                implicitWidth: 24
+                implicitHeight: 24
+                background: Rectangle { color: "transparent" }
+                contentItem: Text {
                     text: "✕"
                     color: Theme.muted
                     font.pixelSize: 14
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
                 }
+                onClicked: root.close()
             }
         }
-        
-        // Divider
-        Rectangle {
-            width: parent.width
-            height: 1
-            color: Theme.border
-            anchors.bottom: parent.bottom
-        }
-    }
 
-    // Body (Dynamic Content)
-    ScrollView {
-        width: parent.width
-        anchors.top: titleBar.bottom
-        anchors.bottom: footer.top
-        anchors.margins: 15
-        clip: true
+        // ================= Form body =================
+        ScrollView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-        StackLayout {
-            width: parent.width
-            currentIndex: root.strategyIndex
-
-            // ================== STRATEGY 0: 4 EMA PULLBACK ==================
             ColumnLayout {
-                spacing: 15
-                Layout.fillWidth: true
+                id: contentColumn
+                width: root.width - 40
+                spacing: 16
 
-                // Section 1: Risk & Leverage
-                Rectangle {
+                Text {
                     Layout.fillWidth: true
-                    implicitHeight: 140
-                    color: "transparent"
-                    border.color: Theme.border
-                    radius: 4
-                    
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
-                        
-                        RowLayout {
-                            Image { source: "image://icons/shield/accent"; sourceSize: Qt.size(14, 14) }
-                            Text { text: "Quản lý Rủi ro & Đòn bẩy (Risk & Leverage)"; color: Theme.textPrimary; font.pixelSize: 12; font.bold: true }
-                        }
-                        
-                        GridLayout {
-                            columns: 2
-                            columnSpacing: 20
-                            rowSpacing: 10
-                            Layout.fillWidth: true
-                            
-                            // SL
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Stop Loss (SL %)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "1.2"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            // TP
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Take Profit (TP %)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "3.2"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            // Leverage
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Đòn bẩy (Leverage)"; color: Theme.muted; font.pixelSize: 11 }
-                                ComboBox { 
-                                    model: ["1x Spot", "5x Futures", "10x Futures"]
-                                    currentIndex: 1
-                                    background: FieldBackground {}
-                                    contentItem: Text { leftPadding: 8; text: parent.displayText; color: Theme.textPrimary; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12 }
-                                    Layout.fillWidth: true 
-                                }
-                            }
-                            // Risk
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Rủi ro mỗi lệnh (% Vốn)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "2"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                        }
-                    }
+                    visible: viewModel.botParamsSchema.length === 0
+                    text: "Chiến lược này không có tham số nào để cấu hình."
+                    color: Theme.muted
+                    font.pixelSize: 11
+                    wrapMode: Text.Wrap
                 }
 
-                // Section 2: Technicals
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 110
-                    color: "transparent"
-                    border.color: Theme.border
-                    radius: 4
-                    
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
-                        
-                        RowLayout {
-                            Image { source: "image://icons/zap/accent"; sourceSize: Qt.size(14, 14) }
-                            Text { text: "Chỉ số Kỹ thuật & Độ nhạy QML"; color: Theme.textPrimary; font.pixelSize: 12; font.bold: true }
-                        }
-                        
-                        GridLayout {
-                            columns: 2
-                            columnSpacing: 20
-                            rowSpacing: 10
-                            Layout.fillWidth: true
-                            
-                            // EMA
-                            ColumnLayout {
+                Repeater {
+                    model: viewModel.botParamsSchema
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: groupColumn.implicitHeight + 24
+                        color: Theme.stateIdleBg
+                        border.color: Theme.border
+                        border.width: 1
+                        radius: 6
+
+                        ColumnLayout {
+                            id: groupColumn
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 10
+
+                            RowLayout {
+                                spacing: 6
+                                visible: modelData.group !== ""
+
+                                Image {
+                                    source: "image://icons/sliders/muted"
+                                    sourceSize: Qt.size(12, 12)
+                                }
+                                Text {
+                                    text: modelData.group
+                                    color: Theme.textPrimary
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    font.letterSpacing: 1
+                                }
+                            }
+
+                            GridLayout {
                                 Layout.fillWidth: true
-                                Text { text: "EMA Fast / Slow"; color: Theme.muted; font.pixelSize: 11 }
-                                RowLayout {
-                                    TextField {
-                                        text: "8"
-                                        color: Theme.textPrimary
-                                        background: FieldBackground {}
+                                columns: 2
+                                columnSpacing: 16
+                                rowSpacing: 12
+
+                                Repeater {
+                                    model: modelData.fields
+
+                                    BotParamField {
                                         Layout.fillWidth: true
-                                    }
-                                    TextField {
-                                        text: "21"
-                                        color: Theme.textPrimary
-                                        background: FieldBackground {}
-                                        Layout.fillWidth: true
+                                        fieldData: modelData
                                     }
                                 }
                             }
-                            // Score
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Độ nhạy Mẫu hình QML (Score %)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "85"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
                         }
                     }
                 }
-            }
-
-            // ================== STRATEGY 1: QML STRUCTURE BREAKOUT ==================
-            ColumnLayout {
-                spacing: 15
-                Layout.fillWidth: true
-
-                // Section 1: Risk & Leverage
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 140
-                    color: "transparent"
-                    border.color: Theme.border
-                    radius: 4
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
-                        RowLayout {
-                            Image { source: "image://icons/shield/accent"; sourceSize: Qt.size(14, 14) }
-                            Text { text: "Quản lý Rủi ro"; color: Theme.textPrimary; font.pixelSize: 12; font.bold: true }
-                        }
-                        GridLayout {
-                            columns: 2
-                            columnSpacing: 20
-                            rowSpacing: 10
-                            Layout.fillWidth: true
-                            
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Stop Loss (SL %)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "2.0"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Take Profit (TP %)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "6.0"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Đòn bẩy"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "3x Futures"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Risk per Trade"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "1.5"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Section 2: Smart Money Concepts Params
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 110
-                    color: "transparent"
-                    border.color: Theme.border
-                    radius: 4
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
-                        RowLayout {
-                            Image { source: "image://icons/zap/accent"; sourceSize: Qt.size(14, 14) }
-                            Text { text: "Quasimodo Pattern Settings"; color: Theme.textPrimary; font.pixelSize: 12; font.bold: true }
-                        }
-                        GridLayout {
-                            columns: 2
-                            columnSpacing: 20
-                            rowSpacing: 10
-                            Layout.fillWidth: true
-                            
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Left Shoulder Tolerance (%)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "0.5"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Minimum RR required"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "3.0"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ================== STRATEGY 2: QT SMART MONEY CONCEPTS ==================
-            ColumnLayout {
-                spacing: 15
-                Layout.fillWidth: true
-
-                // Section 1: Risk & Leverage
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 140
-                    color: "transparent"
-                    border.color: Theme.border
-                    radius: 4
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
-                        RowLayout {
-                            Image { source: "image://icons/shield/accent"; sourceSize: Qt.size(14, 14) }
-                            Text { text: "Quản lý Rủi ro"; color: Theme.textPrimary; font.pixelSize: 12; font.bold: true }
-                        }
-                        GridLayout {
-                            columns: 2
-                            columnSpacing: 20
-                            rowSpacing: 10
-                            Layout.fillWidth: true
-                            
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Stop Loss (SL %)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "1.0"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Take Profit (TP %)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "5.0"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Đòn bẩy"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "10x Futures"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Risk per Trade"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "3"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Section 2: FVG and Liquidity Params
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 110
-                    color: "transparent"
-                    border.color: Theme.border
-                    radius: 4
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
-                        RowLayout {
-                            Image { source: "image://icons/zap/accent"; sourceSize: Qt.size(14, 14) }
-                            Text { text: "Fair Value Gap & Liquidity"; color: Theme.textPrimary; font.pixelSize: 12; font.bold: true }
-                        }
-                        GridLayout {
-                            columns: 2
-                            columnSpacing: 20
-                            rowSpacing: 10
-                            Layout.fillWidth: true
-                            
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "FVG Mitigation Thresh (%)"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "50"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Liquidity Sweep Candles"; color: Theme.muted; font.pixelSize: 11 }
-                                TextField {
-                                    text: "10"
-                                    color: Theme.textPrimary
-                                    background: FieldBackground {}
-                                    Layout.fillWidth: true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Fallback for Strategy 3 (Trend Follower)
-            ColumnLayout {
-                Text { text: "Parameters for Multi-EMA Trend Follower..."; color: Theme.textPrimary }
             }
         }
-    }
 
-    // Footer
-    Rectangle {
-        id: footer
-        width: parent.width
-        height: 60
-        color: "transparent"
-        anchors.bottom: parent.bottom
-        
-        // Top divider
-        Rectangle { width: parent.width; height: 1; color: Theme.border; anchors.top: parent.top }
-        
+        // ================= Error =================
+        Text {
+            objectName: "txtBotParamsError"
+            Layout.fillWidth: true
+            visible: viewModel.botParamsError !== ""
+            text: viewModel.botParamsError
+            color: "#ff5252"
+            font.pixelSize: 11
+            wrapMode: Text.Wrap
+        }
+
+        // ================= Footer =================
         RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 15
-            anchors.rightMargin: 15
-            
-            // Left action
-            MouseArea {
-                implicitWidth: restoreLayout.implicitWidth
-                implicitHeight: 30
-                cursorShape: Qt.PointingHandCursor
-                RowLayout {
-                    id: restoreLayout
-                    anchors.centerIn: parent
-                    spacing: 5
-                    Image { source: "image://icons/rotate-ccw/muted"; sourceSize: Qt.size(14, 14) }
-                    Text { text: "Khôi phục Mặc định"; color: Theme.muted; font.pixelSize: 12 }
+            Layout.fillWidth: true
+            spacing: 10
+
+            Button {
+                objectName: "btnBotParamsReset"
+                text: "Khôi phục Mặc định"
+                implicitHeight: 32
+                background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
+                contentItem: Text {
+                    text: parent.text
+                    color: Theme.muted
+                    font.pixelSize: 11
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
                 }
+                onClicked: root.resetAllFields()
             }
-            
+
             Item { Layout.fillWidth: true }
-            
-            // Right actions
+
             Button {
+                objectName: "btnBotParamsCancel"
                 text: "Hủy"
-                background: Rectangle { color: "#2b2d35"; radius: 4 }
-                contentItem: Text { text: parent.text; color: Theme.textPrimary; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                implicitWidth: 80
                 implicitHeight: 32
+                background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
+                contentItem: Text {
+                    text: parent.text
+                    color: Theme.textPrimary
+                    font.pixelSize: 11
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
                 onClicked: root.close()
             }
-            
+
             Button {
+                objectName: "btnBotParamsSave"
                 text: "Lưu & Re-Backtest"
-                background: Rectangle { color: Theme.accent; radius: 4 }
-                contentItem: RowLayout {
-                    spacing: 5
-                    Image { source: "image://icons/save/black"; sourceSize: Qt.size(14, 14) }
-                    Text { text: parent.parent.text; color: "#000000"; font.pixelSize: 12; font.bold: true }
-                }
-                implicitWidth: 160
+                implicitWidth: 150
                 implicitHeight: 32
-                onClicked: root.close()
+                background: Rectangle { color: Theme.accent; radius: 4 }
+                contentItem: Text {
+                    text: parent.text
+                    color: "#000000"
+                    font.pixelSize: 11
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: root.saveAndRerun()
             }
         }
+    }
+
+    // Every BotParamField sets `isBotParamField: true` — walking the tree
+    // for that marker (rather than keeping a second flat list in sync with
+    // the nested group/field Repeaters above) means Reset/Save work
+    // regardless of how deeply the form is nested.
+    function _collectFieldItems(item, result) {
+        for (var i = 0; i < item.children.length; ++i) {
+            var child = item.children[i]
+            if (child.isBotParamField === true) {
+                result.push(child)
+            }
+            _collectFieldItems(child, result)
+        }
+    }
+
+    function resetAllFields() {
+        var items = []
+        _collectFieldItems(contentColumn, items)
+        for (var i = 0; i < items.length; ++i) {
+            items[i].resetToDefault()
+        }
+    }
+
+    function saveAndRerun() {
+        var items = []
+        _collectFieldItems(contentColumn, items)
+        var values = ({})
+        for (var i = 0; i < items.length; ++i) {
+            values[items[i].fieldName] = items[i].currentValue
+        }
+        viewModel.requestBotParamsSave(values)
     }
 }

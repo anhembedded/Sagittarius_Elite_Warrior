@@ -106,8 +106,8 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 | :--- | :--- |
 | [`BOT-044`](../completed/BOT-044_param_schema_core.md) | **Param Schema Core** — value object + API `input_int/float/bool/string()` trên `BaseIndicatorScript`, cơ chế 2 pha (khai báo → đọc schema → tạo lại với params). ⚠️ Đảo ngược `BOT-032` §9.1. |
 | [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md) | Mang cơ chế đó sang `BaseStrategy` + nối `StrategyRegistry.create(params)` / `build_engine(params)`. |
-| [`BOT-047`](BOT-047_dynamic_params_form_ui.md) | Modal "Cấu hình Thông số Bot" dựng form **động** từ schema (4 kiểu widget, nhóm field, "Khôi phục Mặc định", "Lưu & Re-Backtest"). |
-| [`BOT-048`](BOT-048_migrate_default_scripts_to_inputs.md) | Chuyển 6 script mặc định sang khai báo period bằng input (**giữ nguyên cả 6**, default 20/50/100/200/14 — user đã chốt). |
+| [`BOT-047`](../completed/BOT-047_dynamic_params_form_ui.md) | Modal "Cấu hình Thông số Bot" dựng form **động** từ schema (4 kiểu widget, nhóm field, "Khôi phục Mặc định", "Lưu & Re-Backtest"). |
+| [`BOT-048`](../completed/BOT-048_migrate_default_scripts_to_inputs.md) | Chuyển 6 script mặc định sang khai báo period bằng input (**giữ nguyên cả 6**, default 20/50/100/200/14 — user đã chốt). |
 
 ### Nhóm B — PaperExchange nâng cao
 
@@ -122,7 +122,7 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 
 | Task | Độ khó | Mô tả ngắn |
 | :--- | :---: | :--- |
-| [`BOT-051`](BOT-051_multi_ema_trend_follower.md) | Thấp | Multi-EMA Trend Follower — mở rộng từ `EmaCrossoverStrategy`. |
+| [`BOT-051`](../completed/BOT-051_multi_ema_trend_follower.md) | Thấp | Multi-EMA Trend Follower — mở rộng từ `EmaCrossoverStrategy`. |
 | [`BOT-052`](BOT-052_four_ema_pullback_sideways_filter.md) | Trung bình | 4 EMA Pullback + Sideways Filter — cần định nghĩa "sideways" bằng số liệu. |
 | [`BOT-053`](BOT-053_qml_structure_breakout.md) | Cao | QML Structure Breakout — nhận diện price-action pattern, sinh "QML Score". |
 

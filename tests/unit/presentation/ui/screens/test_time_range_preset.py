@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.time_range_preset import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
     resolve_time_range,
 )

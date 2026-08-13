@@ -1,11 +1,11 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.trade_log_pagination import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_pagination import (
     clamp_page,
     paginate_trade_log_rows,
     total_pages,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
     TradeLogRow,
 )
 

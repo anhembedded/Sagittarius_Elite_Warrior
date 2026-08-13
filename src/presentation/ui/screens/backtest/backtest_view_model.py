@@ -1,18 +1,23 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Property, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtQml import QJSValue
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestUiState,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.time_range_preset import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
     TradeLogFilter,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
+    IndicatorScriptListModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
@@ -49,6 +54,7 @@ class BackTestViewModel(BaseQmlViewModel):
     strategyOptionsChanged = Signal()
     selectedStrategyKeyChanged = Signal()
     initialCapitalTextChanged = Signal()
+    selectedCurrencyChanged = Signal()
     selectedTimeframeChanged = Signal()
     timeRangePresetChanged = Signal()
     customStartTextChanged = Signal()
@@ -83,11 +89,28 @@ class BackTestViewModel(BaseQmlViewModel):
     #: Emitted when the user clicks "Export" (BOT-057 §2.1).
     tradeLogExportRequested = Signal()
 
+    #: Fires whenever `botParamsSchema` changes (selected strategy changed,
+    #: or a save just refreshed the shown "value"s) — BOT-047.
+    botParamsSchemaChanged = Signal()
+
+    #: Empty string means "no error". Set by the Presenter after a save
+    #: attempt; the modal shows this inline rather than closing.
+    botParamsErrorChanged = Signal()
+
+    #: Emitted when the user's "Lưu & Re-Backtest" values passed validation
+    #: and were applied — QML's modal listens for this to close itself.
+    botParamsSaved = Signal()
+
+    #: Emitted with a {field_name: raw_value} JS object collected from the
+    #: modal's form — BOT-047.
+    botParamsSaveRequested = Signal(object)
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._strategy_options: list[dict[str, str]] = []
         self._selected_strategy_key = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
+        self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
         self._custom_start_text = ""
@@ -104,6 +127,25 @@ class BackTestViewModel(BaseQmlViewModel):
         self._trade_log_filter = TradeLogFilter.ALL.value
         self._trade_log_search_text = ""
         self._trade_log_current_page = 1
+        self._bot_params_schema: list[dict] = []
+        self._bot_params_error = ""
+        self._script_model = IndicatorScriptListModel(self)
+
+    # ------------------------------------------------------------------ #
+    # Script model (BOT-064) — exposed to IndicatorPickerMenu.qml's "Chỉ
+    # báo tham khảo" checklist, populated by the Presenter from
+    # IndicatorScriptRegistry.available() (same shape/idiom as
+    # DashboardQmlViewModel.scriptModel).
+    # ------------------------------------------------------------------ #
+
+    @Property(QObject, constant=True)
+    def scriptModel(self) -> IndicatorScriptListModel:
+        return self._script_model
+
+    @property
+    def script_model(self) -> IndicatorScriptListModel:
+        """Pythonic accessor for the Presenter."""
+        return self._script_model
 
     # ------------------------------------------------------------------ #
     # Strategy selection
@@ -140,6 +182,36 @@ class BackTestViewModel(BaseQmlViewModel):
     )
 
     # ------------------------------------------------------------------ #
+    # Bot Parameters modal (BOT-047)
+    # ------------------------------------------------------------------ #
+
+    def _get_bot_params_schema(self) -> list[dict]:
+        return self._bot_params_schema
+
+    #: list[{"group": str, "fields": [...]}] — built by the Presenter from
+    #: the selected strategy's declared `input_*()` parameters
+    #: (`bot_params_form.build_bot_params_schema`). Read-only from QML: the
+    #: form only ever edits its own local copy of each field's value, never
+    #: this property directly (see BotParamsDialog.qml).
+    botParamsSchema = Property(
+        "QVariantList", _get_bot_params_schema, notify=botParamsSchemaChanged
+    )
+
+    def set_bot_params_schema(self, schema: list[dict]) -> None:
+        self._bot_params_schema = schema
+        self.botParamsSchemaChanged.emit()
+
+    def _get_bot_params_error(self) -> str:
+        return self._bot_params_error
+
+    botParamsError = Property(str, _get_bot_params_error, notify=botParamsErrorChanged)
+
+    def set_bot_params_error(self, message: str) -> None:
+        if message != self._bot_params_error:
+            self._bot_params_error = message
+            self.botParamsErrorChanged.emit()
+
+    # ------------------------------------------------------------------ #
     # Capital / timeframe
     # ------------------------------------------------------------------ #
 
@@ -157,6 +229,25 @@ class BackTestViewModel(BaseQmlViewModel):
         _set_initial_capital_text,
         notify=initialCapitalTextChanged,
     )
+
+    def _get_selected_currency(self) -> str:
+        return self._selected_currency
+
+    def _set_selected_currency(self, value: str) -> None:
+        if value != self._selected_currency:
+            self._selected_currency = value
+            self.selectedCurrencyChanged.emit()
+
+    selectedCurrency = Property(
+        str,
+        _get_selected_currency,
+        _set_selected_currency,
+        notify=selectedCurrencyChanged,
+    )
+
+    @Property("QStringList", constant=True)
+    def currencyOptions(self) -> list[str]:
+        return Currency.list_values()
 
     @Property("QStringList", constant=True)
     def timeframeOptions(self) -> list[str]:
@@ -435,3 +526,19 @@ class BackTestViewModel(BaseQmlViewModel):
     def requestTradeLogExport(self) -> None:
         """Called from QML's "Export" button."""
         self.tradeLogExportRequested.emit()
+
+    @Slot("QVariant")
+    def requestBotParamsSave(self, values) -> None:
+        """Called from QML's "Lưu & Re-Backtest" button with a JS object of
+        {field_name: raw_value} collected from the form (BOT-047).
+
+        @details PySide6 marshals a `QVariant`-typed slot argument built from
+        a plain QML JS object literal as a `QJSValue`, not a Python `dict` —
+        `dict(values)` raises `TypeError: '...QJSValue' object is not
+        iterable` on the real object QML sends (only a hand-built Python
+        dict passed directly from a test bypasses this). `toVariant()`
+        recursively converts it to native Python types first.
+        """
+        if isinstance(values, QJSValue):
+            values = values.toVariant()
+        self.botParamsSaveRequested.emit(dict(values))

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -16,6 +17,13 @@ class RunStaticBacktestCommand(BaseModel):
     interval: TimeFrame = Field(description="Candlestick timeframe")
     strategy_key: str = Field(
         description="StrategyRegistry key of the strategy to run (e.g. 'ema_crossover')"
+    )
+    strategy_params: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Values for the parameters the strategy declares via input_*() "
+            "(BOT-044/046). None runs every declared default."
+        ),
     )
     initial_balance: float = Field(
         default=10_000.0, gt=0, description="Starting account balance"

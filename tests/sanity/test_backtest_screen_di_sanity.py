@@ -100,12 +100,17 @@ def test_strategy_registry_has_the_default_backtest_strategy(booted_app):
     assert "ema_crossover" in registry.available()
 
 
-def test_indicator_script_registry_has_the_chart_ema_overlay_script(booted_app):
-    """The Backtest Chart Canvas's "4 EMA" overlay (BOT-056) hardcodes the
-    key `"ema_ribbon"` (`backtest_presenter.py`'s `_CHART_EMA_SCRIPT_KEY`) —
-    if that script is ever renamed/dropped from `binance_bot_module.py`, the
-    overlay goes silently quiet instead of failing loudly
-    (`IndicatorScriptRunner.rebuild()` only logs a warning on an unknown key,
-    it never raises). Pin the key here so a rename shows up immediately."""
+def test_strategy_registry_has_multi_ema_trend_follower(booted_app):
+    """BOT-051 — pinned separately so an accidental un-registration in
+    `binance_bot_module.py` shows up here instead of only as a missing
+    dropdown option a user has to notice by eye."""
+    registry = booted_app.context.container.resolve(StrategyRegistry)
+    assert "multi_ema_trend_follower" in registry.available()
+
+
+def test_indicator_script_registry_resolves_for_the_backtest_screen(booted_app):
+    """BOT-064 — BackTestPresenter now resolves `IndicatorScriptRegistry`
+    too (for the "Chỉ báo tham khảo" picker), same registry Dev Board
+    already depends on; at least the shipped defaults must be there."""
     registry = booted_app.context.container.resolve(IndicatorScriptRegistry)
-    assert "ema_ribbon" in registry.available()
+    assert "ema_20" in registry.available()

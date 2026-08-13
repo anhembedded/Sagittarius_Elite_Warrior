@@ -49,7 +49,7 @@ vào Sidebar.
 - [ ] Hiển thị kết quả thô tạm thời (vd JSON/text) để verify end-to-end trước
   khi có panel đẹp — sẽ bị 3 task sau thay thế.
 - [ ] Nút mở modal "Cấu hình Thông số Bot" — **để disable** ở task này, bật
-  khi [`BOT-047`](../backlog/BOT-047_dynamic_params_form_ui.md) xong.
+  khi [`BOT-047`](BOT-047_dynamic_params_form_ui.md) xong.
 - [ ] Layout switcher: chỉ chế độ "1 cửa sổ". **Không làm** 2 biểu đồ/lưới
   (tách task sau nếu có nhu cầu thật).
 - [ ] **Không làm**: nút "AI Chẩn đoán" (user đã chốt hoãn), nhóm checkbox
@@ -70,4 +70,4 @@ vào Sidebar.
 - `BOT-021` ✅ — `RunStaticBacktestCommand`/`BacktestResult`.
 - `BOT-026` ✅ — `StrategyRegistry`.
 - `BOT-016` ✅ / `BOT-030` ✅ — icon, hạ tầng QML.
-- [`BOT-047`](../backlog/BOT-047_dynamic_params_form_ui.md) — modal cấu hình (bật nút sau).
+- [`BOT-047`](BOT-047_dynamic_params_form_ui.md) — modal cấu hình (bật nút sau).

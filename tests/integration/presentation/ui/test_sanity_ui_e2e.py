@@ -91,7 +91,9 @@ def test_sanity_data_management_sync(qtbot, main_window, navigate, qml_item, qap
     # caused via a standalone repro script that isolated it to genuine
     # event-delivery latency (a bounded poll always converges), not a
     # dropped click or broken FSM matrix.
-    qtbot.waitUntil(lambda: presenter.fsm.current_state.value == "LOCKED", timeout=2000)
+    qtbot.waitUntil(
+        lambda: presenter.fsm.current_state.value == "SYNCING", timeout=2000
+    )
 
 
 @pytest.mark.parametrize("app_engine", [True], indirect=True)
