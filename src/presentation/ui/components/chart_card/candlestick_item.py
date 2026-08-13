@@ -129,6 +129,21 @@ class FastCandlestickItem(pg.GraphicsObject):
         )
         return self.history_data[lo:hi]
 
+    def viewRangeChanged(self):
+        """
+        @brief pyqtgraph hook, called whenever the containing ViewBox's
+        range changes (connected automatically once this item is added to
+        a real ViewBox — see GraphicsItem._updateView()).
+        @details paint() reads viewRange() live via _visible_history_slice()
+        to draw only the visible window, but Qt only calls paint() again
+        when it decides the item's region needs repainting. Without this
+        override (the base class hook is an empty no-op — see BOT-072),
+        nothing tells Qt the item's visible content just changed, so after
+        an aggressive zoom out/in Qt can skip the repaint and leave the
+        previous paint()'s stale slice on screen.
+        """
+        self.update()
+
     def paint(self, p: QtGui.QPainter, *args):
         """
         @brief Draws only the currently-visible candles (+ padding), plus

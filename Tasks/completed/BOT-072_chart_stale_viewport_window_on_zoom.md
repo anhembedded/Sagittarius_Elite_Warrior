@@ -102,15 +102,45 @@ Khuyến nghị: làm **cách 1 trước** vì nó vá đúng bug với bề m�
 
 ## 4. Các bước thực hiện
 
-- [ ] **Tái hiện bằng test trước** (bắt buộc, [`.agents/rules/code-rule.md`](../../.agents/rules/code-rule.md)).
+- [x] **Tái hiện bằng test trước** (bắt buộc, [`.agents/rules/code-rule.md`](../../.agents/rules/code-rule.md)).
       Seam gợi ý — test `paint()` trực tiếp rất khó, đừng cố:
       dựng `FastCandlestickItem` gắn vào ViewBox thật với N nến, đặt X range rộng, ép vẽ, rồi
       đổi sang X range hẹp và **assert item được invalidate** (spy `update()`), và
       `_visible_history_slice()` trả đúng cửa sổ mới. Test phải **fail trước khi sửa**.
-- [ ] Sửa theo §3.1 (chọn 1 cách).
-- [ ] Chạy lại toàn bộ test `chart_card` hiện có — không được sửa test nào để cho xanh.
-- [ ] Kiểm bằng tay đúng kịch bản user mô tả: zoom out thật xa → zoom in → nến phải còn đủ.
-- [ ] Ghi lại kết quả đo perf nếu có đụng §3.2.
+- [x] Sửa theo §3.1 (chọn 1 cách).
+- [x] Chạy lại toàn bộ test `chart_card` hiện có — không được sửa test nào để cho xanh.
+- [x] Kiểm bằng tay đúng kịch bản user mô tả: zoom out thật xa → zoom in → nến phải còn đủ.
+- [x] Ghi lại kết quả đo perf nếu có đụng §3.2.
+
+## 8. Kết quả triển khai thực tế
+
+Làm đúng cách 1 của §3.1 (native pyqtgraph, bề mặt thay đổi nhỏ nhất, đúng khuyến nghị của
+task): thêm `FastCandlestickItem.viewRangeChanged()` (`candlestick_item.py`), override hook
+rỗng của `pyqtgraph.GraphicsItem` — chỉ gọi `self.update()`. Hook này tự động được nối dây bởi
+pyqtgraph khi item được `addItem()` vào một `ViewBox` thật (`GraphicsItem._updateView()` connect
+`view.sigRangeChanged` → `self.viewRangeChanged`), nên không cần sửa gì ở `ChartCard`.
+
+**Test tái hiện trước khi sửa** (`tests/unit/presentation/ui/components/test_candlestick_item.py`,
+file mới): dựng `pg.PlotItem()` thật, `addItem()` 1 `_SpyCandlestickItem` (subclass đếm số lần
+`update()` được gọi) với 200 nến, set X range rộng rồi hẹp qua `plot_item.vb.setRange(xRange=...)`
+— trước fix `update_call_count == 0` (bug tái hiện đúng như §2.3 mô tả), sau fix `> 0`. Test thứ 2
+(`test_visible_history_slice_reflects_the_current_viewport_after_a_range_change`) xác nhận
+`_visible_history_slice()` luôn tính đúng ngay cả **trước** fix — đúng như §2.3 chỉ ra, bug nằm ở
+chỗ **không ai gọi lại `paint()`**, không phải ở phép tính slice.
+
+**Kiểm tay** (script offscreen, không phải phiên GUI thật có chuột — môi trường dev không có
+display): dựng `ChartCard` thật với 1000 nến, `vb.setRange(xRange=(-500000, 500000))` (mô phỏng
+zoom out rất xa) rồi `vb.setRange(xRange=...)` hẹp lại trong vùng có dữ liệu — `_visible_history_slice()`
+trả về đúng 21 nến trong cửa sổ hẹp, không rỗng. Đây **không phải bằng chứng hình ảnh thật** (không
+grab pixel so sánh trước/sau fix) — mức độ tin cậy thật sự tới từ test đầu tiên (spy `update()`),
+vốn trực tiếp verify đúng cơ chế root cause đã xác định ở §2.3, không phải suy đoán.
+
+**Không đụng §3.2** (số phận `refresh_window()`/`set_visible_range()` code chết) — đúng quyết
+định "không tự quyết" của task gốc, để lại nguyên trạng chờ user chốt hướng nếu muốn làm tiếp.
+
+775 test unit+sanity pass (1 fail không liên quan, `test_interactive_shell_wait_for_exit_exception`
+— `ModuleNotFoundError: No module named 'src'`, xác nhận lỗi có sẵn từ trước bằng `git stash`,
+không phải do thay đổi của task này), `ruff` sạch.
 
 ## 5. Rủi ro / Lưu ý
 
