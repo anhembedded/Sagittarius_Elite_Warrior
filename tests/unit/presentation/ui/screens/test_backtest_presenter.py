@@ -591,7 +591,7 @@ def test_successful_run_with_trades_updates_view_model_and_unlocks(
     assert "ETHUSDT" in view_model.resultText
     assert "Closed trades: 1" in view_model.resultText
     assert len(view_model.primaryStatCards) == 4
-    assert len(view_model.extendedStatCards) == 8
+    assert len(view_model.extendedStatCards) == 9  # BOT-079: +Total Fees Paid
 
 
 def test_dispatches_run_static_backtest_command_with_the_built_config(

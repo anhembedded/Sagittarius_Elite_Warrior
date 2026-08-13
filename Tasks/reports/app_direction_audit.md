@@ -16,7 +16,7 @@
 
 | # | Phát hiện | Mức | Ai sở hữu |
 | :---: | :--- | :---: | :--- |
-| 1 | `-80.71%` trong log **~96% là phí giao dịch**, không phải chiến lược | 🔴 | [`BOT-079`](../backlog/BOT-079_fee_transparency_and_trade_frequency.md) |
+| 1 | `-80.71%` trong log **~96% là phí giao dịch**, không phải chiến lược | 🔴 | ✅ [`BOT-079`](../completed/BOT-079_fee_transparency_and_trade_frequency.md) |
 | 2 | **Không có bất kỳ** cơ chế chống overfitting nào | 🔴 | [`BOT-080`](../backlog/BOT-080_out_of_sample_walk_forward.md) |
 | 3 | Bot **không giao dịch được** — 21/46 task xong là backtest/chart | 🔴 | **Quyết định của user** (§3) |
 | 4 | Sắp có **3 backtest engine** với bất biến ngược nhau | 🟠 | [`BOT-023`](../backlog/BOT-023_dynamic_backtest_engine.md) (đã ghi chú) |

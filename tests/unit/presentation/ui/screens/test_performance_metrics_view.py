@@ -179,7 +179,78 @@ def test_extended_cards_cover_every_remaining_metrics_field():
         "Largest Winning Trade",
         "Largest Losing Trade",
         "Total Closed Trades",
+        "Total Fees Paid",  # BOT-079
     }
+
+
+# ---------------------------------------------------------------------------
+# BOT-079: fee transparency / trade frequency warning on the Net PnL badge
+# ---------------------------------------------------------------------------
+
+
+def _fee_heavy_trade(fees: float) -> Trade:
+    """807 round trips at a flat price -> zero gross edge, loss is 100% fees
+    (same shape as the real BUG-002 log)."""
+    return Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T1,
+        exit_price=100.0,
+        quantity=1.0,
+        pnl=-fees,
+        pnl_percent=-fees,
+        fees_paid=fees,
+    )
+
+
+def test_net_pnl_badge_stays_plain_percent_when_no_warning_fires():
+    # 40 bars / 2 trades = 20 bars/trade, above MIN_BARS_PER_TRADE_WARNING_THRESHOLD
+    # (15) -> no frequency warning either, isolating this to "no warnings at all".
+    equity_curve = [(_T0, 1000.0)] * 40
+    result = _result(trades=[_trade(50.0), _trade(-10.0)], equity_curve=equity_curve)
+
+    net_pnl = next(
+        c
+        for c in build_primary_stat_cards(result)
+        if c.title == "Tổng Lãi/Lỗ (Net PnL)"
+    )
+
+    assert net_pnl.badge_text == "+4.00%"
+    assert net_pnl.badge_color == BULL_COLOR
+
+
+def test_net_pnl_badge_gets_a_warning_note_and_turns_bearish_when_fees_dominate():
+    trades = [_fee_heavy_trade(10.0) for _ in range(50)]
+    equity_curve = [(_T0, 1000.0)] * 500  # 10 bars/trade -> also high frequency
+    result = _result(trades, equity_curve)
+
+    net_pnl = next(
+        c
+        for c in build_primary_stat_cards(result)
+        if c.title == "Tổng Lãi/Lỗ (Net PnL)"
+    )
+
+    assert result.metrics.has_high_fee_ratio is True
+    assert "⚠" in net_pnl.badge_text
+    assert net_pnl.badge_color == BEAR_COLOR
+
+
+def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():
+    healthy = _result(trades=[_trade(50.0), _trade(-10.0)], equity_curve=[])
+    fee_heavy = _result(
+        [_fee_heavy_trade(10.0) for _ in range(50)], [(_T0, 1000.0)] * 500
+    )
+
+    healthy_fees = next(
+        c for c in build_extended_stat_cards(healthy) if c.title == "Total Fees Paid"
+    )
+    fee_heavy_fees = next(
+        c for c in build_extended_stat_cards(fee_heavy) if c.title == "Total Fees Paid"
+    )
+
+    assert healthy_fees.value_color == ""
+    assert fee_heavy_fees.value_color == BEAR_COLOR
 
 
 def test_stat_cards_to_qml_uses_qml_property_names():

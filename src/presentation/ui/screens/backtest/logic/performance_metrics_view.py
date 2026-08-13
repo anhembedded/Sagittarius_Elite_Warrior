@@ -15,6 +15,14 @@ _INFINITY_DISPLAY = "∞"  # "∞" — profit_factor is float("inf") with 0 lose
 _LOSING_PROFIT_FACTOR_BADGE = "Rủi ro"
 _NEUTRAL_COLOR = ""  # empty = "let QML fall back to Theme.muted/textPrimary"
 
+#: BOT-079 — appended to the Net PnL badge (not a new card, not a full-screen
+#: banner — task explicitly warns against "nhuộm đỏ toàn màn hình như thể
+#: sai") so the warning sits exactly where the user is already looking,
+#: without a popup click. Informational only: never replaces the % figure,
+#: only adds to it.
+_FEE_WARNING_NOTE = "⚠ Phí cao"
+_FREQUENCY_WARNING_NOTE = "⚠ Tần suất cao"
+
 
 @dataclass(frozen=True)
 class StatCardData:
@@ -68,6 +76,26 @@ def _profit_factor_text(profit_factor: float) -> str:
     return f"{profit_factor:.3f}"
 
 
+def _net_pnl_badge(metrics) -> tuple[str, str]:
+    """@brief (badge_text, badge_color) for the Net PnL card — BOT-079: folds
+    the fee-dominance / trade-frequency warnings into the badge that's
+    already always visible, rather than a new card or a separate banner.
+    Same precedent as the Profit Factor card's "Rủi ro" badge: color flips to
+    `BEAR_COLOR` when the flag is up, independent of whether net_profit
+    itself is positive — a "profitable" run that's mostly fees still needs
+    the red."""
+    text = f"{_signed(metrics.net_profit_percent)}%"
+    notes = []
+    if metrics.has_high_fee_ratio:
+        notes.append(_FEE_WARNING_NOTE)
+    if metrics.has_high_trade_frequency:
+        notes.append(_FREQUENCY_WARNING_NOTE)
+    if not notes:
+        profit_color = BULL_COLOR if metrics.net_profit >= 0 else BEAR_COLOR
+        return text, profit_color
+    return f"{text}  {'  '.join(notes)}", BEAR_COLOR
+
+
 def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
     """The 4 always-visible cards (BOT-055 §2)."""
     metrics = result.metrics
@@ -78,6 +106,7 @@ def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
     profit_color = BULL_COLOR if metrics.net_profit >= 0 else BEAR_COLOR
     win_rate_color = BULL_COLOR if metrics.percent_profitable >= 50 else BEAR_COLOR
     profit_factor_color = BULL_COLOR if metrics.profit_factor >= 1 else BEAR_COLOR
+    net_pnl_badge_text, net_pnl_badge_color = _net_pnl_badge(metrics)
 
     return [
         StatCardData(
@@ -85,8 +114,8 @@ def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
             value=_signed(metrics.net_profit),
             value_color=profit_color,
             suffix="USD",
-            badge_text=f"{_signed(metrics.net_profit_percent)}%",
-            badge_color=profit_color,
+            badge_text=net_pnl_badge_text,
+            badge_color=net_pnl_badge_color,
         ),
         StatCardData(
             title="Mức sụt giảm tối đa (Max Drawdown)",
@@ -198,6 +227,17 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
             str(metrics.total_closed_trades),
             _NEUTRAL_COLOR,
             "",
+            "",
+            _NEUTRAL_COLOR,
+        ),
+        StatCardData(
+            "Total Fees Paid",
+            f"{metrics.total_fees_paid:,.2f}",
+            # BOT-079: the one card in this "raw data dump" row that DOES
+            # get a color — fee dominance is exactly the fact this field
+            # exists to surface, so when it's true, don't render it neutral.
+            BEAR_COLOR if metrics.has_high_fee_ratio else _NEUTRAL_COLOR,
+            "USD",
             "",
             _NEUTRAL_COLOR,
         ),

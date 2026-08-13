@@ -73,8 +73,9 @@ text đổi từ `"Developer Board (Live Testbed)"` thành `"Dev Board"`. Test
 `test_dashboard_view_header_title` pin đúng chuỗi cũ (chủ đích từ `BOT-014`, phân biệt Dev
 Board với dashboard người dùng cuối).
 
-**Không rõ đây là refactor có chủ đích (rút gọn nhãn) hay đổi ngoài ý muốn** — cần user
-xác nhận trước khi sửa bên nào (đổi test theo UI mới, hay đổi UI về lại chuỗi cũ).
+~~**Không rõ đây là refactor có chủ đích (rút gọn nhãn) hay đổi ngoài ý muốn**~~ → **User
+đã chốt: giữ nguyên nhãn cũ.** Sửa `lblHeaderTitle` về lại `"Developer Board (Live
+Testbed)"` — **không** đổi `test_dashboard_view_header_title`, nó đã đúng từ đầu.
 
 ## 3. Các bước thực hiện
 
@@ -87,7 +88,7 @@ xác nhận trước khi sửa bên nào (đổi test theo UI mới, hay đổi 
 - [ ] Rà toàn bộ `BackTestTopPanel.qml`/`BackTestTradeLogs.qml` tìm pattern
       `Button { ... MouseArea { onClicked: ... } }` khác — 2 ca tìm được ở §2.1 nhiều khả
       năng không phải toàn bộ, refactor có vẻ áp dụng đồng loạt.
-- [ ] §2.2: hỏi user chốt nhãn đúng, sửa 1 trong 2 phía cho khớp.
+- [x] §2.2: **đã chốt** — sửa `lblHeaderTitle` về lại `"Developer Board (Live Testbed)"`.
 - [ ] Chạy lại `test_backtest_presenter.py` + `test_dashboard_view.py` + toàn bộ
       `tests/unit/`/`tests/sanity/` — phải xanh hoàn toàn, không riêng 3 test này.
 

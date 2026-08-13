@@ -5,6 +5,19 @@ from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 
+#: BOT-079 — if total fees paid exceed this fraction of |net_profit|, the
+#: result is flagged as fee-dominated: net_profit alone can read as "this
+#: strategy is bad" when it's actually "this strategy is roughly breakeven
+#: and fees ate the rest" (see BUG-002: 807 trades, -80.71% net, of which
+#: -80.11 points were fees alone). A starting number, not a validated
+#: threshold — revisit once this has seen real use.
+FEE_DOMINANCE_WARNING_RATIO = 0.3
+
+#: BOT-079 — if the average number of bars between trades drops below this,
+#: flag the run as high-frequency: a strategy firing this often is far more
+#: exposed to per-trade fees eating any edge it has. Same caveat as above.
+MIN_BARS_PER_TRADE_WARNING_THRESHOLD = 15.0
+
 
 @dataclass(frozen=True)
 class BacktestMetrics:
@@ -28,6 +41,22 @@ class BacktestMetrics:
     avg_losing_trade: float
     largest_winning_trade: float
     largest_losing_trade: float
+    #: BOT-079 — sum of every Trade.fees_paid (entry + exit combined). All
+    #: of net_profit/gross_profit/gross_loss/... above are already computed
+    #: from Trade.pnl, which is *after* fees (PaperExchange._close()) — this
+    #: is the one field that surfaces how much of that result was fees,
+    #: which nothing else here does.
+    total_fees_paid: float = 0.0
+    #: BOT-079 — len(equity_curve) / total_closed_trades. Deliberately
+    #: bars, not a wall-clock rate ("trades/day") — that would need to know
+    #: the candle interval, which BacktestMetrics has no reason to know;
+    #: bar count is already timeframe-independent.
+    avg_bars_per_trade: float = 0.0
+    #: BOT-079 — see FEE_DOMINANCE_WARNING_RATIO. Informational only: never
+    #: blocks a run, never implies the numbers above are wrong.
+    has_high_fee_ratio: bool = False
+    #: BOT-079 — see MIN_BARS_PER_TRADE_WARNING_THRESHOLD.
+    has_high_trade_frequency: bool = False
 
     @classmethod
     def compute(
@@ -53,6 +82,10 @@ class BacktestMetrics:
                 avg_losing_trade=0.0,
                 largest_winning_trade=0.0,
                 largest_losing_trade=0.0,
+                total_fees_paid=0.0,
+                avg_bars_per_trade=0.0,
+                has_high_fee_ratio=False,
+                has_high_trade_frequency=False,
             )
 
         # Breakeven trades (pnl == 0) count toward total_closed_trades but
@@ -70,6 +103,9 @@ class BacktestMetrics:
         else:
             profit_factor = float("inf") if gross_profit > 0 else 0.0
 
+        total_fees_paid = sum(t.fees_paid for t in trades)
+        avg_bars_per_trade = len(equity_curve) / total_closed_trades
+
         return cls(
             net_profit=net_profit,
             net_profit_percent=(net_profit / initial_balance * 100)
@@ -86,6 +122,12 @@ class BacktestMetrics:
             avg_losing_trade=(gross_loss / len(losers)) if losers else 0.0,
             largest_winning_trade=max((t.pnl for t in winners), default=0.0),
             largest_losing_trade=min((t.pnl for t in losers), default=0.0),
+            total_fees_paid=total_fees_paid,
+            avg_bars_per_trade=avg_bars_per_trade,
+            has_high_fee_ratio=total_fees_paid
+            > FEE_DOMINANCE_WARNING_RATIO * abs(net_profit),
+            has_high_trade_frequency=avg_bars_per_trade
+            < MIN_BARS_PER_TRADE_WARNING_THRESHOLD,
         )
 
 
