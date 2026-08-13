@@ -1,8 +1,13 @@
-# Nhiệm vụ: Tick-Level Indicator/Strategy Engine Support
+# Nhiệm vụ: Tick-Level Indicator/Strategy Engine Support — *Provisional vs Commit*
 
-> Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0
+> Thuộc [Epic BOT-073](BOT-073_realtime_tick_backtest_epic.md) (chủ sở hữu mới)
+> và [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0
 > (chặn 2/4 Execution Trigger Rule: "Historical bar tick" + "Realtime bar
-> tick"). Phụ thuộc `BOT-020` ✅.
+> tick"). Phụ thuộc `BOT-020` ✅, `BOT-026` ✅.
+>
+> ✅ **Câu hỏi kiến trúc ở §3 đã được user chốt: chọn hướng (b).** Mục 3 giữ
+> nguyên phần phân tích (vẫn đúng và là bối cảnh cần thiết), quyết định + action
+> item cụ thể nằm ở **mục 4 mới**.
 
 ## 1. Mục tiêu
 
@@ -52,12 +57,71 @@ có dùng được không? — Câu trả lời hiện tại là **không**, vì
    chấp nhận batch/tick-incremental là 2 con đường tính toán khác nhau có
    chủ đích (cần nói rõ, không được ngầm định).
 
-**Không tự chọn (a) hay (b) khi bắt đầu code task này — quay lại hỏi user
-trước, vì đây là quyết định kiến trúc ảnh hưởng toàn bộ engine, không phải
-chi tiết cài đặt.**
+~~**Không tự chọn (a) hay (b) khi bắt đầu code task này — quay lại hỏi user
+trước.**~~ → **Đã hỏi và đã chốt, xem mục 4.**
 
-## 4. Phụ thuộc
+## 4. Quyết định đã chốt: **hướng (b)** — và vì sao nó rẻ hơn vẻ ngoài
+
+User chọn **(b)**: indicator **tính lại mỗi tick**, giá trị RSI/EMA "sống" thay
+đổi liên tục trong nến chưa đóng (giống `calc_on_every_tick=true` của TradingView).
+
+### 4.1. Chìa khoá: *provisional* tính được O(1), không cần snapshot/rollback
+
+Nghe "tính lại mỗi tick" dễ tưởng phải lưu ảnh chụp state rồi khôi phục. **Không
+cần.** Phần lớn indicator tính giá trị tạm được **O(1)** từ state **đã chốt** + giá
+hiện tại, chỉ bằng cách **không gán ngược vào state**:
+
+- [`ema.py`](../../src/domain/indicators/ema.py) hiện là
+  `self._ema = (value - self._ema) * self._multiplier + self._ema` — bản provisional
+  chính là **đúng biểu thức đó nhưng bỏ phép gán**.
+- Cùng nguyên tắc áp cho RSI/MACD/WMA: đọc state đã chốt, trả kết quả, **không
+  mutate**.
+
+Nên đây là **thay đổi contract**, không phải thay đổi thuật toán. Đó là lý do
+`BOT-073` đánh giá task này "rủi ro cao nhất epic" (đụng domain dùng chung) nhưng
+**không** đánh giá là "khối lượng lớn nhất".
+
+### 4.2. Các bước thực hiện
+
+- [ ] Mở rộng contract `IIndicator`: tách rõ **tính tạm** (không mutate, gọi được
+      nhiều lần/bar) khỏi **chốt** (mutate, đúng 1 lần/bar khi bar đóng). Giữ
+      `update()` hiện tại làm đường "chốt" để **không file nào đang dùng phải sửa**.
+- [ ] Áp cho toàn bộ indicator hiện có (`EMA`/`SMA`/`RSI`/`MACD`/`WMA`...). Guard
+      test: với cùng chuỗi giá, đường bar-close mới **phải cho kết quả giống hệt**
+      bản hiện tại — bất biến số 1 của task này.
+- [ ] `Series` ([`series.py`](../../src/domain/scripting/series.py)): thêm khái niệm
+      "giá trị tạm của bar hiện tại" tách khỏi lịch sử đã chốt. `push()` giữ nguyên
+      ngữ nghĩa ghi vĩnh viễn; tick ghi vào ô tạm và **ghi đè chính nó**, không đẩy
+      slot mới.
+- [ ] Verify `crossed_above`/`crossed_below` (`BOT-026`) vẫn đúng khi đọc "tạm vs
+      chốt" — đây là chỗ dễ sai nhất: 2 tick trong cùng 1 bar **không được** bị so
+      như 2 bar khác nhau (nếu không → tín hiệu giả hàng loạt).
+- [ ] `StrategyEngine`: thêm đường nhận 1 tick (giá + timestamp của bar đang hình
+      thành) tách khỏi `on_tick(candle)` hiện tại (tên `on_tick` hiện đang chỉ "1
+      nến đã đóng" — cân nhắc đổi tên cho khỏi hiểu nhầm, nhưng **đừng** đổi hành vi).
+- [ ] **Ghi lại lời hứa bất biến** (câu hỏi 3 ở §3): `BOT-020` hiện hứa
+      "batch ≡ incremental". Sau task này, Static (bar) và Realtime (tick) **cố ý
+      cho kết quả khác nhau**. Phải sửa docstring/tài liệu `BOT-020` để nói rõ, kèm
+      lý do — nếu không, người sau sẽ tưởng Realtime đang bug. **Đây là action item
+      bắt buộc, không phải ghi chú.**
+
+### 4.3. Bất biến bắt buộc giữ
+
+- Đường **bar-close hiện tại không được đổi hành vi một chút nào**. `IIndicator` đang
+  dùng bởi: static backtest, Dev Board live, indicator scripts (`BOT-032`), strategies
+  (`BOT-026`). Toàn bộ test hiện có phải xanh **không sửa** — sửa test để cho xanh là
+  dấu hiệu đã phá bất biến này.
+- `strategy_engine.py`/`i_strategy.py`/`strategy_context.py` từng cam kết "diff = 0
+  dòng" ở `BOT-026`. Task này **sẽ phải** đụng `strategy_engine.py` (thêm đường tick)
+  → cam kết đó hết hiệu lực **một cách có chủ đích**; ghi rõ khi làm, đừng lặng lẽ vi
+  phạm.
+
+## 5. Phụ thuộc
 
 - `BOT-020` ✅ — `IIndicator`/`StrategyEngine`, nơi thay đổi sẽ xảy ra.
-- `BOT-026` ✅ — `Series`/`BaseStrategy`, ảnh hưởng nếu chọn hướng (b).
-- Dữ liệu tick 1s — user tự làm, ngoài phạm vi.
+- `BOT-026` ✅ — `Series`/`BaseStrategy`, bị ảnh hưởng (đã chọn hướng (b)).
+- [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md) — epic chủ sở hữu.
+- [`BOT-076`](BOT-076_realtime_backtest_engine.md) — consumer đầu tiên; task này
+  **chặn** nó.
+- Dữ liệu tick 1s — user tự làm, ngoài phạm vi. Chi phí lưu trữ/runtime:
+  [`BOT-075`](BOT-075_tick_data_feasibility_spike.md).

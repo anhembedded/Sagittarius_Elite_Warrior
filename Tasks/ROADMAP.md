@@ -21,14 +21,16 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 46 | 66% |
+| 🟢 **Completed** | 46 | 61% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 24 | 34% |
-| 📈 **Tổng số Task** | **70** | **100%** |
+| 🔴 **Backlog** | 29 | 39% |
+| 📈 **Tổng số Task** | **75** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
 > Lần tăng thứ hai (+6, `BOT-066`…`BOT-071`): rà soát toàn bộ lịch sử bug theo yêu cầu user, nhóm thành **6 lớp lỗi** rồi đề xuất cơ chế tầng engine chặn cả lớp thay vì vá từng ca. Đây là **nợ kỹ thuật đã tồn tại sẵn được ghi nhận ra giấy**, không phải tính năng mới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md).
+>
+> Lần tăng thứ ba (+5, [Epic `BOT-073`](backlog/BOT-073_realtime_tick_backtest_epic.md) + `BOT-074`…`BOT-077`): user yêu cầu **chế độ backtest thứ 2 chạy theo tick** ("indicator set on tf 1m, but realtime data feed every 1s") — đây **là tính năng mới thật**, không phải nợ kỹ thuật. Kèm theo: 1 bug thật tìm được khi điều tra (`BOT-074`), và 2 câu hỏi kiến trúc treo lâu nay được user chốt dứt điểm (hướng (b) của `BOT-042`; ý nghĩa "On order filled" của `BOT-040` §2.1).
 
 ---
 
@@ -91,6 +93,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | :---: | :--- | :--- | :---: | :--- |
 | **P1** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Sẵn sàng bắt đầu — mọi phụ thuộc đã hoàn thành. |
 | **P1** | **[Nhóm Engine Hardening](reports/engine_defect_class_analysis.md)** *(`BOT-066`…`BOT-071`)* | **6 cơ chế engine chặn 6 lớp lỗi tái phát** | — | Sinh ra từ rà soát toàn bộ lịch sử bug: gom thành 6 **lớp lỗi** rồi hỏi "cơ chế nào khiến cả lớp đó không xảy ra được nữa". Xem bảng chi tiết bên dưới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). |
+| **P1** | **[Epic BOT-073](backlog/BOT-073_realtime_tick_backtest_epic.md)** | **Realtime Backtest — chạy theo tick, song song với Static** | `BOT-021` ✅ | Yêu cầu trực tiếp của user: backtest hiện tại là *static* kiểu TradingView, không tả được hành vi bot khi live (indicator khung 1m nhưng dữ liệu về mỗi 1s). Mục tiêu: **2 chế độ backtest dùng song song**, chung `PaperExchange`/`BacktestResult`. Kèm 1 bug thật (`BOT-074`) và 2 quyết định kiến trúc user vừa chốt. Xem bảng chi tiết bên dưới. |
 | **P2** | **[BOT-035](backlog/BOT-035_dev_board_load_more_on_scroll.md)** | **Dev Board — Tự tải thêm dữ liệu cũ khi kéo ra rìa trái chart (US-04)** | `BOT-034` ✅ | Kéo/scroll chart ra rìa trái dữ liệu đã tải hiện không làm gì — chart chỉ trống. Query/repository layer đã hỗ trợ sẵn (`GetHistoricalKlinesQuery.end_time`), việc còn lại là: detect gần rìa trái (`ViewportController`, chưa có hook), `ChartCard.prepend_historical_data()` mới (không phá zoom hiện tại, khác `render_historical_data`), và full rebuild+refeed cho `IndicatorScriptRunner` (không có đường "feed lùi" — đã verify). **Còn 3 câu hỏi mở** (ngưỡng trigger, số nến/lần, có tự sync từ Binance khi DB thiếu hay không) — chưa code, chờ user chốt. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
@@ -120,6 +123,26 @@ Sagittarius_Elite_Warrior/Tasks/
 
 > ⏸️ **Ca cố ý KHÔNG đề xuất cơ chế**: `BOT-062`/`5c20156` (`self._autostart` chỉ gán khi config gate bật nhưng gọi vô điều kiện). Bản chất chỉ là thiếu null-guard — xây machinery tốn hơn phần tiết kiệm được. Ghi lại để lần sau không ai đề xuất rồi mất công phân tích lại.
 > 🔗 **`BOT-067` ↔ `BOT-069` là cặp đôi**: vòng đời `ResourceScope` chính là vòng đời `ExclusiveAction`. Nếu làm cả hai, `ExclusiveAction` nên là nơi mở/đóng scope. **Không ghép thành 1 task** — 2 khái niệm khác nhau, dùng độc lập được.
+
+#### ⏱️ Epic BOT-073 — Chi tiết (Realtime Backtest theo tick)
+
+> Nguồn: yêu cầu trực tiếp của user — *"Indicator could set on tf 1m, but realtime data feed every 1s. So every one sec, we must calculate the last candle and all last indicator. I want a realtime backtest... 2 backtest strategies available on my app."*
+>
+> **Supersede scope** của `BOT-042` (task đó không bị xoá, chỉ được chốt lại quyết định kiến trúc còn treo và trở thành task con — giống cách `BOT-040` xử lý `BOT-022`/`BOT-024`).
+>
+> ⚠️ **Đừng nhầm với `BOT-023` (Dynamic Backtest).** `BOT-023` vẫn **bar-by-bar**, chỉ thêm tua/pause/tốc độ để *xem*, và còn ràng buộc "phải khớp Static tuyệt đối". Nó **không** giải quyết yêu cầu này. Đây là hiểu nhầm dễ xảy ra nhất ở epic này.
+
+| Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
+| :--- | :--- | :---: | :--- |
+| **[BOT-074](backlog/BOT-074_execution_trigger_rule_inverted_lock.md)** | **Bug — Execution Trigger Rule: cờ `locked` đảo ngược** | — | Cái **duy nhất chạy thật** ("On bar close") bị làm mờ; 3 cái **chưa cài đặt** thì bấm được bình thường — và trạng thái checkbox **không bao giờ rời khỏi QML** (`grep`: không có `executionTrigger` nào ở Python). Tick vào rồi không có gì xảy ra — đúng lớp lỗi B mà `BOT-066` vừa chống. **Nhỏ, độc lập, làm ngay.** |
+| **[BOT-075](backlog/BOT-075_tick_data_feasibility_spike.md)** | **Spike — khả thi & chi phí dữ liệu tick** | — | **Đo, không đoán.** 1s = 60× số dòng của 1m (1 năm/1 symbol ≈ 31,5 triệu dòng). Đo thật dung lượng `.db`, thời gian query, thời gian chạy; chốt nguồn (1s kline vs `aggTrades`) và độ phân giải (cố định 1s hay cho chọn 1s/5s/15s). **Có thể đổi cả thiết kế → phải xong trước `BOT-076`.** |
+| **[BOT-042](backlog/BOT-042_tick_level_strategy_engine_support.md)** | **Provisional vs Commit cho `IIndicator`/`Series`** | `BOT-020` ✅, `BOT-026` ✅ | ✅ **Đã chốt hướng (b)**: indicator tính lại mỗi tick. Chìa khoá: giá trị *tạm* tính được **O(1)** từ state đã chốt + giá hiện tại (EMA = đúng biểu thức cũ nhưng **bỏ phép gán**) → **không cần** snapshot/rollback. Là thay đổi **contract**, không phải thuật toán. **Rủi ro cao nhất epic** — đụng domain dùng chung bởi Dev Board live, static backtest, scripts, strategies. |
+| **[BOT-076](backlog/BOT-076_realtime_backtest_engine.md)** | **Realtime Backtest Engine** | `BOT-042`, `BOT-075` | Chế độ backtest thứ 2 thật sự: `RunRealtimeBacktestCommand` + vòng lặp tick, chốt indicator ở biên bar, equity curve vẫn chốt **theo bar** (không theo tick, nếu không `max_drawdown` tính trên tập điểm khác hẳn Static → mất khả năng so sánh). **Dùng chung 100%** `PaperExchange`/`Trade`/`BacktestMetrics`/`BacktestResult`. |
+| **[BOT-077](backlog/BOT-077_calc_on_order_fills.md)** | **`calc_on_order_fills`** — chạy lại strategy ngay khi lệnh khớp | `BOT-076` | Làm rõ dòng "On order filled" từng ghi *"chưa rõ nghĩa"* ở `BOT-040` §2.1. Với **chỉ dữ liệu nến** đây là **trường hợp suy biến** (fill ở open nến N+1, lúc đó `open=high=low=close`) → chỉ có nghĩa thật khi đã có tick. Rủi ro riêng: **đệ quy** entry→fill→chạy lại→entry, cần giới hạn cứng + test. |
+
+> ⚠️ **`calc_on_order_fills` KHÔNG phải cách giải quyết nỗi lo Stop Loss** (user lo "lệnh khớp phút 10, chờ tới phút 60 mới đặt được SL → cháy tài khoản"). Pine **buộc phải** có nó vì trong Pine muốn đặt SL thì phải gọi `strategy.exit()` từ trong script. Sàn thật thì SL/TP là **lệnh nằm sẵn trên sàn** (bracket/OCO), sàn tự canh 24/7, bot sập nguồn SL vẫn còn. → **[`BOT-041`](backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) mới là thứ đóng lỗ hổng đó, ưu tiên cao hơn hẳn `BOT-077`.**
+> 📌 **Bất biến sẽ phải sửa lời hứa**: `BOT-020` hiện hứa "batch ≡ incremental". Static và Realtime **cố ý** cho kết quả khác nhau — phải ghi rõ ra giấy (action item bắt buộc trong `BOT-042` §4.2), nếu không người sau sẽ tưởng Realtime đang bug. Ngoại lệ duy nhất phải khớp: chạy Realtime với 1 tick/bar.
+> 🎭 **Rủi ro lớn nhất — fidelity ảo**: tick 1s **vẫn không phải** tick thật; vẫn thiếu slippage, độ trễ mạng, orderbook depth, partial fill. Độ phân giải tick chỉ là **1 trong 4-5 nguồn sai lệch** so với live thật.
 
 #### 🎯 Epic BOT-006 — Chi tiết theo Phase
 
@@ -190,6 +213,6 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :--- |
-| **[BOT-042](backlog/BOT-042_tick_level_strategy_engine_support.md)** | **Tick-Level Indicator/Strategy Engine Support** | `BOT-020` ✅ | Chặn 2/4 Execution Trigger Rule. **Chưa có action item** — còn câu hỏi kiến trúc chưa chốt (indicator tính lại mỗi tick, hay chỉ `PaperExchange` dùng tick còn indicator vẫn theo bar?). User tự làm phần **nạp** tick 1s; task này chỉ lo phần **tiêu thụ**. |
+| **[BOT-042](backlog/BOT-042_tick_level_strategy_engine_support.md)** | **Tick-Level Indicator/Strategy Engine Support** *(nay thuộc [Epic `BOT-073`](backlog/BOT-073_realtime_tick_backtest_epic.md))* | `BOT-020` ✅, `BOT-026` ✅ | Chặn 2/4 Execution Trigger Rule. ✅ **Câu hỏi kiến trúc đã được user chốt: hướng (b)** — indicator tính lại mỗi tick; action item cụ thể nay đã có ở `BOT-042` §4. User tự làm phần **nạp** tick 1s; task này chỉ lo phần **tiêu thụ**. |
 
 > **Đang treo, chưa tạo task**: nút "AI Chẩn đoán" trong spec (user chốt **hoãn** — chưa rõ dùng LLM API thật hay heuristic nội bộ, ảnh hưởng chi phí/hạ tầng nên không đoán); và Execution Trigger Rule "On order filled" (chưa rõ nghĩa trong ngữ cảnh backtest). Cả 2 ghi lại ở [BOT-040](backlog/BOT-040_backtest_screen_full_feature_epic.md) mục 3.

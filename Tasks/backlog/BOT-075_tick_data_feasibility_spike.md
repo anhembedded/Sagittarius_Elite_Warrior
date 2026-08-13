@@ -1,0 +1,96 @@
+# Nhiệm vụ: Spike — khả thi & chi phí của dữ liệu tick (đo, không đoán)
+
+> Thuộc Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md).
+> **Phải xong trước [`BOT-076`](BOT-076_realtime_backtest_engine.md)** — kết quả spike
+> này có thể đổi cả thiết kế engine, làm ngược thứ tự thì rủi ro phải viết lại.
+>
+> **Đây là task điều tra, không phải task code engine.** Sản phẩm bàn giao là một
+> báo cáo + vài con số đo thật, không phải tính năng.
+
+## 1. Mục tiêu
+
+Trả lời 4 câu hỏi bằng **số đo thật trên máy thật**, để `BOT-076` bắt đầu với ràng
+buộc đã biết thay vì phát hiện giữa chừng:
+
+1. Dữ liệu tick lấy từ đâu, dạng gì?
+2. Lưu trữ tốn bao nhiêu — hạ tầng SQLite sharding hiện tại chịu được không?
+3. Backtest chạy mất bao lâu — có còn dùng được trong UI không?
+4. Cố định 1s hay cho chọn độ phân giải?
+
+## 2. Bối cảnh — cái đã biết chắc
+
+- **`TimeFrame.ONE_SECOND = "1s"` đã tồn tại sẵn** trong
+  [`timeframe.py`](../../src/domain/value_objects/timeframe.py) (kèm `to_seconds()`
+  xử lý đúng đơn vị `s`). Nên đây **không phải** vấn đề kiểu dữ liệu ở domain — vấn
+  đề nằm ở khối lượng và đường ống.
+- User đã nói (ghi trong `BOT-042` §2) là **tự làm phần ingestion tick 1s**. Spike
+  này **không làm ingestion**, chỉ đánh giá phần hệ thống phải *chứa* và *tiêu thụ*
+  nó.
+- Ước lượng thô cần kiểm chứng: 1s = **60×** số dòng của 1m → 1 năm/1 symbol ≈
+  **31,5 triệu dòng** thay vì ~525K.
+
+## 3. Các bước thực hiện
+
+### 3.1. Nguồn dữ liệu — chốt 1 trong 2
+
+- [ ] So sánh **Binance 1s kline** (`interval="1s"`) và **`aggTrades`** (tick thật):
+      - Giới hạn API (bao nhiêu bản ghi/request, rate limit, lịch sử lùi được bao xa
+        — 1s kline **không** có sẵn lùi vô hạn như 1m).
+      - `aggTrades` là tick thật nhưng **không đều nhịp** và lớn hơn nhiều bậc.
+- [ ] Chốt: dùng cái nào, và **ghi rõ giới hạn fidelity kèm theo** (xem `BOT-073` §8
+      — 1s kline **vẫn không phải** tick thật; nhiều lệnh có thể xảy ra trong 1 giây).
+
+### 3.2. Lưu trữ — đo thật, không ngoại suy từ lý thuyết
+
+- [ ] Sync thật **1 symbol × 7 ngày** ở `1s`, đo dung lượng file `.db` thực tế
+      (`database/<SYMBOL>.db`), so với chính nó ở `1m`.
+- [ ] Ngoại suy ra 1 tháng / 1 năm / nhiều symbol từ **số đo đó**, không từ giả định
+      "mỗi dòng ~X byte".
+- [ ] Kiểm tra sharding hiện tại (`database/<SYMBOL>.db` mỗi symbol 1 file) có cần
+      shard thêm theo thời gian không (vd `<SYMBOL>_2026-08.db`), hay index hiện tại
+      đủ.
+- [ ] Đo thời gian `get_klines()` cho 1 khoảng 7 ngày ở `1s` — query chậm thì engine
+      nhanh cũng vô nghĩa.
+
+### 3.3. Runtime — có số so sánh sẵn
+
+- [ ] Điểm neo đã biết từ log [`BUG-002`](../bug_report/BUG-002.md): static backtest
+      **10.079 nến (7 ngày, 1m) mất ~1,5 giây** (`19:13:19,548` →
+      `19:13:21,033`). Cùng 7 ngày đó ở `1s` = **604.800 tick**.
+- [ ] Đo thật thời gian chạy hết 604.800 điểm dữ liệu qua vòng lặp **hiện tại**
+      (chưa cần indicator provisional — chỉ cần biết trần chi phí của riêng
+      vòng lặp + `PaperExchange`).
+- [ ] Ước lượng thêm chi phí tính lại N indicator mỗi tick (đo 1 indicator × 1 tick
+      rồi nhân, đủ để biết bậc độ lớn).
+- [ ] Kết luận: chạy trong UI được không, hay bắt buộc phải có progress + cancel +
+      chạy nền (`CancellationToken` đã có sẵn từ `BOT-034`).
+
+### 3.4. Độ phân giải — cố định hay cho chọn
+
+- [ ] Đánh giá đề xuất: cho user chọn **1s / 5s / 15s** thay vì cố định 1s. Đổi 60×
+      thành 4–12×, và là **một tham số** chứ không phải viết lại engine.
+- [ ] Nếu chọn được: nó là field trên `RunRealtimeBacktestCommand` (`BOT-076`) hay
+      một `TimeFrame` riêng? Chốt để `BOT-076` khỏi phải đoán.
+
+## 4. Sản phẩm bàn giao
+
+- [ ] Một báo cáo ở `Tasks/reports/tick_data_feasibility.md` gồm: bảng số đo thật
+      (dung lượng, thời gian query, thời gian chạy), quyết định nguồn dữ liệu, quyết
+      định độ phân giải, và **giới hạn fidelity đã biết**.
+- [ ] Nếu kết luận là **không khả thi** ở quy mô mong muốn — nói thẳng, kèm số. Đó
+      vẫn là kết quả thành công của spike, và tốt hơn nhiều so với phát hiện sau khi
+      `BOT-076` viết xong nửa đường.
+
+## 5. Rủi ro / Lưu ý
+
+- **Cám dỗ**: bắt đầu code engine luôn vì "thấy cũng dễ". Đừng. Toàn bộ giá trị của
+  task này là ràng buộc phát hiện **trước**, không phải sau.
+- Không sửa `IIndicator`/`Series` ở đây — đó là [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md).
+- Sync 7 ngày dữ liệu 1s có thể mất khá lâu và tốn rate limit — chạy 1 lần, giữ lại
+  file `.db` để `BOT-076` dùng lại làm fixture, đừng sync đi sync lại.
+- Cẩn thận không commit file `.db` đo được vào repo.
+
+## 6. Phụ thuộc
+
+- Không chặn bởi task nào; chặn `BOT-076`.
+- Ingestion tick 1s — user tự làm, ngoài phạm vi (`BOT-042` §2).
