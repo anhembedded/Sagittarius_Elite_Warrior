@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 54 | 65% |
+| 🟢 **Completed** | 54 | 61% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 29 | 35% |
-| 📈 **Tổng số Task** | **83** | **100%** |
+| 🔴 **Backlog** | 34 | 39% |
+| 📈 **Tổng số Task** | **88** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
@@ -126,6 +126,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P1** | **[Epic BOT-078](backlog/BOT-078_backtest_trustworthiness_epic.md)** | **Backtest Trustworthiness — kết quả có đáng tin không?** | `BOT-021` ✅, `BOT-047` ✅ | Engine chạy đúng 100% vẫn có thể sinh kết luận sai. Log thật `-80.71%` hoá ra **~96% là phí giao dịch**, edge chiến lược ≈ hoà — mà app không có chỗ nào nói điều đó. Và **không một dòng nào** trong repo nhắc tới chống overfitting, dù bộ máy tinh chỉnh tham số (`BOT-044`…`048`) đã xong. Xem bảng chi tiết bên dưới. 📄 [Rà soát định hướng](reports/app_direction_audit.md). |
 | **P1** | **[Epic BOT-073](backlog/BOT-073_realtime_tick_backtest_epic.md)** | **Realtime Backtest — chạy theo tick, song song với Static** | `BOT-021` ✅ | Yêu cầu trực tiếp của user: backtest hiện tại là *static* kiểu TradingView, không tả được hành vi bot khi live (indicator khung 1m nhưng dữ liệu về mỗi 1s). Mục tiêu: **2 chế độ backtest dùng song song**, chung `PaperExchange`/`BacktestResult`. Kèm 1 bug thật (`BOT-074`) và 2 quyết định kiến trúc user vừa chốt. Xem bảng chi tiết bên dưới. ✅ `BOT-079`/`BOT-080` (minh bạch phí + out-of-sample) đã xong — nền tảng "kết quả đáng tin" cho Realtime đã có. |
 | **P2** | **[BOT-035](backlog/BOT-035_dev_board_load_more_on_scroll.md)** | **Dev Board — Tự tải thêm dữ liệu cũ khi kéo ra rìa trái chart (US-04)** | `BOT-034` ✅ | Kéo/scroll chart ra rìa trái dữ liệu đã tải hiện không làm gì — chart chỉ trống. Query/repository layer đã hỗ trợ sẵn (`GetHistoricalKlinesQuery.end_time`), việc còn lại là: detect gần rìa trái (`ViewportController`, chưa có hook), `ChartCard.prepend_historical_data()` mới (không phá zoom hiện tại, khác `render_historical_data`), và full rebuild+refeed cho `IndicatorScriptRunner` (không có đường "feed lùi" — đã verify). **Còn 3 câu hỏi mở** (ngưỡng trigger, số nến/lần, có tự sync từ Binance khi DB thiếu hay không) — chưa code, chờ user chốt. |
+| **P1** | **[Epic BOT-086](backlog/BOT-086_ui_layout_and_overlay_architecture_epic.md)** | **Kiến trúc Layout & Overlay của UI — hết vá pixel bằng tay** | — | Nguồn: [`BUG-004`](bug_report/BUG-004.md), user đánh giá *"UI mechanical, philosophy chưa tốt, không phải riêng 1 view"* — **đã verify đúng, đo được cơ chế**. 2 lỗi **trực giao**: (1) `Overlay.overlay` bị giam trong `QQuickWidget` 190px nên modal 606px chỉ hiện 31%; (2) container phớt lờ `implicitHeight` nội dung tự khai (QML nói cần 200px, bị `setFixedHeight(190)` ép) → Trade Logs cần 880px được 200px nên **hiện 0 dòng**. Xem bảng chi tiết bên dưới. |
 | **P2** | **[BOT-085](backlog/BOT-085_dev_board_volume_spike_after_live_reload.md)** | **Bug — Volume bar bất thường sau khi Start Live reload chart** | — | Nguồn: [`BUG-003`](bug_report/BUG-003.md) (ảnh chụp thật). Cột Volume ~295 đột biến (nền xung quanh ~10-50) đúng lúc "Reloading historical data onto charts" xen giữa lúc nến đang hình thành nhận tick sống. Giả thuyết có căn cứ từ đọc code (`VolumeItem.render_historical()` reset `_live_index` giữa lúc `update_live()` đang ghi) nhưng **chưa tái hiện/xác nhận** — task tự ghi rõ cần log thật trước khi sửa, không suy đoán tiếp. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
@@ -155,6 +156,22 @@ Sagittarius_Elite_Warrior/Tasks/
 
 > ⏸️ **Ca cố ý KHÔNG đề xuất cơ chế**: `BOT-062`/`5c20156` (`self._autostart` chỉ gán khi config gate bật nhưng gọi vô điều kiện). Bản chất chỉ là thiếu null-guard — xây machinery tốn hơn phần tiết kiệm được. Ghi lại để lần sau không ai đề xuất rồi mất công phân tích lại.
 > 🔗 **`BOT-067` ↔ `BOT-069` là cặp đôi**: vòng đời `ResourceScope` chính là vòng đời `ExclusiveAction`. Nếu làm cả hai, `ExclusiveAction` nên là nơi mở/đóng scope. **Không ghép thành 1 task** — 2 khái niệm khác nhau, dùng độc lập được.
+
+#### 🧱 Epic BOT-086 — Chi tiết (Layout & Overlay Architecture)
+
+> Nguồn: 📄 [`BUG-004`](bug_report/BUG-004.md). User hỏi thẳng *"Do we need dynamic layout mechanism?"* → **có**, và cần thêm một cơ chế thứ hai nữa. Đây **không phải bug của màn nào**, mà là 2 lỗ kiến trúc.
+>
+> ⚠️ **2 track trực giao — sửa cái này KHÔNG tự sửa cái kia.** Kể cả khi panel co giãn đúng theo nội dung (~150px cho 4 stat card), modal 606px **vẫn** phải thoát khỏi widget cha. Ngược lại, có overlay host rồi thì Trade Logs **vẫn** 0 dòng.
+
+| Task | Track | Tên Nhiệm vụ | Phụ thuộc | Mô tả ngắn |
+| :--- | :---: | :--- | :---: | :--- |
+| **[BOT-087](backlog/BOT-087_overlay_host_engine.md)** | A | **`OverlayHost` — overlay full-window ở `pyside_mvc`** | — | `Overlay.overlay` trỏ tới `QQuickWidget` chứa nó, **không** phải cửa sổ — đo được `1378x190` thay vì `1400x900`. Hướng B (user chốt) **đã verify khả thi bằng probe thật**: overlay trong suốt phủ full window, `Overlay.overlay` = `1400x900`, modal 606px vừa, click xuyên xuống khi rảnh, geometry bám resize. ⚠️ Sửa `sagittarius_engine/` → commit **cả 2 repo**. Rủi ro lớn nhất: z-order với `ChartCard` (pyqtgraph/QtWidgets). |
+| **[BOT-088](backlog/BOT-088_migrate_backtest_popups_to_overlay_host.md)** | A | **Chuyển 6 popup màn Backtest sang overlay host** | `BOT-087` | Cả 6 popup đều khai trong `BackTestTopPanel.qml` (widget 190px): `extendedMetricsPopup` (**606px, hiện 31%**), `limitationsPopup` (~410px), `BotParamsDialog`, `capitalPopup`, `IndicatorPickerMenu`, `OrderExecutionMenu`. Giữ nguyên `objectName` để test cũ không phải viết lại. |
+| **[BOT-089](backlog/BOT-089_content_driven_panel_sizing.md)** | B | **Panel co giãn theo nội dung — cắt vòng lặp "nâng magic number"** | — | QML tự khai `implicitHeight = 200`, bị `setFixedHeight(190)` ép. Và đây là **lần thứ hai** — comment trong code thừa nhận số này đã từng nâng **120 → 190** vì `BOT-055` bị cắt card. ⚠️ **Tuyệt đối không sửa bằng cách nâng 190 → 200** (lần vá thứ ba của cùng 1 lỗi). Kèm chống tràn ngang toolbar ("CHẠY BACKT…" bị cắt). |
+| **[BOT-090](backlog/BOT-090_trade_logs_visible_rows.md)** | B | **Trade Logs hiển thị được dòng — hiện trống hoàn toàn** | `BOT-089` | `PAGE_SIZE=20` × `implicitHeight:44` = **880px** rows, `setSizes([600,200])` cho **200px** → ảnh hiện `75 Lệnh · Trang 1/4` mà **0 dòng**. `BOT-057`/`BOT-045` không sai, chỉ đang bị layout che mất. ⚠️ Không sửa bằng cách giảm `PAGE_SIZE` xuống 3-4 dòng. |
+
+> **Thứ tự đề xuất**: Track B (`BOT-089` → `BOT-090`) **trước hoặc song song** Track A — rẻ hơn, không đụng engine, và Trade Logs 0 dòng là **mất tính năng hoàn toàn**, trong khi modal bị cắt vẫn đọc được một phần.
+> 📌 **Nợ tự nhận**: `extendedMetricsPopup` đã tràn sẵn từ `BOT-055` (8 card = 422px > 190px), nhưng `BOT-079` (+1 card) và `BOT-080` (+2 card) đẩy lên **606px** mà không ai đo, còn `BOT-081` tạo thêm `limitationsPopup` (~410px) ngay trong panel 190px đó — test chỉ verify "bấm không crash", đúng gap harness đã ghi từ `BOT-047`. `BOT-087` §3.3 bắt buộc đóng gap này.
 
 #### 🔬 Epic BOT-078 — Chi tiết (Backtest Trustworthiness)
 
