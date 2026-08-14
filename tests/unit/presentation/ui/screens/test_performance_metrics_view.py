@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
@@ -5,6 +6,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
+    OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
@@ -39,7 +43,10 @@ def _trade(pnl: float) -> Trade:
 
 
 def _result(
-    trades: list[Trade], equity_curve, initial_balance: float = 1000.0
+    trades: list[Trade],
+    equity_curve,
+    initial_balance: float = 1000.0,
+    out_of_sample: OutOfSampleValidation | None = None,
 ) -> BacktestResult:
     final_balance = initial_balance + sum(t.pnl for t in trades)
     return BacktestResult(
@@ -49,6 +56,23 @@ def _result(
         trades=trades,
         equity_curve=equity_curve,
         metrics=BacktestMetrics.compute(trades, equity_curve, initial_balance),
+        out_of_sample=out_of_sample,
+    )
+
+
+def _result_with_net_profit_percent(percent: float) -> BacktestResult:
+    """Bare `BacktestResult` with just enough to read `net_profit_percent`
+    back off — used to build `OutOfSampleValidation.in_sample`/
+    `out_of_sample` without needing real trades/equity curves."""
+    metrics = BacktestMetrics.compute([], [], 1000.0)
+    metrics = replace(metrics, net_profit_percent=percent)
+    return BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1000.0,
+        trades=[],
+        equity_curve=[],
+        metrics=metrics,
     )
 
 
@@ -261,6 +285,105 @@ def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():
 
     assert healthy_fees.value_color == ""
     assert fee_heavy_fees.value_color == BEAR_COLOR
+
+
+# ---------------------------------------------------------------------------
+# BOT-080: in-sample / out-of-sample validation
+# ---------------------------------------------------------------------------
+
+
+def test_extended_cards_gain_two_cards_when_out_of_sample_is_present():
+    out_of_sample = OutOfSampleValidation(
+        in_sample=_result_with_net_profit_percent(20.0),
+        out_of_sample=_result_with_net_profit_percent(15.0),
+        in_sample_ratio=0.7,
+    )
+    result = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)],
+        out_of_sample=out_of_sample,
+    )
+
+    titles = {card.title for card in build_extended_stat_cards(result)}
+
+    assert "In-Sample Net Profit" in titles
+    assert "Out-of-Sample Net Profit" in titles
+
+
+def test_extended_cards_omit_out_of_sample_cards_when_the_range_was_too_short():
+    result = _result(trades=[_trade(50.0)], equity_curve=[(_T0, 1000.0)])
+
+    titles = {card.title for card in build_extended_stat_cards(result)}
+
+    assert "In-Sample Net Profit" not in titles
+    assert "Out-of-Sample Net Profit" not in titles
+
+
+def test_out_of_sample_card_turns_bearish_only_when_divergence_is_high():
+    healthy = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)],
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(20.0),
+            out_of_sample=_result_with_net_profit_percent(15.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+    overfit = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)],
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(50.0),
+            out_of_sample=_result_with_net_profit_percent(-20.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+
+    healthy_card = next(
+        c
+        for c in build_extended_stat_cards(healthy)
+        if c.title == "Out-of-Sample Net Profit"
+    )
+    overfit_card = next(
+        c
+        for c in build_extended_stat_cards(overfit)
+        if c.title == "Out-of-Sample Net Profit"
+    )
+
+    assert healthy_card.value_color == ""
+    assert overfit_card.value_color == BEAR_COLOR
+
+
+def test_result_warning_text_includes_overfitting_note_when_divergence_is_high():
+    result = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)] * 40,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(50.0),
+            out_of_sample=_result_with_net_profit_percent(-20.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+
+    warning = build_result_warning_text(result)
+
+    assert "overfit" in warning
+    assert "+50.00%" in warning
+    assert "-20.00%" in warning
+
+
+def test_result_warning_text_stays_empty_when_out_of_sample_is_close_to_in_sample():
+    result = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)] * 40,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(20.0),
+            out_of_sample=_result_with_net_profit_percent(15.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+
+    assert build_result_warning_text(result) == ""
 
 
 def test_stat_cards_to_qml_uses_qml_property_names():

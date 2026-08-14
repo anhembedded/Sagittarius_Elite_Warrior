@@ -61,3 +61,17 @@ def test_compute_copies_the_trades_and_equity_curve_lists():
 
     assert len(result.trades) == 1
     assert len(result.equity_curve) == 1
+
+
+def test_out_of_sample_defaults_to_none():
+    """BOT-080: existing call sites (pre-BOT-080) never pass this arg —
+    must keep working unchanged."""
+    result = BacktestResult.compute(
+        symbol="BTCUSDT",
+        initial_balance=1000.0,
+        final_balance=1000.0,
+        trades=[],
+        equity_curve=[],
+    )
+
+    assert result.out_of_sample is None

@@ -29,6 +29,15 @@ _FEE_WARNING_NOTE = (
 _FREQUENCY_WARNING_NOTE = (
     "⚠ Tần suất giao dịch cao — trung bình chỉ {bars:.1f} bar/lệnh."
 )
+#: BOT-080 — same dedicated-line mechanism as the 2 notes above, extended to
+#: the in-sample/out-of-sample check. Interpolates the 2 raw numbers
+#: directly into the sentence (not just "diverges") so the warning is
+#: self-explanatory without a popup click, per the user's explicit decision
+#: to reuse BOT-079's resultWarningText for this rather than a separate UI.
+_OUT_OF_SAMPLE_DIVERGENCE_NOTE = (
+    "⚠ Có thể đang overfit — In-sample {in_sample:+.2f}% nhưng "
+    "Out-of-sample {out_of_sample:+.2f}%."
+)
 
 
 @dataclass(frozen=True)
@@ -96,6 +105,14 @@ def build_result_warning_text(result: BacktestResult) -> str:
         notes.append(_FEE_WARNING_NOTE)
     if metrics.has_high_trade_frequency:
         notes.append(_FREQUENCY_WARNING_NOTE.format(bars=metrics.avg_bars_per_trade))
+    out_of_sample = result.out_of_sample
+    if out_of_sample is not None and out_of_sample.has_high_divergence:
+        notes.append(
+            _OUT_OF_SAMPLE_DIVERGENCE_NOTE.format(
+                in_sample=out_of_sample.in_sample.metrics.net_profit_percent,
+                out_of_sample=out_of_sample.out_of_sample.metrics.net_profit_percent,
+            )
+        )
     return "   •   ".join(notes)
 
 
@@ -167,7 +184,7 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
     `BacktestMetrics` field BOT-055 §2 lists, all neutral-colored (no
     sign/badge — this row is a raw data dump, not a verdict)."""
     metrics = result.metrics
-    return [
+    cards = [
         StatCardData(
             "Gross Profit",
             f"{metrics.gross_profit:,.2f}",
@@ -244,3 +261,35 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
             _NEUTRAL_COLOR,
         ),
     ]
+
+    # BOT-080 — only present when the range was long enough to split
+    # (BacktestResult.out_of_sample is None otherwise). Raw numbers live
+    # here (same precedent as "Total Fees Paid" backing the fee warning);
+    # the "is this concerning" signal is build_result_warning_text()'s job.
+    out_of_sample = result.out_of_sample
+    if out_of_sample is not None:
+        divergence_color = (
+            BEAR_COLOR if out_of_sample.has_high_divergence else _NEUTRAL_COLOR
+        )
+        cards.append(
+            StatCardData(
+                "In-Sample Net Profit",
+                f"{out_of_sample.in_sample.metrics.net_profit_percent:+.2f}",
+                _NEUTRAL_COLOR,
+                "%",
+                "",
+                _NEUTRAL_COLOR,
+            )
+        )
+        cards.append(
+            StatCardData(
+                "Out-of-Sample Net Profit",
+                f"{out_of_sample.out_of_sample.metrics.net_profit_percent:+.2f}",
+                divergence_color,
+                "%",
+                "",
+                _NEUTRAL_COLOR,
+            )
+        )
+
+    return cards

@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
+    OutOfSampleValidation,
+)
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
@@ -615,6 +618,36 @@ def test_successful_run_with_a_fee_dominant_result_sets_the_warning_text(
 
     assert view_model.resultWarningText != ""
     assert "Phí giao dịch" in view_model.resultWarningText
+
+
+def test_successful_run_with_a_diverging_out_of_sample_result_sets_the_warning_text(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-080: same end-to-end wiring check as the fee-dominant test above,
+    for the in-sample/out-of-sample overfitting warning."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    result = replace(
+        result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=replace(
+                result, metrics=replace(result.metrics, net_profit_percent=50.0)
+            ),
+            out_of_sample=replace(
+                result, metrics=replace(result.metrics, net_profit_percent=-20.0)
+            ),
+            in_sample_ratio=0.7,
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert view_model.resultWarningText != ""
+    assert "overfit" in view_model.resultWarningText
+    titles = {card["title"] for card in view_model.extendedStatCards}
+    assert "In-Sample Net Profit" in titles
+    assert "Out-of-Sample Net Profit" in titles
 
 
 def test_dispatches_run_static_backtest_command_with_the_built_config(
