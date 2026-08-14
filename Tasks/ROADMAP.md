@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 54 | 66% |
+| 🟢 **Completed** | 54 | 65% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 28 | 34% |
-| 📈 **Tổng số Task** | **82** | **100%** |
+| 🔴 **Backlog** | 29 | 35% |
+| 📈 **Tổng số Task** | **83** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
@@ -126,6 +126,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P1** | **[Epic BOT-078](backlog/BOT-078_backtest_trustworthiness_epic.md)** | **Backtest Trustworthiness — kết quả có đáng tin không?** | `BOT-021` ✅, `BOT-047` ✅ | Engine chạy đúng 100% vẫn có thể sinh kết luận sai. Log thật `-80.71%` hoá ra **~96% là phí giao dịch**, edge chiến lược ≈ hoà — mà app không có chỗ nào nói điều đó. Và **không một dòng nào** trong repo nhắc tới chống overfitting, dù bộ máy tinh chỉnh tham số (`BOT-044`…`048`) đã xong. Xem bảng chi tiết bên dưới. 📄 [Rà soát định hướng](reports/app_direction_audit.md). |
 | **P1** | **[Epic BOT-073](backlog/BOT-073_realtime_tick_backtest_epic.md)** | **Realtime Backtest — chạy theo tick, song song với Static** | `BOT-021` ✅ | Yêu cầu trực tiếp của user: backtest hiện tại là *static* kiểu TradingView, không tả được hành vi bot khi live (indicator khung 1m nhưng dữ liệu về mỗi 1s). Mục tiêu: **2 chế độ backtest dùng song song**, chung `PaperExchange`/`BacktestResult`. Kèm 1 bug thật (`BOT-074`) và 2 quyết định kiến trúc user vừa chốt. Xem bảng chi tiết bên dưới. ✅ `BOT-079`/`BOT-080` (minh bạch phí + out-of-sample) đã xong — nền tảng "kết quả đáng tin" cho Realtime đã có. |
 | **P2** | **[BOT-035](backlog/BOT-035_dev_board_load_more_on_scroll.md)** | **Dev Board — Tự tải thêm dữ liệu cũ khi kéo ra rìa trái chart (US-04)** | `BOT-034` ✅ | Kéo/scroll chart ra rìa trái dữ liệu đã tải hiện không làm gì — chart chỉ trống. Query/repository layer đã hỗ trợ sẵn (`GetHistoricalKlinesQuery.end_time`), việc còn lại là: detect gần rìa trái (`ViewportController`, chưa có hook), `ChartCard.prepend_historical_data()` mới (không phá zoom hiện tại, khác `render_historical_data`), và full rebuild+refeed cho `IndicatorScriptRunner` (không có đường "feed lùi" — đã verify). **Còn 3 câu hỏi mở** (ngưỡng trigger, số nến/lần, có tự sync từ Binance khi DB thiếu hay không) — chưa code, chờ user chốt. |
+| **P2** | **[BOT-085](backlog/BOT-085_dev_board_volume_spike_after_live_reload.md)** | **Bug — Volume bar bất thường sau khi Start Live reload chart** | — | Nguồn: [`BUG-003`](bug_report/BUG-003.md) (ảnh chụp thật). Cột Volume ~295 đột biến (nền xung quanh ~10-50) đúng lúc "Reloading historical data onto charts" xen giữa lúc nến đang hình thành nhận tick sống. Giả thuyết có căn cứ từ đọc code (`VolumeItem.render_historical()` reset `_live_index` giữa lúc `update_live()` đang ghi) nhưng **chưa tái hiện/xác nhận** — task tự ghi rõ cần log thật trước khi sửa, không suy đoán tiếp. |
 | **P2** | **[BOT-018](backlog/BOT-018_notifications_alerting.md)** | **Notifications / Alerting** | — | Cảnh báo qua UI/Telegram khi sync lỗi, stream mất kết nối, phát hiện gap dữ liệu. Tận dụng `IEventBus` đã có sẵn. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
 | **P2** | **[Epic BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine — Màn hình Backtest Thực thụ (TradingView Strategy Tester)** | `BOT-001` ✅ | Epic, chia theo Phase — xem bảng chi tiết bên dưới. Không còn phụ thuộc `BOT-008` (backtest dùng Paper Exchange giả lập, không cần order thật). |
