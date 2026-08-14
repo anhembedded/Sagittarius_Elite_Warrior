@@ -24,3 +24,7 @@
 ## 2024-11-20 - [Optimize pyqtgraph BarGraphItem rendering]
 **Learning:** Calling `pg.mkBrush(color)` inside a list comprehension on high-frequency UI rendering callbacks (like `refresh_window()` called on every pan/zoom frame for volume bars) is surprisingly slow and causes severe stutter. It rebuilds `QBrush` objects on every frame.
 **Action:** Pre-instantiate and track the `QBrush` objects instead of string colors, and slice the brush list directly to pass to `setOpts()`. This cuts rendering time by ~20x.
+
+## 2024-11-28 - Concurrent Database Scanning
+**Learning:** Nested loops querying database status sequentially scale extremely poorly as the number of symbols and intervals increases.
+**Action:** Always utilize `concurrent.futures.ThreadPoolExecutor` to concurrently map independent database readout queries (like status/gap checking) instead of sequential iterations.

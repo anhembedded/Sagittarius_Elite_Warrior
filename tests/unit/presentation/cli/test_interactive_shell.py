@@ -143,7 +143,9 @@ def test_interactive_shell_lifecycle():
     context.tasks.spawn.return_value = mock_task
 
     shell.start(context)
-    context.tasks.spawn.assert_called_once_with(shell._run_loop, name="InteractiveShell")
+    context.tasks.spawn.assert_called_once_with(
+        shell._run_loop, name="InteractiveShell"
+    )
     assert shell.task == mock_task
 
     # Wait for exit
@@ -171,7 +173,9 @@ def test_interactive_shell_wait_for_exit_exception():
         "Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell.logger.exception"
     ) as mock_logger:
         shell.wait_for_exit()
-        mock_logger.assert_called_once_with("InteractiveShell task raised during shutdown")
+        mock_logger.assert_called_once_with(
+            "InteractiveShell task raised during shutdown"
+        )
 
 
 def test_interactive_shell_run_loop_keyboard_interrupt(capsys):
@@ -179,7 +183,7 @@ def test_interactive_shell_run_loop_keyboard_interrupt(capsys):
     app.container.resolve.return_value = Mock(spec=IConfig)
     shell = InteractiveShell(app)
 
-    with patch.object(shell, 'cmdloop', side_effect=KeyboardInterrupt):
+    with patch.object(shell, "cmdloop", side_effect=KeyboardInterrupt):
         shell._run_loop()
 
     captured = capsys.readouterr()

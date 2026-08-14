@@ -35,12 +35,16 @@ def test_start_stream_already_running():
     service = BinanceWebsocketService(event_bus, task_manager)
     service._task_handle = Mock()
 
-    with patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger") as mock_logger:
+    with patch(
+        "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger"
+    ) as mock_logger:
         result = service.start_stream(["BTCUSDT"], "1m")
 
     assert result is False
     assert task_manager.spawn.call_count == 0
-    mock_logger.warning.assert_called_once_with("Stream is already running. Stop it first.")
+    mock_logger.warning.assert_called_once_with(
+        "Stream is already running. Stop it first."
+    )
 
 
 def test_stop_stream_success():
@@ -68,7 +72,9 @@ def test_stop_stream_not_running():
     task_manager = Mock()
     service = BinanceWebsocketService(event_bus, task_manager)
 
-    with patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger") as mock_logger:
+    with patch(
+        "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger"
+    ) as mock_logger:
         result = service.stop_stream()
 
     assert result is False
