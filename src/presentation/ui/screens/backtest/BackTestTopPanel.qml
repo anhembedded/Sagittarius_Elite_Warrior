@@ -300,7 +300,25 @@ Rectangle {
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            Text {
+                // BOT-079 follow-up: an earlier version squeezed this into
+                // the Net PnL MetricCard badge (a small fixed pill) and
+                // overflowed it. This header row has real width to spare —
+                // reusing its existing fillWidth spacer costs 0 extra
+                // vertical space in BackTestTopPanel's fixed-height budget
+                // (backtest_view.py's _TOP_PANEL_HEIGHT), and elide only
+                // trims an unusually long combined message, it doesn't hide
+                // the warning behind a click.
+                objectName: "lblResultWarning"
+                Layout.fillWidth: true
+                visible: text !== ""
+                text: viewModel.resultWarningText
+                color: "#ef5350"
+                font.pixelSize: 11
+                font.bold: true
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignRight
+            }
 
             Item {
                 Layout.preferredWidth: expandRow.implicitWidth

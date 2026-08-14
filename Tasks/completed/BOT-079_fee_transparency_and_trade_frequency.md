@@ -102,6 +102,39 @@ Nên đây gần như thuần *tổng hợp + hiển thị*, không phải tính
   `tests/unit`+`tests/sanity`: 786 passed, chỉ còn đúng 3 fail đã biết từ `BOT-083`
   (không liên quan, không tăng thêm). `ruff check`/`ruff format --check` sạch.
 
+## 6.1. Follow-up fix (14/08) — badge tràn chữ
+
+Bản đầu nhồi 2 cảnh báo (`⚠ Phí cao`/`⚠ Tần suất cao`) thẳng vào badge của card "Net PnL"
+— một pill kích cỡ cố định của `MetricCard.qml`, không phải chỗ chứa 1 câu văn. User phát
+hiện gián tiếp: đang tự sửa `MetricCard.qml` (thêm `clip`/`elide`/`Layout.maximumWidth`,
+bóp `font.pixelSize` khi text dài) để chặn tràn — đúng triệu chứng của lỗi thiết kế này,
+không phải nhu cầu redesign thật.
+
+**Sửa gốc thay vì vá layout**: tách cảnh báo ra khỏi badge hẳn.
+
+- Badge Net PnL trở lại đúng như `BOT-055` — chỉ `%`, không còn ghi chú.
+- Thêm `build_result_warning_text(result) -> str` (`performance_metrics_view.py`) — câu
+  đầy đủ (2 câu nối bằng `"   •   "` khi cả 2 cờ cùng bật), rỗng khi không có cảnh báo nào.
+- `BackTestViewModel` thêm `resultWarningText` (Property + `resultWarningTextChanged`) và
+  `set_result_warning_text()` — Presenter gọi ở cả 3 nhánh (`_on_backtest_succeeded` set
+  câu thật, `_on_backtest_empty`/`_on_backtest_failed` set rỗng để xoá cảnh báo cũ).
+- QML: **không đụng `MetricCard.qml`** (file user đang sửa dở) — tái dùng `Item {
+  Layout.fillWidth: true }` spacer có sẵn ở hàng header "CHỈ SỐ HIỆU SUẤT BACKTEST" (cạnh
+  link "Mở rộng chỉ số chi tiết"), đổi thành 1 `Text` (`objectName: "lblResultWarning"`)
+  đọc `viewModel.resultWarningText`, `visible: text !== ""`, `elide: Text.ElideRight`.
+  Tốn **0 chiều cao thêm** trong ngân sách cố định của panel (`_TOP_PANEL_HEIGHT = 190`,
+  `backtest_view.py`) — đúng chỗ "cạnh kết quả, không giấu trong popup" mà §3.3 yêu cầu,
+  không cần đổi kích thước panel.
+- 3 test mới/sửa trong `test_performance_metrics_view.py`
+  (`test_net_pnl_badge_is_always_the_plain_signed_percent`,
+  `test_result_warning_text_is_empty_when_neither_flag_fires`,
+  `test_result_warning_text_names_fee_dominance_and_high_frequency_together`) + 1 test mới
+  trong `test_backtest_presenter.py`
+  (`test_successful_run_with_a_fee_dominant_result_sets_the_warning_text`) xác nhận
+  Presenter thật sự nối `build_result_warning_text()` qua, không chỉ hàm tính đúng trong
+  cô lập. 796 test toàn `tests/unit/`+`tests/sanity/` pass, `ruff check`/`format` sạch (2
+  file đụng tới).
+
 ## 4. Rủi ro / Lưu ý
 
 - **Không đổi `fee_percent` mặc định.** `0.1` là hợp lý cho taker Binance. Vấn đề là

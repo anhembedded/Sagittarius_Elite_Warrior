@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
+    build_result_warning_text,
     compute_max_drawdown_amount,
     stat_cards_to_qml,
 )
@@ -184,7 +185,7 @@ def test_extended_cards_cover_every_remaining_metrics_field():
 
 
 # ---------------------------------------------------------------------------
-# BOT-079: fee transparency / trade frequency warning on the Net PnL badge
+# BOT-079: fee transparency / trade frequency warning
 # ---------------------------------------------------------------------------
 
 
@@ -204,9 +205,12 @@ def _fee_heavy_trade(fees: float) -> Trade:
     )
 
 
-def test_net_pnl_badge_stays_plain_percent_when_no_warning_fires():
-    # 40 bars / 2 trades = 20 bars/trade, above MIN_BARS_PER_TRADE_WARNING_THRESHOLD
-    # (15) -> no frequency warning either, isolating this to "no warnings at all".
+def test_net_pnl_badge_is_always_the_plain_signed_percent():
+    """BOT-079 follow-up: an earlier version appended warning notes onto this
+    badge — a small fixed-size `MetricCard` pill, not built for a sentence —
+    which overflowed it. Warnings moved to `build_result_warning_text()`
+    (its own full-width line); this badge stays exactly what BOT-055 shipped,
+    warnings or not."""
     equity_curve = [(_T0, 1000.0)] * 40
     result = _result(trades=[_trade(50.0), _trade(-10.0)], equity_curve=equity_curve)
 
@@ -220,20 +224,26 @@ def test_net_pnl_badge_stays_plain_percent_when_no_warning_fires():
     assert net_pnl.badge_color == BULL_COLOR
 
 
-def test_net_pnl_badge_gets_a_warning_note_and_turns_bearish_when_fees_dominate():
+def test_result_warning_text_is_empty_when_neither_flag_fires():
+    equity_curve = [(_T0, 1000.0)] * 40
+    result = _result(trades=[_trade(50.0), _trade(-10.0)], equity_curve=equity_curve)
+
+    assert build_result_warning_text(result) == ""
+
+
+def test_result_warning_text_names_fee_dominance_and_high_frequency_together():
     trades = [_fee_heavy_trade(10.0) for _ in range(50)]
     equity_curve = [(_T0, 1000.0)] * 500  # 10 bars/trade -> also high frequency
     result = _result(trades, equity_curve)
 
-    net_pnl = next(
-        c
-        for c in build_primary_stat_cards(result)
-        if c.title == "Tổng Lãi/Lỗ (Net PnL)"
-    )
-
     assert result.metrics.has_high_fee_ratio is True
-    assert "⚠" in net_pnl.badge_text
-    assert net_pnl.badge_color == BEAR_COLOR
+    assert result.metrics.has_high_trade_frequency is True
+
+    warning = build_result_warning_text(result)
+
+    assert "Phí giao dịch" in warning
+    assert "Tần suất giao dịch" in warning
+    assert "10.0" in warning  # avg_bars_per_trade interpolated into the sentence
 
 
 def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():

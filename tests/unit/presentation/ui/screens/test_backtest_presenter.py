@@ -17,6 +17,7 @@ only the genuine external dependencies (IDispatcher, IThreadManager, IConfig).
 """
 
 import os
+from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
@@ -592,6 +593,28 @@ def test_successful_run_with_trades_updates_view_model_and_unlocks(
     assert "Closed trades: 1" in view_model.resultText
     assert len(view_model.primaryStatCards) == 4
     assert len(view_model.extendedStatCards) == 9  # BOT-079: +Total Fees Paid
+    assert view_model.resultWarningText == ""  # no fee/frequency flags on this result
+
+
+def test_successful_run_with_a_fee_dominant_result_sets_the_warning_text(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-079 follow-up: the warning is a separate line
+    (`resultWarningText`), not folded into the Net PnL badge — verifies the
+    Presenter actually wires `build_result_warning_text()` through, not just
+    that `performance_metrics_view.py` can compute it in isolation."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    fee_dominant_metrics = replace(
+        result.metrics, has_high_fee_ratio=True, avg_bars_per_trade=5.0
+    )
+    result = replace(result, metrics=fee_dominant_metrics)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert view_model.resultWarningText != ""
+    assert "Phí giao dịch" in view_model.resultWarningText
 
 
 def test_dispatches_run_static_backtest_command_with_the_built_config(
