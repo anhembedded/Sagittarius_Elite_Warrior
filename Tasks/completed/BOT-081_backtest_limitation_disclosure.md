@@ -28,14 +28,14 @@ Lý do: màn hình Backtest hiện trình bày kết quả với độ tự tin 
 
 ## 3. Các bước thực hiện
 
-- [ ] Một chỗ hiển thị gọn (icon ⓘ cạnh kết quả, mở ra panel/popup) liệt kê giới hạn
+- [x] Một chỗ hiển thị gọn (icon ⓘ cạnh kết quả, mở ra panel/popup) liệt kê giới hạn
       **đang áp dụng cho lần chạy này** — không phải danh sách tĩnh.
-- [ ] **Động theo trạng thái thật**, đây là điểm mấu chốt: nếu `BOT-041` đã xong và user
+- [x] **Động theo trạng thái thật**, đây là điểm mấu chốt: nếu `BOT-041` đã xong và user
       có bật SL/TP thì **không** hiện dòng "không có SL/TP" nữa. Danh sách tĩnh sẽ sai
       ngay khi có task tiếp theo hoàn thành → thành nhiễu, rồi bị bỏ qua.
-- [ ] Nguồn sự thật cho từng dòng phải là **trạng thái/cấu hình thật**, không phải hằng
+- [x] Nguồn sự thật cho từng dòng phải là **trạng thái/cấu hình thật**, không phải hằng
       số chép tay (vd: có SL/TP hay không đọc từ config lần chạy, không hardcode).
-- [ ] Ghi rõ chế độ đang chạy (Static / Realtime + độ phân giải tick) — 2 kết quả trông
+- [x] Ghi rõ chế độ đang chạy (Static / Realtime + độ phân giải tick) — 2 kết quả trông
       giống hệt nhau mà ngữ nghĩa khác hẳn là bẫy hiểu nhầm thật (`BOT-076` §3.3).
 
 ## 4. Rủi ro / Lưu ý
@@ -57,3 +57,28 @@ Lý do: màn hình Backtest hiện trình bày kết quả với độ tự tin 
 - Cập nhật lại khi `BOT-041`/`BOT-049`/`BOT-050`/`BOT-073` hoàn thành — mỗi task đó **xoá
   bớt** một dòng khỏi danh sách. Ghi vào các task đó luôn? → **Không**; thay vào đó làm
   danh sách động (§3) để không phải nhớ.
+
+## 6. Kết quả triển khai thực tế
+
+- **`logic/backtest_limitations_view.py`** (mới, thuần Python): `build_backtest_limitations(result)`
+  trả `list[str]`. 8 dòng "luôn đúng hôm nay" (`_ALWAYS_APPLICABLE_LIMITATIONS`, 1 hằng số
+  danh sách — sửa đúng 1 chỗ khi `BOT-041`/`049`/`050`/`073` xong, đúng tinh thần "không
+  phải nhớ" của task) — không có config/state thật nào để đọc cho các mục này (chưa có
+  field SL/TP, chưa có toggle đòn bẩy/short trong `PaperExchange`/`BacktestRunConfig`) nên
+  không thể "động" hơn được tới khi các task đó thật sự thêm field. **1 dòng thật sự động
+  theo trạng thái mỗi lần chạy**: cảnh báo thiếu out-of-sample chỉ xuất hiện khi
+  `result.out_of_sample is None` (`BOT-080` đã xong, nhưng khoảng dữ liệu quá ngắn ở 1 lần
+  chạy cụ thể vẫn có thể không chia được — dòng này phản ánh đúng ca đó, không phải một
+  danh sách tĩnh nói dối).
+- **UI**: nút ⓘ nhỏ (`Button`, `objectName: "btnBacktestLimitations"` — dùng `Button` chứ
+  không phải `Rectangle+MouseArea`, đúng quy ước test-clickable từ `BOT-057`/`BOT-083`)
+  cạnh tiêu đề "CHỈ SỐ HIỆU SUẤT BACKTEST", mở `Popup` liệt kê — **kín đáo nhưng tìm thấy
+  được** đúng yêu cầu §4, khác hẳn `resultWarningText` (`BOT-079`) phải luôn hiện không
+  được giấu sau click. `BackTestViewModel` thêm `limitations` (`QStringList`) +
+  `set_limitations()`, nối ở cả 3 nhánh Presenter (thành công/rỗng/lỗi).
+  **Không đụng `MetricCard.qml`.**
+- **Test**: 3 test thuần Python cho `build_backtest_limitations()` + 5 test presenter
+  (bao gồm 1 test click nút QML thật qua `qml_item(...).clicked.emit()`, xác nhận không
+  crash — không kiểm được nội dung Popup do giới hạn đã biết của test harness từ `BOT-047`:
+  "Popup content không test được qua `find_qml_item`"). 822 test toàn `tests/unit/`+
+  `tests/sanity/` pass, `ruff` sạch.

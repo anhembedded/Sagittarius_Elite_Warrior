@@ -298,6 +298,28 @@ Rectangle {
                     font.bold: true
                     font.letterSpacing: 0.8
                 }
+
+                Button {
+                    // BOT-081: "kín đáo nhưng tìm thấy được" — unlike
+                    // resultWarningText (must stay visible, never behind a
+                    // click), the limitation disclosure is fine tucked
+                    // behind an icon; the task explicitly warns against
+                    // turning it into another always-visible banner ("cám
+                    // dỗ làm quá tay" -> alarm fatigue). A Button (not
+                    // Rectangle+MouseArea) so it stays clickable from
+                    // Python tests — BOT-057/BOT-083's convention.
+                    objectName: "btnBacktestLimitations"
+                    implicitWidth: 18
+                    implicitHeight: 18
+                    padding: 0
+                    background: Rectangle { color: "transparent" }
+                    contentItem: Image {
+                        source: "image://icons/info/muted"
+                        sourceSize: Qt.size(13, 13)
+                        anchors.centerIn: parent
+                    }
+                    onClicked: limitationsPopup.open()
+                }
             }
 
             Text {
@@ -613,6 +635,68 @@ Rectangle {
                         title: modelData.title
                         value: modelData.value
                         suffix: modelData.suffix
+                    }
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: limitationsPopup
+        width: 440
+        modal: true
+        dim: true
+        anchors.centerIn: Overlay.overlay
+        padding: 18
+
+        background: Rectangle {
+            color: "#141620"
+            border.color: "#282c3f"
+            border.width: 1
+            radius: 10
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 14
+
+            RowLayout {
+                spacing: 8
+                Image { source: "image://icons/info/accent"; sourceSize: Qt.size(16, 16) }
+                Text {
+                    text: "GIỚI HẠN CỦA LẦN CHẠY NÀY"
+                    color: Theme.textPrimary
+                    font.pixelSize: 12
+                    font.bold: true
+                    font.letterSpacing: 1
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Repeater {
+                    model: viewModel.limitations
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: "•"
+                            color: Theme.muted
+                            font.pixelSize: 12
+                            Layout.alignment: Qt.AlignTop
+                        }
+                        Text {
+                            objectName: "lblLimitation_" + index
+                            Layout.fillWidth: true
+                            text: modelData
+                            color: Theme.textPrimary
+                            font.pixelSize: 11
+                            wrapMode: Text.Wrap
+                        }
                     }
                 }
             }

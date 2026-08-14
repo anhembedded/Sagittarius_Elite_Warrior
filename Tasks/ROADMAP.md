@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 53 | 65% |
+| 🟢 **Completed** | 54 | 66% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 29 | 35% |
+| 🔴 **Backlog** | 28 | 34% |
 | 📈 **Tổng số Task** | **82** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
@@ -50,10 +50,9 @@ Sagittarius_Elite_Warrior/Tasks/
 > cấu hình sẵn) — bật `BOT-008` lên trước khi biết chiến lược có edge thật là rủi ro tiền
 > thật không cần thiết. `BOT-008` **không bị xoá khỏi backlog**, chỉ xếp sau.
 >
-> ✅ **Cập nhật**: `BOT-079`/`BOT-080` — 2 task được nêu đích danh trong lý do trên — đã
-> xong. Epic `BOT-078` còn [`BOT-081`](backlog/BOT-081_backtest_limitation_disclosure.md)
-> (công bố giới hạn UI, không phải rào chắn kỹ thuật). Chưa tự ý coi `BOT-008` là đã mở
-> khoá — đó là quyết định của user, không tự suy ra từ việc code xong.
+> ✅ **Cập nhật (14/08)**: `BOT-079`/`BOT-080`/`BOT-081` — toàn bộ Epic `BOT-078` — đã
+> xong. Chưa tự ý coi `BOT-008` là đã mở khoá — đó là quyết định của user, không tự suy ra
+> từ việc code xong.
 
 ---
 
@@ -114,6 +113,7 @@ Sagittarius_Elite_Warrior/Tasks/
 - [x] **BOT-083**: [Bug — `onClicked` lạc vào `MouseArea` lồng trong `Button`](completed/BOT-083_qml_onclicked_moved_into_nested_mousearea.md) — Phát hiện lúc verify `BOT-082`: redesign UI (`d49c656`) làm đỏ 3 test. `btnRunBacktest` (`BackTestTopPanel.qml`) và `rowTradeLog_*` (`BackTestTradeLogs.qml`) — `onClicked` bị đặt vào `MouseArea` con thay vì chính `Button` cha → **click chuột thật vẫn chạy** (không lộ khi test tay), nhưng `Button.clicked.emit()` giả lập trong test không gọi tới được — đúng cạm bẫy đã ghi từ `BOT-057`. Sửa: chuyển `onClicked` lên `Button`, xoá hẳn `MouseArea`, thay `MouseArea.containsMouse` (cho màu hover) bằng `Button.hovered` sẵn có qua `id.hovered` (cùng quy ước `OrderExecutionMenu.qml`). Rà lại toàn bộ 2 file bằng `awk` xác nhận đúng **2 ca**, không sót — nghi ngờ ban đầu "áp dụng đồng loạt" không đúng. Cố ý **không** đụng `MouseArea` của "Mở rộng chỉ số chi tiết" (`Item+MouseArea` thuần, không phải `Button`, không nằm trong bug) và không đụng `MouseArea` mới trong `DevBoardPanel.qml` (`chkScript_*`, ngoài phạm vi 2 file task giới hạn). Kèm quyết định UX đã chốt với user: khôi phục `lblHeaderTitle` về `"Developer Board (Live Testbed)"` (cùng `Layout.preferredWidth` 90→170 — nếu giữ 90, chuỗi dài bị `elide` cụt mất tác dụng của quyết định giữ nhãn cũ). 789 test toàn `tests/unit/`+`tests/sanity/` pass, 0 fail.*
 - [x] **BOT-079**: [Minh bạch phí giao dịch + cảnh báo tần suất](completed/BOT-079_fee_transparency_and_trade_frequency.md) — Epic `BOT-078`, task 1/3, **làm trước theo đúng đề xuất "rẻ nhất, giá trị cao nhất"**. `BacktestMetrics` thêm 4 field (`total_fees_paid`, `avg_bars_per_trade`, `has_high_fee_ratio`, `has_high_trade_frequency`, hằng số ngưỡng đặt tên `FEE_DOMINANCE_WARNING_RATIO=0.3`/`MIN_BARS_PER_TRADE_WARNING_THRESHOLD=15.0`) — thuần thêm trường, **không đổi 1 công thức cũ nào**. Test tái hiện đúng ca thật `BUG-002` (807 lệnh, `fee_percent=0.1`) qua `PaperExchange` thật (giá đứng yên mỗi round-trip nên gross edge = 0, toàn bộ lỗ là phí) thay vì assert số tay — xác nhận `total_fees_paid` giải thích ≥ 90% khoản lỗ. Card "Total Fees Paid" thêm vào popup "Mở rộng chỉ số chi tiết" (8→9 card), đổi màu khi `has_high_fee_ratio`. ⚠️ **Follow-up fix (cùng ngày)**: bản đầu nhồi cảnh báo vào badge Net PnL (pill kích cỡ cố định) → tràn chữ, lộ ra gián tiếp qua việc user tự sửa `MetricCard.qml` để vá layout. Sửa gốc: tách hẳn thành `build_result_warning_text()` + `resultWarningText` (ViewModel) hiện ở dòng riêng cạnh link "Mở rộng chỉ số chi tiết" — tái dùng spacer có sẵn, 0 chiều cao thêm vào ngân sách cố định của panel, **không đụng `MetricCard.qml`**. Badge Net PnL trở lại đúng `%` như `BOT-055`. 12 test mới/sửa. 796 test toàn `tests/unit/`+`tests/sanity/` pass, `ruff` sạch.*
 - [x] **BOT-080**: [Kiểm định out-of-sample / walk-forward — chống overfitting](completed/BOT-080_out_of_sample_walk_forward.md) — Epic `BOT-078`, task 2/3. 4 câu hỏi mở của task (mức độ, tỷ lệ split, bắt buộc hay tuỳ chọn, cách hiển thị lệch) đã chốt với user trước khi code: **Mức 1** (tách in-sample/out-of-sample đơn giản, không phải walk-forward/Monte Carlo), **70/30 cố định** (không cho user tự nhập — tránh chỉnh tỷ lệ tới khi ra số đẹp), **bắt buộc mọi lần chạy** (không có nút riêng dễ bị bỏ qua), cảnh báo **tái dùng nguyên cơ chế `resultWarningText` của `BOT-079`**. Thêm 1 quyết định phát sinh lúc code: **kết quả hiển thị chính (stat cards/chart/trade log) vẫn là full-range, không đổi** — in-sample/out-of-sample chỉ là thông tin thêm vào. 2 file domain mới (`out_of_sample_split.py`/`out_of_sample_validation.py`, thuần Python); `RunStaticBacktestCommandHandler` tách `_simulate()` dùng chung cho full-range lẫn 2 nửa split, `BacktestResult` thêm field optional `out_of_sample` (mọi construction cũ không cần sửa). Cảnh báo chỉ bật khi in-sample **tốt hơn** out-of-sample quá 30 điểm % (chiều ngược lại không phải dấu hiệu overfit). 18 test mới xuyên domain→application→presentation + 1 test presenter end-to-end. **Chưa làm** (đúng phạm vi Mức 1): warm-up indicator ngắn cho khoảng out-of-sample nhỏ (mỗi nửa dùng strategy/indicator mới hoàn toàn, EMA-200 sẽ chưa "nóng" hết) — ghi lại cho mức 2 nếu cần. 815 test toàn `tests/unit/`+`tests/sanity/` pass, `ruff` sạch.*
+- [x] **BOT-081**: [Công bố giới hạn của backtest ngay trên UI kết quả](completed/BOT-081_backtest_limitation_disclosure.md) — Epic `BOT-078`, task 3/3, **đóng epic**. `logic/backtest_limitations_view.py` (mới): `build_backtest_limitations(result)` trả `list[str]` — 8 dòng "luôn đúng hôm nay" gom về 1 hằng số duy nhất (không config/state thật nào để đọc cho các mục này vì `BOT-041`/`049`/`050`/`073` chưa thêm field tương ứng — sửa đúng 1 chỗ khi các task đó xong, đúng tinh thần "làm danh sách động để không phải nhớ" của task), cộng **1 dòng thật sự động theo trạng thái mỗi lần chạy**: cảnh báo thiếu out-of-sample chỉ hiện khi `result.out_of_sample is None` cho đúng lần chạy đó (dù `BOT-080` đã xong, khoảng dữ liệu quá ngắn ở 1 lần cụ thể vẫn không chia được). UI: nút ⓘ nhỏ (`Button` thật, `objectName: "btnBacktestLimitations"` — không phải `Rectangle+MouseArea`, đúng quy ước test-clickable từ `BOT-057`/`BOT-083`) cạnh tiêu đề "CHỈ SỐ HIỆU SUẤT BACKTEST" mở `Popup` liệt kê — **kín đáo nhưng tìm thấy được** (§4), ngược hẳn `resultWarningText` (`BOT-079`) vốn phải luôn hiện không được giấu sau click; 2 cơ chế cùng tồn tại có chủ đích, phục vụ 2 mục đích khác nhau. `BackTestViewModel` thêm `limitations`/`set_limitations()`, nối cả 3 nhánh Presenter. **Không đụng `MetricCard.qml`**. 8 test mới (3 thuần Python + 5 presenter, gồm 1 test click nút QML thật). 822 test toàn `tests/unit/`+`tests/sanity/` pass, `ruff` sạch.*
 
 ---
 
@@ -165,10 +165,15 @@ Sagittarius_Elite_Warrior/Tasks/
 | :--- | :--- | :---: | :--- |
 | ✅ **[BOT-079](completed/BOT-079_fee_transparency_and_trade_frequency.md)** | **Minh bạch phí + cảnh báo tần suất giao dịch** | `BOT-021` ✅, `BOT-055` ✅ | **Xong.** `BacktestMetrics` +4 field; cảnh báo hiện ở dòng riêng cạnh "Mở rộng chỉ số chi tiết" (không phải badge), card "Total Fees Paid" thêm vào popup mở rộng. Xem mục Completed phía trên. |
 | ✅ **[BOT-080](completed/BOT-080_out_of_sample_walk_forward.md)** | **Kiểm định out-of-sample / walk-forward** | `BOT-047` ✅ | **Xong.** Mức 1 (tách in-sample 70%/out-of-sample 30% theo số nến, không phải walk-forward). `RunStaticBacktestCommandHandler` tự chạy cả 2 nửa **bắt buộc mỗi lần**, độc lập với kết quả full-range (stat cards/chart/trade log không đổi). Cảnh báo overfit + 2 card mới tái dùng nguyên cơ chế `BOT-079`. Xem mục Completed phía trên. |
-| **[BOT-081](backlog/BOT-081_backtest_limitation_disclosure.md)** | **Công bố giới hạn trên UI kết quả** | `BOT-079` ✅ | Gom mọi giới hạn đã biết (không slippage/latency/orderbook depth, all-in long-only, chưa SL/TP, phí, tick 1s ≠ tick thật) vào chỗ user thật sự nhìn. **Phải động theo trạng thái thật** — danh sách tĩnh sẽ sai ngay khi `BOT-041` xong, rồi thành nhiễu. |
+| ✅ **[BOT-081](completed/BOT-081_backtest_limitation_disclosure.md)** | **Công bố giới hạn trên UI kết quả** | `BOT-079` ✅ | **Xong — Epic `BOT-078` hoàn thành.** Icon ⓘ (nút thật, test-clickable) cạnh kết quả mở popup liệt kê giới hạn *đang áp dụng cho lần chạy này* — 1 dòng thật sự động theo state (cảnh báo thiếu out-of-sample chỉ hiện khi `result.out_of_sample is None`), các dòng còn lại gom về đúng 1 hằng số (sửa 1 chỗ khi `BOT-041`/`049`/`050`/`073` xong). Xem mục Completed phía trên. |
 
-> ⚠️ **Thứ tự so với `BOT-073`**: `BOT-073` làm kết quả *chân thực hơn về cơ chế*, nhưng nếu tham số đã overfit thì kết quả chân thực đó **vẫn vô nghĩa** — chỉ là con số sai một cách chính xác hơn. `BOT-079`/`BOT-080` (rẻ, đi trước) ✅ đã xong — an toàn để dùng `BOT-047` tinh chỉnh nghiêm túc hoặc bắt đầu `BOT-073`.
-> 💡 **Cám dỗ cần đề phòng**: coi epic này là "việc phụ" vì không thêm tính năng nào nhìn thấy được. Nhưng nó quyết định **mọi kết luận** rút ra từ app — kể cả kết luận "chiến lược này tốt, đem tiền thật vào".
+> ✅ **Epic hoàn thành (14/08)**: cả 3 task (`BOT-079`/`BOT-080`/`BOT-081`) đã xong. Kết quả
+> Backtest giờ minh bạch phí, có kiểm định ngoài mẫu bắt buộc, và công bố rõ mọi giả định
+> đang áp dụng — nền tảng "đáng tin" trước khi dùng `BOT-047` tinh chỉnh nghiêm túc hoặc
+> bắt đầu `BOT-073`.
+> 💡 **Cám dỗ đã đề phòng**: epic này từng có nguy cơ bị coi là "việc phụ" vì không thêm
+> tính năng nào nhìn thấy được. Nhưng nó quyết định **mọi kết luận** rút ra từ app — kể cả
+> kết luận "chiến lược này tốt, đem tiền thật vào".
 
 #### ⏱️ Epic BOT-073 — Chi tiết (Realtime Backtest theo tick)
 
