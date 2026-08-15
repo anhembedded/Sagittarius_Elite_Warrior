@@ -418,6 +418,70 @@ class StreamLifecycleController:
         finally:
             self._emit_history_prepend_finished(symbol, found_more)
 
+    def _sync_market_data(
+        self,
+        symbols: list[str],
+        interval: TimeFrame,
+        start_time: datetime | None,
+        end_time: datetime | None,
+    ) -> None:
+        self._emit_log("Syncing missing data from Binance...")
+        sync_cmd = SyncMarketDataCommand(
+            symbols=symbols,
+            interval=interval,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
+
+    def _reload_historical_data(
+        self,
+        symbols: list[str],
+        interval_str: str,
+        limit: int,
+        token: CancellationToken,
+        start_time: datetime | None,
+        end_time: datetime | None,
+    ) -> None:
+        self._emit_log("Reloading historical data onto charts...")
+        query = GetHistoricalKlinesQuery(
+            symbol=symbols,
+            interval=interval_str,
+            limit=limit,
+            start_time=start_time,
+            end_time=end_time,
+            order_by_desc=True,
+        )
+        response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+        results = getattr(response, "data", response) if response else {}
+
+        if isinstance(results, dict):
+            for symbol in symbols:
+                if token.is_cancelled():
+                    return
+
+                klines = results.get(symbol, [])
+                if klines and isinstance(klines, list):
+                    ordered_klines = list(reversed(klines))
+                    mapped_data = map_klines(ordered_klines)
+                    volume_data = map_volume(ordered_klines)
+                    self._emit_history_reloaded(symbol, mapped_data, volume_data)
+                    self._raw_klines_by_symbol[symbol] = ordered_klines
+                    self._script_runner.feed_all(ordered_klines)
+
+    def _start_websocket_stream(
+        self, symbols: list[str], interval: TimeFrame
+    ) -> None:
+        self._emit_log("Opening Websocket stream...")
+        cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
+        response = self.dispatcher.dispatch(StartLiveStreamCommand, cmd)
+
+        if response and getattr(response, "success", True):
+            self._emit_stream_success(f"Live stream for {symbols} is running.")
+        else:
+            msg = getattr(response, "message", "Unknown error")
+            self._emit_stream_failed(f"Failed to start: {msg}")
+
     def _run_sync_and_start(
         self,
         symbols: list[str],
@@ -429,56 +493,19 @@ class StreamLifecycleController:
         end_time: datetime | None = None,
     ) -> None:
         try:
-            self._emit_log("Syncing missing data from Binance...")
-            sync_cmd = SyncMarketDataCommand(
-                symbols=symbols,
-                interval=interval,
-                start_time=start_time,
-                end_time=end_time,
-            )
-            self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
+            self._sync_market_data(symbols, interval, start_time, end_time)
 
             if token.is_cancelled() or not symbols:
                 return
 
-            self._emit_log("Reloading historical data onto charts...")
-            query = GetHistoricalKlinesQuery(
-                symbol=symbols,
-                interval=interval_str,
-                limit=limit,
-                start_time=start_time,
-                end_time=end_time,
-                order_by_desc=True,
+            self._reload_historical_data(
+                symbols, interval_str, limit, token, start_time, end_time
             )
-            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            results = getattr(response, "data", response) if response else {}
-
-            if isinstance(results, dict):
-                for symbol in symbols:
-                    if token.is_cancelled():
-                        return
-
-                    klines = results.get(symbol, [])
-                    if klines and isinstance(klines, list):
-                        ordered_klines = list(reversed(klines))
-                        mapped_data = map_klines(ordered_klines)
-                        volume_data = map_volume(ordered_klines)
-                        self._emit_history_reloaded(symbol, mapped_data, volume_data)
-                        self._raw_klines_by_symbol[symbol] = ordered_klines
-                        self._script_runner.feed_all(ordered_klines)
 
             if token.is_cancelled():
                 return
 
-            self._emit_log("Opening Websocket stream...")
-            cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
-            response = self.dispatcher.dispatch(StartLiveStreamCommand, cmd)
-
-            if response and getattr(response, "success", True):
-                self._emit_stream_success(f"Live stream for {symbols} is running.")
-            else:
-                msg = getattr(response, "message", "Unknown error")
-                self._emit_stream_failed(f"Failed to start: {msg}")
+            self._start_websocket_stream(symbols, interval)
 
         except Exception as exc:  # noqa: BLE001
             self._emit_stream_failed(f"System error: {exc}")
