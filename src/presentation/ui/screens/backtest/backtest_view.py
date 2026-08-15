@@ -5,7 +5,11 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
-from sagittarius_engine.extensions.pyside_mvc import BaseView, create_quick_widget
+from sagittarius_engine.extensions.pyside_mvc import (
+    BaseView,
+    OverlayHost,
+    create_quick_widget,
+)
 
 from .logic.chart_canvas_view import (
     ChartDisplayMode,
@@ -60,6 +64,10 @@ class BackTestView(BaseView):
         self._last_klines: list = []
         self._last_volume: list = []
         self._setup_ui()
+        # BOT-087: this direct child deliberately stays out of the layout so
+        # a future QML Popup can use the Backtest view's full bounds rather
+        # than the small top QQuickWidget that defines the toolbar.
+        self.overlay_host = OverlayHost(self)
 
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)

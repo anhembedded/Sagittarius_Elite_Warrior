@@ -13,7 +13,7 @@ ComboBox {
 
     background: Rectangle {
         color: "transparent"
-        border.color: Theme.border
+        border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
         radius: 4
     }
 
@@ -23,7 +23,7 @@ ComboBox {
         text: control.displayText
         font.pixelSize: 12
         font.bold: true
-        color: Theme.accent // Usually green/yellow in the design
+        color: Theme && Theme.accent ? Theme.accent : "#fbbf24"
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }
@@ -49,8 +49,9 @@ ComboBox {
 
                 Text {
                     text: model.name
-                    // Selected or highlighted items are accent colored
-                    color: (delegateItem.highlighted || control.currentIndex === index) ? Theme.accent : Theme.textPrimary
+                    color: (delegateItem.highlighted || control.currentIndex === index)
+                        ? (Theme && Theme.accent ? Theme.accent : "#fbbf24")
+                        : (Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb")
                     font.pixelSize: 12
                     font.bold: true
                     Layout.fillWidth: true
@@ -59,16 +60,16 @@ ComboBox {
 
                 Rectangle {
                     color: "transparent"
-                    border.color: Theme.border
+                    border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
                     radius: 4
                     implicitWidth: badgeText.implicitWidth + 12
                     implicitHeight: badgeText.implicitHeight + 6
-                    
+
                     Text {
                         id: badgeText
                         anchors.centerIn: parent
                         text: model.category
-                        color: Theme.muted
+                        color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
                         font.pixelSize: 9
                     }
                 }
@@ -76,7 +77,7 @@ ComboBox {
 
             Text {
                 text: model.description
-                color: Theme.muted
+                color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
                 font.pixelSize: 11
                 Layout.fillWidth: true
                 elide: Text.ElideRight
@@ -91,8 +92,8 @@ ComboBox {
         padding: 0
 
         background: Rectangle {
-            color: Theme.bgCard
-            border.color: Theme.border
+            color: Theme && Theme.bgCard ? Theme.bgCard : "#141620"
+            border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
             radius: 4
         }
 

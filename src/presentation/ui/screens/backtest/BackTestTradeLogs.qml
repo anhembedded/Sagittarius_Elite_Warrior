@@ -5,6 +5,10 @@ import QmlShared 1.0
 
 Rectangle {
     id: root
+    readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
+    readonly property color themeAccent: Theme && Theme.accent ? Theme.accent : "#fbbf24"
+    readonly property color themeTextPrimary: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+    readonly property color themeMuted: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
     implicitWidth: 1200
     color: "#0d0e14"
 
@@ -72,12 +76,12 @@ Rectangle {
                 Rectangle {
                     width: 3
                     height: 14
-                    color: Theme.accent
+                    color: root.themeAccent
                     radius: 2
                 }
                 Text {
                     text: "DANH SÁCH LỆNH GIAO DỊCH"
-                    color: Theme.textPrimary
+                    color: root.themeTextPrimary
                     font.pixelSize: 12
                     font.bold: true
                     font.letterSpacing: 0.8
@@ -94,8 +98,8 @@ Rectangle {
                 Text {
                     id: countLabel
                     anchors.centerIn: parent
-                    text: viewModel.tradeLogTotalCount + " Lệnh"
-                    color: Theme.accent
+                    text: (root.hasViewModel ? viewModel.tradeLogTotalCount : 0) + " Lệnh"
+                    color: root.themeAccent
                     font.pixelSize: 10
                     font.bold: true
                 }
@@ -114,21 +118,21 @@ Rectangle {
                         implicitHeight: 26
                         background: Rectangle {
                             radius: 6
-                            color: viewModel.tradeLogFilter === modelData.value ? "#252838" : "transparent"
-                            border.color: viewModel.tradeLogFilter === modelData.value ? "#3d425c" : "transparent"
+                            color: root.hasViewModel && viewModel.tradeLogFilter === modelData.value ? "#252838" : "transparent"
+                            border.color: root.hasViewModel && viewModel.tradeLogFilter === modelData.value ? "#3d425c" : "transparent"
                             border.width: 1
                         }
                         contentItem: Text {
                             leftPadding: 10
                             rightPadding: 10
                             text: modelData.label
-                            color: viewModel.tradeLogFilter === modelData.value ? Theme.textPrimary : Theme.muted
+                            color: root.hasViewModel && viewModel.tradeLogFilter === modelData.value ? root.themeTextPrimary : root.themeMuted
                             font.pixelSize: 11
-                            font.bold: viewModel.tradeLogFilter === modelData.value
+                            font.bold: root.hasViewModel && viewModel.tradeLogFilter === modelData.value
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
-                        onClicked: viewModel.tradeLogFilter = modelData.value
+                        onClicked: { if (root.hasViewModel) viewModel.tradeLogFilter = modelData.value }
                     }
                 }
             }
@@ -139,7 +143,7 @@ Rectangle {
             TextField {
                 objectName: "txtTradeLogSearch"
                 placeholderText: "🔍  Tìm theo mã, ngày..."
-                text: viewModel.tradeLogSearchText
+                text: root.hasViewModel ? viewModel.tradeLogSearchText : ""
                 color: Theme.textPrimary
                 font.pixelSize: 11
                 background: Rectangle {
@@ -150,7 +154,7 @@ Rectangle {
                 }
                 Layout.preferredWidth: 200
                 implicitHeight: 28
-                onTextEdited: viewModel.tradeLogSearchText = text
+                onTextEdited: { if (root.hasViewModel) viewModel.tradeLogSearchText = text }
             }
 
             Button {
@@ -169,12 +173,12 @@ Rectangle {
                     Image { source: "image://icons/download/accent"; sourceSize: Qt.size(12, 12) }
                     Text {
                         text: "Export"
-                        color: Theme.textPrimary
+                        color: root.themeTextPrimary
                         font.pixelSize: 11
                         font.bold: true
                     }
                 }
-                onClicked: viewModel.requestTradeLogExport()
+                onClicked: { if (root.hasViewModel) viewModel.requestTradeLogExport() }
             }
         }
 
@@ -217,7 +221,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    model: viewModel.tradeLogRows
+                    model: root.hasViewModel ? viewModel.tradeLogRows : []
                     delegate: Column {
                         width: parent ? parent.width : 0
                         readonly property bool rowExpanded: root.expandedRows[modelData.index] === true
@@ -337,7 +341,7 @@ Rectangle {
                                         model: modelData.metadataItems
                                         Text {
                                             text: modelData.label + ": " + modelData.value
-                                            color: Theme.muted
+                                            color: root.themeMuted
                                             font.pixelSize: 11
                                         }
                                     }
@@ -349,9 +353,9 @@ Rectangle {
                     // Empty state
                     Text {
                         anchors.centerIn: parent
-                        visible: viewModel.tradeLogRows.length === 0
+                        visible: !root.hasViewModel || viewModel.tradeLogRows.length === 0
                         text: "Chưa có dữ liệu lệnh giao dịch"
-                        color: Theme.muted
+                        color: root.themeMuted
                         font.pixelSize: 12
                     }
                 }
@@ -361,7 +365,7 @@ Rectangle {
                     id: paginationRow
                     Layout.fillWidth: true
                     Layout.preferredHeight: 34
-                    visible: viewModel.tradeLogTotalPages > 1
+                    visible: root.hasViewModel && viewModel.tradeLogTotalPages > 1
 
                     Item { Layout.fillWidth: true }
 
@@ -369,13 +373,13 @@ Rectangle {
                         objectName: "btnTradeLogPrevPage"
                         text: "‹  Trang trước"
                         implicitHeight: 26
-                        enabled: viewModel.tradeLogCurrentPage > 1
+                        enabled: root.hasViewModel && viewModel.tradeLogCurrentPage > 1
                         background: Rectangle {
                             color: parent.enabled ? "#1c1e2b" : "transparent"
                             radius: 4
                         }
                         contentItem: Text { text: parent.text; color: parent.enabled ? Theme.textPrimary : Theme.muted; font.pixelSize: 11; font.bold: true }
-                        onClicked: viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage - 1
+                        onClicked: { if (root.hasViewModel) viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage - 1 }
                     }
 
                     Rectangle {
@@ -386,8 +390,8 @@ Rectangle {
                         Text {
                             id: pageText
                             anchors.centerIn: parent
-                            text: "Trang " + viewModel.tradeLogCurrentPage + " / " + viewModel.tradeLogTotalPages
-                            color: Theme.accent
+                            text: "Trang " + (root.hasViewModel ? viewModel.tradeLogCurrentPage : 0) + " / " + (root.hasViewModel ? viewModel.tradeLogTotalPages : 0)
+                            color: root.themeAccent
                             font.pixelSize: 11
                             font.bold: true
                         }
@@ -397,13 +401,13 @@ Rectangle {
                         objectName: "btnTradeLogNextPage"
                         text: "Trang sau  ›"
                         implicitHeight: 26
-                        enabled: viewModel.tradeLogCurrentPage < viewModel.tradeLogTotalPages
+                        enabled: root.hasViewModel && viewModel.tradeLogCurrentPage < viewModel.tradeLogTotalPages
                         background: Rectangle {
                             color: parent.enabled ? "#1c1e2b" : "transparent"
                             radius: 4
                         }
                         contentItem: Text { text: parent.text; color: parent.enabled ? Theme.textPrimary : Theme.muted; font.pixelSize: 11; font.bold: true }
-                        onClicked: viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage + 1
+                        onClicked: { if (root.hasViewModel) viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage + 1 }
                     }
 
                     Item { Layout.fillWidth: true }
