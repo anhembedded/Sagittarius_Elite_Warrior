@@ -94,22 +94,6 @@ class DevIndicatorScript(BaseIndicatorScript):
         momentum = self.momentum(close)
         trend = self.trend(close)
 
-        trend_color = _BULL if self.is_above(self.fast, self.slow) else _BEAR
-
-        self._process_lines(close, session_range, fast, slow, weighted, trend_color)
-        self._process_markers(candle, fast, momentum, trend)
-        bars_in_trend = self._process_state_and_shading()
-        self._process_status_panel(bars_in_trend, momentum, trend_color)
-
-    def _process_lines(
-        self,
-        close: float,
-        session_range: float,
-        fast: float | None,
-        slow: float | None,
-        weighted: float | None,
-        trend_color: str,
-    ) -> None:
         # --- 2b. Feed the derived Series every bar, including a None while its
         # inputs are still warming up — pushing nothing would silently shift
         # the bar alignment and make `[1]` mean the wrong bar.
@@ -122,7 +106,25 @@ class DevIndicatorScript(BaseIndicatorScript):
             and abs(self.spread[0]) > abs(self.spread[1])
         )
 
+        trend_color = self._plot_lines(
+            close, session_range, fast, slow, weighted, widening
+        )
+        self._mark_crosses(close, candle.high_price, fast, momentum, trend)
+        bars_in_trend = self._track_and_shade_trend()
+        self._update_status_panel(trend_color, bars_in_trend, momentum)
+
+    def _plot_lines(
+        self,
+        close: float,
+        session_range: float,
+        fast: float | None,
+        slow: float | None,
+        weighted: float | None,
+        widening: bool,
+    ) -> str:
         # --- 6. Per-bar colour: the same line changes colour as the trend flips.
+        trend_color = _BULL if self.is_above(self.fast, self.slow) else _BEAR
+
         self.plot(fast, "EMA 12", color=trend_color)
         self.plot(slow, "EMA 26", color=trend_color)
         self.plot(weighted, "WMA 20", color=_NEUTRAL)
@@ -135,16 +137,16 @@ class DevIndicatorScript(BaseIndicatorScript):
             "Widening band",
             color=_ACCENT,
         )
+        return trend_color
 
-    def _process_markers(
+    def _mark_crosses(
         self,
-        candle: MarketData,
+        close: float,
+        high_price: float,
         fast: float | None,
         momentum: float | None,
-        trend: "MACDValue | None",
+        trend: MACDValue | None,
     ) -> None:
-        close = candle.close_price
-
         # --- 8. Indicator crossing indicator, and --- 12. markers. Nothing is
         # marked automatically; a marker exists only because it was asked for.
         if self.crossed_above(self.fast, self.slow):
@@ -161,7 +163,7 @@ class DevIndicatorScript(BaseIndicatorScript):
         # would be meaningless drawn over price, so it is computed and used for
         # a marker without being plotted here.
         if self.crossed_above(self.momentum, self.overbought):
-            self.mark(candle.high_price, "Overbought", color=_BEAR, direction="down")
+            self.mark(high_price, "Overbought", color=_BEAR, direction="down")
 
         # --- 11. A compound reading. MACD.update() returns a MACDValue rather
         # than a float, so `self.trend[1]` is always None — read the fields
@@ -174,7 +176,7 @@ class DevIndicatorScript(BaseIndicatorScript):
                 direction="up",
             )
 
-    def _process_state_and_shading(self) -> int:
+    def _track_and_shade_trend(self) -> int:
         # --- 15. A consecutive-bars counter, confirming a trend only after it
         # has held for 3 bars running — resets the moment the trend flips.
         trending_up = self.is_above(self.fast, self.slow)
@@ -194,8 +196,8 @@ class DevIndicatorScript(BaseIndicatorScript):
 
         return bars_in_trend
 
-    def _process_status_panel(
-        self, bars_in_trend: int, momentum: float | None, trend_color: str
+    def _update_status_panel(
+        self, trend_color: str, bars_in_trend: int, momentum: float | None
     ) -> None:
         # --- 14. Status panel — reports current values every bar; only the
         # most recent bar's rows are ever shown (see InfoField's docstring).
