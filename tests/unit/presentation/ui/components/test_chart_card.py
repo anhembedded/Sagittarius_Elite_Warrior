@@ -195,8 +195,6 @@ def test_chart_card_candle_width_is_positive_even_for_descending_data(qapp):
     assert card.candlestick.candle_width == pytest.approx(interval / 3.0)
 
 
-
-
 class PyQtGraphStateKey(str, Enum):
     LIMITS = "limits"
     X_RANGE = "xRange"
