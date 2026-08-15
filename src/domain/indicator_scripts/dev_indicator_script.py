@@ -1,6 +1,7 @@
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
+    MACDValue,
 )
 
 # Colours are plain hex strings — the domain layer never imports a UI toolkit,
@@ -93,6 +94,19 @@ class DevIndicatorScript(BaseIndicatorScript):
         momentum = self.momentum(close)
         trend = self.trend(close)
 
+        trend_color = self._plot_lines(close, session_range, fast, slow, weighted)
+        self._draw_markers(candle, close, fast, trend, momentum)
+        bars_in_trend = self._update_trend_state()
+        self._update_status_panel(trend_color, bars_in_trend, momentum)
+
+    def _plot_lines(
+        self,
+        close: float,
+        session_range: float,
+        fast: float | None,
+        slow: float | None,
+        weighted: float | None,
+    ) -> str:
         # --- 2b. Feed the derived Series every bar, including a None while its
         # inputs are still warming up — pushing nothing would silently shift
         # the bar alignment and make `[1]` mean the wrong bar.
@@ -120,7 +134,16 @@ class DevIndicatorScript(BaseIndicatorScript):
             "Widening band",
             color=_ACCENT,
         )
+        return trend_color
 
+    def _draw_markers(
+        self,
+        candle: MarketData,
+        close: float,
+        fast: float | None,
+        trend: MACDValue | None,
+        momentum: float | None,
+    ) -> None:
         # --- 8. Indicator crossing indicator, and --- 12. markers. Nothing is
         # marked automatically; a marker exists only because it was asked for.
         if self.crossed_above(self.fast, self.slow):
@@ -150,6 +173,7 @@ class DevIndicatorScript(BaseIndicatorScript):
                 direction="up",
             )
 
+    def _update_trend_state(self) -> int:
         # --- 15. A consecutive-bars counter, confirming a trend only after it
         # has held for 3 bars running — resets the moment the trend flips.
         trending_up = self.is_above(self.fast, self.slow)
@@ -167,6 +191,14 @@ class DevIndicatorScript(BaseIndicatorScript):
             self.shade(_BEAR, opacity=0.08)
         # else: no self.shade() call this bar — no tint, same as passing None.
 
+        return bars_in_trend
+
+    def _update_status_panel(
+        self,
+        trend_color: str,
+        bars_in_trend: int,
+        momentum: float | None,
+    ) -> None:
         # --- 14. Status panel — reports current values every bar; only the
         # most recent bar's rows are ever shown (see InfoField's docstring).
         self.info(

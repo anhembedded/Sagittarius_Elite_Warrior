@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.paper_exchange import (
     PaperExchange,
