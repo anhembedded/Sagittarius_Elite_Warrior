@@ -184,7 +184,10 @@ if (-not $SkipTests) {
             if ($enforceCoverageGate) { $pytestArgs += "--cov-fail-under=80" }
         }
         if ($Parallel -or $Workers -gt 0) {
-            $workerCount = if ($Workers -gt 0) { "$Workers" } else { "auto" }
+            # Default 6 workers — determined by benchmark sweep as the sweet spot
+            # for this Windows machine (spawn overhead kills gains above 6).
+            # Override with -Workers N to use a different count.
+            $workerCount = if ($Workers -gt 0) { "$Workers" } else { "6" }
             $pytestArgs += @("-n", $workerCount)
         }
 
