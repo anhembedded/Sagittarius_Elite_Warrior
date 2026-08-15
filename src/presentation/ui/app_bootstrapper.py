@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
+    CriticalErrorDialog,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
@@ -104,10 +107,6 @@ def _install_exception_handler(app_engine) -> None:
             )
         else:
             print(f"Uncaught UI Exception:\n{tb_str}")
-
-        from Sagittarius_Elite_Warrior.src.presentation.ui.components.critical_error_dialog import (
-            CriticalErrorDialog,
-        )
 
         dialog = CriticalErrorDialog(
             title="Critical System Error",

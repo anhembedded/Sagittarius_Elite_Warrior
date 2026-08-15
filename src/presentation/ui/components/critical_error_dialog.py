@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import traceback
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (
@@ -144,8 +146,6 @@ def show_critical_error_dialog(
     parent=None,
 ) -> int:
     """Convenience helper to construct and show a CriticalErrorDialog from an exception."""
-    import traceback
-
     tb_str = (
         "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
         if exc_type
