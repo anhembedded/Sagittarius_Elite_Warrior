@@ -210,9 +210,10 @@ Rectangle {
                         anchors.fill: parent
                         anchors.leftMargin: 12
                         anchors.rightMargin: 12
-                        Text { text: "STT / THỜI GIAN"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 160 }
-                        Text { text: "LOẠI"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 80 }
-                        Text { text: "GIÁ VÀO / THOÁT"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                        spacing: 8
+                        Text { text: "STT / THỜI GIAN"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 160; horizontalAlignment: Text.AlignLeft }
+                        Text { text: "LOẠI"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 70; horizontalAlignment: Text.AlignHCenter }
+                        Text { text: "GIÁ VÀO  ➔  GIÁ THOÁT"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.fillWidth: true; Layout.minimumWidth: 200; horizontalAlignment: Text.AlignLeft }
                         Text { text: "QUY MÔ / KHỐI LƯỢNG"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 150; horizontalAlignment: Text.AlignRight }
                         Text { text: "LÃI / LỖ RÒNG"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 120; horizontalAlignment: Text.AlignRight }
                         Text { text: "RETURN"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
@@ -245,61 +246,119 @@ Rectangle {
                                 anchors.fill: parent
                                 anchors.leftMargin: 12
                                 anchors.rightMargin: 12
+                                spacing: 8
 
                                 ColumnLayout {
                                     Layout.preferredWidth: 160
                                     spacing: 2
-                                    Text { text: modelData.positionLabel; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true; elide: Text.ElideRight }
-                                    Text { text: modelData.entryTimeText; color: Theme.muted; font.pixelSize: 10 }
+                                    Text {
+                                        text: modelData.positionLabel
+                                        color: Theme.textPrimary
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: modelData.entryTimeText
+                                        color: Theme.muted
+                                        font.pixelSize: 10
+                                        Layout.fillWidth: true
+                                    }
                                 }
 
-                                Rectangle {
-                                    Layout.preferredWidth: 64
-                                    implicitHeight: 20
-                                    color: "#0a291e"
-                                    border.color: "#10b981"
-                                    border.width: 1
-                                    radius: 4
-                                    Text {
+                                Item {
+                                    Layout.preferredWidth: 70
+                                    Layout.fillHeight: true
+                                    Rectangle {
                                         anchors.centerIn: parent
-                                        text: "LONG"
-                                        color: "#10b981"
-                                        font.pixelSize: 10
-                                        font.bold: true
+                                        width: 58
+                                        height: 20
+                                        color: modelData.sideText === "SHORT" ? "#2a1215" : "#0a291e"
+                                        border.color: modelData.sideText === "SHORT" ? "#f43f5e" : "#10b981"
+                                        border.width: 1
+                                        radius: 4
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.sideText || "LONG"
+                                            color: modelData.sideText === "SHORT" ? "#f43f5e" : "#10b981"
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                        }
                                     }
                                 }
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
+                                    Layout.minimumWidth: 200
                                     spacing: 2
-                                    Text { text: modelData.entryPriceText + "  ➔  " + modelData.exitPriceText; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignRight }
-                                    Text { text: "Thoát: " + modelData.exitTimeText; color: Theme.muted; font.pixelSize: 10; horizontalAlignment: Text.AlignRight }
+                                    Text {
+                                        text: modelData.entryPriceText + "  ➔  " + modelData.exitPriceText
+                                        color: Theme.textPrimary
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: "Thoát: " + modelData.exitTimeText
+                                        color: Theme.muted
+                                        font.pixelSize: 10
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
                                 }
 
                                 ColumnLayout {
                                     Layout.preferredWidth: 150
                                     spacing: 2
-                                    Text { text: modelData.positionSizeText; color: Theme.textPrimary; font.pixelSize: 11; horizontalAlignment: Text.AlignRight }
-                                    Text { text: modelData.quantityText; color: Theme.muted; font.pixelSize: 10; horizontalAlignment: Text.AlignRight }
-                                }
-
-                                Rectangle {
-                                    Layout.preferredWidth: 110
-                                    implicitHeight: 24
-                                    color: root._withAlpha(modelData.pnlColor, 0.12)
-                                    border.color: root._withAlpha(modelData.pnlColor, 0.4)
-                                    border.width: 1
-                                    radius: 4
                                     Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.pnlText
-                                        color: modelData.pnlColor
+                                        text: modelData.positionSizeText
+                                        color: Theme.textPrimary
                                         font.pixelSize: 11
                                         font.bold: true
+                                        horizontalAlignment: Text.AlignRight
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: modelData.quantityText
+                                        color: Theme.muted
+                                        font.pixelSize: 10
+                                        horizontalAlignment: Text.AlignRight
+                                        Layout.fillWidth: true
                                     }
                                 }
 
-                                Text { text: modelData.returnText; color: modelData.pnlColor; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+                                Item {
+                                    Layout.preferredWidth: 120
+                                    Layout.fillHeight: true
+                                    Rectangle {
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 110
+                                        height: 24
+                                        color: root._withAlpha(modelData.pnlColor, 0.12)
+                                        border.color: root._withAlpha(modelData.pnlColor, 0.4)
+                                        border.width: 1
+                                        radius: 4
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.pnlText
+                                            color: modelData.pnlColor
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: modelData.returnText
+                                    color: modelData.pnlColor
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    Layout.preferredWidth: 80
+                                    horizontalAlignment: Text.AlignRight
+                                }
                             }
                         }
 
