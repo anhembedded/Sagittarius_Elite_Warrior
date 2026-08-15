@@ -22,8 +22,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
 | 🟢 **Completed** | 56 | 64% |
-| 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 32 | 36% |
+| 🟡 **In Progress** | 1 | 1% |
+| 🔴 **Backlog** | 31 | 35% |
 | 📈 **Tổng số Task** | **88** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
@@ -119,6 +119,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ---
 
+### 🟡 In Progress (Sprint hiện tại)
+
+- [ ] **BOT-087**: [`OverlayHost` — hạ tầng overlay full-window cho QML modal](in_progress/BOT-087_overlay_host_engine.md) — Epic `BOT-086`, Track A. Xây dựng host QML trong suốt phủ toàn cửa sổ, để popup của hybrid màn Backtest không còn bị kẹp trong QQuickWidget top panel; `BOT-088` sẽ chuyển 6 popup sang host này sau khi hạ tầng đã được kiểm chứng.
+
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
 | Priority | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
@@ -167,7 +171,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Task | Track | Tên Nhiệm vụ | Phụ thuộc | Mô tả ngắn |
 | :--- | :---: | :--- | :---: | :--- |
-| **[BOT-087](backlog/BOT-087_overlay_host_engine.md)** | A | **`OverlayHost` — overlay full-window ở `pyside_mvc`** | — | `Overlay.overlay` trỏ tới `QQuickWidget` chứa nó, **không** phải cửa sổ — đo được `1378x190` thay vì `1400x900`. Hướng B (user chốt) **đã verify khả thi bằng probe thật**: overlay trong suốt phủ full window, `Overlay.overlay` = `1400x900`, modal 606px vừa, click xuyên xuống khi rảnh, geometry bám resize. ⚠️ Sửa `sagittarius_engine/` → commit **cả 2 repo**. Rủi ro lớn nhất: z-order với `ChartCard` (pyqtgraph/QtWidgets). |
+| **[BOT-087](in_progress/BOT-087_overlay_host_engine.md)** | A | **`OverlayHost` — overlay full-window ở `pyside_mvc`** | — | `Overlay.overlay` trỏ tới `QQuickWidget` chứa nó, **không** phải cửa sổ — đo được `1378x190` thay vì `1400x900`. Hướng B (user chốt) **đã verify khả thi bằng probe thật**: overlay trong suốt phủ full window, `Overlay.overlay` = `1400x900`, modal 606px vừa, click xuyên xuống khi rảnh, geometry bám resize. ⚠️ Sửa `sagittarius_engine/` → commit **cả 2 repo**. Rủi ro lớn nhất: z-order với `ChartCard` (pyqtgraph/QtWidgets). |
 | **[BOT-088](backlog/BOT-088_migrate_backtest_popups_to_overlay_host.md)** | A | **Chuyển 6 popup màn Backtest sang overlay host** | `BOT-087` | Cả 6 popup đều khai trong `BackTestTopPanel.qml` (widget 190px): `extendedMetricsPopup` (**606px, hiện 31%**), `limitationsPopup` (~410px), `BotParamsDialog`, `capitalPopup`, `IndicatorPickerMenu`, `OrderExecutionMenu`. Giữ nguyên `objectName` để test cũ không phải viết lại. |
 | ✅ **[BOT-089](completed/BOT-089_content_driven_panel_sizing.md)** | B | **Panel co giãn theo nội dung — cắt vòng lặp "nâng magic number"** | — | **Xong.** `setFixedHeight(190)` bỏ hẳn, panel giờ đọc `contentColumn.implicitHeight` thật. 2 bug thật phát sinh lúc code (cả 2 verify bằng ảnh chụp UI + mutation test): (1) `ensurePolished()` gọi nhầm item (`root` thay vì `contentColumn`); (2) "ROW 2" dùng `Layout.fillHeight` khiến card/kết quả bị `contentColumn` bỏ qua hoàn toàn — **đây mới là nguyên nhân thật của ảnh chụp gốc `BUG-004`**. Toolbar bọc `ScrollView` ngang, `ScrollBar.policy` phải là `AlwaysOn` (không phải `AsNeeded` — đọc thẳng `Basic/ScrollBar.qml` xác nhận `AsNeeded` vô hình tới khi hover). Xem mục Completed phía trên. |
 | ✅ **[BOT-090](completed/BOT-090_trade_logs_visible_rows.md)** | B | **Trade Logs hiển thị được dòng — hiện trống hoàn toàn** | `BOT-089` ✅ | **Xong — Track B hoàn thành.** `setMinimumHeight()` mới (mirror `_bind_top_panel_height`) chặn splitter kéo pane xuống dưới `minimumUsableHeight` (QML tự tính: toolbar+header bảng+5 dòng+phân trang — quyết định UX có chủ đích, không phải "đo lại nội dung" vì `ListView` vốn cuộn được). `PAGE_SIZE` giữ cố định 20, không làm động. Verify bằng ảnh chụp UI thật: 5 dòng hiện đầy đủ. Xem mục Completed phía trên. |

@@ -6,6 +6,7 @@ import "../../components"
 
 Rectangle {
     id: root
+    readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
     // BOT-089: height is no longer a hardcoded 200 — that number had
     // already been bumped once before (120 -> 190 in backtest_view.py, for
     // the same reason: BOT-055's stat cards no longer fit) and would keep
@@ -85,8 +86,8 @@ Rectangle {
                     StrategyComboBox {
                         id: strategyCombo
                         objectName: "cboBacktestStrategy"
-                        model: viewModel.strategyOptions
-                        enabled: viewModel.controlsEnabled
+                        model: root.hasViewModel ? viewModel.strategyOptions : []
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         Layout.preferredWidth: 300
 
                         property bool _initialized: false
@@ -95,19 +96,19 @@ Rectangle {
                             _initialized = true
                         }
                         Connections {
-                            target: viewModel
+                            target: !root.hasViewModel ? null : viewModel
                             function onSelectedStrategyKeyChanged() { strategyCombo._syncFromViewModel() }
                         }
                         function _syncFromViewModel() {
                             for (var i = 0; i < model.length; ++i) {
-                                if (model[i].key === viewModel.selectedStrategyKey) {
+                                if (root.hasViewModel && model[i].key === viewModel.selectedStrategyKey) {
                                     currentIndex = i
                                     return
                                 }
                             }
                         }
                         onActivated: (index) => {
-                            if (_initialized) viewModel.selectedStrategyKey = model[index].key
+                            if (_initialized && root.hasViewModel) viewModel.selectedStrategyKey = model[index].key
                         }
                     }
 
@@ -117,8 +118,8 @@ Rectangle {
                         objectName: "cboBacktestTimeframe"
                         implicitHeight: 34
                         implicitWidth: 95
-                        model: viewModel.timeframeOptions
-                        enabled: viewModel.controlsEnabled
+                        model: root.hasViewModel ? viewModel.timeframeOptions : []
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
                             color: "#181a24"
                             border.color: "#2a2d3d"
@@ -136,12 +137,12 @@ Rectangle {
 
                         property bool _initialized: false
                         Component.onCompleted: {
-                            var idx = model.indexOf(viewModel.selectedTimeframe)
+                            var idx = root.hasViewModel ? model.indexOf(viewModel.selectedTimeframe) : -1
                             if (idx >= 0) currentIndex = idx
                             _initialized = true
                         }
                         onActivated: (index) => {
-                            if (_initialized) viewModel.selectedTimeframe = model[index]
+                            if (_initialized && root.hasViewModel) viewModel.selectedTimeframe = model[index]
                         }
                     }
 
@@ -151,9 +152,9 @@ Rectangle {
                         objectName: "cboBacktestRange"
                         implicitHeight: 34
                         implicitWidth: 135
-                        model: viewModel.timeRangePresetOptions
+                        model: root.hasViewModel ? viewModel.timeRangePresetOptions : []
                         textRole: "label"
-                        enabled: viewModel.controlsEnabled
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
                             color: "#181a24"
                             border.color: "#2a2d3d"
@@ -172,7 +173,7 @@ Rectangle {
                         property bool _initialized: false
                         Component.onCompleted: {
                             for (var i = 0; i < model.length; ++i) {
-                                if (model[i].value === viewModel.timeRangePreset) {
+                                if (root.hasViewModel && model[i].value === viewModel.timeRangePreset) {
                                     currentIndex = i
                                     break
                                 }
@@ -180,30 +181,30 @@ Rectangle {
                             _initialized = true
                         }
                         onActivated: (index) => {
-                            if (_initialized) viewModel.timeRangePreset = model[index].value
+                            if (_initialized && root.hasViewModel) viewModel.timeRangePreset = model[index].value
                         }
                     }
 
                     // 3b. Custom range fields
                     RowLayout {
                         spacing: 6
-                        visible: viewModel.timeRangePreset === "custom"
+                        visible: root.hasViewModel && viewModel.timeRangePreset === "custom"
 
                         DateTimePicker {
                             objectName: "txtBacktestRangeStart"
                             implicitWidth: 145
-                            text: viewModel.customStartText
-                            enabled: viewModel.controlsEnabled
+                            text: root.hasViewModel ? viewModel.customStartText : ""
+                            enabled: root.hasViewModel && viewModel.controlsEnabled
                             placeholderText: "Từ yyyy-MM-dd HH:mm"
-                            onTextEdited: (text) => viewModel.customStartText = text
+                            onTextEdited: (text) => { if (root.hasViewModel) viewModel.customStartText = text }
                         }
                         DateTimePicker {
                             objectName: "txtBacktestRangeEnd"
                             implicitWidth: 145
-                            text: viewModel.customEndText
-                            enabled: viewModel.controlsEnabled
+                            text: root.hasViewModel ? viewModel.customEndText : ""
+                            enabled: root.hasViewModel && viewModel.controlsEnabled
                             placeholderText: "Đến yyyy-MM-dd HH:mm"
-                            onTextEdited: (text) => viewModel.customEndText = text
+                            onTextEdited: (text) => { if (root.hasViewModel) viewModel.customEndText = text }
                         }
                     }
 
@@ -212,7 +213,7 @@ Rectangle {
                         id: btnCapital
                         objectName: "btnBacktestCapital"
                         implicitHeight: 34
-                        enabled: viewModel.controlsEnabled
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
                             color: "#181a24"
                             border.color: "#2a2d3d"
@@ -231,7 +232,10 @@ Rectangle {
                             }
 
                             Text {
-                                text: root._formatCapitalDisplay(viewModel.initialCapitalText, viewModel.selectedCurrency)
+                                text: root._formatCapitalDisplay(
+                                    root.hasViewModel ? viewModel.initialCapitalText : "",
+                                    root.hasViewModel ? viewModel.selectedCurrency : ""
+                                )
                                 color: Theme.textPrimary
                                 font.pixelSize: 11
                                 font.bold: true
@@ -284,7 +288,7 @@ Rectangle {
                         objectName: "btnBacktestBotParams"
                         text: "Thông số Bot"
                         implicitHeight: 34
-                        enabled: viewModel.controlsEnabled
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
                             color: "#1c1e2b"
                             border.color: "#2d3145"
@@ -310,8 +314,8 @@ Rectangle {
                         objectName: "btnRunBacktest"
                         implicitWidth: 145
                         implicitHeight: 34
-                        enabled: viewModel.controlsEnabled
-                        onClicked: viewModel.requestRun()
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
+                        onClicked: { if (root.hasViewModel) viewModel.requestRun() }
                         background: Rectangle {
                             id: runBtnBg
                             color: enabled ? (runBtnRoot.hovered ? "#12e680" : "#10b981") : "#242736"
@@ -324,7 +328,7 @@ Rectangle {
                             Image { source: "image://icons/play/black"; sourceSize: Qt.size(13, 13) }
                             Text { text: "CHẠY BACKTEST"; color: "#08090d"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 0.5 }
                         }
-                }
+                    }
                 }
             }
         }
@@ -332,7 +336,7 @@ Rectangle {
         // ================= HEADER: PERFORMANCE METRICS =================
         RowLayout {
             Layout.fillWidth: true
-            visible: viewModel.primaryStatCards.length > 0
+            visible: root.hasViewModel && viewModel.primaryStatCards.length > 0
             spacing: 10
 
             RowLayout {
@@ -385,8 +389,8 @@ Rectangle {
                 // the warning behind a click.
                 objectName: "lblResultWarning"
                 Layout.fillWidth: true
-                visible: text !== ""
-                text: viewModel.resultWarningText
+                visible: root.hasViewModel && text !== ""
+                text: root.hasViewModel ? viewModel.resultWarningText : ""
                 color: "#ef5350"
                 font.pixelSize: 11
                 font.bold: true
@@ -433,7 +437,7 @@ Rectangle {
         // states is actually visible.
         Item {
             Layout.fillWidth: true
-            implicitHeight: viewModel.primaryStatCards.length > 0
+            implicitHeight: root.hasViewModel && viewModel.primaryStatCards.length > 0
                 ? statCardsRow.implicitHeight
                 : resultColumn.implicitHeight
             Layout.preferredHeight: implicitHeight
@@ -441,11 +445,11 @@ Rectangle {
             RowLayout {
                 id: statCardsRow
                 anchors.fill: parent
-                visible: viewModel.primaryStatCards.length > 0
+                visible: root.hasViewModel && viewModel.primaryStatCards.length > 0
                 spacing: 12
 
                 Repeater {
-                    model: viewModel.primaryStatCards
+                    model: root.hasViewModel ? viewModel.primaryStatCards : []
 
                     MetricCard {
                         objectName: "cardMetric_" + index
@@ -464,7 +468,7 @@ Rectangle {
             ColumnLayout {
                 id: resultColumn
                 anchors.fill: parent
-                visible: viewModel.primaryStatCards.length === 0
+                visible: !root.hasViewModel || viewModel.primaryStatCards.length === 0
                 spacing: 8
 
                 ScrollView {
@@ -481,10 +485,10 @@ Rectangle {
 
                     TextArea {
                         objectName: "txtBacktestResult"
-                        text: viewModel.resultText
+                        text: root.hasViewModel ? viewModel.resultText : ""
                         readOnly: true
                         wrapMode: TextArea.Wrap
-                        color: viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
+                        color: root.hasViewModel && viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
                         font.pixelSize: 11
                         font.family: "JetBrains Mono, Fira Code, monospace"
                         background: Rectangle {
@@ -499,10 +503,12 @@ Rectangle {
                 Button {
                     objectName: "btnRequestSync"
                     Layout.alignment: Qt.AlignLeft
-                    visible: viewModel.needsDataSync
-                    enabled: viewModel.uiMode !== "SYNCING"
+                    visible: root.hasViewModel && viewModel.needsDataSync
+                    enabled: root.hasViewModel && viewModel.uiMode !== "SYNCING"
                     implicitHeight: 34
-                    text: viewModel.uiMode === "SYNCING" ? "Đang đồng bộ..." : "Đồng bộ dữ liệu ngay"
+                    text: root.hasViewModel
+                        ? (viewModel.uiMode === "SYNCING" ? "Đang đồng bộ..." : "Đồng bộ dữ liệu ngay")
+                        : "Đồng bộ dữ liệu ngay"
                     background: Rectangle { color: enabled ? Theme.accent : "#282b3a"; radius: 6 }
                     contentItem: Text {
                         text: parent.text
@@ -512,7 +518,7 @@ Rectangle {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
-                    onClicked: viewModel.requestSync()
+                    onClicked: { if (root.hasViewModel) viewModel.requestSync() }
                 }
             }
         }
@@ -531,8 +537,8 @@ Rectangle {
         var pos = btnCapital.mapToItem(Overlay.overlay, 0, btnCapital.height + 4)
         capitalPopup.x = pos.x
         capitalPopup.y = pos.y
-        capitalInput.text = viewModel.initialCapitalText
-        var idx = viewModel.currencyOptions.indexOf(viewModel.selectedCurrency)
+        capitalInput.text = root.hasViewModel ? viewModel.initialCapitalText : ""
+        var idx = root.hasViewModel ? viewModel.currencyOptions.indexOf(viewModel.selectedCurrency) : -1
         if (idx >= 0) currencyCombo.currentIndex = idx
         capitalPopup.open()
     }
@@ -573,7 +579,7 @@ Rectangle {
                     objectName: "txtBacktestCapital"
                     Layout.fillWidth: true
                     implicitHeight: 34
-                    text: viewModel.initialCapitalText
+                    text: root.hasViewModel ? viewModel.initialCapitalText : ""
                     color: Theme.textPrimary
                     font.pixelSize: 12
                     font.bold: true
@@ -590,7 +596,7 @@ Rectangle {
                     objectName: "cboBacktestCurrency"
                     implicitWidth: 85
                     implicitHeight: 34
-                    model: viewModel.currencyOptions
+                    model: root.hasViewModel ? viewModel.currencyOptions : []
                     background: Rectangle {
                         color: "#202330"
                         border.color: "#2a2d3e"
@@ -605,7 +611,7 @@ Rectangle {
                         verticalAlignment: Text.AlignVCenter
                     }
                     Component.onCompleted: {
-                        var idx = model.indexOf(viewModel.selectedCurrency)
+                        var idx = root.hasViewModel ? model.indexOf(viewModel.selectedCurrency) : -1
                         if (idx >= 0) currentIndex = idx
                     }
                 }
@@ -653,8 +659,10 @@ Rectangle {
                         verticalAlignment: Text.AlignVCenter
                     }
                     onClicked: {
-                        viewModel.initialCapitalText = capitalInput.text
-                        viewModel.selectedCurrency = currencyCombo.currentText
+                        if (root.hasViewModel) {
+                            viewModel.initialCapitalText = capitalInput.text
+                            viewModel.selectedCurrency = currencyCombo.currentText
+                        }
                         capitalPopup.close()
                     }
                 }
@@ -700,9 +708,8 @@ Rectangle {
                 rowSpacing: 12
 
                 Repeater {
-                    model: viewModel.extendedStatCards
-
-                    MetricCard {
+                    model: root.hasViewModel ? viewModel.extendedStatCards : []
+                    delegate: MetricCard {
                         objectName: "cardExtendedMetric_" + index
                         Layout.fillWidth: true
                         title: modelData.title
@@ -750,9 +757,8 @@ Rectangle {
                 spacing: 8
 
                 Repeater {
-                    model: viewModel.limitations
-
-                    RowLayout {
+                    model: root.hasViewModel ? viewModel.limitations : []
+                    delegate: RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
 

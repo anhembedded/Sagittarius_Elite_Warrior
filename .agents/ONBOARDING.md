@@ -118,6 +118,11 @@ you hit the same wall:
   (`opacity: 0.0`) until `state === "active"`. `policy: AsNeeded` alone
   produces a scrollbar nobody sees; use a ternary between `AlwaysOn` (when
   content actually overflows) and `AlwaysOff`.
+- **Popup bounds need an overlay assertion, not merely a click assertion.**
+  For a modal hosted through `OverlayHost`, assert `overlay_host.overlay_size`
+  from Python. It reads QML's real `Overlay.overlay` dimensions, which catches
+  a popup trapped inside a short `QQuickWidget`; `find_qml_item()` alone cannot
+  inspect Popup content reliably.
 
 ## Naming collision to watch for
 
