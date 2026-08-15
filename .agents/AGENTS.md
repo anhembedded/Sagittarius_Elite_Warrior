@@ -1,7 +1,8 @@
 # Development Guidelines
 
-- **No Hardcoding & Centralized Configuration**:
+- **No Hardcoding, No Magic Numbers & Centralized Configuration**:
   - Avoid hardcoding parameters, default values, magic numbers, magic strings, or styling tokens directly into components or logic.
+  - Never embed raw numeric literals (sizes, timeouts, limits, ratios) in code. Every numeric value must be declared as a named constant or configuration key.
   - All configurations and parameters MUST be defined centrally in configuration files (`config_keys.py`, `user_config.json`, `constants.py`, or dedicated config dataclasses/registries).
   - Strategy and indicator parameters must be declared dynamically via parameter schemas (`input_int`, `input_float`, etc.).
 
@@ -17,9 +18,10 @@
   - Prioritize building reusable abstraction base layers (base cards, base dialogs, base presenters/view models) over concrete duplication.
   - Proactively decompose complex logic/UI into multiple single-responsibility files.
 
-- **Dynamic Responsive UI Sizing**:
+- **Dynamic Responsive UI Sizing & Synchronized Table Columns**:
   - Never hardcode rigid fixed `width`/`height` on modals or cards. Use `preferredWidth` and `preferredHeight` clamped to available overlay boundaries.
   - Ensure all interior scrollable containers use `ScrollView { clip: true }` and responsive content sizing.
+  - For all tables and grids with headers, column widths MUST be declared centrally as a single source of truth (proportional to container width with safe minimum floors) and bound directly to both header and row delegates to guarantee 100% synchronized alignment during window resize and splitter movements.
 
 - **Domain-Driven Precision Terminology**:
   - Maintain exact domain terms: Strategy-specific parameters must be labeled "Thông số Chiến lược" (Strategy Parameters), distinct from general Bot system settings.

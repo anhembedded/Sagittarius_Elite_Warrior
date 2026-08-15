@@ -37,10 +37,14 @@ trigger: always_on
   - **Layer Separation**: Keep strict boundaries across layers (Domain $\rightarrow$ Application $\rightarrow$ Infrastructure $\rightarrow$ Presentation). Never bypass layers or leak presentation/framework logic into domain/application logic.
   - **Prioritize Abstraction Layers**: Before building concrete features, always identify and create reusable base abstractions (e.g., `ModalDialogCard.qml`, `BaseCard.qml`, `BasePresenter`, `BaseViewModel`, base repositories). Shared shell behavior (header/footer structure, styling, lifecycle, dialog framing) belongs in base abstractions, not copy-pasted across concrete components.
   - **Single Responsibility & Multi-File Partitioning**: Proactively decompose complex UI screens, dialogs, and services into dedicated, focused single-responsibility files (e.g. separate dialogs, separate rows, separate controllers) rather than bundling multiple components or distinct logic into one large file.
-- **Dynamic Responsive UI Sizing (Không fix cứng size giao diện)**:
+- **Dynamic Responsive UI Sizing & Synchronized Table Columns (Không fix cứng size giao diện & Đồng bộ cột bảng động)**:
   - All modals, popups, cards, and container components MUST support **Dynamic Responsive Sizing** — never hardcode rigid fixed pixel dimensions (`width`/`height`) directly.
   - Always use `preferredWidth` and `preferredHeight` dynamically clamped against actual container/overlay boundaries (e.g. `Math.min(preferredWidth, Overlay.overlay ? Overlay.overlay.width - 32 : preferredWidth)`).
   - All scrollable inner containers must declare `ScrollView { clip: true }` and responsive content widths (`Layout.fillWidth: true` or `width: root.width - margins`) so content automatically adapts to any window resolution or DPI scaling without text clipping or overflow.
+  - **Synchronized Responsive Table Columns**: For all tables, list views, and grids with headers (e.g. trade logs, order books, status tables), column widths MUST NEVER be hardcoded independently in header and row delegates. Column widths must be declared centrally as a **Single Source of Truth** (e.g. `readonly property real col1Width: Math.max(minWidth, tableUsableWidth * ratio)`) on the parent container/root, and bound directly to BOTH the header and row delegates to guarantee 100% column alignment across fluid resize and splitter movement.
+- **No Magic Numbers & Named Constants (Tuyệt đối không dùng Magic Number)**:
+  - Never embed raw numeric literals (limits, sizes, offsets, timeouts, ratios) directly into logic, layouts, calculations, or function bodies.
+  - Every numeric value MUST be declared as a named, typed, documented constant (e.g. `DEFAULT_LOG_MAX_ENTRIES`, `_MIN_DIALOG_WIDTH`, `_DEFAULT_ICON_SIZE`) or managed via centralized configuration.
 - **Domain-Driven Precision Terminology (Đúng thuật ngữ Domain)**:
   - Use exact, standard domain terminology across UI labels and code:
     - Parameters declared inside trading strategies must be labeled **"Thông số Chiến lược"** (`Strategy Parameters` / `Strategy Inputs`), not confused with general Bot system configurations.
