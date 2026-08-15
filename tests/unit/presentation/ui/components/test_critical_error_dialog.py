@@ -5,6 +5,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtGui import QGuiApplication
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.critical_error_dialog import (
     CriticalErrorDialog,
 )

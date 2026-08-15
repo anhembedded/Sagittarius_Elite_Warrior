@@ -4,6 +4,7 @@ Tests for Series and the cross helpers (BOT-032) — the primitives that make
 """
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.scripting import (
     Series,
     constant_series,

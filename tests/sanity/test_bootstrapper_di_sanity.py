@@ -10,6 +10,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.main import create_app
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_config import IConfig

@@ -137,10 +137,10 @@ if ($venvActivateWin) {
 $failed = @()
 
 if (-not $SkipLint) {
-    Write-Step "Ruff — Lint (ruff check src tests)"
+    Write-Step "Ruff — Auto-fix Lint (ruff check --fix src tests)"
     Push-Location $botRoot
     try {
-        ruff check src tests
+        ruff check --fix src tests
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Lint"; Write-Failure "Ruff Lint" }
         else { Write-Success "Ruff Lint" }
     } catch {
@@ -148,10 +148,10 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    Write-Step "Ruff — Format Check (ruff format --check src tests)"
+    Write-Step "Ruff — Auto-fix Format (ruff format src tests)"
     Push-Location $botRoot
     try {
-        ruff format --check src tests
+        ruff format src tests
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Format"; Write-Failure "Ruff Format" }
         else { Write-Success "Ruff Format" }
     } catch {

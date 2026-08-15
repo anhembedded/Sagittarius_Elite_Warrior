@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 

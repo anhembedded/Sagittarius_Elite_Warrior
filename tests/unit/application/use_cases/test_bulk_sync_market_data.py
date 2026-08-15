@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )

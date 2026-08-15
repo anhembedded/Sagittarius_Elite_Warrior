@@ -14,6 +14,7 @@ through unchanged.
 """
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (

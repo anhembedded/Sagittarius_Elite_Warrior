@@ -16,6 +16,7 @@ caught too, not just ones each screen defines directly.
 """
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
