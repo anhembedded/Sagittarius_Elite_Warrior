@@ -301,6 +301,13 @@ class BackTestPresenter(BasePresenter):
         self._view_model.selectedStrategyKeyChanged.connect(
             self._on_strategy_selection_changed
         )
+        self._view_model.selectedTimeframeChanged.connect(self._on_timeframe_changed)
+        self._view_model.timeRangePresetChanged.connect(self._on_time_range_changed)
+        self._view_model.initialCapitalTextChanged.connect(self._on_capital_changed)
+        self._view_model.selectedCurrencyChanged.connect(self._on_capital_changed)
+        self._view_model.script_model.enabledKeysChanged.connect(
+            self._on_indicator_script_selection_changed
+        )
         self._view_model.botParamsSaveRequested.connect(
             self._on_bot_params_save_requested
         )
@@ -654,6 +661,43 @@ class BackTestPresenter(BasePresenter):
         self._strategy_params = None
         self._view_model.set_bot_params_error("")
         self._refresh_bot_params_schema()
+        self._logger.log_strategy_selected(
+            self._view_model.selectedStrategyName,
+            self._view_model.selectedStrategyKey,
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_timeframe_changed(self) -> None:
+        self._logger.log_timeframe_selected(self._view_model.selectedTimeframe)
+
+    @Slot()
+    @safe_ui_action
+    def _on_time_range_changed(self) -> None:
+        self._logger.log_time_range_selected(
+            self._view_model.timeRangePreset,
+            self._view_model.customStartText,
+            self._view_model.customEndText,
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_capital_changed(self) -> None:
+        try:
+            capital_val = float(self._view_model.initialCapitalText)
+            self._logger.log_capital_updated(
+                capital_val,
+                self._view_model.selectedCurrency,
+            )
+        except (ValueError, TypeError):
+            pass
+
+    @Slot()
+    @safe_ui_action
+    def _on_indicator_script_selection_changed(self) -> None:
+        enabled_keys = sorted(self._view_model.script_model.enabled_keys)
+        scripts_str = ", ".join(enabled_keys) if enabled_keys else "Không có"
+        self._logger.info(f"Đã cập nhật chỉ báo tham chiếu: {scripts_str}")
 
     @Slot(object)
     @safe_ui_action
@@ -678,6 +722,10 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_bot_params_error("")
         self._refresh_bot_params_schema()
         self._view_model.botParamsSaved.emit()
+        self._logger.log_bot_params_saved(
+            self._view_model.selectedStrategyName,
+            parsed,
+        )
 
         if self.fsm.current_state != BacktestUiState.IDLE:
             return

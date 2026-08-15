@@ -74,3 +74,44 @@ def test_backtest_event_logger_dev_mode_traces() -> None:
     logger.log_signal_event("BTCUSDT", "buy", 45000.0, "12:00:00")
     assert mock_log_model.append.call_count == 1
     assert "BUY BTCUSDT" in mock_log_model.append.call_args[0][0]
+
+
+def test_backtest_event_logger_user_selection_methods() -> None:
+    mock_log_model = MagicMock()
+    logger = BacktestEventLogger(log_model=mock_log_model, is_dev_mode=False)
+
+    logger.log_strategy_selected("Ema Crossover", "ema_crossover")
+    mock_log_model.append.assert_called_once_with(
+        "Đã chọn chiến lược: Ema Crossover (ema_crossover)", level="info"
+    )
+
+    mock_log_model.reset_mock()
+    logger.log_timeframe_selected("15m")
+    mock_log_model.append.assert_called_once_with(
+        "Đã đổi khung thời gian: 15m", level="info"
+    )
+
+    mock_log_model.reset_mock()
+    logger.log_time_range_selected("1_month", "2026-01-01", "2026-02-01")
+    mock_log_model.append.assert_called_once_with(
+        "Đã chọn khoảng thời gian: 1_month (2026-01-01 -> 2026-02-01)", level="info"
+    )
+
+    mock_log_model.reset_mock()
+    logger.log_capital_updated(100000.0, "USDT")
+    mock_log_model.append.assert_called_once_with(
+        "Đã cập nhật vốn ban đầu: 100,000 USDT", level="info"
+    )
+
+    mock_log_model.reset_mock()
+    logger.log_bot_params_saved("Ema Crossover", {"fast_period": 9, "slow_period": 21})
+    mock_log_model.append.assert_called_once_with(
+        "Đã lưu thông số chiến lược (Ema Crossover): fast_period=9, slow_period=21",
+        level="info",
+    )
+
+    mock_log_model.reset_mock()
+    logger.log_indicator_toggled("EMA 20", True)
+    mock_log_model.append.assert_called_once_with(
+        "Bật chỉ báo tham chiếu: EMA 20", level="info"
+    )

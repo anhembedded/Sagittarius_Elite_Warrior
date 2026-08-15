@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_event_logger import (
     BaseEventLogger,
@@ -76,6 +76,33 @@ class BacktestEventLogger(BaseEventLogger):
         self.warning(
             f"Backtest hoàn thành nhưng không phát sinh lệnh giao dịch nào{suffix}."
         )
+
+    def log_strategy_selected(self, strategy_name: str, strategy_key: str) -> None:
+        self.info(f"Đã chọn chiến lược: {strategy_name} ({strategy_key})")
+
+    def log_timeframe_selected(self, timeframe: str) -> None:
+        self.info(f"Đã đổi khung thời gian: {timeframe}")
+
+    def log_time_range_selected(
+        self, preset: str, start_date: str = "", end_date: str = ""
+    ) -> None:
+        range_str = f" ({start_date} -> {end_date})" if start_date and end_date else ""
+        self.info(f"Đã chọn khoảng thời gian: {preset}{range_str}")
+
+    def log_capital_updated(self, capital: float, currency: str) -> None:
+        self.info(f"Đã cập nhật vốn ban đầu: {capital:,.0f} {currency}")
+
+    def log_bot_params_saved(
+        self, strategy_name: str, params: dict[str, Any] | None = None
+    ) -> None:
+        param_str = (
+            ", ".join(f"{k}={v}" for k, v in params.items()) if params else "Mặc định"
+        )
+        self.info(f"Đã lưu thông số chiến lược ({strategy_name}): {param_str}")
+
+    def log_indicator_toggled(self, script_name: str, enabled: bool) -> None:
+        action = "Bật" if enabled else "Tắt"
+        self.info(f"{action} chỉ báo tham chiếu: {script_name}")
 
     def log_signal_event(
         self, symbol: str, side: str, price: float, time_str: str = ""

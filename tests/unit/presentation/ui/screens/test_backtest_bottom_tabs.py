@@ -154,3 +154,30 @@ def test_backtest_presenter_event_bus_handlers(qapp) -> None:
     failed_event = BacktestFailedEvent(reason="Network Timeout")
     presenter._handle_backtest_failed_event(failed_event)
     assert presenter._view_model.log_model.rowCount() == initial_log_count + 2
+
+    from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
+        LogListModel,
+    )
+
+    # Test user UI selection events emitting logs
+    current_count = presenter._view_model.log_model.rowCount()
+    presenter._view_model.selectedStrategyKey = "multi_ema_trend_follower"
+    assert presenter._view_model.log_model.rowCount() == current_count + 1
+    idx = presenter._view_model.log_model.index(current_count, 0)
+    assert "chiến lược" in presenter._view_model.log_model.data(
+        idx, LogListModel.MessageRole
+    )
+
+    current_count = presenter._view_model.log_model.rowCount()
+    presenter._view_model.selectedTimeframe = "15m"
+    assert presenter._view_model.log_model.rowCount() == current_count + 1
+    idx = presenter._view_model.log_model.index(current_count, 0)
+    assert "15m" in presenter._view_model.log_model.data(idx, LogListModel.MessageRole)
+
+    current_count = presenter._view_model.log_model.rowCount()
+    presenter._view_model.initialCapitalText = "100000"
+    assert presenter._view_model.log_model.rowCount() == current_count + 1
+    idx = presenter._view_model.log_model.index(current_count, 0)
+    assert "100,000" in presenter._view_model.log_model.data(
+        idx, LogListModel.MessageRole
+    )
