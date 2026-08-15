@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QObject, Qt, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from sagittarius_engine.extensions.pyside_mvc import BaseView, create_quick_widget
@@ -18,13 +18,6 @@ from .logic.chart_controls import BacktestChartControls
 _QML_DIR = Path(__file__).parent
 _TOP_PANEL_QML = "BackTestTopPanel.qml"
 _TRADE_LOGS_QML = "BackTestTradeLogs.qml"
-
-#: Toolbar row (~40px) + metrics header row (~24px) + the MetricCard row
-#: itself (MetricCard.qml's own implicitHeight: 75) + ColumnLayout's 2x10px
-#: margins + 2x10px inter-row spacing — 120 (BOT-022's original budget, sized
-#: for a single plain result-text line, before BOT-055's real stat cards
-#: existed) clipped the cards' value/badge row off entirely.
-_TOP_PANEL_HEIGHT = 190
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (
@@ -74,7 +67,6 @@ class BackTestView(BaseView):
         outer_layout.setSpacing(10)
 
         self.top_widget = create_quick_widget()
-        self.top_widget.setFixedHeight(_TOP_PANEL_HEIGHT)
         outer_layout.addWidget(self.top_widget)
 
         main_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -107,6 +99,43 @@ class BackTestView(BaseView):
         self.bottom_widget.setSource(
             QUrl.fromLocalFile(str(_QML_DIR / _TRADE_LOGS_QML))
         )
+        self._bind_top_panel_height()
+
+    def _bind_top_panel_height(self) -> None:
+        """
+        @brief BOT-089 — `top_widget` is `SizeRootObjectToView` (the shared
+        default from `create_quick_widget()`, same as every other QML host
+        in the app), so the QML root's `implicitHeight` never drives the
+        widget's size on its own. This is the one place that reads it back
+        and applies it, replacing the `_TOP_PANEL_HEIGHT` constant that had
+        already needed bumping once before (120 -> 190, BOT-055) for the
+        exact same reason: a hardcoded number ignoring what the content
+        actually needs.
+        @details Deliberately local to this View, not a change to
+        `create_quick_widget()`'s shared resize mode — Settings/Database/
+        Dashboard's QML hosts fill whatever space their container gives
+        them and must keep doing so; only this screen's top panel is meant
+        to size itself to its content.
+        """
+        root = self.top_widget.rootObject()
+        if root is None:
+            return
+        content_column = root.findChild(QObject, "contentColumn")
+        if content_column is None:
+            return
+
+        def sync_height() -> None:
+            # `ensurePolished()` forces `contentColumn`'s own pending
+            # implicitHeight recompute (QtQuick Layouts batch/defer a
+            # ColumnLayout's rearrange into a polish job scheduled on that
+            # Layout item, not on `root` — `root.implicitHeight` is an
+            # ordinary binding that re-evaluates on its own once
+            # contentColumn's value is current).
+            content_column.ensurePolished()
+            self.top_widget.setFixedHeight(int(root.property("implicitHeight")))
+
+        root.implicitHeightChanged.connect(sync_height)
+        sync_height()
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter and forwards them to
