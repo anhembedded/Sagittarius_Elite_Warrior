@@ -1,6 +1,10 @@
 # Development Guidelines
 
-- **No Hardcoding**: Avoid magic strings, magic numbers, or hardcoded configurations. Always refer to existing related implementations, established enums, or central configuration files (`config_keys.py`, `user_config.json`, etc.).
+- **No Hardcoding & Centralized Configuration**:
+  - Avoid hardcoding parameters, default values, magic numbers, magic strings, or styling tokens directly into components or logic.
+  - All configurations and parameters MUST be defined centrally in configuration files (`config_keys.py`, `user_config.json`, `constants.py`, or dedicated config dataclasses/registries).
+  - Strategy and indicator parameters must be declared dynamically via parameter schemas (`input_int`, `input_float`, etc.).
+
 - **Strictly Follow SOLID Principles**: Ensure any new features, refactors, or code additions adhere strictly to SOLID principles:
   - **S**ingle Responsibility Principle (SRP)
   - **O**pen/Closed Principle (OCP)

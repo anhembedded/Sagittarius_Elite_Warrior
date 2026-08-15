@@ -4,7 +4,13 @@ trigger: always_on
 
 # Development Guidelines
 
-- **No Hardcoding**: Avoid magic strings, magic numbers, or hardcoded configurations. Always refer to existing related implementations, established enums, or central configuration files (`config_keys.py`, `user_config.json`, etc.).
+- **No Hardcoding & Centralized Configuration**:
+  - Never hardcode parameters, default values, constants, thresholds, magic strings, magic numbers, or styling tokens directly into components, views, or business logic.
+  - All application parameters and defaults MUST be managed centrally through configuration files, constants, or domain schema:
+    - **App & User Config**: `src/config/config_keys.py`, `user_config.json`, or dedicated typed config dataclasses/registries.
+    - **UI & Presentation Constants**: `Theme` tokens (`QmlShared`), `constants.py`, or centralized style tokens.
+    - **Strategy/Indicator Parameters**: declared dynamically via parameter schemas (`input_int`, `input_float`, etc.) rather than embedded fixed values.
+  - When introducing a new parameter or configurable behavior, always declare its configuration key/model first.
 - **Strictly Follow SOLID Principles**: Ensure any new features, refactors, or code additions adhere strictly to SOLID principles:
   - **S**ingle Responsibility Principle (SRP)
   - **O**pen/Closed Principle (OCP)
