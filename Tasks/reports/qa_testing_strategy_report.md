@@ -13,7 +13,7 @@ Dự án hiện bao gồm **2 bộ test suite chính** chạy qua script `ci-loc
 | Phân vùng Codebase | Số lượng Test Cases | Trạng thái Chạy | Tỷ lệ Pass |
 | :--- | :---: | :---: | :---: |
 | **Sagittarius Engine** (`sagittarius_engine/`) | 385 | ✅ Passed | 100% (6 Skipped) |
-| **Binance Bot App** (`Binace_Bot/`) | 92 | ✅ Passed | 100% |
+| **Binance Bot App** (`Sagittarius_Elite_Warrior/`) | 92 | ✅ Passed | 100% |
 | **Tổng cộng toàn bộ hệ thống** | **477** | **✅ PASSED** | **100%** |
 
 ### 📈 Phân bố Kim tự tháp Kiểm thử Hiện tại:
@@ -87,7 +87,7 @@ Dự án hiện bao gồm **2 bộ test suite chính** chạy qua script `ci-loc
 ## 🛠️ 4. Kế hoạch Hành động Kỹ thuật (Actionable Implementation Plan)
 
 ### 📌 **Bước 1: Tái cấu trúc Thư mục Tests**
-- Tạo mới thư mục `Binace_Bot/tests/sanity/`.
+- Tạo mới thư mục `Sagittarius_Elite_Warrior/tests/sanity/`.
 - Di chuyển `test_circular_imports.py` vào `tests/sanity/`.
 - Bổ sung `tests/sanity/test_bootstrapper_di_sanity.py`.
 

@@ -11,16 +11,6 @@ Rectangle {
 
     color: Theme.bg
 
-    // Shared field styling — every input on this screen looks the same, so
-    // the recipe lives in one place instead of being repeated per control.
-    component FieldBackground: Rectangle {
-        color: "#17181d"
-        border.color: Theme.border
-        border.width: 1
-        radius: 6
-        implicitHeight: 32
-    }
-
     component SectionLabel: Text {
         color: Theme.muted
         font.pixelSize: 10
@@ -68,24 +58,41 @@ Rectangle {
             // work — clicking must never look like it did something.
             Repeater {
                 model: [
-                    { label: "Seed Records", icon: "database" },
-                    { label: "Export JSON", icon: "clock" },
-                    { label: "Purge Vault", icon: "trash-2" }
+                    { 
+                        name: "Seed_Records", label: "Seed 1,000 Records", icon: "plus-circle", 
+                        idleBg: "#131418", hoverBg: "#131418",
+                        idleBorder: Theme.border, hoverBorder: "#ffffff",
+                        idleText: Theme.textPrimary, hoverText: Theme.textPrimary,
+                        idleIcon: "success", hoverIcon: "success"
+                    },
+                    { 
+                        name: "Export_JSON", label: "Export JSON", icon: "download", 
+                        idleBg: "#131418", hoverBg: Theme.accent,
+                        idleBorder: Theme.accent, hoverBorder: Theme.accent,
+                        idleText: Theme.accent, hoverText: Theme.bg,
+                        idleIcon: "accent", hoverIcon: "bg"
+                    },
+                    { 
+                        name: "Purge_Vault", label: "Purge Vault", icon: "trash-2", 
+                        idleBg: "#131418", hoverBg: Theme.danger,
+                        idleBorder: Theme.danger, hoverBorder: Theme.danger,
+                        idleText: Theme.danger, hoverText: Theme.textPrimary,
+                        idleIcon: "danger", hoverIcon: "text"
+                    }
                 ]
 
                 Button {
                     id: placeholderButton
                     required property var modelData
-                    objectName: "btnPlaceholder_" + modelData.label.replace(" ", "_")
+                    objectName: "btnPlaceholder_" + modelData.name
                     text: modelData.label
-                    enabled: false
                     ToolTip.visible: hovered
                     ToolTip.text: "Not implemented yet"
 
                     contentItem: RowLayout {
                         spacing: 5
                         Image {
-                            source: "image://icons/" + placeholderButton.modelData.icon + "/muted"
+                            source: "image://icons/" + placeholderButton.modelData.icon + "/" + (placeholderButton.hovered ? placeholderButton.modelData.hoverIcon : placeholderButton.modelData.idleIcon)
                             sourceSize.width: 13
                             sourceSize.height: 13
                             Layout.preferredWidth: 13
@@ -93,18 +100,18 @@ Rectangle {
                         }
                         Text {
                             text: placeholderButton.text
-                            color: Theme.muted
+                            color: placeholderButton.hovered ? placeholderButton.modelData.hoverText : placeholderButton.modelData.idleText
                             font.pixelSize: 11
+                            font.bold: true
                         }
                     }
                     background: Rectangle {
                         implicitHeight: 30
-                        implicitWidth: 118
+                        implicitWidth: 135
                         radius: 6
-                        color: "#131418"
-                        border.color: Theme.border
+                        color: placeholderButton.hovered ? placeholderButton.modelData.hoverBg : placeholderButton.modelData.idleBg
+                        border.color: placeholderButton.hovered ? placeholderButton.modelData.hoverBorder : placeholderButton.modelData.idleBorder
                         border.width: 1
-                        opacity: 0.6
                     }
                 }
             }
@@ -199,7 +206,7 @@ Rectangle {
                             Layout.fillWidth: true
                             model: viewModel.symbols
                             editable: true
-                            enabled: viewModel.uiMode !== "LOCKED"
+                            enabled: viewModel.uiMode === "IDLE"
                             currentIndex: Math.max(0, viewModel.symbols.indexOf(viewModel.selectedSymbol))
                             onCurrentTextChanged: viewModel.selectedSymbol = currentText
                             background: FieldBackground {}
@@ -212,78 +219,21 @@ Rectangle {
                             }
                         }
 
-                        Text { text: "Interval:"; color: Theme.textPrimary; font.pixelSize: 12 }
-                        ComboBox {
-                            objectName: "cboInterval"
-                            Layout.fillWidth: true
-                            model: viewModel.intervals
-                            enabled: viewModel.uiMode !== "LOCKED"
-                            currentIndex: Math.max(0, viewModel.intervals.indexOf(viewModel.selectedInterval))
-                            onCurrentTextChanged: viewModel.selectedInterval = currentText
-                            background: FieldBackground {}
-                            contentItem: Text {
-                                leftPadding: 8
-                                text: parent.displayText
-                                color: Theme.textPrimary
-                                font.pixelSize: 12
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
+
                     }
 
-                    SectionLabel { text: "TIME RANGE" }
-
-                    CheckBox {
-                        id: customTimeCheck
-                        objectName: "chkCustomTime"
-                        text: "Use Custom Time Range"
-                        checked: viewModel.useCustomTime
-                        enabled: viewModel.uiMode !== "LOCKED"
-                        onToggled: viewModel.useCustomTime = checked
-                        contentItem: Text {
-                            leftPadding: customTimeCheck.indicator.width + 6
-                            text: customTimeCheck.text
-                            color: Theme.textPrimary
-                            font.pixelSize: 12
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        indicator: Rectangle {
-                            implicitWidth: 16
-                            implicitHeight: 16
-                            y: (customTimeCheck.height - height) / 2
-                            radius: 3
-                            color: customTimeCheck.checked ? Theme.accent : "#17181d"
-                            border.color: customTimeCheck.checked ? Theme.accent : Theme.border
-                            border.width: 1
-                        }
-                    }
-
-                    // Plain text fields rather than a calendar popup: Qt Quick
-                    // Controls Basic has no date-time editor, and inventing one
-                    // is out of scope for this migration. Format is stated in
-                    // the placeholder so the expected input is unambiguous.
-                    TextField {
-                        objectName: "txtFromDateTime"
+                    TimeRangeCard {
                         Layout.fillWidth: true
-                        enabled: viewModel.useCustomTime && viewModel.uiMode !== "LOCKED"
-                        text: viewModel.fromDateTime
-                        onTextEdited: viewModel.fromDateTime = text
-                        placeholderText: "From  yyyy-MM-dd HH:mm"
-                        color: Theme.textPrimary
-                        font.pixelSize: 12
-                        background: FieldBackground {}
-                    }
+                        color: "transparent"
+                        border.width: 0
+                        useCustomTime: viewModel.useCustomTime
+                        readOnly: viewModel.uiMode !== "IDLE"
+                        fromDateTime: viewModel.fromDateTime
+                        toDateTime: viewModel.toDateTime
 
-                    TextField {
-                        objectName: "txtToDateTime"
-                        Layout.fillWidth: true
-                        enabled: viewModel.useCustomTime && viewModel.uiMode !== "LOCKED"
-                        text: viewModel.toDateTime
-                        onTextEdited: viewModel.toDateTime = text
-                        placeholderText: "To  yyyy-MM-dd HH:mm"
-                        color: Theme.textPrimary
-                        font.pixelSize: 12
-                        background: FieldBackground {}
+                        onCustomTimeToggled: checked => viewModel.useCustomTime = checked
+                        onFromDateTimeEdited: text => viewModel.fromDateTime = text
+                        onToDateTimeEdited: text => viewModel.toDateTime = text
                     }
 
                     SectionLabel { text: "ACTIONS" }
@@ -311,7 +261,7 @@ Rectangle {
                             objectName: modelData.name
                             text: modelData.label
                             Layout.fillWidth: true
-                            enabled: viewModel.uiMode !== "LOCKED"
+                            enabled: viewModel.uiMode === "IDLE"
 
                             onClicked: {
                                 switch (modelData.action) {
@@ -359,6 +309,7 @@ Rectangle {
                     }
 
                     ProgressBar {
+                        id: syncProgress
                         objectName: "syncProgress"
                         Layout.fillWidth: true
                         visible: viewModel.progressVisible
@@ -366,6 +317,59 @@ Rectangle {
                         from: 0
                         to: Math.max(1, viewModel.progressMaximum)
                         value: viewModel.progressValue
+
+                        background: Rectangle {
+                            implicitHeight: 8
+                            color: "#1e1e24" // Dark, matching Theme.bgCard but recessed
+                            radius: 4
+                            border.color: "#33ffffff"
+                            border.width: 1
+                        }
+
+                        contentItem: Item {
+                            implicitHeight: 8
+
+                            // Determinate Bar
+                            Rectangle {
+                                visible: !syncProgress.indeterminate
+                                width: syncProgress.visualPosition * parent.width
+                                height: parent.height
+                                radius: 4
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0.0; color: Theme.accent }
+                                    GradientStop { position: 1.0; color: "#00f0ff" } // Neon Cyan
+                                }
+                                Behavior on width {
+                                    NumberAnimation { duration: 300; easing.type: Easing.OutQuart }
+                                }
+                            }
+
+                            // Indeterminate Bar
+                            Rectangle {
+                                id: indetRect
+                                visible: syncProgress.indeterminate
+                                width: parent.width * 0.4
+                                height: parent.height
+                                radius: 4
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0.0; color: "transparent" }
+                                    GradientStop { position: 0.5; color: Theme.accent }
+                                    GradientStop { position: 1.0; color: "transparent" }
+                                }
+                                SequentialAnimation on x {
+                                    loops: Animation.Infinite
+                                    running: syncProgress.indeterminate && syncProgress.visible
+                                    NumberAnimation {
+                                        from: -indetRect.width
+                                        to: syncProgress.width
+                                        duration: 1200
+                                        easing.type: Easing.InOutQuad
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Item { Layout.fillHeight: true }
@@ -450,7 +454,6 @@ Rectangle {
                                 Repeater {
                                     model: [
                                         { title: "SYMBOL", weight: 2 },
-                                        { title: "INTERVAL", weight: 1 },
                                         { title: "FIRST RECORD", weight: 3 },
                                         { title: "LAST RECORD", weight: 3 },
                                         { title: "TOTAL", weight: 2 },
@@ -500,7 +503,6 @@ Rectangle {
 
                                 required property int index
                                 required property string symbol
-                                required property string interval
                                 required property string firstRecord
                                 required property string lastRecord
                                 required property string totalCandles
@@ -520,13 +522,6 @@ Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 2
                                         elide: Text.ElideRight
-                                    }
-                                    Text {
-                                        text: statusRow.interval
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
                                     }
                                     Text {
                                         text: statusRow.firstRecord
@@ -563,13 +558,11 @@ Rectangle {
                                     Button {
                                         id: rowSyncButton
                                         objectName: "btnRowSync_" + statusRow.symbol
-                                                    + "_" + statusRow.interval
                                         text: "Sync"
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 2
-                                        enabled: viewModel.uiMode !== "LOCKED"
-                                        onClicked: viewModel.requestSyncRow(
-                                                       statusRow.symbol, statusRow.interval)
+                                        enabled: viewModel.uiMode === "IDLE"
+                                        onClicked: viewModel.requestSyncRow(statusRow.symbol)
 
                                         contentItem: Text {
                                             text: rowSyncButton.text

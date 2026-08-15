@@ -54,6 +54,13 @@ class ChartPlotLayout:
         self.plots: list[pg.PlotItem] = [self.main_plot]
         self._next_row = self.MAIN_PLOT_ROW + 1
 
+    def _update_x_axes(self) -> None:
+        """Ensures only the bottom-most plot shows X-axis text labels."""
+        for plot in self.plots[:-1]:
+            plot.getAxis("bottom").setStyle(showValues=False)
+        if self.plots:
+            self.plots[-1].getAxis("bottom").setStyle(showValues=True)
+
     def add_subplot(self, height_ratio: int = 1) -> pg.PlotItem:
         """
         Adds a new subplot row below existing plots (e.g. Volume, RSI, MACD),
@@ -64,7 +71,13 @@ class ChartPlotLayout:
         single outlier (e.g. one huge volume spike) squashes every other bar
         flat — and mouse-wheel Y-zoom on the subplot silently does nothing.
         """
-        sub_plot = self.widget.addPlot(row=self._next_row, col=0, colspan=2)
+        date_axis = pg.DateAxisItem(orientation="bottom")
+        sub_plot = self.widget.addPlot(
+            row=self._next_row,
+            col=0,
+            colspan=2,
+            axisItems={"bottom": date_axis},
+        )
         sub_plot.showGrid(x=True, y=True, alpha=0.2)
         sub_plot.setXLink(self.main_plot)
         sub_plot.setMouseEnabled(x=True, y=True)
@@ -76,6 +89,9 @@ class ChartPlotLayout:
         self.sub_plots.append(sub_plot)
         self.plots.append(sub_plot)
         self._next_row += 1
+
+        self._update_x_axes()
+
         return sub_plot
 
     def remove_subplot(self, sub_plot: pg.PlotItem) -> None:
@@ -95,7 +111,11 @@ class ChartPlotLayout:
         self.plots.remove(sub_plot)
         self.widget.removeItem(sub_plot)
 
+        self._update_x_axes()
+
     def clear(self) -> None:
         self.sub_plots.clear()
         self.plots.clear()
         self.widget.clear()
+        self.plots.append(self.main_plot)
+        self._update_x_axes()

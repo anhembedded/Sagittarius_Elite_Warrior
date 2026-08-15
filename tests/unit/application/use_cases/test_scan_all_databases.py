@@ -1,15 +1,16 @@
 import dataclasses
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.handler import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.handler import (
     ScanAllDatabasesQueryHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
@@ -28,8 +29,8 @@ def handler(mock_repo):
 def test_returns_dto_list_for_non_empty_databases(handler, mock_repo):
     """Handler returns one DatabaseStatusDTO per non-empty symbol/interval pair."""
     mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
-        first_record=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        last_record=datetime(2024, 6, 1, tzinfo=timezone.utc),
+        first_record=datetime(2024, 1, 1, tzinfo=UTC),
+        last_record=datetime(2024, 6, 1, tzinfo=UTC),
         total_candles=500,
         gaps=0,
     )
@@ -67,8 +68,8 @@ def test_skips_empty_databases(handler, mock_repo):
 def test_gap_detected_sets_correct_status_text(handler, mock_repo):
     """When gaps > 0, status_text should contain the gap count."""
     mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
-        first_record=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        last_record=datetime(2024, 6, 1, tzinfo=timezone.utc),
+        first_record=datetime(2024, 1, 1, tzinfo=UTC),
+        last_record=datetime(2024, 6, 1, tzinfo=UTC),
         total_candles=1000,
         gaps=3,
     )

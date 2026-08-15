@@ -1,1 +1,1 @@
-# Makes Binace_Bot a package
+# Makes Sagittarius_Elite_Warrior a package

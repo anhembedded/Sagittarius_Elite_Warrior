@@ -71,13 +71,26 @@ class FastCandlestickItem(pg.GraphicsObject):
         # abs() guards against a negative width if `data` were ever
         # descending (would otherwise make candles vanish — see
         # boundingRect/dataBounds, which assume ascending time).
+        # Qt requires prepareGeometryChange() to be called *before* changing state
+        # that alters boundingRect(), so it can cleanly remove the old bounds
+        # from the scene's BSP tree before inserting the new ones.
+        self.prepareGeometryChange()
+
         if len(data) > 1:
             gaps = sorted(data[i + 1][0] - data[i][0] for i in range(len(data) - 1))
             median_gap = gaps[len(gaps) // 2]
             self.candle_width = abs(median_gap) / 3.0
 
         self._recompute_full_bounds()
-        self.prepareGeometryChange()
+        # A full data replacement (render_historical_data/prepend_historical_data/
+        # set_chart_type) can land on the same visible (lo, hi) index window as
+        # before (e.g. "last 150 candles" after a symbol/timeframe switch) even
+        # though history_data itself is now entirely different — dataBounds()'s
+        # cache is keyed only by (lo, hi), so without this it would keep
+        # returning the PREVIOUS dataset's min/max Y, feeding the ViewBox a
+        # stale auto-range while paint() draws the new candles (bug: chart
+        # shows no visible candlesticks / wrong Y-axis scale after a reload).
+        self._cached_visible_bounds = None
         self.informViewBoundsChanged()
         self.update()
 
@@ -116,6 +129,21 @@ class FastCandlestickItem(pg.GraphicsObject):
         )
         return self.history_data[lo:hi]
 
+    def viewRangeChanged(self):
+        """
+        @brief pyqtgraph hook, called whenever the containing ViewBox's
+        range changes (connected automatically once this item is added to
+        a real ViewBox — see GraphicsItem._updateView()).
+        @details paint() reads viewRange() live via _visible_history_slice()
+        to draw only the visible window, but Qt only calls paint() again
+        when it decides the item's region needs repainting. Without this
+        override (the base class hook is an empty no-op — see BOT-072),
+        nothing tells Qt the item's visible content just changed, so after
+        an aggressive zoom out/in Qt can skip the repaint and leave the
+        previous paint()'s stale slice on screen.
+        """
+        self.update()
+
     def paint(self, p: QtGui.QPainter, *args):
         """
         @brief Draws only the currently-visible candles (+ padding), plus
@@ -127,39 +155,51 @@ class FastCandlestickItem(pg.GraphicsObject):
         bear_brush = pg.mkBrush(self.bear_color)
         bear_pen = pg.mkPen(self.bear_color)
 
+        bull_lines = []
+        bull_rects = []
+        bear_lines = []
+        bear_rects = []
+
         for t, o, h, low, c in self._visible_history_slice():
-            if c >= o:
-                p.setPen(bull_pen)
-                p.setBrush(bull_brush)
-            else:
-                p.setPen(bear_pen)
-                p.setBrush(bear_brush)
-
-            # Draw wick
-            p.drawLine(QtCore.QPointF(t, low), QtCore.QPointF(t, h))
-
+            line = QtCore.QLineF(t, low, t, h)
             # Draw body (Width is drawn outward from center t)
             # Use min/abs to strictly enforce positive height to prevent Qt drawRect anti-aliasing bugs
             rect = QtCore.QRectF(
                 t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o)
             )
-            p.drawRect(rect)
+
+            if c >= o:
+                bull_lines.append(line)
+                bull_rects.append(rect)
+            else:
+                bear_lines.append(line)
+                bear_rects.append(rect)
 
         # Draw the live (in-progress) candle, always — it's a single item.
         if self.live_candle:
             t, o, h, low, c = self.live_candle
-            if c >= o:
-                p.setPen(bull_pen)
-                p.setBrush(bull_brush)
-            else:
-                p.setPen(bear_pen)
-                p.setBrush(bear_brush)
-
-            p.drawLine(QtCore.QPointF(t, low), QtCore.QPointF(t, h))
+            line = QtCore.QLineF(t, low, t, h)
             rect = QtCore.QRectF(
                 t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o)
             )
-            p.drawRect(rect)
+            if c >= o:
+                bull_lines.append(line)
+                bull_rects.append(rect)
+            else:
+                bear_lines.append(line)
+                bear_rects.append(rect)
+
+        # Batch draw bull candles
+        p.setPen(bull_pen)
+        p.setBrush(bull_brush)
+        p.drawLines(bull_lines)
+        p.drawRects(bull_rects)
+
+        # Batch draw bear candles
+        p.setPen(bear_pen)
+        p.setBrush(bear_brush)
+        p.drawLines(bear_lines)
+        p.drawRects(bear_rects)
 
     def update_live_candle(
         self,
@@ -192,9 +232,6 @@ class FastCandlestickItem(pg.GraphicsObject):
 
         # Reset live candle state so a new one can form
         self.live_candle = None
-
-        # Invalidate bounds cache since history changed
-        self._cached_visible_bounds = None
         self.update()
 
     def get_ohlc_at(self, x: float) -> tuple[float, float, float, float, float] | None:

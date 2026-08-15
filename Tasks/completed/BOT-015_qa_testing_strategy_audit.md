@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **Độ ưu tiên:** 🟡 P1.5  
 > **Trạng thái:** ✅ Completed (một phần — xem Ghi chú hoàn thành)  
-> **Lớp liên quan:** Toàn bộ dự án (`Binace_Bot/tests/`, CI/CD Script `ci-local.ps1`)  
+> **Lớp liên quan:** Toàn bộ dự án (`Sagittarius_Elite_Warrior/tests/`, CI/CD Script `ci-local.ps1`)  
 
 ---
 
@@ -23,7 +23,7 @@ Báo cáo phân tích chuyên sâu:
 ## 3. 🛠️ Các bước Thực hiện (Action Items)
 
 ### Phase 1: Rà soát & Dọn dẹp Test Suite Hiện tại (Audit & Cleanup)
-- [x] Rà soát lại toàn bộ 92+ test cases trong `Binace_Bot/tests/` — theo báo cáo đã có, không phát hiện test case lỗi thời cần loại bỏ.
+- [x] Rà soát lại toàn bộ 92+ test cases trong `Sagittarius_Elite_Warrior/tests/` — theo báo cáo đã có, không phát hiện test case lỗi thời cần loại bỏ.
 - [x] Tách biệt rõ ràng cấu trúc thư mục test: `tests/unit/`, `tests/integration/` đã có sẵn; bổ sung `tests/sanity/` mới.
 
 ### Phase 2: Bổ sung các Loại Test Case Cần thiết (New Test Suites)

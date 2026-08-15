@@ -207,7 +207,7 @@ sequenceDiagram
 
 ## 7. Shared QML infrastructure (`sagittarius_engine.extensions.pyside_mvc`)
 
-Built once, reused by every screen. Originally kept *inside* `Binace_Bot`
+Built once, reused by every screen. Originally kept *inside* `Sagittarius_Elite_Warrior`
 (`screens/_qml_shared/`) until a second real QML consumer arrived — see §9
 — at which point it was promoted into the shared `sagittarius_engine`
 framework (`extensions/pyside_mvc/QmlShared/`) and this app switched to
@@ -325,7 +325,7 @@ that signal, guaranteed to run on the main thread.
 
 ## 9. What got promoted, and what's still deliberately local
 
-The shared QML infrastructure described in §7 stayed local to `Binace_Bot`
+The shared QML infrastructure described in §7 stayed local to `Sagittarius_Elite_Warrior`
 (`screens/_qml_shared/`) through the end of `BOT-030` — a conscious call,
 not an oversight: a repo-wide check at the time found no other app using
 `pyside_mvc` at all, and promoting a pattern to a shared framework package
@@ -351,7 +351,7 @@ consumer" reason that applied to `_qml_shared` until now:
   "fixed" because that would mean changing shared framework code for one
   app's convenience.
 - **`UIMatrixMixin`** stays in `sagittarius_engine` even though nothing in
-  `Binace_Bot` uses it anymore — it's a framework primitive available to a
+  `Sagittarius_Elite_Warrior` uses it anymore — it's a framework primitive available to a
   future non-QML consumer, not dead code belonging to this app.
 
 ---
@@ -462,15 +462,20 @@ Curve names are namespaced `f"{script_key}:{line_name}"`
 never collide with RSI/EMA/MACD's bare names, or with another script's line
 of the same name.
 
-### Design left open for strategies
+### Strategies reuse `domain/scripting/` (BOT-026, shipped)
 
-`domain/scripting/` (the `Series`/`crossed_above`/`Streak` primitives) is
-factored out of `domain/indicator_scripts/` specifically so a future
-`BaseStrategyScript` can reuse it without moving files — a strategy is the
-same `setup()`/`execute()`/pure-compute shape, just producing `Signal`s
-instead of plotted lines. `IndicatorScriptRegistry`'s explicit
-`register()`/`create()`/`available()` shape is meant to be copied wholesale
-into a `StrategyScriptRegistry`, not generalized into a shared
-`ScriptRegistry[T]` ahead of a second real consumer (this repo's established
-YAGNI precedent — see `IIndicator` never growing a `reset()` method it
-didn't need yet).
+`domain/scripting/` (the `Series`/`crossed_above`/`Streak` primitives) was
+factored out of `domain/indicator_scripts/` specifically so strategies could
+reuse it without moving files — this section used to predict a
+`BaseStrategyScript`/`StrategyScriptRegistry` pair mirroring the indicator
+script names 1:1. `BOT-026` built it under different names instead:
+`BaseStrategy` (`domain/strategies/base_strategy.py`) and `StrategyRegistry`
+(`application/services/strategy_registry.py`) — the `_script` suffix on the
+indicator classes deliberately means "user-authored, plot-producing", which
+doesn't fit a strategy (it evaluates `StrategyContext` and returns exactly
+one `Signal`, no `plot()`/`mark()`/`shade()` output). `StrategyRegistry`'s
+`register()`/`create()`/`available()` shape *is* copied wholesale from
+`IndicatorScriptRegistry`, per this repo's established YAGNI precedent (see
+`IIndicator` never growing a `reset()` method it didn't need yet) — just not
+under a name implying it shares a base class with indicator scripts, because
+it doesn't: `BaseStrategy` doesn't touch `BaseIndicatorScript` at all.

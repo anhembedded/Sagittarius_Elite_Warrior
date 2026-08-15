@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 class IExchangeClient(ABC):
@@ -17,6 +18,7 @@ class IExchangeClient(ABC):
         interval: TimeFrame,
         start_str: str | datetime,
         end_str: str | datetime | None = None,
+        progress_callback: Callable[[int], None] | None = None,
     ) -> list[MarketData]:
         """
         @brief Fetches historical kline data for a symbol.

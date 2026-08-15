@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 @dataclass(frozen=True)

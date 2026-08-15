@@ -19,25 +19,32 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from datetime import UTC
 from unittest.mock import MagicMock
 
 import pytest
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-from Binace_Bot.src.presentation.ui.constants import UIMode  # noqa: E402
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mapping import (
+    map_klines,
+    map_volume,
+)
+from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -55,13 +62,37 @@ def mock_dispatcher():
 
 
 @pytest.fixture
-def mock_container(mock_thread_mgr, mock_dispatcher):
+def mock_config():
+    config = MagicMock()
+    # Key-aware, not a blanket stub: a blanket `return_value = False` used to
+    # be harmless (only _compute_fetch_limit's floor read it, and
+    # max(75, slowest, 0) doesn't care) but BOT-034's fallback_seconds read
+    # made it a real bug — False * 1000 == 0, so AutoStartController's
+    # fallback timer fired almost immediately instead of never, racing the
+    # test body's own action against a background _load_history() call it
+    # never expected. Falling through to the caller's own `default` matches
+    # what the real ConfigManager.get() does for an unset key — in
+    # particular, `DEV_BOARD_AUTOSTART_ENABLED` falls through to
+    # `dashboard_presenter.py`'s own `_DEFAULT_AUTOSTART_ENABLED = False`
+    # (BOT-062), so auto-start is off here same as the real default.
+    # BOT-066: dev.mode on for the whole suite, so any exception a
+    # @safe_ui_action-decorated slot swallows re-raises instead of passing
+    # a test that should have failed.
+    config.get.side_effect = lambda key, default=None, cast=None: (
+        True if key == DEV_MODE_CONFIG_KEY else default
+    )
+    config.get_all.return_value = {}
+    return config
+
+
+@pytest.fixture
+def mock_container(mock_thread_mgr, mock_dispatcher, mock_config):
     container = MagicMock()
 
-    from Binace_Bot.src.application.services.indicator_script_registry import (
+    from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
         IndicatorScriptRegistry,
     )
-    from Binace_Bot.src.domain.indicator_scripts import (
+    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
         EmaCrossScript,
         EmaRibbonScript,
     )
@@ -74,18 +105,6 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
     script_registry = IndicatorScriptRegistry()
     script_registry.register("ema_ribbon", EmaRibbonScript)
     script_registry.register("ema_cross", EmaCrossScript)
-
-    mock_config = MagicMock()
-    # Key-aware, not a blanket stub: a blanket `return_value = False` used to
-    # be harmless (only _compute_fetch_limit's floor read it, and
-    # max(75, slowest, 0) doesn't care) but BOT-034's fallback_seconds read
-    # made it a real bug — False * 1000 == 0, so AutoStartController's
-    # fallback timer fired almost immediately instead of never, racing the
-    # test body's own action against a background _load_history() call it
-    # never expected. Falling through to the caller's own `default` matches
-    # what the real ConfigManager.get() does for an unset key.
-    mock_config.get.side_effect = lambda key, default=None, cast=None: default
-    mock_config.get_all.return_value = {}
 
     def resolve_side_effect(interface):
         if interface == IConfig:
@@ -114,19 +133,20 @@ def view(qapp):
 @pytest.fixture
 def presenter(view, mock_container, mock_thread_mgr):
     """
-    @details BOT-034: construction now auto-starts (AutoStartController.begin()
-    calls _on_start_stream(), which submits a background task and locks the
-    FSM) — this mock thread manager never actually runs that task, so left
-    alone the FSM would sit LOCKED forever, an artifact of the mock rather
-    than real behavior (in the real app the task completes quickly one way
-    or the other). Reset both the submit call history and the FSM back to
-    IDLE here so every *other* test's assertions reflect only its own
-    action — see test_autostart_controller_integration.py for tests that
-    exercise auto-start's own effect on a freshly-constructed presenter.
+    @details BOT-034's auto-start (AutoStartController.begin() calling
+    _on_start_stream(), which submits a background task and locks the FSM)
+    is config-gated (BOT-062, `DEV_BOARD_AUTOSTART_ENABLED`) and off by
+    default — `mock_config.get`'s side_effect (see `mock_container` above)
+    falls through to that same off-by-default, so construction here never
+    auto-starts: the FSM stays IDLE and no background task is submitted.
+    `mock_thread_mgr.submit.reset_mock()` is kept anyway so this fixture
+    stays correct even if some *other* construction step starts submitting
+    — see test_autostart_controller_integration.py and the dedicated
+    auto-start tests below for auto-start's own effect on a freshly-
+    constructed presenter (with the config explicitly turned on).
     """
     p = DashboardPresenter(view, mock_container)
     mock_thread_mgr.submit.reset_mock()
-    p.fsm.transition_to(UIMode.ERROR)  # auto-recovers to IDLE via _on_fsm_error
     return p
 
 
@@ -139,6 +159,47 @@ def test_initialization(presenter, view, mock_container):
     assert presenter.view == view
     assert presenter.container == mock_container
     assert presenter.fsm.current_state.name == "IDLE"
+
+
+def test_dashboard_presenter_enforces_zoom_limit(presenter):
+    """
+    Test that the config CHART_CARD_MAX_ZOOM_OUT_CANDLES is applied to chart cards
+    both on creation and when timeframe changes.
+    """
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: (
+        1000 if key == "CHART_CARD_MAX_ZOOM_OUT_CANDLES" else default
+    )
+
+    from enum import Enum
+
+    class PyQtGraphStateKey(str, Enum):
+        LIMITS = "limits"
+        X_RANGE = "xRange"
+
+    # 1. On creation (_ensure_chart_cards)
+    presenter._active_interval = "1m"
+    cards = presenter._ensure_chart_cards(["BTCUSDT"])
+    card = cards[0]
+
+    # 1000 candles * 60 seconds = 60000.0
+    assert (
+        card.plot_layout.main_plot.getViewBox().state[PyQtGraphStateKey.LIMITS.value][
+            PyQtGraphStateKey.X_RANGE.value
+        ][1]
+        == 60000.0
+    )
+
+    # 2. On timeframe changed
+    # Mock stream controller to avoid triggering unwanted side-effects during this test
+    presenter._stream_controller = MagicMock()
+    presenter._on_timeframe_changed("1h")
+    # The active chart card should have its limits updated in-place
+    assert (
+        card.plot_layout.main_plot.getViewBox().state[PyQtGraphStateKey.LIMITS.value][
+            PyQtGraphStateKey.X_RANGE.value
+        ][1]
+        == 3600000.0
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +225,7 @@ def test_on_load_history_does_not_dispatch_on_main_thread(presenter, mock_dispat
 
 
 def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher):
-    """_run_load_history (background) dispatches one GetHistoricalKlinesQuery per symbol."""
+    """_run_load_history (background) dispatches one GetHistoricalKlinesQuery for all symbols."""
     mock_kline = MagicMock()
     mock_kline.close_time.timestamp.return_value = 1700000000.0
     mock_kline.open_price = 40000
@@ -173,27 +234,31 @@ def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher
     mock_kline.close_price = 40500
     mock_kline.volume = 12.5
 
-    mock_dispatcher.dispatch.return_value = [mock_kline]
+    mock_dispatcher.dispatch.return_value = {
+        "BTCUSDT": [mock_kline],
+        "ETHUSDT": [mock_kline],
+    }
 
     symbols = ["BTCUSDT", "ETHUSDT"]
     presenter._run_load_history(symbols, "1m", 5000, presenter._cancellation_token)
 
-    assert mock_dispatcher.dispatch.call_count == 2
-    for i, call_args in enumerate(mock_dispatcher.dispatch.call_args_list):
-        dispatched_type, dispatched_query = call_args[0]
-        assert dispatched_type == GetHistoricalKlinesQuery
-        assert dispatched_query.symbol == symbols[i]
-        assert dispatched_query.interval == "1m"
-        assert dispatched_query.limit == 5000
-        assert dispatched_query.order_by_desc is True
+    assert mock_dispatcher.dispatch.call_count == 1
+    call_args = mock_dispatcher.dispatch.call_args_list[0]
+    dispatched_type, dispatched_query = call_args[0]
+    assert dispatched_type == GetHistoricalKlinesQuery
+    assert dispatched_query.symbol == symbols
+    assert dispatched_query.interval == "1m"
+    assert dispatched_query.limit == 5000
+    assert dispatched_query.order_by_desc is True
 
 
 def test_run_load_history_handles_exception_per_symbol(presenter, mock_dispatcher):
     """An exception for one symbol must not abort the rest of the load."""
-    mock_dispatcher.dispatch.side_effect = [
-        Exception("DB error"),
-        [MagicMock()],
-    ]
+    # With the new dictionary structure, the exception could occur internally, or we might
+    # return an empty list or missing key for the failed symbol. Let's mock a missing key.
+    mock_dispatcher.dispatch.return_value = {
+        "ETHUSDT": [MagicMock()],
+    }
 
     logs = []
     presenter.ui_log_signal.connect(logs.append)
@@ -260,6 +325,96 @@ def test_on_load_history_submits_the_computed_fetch_limit(presenter, mock_thread
 
 
 # ---------------------------------------------------------------------------
+# Symbol / Start-End date (BOT-033 Phase 2) — read from the ViewModel and
+# validated before anything is dispatched, instead of a hard-coded symbol
+# and an ignored date range.
+# ---------------------------------------------------------------------------
+
+
+def test_on_load_history_uses_the_view_models_symbol(presenter, mock_thread_mgr):
+    presenter._view_model.symbol = "BTCUSDT"
+
+    presenter._on_load_history()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[1] == ["BTCUSDT"]  # symbols positional arg
+    assert presenter._active_symbol == "BTCUSDT"
+
+
+def test_on_load_history_normalizes_the_symbol(presenter, mock_thread_mgr):
+    """Lowercase/whitespace input is corrected, not rejected — matches every
+    other symbol entry point in this codebase (CLI handlers,
+    SyncMarketDataCommand's own validator)."""
+    presenter._view_model.symbol = "  btcusdt  "
+
+    presenter._on_load_history()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[1] == ["BTCUSDT"]
+
+
+def test_on_load_history_rejects_an_invalid_symbol(presenter, mock_thread_mgr):
+    presenter._view_model.symbol = "BT"  # too short to be a real pair
+
+    presenter._on_load_history()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_load_history_rejects_an_unparseable_date(presenter, mock_thread_mgr):
+    presenter._view_model.startDate = "not a date"
+
+    presenter._on_load_history()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_load_history_rejects_a_start_date_not_before_end_date(
+    presenter, mock_thread_mgr
+):
+    presenter._view_model.startDate = "2024-01-02 00:00"
+    presenter._view_model.endDate = "2024-01-01 00:00"
+
+    presenter._on_load_history()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_load_history_submits_the_parsed_date_range(presenter, mock_thread_mgr):
+    from datetime import datetime
+
+    presenter._view_model.startDate = "2024-01-01 00:00"
+    presenter._view_model.endDate = "2024-01-02 00:00"
+
+    presenter._on_load_history()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[5] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
+    assert submit_args[6] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
+
+
+def test_run_load_history_dispatches_the_date_range_to_the_query(
+    presenter, mock_dispatcher
+):
+    from datetime import datetime
+
+    mock_dispatcher.dispatch.return_value = []
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 2, tzinfo=UTC)
+
+    presenter._run_load_history(
+        ["BTCUSDT"], "1m", 100, presenter._cancellation_token, start, end
+    )
+
+    _, dispatched_query = mock_dispatcher.dispatch.call_args[0]
+    assert dispatched_query.start_time == start
+    assert dispatched_query.end_time == end
+
+
+# ---------------------------------------------------------------------------
 # _on_start_stream — submits full sync+stream workflow to background
 # ---------------------------------------------------------------------------
 
@@ -289,7 +444,14 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
     """_run_sync_and_start dispatches Sync → HistoricalKlines → StartLiveStream in order."""
     mock_dispatcher.dispatch.return_value = []
 
-    from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
+    # Real callers only ever reach this method after _on_start_stream() has
+    # already moved the FSM to LOCKED (BOT-066: dev-mode re-raise surfaced
+    # that the blanket `[]` dispatch stub above makes StartLiveStreamCommand
+    # look like a failure, driving _on_stream_start_failed's IDLE->ERROR —
+    # invalid from the presenter fixture's default IDLE, only from here).
+    presenter.fsm.transition_to(UIMode.LOCKED)
 
     presenter._run_sync_and_start(
         ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
@@ -305,6 +467,88 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
     query_idx = call_types.index(GetHistoricalKlinesQuery)
     stream_idx = call_types.index(StartLiveStreamCommand)
     assert sync_idx < query_idx < stream_idx
+
+
+def test_on_start_stream_uses_the_view_models_symbol(presenter, mock_thread_mgr):
+    presenter._view_model.symbol = "BTCUSDT"
+
+    presenter._on_start_stream()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[1] == ["BTCUSDT"]  # symbols positional arg
+    assert presenter._active_symbol == "BTCUSDT"
+
+
+def test_on_start_stream_rejects_an_invalid_symbol_without_locking_the_fsm(
+    presenter, mock_thread_mgr
+):
+    presenter._view_model.symbol = "!!"
+
+    presenter._on_start_stream()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter.fsm.current_state.name == "IDLE"
+    assert presenter._view_model.log_model.entries[-1].level == "error"
+
+
+def test_on_start_stream_rejects_a_start_date_not_before_end_date(
+    presenter, mock_thread_mgr
+):
+    presenter._view_model.startDate = "2024-01-02 00:00"
+    presenter._view_model.endDate = "2024-01-01 00:00"
+
+    presenter._on_start_stream()
+
+    assert mock_thread_mgr.submit.call_count == 0
+    assert presenter.fsm.current_state.name == "IDLE"
+
+
+def test_on_start_stream_submits_the_parsed_date_range(presenter, mock_thread_mgr):
+    from datetime import datetime
+
+    presenter._view_model.startDate = "2024-01-01 00:00"
+    presenter._view_model.endDate = "2024-01-02 00:00"
+
+    presenter._on_start_stream()
+
+    submit_args = mock_thread_mgr.submit.call_args[0]
+    assert submit_args[6] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
+    assert submit_args[7] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
+
+
+def test_run_sync_and_start_passes_the_date_range_to_the_sync_command(
+    presenter, mock_dispatcher
+):
+    from datetime import datetime
+
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
+    mock_dispatcher.dispatch.return_value = []
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 2, tzinfo=UTC)
+
+    # See test_run_sync_and_start_full_workflow — real callers reach this
+    # only after the FSM is already LOCKED.
+    presenter.fsm.transition_to(UIMode.LOCKED)
+
+    presenter._run_sync_and_start(
+        ["BTCUSDT"],
+        TimeFrame("1m"),
+        "1m",
+        5000,
+        presenter._cancellation_token,
+        start,
+        end,
+    )
+
+    sync_call = next(
+        call
+        for call in mock_dispatcher.dispatch.call_args_list
+        if call[0][0] is SyncMarketDataCommand
+    )
+    sync_cmd = sync_call[0][1]
+    assert sync_cmd.start_time == start
+    assert sync_cmd.end_time == end
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +576,7 @@ def test_run_sync_and_start_stops_after_step_1_when_cancelled(
     """Sync (Step 1) always runs — cancellation is checked *between* steps,
     not before the first one — but History (Step 2) and Start Stream
     (Step 3) must not run once cancelled."""
-    from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
     from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
     token = CancellationToken()
@@ -347,6 +591,11 @@ def test_run_sync_and_start_stops_after_step_1_when_cancelled(
 
 def test_stop_stream_cancels_the_current_token_and_issues_a_fresh_one(presenter):
     old_token = presenter._cancellation_token
+    # Real callers only reach Stop once already LIVE (BOT-066: dev-mode
+    # re-raise surfaced that _on_stop_stream()'s success path unconditionally
+    # transitions to IDLE, invalid from this fixture's default IDLE state).
+    presenter.fsm.transition_to(UIMode.LOCKED)
+    presenter.fsm.transition_to(UIMode.LIVE)
 
     presenter._on_stop_stream()
 
@@ -383,7 +632,10 @@ def test_timeframe_changed_while_idle_updates_interval_and_reloads(
 def test_timeframe_changed_while_history_loading_does_not_reload(
     presenter, mock_thread_mgr
 ):
-    presenter._view_model.set_history_loading(True)
+    # BOT-069 — historyLoading is now a display mirror, not the gate;
+    # _on_timeframe_changed reads the real source of truth,
+    # StreamLifecycleController's shared ExclusiveAction instance.
+    presenter._stream_controller._stream_actions.try_start("load_history")
 
     presenter._on_timeframe_changed("5m")
 
@@ -392,7 +644,6 @@ def test_timeframe_changed_while_history_loading_does_not_reload(
 
 
 def test_timeframe_changed_while_live_stops_then_restarts(presenter, mock_thread_mgr):
-    from Binace_Bot.src.presentation.ui.constants import UIMode
 
     presenter.fsm.transition_to(UIMode.LOCKED)
     presenter.fsm.transition_to(UIMode.LIVE)
@@ -412,7 +663,10 @@ def test_timeframe_changed_while_live_stops_then_restarts(presenter, mock_thread
 
 
 def test_on_load_history_exception_is_caught_by_safe_ui_action(presenter):
-    """@safe_ui_action catches exceptions from _ensure_chart_cards without crashing."""
+    """@safe_ui_action catches exceptions from _ensure_chart_cards without crashing
+    — in production mode specifically (BOT-066: this fixture's config otherwise
+    has dev.mode on for the rest of the suite, which re-raises instead)."""
+    presenter.config.get.side_effect = lambda key, default=None, cast=None: default
     presenter._ensure_chart_cards = MagicMock(side_effect=ValueError("Test Exception"))
 
     logs = []
@@ -489,6 +743,38 @@ def test_on_indicator_data_ignores_an_unrecognised_bare_name(presenter):
     mock_card.update_indicator_data.assert_not_called()
 
 
+def test_indicator_data_routes_to_the_chart_of_the_active_symbol(presenter):
+    """BOT-033 Phase 2 — regression test for a bug _active_symbol fixes:
+    _on_indicator_data used to look the chart card up by the
+    _DEFAULT_SYMBOLS[0] constant ("ETHUSDT") no matter what symbol was
+    actually loaded, so switching to e.g. BTCUSDT silently stopped every
+    indicator line from reaching its chart (the card existed, keyed
+    correctly by _ensure_chart_cards, but nothing looked it up under its
+    real key anymore)."""
+    presenter._active_symbol = "BTCUSDT"
+    mock_card = MagicMock()
+    presenter.active_charts = {"BTCUSDT": mock_card}
+    presenter._script_runner.draw = MagicMock()
+
+    presenter._on_indicator_data("ema_cross:fast", [1.0], [100.0])
+
+    presenter._script_runner.draw.assert_called_once_with(
+        mock_card, "ema_cross:fast", [1.0], [100.0]
+    )
+
+
+def test_rebuild_scripts_clears_the_chart_of_the_active_symbol(presenter):
+    """Same bug/fix as above, for _rebuild_scripts' clear_from_chart call."""
+    presenter._active_symbol = "BTCUSDT"
+    mock_card = MagicMock()
+    presenter.active_charts = {"BTCUSDT": mock_card}
+    presenter._script_runner.clear_from_chart = MagicMock()
+
+    presenter._rebuild_scripts()
+
+    presenter._script_runner.clear_from_chart.assert_called_once_with(mock_card)
+
+
 # ---------------------------------------------------------------------------
 # BOT-035 — load more history on scroll
 # ---------------------------------------------------------------------------
@@ -503,8 +789,8 @@ def _make_full_kline(
     volume: float = 10.0,
 ):
     """Unlike _make_kline (feed()-only tests), this fills every field
-    _map_klines/_map_volume actually read — real float() coercion, not a
-    MagicMock stand-in, since those two are @staticmethod and would raise on
+    map_klines/map_volume actually read — real float() coercion, not a
+    MagicMock stand-in, since those two are module-level functions and would raise on
     an un-configured attribute."""
     kline = MagicMock()
     kline.close_time.timestamp.return_value = close_timestamp
@@ -618,15 +904,17 @@ def test_run_load_more_history_emits_nothing_when_no_older_data_exists(
     emitted = []
     presenter.ui_history_prepended_signal.connect(lambda *a: emitted.append(a))
     finished = []
-    presenter.ui_history_prepend_finished_signal.connect(finished.append)
+    presenter.ui_history_prepend_finished_signal.connect(lambda *a: finished.append(a))
 
     presenter._run_load_more_history(
         "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
     )
 
     assert emitted == []
-    # Unconditional — the pagination controller must still unlock.
-    assert finished == ["ETHUSDT"]
+    # Unconditional — the pagination controller must still unlock. found_more
+    # is False here — nothing was found, so HistoryPaginationController must
+    # not arm an auto-recheck (it would loop forever, see its docstring).
+    assert finished == [("ETHUSDT", False)]
 
 
 def test_run_load_more_history_does_nothing_with_an_already_cancelled_token(
@@ -647,8 +935,8 @@ def test_on_history_prepended_prepends_to_the_chart_and_rebuilds_scripts(present
     presenter._enabled_script_keys = lambda: ["ema_ribbon"]
     presenter._raw_klines_by_symbol["ETHUSDT"] = [_make_full_kline(1000.0)]
     older = [_make_full_kline(940.0)]
-    mapped = presenter._map_klines(older)
-    volume = presenter._map_volume(older)
+    mapped = map_klines(older)
+    volume = map_volume(older)
 
     presenter._on_history_prepended("ETHUSDT", mapped, volume)
 
@@ -668,11 +956,25 @@ def test_on_history_prepended_is_a_no_op_with_no_candles(presenter):
 
 def test_on_history_prepend_finished_unlocks_the_pagination_controller(presenter):
     calls = []
-    presenter._pagination.on_load_more_finished = calls.append
+    presenter._pagination.on_load_more_finished = lambda *a: calls.append(a)
 
-    presenter._on_history_prepend_finished("ETHUSDT")
+    presenter._on_history_prepend_finished("ETHUSDT", True)
 
-    assert calls == ["ETHUSDT"]
+    assert calls == [("ETHUSDT", True)]
+
+
+def test_run_load_more_history_reports_found_more_when_data_arrives(
+    presenter, mock_dispatcher
+):
+    mock_dispatcher.dispatch.return_value = [_make_full_kline(900.0)]
+    finished = []
+    presenter.ui_history_prepend_finished_signal.connect(lambda *a: finished.append(a))
+
+    presenter._run_load_more_history(
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+    )
+
+    assert finished == [("ETHUSDT", True)]
 
 
 def test_a_live_tick_extends_the_raw_kline_cache_for_a_later_prepend_rebuild(
@@ -694,6 +996,24 @@ def test_a_live_tick_extends_the_raw_kline_cache_for_a_later_prepend_rebuild(
     )
 
 
+def test_a_live_tick_tags_the_cached_candle_with_the_active_interval(presenter):
+    """Regression: _tick_to_candle used to hard-code "1m" via the
+    _DEFAULT_INTERVAL_STR module constant regardless of _active_interval
+    (BOT-034 replaced every OTHER read site with the instance attribute but
+    missed this one) — silently mislabeling every live-tick candle appended
+    to _raw_klines_by_symbol once a user picked a timeframe other than
+    "1m"."""
+    presenter._active_interval = "5m"
+    presenter.active_charts = {"ETHUSDT": MagicMock()}
+
+    presenter._on_ui_chart_update(
+        "ETHUSDT", 1000.0, 99.0, 101.0, 98.0, 100.0, 10.0, True
+    )
+
+    candle = presenter._raw_klines_by_symbol["ETHUSDT"][-1]
+    assert candle.interval == "5m"
+
+
 # ---------------------------------------------------------------------------
 # ViewModel bridging — top bar / WS badge / log panel
 # ---------------------------------------------------------------------------
@@ -709,7 +1029,6 @@ def test_price_ticker_updates_on_chart_tick(presenter):
 
 
 def test_ws_status_badge_reflects_fsm_state(presenter):
-    from Binace_Bot.src.presentation.ui.constants import UIMode
 
     presenter.fsm.transition_to(UIMode.LOCKED)
 
@@ -720,11 +1039,24 @@ def test_ws_status_badge_reflects_fsm_state(presenter):
 # Auto-start (BOT-034) — construction-time wiring. Uses `view`/`mock_container`
 # directly (not the `presenter` fixture, which deliberately resets past
 # auto-start's own effect for every other test — see its docstring) so these
-# can observe the real moment of construction.
+# can observe the real moment of construction. Auto-start is config-gated
+# and off by default (BOT-062) — each test below explicitly flips
+# `DEV_BOARD_AUTOSTART_ENABLED` on via `mock_config`, since that's no longer
+# `mock_container`'s implicit behavior.
 # ---------------------------------------------------------------------------
 
 
-def test_construction_auto_starts_immediately(view, mock_container, mock_thread_mgr):
+def _enable_autostart(mock_config) -> None:
+    mock_config.get.side_effect = lambda key, default=None, cast=None: (
+        True if key == "DEV_BOARD_AUTOSTART_ENABLED" else default
+    )
+
+
+def test_construction_auto_starts_immediately(
+    view, mock_container, mock_config, mock_thread_mgr
+):
+    _enable_autostart(mock_config)
+
     p = DashboardPresenter(view, mock_container)
 
     assert p.fsm.current_state.name == "LOCKED"
@@ -733,11 +1065,12 @@ def test_construction_auto_starts_immediately(view, mock_container, mock_thread_
 
 
 def test_starting_live_manually_while_autostart_pending_is_rejected(
-    view, mock_container, mock_thread_mgr
+    view, mock_container, mock_config, mock_thread_mgr
 ):
     """The FSM-state guard added alongside auto-start (BOT-034) — without
     it, a manual Start Live click during the auto-start window would raise
     InvalidStateTransitionError (LOCKED -> LOCKED)."""
+    _enable_autostart(mock_config)
     p = DashboardPresenter(view, mock_container)
     mock_thread_mgr.submit.reset_mock()
 
@@ -747,13 +1080,31 @@ def test_starting_live_manually_while_autostart_pending_is_rejected(
     assert p.fsm.current_state.name == "LOCKED"
 
 
-def test_a_market_tick_cancels_the_autostart_fallback_timer(view, mock_container):
+def test_a_market_tick_cancels_the_autostart_fallback_timer(
+    view, mock_container, mock_config
+):
+    _enable_autostart(mock_config)
     p = DashboardPresenter(view, mock_container)
     assert p._autostart._timer is not None  # fallback armed by construction
 
     p._on_ui_chart_update("ETHUSDT", 1.0, 100.0, 101.0, 99.0, 100.5, 5.0, False)
 
     assert p._autostart._timer is None
+
+
+def test_a_market_tick_does_not_crash_when_autostart_is_disabled(view, mock_container):
+    """BOT-062: with `DEV_BOARD_AUTOSTART_ENABLED` at its real default
+    (`False` — `mock_config.get`'s side_effect falls through to the
+    caller's own default, same as the real `ConfigManager`), `__init__`
+    never assigns `self._autostart` at all. `_on_ui_chart_update` used to
+    call `self._autostart.on_market_tick()` unconditionally, so a live tick
+    arriving with auto-start off crashed with `AttributeError` — the
+    default configuration was unusable the moment a real tick landed."""
+    p = DashboardPresenter(view, mock_container)
+
+    p._on_ui_chart_update(
+        "ETHUSDT", 1.0, 100.0, 101.0, 99.0, 100.5, 5.0, False
+    )  # must not raise
 
 
 # ---------------------------------------------------------------------------
@@ -767,7 +1118,7 @@ def _make_market_data(close: float, index: int):
     not exercise the real path."""
     from datetime import UTC, datetime, timedelta
 
-    from Binace_Bot.src.domain.entities.market_data import MarketData
+    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
     open_time = datetime(2024, 1, 1, tzinfo=UTC) + timedelta(minutes=index)
     return MarketData(

@@ -8,7 +8,7 @@ test_dev_board_async_race_conditions.py, which uses a real 0.05s
 time.sleep rather than a fake clock).
 """
 
-from Binace_Bot.src.presentation.ui.screens.dashboard.autostart_controller import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.autostart_controller import (
     AutoStartController,
 )
 

@@ -1,11 +1,14 @@
 import logging
 import time
 
-from Binace_Bot.src.application.ports.i_cqrs import ICommandHandler
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
+)
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import RunBacktestCommand
@@ -45,7 +48,18 @@ class RunBacktestCommandHandler(ICommandHandler[RunBacktestCommand, None]):
             f"Starting backtest simulation for {command.symbol} at interval {command.interval.value}"
         )
 
-        # 1. Fetch historical data
+        klines = self._fetch_historical_data(command)
+        if not klines:
+            return
+
+        self._run_simulation_loop(klines, command)
+
+    def _fetch_historical_data(
+        self, command: RunBacktestCommand
+    ) -> list[MarketData] | None:
+        """
+        @brief Fetches historical klines for the simulation.
+        """
         klines = self.repo.get_klines(
             symbol=command.symbol,
             interval=command.interval,
@@ -58,15 +72,21 @@ class RunBacktestCommandHandler(ICommandHandler[RunBacktestCommand, None]):
             self.logger.warning(
                 f"No historical data found for {command.symbol}. Please run sync first."
             )
-            return
+            return None
 
         self.logger.info(
             f"Loaded {len(klines)} historical candles. Starting simulation loop..."
         )
+        return klines
 
+    def _run_simulation_loop(
+        self, klines: list[MarketData], command: RunBacktestCommand
+    ) -> None:
+        """
+        @brief Runs the backtest simulation loop, emitting events and throttling.
+        """
         self.state.is_running = True
 
-        # 2. Simulation Loop with Throttling
         for i, kline in enumerate(klines):
             if not self.state.is_running:
                 self.logger.info("Backtest simulation stopped by user.")

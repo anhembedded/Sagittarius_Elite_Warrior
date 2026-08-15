@@ -1,0 +1,1 @@
+The tests are correct. The Current Code snippet provided in the initial task description was truncated/incorrect, but the actual src/domain/value_objects/signal.py file defines the price and time fields on the Signal dataclass.

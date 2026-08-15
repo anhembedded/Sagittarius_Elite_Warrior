@@ -1,6 +1,6 @@
 """Tests for Streak — the consecutive-bars-true counter (BOT-032)."""
 
-from Binace_Bot.src.domain.scripting import Streak
+from Sagittarius_Elite_Warrior.src.domain.scripting import Streak
 
 
 def test_starts_at_zero():

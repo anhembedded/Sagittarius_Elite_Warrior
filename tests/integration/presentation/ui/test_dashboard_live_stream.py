@@ -1,16 +1,17 @@
 from unittest.mock import MagicMock
 
 import pytest
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
 
@@ -98,7 +99,7 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
     from unittest.mock import patch
 
     with patch(
-        "Binace_Bot.src.presentation.ui.components.chart_card.FastCandlestickItem.update"
+        "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.FastCandlestickItem.update"
     ):
         # Trigger Load History first
         presenter._on_load_history()

@@ -1,0 +1,58 @@
+---
+trigger: always_on
+---
+
+# Development Guidelines
+
+- **No Hardcoding & Centralized Configuration**:
+  - Never hardcode parameters, default values, constants, thresholds, magic strings, magic numbers, or styling tokens directly into components, views, or business logic.
+  - All application parameters and defaults MUST be managed centrally through configuration files, constants, or domain schema:
+    - **App & User Config**: `src/config/config_keys.py`, `user_config.json`, or dedicated typed config dataclasses/registries.
+    - **UI & Presentation Constants**: `Theme` tokens (`QmlShared`), `constants.py`, or centralized style tokens.
+    - **Strategy/Indicator Parameters**: declared dynamically via parameter schemas (`input_int`, `input_float`, etc.) rather than embedded fixed values.
+  - When introducing a new parameter or configurable behavior, always declare its configuration key/model first.
+- **Strictly Follow SOLID Principles**: Ensure any new features, refactors, or code additions adhere strictly to SOLID principles:
+  - **S**ingle Responsibility Principle (SRP)
+  - **O**pen/Closed Principle (OCP)
+  - **L**iskov Substitution Principle (LSP)
+  - **I**nterface Segregation Principle (ISP)
+  - **D**ependency Inversion Principle (DIP)
+- **No Lazy Code**: Don't take the shortcut that's easiest to type over the one that's easiest to read/maintain.
+  - Split by responsibility into separate files/modules instead of piling unrelated logic into one file or one function.
+  - Model data with proper structures — dataclasses, value objects, `Enum` — instead of loose primitives, dicts, or magic strings/tuples standing in for a real type.
+  - Do not use `lambda`. Write a named function/method instead — it gets a real name, can carry a docstring, and shows up properly in stack traces/coverage/debuggers.
+- **No Function-Local / Lazy Imports (Tuyệt đối không dùng Local Import)**:
+  - All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8.
+  - Never place `import ...` or `from ... import ...` inside functions, methods, slots, test cases, or nested scopes. The ONLY permitted indented import is inside `if TYPE_CHECKING:` guards at the top level for static typing annotations to break cycle references.
+  - Any lazy/local import inside function bodies is strictly considered an anti-pattern and a code-rule violation.
+- **Every new feature/screen ships with sanity tests**, in `tests/sanity/`, alongside its unit tests — not a follow-up, part of the same task. Two kinds, both construction-only (see example: `tests/sanity/test_backtest_screen_di_sanity.py` + `test_backtest_screen_ui_sanity.py`):
+  - **Sanity (DI)**: boot the real app (`create_app()`, no mocked dispatch) and assert every command/query the feature dispatches resolves to its real handler via `container.resolve(command_class)`, and every registry it depends on (`StrategyRegistry`, `IndicatorScriptRegistry`, etc.) has the keys it expects. Catches a dropped/renamed DI registration before any behavior test even runs.
+  - **Sanity (UI)**, for screens: construct the real View + Presenter against the real DI container (not a mocked one) and assert it doesn't raise, plus every QML document parses with `quick_widget.errors() == []` (QML parse errors don't raise a Python exception — they only show up there).
+  - **Construction-only, always** — no button clicks, no `requestRun()`-style dispatch, no background threads, no network. Real actions belong in `tests/unit/` (mocked dispatch) or `tests/integration/`. Sanity exists to be fast and reliable; the UI integration suite (`tests/integration/presentation/ui/`) has a known intermittent native-crash bug (`BOT-038`) when run as one full block — sanity must never approach that territory.
+- **When the user reports a bug, write a regression test that reproduces it before fixing the code.** Diagnose the root cause first, then express that root cause as a failing test (e.g. `test_switching_to_equity_mode_disables_and_hides_the_ema_overlay` for the BOT-056 EMA-overlay-not-hidden bug) — confirm it fails for the right reason, then fix the code until it passes. This turns every reported bug into a permanent regression test, not just a one-off patch — skipping straight to the fix leaves nothing guarding against the same bug coming back.
+- **Use the repo's QML test helpers and geometry patterns instead of inventing new ones.** `Repeater`-created delegates are not visible to `findChild()` because they live in the visual tree, not the QObject tree; use the existing `qml_item` / `find_qml_item` fixtures from `tests/conftest.py`. For visibility/layout assertions, prefer `qtbot.waitUntil(...)` over a single `qapp.processEvents()`, and map items into a shared root with `item.mapToItem(root, 0, 0)` before comparing positions — local `x`/`y` can look correct while the item is still clipped or off-screen.
+- **For QQuickWidget-hosted screens, trust QML's computed size and read it back from Python.** The default resize mode is `SizeRootObjectToView`, so a root item's `implicitHeight` / `implicitWidth` do nothing unless Python explicitly reads them and applies `setFixedHeight()` / `setMinimumHeight()`. Hardcoded pixel heights on the Python side are a smell; prefer binding to the QML's own computed size and ensure you call `ensurePolished()` on the actual layout item whose recompute is pending.
+- **Do not move click handling off the Button itself when tests emit `.clicked`.** A nested `MouseArea` may still work manually, but Python-side tests that call `qml_item(...).clicked.emit()` will silently stop exercising the behavior. Keep handlers on the `Button` when the control is expected to be test-clickable.
+- **Strict Architectural Layer Separation & Abstraction Priority**:
+  - **Layer Separation**: Keep strict boundaries across layers (Domain $\rightarrow$ Application $\rightarrow$ Infrastructure $\rightarrow$ Presentation). Never bypass layers or leak presentation/framework logic into domain/application logic.
+  - **Prioritize Abstraction Layers**: Before building concrete features, always identify and create reusable base abstractions (e.g., `ModalDialogCard.qml`, `BaseCard.qml`, `BasePresenter`, `BaseViewModel`, base repositories). Shared shell behavior (header/footer structure, styling, lifecycle, dialog framing) belongs in base abstractions, not copy-pasted across concrete components.
+  - **Single Responsibility & Multi-File Partitioning**: Proactively decompose complex UI screens, dialogs, and services into dedicated, focused single-responsibility files (e.g. separate dialogs, separate rows, separate controllers) rather than bundling multiple components or distinct logic into one large file.
+- **Dynamic Responsive UI Sizing & Synchronized Table Columns (Không fix cứng size giao diện & Đồng bộ cột bảng động)**:
+  - All modals, popups, cards, and container components MUST support **Dynamic Responsive Sizing** — never hardcode rigid fixed pixel dimensions (`width`/`height`) directly.
+  - Always use `preferredWidth` and `preferredHeight` dynamically clamped against actual container/overlay boundaries (e.g. `Math.min(preferredWidth, Overlay.overlay ? Overlay.overlay.width - 32 : preferredWidth)`).
+  - All scrollable inner containers must declare `ScrollView { clip: true }` and responsive content widths (`Layout.fillWidth: true` or `width: root.width - margins`) so content automatically adapts to any window resolution or DPI scaling without text clipping or overflow.
+  - **Synchronized Responsive Table Columns**: For all tables, list views, and grids with headers (e.g. trade logs, order books, status tables), column widths MUST NEVER be hardcoded independently in header and row delegates. Column widths must be declared centrally as a **Single Source of Truth** (e.g. `readonly property real col1Width: Math.max(minWidth, tableUsableWidth * ratio)`) on the parent container/root, and bound directly to BOTH the header and row delegates to guarantee 100% column alignment across fluid resize and splitter movement.
+- **No Magic Numbers & Named Constants (Tuyệt đối không dùng Magic Number)**:
+  - Never embed raw numeric literals (limits, sizes, offsets, timeouts, ratios) directly into logic, layouts, calculations, or function bodies.
+  - Every numeric value MUST be declared as a named, typed, documented constant (e.g. `DEFAULT_LOG_MAX_ENTRIES`, `_MIN_DIALOG_WIDTH`, `_DEFAULT_ICON_SIZE`) or managed via centralized configuration.
+- **Domain-Driven Precision Terminology (Đúng thuật ngữ Domain)**:
+  - Use exact, standard domain terminology across UI labels and code:
+    - Parameters declared inside trading strategies must be labeled **"Thông số Chiến lược"** (`Strategy Parameters` / `Strategy Inputs`), not confused with general Bot system configurations.
+- **Proactive Inconsistency Challenge & Constructive Pushback (Chủ động phản biện & Bác bỏ khi phát hiện điểm không nhất quán)**:
+  - The AI assistant MUST NOT blindly accept or implement user requests that introduce architectural inconsistencies, anti-patterns, hardcoding, wrong domain terms, layer leakage, or violations of project rules.
+  - When an inconsistency or conflict is detected in user instructions or current design, the agent MUST actively challenge/push back, explicitly explain the root issue, and propose the architecturally sound, standard solution.
+- **UI Icon Assets & Theme-Tinted Rendering (Sử dụng chuẩn Icon SVG & Theme tinting)**:
+  - All visual iconography in the UI MUST be defined as clean, standardized SVG vector files in `src/presentation/ui/assets/icons/` (following Lucide/Feather icon standards).
+  - Never use raw Unicode emoji or character glyphs for UI icons when SVG assets are appropriate.
+  - Always render icons via the centralized theme image provider `image://icons/<name>/<token>` (e.g. `image://icons/triangle-up/success`, `image://icons/triangle-down/danger`, `image://icons/copy/accent`, `image://icons/settings/muted`) so colors are dynamically bound to palette tokens.
+- **New screen directory layout — keep the MVP trio flat, group only the helpers.** For a new screen under `src/presentation/ui/screens/<name>/`, keep `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`, and its QML file(s) flat at the top level of the screen's folder — do **not** split into `view/`/`presenter/`/`signal/`/`state/` subfolders. A `signal/` split in particular doesn't work: PySide6 `Signal()` declarations must live as class attributes on the Presenter/ViewModel itself, so there's no file to move them into. Only once a screen accumulates enough supporting helper modules (formatters, filters, pagination, domain-shaping logic — anything that isn't the MVP trio itself, e.g. `trade_log_row.py`/`chart_controls.py`/`result_formatter.py` in `backtest/`) that the flat folder gets hard to scan, group *only those helpers* into one subfolder (e.g. `<name>/logic/` or `<name>/helpers/`). Small screens (`settings/`, `data_management/`) stay fully flat — this is a size-triggered exception, not a default every screen gets.

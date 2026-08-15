@@ -1,10 +1,14 @@
 import logging
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 
-from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
 from binance.client import Client
+
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    IExchangeClient,
+)
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 logger = logging.getLogger("App.ExchangeClient")
 
@@ -29,57 +33,87 @@ class PythonBinanceClient(IExchangeClient):
         """
         self.client = client if client is not None else Client(api_key, api_secret)
 
-    def get_historical_klines(
+    def _format_time(self, time_val: str | datetime | None) -> str | None:
+        if isinstance(time_val, datetime):
+            return time_val.astimezone(UTC).strftime("%d %b %Y %H:%M:%S")
+        return time_val
+
+    def _fetch_raw_klines(
         self,
         symbol: str,
-        interval: TimeFrame,
-        start_str: str | datetime,
-        end_str: str | datetime | None = None,
-    ) -> list[MarketData]:
-        # Convert datetime to string or millisecond timestamp for python-binance if needed
-        # python-binance accepts datetime, string ('1 day ago UTC'), or ms timestamp
-
-        if isinstance(start_str, datetime):
-            start_str = start_str.astimezone(timezone.utc).strftime("%d %b %Y %H:%M:%S")
-
-        if isinstance(end_str, datetime):
-            end_str = end_str.astimezone(timezone.utc).strftime("%d %b %Y %H:%M:%S")
-
-        logger.info(
-            f"Fetching historical klines for {symbol} at {interval.value} from {start_str} to {end_str or 'NOW'}"
-        )
+        interval: str,
+        start_str: str,
+        end_str: str | None,
+        progress_callback: Callable[[int], None] | None,
+    ) -> list[list]:
         try:
             raw_klines = []
             generator = self.client.get_historical_klines_generator(
-                symbol, interval.value, start_str, end_str
+                symbol, interval, start_str, end_str
             )
             for i, k in enumerate(generator):
                 raw_klines.append(k)
-                if (i + 1) % 10000 == 0:
-                    logger.info(f"[{symbol}] Downloaded {i + 1} klines so far...")
-            logger.debug(f"Successfully fetched {len(raw_klines)} klines for {symbol}.")
+                # Binance usually returns up to 1000 klines per request chunk.
+                # We can update the UI roughly every 1000 items to avoid UI blocking while still keeping it smooth.
+                if (i + 1) % 1000 == 0:
+                    logger.debug(f"[{symbol}] Downloaded {i + 1} klines so far...")
+                    if progress_callback:
+                        progress_callback(i + 1)
+
+            # One final progress update at the end
+            if progress_callback:
+                progress_callback(len(raw_klines))
+
+            logger.info(f"Successfully fetched {len(raw_klines)} klines for {symbol}.")
+            return raw_klines
         except Exception as e:
             logger.error(f"Failed to fetch historical klines for {symbol}: {e}")
             raise
 
+    def _map_to_market_data(
+        self, raw_klines: list[list], symbol: str, interval: str
+    ) -> list[MarketData]:
         market_data_list = []
         for k in raw_klines:
             market_data_list.append(
                 MarketData(
                     symbol=symbol,
-                    interval=interval.value,
-                    open_time=datetime.fromtimestamp(k[0] / 1000.0, tz=timezone.utc),
+                    interval=interval,
+                    open_time=datetime.fromtimestamp(k[0] / 1000.0, tz=UTC),
                     open_price=float(k[1]),
                     high_price=float(k[2]),
                     low_price=float(k[3]),
                     close_price=float(k[4]),
                     volume=float(k[5]),
-                    close_time=datetime.fromtimestamp(k[6] / 1000.0, tz=timezone.utc),
+                    close_time=datetime.fromtimestamp(k[6] / 1000.0, tz=UTC),
                     quote_asset_volume=float(k[7]),
                     number_of_trades=int(k[8]),
                     taker_buy_base_asset_volume=float(k[9]),
                     taker_buy_quote_asset_volume=float(k[10]),
                 )
             )
-
         return market_data_list
+
+    def get_historical_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_str: str | datetime,
+        end_str: str | datetime | None = None,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> list[MarketData]:
+        # Convert datetime to string or millisecond timestamp for python-binance if needed
+        # python-binance accepts datetime, string ('1 day ago UTC'), or ms timestamp
+
+        formatted_start = self._format_time(start_str)
+        formatted_end = self._format_time(end_str)
+
+        logger.info(
+            f"Fetching historical klines for {symbol} at {interval.value} from {formatted_start} to {formatted_end or 'NOW'}"
+        )
+
+        raw_klines = self._fetch_raw_klines(
+            symbol, interval.value, formatted_start, formatted_end, progress_callback
+        )
+
+        return self._map_to_market_data(raw_klines, symbol, interval.value)

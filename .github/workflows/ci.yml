@@ -48,7 +48,7 @@ jobs:
 
       - name: Run Pytest with Coverage
         run: |
-          # Tests import `Binace_Bot.src...` (the checkout dir as a package), so the
+          # Tests import `Sagittarius_Elite_Warrior.src...` (the checkout dir as a package), so the
           # parent of the checkout — where actions/checkout nests it as <repo>/<repo> —
           # must be on the path, not the checkout root itself.
           PYTHONPATH=.. pytest tests/ \

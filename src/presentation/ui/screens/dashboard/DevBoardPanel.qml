@@ -3,142 +3,120 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
 
-// Dev Board's QML half (BOT-030 Phase 4): top bar, System Controls,
-// Indicators, and the monitor log. Hosted in a QQuickWidget that sits next
-// to the QtWidgets ChartCard inside a QSplitter (see dashboard_view.py) —
-// ChartCard stays pyqtgraph/Widgets permanently, everything else here.
 Rectangle {
     id: root
 
-    // QQuickWidget.sizeHint() derives from these — without them the widget
-    // collapses to 0x0 before QSplitter.setSizes() runs (same bug fixed for
-    // the Sidebar in Phase 1).
     implicitWidth: 380
     implicitHeight: 640
 
-    color: Theme.bg
+    color: "#0d0e14"
 
-    property bool controlsActive: (viewModel.uiMode === "IDLE" || viewModel.uiMode === "ERROR")
-                                  && !viewModel.historyLoading
+    property bool controlsActive: viewModel.controlsEnabled && !viewModel.historyLoading
 
-    component FieldBackground: Rectangle {
-        color: "#17181d"
-        border.color: Theme.border
-        border.width: 1
-        radius: 6
-        implicitHeight: 32
-    }
-
-    component SectionLabel: Text {
-        color: Theme.muted
-        font.pixelSize: 10
-        font.bold: true
-        font.letterSpacing: 1
-    }
-
-    component StyledCheck: CheckBox {
-        id: check
-        contentItem: Text {
-            leftPadding: check.indicator.width + 6
-            text: check.text
-            color: Theme.textPrimary
-            font.pixelSize: 12
-            verticalAlignment: Text.AlignVCenter
+    component SectionLabel: RowLayout {
+        property string titleText: ""
+        spacing: 6
+        Rectangle {
+            width: 3
+            height: 12
+            color: Theme.accent
+            radius: 1.5
         }
-        indicator: Rectangle {
-            implicitWidth: 16
-            implicitHeight: 16
-            y: (check.height - height) / 2
-            radius: 3
-            color: check.checked ? Theme.accent : "#17181d"
-            border.color: check.checked ? Theme.accent : Theme.border
-            border.width: 1
+        Text {
+            text: titleText.toUpperCase()
+            color: Theme.muted
+            font.pixelSize: 10
+            font.bold: true
+            font.letterSpacing: 0.8
         }
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
+        anchors.margins: 14
         spacing: 12
 
-        // ========================= Top bar =========================
-        RowLayout {
+        // ========================= Top Header Bar =========================
+        Rectangle {
             Layout.fillWidth: true
-            spacing: 10
+            implicitHeight: 44
+            color: "#12141d"
+            border.color: "#222533"
+            border.width: 1
+            radius: 8
 
-            Text {
-                objectName: "lblHeaderTitle"
-                text: "Developer Board (Live Testbed)"
-                color: Theme.accent
-                font.pixelSize: 14
-                font.bold: true
-                elide: Text.ElideRight
-                Layout.preferredWidth: 170
-            }
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 10
 
-            Item { Layout.fillWidth: true }
-
-            Text {
-                objectName: "lblPriceTicker"
-                text: viewModel.priceTickerText
-                color: viewModel.priceTickerColor
-                font.pixelSize: 13
-                font.bold: true
-            }
-
-            Rectangle {
-                radius: 4
-                color: "#17181d"
-                border.color: Theme.border
-                border.width: 1
-                Layout.preferredWidth: wsText.implicitWidth + 16
-                Layout.preferredHeight: 22
-                Text {
-                    id: wsText
-                    objectName: "lblWsStatus"
-                    anchors.centerIn: parent
-                    text: viewModel.wsStatusText
-                    color: viewModel.wsStatusColor
-                    font.pixelSize: 10
-                    font.bold: true
-                }
-            }
-
-            Button {
-                id: reloadButton
-                objectName: "btnReload"
-                text: viewModel.historyLoading ? "Loading…" : "Reload"
-                enabled: root.controlsActive
-                // Same action as System Controls' "Load History" button —
-                // not a second code path (mirrors the QtWidgets version's
-                // btn_reload.clicked.connect(load_history_button.click)).
-                onClicked: viewModel.requestLoadHistory()
-
-                contentItem: RowLayout {
-                    spacing: 4
-                    Image {
-                        source: "image://icons/clock/muted"
-                        sourceSize.width: 12
-                        sourceSize.height: 12
-                        Layout.preferredWidth: 12
-                        Layout.preferredHeight: 12
-                        opacity: reloadButton.enabled ? 1.0 : 0.4
+                RowLayout {
+                    spacing: 6
+                    Rectangle {
+                        width: 3
+                        height: 14
+                        color: Theme.accent
+                        radius: 2
                     }
                     Text {
-                        text: reloadButton.text
+                        objectName: "lblHeaderTitle"
+                        text: "Developer Board (Live Testbed)"
                         color: Theme.textPrimary
-                        font.pixelSize: 11
-                        opacity: reloadButton.enabled ? 1.0 : 0.4
+                        font.pixelSize: 13
+                        font.bold: true
+                        elide: Text.ElideRight
+                        Layout.preferredWidth: 170
                     }
                 }
 
-                background: Rectangle {
-                    implicitHeight: 26
-                    radius: 4
-                    color: reloadButton.hovered && reloadButton.enabled ? "#1f2127" : "#17181d"
-                    border.color: Theme.border
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    objectName: "lblPriceTicker"
+                    text: viewModel.priceTickerText
+                    color: viewModel.priceTickerColor
+                    font.pixelSize: 13
+                    font.bold: true
+                    font.family: "Inter, Segoe UI, sans-serif"
+                }
+
+                Rectangle {
+                    radius: 11
+                    color: "#181a26"
+                    border.color: "#282b3d"
                     border.width: 1
-                    opacity: reloadButton.enabled ? 1.0 : 0.5
+                    Layout.preferredWidth: wsText.implicitWidth + 20
+                    Layout.preferredHeight: 22
+
+                    RowLayout {
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Rectangle {
+                            width: 6
+                            height: 6
+                            radius: 3
+                            color: viewModel.wsStatusColor
+                        }
+                        Text {
+                            id: wsText
+                            objectName: "lblWsStatus"
+                            text: viewModel.wsStatusText
+                            color: viewModel.wsStatusColor
+                            font.pixelSize: 10
+                            font.bold: true
+                        }
+                    }
+                }
+
+                StatefulButton {
+                    objectName: "btnReload"
+                    text: viewModel.historyLoading ? "Loading…" : "Reload"
+                    enabled: root.controlsActive
+                    iconSource: "clock"
+                    iconSize: 12
+                    implicitHeight: 26
+                    onClicked: viewModel.requestLoadHistory()
                 }
             }
         }
@@ -147,20 +125,20 @@ Rectangle {
         ScrollView {
             id: controlsScroll
             Layout.fillWidth: true
-            Layout.preferredHeight: 360
+            Layout.preferredHeight: 380
             contentWidth: availableWidth
             clip: true
 
             ColumnLayout {
                 width: controlsScroll.width
-                spacing: 14
+                spacing: 12
 
-                // ---------------- System Controls ----------------
+                // ---------------- System Controls Card ----------------
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: controlsBody.implicitHeight + 28
-                    color: Theme.bgCard
-                    border.color: Theme.border
+                    color: "#12141d"
+                    border.color: "#222533"
                     border.width: 1
                     radius: 8
 
@@ -168,221 +146,179 @@ Rectangle {
                         id: controlsBody
                         anchors.fill: parent
                         anchors.margins: 14
-                        spacing: 10
+                        spacing: 12
 
-                        Text {
-                            text: "SYSTEM CONTROLS"
-                            color: Theme.accent
-                            font.pixelSize: 12
-                            font.bold: true
-                        }
+                        SectionLabel { titleText: "System Controls" }
 
                         GridLayout {
                             Layout.fillWidth: true
                             columns: 2
-                            columnSpacing: 8
-                            rowSpacing: 8
+                            columnSpacing: 10
+                            rowSpacing: 10
 
-                            Text { text: "Market:"; color: Theme.textPrimary; font.pixelSize: 12 }
+                            Text { text: "Market:"; color: Theme.muted; font.pixelSize: 11; font.bold: true }
                             ComboBox {
                                 objectName: "cboMarket"
                                 Layout.fillWidth: true
+                                implicitHeight: 32
                                 model: ["Spot", "Futures"]
                                 enabled: root.controlsActive
-                                background: FieldBackground {}
+                                background: Rectangle {
+                                    color: "#181a24"
+                                    border.color: "#2a2d3d"
+                                    border.width: 1
+                                    radius: 6
+                                }
                                 contentItem: Text {
-                                    leftPadding: 8
+                                    leftPadding: 10
                                     text: parent.displayText
                                     color: Theme.textPrimary
-                                    font.pixelSize: 12
+                                    font.pixelSize: 11
+                                    font.bold: true
                                     verticalAlignment: Text.AlignVCenter
                                 }
                             }
 
-                            Text { text: "Symbol:"; color: Theme.textPrimary; font.pixelSize: 12 }
+                            Text { text: "Symbol:"; color: Theme.muted; font.pixelSize: 11; font.bold: true }
                             ComboBox {
+                                id: symbolCombo
                                 objectName: "cboSymbol"
                                 Layout.fillWidth: true
-                                model: ["BTCUSDT", "ETHUSDT"]
+                                implicitHeight: 32
+                                property var presetSymbols: ["BTCUSDT", "ETHUSDT"]
+                                property bool _initialSyncDone: false
+                                model: presetSymbols
                                 editable: true
                                 enabled: root.controlsActive
-                                background: FieldBackground {}
+                                Component.onCompleted: {
+                                    currentIndex = Math.max(0, presetSymbols.indexOf(viewModel.symbol))
+                                    _initialSyncDone = true
+                                }
+                                onCurrentTextChanged: if (_initialSyncDone) viewModel.symbol = currentText
+                                background: Rectangle {
+                                    color: "#181a24"
+                                    border.color: "#2a2d3d"
+                                    border.width: 1
+                                    radius: 6
+                                }
                                 contentItem: Text {
-                                    leftPadding: 8
+                                    leftPadding: 10
                                     text: parent.editText
                                     color: Theme.textPrimary
-                                    font.pixelSize: 12
+                                    font.pixelSize: 11
+                                    font.bold: true
                                     verticalAlignment: Text.AlignVCenter
                                 }
                             }
 
-                            Text { text: "Strategy:"; color: Theme.textPrimary; font.pixelSize: 12 }
+                            Text { text: "Strategy:"; color: Theme.muted; font.pixelSize: 11; font.bold: true }
                             ComboBox {
                                 objectName: "cboStrategy"
                                 Layout.fillWidth: true
+                                implicitHeight: 32
                                 model: ["Manual", "SMA Crossover"]
                                 enabled: root.controlsActive
-                                background: FieldBackground {}
+                                background: Rectangle {
+                                    color: "#181a24"
+                                    border.color: "#2a2d3d"
+                                    border.width: 1
+                                    radius: 6
+                                }
                                 contentItem: Text {
-                                    leftPadding: 8
+                                    leftPadding: 10
                                     text: parent.displayText
                                     color: Theme.textPrimary
-                                    font.pixelSize: 12
+                                    font.pixelSize: 11
+                                    font.bold: true
                                     verticalAlignment: Text.AlignVCenter
                                 }
                             }
                         }
 
-                        SectionLabel { text: "DATA RANGE" }
+                        SectionLabel { titleText: "Data Range" }
 
-                        // Plain text fields, not a calendar popup — Qt Quick
-                        // Controls Basic has no date-time editor (same call
-                        // as DatabaseScreen.qml). Cosmetic only, like the
-                        // QDateTimeEdit pair they replace: Load History
-                        // always uses a fixed limit, never reads these (see
-                        // dev_board_user_end_test_cases.md TC-GAP-04/05).
                         TextField {
                             objectName: "txtStartDate"
                             Layout.fillWidth: true
-                            text: Qt.formatDateTime(new Date(Date.now() - 7 * 86400000), "yyyy-MM-dd HH:mm")
+                            implicitHeight: 32
+                            text: viewModel.startDate
+                            onTextEdited: viewModel.startDate = text
+                            placeholderText: "yyyy-MM-dd HH:mm"
                             enabled: root.controlsActive
                             color: Theme.textPrimary
-                            font.pixelSize: 12
-                            background: FieldBackground {}
+                            font.pixelSize: 11
+                            background: Rectangle {
+                                color: "#181a24"
+                                border.color: "#2a2d3d"
+                                border.width: 1
+                                radius: 6
+                            }
                         }
                         TextField {
                             objectName: "txtEndDate"
                             Layout.fillWidth: true
-                            text: Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm")
+                            implicitHeight: 32
+                            text: viewModel.endDate
+                            onTextEdited: viewModel.endDate = text
+                            placeholderText: "yyyy-MM-dd HH:mm"
                             enabled: root.controlsActive
                             color: Theme.textPrimary
-                            font.pixelSize: 12
-                            background: FieldBackground {}
+                            font.pixelSize: 11
+                            background: Rectangle {
+                                color: "#181a24"
+                                border.color: "#2a2d3d"
+                                border.width: 1
+                                radius: 6
+                            }
                         }
 
-                        SectionLabel { text: "ACTIONS" }
+                        SectionLabel { titleText: "Actions" }
 
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 8
 
-                            Button {
-                                id: loadButton
+                            StatefulButton {
                                 objectName: "btnLoadHistory"
                                 Layout.fillWidth: true
                                 text: viewModel.historyLoading ? "Loading…" : "Load History"
                                 enabled: root.controlsActive
+                                iconSource: "clock"
+                                iconTint: "muted"
                                 onClicked: viewModel.requestLoadHistory()
-
-                                contentItem: RowLayout {
-                                    spacing: 5
-                                    Image {
-                                        source: "image://icons/clock/muted"
-                                        sourceSize.width: 13
-                                        sourceSize.height: 13
-                                        Layout.preferredWidth: 13
-                                        Layout.preferredHeight: 13
-                                        opacity: loadButton.enabled ? 1.0 : 0.4
-                                    }
-                                    Text {
-                                        text: loadButton.text
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        opacity: loadButton.enabled ? 1.0 : 0.4
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: loadButton.hovered && loadButton.enabled ? "#1f2127" : "#17181d"
-                                    border.color: Theme.border
-                                    border.width: 1
-                                    opacity: loadButton.enabled ? 1.0 : 0.5
-                                }
                             }
 
-                            Button {
-                                id: startButton
+                            StatefulButton {
                                 objectName: "btnStart"
                                 Layout.fillWidth: true
                                 text: "Start Live"
                                 enabled: root.controlsActive
+                                iconSource: "play"
+                                iconTint: "success"
+                                accentBorder: Theme.success
                                 onClicked: viewModel.requestStartStream()
-
-                                contentItem: RowLayout {
-                                    spacing: 5
-                                    Image {
-                                        source: "image://icons/play/success"
-                                        sourceSize.width: 13
-                                        sourceSize.height: 13
-                                        Layout.preferredWidth: 13
-                                        Layout.preferredHeight: 13
-                                        opacity: startButton.enabled ? 1.0 : 0.4
-                                    }
-                                    Text {
-                                        text: startButton.text
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        opacity: startButton.enabled ? 1.0 : 0.4
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: startButton.hovered && startButton.enabled ? "#1f2127" : "#17181d"
-                                    border.color: Theme.success
-                                    border.width: 1
-                                    opacity: startButton.enabled ? 1.0 : 0.5
-                                }
                             }
 
-                            Button {
-                                id: stopButton
+                            StatefulButton {
                                 objectName: "btnStop"
                                 Layout.fillWidth: true
                                 text: "Stop"
                                 enabled: viewModel.uiMode === "LIVE"
+                                iconSource: "square"
+                                iconTint: "danger"
+                                accentBorder: Theme.danger
                                 onClicked: viewModel.requestStopStream()
-
-                                contentItem: RowLayout {
-                                    spacing: 5
-                                    Image {
-                                        source: "image://icons/square/danger"
-                                        sourceSize.width: 13
-                                        sourceSize.height: 13
-                                        Layout.preferredWidth: 13
-                                        Layout.preferredHeight: 13
-                                        opacity: stopButton.enabled ? 1.0 : 0.4
-                                    }
-                                    Text {
-                                        text: stopButton.text
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        opacity: stopButton.enabled ? 1.0 : 0.4
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: stopButton.hovered && stopButton.enabled ? "#1f2127" : "#17181d"
-                                    border.color: Theme.danger
-                                    border.width: 1
-                                    opacity: stopButton.enabled ? 1.0 : 0.5
-                                }
                             }
                         }
                     }
                 }
 
-                // ---------------- Indicators ----------------
+                // ---------------- Indicators Card ----------------
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: indicatorsBody.implicitHeight + 28
-                    color: Theme.bgCard
-                    border.color: Theme.border
+                    color: "#12141d"
+                    border.color: "#222533"
                     border.width: 1
                     radius: 8
 
@@ -392,36 +328,42 @@ Rectangle {
                         anchors.margins: 14
                         spacing: 10
 
-                        Text {
-                            text: "INDICATORS"
-                            color: Theme.accent
-                            font.pixelSize: 12
-                            font.bold: true
-                        }
+                        SectionLabel { titleText: "Indicators" }
 
-                        // BOT-032 Phase 6 — every indicator is a script, none
-                        // hardcoded here anymore. Populated at runtime from
-                        // IndicatorScriptRegistry via viewModel.scriptModel —
-                        // a new registered script appears with no QML change.
-                        // RSI(14)/EMA 20/50/100/200/MACD(12/26/9) are the
-                        // built-in defaults (see binance_bot_module.py); the
-                        // EMA ones start pre-checked (default_enabled).
                         Repeater {
                             id: scriptRepeater
                             model: viewModel.scriptModel
 
-                            RowLayout {
-                                Layout.fillWidth: true
+                            Rectangle {
+                                id: scriptRow
                                 required property var model
                                 required property int index
 
-                                StyledCheck {
-                                    objectName: "chkScript_" + parent.model.key
-                                    text: parent.model.title
-                                    checked: parent.model.enabled
-                                    onToggled: viewModel.scriptModel.setEnabled(parent.index, checked)
+                                Layout.fillWidth: true
+                                implicitHeight: 32
+                                color: checkMouse.containsMouse ? "#181b27" : "transparent"
+                                radius: 6
+
+                                MouseArea {
+                                    id: checkMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: viewModel.scriptModel.setEnabled(scriptRow.index, !scriptRow.model.enabled)
                                 }
-                                Item { Layout.fillWidth: true }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+
+                                    StyledCheck {
+                                        objectName: "chkScript_" + scriptRow.model.key
+                                        text: scriptRow.model.title
+                                        checked: scriptRow.model.enabled
+                                        onToggled: viewModel.scriptModel.setEnabled(scriptRow.index, checked)
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
                             }
                         }
                     }
@@ -429,7 +371,7 @@ Rectangle {
             }
         }
 
-        // ========================= Monitor log =========================
+        // ========================= System Monitor Log Panel =========================
         LogPanel {
             objectName: "monitorLogPanel"
             Layout.fillWidth: true
@@ -440,3 +382,4 @@ Rectangle {
         }
     }
 }
+

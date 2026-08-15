@@ -1,32 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from PySide6.QtCore import Signal, Slot
+
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
 )
-from Binace_Bot.src.application.use_cases.stream.start_live_stream.command import (
-    StartLiveStreamCommand,
-)
-from Binace_Bot.src.application.use_cases.stream.stop_live_stream.command import (
-    StopLiveStreamCommand,
-)
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
-from Binace_Bot.src.presentation.ui.constants import UIMode
-from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -35,9 +25,10 @@ from .autostart_controller import AutoStartController
 from .dashboard_view_model import DashboardQmlViewModel
 from .history_pagination_controller import HistoryPaginationController
 from .indicator_script_runner import IndicatorScriptRunner
+from .stream_lifecycle_controller import StreamLifecycleController
 
 if TYPE_CHECKING:
-    from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
         DashboardView,
     )
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -62,6 +53,9 @@ _RENDER_WINDOW_CANDLES: int = 75
 #: happens to host it today.
 _MIN_FETCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_MIN_FETCH_CANDLES"
 _DEFAULT_MIN_FETCH_CANDLES: int = 75
+
+_AUTOSTART_ENABLED_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_ENABLED"
+_DEFAULT_AUTOSTART_ENABLED: bool = False
 
 #: How long AutoStartController waits for a real MarketTickEvent before
 #: falling back to Load History (see autostart_controller.py). Configurable
@@ -92,6 +86,7 @@ _WS_STATUS_BY_MODE = {
 
 def _tick_to_candle(
     symbol: str,
+    interval: str,
     close_timestamp: float,
     open_price: float,
     high_price: float,
@@ -107,11 +102,18 @@ def _tick_to_candle(
     can actually reach are real; the trade-count/quote-volume fields are filled
     with zeroes because nothing downstream of here reads them — if a script ever
     needs them, widen the signal rather than inventing values.
+    @param interval Caller's current `self._active_interval` — this used to be
+    the hard-coded `_DEFAULT_INTERVAL_STR` module constant regardless of the
+    timeframe actually selected (BOT-034 changed every OTHER read site to the
+    instance attribute but missed this one), which mislabeled every live-tick
+    candle appended to `_raw_klines_by_symbol` once a user picked a timeframe
+    other than "1m" — silently corrupting the cache a later load-more prepend
+    rebuild depends on.
     """
-    close_time = datetime.fromtimestamp(close_timestamp, tz=timezone.utc)
+    close_time = datetime.fromtimestamp(close_timestamp, tz=UTC)
     return MarketData(
         symbol=symbol,
-        interval=_DEFAULT_INTERVAL_STR,
+        interval=interval,
         open_time=close_time,
         open_price=open_price,
         high_price=high_price,
@@ -165,7 +167,12 @@ class DashboardPresenter(BasePresenter):
     # prepend_historical_data's docstring — it must NOT reset the user's
     # current zoom/pan the way render_historical_data does).
     ui_history_prepended_signal = Signal(str, list, list)
-    ui_history_prepend_finished_signal = Signal(str)
+    #: Second arg: whether this fetch actually found any older candles.
+    #: HistoryPaginationController's auto-recheck-after-cooldown only arms
+    #: when this is True — see its on_load_more_finished docstring for why
+    #: (an unconditional recheck loops forever once a symbol's history is
+    #: exhausted, since nothing ever moves the "near the edge" boundary).
+    ui_history_prepend_finished_signal = Signal(str, bool)
 
     # Indicator name -> full (x, y) series computed so far
     ui_indicator_data_signal = Signal(str, list, list)
@@ -251,6 +258,18 @@ class DashboardPresenter(BasePresenter):
         # per-run without a restart.
         self._active_interval: str = _DEFAULT_INTERVAL_STR
 
+        # BOT-033 Phase 2 — symbol actually used by Load History/Start Live,
+        # set from DashboardQmlViewModel.symbol at click time (see
+        # StreamLifecycleController._on_load_history/_on_start_stream). An
+        # instance attribute, same reasoning as _active_interval above: every
+        # per-symbol chart-card lookup below (_rebuild_scripts,
+        # _on_indicator_data, _on_script_region_data, _on_script_info_data,
+        # _on_script_marker_data) must key off whatever symbol is actually
+        # loaded, not the _DEFAULT_SYMBOLS[0] constant — otherwise switching
+        # to a different symbol silently stops routing indicator data to the
+        # (correctly re-keyed) chart card _ensure_chart_cards just built.
+        self._active_symbol: str = _DEFAULT_SYMBOLS[0]
+
         # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
         # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD
         # ship as default-registered scripts, see binance_bot_module.py).
@@ -271,6 +290,51 @@ class DashboardPresenter(BasePresenter):
         # only ever hands it what's available, once, same as logModel.
         self._view_model.script_model.set_available(self._script_registry.available())
 
+        def _get_cancellation_token():
+            return self._cancellation_token
+
+        def _reset_cancellation_token():
+            self._cancellation_token = CancellationToken()
+            return self._cancellation_token
+
+        def _get_active_interval():
+            return self._active_interval
+
+        def _set_active_interval(val: str):
+            self._active_interval = val
+
+        def _set_active_symbol(val: str):
+            self._active_symbol = val
+
+        self._stream_controller = StreamLifecycleController(
+            thread_manager=self._thread_manager,
+            dispatcher=self.dispatcher,
+            config=self.config,
+            fsm=self.fsm,
+            view_model=self._view_model,
+            script_runner=self._script_runner,
+            raw_klines_by_symbol=self._raw_klines_by_symbol,
+            get_active_interval=_get_active_interval,
+            set_active_interval=_set_active_interval,
+            set_active_symbol=_set_active_symbol,
+            ensure_chart_cards=lambda symbols: self._ensure_chart_cards(symbols),
+            rebuild_scripts=lambda: self._rebuild_scripts(),
+            compute_fetch_limit=lambda: self._compute_fetch_limit(),
+            get_cancellation_token=_get_cancellation_token,
+            reset_cancellation_token=_reset_cancellation_token,
+            emit_history_reloaded=self.ui_history_reloaded_signal.emit,
+            emit_history_load_finished=self.ui_history_load_finished_signal.emit,
+            emit_history_prepended=self.ui_history_prepended_signal.emit,
+            emit_history_prepend_finished=self.ui_history_prepend_finished_signal.emit,
+            emit_stream_success=self.ui_stream_success_signal.emit,
+            emit_stream_failed=self.ui_stream_failed_signal.emit,
+            emit_log=self.ui_log_signal.emit,
+        )
+
+        self._run_load_history = self._stream_controller._run_load_history
+        self._run_load_more_history = self._stream_controller._run_load_more_history
+        self._run_sync_and_start = self._stream_controller._run_sync_and_start
+
         # Must be called explicitly at the end of BasePresenter's contract,
         # and before load_qml() so QML parses against a ready view model.
         self._connect_ui_signals()
@@ -282,19 +346,30 @@ class DashboardPresenter(BasePresenter):
         # falling back to Load History if no MarketTickEvent proves a real
         # connection within a few seconds. Constructed last: it immediately
         # calls _on_start_stream(), which needs everything above already set
-        # up (script runner, signal connections, FSM).
-        fallback_seconds = self.config.get(
-            _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY,
-            _DEFAULT_AUTOSTART_FALLBACK_SECONDS,
-            cast=float,
+        # up (script runner, signal connections, FSM). Config-gated
+        # (default off — BOT-062: opening Dev Board must not silently start
+        # a live connection unless the user has opted in); `None` when
+        # disabled so `_on_ui_chart_update`'s `self._autostart.on_market_tick()`
+        # has to guard against that instead of assuming it always exists.
+        self._autostart: AutoStartController | None = None
+        is_autostart_enabled = self.config.get(
+            _AUTOSTART_ENABLED_CONFIG_KEY,
+            _DEFAULT_AUTOSTART_ENABLED,
+            cast=bool,
         )
-        self._autostart = AutoStartController(
-            start_stream=self._on_start_stream,
-            load_history=self._on_load_history,
-            fallback_seconds=fallback_seconds,
-            parent=self,
-        )
-        self._autostart.begin()
+        if is_autostart_enabled:
+            fallback_seconds = self.config.get(
+                _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY,
+                _DEFAULT_AUTOSTART_FALLBACK_SECONDS,
+                cast=float,
+            )
+            self._autostart = AutoStartController(
+                start_stream=self._on_start_stream,
+                load_history=self._on_load_history,
+                fallback_seconds=fallback_seconds,
+                parent=self,
+            )
+            self._autostart.begin()
 
     # ================================================================== #
     # BasePresenter contract implementations
@@ -364,8 +439,20 @@ class DashboardPresenter(BasePresenter):
 
         chart_cards = self.view.render_symbol_cards(symbols)
         self.active_charts.clear()
+
+        from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+        from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import (
+            TimeFrame,
+        )
+
+        bar_seconds = TimeFrame(self._active_interval).to_seconds()
+        max_candles = self.config.get(
+            ConfigKeys.CHART_CARD_MAX_ZOOM_OUT_CANDLES.value, 2000, cast=int
+        )
+
         for card in chart_cards:
             self.active_charts[card.symbol] = card
+            card.set_max_visible_x_range(max_candles * bar_seconds)
             # BOT-033 — freshly-created cards only; render_symbol_cards()
             # tears down and rebuilds the old ones on every call, so a
             # connection made here would otherwise accumulate on a widget
@@ -393,7 +480,7 @@ class DashboardPresenter(BasePresenter):
         return self._view_model.script_model.enabled_keys
 
     def _rebuild_scripts(self) -> None:
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.clear_from_chart(card)
         self._script_runner.rebuild(self._enabled_script_keys())
@@ -429,142 +516,44 @@ class DashboardPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_load_history(self) -> None:
-        """
-        Lock the UI and submit a background task to load historical klines.
-        The blocking DB query loop runs in the background — no UI freeze.
-        """
-        if self._view_model.historyLoading:
-            self._view_model.log_model.append("History load is already in progress.")
-            return
-        # BOT-034: auto-start's own Start Live workflow (_run_sync_and_start)
-        # locks the FSM to LOCKED while it runs and, like _run_load_history,
-        # feeds candles through _script_runner from that same background
-        # thread. historyLoading alone doesn't cover this case — auto-start
-        # never sets it (only _on_load_history does) — so without this guard
-        # a Load History click that lands while auto-start is still LOCKED
-        # would submit a second background workflow that runs concurrently
-        # against the same IndicatorScriptRunner/chart-card state as the
-        # first. This was a real, reproduced Windows access violation, not a
-        # hypothetical one: two background threads driving the same chart
-        # cards at once, previously near-impossible to trigger by hand since
-        # nothing used to auto-submit a workflow on Dev Board open.
-        if self.fsm.current_state == UIMode.LOCKED:
-            self._view_model.log_model.append(
-                "Wait for Start Live to finish before loading history."
-            )
-            return
-
-        self._view_model.set_history_loading(True)
-        self._view_model.log_model.append(
-            "Loading historical data from local database..."
-        )
-        symbols = list(_DEFAULT_SYMBOLS)
-        self._ensure_chart_cards(symbols)
-        self._rebuild_scripts()
-        self._thread_manager.submit(
-            self._run_load_history,
-            symbols,
-            self._active_interval,
-            self._compute_fetch_limit(),
-            self._cancellation_token,
-        )
+        self._stream_controller._on_load_history()
 
     @Slot()
     @safe_ui_action
     def _on_start_stream(self) -> None:
-        """
-        Lock the UI and submit the full Auto-Sync → Stream startup workflow
-        as a single background task.
-        """
-        if self._view_model.historyLoading:
-            self._view_model.log_model.append(
-                "Wait for the current history load before starting live stream."
-            )
-            return
-        # BOT-034: with auto-start, the FSM is LOCKED (or already LIVE)
-        # immediately on open — a manual Start Live click during that window
-        # used to be unreachable (the app always started IDLE), so this
-        # guard never existed. Without it, transition_to(LOCKED) raises
-        # InvalidStateTransitionError for anything but IDLE.
-        if self.fsm.current_state != UIMode.IDLE:
-            self._view_model.log_model.append("Already starting or running — ignoring.")
-            return
-
-        self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
-        self.fsm.transition_to(UIMode.LOCKED)
-
-        symbols = list(_DEFAULT_SYMBOLS)
-        interval = TimeFrame(self._active_interval)
-
-        # Prepare chart cards on the main thread (safe: view state only).
-        chart_cards = self._ensure_chart_cards(symbols)
-        self._rebuild_scripts()
-        self._view_model.log_model.append(f"Prepared {len(chart_cards)} charts.")
-
-        self._thread_manager.submit(
-            self._run_sync_and_start,
-            symbols,
-            interval,
-            self._active_interval,
-            self._compute_fetch_limit(),
-            self._cancellation_token,
-        )
+        self._stream_controller._on_start_stream()
 
     @Slot(str)
     @safe_ui_action
     def _on_stream_start_success(self, msg: str) -> None:
-        self.ui_log_signal.emit(msg)
-        self.fsm.transition_to(UIMode.LIVE)
+        self._stream_controller._on_stream_start_success(msg)
 
     @Slot(str)
     @safe_ui_action
     def _on_stream_start_failed(self, msg: str) -> None:
-        self.ui_log_signal.emit(f"Stream startup failed: {msg}")
-        self.fsm.transition_to(UIMode.ERROR)
+        self._stream_controller._on_stream_start_failed(msg)
 
     @Slot()
     @safe_ui_action
     def _on_stop_stream(self) -> None:
-        self._view_model.log_model.append("Stopping Live Stream...")
-        # BOT-034: cancel any in-flight Load History/Start Live background
-        # work so it stops touching the chart once the user has explicitly
-        # said "stop" — then hand out a fresh token so the *next* Start Live
-        # isn't born pre-cancelled (mirrors BinanceWebsocketService minting a
-        # new CancellationToken per start_stream() call).
-        self._cancellation_token.cancel()
-        self._cancellation_token = CancellationToken()
-        try:
-            cmd = StopLiveStreamCommand()
-            self.dispatcher.dispatch(StopLiveStreamCommand, cmd)
-            self._view_model.log_model.append("Live Stream stopped.")
-            self.fsm.transition_to(UIMode.IDLE)
-        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
-            self._view_model.log_model.append(
-                f"Error while stopping: {exc}", level="error"
-            )
-            self.fsm.transition_to(UIMode.ERROR)
+        self._stream_controller._on_stop_stream()
 
     @Slot(str)
     @safe_ui_action
     def _on_timeframe_changed(self, timeframe: str) -> None:
-        """
-        @brief BOT-033 — ChartToolbar.sig_timeframe_changed handler.
-        @details Unlike the Indicators checkboxes (deliberately no effect
-        until the next Load/Start click, see TC-GAP-07), this control lives
-        on the chart itself — clicking "5m" reads as "show me 5m now", so it
-        reloads immediately: stop-then-restart if a stream is LIVE, otherwise
-        a plain reload (skipped if a load is already in flight, same guard
-        _on_load_history uses).
-        """
-        if timeframe == self._active_interval:
-            return
-        self._active_interval = timeframe
+        self._stream_controller._on_timeframe_changed(timeframe)
 
-        if self.fsm.current_state == UIMode.LIVE:
-            self._on_stop_stream()
-            self._on_start_stream()
-        elif not self._view_model.historyLoading:
-            self._on_load_history()
+        from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+        from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import (
+            TimeFrame,
+        )
+
+        bar_seconds = TimeFrame(timeframe).to_seconds()
+        max_candles = self.config.get(
+            ConfigKeys.CHART_CARD_MAX_ZOOM_OUT_CANDLES.value, 2000, cast=int
+        )
+        for card in self.active_charts.values():
+            card.set_max_visible_x_range(max_candles * bar_seconds)
 
     @Slot(str)
     @safe_ui_action
@@ -591,21 +580,7 @@ class DashboardPresenter(BasePresenter):
             card.check_near_left_edge()
 
     def _fetch_older_history(self, symbol: str, oldest_timestamp: float) -> None:
-        """HistoryPaginationController's `fetch_older` callback — submits the
-        background fetch, same convention as _on_load_history/_on_start_stream
-        (dedicated background method, CancellationToken as the last arg)."""
-        self._thread_manager.submit(
-            self._run_load_more_history,
-            symbol,
-            self._active_interval,
-            oldest_timestamp,
-            self.config.get(
-                _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY,
-                _DEFAULT_LOAD_MORE_BATCH_CANDLES,
-                cast=int,
-            ),
-            self._cancellation_token,
-        )
+        self._stream_controller.fetch_older_history(symbol, oldest_timestamp)
 
     # ================================================================== #
     # Background Signal Slots — called on the main thread via Qt signals.
@@ -653,12 +628,14 @@ class DashboardPresenter(BasePresenter):
         self._rebuild_scripts()
         self._script_runner.feed_all(self._raw_klines_by_symbol.get(symbol, []))
 
-    @Slot(str)
-    def _on_history_prepend_finished(self, symbol: str) -> None:
+    @Slot(str, bool)
+    def _on_history_prepend_finished(self, symbol: str, found_more: bool) -> None:
         """Unconditional (success, empty result, or error alike) — unlocks
         HistoryPaginationController so the next near-edge pan can fetch
-        again."""
-        self._pagination.on_load_more_finished(symbol)
+        again. `found_more` is forwarded as-is; see
+        HistoryPaginationController.on_load_more_finished's docstring for
+        why it gates the auto-recheck."""
+        self._pagination.on_load_more_finished(symbol, found_more)
 
     @Slot(str, list, list)
     def _on_indicator_data(self, name: str, x_data: list, y_data: list) -> None:
@@ -666,28 +643,28 @@ class DashboardPresenter(BasePresenter):
         (single-symbol Dev Board — see _DEFAULT_SYMBOLS), registering its
         overlay/subplot curve on first use. Every indicator is a script
         (BOT-032 Phase 6 — none are hardcoded), so this is a pure delegate."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw(card, name, x_data, y_data)
 
     @Slot(str, list)
     def _on_script_region_data(self, key: str, spans: list) -> None:
         """Pushes a script's background-tint spans onto the chart."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw_region(card, key, spans)
 
     @Slot(str, list)
     def _on_script_info_data(self, key: str, fields: list) -> None:
         """Pushes a script's status-panel fields onto the chart."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw_info(card, key, fields)
 
     @Slot(str, list)
     def _on_script_marker_data(self, key: str, markers: list) -> None:
         """Pushes a script's Buy/Sell-style labelled markers onto the chart."""
-        card = self.active_charts.get(_DEFAULT_SYMBOLS[0])
+        card = self.active_charts.get(self._active_symbol)
         if card is not None:
             self._script_runner.draw_markers(card, key, markers)
 
@@ -741,8 +718,11 @@ class DashboardPresenter(BasePresenter):
         # BOT-034 — any tick is proof of a real connection, cancelling the
         # auto-start fallback timer. Must happen here (main thread), NOT in
         # _handle_market_tick (background thread) — QTimer.stop() from a
-        # foreign thread is a Qt threading violation.
-        self._autostart.on_market_tick()
+        # foreign thread is a Qt threading violation. `_autostart` is None
+        # when BOT-062's config gate is off (the default) — nothing to
+        # cancel in that case.
+        if self._autostart is not None:
+            self._autostart.on_market_tick()
 
         is_bullish = c >= o
         price_color = BULL_COLOR if is_bullish else BEAR_COLOR
@@ -753,7 +733,9 @@ class DashboardPresenter(BasePresenter):
             if is_closed:
                 card.append_closed_candle(t, o, h, low, c)
                 card.append_closed_volume(t, volume, is_bullish)
-                candle = _tick_to_candle(symbol, t, o, h, low, c, volume)
+                candle = _tick_to_candle(
+                    symbol, self._active_interval, t, o, h, low, c, volume
+                )
                 # BOT-035 — keep the raw-kline cache (used to rebuild+refeed
                 # scripts after a later load-more prepend) in sync with what
                 # the chart actually shows; otherwise a prepend's rebuild
@@ -769,219 +751,3 @@ class DashboardPresenter(BasePresenter):
     # Background methods — submitted to IThreadManager.
     # MUST NOT touch Qt widgets/models directly. Use signals only.
     # ================================================================== #
-
-    def _run_load_history(
-        self,
-        symbols: list[str],
-        interval_str: str,
-        limit: int,
-        token: CancellationToken,
-    ) -> None:
-        """
-        @brief Background worker: queries historical klines for each symbol and
-        emits results via ui_history_reloaded_signal for safe main-thread rendering.
-        @param token Checked before each symbol — set by _on_stop_stream, not
-        by navigating away (see DashboardPresenter's _cancellation_token
-        docstring). Nothing after a cancelled check touches the chart, so a
-        torn-down view is never reached mid-emit.
-        """
-        try:
-            for symbol in symbols:
-                if token.is_cancelled():
-                    break
-                query = GetHistoricalKlinesQuery(
-                    symbol=symbol,
-                    interval=interval_str,
-                    limit=limit,
-                    order_by_desc=True,  # Fetch the LATEST N candles from DB
-                )
-                try:
-                    response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                    klines = getattr(response, "data", response) if response else []
-
-                    if not isinstance(klines, list) or not klines:
-                        self.ui_log_signal.emit(
-                            f"No historical data found for {symbol}."
-                        )
-                        continue
-
-                    # Reverse: DB returned newest-first, chart expects oldest-first
-                    ordered_klines = list(reversed(klines))
-                    mapped_data = self._map_klines(ordered_klines)
-                    volume_data = self._map_volume(ordered_klines)
-                    self.ui_history_reloaded_signal.emit(
-                        symbol, mapped_data, volume_data
-                    )
-                    self._raw_klines_by_symbol[symbol] = ordered_klines
-                    self._script_runner.feed_all(ordered_klines)
-
-                except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
-                    self.ui_log_signal.emit(
-                        f"Exception while loading history for {symbol}: {exc}"
-                    )
-        finally:
-            self.ui_history_load_finished_signal.emit()
-
-    def _run_load_more_history(
-        self,
-        symbol: str,
-        interval_str: str,
-        before_timestamp: float,
-        limit: int,
-        token: CancellationToken,
-    ) -> None:
-        """
-        @brief BOT-035 — background worker: fetches up to `limit` candles
-        strictly older than `before_timestamp` and emits
-        ui_history_prepended_signal for the main thread to prepend.
-        @details The repository's `end_time` filter is `open_time <= end_time`
-        (inclusive) — passing `before_timestamp` straight through would
-        re-return the boundary candle already on the chart. Filtered
-        client-side instead, on `close_time` (not `open_time`) to match
-        exactly what ChartCard._raw_history's timestamp column already is
-        (see _map_klines) — comparing on the same field the chart uses for
-        "what do I already have" is what actually guarantees no duplicate,
-        regardless of the open_time/close_time gap between them.
-        """
-        try:
-            if token.is_cancelled():
-                return
-            end_time = datetime.fromtimestamp(before_timestamp, tz=timezone.utc)
-            query = GetHistoricalKlinesQuery(
-                symbol=symbol,
-                interval=interval_str,
-                limit=limit,
-                end_time=end_time,
-                order_by_desc=True,
-            )
-            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            klines = getattr(response, "data", response) if response else []
-
-            if not isinstance(klines, list) or not klines:
-                self.ui_log_signal.emit(f"No older data found for {symbol}.")
-                return
-
-            ordered_klines = [
-                k
-                for k in reversed(klines)
-                if k.close_time.timestamp() < before_timestamp
-            ]
-            if not ordered_klines:
-                self.ui_log_signal.emit(f"No older data found for {symbol}.")
-                return
-            if token.is_cancelled():
-                return
-
-            self._raw_klines_by_symbol[symbol] = (
-                ordered_klines + self._raw_klines_by_symbol.get(symbol, [])
-            )
-            mapped_data = self._map_klines(ordered_klines)
-            volume_data = self._map_volume(ordered_klines)
-            self.ui_history_prepended_signal.emit(symbol, mapped_data, volume_data)
-
-        except Exception as exc:
-            self.ui_log_signal.emit(
-                f"Exception while loading more history for {symbol}: {exc}"
-            )
-        finally:
-            self.ui_history_prepend_finished_signal.emit(symbol)
-
-    def _run_sync_and_start(
-        self,
-        symbols: list[str],
-        interval: TimeFrame,
-        interval_str: str,
-        limit: int,
-        token: CancellationToken,
-    ) -> None:
-        """
-        @brief Background worker for the full Auto-Sync → Load History → Start Stream
-        workflow. All three steps run sequentially in one background thread.
-        Results are communicated back to the UI exclusively via signals.
-        @param token Checked between steps and per-symbol — see
-        _run_load_history's docstring for the cancellation contract.
-        """
-        try:
-            # Step 1: Auto-Sync (fill any data gaps)
-            self.ui_log_signal.emit("Syncing missing data from Binance...")
-            sync_cmd = SyncMarketDataCommand(symbols=symbols, interval=interval)
-            self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
-
-            if token.is_cancelled():
-                return
-
-            # Step 2: Reload historical data onto charts
-            self.ui_log_signal.emit("Reloading historical data onto charts...")
-            for symbol in symbols:
-                if token.is_cancelled():
-                    return
-                query = GetHistoricalKlinesQuery(
-                    symbol=symbol,
-                    interval=interval_str,
-                    limit=limit,
-                    order_by_desc=True,
-                )
-                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                klines = getattr(response, "data", response) if response else []
-
-                if klines and isinstance(klines, list):
-                    ordered_klines = list(reversed(klines))
-                    mapped_data = self._map_klines(ordered_klines)
-                    volume_data = self._map_volume(ordered_klines)
-                    self.ui_history_reloaded_signal.emit(
-                        symbol, mapped_data, volume_data
-                    )
-                    self._raw_klines_by_symbol[symbol] = ordered_klines
-                    self._script_runner.feed_all(ordered_klines)
-
-            if token.is_cancelled():
-                return
-
-            # Step 3: Start the Live WebSocket stream
-            self.ui_log_signal.emit("Opening Websocket stream...")
-            cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
-            response = self.dispatcher.dispatch(StartLiveStreamCommand, cmd)
-
-            if response and getattr(response, "success", True):
-                self.ui_stream_success_signal.emit(
-                    f"Live stream for {symbols} is running."
-                )
-            else:
-                msg = getattr(response, "message", "Unknown error")
-                self.ui_stream_failed_signal.emit(f"Failed to start: {msg}")
-
-        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
-            self.ui_stream_failed_signal.emit(f"System error: {exc}")
-
-    @staticmethod
-    def _map_klines(klines: list) -> list:
-        """
-        @brief Converts a list of MarketData entities to the
-        (t, o, h, l, c) tuple format expected by FastCandlestickItem.
-        Extracted as a static helper to keep _run_* methods readable.
-        """
-        return [
-            (
-                float(item.close_time.timestamp()),
-                float(item.open_price),
-                float(item.high_price),
-                float(item.low_price),
-                float(item.close_price),
-            )
-            for item in klines
-        ]
-
-    @staticmethod
-    def _map_volume(klines: list) -> list:
-        """
-        @brief Converts a list of MarketData entities to the
-        (t, volume, is_bullish) tuple format expected by VolumeItem.
-        """
-        return [
-            (
-                float(item.close_time.timestamp()),
-                float(item.volume),
-                item.close_price >= item.open_price,
-            )
-            for item in klines
-        ]

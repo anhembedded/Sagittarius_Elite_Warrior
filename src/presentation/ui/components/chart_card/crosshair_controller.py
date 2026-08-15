@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pyqtgraph as pg
 from PySide6 import QtCore
@@ -31,6 +31,8 @@ class CrosshairController:
         self._plots: list[pg.PlotItem] = []
         self._v_lines: list[pg.InfiniteLine] = []
         self._h_lines: list[pg.InfiniteLine] = []
+        self._x_labels: list[pg.TextItem] = []
+        self._y_labels: list[pg.TextItem] = []
 
         # High-Performance Throttled Mouse Proxy (60 fps limit)
         self.proxy = pg.SignalProxy(
@@ -47,12 +49,26 @@ class CrosshairController:
         v_line.hide()
         h_line.hide()
 
+        # We use HTML/CSS inside TextItem for background styling.
+        # fill is not strictly needed if we style the HTML background, but it sets the item background.
+        x_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
+        x_label.hide()
+        x_label.setZValue(1000)
+
+        y_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
+        y_label.hide()
+        y_label.setZValue(1000)
+
         plot.addItem(v_line, ignoreBounds=True)
         plot.addItem(h_line, ignoreBounds=True)
+        plot.addItem(x_label, ignoreBounds=True)
+        plot.addItem(y_label, ignoreBounds=True)
 
         self._plots.append(plot)
         self._v_lines.append(v_line)
         self._h_lines.append(h_line)
+        self._x_labels.append(x_label)
+        self._y_labels.append(y_label)
 
     def unregister_plot(self, plot: pg.PlotItem) -> None:
         """
@@ -69,8 +85,14 @@ class CrosshairController:
         self._plots.pop(idx)
         v_line = self._v_lines.pop(idx)
         h_line = self._h_lines.pop(idx)
+        x_label = self._x_labels.pop(idx)
+        y_label = self._y_labels.pop(idx)
+
         plot.removeItem(v_line)
         plot.removeItem(h_line)
+        plot.removeItem(x_label)
+        plot.removeItem(y_label)
+
         if plot is self._primary_plot:
             self._primary_plot = None
 
@@ -82,23 +104,54 @@ class CrosshairController:
         pos = evt[0]
         hovered = False
 
+        # Hide X labels on all plots first
+        for x_label in self._x_labels:
+            x_label.hide()
+
         for i, plot in enumerate(self._plots):
             if not plot.sceneBoundingRect().contains(pos):
                 self._h_lines[i].hide()
+                self._y_labels[i].hide()
                 continue
 
             hovered = True
             mouse_point = plot.vb.mapSceneToView(pos)
             x_val, y_val = mouse_point.x(), mouse_point.y()
 
+            view_range = plot.vb.viewRange()
+            x_min = view_range[0][0]
+
             # Show & update horizontal line ONLY for the hovered plot
             self._h_lines[i].setPos(y_val)
             self._h_lines[i].show()
+
+            # Show Y label on the left edge (x_min)
+            self._y_labels[i].setPos(x_min, y_val)
+            self._y_labels[i].setHtml(
+                f"<div style='font-size: 11px;'>{y_val:.4f}</div>"
+            )
+            self._y_labels[i].setAnchor((0.0, 0.5))
+            self._y_labels[i].show()
 
             # Update ALL vertical lines across all plots to stay in sync
             for v_line in self._v_lines:
                 v_line.setPos(x_val)
                 v_line.show()
+
+            # Show X label only on the bottom-most plot
+            if self._plots:
+                bottom_plot = self._plots[-1]
+                bottom_y_min = bottom_plot.vb.viewRange()[1][0]
+                dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+
+                self._x_labels[-1].setPos(x_val, bottom_y_min)
+                self._x_labels[-1].setHtml(
+                    f"<div style='font-size: 11px;'>{dt_str}</div>"
+                )
+                self._x_labels[-1].setAnchor((0.5, 1.0))
+                self._x_labels[-1].show()
 
             candle = None
             if plot is self._primary_plot and self._ohlc_lookup:
@@ -115,9 +168,7 @@ class CrosshairController:
             self._label.setText("Hover to see data")
 
     def _update_label(self, x_val: float, y_val: float) -> None:
-        dt_str = datetime.fromtimestamp(x_val, tz=timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
         self._label.setText(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Time:</span> <span style='color: #ffffff'>{dt_str}</span> | "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Value:</span> <span style='color: {theme.BULL_COLOR}'>{y_val:.4f}</span>"
@@ -127,9 +178,7 @@ class CrosshairController:
         t, o, h, low, c = candle
         change_pct = ((c - o) / o * 100.0) if o else 0.0
         change_color = theme.BULL_COLOR if c >= o else theme.BEAR_COLOR
-        dt_str = datetime.fromtimestamp(t, tz=timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        dt_str = datetime.fromtimestamp(t, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
         self._label.setText(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>{dt_str}</span> &nbsp; "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>O</span> <span style='color: #ffffff'>{o:.4f}</span> "
@@ -146,4 +195,6 @@ class CrosshairController:
         self._plots.clear()
         self._v_lines.clear()
         self._h_lines.clear()
+        self._x_labels.clear()
+        self._y_labels.clear()
         self._primary_plot = None

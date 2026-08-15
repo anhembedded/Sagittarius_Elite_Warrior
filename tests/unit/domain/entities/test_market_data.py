@@ -1,15 +1,15 @@
 from dataclasses import FrozenInstanceError
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 
 def test_market_data_initialization():
     """Test successful initialization of MarketData and default values."""
-    dt_open = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    dt_close = datetime(2023, 1, 1, 12, 15, 0, tzinfo=timezone.utc)
+    dt_open = datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC)
+    dt_close = datetime(2023, 1, 1, 12, 15, 0, tzinfo=UTC)
 
     data = MarketData(
         symbol="BTCUSDT",
@@ -45,8 +45,8 @@ def test_market_data_initialization():
 
 def test_market_data_immutability():
     """Test that MarketData is frozen (immutable)."""
-    dt_open = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    dt_close = datetime(2023, 1, 1, 12, 15, 0, tzinfo=timezone.utc)
+    dt_open = datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC)
+    dt_close = datetime(2023, 1, 1, 12, 15, 0, tzinfo=UTC)
 
     data = MarketData(
         symbol="BTCUSDT",

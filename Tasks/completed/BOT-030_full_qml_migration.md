@@ -9,7 +9,7 @@ Thay thế `BOT-029` Phase 3 (restyle Database bằng Widgets) — gộp thẳng
 **Quyết định kiến trúc chính** (xem đầy đủ trong plan file):
 1. `PresenterManager`/routing giữ nguyên 100% — đã chứng minh ở `BOT-028`.
 2. FSM → UI state: bỏ `UIMatrixMixin`/`ui_matrix.json` cho màn QML, thay bằng property `uiMode` — **không cần sửa `BasePresenter`** (đã đọc kỹ code, nó fallback qua `view.apply_ui_mode` sẵn).
-3. Hạ tầng QML dùng chung xây trong `Binace_Bot` trước (`ThemeBridge`, `QmlHostView`) — chưa promote vào `pyside_mvc` (đợi Phase 5 mới quyết).
+3. Hạ tầng QML dùng chung xây trong `Sagittarius_Elite_Warrior` trước (`ThemeBridge`, `QmlHostView`) — chưa promote vào `pyside_mvc` (đợi Phase 5 mới quyết).
 4. `LogPanel.qml` dùng chung cho Dev Board + Database (thay 2 bản `MonitorCard` riêng).
 5. Database cần `DatabaseStatusTableModel(QAbstractTableModel)` — model đầu tiên của dự án.
 6. Dev Board vẫn hybrid: `QSplitter` với `ChartCard` (Widgets) + 1 `QQuickWidget` (phần còn lại).
@@ -31,14 +31,14 @@ Thay thế `BOT-029` Phase 3 (restyle Database bằng Widgets) — gộp thẳng
 
 **Trạng thái cuối:** cả 4 màn (Sidebar, Settings/API & Credentials, Database, Dev Board) chạy QML; `ChartCard` là ngoại lệ duy nhất, vẫn QtWidgets/pyqtgraph vĩnh viễn — đúng như quyết định ban đầu. `ci-local.ps1 -Full` xanh: **283 passed, 2 xfailed, coverage 92.31%**.
 
-**Hạ tầng QML dùng chung đã xây** (`Binace_Bot/src/presentation/ui/screens/_qml_shared/`): `ThemeBridge` (palette), `QmlHostView` + `create_quick_widget()` (factory dùng chung cho cả `QmlHostView` lẫn `DashboardView`'s hybrid `QSplitter`), `BaseQmlViewModel` (property `uiMode`), `IconImageProvider`, `qml_style.py` (pin style "Basic"), `LogListModel` + `LogPanel.qml` (dùng chung Database + Dev Board).
+**Hạ tầng QML dùng chung đã xây** (`Sagittarius_Elite_Warrior/src/presentation/ui/screens/_qml_shared/`): `ThemeBridge` (palette), `QmlHostView` + `create_quick_widget()` (factory dùng chung cho cả `QmlHostView` lẫn `DashboardView`'s hybrid `QSplitter`), `BaseQmlViewModel` (property `uiMode`), `IconImageProvider`, `qml_style.py` (pin style "Basic"), `LogListModel` + `LogPanel.qml` (dùng chung Database + Dev Board).
 
 **Quyết định KHÔNG promote vào `sagittarius_engine/extensions/pyside_mvc` ở lần này** (đã cân nhắc kỹ, không phải quên):
-Kiểm tra toàn repo (`examples/`, `tools/`) xác nhận **chưa có app nào khác** dùng `pyside_mvc` ngoài `Binace_Bot`. Promote một pattern lên package dùng chung khi chỉ có 1 consumer thực tế là generalize sớm — đúng cái bẫy mà `BOT-028` retro đã né ("đợi màn hình QML thứ 2"), giờ có 4 màn nhưng vẫn chỉ 1 app dùng. Giữ nguyên trong `Binace_Bot` cho tới khi có app thứ 2 thật sự cần host QML — đó mới là tín hiệu đúng để promote (không phải đếm số phase/màn hình trong CÙNG 1 app).
+Kiểm tra toàn repo (`examples/`, `tools/`) xác nhận **chưa có app nào khác** dùng `pyside_mvc` ngoài `Sagittarius_Elite_Warrior`. Promote một pattern lên package dùng chung khi chỉ có 1 consumer thực tế là generalize sớm — đúng cái bẫy mà `BOT-028` retro đã né ("đợi màn hình QML thứ 2"), giờ có 4 màn nhưng vẫn chỉ 1 app dùng. Giữ nguyên trong `Sagittarius_Elite_Warrior` cho tới khi có app thứ 2 thật sự cần host QML — đó mới là tín hiệu đúng để promote (không phải đếm số phase/màn hình trong CÙNG 1 app).
 
 **Giới hạn đã biết, cố tình không sửa (out of scope cho task này):**
 - Cơ chế `dev.mode=True` auto-log-click (`_ButtonClickWatcher` trong `sagittarius_engine/pyside_mvc/base_view.py`) chỉ tìm được `QPushButton` qua `QWidget.findChildren` — không thấy nút trong QML scene graph. Đúng vậy từ Phase 2 (Settings), giờ đúng luôn cho toàn bộ 4 màn. Test `test_sanity_dev_mode_click_logging_does_not_reach_qml_buttons` ghi nhận hành vi này thay vì âm thầm mất coverage. Không sửa `sagittarius_engine` cho việc này — cùng lý do với quyết định không-promote ở trên (sửa framework dùng chung cho 1 app dùng thì nên đợi có nhu cầu thật).
-- `UIMatrixMixin`/`ui_matrix_mixin.py` **không bị xoá** khỏi `sagittarius_engine` dù `Binace_Bot` không còn dùng — đây là primitive của framework dùng chung, không phải dead code của riêng app này.
+- `UIMatrixMixin`/`ui_matrix_mixin.py` **không bị xoá** khỏi `sagittarius_engine` dù `Sagittarius_Elite_Warrior` không còn dùng — đây là primitive của framework dùng chung, không phải dead code của riêng app này.
 
 **Đã dọn ở Phase 5:**
 - Xoá `src/config/ui_matrix.json` + toàn bộ chỗ load nó (`main.py`, `app_bootstrapper.py`, và 4 test fixture load trực tiếp file này: `tests/integration/presentation/ui/conftest.py`, `test_sanity_ui_e2e.py`, `test_bootstrapper_di_sanity.py`, `test_config_integration.py` — file cuối có assertion trực tiếp lên nội dung "main"/"data_management" section, phải viết lại).

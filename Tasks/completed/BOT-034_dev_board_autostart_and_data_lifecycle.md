@@ -75,10 +75,13 @@ config cao hơn). Thêm key mới `DEV_BOARD_MIN_FETCH_CANDLES` vào `src/config
 
 ```python
 # dashboard_presenter.py — hằng số mới
-_RENDER_WINDOW_CANDLES = 75          # đúng theo US-03 — KHÔNG thay _DEFAULT_INITIAL_VISIBLE_CANDLES
-                                       # của ChartCard (đó là zoom-level, đây là fetch-level; xem dưới)
+_RENDER_WINDOW_CANDLES = (
+    75  # đúng theo US-03 — KHÔNG thay _DEFAULT_INITIAL_VISIBLE_CANDLES
+)
+# của ChartCard (đó là zoom-level, đây là fetch-level; xem dưới)
 _MIN_FETCH_CANDLES_CONFIG_KEY = "DEV_BOARD_MIN_FETCH_CANDLES"
-_DEFAULT_MIN_FETCH_CANDLES = 75       # fallback nếu config không có key trên
+_DEFAULT_MIN_FETCH_CANDLES = 75  # fallback nếu config không có key trên
+
 
 def _compute_fetch_limit(self) -> int:
     """
@@ -110,9 +113,9 @@ trước (1 dòng, không rủi ro).
 thuộc phạm vi BOT-032, nhưng chỉ 1 dòng, không cần chờ hết Phase 6 mới thêm được):
 ```python
 class BaseIndicatorScript(ABC):
-    min_warmup_bars: int = 0   # MỚI — script author tự khai báo (vd. EMA(200) -> 200).
-                                # KHÔNG tự tính bằng cách chạy thử — script có thể compose nhiều
-                                # indicator khác period nhau, chỉ tác giả biết con số đúng.
+    min_warmup_bars: int = 0  # MỚI — script author tự khai báo (vd. EMA(200) -> 200).
+    # KHÔNG tự tính bằng cách chạy thử — script có thể compose nhiều
+    # indicator khác period nhau, chỉ tác giả biết con số đúng.
 ```
 **Đã khai báo** (khớp gần đúng dự kiến, 1 sửa: `dev_showcase` không dùng EMA 200 — slowest handle
 thật của nó là MACD 12/26/9): `ema_ribbon` → 200, `macd_full` → 35, `ema_cross` → 26,
@@ -265,15 +268,19 @@ class AutoStartController:
     muộn (vd. mạng chậm chứ không phải mất mạng), tick vẫn tới và chart vẫn tự cập nhật lên
     live bình thường, chỉ là user không phải nhìn màn hình trống trong lúc chờ.
     """
+
     def __init__(
         self,
-        start_stream: Callable[[], None],       # presenter._on_start_stream
-        load_history: Callable[[], None],       # presenter._on_load_history
-        make_timer: Callable[[int, Callable], QTimer],   # inject để test không cần đợi thật
+        start_stream: Callable[[], None],  # presenter._on_start_stream
+        load_history: Callable[[], None],  # presenter._on_load_history
+        make_timer: Callable[
+            [int, Callable], QTimer
+        ],  # inject để test không cần đợi thật
         fallback_seconds: int = 2,
     ) -> None: ...
     def begin(self) -> None:
         """Gọi 1 lần khi Dev Board vừa mở (view.load_qml xong)."""
+
     def on_market_tick(self) -> None:
         """Gọi từ _handle_market_tick — huỷ timer fallback nếu còn đang chờ."""
 ```

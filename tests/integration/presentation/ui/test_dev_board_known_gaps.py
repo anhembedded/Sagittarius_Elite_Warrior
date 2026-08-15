@@ -64,22 +64,27 @@ def _wait_for_reload_or_restart(qtbot, presenter, action, timeout=3000):
             sig.disconnect(_mark_settled)
 
 
-def test_symbol_dropdown_does_not_change_loaded_symbol(
+def test_symbol_dropdown_changes_which_symbol_load_history_fetches(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-GAP-02: selecting BTCUSDT in the Symbol dropdown must not change
-    which symbol Load History actually fetches — it is hard-coded to
-    ETHUSDT (`_DEFAULT_SYMBOLS`) today."""
+    """TC-GAP-02: FIXED by BOT-033 Phase 2 — picking "BTCUSDT" from the
+    Symbol dropdown now changes which symbol Load History actually fetches
+    (was hard-coded to ETHUSDT via `_DEFAULT_SYMBOLS` before this task).
+    Driven via `currentIndex` (a plain property whose notify signal
+    `onCurrentTextChanged` is wired regardless of how it changed), not
+    `editText` — an editable ComboBox's `editText` only feeds `currentText`
+    on a real Return/focus-out, which `setProperty` cannot simulate."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
     root = view.quick_widget.rootObject()
 
-    qml_item(root, "cboSymbol").setProperty("editText", "BTCUSDT")
+    qml_item(root, "cboSymbol").setProperty("currentIndex", 0)  # "BTCUSDT"
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
-    assert view.chart_cards[0].symbol == "ETHUSDT"
-    assert "BTCUSDT" not in presenter.active_charts
+    assert presenter._active_symbol == "BTCUSDT"
+    assert view.chart_cards[0].symbol == "BTCUSDT"
+    assert "BTCUSDT" in presenter.active_charts
 
 
 def test_market_dropdown_has_no_presenter_effect(
@@ -149,25 +154,69 @@ def test_reclicking_the_same_timeframe_does_not_reload(
     assert reloaded == []
 
 
-def test_strategy_and_date_fields_have_no_presenter_effect(
+def test_strategy_dropdown_has_no_presenter_effect(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-GAP-04 / TC-GAP-05: Strategy dropdown and Start/End date fields
-    are cosmetic today — GetHistoricalKlinesQuery always uses a fixed
-    `limit=5000`, never a date range, and Strategy is never read."""
+    """TC-GAP-04: Strategy dropdown is cosmetic today — `EmaCrossoverStrategy`
+    now exists for real (BOT-026), but this control names a strategy
+    ("SMA Crossover") that was never built, and BOT-039 will delete this
+    ComboBox outright in favor of a toggle list (mirroring the Indicator
+    mechanism) rather than wire it up. When BOT-039 lands, this test must be
+    rewritten to cover the new control — not deleted (precedent: BOT-036
+    §6.1)."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
     root = view.quick_widget.rootObject()
 
     qml_item(root, "cboStrategy").setProperty("currentIndex", 1)  # "SMA Crossover"
-    qml_item(root, "txtStartDate").setProperty("text", "2000-01-01 00:00")
 
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
     # conftest.MOCK_KLINE_COUNT mock candles come back regardless of the
-    # (ignored) far-past start date or the (ignored) strategy selection.
+    # (ignored) strategy selection.
     assert len(view.chart_cards[0]._raw_history) == 5
+
+
+def test_start_date_field_binds_to_the_view_model(
+    qtbot, main_window, navigate, qml_item
+):
+    """TC-GAP-05: FIXED by BOT-033 Phase 2 — txtStartDate now displays
+    viewModel.startDate (was a static `Qt.formatDateTime(...)` cosmetic
+    default). Setting the ViewModel from Python — the same thing
+    `onTextEdited` does for a real keystroke, which `setProperty("text", ...)`
+    cannot simulate (TextField.textEdited only fires from actual editing,
+    not a programmatic `text` assignment) — must show up in the rendered
+    QML item."""
+    qtbot.addWidget(main_window)
+    _, view = _open_dashboard(navigate)
+    root = view.quick_widget.rootObject()
+
+    view._view_model.startDate = "2000-01-01 00:00"
+    qtbot.wait(50)
+
+    assert qml_item(root, "txtStartDate").property("text") == "2000-01-01 00:00"
+
+
+def test_an_invalid_date_range_blocks_load_history(
+    qtbot, main_window, navigate, qml_item
+):
+    """TC-GAP-05: FIXED by BOT-033 Phase 2 — Start date/End date are now
+    validated before dispatch; a Start date on/after End date must not
+    reach GetHistoricalKlinesQuery at all."""
+    qtbot.addWidget(main_window)
+    presenter, view = _open_dashboard(navigate)
+
+    view._view_model.startDate = "2024-01-02 00:00"
+    view._view_model.endDate = "2024-01-01 00:00"
+
+    reloaded = []
+    presenter.ui_history_reloaded_signal.connect(lambda *a: reloaded.append(1))
+    _click_load_history(view, qml_item)
+    qtbot.wait(100)
+
+    assert reloaded == []
+    assert view._view_model.log_model.entries[-1].level == "error"
 
 
 def test_indicator_checkbox_toggle_has_no_effect_until_next_load(

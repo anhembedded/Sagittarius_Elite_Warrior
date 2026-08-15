@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 
 @dataclass(frozen=True)

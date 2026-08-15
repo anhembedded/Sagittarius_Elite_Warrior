@@ -1,5 +1,6 @@
 import pytest
-from Binace_Bot.src.presentation.ui.assets.icon_loader import (
+
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets.icon_loader import (
     IconLoader,
     IconTheme,
     get_icon_loader,

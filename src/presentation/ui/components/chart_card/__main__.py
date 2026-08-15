@@ -1,6 +1,6 @@
 # ==========================================
 # 🧪 INDEPENDENT COMPONENT TESTING
-# Run with: python -m Binace_Bot.src.presentation.ui.components.chart_card
+# Run with: python -m Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card
 # ==========================================
 import random
 import sys

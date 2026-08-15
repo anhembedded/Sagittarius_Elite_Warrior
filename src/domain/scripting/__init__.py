@@ -7,6 +7,12 @@ buy trigger), so putting them here means strategy scripting can reuse them
 without moving files around later.
 """
 
+from .inputs import (
+    InputDeclarations,
+    InputKind,
+    ScriptInput,
+    build_input,
+)
 from .series import (
     DEFAULT_HISTORY,
     Series,
@@ -22,8 +28,12 @@ from .streak import Streak
 
 __all__ = [
     "DEFAULT_HISTORY",
+    "InputDeclarations",
+    "InputKind",
+    "ScriptInput",
     "Series",
     "Streak",
+    "build_input",
     "constant_series",
     "crossed",
     "crossed_above",

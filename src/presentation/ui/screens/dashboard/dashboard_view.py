@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtWidgets import QScrollArea, QSplitter, QVBoxLayout, QWidget
+
 from sagittarius_engine.extensions.pyside_mvc import BaseView, create_quick_widget
 
 _QML_DIR = Path(__file__).parent
@@ -100,7 +101,9 @@ class DashboardView(BaseView):
         self.chart_cards = []
 
         for symbol in symbols:
-            from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
+            from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+                ChartCard,
+            )
 
             card = ChartCard(symbol)
             self.chart_cards.append(card)

@@ -1,12 +1,14 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from Binace_Bot.src.application.event_handlers.market_data.market_tick_event_handler import (
+from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 def test_market_tick_event_handler():
@@ -18,7 +20,7 @@ def test_market_tick_event_handler():
     # Inject mock logger for testing
     handler.logger = logger_mock
 
-    dt = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    dt = datetime(2023, 1, 1, tzinfo=UTC)
     market_data = MarketData(
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE.value,

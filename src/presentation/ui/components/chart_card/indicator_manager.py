@@ -3,7 +3,7 @@ from collections.abc import Callable
 import pyqtgraph as pg
 from PySide6 import QtGui
 
-from Binace_Bot.src.domain.indicator_scripts import InfoField
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
 from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout
@@ -61,15 +61,13 @@ class IndicatorManager:
 
     def add_overlay(self, name: str, color: str) -> None:
         """Adds a line indicator on top of the main candlestick plot (e.g. SMA)."""
-        curve = self._plot_layout.main_plot.plot(
-            pen=pg.mkPen(color=color, width=2), name=name
-        )
+        curve = self._plot_layout.main_plot.plot(pen=pg.mkPen(color=color, width=2))
         self._register(name, curve, self._plot_layout.main_plot)
 
     def add_subplot(self, name: str, color: str, height_ratio: int = 1) -> None:
         """Adds a separate subplot below the main chart (e.g. RSI, MACD, Volume)."""
         sub_plot = self._plot_layout.add_subplot(height_ratio=height_ratio)
-        curve = sub_plot.plot(pen=pg.mkPen(color=color, width=2), name=name)
+        curve = sub_plot.plot(pen=pg.mkPen(color=color, width=2))
         self._register(name, curve, sub_plot)
         self._on_new_plot(sub_plot)
 

@@ -1,7 +1,7 @@
 import argparse
 from unittest.mock import Mock
 
-from Binace_Bot.src.presentation.cli.cli_parser import (
+from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     build_handler_parser,
     build_parser,
 )

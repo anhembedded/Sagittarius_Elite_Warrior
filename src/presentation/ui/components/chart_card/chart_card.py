@@ -1,6 +1,6 @@
 from PySide6.QtCore import Signal
 
-from Binace_Bot.src.presentation.ui.components.base_card import BaseCard
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.base_card import BaseCard
 
 from .candlestick_item import FastCandlestickItem
 from .chart_toolbar import ChartToolbar
@@ -69,9 +69,9 @@ class ChartCard(BaseCard):
         self.crosshair.register_plot(self.plot_layout.main_plot, is_primary=True)
 
         self.volume = VolumeItem()
-        volume_plot = self.plot_layout.add_subplot(height_ratio=1)
-        volume_plot.addItem(self.volume.graphics_item)
-        self.crosshair.register_plot(volume_plot)
+        self._volume_plot = self.plot_layout.add_subplot(height_ratio=1)
+        self._volume_plot.addItem(self.volume.graphics_item)
+        self.crosshair.register_plot(self._volume_plot)
 
         self.indicators = IndicatorManager(
             plot_layout=self.plot_layout,
@@ -145,6 +145,17 @@ class ChartCard(BaseCard):
             return
         first_t = data[-_DEFAULT_INITIAL_VISIBLE_CANDLES][0]
         last_t = data[-1][0]
+        # autoRange() (the branch above) disables Y auto-range as a pyqtgraph
+        # ViewBox.setRange(rect=...) side effect (setRange(disableAutoRange=True)
+        # turns off auto-range for BOTH axes whenever a full rect, not just an
+        # explicit xRange/yRange, is given). Once that has happened even once
+        # for this plot — e.g. a small dataset (like the Equity curve, which
+        # almost always has <=150 points) hit the branch above — every later
+        # call into THIS setXRange-only branch leaves the Y-axis frozen at
+        # whatever autoRange() last computed, because setXRange() never
+        # touches Y. Re-enabling Y auto-range here makes it refit to
+        # (data's), not the previous render's, values.
+        self.plot_layout.main_plot.enableAutoRange(y=True)
         self.plot_layout.main_plot.setXRange(first_t, last_t, padding=0.02)
 
     def prepend_historical_data(self, candles: list[OhlcCandle]) -> None:
@@ -257,6 +268,16 @@ class ChartCard(BaseCard):
         self, timestamp: float, volume: float, is_bullish: bool
     ) -> None:
         self.volume.append_closed(timestamp, volume, is_bullish)
+
+    def set_volume_visible(self, visible: bool) -> None:
+        """@brief Shows/hides the Volume subplot row (BOT-056 §2.2 — "đã có
+        sẵn, chỉ expose control"). Data stays loaded; only the row's own
+        visibility toggles, so re-showing it needs no re-fetch/re-render."""
+        self._volume_plot.setVisible(visible)
+
+    def set_max_visible_x_range(self, max_seconds: float) -> None:
+        """Restricts how far the user can zoom out on the X axis."""
+        self.plot_layout.main_plot.setLimits(maxXRange=max_seconds)
 
     def add_overlay_indicator(self, name: str, color: str) -> None:
         self.indicators.add_overlay(name, color)

@@ -8,7 +8,9 @@ def test_all_config_files_loaded():
     config_manager = ConfigManager()
 
     # Path calculation relative to this test file
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))  # Binace_Bot
+    base_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(__file__))
+    )  # Sagittarius_Elite_Warrior
 
     app_json = os.path.join(base_dir, "src", "config", "app_config.json")
     user_json = os.path.join(base_dir, "src", "config", "user_config.json")

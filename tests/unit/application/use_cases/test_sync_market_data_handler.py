@@ -1,13 +1,14 @@
-from datetime import datetime, timezone
-from unittest.mock import Mock
+from datetime import UTC, datetime
+from unittest.mock import ANY, Mock
 
 import pytest
-from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
+
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 @pytest.fixture
@@ -21,8 +22,13 @@ def mock_repo():
 
 
 @pytest.fixture
-def handler(mock_exchange_client, mock_repo):
-    return SyncMarketDataCommandHandler(mock_exchange_client, mock_repo)
+def mock_event_bus():
+    return Mock()
+
+
+@pytest.fixture
+def handler(mock_exchange_client, mock_repo, mock_event_bus):
+    return SyncMarketDataCommandHandler(mock_exchange_client, mock_repo, mock_event_bus)
 
 
 def test_sync_empty_db(handler, mock_exchange_client, mock_repo):
@@ -54,7 +60,7 @@ def test_sync_empty_db(handler, mock_exchange_client, mock_repo):
 
 def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
     # Setup: repo returns a specific datetime
-    latest_time = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    latest_time = datetime(2023, 1, 1, tzinfo=UTC)
     mock_repo.get_latest_kline_time.return_value = latest_time
 
     mock_klines = [Mock(spec=MarketData)]
@@ -63,8 +69,10 @@ def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
     command = SyncMarketDataCommand(symbols=["ETHUSDT"], interval=TimeFrame.ONE_HOUR)
     handler.execute(command)
 
+    # 5th arg is the per-symbol progress callback (SingleSyncProgressEvent) —
+    # a fresh closure each call, so it can't be compared by equality.
     mock_exchange_client.get_historical_klines.assert_called_once_with(
-        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None
+        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None, ANY
     )
     mock_repo.save_klines.assert_called_once_with(mock_klines)
 
@@ -74,8 +82,8 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
     mock_klines = [Mock(spec=MarketData)]
     mock_exchange_client.get_historical_klines.return_value = mock_klines
 
-    start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    start_time = datetime(2024, 1, 1, tzinfo=UTC)
+    end_time = datetime(2024, 1, 2, tzinfo=UTC)
 
     command = SyncMarketDataCommand(
         symbols=["SOLUSDT"],
@@ -87,13 +95,13 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
 
     mock_repo.get_latest_kline_time.assert_not_called()
     mock_exchange_client.get_historical_klines.assert_called_once_with(
-        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time
+        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time, ANY
     )
     mock_repo.save_klines.assert_called_once_with(mock_klines)
 
 
 def test_sync_no_new_data(handler, mock_exchange_client, mock_repo):
-    mock_repo.get_latest_kline_time.return_value = datetime.now(timezone.utc)
+    mock_repo.get_latest_kline_time.return_value = datetime.now(UTC)
     # Exchange returns empty list
     mock_exchange_client.get_historical_klines.return_value = []
 

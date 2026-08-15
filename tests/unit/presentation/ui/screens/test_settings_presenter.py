@@ -17,12 +17,13 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
+from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.infrastructure.config.config_manager import (
     ConfigManager,
 )
@@ -38,6 +39,14 @@ def mock_config():
         "DEFAULT_INTERVAL": "1m",
         "DEFAULT_SYNC_DAYS": 30,
     }
+    # BOT-066: dev.mode on for the whole suite, so any exception a
+    # @safe_ui_action-decorated slot swallows re-raises instead of passing
+    # a test that should have failed — every other key falls back to None
+    # (this fixture never configured `.get` at all before, so an unrelated
+    # `config.get(...)` call used to return a truthy Mock() by accident).
+    config.get.side_effect = lambda key, default=None: (
+        True if key == DEV_MODE_CONFIG_KEY else default
+    )
     return config
 
 

@@ -11,36 +11,44 @@ Screen-specific factory/presenter imports stay at the top level (no local import
 
 from __future__ import annotations
 
-from Binace_Bot.src.presentation.ui.components.sidebar import (
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,
     Sidebar,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
+    BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
+    BackTestView,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.dashboard_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-from Binace_Bot.src.presentation.ui.screens.data_management.data_management_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.data_management.data_management_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_presenter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
-from Binace_Bot.src.presentation.ui.screens.settings.settings_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
 # ---------------------------------------------------------------------------
 # Navigation sections. A NavItem with route=None is a placeholder for a screen
-# that doesn't exist yet (e.g. "Backtest Engine" — BOT-021/022 still backlog);
-# those are never navigable regardless of `enabled` (see NavItem.is_navigable).
+# that doesn't exist yet; those are never navigable regardless of `enabled`
+# (see NavItem.is_navigable). "Backtest Engine" got its real route once
+# BackTestView/BackTestPresenter existed (BOT-022).
 # Adding a new screen: add one entry here and register it in _setup_router().
 # ---------------------------------------------------------------------------
 _NAV_SECTIONS = [
@@ -53,12 +61,11 @@ _NAV_SECTIONS = [
     ),
     NavSection(
         "QUANT ENGINE",
-        (
-            NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),
-            NavItem("API & Credentials", "settings", "settings"),
-        ),
+        (NavItem("Backtest Engine", "backtest", "bar-chart-2"),),
     ),
 ]
+
+_BOTTOM_ACTIONS = (NavItem("API & Credentials", "settings", "settings"),)
 
 _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # 1200x800 used to be enough, but the Dev Board's right column has grown
@@ -94,7 +101,7 @@ class MainWindow(QMainWindow):
         shell_layout.setSpacing(0)
 
         # ---- Sidebar component -------------------------------------------
-        self._sidebar = Sidebar(sections=_NAV_SECTIONS)
+        self._sidebar = Sidebar(sections=_NAV_SECTIONS, bottom_actions=_BOTTOM_ACTIONS)
         self._sidebar.sig_navigate.connect(self.switch_screen)
 
         # ---- Content area -----------------------------------------------
@@ -129,6 +136,11 @@ class MainWindow(QMainWindow):
             SettingsPresenter,
             lambda: SettingsView(),
         )
+        self._router.register(
+            "backtest",
+            BackTestPresenter,
+            lambda: BackTestView(),
+        )
 
     def switch_screen(self, route_name: str) -> None:
         """
@@ -145,6 +157,6 @@ class MainWindow(QMainWindow):
 # New code should use app_bootstrapper.main() instead.
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    from Binace_Bot.src.presentation.ui.app_bootstrapper import main
+    from Sagittarius_Elite_Warrior.src.presentation.ui.app_bootstrapper import main
 
     main()

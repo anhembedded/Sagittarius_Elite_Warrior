@@ -19,12 +19,19 @@ import sys
 import traceback
 
 import qdarktheme
-from Binace_Bot.src.config.config_keys import ConfigKeys
-from Binace_Bot.src.main import create_app
-from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
-from Binace_Bot.src.presentation.ui.main_window import MainWindow
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
+
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+    Palette,
+    get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
+    CriticalErrorDialog,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_config import IConfig
@@ -90,7 +97,7 @@ def main() -> None:
 
 
 def _install_exception_handler(app_engine) -> None:
-    """Install a global Qt exception handler that logs and shows a dialog."""
+    """Install a global Qt exception handler that logs and shows a resizable dialog."""
 
     def _handler(exc_type, exc_value, exc_tb) -> None:
         tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -102,13 +109,13 @@ def _install_exception_handler(app_engine) -> None:
         else:
             print(f"Uncaught UI Exception:\n{tb_str}")
 
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setWindowTitle("Critical System Error")
-        msg.setText("An unexpected error occurred in the UI layer.")
-        msg.setInformativeText(str(exc_value))
-        msg.setDetailedText(tb_str)
-        msg.exec()
+        dialog = CriticalErrorDialog(
+            title="Critical System Error",
+            message="An unexpected error occurred in the UI layer.",
+            error_details=str(exc_value),
+            traceback_str=tb_str,
+        )
+        dialog.exec()
 
     sys.excepthook = _handler
 

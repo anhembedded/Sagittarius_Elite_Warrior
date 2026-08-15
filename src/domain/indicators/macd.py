@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from Binace_Bot.src.domain.indicators.ema import EMA
-from Binace_Bot.src.domain.indicators.i_indicator import IIndicator
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
 
 DEFAULT_MACD_FAST_PERIOD = 12
 DEFAULT_MACD_SLOW_PERIOD = 26

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import ClassVar
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Signal, Slot
 
@@ -35,7 +36,7 @@ class IndicatorScriptListModel(QAbstractListModel):
     TitleRole = Qt.ItemDataRole.UserRole + 2
     EnabledRole = Qt.ItemDataRole.UserRole + 3
 
-    _ROLE_NAMES = {
+    _ROLE_NAMES: ClassVar[dict[int, bytes]] = {
         KeyRole: b"key",
         TitleRole: b"title",
         EnabledRole: b"enabled",
@@ -53,8 +54,9 @@ class IndicatorScriptListModel(QAbstractListModel):
         #: already made (e.g. after they turned a default-on script off).
         self._user_touched: set[str] = set()
 
-    def rowCount(self, parent=QModelIndex()) -> int:
-        return 0 if parent.isValid() else len(self._rows)
+    def rowCount(self, parent: QModelIndex | None = None) -> int:
+        parent_index = QModelIndex() if parent is None else parent
+        return 0 if parent_index.isValid() else len(self._rows)
 
     def roleNames(self) -> dict:
         return dict(self._ROLE_NAMES)

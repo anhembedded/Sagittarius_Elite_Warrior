@@ -1,3 +1,3 @@
-## 2024-08-10 - Hover Cursors on QWidgets
-**Learning:** PySide6 QPushButtons without pointing hand cursors lack interactive cues. While styling often happens via stylesheets, some widget instances are dynamically created without cursor styles.
-**Action:** Use `btn.setCursor(QtCore.Qt.PointingHandCursor)` on interactive elements in PyQt/PySide widgets for a better UX.
+## 2024-08-12 - PySide6 Cursor Styling
+**Learning:** Qt style sheets (QSS) do not reliably support setting cursor properties (like `cursor: pointing-hand;`). This means standard UI hover affordances are often missing on custom widgets if relied solely on CSS-like styling.
+**Action:** Always assign cursor shapes programmatically to PySide6 widgets (e.g., `button.setCursor(QtCore.Qt.PointingHandCursor)`) rather than trying to set them via QSS.

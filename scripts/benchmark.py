@@ -1,28 +1,36 @@
-import sys
 import os
+import sys
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 # Cấu hình sys.path để import thẳng từ thư viện của app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.presentation.ui.screens.dashboard.indicator_script_runner import (
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_20_script import (
+    Ema20Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_50_script import (
+    Ema50Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_100_script import (
+    Ema100Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_200_script import (
+    Ema200Script,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
     qualified_line_name,
 )
-from Binace_Bot.src.domain.indicator_scripts.ema_20_script import Ema20Script
-from Binace_Bot.src.domain.indicator_scripts.ema_50_script import Ema50Script
-from Binace_Bot.src.domain.indicator_scripts.ema_100_script import Ema100Script
-from Binace_Bot.src.domain.indicator_scripts.ema_200_script import Ema200Script
 
 
 def create_mock_candles(count: int):
     candles = []
-    base_time = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    base_time = datetime(2023, 1, 1, tzinfo=UTC)
     for i in range(count):
         close_time = base_time + timedelta(minutes=i)
         candles.append(
@@ -147,13 +155,13 @@ def main():
     current_time, current_metrics = run_current_approach(
         candles, registry, scripts_to_run
     )
-    print(f"\n[HIỆN TẠI] Runner phát Signal báo vẽ từng nến cho TỪNG CHỈ BÁO:")
+    print("\n[HIỆN TẠI] Runner phát Signal báo vẽ từng nến cho TỪNG CHỈ BÁO:")
     print(f"- Thời gian xử lý : {current_time:.4f} giây")
     print(f"- Số lần gọi vẽ (emit) : {current_metrics.emit_count:,} lần")
     print(f"- Data rác bị RAM copy: {current_metrics.total_data_copied:,} phần tử")
 
     batch_time, batch_metrics = run_batch_approach(candles, registry, scripts_to_run)
-    print(f"\n[ĐỀ XUẤT] Logic gộp batching trước khi vẽ:")
+    print("\n[ĐỀ XUẤT] Logic gộp batching trước khi vẽ:")
     print(f"- Thời gian xử lý : {batch_time:.4f} giây")
     print(f"- Số lần gọi vẽ (emit) : {batch_metrics.emit_count:,} lần")
     print(f"- Data rác bị RAM copy: {batch_metrics.total_data_copied:,} phần tử")

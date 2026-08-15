@@ -1,33 +1,40 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from Binace_Bot.src.application.events.bulk_sync_events import BulkSyncProgressEvent
-from Binace_Bot.src.application.use_cases.queries.get_database_status.query import (
+from PySide6.QtCore import Signal, Slot
+
+from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
+    BulkSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
-from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.presentation.ui.constants import UIMode
-from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .data_management_view_model import DataManagementViewModel
+from .signal_log_handler import SignalLogHandler
 
 if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
+        SingleSyncProgressEvent,
+    )
     from sagittarius_engine.interfaces.i_container import IContainer
 
     from .data_management_view import DataManagementView
@@ -36,38 +43,6 @@ _CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
 _DATABASE_DIR_CONFIG_KEY = "database.dir"
 _UNKNOWN_STAT = "—"
 _BYTES_PER_MB = 1024 * 1024
-
-
-class SignalLogHandler(logging.Handler):
-    """
-    @brief Bridges standard Python logging to a Qt Signal for UI display.
-
-    @details
-    Handlers attached to the app-wide "App" logger outlive the screen that
-    installed them, so once that screen's C++ object is deleted the bound
-    signal raises RuntimeError — and because every `App.*` logger propagates
-    here, a single dead screen would break logging for the WHOLE app
-    (originally surfaced as unrelated icon-loading tests failing, since
-    IconLoader logs a warning through `App.IconLoader`).
-
-    Detaching on the first such failure keeps that blast radius at zero.
-    """
-
-    def __init__(self, signal: Signal, logger_name: str = "App") -> None:
-        super().__init__()
-        self.signal = signal
-        self._logger_name = logger_name
-        self.setFormatter(logging.Formatter("%(message)s"))
-
-    def emit(self, record: logging.LogRecord) -> None:
-        try:
-            self.signal.emit(self.format(record))
-        except RuntimeError:
-            self.detach()
-
-    def detach(self) -> None:
-        """Removes this handler from its logger. Safe to call twice."""
-        logging.getLogger(self._logger_name).removeHandler(self)
 
 
 class DataManagementPresenter(BasePresenter):
@@ -97,7 +72,8 @@ class DataManagementPresenter(BasePresenter):
     ui_log_signal = Signal(str)
     ui_error_log_signal = Signal(str)
     ui_progress_signal = Signal(int)
-    ui_status_table_signal = Signal(str, str, str, str, str, str)
+    ui_single_sync_progress_signal = Signal(int, int, bool)
+    ui_status_table_signal = Signal(str, str, str, str, str)
     ui_clear_table_signal = Signal()
     ui_unlock_signal = Signal()
     ui_sync_complete_signal = Signal()
@@ -124,9 +100,21 @@ class DataManagementPresenter(BasePresenter):
         view.destroyed.connect(self._log_handler.detach)
 
         if self.fsm:
-            self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
-            self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
-            self.fsm.add_transition(UIMode.LOCKED, UIMode.ERROR)
+            # Transitions from IDLE to new states
+            self.fsm.add_transition(UIMode.IDLE, UIMode.SCANNING)
+            self.fsm.add_transition(UIMode.IDLE, UIMode.SYNCING)
+            self.fsm.add_transition(UIMode.IDLE, UIMode.CLEARING)
+
+            # Transitions back to IDLE
+            self.fsm.add_transition(UIMode.SCANNING, UIMode.IDLE)
+            self.fsm.add_transition(UIMode.SYNCING, UIMode.IDLE)
+            self.fsm.add_transition(UIMode.CLEARING, UIMode.IDLE)
+
+            # Transitions to ERROR
+            self.fsm.add_transition(UIMode.SCANNING, UIMode.ERROR)
+            self.fsm.add_transition(UIMode.SYNCING, UIMode.ERROR)
+            self.fsm.add_transition(UIMode.CLEARING, UIMode.ERROR)
+
             self.fsm.add_transition(UIMode.ERROR, UIMode.IDLE)
 
         # Must be called explicitly at the end of __init__ per BasePresenter
@@ -155,6 +143,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_log_signal.connect(self._append_log)
         self.ui_error_log_signal.connect(self._append_error_log)
         self.ui_progress_signal.connect(view_model.set_progress_value)
+        self.ui_single_sync_progress_signal.connect(view_model.set_progress)
         self.ui_status_table_signal.connect(view_model.status_model.upsert_row)
         self.ui_clear_table_signal.connect(view_model.status_model.clear)
         self.ui_unlock_signal.connect(self._unlock_ui)
@@ -162,7 +151,12 @@ class DataManagementPresenter(BasePresenter):
 
     def _connect_engine_events(self) -> None:
         """Subscribe to Engine EventBus events emitted from background handlers."""
+        from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
+            SingleSyncProgressEvent,
+        )
+
         self.event_bus.on(BulkSyncProgressEvent, self._handle_bulk_sync_progress)
+        self.event_bus.on(SingleSyncProgressEvent, self._handle_single_sync_progress)
 
     # ================================================================== #
     # Engine event bridge — called from background threads, must only
@@ -181,6 +175,11 @@ class DataManagementPresenter(BasePresenter):
             if event.is_complete:
                 self.ui_sync_complete_signal.emit()
             self.ui_unlock_signal.emit()
+
+    def _handle_single_sync_progress(self, event: SingleSyncProgressEvent) -> None:
+        """Bridge Single Sync Progress Events → Qt Signals."""
+        # Ensure the progress bar reflects the calculated maximum total
+        self.ui_single_sync_progress_signal.emit(event.current, event.total, True)
 
     # ================================================================== #
     # Qt Slots — execute on the main thread.
@@ -215,7 +214,7 @@ class DataManagementPresenter(BasePresenter):
     def _on_check_status(self) -> None:
         """Dispatch GetDatabaseStatusQuery for the currently selected symbol/interval."""
         symbol = self._view_model.selectedSymbol.strip()
-        interval = self._view_model.selectedInterval.strip()
+        interval = "1m"
 
         self.ui_clear_table_signal.emit()
         self.ui_log_signal.emit(
@@ -235,7 +234,6 @@ class DataManagementPresenter(BasePresenter):
 
             self.ui_status_table_signal.emit(
                 symbol,
-                interval,
                 status.first_record,
                 status.last_record,
                 status.total_candles,
@@ -249,30 +247,34 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_sync_data(self) -> None:
-        """Read the current symbol/interval selection and trigger a single sync."""
-        self._trigger_single_sync(
-            self._view_model.selectedSymbol.strip(),
-            self._view_model.selectedInterval.strip(),
-        )
+        """Read the current symbol selection and trigger a single sync."""
+        self._trigger_single_sync(self._view_model.selectedSymbol.strip())
 
-    @Slot(str, str)
+    @Slot(str)
     @safe_ui_action
-    def _trigger_single_sync(self, symbol: str, interval: str) -> None:
+    def _trigger_single_sync(self, symbol: str) -> None:
         """
         Lock the UI and submit a background single-sync task. Reads the
         optional custom time range on the main thread before handing off.
         """
         start_time, end_time = self._custom_time_range()
-        if self._view_model.useCustomTime and start_time is None:
-            self.ui_error_log_signal.emit(
-                f"Invalid custom time range — expected format {_CUSTOM_TIME_FORMAT}."
-            )
-            return
+        if self._view_model.useCustomTime:
+            if start_time is None:
+                self.ui_error_log_signal.emit(
+                    f"Invalid custom time range — expected format {_CUSTOM_TIME_FORMAT}."
+                )
+                return
+            if end_time is not None and start_time > end_time:
+                self.ui_error_log_signal.emit(
+                    "Invalid time range: 'From' date must be before 'To' date."
+                )
+                return
 
+        interval = "1m"
         self.ui_log_signal.emit(
             f"Starting sync from Binance for {symbol} ({interval})..."
         )
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.fsm.transition_to(UIMode.SYNCING)
         self._view_model.set_progress(value=0, maximum=0, visible=True)
 
         self._thread_manager.submit(
@@ -287,13 +289,13 @@ class DataManagementPresenter(BasePresenter):
         knows about. The Handler owns all iteration and result formatting.
         """
         self.ui_clear_table_signal.emit()
-        self.ui_log_signal.emit("Scanning DB status for ALL symbols and intervals...")
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.ui_log_signal.emit("Scanning DB status for ALL symbols...")
+        self.fsm.transition_to(UIMode.SCANNING)
 
         self._thread_manager.submit(
             self._run_scan_all,
             list(self._view_model.symbols),
-            list(self._view_model.intervals),
+            ["1m"],
         )
 
     @Slot()
@@ -308,7 +310,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_log_signal.emit(
             f"Found {len(targets)} targets to sync. Starting sequential bulk sync..."
         )
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.fsm.transition_to(UIMode.SYNCING)
         self._view_model.set_progress(value=0, maximum=len(targets), visible=True)
 
         self._thread_manager.submit(self._run_bulk_sync, targets)
@@ -317,11 +319,10 @@ class DataManagementPresenter(BasePresenter):
     @safe_ui_action
     def _on_clear_data(self) -> None:
         symbol = self._view_model.selectedSymbol.strip()
-        interval = self._view_model.selectedInterval.strip()
         self.ui_log_signal.emit(
-            f"Clearing local data for {symbol} ({interval}) is not yet implemented."
+            f"Clearing local data for {symbol} is not yet implemented."
         )
-        self.fsm.transition_to(UIMode.LOCKED)
+        self.fsm.transition_to(UIMode.CLEARING)
 
     # ================================================================== #
     # Main-thread helpers
@@ -332,24 +333,31 @@ class DataManagementPresenter(BasePresenter):
     ) -> tuple[datetime | None, datetime | None]:
         """
         @returns (start, end), or (None, None) when the custom range is off.
-        @details Returns (None, None) for unparseable input too; callers that
-        opted into a custom range treat that as an error rather than silently
-        syncing the default window (which would quietly fetch the wrong data).
+        @details If custom time is enabled, 'start' must be valid. 'end' is optional.
+        Returns (None, None) if 'start' is invalid or missing, indicating an error.
         """
         if not self._view_model.useCustomTime:
             return None, None
 
-        start = self._parse_datetime(self._view_model.fromDateTime)
-        end = self._parse_datetime(self._view_model.toDateTime)
-        if start is None or end is None:
+        start_raw = self._view_model.fromDateTime.strip()
+        end_raw = self._view_model.toDateTime.strip()
+
+        if not start_raw:
             return None, None
+
+        start = self._parse_datetime(start_raw)
+        if start is None:
+            return None, None
+
+        end = self._parse_datetime(end_raw) if end_raw else None
+
         return start, end
 
     @staticmethod
     def _parse_datetime(raw: str) -> datetime | None:
         try:
             return datetime.strptime(raw.strip(), _CUSTOM_TIME_FORMAT).replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             )
         except (ValueError, AttributeError):
             return None
@@ -441,7 +449,6 @@ class DataManagementPresenter(BasePresenter):
             for item in results:
                 self.ui_status_table_signal.emit(
                     item.symbol,
-                    item.interval,
                     item.first_record,
                     item.last_record,
                     item.total_candles,
@@ -454,13 +461,13 @@ class DataManagementPresenter(BasePresenter):
         finally:
             self.ui_unlock_signal.emit()
 
-    def _run_bulk_sync(self, targets: list[tuple[str, str]]) -> None:
+    def _run_bulk_sync(self, targets: list[str]) -> None:
         """
         Background worker: dispatches BulkSyncMarketDataCommand.
         Progress and completion are reported via BulkSyncProgressEvent → signals.
         """
         try:
-            cmd = BulkSyncMarketDataCommand(targets=targets)
+            cmd = BulkSyncMarketDataCommand(targets=[(t, "1m") for t in targets])
             self.dispatcher.dispatch(BulkSyncMarketDataCommand, cmd)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Failed to dispatch bulk sync: {exc}")

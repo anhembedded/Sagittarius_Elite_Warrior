@@ -1,7 +1,7 @@
 """Tests for ScriptRegionTracker (BOT-032) — pure Python, no Qt needed."""
 
-from Binace_Bot.src.domain.indicator_scripts import PlottedRegion
-from Binace_Bot.src.presentation.ui.screens.dashboard.script_region_tracker import (
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import PlottedRegion
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.script_region_tracker import (
     ScriptRegionTracker,
 )
 
@@ -33,7 +33,7 @@ def test_consecutive_identical_tints_merge_into_one_growing_span():
     tracker.record(1120.0, _GREEN)
 
     assert len(tracker.spans) == 1
-    start, end, color, opacity = tracker.spans[0]
+    start, end, _color, _opacity = tracker.spans[0]
     assert (start, end) == (1000.0, 1180.0)
 
 

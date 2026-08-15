@@ -1,87 +1,125 @@
 import os
 
-from Binace_Bot.src.application.event_handlers.market_data.market_tick_event_handler import (
+from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Binace_Bot.src.application.ports.i_exchange_client import IExchangeClient
-from Binace_Bot.src.application.ports.i_live_stream_service import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    IExchangeClient,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.application.use_cases.backtest.run_backtest import (
+from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
     RunBacktestCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.backtest.run_backtest.handler import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.handler import (
     BacktestState,
 )
-from Binace_Bot.src.application.use_cases.backtest.stop_backtest import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
+    RunStaticBacktestCommand,
+    RunStaticBacktestCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest import (
     StopBacktestCommand,
     StopBacktestCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.get_database_status import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status import (
     GetDatabaseStatusQuery,
     GetDatabaseStatusQueryHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
     GetHistoricalKlinesQuery,
     GetHistoricalKlinesQueryHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
     ScanAllDatabasesQuery,
     ScanAllDatabasesQueryHandler,
 )
-from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
     StartLiveStreamCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream import (
     StopLiveStreamCommand,
     StopLiveStreamCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.sync.bulk_sync_market_data import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data import (
     BulkSyncMarketDataCommand,
     BulkSyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.application.use_cases.sync.sync_market_data import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
-from Binace_Bot.src.domain.indicator_scripts.dev_indicator_script import (
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.dev_indicator_script import (
     DevIndicatorScript,
 )
-from Binace_Bot.src.domain.indicator_scripts.ema_20_script import Ema20Script
-from Binace_Bot.src.domain.indicator_scripts.ema_50_script import Ema50Script
-from Binace_Bot.src.domain.indicator_scripts.ema_100_script import Ema100Script
-from Binace_Bot.src.domain.indicator_scripts.ema_200_script import Ema200Script
-from Binace_Bot.src.domain.indicator_scripts.ema_cross_script import EmaCrossScript
-from Binace_Bot.src.domain.indicator_scripts.ema_ribbon_script import EmaRibbonScript
-from Binace_Bot.src.domain.indicator_scripts.macd_full_script import MacdFullScript
-from Binace_Bot.src.domain.indicator_scripts.rsi_14_script import Rsi14Script
-from Binace_Bot.src.infrastructure.binance.binance_websocket_service import (
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_20_script import (
+    Ema20Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_50_script import (
+    Ema50Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_100_script import (
+    Ema100Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_200_script import (
+    Ema200Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_cross_script import (
+    EmaCrossScript,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_ribbon_script import (
+    EmaRibbonScript,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.macd_full_script import (
+    MacdFullScript,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.rsi_14_script import (
+    Rsi14Script,
+)
+from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
+    EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
+    MultiEmaTrendFollowerStrategy,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
-from Binace_Bot.src.infrastructure.binance.client import PythonBinanceClient
-from Binace_Bot.src.infrastructure.engine_adapters.live_stream_adapter import (
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
+    PythonBinanceClient,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
-from Binace_Bot.src.infrastructure.persistence.database_manager import (
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,
 )
-from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
 from sagittarius_engine import App
 from sagittarius_engine.base import BaseModule
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
+
+_DEFAULT_DB_DIR_NAME: str = "database"
 
 
 class BinanceBotModule(BaseModule):
@@ -90,45 +128,58 @@ class BinanceBotModule(BaseModule):
     Registers repositories, use cases, and domain background services.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def register(self, app: App) -> None:
-        # Bind engine context dependencies for infrastructure services
+        """
+        @brief Registers all components, repositories, use cases, queries,
+        indicator scripts, and strategies into the application DI container.
+        """
+        self._register_infrastructure(app)
+        self._register_state_singletons(app)
+        self._register_use_cases(app)
+        self._register_queries(app)
+        self._register_indicator_scripts(app)
+        self._register_strategies(app)
+
+    def _register_infrastructure(self, app: App) -> None:
+        """Binds engine context and infrastructure services/repositories."""
         app.container.singleton(ITaskManager, app.context.tasks)
 
-        # Register Repositories & Clients
         config: IConfig = app.container.resolve(IConfig)
-        db_dir = config.get("database.dir") or os.path.join(os.getcwd(), "database")
+        db_dir = config.get(ConfigKeys.DATABASE_DIR.value) or os.path.join(
+            os.getcwd(), _DEFAULT_DB_DIR_NAME
+        )
         app.container.singleton(DatabaseConfig, DatabaseConfig(db_dir=db_dir))
-
         app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
+        app.container.singleton(ILiveStreamService, BinanceWebsocketService)
+        app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
 
-        # State Singletons
+    def _register_state_singletons(self, app: App) -> None:
+        """Registers long-lived application state singletons."""
         app.container.singleton(BacktestState, BacktestState)
 
-        # Bind UseCases (Command -> Handler)
+    def _register_use_cases(self, app: App) -> None:
+        """Binds CQRS commands to their respective use case command handlers."""
         app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
         app.container.bind(BulkSyncMarketDataCommand, BulkSyncMarketDataCommandHandler)
         app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
         app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
         app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
+        app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
 
-        # Bind Queries
+    def _register_queries(self, app: App) -> None:
+        """Binds CQRS queries to their respective query handlers."""
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
         app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
 
-        # Indicator scripts — registered explicitly (no directory auto-scan) so
-        # what's installed is greppable here. A guard test fails if a script
-        # class exists under domain/indicator_scripts/ but is missing below.
-        #
-        # BOT-032 Phase 6: no indicator is hardcoded in the engine anymore —
-        # rsi_14/ema_20/50/100/200/macd_full are the Dev Board's defaults,
-        # replacing the old _ActiveIndicator/RSI/EMA/MACD checkboxes.
+    def _register_indicator_scripts(self, app: App) -> None:
+        """Registers all domain indicator scripts into IndicatorScriptRegistry."""
         script_registry = IndicatorScriptRegistry()
         script_registry.register("rsi_14", Rsi14Script)
         script_registry.register("ema_20", Ema20Script)
@@ -141,10 +192,14 @@ class BinanceBotModule(BaseModule):
         script_registry.register("dev_showcase", DevIndicatorScript)
         app.container.singleton(IndicatorScriptRegistry, script_registry)
 
-        # Register the WebsocketService as bound to its Interface
-        app.container.singleton(ILiveStreamService, BinanceWebsocketService)
-        # Register the Adapter
-        app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
+    def _register_strategies(self, app: App) -> None:
+        """Registers all domain trading strategies into StrategyRegistry."""
+        strategy_registry = StrategyRegistry()
+        strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
+        strategy_registry.register(
+            "multi_ema_trend_follower", MultiEmaTrendFollowerStrategy
+        )
+        app.container.singleton(StrategyRegistry, strategy_registry)
 
     def boot(self, app: App) -> None:
         # Register the adapter as a HostedService so it receives the EngineContext and is managed

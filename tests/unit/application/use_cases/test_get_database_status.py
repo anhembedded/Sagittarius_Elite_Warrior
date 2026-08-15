@@ -1,20 +1,21 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
-from Binace_Bot.src.application.use_cases.queries.get_database_status.handler import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.handler import (
     GetDatabaseStatusQueryHandler,
 )
-from Binace_Bot.src.application.use_cases.queries.get_database_status.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
-from Binace_Bot.src.application.use_cases.queries.scan_all_databases.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
 )
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 @pytest.fixture
@@ -30,8 +31,8 @@ def handler(mock_repo):
 def test_get_database_status_success(handler, mock_repo):
     """Handler returns a typed DatabaseStatusDTO — consistent with ScanAllDatabasesQueryHandler."""
     mock_repo.get_database_status.return_value = DatabaseStatusSnapshot(
-        first_record=datetime(2023, 1, 1, tzinfo=timezone.utc),
-        last_record=datetime(2023, 1, 2, tzinfo=timezone.utc),
+        first_record=datetime(2023, 1, 1, tzinfo=UTC),
+        last_record=datetime(2023, 1, 2, tzinfo=UTC),
         total_candles=100,
         gaps=0,
     )

@@ -1,16 +1,17 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from Binace_Bot.src.application.ports.i_market_data_repository import (
+
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
-from Binace_Bot.src.infrastructure.persistence.database_manager import (
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,
 )
-from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
 
@@ -19,7 +20,11 @@ from Binace_Bot.src.infrastructure.persistence.sqlalchemy_repository import (
 def repo(tmp_path):
     db_config = DatabaseConfig(db_dir=str(tmp_path))
     db_manager = DatabaseManager(db_config)
-    return SQLAlchemyMarketDataRepository(db_manager)
+    repository = SQLAlchemyMarketDataRepository(db_manager)
+    yield repository
+    # Dispose all SQLAlchemy engines to release SQLite file handles on teardown.
+    # Without this Python's GC fires ResourceWarning: unclosed database.
+    db_manager.dispose_all()
 
 
 def create_mock_kline(symbol: str, timestamp: datetime) -> MarketData:
@@ -41,8 +46,8 @@ def create_mock_kline(symbol: str, timestamp: datetime) -> MarketData:
 
 
 def test_save_and_get_klines(repo):
-    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=timezone.utc)
+    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=UTC)
 
     klines = [create_mock_kline("BTCUSDT", dt1), create_mock_kline("BTCUSDT", dt2)]
 
@@ -64,7 +69,7 @@ def test_save_and_get_klines(repo):
 
 
 def test_upsert_behavior(repo):
-    dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     kline1 = create_mock_kline("ETHUSDT", dt)
 
     repo.save_klines([kline1])
@@ -85,8 +90,8 @@ def test_upsert_behavior(repo):
 def test_get_latest_kline_time(repo):
     assert repo.get_latest_kline_time("BNBUSDT", TimeFrame.ONE_MINUTE) is None
 
-    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=timezone.utc)
+    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=UTC)
 
     repo.save_klines(
         [create_mock_kline("BNBUSDT", dt1), create_mock_kline("BNBUSDT", dt2)]
@@ -98,9 +103,9 @@ def test_get_latest_kline_time(repo):
 
 
 def test_get_klines_with_time_range(repo):
-    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=timezone.utc)
-    dt3 = datetime(2023, 1, 1, 12, 2, tzinfo=timezone.utc)
+    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=UTC)
+    dt3 = datetime(2023, 1, 1, 12, 2, tzinfo=UTC)
 
     repo.save_klines(
         [
@@ -127,7 +132,7 @@ def test_get_klines_with_time_range(repo):
 def test_get_klines_with_limit(repo):
     from datetime import timedelta
 
-    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     klines = [
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
     ]
@@ -149,7 +154,7 @@ def test_save_klines_bulk_chunking(repo):
     from datetime import timedelta
 
     # Create 12000 mock klines to ensure chunking logic (5000 per chunk) is executed
-    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     klines = [
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i))
         for i in range(12000)
@@ -168,7 +173,7 @@ def test_save_klines_bulk_chunking(repo):
 def test_multi_symbol_db_separation(repo):
     from datetime import timedelta
 
-    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
 
     # Save klines for BTC and ETH in the same batch
     btc_klines = [
@@ -210,10 +215,10 @@ def test_get_database_status_empty_database(repo):
 
 def test_get_database_status_detects_gap(repo):
     """A missing candle between two stored ones is counted as a gap."""
-    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=timezone.utc)
+    dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=UTC)
     # dt3 skips minute 12:02 entirely -> one gap at the expected 1-minute interval.
-    dt3 = datetime(2023, 1, 1, 12, 5, tzinfo=timezone.utc)
+    dt3 = datetime(2023, 1, 1, 12, 5, tzinfo=UTC)
 
     repo.save_klines(
         [

@@ -16,3 +16,10 @@ class UIMode(str, Enum):
     LIVE = "LIVE"  # System is actively streaming market data, inputs are locked.
     LOCKED = "LOCKED"  # System is busy (e.g., loading historical data), everything is disabled.
     ERROR = "ERROR"  # System encountered an error, transition state before recovering to IDLE.
+    SCANNING = "SCANNING"  # System is scanning database status.
+    SYNCING = "SYNCING"  # System is syncing market data.
+    CLEARING = "CLEARING"  # System is clearing local data.
+
+
+#: Default maximum log entries retained in LogListModel before trimming oldest lines.
+DEFAULT_LOG_MAX_ENTRIES: int = 500

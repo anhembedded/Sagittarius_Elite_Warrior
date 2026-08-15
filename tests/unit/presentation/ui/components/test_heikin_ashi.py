@@ -1,4 +1,4 @@
-from Binace_Bot.src.presentation.ui.components.chart_card.heikin_ashi import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.heikin_ashi import (
     to_heikin_ashi,
 )
 

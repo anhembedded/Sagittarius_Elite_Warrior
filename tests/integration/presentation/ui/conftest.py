@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -7,12 +7,12 @@ import pytest
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from Binace_Bot.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.main import create_app
-from Binace_Bot.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 # Shared with any test module in this directory that needs a real, unmocked
@@ -24,7 +24,7 @@ MOCK_KLINE_COUNT = 5
 def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
     """Newest-first MarketData list, matching what the real repository
     returns (DashboardPresenter reverses it before rendering)."""
-    base_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    base_time = datetime(2024, 1, 1, tzinfo=UTC)
     klines = []
     for i in range(MOCK_KLINE_COUNT):
         open_time = base_time + timedelta(minutes=i)
@@ -103,7 +103,12 @@ def app_engine(request, monkeypatch, tmp_path):
     # isolation, not a workaround — the fallback's own timing behavior is
     # covered by tests/unit/.../test_autostart_controller.py, not by this
     # integration suite.
-    config_manager.load_dict({"DEV_BOARD_AUTOSTART_FALLBACK_SECONDS": 3600.0})
+    config_manager.load_dict(
+        {
+            "DEV_BOARD_AUTOSTART_FALLBACK_SECONDS": 3600.0,
+            "DEV_BOARD_AUTOSTART_ENABLED": True,
+        }
+    )
 
     engine = create_app(config_manager)
 
@@ -111,7 +116,20 @@ def app_engine(request, monkeypatch, tmp_path):
         response = MagicMock()
         response.success = True
         if command_type is GetHistoricalKlinesQuery:
-            response.data = build_mock_klines(command_obj.symbol)
+            # Mirrors GetHistoricalKlinesQueryHandler's own contract (added by
+            # the "Batch concurrent fetches" change): `symbol` is `str | list[str]`,
+            # and a list fans out to `{symbol: klines}` instead of a flat list.
+            # StreamLifecycleController._on_load_history/_on_start_stream always
+            # call with a list (even for Dev Board's single symbol) — a mock that
+            # only handled the single-`str` shape would silently short-circuit
+            # `_run_load_history`'s `isinstance(results, dict)` guard and return
+            # before ever calling `_script_runner.feed_all()`.
+            if isinstance(command_obj.symbol, list):
+                response.data = {
+                    sym: build_mock_klines(sym) for sym in command_obj.symbol
+                }
+            else:
+                response.data = build_mock_klines(command_obj.symbol)
         else:
             response.data = []
         return response
@@ -249,7 +267,9 @@ def navigate(qapp, qtbot, main_window, qml_item):
 
     def _navigate(route: str) -> dict:
         root = main_window._sidebar.quick_widget.rootObject()
-        button = qml_item(root, f"navButton_{route}")
+        button = qml_item(root, f"navButton_{route}") or qml_item(
+            root, f"bottomNavButton_{route}"
+        )
         assert button is not None, f"No sidebar nav button for route {route!r}"
         button.clicked.emit()
         qapp.processEvents()
@@ -277,7 +297,7 @@ def navigate(qapp, qtbot, main_window, qml_item):
             presenter.ui_stream_failed_signal.connect(_mark_settled)
             try:
                 qtbot.waitUntil(lambda: settled["done"], timeout=2000)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
 
         return entry

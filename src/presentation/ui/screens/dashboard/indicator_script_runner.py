@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
-from Binace_Bot.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.indicator_scripts import BaseIndicatorScript, InfoField
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
+    BaseIndicatorScript,
+    InfoField,
+)
+from sagittarius_engine.runtime.tasks import ResourceScope
 
 from .script_region_tracker import RegionSpan, ScriptRegionTracker
 
@@ -57,6 +62,10 @@ class ActiveScript:
     overlay: bool
     region_tracker: ScriptRegionTracker
     registered_lines: set = field(default_factory=set)
+    #: BOT-067 — tracks the chart curves this run has added, so clearing them
+    #: is a property of this ActiveScript instead of a hand-written loop over
+    #: `registered_lines` (the exact mechanism `5a063b5` had to fix by hand).
+    scope: ResourceScope = field(default_factory=ResourceScope)
     series: dict[str, tuple[list, list]] = field(default_factory=dict)
     latest_info: list[InfoField] = field(default_factory=list)
     #: Every marker ever produced this run — unlike latest_info (only the most
@@ -141,10 +150,17 @@ class IndicatorScriptRunner:
 
     def clear_from_chart(self, card) -> None:
         """Removes every script-drawn curve, background tint, and status
-        panel row before a rebuild."""
+        panel row before a rebuild. Curve removal goes through each
+        ActiveScript's own ResourceScope (BOT-067) rather than this run's
+        `card` parameter directly — a curve is always disposed via the exact
+        card object it was drawn onto, which is what `dispose_all()` already
+        captured at `draw()` time, so a run's curves can never be cleared
+        against the wrong (or already-replaced) card. Main thread only, same
+        as `draw()` — every `dispose` callable this scope holds ultimately
+        calls a `ChartCard`/pyqtgraph method (BOT-068 will add an enforced
+        guard for this; today it's this docstring)."""
         for key, active in self.active.items():
-            for line_name in active.registered_lines:
-                card.remove_indicator(qualified_line_name(key, line_name))
+            active.scope.dispose_all()
             card.clear_script_regions(key)
             card.clear_script_info(key)
             card.clear_script_markers(key)
@@ -266,6 +282,9 @@ class IndicatorScriptRunner:
             else:
                 card.add_subplot_indicator(qualified, color)
             active.registered_lines.add(line_name)
+            active.scope.add(
+                qualified, dispose=functools.partial(card.remove_indicator, qualified)
+            )
 
         card.update_indicator_data(qualified, x_data, y_data)
         return True

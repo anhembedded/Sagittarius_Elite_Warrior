@@ -1,14 +1,16 @@
+import logging
 from unittest.mock import patch
 
 import pytest
-from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
+
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream import (
     StopLiveStreamCommand,
 )
-from Binace_Bot.src.binance_bot_module import BinanceBotModule
-from Binace_Bot.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
@@ -29,7 +31,11 @@ def app_instance():
     app = App(container, event_bus)
     app.use(BinanceBotModule())
 
-    return app
+    yield app
+    try:
+        app.stop()
+    except Exception:
+        logging.getLogger(__name__).exception("App fixture teardown shutdown failed")
 
 
 def test_app_boot_and_stream_use_case(app_instance):
@@ -41,10 +47,10 @@ def test_app_boot_and_stream_use_case(app_instance):
 
     with (
         patch(
-            "Binace_Bot.src.infrastructure.binance.binance_websocket_service.AsyncClient"
+            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient"
         ),
         patch(
-            "Binace_Bot.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
+            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
         ),
     ):
         # Boot the engine (this triggers HostedService start() which sets the context)

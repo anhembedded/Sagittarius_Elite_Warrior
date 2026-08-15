@@ -15,8 +15,12 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Binace_Bot.src.presentation.ui.assets import Palette, get_icon_loader
 from PySide6.QtCore import QSize
+
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+    Palette,
+    get_icon_loader,
+)
 from sagittarius_engine.extensions.pyside_mvc import IconImageProvider
 
 _ICON_PALETTE = Palette.as_icon_dict()

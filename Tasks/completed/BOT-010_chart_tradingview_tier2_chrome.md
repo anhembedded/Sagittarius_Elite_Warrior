@@ -12,7 +12,7 @@ Tích hợp thanh công cụ tùy chỉnh biểu đồ (Timeframe, Chart Type) v
 - [ ] **Trade Markers Manager** — *chưa làm*, xem Ghi chú hoàn thành.
 
 ## 4. Kiến trúc & Vị trí Mã nguồn (Architectural Context)
-- `Binace_Bot/src/presentation/ui/components/chart_card/trade_marker_manager.py`
+- `Sagittarius_Elite_Warrior/src/presentation/ui/components/chart_card/trade_marker_manager.py`
 - Lắng nghe Event từ EventBus (`OrderFilledEvent`, `PositionUpdatedEvent`).
 
 ## 5. Ghi chú hoàn thành (Completion Notes)

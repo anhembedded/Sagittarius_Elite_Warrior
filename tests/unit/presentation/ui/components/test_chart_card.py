@@ -1,8 +1,14 @@
+from enum import Enum
+from unittest.mock import patch
+
 import pyqtgraph as pg
 import pytest
-from Binace_Bot.src.presentation.ui.components.chart_card import ChartCard
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
+
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+    ChartCard,
+)
 
 
 def test_chart_card_initialization(qapp):
@@ -58,6 +64,90 @@ def test_chart_card_append_after_historical_render_does_not_duplicate(qapp):
     assert card._raw_history is not card.candlestick.history_data
 
 
+def test_render_historical_data_invalidates_the_stale_y_bounds_cache(qapp):
+    """
+    Regression test: FastCandlestickItem.dataBounds(ax=1, orthoRange=...)
+    caches its Y min/max keyed only by the visible (lo, hi) INDEX window, not
+    by the data itself. generate_picture() (called by render_historical_data,
+    prepend_historical_data, and set_chart_type — any full data replacement)
+    used to leave that cache untouched, only append_closed_candle() cleared
+    it. So reloading a chart with brand-new price data (e.g. after a symbol
+    switch, or a second Load History call after auto-start's fallback fired)
+    could land on the SAME (lo, hi) window as before and silently keep
+    serving the PREVIOUS dataset's Y bounds — the chart then auto-scales to
+    the old price range while painting the new candles, making them appear
+    off-screen / the chart looks empty with a wrong-looking axis.
+    """
+    card = ChartCard("ETHUSDT")
+    first_load = [(t, 50.0, 55.0, 48.0, 52.0) for t in range(0, 200 * 60, 60)]
+    card.render_historical_data(first_load)
+
+    # Force dataBounds(ax=1, orthoRange=...) to populate the cache for
+    # whatever window _set_initial_view_range just selected.
+    view_range = card.plot_layout.main_plot.vb.viewRange()
+    card.candlestick.dataBounds(ax=1, orthoRange=view_range[0])
+    assert card.candlestick._cached_visible_bounds is not None
+
+    # A second load at a completely different price scale (e.g. a different
+    # symbol/timeframe), same candle count so the visible index window can
+    # coincidentally match the old one.
+    second_load = [(t, 1800.0, 1805.0, 1798.0, 1802.0) for t in range(0, 200 * 60, 60)]
+    card.render_historical_data(second_load)
+
+    assert card.candlestick._cached_visible_bounds is None
+
+    view_range = card.plot_layout.main_plot.vb.viewRange()
+    min_y, max_y = card.candlestick.dataBounds(ax=1, orthoRange=view_range[0])
+    assert min_y >= 1798.0
+    assert max_y <= 1805.0
+
+
+def test_set_initial_view_range_refits_y_axis_after_a_small_dataset(qapp):
+    """
+    Regression test (found via Backtest's chart: Nến Nhật -> Đường Vốn ->
+    Song song left the candlestick pane not redrawing). `_set_initial_view_range`
+    has 2 branches: a dataset of <= 150 points calls `main_plot.autoRange()`
+    (fits X AND Y); a bigger one only calls `main_plot.setXRange(...)` (fits X,
+    leaves Y alone) so a long history doesn't start zoomed out to unreadable
+    subplots. But pyqtgraph's `ViewBox.autoRange()` -> `setRange(rect=...)`
+    disables auto-range for BOTH axes as a side effect — once a small dataset
+    (e.g. the Equity curve, almost always <= 150 points) has gone through the
+    first branch, every later big-dataset render's `setXRange`-only call
+    leaves the Y-axis frozen at the SMALL dataset's scale, because nothing
+    re-enables Y auto-range afterward. Real prices (tens of thousands) then
+    render far outside a Y-viewport still sized for an account balance
+    (thousands), which looks exactly like "the chart doesn't redraw".
+    """
+    card = ChartCard("BTCUSDT")
+    card.resize(400, 300)
+    card.show()
+
+    real_price_candles = [
+        (float(t), 100.0, 105.0, 95.0, 102.0) for t in range(0, 300 * 60, 60)
+    ]
+    card.render_historical_data(real_price_candles)
+    QApplication.processEvents()
+
+    # A small dataset at a wildly different scale (mirrors the Equity
+    # curve's account-balance-sized numbers) — triggers the autoRange()
+    # branch, which disables Y auto-range for the plot going forward.
+    small_different_scale_candles = [
+        (0.0, 1000.0, 1000.0, 1000.0, 1000.0),
+        (float(300 * 60 - 60), 1000.0, 1000.0, 1000.0, 1000.0),
+    ]
+    card.render_historical_data(small_different_scale_candles)
+    QApplication.processEvents()
+
+    # Back to the large, real-price dataset — must refit Y to it, not stay
+    # frozen at the small dataset's ~1000 scale.
+    card.render_historical_data(real_price_candles)
+    QApplication.processEvents()
+
+    _, (min_y, max_y) = card.plot_layout.main_plot.vb.viewRange()
+    assert min_y < 110
+    assert max_y < 200
+
+
 def test_chart_card_candle_width_is_robust_to_anomalous_first_gap(qapp):
     """
     Regression test: candle_width used to be computed once from ONLY
@@ -103,6 +193,70 @@ def test_chart_card_candle_width_is_positive_even_for_descending_data(qapp):
 
     assert card.candlestick.candle_width > 0
     assert card.candlestick.candle_width == pytest.approx(interval / 3.0)
+
+
+class PyQtGraphStateKey(str, Enum):
+    LIMITS = "limits"
+    X_RANGE = "xRange"
+
+
+def test_chart_card_set_max_visible_x_range(qapp):
+    """
+    Test that set_max_visible_x_range correctly sets the maxXRange limit on the main plot.
+    """
+    card = ChartCard("BTCUSDT")
+    card.set_max_visible_x_range(120000.0)
+
+    assert (
+        card.plot_layout.main_plot.getViewBox().state[PyQtGraphStateKey.LIMITS.value][
+            PyQtGraphStateKey.X_RANGE.value
+        ][1]
+        == 120000.0
+    )
+
+
+def test_chart_card_update_last_candle_interactions(qapp):
+    """
+    Test that update_last_candle correctly updates internal state (_live_candle)
+    and calls the appropriate subcomponents for rendering, price line, and viewport.
+    """
+    card = ChartCard("BTCUSDT")
+
+    with (
+        patch.object(card.candlestick, "update_live_candle") as mock_candlestick,
+        patch.object(card, "_render_chart_type") as mock_render,
+        patch.object(card.price_line, "update_price") as mock_price_line,
+        patch.object(card.viewport, "notify_new_data") as mock_viewport,
+    ):
+        # Test Candlestick mode
+        card.set_chart_type("candlestick")
+        card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)
+
+        assert card._live_candle == (2000.0, 100.0, 105.0, 95.0, 102.0)
+        mock_candlestick.assert_called_once_with(2000.0, 100.0, 105.0, 95.0, 102.0)
+        mock_render.assert_not_called()
+        mock_price_line.assert_called_once_with(102.0, True)
+
+        mock_viewport.assert_called_once_with(2000.0)
+
+        # Reset mocks
+        mock_candlestick.reset_mock()
+        mock_price_line.reset_mock()
+        mock_viewport.reset_mock()
+        mock_render.reset_mock()
+
+        # Test non-Candlestick mode (e.g., line)
+        card.set_chart_type("line")
+        mock_render.reset_mock()  # Reset because set_chart_type calls it
+
+        card.update_last_candle(2060.0, 102.0, 103.0, 99.0, 100.0)
+
+        assert card._live_candle == (2060.0, 102.0, 103.0, 99.0, 100.0)
+        mock_candlestick.assert_not_called()
+        mock_render.assert_called_once()
+        mock_price_line.assert_called_once_with(100.0, False)
+
+        mock_viewport.assert_called_once_with(2060.0)
 
 
 def test_chart_card_live_tick_rollover(qapp):
@@ -603,7 +757,7 @@ def test_two_scripts_regions_do_not_interfere_with_each_other(qapp):
 
 
 def test_script_info_renders_label_value_pairs_into_the_panel(qapp):
-    from Binace_Bot.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
     card = ChartCard("BTCUSDT")
 
@@ -617,7 +771,7 @@ def test_script_info_renders_label_value_pairs_into_the_panel(qapp):
 
 
 def test_script_info_from_two_scripts_both_appear(qapp):
-    from Binace_Bot.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
     card = ChartCard("BTCUSDT")
 
@@ -630,7 +784,7 @@ def test_script_info_from_two_scripts_both_appear(qapp):
 
 
 def test_clearing_one_scripts_info_leaves_the_others_visible(qapp):
-    from Binace_Bot.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
     card = ChartCard("BTCUSDT")
     card.set_script_info("ema_cross", [InfoField(label="Trend", value="UP")])
@@ -646,7 +800,7 @@ def test_clearing_one_scripts_info_leaves_the_others_visible(qapp):
 def test_replacing_a_scripts_info_with_an_empty_list_clears_its_rows(qapp):
     """set_script_info(key, []) is how a script author expresses "nothing to
     report this bar" — it must not leave the previous bar's rows stuck."""
-    from Binace_Bot.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
     card = ChartCard("BTCUSDT")
     card.set_script_info("ema_cross", [InfoField(label="Trend", value="UP")])

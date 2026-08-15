@@ -15,7 +15,18 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $BotRoot = Split-Path -Parent $ScriptDir
 $ProjectRoot = Split-Path -Parent $BotRoot
 
-$env:PYTHONPATH = $ProjectRoot
+# Support cloning with hyphens (Sagittarius-Elite-Warrior) while code expects underscores
+$PackageName = "Sagittarius_Elite_Warrior"
+if ((Split-Path -Leaf $BotRoot) -ne $PackageName) {
+    Write-Host "Repository name is '$(Split-Path -Leaf $BotRoot)', but Python expects '$PackageName'. Creating alias..." -ForegroundColor Yellow
+    $AliasDir = Join-Path $BotRoot ".venv_alias"
+    if (-not (Test-Path $AliasDir)) { New-Item -ItemType Directory -Path $AliasDir -Force | Out-Null }
+    $JunctionPath = Join-Path $AliasDir $PackageName
+    if (-not (Test-Path $JunctionPath)) { New-Item -ItemType Junction -Path $JunctionPath -Target $BotRoot -Force | Out-Null }
+    $env:PYTHONPATH = $AliasDir
+} else {
+    $env:PYTHONPATH = $ProjectRoot
+}
 
 $PythonCandidates = @("python", "python3")
 $PythonCommand = $null

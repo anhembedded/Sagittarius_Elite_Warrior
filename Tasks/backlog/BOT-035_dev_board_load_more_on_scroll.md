@@ -121,11 +121,11 @@ khác tham số `end_time`.
           self.candlestick.generate_picture(self._raw_history)
       else:
           self._render_chart_type()
-      self._set_initial_view_range(data)          # ⚠️ reset zoom về mặc định
+      self._set_initial_view_range(data)  # ⚠️ reset zoom về mặc định
       if data:
           last_t, open_p, _, _, close_p = data[-1]
           self.price_line.update_price(close_p, close_p >= open_p)
-          self.viewport.notify_new_data(last_t)   # ⚠️ auto-follow về nến MỚI NHẤT
+          self.viewport.notify_new_data(last_t)  # ⚠️ auto-follow về nến MỚI NHẤT
   ```
   **Không dùng được thẳng cho "load more"** — cả `_set_initial_view_range` (reset zoom) và
   `viewport.notify_new_data` (nhảy về nến mới nhất) đều SAI ngữ cảnh khi ta đang PREPEND dữ liệu
@@ -228,6 +228,7 @@ class HistoryPaginationController(QObject):
     @brief Khi ChartCard báo user kéo gần hết dữ liệu bên trái, tải thêm 1 batch nến cũ hơn
     và nối vào chart — không chặn UI, không tải chồng khi 1 lần tải trước còn đang chạy.
     """
+
     def __init__(
         self,
         fetch_older: Callable[[str, float], None],  # presenter method, xem §4.4
@@ -246,7 +247,11 @@ class HistoryPaginationController(QObject):
 
 ```python
 def _run_load_more_history(
-    self, symbol: str, interval_str: str, before_timestamp: float, limit: int,
+    self,
+    symbol: str,
+    interval_str: str,
+    before_timestamp: float,
+    limit: int,
     token: CancellationToken,
 ) -> None:
     """Nền: GetHistoricalKlinesQuery(end_time=<before_timestamp>, order_by_desc=True, limit=limit),

@@ -14,7 +14,7 @@ Hiện tại, dự án đã hoàn thành **Phase 1: Data Synchronizer** và **Ph
 Dự án được phân rã thành các lớp độc lập:
 
 ```text
-Binace_Bot/
+Sagittarius_Elite_Warrior/
 ├── src/                        # 🟢 Chứa toàn bộ mã nguồn bot
 │   ├── domain/                 # Các thực thể cốt lõi (MarketData, TimeFrame, MarketTickEvent)
 │   ├── application/            # Logic nghiệp vụ (Use cases) và cấu hình DI (extensions)
@@ -40,7 +40,7 @@ Khi khởi chạy không có tham số, Bot sẽ tự động mở Menu tương 
 
 ```powershell
 $env:PYTHONPATH="."
-python Binace_Bot/src/main.py
+python Sagittarius_Elite_Warrior/src/main.py
 ```
 
 *Kết quả:* Bạn sẽ được đưa vào vòng lặp Menu:
@@ -63,14 +63,14 @@ Nếu bạn truyền tham số, Bot sẽ bỏ qua Menu và chạy thẳng lệnh
 
 ```powershell
 $env:PYTHONPATH="."
-python Binace_Bot/src/main.py sync --symbols BTCUSDT,ETHUSDT --interval 1m --days 1
+python Sagittarius_Elite_Warrior/src/main.py sync --symbols BTCUSDT,ETHUSDT --interval 1m --days 1
 ```
 
 **2. Khởi chạy nền Live Stream:**
 
 ```powershell
 $env:PYTHONPATH="."
-python Binace_Bot/src/main.py stream
+python Sagittarius_Elite_Warrior/src/main.py stream
 ```
 
 ---
@@ -93,7 +93,7 @@ Khi triển khai các hệ thống vòng lặp (CLI menu, Background loops) cho 
 
 ## 🕵️ Hướng dẫn Khám phá Database
 
-Toàn bộ dữ liệu bạn tải về được lưu tại `Binace_Bot/database/trading.db`.
+Toàn bộ dữ liệu bạn tải về được lưu tại `Sagittarius_Elite_Warrior/database/trading.db`.
 
 Để xem dữ liệu, bạn có thể:
 
@@ -110,13 +110,13 @@ Dự án có bộ Test rất nghiêm ngặt (gần 100% Coverage). Để chạy 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 $env:PYTHONPATH="."
-pytest Binace_Bot/tests -v
+pytest Sagittarius_Elite_Warrior/tests -v
 ```
 
 Hoặc để xem độ phủ mã (Coverage):
 
 ```powershell
-pytest Binace_Bot/tests -v --cov=Binace_Bot.src
+pytest Sagittarius_Elite_Warrior/tests -v --cov=Sagittarius_Elite_Warrior.src
 ```
 
 ---

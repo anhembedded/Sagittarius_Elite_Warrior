@@ -9,8 +9,8 @@ than quietly become misleading documentation.
 
 import math
 
-from Binace_Bot.src.domain.indicator_scripts import DevIndicatorScript
-from Binace_Bot.src.domain.indicator_scripts.dev_indicator_script import (
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import DevIndicatorScript
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.dev_indicator_script import (
     _BEAR,
     _BULL,
 )

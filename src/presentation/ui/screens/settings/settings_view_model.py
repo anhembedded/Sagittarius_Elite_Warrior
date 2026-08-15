@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, Signal, Slot
+
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
 
@@ -120,6 +121,7 @@ class SettingsViewModel(BaseQmlViewModel):
 
     statusIsError = Property(bool, _get_status_is_error, notify=statusChanged)
 
+    @Slot(str, bool)
     def set_status(self, message: str, is_error: bool) -> None:
         self._status_message = message
         self._status_is_error = is_error

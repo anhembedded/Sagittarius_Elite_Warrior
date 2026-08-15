@@ -6,9 +6,12 @@ existing EMA/MACD classes — proving a script only composes them and never
 reimplements the maths.
 """
 
-from Binace_Bot.src.domain.indicator_scripts import EmaRibbonScript, MacdFullScript
-from Binace_Bot.src.domain.indicators.ema import EMA
-from Binace_Bot.src.domain.indicators.macd import MACD
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
+    EmaRibbonScript,
+    MacdFullScript,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACD
 
 #: Long enough for EMA(200) — the ribbon's slowest line — to warm up.
 _CLOSES = [100.0 + (index % 17) - 8 for index in range(260)]

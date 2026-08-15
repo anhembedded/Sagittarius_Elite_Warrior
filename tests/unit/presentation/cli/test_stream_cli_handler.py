@@ -1,12 +1,14 @@
 from unittest.mock import Mock
 
-from Binace_Bot.src.application.use_cases.stream.start_live_stream import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
-from Binace_Bot.src.application.use_cases.stream.stop_live_stream import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream import (
     StopLiveStreamCommand,
 )
-from Binace_Bot.src.presentation.cli.handlers.stream_cli_handler import StreamCliHandler
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.stream_cli_handler import (
+    StreamCliHandler,
+)
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 

@@ -1,13 +1,15 @@
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
-from Binace_Bot.src.domain.events.market_tick_event import MarketTickEvent
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    MarketTickEvent,
+)
 
 # app_engine/main_window come from conftest.py — this file used to define
 # its own near-duplicate copies (predating BOT-034), which meant the
@@ -89,7 +91,9 @@ def test_sanity_data_management_sync(qtbot, main_window, navigate, qml_item, qap
     # caused via a standalone repro script that isolated it to genuine
     # event-delivery latency (a bounded poll always converges), not a
     # dropped click or broken FSM matrix.
-    qtbot.waitUntil(lambda: presenter.fsm.current_state.value == "LOCKED", timeout=2000)
+    qtbot.waitUntil(
+        lambda: presenter.fsm.current_state.value == "SYNCING", timeout=2000
+    )
 
 
 @pytest.mark.parametrize("app_engine", [True], indirect=True)
@@ -138,13 +142,13 @@ def test_sanity_dev_board_full_feature_walkthrough(
     closed_tick = MarketData(
         symbol="ETHUSDT",
         interval="1m",
-        open_time=datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+        open_time=datetime(2024, 1, 1, 1, 0, tzinfo=UTC),
         open_price=200.0,
         high_price=201.0,
         low_price=199.0,
         close_price=200.5,
         volume=20.0,
-        close_time=datetime(2024, 1, 1, 1, 1, tzinfo=timezone.utc),
+        close_time=datetime(2024, 1, 1, 1, 1, tzinfo=UTC),
         quote_asset_volume=2000.0,
         number_of_trades=8,
         taker_buy_base_asset_volume=10.0,
@@ -201,7 +205,7 @@ def test_sanity_settings_screen_save(qtbot, main_window, navigate, qml_item, qap
 
     sidebar_root = main_window._sidebar.quick_widget.rootObject()
     assert (
-        qml_item(sidebar_root, "navButton_settings").property("text")
+        qml_item(sidebar_root, "bottomNavButton_settings").property("text")
         == "API & Credentials"
     )
 

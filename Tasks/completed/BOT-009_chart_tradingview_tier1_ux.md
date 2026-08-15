@@ -15,7 +15,7 @@ Hiện tại `chart_card/` chỉ mới hỗ trợ vẽ nến cơ bản, pan/zoom
 - [x] **Legend trên Subplot:** Dùng `pg.LegendItem`/`plot.addLegend()` có sẵn của pyqtgraph — mỗi indicator có 1 dòng legend (tên + giá trị cuối, cập nhật mỗi tick). Click vào swatch màu để ẩn/hiện (hành vi built-in của `ItemSample`, tương đương `set_visible`).
 
 ## 4. Kiến trúc & Vị trí Mã nguồn (Architectural Context)
-- `Binace_Bot/src/presentation/ui/components/chart_card/`
+- `Sagittarius_Elite_Warrior/src/presentation/ui/components/chart_card/`
 - Pattern: Component-based composition gắn trực tiếp vào `PyQtGraph` scene/view.
 
 ## 5. Ghi chú hoàn thành (Completion Notes)

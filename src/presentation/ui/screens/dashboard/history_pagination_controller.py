@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from functools import partial
 
 from PySide6.QtCore import QObject, QTimer
 
@@ -56,6 +57,12 @@ class HistoryPaginationController(QObject):
         #: system clock adjustments) of when the last fetch for this symbol
         #: finished. Absent until the first fetch completes.
         self._last_finished_at: dict[str, float] = {}
+        #: Outstanding recheck timer per symbol, parented to `self` — a
+        #: `QTimer(self)` (not the static `QTimer.singleShot`) so Qt's
+        #: parent-child ownership cancels it automatically if this
+        #: controller is destroyed mid-cooldown (Dev Board closed, app
+        #: exiting) instead of firing into a torn-down object graph later.
+        self._recheck_timers: dict[str, QTimer] = {}
 
     def on_near_left_edge(self, symbol: str, oldest_timestamp: float) -> None:
         """Connect to ChartCard.sig_near_left_edge (via the Presenter, which
@@ -75,21 +82,44 @@ class HistoryPaginationController(QObject):
         self._in_flight.add(symbol)
         self._fetch_older(symbol, oldest_timestamp)
 
-    def on_load_more_finished(self, symbol: str) -> None:
+    def on_load_more_finished(self, symbol: str, found_more: bool) -> None:
         """Call once the background fetch for `symbol` has fully settled —
         success, empty result, or error alike (mirrors
         ui_history_load_finished_signal's unconditional-finally contract).
         Safe to call even if `symbol` was never in flight. Starts this
-        symbol's cooldown window."""
+        symbol's cooldown window.
+
+        `found_more` gates the auto-recheck below — pass False when the
+        fetch found no older candles at all (reached the true start of this
+        symbol's history; Phase 1 has no auto-sync-from-Binance to ever
+        change that). Without this gate, a chart scrolled to the beginning
+        of its history would recheck the edge every cooldown window forever
+        — the recheck would still see "near the edge" (nothing moved it),
+        refire the fetch, get nothing back again, and reschedule itself: an
+        unbounded loop hammering the DB with zero further user interaction.
+        `found_more=True` is the only case where rechecking can make
+        progress, so it's the only case allowed to arm the timer.
+        """
         self._in_flight.discard(symbol)
         self._last_finished_at[symbol] = time.monotonic()
 
-        QTimer.singleShot(
-            int(self._cooldown_seconds * 1000),
-            lambda: self._on_cooldown_finished(symbol),
-        )
+        existing = self._recheck_timers.pop(symbol, None)
+        if existing is not None:
+            existing.stop()
+
+        if not found_more or self._recheck_edge is None:
+            return
+
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        # functools.partial, not a lambda closure — an explicit, inspectable
+        # binding of `symbol` to the zero-arg `timeout` signal rather than a
+        # throwaway closure.
+        timer.timeout.connect(partial(self._on_cooldown_finished, symbol))
+        timer.start(int(self._cooldown_seconds * 1000))
+        self._recheck_timers[symbol] = timer
 
     def _on_cooldown_finished(self, symbol: str) -> None:
         """Called automatically when a symbol's cooldown window expires."""
-        if self._recheck_edge is not None:
-            self._recheck_edge(symbol)
+        self._recheck_timers.pop(symbol, None)
+        self._recheck_edge(symbol)

@@ -1,0 +1,1855 @@
+"""
+Tests for the Backtest Screen's presenter (BOT-022).
+
+Threading contract mirrors DataManagementPresenter/DashboardPresenter:
+- IThreadManager is resolved once in __init__.
+- Background work is submitted as `self._run_backtest(config)` via
+  thread_manager.submit — NOT as an inline closure.
+- `_run_backtest` itself is called directly (as the thread pool would call
+  it) to test the background path without spinning a real thread; because
+  sender and receiver share a thread in these tests, the `_backtest*Signal`s
+  it emits execute their connected slots synchronously, so the resulting
+  view-model/FSM state can be asserted immediately after the call returns.
+
+Uses a REAL StrategyRegistry (with one fake strategy registered) and a REAL
+BackTestViewModel — both are plain state/config holders with no I/O — mocking
+only the genuine external dependencies (IDispatcher, IThreadManager, IConfig).
+"""
+
+import logging
+import os
+from dataclasses import replace
+from datetime import UTC, datetime
+from unittest.mock import Mock, patch
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
+    RunStaticBacktestCommand,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+    GetHistoricalKlinesQuery,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+    SyncMarketDataCommand,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
+    BacktestMetrics,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+    BacktestResult,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
+    OutOfSampleValidation,
+)
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
+    BaseIndicatorScript,
+)
+from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
+    CANDLESTICK,
+    LINE,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
+    _FALLBACK_SYMBOL,
+    BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
+    BackTestView,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_run_config import (
+    BacktestRunConfig,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
+    BacktestUiState,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+    ChartDisplayMode,
+)
+from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
+
+_T0 = datetime(2026, 1, 1, tzinfo=UTC)
+_T1 = datetime(2026, 1, 2, tzinfo=UTC)
+
+
+class _FakeStrategy(BaseStrategy):
+    def decide(self, context):
+        return self.hold()
+
+    def build_indicators(self):
+        return {}
+
+
+class _EmaIndicatorStrategy(BaseStrategy):
+    """A strategy that actually declares indicators (BOT-060) — unlike
+    `_FakeStrategy`, whose empty `build_indicators()` is deliberate so it
+    doesn't perturb tests that don't care about chart overlays."""
+
+    def build_indicators(self):
+        return {"ema_fast": EMA(1), "ema_slow": EMA(1)}
+
+    def decide(self, context):
+        return self.hold()
+
+
+class _TestReferenceScript(BaseIndicatorScript):
+    """A minimal real indicator script (BOT-064) — `default_enabled = True`
+    so `IndicatorScriptListModel.set_available()` auto-enables it the same
+    way `Ema20Script`'s shipped default does, no manual toggle needed."""
+
+    title = "Test Reference Script"
+    overlay = True
+    default_enabled = True
+
+    def setup(self) -> None:
+        self.a = self.ema(1)
+
+    def execute(self, candle):
+        self.plot(self.a(candle.close_price), "R", color="#8e44ad")
+
+
+class _TestSubplotScript(BaseIndicatorScript):
+    """BOT-065: a subplot script (RSI/MACD-shaped, `overlay = False`) —
+    doesn't share the main plot's price-scale axis, so it must stay
+    visible through Equity-solo mode, unlike `_TestReferenceScript`."""
+
+    title = "Test Subplot Script"
+    overlay = False
+    default_enabled = True
+
+    def setup(self) -> None:
+        self.a = self.ema(1)
+
+    def execute(self, candle):
+        self.plot(self.a(candle.close_price), "S", color="#2980b9")
+
+
+class _RichParamsStrategy(BaseStrategy):
+    """Declares a couple of parameters (BOT-047) — kept out of the shared
+    `strategy_registry` fixture so it doesn't perturb `strategyOptions`-
+    related assertions elsewhere in this file; used only by the bot-params
+    tests below via `_build_presenter_with_registry`."""
+
+    def setup(self) -> None:
+        self.period = self.input_int("period", 20, label="Period", minval=1, maxval=200)
+        self.threshold = self.input_float("threshold", 1.5, label="Ngưỡng", minval=0.0)
+
+    def decide(self, context):
+        return self.hold()
+
+    def build_indicators(self):
+        return {}
+
+
+def _build_presenter_with_registry(
+    qapp,
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    registry,
+    request,
+    script_registry: IndicatorScriptRegistry | None = None,
+) -> BackTestPresenter:
+    """Same wiring as the `mock_container`/`presenter` fixtures, but with a
+    caller-supplied `StrategyRegistry` — used by the bot-params tests that
+    need more than the shared fixture's single zero-param `_FakeStrategy`.
+    `script_registry` (BOT-064) defaults to a fresh empty one, same as the
+    shared `indicator_script_registry` fixture."""
+    from sagittarius_engine.interfaces.i_config import IConfig
+    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+    container = Mock()
+    resolved_script_registry = script_registry or IndicatorScriptRegistry()
+
+    def resolve_mock(interface):
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IDispatcher:
+            return mock_dispatcher
+        if interface == IConfig:
+            return mock_config
+        if interface == StrategyRegistry:
+            return registry
+        if interface == IndicatorScriptRegistry:
+            return resolved_script_registry
+        return Mock()
+
+    container.resolve.side_effect = resolve_mock
+    view = BackTestView()
+    view.resize(1400, 800)
+    view.show()
+    qapp.processEvents()
+    request.addfinalizer(view.deleteLater)
+    return BackTestPresenter(view, container)
+
+
+def _make_result(with_trades: bool) -> BacktestResult:
+    metrics = BacktestMetrics(
+        net_profit=10.0 if with_trades else 0.0,
+        net_profit_percent=1.0 if with_trades else 0.0,
+        gross_profit=10.0 if with_trades else 0.0,
+        gross_loss=0.0,
+        max_drawdown_percent=0.0,
+        total_closed_trades=1 if with_trades else 0,
+        percent_profitable=100.0 if with_trades else 0.0,
+        profit_factor=1.0,
+        avg_trade=0.0,
+        avg_winning_trade=0.0,
+        avg_losing_trade=0.0,
+        largest_winning_trade=0.0,
+        largest_losing_trade=0.0,
+    )
+    trades = []
+    if with_trades:
+        from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+
+        trades = [
+            Trade(
+                symbol="ETHUSDT",
+                entry_time=_T0,
+                entry_price=100.0,
+                exit_time=_T1,
+                exit_price=110.0,
+                quantity=1.0,
+                pnl=10.0,
+                pnl_percent=10.0,
+                fees_paid=0.0,
+            )
+        ]
+    return BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1000.0 + (10.0 if with_trades else 0.0),
+        trades=trades,
+        equity_curve=[(_T0, 1000.0), (_T1, 1000.0)],
+        metrics=metrics,
+    )
+
+
+def _make_result_with_trades(trade_count: int, win_count: int) -> BacktestResult:
+    """@brief BOT-057: `_make_result`'s `with_trades: bool` only ever makes
+    0 or 1 trade — filter/search/pagination tests need a real spread."""
+    from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+
+    trades = [
+        Trade(
+            symbol="ETHUSDT",
+            entry_time=_T0,
+            entry_price=100.0,
+            exit_time=_T1,
+            exit_price=110.0 if i < win_count else 90.0,
+            quantity=1.0,
+            pnl=10.0 if i < win_count else -10.0,
+            pnl_percent=10.0 if i < win_count else -10.0,
+            fees_paid=0.0,
+        )
+        for i in range(trade_count)
+    ]
+    metrics = BacktestMetrics(
+        net_profit=0.0,
+        net_profit_percent=0.0,
+        gross_profit=0.0,
+        gross_loss=0.0,
+        max_drawdown_percent=0.0,
+        total_closed_trades=trade_count,
+        percent_profitable=0.0,
+        profit_factor=1.0,
+        avg_trade=0.0,
+        avg_winning_trade=0.0,
+        avg_losing_trade=0.0,
+        largest_winning_trade=0.0,
+        largest_losing_trade=0.0,
+    )
+    return BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1000.0,
+        trades=trades,
+        equity_curve=[(_T0, 1000.0), (_T1, 1000.0)],
+        metrics=metrics,
+    )
+
+
+def _dispatch_stub(result: BacktestResult | None, klines: list | None = None):
+    """`_run_backtest` dispatches 2 different commands (BacktestResult, then
+    chart klines) — a single `mock.return_value` can't tell them apart, so
+    tests that reach the chart-fetch step need this instead."""
+
+    def side_effect(handler_class, command):
+        if handler_class is RunStaticBacktestCommand:
+            return result
+        if handler_class is GetHistoricalKlinesQuery:
+            return klines or []
+        raise AssertionError(f"Unexpected dispatch: {handler_class}")
+
+    return side_effect
+
+
+@pytest.fixture
+def strategy_registry():
+    registry = StrategyRegistry()
+    registry.register("fake_strategy", _FakeStrategy)
+    return registry
+
+
+@pytest.fixture
+def indicator_script_registry():
+    # Deliberately empty and REAL (not a Mock): IndicatorScriptRunner.rebuild()
+    # then hits its own KeyError/on_error path for the unregistered
+    # "ema_ribbon" key, exactly as it would for any stale key — no need to
+    # register the real script just to prove the chart-data path is safe.
+    return IndicatorScriptRegistry()
+
+
+@pytest.fixture
+def mock_thread_mgr():
+    return Mock()
+
+
+@pytest.fixture
+def mock_dispatcher():
+    return Mock()
+
+
+@pytest.fixture
+def mock_config():
+    config = Mock()
+    # Empty by default: BOT-058's fallback path (no DEFAULT_SYMBOLS/
+    # DEFAULT_INTERVAL configured) — individual tests override
+    # get_all.return_value to exercise the config-driven path instead.
+    config.get_all.return_value = {}
+    # BOT-066: dev.mode on for the whole suite, so any exception a
+    # @safe_ui_action-decorated slot swallows re-raises instead of passing
+    # a test that should have failed — every other key still falls back to
+    # None, matching this fixture's previous blanket behavior.
+    config.get.side_effect = lambda key, default=None: (
+        True if key == DEV_MODE_CONFIG_KEY else default
+    )
+    return config
+
+
+@pytest.fixture
+def mock_container(
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    strategy_registry,
+    indicator_script_registry,
+):
+    container = Mock()
+
+    def resolve_mock(interface):
+        from sagittarius_engine.interfaces.i_config import IConfig
+        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IDispatcher:
+            return mock_dispatcher
+        if interface == IConfig:
+            return mock_config
+        if interface == StrategyRegistry:
+            return strategy_registry
+        if interface == IndicatorScriptRegistry:
+            return indicator_script_registry
+        return Mock()
+
+    container.resolve.side_effect = resolve_mock
+    return container
+
+
+@pytest.fixture
+def presenter(qapp, mock_container, request):
+    view = BackTestView()
+    view.resize(1400, 800)
+    view.show()
+    qapp.processEvents()
+    request.addfinalizer(view.deleteLater)
+    return BackTestPresenter(view, mock_container)
+
+
+@pytest.fixture
+def view_model(presenter):
+    return presenter._view_model
+
+
+# ---------------------------------------------------------------------------
+# Strategy options
+# ---------------------------------------------------------------------------
+
+
+def test_strategy_options_loaded_from_registry_on_init(view_model):
+    assert view_model.strategyOptions == [
+        {
+            "key": "fake_strategy",
+            "name": "Fake Strategy",
+            "category": "",
+            "description": "",
+        }
+    ]
+    assert view_model.selectedStrategyKey == "fake_strategy"
+
+
+# ---------------------------------------------------------------------------
+# Config-driven default symbol/interval (BOT-058)
+# ---------------------------------------------------------------------------
+
+
+def test_reads_default_symbol_and_interval_from_config(
+    qapp, mock_container, mock_config, request
+):
+    mock_config.get_all.return_value = {
+        "DEFAULT_SYMBOLS": ["BTCUSDT"],
+        "DEFAULT_INTERVAL": "5m",
+    }
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._symbol == "BTCUSDT"
+    assert presenter._view_model.selectedTimeframe == "5m"
+    assert view.chart_cards[0].symbol == "BTCUSDT"
+
+
+def test_empty_default_symbols_falls_back_to_a_default_symbol(
+    qapp, mock_container, mock_config, request
+):
+    mock_config.get_all.return_value = {"DEFAULT_SYMBOLS": [], "DEFAULT_INTERVAL": ""}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._symbol == _FALLBACK_SYMBOL
+
+
+def test_missing_config_keys_fall_back_safely(
+    qapp, mock_container, mock_config, request
+):
+    """A fresh install (Settings never opened) must not crash the screen."""
+    mock_config.get_all.return_value = {}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._symbol == _FALLBACK_SYMBOL
+    assert presenter._view_model.selectedTimeframe == "1m"
+
+
+def test_invalid_default_interval_keeps_the_view_models_own_default(
+    qapp, mock_container, mock_config, request
+):
+    """A hand-edited user_config.json with a typo'd interval must not crash
+    or silently apply a value the toolbar doesn't offer."""
+    mock_config.get_all.return_value = {"DEFAULT_INTERVAL": "999x"}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    presenter = BackTestPresenter(view, mock_container)
+
+    assert presenter._view_model.selectedTimeframe == "1m"
+
+
+def test_run_backtest_and_chart_fetch_use_the_config_driven_symbol(
+    qapp, mock_container, mock_config, mock_dispatcher, request
+):
+    mock_config.get_all.return_value = {"DEFAULT_SYMBOLS": ["BTCUSDT"]}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+    presenter = BackTestPresenter(view, mock_container)
+    view_model = presenter._view_model
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    config = _lock_and_get_config(presenter, view_model)
+    presenter._run_backtest(config)
+
+    assert mock_dispatcher.dispatch.call_args_list, "dispatch was never called"
+    for call in mock_dispatcher.dispatch.call_args_list:
+        _handler_class, command = call[0]
+        assert command.symbol == "BTCUSDT"
+
+
+# ---------------------------------------------------------------------------
+# Validation / dispatch gating
+# ---------------------------------------------------------------------------
+
+
+def test_run_backtest_submits_background_task_and_locks_fsm(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestRun()
+
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    mock_thread_mgr.submit.assert_called_once()
+    call_args = mock_thread_mgr.submit.call_args[0]
+    assert call_args[0] == presenter._run_backtest
+    config = call_args[1]
+    assert isinstance(config, BacktestRunConfig)
+    assert config.strategy_key == "fake_strategy"
+    assert config.timeframe == TimeFrame("1m")
+    assert config.initial_balance == 10000.0
+
+
+def test_dev_trace_logs_when_dev_mode_is_enabled(
+    presenter, view_model, mock_thread_mgr, caplog
+):
+    with caplog.at_level(logging.INFO, logger="App.BackTestPresenter"):
+        view_model.requestRun()
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("BACKTEST_TRACE action=run_requested" in message for message in messages)
+    assert any(
+        "BACKTEST_TRACE action=run_config_built" in message for message in messages
+    )
+    assert any(
+        "BACKTEST_TRACE action=run_worker_submitted" in message for message in messages
+    )
+
+
+def test_invalid_capital_is_rejected_without_submitting(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.initialCapitalText = "not-a-number"
+
+    view_model.requestRun()
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert view_model.resultIsError is True
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+
+
+def test_non_positive_capital_is_rejected(presenter, view_model, mock_thread_mgr):
+    view_model.initialCapitalText = "0"
+
+    view_model.requestRun()
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert view_model.resultIsError is True
+
+
+def test_custom_range_with_invalid_start_is_rejected(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.timeRangePreset = "custom"
+    view_model.customStartText = "not-a-date"
+
+    view_model.requestRun()
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert view_model.resultIsError is True
+
+
+def test_custom_range_start_after_end_is_rejected(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.timeRangePreset = "custom"
+    view_model.customStartText = "2026-06-01 00:00"
+    view_model.customEndText = "2026-01-01 00:00"
+
+    view_model.requestRun()
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert view_model.resultIsError is True
+
+
+def test_run_backtest_ignored_while_already_running(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestRun()
+    mock_thread_mgr.reset_mock()
+
+    view_model.requestRun()
+
+    mock_thread_mgr.submit.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Background outcomes (calling _run_backtest directly, as the pool would)
+# ---------------------------------------------------------------------------
+
+
+def _lock_and_get_config(presenter, view_model) -> BacktestRunConfig:
+    view_model.requestRun()
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    return presenter._build_run_config() or BacktestRunConfig(
+        strategy_key="fake_strategy",
+        timeframe=TimeFrame("1m"),
+        initial_balance=10000.0,
+        start_time=None,
+        end_time=None,
+    )
+
+
+def test_successful_run_with_trades_updates_view_model_and_unlocks(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+
+    presenter._run_backtest(config)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert view_model.resultIsError is False
+    assert "ETHUSDT" in view_model.resultText
+    assert "Closed trades: 1" in view_model.resultText
+    assert len(view_model.primaryStatCards) == 4
+    assert len(view_model.extendedStatCards) == 9  # BOT-079: +Total Fees Paid
+    assert view_model.resultWarningText == ""  # no fee/frequency flags on this result
+    assert len(view_model.limitations) > 0  # BOT-081
+
+
+def test_successful_run_with_a_fee_dominant_result_sets_the_warning_text(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-079 follow-up: the warning is a separate line
+    (`resultWarningText`), not folded into the Net PnL badge — verifies the
+    Presenter actually wires `build_result_warning_text()` through, not just
+    that `performance_metrics_view.py` can compute it in isolation."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    fee_dominant_metrics = replace(
+        result.metrics, has_high_fee_ratio=True, avg_bars_per_trade=5.0
+    )
+    result = replace(result, metrics=fee_dominant_metrics)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert view_model.resultWarningText != ""
+    assert "Phí giao dịch" in view_model.resultWarningText
+
+
+def test_successful_run_with_a_diverging_out_of_sample_result_sets_the_warning_text(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-080: same end-to-end wiring check as the fee-dominant test above,
+    for the in-sample/out-of-sample overfitting warning."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    result = replace(
+        result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=replace(
+                result, metrics=replace(result.metrics, net_profit_percent=50.0)
+            ),
+            out_of_sample=replace(
+                result, metrics=replace(result.metrics, net_profit_percent=-20.0)
+            ),
+            in_sample_ratio=0.7,
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert view_model.resultWarningText != ""
+    assert "overfit" in view_model.resultWarningText
+    titles = {card["title"] for card in view_model.extendedStatCards}
+    assert "In-Sample Net Profit" in titles
+    assert "Out-of-Sample Net Profit" in titles
+
+
+def test_successful_run_populates_limitations_from_the_real_result(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-081: verifies the Presenter wires build_backtest_limitations()
+    through, and that the out-of-sample item is genuinely per-run — this
+    result has no out_of_sample (like `_make_result()`'s default), so the
+    "no out-of-sample validation" note must appear even though BOT-080
+    shipped."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    joined = " ".join(view_model.limitations)
+    assert "Stop Loss" in joined
+    assert "out-of-sample" in joined  # this specific run has no split
+
+
+def test_successful_run_omits_the_out_of_sample_note_when_a_split_exists(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    result = replace(
+        result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=result, out_of_sample=result, in_sample_ratio=0.7
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert not any("out-of-sample" in note for note in view_model.limitations)
+
+
+def test_no_historical_data_clears_limitations(presenter, view_model, mock_dispatcher):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_backtest(config)
+
+    assert view_model.limitations == []
+
+
+def test_qml_limitations_button_opens_without_crashing(
+    presenter, view_model, qml_item, qapp, mock_dispatcher
+):
+    """BOT-081: the info icon must be a real `Button` (Python-test-clickable,
+    per BOT-057/BOT-083's convention), not a Rectangle+MouseArea."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.top_widget.rootObject()
+
+    qml_item(root, "btnBacktestLimitations").clicked.emit()
+    qapp.processEvents()
+
+
+def test_dispatches_run_static_backtest_command_with_the_built_config(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+
+    presenter._run_backtest(config)
+
+    # First call is the backtest itself — the chart's own klines fetch
+    # (GetHistoricalKlinesQuery) happens after, tested separately below.
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert handler_class is RunStaticBacktestCommand
+    assert command.symbol == "ETHUSDT"
+    assert command.strategy_key == "fake_strategy"
+    assert command.interval == TimeFrame("1m")
+    assert command.initial_balance == 10000.0
+
+
+def test_no_historical_data_reports_empty_message_and_unlocks(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_backtest(config)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert view_model.resultIsError is False
+    assert "Không có dữ liệu" in view_model.resultText
+    # BOT-059: "no data at all" is exactly the case "Đồng bộ ngay" exists for.
+    assert view_model.needsDataSync is True
+    assert presenter._last_no_data_config is config
+
+
+def test_zero_trades_reports_empty_message_with_the_metrics(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=False)
+    )
+
+    presenter._run_backtest(config)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert view_model.resultIsError is False
+    assert "không có giao dịch nào" in view_model.resultText
+    assert "Closed trades: 0" in view_model.resultText
+    # BOT-055: 0 trades still populates the 4 cards (all reading 0), not an
+    # empty panel — only "no historical data at all" clears it.
+    assert len(view_model.primaryStatCards) == 4
+    # BOT-059: 0 trades is a real result, not "no data" — must not offer sync.
+    assert view_model.needsDataSync is False
+
+
+def test_dispatch_exception_reports_error_and_unlocks(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
+
+    presenter._run_backtest(config)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert view_model.resultIsError is True
+    assert "boom" in view_model.resultText
+
+
+# ---------------------------------------------------------------------------
+# "Đồng bộ ngay" (BOT-059)
+# ---------------------------------------------------------------------------
+
+
+def _run_to_no_data(presenter, view_model, mock_dispatcher) -> BacktestRunConfig:
+    """Drives the presenter into the "no historical data, needsDataSync=True"
+    state every sync test starts from."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = None
+    presenter._run_backtest(config)
+    mock_dispatcher.dispatch.reset_mock()
+    return config
+
+
+def test_request_sync_ignored_without_a_cached_no_data_config(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestSync()
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+
+
+def test_request_sync_transitions_to_syncing_and_submits_background_task(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    mock_thread_mgr.reset_mock()
+
+    view_model.requestSync()
+
+    assert presenter.fsm.current_state == BacktestUiState.SYNCING
+    mock_thread_mgr.submit.assert_called_once()
+    call_args = mock_thread_mgr.submit.call_args[0]
+    assert call_args[0] == presenter._run_sync
+    assert call_args[1] is config
+
+
+def test_request_sync_ignored_while_a_backtest_is_already_running(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestRun()  # IDLE -> RUNNING again
+    mock_thread_mgr.reset_mock()
+
+    view_model.requestSync()
+
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_run_sync_dispatches_sync_market_data_command_for_the_no_data_config(
+    presenter, view_model, mock_dispatcher
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_dispatcher.dispatch.return_value = None  # sync itself has no return value
+
+    presenter._run_sync(config)
+
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert handler_class is SyncMarketDataCommand
+    assert command.symbols == [presenter._symbol]
+    assert command.interval == config.timeframe
+
+
+def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_thread_mgr.reset_mock()
+    # _run_sync only dispatches SyncMarketDataCommand — the resubmitted
+    # RunStaticBacktestCommand is never actually dispatched in this test
+    # since mock_thread_mgr.submit is a Mock, not a real thread pool.
+    mock_dispatcher.dispatch.side_effect = None
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_sync(config)
+
+    assert view_model.needsDataSync is False
+    assert presenter._last_no_data_config is None
+    # Auto-resubmitted straight into RUNNING, no click needed.
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    mock_thread_mgr.submit.assert_called_once()
+    call_args = mock_thread_mgr.submit.call_args[0]
+    assert call_args[0] == presenter._run_backtest
+
+
+def test_sync_success_resubmits_with_the_toolbars_current_fields(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    """The user may edit the toolbar while the sync is in flight — the
+    resubmitted run must use those CURRENT fields, not the stale cached
+    config that triggered the sync."""
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    view_model.initialCapitalText = "500"
+    mock_thread_mgr.reset_mock()
+    # _run_sync only dispatches SyncMarketDataCommand — the resubmitted
+    # RunStaticBacktestCommand is never actually dispatched in this test
+    # since mock_thread_mgr.submit is a Mock, not a real thread pool.
+    mock_dispatcher.dispatch.side_effect = None
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_sync(config)
+
+    resubmitted_config = mock_thread_mgr.submit.call_args[0][1]
+    assert resubmitted_config.initial_balance == 500.0
+
+
+def test_sync_failure_keeps_the_flag_and_returns_to_idle(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_thread_mgr.reset_mock()
+    mock_dispatcher.dispatch.side_effect = RuntimeError("sync boom")
+
+    presenter._run_sync(config)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert view_model.needsDataSync is True
+    assert presenter._last_no_data_config is config
+    assert view_model.resultIsError is True
+    assert "sync boom" in view_model.resultText
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_qml_sync_button_only_visible_after_no_data_and_click_requests_sync(
+    presenter, view_model, mock_dispatcher, qml_item, qapp, mock_thread_mgr
+):
+    qapp.processEvents()
+    root = presenter.view.top_widget.rootObject()
+    assert qml_item(root, "btnRequestSync").property("visible") is False
+
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    qapp.processEvents()
+    mock_thread_mgr.reset_mock()
+
+    assert qml_item(root, "btnRequestSync").property("visible") is True
+    qml_item(root, "btnRequestSync").clicked.emit()
+    qapp.processEvents()
+
+    mock_thread_mgr.submit.assert_called_once()
+    assert mock_thread_mgr.submit.call_args[0][0] == presenter._run_sync
+
+
+# ---------------------------------------------------------------------------
+# Stat cards (BOT-055)
+# ---------------------------------------------------------------------------
+
+
+def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
+    presenter, view_model, qml_item, qapp, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+
+    presenter._run_backtest(config)
+    qapp.processEvents()
+
+    root = presenter.view.top_widget.rootObject()
+    card = qml_item(root, "cardMetric_0")
+    assert card is not None
+    assert card.property("value") != ""
+
+
+# ---------------------------------------------------------------------------
+# QML rendering
+# ---------------------------------------------------------------------------
+
+
+def test_qml_documents_load_without_errors(presenter, qapp):
+    qapp.processEvents()
+    assert presenter.view.top_widget.errors() == []
+    assert presenter.view.bottom_widget.errors() == []
+    assert presenter.view.overlay_host.quick_widget.errors() == []
+    assert presenter.view.top_widget.rootObject() is not None
+    assert presenter.view.bottom_widget.rootObject() is not None
+    assert presenter.view.overlay_host.quick_widget.rootObject() is not None
+
+
+def test_qml_run_button_click_requests_a_run(
+    presenter, view_model, qml_item, qapp, mock_thread_mgr
+):
+    qapp.processEvents()
+    root = presenter.view.top_widget.rootObject()
+
+    qml_item(root, "btnRunBacktest").clicked.emit()
+    qapp.processEvents()
+
+    mock_thread_mgr.submit.assert_called_once()
+
+
+def test_bot_params_button_is_enabled(presenter, qml_item, qapp):
+    """BOT-047: unlike BOT-022's placeholder, the dialog now renders a real,
+    strategy-driven form, so the button no longer needs to stay locked."""
+    qapp.processEvents()
+    root = presenter.view.top_widget.rootObject()
+
+    assert qml_item(root, "btnBacktestBotParams").property("enabled") is True
+
+
+def test_bot_params_schema_is_empty_for_a_strategy_with_no_declared_params(
+    view_model,
+):
+    """`fake_strategy` (the shared fixture's registered strategy) declares
+    nothing — the modal must show "no params" rather than crash on an empty
+    schema."""
+    assert view_model.botParamsSchema == []
+
+
+def test_bot_params_schema_reflects_a_strategy_with_declared_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+
+    schema = view_model.botParamsSchema
+    assert len(schema) == 1
+    fields = {f["name"]: f for f in schema[0]["fields"]}
+    assert fields["period"]["default"] == 20
+    assert fields["period"]["value"] == 20
+    assert fields["threshold"]["default"] == 1.5
+
+
+def test_selecting_a_different_strategy_rebuilds_the_schema(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("fake_strategy", _FakeStrategy)
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    assert view_model.selectedStrategyKey == "fake_strategy"
+    assert view_model.botParamsSchema == []
+
+    view_model.selectedStrategyKey = "rich_strategy"
+
+    assert len(view_model.botParamsSchema) == 1
+
+
+def test_valid_bot_params_save_updates_params_clears_error_and_reruns(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    saved_signal_calls = []
+    view_model.botParamsSaved.connect(lambda: saved_signal_calls.append(1))
+
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+
+    assert presenter._strategy_params == {"period": 50, "threshold": 2.5}
+    assert view_model.botParamsError == ""
+    assert saved_signal_calls == [1]
+    # Values shown by the (now-refreshed) schema reflect what was just saved.
+    fields = {f["name"]: f for f in view_model.botParamsSchema[0]["fields"]}
+    assert fields["period"]["value"] == 50
+    mock_thread_mgr.submit.assert_called_once()
+    config = mock_thread_mgr.submit.call_args[0][1]
+    assert config.strategy_params == {"period": 50, "threshold": 2.5}
+
+
+def test_invalid_bot_params_save_sets_error_and_does_not_rerun(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    saved_signal_calls = []
+    view_model.botParamsSaved.connect(lambda: saved_signal_calls.append(1))
+
+    # 500 is above period's declared maxval of 200.
+    view_model.requestBotParamsSave({"period": "500", "threshold": "2.5"})
+
+    assert presenter._strategy_params is None
+    assert view_model.botParamsError != ""
+    assert saved_signal_calls == []
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_unparseable_bot_params_value_sets_error_and_does_not_rerun(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+
+    view_model.requestBotParamsSave({"period": "not-a-number"})
+
+    assert view_model.botParamsError != ""
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_changing_strategy_after_a_save_discards_the_old_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    registry = StrategyRegistry()
+    registry.register("fake_strategy", _FakeStrategy)
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    view_model.selectedStrategyKey = "rich_strategy"
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+    assert presenter._strategy_params is not None
+
+    view_model.selectedStrategyKey = "fake_strategy"
+
+    assert presenter._strategy_params is None
+    assert view_model.botParamsError == ""
+
+
+def test_run_backtest_command_carries_the_saved_strategy_params(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """End-to-end: a saved param actually reaches the dispatched
+    RunStaticBacktestCommand, not just BacktestRunConfig."""
+    registry = StrategyRegistry()
+    registry.register("rich_strategy", _RichParamsStrategy)
+    presenter = _build_presenter_with_registry(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, registry, request
+    )
+    view_model = presenter._view_model
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=False)
+    )
+    view_model.requestBotParamsSave({"period": "50", "threshold": "2.5"})
+    config = mock_thread_mgr.submit.call_args[0][1]
+
+    presenter._run_backtest(config)
+
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert handler_class is RunStaticBacktestCommand
+    assert command.strategy_params == {"period": 50, "threshold": 2.5}
+
+
+# ---------------------------------------------------------------------------
+# Chart canvas (BOT-056)
+# ---------------------------------------------------------------------------
+
+
+def _make_klines(count: int = 3) -> list[MarketData]:
+    return [
+        MarketData(
+            symbol="ETHUSDT",
+            interval="1m",
+            open_time=_T0,
+            open_price=100.0 + i,
+            high_price=105.0 + i,
+            low_price=95.0 + i,
+            close_price=102.0 + i,
+            volume=10.0,
+            close_time=_T0,
+            quote_asset_volume=0.0,
+            number_of_trades=1,
+            taker_buy_base_asset_volume=0.0,
+            taker_buy_quote_asset_volume=0.0,
+        )
+        for i in range(count)
+    ]
+
+
+def test_successful_run_fetches_klines_and_renders_the_ohlc_chart(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    assert len(presenter.view._last_klines) == 3
+    assert presenter.view.chart_cards[0]._raw_history
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+
+
+def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_chart_usable(
+    presenter, view_model, mock_dispatcher, qapp
+):
+    """Regression harness for the real Backtest runtime path the user hit:
+    run backtest -> fetch historical klines -> push them through the hybrid
+    screen's live QQuickWidget + native ChartCard composition.
+
+    Existing tests already proved each piece in isolation (use case, query,
+    chart widget, QML parse/load), but this stitches them together in the
+    exact order `_run_backtest()` uses at runtime and asserts the hybrid view
+    stays internally consistent after the render burst."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    klines = _make_klines()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result, klines=klines)
+
+    presenter._run_backtest(config)
+    qapp.processEvents()
+
+    assert presenter.view.top_widget.errors() == []
+    assert presenter.view.bottom_widget.errors() == []
+    assert presenter.view.overlay_host.quick_widget.errors() == []
+
+    assert len(presenter.view._last_klines) == len(klines)
+    assert presenter.view._last_volume
+    assert presenter.view.chart_cards[0]._raw_history
+    timestamps = [candle[0] for candle in presenter.view.chart_cards[0]._raw_history]
+    assert timestamps == sorted(timestamps)
+
+    card = presenter.view.chart_cards[0]
+    x_range, y_range = card.plot_layout.main_plot.vb.viewRange()
+    lows = [candle[3] for candle in card._raw_history]
+    highs = [candle[2] for candle in card._raw_history]
+    assert card.width() > 0
+    assert card.height() > 0
+    assert x_range[1] > x_range[0]
+    assert y_range[1] > y_range[0]
+    assert y_range[0] <= min(lows)
+    assert y_range[1] >= max(highs)
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+
+
+def test_no_klines_leaves_the_chart_unrendered_without_crashing(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+
+    presenter._run_backtest(config)
+
+    assert presenter.view._last_klines == []
+
+
+def test_switching_to_equity_mode_renders_a_line_from_the_equity_curve(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.set_chart_mode(ChartDisplayMode.EQUITY)
+
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == LINE
+
+
+def test_switching_to_both_mode_adds_an_equity_subplot(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.set_chart_mode(ChartDisplayMode.BOTH)
+
+    assert presenter.view._equity_subplot_added is True
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+
+
+def test_switching_away_from_both_mode_removes_the_equity_subplot(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    presenter.view.set_chart_mode(ChartDisplayMode.BOTH)
+
+    presenter.view.set_chart_mode(ChartDisplayMode.OHLC)
+
+    assert presenter.view._equity_subplot_added is False
+
+
+def test_ema_toggle_is_a_no_op_when_the_strategy_declares_no_indicators(
+    presenter, view_model, mock_dispatcher
+):
+    """`_FakeStrategy` (the shared fixture's registered strategy) declares
+    no indicators (BOT-060) — proves the toggle path degrades safely
+    instead of crashing when there is nothing drawn to show/hide."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.chart_controls.sig_ema_toggled.emit(False)  # must not raise
+
+
+def test_active_strategy_lines_are_cleared_before_each_new_run_not_after(
+    presenter, view_model
+):
+    """Regression test (found by running the app, predates BOT-060):
+    clearing the previous run's chart overlays must happen synchronously in
+    _on_run_backtest (main thread, before the background run even starts).
+    Calling it later, after the background thread has already started
+    drawing the new run's lines, would race and could remove lines the new
+    run just added instead of the old run's stale ones."""
+    card = presenter.view.chart_cards[0]
+    card.remove_indicator = Mock()
+    presenter._active_strategy_lines = {"ema_fast", "ema_slow"}
+
+    view_model.requestRun()
+
+    assert card.remove_indicator.call_count == 2
+    card.remove_indicator.assert_any_call("ema_fast")
+    card.remove_indicator.assert_any_call("ema_slow")
+    assert presenter._active_strategy_lines == set()
+
+    presenter.fsm.transition_to(BacktestUiState.IDLE)
+    presenter._active_strategy_lines = {"ema_fast"}
+    view_model.requestRun()
+
+    assert card.remove_indicator.call_count == 3
+    assert presenter._active_strategy_lines == set()
+
+
+def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-060: the chart must draw whatever the BACKTESTED strategy itself
+    declares via build_indicators() — not a fixed, unrelated indicator
+    script (the bug the user reported: Buy/Sell markers not lining up with
+    anything drawn)."""
+    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    view_model.selectedStrategyKey = "ema_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    assert config.strategy_key == "ema_strategy"
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    assert presenter._active_strategy_lines == {"ema_fast", "ema_slow"}
+    added_names = {call.args[0] for call in card.add_overlay_indicator.call_args_list}
+    assert added_names == {"ema_fast", "ema_slow"}
+    updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
+    assert updated_names == {"ema_fast", "ema_slow"}
+
+
+def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
+    presenter, view_model, mock_dispatcher
+):
+    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    view_model.selectedStrategyKey = "ema_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card.set_indicator_visible = Mock()
+
+    presenter.view.chart_controls.sig_ema_toggled.emit(False)
+
+    hidden_names = {call.args[0] for call in card.set_indicator_visible.call_args_list}
+    assert hidden_names == {"ema_fast", "ema_slow"}
+    assert all(
+        call.args[1] is False for call in card.set_indicator_visible.call_args_list
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reference indicator script picker (BOT-064) — independent of the strategy's
+# own lines above; both mechanisms must coexist without name collisions
+# (qualified_line_name's ":" vs. the strategy lines' bare names).
+# ---------------------------------------------------------------------------
+
+
+def _build_presenter_with_script(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("test_script", _TestReferenceScript)
+    strategy_registry = StrategyRegistry()
+    strategy_registry.register("fake_strategy", _FakeStrategy)
+    return _build_presenter_with_registry(
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        strategy_registry,
+        request,
+        script_registry=script_registry,
+    )
+
+
+def _build_presenter_with_overlay_and_subplot_scripts(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("test_script", _TestReferenceScript)
+    script_registry.register("test_subplot", _TestSubplotScript)
+    strategy_registry = StrategyRegistry()
+    strategy_registry.register("fake_strategy", _FakeStrategy)
+    return _build_presenter_with_registry(
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        strategy_registry,
+        request,
+        script_registry=script_registry,
+    )
+
+
+def test_script_model_is_populated_from_registry_and_default_enabled_scripts_are_checked(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+
+    assert presenter._view_model.script_model.enabled_keys == ["test_script"]
+
+
+def test_successful_run_draws_enabled_reference_script_lines_on_the_chart(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    added_names = {call.args[0] for call in card.add_overlay_indicator.call_args_list}
+    assert added_names == {"test_script:R"}
+    updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
+    assert updated_names == {"test_script:R"}
+
+
+def test_disabling_a_script_before_the_next_run_stops_it_from_drawing(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-064's own "no retroactive effect" rule: enabled_keys is
+    snapshotted at 'Chạy Backtest' click time, in `_start_backtest_run` —
+    toggling the checkbox off before the NEXT run must take effect, exactly
+    like the Dev Board checklist (TC-GAP-07)."""
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    view_model.script_model.setEnabled(0, False)
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    card.add_overlay_indicator.assert_not_called()
+
+
+def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-065: same bug BOT-060 already fixed for the strategy's own
+    lines (test_switching_to_equity_mode_disables_and_hides_the_ema_overlay
+    below), reproduced for BOT-064's script-picker lines — left plotted
+    through a switch to Equity-solo mode, an overlay script drags
+    pyqtgraph's auto-range onto price values, squashing the equity curve
+    flat/invisible. Not a rare case: ema_20/50/100/200 are all
+    default_enabled + overlay, so this is the very first thing a fresh
+    Backtest screen hits switching to "Đường Vốn" once. A subplot script
+    (RSI/MACD-shaped) doesn't share that plot, so it must stay visible —
+    covered here too, not just the overlay case."""
+    presenter = _build_presenter_with_overlay_and_subplot_scripts(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card.set_indicator_visible = Mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    card.set_indicator_visible.assert_any_call("test_script:R", False)
+    hidden_names = {call.args[0] for call in card.set_indicator_visible.call_args_list}
+    assert "test_subplot:S" not in hidden_names
+    card.set_indicator_visible.reset_mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.OHLC].click()
+    qapp.processEvents()
+
+    card.set_indicator_visible.assert_any_call("test_script:R", True)
+
+
+def test_mode_buttons_switch_the_chart_mode_end_to_end(
+    presenter, view_model, mock_dispatcher, qapp
+):
+    """Native QPushButton click -> BacktestChartControls signal -> Presenter
+    slot -> View render, with no QML/ViewModel involved."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == LINE
+    assert presenter.view.chart_controls._trade_flags_check.isEnabled() is False
+    assert presenter.view.chart_controls._ema_check.isEnabled() is False
+
+
+def test_switching_to_equity_mode_disables_and_hides_the_ema_overlay(
+    presenter, view_model, mock_dispatcher, qapp
+):
+    """Regression test (found by running the app): the 4 EMA overlay is
+    price-scale, exactly like the Buy/Sell flags already handled — left
+    plotted through a switch to Equity-solo mode, it stays on the same main
+    plot as the equity curve and drags pyqtgraph's auto-range onto price
+    values (tens of thousands), squashing the equity curve flat/invisible."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    presenter._on_ema_toggled = Mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    assert presenter.view.chart_controls._ema_check.isEnabled() is False
+    presenter._on_ema_toggled.assert_called_once_with(False)
+    presenter._on_ema_toggled.reset_mock()
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.OHLC].click()
+    qapp.processEvents()
+
+    assert presenter.view.chart_controls._ema_check.isEnabled() is True
+    # The checkbox was never unchecked (only disabled) — back on a
+    # price-scale mode, visibility is restored to match its own state.
+    presenter._on_ema_toggled.assert_called_once_with(True)
+
+
+def test_trade_flags_toggle_draws_and_clears_markers(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+    presenter._run_backtest(config)
+    card = presenter.view.chart_cards[0]
+
+    presenter.view.set_trade_flags_visible(False)
+    assert card.indicators._marker_layer._items.get("backtest_trades", []) == []
+
+    presenter.view.set_trade_flags_visible(True)
+    assert len(card.indicators._marker_layer._items.get("backtest_trades", [])) == 2
+
+
+# ---------------------------------------------------------------------------
+# Trade Logs table (BOT-057)
+# ---------------------------------------------------------------------------
+
+
+def test_successful_run_populates_the_trade_log_first_page(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=25, win_count=15)
+    )
+
+    presenter._run_backtest(config)
+
+    assert view_model.tradeLogTotalCount == 25
+    assert view_model.tradeLogTotalPages == 2
+    assert len(view_model.tradeLogRows) == 20  # PAGE_SIZE
+
+
+def test_no_historical_data_clears_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_backtest(config)
+
+    assert view_model.tradeLogRows == []
+    assert view_model.tradeLogTotalCount == 0
+
+
+def test_failed_run_clears_the_trade_log(presenter, view_model, mock_dispatcher):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
+
+    presenter._run_backtest(config)
+
+    assert view_model.tradeLogRows == []
+    assert view_model.tradeLogTotalCount == 0
+
+
+def test_changing_the_filter_recomputes_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=10, win_count=3)
+    )
+    presenter._run_backtest(config)
+
+    view_model.tradeLogFilter = "win"
+
+    assert view_model.tradeLogTotalCount == 3
+
+
+def test_changing_the_filter_resets_to_page_1(presenter, view_model, mock_dispatcher):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=25, win_count=25)
+    )
+    presenter._run_backtest(config)
+    view_model.tradeLogCurrentPage = 2
+
+    view_model.tradeLogFilter = "loss"  # narrows to 0 rows -> would strand page 2
+
+    assert view_model.tradeLogCurrentPage == 1
+
+
+def test_changing_the_search_text_recomputes_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=5, win_count=5)
+    )
+    presenter._run_backtest(config)
+
+    view_model.tradeLogSearchText = "#3"
+
+    assert view_model.tradeLogTotalCount == 1
+
+
+def test_changing_the_current_page_recomputes_the_trade_log(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=25, win_count=25)
+    )
+    presenter._run_backtest(config)
+
+    view_model.tradeLogCurrentPage = 2
+
+    assert len(view_model.tradeLogRows) == 5  # 25 - 20 on page 1
+
+
+def test_export_writes_the_currently_filtered_trades(
+    presenter, view_model, mock_dispatcher, tmp_path
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=10, win_count=4)
+    )
+    presenter._run_backtest(config)
+    view_model.tradeLogFilter = "win"
+    export_path = str(tmp_path / "export.csv")
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=(export_path, "CSV Files (*.csv)"),
+    ):
+        view_model.requestTradeLogExport()
+
+    with open(export_path, encoding="utf-8") as f:
+        # header + 4 winning trades.
+        assert len(f.readlines()) == 5
+
+
+def test_export_does_nothing_when_the_dialog_is_cancelled(
+    presenter, view_model, mock_dispatcher, tmp_path
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=3, win_count=3)
+    )
+    presenter._run_backtest(config)
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=("", ""),
+    ):
+        view_model.requestTradeLogExport()  # must not raise
+
+
+def test_export_does_nothing_when_there_are_no_trades_yet(presenter, view_model):
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName"
+    ) as mock_dialog:
+        view_model.requestTradeLogExport()
+
+    mock_dialog.assert_not_called()
+
+
+def test_qml_trade_log_filter_tab_click_updates_the_view_model(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=5, win_count=2)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    qml_item(root, "tabTradeLogFilter_win").clicked.emit()
+    qapp.processEvents()
+
+    assert view_model.tradeLogFilter == "win"
+    assert view_model.tradeLogTotalCount == 2
+
+
+def test_qml_trade_log_export_button_click_requests_export(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=3, win_count=3)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=("", ""),
+    ) as mock_dialog:
+        qml_item(root, "btnTradeLogExport").clicked.emit()
+        qapp.processEvents()
+
+    mock_dialog.assert_called_once()
+
+
+def test_qml_trade_log_search_field_updates_the_view_model(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=5, win_count=5)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    search_field = qml_item(root, "txtTradeLogSearch")
+    search_field.setProperty("text", "#3")
+    search_field.textEdited.emit()
+    qapp.processEvents()
+
+    assert view_model.tradeLogSearchText == "#3"
+    assert view_model.tradeLogTotalCount == 1
+
+
+def test_qml_trade_logs_document_loads_without_errors(presenter, qapp):
+    qapp.processEvents()
+    assert presenter.view.bottom_widget.errors() == []
+
+
+def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
+    presenter, view_model, mock_dispatcher, qml_item, qapp
+):
+    """BOT-045 §2.2: clicking the summary row expands/collapses the entry
+    catalyst / exit execution / metadata block below it."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result_with_trades(trade_count=3, win_count=3)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.bottom_widget.rootObject()
+
+    assert qml_item(root, "detailTradeLog_1").property("visible") is False
+
+    qml_item(root, "rowTradeLog_1").clicked.emit()
+    qapp.processEvents()
+
+    assert qml_item(root, "detailTradeLog_1").property("visible") is True
+
+    qml_item(root, "rowTradeLog_1").clicked.emit()
+    qapp.processEvents()
+
+    assert qml_item(root, "detailTradeLog_1").property("visible") is False
+
+
+def test_selected_currency_default_and_change(view_model):
+    """Test selectedCurrency defaults to USD and emits signal on change."""
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+
+    assert view_model.selectedCurrency == Currency.USD
+    assert view_model.currencyOptions == Currency.list_values()
+
+    emitted = False
+
+    def on_changed():
+        nonlocal emitted
+        emitted = True
+
+    view_model.selectedCurrencyChanged.connect(on_changed)
+    view_model.selectedCurrency = Currency.VND
+
+    assert view_model.selectedCurrency == Currency.VND
+    assert emitted is True

@@ -3,7 +3,7 @@ shape (evenly-spaced 1m closes) never silently drifts between them."""
 
 from datetime import UTC, datetime, timedelta
 
-from Binace_Bot.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 _BASE_TIME = datetime(2023, 1, 1, tzinfo=UTC)
 

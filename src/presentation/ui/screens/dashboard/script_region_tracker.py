@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from Binace_Bot.src.domain.indicator_scripts import PlottedRegion
+from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import PlottedRegion
 
 #: (start_x, end_x, color, opacity) — one rectangle for the chart to draw.
 RegionSpan = tuple[float, float, str, float]
