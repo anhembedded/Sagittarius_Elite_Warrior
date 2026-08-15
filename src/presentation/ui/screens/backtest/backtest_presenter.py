@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -328,9 +327,7 @@ class BackTestPresenter(BasePresenter):
         if not self.config.get(DEV_MODE_CONFIG_KEY, False):
             return
         suffix = " ".join(f"{key}={value!r}" for key, value in fields.items())
-        logger.info(
-            f"{_TRACE_PREFIX} action={action} {suffix}".rstrip()
-        )
+        logger.info(f"{_TRACE_PREFIX} action={action} {suffix}".rstrip())
 
     # ================================================================== #
     # Qt Slots — main thread
@@ -938,7 +935,9 @@ class BackTestPresenter(BasePresenter):
         # already fetched above, entirely independent of the strategy lines
         # just emitted (self._chart_script_keys was snapshotted on the main
         # thread by _start_backtest_run before this background method ran).
-        self._log_dev_trace("chart_scripts_rebuild", script_keys=self._chart_script_keys)
+        self._log_dev_trace(
+            "chart_scripts_rebuild", script_keys=self._chart_script_keys
+        )
         self._chart_script_runner.rebuild(self._chart_script_keys)
         self._chart_script_runner.feed_all(raw_klines)
         self._log_dev_trace("chart_scripts_fed", raw_klines=len(raw_klines))

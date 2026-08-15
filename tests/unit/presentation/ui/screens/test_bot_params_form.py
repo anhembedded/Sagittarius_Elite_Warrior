@@ -5,7 +5,6 @@ grouping and value-coercion logic in isolation before any QML round trip.
 """
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,

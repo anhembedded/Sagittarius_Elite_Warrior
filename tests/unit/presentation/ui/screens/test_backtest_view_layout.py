@@ -20,7 +20,6 @@ visible).
 """
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
@@ -138,16 +137,22 @@ def test_top_panel_height_is_unchanged_when_the_warning_line_appears(
     BackTestTopPanel's fixed-height budget". Confirms BOT-089's dynamic
     sizing didn't silently undo BOT-079's intent."""
     v, vm = view
+    root = v.top_widget.rootObject()
     vm.set_stat_cards(_stat_cards(4), [])
     qtbot.waitUntil(
-        lambda: qml_item(v.top_widget.rootObject(), "cardMetric_0") is not None,
+        lambda: (
+            qml_item(root, "cardMetric_0") is not None
+            and v.top_widget.height() == int(root.property("implicitHeight"))
+        ),
         timeout=2000,
     )
-    qtbot.wait(100)  # let the cards row's own height settle before the baseline read
     height_before = v.top_widget.height()
 
     vm.set_result_warning_text("⚠ Phí giao dịch chiếm phần lớn kết quả.")
-    qtbot.wait(200)  # let any (unexpected) pending layout settle before asserting
+    qtbot.waitUntil(
+        lambda: v.top_widget.height() == int(root.property("implicitHeight")),
+        timeout=2000,
+    )
 
     assert v.top_widget.height() == height_before
 

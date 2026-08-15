@@ -23,7 +23,6 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
@@ -95,12 +94,9 @@ def test_backtest_screen_qml_parses_clean_against_real_theme_and_icons(
     qapp.processEvents()
 
     assert view.top_widget.errors() == []
-    assert view.top_overlay_host.quick_widget.errors() == []
     assert view.bottom_widget.errors() == []
     assert view.overlay_host.quick_widget.errors() == []
     assert view.top_widget.rootObject() is not None
-    assert view.top_overlay_host.quick_widget.rootObject() is not None
-    assert view.top_overlay_host.content_item is not None
     assert view.bottom_widget.rootObject() is not None
     assert view.overlay_host.quick_widget.rootObject() is not None
 
@@ -175,29 +171,23 @@ def test_toolbar_popups_and_menus_open_on_the_real_backtest_screen(
     qapp.processEvents()
 
     toolbar_root = view.top_widget.rootObject()
-    overlay_content = view.top_overlay_host.content_item
     assert toolbar_root is not None
-    assert overlay_content is not None
 
-    capital_input = overlay_content.findChild(object, "txtBacktestCapital")
+    capital_input = toolbar_root.findChild(object, "txtBacktestCapital")
     assert capital_input is not None
     qml_item(toolbar_root, "btnBacktestCapital").clicked.emit()
     qapp.processEvents()
     qapp.processEvents()
-    assert capital_input.property("visible") is False
+    assert capital_input.property("visible") is True
 
-    bot_params_save = overlay_content.findChild(object, "btnBotParamsSave")
+    bot_params_save = toolbar_root.findChild(object, "btnBotParamsSave")
     assert bot_params_save is not None
     qml_item(toolbar_root, "btnBacktestBotParams").clicked.emit()
     qapp.processEvents()
     qapp.processEvents()
-    assert bot_params_save.property("visible") is False
+    assert bot_params_save.property("visible") is True
 
-    qml_item(toolbar_root, "btnBacktestCapital").clicked.emit()
-    qapp.processEvents()
-    qapp.processEvents()
     assert view.top_widget.errors() == []
-    assert view.top_overlay_host.quick_widget.errors() == []
     assert view.bottom_widget.errors() == []
     assert view.overlay_host.quick_widget.errors() == []
 
@@ -232,8 +222,6 @@ def test_backtest_screen_real_container_runtime_run_fetch_render_path_stays_clea
     qapp.processEvents()
 
     assert view.top_widget.errors() == []
-    assert view.top_overlay_host.quick_widget.errors() == []
-    assert view.top_overlay_host.content_item is not None
     assert view.bottom_widget.errors() == []
     assert view.overlay_host.quick_widget.errors() == []
     assert presenter.fsm.current_state == BacktestUiState.IDLE
@@ -249,6 +237,5 @@ def test_backtest_screen_real_container_runtime_run_fetch_render_path_stays_clea
     qapp.processEvents()
 
     assert view.top_widget.errors() == []
-    assert view.top_overlay_host.quick_widget.errors() == []
     assert view.bottom_widget.errors() == []
     assert view.overlay_host.quick_widget.errors() == []

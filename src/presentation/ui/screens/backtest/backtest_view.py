@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QTimer, QUrl
+from PySide6.QtCore import QObject, Qt, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
-
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseView,
     OverlayHost,
@@ -63,7 +62,6 @@ class BackTestView(BaseView):
         self._last_result = None
         self._last_klines: list = []
         self._last_volume: list = []
-        self._render_chart_pending = False
         self._setup_ui()
         # BOT-087: this direct child deliberately stays out of the layout so
         # a future QML Popup can use the Backtest view's full bounds rather
@@ -77,7 +75,6 @@ class BackTestView(BaseView):
 
         self.top_widget = create_quick_widget()
         outer_layout.addWidget(self.top_widget)
-        self.top_overlay_host = OverlayHost(self.top_widget)
 
         main_splitter = QSplitter(Qt.Orientation.Vertical)
         outer_layout.addWidget(main_splitter, 1)
@@ -103,23 +100,20 @@ class BackTestView(BaseView):
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Registers the screen's ViewModel as a QML context property on
-        BOTH quick widgets. Must be called before load_qml() — see the
+        quick widgets. Must be called before load_qml() — see the
         ordering contract in this class's docstring."""
         self._view_model = view_model
         self._set_context_property(self.top_widget, context_name, view_model)
-        self._set_context_property(
-            self.top_overlay_host.quick_widget, context_name, view_model
-        )
         self._set_context_property(self.bottom_widget, context_name, view_model)
+        self._set_context_property(
+            self.overlay_host.quick_widget, context_name, view_model
+        )
 
     def load_qml(self) -> None:
         """Loads this screen's fixed pair of QML documents."""
         self.top_widget.setSource(QUrl.fromLocalFile(str(_QML_DIR / _TOP_PANEL_QML)))
         self.bottom_widget.setSource(
             QUrl.fromLocalFile(str(_QML_DIR / _TRADE_LOGS_QML))
-        )
-        self.top_overlay_host.load_content(
-            QUrl.fromLocalFile(str(_QML_DIR / _TOP_PANEL_QML))
         )
         self._bind_top_panel_height()
         self._bind_trade_log_minimum_height()
@@ -235,12 +229,12 @@ class BackTestView(BaseView):
         self._last_result = result
         self._last_klines = klines
         self._last_volume = volume
-        self._schedule_chart_render()
+        self._render_chart()
 
     def set_chart_mode(self, mode: ChartDisplayMode) -> None:
         self._chart_mode = mode
         if self._last_result is not None:
-            self._schedule_chart_render()
+            self._render_chart()
 
     def set_volume_visible(self, visible: bool) -> None:
         card = self._current_card()
@@ -260,16 +254,6 @@ class BackTestView(BaseView):
 
     def _current_card(self):
         return self.chart_cards[0] if self.chart_cards else None
-
-    def _schedule_chart_render(self) -> None:
-        if self._render_chart_pending:
-            return
-        self._render_chart_pending = True
-        QTimer.singleShot(0, self._flush_chart_render)
-
-    def _flush_chart_render(self) -> None:
-        self._render_chart_pending = False
-        self._render_chart()
 
     def _render_chart(self) -> None:
         card = self._current_card()

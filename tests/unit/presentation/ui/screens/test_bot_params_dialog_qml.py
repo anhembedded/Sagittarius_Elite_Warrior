@@ -14,7 +14,6 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -84,31 +83,23 @@ def _open_bot_params_dialog(presenter, qapp, qml_item):
     btn.clicked.emit()
     qapp.processEvents()
     qapp.processEvents()
-    return presenter.view.top_overlay_host.content_item
+    return root.findChild(object, "btnBotParamsSave")
 
 
-def test_opening_bot_params_dialog_loads_real_overlay_content(
+def test_opening_bot_params_dialog_loads_real_content(
     qapp, qml_item, bot_params_presenter
 ):
-    """BOT-087 moved this popup into OverlayHost; opening the dialog must now
-    load a real overlay document instead of relying on the top widget's own
-    Overlay tree."""
-    overlay_content = _open_bot_params_dialog(bot_params_presenter, qapp, qml_item)
+    save_btn = _open_bot_params_dialog(bot_params_presenter, qapp, qml_item)
 
-    assert overlay_content is not None
-    assert bot_params_presenter.view.top_overlay_host.content_item is not None
-    assert bot_params_presenter.view.top_overlay_host.is_click_through is True
+    assert save_btn is not None
+    assert save_btn.property("visible") is True
 
 
-def test_opening_bot_params_dialog_keeps_strategy_schema_live_in_overlay(
+def test_opening_bot_params_dialog_keeps_strategy_schema_live(
     qapp, qml_item, bot_params_presenter
 ):
-    """The overlay-hosted copy must still parse against the real ViewModel,
-    not a detached QML document with missing context."""
-    overlay_content = _open_bot_params_dialog(bot_params_presenter, qapp, qml_item)
+    save_btn = _open_bot_params_dialog(bot_params_presenter, qapp, qml_item)
 
-    assert overlay_content is not None
+    assert save_btn is not None
     assert bot_params_presenter._view_model.botParamsSchema != []
-    assert (
-        bot_params_presenter.view.top_overlay_host.quick_widget.rootObject() is not None
-    )
+    assert bot_params_presenter.view.top_widget.errors() == []

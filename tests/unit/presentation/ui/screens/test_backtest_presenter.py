@@ -515,8 +515,12 @@ def test_dev_trace_logs_when_dev_mode_is_enabled(
 
     messages = [record.getMessage() for record in caplog.records]
     assert any("BACKTEST_TRACE action=run_requested" in message for message in messages)
-    assert any("BACKTEST_TRACE action=run_config_built" in message for message in messages)
-    assert any("BACKTEST_TRACE action=run_worker_submitted" in message for message in messages)
+    assert any(
+        "BACKTEST_TRACE action=run_config_built" in message for message in messages
+    )
+    assert any(
+        "BACKTEST_TRACE action=run_worker_submitted" in message for message in messages
+    )
 
 
 def test_invalid_capital_is_rejected_without_submitting(
@@ -975,11 +979,11 @@ def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
 def test_qml_documents_load_without_errors(presenter, qapp):
     qapp.processEvents()
     assert presenter.view.top_widget.errors() == []
-    assert presenter.view.top_overlay_host.quick_widget.errors() == []
     assert presenter.view.bottom_widget.errors() == []
+    assert presenter.view.overlay_host.quick_widget.errors() == []
     assert presenter.view.top_widget.rootObject() is not None
-    assert presenter.view.top_overlay_host.quick_widget.rootObject() is not None
     assert presenter.view.bottom_widget.rootObject() is not None
+    assert presenter.view.overlay_host.quick_widget.rootObject() is not None
 
 
 def test_qml_run_button_click_requests_a_run(
@@ -1215,7 +1219,6 @@ def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_ch
     qapp.processEvents()
 
     assert presenter.view.top_widget.errors() == []
-    assert presenter.view.top_overlay_host.quick_widget.errors() == []
     assert presenter.view.bottom_widget.errors() == []
     assert presenter.view.overlay_host.quick_widget.errors() == []
 

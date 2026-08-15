@@ -95,10 +95,16 @@ if ($SanityOnly) {
     $SkipLint = $true
 }
 
-$venvActivateWin = Join-Path $repoRoot ".venv\Scripts\Activate.ps1"
+$venvActivateWin = if (Test-Path (Join-Path $repoRoot ".venv\Scripts\Activate.ps1")) {
+    Join-Path $repoRoot ".venv\Scripts\Activate.ps1"
+} elseif (Test-Path (Join-Path $botRoot ".venv\Scripts\Activate.ps1")) {
+    Join-Path $botRoot ".venv\Scripts\Activate.ps1"
+} else {
+    $null
+}
 $venvActivateLin = Join-Path $botRoot ".venv/bin/activate"
 
-if (Test-Path $venvActivateWin) {
+if ($venvActivateWin) {
     Write-Host "Activating venv (Windows)..." -ForegroundColor DarkGray
     & $venvActivateWin
 } elseif (Test-Path $venvActivateLin) {
@@ -138,9 +144,20 @@ if (-not $SkipLint) {
 
 if (-not $SkipTests) {
     Write-Step "Pytest ($pytestTarget)"
-    Push-Location $repoRoot
+    $testExecutionRoot = $repoRoot
+    if (-not (Test-Path (Join-Path $repoRoot "Sagittarius_Elite_Warrior"))) {
+        if ((Split-Path -Leaf $botRoot) -ne "Sagittarius_Elite_Warrior") {
+            $aliasDir = Join-Path $botRoot ".venv_alias"
+            if (-not (Test-Path $aliasDir)) { New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null }
+            $junctionPath = Join-Path $aliasDir "Sagittarius_Elite_Warrior"
+            if (-not (Test-Path $junctionPath)) { New-Item -ItemType Junction -Path $junctionPath -Target $botRoot -Force | Out-Null }
+            $testExecutionRoot = $aliasDir
+        }
+    }
+
+    Push-Location $testExecutionRoot
     try {
-        $env:PYTHONPATH = $repoRoot
+        $env:PYTHONPATH = $testExecutionRoot
         $env:QT_QPA_PLATFORM = "offscreen"
 
         $pytestArgs = @($pytestTarget, "-v")
