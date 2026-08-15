@@ -313,8 +313,8 @@ Rectangle {
                             anchors.centerIn: parent
                             anchors.leftMargin: 10
                             anchors.rightMargin: 10
-                            Image { source: "image://icons/settings/accent"; sourceSize: Qt.size(13, 13) }
-                            Text { text: "Thông số Bot"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
+                            Image { source: "image://icons/sliders/accent"; sourceSize: Qt.size(13, 13) }
+                            Text { text: "Thông số Chiến lược"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
                         }
                         onClicked: {
                             if (root.hasViewModel) viewModel.requestOpenBotParams(viewModel.selectedStrategyName)

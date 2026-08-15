@@ -10,7 +10,7 @@ ModalDialogCard {
     property string strategyName: ""
     readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 
-    title: "CẤU HÌNH THÔNG SỐ BOT: " + root.strategyName.toUpperCase()
+    title: "THÔNG SỐ CHIẾN LƯỢC: " + root.strategyName.toUpperCase()
     iconSource: "image://icons/sliders/accent"
     preferredWidth: 650
     preferredHeight: Math.min(600, contentColumn.implicitHeight + 170)
