@@ -38,6 +38,7 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from .command import RunStaticBacktestCommand
 
 logger = logging.getLogger("App.RunStaticBacktest")
+_TRACE_PREFIX = "BACKTEST_TRACE"
 
 
 class RunStaticBacktestCommandHandler(
@@ -65,7 +66,20 @@ class RunStaticBacktestCommandHandler(
         self._strategy_registry = strategy_registry
         self._event_bus = event_bus
 
+    def _log_trace(self, action: str, **fields: object) -> None:
+        suffix = " ".join(f"{key}={value!r}" for key, value in fields.items())
+        logger.info(f"{_TRACE_PREFIX} action={action} {suffix}".rstrip())
+
     def execute(self, command: RunStaticBacktestCommand) -> BacktestResult | None:
+        self._log_trace(
+            "handler_execute_start",
+            symbol=command.symbol,
+            timeframe=command.interval.value,
+            strategy=command.strategy_key,
+            start=command.start_time,
+            end=command.end_time,
+            has_params=bool(command.strategy_params),
+        )
         klines = self._repository.get_klines(
             symbol=command.symbol,
             interval=command.interval,
@@ -73,18 +87,28 @@ class RunStaticBacktestCommandHandler(
             end_time=command.end_time,
             limit=command.limit,
         )
+        self._log_trace("handler_klines_loaded", count=len(klines))
         if not klines:
             reason = (
                 f"No historical data found for {command.symbol} "
                 f"({command.interval.value}). Please run sync first."
             )
+            self._log_trace("handler_no_data", reason=reason)
             logger.warning(reason)
             self._event_bus.emit(BacktestFailedEvent(reason=reason))
             return None
 
+        self._log_trace("handler_simulation_start")
+        out_of_sample = self._validate_out_of_sample(klines, command)
         result = replace(
             self._simulate(klines, command),
-            out_of_sample=self._validate_out_of_sample(klines, command),
+            out_of_sample=out_of_sample,
+        )
+        self._log_trace(
+            "handler_complete",
+            trades=len(result.trades),
+            net_profit_percent=result.metrics.net_profit_percent,
+            out_of_sample=out_of_sample is not None,
         )
         logger.info(
             f"Static backtest complete for {command.symbol}: "
@@ -150,7 +174,13 @@ class RunStaticBacktestCommandHandler(
             klines, DEFAULT_IN_SAMPLE_RATIO
         )
         if not in_sample_klines or not out_of_sample_klines:
+            self._log_trace("handler_out_of_sample_skipped", total=len(klines))
             return None
+        self._log_trace(
+            "handler_out_of_sample_split",
+            in_sample=len(in_sample_klines),
+            out_of_sample=len(out_of_sample_klines),
+        )
         return OutOfSampleValidation(
             in_sample=self._simulate(in_sample_klines, command),
             out_of_sample=self._simulate(out_of_sample_klines, command),

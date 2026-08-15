@@ -16,6 +16,7 @@ BackTestViewModel — both are plain state/config holders with no I/O — mockin
 only the genuine external dependencies (IDispatcher, IThreadManager, IConfig).
 """
 
+import logging
 import os
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -504,6 +505,18 @@ def test_run_backtest_submits_background_task_and_locks_fsm(
     assert config.strategy_key == "fake_strategy"
     assert config.timeframe == TimeFrame("1m")
     assert config.initial_balance == 10000.0
+
+
+def test_dev_trace_logs_when_dev_mode_is_enabled(
+    presenter, view_model, mock_thread_mgr, caplog
+):
+    with caplog.at_level(logging.INFO, logger="App.BackTestPresenter"):
+        view_model.requestRun()
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("BACKTEST_TRACE action=run_requested" in message for message in messages)
+    assert any("BACKTEST_TRACE action=run_config_built" in message for message in messages)
+    assert any("BACKTEST_TRACE action=run_worker_submitted" in message for message in messages)
 
 
 def test_invalid_capital_is_rejected_without_submitting(
