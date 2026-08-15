@@ -33,7 +33,7 @@ def test_consecutive_identical_tints_merge_into_one_growing_span():
     tracker.record(1120.0, _GREEN)
 
     assert len(tracker.spans) == 1
-    start, end, color, opacity = tracker.spans[0]
+    start, end, _color, _opacity = tracker.spans[0]
     assert (start, end) == (1000.0, 1180.0)
 
 

@@ -1,10 +1,10 @@
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol, TypeVar
 
 TCommand_contra = TypeVar("TCommand_contra", contravariant=True)
 TResponse_co = TypeVar("TResponse_co", covariant=True)
 
 
-class ICommandHandler(Protocol, Generic[TCommand_contra, TResponse_co]):
+class ICommandHandler[TCommand_contra, TResponse_co](Protocol):
     """
     @brief Pure Application Layer definition for CQRS Command Handlers.
     @details Replaces the engine's ICommand to maintain zero framework dependencies.
@@ -17,7 +17,7 @@ TQuery_contra = TypeVar("TQuery_contra", contravariant=True)
 TQueryResult_co = TypeVar("TQueryResult_co", covariant=True)
 
 
-class IQueryHandler(Protocol, Generic[TQuery_contra, TQueryResult_co]):
+class IQueryHandler[TQuery_contra, TQueryResult_co](Protocol):
     """
     @brief Pure Application Layer definition for CQRS Query Handlers.
     """

@@ -70,7 +70,6 @@ class BulkSyncMarketDataCommandHandler(
         )
 
         completed_count = 0
-        lock = threading.Lock()
 
         def _sync_target(symbol: str, interval: str) -> tuple[str, str, bool, str]:
             """Helper function to execute the sync in a thread."""

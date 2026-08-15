@@ -38,9 +38,11 @@ Một `ResourceScope` ở engine (`sagittarius_engine/`, thuần Python — **kh
 
 ```python
 scope = ResourceScope()
-scope.add(handle, dispose=card.remove_indicator)   # hàm có tên, KHÔNG lambda (theo code-rule)
+scope.add(
+    handle, dispose=card.remove_indicator
+)  # hàm có tên, KHÔNG lambda (theo code-rule)
 ...
-previous_scope.dispose_all()   # LIFO, idempotent, gọi 2 lần không sao
+previous_scope.dispose_all()  # LIFO, idempotent, gọi 2 lần không sao
 ```
 
 Yêu cầu bắt buộc của cơ chế:

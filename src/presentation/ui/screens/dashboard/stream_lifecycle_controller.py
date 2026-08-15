@@ -413,7 +413,7 @@ class StreamLifecycleController:
             self._emit_history_prepended(symbol, mapped_data, volume_data)
             found_more = True
 
-        except Exception as exc:
+        except RuntimeError as exc:
             self._emit_log(f"Exception while loading more history for {symbol}: {exc}")
         finally:
             self._emit_history_prepend_finished(symbol, found_more)

@@ -55,8 +55,8 @@ Item {
         spacing: 4
 
         Text {
-            text: fieldData.label + (fieldData.suffix !== "" ? " (" + fieldData.suffix + ")" : "")
-            color: Theme.textSecondary
+            text: fieldData.label + (fieldData.suffix ? " (" + fieldData.suffix + ")" : "")
+            color: Theme.textSecondary || Theme.muted
             font.pixelSize: 10
         }
 

@@ -48,7 +48,7 @@ ComboBox {
                 spacing: 10
 
                 Text {
-                    text: model.name
+                    text: model.name || ""
                     // Selected or highlighted items are accent colored
                     color: (delegateItem.highlighted || control.currentIndex === index) ? Theme.accent : Theme.textPrimary
                     font.pixelSize: 12
@@ -67,7 +67,7 @@ ComboBox {
                     Text {
                         id: badgeText
                         anchors.centerIn: parent
-                        text: model.category
+                        text: model.category || ""
                         color: Theme.muted
                         font.pixelSize: 9
                     }
@@ -75,7 +75,7 @@ ComboBox {
             }
 
             Text {
-                text: model.description
+                text: model.description || ""
                 color: Theme.muted
                 font.pixelSize: 11
                 Layout.fillWidth: true

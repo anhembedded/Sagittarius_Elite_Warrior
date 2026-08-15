@@ -113,7 +113,8 @@ khác nhau, mỗi cái dùng được độc lập.
 API thật:
 ```python
 if not self._stream_actions.try_start("load_history"):
-    ...; return
+    ...
+    return
 # việc trên main thread (ensure_chart_cards/rebuild_scripts) ở giữa
 self._stream_actions.submit("load_history", self._run_load_history, symbols, ...)
 ```

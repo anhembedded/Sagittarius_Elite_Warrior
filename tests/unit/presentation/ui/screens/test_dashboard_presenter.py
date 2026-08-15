@@ -234,7 +234,10 @@ def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher
     mock_kline.close_price = 40500
     mock_kline.volume = 12.5
 
-    mock_dispatcher.dispatch.return_value = {"BTCUSDT": [mock_kline], "ETHUSDT": [mock_kline]}
+    mock_dispatcher.dispatch.return_value = {
+        "BTCUSDT": [mock_kline],
+        "ETHUSDT": [mock_kline],
+    }
 
     symbols = ["BTCUSDT", "ETHUSDT"]
     presenter._run_load_history(symbols, "1m", 5000, presenter._cancellation_token)

@@ -842,8 +842,10 @@ def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
 def test_qml_documents_load_without_errors(presenter, qapp):
     qapp.processEvents()
     assert presenter.view.top_widget.errors() == []
+    assert presenter.view.top_overlay_host.quick_widget.errors() == []
     assert presenter.view.bottom_widget.errors() == []
     assert presenter.view.top_widget.rootObject() is not None
+    assert presenter.view.top_overlay_host.quick_widget.rootObject() is not None
     assert presenter.view.bottom_widget.rootObject() is not None
 
 

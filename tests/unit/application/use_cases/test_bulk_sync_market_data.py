@@ -17,6 +17,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 
 
+class _NetworkError(Exception):
+    pass
+
+
 @pytest.fixture
 def mock_event_bus():
     return Mock()
@@ -119,8 +123,7 @@ def test_bulk_sync_error_handling(mock_sleep, handler, mock_event_bus, mock_disp
     # Simulate an error on one of the syncs
     def side_effect(cmd_type, cmd):
         if cmd.symbols == ["BTCUSDT"]:
-            raise Exception("Network Error")
-        return None
+            raise _NetworkError("Network Error")
 
     mock_dispatcher.dispatch.side_effect = side_effect
 

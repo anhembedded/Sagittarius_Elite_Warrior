@@ -206,7 +206,6 @@ def test_an_invalid_date_range_blocks_load_history(
     reach GetHistoricalKlinesQuery at all."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    root = view.quick_widget.rootObject()
 
     view._view_model.startDate = "2024-01-02 00:00"
     view._view_model.endDate = "2024-01-01 00:00"

@@ -1,12 +1,14 @@
+from dataclasses import FrozenInstanceError
+
 import pytest
 from pydantic import ValidationError
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import (
-    TimeFrame,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (  # noqa: E501
+from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
     StartLiveStreamResponse,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import (
+    TimeFrame,
 )
 
 
@@ -57,5 +59,5 @@ def test_start_live_stream_response_frozen():
     """Test that StartLiveStreamResponse behaves as a frozen dataclass."""
     response = StartLiveStreamResponse(success=True, message="Started")
 
-    with pytest.raises(Exception):
+    with pytest.raises(FrozenInstanceError):
         response.success = False

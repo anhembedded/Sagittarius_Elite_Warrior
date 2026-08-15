@@ -87,6 +87,8 @@ def test_backtest_screen_qml_parses_clean_against_real_theme_and_icons(
     qapp.processEvents()
 
     assert view.top_widget.errors() == []
+    assert view.top_overlay_host.quick_widget.errors() == []
     assert view.bottom_widget.errors() == []
     assert view.top_widget.rootObject() is not None
+    assert view.top_overlay_host.quick_widget.rootObject() is not None
     assert view.bottom_widget.rootObject() is not None

@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QObject, Qt, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
-from sagittarius_engine.extensions.pyside_mvc import BaseView, create_quick_widget
+from sagittarius_engine.extensions.pyside_mvc import (
+    BaseView,
+    OverlayHost,
+    create_quick_widget,
+)
 
 from .logic.chart_canvas_view import (
     ChartDisplayMode,
@@ -76,6 +80,7 @@ class BackTestView(BaseView):
         self.top_widget = create_quick_widget()
         self.top_widget.setFixedHeight(_TOP_PANEL_HEIGHT)
         outer_layout.addWidget(self.top_widget)
+        self.top_overlay_host = OverlayHost(self.top_widget)
 
         main_splitter = QSplitter(Qt.Orientation.Vertical)
         outer_layout.addWidget(main_splitter, 1)
@@ -98,8 +103,11 @@ class BackTestView(BaseView):
         BOTH quick widgets. Must be called before load_qml() — see the
         ordering contract in this class's docstring."""
         self._view_model = view_model
-        self.top_widget.rootContext().setContextProperty(context_name, view_model)
-        self.bottom_widget.rootContext().setContextProperty(context_name, view_model)
+        self._set_context_property(self.top_widget, context_name, view_model)
+        self._set_context_property(
+            self.top_overlay_host.quick_widget, context_name, view_model
+        )
+        self._set_context_property(self.bottom_widget, context_name, view_model)
 
     def load_qml(self) -> None:
         """Loads this screen's fixed pair of QML documents."""
@@ -107,6 +115,12 @@ class BackTestView(BaseView):
         self.bottom_widget.setSource(
             QUrl.fromLocalFile(str(_QML_DIR / _TRADE_LOGS_QML))
         )
+        self.top_overlay_host.load_content(
+            QUrl.fromLocalFile(str(_QML_DIR / _TOP_PANEL_QML))
+        )
+
+    def _set_context_property(self, widget, name: str, value: QObject) -> None:
+        widget.rootContext().setContextProperty(name, value)
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter and forwards them to

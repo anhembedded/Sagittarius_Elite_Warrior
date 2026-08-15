@@ -21,7 +21,9 @@ kết nối live nữa trừ khi user bật) để quyết định có tạo
 
 `dashboard_presenter.py`, trong `__init__`:
 ```python
-is_autostart_enabled = self.config.get(_AUTOSTART_ENABLED_CONFIG_KEY, _DEFAULT_AUTOSTART_ENABLED, cast=bool)
+is_autostart_enabled = self.config.get(
+    _AUTOSTART_ENABLED_CONFIG_KEY, _DEFAULT_AUTOSTART_ENABLED, cast=bool
+)
 if is_autostart_enabled:
     self._autostart = AutoStartController(...)
     self._autostart.begin()

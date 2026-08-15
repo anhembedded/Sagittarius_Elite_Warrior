@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -19,7 +19,7 @@ def test_signal_generated_event_initialization():
         action=SignalAction.BUY,
         reason="RSI Oversold",
         price=50000.0,
-        time=datetime(2023, 1, 1, 12, 0, 0),
+        time=datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
     event = SignalGeneratedEvent(signal=signal)
 
@@ -28,7 +28,7 @@ def test_signal_generated_event_initialization():
     assert event.signal.action == SignalAction.BUY
     assert event.signal.reason == "RSI Oversold"
     assert event.signal.price == 50000.0
-    assert event.signal.time == datetime(2023, 1, 1, 12, 0, 0)
+    assert event.signal.time == datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def test_signal_generated_event_immutability():
@@ -38,7 +38,7 @@ def test_signal_generated_event_immutability():
         action=SignalAction.BUY,
         reason="RSI Oversold",
         price=50000.0,
-        time=datetime(2023, 1, 1, 12, 0, 0),
+        time=datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
     event = SignalGeneratedEvent(signal=signal1)
 
@@ -47,7 +47,7 @@ def test_signal_generated_event_immutability():
         action=SignalAction.SELL,
         reason="MACD Cross",
         price=3000.0,
-        time=datetime(2023, 1, 2, 12, 0, 0),
+        time=datetime(2023, 1, 2, 12, 0, 0, tzinfo=UTC),
     )
 
     with pytest.raises(FrozenInstanceError):
