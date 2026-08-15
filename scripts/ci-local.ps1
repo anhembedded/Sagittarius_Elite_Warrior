@@ -24,6 +24,12 @@
     Explicit alias for the default behavior: lint + format + the full test suite
     with the --cov-fail-under=80 gate enforced.
 
+.PARAMETER Parallel
+    Run tests in parallel across multiple CPU workers using pytest-xdist (-n auto).
+
+.PARAMETER Workers
+    Specify the exact number of worker processes for parallel testing (e.g. -Workers 4).
+
 .PARAMETER IncludeFlakyUi
     Also run tests/integration/presentation/ui/, which is excluded by default
     (see BOT-038) because running it as one full block intermittently crashes
@@ -33,6 +39,8 @@
 
 .EXAMPLE
     .\scripts\ci-local.ps1
+    .\scripts\ci-local.ps1 -Parallel
+    .\scripts\ci-local.ps1 -UnitOnly -Parallel
     .\scripts\ci-local.ps1 -SkipLint
     .\scripts\ci-local.ps1 -SkipTests
     .\scripts\ci-local.ps1 -SanityOnly
@@ -47,6 +55,8 @@ param(
     [switch]$SanityOnly,
     [switch]$UnitOnly,
     [switch]$Full,
+    [switch]$Parallel,
+    [int]$Workers = 0,
     [switch]$IncludeFlakyUi
 )
 
@@ -172,6 +182,10 @@ if (-not $SkipTests) {
             $pytestArgs += "--cov=Sagittarius_Elite_Warrior/src"
             $pytestArgs += "--cov-report=term-missing"
             if ($enforceCoverageGate) { $pytestArgs += "--cov-fail-under=80" }
+        }
+        if ($Parallel -or $Workers -gt 0) {
+            $workerCount = if ($Workers -gt 0) { "$Workers" } else { "auto" }
+            $pytestArgs += @("-n", $workerCount)
         }
 
         pytest @pytestArgs
