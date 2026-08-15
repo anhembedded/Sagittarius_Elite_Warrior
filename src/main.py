@@ -3,13 +3,27 @@ import sys
 
 from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
+from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
+    InteractiveShell,
+)
+from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
+    execute_stream,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
 from sagittarius_engine import App
+from sagittarius_engine.extensions.dependency_validator import (
+    DependencyValidatorExtension,
+)
+from sagittarius_engine.extensions.health.health_module import HealthExtension
 from sagittarius_engine.extensions.logger.logger_module import LoggerExtension
+from sagittarius_engine.extensions.thread_manager.thread_manager_module import (
+    ThreadManagerExtension,
+)
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.middleware.pydantic_validation_middleware import (
     PydanticValidationMiddleware,
@@ -22,16 +36,13 @@ def create_app(config_manager: ConfigManager) -> App:
     event_bus = MemoryEventBus()
 
     # Register core ports
+    container.singleton(IContainer, container)
     container.singleton(IEventBus, event_bus)
     container.singleton(IConfig, config_manager)
 
     app = App(container, event_bus)
 
     # Load Framework Extensions
-    from sagittarius_engine.extensions.dependency_validator import (
-        DependencyValidatorExtension,
-    )
-
     app.use(
         DependencyValidatorExtension(
             ["PySide6", "pyqtgraph", "qdarktheme", "sqlalchemy"]
@@ -39,11 +50,8 @@ def create_app(config_manager: ConfigManager) -> App:
     )
 
     app.use(LoggerExtension())
-    from sagittarius_engine.extensions.thread_manager.thread_manager_module import (
-        ThreadManagerExtension,
-    )
-
     app.use(ThreadManagerExtension())
+    app.use(HealthExtension())
 
     # Load Domain Module (Registers Repositories & UseCases)
     app.use(BinanceBotModule())
@@ -73,10 +81,6 @@ def _load_configuration() -> ConfigManager:
 
 def _run_interactive_mode(app: App) -> None:
     # Register the Interactive Shell Hosted Service
-    from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
-        InteractiveShell,
-    )
-
     shell = InteractiveShell(app)
     app.context.hosted_services.register(shell)
 
@@ -96,10 +100,6 @@ def _run_headless_mode(app: App, args: argparse.Namespace) -> None:
         execute_sync(app, args)
         app.stop()
     elif args.command == "stream":
-        from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
-            execute_stream,
-        )
-
         execute_stream(app, args)
         app.stop()
 
