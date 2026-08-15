@@ -129,6 +129,9 @@ def trade_log_row_to_qml(row: TradeLogRow) -> dict[str, Any]:
     row's `Repeater` (`BOT-045`), since metadata has no fixed set of keys."""
     pnl_color = BULL_COLOR if row.pnl >= 0 else BEAR_COLOR
     position_value = row.quantity * row.entry_price
+    price_diff = row.exit_price - row.entry_price
+    price_diff_color = BULL_COLOR if price_diff >= 0 else BEAR_COLOR
+    price_diff_icon = "▲" if price_diff >= 0 else "▼"
     return {
         "index": str(row.index),
         "positionLabel": f"#{row.index} {_POSITION_LABEL}",
@@ -136,6 +139,9 @@ def trade_log_row_to_qml(row: TradeLogRow) -> dict[str, Any]:
         "exitTimeText": _format_datetime(row.exit_time),
         "entryPriceText": f"{row.entry_price:,.2f} USD",
         "exitPriceText": f"{row.exit_price:,.2f} USD",
+        "priceDiffText": _signed_pnl(price_diff, " USD"),
+        "priceDiffColor": price_diff_color,
+        "priceDiffIcon": price_diff_icon,
         "positionSizeText": _format_compact_usd(position_value),
         "quantityText": f"{row.quantity:,.4g}",
         "pnlText": _signed_pnl(row.pnl, " USD"),

@@ -301,13 +301,32 @@ Rectangle {
                                     Layout.preferredWidth: root.col3Width
                                     Layout.fillWidth: true
                                     spacing: 2
-                                    Text {
-                                        text: modelData.entryPriceText + "  ➔  " + modelData.exitPriceText
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 11
-                                        font.bold: true
-                                        elide: Text.ElideRight
+                                    RowLayout {
+                                        spacing: 6
                                         Layout.fillWidth: true
+                                        Text {
+                                            text: modelData.entryPriceText + "  ➔  " + modelData.exitPriceText
+                                            color: Theme.textPrimary
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                            elide: Text.ElideRight
+                                        }
+                                        RowLayout {
+                                            spacing: 3
+                                            visible: !!modelData.priceDiffText
+                                            Text {
+                                                text: modelData.priceDiffIcon || ""
+                                                color: modelData.priceDiffColor || Theme.muted
+                                                font.pixelSize: 8
+                                                font.bold: true
+                                            }
+                                            Text {
+                                                text: modelData.priceDiffText || ""
+                                                color: modelData.priceDiffColor || Theme.muted
+                                                font.pixelSize: 10
+                                                font.bold: true
+                                            }
+                                        }
                                     }
                                     Text {
                                         text: "Thoát: " + modelData.exitTimeText

@@ -79,6 +79,22 @@ def test_trade_log_row_to_qml_signs_pnl_and_return_text():
     assert trade_log_row_to_qml(loss_row)["returnText"] == "-10.00%"
 
 
+def test_trade_log_row_to_qml_price_diff_and_icon():
+    win_row = TradeLogRow(1, _T0, 100.0, _T1, 115.5, 1.0, 15.5, 15.5)
+    loss_row = TradeLogRow(2, _T0, 100.0, _T1, 85.25, 1.0, -14.75, -14.75)
+
+    win_qml = trade_log_row_to_qml(win_row)
+    loss_qml = trade_log_row_to_qml(loss_row)
+
+    assert win_qml["priceDiffText"] == "+15.50 USD"
+    assert win_qml["priceDiffColor"] == BULL_COLOR
+    assert win_qml["priceDiffIcon"] == "▲"
+
+    assert loss_qml["priceDiffText"] == "-14.75 USD"
+    assert loss_qml["priceDiffColor"] == BEAR_COLOR
+    assert loss_qml["priceDiffIcon"] == "▼"
+
+
 def test_trade_log_row_to_qml_uses_compact_k_notation_above_1000():
     big_row = TradeLogRow(
         1, _T0, 2000.0, _T1, 2010.0, 1.0, 10.0, 0.5
