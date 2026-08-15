@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
@@ -39,10 +40,21 @@ class ScanAllDatabasesQueryHandler(
         )
 
         results: list[DatabaseStatusDTO] = []
+        tasks = [
+            (symbol, interval)
+            for symbol in query.symbols
+            for interval in query.intervals
+        ]
 
-        for symbol in query.symbols:
-            for interval in query.intervals:
-                dto = self._scan_single(symbol, interval)
+        if not tasks:
+            return results
+
+        def _scan(args: tuple[str, str]) -> DatabaseStatusDTO | None:
+            return self._scan_single(*args)
+
+        max_workers = min(len(tasks), 10)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for dto in executor.map(_scan, tasks):
                 if dto is not None:
                     results.append(dto)
 
