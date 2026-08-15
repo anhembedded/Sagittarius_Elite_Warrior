@@ -2,6 +2,7 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
 )
+from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACDValue
 
 # Colours are plain hex strings — the domain layer never imports a UI toolkit,
 # so there is no QColor here (see the guard test in
@@ -144,8 +145,7 @@ class DevIndicatorScript(BaseIndicatorScript):
         high_price: float,
         fast: float | None,
         momentum: float | None,
-        trend: object
-        | None,  # Using object as MACDValue is not imported, or just ignore type checking
+        trend: MACDValue | None,
     ) -> None:
         # --- 8. Indicator crossing indicator, and --- 12. markers. Nothing is
         # marked automatically; a marker exists only because it was asked for.

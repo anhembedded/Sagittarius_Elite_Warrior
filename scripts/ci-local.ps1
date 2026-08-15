@@ -170,7 +170,6 @@ if (-not $SkipLint) {
 # Tests
 # ---------------------------------------------------------------------------
 if (-not $SkipTests) {
-    $testExecutionRoot = $botRoot
     $aliasDir = Join-Path $botRoot ".venv_alias"
     if (-not (Test-Path $aliasDir)) { New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null }
 
@@ -178,6 +177,7 @@ if (-not $SkipTests) {
     if (-not (Test-Path $packageAlias)) {
         New-Item -ItemType Junction -Path $packageAlias -Target $botRoot -Force | Out-Null
     }
+    $testExecutionRoot = $aliasDir
 
     $env:PYTHONPATH = "$aliasDir;$botRoot"
     $env:QT_QPA_PLATFORM = "offscreen"
