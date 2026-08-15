@@ -4,9 +4,10 @@
 @details
 Responsible for:
 - Booting the Sagittarius Engine (config + create_app).
-- Initialising QApplication (font, theme, exception handler).
+- Initialising QApplication (font, theme, exception handler, signal handler).
+- Initialising UIWatchdog for main-thread freeze detection.
 - Creating and showing MainWindow.
-- Shutting down the Engine on exit.
+- Shutting down the Engine and background diagnostics on exit.
 
 This module owns the `main()` function so that `MainWindow` is a pure
 assembly component with no Engine-boot side effects.
@@ -19,6 +20,7 @@ import sys
 import traceback
 
 import qdarktheme
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
@@ -32,7 +34,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+from sagittarius_engine.extensions.pyside_mvc import (
+    UIWatchdog,
+    configure_app_qml,
+    setup_qt_signal_handling,
+)
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_config import IConfig
 
@@ -67,14 +73,25 @@ def main() -> None:
     app_engine.boot()
 
     # ------------------------------------------------------------------ #
-    # 2. Boot PySide6 QApplication
+    # 2. Boot PySide6 QApplication & Diagnostics
     # ------------------------------------------------------------------ #
+    os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.fonts.warning=false;qt.qpa.window=false")
     app = QApplication(sys.argv)
 
     _install_exception_handler(app_engine)
+    sig_timer = setup_qt_signal_handling(app)
     _apply_font(app, config_manager)
     _apply_theme(app, config_manager)
     configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
+
+    # Start UI Watchdog to monitor main-thread responsiveness
+    engine_logger = (
+        app_engine.context.logger
+        if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger")
+        else None
+    )
+    watchdog = UIWatchdog(logger=engine_logger)
+    watchdog.start()
 
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow
@@ -82,11 +99,16 @@ def main() -> None:
     window = MainWindow(app_engine)
     window.show()
 
+    # Schedule readiness confirmation on the first event loop tick
+    QTimer.singleShot(0, lambda: _log_ui_ready(app_engine))
+
     exit_code = app.exec()
 
     # ------------------------------------------------------------------ #
-    # 4. Shutdown Engine
+    # 4. Shutdown Watchdog & Engine
     # ------------------------------------------------------------------ #
+    watchdog.stop()
+    sig_timer.stop()
     app_engine.stop()
     sys.exit(exit_code)
 
@@ -94,6 +116,15 @@ def main() -> None:
 # ------------------------------------------------------------------ #
 # Private helpers — each owns exactly one bootstrap concern
 # ------------------------------------------------------------------ #
+
+
+def _log_ui_ready(app_engine) -> None:
+    """Log readiness confirmation when the main window is rendered and event loop is active."""
+    ready_msg = "UI Layer Ready — MainWindow rendered and Qt event loop active."
+    if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger"):
+        app_engine.context.logger.info(ready_msg)
+    else:
+        print(ready_msg)
 
 
 def _install_exception_handler(app_engine) -> None:
