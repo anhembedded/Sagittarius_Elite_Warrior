@@ -6,8 +6,36 @@ import QmlShared 1.0
 Rectangle {
     id: root
     implicitWidth: 1200
-    implicitHeight: 300
     color: "#0d0e14"
+
+    //: BOT-090 — single source of truth for one row's height, referenced
+    //: both by the real delegate below and by `minimumUsableHeight`'s
+    //: floor calculation, so the two can never drift apart.
+    property int rowHeight: 44
+    //: BOT-090 — how many trade rows the pane should stay usable for by
+    //: default; a page can hold up to PAGE_SIZE=20 rows (trade_log_pagination.py),
+    //: which the ListView scrolls through internally (it's a Flickable —
+    //: unlike BOT-089's stat cards, a log page has no single "natural"
+    //: height to measure). This is a deliberate UX floor, not a rediscovery
+    //: of a real content size — same category of choice as BOT-089's
+    //: resultColumn ScrollView budget.
+    property int minVisibleRows: 5
+    //: BOT-090 — read by BackTestView._bind_trade_log_minimum_height() and
+    //: applied via QWidget.setMinimumHeight(), so QSplitter can never
+    //: squeeze this pane below "usable" the way setSizes([600, 200]) alone
+    //: let it (200px < toolbarRow + tableHeader + 20 rows + pagination by
+    //: a wide margin — the exact BUG-004 symptom: headers/tabs/pagination
+    //: all rendered, zero actual rows visible). Always counts the
+    //: pagination row's height even when 1 page of results wouldn't show
+    //: it, so the floor doesn't jump depending on result-set size.
+    property int panelMargin: 12
+    property real minimumUsableHeight:
+        panelMargin * 2
+        + toolbarRow.implicitHeight
+        + outerColumn.spacing
+        + tableHeaderRow.Layout.preferredHeight
+        + minVisibleRows * rowHeight
+        + paginationRow.Layout.preferredHeight
 
     //: Mirrors TradeLogFilter's Python values exactly (trade_log_filter.py)
     readonly property var filterTabs: [
@@ -27,12 +55,15 @@ Rectangle {
     }
 
     ColumnLayout {
+        id: outerColumn
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: root.panelMargin
         spacing: 12
 
         // ================= HEADER & TOOLBAR =================
         RowLayout {
+            id: toolbarRow
+            objectName: "toolbarRow"
             Layout.fillWidth: true
             spacing: 14
 
@@ -162,6 +193,7 @@ Rectangle {
 
                 // Header Row
                 Rectangle {
+                    id: tableHeaderRow
                     Layout.fillWidth: true
                     Layout.preferredHeight: 34
                     color: "#181a26"
@@ -194,7 +226,7 @@ Rectangle {
                             id: rowBtn
                             objectName: "rowTradeLog_" + modelData.index
                             width: parent.width
-                            implicitHeight: 44
+                            implicitHeight: root.rowHeight
                             onClicked: root.toggleTradeLogRow(modelData.index)
                             background: Rectangle {
                                 id: rowBg
@@ -326,6 +358,7 @@ Rectangle {
 
                 // ================= PAGINATION =================
                 RowLayout {
+                    id: paginationRow
                     Layout.fillWidth: true
                     Layout.preferredHeight: 34
                     visible: viewModel.tradeLogTotalPages > 1

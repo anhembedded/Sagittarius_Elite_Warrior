@@ -1,4 +1,4 @@
-"""Tests for BackTestView's top-panel sizing (BOT-089).
+"""Tests for BackTestView's panel sizing (BOT-089, BOT-090).
 
 BOT-089's root problem: the top QQuickWidget's height was a hardcoded
 constant (`_TOP_PANEL_HEIGHT = 190`) that ignored what the QML content
@@ -11,6 +11,12 @@ the "no result yet" placeholder and the "4 stat cards" states are sized
 independently from each other (one isn't a strict subset of the other's
 content), so which one is taller is an implementation detail, not
 something to pin down here.
+
+BOT-090 covers the bottom Trade Logs pane: `main_splitter.setSizes([600,
+200])` was only ever an initial hint, and nothing stopped the splitter
+from squeezing the pane far below what the table needs — the exact
+BUG-004 symptom (header/tabs/pagination all rendered, zero trade rows
+visible).
 """
 
 import pytest
@@ -32,6 +38,29 @@ def _stat_cards(count: int) -> list[dict[str, str]]:
             "suffix": "USD",
             "badgeText": "",
             "badgeColor": "",
+        }
+        for i in range(count)
+    ]
+
+
+def _trade_log_rows(count: int) -> list[dict[str, str]]:
+    return [
+        {
+            "index": str(i + 1),
+            "positionLabel": "vị thế mua",
+            "entryTimeText": "2026-08-01 10:00",
+            "entryPriceText": "1000.00",
+            "exitPriceText": "1010.00",
+            "exitTimeText": "2026-08-01 11:00",
+            "positionSizeText": "100.00",
+            "quantityText": "0.1",
+            "pnlText": "+10.00",
+            "returnText": "+1.00%",
+            "pnlColor": "#26a69a",
+            "entryReasonText": "",
+            "exitReasonText": "",
+            "durationText": "",
+            "metadataItems": [],
         }
         for i in range(count)
     ]
@@ -121,3 +150,42 @@ def test_top_panel_height_is_unchanged_when_the_warning_line_appears(
     qtbot.wait(200)  # let any (unexpected) pending layout settle before asserting
 
     assert v.top_widget.height() == height_before
+
+
+def test_trade_log_pane_never_shrinks_below_its_usable_minimum(view, qtbot):
+    """The splitter must never be able to squeeze the Trade Logs pane below
+    `minimumUsableHeight` (BackTestTradeLogs.qml) — BUG-004's screenshot is
+    exactly what "squeezed below" looks like: header/tabs/pagination all
+    rendered, table body empty. `setSizes([600, 200])` is only a starting
+    hint; `setMinimumHeight()` is what actually prevents this."""
+    v, _vm = view
+    root = v.bottom_widget.rootObject()
+
+    qtbot.waitUntil(
+        lambda: v.bottom_widget.height() >= int(root.property("minimumUsableHeight")),
+        timeout=2000,
+    )
+
+
+def test_trade_log_rows_are_visible_by_default(view, qtbot, qml_item):
+    """Regression guard for the exact failure mode in BUG-004/BOT-090: a
+    75-trade result page (`PAGE_SIZE=20` rows) rendered with zero rows
+    actually visible, even though the ListView had all 20 in its model —
+    the pane itself was too short for even one. Waits for the 5th row
+    (`minVisibleRows` in BackTestTradeLogs.qml) to be geometrically inside
+    the widget's bounds, same `mapToItem` technique BOT-089 needed for the
+    stat cards — a row's local `y` alone can't distinguish "positioned
+    correctly" from "positioned past the visible edge"."""
+    v, vm = view
+    vm.set_trade_log_page_state(_trade_log_rows(20), 75, 4)
+
+    def fifth_row_is_fully_visible() -> bool:
+        root = v.bottom_widget.rootObject()
+        row = qml_item(root, "rowTradeLog_4")  # 0-based -> the 5th row
+        if row is None:
+            return False
+        absolute_y = row.mapToItem(root, 0, 0).y()
+        row_bottom = absolute_y + row.property("height")
+        return row_bottom <= v.bottom_widget.height()
+
+    qtbot.waitUntil(fifth_row_is_fully_visible, timeout=2000)

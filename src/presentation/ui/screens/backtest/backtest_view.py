@@ -83,7 +83,13 @@ class BackTestView(BaseView):
 
         main_splitter.setStretchFactor(0, 3)
         main_splitter.setStretchFactor(1, 1)
-        main_splitter.setSizes([600, 200])
+        # BOT-090: was [600, 200] — 200px is well below what the Trade Logs
+        # pane actually needs (BUG-004: rendered header/tabs/pagination,
+        # zero rows visible). `_bind_trade_log_minimum_height()` enforces a
+        # real floor via setMinimumHeight() regardless of this hint, but
+        # starting close to that floor avoids a visible jump/snap on first
+        # show.
+        main_splitter.setSizes([500, 350])
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Registers the screen's ViewModel as a QML context property on
@@ -100,6 +106,7 @@ class BackTestView(BaseView):
             QUrl.fromLocalFile(str(_QML_DIR / _TRADE_LOGS_QML))
         )
         self._bind_top_panel_height()
+        self._bind_trade_log_minimum_height()
 
     def _bind_top_panel_height(self) -> None:
         """
@@ -136,6 +143,38 @@ class BackTestView(BaseView):
 
         root.implicitHeightChanged.connect(sync_height)
         sync_height()
+
+    def _bind_trade_log_minimum_height(self) -> None:
+        """
+        @brief BOT-090 — `bottom_widget` sits inside `main_splitter`, whose
+        `setSizes([600, 200])` was only ever an initial hint: nothing
+        stopped the splitter from squeezing it far below what the table
+        actually needs (BUG-004's exact symptom — header/tabs/pagination
+        all rendered, zero trade rows visible, because 200px < toolbar +
+        table header + 20 rows + pagination by a wide margin).
+        @details Unlike `_bind_top_panel_height` (a fixed size, since that
+        panel has nothing else competing for space), this applies
+        `setMinimumHeight()` — the splitter still distributes extra space
+        and the user can still drag it larger, but can never drag it below
+        `minimumUsableHeight` (a deliberate "stay usable for N rows" floor
+        computed in `BackTestTradeLogs.qml`, not a rediscovered content
+        size — a paginated ListView has no single natural height, unlike
+        BOT-089's stat cards).
+        """
+        root = self.bottom_widget.rootObject()
+        if root is None:
+            return
+        toolbar_row = root.findChild(QObject, "toolbarRow")
+        if toolbar_row is None:
+            return
+
+        def sync_minimum_height() -> None:
+            toolbar_row.ensurePolished()
+            minimum = int(root.property("minimumUsableHeight"))
+            self.bottom_widget.setMinimumHeight(minimum)
+
+        root.minimumUsableHeightChanged.connect(sync_minimum_height)
+        sync_minimum_height()
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter and forwards them to
