@@ -61,6 +61,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data i
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -118,6 +119,8 @@ from sagittarius_engine.base import BaseModule
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
+_DEFAULT_DB_DIR_NAME: str = "database"
+
 
 class BinanceBotModule(BaseModule):
     """
@@ -125,26 +128,42 @@ class BinanceBotModule(BaseModule):
     Registers repositories, use cases, and domain background services.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def register(self, app: App) -> None:
-        # Bind engine context dependencies for infrastructure services
+        """
+        @brief Registers all components, repositories, use cases, queries,
+        indicator scripts, and strategies into the application DI container.
+        """
+        self._register_infrastructure(app)
+        self._register_state_singletons(app)
+        self._register_use_cases(app)
+        self._register_queries(app)
+        self._register_indicator_scripts(app)
+        self._register_strategies(app)
+
+    def _register_infrastructure(self, app: App) -> None:
+        """Binds engine context and infrastructure services/repositories."""
         app.container.singleton(ITaskManager, app.context.tasks)
 
-        # Register Repositories & Clients
         config: IConfig = app.container.resolve(IConfig)
-        db_dir = config.get("database.dir") or os.path.join(os.getcwd(), "database")
+        db_dir = config.get(ConfigKeys.DATABASE_DIR.value) or os.path.join(
+            os.getcwd(), _DEFAULT_DB_DIR_NAME
+        )
         app.container.singleton(DatabaseConfig, DatabaseConfig(db_dir=db_dir))
-
         app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
+        app.container.singleton(ILiveStreamService, BinanceWebsocketService)
+        app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
 
-        # State Singletons
+    def _register_state_singletons(self, app: App) -> None:
+        """Registers long-lived application state singletons."""
         app.container.singleton(BacktestState, BacktestState)
 
-        # Bind UseCases (Command -> Handler)
+    def _register_use_cases(self, app: App) -> None:
+        """Binds CQRS commands to their respective use case command handlers."""
         app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
         app.container.bind(BulkSyncMarketDataCommand, BulkSyncMarketDataCommandHandler)
         app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
@@ -153,18 +172,14 @@ class BinanceBotModule(BaseModule):
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
         app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
 
-        # Bind Queries
+    def _register_queries(self, app: App) -> None:
+        """Binds CQRS queries to their respective query handlers."""
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
         app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
 
-        # Indicator scripts — registered explicitly (no directory auto-scan) so
-        # what's installed is greppable here. A guard test fails if a script
-        # class exists under domain/indicator_scripts/ but is missing below.
-        #
-        # BOT-032 Phase 6: no indicator is hardcoded in the engine anymore —
-        # rsi_14/ema_20/50/100/200/macd_full are the Dev Board's defaults,
-        # replacing the old _ActiveIndicator/RSI/EMA/MACD checkboxes.
+    def _register_indicator_scripts(self, app: App) -> None:
+        """Registers all domain indicator scripts into IndicatorScriptRegistry."""
         script_registry = IndicatorScriptRegistry()
         script_registry.register("rsi_14", Rsi14Script)
         script_registry.register("ema_20", Ema20Script)
@@ -177,19 +192,14 @@ class BinanceBotModule(BaseModule):
         script_registry.register("dev_showcase", DevIndicatorScript)
         app.container.singleton(IndicatorScriptRegistry, script_registry)
 
-        # Strategies — same explicit-registration convention as indicator
-        # scripts above (BOT-026).
+    def _register_strategies(self, app: App) -> None:
+        """Registers all domain trading strategies into StrategyRegistry."""
         strategy_registry = StrategyRegistry()
         strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
         strategy_registry.register(
             "multi_ema_trend_follower", MultiEmaTrendFollowerStrategy
         )
         app.container.singleton(StrategyRegistry, strategy_registry)
-
-        # Register the WebsocketService as bound to its Interface
-        app.container.singleton(ILiveStreamService, BinanceWebsocketService)
-        # Register the Adapter
-        app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
 
     def boot(self, app: App) -> None:
         # Register the adapter as a HostedService so it receives the EngineContext and is managed
