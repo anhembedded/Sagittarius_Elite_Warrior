@@ -51,6 +51,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
     map_klines,
     map_volume,
 )
+from sagittarius_engine.extensions.health.health_check_query import HealthCheckQuery
+from sagittarius_engine.extensions.health.health_module import HealthUpdatedEvent
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -300,6 +302,7 @@ class BackTestPresenter(BasePresenter):
         # contract, and before load_qml() so QML parses against a ready model.
         self._connect_ui_signals()
         self._connect_engine_events()
+        self._trigger_initial_health_check()
 
         # After render_symbol_cards(): view.chart_controls doesn't exist
         # until the ChartCard it's attached to has been built.
@@ -349,6 +352,28 @@ class BackTestPresenter(BasePresenter):
         self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
         self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
         self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
+        self.event_bus.on(HealthUpdatedEvent.event_name, self._handle_health_updated_event)
+
+    def _trigger_initial_health_check(self) -> None:
+        """Trigger an initial health check when backtest screen initializes."""
+        try:
+            health_query = self.container.resolve(HealthCheckQuery)
+            status = health_query.execute()
+            self._handle_health_updated_event(HealthUpdatedEvent(status))
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _handle_health_updated_event(self, event: Any) -> None:
+        status_dict = getattr(event, "status", {})
+        status_str = status_dict.get("status", "unknown").upper()
+        components = status_dict.get("components", {})
+        db_stat = components.get("database", "ok").upper()
+        bus_stat = components.get("event_bus", "ok").upper()
+        self._emit_ui_log(
+            f"[Health] Trạng thái hệ thống: {status_str} (Database: {db_stat}, EventBus: {bus_stat})",
+            "info",
+            is_dev=False,
+        )
 
     def _handle_backtest_completed_event(self, event: BacktestCompletedEvent) -> None:
         result = getattr(event, "result", None)
@@ -447,6 +472,7 @@ class BackTestPresenter(BasePresenter):
         config = self._build_run_config()
         if config is None:
             return
+        self._trigger_initial_health_check()
         self._logger.log_backtest_started(
             strategy_name=self._view_model.selectedStrategyName
             or self._view_model.selectedStrategyKey,
