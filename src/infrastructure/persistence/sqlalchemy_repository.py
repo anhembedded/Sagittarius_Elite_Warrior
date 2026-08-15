@@ -172,18 +172,12 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             taker_buy_quote_asset_volume=row.taker_buy_quote_asset_volume,
         )
 
-    def get_database_status(
-        self, symbol: str, interval: TimeFrame
-    ) -> DatabaseStatusSnapshot:
-        """
-        @brief Retrieves status and gap count using SQLite Window Functions.
-        """
-        expected_seconds = interval.to_seconds()
-
+    @staticmethod
+    def _build_status_query() -> sa.TextClause:
         # We use a CTE or subquery with LAG to compute the previous candle time.
         # Then we aggregate the results in the outer query.
         # This executes entirely inside the SQLite engine, preventing OOM.
-        query = sa.text("""
+        return sa.text("""
             WITH ordered_klines AS (
                 SELECT 
                     open_time,
@@ -203,6 +197,31 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             FROM ordered_klines
         """)
 
+    def _map_status_result(self, result: tuple | None) -> DatabaseStatusSnapshot:
+        if not result or result[2] == 0:
+            return DatabaseStatusSnapshot(
+                first_record=None,
+                last_record=None,
+                total_candles=0,
+                gaps=0,
+            )
+
+        return DatabaseStatusSnapshot(
+            first_record=self._parse_db_datetime(result[0]),
+            last_record=self._parse_db_datetime(result[1]),
+            total_candles=result[2],
+            gaps=result[3] if result[3] is not None else 0,
+        )
+
+    def get_database_status(
+        self, symbol: str, interval: TimeFrame
+    ) -> DatabaseStatusSnapshot:
+        """
+        @brief Retrieves status and gap count using SQLite Window Functions.
+        """
+        expected_seconds = interval.to_seconds()
+        query = self._build_status_query()
+
         with self.db_manager.get_session(symbol) as session:
             result = session.execute(
                 query,
@@ -213,20 +232,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 },
             ).fetchone()
 
-            if not result or result[2] == 0:
-                return DatabaseStatusSnapshot(
-                    first_record=None,
-                    last_record=None,
-                    total_candles=0,
-                    gaps=0,
-                )
-
-            return DatabaseStatusSnapshot(
-                first_record=self._parse_db_datetime(result[0]),
-                last_record=self._parse_db_datetime(result[1]),
-                total_candles=result[2],
-                gaps=result[3] if result[3] is not None else 0,
-            )
+            return self._map_status_result(result)
 
     @staticmethod
     def _parse_db_datetime(value) -> datetime | None:
