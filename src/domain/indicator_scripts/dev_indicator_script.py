@@ -2,6 +2,7 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
 )
+from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACDValue
 
 # Colours are plain hex strings — the domain layer never imports a UI toolkit,
 # so there is no QColor here (see the guard test in
@@ -93,6 +94,22 @@ class DevIndicatorScript(BaseIndicatorScript):
         momentum = self.momentum(close)
         trend = self.trend(close)
 
+        trend_color = _BULL if self.is_above(self.fast, self.slow) else _BEAR
+
+        self._process_lines(close, session_range, fast, slow, weighted, trend_color)
+        self._process_markers(candle, fast, momentum, trend)
+        bars_in_trend = self._process_state_and_shading()
+        self._process_status_panel(bars_in_trend, momentum, trend_color)
+
+    def _process_lines(
+        self,
+        close: float,
+        session_range: float,
+        fast: float | None,
+        slow: float | None,
+        weighted: float | None,
+        trend_color: str,
+    ) -> None:
         # --- 2b. Feed the derived Series every bar, including a None while its
         # inputs are still warming up — pushing nothing would silently shift
         # the bar alignment and make `[1]` mean the wrong bar.
@@ -106,8 +123,6 @@ class DevIndicatorScript(BaseIndicatorScript):
         )
 
         # --- 6. Per-bar colour: the same line changes colour as the trend flips.
-        trend_color = _BULL if self.is_above(self.fast, self.slow) else _BEAR
-
         self.plot(fast, "EMA 12", color=trend_color)
         self.plot(slow, "EMA 26", color=trend_color)
         self.plot(weighted, "WMA 20", color=_NEUTRAL)
@@ -120,6 +135,15 @@ class DevIndicatorScript(BaseIndicatorScript):
             "Widening band",
             color=_ACCENT,
         )
+
+    def _process_markers(
+        self,
+        candle: MarketData,
+        fast: float | None,
+        momentum: float | None,
+        trend: "MACDValue | None",
+    ) -> None:
+        close = candle.close_price
 
         # --- 8. Indicator crossing indicator, and --- 12. markers. Nothing is
         # marked automatically; a marker exists only because it was asked for.
@@ -150,6 +174,7 @@ class DevIndicatorScript(BaseIndicatorScript):
                 direction="up",
             )
 
+    def _process_state_and_shading(self) -> int:
         # --- 15. A consecutive-bars counter, confirming a trend only after it
         # has held for 3 bars running — resets the moment the trend flips.
         trending_up = self.is_above(self.fast, self.slow)
@@ -167,6 +192,11 @@ class DevIndicatorScript(BaseIndicatorScript):
             self.shade(_BEAR, opacity=0.08)
         # else: no self.shade() call this bar — no tint, same as passing None.
 
+        return bars_in_trend
+
+    def _process_status_panel(
+        self, bars_in_trend: int, momentum: float | None, trend_color: str
+    ) -> None:
         # --- 14. Status panel — reports current values every bar; only the
         # most recent bar's rows are ever shown (see InfoField's docstring).
         self.info(
