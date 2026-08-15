@@ -1,3 +1,4 @@
+from enum import Enum
 from unittest.mock import patch
 
 import pyqtgraph as pg
@@ -194,7 +195,6 @@ def test_chart_card_candle_width_is_positive_even_for_descending_data(qapp):
     assert card.candlestick.candle_width == pytest.approx(interval / 3.0)
 
 
-from enum import Enum
 
 
 class PyQtGraphStateKey(str, Enum):
