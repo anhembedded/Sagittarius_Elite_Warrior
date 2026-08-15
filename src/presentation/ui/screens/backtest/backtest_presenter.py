@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
@@ -240,10 +241,20 @@ class BackTestPresenter(BasePresenter):
         view.set_view_model(self._view_model)
 
         self._is_dev_mode: bool = bool(self.config.get(DEV_MODE_CONFIG_KEY, False))
+        raw_max_entries = self.config.get(
+            ConfigKeys.BACKTEST_LOG_MAX_ENTRIES.value, 500
+        )
+        try:
+            self._log_max_entries = (
+                int(raw_max_entries) if not isinstance(raw_max_entries, bool) else 500
+            )
+        except (ValueError, TypeError):
+            self._log_max_entries = 500
         self._logger = BacktestEventLogger(
             log_model=self._view_model.log_model,
             is_dev_mode=self._is_dev_mode,
             emit_signal=self._emit_ui_log,
+            max_entries=self._log_max_entries,
         )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -373,6 +384,20 @@ class BackTestPresenter(BasePresenter):
         if is_dev and not self._is_dev_mode:
             return
         self._view_model.log_model.append(message, level=level)
+        count = self._view_model.log_model.rowCount()
+        if not isinstance(count, int) or isinstance(count, bool):
+            return
+        while count > self._log_max_entries:
+            self._view_model.log_model.beginRemoveRows(QModelIndex(), 0, 0)
+            if (
+                hasattr(self._view_model.log_model, "_entries")
+                and self._view_model.log_model._entries
+            ):
+                self._view_model.log_model._entries.pop(0)
+            self._view_model.log_model.endRemoveRows()
+            count = self._view_model.log_model.rowCount()
+            if not isinstance(count, int) or isinstance(count, bool):
+                break
 
     def _connect_chart_controls(self) -> None:
         """`BacktestChartControls` (native, owned by `BackTestView`) only

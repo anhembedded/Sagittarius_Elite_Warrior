@@ -24,6 +24,10 @@
 - **Domain-Driven Precision Terminology**:
   - Maintain exact domain terms: Strategy-specific parameters must be labeled "Thông số Chiến lược" (Strategy Parameters), distinct from general Bot system settings.
 
+- **No Function-Local / Lazy Imports (Tuyệt đối không dùng Local Import)**:
+  - All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8.
+  - Never place `import ...` or `from ... import ...` inside functions, methods, slots, test cases, or nested scopes. The ONLY permitted indented import is inside `if TYPE_CHECKING:` guards at the top level for static typing annotations.
+
 - **Proactive Inconsistency Challenge & Constructive Pushback**:
   - The AI assistant MUST actively challenge/refute user requests if they introduce inconsistencies, anti-patterns, layer violations, or break established domain principles.
   - Never blindly follow contradictory instructions; explain the issue and propose a clean, consistent alternative.

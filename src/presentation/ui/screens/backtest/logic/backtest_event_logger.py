@@ -26,9 +26,13 @@ class BacktestEventLogger(BaseEventLogger):
         log_model: LogListModel | None = None,
         is_dev_mode: bool = False,
         emit_signal: Callable[[str, str, bool], None] | None = None,
+        max_entries: int = 500,
     ) -> None:
         super().__init__(
-            log_model=log_model, is_dev_mode=is_dev_mode, emit_signal=emit_signal
+            log_model=log_model,
+            is_dev_mode=is_dev_mode,
+            emit_signal=emit_signal,
+            max_entries=max_entries,
         )
 
     def log_backtest_started(

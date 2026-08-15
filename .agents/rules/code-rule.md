@@ -21,6 +21,10 @@ trigger: always_on
   - Split by responsibility into separate files/modules instead of piling unrelated logic into one file or one function.
   - Model data with proper structures — dataclasses, value objects, `Enum` — instead of loose primitives, dicts, or magic strings/tuples standing in for a real type.
   - Do not use `lambda`. Write a named function/method instead — it gets a real name, can carry a docstring, and shows up properly in stack traces/coverage/debuggers.
+- **No Function-Local / Lazy Imports (Tuyệt đối không dùng Local Import)**:
+  - All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8.
+  - Never place `import ...` or `from ... import ...` inside functions, methods, slots, test cases, or nested scopes. The ONLY permitted indented import is inside `if TYPE_CHECKING:` guards at the top level for static typing annotations to break cycle references.
+  - Any lazy/local import inside function bodies is strictly considered an anti-pattern and a code-rule violation.
 - **Every new feature/screen ships with sanity tests**, in `tests/sanity/`, alongside its unit tests — not a follow-up, part of the same task. Two kinds, both construction-only (see example: `tests/sanity/test_backtest_screen_di_sanity.py` + `test_backtest_screen_ui_sanity.py`):
   - **Sanity (DI)**: boot the real app (`create_app()`, no mocked dispatch) and assert every command/query the feature dispatches resolves to its real handler via `container.resolve(command_class)`, and every registry it depends on (`StrategyRegistry`, `IndicatorScriptRegistry`, etc.) has the keys it expects. Catches a dropped/renamed DI registration before any behavior test even runs.
   - **Sanity (UI)**, for screens: construct the real View + Presenter against the real DI container (not a mocked one) and assert it doesn't raise, plus every QML document parses with `quick_widget.errors() == []` (QML parse errors don't raise a Python exception — they only show up there).

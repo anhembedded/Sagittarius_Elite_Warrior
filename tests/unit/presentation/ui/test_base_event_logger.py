@@ -5,6 +5,9 @@ from unittest.mock import MagicMock
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_event_logger import (
     BaseEventLogger,
 )
+from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
+    LogListModel,
+)
 
 
 def test_base_event_logger_appends_to_log_model() -> None:
@@ -59,3 +62,17 @@ def test_base_event_logger_with_emit_signal() -> None:
     mock_signal_emitter.assert_called_once_with(
         "[DEV] trace_action count=5", "info", True
     )
+
+
+def test_base_event_logger_max_entries_trimming() -> None:
+    model = LogListModel()
+    logger = BaseEventLogger(log_model=model, max_entries=3)
+    assert logger.max_entries == 3
+
+    for i in range(5):
+        logger.info(f"msg {i}")
+
+    assert model.rowCount() == 3
+    assert model.data(model.index(0, 0), LogListModel.MessageRole) == "msg 2"
+    assert model.data(model.index(1, 0), LogListModel.MessageRole) == "msg 3"
+    assert model.data(model.index(2, 0), LogListModel.MessageRole) == "msg 4"
