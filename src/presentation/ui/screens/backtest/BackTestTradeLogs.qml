@@ -314,17 +314,18 @@ Rectangle {
                                         RowLayout {
                                             spacing: 3
                                             visible: !!modelData.priceDiffText
-                                            Text {
-                                                text: modelData.priceDiffIcon || ""
-                                                color: modelData.priceDiffColor || Theme.muted
-                                                font.pixelSize: 8
-                                                font.bold: true
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Image {
+                                                source: modelData.priceDiffIconSource || ""
+                                                sourceSize: Qt.size(8, 8)
+                                                Layout.alignment: Qt.AlignVCenter
                                             }
                                             Text {
                                                 text: modelData.priceDiffText || ""
                                                 color: modelData.priceDiffColor || Theme.muted
                                                 font.pixelSize: 10
                                                 font.bold: true
+                                                Layout.alignment: Qt.AlignVCenter
                                             }
                                         }
                                     }

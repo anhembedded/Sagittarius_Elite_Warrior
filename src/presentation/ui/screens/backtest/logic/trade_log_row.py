@@ -132,6 +132,11 @@ def trade_log_row_to_qml(row: TradeLogRow) -> dict[str, Any]:
     price_diff = row.exit_price - row.entry_price
     price_diff_color = BULL_COLOR if price_diff >= 0 else BEAR_COLOR
     price_diff_icon = "▲" if price_diff >= 0 else "▼"
+    price_diff_icon_source = (
+        "image://icons/triangle-up/success"
+        if price_diff >= 0
+        else "image://icons/triangle-down/danger"
+    )
     return {
         "index": str(row.index),
         "positionLabel": f"#{row.index} {_POSITION_LABEL}",
@@ -142,6 +147,7 @@ def trade_log_row_to_qml(row: TradeLogRow) -> dict[str, Any]:
         "priceDiffText": _signed_pnl(price_diff, " USD"),
         "priceDiffColor": price_diff_color,
         "priceDiffIcon": price_diff_icon,
+        "priceDiffIconSource": price_diff_icon_source,
         "positionSizeText": _format_compact_usd(position_value),
         "quantityText": f"{row.quantity:,.4g}",
         "pnlText": _signed_pnl(row.pnl, " USD"),

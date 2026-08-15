@@ -89,10 +89,12 @@ def test_trade_log_row_to_qml_price_diff_and_icon():
     assert win_qml["priceDiffText"] == "+15.50 USD"
     assert win_qml["priceDiffColor"] == BULL_COLOR
     assert win_qml["priceDiffIcon"] == "▲"
+    assert win_qml["priceDiffIconSource"] == "image://icons/triangle-up/success"
 
     assert loss_qml["priceDiffText"] == "-14.75 USD"
     assert loss_qml["priceDiffColor"] == BEAR_COLOR
     assert loss_qml["priceDiffIcon"] == "▼"
+    assert loss_qml["priceDiffIconSource"] == "image://icons/triangle-down/danger"
 
 
 def test_trade_log_row_to_qml_uses_compact_k_notation_above_1000():
