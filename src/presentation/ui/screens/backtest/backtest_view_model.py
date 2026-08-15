@@ -60,6 +60,17 @@ class BackTestViewModel(BaseQmlViewModel):
     customEndTextChanged = Signal()
     resultChanged = Signal()
     statCardsChanged = Signal()
+    #: BOT-079 follow-up — separate from `statCardsChanged` on purpose: the
+    #: warning is a full sentence, not something that fits a `MetricCard`
+    #: pill (an earlier version tried squeezing it into the Net PnL badge
+    #: and overflowed it). QML shows/hides its own row based on this being
+    #: empty or not.
+    resultWarningTextChanged = Signal()
+    #: BOT-081 — the "kín đáo nhưng tìm thấy được" disclosure list (icon +
+    #: popup, unlike resultWarningText which must stay visible without a
+    #: click). Recomputed per-run from real state (BOT-080's out_of_sample
+    #: presence is the standout example), not a static string baked in once.
+    limitationsChanged = Signal()
     showExtendedMetricsChanged = Signal()
     needsDataSyncChanged = Signal()
     tradeLogFilterChanged = Signal()
@@ -118,6 +129,8 @@ class BackTestViewModel(BaseQmlViewModel):
         self._result_is_error = False
         self._primary_stat_cards: list[dict[str, str]] = []
         self._extended_stat_cards: list[dict[str, str]] = []
+        self._result_warning_text = ""
+        self._limitations: list[str] = []
         self._show_extended_metrics = False
         self._needs_data_sync = False
         self._trade_log_rows: list[dict[str, str]] = []
@@ -377,6 +390,33 @@ class BackTestViewModel(BaseQmlViewModel):
         self._primary_stat_cards = primary
         self._extended_stat_cards = extended
         self.statCardsChanged.emit()
+
+    def _get_result_warning_text(self) -> str:
+        return self._result_warning_text
+
+    resultWarningText = Property(
+        str, _get_result_warning_text, notify=resultWarningTextChanged
+    )
+
+    @Slot(str)
+    def set_result_warning_text(self, text: str) -> None:
+        """BOT-079 follow-up. Empty string means "no warning" — QML hides its
+        row entirely rather than showing a blank line."""
+        if text != self._result_warning_text:
+            self._result_warning_text = text
+            self.resultWarningTextChanged.emit()
+
+    def _get_limitations(self) -> list[str]:
+        return self._limitations
+
+    limitations = Property("QStringList", _get_limitations, notify=limitationsChanged)
+
+    @Slot("QStringList")
+    def set_limitations(self, limitations: list[str]) -> None:
+        """BOT-081. Empty list means "no result yet" — same convention as
+        `set_stat_cards([], [])`."""
+        self._limitations = list(limitations)
+        self.limitationsChanged.emit()
 
     def _get_show_extended_metrics(self) -> bool:
         return self._show_extended_metrics

@@ -17,6 +17,7 @@ only the genuine external dependencies (IDispatcher, IThreadManager, IConfig).
 """
 
 import os
+from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
@@ -44,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
+    OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
@@ -592,6 +596,122 @@ def test_successful_run_with_trades_updates_view_model_and_unlocks(
     assert "Closed trades: 1" in view_model.resultText
     assert len(view_model.primaryStatCards) == 4
     assert len(view_model.extendedStatCards) == 9  # BOT-079: +Total Fees Paid
+    assert view_model.resultWarningText == ""  # no fee/frequency flags on this result
+    assert len(view_model.limitations) > 0  # BOT-081
+
+
+def test_successful_run_with_a_fee_dominant_result_sets_the_warning_text(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-079 follow-up: the warning is a separate line
+    (`resultWarningText`), not folded into the Net PnL badge — verifies the
+    Presenter actually wires `build_result_warning_text()` through, not just
+    that `performance_metrics_view.py` can compute it in isolation."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    fee_dominant_metrics = replace(
+        result.metrics, has_high_fee_ratio=True, avg_bars_per_trade=5.0
+    )
+    result = replace(result, metrics=fee_dominant_metrics)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert view_model.resultWarningText != ""
+    assert "Phí giao dịch" in view_model.resultWarningText
+
+
+def test_successful_run_with_a_diverging_out_of_sample_result_sets_the_warning_text(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-080: same end-to-end wiring check as the fee-dominant test above,
+    for the in-sample/out-of-sample overfitting warning."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    result = replace(
+        result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=replace(
+                result, metrics=replace(result.metrics, net_profit_percent=50.0)
+            ),
+            out_of_sample=replace(
+                result, metrics=replace(result.metrics, net_profit_percent=-20.0)
+            ),
+            in_sample_ratio=0.7,
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert view_model.resultWarningText != ""
+    assert "overfit" in view_model.resultWarningText
+    titles = {card["title"] for card in view_model.extendedStatCards}
+    assert "In-Sample Net Profit" in titles
+    assert "Out-of-Sample Net Profit" in titles
+
+
+def test_successful_run_populates_limitations_from_the_real_result(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-081: verifies the Presenter wires build_backtest_limitations()
+    through, and that the out-of-sample item is genuinely per-run — this
+    result has no out_of_sample (like `_make_result()`'s default), so the
+    "no out-of-sample validation" note must appear even though BOT-080
+    shipped."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    joined = " ".join(view_model.limitations)
+    assert "Stop Loss" in joined
+    assert "out-of-sample" in joined  # this specific run has no split
+
+
+def test_successful_run_omits_the_out_of_sample_note_when_a_split_exists(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    result = replace(
+        result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=result, out_of_sample=result, in_sample_ratio=0.7
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    assert not any("out-of-sample" in note for note in view_model.limitations)
+
+
+def test_no_historical_data_clears_limitations(presenter, view_model, mock_dispatcher):
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_backtest(config)
+
+    assert view_model.limitations == []
+
+
+def test_qml_limitations_button_opens_without_crashing(
+    presenter, view_model, qml_item, qapp, mock_dispatcher
+):
+    """BOT-081: the info icon must be a real `Button` (Python-test-clickable,
+    per BOT-057/BOT-083's convention), not a Rectangle+MouseArea."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+    presenter._run_backtest(config)
+    qapp.processEvents()
+    root = presenter.view.top_widget.rootObject()
+
+    qml_item(root, "btnBacktestLimitations").clicked.emit()
+    qapp.processEvents()
 
 
 def test_dispatches_run_static_backtest_command_with_the_built_config(

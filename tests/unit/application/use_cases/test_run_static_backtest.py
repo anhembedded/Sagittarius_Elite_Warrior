@@ -197,3 +197,69 @@ def test_a_signal_on_the_last_bar_is_never_filled():
 
     assert result.trades == []
     assert result.final_balance == command.initial_balance
+
+
+# =========================================================================
+# BOT-080: mandatory in-sample/out-of-sample validation on every run
+# =========================================================================
+
+
+def test_populates_out_of_sample_validation_when_the_range_can_be_split():
+    klines = _build_klines()  # 8 candles
+    handler, _ = _build_handler(klines)
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT", interval=TimeFrame.ONE_HOUR, strategy_key="scripted"
+    )
+
+    result = handler.execute(command)
+
+    assert result.out_of_sample is not None
+    assert result.out_of_sample.in_sample_ratio == 0.7
+    # 8 candles * 0.7 = 5.6 -> rounds to 6 in-sample, 2 out-of-sample; each
+    # side is its own independent BacktestResult with 1 equity point/candle.
+    assert len(result.out_of_sample.in_sample.equity_curve) == 6
+    assert len(result.out_of_sample.out_of_sample.equity_curve) == 2
+    # The full-range result (stat cards/chart/trade log) is untouched by
+    # this — still all 8 candles, per the user's explicit decision that the
+    # primary result stays full-range.
+    assert len(result.equity_curve) == 8
+
+
+def test_out_of_sample_is_none_when_the_range_is_too_short_to_split():
+    klines = _build_klines()[:1]  # 1 candle -> round(1*0.7)=1 in-sample, 0 out
+    handler, _ = _build_handler(klines)
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT", interval=TimeFrame.ONE_HOUR, strategy_key="scripted"
+    )
+
+    result = handler.execute(command)
+
+    assert result.out_of_sample is None
+
+
+def test_in_sample_and_out_of_sample_are_simulated_independently_of_the_full_range():
+    """Each split gets its OWN fresh strategy/exchange (BOT-080 §5's
+    explicit constraint: "mỗi đoạn train/test là một BacktestResult độc
+    lập") — the scripted strategy's call-index-based signals fire relative
+    to each slice's own start, not the full range's."""
+    klines = _build_klines()  # 8 candles
+    handler, _ = _build_handler(klines)
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT", interval=TimeFrame.ONE_HOUR, strategy_key="scripted"
+    )
+
+    result = handler.execute(command)
+
+    # In-sample slice = first 6 candles: BUY fires at call-index 2 (filled at
+    # candle 3's open, still within the slice), SELL fires at call-index 5
+    # (the slice's own LAST candle) -> never filled within the slice, so the
+    # open position gets force-closed at the slice's last close instead.
+    in_sample_trades = result.out_of_sample.in_sample.trades
+    assert len(in_sample_trades) == 1
+    assert in_sample_trades[0].entry_price == 130.0  # candle 3's open
+    assert in_sample_trades[0].exit_price == 155.0  # candle 5's close (force-closed)
+
+    # Out-of-sample slice = last 2 candles: a fresh strategy instance's call
+    # index restarts at 0, so neither of the scripted signals (indices 2/5)
+    # ever fires.
+    assert result.out_of_sample.out_of_sample.trades == []

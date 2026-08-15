@@ -15,13 +15,29 @@ _INFINITY_DISPLAY = "∞"  # "∞" — profit_factor is float("inf") with 0 lose
 _LOSING_PROFIT_FACTOR_BADGE = "Rủi ro"
 _NEUTRAL_COLOR = ""  # empty = "let QML fall back to Theme.muted/textPrimary"
 
-#: BOT-079 — appended to the Net PnL badge (not a new card, not a full-screen
-#: banner — task explicitly warns against "nhuộm đỏ toàn màn hình như thể
-#: sai") so the warning sits exactly where the user is already looking,
-#: without a popup click. Informational only: never replaces the % figure,
-#: only adds to it.
-_FEE_WARNING_NOTE = "⚠ Phí cao"
-_FREQUENCY_WARNING_NOTE = "⚠ Tần suất cao"
+#: BOT-079 — `build_result_warning_text()`'s own dedicated line under the
+#: stat cards (BOT-079 follow-up fix — an earlier version of this squeezed
+#: these into the Net PnL badge, a small fixed-size pill; a 2-warning
+#: combined string overflowed it and forced font-shrinking/eliding hacks in
+#: `MetricCard.qml` to compensate. A full-width line has room for a real
+#: sentence and doesn't fight the badge's layout). Informational only — task
+#: explicitly warns against "nhuộm đỏ toàn màn hình như thể sai", so this is
+#: one quiet line, not a colored-in card.
+_FEE_WARNING_NOTE = (
+    '⚠ Phí giao dịch chiếm phần lớn kết quả — xem "Total Fees Paid" ở chỉ số mở rộng.'
+)
+_FREQUENCY_WARNING_NOTE = (
+    "⚠ Tần suất giao dịch cao — trung bình chỉ {bars:.1f} bar/lệnh."
+)
+#: BOT-080 — same dedicated-line mechanism as the 2 notes above, extended to
+#: the in-sample/out-of-sample check. Interpolates the 2 raw numbers
+#: directly into the sentence (not just "diverges") so the warning is
+#: self-explanatory without a popup click, per the user's explicit decision
+#: to reuse BOT-079's resultWarningText for this rather than a separate UI.
+_OUT_OF_SAMPLE_DIVERGENCE_NOTE = (
+    "⚠ Có thể đang overfit — In-sample {in_sample:+.2f}% nhưng "
+    "Out-of-sample {out_of_sample:+.2f}%."
+)
 
 
 @dataclass(frozen=True)
@@ -76,24 +92,28 @@ def _profit_factor_text(profit_factor: float) -> str:
     return f"{profit_factor:.3f}"
 
 
-def _net_pnl_badge(metrics) -> tuple[str, str]:
-    """@brief (badge_text, badge_color) for the Net PnL card — BOT-079: folds
-    the fee-dominance / trade-frequency warnings into the badge that's
-    already always visible, rather than a new card or a separate banner.
-    Same precedent as the Profit Factor card's "Rủi ro" badge: color flips to
-    `BEAR_COLOR` when the flag is up, independent of whether net_profit
-    itself is positive — a "profitable" run that's mostly fees still needs
-    the red."""
-    text = f"{_signed(metrics.net_profit_percent)}%"
+def build_result_warning_text(result: BacktestResult) -> str:
+    """@brief BOT-079: 1 sentence (2 joined with a middle dot when both fire)
+    for a dedicated line under the stat cards — empty string when neither
+    flag is up, which QML reads as "hide this row entirely". Kept separate
+    from `build_primary_stat_cards()`/`build_extended_stat_cards()` on
+    purpose: those feed fixed-size `MetricCard` pills with no room for a
+    sentence, this feeds a full-width `Text` that can wrap."""
+    metrics = result.metrics
     notes = []
     if metrics.has_high_fee_ratio:
         notes.append(_FEE_WARNING_NOTE)
     if metrics.has_high_trade_frequency:
-        notes.append(_FREQUENCY_WARNING_NOTE)
-    if not notes:
-        profit_color = BULL_COLOR if metrics.net_profit >= 0 else BEAR_COLOR
-        return text, profit_color
-    return f"{text}  {'  '.join(notes)}", BEAR_COLOR
+        notes.append(_FREQUENCY_WARNING_NOTE.format(bars=metrics.avg_bars_per_trade))
+    out_of_sample = result.out_of_sample
+    if out_of_sample is not None and out_of_sample.has_high_divergence:
+        notes.append(
+            _OUT_OF_SAMPLE_DIVERGENCE_NOTE.format(
+                in_sample=out_of_sample.in_sample.metrics.net_profit_percent,
+                out_of_sample=out_of_sample.out_of_sample.metrics.net_profit_percent,
+            )
+        )
+    return "   •   ".join(notes)
 
 
 def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
@@ -106,7 +126,6 @@ def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
     profit_color = BULL_COLOR if metrics.net_profit >= 0 else BEAR_COLOR
     win_rate_color = BULL_COLOR if metrics.percent_profitable >= 50 else BEAR_COLOR
     profit_factor_color = BULL_COLOR if metrics.profit_factor >= 1 else BEAR_COLOR
-    net_pnl_badge_text, net_pnl_badge_color = _net_pnl_badge(metrics)
 
     return [
         StatCardData(
@@ -114,8 +133,8 @@ def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
             value=_signed(metrics.net_profit),
             value_color=profit_color,
             suffix="USD",
-            badge_text=net_pnl_badge_text,
-            badge_color=net_pnl_badge_color,
+            badge_text=f"{_signed(metrics.net_profit_percent)}%",
+            badge_color=profit_color,
         ),
         StatCardData(
             title="Mức sụt giảm tối đa (Max Drawdown)",
@@ -165,7 +184,7 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
     `BacktestMetrics` field BOT-055 §2 lists, all neutral-colored (no
     sign/badge — this row is a raw data dump, not a verdict)."""
     metrics = result.metrics
-    return [
+    cards = [
         StatCardData(
             "Gross Profit",
             f"{metrics.gross_profit:,.2f}",
@@ -242,3 +261,35 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
             _NEUTRAL_COLOR,
         ),
     ]
+
+    # BOT-080 — only present when the range was long enough to split
+    # (BacktestResult.out_of_sample is None otherwise). Raw numbers live
+    # here (same precedent as "Total Fees Paid" backing the fee warning);
+    # the "is this concerning" signal is build_result_warning_text()'s job.
+    out_of_sample = result.out_of_sample
+    if out_of_sample is not None:
+        divergence_color = (
+            BEAR_COLOR if out_of_sample.has_high_divergence else _NEUTRAL_COLOR
+        )
+        cards.append(
+            StatCardData(
+                "In-Sample Net Profit",
+                f"{out_of_sample.in_sample.metrics.net_profit_percent:+.2f}",
+                _NEUTRAL_COLOR,
+                "%",
+                "",
+                _NEUTRAL_COLOR,
+            )
+        )
+        cards.append(
+            StatCardData(
+                "Out-of-Sample Net Profit",
+                f"{out_of_sample.out_of_sample.metrics.net_profit_percent:+.2f}",
+                divergence_color,
+                "%",
+                "",
+                _NEUTRAL_COLOR,
+            )
+        )
+
+    return cards

@@ -43,6 +43,7 @@ from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_acti
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .backtest_view_model import BackTestViewModel
+from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_run_config import BacktestRunConfig
 from .logic.backtest_state import BacktestUiState
 from .logic.bot_params_form import build_bot_params_schema, parse_bot_params
@@ -50,6 +51,7 @@ from .logic.chart_canvas_view import ChartDisplayMode
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
+    build_result_warning_text,
     stat_cards_to_qml,
 )
 from .logic.result_formatter import format_result_summary
@@ -372,6 +374,8 @@ class BackTestPresenter(BasePresenter):
             stat_cards_to_qml(build_primary_stat_cards(result)),
             stat_cards_to_qml(build_extended_stat_cards(result)),
         )
+        self._view_model.set_result_warning_text(build_result_warning_text(result))
+        self._view_model.set_limitations(build_backtest_limitations(result))
         message = (
             format_result_summary(result)
             if result.trades
@@ -392,6 +396,8 @@ class BackTestPresenter(BasePresenter):
         self._last_no_data_config = config
         self._view_model.set_needs_data_sync(True)
         self._view_model.set_stat_cards([], [])
+        self._view_model.set_result_warning_text("")
+        self._view_model.set_limitations([])
         self._view_model.set_result(message, is_error=False)
         self._all_trades = []
         self._refresh_trade_log()
@@ -401,6 +407,8 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_backtest_failed(self, message: str) -> None:
         self._view_model.set_stat_cards([], [])
+        self._view_model.set_result_warning_text("")
+        self._view_model.set_limitations([])
         self._view_model.set_result(f"Lỗi: {message}", is_error=True)
         self._all_trades = []
         self._refresh_trade_log()

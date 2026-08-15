@@ -53,19 +53,18 @@ Từ đơn giản tới phức tạp — **không cần làm hết**, làm cái 
 3. **Monte Carlo / xáo thứ tự lệnh** — đánh giá độ bền của equity curve. Để sau cùng, có
    thể không bao giờ cần.
 
-## 4. ❓ Câu hỏi cần user chốt — **không tự quyết**
+## 4. ✅ Câu hỏi đã chốt (14/08)
 
-1. **Chọn mức nào ở §3?** Đề xuất bắt đầu ở mức 1 (in-sample/out-of-sample), nhưng đây là
-   đánh đổi giữa độ nghiêm ngặt và thời gian chạy — thuộc quyền user.
-2. **Tỉ lệ chia mặc định?** 70/30, 80/20, hay cho user tự nhập?
-3. **Bắt buộc hay tuỳ chọn?** Có nên *ép* mọi lần "Lưu & Re-Backtest" đều chạy kiểm định
-   ngoài mẫu (an toàn hơn, chậm hơn), hay để nó là một nút riêng (nhanh hơn, dễ bị bỏ
-   qua)?
-4. **Hiển thị thế nào khi lệch nhau nhiều?** Nếu in-sample lãi 50% mà out-of-sample lỗ
-   20% — cảnh báo cỡ nào là đủ mạnh mà không phiền?
-
-**Không bắt đầu code trước khi chốt 4 câu này** — cùng lý do `BOT-042` từng phải dừng
-lại hỏi: đây là quyết định sản phẩm, không phải chi tiết cài đặt.
+1. **Mức**: Mức 1 — tách in-sample/out-of-sample đơn giản. Walk-forward/Monte Carlo để sau.
+2. **Tỉ lệ**: **70/30 cố định** (không cho user tự nhập — tránh chỉnh tỷ lệ tới khi ra số
+   đẹp, tự đánh bại mục đích chống overfit của chính task này).
+3. **Bắt buộc**: **Có** — mọi lần chạy backtest đều tính cả in-sample lẫn out-of-sample,
+   không có nút/checkbox riêng để bỏ qua.
+4. **Hiển thị lệch nhau nhiều**: dòng cảnh báo riêng, cùng cơ chế `resultWarningText` vừa
+   làm ở `BOT-079` (không phải badge đỏ to, không nhuộm đỏ toàn màn hình).
+5. **Kết quả nào là "chính"** (câu hỏi phát sinh khi bắt tay code, không nằm trong 4 câu
+   gốc): stat cards/chart/trade log hiện có **vẫn gắn với kết quả full-range, không đổi**.
+   In-sample/out-of-sample là thông tin **thêm vào**, không thay thế.
 
 ## 5. Rủi ro / Lưu ý
 
@@ -87,3 +86,37 @@ lại hỏi: đây là quyết định sản phẩm, không phải chi tiết c�
 - [`BOT-079`](../completed/BOT-079_fee_transparency_and_trade_frequency.md) — nên xong trước, vì kết
   quả out-of-sample cũng cần đọc đúng (không lẫn phí vào edge).
 - 📄 [Rà soát định hướng App](../reports/app_direction_audit.md) §2.
+
+## 7. Kết quả triển khai thực tế
+
+- **Domain** (`domain/backtesting/`, 2 file mới):
+  - `out_of_sample_split.py`: `split_klines_for_out_of_sample(klines, ratio=0.7)` — chia
+    theo **số lượng nến** (không theo thời gian), thuần Python.
+  - `out_of_sample_validation.py`: `OutOfSampleValidation` (`in_sample`/`out_of_sample`:
+    2 `BacktestResult` độc lập, `in_sample_ratio`) + property `has_high_divergence` —
+    hằng số `OUT_OF_SAMPLE_DIVERGENCE_WARNING_POINTS = 30.0` (điểm % — chưa validate,
+    cùng caveat `BOT-079`). **Chỉ bật khi in-sample tốt hơn out-of-sample** — chiều ngược
+    lại (out-of-sample tốt hơn) không phải dấu hiệu overfit.
+- **`BacktestResult`** thêm field `out_of_sample: OutOfSampleValidation | None = None` —
+  optional, mọi construction cũ (test, `.compute()`) không cần sửa.
+- **`RunStaticBacktestCommandHandler`**: tách vòng lặp mô phỏng thành `_simulate(klines,
+  command)` dùng chung cho cả full-range lẫn 2 nửa split — **mọi lần chạy đều tự động
+  tính in-sample/out-of-sample** (đúng quyết định "bắt buộc"), trả `None` cho
+  `out_of_sample` khi khoảng quá ngắn để chia (thay vì crash hay hiện 0-trade gây hiểu
+  nhầm "không có edge"). Full-range vẫn tính y hệt cũ — `trades`/`equity_curve`/`metrics`
+  ở gốc `BacktestResult` không đổi.
+- **UI**: gộp vào 2 cơ chế có sẵn từ `BOT-079`, không thêm UI mới:
+  - Cảnh báo overfit nối vào `build_result_warning_text()` — dòng riêng cạnh "Mở rộng chỉ
+    số chi tiết", nội dung có số thật (`"In-sample +50.00% nhưng Out-of-sample -20.00%"`),
+    không chỉ nói "có lệch".
+  - 2 card mới ("In-Sample Net Profit"/"Out-of-Sample Net Profit") vào popup mở rộng, chỉ
+    xuất hiện khi `out_of_sample` không `None`; card out-of-sample đổi màu `BEAR_COLOR`
+    khi `has_high_divergence`.
+- **Test**: 18 test mới xuyên domain→application→presentation (split/validation/handler/
+  view logic) + 1 test presenter end-to-end xác nhận Presenter thật sự nối dây, không chỉ
+  hàm tính đúng trong cô lập. 815 test toàn `tests/unit/`+`tests/sanity/` pass, `ruff`
+  sạch.
+- **Chưa làm** (đúng phạm vi "Mức 1", không tự mở rộng): Walk-forward, Monte Carlo, giới
+  hạn warm-up indicator cho khoảng out-of-sample ngắn (mỗi nửa dùng strategy/indicator
+  mới hoàn toàn từ đầu — một EMA-200 sẽ chưa "nóng" hết trong 1 khoảng out-of-sample
+  ngắn; chấp nhận được ở Mức 1, ghi lại để `BOT-080` mức 2 xử lý nếu cần).

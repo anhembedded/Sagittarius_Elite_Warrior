@@ -14,10 +14,11 @@ Popup {
     id: root
     width: 260
     padding: 0
+    readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 
     background: Rectangle {
-        color: Theme.bgCard
-        border.color: Theme.border
+        color: Theme && Theme.bgCard ? Theme.bgCard : "#141620"
+        border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
         radius: 6
     }
 
@@ -35,7 +36,7 @@ Popup {
                 anchors.rightMargin: 12
                 verticalAlignment: Text.AlignVCenter
                 text: "Chỉ báo tham khảo"
-                color: Theme.textPrimary
+                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
                 font.pixelSize: 12
                 font.bold: true
             }
@@ -43,7 +44,7 @@ Popup {
             Rectangle {
                 width: parent.width
                 height: 1
-                color: Theme.border
+                color: Theme && Theme.border ? Theme.border : "#2a2d3e"
                 anchors.bottom: parent.bottom
             }
         }
@@ -54,7 +55,7 @@ Popup {
             spacing: 8
 
             Repeater {
-                model: viewModel.scriptModel
+                model: typeof viewModel === "undefined" ? [] : viewModel.scriptModel
 
                 RowLayout {
                     Layout.fillWidth: true

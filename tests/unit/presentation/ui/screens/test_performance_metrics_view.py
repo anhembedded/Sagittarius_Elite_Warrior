@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
@@ -5,6 +6,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
+    OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
@@ -14,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
+    build_result_warning_text,
     compute_max_drawdown_amount,
     stat_cards_to_qml,
 )
@@ -38,7 +43,10 @@ def _trade(pnl: float) -> Trade:
 
 
 def _result(
-    trades: list[Trade], equity_curve, initial_balance: float = 1000.0
+    trades: list[Trade],
+    equity_curve,
+    initial_balance: float = 1000.0,
+    out_of_sample: OutOfSampleValidation | None = None,
 ) -> BacktestResult:
     final_balance = initial_balance + sum(t.pnl for t in trades)
     return BacktestResult(
@@ -48,6 +56,23 @@ def _result(
         trades=trades,
         equity_curve=equity_curve,
         metrics=BacktestMetrics.compute(trades, equity_curve, initial_balance),
+        out_of_sample=out_of_sample,
+    )
+
+
+def _result_with_net_profit_percent(percent: float) -> BacktestResult:
+    """Bare `BacktestResult` with just enough to read `net_profit_percent`
+    back off — used to build `OutOfSampleValidation.in_sample`/
+    `out_of_sample` without needing real trades/equity curves."""
+    metrics = BacktestMetrics.compute([], [], 1000.0)
+    metrics = replace(metrics, net_profit_percent=percent)
+    return BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1000.0,
+        trades=[],
+        equity_curve=[],
+        metrics=metrics,
     )
 
 
@@ -184,7 +209,7 @@ def test_extended_cards_cover_every_remaining_metrics_field():
 
 
 # ---------------------------------------------------------------------------
-# BOT-079: fee transparency / trade frequency warning on the Net PnL badge
+# BOT-079: fee transparency / trade frequency warning
 # ---------------------------------------------------------------------------
 
 
@@ -204,9 +229,12 @@ def _fee_heavy_trade(fees: float) -> Trade:
     )
 
 
-def test_net_pnl_badge_stays_plain_percent_when_no_warning_fires():
-    # 40 bars / 2 trades = 20 bars/trade, above MIN_BARS_PER_TRADE_WARNING_THRESHOLD
-    # (15) -> no frequency warning either, isolating this to "no warnings at all".
+def test_net_pnl_badge_is_always_the_plain_signed_percent():
+    """BOT-079 follow-up: an earlier version appended warning notes onto this
+    badge — a small fixed-size `MetricCard` pill, not built for a sentence —
+    which overflowed it. Warnings moved to `build_result_warning_text()`
+    (its own full-width line); this badge stays exactly what BOT-055 shipped,
+    warnings or not."""
     equity_curve = [(_T0, 1000.0)] * 40
     result = _result(trades=[_trade(50.0), _trade(-10.0)], equity_curve=equity_curve)
 
@@ -220,20 +248,26 @@ def test_net_pnl_badge_stays_plain_percent_when_no_warning_fires():
     assert net_pnl.badge_color == BULL_COLOR
 
 
-def test_net_pnl_badge_gets_a_warning_note_and_turns_bearish_when_fees_dominate():
+def test_result_warning_text_is_empty_when_neither_flag_fires():
+    equity_curve = [(_T0, 1000.0)] * 40
+    result = _result(trades=[_trade(50.0), _trade(-10.0)], equity_curve=equity_curve)
+
+    assert build_result_warning_text(result) == ""
+
+
+def test_result_warning_text_names_fee_dominance_and_high_frequency_together():
     trades = [_fee_heavy_trade(10.0) for _ in range(50)]
     equity_curve = [(_T0, 1000.0)] * 500  # 10 bars/trade -> also high frequency
     result = _result(trades, equity_curve)
 
-    net_pnl = next(
-        c
-        for c in build_primary_stat_cards(result)
-        if c.title == "Tổng Lãi/Lỗ (Net PnL)"
-    )
-
     assert result.metrics.has_high_fee_ratio is True
-    assert "⚠" in net_pnl.badge_text
-    assert net_pnl.badge_color == BEAR_COLOR
+    assert result.metrics.has_high_trade_frequency is True
+
+    warning = build_result_warning_text(result)
+
+    assert "Phí giao dịch" in warning
+    assert "Tần suất giao dịch" in warning
+    assert "10.0" in warning  # avg_bars_per_trade interpolated into the sentence
 
 
 def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():
@@ -251,6 +285,105 @@ def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():
 
     assert healthy_fees.value_color == ""
     assert fee_heavy_fees.value_color == BEAR_COLOR
+
+
+# ---------------------------------------------------------------------------
+# BOT-080: in-sample / out-of-sample validation
+# ---------------------------------------------------------------------------
+
+
+def test_extended_cards_gain_two_cards_when_out_of_sample_is_present():
+    out_of_sample = OutOfSampleValidation(
+        in_sample=_result_with_net_profit_percent(20.0),
+        out_of_sample=_result_with_net_profit_percent(15.0),
+        in_sample_ratio=0.7,
+    )
+    result = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)],
+        out_of_sample=out_of_sample,
+    )
+
+    titles = {card.title for card in build_extended_stat_cards(result)}
+
+    assert "In-Sample Net Profit" in titles
+    assert "Out-of-Sample Net Profit" in titles
+
+
+def test_extended_cards_omit_out_of_sample_cards_when_the_range_was_too_short():
+    result = _result(trades=[_trade(50.0)], equity_curve=[(_T0, 1000.0)])
+
+    titles = {card.title for card in build_extended_stat_cards(result)}
+
+    assert "In-Sample Net Profit" not in titles
+    assert "Out-of-Sample Net Profit" not in titles
+
+
+def test_out_of_sample_card_turns_bearish_only_when_divergence_is_high():
+    healthy = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)],
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(20.0),
+            out_of_sample=_result_with_net_profit_percent(15.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+    overfit = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)],
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(50.0),
+            out_of_sample=_result_with_net_profit_percent(-20.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+
+    healthy_card = next(
+        c
+        for c in build_extended_stat_cards(healthy)
+        if c.title == "Out-of-Sample Net Profit"
+    )
+    overfit_card = next(
+        c
+        for c in build_extended_stat_cards(overfit)
+        if c.title == "Out-of-Sample Net Profit"
+    )
+
+    assert healthy_card.value_color == ""
+    assert overfit_card.value_color == BEAR_COLOR
+
+
+def test_result_warning_text_includes_overfitting_note_when_divergence_is_high():
+    result = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)] * 40,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(50.0),
+            out_of_sample=_result_with_net_profit_percent(-20.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+
+    warning = build_result_warning_text(result)
+
+    assert "overfit" in warning
+    assert "+50.00%" in warning
+    assert "-20.00%" in warning
+
+
+def test_result_warning_text_stays_empty_when_out_of_sample_is_close_to_in_sample():
+    result = _result(
+        trades=[_trade(50.0)],
+        equity_curve=[(_T0, 1000.0)] * 40,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=_result_with_net_profit_percent(20.0),
+            out_of_sample=_result_with_net_profit_percent(15.0),
+            in_sample_ratio=0.7,
+        ),
+    )
+
+    assert build_result_warning_text(result) == ""
 
 
 def test_stat_cards_to_qml_uses_qml_property_names():

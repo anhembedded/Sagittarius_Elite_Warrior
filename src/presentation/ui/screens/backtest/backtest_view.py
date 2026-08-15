@@ -23,13 +23,6 @@ _QML_DIR = Path(__file__).parent
 _TOP_PANEL_QML = "BackTestTopPanel.qml"
 _TRADE_LOGS_QML = "BackTestTradeLogs.qml"
 
-#: Toolbar row (~40px) + metrics header row (~24px) + the MetricCard row
-#: itself (MetricCard.qml's own implicitHeight: 75) + ColumnLayout's 2x10px
-#: margins + 2x10px inter-row spacing — 120 (BOT-022's original budget, sized
-#: for a single plain result-text line, before BOT-055's real stat cards
-#: existed) clipped the cards' value/badge row off entirely.
-_TOP_PANEL_HEIGHT = 190
-
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (
     "#f0b90b"  # Theme.accent's hex — chart_card has no Qt theme singleton access
@@ -71,6 +64,10 @@ class BackTestView(BaseView):
         self._last_klines: list = []
         self._last_volume: list = []
         self._setup_ui()
+        # BOT-087: this direct child deliberately stays out of the layout so
+        # a future QML Popup can use the Backtest view's full bounds rather
+        # than the small top QQuickWidget that defines the toolbar.
+        self.overlay_host = OverlayHost(self)
 
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)
@@ -78,7 +75,6 @@ class BackTestView(BaseView):
         outer_layout.setSpacing(10)
 
         self.top_widget = create_quick_widget()
-        self.top_widget.setFixedHeight(_TOP_PANEL_HEIGHT)
         outer_layout.addWidget(self.top_widget)
         self.top_overlay_host = OverlayHost(self.top_widget)
 
@@ -96,7 +92,13 @@ class BackTestView(BaseView):
 
         main_splitter.setStretchFactor(0, 3)
         main_splitter.setStretchFactor(1, 1)
-        main_splitter.setSizes([600, 200])
+        # BOT-090: was [600, 200] — 200px is well below what the Trade Logs
+        # pane actually needs (BUG-004: rendered header/tabs/pagination,
+        # zero rows visible). `_bind_trade_log_minimum_height()` enforces a
+        # real floor via setMinimumHeight() regardless of this hint, but
+        # starting close to that floor avoids a visible jump/snap on first
+        # show.
+        main_splitter.setSizes([500, 350])
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Registers the screen's ViewModel as a QML context property on
@@ -118,9 +120,73 @@ class BackTestView(BaseView):
         self.top_overlay_host.load_content(
             QUrl.fromLocalFile(str(_QML_DIR / _TOP_PANEL_QML))
         )
+        self._bind_top_panel_height()
+        self._bind_trade_log_minimum_height()
 
     def _set_context_property(self, widget, name: str, value: QObject) -> None:
         widget.rootContext().setContextProperty(name, value)
+
+    def _bind_top_panel_height(self) -> None:
+        """
+        @brief BOT-089 — `top_widget` is `SizeRootObjectToView` (the shared
+        default from `create_quick_widget()`, same as every other QML host
+        in the app), so the QML root's `implicitHeight` never drives the
+        widget's size on its own. This is the one place that reads it back
+        and applies it, replacing the `_TOP_PANEL_HEIGHT` constant that had
+        already needed bumping once before (120 -> 190, BOT-055) for the
+        exact same reason: a hardcoded number ignoring what the content
+        actually needs.
+        @details Deliberately local to this View, not a change to
+        `create_quick_widget()`'s shared resize mode — Settings/Database/
+        Dashboard's QML hosts fill whatever space their container gives
+        them and must keep doing so; only this screen's top panel is meant
+        to size itself to its content.
+        """
+        root = self.top_widget.rootObject()
+        if root is None:
+            return
+        content_column = root.findChild(QObject, "contentColumn")
+        if content_column is None:
+            return
+
+        def sync_height() -> None:
+            content_column.ensurePolished()
+            self.top_widget.setFixedHeight(int(root.property("implicitHeight")))
+
+        root.implicitHeightChanged.connect(sync_height)
+        sync_height()
+
+    def _bind_trade_log_minimum_height(self) -> None:
+        """
+        @brief BOT-090 — `bottom_widget` sits inside `main_splitter`, whose
+        `setSizes([600, 200])` was only ever an initial hint: nothing
+        stopped the splitter from squeezing it far below what the table
+        actually needs (BUG-004's exact symptom — header/tabs/pagination
+        all rendered, zero trade rows visible, because 200px < toolbar +
+        table header + 20 rows + pagination by a wide margin).
+        @details Unlike `_bind_top_panel_height` (a fixed size, since that
+        panel has nothing else competing for space), this applies
+        `setMinimumHeight()` — the splitter still distributes extra space
+        and the user can still drag it larger, but can never drag it below
+        `minimumUsableHeight` (a deliberate "stay usable for N rows" floor
+        computed in `BackTestTradeLogs.qml`, not a rediscovered content
+        size — a paginated ListView has no single natural height, unlike
+        BOT-089's stat cards).
+        """
+        root = self.bottom_widget.rootObject()
+        if root is None:
+            return
+        toolbar_row = root.findChild(QObject, "toolbarRow")
+        if toolbar_row is None:
+            return
+
+        def sync_minimum_height() -> None:
+            toolbar_row.ensurePolished()
+            minimum = int(root.property("minimumUsableHeight"))
+            self.bottom_widget.setMinimumHeight(minimum)
+
+        root.minimumUsableHeightChanged.connect(sync_minimum_height)
+        sync_minimum_height()
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter and forwards them to

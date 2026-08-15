@@ -18,6 +18,7 @@ import QmlShared 1.0
 Popup {
     id: root
     property string strategyName: ""
+    readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 
     width: 650
     height: Math.min(600, contentColumn.implicitHeight + 170)
@@ -27,8 +28,8 @@ Popup {
     padding: 20
 
     background: Rectangle {
-        color: Theme.bg
-        border.color: Theme.border
+        color: Theme && Theme.bg ? Theme.bg : "#141620"
+        border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
         border.width: 1
         radius: 8
     }
@@ -38,7 +39,7 @@ Popup {
     // (see requestBotParamsSave below), so only a genuine save success ever
     // triggers this.
     Connections {
-        target: viewModel
+        target: typeof viewModel === "undefined" ? null : viewModel
         function onBotParamsSaved() { root.close() }
     }
 
@@ -57,7 +58,7 @@ Popup {
             }
             Text {
                 text: "CẤU HÌNH THÔNG SỐ BOT: " + root.strategyName.toUpperCase()
-                color: Theme.textPrimary
+                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
                 font.pixelSize: 13
                 font.bold: true
                 Layout.fillWidth: true
@@ -70,7 +71,7 @@ Popup {
                 background: Rectangle { color: "transparent" }
                 contentItem: Text {
                     text: "✕"
-                    color: Theme.muted
+                    color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
                     font.pixelSize: 14
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -93,21 +94,21 @@ Popup {
 
                 Text {
                     Layout.fillWidth: true
-                    visible: viewModel.botParamsSchema.length === 0
+                    visible: typeof viewModel !== "undefined" && viewModel.botParamsSchema.length === 0
                     text: "Chiến lược này không có tham số nào để cấu hình."
-                    color: Theme.muted
+                    color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
                     font.pixelSize: 11
                     wrapMode: Text.Wrap
                 }
 
                 Repeater {
-                    model: viewModel.botParamsSchema
+                    model: typeof viewModel === "undefined" ? [] : viewModel.botParamsSchema
 
                     Rectangle {
                         Layout.fillWidth: true
                         implicitHeight: groupColumn.implicitHeight + 24
-                        color: Theme.stateIdleBg
-                        border.color: Theme.border
+                        color: Theme && Theme.stateIdleBg ? Theme.stateIdleBg : "#181a24"
+                        border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
                         border.width: 1
                         radius: 6
 
@@ -159,8 +160,8 @@ Popup {
         Text {
             objectName: "txtBotParamsError"
             Layout.fillWidth: true
-            visible: viewModel.botParamsError !== ""
-            text: viewModel.botParamsError
+            visible: typeof viewModel !== "undefined" && viewModel.botParamsError !== ""
+            text: typeof viewModel === "undefined" ? "" : viewModel.botParamsError
             color: "#ff5252"
             font.pixelSize: 11
             wrapMode: Text.Wrap

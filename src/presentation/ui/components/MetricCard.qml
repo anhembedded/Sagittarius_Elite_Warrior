@@ -11,6 +11,7 @@ BaseCard {
     border.color: "#232634"
     border.width: 1
     radius: 8
+    clip: true
 
     property string title: ""
     property string value: "0.00"
@@ -41,15 +42,17 @@ BaseCard {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.leftMargin: 14
-        anchors.rightMargin: 14
-        anchors.topMargin: 12
-        anchors.bottomMargin: 12
-        spacing: 6
+        anchors.leftMargin: 12
+        anchors.rightMargin: 12
+        anchors.topMargin: 10
+        anchors.bottomMargin: 10
+        spacing: 4
 
         // Row 1: Title & Info Icon
         RowLayout {
+            Layout.fillWidth: true
             spacing: 6
+
             Text {
                 text: root.title.toUpperCase()
                 color: Theme.muted
@@ -57,6 +60,8 @@ BaseCard {
                 font.bold: true
                 font.letterSpacing: 0.8
                 Layout.alignment: Qt.AlignVCenter
+                Layout.fillWidth: true
+                elide: Text.ElideRight
             }
             // Info icon
             Image {
@@ -65,46 +70,54 @@ BaseCard {
                 Layout.alignment: Qt.AlignVCenter
                 opacity: 0.7
             }
-            Item { Layout.fillWidth: true }
         }
 
         // Row 2: Value Display & Badges
         RowLayout {
-            spacing: 6
+            Layout.fillWidth: true
+            spacing: 4
+
             Text {
+                id: valueItem
                 text: root.value
                 color: root.valueColor
-                font.pixelSize: 20
+                font.pixelSize: root.value.length > 10 ? 16 : 18
                 font.bold: true
                 font.family: "Inter, Segoe UI, sans-serif"
                 Layout.alignment: Qt.AlignVCenter
+                elide: Text.ElideRight
+                Layout.maximumWidth: root.width * 0.5
             }
             
             Text {
                 text: root.suffix
                 color: Theme.muted
-                font.pixelSize: 11
+                font.pixelSize: 10
                 font.bold: true
                 visible: root.suffix !== ""
                 Layout.alignment: Qt.AlignBottom
-                Layout.bottomMargin: 3
+                Layout.bottomMargin: 2
             }
             
             Rectangle {
                 visible: root.badgeText !== ""
                 color: root.badgeBgColor
                 radius: 4
-                implicitWidth: badgeTextItem.implicitWidth + 12
-                implicitHeight: badgeTextItem.implicitHeight + 6
+                implicitWidth: Math.min(badgeTextItem.implicitWidth + 10, root.width * 0.5)
+                implicitHeight: badgeTextItem.implicitHeight + 4
+                Layout.maximumWidth: root.width * 0.5
                 Layout.alignment: Qt.AlignVCenter
+                clip: true
                 
                 Text {
                     id: badgeTextItem
                     anchors.centerIn: parent
                     text: root.badgeText
                     color: root.badgeTextColor
-                    font.pixelSize: 11
+                    font.pixelSize: 10
                     font.bold: true
+                    elide: Text.ElideRight
+                    width: Math.min(implicitWidth, parent.width - 6)
                 }
             }
             
@@ -112,4 +125,5 @@ BaseCard {
         }
     }
 }
+
 

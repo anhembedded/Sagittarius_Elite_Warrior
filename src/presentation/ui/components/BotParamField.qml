@@ -16,8 +16,8 @@ Item {
     //: Marks this item for BotParamsDialog's recursive collector — see its
     //: _collectFieldItems().
     readonly property bool isBotParamField: true
-    readonly property string fieldName: fieldData.name
-    property var currentValue: fieldData.value
+    readonly property string fieldName: fieldData ? fieldData.name : ""
+    property var currentValue: fieldData ? fieldData.value : ""
 
     //: A stand-in for "no bound" — QML properties can't be `undefined` the
     //: way Python's `None` can, and int/DoubleValidator both require a real
@@ -55,8 +55,10 @@ Item {
         spacing: 4
 
         Text {
-            text: fieldData.label + (fieldData.suffix ? " (" + fieldData.suffix + ")" : "")
-            color: Theme.textSecondary || Theme.muted
+            text: fieldData
+                ? fieldData.label + (fieldData.suffix !== "" ? " (" + fieldData.suffix + ")" : "")
+                : ""
+            color: Theme && Theme.textSecondary ? Theme.textSecondary : "#9aa4b2"
             font.pixelSize: 10
         }
 
@@ -64,6 +66,7 @@ Item {
             id: fieldLoader
             Layout.fillWidth: true
             sourceComponent: {
+                if (!fieldData) return null
                 if (fieldData.kind === "int") return intFieldComponent
                 if (fieldData.kind === "float") return floatFieldComponent
                 if (fieldData.kind === "bool") return boolFieldComponent

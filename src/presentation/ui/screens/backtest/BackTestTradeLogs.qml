@@ -5,9 +5,41 @@ import QmlShared 1.0
 
 Rectangle {
     id: root
+    readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
+    readonly property color themeAccent: Theme && Theme.accent ? Theme.accent : "#fbbf24"
+    readonly property color themeTextPrimary: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+    readonly property color themeMuted: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
     implicitWidth: 1200
-    implicitHeight: 300
     color: "#0d0e14"
+
+    //: BOT-090 — single source of truth for one row's height, referenced
+    //: both by the real delegate below and by `minimumUsableHeight`'s
+    //: floor calculation, so the two can never drift apart.
+    property int rowHeight: 44
+    //: BOT-090 — how many trade rows the pane should stay usable for by
+    //: default; a page can hold up to PAGE_SIZE=20 rows (trade_log_pagination.py),
+    //: which the ListView scrolls through internally (it's a Flickable —
+    //: unlike BOT-089's stat cards, a log page has no single "natural"
+    //: height to measure). This is a deliberate UX floor, not a rediscovery
+    //: of a real content size — same category of choice as BOT-089's
+    //: resultColumn ScrollView budget.
+    property int minVisibleRows: 5
+    //: BOT-090 — read by BackTestView._bind_trade_log_minimum_height() and
+    //: applied via QWidget.setMinimumHeight(), so QSplitter can never
+    //: squeeze this pane below "usable" the way setSizes([600, 200]) alone
+    //: let it (200px < toolbarRow + tableHeader + 20 rows + pagination by
+    //: a wide margin — the exact BUG-004 symptom: headers/tabs/pagination
+    //: all rendered, zero actual rows visible). Always counts the
+    //: pagination row's height even when 1 page of results wouldn't show
+    //: it, so the floor doesn't jump depending on result-set size.
+    property int panelMargin: 12
+    property real minimumUsableHeight:
+        panelMargin * 2
+        + toolbarRow.implicitHeight
+        + outerColumn.spacing
+        + tableHeaderRow.Layout.preferredHeight
+        + minVisibleRows * rowHeight
+        + paginationRow.Layout.preferredHeight
 
     //: Mirrors TradeLogFilter's Python values exactly (trade_log_filter.py)
     readonly property var filterTabs: [
@@ -27,12 +59,15 @@ Rectangle {
     }
 
     ColumnLayout {
+        id: outerColumn
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: root.panelMargin
         spacing: 12
 
         // ================= HEADER & TOOLBAR =================
         RowLayout {
+            id: toolbarRow
+            objectName: "toolbarRow"
             Layout.fillWidth: true
             spacing: 14
 
@@ -41,12 +76,12 @@ Rectangle {
                 Rectangle {
                     width: 3
                     height: 14
-                    color: Theme.accent
+                    color: root.themeAccent
                     radius: 2
                 }
                 Text {
                     text: "DANH SÁCH LỆNH GIAO DỊCH"
-                    color: Theme.textPrimary
+                    color: root.themeTextPrimary
                     font.pixelSize: 12
                     font.bold: true
                     font.letterSpacing: 0.8
@@ -63,8 +98,8 @@ Rectangle {
                 Text {
                     id: countLabel
                     anchors.centerIn: parent
-                    text: viewModel.tradeLogTotalCount + " Lệnh"
-                    color: Theme.accent
+                    text: (root.hasViewModel ? viewModel.tradeLogTotalCount : 0) + " Lệnh"
+                    color: root.themeAccent
                     font.pixelSize: 10
                     font.bold: true
                 }
@@ -83,21 +118,21 @@ Rectangle {
                         implicitHeight: 26
                         background: Rectangle {
                             radius: 6
-                            color: viewModel.tradeLogFilter === modelData.value ? "#252838" : "transparent"
-                            border.color: viewModel.tradeLogFilter === modelData.value ? "#3d425c" : "transparent"
+                            color: root.hasViewModel && viewModel.tradeLogFilter === modelData.value ? "#252838" : "transparent"
+                            border.color: root.hasViewModel && viewModel.tradeLogFilter === modelData.value ? "#3d425c" : "transparent"
                             border.width: 1
                         }
                         contentItem: Text {
                             leftPadding: 10
                             rightPadding: 10
                             text: modelData.label
-                            color: viewModel.tradeLogFilter === modelData.value ? Theme.textPrimary : Theme.muted
+                            color: root.hasViewModel && viewModel.tradeLogFilter === modelData.value ? root.themeTextPrimary : root.themeMuted
                             font.pixelSize: 11
-                            font.bold: viewModel.tradeLogFilter === modelData.value
+                            font.bold: root.hasViewModel && viewModel.tradeLogFilter === modelData.value
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
-                        onClicked: viewModel.tradeLogFilter = modelData.value
+                        onClicked: { if (root.hasViewModel) viewModel.tradeLogFilter = modelData.value }
                     }
                 }
             }
@@ -108,7 +143,7 @@ Rectangle {
             TextField {
                 objectName: "txtTradeLogSearch"
                 placeholderText: "🔍  Tìm theo mã, ngày..."
-                text: viewModel.tradeLogSearchText
+                text: root.hasViewModel ? viewModel.tradeLogSearchText : ""
                 color: Theme.textPrimary
                 font.pixelSize: 11
                 background: Rectangle {
@@ -119,7 +154,7 @@ Rectangle {
                 }
                 Layout.preferredWidth: 200
                 implicitHeight: 28
-                onTextEdited: viewModel.tradeLogSearchText = text
+                onTextEdited: { if (root.hasViewModel) viewModel.tradeLogSearchText = text }
             }
 
             Button {
@@ -138,12 +173,12 @@ Rectangle {
                     Image { source: "image://icons/download/accent"; sourceSize: Qt.size(12, 12) }
                     Text {
                         text: "Export"
-                        color: Theme.textPrimary
+                        color: root.themeTextPrimary
                         font.pixelSize: 11
                         font.bold: true
                     }
                 }
-                onClicked: viewModel.requestTradeLogExport()
+                onClicked: { if (root.hasViewModel) viewModel.requestTradeLogExport() }
             }
         }
 
@@ -162,6 +197,7 @@ Rectangle {
 
                 // Header Row
                 Rectangle {
+                    id: tableHeaderRow
                     Layout.fillWidth: true
                     Layout.preferredHeight: 34
                     color: "#181a26"
@@ -185,7 +221,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    model: viewModel.tradeLogRows
+                    model: root.hasViewModel ? viewModel.tradeLogRows : []
                     delegate: Column {
                         width: parent ? parent.width : 0
                         readonly property bool rowExpanded: root.expandedRows[modelData.index] === true
@@ -194,7 +230,7 @@ Rectangle {
                             id: rowBtn
                             objectName: "rowTradeLog_" + modelData.index
                             width: parent.width
-                            implicitHeight: 44
+                            implicitHeight: root.rowHeight
                             onClicked: root.toggleTradeLogRow(modelData.index)
                             background: Rectangle {
                                 id: rowBg
@@ -305,7 +341,7 @@ Rectangle {
                                         model: modelData.metadataItems
                                         Text {
                                             text: modelData.label + ": " + modelData.value
-                                            color: Theme.muted
+                                            color: root.themeMuted
                                             font.pixelSize: 11
                                         }
                                     }
@@ -317,18 +353,19 @@ Rectangle {
                     // Empty state
                     Text {
                         anchors.centerIn: parent
-                        visible: viewModel.tradeLogRows.length === 0
+                        visible: !root.hasViewModel || viewModel.tradeLogRows.length === 0
                         text: "Chưa có dữ liệu lệnh giao dịch"
-                        color: Theme.muted
+                        color: root.themeMuted
                         font.pixelSize: 12
                     }
                 }
 
                 // ================= PAGINATION =================
                 RowLayout {
+                    id: paginationRow
                     Layout.fillWidth: true
                     Layout.preferredHeight: 34
-                    visible: viewModel.tradeLogTotalPages > 1
+                    visible: root.hasViewModel && viewModel.tradeLogTotalPages > 1
 
                     Item { Layout.fillWidth: true }
 
@@ -336,13 +373,13 @@ Rectangle {
                         objectName: "btnTradeLogPrevPage"
                         text: "‹  Trang trước"
                         implicitHeight: 26
-                        enabled: viewModel.tradeLogCurrentPage > 1
+                        enabled: root.hasViewModel && viewModel.tradeLogCurrentPage > 1
                         background: Rectangle {
                             color: parent.enabled ? "#1c1e2b" : "transparent"
                             radius: 4
                         }
                         contentItem: Text { text: parent.text; color: parent.enabled ? Theme.textPrimary : Theme.muted; font.pixelSize: 11; font.bold: true }
-                        onClicked: viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage - 1
+                        onClicked: { if (root.hasViewModel) viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage - 1 }
                     }
 
                     Rectangle {
@@ -353,8 +390,8 @@ Rectangle {
                         Text {
                             id: pageText
                             anchors.centerIn: parent
-                            text: "Trang " + viewModel.tradeLogCurrentPage + " / " + viewModel.tradeLogTotalPages
-                            color: Theme.accent
+                            text: "Trang " + (root.hasViewModel ? viewModel.tradeLogCurrentPage : 0) + " / " + (root.hasViewModel ? viewModel.tradeLogTotalPages : 0)
+                            color: root.themeAccent
                             font.pixelSize: 11
                             font.bold: true
                         }
@@ -364,13 +401,13 @@ Rectangle {
                         objectName: "btnTradeLogNextPage"
                         text: "Trang sau  ›"
                         implicitHeight: 26
-                        enabled: viewModel.tradeLogCurrentPage < viewModel.tradeLogTotalPages
+                        enabled: root.hasViewModel && viewModel.tradeLogCurrentPage < viewModel.tradeLogTotalPages
                         background: Rectangle {
                             color: parent.enabled ? "#1c1e2b" : "transparent"
                             radius: 4
                         }
                         contentItem: Text { text: parent.text; color: parent.enabled ? Theme.textPrimary : Theme.muted; font.pixelSize: 11; font.bold: true }
-                        onClicked: viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage + 1
+                        onClicked: { if (root.hasViewModel) viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage + 1 }
                     }
 
                     Item { Layout.fillWidth: true }
