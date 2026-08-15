@@ -59,9 +59,7 @@ class BulkSyncMarketDataCommandHandler(
         total = len(targets)
         reporter = BulkSyncProgressReporter(self.event_bus, total_targets=total)
 
-        if total == 0:
-            self.logger.info("No targets provided for bulk sync.")
-            reporter.report_empty()
+        if self._handle_empty_targets(total, reporter):
             return
 
         delay_sec = self._get_rate_limit_delay_seconds()
@@ -78,6 +76,15 @@ class BulkSyncMarketDataCommandHandler(
 
         self.logger.info("Bulk sync completed.")
         reporter.report_completed()
+
+
+    def _handle_empty_targets(self, total: int, reporter: BulkSyncProgressReporter) -> bool:
+        """Helper to handle the case where no targets are provided."""
+        if total == 0:
+            self.logger.info("No targets provided for bulk sync.")
+            reporter.report_empty()
+            return True
+        return False
 
     def _get_rate_limit_delay_seconds(self) -> float:
         """Reads the rate limit delay configuration in seconds."""
