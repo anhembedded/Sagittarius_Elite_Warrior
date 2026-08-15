@@ -15,6 +15,16 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+_DEFAULT_DIALOG_WIDTH: int = 620
+_DEFAULT_DIALOG_HEIGHT: int = 320
+_MIN_DIALOG_WIDTH: int = 540
+_MIN_DIALOG_HEIGHT: int = 240
+_EXPANDED_MIN_WIDTH: int = 650
+_EXPANDED_MIN_HEIGHT: int = 480
+_EXPANDED_HEIGHT_DELTA: int = 200
+_COLLAPSED_MIN_HEIGHT: int = 260
+_DEFAULT_ICON_SIZE: int = 40
+
 
 class CriticalErrorDialog(QDialog):
     """
@@ -33,8 +43,8 @@ class CriticalErrorDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.setMinimumSize(540, 240)
-        self.resize(620, 320)
+        self.setMinimumSize(_MIN_DIALOG_WIDTH, _MIN_DIALOG_HEIGHT)
+        self.resize(_DEFAULT_DIALOG_WIDTH, _DEFAULT_DIALOG_HEIGHT)
         self.setSizeGripEnabled(True)
         self.setWindowFlags(
             self.windowFlags()
@@ -59,7 +69,7 @@ class CriticalErrorDialog(QDialog):
 
         icon_label = QLabel(self)
         icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)
-        icon_label.setPixmap(icon.pixmap(40, 40))
+        icon_label.setPixmap(icon.pixmap(_DEFAULT_ICON_SIZE, _DEFAULT_ICON_SIZE))
         icon_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         header_row.addWidget(icon_label)
 
@@ -123,9 +133,12 @@ class CriticalErrorDialog(QDialog):
             "Hide Details..." if is_visible else "Show Details..."
         )
         if is_visible:
-            self.resize(max(self.width(), 650), max(self.height() + 200, 480))
+            self.resize(
+                max(self.width(), _EXPANDED_MIN_WIDTH),
+                max(self.height() + _EXPANDED_HEIGHT_DELTA, _EXPANDED_MIN_HEIGHT),
+            )
         else:
-            self.resize(self.width(), max(self.minimumHeight(), 260))
+            self.resize(self.width(), max(self.minimumHeight(), _COLLAPSED_MIN_HEIGHT))
 
     def _copy_to_clipboard(self) -> None:
         full_text = (

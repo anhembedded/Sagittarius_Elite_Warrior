@@ -4,6 +4,9 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
+    DEFAULT_LOG_MAX_ENTRIES,
+)
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
@@ -22,7 +25,7 @@ class BaseEventLogger:
         log_model: LogListModel | None = None,
         is_dev_mode: bool = False,
         emit_signal: Callable[[str, str, bool], None] | None = None,
-        max_entries: int = 500,
+        max_entries: int = DEFAULT_LOG_MAX_ENTRIES,
     ) -> None:
         self._log_model = log_model
         self._is_dev_mode = is_dev_mode

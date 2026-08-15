@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, Any
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_event_logger import (
     BaseEventLogger,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
+    DEFAULT_LOG_MAX_ENTRIES,
+)
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
@@ -26,7 +29,7 @@ class BacktestEventLogger(BaseEventLogger):
         log_model: LogListModel | None = None,
         is_dev_mode: bool = False,
         emit_signal: Callable[[str, str, bool], None] | None = None,
-        max_entries: int = 500,
+        max_entries: int = DEFAULT_LOG_MAX_ENTRIES,
     ) -> None:
         super().__init__(
             log_model=log_model,

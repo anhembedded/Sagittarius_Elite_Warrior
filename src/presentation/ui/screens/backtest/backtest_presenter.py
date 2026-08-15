@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
+    DEFAULT_LOG_MAX_ENTRIES,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
     qualified_line_name,
@@ -242,14 +245,16 @@ class BackTestPresenter(BasePresenter):
 
         self._is_dev_mode: bool = bool(self.config.get(DEV_MODE_CONFIG_KEY, False))
         raw_max_entries = self.config.get(
-            ConfigKeys.BACKTEST_LOG_MAX_ENTRIES.value, 500
+            ConfigKeys.BACKTEST_LOG_MAX_ENTRIES.value, DEFAULT_LOG_MAX_ENTRIES
         )
         try:
             self._log_max_entries = (
-                int(raw_max_entries) if not isinstance(raw_max_entries, bool) else 500
+                int(raw_max_entries)
+                if not isinstance(raw_max_entries, bool)
+                else DEFAULT_LOG_MAX_ENTRIES
             )
         except (ValueError, TypeError):
-            self._log_max_entries = 500
+            self._log_max_entries = DEFAULT_LOG_MAX_ENTRIES
         self._logger = BacktestEventLogger(
             log_model=self._view_model.log_model,
             is_dev_mode=self._is_dev_mode,
