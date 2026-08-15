@@ -469,9 +469,7 @@ class StreamLifecycleController:
                     self._raw_klines_by_symbol[symbol] = ordered_klines
                     self._script_runner.feed_all(ordered_klines)
 
-    def _start_websocket_stream(
-        self, symbols: list[str], interval: TimeFrame
-    ) -> None:
+    def _start_websocket_stream(self, symbols: list[str], interval: TimeFrame) -> None:
         self._emit_log("Opening Websocket stream...")
         cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
         response = self.dispatcher.dispatch(StartLiveStreamCommand, cmd)
