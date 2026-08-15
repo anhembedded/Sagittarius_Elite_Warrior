@@ -12,6 +12,7 @@ Screen-specific factory/presenter imports stay at the top level (no local import
 from __future__ import annotations
 
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,

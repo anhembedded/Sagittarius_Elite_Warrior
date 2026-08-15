@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
+
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseView,
     OverlayHost,

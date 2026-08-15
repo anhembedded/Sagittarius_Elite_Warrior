@@ -4,8 +4,9 @@ import re
 from dataclasses import dataclass
 
 import sqlalchemy as sa
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.models import Base
 from sqlalchemy.orm import sessionmaker
+
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.models import Base
 
 logger = logging.getLogger("App.Database")
 
