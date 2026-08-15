@@ -211,20 +211,20 @@ if (-not $SkipTests) {
         # Launch sanity as a background PowerShell job
         $sanityLogFile = Join-Path $env:TEMP "ci_sanity_$([System.Diagnostics.Process]::GetCurrentProcess().Id).log"
         $sanityJob = Start-Job -ScriptBlock {
-            param($executionRoot, $pytestBin, $target, $logFile)
+            param($executionRoot, $pytestBin, $target, $logFile, $rootDir)
             Set-Location $executionRoot
             $env:PYTHONPATH     = $executionRoot
             $env:QT_QPA_PLATFORM = "offscreen"
-            $output = & $pytestBin $target -v 2>&1
+            $output = & $pytestBin $target -v --rootdir=$rootDir 2>&1
             $output | Out-File -FilePath $logFile -Encoding utf8
             return $LASTEXITCODE
-        } -ArgumentList $testExecutionRoot, $pytestExe, $sanityTarget, $sanityLogFile
+        } -ArgumentList $testExecutionRoot, $pytestExe, $sanityTarget, $sanityLogFile, $botRoot
 
         # Run main tests in foreground while sanity runs in background
         Push-Location $testExecutionRoot
         $mainExitCode = 0
         try {
-            $pytestArgs = @($mainTarget, "-v")
+            $pytestArgs = @($mainTarget, "-v", "--rootdir=$botRoot")
 
             # Exclude sanity from main parallel run (sanity runs in background job)
             $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/sanity"

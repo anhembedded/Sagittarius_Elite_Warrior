@@ -29,7 +29,11 @@ def app_instance():
     app = App(container, event_bus)
     app.use(BinanceBotModule())
 
-    return app
+    yield app
+    try:
+        app.stop()
+    except Exception:
+        pass
 
 
 def test_app_boot_and_stream_use_case(app_instance):

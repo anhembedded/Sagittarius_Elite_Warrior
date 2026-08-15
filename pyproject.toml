@@ -1,0 +1,28 @@
+[tool.pytest.ini_options]
+# ---------------------------------------------------------------------------
+# Warning filters
+#
+# Format: "action:message:category:module:line"
+#   ignore  → suppress entirely (third-party libs we can't fix)
+#   error   → promote to test failure (our own code MUST NOT emit these)
+#   default → show once (default behaviour)
+# ---------------------------------------------------------------------------
+filterwarnings = [
+    # ── Third-party deprecations we cannot fix ────────────────────────────
+    # python-binance uses the deprecated websockets.legacy API (websockets ≥ 14)
+    "ignore:websockets.WebSocketClientProtocol is deprecated:DeprecationWarning",
+    "ignore:websockets.legacy is deprecated:DeprecationWarning",
+    # PySide6 / Qt: QQmlPropertyMap constructor marked deprecated upstream
+    "ignore:.*QQmlPropertyMap.*is marked as deprecated:DeprecationWarning",
+    # pyqtgraph uses the old NumPy arr.shape setter (NumPy 2.5+ deprecation)
+    "ignore:Setting the shape on a NumPy array has been deprecated:DeprecationWarning:pyqtgraph",
+
+    # ── Our code: promote to errors so they never silently regress ─────────
+    # An AsyncMock coroutine that was created but never awaited is a test bug.
+    # "error::RuntimeWarning:unittest.mock",
+
+    # ResourceWarning for unclosed DB connections must be fixed at source —
+    # do NOT suppress; keep them visible to track fixture cleanup progress.
+]
+
+asyncio_mode = "auto"
