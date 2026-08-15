@@ -89,10 +89,15 @@ $repoRoot  = Split-Path -Parent $botRoot
 # -SanityOnly / -UnitOnly are fast dev-loop subsets: no lint, no --cov-fail-under
 # (a partial test run always under-reports total coverage). -Full is just the
 # default full-suite-with-coverage-gate behavior, spelled out explicitly.
+#
+# Project rule (code-rule.md): sanity tests MUST always run alongside unit tests.
+# -UnitOnly therefore runs sanity first (sequential — Qt cannot use xdist) then
+# unit tests (parallel if -Parallel/-Workers is set).
 # ---------------------------------------------------------------------------
 $pytestTarget = "Sagittarius_Elite_Warrior/tests"
 $useCoverage = $true
 $enforceCoverageGate = $true
+$runSanityPass = $false   # separate sequential sanity pass before unit tests
 
 if ($SanityOnly) {
     $pytestTarget = "Sagittarius_Elite_Warrior/tests/sanity"
@@ -100,9 +105,12 @@ if ($SanityOnly) {
     $enforceCoverageGate = $false
     $SkipLint = $true
 } elseif ($UnitOnly) {
+    # Unit-only fast loop: run sanity first (sequential), then unit (parallel).
+    # This enforces the project rule that sanity always ships with every feature.
     $pytestTarget = "Sagittarius_Elite_Warrior/tests/unit"
     $enforceCoverageGate = $false
     $SkipLint = $true
+    $runSanityPass = $true
 }
 
 $venvActivateWin = if (Test-Path (Join-Path $repoRoot ".venv\Scripts\Activate.ps1")) {
@@ -153,7 +161,6 @@ if (-not $SkipLint) {
 }
 
 if (-not $SkipTests) {
-    Write-Step "Pytest ($pytestTarget)"
     $testExecutionRoot = $repoRoot
     if (-not (Test-Path (Join-Path $repoRoot "Sagittarius_Elite_Warrior"))) {
         if ((Split-Path -Leaf $botRoot) -ne "Sagittarius_Elite_Warrior") {
@@ -165,11 +172,32 @@ if (-not $SkipTests) {
         }
     }
 
+    $env:PYTHONPATH = $testExecutionRoot
+    $env:QT_QPA_PLATFORM = "offscreen"
+
+    # -------------------------------------------------------------------------
+    # Step A (optional): dedicated sequential sanity pass for -UnitOnly.
+    # Sanity tests boot real Qt/DI — they MUST run single-process (no xdist).
+    # -------------------------------------------------------------------------
+    if ($runSanityPass) {
+        Write-Step "Sanity Tests (sequential — Qt DI boot checks)"
+        Push-Location $testExecutionRoot
+        try {
+            pytest "Sagittarius_Elite_Warrior/tests/sanity" -v
+            if ($LASTEXITCODE -ne 0) { $failed += "Sanity"; Write-Failure "Sanity" }
+            else { Write-Success "Sanity" }
+        } catch {
+            $failed += "Sanity"; Write-Failure "Sanity"
+            Write-Host $_.Exception.Message -ForegroundColor Yellow
+        } finally { Pop-Location }
+    }
+
+    # -------------------------------------------------------------------------
+    # Step B: main pytest run (unit, sanity-only, or full).
+    # -------------------------------------------------------------------------
+    Write-Step "Pytest ($pytestTarget)"
     Push-Location $testExecutionRoot
     try {
-        $env:PYTHONPATH = $testExecutionRoot
-        $env:QT_QPA_PLATFORM = "offscreen"
-
         $pytestArgs = @($pytestTarget, "-v")
         if (-not $IncludeFlakyUi) {
             # BOT-038: running this dir as one full block intermittently
