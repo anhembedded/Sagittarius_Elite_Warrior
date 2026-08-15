@@ -81,7 +81,16 @@ function Write-Failure {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot   = Split-Path -Parent $scriptDir
 $repoRoot  = Split-Path -Parent $botRoot
-$pytestExe = Join-Path $botRoot ".venv\Scripts\pytest.exe"
+
+$venvRoot = $null
+if (Test-Path (Join-Path $botRoot ".venv")) {
+    $venvRoot = Join-Path $botRoot ".venv"
+} elseif (Test-Path (Join-Path $repoRoot ".venv")) {
+    $venvRoot = Join-Path $repoRoot ".venv"
+}
+
+$pytestExe = if ($venvRoot) { Join-Path $venvRoot "Scripts\pytest.exe" } else { "pytest" }
+$ruffExe   = if ($venvRoot) { Join-Path $venvRoot "Scripts\ruff.exe" } else { "ruff" }
 
 # ---------------------------------------------------------------------------
 # Resolve which test tier to run and whether coverage/lint apply.
@@ -137,7 +146,7 @@ if (-not $SkipLint) {
     Write-Step "Ruff — Auto-fix Lint (ruff check --fix src tests)"
     Push-Location $botRoot
     try {
-        ruff check --fix src tests
+        & $ruffExe check --fix src tests
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Lint"; Write-Failure "Ruff Lint" }
         else { Write-Success "Ruff Lint" }
     } catch {
@@ -148,7 +157,7 @@ if (-not $SkipLint) {
     Write-Step "Ruff — Auto-fix Format (ruff format src tests)"
     Push-Location $botRoot
     try {
-        ruff format src tests
+        & $ruffExe format src tests
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Format"; Write-Failure "Ruff Format" }
         else { Write-Success "Ruff Format" }
     } catch {
@@ -161,18 +170,16 @@ if (-not $SkipLint) {
 # Tests
 # ---------------------------------------------------------------------------
 if (-not $SkipTests) {
-    $testExecutionRoot = $repoRoot
-    if (-not (Test-Path (Join-Path $repoRoot "Sagittarius_Elite_Warrior"))) {
-        if ((Split-Path -Leaf $botRoot) -ne "Sagittarius_Elite_Warrior") {
-            $aliasDir = Join-Path $botRoot ".venv_alias"
-            if (-not (Test-Path $aliasDir)) { New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null }
-            $junctionPath = Join-Path $aliasDir "Sagittarius_Elite_Warrior"
-            if (-not (Test-Path $junctionPath)) { New-Item -ItemType Junction -Path $junctionPath -Target $botRoot -Force | Out-Null }
-            $testExecutionRoot = $aliasDir
-        }
+    $testExecutionRoot = $botRoot
+    $aliasDir = Join-Path $botRoot ".venv_alias"
+    if (-not (Test-Path $aliasDir)) { New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null }
+
+    $packageAlias = Join-Path $aliasDir "Sagittarius_Elite_Warrior"
+    if (-not (Test-Path $packageAlias)) {
+        New-Item -ItemType Junction -Path $packageAlias -Target $botRoot -Force | Out-Null
     }
 
-    $env:PYTHONPATH     = $testExecutionRoot
+    $env:PYTHONPATH = "$aliasDir;$botRoot"
     $env:QT_QPA_PLATFORM = "offscreen"
     # Suppress 3rd-party DeprecationWarnings at Python interpreter level so they are
     # silenced even at module import time, before pytest filterwarnings can intercept.
