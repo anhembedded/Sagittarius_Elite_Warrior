@@ -85,7 +85,13 @@ def main() -> None:
     _apply_theme(app, config_manager)
     configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
 
-    # Start UI Watchdog to monitor main-thread responsiveness
+    # ------------------------------------------------------------------ #
+    # 3. Create and show MainWindow
+    # ------------------------------------------------------------------ #
+    window = MainWindow(app_engine)
+    window.show()
+
+    # Start UI Watchdog to monitor main-thread responsiveness during runtime
     engine_logger = (
         app_engine.context.logger
         if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger")
@@ -93,12 +99,6 @@ def main() -> None:
     )
     watchdog = UIWatchdog(logger=engine_logger)
     watchdog.start()
-
-    # ------------------------------------------------------------------ #
-    # 3. Create and show MainWindow
-    # ------------------------------------------------------------------ #
-    window = MainWindow(app_engine)
-    window.show()
 
     # Schedule readiness confirmation on the first event loop tick
     QTimer.singleShot(0, lambda: _log_ui_ready(app_engine))
