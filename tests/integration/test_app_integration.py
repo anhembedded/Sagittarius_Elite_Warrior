@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import patch
 
 import pytest
@@ -30,7 +31,11 @@ def app_instance():
     app = App(container, event_bus)
     app.use(BinanceBotModule())
 
-    return app
+    yield app
+    try:
+        app.stop()
+    except Exception:
+        logging.getLogger(__name__).exception("App fixture teardown shutdown failed")
 
 
 def test_app_boot_and_stream_use_case(app_instance):

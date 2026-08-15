@@ -68,3 +68,15 @@ class DatabaseManager:
 
         logger.info(f"Created dedicated database for symbol {symbol} at {db_path}")
         return SessionMaker()
+
+    def dispose_all(self) -> None:
+        """Dispose every engine managed by this instance.
+
+        Call this in test teardown (or application shutdown) to close all SQLite
+        file handles and prevent ``ResourceWarning: unclosed database`` noise.
+        """
+        for session_factory in self._sessions.values():
+            engine = session_factory.kw.get("bind")
+            if engine is not None:
+                engine.dispose()
+        logger.debug("DatabaseManager: all engines disposed")
