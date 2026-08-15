@@ -24,6 +24,10 @@
 ## 2024-11-20 - [Optimize pyqtgraph BarGraphItem rendering]
 **Learning:** Calling `pg.mkBrush(color)` inside a list comprehension on high-frequency UI rendering callbacks (like `refresh_window()` called on every pan/zoom frame for volume bars) is surprisingly slow and causes severe stutter. It rebuilds `QBrush` objects on every frame.
 **Action:** Pre-instantiate and track the `QBrush` objects instead of string colors, and slice the brush list directly to pass to `setOpts()`. This cuts rendering time by ~20x.
+## 2026-08-15 - Optimized PySide6 QBrush/QPen Operations in paint()
+
+**Learning:** Re-instantiating `pg.mkBrush` and `pg.mkPen` on every frame inside high-frequency rendering callbacks like `paint()` in `FastCandlestickItem` causes significant overhead and stuttering during operations like panning and zooming.
+**Action:** Pre-instantiate and track the `QBrush` and `QPen` objects in the constructor (e.g. `self.bull_brush = pg.mkBrush(self.bull_color)`) and reuse these instance variables in the `paint()` method to minimize per-frame allocation and C++ wrapping overhead.
 
 ## 2024-11-28 - Concurrent Database Scanning
 **Learning:** Nested loops querying database status sequentially scale extremely poorly as the number of symbols and intervals increases.
