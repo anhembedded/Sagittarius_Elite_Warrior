@@ -1,3 +1,4 @@
+import argparse
 import sys
 
 from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
@@ -53,9 +54,8 @@ def create_app(config_manager: ConfigManager) -> App:
     return app
 
 
-def main() -> None:
+def _load_configuration() -> ConfigManager:
     config_manager = ConfigManager()
-
     app_json = PathUtils.get_relative_path(__file__, "config", "app_config.json")
     user_json = PathUtils.get_relative_path(__file__, "config", "user_config.json")
     cli_json = PathUtils.get_relative_path(__file__, "config", "cli_commands.json")
@@ -68,6 +68,45 @@ def main() -> None:
     except FileNotFoundError:
         pass  # Will fail if missing
 
+    return config_manager
+
+
+def _run_interactive_mode(app: App) -> None:
+    # Register the Interactive Shell Hosted Service
+    from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
+        InteractiveShell,
+    )
+
+    shell = InteractiveShell(app)
+    app.context.hosted_services.register(shell)
+
+    # Boot Engine
+    app.boot()
+
+    # Block main thread until the shell loop exits
+    shell.wait_for_exit()
+    app.stop()
+
+
+def _run_headless_mode(app: App, args: argparse.Namespace) -> None:
+    # Headless Mode
+    app.boot()
+
+    if args.command == "sync":
+        execute_sync(app, args)
+        app.stop()
+    elif args.command == "stream":
+        from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
+            execute_stream,
+        )
+
+        execute_stream(app, args)
+        app.stop()
+
+
+def main() -> None:
+    config_manager = _load_configuration()
+
     # If no arguments are provided, switch to Interactive Menu Mode
     if len(sys.argv) == 1:
         interactive_mode = True
@@ -79,35 +118,9 @@ def main() -> None:
     app = create_app(config_manager)
 
     if interactive_mode:
-        # Register the Interactive Shell Hosted Service
-        from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
-            InteractiveShell,
-        )
-
-        shell = InteractiveShell(app)
-        app.context.hosted_services.register(shell)
-
-        # Boot Engine
-        app.boot()
-
-        # Block main thread until the shell loop exits
-        shell.wait_for_exit()
-        app.stop()
-
+        _run_interactive_mode(app)
     else:
-        # Headless Mode
-        app.boot()
-
-        if args.command == "sync":
-            execute_sync(app, args)
-            app.stop()
-        elif args.command == "stream":
-            from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
-                execute_stream,
-            )
-
-            execute_stream(app, args)
-            app.stop()
+        _run_headless_mode(app, args)
 
 
 if __name__ == "__main__":
