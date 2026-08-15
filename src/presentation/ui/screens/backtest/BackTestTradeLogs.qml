@@ -53,6 +53,15 @@ Rectangle {
         { value: "loss", label: "Lệnh thua" }
     ]
 
+    //: Single Source of Truth for Dynamic Responsive Column Widths (proportional to container width)
+    readonly property real tableUsableWidth: Math.max(760, root.width - (panelMargin * 2) - 24 - (5 * 8))
+    readonly property real col1Width: Math.max(140, tableUsableWidth * 0.17)
+    readonly property real col2Width: Math.max(64, tableUsableWidth * 0.08)
+    readonly property real col3Width: Math.max(180, tableUsableWidth * 0.28)
+    readonly property real col4Width: Math.max(130, tableUsableWidth * 0.18)
+    readonly property real col5Width: Math.max(110, tableUsableWidth * 0.16)
+    readonly property real col6Width: Math.max(70, tableUsableWidth * 0.13)
+
     property var expandedRows: ({})
 
     function toggleTradeLogRow(rowIndex) {
@@ -211,12 +220,12 @@ Rectangle {
                         anchors.leftMargin: 12
                         anchors.rightMargin: 12
                         spacing: 8
-                        Text { text: "STT / THỜI GIAN"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 160; horizontalAlignment: Text.AlignLeft }
-                        Text { text: "LOẠI"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 70; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: "GIÁ VÀO  ➔  GIÁ THOÁT"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.fillWidth: true; Layout.minimumWidth: 200; horizontalAlignment: Text.AlignLeft }
-                        Text { text: "QUY MÔ / KHỐI LƯỢNG"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 150; horizontalAlignment: Text.AlignRight }
-                        Text { text: "LÃI / LỖ RÒNG"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 120; horizontalAlignment: Text.AlignRight }
-                        Text { text: "RETURN"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+                        Text { text: "STT / THỜI GIAN"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: root.col1Width; horizontalAlignment: Text.AlignLeft }
+                        Text { text: "LOẠI"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: root.col2Width; horizontalAlignment: Text.AlignHCenter }
+                        Text { text: "GIÁ VÀO  ➔  GIÁ THOÁT"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: root.col3Width; Layout.fillWidth: true; horizontalAlignment: Text.AlignLeft }
+                        Text { text: "QUY MÔ / KHỐI LƯỢNG"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: root.col4Width; horizontalAlignment: Text.AlignRight }
+                        Text { text: "LÃI / LỖ RÒNG"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: root.col5Width; horizontalAlignment: Text.AlignRight }
+                        Text { text: "RETURN"; color: Theme.muted; font.pixelSize: 10; font.bold: true; font.letterSpacing: 0.5; Layout.preferredWidth: root.col6Width; horizontalAlignment: Text.AlignRight }
                     }
                 }
 
@@ -249,7 +258,7 @@ Rectangle {
                                 spacing: 8
 
                                 ColumnLayout {
-                                    Layout.preferredWidth: 160
+                                    Layout.preferredWidth: root.col1Width
                                     spacing: 2
                                     Text {
                                         text: modelData.positionLabel
@@ -268,11 +277,11 @@ Rectangle {
                                 }
 
                                 Item {
-                                    Layout.preferredWidth: 70
+                                    Layout.preferredWidth: root.col2Width
                                     Layout.fillHeight: true
                                     Rectangle {
                                         anchors.centerIn: parent
-                                        width: 58
+                                        width: Math.min(58, parent.width)
                                         height: 20
                                         color: modelData.sideText === "SHORT" ? "#2a1215" : "#0a291e"
                                         border.color: modelData.sideText === "SHORT" ? "#f43f5e" : "#10b981"
@@ -289,8 +298,8 @@ Rectangle {
                                 }
 
                                 ColumnLayout {
+                                    Layout.preferredWidth: root.col3Width
                                     Layout.fillWidth: true
-                                    Layout.minimumWidth: 200
                                     spacing: 2
                                     Text {
                                         text: modelData.entryPriceText + "  ➔  " + modelData.exitPriceText
@@ -310,7 +319,7 @@ Rectangle {
                                 }
 
                                 ColumnLayout {
-                                    Layout.preferredWidth: 150
+                                    Layout.preferredWidth: root.col4Width
                                     spacing: 2
                                     Text {
                                         text: modelData.positionSizeText
@@ -330,12 +339,12 @@ Rectangle {
                                 }
 
                                 Item {
-                                    Layout.preferredWidth: 120
+                                    Layout.preferredWidth: root.col5Width
                                     Layout.fillHeight: true
                                     Rectangle {
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 110
+                                        width: Math.min(110, parent.width)
                                         height: 24
                                         color: root._withAlpha(modelData.pnlColor, 0.12)
                                         border.color: root._withAlpha(modelData.pnlColor, 0.4)
@@ -356,7 +365,7 @@ Rectangle {
                                     color: modelData.pnlColor
                                     font.pixelSize: 11
                                     font.bold: true
-                                    Layout.preferredWidth: 80
+                                    Layout.preferredWidth: root.col6Width
                                     horizontalAlignment: Text.AlignRight
                                 }
                             }
