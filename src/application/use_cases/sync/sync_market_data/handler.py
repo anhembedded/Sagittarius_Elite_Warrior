@@ -83,8 +83,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
             end_t = command.end_time or datetime.now(UTC)
             total_seconds = (end_t - start_time).total_seconds()
             total_klines = int(max(0, total_seconds) / (interval_minutes * 60))
-            if total_klines < 1:
-                total_klines = 1
+            total_klines = max(total_klines, 1)
 
             def _progress_cb(current: int) -> None:
                 self.event_bus.emit(

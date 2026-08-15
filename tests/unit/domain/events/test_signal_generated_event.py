@@ -2,7 +2,6 @@ from dataclasses import FrozenInstanceError
 from datetime import datetime
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )

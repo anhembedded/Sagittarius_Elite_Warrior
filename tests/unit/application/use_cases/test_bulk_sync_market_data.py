@@ -1,7 +1,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
@@ -120,7 +119,6 @@ def test_bulk_sync_error_handling(mock_sleep, handler, mock_event_bus, mock_disp
     def side_effect(cmd_type, cmd):
         if cmd.symbols == ["BTCUSDT"]:
             raise Exception("Network Error")
-        return None
 
     mock_dispatcher.dispatch.side_effect = side_effect
 

@@ -43,6 +43,12 @@ class FastCandlestickItem(pg.GraphicsObject):
         self._full_bounds_rect = QtCore.QRectF()
         self._cached_visible_bounds = None  # (lo, hi, min_y, max_y)
 
+        # Pre-instantiated brushes and pens for performance
+        self.bull_brush = pg.mkBrush(self.bull_color)
+        self.bull_pen = pg.mkPen(self.bull_color)
+        self.bear_brush = pg.mkBrush(self.bear_color)
+        self.bear_pen = pg.mkPen(self.bear_color)
+
         if data:
             self.history_data = list(data)
             self.generate_picture(self.history_data)
@@ -150,11 +156,6 @@ class FastCandlestickItem(pg.GraphicsObject):
         the live candle. O(visible count), not O(total history) — see
         class docstring.
         """
-        bull_brush = pg.mkBrush(self.bull_color)
-        bull_pen = pg.mkPen(self.bull_color)
-        bear_brush = pg.mkBrush(self.bear_color)
-        bear_pen = pg.mkPen(self.bear_color)
-
         bull_lines = []
         bull_rects = []
         bear_lines = []
@@ -190,14 +191,14 @@ class FastCandlestickItem(pg.GraphicsObject):
                 bear_rects.append(rect)
 
         # Batch draw bull candles
-        p.setPen(bull_pen)
-        p.setBrush(bull_brush)
+        p.setPen(self.bull_pen)
+        p.setBrush(self.bull_brush)
         p.drawLines(bull_lines)
         p.drawRects(bull_rects)
 
         # Batch draw bear candles
-        p.setPen(bear_pen)
-        p.setBrush(bear_brush)
+        p.setPen(self.bear_pen)
+        p.setBrush(self.bear_brush)
         p.drawLines(bear_lines)
         p.drawRects(bear_rects)
 
