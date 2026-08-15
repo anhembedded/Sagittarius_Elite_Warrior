@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
@@ -13,9 +13,7 @@ def test_start_stream_success():
     service = BinanceWebsocketService(event_bus, task_manager)
     task_manager.spawn.return_value = Mock()
 
-    with patch.object(service, "_run_stream") as mock_run_stream:
-        # Mock _run_stream so it returns a mock coroutine to avoid warning about unawaited coroutine
-        mock_run_stream.return_value = AsyncMock()
+    with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
         result = service.start_stream(["BTCUSDT"], "1m")
 
     assert result is True
@@ -112,7 +110,11 @@ async def test_process_socket_message_ignores_empty_message():
     event_bus = Mock()
     service = BinanceWebsocketService(event_bus, Mock())
     tscm = Mock()
-    tscm.recv = AsyncMock(return_value=None)
+
+    async def mock_recv():
+        return None
+
+    tscm.recv = mock_recv
 
     await service._process_socket_message(tscm)
 
@@ -124,7 +126,11 @@ async def test_process_socket_message_ignores_non_kline_events():
     event_bus = Mock()
     service = BinanceWebsocketService(event_bus, Mock())
     tscm = Mock()
-    tscm.recv = AsyncMock(return_value={"e": "trade"})
+
+    async def mock_recv():
+        return {"e": "trade"}
+
+    tscm.recv = mock_recv
 
     await service._process_socket_message(tscm)
 
@@ -137,8 +143,9 @@ async def test_process_socket_message_unwraps_multiplex_envelope_and_emits():
     event_bus = Mock()
     service = BinanceWebsocketService(event_bus, Mock())
     tscm = Mock()
-    tscm.recv = AsyncMock(
-        return_value={
+
+    async def mock_recv():
+        return {
             "stream": "btcusdt@kline_1m",
             "data": {
                 "e": "kline",
@@ -160,7 +167,8 @@ async def test_process_socket_message_unwraps_multiplex_envelope_and_emits():
                 },
             },
         }
-    )
+
+    tscm.recv = mock_recv
 
     await service._process_socket_message(tscm)
 
@@ -231,95 +239,76 @@ async def test_websocket_auto_reconnect():
 
     token.is_cancelled.side_effect = check_cancelled
 
-    # Mock AsyncClient and BinanceSocketManager
-    mock_bsm = Mock()
-    service._bsm = mock_bsm
+    class FakeSocket:
+        def __init__(self):
+            self.recv_calls = 0
 
-    mock_socket = Mock()
+        async def __aenter__(self):
+            return self
 
-    async def mock_aenter(self):
-        return self
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
 
-    async def mock_aexit(self, exc_type, exc, tb):
-        pass
-
-    mock_socket.__aenter__ = mock_aenter
-    mock_socket.__aexit__ = mock_aexit
-
-    # First recv raises Exception (network error)
-    # Second recv returns data (reconnected)
-    # Third recv cancels the task to stop the infinite loop
-    call_count = 0
-
-    async def mock_recv():
-        nonlocal call_count, is_cancelled_flag
-        call_count += 1
-        if call_count == 1:
-            raise OSError("Network Dropped")
-        elif call_count == 2:
-            return {
-                "e": "kline",
-                "k": {
-                    "s": "BTCUSDT",
-                    "i": "1m",
-                    "t": 0,
-                    "T": 0,
-                    "o": 0,
-                    "h": 0,
-                    "l": 0,
-                    "c": 0,
-                    "v": 0,
-                    "q": 0,
-                    "n": 0,
-                    "V": 0,
-                    "Q": 0,
-                    "x": False,
-                },
-            }
-        else:
-            is_cancelled_flag = True  # break the loop
+        async def recv(self):
+            nonlocal is_cancelled_flag
+            self.recv_calls += 1
+            if self.recv_calls == 1:
+                raise OSError("Network Dropped")
+            if self.recv_calls == 2:
+                return {
+                    "e": "kline",
+                    "k": {
+                        "s": "BTCUSDT",
+                        "i": "1m",
+                        "t": 0,
+                        "T": 0,
+                        "o": 0,
+                        "h": 0,
+                        "l": 0,
+                        "c": 0,
+                        "v": 0,
+                        "q": 0,
+                        "n": 0,
+                        "V": 0,
+                        "Q": 0,
+                        "x": False,
+                    },
+                }
+            is_cancelled_flag = True
             return None
 
-    mock_socket.recv = mock_recv
+    mock_socket = FakeSocket()
+    mock_bsm = Mock()
     mock_bsm.kline_socket.return_value = mock_socket
 
-    # We patch asyncio.sleep so we don't actually wait 5 seconds in the test
+    async def mock_create():
+        return Mock()
+
+    async def mock_close_connection():
+        return None
+
+    async def mock_sleep_coro(*args, **kwargs):
+        return None
+
+    mock_client = Mock()
+    mock_client.close_connection = mock_close_connection
+    mock_async_client = Mock()
+    mock_async_client.create = mock_create
+
     with (
-        patch("asyncio.sleep", new_callable=Mock) as mock_sleep,
+        patch("asyncio.sleep", new=mock_sleep_coro),
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient"
-        ) as mock_async_client,
+            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient",
+            mock_async_client,
+        ),
         patch(
             "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
         ) as mock_bsm_class,
     ):
-        # Mock AsyncClient.create to return a mock client
-        mock_client = Mock()
-
-        async def mock_create():
-            return mock_client
-
-        async def mock_close_connection():
-            pass
-
-        mock_client.close_connection.side_effect = mock_close_connection
-        mock_async_client.create.side_effect = mock_create
-
-        # Mock BinanceSocketManager to return our mock_bsm
         mock_bsm_class.return_value = mock_bsm
-
-        # mock_sleep must return a coroutine
-        async def mock_sleep_coro(*args, **kwargs):
-            pass
-
-        mock_sleep.side_effect = mock_sleep_coro
-
         await service._run_stream(["BTCUSDT"], TimeFrame("1m"), token)
 
-    # Assertions
-    # It should have called kline_socket at least twice (initial + 1 reconnect)
     assert mock_bsm.kline_socket.call_count >= 2
-    # It should have emitted the event for the second successful recv
     assert event_bus.emit.call_count == 1
 
 
@@ -330,15 +319,16 @@ async def test_process_socket_message_handles_parsing_exceptions_gracefully():
     tscm = Mock()
 
     # Missing 'k' key in kline message
-    tscm.recv = AsyncMock(
-        return_value={
+    async def mock_recv_missing_k():
+        return {
             "stream": "btcusdt@kline_1m",
             "data": {
                 "e": "kline",
                 # "k": {} is missing
             },
         }
-    )
+
+    tscm.recv = mock_recv_missing_k
 
     with patch(
         "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger"
@@ -354,8 +344,8 @@ async def test_process_socket_message_handles_parsing_exceptions_gracefully():
         assert "Error parsing kline message" in log_args
 
     # Malformed data type (e.g. string where number is expected)
-    tscm.recv = AsyncMock(
-        return_value={
+    async def mock_recv_invalid_timestamp():
+        return {
             "stream": "btcusdt@kline_1m",
             "data": {
                 "e": "kline",
@@ -377,7 +367,8 @@ async def test_process_socket_message_handles_parsing_exceptions_gracefully():
                 },
             },
         }
-    )
+
+    tscm.recv = mock_recv_invalid_timestamp
 
     with patch(
         "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger"
