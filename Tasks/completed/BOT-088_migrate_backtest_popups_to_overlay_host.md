@@ -1,6 +1,8 @@
 # Nhiệm vụ: Chuyển 6 popup màn Backtest sang overlay host
 
-> Thuộc Epic [`BOT-086`](BOT-086_ui_layout_and_overlay_architecture_epic.md), **Track A**,
+> **Trạng thái:** 🟢 Hoàn tất — Cả 6 popups/dialogs đã được chuyển sang `BackTestModals.qml` được host bởi `OverlayHost` full-window, không còn bị kẹp trong top widget 190px.
+
+> Thuộc Epic [`BOT-086`](../backlog/BOT-086_ui_layout_and_overlay_architecture_epic.md), **Track A**,
 > task 2/2. Phụ thuộc [`BOT-087`](BOT-087_overlay_host_engine.md).
 
 ## 1. Danh sách popup phải chuyển — đã liệt kê đủ, không phải "vài cái"

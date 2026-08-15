@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
@@ -20,7 +19,11 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_reposit
 def repo(tmp_path):
     db_config = DatabaseConfig(db_dir=str(tmp_path))
     db_manager = DatabaseManager(db_config)
-    return SQLAlchemyMarketDataRepository(db_manager)
+    repository = SQLAlchemyMarketDataRepository(db_manager)
+    yield repository
+    # Dispose all SQLAlchemy engines to release SQLite file handles on teardown.
+    # Without this Python's GC fires ResourceWarning: unclosed database.
+    db_manager.dispose_all()
 
 
 def create_mock_kline(symbol: str, timestamp: datetime) -> MarketData:

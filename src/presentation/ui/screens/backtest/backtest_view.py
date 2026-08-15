@@ -4,8 +4,11 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
-
-from sagittarius_engine.extensions.pyside_mvc import BaseView, create_quick_widget
+from sagittarius_engine.extensions.pyside_mvc import (
+    BaseView,
+    OverlayHost,
+    create_quick_widget,
+)
 
 from .logic.chart_canvas_view import (
     ChartDisplayMode,
@@ -18,6 +21,7 @@ from .logic.chart_controls import BacktestChartControls
 _QML_DIR = Path(__file__).parent
 _TOP_PANEL_QML = "BackTestTopPanel.qml"
 _TRADE_LOGS_QML = "BackTestTradeLogs.qml"
+_MODALS_QML = "BackTestModals.qml"
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (
@@ -60,6 +64,10 @@ class BackTestView(BaseView):
         self._last_klines: list = []
         self._last_volume: list = []
         self._setup_ui()
+        # BOT-087: this direct child deliberately stays out of the layout so
+        # a future QML Popup can use the Backtest view's full bounds rather
+        # than the small top QQuickWidget that defines the toolbar.
+        self.overlay_host = OverlayHost(self)
 
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)
@@ -93,20 +101,27 @@ class BackTestView(BaseView):
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Registers the screen's ViewModel as a QML context property on
-        BOTH quick widgets. Must be called before load_qml() — see the
+        quick widgets. Must be called before load_qml() — see the
         ordering contract in this class's docstring."""
         self._view_model = view_model
-        self.top_widget.rootContext().setContextProperty(context_name, view_model)
-        self.bottom_widget.rootContext().setContextProperty(context_name, view_model)
+        self._set_context_property(self.top_widget, context_name, view_model)
+        self._set_context_property(self.bottom_widget, context_name, view_model)
+        self._set_context_property(
+            self.overlay_host.quick_widget, context_name, view_model
+        )
 
     def load_qml(self) -> None:
-        """Loads this screen's fixed pair of QML documents."""
+        """Loads this screen's fixed pair of QML documents and modals overlay."""
         self.top_widget.setSource(QUrl.fromLocalFile(str(_QML_DIR / _TOP_PANEL_QML)))
         self.bottom_widget.setSource(
             QUrl.fromLocalFile(str(_QML_DIR / _TRADE_LOGS_QML))
         )
+        self.overlay_host.load_content(QUrl.fromLocalFile(str(_QML_DIR / _MODALS_QML)))
         self._bind_top_panel_height()
         self._bind_trade_log_minimum_height()
+
+    def _set_context_property(self, widget, name: str, value: QObject) -> None:
+        widget.rootContext().setContextProperty(name, value)
 
     def _bind_top_panel_height(self) -> None:
         """
@@ -132,12 +147,6 @@ class BackTestView(BaseView):
             return
 
         def sync_height() -> None:
-            # `ensurePolished()` forces `contentColumn`'s own pending
-            # implicitHeight recompute (QtQuick Layouts batch/defer a
-            # ColumnLayout's rearrange into a polish job scheduled on that
-            # Layout item, not on `root` — `root.implicitHeight` is an
-            # ordinary binding that re-evaluates on its own once
-            # contentColumn's value is current).
             content_column.ensurePolished()
             self.top_widget.setFixedHeight(int(root.property("implicitHeight")))
 

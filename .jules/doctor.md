@@ -1,0 +1,4 @@
+## 2026-08-16 - [HealthExtension CQRS On-Demand Query Pattern]
+**Architecture:** `HealthExtension` in `sagittarius_engine` operates on the CQRS On-Demand Query model (`HealthCheckQuery`) rather than an active background timer loop.
+**Learning:** It does not run a continuous 1-second polling loop by default to prevent unnecessary CPU/I/O overhead when idle. It is intended to be called on-demand before critical workflows (e.g. pre-flight checks before `RunStaticBacktestCommand` or starting live stream) or periodically polled by UI controllers/ViewModels via a dedicated `QTimer` when active monitoring is required.
+**Prevention:** Do not expect extensions in `sagittarius_engine` to spawn unmanaged background loops unless explicitly declared as a `HostedService`. Always wire on-demand queries to explicit trigger points or UI timer channels.

@@ -41,69 +41,83 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         )
 
         for symbol in command.symbols:
-            if command.start_time:
-                start_time = command.start_time
-                self.logger.info(
-                    f"[{symbol}] Syncing from explicit start time: {start_time}"
+            self._sync_single_symbol(symbol, command)
+
+    def _sync_single_symbol(self, symbol: str, command: SyncMarketDataCommand) -> None:
+        start_time = self._determine_start_time(symbol, command)
+        total_klines = self._estimate_total_klines(start_time, command)
+
+        def _progress_cb(
+            current: int,
+            *,
+            current_symbol: str = symbol,
+            total_count: int = total_klines,
+        ) -> None:
+            self.event_bus.emit(
+                SingleSyncProgressEvent(
+                    symbol=current_symbol,
+                    interval=command.interval.value,
+                    current=current,
+                    total=total_count,
                 )
-            else:
-                latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
-                if latest_time is None:
-                    start_time = datetime.now(UTC) - timedelta(
-                        days=command.days_back_if_empty
-                    )
-                    self.logger.info(
-                        f"[{symbol}] No existing data found. Syncing from {command.days_back_if_empty} days ago: {start_time}"
-                    )
-                else:
-                    start_time = latest_time
-                    self.logger.info(
-                        f"[{symbol}] Syncing from latest timestamp: {start_time}"
-                    )
-
-            # Estimate total klines to download
-            interval_minutes = {
-                "1m": 1,
-                "3m": 3,
-                "5m": 5,
-                "15m": 15,
-                "30m": 30,
-                "1h": 60,
-                "2h": 120,
-                "4h": 240,
-                "6h": 360,
-                "8h": 480,
-                "12h": 720,
-                "1d": 1440,
-                "3d": 4320,
-                "1w": 10080,
-                "1M": 43200,
-            }.get(command.interval.value, 1)
-
-            end_t = command.end_time or datetime.now(UTC)
-            total_seconds = (end_t - start_time).total_seconds()
-            total_klines = int(max(0, total_seconds) / (interval_minutes * 60))
-            if total_klines < 1:
-                total_klines = 1
-
-            def _progress_cb(current: int) -> None:
-                self.event_bus.emit(
-                    SingleSyncProgressEvent(
-                        symbol=symbol,
-                        interval=command.interval.value,
-                        current=current,
-                        total=total_klines,
-                    )
-                )
-
-            klines = self.exchange_client.get_historical_klines(
-                symbol, command.interval, start_time, command.end_time, _progress_cb
             )
 
-            if klines:
-                self.repo.save_klines(klines)
+        klines = self.exchange_client.get_historical_klines(
+            symbol, command.interval, start_time, command.end_time, _progress_cb
+        )
+
+        if klines:
+            self.repo.save_klines(klines)
+            self.logger.info(f"[{symbol}] Successfully synced {len(klines)} klines.")
+        else:
+            self.logger.info(f"[{symbol}] Already up to date.")
+
+    def _determine_start_time(
+        self, symbol: str, command: SyncMarketDataCommand
+    ) -> datetime:
+        if command.start_time:
+            start_time = command.start_time
+            self.logger.info(
+                f"[{symbol}] Syncing from explicit start time: {start_time}"
+            )
+        else:
+            latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
+            if latest_time is None:
+                start_time = datetime.now(UTC) - timedelta(
+                    days=command.days_back_if_empty
+                )
                 self.logger.info(
-                    f"[{symbol}] Successfully synced {len(klines)} klines."
+                    f"[{symbol}] No existing data found. Syncing from {command.days_back_if_empty} days ago: {start_time}"
                 )
             else:
-                self.logger.info(f"[{symbol}] Already up to date.")
+                start_time = latest_time
+                self.logger.info(
+                    f"[{symbol}] Syncing from latest timestamp: {start_time}"
+                )
+        return start_time
+
+    def _estimate_total_klines(
+        self, start_time: datetime, command: SyncMarketDataCommand
+    ) -> int:
+        interval_minutes = {
+            "1m": 1,
+            "3m": 3,
+            "5m": 5,
+            "15m": 15,
+            "30m": 30,
+            "1h": 60,
+            "2h": 120,
+            "4h": 240,
+            "6h": 360,
+            "8h": 480,
+            "12h": 720,
+            "1d": 1440,
+            "3d": 4320,
+            "1w": 10080,
+            "1M": 43200,
+        }.get(command.interval.value, 1)
+
+        end_t = command.end_time or datetime.now(UTC)
+        total_seconds = (end_t - start_time).total_seconds()
+        total_klines = int(max(0, total_seconds) / (interval_minutes * 60))
+        return max(total_klines, 1)

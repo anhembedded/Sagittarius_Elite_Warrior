@@ -41,9 +41,9 @@ Log [`BUG-002`](../bug_report/BUG-002.md):
 chiều** (`_open()` và `_close()` đều tính phí).
 
 ```python
-fees_only = (1 - 0.001) ** (2 * 807)   # = 0.1989  → -80.11%
-observed  = 1 - 0.8071                 # = 0.1929  → -80.71%
-gross     = observed / fees_only       # = 0.9697  → -3.03%
+fees_only = (1 - 0.001) ** (2 * 807)  # = 0.1989  → -80.11%
+observed = 1 - 0.8071  # = 0.1929  → -80.71%
+gross = observed / fees_only  # = 0.9697  → -3.03%
 ```
 
 ### Diễn giải

@@ -9,4 +9,5 @@ PySide6
 pyqtgraph
 pyqtdarktheme
 pytest-qt
+pytest-xdist
 flake8

@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
@@ -108,7 +108,7 @@ class InfoField:
     color: str | None = None
 
 
-class IndicatorHandle(Generic[T]):
+class IndicatorHandle[T]:
     """
     @brief A declared indicator: callable to advance it one bar, and indexable
     to look back at what it produced on previous bars.

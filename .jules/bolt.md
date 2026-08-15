@@ -28,3 +28,7 @@
 
 **Learning:** Re-instantiating `pg.mkBrush` and `pg.mkPen` on every frame inside high-frequency rendering callbacks like `paint()` in `FastCandlestickItem` causes significant overhead and stuttering during operations like panning and zooming.
 **Action:** Pre-instantiate and track the `QBrush` and `QPen` objects in the constructor (e.g. `self.bull_brush = pg.mkBrush(self.bull_color)`) and reuse these instance variables in the `paint()` method to minimize per-frame allocation and C++ wrapping overhead.
+
+## 2024-11-28 - Concurrent Database Scanning
+**Learning:** Nested loops querying database status sequentially scale extremely poorly as the number of symbols and intervals increases.
+**Action:** Always utilize `concurrent.futures.ThreadPoolExecutor` to concurrently map independent database readout queries (like status/gap checking) instead of sequential iterations.

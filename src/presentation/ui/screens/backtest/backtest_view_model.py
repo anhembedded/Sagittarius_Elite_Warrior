@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
@@ -19,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_s
     IndicatorScriptListModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, from_qml
+from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
+    LogListModel,
+)
 
 _DEFAULT_INITIAL_CAPITAL_TEXT = "10000"
 #: Must match dashboard_presenter.py's own _DEFAULT_INTERVAL_STR ("1m") — the
@@ -115,8 +117,22 @@ class BackTestViewModel(BaseQmlViewModel):
     #: modal's form — BOT-047.
     botParamsSaveRequested = Signal(object)
 
+    #: BOT-088: Signals to trigger overlay modals hosted in OverlayHost.
+    openBotParamsRequested = Signal(str)
+    openExtendedMetricsRequested = Signal()
+    openLimitationsRequested = Signal()
+    openCapitalRequested = Signal(float, float)
+    openIndicatorPickerRequested = Signal(float, float)
+    openOrderExecutionRequested = Signal(float, float)
+    openStrategyPickerRequested = Signal()
+    openTimeframePickerRequested = Signal()
+    openTimeRangePickerRequested = Signal()
+    activeBottomTabChanged = Signal()
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self._log_model = LogListModel(self)
+        self._active_bottom_tab = "trades"
         self._strategy_options: list[dict[str, str]] = []
         self._selected_strategy_key = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
@@ -191,6 +207,18 @@ class BackTestViewModel(BaseQmlViewModel):
         str,
         _get_selected_strategy_key,
         _set_selected_strategy_key,
+        notify=selectedStrategyKeyChanged,
+    )
+
+    def _get_selected_strategy_name(self) -> str:
+        for opt in self._strategy_options:
+            if opt.get("key") == self._selected_strategy_key:
+                return opt.get("name", self._selected_strategy_key)
+        return self._selected_strategy_key or "Chọn chiến lược"
+
+    selectedStrategyName = Property(
+        str,
+        _get_selected_strategy_name,
         notify=selectedStrategyKeyChanged,
     )
 
@@ -310,6 +338,18 @@ class BackTestViewModel(BaseQmlViewModel):
         str,
         _get_time_range_preset,
         _set_time_range_preset,
+        notify=timeRangePresetChanged,
+    )
+
+    def _get_selected_time_range_preset_label(self) -> str:
+        for opt in self.timeRangePresetOptions:
+            if opt.get("value") == self._time_range_preset:
+                return opt.get("label", self._time_range_preset)
+        return self._time_range_preset
+
+    selectedTimeRangePresetLabel = Property(
+        str,
+        _get_selected_time_range_preset_label,
         notify=timeRangePresetChanged,
     )
 
@@ -588,3 +628,74 @@ class BackTestViewModel(BaseQmlViewModel):
         argument through it before touching the value.
         """
         self.botParamsSaveRequested.emit(dict(from_qml(values)))
+
+    @Slot(str)
+    def requestOpenBotParams(self, strategy_name: str = "") -> None:
+        self.openBotParamsRequested.emit(strategy_name)
+
+    @Slot()
+    def requestOpenExtendedMetrics(self) -> None:
+        self.openExtendedMetricsRequested.emit()
+
+    @Slot()
+    def requestOpenLimitations(self) -> None:
+        self.openLimitationsRequested.emit()
+
+    @Slot(float, float)
+    def requestOpenCapital(self, x: float, y: float) -> None:
+        self.openCapitalRequested.emit(x, y)
+
+    @Slot(float, float)
+    def requestOpenIndicatorPicker(self, x: float, y: float) -> None:
+        self.openIndicatorPickerRequested.emit(x, y)
+
+    @Slot(float, float)
+    def requestOpenOrderExecution(self, x: float, y: float) -> None:
+        self.openOrderExecutionRequested.emit(x, y)
+
+    @Slot()
+    def requestOpenStrategyPicker(self) -> None:
+        self.openStrategyPickerRequested.emit()
+
+    @Slot()
+    def requestOpenTimeframePicker(self) -> None:
+        self.openTimeframePickerRequested.emit()
+
+    @Slot()
+    def requestOpenTimeRangePicker(self) -> None:
+        self.openTimeRangePickerRequested.emit()
+
+    # ------------------------------------------------------------------ #
+    # Log model — exposed to LogPanel.qml, mutated by BacktestEventLogger.
+    # ------------------------------------------------------------------ #
+    @Property(QObject, constant=True)
+    def logModel(self) -> LogListModel:
+        return self._log_model
+
+    @property
+    def log_model(self) -> LogListModel:
+        """Pythonic accessor for the Presenter/Logger."""
+        return self._log_model
+
+    # ------------------------------------------------------------------ #
+    # Bottom Tab state ("trades" | "logs")
+    # ------------------------------------------------------------------ #
+    def _get_active_bottom_tab(self) -> str:
+        return self._active_bottom_tab
+
+    def _set_active_bottom_tab(self, value: str) -> None:
+        val = str(value)
+        if self._active_bottom_tab != val:
+            self._active_bottom_tab = val
+            self.activeBottomTabChanged.emit()
+
+    activeBottomTab = Property(
+        str,
+        _get_active_bottom_tab,
+        _set_active_bottom_tab,
+        notify=activeBottomTabChanged,
+    )
+
+    @Slot(str)
+    def setActiveBottomTab(self, tab_id: str) -> None:
+        self._set_active_bottom_tab(tab_id)

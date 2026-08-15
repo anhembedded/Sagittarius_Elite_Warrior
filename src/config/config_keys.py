@@ -28,5 +28,8 @@ class ConfigKeys(str, Enum):
     # Chart Configuration
     CHART_CARD_MAX_ZOOM_OUT_CANDLES = "CHART_CARD_MAX_ZOOM_OUT_CANDLES"
 
+    # Backtest Configuration
+    BACKTEST_LOG_MAX_ENTRIES = "backtest.log_max_entries"
+
     # Developer mode — enables extra UI instrumentation (e.g. click logging)
     DEV_MODE = "dev.mode"

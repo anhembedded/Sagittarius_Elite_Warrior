@@ -4,7 +4,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import QScrollArea, QSplitter
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
@@ -68,7 +67,7 @@ def test_dashboard_view_model_symbol_and_date_defaults(qapp):
     Start date/End date so DashboardPresenter can read the same default a
     freshly-opened Dev Board shows without depending on QML having rendered
     first."""
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
         DATETIME_FORMAT,
@@ -77,8 +76,8 @@ def test_dashboard_view_model_symbol_and_date_defaults(qapp):
     view_model = DashboardQmlViewModel()
 
     assert view_model.symbol == "ETHUSDT"
-    start = datetime.strptime(view_model.startDate, DATETIME_FORMAT)
-    end = datetime.strptime(view_model.endDate, DATETIME_FORMAT)
+    start = datetime.strptime(view_model.startDate, DATETIME_FORMAT).replace(tzinfo=UTC)
+    end = datetime.strptime(view_model.endDate, DATETIME_FORMAT).replace(tzinfo=UTC)
     assert start < end
 
 

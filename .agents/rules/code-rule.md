@@ -1,23 +1,102 @@
 ---
+name: Python Code Rules
+description: Python coding standards, clean architecture principles, and code quality rules.
 trigger: always_on
 ---
 
-# Development Guidelines
+# PYTHON CODING STANDARDS & DEVELOPMENT GUIDELINES
 
-- **No Hardcoding**: Avoid magic strings, magic numbers, or hardcoded configurations. Always refer to existing related implementations, established enums, or central configuration files (`config_keys.py`, `user_config.json`, etc.).
-- **Strictly Follow SOLID Principles**: Ensure any new features, refactors, or code additions adhere strictly to SOLID principles:
-  - **S**ingle Responsibility Principle (SRP)
-  - **O**pen/Closed Principle (OCP)
-  - **L**iskov Substitution Principle (LSP)
-  - **I**nterface Segregation Principle (ISP)
-  - **D**ependency Inversion Principle (DIP)
-- **No Lazy Code**: Don't take the shortcut that's easiest to type over the one that's easiest to read/maintain.
-  - Split by responsibility into separate files/modules instead of piling unrelated logic into one file or one function.
-  - Model data with proper structures — dataclasses, value objects, `Enum` — instead of loose primitives, dicts, or magic strings/tuples standing in for a real type.
-  - Do not use `lambda`. Write a named function/method instead — it gets a real name, can carry a docstring, and shows up properly in stack traces/coverage/debuggers.
-- **Every new feature/screen ships with sanity tests**, in `tests/sanity/`, alongside its unit tests — not a follow-up, part of the same task. Two kinds, both construction-only (see example: `tests/sanity/test_backtest_screen_di_sanity.py` + `test_backtest_screen_ui_sanity.py`):
-  - **Sanity (DI)**: boot the real app (`create_app()`, no mocked dispatch) and assert every command/query the feature dispatches resolves to its real handler via `container.resolve(command_class)`, and every registry it depends on (`StrategyRegistry`, `IndicatorScriptRegistry`, etc.) has the keys it expects. Catches a dropped/renamed DI registration before any behavior test even runs.
-  - **Sanity (UI)**, for screens: construct the real View + Presenter against the real DI container (not a mocked one) and assert it doesn't raise, plus every QML document parses with `quick_widget.errors() == []` (QML parse errors don't raise a Python exception — they only show up there).
-  - **Construction-only, always** — no button clicks, no `requestRun()`-style dispatch, no background threads, no network. Real actions belong in `tests/unit/` (mocked dispatch) or `tests/integration/`. Sanity exists to be fast and reliable; the UI integration suite (`tests/integration/presentation/ui/`) has a known intermittent native-crash bug (`BOT-038`) when run as one full block — sanity must never approach that territory.
-- **When the user reports a bug, write a regression test that reproduces it before fixing the code.** Diagnose the root cause first, then express that root cause as a failing test (e.g. `test_switching_to_equity_mode_disables_and_hides_the_ema_overlay` for the BOT-056 EMA-overlay-not-hidden bug) — confirm it fails for the right reason, then fix the code until it passes. This turns every reported bug into a permanent regression test, not just a one-off patch — skipping straight to the fix leaves nothing guarding against the same bug coming back.
-- **New screen directory layout — keep the MVP trio flat, group only the helpers.** For a new screen under `src/presentation/ui/screens/<name>/`, keep `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`, and its QML file(s) flat at the top level of the screen's folder — do **not** split into `view/`/`presenter/`/`signal/`/`state/` subfolders. A `signal/` split in particular doesn't work: PySide6 `Signal()` declarations must live as class attributes on the Presenter/ViewModel itself, so there's no file to move them into. Only once a screen accumulates enough supporting helper modules (formatters, filters, pagination, domain-shaping logic — anything that isn't the MVP trio itself, e.g. `trade_log_row.py`/`chart_controls.py`/`result_formatter.py` in `backtest/`) that the flat folder gets hard to scan, group *only those helpers* into one subfolder (e.g. `<name>/logic/` or `<name>/helpers/`). Small screens (`settings/`, `data_management/`) stay fully flat — this is a size-triggered exception, not a default every screen gets.
+## 1. SOLID Principles
+Follow SOLID wherever it's practical — apply it to improve clarity/testability, don't force an abstraction onto a small, unlikely-to-change piece of code just to tick a box.
+- **S — Single Responsibility:** One class/module has one reason to change. (See "No God Objects" below.) Split by responsibility into separate files/modules instead of piling unrelated logic into one file or one function.
+- **O — Open/Closed:** Prefer extending behavior via a new class/strategy over editing existing, already-tested logic; put extension points behind an interface/ABC.
+- **L — Liskov Substitution:** A subclass must work anywhere its base/interface is expected — no raising `NotImplementedError` on inherited methods, no narrowing accepted inputs or weakening guarantees the base type promised.
+- **I — Interface Segregation:** Keep ports/interfaces narrow and role-specific; don't make an implementer satisfy methods it has no use for.
+- **D — Dependency Inversion:** High-level modules depend on abstractions, not concrete implementations. (See "Full Abstraction & Decoupling" below.)
+
+---
+
+## 2. Core Architecture Principles
+
+1. **Strong Typing & Type Safety:**
+   - Always use explicit type annotations for all function signatures, parameters, return values, and class attributes.
+   - Strictly avoid using `Any`. Use `Union`, `Optional`, `Generics`, or `TypeVar` where flexibility is needed.
+   - Use `dataclasses` (with `frozen=True` where possible) or `Pydantic` models instead of raw dictionaries for complex data structures. Model data with proper structures (dataclasses, value objects, `Enum`) instead of loose primitives or tuples.
+
+2. **Full Abstraction & Decoupling:**
+   - Define explicit abstractions using `abc.ABC` or `typing.Protocol` for repositories, services, and external clients.
+   - Adhere strictly to the Dependency Inversion Principle (DIP). High-level business logic must depend on abstractions, not concrete implementations.
+   - Prefer Dependency Injection (DI) over hardcoded class instantiations inside domain logic.
+   - **NO Multiple Inheritance:** Strictly avoid multiple inheritance. Use composition over inheritance, and flatten interfaces where necessary to avoid complex method resolution orders (MRO).
+
+3. **Readability & Clean Code (Over Brevity):**
+   - Follow PEP 8 guidelines. Prioritize explicit and self-documenting code over short one-liners.
+   - Do NOT use complex, nested list comprehensions or multi-line `lambda` expressions when a clear `for` loop or named helper function is more readable. Do not use `lambda` for non-trivial callbacks.
+   - Keep functions small, focused, and single-purpose (Single Responsibility Principle). Use explicit, descriptive variable names.
+
+4. **Immutability & Pure Functions (No Side Effects):**
+   - Strive for pure functions: functions should depend only on passed arguments and produce deterministic return values.
+   - Never mutate passed arguments in-place. Return new instances or modified copies instead.
+   - Strictly avoid mutable default arguments (e.g., NEVER use `def func(items=[]):`).
+   - Isolate side effects (I/O, DB calls, network requests) inside dedicated adapter/boundary classes.
+
+5. **Clean Architecture Layer Enforcement:**
+   - Always strictly respect the 4 Layers: **Domain** (Pure) $\rightarrow$ **Application** (Use Cases/Ports) $\rightarrow$ **Interface Adapters** (CLI/UI Presenters) $\rightarrow$ **Infrastructure** (DB/API/Frameworks).
+   - Never leak Infrastructure concerns (like `sagittarius_engine` base classes, SQLAlchemy, or API clients) into the Domain or Application layers.
+   - Prioritize building reusable abstraction base layers (base cards, base dialogs, base presenters/view models) over concrete duplication.
+
+6. **Use Case Structure (CQRS):**
+   - Every Application Use Case must reside in its own dedicated directory (e.g., `src/application/use_cases/<my_use_case>/`).
+   - The Command/Response definition must be separated from the Handler logic into multiple files (e.g., `command.py` and `handler.py`), and then exported cleanly via `__init__.py`.
+   - Never import engine-specific interfaces (like `sagittarius_engine.extensions.cqrs.ICommand`) into the Application layer. Use the layer's own pure Python `ICommandHandler` / `IQueryHandler` interfaces.
+
+7. **Strict Code Quality Rules:**
+   - **No Magic Numbers & Named Constants:** Strictly avoid using raw numbers or magic strings in code. Define them centrally as named constants or configuration keys (`config_keys.py`, `user_config.json`, `constants.py`). Strategy/indicator parameters must be declared dynamically via parameter schemas (`input_int`, `input_float`, etc.).
+   - **No Nested Loops:** Avoid deep nesting of loops (e.g. `for` inside `for` inside `while`). Extract nested logic into separate helper functions to reduce cyclomatic complexity and improve testability.
+   - **No God Objects:** Strictly avoid creating massive classes or modules that know too much or do too much. Delegate responsibilities (e.g. CLI parsing, bootstrapping, event handling) into dedicated modules.
+   - **Abstract Low-Level Logic:** Do not write verbose, low-level OS/File system operations (like deep `os.path` joins or byte-level manipulation) directly in application or composition root layers. Extract them into common utility classes.
+   - **No Function-Local / Lazy Imports (Tuyệt đối không dùng Local Import):** All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8. Never place `import ...` inside functions, methods, slots, test cases, or nested scopes (the only exception is `if TYPE_CHECKING:` guards at top level).
+
+---
+
+## 3. UI & Presentation Layer Rules
+
+- **Dynamic Responsive UI Sizing & Synchronized Table Columns:**
+  - Never hardcode rigid fixed pixel dimensions (`width`/`height`) on modals, dialogs, popups, or cards. Use `preferredWidth` and `preferredHeight` dynamically clamped to available overlay boundaries.
+  - All scrollable inner containers must declare `ScrollView { clip: true }` and responsive content widths.
+  - For all tables and grids with headers, column widths MUST be declared centrally as a **Single Source of Truth** and bound directly to both header and row delegates to guarantee 100% synchronized alignment during window resize and splitter movements.
+- **UI Icon Assets & Theme-Tinted Rendering:**
+  - All visual iconography in the UI MUST be defined as clean, standardized SVG vector files in `src/presentation/ui/assets/icons/` (following Lucide/Feather icon standards). Never use raw Unicode emoji for UI icons.
+  - Always render icons via the centralized theme image provider `image://icons/<name>/<token>`.
+- **Domain-Driven Precision Terminology:**
+  - Strategy parameters must be labeled **"Thông số Chiến lược"** (`Strategy Parameters`), distinct from general Bot system settings.
+- **MVP Trio Screen Directory Layout:**
+  - For a screen under `src/presentation/ui/screens/<name>/`, keep `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`, and QML files flat at the top level of the screen's folder. Group only helper modules into `<name>/logic/` or `<name>/helpers/` when size warrants it.
+
+---
+
+## 4. Testing & Quality Assurance
+
+- **Every new feature/screen ships with sanity tests** in `tests/sanity/`, alongside its unit tests:
+  - **Sanity (DI):** Boot real app (`create_app()`, no mocked dispatch) and assert every command/query resolves to its handler, and registries have expected keys.
+  - **Sanity (UI):** Construct real View + Presenter against real DI container and assert zero exceptions and `quick_widget.errors() == []`.
+  - **Construction-only, always** — no button clicks, no thread dispatch, no network.
+- **When fixing a bug, write a regression test first** that reproduces the failure condition before fixing the code.
+- **Use repo's QML test helpers:** Use `qml_item` / `find_qml_item` fixtures from `tests/conftest.py`, `qtbot.waitUntil(...)`, and `item.mapToItem(root, 0, 0)`.
+- **Do not move click handling off the Button itself** when tests emit `.clicked`.
+- **Local CI/CD Enforcement:**
+  - Always run `.\scripts\ci-local.ps1 -UnitOnly` to validate your code before finishing changes.
+
+---
+
+## 5. Proactive Inconsistency Challenge & Constructive Pushback
+
+- The AI assistant MUST actively challenge/refute user requests if they introduce inconsistencies, anti-patterns, layer violations, or break established domain principles.
+- Never blindly follow contradictory instructions; explain the root issue and propose a clean, consistent alternative.
+
+---
+
+## 6. Git Commits & Version Control
+
+- **DO NOT commit code changes (e.g., using `git commit`) autonomously unless the user explicitly requests you to do so. Always wait for explicit permission before saving changes to version control.**
+- When committing upon user request, strictly follow `.agents/rules/commit-rule.md` (Conventional Commits, pre-commit test verification, atomic changes, and mandatory `Co-Authored-By: Antigravity <noreply@google.com>` signature).

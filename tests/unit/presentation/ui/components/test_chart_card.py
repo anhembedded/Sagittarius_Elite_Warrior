@@ -1,10 +1,10 @@
+from enum import Enum
+from unittest.mock import patch
+
 import pyqtgraph as pg
 import pytest
 from PySide6 import QtCore
-from unittest.mock import patch
-
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
@@ -194,9 +194,6 @@ def test_chart_card_candle_width_is_positive_even_for_descending_data(qapp):
     assert card.candlestick.candle_width == pytest.approx(interval / 3.0)
 
 
-from enum import Enum
-
-
 class PyQtGraphStateKey(str, Enum):
     LIMITS = "limits"
     X_RANGE = "xRange"
@@ -224,11 +221,12 @@ def test_chart_card_update_last_candle_interactions(qapp):
     """
     card = ChartCard("BTCUSDT")
 
-    with patch.object(card.candlestick, "update_live_candle") as mock_candlestick, \
-         patch.object(card, "_render_chart_type") as mock_render, \
-         patch.object(card.price_line, "update_price") as mock_price_line, \
-         patch.object(card.viewport, "notify_new_data") as mock_viewport:
-
+    with (
+        patch.object(card.candlestick, "update_live_candle") as mock_candlestick,
+        patch.object(card, "_render_chart_type") as mock_render,
+        patch.object(card.price_line, "update_price") as mock_price_line,
+        patch.object(card.viewport, "notify_new_data") as mock_viewport,
+    ):
         # Test Candlestick mode
         card.set_chart_type("candlestick")
         card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)

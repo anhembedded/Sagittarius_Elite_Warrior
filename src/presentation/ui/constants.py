@@ -19,3 +19,7 @@ class UIMode(str, Enum):
     SCANNING = "SCANNING"  # System is scanning database status.
     SYNCING = "SYNCING"  # System is syncing market data.
     CLEARING = "CLEARING"  # System is clearing local data.
+
+
+#: Default maximum log entries retained in LogListModel before trimming oldest lines.
+DEFAULT_LOG_MAX_ENTRIES: int = 500

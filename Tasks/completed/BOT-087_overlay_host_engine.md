@@ -1,6 +1,8 @@
 # Nhiệm vụ: `OverlayHost` — hạ tầng overlay full-window cho QML modal
 
-> Thuộc Epic [`BOT-086`](BOT-086_ui_layout_and_overlay_architecture_epic.md), **Track A**,
+> **Trạng thái:** 🟢 Hoàn tất — hạ tầng `OverlayHost` đã triển khai xong, tích hợp sạch sẽ vào engine và màn hình Backtest.
+
+> Thuộc Epic [`BOT-086`](../backlog/BOT-086_ui_layout_and_overlay_architecture_epic.md), **Track A**,
 > task 1/2. Nguồn: 📄 [`BUG-004`](../bug_report/BUG-004.md).
 >
 > ⚠️ **Sửa `sagittarius_engine/` (repo cha)** → commit ở **cả hai repo** + bump submodule
@@ -90,7 +92,88 @@ overlay.setAttribute(Qt.WA_TransparentForMouseEvents, True)   # khi rảnh
 - Chỉ 1 app đang dùng, nhưng đặt ở `pyside_mvc` là đúng chỗ vì đây là hạ tầng thuần Qt,
   không biết gì về trading — cùng lý lẽ với `ResourceScope`/`from_qml`.
 
-## 5. Phụ thuộc
+## 5. Trạng thái triển khai thực tế & điểm bàn giao
+
+### 5.1. Đã làm xong trong code
+
+Đến thời điểm bàn giao này, phần hạ tầng cốt lõi của `BOT-087` đã có thật trong code:
+
+- `sagittarius_engine/extensions/pyside_mvc/QmlShared/overlay_host.py`
+  - có class `OverlayHost`
+  - tạo `QQuickWidget` trong suốt, parent trực tiếp vào widget cha
+  - đồng bộ geometry theo widget cha
+  - expose `overlay_size`, `content_item`, `is_click_through`
+  - click-through do trạng thái modal trong QML điều khiển, không đếm tay ở Python
+- `sagittarius_engine/extensions/pyside_mvc/QmlShared/OverlayHost.qml`
+  - tạo `Overlay.overlay` full-window qua host riêng
+  - đo được kích thước overlay thật từ Python
+- `sagittarius_engine/extensions/pyside_mvc/QmlShared/__init__.py`
+- `sagittarius_engine/extensions/pyside_mvc/__init__.py`
+  - đã export `OverlayHost`
+- `src/presentation/ui/screens/backtest/backtest_view.py`
+  - đã gắn `self.overlay_host = OverlayHost(self)` vào Backtest screen
+
+### 5.2. Test đã có và đã pass ở giai đoạn overlay host
+
+Phần behavior cốt lõi của overlay host đã được lock bằng test:
+
+- `tests/extensions/pyside_mvc/test_overlay_host.py`
+  - geometry bám parent
+  - đọc được kích thước `Overlay.overlay`
+  - click-through đổi theo modal state từ QML
+  - clear/dispose hoạt động đúng
+- `tests/sanity/test_backtest_screen_ui_sanity.py`
+  - screen construct được với overlay host gắn vào thật
+- `tests/unit/presentation/ui/screens/test_backtest_view_layout.py`
+  - overlay host phủ toàn bộ hybrid Backtest view
+
+### 5.3. Gap còn lại trước khi đóng task
+
+Phần còn lại không còn là thiếu hạ tầng, mà là **warning runtime QML** bị lộ ra sau khi overlay path được load sớm hơn:
+
+- `src/presentation/ui/components/IndicatorPickerMenu.qml`
+  - còn binding chạm `viewModel.scriptModel` khi `viewModel == null`
+- `src/presentation/ui/components/BotParamsDialog.qml`
+  - còn binding chạm `viewModel.botParamsSchema` / `viewModel.botParamsError` khi `viewModel == null`
+- `src/presentation/ui/screens/backtest/BackTestTopPanel.qml`
+  - còn ít nhất 1 chỗ đọc `Theme.textPrimary` khi `Theme == null`
+- `sagittarius_engine/extensions/pyside_mvc/QmlShared/DateTimePicker.qml`
+  - còn warning kiểu `Value is null and could not be converted to an object` trong test offscreen
+
+### 5.4. Những gì đã dọn trong lượt cuối này
+
+- đã sửa các ternary/binding bị hỏng trong `BackTestTopPanel.qml` sau một lần replace quá rộng
+- đã thêm fallback theme cho một số component Backtest đang ồn nhất:
+  - `StrategyComboBox.qml`
+  - `BackTestTradeLogs.qml`
+  - một phần `BotParamsDialog.qml`
+  - một phần `BotParamField.qml`
+- màn Backtest không còn ở trạng thái trắng/vỡ layout do parse error như trước
+
+### 5.5. Lệnh verify đang dùng để chốt BOT-087
+
+Chạy từ repo cha:
+
+```bash
+PYTHONPATH=.. QT_QPA_PLATFORM=offscreen Sagittarius_Elite_Warrior/.venv/bin/pytest \
+  Sagittarius_Elite_Warrior/tests/sanity/test_backtest_screen_ui_sanity.py \
+  Sagittarius_Elite_Warrior/tests/unit/presentation/ui/screens/test_backtest_view_layout.py -vv -s
+```
+
+### 5.6. Điểm tiếp tục chính xác cho section mới
+
+Section mới nên bắt đầu từ việc dọn nốt warning ở 4 cụm sau, rồi rerun đúng lệnh verify phía trên:
+
+- `src/presentation/ui/components/IndicatorPickerMenu.qml:58`
+- `src/presentation/ui/components/BotParamsDialog.qml:97`
+- `src/presentation/ui/components/BotParamsDialog.qml:105`
+- `src/presentation/ui/components/BotParamsDialog.qml:163-164`
+- `src/presentation/ui/screens/backtest/BackTestTopPanel.qml:491`
+- `sagittarius_engine/extensions/pyside_mvc/QmlShared/DateTimePicker.qml` (các warning null-object trong offscreen test)
+
+Khi các warning đó hết hoặc giảm về mức chấp nhận được và focused suite phía trên xanh sạch, mới chuyển `BOT-087` sang done và bắt đầu `BOT-088`.
+
+## 6. Phụ thuộc
 
 - Không phụ thuộc task nào. Là task nền cho [`BOT-088`](BOT-088_migrate_backtest_popups_to_overlay_host.md).
 - Liên quan: [`BOT-030`](../completed/BOT-030_full_qml_migration.md) (quyết định hybrid

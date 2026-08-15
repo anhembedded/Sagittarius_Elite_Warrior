@@ -6,6 +6,7 @@ import "../../components"
 
 Rectangle {
     id: root
+    readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
     // BOT-089: height is no longer a hardcoded 200 — that number had
     // already been bumped once before (120 -> 190 in backtest_view.py, for
     // the same reason: BOT-055's stat cards no longer fit) and would keep
@@ -81,129 +82,130 @@ Rectangle {
                     height: toolbarScroll.height
                     spacing: 10
 
-                    // 1. Strategy ComboBox
-                    StrategyComboBox {
-                        id: strategyCombo
-                        objectName: "cboBacktestStrategy"
-                        model: viewModel.strategyOptions
-                        enabled: viewModel.controlsEnabled
-                        Layout.preferredWidth: 300
-
-                        property bool _initialized: false
-                        Component.onCompleted: {
-                            _syncFromViewModel()
-                            _initialized = true
-                        }
-                        Connections {
-                            target: viewModel
-                            function onSelectedStrategyKeyChanged() { strategyCombo._syncFromViewModel() }
-                        }
-                        function _syncFromViewModel() {
-                            for (var i = 0; i < model.length; ++i) {
-                                if (model[i].key === viewModel.selectedStrategyKey) {
-                                    currentIndex = i
-                                    return
-                                }
-                            }
-                        }
-                        onActivated: (index) => {
-                            if (_initialized) viewModel.selectedStrategyKey = model[index].key
-                        }
-                    }
-
-                    // 2. Timeframe
-                    ComboBox {
-                        id: timeframeCombo
-                        objectName: "cboBacktestTimeframe"
+                    // 1. Strategy Picker Button
+                    Button {
+                        id: btnStrategy
+                        objectName: "btnBacktestStrategy"
                         implicitHeight: 34
-                        implicitWidth: 95
-                        model: viewModel.timeframeOptions
-                        enabled: viewModel.controlsEnabled
+                        implicitWidth: 260
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
-                            color: "#181a24"
-                            border.color: "#2a2d3d"
+                            color: btnStrategy.hovered ? "#222536" : "#181a24"
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
                             border.width: 1
                             radius: 6
                         }
-                        contentItem: Text {
-                            leftPadding: 10
-                            text: timeframeCombo.displayText
-                            color: Theme.textPrimary
-                            font.pixelSize: 11
-                            font.bold: true
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        contentItem: RowLayout {
+                            spacing: 8
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
 
-                        property bool _initialized: false
-                        Component.onCompleted: {
-                            var idx = model.indexOf(viewModel.selectedTimeframe)
-                            if (idx >= 0) currentIndex = idx
-                            _initialized = true
+                            Image {
+                                source: "image://icons/briefcase/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+
+                            Text {
+                                text: root.hasViewModel ? viewModel.selectedStrategyName : "Chọn chiến lược"
+                                color: Theme && Theme.accent ? Theme.accent : "#f0b90b"
+                                font.pixelSize: 11
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
                         }
-                        onActivated: (index) => {
-                            if (_initialized) viewModel.selectedTimeframe = model[index]
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenStrategyPicker()
                         }
                     }
 
-                    // 3. Time range preset
-                    ComboBox {
-                        id: rangeCombo
-                        objectName: "cboBacktestRange"
+                    // 2. Timeframe Button
+                    Button {
+                        id: btnTimeframe
+                        objectName: "btnBacktestTimeframe"
                         implicitHeight: 34
-                        implicitWidth: 135
-                        model: viewModel.timeRangePresetOptions
-                        textRole: "label"
-                        enabled: viewModel.controlsEnabled
+                        implicitWidth: 70
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
-                            color: "#181a24"
-                            border.color: "#2a2d3d"
+                            color: btnTimeframe.hovered ? "#222536" : "#181a24"
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
                             border.width: 1
                             radius: 6
                         }
-                        contentItem: Text {
-                            leftPadding: 10
-                            text: rangeCombo.displayText
-                            color: Theme.textPrimary
-                            font.pixelSize: 11
-                            font.bold: true
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        contentItem: RowLayout {
+                            spacing: 6
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
 
-                        property bool _initialized: false
-                        Component.onCompleted: {
-                            for (var i = 0; i < model.length; ++i) {
-                                if (model[i].value === viewModel.timeRangePreset) {
-                                    currentIndex = i
-                                    break
-                                }
+                            Text {
+                                text: root.hasViewModel ? viewModel.selectedTimeframe : "1m"
+                                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                font.pixelSize: 11
+                                font.bold: true
+                                horizontalAlignment: Text.AlignHCenter
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
                             }
-                            _initialized = true
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
                         }
-                        onActivated: (index) => {
-                            if (_initialized) viewModel.timeRangePreset = model[index].value
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenTimeframePicker()
                         }
                     }
 
-                    // 3b. Custom range fields
-                    RowLayout {
-                        spacing: 6
-                        visible: viewModel.timeRangePreset === "custom"
-
-                        DateTimePicker {
-                            objectName: "txtBacktestRangeStart"
-                            implicitWidth: 145
-                            text: viewModel.customStartText
-                            enabled: viewModel.controlsEnabled
-                            placeholderText: "Từ yyyy-MM-dd HH:mm"
-                            onTextEdited: (text) => viewModel.customStartText = text
+                    // 3. Time range preset Button
+                    Button {
+                        id: btnRange
+                        objectName: "btnBacktestRange"
+                        implicitHeight: 34
+                        implicitWidth: 140
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
+                        background: Rectangle {
+                            color: btnRange.hovered ? "#222536" : "#181a24"
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
+                            border.width: 1
+                            radius: 6
                         }
-                        DateTimePicker {
-                            objectName: "txtBacktestRangeEnd"
-                            implicitWidth: 145
-                            text: viewModel.customEndText
-                            enabled: viewModel.controlsEnabled
-                            placeholderText: "Đến yyyy-MM-dd HH:mm"
-                            onTextEdited: (text) => viewModel.customEndText = text
+                        contentItem: RowLayout {
+                            spacing: 6
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            Image {
+                                source: "image://icons/calendar/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+
+                            Text {
+                                text: root.hasViewModel ? viewModel.selectedTimeRangePresetLabel : "Toàn bộ lịch sử"
+                                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                font.pixelSize: 11
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
+                        }
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenTimeRangePicker()
                         }
                     }
 
@@ -212,7 +214,7 @@ Rectangle {
                         id: btnCapital
                         objectName: "btnBacktestCapital"
                         implicitHeight: 34
-                        enabled: viewModel.controlsEnabled
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
                             color: "#181a24"
                             border.color: "#2a2d3d"
@@ -231,7 +233,10 @@ Rectangle {
                             }
 
                             Text {
-                                text: root._formatCapitalDisplay(viewModel.initialCapitalText, viewModel.selectedCurrency)
+                                text: root._formatCapitalDisplay(
+                                    root.hasViewModel ? viewModel.initialCapitalText : "",
+                                    root.hasViewModel ? viewModel.selectedCurrency : ""
+                                )
                                 color: Theme.textPrimary
                                 font.pixelSize: 11
                                 font.bold: true
@@ -243,14 +248,22 @@ Rectangle {
                                 sourceSize: Qt.size(11, 11)
                             }
                         }
-                        onClicked: root.openCapitalPopup()
+                        onClicked: {
+                            var pos = btnCapital.mapToItem(null, 0, btnCapital.height + 4)
+                            if (root.hasViewModel) viewModel.requestOpenCapital(pos.x, pos.y)
+                        }
                     }
 
                     // 5. Order Execution
                     Button {
+                        id: btnOrderExec
+                        objectName: "btnBacktestOrderExecution"
                         implicitHeight: 34
                         background: Rectangle { color: "#181a24"; border.color: "#2a2d3d"; border.width: 1; radius: 6 }
-                        onClicked: orderExecMenu.open()
+                        onClicked: {
+                            var pos = btnOrderExec.mapToItem(null, 0, btnOrderExec.height + 4)
+                            if (root.hasViewModel) viewModel.requestOpenOrderExecution(pos.x, pos.y)
+                        }
                         contentItem: RowLayout {
                             spacing: 6
                             anchors.leftMargin: 10
@@ -263,10 +276,14 @@ Rectangle {
 
                     // 6. Indicator picker (BOT-064)
                     Button {
+                        id: btnIndicatorPicker
                         objectName: "btnBacktestIndicatorPicker"
                         implicitHeight: 34
                         background: Rectangle { color: "#181a24"; border.color: "#2a2d3d"; border.width: 1; radius: 6 }
-                        onClicked: indicatorPickerMenu.open()
+                        onClicked: {
+                            var pos = btnIndicatorPicker.mapToItem(null, 0, btnIndicatorPicker.height + 4)
+                            if (root.hasViewModel) viewModel.requestOpenIndicatorPicker(pos.x, pos.y)
+                        }
                         contentItem: RowLayout {
                             spacing: 6
                             anchors.leftMargin: 10
@@ -284,7 +301,7 @@ Rectangle {
                         objectName: "btnBacktestBotParams"
                         text: "Thông số Bot"
                         implicitHeight: 34
-                        enabled: viewModel.controlsEnabled
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
                             color: "#1c1e2b"
                             border.color: "#2d3145"
@@ -296,12 +313,11 @@ Rectangle {
                             anchors.centerIn: parent
                             anchors.leftMargin: 10
                             anchors.rightMargin: 10
-                            Image { source: "image://icons/settings/accent"; sourceSize: Qt.size(13, 13) }
-                            Text { text: "Thông số Bot"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
+                            Image { source: "image://icons/sliders/accent"; sourceSize: Qt.size(13, 13) }
+                            Text { text: "Thông số Chiến lược"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
                         }
                         onClicked: {
-                            botParamsDialog.strategyName = strategyCombo.currentText
-                            botParamsDialog.open()
+                            if (root.hasViewModel) viewModel.requestOpenBotParams(viewModel.selectedStrategyName)
                         }
                     }
 
@@ -310,8 +326,8 @@ Rectangle {
                         objectName: "btnRunBacktest"
                         implicitWidth: 145
                         implicitHeight: 34
-                        enabled: viewModel.controlsEnabled
-                        onClicked: viewModel.requestRun()
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
+                        onClicked: { if (root.hasViewModel) viewModel.requestRun() }
                         background: Rectangle {
                             id: runBtnBg
                             color: enabled ? (runBtnRoot.hovered ? "#12e680" : "#10b981") : "#242736"
@@ -324,7 +340,7 @@ Rectangle {
                             Image { source: "image://icons/play/black"; sourceSize: Qt.size(13, 13) }
                             Text { text: "CHẠY BACKTEST"; color: "#08090d"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 0.5 }
                         }
-                }
+                    }
                 }
             }
         }
@@ -332,7 +348,7 @@ Rectangle {
         // ================= HEADER: PERFORMANCE METRICS =================
         RowLayout {
             Layout.fillWidth: true
-            visible: viewModel.primaryStatCards.length > 0
+            visible: root.hasViewModel && viewModel.primaryStatCards.length > 0
             spacing: 10
 
             RowLayout {
@@ -370,7 +386,7 @@ Rectangle {
                         sourceSize: Qt.size(13, 13)
                         anchors.centerIn: parent
                     }
-                    onClicked: limitationsPopup.open()
+                    onClicked: { if (root.hasViewModel) viewModel.requestOpenLimitations() }
                 }
             }
 
@@ -385,8 +401,8 @@ Rectangle {
                 // the warning behind a click.
                 objectName: "lblResultWarning"
                 Layout.fillWidth: true
-                visible: text !== ""
-                text: viewModel.resultWarningText
+                visible: root.hasViewModel && text !== ""
+                text: root.hasViewModel ? viewModel.resultWarningText : ""
                 color: "#ef5350"
                 font.pixelSize: 11
                 font.bold: true
@@ -416,7 +432,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: extendedMetricsPopup.open()
+                    onClicked: { if (root.hasViewModel) viewModel.requestOpenExtendedMetrics() }
                 }
             }
         }
@@ -433,7 +449,7 @@ Rectangle {
         // states is actually visible.
         Item {
             Layout.fillWidth: true
-            implicitHeight: viewModel.primaryStatCards.length > 0
+            implicitHeight: root.hasViewModel && viewModel.primaryStatCards.length > 0
                 ? statCardsRow.implicitHeight
                 : resultColumn.implicitHeight
             Layout.preferredHeight: implicitHeight
@@ -441,11 +457,11 @@ Rectangle {
             RowLayout {
                 id: statCardsRow
                 anchors.fill: parent
-                visible: viewModel.primaryStatCards.length > 0
+                visible: root.hasViewModel && viewModel.primaryStatCards.length > 0
                 spacing: 12
 
                 Repeater {
-                    model: viewModel.primaryStatCards
+                    model: root.hasViewModel ? viewModel.primaryStatCards : []
 
                     MetricCard {
                         objectName: "cardMetric_" + index
@@ -464,7 +480,7 @@ Rectangle {
             ColumnLayout {
                 id: resultColumn
                 anchors.fill: parent
-                visible: viewModel.primaryStatCards.length === 0
+                visible: !root.hasViewModel || viewModel.primaryStatCards.length === 0
                 spacing: 8
 
                 ScrollView {
@@ -481,10 +497,10 @@ Rectangle {
 
                     TextArea {
                         objectName: "txtBacktestResult"
-                        text: viewModel.resultText
+                        text: root.hasViewModel ? viewModel.resultText : ""
                         readOnly: true
                         wrapMode: TextArea.Wrap
-                        color: viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
+                        color: root.hasViewModel && viewModel.resultIsError ? "#ff5252" : Theme.textPrimary
                         font.pixelSize: 11
                         font.family: "JetBrains Mono, Fira Code, monospace"
                         background: Rectangle {
@@ -499,10 +515,12 @@ Rectangle {
                 Button {
                     objectName: "btnRequestSync"
                     Layout.alignment: Qt.AlignLeft
-                    visible: viewModel.needsDataSync
-                    enabled: viewModel.uiMode !== "SYNCING"
+                    visible: root.hasViewModel && viewModel.needsDataSync
+                    enabled: root.hasViewModel && viewModel.uiMode !== "SYNCING"
                     implicitHeight: 34
-                    text: viewModel.uiMode === "SYNCING" ? "Đang đồng bộ..." : "Đồng bộ dữ liệu ngay"
+                    text: root.hasViewModel
+                        ? (viewModel.uiMode === "SYNCING" ? "Đang đồng bộ..." : "Đồng bộ dữ liệu ngay")
+                        : "Đồng bộ dữ liệu ngay"
                     background: Rectangle { color: enabled ? Theme.accent : "#282b3a"; radius: 6 }
                     contentItem: Text {
                         text: parent.text
@@ -512,7 +530,7 @@ Rectangle {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
-                    onClicked: viewModel.requestSync()
+                    onClicked: { if (root.hasViewModel) viewModel.requestSync() }
                 }
             }
         }
@@ -525,271 +543,6 @@ Rectangle {
 
     function _formatCapitalDisplay(rawText, currency) {
         return (rawText || "0") + " " + currency
-    }
-
-    function openCapitalPopup() {
-        var pos = btnCapital.mapToItem(Overlay.overlay, 0, btnCapital.height + 4)
-        capitalPopup.x = pos.x
-        capitalPopup.y = pos.y
-        capitalInput.text = viewModel.initialCapitalText
-        var idx = viewModel.currencyOptions.indexOf(viewModel.selectedCurrency)
-        if (idx >= 0) currencyCombo.currentIndex = idx
-        capitalPopup.open()
-    }
-
-    Popup {
-        id: capitalPopup
-        width: 280
-        modal: true
-        dim: false
-        parent: Overlay.overlay
-        z: 9999
-        padding: 16
-
-        background: Rectangle {
-            color: "#161822"
-            border.color: "#2a2d3e"
-            border.width: 1
-            radius: 8
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 12
-
-            Text {
-                text: "Thiết lập vốn ban đầu"
-                color: Theme.textPrimary
-                font.pixelSize: 13
-                font.bold: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                TextField {
-                    id: capitalInput
-                    objectName: "txtBacktestCapital"
-                    Layout.fillWidth: true
-                    implicitHeight: 34
-                    text: viewModel.initialCapitalText
-                    color: Theme.textPrimary
-                    font.pixelSize: 12
-                    font.bold: true
-                    background: Rectangle {
-                        color: "#10121a"
-                        border.color: "#2a2d3e"
-                        radius: 6
-                    }
-                    validator: DoubleValidator { bottom: 0 }
-                }
-
-                ComboBox {
-                    id: currencyCombo
-                    objectName: "cboBacktestCurrency"
-                    implicitWidth: 85
-                    implicitHeight: 34
-                    model: viewModel.currencyOptions
-                    background: Rectangle {
-                        color: "#202330"
-                        border.color: "#2a2d3e"
-                        radius: 6
-                    }
-                    contentItem: Text {
-                        leftPadding: 8
-                        text: currencyCombo.displayText
-                        color: Theme.textPrimary
-                        font.pixelSize: 11
-                        font.bold: true
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    Component.onCompleted: {
-                        var idx = model.indexOf(viewModel.selectedCurrency)
-                        if (idx >= 0) currentIndex = idx
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: "Hủy"
-                    implicitWidth: 65
-                    implicitHeight: 30
-                    background: Rectangle {
-                        color: "#242738"
-                        radius: 6
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.muted
-                        font.pixelSize: 11
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    onClicked: capitalPopup.close()
-                }
-
-                Button {
-                    text: "Áp dụng"
-                    implicitWidth: 85
-                    implicitHeight: 30
-                    background: Rectangle {
-                        color: Theme.accent
-                        radius: 6
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "#000000"
-                        font.pixelSize: 11
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    onClicked: {
-                        viewModel.initialCapitalText = capitalInput.text
-                        viewModel.selectedCurrency = currencyCombo.currentText
-                        capitalPopup.close()
-                    }
-                }
-            }
-        }
-    }
-
-    Popup {
-        id: extendedMetricsPopup
-        width: 440
-        modal: true
-        dim: true
-        anchors.centerIn: Overlay.overlay
-        padding: 18
-
-        background: Rectangle {
-            color: "#141620"
-            border.color: "#282c3f"
-            border.width: 1
-            radius: 10
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 14
-
-            RowLayout {
-                spacing: 8
-                Image { source: "image://icons/info/accent"; sourceSize: Qt.size(16, 16) }
-                Text {
-                    text: "CHỈ SỐ CHI TIẾT BACKTEST"
-                    color: Theme.textPrimary
-                    font.pixelSize: 12
-                    font.bold: true
-                    font.letterSpacing: 1
-                }
-            }
-
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 12
-                rowSpacing: 12
-
-                Repeater {
-                    model: viewModel.extendedStatCards
-
-                    MetricCard {
-                        objectName: "cardExtendedMetric_" + index
-                        Layout.fillWidth: true
-                        title: modelData.title
-                        value: modelData.value
-                        suffix: modelData.suffix
-                    }
-                }
-            }
-        }
-    }
-
-    Popup {
-        id: limitationsPopup
-        width: 440
-        modal: true
-        dim: true
-        anchors.centerIn: Overlay.overlay
-        padding: 18
-
-        background: Rectangle {
-            color: "#141620"
-            border.color: "#282c3f"
-            border.width: 1
-            radius: 10
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 14
-
-            RowLayout {
-                spacing: 8
-                Image { source: "image://icons/info/accent"; sourceSize: Qt.size(16, 16) }
-                Text {
-                    text: "GIỚI HẠN CỦA LẦN CHẠY NÀY"
-                    color: Theme.textPrimary
-                    font.pixelSize: 12
-                    font.bold: true
-                    font.letterSpacing: 1
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Repeater {
-                    model: viewModel.limitations
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-
-                        Text {
-                            text: "•"
-                            color: Theme.muted
-                            font.pixelSize: 12
-                            Layout.alignment: Qt.AlignTop
-                        }
-                        Text {
-                            objectName: "lblLimitation_" + index
-                            Layout.fillWidth: true
-                            text: modelData
-                            color: Theme.textPrimary
-                            font.pixelSize: 11
-                            wrapMode: Text.Wrap
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    BotParamsDialog {
-        id: botParamsDialog
-    }
-
-    IndicatorPickerMenu {
-        id: indicatorPickerMenu
-        x: 650
-        y: 60
-    }
-
-    OrderExecutionMenu {
-        id: orderExecMenu
-        x: 650
-        y: 60
     }
 }
 

@@ -4,9 +4,8 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -22,14 +21,27 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
+    BacktestCompletedEvent,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
+    BacktestFailedEvent,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+    SignalGeneratedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
+    DEFAULT_LOG_MAX_ENTRIES,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
@@ -39,10 +51,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
     map_klines,
     map_volume,
 )
+from sagittarius_engine.extensions.health.health_check_query import HealthCheckQuery
+from sagittarius_engine.extensions.health.health_module import HealthUpdatedEvent
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .backtest_view_model import BackTestViewModel
+from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_run_config import BacktestRunConfig
 from .logic.backtest_state import BacktestUiState
@@ -79,6 +95,8 @@ if TYPE_CHECKING:
     from .backtest_view import BackTestView
 
 logger = logging.getLogger("App.BackTestPresenter")
+
+_TRACE_PREFIX = "BACKTEST_TRACE"
 
 #: Only used when IConfig's own DEFAULT_SYMBOLS is empty (e.g. a fresh
 #: install, Settings never opened) — BOT-058: the real default symbol comes
@@ -159,6 +177,7 @@ class BackTestPresenter(BasePresenter):
     _chartScriptMarkerSignal = Signal(str, list)  # script key, markers
     _syncSucceededSignal = Signal()
     _syncFailedSignal = Signal(str)  # error message
+    _uiLogSignal = Signal(str, str, bool)  # message, level, is_dev
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
         super().__init__(view, container)
@@ -225,6 +244,25 @@ class BackTestPresenter(BasePresenter):
 
         self._view_model = BackTestViewModel()
         view.set_view_model(self._view_model)
+
+        self._is_dev_mode: bool = bool(self.config.get(DEV_MODE_CONFIG_KEY, False))
+        raw_max_entries = self.config.get(
+            ConfigKeys.BACKTEST_LOG_MAX_ENTRIES.value, DEFAULT_LOG_MAX_ENTRIES
+        )
+        try:
+            self._log_max_entries = (
+                int(raw_max_entries)
+                if not isinstance(raw_max_entries, bool)
+                else DEFAULT_LOG_MAX_ENTRIES
+            )
+        except (ValueError, TypeError):
+            self._log_max_entries = DEFAULT_LOG_MAX_ENTRIES
+        self._logger = BacktestEventLogger(
+            log_model=self._view_model.log_model,
+            is_dev_mode=self._is_dev_mode,
+            emit_signal=self._emit_ui_log,
+            max_entries=self._log_max_entries,
+        )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
@@ -264,6 +302,7 @@ class BackTestPresenter(BasePresenter):
         # contract, and before load_qml() so QML parses against a ready model.
         self._connect_ui_signals()
         self._connect_engine_events()
+        self._trigger_initial_health_check()
 
         # After render_symbol_cards(): view.chart_controls doesn't exist
         # until the ChartCard it's attached to has been built.
@@ -281,6 +320,13 @@ class BackTestPresenter(BasePresenter):
         self._view_model.selectedStrategyKeyChanged.connect(
             self._on_strategy_selection_changed
         )
+        self._view_model.selectedTimeframeChanged.connect(self._on_timeframe_changed)
+        self._view_model.timeRangePresetChanged.connect(self._on_time_range_changed)
+        self._view_model.initialCapitalTextChanged.connect(self._on_capital_changed)
+        self._view_model.selectedCurrencyChanged.connect(self._on_capital_changed)
+        self._view_model.script_model.enabledKeysChanged.connect(
+            self._on_indicator_script_selection_changed
+        )
         self._view_model.botParamsSaveRequested.connect(
             self._on_bot_params_save_requested
         )
@@ -295,18 +341,93 @@ class BackTestPresenter(BasePresenter):
         self._chartScriptMarkerSignal.connect(self._on_chart_script_marker)
         self._syncSucceededSignal.connect(self._on_sync_succeeded)
         self._syncFailedSignal.connect(self._on_sync_failed)
+        self._uiLogSignal.connect(self._on_ui_log)
         self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
         self._view_model.tradeLogExportRequested.connect(
             self._on_trade_log_export_requested
         )
 
     def _connect_engine_events(self) -> None:
-        """Nothing to subscribe to: `RunStaticBacktestCommandHandler` returns
-        its `BacktestResult` synchronously to the dispatch call below. It
-        also emits `BacktestCompletedEvent`/`BacktestFailedEvent` on the
-        event bus (for other future subscribers), but this screen already
-        has its result from the return value and has no need to also listen
-        for its own echo."""
+        """Subscribe to Engine EventBus events emitted from background handlers (Observer Pattern)."""
+        self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
+        self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
+        self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
+        self.event_bus.on(HealthUpdatedEvent.event_name, self._handle_health_updated_event)
+
+    def _trigger_initial_health_check(self) -> None:
+        """Trigger an initial health check when backtest screen initializes."""
+        try:
+            health_query = self.container.resolve(HealthCheckQuery)
+            status = health_query.execute()
+            self._handle_health_updated_event(HealthUpdatedEvent(status))
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _handle_health_updated_event(self, event: Any) -> None:
+        status_dict = getattr(event, "status", {})
+        status_str = status_dict.get("status", "unknown").upper()
+        components = status_dict.get("components", {})
+        db_stat = components.get("database", "ok").upper()
+        bus_stat = components.get("event_bus", "ok").upper()
+        self._emit_ui_log(
+            f"[Health] Trạng thái hệ thống: {status_str} (Database: {db_stat}, EventBus: {bus_stat})",
+            "info",
+            is_dev=False,
+        )
+
+    def _handle_backtest_completed_event(self, event: BacktestCompletedEvent) -> None:
+        result = getattr(event, "result", None)
+        trades_count = len(result.trades) if result and hasattr(result, "trades") else 0
+        duration = getattr(result, "duration", 0.0) if result else 0.0
+        self._emit_ui_log(
+            f"[EventBus] Backtest hoàn tất: {trades_count} lệnh (thời gian: {duration:.2f}s)",
+            "info",
+            is_dev=True,
+        )
+
+    def _handle_backtest_failed_event(self, event: BacktestFailedEvent) -> None:
+        reason = getattr(event, "reason", str(event))
+        self._emit_ui_log(
+            f"[EventBus] Backtest thất bại: {reason}",
+            "error",
+            is_dev=False,
+        )
+
+    def _handle_signal_generated_event(self, event: SignalGeneratedEvent) -> None:
+        sig = getattr(event, "signal", None)
+        symbol = getattr(sig, "symbol", "") if sig else ""
+        side = getattr(sig, "side", "") if sig else ""
+        price = getattr(sig, "price", 0.0) if sig else 0.0
+        self._emit_ui_log(
+            f"[Signal] Tín hiệu: {str(side).upper()} {symbol} @ {price:,.2f}",
+            "info",
+            is_dev=True,
+        )
+
+    def _emit_ui_log(
+        self, message: str, level: str = "info", is_dev: bool = False
+    ) -> None:
+        self._uiLogSignal.emit(message, level, is_dev)
+
+    @Slot(str, str, bool)
+    def _on_ui_log(self, message: str, level: str, is_dev: bool) -> None:
+        if is_dev and not self._is_dev_mode:
+            return
+        self._view_model.log_model.append(message, level=level)
+        count = self._view_model.log_model.rowCount()
+        if not isinstance(count, int) or isinstance(count, bool):
+            return
+        while count > self._log_max_entries:
+            self._view_model.log_model.beginRemoveRows(QModelIndex(), 0, 0)
+            if (
+                hasattr(self._view_model.log_model, "_entries")
+                and self._view_model.log_model._entries
+            ):
+                self._view_model.log_model._entries.pop(0)
+            self._view_model.log_model.endRemoveRows()
+            count = self._view_model.log_model.rowCount()
+            if not isinstance(count, int) or isinstance(count, bool):
+                break
 
     def _connect_chart_controls(self) -> None:
         """`BacktestChartControls` (native, owned by `BackTestView`) only
@@ -321,6 +442,13 @@ class BackTestPresenter(BasePresenter):
         controls.sig_volume_toggled.connect(self.view.set_volume_visible)
         controls.sig_trade_flags_toggled.connect(self.view.set_trade_flags_visible)
 
+    def _log_dev_trace(self, action: str, **fields: object) -> None:
+        if not self.config.get(DEV_MODE_CONFIG_KEY, False):
+            return
+        suffix = " ".join(f"{key}={value!r}" for key, value in fields.items())
+        logger.info(f"{_TRACE_PREFIX} action={action} {suffix}".rstrip())
+        self._logger.dev_trace(action, **fields)
+
     # ================================================================== #
     # Qt Slots — main thread
     # ================================================================== #
@@ -329,11 +457,31 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_run_backtest(self) -> None:
         if self.fsm.current_state != BacktestUiState.IDLE:
+            self._log_dev_trace(
+                "run_ignored",
+                state=self.fsm.current_state,
+            )
             return
+        self._log_dev_trace(
+            "run_requested",
+            strategy=self._view_model.selectedStrategyKey,
+            timeframe=self._view_model.selectedTimeframe,
+            capital=self._view_model.initialCapitalText,
+            preset=self._view_model.timeRangePreset,
+        )
         config = self._build_run_config()
         if config is None:
             return
+        self._logger.log_backtest_started(
+            strategy_name=self._view_model.selectedStrategyName
+            or self._view_model.selectedStrategyKey,
+            timeframe=self._view_model.selectedTimeframe,
+            capital=float(self._view_model.initialCapitalText or 0),
+            currency=self._view_model.selectedCurrency,
+            symbol=self._symbol,
+        )
         self.fsm.transition_to(BacktestUiState.RUNNING)
+        self._log_dev_trace("run_transitioned", state=self.fsm.current_state)
         self._start_backtest_run(config)
 
     def _start_backtest_run(self, config: BacktestRunConfig) -> None:
@@ -341,6 +489,16 @@ class BackTestPresenter(BasePresenter):
         (`_on_sync_succeeded`) — callers are responsible for their own FSM
         transition into RUNNING first (IDLE->RUNNING vs SYNCING->RUNNING are
         different edges), this only does the actual submit."""
+        removed_strategy_lines = len(self._active_strategy_lines)
+        self._log_dev_trace(
+            "run_submit_start",
+            strategy=config.strategy_key,
+            timeframe=config.timeframe.value,
+            start=config.start_time,
+            end=config.end_time,
+            has_params=bool(config.strategy_params),
+            removed_strategy_lines=removed_strategy_lines,
+        )
         # Must happen here, on the main thread, BEFORE the background run
         # even starts — this reads self._active_strategy_lines, which
         # _fetch_and_emit_chart_data (background thread) will repopulate as
@@ -358,8 +516,13 @@ class BackTestPresenter(BasePresenter):
         # mid-run, breaking the same "no retroactive effect" rule the Dev
         # Board checklist follows.
         self._chart_script_keys = self._view_model.script_model.enabled_keys
+        self._log_dev_trace(
+            "run_snapshot_scripts",
+            script_keys=self._chart_script_keys,
+        )
 
         self._view_model.set_result(_RUNNING_MESSAGE, is_error=False)
+        self._log_dev_trace("run_worker_submitted")
         self._thread_manager.submit(self._run_backtest, config)
 
     @Slot(object)
@@ -368,6 +531,11 @@ class BackTestPresenter(BasePresenter):
         """Fires for every real `BacktestResult`, trades or not — stat cards
         (BOT-055) always populate from it (0 trades means every card reads
         0/neutral, never "no cards"); only the status message differs."""
+        self._log_dev_trace(
+            "run_succeeded",
+            trades=len(result.trades),
+            net_profit_percent=result.metrics.net_profit_percent,
+        )
         self._last_no_data_config = None
         self._view_model.set_needs_data_sync(False)
         self._view_model.set_stat_cards(
@@ -384,6 +552,16 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_result(message, is_error=False)
         self._all_trades = result.trades
         self._refresh_trade_log()
+        duration_sec = getattr(result, "duration", 0.0)
+        net_profit = result.metrics.net_profit if result.metrics else 0.0
+        win_rate = result.metrics.percent_profitable if result.metrics else 0.0
+        self._logger.log_backtest_completed(
+            duration_sec=duration_sec,
+            trade_count=len(result.trades),
+            net_pnl=net_profit,
+            win_rate=win_rate,
+            currency=self._view_model.selectedCurrency,
+        )
         self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(str, object)
@@ -401,17 +579,22 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_result(message, is_error=False)
         self._all_trades = []
         self._refresh_trade_log()
-        self.fsm.transition_to(BacktestUiState.IDLE)
+        self._logger.log_backtest_empty(message)
+        if self.fsm.current_state != BacktestUiState.IDLE:
+            self.fsm.transition_to(BacktestUiState.IDLE)
+        self._log_dev_trace("run_empty", message=message)
 
     @Slot(str)
     @safe_ui_action
     def _on_backtest_failed(self, message: str) -> None:
+        self._log_dev_trace("run_failed", message=message)
         self._view_model.set_stat_cards([], [])
         self._view_model.set_result_warning_text("")
         self._view_model.set_limitations([])
         self._view_model.set_result(f"Lỗi: {message}", is_error=True)
         self._all_trades = []
         self._refresh_trade_log()
+        self._logger.log_backtest_failed(message)
         self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(object, list, list)
@@ -419,6 +602,13 @@ class BackTestPresenter(BasePresenter):
     def _on_chart_data_ready(
         self, result: BacktestResult, klines: list, volume: list
     ) -> None:
+        self._log_dev_trace(
+            "chart_data_ready",
+            klines=len(klines),
+            volume=len(volume),
+            trades=len(result.trades),
+        )
+        self._logger.log_klines_loaded(len(klines), self._symbol)
         self.view.on_backtest_data_ready(result, klines, volume)
 
     @Slot(str, str, list, list)
@@ -475,6 +665,7 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_chart_mode_changed(self, mode_value: str) -> None:
         mode = ChartDisplayMode(mode_value)
+        self._log_dev_trace("chart_mode_changed", mode=mode_value)
         self.view.set_chart_mode(mode)
         is_price_scale = mode is not ChartDisplayMode.EQUITY
         # Entry/exit PRICE markers AND the strategy indicator overlay are
@@ -525,6 +716,43 @@ class BackTestPresenter(BasePresenter):
         self._strategy_params = None
         self._view_model.set_bot_params_error("")
         self._refresh_bot_params_schema()
+        self._logger.log_strategy_selected(
+            self._view_model.selectedStrategyName,
+            self._view_model.selectedStrategyKey,
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_timeframe_changed(self) -> None:
+        self._logger.log_timeframe_selected(self._view_model.selectedTimeframe)
+
+    @Slot()
+    @safe_ui_action
+    def _on_time_range_changed(self) -> None:
+        self._logger.log_time_range_selected(
+            self._view_model.timeRangePreset,
+            self._view_model.customStartText,
+            self._view_model.customEndText,
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_capital_changed(self) -> None:
+        try:
+            capital_val = float(self._view_model.initialCapitalText)
+            self._logger.log_capital_updated(
+                capital_val,
+                self._view_model.selectedCurrency,
+            )
+        except (ValueError, TypeError):
+            pass
+
+    @Slot()
+    @safe_ui_action
+    def _on_indicator_script_selection_changed(self) -> None:
+        enabled_keys = sorted(self._view_model.script_model.enabled_keys)
+        scripts_str = ", ".join(enabled_keys) if enabled_keys else "Không có"
+        self._logger.info(f"Đã cập nhật chỉ báo tham chiếu: {scripts_str}")
 
     @Slot(object)
     @safe_ui_action
@@ -549,6 +777,10 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_bot_params_error("")
         self._refresh_bot_params_schema()
         self._view_model.botParamsSaved.emit()
+        self._logger.log_bot_params_saved(
+            self._view_model.selectedStrategyName,
+            parsed,
+        )
 
         if self.fsm.current_state != BacktestUiState.IDLE:
             return
@@ -573,16 +805,22 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_request_sync(self) -> None:
         if self._last_no_data_config is None:
+            self._log_dev_trace("sync_ignored", reason="no_cached_config")
             return
         if self.fsm.current_state != BacktestUiState.IDLE:
+            self._log_dev_trace("sync_ignored", state=self.fsm.current_state)
             return
+        self._log_dev_trace("sync_requested")
         self.fsm.transition_to(BacktestUiState.SYNCING)
         self._view_model.set_result(_SYNCING_MESSAGE, is_error=False)
+        self._log_dev_trace("sync_worker_submitted")
         self._thread_manager.submit(self._run_sync, self._last_no_data_config)
 
     @Slot()
     @safe_ui_action
     def _on_sync_succeeded(self) -> None:
+        self._log_dev_trace("sync_succeeded")
+        self._logger.log_sync_event("Đồng bộ dữ liệu thành công.")
         # Sync is just an inserted precondition, not an independent user
         # action — the user already asked to run a backtest, "no data" got
         # in the way, and now that it's synced the original intent should
@@ -603,6 +841,8 @@ class BackTestPresenter(BasePresenter):
     @Slot(str)
     @safe_ui_action
     def _on_sync_failed(self, message: str) -> None:
+        self._log_dev_trace("sync_failed", message=message)
+        self._logger.log_sync_event(f"Đồng bộ thất bại: {message}", is_error=True)
         # needsDataSync / _last_no_data_config are left untouched — the sync
         # that just failed was for genuinely missing data, so "Đồng bộ ngay"
         # should stay offered for the user to retry.
@@ -679,16 +919,23 @@ class BackTestPresenter(BasePresenter):
         try:
             initial_balance = float(view_model.initialCapitalText)
         except ValueError:
+            self._log_dev_trace(
+                "run_config_invalid",
+                reason="invalid_capital",
+                capital=view_model.initialCapitalText,
+            )
             view_model.set_result(
                 _INVALID_CAPITAL_MESSAGE.format(value=view_model.initialCapitalText),
                 is_error=True,
             )
             return None
         if initial_balance <= 0:
+            self._log_dev_trace("run_config_invalid", reason="non_positive_capital")
             view_model.set_result(_NON_POSITIVE_CAPITAL_MESSAGE, is_error=True)
             return None
 
         if not view_model.selectedStrategyKey:
+            self._log_dev_trace("run_config_invalid", reason="missing_strategy")
             view_model.set_result(_NO_STRATEGY_MESSAGE, is_error=True)
             return None
 
@@ -698,15 +945,27 @@ class BackTestPresenter(BasePresenter):
         if preset is TimeRangePreset.CUSTOM:
             custom_start = _parse_custom_datetime(view_model.customStartText)
             if custom_start is None:
+                self._log_dev_trace("run_config_invalid", reason="invalid_custom_start")
                 view_model.set_result(_INVALID_CUSTOM_START_MESSAGE, is_error=True)
                 return None
             custom_end = _parse_custom_datetime(view_model.customEndText)
             if custom_end is not None and custom_start >= custom_end:
+                self._log_dev_trace("run_config_invalid", reason="invalid_custom_range")
                 view_model.set_result(_INVALID_CUSTOM_RANGE_MESSAGE, is_error=True)
                 return None
 
         start_time, end_time = resolve_time_range(
             preset, datetime.now(UTC), custom_start, custom_end
+        )
+
+        self._log_dev_trace(
+            "run_config_built",
+            symbol=self._symbol,
+            strategy=view_model.selectedStrategyKey,
+            timeframe=view_model.selectedTimeframe,
+            start=start_time,
+            end=end_time,
+            has_params=bool(self._strategy_params),
         )
 
         return BacktestRunConfig(
@@ -725,6 +984,11 @@ class BackTestPresenter(BasePresenter):
     # ================================================================== #
 
     def _run_backtest(self, config: BacktestRunConfig) -> None:
+        self._log_dev_trace(
+            "worker_start",
+            strategy=config.strategy_key,
+            timeframe=config.timeframe.value,
+        )
         try:
             command = RunStaticBacktestCommand(
                 symbol=self._symbol,
@@ -735,13 +999,20 @@ class BackTestPresenter(BasePresenter):
                 end_time=config.end_time,
                 strategy_params=config.strategy_params,
             )
+            self._log_dev_trace(
+                "worker_dispatch_run_static_backtest",
+                symbol=command.symbol,
+                timeframe=command.interval.value,
+            )
             result = self.dispatcher.dispatch(RunStaticBacktestCommand, command)
         except Exception as exc:
             logger.exception("Static backtest failed")
+            self._log_dev_trace("worker_failed", message=str(exc))
             self._backtestFailedSignal.emit(str(exc))
             return
 
         if result is None:
+            self._log_dev_trace("worker_no_data")
             self._backtestEmptySignal.emit(
                 f"Không có dữ liệu lịch sử cho {self._symbol} "
                 f"({config.timeframe.value}). Hãy sync dữ liệu trước.",
@@ -749,11 +1020,16 @@ class BackTestPresenter(BasePresenter):
             )
             return
 
+        self._log_dev_trace(
+            "worker_result_ready",
+            trades=len(result.trades),
+            net_profit_percent=result.metrics.net_profit_percent,
+        )
+        self._fetch_and_emit_chart_data(config, result)
         # Emitted whether or not there are trades — _on_backtest_succeeded
         # always has a real BacktestResult to build stat cards from; only
         # "no historical data at all" (result is None, above) has none.
         self._backtestSucceededSignal.emit(result)
-        self._fetch_and_emit_chart_data(config, result)
 
     def _run_sync(self, config: BacktestRunConfig) -> None:
         """Background worker: dispatches `SyncMarketDataCommand` for the
@@ -761,6 +1037,12 @@ class BackTestPresenter(BasePresenter):
         `DataManagementPresenter._run_single_sync`, minus the progress-bar
         events that screen needs and this one doesn't (one sync, one
         outcome, no multi-target loop)."""
+        self._log_dev_trace(
+            "sync_worker_start",
+            timeframe=config.timeframe.value,
+            start=config.start_time,
+            end=config.end_time,
+        )
         try:
             command = SyncMarketDataCommand(
                 symbols=[self._symbol],
@@ -768,9 +1050,15 @@ class BackTestPresenter(BasePresenter):
                 start_time=config.start_time,
                 end_time=config.end_time,
             )
+            self._log_dev_trace(
+                "sync_dispatch",
+                symbol=self._symbol,
+                timeframe=config.timeframe.value,
+            )
             self.dispatcher.dispatch(SyncMarketDataCommand, command)
         except Exception as exc:
             logger.exception("Market data sync failed")
+            self._log_dev_trace("sync_worker_failed", message=str(exc))
             self._syncFailedSignal.emit(str(exc))
             return
         self._syncSucceededSignal.emit()
@@ -798,17 +1086,31 @@ class BackTestPresenter(BasePresenter):
                 # ascending order would silently cap at the OLDEST instead.
                 order_by_desc=True,
             )
+            self._log_dev_trace(
+                "chart_query_dispatch",
+                symbol=self._symbol,
+                timeframe=config.timeframe.value,
+                limit=_CHART_KLINES_FETCH_LIMIT,
+            )
             response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
             raw_klines = list(reversed(getattr(response, "data", response) or []))
-        except Exception:
+        except Exception as exc:
             logger.exception("Fetching chart klines failed")
+            self._log_dev_trace("chart_query_failed", message=str(exc))
             return
 
         if not raw_klines:
+            self._log_dev_trace("chart_query_empty")
             return
 
         mapped_klines = map_klines(raw_klines)
         mapped_volume = map_volume(raw_klines)
+        self._log_dev_trace(
+            "chart_query_ready",
+            raw_klines=len(raw_klines),
+            mapped_klines=len(mapped_klines),
+            mapped_volume=len(mapped_volume),
+        )
         self._chartDataReadySignal.emit(result, mapped_klines, mapped_volume)
 
         self._emit_strategy_indicator_lines(config, raw_klines)
@@ -817,8 +1119,12 @@ class BackTestPresenter(BasePresenter):
         # already fetched above, entirely independent of the strategy lines
         # just emitted (self._chart_script_keys was snapshotted on the main
         # thread by _start_backtest_run before this background method ran).
+        self._log_dev_trace(
+            "chart_scripts_rebuild", script_keys=self._chart_script_keys
+        )
         self._chart_script_runner.rebuild(self._chart_script_keys)
         self._chart_script_runner.feed_all(raw_klines)
+        self._log_dev_trace("chart_scripts_fed", raw_klines=len(raw_klines))
 
     def _emit_strategy_indicator_lines(
         self, config: BacktestRunConfig, raw_klines: list
