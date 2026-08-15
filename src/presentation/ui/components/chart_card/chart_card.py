@@ -45,12 +45,18 @@ class ChartCard(BaseCard):
         self._raw_history: list[OhlcCandle] = []
         self._live_candle: OhlcCandle | None = None
 
+        self._setup_layout()
+        self._setup_components()
+        self._connect_signals()
+
+    def _setup_layout(self) -> None:
         self.toolbar = ChartToolbar()
         self.add_to_header(self.toolbar)
 
         self.plot_layout = ChartPlotLayout()
         self.body_layout.addWidget(self.plot_layout.widget)
 
+    def _setup_components(self) -> None:
         self.candlestick = FastCandlestickItem()
         self.plot_layout.main_plot.addItem(self.candlestick)
 
@@ -93,6 +99,8 @@ class ChartCard(BaseCard):
             get_raw_history=lambda: self._raw_history,
             parent=self,
         )
+
+    def _connect_signals(self) -> None:
         self.edge_scroll_detector.sig_near_left_edge.connect(
             lambda: self.sig_near_left_edge.emit(self.symbol)
         )
