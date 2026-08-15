@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QUrl
+from PySide6.QtCore import QObject, Qt, QTimer, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from sagittarius_engine.extensions.pyside_mvc import (
@@ -63,6 +63,7 @@ class BackTestView(BaseView):
         self._last_result = None
         self._last_klines: list = []
         self._last_volume: list = []
+        self._render_chart_pending = False
         self._setup_ui()
         # BOT-087: this direct child deliberately stays out of the layout so
         # a future QML Popup can use the Backtest view's full bounds rather
@@ -234,12 +235,12 @@ class BackTestView(BaseView):
         self._last_result = result
         self._last_klines = klines
         self._last_volume = volume
-        self._render_chart()
+        self._schedule_chart_render()
 
     def set_chart_mode(self, mode: ChartDisplayMode) -> None:
         self._chart_mode = mode
         if self._last_result is not None:
-            self._render_chart()
+            self._schedule_chart_render()
 
     def set_volume_visible(self, visible: bool) -> None:
         card = self._current_card()
@@ -259,6 +260,16 @@ class BackTestView(BaseView):
 
     def _current_card(self):
         return self.chart_cards[0] if self.chart_cards else None
+
+    def _schedule_chart_render(self) -> None:
+        if self._render_chart_pending:
+            return
+        self._render_chart_pending = True
+        QTimer.singleShot(0, self._flush_chart_render)
+
+    def _flush_chart_render(self) -> None:
+        self._render_chart_pending = False
+        self._render_chart()
 
     def _render_chart(self) -> None:
         card = self._current_card()

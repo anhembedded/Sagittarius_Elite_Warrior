@@ -401,7 +401,8 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_result(message, is_error=False)
         self._all_trades = []
         self._refresh_trade_log()
-        self.fsm.transition_to(BacktestUiState.IDLE)
+        if self.fsm.current_state != BacktestUiState.IDLE:
+            self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(str)
     @safe_ui_action
@@ -749,11 +750,11 @@ class BackTestPresenter(BasePresenter):
             )
             return
 
+        self._fetch_and_emit_chart_data(config, result)
         # Emitted whether or not there are trades — _on_backtest_succeeded
         # always has a real BacktestResult to build stat cards from; only
         # "no historical data at all" (result is None, above) has none.
         self._backtestSucceededSignal.emit(result)
-        self._fetch_and_emit_chart_data(config, result)
 
     def _run_sync(self, config: BacktestRunConfig) -> None:
         """Background worker: dispatches `SyncMarketDataCommand` for the

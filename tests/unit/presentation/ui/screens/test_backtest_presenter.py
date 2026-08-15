@@ -1182,6 +1182,49 @@ def test_successful_run_fetches_klines_and_renders_the_ohlc_chart(
     assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
 
 
+def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_chart_usable(
+    presenter, view_model, mock_dispatcher, qapp
+):
+    """Regression harness for the real Backtest runtime path the user hit:
+    run backtest -> fetch historical klines -> push them through the hybrid
+    screen's live QQuickWidget + native ChartCard composition.
+
+    Existing tests already proved each piece in isolation (use case, query,
+    chart widget, QML parse/load), but this stitches them together in the
+    exact order `_run_backtest()` uses at runtime and asserts the hybrid view
+    stays internally consistent after the render burst."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    klines = _make_klines()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result, klines=klines)
+
+    presenter._run_backtest(config)
+    qapp.processEvents()
+
+    assert presenter.view.top_widget.errors() == []
+    assert presenter.view.top_overlay_host.quick_widget.errors() == []
+    assert presenter.view.bottom_widget.errors() == []
+    assert presenter.view.overlay_host.quick_widget.errors() == []
+
+    assert len(presenter.view._last_klines) == len(klines)
+    assert presenter.view._last_volume
+    assert presenter.view.chart_cards[0]._raw_history
+    timestamps = [candle[0] for candle in presenter.view.chart_cards[0]._raw_history]
+    assert timestamps == sorted(timestamps)
+
+    card = presenter.view.chart_cards[0]
+    x_range, y_range = card.plot_layout.main_plot.vb.viewRange()
+    lows = [candle[3] for candle in card._raw_history]
+    highs = [candle[2] for candle in card._raw_history]
+    assert card.width() > 0
+    assert card.height() > 0
+    assert x_range[1] > x_range[0]
+    assert y_range[1] > y_range[0]
+    assert y_range[0] <= min(lows)
+    assert y_range[1] >= max(highs)
+    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+
+
 def test_no_klines_leaves_the_chart_unrendered_without_crashing(
     presenter, view_model, mock_dispatcher
 ):
