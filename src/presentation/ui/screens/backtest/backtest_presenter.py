@@ -472,7 +472,6 @@ class BackTestPresenter(BasePresenter):
         config = self._build_run_config()
         if config is None:
             return
-        self._trigger_initial_health_check()
         self._logger.log_backtest_started(
             strategy_name=self._view_model.selectedStrategyName
             or self._view_model.selectedStrategyKey,

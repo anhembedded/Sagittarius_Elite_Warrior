@@ -51,10 +51,12 @@ def create_app(config_manager: ConfigManager) -> App:
 
     app.use(LoggerExtension())
     app.use(ThreadManagerExtension())
-    app.use(HealthExtension())
 
     # Load Domain Module (Registers Repositories & UseCases)
     app.use(BinanceBotModule())
+
+    # Load Health Check Diagnostic Extension after domain modules
+    app.use(HealthExtension())
 
     # Register Global Validation Middleware
     app.use_middleware(PydanticValidationMiddleware(container))
