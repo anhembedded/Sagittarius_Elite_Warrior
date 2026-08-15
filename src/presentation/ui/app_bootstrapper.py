@@ -20,7 +20,7 @@ import traceback
 
 import qdarktheme
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
@@ -93,7 +93,7 @@ def main() -> None:
 
 
 def _install_exception_handler(app_engine) -> None:
-    """Install a global Qt exception handler that logs and shows a dialog."""
+    """Install a global Qt exception handler that logs and shows a resizable dialog."""
 
     def _handler(exc_type, exc_value, exc_tb) -> None:
         tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -105,13 +105,17 @@ def _install_exception_handler(app_engine) -> None:
         else:
             print(f"Uncaught UI Exception:\n{tb_str}")
 
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setWindowTitle("Critical System Error")
-        msg.setText("An unexpected error occurred in the UI layer.")
-        msg.setInformativeText(str(exc_value))
-        msg.setDetailedText(tb_str)
-        msg.exec()
+        from Sagittarius_Elite_Warrior.src.presentation.ui.components.critical_error_dialog import (
+            CriticalErrorDialog,
+        )
+
+        dialog = CriticalErrorDialog(
+            title="Critical System Error",
+            message="An unexpected error occurred in the UI layer.",
+            error_details=str(exc_value),
+            traceback_str=tb_str,
+        )
+        dialog.exec()
 
     sys.excepthook = _handler
 
