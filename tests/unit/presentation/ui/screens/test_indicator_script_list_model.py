@@ -1,7 +1,6 @@
 """Tests for IndicatorScriptListModel (BOT-032 Phase 3)."""
 
 from PySide6.QtCore import QModelIndex
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
     IndicatorScriptListModel,
 )

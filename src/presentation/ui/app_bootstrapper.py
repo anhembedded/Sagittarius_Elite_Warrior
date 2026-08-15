@@ -23,7 +23,6 @@ import qdarktheme
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
@@ -75,7 +74,9 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     # 2. Boot PySide6 QApplication & Diagnostics
     # ------------------------------------------------------------------ #
-    os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.fonts.warning=false;qt.qpa.window=false")
+    os.environ.setdefault(
+        "QT_LOGGING_RULES", "qt.qpa.fonts.warning=false;qt.qpa.window=false"
+    )
     app = QApplication(sys.argv)
 
     _install_exception_handler(app_engine)

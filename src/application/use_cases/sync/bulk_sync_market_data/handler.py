@@ -77,8 +77,9 @@ class BulkSyncMarketDataCommandHandler(
         self.logger.info("Bulk sync completed.")
         reporter.report_completed()
 
-
-    def _handle_empty_targets(self, total: int, reporter: BulkSyncProgressReporter) -> bool:
+    def _handle_empty_targets(
+        self, total: int, reporter: BulkSyncProgressReporter
+    ) -> bool:
         """Helper to handle the case where no targets are provided."""
         if total == 0:
             self.logger.info("No targets provided for bulk sync.")
