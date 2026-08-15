@@ -94,17 +94,7 @@ class DevIndicatorScript(BaseIndicatorScript):
         momentum = self.momentum(close)
         trend = self.trend(close)
 
-        # --- 2b. Feed the derived Series every bar, including a None while its
-        # inputs are still warming up — pushing nothing would silently shift
-        # the bar alignment and make `[1]` mean the wrong bar.
-        self.spread.push(fast - slow if fast is not None and slow is not None else None)
-
-        # --- 5. Look back one bar. Guard for None: early bars have no history.
-        widening = (
-            self.spread[0] is not None
-            and self.spread[1] is not None
-            and abs(self.spread[0]) > abs(self.spread[1])
-        )
+        widening = self._update_spread_and_check_widening(fast, slow)
 
         trend_color = self._plot_lines(
             close, session_range, fast, slow, weighted, widening
@@ -112,6 +102,21 @@ class DevIndicatorScript(BaseIndicatorScript):
         self._mark_crosses(close, candle.high_price, fast, momentum, trend)
         bars_in_trend = self._track_and_shade_trend()
         self._update_status_panel(trend_color, bars_in_trend, momentum)
+
+    def _update_spread_and_check_widening(
+        self, fast: float | None, slow: float | None
+    ) -> bool:
+        # --- 2b. Feed the derived Series every bar, including a None while its
+        # inputs are still warming up — pushing nothing would silently shift
+        # the bar alignment and make `[1]` mean the wrong bar.
+        self.spread.push(fast - slow if fast is not None and slow is not None else None)
+
+        # --- 5. Look back one bar. Guard for None: early bars have no history.
+        return bool(
+            self.spread[0] is not None
+            and self.spread[1] is not None
+            and abs(self.spread[0]) > abs(self.spread[1])
+        )
 
     def _plot_lines(
         self,
