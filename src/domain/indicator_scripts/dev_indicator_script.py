@@ -2,6 +2,7 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
 )
+from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACDValue
 
 # Colours are plain hex strings — the domain layer never imports a UI toolkit,
 # so there is no QColor here (see the guard test in
@@ -98,6 +99,19 @@ class DevIndicatorScript(BaseIndicatorScript):
         # the bar alignment and make `[1]` mean the wrong bar.
         self.spread.push(fast - slow if fast is not None and slow is not None else None)
 
+        trend_color = self._plot_lines(close, session_range, fast, slow, weighted)
+        self._plot_markers(candle, fast, trend, momentum)
+        bars_in_trend = self._update_trend_state()
+        self._update_visuals(trend_color, bars_in_trend, momentum)
+
+    def _plot_lines(
+        self,
+        close: float,
+        session_range: float,
+        fast: float | None,
+        slow: float | None,
+        weighted: float | None,
+    ) -> str:
         # --- 5. Look back one bar. Guard for None: early bars have no history.
         widening = (
             self.spread[0] is not None
@@ -120,6 +134,17 @@ class DevIndicatorScript(BaseIndicatorScript):
             "Widening band",
             color=_ACCENT,
         )
+
+        return trend_color
+
+    def _plot_markers(
+        self,
+        candle: MarketData,
+        fast: float | None,
+        trend: MACDValue | None,
+        momentum: float | None,
+    ) -> None:
+        close = candle.close_price
 
         # --- 8. Indicator crossing indicator, and --- 12. markers. Nothing is
         # marked automatically; a marker exists only because it was asked for.
@@ -150,6 +175,7 @@ class DevIndicatorScript(BaseIndicatorScript):
                 direction="up",
             )
 
+    def _update_trend_state(self) -> int:
         # --- 15. A consecutive-bars counter, confirming a trend only after it
         # has held for 3 bars running — resets the moment the trend flips.
         trending_up = self.is_above(self.fast, self.slow)
@@ -159,6 +185,11 @@ class DevIndicatorScript(BaseIndicatorScript):
         if bars_in_trend >= 3:
             self.confirmed_side = 1 if trending_up else -1
 
+        return bars_in_trend
+
+    def _update_visuals(
+        self, trend_color: str, bars_in_trend: int, momentum: float | None
+    ) -> None:
         # --- 13. Background tint — only while a *confirmed* trend is running,
         # so the wash is calmer than the raw (noisier) per-bar EMA colour.
         if self.confirmed_side == 1:
