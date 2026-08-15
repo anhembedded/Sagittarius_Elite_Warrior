@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
-import threading
-import time
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
-    BulkSyncProgressEvent,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.services.rate_limiter import (
+    ThreadSafeRateLimiter,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
@@ -22,6 +20,7 @@ if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import BulkSyncMarketDataCommand
+from .progress_reporter import BulkSyncProgressReporter
 
 #: Default delay between concurrent target dispatches in milliseconds.
 DEFAULT_RATE_LIMIT_DELAY_MS: int = 500
@@ -34,7 +33,7 @@ class BulkSyncMarketDataCommandHandler(
     ICommandHandler[BulkSyncMarketDataCommand, None]
 ):
     """
-    @brief Handler for BulkSyncMarketDataCommand. Orchestrates bulk sync sequentially.
+    @brief Handler for BulkSyncMarketDataCommand. Orchestrates bulk sync concurrently.
     @details Depends on IDispatcher rather than the concrete SyncMarketDataCommandHandler
     (Dependency Inversion) — dispatches SyncMarketDataCommand the same way the
     Presenter layer already does, instead of holding a direct reference to another
@@ -58,9 +57,11 @@ class BulkSyncMarketDataCommandHandler(
         """
         targets = command.targets
         total = len(targets)
+        reporter = BulkSyncProgressReporter(self.event_bus, total_targets=total)
 
         if total == 0:
-            self._emit_empty_targets_event()
+            self.logger.info("No targets provided for bulk sync.")
+            reporter.report_empty()
             return
 
         delay_sec = self._get_rate_limit_delay_seconds()
@@ -68,8 +69,15 @@ class BulkSyncMarketDataCommandHandler(
             f"Starting concurrent bulk sync for {total} targets with a {delay_sec * _MS_PER_SECOND:.0f}ms start delay."
         )
 
-        self._run_bulk_sync(targets=targets, delay_sec=delay_sec)
-        self._emit_completion_event(total=total)
+        rate_limiter = ThreadSafeRateLimiter(delay_sec=delay_sec)
+        self._run_bulk_sync(
+            targets=targets,
+            rate_limiter=rate_limiter,
+            reporter=reporter,
+        )
+
+        self.logger.info("Bulk sync completed.")
+        reporter.report_completed()
 
     def _get_rate_limit_delay_seconds(self) -> float:
         """Reads the rate limit delay configuration in seconds."""
@@ -97,9 +105,10 @@ class BulkSyncMarketDataCommandHandler(
         )
 
     def _sync_single_target(
-        self, symbol: str, interval: str
+        self, symbol: str, interval: str, rate_limiter: ThreadSafeRateLimiter
     ) -> tuple[str, str, bool, str]:
-        """Dispatches a single sync command and catches any execution errors."""
+        """Dispatches a single sync command with rate limiting and catches any execution errors."""
+        rate_limiter.acquire()
         try:
             sync_cmd = SyncMarketDataCommand(
                 symbols=[symbol],
@@ -113,107 +122,31 @@ class BulkSyncMarketDataCommandHandler(
             self.logger.error(f"Error syncing {symbol} ({interval}): {e}")
             return symbol, interval, True, str(e)
 
-    def _sync_target_with_rate_limit(
+    def _run_bulk_sync(
         self,
-        symbol: str,
-        interval: str,
-        delay_sec: float,
-        rate_limit_lock: threading.Lock,
-        last_dispatch_time: list[float],
-    ) -> tuple[str, str, bool, str]:
-        """Executes single target sync in a worker thread, respecting global rate limit delay."""
-        with rate_limit_lock:
-            now = time.time()
-            elapsed = now - last_dispatch_time[0]
-            if elapsed < delay_sec:
-                time.sleep(delay_sec - elapsed)
-            last_dispatch_time[0] = time.time()
-
-        return self._sync_single_target(symbol, interval)
-
-    def _run_bulk_sync(self, targets: list[tuple[str, str]], delay_sec: float) -> None:
-        """Runs the thread pool execution and processes completion events."""
-        total = len(targets)
-        last_dispatch_time = [0.0]
-        rate_limit_lock = threading.Lock()
-        max_workers = self._calculate_max_workers(total)
+        targets: list[tuple[str, str]],
+        rate_limiter: ThreadSafeRateLimiter,
+        reporter: BulkSyncProgressReporter,
+    ) -> None:
+        """Runs the thread pool execution and reports completion events via reporter."""
+        max_workers = self._calculate_max_workers(len(targets))
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(
-                    self._sync_target_with_rate_limit,
+                    self._sync_single_target,
                     symbol,
                     interval,
-                    delay_sec,
-                    rate_limit_lock,
-                    last_dispatch_time,
+                    rate_limiter,
                 )
-                for idx, (symbol, interval) in enumerate(targets)
+                for symbol, interval in targets
             ]
 
-            for completed_count, future in enumerate(
-                concurrent.futures.as_completed(futures), start=1
-            ):
+            for future in concurrent.futures.as_completed(futures):
                 symbol, interval, has_error, error_msg = future.result()
-                self._emit_target_progress_event(
-                    current_index=completed_count,
-                    total_targets=total,
+                reporter.report_target(
                     symbol=symbol,
                     interval=interval,
                     has_error=has_error,
                     error_msg=error_msg,
                 )
-
-    def _emit_target_progress_event(
-        self,
-        current_index: int,
-        total_targets: int,
-        symbol: str,
-        interval: str,
-        has_error: bool,
-        error_msg: str,
-    ) -> None:
-        """Emits progress event for an individual target."""
-        message = (
-            f"[{current_index}/{total_targets}] {symbol} ({interval}) complete."
-            if not has_error
-            else f"Failed: {error_msg}"
-        )
-        self.event_bus.emit(
-            BulkSyncProgressEvent(
-                current_index=current_index,
-                total_targets=total_targets,
-                symbol=symbol,
-                interval=interval,
-                has_error=has_error,
-                message=message,
-            )
-        )
-
-    def _emit_empty_targets_event(self) -> None:
-        """Emits an immediate completion event when target list is empty."""
-        self.logger.info("No targets provided for bulk sync.")
-        self.event_bus.emit(
-            BulkSyncProgressEvent(
-                current_index=0,
-                total_targets=0,
-                symbol="",
-                interval="",
-                is_complete=True,
-                message="No targets to sync.",
-            )
-        )
-
-    def _emit_completion_event(self, total: int) -> None:
-        """Emits the final completion event for the entire batch."""
-        self.logger.info("Bulk sync completed.")
-        self.event_bus.emit(
-            BulkSyncProgressEvent(
-                current_index=total,
-                total_targets=total,
-                symbol="",
-                interval="",
-                is_complete=True,
-                message="Bulk sync completed successfully.",
-            )
-        )
