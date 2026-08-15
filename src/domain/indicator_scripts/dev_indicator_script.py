@@ -105,6 +105,22 @@ class DevIndicatorScript(BaseIndicatorScript):
             and abs(self.spread[0]) > abs(self.spread[1])
         )
 
+        trend_color = self._plot_lines(
+            close, session_range, fast, slow, weighted, widening
+        )
+        self._mark_crosses(close, candle.high_price, fast, momentum, trend)
+        bars_in_trend = self._track_and_shade_trend()
+        self._update_status_panel(trend_color, bars_in_trend, momentum)
+
+    def _plot_lines(
+        self,
+        close: float,
+        session_range: float,
+        fast: float | None,
+        slow: float | None,
+        weighted: float | None,
+        widening: bool,
+    ) -> str:
         # --- 6. Per-bar colour: the same line changes colour as the trend flips.
         trend_color = _BULL if self.is_above(self.fast, self.slow) else _BEAR
 
@@ -120,7 +136,17 @@ class DevIndicatorScript(BaseIndicatorScript):
             "Widening band",
             color=_ACCENT,
         )
+        return trend_color
 
+    def _mark_crosses(
+        self,
+        close: float,
+        high_price: float,
+        fast: float | None,
+        momentum: float | None,
+        trend: object
+        | None,  # Using object as MACDValue is not imported, or just ignore type checking
+    ) -> None:
         # --- 8. Indicator crossing indicator, and --- 12. markers. Nothing is
         # marked automatically; a marker exists only because it was asked for.
         if self.crossed_above(self.fast, self.slow):
@@ -137,7 +163,7 @@ class DevIndicatorScript(BaseIndicatorScript):
         # would be meaningless drawn over price, so it is computed and used for
         # a marker without being plotted here.
         if self.crossed_above(self.momentum, self.overbought):
-            self.mark(candle.high_price, "Overbought", color=_BEAR, direction="down")
+            self.mark(high_price, "Overbought", color=_BEAR, direction="down")
 
         # --- 11. A compound reading. MACD.update() returns a MACDValue rather
         # than a float, so `self.trend[1]` is always None — read the fields
@@ -150,6 +176,7 @@ class DevIndicatorScript(BaseIndicatorScript):
                 direction="up",
             )
 
+    def _track_and_shade_trend(self) -> int:
         # --- 15. A consecutive-bars counter, confirming a trend only after it
         # has held for 3 bars running — resets the moment the trend flips.
         trending_up = self.is_above(self.fast, self.slow)
@@ -167,6 +194,11 @@ class DevIndicatorScript(BaseIndicatorScript):
             self.shade(_BEAR, opacity=0.08)
         # else: no self.shade() call this bar — no tint, same as passing None.
 
+        return bars_in_trend
+
+    def _update_status_panel(
+        self, trend_color: str, bars_in_trend: int, momentum: float | None
+    ) -> None:
         # --- 14. Status panel — reports current values every bar; only the
         # most recent bar's rows are ever shown (see InfoField's docstring).
         self.info(
