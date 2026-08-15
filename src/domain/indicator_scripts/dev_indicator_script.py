@@ -2,6 +2,7 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
 )
+from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACDValue
 
 # Colours are plain hex strings — the domain layer never imports a UI toolkit,
 # so there is no QColor here (see the guard test in
@@ -93,6 +94,14 @@ class DevIndicatorScript(BaseIndicatorScript):
         momentum = self.momentum(close)
         trend = self.trend(close)
 
+        widening = self._update_derived_series(fast, slow)
+        trend_color = self._plot_lines(
+            close, session_range, fast, slow, weighted, widening
+        )
+        self._evaluate_markers(candle, close, fast, momentum, trend)
+        self._update_trend_state(trend_color, momentum)
+
+    def _update_derived_series(self, fast: float | None, slow: float | None) -> bool:
         # --- 2b. Feed the derived Series every bar, including a None while its
         # inputs are still warming up — pushing nothing would silently shift
         # the bar alignment and make `[1]` mean the wrong bar.
@@ -104,7 +113,17 @@ class DevIndicatorScript(BaseIndicatorScript):
             and self.spread[1] is not None
             and abs(self.spread[0]) > abs(self.spread[1])
         )
+        return widening
 
+    def _plot_lines(
+        self,
+        close: float,
+        session_range: float,
+        fast: float | None,
+        slow: float | None,
+        weighted: float | None,
+        widening: bool,
+    ) -> str:
         # --- 6. Per-bar colour: the same line changes colour as the trend flips.
         trend_color = _BULL if self.is_above(self.fast, self.slow) else _BEAR
 
@@ -120,7 +139,16 @@ class DevIndicatorScript(BaseIndicatorScript):
             "Widening band",
             color=_ACCENT,
         )
+        return trend_color
 
+    def _evaluate_markers(
+        self,
+        candle: MarketData,
+        close: float,
+        fast: float | None,
+        momentum: float | None,
+        trend: MACDValue | None,
+    ) -> None:
         # --- 8. Indicator crossing indicator, and --- 12. markers. Nothing is
         # marked automatically; a marker exists only because it was asked for.
         if self.crossed_above(self.fast, self.slow):
@@ -150,6 +178,7 @@ class DevIndicatorScript(BaseIndicatorScript):
                 direction="up",
             )
 
+    def _update_trend_state(self, trend_color: str, momentum: float | None) -> None:
         # --- 15. A consecutive-bars counter, confirming a trend only after it
         # has held for 3 bars running — resets the moment the trend flips.
         trending_up = self.is_above(self.fast, self.slow)
