@@ -3,36 +3,17 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
 
-// Dynamic "Cấu hình Thông số Bot" form (BOT-047). Renders whatever
-// `viewModel.botParamsSchema` says — a list of {group, fields} built from
-// the SELECTED strategy's own declared input_*() parameters
-// (BOT-044/BOT-046) — so a new strategy with different parameters needs no
-// change here at all, only a `.register()` call.
-//
-// Field widgets are picked purely from each row's `kind` (int/float/bool/
-// string), never from the strategy's identity — that is what keeps this
-// component strategy-agnostic. Every group uses the same "sliders" icon
-// (matching the toolbar button that opens this dialog) rather than guessing
-// an icon from the group's name text, which would be exactly the kind of
-// per-strategy hardcoding this mechanism exists to avoid.
-Popup {
+// Dynamic "Cấu hình Thông số Bot" form (BOT-047/BOT-088). Renders whatever
+// `viewModel.botParamsSchema` says using the unified ModalDialogCard frame.
+ModalDialogCard {
     id: root
     property string strategyName: ""
     readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 
+    title: "CẤU HÌNH THÔNG SỐ BOT: " + root.strategyName.toUpperCase()
+    iconSource: "image://icons/sliders/accent"
     width: 650
     height: Math.min(600, contentColumn.implicitHeight + 170)
-    modal: true
-    dim: true
-    anchors.centerIn: Overlay.overlay
-    padding: 20
-
-    background: Rectangle {
-        color: Theme && Theme.bg ? Theme.bg : "#141620"
-        border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
-        border.width: 1
-        radius: 8
-    }
 
     // Closed by the Presenter's own signal, not a local `root.close()` call
     // in the save handler — a validation failure must leave the dialog open
@@ -43,185 +24,143 @@ Popup {
         function onBotParamsSaved() { root.close() }
     }
 
-    ColumnLayout {
+    ScrollView {
         anchors.fill: parent
-        spacing: 14
+        anchors.margins: 16
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-        // ================= Title =================
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
+        ColumnLayout {
+            id: contentColumn
+            width: root.width - 48
+            spacing: 16
 
-            Image {
-                source: "image://icons/sliders/accent"
-                sourceSize: Qt.size(16, 16)
-            }
             Text {
-                text: "CẤU HÌNH THÔNG SỐ BOT: " + root.strategyName.toUpperCase()
-                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
-                font.pixelSize: 13
-                font.bold: true
                 Layout.fillWidth: true
-                elide: Text.ElideRight
+                visible: typeof viewModel !== "undefined" && viewModel.botParamsSchema.length === 0
+                text: "Chiến lược này không có tham số nào để cấu hình."
+                color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
+                font.pixelSize: 11
             }
-            Button {
-                objectName: "btnBotParamsClose"
-                implicitWidth: 24
-                implicitHeight: 24
-                background: Rectangle { color: "transparent" }
-                contentItem: Text {
-                    text: "✕"
-                    color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
-                    font.pixelSize: 14
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                onClicked: root.close()
-            }
-        }
 
-        // ================= Form body =================
-        ScrollView {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            Repeater {
+                model: typeof viewModel === "undefined" ? [] : viewModel.botParamsSchema
 
-            ColumnLayout {
-                id: contentColumn
-                width: root.width - 40
-                spacing: 16
-
-                Text {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    visible: typeof viewModel !== "undefined" && viewModel.botParamsSchema.length === 0
-                    text: "Chiến lược này không có tham số nào để cấu hình."
-                    color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
-                    font.pixelSize: 11
-                    wrapMode: Text.Wrap
-                }
+                    spacing: 8
+                    required property var modelData
+                    required property int index
 
-                Repeater {
-                    model: typeof viewModel === "undefined" ? [] : viewModel.botParamsSchema
-
-                    Rectangle {
+                    // Group Header
+                    RowLayout {
                         Layout.fillWidth: true
-                        implicitHeight: groupColumn.implicitHeight + 24
-                        color: Theme && Theme.stateIdleBg ? Theme.stateIdleBg : "#181a24"
-                        border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
-                        border.width: 1
-                        radius: 6
+                        spacing: 6
 
-                        ColumnLayout {
-                            id: groupColumn
-                            anchors.fill: parent
-                            anchors.margins: 12
-                            spacing: 10
+                        Image {
+                            source: "image://icons/sliders/accent"
+                            sourceSize: Qt.size(13, 13)
+                        }
 
-                            RowLayout {
-                                spacing: 6
-                                visible: modelData.group !== ""
+                        Text {
+                            text: parent.parent.modelData.group.toUpperCase()
+                            color: Theme && Theme.accent ? Theme.accent : "#f0b90b"
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.letterSpacing: 0.5
+                        }
 
-                                Image {
-                                    source: "image://icons/sliders/muted"
-                                    sourceSize: Qt.size(12, 12)
-                                }
-                                Text {
-                                    text: modelData.group
-                                    color: Theme.textPrimary
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                    font.letterSpacing: 1
-                                }
-                            }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: Theme && Theme.border ? Theme.border : "#2a2d3e"
+                        }
+                    }
 
-                            GridLayout {
+                    // Field Grid: 2 columns per group
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 14
+                        rowSpacing: 10
+
+                        Repeater {
+                            model: parent.parent.modelData.fields
+
+                            BotParamField {
                                 Layout.fillWidth: true
-                                columns: 2
-                                columnSpacing: 16
-                                rowSpacing: 12
+                                required property var modelData
+                                required property int index
 
-                                Repeater {
-                                    model: modelData.fields
-
-                                    BotParamField {
-                                        Layout.fillWidth: true
-                                        fieldData: modelData
-                                    }
-                                }
+                                fieldData: modelData
                             }
                         }
                     }
                 }
             }
         }
-
-        // ================= Error =================
-        Text {
-            objectName: "txtBotParamsError"
-            Layout.fillWidth: true
-            visible: typeof viewModel !== "undefined" && viewModel.botParamsError !== ""
-            text: typeof viewModel === "undefined" ? "" : viewModel.botParamsError
-            color: "#ff5252"
-            font.pixelSize: 11
-            wrapMode: Text.Wrap
-        }
-
-        // ================= Footer =================
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            Button {
-                objectName: "btnBotParamsReset"
-                text: "Khôi phục Mặc định"
-                implicitHeight: 32
-                background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
-                contentItem: Text {
-                    text: parent.text
-                    color: Theme.muted
-                    font.pixelSize: 11
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                onClicked: root.resetAllFields()
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Button {
-                objectName: "btnBotParamsCancel"
-                text: "Hủy"
-                implicitHeight: 32
-                background: Rectangle { color: "transparent"; border.color: Theme.border; radius: 4 }
-                contentItem: Text {
-                    text: parent.text
-                    color: Theme.textPrimary
-                    font.pixelSize: 11
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                onClicked: root.close()
-            }
-
-            Button {
-                objectName: "btnBotParamsSave"
-                text: "Lưu & Re-Backtest"
-                implicitWidth: 150
-                implicitHeight: 32
-                background: Rectangle { color: Theme.accent; radius: 4 }
-                contentItem: Text {
-                    text: parent.text
-                    color: "#000000"
-                    font.pixelSize: 11
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                onClicked: root.saveAndRerun()
-            }
-        }
     }
+
+    footerData: [
+        Button {
+            text: "Đặt lại mặc định"
+            implicitHeight: 32
+            background: Rectangle {
+                color: "transparent"
+                border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
+                radius: 6
+            }
+            contentItem: Text {
+                text: parent.text
+                color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
+                font.pixelSize: 11
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            onClicked: root.resetAllFields()
+        },
+
+        Item { Layout.fillWidth: true },
+
+        Button {
+            objectName: "btnBotParamsCancel"
+            text: "Hủy"
+            implicitHeight: 32
+            implicitWidth: 70
+            background: Rectangle {
+                color: parent.hovered ? "#2e3247" : "#242738"
+                radius: 6
+            }
+            contentItem: Text {
+                text: parent.text
+                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                font.pixelSize: 11
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            onClicked: root.close()
+        },
+
+        Button {
+            objectName: "btnBotParamsSave"
+            text: "Lưu & Re-Backtest"
+            implicitWidth: 150
+            implicitHeight: 32
+            background: Rectangle {
+                color: parent.hovered ? "#ffd033" : (Theme && Theme.accent ? Theme.accent : "#f0b90b")
+                radius: 6
+            }
+            contentItem: Text {
+                text: parent.text
+                color: "#000000"
+                font.pixelSize: 11
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            onClicked: root.saveAndRerun()
+        }
+    ]
 
     // Every BotParamField sets `isBotParamField: true` — walking the tree
     // for that marker (rather than keeping a second flat list in sync with
