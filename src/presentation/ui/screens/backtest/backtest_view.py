@@ -21,6 +21,7 @@ from .logic.chart_controls import BacktestChartControls
 _QML_DIR = Path(__file__).parent
 _TOP_PANEL_QML = "BackTestTopPanel.qml"
 _TRADE_LOGS_QML = "BackTestTradeLogs.qml"
+_MODALS_QML = "BackTestModals.qml"
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (
@@ -110,11 +111,12 @@ class BackTestView(BaseView):
         )
 
     def load_qml(self) -> None:
-        """Loads this screen's fixed pair of QML documents."""
+        """Loads this screen's fixed pair of QML documents and modals overlay."""
         self.top_widget.setSource(QUrl.fromLocalFile(str(_QML_DIR / _TOP_PANEL_QML)))
         self.bottom_widget.setSource(
             QUrl.fromLocalFile(str(_QML_DIR / _TRADE_LOGS_QML))
         )
+        self.overlay_host.load_content(QUrl.fromLocalFile(str(_QML_DIR / _MODALS_QML)))
         self._bind_top_panel_height()
         self._bind_trade_log_minimum_height()
 

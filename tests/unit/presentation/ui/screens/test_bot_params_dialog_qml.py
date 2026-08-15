@@ -77,20 +77,18 @@ def bot_params_presenter(qapp, request):
     return presenter
 
 
-def _open_bot_params_dialog(presenter, qapp, qml_item):
-    root = presenter.view.top_widget.rootObject()
-    btn = qml_item(root, "btnBacktestBotParams")
-    btn.clicked.emit()
-    qapp.processEvents()
-    qapp.processEvents()
-    return root.findChild(object, "btnBotParamsSave")
-
-
 def test_opening_bot_params_dialog_loads_real_content(
     qapp, qml_item, bot_params_presenter
 ):
-    save_btn = _open_bot_params_dialog(bot_params_presenter, qapp, qml_item)
+    top_root = bot_params_presenter.view.top_widget.rootObject()
+    btn = qml_item(top_root, "btnBacktestBotParams")
+    btn.clicked.emit()
+    qapp.processEvents()
+    qapp.processEvents()
 
+    overlay_root = bot_params_presenter.view.overlay_host.content_item
+    assert overlay_root is not None
+    save_btn = overlay_root.findChild(object, "btnBotParamsSave")
     assert save_btn is not None
     assert save_btn.property("visible") is True
 
@@ -98,8 +96,16 @@ def test_opening_bot_params_dialog_loads_real_content(
 def test_opening_bot_params_dialog_keeps_strategy_schema_live(
     qapp, qml_item, bot_params_presenter
 ):
-    save_btn = _open_bot_params_dialog(bot_params_presenter, qapp, qml_item)
+    top_root = bot_params_presenter.view.top_widget.rootObject()
+    btn = qml_item(top_root, "btnBacktestBotParams")
+    btn.clicked.emit()
+    qapp.processEvents()
+    qapp.processEvents()
 
+    overlay_root = bot_params_presenter.view.overlay_host.content_item
+    assert overlay_root is not None
+    save_btn = overlay_root.findChild(object, "btnBotParamsSave")
     assert save_btn is not None
     assert bot_params_presenter._view_model.botParamsSchema != []
     assert bot_params_presenter.view.top_widget.errors() == []
+    assert bot_params_presenter.view.overlay_host.quick_widget.errors() == []

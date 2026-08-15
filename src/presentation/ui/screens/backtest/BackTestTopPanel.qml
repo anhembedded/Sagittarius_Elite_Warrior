@@ -247,14 +247,22 @@ Rectangle {
                                 sourceSize: Qt.size(11, 11)
                             }
                         }
-                        onClicked: root.openCapitalPopup()
+                        onClicked: {
+                            var pos = btnCapital.mapToItem(null, 0, btnCapital.height + 4)
+                            if (root.hasViewModel) viewModel.requestOpenCapital(pos.x, pos.y)
+                        }
                     }
 
                     // 5. Order Execution
                     Button {
+                        id: btnOrderExec
+                        objectName: "btnBacktestOrderExecution"
                         implicitHeight: 34
                         background: Rectangle { color: "#181a24"; border.color: "#2a2d3d"; border.width: 1; radius: 6 }
-                        onClicked: orderExecMenu.open()
+                        onClicked: {
+                            var pos = btnOrderExec.mapToItem(null, 0, btnOrderExec.height + 4)
+                            if (root.hasViewModel) viewModel.requestOpenOrderExecution(pos.x, pos.y)
+                        }
                         contentItem: RowLayout {
                             spacing: 6
                             anchors.leftMargin: 10
@@ -267,10 +275,14 @@ Rectangle {
 
                     // 6. Indicator picker (BOT-064)
                     Button {
+                        id: btnIndicatorPicker
                         objectName: "btnBacktestIndicatorPicker"
                         implicitHeight: 34
                         background: Rectangle { color: "#181a24"; border.color: "#2a2d3d"; border.width: 1; radius: 6 }
-                        onClicked: indicatorPickerMenu.open()
+                        onClicked: {
+                            var pos = btnIndicatorPicker.mapToItem(null, 0, btnIndicatorPicker.height + 4)
+                            if (root.hasViewModel) viewModel.requestOpenIndicatorPicker(pos.x, pos.y)
+                        }
                         contentItem: RowLayout {
                             spacing: 6
                             anchors.leftMargin: 10
@@ -304,8 +316,7 @@ Rectangle {
                             Text { text: "Thông số Bot"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
                         }
                         onClicked: {
-                            botParamsDialog.strategyName = strategyCombo.currentText
-                            botParamsDialog.open()
+                            if (root.hasViewModel) viewModel.requestOpenBotParams(strategyCombo.currentText)
                         }
                     }
 
@@ -374,7 +385,7 @@ Rectangle {
                         sourceSize: Qt.size(13, 13)
                         anchors.centerIn: parent
                     }
-                    onClicked: limitationsPopup.open()
+                    onClicked: { if (root.hasViewModel) viewModel.requestOpenLimitations() }
                 }
             }
 
@@ -420,7 +431,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: extendedMetricsPopup.open()
+                    onClicked: { if (root.hasViewModel) viewModel.requestOpenExtendedMetrics() }
                 }
             }
         }
@@ -531,271 +542,6 @@ Rectangle {
 
     function _formatCapitalDisplay(rawText, currency) {
         return (rawText || "0") + " " + currency
-    }
-
-    function openCapitalPopup() {
-        var pos = btnCapital.mapToItem(Overlay.overlay, 0, btnCapital.height + 4)
-        capitalPopup.x = pos.x
-        capitalPopup.y = pos.y
-        capitalInput.text = root.hasViewModel ? viewModel.initialCapitalText : ""
-        var idx = root.hasViewModel ? viewModel.currencyOptions.indexOf(viewModel.selectedCurrency) : -1
-        if (idx >= 0) currencyCombo.currentIndex = idx
-        capitalPopup.open()
-    }
-
-    Popup {
-        id: capitalPopup
-        width: 280
-        modal: true
-        dim: false
-        parent: Overlay.overlay
-        z: 9999
-        padding: 16
-
-        background: Rectangle {
-            color: "#161822"
-            border.color: "#2a2d3e"
-            border.width: 1
-            radius: 8
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 12
-
-            Text {
-                text: "Thiết lập vốn ban đầu"
-                color: Theme.textPrimary
-                font.pixelSize: 13
-                font.bold: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                TextField {
-                    id: capitalInput
-                    objectName: "txtBacktestCapital"
-                    Layout.fillWidth: true
-                    implicitHeight: 34
-                    text: root.hasViewModel ? viewModel.initialCapitalText : ""
-                    color: Theme.textPrimary
-                    font.pixelSize: 12
-                    font.bold: true
-                    background: Rectangle {
-                        color: "#10121a"
-                        border.color: "#2a2d3e"
-                        radius: 6
-                    }
-                    validator: DoubleValidator { bottom: 0 }
-                }
-
-                ComboBox {
-                    id: currencyCombo
-                    objectName: "cboBacktestCurrency"
-                    implicitWidth: 85
-                    implicitHeight: 34
-                    model: root.hasViewModel ? viewModel.currencyOptions : []
-                    background: Rectangle {
-                        color: "#202330"
-                        border.color: "#2a2d3e"
-                        radius: 6
-                    }
-                    contentItem: Text {
-                        leftPadding: 8
-                        text: currencyCombo.displayText
-                        color: Theme.textPrimary
-                        font.pixelSize: 11
-                        font.bold: true
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    Component.onCompleted: {
-                        var idx = root.hasViewModel ? model.indexOf(viewModel.selectedCurrency) : -1
-                        if (idx >= 0) currentIndex = idx
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: "Hủy"
-                    implicitWidth: 65
-                    implicitHeight: 30
-                    background: Rectangle {
-                        color: "#242738"
-                        radius: 6
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.muted
-                        font.pixelSize: 11
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    onClicked: capitalPopup.close()
-                }
-
-                Button {
-                    text: "Áp dụng"
-                    implicitWidth: 85
-                    implicitHeight: 30
-                    background: Rectangle {
-                        color: Theme.accent
-                        radius: 6
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "#000000"
-                        font.pixelSize: 11
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    onClicked: {
-                        if (root.hasViewModel) {
-                            viewModel.initialCapitalText = capitalInput.text
-                            viewModel.selectedCurrency = currencyCombo.currentText
-                        }
-                        capitalPopup.close()
-                    }
-                }
-            }
-        }
-    }
-
-    Popup {
-        id: extendedMetricsPopup
-        width: 440
-        modal: true
-        dim: true
-        anchors.centerIn: Overlay.overlay
-        padding: 18
-
-        background: Rectangle {
-            color: "#141620"
-            border.color: "#282c3f"
-            border.width: 1
-            radius: 10
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 14
-
-            RowLayout {
-                spacing: 8
-                Image { source: "image://icons/info/accent"; sourceSize: Qt.size(16, 16) }
-                Text {
-                    text: "CHỈ SỐ CHI TIẾT BACKTEST"
-                    color: Theme.textPrimary
-                    font.pixelSize: 12
-                    font.bold: true
-                    font.letterSpacing: 1
-                }
-            }
-
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 12
-                rowSpacing: 12
-
-                Repeater {
-                    model: root.hasViewModel ? viewModel.extendedStatCards : []
-                    delegate: MetricCard {
-                        objectName: "cardExtendedMetric_" + index
-                        Layout.fillWidth: true
-                        title: modelData.title
-                        value: modelData.value
-                        suffix: modelData.suffix
-                    }
-                }
-            }
-        }
-    }
-
-    Popup {
-        id: limitationsPopup
-        width: 440
-        modal: true
-        dim: true
-        anchors.centerIn: Overlay.overlay
-        padding: 18
-
-        background: Rectangle {
-            color: "#141620"
-            border.color: "#282c3f"
-            border.width: 1
-            radius: 10
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 14
-
-            RowLayout {
-                spacing: 8
-                Image { source: "image://icons/info/accent"; sourceSize: Qt.size(16, 16) }
-                Text {
-                    text: "GIỚI HẠN CỦA LẦN CHẠY NÀY"
-                    color: Theme.textPrimary
-                    font.pixelSize: 12
-                    font.bold: true
-                    font.letterSpacing: 1
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Repeater {
-                    model: root.hasViewModel ? viewModel.limitations : []
-                    delegate: RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-
-                        Text {
-                            text: "•"
-                            color: Theme.muted
-                            font.pixelSize: 12
-                            Layout.alignment: Qt.AlignTop
-                        }
-                        Text {
-                            objectName: "lblLimitation_" + index
-                            Layout.fillWidth: true
-                            text: modelData
-                            color: Theme.textPrimary
-                            font.pixelSize: 11
-                            wrapMode: Text.Wrap
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    BotParamsDialog {
-        id: botParamsDialog
-    }
-
-    IndicatorPickerMenu {
-        id: indicatorPickerMenu
-        x: 650
-        y: 60
-    }
-
-    OrderExecutionMenu {
-        id: orderExecMenu
-        x: 650
-        y: 60
     }
 }
 

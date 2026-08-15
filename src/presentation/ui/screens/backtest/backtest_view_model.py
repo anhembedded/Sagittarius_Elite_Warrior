@@ -114,6 +114,14 @@ class BackTestViewModel(BaseQmlViewModel):
     #: modal's form — BOT-047.
     botParamsSaveRequested = Signal(object)
 
+    #: BOT-088: Signals to trigger overlay modals hosted in OverlayHost.
+    openBotParamsRequested = Signal(str)
+    openExtendedMetricsRequested = Signal()
+    openLimitationsRequested = Signal()
+    openCapitalRequested = Signal(float, float)
+    openIndicatorPickerRequested = Signal(float, float)
+    openOrderExecutionRequested = Signal(float, float)
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._strategy_options: list[dict[str, str]] = []
@@ -587,3 +595,27 @@ class BackTestViewModel(BaseQmlViewModel):
         argument through it before touching the value.
         """
         self.botParamsSaveRequested.emit(dict(from_qml(values)))
+
+    @Slot(str)
+    def requestOpenBotParams(self, strategy_name: str = "") -> None:
+        self.openBotParamsRequested.emit(strategy_name)
+
+    @Slot()
+    def requestOpenExtendedMetrics(self) -> None:
+        self.openExtendedMetricsRequested.emit()
+
+    @Slot()
+    def requestOpenLimitations(self) -> None:
+        self.openLimitationsRequested.emit()
+
+    @Slot(float, float)
+    def requestOpenCapital(self, x: float, y: float) -> None:
+        self.openCapitalRequested.emit(x, y)
+
+    @Slot(float, float)
+    def requestOpenIndicatorPicker(self, x: float, y: float) -> None:
+        self.openIndicatorPickerRequested.emit(x, y)
+
+    @Slot(float, float)
+    def requestOpenOrderExecution(self, x: float, y: float) -> None:
+        self.openOrderExecutionRequested.emit(x, y)

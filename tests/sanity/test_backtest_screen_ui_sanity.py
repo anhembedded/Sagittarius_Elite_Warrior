@@ -171,16 +171,18 @@ def test_toolbar_popups_and_menus_open_on_the_real_backtest_screen(
     qapp.processEvents()
 
     toolbar_root = view.top_widget.rootObject()
+    overlay_root = view.overlay_host.content_item
     assert toolbar_root is not None
+    assert overlay_root is not None
 
-    capital_input = toolbar_root.findChild(object, "txtBacktestCapital")
+    capital_input = overlay_root.findChild(object, "txtBacktestCapital")
     assert capital_input is not None
     qml_item(toolbar_root, "btnBacktestCapital").clicked.emit()
     qapp.processEvents()
     qapp.processEvents()
     assert capital_input.property("visible") is True
 
-    bot_params_save = toolbar_root.findChild(object, "btnBotParamsSave")
+    bot_params_save = overlay_root.findChild(object, "btnBotParamsSave")
     assert bot_params_save is not None
     qml_item(toolbar_root, "btnBacktestBotParams").clicked.emit()
     qapp.processEvents()
