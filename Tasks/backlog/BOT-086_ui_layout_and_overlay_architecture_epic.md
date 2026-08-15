@@ -6,6 +6,11 @@
 > Đánh giá của user: *"UI mechanical, philosophy chưa tốt, chứ không phải riêng 1 view nào"*
 > — **đã verify là đúng**, và đo được cơ chế cụ thể (xem §2). Đây **không phải bug của một
 > màn hình nào**, mà là hệ quả của 2 quyết định kiến trúc đang thiếu.
+>
+> 🤝 **HANDOFF (15/08)**: Track B (`BOT-089`/`BOT-090`) đã xong. **Track A
+> (`BOT-087`/`BOT-088`) chưa bắt đầu** — chuyển cho một AI session khác vì phiên trước hết
+> hạn mức. Đọc [`.agents/ONBOARDING.md`](../../.agents/ONBOARDING.md) trước, rồi bắt đầu từ
+> `BOT-087` §2 (đã có probe khả thi thật, không phải lý thuyết).
 
 ## 1. Hai vấn đề **trực giao** — cần cả hai, không thay thế nhau
 

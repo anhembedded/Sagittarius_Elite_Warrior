@@ -175,6 +175,18 @@ Sagittarius_Elite_Warrior/Tasks/
 > ✅ **Track B hoàn thành (14/08)**: `BOT-089`+`BOT-090` xong. Còn lại Track A
 > (`BOT-087`/`BOT-088`, overlay host) — đụng `sagittarius_engine/`, tốn hơn.
 > 📌 **Nợ tự nhận**: `extendedMetricsPopup` đã tràn sẵn từ `BOT-055` (8 card = 422px > 190px), nhưng `BOT-079` (+1 card) và `BOT-080` (+2 card) đẩy lên **606px** mà không ai đo, còn `BOT-081` tạo thêm `limitationsPopup` (~410px) ngay trong panel 190px đó — test chỉ verify "bấm không crash", đúng gap harness đã ghi từ `BOT-047`. `BOT-087` §3.3 bắt buộc đóng gap này.
+>
+> 🤝 **HANDOFF (15/08) — Track A chuyển cho AI session khác, chưa code dòng nào.**
+> Phiên trước dừng ở prompt-adaptation (`.jules/bolt.prompt.md`, `.jules/palette.prompt.md`)
+> và tạo [`.agents/ONBOARDING.md`](../.agents/ONBOARDING.md) — **đọc file đó trước** để nắm
+> quy ước/gotcha của repo (không có trong task file này). Trạng thái thật:
+> - `BOT-087`/`BOT-088`: cả 2 checklist trong task file **100% chưa tick**, chưa có branch,
+>   chưa có commit nào ở `sagittarius_engine/` hay `Sagittarius_Elite_Warrior/` cho Track A.
+> - Bắt đầu từ `BOT-087` (không phụ thuộc gì) — đọc §2 của file đó, đã có probe khả thi thật
+>   (không phải lý thuyết) kèm đoạn code Python probe sẵn dùng làm điểm xuất phát.
+> - Rủi ro lớn nhất đã biết trước (đọc §4 `BOT-087`): z-order `OverlayHost` với `ChartCard`
+>   (pyqtgraph/QtWidgets) — **phải chạy tay xem modal có phủ đúng lên chart không**, đừng tin
+>   lý thuyết. Nếu chart che modal → dừng, hỏi user, đừng tự đổi sang hướng A/C (xem `BOT-086` §3).
 
 #### 🔬 Epic BOT-078 — Chi tiết (Backtest Trustworthiness)
 
