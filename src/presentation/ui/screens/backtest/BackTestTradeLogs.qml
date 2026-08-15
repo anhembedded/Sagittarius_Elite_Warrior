@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
+import "../../components"
 
 Rectangle {
     id: root
@@ -35,6 +36,8 @@ Rectangle {
     property int panelMargin: 12
     property real minimumUsableHeight:
         panelMargin * 2
+        + tabBar.implicitHeight
+        + outerColumn.spacing
         + toolbarRow.implicitHeight
         + outerColumn.spacing
         + tableHeaderRow.Layout.preferredHeight
@@ -62,52 +65,52 @@ Rectangle {
         id: outerColumn
         anchors.fill: parent
         anchors.margins: root.panelMargin
-        spacing: 12
+        spacing: 10
 
-        // ================= HEADER & TOOLBAR =================
-        RowLayout {
-            id: toolbarRow
-            objectName: "toolbarRow"
+        // ================= TOP DYNAMIC TAB BAR =================
+        DynamicTabBar {
+            id: tabBar
+            objectName: "bottomTabBar"
             Layout.fillWidth: true
-            spacing: 14
-
-            RowLayout {
-                spacing: 8
-                Rectangle {
-                    width: 3
-                    height: 14
-                    color: root.themeAccent
-                    radius: 2
+            tabsModel: [
+                {
+                    id: "trades",
+                    label: "DANH SÁCH LỆNH",
+                    badge: (root.hasViewModel ? viewModel.tradeLogTotalCount : 0) + " LỆNH"
+                },
+                {
+                    id: "logs",
+                    label: "NHẬT KÝ BACKTEST",
+                    badge: (root.hasViewModel && viewModel.logModel ? viewModel.logModel.rowCount() : 0) + " EVENTS"
                 }
-                Text {
-                    text: "DANH SÁCH LỆNH GIAO DỊCH"
-                    color: root.themeTextPrimary
-                    font.pixelSize: 12
-                    font.bold: true
-                    font.letterSpacing: 0.8
-                }
-            }
-
-            Rectangle {
-                width: countLabel.implicitWidth + 18
-                height: 22
-                color: "#181a24"
-                border.color: "#282b3a"
-                border.width: 1
-                radius: 11
-                Text {
-                    id: countLabel
-                    anchors.centerIn: parent
-                    text: (root.hasViewModel ? viewModel.tradeLogTotalCount : 0) + " Lệnh"
-                    color: root.themeAccent
-                    font.pixelSize: 10
-                    font.bold: true
+            ]
+            currentIndex: (root.hasViewModel && viewModel.activeBottomTab === "logs") ? 1 : 0
+            onTabSelected: function(index, tabId) {
+                if (root.hasViewModel) {
+                    viewModel.setActiveBottomTab(tabId)
                 }
             }
+        }
 
-            // Filter tabs
+        // ================= TAB 1: TRADE LOGS CONTAINER =================
+        ColumnLayout {
+            id: tradeLogsTabContent
+            objectName: "tradeLogsTabContent"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 10
+            visible: !root.hasViewModel || viewModel.activeBottomTab !== "logs"
+
+            // ================= HEADER & TOOLBAR =================
             RowLayout {
-                objectName: "tradeLogFilterTabs"
+                id: toolbarRow
+                objectName: "toolbarRow"
+                Layout.fillWidth: true
+                spacing: 14
+
+                // Filter tabs
+                RowLayout {
+                    objectName: "tradeLogFilterTabs"
                 spacing: 4
 
                 Repeater {
@@ -413,6 +416,18 @@ Rectangle {
                     Item { Layout.fillWidth: true }
                 }
             }
+        }
+    }
+
+        // ================= TAB 2: BACKTEST EXECUTION LOGS =================
+        LogPanel {
+            id: backtestLogPanel
+            objectName: "backtestLogPanel"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.hasViewModel && viewModel.activeBottomTab === "logs"
+            title: "NHẬT KÝ BACKTEST"
+            logModel: root.hasViewModel ? viewModel.logModel : null
         }
     }
 

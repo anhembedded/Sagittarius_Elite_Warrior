@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_s
     IndicatorScriptListModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, from_qml
+from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
+    LogListModel,
+)
 
 _DEFAULT_INITIAL_CAPITAL_TEXT = "10000"
 #: Must match dashboard_presenter.py's own _DEFAULT_INTERVAL_STR ("1m") — the
@@ -124,9 +127,12 @@ class BackTestViewModel(BaseQmlViewModel):
     openStrategyPickerRequested = Signal()
     openTimeframePickerRequested = Signal()
     openTimeRangePickerRequested = Signal()
+    activeBottomTabChanged = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self._log_model = LogListModel(self)
+        self._active_bottom_tab = "trades"
         self._strategy_options: list[dict[str, str]] = []
         self._selected_strategy_key = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
@@ -658,3 +664,38 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot()
     def requestOpenTimeRangePicker(self) -> None:
         self.openTimeRangePickerRequested.emit()
+
+    # ------------------------------------------------------------------ #
+    # Log model — exposed to LogPanel.qml, mutated by BacktestEventLogger.
+    # ------------------------------------------------------------------ #
+    @Property(QObject, constant=True)
+    def logModel(self) -> LogListModel:
+        return self._log_model
+
+    @property
+    def log_model(self) -> LogListModel:
+        """Pythonic accessor for the Presenter/Logger."""
+        return self._log_model
+
+    # ------------------------------------------------------------------ #
+    # Bottom Tab state ("trades" | "logs")
+    # ------------------------------------------------------------------ #
+    def _get_active_bottom_tab(self) -> str:
+        return self._active_bottom_tab
+
+    def _set_active_bottom_tab(self, value: str) -> None:
+        val = str(value)
+        if self._active_bottom_tab != val:
+            self._active_bottom_tab = val
+            self.activeBottomTabChanged.emit()
+
+    activeBottomTab = Property(
+        str,
+        _get_active_bottom_tab,
+        _set_active_bottom_tab,
+        notify=activeBottomTabChanged,
+    )
+
+    @Slot(str)
+    def setActiveBottomTab(self, tab_id: str) -> None:
+        self._set_active_bottom_tab(tab_id)

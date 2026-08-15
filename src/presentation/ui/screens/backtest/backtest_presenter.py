@@ -25,6 +25,15 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
+    BacktestCompletedEvent,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
+    BacktestFailedEvent,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+    SignalGeneratedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
@@ -43,6 +52,7 @@ from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_K
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .backtest_view_model import BackTestViewModel
+from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_run_config import BacktestRunConfig
 from .logic.backtest_state import BacktestUiState
@@ -161,6 +171,7 @@ class BackTestPresenter(BasePresenter):
     _chartScriptMarkerSignal = Signal(str, list)  # script key, markers
     _syncSucceededSignal = Signal()
     _syncFailedSignal = Signal(str)  # error message
+    _uiLogSignal = Signal(str, str, bool)  # message, level, is_dev
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
         super().__init__(view, container)
@@ -227,6 +238,13 @@ class BackTestPresenter(BasePresenter):
 
         self._view_model = BackTestViewModel()
         view.set_view_model(self._view_model)
+
+        self._is_dev_mode: bool = bool(self.config.get(DEV_MODE_CONFIG_KEY, False))
+        self._logger = BacktestEventLogger(
+            log_model=self._view_model.log_model,
+            is_dev_mode=self._is_dev_mode,
+            emit_signal=self._emit_ui_log,
+        )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
@@ -297,18 +315,57 @@ class BackTestPresenter(BasePresenter):
         self._chartScriptMarkerSignal.connect(self._on_chart_script_marker)
         self._syncSucceededSignal.connect(self._on_sync_succeeded)
         self._syncFailedSignal.connect(self._on_sync_failed)
+        self._uiLogSignal.connect(self._on_ui_log)
         self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
         self._view_model.tradeLogExportRequested.connect(
             self._on_trade_log_export_requested
         )
 
     def _connect_engine_events(self) -> None:
-        """Nothing to subscribe to: `RunStaticBacktestCommandHandler` returns
-        its `BacktestResult` synchronously to the dispatch call below. It
-        also emits `BacktestCompletedEvent`/`BacktestFailedEvent` on the
-        event bus (for other future subscribers), but this screen already
-        has its result from the return value and has no need to also listen
-        for its own echo."""
+        """Subscribe to Engine EventBus events emitted from background handlers (Observer Pattern)."""
+        self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
+        self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
+        self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
+
+    def _handle_backtest_completed_event(self, event: BacktestCompletedEvent) -> None:
+        result = getattr(event, "result", None)
+        trades_count = len(result.trades) if result and hasattr(result, "trades") else 0
+        duration = getattr(result, "duration", 0.0) if result else 0.0
+        self._emit_ui_log(
+            f"[EventBus] Backtest hoàn tất: {trades_count} lệnh (thời gian: {duration:.2f}s)",
+            "info",
+            is_dev=True,
+        )
+
+    def _handle_backtest_failed_event(self, event: BacktestFailedEvent) -> None:
+        reason = getattr(event, "reason", str(event))
+        self._emit_ui_log(
+            f"[EventBus] Backtest thất bại: {reason}",
+            "error",
+            is_dev=False,
+        )
+
+    def _handle_signal_generated_event(self, event: SignalGeneratedEvent) -> None:
+        sig = getattr(event, "signal", None)
+        symbol = getattr(sig, "symbol", "") if sig else ""
+        side = getattr(sig, "side", "") if sig else ""
+        price = getattr(sig, "price", 0.0) if sig else 0.0
+        self._emit_ui_log(
+            f"[Signal] Tín hiệu: {str(side).upper()} {symbol} @ {price:,.2f}",
+            "info",
+            is_dev=True,
+        )
+
+    def _emit_ui_log(
+        self, message: str, level: str = "info", is_dev: bool = False
+    ) -> None:
+        self._uiLogSignal.emit(message, level, is_dev)
+
+    @Slot(str, str, bool)
+    def _on_ui_log(self, message: str, level: str, is_dev: bool) -> None:
+        if is_dev and not self._is_dev_mode:
+            return
+        self._view_model.log_model.append(message, level=level)
 
     def _connect_chart_controls(self) -> None:
         """`BacktestChartControls` (native, owned by `BackTestView`) only
@@ -328,6 +385,7 @@ class BackTestPresenter(BasePresenter):
             return
         suffix = " ".join(f"{key}={value!r}" for key, value in fields.items())
         logger.info(f"{_TRACE_PREFIX} action={action} {suffix}".rstrip())
+        self._logger.dev_trace(action, **fields)
 
     # ================================================================== #
     # Qt Slots — main thread
@@ -352,6 +410,14 @@ class BackTestPresenter(BasePresenter):
         config = self._build_run_config()
         if config is None:
             return
+        self._logger.log_backtest_started(
+            strategy_name=self._view_model.selectedStrategyName
+            or self._view_model.selectedStrategyKey,
+            timeframe=self._view_model.selectedTimeframe,
+            capital=float(self._view_model.initialCapitalText or 0),
+            currency=self._view_model.selectedCurrency,
+            symbol=self._symbol,
+        )
         self.fsm.transition_to(BacktestUiState.RUNNING)
         self._log_dev_trace("run_transitioned", state=self.fsm.current_state)
         self._start_backtest_run(config)
@@ -424,6 +490,16 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_result(message, is_error=False)
         self._all_trades = result.trades
         self._refresh_trade_log()
+        duration_sec = getattr(result, "duration", 0.0)
+        net_profit = result.metrics.net_profit if result.metrics else 0.0
+        win_rate = result.metrics.percent_profitable if result.metrics else 0.0
+        self._logger.log_backtest_completed(
+            duration_sec=duration_sec,
+            trade_count=len(result.trades),
+            net_pnl=net_profit,
+            win_rate=win_rate,
+            currency=self._view_model.selectedCurrency,
+        )
         self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(str, object)
@@ -441,6 +517,7 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_result(message, is_error=False)
         self._all_trades = []
         self._refresh_trade_log()
+        self._logger.log_backtest_empty(message)
         if self.fsm.current_state != BacktestUiState.IDLE:
             self.fsm.transition_to(BacktestUiState.IDLE)
         self._log_dev_trace("run_empty", message=message)
@@ -455,6 +532,7 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_result(f"Lỗi: {message}", is_error=True)
         self._all_trades = []
         self._refresh_trade_log()
+        self._logger.log_backtest_failed(message)
         self.fsm.transition_to(BacktestUiState.IDLE)
 
     @Slot(object, list, list)
@@ -468,6 +546,7 @@ class BackTestPresenter(BasePresenter):
             volume=len(volume),
             trades=len(result.trades),
         )
+        self._logger.log_klines_loaded(len(klines), self._symbol)
         self.view.on_backtest_data_ready(result, klines, volume)
 
     @Slot(str, str, list, list)
@@ -638,6 +717,7 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_sync_succeeded(self) -> None:
         self._log_dev_trace("sync_succeeded")
+        self._logger.log_sync_event("Đồng bộ dữ liệu thành công.")
         # Sync is just an inserted precondition, not an independent user
         # action — the user already asked to run a backtest, "no data" got
         # in the way, and now that it's synced the original intent should
@@ -659,6 +739,7 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_sync_failed(self, message: str) -> None:
         self._log_dev_trace("sync_failed", message=message)
+        self._logger.log_sync_event(f"Đồng bộ thất bại: {message}", is_error=True)
         # needsDataSync / _last_no_data_config are left untouched — the sync
         # that just failed was for genuinely missing data, so "Đồng bộ ngay"
         # should stay offered for the user to retry.
