@@ -8,8 +8,8 @@ ModalDialogCard {
     id: root
     title: "THỰC THI TẬP LỆNH"
     iconSource: "image://icons/briefcase/accent"
-    width: 400
-    height: 250
+    preferredWidth: 400
+    preferredHeight: 250
 
     ColumnLayout {
         anchors.fill: parent

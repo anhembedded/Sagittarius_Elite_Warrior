@@ -10,8 +10,8 @@ ModalDialogCard {
     objectName: "limitationsPopup"
     title: "GIỚI HẠN CỦA LẦN CHẠY NÀY"
     iconSource: "image://icons/info/accent"
-    width: 480
-    height: 420
+    preferredWidth: 480
+    preferredHeight: 420
 
     readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 

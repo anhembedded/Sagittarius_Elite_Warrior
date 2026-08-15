@@ -82,129 +82,130 @@ Rectangle {
                     height: toolbarScroll.height
                     spacing: 10
 
-                    // 1. Strategy ComboBox
-                    StrategyComboBox {
-                        id: strategyCombo
-                        objectName: "cboBacktestStrategy"
-                        model: root.hasViewModel ? viewModel.strategyOptions : []
-                        enabled: root.hasViewModel && viewModel.controlsEnabled
-                        Layout.preferredWidth: 300
-
-                        property bool _initialized: false
-                        Component.onCompleted: {
-                            _syncFromViewModel()
-                            _initialized = true
-                        }
-                        Connections {
-                            target: !root.hasViewModel ? null : viewModel
-                            function onSelectedStrategyKeyChanged() { strategyCombo._syncFromViewModel() }
-                        }
-                        function _syncFromViewModel() {
-                            for (var i = 0; i < model.length; ++i) {
-                                if (root.hasViewModel && model[i].key === viewModel.selectedStrategyKey) {
-                                    currentIndex = i
-                                    return
-                                }
-                            }
-                        }
-                        onActivated: (index) => {
-                            if (_initialized && root.hasViewModel) viewModel.selectedStrategyKey = model[index].key
-                        }
-                    }
-
-                    // 2. Timeframe
-                    ComboBox {
-                        id: timeframeCombo
-                        objectName: "cboBacktestTimeframe"
+                    // 1. Strategy Picker Button
+                    Button {
+                        id: btnStrategy
+                        objectName: "btnBacktestStrategy"
                         implicitHeight: 34
-                        implicitWidth: 95
-                        model: root.hasViewModel ? viewModel.timeframeOptions : []
+                        implicitWidth: 260
                         enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
-                            color: "#181a24"
-                            border.color: "#2a2d3d"
+                            color: btnStrategy.hovered ? "#222536" : "#181a24"
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
                             border.width: 1
                             radius: 6
                         }
-                        contentItem: Text {
-                            leftPadding: 10
-                            text: timeframeCombo.displayText
-                            color: Theme.textPrimary
-                            font.pixelSize: 11
-                            font.bold: true
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        contentItem: RowLayout {
+                            spacing: 8
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
 
-                        property bool _initialized: false
-                        Component.onCompleted: {
-                            var idx = root.hasViewModel ? model.indexOf(viewModel.selectedTimeframe) : -1
-                            if (idx >= 0) currentIndex = idx
-                            _initialized = true
+                            Image {
+                                source: "image://icons/briefcase/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+
+                            Text {
+                                text: root.hasViewModel ? viewModel.selectedStrategyName : "Chọn chiến lược"
+                                color: Theme && Theme.accent ? Theme.accent : "#f0b90b"
+                                font.pixelSize: 11
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
                         }
-                        onActivated: (index) => {
-                            if (_initialized && root.hasViewModel) viewModel.selectedTimeframe = model[index]
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenStrategyPicker()
                         }
                     }
 
-                    // 3. Time range preset
-                    ComboBox {
-                        id: rangeCombo
-                        objectName: "cboBacktestRange"
+                    // 2. Timeframe Button
+                    Button {
+                        id: btnTimeframe
+                        objectName: "btnBacktestTimeframe"
                         implicitHeight: 34
-                        implicitWidth: 135
-                        model: root.hasViewModel ? viewModel.timeRangePresetOptions : []
-                        textRole: "label"
+                        implicitWidth: 70
                         enabled: root.hasViewModel && viewModel.controlsEnabled
                         background: Rectangle {
-                            color: "#181a24"
-                            border.color: "#2a2d3d"
+                            color: btnTimeframe.hovered ? "#222536" : "#181a24"
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
                             border.width: 1
                             radius: 6
                         }
-                        contentItem: Text {
-                            leftPadding: 10
-                            text: rangeCombo.displayText
-                            color: Theme.textPrimary
-                            font.pixelSize: 11
-                            font.bold: true
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        contentItem: RowLayout {
+                            spacing: 6
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
 
-                        property bool _initialized: false
-                        Component.onCompleted: {
-                            for (var i = 0; i < model.length; ++i) {
-                                if (root.hasViewModel && model[i].value === viewModel.timeRangePreset) {
-                                    currentIndex = i
-                                    break
-                                }
+                            Text {
+                                text: root.hasViewModel ? viewModel.selectedTimeframe : "1m"
+                                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                font.pixelSize: 11
+                                font.bold: true
+                                horizontalAlignment: Text.AlignHCenter
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
                             }
-                            _initialized = true
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
                         }
-                        onActivated: (index) => {
-                            if (_initialized && root.hasViewModel) viewModel.timeRangePreset = model[index].value
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenTimeframePicker()
                         }
                     }
 
-                    // 3b. Custom range fields
-                    RowLayout {
-                        spacing: 6
-                        visible: root.hasViewModel && viewModel.timeRangePreset === "custom"
-
-                        DateTimePicker {
-                            objectName: "txtBacktestRangeStart"
-                            implicitWidth: 145
-                            text: root.hasViewModel ? viewModel.customStartText : ""
-                            enabled: root.hasViewModel && viewModel.controlsEnabled
-                            placeholderText: "Từ yyyy-MM-dd HH:mm"
-                            onTextEdited: (text) => { if (root.hasViewModel) viewModel.customStartText = text }
+                    // 3. Time range preset Button
+                    Button {
+                        id: btnRange
+                        objectName: "btnBacktestRange"
+                        implicitHeight: 34
+                        implicitWidth: 140
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
+                        background: Rectangle {
+                            color: btnRange.hovered ? "#222536" : "#181a24"
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
+                            border.width: 1
+                            radius: 6
                         }
-                        DateTimePicker {
-                            objectName: "txtBacktestRangeEnd"
-                            implicitWidth: 145
-                            text: root.hasViewModel ? viewModel.customEndText : ""
-                            enabled: root.hasViewModel && viewModel.controlsEnabled
-                            placeholderText: "Đến yyyy-MM-dd HH:mm"
-                            onTextEdited: (text) => { if (root.hasViewModel) viewModel.customEndText = text }
+                        contentItem: RowLayout {
+                            spacing: 6
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            Image {
+                                source: "image://icons/calendar/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+
+                            Text {
+                                text: root.hasViewModel ? viewModel.selectedTimeRangePresetLabel : "Toàn bộ lịch sử"
+                                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                font.pixelSize: 11
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
+                        }
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenTimeRangePicker()
                         }
                     }
 
@@ -316,7 +317,7 @@ Rectangle {
                             Text { text: "Thông số Bot"; color: Theme.textPrimary; font.pixelSize: 11; font.bold: true }
                         }
                         onClicked: {
-                            if (root.hasViewModel) viewModel.requestOpenBotParams(strategyCombo.currentText)
+                            if (root.hasViewModel) viewModel.requestOpenBotParams(viewModel.selectedStrategyName)
                         }
                     }
 

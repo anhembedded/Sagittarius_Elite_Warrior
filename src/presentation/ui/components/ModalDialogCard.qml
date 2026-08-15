@@ -27,6 +27,15 @@ Popup {
     property alias footerData: footerContainer.data
     property bool hasFooter: footerContainer.children.length > 0
 
+    // Dynamic responsive sizing constraints
+    property real preferredWidth: 440
+    property real preferredHeight: 320
+    property real maxCardWidth: (Overlay.overlay && Overlay.overlay.width > 0) ? (Overlay.overlay.width - 32) : preferredWidth
+    property real maxCardHeight: (Overlay.overlay && Overlay.overlay.height > 0) ? (Overlay.overlay.height - 48) : preferredHeight
+
+    width: Math.min(preferredWidth, maxCardWidth)
+    height: Math.min(preferredHeight, maxCardHeight)
+
     modal: true
     dim: true
     anchors.centerIn: Overlay.overlay

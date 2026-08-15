@@ -17,6 +17,9 @@ Item {
                                        || (capitalDialog !== null && capitalDialog.visible)
                                        || (indicatorPickerModal !== null && indicatorPickerModal.visible)
                                        || (orderExecutionModal !== null && orderExecutionModal.visible)
+                                       || (strategyPickerModal !== null && strategyPickerModal.visible)
+                                       || (timeframePickerModal !== null && timeframePickerModal.visible)
+                                       || (timeRangePickerModal !== null && timeRangePickerModal.visible)
 
     Connections {
         target: !root.hasViewModel ? null : viewModel
@@ -44,6 +47,18 @@ Item {
 
         function onOpenOrderExecutionRequested(x, y) {
             orderExecutionModal.open()
+        }
+
+        function onOpenStrategyPickerRequested() {
+            strategyPickerModal.open()
+        }
+
+        function onOpenTimeframePickerRequested() {
+            timeframePickerModal.open()
+        }
+
+        function onOpenTimeRangePickerRequested() {
+            timeRangePickerModal.open()
         }
     }
 
@@ -81,5 +96,23 @@ Item {
     OrderExecutionModal {
         id: orderExecutionModal
         objectName: "orderExecutionModal"
+    }
+
+    // 7. Strategy Picker Modal
+    StrategyPickerModal {
+        id: strategyPickerModal
+        objectName: "strategyPickerModal"
+    }
+
+    // 8. Timeframe Picker Modal
+    TimeframePickerModal {
+        id: timeframePickerModal
+        objectName: "timeframePickerModal"
+    }
+
+    // 9. Time Range Picker Modal
+    TimeRangePickerModal {
+        id: timeRangePickerModal
+        objectName: "timeRangePickerModal"
     }
 }

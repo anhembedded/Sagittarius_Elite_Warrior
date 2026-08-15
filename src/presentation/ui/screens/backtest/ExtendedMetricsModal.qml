@@ -10,8 +10,8 @@ ModalDialogCard {
     objectName: "extendedMetricsPopup"
     title: "CHỈ SỐ CHI TIẾT BACKTEST"
     iconSource: "image://icons/info/accent"
-    width: 480
-    height: 606
+    preferredWidth: 480
+    preferredHeight: 606
 
     readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 

@@ -8,8 +8,8 @@ ModalDialogCard {
     id: root
     title: "CHỈ BÁO THAM KHẢO"
     iconSource: "image://icons/sliders/accent"
-    width: 360
-    height: 300
+    preferredWidth: 360
+    preferredHeight: 300
 
     readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 

@@ -208,3 +208,57 @@ def test_order_execution_menu_opens_in_overlay_host(qapp, qml_item, backtest_scr
     qapp.processEvents()
 
     assert overlay_host.is_click_through is False
+
+
+def test_strategy_picker_modal_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+    view, _ = backtest_screen
+    top_root = view.top_widget.rootObject()
+    overlay_host = view.overlay_host
+
+    btn_strategy = qml_item(top_root, "btnBacktestStrategy")
+    assert btn_strategy is not None
+    btn_strategy.clicked.emit()
+    qapp.processEvents()
+    qapp.processEvents()
+
+    assert overlay_host.is_click_through is False
+    overlay_root = overlay_host.content_item
+    modal = overlay_root.findChild(object, "strategyPickerModal")
+    assert modal is not None
+    assert modal.property("visible") is True
+
+
+def test_timeframe_picker_modal_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+    view, _ = backtest_screen
+    top_root = view.top_widget.rootObject()
+    overlay_host = view.overlay_host
+
+    btn_timeframe = qml_item(top_root, "btnBacktestTimeframe")
+    assert btn_timeframe is not None
+    btn_timeframe.clicked.emit()
+    qapp.processEvents()
+    qapp.processEvents()
+
+    assert overlay_host.is_click_through is False
+    overlay_root = overlay_host.content_item
+    modal = overlay_root.findChild(object, "timeframePickerModal")
+    assert modal is not None
+    assert modal.property("visible") is True
+
+
+def test_time_range_picker_modal_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+    view, _ = backtest_screen
+    top_root = view.top_widget.rootObject()
+    overlay_host = view.overlay_host
+
+    btn_range = qml_item(top_root, "btnBacktestRange")
+    assert btn_range is not None
+    btn_range.clicked.emit()
+    qapp.processEvents()
+    qapp.processEvents()
+
+    assert overlay_host.is_click_through is False
+    overlay_root = overlay_host.content_item
+    modal = overlay_root.findChild(object, "timeRangePickerModal")
+    assert modal is not None
+    assert modal.property("visible") is True

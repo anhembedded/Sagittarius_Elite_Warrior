@@ -8,8 +8,8 @@ ModalDialogCard {
     id: root
     title: "THIẾT LẬP VỐN BAN ĐẦU"
     iconSource: "image://icons/dollar-sign/success"
-    width: 360
-    height: 190
+    preferredWidth: 360
+    preferredHeight: 190
 
     readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 

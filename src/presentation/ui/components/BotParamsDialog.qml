@@ -12,8 +12,8 @@ ModalDialogCard {
 
     title: "CẤU HÌNH THÔNG SỐ BOT: " + root.strategyName.toUpperCase()
     iconSource: "image://icons/sliders/accent"
-    width: 650
-    height: Math.min(600, contentColumn.implicitHeight + 170)
+    preferredWidth: 650
+    preferredHeight: Math.min(600, contentColumn.implicitHeight + 170)
 
     // Closed by the Presenter's own signal, not a local `root.close()` call
     // in the save handler — a validation failure must leave the dialog open

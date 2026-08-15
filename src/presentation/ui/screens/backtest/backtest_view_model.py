@@ -121,6 +121,9 @@ class BackTestViewModel(BaseQmlViewModel):
     openCapitalRequested = Signal(float, float)
     openIndicatorPickerRequested = Signal(float, float)
     openOrderExecutionRequested = Signal(float, float)
+    openStrategyPickerRequested = Signal()
+    openTimeframePickerRequested = Signal()
+    openTimeRangePickerRequested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -198,6 +201,18 @@ class BackTestViewModel(BaseQmlViewModel):
         str,
         _get_selected_strategy_key,
         _set_selected_strategy_key,
+        notify=selectedStrategyKeyChanged,
+    )
+
+    def _get_selected_strategy_name(self) -> str:
+        for opt in self._strategy_options:
+            if opt.get("key") == self._selected_strategy_key:
+                return opt.get("name", self._selected_strategy_key)
+        return self._selected_strategy_key or "Chọn chiến lược"
+
+    selectedStrategyName = Property(
+        str,
+        _get_selected_strategy_name,
         notify=selectedStrategyKeyChanged,
     )
 
@@ -317,6 +332,18 @@ class BackTestViewModel(BaseQmlViewModel):
         str,
         _get_time_range_preset,
         _set_time_range_preset,
+        notify=timeRangePresetChanged,
+    )
+
+    def _get_selected_time_range_preset_label(self) -> str:
+        for opt in self.timeRangePresetOptions:
+            if opt.get("value") == self._time_range_preset:
+                return opt.get("label", self._time_range_preset)
+        return self._time_range_preset
+
+    selectedTimeRangePresetLabel = Property(
+        str,
+        _get_selected_time_range_preset_label,
         notify=timeRangePresetChanged,
     )
 
@@ -619,3 +646,15 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot(float, float)
     def requestOpenOrderExecution(self, x: float, y: float) -> None:
         self.openOrderExecutionRequested.emit(x, y)
+
+    @Slot()
+    def requestOpenStrategyPicker(self) -> None:
+        self.openStrategyPickerRequested.emit()
+
+    @Slot()
+    def requestOpenTimeframePicker(self) -> None:
+        self.openTimeframePickerRequested.emit()
+
+    @Slot()
+    def requestOpenTimeRangePicker(self) -> None:
+        self.openTimeRangePickerRequested.emit()
