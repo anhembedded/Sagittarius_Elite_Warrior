@@ -174,6 +174,9 @@ if (-not $SkipTests) {
 
     $env:PYTHONPATH     = $testExecutionRoot
     $env:QT_QPA_PLATFORM = "offscreen"
+    # Suppress 3rd-party DeprecationWarnings at Python interpreter level so they are
+    # silenced even at module import time, before pytest filterwarnings can intercept.
+    $env:PYTHONWARNINGS  = "ignore::DeprecationWarning:binance,ignore::DeprecationWarning:websockets"
 
     if ($SanityOnly) {
         # ----------------------------------------------------------------
