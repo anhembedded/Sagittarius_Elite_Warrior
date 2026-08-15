@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from sagittarius_engine.extensions.health.health_check_query import HealthCheckQuery
 from sagittarius_engine.extensions.health.health_module import HealthUpdatedEvent
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -339,6 +340,7 @@ class DashboardPresenter(BasePresenter):
         # and before load_qml() so QML parses against a ready view model.
         self._connect_ui_signals()
         self._connect_engine_events()
+        self._trigger_initial_health_check()
 
         view.load_qml("DevBoardPanel.qml")
 
@@ -405,6 +407,15 @@ class DashboardPresenter(BasePresenter):
         """Đăng ký lắng nghe sự kiện từ Engine EventBus."""
         self.event_bus.on(MarketTickEvent, self._handle_market_tick)
         self.event_bus.on(HealthUpdatedEvent.event_name, self._handle_health_updated)
+
+    def _trigger_initial_health_check(self) -> None:
+        """Trigger a health check to log current component status to the UI log."""
+        try:
+            health_query = self.container.resolve(HealthCheckQuery)
+            status = health_query.execute()
+            self._handle_health_updated(HealthUpdatedEvent(status))
+        except Exception:  # noqa: BLE001
+            pass
 
     def _handle_health_updated(self, event: Any) -> None:
         """

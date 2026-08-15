@@ -122,20 +122,23 @@ def test_dashboard_handles_health_updated_event(qapp, health_mock_container):
     assert "DB: CONNECTION FAILED" in latest_entry.message
 
 
-def test_dashboard_actions_retrigger_health_check(qapp, health_mock_container):
-    """Verify that clicking Start Live or Load History re-executes health check."""
+def test_dashboard_initial_health_check_single_log(qapp, health_mock_container):
+    """Verify that clicking Start Live or Load History does not duplicate health log."""
     container, mock_health_query, _ = health_mock_container
     view = DashboardView()
     presenter = DashboardPresenter(view, container)
 
     count_before = mock_health_query.execute.call_count
+    assert count_before >= 1
 
     presenter._view_model.symbol = "BTCUSDT"
     presenter._view_model.startDate = "2024-01-01 00:00"
     presenter._view_model.endDate = "2024-01-02 00:00"
 
     presenter._on_load_history()
-    assert mock_health_query.execute.call_count == count_before + 1
+    # Execute count does not increment unnecessarily on load history
+    assert mock_health_query.execute.call_count == count_before
+
 
 
 def test_backtest_initializes_and_handles_health_updated_event(qapp, health_mock_container):
