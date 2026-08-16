@@ -278,102 +278,109 @@ class FastCandlestickItem(pg.GraphicsObject):
 
         return rect
 
+    def _calculate_x_bounds(self) -> list[float | None]:
+        if not self.history_data and not self.live_candle:
+            return [None, None]
+        min_x = self.history_data[0][0] if self.history_data else self.live_candle[0]
+        max_x = self.history_data[-1][0] if self.history_data else self.live_candle[0]
+        if self.live_candle and self.live_candle[0] > max_x:
+            max_x = self.live_candle[0]
+        return [min_x, max_x]
+
+    def _calculate_visible_y_bounds(
+        self, min_x: float, max_x: float
+    ) -> tuple[float | None, float | None]:
+        # pyqtgraph's ViewBox calls dataBounds(ax=1, orthoRange=...) to
+        # re-autoscale Y on EVERY range-changed event — which fires
+        # continuously while the user drags/pans, not just on zoom.
+        # An O(N) scan over the full history here (the old approach)
+        # was one cause of visible pan/drag stutter with a few
+        # thousand candles loaded: bisect narrows to the visible
+        # slice in O(log N) first. Furthermore, we cache the result
+        # by window indices (lo, hi) to prevent re-scanning the visible
+        # slice continuously on sub-pixel/same-candle pan boundaries.
+        lo, hi = visible_slice_indices(
+            self.history_data, min_x, max_x, key=lambda row: row[0]
+        )
+
+        # Use cache if valid
+        if (
+            self._cached_visible_bounds
+            and self._cached_visible_bounds[0] == lo
+            and self._cached_visible_bounds[1] == hi
+        ):
+            cached_min_y, cached_max_y = (
+                self._cached_visible_bounds[2],
+                self._cached_visible_bounds[3],
+            )
+        else:
+            visible = self.history_data[lo:hi]
+            if visible:
+                cached_min_y = min(row[3] for row in visible)
+                cached_max_y = max(row[2] for row in visible)
+                self._cached_visible_bounds = (
+                    lo,
+                    hi,
+                    cached_min_y,
+                    cached_max_y,
+                )
+            else:
+                cached_min_y, cached_max_y = None, None
+                self._cached_visible_bounds = (lo, hi, None, None)
+
+        min_y, max_y = cached_min_y, cached_max_y
+
+        if self.live_candle and min_x <= self.live_candle[0] <= max_x:
+            live_low = self.live_candle[3]
+            live_high = self.live_candle[2]
+            min_y = min(min_y, live_low) if min_y is not None else live_low
+            max_y = max(max_y, live_high) if max_y is not None else live_high
+
+        return min_y, max_y
+
+    def _calculate_global_y_bounds(self) -> list[float | None]:
+        # Fallback to global bounds (O(1) using cached rect, avoids O(N) fallback scan)
+        min_y, max_y = None, None
+        if self._full_bounds_rect and self._full_bounds_rect.isValid():
+            min_y = self._full_bounds_rect.top()
+            max_y = self._full_bounds_rect.bottom()
+        elif self.history_data:
+            # Fallback if somehow called before bounds rect generated
+            min_y = min(row[3] for row in self.history_data)
+            max_y = max(row[2] for row in self.history_data)
+
+        if self.live_candle:
+            min_y = (
+                min(min_y, self.live_candle[3])
+                if min_y is not None
+                else self.live_candle[3]
+            )
+            max_y = (
+                max(max_y, self.live_candle[2])
+                if max_y is not None
+                else self.live_candle[2]
+            )
+
+        return [min_y, max_y]
+
     def dataBounds(self, ax, frac=1.0, orthoRange=None):
         """
         @brief Required by ViewBox to auto-scale Y axis based on visible X range (TradingView style).
         """
         if ax == 0:
-            if not self.history_data and not self.live_candle:
-                return [None, None]
-            min_x = (
-                self.history_data[0][0] if self.history_data else self.live_candle[0]
-            )
-            max_x = (
-                self.history_data[-1][0] if self.history_data else self.live_candle[0]
-            )
-            if self.live_candle and self.live_candle[0] > max_x:
-                max_x = self.live_candle[0]
-            return [min_x, max_x]
-
+            return self._calculate_x_bounds()
         elif ax == 1:
             if not self.history_data and not self.live_candle:
                 return [None, None]
 
-            # Calculate Y bounds based ONLY on the visible X range
             if orthoRange is not None:
                 min_x, max_x = orthoRange
-
-                # pyqtgraph's ViewBox calls dataBounds(ax=1, orthoRange=...) to
-                # re-autoscale Y on EVERY range-changed event — which fires
-                # continuously while the user drags/pans, not just on zoom.
-                # An O(N) scan over the full history here (the old approach)
-                # was one cause of visible pan/drag stutter with a few
-                # thousand candles loaded: bisect narrows to the visible
-                # slice in O(log N) first. Furthermore, we cache the result
-                # by window indices (lo, hi) to prevent re-scanning the visible
-                # slice continuously on sub-pixel/same-candle pan boundaries.
-                lo, hi = visible_slice_indices(
-                    self.history_data, min_x, max_x, key=lambda row: row[0]
-                )
-
-                # Use cache if valid
-                if (
-                    self._cached_visible_bounds
-                    and self._cached_visible_bounds[0] == lo
-                    and self._cached_visible_bounds[1] == hi
-                ):
-                    cached_min_y, cached_max_y = (
-                        self._cached_visible_bounds[2],
-                        self._cached_visible_bounds[3],
-                    )
-                else:
-                    visible = self.history_data[lo:hi]
-                    if visible:
-                        cached_min_y = min(row[3] for row in visible)
-                        cached_max_y = max(row[2] for row in visible)
-                        self._cached_visible_bounds = (
-                            lo,
-                            hi,
-                            cached_min_y,
-                            cached_max_y,
-                        )
-                    else:
-                        cached_min_y, cached_max_y = None, None
-                        self._cached_visible_bounds = (lo, hi, None, None)
-
-                min_y, max_y = cached_min_y, cached_max_y
-
-                if self.live_candle and min_x <= self.live_candle[0] <= max_x:
-                    live_low = self.live_candle[3]
-                    live_high = self.live_candle[2]
-                    min_y = min(min_y, live_low) if min_y is not None else live_low
-                    max_y = max(max_y, live_high) if max_y is not None else live_high
-
+                min_y, max_y = self._calculate_visible_y_bounds(min_x, max_x)
                 if min_y is not None and max_y is not None:
                     return [min_y, max_y]
 
-            # Fallback to global bounds (O(1) using cached rect, avoids O(N) fallback scan)
-            min_y, max_y = None, None
-            if self._full_bounds_rect and self._full_bounds_rect.isValid():
-                min_y = self._full_bounds_rect.top()
-                max_y = self._full_bounds_rect.bottom()
-            elif self.history_data:
-                # Fallback if somehow called before bounds rect generated
-                min_y = min(row[3] for row in self.history_data)
-                max_y = max(row[2] for row in self.history_data)
-
-            if self.live_candle:
-                min_y = (
-                    min(min_y, self.live_candle[3])
-                    if min_y is not None
-                    else self.live_candle[3]
-                )
-                max_y = (
-                    max(max_y, self.live_candle[2])
-                    if max_y is not None
-                    else self.live_candle[2]
-                )
-
+            # Fallback to global bounds
+            min_y, max_y = self._calculate_global_y_bounds()
             if min_y is not None and max_y is not None:
                 return [min_y, max_y]
 

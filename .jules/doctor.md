@@ -7,3 +7,8 @@
 **Smell:** The `execute` method was handling both multiple symbols mapping logic with threads as well as single symbol mapping logic, leading to mixed responsibilities and high cognitive load.
 **Solution:** Split out the fetching logic for multiple symbols and single symbols into explicit private helper methods `_execute_multi` and `_execute_single` while the `execute` method only handles argument parsing and routing logic.
 **Learning:** For queries handling single/multi item branching logic, pull out explicit private helper methods for the branches to ensure the main method focuses on routing only.
+
+## 2024-08-16 - Extract logic from dataBounds in FastCandlestickItem
+**Smell:** Large method with mixed responsibilities (calculating X bounds, visible Y bounds, and global Y bounds).
+**Solution:** Extracted logic into `_calculate_x_bounds`, `_calculate_visible_y_bounds`, and `_calculate_global_y_bounds` to adhere to SRP.
+**Learning:** PyQtGraph hook methods like `dataBounds` are frequently called and can grow large due to multiple modes (`ax == 0` vs `ax == 1`, with or without `orthoRange`). Splitting them into distinct computation helpers improves readability and testability.
