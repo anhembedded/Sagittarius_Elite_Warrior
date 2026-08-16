@@ -55,29 +55,39 @@ class GetHistoricalKlinesQueryHandler(
             raise ValueError(f"Invalid interval: {query.interval}") from e
 
         if isinstance(query.symbol, list):
-            results = {}
+            return self._execute_multi(query, interval_vo)
 
-            def fetch_symbol(sym: str) -> tuple[str, list[MarketData]]:
-                return sym, self.repository.get_klines(
-                    symbol=sym,
-                    interval=interval_vo,
-                    start_time=query.start_time,
-                    end_time=query.end_time,
-                    limit=query.limit,
-                    order_by_desc=query.order_by_desc,
-                )
+        return self._execute_single(query, interval_vo)
 
-            max_workers = min(len(query.symbol), 10) if query.symbol else 1
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                for sym, klines in executor.map(fetch_symbol, query.symbol):
-                    results[sym] = klines
-            self._log_trace(
-                "query_execute_complete_multi",
-                symbols=len(results),
-                rows={sym: len(klines) for sym, klines in results.items()},
+    def _execute_multi(
+        self, query: GetHistoricalKlinesQuery, interval_vo: TimeFrame
+    ) -> dict[str, list[MarketData]]:
+        results = {}
+
+        def fetch_symbol(sym: str) -> tuple[str, list[MarketData]]:
+            return sym, self.repository.get_klines(
+                symbol=sym,
+                interval=interval_vo,
+                start_time=query.start_time,
+                end_time=query.end_time,
+                limit=query.limit,
+                order_by_desc=query.order_by_desc,
             )
-            return results
 
+        max_workers = min(len(query.symbol), 10) if query.symbol else 1
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for sym, klines in executor.map(fetch_symbol, query.symbol):
+                results[sym] = klines
+        self._log_trace(
+            "query_execute_complete_multi",
+            symbols=len(results),
+            rows={sym: len(klines) for sym, klines in results.items()},
+        )
+        return results
+
+    def _execute_single(
+        self, query: GetHistoricalKlinesQuery, interval_vo: TimeFrame
+    ) -> list[MarketData]:
         result = self.repository.get_klines(
             symbol=query.symbol,
             interval=interval_vo,
