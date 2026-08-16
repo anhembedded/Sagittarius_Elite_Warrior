@@ -6,6 +6,7 @@ MarkerPoint = tuple[float, float, str, str, str]
 
 _UP_ANCHOR = (0.5, 1.2)
 _DOWN_ANCHOR = (0.5, -0.2)
+_DEFAULT_MARKER_TEXT_COLOR = "#0B0E11"
 
 
 class MarkerLayer:
@@ -29,6 +30,8 @@ class MarkerLayer:
     def __init__(self, plot: pg.PlotItem) -> None:
         self._plot = plot
         self._items: dict[str, list[pg.TextItem]] = {}
+        self._brushes: dict[str, pg.QtGui.QBrush] = {}
+        self._pens: dict[str, pg.QtGui.QPen] = {}
 
     def set_markers(self, key: str, markers: list[MarkerPoint]) -> None:
         """
@@ -42,12 +45,23 @@ class MarkerLayer:
         items = []
         for x, y, text, color, direction in markers:
             anchor = _UP_ANCHOR if direction == "up" else _DOWN_ANCHOR
+
+            brush = self._brushes.get(color)
+            if brush is None:
+                brush = pg.mkBrush(color)
+                self._brushes[color] = brush
+
+            pen = self._pens.get(color)
+            if pen is None:
+                pen = pg.mkPen(color)
+                self._pens[color] = pen
+
             item = pg.TextItem(
                 text=text,
-                color="#0B0E11",
+                color=_DEFAULT_MARKER_TEXT_COLOR,
                 anchor=anchor,
-                fill=pg.mkBrush(color),
-                border=pg.mkPen(color),
+                fill=brush,
+                border=pen,
             )
             item.setPos(x, y)
             self._plot.addItem(item)
