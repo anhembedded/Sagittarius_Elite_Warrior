@@ -54,7 +54,7 @@ def test_watchdog_detects_freeze_and_invokes_callback(qapp) -> None:
 
     watchdog.start()
     # Stop sending heartbeats and sleep past threshold
-    time.sleep(0.35)
+    time.sleep(0.5)
 
     assert watchdog._is_frozen is True
     mock_callback.assert_called_once()

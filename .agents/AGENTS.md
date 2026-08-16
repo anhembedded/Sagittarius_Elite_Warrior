@@ -1,6 +1,8 @@
 # Development Guidelines
 
-- **SOLID Principles**:
+- **Installation & Dependencies (Sagittarius Engine Setup)**:
+  - Option 1 (GitHub Repository): `pip install git+https://github.com/anhembedded/Sagittarius-Engine.git`
+  - Option 2 (Local Editable): `pip install -e Sagittarius-Engine`
   - Apply SOLID wherever practical to improve clarity and testability.
   - **S**ingle Responsibility Principle (SRP): One reason to change. Split logic into single-purpose modules/files.
   - **O**pen/Closed Principle (OCP): Prefer extending behavior via new classes/interfaces over modifying tested code.

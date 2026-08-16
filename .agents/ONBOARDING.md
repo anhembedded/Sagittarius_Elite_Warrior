@@ -25,6 +25,18 @@ together:
   `<name>_view.py` / `<name>_view_model.py` MVP trio plus QML). This is
   where you'll do almost all real work.
 
+## Installation & Dependencies
+
+### Option 1: Install from GitHub Repository (Production / Shared)
+```bash
+pip install git+https://github.com/anhembedded/Sagittarius-Engine.git
+```
+
+### Option 2: Local Editable Installation (Development)
+```bash
+pip install -e Sagittarius-Engine
+```
+
 ## Where the actual rules live (read these, don't guess)
 
 - **`.agents/rules/code-rule.md`** (this folder) — the real, binding
@@ -33,6 +45,8 @@ together:
   for every new feature/screen, write-a-regression-test-before-fixing-a-bug,
   and the flat MVP-trio screen folder convention. Read it in full before
   writing any code — this summary is not a substitute.
+- **`.agents/rules/install-rule.md`** (this folder) — installation guidelines and
+  dependency setup for `sagittarius_engine` (GitHub URL install vs. local editable).
 - **`.agents/AGENTS.md`** (this folder) — short SOLID recap plus the
   mandatory commit signature: every AI-authored commit ends with
   `Co-Authored-By: Antigravity <noreply@google.com>`.
