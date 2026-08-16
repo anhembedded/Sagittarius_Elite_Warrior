@@ -42,10 +42,17 @@ class DatabaseManager:
             return self._sessions[symbol]()
 
         if self.db_dir == ":memory:":
-            db_url = f"sqlite:///file:{symbol}?mode=memory&cache=shared"
+            db_url = f"sqlite:///file:{symbol}?mode=memory&cache=shared&uri=true"
             db_path = f"memory:{symbol}"
         else:
-            db_path = os.path.join(self.db_dir, f"{symbol}.db")
+            db_path = os.path.normpath(os.path.join(self.db_dir, f"{symbol}.db"))
+
+            # Ensure safe path boundary by comparing commonpath with abspath
+            base_dir = os.path.abspath(self.db_dir)
+            abs_db_path = os.path.abspath(db_path)
+            if os.path.commonpath([base_dir, abs_db_path]) != base_dir:
+                raise PermissionError("Path traversal attempt detected")
+
             db_url = f"sqlite:///{db_path}"
 
         # connect_args to configure SQLite with WAL and a high timeout to prevent locking
