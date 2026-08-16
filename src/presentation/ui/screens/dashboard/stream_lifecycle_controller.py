@@ -434,41 +434,6 @@ class StreamLifecycleController:
         )
         self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
-    def _reload_historical_data(
-        self,
-        symbols: list[str],
-        interval_str: str,
-        limit: int,
-        token: CancellationToken,
-        start_time: datetime | None,
-        end_time: datetime | None,
-    ) -> None:
-        self._emit_log("Reloading historical data onto charts...")
-        query = GetHistoricalKlinesQuery(
-            symbol=symbols,
-            interval=interval_str,
-            limit=limit,
-            start_time=start_time,
-            end_time=end_time,
-            order_by_desc=True,
-        )
-        response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-        results = getattr(response, "data", response) if response else {}
-
-        if isinstance(results, dict):
-            for symbol in symbols:
-                if token.is_cancelled():
-                    return
-
-                klines = results.get(symbol, [])
-                if klines and isinstance(klines, list):
-                    ordered_klines = list(reversed(klines))
-                    mapped_data = map_klines(ordered_klines)
-                    volume_data = map_volume(ordered_klines)
-                    self._emit_history_reloaded(symbol, mapped_data, volume_data)
-                    self._raw_klines_by_symbol[symbol] = ordered_klines
-                    self._script_runner.feed_all(ordered_klines)
-
     def _start_websocket_stream(self, symbols: list[str], interval: TimeFrame) -> None:
         self._emit_log("Opening Websocket stream...")
         cmd = StartLiveStreamCommand(symbols=symbols, interval=interval)
@@ -496,7 +461,8 @@ class StreamLifecycleController:
             if token.is_cancelled() or not symbols:
                 return
 
-            self._reload_historical_data(
+            self._emit_log("Reloading historical data onto charts...")
+            self._run_load_history(
                 symbols, interval_str, limit, token, start_time, end_time
             )
 
