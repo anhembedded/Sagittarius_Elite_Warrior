@@ -377,6 +377,10 @@ Rectangle {
                     // Rectangle+MouseArea) so it stays clickable from
                     // Python tests — BOT-057/BOT-083's convention.
                     objectName: "btnBacktestLimitations"
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Xem giới hạn của lần chạy này"
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Xem giới hạn của lần chạy này"
                     implicitWidth: 18
                     implicitHeight: 18
                     padding: 0
