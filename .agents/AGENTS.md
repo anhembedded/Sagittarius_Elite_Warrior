@@ -37,6 +37,11 @@
   - All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8.
   - Never place `import ...` or `from ... import ...` inside functions, methods, slots, test cases, or nested scopes. The ONLY permitted indented import is inside `if TYPE_CHECKING:` guards at the top level for static typing annotations.
 
+- **Single-Scope Cohesion & Colocation (Gom chung thành phần liên quan vào cùng 1 Scope / Single Source of Truth)**:
+  - Tightly coupled elements defining the same domain lifecycle, state machine, or configuration MUST be co-located within the same single file or module scope (e.g., State Enum + Event Enum + Transition Matrix + UI mode mappings in a single `*_fsm_matrix.py`).
+  - Do NOT fragment tightly coupled definitions across multiple scattered files where understanding a single feature lifecycle requires jumping across 4-5 distant modules.
+
+
 - **UI Icon Assets & Theme-Tinted Rendering**:
   - All visual iconography in the UI MUST be defined as clean, standardized SVG vector files in `src/presentation/ui/assets/icons/` (following Lucide/Feather icon standards).
   - Never use raw Unicode emoji or character glyphs for UI icons when SVG assets are appropriate.
