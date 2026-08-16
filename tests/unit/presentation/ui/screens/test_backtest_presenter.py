@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_scrip
 )
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
     CANDLESTICK,
@@ -68,10 +69,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_run_config import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BacktestRunConfig,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
+    BacktestUiEvent,
     BacktestUiState,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
@@ -1837,8 +1837,6 @@ def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
 
 def test_selected_currency_default_and_change(view_model):
     """Test selectedCurrency defaults to USD and emits signal on change."""
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
-
     assert view_model.selectedCurrency == Currency.USD
     assert view_model.currencyOptions == Currency.list_values()
 
@@ -1853,3 +1851,217 @@ def test_selected_currency_default_and_change(view_model):
 
     assert view_model.selectedCurrency == Currency.VND
     assert emitted is True
+
+
+# ================================================================== #
+# BOT-095B: DeclarativeStateMachine & Dirty Tracking Lifecycle Tests
+# ================================================================== #
+
+
+def test_fsm_initializes_with_declarative_state_machine(presenter):
+    """Verify FSM is loaded from UI_TRANSITION_MATRIX and bound to ViewModel."""
+    assert presenter.fsm is not None
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter.view_model.uiMode == BacktestUiState.IDLE.value
+    assert presenter.view_model.isConfigDirty is False
+    assert presenter.view_model.controlsEnabled is True
+    assert presenter.view_model.configDiffSummary == ""
+    assert presenter.view_model.lastRunSummary == ""
+
+
+def test_run_backtest_dispatches_run_requested_and_updates_ui_mode(presenter):
+    """Verify running backtest transitions FSM to RUNNING and disables toolbar controls."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.initialCapitalText = "10000"
+
+    presenter._on_run_backtest()
+
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    assert vm.uiMode == BacktestUiState.RUNNING.value
+    assert vm.controlsEnabled is False
+    assert vm.isConfigDirty is False
+
+
+def test_backtest_succeeded_transitions_to_completed_and_snapshots_last_run_config(
+    presenter,
+):
+    """Verify successful run transitions to COMPLETED, saves _last_run_config and summary."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+    assert vm.uiMode == BacktestUiState.COMPLETED.value
+    assert vm.controlsEnabled is True
+    assert vm.isConfigDirty is False
+    assert presenter._last_run_config is not None
+    assert presenter._last_run_config.strategy_key == "fake_strategy"
+    assert presenter._last_run_config.timeframe == TimeFrame.M1
+    assert "fake_strategy" in vm.lastRunSummary
+    assert "1m" in vm.lastRunSummary
+
+
+def test_dirty_tracking_detects_timeframe_change_after_completed(presenter):
+    """Verify changing timeframe when COMPLETED transitions to CONFIG_DIRTY with diff summary."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+    assert vm.isConfigDirty is False
+
+    # User modifies timeframe in toolbar
+    vm.selectedTimeframe = "5m"
+
+    assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
+    assert vm.uiMode == BacktestUiState.CONFIG_DIRTY.value
+    assert vm.isConfigDirty is True
+    assert vm.controlsEnabled is True
+    assert "Khung thời gian (1m → 5m)" in vm.configDiffSummary
+
+
+def test_dirty_tracking_restores_to_completed_when_input_reverted(presenter):
+    """Verify reverting modified input returns FSM to COMPLETED and clears diff summary."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    # Change timeframe -> DIRTY
+    vm.selectedTimeframe = "15m"
+    assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
+    assert vm.isConfigDirty is True
+
+    # Revert timeframe back to 1m -> COMPLETED
+    vm.selectedTimeframe = "1m"
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+    assert vm.uiMode == BacktestUiState.COMPLETED.value
+    assert vm.isConfigDirty is False
+    assert vm.configDiffSummary == ""
+
+
+def test_dirty_tracking_detects_capital_and_strategy_changes(presenter):
+    """Verify modifying capital or strategy updates diff summary and sets DIRTY."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    # Change initial capital
+    vm.initialCapitalText = "50000"
+    assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
+    assert "Vốn (10,000.00 → 50,000.00 USD)" in vm.configDiffSummary
+
+    # Change strategy
+    vm.selectedStrategyKey = "ema_strategy"
+    assert "Chiến lược (fake_strategy → ema_strategy)" in vm.configDiffSummary
+
+
+def test_running_from_dirty_state_clears_dirty_state_on_completion(presenter):
+    """Verify executing run from CONFIG_DIRTY transitions to RUNNING and on success COMPLETED with new snapshot."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    # Modify timeframe
+    vm.selectedTimeframe = "1h"
+    assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
+
+    # Click Run again
+    presenter._on_run_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+
+    # Succeeded
+    presenter._on_backtest_succeeded(result)
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+    assert vm.isConfigDirty is False
+    assert presenter._last_run_config.timeframe == TimeFrame.H1
+    assert "1h" in vm.lastRunSummary
+
+
+def test_empty_backtest_transitions_to_idle_with_sync_affordance(presenter):
+    """Verify empty backtest (no historical data) transitions FSM to IDLE and enables sync."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+
+    presenter._on_run_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+
+    cfg = presenter._get_current_config()
+    presenter._on_backtest_empty("Chưa có dữ liệu lịch sử", cfg)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert vm.uiMode == BacktestUiState.IDLE.value
+    assert vm.needsDataSync is True
+    assert presenter._last_no_data_config == cfg
+
+
+def test_failed_backtest_transitions_to_idle_with_error(presenter):
+    """Verify failed backtest transitions FSM to IDLE and populates error message."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+
+    presenter._on_run_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+
+    presenter._on_backtest_failed("Connection timed out")
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert vm.uiMode == BacktestUiState.IDLE.value
+    assert "Connection timed out" in vm.resultText
+
+
+def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qml_item, qapp):
+    """Verify QML TopPanel renders amber warning banner when isConfigDirty is True."""
+    vm = presenter.view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+    qapp.processEvents()
+
+    root = presenter.view.top_widget.rootObject()
+    banner = qml_item(root, "backtestStaleWarningBanner")
+    assert banner is not None
+    assert banner.property("visible") is False
+
+    # Modify timeframe -> CONFIG_DIRTY
+    vm.selectedTimeframe = "5m"
+    qapp.processEvents()
+
+    assert banner.property("visible") is True
+    btn_run = qml_item(root, "btnRunBacktest")
+    assert btn_run is not None

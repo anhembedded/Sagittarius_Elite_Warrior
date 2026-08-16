@@ -49,8 +49,16 @@ class BackTestViewModel(BaseQmlViewModel):
     """
 
     DISABLED_UI_MODES = frozenset(
-        {BacktestUiState.RUNNING.value, BacktestUiState.SYNCING.value}
+        {
+            BacktestUiState.RUNNING.value,
+            BacktestUiState.CANCELLING.value,
+            BacktestUiState.SYNCING.value,
+        }
     )
+
+    isConfigDirtyChanged = Signal()
+    configDiffSummaryChanged = Signal()
+    lastRunSummaryChanged = Signal()
 
     strategyOptionsChanged = Signal()
     selectedStrategyKeyChanged = Signal()
@@ -157,6 +165,8 @@ class BackTestViewModel(BaseQmlViewModel):
         self._trade_log_current_page = 1
         self._bot_params_schema: list[dict] = []
         self._bot_params_error = ""
+        self._config_diff_summary = ""
+        self._last_run_summary = ""
         self._script_model = IndicatorScriptListModel(self)
 
     # ------------------------------------------------------------------ #
@@ -699,3 +709,76 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot(str)
     def setActiveBottomTab(self, tab_id: str) -> None:
         self._set_active_bottom_tab(tab_id)
+
+    # ------------------------------------------------------------------ #
+    # Stale Data / Dirty Tracking (BOT-095B)
+    # ------------------------------------------------------------------ #
+    def set_ui_mode(self, mode: str) -> None:
+        super().set_ui_mode(mode)
+        self.isConfigDirtyChanged.emit()
+
+    def _get_is_config_dirty(self) -> bool:
+        return self._ui_mode == BacktestUiState.CONFIG_DIRTY.value
+
+    isConfigDirty = Property(bool, _get_is_config_dirty, notify=isConfigDirtyChanged)
+
+    @property
+    def is_config_dirty(self) -> bool:
+        return self._get_is_config_dirty()
+
+    def _get_config_diff_summary(self) -> str:
+        return self._config_diff_summary
+
+    def _set_config_diff_summary(self, value: str) -> None:
+        val = str(value)
+        if self._config_diff_summary != val:
+            self._config_diff_summary = val
+            self.configDiffSummaryChanged.emit()
+
+    configDiffSummary = Property(
+        str,
+        _get_config_diff_summary,
+        _set_config_diff_summary,
+        notify=configDiffSummaryChanged,
+    )
+
+    @Slot(str)
+    def setConfigDiffSummary(self, value: str) -> None:
+        self._set_config_diff_summary(value)
+
+    @property
+    def config_diff_summary(self) -> str:
+        return self._config_diff_summary
+
+    @config_diff_summary.setter
+    def config_diff_summary(self, value: str) -> None:
+        self._set_config_diff_summary(value)
+
+    def _get_last_run_summary(self) -> str:
+        return self._last_run_summary
+
+    def _set_last_run_summary(self, value: str) -> None:
+        val = str(value)
+        if self._last_run_summary != val:
+            self._last_run_summary = val
+            self.lastRunSummaryChanged.emit()
+
+    lastRunSummary = Property(
+        str,
+        _get_last_run_summary,
+        _set_last_run_summary,
+        notify=lastRunSummaryChanged,
+    )
+
+    @Slot(str)
+    def setLastRunSummary(self, value: str) -> None:
+        self._set_last_run_summary(value)
+
+    @property
+    def last_run_summary(self) -> str:
+        return self._last_run_summary
+
+    @last_run_summary.setter
+    def last_run_summary(self, value: str) -> None:
+        self._set_last_run_summary(value)
+

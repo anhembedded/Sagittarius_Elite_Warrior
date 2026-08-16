@@ -321,33 +321,99 @@ Rectangle {
                         }
                     }
 
-                    Button {
-                        id: runBtnRoot
-                        objectName: "btnRunBacktest"
-                        implicitWidth: 145
-                        implicitHeight: 34
-                        enabled: root.hasViewModel && viewModel.controlsEnabled
-                        onClicked: { if (root.hasViewModel) viewModel.requestRun() }
-                        background: Rectangle {
-                            id: runBtnBg
-                            color: enabled ? (runBtnRoot.hovered ? "#12e680" : "#10b981") : "#242736"
-                            radius: 6
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                        }
-                        contentItem: RowLayout {
-                            spacing: 8
-                            anchors.centerIn: parent
-                            Image { source: "image://icons/play/black"; sourceSize: Qt.size(13, 13) }
-                            Text { text: "CHẠY BACKTEST"; color: "#08090d"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 0.5 }
+                        Button {
+                            id: runBtnRoot
+                            objectName: "btnRunBacktest"
+                            implicitWidth: 145
+                            implicitHeight: 34
+                            enabled: root.hasViewModel && viewModel.controlsEnabled
+                            onClicked: { if (root.hasViewModel) viewModel.requestRun() }
+                            background: Rectangle {
+                                id: runBtnBg
+                                color: enabled ? ((root.hasViewModel && viewModel.isConfigDirty) ? (runBtnRoot.hovered ? "#fbbf24" : "#f59e0b") : (runBtnRoot.hovered ? "#12e680" : "#10b981")) : "#242736"
+                                radius: 6
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                            }
+                            contentItem: RowLayout {
+                                spacing: 8
+                                anchors.centerIn: parent
+                                Image { source: (root.hasViewModel && viewModel.isConfigDirty) ? "image://icons/rotate-ccw/black" : "image://icons/play/black"; sourceSize: Qt.size(13, 13) }
+                                Text {
+                                    text: (root.hasViewModel && viewModel.isConfigDirty) ? "CẬP NHẬT LẠI" : "CHẠY BACKTEST"
+                                    color: "#08090d"
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    font.letterSpacing: 0.5
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // ================= HEADER: PERFORMANCE METRICS =================
-        RowLayout {
-            Layout.fillWidth: true
+            // ================= ROW 1.5: STALE CONFIG WARNING BANNER (BOT-095B) =================
+            Rectangle {
+                id: staleBanner
+                objectName: "backtestStaleWarningBanner"
+                Layout.fillWidth: true
+                implicitHeight: visible ? 36 : 0
+                visible: root.hasViewModel && viewModel.isConfigDirty
+                color: "#2a1c07"
+                border.color: "#d97706"
+                border.width: 1
+                radius: 6
+                clip: true
+
+                Behavior on implicitHeight { NumberAnimation { duration: 150 } }
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 8
+
+                    Image {
+                        source: "image://icons/triangle-alert/warning"
+                        sourceSize: Qt.size(14, 14)
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Cấu hình đã thay đổi (" + (root.hasViewModel ? viewModel.configDiffSummary : "") + "). Kết quả bên dưới chưa được cập nhật."
+                        color: "#fbbf24"
+                        font.pixelSize: 11
+                        font.bold: true
+                        elide: Text.ElideRight
+                        textFormat: Text.PlainText
+                    }
+
+                    Button {
+                        implicitHeight: 24
+                        implicitWidth: 95
+                        text: "Chạy lại"
+                        background: Rectangle {
+                            color: "#d97706"
+                            radius: 4
+                        }
+                        contentItem: Text {
+                            text: "Chạy lại ngay"
+                            color: "#08090d"
+                            font.pixelSize: 10
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestRun()
+                        }
+                    }
+                }
+            }
+
+            // ================= HEADER: PERFORMANCE METRICS =================
+            RowLayout {
+                Layout.fillWidth: true
             visible: root.hasViewModel && viewModel.primaryStatCards.length > 0
             spacing: 10
 

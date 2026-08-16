@@ -173,19 +173,22 @@ Rectangle {
                 objectName: "btnTradeLogExport"
                 text: "Export CSV"
                 implicitHeight: 28
+                opacity: (root.hasViewModel && viewModel.isConfigDirty) ? 0.7 : 1.0
                 background: Rectangle {
                     color: "#1c1e2b"
-                    border.color: "#30344a"
+                    border.color: (root.hasViewModel && viewModel.isConfigDirty) ? "#d97706" : "#30344a"
                     border.width: 1
                     radius: 6
                 }
                 contentItem: RowLayout {
                     spacing: 6
                     anchors.centerIn: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
                     Image { source: "image://icons/download/accent"; sourceSize: Qt.size(12, 12) }
                     Text {
-                        text: "Export"
-                        color: root.themeTextPrimary
+                        text: (root.hasViewModel && viewModel.isConfigDirty) ? "Export CSV (Cũ)" : "Export"
+                        color: (root.hasViewModel && viewModel.isConfigDirty) ? "#fbbf24" : root.themeTextPrimary
                         font.pixelSize: 11
                         font.bold: true
                     }
@@ -202,6 +205,9 @@ Rectangle {
             border.color: "#222533"
             border.width: 1
             radius: 8
+            clip: true
+            opacity: (root.hasViewModel && viewModel.isConfigDirty) ? 0.6 : 1.0
+            Behavior on opacity { NumberAnimation { duration: 150 } }
 
             ColumnLayout {
                 anchors.fill: parent

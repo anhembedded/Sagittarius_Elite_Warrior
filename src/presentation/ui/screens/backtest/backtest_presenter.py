@@ -59,9 +59,13 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .backtest_view_model import BackTestViewModel
 from .logic.backtest_event_logger import BacktestEventLogger
+from .logic.backtest_fsm_matrix import (
+    BACKTEST_STATE_TRANSITIONS,
+    BacktestRunConfig,
+    BacktestUiEvent,
+    BacktestUiState,
+)
 from .logic.backtest_limitations_view import build_backtest_limitations
-from .logic.backtest_run_config import BacktestRunConfig
-from .logic.backtest_state import BacktestUiState
 from .logic.bot_params_form import build_bot_params_schema, parse_bot_params
 from .logic.chart_canvas_view import ChartDisplayMode
 from .logic.performance_metrics_view import (
@@ -160,6 +164,7 @@ class BackTestPresenter(BasePresenter):
     """
 
     INITIAL_STATE = BacktestUiState.IDLE
+    UI_TRANSITION_MATRIX = BACKTEST_STATE_TRANSITIONS
 
     _backtestSucceededSignal = Signal(object)  # BacktestResult
     _backtestEmptySignal = Signal(str, object)  # message, BacktestRunConfig (no data)
@@ -196,6 +201,10 @@ class BackTestPresenter(BasePresenter):
         # data" result), cleared by any successful run or successful sync —
         # the single source of truth for whether "Đồng bộ ngay" is offered.
         self._last_no_data_config: BacktestRunConfig | None = None
+
+        # BOT-095B: Snapshot of the last executed backtest run configuration.
+        # Used for Dirty Tracking to compare against active toolbar inputs.
+        self._last_run_config: BacktestRunConfig | None = None
 
         # BOT-057: the single source of truth the Trade Logs table's
         # filter/search/pagination all read from — the ViewModel only ever
@@ -287,16 +296,8 @@ class BackTestPresenter(BasePresenter):
         self._refresh_bot_params_schema()
 
         if self.fsm:
-            self.fsm.add_transition(BacktestUiState.IDLE, BacktestUiState.RUNNING)
-            self.fsm.add_transition(BacktestUiState.RUNNING, BacktestUiState.IDLE)
-            self.fsm.add_transition(BacktestUiState.RUNNING, BacktestUiState.ERROR)
-            self.fsm.add_transition(BacktestUiState.ERROR, BacktestUiState.IDLE)
-            # BOT-059: "Đồng bộ ngay" affordance — SYNCING is a distinct
-            # state, not a bool bolted onto RUNNING, so a sync-in-flight and
-            # a backtest-in-flight can never be represented at the same time.
-            self.fsm.add_transition(BacktestUiState.IDLE, BacktestUiState.SYNCING)
-            self.fsm.add_transition(BacktestUiState.SYNCING, BacktestUiState.RUNNING)
-            self.fsm.add_transition(BacktestUiState.SYNCING, BacktestUiState.IDLE)
+            self.fsm.add_global_callback(self._on_fsm_state_changed)
+            self._view_model.set_ui_mode(self.fsm.current_state.value)
 
         # Must be called explicitly at the end of __init__ per BasePresenter
         # contract, and before load_qml() so QML parses against a ready model.
@@ -322,6 +323,8 @@ class BackTestPresenter(BasePresenter):
         )
         self._view_model.selectedTimeframeChanged.connect(self._on_timeframe_changed)
         self._view_model.timeRangePresetChanged.connect(self._on_time_range_changed)
+        self._view_model.customStartTextChanged.connect(self._on_custom_time_changed)
+        self._view_model.customEndTextChanged.connect(self._on_custom_time_changed)
         self._view_model.initialCapitalTextChanged.connect(self._on_capital_changed)
         self._view_model.selectedCurrencyChanged.connect(self._on_capital_changed)
         self._view_model.script_model.enabledKeysChanged.connect(
@@ -453,10 +456,83 @@ class BackTestPresenter(BasePresenter):
     # Qt Slots — main thread
     # ================================================================== #
 
+    def _on_fsm_state_changed(
+        self, old_state: BacktestUiState, new_state: BacktestUiState
+    ) -> None:
+        self._view_model.set_ui_mode(new_state.value)
+
+    def _get_current_config(self) -> BacktestRunConfig:
+        timeframe_str = self._view_model.selectedTimeframe
+        try:
+            tf = TimeFrame(timeframe_str)
+        except ValueError:
+            tf = TimeFrame.M1
+
+        try:
+            balance = float(self._view_model.initialCapitalText)
+        except (ValueError, TypeError):
+            balance = 10000.0
+
+        try:
+            currency = Currency(self._view_model.selectedCurrency)
+        except ValueError:
+            currency = Currency.USD
+
+        preset = self._view_model.timeRangePreset
+        if preset == TimeRangePreset.CUSTOM.value:
+            start_dt = _parse_custom_datetime(self._view_model.customStartText)
+            end_dt = _parse_custom_datetime(self._view_model.customEndText)
+        else:
+            try:
+                start_dt, end_dt = resolve_time_range(TimeRangePreset(preset))
+            except ValueError:
+                start_dt, end_dt = None, None
+
+        return BacktestRunConfig(
+            strategy_key=self._view_model.selectedStrategyKey,
+            timeframe=tf,
+            initial_balance=balance,
+            start_time=start_dt,
+            end_time=end_dt,
+            strategy_params=self._strategy_params,
+            currency=currency,
+            symbol=self._symbol,
+        )
+
+    def _on_config_input_changed(self) -> None:
+        """Dirty Tracking (BOT-095B): Compares active toolbar inputs against
+        the last executed run snapshot (_last_run_config) to detect stale state."""
+        if self.fsm is None:
+            return
+
+        if self.fsm.current_state in (
+            BacktestUiState.RUNNING,
+            BacktestUiState.CANCELLING,
+            BacktestUiState.SYNCING,
+        ):
+            return
+
+        current_config = self._get_current_config()
+
+        if self._last_run_config is None:
+            if self.fsm.can_dispatch(BacktestUiEvent.CONFIG_CHANGED):
+                self.fsm.dispatch(BacktestUiEvent.CONFIG_CHANGED)
+            return
+
+        if current_config == self._last_run_config:
+            self._view_model.configDiffSummary = ""
+            if self.fsm.can_dispatch(BacktestUiEvent.CONFIG_RESTORED):
+                self.fsm.dispatch(BacktestUiEvent.CONFIG_RESTORED)
+        else:
+            diff_msg = self._last_run_config.compute_diff_summary(current_config)
+            self._view_model.configDiffSummary = diff_msg
+            if self.fsm.can_dispatch(BacktestUiEvent.CONFIG_CHANGED):
+                self.fsm.dispatch(BacktestUiEvent.CONFIG_CHANGED)
+
     @Slot()
     @safe_ui_action
     def _on_run_backtest(self) -> None:
-        if self.fsm.current_state != BacktestUiState.IDLE:
+        if not self.fsm.can_dispatch(BacktestUiEvent.RUN_REQUESTED):
             self._log_dev_trace(
                 "run_ignored",
                 state=self.fsm.current_state,
@@ -480,7 +556,7 @@ class BackTestPresenter(BasePresenter):
             currency=self._view_model.selectedCurrency,
             symbol=self._symbol,
         )
-        self.fsm.transition_to(BacktestUiState.RUNNING)
+        self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
         self._log_dev_trace("run_transitioned", state=self.fsm.current_state)
         self._start_backtest_run(config)
 
@@ -562,7 +638,11 @@ class BackTestPresenter(BasePresenter):
             win_rate=win_rate,
             currency=self._view_model.selectedCurrency,
         )
-        self.fsm.transition_to(BacktestUiState.IDLE)
+        self._last_run_config = self._get_current_config()
+        self._view_model.lastRunSummary = self._last_run_config.to_summary_label()
+        self._view_model.configDiffSummary = ""
+        if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED):
+            self.fsm.dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED)
 
     @Slot(str, object)
     @safe_ui_action
@@ -580,8 +660,8 @@ class BackTestPresenter(BasePresenter):
         self._all_trades = []
         self._refresh_trade_log()
         self._logger.log_backtest_empty(message)
-        if self.fsm.current_state != BacktestUiState.IDLE:
-            self.fsm.transition_to(BacktestUiState.IDLE)
+        if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_EMPTY):
+            self.fsm.dispatch(BacktestUiEvent.BACKTEST_EMPTY)
         self._log_dev_trace("run_empty", message=message)
 
     @Slot(str)
@@ -595,7 +675,8 @@ class BackTestPresenter(BasePresenter):
         self._all_trades = []
         self._refresh_trade_log()
         self._logger.log_backtest_failed(message)
-        self.fsm.transition_to(BacktestUiState.IDLE)
+        if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_FAILED):
+            self.fsm.dispatch(BacktestUiEvent.BACKTEST_FAILED)
 
     @Slot(object, list, list)
     @safe_ui_action
@@ -720,11 +801,13 @@ class BackTestPresenter(BasePresenter):
             self._view_model.selectedStrategyName,
             self._view_model.selectedStrategyKey,
         )
+        self._on_config_input_changed()
 
     @Slot()
     @safe_ui_action
     def _on_timeframe_changed(self) -> None:
         self._logger.log_timeframe_selected(self._view_model.selectedTimeframe)
+        self._on_config_input_changed()
 
     @Slot()
     @safe_ui_action
@@ -734,6 +817,13 @@ class BackTestPresenter(BasePresenter):
             self._view_model.customStartText,
             self._view_model.customEndText,
         )
+        self._on_config_input_changed()
+
+    @Slot()
+    @safe_ui_action
+    def _on_custom_time_changed(self) -> None:
+        if self._view_model.timeRangePreset == TimeRangePreset.CUSTOM.value:
+            self._on_config_input_changed()
 
     @Slot()
     @safe_ui_action
@@ -746,6 +836,7 @@ class BackTestPresenter(BasePresenter):
             )
         except (ValueError, TypeError):
             pass
+        self._on_config_input_changed()
 
     @Slot()
     @safe_ui_action
@@ -781,13 +872,14 @@ class BackTestPresenter(BasePresenter):
             self._view_model.selectedStrategyName,
             parsed,
         )
+        self._on_config_input_changed()
 
-        if self.fsm.current_state != BacktestUiState.IDLE:
+        if not self.fsm.can_dispatch(BacktestUiEvent.RUN_REQUESTED):
             return
         config = self._build_run_config()
         if config is None:
             return
-        self.fsm.transition_to(BacktestUiState.RUNNING)
+        self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
         self._start_backtest_run(config)
 
     def _refresh_bot_params_schema(self) -> None:
@@ -807,11 +899,11 @@ class BackTestPresenter(BasePresenter):
         if self._last_no_data_config is None:
             self._log_dev_trace("sync_ignored", reason="no_cached_config")
             return
-        if self.fsm.current_state != BacktestUiState.IDLE:
+        if not self.fsm.can_dispatch(BacktestUiEvent.SYNC_REQUESTED):
             self._log_dev_trace("sync_ignored", state=self.fsm.current_state)
             return
         self._log_dev_trace("sync_requested")
-        self.fsm.transition_to(BacktestUiState.SYNCING)
+        self.fsm.dispatch(BacktestUiEvent.SYNC_REQUESTED)
         self._view_model.set_result(_SYNCING_MESSAGE, is_error=False)
         self._log_dev_trace("sync_worker_submitted")
         self._thread_manager.submit(self._run_sync, self._last_no_data_config)
@@ -829,7 +921,8 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_needs_data_sync(False)
         cached_config = self._last_no_data_config
         self._last_no_data_config = None
-        self.fsm.transition_to(BacktestUiState.RUNNING)
+        if self.fsm.can_dispatch(BacktestUiEvent.SYNC_SUCCEEDED):
+            self.fsm.dispatch(BacktestUiEvent.SYNC_SUCCEEDED)
 
         # Re-read the toolbar's CURRENT config, not the cached one — the user
         # may have edited fields (symbol/strategy/range) while the sync was
@@ -846,7 +939,8 @@ class BackTestPresenter(BasePresenter):
         # needsDataSync / _last_no_data_config are left untouched — the sync
         # that just failed was for genuinely missing data, so "Đồng bộ ngay"
         # should stay offered for the user to retry.
-        self.fsm.transition_to(BacktestUiState.IDLE)
+        if self.fsm.can_dispatch(BacktestUiEvent.SYNC_FAILED):
+            self.fsm.dispatch(BacktestUiEvent.SYNC_FAILED)
         self._view_model.set_result(f"Đồng bộ thất bại: {message}", is_error=True)
 
     @Slot()
@@ -859,6 +953,10 @@ class BackTestPresenter(BasePresenter):
     def _on_trade_log_export_requested(self) -> None:
         if not self._all_trades:
             return
+        if self._view_model.isConfigDirty:
+            self._logger.info(
+                f"Đang xuất Trade Logs của lần chạy trước ({self._view_model.lastRunSummary})."
+            )
         path, _selected_filter = QFileDialog.getSaveFileName(
             self.view,
             _EXPORT_DIALOG_TITLE,
