@@ -781,4 +781,3 @@ class BackTestViewModel(BaseQmlViewModel):
     @last_run_summary.setter
     def last_run_summary(self, value: str) -> None:
         self._set_last_run_summary(value)
-

@@ -238,6 +238,12 @@ def _make_result(with_trades: bool) -> BacktestResult:
     )
 
 
+def _make_fake_result(trades: list) -> BacktestResult:
+    """BOT-095B alias: wraps _make_result for FSM/dirty-tracking tests that
+    pass an explicit `trades` list instead of a bool flag."""
+    return _make_result(with_trades=len(trades) > 0)
+
+
 def _make_result_with_trades(trade_count: int, win_count: int) -> BacktestResult:
     """@brief BOT-057: `_make_result`'s `with_trades: bool` only ever makes
     0 or 1 trade — filter/search/pagination tests need a real spread."""
@@ -607,7 +613,7 @@ def test_successful_run_with_trades_updates_view_model_and_unlocks(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
     assert view_model.resultIsError is False
     assert "ETHUSDT" in view_model.resultText
     assert "Closed trades: 1" in view_model.resultText
@@ -759,7 +765,7 @@ def test_no_historical_data_reports_empty_message_and_unlocks(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.EMPTY_DATA
     assert view_model.resultIsError is False
     assert "Không có dữ liệu" in view_model.resultText
     # BOT-059: "no data at all" is exactly the case "Đồng bộ ngay" exists for.
@@ -777,7 +783,7 @@ def test_zero_trades_reports_empty_message_with_the_metrics(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
     assert view_model.resultIsError is False
     assert "không có giao dịch nào" in view_model.resultText
     assert "Closed trades: 0" in view_model.resultText
@@ -796,7 +802,7 @@ def test_dispatch_exception_reports_error_and_unlocks(
 
     presenter._run_backtest(config)
 
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.ERROR
     assert view_model.resultIsError is True
     assert "boom" in view_model.resultText
 
@@ -922,7 +928,7 @@ def test_sync_failure_keeps_the_flag_and_returns_to_idle(
 
     presenter._run_sync(config)
 
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.ERROR
     assert view_model.needsDataSync is True
     assert presenter._last_no_data_config is config
     assert view_model.resultIsError is True
@@ -1333,7 +1339,8 @@ def test_active_strategy_lines_are_cleared_before_each_new_run_not_after(
     card.remove_indicator.assert_any_call("ema_slow")
     assert presenter._active_strategy_lines == set()
 
-    presenter.fsm.transition_to(BacktestUiState.IDLE)
+    if presenter.fsm.can_dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED):
+        presenter.fsm.dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED)
     presenter._active_strategy_lines = {"ema_fast"}
     view_model.requestRun()
 
@@ -1862,16 +1869,16 @@ def test_fsm_initializes_with_declarative_state_machine(presenter):
     """Verify FSM is loaded from UI_TRANSITION_MATRIX and bound to ViewModel."""
     assert presenter.fsm is not None
     assert presenter.fsm.current_state == BacktestUiState.IDLE
-    assert presenter.view_model.uiMode == BacktestUiState.IDLE.value
-    assert presenter.view_model.isConfigDirty is False
-    assert presenter.view_model.controlsEnabled is True
-    assert presenter.view_model.configDiffSummary == ""
-    assert presenter.view_model.lastRunSummary == ""
+    assert presenter._view_model.uiMode == BacktestUiState.IDLE.value
+    assert presenter._view_model.isConfigDirty is False
+    assert presenter._view_model.controlsEnabled is True
+    assert presenter._view_model.configDiffSummary == ""
+    assert presenter._view_model.lastRunSummary == ""
 
 
 def test_run_backtest_dispatches_run_requested_and_updates_ui_mode(presenter):
     """Verify running backtest transitions FSM to RUNNING and disables toolbar controls."""
-    vm = presenter.view_model
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.initialCapitalText = "10000"
 
@@ -1887,7 +1894,7 @@ def test_backtest_succeeded_transitions_to_completed_and_snapshots_last_run_conf
     presenter,
 ):
     """Verify successful run transitions to COMPLETED, saves _last_run_config and summary."""
-    vm = presenter.view_model
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.selectedTimeframe = "1m"
     vm.initialCapitalText = "10000"
@@ -1905,14 +1912,14 @@ def test_backtest_succeeded_transitions_to_completed_and_snapshots_last_run_conf
     assert vm.isConfigDirty is False
     assert presenter._last_run_config is not None
     assert presenter._last_run_config.strategy_key == "fake_strategy"
-    assert presenter._last_run_config.timeframe == TimeFrame.M1
+    assert presenter._last_run_config.timeframe == TimeFrame.ONE_MINUTE
     assert "fake_strategy" in vm.lastRunSummary
     assert "1m" in vm.lastRunSummary
 
 
 def test_dirty_tracking_detects_timeframe_change_after_completed(presenter):
     """Verify changing timeframe when COMPLETED transitions to CONFIG_DIRTY with diff summary."""
-    vm = presenter.view_model
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.selectedTimeframe = "1m"
     vm.initialCapitalText = "10000"
@@ -1937,7 +1944,7 @@ def test_dirty_tracking_detects_timeframe_change_after_completed(presenter):
 
 def test_dirty_tracking_restores_to_completed_when_input_reverted(presenter):
     """Verify reverting modified input returns FSM to COMPLETED and clears diff summary."""
-    vm = presenter.view_model
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.selectedTimeframe = "1m"
     vm.initialCapitalText = "10000"
@@ -1962,7 +1969,7 @@ def test_dirty_tracking_restores_to_completed_when_input_reverted(presenter):
 
 def test_dirty_tracking_detects_capital_and_strategy_changes(presenter):
     """Verify modifying capital or strategy updates diff summary and sets DIRTY."""
-    vm = presenter.view_model
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.selectedTimeframe = "1m"
     vm.initialCapitalText = "10000"
@@ -1975,7 +1982,7 @@ def test_dirty_tracking_detects_capital_and_strategy_changes(presenter):
     # Change initial capital
     vm.initialCapitalText = "50000"
     assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
-    assert "Vốn (10,000.00 → 50,000.00 USD)" in vm.configDiffSummary
+    assert "Vốn (10,000 → 50,000)" in vm.configDiffSummary
 
     # Change strategy
     vm.selectedStrategyKey = "ema_strategy"
@@ -1984,7 +1991,7 @@ def test_dirty_tracking_detects_capital_and_strategy_changes(presenter):
 
 def test_running_from_dirty_state_clears_dirty_state_on_completion(presenter):
     """Verify executing run from CONFIG_DIRTY transitions to RUNNING and on success COMPLETED with new snapshot."""
-    vm = presenter.view_model
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.selectedTimeframe = "1m"
     vm.initialCapitalText = "10000"
@@ -2005,13 +2012,13 @@ def test_running_from_dirty_state_clears_dirty_state_on_completion(presenter):
     presenter._on_backtest_succeeded(result)
     assert presenter.fsm.current_state == BacktestUiState.COMPLETED
     assert vm.isConfigDirty is False
-    assert presenter._last_run_config.timeframe == TimeFrame.H1
+    assert presenter._last_run_config.timeframe == TimeFrame.ONE_HOUR
     assert "1h" in vm.lastRunSummary
 
 
 def test_empty_backtest_transitions_to_idle_with_sync_affordance(presenter):
-    """Verify empty backtest (no historical data) transitions FSM to IDLE and enables sync."""
-    vm = presenter.view_model
+    """Verify empty backtest (no historical data) transitions FSM to EMPTY_DATA and enables sync."""
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
 
     presenter._on_run_backtest()
@@ -2020,15 +2027,15 @@ def test_empty_backtest_transitions_to_idle_with_sync_affordance(presenter):
     cfg = presenter._get_current_config()
     presenter._on_backtest_empty("Chưa có dữ liệu lịch sử", cfg)
 
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
-    assert vm.uiMode == BacktestUiState.IDLE.value
+    assert presenter.fsm.current_state == BacktestUiState.EMPTY_DATA
+    assert vm.uiMode == BacktestUiState.EMPTY_DATA.value
     assert vm.needsDataSync is True
     assert presenter._last_no_data_config == cfg
 
 
 def test_failed_backtest_transitions_to_idle_with_error(presenter):
-    """Verify failed backtest transitions FSM to IDLE and populates error message."""
-    vm = presenter.view_model
+    """Verify failed backtest transitions FSM to ERROR and populates error message."""
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
 
     presenter._on_run_backtest()
@@ -2036,14 +2043,14 @@ def test_failed_backtest_transitions_to_idle_with_error(presenter):
 
     presenter._on_backtest_failed("Connection timed out")
 
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
-    assert vm.uiMode == BacktestUiState.IDLE.value
+    assert presenter.fsm.current_state == BacktestUiState.ERROR
+    assert vm.uiMode == BacktestUiState.ERROR.value
     assert "Connection timed out" in vm.resultText
 
 
 def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qml_item, qapp):
     """Verify QML TopPanel renders amber warning banner when isConfigDirty is True."""
-    vm = presenter.view_model
+    vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.selectedTimeframe = "1m"
     vm.initialCapitalText = "10000"
@@ -2065,3 +2072,66 @@ def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qml_item
     assert banner.property("visible") is True
     btn_run = qml_item(root, "btnRunBacktest")
     assert btn_run is not None
+
+
+# ================================================================== #
+# BUG: resolve_time_range() missing 'now' argument regression (BOT-095B)
+# Reproduces: "_on_backtest_succeeded: resolve_time_range() missing 1
+# required positional argument: 'now'" from production log 2026-08-16.
+# ================================================================== #
+
+
+def test_get_current_config_does_not_raise_for_preset_time_ranges(presenter):
+    """Regression: _get_current_config() called resolve_time_range(preset) without
+    the required 'now: datetime' argument, crashing on every backtest success/failure
+    callback via _on_config_input_changed -> _get_current_config.
+
+    Reproduces: Exception in _on_backtest_succeeded:
+        resolve_time_range() missing 1 required positional argument: 'now'
+    """
+    vm = presenter._view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+
+    presets_under_test = ["7d", "30d", "90d", "365d", "all"]
+    for preset in presets_under_test:
+        vm.timeRangePreset = preset
+        # Must not raise TypeError — was crashing with missing 'now' arg
+        config = presenter._get_current_config()
+        assert config is not None, f"Expected config for preset={preset!r}"
+
+
+def test_get_current_config_custom_preset_parses_dates(presenter):
+    """Regression companion: CUSTOM preset path must also work without crash."""
+    vm = presenter._view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.timeRangePreset = "custom"
+    vm.customStartText = "2026-01-01"
+    vm.customEndText = "2026-06-30"
+
+    config = presenter._get_current_config()
+    assert config is not None
+
+
+def test_on_backtest_succeeded_does_not_raise_for_preset_ranges(presenter):
+    """Regression: _on_backtest_succeeded internally calls _get_current_config
+    to snapshot _last_run_config and compute diff — must not crash for
+    any non-CUSTOM preset selected in the toolbar when a run completes."""
+    vm = presenter._view_model
+    vm.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.timeRangePreset = "30d"  # A preset that requires 'now' in resolve_time_range
+
+    presenter._on_run_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+
+    # Must not raise — was crashing with "missing 1 required positional argument: 'now'"
+    result = _make_result(with_trades=False)
+    presenter._on_backtest_succeeded(result)
+
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+    assert presenter._last_run_config is not None

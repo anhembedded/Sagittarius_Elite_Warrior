@@ -226,7 +226,7 @@ def test_backtest_screen_real_container_runtime_run_fetch_render_path_stays_clea
     assert view.top_widget.errors() == []
     assert view.bottom_widget.errors() == []
     assert view.overlay_host.quick_widget.errors() == []
-    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
     assert view_model.needsDataSync is False
     assert view._last_klines
     assert view.chart_cards[0]._raw_history

@@ -54,42 +54,73 @@ class BacktestUiEvent(str, Enum):
 
 
 #: Declarative State Transition Matrix: (CurrentState, Event) -> NextState
-BACKTEST_STATE_TRANSITIONS: dict[tuple[BacktestUiState, BacktestUiEvent], BacktestUiState] = {
+BACKTEST_STATE_TRANSITIONS: dict[
+    tuple[BacktestUiState, BacktestUiEvent], BacktestUiState
+] = {
     # --- IDLE ---
     (BacktestUiState.IDLE, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.IDLE,
     (BacktestUiState.IDLE, BacktestUiEvent.RUN_REQUESTED): BacktestUiState.RUNNING,
     (BacktestUiState.IDLE, BacktestUiEvent.SYNC_REQUESTED): BacktestUiState.SYNCING,
-
     # --- COMPLETED ---
-    (BacktestUiState.COMPLETED, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.CONFIG_DIRTY,
+    (
+        BacktestUiState.COMPLETED,
+        BacktestUiEvent.CONFIG_CHANGED,
+    ): BacktestUiState.CONFIG_DIRTY,
     (BacktestUiState.COMPLETED, BacktestUiEvent.RUN_REQUESTED): BacktestUiState.RUNNING,
-    (BacktestUiState.COMPLETED, BacktestUiEvent.SYNC_REQUESTED): BacktestUiState.SYNCING,
-
+    (
+        BacktestUiState.COMPLETED,
+        BacktestUiEvent.SYNC_REQUESTED,
+    ): BacktestUiState.SYNCING,
     # --- CONFIG_DIRTY (Stale Data) ---
-    (BacktestUiState.CONFIG_DIRTY, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.CONFIG_DIRTY,
-    (BacktestUiState.CONFIG_DIRTY, BacktestUiEvent.CONFIG_RESTORED): BacktestUiState.COMPLETED,
-    (BacktestUiState.CONFIG_DIRTY, BacktestUiEvent.RUN_REQUESTED): BacktestUiState.RUNNING,
-    (BacktestUiState.CONFIG_DIRTY, BacktestUiEvent.SYNC_REQUESTED): BacktestUiState.SYNCING,
-
+    (
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiEvent.CONFIG_CHANGED,
+    ): BacktestUiState.CONFIG_DIRTY,
+    (
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiEvent.CONFIG_RESTORED,
+    ): BacktestUiState.COMPLETED,
+    (
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiEvent.RUN_REQUESTED,
+    ): BacktestUiState.RUNNING,
+    (
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiEvent.SYNC_REQUESTED,
+    ): BacktestUiState.SYNCING,
     # --- RUNNING ---
-    (BacktestUiState.RUNNING, BacktestUiEvent.CANCEL_REQUESTED): BacktestUiState.CANCELLING,
-    (BacktestUiState.RUNNING, BacktestUiEvent.BACKTEST_SUCCEEDED): BacktestUiState.COMPLETED,
-    (BacktestUiState.RUNNING, BacktestUiEvent.BACKTEST_EMPTY): BacktestUiState.EMPTY_DATA,
+    (
+        BacktestUiState.RUNNING,
+        BacktestUiEvent.CANCEL_REQUESTED,
+    ): BacktestUiState.CANCELLING,
+    (
+        BacktestUiState.RUNNING,
+        BacktestUiEvent.BACKTEST_SUCCEEDED,
+    ): BacktestUiState.COMPLETED,
+    (
+        BacktestUiState.RUNNING,
+        BacktestUiEvent.BACKTEST_EMPTY,
+    ): BacktestUiState.EMPTY_DATA,
     (BacktestUiState.RUNNING, BacktestUiEvent.BACKTEST_FAILED): BacktestUiState.ERROR,
-
     # --- CANCELLING ---
-    (BacktestUiState.CANCELLING, BacktestUiEvent.BACKTEST_CANCELLED): BacktestUiState.IDLE,
+    (
+        BacktestUiState.CANCELLING,
+        BacktestUiEvent.BACKTEST_CANCELLED,
+    ): BacktestUiState.IDLE,
     (BacktestUiState.CANCELLING, BacktestUiEvent.BACKTEST_FAILED): BacktestUiState.IDLE,
-
     # --- SYNCING ---
     (BacktestUiState.SYNCING, BacktestUiEvent.SYNC_SUCCEEDED): BacktestUiState.RUNNING,
     (BacktestUiState.SYNCING, BacktestUiEvent.SYNC_FAILED): BacktestUiState.ERROR,
-
     # --- EMPTY_DATA ---
-    (BacktestUiState.EMPTY_DATA, BacktestUiEvent.SYNC_REQUESTED): BacktestUiState.SYNCING,
+    (
+        BacktestUiState.EMPTY_DATA,
+        BacktestUiEvent.SYNC_REQUESTED,
+    ): BacktestUiState.SYNCING,
     (BacktestUiState.EMPTY_DATA, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.IDLE,
-    (BacktestUiState.EMPTY_DATA, BacktestUiEvent.RUN_REQUESTED): BacktestUiState.RUNNING,
-
+    (
+        BacktestUiState.EMPTY_DATA,
+        BacktestUiEvent.RUN_REQUESTED,
+    ): BacktestUiState.RUNNING,
     # --- ERROR ---
     (BacktestUiState.ERROR, BacktestUiEvent.ERROR_DISMISSED): BacktestUiState.IDLE,
     (BacktestUiState.ERROR, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.IDLE,
@@ -131,23 +162,37 @@ class BacktestRunConfig:
         diffs: list[str] = []
 
         if self.timeframe != other.timeframe:
-            diffs.append(f"Khung thời gian ({self.timeframe.value} → {other.timeframe.value})")
+            diffs.append(
+                f"Khung thời gian ({self.timeframe.value} → {other.timeframe.value})"
+            )
 
         if self.strategy_key != other.strategy_key:
             diffs.append(f"Chiến lược ({self.strategy_key} → {other.strategy_key})")
 
         if abs(self.initial_balance - other.initial_balance) > 1e-6:
-            diffs.append(f"Vốn ({self.initial_balance:,.0f} → {other.initial_balance:,.0f})")
+            diffs.append(
+                f"Vốn ({self.initial_balance:,.0f} → {other.initial_balance:,.0f})"
+            )
 
         if self.currency != other.currency:
             diffs.append(f"Tiền tệ ({self.currency.value} → {other.currency.value})")
 
         if self.start_time != other.start_time or self.end_time != other.end_time:
-            self_start = self.start_time.strftime("%Y-%m-%d") if self.start_time else "Đầu"
-            self_end = self.end_time.strftime("%Y-%m-%d") if self.end_time else "Hiện tại"
-            other_start = other.start_time.strftime("%Y-%m-%d") if other.start_time else "Đầu"
-            other_end = other.end_time.strftime("%Y-%m-%d") if other.end_time else "Hiện tại"
-            diffs.append(f"Khoảng thời gian ({self_start}..{self_end} → {other_start}..{other_end})")
+            self_start = (
+                self.start_time.strftime("%Y-%m-%d") if self.start_time else "Đầu"
+            )
+            self_end = (
+                self.end_time.strftime("%Y-%m-%d") if self.end_time else "Hiện tại"
+            )
+            other_start = (
+                other.start_time.strftime("%Y-%m-%d") if other.start_time else "Đầu"
+            )
+            other_end = (
+                other.end_time.strftime("%Y-%m-%d") if other.end_time else "Hiện tại"
+            )
+            diffs.append(
+                f"Khoảng thời gian ({self_start}..{self_end} → {other_start}..{other_end})"
+            )
 
         if self.strategy_params != other.strategy_params:
             diffs.append("Thông số Chiến lược")

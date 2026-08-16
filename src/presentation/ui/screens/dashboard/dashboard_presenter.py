@@ -414,7 +414,7 @@ class DashboardPresenter(BasePresenter):
             health_query = self.container.resolve(HealthCheckQuery)
             status = health_query.execute()
             self._handle_health_updated(HealthUpdatedEvent(status))
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass
 
     def _handle_health_updated(self, event: Any) -> None:

@@ -14,8 +14,8 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from unittest.mock import MagicMock
-import pytest
 
+import pytest
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -140,8 +140,9 @@ def test_dashboard_initial_health_check_single_log(qapp, health_mock_container):
     assert mock_health_query.execute.call_count == count_before
 
 
-
-def test_backtest_initializes_and_handles_health_updated_event(qapp, health_mock_container):
+def test_backtest_initializes_and_handles_health_updated_event(
+    qapp, health_mock_container
+):
     """Verify BackTestPresenter initializes and handles health events directly into log."""
     from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
         StrategyRegistry,
@@ -186,4 +187,3 @@ def test_backtest_initializes_and_handles_health_updated_event(qapp, health_mock
     assert mock_health_query.execute.call_count >= 1
     log_texts = [entry.message for entry in presenter._view_model.log_model.entries]
     assert any("[Health] Trạng thái hệ thống: HEALTHY" in log for log in log_texts)
-

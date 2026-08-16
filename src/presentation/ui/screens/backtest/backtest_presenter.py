@@ -355,7 +355,9 @@ class BackTestPresenter(BasePresenter):
         self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
         self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
         self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
-        self.event_bus.on(HealthUpdatedEvent.event_name, self._handle_health_updated_event)
+        self.event_bus.on(
+            HealthUpdatedEvent.event_name, self._handle_health_updated_event
+        )
 
     def _trigger_initial_health_check(self) -> None:
         """Trigger an initial health check when backtest screen initializes."""
@@ -363,7 +365,7 @@ class BackTestPresenter(BasePresenter):
             health_query = self.container.resolve(HealthCheckQuery)
             status = health_query.execute()
             self._handle_health_updated_event(HealthUpdatedEvent(status))
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass
 
     def _handle_health_updated_event(self, event: Any) -> None:
@@ -484,7 +486,9 @@ class BackTestPresenter(BasePresenter):
             end_dt = _parse_custom_datetime(self._view_model.customEndText)
         else:
             try:
-                start_dt, end_dt = resolve_time_range(TimeRangePreset(preset))
+                start_dt, end_dt = resolve_time_range(
+                    TimeRangePreset(preset), datetime.now(UTC)
+                )
             except ValueError:
                 start_dt, end_dt = None, None
 

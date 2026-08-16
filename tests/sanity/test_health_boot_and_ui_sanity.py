@@ -39,7 +39,9 @@ def booted_app_with_logs():
     config_manager = ConfigManager()
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     config_manager.load_json(os.path.join(base_dir, "src", "config", "app_config.json"))
-    config_manager.load_json(os.path.join(base_dir, "src", "config", "user_config.json"))
+    config_manager.load_json(
+        os.path.join(base_dir, "src", "config", "user_config.json")
+    )
 
     app = create_app(config_manager)
 
@@ -94,19 +96,25 @@ def test_real_backtest_screen_contains_health_log(qapp, booted_app_with_logs):
     presenter = BackTestPresenter(view, app.context.container)
 
     log_messages = [entry.message for entry in presenter._view_model.log_model.entries]
-    assert any("[Health] Trạng thái hệ thống: HEALTHY" in msg for msg in log_messages), (
+    assert any(
+        "[Health] Trạng thái hệ thống: HEALTHY" in msg for msg in log_messages
+    ), (
         f"Expected '[Health] Trạng thái hệ thống: HEALTHY' in Backtest logs, got: {log_messages}"
     )
 
 
-def test_real_mainwindow_construction_initializes_health_cleanly(qapp, booted_app_with_logs):
+def test_real_mainwindow_construction_initializes_health_cleanly(
+    qapp, booted_app_with_logs
+):
     """Assert constructing the full MainWindow renders cleanly with zero QML errors."""
     app, _ = booted_app_with_logs
     window = MainWindow(app)
     assert window is not None
 
 
-def test_step_enter_backtest_and_click_run_backtest_logs_health(qapp, booted_app_with_logs):
+def test_step_enter_backtest_and_click_run_backtest_logs_health(
+    qapp, booted_app_with_logs
+):
     """
     Step 1: Enter Backtest Screen (Construct BackTestPresenter).
     Step 2: Click 'Chạy Backtest' (_on_run_backtest).
@@ -117,8 +125,13 @@ def test_step_enter_backtest_and_click_run_backtest_logs_health(qapp, booted_app
     presenter = BackTestPresenter(view, app.context.container)
 
     # Step 1: Check logs upon entering Backtest screen
-    log_messages_on_enter = [entry.message for entry in presenter._view_model.log_model.entries]
-    assert any("[Health] Trạng thái hệ thống: HEALTHY (Database: OK" in msg for msg in log_messages_on_enter)
+    log_messages_on_enter = [
+        entry.message for entry in presenter._view_model.log_model.entries
+    ]
+    assert any(
+        "[Health] Trạng thái hệ thống: HEALTHY (Database: OK" in msg
+        for msg in log_messages_on_enter
+    )
 
     count_health_before = sum(1 for msg in log_messages_on_enter if "[Health]" in msg)
 
@@ -127,9 +140,9 @@ def test_step_enter_backtest_and_click_run_backtest_logs_health(qapp, booted_app
         presenter._on_run_backtest()
 
     # Step 3: Check logs after clicking run — health log is not duplicated
-    log_messages_after_run = [entry.message for entry in presenter._view_model.log_model.entries]
+    log_messages_after_run = [
+        entry.message for entry in presenter._view_model.log_model.entries
+    ]
     count_health_after = sum(1 for msg in log_messages_after_run if "[Health]" in msg)
     assert count_health_after == count_health_before  # No duplicate log
     assert any("Bắt đầu chạy Backtest" in msg for msg in log_messages_after_run)
-
-
