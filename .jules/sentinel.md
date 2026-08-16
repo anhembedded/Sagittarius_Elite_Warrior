@@ -6,3 +6,7 @@
 **Vulnerability:** Untrusted text in model data (`entryReasonText`, `exitReasonText`) bound to QML `Text` components lacking explicit formatting constraint.
 **Learning:** By default, QML's `Text` element uses `Text.AutoText` which automatically interprets strings containing HTML-like syntax as Rich Text. This can result in UI injection (QML's XSS equivalent) if untrusted input is displayed.
 **Prevention:** Always explicitly set `textFormat: Text.PlainText` on QML `Text` elements displaying dynamic, user-controlled, or untrusted string data.
+## 2025-03-01 - [Database Path Traversal Mitigation]
+**Vulnerability:** Path traversal in database shard manager (`DatabaseManager.get_session`).
+**Learning:** Even if `symbol` is validated with regex, `db_dir` itself isn't checked when `db_path` is formed or we need to guarantee the resulting `db_path` stays within `db_dir` via `os.path.abspath`.
+**Prevention:** Use `os.path.normpath` and enforce that `os.path.commonpath([base_dir, abs_db_path]) == base_dir` before using the path to robustly prevent partial directory name matches.
