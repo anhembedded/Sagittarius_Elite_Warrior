@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 56 | 59% |
+| 🟢 **Completed** | 57 | 60% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 39 | 41% |
+| 🔴 **Backlog** | 38 | 40% |
 | 📈 **Tổng số Task** | **95** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
@@ -206,8 +206,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :--- |
-| **[BOT-095A](backlog/BOT-095A_declarative_fsm_engine_foundation.md)** | **Hạ tầng Declarative State Machine & Event Dispatching** | — | `sagittarius_engine.extensions.fsm` (`DeclarativeStateMachine`), ma trận `(State, Event) -> NextState`, `dispatch(event)`, `load_matrix()`, bảo vệ Re-entrancy và Thread-Affinity. |
-| **[BOT-095B](backlog/BOT-095B_backtest_fsm_and_stale_data_lifecycle.md)** | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | `BOT-095A` | `backtest_fsm_matrix.py`, Dirty Tracking so khớp `BacktestRunConfig`, Amber Banner với Diff Summary, tự động khôi phục `COMPLETED`, và bảo vệ nút Xuất CSV. |
+| **[BOT-095A](backlog/BOT-095A_declarative_fsm_engine_foundation.md)** ✅ | **Hạ tầng Declarative State Machine & Event Dispatching** | — | `sagittarius_engine.extensions.fsm` (`DeclarativeStateMachine`), ma trận `(State, Event) -> NextState`, `dispatch(event)`, `load_matrix()`, bảo vệ Re-entrancy và Thread-Affinity. |
+| **[BOT-095B](backlog/BOT-095B_backtest_fsm_and_stale_data_lifecycle.md)** | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | `BOT-095A` ✅ | `backtest_fsm_matrix.py`, Dirty Tracking so khớp `BacktestRunConfig`, Amber Banner với Diff Summary, tự động khôi phục `COMPLETED`, và bảo vệ nút Xuất CSV. |
 | **[BOT-095C](backlog/BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | `BOT-095B` | Nút Cancel khi đang RUNNING, tích hợp CancellationToken ngắt luồng an toàn, thanh Progress Bar % + thời gian còn lại ETA. |
 | **[BOT-095D](backlog/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | `BOT-095B` | Kiểm tra độ bao phủ nến (Range Gap Check), 1-Click Auto-Sync & Run kế thừa Progress Bar từ Data Management, preview nến mới khi đổi Timeframe. |
 | **[BOT-095E](backlog/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | — | Khung Assertion Rule mở rộng (OCP), kiểm tra Min Binance Lot Notional $5, viền đỏ cảnh báo tại chỗ, phím tắt Hotkeys / con lăn Stepper trong `BotParamsDialog`. |
