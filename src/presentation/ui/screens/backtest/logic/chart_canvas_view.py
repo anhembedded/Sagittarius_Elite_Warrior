@@ -17,8 +17,21 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BULL_COLOR,
 )
 
-_ENTRY_LABEL = "Buy"
-_EXIT_LABEL = "Sell"
+
+class TradeMarkerType(str, Enum):
+    """
+    Semantic execution marker types for Backtest chart (BOT-096).
+    Distinguishes Long entries and exits from Short entries and exits.
+    """
+
+    LONG_ENTRY = "LONG_ENTRY"
+    LONG_EXIT = "LONG_EXIT"
+    SHORT_ENTRY = "SHORT_ENTRY"  # Reserved for BOT-050 (Short-selling)
+    SHORT_EXIT = "SHORT_EXIT"  # Reserved for BOT-050 (Short-selling)
+
+
+_LONG_ENTRY_LABEL = "MUA (LONG)"
+_LONG_EXIT_LABEL = "ĐÓNG LONG"
 
 
 class ChartDisplayMode(str, Enum):
@@ -56,13 +69,12 @@ def equity_curve_to_line_data(
 
 def trade_flag_markers(result: BacktestResult) -> list[MarkerPoint]:
     """
-    @brief Buy/Sell flags at every trade's entry/exit (BOT-056 §2.2), drawn
-    via the existing `ChartCard.set_script_markers` (BOT-032 infra) — no new
-    marker rendering added.
-    @details Colored by entry/exit role (Buy always bullish-green, Sell
-    always bearish-red — TradingView's own convention), not by whether that
-    particular trade ended up profitable; a losing trade still opened with a
-    real Buy and closed with a real Sell.
+    @brief Long Entry / Long Exit flags at every trade's entry/exit (BOT-056 / BOT-096),
+    drawn via the existing `ChartCard.set_script_markers` (BOT-032 infra).
+    @details
+    - Entry is labeled 'MUA (LONG)' (bullish green, pointing up).
+    - Exit is labeled 'ĐÓNG LONG' (bearish red, pointing down), explicitly indicating
+      the closure of a long position rather than opening a short position.
     """
     markers: list[MarkerPoint] = []
     for trade in result.trades:
@@ -70,7 +82,7 @@ def trade_flag_markers(result: BacktestResult) -> list[MarkerPoint]:
             (
                 trade.entry_time.timestamp(),
                 trade.entry_price,
-                _ENTRY_LABEL,
+                _LONG_ENTRY_LABEL,
                 BULL_COLOR,
                 "up",
             )
@@ -79,7 +91,7 @@ def trade_flag_markers(result: BacktestResult) -> list[MarkerPoint]:
             (
                 trade.exit_time.timestamp(),
                 trade.exit_price,
-                _EXIT_LABEL,
+                _LONG_EXIT_LABEL,
                 BEAR_COLOR,
                 "down",
             )
