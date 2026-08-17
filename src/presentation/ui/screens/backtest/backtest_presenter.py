@@ -387,6 +387,9 @@ class BackTestPresenter(BasePresenter):
         )
         self._view_model.selectedTimeframeChanged.connect(self._on_timeframe_changed)
         self._view_model.timeRangePresetChanged.connect(self._on_time_range_changed)
+        self._view_model.displayTimezoneChanged.connect(
+            self._on_display_timezone_changed
+        )
         self._view_model.customStartTextChanged.connect(self._on_custom_time_changed)
         self._view_model.customEndTextChanged.connect(self._on_custom_time_changed)
         self._view_model.initialCapitalTextChanged.connect(self._on_capital_changed)
@@ -1555,6 +1558,14 @@ class BackTestPresenter(BasePresenter):
             return
         export_trades_to_csv(self._currently_filtered_trades(), path)
 
+    @Slot()
+    @safe_ui_action
+    def _on_display_timezone_changed(self) -> None:
+        """Propagates display timezone change to the chart and re-renders trade log table without dirtying config."""
+        tz_name = self._view_model.displayTimezone
+        self.view.set_display_timezone(tz_name)
+        self._refresh_trade_log()
+
     # ================================================================== #
     # Main-thread helpers
     # ================================================================== #
@@ -1591,7 +1602,7 @@ class BackTestPresenter(BasePresenter):
             matched, self._view_model.tradeLogCurrentPage
         )
         self._view_model.set_trade_log_page_state(
-            trade_log_rows_to_qml(page_rows),
+            trade_log_rows_to_qml(page_rows, tz_name=self._view_model.displayTimezone),
             len(matched),
             total_pages(len(matched)),
         )

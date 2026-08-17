@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QmlShared 1.0
 import "../../components"
 
-// BackTestModals (BOT-088) — Orchestrator component hosting all modal dialogs
+// BackTestModals (BOT-088 / BOT-097) — Orchestrator component hosting all modal dialogs
 // for the Backtest Screen inside the full-window OverlayHost.
 Item {
     id: root
@@ -20,6 +20,7 @@ Item {
                                        || (strategyPickerModal !== null && strategyPickerModal.visible)
                                        || (timeframePickerModal !== null && timeframePickerModal.visible)
                                        || (timeRangePickerModal !== null && timeRangePickerModal.visible)
+                                       || (timezonePickerModal !== null && timezonePickerModal.visible)
 
     Connections {
         target: !root.hasViewModel ? null : viewModel
@@ -59,6 +60,10 @@ Item {
 
         function onOpenTimeRangePickerRequested() {
             timeRangePickerModal.open()
+        }
+
+        function onOpenTimezonePickerRequested() {
+            timezonePickerModal.open()
         }
     }
 
@@ -114,5 +119,11 @@ Item {
     TimeRangePickerModal {
         id: timeRangePickerModal
         objectName: "timeRangePickerModal"
+    }
+
+    // 10. Timezone Picker Modal (BOT-097)
+    TimezonePickerModal {
+        id: timezonePickerModal
+        objectName: "timezonePickerModal"
     }
 }

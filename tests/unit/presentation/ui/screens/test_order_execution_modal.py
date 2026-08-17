@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
+from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -52,10 +55,6 @@ def backtest_screen(qapp, request):
     container = Mock()
 
     def resolve_mock(interface):
-        from sagittarius_engine.interfaces.i_config import IConfig
-        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
         if interface == IThreadManager:
             return Mock()
         if interface == IDispatcher:
@@ -75,6 +74,7 @@ def backtest_screen(qapp, request):
     view = BackTestView()
     view.resize(1400, 800)
     view.show()
+    qapp.processEvents()
     _ = BackTestPresenter(view, container)
     qapp.processEvents()
     request.addfinalizer(view.deleteLater)

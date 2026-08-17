@@ -1,8 +1,14 @@
 import logging
+from datetime import UTC, datetime
 from enum import Enum
 
 import pyqtgraph as pg
 from PySide6.QtWidgets import QApplication
+
+from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+    get_utc_offset_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +47,7 @@ class ChartPlotLayout:
         self.opengl_requested = bool(use_opengl)
         self.uses_opengl = False
         self.backend_fallback_reason: str | None = None
+        self._display_timezone = DEFAULT_TIMEZONE
         self.widget = pg.GraphicsLayoutWidget()
         self.widget.setAntialiasing(antialias_mode is ChartAntialiasMode.GLOBAL)
         self._configure_render_backend()
@@ -62,7 +69,10 @@ class ChartPlotLayout:
         # column's own width never narrows the chart.
         self.script_info_label = self.widget.addLabel("", row=0, col=1, justify="left")
 
-        date_axis = pg.DateAxisItem(orientation="bottom")
+        utc_offset = get_utc_offset_seconds(
+            datetime.now(UTC).timestamp(), self._display_timezone
+        )
+        date_axis = pg.DateAxisItem(orientation="bottom", utcOffset=utc_offset)
         self.main_plot = self.widget.addPlot(
             row=self.MAIN_PLOT_ROW,
             col=0,
@@ -126,6 +136,17 @@ class ChartPlotLayout:
         )
         return False
 
+    def set_display_timezone(self, tz_name: str) -> None:
+        """Updates display timezone and UTC offset for all date axis items."""
+        self._display_timezone = tz_name
+        offset = get_utc_offset_seconds(datetime.now(UTC).timestamp(), tz_name)
+        for plot in self.plots:
+            axis = plot.getAxis("bottom")
+            if isinstance(axis, pg.DateAxisItem):
+                axis.utcOffset = offset
+                axis.picture = None
+                axis.update()
+
     def _update_x_axes(self) -> None:
         """Ensures only the bottom-most plot shows X-axis text labels."""
         for plot in self.plots[:-1]:
@@ -143,7 +164,10 @@ class ChartPlotLayout:
         single outlier (e.g. one huge volume spike) squashes every other bar
         flat — and mouse-wheel Y-zoom on the subplot silently does nothing.
         """
-        date_axis = pg.DateAxisItem(orientation="bottom")
+        utc_offset = get_utc_offset_seconds(
+            datetime.now(UTC).timestamp(), self._display_timezone
+        )
+        date_axis = pg.DateAxisItem(orientation="bottom", utcOffset=utc_offset)
         sub_plot = self.widget.addPlot(
             row=self._next_row,
             col=0,

@@ -11,6 +11,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+    format_display_datetime,
+)
 
 #: Matches `BackTestPresenter`'s `_CUSTOM_TIME_FORMAT` — reused here instead
 #: of the mockup's Vietnamese "16 thg 7, 2026" cosmetic format, which has no
@@ -103,8 +107,8 @@ def _format_metadata_items(metadata: Mapping[str, Any]) -> list[dict[str, str]]:
     ]
 
 
-def _format_datetime(value: datetime) -> str:
-    return value.strftime(_DATETIME_FORMAT)
+def _format_datetime(value: datetime, tz_name: str = DEFAULT_TIMEZONE) -> str:
+    return format_display_datetime(value, tz_name=tz_name, fmt=_DATETIME_FORMAT)
 
 
 def _format_compact_usd(value: float) -> str:
@@ -121,7 +125,9 @@ def _signed_pnl(value: float, suffix: str) -> str:
     return f"{sign}{value:,.2f}{suffix}"
 
 
-def trade_log_row_to_qml(row: TradeLogRow) -> dict[str, Any]:
+def trade_log_row_to_qml(
+    row: TradeLogRow, tz_name: str = DEFAULT_TIMEZONE
+) -> dict[str, Any]:
     """Converts to the plain-dict shape QML's `Repeater`/`ListView` model
     expects (camelCase keys, everything pre-formatted as display text —
     same boundary convention as `stat_cards_to_qml`). `metadataItems` is the
@@ -140,8 +146,8 @@ def trade_log_row_to_qml(row: TradeLogRow) -> dict[str, Any]:
     return {
         "index": str(row.index),
         "positionLabel": f"#{row.index} {_POSITION_LABEL}",
-        "entryTimeText": _format_datetime(row.entry_time),
-        "exitTimeText": _format_datetime(row.exit_time),
+        "entryTimeText": _format_datetime(row.entry_time, tz_name=tz_name),
+        "exitTimeText": _format_datetime(row.exit_time, tz_name=tz_name),
         "entryPriceText": f"{row.entry_price:,.2f} USD",
         "exitPriceText": f"{row.exit_price:,.2f} USD",
         "priceDiffText": _signed_pnl(price_diff, " USD"),
@@ -160,5 +166,7 @@ def trade_log_row_to_qml(row: TradeLogRow) -> dict[str, Any]:
     }
 
 
-def trade_log_rows_to_qml(rows: list[TradeLogRow]) -> list[dict[str, Any]]:
-    return [trade_log_row_to_qml(row) for row in rows]
+def trade_log_rows_to_qml(
+    rows: list[TradeLogRow], tz_name: str = DEFAULT_TIMEZONE
+) -> list[dict[str, Any]]:
+    return [trade_log_row_to_qml(row, tz_name=tz_name) for row in rows]

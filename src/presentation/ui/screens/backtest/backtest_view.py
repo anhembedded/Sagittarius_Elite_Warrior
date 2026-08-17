@@ -60,6 +60,7 @@ class BackTestView(BaseView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._view_model = None
+        self._display_timezone = "UTC"
         self.chart_cards: list = []
         self._chart_dev_mode = False
         self._chart_opengl_enabled = False
@@ -231,6 +232,7 @@ class BackTestView(BaseView):
                 cached_interaction=self._chart_cached_interaction_enabled,
             )
             card.set_dev_mode(self._chart_dev_mode)
+            card.set_display_timezone(self._display_timezone)
             self.chart_cards.append(card)
             self.charts_layout.addWidget(card, 1)
 
@@ -253,6 +255,13 @@ class BackTestView(BaseView):
     def set_chart_cached_interaction_enabled(self, enabled: bool) -> None:
         """Selects cached-frame pan/zoom for chart cards created from now on."""
         self._chart_cached_interaction_enabled = bool(enabled)
+
+    def set_display_timezone(self, tz_name: str) -> None:
+        """Propagates display timezone to all active chart cards."""
+        self._display_timezone = tz_name
+        for card in self.chart_cards:
+            if hasattr(card, "set_display_timezone"):
+                card.set_display_timezone(tz_name)
 
     # ------------------------------------------------------------------ #
     # Chart rendering (BOT-056) — driven by BackTestPresenter
