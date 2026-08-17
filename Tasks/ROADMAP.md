@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 69 | 65.1% |
+| 🟢 **Completed** | 70 | 66.0% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 37 | 34.9% |
+| 🔴 **Backlog** | 36 | 34.0% |
 | 📈 **Tổng số Task** | **106** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -354,6 +354,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-060](completed/BOT-060_backtest_chart_draws_strategy_own_indicators.md)** | **Chart vẽ đúng indicator của Strategy đang backtest** | 🟡 **`M (Standard)`** | `BOT-046` ✅, `BOT-047` ✅, `BOT-056` ✅ | Toggle từng cố định vẽ `ema_ribbon` (20/50/100/200) bất kể strategy nào đang chạy — marker Buy/Sell không khớp đường vẽ (bug user báo qua ảnh chụp thật). Giờ vẽ đúng `strategy.build_indicators()` — file mới `strategy_indicator_lines.py` (thuần Python), xoá hẳn phụ thuộc `IndicatorScriptRunner`/`ema_ribbon` khỏi màn Backtest. |
 | **1** | ✅ **[BOT-064](completed/BOT-064_backtest_screen_indicator_script_picker.md)** | **Danh sách chọn Indicator Script (như Dev Board)** | 🟡 **`M (Standard)`** | `BOT-060` ✅ | Nút "Chỉ báo" mới (`IndicatorPickerMenu.qml`) mở dropdown checklist, tái dùng nguyên `IndicatorScriptListModel`/`IndicatorScriptRunner` của Dev Board — chạy **song song**, không thay thế `strategy_indicator_lines.py` của `BOT-060`. Gap chưa làm: script overlay chưa tự ẩn khi chuyển "Đường Vốn" (Equity-solo). |
 | **1** | ✅ **[BOT-065](completed/BOT-065_backtest_script_overlay_hidden_in_equity_mode.md)** | **Ẩn overlay Script khi chuyển "Đường Vốn"** | 🟢 **`S (Fast)`** | `BOT-060` ✅, `BOT-064` ✅ | `_set_script_overlay_lines_visible()` mới, gọi từ `_on_chart_mode_changed` cạnh `_on_ema_toggled()` đã có — lặp `self._chart_script_runner.active`, chỉ ẩn script `overlay=True` (subplot như RSI/MACD không share trục giá, giữ nguyên hiển thị). Test tái hiện bug thật trước khi sửa (đúng `.agents/rules/code-rule.md`). |
+| **1** | ✅ **[BOT-097](completed/BOT-097_backtest_display_timezone_selector.md)** | **Backtest: Chọn múi giờ hiển thị (UTC vs Giờ hệ thống)** | 🟢 **`S (Fast)`** | `BOT-095D` ✅ | Selector múi giờ hiển thị trên toolbar (`UTC`, `Giờ hệ thống`, IANA zones), định dạng đồng bộ cho chart axis, tooltip, trade logs entry/exit; bảo toàn 100% dữ liệu UTC invariant trong engine/DB. |
 | **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Dynamic UI** | 🟡 **`M (Standard)`** | `BOT-022` ✅…`BOT-057` ✅, `BOT-023` | Kế thừa nguyên UI Nhóm D, chỉ thêm replay controls. Không tự mở khoá phần đang chờ Nhóm A/B/C. |
 
 **Ngoài nhóm**

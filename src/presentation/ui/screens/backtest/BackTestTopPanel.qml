@@ -212,6 +212,59 @@ Rectangle {
                         }
                     }
 
+                    // 3b. Timezone Dropdown Button (BOT-097)
+                    Button {
+                        id: btnTimezone
+                        objectName: "btnBacktestTimezone"
+                        implicitHeight: 34
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 400
+                        ToolTip.text: "Chỉ đổi giờ hiển thị. Dữ liệu và Backtest luôn tính theo UTC."
+                        background: Rectangle {
+                            color: btnTimezone.hovered
+                                   ? ((Theme && Theme.bgCardHover) ? Theme.bgCardHover : "#1e2130")
+                                   : ((Theme && Theme.bgInput) ? Theme.bgInput : "#181a24")
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
+                            border.width: 1
+                            radius: 6
+
+                            Behavior on color {
+                                ColorAnimation { duration: 150 }
+                            }
+                        }
+                        contentItem: RowLayout {
+                            spacing: 6
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            Image {
+                                source: "image://icons/clock/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+
+                            Text {
+                                text: root.hasViewModel ? viewModel.displayTimezoneLabel : "UTC"
+                                textFormat: Text.PlainText
+                                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                font.pixelSize: 11
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
+                        }
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenTimezonePicker()
+                        }
+                    }
+
                     // 4. Capital Dropdown Button
                     Button {
                         id: btnCapital
