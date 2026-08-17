@@ -12,7 +12,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+    _LONG_ENTRY_LABEL,
+    _LONG_EXIT_LABEL,
     ChartDisplayMode,
+    TradeMarkerType,
     equity_curve_to_candles,
     equity_curve_to_line_data,
     trade_flag_markers,
@@ -24,6 +27,14 @@ _T1 = datetime(2026, 1, 2, tzinfo=UTC)
 
 def test_chart_display_mode_has_exactly_the_3_bot_056_modes():
     assert {mode.value for mode in ChartDisplayMode} == {"ohlc", "equity", "both"}
+
+
+def test_trade_marker_types_contain_explicit_long_and_short_semantics():
+    # BOT-096: Distinguishes long entry/exit from future short entry/exit
+    assert TradeMarkerType.LONG_ENTRY == "LONG_ENTRY"
+    assert TradeMarkerType.LONG_EXIT == "LONG_EXIT"
+    assert TradeMarkerType.SHORT_ENTRY == "SHORT_ENTRY"
+    assert TradeMarkerType.SHORT_EXIT == "SHORT_EXIT"
 
 
 def test_equity_curve_to_candles_flattens_ohlc_to_the_single_equity_value():
@@ -69,13 +80,24 @@ def _result_with_one_trade() -> BacktestResult:
     )
 
 
-def test_trade_flag_markers_emits_one_buy_and_one_sell_per_trade():
+def test_trade_flag_markers_emits_one_long_entry_and_one_long_exit_per_trade():
     markers = trade_flag_markers(_result_with_one_trade())
 
     assert markers == [
-        (_T0.timestamp(), 100.0, "Buy", BULL_COLOR, "up"),
-        (_T1.timestamp(), 110.0, "Sell", BEAR_COLOR, "down"),
+        (_T0.timestamp(), 100.0, _LONG_ENTRY_LABEL, BULL_COLOR, "up"),
+        (_T1.timestamp(), 110.0, _LONG_EXIT_LABEL, BEAR_COLOR, "down"),
     ]
+
+
+def test_exit_marker_does_not_use_ambiguous_sell_or_short_label():
+    # BOT-096 product truth: long exit must never be labeled "Sell" or "Short"
+    markers = trade_flag_markers(_result_with_one_trade())
+    exit_marker = markers[1]
+    _, _, label, _, _ = exit_marker
+
+    assert "SELL" not in label.upper()
+    assert "SHORT" not in label.upper()
+    assert "ĐÓNG" in label or "EXIT" in label
 
 
 def test_trade_flag_markers_of_a_result_with_no_trades_is_empty():
