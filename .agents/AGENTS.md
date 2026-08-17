@@ -61,6 +61,11 @@
   - Never use raw Unicode emoji or character glyphs for UI icons when SVG assets are appropriate.
   - Always render icons via the centralized theme image provider `image://icons/<name>/<token>`.
 
+- **UI Preview Convention & Live Tooling (BOT-031)**:
+  - Every screen package (`src/presentation/ui/screens/<name>/`) and reusable component (`src/presentation/ui/components/sidebar/`) MUST contain a `preview.py` declaring `build_preview() -> QWidget` for fast, standalone rendering without full engine boot.
+  - Run previews live via `.\scripts\preview-qml.ps1 <screen>` or inspect available targets with `.\scripts\preview-qml.ps1 --list`.
+
+
 - **Testing & Local CI/CD**:
   - Every new feature/screen ships with sanity tests in `tests/sanity/` (DI sanity + UI sanity) alongside unit tests.
   - Bug fixes must always include a reproducing regression test first.

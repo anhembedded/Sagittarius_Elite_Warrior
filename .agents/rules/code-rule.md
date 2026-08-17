@@ -96,6 +96,10 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
   - Strategy parameters must be labeled **"Thông số Chiến lược"** (`Strategy Parameters`), distinct from general Bot system settings.
 - **MVP Trio Screen Directory Layout:**
   - For a screen under `src/presentation/ui/screens/<name>/`, keep `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`, and QML files flat at the top level of the screen's folder. Group only helper modules into `<name>/logic/` or `<name>/helpers/` when size warrants it.
+- **UI Preview Convention & Live Tooling (BOT-031):**
+  - Every UI package (`src/presentation/ui/screens/<name>/` and `src/presentation/ui/components/sidebar/`) MUST maintain a `preview.py` declaring `build_preview() -> QWidget` for fast, standalone local rendering without full engine boot.
+  - Run preview live via `.\scripts\preview-qml.ps1 <screen>` or inspect available targets with `.\scripts\preview-qml.ps1 --list`. Enforced via guard test `tests/unit/presentation/ui/test_preview_fixtures_exist.py`.
+
 
 ---
 

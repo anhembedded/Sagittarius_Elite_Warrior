@@ -100,3 +100,21 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
   assert quick_widget.errors() == []
   ```
 - **Test Visual Hierarchy**: Use `qml_item(root, "objectName")` for repeated delegates and ordinary visual descendants rather than querying non-visual QObject trees. Qt `Popup` items are detached from `QQuickItem.childItems()`; for that framework boundary, use `overlay_root.findChild(object, "objectName")` against the real overlay root. Do not weaken either kind of test into a Presenter/private-property assertion merely because the item is inconvenient to find.
+
+---
+
+## 5. 🔍 UI Preview Convention & Live Tooling (BOT-031)
+
+To preview screens and UI components fast during local UI development without booting the entire Sagittarius Engine or DI container:
+- **Mandatory `preview.py` per UI Package**: Every screen package in `src/presentation/ui/screens/<screen>/` and reusable component (`src/presentation/ui/components/sidebar/`) MUST have a `preview.py` file exposing:
+  ```python
+  def build_preview() -> QWidget:
+      """Constructs view + mock ViewModel + sample data ready for .show()."""
+  ```
+- **Preview CLI Runner**: Use `scripts/preview-qml.ps1` to test screens live:
+  ```powershell
+  .\scripts\preview-qml.ps1 --list
+  .\scripts\preview-qml.ps1 <screen_name>  # e.g., backtest, dashboard, data_management, settings, sidebar
+  ```
+- **Automated Guard Tests**: Enforced automatically via AST and offscreen load verification in `tests/unit/presentation/ui/test_preview_fixtures_exist.py`.
+
