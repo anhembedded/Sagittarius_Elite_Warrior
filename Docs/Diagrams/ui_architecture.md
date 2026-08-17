@@ -479,3 +479,38 @@ one `Signal`, no `plot()`/`mark()`/`shade()` output). `StrategyRegistry`'s
 `IIndicator` never growing a `reset()` method it didn't need yet) — just not
 under a name implying it shares a base class with indicator scripts, because
 it doesn't: `BaseStrategy` doesn't touch `BaseIndicatorScript` at all.
+
+---
+
+## 11. UI Preview Convention & Tooling (BOT-031)
+
+To preview screens and UI components fast during development without booting the entire Sagittarius Engine or DI container, every previewable screen and UI component follows the **Preview Convention**:
+
+### 11.1 The `preview.py` Convention
+Every UI package under `src/presentation/ui/screens/` and `src/presentation/ui/components/sidebar/` contains a `preview.py` that exports:
+
+```python
+def build_preview() -> QWidget:
+    """Builds and returns a standalone QWidget ready for .show() — pre-populated with mock ViewModel data."""
+```
+
+### 11.2 Auto-Discovery Tooling
+`scripts/preview_qml.py` dynamically scans `src/presentation/ui/` for all `preview.py` files:
+
+```powershell
+# List all previewable targets
+.\scripts\preview-qml.ps1 --list
+
+# Preview a specific screen/component
+.\scripts\preview-qml.ps1 backtest
+.\scripts\preview-qml.ps1 dashboard
+.\scripts\preview-qml.ps1 data_management
+.\scripts\preview-qml.ps1 settings
+.\scripts\preview-qml.ps1 sidebar
+```
+
+### 11.3 Guard Test Enforcement
+This convention is strictly enforced in CI by `tests/unit/presentation/ui/test_preview_fixtures_exist.py`:
+1. Every screen folder must contain `preview.py` with `build_preview()`.
+2. Every preview must construct cleanly in offscreen mode with 0 exceptions and 0 QML errors.
+

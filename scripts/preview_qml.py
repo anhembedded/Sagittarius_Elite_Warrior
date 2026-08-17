@@ -1,165 +1,116 @@
 """
-Live preview for a single QML screen — no full Sagittarius Engine boot,
-no DI container, no mocked dispatcher. Every screen's ViewModel is pure
-state with zero I/O (see Docs/Diagrams/ui_architecture.md §3), so it can
-be constructed directly and hand-fed a bit of sample data instead of
-being wired to a real Presenter.
+Live preview for a single QML screen or UI component (BOT-031).
 
-Usage (from the repo root, with the venv active):
-    python Sagittarius_Elite_Warrior/scripts/preview_qml.py sidebar
-    python Sagittarius_Elite_Warrior/scripts/preview_qml.py settings
-    python Sagittarius_Elite_Warrior/scripts/preview_qml.py database
-    python Sagittarius_Elite_Warrior/scripts/preview_qml.py devboard
+Automatically discovers all `preview.py` files under `src/presentation/ui/`
+and invokes `build_preview() -> QWidget` without needing a full DI container
+or Sagittarius Engine boot.
 
-Or via the wrapper: scripts/preview-qml.ps1 <screen>
-
-Every screen except Sidebar is a bare QQuickWidget, standing in for what
-QmlHostView normally assembles — buttons still emit their request signals
-exactly like the real thing, they just have nothing connected on the other
-end (no Presenter here), so clicking them is a visual no-op, not a crash.
+Usage:
+    python scripts/preview_qml.py --list
+    python scripts/preview_qml.py backtest
+    python scripts/preview_qml.py dashboard
+    python scripts/preview_qml.py data_management
+    python scripts/preview_qml.py settings
+    python scripts/preview_qml.py sidebar
 """
 
+from __future__ import annotations
+
 import argparse
+import importlib.util
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
+from PySide6.QtWidgets import QApplication, QWidget
 
-from PySide6.QtCore import QUrl
-from PySide6.QtWidgets import QApplication
+# Ensure repository root is on sys.path
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar.nav_section import (
-    NavItem,
-    NavSection,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
-    DashboardQmlViewModel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
-    DataManagementViewModel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view_model import (
-    SettingsViewModel,
-)
-from sagittarius_engine.extensions.pyside_mvc import (
-    configure_app_qml,
-    create_quick_widget,
-)
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 
-_SCREENS_DIR = (
-    REPO_ROOT / "Sagittarius_Elite_Warrior" / "src" / "presentation" / "ui" / "screens"
-)
-
-# Same sections MainWindow builds — kept here rather than imported so this
-# script never needs to boot main_window.py's other side effects.
-_NAV_SECTIONS = [
-    NavSection(
-        "NAVIGATION",
-        (
-            NavItem("Dev Board", "dashboard", "layout-dashboard"),
-            NavItem("Database", "data_management", "database"),
-        ),
-    ),
-    NavSection(
-        "QUANT ENGINE",
-        (NavItem("Backtest Engine", None, "bar-chart-2", enabled=False),),
-    ),
-]
-
-_BOTTOM_ACTIONS = (NavItem("API & Credentials", "settings", "settings"),)
+_UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
 
 
-def _load(quick_widget, qml_dir: Path, filename: str):
-    quick_widget.setSource(QUrl.fromLocalFile(str(qml_dir / filename)))
-    return quick_widget
+def discover_previews() -> dict[str, Callable[[], QWidget]]:
+    """
+    Scans `src/presentation/ui/` recursively for `preview.py` files.
+    Returns a mapping of {component_or_screen_name: build_preview_callable}.
+    """
+    previews: dict[str, Callable[[], QWidget]] = {}
+    if not _UI_ROOT.exists():
+        return previews
 
+    for preview_path in sorted(_UI_ROOT.rglob("preview.py")):
+        # Key is the parent directory name (e.g. 'sidebar', 'dashboard', 'settings', 'backtest')
+        key = preview_path.parent.name
+        module_name = f"_preview_{key}"
+        spec = importlib.util.spec_from_file_location(module_name, preview_path)
+        if spec is None or spec.loader is None:
+            continue
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
 
-def _preview_sidebar():
-    sidebar = Sidebar(sections=_NAV_SECTIONS, bottom_actions=_BOTTOM_ACTIONS)
-    sidebar.set_active("dashboard")
-    sidebar.resize(220, 700)
-    return sidebar
+        build_fn = getattr(module, "build_preview", None)
+        if callable(build_fn):
+            previews[key] = build_fn
 
-
-def _preview_settings():
-    quick_widget = create_quick_widget()
-    view_model = SettingsViewModel()
-    view_model.apiKey = "AbCdEf1234567890GhIjKl"
-    view_model.apiSecret = "s3cr3t-do-not-share"
-    view_model.defaultSymbols = "BTCUSDT, ETHUSDT"
-    view_model.defaultInterval = "1m"
-    view_model.defaultSyncDays = 30
-    quick_widget.rootContext().setContextProperty("viewModel", view_model)
-    quick_widget.resize(760, 520)
-    return _load(quick_widget, _SCREENS_DIR / "settings", "SettingsScreen.qml")
-
-
-def _preview_database():
-    quick_widget = create_quick_widget()
-    view_model = DataManagementViewModel()
-    view_model.status_model.upsert_row(
-        "BTCUSDT", "1m", "2024-01-01 00:00", "2024-06-01 00:00", "216,000", "OK"
-    )
-    view_model.status_model.upsert_row(
-        "ETHUSDT",
-        "1m",
-        "2024-01-01 00:00",
-        "2024-05-15 08:00",
-        "198,400",
-        "3 gaps found!",
-    )
-    view_model.log_model.append("Checking database status for BTCUSDT (1m)...")
-    view_model.log_model.append("Scan complete.", level="success")
-    view_model.set_stats("414,400", "128.40 MB")
-    view_model.useCustomTime = True
-    quick_widget.rootContext().setContextProperty("viewModel", view_model)
-    quick_widget.resize(1400, 820)
-    return _load(quick_widget, _SCREENS_DIR / "data_management", "DatabaseScreen.qml")
-
-
-def _preview_devboard():
-    quick_widget = create_quick_widget()
-    view_model = DashboardQmlViewModel()
-    view_model.set_price_ticker("ETHUSDT  3,241.55", "#26a69a")
-    view_model.set_ws_status("WS: LIVE", "#26a69a")
-    view_model.log_model.append("Prepared 1 charts.")
-    view_model.log_model.append(
-        "Live stream for ['ETHUSDT'] is running.", level="success"
-    )
-    view_model.rsiEnabled = True
-    quick_widget.rootContext().setContextProperty("viewModel", view_model)
-    quick_widget.resize(420, 760)
-    return _load(quick_widget, _SCREENS_DIR / "dashboard", "DevBoardPanel.qml")
-
-
-_SCREENS = {
-    "sidebar": _preview_sidebar,
-    "settings": _preview_settings,
-    "database": _preview_database,
-    "devboard": _preview_devboard,
-}
+    return previews
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("screen", choices=sorted(_SCREENS))
+    previews = discover_previews()
+
+    parser = argparse.ArgumentParser(
+        description="Live preview for QML screens and UI components (BOT-031)."
+    )
+    parser.add_argument(
+        "screen",
+        nargs="?",
+        help=f"Target screen or component to preview (available: {', '.join(sorted(previews.keys()))})",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List all auto-discovered previewable screens and components.",
+    )
+
     args = parser.parse_args()
 
-    app = QApplication(sys.argv)
+    if args.list:
+        print("Discovered previewable UI components and screens:")
+        for key in sorted(previews.keys()):
+            print(f"  - {key}")
+        sys.exit(0)
+
+    if not args.screen:
+        parser.print_help()
+        sys.exit(1)
+
+    if args.screen not in previews:
+        print(
+            f"Error: Unknown preview target '{args.screen}'. Available targets: {list(previews.keys())}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    app = QApplication.instance() or QApplication(sys.argv)
     configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
-    widget = _SCREENS[args.screen]()
+
+    widget = previews[args.screen]()
     widget.setWindowTitle(f"QML Preview — {args.screen}")
     widget.show()
 
     errors = widget.errors() if hasattr(widget, "errors") else []
     if errors:
-        print(f"QML errors: {errors}", file=sys.stderr)
+        print(f"QML errors in '{args.screen}': {errors}", file=sys.stderr)
 
     sys.exit(app.exec())
 

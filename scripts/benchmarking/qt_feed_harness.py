@@ -31,7 +31,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6 import QtCore
-
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )

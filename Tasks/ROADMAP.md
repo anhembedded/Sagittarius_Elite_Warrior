@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 66 | 62.9% |
+| 🟢 **Completed** | 67 | 63.8% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 39 | 37.1% |
+| 🔴 **Backlog** | 38 | 36.2% |
 | 📈 **Tổng số Task** | **105** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -84,6 +84,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **BOT-031**: [UI Preview Convention — mock file/màn + tool auto-discover](completed/BOT-031_ui_preview_convention_and_tool.md) (🟢 S) — *Chuẩn hoá UI preview thành convention cấp kiến trúc: mỗi UI package có `preview.py` (`build_preview() -> QWidget`). Tool `scripts/preview_qml.py` tự động quét và discover tất cả screens/components, hỗ trợ flag `--list`. Thêm guard unit test `test_preview_fixtures_exist.py` bảo vệ tự động trong CI.*
+- [x] **BOT-074**: [Truthful Locked State cho Quy tắc Thực thi Tập lệnh](completed/BOT-074_execution_trigger_rule_inverted_lock.md) (🟢 S) — *Sửa cờ `locked: true` cho 4 tùy chọn trigger thực thi tập lệnh trong `OrderExecutionModal.qml` (chỉ "On bar close" kích hoạt `checked: true`, 3 chế độ tick/order fill chưa hỗ trợ được khóa trung thực `checked: false, locked: true`). Viết guard test `test_order_execution_modal.py`.*
 - [x] **BOT-095H**: [Quyền sở hữu Action Backtest & Chặn Callback Lỗi thời](completed/BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md) — Thuộc Epic `BOT-095`. `BacktestActionContext` cấp generation `action_id`, config snapshot deep-copy và terminal outcome cho một action active. Backtest/sync terminal signals, chart data và strategy lines đều carry action id; slot stale/lặp không còn được đổi ViewModel, FSM hoặc chart. `SYNC_SUCCEEDED` chỉ tiếp tục snapshot đã tạo sync, không suy đoán intent từ toolbar hiện tại. `_invalidate_active_action()` là seam idempotent để `BOT-095C` fence callback trước khi worker cancellation hoàn tất. 7 regression tests cho stale success/failure, duplicate terminal, invalidation, sync stale và nested params.*
 - [x] **BOT-095C**: [Hủy Backtest & Tiến độ/ETA](completed/BOT-095C_backtest_cancellation_and_stop_button.md) — Thuộc Epic `BOT-095`. Presenter sở hữu `CancellationToken`, Application nhận cancellation check độc lập Engine và trả `BacktestCancelled` tường minh thay vì kết quả dở dang. Hủy được kiểm tra trên in-sample/out-of-sample/full pass; progress được coalesce qua Qt signal có `action_id`; UI có progress/ETA và nút Hủy. Callback success/failure/chart đến muộn sau cancel bị fence, FSM khôi phục `IDLE`/`CONFIG_DIRTY`/`COMPLETED` theo pre-run state. Regression cover cancel out-of-sample, stale success, progress, QML click/banner; Full CI 891 primary + 24 sanity xanh.*
 - [x] **BOT-095B**: [Backtest FSM Dirty Tracking — Stale Data Warning & Diff Summary](completed/BOT-095B_backtest_fsm_dirty_tracking.md) — Thuộc Epic `BOT-095`. Implement vòng đời FSM + Dirty Tracking cho màn Backtest: `backtest_fsm_matrix.py` (single-scope) định nghĩa `BacktestUiState`, `BacktestUiEvent`, `BACKTEST_STATE_TRANSITIONS`, `DISABLED_UI_MODES`, `BacktestRunConfig` với `compute_diff_summary()` và `to_summary_label()`. `BackTestViewModel` override `set_ui_mode()` để emit `isConfigDirtyChanged` đúng, thêm `isConfigDirty`, `configDiffSummary`, `lastRunSummary`. `BackTestPresenter` bind `UI_TRANSITION_MATRIX = BACKTEST_STATE_TRANSITIONS`, track `_last_run_config`, `_on_config_input_changed()` detect delta, dispatch `RUN_REQUESTED`/`BACKTEST_SUCCEEDED`/`BACKTEST_EMPTY`/`BACKTEST_FAILED`/`SYNC_REQUESTED`/`SYNC_SUCCEEDED`/`SYNC_FAILED`. QML: `BackTestTopPanel.qml` thêm Amber Warning Banner (`backtestStaleWarningBanner`) với diff summary + nút \"Chạy lại ngay\"; Run button chuyển màu amber + text \"CẬP NHẬT LẠI\" khi `isConfigDirty`. `BackTestTradeLogs.qml` dim opacity 0.6 + export button hiện \"(Cũ)\" khi dirty. 10 test FSM lifecycle mới + 77 presenter tests xanh. 406 sanity+screen tests pass sequential. `ruff` sạch.*
