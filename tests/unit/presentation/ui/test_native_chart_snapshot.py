@@ -52,3 +52,16 @@ def test_native_snapshot_rejects_misaligned_arrays():
             closes=[1.0],
             volumes=[1.0],
         )
+
+
+def test_native_snapshot_rejects_unordered_utc_timestamps():
+    with pytest.raises(ValueError, match="timestamps must increase strictly"):
+        pack_native_ohlcv_snapshot(
+            revision=1,
+            timestamps=[20, 10],
+            opens=[1.0, 1.0],
+            highs=[1.0, 1.0],
+            lows=[1.0, 1.0],
+            closes=[1.0, 1.0],
+            volumes=[1.0, 1.0],
+        )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import struct
 import subprocess
 import sys
 import threading
@@ -38,12 +39,18 @@ Item {
 def _snapshot_bytes(revision: int) -> QByteArray:
     return pack_native_ohlcv_snapshot(
         revision=revision,
-        timestamps=[0, 1, 2],
-        opens=[10.0, 12.0, 11.0],
-        highs=[13.0, 13.0, 12.0],
-        lows=[9.0, 9.0, 10.0],
-        closes=[12.0, 10.0, 11.0],
-        volumes=[100.0, 200.0, 150.0],
+        timestamps=[
+            1_700_000_000_000,
+            1_700_000_060_000,
+            1_700_000_120_000,
+            1_700_000_180_000,
+            1_700_000_240_000,
+        ],
+        opens=[10.0, 12.0, 11.0, 20.0, 22.0],
+        highs=[13.0, 13.0, 12.0, 21.0, 25.0],
+        lows=[9.0, 9.0, 10.0, 19.0, 21.0],
+        closes=[12.0, 10.0, 11.0, 20.0, 24.0],
+        volumes=[100.0, 200.0, 150.0, 90.0, 220.0],
     )
 
 
@@ -57,6 +64,22 @@ def _invalid_snapshot_bytes(revision: int) -> QByteArray:
         closes=[10.0],
         volumes=[100.0],
     )
+
+
+def _unordered_timestamp_snapshot_bytes(revision: int) -> QByteArray:
+    packed = bytearray(
+        pack_native_ohlcv_snapshot(
+            revision=revision,
+            timestamps=[1, 2],
+            opens=[10.0, 10.0],
+            highs=[11.0, 11.0],
+            lows=[9.0, 9.0],
+            closes=[10.0, 10.0],
+            volumes=[100.0, 100.0],
+        )
+    )
+    struct.pack_into("<q", packed, 32, 1)
+    return QByteArray(bytes(packed))
 
 
 def _wait_for_property(qapp, item, name: str, expected) -> None:
@@ -103,6 +126,11 @@ def _run_windows_visual_probe() -> None:
     assert root.submitSnapshot(_snapshot_bytes(revision=2)) is True
     view.grabWindow()
     _wait_for_property(app, root, "renderedRevision", 2)
+    assert root.setViewport(0.0, 3.0) is True
+    view.grabWindow()
+    _wait_for_property(
+        app, root, "renderedCameraRevision", root.property("cameraRevision")
+    )
     sampled_colors = _sampled_colors(view)
     assert "#00c087" in sampled_colors
     assert "#f6465d" in sampled_colors
@@ -132,18 +160,42 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
 
     assert root.submitSnapshot(_snapshot_bytes(revision=2)) is True
     assert root.property("snapshotRevision") == 2
-    assert root.property("candleCount") == 3
+    assert root.property("candleCount") == 5
     view.grabWindow()
     _wait_for_property(qapp, root, "renderedRevision", 2)
-    assert root.property("wickVertexCount") == 6
-    assert root.property("bodyVertexCount") == 18
-    assert root.property("bullishCandleCount") == 2
+    assert root.property("wickVertexCount") == 10
+    assert root.property("bodyVertexCount") == 30
+    assert root.property("bullishCandleCount") == 4
     assert root.property("bearishCandleCount") == 1
     assert root.property("priceMinimum") == 9.0
-    assert root.property("priceMaximum") == 13.0
+    assert root.property("priceMaximum") == 25.0
     _assert_windows_visual_probe_passes()
 
     unchanged_build_count = root.property("geometryBuildCount")
+    previous_camera_count = root.property("cameraUpdateCount")
+    previous_camera_revision = root.property("cameraRevision")
+    assert root.setViewport(0.0, 3.0) is True
+    assert root.property("visiblePriceMinimum") == 9.0
+    assert root.property("visiblePriceMaximum") == 13.0
+    assert root.property("cameraRevision") == previous_camera_revision + 1
+    assert root.property("geometryBuildCount") == unchanged_build_count
+    time_ticks = root.property("timeAxisTicks")
+    assert time_ticks[0]["timestampUtcMs"] == 1_700_000_000_000
+    assert time_ticks[-1]["timestampUtcMs"] == 1_700_000_120_000
+    assert len(root.property("priceAxisTicks")) == 5
+    view.grabWindow()
+    _wait_for_property(
+        qapp, root, "renderedCameraRevision", previous_camera_revision + 1
+    )
+    assert root.property("cameraUpdateCount") == previous_camera_count + 1
+    assert root.property("geometryBuildCount") == unchanged_build_count
+
+    assert root.setViewport(float("nan"), 3.0) is False
+    assert "finite and increasing" in root.property("lastViewportError")
+    assert root.property("cameraRevision") == previous_camera_revision + 1
+    assert root.setViewport(0.0, 3.0) is True
+    assert root.property("cameraRevision") == previous_camera_revision + 1
+
     root.update()
     view.grabWindow()
     qapp.processEvents()
@@ -156,6 +208,8 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
     assert "increase monotonically" in root.property("lastSnapshotError")
     assert root.submitSnapshot(_invalid_snapshot_bytes(revision=3)) is False
     assert "invalid OHLCV" in root.property("lastSnapshotError")
+    assert root.submitSnapshot(_unordered_timestamp_snapshot_bytes(revision=3)) is False
+    assert "timestamps must increase strictly" in root.property("lastSnapshotError")
 
     worker_results: list[bool] = []
 

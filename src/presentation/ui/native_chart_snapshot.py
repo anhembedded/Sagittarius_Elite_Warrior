@@ -6,6 +6,7 @@ import struct
 import sys
 from array import array
 from collections.abc import Sequence
+from itertools import pairwise
 
 from PySide6.QtCore import QByteArray
 
@@ -25,7 +26,7 @@ def pack_native_ohlcv_snapshot(
     closes: Sequence[float],
     volumes: Sequence[float],
 ) -> QByteArray:
-    """Copy one OHLCV snapshot into the little-endian contiguous ABI v1 blob."""
+    """Pack strictly ordered UTC-ms OHLCV arrays into native snapshot ABI v1."""
     if revision <= 0:
         raise ValueError("snapshot revision must be positive")
 
@@ -33,6 +34,8 @@ def pack_native_ohlcv_snapshot(
     arrays = (opens, highs, lows, closes, volumes)
     if any(len(values) != candle_count for values in arrays):
         raise ValueError("all native chart snapshot arrays must have equal length")
+    if any(current <= previous for previous, current in pairwise(timestamps)):
+        raise ValueError("native chart timestamps must increase strictly")
 
     payload = bytearray(
         _SNAPSHOT_HEADER.pack(

@@ -1,7 +1,7 @@
 # BOT-098F — Qt Quick Scene Graph retained chart renderer
 
 **Parent:** `BOT-098`
-**Depends on:** `BOT-098F1`
+**Depends on:** `BOT-098F1`, `BOT-098F2`, `BOT-098F2A` ✅
 **Ưu tiên:** P1
 **Độ phức tạp:** L / Performance-specialized
 **Trạng thái:** Backlog
@@ -41,7 +41,9 @@ nhật buffer khi data revision, viewport hoặc LOD thay đổi.
 ## Migration slices
 
 - F1: hạ tầng CMake/QML native plugin (`BOT-098F1`).
-- F2: read-only candle + axis item, chạy song song sau feature flag.
+- F2: retained read-only candle geometry (`BOT-098F2`) ✅.
+- F2A: fractional camera, visible auto-Y và raw UTC/price axis tick contract
+  (`BOT-098F2A`) ✅.
 - F3: volume + indicator buffers và semantic equivalence tests.
 - F4: marker/crosshair/tooltip + dev FPS.
 - F5: thay chart Backtest, giữ fallback PyQtGraph một release rồi loại bỏ khi
