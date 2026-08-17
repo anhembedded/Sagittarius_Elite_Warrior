@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 67 | 63.8% |
+| 🟢 **Completed** | 69 | 65.1% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 38 | 36.2% |
-| 📈 **Tổng số Task** | **105** | **100%** |
+| 🔴 **Backlog** | 37 | 34.9% |
+| 📈 **Tổng số Task** | **106** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -196,7 +196,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | ✅ **[BOT-068](completed/BOT-068_ui_thread_affinity_guard.md)** | **Guard thread-affinity** `@ui_mutator` + sanity test quét mọi ViewModel | 🛡️ **`L (Sentinel/Thinking)`** | **A. Chạm UI từ luồng nền** — [`BUG-001`](bug_report/BUG-001.md) (app treo, `QBasicTimer`). Engine hiện có **0** guard thread nào; `set_stats()` đã drift thiếu `@Slot` | Trung bình |
 | ✅ **[BOT-069](completed/BOT-069_exclusive_action_single_flight.md)** | **`ExclusiveAction`** — single-flight + nhóm key xung khắc | 🔴 **`L (Thinking)`** | **D. Re-entrancy** — `BOT-027` ✅ đã fix nhưng bằng **quy ước** (cờ viết tay, lặp 2 chỗ), entry point thứ 3 sẽ không tự có guard | Thấp |
 | ✅ **[BOT-070](completed/BOT-070_qml_value_normalizer.md)** | **`from_qml()`** — unwrap `QJSValue` đệ quy | 🟢 **`S (Fast)`** | **E. Marshaling QML↔Python** — `BOT-061`. `QJSValue` xử lý ở **đúng 1 chỗ** trong cả repo → mỗi `@Slot("QVariant")` mới là một `BOT-061` mới | Rất thấp |
-| **[BOT-071](backlog/BOT-071_boot_asset_preflight.md)** | **Pre-flight asset lúc boot** — mở rộng `DependencyValidatorExtension` đã có | 🟢 **`S (Fast)`** | **F. Asset thiếu fallback im lặng** — 7 icon mất trong `git reset`, ship lỗi qua nhiều phiên tới khi user tự đọc log ([`BUG-002`](bug_report/BUG-002.md)) | Thấp |
+| ✅ **[BOT-071](completed/BOT-071_boot_asset_preflight.md)** | **Pre-flight asset lúc boot** — `AssetValidatorExtension` fail-fast ở dev mode | 🟢 **`S (Fast)`** | **F. Asset thiếu fallback im lặng** — 7 icon mất trong `git reset`, ship lỗi qua nhiều phiên tới khi user tự đọc log ([`BUG-002`](bug_report/BUG-002.md)) | Thấp |
 
 > ⏸️ **Ca cố ý KHÔNG đề xuất cơ chế**: `BOT-062`/`5c20156` (`self._autostart` chỉ gán khi config gate bật nhưng gọi vô điều kiện). Bản chất chỉ là thiếu null-guard — xây machinery tốn hơn phần tiết kiệm được. Ghi lại để lần sau không ai đề xuất rồi mất công phân tích lại.
 > 🔗 **`BOT-067` ↔ `BOT-069` là cặp đôi**: vòng đời `ResourceScope` chính là vòng đời `ExclusiveAction`. Nếu làm cả hai, `ExclusiveAction` nên là nơi mở/đóng scope. **Không ghép thành 1 task** — 2 khái niệm khác nhau, dùng độc lập được.

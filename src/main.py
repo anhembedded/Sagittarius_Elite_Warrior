@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
     execute_stream,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+    AssetValidatorExtension,
+)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
     DependencyValidatorExtension,
@@ -48,6 +51,7 @@ def create_app(config_manager: ConfigManager) -> App:
             ["PySide6", "pyqtgraph", "qdarktheme", "sqlalchemy"]
         )
     )
+    app.use(AssetValidatorExtension())
 
     app.use(LoggerExtension())
     app.use(ThreadManagerExtension())
