@@ -77,6 +77,13 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 
 ## 3. UI & Presentation Layer Rules
 
+- **QML Standards & Declarative Guidelines (Strict Adherence to `qml-rule.md`):**
+  - **Separation of Logic & UI**: QML files are purely declarative views. Business logic, calculations, domain validations, and state machines reside strictly in Python (`Presenter`, `ViewModel`, `Domain`). UI triggers ViewModel actions via slots/methods.
+  - **Reactive Property Bindings**: Bind QML element properties directly to `viewModel` properties and `Theme` singletons. Never break bindings with imperative assignments inside signal handlers.
+  - **Component Modularization & SRP**: Break down large monolithic QML files (> 300 lines) into focused, reusable components (`ModalDialogCard.qml`, `BotParamField.qml`, `DynamicTabBar.qml`).
+  - **Declarative `States` and `Transitions`**: For elements with 3+ visual states (e.g., `IDLE`, `HOVER`, `PRESSED`, `DIRTY`, `DISABLED`), prefer declarative `states: [...]` and `transitions: [...]` over complex nested ternary expressions.
+  - **Micro-Animations for Feedback**: Use subtle non-intrusive micro-animations (150ms – 250ms) via `Behavior on color / opacity / height` for smooth transitions without blocking the UI thread.
+  - **Security & UI Injection Defense**: Always enforce `textFormat: Text.PlainText` on `Text` items rendering dynamic or external data (trade logs, error messages, symbol names) to prevent HTML/RichText UI injection.
 - **Dynamic Responsive UI Sizing & Synchronized Table Columns:**
   - Never hardcode rigid fixed pixel dimensions (`width`/`height`) on modals, dialogs, popups, or cards. Use `preferredWidth` and `preferredHeight` dynamically clamped to available overlay boundaries.
   - All scrollable inner containers must declare `ScrollView { clip: true }` and responsive content widths.

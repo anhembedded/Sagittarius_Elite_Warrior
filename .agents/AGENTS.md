@@ -25,6 +25,14 @@
   - Every numeric value must be declared as a named constant or configuration key (`config_keys.py`, `user_config.json`, `constants.py`).
   - Strategy and indicator parameters must be declared dynamically via parameter schemas (`input_int`, `input_float`, etc.).
 
+- **QML & Declarative UI Standards (See `.agents/rules/qml-rule.md`)**:
+  - Keep QML strictly declarative; all business logic, validation, state machines, and calculations reside in Python (`Presenter`, `ViewModel`, `Domain`).
+  - Use reactive property bindings; never break bindings with imperative assignments inside signal handlers.
+  - Break down large monolithic QML files (> 300 lines) into modular, reusable components (`ModalDialogCard.qml`, `BotParamField.qml`, `DynamicTabBar.qml`).
+  - Prefer declarative `states: [...]` and `transitions: [...]` over complex nested ternary expressions for elements with 3+ states.
+  - Apply non-intrusive micro-animations (150ms – 250ms) for visual polish via `Behavior on color / opacity / height`.
+  - Always enforce `textFormat: Text.PlainText` on `Text` items rendering dynamic or external data to prevent UI injection.
+
 - **Dynamic Responsive UI Sizing & Synchronized Table Columns**:
   - Never hardcode rigid fixed `width`/`height` on modals or cards. Use `preferredWidth` and `preferredHeight` clamped to available overlay boundaries.
   - Ensure all interior scrollable containers use `ScrollView { clip: true }` and responsive content sizing.
