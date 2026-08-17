@@ -50,6 +50,11 @@ pip install -e Sagittarius-Engine
 - **`.agents/AGENTS.md`** (this folder) — short SOLID recap plus the
   mandatory commit signature: every AI-authored commit ends with
   `Co-Authored-By: Antigravity <noreply@google.com>`.
+- **`.agents/context/`** (this folder) — workload-specific, non-binding
+  context. Read the matching file when working in that area; it records
+  current facts, task order, and known hazards without duplicating rules.
+  For Backtest lifecycle/FSM/async work, read
+  `.agents/context/BOT-095_backtest_lifecycle.md` before editing code.
 - **`../.agents/PLAYBOOK.md`** (superproject root) — generic AI working
   process (understand → load context → apply rules → pick a skill →
   execute → validate). Its context/rule/skill routing tables reference an

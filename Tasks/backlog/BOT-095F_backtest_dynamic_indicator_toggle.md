@@ -1,6 +1,7 @@
 # Nhiệm vụ: BOT-095F — Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest
 
 > Thuộc Epic [`BOT-095`](BOT-095_backtest_signals_fsm_lifecycle_epic.md).
+> Phụ thuộc: `BOT-095H`.
 > **Trọng tâm**: Cho phép người dùng bật / tắt các chỉ báo kỹ thuật tham chiếu (`IndicatorPickerModal` như RSI, MACD, EMA Ribbon) và tự động vẽ / ẩn trực tiếp trên biểu đồ `ChartCanvas` sau khi Backtest đã hoàn thành mà **không bắt người dùng phải chạy lại toàn bộ thuật toán Backtest**.
 
 ---
@@ -30,7 +31,7 @@ Khi nhận signal `enabledKeysChanged` từ `script_model`:
    - Gọi `self.view.chart_card.indicator_manager.clear_script_indicators(key)` (hoặc ẩn các curve/subplot tương ứng).
 3. **Đối với các script vừa bật:**
    - Dựng instance của script qua `IndicatorScriptRegistry.create(key)`.
-   - Feed tập nến hiện có `_chart_klines` qua script:
+   - Feed tập nến hiện có `_chart_klines` qua script ở worker hoặc dùng cache output theo `(run_id, script_key, script_version)`; chỉ artifact render hoàn tất mới qua signal về UI thread:
      ```python
      script_runner = IndicatorScriptRunner(self.script_registry, ...)
      script_runner.feed_all(_chart_klines, [key])
@@ -54,9 +55,12 @@ Khi nhận signal `enabledKeysChanged` từ `script_model`:
 ## 4. Tiêu chuẩn Nghiệm thu (Acceptance Criteria)
 
 1. **Hiển thị tức thì (Instant Toggle)**:
-   - Khi bật một indicator script trong `IndicatorPickerModal` $\rightarrow$ Đường chỉ báo / Subplot xuất hiện ngay trên chart trong vòng $< 50\text{ms}$.
+   - Với cache hit, render nhanh và không block UI; cache miss có trạng thái loading nhỏ. Ngưỡng hiệu năng được benchmark theo số nến/script, không dùng SLA cố định `<50ms`.
 2. **Không chạy lại engine backtest**:
    - `RunStaticBacktestCommand` không bị dispatch lại khi chỉ bật/tắt script tham chiếu.
    - FSM giữ nguyên trạng thái `COMPLETED` (hoặc `IDLE`), không bị đánh dấu là `CONFIG_DIRTY`.
 3. **Local CI Verification**:
    - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+
+4. **Race verification**:
+   - Toggle nhanh on/off hoặc đổi run khi indicator đang tính không được render artifact của run cũ; signal mang `run_id` và bị fence bởi `BOT-095H`.

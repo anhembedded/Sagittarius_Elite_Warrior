@@ -41,6 +41,12 @@
   - Tightly coupled elements defining the same domain lifecycle, state machine, or configuration MUST be co-located within the same single file or module scope (e.g., State Enum + Event Enum + Transition Matrix + UI mode mappings in a single `*_fsm_matrix.py`).
   - Do NOT fragment tightly coupled definitions across multiple scattered files where understanding a single feature lifecycle requires jumping across 4-5 distant modules.
 
+- **Async Action Ownership, Data Truth & Benchmarking**:
+  - Every UI-affecting background action needs an `action_id`/generation and immutable input snapshot; only the still-active action may mutate the ViewModel/FSM/chart or trigger a follow-up action. Ignore and log stale callbacks.
+  - Cancellation is cooperative and idempotent. It must reach every compute pass, never publish a late success/failure, and restore the correct pre-action state.
+  - Range coverage needs UTC + timeframe-cadence gap checks; exchange filters come from symbol metadata, not hard-coded capital thresholds.
+  - History snapshots are immutable, provenance-rich and memory-bounded. Performance/ETA claims require a reproducible benchmark, not an unconditional millisecond SLA.
+
 
 - **UI Icon Assets & Theme-Tinted Rendering**:
   - All visual iconography in the UI MUST be defined as clean, standardized SVG vector files in `src/presentation/ui/assets/icons/` (following Lucide/Feather icon standards).
@@ -51,6 +57,7 @@
   - Every new feature/screen ships with sanity tests in `tests/sanity/` (DI sanity + UI sanity) alongside unit tests.
   - Bug fixes must always include a reproducing regression test first.
   - Validate changes locally using `.\scripts\ci-local.ps1 -UnitOnly`.
+  - Async lifecycle changes also require deterministic stale-callback and cancellation race tests; do not use sleep-based timing tests as proof.
 
 - **Proactive Inconsistency Challenge & Constructive Pushback**:
   - The AI assistant MUST actively challenge/refute user requests if they introduce inconsistencies, anti-patterns, layer violations, or break established domain principles.

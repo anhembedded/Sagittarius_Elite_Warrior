@@ -53,16 +53,17 @@ class PositiveCapitalRule(IInputAssertionRule):
             return AssertionResult(False, "initialCapital", "Vốn ban đầu phải là một số hợp lệ.")
 
 class BinanceMinNotionalRule(IInputAssertionRule):
-    """Kiểm tra Vốn ban đầu có đủ đáp ứng quy định Minimum Notional (5 USDT) của sàn Binance."""
-    MIN_NOTIONAL = 5.0
+    """Kiểm tra notional của lệnh theo filter metadata của đúng symbol/market."""
 
     def validate(self, context: dict) -> AssertionResult:
         try:
             val = float(context.get("initial_capital", 0))
             currency = context.get("currency", "USDT")
-            if currency == "USDT" and val < self.MIN_NOTIONAL:
+            # Không hard-code 5 USDT: MIN_NOTIONAL/NOTIONAL là filter theo
+            # symbol và notional = quantity * price, không phải initial capital.
+            if currency == "USDT" and val < context["symbol_min_notional"]:
                 return AssertionResult(
-                    False, "initialCapital", f"Vốn ban đầu tối thiểu phải từ {self.MIN_NOTIONAL} USDT (quy định sàn)."
+                    False, "orderNotional", "Giá trị lệnh chưa đạt minimum notional của symbol."
                 )
             return AssertionResult(True, "initialCapital", "")
         except ValueError:
@@ -117,8 +118,11 @@ class PreBacktestAssertionPipeline:
 
 1. **Khung Assertion Mở rộng hoàn hảo**:
    - Dễ dàng gắn thêm Rule mới mà không làm vỡ code cũ.
-   - Cảnh báo vi phạm Min Notional $5 USDT ngay trên dialog.
+   - Validation local (format/range) chạy tức thì. Market-rule validation dùng exchange metadata cache theo symbol; metadata không có/đã cũ phải hiển thị “chưa xác minh”, không hard-code $5.
 2. **Stepper & Phím tắt mượt mà**:
    - Dùng phím `Up`/`Down` hoặc lăn chuột trên `BotParamsDialog` thay đổi giá trị mượt mà; `Ctrl + Enter` kích hoạt chạy lại tức thì.
 3. **Local CI Verification**:
    - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+
+4. **Input safety**:
+   - Stepper tôn trọng `min`/`max`/`step` từ param schema, không đổi giá trị khi cuộn chỉ để đọc dialog, và hotkey không bypass validation.

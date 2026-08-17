@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 58 | 61% |
+| 🟢 **Completed** | 59 | 60% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 37 | 39% |
-| 📈 **Tổng số Task** | **95** | **100%** |
+| 🔴 **Backlog** | 40 | 40% |
+| 📈 **Tổng số Task** | **99** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
@@ -35,6 +35,8 @@ Sagittarius_Elite_Warrior/Tasks/
 > Lần tăng thứ tư (+5, [Epic `BOT-078`](backlog/BOT-078_backtest_trustworthiness_epic.md) + `BOT-079`…`BOT-082`): user hỏi *"còn thấy vấn đề gì trong định hướng của app không?"* → rà soát toàn diện, tìm ra **7 red flag/mâu thuẫn** có bằng chứng verify được. Đây là **nợ đã tồn tại sẵn được ghi ra giấy**, không phải việc mới. 📄 [Rà soát định hướng App](reports/app_direction_audit.md).
 >
 > Lần tăng thứ năm (+8, [Epic `BOT-095`](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md) + `BOT-095A`…`BOT-095G`): user yêu cầu hoàn thiện toàn bộ **hệ thống UI signals, State Machine và vòng đời tham số cho màn hình Backtest** (tách riêng hạ tầng Engine `DeclarativeStateMachine`, Dirty Tracking & Diff Summary, nút Hủy + Progress Bar ETA, 1-Click Auto-Sync & Run, Khung Assertion Pipeline mở rộng OCP, Dynamic Indicators, và Session Run History Cache). 📄 [Đặc tả Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md).
+>
+> Lần tăng thứ sáu (+1, `BOT-095H`): phản biện code/roadmap chỉ ra race condition cấp lifecycle — callback của sync/backtest cũ có thể ghi đè intent mới khi thêm cancel/auto-run/history. Task P1 mới chuẩn hóa `action_id`/generation, snapshot cấu hình và stale-callback fencing trước `BOT-095C`/`D`/`G`. 📄 [Rà soát BOT-095](reports/BOT-095_review_phan_bien.md).
 
 ---
 
@@ -208,12 +210,13 @@ Sagittarius_Elite_Warrior/Tasks/
 | Task ID | Tên Nhiệm vụ | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :--- |
 | **[BOT-095A](backlog/BOT-095A_declarative_fsm_engine_foundation.md)** ✅ | **Hạ tầng Declarative State Machine & Event Dispatching** | — | `sagittarius_engine.extensions.fsm` (`DeclarativeStateMachine`), ma trận `(State, Event) -> NextState`, `dispatch(event)`, `load_matrix()`, bảo vệ Re-entrancy và Thread-Affinity. |
-| **[BOT-095B](backlog/BOT-095B_backtest_fsm_and_stale_data_lifecycle.md)** | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | `BOT-095A` ✅ | `backtest_fsm_matrix.py`, Dirty Tracking so khớp `BacktestRunConfig`, Amber Banner với Diff Summary, tự động khôi phục `COMPLETED`, và bảo vệ nút Xuất CSV. |
-| **[BOT-095C](backlog/BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | `BOT-095B` | Nút Cancel khi đang RUNNING, tích hợp CancellationToken ngắt luồng an toàn, thanh Progress Bar % + thời gian còn lại ETA. |
-| **[BOT-095D](backlog/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | `BOT-095B` | Kiểm tra độ bao phủ nến (Range Gap Check), 1-Click Auto-Sync & Run kế thừa Progress Bar từ Data Management, preview nến mới khi đổi Timeframe. |
-| **[BOT-095E](backlog/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | — | Khung Assertion Rule mở rộng (OCP), kiểm tra Min Binance Lot Notional $5, viền đỏ cảnh báo tại chỗ, phím tắt Hotkeys / con lăn Stepper trong `BotParamsDialog`. |
-| **[BOT-095F](backlog/BOT-095F_backtest_dynamic_indicator_toggle.md)** | **Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest** | `BOT-064` ✅ | Cho phép bật/tắt script tham chiếu (RSI, MACD, EMA) trên biểu đồ mà không cần chạy lại backtest. |
-| **[BOT-095G](backlog/BOT-095G_backtest_session_run_history_cache.md)** | **Bộ nhớ đệm Lịch sử Lần chạy (Session Run History Cache)** | `BOT-095B` | Lưu 5 lần chạy gần nhất, dropdown xem lại tức thì ($0\text{ms}$), phục hồi hoàn hảo Charts, Metrics và Trade Logs để trader so sánh đa khung/đa chiến lược. |
+| **[BOT-095B](completed/BOT-095B_backtest_fsm_dirty_tracking.md)** ✅ | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | `BOT-095A` ✅ | `backtest_fsm_matrix.py`, Dirty Tracking so khớp `BacktestRunConfig`, Amber Banner với Diff Summary, tự động khôi phục `COMPLETED`, và bảo vệ nút Xuất CSV. |
+| **[BOT-095H](backlog/BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md)** | **Quyền sở hữu Action & Chặn Callback Lỗi thời** | `BOT-095A` ✅, `BOT-095B` ✅ | `action_id`/generation, immutable config snapshot và stale-callback fencing. **Bắt buộc trước C/D/G.** |
+| **[BOT-095C](backlog/BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | `BOT-095H` | Nút Cancel, cancellation outcome tường minh, progress/ETA benchmarked; token phải đi qua mọi pass mô phỏng. |
+| **[BOT-095D](backlog/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | `BOT-095C`, `BOT-095H` | Gap check UTC/cadence, post-sync re-probe và auto-continue chỉ cho action còn active. |
+| **[BOT-095E](backlog/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | — | Khung Assertion Rule mở rộng (OCP), local validation tức thì và market-rule validation theo metadata của symbol; viền đỏ tại chỗ, hotkeys/stepper trong `BotParamsDialog`. |
+| **[BOT-095F](backlog/BOT-095F_backtest_dynamic_indicator_toggle.md)** | **Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest** | `BOT-064` ✅, `BOT-095H` | Bật/tắt script tham chiếu (RSI, MACD, EMA) không chạy lại backtest; artifact bị fence theo `run_id`. |
+| **[BOT-095G](backlog/BOT-095G_backtest_session_run_history_cache.md)** | **Bộ nhớ đệm Lịch sử Lần chạy (Session Run History Cache)** | `BOT-095H` | Snapshot immutable có provenance, bounded-memory cache và restore transactionally; không hứa SLA “0ms”. |
 
 ---
 

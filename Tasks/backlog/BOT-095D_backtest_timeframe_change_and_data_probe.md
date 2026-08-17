@@ -1,7 +1,7 @@
 # Nhiệm vụ: BOT-095D — 1-Click Auto-Sync & Run, Date Range Gap Check & Live Chart Preview
 
 > Thuộc Epic [`BOT-095`](BOT-095_backtest_signals_fsm_lifecycle_epic.md).
-> Phụ thuộc: [`BOT-095B`](BOT-095B_backtest_fsm_and_stale_data_lifecycle.md).
+> Phụ thuộc: `BOT-095B` ✅, [`BOT-095H`](BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md), sau `BOT-095C`.
 > **Trọng tâm**: Xử lý vòng đời chuyển đổi Timeframe, tự động kiểm tra độ bao phủ nến (Date Range Gap Check) trong SQLite, nạp nến xem trước (Preview) lên biểu đồ, và xây dựng cơ chế **1-Click Auto-Sync & Run** (tự động đồng bộ với Progress Bar kế thừa từ Data Management rồi chạy tiếp Backtest chỉ với 1 click).
 
 ---
@@ -25,7 +25,7 @@ Khi nhận signal `selectedTimeframeChanged` hoặc `timeRangeChanged`:
      - `db_min_time` = nến sớm nhất trong DB của symbol + timeframe đó.
      - `db_max_time` = nến muộn nhất trong DB.
      - `candle_count` = tổng số nến hiện có.
-   - So khớp với khoảng thời gian yêu cầu `[req_start_time, req_end_time]`:
+   - Chuẩn hóa timezone UTC và dùng khoảng half-open `[req_start_time, req_end_time)`. Min/max chỉ là fast precheck; sau đó phải kiểm các timestamp kỳ vọng theo cadence của timeframe để phát hiện **gap nội bộ**, duplicate và nến cuối chưa đóng:
      ```python
      is_fully_covered = (db_min_time is not None) and (db_min_time <= req_start_time) and (db_max_time >= req_end_time)
      ```
@@ -39,10 +39,10 @@ Khi nhận signal `selectedTimeframeChanged` hoặc `timeRangeChanged`:
 ### 2.2. Cơ chế 1-Click Auto-Sync & Run (Kế thừa Progress Bar từ Data Management)
 Khi người dùng bấm "Chạy Backtest" mà `needsDataSync == True`:
 1. FSM tự động chuyển sang `BacktestUiState.SYNCING`.
-2. Presenter khởi chạy `BulkSyncMarketDataCommand` (hoặc `SyncMarketDataCommand`) với symbol và timeframe được chọn.
+2. Presenter khởi chạy command sync với **config snapshot/action_id đã tạo**, không đọc toolbar ở callback.
 3. **Kế thừa Progress Bar:** Lắng nghe tiến độ đồng bộ (`SyncProgressEvent`) từ EventBus hoặc Handler (đã có sẵn trong Data Management) để cập nhật % tải dữ liệu mượt mà lên Toolbar:
    > *"Đang đồng bộ nến {timeframe} từ Binance: 45% (1,200 / 2,600 nến)..."*
-4. **Tự động chuyển tiếp:** Khi sync thành công $\rightarrow$ Dispatch `SYNC_SUCCEEDED` $\rightarrow$ FSM tự động chuyển sang `BacktestUiState.RUNNING` và chạy ngay `RunStaticBacktestCommand` mà **không yêu cầu người dùng phải bấm nút lần thứ hai**.
+4. **Tự động chuyển tiếp:** Khi sync thành công, re-probe đúng range/cadence rồi chỉ dispatch `SYNC_SUCCEEDED` và chạy tiếp nếu action_id vẫn active. Thiếu gap sau sync phải báo chính xác segment còn thiếu, không chạy backtest trên dữ liệu một phần.
 
 ---
 
@@ -61,8 +61,11 @@ Khi người dùng bấm "Chạy Backtest" mà `needsDataSync == True`:
 1. **1-Click Hoàn tất**:
    - Thiếu dữ liệu nến $\rightarrow$ Người dùng bấm "Chạy Backtest" đúng 1 lần $\rightarrow$ Hệ thống tự động tải nến kèm progress bar rồi tính toán ra kết quả.
 2. **Gap Check chính xác**:
-   - Phát hiện đúng các khoảng trống dữ liệu ngày bắt đầu / ngày kết thúc.
+   - Phát hiện gap đầu/cuối **và gap nội bộ**, boundary UTC và nến chưa đóng.
 3. **Preview nến tức thì**:
    - Đổi khung `1m` sang `5m` có data $\rightarrow$ Chart cập nhật nến `5m` ngay lập tức.
 4. **Local CI Verification**:
    - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+
+5. **Race verification**:
+   - `sync-success-after-invalidated-config` không auto-run và không ghi đè preview/UI hiện tại.

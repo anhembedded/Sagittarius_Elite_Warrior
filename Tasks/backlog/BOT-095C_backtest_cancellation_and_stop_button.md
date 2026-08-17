@@ -1,7 +1,7 @@
 # Nhiệm vụ: BOT-095C — Nút Hủy / Dừng Backtest & Thanh Tiến độ Tính toán Realtime (`CancellationToken` & Progress ETA)
 
 > Thuộc Epic [`BOT-095`](BOT-095_backtest_signals_fsm_lifecycle_epic.md).
-> Phụ thuộc: [`BOT-095B`](BOT-095B_backtest_fsm_and_stale_data_lifecycle.md).
+> Phụ thuộc: `BOT-095B` ✅ và [`BOT-095H`](BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md).
 > **Trọng tâm**: Tích hợp cơ chế hủy an toàn (`CancellationToken`) cùng thanh tiến độ tính toán nến thời gian thực (% và thời gian ước tính còn lại ETA) vào chuỗi xử lý Static Backtest, kết hợp nút Hủy (Danger Red) trên giao diện người dùng.
 
 ---
@@ -24,8 +24,8 @@ Trong `src/application/use_cases/backtest/run_static_backtest/command.py` và `h
    progress_callback: Callable[[int, int, float], None] | None = None  # (processed_bars, total_bars, percent)
    ```
 2. Trong vòng lặp nến của `RunStaticBacktestCommandHandler.execute()`:
-   - Cứ sau mỗi $N$ nến (ví dụ mỗi 1000 nến hoặc 1%):
-     - Kiểm tra `cancellation_token.is_cancelled()`. Nếu bị hủy $\rightarrow$ Dừng ngay vòng lặp, giải phóng tài nguyên và trả về `BacktestResult(cancelled=True)`.
+   - Kiểm tra token theo cadence được benchmark (không mặc định 1,000 nến) trên **mọi** pass: full range, in-sample và out-of-sample.
+     - Nếu bị hủy $\rightarrow$ dừng hợp tác, giải phóng tài nguyên và trả về một cancellation outcome tường minh. Không tự thêm `cancelled=True` vào `BacktestResult` nếu domain object chưa có contract đó.
      - Nếu có `progress_callback` $\rightarrow$ Gọi callback để thông báo số nến đã xử lý.
 
 ### 2.2. Xử lý Signal & FSM Transition trong `BackTestPresenter`
@@ -34,13 +34,13 @@ Trong `src/application/use_cases/backtest/run_static_backtest/command.py` và `h
    - Khi bấm "Chạy Backtest":
      - Tạo `self._cancellation_token = CancellationToken()`.
      - Định nghĩa callback cập nhật tiến độ (tính toán ETA: $\text{time\_remaining} = \frac{\text{elapsed}}{\text{progress}} - \text{elapsed}$).
-     - Phát qua Qt Signal lên Main Thread để cập nhật UI an toàn (tuân thủ Thread-Affinity).
+   - Phát qua Qt Signal lên Main Thread để cập nhật UI an toàn (tuân thủ Thread-Affinity), kèm `action_id` của `BOT-095H`; slot bỏ qua progress/callback không còn thuộc action active.
    - Khi nhận signal `cancelBacktestRequested`:
      - Dispatch event `self.fsm.dispatch(BacktestUiEvent.CANCEL_REQUESTED)` $\rightarrow$ FSM chuyển sang `CANCELLING`.
      - Gọi `self._cancellation_token.cancel()`.
      - Log: `"Đang hủy tính toán Backtest..."`.
    - Khi luồng nền kết thúc do hủy:
-     - Dispatch event `self.fsm.dispatch(BacktestUiEvent.BACKTEST_CANCELLED)` $\rightarrow$ FSM về `IDLE` (hoặc `CONFIG_DIRTY`).
+     - Dispatch event `self.fsm.dispatch(BacktestUiEvent.BACKTEST_CANCELLED)` về **pre-run state** đã lưu (ví dụ `CONFIG_DIRTY` nếu đang giữ kết quả cũ), không luôn ép về `IDLE`.
 
 ### 2.3. Cập nhật UI trên `BackTestTopPanel.qml`
 1. Khi `viewModel.uiMode !== "RUNNING"`:
@@ -70,11 +70,14 @@ Trong `src/application/use_cases/backtest/run_static_backtest/command.py` và `h
 ## 4. Tiêu chuẩn Nghiệm thu (Acceptance Criteria)
 
 1. **Ngắt luồng tức thì**:
-   - Khi đang chạy backtest dài, bấm nút "Hủy" $\rightarrow$ Tác vụ nền dừng trong vòng $< 100\text{ms}$.
-   - FSM chuyển `RUNNING` $\rightarrow$ `CANCELLING` $\rightarrow$ `IDLE`.
+   - Cancel idempotent: success/failure đến sau cancel không được render kết quả hoặc gây illegal transition.
+   - FSM chuyển `RUNNING` $\rightarrow$ `CANCELLING` $\rightarrow$ pre-run state phù hợp.
 2. **Tiến độ mượt mà**:
-   - Thanh progress bar cập nhật liên tục từ 0% đến 100% kèm ETA chính xác, không gây giật lag giao diện.
+   - Progress được throttle/coalesce trên UI thread; ETA chỉ hiển thị sau mẫu đủ ổn định và ghi rõ là ước tính.
 3. **Zero Resource Leak**:
    - Không bị rò rỉ SQLite connection handles (`ResourceWarning`).
 4. **Local CI Verification**:
    - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+
+5. **Race verification**:
+   - Test `success-after-cancel`, `failure-after-cancel` và cancel trong out-of-sample pass. Ngưỡng latency phải được benchmark trên fixture có số nến công bố thay vì SLA tuyệt đối.

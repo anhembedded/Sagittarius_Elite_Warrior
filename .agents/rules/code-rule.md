@@ -58,6 +58,18 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
    - **No Function-Local / Lazy Imports (Tuyệt đối không dùng Local Import):** All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8. Never place `import ...` inside functions, methods, slots, test cases, or nested scopes (the only exception is `if TYPE_CHECKING:` guards at top level).
    - **Single-Scope Cohesion & Colocation (Gom chung các thành phần liên quan vào cùng 1 Scope / Single Source of Truth):** Tightly coupled components that define the same domain lifecycle, state machine, or feature configuration MUST be co-located within the same single file or module scope (e.g., FSM State Enum + FSM Event Enum + Transition Matrix + UI Mode mappings in a single `*_fsm_matrix.py`). Do NOT fragment tightly coupled definitions across multiple scattered files where understanding or modifying a single feature lifecycle requires jumping across 4-5 distant modules. Related enums, schemas, transition tables, and constants belonging to a single concept must reside together as a single source of truth.
 
+8. **Async UI Action Ownership & Cancellation:**
+   - Every user-initiated background action that can alter UI lifecycle state (for example backtest, sync, load, or render) MUST have an immutable action context: unique `action_id`/generation, action kind, immutable input snapshot, start time, and explicit terminal outcome.
+   - Worker signals and completion callbacks MUST carry the action identity. Before changing ViewModel state, FSM state, chart data, or starting a follow-up action, the receiving slot MUST verify that the action is still active. Stale callbacks are ignored and logged; they must never overwrite a newer user intent.
+   - Cancellation MUST be cooperative and idempotent. A cancelled action may not later publish success/failure UI state, and its final transition must restore the appropriate pre-action lifecycle state rather than blindly forcing `IDLE`.
+   - Long-running use cases MUST propagate cancellation checks through every computational pass, including validation/split passes. Progress events must be throttled or coalesced before reaching the UI thread.
+
+9. **Truthful Data, Validation & Snapshot Semantics:**
+   - A range-coverage check MUST verify internal gaps using the timeframe cadence and normalized UTC boundaries; min/max timestamps or total row count alone do not prove coverage.
+   - Exchange trading rules (minimum notional, lot size, tick size, leverage) MUST come from cached metadata for the active symbol/market. Never treat account capital as order notional and never hard-code a universal exchange filter.
+   - UI history/cache snapshots MUST be immutable (no retained mutable model references), memory-bounded, and include enough provenance to describe the result honestly: configuration, data window/watermark, strategy version/parameters, fee model, and execution mode.
+   - Never claim instantaneous or fixed latency without a reproducible benchmark fixture. State the workload, cache condition, and measurement method; display ETA as an estimate only.
+
 ---
 
 ## 3. UI & Presentation Layer Rules
@@ -87,6 +99,7 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 - **Do not move click handling off the Button itself** when tests emit `.clicked`.
 - **Local CI/CD Enforcement:**
   - Always run `.\scripts\ci-local.ps1 -UnitOnly` to validate your code before finishing changes.
+  - For lifecycle/concurrency work, add deterministic tests for stale-success, stale-failure, success-after-cancel, and cancellation during every relevant computation phase. Do not rely on timing sleeps to test races.
 
 ---
 
