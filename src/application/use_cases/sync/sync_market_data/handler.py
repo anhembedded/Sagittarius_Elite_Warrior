@@ -6,6 +6,7 @@ from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    ExchangeRequestCancelled,
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
@@ -41,6 +42,9 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         )
 
         for symbol in command.symbols:
+            if command.cancellation_requested and command.cancellation_requested():
+                self.logger.info("Market data sync cancelled before %s.", symbol)
+                return
             self._sync_single_symbol(symbol, command)
 
     def _sync_single_symbol(self, symbol: str, command: SyncMarketDataCommand) -> None:
@@ -62,9 +66,22 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                 )
             )
 
-        klines = self.exchange_client.get_historical_klines(
-            symbol, command.interval, start_time, command.end_time, _progress_cb
-        )
+        try:
+            klines = self.exchange_client.get_historical_klines(
+                symbol,
+                command.interval,
+                start_time,
+                command.end_time,
+                _progress_cb,
+                command.cancellation_requested,
+            )
+        except ExchangeRequestCancelled:
+            self.logger.info("[%s] Market data sync cancelled.", symbol)
+            return
+
+        if command.cancellation_requested and command.cancellation_requested():
+            self.logger.info("[%s] Market data sync cancelled before save.", symbol)
+            return
 
         if klines:
             self.repo.save_klines(klines)

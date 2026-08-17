@@ -1149,20 +1149,54 @@ def test_two_scripts_markers_do_not_interfere_with_each_other(qapp):
 
 
 def test_script_markers_only_materialize_the_visible_viewport_slice(qapp):
-    """Business history remains complete while scene-item cost follows the viewport."""
+    """Business history stays complete while display cost follows pixel budget."""
     card = ChartCard("BTCUSDT")
     card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
     card.range_updates.flush_pending()
     markers = [
-        (float(index), 100.0, f"M{index}", "#0ECB81", "up") for index in range(1000)
+        (float(index), 100.0, "MUA (LONG)", "#0ECB81", "up") for index in range(1000)
     ]
 
     card.set_script_markers("signals", markers)
 
     layer = card.indicators._marker_layer
     assert layer.stored_marker_count("signals") == 1000
-    assert 100 < layer.active_marker_count("signals") < 200
+    assert layer.active_marker_count("signals") <= 10
+    assert layer.represented_marker_count("signals") > 100
     assert all(90.0 <= item.pos().x() <= 210.0 for item in layer._items["signals"])
+
+
+def test_dense_trade_markers_declutter_then_restore_exact_labels_when_zoomed_in(qapp):
+    card = ChartCard("BTCUSDT")
+    layer = card.indicators._marker_layer
+    layer._viewport_pixel_width = lambda: 1200.0
+    markers = []
+    for trade_index in range(930):
+        entry_x = float(trade_index * 2)
+        markers.extend(
+            (
+                (entry_x, 100.0, "MUA (LONG)", "#0ECB81", "up"),
+                (entry_x + 1.0, 99.0, "ĐÓNG LONG", "#F6465D", "down"),
+            )
+        )
+
+    card.plot_layout.main_plot.setXRange(0.0, 1860.0, padding=0)
+    card.range_updates.flush_pending()
+    card.set_script_markers("trades", markers)
+
+    assert layer.stored_marker_count("trades") == 1860
+    assert layer.represented_marker_count("trades") == 1860
+    assert layer.active_marker_count("trades") <= 10
+    assert all(" ×" in marker.source[2] for marker in layer._display_markers["trades"])
+
+    card.plot_layout.main_plot.setXRange(0.0, 5.0, padding=0)
+    card.range_updates.flush_pending()
+
+    assert layer.active_marker_count("trades") == 6
+    assert layer.represented_marker_count("trades") == 6
+    assert all(
+        " ×" not in marker.source[2] for marker in layer._display_markers["trades"]
+    )
 
 
 def test_panning_recycles_marker_items_and_restores_markers_when_returning(qapp):

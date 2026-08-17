@@ -77,8 +77,12 @@ class ProfileResult:
     indicator_applies: int
     stored_markers: int
     active_markers: int
+    represented_markers: int
     rendered_candles: int
     rendered_volume_bars: int
+    device_pixel_ratio: float
+    logical_viewport_width: int
+    physical_viewport_width: int
 
 
 def _candles() -> list[tuple[float, float, float, float, float]]:
@@ -176,6 +180,9 @@ def _run_profile(
         card.set_script_markers("trades", _markers(candles))
 
     app.processEvents()
+    chart_viewport = card.plot_layout.widget.viewport()
+    device_pixel_ratio = chart_viewport.devicePixelRatioF()
+    logical_viewport_width = chart_viewport.width()
     callback_count = 0
 
     def count_callback(_viewbox, _x_range) -> None:
@@ -239,8 +246,12 @@ def _run_profile(
         - initial_indicator_applies,
         stored_markers=layer.stored_marker_count("trades"),
         active_markers=layer.active_marker_count("trades"),
+        represented_markers=layer.represented_marker_count("trades"),
         rendered_candles=card.candlestick.last_render_candle_count,
         rendered_volume_bars=card.volume.last_applied_bar_count,
+        device_pixel_ratio=round(device_pixel_ratio, 3),
+        logical_viewport_width=logical_viewport_width,
+        physical_viewport_width=round(logical_viewport_width * device_pixel_ratio),
     )
     card.cleanup()
     card.close()
@@ -357,6 +368,10 @@ def main() -> None:
             "qt_platform": app.platformName(),
             "pyqtgraph": pg.__version__,
             "resolution": "1600x900",
+            "primary_screen_device_pixel_ratio": round(
+                app.primaryScreen().devicePixelRatio() if app.primaryScreen() else 1.0,
+                3,
+            ),
             "requested_backend": args.backend,
             "antialias_mode": antialias_mode.value,
             "viewport_update_mode": args.viewport_update,

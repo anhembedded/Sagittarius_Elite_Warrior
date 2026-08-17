@@ -14,4 +14,12 @@ inline constexpr quint64 BytesPerCandle = 48;
 // timestampsUtcMs:i64[count] (strictly increasing Unix epoch milliseconds),
 // then open/high/low/close/volume:f64[count].
 
+inline constexpr char IndicatorMagic[4] = {'S', 'G', 'I', 'N'};
+inline constexpr quint16 IndicatorVersion = 1;
+inline constexpr quint16 IndicatorHeaderBytes = 32;
+// Indicator snapshot v1 is little-endian and structure-of-arrays:
+// magic[4], version:u16, headerBytes:u16, revision:u64, candleCount:u64,
+// seriesCount:u32, reserved:u32, rgba:u32[seriesCount],
+// values:f64[candleCount] for each series in color-plane order.
+
 }  // namespace Sagittarius::NativeChart::SnapshotAbi

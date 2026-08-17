@@ -1,8 +1,11 @@
+from collections.abc import Callable
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
+CancellationCheck = Callable[[], bool]
 
 
 class SyncMarketDataCommand(BaseModel):
@@ -17,6 +20,11 @@ class SyncMarketDataCommand(BaseModel):
     )
     start_time: datetime | None = Field(default=None, description="Explicit start time")
     end_time: datetime | None = Field(default=None, description="Explicit end time")
+    cancellation_requested: CancellationCheck | None = Field(
+        default=None,
+        exclude=True,
+        description="Optional cooperative cancellation check owned by the caller.",
+    )
 
     @field_validator("symbols")
     @classmethod

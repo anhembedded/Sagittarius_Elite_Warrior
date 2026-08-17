@@ -11,6 +11,7 @@ Screen-specific factory/presenter imports stay at the top level (no local import
 
 from __future__ import annotations
 
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
@@ -116,6 +117,14 @@ class MainWindow(QMainWindow):
 
         # ---- Navigate to default screen ---------------------------------
         self.switch_screen("dashboard")
+
+    def shutdown(self) -> None:
+        """Requests cooperative presenter shutdown before engine teardown."""
+        self._router.shutdown()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.shutdown()
+        super().closeEvent(event)
 
     def _setup_router(self) -> None:
         """Register all screens with the lazy-loading PresenterManager."""

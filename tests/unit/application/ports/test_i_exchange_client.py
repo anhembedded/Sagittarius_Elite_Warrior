@@ -30,6 +30,7 @@ def test_valid_implementation():
             start_str: str | datetime,
             end_str: str | datetime | None = None,
             progress_callback=None,
+            cancellation_requested=None,
         ) -> list[MarketData]:
             return []
 

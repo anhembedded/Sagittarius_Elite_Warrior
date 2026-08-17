@@ -248,7 +248,9 @@ class BackTestPresenter(BasePresenter):
         self._active_action: BacktestActionContext | None = None
         self._active_action_outcome: BacktestActionOutcome | None = None
         self._backtest_cancellation_token: CancellationToken | None = None
+        self._sync_cancellation_token: CancellationToken | None = None
         self._cancelling_action_id: int | None = None
+        self._shutdown_requested = False
         self._next_preview_id = 0
         self._active_preview_id = 0
 
@@ -1460,7 +1462,13 @@ class BackTestPresenter(BasePresenter):
         )
         self._view_model.set_result(_SYNCING_MESSAGE, is_error=False)
         self._log_dev_trace("sync_worker_submitted")
-        self._thread_manager.submit(self._run_sync, action.config, action.action_id)
+        self._sync_cancellation_token = CancellationToken()
+        self._thread_manager.submit(
+            self._run_sync,
+            action.config,
+            action.action_id,
+            self._sync_cancellation_token,
+        )
 
     @Slot(int, int, int)
     @safe_ui_action
@@ -1483,6 +1491,7 @@ class BackTestPresenter(BasePresenter):
                 "sync_succeeded", action_id, BacktestActionKind.SYNC
             )
             return
+        self._sync_cancellation_token = None
         self._finish_action(action_id, BacktestActionOutcome.SUCCEEDED)
         self._on_sync_succeeded()
 
@@ -1494,6 +1503,7 @@ class BackTestPresenter(BasePresenter):
                 "sync_failed", action_id, BacktestActionKind.SYNC
             )
             return
+        self._sync_cancellation_token = None
         self._on_sync_failed(message)
         self._finish_action(action_id, BacktestActionOutcome.FAILED)
 
@@ -1779,7 +1789,10 @@ class BackTestPresenter(BasePresenter):
         return self.dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
 
     def _run_sync(
-        self, config: BacktestRunConfig, action_id: int | None = None
+        self,
+        config: BacktestRunConfig,
+        action_id: int | None = None,
+        cancellation_token: CancellationToken | None = None,
     ) -> None:
         """Background worker: dispatches `SyncMarketDataCommand` for the
         symbol/timeframe/range that just came back "no data" — mirrors
@@ -1811,6 +1824,9 @@ class BackTestPresenter(BasePresenter):
                     if config.end_time is not None
                     else None
                 ),
+                cancellation_requested=(
+                    cancellation_token.is_cancelled if cancellation_token else None
+                ),
             )
             self._log_dev_trace(
                 "sync_dispatch",
@@ -1822,6 +1838,9 @@ class BackTestPresenter(BasePresenter):
             logger.exception("Market data sync failed")
             self._log_dev_trace("sync_worker_failed", message=str(exc))
             self._syncFailedSignal.emit(resolved_action_id, str(exc))
+            return
+        if cancellation_token is not None and cancellation_token.is_cancelled():
+            self._log_dev_trace("sync_worker_cancelled", action_id=resolved_action_id)
             return
         coverage = self._probe_data_coverage(config)
         if not coverage.is_fully_covered:
@@ -1837,6 +1856,18 @@ class BackTestPresenter(BasePresenter):
             self._syncFailedSignal.emit(resolved_action_id, message)
             return
         self._syncSucceededSignal.emit(resolved_action_id)
+
+    def shutdown(self) -> None:
+        """Cancels owned workers before the desktop UI and engine are torn down."""
+        if self._shutdown_requested:
+            return
+        self._shutdown_requested = True
+        self._invalidate_active_action()
+        self._active_preview_id += 1
+        if self._backtest_cancellation_token is not None:
+            self._backtest_cancellation_token.cancel()
+        if self._sync_cancellation_token is not None:
+            self._sync_cancellation_token.cancel()
 
     def _fetch_and_emit_chart_data(
         self, action_id: int, config: BacktestRunConfig, result: BacktestResult

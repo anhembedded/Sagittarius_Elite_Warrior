@@ -1,15 +1,15 @@
+import math
+
 import pyqtgraph as pg
 
+from .marker_lod import DisplayMarker, MarkerPoint, select_marker_display
 from .viewport_windowing import visible_slice_indices
-
-#: One marker: (x, y, text, color, direction). direction is "up"/"down" —
-#: matches PlottedMarker (Pine's plotshape.labelup / labeldown).
-MarkerPoint = tuple[float, float, str, str, str]
 
 _UP_ANCHOR = (0.5, 1.2)
 _DOWN_ANCHOR = (0.5, -0.2)
 _DEFAULT_MARKER_TEXT_COLOR = "#0B0E11"
 _VIEWPORT_PADDING_RATIO = 0.1
+_FALLBACK_VIEWPORT_WIDTH_PIXELS = 1200.0
 
 
 class MarkerLayer:
@@ -36,6 +36,7 @@ class MarkerLayer:
         self._timestamps: dict[str, tuple[float, ...]] = {}
         self._active_items: dict[str, dict[int, pg.TextItem]] = {}
         self._active_slices: dict[str, tuple[int, int]] = {}
+        self._display_markers: dict[str, tuple[DisplayMarker, ...]] = {}
         self._items: dict[str, list[pg.TextItem]] = {}
         self._brushes: dict[str, pg.QtGui.QBrush] = {}
         self._pens: dict[str, pg.QtGui.QPen] = {}
@@ -68,36 +69,64 @@ class MarkerLayer:
     def active_marker_count(self, key: str) -> int:
         return len(self._active_items.get(key, {}))
 
+    def represented_marker_count(self, key: str) -> int:
+        """Returns source events represented by the current exact/LOD items."""
+        return sum(
+            marker.represented_count for marker in self._display_markers.get(key, ())
+        )
+
     def _materialize_visible_slice(self, key: str) -> None:
         markers = self._markers.get(key, ())
         lo, hi = self._visible_slice(key)
         target_slice = (lo, hi)
-        if self._active_slices.get(key) == target_slice:
+        display_markers = self._select_display_markers(markers[lo:hi])
+        if self._display_markers.get(key) == display_markers:
             return
 
         active_items = self._active_items.setdefault(key, {})
-        target_indices = set(range(lo, hi))
-        removed_indices = sorted(set(active_items).difference(target_indices))
-        added_indices = sorted(target_indices.difference(active_items))
-        reusable_items = [active_items.pop(index) for index in removed_indices]
+        reusable_items = [active_items[index] for index in sorted(active_items)]
+        next_items: dict[int, pg.TextItem] = {}
+        for display_index, display_marker in enumerate(display_markers):
+            if display_index < len(reusable_items):
+                item = reusable_items[display_index]
+                self._configure_item(item, display_marker.source)
+            else:
+                item = self._create_item(display_marker.source)
+                self._plot.addItem(item)
+            next_items[display_index] = item
 
-        reused_count = min(len(reusable_items), len(added_indices))
-        for offset in range(reused_count):
-            index = added_indices[offset]
-            item = reusable_items[offset]
-            self._configure_item(item, markers[index])
-            active_items[index] = item
-
-        for item in reusable_items[reused_count:]:
+        for item in reusable_items[len(display_markers) :]:
             self._plot.removeItem(item)
 
-        for index in added_indices[reused_count:]:
-            item = self._create_item(markers[index])
-            self._plot.addItem(item)
-            active_items[index] = item
-
+        self._active_items[key] = next_items
         self._active_slices[key] = target_slice
-        self._items[key] = [active_items[index] for index in sorted(active_items)]
+        self._display_markers[key] = display_markers
+        self._items[key] = [next_items[index] for index in sorted(next_items)]
+
+    def _select_display_markers(
+        self, markers: tuple[MarkerPoint, ...]
+    ) -> tuple[DisplayMarker, ...]:
+        if not markers:
+            return ()
+        if self._visible_range is None:
+            min_x, max_x = markers[0][0], markers[-1][0]
+        else:
+            min_x, max_x = self._visible_range
+            padding = (max_x - min_x) * _VIEWPORT_PADDING_RATIO
+            min_x -= padding
+            max_x += padding
+        return select_marker_display(
+            markers,
+            min_x=min_x,
+            max_x=max_x,
+            pixel_width=self._viewport_pixel_width(),
+        )
+
+    def _viewport_pixel_width(self) -> float:
+        width = float(self._plot.getViewBox().sceneBoundingRect().width())
+        if not math.isfinite(width) or width <= 0.0:
+            return _FALLBACK_VIEWPORT_WIDTH_PIXELS
+        return width
 
     def _visible_slice(self, key: str) -> tuple[int, int]:
         timestamps = self._timestamps.get(key, ())
@@ -136,6 +165,7 @@ class MarkerLayer:
         self._markers.pop(key, None)
         self._timestamps.pop(key, None)
         self._active_slices.pop(key, None)
+        self._display_markers.pop(key, None)
         self._items.pop(key, None)
 
     def clear_all(self) -> None:

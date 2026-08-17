@@ -113,6 +113,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     # 4. Shutdown Watchdog & Engine
     # ------------------------------------------------------------------ #
+    window.shutdown()
     watchdog.stop()
     sig_timer.stop()
     app_engine.stop()

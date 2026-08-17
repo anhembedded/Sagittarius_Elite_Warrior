@@ -1,6 +1,11 @@
 from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
+import pytest
+
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    ExchangeRequestCancelled,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
     PythonBinanceClient,
@@ -111,3 +116,42 @@ def test_python_binance_client_without_end_str(mock_client_class):
     mock_binance_client_instance.get_historical_klines_generator.assert_called_once_with(
         "ETHUSDT", "1h", "01 Jan 2023 00:00:00", None
     )
+
+
+def test_historical_kline_iteration_stops_cooperatively_when_cancelled():
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = [
+        [
+            1672531200000 + index * 60_000,
+            "100.0",
+            "110.0",
+            "90.0",
+            "105.0",
+            "1000.0",
+            1672531259999 + index * 60_000,
+            "105000.0",
+            50,
+            "500.0",
+            "52500.0",
+            "0",
+        ]
+        for index in range(10)
+    ]
+    cancellation_checks = 0
+
+    def cancellation_requested() -> bool:
+        nonlocal cancellation_checks
+        cancellation_checks += 1
+        return cancellation_checks >= 4
+
+    client = PythonBinanceClient(client=injected_client)
+
+    with pytest.raises(ExchangeRequestCancelled):
+        client.get_historical_klines(
+            "BTCUSDT",
+            TimeFrame.ONE_MINUTE,
+            datetime(2023, 1, 1, tzinfo=UTC),
+            cancellation_requested=cancellation_requested,
+        )
+
+    assert cancellation_checks == 4

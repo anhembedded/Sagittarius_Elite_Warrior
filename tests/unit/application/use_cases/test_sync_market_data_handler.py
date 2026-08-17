@@ -3,6 +3,9 @@ from unittest.mock import ANY, Mock
 
 import pytest
 
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    ExchangeRequestCancelled,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
@@ -72,7 +75,7 @@ def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
     # 5th arg is the per-symbol progress callback (SingleSyncProgressEvent) —
     # a fresh closure each call, so it can't be compared by equality.
     mock_exchange_client.get_historical_klines.assert_called_once_with(
-        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None, ANY
+        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None, ANY, None
     )
     mock_repo.save_klines.assert_called_once_with(mock_klines)
 
@@ -95,7 +98,7 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
 
     mock_repo.get_latest_kline_time.assert_not_called()
     mock_exchange_client.get_historical_klines.assert_called_once_with(
-        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time, ANY
+        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time, ANY, None
     )
     mock_repo.save_klines.assert_called_once_with(mock_klines)
 
@@ -135,5 +138,23 @@ def test_sync_exchange_exception(handler, mock_exchange_client, mock_repo):
 
     with pytest.raises(Exception, match="API Error"):
         handler.execute(command)
+
+    mock_repo.save_klines.assert_not_called()
+
+
+def test_cancelled_sync_never_persists_partial_exchange_data(
+    handler, mock_exchange_client, mock_repo
+):
+    mock_repo.get_latest_kline_time.return_value = None
+    mock_exchange_client.get_historical_klines.side_effect = ExchangeRequestCancelled(
+        "cancelled"
+    )
+    command = SyncMarketDataCommand(
+        symbols=["BTCUSDT"],
+        interval=TimeFrame.ONE_MINUTE,
+        cancellation_requested=lambda: False,
+    )
+
+    handler.execute(command)
 
     mock_repo.save_klines.assert_not_called()

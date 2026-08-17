@@ -7,6 +7,10 @@ Hiện tại, dự án đã hoàn thành **Phase 1: Data Synchronizer** và **Ph
 - Nó có khả năng đồng bộ dữ liệu nến (OHLCV) tĩnh từ sàn Binance về lưu trữ cục bộ tại SQLite (sử dụng WAL mode).
 - Nó có khả năng kết nối Websocket Async để hứng sự kiện thị trường biến động theo thời gian thực (Real-time).
 
+> Desktop dev mode sử dụng native C++/QML chart plugin. Xem
+> [Native Chart — Build & Deploy Guide](Docs/NATIVE_CHART_BUILD_AND_DEPLOY.md)
+> trước khi chạy `\.\scripts\run-ui.ps1 -Dev` hoặc đóng gói desktop release.
+
 ---
 
 ## 📂 Cấu trúc Thư mục

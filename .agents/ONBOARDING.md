@@ -47,6 +47,9 @@ pip install -e Sagittarius-Engine
   writing any code — this summary is not a substitute.
 - **`.agents/rules/install-rule.md`** (this folder) — installation guidelines and
   dependency setup for `sagittarius_engine` (GitHub URL install vs. local editable).
+- **`.agents/rules/native-chart-rule.md`** — mandatory CMake build, Qt/PySide ABI,
+  staging, and verification rules for `Sagittarius.NativeChart`. User commands
+  live in `Docs/NATIVE_CHART_BUILD_AND_DEPLOY.md`.
 - **`.agents/AGENTS.md`** (this folder) — short SOLID recap plus the
   mandatory commit signature: every AI-authored commit ends with
   `Co-Authored-By: Antigravity <noreply@google.com>`.

@@ -13,6 +13,10 @@ from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
+from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_indicator_snapshot import (
+    NativeIndicatorSeries,
+    pack_native_indicator_snapshot,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
     configure_native_chart_engine,
 )
@@ -66,6 +70,38 @@ def _invalid_snapshot_bytes(revision: int) -> QByteArray:
     )
 
 
+def _indicator_snapshot_bytes(revision: int) -> QByteArray:
+    return pack_native_indicator_snapshot(
+        revision=revision,
+        candle_count=5,
+        series=(
+            NativeIndicatorSeries(
+                rgba=0xFF00BFFF,
+                values=(11.0, 11.5, 10.5, 19.5, 23.0),
+            ),
+            NativeIndicatorSeries(
+                rgba=0xFFF0B90B,
+                values=(10.5, 11.0, 10.75, 20.0, 22.5),
+            ),
+        ),
+    )
+
+
+def _misaligned_indicator_snapshot_bytes(revision: int) -> QByteArray:
+    return pack_native_indicator_snapshot(
+        revision=revision,
+        candle_count=4,
+        series=(NativeIndicatorSeries(rgba=0xFF00BFFF, values=(1.0, 2.0, 3.0, 4.0)),),
+    )
+
+
+def _non_finite_indicator_snapshot_bytes(revision: int) -> QByteArray:
+    packed = bytearray(_indicator_snapshot_bytes(revision))
+    indicator_values_offset = 32 + 2 * 4
+    struct.pack_into("<d", packed, indicator_values_offset, float("nan"))
+    return QByteArray(bytes(packed))
+
+
 def _unordered_timestamp_snapshot_bytes(revision: int) -> QByteArray:
     packed = bytearray(
         pack_native_ohlcv_snapshot(
@@ -113,8 +149,8 @@ def _sampled_colors(view: QQuickView) -> set[str]:
     rendered_image = view.grabWindow()
     return {
         rendered_image.pixelColor(x, y).name().lower()
-        for x in range(0, rendered_image.width(), 4)
-        for y in range(0, rendered_image.height(), 4)
+        for x in range(rendered_image.width())
+        for y in range(rendered_image.height())
     }
 
 
@@ -124,8 +160,10 @@ def _run_windows_visual_probe() -> None:
     view.show()
     app.processEvents()
     assert root.submitSnapshot(_snapshot_bytes(revision=2)) is True
+    assert root.submitIndicatorSnapshot(_indicator_snapshot_bytes(revision=2)) is True
     view.grabWindow()
     _wait_for_property(app, root, "renderedRevision", 2)
+    _wait_for_property(app, root, "indicatorVertexCount", 10)
     assert root.setViewport(0.0, 3.0) is True
     view.grabWindow()
     _wait_for_property(
@@ -134,6 +172,8 @@ def _run_windows_visual_probe() -> None:
     sampled_colors = _sampled_colors(view)
     assert "#00c087" in sampled_colors
     assert "#f6465d" in sampled_colors
+    assert "#00bfff" in sampled_colors
+    assert "#f0b90b" in sampled_colors
     view.close()
     root_item.deleteLater()
     app.processEvents()
@@ -159,12 +199,19 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
     qapp.processEvents()
 
     assert root.submitSnapshot(_snapshot_bytes(revision=2)) is True
+    assert root.submitIndicatorSnapshot(_indicator_snapshot_bytes(revision=2)) is True
     assert root.property("snapshotRevision") == 2
     assert root.property("candleCount") == 5
+    assert root.property("indicatorSnapshotRevision") == 2
+    assert root.property("indicatorSeriesCount") == 2
     view.grabWindow()
     _wait_for_property(qapp, root, "renderedRevision", 2)
     assert root.property("wickVertexCount") == 10
     assert root.property("bodyVertexCount") == 30
+    assert root.property("volumeVertexCount") == 30
+    assert root.property("indicatorVertexCount") == 10
+    assert root.property("indicatorPixelColumnCount") >= 1
+    assert root.property("renderDevicePixelRatio") >= 1.0
     assert root.property("bullishCandleCount") == 4
     assert root.property("bearishCandleCount") == 1
     assert root.property("priceMinimum") == 9.0
@@ -172,6 +219,8 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
     _assert_windows_visual_probe_passes()
 
     unchanged_build_count = root.property("geometryBuildCount")
+    unchanged_volume_build_count = root.property("volumeGeometryBuildCount")
+    unchanged_indicator_build_count = root.property("indicatorGeometryBuildCount")
     previous_camera_count = root.property("cameraUpdateCount")
     previous_camera_revision = root.property("cameraRevision")
     assert root.setViewport(0.0, 3.0) is True
@@ -179,22 +228,37 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
     assert root.property("visiblePriceMaximum") == 13.0
     assert root.property("cameraRevision") == previous_camera_revision + 1
     assert root.property("geometryBuildCount") == unchanged_build_count
-    time_ticks = root.property("timeAxisTicks")
-    assert time_ticks[0]["timestampUtcMs"] == 1_700_000_000_000
-    assert time_ticks[-1]["timestampUtcMs"] == 1_700_000_120_000
-    assert len(root.property("priceAxisTicks")) == 5
+    assert root.property("volumeGeometryBuildCount") == unchanged_volume_build_count
+    assert (
+        root.property("indicatorGeometryBuildCount") == unchanged_indicator_build_count
+    )
     view.grabWindow()
     _wait_for_property(
         qapp, root, "renderedCameraRevision", previous_camera_revision + 1
     )
+    time_ticks = root.property("timeAxisTicks")
+    assert time_ticks[0]["timestampUtcMs"] == 1_700_000_000_000
+    assert time_ticks[-1]["timestampUtcMs"] == 1_700_000_120_000
+    assert len(root.property("priceAxisTicks")) == 5
     assert root.property("cameraUpdateCount") == previous_camera_count + 1
+
+    assert root.setViewport(1.0, 4.0) is True
+    view.grabWindow()
+    _wait_for_property(
+        qapp, root, "renderedCameraRevision", previous_camera_revision + 2
+    )
+    assert root.property("volumeGeometryBuildCount") == unchanged_volume_build_count
+    assert (
+        root.property("indicatorGeometryBuildCount") == unchanged_indicator_build_count
+    )
+    assert root.property("cameraUpdateCount") == previous_camera_count + 2
     assert root.property("geometryBuildCount") == unchanged_build_count
 
     assert root.setViewport(float("nan"), 3.0) is False
     assert "finite and increasing" in root.property("lastViewportError")
-    assert root.property("cameraRevision") == previous_camera_revision + 1
+    assert root.property("cameraRevision") == previous_camera_revision + 2
     assert root.setViewport(0.0, 3.0) is True
-    assert root.property("cameraRevision") == previous_camera_revision + 1
+    assert root.property("cameraRevision") == previous_camera_revision + 3
 
     root.update()
     view.grabWindow()
@@ -204,12 +268,35 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
     view.resize(800, 400)
     view.grabWindow()
     _wait_for_property(qapp, root, "geometryBuildCount", unchanged_build_count + 1)
+    _wait_for_property(
+        qapp, root, "volumeGeometryBuildCount", unchanged_volume_build_count + 1
+    )
+    _wait_for_property(
+        qapp,
+        root,
+        "indicatorGeometryBuildCount",
+        unchanged_indicator_build_count + 1,
+    )
     assert root.submitSnapshot(_snapshot_bytes(revision=1)) is False
     assert "increase monotonically" in root.property("lastSnapshotError")
     assert root.submitSnapshot(_invalid_snapshot_bytes(revision=3)) is False
     assert "invalid OHLCV" in root.property("lastSnapshotError")
     assert root.submitSnapshot(_unordered_timestamp_snapshot_bytes(revision=3)) is False
     assert "timestamps must increase strictly" in root.property("lastSnapshotError")
+    assert root.submitIndicatorSnapshot(_indicator_snapshot_bytes(revision=1)) is False
+    assert "increase monotonically" in root.property("lastIndicatorSnapshotError")
+    assert (
+        root.submitIndicatorSnapshot(_misaligned_indicator_snapshot_bytes(revision=3))
+        is False
+    )
+    assert "align with the active candle count" in root.property(
+        "lastIndicatorSnapshotError"
+    )
+    assert (
+        root.submitIndicatorSnapshot(_non_finite_indicator_snapshot_bytes(revision=3))
+        is False
+    )
+    assert "values must be finite" in root.property("lastIndicatorSnapshotError")
 
     worker_results: list[bool] = []
 

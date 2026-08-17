@@ -217,3 +217,8 @@ class BinanceBotModule(BaseModule):
         # Initialize Event Handlers and subscribe to the Event Bus
         event_handler = MarketTickEventHandler(app)
         app.event_bus.on(MarketTickEvent, event_handler.handle)
+
+    def shutdown(self, app: App) -> None:
+        """Release application-owned database engines during engine shutdown."""
+        database_manager = app.container.resolve(DatabaseManager)
+        database_manager.dispose_all()

@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.marker_lod import (
+    marker_display_capacity,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
@@ -85,6 +88,16 @@ def main() -> None:
                 [row[4] + indicator_index * 10.0 for row in candles],
             )
         card.set_script_markers("probe_trades", _markers(candles))
+        card.plot_layout.main_plot.setXRange(timestamps[0], timestamps[-1], padding=0)
+        _process_for(app, 0.25)
+        marker_layer = card.indicators._marker_layer
+        dense_marker_capacity = marker_display_capacity(
+            card.plot_layout.main_plot.vb.sceneBoundingRect().width()
+        )
+        dense_active_markers = marker_layer.active_marker_count("probe_trades")
+        dense_represented_markers = marker_layer.represented_marker_count(
+            "probe_trades"
+        )
         card.plot_layout.main_plot.setXRange(
             timestamps[2000],
             timestamps[2000 + _VISIBLE_CANDLES],
@@ -156,6 +169,9 @@ def main() -> None:
             ),
             "pan_preview_colors": pan_preview_colors,
             "zoom_preview_colors": zoom_preview_colors,
+            "dense_marker_capacity": dense_marker_capacity,
+            "dense_active_markers": dense_active_markers,
+            "dense_represented_markers": dense_represented_markers,
             "forbidden_render_messages": forbidden,
         }
         print(json.dumps(report, indent=2))
@@ -173,6 +189,10 @@ def main() -> None:
             raise SystemExit("Cached interaction lifecycle contract failed")
         if min(pan_preview_colors, zoom_preview_colors) < 5:
             raise SystemExit("Cached interaction preview is visually empty")
+        if dense_active_markers > dense_marker_capacity:
+            raise SystemExit("Dense marker display exceeded its pixel budget")
+        if dense_represented_markers <= dense_active_markers:
+            raise SystemExit("Dense marker LOD did not preserve aggregated history")
         if forbidden:
             raise SystemExit("Hybrid render lifecycle emitted forbidden warnings")
     finally:

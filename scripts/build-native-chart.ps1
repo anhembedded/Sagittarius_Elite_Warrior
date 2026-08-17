@@ -93,3 +93,4 @@ if (-not (Test-Path (Join-Path $moduleDir "qmldir"))) {
 Write-Host "Native chart plugin ready." -ForegroundColor Green
 Write-Host "QML import root: $qmlImportRoot"
 Write-Host "Qt/PySide ABI:  $qtVersion"
+Write-Host "Guide:          Docs\NATIVE_CHART_BUILD_AND_DEPLOY.md"

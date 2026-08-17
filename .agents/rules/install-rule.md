@@ -73,6 +73,11 @@ For another location, set `SAGITTARIUS_QT_ROOT`. Build and verify with:
 Never compile against a different Qt minor/patch version and rely on a silent
 fallback. The build script rejects a version mismatch before CMake runs.
 
+Development requires build only. Packaged/frozen desktop releases additionally
+require CMake staging/deployment of the complete QML module. Follow the binding
+AI rule in `native-chart-rule.md` and the user guide at
+[`Docs/NATIVE_CHART_BUILD_AND_DEPLOY.md`](../../Docs/NATIVE_CHART_BUILD_AND_DEPLOY.md).
+
 ---
 
 ## 3. Mandatory Rules for AI Agents & Automated Tools

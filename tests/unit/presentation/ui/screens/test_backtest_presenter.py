@@ -87,6 +87,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_
     ChartDisplayMode,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
@@ -1044,6 +1045,21 @@ def test_request_sync_transitions_to_syncing_and_submits_background_task(
     assert call_args[0] == presenter._run_sync
     assert call_args[1] == config
     assert call_args[1] is not config
+    assert call_args[3] is presenter._sync_cancellation_token
+
+
+def test_presenter_shutdown_cancels_inflight_backtest_and_sync_once(presenter):
+    backtest_token = CancellationToken()
+    sync_token = CancellationToken()
+    presenter._backtest_cancellation_token = backtest_token
+    presenter._sync_cancellation_token = sync_token
+
+    presenter.shutdown()
+    presenter.shutdown()
+
+    assert backtest_token.is_cancelled() is True
+    assert sync_token.is_cancelled() is True
+    assert presenter._shutdown_requested is True
 
 
 def test_request_sync_ignored_while_a_backtest_is_already_running(

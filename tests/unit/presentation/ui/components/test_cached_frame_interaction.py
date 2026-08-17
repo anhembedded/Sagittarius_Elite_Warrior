@@ -126,19 +126,24 @@ def test_real_mouse_drag_uses_cached_preview_and_commits_on_release(qapp):
     start = card.plot_layout.widget.mapFromScene(view_rect.center())
     end = start + QPoint(100, 0)
     initial_range = tuple(card.plot_layout.main_plot.vb.viewRange()[0])
+    card.range_updates.flush_pending()
+    initial_range_applies = card.range_updates.applied_count
 
     QTest.mousePress(viewport, Qt.MouseButton.LeftButton, pos=start)
-    QTest.mouseMove(viewport, end)
+    for offset in range(10, 101, 10):
+        QTest.mouseMove(viewport, start + QPoint(offset, 0))
     qapp.processEvents()
 
     assert controller.is_preview_active is True
     assert tuple(card.plot_layout.main_plot.vb.viewRange()[0]) == initial_range
+    assert card.range_updates.applied_count == initial_range_applies
 
     QTest.mouseRelease(viewport, Qt.MouseButton.LeftButton, pos=end)
-    qapp.processEvents()
+    card.range_updates.flush_pending()
 
     assert controller.is_preview_active is False
     assert tuple(card.plot_layout.main_plot.vb.viewRange()[0]) != initial_range
+    assert card.range_updates.applied_count == initial_range_applies + 1
     card.cleanup()
 
 
@@ -158,6 +163,8 @@ def test_real_wheel_event_uses_cached_preview_and_commits_after_burst(qapp):
     position = QPointF(card.plot_layout.widget.mapFromScene(view_rect.center()))
     global_position = QPointF(viewport.mapToGlobal(position.toPoint()))
     initial_range = tuple(card.plot_layout.main_plot.vb.viewRange()[0])
+    card.range_updates.flush_pending()
+    initial_range_applies = card.range_updates.applied_count
     wheel_event = QWheelEvent(
         position,
         global_position,
@@ -175,10 +182,12 @@ def test_real_wheel_event_uses_cached_preview_and_commits_after_burst(qapp):
     assert wheel_event.isAccepted() is True
     assert controller.is_preview_active is True
     assert tuple(card.plot_layout.main_plot.vb.viewRange()[0]) == initial_range
+    assert card.range_updates.applied_count == initial_range_applies
 
     controller.commit_zoom()
-    qapp.processEvents()
+    card.range_updates.flush_pending()
 
     assert controller.is_preview_active is False
     assert tuple(card.plot_layout.main_plot.vb.viewRange()[0]) != initial_range
+    assert card.range_updates.applied_count == initial_range_applies + 1
     card.cleanup()

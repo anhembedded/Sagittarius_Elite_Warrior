@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from binance.client import Client
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+    CancellationCheck,
+    ExchangeRequestCancelled,
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
@@ -45,13 +47,16 @@ class PythonBinanceClient(IExchangeClient):
         start_str: str,
         end_str: str | None,
         progress_callback: Callable[[int], None] | None,
+        cancellation_requested: CancellationCheck | None,
     ) -> list[list]:
         try:
+            self._raise_if_cancelled(cancellation_requested)
             raw_klines = []
             generator = self.client.get_historical_klines_generator(
                 symbol, interval, start_str, end_str
             )
             for i, k in enumerate(generator):
+                self._raise_if_cancelled(cancellation_requested)
                 raw_klines.append(k)
                 # Binance usually returns up to 1000 klines per request chunk.
                 # We can update the UI roughly every 1000 items to avoid UI blocking while still keeping it smooth.
@@ -66,9 +71,18 @@ class PythonBinanceClient(IExchangeClient):
 
             logger.info(f"Successfully fetched {len(raw_klines)} klines for {symbol}.")
             return raw_klines
+        except ExchangeRequestCancelled:
+            raise
         except Exception as e:
             logger.error(f"Failed to fetch historical klines for {symbol}: {e}")
             raise
+
+    @staticmethod
+    def _raise_if_cancelled(
+        cancellation_requested: CancellationCheck | None,
+    ) -> None:
+        if cancellation_requested is not None and cancellation_requested():
+            raise ExchangeRequestCancelled("Historical kline request cancelled")
 
     def _map_to_market_data(
         self, raw_klines: list[list], symbol: str, interval: str
@@ -101,6 +115,7 @@ class PythonBinanceClient(IExchangeClient):
         start_str: str | datetime,
         end_str: str | datetime | None = None,
         progress_callback: Callable[[int], None] | None = None,
+        cancellation_requested: CancellationCheck | None = None,
     ) -> list[MarketData]:
         # Convert datetime to string or millisecond timestamp for python-binance if needed
         # python-binance accepts datetime, string ('1 day ago UTC'), or ms timestamp
@@ -113,7 +128,12 @@ class PythonBinanceClient(IExchangeClient):
         )
 
         raw_klines = self._fetch_raw_klines(
-            symbol, interval.value, formatted_start, formatted_end, progress_callback
+            symbol,
+            interval.value,
+            formatted_start,
+            formatted_end,
+            progress_callback,
+            cancellation_requested,
         )
 
         return self._map_to_market_data(raw_klines, symbol, interval.value)
