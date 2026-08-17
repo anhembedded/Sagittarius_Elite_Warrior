@@ -4,6 +4,7 @@ import pyqtgraph as pg
 from PySide6 import QtCore, QtGui
 
 from . import theme
+from .chart_lod import build_ohlc_lod_pyramid, lod_slice_indices, select_lod_level
 from .viewport_windowing import visible_slice_indices
 
 
@@ -30,7 +31,7 @@ class FastCandlestickItem(pg.GraphicsObject):
     # candles don't visibly pop in/out right at the viewport edge.
     _VISIBLE_PADDING_WIDTHS = 2.0
 
-    def __init__(self, data=None):
+    def __init__(self, data=None, *, lod_enabled: bool = True):
         pg.GraphicsObject.__init__(self)
 
         # Colors (Dark Theme)
@@ -40,8 +41,15 @@ class FastCandlestickItem(pg.GraphicsObject):
         self.candle_width = 20.0  # Default width, updated dynamically
         self.live_candle = None  # Holds (t, o, h, l, c) for the live tick
         self.history_data = []  # Tracks all historical data
+        self._lod_enabled = bool(lod_enabled)
+        self._lod_levels = [[]]
+        self._data_revision = 0
+        self.last_render_lod_level = 0
+        self.last_render_candle_count = 0
         self._full_bounds_rect = QtCore.QRectF()
         self._cached_visible_bounds = None  # (lo, hi, min_y, max_y)
+        self._geometry_signature = None
+        self._geometry_batches = ([], [], [], [])
 
         # Pre-instantiated brushes and pens for performance
         self.bull_brush = pg.mkBrush(self.bull_color)
@@ -66,6 +74,9 @@ class FastCandlestickItem(pg.GraphicsObject):
         """
         if data is not self.history_data:
             self.history_data = list(data)
+        self._lod_levels = build_ohlc_lod_pyramid(self.history_data)
+        self._data_revision += 1
+        self._geometry_signature = None
 
         # Dynamically calculate candle width from the time interval between
         # candles. Uses the MEDIAN gap across the whole series, not just
@@ -135,6 +146,36 @@ class FastCandlestickItem(pg.GraphicsObject):
         )
         return self.history_data[lo:hi]
 
+    def _visible_render_slice(self):
+        """Return a pixel-budgeted render slice while keeping raw data intact."""
+        view_box = self.getViewBox()
+        if view_box is None or not self.history_data:
+            rows = self.history_data
+            return rows, self.candle_width, (self._data_revision, 0, 0, len(rows))
+
+        (min_x, max_x), _ = view_box.viewRange()
+        padding = self.candle_width * self._VISIBLE_PADDING_WIDTHS
+        raw_lo, raw_hi = visible_slice_indices(
+            self.history_data,
+            min_x,
+            max_x,
+            padding,
+            key=lambda row: row[0],
+        )
+        level = 0
+        if self._lod_enabled:
+            level = select_lod_level(
+                raw_hi - raw_lo,
+                view_box.sceneBoundingRect().width(),
+                available_levels=len(self._lod_levels),
+            )
+        lo, hi = lod_slice_indices(raw_lo, raw_hi, level)
+        rows = self._lod_levels[level][lo:hi]
+        width = self.candle_width * (1 << level)
+        self.last_render_lod_level = level
+        self.last_render_candle_count = len(rows)
+        return rows, width, (self._data_revision, level, lo, hi)
+
     def viewRangeChanged(self):
         """
         @brief pyqtgraph hook, called whenever the containing ViewBox's
@@ -156,39 +197,40 @@ class FastCandlestickItem(pg.GraphicsObject):
         the live candle. O(visible count), not O(total history) — see
         class docstring.
         """
-        bull_lines = []
-        bull_rects = []
-        bear_lines = []
-        bear_rects = []
+        rows, render_width, slice_signature = self._visible_render_slice()
+        geometry_signature = (slice_signature, render_width, self.live_candle)
+        if geometry_signature != self._geometry_signature:
+            bull_lines = []
+            bull_rects = []
+            bear_lines = []
+            bear_rects = []
+            render_rows = list(rows)
+            if self.live_candle:
+                render_rows.append(self.live_candle)
 
-        for t, o, h, low, c in self._visible_history_slice():
-            line = QtCore.QLineF(t, low, t, h)
-            # Draw body (Width is drawn outward from center t)
-            # Use min/abs to strictly enforce positive height to prevent Qt drawRect anti-aliasing bugs
-            rect = QtCore.QRectF(
-                t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o)
+            for t, o, h, low, c in render_rows:
+                line = QtCore.QLineF(t, low, t, h)
+                rect = QtCore.QRectF(
+                    t - render_width,
+                    min(o, c),
+                    render_width * 2,
+                    abs(c - o),
+                )
+                if c >= o:
+                    bull_lines.append(line)
+                    bull_rects.append(rect)
+                else:
+                    bear_lines.append(line)
+                    bear_rects.append(rect)
+            self._geometry_batches = (
+                bull_lines,
+                bull_rects,
+                bear_lines,
+                bear_rects,
             )
+            self._geometry_signature = geometry_signature
 
-            if c >= o:
-                bull_lines.append(line)
-                bull_rects.append(rect)
-            else:
-                bear_lines.append(line)
-                bear_rects.append(rect)
-
-        # Draw the live (in-progress) candle, always — it's a single item.
-        if self.live_candle:
-            t, o, h, low, c = self.live_candle
-            line = QtCore.QLineF(t, low, t, h)
-            rect = QtCore.QRectF(
-                t - self.candle_width, min(o, c), self.candle_width * 2, abs(c - o)
-            )
-            if c >= o:
-                bull_lines.append(line)
-                bull_rects.append(rect)
-            else:
-                bear_lines.append(line)
-                bear_rects.append(rect)
+        bull_lines, bull_rects, bear_lines, bear_rects = self._geometry_batches
 
         # Batch draw bull candles
         p.setPen(self.bull_pen)
@@ -211,6 +253,7 @@ class FastCandlestickItem(pg.GraphicsObject):
         close_p: float,
     ) -> None:
         self.live_candle = (timestamp, open_p, high_p, low_p, close_p)
+        self._geometry_signature = None
         self.update()
 
     def append_closed_candle(

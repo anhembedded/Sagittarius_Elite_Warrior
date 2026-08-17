@@ -44,3 +44,17 @@ Scene Graph.
 - Pan lớn có thể lộ vùng ngoài frame cache cho tới final commit.
 - Source candle, indicator, marker, tooltip và range cuối không bị thay đổi hoặc
   downsample bởi milestone này.
+
+## Native LOD gate
+
+Power-of-two OHLC/volume pyramid và retained visible geometry được thêm sau
+cached-frame. Ở viewport 6.000 nến, candle primitive giảm 6.001 → 376;
+candles+volume median giảm 121,985 → 46,204 ms. OHLC extreme và tổng volume
+được bảo toàn, zoom gần tự trở về raw data.
+
+Kết quả này xác nhận LOD đúng và có giá trị khi zoom xa, nhưng PyQtGraph CPU
+scene vẫn không đạt frame budget. Theo quyết định user, dừng micro A/B và chuyển
+sang best-practice C++ Qt Quick Scene Graph retained renderer qua `BOT-098F1`
+và `BOT-098F`.
+
+Final LOD milestone: **974 primary + 25 sanity passed**, coverage **94,50%**.

@@ -3,7 +3,7 @@
 **Parent:** `BOT-098`
 **Ưu tiên:** P1
 **Độ phức tạp:** L / Performance-specialized
-**Trạng thái:** In Progress
+**Trạng thái:** Completed — native gate chuyển sang `BOT-098F1`/`BOT-098F`
 
 ## Vấn đề
 
@@ -40,10 +40,30 @@ chỉ đánh giá/triển khai renderer native Qt; không thêm WebEngine/JavaSc
   nội dung và không có warning `QQuickRenderControl` bị cấm.
 - FPS dev overlay đã tính cả paint của preview surface; crosshair scene được
   suspend trong gesture và khôi phục đúng vị trí cuối sau commit.
-- Full CI: **967 primary + 25 sanity passed**, coverage **94,46%**.
+- Cached-frame milestone Full CI: **967 primary + 25 sanity passed**.
+- Final LOD milestone Full CI: **974 primary + 25 sanity passed**, coverage
+  **94,50%**.
 - Giới hạn có chủ đích: frame preview là pixel cũ trong vài chục ms; pan rất xa
   có thể lộ mép chưa cache và zoom tạm scale cả label/grid. Đây là feedback
   tức thời, không phải business state hay final render.
+
+## Milestone 2 — native LOD & retained geometry
+
+- OHLC và volume dùng power-of-two LOD pyramid trong RAM; renderer chọn level
+  theo số sample/pixel của viewport. Zoom gần luôn trở về raw level 0.
+- OHLC bucket giữ `open` đầu, `high` lớn nhất, `low` nhỏ nhất, `close` cuối;
+  volume bucket giữ tổng volume. Crosshair, tooltip và Y auto-range tiếp tục đọc
+  raw candles, không đọc dữ liệu đã gộp.
+- Candle geometry của visible slice được giữ lại theo
+  `(data_revision, lod_level, bucket_range)` để repaint cùng viewport không tạo
+  lại `QLineF`/`QRectF` qua Python.
+- Evidence đã thu trước quyết định dừng micro-benchmark: viewport 6.000 nến giảm
+  candle primitive **6.001 → 376**, candle frame median **83,311 → 51,674 ms**;
+  candles+volume median **121,985 → 46,204 ms**. LOD có giá trị khi zoom xa,
+  nhưng không sửa được CPU scene-graph ceiling ở viewport 150 nến.
+- Theo quyết định user, dừng benchmark/A-B lặp lại. Gate kiến trúc đã đủ rõ:
+  phần tiếp theo chuyển sang retained GPU geometry trong `BOT-098F`, thay vì
+  tiếp tục micro-optimize PyQtGraph.
 
 ## Lộ trình native
 
@@ -51,12 +71,12 @@ chỉ đánh giá/triển khai renderer native Qt; không thêm WebEngine/JavaSc
 2. ✅ Cached-frame interaction: khi pan/zoom liên tục, transform frame
    đã hoàn tất để phản hồi chuột ngay; commit final viewport bằng dữ liệu thật,
    không thay business state bằng ảnh cache.
-3. Tạo OHLC/volume LOD pyramid trong RAM (2x/4x/8x/...); mỗi bucket giữ open
+3. ✅ Tạo OHLC/volume LOD pyramid trong RAM (2x/4x/8x/...); mỗi bucket giữ open
    đầu, close cuối, high max, low min và volume sum. Chỉ dùng khi nhiều candle
    cùng rơi vào một cột pixel.
-4. Batch candle/volume/marker theo layer và cache geometry theo
+4. ✅ Batch candle/volume/marker theo layer và cache geometry theo
    `(data_revision, lod_level, visible_bucket_range)`.
-5. Nếu full profile vẫn không đạt gate sau cached-frame + LOD, tạo dependency
+5. ✅ Full profile không đạt gate sau cached-frame + LOD; dependency
    task cho custom Qt Quick Scene Graph renderer (`QSGGeometryNode`) và không
    tiếp tục micro-optimize PyQtGraph thiếu bằng chứng.
 
@@ -68,10 +88,11 @@ chỉ đánh giá/triển khai renderer native Qt; không thêm WebEngine/JavaSc
 - Cached frame chỉ là visual preview trong gesture; release/idle phải render
   final range từ source data và crosshair cuối phải đúng candle thật.
 
-## Acceptance criteria
+## Acceptance criteria / gate outcome
 
-- Full profile 6.420+ nến, volume, 5 lines, 1.000+ marker đạt median ≤16,7 ms
-  hoặc gần 60 FPS ổn định trên máy tham chiếu; p95 ≤25 ms.
+- Native branch phải đạt median ≤16,7 ms/p95 ≤25 ms **hoặc** ghi nhận ceiling
+  có evidence và tạo dependency renderer phù hợp. Outcome: không đạt; đã tạo
+  `BOT-098F1`/`BOT-098F`, không tiếp tục PyQtGraph micro-optimization.
 - Pixel-equivalence/semantic tests cover OHLC extremes, volume sum và marker.
 - Benchmark chứng minh chi phí phụ thuộc pixel/visible buckets, không phụ thuộc
   tuyến tính toàn lịch sử.

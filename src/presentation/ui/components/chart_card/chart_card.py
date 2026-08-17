@@ -51,12 +51,14 @@ class ChartCard(BaseCard):
         use_opengl: bool = False,
         antialias_mode: ChartAntialiasMode = ChartAntialiasMode.LAYERED,
         cached_interaction: bool = False,
+        lod_enabled: bool = True,
     ):
         super().__init__(title=f"Live Chart: {symbol}", parent=parent)
         self.symbol = symbol
         self._use_opengl = bool(use_opengl)
         self._antialias_mode = antialias_mode
         self._cached_interaction_enabled = bool(cached_interaction)
+        self._lod_enabled = bool(lod_enabled)
         self._raw_history: list[OhlcCandle] = []
         self._live_candle: OhlcCandle | None = None
 
@@ -75,7 +77,7 @@ class ChartCard(BaseCard):
         self.body_layout.addWidget(self.plot_layout.widget)
 
     def _setup_components(self) -> None:
-        self.candlestick = FastCandlestickItem()
+        self.candlestick = FastCandlestickItem(lod_enabled=self._lod_enabled)
         self.plot_layout.main_plot.addItem(self.candlestick)
 
         self.chart_type_renderer = ChartTypeRenderer(
@@ -91,7 +93,7 @@ class ChartCard(BaseCard):
         )
         self.crosshair.register_plot(self.plot_layout.main_plot, is_primary=True)
 
-        self.volume = VolumeItem()
+        self.volume = VolumeItem(lod_enabled=self._lod_enabled)
         self._volume_plot = self.plot_layout.add_subplot(height_ratio=1)
         self._volume_plot.addItem(self.volume.graphics_item)
         self.crosshair.register_plot(self._volume_plot)

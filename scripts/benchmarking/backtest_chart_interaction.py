@@ -62,6 +62,8 @@ class ProfileResult:
     antialias_mode: str
     viewport_update_mode: str
     painter_optimization: str
+    lod_enabled: bool
+    visible_candles: int
     median_ms: float
     p95_ms: float
     median_set_range_ms: float
@@ -75,6 +77,8 @@ class ProfileResult:
     indicator_applies: int
     stored_markers: int
     active_markers: int
+    rendered_candles: int
+    rendered_volume_bars: int
 
 
 def _candles() -> list[tuple[float, float, float, float, float]]:
@@ -136,11 +140,16 @@ def _run_profile(
     antialias_mode: ChartAntialiasMode,
     viewport_update_mode: str,
     painter_optimization: str,
+    lod_enabled: bool,
+    visible_candles: int,
+    measured_frames: int,
+    warmup_frames: int,
 ) -> ProfileResult:
     card = ChartCard(
         "BTCUSDT",
         use_opengl=use_opengl,
         antialias_mode=antialias_mode,
+        lod_enabled=lod_enabled,
     )
     card.resize(1600, 900)
     card.plot_layout.widget.setViewportUpdateMode(
@@ -180,17 +189,17 @@ def _run_profile(
     initial_range_applies = card.range_updates.applied_count
     initial_volume_applies = card.volume.applied_update_count
     initial_indicator_applies = card.indicators.applied_update_count
-    total_frames = _WARMUP_FRAMES + _MEASURED_FRAMES
-    max_start = _CANDLE_COUNT - _VISIBLE_CANDLES - 1
+    total_frames = warmup_frames + measured_frames
+    max_start = max(1, _CANDLE_COUNT - visible_candles - 1)
     for frame_index in range(total_frames):
         start_index = frame_index * 37 % max_start
         min_x = timestamps[start_index]
-        max_x = timestamps[start_index + _VISIBLE_CANDLES]
+        max_x = timestamps[start_index + visible_candles]
         started = time.perf_counter()
         card.plot_layout.main_plot.setXRange(min_x, max_x, padding=0)
         if with_crosshair:
             scene_pos = card.plot_layout.main_plot.vb.mapViewToScene(
-                QPointF(timestamps[start_index + _VISIBLE_CANDLES // 2], 60_000.0)
+                QPointF(timestamps[start_index + visible_candles // 2], 60_000.0)
             )
             card.crosshair.handle_mouse_moved((scene_pos,))
         set_range_ms = (time.perf_counter() - started) * 1000.0
@@ -198,7 +207,7 @@ def _run_profile(
         app.processEvents()
         render_ms = (time.perf_counter() - render_started) * 1000.0
         elapsed_ms = set_range_ms + render_ms
-        if frame_index >= _WARMUP_FRAMES:
+        if frame_index >= warmup_frames:
             frame_costs.append(elapsed_ms)
             set_range_costs.append(set_range_ms)
             render_costs.append(render_ms)
@@ -213,6 +222,8 @@ def _run_profile(
         antialias_mode=card.plot_layout.antialias_mode.value,
         viewport_update_mode=viewport_update_mode,
         painter_optimization=painter_optimization,
+        lod_enabled=lod_enabled,
+        visible_candles=visible_candles,
         median_ms=round(statistics.median(frame_costs), 3),
         p95_ms=round(_percentile_95(frame_costs), 3),
         median_set_range_ms=round(statistics.median(set_range_costs), 3),
@@ -228,6 +239,8 @@ def _run_profile(
         - initial_indicator_applies,
         stored_markers=layer.stored_marker_count("trades"),
         active_markers=layer.active_marker_count("trades"),
+        rendered_candles=card.candlestick.last_render_candle_count,
+        rendered_volume_bars=card.volume.last_applied_bar_count,
     )
     card.cleanup()
     card.close()
@@ -262,7 +275,38 @@ def main() -> None:
         default=ChartAntialiasMode.LAYERED.value,
         help="Global scene smoothing or layered line-only smoothing.",
     )
+    parser.add_argument(
+        "--lod",
+        choices=("enabled", "disabled"),
+        default="enabled",
+        help="Enable or disable native OHLC/volume LOD for A/B measurement.",
+    )
+    parser.add_argument(
+        "--visible-candles",
+        type=int,
+        default=_VISIBLE_CANDLES,
+        help="Number of candles covered by each measured viewport.",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=("all", "candles", "candles-volume", "full"),
+        default="all",
+        help="Run every profile or one focused layer profile.",
+    )
+    parser.add_argument(
+        "--measured-frames",
+        type=int,
+        default=_MEASURED_FRAMES,
+        help="Measured viewport updates per profile.",
+    )
+    parser.add_argument(
+        "--warmup-frames",
+        type=int,
+        default=_WARMUP_FRAMES,
+        help="Warm-up viewport updates per profile.",
+    )
     args = parser.parse_args()
+    visible_candles = max(1, min(args.visible_candles, _CANDLE_COUNT - 1))
     antialias_mode = ChartAntialiasMode(args.antialias)
     app = QApplication.instance() or QApplication([])
     candles = _candles()
@@ -279,6 +323,12 @@ def main() -> None:
             True,
         ),
     )
+    if args.profile == "candles":
+        profiles = profiles[:1]
+    elif args.profile == "candles-volume":
+        profiles = profiles[1:2]
+    elif args.profile == "full":
+        profiles = profiles[-1:]
     results = [
         _run_profile(
             app,
@@ -292,6 +342,10 @@ def main() -> None:
             antialias_mode=antialias_mode,
             viewport_update_mode=args.viewport_update,
             painter_optimization=args.painter_optimization,
+            lod_enabled=args.lod == "enabled",
+            visible_candles=visible_candles,
+            measured_frames=max(1, args.measured_frames),
+            warmup_frames=max(0, args.warmup_frames),
         )
         for profile, with_volume, with_indicators, with_markers, with_crosshair in profiles
     ]
@@ -312,8 +366,9 @@ def main() -> None:
             "candles": _CANDLE_COUNT,
             "indicators": _INDICATOR_COUNT,
             "markers": _MARKER_COUNT,
-            "visible_candles": _VISIBLE_CANDLES,
-            "measured_updates": _MEASURED_FRAMES,
+            "visible_candles": visible_candles,
+            "measured_updates": max(1, args.measured_frames),
+            "warmup_updates": max(0, args.warmup_frames),
         },
         "profiles": [asdict(result) for result in results],
     }
