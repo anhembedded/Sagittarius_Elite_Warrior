@@ -153,6 +153,7 @@ BACKTEST_STATE_TRANSITIONS: dict[
     (BacktestUiState.ERROR, BacktestUiEvent.ERROR_DISMISSED): BacktestUiState.IDLE,
     (BacktestUiState.ERROR, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.IDLE,
     (BacktestUiState.ERROR, BacktestUiEvent.RUN_REQUESTED): BacktestUiState.RUNNING,
+    (BacktestUiState.ERROR, BacktestUiEvent.SYNC_REQUESTED): BacktestUiState.SYNCING,
 }
 
 #: UI Modes in which controls must be disabled

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
@@ -727,6 +728,8 @@ class BackTestPresenter(BasePresenter):
         (`_on_sync_succeeded`) — callers are responsible for their own FSM
         transition into RUNNING first (IDLE->RUNNING vs SYNCING->RUNNING are
         different edges), this only does the actual submit."""
+        if config.end_time is None:
+            config = replace(config, end_time=datetime.now(UTC))
         self._active_preview_id = 0
         removed_strategy_lines = len(self._active_strategy_lines)
         self._log_dev_trace(
@@ -1739,7 +1742,14 @@ class BackTestPresenter(BasePresenter):
                 symbols=[self._symbol],
                 interval=config.timeframe,
                 start_time=config.start_time,
-                end_time=config.end_time,
+                # Binance treats the history end boundary as exclusive.
+                # Fetch one extra interval; coverage/backtest still keep
+                # the requested half-open boundary.
+                end_time=(
+                    config.end_time + timedelta(seconds=config.timeframe.to_seconds())
+                    if config.end_time is not None
+                    else None
+                ),
             )
             self._log_dev_trace(
                 "sync_dispatch",

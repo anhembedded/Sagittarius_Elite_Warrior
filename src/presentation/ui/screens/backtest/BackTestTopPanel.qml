@@ -31,8 +31,11 @@ Rectangle {
     ColumnLayout {
         id: contentColumn
         objectName: "contentColumn"
-        anchors.fill: parent
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.margins: root.panelMargin
+        height: implicitHeight
         spacing: 12
 
         // ================= ROW 1: TOOLBAR & CONTROLS =================
@@ -342,7 +345,7 @@ Rectangle {
                                 spacing: 8
                                 anchors.centerIn: parent
                                 Image {
-                                    source: (root.hasViewModel && viewModel.uiMode === "RUNNING") ? "image://icons/x/black" : ((root.hasViewModel && viewModel.isConfigDirty) ? "image://icons/rotate-ccw/black" : "image://icons/play/black")
+                                    source: (root.hasViewModel && viewModel.uiMode === "RUNNING") ? "image://icons/square/black" : ((root.hasViewModel && viewModel.isConfigDirty) ? "image://icons/rotate-ccw/black" : "image://icons/play/black")
                                     sourceSize: Qt.size(13, 13)
                                 }
                                 Text {

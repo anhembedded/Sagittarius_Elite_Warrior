@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QUrl
+from PySide6.QtCore import QObject, Qt, QTimer, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from sagittarius_engine.extensions.pyside_mvc import (
@@ -147,9 +147,20 @@ class BackTestView(BaseView):
         if content_column is None:
             return
 
-        def sync_height() -> None:
+        resize_pending = False
+
+        def apply_height() -> None:
+            nonlocal resize_pending
+            resize_pending = False
             content_column.ensurePolished()
             self.top_widget.setFixedHeight(int(root.property("implicitHeight")))
+
+        def sync_height() -> None:
+            nonlocal resize_pending
+            if resize_pending:
+                return
+            resize_pending = True
+            QTimer.singleShot(0, apply_height)
 
         root.implicitHeightChanged.connect(sync_height)
         sync_height()

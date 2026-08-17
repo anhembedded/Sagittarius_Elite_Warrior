@@ -200,6 +200,31 @@ def test_sync_progress_and_coverage_warning_are_visible(view, qtbot, qml_item):
     )
 
 
+def test_dynamic_banners_do_not_trigger_qml_binding_or_render_frame_warnings(
+    view, qapp
+):
+    from PySide6.QtCore import qInstallMessageHandler
+
+    _v, vm = view
+    messages: list[str] = []
+    previous_handler = qInstallMessageHandler(
+        lambda _type, _context, message: messages.append(message)
+    )
+    try:
+        vm.set_data_coverage(False, "Thiếu nến")
+        vm.set_needs_data_sync(True)
+        vm.set_sync_progress(50.0, "Đang đồng bộ")
+        vm.set_ui_mode("SYNCING")
+        qapp.processEvents()
+        vm.set_ui_mode("ERROR")
+        qapp.processEvents()
+    finally:
+        qInstallMessageHandler(previous_handler)
+
+    forbidden = ("Binding loop", "QQuickRenderControl")
+    assert not [message for message in messages if message.startswith(forbidden)]
+
+
 def test_trade_log_pane_never_shrinks_below_its_usable_minimum(view, qtbot):
     """The splitter must never be able to squeeze the Trade Logs pane below
     `minimumUsableHeight` (BackTestTradeLogs.qml) — BUG-004's screenshot is

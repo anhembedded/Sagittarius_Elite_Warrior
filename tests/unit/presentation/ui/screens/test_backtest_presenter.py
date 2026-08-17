@@ -19,7 +19,7 @@ only the genuine external dependencies (IDispatcher, IThreadManager, IConfig).
 import logging
 import os
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
@@ -521,6 +521,19 @@ def test_run_backtest_submits_background_task_and_locks_fsm(
     assert config.initial_balance == 10000.0
 
 
+def test_all_history_run_freezes_its_end_boundary_before_background_work(
+    presenter, view_model, mock_thread_mgr
+):
+    before = datetime.now(UTC)
+
+    view_model.requestRun()
+
+    submitted_config = mock_thread_mgr.submit.call_args[0][1]
+    assert submitted_config.end_time is not None
+    assert submitted_config.end_time >= before
+    assert submitted_config.end_time <= datetime.now(UTC)
+
+
 def test_dev_trace_logs_when_dev_mode_is_enabled(
     presenter, view_model, mock_thread_mgr, caplog
 ):
@@ -1009,6 +1022,23 @@ def test_run_sync_dispatches_sync_market_data_command_for_the_no_data_config(
     assert command.interval == config.timeframe
 
 
+def test_run_sync_fetches_one_interval_past_the_frozen_probe_boundary(
+    presenter, mock_dispatcher
+):
+    end_time = datetime(2026, 8, 17, 4, 47, 15, tzinfo=UTC)
+    config = replace(presenter._get_current_config(), end_time=end_time)
+    action = presenter._begin_action(
+        BacktestActionKind.SYNC, config, BacktestUiState.EMPTY_DATA
+    )
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_sync(action.config, action.action_id)
+
+    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert handler_class is SyncMarketDataCommand
+    assert command.end_time == end_time + timedelta(minutes=1)
+
+
 def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
     presenter, view_model, mock_dispatcher, mock_thread_mgr
 ):
@@ -1091,6 +1121,34 @@ def test_qml_sync_button_only_visible_after_no_data_and_click_requests_sync(
 
     mock_thread_mgr.submit.assert_called_once()
     assert mock_thread_mgr.submit.call_args[0][0] == presenter._run_sync
+
+
+def test_qml_sync_button_retries_from_error_when_data_is_still_missing(
+    presenter, view_model, mock_dispatcher, qml_item, qapp, mock_thread_mgr
+):
+    """Regression: the visible yellow retry button used to be a dead control.
+
+    QML enabled it in ERROR while the FSM rejected SYNC_REQUESTED, so clicking
+    produced no command and no feedback.
+    """
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    sync_action = presenter._active_action
+    assert sync_action is not None
+    presenter._on_sync_failed_for_action(sync_action.action_id, "missing tail")
+    qapp.processEvents()
+    mock_thread_mgr.reset_mock()
+    button = qml_item(presenter.view.top_widget.rootObject(), "btnRequestSync")
+
+    assert presenter.fsm.current_state is BacktestUiState.ERROR
+    assert button.property("visible") is True
+    assert button.property("enabled") is True
+    button.clicked.emit()
+    qapp.processEvents()
+
+    mock_thread_mgr.submit.assert_called_once()
+    assert mock_thread_mgr.submit.call_args[0][0] == presenter._run_sync
+    assert presenter.fsm.current_state is BacktestUiState.SYNCING
 
 
 # ---------------------------------------------------------------------------

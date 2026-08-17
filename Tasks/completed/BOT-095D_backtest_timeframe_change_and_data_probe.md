@@ -83,3 +83,14 @@ Khi người dùng bấm "Chạy Backtest" mà `needsDataSync == True`:
 - ViewModel/QML hiển thị coverage warning và sync progress.
 - “Toàn bộ lịch sử” chỉ cam kết liên tục từ nến local sớm nhất đến nến đóng
   gần nhất; không giả vờ biết mốc lịch sử đầu tiên của Binance.
+
+## 6. Regression 2026-08-17 — Retry sau re-probe lỗi
+
+- Sửa contract lệch: nút “Đồng bộ dữ liệu ngay” hiện/enabled trong `ERROR`
+  nhưng FSM từng từ chối `SYNC_REQUESTED`, khiến click không có tác dụng.
+- Freeze mốc cuối của “Toàn bộ lịch sử” trước background work và fetch dư
+  đúng một interval để thích ứng end-boundary exclusive của Binance; re-probe
+  vẫn dùng khoảng half-open ban đầu, không chạy theo một mốc `now` di động.
+- Loại bỏ `implicitHeight` binding loop và defer resize QQuickWidget sang event
+  loop kế tiếp để tránh chuỗi cảnh báo `QQuickRenderControl` khi banner đổi.
+- Regression giữ lại thao tác QML từ `ERROR`, boundary sync và Qt warning gate.
