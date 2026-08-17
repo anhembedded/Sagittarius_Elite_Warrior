@@ -7,7 +7,6 @@ EMA/RSI/MACD instances rather than mocks; there is no I/O to stub out.
 """
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
     BaseIndicatorScript,

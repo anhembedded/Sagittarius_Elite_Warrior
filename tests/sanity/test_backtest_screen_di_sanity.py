@@ -11,7 +11,6 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )

@@ -2,7 +2,6 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 from pydantic import ValidationError
-
 from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
     StartLiveStreamCommand,
     StartLiveStreamResponse,

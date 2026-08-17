@@ -1,7 +1,7 @@
 # Nhiệm vụ: Bug — Execution Trigger Rule: cờ `locked` đảo ngược, trạng thái không rời khỏi QML
 
-> Thuộc Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md). **Độc lập với mọi
-> task còn lại của epic — làm ngay được, không cần chờ gì.**
+> **Trạng thái:** ✅ **HOÀN THÀNH**
+> Thuộc Epic [`BOT-073`](../backlog/BOT-073_realtime_tick_backtest_epic.md).
 >
 > Phát hiện khi user hỏi *"cơ chế thực thi tập lệnh khi lệnh được khớp — hiện tại có
 > đảm bảo không?"* và đi kiểm tra xem checkbox đó nối vào đâu. Câu trả lời: **không
@@ -9,7 +9,7 @@
 
 ## 1. Triệu chứng
 
-Trong menu "Thực thi tập lệnh" (Backtest Top Panel):
+Trong menu "Thực thi tập lệnh" (Backtest Top Panel / `OrderExecutionModal.qml`):
 
 - **"On bar close"** — cái **duy nhất** thật sự chạy — bị **làm mờ (opacity 0.4),
   không bấm được**.
@@ -19,13 +19,13 @@ Trong menu "Thực thi tập lệnh" (Backtest Top Panel):
 User tick "Khi lệnh được khớp" → UI nhận, nhìn như đã bật → **và không có gì thay
 đổi**. Đúng loại "lỗi bị nuốt im lặng" (lớp B trong
 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md)) mà
-[`BOT-066`](../completed/BOT-066_fail_loud_ui_action_errors.md) vừa làm để chống.
+[`BOT-066`](BOT-066_fail_loud_ui_action_errors.md) vừa làm để chống.
 
 ## 2. Root cause (đã verify)
 
 ### 2.1. Cờ `locked` bị đảo
 
-[`OrderExecutionMenu.qml`](../../src/presentation/ui/components/OrderExecutionMenu.qml)
+[`OrderExecutionModal.qml`](../../src/presentation/ui/components/OrderExecutionModal.qml)
 có comment ghi rõ **ý định đúng**:
 
 > *"Only 'On bar close' is real today (`RunStaticBacktestCommandHandler` evaluates the
@@ -35,42 +35,41 @@ có comment ghi rõ **ý định đúng**:
 
 Nhưng `ListModel` thật thì ngược lại: `"On bar close"` mang `locked: true`, còn 3 cái
 kia mang `locked: false`. Delegate dùng `enabled: !model.locked` (và `opacity:
-delegateItem.enabled ? 1.0 : 0.4`) → kết quả đúng bằng triệu chứng ở §1.
+delegateItem.enabled ? 1.0 : 0.45`) → kết quả đúng bằng triệu chứng ở §1.
 
 Nguồn gốc: `locked` đang **gộp 2 khái niệm khác nhau** vào 1 cờ:
 
 1. *"Bị ép bật, không tắt được"* → đúng với "On bar close".
 2. *"Chưa khả dụng"* → đúng với 3 cái còn lại.
 
-Cả hai đều phải dẫn tới `enabled: false`, nên người viết chỉ cần đặt `locked: true`
-cho **cả 4**. Việc để 3 cái kia `false` là lỗi đánh máy về mặt ngữ nghĩa, không phải
-quyết định thiết kế.
+Cả hai đều phải dẫn tới `enabled: false`, nên cần đặt `locked: true`
+cho **cả 4**.
 
 ### 2.2. Trạng thái không bao giờ rời khỏi QML
 
 `grep` toàn repo: **không có `executionTrigger`/`calc_on_order` nào ở Python**;
-`OrderExecutionMenu` chỉ được dùng đúng 1 chỗ (`BackTestTopPanel.qml`). `CheckBox`
+`OrderExecutionModal` chỉ được dùng từ Backtest screen. `CheckBox`
 chỉ ghi ngược vào `model.checked` của chính `ListModel` cục bộ trong QML — không tới
 `BackTestViewModel`, không tới `RunStaticBacktestCommand`.
 
 Nên kể cả khi cờ `locked` đúng, việc tick vào một lựa chọn đã cài đặt **vẫn sẽ không
 có tác dụng** cho tới khi có người nối dây.
 
-## 3. Phạm vi — cố ý chỉ làm nửa việc
+## 3. Phạm vi đã thực hiện
 
-- [ ] Sửa `locked` cho **cả 4** lựa chọn thành `true` (giữ `checked: true` cho "On
+- [x] Sửa `locked` cho **cả 4** lựa chọn thành `true` (giữ `checked: true` cho "On
       bar close", `false` cho 3 cái còn lại) → UI trung thực: hiện đủ 4 để user biết
       lộ trình, nhưng không cái nào bấm được, đúng ý định đã ghi trong comment.
-- [ ] Sửa comment trong file cho khớp thực tế (comment đang mô tả đúng ý định nhưng
-      sai hiện trạng — để nguyên là bẫy cho người đọc sau).
-- [ ] Test guard: assert **cả 4** `chkExecutionTrigger_*` đều `enabled == false`, và
-      đúng 1 cái `checked == true`. `objectName: "chkExecutionTrigger_" + index` đã
-      có sẵn nên tìm được bằng `qml_item` thông thường.
+- [x] Sửa comment trong file cho khớp thực tế và bổ sung `textFormat: Text.PlainText`
+      theo chuẩn `qml-rule.md`.
+- [x] Test guard (`tests/unit/presentation/ui/screens/test_order_execution_modal.py`):
+      assert **cả 4** `chkExecutionTrigger_*` và `triggerCheckBox_*` đều `enabled == false`,
+      và đúng 1 cái (`chkExecutionTrigger_0`) `checked == true`.
 
 **KHÔNG làm trong task này**: nối `executionTrigger` xuống ViewModel/Command. Chưa có
 consumer thật nào ở engine để nối tới — dựng plumbing trước consumer là đúng thứ
 `BOT-032`/`BOT-044` đã phải trả giá một lần (chừa sẵn `params` rồi bỏ không dùng suốt
-nhiều task). Việc nối dây thuộc [`BOT-076`](BOT-076_realtime_backtest_engine.md), lúc
+nhiều task). Việc nối dây thuộc [`BOT-076`](../backlog/BOT-076_realtime_backtest_engine.md), lúc
 đã có chế độ thật để chọn.
 
 ## 4. Rủi ro / Lưu ý
@@ -87,6 +86,5 @@ nhiều task). Việc nối dây thuộc [`BOT-076`](BOT-076_realtime_backtest_e
 
 ## 5. Phụ thuộc
 
-- Không phụ thuộc task nào. Sửa **chỉ trong `Sagittarius_Elite_Warrior/src/`** →
-  commit ở submodule + bump pointer.
-- [`BOT-076`](BOT-076_realtime_backtest_engine.md) — sẽ mở khoá & nối dây thật.
+- Không phụ thuộc task nào. Sửa **chỉ trong `Sagittarius_Elite_Warrior/src/`**.
+- [`BOT-076`](../backlog/BOT-076_realtime_backtest_engine.md) — sẽ mở khoá & nối dây thật.

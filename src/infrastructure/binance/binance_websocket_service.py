@@ -3,7 +3,6 @@ import logging
 from datetime import UTC, datetime
 
 from binance import AsyncClient, BinanceSocketManager
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
