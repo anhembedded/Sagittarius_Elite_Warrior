@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
+
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -61,6 +63,9 @@ from .backtest_view_model import BackTestViewModel
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
     BACKTEST_STATE_TRANSITIONS,
+    BacktestActionContext,
+    BacktestActionKind,
+    BacktestActionOutcome,
     BacktestRunConfig,
     BacktestUiEvent,
     BacktestUiState,
@@ -166,13 +171,15 @@ class BackTestPresenter(BasePresenter):
     INITIAL_STATE = BacktestUiState.IDLE
     UI_TRANSITION_MATRIX = BACKTEST_STATE_TRANSITIONS
 
-    _backtestSucceededSignal = Signal(object)  # BacktestResult
-    _backtestEmptySignal = Signal(str, object)  # message, BacktestRunConfig (no data)
-    _backtestFailedSignal = Signal(str)  # error message
-    _chartDataReadySignal = Signal(object, list, list)  # result, klines, volume
+    _backtestSucceededSignal = Signal(int, object)  # action_id, BacktestResult
+    _backtestEmptySignal = Signal(int, str, object)  # action_id, message, config
+    _backtestFailedSignal = Signal(int, str)  # action_id, error message
+    _chartDataReadySignal = Signal(
+        int, object, list, list
+    )  # action_id, result, klines, volume
     # BOT-060: line_name, color, x_data, y_data — one emit per line, after
     # the whole run has been fed (same O(N) reasoning as BOT-036's feed_all).
-    _chartStrategyLineSignal = Signal(str, str, list, list)
+    _chartStrategyLineSignal = Signal(int, str, str, list, list)
     # BOT-064: user-picked reference indicator scripts (RSI/MACD/...),
     # independent of the strategy's own lines above — same 4-signal shape
     # DashboardPresenter uses for IndicatorScriptRunner's 4 output channels.
@@ -180,8 +187,8 @@ class BackTestPresenter(BasePresenter):
     _chartScriptRegionSignal = Signal(str, list)  # script key, spans
     _chartScriptInfoSignal = Signal(str, list)  # script key, info fields
     _chartScriptMarkerSignal = Signal(str, list)  # script key, markers
-    _syncSucceededSignal = Signal()
-    _syncFailedSignal = Signal(str)  # error message
+    _syncSucceededSignal = Signal(int)  # action_id
+    _syncFailedSignal = Signal(int, str)  # action_id, error message
     _uiLogSignal = Signal(str, str, bool)  # message, level, is_dev
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
@@ -205,6 +212,12 @@ class BackTestPresenter(BasePresenter):
         # BOT-095B: Snapshot of the last executed backtest run configuration.
         # Used for Dirty Tracking to compare against active toolbar inputs.
         self._last_run_config: BacktestRunConfig | None = None
+
+        # BOT-095H: each background action owns one generation. A later
+        # action invalidates callbacks from every earlier generation.
+        self._next_action_id = 0
+        self._active_action: BacktestActionContext | None = None
+        self._active_action_outcome: BacktestActionOutcome | None = None
 
         # BOT-057: the single source of truth the Trade Logs table's
         # filter/search/pagination all read from — the ViewModel only ever
@@ -333,17 +346,17 @@ class BackTestPresenter(BasePresenter):
         self._view_model.botParamsSaveRequested.connect(
             self._on_bot_params_save_requested
         )
-        self._backtestSucceededSignal.connect(self._on_backtest_succeeded)
-        self._backtestEmptySignal.connect(self._on_backtest_empty)
-        self._backtestFailedSignal.connect(self._on_backtest_failed)
-        self._chartDataReadySignal.connect(self._on_chart_data_ready)
-        self._chartStrategyLineSignal.connect(self._on_chart_strategy_line)
+        self._backtestSucceededSignal.connect(self._on_backtest_succeeded_for_action)
+        self._backtestEmptySignal.connect(self._on_backtest_empty_for_action)
+        self._backtestFailedSignal.connect(self._on_backtest_failed_for_action)
+        self._chartDataReadySignal.connect(self._on_chart_data_ready_for_action)
+        self._chartStrategyLineSignal.connect(self._on_chart_strategy_line_for_action)
         self._chartScriptLineSignal.connect(self._on_chart_script_line)
         self._chartScriptRegionSignal.connect(self._on_chart_script_region)
         self._chartScriptInfoSignal.connect(self._on_chart_script_info)
         self._chartScriptMarkerSignal.connect(self._on_chart_script_marker)
-        self._syncSucceededSignal.connect(self._on_sync_succeeded)
-        self._syncFailedSignal.connect(self._on_sync_failed)
+        self._syncSucceededSignal.connect(self._on_sync_succeeded_for_action)
+        self._syncFailedSignal.connect(self._on_sync_failed_for_action)
         self._uiLogSignal.connect(self._on_ui_log)
         self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
         self._view_model.tradeLogExportRequested.connect(
@@ -463,6 +476,109 @@ class BackTestPresenter(BasePresenter):
     ) -> None:
         self._view_model.set_ui_mode(new_state.value)
 
+    def _begin_action(
+        self,
+        kind: BacktestActionKind,
+        config: BacktestRunConfig,
+        previous_state: BacktestUiState,
+    ) -> BacktestActionContext:
+        """Create the immutable owner record before background submission."""
+        if self._active_action is not None:
+            self._log_dev_trace(
+                "action_superseded",
+                action_id=self._active_action.action_id,
+                kind=self._active_action.kind.value,
+                outcome=(
+                    self._active_action_outcome.value
+                    if self._active_action_outcome is not None
+                    else None
+                ),
+            )
+            if self._active_action_outcome is BacktestActionOutcome.PENDING:
+                self._finish_action(
+                    self._active_action.action_id, BacktestActionOutcome.INVALIDATED
+                )
+        self._next_action_id += 1
+        context = BacktestActionContext(
+            action_id=self._next_action_id,
+            kind=kind,
+            config=deepcopy(config),
+            started_at=datetime.now(UTC),
+            previous_state=previous_state,
+        )
+        self._active_action = context
+        self._active_action_outcome = BacktestActionOutcome.PENDING
+        self._log_dev_trace(
+            "action_started",
+            action_id=context.action_id,
+            kind=context.kind.value,
+            config=context.config.to_summary_label(),
+            previous_state=context.previous_state.value,
+        )
+        return context
+
+    def _is_current_action(self, action_id: int, kind: BacktestActionKind) -> bool:
+        return (
+            self._active_action is not None
+            and self._active_action.action_id == action_id
+            and self._active_action.kind is kind
+        )
+
+    def _is_current_pending_action(
+        self, action_id: int, kind: BacktestActionKind
+    ) -> bool:
+        return self._is_current_action(action_id, kind) and (
+            self._active_action_outcome is BacktestActionOutcome.PENDING
+        )
+
+    def _current_action_id(self, kind: BacktestActionKind) -> int | None:
+        if self._active_action is not None and self._active_action.kind is kind:
+            return self._active_action.action_id
+        return None
+
+    def _finish_action(self, action_id: int, outcome: BacktestActionOutcome) -> None:
+        if self._active_action is None or self._active_action.action_id != action_id:
+            return
+        self._active_action_outcome = outcome
+        self._log_dev_trace(
+            "action_finished",
+            action_id=action_id,
+            kind=self._active_action.kind.value,
+            outcome=outcome.value,
+        )
+
+    def _invalidate_active_action(self) -> None:
+        """Invalidate a pending action without assigning a replacement.
+
+        BOT-095C's cancel flow will call this before requesting cooperative
+        worker cancellation, so late callbacks are fenced immediately.
+        """
+        if (
+            self._active_action is not None
+            and self._active_action_outcome is BacktestActionOutcome.PENDING
+        ):
+            self._finish_action(
+                self._active_action.action_id, BacktestActionOutcome.INVALIDATED
+            )
+
+    def _ignore_stale_action_callback(
+        self, callback: str, action_id: int, kind: BacktestActionKind
+    ) -> None:
+        self._log_dev_trace(
+            "action_callback_ignored",
+            callback=callback,
+            action_id=action_id,
+            kind=kind.value,
+            active_action_id=(
+                self._active_action.action_id if self._active_action else None
+            ),
+            active_outcome=(
+                self._active_action_outcome.value
+                if self._active_action_outcome is not None
+                else None
+            ),
+        )
+
     def _get_current_config(self) -> BacktestRunConfig:
         timeframe_str = self._view_model.selectedTimeframe
         try:
@@ -560,11 +676,14 @@ class BackTestPresenter(BasePresenter):
             currency=self._view_model.selectedCurrency,
             symbol=self._symbol,
         )
+        previous_state = self.fsm.current_state
         self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
         self._log_dev_trace("run_transitioned", state=self.fsm.current_state)
-        self._start_backtest_run(config)
+        self._start_backtest_run(config, previous_state)
 
-    def _start_backtest_run(self, config: BacktestRunConfig) -> None:
+    def _start_backtest_run(
+        self, config: BacktestRunConfig, previous_state: BacktestUiState | None = None
+    ) -> None:
         """Shared by the "Chạy Backtest" click and the post-sync auto-resubmit
         (`_on_sync_succeeded`) — callers are responsible for their own FSM
         transition into RUNNING first (IDLE->RUNNING vs SYNCING->RUNNING are
@@ -601,9 +720,75 @@ class BackTestPresenter(BasePresenter):
             script_keys=self._chart_script_keys,
         )
 
+        action = self._begin_action(
+            BacktestActionKind.BACKTEST,
+            config,
+            previous_state or self.fsm.current_state,
+        )
         self._view_model.set_result(_RUNNING_MESSAGE, is_error=False)
         self._log_dev_trace("run_worker_submitted")
-        self._thread_manager.submit(self._run_backtest, config)
+        self._thread_manager.submit(self._run_backtest, action.config, action.action_id)
+
+    @Slot(int, object)
+    @safe_ui_action
+    def _on_backtest_succeeded_for_action(
+        self, action_id: int, result: BacktestResult
+    ) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                "backtest_succeeded", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        self._on_backtest_succeeded(result)
+        self._finish_action(action_id, BacktestActionOutcome.SUCCEEDED)
+
+    @Slot(int, str, object)
+    @safe_ui_action
+    def _on_backtest_empty_for_action(
+        self, action_id: int, message: str, config: BacktestRunConfig
+    ) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                "backtest_empty", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        self._on_backtest_empty(message, config)
+        self._finish_action(action_id, BacktestActionOutcome.EMPTY)
+
+    @Slot(int, str)
+    @safe_ui_action
+    def _on_backtest_failed_for_action(self, action_id: int, message: str) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                "backtest_failed", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        self._on_backtest_failed(message)
+        self._finish_action(action_id, BacktestActionOutcome.FAILED)
+
+    @Slot(int, object, list, list)
+    @safe_ui_action
+    def _on_chart_data_ready_for_action(
+        self, action_id: int, result: BacktestResult, klines: list, volume: list
+    ) -> None:
+        if not self._is_current_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                "chart_data_ready", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        self._on_chart_data_ready(result, klines, volume)
+
+    @Slot(int, str, str, list, list)
+    @safe_ui_action
+    def _on_chart_strategy_line_for_action(
+        self, action_id: int, name: str, color: str, x_data: list, y_data: list
+    ) -> None:
+        if not self._is_current_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                "chart_strategy_line", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        self._on_chart_strategy_line(name, color, x_data, y_data)
 
     @Slot(object)
     @safe_ui_action
@@ -883,8 +1068,9 @@ class BackTestPresenter(BasePresenter):
         config = self._build_run_config()
         if config is None:
             return
+        previous_state = self.fsm.current_state
         self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
-        self._start_backtest_run(config)
+        self._start_backtest_run(config, previous_state)
 
     def _refresh_bot_params_schema(self) -> None:
         strategy_cls = self._strategy_registry.available().get(
@@ -907,10 +1093,37 @@ class BackTestPresenter(BasePresenter):
             self._log_dev_trace("sync_ignored", state=self.fsm.current_state)
             return
         self._log_dev_trace("sync_requested")
+        sync_config = self._last_no_data_config
+        previous_state = self.fsm.current_state
         self.fsm.dispatch(BacktestUiEvent.SYNC_REQUESTED)
+        action = self._begin_action(
+            BacktestActionKind.SYNC, sync_config, previous_state
+        )
         self._view_model.set_result(_SYNCING_MESSAGE, is_error=False)
         self._log_dev_trace("sync_worker_submitted")
-        self._thread_manager.submit(self._run_sync, self._last_no_data_config)
+        self._thread_manager.submit(self._run_sync, action.config, action.action_id)
+
+    @Slot(int)
+    @safe_ui_action
+    def _on_sync_succeeded_for_action(self, action_id: int) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.SYNC):
+            self._ignore_stale_action_callback(
+                "sync_succeeded", action_id, BacktestActionKind.SYNC
+            )
+            return
+        self._finish_action(action_id, BacktestActionOutcome.SUCCEEDED)
+        self._on_sync_succeeded()
+
+    @Slot(int, str)
+    @safe_ui_action
+    def _on_sync_failed_for_action(self, action_id: int, message: str) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.SYNC):
+            self._ignore_stale_action_callback(
+                "sync_failed", action_id, BacktestActionKind.SYNC
+            )
+            return
+        self._on_sync_failed(message)
+        self._finish_action(action_id, BacktestActionOutcome.FAILED)
 
     @Slot()
     @safe_ui_action
@@ -928,12 +1141,12 @@ class BackTestPresenter(BasePresenter):
         if self.fsm.can_dispatch(BacktestUiEvent.SYNC_SUCCEEDED):
             self.fsm.dispatch(BacktestUiEvent.SYNC_SUCCEEDED)
 
-        # Re-read the toolbar's CURRENT config, not the cached one — the user
-        # may have edited fields (symbol/strategy/range) while the sync was
-        # in flight. Fall back to the config that triggered the sync only if
-        # the current fields are no longer valid.
-        config = self._build_run_config() or cached_config
-        self._start_backtest_run(config)
+        # The sync authorizes only the original run intent. A later task may
+        # allow edits/cancel while syncing, but it must invalidate this action
+        # rather than letting a stale sync infer a fresh intent from toolbar
+        # values.
+        if cached_config is not None:
+            self._start_backtest_run(cached_config)
 
     @Slot(str)
     @safe_ui_action
@@ -1085,9 +1298,17 @@ class BackTestPresenter(BasePresenter):
     # MUST NOT touch the view model directly. Signals only.
     # ================================================================== #
 
-    def _run_backtest(self, config: BacktestRunConfig) -> None:
+    def _run_backtest(
+        self, config: BacktestRunConfig, action_id: int | None = None
+    ) -> None:
+        resolved_action_id = action_id or self._current_action_id(
+            BacktestActionKind.BACKTEST
+        )
+        if resolved_action_id is None:
+            return
         self._log_dev_trace(
             "worker_start",
+            action_id=resolved_action_id,
             strategy=config.strategy_key,
             timeframe=config.timeframe.value,
         )
@@ -1110,12 +1331,13 @@ class BackTestPresenter(BasePresenter):
         except Exception as exc:
             logger.exception("Static backtest failed")
             self._log_dev_trace("worker_failed", message=str(exc))
-            self._backtestFailedSignal.emit(str(exc))
+            self._backtestFailedSignal.emit(resolved_action_id, str(exc))
             return
 
         if result is None:
             self._log_dev_trace("worker_no_data")
             self._backtestEmptySignal.emit(
+                resolved_action_id,
                 f"Không có dữ liệu lịch sử cho {self._symbol} "
                 f"({config.timeframe.value}). Hãy sync dữ liệu trước.",
                 config,
@@ -1127,20 +1349,28 @@ class BackTestPresenter(BasePresenter):
             trades=len(result.trades),
             net_profit_percent=result.metrics.net_profit_percent,
         )
-        self._fetch_and_emit_chart_data(config, result)
+        self._fetch_and_emit_chart_data(resolved_action_id, config, result)
         # Emitted whether or not there are trades — _on_backtest_succeeded
         # always has a real BacktestResult to build stat cards from; only
         # "no historical data at all" (result is None, above) has none.
-        self._backtestSucceededSignal.emit(result)
+        self._backtestSucceededSignal.emit(resolved_action_id, result)
 
-    def _run_sync(self, config: BacktestRunConfig) -> None:
+    def _run_sync(
+        self, config: BacktestRunConfig, action_id: int | None = None
+    ) -> None:
         """Background worker: dispatches `SyncMarketDataCommand` for the
         symbol/timeframe/range that just came back "no data" — mirrors
         `DataManagementPresenter._run_single_sync`, minus the progress-bar
         events that screen needs and this one doesn't (one sync, one
         outcome, no multi-target loop)."""
+        resolved_action_id = action_id or self._current_action_id(
+            BacktestActionKind.SYNC
+        )
+        if resolved_action_id is None:
+            return
         self._log_dev_trace(
             "sync_worker_start",
+            action_id=resolved_action_id,
             timeframe=config.timeframe.value,
             start=config.start_time,
             end=config.end_time,
@@ -1161,12 +1391,12 @@ class BackTestPresenter(BasePresenter):
         except Exception as exc:
             logger.exception("Market data sync failed")
             self._log_dev_trace("sync_worker_failed", message=str(exc))
-            self._syncFailedSignal.emit(str(exc))
+            self._syncFailedSignal.emit(resolved_action_id, str(exc))
             return
-        self._syncSucceededSignal.emit()
+        self._syncSucceededSignal.emit(resolved_action_id)
 
     def _fetch_and_emit_chart_data(
-        self, config: BacktestRunConfig, result: BacktestResult
+        self, action_id: int, config: BacktestRunConfig, result: BacktestResult
     ) -> None:
         """
         @brief Separate from the BacktestResult dispatch above — the chart
@@ -1213,9 +1443,9 @@ class BackTestPresenter(BasePresenter):
             mapped_klines=len(mapped_klines),
             mapped_volume=len(mapped_volume),
         )
-        self._chartDataReadySignal.emit(result, mapped_klines, mapped_volume)
+        self._chartDataReadySignal.emit(action_id, result, mapped_klines, mapped_volume)
 
-        self._emit_strategy_indicator_lines(config, raw_klines)
+        self._emit_strategy_indicator_lines(action_id, config, raw_klines)
 
         # BOT-064: user-picked reference scripts — batch feed, same klines
         # already fetched above, entirely independent of the strategy lines
@@ -1229,7 +1459,7 @@ class BackTestPresenter(BasePresenter):
         self._log_dev_trace("chart_scripts_fed", raw_klines=len(raw_klines))
 
     def _emit_strategy_indicator_lines(
-        self, config: BacktestRunConfig, raw_klines: list
+        self, action_id: int, config: BacktestRunConfig, raw_klines: list
     ) -> None:
         """
         @brief BOT-060: draws whatever indicators the backtested strategy
@@ -1249,4 +1479,6 @@ class BackTestPresenter(BasePresenter):
         lines = compute_strategy_indicator_lines(strategy, raw_klines)
         colors = assign_strategy_line_colors(list(lines.keys()))
         for name, (x_data, y_data) in lines.items():
-            self._chartStrategyLineSignal.emit(name, colors[name], x_data, y_data)
+            self._chartStrategyLineSignal.emit(
+                action_id, name, colors[name], x_data, y_data
+            )

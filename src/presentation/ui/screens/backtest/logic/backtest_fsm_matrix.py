@@ -53,6 +53,23 @@ class BacktestUiEvent(str, Enum):
     ERROR_DISMISSED = "ERROR_DISMISSED"
 
 
+class BacktestActionKind(str, Enum):
+    """Kinds of background work that may own the Backtest UI lifecycle."""
+
+    BACKTEST = "BACKTEST"
+    SYNC = "SYNC"
+
+
+class BacktestActionOutcome(str, Enum):
+    """The terminal outcome currently owned by a Backtest action."""
+
+    PENDING = "PENDING"
+    SUCCEEDED = "SUCCEEDED"
+    EMPTY = "EMPTY"
+    FAILED = "FAILED"
+    INVALIDATED = "INVALIDATED"
+
+
 #: Declarative State Transition Matrix: (CurrentState, Event) -> NextState
 BACKTEST_STATE_TRANSITIONS: dict[
     tuple[BacktestUiState, BacktestUiEvent], BacktestUiState
@@ -207,3 +224,14 @@ class BacktestRunConfig:
         @brief Generate a concise single-line summary of the executed run.
         """
         return f"{self.symbol} | {self.timeframe.value} | {self.strategy_key} | Vốn: {self.initial_balance:,.0f} {self.currency.value}"
+
+
+@dataclass(frozen=True)
+class BacktestActionContext:
+    """Immutable owner record for one submitted background action."""
+
+    action_id: int
+    kind: BacktestActionKind
+    config: BacktestRunConfig
+    started_at: datetime
+    previous_state: BacktestUiState

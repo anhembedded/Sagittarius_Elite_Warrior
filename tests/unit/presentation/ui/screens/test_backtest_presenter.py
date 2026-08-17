@@ -70,6 +70,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
     BackTestView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
+    BacktestActionKind,
+    BacktestActionOutcome,
     BacktestRunConfig,
     BacktestUiEvent,
     BacktestUiState,
@@ -843,7 +845,8 @@ def test_request_sync_transitions_to_syncing_and_submits_background_task(
     mock_thread_mgr.submit.assert_called_once()
     call_args = mock_thread_mgr.submit.call_args[0]
     assert call_args[0] == presenter._run_sync
-    assert call_args[1] is config
+    assert call_args[1] == config
+    assert call_args[1] is not config
 
 
 def test_request_sync_ignored_while_a_backtest_is_already_running(
@@ -896,12 +899,14 @@ def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
     assert call_args[0] == presenter._run_backtest
 
 
-def test_sync_success_resubmits_with_the_toolbars_current_fields(
+def test_sync_success_resubmits_with_its_original_config_snapshot(
     presenter, view_model, mock_dispatcher, mock_thread_mgr
 ):
-    """The user may edit the toolbar while the sync is in flight — the
-    resubmitted run must use those CURRENT fields, not the stale cached
-    config that triggered the sync."""
+    """A sync success authorizes only the intent that created that sync.
+
+    It must never infer a fresh action from live toolbar fields; a future
+    editable-while-syncing flow must invalidate the old action instead.
+    """
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
     view_model.initialCapitalText = "500"
@@ -915,7 +920,7 @@ def test_sync_success_resubmits_with_the_toolbars_current_fields(
     presenter._run_sync(config)
 
     resubmitted_config = mock_thread_mgr.submit.call_args[0][1]
-    assert resubmitted_config.initial_balance == 500.0
+    assert resubmitted_config.initial_balance == config.initial_balance
 
 
 def test_sync_failure_keeps_the_flag_and_returns_to_idle(
@@ -2072,6 +2077,141 @@ def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qml_item
     assert banner.property("visible") is True
     btn_run = qml_item(root, "btnRunBacktest")
     assert btn_run is not None
+
+
+# ================================================================== #
+# BOT-095H: Action ownership & stale callback fencing
+# ================================================================== #
+
+
+def test_superseded_backtest_success_cannot_overwrite_the_new_action(
+    presenter, view_model
+):
+    view_model.requestRun()
+    first_action = presenter._active_action
+    assert first_action is not None
+
+    second_action = presenter._begin_action(
+        BacktestActionKind.BACKTEST,
+        presenter._get_current_config(),
+        presenter.fsm.current_state,
+    )
+
+    presenter._on_backtest_succeeded_for_action(
+        first_action.action_id, _make_result(with_trades=True)
+    )
+
+    assert presenter._active_action == second_action
+    assert presenter._active_action_outcome is BacktestActionOutcome.PENDING
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    assert view_model.resultText == "Đang chạy backtest..."
+
+
+def test_superseded_backtest_failure_cannot_overwrite_the_new_action(
+    presenter, view_model
+):
+    view_model.requestRun()
+    first_action = presenter._active_action
+    assert first_action is not None
+
+    second_action = presenter._begin_action(
+        BacktestActionKind.BACKTEST,
+        presenter._get_current_config(),
+        presenter.fsm.current_state,
+    )
+
+    presenter._on_backtest_failed_for_action(first_action.action_id, "old failure")
+
+    assert presenter._active_action == second_action
+    assert presenter._active_action_outcome is BacktestActionOutcome.PENDING
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    assert view_model.resultText == "Đang chạy backtest..."
+
+
+def test_success_after_failure_for_the_same_action_is_ignored(presenter, view_model):
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+
+    presenter._on_backtest_failed_for_action(action.action_id, "boom")
+    presenter._on_backtest_succeeded_for_action(
+        action.action_id, _make_result(with_trades=True)
+    )
+
+    assert presenter._active_action_outcome is BacktestActionOutcome.FAILED
+    assert presenter.fsm.current_state == BacktestUiState.ERROR
+    assert view_model.resultIsError is True
+    assert "boom" in view_model.resultText
+
+
+def test_invalidated_action_cannot_apply_a_late_success(presenter, view_model):
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+
+    presenter._invalidate_active_action()
+    presenter._on_backtest_succeeded_for_action(
+        action.action_id, _make_result(with_trades=True)
+    )
+
+    assert presenter._active_action_outcome is BacktestActionOutcome.INVALIDATED
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    assert view_model.resultText == "Đang chạy backtest..."
+
+
+def test_invalidated_action_cannot_apply_a_late_failure(presenter, view_model):
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+
+    presenter._invalidate_active_action()
+    presenter._on_backtest_failed_for_action(action.action_id, "late failure")
+
+    assert presenter._active_action_outcome is BacktestActionOutcome.INVALIDATED
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    assert view_model.resultText == "Đang chạy backtest..."
+
+
+def test_action_context_deep_copies_mutable_strategy_params(presenter):
+    params = {"periods": [12, 26]}
+    config = BacktestRunConfig(
+        strategy_key="fake_strategy",
+        timeframe=TimeFrame.ONE_MINUTE,
+        initial_balance=10000.0,
+        start_time=None,
+        end_time=None,
+        strategy_params=params,
+    )
+
+    action = presenter._begin_action(
+        BacktestActionKind.BACKTEST, config, presenter.fsm.current_state
+    )
+    params["periods"].append(50)
+
+    assert action.config.strategy_params == {"periods": [12, 26]}
+
+
+def test_stale_sync_success_does_not_auto_submit_a_backtest(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    sync_action = presenter._active_action
+    assert sync_action is not None
+    assert sync_action.kind is BacktestActionKind.SYNC
+
+    presenter._begin_action(
+        BacktestActionKind.BACKTEST,
+        presenter._get_current_config(),
+        presenter.fsm.current_state,
+    )
+    mock_thread_mgr.reset_mock()
+
+    presenter._on_sync_succeeded_for_action(sync_action.action_id)
+
+    mock_thread_mgr.submit.assert_not_called()
+    assert presenter._active_action is not None
+    assert presenter._active_action.kind is BacktestActionKind.BACKTEST
 
 
 # ================================================================== #
