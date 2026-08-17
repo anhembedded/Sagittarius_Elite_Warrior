@@ -1,4 +1,16 @@
+import logging
+
 import pyqtgraph as pg
+from PySide6.QtWidgets import QApplication
+
+logger = logging.getLogger(__name__)
+
+_HEADLESS_QT_PLATFORMS = frozenset({"offscreen", "minimal", "minimalegl"})
+
+
+def _qt_platform_name() -> str:
+    app = QApplication.instance()
+    return app.platformName().lower() if app is not None else ""
 
 
 class ChartPlotLayout:
@@ -11,10 +23,14 @@ class ChartPlotLayout:
     MAIN_PLOT_ROW = 1
     MAIN_PLOT_STRETCH = 3
 
-    def __init__(self) -> None:
+    def __init__(self, *, use_opengl: bool = False) -> None:
         pg.setConfigOptions(antialias=True)
 
+        self.opengl_requested = bool(use_opengl)
+        self.uses_opengl = False
+        self.backend_fallback_reason: str | None = None
         self.widget = pg.GraphicsLayoutWidget()
+        self._configure_render_backend()
         self.widget.setBackground("default")
 
         self.crosshair_label = self.widget.addLabel(
@@ -53,6 +69,49 @@ class ChartPlotLayout:
         self.sub_plots: list[pg.PlotItem] = []
         self.plots: list[pg.PlotItem] = [self.main_plot]
         self._next_row = self.MAIN_PLOT_ROW + 1
+
+    @property
+    def render_backend(self) -> str:
+        return "opengl" if self.uses_opengl else "cpu"
+
+    def _configure_render_backend(self) -> None:
+        if not self.opengl_requested:
+            return
+        platform_name = _qt_platform_name()
+        if platform_name in _HEADLESS_QT_PLATFORMS:
+            self.backend_fallback_reason = f"unsupported Qt platform: {platform_name}"
+            return
+        try:
+            # Per-widget switch: Dashboard and every existing ChartCard stay
+            # on their CPU viewport unless their owner explicitly requests GL.
+            self.widget.useOpenGL(True)
+        except (RuntimeError, TypeError, ValueError) as exc:
+            self.backend_fallback_reason = f"OpenGL setup failed: {exc}"
+            logger.warning("Chart OpenGL unavailable; falling back to CPU: %s", exc)
+            return
+        self.uses_opengl = True
+
+    def validate_render_backend(self) -> bool:
+        """Falls back after show when Qt created a GL viewport without a context."""
+        if not self.uses_opengl:
+            return True
+        viewport = self.widget.viewport()
+        context_getter = getattr(viewport, "context", None)
+        context = context_getter() if callable(context_getter) else None
+        is_valid = bool(
+            context is not None
+            and (not hasattr(context, "isValid") or context.isValid())
+        )
+        if is_valid:
+            return True
+
+        self.widget.useOpenGL(False)
+        self.uses_opengl = False
+        self.backend_fallback_reason = "OpenGL context unavailable after show"
+        logger.warning(
+            "Chart OpenGL viewport has no valid context; falling back to CPU"
+        )
+        return False
 
     def _update_x_axes(self) -> None:
         """Ensures only the bottom-most plot shows X-axis text labels."""

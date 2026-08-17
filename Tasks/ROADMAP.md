@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 71 | 65.7% |
+| 🟢 **Completed** | 72 | 65.5% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 37 | 34.3% |
-| 📈 **Tổng số Task** | **108** | **100%** |
+| 🔴 **Backlog** | 38 | 34.5% |
+| 📈 **Tổng số Task** | **110** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -64,6 +64,10 @@ Sagittarius_Elite_Warrior/Tasks/
 >
 > Lần tăng thứ mười bốn (+1, `BOT-098C`): tách cache crosshair và paint-path probe thành mốc đo thứ ba của `BOT-098`. Full interaction chỉ tốn khoảng 1,8 ms ở Python nhưng khoảng 41 ms ở Qt CPU paint; OpenGL A/B giảm median khoảng 42,9 → 22,9 ms, nên bước kế tiếp phải kiểm tra visual/hybrid/fallback trước khi bật cho Backtest.
 >
+> Lần tăng thứ mười lăm (+1, `BOT-098D`): tách backend OpenGL + hybrid/fallback guard. Probe thật phát hiện QOpenGLWidget có object nhưng context `None` cạnh QQuickWidget; OpenGL được giữ opt-in và tự fallback CPU, không bật mặc định.
+>
+> Lần tăng thứ mười sáu (+1, `BOT-098E`): từ đề xuất áp dụng kỹ thuật game, tách LOD/mipmap + batched rendering. CSV chỉ giúp load; task mới nhắm giảm paint primitive theo pixel budget nhưng bảo toàn OHLC/volume/marker business contract.
+>
 ---
 
 > ## 🧭 Định hướng đã chốt: **Backtest đáng tin trước, giao dịch thật gác lại**
@@ -90,6 +94,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **BOT-098D**: [Backtest OpenGL backend guard](completed/BOT-098D_backtest_opengl_backend_guard.md) — Thuộc `BOT-098`. `ChartCard` chọn backend theo instance; headless/setup/context-invalid đều fallback CPU và FPS overlay được rebind an toàn khi viewport bị thay. Benchmark chính thức chọn CPU/OpenGL: standalone candles gần 2x nhưng full chart chỉ cải thiện khoảng 15–18%. Hybrid probe 6.420 nến + volume + 5 lines + 1.112 marker phát hiện GL context `None`, sau guard tự fallback với 31 marker active, 21 sampled colors, không render lifecycle warning. OpenGL không bật mặc định; Full CI sau merge BOT-031: 956 primary + 25 sanity xanh, coverage 93,94%.*
 - [x] **BOT-098C**: [Crosshair cache & paint-path probe](completed/BOT-098C_crosshair_and_paint_probe.md) — Thuộc `BOT-098`. Cache OHLC/info/X/Y label payload, đặt anchor một lần và vẫn giữ final line/candle đúng sau event burst. Benchmark tách synchronous update khỏi Qt paint: CPU full profile khoảng 1,8 ms sync + 41,2 ms paint; OpenGL experiment giảm full median khoảng 42,9 → 22,9 ms nhưng chưa bật production trước khi có visual/hybrid/fallback guard. 89 component tests, Full CI 947 primary + 25 sanity xanh; coverage 94,04%.*
 - [x] **BOT-098B**: [Cache & coalesce chart range updates](completed/BOT-098B_range_update_pipeline.md) — Thuộc `BOT-098`. Volume và từng indicator cache visible slice kèm data revision nên duplicate range không gọi lại `setOpts`/`setData`, trong khi live/data update cùng viewport vẫn render. `RangeUpdateScheduler` coalesce burst theo frame 16 ms và luôn apply final viewport; benchmark giảm 140 raw callbacks còn 70–71 applies (5 lines: 350 thay vì 700 `setData`). Regression cover final volume/indicator/marker state và dispose pending callback; Full CI sau merge BOT-074: 944 primary + 25 sanity xanh. Parent vẫn mở vì candles-only còn khoảng 34 ms/update.*
 - [x] **BOT-098A**: [Marker viewport virtualization & FPS overlay dev-only](completed/BOT-098A_marker_viewport_and_dev_fps.md) — Thuộc `BOT-098`. Marker layer giữ đủ full business history nhưng chỉ materialize visible slice có padding, tái sử dụng `TextItem` khi pan và không rebuild khi slice không đổi. Backtest graph có FPS overlay đo paint event thật, chỉ bật qua `dev.mode` / `scripts/run-ui.ps1 -Dev`. Benchmark 6.420 candles + volume + 5 indicators + 1.112 marker còn 31 marker active, marker overhead khoảng 10,4% median trong cùng lượt đo; Full CI 936 primary + 25 sanity xanh. Parent `BOT-098` vẫn mở vì profile không marker chưa đạt 60 FPS.*
@@ -162,7 +167,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-*(Trống — vừa hoàn thành BOT-098C)*
+*(Trống — vừa hoàn thành BOT-098D)*
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
@@ -185,7 +190,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P?** | **[BOT-038](backlog/BOT-038_intermittent_segfault_full_ui_integration_suite.md)** | **Segfault ngẫu nhiên khi chạy toàn bộ `tests/integration/presentation/ui/`** | 🔴 **`L (Thinking)`** | — | Crash native (Qt/PySide6) intermittent, không deterministic theo test hay theo outcome — cùng nghi vấn lớp bug object-lifetime đã gặp ở `BOT-034` §5. Đã điều tra 1 vòng (bisect, gdb không debuginfod), dừng theo yêu cầu user — xem §4 "Hướng điều tra tiếp theo" trong file. **Không tự ý tiếp tục điều tra nếu chưa được yêu cầu lại.** |
 | **P1** | **BOT-091** | **Backtest hybrid render/runtime guard — lỗi `QQuickRenderControl beginFrame/endFrame` sau khi chạy backtest** | 🔴 **`L (Thinking)`** | `BOT-087` ✅, `BOT-088` ✅ | Bug runtime thật trên màn Backtest: sau `RunStaticBacktestCommand` hoàn tất và UI tiếp tục `GetHistoricalKlinesQuery`, Qt nổ `QQuickRenderControl: Attempted to beginFrame() while the QRhi is already recording a frame` / `QQuickWidget: Failed to begin recording a frame`. Đây **không** phải lỗi parse QML, DI, presenter logic hay layout (`BOT-089`/`BOT-090`); nghi vấn nằm ở hybrid composition với nhiều `QQuickWidget` hoạt động đồng thời (`top_widget`, `bottom_widget`, `top_overlay_host.quick_widget`, `overlay_host.quick_widget`) cộng chart native redraw burst. Gap test hiện tại: sanity chỉ dựng màn + check `quick_widget.errors()`, unit/layout tests chỉ kiểm tra logic/geometry; **không có** test nào chạy backtest thật + fetch klines thật + quan sát vòng đời frame/render runtime. **Cập nhật 15/08:** đã có runtime probe chạy app thật ở dev-mode với dữ liệu `BTCUSDT` khung `1m` seed local để ép đi qua success path `RunStaticBacktestCommand` -> `GetHistoricalKlinesQuery`; probe mở thêm các toolbar popup/menu chính và đổi chart mode qua lại. Các lượt probe đó **chưa tái hiện lại** dòng `QQuickRenderControl`, nên bug vẫn được giữ ở backlog điều tra: chưa có reproduction tối thiểu ổn định từ phía AI và cũng chưa có bằng chứng runtime mới để kết luận đã hết. Rule của task này: **pytest/sanity pass không bao giờ đủ**; chỉ được coi xong khi chính kịch bản dev-mode thật được chạy lại và log sạch không còn `QQuickRenderControl` hay lỗi khung hình liên quan. |
 | **P1** | **[BOT-096](backlog/BOT-096_truthful_backtest_exit_markers.md)** | **Backtest — Marker/Icon thoát LONG trung thực** | 🟡 **`M (Standard)`** | `BOT-056` ✅, `BOT-057` ✅ | Tách rõ marker thực thi `EXIT LONG` khỏi `SHORT ENTRY`: không dùng nhãn/icon Sell chung cho hai ý nghĩa, không thay đổi engine long-only, và thêm acceptance test kiểm chứng chart/table phản ánh đúng sự thật. `BOT-050` vẫn là task duy nhất mở short-selling. |
-| **P1** | **[BOT-098](backlog/BOT-098_backtest_chart_pan_zoom_performance.md)** | **Backtest Chart — Pan/Zoom mượt theo frame budget** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098A` ✅, `BOT-098B` ✅, `BOT-098C` ✅; liên quan `BOT-091`, `BOT-096` | Marker virtualization, range coalescing và crosshair cache đã xong. Paint probe cho thấy bottleneck nằm ở Qt CPU paint; tiếp theo là OpenGL riêng Backtest với visual/hybrid/fallback guard, không đổi business output. |
+| **P1** | **[BOT-098](backlog/BOT-098_backtest_chart_pan_zoom_performance.md)** | **Backtest Chart — Pan/Zoom mượt theo frame budget** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098A`…`BOT-098D` ✅; liên quan `BOT-091`, `BOT-096` | OpenGL standalone có lợi nhưng hybrid context không hợp lệ nên đã guard/fallback và không bật mặc định. Tiếp theo `BOT-098E`: LOD/mipmap + batching theo pixel budget để nhắm 60 FPS mà không đổi business output. |
+| **P1** | **[BOT-098E](backlog/BOT-098E_chart_lod_and_batching.md)** | **Chart LOD/mipmap & batched rendering** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098A`…`BOT-098D` ✅ | Áp dụng kỹ thuật game: OHLC/volume LOD pyramid, chọn level theo candles/pixel, cache geometry và batch draw call. CSV không giải quyết pan/zoom; mọi bucket phải bảo toàn OHLC extreme, volume sum và marker semantic. |
 | **P2** | **[BOT-097](backlog/BOT-097_backtest_display_timezone_selector.md)** | **Backtest — Chọn múi giờ hiển thị** | 🟢 **`S (Fast)`** | `BOT-095D` ✅ | Selector `UTC`/giờ hệ thống cho chart, trade log, coverage và thông báo. Đây là presentation-only: không đổi timestamp UTC, DB/API, range, kết quả, PnL, FSM hay tự chạy lại Backtest. |
 
 #### 🛡️ Nhóm Engine Hardening — Chi tiết (`BOT-066`…`BOT-071`)

@@ -47,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
     BacktestMetrics,
 )
@@ -422,6 +423,23 @@ def test_dev_mode_enables_fps_overlay_on_the_real_backtest_chart(presenter):
 
     assert card.fps_overlay.is_enabled is True
     assert card.fps_overlay.label.isHidden() is False
+
+
+def test_backtest_opengl_can_be_disabled_by_config(
+    qapp, mock_container, mock_config, request
+):
+    previous_side_effect = mock_config.get.side_effect
+    mock_config.get.side_effect = lambda key, default=None: (
+        False
+        if key == ConfigKeys.BACKTEST_CHART_OPENGL_ENABLED.value
+        else previous_side_effect(key, default)
+    )
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    BackTestPresenter(view, mock_container)
+
+    assert view.chart_cards[0].plot_layout.opengl_requested is False
 
 
 # ---------------------------------------------------------------------------

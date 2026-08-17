@@ -19,6 +19,8 @@ BUG-004 symptom (header/tabs/pagination all rendered, zero trade rows
 visible).
 """
 
+from unittest.mock import patch
+
 import pytest
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
@@ -270,6 +272,22 @@ def test_backtest_chart_fps_overlay_follows_dev_mode(qapp, request):
 
     assert cards[0].fps_overlay.is_enabled is False
     assert cards[0].fps_overlay.label.isHidden() is True
+
+
+def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, request):
+    v = BackTestView()
+    request.addfinalizer(v.deleteLater)
+
+    v.set_chart_opengl_enabled(True)
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout._qt_platform_name",
+        return_value="offscreen",
+    ):
+        cards = v.render_symbol_cards(["BTCUSDT"])
+
+    assert cards[0].plot_layout.opengl_requested is True
+    # pytest uses the offscreen Qt platform, so the safety fallback must win.
+    assert cards[0].plot_layout.render_backend == "cpu"
 
 
 def test_trade_log_rows_are_visible_by_default(view, qtbot, qml_item):

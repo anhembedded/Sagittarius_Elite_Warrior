@@ -15,6 +15,7 @@ import math
 import platform
 import statistics
 import time
+from argparse import ArgumentParser
 from dataclasses import asdict, dataclass
 
 import pyqtgraph as pg
@@ -39,6 +40,7 @@ _CANDLE_SECONDS = 60.0
 @dataclass(frozen=True)
 class ProfileResult:
     profile: str
+    render_backend: str
     median_ms: float
     p95_ms: float
     median_set_range_ms: float
@@ -109,8 +111,9 @@ def _run_profile(
     with_indicators: bool,
     with_markers: bool,
     with_crosshair: bool,
+    use_opengl: bool,
 ) -> ProfileResult:
-    card = ChartCard("BTCUSDT")
+    card = ChartCard("BTCUSDT", use_opengl=use_opengl)
     card.resize(1600, 900)
     card.show()
     card.render_historical_data(candles)
@@ -173,6 +176,7 @@ def _run_profile(
     layer = card.indicators._marker_layer
     result = ProfileResult(
         profile=profile,
+        render_backend=card.plot_layout.render_backend,
         median_ms=round(statistics.median(frame_costs), 3),
         p95_ms=round(_percentile_95(frame_costs), 3),
         median_set_range_ms=round(statistics.median(set_range_costs), 3),
@@ -197,6 +201,14 @@ def _run_profile(
 
 
 def main() -> None:
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--backend",
+        choices=("cpu", "opengl"),
+        default="cpu",
+        help="Requested ChartCard viewport backend (default: cpu).",
+    )
+    args = parser.parse_args()
     app = QApplication.instance() or QApplication([])
     candles = _candles()
     profiles = (
@@ -221,6 +233,7 @@ def main() -> None:
             with_indicators=with_indicators,
             with_markers=with_markers,
             with_crosshair=with_crosshair,
+            use_opengl=args.backend == "opengl",
         )
         for profile, with_volume, with_indicators, with_markers, with_crosshair in profiles
     ]
@@ -232,6 +245,7 @@ def main() -> None:
             "qt_platform": app.platformName(),
             "pyqtgraph": pg.__version__,
             "resolution": "1600x900",
+            "requested_backend": args.backend,
         },
         "dataset": {
             "candles": _CANDLE_COUNT,

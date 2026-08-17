@@ -45,6 +45,10 @@ coalesce 140 raw range callbacks còn khoảng 70 renderer applies. Parent này 
 mở. `BOT-098C` tách được synchronous full interaction khoảng 1,8 ms khỏi Qt paint
 khoảng 41 ms; OpenGL A/B giảm full median khoảng 42,9 → 22,9 ms. Bước kế tiếp là
 `BOT-098D` visual/hybrid/fallback validation trước khi bật OpenGL riêng Backtest.
+Kết quả `BOT-098D`: standalone OpenGL chỉ cải thiện full chart khoảng 15–18%
+trong lượt đối chứng chính thức, còn hybrid tạo viewport nhưng context `None`.
+OpenGL được giữ opt-in với CPU fallback, không bật mặc định. Bước kế tiếp là
+`BOT-098E` LOD/mipmap + batched rendering theo pixel budget.
 
 ### 4.1. Marker layer
 

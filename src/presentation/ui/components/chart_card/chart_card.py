@@ -1,4 +1,4 @@
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QTimer, Signal
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.base_card import BaseCard
 
@@ -42,9 +42,10 @@ class ChartCard(BaseCard):
     #: more history for.
     sig_near_left_edge = Signal(str)
 
-    def __init__(self, symbol: str, parent=None):
+    def __init__(self, symbol: str, parent=None, *, use_opengl: bool = False):
         super().__init__(title=f"Live Chart: {symbol}", parent=parent)
         self.symbol = symbol
+        self._use_opengl = bool(use_opengl)
         self._raw_history: list[OhlcCandle] = []
         self._live_candle: OhlcCandle | None = None
 
@@ -56,7 +57,7 @@ class ChartCard(BaseCard):
         self.toolbar = ChartToolbar()
         self.add_to_header(self.toolbar)
 
-        self.plot_layout = ChartPlotLayout()
+        self.plot_layout = ChartPlotLayout(use_opengl=self._use_opengl)
         self.body_layout.addWidget(self.plot_layout.widget)
 
     def _setup_components(self) -> None:
@@ -116,6 +117,34 @@ class ChartCard(BaseCard):
         # one-time wire-up here covers every indicator added through
         # IndicatorManager automatically, current and future.
         self.plot_layout.main_plot.vb.sigXRangeChanged.connect(self._on_x_range_changed)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if self.plot_layout.uses_opengl:
+            # A QOpenGLWidget context only exists after native show. Hybrid
+            # QQuickWidget composition can leave it None without raising;
+            # validate before Backtest data/indicator curves arrive.
+            QTimer.singleShot(0, self._validate_render_backend)
+
+    def _validate_render_backend(self) -> None:
+        if not self.plot_layout.uses_opengl:
+            return
+        viewport = self.plot_layout.widget.viewport()
+        context_getter = getattr(viewport, "context", None)
+        context = context_getter() if callable(context_getter) else None
+        if context is not None and (
+            not hasattr(context, "isValid") or context.isValid()
+        ):
+            return
+
+        # setViewport() destroys the previous GL viewport. FPS instrumentation
+        # owns an event filter + QLabel parented to that viewport, so dispose
+        # it first and bind a fresh overlay to the CPU viewport afterwards.
+        fps_was_enabled = self.fps_overlay.is_enabled
+        self.fps_overlay.dispose()
+        self.plot_layout.validate_render_backend()
+        self.fps_overlay = ChartFpsOverlay(self.plot_layout.widget, parent=self)
+        self.fps_overlay.set_enabled(fps_was_enabled)
 
     def check_near_left_edge(self) -> None:
         """Manually trigger an edge check (used for re-evaluation after cooldown)."""

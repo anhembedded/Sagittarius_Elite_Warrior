@@ -1,5 +1,5 @@
 from enum import Enum
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pyqtgraph as pg
 import pytest
@@ -8,6 +8,9 @@ from PySide6.QtWidgets import QApplication
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout import (
+    ChartPlotLayout,
 )
 
 
@@ -20,6 +23,76 @@ def test_chart_card_initialization(qapp):
     # Kiểm tra tiêu đề có được set đúng không
     assert card.symbol == "BTCUSDT"
     assert card.lbl_title.text() == "Live Chart: BTCUSDT"
+
+
+def test_chart_plot_layout_falls_back_to_cpu_on_headless_platform(qapp):
+    with (
+        patch(
+            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout._qt_platform_name",
+            return_value="offscreen",
+        ),
+        patch.object(pg.GraphicsLayoutWidget, "useOpenGL") as use_opengl,
+    ):
+        layout = ChartPlotLayout(use_opengl=True)
+
+    assert layout.opengl_requested is True
+    assert layout.uses_opengl is False
+    assert layout.render_backend == "cpu"
+    assert layout.backend_fallback_reason == "unsupported Qt platform: offscreen"
+    assert use_opengl.call_args_list == [call(False)]
+
+
+def test_chart_plot_layout_enables_opengl_per_widget_on_desktop(qapp):
+    with (
+        patch(
+            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout._qt_platform_name",
+            return_value="windows",
+        ),
+        patch.object(pg.GraphicsLayoutWidget, "useOpenGL") as use_opengl,
+    ):
+        layout = ChartPlotLayout(use_opengl=True)
+
+    assert use_opengl.call_args_list == [call(False), call(True)]
+    assert layout.uses_opengl is True
+    assert layout.render_backend == "opengl"
+    assert layout.backend_fallback_reason is None
+
+
+def test_chart_plot_layout_falls_back_when_opengl_setup_fails(qapp):
+    with (
+        patch(
+            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout._qt_platform_name",
+            return_value="windows",
+        ),
+        patch.object(
+            pg.GraphicsLayoutWidget,
+            "useOpenGL",
+            side_effect=[None, RuntimeError("no context")],
+        ),
+    ):
+        layout = ChartPlotLayout(use_opengl=True)
+
+    assert layout.uses_opengl is False
+    assert layout.render_backend == "cpu"
+    assert layout.backend_fallback_reason == "OpenGL setup failed: no context"
+
+
+def test_chart_plot_layout_falls_back_when_shown_viewport_has_no_context(qapp):
+    with (
+        patch(
+            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout._qt_platform_name",
+            return_value="windows",
+        ),
+        patch.object(pg.GraphicsLayoutWidget, "useOpenGL"),
+    ):
+        layout = ChartPlotLayout(use_opengl=True)
+
+    with patch.object(layout.widget, "useOpenGL") as use_opengl:
+        assert layout.validate_render_backend() is False
+
+    use_opengl.assert_called_once_with(False)
+    assert layout.render_backend == "cpu"
+    assert layout.backend_fallback_reason == "OpenGL context unavailable after show"
 
 
 def test_chart_card_historical_data_render(qapp):
