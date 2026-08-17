@@ -8,7 +8,7 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
 
 ### 1.1 Strict Separation of UI and Business Logic
 - **QML is Purely Declarative View**: QML files must only define visual layout, theme bindings, micro-animations, and user interaction signals.
-- **No Complex Inline JavaScript**: Move all calculations, data transformations, domain validation, and state machines into Python (`Presenter`, `ViewModel`, `Domain`, `Use Cases`).
+- **No Complex Inline JavaScript**: Move all calculations, data transformations, domain validation, and state machines into Python (`Presenter`, `ViewModel`, `Domain`, `Use Cases`). Small view-local helpers (for example focus handling, invoking a ViewModel command, or resetting an already-rendered input) are permitted only when they do not duplicate a business rule, transform a domain schema, or become a second source of state.
 - **One-Way Command Dispatch**: UI triggers actions by invoking ViewModel slots/methods (e.g., `viewModel.requestRun()`, `viewModel.saveSettings()`). The Presenter handles the business logic and updates ViewModel properties.
 
 ### 1.2 Reactive Property Bindings (Over Manual Assignment)
@@ -16,7 +16,7 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
 - **Never Break Bindings with Imperative Assignments**: Avoid assigning properties imperatively inside signal handlers (e.g., avoid `onClicked: myLabel.text = "Done"`). Update the underlying `viewModel` property from Python instead.
 
 ### 1.3 Component Modularization & Single Responsibility (SRP)
-- **Break Down God Components**: Avoid massive monolithic QML files (> 300 lines). Break complex screens into focused, reusable components:
+- **Break Down God Components**: Treat 300 lines as a mandatory review threshold, not a blind line-count failure. Break a component when it mixes separate responsibilities, repeats a pattern, or makes its user journey hard to test; do not split cohesive layout markup merely to satisfy a number.
   - Base cards & dialogs: `ModalDialogCard.qml`, `MetricCard.qml`
   - Reusable inputs: `BotParamField.qml`, `DynamicTabBar.qml`
   - Screen sub-panels: `BackTestToolbar.qml`, `TradeLogsTable.qml`, `TradeLogsDetailSection.qml`
@@ -24,7 +24,7 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
 
 ### 1.4 Consistent Naming Conventions
 - **Descriptive Visual IDs**: Use clear, camelCase IDs reflecting purpose (e.g., `id: backtestStaleWarningBanner`, `id: btnRunBacktest`, `id: tradeLogsTable`).
-- **Unique Testable IDs**: Every interactive element (Button, TextField, ComboBox, Modal) MUST declare a descriptive `id` or `objectName` for `qml_item()` lookup in automated tests.
+- **Unique Testable IDs**: Every interactive element (Button, TextField, ComboBox, Modal) MUST declare a descriptive QML `id` **and** a stable `objectName`. `id` supports readable bindings; `objectName` is the public automation contract for `qml_item()` and desktop E2E. Never use a generated index as the only test identity.
 - **Property & Signal Naming**:
   - Properties: `camelCase` (e.g., `isConfigDirty`, `selectedTimeframe`, `controlsEnabled`).
   - Signals: `camelCase` verb phrases (e.g., `runRequested`, `syncClicked`, `modalDismissed`).
@@ -34,11 +34,8 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
 ## 2. 🎨 Design Practices & Visual Excellence
 
 ### 2.1 Design System & Theme Consistency
-- **Centralized Tokens**: Strictly avoid hardcoded color hex codes, font sizes, margins, or corner radii.
-- **Always Use ThemeSingleton**:
-  - Colors: `Theme.colors.background`, `Theme.colors.cardBg`, `Theme.colors.accent`, `Theme.colors.textPrimary`, `Theme.colors.border`
-  - Typography: `Theme.fonts.title`, `Theme.fonts.body`, `Theme.fonts.monospace`, `Theme.fonts.caption`
-  - Spacing & Radii: `Theme.spacing.sm`, `Theme.spacing.md`, `Theme.spacing.lg`, `Theme.radii.card`, `Theme.radii.button`
+- **Centralized Tokens**: New feature code must use the centralized Theme tokens rather than introducing literal colours, fonts, spacing, or radii. The existing UI exposes a flat API such as `Theme.bg`, `Theme.bgCard`, `Theme.border`, `Theme.textPrimary`, `Theme.accent`, `Theme.success`, `Theme.danger`, and `Theme.muted` -- it does **not** expose `Theme.colors`, `Theme.fonts`, `Theme.spacing`, or `Theme.radii`. Literal fallback values are allowed only inside shared compatibility primitives while the legacy UI is migrated; feature QML must not add new fallbacks or duplicate palette literals.
+- **Always Use ThemeSingleton**: Use the project API above. If a required semantic token (for example `warning`, `buttonHover`, spacing, or radius) does not exist, add it once to the palette/theme bridge or reuse a shared primitive; do not make up a parallel `Theme.colors.*` API in one QML file.
 - **Theme-Tinted Vector Icons**: Use SVG icons loaded via `image://icons/<name>/<token>`. Never use raw emoji or raster bitmaps for UI icons.
 
 ### 2.2 Dynamic Responsive UI Sizing (No Rigid Fixed Geometry)
@@ -52,19 +49,19 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
 - **Synchronized Delegates**: Header delegate and row cell delegates MUST bind directly to the same column width definition to guarantee 100% alignment during window resize and splitter movements.
 
 ### 2.4 Micro-Animations for Feedback & Polish
-- **Subtle Transitions**: Use non-intrusive micro-animations (150ms – 250ms) with `Easing.InOutQuad` or `Easing.OutCubic` to provide visual polish and tactile feedback:
+- **Subtle Transitions**: Where feedback benefits comprehension, use non-intrusive micro-animations (normally 150ms – 250ms) with `Easing.InOutQuad` or `Easing.OutCubic`:
   - Hover & Pressed state color fades: `Behavior on color { ColorAnimation { duration: 150 } }`
   - Border highlight transitions: `Behavior on border.color { ColorAnimation { duration: 150 } }`
   - Modal backdrop and panel fade/scale: `NumberAnimation on opacity`, `NumberAnimation on scale`
   - Warning banner drop-down: `NumberAnimation on height` or `NumberAnimation on y`
-- **Never Block User Flow**: Animations must be asynchronous and unobtrusive; never prevent user clicks or lock the UI thread.
+- **Never Block User Flow**: Animations must be asynchronous and unobtrusive; never prevent user clicks or lock the UI thread. Do not add decorative animation to high-frequency or render-sensitive surfaces (charts, pan/zoom, large tables) until a benchmark proves it is within the interaction budget.
 
 ---
 
 ## 3. ⚖️ Code + Design Integration & Security
 
 ### 3.1 Declarative `States` and `Transitions`
-- **Multi-State Elements**: When an element possesses 3 or more distinct visual states (e.g., `IDLE`, `HOVER`, `PRESSED`, `DIRTY`, `DISABLED`), prefer declarative `states` and `transitions` over nested ternary expressions:
+- **Multi-State Elements**: When an element possesses 3 or more distinct visual states (e.g., `IDLE`, `HOVER`, `PRESSED`, `DIRTY`, `DISABLED`), prefer declarative `states` and `transitions` over nested ternary expressions. Two simple, directly-related visual branches may remain a binding.
   ```qml
   states: [
       State {
@@ -87,11 +84,11 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
   ```
 
 ### 3.2 High-Performance Model-View Patterns
-- **C++ / Python Model Backing**: Use `QAbstractListModel` (`TradeLogModel`, `IndicatorScriptListModel`, `LogModel`) for lists exceeding 20 items to benefit from Qt's native virtualization and role-based updates.
+- **C++ / Python Model Backing**: A repeated, dynamic collection that can exceed 20 items, update incrementally, or be virtualized MUST be backed by a Python `QAbstractListModel` (for example `TradeLogModel`, `IndicatorScriptListModel`, `LogModel`). A small static list or a one-shot form may use a QML model only when QML is not transforming domain data.
 - **ListView Delegate Optimization**: Keep delegates lean and instantiate detail sections on-demand (via `Loader` or collapsible panels).
 
 ### 3.3 Security & UI Injection Defense
-- **Enforce PlainText**: Always declare `textFormat: Text.PlainText` on `Text` items rendering dynamic or external data (trade logs, error messages, symbol names, raw exception text) to prevent HTML/RichText injection.
+- **Enforce PlainText**: Always declare `textFormat: Text.PlainText` on `Text` items rendering dynamic or external data (trade logs, error messages, symbol names, parameter labels, raw exception text) to prevent HTML/RichText injection.
 
 ---
 
@@ -102,4 +99,4 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
   ```python
   assert quick_widget.errors() == []
   ```
-- **Test Visual Hierarchy**: Use `qml_item(root, "elementId")` to verify UI components rather than querying non-visual QObject trees.
+- **Test Visual Hierarchy**: Use `qml_item(root, "objectName")` for repeated delegates and ordinary visual descendants rather than querying non-visual QObject trees. Qt `Popup` items are detached from `QQuickItem.childItems()`; for that framework boundary, use `overlay_root.findChild(object, "objectName")` against the real overlay root. Do not weaken either kind of test into a Presenter/private-property assertion merely because the item is inconvenient to find.
