@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 60 | 61% |
+| 🟢 **Completed** | 60 | 60% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 39 | 39% |
-| 📈 **Tổng số Task** | **99** | **100%** |
+| 🔴 **Backlog** | 40 | 40% |
+| 📈 **Tổng số Task** | **100** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
@@ -37,6 +37,8 @@ Sagittarius_Elite_Warrior/Tasks/
 > Lần tăng thứ năm (+8, [Epic `BOT-095`](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md) + `BOT-095A`…`BOT-095G`): user yêu cầu hoàn thiện toàn bộ **hệ thống UI signals, State Machine và vòng đời tham số cho màn hình Backtest** (tách riêng hạ tầng Engine `DeclarativeStateMachine`, Dirty Tracking & Diff Summary, nút Hủy + Progress Bar ETA, 1-Click Auto-Sync & Run, Khung Assertion Pipeline mở rộng OCP, Dynamic Indicators, và Session Run History Cache). 📄 [Đặc tả Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md).
 >
 > Lần tăng thứ sáu (+1, `BOT-095H`): phản biện code/roadmap chỉ ra race condition cấp lifecycle — callback của sync/backtest cũ có thể ghi đè intent mới khi thêm cancel/auto-run/history. Task P1 mới chuẩn hóa `action_id`/generation, snapshot cấu hình và stale-callback fencing trước `BOT-095C`/`D`/`G`. 📄 [Rà soát BOT-095](reports/BOT-095_review_phan_bien.md).
+>
+> Lần tăng thứ bảy (+1, `BOT-096`): bug/contract audit từ backtest thật phát hiện UI dùng marker `Sell` cho **thoát LONG**, trong khi tab `Bán (SHORT)` khiến người dùng hiểu đó là lệnh short đã khớp. Task này tách marker/icon `EXIT LONG` khỏi `SHORT ENTRY`, giữ engine long-only và không mở rộng ngầm phạm vi `BOT-050`.
 
 ---
 
@@ -153,6 +155,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P3** | **[BOT-039](backlog/BOT-039_dev_board_strategy_toggle_and_markers.md)** | **Dev Board — Strategy toggle + markers** *(sau khi Epic BOT-006 Phase 1 ổn định)* | `BOT-026` ✅ | Nửa UI tách ra từ BOT-026 gốc: toggle list Strategy trên Dev Board (US-02, mirror cơ chế Indicator), marker Buy/Sell vẽ qua `set_script_markers` có sẵn, mutually-exclusive với Indicators. Giá trị: thấy signal lúc live streaming + subscriber đầu tiên của `SignalGeneratedEvent` (seam cho `BOT-008`). |
 | **P?** | **[BOT-038](backlog/BOT-038_intermittent_segfault_full_ui_integration_suite.md)** | **Segfault ngẫu nhiên khi chạy toàn bộ `tests/integration/presentation/ui/`** | — | Crash native (Qt/PySide6) intermittent, không deterministic theo test hay theo outcome — cùng nghi vấn lớp bug object-lifetime đã gặp ở `BOT-034` §5. Đã điều tra 1 vòng (bisect, gdb không debuginfod), dừng theo yêu cầu user — xem §4 "Hướng điều tra tiếp theo" trong file. **Không tự ý tiếp tục điều tra nếu chưa được yêu cầu lại.** |
 | **P1** | **BOT-091** | **Backtest hybrid render/runtime guard — lỗi `QQuickRenderControl beginFrame/endFrame` sau khi chạy backtest** | `BOT-087` ✅, `BOT-088` ✅ | Bug runtime thật trên màn Backtest: sau `RunStaticBacktestCommand` hoàn tất và UI tiếp tục `GetHistoricalKlinesQuery`, Qt nổ `QQuickRenderControl: Attempted to beginFrame() while the QRhi is already recording a frame` / `QQuickWidget: Failed to begin recording a frame`. Đây **không** phải lỗi parse QML, DI, presenter logic hay layout (`BOT-089`/`BOT-090`); nghi vấn nằm ở hybrid composition với nhiều `QQuickWidget` hoạt động đồng thời (`top_widget`, `bottom_widget`, `top_overlay_host.quick_widget`, `overlay_host.quick_widget`) cộng chart native redraw burst. Gap test hiện tại: sanity chỉ dựng màn + check `quick_widget.errors()`, unit/layout tests chỉ kiểm tra logic/geometry; **không có** test nào chạy backtest thật + fetch klines thật + quan sát vòng đời frame/render runtime. **Cập nhật 15/08:** đã có runtime probe chạy app thật ở dev-mode với dữ liệu `BTCUSDT` khung `1m` seed local để ép đi qua success path `RunStaticBacktestCommand` -> `GetHistoricalKlinesQuery`; probe mở thêm các toolbar popup/menu chính và đổi chart mode qua lại. Các lượt probe đó **chưa tái hiện lại** dòng `QQuickRenderControl`, nên bug vẫn được giữ ở backlog điều tra: chưa có reproduction tối thiểu ổn định từ phía AI và cũng chưa có bằng chứng runtime mới để kết luận đã hết. Rule của task này: **pytest/sanity pass không bao giờ đủ**; chỉ được coi xong khi chính kịch bản dev-mode thật được chạy lại và log sạch không còn `QQuickRenderControl` hay lỗi khung hình liên quan. |
+| **P1** | **[BOT-096](backlog/BOT-096_truthful_backtest_exit_markers.md)** | **Backtest — Marker/Icon thoát LONG trung thực** | `BOT-056` ✅, `BOT-057` ✅ | Tách rõ marker thực thi `EXIT LONG` khỏi `SHORT ENTRY`: không dùng nhãn/icon Sell chung cho hai ý nghĩa, không thay đổi engine long-only, và thêm acceptance test kiểm chứng chart/table phản ánh đúng sự thật. `BOT-050` vẫn là task duy nhất mở short-selling. |
 
 #### 🛡️ Nhóm Engine Hardening — Chi tiết (`BOT-066`…`BOT-071`)
 

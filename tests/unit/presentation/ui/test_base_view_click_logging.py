@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 from PySide6.QtWidgets import QPushButton, QTableWidget, QVBoxLayout, QWidget
+
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 

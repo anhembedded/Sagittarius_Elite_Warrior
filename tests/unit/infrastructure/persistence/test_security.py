@@ -1,4 +1,5 @@
 import pytest
+
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,

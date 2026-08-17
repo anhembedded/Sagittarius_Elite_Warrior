@@ -143,10 +143,10 @@ $failed = @()
 # Lint
 # ---------------------------------------------------------------------------
 if (-not $SkipLint) {
-    Write-Step "Ruff — Auto-fix Lint (ruff check --fix src tests)"
+    Write-Step "Ruff — Lint Check (ruff check src tests)"
     Push-Location $botRoot
     try {
-        & $ruffExe check --fix src tests
+        & $ruffExe check src tests
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Lint"; Write-Failure "Ruff Lint" }
         else { Write-Success "Ruff Lint" }
     } catch {
@@ -154,10 +154,10 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    Write-Step "Ruff — Auto-fix Format (ruff format src tests)"
+    Write-Step "Ruff — Format Check (ruff format --check src tests)"
     Push-Location $botRoot
     try {
-        & $ruffExe format src tests
+        & $ruffExe format --check src tests
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Format"; Write-Failure "Ruff Format" }
         else { Write-Success "Ruff Format" }
     } catch {

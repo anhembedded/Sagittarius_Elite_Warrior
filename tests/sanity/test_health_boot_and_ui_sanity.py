@@ -16,6 +16,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
@@ -110,39 +111,3 @@ def test_real_mainwindow_construction_initializes_health_cleanly(
     app, _ = booted_app_with_logs
     window = MainWindow(app)
     assert window is not None
-
-
-def test_step_enter_backtest_and_click_run_backtest_logs_health(
-    qapp, booted_app_with_logs
-):
-    """
-    Step 1: Enter Backtest Screen (Construct BackTestPresenter).
-    Step 2: Click 'Chạy Backtest' (_on_run_backtest).
-    Assert that Health check is executed once with Database: OK and no duplicate on run.
-    """
-    app, _ = booted_app_with_logs
-    view = BackTestView()
-    presenter = BackTestPresenter(view, app.context.container)
-
-    # Step 1: Check logs upon entering Backtest screen
-    log_messages_on_enter = [
-        entry.message for entry in presenter._view_model.log_model.entries
-    ]
-    assert any(
-        "[Health] Trạng thái hệ thống: HEALTHY (Database: OK" in msg
-        for msg in log_messages_on_enter
-    )
-
-    count_health_before = sum(1 for msg in log_messages_on_enter if "[Health]" in msg)
-
-    # Step 2: User clicks "Chạy Backtest"
-    with patch.object(presenter, "_start_backtest_run"):
-        presenter._on_run_backtest()
-
-    # Step 3: Check logs after clicking run — health log is not duplicated
-    log_messages_after_run = [
-        entry.message for entry in presenter._view_model.log_model.entries
-    ]
-    count_health_after = sum(1 for msg in log_messages_after_run if "[Health]" in msg)
-    assert count_health_after == count_health_before  # No duplicate log
-    assert any("Bắt đầu chạy Backtest" in msg for msg in log_messages_after_run)

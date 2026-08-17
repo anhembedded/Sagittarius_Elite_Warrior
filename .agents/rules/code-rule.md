@@ -68,6 +68,9 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
    - A range-coverage check MUST verify internal gaps using the timeframe cadence and normalized UTC boundaries; min/max timestamps or total row count alone do not prove coverage.
    - Exchange trading rules (minimum notional, lot size, tick size, leverage) MUST come from cached metadata for the active symbol/market. Never treat account capital as order notional and never hard-code a universal exchange filter.
    - UI history/cache snapshots MUST be immutable (no retained mutable model references), memory-bounded, and include enough provenance to describe the result honestly: configuration, data window/watermark, strategy version/parameters, fee model, and execution mode.
+   - **Business Contract Before Implementation Contract:** Tests MUST first express the observable business promise, then verify the implementation. A green suite that only proves private calls, existing data structures, or an intentionally limited engine contract is not evidence that the user-facing behaviour is correct. For every critical trading journey, write deterministic acceptance coverage for the expected inputs, orders/position transitions, fills, trade side, PnL direction, and the visible table/chart outcome.
+   - **Do Not Collapse Trading Semantics:** A strategy signal, order intent, execution fill, position entry, position exit, and short entry are distinct domain facts. Model and test them separately; never let an ambiguous `BUY`/`SELL` label silently stand for more than one. In a long-only engine, `SELL` is an exit of an existing LONG, not an opened SHORT.
+   - **Truthful Trading UI:** Every label, icon, marker, filter, metric, and empty state MUST describe what has actually happened and what the engine supports now. A close-long marker must use a distinct exit semantic/icon from a short-entry/sell marker. Do not present a planned or unsupported capability as available; hide/disable it or explicitly label it unavailable. Test the displayed semantics, not only the underlying payload.
    - Never claim instantaneous or fixed latency without a reproducible benchmark fixture. State the workload, cache condition, and measurement method; display ETA as an estimate only.
 
 ---
@@ -91,10 +94,25 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 ## 4. Testing & Quality Assurance
 
 - **Every new feature/screen ships with sanity tests** in `tests/sanity/`, alongside its unit tests:
-  - **Sanity (DI):** Boot real app (`create_app()`, no mocked dispatch) and assert every command/query resolves to its handler, and registries have expected keys.
-  - **Sanity (UI):** Construct real View + Presenter against real DI container and assert zero exceptions and `quick_widget.errors() == []`.
-  - **Construction-only, always** — no button clicks, no thread dispatch, no network.
-- **When fixing a bug, write a regression test first** that reproduces the failure condition before fixing the code.
+  - **Sanity (DI):** Boot the real app (`create_app()`, real composition root) and assert every command/query resolves to its handler, and registries have expected keys.
+  - **Sanity (UI):** Construct the real View + Presenter against the real DI container and assert zero exceptions and `quick_widget.errors() == []`.
+  - **Construction-only, always** — no button clicks, no background dispatch, and no network. Sanity proves boot/composition health; it is not an end-to-end test.
+- **User-flow Integration:** Put deterministic UI journeys in `tests/integration/`: drive the QML button signal, wait on a named completion signal/state, and assert the visible result. Use an in-memory/local seeded repository or a fake server; never depend on a public exchange or live account.
+- **Desktop E2E:** For a reported GUI/runtime bug, add and permanently retain an opt-in desktop E2E regression harness. It must start the actual application, seed deterministic local data, use real Qt mouse/keyboard events (`QTest`/`qtbot`) rather than calling presenter methods, wait for the user-visible terminal state, and assert a clean Qt message/stderr capture. Run this tier on a Windows desktop runner or manually/nightly; it is excluded from ordinary fast CI only when native rendering is demonstrably unstable.
+- **Real external services:** A real Binance/server smoke test is opt-in and credential-free wherever possible. It must never be the only regression proof or a required normal CI gate: network availability, rate limits, remote data changes, and credentials make it non-deterministic.
+- **Test Pyramid & Release Evidence:**
+  - **Static quality:** Ruff lint/format checks plus architecture/import rules run on every commit and pull request.
+  - **Unit:** Cover pure Domain rules, indicators, strategies, financial calculations, validation and FSM transitions deterministically.
+  - **Application:** Cover command/query handlers, port contracts, persistence boundaries, cancellation propagation and error translation.
+  - **UI integration:** Cover QML signal → Presenter → ViewModel → visible UI state. Assert what the user can observe, not only that a private method was called.
+  - **Sanity:** Cover real app boot, DI wiring and QML construction only, as defined above.
+  - **Desktop E2E:** Cover critical user journeys and runtime rendering on a desktop runner before release and on a scheduled/nightly cadence.
+  - **External smoke:** Covers a read-only real-service boundary only when explicitly requested; it never replaces deterministic coverage.
+- **Deterministic Async & UI Testing:** Never use timing sleeps to synchronize a test. Wait for a named completion signal, FSM state, terminal event, or bounded `qtbot.waitUntil(...)` condition. Give every QML control that is a critical user action a stable `objectName` so integration/E2E tests can target it.
+- **Financial & Backtest Invariants:** Add deterministic property/invariant tests for financial code: reject `NaN`/infinite values, keep fees non-negative, keep equity/trade/metrics internally consistent, and require identical outputs for identical input data/configuration. Every new execution mode, fee model or simulation pass must extend these invariants.
+- **Business Acceptance for Trading Features:** A backtest UI test MUST assert the business composition of the result, not merely that a run completed. For example, a long-only result may contain long entries and long exits but MUST contain no short trade; a future short-enabled strategy must prove a downtrend produces an actual SHORT fill, its SHORT table filter shows it, its PnL moves correctly as price falls, and its chart marker represents the fill rather than merely the strategy signal.
+- **Read-only CI:** A CI verification command MUST not mutate the working tree. Use `ruff check` and `ruff format --check` in CI; reserve `--fix` and formatter writes for an explicit developer formatting action. A test runner that changes unrelated files is not an acceptable required quality gate.
+- **When fixing a bug, write a regression test first** that reproduces the failure condition before fixing the code. Keep that test permanently after the fix: it is the executable record of the reported failure and MUST NOT be deleted, skipped, weakened, or converted into a test that no longer reaches the original failure path unless it is explicitly replaced by stronger coverage of that same path.
 - **Use repo's QML test helpers:** Use `qml_item` / `find_qml_item` fixtures from `tests/conftest.py`, `qtbot.waitUntil(...)`, and `item.mapToItem(root, 0, 0)`.
 - **Do not move click handling off the Button itself** when tests emit `.clicked`.
 - **Local CI/CD Enforcement:**

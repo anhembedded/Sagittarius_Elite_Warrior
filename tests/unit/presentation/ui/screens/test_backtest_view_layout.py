@@ -20,6 +20,7 @@ visible).
 """
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )

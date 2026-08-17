@@ -1,4 +1,5 @@
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.indicators.wma import WMA
 
 # A fixed 20-point close series with both ups and downs, used across the

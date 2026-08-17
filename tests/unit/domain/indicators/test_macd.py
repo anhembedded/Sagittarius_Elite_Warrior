@@ -1,4 +1,5 @@
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACD
 
