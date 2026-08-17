@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 65 | 61.9% |
+| 🟢 **Completed** | 66 | 62.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 40 | 38.1% |
+| 🔴 **Backlog** | 39 | 37.1% |
 | 📈 **Tổng số Task** | **105** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -234,7 +234,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BOT-095A](backlog/BOT-095A_declarative_fsm_engine_foundation.md)** ✅ | **Hạ tầng Declarative State Machine & Event Dispatching** | 🔴 **`L (Thinking)`** | — | `sagittarius_engine.extensions.fsm` (`DeclarativeStateMachine`), ma trận `(State, Event) -> NextState`, `dispatch(event)`, `load_matrix()`, bảo vệ Re-entrancy và Thread-Affinity. |
+| ✅ **[BOT-095A](completed/BOT-095A_declarative_fsm_engine_foundation.md)** | **Hạ tầng Declarative State Machine & Event Dispatching** | 🔴 **`L (Thinking)`** | — | `sagittarius_engine.extensions.fsm` (`DeclarativeStateMachine`), ma trận `(State, Event) -> NextState`, `dispatch(event)`, `load_matrix()`, bảo vệ Re-entrancy và Thread-Affinity. |
 | **[BOT-095B](completed/BOT-095B_backtest_fsm_dirty_tracking.md)** ✅ | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | 🔴 **`L (Thinking)`** | `BOT-095A` ✅ | `backtest_fsm_matrix.py`, Dirty Tracking so khớp `BacktestRunConfig`, Amber Banner với Diff Summary, tự động khôi phục `COMPLETED`, và bảo vệ nút Xuất CSV. |
 | ✅ **[BOT-095H](completed/BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md)** | **Quyền sở hữu Action & Chặn Callback Lỗi thời** | 🔴 **`L (Thinking)`** | `BOT-095A` ✅, `BOT-095B` ✅ | `action_id`/generation, immutable config snapshot và stale-callback fencing đã hoàn thành; **mở khóa C/D/G.** |
 | ✅ **[BOT-095C](completed/BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | 🔴 **`L (Thinking)`** | `BOT-095H` ✅ | Nút Cancel, cancellation outcome tường minh, progress/ETA benchmarked; cancellation check đi qua mọi pass mô phỏng. |

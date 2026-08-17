@@ -204,4 +204,15 @@ class DeclarativeStateMachine(Generic[StateT, EventT]):
 2. **An toàn đa luồng (Thread-Safety)**:
    - Stress test nhiều luồng đồng thời gọi `dispatch()` không gây race condition hay deadlock.
 3. **Local CI Verification**:
-   - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+   - Chạy `.\scripts\ci-local.ps1 -Full` đạt 100% Passed.
+
+---
+
+## Hoàn thành (2026-08-17)
+
+- `sagittarius_engine.extensions.fsm.DeclarativeStateMachine` đã được triển
+  khai, export và được `BasePresenter` khởi tạo từ FSM matrix khai báo.
+- Backtest sử dụng nó qua `BACKTEST_STATE_TRANSITIONS`; test engine tại
+  `tests/extensions/fsm/test_declarative_state_machine.py` bảo vệ dispatch,
+  matrix, guard và re-entrancy.
+- `BOT-095B`, `BOT-095H`, `BOT-095C` và `BOT-095D` đã chạy trên nền này.

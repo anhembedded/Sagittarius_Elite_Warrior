@@ -1,5 +1,9 @@
 # Epic BOT-095: Hoàn thiện Hệ thống UI Signals, State Machine & Vòng đời Tham số Màn hình Backtest
 
+> **Trạng thái 2026-08-17:** Chưa hoàn tất. `BOT-095A/B/C/D/D1/E/E2/H` đã
+> hoàn thành; chỉ `BOT-095E1` (market metadata), `BOT-095F` (indicator toggle)
+> và `BOT-095G` (run-history cache) còn mở.
+
 > **Nguồn gốc**: Phân tích toàn diện luồng tương tác của người dùng trên màn hình Backtest (`BackTestPresenter`, `BackTestViewModel`, `BackTestTopPanel.qml`).
 > 
 > **Vấn đề cốt lõi phát hiện qua mã nguồn thực tế**:
@@ -75,12 +79,14 @@ stateDiagram-v2
 
 | Task ID | Tên Nhiệm vụ | Mức độ Ưu tiên | Trọng tâm chính & Files tác động |
 | :--- | :--- | :---: | :--- |
-| 🔹 **[BOT-095A](BOT-095A_declarative_fsm_engine_foundation.md)** | **Hạ tầng Declarative State Machine & Event Dispatching** | **P1 (Engine Core)** | `sagittarius_engine.extensions.fsm` (`DeclarativeStateMachine`), ma trận `(State, Event) -> NextState`, `dispatch(event)`, `load_matrix()`, bảo vệ Re-entrancy và Thread-Affinity. |
-| 🔹 **[BOT-095B](BOT-095B_backtest_fsm_and_stale_data_lifecycle.md)** | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | **P1 (UI FSM)** | `backtest_fsm_matrix.py`, Dirty Tracking so khớp `BacktestRunConfig`, Amber Banner với Diff Summary, tự động khôi phục `COMPLETED`, và bảo vệ nút Xuất CSV. |
+| ✅ **[BOT-095A](../completed/BOT-095A_declarative_fsm_engine_foundation.md)** | **Hạ tầng Declarative State Machine & Event Dispatching** | **P1 (Engine Core)** | Hoàn thành: `DeclarativeStateMachine`, matrix dispatch và BasePresenter integration trong engine. |
+| ✅ **[BOT-095B](../completed/BOT-095B_backtest_fsm_dirty_tracking.md)** | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | **P1 (UI FSM)** | Hoàn thành: `backtest_fsm_matrix.py`, dirty tracking, amber banner và export stale protection. |
 | ✅ **[BOT-095H](../completed/BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md)** | **Quyền sở hữu Action & Chặn Callback Lỗi thời** | **P1 (Async Safety)** | Hoàn thành: `action_id`/generation, immutable config snapshot và terminal outcome; callback cũ không thể ghi đè run mới. **Đã mở khóa C/D/G.** |
-| 🔹 **[BOT-095C](BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | **P1 (UX Safety)** | Nút Cancel khi đang RUNNING, tích hợp CancellationToken ngắt luồng an toàn, thanh Progress Bar % + thời gian còn lại ETA. Phụ thuộc `BOT-095H`. |
-| 🔹 **[BOT-095D](BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | **P1 (Data Flow)** | Kiểm tra gap theo cadence, UTC và post-sync re-probe; auto-sync/run chỉ tiếp tục action còn sở hữu. Phụ thuộc `BOT-095H`, sau `BOT-095C`. |
-| 🔹 **[BOT-095E](BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | **P2 (Validation)** | Khung Assertion Rule mở rộng (OCP), kiểm tra Min Binance Lot Notional $5, viền đỏ cảnh báo tại chỗ, phím tắt Hotkeys / con lăn Stepper trong `BotParamsDialog`. |
+| ✅ **[BOT-095C](../completed/BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | **P1 (UX Safety)** | Hoàn thành: CancellationToken, progress/ETA và stale callback fencing. |
+| ✅ **[BOT-095D](../completed/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | **P1 (Data Flow)** | Hoàn thành: cadence coverage probe, UTC range và post-sync re-probe. |
+| ✅ **[BOT-095E](../completed/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | **P2 (Validation)** | Hoàn thành local validation, Python-owned stepper và published-candle watermark. |
+| ✅ **[BOT-095E2](../completed/BOT-095E2_param_schema_step_metadata.md)** | **Step Metadata cho Strategy Parameter Schema** | **P2 (Validation)** | Hoàn thành contract `step` explicit cho Strategy/Indicator schema. |
+| 🔹 **[BOT-095E1](BOT-095E1_symbol_market_metadata_validation.md)** | **Symbol market metadata & truthful order-rule validation** | **P2 (Validation)** | Còn mở: cache immutable exchange filter và trạng thái "chưa xác minh" khi metadata thiếu/cũ. |
 | 🔹 **[BOT-095F](BOT-095F_backtest_dynamic_indicator_toggle.md)** | **Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest** | **P2 (Visualization)** | Bật/tắt chỉ báo tham chiếu (RSI, MACD, EMA) trên biểu đồ mà không cần chạy lại backtest; fence artifact theo `run_id` của `BOT-095H`. |
 | 🔹 **[BOT-095G](BOT-095G_backtest_session_run_history_cache.md)** | **Bộ nhớ đệm Lịch sử Lần chạy (Session Run History Cache)** | **P2 (UX Power)** | Snapshot bất biến có provenance và giới hạn bộ nhớ; phục hồi nhanh Charts, Metrics và Trade Logs. Phụ thuộc `BOT-095H`. |
 
