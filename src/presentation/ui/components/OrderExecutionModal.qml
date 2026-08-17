@@ -3,7 +3,13 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
 
-// OrderExecutionModal (BOT-088) — Modal card for order execution trigger modes.
+// OrderExecutionModal (BOT-074 / BOT-088) — Modal card for order execution trigger modes.
+//
+// UI Truthfulness Note:
+// - "On bar close" is the only mode active in the bar-by-bar engine today (BOT-021). It is
+//   mandatory and cannot be toggled off (checked: true, locked: true).
+// - The other 3 modes require tick-level / realtime engine support (Epic BOT-073 / BOT-076 / BOT-077),
+//   so they are displayed but locked (checked: false, locked: true).
 ModalDialogCard {
     id: root
     title: "THỰC THI TẬP LỆNH"
@@ -25,9 +31,9 @@ ModalDialogCard {
             model: ListModel {
                 id: listModel
                 ListElement { text: "On bar close"; checked: true; locked: true }
-                ListElement { text: "Khi lệnh được khớp"; checked: false; locked: false }
-                ListElement { text: "Trên mỗi tick của thanh lịch sử"; checked: false; locked: false }
-                ListElement { text: "Trên mỗi tick của thanh thời gian thực"; checked: false; locked: false }
+                ListElement { text: "Khi lệnh được khớp"; checked: false; locked: true }
+                ListElement { text: "Trên mỗi tick của thanh lịch sử"; checked: false; locked: true }
+                ListElement { text: "Trên mỗi tick của thanh thời gian thực"; checked: false; locked: true }
             }
 
             delegate: ItemDelegate {
@@ -47,6 +53,8 @@ ModalDialogCard {
                     opacity: delegateItem.enabled ? 1.0 : 0.45
 
                     CheckBox {
+                        id: triggerCheckBox
+                        objectName: "triggerCheckBox_" + index
                         checked: model.checked
                         enabled: !model.locked
                         onCheckedChanged: model.checked = checked
@@ -54,6 +62,7 @@ ModalDialogCard {
 
                     Text {
                         text: model.text
+                        textFormat: Text.PlainText
                         color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
                         font.pixelSize: 12
                         Layout.fillWidth: true
