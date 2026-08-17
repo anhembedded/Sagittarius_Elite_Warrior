@@ -453,6 +453,102 @@ def test_chart_card_indicator_refresh_window_slices_to_visible_range(qapp):
     assert len(applied_x) == len(applied_y)
 
 
+def test_volume_refresh_skips_set_opts_when_visible_slice_is_unchanged(qapp):
+    card = ChartCard("ETHUSDT")
+    data = [(1000.0 + i * 60.0, 10.0 + i, True) for i in range(50)]
+    card.render_historical_volume(data)
+
+    with patch.object(
+        card.volume.graphics_item,
+        "setOpts",
+        wraps=card.volume.graphics_item.setOpts,
+    ) as set_opts:
+        card.volume.refresh_window(data[20][0] + 10.0, data[25][0] - 10.0)
+        card.volume.refresh_window(data[20][0] + 11.0, data[25][0] - 11.0)
+
+    assert set_opts.call_count == 1
+
+
+def test_indicator_refresh_skips_set_data_when_visible_slice_is_unchanged(qapp):
+    card = ChartCard("ETHUSDT")
+    card.add_overlay_indicator("EMA", color="#F0B90B")
+    x_data = [1000.0 + i * 60.0 for i in range(50)]
+    card.update_indicator_data("EMA", x_data, [float(i) for i in range(50)])
+    curve = card.indicators._curves["EMA"]
+
+    with patch.object(curve, "setData", wraps=curve.setData) as set_data:
+        card.indicators.refresh_window(x_data[20] + 10.0, x_data[25] - 10.0)
+        card.indicators.refresh_window(x_data[20] + 11.0, x_data[25] - 11.0)
+
+    assert set_data.call_count == 1
+
+
+def test_indicator_data_update_is_not_skipped_inside_the_same_viewport(qapp):
+    card = ChartCard("ETHUSDT")
+    card.add_overlay_indicator("EMA", color="#F0B90B")
+    x_data = [1000.0 + i * 60.0 for i in range(50)]
+    card.indicators.refresh_window(x_data[20], x_data[25])
+    curve = card.indicators._curves["EMA"]
+
+    with patch.object(curve, "setData", wraps=curve.setData) as set_data:
+        card.update_indicator_data("EMA", x_data, [float(i) for i in range(50)])
+        card.update_indicator_data("EMA", x_data, [float(i + 1) for i in range(50)])
+
+    assert set_data.call_count == 2
+
+
+def test_chart_coalesces_range_burst_and_applies_the_final_viewport(qapp):
+    card = ChartCard("ETHUSDT")
+
+    with (
+        patch.object(card.volume, "refresh_window") as refresh_volume,
+        patch.object(card.indicators, "refresh_window") as refresh_indicators,
+    ):
+        card._on_x_range_changed(None, (100.0, 200.0))
+        card._on_x_range_changed(None, (110.0, 210.0))
+        card._on_x_range_changed(None, (120.0, 220.0))
+        card.range_updates.flush_pending()
+
+    refresh_volume.assert_called_once_with(120.0, 220.0)
+    refresh_indicators.assert_called_once_with(120.0, 220.0)
+
+
+def test_coalesced_final_viewport_drives_volume_indicator_and_marker_state(qapp):
+    card = ChartCard("ETHUSDT")
+    candles = [(1000.0 + i * 60.0, 100.0, 101.0, 99.0, 100.5) for i in range(50)]
+    timestamps = [row[0] for row in candles]
+    card.render_historical_data(candles)
+    card.render_historical_volume(
+        [(timestamp, float(index), True) for index, timestamp in enumerate(timestamps)]
+    )
+    card.add_overlay_indicator("EMA", color="#F0B90B")
+    card.update_indicator_data("EMA", timestamps, [float(i) for i in range(50)])
+    card.set_script_markers(
+        "signals",
+        [
+            (timestamp, 100.0, f"M{index}", "#0ECB81", "up")
+            for index, timestamp in enumerate(timestamps)
+        ],
+    )
+
+    card._on_x_range_changed(None, (timestamps[5], timestamps[10]))
+    card._on_x_range_changed(None, (timestamps[20], timestamps[25]))
+    card._on_x_range_changed(None, (timestamps[35], timestamps[40]))
+    card.range_updates.flush_pending()
+
+    volume_x = card.volume.graphics_item.opts["x"]
+    indicator_x, _indicator_y = card.indicators._curves["EMA"].getData()
+    marker_x = {
+        item.pos().x() for item in card.indicators._marker_layer._items["signals"]
+    }
+    assert timestamps[35] in volume_x
+    assert timestamps[35] in indicator_x
+    assert timestamps[35] in marker_x
+    assert timestamps[20] not in volume_x
+    assert timestamps[20] not in indicator_x
+    assert timestamps[20] not in marker_x
+
+
 def test_chart_card_indicator_toggle_and_remove(qapp):
     """
     Test that indicators get a legend entry with a live value, that set_indicator_visible
@@ -886,6 +982,7 @@ def test_script_markers_only_materialize_the_visible_viewport_slice(qapp):
     """Business history remains complete while scene-item cost follows the viewport."""
     card = ChartCard("BTCUSDT")
     card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.range_updates.flush_pending()
     markers = [
         (float(index), 100.0, f"M{index}", "#0ECB81", "up") for index in range(1000)
     ]
@@ -904,15 +1001,18 @@ def test_panning_recycles_marker_items_and_restores_markers_when_returning(qapp)
         (float(index), 100.0, f"M{index}", "#F6465D", "down") for index in range(1000)
     ]
     card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.range_updates.flush_pending()
     card.set_script_markers("signals", markers)
     layer = card.indicators._marker_layer
     first_positions = {item.pos().x() for item in layer._items["signals"]}
 
     card.plot_layout.main_plot.setXRange(700.0, 800.0, padding=0)
+    card.range_updates.flush_pending()
     second_positions = {item.pos().x() for item in layer._items["signals"]}
     assert first_positions.isdisjoint(second_positions)
 
     card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.range_updates.flush_pending()
     restored_positions = {item.pos().x() for item in layer._items["signals"]}
     assert restored_positions == first_positions
 
@@ -920,6 +1020,7 @@ def test_panning_recycles_marker_items_and_restores_markers_when_returning(qapp)
 def test_marker_refresh_does_not_rebuild_items_when_visible_slice_is_unchanged(qapp):
     card = ChartCard("BTCUSDT")
     card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.range_updates.flush_pending()
     card.set_script_markers(
         "signals",
         [(float(index), 100.0, f"M{index}", "#0ECB81", "up") for index in range(1000)],

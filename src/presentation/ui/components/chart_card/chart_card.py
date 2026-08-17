@@ -12,6 +12,7 @@ from .heikin_ashi import to_heikin_ashi
 from .indicator_manager import IndicatorManager
 from .plot_layout import ChartPlotLayout
 from .price_line import LastPriceLine
+from .range_update_scheduler import RangeUpdateScheduler
 from .viewport_controller import ViewportController
 from .volume_renderer import VolumeItem
 from .zoom_controls import ZoomControls
@@ -102,6 +103,7 @@ class ChartCard(BaseCard):
             parent=self,
         )
         self.fps_overlay = ChartFpsOverlay(self.plot_layout.widget, parent=self)
+        self.range_updates = RangeUpdateScheduler(self._apply_x_range, parent=self)
 
     def _connect_signals(self) -> None:
         self.edge_scroll_detector.sig_near_left_edge.connect(
@@ -271,6 +273,8 @@ class ChartCard(BaseCard):
 
     def render_historical_volume(self, data: list[tuple[float, float, bool]]) -> None:
         """@param data: list of (timestamp, volume, is_bullish)."""
+        (min_x, max_x), _ = self.plot_layout.main_plot.vb.viewRange()
+        self.volume.refresh_window(min_x, max_x)
         self.volume.render_historical(data)
 
     def update_last_volume(
@@ -333,6 +337,8 @@ class ChartCard(BaseCard):
         self.indicators.clear_script_info(key)
 
     def set_script_markers(self, key: str, markers: list) -> None:
+        if self._raw_history:
+            self._sync_indicator_window()
         self.indicators.set_script_markers(key, markers)
 
     def clear_script_markers(self, key: str) -> None:
@@ -347,6 +353,10 @@ class ChartCard(BaseCard):
         windowed to what's actually visible (see IndicatorManager/VolumeItem
         docstrings)."""
         min_x, max_x = x_range
+        self.range_updates.schedule(min_x, max_x)
+
+    def _apply_x_range(self, min_x: float, max_x: float) -> None:
+        """Applies the final coalesced viewport to expensive renderers."""
         self.volume.refresh_window(min_x, max_x)
         self.indicators.refresh_window(min_x, max_x)
 
@@ -365,5 +375,6 @@ class ChartCard(BaseCard):
         self.viewport.dispose()
         self.crosshair.dispose()
         self.fps_overlay.dispose()
+        self.range_updates.dispose()
         self.indicators.clear()
         self.plot_layout.clear()

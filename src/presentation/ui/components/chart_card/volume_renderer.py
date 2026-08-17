@@ -30,6 +30,9 @@ class VolumeItem:
         self._bear_brush = pg.mkBrush(theme.BEAR_COLOR)
         self._live_index: int | None = None
         self._visible_range: tuple[float, float] | None = None
+        self._data_revision = 0
+        self._last_applied_signature: tuple[int, int, int, float] | None = None
+        self.applied_update_count = 0
 
         self.graphics_item = pg.BarGraphItem(
             x=[], height=[], width=self._bar_width, brushes=[]
@@ -46,6 +49,7 @@ class VolumeItem:
             self._bull_brush if row[2] else self._bear_brush for row in data
         ]
         self._live_index = None
+        self._data_revision += 1
         self._apply()
 
     def as_tuples(self) -> list[tuple[float, float, bool]]:
@@ -69,6 +73,7 @@ class VolumeItem:
             self._timestamps[self._live_index] = timestamp
             self._heights[self._live_index] = volume
             self._brushes[self._live_index] = brush
+        self._data_revision += 1
         self._apply()
 
     def append_closed(self, timestamp: float, volume: float, is_bullish: bool) -> None:
@@ -96,9 +101,15 @@ class VolumeItem:
         else:
             lo, hi = 0, len(self._timestamps)
 
+        signature = (lo, hi, self._data_revision, self._bar_width)
+        if signature == self._last_applied_signature:
+            return
+
         self.graphics_item.setOpts(
             x=self._timestamps[lo:hi],
             height=self._heights[lo:hi],
             width=self._bar_width,
             brushes=self._brushes[lo:hi],
         )
+        self._last_applied_signature = signature
+        self.applied_update_count += 1

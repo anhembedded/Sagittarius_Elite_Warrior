@@ -49,6 +49,9 @@ class IndicatorManager:
         self._plots: dict[str, pg.PlotItem] = {}
         self._legend_labels: dict[str, pg.LabelItem] = {}
         self._full_data: dict[str, tuple[list[float], list[float]]] = {}
+        self._data_revisions: dict[str, int] = {}
+        self._last_applied_signatures: dict[str, tuple[int, int, int]] = {}
+        self.applied_update_count = 0
         self._visible_range: tuple[float, float] | None = None
 
         # BOT-032 — custom indicator scripts' background tints and status
@@ -84,6 +87,7 @@ class IndicatorManager:
         if name not in self._curves:
             return
         self._full_data[name] = (x_data, y_data)
+        self._data_revisions[name] = self._data_revisions.get(name, 0) + 1
         self._apply_window(name)
         if y_data:
             self._legend_labels[name].setText(f"{name}: {y_data[-1]:.4f}")
@@ -107,17 +111,22 @@ class IndicatorManager:
         x_data, y_data = full
 
         if self._visible_range is None or not x_data:
-            curve.setData(x=x_data, y=y_data)
-            return
+            lo, hi = 0, len(x_data)
+        else:
+            min_x, max_x = self._visible_range
+            # Unlike candles/bars, indicator points have no natural "width" to
+            # pad by — keep 1 extra point on each side of the bisected window so
+            # the line connecting into view doesn't visibly end right at the edge.
+            lo, hi = visible_slice_indices(x_data, min_x, max_x)
+            lo = max(0, lo - 1)
+            hi = min(len(x_data), hi + 1)
 
-        min_x, max_x = self._visible_range
-        # Unlike candles/bars, indicator points have no natural "width" to
-        # pad by — keep 1 extra point on each side of the bisected window so
-        # the line connecting into view doesn't visibly end right at the edge.
-        lo, hi = visible_slice_indices(x_data, min_x, max_x)
-        lo = max(0, lo - 1)
-        hi = min(len(x_data), hi + 1)
+        signature = (lo, hi, self._data_revisions.get(name, 0))
+        if self._last_applied_signatures.get(name) == signature:
+            return
         curve.setData(x=x_data[lo:hi], y=y_data[lo:hi])
+        self._last_applied_signatures[name] = signature
+        self.applied_update_count += 1
 
     def set_visible(self, name: str, visible: bool) -> None:
         """Programmatic equivalent of clicking the legend swatch (same underlying state)."""
@@ -138,6 +147,8 @@ class IndicatorManager:
         plot = self._plots.pop(name, None)
         self._legend_labels.pop(name, None)
         self._full_data.pop(name, None)
+        self._data_revisions.pop(name, None)
+        self._last_applied_signatures.pop(name, None)
         if curve is None or plot is None:
             return
         plot.removeItem(curve)
@@ -152,6 +163,8 @@ class IndicatorManager:
         self._plots.clear()
         self._legend_labels.clear()
         self._full_data.clear()
+        self._data_revisions.clear()
+        self._last_applied_signatures.clear()
         self._region_items.clear()
         self._script_info.clear()
         self._marker_layer.clear_all()

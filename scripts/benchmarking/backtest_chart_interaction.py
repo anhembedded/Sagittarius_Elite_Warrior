@@ -42,6 +42,9 @@ class ProfileResult:
     p95_ms: float
     updates_per_second: float
     range_callbacks: int
+    coalesced_range_applies: int
+    volume_applies: int
+    indicator_applies: int
     stored_markers: int
     active_markers: int
 
@@ -130,6 +133,9 @@ def _run_profile(
 
     card.plot_layout.main_plot.vb.sigXRangeChanged.connect(count_callback)
     frame_costs: list[float] = []
+    initial_range_applies = card.range_updates.applied_count
+    initial_volume_applies = card.volume.applied_update_count
+    initial_indicator_applies = card.indicators.applied_update_count
     total_frames = _WARMUP_FRAMES + _MEASURED_FRAMES
     max_start = _CANDLE_COUNT - _VISIBLE_CANDLES - 1
     for frame_index in range(total_frames):
@@ -143,6 +149,8 @@ def _run_profile(
         if frame_index >= _WARMUP_FRAMES:
             frame_costs.append(elapsed_ms)
 
+    card.range_updates.flush_pending()
+    app.processEvents()
     elapsed_seconds = sum(frame_costs) / 1000.0
     layer = card.indicators._marker_layer
     result = ProfileResult(
@@ -151,6 +159,11 @@ def _run_profile(
         p95_ms=round(_percentile_95(frame_costs), 3),
         updates_per_second=round(len(frame_costs) / elapsed_seconds, 2),
         range_callbacks=callback_count,
+        coalesced_range_applies=card.range_updates.applied_count
+        - initial_range_applies,
+        volume_applies=card.volume.applied_update_count - initial_volume_applies,
+        indicator_applies=card.indicators.applied_update_count
+        - initial_indicator_applies,
         stored_markers=layer.stored_marker_count("trades"),
         active_markers=layer.active_marker_count("trades"),
     )

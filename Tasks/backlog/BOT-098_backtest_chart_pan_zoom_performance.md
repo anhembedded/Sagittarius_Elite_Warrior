@@ -40,9 +40,10 @@ layer hiện giữ entry/exit của toàn bộ lịch sử dưới dạng item r
 ## 4. Hướng triển khai ưu tiên
 
 **Tiến độ 2026-08-17:** `BOT-098A` đã hoàn thành viewport virtualization cho
-marker và FPS overlay dev-only. Benchmark còn 23–28 updates/s khi chưa có marker,
-vì vậy parent này vẫn mở; bước kế tiếp là cache/coalesce range pipeline trước
-crosshair/OpenGL.
+marker và FPS overlay dev-only. `BOT-098B` cache visible slice/data revision và
+coalesce 140 raw range callbacks còn khoảng 70 renderer applies. Parent này vẫn
+mở vì candles-only còn khoảng 34 ms/update; bước kế tiếp là paint/crosshair probe,
+không phải bật OpenGL theo cảm tính.
 
 ### 4.1. Marker layer
 
