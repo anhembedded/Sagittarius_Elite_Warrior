@@ -48,7 +48,7 @@ Rectangle {
     readonly property var filterTabs: [
         { value: "all", label: "Tất cả" },
         { value: "long", label: "Mua (LONG)" },
-        { value: "short", label: "Bán (SHORT)" },
+        { value: "short", label: "Bán (SHORT) [Chưa hỗ trợ]" },
         { value: "win", label: "Lệnh thắng" },
         { value: "loss", label: "Lệnh thua" }
     ]
@@ -451,9 +451,12 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         visible: !root.hasViewModel || viewModel.tradeLogRows.length === 0
-                        text: "Chưa có dữ liệu lệnh giao dịch"
+                        text: (root.hasViewModel && viewModel.tradeLogFilter === "short")
+                            ? "Chế độ bán khống (SHORT) chưa được hỗ trợ trong engine hiện tại (Đang phát triển theo BOT-050)"
+                            : "Chưa có dữ liệu lệnh giao dịch"
                         color: root.themeMuted
                         font.pixelSize: 12
+                        textFormat: Text.PlainText
                     }
                 }
 
