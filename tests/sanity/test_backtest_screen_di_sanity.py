@@ -24,6 +24,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.handler import (
     RunStaticBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
+    GetBacktestRangeCoverageQuery,
+    GetBacktestRangeCoverageQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.handler import (
     GetHistoricalKlinesQueryHandler,
 )
@@ -41,9 +45,10 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 
 #: Every BackTestPresenter dispatch call — the run itself (BOT-022), the
 #: chart kline fetch (BOT-056), and the "Đồng bộ ngay" sync (BOT-059) —
-#: goes through exactly these 3 today.
+#: goes through exactly these registrations today.
 _BACKTEST_COMMANDS = {
     RunStaticBacktestCommand: RunStaticBacktestCommandHandler,
+    GetBacktestRangeCoverageQuery: GetBacktestRangeCoverageQueryHandler,
     GetHistoricalKlinesQuery: GetHistoricalKlinesQueryHandler,
     SyncMarketDataCommand: SyncMarketDataCommandHandler,
 }

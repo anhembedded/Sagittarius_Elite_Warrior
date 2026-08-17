@@ -33,6 +33,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest 
     StopBacktestCommand,
     StopBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
+    GetBacktestRangeCoverageQuery,
+    GetBacktestRangeCoverageQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status import (
     GetDatabaseStatusQuery,
     GetDatabaseStatusQueryHandler,
@@ -176,6 +180,9 @@ class BinanceBotModule(BaseModule):
         """Binds CQRS queries to their respective query handlers."""
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
         app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
+        app.container.bind(
+            GetBacktestRangeCoverageQuery, GetBacktestRangeCoverageQueryHandler
+        )
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
 
     def _register_indicator_scripts(self, app: App) -> None:

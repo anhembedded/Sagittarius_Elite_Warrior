@@ -178,6 +178,28 @@ def test_progress_banner_is_visible_and_resized_while_backtest_runs(
     )
 
 
+def test_sync_progress_and_coverage_warning_are_visible(view, qtbot, qml_item):
+    v, vm = view
+    root = v.top_widget.rootObject()
+    progress = qml_item(root, "backtestProgressBanner")
+    coverage = qml_item(root, "backtestCoverageWarningBanner")
+    assert progress is not None
+    assert coverage is not None
+
+    vm.set_data_coverage(False, "Thiếu nến từ 2026-01-01 00:00 UTC.")
+    vm.set_needs_data_sync(True)
+    vm.set_sync_progress(45.0, "Đang đồng bộ nến: 45/100 (45%)")
+    vm.set_ui_mode("SYNCING")
+
+    qtbot.waitUntil(
+        lambda: (
+            progress.property("visible") is True
+            and coverage.property("visible") is True
+        ),
+        timeout=2000,
+    )
+
+
 def test_trade_log_pane_never_shrinks_below_its_usable_minimum(view, qtbot):
     """The splitter must never be able to squeeze the Trade Logs pane below
     `minimumUsableHeight` (BackTestTradeLogs.qml) — BUG-004's screenshot is

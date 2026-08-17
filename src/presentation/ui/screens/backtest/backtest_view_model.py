@@ -71,6 +71,8 @@ class BackTestViewModel(BaseQmlViewModel):
     customEndTextChanged = Signal()
     resultChanged = Signal()
     backtestProgressChanged = Signal()
+    syncProgressChanged = Signal()
+    dataCoverageChanged = Signal()
     statCardsChanged = Signal()
     #: BOT-079 follow-up — separate from `statCardsChanged` on purpose: the
     #: warning is a full sentence, not something that fits a `MetricCard`
@@ -156,6 +158,10 @@ class BackTestViewModel(BaseQmlViewModel):
         self._result_is_error = False
         self._backtest_progress_percent = 0.0
         self._backtest_progress_text = ""
+        self._sync_progress_percent = 0.0
+        self._sync_progress_text = ""
+        self._is_data_fully_covered = False
+        self._data_coverage_message = ""
         self._primary_stat_cards: list[dict[str, str]] = []
         self._extended_stat_cards: list[dict[str, str]] = []
         self._result_warning_text = ""
@@ -438,6 +444,40 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot()
     def reset_backtest_progress(self) -> None:
         self.set_backtest_progress(0.0, "")
+
+    syncProgressPercent = Property(
+        float, lambda self: self._sync_progress_percent, notify=syncProgressChanged
+    )
+    syncProgressText = Property(
+        str, lambda self: self._sync_progress_text, notify=syncProgressChanged
+    )
+
+    @Slot(float, str)
+    def set_sync_progress(self, percent: float, text: str) -> None:
+        self._sync_progress_percent = percent
+        self._sync_progress_text = text
+        self.syncProgressChanged.emit()
+
+    @Slot()
+    def reset_sync_progress(self) -> None:
+        self.set_sync_progress(0.0, "")
+
+    isDataFullyCovered = Property(
+        bool,
+        lambda self: self._is_data_fully_covered,
+        notify=dataCoverageChanged,
+    )
+    dataCoverageMessage = Property(
+        str,
+        lambda self: self._data_coverage_message,
+        notify=dataCoverageChanged,
+    )
+
+    @Slot(bool, str)
+    def set_data_coverage(self, is_fully_covered: bool, message: str) -> None:
+        self._is_data_fully_covered = is_fully_covered
+        self._data_coverage_message = message
+        self.dataCoverageChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Performance stat cards (BOT-055)

@@ -23,6 +23,18 @@ class DatabaseStatusSnapshot:
     gaps: int
 
 
+@dataclass(frozen=True)
+class RangeCoverageSnapshot:
+    """Small SQLite aggregate used to validate one half-open candle range."""
+
+    first_record: datetime | None
+    last_record: datetime | None
+    total_candles: int
+    distinct_candles: int
+    first_gap_after: datetime | None
+    unclosed_candles: int
+
+
 class IMarketDataRepository(ABC):
     """
     @brief Port for storing and retrieving market data.
@@ -65,3 +77,14 @@ class IMarketDataRepository(ABC):
         @brief Gets database status for a specific symbol/interval.
         @return A DatabaseStatusSnapshot with first_record, last_record, total_candles, gaps.
         """
+
+    @abstractmethod
+    def get_range_coverage(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None,
+        end_time: datetime,
+        now: datetime,
+    ) -> RangeCoverageSnapshot:
+        """Aggregate coverage facts for ``[start_time, end_time)``."""

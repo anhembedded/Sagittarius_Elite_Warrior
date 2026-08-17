@@ -363,7 +363,7 @@ Rectangle {
                 objectName: "backtestProgressBanner"
                 Layout.fillWidth: true
                 implicitHeight: visible ? 32 : 0
-                visible: root.hasViewModel && (viewModel.uiMode === "RUNNING" || viewModel.uiMode === "CANCELLING")
+                visible: root.hasViewModel && (viewModel.uiMode === "RUNNING" || viewModel.uiMode === "CANCELLING" || viewModel.uiMode === "SYNCING")
                 color: "#12141d"
                 border.color: "#2a2d3d"
                 border.width: 1
@@ -376,7 +376,7 @@ Rectangle {
                     spacing: 10
 
                     Text {
-                        text: root.hasViewModel && viewModel.uiMode === "CANCELLING" ? "Đang hủy an toàn..." : viewModel.backtestProgressText
+                        text: !root.hasViewModel ? "" : (viewModel.uiMode === "CANCELLING" ? "Đang hủy an toàn..." : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressText : viewModel.backtestProgressText))
                         color: Theme && Theme.textSecondary ? Theme.textSecondary : "#94a3b8"
                         font.pixelSize: 10
                         Layout.preferredWidth: 245
@@ -387,7 +387,7 @@ Rectangle {
                         Layout.fillWidth: true
                         from: 0
                         to: 100
-                        value: root.hasViewModel ? viewModel.backtestProgressPercent : 0
+                        value: !root.hasViewModel ? 0 : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressPercent : viewModel.backtestProgressPercent)
                     }
                 }
             }
@@ -449,6 +449,29 @@ Rectangle {
                             if (root.hasViewModel) viewModel.requestRun()
                         }
                     }
+                }
+            }
+
+            Rectangle {
+                objectName: "backtestCoverageWarningBanner"
+                Layout.fillWidth: true
+                implicitHeight: visible ? 32 : 0
+                visible: root.hasViewModel && viewModel.needsDataSync && viewModel.dataCoverageMessage !== ""
+                color: "#2a1c07"
+                border.color: "#d97706"
+                border.width: 1
+                radius: 6
+
+                Text {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    text: root.hasViewModel ? viewModel.dataCoverageMessage : ""
+                    color: "#fbbf24"
+                    font.pixelSize: 10
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                    textFormat: Text.PlainText
                 }
             }
 

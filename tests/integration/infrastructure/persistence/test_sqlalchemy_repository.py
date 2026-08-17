@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -235,3 +235,27 @@ def test_get_database_status_detects_gap(repo):
     assert status.last_record == dt3
     assert status.total_candles == 3
     assert status.gaps == 1
+
+
+def test_get_range_coverage_is_half_open_and_reports_first_gap(repo):
+    start = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    rows = [
+        create_mock_kline("BTCUSDT", start),
+        create_mock_kline("BTCUSDT", start + timedelta(minutes=1)),
+        create_mock_kline("BTCUSDT", start + timedelta(minutes=3)),
+        create_mock_kline("BTCUSDT", start + timedelta(minutes=4)),
+    ]
+    repo.save_klines(rows)
+
+    snapshot = repo.get_range_coverage(
+        "BTCUSDT",
+        TimeFrame.ONE_MINUTE,
+        start,
+        start + timedelta(minutes=4),
+        start + timedelta(minutes=10),
+    )
+
+    assert snapshot.first_record == start
+    assert snapshot.last_record == start + timedelta(minutes=3)
+    assert snapshot.total_candles == 3
+    assert snapshot.first_gap_after == start + timedelta(minutes=1)

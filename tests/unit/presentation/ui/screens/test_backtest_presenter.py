@@ -26,6 +26,9 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
+    BacktestRangeCoverage,
+)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -825,6 +828,133 @@ def _run_to_no_data(presenter, view_model, mock_dispatcher) -> BacktestRunConfig
     presenter._run_backtest(config)
     mock_dispatcher.dispatch.reset_mock()
     return config
+
+
+def _missing_coverage() -> BacktestRangeCoverage:
+    return BacktestRangeCoverage(
+        is_fully_covered=False,
+        first_open_time=None,
+        last_open_time=None,
+        expected_candles=10,
+        actual_candles=0,
+        duplicate_candles=0,
+        missing_open_times=(_T0,),
+        has_unclosed_candle=False,
+    )
+
+
+def _complete_coverage() -> BacktestRangeCoverage:
+    return replace(
+        _missing_coverage(),
+        is_fully_covered=True,
+        actual_candles=10,
+        missing_open_times=(),
+    )
+
+
+def test_missing_coverage_auto_starts_sync_with_the_run_snapshot(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+    mock_thread_mgr.reset_mock()
+
+    presenter._on_backtest_coverage_missing_for_action(
+        action.action_id, action.config, _missing_coverage(), True
+    )
+
+    assert presenter.fsm.current_state is BacktestUiState.SYNCING
+    assert presenter._active_action is not None
+    assert presenter._active_action.kind is BacktestActionKind.SYNC
+    assert presenter._active_action.config == action.config
+    assert view_model.needsDataSync is True
+    assert mock_thread_mgr.submit.call_args[0][0] == presenter._run_sync
+
+
+def test_missing_coverage_after_sync_fails_without_sync_loop(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+    mock_thread_mgr.reset_mock()
+
+    presenter._on_backtest_coverage_missing_for_action(
+        action.action_id, action.config, _missing_coverage(), False
+    )
+
+    assert presenter.fsm.current_state is BacktestUiState.ERROR
+    assert "Thiếu nến" in view_model.resultText
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_stale_coverage_result_cannot_start_sync(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.requestRun()
+    old_action = presenter._active_action
+    assert old_action is not None
+    presenter._begin_action(
+        BacktestActionKind.BACKTEST,
+        presenter._get_current_config(),
+        presenter.fsm.current_state,
+    )
+    mock_thread_mgr.reset_mock()
+
+    presenter._on_backtest_coverage_missing_for_action(
+        old_action.action_id, old_action.config, _missing_coverage(), True
+    )
+
+    assert presenter.fsm.current_state is BacktestUiState.RUNNING
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_sync_progress_updates_only_the_active_sync_action(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    sync_action = presenter._active_action
+    assert sync_action is not None
+
+    presenter._on_sync_progress_for_action(sync_action.action_id, 45, 100)
+
+    assert view_model.syncProgressPercent == 45.0
+    assert "45/100" in view_model.syncProgressText
+    presenter._finish_action(sync_action.action_id, BacktestActionOutcome.INVALIDATED)
+    presenter._on_sync_progress_for_action(sync_action.action_id, 90, 100)
+    assert view_model.syncProgressPercent == 45.0
+
+
+def test_timeframe_change_submits_background_preview_with_snapshot(
+    presenter, view_model, mock_thread_mgr
+):
+    mock_thread_mgr.reset_mock()
+
+    view_model.selectedTimeframe = "5m"
+
+    mock_thread_mgr.submit.assert_called_once()
+    worker, config, preview_id = mock_thread_mgr.submit.call_args[0]
+    assert worker == presenter._run_chart_preview
+    assert config.timeframe is TimeFrame.FIVE_MINUTES
+    assert preview_id == presenter._active_preview_id
+
+
+def test_preview_result_updates_coverage_and_chart_but_stale_result_is_fenced(
+    presenter, view_model
+):
+    presenter.view.on_preview_data_ready = Mock()
+    presenter._active_preview_id = 2
+
+    presenter._on_preview_data_ready(1, _missing_coverage(), ["old"], [])
+    presenter.view.on_preview_data_ready.assert_not_called()
+
+    presenter._on_preview_data_ready(2, _complete_coverage(), ["new"], ["volume"])
+
+    assert view_model.isDataFullyCovered is True
+    assert view_model.needsDataSync is False
+    presenter.view.on_preview_data_ready.assert_called_once_with(["new"], ["volume"])
 
 
 def test_request_sync_ignored_without_a_cached_no_data_config(

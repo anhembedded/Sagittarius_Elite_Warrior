@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     IMarketDataRepository,
+    RangeCoverageSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
@@ -233,6 +234,63 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             ).fetchone()
 
             return self._map_status_result(result)
+
+    def get_range_coverage(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None,
+        end_time: datetime,
+        now: datetime,
+    ) -> RangeCoverageSnapshot:
+        """Run the range probe entirely in SQLite and return six scalars."""
+        query = sa.text("""
+            WITH ordered_klines AS (
+                SELECT
+                    open_time,
+                    close_time,
+                    LAG(open_time) OVER (ORDER BY open_time ASC) AS prev_time
+                FROM klines
+                WHERE symbol = :symbol
+                  AND interval = :interval
+                  AND (:start_time IS NULL OR open_time >= :start_time)
+                  AND open_time < :end_time
+            )
+            SELECT
+                MIN(open_time) AS first_record,
+                MAX(open_time) AS last_record,
+                COUNT(*) AS total_candles,
+                COUNT(DISTINCT open_time) AS distinct_candles,
+                MIN(CASE
+                    WHEN prev_time IS NOT NULL
+                     AND (unixepoch(open_time) - unixepoch(prev_time)) > :expected_seconds
+                    THEN prev_time ELSE NULL
+                END) AS first_gap_after,
+                SUM(CASE WHEN close_time > :now THEN 1 ELSE 0 END) AS unclosed_candles
+            FROM ordered_klines
+        """)
+        with self.db_manager.get_session(symbol) as session:
+            result = session.execute(
+                query,
+                {
+                    "symbol": symbol,
+                    "interval": interval.value,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "now": now,
+                    "expected_seconds": interval.to_seconds(),
+                },
+            ).fetchone()
+        if not result or result[2] == 0:
+            return RangeCoverageSnapshot(None, None, 0, 0, None, 0)
+        return RangeCoverageSnapshot(
+            first_record=self._parse_db_datetime(result[0]),
+            last_record=self._parse_db_datetime(result[1]),
+            total_candles=int(result[2]),
+            distinct_candles=int(result[3]),
+            first_gap_after=self._parse_db_datetime(result[4]),
+            unclosed_candles=int(result[5] or 0),
+        )
 
     @staticmethod
     def _parse_db_datetime(value) -> datetime | None:

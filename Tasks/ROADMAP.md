@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 61 | 61% |
-| 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 39 | 39% |
-| 📈 **Tổng số Task** | **100** | **100%** |
+| 🟢 **Completed** | 63 | 62.4% |
+| 🟡 **In Progress** | 0 | 0.0% |
+| 🔴 **Backlog** | 38 | 37.6% |
+| 📈 **Tổng số Task** | **101** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
@@ -218,7 +218,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[BOT-095B](completed/BOT-095B_backtest_fsm_dirty_tracking.md)** ✅ | **Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)** | `BOT-095A` ✅ | `backtest_fsm_matrix.py`, Dirty Tracking so khớp `BacktestRunConfig`, Amber Banner với Diff Summary, tự động khôi phục `COMPLETED`, và bảo vệ nút Xuất CSV. |
 | ✅ **[BOT-095H](completed/BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md)** | **Quyền sở hữu Action & Chặn Callback Lỗi thời** | `BOT-095A` ✅, `BOT-095B` ✅ | `action_id`/generation, immutable config snapshot và stale-callback fencing đã hoàn thành; **mở khóa C/D/G.** |
 | ✅ **[BOT-095C](completed/BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | `BOT-095H` ✅ | Nút Cancel, cancellation outcome tường minh, progress/ETA benchmarked; cancellation check đi qua mọi pass mô phỏng. |
-| **[BOT-095D](backlog/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | `BOT-095C`, `BOT-095H` | Gap check UTC/cadence, post-sync re-probe và auto-continue chỉ cho action còn active. |
+| ✅ **[BOT-095D1](completed/BOT-095D1_backtest_range_coverage_probe.md)** | **Range Coverage Probe theo cadence** | `BOT-095C` ✅ | Fast aggregate SQLite + DTO coverage immutable cho đúng `[start, end)`, phát hiện boundary/gap/duplicate/nến chưa đóng. |
+| ✅ **[BOT-095D](completed/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | `BOT-095C` ✅, `BOT-095H` ✅, `BOT-095D1` ✅ | Preview theo timeframe/range, sync progress, post-sync re-probe và auto-continue có action fencing. |
 | **[BOT-095E](backlog/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | — | Khung Assertion Rule mở rộng (OCP), local validation tức thì và market-rule validation theo metadata của symbol; viền đỏ tại chỗ, hotkeys/stepper trong `BotParamsDialog`. |
 | **[BOT-095F](backlog/BOT-095F_backtest_dynamic_indicator_toggle.md)** | **Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest** | `BOT-064` ✅, `BOT-095H` | Bật/tắt script tham chiếu (RSI, MACD, EMA) không chạy lại backtest; artifact bị fence theo `run_id`. |
 | **[BOT-095G](backlog/BOT-095G_backtest_session_run_history_cache.md)** | **Bộ nhớ đệm Lịch sử Lần chạy (Session Run History Cache)** | `BOT-095H` | Snapshot immutable có provenance, bounded-memory cache và restore transactionally; không hứa SLA “0ms”. |

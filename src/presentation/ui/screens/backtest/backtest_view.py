@@ -234,6 +234,20 @@ class BackTestView(BaseView):
         self._last_volume = volume
         self._render_chart()
 
+    def on_preview_data_ready(self, klines: list, volume: list) -> None:
+        """Render local candles for a newly selected range before a run exists."""
+        self._last_result = None
+        self._last_klines = klines
+        self._last_volume = volume
+        card = self._current_card()
+        if card is None:
+            return
+        card.render_historical_data(klines)
+        card.set_chart_type("candlestick")
+        card.render_historical_volume(volume)
+        card.clear_script_markers(_TRADE_FLAGS_KEY)
+        self._remove_equity_subplot(card)
+
     def set_chart_mode(self, mode: ChartDisplayMode) -> None:
         self._chart_mode = mode
         if self._last_result is not None:

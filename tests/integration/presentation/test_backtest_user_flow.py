@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from unittest.mock import patch
 
 import pytest
@@ -11,6 +12,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     IMarketDataRepository,
+    RangeCoverageSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
@@ -74,6 +76,36 @@ class _InMemoryMarketDataRepository(IMarketDataRepository):
             last_record=rows[-1].open_time if rows else None,
             total_candles=len(rows),
             gaps=0,
+        )
+
+    def get_range_coverage(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None,
+        end_time: datetime,
+        now: datetime,
+    ) -> RangeCoverageSnapshot:
+        rows = self.get_klines(symbol, interval, start_time, end_time)
+        rows = [row for row in rows if row.open_time < end_time]
+        first_gap_after = next(
+            (
+                previous.open_time
+                for previous, current in pairwise(rows)
+                if (current.open_time - previous.open_time).total_seconds()
+                > interval.to_seconds()
+            ),
+            None,
+        )
+        return RangeCoverageSnapshot(
+            first_record=rows[0].open_time if rows else None,
+            last_record=rows[-1].open_time if rows else None,
+            total_candles=len(rows),
+            distinct_candles=len({row.open_time for row in rows}),
+            first_gap_after=first_gap_after,
+            unclosed_candles=sum(
+                bool(row.close_time and row.close_time > now) for row in rows
+            ),
         )
 
 
@@ -173,6 +205,9 @@ def test_run_button_completes_real_backtest_and_chart_render(
     presenter, view = backtest_screen
     view_model = presenter._view_model
     view_model.selectedTimeframe = _RUNTIME_INTERVAL
+    view_model.timeRangePreset = "custom"
+    view_model.customStartText = "2026-08-01 00:00"
+    view_model.customEndText = "2026-08-11 00:00"
     log_messages_before = [entry.message for entry in view_model.log_model.entries]
     assert any(
         "[Health] Trạng thái hệ thống: HEALTHY (Database: OK" in message

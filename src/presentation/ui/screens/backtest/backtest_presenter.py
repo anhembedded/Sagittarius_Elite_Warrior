@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 
+from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
+    SingleSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
+    BacktestRangeCoverage,
+)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -17,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
     RunStaticBacktestCommand,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
+    GetBacktestRangeCoverageQuery,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
@@ -136,11 +145,8 @@ _EXPORT_DIALOG_TITLE = "Xuất Trade Logs"
 _EXPORT_DEFAULT_FILENAME = "trade_logs.csv"
 _EXPORT_FILE_FILTER = "CSV Files (*.csv)"
 
-#: GetHistoricalKlinesQuery.limit has no "unlimited" sentinel (unlike
-#: RunStaticBacktestCommand.limit, which IMarketDataRepository.get_klines
-#: treats as None = no cap) — this is a generously large stand-in so the
-#: chart's candle set matches what the backtest itself evaluated. 5000 hourly
-#: bars is ~208 days; 5000 daily bars is ~13 years.
+#: Preview/chart rendering is intentionally bounded; range coverage itself is
+#: checked by a compact SQLite aggregate and is not inferred from this window.
 _CHART_KLINES_FETCH_LIMIT = 5000
 
 
@@ -179,6 +185,8 @@ class BackTestPresenter(BasePresenter):
     _backtestFailedSignal = Signal(int, str)  # action_id, error message
     _backtestCancelledSignal = Signal(int, object)  # action_id, BacktestCancelled
     _backtestProgressSignal = Signal(int, str, int, int, float)
+    _backtestCoverageMissingSignal = Signal(int, object, object, bool)
+    _backtestCoverageReadySignal = Signal(int, object)
     _chartDataReadySignal = Signal(
         int, object, list, list
     )  # action_id, result, klines, volume
@@ -194,6 +202,8 @@ class BackTestPresenter(BasePresenter):
     _chartScriptMarkerSignal = Signal(str, list)  # script key, markers
     _syncSucceededSignal = Signal(int)  # action_id
     _syncFailedSignal = Signal(int, str)  # action_id, error message
+    _syncProgressSignal = Signal(int, int, int)  # action_id, current, total
+    _previewDataReadySignal = Signal(int, object, list, list)
     _uiLogSignal = Signal(str, str, bool)  # message, level, is_dev
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
@@ -225,6 +235,8 @@ class BackTestPresenter(BasePresenter):
         self._active_action_outcome: BacktestActionOutcome | None = None
         self._backtest_cancellation_token: CancellationToken | None = None
         self._cancelling_action_id: int | None = None
+        self._next_preview_id = 0
+        self._active_preview_id = 0
 
         # BOT-057: the single source of truth the Trade Logs table's
         # filter/search/pagination all read from — the ViewModel only ever
@@ -359,6 +371,12 @@ class BackTestPresenter(BasePresenter):
         self._backtestFailedSignal.connect(self._on_backtest_failed_for_action)
         self._backtestCancelledSignal.connect(self._on_backtest_cancelled_for_action)
         self._backtestProgressSignal.connect(self._on_backtest_progress_for_action)
+        self._backtestCoverageMissingSignal.connect(
+            self._on_backtest_coverage_missing_for_action
+        )
+        self._backtestCoverageReadySignal.connect(
+            self._on_backtest_coverage_ready_for_action
+        )
         self._chartDataReadySignal.connect(self._on_chart_data_ready_for_action)
         self._chartStrategyLineSignal.connect(self._on_chart_strategy_line_for_action)
         self._chartScriptLineSignal.connect(self._on_chart_script_line)
@@ -367,6 +385,8 @@ class BackTestPresenter(BasePresenter):
         self._chartScriptMarkerSignal.connect(self._on_chart_script_marker)
         self._syncSucceededSignal.connect(self._on_sync_succeeded_for_action)
         self._syncFailedSignal.connect(self._on_sync_failed_for_action)
+        self._syncProgressSignal.connect(self._on_sync_progress_for_action)
+        self._previewDataReadySignal.connect(self._on_preview_data_ready)
         self._uiLogSignal.connect(self._on_ui_log)
         self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
         self._view_model.tradeLogExportRequested.connect(
@@ -378,6 +398,7 @@ class BackTestPresenter(BasePresenter):
         self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
         self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
         self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
+        self.event_bus.on(SingleSyncProgressEvent, self._handle_sync_progress_event)
         self.event_bus.on(
             HealthUpdatedEvent.event_name, self._handle_health_updated_event
         )
@@ -431,6 +452,11 @@ class BackTestPresenter(BasePresenter):
             "info",
             is_dev=True,
         )
+
+    def _handle_sync_progress_event(self, event: SingleSyncProgressEvent) -> None:
+        action_id = self._current_action_id(BacktestActionKind.SYNC)
+        if action_id is not None:
+            self._syncProgressSignal.emit(action_id, event.current, event.total)
 
     def _emit_ui_log(
         self, message: str, level: str = "info", is_dev: bool = False
@@ -692,12 +718,16 @@ class BackTestPresenter(BasePresenter):
         self._start_backtest_run(config, previous_state)
 
     def _start_backtest_run(
-        self, config: BacktestRunConfig, previous_state: BacktestUiState | None = None
+        self,
+        config: BacktestRunConfig,
+        previous_state: BacktestUiState | None = None,
+        allow_auto_sync: bool = True,
     ) -> None:
         """Shared by the "Chạy Backtest" click and the post-sync auto-resubmit
         (`_on_sync_succeeded`) — callers are responsible for their own FSM
         transition into RUNNING first (IDLE->RUNNING vs SYNCING->RUNNING are
         different edges), this only does the actual submit."""
+        self._active_preview_id = 0
         removed_strategy_lines = len(self._active_strategy_lines)
         self._log_dev_trace(
             "run_submit_start",
@@ -738,6 +768,7 @@ class BackTestPresenter(BasePresenter):
             config,
             previous_state or self.fsm.current_state,
         )
+        self._view_model.reset_sync_progress()
         self._view_model.set_result(_RUNNING_MESSAGE, is_error=False)
         self._log_dev_trace("run_worker_submitted")
         self._thread_manager.submit(
@@ -745,7 +776,54 @@ class BackTestPresenter(BasePresenter):
             action.config,
             action.action_id,
             self._backtest_cancellation_token,
+            allow_auto_sync,
         )
+
+    @Slot(int, object, object, bool)
+    @safe_ui_action
+    def _on_backtest_coverage_missing_for_action(
+        self,
+        action_id: int,
+        config: BacktestRunConfig,
+        coverage: BacktestRangeCoverage,
+        allow_auto_sync: bool,
+    ) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                "coverage_missing", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        message = self._format_coverage_message(coverage)
+        self._last_no_data_config = config
+        self._view_model.set_data_coverage(False, message)
+        self._view_model.set_needs_data_sync(True)
+        self._finish_action(action_id, BacktestActionOutcome.EMPTY)
+        if allow_auto_sync:
+            if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_EMPTY):
+                self.fsm.dispatch(BacktestUiEvent.BACKTEST_EMPTY)
+            self._start_sync_for_config(config)
+            return
+        self._on_backtest_failed(message)
+
+    @Slot(int, object)
+    @safe_ui_action
+    def _on_backtest_coverage_ready_for_action(
+        self, action_id: int, coverage: BacktestRangeCoverage
+    ) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            return
+        self._view_model.set_data_coverage(True, "")
+        self._view_model.set_needs_data_sync(False)
+
+    @staticmethod
+    def _format_coverage_message(coverage: BacktestRangeCoverage) -> str:
+        if coverage.missing_open_times:
+            return f"Thiếu nến từ {coverage.missing_open_times[0]:%Y-%m-%d %H:%M UTC}."
+        if coverage.duplicate_candles:
+            return f"Dữ liệu có {coverage.duplicate_candles} nến trùng thời điểm."
+        if coverage.has_unclosed_candle:
+            return "Khoảng dữ liệu chứa nến chưa đóng."
+        return "Dữ liệu local chưa đủ cho khoảng Backtest đã chọn."
 
     @Slot()
     @safe_ui_action
@@ -1136,6 +1214,7 @@ class BackTestPresenter(BasePresenter):
     def _on_timeframe_changed(self) -> None:
         self._logger.log_timeframe_selected(self._view_model.selectedTimeframe)
         self._on_config_input_changed()
+        self._request_chart_preview()
 
     @Slot()
     @safe_ui_action
@@ -1146,12 +1225,91 @@ class BackTestPresenter(BasePresenter):
             self._view_model.customEndText,
         )
         self._on_config_input_changed()
+        self._request_chart_preview()
 
     @Slot()
     @safe_ui_action
     def _on_custom_time_changed(self) -> None:
         if self._view_model.timeRangePreset == TimeRangePreset.CUSTOM.value:
             self._on_config_input_changed()
+            self._request_chart_preview()
+
+    def _request_chart_preview(self) -> None:
+        """Probe and preview a toolbar range without blocking the Qt thread."""
+        if self.fsm.current_state in (
+            BacktestUiState.RUNNING,
+            BacktestUiState.CANCELLING,
+            BacktestUiState.SYNCING,
+        ):
+            return
+        config = self._get_current_config()
+        if self._view_model.timeRangePreset == TimeRangePreset.CUSTOM.value:
+            if config.start_time is None or config.end_time is None:
+                return
+            if config.start_time >= config.end_time:
+                return
+        self._next_preview_id += 1
+        self._active_preview_id = self._next_preview_id
+        self._thread_manager.submit(
+            self._run_chart_preview,
+            config,
+            self._active_preview_id,
+        )
+
+    def _run_chart_preview(self, config: BacktestRunConfig, preview_id: int) -> None:
+        """Background preview query; generation ID fences rapid toolbar changes."""
+        now = datetime.now(UTC)
+        try:
+            query = GetHistoricalKlinesQuery(
+                symbol=self._symbol,
+                interval=config.timeframe.value,
+                limit=_CHART_KLINES_FETCH_LIMIT,
+                start_time=config.start_time,
+                end_time=config.end_time or now,
+                order_by_desc=True,
+            )
+            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+            raw_klines = list(reversed(list(getattr(response, "data", response) or [])))
+            coverage = self.dispatcher.dispatch(
+                GetBacktestRangeCoverageQuery,
+                GetBacktestRangeCoverageQuery(
+                    symbol=self._symbol,
+                    interval=config.timeframe.value,
+                    start_time=config.start_time,
+                    end_time=config.end_time or now,
+                    now=now,
+                ),
+            )
+            self._previewDataReadySignal.emit(
+                preview_id,
+                coverage,
+                map_klines(raw_klines),
+                map_volume(raw_klines),
+            )
+        except Exception as exc:
+            logger.exception("Fetching Backtest chart preview failed")
+            self._log_dev_trace("preview_query_failed", message=str(exc))
+
+    @Slot(int, object, list, list)
+    @safe_ui_action
+    def _on_preview_data_ready(
+        self,
+        preview_id: int,
+        coverage: BacktestRangeCoverage,
+        klines: list,
+        volume: list,
+    ) -> None:
+        if preview_id != self._active_preview_id:
+            self._log_dev_trace("preview_ignored", preview_id=preview_id)
+            return
+        self._view_model.set_data_coverage(
+            coverage.is_fully_covered,
+            ""
+            if coverage.is_fully_covered
+            else self._format_coverage_message(coverage),
+        )
+        self._view_model.set_needs_data_sync(not coverage.is_fully_covered)
+        self.view.on_preview_data_ready(klines, volume)
 
     @Slot()
     @safe_ui_action
@@ -1231,8 +1389,13 @@ class BackTestPresenter(BasePresenter):
         if not self.fsm.can_dispatch(BacktestUiEvent.SYNC_REQUESTED):
             self._log_dev_trace("sync_ignored", state=self.fsm.current_state)
             return
+        self._start_sync_for_config(self._last_no_data_config)
+
+    def _start_sync_for_config(self, sync_config: BacktestRunConfig) -> None:
+        if not self.fsm.can_dispatch(BacktestUiEvent.SYNC_REQUESTED):
+            self._log_dev_trace("sync_ignored", state=self.fsm.current_state)
+            return
         self._log_dev_trace("sync_requested")
-        sync_config = self._last_no_data_config
         previous_state = self.fsm.current_state
         self.fsm.dispatch(BacktestUiEvent.SYNC_REQUESTED)
         action = self._begin_action(
@@ -1241,6 +1404,19 @@ class BackTestPresenter(BasePresenter):
         self._view_model.set_result(_SYNCING_MESSAGE, is_error=False)
         self._log_dev_trace("sync_worker_submitted")
         self._thread_manager.submit(self._run_sync, action.config, action.action_id)
+
+    @Slot(int, int, int)
+    @safe_ui_action
+    def _on_sync_progress_for_action(
+        self, action_id: int, current: int, total: int
+    ) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.SYNC):
+            return
+        percent = min(100.0, max(0.0, current / total * 100.0)) if total > 0 else 0.0
+        self._view_model.set_sync_progress(
+            percent,
+            f"Đang đồng bộ nến: {current:,}/{total:,} ({percent:.0f}%)",
+        )
 
     @Slot(int)
     @safe_ui_action
@@ -1269,13 +1445,14 @@ class BackTestPresenter(BasePresenter):
     def _on_sync_succeeded(self) -> None:
         self._log_dev_trace("sync_succeeded")
         self._logger.log_sync_event("Đồng bộ dữ liệu thành công.")
+        self._view_model.reset_sync_progress()
         # Sync is just an inserted precondition, not an independent user
         # action — the user already asked to run a backtest, "no data" got
         # in the way, and now that it's synced the original intent should
         # resume automatically rather than making them click "Chạy Backtest"
         # a second time.
-        self._view_model.set_needs_data_sync(False)
         cached_config = self._last_no_data_config
+        self._view_model.set_needs_data_sync(False)
         self._last_no_data_config = None
         if self.fsm.can_dispatch(BacktestUiEvent.SYNC_SUCCEEDED):
             self.fsm.dispatch(BacktestUiEvent.SYNC_SUCCEEDED)
@@ -1285,13 +1462,14 @@ class BackTestPresenter(BasePresenter):
         # rather than letting a stale sync infer a fresh intent from toolbar
         # values.
         if cached_config is not None:
-            self._start_backtest_run(cached_config)
+            self._start_backtest_run(cached_config, allow_auto_sync=False)
 
     @Slot(str)
     @safe_ui_action
     def _on_sync_failed(self, message: str) -> None:
         self._log_dev_trace("sync_failed", message=message)
         self._logger.log_sync_event(f"Đồng bộ thất bại: {message}", is_error=True)
+        self._view_model.reset_sync_progress()
         # needsDataSync / _last_no_data_config are left untouched — the sync
         # that just failed was for genuinely missing data, so "Đồng bộ ngay"
         # should stay offered for the user to retry.
@@ -1442,6 +1620,7 @@ class BackTestPresenter(BasePresenter):
         config: BacktestRunConfig,
         action_id: int | None = None,
         cancellation_token: CancellationToken | None = None,
+        allow_auto_sync: bool = False,
     ) -> None:
         resolved_action_id = action_id or self._current_action_id(
             BacktestActionKind.BACKTEST
@@ -1455,6 +1634,14 @@ class BackTestPresenter(BasePresenter):
             timeframe=config.timeframe.value,
         )
         try:
+            if cancellation_token is not None:
+                coverage = self._probe_data_coverage(config)
+                if not coverage.is_fully_covered:
+                    self._backtestCoverageMissingSignal.emit(
+                        resolved_action_id, config, coverage, allow_auto_sync
+                    )
+                    return
+                self._backtestCoverageReadySignal.emit(resolved_action_id, coverage)
             command = RunStaticBacktestCommand(
                 symbol=self._symbol,
                 interval=config.timeframe,
@@ -1515,6 +1702,17 @@ class BackTestPresenter(BasePresenter):
         # always has a real BacktestResult to build stat cards from; only
         # "no historical data at all" (result is None, above) has none.
         self._backtestSucceededSignal.emit(resolved_action_id, result)
+
+    def _probe_data_coverage(self, config: BacktestRunConfig) -> BacktestRangeCoverage:
+        now = datetime.now(UTC)
+        query = GetBacktestRangeCoverageQuery(
+            symbol=self._symbol,
+            interval=config.timeframe.value,
+            start_time=config.start_time,
+            end_time=config.end_time or now,
+            now=now,
+        )
+        return self.dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
 
     def _run_sync(
         self, config: BacktestRunConfig, action_id: int | None = None

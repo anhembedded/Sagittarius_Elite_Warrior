@@ -1,5 +1,7 @@
 # Nhiệm vụ: BOT-095D — 1-Click Auto-Sync & Run, Date Range Gap Check & Live Chart Preview
 
+> Trạng thái: ✅ Hoàn thành 2026-08-17
+
 > Thuộc Epic [`BOT-095`](BOT-095_backtest_signals_fsm_lifecycle_epic.md).
 > Phụ thuộc: `BOT-095B` ✅, [`BOT-095H`](BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md), sau `BOT-095C`.
 > **Trọng tâm**: Xử lý vòng đời chuyển đổi Timeframe, tự động kiểm tra độ bao phủ nến (Date Range Gap Check) trong SQLite, nạp nến xem trước (Preview) lên biểu đồ, và xây dựng cơ chế **1-Click Auto-Sync & Run** (tự động đồng bộ với Progress Bar kế thừa từ Data Management rồi chạy tiếp Backtest chỉ với 1 click).
@@ -65,7 +67,19 @@ Khi người dùng bấm "Chạy Backtest" mà `needsDataSync == True`:
 3. **Preview nến tức thì**:
    - Đổi khung `1m` sang `5m` có data $\rightarrow$ Chart cập nhật nến `5m` ngay lập tức.
 4. **Local CI Verification**:
-   - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+   - Chạy `.\scripts\ci-local.ps1 -Full` đạt 100% Passed.
 
 5. **Race verification**:
    - `sync-success-after-invalidated-config` không auto-run và không ghi đè preview/UI hiện tại.
+
+---
+
+## 5. Kết quả triển khai
+
+- Đổi timeframe/range tạo preview background có generation ID; callback cũ
+  không được ghi đè chart hiện tại.
+- Run kiểm coverage bằng fast SQLite aggregate. Thiếu data tự chuyển sang
+  sync, hiển thị progress, re-probe rồi mới chạy tiếp; không sync loop.
+- ViewModel/QML hiển thị coverage warning và sync progress.
+- “Toàn bộ lịch sử” chỉ cam kết liên tục từ nến local sớm nhất đến nến đóng
+  gần nhất; không giả vờ biết mốc lịch sử đầu tiên của Binance.
