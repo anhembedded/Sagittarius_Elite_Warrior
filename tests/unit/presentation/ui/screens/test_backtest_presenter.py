@@ -417,6 +417,13 @@ def test_strategy_options_loaded_from_registry_on_init(view_model):
     assert view_model.selectedStrategyKey == "fake_strategy"
 
 
+def test_dev_mode_enables_fps_overlay_on_the_real_backtest_chart(presenter):
+    card = presenter.view.chart_cards[0]
+
+    assert card.fps_overlay.is_enabled is True
+    assert card.fps_overlay.label.isHidden() is False
+
+
 # ---------------------------------------------------------------------------
 # Config-driven default symbol/interval (BOT-058)
 # ---------------------------------------------------------------------------
@@ -1840,7 +1847,11 @@ def test_trade_flags_toggle_draws_and_clears_markers(
     assert card.indicators._marker_layer._items.get("backtest_trades", []) == []
 
     presenter.view.set_trade_flags_visible(True)
-    assert len(card.indicators._marker_layer._items.get("backtest_trades", [])) == 2
+    marker_layer = card.indicators._marker_layer
+    # The business contract is that both trade events remain available.
+    # Scene-item count is intentionally viewport-dependent (BOT-098A).
+    assert marker_layer.stored_marker_count("backtest_trades") == 2
+    assert marker_layer.active_marker_count("backtest_trades") > 0
 
 
 # ---------------------------------------------------------------------------

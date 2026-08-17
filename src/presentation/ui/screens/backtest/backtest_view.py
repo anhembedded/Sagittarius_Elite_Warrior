@@ -5,6 +5,9 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, QTimer, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+    ChartCard,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseView,
     OverlayHost,
@@ -58,6 +61,7 @@ class BackTestView(BaseView):
         super().__init__(parent)
         self._view_model = None
         self.chart_cards: list = []
+        self._chart_dev_mode = False
         self.chart_controls: BacktestChartControls | None = None
         self._chart_mode = ChartDisplayMode.OHLC
         self._equity_subplot_added = False
@@ -219,11 +223,8 @@ class BackTestView(BaseView):
         self.chart_cards = []
         self.chart_controls = None
         for symbol in symbols:
-            from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-                ChartCard,
-            )
-
             card = ChartCard(symbol)
+            card.set_dev_mode(self._chart_dev_mode)
             self.chart_cards.append(card)
             self.charts_layout.addWidget(card, 1)
 
@@ -232,6 +233,12 @@ class BackTestView(BaseView):
             self.chart_cards[0].add_to_header(self.chart_controls)
 
         return self.chart_cards
+
+    def set_chart_dev_mode(self, enabled: bool) -> None:
+        """Applies the developer instrumentation state to current and future charts."""
+        self._chart_dev_mode = bool(enabled)
+        for card in self.chart_cards:
+            card.set_dev_mode(self._chart_dev_mode)
 
     # ------------------------------------------------------------------ #
     # Chart rendering (BOT-056) — driven by BackTestPresenter

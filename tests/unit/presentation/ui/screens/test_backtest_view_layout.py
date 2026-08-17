@@ -256,6 +256,22 @@ def test_overlay_host_covers_the_full_hybrid_backtest_view(view, qtbot):
     assert v.overlay_host.is_click_through is True
 
 
+def test_backtest_chart_fps_overlay_follows_dev_mode(qapp, request):
+    v = BackTestView()
+    request.addfinalizer(v.deleteLater)
+
+    v.set_chart_dev_mode(True)
+    cards = v.render_symbol_cards(["BTCUSDT"])
+
+    assert cards[0].fps_overlay.is_enabled is True
+    assert cards[0].fps_overlay.label.isHidden() is False
+
+    v.set_chart_dev_mode(False)
+
+    assert cards[0].fps_overlay.is_enabled is False
+    assert cards[0].fps_overlay.label.isHidden() is True
+
+
 def test_trade_log_rows_are_visible_by_default(view, qtbot, qml_item):
     """Regression guard for the exact failure mode in BUG-004/BOT-090: a
     75-trade result page (`PAGE_SIZE=20` rows) rendered with zero rows

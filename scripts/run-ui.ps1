@@ -1,6 +1,6 @@
 param(
-    # Enables dev-mode UI instrumentation (currently: logs every button
-    # click to each screen's System Monitor). Usage: run-ui.ps1 -Dev
+    # Enables dev-mode UI instrumentation: click logs and a paint-event FPS
+    # overlay on the Backtest graph. Usage: run-ui.ps1 -Dev
     [switch]$Dev
 )
 

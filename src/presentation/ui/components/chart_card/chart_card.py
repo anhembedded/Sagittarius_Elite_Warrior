@@ -7,6 +7,7 @@ from .chart_toolbar import ChartToolbar
 from .chart_type_renderer import CANDLESTICK, HEIKIN_ASHI, ChartTypeRenderer
 from .crosshair_controller import CrosshairController
 from .edge_scroll_detector import EdgeScrollDetector
+from .fps_overlay import ChartFpsOverlay
 from .heikin_ashi import to_heikin_ashi
 from .indicator_manager import IndicatorManager
 from .plot_layout import ChartPlotLayout
@@ -100,6 +101,7 @@ class ChartCard(BaseCard):
             get_raw_history=lambda: self._raw_history,
             parent=self,
         )
+        self.fps_overlay = ChartFpsOverlay(self.plot_layout.widget, parent=self)
 
     def _connect_signals(self) -> None:
         self.edge_scroll_detector.sig_near_left_edge.connect(
@@ -123,6 +125,10 @@ class ChartCard(BaseCard):
     def set_symbol_title(self, symbol: str) -> None:
         self.symbol = symbol
         self.lbl_title.setText(f"Live Chart: {symbol}")
+
+    def set_dev_mode(self, enabled: bool) -> None:
+        """Shows chart paint FPS only for explicitly enabled developer sessions."""
+        self.fps_overlay.set_enabled(enabled)
 
     def render_historical_data(self, data: list[OhlcCandle]) -> None:
         self._raw_history = list(data)
@@ -358,5 +364,6 @@ class ChartCard(BaseCard):
         self.zoom_controls.dispose()
         self.viewport.dispose()
         self.crosshair.dispose()
+        self.fps_overlay.dispose()
         self.indicators.clear()
         self.plot_layout.clear()

@@ -353,6 +353,7 @@ class BackTestPresenter(BasePresenter):
 
         # After render_symbol_cards(): view.chart_controls doesn't exist
         # until the ChartCard it's attached to has been built.
+        view.set_chart_dev_mode(self._is_dev_mode)
         view.render_symbol_cards([self._symbol])
         self._connect_chart_controls()
         view.load_qml()

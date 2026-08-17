@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 66 | 62.9% |
+| 🟢 **Completed** | 67 | 63.2% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 39 | 37.1% |
-| 📈 **Tổng số Task** | **105** | **100%** |
+| 🔴 **Backlog** | 39 | 36.8% |
+| 📈 **Tổng số Task** | **106** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -57,6 +57,8 @@ Sagittarius_Elite_Warrior/Tasks/
 > Lần tăng thứ mười (+1, `BOT-095E1`): khi bắt đầu `BOT-095E`, audit xác nhận repo chưa có symbol exchange metadata và vốn backtest không phải order notional thật. Subtask tách boundary metadata/cache/order-intent để UI chỉ nói "chưa xác minh" khi thiếu facts, không hard-code Binance filter hoặc chặn simulation sai.
 >
 > Lần tăng thứ mười một (+1, `BOT-095E2`): rule audit QML phát hiện schema `step` chưa là metadata rõ ràng. Subtask tách contract này khỏi suy đoán trong QML; hoàn thành cùng `BOT-095E`, còn `BOT-095E1` vẫn là boundary market-data độc lập.
+>
+> Lần tăng thứ mười hai (+1, `BOT-098A`): tách marker viewport virtualization và FPS overlay dev-only thành mốc đo độc lập của `BOT-098`. 1.112 marker full history chỉ còn 31 scene item active trong viewport; parent vẫn mở cho range pipeline/crosshair.
 
 ---
 
@@ -84,6 +86,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **BOT-098A**: [Marker viewport virtualization & FPS overlay dev-only](completed/BOT-098A_marker_viewport_and_dev_fps.md) — Thuộc `BOT-098`. Marker layer giữ đủ full business history nhưng chỉ materialize visible slice có padding, tái sử dụng `TextItem` khi pan và không rebuild khi slice không đổi. Backtest graph có FPS overlay đo paint event thật, chỉ bật qua `dev.mode` / `scripts/run-ui.ps1 -Dev`. Benchmark 6.420 candles + volume + 5 indicators + 1.112 marker còn 31 marker active, marker overhead khoảng 10,4% median trong cùng lượt đo; Full CI 936 primary + 25 sanity xanh. Parent `BOT-098` vẫn mở vì profile không marker chưa đạt 60 FPS.*
 - [x] **BOT-095H**: [Quyền sở hữu Action Backtest & Chặn Callback Lỗi thời](completed/BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md) — Thuộc Epic `BOT-095`. `BacktestActionContext` cấp generation `action_id`, config snapshot deep-copy và terminal outcome cho một action active. Backtest/sync terminal signals, chart data và strategy lines đều carry action id; slot stale/lặp không còn được đổi ViewModel, FSM hoặc chart. `SYNC_SUCCEEDED` chỉ tiếp tục snapshot đã tạo sync, không suy đoán intent từ toolbar hiện tại. `_invalidate_active_action()` là seam idempotent để `BOT-095C` fence callback trước khi worker cancellation hoàn tất. 7 regression tests cho stale success/failure, duplicate terminal, invalidation, sync stale và nested params.*
 - [x] **BOT-095C**: [Hủy Backtest & Tiến độ/ETA](completed/BOT-095C_backtest_cancellation_and_stop_button.md) — Thuộc Epic `BOT-095`. Presenter sở hữu `CancellationToken`, Application nhận cancellation check độc lập Engine và trả `BacktestCancelled` tường minh thay vì kết quả dở dang. Hủy được kiểm tra trên in-sample/out-of-sample/full pass; progress được coalesce qua Qt signal có `action_id`; UI có progress/ETA và nút Hủy. Callback success/failure/chart đến muộn sau cancel bị fence, FSM khôi phục `IDLE`/`CONFIG_DIRTY`/`COMPLETED` theo pre-run state. Regression cover cancel out-of-sample, stale success, progress, QML click/banner; Full CI 891 primary + 24 sanity xanh.*
 - [x] **BOT-095B**: [Backtest FSM Dirty Tracking — Stale Data Warning & Diff Summary](completed/BOT-095B_backtest_fsm_dirty_tracking.md) — Thuộc Epic `BOT-095`. Implement vòng đời FSM + Dirty Tracking cho màn Backtest: `backtest_fsm_matrix.py` (single-scope) định nghĩa `BacktestUiState`, `BacktestUiEvent`, `BACKTEST_STATE_TRANSITIONS`, `DISABLED_UI_MODES`, `BacktestRunConfig` với `compute_diff_summary()` và `to_summary_label()`. `BackTestViewModel` override `set_ui_mode()` để emit `isConfigDirtyChanged` đúng, thêm `isConfigDirty`, `configDiffSummary`, `lastRunSummary`. `BackTestPresenter` bind `UI_TRANSITION_MATRIX = BACKTEST_STATE_TRANSITIONS`, track `_last_run_config`, `_on_config_input_changed()` detect delta, dispatch `RUN_REQUESTED`/`BACKTEST_SUCCEEDED`/`BACKTEST_EMPTY`/`BACKTEST_FAILED`/`SYNC_REQUESTED`/`SYNC_SUCCEEDED`/`SYNC_FAILED`. QML: `BackTestTopPanel.qml` thêm Amber Warning Banner (`backtestStaleWarningBanner`) với diff summary + nút \"Chạy lại ngay\"; Run button chuyển màu amber + text \"CẬP NHẬT LẠI\" khi `isConfigDirty`. `BackTestTradeLogs.qml` dim opacity 0.6 + export button hiện \"(Cũ)\" khi dirty. 10 test FSM lifecycle mới + 77 presenter tests xanh. 406 sanity+screen tests pass sequential. `ruff` sạch.*
@@ -151,7 +154,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-*(Trống — vừa hoàn thành BOT-095E & BOT-095E2)*
+*(Trống — vừa hoàn thành BOT-098A)*
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
@@ -175,7 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P?** | **[BOT-038](backlog/BOT-038_intermittent_segfault_full_ui_integration_suite.md)** | **Segfault ngẫu nhiên khi chạy toàn bộ `tests/integration/presentation/ui/`** | 🔴 **`L (Thinking)`** | — | Crash native (Qt/PySide6) intermittent, không deterministic theo test hay theo outcome — cùng nghi vấn lớp bug object-lifetime đã gặp ở `BOT-034` §5. Đã điều tra 1 vòng (bisect, gdb không debuginfod), dừng theo yêu cầu user — xem §4 "Hướng điều tra tiếp theo" trong file. **Không tự ý tiếp tục điều tra nếu chưa được yêu cầu lại.** |
 | **P1** | **BOT-091** | **Backtest hybrid render/runtime guard — lỗi `QQuickRenderControl beginFrame/endFrame` sau khi chạy backtest** | 🔴 **`L (Thinking)`** | `BOT-087` ✅, `BOT-088` ✅ | Bug runtime thật trên màn Backtest: sau `RunStaticBacktestCommand` hoàn tất và UI tiếp tục `GetHistoricalKlinesQuery`, Qt nổ `QQuickRenderControl: Attempted to beginFrame() while the QRhi is already recording a frame` / `QQuickWidget: Failed to begin recording a frame`. Đây **không** phải lỗi parse QML, DI, presenter logic hay layout (`BOT-089`/`BOT-090`); nghi vấn nằm ở hybrid composition với nhiều `QQuickWidget` hoạt động đồng thời (`top_widget`, `bottom_widget`, `top_overlay_host.quick_widget`, `overlay_host.quick_widget`) cộng chart native redraw burst. Gap test hiện tại: sanity chỉ dựng màn + check `quick_widget.errors()`, unit/layout tests chỉ kiểm tra logic/geometry; **không có** test nào chạy backtest thật + fetch klines thật + quan sát vòng đời frame/render runtime. **Cập nhật 15/08:** đã có runtime probe chạy app thật ở dev-mode với dữ liệu `BTCUSDT` khung `1m` seed local để ép đi qua success path `RunStaticBacktestCommand` -> `GetHistoricalKlinesQuery`; probe mở thêm các toolbar popup/menu chính và đổi chart mode qua lại. Các lượt probe đó **chưa tái hiện lại** dòng `QQuickRenderControl`, nên bug vẫn được giữ ở backlog điều tra: chưa có reproduction tối thiểu ổn định từ phía AI và cũng chưa có bằng chứng runtime mới để kết luận đã hết. Rule của task này: **pytest/sanity pass không bao giờ đủ**; chỉ được coi xong khi chính kịch bản dev-mode thật được chạy lại và log sạch không còn `QQuickRenderControl` hay lỗi khung hình liên quan. |
 | **P1** | **[BOT-096](backlog/BOT-096_truthful_backtest_exit_markers.md)** | **Backtest — Marker/Icon thoát LONG trung thực** | 🟡 **`M (Standard)`** | `BOT-056` ✅, `BOT-057` ✅ | Tách rõ marker thực thi `EXIT LONG` khỏi `SHORT ENTRY`: không dùng nhãn/icon Sell chung cho hai ý nghĩa, không thay đổi engine long-only, và thêm acceptance test kiểm chứng chart/table phản ánh đúng sự thật. `BOT-050` vẫn là task duy nhất mở short-selling. |
-| **P1** | **[BOT-098](backlog/BOT-098_backtest_chart_pan_zoom_performance.md)** | **Backtest Chart — Pan/Zoom mượt theo frame budget** | ⚡ **`L (Bolt / Thinking)`** | Liên quan `BOT-091`, `BOT-096` | Benchmark tái lập, viewport-cull/batch marker, bỏ `setData`/`setOpts` thừa, coalesce range events và tối ưu crosshair. Mục tiêu 60 FPS trên máy tham chiếu với 6.000+ nến và 1.000+ marker; không bật OpenGL mù quáng hoặc đổi business output. |
+| **P1** | **[BOT-098](backlog/BOT-098_backtest_chart_pan_zoom_performance.md)** | **Backtest Chart — Pan/Zoom mượt theo frame budget** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098A` ✅; liên quan `BOT-091`, `BOT-096` | Marker viewport + FPS dev overlay đã xong; tiếp theo bỏ `setData`/`setOpts` thừa, coalesce range events và tối ưu crosshair. Mục tiêu 60 FPS trên máy tham chiếu với 6.000+ nến và 1.000+ marker; không bật OpenGL mù quáng hoặc đổi business output. |
 | **P2** | **[BOT-097](backlog/BOT-097_backtest_display_timezone_selector.md)** | **Backtest — Chọn múi giờ hiển thị** | 🟢 **`S (Fast)`** | `BOT-095D` ✅ | Selector `UTC`/giờ hệ thống cho chart, trade log, coverage và thông báo. Đây là presentation-only: không đổi timestamp UTC, DB/API, range, kết quả, PnL, FSM hay tự chạy lại Backtest. |
 
 #### 🛡️ Nhóm Engine Hardening — Chi tiết (`BOT-066`…`BOT-071`)

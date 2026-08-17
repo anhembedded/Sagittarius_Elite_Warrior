@@ -97,6 +97,7 @@ class IndicatorManager:
         self._visible_range = (min_x, max_x)
         for name in self._curves:
             self._apply_window(name)
+        self._marker_layer.refresh_window(min_x, max_x)
 
     def _apply_window(self, name: str) -> None:
         full = self._full_data.get(name)

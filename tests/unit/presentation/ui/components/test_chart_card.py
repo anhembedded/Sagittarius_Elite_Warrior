@@ -882,6 +882,70 @@ def test_two_scripts_markers_do_not_interfere_with_each_other(qapp):
     assert len(card.indicators._marker_layer._items["dev_showcase"]) == 1
 
 
+def test_script_markers_only_materialize_the_visible_viewport_slice(qapp):
+    """Business history remains complete while scene-item cost follows the viewport."""
+    card = ChartCard("BTCUSDT")
+    card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    markers = [
+        (float(index), 100.0, f"M{index}", "#0ECB81", "up") for index in range(1000)
+    ]
+
+    card.set_script_markers("signals", markers)
+
+    layer = card.indicators._marker_layer
+    assert layer.stored_marker_count("signals") == 1000
+    assert 100 < layer.active_marker_count("signals") < 200
+    assert all(90.0 <= item.pos().x() <= 210.0 for item in layer._items["signals"])
+
+
+def test_panning_recycles_marker_items_and_restores_markers_when_returning(qapp):
+    card = ChartCard("BTCUSDT")
+    markers = [
+        (float(index), 100.0, f"M{index}", "#F6465D", "down") for index in range(1000)
+    ]
+    card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.set_script_markers("signals", markers)
+    layer = card.indicators._marker_layer
+    first_positions = {item.pos().x() for item in layer._items["signals"]}
+
+    card.plot_layout.main_plot.setXRange(700.0, 800.0, padding=0)
+    second_positions = {item.pos().x() for item in layer._items["signals"]}
+    assert first_positions.isdisjoint(second_positions)
+
+    card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    restored_positions = {item.pos().x() for item in layer._items["signals"]}
+    assert restored_positions == first_positions
+
+
+def test_marker_refresh_does_not_rebuild_items_when_visible_slice_is_unchanged(qapp):
+    card = ChartCard("BTCUSDT")
+    card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.set_script_markers(
+        "signals",
+        [(float(index), 100.0, f"M{index}", "#0ECB81", "up") for index in range(1000)],
+    )
+    layer = card.indicators._marker_layer
+    item_ids_before = [id(item) for item in layer._items["signals"]]
+
+    layer.refresh_window(100.0, 200.0)
+
+    assert [id(item) for item in layer._items["signals"]] == item_ids_before
+
+
+def test_chart_fps_overlay_is_hidden_until_dev_mode_is_enabled(qapp):
+    card = ChartCard("BTCUSDT")
+
+    assert card.fps_overlay.is_enabled is False
+    assert card.fps_overlay.label.isHidden() is True
+
+    card.set_dev_mode(True)
+
+    assert card.fps_overlay.is_enabled is True
+    assert card.fps_overlay.label.isHidden() is False
+    assert card.fps_overlay.label.objectName() == "chartFpsOverlay"
+    assert card.fps_overlay.label.text().startswith("FPS ")
+
+
 # ---------------------------------------------------------------------------
 # BOT-035 — load more history on scroll (prepend, not replace)
 # ---------------------------------------------------------------------------

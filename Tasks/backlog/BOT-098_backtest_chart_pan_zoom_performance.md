@@ -39,6 +39,11 @@ layer hiện giữ entry/exit của toàn bộ lịch sử dưới dạng item r
 
 ## 4. Hướng triển khai ưu tiên
 
+**Tiến độ 2026-08-17:** `BOT-098A` đã hoàn thành viewport virtualization cho
+marker và FPS overlay dev-only. Benchmark còn 23–28 updates/s khi chưa có marker,
+vì vậy parent này vẫn mở; bước kế tiếp là cache/coalesce range pipeline trước
+crosshair/OpenGL.
+
 ### 4.1. Marker layer
 
 - Không tạo/giữ một `pg.TextItem` cho mọi marker trong full history.
@@ -103,4 +108,3 @@ layer hiện giữ entry/exit của toàn bộ lịch sử dưới dạng item r
 Chart Backtest giữ tương tác mượt với dataset thực tế và trade flags bật; số
 đo trước/sau được lưu, business output không đổi, và regression suite kiểm
 tra cả final visual state lẫn khả năng quay lại viewport đã cull.
-
