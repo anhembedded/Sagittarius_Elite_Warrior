@@ -8,6 +8,7 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
+    BacktestCancelled,
     RunStaticBacktestCommand,
     RunStaticBacktestCommandHandler,
 )
@@ -263,3 +264,61 @@ def test_in_sample_and_out_of_sample_are_simulated_independently_of_the_full_ran
     # index restarts at 0, so neither of the scripted signals (indices 2/5)
     # ever fires.
     assert result.out_of_sample.out_of_sample.trades == []
+
+
+# =========================================================================
+# BOT-095C: cooperative cancellation and progress are business outcomes
+# =========================================================================
+
+
+def test_cancellation_during_out_of_sample_returns_explicit_outcome_without_event():
+    """Regression for a dangerous false-positive: partial validation must
+    never be labelled a completed backtest or emitted as one."""
+    handler, event_bus = _build_handler(_build_klines())
+    checks = 0
+
+    def cancellation_requested() -> bool:
+        nonlocal checks
+        checks += 1
+        # The 8-bar range splits to 6 in-sample / 2 out-of-sample. Cancel
+        # at the first out-of-sample candle, after the in-sample pass ends.
+        return checks >= 7
+
+    result = handler.execute(
+        RunStaticBacktestCommand(
+            symbol="BTCUSDT",
+            interval=TimeFrame.ONE_HOUR,
+            strategy_key="scripted",
+            cancellation_requested=cancellation_requested,
+        )
+    )
+
+    assert isinstance(result, BacktestCancelled)
+    assert result.phase == "out_of_sample"
+    assert result.processed_bars == 6
+    assert not any(
+        isinstance(call.args[0], BacktestCompletedEvent)
+        for call in event_bus.emit.call_args_list
+    )
+
+
+def test_progress_is_coalesced_and_reaches_full_range_completion():
+    handler, _ = _build_handler(_build_klines())
+    updates: list[tuple[str, int, int, float]] = []
+    result = handler.execute(
+        RunStaticBacktestCommand(
+            symbol="BTCUSDT",
+            interval=TimeFrame.ONE_HOUR,
+            strategy_key="scripted",
+            progress_callback=lambda phase, done, total, elapsed: updates.append(
+                (phase, done, total, elapsed)
+            ),
+        )
+    )
+
+    assert isinstance(result, BacktestResult)
+    assert updates[-1][0] == "full"
+    assert updates[-1][1:][0:2] == (16, 16)
+    # A callback per candle would flood the Qt event queue on long histories;
+    # this 16-unit fixture emits only phase-start/phase-end updates.
+    assert len(updates) == 6

@@ -158,6 +158,26 @@ def test_top_panel_height_is_unchanged_when_the_warning_line_appears(
     assert v.top_widget.height() == height_before
 
 
+def test_progress_banner_is_visible_and_resized_while_backtest_runs(
+    view, qtbot, qml_item
+):
+    v, vm = view
+    root = v.top_widget.rootObject()
+    banner = qml_item(root, "backtestProgressBanner")
+    assert banner is not None
+    assert banner.property("visible") is False
+
+    vm.set_backtest_progress(42.0, "Chạy toàn bộ dữ liệu: 42% · ETA ~8s")
+    vm.set_ui_mode("RUNNING")
+    qtbot.waitUntil(
+        lambda: (
+            banner.property("visible") is True
+            and v.top_widget.height() == int(root.property("implicitHeight"))
+        ),
+        timeout=2000,
+    )
+
+
 def test_trade_log_pane_never_shrinks_below_its_usable_minimum(view, qtbot):
     """The splitter must never be able to squeeze the Trade Logs pane below
     `minimumUsableHeight` (BackTestTradeLogs.qml) — BUG-004's screenshot is

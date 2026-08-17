@@ -1,6 +1,7 @@
 import logging
 from dataclasses import replace
 from datetime import datetime
+from time import perf_counter
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
@@ -35,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
+from .backtest_cancelled import BacktestCancelled
 from .command import RunStaticBacktestCommand
 
 logger = logging.getLogger("App.RunStaticBacktest")
@@ -42,7 +44,7 @@ _TRACE_PREFIX = "BACKTEST_TRACE"
 
 
 class RunStaticBacktestCommandHandler(
-    ICommandHandler[RunStaticBacktestCommand, BacktestResult | None]
+    ICommandHandler[RunStaticBacktestCommand, BacktestResult | BacktestCancelled | None]
 ):
     """
     @brief Runs a strategy over the full historical range in one fast pass
@@ -70,7 +72,9 @@ class RunStaticBacktestCommandHandler(
         suffix = " ".join(f"{key}={value!r}" for key, value in fields.items())
         logger.info(f"{_TRACE_PREFIX} action={action} {suffix}".rstrip())
 
-    def execute(self, command: RunStaticBacktestCommand) -> BacktestResult | None:
+    def execute(
+        self, command: RunStaticBacktestCommand
+    ) -> BacktestResult | BacktestCancelled | None:
         self._log_trace(
             "handler_execute_start",
             symbol=command.symbol,
@@ -99,11 +103,62 @@ class RunStaticBacktestCommandHandler(
             return None
 
         self._log_trace("handler_simulation_start")
-        out_of_sample = self._validate_out_of_sample(klines, command)
-        result = replace(
-            self._simulate(klines, command),
-            out_of_sample=out_of_sample,
+        in_sample_klines, out_of_sample_klines = split_klines_for_out_of_sample(
+            klines, DEFAULT_IN_SAMPLE_RATIO
         )
+        has_out_of_sample = bool(in_sample_klines and out_of_sample_klines)
+        total_bars = len(klines) * (2 if has_out_of_sample else 1)
+        started_at = perf_counter()
+        completed_bars = 0
+        out_of_sample: OutOfSampleValidation | None = None
+
+        if has_out_of_sample:
+            self._log_trace(
+                "handler_out_of_sample_split",
+                in_sample=len(in_sample_klines),
+                out_of_sample=len(out_of_sample_klines),
+            )
+            in_sample = self._simulate(
+                in_sample_klines,
+                command,
+                phase="in_sample",
+                completed_before=completed_bars,
+                total_bars=total_bars,
+                started_at=started_at,
+            )
+            if isinstance(in_sample, BacktestCancelled):
+                return in_sample
+            completed_bars += len(in_sample_klines)
+            out_sample = self._simulate(
+                out_of_sample_klines,
+                command,
+                phase="out_of_sample",
+                completed_before=completed_bars,
+                total_bars=total_bars,
+                started_at=started_at,
+            )
+            if isinstance(out_sample, BacktestCancelled):
+                return out_sample
+            completed_bars += len(out_of_sample_klines)
+            out_of_sample = OutOfSampleValidation(
+                in_sample=in_sample,
+                out_of_sample=out_sample,
+                in_sample_ratio=DEFAULT_IN_SAMPLE_RATIO,
+            )
+        else:
+            self._log_trace("handler_out_of_sample_skipped", total=len(klines))
+
+        result = self._simulate(
+            klines,
+            command,
+            phase="full",
+            completed_before=completed_bars,
+            total_bars=total_bars,
+            started_at=started_at,
+        )
+        if isinstance(result, BacktestCancelled):
+            return result
+        result = replace(result, out_of_sample=out_of_sample)
         self._log_trace(
             "handler_complete",
             trades=len(result.trades),
@@ -119,8 +174,15 @@ class RunStaticBacktestCommandHandler(
         return result
 
     def _simulate(
-        self, klines: list[MarketData], command: RunStaticBacktestCommand
-    ) -> BacktestResult:
+        self,
+        klines: list[MarketData],
+        command: RunStaticBacktestCommand,
+        *,
+        phase: str,
+        completed_before: int,
+        total_bars: int,
+        started_at: float,
+    ) -> BacktestResult | BacktestCancelled:
         """Runs `command`'s strategy over exactly the given klines with a
         fresh `PaperExchange`/engine — the full-range run and each
         in-sample/out-of-sample split (BOT-080) all go through this same
@@ -139,7 +201,19 @@ class RunStaticBacktestCommandHandler(
 
         equity_curve: list[tuple[datetime, float]] = []
         pending_signal: Signal | None = None
-        for candle in klines:
+        for index, candle in enumerate(klines, start=1):
+            if command.cancellation_requested and command.cancellation_requested():
+                self._log_trace(
+                    "handler_cancelled",
+                    phase=phase,
+                    processed=completed_before + index - 1,
+                    total=total_bars,
+                )
+                return BacktestCancelled(
+                    phase=phase,
+                    processed_bars=completed_before + index - 1,
+                    total_bars=total_bars,
+                )
             if pending_signal is not None:
                 exchange.fill(pending_signal, candle.open_price, candle.open_time)
                 pending_signal = None
@@ -151,6 +225,15 @@ class RunStaticBacktestCommandHandler(
             equity_curve.append(
                 (candle.close_time, exchange.equity(candle.close_price))
             )
+            if command.progress_callback and (
+                index == 1 or index % 16 == 0 or index == len(klines)
+            ):
+                command.progress_callback(
+                    phase,
+                    completed_before + index,
+                    total_bars,
+                    perf_counter() - started_at,
+                )
 
         last_candle = klines[-1]
         exchange.force_close(last_candle.close_price, last_candle.close_time)
@@ -161,28 +244,4 @@ class RunStaticBacktestCommandHandler(
             final_balance=exchange.balance,
             trades=exchange.trades,
             equity_curve=equity_curve,
-        )
-
-    def _validate_out_of_sample(
-        self, klines: list[MarketData], command: RunStaticBacktestCommand
-    ) -> OutOfSampleValidation | None:
-        """BOT-080 — mandatory on every run (user's decision, no opt-out
-        toggle). Returns None only when the range is too short to split
-        meaningfully (either side would be empty) rather than crashing or
-        showing 0-trade metrics that would read as "no edge at all"."""
-        in_sample_klines, out_of_sample_klines = split_klines_for_out_of_sample(
-            klines, DEFAULT_IN_SAMPLE_RATIO
-        )
-        if not in_sample_klines or not out_of_sample_klines:
-            self._log_trace("handler_out_of_sample_skipped", total=len(klines))
-            return None
-        self._log_trace(
-            "handler_out_of_sample_split",
-            in_sample=len(in_sample_klines),
-            out_of_sample=len(out_of_sample_klines),
-        )
-        return OutOfSampleValidation(
-            in_sample=self._simulate(in_sample_klines, command),
-            out_of_sample=self._simulate(out_of_sample_klines, command),
-            in_sample_ratio=DEFAULT_IN_SAMPLE_RATIO,
         )

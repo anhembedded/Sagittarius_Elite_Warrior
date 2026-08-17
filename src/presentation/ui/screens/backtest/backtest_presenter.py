@@ -14,7 +14,8 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
+    BacktestCancelled,
     RunStaticBacktestCommand,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
@@ -58,6 +59,7 @@ from sagittarius_engine.extensions.health.health_module import HealthUpdatedEven
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_view_model import BackTestViewModel
 from .logic.backtest_event_logger import BacktestEventLogger
@@ -124,6 +126,7 @@ _INVALID_CUSTOM_START_MESSAGE = (
 _INVALID_CUSTOM_RANGE_MESSAGE = "Ngày bắt đầu phải trước ngày kết thúc."
 _NO_STRATEGY_MESSAGE = "Chưa có chiến lược nào được đăng ký."
 _RUNNING_MESSAGE = "Đang chạy backtest..."
+_CANCELLING_MESSAGE = "Đang hủy backtest..."
 _SYNCING_MESSAGE = "Đang đồng bộ dữ liệu..."
 _ZERO_TRADES_MESSAGE = (
     "Backtest chạy xong nhưng không có giao dịch nào trong khoảng thời gian đã chọn."
@@ -174,6 +177,8 @@ class BackTestPresenter(BasePresenter):
     _backtestSucceededSignal = Signal(int, object)  # action_id, BacktestResult
     _backtestEmptySignal = Signal(int, str, object)  # action_id, message, config
     _backtestFailedSignal = Signal(int, str)  # action_id, error message
+    _backtestCancelledSignal = Signal(int, object)  # action_id, BacktestCancelled
+    _backtestProgressSignal = Signal(int, str, int, int, float)
     _chartDataReadySignal = Signal(
         int, object, list, list
     )  # action_id, result, klines, volume
@@ -218,6 +223,8 @@ class BackTestPresenter(BasePresenter):
         self._next_action_id = 0
         self._active_action: BacktestActionContext | None = None
         self._active_action_outcome: BacktestActionOutcome | None = None
+        self._backtest_cancellation_token: CancellationToken | None = None
+        self._cancelling_action_id: int | None = None
 
         # BOT-057: the single source of truth the Trade Logs table's
         # filter/search/pagination all read from — the ViewModel only ever
@@ -330,6 +337,7 @@ class BackTestPresenter(BasePresenter):
 
     def _connect_ui_signals(self) -> None:
         self._view_model.runBacktestRequested.connect(self._on_run_backtest)
+        self._view_model.cancelBacktestRequested.connect(self._on_cancel_backtest)
         self._view_model.syncRequested.connect(self._on_request_sync)
         self._view_model.selectedStrategyKeyChanged.connect(
             self._on_strategy_selection_changed
@@ -349,6 +357,8 @@ class BackTestPresenter(BasePresenter):
         self._backtestSucceededSignal.connect(self._on_backtest_succeeded_for_action)
         self._backtestEmptySignal.connect(self._on_backtest_empty_for_action)
         self._backtestFailedSignal.connect(self._on_backtest_failed_for_action)
+        self._backtestCancelledSignal.connect(self._on_backtest_cancelled_for_action)
+        self._backtestProgressSignal.connect(self._on_backtest_progress_for_action)
         self._chartDataReadySignal.connect(self._on_chart_data_ready_for_action)
         self._chartStrategyLineSignal.connect(self._on_chart_strategy_line_for_action)
         self._chartScriptLineSignal.connect(self._on_chart_script_line)
@@ -720,6 +730,9 @@ class BackTestPresenter(BasePresenter):
             script_keys=self._chart_script_keys,
         )
 
+        self._backtest_cancellation_token = CancellationToken()
+        self._cancelling_action_id = None
+        self._view_model.reset_backtest_progress()
         action = self._begin_action(
             BacktestActionKind.BACKTEST,
             config,
@@ -727,13 +740,81 @@ class BackTestPresenter(BasePresenter):
         )
         self._view_model.set_result(_RUNNING_MESSAGE, is_error=False)
         self._log_dev_trace("run_worker_submitted")
-        self._thread_manager.submit(self._run_backtest, action.config, action.action_id)
+        self._thread_manager.submit(
+            self._run_backtest,
+            action.config,
+            action.action_id,
+            self._backtest_cancellation_token,
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_cancel_backtest(self) -> None:
+        action_id = self._current_action_id(BacktestActionKind.BACKTEST)
+        if (
+            action_id is None
+            or not self._is_current_pending_action(
+                action_id, BacktestActionKind.BACKTEST
+            )
+            or not self.fsm.can_dispatch(BacktestUiEvent.CANCEL_REQUESTED)
+        ):
+            self._log_dev_trace("cancel_ignored", state=self.fsm.current_state)
+            return
+
+        self._cancelling_action_id = action_id
+        self._invalidate_active_action()
+        self.fsm.dispatch(BacktestUiEvent.CANCEL_REQUESTED)
+        if self._backtest_cancellation_token is not None:
+            self._backtest_cancellation_token.cancel()
+        self._view_model.set_result(_CANCELLING_MESSAGE, is_error=False)
+        self._emit_ui_log("Đang gửi yêu cầu hủy Backtest...", "info")
+        self._log_dev_trace("cancel_requested", action_id=action_id)
+
+    def _is_cancelling_action(self, action_id: int) -> bool:
+        return (
+            self._is_current_action(action_id, BacktestActionKind.BACKTEST)
+            and self._active_action_outcome is BacktestActionOutcome.INVALIDATED
+            and self._cancelling_action_id == action_id
+            and self.fsm.current_state is BacktestUiState.CANCELLING
+        )
+
+    def _cancel_restore_event(self, previous_state: BacktestUiState) -> BacktestUiEvent:
+        if previous_state is BacktestUiState.CONFIG_DIRTY:
+            return BacktestUiEvent.BACKTEST_CANCELLED_TO_CONFIG_DIRTY
+        if previous_state is BacktestUiState.COMPLETED:
+            return BacktestUiEvent.BACKTEST_CANCELLED_TO_COMPLETED
+        return BacktestUiEvent.BACKTEST_CANCELLED
+
+    def _complete_cancelled_action(self, action_id: int) -> None:
+        if not self._is_cancelling_action(action_id) or self._active_action is None:
+            self._ignore_stale_action_callback(
+                "backtest_cancelled", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        previous_state = self._active_action.previous_state
+        self._finish_action(action_id, BacktestActionOutcome.CANCELLED)
+        self._cancelling_action_id = None
+        self._backtest_cancellation_token = None
+        self._view_model.reset_backtest_progress()
+        self._view_model.set_result(
+            "Đã hủy Backtest. Kết quả trước đó được giữ nguyên.", is_error=False
+        )
+        self._emit_ui_log("Đã hủy Backtest. Kết quả trước đó được giữ nguyên.", "info")
+        event = self._cancel_restore_event(previous_state)
+        if self.fsm.can_dispatch(event):
+            self.fsm.dispatch(event)
+        self._log_dev_trace(
+            "cancel_completed", action_id=action_id, restore_state=previous_state.value
+        )
 
     @Slot(int, object)
     @safe_ui_action
     def _on_backtest_succeeded_for_action(
         self, action_id: int, result: BacktestResult
     ) -> None:
+        if self._is_cancelling_action(action_id):
+            self._complete_cancelled_action(action_id)
+            return
         if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             self._ignore_stale_action_callback(
                 "backtest_succeeded", action_id, BacktestActionKind.BACKTEST
@@ -747,6 +828,9 @@ class BackTestPresenter(BasePresenter):
     def _on_backtest_empty_for_action(
         self, action_id: int, message: str, config: BacktestRunConfig
     ) -> None:
+        if self._is_cancelling_action(action_id):
+            self._complete_cancelled_action(action_id)
+            return
         if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             self._ignore_stale_action_callback(
                 "backtest_empty", action_id, BacktestActionKind.BACKTEST
@@ -758,6 +842,9 @@ class BackTestPresenter(BasePresenter):
     @Slot(int, str)
     @safe_ui_action
     def _on_backtest_failed_for_action(self, action_id: int, message: str) -> None:
+        if self._is_cancelling_action(action_id):
+            self._complete_cancelled_action(action_id)
+            return
         if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             self._ignore_stale_action_callback(
                 "backtest_failed", action_id, BacktestActionKind.BACKTEST
@@ -766,12 +853,64 @@ class BackTestPresenter(BasePresenter):
         self._on_backtest_failed(message)
         self._finish_action(action_id, BacktestActionOutcome.FAILED)
 
+    @Slot(int, object)
+    @safe_ui_action
+    def _on_backtest_cancelled_for_action(
+        self, action_id: int, outcome: BacktestCancelled
+    ) -> None:
+        if not self._is_cancelling_action(action_id):
+            self._ignore_stale_action_callback(
+                "backtest_cancelled", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        self._log_dev_trace(
+            "worker_cancelled",
+            action_id=action_id,
+            phase=outcome.phase,
+            processed=outcome.processed_bars,
+            total=outcome.total_bars,
+        )
+        self._complete_cancelled_action(action_id)
+
+    @Slot(int, str, int, int, float)
+    @safe_ui_action
+    def _on_backtest_progress_for_action(
+        self,
+        action_id: int,
+        phase: str,
+        completed_bars: int,
+        total_bars: int,
+        elapsed_seconds: float,
+    ) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            return
+        if total_bars <= 0:
+            return
+        percent = min(100.0, max(0.0, completed_bars / total_bars * 100.0))
+        eta_seconds = (
+            max(
+                0,
+                round(elapsed_seconds * (total_bars - completed_bars) / completed_bars),
+            )
+            if completed_bars > 0
+            else None
+        )
+        phase_label = {
+            "in_sample": "Kiểm tra in-sample",
+            "out_of_sample": "Kiểm tra out-of-sample",
+            "full": "Chạy toàn bộ dữ liệu",
+        }.get(phase, "Đang chạy")
+        eta_label = f" · ETA ~{eta_seconds}s" if eta_seconds is not None else ""
+        self._view_model.set_backtest_progress(
+            percent, f"{phase_label}: {percent:.0f}%{eta_label}"
+        )
+
     @Slot(int, object, list, list)
     @safe_ui_action
     def _on_chart_data_ready_for_action(
         self, action_id: int, result: BacktestResult, klines: list, volume: list
     ) -> None:
-        if not self._is_current_action(action_id, BacktestActionKind.BACKTEST):
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             self._ignore_stale_action_callback(
                 "chart_data_ready", action_id, BacktestActionKind.BACKTEST
             )
@@ -783,7 +922,7 @@ class BackTestPresenter(BasePresenter):
     def _on_chart_strategy_line_for_action(
         self, action_id: int, name: str, color: str, x_data: list, y_data: list
     ) -> None:
-        if not self._is_current_action(action_id, BacktestActionKind.BACKTEST):
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             self._ignore_stale_action_callback(
                 "chart_strategy_line", action_id, BacktestActionKind.BACKTEST
             )
@@ -1299,7 +1438,10 @@ class BackTestPresenter(BasePresenter):
     # ================================================================== #
 
     def _run_backtest(
-        self, config: BacktestRunConfig, action_id: int | None = None
+        self,
+        config: BacktestRunConfig,
+        action_id: int | None = None,
+        cancellation_token: CancellationToken | None = None,
     ) -> None:
         resolved_action_id = action_id or self._current_action_id(
             BacktestActionKind.BACKTEST
@@ -1321,6 +1463,14 @@ class BackTestPresenter(BasePresenter):
                 start_time=config.start_time,
                 end_time=config.end_time,
                 strategy_params=config.strategy_params,
+                cancellation_requested=(
+                    cancellation_token.is_cancelled if cancellation_token else None
+                ),
+                progress_callback=lambda phase, completed, total, elapsed: (
+                    self._backtestProgressSignal.emit(
+                        resolved_action_id, phase, completed, total, elapsed
+                    )
+                ),
             )
             self._log_dev_trace(
                 "worker_dispatch_run_static_backtest",
@@ -1334,6 +1484,10 @@ class BackTestPresenter(BasePresenter):
             self._backtestFailedSignal.emit(resolved_action_id, str(exc))
             return
 
+        if isinstance(result, BacktestCancelled):
+            self._backtestCancelledSignal.emit(resolved_action_id, result)
+            return
+
         if result is None:
             self._log_dev_trace("worker_no_data")
             self._backtestEmptySignal.emit(
@@ -1341,6 +1495,13 @@ class BackTestPresenter(BasePresenter):
                 f"Không có dữ liệu lịch sử cho {self._symbol} "
                 f"({config.timeframe.value}). Hãy sync dữ liệu trước.",
                 config,
+            )
+            return
+
+        if cancellation_token is not None and cancellation_token.is_cancelled():
+            self._backtestCancelledSignal.emit(
+                resolved_action_id,
+                BacktestCancelled("post_dispatch", 0, 0),
             )
             return
 

@@ -70,6 +70,7 @@ class BackTestViewModel(BaseQmlViewModel):
     customStartTextChanged = Signal()
     customEndTextChanged = Signal()
     resultChanged = Signal()
+    backtestProgressChanged = Signal()
     statCardsChanged = Signal()
     #: BOT-079 follow-up — separate from `statCardsChanged` on purpose: the
     #: warning is a full sentence, not something that fits a `MetricCard`
@@ -96,6 +97,7 @@ class BackTestViewModel(BaseQmlViewModel):
     #: current field values off this view model rather than receiving them
     #: as arguments, so adding a field never changes this signal's signature.
     runBacktestRequested = Signal()
+    cancelBacktestRequested = Signal()
 
     #: Emitted when the user clicks "Đồng bộ ngay" (BOT-059), only ever
     #: visible in QML while `needsDataSync` is true.
@@ -152,6 +154,8 @@ class BackTestViewModel(BaseQmlViewModel):
         self._custom_end_text = ""
         self._result_text = ""
         self._result_is_error = False
+        self._backtest_progress_percent = 0.0
+        self._backtest_progress_text = ""
         self._primary_stat_cards: list[dict[str, str]] = []
         self._extended_stat_cards: list[dict[str, str]] = []
         self._result_warning_text = ""
@@ -411,6 +415,30 @@ class BackTestViewModel(BaseQmlViewModel):
         self._result_is_error = is_error
         self.resultChanged.emit()
 
+    def _get_backtest_progress_percent(self) -> float:
+        return self._backtest_progress_percent
+
+    backtestProgressPercent = Property(
+        float, _get_backtest_progress_percent, notify=backtestProgressChanged
+    )
+
+    def _get_backtest_progress_text(self) -> str:
+        return self._backtest_progress_text
+
+    backtestProgressText = Property(
+        str, _get_backtest_progress_text, notify=backtestProgressChanged
+    )
+
+    @Slot(float, str)
+    def set_backtest_progress(self, percent: float, text: str) -> None:
+        self._backtest_progress_percent = percent
+        self._backtest_progress_text = text
+        self.backtestProgressChanged.emit()
+
+    @Slot()
+    def reset_backtest_progress(self) -> None:
+        self.set_backtest_progress(0.0, "")
+
     # ------------------------------------------------------------------ #
     # Performance stat cards (BOT-055)
     # ------------------------------------------------------------------ #
@@ -613,6 +641,11 @@ class BackTestViewModel(BaseQmlViewModel):
     def requestRun(self) -> None:
         """Called from QML's "Chạy Backtest" button."""
         self.runBacktestRequested.emit()
+
+    @Slot()
+    def requestCancelBacktest(self) -> None:
+        """Called from QML's run button while a calculation is active."""
+        self.cancelBacktestRequested.emit()
 
     @Slot()
     def requestSync(self) -> None:

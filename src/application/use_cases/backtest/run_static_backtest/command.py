@@ -1,9 +1,13 @@
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
+CancellationCheck = Callable[[], bool]
+ProgressCallback = Callable[[str, int, int, float], None]
 
 
 class RunStaticBacktestCommand(BaseModel):
@@ -42,4 +46,14 @@ class RunStaticBacktestCommand(BaseModel):
     limit: int | None = Field(
         default=None,
         description="Optional cap on number of candles fetched; None fetches the full range",
+    )
+    cancellation_requested: CancellationCheck | None = Field(
+        default=None,
+        exclude=True,
+        description="Optional cooperative cancellation check owned by the caller.",
+    )
+    progress_callback: ProgressCallback | None = Field(
+        default=None,
+        exclude=True,
+        description="Optional callback: phase, completed bars, total bars, elapsed seconds.",
     )

@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
+    BacktestCancelled,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
     RunStaticBacktestCommand,
 )
@@ -2082,6 +2085,83 @@ def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qml_item
 # ================================================================== #
 # BOT-095H: Action ownership & stale callback fencing
 # ================================================================== #
+
+
+def test_cancel_request_fences_callbacks_and_restores_idle(presenter, view_model):
+    view_model.requestRun()
+    action = presenter._active_action
+    token = presenter._backtest_cancellation_token
+    assert action is not None
+    assert token is not None
+
+    view_model.requestCancelBacktest()
+
+    assert token.is_cancelled()
+    assert presenter.fsm.current_state is BacktestUiState.CANCELLING
+    assert presenter._active_action_outcome is BacktestActionOutcome.INVALIDATED
+
+    presenter._on_backtest_cancelled_for_action(
+        action.action_id, BacktestCancelled("full", 12, 100)
+    )
+
+    assert presenter.fsm.current_state is BacktestUiState.IDLE
+    assert presenter._active_action_outcome is BacktestActionOutcome.CANCELLED
+    assert "Đã hủy Backtest" in view_model.resultText
+
+
+def test_cancel_restores_config_dirty_and_late_success_cannot_render(
+    presenter, view_model
+):
+    view_model.requestRun()
+    first_action = presenter._active_action
+    assert first_action is not None
+    presenter._on_backtest_succeeded_for_action(
+        first_action.action_id, _make_result(with_trades=True)
+    )
+    view_model.selectedTimeframe = "5m"
+    assert presenter.fsm.current_state is BacktestUiState.CONFIG_DIRTY
+
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+    view_model.requestCancelBacktest()
+
+    # A success queued just before cancellation is a stale callback. It may
+    # complete the cancellation transition, but it must not render new data.
+    presenter._on_backtest_succeeded_for_action(
+        action.action_id, _make_result(with_trades=False)
+    )
+
+    assert presenter.fsm.current_state is BacktestUiState.CONFIG_DIRTY
+    assert presenter._active_action_outcome is BacktestActionOutcome.CANCELLED
+    assert len(presenter._all_trades) == 1
+
+
+def test_progress_updates_are_ignored_after_cancel(presenter, view_model):
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+    presenter._on_backtest_progress_for_action(action.action_id, "full", 50, 100, 2.0)
+    assert view_model.backtestProgressPercent == 50.0
+
+    view_model.requestCancelBacktest()
+    presenter._on_backtest_progress_for_action(action.action_id, "full", 90, 100, 3.0)
+
+    assert view_model.backtestProgressPercent == 50.0
+
+
+def test_qml_run_button_requests_cancel_while_backtest_is_running(
+    presenter, view_model, qml_item, qapp
+):
+    view_model.requestRun()
+    root = presenter.view.top_widget.rootObject()
+    run_button = qml_item(root, "btnRunBacktest")
+    assert run_button is not None
+
+    run_button.clicked.emit()
+    qapp.processEvents()
+
+    assert presenter.fsm.current_state is BacktestUiState.CANCELLING
 
 
 def test_superseded_backtest_success_cannot_overwrite_the_new_action(

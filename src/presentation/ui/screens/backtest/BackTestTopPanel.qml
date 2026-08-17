@@ -326,20 +326,27 @@ Rectangle {
                             objectName: "btnRunBacktest"
                             implicitWidth: 145
                             implicitHeight: 34
-                            enabled: root.hasViewModel && viewModel.controlsEnabled
-                            onClicked: { if (root.hasViewModel) viewModel.requestRun() }
+                            enabled: root.hasViewModel && viewModel.uiMode !== "CANCELLING" && (viewModel.controlsEnabled || viewModel.uiMode === "RUNNING")
+                            onClicked: {
+                                if (!root.hasViewModel) return
+                                if (viewModel.uiMode === "RUNNING") viewModel.requestCancelBacktest()
+                                else viewModel.requestRun()
+                            }
                             background: Rectangle {
                                 id: runBtnBg
-                                color: enabled ? ((root.hasViewModel && viewModel.isConfigDirty) ? (runBtnRoot.hovered ? "#fbbf24" : "#f59e0b") : (runBtnRoot.hovered ? "#12e680" : "#10b981")) : "#242736"
+                                color: enabled ? ((root.hasViewModel && viewModel.uiMode === "RUNNING") ? (runBtnRoot.hovered ? "#fb7185" : "#ef4444") : ((root.hasViewModel && viewModel.isConfigDirty) ? (runBtnRoot.hovered ? "#fbbf24" : "#f59e0b") : (runBtnRoot.hovered ? "#12e680" : "#10b981"))) : "#242736"
                                 radius: 6
                                 Behavior on color { ColorAnimation { duration: 150 } }
                             }
                             contentItem: RowLayout {
                                 spacing: 8
                                 anchors.centerIn: parent
-                                Image { source: (root.hasViewModel && viewModel.isConfigDirty) ? "image://icons/rotate-ccw/black" : "image://icons/play/black"; sourceSize: Qt.size(13, 13) }
+                                Image {
+                                    source: (root.hasViewModel && viewModel.uiMode === "RUNNING") ? "image://icons/x/black" : ((root.hasViewModel && viewModel.isConfigDirty) ? "image://icons/rotate-ccw/black" : "image://icons/play/black")
+                                    sourceSize: Qt.size(13, 13)
+                                }
                                 Text {
-                                    text: (root.hasViewModel && viewModel.isConfigDirty) ? "CẬP NHẬT LẠI" : "CHẠY BACKTEST"
+                                    text: (root.hasViewModel && viewModel.uiMode === "CANCELLING") ? "ĐANG HỦY..." : ((root.hasViewModel && viewModel.uiMode === "RUNNING") ? "HỦY BACKTEST" : ((root.hasViewModel && viewModel.isConfigDirty) ? "CẬP NHẬT LẠI" : "CHẠY BACKTEST"))
                                     color: "#08090d"
                                     font.pixelSize: 11
                                     font.bold: true
@@ -347,6 +354,40 @@ Rectangle {
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            Rectangle {
+                id: progressBanner
+                objectName: "backtestProgressBanner"
+                Layout.fillWidth: true
+                implicitHeight: visible ? 32 : 0
+                visible: root.hasViewModel && (viewModel.uiMode === "RUNNING" || viewModel.uiMode === "CANCELLING")
+                color: "#12141d"
+                border.color: "#2a2d3d"
+                border.width: 1
+                radius: 6
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 10
+
+                    Text {
+                        text: root.hasViewModel && viewModel.uiMode === "CANCELLING" ? "Đang hủy an toàn..." : viewModel.backtestProgressText
+                        color: Theme && Theme.textSecondary ? Theme.textSecondary : "#94a3b8"
+                        font.pixelSize: 10
+                        Layout.preferredWidth: 245
+                        elide: Text.ElideRight
+                    }
+
+                    ProgressBar {
+                        Layout.fillWidth: true
+                        from: 0
+                        to: 100
+                        value: root.hasViewModel ? viewModel.backtestProgressPercent : 0
                     }
                 }
             }

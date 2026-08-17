@@ -4,6 +4,8 @@
 > Phụ thuộc: `BOT-095B` ✅ và [`BOT-095H`](BOT-095H_backtest_action_ownership_and_stale_callback_fencing.md).
 > **Trọng tâm**: Tích hợp cơ chế hủy an toàn (`CancellationToken`) cùng thanh tiến độ tính toán nến thời gian thực (% và thời gian ước tính còn lại ETA) vào chuỗi xử lý Static Backtest, kết hợp nút Hủy (Danger Red) trên giao diện người dùng.
 
+> **Hoàn thành 2026-08-17**: `BacktestCancelled` là outcome Application riêng, không phải `BacktestResult` dở dang. Presenter sở hữu `CancellationToken` của Engine và truyền `cancellation_requested: Callable[[], bool]` vào command để Application không phụ thuộc Engine. Cancellation được kiểm tra trên in-sample, out-of-sample và full pass; progress phát theo phase boundary/cadence 16 bars qua Qt signal có `action_id`. Full CI: 891 primary + 24 sanity passed, coverage 94.14%.
+
 ---
 
 ## 1. Vấn đề Hiện tại
@@ -20,9 +22,12 @@
 Trong `src/application/use_cases/backtest/run_static_backtest/command.py` và `handler.py`:
 1. `RunStaticBacktestCommand` bổ sung:
    ```python
-   cancellation_token: CancellationToken | None = None
-   progress_callback: Callable[[int, int, float], None] | None = None  # (processed_bars, total_bars, percent)
+   cancellation_requested: Callable[[], bool] | None = None
+   progress_callback: Callable[[str, int, int, float], None] | None = None
+   # phase, processed_bars, total_bars, elapsed_seconds
    ```
+   `CancellationToken` vẫn được tạo và sở hữu tại Presenter; command chỉ
+   nhận protocol tối thiểu cần thiết để giữ Application độc lập với Engine.
 2. Trong vòng lặp nến của `RunStaticBacktestCommandHandler.execute()`:
    - Kiểm tra token theo cadence được benchmark (không mặc định 1,000 nến) trên **mọi** pass: full range, in-sample và out-of-sample.
      - Nếu bị hủy $\rightarrow$ dừng hợp tác, giải phóng tài nguyên và trả về một cancellation outcome tường minh. Không tự thêm `cancelled=True` vào `BacktestResult` nếu domain object chưa có contract đó.
@@ -77,7 +82,8 @@ Trong `src/application/use_cases/backtest/run_static_backtest/command.py` và `h
 3. **Zero Resource Leak**:
    - Không bị rò rỉ SQLite connection handles (`ResourceWarning`).
 4. **Local CI Verification**:
-   - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+   - Chạy `.\scripts\ci-local.ps1 -Full` đạt Passed (lint, format, primary
+     tests và sanity); `-UnitOnly` chỉ dùng để chẩn đoán nhanh.
 
 5. **Race verification**:
    - Test `success-after-cancel`, `failure-after-cancel` và cancel trong out-of-sample pass. Ngưỡng latency phải được benchmark trên fixture có số nến công bố thay vì SLA tuyệt đối.
