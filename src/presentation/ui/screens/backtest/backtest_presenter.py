@@ -83,13 +83,22 @@ from .logic.backtest_fsm_matrix import (
     BacktestUiState,
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
-from .logic.bot_params_form import build_bot_params_schema, parse_bot_params
+from .logic.bot_params_form import (
+    build_bot_params_rows,
+    build_bot_params_schema,
+    parse_bot_params,
+)
 from .logic.chart_canvas_view import ChartDisplayMode
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
     build_result_warning_text,
     stat_cards_to_qml,
+)
+from .logic.pre_backtest_assertions import (
+    PreBacktestAssertionPipeline,
+    PreBacktestInput,
+    parse_custom_datetime,
 )
 from .logic.result_formatter import format_result_summary
 from .logic.strategy_indicator_lines import (
@@ -128,12 +137,6 @@ _FALLBACK_SYMBOL = "ETHUSDT"
 
 _CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
 
-_INVALID_CAPITAL_MESSAGE = "Vốn ban đầu không hợp lệ: {value!r}"
-_NON_POSITIVE_CAPITAL_MESSAGE = "Vốn ban đầu phải lớn hơn 0."
-_INVALID_CUSTOM_START_MESSAGE = (
-    f"Ngày bắt đầu không hợp lệ — định dạng {_CUSTOM_TIME_FORMAT}."
-)
-_INVALID_CUSTOM_RANGE_MESSAGE = "Ngày bắt đầu phải trước ngày kết thúc."
 _NO_STRATEGY_MESSAGE = "Chưa có chiến lược nào được đăng ký."
 _RUNNING_MESSAGE = "Đang chạy backtest..."
 _CANCELLING_MESSAGE = "Đang hủy backtest..."
@@ -150,16 +153,26 @@ _EXPORT_FILE_FILTER = "CSV Files (*.csv)"
 #: checked by a compact SQLite aggregate and is not inferred from this window.
 _CHART_KLINES_FETCH_LIMIT = 5000
 
+#: A kline can be closed locally yet still be absent from the exchange's
+#: historical endpoint for a short publication window.  Live-ended backtests
+#: therefore stop one full bar behind ``now``; this is a deterministic data
+#: watermark, not a claim that the chart has no newer in-progress candle.
+_LIVE_BACKTEST_END_DELAY_INTERVALS = 1
+
 
 def _humanize_strategy_key(key: str) -> str:
     return key.replace("_", " ").title()
 
 
 def _parse_custom_datetime(raw: str) -> datetime | None:
-    try:
-        return datetime.strptime(raw.strip(), _CUSTOM_TIME_FORMAT).replace(tzinfo=UTC)
-    except (ValueError, AttributeError):
-        return None
+    """Compatibility seam; parsing belongs to BOT-095E's assertion module."""
+    return parse_custom_datetime(raw)
+
+
+def _published_candle_cutoff(now: datetime, timeframe: TimeFrame) -> datetime:
+    """Return the latest live boundary safe for historical backtesting."""
+    delay_seconds = timeframe.to_seconds() * _LIVE_BACKTEST_END_DELAY_INTERVALS
+    return now - timedelta(seconds=delay_seconds)
 
 
 class BackTestPresenter(BasePresenter):
@@ -360,6 +373,9 @@ class BackTestPresenter(BasePresenter):
         self._view_model.customStartTextChanged.connect(self._on_custom_time_changed)
         self._view_model.customEndTextChanged.connect(self._on_custom_time_changed)
         self._view_model.initialCapitalTextChanged.connect(self._on_capital_changed)
+        self._view_model.capitalValidationRequested.connect(
+            self._on_capital_validation_requested
+        )
         self._view_model.selectedCurrencyChanged.connect(self._on_capital_changed)
         self._view_model.script_model.enabledKeysChanged.connect(
             self._on_indicator_script_selection_changed
@@ -729,7 +745,10 @@ class BackTestPresenter(BasePresenter):
         transition into RUNNING first (IDLE->RUNNING vs SYNCING->RUNNING are
         different edges), this only does the actual submit."""
         if config.end_time is None:
-            config = replace(config, end_time=datetime.now(UTC))
+            config = replace(
+                config,
+                end_time=_published_candle_cutoff(datetime.now(UTC), config.timeframe),
+            )
         self._active_preview_id = 0
         removed_strategy_lines = len(self._active_strategy_lines)
         self._log_dev_trace(
@@ -1317,6 +1336,7 @@ class BackTestPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_capital_changed(self) -> None:
+        self._set_capital_validation_message(self._view_model.initialCapitalText)
         try:
             capital_val = float(self._view_model.initialCapitalText)
             self._logger.log_capital_updated(
@@ -1326,6 +1346,19 @@ class BackTestPresenter(BasePresenter):
         except (ValueError, TypeError):
             pass
         self._on_config_input_changed()
+
+    @Slot(str)
+    @safe_ui_action
+    def _on_capital_validation_requested(self, value: str) -> None:
+        self._set_capital_validation_message(value)
+
+    def _set_capital_validation_message(self, value: str) -> None:
+        issues = PreBacktestAssertionPipeline.default().validate(
+            PreBacktestInput(value, False, "", "")
+        )
+        self._view_model.set_capital_validation_message(
+            issues[0].message if issues else ""
+        )
 
     @Slot()
     @safe_ui_action
@@ -1382,6 +1415,7 @@ class BackTestPresenter(BasePresenter):
             else []
         )
         self._view_model.set_bot_params_schema(schema)
+        self._view_model.set_bot_params_rows(build_bot_params_rows(schema))
 
     @Slot()
     @safe_ui_action
@@ -1551,46 +1585,45 @@ class BackTestPresenter(BasePresenter):
         `SettingsPresenter._on_save`'s validate-before-any-side-effect shape."""
         view_model = self._view_model
 
-        try:
-            initial_balance = float(view_model.initialCapitalText)
-        except ValueError:
+        preset = TimeRangePreset(view_model.timeRangePreset)
+        assertions = PreBacktestAssertionPipeline.default().validate(
+            PreBacktestInput(
+                capital_text=view_model.initialCapitalText,
+                is_custom_range=preset is TimeRangePreset.CUSTOM,
+                custom_start_text=view_model.customStartText,
+                custom_end_text=view_model.customEndText,
+            )
+        )
+        if assertions:
+            issue = assertions[0]
             self._log_dev_trace(
                 "run_config_invalid",
-                reason="invalid_capital",
+                reason=issue.field.value,
                 capital=view_model.initialCapitalText,
             )
-            view_model.set_result(
-                _INVALID_CAPITAL_MESSAGE.format(value=view_model.initialCapitalText),
-                is_error=True,
-            )
+            view_model.set_result(issue.message, is_error=True)
             return None
-        if initial_balance <= 0:
-            self._log_dev_trace("run_config_invalid", reason="non_positive_capital")
-            view_model.set_result(_NON_POSITIVE_CAPITAL_MESSAGE, is_error=True)
-            return None
+
+        initial_balance = float(view_model.initialCapitalText)
 
         if not view_model.selectedStrategyKey:
             self._log_dev_trace("run_config_invalid", reason="missing_strategy")
             view_model.set_result(_NO_STRATEGY_MESSAGE, is_error=True)
             return None
 
-        preset = TimeRangePreset(view_model.timeRangePreset)
         custom_start: datetime | None = None
         custom_end: datetime | None = None
         if preset is TimeRangePreset.CUSTOM:
             custom_start = _parse_custom_datetime(view_model.customStartText)
-            if custom_start is None:
-                self._log_dev_trace("run_config_invalid", reason="invalid_custom_start")
-                view_model.set_result(_INVALID_CUSTOM_START_MESSAGE, is_error=True)
-                return None
             custom_end = _parse_custom_datetime(view_model.customEndText)
-            if custom_end is not None and custom_start >= custom_end:
-                self._log_dev_trace("run_config_invalid", reason="invalid_custom_range")
-                view_model.set_result(_INVALID_CUSTOM_RANGE_MESSAGE, is_error=True)
-                return None
 
+        range_now = datetime.now(UTC)
+        if preset is not TimeRangePreset.CUSTOM:
+            range_now = _published_candle_cutoff(
+                range_now, TimeFrame(view_model.selectedTimeframe)
+            )
         start_time, end_time = resolve_time_range(
-            preset, datetime.now(UTC), custom_start, custom_end
+            preset, range_now, custom_start, custom_end
         )
 
         self._log_dev_trace(
@@ -1761,6 +1794,19 @@ class BackTestPresenter(BasePresenter):
             logger.exception("Market data sync failed")
             self._log_dev_trace("sync_worker_failed", message=str(exc))
             self._syncFailedSignal.emit(resolved_action_id, str(exc))
+            return
+        coverage = self._probe_data_coverage(config)
+        if not coverage.is_fully_covered:
+            message = (
+                "Đồng bộ chưa đủ để chạy Backtest: "
+                f"{self._format_coverage_message(coverage)}"
+            )
+            self._log_dev_trace(
+                "sync_coverage_incomplete",
+                action_id=resolved_action_id,
+                message=message,
+            )
+            self._syncFailedSignal.emit(resolved_action_id, message)
             return
         self._syncSucceededSignal.emit(resolved_action_id)
 

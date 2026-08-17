@@ -530,8 +530,30 @@ def test_all_history_run_freezes_its_end_boundary_before_background_work(
 
     submitted_config = mock_thread_mgr.submit.call_args[0][1]
     assert submitted_config.end_time is not None
-    assert submitted_config.end_time >= before
-    assert submitted_config.end_time <= datetime.now(UTC)
+    assert submitted_config.end_time >= before - timedelta(minutes=1)
+    assert submitted_config.end_time <= datetime.now(UTC) - timedelta(minutes=1)
+
+
+def test_all_history_run_ends_one_interval_before_now_to_use_a_published_candle(
+    presenter, view_model, mock_thread_mgr
+):
+    """Regression: a run started immediately after a 1m close must not require
+    the just-closed candle before Binance has published it to historical data."""
+    frozen_now = datetime(2026, 8, 17, 5, 38, 2, tzinfo=UTC)
+
+    class _FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen_now if tz is None else frozen_now.astimezone(tz)
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter.datetime",
+        _FixedDateTime,
+    ):
+        view_model.requestRun()
+
+    submitted_config = mock_thread_mgr.submit.call_args[0][1]
+    assert submitted_config.end_time == datetime(2026, 8, 17, 5, 37, 2, tzinfo=UTC)
 
 
 def test_dev_trace_logs_when_dev_mode_is_enabled(
@@ -1012,7 +1034,7 @@ def test_run_sync_dispatches_sync_market_data_command_for_the_no_data_config(
 ):
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
-    mock_dispatcher.dispatch.return_value = None  # sync itself has no return value
+    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
 
     presenter._run_sync(config)
 
@@ -1030,7 +1052,7 @@ def test_run_sync_fetches_one_interval_past_the_frozen_probe_boundary(
     action = presenter._begin_action(
         BacktestActionKind.SYNC, config, BacktestUiState.EMPTY_DATA
     )
-    mock_dispatcher.dispatch.return_value = None
+    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
 
     presenter._run_sync(action.config, action.action_id)
 
@@ -1039,17 +1061,39 @@ def test_run_sync_fetches_one_interval_past_the_frozen_probe_boundary(
     assert command.end_time == end_time + timedelta(minutes=1)
 
 
+def test_sync_without_the_required_candle_reports_incomplete_and_keeps_retry_available(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    """Regression: transport success is not data coverage success.
+
+    The old flow logged "Đồng bộ dữ liệu thành công", restarted the backtest,
+    then immediately emitted the same missing-candle error.  The user must get
+    one truthful incomplete-sync result and retain the retry affordance.
+    """
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_thread_mgr.reset_mock()
+    mock_dispatcher.dispatch.return_value = _missing_coverage()
+
+    presenter._run_sync(config)
+
+    assert presenter.fsm.current_state is BacktestUiState.ERROR
+    assert view_model.needsDataSync is True
+    assert presenter._last_no_data_config == config
+    assert "Đồng bộ chưa đủ" in view_model.resultText
+    mock_thread_mgr.submit.assert_not_called()
+
+
 def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
     presenter, view_model, mock_dispatcher, mock_thread_mgr
 ):
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
     mock_thread_mgr.reset_mock()
-    # _run_sync only dispatches SyncMarketDataCommand — the resubmitted
-    # RunStaticBacktestCommand is never actually dispatched in this test
-    # since mock_thread_mgr.submit is a Mock, not a real thread pool.
-    mock_dispatcher.dispatch.side_effect = None
-    mock_dispatcher.dispatch.return_value = None
+    # The worker verifies coverage after SyncMarketDataCommand.  The
+    # resubmitted RunStaticBacktestCommand is never dispatched in this test
+    # because mock_thread_mgr is a Mock, not a real thread pool.
+    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
 
     presenter._run_sync(config)
 
@@ -1074,11 +1118,10 @@ def test_sync_success_resubmits_with_its_original_config_snapshot(
     view_model.requestSync()
     view_model.initialCapitalText = "500"
     mock_thread_mgr.reset_mock()
-    # _run_sync only dispatches SyncMarketDataCommand — the resubmitted
-    # RunStaticBacktestCommand is never actually dispatched in this test
-    # since mock_thread_mgr.submit is a Mock, not a real thread pool.
-    mock_dispatcher.dispatch.side_effect = None
-    mock_dispatcher.dispatch.return_value = None
+    # The worker verifies coverage after SyncMarketDataCommand.  The
+    # resubmitted RunStaticBacktestCommand is never dispatched in this test
+    # because mock_thread_mgr is a Mock, not a real thread pool.
+    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
 
     presenter._run_sync(config)
 

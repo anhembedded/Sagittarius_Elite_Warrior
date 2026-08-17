@@ -51,6 +51,9 @@ class ScriptInput:
     group: str | None = None
     #: Unit shown after the field ("%", "x"). Display only — never parsed.
     suffix: str | None = None
+    #: Increment used by numeric UI steppers. ``None`` delegates to the UI's
+    #: documented kind default (1 for int, 0.1 for float).
+    step: float | None = None
 
 
 class InputDeclarations:
@@ -151,10 +154,17 @@ def build_input(
     options: Sequence[str] | None = None,
     group: str | None = None,
     suffix: str | None = None,
+    step: float | None = None,
 ) -> ScriptInput:
     """Shared constructor for the `input_*()` helpers — keeps the label
     fallback and the options tuple conversion in one place instead of
     repeated in every helper on both base classes."""
+    if step is not None:
+        if kind not in (InputKind.INT, InputKind.FLOAT):
+            raise ValueError("step is only valid for numeric inputs")
+        if step <= 0:
+            raise ValueError("step must be greater than zero")
+
     return ScriptInput(
         name=name,
         label=label if label is not None else name,
@@ -165,4 +175,5 @@ def build_input(
         options=tuple(options) if options is not None else None,
         group=group,
         suffix=suffix,
+        step=step,
     )

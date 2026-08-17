@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_t
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestUiState,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.bot_params_form import (
+    step_numeric_param_value,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
 )
@@ -64,6 +67,7 @@ class BackTestViewModel(BaseQmlViewModel):
     strategyOptionsChanged = Signal()
     selectedStrategyKeyChanged = Signal()
     initialCapitalTextChanged = Signal()
+    capitalValidationMessageChanged = Signal()
     selectedCurrencyChanged = Signal()
     selectedTimeframeChanged = Signal()
     timeRangePresetChanged = Signal()
@@ -99,6 +103,7 @@ class BackTestViewModel(BaseQmlViewModel):
     #: current field values off this view model rather than receiving them
     #: as arguments, so adding a field never changes this signal's signature.
     runBacktestRequested = Signal()
+    capitalValidationRequested = Signal(str)
     cancelBacktestRequested = Signal()
 
     #: Emitted when the user clicks "Đồng bộ ngay" (BOT-059), only ever
@@ -117,6 +122,7 @@ class BackTestViewModel(BaseQmlViewModel):
     #: Fires whenever `botParamsSchema` changes (selected strategy changed,
     #: or a save just refreshed the shown "value"s) — BOT-047.
     botParamsSchemaChanged = Signal()
+    botParamsRowsChanged = Signal()
 
     #: Empty string means "no error". Set by the Presenter after a save
     #: attempt; the modal shows this inline rather than closing.
@@ -149,6 +155,7 @@ class BackTestViewModel(BaseQmlViewModel):
         self._strategy_options: list[dict[str, str]] = []
         self._selected_strategy_key = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
+        self._capital_validation_message = ""
         self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
@@ -175,6 +182,7 @@ class BackTestViewModel(BaseQmlViewModel):
         self._trade_log_search_text = ""
         self._trade_log_current_page = 1
         self._bot_params_schema: list[dict] = []
+        self._bot_params_rows: list[dict[str, object]] = []
         self._bot_params_error = ""
         self._config_diff_summary = ""
         self._last_run_summary = ""
@@ -259,10 +267,36 @@ class BackTestViewModel(BaseQmlViewModel):
         "QVariantList", _get_bot_params_schema, notify=botParamsSchemaChanged
     )
 
+    def _get_bot_params_rows(self) -> list[dict[str, object]]:
+        return self._bot_params_rows
+
+    #: Flat, ready-to-render presentation rows.  Unlike botParamsSchema this
+    #: contains no nested group transformation for QML to perform.
+    botParamsRows = Property(
+        "QVariantList", _get_bot_params_rows, notify=botParamsRowsChanged
+    )
+
     @Slot("QVariantList")
     def set_bot_params_schema(self, schema: list[dict]) -> None:
         self._bot_params_schema = schema
         self.botParamsSchemaChanged.emit()
+
+    @Slot("QVariantList")
+    def set_bot_params_rows(self, rows: list[dict[str, object]]) -> None:
+        self._bot_params_rows = rows
+        self.botParamsRowsChanged.emit()
+
+    @Slot(str, str, int, result=str)
+    def step_bot_param_value(
+        self, field_name: str, raw_value: str, direction: int
+    ) -> str:
+        """Normalise a numeric step against the current schema in Python."""
+        for group in self._bot_params_schema:
+            fields = group.get("fields", [])
+            for field in fields:
+                if field.get("name") == field_name:
+                    return step_numeric_param_value(field, raw_value, direction)
+        return raw_value
 
     def _get_bot_params_error(self) -> str:
         return self._bot_params_error
@@ -293,6 +327,21 @@ class BackTestViewModel(BaseQmlViewModel):
         _set_initial_capital_text,
         notify=initialCapitalTextChanged,
     )
+
+    def _get_capital_validation_message(self) -> str:
+        return self._capital_validation_message
+
+    capitalValidationMessage = Property(
+        str,
+        _get_capital_validation_message,
+        notify=capitalValidationMessageChanged,
+    )
+
+    @Slot(str)
+    def set_capital_validation_message(self, message: str) -> None:
+        if message != self._capital_validation_message:
+            self._capital_validation_message = message
+            self.capitalValidationMessageChanged.emit()
 
     def _get_selected_currency(self) -> str:
         return self._selected_currency
@@ -681,6 +730,11 @@ class BackTestViewModel(BaseQmlViewModel):
     def requestRun(self) -> None:
         """Called from QML's "Chạy Backtest" button."""
         self.runBacktestRequested.emit()
+
+    @Slot(str)
+    def requestCapitalValidation(self, value: str) -> None:
+        """Ask the Presenter to validate a pending Capital dialog value."""
+        self.capitalValidationRequested.emit(value)
 
     @Slot()
     def requestCancelBacktest(self) -> None:

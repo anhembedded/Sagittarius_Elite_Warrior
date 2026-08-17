@@ -14,6 +14,8 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -110,3 +112,45 @@ def test_opening_bot_params_dialog_keeps_strategy_schema_live(
     assert bot_params_presenter._view_model.botParamsSchema != []
     assert bot_params_presenter.view.top_widget.errors() == []
     assert bot_params_presenter.view.overlay_host.quick_widget.errors() == []
+
+
+def test_bot_params_dialog_materializes_schema_rows_for_the_open_modal(
+    qapp, qml_item, bot_params_presenter
+):
+    assert bot_params_presenter._view_model.botParamsSchema
+    top_root = bot_params_presenter.view.top_widget.rootObject()
+    qml_item(top_root, "btnBacktestBotParams").clicked.emit()
+    qapp.processEvents()
+
+    overlay_root = bot_params_presenter.view.overlay_host.content_item
+    dialog = overlay_root.findChild(object, "botParamsDialog")
+    assert dialog is not None
+    assert dialog.property("visible") is True
+    assert dialog.property("hasViewModel") is True
+    assert dialog.property("parameterGroupCount") == 1
+    assert dialog.property("parameterRowCount") == 2
+    assert bot_params_presenter.view.overlay_host.quick_widget.errors() == []
+
+
+def test_up_key_steps_a_visible_numeric_parameter_through_the_view_model(
+    qapp, qml_item, bot_params_presenter
+):
+    """The real QML key event must use Python schema normalization, not JS math."""
+    top_root = bot_params_presenter.view.top_widget.rootObject()
+    qml_item(top_root, "btnBacktestBotParams").clicked.emit()
+    qapp.processEvents()
+    qapp.processEvents()
+
+    overlay_root = bot_params_presenter.view.overlay_host.content_item
+    dialog = overlay_root.findChild(object, "botParamsDialog")
+    assert dialog is not None
+    content_item = dialog.property("contentItem")
+    field = qml_item(content_item, "fldBotParam_period")
+    assert field is not None
+    assert field.property("text") == "20"
+
+    field.forceActiveFocus()
+    QTest.keyClick(bot_params_presenter.view.overlay_host.quick_widget, Qt.Key_Up)
+    qapp.processEvents()
+
+    assert field.property("text") == "21"

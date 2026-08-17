@@ -9,6 +9,8 @@ ModalDialogCard {
     id: root
     property string strategyName: ""
     readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
+    readonly property int parameterGroupCount: root.hasViewModel ? viewModel.botParamsSchema.length : 0
+    readonly property int parameterRowCount: root.hasViewModel ? viewModel.botParamsRows.length : 0
 
     title: "THÔNG SỐ CHIẾN LƯỢC: " + root.strategyName.toUpperCase()
     iconSource: "image://icons/sliders/accent"
@@ -24,6 +26,13 @@ ModalDialogCard {
         function onBotParamsSaved() { root.close() }
     }
 
+    Shortcut {
+        sequence: "Ctrl+Return"
+        context: Qt.WindowShortcut
+        enabled: root.visible && root.hasViewModel
+        onActivated: root.saveAndRerun()
+    }
+
     ScrollView {
         anchors.fill: parent
         anchors.margins: 16
@@ -32,30 +41,34 @@ ModalDialogCard {
 
         ColumnLayout {
             id: contentColumn
+            objectName: "botParamsContent"
             width: root.width - 48
             spacing: 16
 
             Text {
                 Layout.fillWidth: true
-                visible: typeof viewModel !== "undefined" && viewModel.botParamsSchema.length === 0
+                visible: root.parameterGroupCount === 0
                 text: "Chiến lược này không có tham số nào để cấu hình."
                 color: Theme && Theme.muted ? Theme.muted : "#9aa4b2"
                 font.pixelSize: 11
             }
 
             Repeater {
-                model: typeof viewModel === "undefined" ? [] : viewModel.botParamsSchema
+                model: root.hasViewModel ? viewModel.botParamsRows : []
 
                 ColumnLayout {
+                    required property var modelData
+                    readonly property string rowType: modelData.rowType
+                    readonly property string groupLabel: modelData.groupLabel
+                    readonly property var field: modelData.field
+                    objectName: "botParamRow_" + rowType + "_" + (field.name || "")
                     Layout.fillWidth: true
                     spacing: 8
-                    required property var modelData
-                    required property int index
 
-                    // Group Header
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 6
+                        visible: rowType === "header"
 
                         Image {
                             source: "image://icons/sliders/accent"
@@ -63,7 +76,8 @@ ModalDialogCard {
                         }
 
                         Text {
-                            text: parent.parent.modelData.group.toUpperCase()
+                            text: rowType === "header" ? groupLabel.toUpperCase() : ""
+                            textFormat: Text.PlainText
                             color: Theme && Theme.accent ? Theme.accent : "#f0b90b"
                             font.pixelSize: 11
                             font.bold: true
@@ -77,24 +91,10 @@ ModalDialogCard {
                         }
                     }
 
-                    // Field Grid: 2 columns per group
-                    GridLayout {
+                    BotParamField {
                         Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 14
-                        rowSpacing: 10
-
-                        Repeater {
-                            model: parent.parent.modelData.fields
-
-                            BotParamField {
-                                Layout.fillWidth: true
-                                required property var modelData
-                                required property int index
-
-                                fieldData: modelData
-                            }
-                        }
+                        visible: rowType === "field"
+                        fieldData: rowType === "field" ? field : null
                     }
                 }
             }
@@ -103,6 +103,8 @@ ModalDialogCard {
 
     footerData: [
         Button {
+            id: btnResetBotParams
+            objectName: "btnResetBotParams"
             text: "Đặt lại mặc định"
             implicitHeight: 32
             background: Rectangle {
@@ -123,6 +125,7 @@ ModalDialogCard {
         Item { Layout.fillWidth: true },
 
         Button {
+            id: btnBotParamsCancel
             objectName: "btnBotParamsCancel"
             text: "Hủy"
             implicitHeight: 32
@@ -142,6 +145,7 @@ ModalDialogCard {
         },
 
         Button {
+            id: btnBotParamsSave
             objectName: "btnBotParamsSave"
             text: "Lưu & Re-Backtest"
             implicitWidth: 150

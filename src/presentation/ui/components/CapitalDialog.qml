@@ -15,6 +15,7 @@ ModalDialogCard {
 
     function openDialog() {
         capitalInput.text = root.hasViewModel ? viewModel.initialCapitalText : "10000"
+        if (root.hasViewModel) viewModel.requestCapitalValidation(capitalInput.text)
         var idx = root.hasViewModel ? viewModel.currencyOptions.indexOf(viewModel.selectedCurrency) : -1
         if (idx >= 0) currencyCombo.currentIndex = idx
         root.open()
@@ -25,11 +26,15 @@ ModalDialogCard {
         anchors.margins: 16
         spacing: 12
 
-        RowLayout {
+        ColumnLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: 4
 
-            TextField {
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                TextField {
                 id: capitalInput
                 objectName: "txtBacktestCapital"
                 Layout.fillWidth: true
@@ -40,10 +45,11 @@ ModalDialogCard {
                 font.bold: true
                 background: Rectangle {
                     color: "#10121a"
-                    border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
+                    border.color: root.hasViewModel && viewModel.capitalValidationMessage !== "" ? Theme.danger : Theme.border
                     radius: 6
                 }
                 validator: DoubleValidator { bottom: 0 }
+                onTextChanged: if (root.hasViewModel) viewModel.requestCapitalValidation(text)
             }
 
             ComboBox {
@@ -70,6 +76,18 @@ ModalDialogCard {
                     if (idx >= 0) currentIndex = idx
                 }
             }
+            }
+
+            Text {
+                objectName: "txtCapitalValidationMessage"
+                Layout.fillWidth: true
+                visible: root.hasViewModel && viewModel.capitalValidationMessage !== ""
+                text: root.hasViewModel ? viewModel.capitalValidationMessage : ""
+                color: Theme.danger
+                font.pixelSize: 10
+                wrapMode: Text.WordWrap
+                textFormat: Text.PlainText
+            }
         }
     }
 
@@ -77,6 +95,8 @@ ModalDialogCard {
         Item { Layout.fillWidth: true },
 
         Button {
+            id: btnCancelCapital
+            objectName: "btnCancelCapital"
             text: "Hủy"
             implicitWidth: 70
             implicitHeight: 32
@@ -96,7 +116,10 @@ ModalDialogCard {
         },
 
         Button {
+            id: btnApplyCapital
+            objectName: "btnApplyCapital"
             text: "Áp dụng"
+            enabled: !root.hasViewModel || viewModel.capitalValidationMessage === ""
             implicitWidth: 90
             implicitHeight: 32
             background: Rectangle {

@@ -87,10 +87,20 @@ class BaseStrategy(ABC):
         maxval: int | None = None,
         group: str | None = None,
         suffix: str | None = None,
+        step: float | None = None,
     ) -> int:
         return self._inputs.declare(
             build_input(
-                InputKind.INT, name, default, label, minval, maxval, None, group, suffix
+                InputKind.INT,
+                name,
+                default,
+                label,
+                minval,
+                maxval,
+                None,
+                group,
+                suffix,
+                step,
             )
         )
 
@@ -104,6 +114,7 @@ class BaseStrategy(ABC):
         maxval: float | None = None,
         group: str | None = None,
         suffix: str | None = None,
+        step: float | None = None,
     ) -> float:
         return self._inputs.declare(
             build_input(
@@ -116,6 +127,7 @@ class BaseStrategy(ABC):
                 None,
                 group,
                 suffix,
+                step,
             )
         )
 

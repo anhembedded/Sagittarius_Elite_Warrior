@@ -14,8 +14,10 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.bot_params_form import (
+    build_bot_params_rows,
     build_bot_params_schema,
     parse_bot_params,
+    step_numeric_param_value,
 )
 
 
@@ -25,10 +27,22 @@ class _RichParamsStrategy(BaseStrategy):
 
     def setup(self) -> None:
         self.period = self.input_int(
-            "period", 20, label="Period", minval=1, maxval=200, group="Kỹ thuật"
+            "period",
+            20,
+            label="Period",
+            minval=1,
+            maxval=200,
+            group="Kỹ thuật",
+            step=5,
         )
         self.threshold = self.input_float(
-            "threshold", 1.5, label="Ngưỡng", minval=0.0, group="Rủi ro", suffix="%"
+            "threshold",
+            1.5,
+            label="Ngưỡng",
+            minval=0.0,
+            group="Rủi ro",
+            suffix="%",
+            step=0.25,
         )
         self.enabled = self.input_bool("enabled", True, label="Bật", group="Rủi ro")
         self.mode = self.input_string(
@@ -81,7 +95,15 @@ def test_each_row_carries_everything_the_form_needs():
         "maxval": 200,
         "options": [],
         "suffix": "",
+        "step": 5,
     }
+
+
+def test_schema_preserves_an_explicit_float_step():
+    schema = build_bot_params_schema(_RichParamsStrategy)
+    threshold_row = schema[1]["fields"][0]
+
+    assert threshold_row["step"] == 0.25
 
 
 def test_string_field_carries_its_options():
@@ -122,6 +144,51 @@ def test_ema_crossover_strategy_schema_matches_its_real_declared_periods():
     assert fields["fast_period"]["default"] == 12
     assert fields["slow_period"]["default"] == 26
     assert fields["fast_period"]["kind"] == "int"
+
+
+def test_presentation_rows_are_prepared_in_python_not_flattened_by_qml():
+    rows = build_bot_params_rows(build_bot_params_schema(_RichParamsStrategy))
+
+    assert [(row["rowType"], row["groupLabel"]) for row in rows] == [
+        ("header", "Kỹ thuật"),
+        ("field", ""),
+        ("field", ""),
+        ("header", "Rủi ro"),
+        ("field", ""),
+        ("field", ""),
+    ]
+    assert rows[1]["field"]["name"] == "period"
+
+
+@pytest.mark.parametrize(
+    ("field", "current", "direction", "expected"),
+    [
+        ({"kind": "int", "step": 5, "minval": 1, "maxval": 20}, "15", 1, "20"),
+        ({"kind": "int", "step": 5, "minval": 1, "maxval": 20}, "1", -1, "1"),
+        (
+            {"kind": "float", "step": 0.25, "minval": 0.0, "maxval": 2.0},
+            "1.5",
+            1,
+            "1.75",
+        ),
+        (
+            {"kind": "float", "step": None, "minval": None, "maxval": None},
+            "1.2",
+            -1,
+            "1.1",
+        ),
+    ],
+)
+def test_numeric_step_is_normalized_by_python_schema_rule(
+    field, current, direction, expected
+):
+    assert step_numeric_param_value(field, current, direction) == expected
+
+
+def test_numeric_step_leaves_incomplete_or_non_numeric_text_untouched():
+    field = {"kind": "float", "step": 0.1, "minval": None, "maxval": None}
+
+    assert step_numeric_param_value(field, "-", 1) == "-"
 
 
 # --------------------------------------------------------------------------

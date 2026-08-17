@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.scripting import InputKind, ScriptInput
@@ -42,6 +43,86 @@ def build_bot_params_schema(
     return [{"group": name, "fields": fields} for name, fields in groups.items()]
 
 
+def build_bot_params_rows(
+    schema: Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    """Build the immutable, directly-renderable rows for the parameter dialog.
+
+    The ViewModel exposes this presentation shape as-is. QML must render it,
+    not flatten/normalise the strategy schema a second time.
+    """
+    rows: list[dict[str, object]] = []
+    for group in schema:
+        rows.append(
+            {
+                "rowType": "header",
+                "groupLabel": str(group["group"]),
+                "field": {},
+            }
+        )
+        fields = group["fields"]
+        if not isinstance(fields, Sequence):
+            raise TypeError("Parameter group fields must be a sequence")
+        for field in fields:
+            if not isinstance(field, Mapping):
+                raise TypeError("Parameter field must be a mapping")
+            rows.append(
+                {
+                    "rowType": "field",
+                    "groupLabel": "",
+                    "field": dict(field),
+                }
+            )
+    return rows
+
+
+def step_numeric_param_value(
+    field: Mapping[str, object], raw_value: str, direction: int
+) -> str:
+    """Return the schema-valid next numeric value without QML arithmetic.
+
+    Invalid incomplete text intentionally remains untouched so a user can
+    finish typing before the normal validation path reports an error.
+    """
+    kind = field.get("kind")
+    if kind not in {InputKind.INT.value, InputKind.FLOAT.value} or direction not in {
+        -1,
+        1,
+    }:
+        return raw_value
+    try:
+        current = Decimal(raw_value.strip())
+        declared_step = field.get("step")
+        step = Decimal(
+            str(declared_step if declared_step is not None else _default_step(kind))
+        )
+        if not current.is_finite() or not step.is_finite() or step <= 0:
+            return raw_value
+        next_value = current + (Decimal(direction) * step)
+        lower_bound = _decimal_bound(field.get("minval"))
+        upper_bound = _decimal_bound(field.get("maxval"))
+        if lower_bound is not None:
+            next_value = max(lower_bound, next_value)
+        if upper_bound is not None:
+            next_value = min(upper_bound, next_value)
+        if kind == InputKind.INT.value:
+            return str(int(next_value))
+        return format(next_value, "f")
+    except (InvalidOperation, ValueError):
+        return raw_value
+
+
+def _default_step(kind: str) -> int | float:
+    return 1 if kind == InputKind.INT.value else 0.1
+
+
+def _decimal_bound(value: object) -> Decimal | None:
+    if value is None:
+        return None
+    bound = Decimal(str(value))
+    return bound if bound.is_finite() else None
+
+
 def _field_row(spec: ScriptInput, params: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "name": spec.name,
@@ -53,6 +134,7 @@ def _field_row(spec: ScriptInput, params: Mapping[str, Any]) -> dict[str, Any]:
         "maxval": spec.maxval,
         "options": list(spec.options) if spec.options else [],
         "suffix": spec.suffix or "",
+        "step": spec.step,
     }
 
 

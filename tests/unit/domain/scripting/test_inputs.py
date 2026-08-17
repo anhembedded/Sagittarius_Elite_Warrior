@@ -28,10 +28,17 @@ class _ParameterisedScript(BaseIndicatorScript):
             label="EMA Period",
             minval=1,
             maxval=200,
+            step=5,
             group="Chỉ số Kỹ thuật",
         )
         self.threshold = self.input_float(
-            "threshold", 1.5, label="Ngưỡng", minval=0.0, maxval=100.0, suffix="%"
+            "threshold",
+            1.5,
+            label="Ngưỡng",
+            minval=0.0,
+            maxval=100.0,
+            suffix="%",
+            step=0.25,
         )
         self.enabled = self.input_bool("enabled", True, label="Bật")
         self.mode = self.input_string(
@@ -81,8 +88,17 @@ def test_schema_carries_everything_a_form_needs():
         "EMA Period",
         20,
     )
-    assert (period.minval, period.maxval, period.group) == (1, 200, "Chỉ số Kỹ thuật")
-    assert (threshold.kind, threshold.suffix) == (InputKind.FLOAT, "%")
+    assert (period.minval, period.maxval, period.group, period.step) == (
+        1,
+        200,
+        "Chỉ số Kỹ thuật",
+        5,
+    )
+    assert (threshold.kind, threshold.suffix, threshold.step) == (
+        InputKind.FLOAT,
+        "%",
+        0.25,
+    )
     assert (enabled.kind, enabled.default) == (InputKind.BOOL, True)
     assert (mode.kind, mode.options) == (InputKind.STRING, ("fast", "slow"))
 
@@ -103,6 +119,16 @@ def test_declaring_the_same_name_twice_raises():
             self.input_int("period", 20)
 
     with pytest.raises(ValueError, match="declared twice"):
+        _Script()
+
+
+@pytest.mark.parametrize("step", [0, -0.1])
+def test_non_positive_numeric_step_is_rejected(step):
+    class _Script(_NoInputScript):
+        def setup(self) -> None:
+            self.input_float("threshold", 1.0, step=step)
+
+    with pytest.raises(ValueError, match="step must be greater than zero"):
         _Script()
 
 

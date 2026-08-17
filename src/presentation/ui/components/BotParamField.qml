@@ -10,6 +10,7 @@ import QmlShared 1.0
 // Re-Backtest" collects every field's `currentValue` at once.
 Item {
     id: root
+    objectName: "botParamField_" + root.fieldName
 
     property var fieldData
 
@@ -19,11 +20,11 @@ Item {
     readonly property string fieldName: fieldData ? fieldData.name : ""
     property var currentValue: fieldData ? fieldData.value : ""
 
-    //: A stand-in for "no bound" — QML properties can't be `undefined` the
-    //: way Python's `None` can, and int/DoubleValidator both require a real
-    //: number for bottom/top.
+    //: A stand-in for "no bound" — QML validators require a real number
+    //: where Python's schema may use `None`.
     readonly property real _noLowerBound: -999999999
     readonly property real _noUpperBound: 999999999
+    readonly property bool _isNumeric: !!fieldData && (fieldData.kind === "int" || fieldData.kind === "float")
 
     implicitHeight: column.implicitHeight
     implicitWidth: column.implicitWidth
@@ -40,13 +41,23 @@ Item {
         var item = fieldLoader.item
         if (!item) return
         if (fieldData.kind === "bool") {
-            item.checked = fieldData.default
+            item.checked = fieldData.default === true || fieldData.default === "true"
         } else if ("currentIndex" in item && "model" in item) {
             var idx = item.model.indexOf(fieldData.default)
             if (idx >= 0) item.currentIndex = idx
         } else {
             item.text = String(fieldData.default)
         }
+    }
+
+    function adjustNumeric(direction) {
+        if (!_isNumeric || typeof viewModel === "undefined" || viewModel === null) return false
+        var next = viewModel.step_bot_param_value(fieldName, String(currentValue), direction)
+        if (next === String(currentValue)) return false
+        currentValue = next
+        var item = fieldLoader.item
+        if (item) item.text = next
+        return true
     }
 
     ColumnLayout {
@@ -58,6 +69,7 @@ Item {
             text: fieldData
                 ? fieldData.label + (fieldData.suffix !== "" ? " (" + fieldData.suffix + ")" : "")
                 : ""
+            textFormat: Text.PlainText
             color: Theme && Theme.textSecondary ? Theme.textSecondary : "#9aa4b2"
             font.pixelSize: 10
         }
@@ -79,6 +91,7 @@ Item {
     Component {
         id: intFieldComponent
         TextField {
+            id: intInput
             objectName: "fldBotParam_" + root.fieldName
             implicitHeight: 32
             text: String(root.currentValue)
@@ -89,6 +102,17 @@ Item {
                 bottom: fieldData.minval !== null && fieldData.minval !== undefined ? fieldData.minval : root._noLowerBound
                 top: fieldData.maxval !== null && fieldData.maxval !== undefined ? fieldData.maxval : root._noUpperBound
             }
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Up && root.adjustNumeric(1)) event.accepted = true
+                if (event.key === Qt.Key_Down && root.adjustNumeric(-1)) event.accepted = true
+            }
+            WheelHandler {
+                onWheel: function(event) {
+                    if (!parent.activeFocus) return
+                    if (root.adjustNumeric(event.angleDelta.y > 0 ? 1 : -1)) event.accepted = true
+                }
+            }
+            onTextEdited: root.currentValue = text
             onEditingFinished: root.currentValue = text
         }
     }
@@ -96,6 +120,7 @@ Item {
     Component {
         id: floatFieldComponent
         TextField {
+            id: floatInput
             objectName: "fldBotParam_" + root.fieldName
             implicitHeight: 32
             text: String(root.currentValue)
@@ -106,6 +131,17 @@ Item {
                 bottom: fieldData.minval !== null && fieldData.minval !== undefined ? fieldData.minval : root._noLowerBound
                 top: fieldData.maxval !== null && fieldData.maxval !== undefined ? fieldData.maxval : root._noUpperBound
             }
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Up && root.adjustNumeric(1)) event.accepted = true
+                if (event.key === Qt.Key_Down && root.adjustNumeric(-1)) event.accepted = true
+            }
+            WheelHandler {
+                onWheel: function(event) {
+                    if (!parent.activeFocus) return
+                    if (root.adjustNumeric(event.angleDelta.y > 0 ? 1 : -1)) event.accepted = true
+                }
+            }
+            onTextEdited: root.currentValue = text
             onEditingFinished: root.currentValue = text
         }
     }
@@ -113,9 +149,10 @@ Item {
     Component {
         id: boolFieldComponent
         StyledCheck {
+            id: boolInput
             objectName: "fldBotParam_" + root.fieldName
             text: ""
-            checked: root.currentValue === true
+            checked: root.currentValue === true || root.currentValue === "true"
             onToggled: root.currentValue = checked
         }
     }
@@ -151,6 +188,7 @@ Item {
     Component {
         id: textFieldComponent
         TextField {
+            id: textInput
             objectName: "fldBotParam_" + root.fieldName
             implicitHeight: 32
             text: String(root.currentValue)
