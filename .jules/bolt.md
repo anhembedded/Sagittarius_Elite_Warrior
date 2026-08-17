@@ -32,3 +32,11 @@
 ## 2024-11-28 - Concurrent Database Scanning
 **Learning:** Nested loops querying database status sequentially scale extremely poorly as the number of symbols and intervals increases.
 **Action:** Always utilize `concurrent.futures.ThreadPoolExecutor` to concurrently map independent database readout queries (like status/gap checking) instead of sequential iterations.
+
+## 2024-12-06 - Avoid redundant max() checks on equity curve peaks
+**Learning:** In backtest metric loops processing large sets of simulated bars, computing drawdown parameters using `max()` on *every* bar adds significant computational overhead. When the equity hits a new peak, the drawdown is 0 by definition, so evaluating it and comparing it to `max_drawdown` is mathematically redundant.
+**Action:** When calculating drawdowns or metrics in tight loops, pull initial variables (like peaks) outside the loop and use `if/elif` branches to completely bypass mathematical operations on new peaks. Simple `if val > max_val: max_val = val` outperforms calling the native `max(max_val, val)`.
+
+## 2024-12-06 - Avoid setdefault with complex default factories in tight loops
+**Learning:** Using `series.setdefault("line1", ([], []))` in a high-frequency tick simulation (like `ActiveScript.record()`) forces the Python interpreter to instantiate the default tuple and two empty lists *on every single tick*, generating millions of garbage collection objects.
+**Action:** Prefer `if key not in dict: dict[key] = ([], [])` or a `try/except KeyError` block instead of `setdefault` when the default value involves object instantiation. This eliminates memory allocation overhead.
