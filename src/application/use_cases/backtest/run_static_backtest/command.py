@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
-
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 CancellationCheck = Callable[[], bool]

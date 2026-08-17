@@ -1,5 +1,4 @@
 from PySide6.QtCore import Signal
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.base_card import BaseCard
 
 from .candlestick_item import FastCandlestickItem

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, Signal, Slot
-
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
 
