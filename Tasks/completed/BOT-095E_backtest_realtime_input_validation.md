@@ -122,7 +122,26 @@ class PreBacktestAssertionPipeline:
 2. **Stepper & Phím tắt mượt mà**:
    - Dùng phím `Up`/`Down` hoặc lăn chuột trên `BotParamsDialog` thay đổi giá trị mượt mà; `Ctrl + Enter` kích hoạt chạy lại tức thì.
 3. **Local CI Verification**:
-   - Chạy `.\scripts\ci-local.ps1 -UnitOnly` đạt 100% Passed.
+   - Chạy `.\scripts\ci-local.ps1 -Full` đạt 100% Passed, gồm lint, format,
+     primary test, sanity và coverage.
 
 4. **Input safety**:
    - Stepper tôn trọng `min`/`max`/`step` từ param schema, không đổi giá trị khi cuộn chỉ để đọc dialog, và hotkey không bypass validation.
+
+---
+
+## Hoàn thành (2026-08-17)
+
+- `PreBacktestAssertionPipeline` kiểm tra capital hữu hạn/dương và chronology
+  custom range trước dispatch; thông báo lỗi được bind tức thì vào
+  `CapitalDialog`.
+- `ScriptInput.step` là metadata schema cho Strategy và Indicator Script;
+  Python là nguồn sự thật cho normalisation/clamp khi người dùng dùng
+  Up/Down/Wheel, QML không còn tự tính step/bounds.
+- Backtest live dùng watermark một nến đã publish; sau sync phải probe coverage
+  lại trước khi thông báo có thể auto-run. Điều này giữ lại regression cho log
+  "Đồng bộ dữ liệu thành công" nhưng vẫn thiếu nến.
+- QML interaction test mở popup thật, focus field và gửi Qt `↑` để xác nhận
+  hiển thị đổi `20 → 21`; Full CI: 928 primary + 25 sanity, coverage 93.94%.
+- Market metadata/order-rule validation được tách minh bạch sang `BOT-095E1`;
+  simulation không hứa đã pass Binance filter khi thiếu facts.

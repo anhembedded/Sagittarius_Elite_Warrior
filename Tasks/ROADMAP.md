@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 63 | 61.2% |
+| 🟢 **Completed** | 65 | 61.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 40 | 38.8% |
-| 📈 **Tổng số Task** | **103** | **100%** |
+| 🔴 **Backlog** | 40 | 38.1% |
+| 📈 **Tổng số Task** | **105** | **100%** |
 
 > Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
 >
@@ -43,6 +43,10 @@ Sagittarius_Elite_Warrior/Tasks/
 > Lần tăng thứ tám (+1, `BOT-097`): user cần đọc thời gian Backtest theo múi giờ quen thuộc. Task chuẩn hóa timezone selector theo đúng contract: UTC luôn là nguồn thời gian của database/API/engine, còn timezone chỉ là lựa chọn trình bày nhất quán trên chart, trade log, coverage và thông báo.
 >
 > Lần tăng thứ chín (+1, `BOT-098`): benchmark từ phản ánh pan/zoom Backtest bị trễ xác nhận performance defect độc lập với GPU: 1.112 trade marker dạng `TextItem` làm range-update throughput giảm từ khoảng 27–33 xuống 9 lần/giây. Task mới đặt frame budget, benchmark harness và thứ tự tối ưu marker/range/crosshair; giữ riêng với lỗi hybrid frame lifecycle `BOT-091`.
+>
+> Lần tăng thứ mười (+1, `BOT-095E1`): khi bắt đầu `BOT-095E`, audit xác nhận repo chưa có symbol exchange metadata và vốn backtest không phải order notional thật. Subtask tách boundary metadata/cache/order-intent để UI chỉ nói "chưa xác minh" khi thiếu facts, không hard-code Binance filter hoặc chặn simulation sai.
+>
+> Lần tăng thứ mười một (+1, `BOT-095E2`): rule audit QML phát hiện schema `step` chưa là metadata rõ ràng. Subtask tách contract này khỏi suy đoán trong QML; hoàn thành cùng `BOT-095E`, còn `BOT-095E1` vẫn là boundary market-data độc lập.
 
 ---
 
@@ -137,7 +141,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-*(Trống — vừa hoàn thành BOT-087 & BOT-088)*
+*(Trống — vừa hoàn thành BOT-095E & BOT-095E2)*
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
@@ -226,7 +230,9 @@ Sagittarius_Elite_Warrior/Tasks/
 | ✅ **[BOT-095C](completed/BOT-095C_backtest_cancellation_and_stop_button.md)** | **Nút Hủy / Dừng Backtest & Tiến độ Tính toán Realtime (`CancellationToken` & ETA)** | `BOT-095H` ✅ | Nút Cancel, cancellation outcome tường minh, progress/ETA benchmarked; cancellation check đi qua mọi pass mô phỏng. |
 | ✅ **[BOT-095D1](completed/BOT-095D1_backtest_range_coverage_probe.md)** | **Range Coverage Probe theo cadence** | `BOT-095C` ✅ | Fast aggregate SQLite + DTO coverage immutable cho đúng `[start, end)`, phát hiện boundary/gap/duplicate/nến chưa đóng. |
 | ✅ **[BOT-095D](completed/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | `BOT-095C` ✅, `BOT-095H` ✅, `BOT-095D1` ✅ | Preview theo timeframe/range, sync progress, post-sync re-probe và auto-continue có action fencing. |
-| **[BOT-095E](backlog/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | — | Khung Assertion Rule mở rộng (OCP), local validation tức thì và market-rule validation theo metadata của symbol; viền đỏ tại chỗ, hotkeys/stepper trong `BotParamsDialog`. |
+| ✅ **[BOT-095E](completed/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | `BOT-095E1` (market metadata follow-up) | Assertion pipeline local, validation realtime, published-candle watermark, post-sync coverage re-probe, hotkeys/stepper qua Python; Full CI 928 primary + 25 sanity xanh. |
+| ✅ **[BOT-095E2](completed/BOT-095E2_param_schema_step_metadata.md)** | **Step Metadata cho Strategy Parameter Schema** | `BOT-095E` ✅ | Metadata `step` explicit cho Strategy/Indicator, normalisation Python và Qt interaction regression test. |
+| **[BOT-095E1](backlog/BOT-095E1_symbol_market_metadata_validation.md)** | **Symbol market metadata & truthful order-rule validation** | `BOT-001` ✅ | Cache immutable filter theo symbol/market; mapping order intent rõ ràng; missing/stale metadata hiện "chưa xác minh" thay vì hard-code MIN_NOTIONAL hoặc block simulation. |
 | **[BOT-095F](backlog/BOT-095F_backtest_dynamic_indicator_toggle.md)** | **Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest** | `BOT-064` ✅, `BOT-095H` | Bật/tắt script tham chiếu (RSI, MACD, EMA) không chạy lại backtest; artifact bị fence theo `run_id`. |
 | **[BOT-095G](backlog/BOT-095G_backtest_session_run_history_cache.md)** | **Bộ nhớ đệm Lịch sử Lần chạy (Session Run History Cache)** | `BOT-095H` | Snapshot immutable có provenance, bounded-memory cache và restore transactionally; không hứa SLA “0ms”. |
 
