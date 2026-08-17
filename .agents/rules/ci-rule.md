@@ -33,6 +33,8 @@ import or Qt environment.
 
 `-Full` runs:
 
+- CMake configure/build for the `Sagittarius.NativeChart` QML plugin, using a
+  Qt SDK whose version exactly matches the active PySide6 runtime;
 - `ruff check src tests` (read-only lint check);
 - `ruff format --check src tests` (read-only format check);
 - all primary tests under `tests/`, excluding `tests/sanity/` and the known
@@ -42,6 +44,9 @@ import or Qt environment.
 
 Full CI MUST exit `0`. A passing test count while lint, formatting, coverage, or
 Sanity fails is a failed verification, not a successful handoff.
+
+`-SkipNativeBuild` is a Python-only diagnostic escape hatch. Like `-SkipLint`
+and `-SkipTests`, it never qualifies as commit, merge, or release evidence.
 
 ## 2. Diagnostic modes — never enough by themselves
 

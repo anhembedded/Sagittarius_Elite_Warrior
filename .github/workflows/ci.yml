@@ -31,6 +31,7 @@ jobs:
           cache-dependency-path: "requirements.txt"
 
       - name: Install dependencies
+        id: dependencies
         run: |
           python -m pip install --upgrade pip
 
@@ -39,6 +40,31 @@ jobs:
 
           # Install Bot specific dependencies from requirements.txt
           pip install -r requirements.txt
+
+          PYSIDE_VERSION=$(python -c 'import PySide6; print(PySide6.__version__)')
+          echo "PYSIDE_VERSION=$PYSIDE_VERSION" >> "$GITHUB_ENV"
+          echo "pyside-version=$PYSIDE_VERSION" >> "$GITHUB_OUTPUT"
+          pip install aqtinstall
+
+      - name: Cache matching Qt SDK
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/Qt
+          key: qt-linux-gcc64-${{ steps.dependencies.outputs.pyside-version }}
+
+      - name: Install matching Qt SDK
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: >-
+          python -m aqt install-qt linux desktop "$PYSIDE_VERSION" linux_gcc_64
+          --outputdir "$RUNNER_TEMP/Qt"
+
+      - name: Build native chart QML plugin
+        run: |
+          cmake -S native/chart_renderer -B build/native-chart \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/Qt/$PYSIDE_VERSION/gcc_64"
+          cmake --build build/native-chart --config Release --parallel
 
       - name: Ruff — Lint
         run: ruff check src tests

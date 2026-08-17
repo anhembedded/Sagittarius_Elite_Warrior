@@ -39,6 +39,10 @@
 .PARAMETER IncludeFlakyUi
     Also run tests/integration/presentation/ui/, excluded by default (BOT-038).
 
+.PARAMETER SkipNativeBuild
+    Skip the CMake native chart plugin build. Intended only for Python-only
+    diagnostics; it is not valid release or commit evidence.
+
 .EXAMPLE
     .\scripts\ci-local.ps1                  # Full: lint + parallel tests (default)
     .\scripts\ci-local.ps1 -UnitOnly        # Unit (6 workers) + sanity (concurrent)
@@ -55,7 +59,8 @@ param(
     [switch]$UnitOnly,
     [switch]$Full,
     [int]$Workers = 6,   # Default: 6 workers (benchmark sweet spot for this machine)
-    [switch]$IncludeFlakyUi
+    [switch]$IncludeFlakyUi,
+    [switch]$SkipNativeBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -138,6 +143,26 @@ if ($venvActivateWin) {
 }
 
 $failed = @()
+
+# ---------------------------------------------------------------------------
+# Native QML plugin
+# ---------------------------------------------------------------------------
+if (-not $SkipNativeBuild -and -not $SkipTests) {
+    Write-Step "CMake — Native Chart QML Plugin"
+    try {
+        & (Join-Path $scriptDir "build-native-chart.ps1")
+        if ($LASTEXITCODE -ne 0) {
+            $failed += "Native Chart Build"
+            Write-Failure "Native Chart Build"
+        } else {
+            Write-Success "Native Chart Build"
+        }
+    } catch {
+        $failed += "Native Chart Build"
+        Write-Failure "Native Chart Build"
+        Write-Host $_.Exception.Message -ForegroundColor Yellow
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Lint

@@ -50,6 +50,29 @@ Or run the automated setup scripts:
 - **Windows (PowerShell):** `.\scripts\run.ps1` or `.\scripts\run-ui.ps1`
 - **Verification:** `.\scripts\ci-local.ps1 -Full`
 
+### Native chart toolchain (BOT-098F1)
+
+The native QML chart boundary uses CMake, MSVC 2022 Build Tools, and an
+official Qt MSVC 2022 SDK whose version must exactly match `PySide6.__version__`.
+The SDK supplies headers/import libraries for compilation; the running app
+continues to use the Qt DLLs shipped inside the Python virtual environment.
+
+The default SDK location is:
+
+```text
+%LOCALAPPDATA%\SagittariusToolchains\Qt\<PySide6-version>\msvc2022_64
+```
+
+For another location, set `SAGITTARIUS_QT_ROOT`. Build and verify with:
+
+```powershell
+.\scripts\build-native-chart.ps1
+.\scripts\ci-local.ps1 -Full
+```
+
+Never compile against a different Qt minor/patch version and rely on a silent
+fallback. The build script rejects a version mismatch before CMake runs.
+
 ---
 
 ## 3. Mandatory Rules for AI Agents & Automated Tools

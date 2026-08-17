@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
+    configure_native_chart_environment,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
     configure_app_qml,
@@ -63,6 +66,7 @@ def main() -> None:
 
     if "--dev" in sys.argv:
         config_manager.load_dict({ConfigKeys.DEV_MODE.value: True})
+        configure_native_chart_environment(required=True)
         print(
             "Dev mode enabled — button clicks are auto-logged for real "
             "QPushButtons only (e.g. ChartCard's timeframe toolbar); QML "
