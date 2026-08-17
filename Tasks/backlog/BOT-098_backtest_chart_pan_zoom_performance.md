@@ -42,8 +42,9 @@ layer hiện giữ entry/exit của toàn bộ lịch sử dưới dạng item r
 **Tiến độ 2026-08-17:** `BOT-098A` đã hoàn thành viewport virtualization cho
 marker và FPS overlay dev-only. `BOT-098B` cache visible slice/data revision và
 coalesce 140 raw range callbacks còn khoảng 70 renderer applies. Parent này vẫn
-mở vì candles-only còn khoảng 34 ms/update; bước kế tiếp là paint/crosshair probe,
-không phải bật OpenGL theo cảm tính.
+mở. `BOT-098C` tách được synchronous full interaction khoảng 1,8 ms khỏi Qt paint
+khoảng 41 ms; OpenGL A/B giảm full median khoảng 42,9 → 22,9 ms. Bước kế tiếp là
+`BOT-098D` visual/hybrid/fallback validation trước khi bật OpenGL riêng Backtest.
 
 ### 4.1. Marker layer
 

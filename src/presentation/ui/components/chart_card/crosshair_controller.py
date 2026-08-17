@@ -33,6 +33,9 @@ class CrosshairController:
         self._h_lines: list[pg.InfiniteLine] = []
         self._x_labels: list[pg.TextItem] = []
         self._y_labels: list[pg.TextItem] = []
+        self._last_x_label_html: str | None = None
+        self._last_y_label_html: list[str | None] = []
+        self._last_info_text: str | None = None
 
         # High-Performance Throttled Mouse Proxy (60 fps limit)
         self.proxy = pg.SignalProxy(
@@ -52,10 +55,12 @@ class CrosshairController:
         # We use HTML/CSS inside TextItem for background styling.
         # fill is not strictly needed if we style the HTML background, but it sets the item background.
         x_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
+        x_label.setAnchor((0.5, 1.0))
         x_label.hide()
         x_label.setZValue(1000)
 
         y_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
+        y_label.setAnchor((0.0, 0.5))
         y_label.hide()
         y_label.setZValue(1000)
 
@@ -69,6 +74,8 @@ class CrosshairController:
         self._h_lines.append(h_line)
         self._x_labels.append(x_label)
         self._y_labels.append(y_label)
+        self._last_y_label_html.append(None)
+        self._last_x_label_html = None
 
     def unregister_plot(self, plot: pg.PlotItem) -> None:
         """
@@ -87,6 +94,8 @@ class CrosshairController:
         h_line = self._h_lines.pop(idx)
         x_label = self._x_labels.pop(idx)
         y_label = self._y_labels.pop(idx)
+        self._last_y_label_html.pop(idx)
+        self._last_x_label_html = None
 
         plot.removeItem(v_line)
         plot.removeItem(h_line)
@@ -104,14 +113,10 @@ class CrosshairController:
         pos = evt[0]
         hovered = False
 
-        # Hide X labels on all plots first
-        for x_label in self._x_labels:
-            x_label.hide()
-
         for i, plot in enumerate(self._plots):
             if not plot.sceneBoundingRect().contains(pos):
-                self._h_lines[i].hide()
-                self._y_labels[i].hide()
+                self._hide_if_visible(self._h_lines[i])
+                self._hide_if_visible(self._y_labels[i])
                 continue
 
             hovered = True
@@ -123,20 +128,20 @@ class CrosshairController:
 
             # Show & update horizontal line ONLY for the hovered plot
             self._h_lines[i].setPos(y_val)
-            self._h_lines[i].show()
+            self._show_if_hidden(self._h_lines[i])
 
             # Show Y label on the left edge (x_min)
             self._y_labels[i].setPos(x_min, y_val)
-            self._y_labels[i].setHtml(
-                f"<div style='font-size: 11px;'>{y_val:.4f}</div>"
-            )
-            self._y_labels[i].setAnchor((0.0, 0.5))
-            self._y_labels[i].show()
+            y_html = f"<div style='font-size: 11px;'>{y_val:.4f}</div>"
+            if self._last_y_label_html[i] != y_html:
+                self._y_labels[i].setHtml(y_html)
+                self._last_y_label_html[i] = y_html
+            self._show_if_hidden(self._y_labels[i])
 
             # Update ALL vertical lines across all plots to stay in sync
             for v_line in self._v_lines:
                 v_line.setPos(x_val)
-                v_line.show()
+                self._show_if_hidden(v_line)
 
             # Show X label only on the bottom-most plot
             if self._plots:
@@ -146,12 +151,13 @@ class CrosshairController:
                     "%Y-%m-%d %H:%M:%S"
                 )
 
-                self._x_labels[-1].setPos(x_val, bottom_y_min)
-                self._x_labels[-1].setHtml(
-                    f"<div style='font-size: 11px;'>{dt_str}</div>"
-                )
-                self._x_labels[-1].setAnchor((0.5, 1.0))
-                self._x_labels[-1].show()
+                x_label = self._x_labels[-1]
+                x_label.setPos(x_val, bottom_y_min)
+                x_html = f"<div style='font-size: 11px;'>{dt_str}</div>"
+                if self._last_x_label_html != x_html:
+                    x_label.setHtml(x_html)
+                    self._last_x_label_html = x_html
+                self._show_if_hidden(x_label)
 
             candle = None
             if plot is self._primary_plot and self._ohlc_lookup:
@@ -164,12 +170,14 @@ class CrosshairController:
 
         if not hovered:
             for v_line in self._v_lines:
-                v_line.hide()
-            self._label.setText("Hover to see data")
+                self._hide_if_visible(v_line)
+            for x_label in self._x_labels:
+                self._hide_if_visible(x_label)
+            self._set_info_text("Hover to see data")
 
     def _update_label(self, x_val: float, y_val: float) -> None:
         dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
-        self._label.setText(
+        self._set_info_text(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Time:</span> <span style='color: #ffffff'>{dt_str}</span> | "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Value:</span> <span style='color: {theme.BULL_COLOR}'>{y_val:.4f}</span>"
         )
@@ -179,7 +187,7 @@ class CrosshairController:
         change_pct = ((c - o) / o * 100.0) if o else 0.0
         change_color = theme.BULL_COLOR if c >= o else theme.BEAR_COLOR
         dt_str = datetime.fromtimestamp(t, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
-        self._label.setText(
+        self._set_info_text(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>{dt_str}</span> &nbsp; "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>O</span> <span style='color: #ffffff'>{o:.4f}</span> "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>H</span> <span style='color: #ffffff'>{h:.4f}</span> "
@@ -187,6 +195,22 @@ class CrosshairController:
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>C</span> <span style='color: #ffffff'>{c:.4f}</span> "
             f"<span style='color: {change_color}'>({change_pct:+.2f}%)</span>"
         )
+
+    def _set_info_text(self, text: str) -> None:
+        if self._last_info_text == text:
+            return
+        self._label.setText(text)
+        self._last_info_text = text
+
+    @staticmethod
+    def _show_if_hidden(item: pg.GraphicsObject) -> None:
+        if not item.isVisible():
+            item.show()
+
+    @staticmethod
+    def _hide_if_visible(item: pg.GraphicsObject) -> None:
+        if item.isVisible():
+            item.hide()
 
     def dispose(self) -> None:
         if self.proxy:
@@ -197,4 +221,7 @@ class CrosshairController:
         self._h_lines.clear()
         self._x_labels.clear()
         self._y_labels.clear()
+        self._last_y_label_html.clear()
+        self._last_x_label_html = None
+        self._last_info_text = None
         self._primary_plot = None

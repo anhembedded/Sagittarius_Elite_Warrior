@@ -789,6 +789,71 @@ def test_chart_card_crosshair_mouse_hover(qapp):
     # Test passed nếu không có exception nào văng ra
 
 
+def test_crosshair_reuses_html_while_mouse_stays_on_the_same_candle(qapp):
+    card = ChartCard("BTCUSDT")
+    candles = [
+        (1000.0, 100.0, 105.0, 95.0, 102.0),
+        (1060.0, 102.0, 108.0, 101.0, 107.0),
+    ]
+    card.resize(900, 600)
+    card.show()
+    card.render_historical_data(candles)
+    QApplication.processEvents()
+    first = card.plot_layout.main_plot.vb.mapViewToScene(QtCore.QPointF(1000.1, 100.0))
+    second = card.plot_layout.main_plot.vb.mapViewToScene(QtCore.QPointF(1000.2, 101.0))
+
+    with patch.object(
+        card.plot_layout.crosshair_label,
+        "setText",
+        wraps=card.plot_layout.crosshair_label.setText,
+    ) as set_info_text:
+        card.crosshair.handle_mouse_moved((first,))
+        card.crosshair.handle_mouse_moved((second,))
+
+    assert set_info_text.call_count == 1
+
+
+def test_crosshair_burst_ends_at_the_final_mouse_position_and_candle(qapp):
+    card = ChartCard("BTCUSDT")
+    candles = [
+        (1000.0, 100.0, 105.0, 95.0, 102.0),
+        (1060.0, 102.0, 108.0, 101.0, 107.0),
+        (1120.0, 107.0, 110.0, 104.0, 105.0),
+    ]
+    card.resize(900, 600)
+    card.show()
+    card.render_historical_data(candles)
+    QApplication.processEvents()
+
+    for x_value in (1000.0, 1060.0, 1120.0):
+        scene_pos = card.plot_layout.main_plot.vb.mapViewToScene(
+            QtCore.QPointF(x_value, 106.0)
+        )
+        card.crosshair.handle_mouse_moved((scene_pos,))
+
+    assert all(
+        line.value() == pytest.approx(1120.0) for line in card.crosshair._v_lines
+    )
+    assert "1970-01-01 00:18:40" in card.plot_layout.crosshair_label.text
+
+
+def test_crosshair_does_not_reset_static_label_anchors_on_mouse_move(qapp):
+    card = ChartCard("BTCUSDT")
+    card.resize(900, 600)
+    card.show()
+    QApplication.processEvents()
+    scene_pos = card.plot_layout.main_plot.vb.mapViewToScene(QtCore.QPointF(0.5, 0.5))
+
+    with (
+        patch.object(card.crosshair._x_labels[-1], "setAnchor") as set_x_anchor,
+        patch.object(card.crosshair._y_labels[0], "setAnchor") as set_y_anchor,
+    ):
+        card.crosshair.handle_mouse_moved((scene_pos,))
+
+    set_x_anchor.assert_not_called()
+    set_y_anchor.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # BOT-032 — custom indicator script backgrounds & status panel
 # ---------------------------------------------------------------------------

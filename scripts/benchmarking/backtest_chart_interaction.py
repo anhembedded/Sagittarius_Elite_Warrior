@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass
 
 import pyqtgraph as pg
 from PySide6 import __version__ as pyside_version
+from PySide6.QtCore import QPointF
 from PySide6.QtWidgets import QApplication
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
@@ -40,6 +41,10 @@ class ProfileResult:
     profile: str
     median_ms: float
     p95_ms: float
+    median_set_range_ms: float
+    p95_set_range_ms: float
+    median_render_ms: float
+    p95_render_ms: float
     updates_per_second: float
     range_callbacks: int
     coalesced_range_applies: int
@@ -103,6 +108,7 @@ def _run_profile(
     with_volume: bool,
     with_indicators: bool,
     with_markers: bool,
+    with_crosshair: bool,
 ) -> ProfileResult:
     card = ChartCard("BTCUSDT")
     card.resize(1600, 900)
@@ -133,6 +139,8 @@ def _run_profile(
 
     card.plot_layout.main_plot.vb.sigXRangeChanged.connect(count_callback)
     frame_costs: list[float] = []
+    set_range_costs: list[float] = []
+    render_costs: list[float] = []
     initial_range_applies = card.range_updates.applied_count
     initial_volume_applies = card.volume.applied_update_count
     initial_indicator_applies = card.indicators.applied_update_count
@@ -144,10 +152,20 @@ def _run_profile(
         max_x = timestamps[start_index + _VISIBLE_CANDLES]
         started = time.perf_counter()
         card.plot_layout.main_plot.setXRange(min_x, max_x, padding=0)
+        if with_crosshair:
+            scene_pos = card.plot_layout.main_plot.vb.mapViewToScene(
+                QPointF(timestamps[start_index + _VISIBLE_CANDLES // 2], 60_000.0)
+            )
+            card.crosshair.handle_mouse_moved((scene_pos,))
+        set_range_ms = (time.perf_counter() - started) * 1000.0
+        render_started = time.perf_counter()
         app.processEvents()
-        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        render_ms = (time.perf_counter() - render_started) * 1000.0
+        elapsed_ms = set_range_ms + render_ms
         if frame_index >= _WARMUP_FRAMES:
             frame_costs.append(elapsed_ms)
+            set_range_costs.append(set_range_ms)
+            render_costs.append(render_ms)
 
     card.range_updates.flush_pending()
     app.processEvents()
@@ -157,6 +175,10 @@ def _run_profile(
         profile=profile,
         median_ms=round(statistics.median(frame_costs), 3),
         p95_ms=round(_percentile_95(frame_costs), 3),
+        median_set_range_ms=round(statistics.median(set_range_costs), 3),
+        p95_set_range_ms=round(_percentile_95(set_range_costs), 3),
+        median_render_ms=round(statistics.median(render_costs), 3),
+        p95_render_ms=round(_percentile_95(render_costs), 3),
         updates_per_second=round(len(frame_costs) / elapsed_seconds, 2),
         range_callbacks=callback_count,
         coalesced_range_applies=card.range_updates.applied_count
@@ -178,10 +200,17 @@ def main() -> None:
     app = QApplication.instance() or QApplication([])
     candles = _candles()
     profiles = (
-        ("candles", False, False, False),
-        ("candles+volume", True, False, False),
-        ("candles+volume+5-indicators", True, True, False),
-        ("candles+volume+5-indicators+1112-markers", True, True, True),
+        ("candles", False, False, False, False),
+        ("candles+volume", True, False, False, False),
+        ("candles+volume+5-indicators", True, True, False, False),
+        ("candles+volume+5-indicators+1112-markers", True, True, True, False),
+        (
+            "candles+volume+5-indicators+1112-markers+crosshair",
+            True,
+            True,
+            True,
+            True,
+        ),
     )
     results = [
         _run_profile(
@@ -191,8 +220,9 @@ def main() -> None:
             with_volume=with_volume,
             with_indicators=with_indicators,
             with_markers=with_markers,
+            with_crosshair=with_crosshair,
         )
-        for profile, with_volume, with_indicators, with_markers in profiles
+        for profile, with_volume, with_indicators, with_markers, with_crosshair in profiles
     ]
     report = {
         "environment": {
