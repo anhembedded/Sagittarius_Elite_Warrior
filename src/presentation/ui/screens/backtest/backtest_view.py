@@ -4,6 +4,9 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QTimer, QUrl
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+    ChartCard,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseView,
     OverlayHost,
@@ -56,6 +59,7 @@ class BackTestView(BaseView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._view_model = None
+        self._display_timezone = "UTC"
         self.chart_cards: list = []
         self.chart_controls: BacktestChartControls | None = None
         self._chart_mode = ChartDisplayMode.OHLC
@@ -218,11 +222,8 @@ class BackTestView(BaseView):
         self.chart_cards = []
         self.chart_controls = None
         for symbol in symbols:
-            from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-                ChartCard,
-            )
-
             card = ChartCard(symbol)
+            card.set_display_timezone(self._display_timezone)
             self.chart_cards.append(card)
             self.charts_layout.addWidget(card, 1)
 
@@ -231,6 +232,13 @@ class BackTestView(BaseView):
             self.chart_cards[0].add_to_header(self.chart_controls)
 
         return self.chart_cards
+
+    def set_display_timezone(self, tz_name: str) -> None:
+        """Propagates display timezone to all active chart cards."""
+        self._display_timezone = tz_name
+        for card in self.chart_cards:
+            if hasattr(card, "set_display_timezone"):
+                card.set_display_timezone(tz_name)
 
     # ------------------------------------------------------------------ #
     # Chart rendering (BOT-056) — driven by BackTestPresenter

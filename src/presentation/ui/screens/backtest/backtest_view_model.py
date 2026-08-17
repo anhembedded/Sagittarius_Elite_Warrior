@@ -20,6 +20,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
     IndicatorScriptListModel,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+    get_display_timezone_label,
+    get_supported_timezones,
+)
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, from_qml
 from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
     LogListModel,
@@ -70,6 +75,7 @@ class BackTestViewModel(BaseQmlViewModel):
     selectedCurrencyChanged = Signal()
     selectedTimeframeChanged = Signal()
     timeRangePresetChanged = Signal()
+    displayTimezoneChanged = Signal()
     customStartTextChanged = Signal()
     customEndTextChanged = Signal()
     resultChanged = Signal()
@@ -145,6 +151,7 @@ class BackTestViewModel(BaseQmlViewModel):
     openStrategyPickerRequested = Signal()
     openTimeframePickerRequested = Signal()
     openTimeRangePickerRequested = Signal()
+    openTimezonePickerRequested = Signal()
     activeBottomTabChanged = Signal()
 
     def __init__(self, parent=None) -> None:
@@ -158,6 +165,7 @@ class BackTestViewModel(BaseQmlViewModel):
         self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
+        self._display_timezone = DEFAULT_TIMEZONE
         self._custom_start_text = ""
         self._custom_end_text = ""
         self._result_text = ""
@@ -447,6 +455,39 @@ class BackTestViewModel(BaseQmlViewModel):
 
     customEndText = Property(
         str, _get_custom_end_text, _set_custom_end_text, notify=customEndTextChanged
+    )
+
+    # ------------------------------------------------------------------ #
+    # Display Timezone (BOT-097)
+    # ------------------------------------------------------------------ #
+
+    @Property("QVariantList", constant=True)
+    def displayTimezoneOptions(self) -> list[dict[str, str]]:
+        return get_supported_timezones()
+
+    def _get_display_timezone(self) -> str:
+        return self._display_timezone
+
+    @Slot(str)
+    def set_display_timezone(self, value: str) -> None:
+        if value != self._display_timezone:
+            self._display_timezone = value
+            self.displayTimezoneChanged.emit()
+
+    displayTimezone = Property(
+        str,
+        _get_display_timezone,
+        set_display_timezone,
+        notify=displayTimezoneChanged,
+    )
+
+    def _get_display_timezone_label(self) -> str:
+        return get_display_timezone_label(self._display_timezone)
+
+    displayTimezoneLabel = Property(
+        str,
+        _get_display_timezone_label,
+        notify=displayTimezoneChanged,
     )
 
     # ------------------------------------------------------------------ #
@@ -801,6 +842,14 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot()
     def requestOpenTimeRangePicker(self) -> None:
         self.openTimeRangePickerRequested.emit()
+
+    @Slot()
+    def requestOpenTimezonePicker(self) -> None:
+        self.openTimezonePickerRequested.emit()
+
+    @Slot(str)
+    def setDisplayTimezone(self, tz_name: str) -> None:
+        self.set_display_timezone(tz_name)
 
     # ------------------------------------------------------------------ #
     # Log model — exposed to LogPanel.qml, mutated by BacktestEventLogger.

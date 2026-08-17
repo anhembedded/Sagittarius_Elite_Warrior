@@ -190,3 +190,28 @@ def test_trade_log_row_to_qml_renders_no_metadata_items_when_metadata_is_empty()
     qml_row = trade_log_row_to_qml(row)
 
     assert qml_row["metadataItems"] == []
+
+
+def test_trade_log_row_to_qml_formats_timestamps_with_display_timezone():
+    # _T0 is 2026-01-01 06:00 UTC, _T1 is 2026-01-01 18:00 UTC
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)
+
+    # In UTC
+    utc_row = trade_log_row_to_qml(row, tz_name="UTC")
+    assert utc_row["entryTimeText"] == "2026-01-01 06:00"
+    assert utc_row["exitTimeText"] == "2026-01-01 18:00"
+
+    # In Asia/Ho_Chi_Minh (+7h)
+    vn_row = trade_log_row_to_qml(row, tz_name="Asia/Ho_Chi_Minh")
+    assert vn_row["entryTimeText"] == "2026-01-01 13:00"
+    assert vn_row["exitTimeText"] == "2026-01-02 01:00"
+
+
+def test_trade_log_rows_to_qml_formats_all_rows_with_display_timezone():
+    row1 = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)
+    row2 = TradeLogRow(2, _T1, 110.0, _T1, 120.0, 1.0, 10.0, 10.0)
+
+    qml_rows = trade_log_rows_to_qml([row1, row2], tz_name="Asia/Ho_Chi_Minh")
+    assert len(qml_rows) == 2
+    assert qml_rows[0]["entryTimeText"] == "2026-01-01 13:00"
+    assert qml_rows[1]["entryTimeText"] == "2026-01-02 01:00"

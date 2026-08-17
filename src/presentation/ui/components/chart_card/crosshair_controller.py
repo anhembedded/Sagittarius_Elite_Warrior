@@ -1,8 +1,11 @@
 from collections.abc import Callable
-from datetime import UTC, datetime
 
 import pyqtgraph as pg
 from PySide6 import QtCore
+from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+    format_display_timestamp,
+)
 
 from . import theme
 
@@ -27,6 +30,7 @@ class CrosshairController:
     ) -> None:
         self._label = label
         self._ohlc_lookup = ohlc_lookup
+        self._display_timezone: str = DEFAULT_TIMEZONE
         self._primary_plot: pg.PlotItem | None = None
         self._plots: list[pg.PlotItem] = []
         self._v_lines: list[pg.InfiniteLine] = []
@@ -38,6 +42,10 @@ class CrosshairController:
         self.proxy = pg.SignalProxy(
             scene.sigMouseMoved, rateLimit=60, slot=self._on_mouse_moved
         )
+
+    def set_display_timezone(self, tz_name: str) -> None:
+        """Sets the display timezone used for timestamps."""
+        self._display_timezone = tz_name
 
     def register_plot(self, plot: pg.PlotItem, is_primary: bool = False) -> None:
         """Attaches a hidden crosshair line pair to a plot (main or subplot)."""
@@ -142,9 +150,7 @@ class CrosshairController:
             if self._plots:
                 bottom_plot = self._plots[-1]
                 bottom_y_min = bottom_plot.vb.viewRange()[1][0]
-                dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
+                dt_str = format_display_timestamp(x_val, tz_name=self._display_timezone)
 
                 self._x_labels[-1].setPos(x_val, bottom_y_min)
                 self._x_labels[-1].setHtml(
@@ -168,7 +174,7 @@ class CrosshairController:
             self._label.setText("Hover to see data")
 
     def _update_label(self, x_val: float, y_val: float) -> None:
-        dt_str = datetime.fromtimestamp(x_val, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
+        dt_str = format_display_timestamp(x_val, tz_name=self._display_timezone)
         self._label.setText(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Time:</span> <span style='color: #ffffff'>{dt_str}</span> | "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Value:</span> <span style='color: {theme.BULL_COLOR}'>{y_val:.4f}</span>"
@@ -178,7 +184,7 @@ class CrosshairController:
         t, o, h, low, c = candle
         change_pct = ((c - o) / o * 100.0) if o else 0.0
         change_color = theme.BULL_COLOR if c >= o else theme.BEAR_COLOR
-        dt_str = datetime.fromtimestamp(t, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
+        dt_str = format_display_timestamp(t, tz_name=self._display_timezone)
         self._label.setText(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>{dt_str}</span> &nbsp; "
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>O</span> <span style='color: #ffffff'>{o:.4f}</span> "

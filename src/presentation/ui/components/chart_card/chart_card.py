@@ -331,6 +331,11 @@ class ChartCard(BaseCard):
     def clear_script_markers(self, key: str) -> None:
         self.indicators.clear_script_markers(key)
 
+    def set_display_timezone(self, tz_name: str) -> None:
+        """Sets the active display timezone for crosshair, tooltips and date axes."""
+        self.crosshair.set_display_timezone(tz_name)
+        self.plot_layout.set_display_timezone(tz_name)
+
     def _mouse_moved(self, evt) -> None:
         """Back-compat entry point (also used directly by tests); delegates to CrosshairController."""
         self.crosshair.handle_mouse_moved(evt)
