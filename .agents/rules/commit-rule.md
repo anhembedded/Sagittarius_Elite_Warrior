@@ -16,9 +16,9 @@ All AI assistants working on this repository MUST strictly follow these commit r
   - All **Sanity Tests** (`tests/sanity/`) pass: `100% passed`
   - **Zero Failures & Zero Errors**: No tests may fail or raise unhandled exceptions.
   - **Zero First-Party Warnings**: No unclosed SQLite connections (`ResourceWarning`), dangling unawaited coroutines (`RuntimeWarning`), or resource leaks.
-- Quick verification command:
+- Required full verification command:
   ```powershell
-  .\scripts\ci-local.ps1 -UnitOnly
+  .\scripts\ci-local.ps1 -Full
   ```
 
 ---
@@ -91,4 +91,4 @@ Co-Authored-By: Antigravity <noreply@google.com>
 - Before resolving and merging PRs or automated branches (e.g., `jules-*`):
   1. **Value Check**: Verify if the branch's proposed change is still relevant or has already been merged into `master-warrior`. Discard/skip stale, duplicate, or 0-value changes.
   2. **Conflict Resolution**: Carefully resolve conflict markers without re-introducing outdated patterns or duplicate lines.
-  3. **Verification**: Always execute the full test suite (`.\scripts\ci-local.ps1 -UnitOnly`) on the resolved merge state before pushing to remote.
+  3. **Verification**: Always execute the full test suite (`.\scripts\ci-local.ps1 -Full`) on the resolved merge state before pushing to remote.

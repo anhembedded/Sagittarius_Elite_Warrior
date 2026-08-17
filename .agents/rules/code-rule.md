@@ -98,7 +98,7 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 - **Use repo's QML test helpers:** Use `qml_item` / `find_qml_item` fixtures from `tests/conftest.py`, `qtbot.waitUntil(...)`, and `item.mapToItem(root, 0, 0)`.
 - **Do not move click handling off the Button itself** when tests emit `.clicked`.
 - **Local CI/CD Enforcement:**
-  - Always run `.\scripts\ci-local.ps1 -UnitOnly` to validate your code before finishing changes.
+  - Always run `.\scripts\ci-local.ps1 -Full` to validate your code before finishing changes. This includes lint, format, coverage, Unit and Sanity checks; `-UnitOnly` is diagnostic-only and never sufficient for handoff or commit.
   - For lifecycle/concurrency work, add deterministic tests for stale-success, stale-failure, success-after-cancel, and cancellation during every relevant computation phase. Do not rely on timing sleeps to test races.
 
 ---

@@ -48,7 +48,7 @@ pip install git+https://github.com/anhembedded/Sagittarius-Engine.git
 
 Or run the automated setup scripts:
 - **Windows (PowerShell):** `.\scripts\run.ps1` or `.\scripts\run-ui.ps1`
-- **Verification:** `.\scripts\ci-local.ps1 -UnitOnly`
+- **Verification:** `.\scripts\ci-local.ps1 -Full`
 
 ---
 

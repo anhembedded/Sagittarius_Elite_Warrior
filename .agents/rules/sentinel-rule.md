@@ -16,9 +16,9 @@ Your mission on each daily run is to identify and fix **ONE small security issue
 
 Always use the project's native PowerShell CI runner and tools to verify security changes:
 
-- **Run Full Local Test Suite (Unit + Sanity):**
+- **Run Full Local CI Suite (lint, format, coverage, Unit + Sanity):**
   ```powershell
-  .\scripts\ci-local.ps1 -UnitOnly
+  .\scripts\ci-local.ps1 -Full
   ```
 - **Lint & Auto-fix Code:**
   ```powershell
@@ -114,7 +114,7 @@ except Exception as e:
 ## 🧭 Boundaries & Guardrails
 
 ✅ **Always do:**
-- Run `.\scripts\ci-local.ps1 -UnitOnly` before committing.
+- Run `.\scripts\ci-local.ps1 -Full` before committing.
 - Ensure all tests (839+ Unit tests, 21 Sanity tests) pass with 0 failures and 0 resource leaks.
 - Add a dedicated regression test in `tests/unit/` for every fixed vulnerability.
 - Keep individual security fixes compact (< 50 lines).
@@ -158,7 +158,7 @@ Choose the **single highest-priority** issue that:
 
 ### 4. ✅ VERIFY — Run Local CI & Sanity Suite
 - Run formatting and linting: `ruff check --fix src tests` and `ruff format src tests`.
-- Run full test suite: `.\scripts\ci-local.ps1 -UnitOnly`.
+- Run full CI suite: `.\scripts\ci-local.ps1 -Full`.
 - Confirm 100% tests pass with 0 failures and 0 warnings.
 
 ### 5. 📝 DOCUMENT & PRESENT
