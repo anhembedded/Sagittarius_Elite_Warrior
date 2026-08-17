@@ -1,7 +1,8 @@
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtCore import QPointF, QTimer, Signal
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.base_card import BaseCard
 
+from .cached_frame_interaction import CachedFrameInteractionController
 from .candlestick_item import FastCandlestickItem
 from .chart_toolbar import ChartToolbar
 from .chart_type_renderer import CANDLESTICK, HEIKIN_ASHI, ChartTypeRenderer
@@ -10,7 +11,7 @@ from .edge_scroll_detector import EdgeScrollDetector
 from .fps_overlay import ChartFpsOverlay
 from .heikin_ashi import to_heikin_ashi
 from .indicator_manager import IndicatorManager
-from .plot_layout import ChartPlotLayout
+from .plot_layout import ChartAntialiasMode, ChartPlotLayout
 from .price_line import LastPriceLine
 from .range_update_scheduler import RangeUpdateScheduler
 from .viewport_controller import ViewportController
@@ -42,10 +43,20 @@ class ChartCard(BaseCard):
     #: more history for.
     sig_near_left_edge = Signal(str)
 
-    def __init__(self, symbol: str, parent=None, *, use_opengl: bool = False):
+    def __init__(
+        self,
+        symbol: str,
+        parent=None,
+        *,
+        use_opengl: bool = False,
+        antialias_mode: ChartAntialiasMode = ChartAntialiasMode.LAYERED,
+        cached_interaction: bool = False,
+    ):
         super().__init__(title=f"Live Chart: {symbol}", parent=parent)
         self.symbol = symbol
         self._use_opengl = bool(use_opengl)
+        self._antialias_mode = antialias_mode
+        self._cached_interaction_enabled = bool(cached_interaction)
         self._raw_history: list[OhlcCandle] = []
         self._live_candle: OhlcCandle | None = None
 
@@ -57,7 +68,10 @@ class ChartCard(BaseCard):
         self.toolbar = ChartToolbar()
         self.add_to_header(self.toolbar)
 
-        self.plot_layout = ChartPlotLayout(use_opengl=self._use_opengl)
+        self.plot_layout = ChartPlotLayout(
+            use_opengl=self._use_opengl,
+            antialias_mode=self._antialias_mode,
+        )
         self.body_layout.addWidget(self.plot_layout.widget)
 
     def _setup_components(self) -> None:
@@ -105,6 +119,35 @@ class ChartCard(BaseCard):
         )
         self.fps_overlay = ChartFpsOverlay(self.plot_layout.widget, parent=self)
         self.range_updates = RangeUpdateScheduler(self._apply_x_range, parent=self)
+        self.cached_interaction: CachedFrameInteractionController | None = None
+        self._create_cached_interaction()
+
+    def _create_cached_interaction(self) -> None:
+        if not self._cached_interaction_enabled or self.cached_interaction is not None:
+            return
+        self.cached_interaction = CachedFrameInteractionController(
+            canvas=self.plot_layout.widget,
+            main_plot=self.plot_layout.main_plot,
+            on_preview_started=self._suspend_crosshair_for_preview,
+            on_preview_finished=self._restore_crosshair_after_preview,
+            parent=self,
+        )
+        self.fps_overlay.add_paint_source(self.cached_interaction.preview_surface)
+
+    def _dispose_cached_interaction(self) -> None:
+        if self.cached_interaction is None:
+            return
+        self.fps_overlay.remove_paint_source(self.cached_interaction.preview_surface)
+        self.cached_interaction.dispose()
+        self.cached_interaction = None
+
+    def _suspend_crosshair_for_preview(self) -> None:
+        self.crosshair.set_suspended(True)
+
+    def _restore_crosshair_after_preview(self, viewport_position: QPointF) -> None:
+        self.crosshair.set_suspended(False)
+        scene_position = self.plot_layout.widget.mapToScene(viewport_position.toPoint())
+        self.crosshair.handle_mouse_moved((scene_position,))
 
     def _connect_signals(self) -> None:
         self.edge_scroll_detector.sig_near_left_edge.connect(
@@ -141,10 +184,12 @@ class ChartCard(BaseCard):
         # owns an event filter + QLabel parented to that viewport, so dispose
         # it first and bind a fresh overlay to the CPU viewport afterwards.
         fps_was_enabled = self.fps_overlay.is_enabled
+        self._dispose_cached_interaction()
         self.fps_overlay.dispose()
         self.plot_layout.validate_render_backend()
         self.fps_overlay = ChartFpsOverlay(self.plot_layout.widget, parent=self)
         self.fps_overlay.set_enabled(fps_was_enabled)
+        self._create_cached_interaction()
 
     def check_near_left_edge(self) -> None:
         """Manually trigger an edge check (used for re-evaluation after cooldown)."""
@@ -400,6 +445,7 @@ class ChartCard(BaseCard):
         """
         @brief Garbage collection method. Strict cleanup of C++ bindings.
         """
+        self._dispose_cached_interaction()
         self.zoom_controls.dispose()
         self.viewport.dispose()
         self.crosshair.dispose()

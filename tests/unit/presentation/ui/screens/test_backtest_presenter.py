@@ -442,6 +442,10 @@ def test_backtest_opengl_can_be_disabled_by_config(
     assert view.chart_cards[0].plot_layout.opengl_requested is False
 
 
+def test_backtest_cached_interaction_is_enabled_by_default(presenter):
+    assert presenter.view.chart_cards[0].cached_interaction is not None
+
+
 # ---------------------------------------------------------------------------
 # Config-driven default symbol/interval (BOT-058)
 # ---------------------------------------------------------------------------

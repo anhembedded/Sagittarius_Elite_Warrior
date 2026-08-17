@@ -22,8 +22,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
 | 🟢 **Completed** | 72 | 65.5% |
-| 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 38 | 34.5% |
+| 🟡 **In Progress** | 1 | 0.9% |
+| 🔴 **Backlog** | 37 | 33.6% |
 | 📈 **Tổng số Task** | **110** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -167,7 +167,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-*(Trống — vừa hoàn thành BOT-098D)*
+- [ ] **BOT-098E**: [Native chart renderer gate: frame cache, LOD & batching](in_progress/BOT-098E_chart_lod_and_batching.md) — Loại trừ WebEngine/TradingView Lightweight Charts theo quyết định user. Cached-frame native đã đưa gesture preview xuống 0,656 ms median / 1,239 ms p95 và hybrid mouse/wheel probe xanh; final exact-data commit còn 28,692 ms nên task vẫn mở để làm OHLC/volume LOD + geometry cache. [`Báo cáo milestone`](reports/BOT-098E_cached_frame_interaction_report.md).
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
@@ -190,8 +190,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P?** | **[BOT-038](backlog/BOT-038_intermittent_segfault_full_ui_integration_suite.md)** | **Segfault ngẫu nhiên khi chạy toàn bộ `tests/integration/presentation/ui/`** | 🔴 **`L (Thinking)`** | — | Crash native (Qt/PySide6) intermittent, không deterministic theo test hay theo outcome — cùng nghi vấn lớp bug object-lifetime đã gặp ở `BOT-034` §5. Đã điều tra 1 vòng (bisect, gdb không debuginfod), dừng theo yêu cầu user — xem §4 "Hướng điều tra tiếp theo" trong file. **Không tự ý tiếp tục điều tra nếu chưa được yêu cầu lại.** |
 | **P1** | **BOT-091** | **Backtest hybrid render/runtime guard — lỗi `QQuickRenderControl beginFrame/endFrame` sau khi chạy backtest** | 🔴 **`L (Thinking)`** | `BOT-087` ✅, `BOT-088` ✅ | Bug runtime thật trên màn Backtest: sau `RunStaticBacktestCommand` hoàn tất và UI tiếp tục `GetHistoricalKlinesQuery`, Qt nổ `QQuickRenderControl: Attempted to beginFrame() while the QRhi is already recording a frame` / `QQuickWidget: Failed to begin recording a frame`. Đây **không** phải lỗi parse QML, DI, presenter logic hay layout (`BOT-089`/`BOT-090`); nghi vấn nằm ở hybrid composition với nhiều `QQuickWidget` hoạt động đồng thời (`top_widget`, `bottom_widget`, `top_overlay_host.quick_widget`, `overlay_host.quick_widget`) cộng chart native redraw burst. Gap test hiện tại: sanity chỉ dựng màn + check `quick_widget.errors()`, unit/layout tests chỉ kiểm tra logic/geometry; **không có** test nào chạy backtest thật + fetch klines thật + quan sát vòng đời frame/render runtime. **Cập nhật 15/08:** đã có runtime probe chạy app thật ở dev-mode với dữ liệu `BTCUSDT` khung `1m` seed local để ép đi qua success path `RunStaticBacktestCommand` -> `GetHistoricalKlinesQuery`; probe mở thêm các toolbar popup/menu chính và đổi chart mode qua lại. Các lượt probe đó **chưa tái hiện lại** dòng `QQuickRenderControl`, nên bug vẫn được giữ ở backlog điều tra: chưa có reproduction tối thiểu ổn định từ phía AI và cũng chưa có bằng chứng runtime mới để kết luận đã hết. Rule của task này: **pytest/sanity pass không bao giờ đủ**; chỉ được coi xong khi chính kịch bản dev-mode thật được chạy lại và log sạch không còn `QQuickRenderControl` hay lỗi khung hình liên quan. |
 | **P1** | **[BOT-096](backlog/BOT-096_truthful_backtest_exit_markers.md)** | **Backtest — Marker/Icon thoát LONG trung thực** | 🟡 **`M (Standard)`** | `BOT-056` ✅, `BOT-057` ✅ | Tách rõ marker thực thi `EXIT LONG` khỏi `SHORT ENTRY`: không dùng nhãn/icon Sell chung cho hai ý nghĩa, không thay đổi engine long-only, và thêm acceptance test kiểm chứng chart/table phản ánh đúng sự thật. `BOT-050` vẫn là task duy nhất mở short-selling. |
-| **P1** | **[BOT-098](backlog/BOT-098_backtest_chart_pan_zoom_performance.md)** | **Backtest Chart — Pan/Zoom mượt theo frame budget** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098A`…`BOT-098D` ✅; liên quan `BOT-091`, `BOT-096` | OpenGL standalone có lợi nhưng hybrid context không hợp lệ nên đã guard/fallback và không bật mặc định. Tiếp theo `BOT-098E`: LOD/mipmap + batching theo pixel budget để nhắm 60 FPS mà không đổi business output. |
-| **P1** | **[BOT-098E](backlog/BOT-098E_chart_lod_and_batching.md)** | **Chart LOD/mipmap & batched rendering** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098A`…`BOT-098D` ✅ | Áp dụng kỹ thuật game: OHLC/volume LOD pyramid, chọn level theo candles/pixel, cache geometry và batch draw call. CSV không giải quyết pan/zoom; mọi bucket phải bảo toàn OHLC extreme, volume sum và marker semantic. |
+| **P1** | **[BOT-098](backlog/BOT-098_backtest_chart_pan_zoom_performance.md)** | **Backtest Chart — Pan/Zoom mượt theo frame budget** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098A`…`BOT-098D` ✅; `BOT-098E` đang làm; liên quan `BOT-091`, `BOT-096` | OpenGL hybrid đã bị guard/fallback. `BOT-098E` đang đánh giá native cached-frame + LOD/batching; nếu không qua gate sẽ tách Qt Quick Scene Graph renderer. |
 | **P2** | **[BOT-097](backlog/BOT-097_backtest_display_timezone_selector.md)** | **Backtest — Chọn múi giờ hiển thị** | 🟢 **`S (Fast)`** | `BOT-095D` ✅ | Selector `UTC`/giờ hệ thống cho chart, trade log, coverage và thông báo. Đây là presentation-only: không đổi timestamp UTC, DB/API, range, kết quả, PnL, FSM hay tự chạy lại Backtest. |
 
 #### 🛡️ Nhóm Engine Hardening — Chi tiết (`BOT-066`…`BOT-071`)

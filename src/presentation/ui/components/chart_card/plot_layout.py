@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 
 import pyqtgraph as pg
 from PySide6.QtWidgets import QApplication
@@ -6,6 +7,13 @@ from PySide6.QtWidgets import QApplication
 logger = logging.getLogger(__name__)
 
 _HEADLESS_QT_PLATFORMS = frozenset({"offscreen", "minimal", "minimalegl"})
+
+
+class ChartAntialiasMode(str, Enum):
+    """Controls whether smoothing is paid globally or only by line layers."""
+
+    GLOBAL = "global"
+    LAYERED = "layered"
 
 
 def _qt_platform_name() -> str:
@@ -23,13 +31,18 @@ class ChartPlotLayout:
     MAIN_PLOT_ROW = 1
     MAIN_PLOT_STRETCH = 3
 
-    def __init__(self, *, use_opengl: bool = False) -> None:
-        pg.setConfigOptions(antialias=True)
-
+    def __init__(
+        self,
+        *,
+        use_opengl: bool = False,
+        antialias_mode: ChartAntialiasMode = ChartAntialiasMode.LAYERED,
+    ) -> None:
+        self.antialias_mode = antialias_mode
         self.opengl_requested = bool(use_opengl)
         self.uses_opengl = False
         self.backend_fallback_reason: str | None = None
         self.widget = pg.GraphicsLayoutWidget()
+        self.widget.setAntialiasing(antialias_mode is ChartAntialiasMode.GLOBAL)
         self._configure_render_backend()
         self.widget.setBackground("default")
 

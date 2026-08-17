@@ -362,6 +362,14 @@ class BackTestPresenter(BasePresenter):
                 )
             )
         )
+        view.set_chart_cached_interaction_enabled(
+            bool(
+                self.config.get(
+                    ConfigKeys.BACKTEST_CHART_CACHED_INTERACTION_ENABLED.value,
+                    True,
+                )
+            )
+        )
         view.render_symbol_cards([self._symbol])
         self._connect_chart_controls()
         view.load_qml()

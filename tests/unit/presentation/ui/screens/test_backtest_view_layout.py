@@ -290,6 +290,16 @@ def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, reque
     assert cards[0].plot_layout.render_backend == "cpu"
 
 
+def test_backtest_enables_cached_interaction_for_future_chart_cards(qapp, request):
+    v = BackTestView()
+    request.addfinalizer(v.deleteLater)
+
+    v.set_chart_cached_interaction_enabled(True)
+    cards = v.render_symbol_cards(["BTCUSDT"])
+
+    assert cards[0].cached_interaction is not None
+
+
 def test_trade_log_rows_are_visible_by_default(view, qtbot, qml_item):
     """Regression guard for the exact failure mode in BUG-004/BOT-090: a
     75-trade result page (`PAGE_SIZE=20` rows) rendered with zero rows

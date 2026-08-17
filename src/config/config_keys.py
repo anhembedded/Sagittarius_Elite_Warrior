@@ -31,6 +31,9 @@ class ConfigKeys(str, Enum):
     # Backtest Configuration
     BACKTEST_LOG_MAX_ENTRIES = "backtest.log_max_entries"
     BACKTEST_CHART_OPENGL_ENABLED = "backtest.chart.opengl_enabled"
+    BACKTEST_CHART_CACHED_INTERACTION_ENABLED = (
+        "backtest.chart.cached_interaction_enabled"
+    )
 
     # Developer mode — enables extra UI instrumentation (e.g. click logging)
     DEV_MODE = "dev.mode"

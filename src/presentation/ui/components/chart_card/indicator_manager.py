@@ -13,6 +13,7 @@ from .viewport_windowing import visible_slice_indices
 _DEFAULT_INFO_COLOR = "#c9cdd3"
 #: Drawn beneath candles/curves/volume so a background tint never occludes them.
 _REGION_Z_VALUE = -10
+_SMOOTH_LINE_ANTIALIAS = True
 
 
 class IndicatorManager:
@@ -64,13 +65,19 @@ class IndicatorManager:
 
     def add_overlay(self, name: str, color: str) -> None:
         """Adds a line indicator on top of the main candlestick plot (e.g. SMA)."""
-        curve = self._plot_layout.main_plot.plot(pen=pg.mkPen(color=color, width=2))
+        curve = self._plot_layout.main_plot.plot(
+            pen=pg.mkPen(color=color, width=2),
+            antialias=_SMOOTH_LINE_ANTIALIAS,
+        )
         self._register(name, curve, self._plot_layout.main_plot)
 
     def add_subplot(self, name: str, color: str, height_ratio: int = 1) -> None:
         """Adds a separate subplot below the main chart (e.g. RSI, MACD, Volume)."""
         sub_plot = self._plot_layout.add_subplot(height_ratio=height_ratio)
-        curve = sub_plot.plot(pen=pg.mkPen(color=color, width=2))
+        curve = sub_plot.plot(
+            pen=pg.mkPen(color=color, width=2),
+            antialias=_SMOOTH_LINE_ANTIALIAS,
+        )
         self._register(name, curve, sub_plot)
         self._on_new_plot(sub_plot)
 

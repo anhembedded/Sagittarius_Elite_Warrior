@@ -10,6 +10,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import 
     ChartCard,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout import (
+    ChartAntialiasMode,
     ChartPlotLayout,
 )
 
@@ -23,6 +24,37 @@ def test_chart_card_initialization(qapp):
     # Kiểm tra tiêu đề có được set đúng không
     assert card.symbol == "BTCUSDT"
     assert card.lbl_title.text() == "Live Chart: BTCUSDT"
+
+
+def test_chart_plot_layout_defaults_to_layered_antialias_without_global_side_effect(
+    qapp,
+):
+    with (
+        patch.object(pg, "setConfigOptions") as set_global_options,
+        patch.object(pg.GraphicsLayoutWidget, "setAntialiasing") as set_antialiasing,
+    ):
+        layout = ChartPlotLayout()
+
+    set_global_options.assert_not_called()
+    set_antialiasing.assert_called_once_with(False)
+    assert layout.antialias_mode is ChartAntialiasMode.LAYERED
+
+
+def test_chart_plot_layout_can_restore_global_antialias_for_benchmark_control(qapp):
+    with patch.object(pg.GraphicsLayoutWidget, "setAntialiasing") as set_antialiasing:
+        layout = ChartPlotLayout(antialias_mode=ChartAntialiasMode.GLOBAL)
+
+    set_antialiasing.assert_called_once_with(True)
+    assert layout.antialias_mode is ChartAntialiasMode.GLOBAL
+
+
+def test_layered_antialias_keeps_indicator_and_line_chart_curves_smooth(qapp):
+    card = ChartCard("BTCUSDT", antialias_mode=ChartAntialiasMode.LAYERED)
+
+    card.add_overlay_indicator("ema_20", "#00bcd4")
+
+    assert card.indicators._curves["ema_20"].opts["antialias"] is True
+    assert card.chart_type_renderer._curve.opts["antialias"] is True
 
 
 def test_chart_plot_layout_falls_back_to_cpu_on_headless_platform(qapp):

@@ -9,6 +9,7 @@ HEIKIN_ASHI = "heikin_ashi"
 
 ALL_CHART_TYPES = (CANDLESTICK, LINE, AREA, HEIKIN_ASHI)
 _LINE_MODE_TYPES = (LINE, AREA)
+_SMOOTH_LINE_ANTIALIAS = True
 
 
 class ChartTypeRenderer:
@@ -23,7 +24,10 @@ class ChartTypeRenderer:
 
     def __init__(self, plot: pg.PlotItem, candlestick_item: pg.GraphicsObject) -> None:
         self._candlestick = candlestick_item
-        self._curve = plot.plot(pen=pg.mkPen(theme.BULL_COLOR, width=2))
+        self._curve = plot.plot(
+            pen=pg.mkPen(theme.BULL_COLOR, width=2),
+            antialias=_SMOOTH_LINE_ANTIALIAS,
+        )
         self._curve.hide()
         self._chart_type = CANDLESTICK
 

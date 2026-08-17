@@ -36,6 +36,7 @@ class CrosshairController:
         self._last_x_label_html: str | None = None
         self._last_y_label_html: list[str | None] = []
         self._last_info_text: str | None = None
+        self._suspended = False
 
         # High-Performance Throttled Mouse Proxy (60 fps limit)
         self.proxy = pg.SignalProxy(
@@ -107,7 +108,18 @@ class CrosshairController:
 
     def handle_mouse_moved(self, evt) -> None:
         """Public entry point mirroring the SignalProxy slot (used directly by tests)."""
+        if self._suspended:
+            return
         self._on_mouse_moved(evt)
+
+    def set_suspended(self, suspended: bool) -> None:
+        """Hide scene crosshair items while a cached frame owns interaction."""
+        self._suspended = bool(suspended)
+        if not suspended:
+            return
+        items = (*self._v_lines, *self._h_lines, *self._x_labels, *self._y_labels)
+        for item in items:
+            self._hide_if_visible(item)
 
     def _on_mouse_moved(self, evt) -> None:
         pos = evt[0]

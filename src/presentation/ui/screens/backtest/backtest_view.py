@@ -63,6 +63,7 @@ class BackTestView(BaseView):
         self.chart_cards: list = []
         self._chart_dev_mode = False
         self._chart_opengl_enabled = False
+        self._chart_cached_interaction_enabled = False
         self.chart_controls: BacktestChartControls | None = None
         self._chart_mode = ChartDisplayMode.OHLC
         self._equity_subplot_added = False
@@ -224,7 +225,11 @@ class BackTestView(BaseView):
         self.chart_cards = []
         self.chart_controls = None
         for symbol in symbols:
-            card = ChartCard(symbol, use_opengl=self._chart_opengl_enabled)
+            card = ChartCard(
+                symbol,
+                use_opengl=self._chart_opengl_enabled,
+                cached_interaction=self._chart_cached_interaction_enabled,
+            )
             card.set_dev_mode(self._chart_dev_mode)
             self.chart_cards.append(card)
             self.charts_layout.addWidget(card, 1)
@@ -244,6 +249,10 @@ class BackTestView(BaseView):
     def set_chart_opengl_enabled(self, enabled: bool) -> None:
         """Selects the render backend for chart cards created from now on."""
         self._chart_opengl_enabled = bool(enabled)
+
+    def set_chart_cached_interaction_enabled(self, enabled: bool) -> None:
+        """Selects cached-frame pan/zoom for chart cards created from now on."""
+        self._chart_cached_interaction_enabled = bool(enabled)
 
     # ------------------------------------------------------------------ #
     # Chart rendering (BOT-056) — driven by BackTestPresenter

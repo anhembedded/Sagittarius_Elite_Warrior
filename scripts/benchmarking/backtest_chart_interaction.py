@@ -21,10 +21,13 @@ from dataclasses import asdict, dataclass
 import pyqtgraph as pg
 from PySide6 import __version__ as pyside_version
 from PySide6.QtCore import QPointF
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QGraphicsView
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout import (
+    ChartAntialiasMode,
 )
 
 _CANDLE_COUNT = 6420
@@ -35,12 +38,30 @@ _MEASURED_FRAMES = 120
 _WARMUP_FRAMES = 20
 _START_TIMESTAMP = 1_700_000_000.0
 _CANDLE_SECONDS = 60.0
+_VIEWPORT_UPDATE_MODES = {
+    "minimal": QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate,
+    "smart": QGraphicsView.ViewportUpdateMode.SmartViewportUpdate,
+    "bounding": QGraphicsView.ViewportUpdateMode.BoundingRectViewportUpdate,
+    "full": QGraphicsView.ViewportUpdateMode.FullViewportUpdate,
+}
+_PAINTER_OPTIMIZATIONS = {
+    "none": (),
+    "bounds": (QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing,),
+    "state": (QGraphicsView.OptimizationFlag.DontSavePainterState,),
+    "both": (
+        QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing,
+        QGraphicsView.OptimizationFlag.DontSavePainterState,
+    ),
+}
 
 
 @dataclass(frozen=True)
 class ProfileResult:
     profile: str
     render_backend: str
+    antialias_mode: str
+    viewport_update_mode: str
+    painter_optimization: str
     median_ms: float
     p95_ms: float
     median_set_range_ms: float
@@ -112,9 +133,21 @@ def _run_profile(
     with_markers: bool,
     with_crosshair: bool,
     use_opengl: bool,
+    antialias_mode: ChartAntialiasMode,
+    viewport_update_mode: str,
+    painter_optimization: str,
 ) -> ProfileResult:
-    card = ChartCard("BTCUSDT", use_opengl=use_opengl)
+    card = ChartCard(
+        "BTCUSDT",
+        use_opengl=use_opengl,
+        antialias_mode=antialias_mode,
+    )
     card.resize(1600, 900)
+    card.plot_layout.widget.setViewportUpdateMode(
+        _VIEWPORT_UPDATE_MODES[viewport_update_mode]
+    )
+    for optimization_flag in _PAINTER_OPTIMIZATIONS[painter_optimization]:
+        card.plot_layout.widget.setOptimizationFlag(optimization_flag, True)
     card.show()
     card.render_historical_data(candles)
     timestamps = [row[0] for row in candles]
@@ -177,6 +210,9 @@ def _run_profile(
     result = ProfileResult(
         profile=profile,
         render_backend=card.plot_layout.render_backend,
+        antialias_mode=card.plot_layout.antialias_mode.value,
+        viewport_update_mode=viewport_update_mode,
+        painter_optimization=painter_optimization,
         median_ms=round(statistics.median(frame_costs), 3),
         p95_ms=round(_percentile_95(frame_costs), 3),
         median_set_range_ms=round(statistics.median(set_range_costs), 3),
@@ -208,7 +244,26 @@ def main() -> None:
         default="cpu",
         help="Requested ChartCard viewport backend (default: cpu).",
     )
+    parser.add_argument(
+        "--viewport-update",
+        choices=tuple(_VIEWPORT_UPDATE_MODES),
+        default="minimal",
+        help="QGraphicsView viewport update strategy.",
+    )
+    parser.add_argument(
+        "--painter-optimization",
+        choices=tuple(_PAINTER_OPTIMIZATIONS),
+        default="none",
+        help="QGraphicsView painter optimization experiment.",
+    )
+    parser.add_argument(
+        "--antialias",
+        choices=tuple(mode.value for mode in ChartAntialiasMode),
+        default=ChartAntialiasMode.LAYERED.value,
+        help="Global scene smoothing or layered line-only smoothing.",
+    )
     args = parser.parse_args()
+    antialias_mode = ChartAntialiasMode(args.antialias)
     app = QApplication.instance() or QApplication([])
     candles = _candles()
     profiles = (
@@ -234,6 +289,9 @@ def main() -> None:
             with_markers=with_markers,
             with_crosshair=with_crosshair,
             use_opengl=args.backend == "opengl",
+            antialias_mode=antialias_mode,
+            viewport_update_mode=args.viewport_update,
+            painter_optimization=args.painter_optimization,
         )
         for profile, with_volume, with_indicators, with_markers, with_crosshair in profiles
     ]
@@ -246,6 +304,9 @@ def main() -> None:
             "pyqtgraph": pg.__version__,
             "resolution": "1600x900",
             "requested_backend": args.backend,
+            "antialias_mode": antialias_mode.value,
+            "viewport_update_mode": args.viewport_update,
+            "painter_optimization": args.painter_optimization,
         },
         "dataset": {
             "candles": _CANDLE_COUNT,

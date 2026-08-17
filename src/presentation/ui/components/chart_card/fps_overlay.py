@@ -32,6 +32,7 @@ class ChartFpsOverlay(QObject):
         super().__init__(parent or canvas)
         self._canvas = canvas
         self._viewport = canvas.viewport()
+        self._paint_sources: list[QWidget] = [self._viewport]
         self._sampler = FrameRateSampler()
         self._clock = QElapsedTimer()
         self._is_enabled = False
@@ -58,6 +59,19 @@ class ChartFpsOverlay(QObject):
         self._timer.timeout.connect(self._publish_sample)
         self._viewport.installEventFilter(self)
         self._position_label()
+
+    def add_paint_source(self, source: QWidget) -> None:
+        """Include a sibling preview surface in the measured chart FPS."""
+        if source in self._paint_sources:
+            return
+        self._paint_sources.append(source)
+        source.installEventFilter(self)
+
+    def remove_paint_source(self, source: QWidget) -> None:
+        if source not in self._paint_sources or source is self._viewport:
+            return
+        source.removeEventFilter(self)
+        self._paint_sources.remove(source)
 
     @property
     def is_enabled(self) -> bool:
@@ -87,11 +101,12 @@ class ChartFpsOverlay(QObject):
         self.label.hide()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched is self._viewport:
-            if self._is_enabled and event.type() == QEvent.Type.Paint:
+        if watched in self._paint_sources and event.type() == QEvent.Type.Paint:
+            if self._is_enabled:
                 self._sampler.record_frame()
-            elif event.type() == QEvent.Type.Resize:
-                self._position_label()
+                self.label.raise_()
+        elif watched is self._viewport and event.type() == QEvent.Type.Resize:
+            self._position_label()
         return super().eventFilter(watched, event)
 
     def _publish_sample(self) -> None:
@@ -113,6 +128,8 @@ class ChartFpsOverlay(QObject):
 
     def dispose(self) -> None:
         self._timer.stop()
-        self._viewport.removeEventFilter(self)
+        for source in self._paint_sources:
+            source.removeEventFilter(self)
+        self._paint_sources.clear()
         self.label.hide()
         self.label.deleteLater()
