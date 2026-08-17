@@ -116,25 +116,10 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
     def _estimate_total_klines(
         self, start_time: datetime, command: SyncMarketDataCommand
     ) -> int:
-        interval_minutes = {
-            "1m": 1,
-            "3m": 3,
-            "5m": 5,
-            "15m": 15,
-            "30m": 30,
-            "1h": 60,
-            "2h": 120,
-            "4h": 240,
-            "6h": 360,
-            "8h": 480,
-            "12h": 720,
-            "1d": 1440,
-            "3d": 4320,
-            "1w": 10080,
-            "1M": 43200,
-        }.get(command.interval.value, 1)
-
         end_t = command.end_time or datetime.now(UTC)
         total_seconds = (end_t - start_time).total_seconds()
-        total_klines = int(max(0, total_seconds) / (interval_minutes * 60))
+
+        interval_seconds = command.interval.to_seconds()
+        total_klines = int(max(0, total_seconds) / interval_seconds)
+
         return max(total_klines, 1)
