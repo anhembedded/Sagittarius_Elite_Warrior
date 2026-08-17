@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 71 | 67.0% |
+| 🟢 **Completed** | 68 | 64.2% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 35 | 33.0% |
+| 🔴 **Backlog** | 38 | 35.8% |
 | 📈 **Tổng số Task** | **106** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
