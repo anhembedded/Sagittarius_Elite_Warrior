@@ -191,6 +191,9 @@ Sagittarius_Elite_Warrior/Tasks/
 - [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước benchmark/migration.
 - [ ] **BOT-098F5**: [Shared Backtest renderer benchmark (Python vs native)](in_progress/BOT-098F5_shared_backtest_renderer_benchmark.md) — fixture chung, `grabWindow()`/DPR/semantic diagnostics và report A/B local trước mọi production cutover.
 
+> [!NOTE]
+> **BOT-098F4 mục 3-4 và BOT-098F5 tiêu chí 6 — đều cần Windows Desktop E2E thật (màu pixel thật qua GPU/RHI thật, input chuột/bàn phím thật). Không cách nào làm trên máy Linux này, dù đã build được native plugin và có bằng chứng Wayland thay thế.** Cả hai task vẫn ở trạng thái **chưa xong** cho tới khi có evidence chạy thật trên máy Windows.
+
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
