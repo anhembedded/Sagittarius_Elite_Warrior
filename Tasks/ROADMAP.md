@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 83 | 70.3% |
-| 🟡 **In Progress** | 1 | 0.8% |
-| 🔴 **Backlog** | 35 | 29.4% |
-| 📈 **Tổng số Task** | **119** | **100%** |
+| 🟢 **Completed** | 83 | 65.9% |
+| 🟡 **In Progress** | 2 | 1.6% |
+| 🔴 **Backlog** | 41 | 32.5% |
+| 📈 **Tổng số Task** | **126** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -77,6 +77,8 @@ Sagittarius_Elite_Warrior/Tasks/
 > Lần tăng thứ hai mươi (+1, `BOT-098F2A`): retained candles đã xanh nhưng chưa có camera/axis contract. Tách bước này để pan/zoom chỉ đổi scene transform, axis giữ raw UTC timestamp và không rebuild candle buffers trước khi thêm volume/indicator.
 >
 > Lần tăng thứ hai mươi mốt (+1, `BOT-098F3`): native candle/camera đã xanh nhưng volume vẫn chưa được native renderer dùng và indicator còn nằm ở PyQtGraph. Subtask tách immutable indicator snapshot, retained volume bars và indicator envelope theo pixel vật lý/DPR trước marker/crosshair hoặc production migration.
+>
+> Lần tăng thứ hai mươi hai (+7, `BOT-098F5`/`BOT-098F6`/`F6A`…`F6E`): native probes độc lập đạt frame budget nhưng chưa chứng minh được hiệu năng trong Backtest hybrid host thực tế. Đầu tiên là A/B benchmark cùng payload Python/C++ (evidence local, không hard CI gate). Migration sau đó được tách thành 5 phase test độc lập: port+Python adapter, native snapshot host, QML interaction wrapper, opt-in cutover, rồi mới default rollout/fallback. Các decision gate bắt buộc: không claim 8ms ngoài production host; không giả vờ parity khi Equity/BOTH/script annotation chưa native support; không hot-swap QWidget/QQuickWidget; không dùng FPS để đánh đổi semantic/pixel correctness; lỗi native phải fallback rõ ràng, không blank chart.
 >
 ---
 
@@ -186,7 +188,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-- [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước `BOT-098F5` production migration.
+- [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước benchmark/migration.
+- [ ] **BOT-098F5**: [Shared Backtest renderer benchmark (Python vs native)](in_progress/BOT-098F5_shared_backtest_renderer_benchmark.md) — fixture chung, `grabWindow()`/DPR/semantic diagnostics và report A/B local trước mọi production cutover.
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
@@ -195,7 +198,14 @@ Sagittarius_Elite_Warrior/Tasks/
 | ~~P1~~ **Sau `BOT-078`** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | 🔴 **`L (Thinking)`** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Mọi phụ thuộc kỹ thuật đã xong — nhưng user đã chốt **hoãn có chủ đích** cho tới khi `BOT-078` (out-of-sample) xong, vì `PythonBinanceClient` nối thẳng mainnet thật, không có testnet. Xem ghi chú định hướng ở đầu file. |
 | **P1** | **[Nhóm Engine Hardening](reports/engine_defect_class_analysis.md)** *(`BOT-066`…`BOT-071`)* | **6 cơ chế engine chặn 6 lớp lỗi tái phát** | 🟡 **`M`** / 🔴 **`L`** | — | Sinh ra từ rà soát toàn bộ lịch sử bug: gom thành 6 **lớp lỗi** rồi hỏi "cơ chế nào khiến cả lớp đó không xảy ra được nữa". Xem bảng chi tiết bên dưới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). |
 | **P1** | **[Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md)** | **Backtest UI Signals, FSM & Parameter Lifecycle** | 🔴 **`L (Thinking)`** | `BOT-088` ✅, `BOT-059` ✅ | Hoàn thiện máy trạng thái FSM (`BacktestUiState` mở rộng: `CONFIG_DIRTY`, `CANCELLING`, `COMPLETED`), Dirty Tracking loại bỏ kết quả Stale khi đổi Timeframe/Strategy/Vốn/Ngày, nút Hủy tác vụ nền `CancellationToken`, kiểm tra nến sẵn sàng khi đổi Timeframe, và Real-time validation. Xem bảng chi tiết bên dưới. 📄 [Đặc tả Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md). |
-| **P1** | **[BOT-098F](backlog/BOT-098F_qt_quick_scene_graph_chart_renderer.md)** | **Qt Quick Scene Graph retained chart renderer** | ⚡ **Specialized** | `BOT-098F1`/`BOT-098F2`/`BOT-098F2A` ✅ | Native candle + camera/axis contracts đã xanh; bước kế tiếp là volume/indicator buffers (`F3`). Không dùng TradingView Lightweight Charts/WebEngine. |
+| **P1** | **[BOT-098F](backlog/BOT-098F_qt_quick_scene_graph_chart_renderer.md)** | **Qt Quick Scene Graph retained chart renderer** | ⚡ **Specialized** | `BOT-098F1`/`BOT-098F2`/`BOT-098F2A`/`BOT-098F3` ✅, `BOT-098F4` 🟡 | Retained candle/camera/volume/indicator đã xanh; hoàn tất marker/crosshair (`F4`), benchmark chung (`F5`) rồi mới production migration (`F6`). Không dùng TradingView Lightweight Charts/WebEngine. |
+| **P1** | **[BOT-098F5](backlog/BOT-098F5_shared_backtest_renderer_benchmark.md)** | **Shared Backtest renderer benchmark (Python vs native)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4` | A/B chung trên fixture Backtest 6.420 nến + volume + 5 indicator + 1.112 marker + crosshair; đo `grabWindow`, median/p95/DPR, retained geometry và visual semantic. Evidence local, không hard CI timing gate. |
+| **P1** | **[BOT-098F6](backlog/BOT-098F6_backtest_chart_host_migration.md)** | **Backtest native chart-host migration (phase umbrella)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4`, `BOT-098F5` | Umbrella không code trực tiếp: `F6A→F6E` là 5 phase có test/exit criterion riêng; native chỉ OHLC path đã chứng minh, Python fallback một release cho capability chưa parity hoặc lỗi runtime. |
+| **P1** | **[BOT-098F6A](backlog/BOT-098F6A_backtest_chart_port_and_python_adapter.md)** | **Backtest chart port and Python adapter** | 🟡 **`M (Standard)`** | `BOT-098F5` | Trích Backtest-only port/factory + wrap ChartCard, không đổi renderer/behavior; test toolbar, mode, indicator, marker, timezone và cleanup trước native work. |
+| **P1** | **[BOT-098F6B](backlog/BOT-098F6B_native_chart_adapter_snapshot_contract.md)** | **Native chart adapter and snapshot contract** | 🔴 **`L (Thinking)`** | `BOT-098F6A`, `BOT-098F4` | QQuickWidget native host + immutable snapshot conversion/action fencing/runtime construction sanity; chưa chọn native trong production. |
+| **P1** | **[BOT-098F6C](backlog/BOT-098F6C_native_chart_interaction_wrapper.md)** | **Native Backtest interaction wrapper** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F6B` | QML pan/wheel/crosshair/axis/tooltip/FPS wrapper; real desktop input phải chứng minh final state đúng và geometry retained. |
+| **P1** | **[BOT-098F6D](backlog/BOT-098F6D_backtest_native_opt_in_cutover.md)** | **Backtest native opt-in cutover** | 🔴 **`L (Thinking)`** | `BOT-098F5`, `BOT-098F6A`, `BOT-098F6C` | Factory/DI/config chọn native/Python trong Backtest thật cho OHLC path; unsupported modes và runtime failure quay Python rõ ràng. |
+| **P1** | **[BOT-098F6E](backlog/BOT-098F6E_native_default_rollout.md)** | **Native default rollout and Python kill-switch** | 🟡 **`M (Standard)`** | `BOT-098F6D` | Chỉ đổi default native sau F5 + E2E evidence; giữ Python override/fallback trọn một release, không xóa adapter. |
 | **P1** | **[Epic BOT-078](backlog/BOT-078_backtest_trustworthiness_epic.md)** | **Backtest Trustworthiness — kết quả có đáng tin không?** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-047` ✅ | Engine chạy đúng 100% vẫn có thể sinh kết luận sai. Log thật `-80.71%` hoá ra **~96% là phí giao dịch**, edge chiến lược ≈ hoà — mà app không có chỗ nào nói điều đó. Và **không một dòng nào** trong repo nhắc tới chống overfitting, dù bộ máy tinh chỉnh tham số (`BOT-044`…`048`) đã xong. Xem bảng chi tiết bên dưới. 📄 [Rà soát định hướng](reports/app_direction_audit.md). |
 | **P1** | **[Epic BOT-073](backlog/BOT-073_realtime_tick_backtest_epic.md)** | **Realtime Backtest — chạy theo tick, song song với Static** | 🔴 **`L (Thinking)`** | `BOT-021` ✅ | Yêu cầu trực tiếp của user: backtest hiện tại là *static* kiểu TradingView, không tả được hành vi bot khi live (indicator khung 1m nhưng dữ liệu về mỗi 1s). Mục tiêu: **2 chế độ backtest dùng song song**, chung `PaperExchange`/`BacktestResult`. Kèm 1 bug thật (`BOT-074`) và 2 quyết định kiến trúc user vừa chốt. Xem bảng chi tiết bên dưới. ✅ `BOT-079`/`BOT-080` (minh bạch phí + out-of-sample) đã xong — nền tảng "kết quả đáng tin" cho Realtime đã có. |
 | **P2** | **[BOT-035](backlog/BOT-035_dev_board_load_more_on_scroll.md)** | **Dev Board — Tự tải thêm dữ liệu cũ khi kéo ra rìa trái chart (US-04)** | 🟡 **`M (Standard)`** | `BOT-034` ✅ | Kéo/scroll chart ra rìa trái dữ liệu đã tải hiện không làm gì — chart chỉ trống. Query/repository layer đã hỗ trợ sẵn (`GetHistoricalKlinesQuery.end_time`), việc còn lại là: detect gần rìa trái (`ViewportController`, chưa có hook), `ChartCard.prepend_historical_data()` mới (không phá zoom hiện tại, khác `render_historical_data`), và full rebuild+refeed cho `IndicatorScriptRunner` (không có đường "feed lùi" — đã verify). **Còn 3 câu hỏi mở** (ngưỡng trigger, số nến/lần, có tự sync từ Binance khi DB thiếu hay không) — chưa code, chờ user chốt. |

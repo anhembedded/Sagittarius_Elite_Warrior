@@ -50,6 +50,7 @@
     .\scripts\ci-local.ps1 -Workers 4       # Full with 4 workers
     .\scripts\ci-local.ps1 -SkipLint        # Full, skip lint
     .\scripts\ci-local.ps1 -IncludeFlakyUi  # Full, include flaky UI integration
+    .\scripts\ci-local.ps1 -DesktopBenchmark # Full + Windows desktop benchmark contract
 #>
 [CmdletBinding()]
 param(
@@ -60,7 +61,8 @@ param(
     [switch]$Full,
     [int]$Workers = 6,   # Default: 6 workers (benchmark sweet spot for this machine)
     [switch]$IncludeFlakyUi,
-    [switch]$SkipNativeBuild
+    [switch]$SkipNativeBuild,
+    [switch]$DesktopBenchmark
 )
 
 $ErrorActionPreference = "Stop"
@@ -95,6 +97,7 @@ if (Test-Path (Join-Path $botRoot ".venv")) {
 }
 
 $pytestExe = if ($venvRoot) { Join-Path $venvRoot "Scripts\pytest.exe" } else { "pytest" }
+$pythonExe = if ($venvRoot) { Join-Path $venvRoot "Scripts\python.exe" } else { "python" }
 $ruffExe   = if ($venvRoot) { Join-Path $venvRoot "Scripts\ruff.exe" } else { "ruff" }
 
 # ---------------------------------------------------------------------------
@@ -162,6 +165,42 @@ if (-not $SkipNativeBuild -and -not $SkipTests) {
         Write-Failure "Native Chart Build"
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     }
+}
+
+# ---------------------------------------------------------------------------
+# Portable benchmark contract (BOT-098F5)
+# ---------------------------------------------------------------------------
+if (-not $SkipNativeBuild -and -not $SkipTests -and -not $SanityOnly -and -not $UnitOnly) {
+    $benchmarkLabel = if ($DesktopBenchmark) {
+        "Chart Benchmark — CI + Desktop Contract"
+    } else {
+        "Chart Benchmark Contract — Python vs Native"
+    }
+    Write-Step $benchmarkLabel
+    Push-Location $repoRoot
+    try {
+        $benchmarkReport = Join-Path $env:TEMP "chart_migration_benchmark_$([System.Diagnostics.Process]::GetCurrentProcess().Id).json"
+        if (-not $DesktopBenchmark) { $env:QT_QPA_PLATFORM = "offscreen" }
+        $benchmarkArgs = @(
+            "-m", "Sagittarius_Elite_Warrior.scripts.benchmarking.chart_migration_benchmark",
+            "--backend", "both",
+            "--ci-contract",
+            "--report", $benchmarkReport
+        )
+        if ($DesktopBenchmark) { $benchmarkArgs += "--desktop-contract" }
+        & $pythonExe @benchmarkArgs
+        if ($LASTEXITCODE -ne 0) {
+            $failed += "Chart Benchmark Contract"
+            Write-Failure "Chart Benchmark Contract"
+        } else {
+            Write-Success "Chart Benchmark Contract"
+        }
+        Remove-Item $benchmarkReport -Force -ErrorAction SilentlyContinue
+    } catch {
+        $failed += "Chart Benchmark Contract"
+        Write-Failure "Chart Benchmark Contract"
+        Write-Host $_.Exception.Message -ForegroundColor Yellow
+    } finally { Pop-Location }
 }
 
 # ---------------------------------------------------------------------------

@@ -66,6 +66,25 @@ jobs:
             -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/Qt/$PYSIDE_VERSION/gcc_64"
           cmake --build build/native-chart --config Release --parallel
 
+      - name: Chart migration benchmark contract
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONPATH: ..
+        run: |
+          python -m Sagittarius_Elite_Warrior.scripts.benchmarking.chart_migration_benchmark \
+            --backend both \
+            --ci-contract \
+            --report chart-migration-benchmark.json
+
+      - name: Upload chart migration benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chart-migration-benchmark
+          path: chart-migration-benchmark.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Ruff — Lint
         run: ruff check src tests
 

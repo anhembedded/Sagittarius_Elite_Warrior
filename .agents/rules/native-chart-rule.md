@@ -97,3 +97,38 @@ manifest/module and that all five required artifacts exist. Do not weaken the
 real Windows-backend visual probe merely because headless Qt cannot rasterize
 custom scene-graph material.
 
+## 5. Backtest migration and benchmark governance
+
+- Native chart work follows independently verifiable slices: retained renderer
+  (`BOT-098F1`…`F4`) → shared production-host A/B benchmark (`F5`) → Backtest
+  port/Python adapter (`F6A`) → native snapshot host (`F6B`) → interaction
+  wrapper (`F6C`) → opt-in cutover (`F6D`) → default rollout (`F6E`). An
+  umbrella task is never evidence that its child slices are done.
+- A native `QQuickView` probe is not a production Backtest performance claim.
+  Before default selection, benchmark the real embedded `QQuickWidget` host
+  with the same full fixture, `processEvents()` and completed `grabWindow()`.
+- The standard profile is 6,420 ordered OHLCV candles, volume, five price
+  overlays, 1,112 semantic markers, crosshair and 150 visible candles at
+  1,600×900. Report DPR and physical-pixel column budget. Do not lower the
+  workload, hide a feature or omit the final grab to obtain a better score.
+- Performance reports are local diagnostic evidence, never a shared CI timing
+  threshold. They must report median/p95, updates/s, requested/actual backend,
+  environment, Qt warnings, visual color samples and retained-geometry
+  diagnostics.
+- The Backtest host contract is narrow and presentation-scoped. Only its
+  factory/host modules may import both `ChartCard` and `NativeChartItem`; do
+  not create a global ChartCard abstraction or make Dashboard adopt Backtest
+  behavior.
+- A `QWidget`/`QQuickWidget` host is transient and owned by one BackTestView.
+  Backend selection occurs at view construction; live hot-swapping is forbidden.
+- `auto` or `native` selects native only after runtime ABI validation and for a
+  capability that native demonstrably supports. Unsupported Equity/BOTH/script
+  annotations remain on the Python host; visual data must never silently vanish.
+- Runtime, ABI, QML construction, snapshot or viewport failure must fall back
+  to Python with one actionable diagnostic. A blank chart is never an allowed
+  fallback state.
+- Python prepares immutable snapshots and native validates them again. The
+  adapter owns monotonically increasing revisions, action/preview fencing and
+  timestamp-to-index alignment; camera/pointer movement must not rebuild bulk
+  OHLCV/volume/indicator/marker geometry.
+

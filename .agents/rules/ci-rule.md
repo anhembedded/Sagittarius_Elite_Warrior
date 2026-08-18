@@ -121,15 +121,52 @@ integration tier next, and run `-Full` last.
    evidence and keep the required deterministic coverage rather than declaring
    an unverified success.
 
-## 6. Test-tier contract
+## 6. Four-level test contract
 
-- **Unit:** pure business rules and invariants.
-- **Application/integration:** deterministic command/query and UI user flows.
-- **Sanity:** app boot, DI wiring, and QML construction only; no user action,
-  background dispatch, or network.
-- **Desktop E2E:** critical visible journeys with real desktop input, opt-in.
-- **External smoke:** opt-in real-service boundary checks; never a normal gate.
+Every feature is verified through exactly four test levels. Each level proves
+only its own contract; higher levels never replace lower-level deterministic
+coverage.
 
-Passing a lower tier proves only that tier's contract. In particular, a green
-Sanity or UnitOnly run never proves a user journey, native render runtime, or
-business acceptance contract.
+1. **Unit:** pure functions, data contracts, invariants and deterministic
+   component behavior. No real app/container, network, window or timing gate.
+2. **Integration:** deterministic application or visible UI journeys across
+   real collaborators, with local seeded/fake boundaries. It proves the user
+   flow, not just a private call or a mock expectation.
+3. **Sanity:** real app boot, DI wiring and QML construction only; no user
+   action, background dispatch or network. It proves composition health.
+4. **Desktop E2E:** critical visible journey on a Windows desktop using real Qt
+   mouse/keyboard input, real render backend and clean Qt stderr/message
+   capture. It is opt-in/local or nightly but mandatory evidence for changed
+   native rendering or reported GUI runtime defects.
+
+An external-service smoke check is an opt-in operational check, not a fifth
+test level and never a normal CI requirement. Passing a lower tier proves only
+that tier's contract. In particular, a green Sanity or UnitOnly run never
+proves a user journey, native render runtime, or business acceptance contract.
+
+## 7. Benchmark evidence tier
+
+`scripts/benchmarking/` is a diagnostic, not a gate tier. Its reports are local
+evidence for sizing, regression detection and release judgment — not shared-CI
+thresholds. `F5` specifically represents this tier.
+
+- Every Backtest benchmark report MUST describe the standard fixture, viewport,
+  warmup/measurement counts, DPR, completion path (`grabWindow()`), median/p95
+  and whether Qt message capture was clean.
+- Headless/Qt-offscreen may cover serializer, fixture, report and failure-path
+  tests only. Desktop timing comes from a Windows, real-GPU, real-window run.
+- `ci-local.ps1 -Full` and GitHub Actions run
+  `chart_migration_benchmark --backend both --ci-contract` after the native
+  build. This portable contract gate validates both renderers, frozen fixture,
+  completed capture/report shape, native crosshair/retained geometry and clean
+  Qt messages, then uploads its JSON evidence artifact.
+- `./scripts/run-chart-benchmark.ps1` is the one-command local entry point:
+  it writes a timestamped JSON result under `Tasks/reports/`; `-Desktop` adds
+  the Windows pixel-semantic contract. `ci-local.ps1 -DesktopBenchmark` runs
+  the same Desktop contract alongside the normal Full gate.
+- The CI contract never asserts a machine-sensitive median/p95/FPS threshold or
+  offscreen pixel colors. Those remain Desktop E2E Windows evidence through
+  `--desktop-contract`, real input and real RHI output.
+- `ci-local.ps1 -Full` still includes lint, format, native build, primary and
+  sequential sanity. It is the only local handoff evidence.
+

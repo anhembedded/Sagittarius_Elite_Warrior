@@ -1,0 +1,71 @@
+{
+  "purpose": "BOT-098F5 local diagnostic evidence; not a shared-CI timing gate.",
+  "environment": {
+    "os": "Linux-7.0.0-29-generic-x86_64-with-glibc2.43",
+    "python": "3.14.4",
+    "pyside": "6.11.1",
+    "qt_platform": "offscreen",
+    "pyqtgraph": "0.14.0"
+  },
+  "fixture": {
+    "candles": 6420,
+    "volume_bars": 6420,
+    "indicators": 5,
+    "markers": 1112,
+    "visible_candles": 150,
+    "logical_resolution": "1600x900",
+    "warmup_updates": 20,
+    "measured_updates": 120,
+    "completion": {
+      "python": "QWidget.grab()",
+      "native": "QQuickView.grabWindow()"
+    }
+  },
+  "results": [
+    {
+      "backend": "python",
+      "actual_backend": "cpu",
+      "median_ms": 45.76,
+      "p95_ms": 48.773,
+      "updates_per_second": 21.85,
+      "completed_captures": 3,
+      "device_pixel_ratio": 1.0,
+      "logical_resolution": "1600x900",
+      "physical_width": 1570,
+      "displayed_markers": 12,
+      "represented_markers": 31,
+      "crosshair_final_candle_index": null,
+      "expected_crosshair_candle_index": 112,
+      "camera_geometry_retained": {
+        "ohlcv": null,
+        "volume": null,
+        "indicator": null,
+        "marker": null
+      },
+      "pointer_geometry_retained": {
+        "ohlcv": null,
+        "volume": null,
+        "indicator": null,
+        "marker": null
+      },
+      "renderer_diagnostics": {
+        "range_applies": 3,
+        "volume_applies": 4,
+        "indicator_applies": 15,
+        "stored_markers": 1112,
+        "rendered_candles": 150,
+        "rendered_volume_bars": 152
+      },
+      "sampled_expected_colors": {
+        "#f6465d": true,
+        "#f0b90b": true,
+        "#00c087": true,
+        "#00bfff": true
+      },
+      "qt_warnings": [
+        "This plugin does not support propagateSizeHints()"
+      ]
+    }
+  ],
+  "python_over_native_median_speedup": null
+}

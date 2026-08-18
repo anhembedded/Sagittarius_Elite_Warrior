@@ -55,6 +55,15 @@ All UI components and QML files developed for the **Sagittarius Elite Warrior** 
   - Modal backdrop and panel fade/scale: `NumberAnimation on opacity`, `NumberAnimation on scale`
   - Warning banner drop-down: `NumberAnimation on height` or `NumberAnimation on y`
 - **Never Block User Flow**: Animations must be asynchronous and unobtrusive; never prevent user clicks or lock the UI thread. Do not add decorative animation to high-frequency or render-sensitive surfaces (charts, pan/zoom, large tables) until a benchmark proves it is within the interaction budget.
+- **Native Chart Interaction**: The Backtest native chart wrapper may own only
+  gesture-to-viewport conversion, axis/tooltip/FPS presentation and bindings to
+  `NativeChartItem`. It must not pack snapshots, calculate indicators, infer
+  business state or duplicate Presenter/adapter data decisions. Keep text,
+  axes and tooltip updates separate from retained bulk geometry; pan/wheel/
+  pointer input must not rebuild OHLCV, volume, indicator or marker buffers.
+  Give every tested handler/overlay a stable `objectName`; use Theme tokens and
+  no decorative animation until the standard profile benchmark proves it fits
+  the interaction budget.
 
 ---
 

@@ -72,6 +72,8 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
    - **Do Not Collapse Trading Semantics:** A strategy signal, order intent, execution fill, position entry, position exit, and short entry are distinct domain facts. Model and test them separately; never let an ambiguous `BUY`/`SELL` label silently stand for more than one. In a long-only engine, `SELL` is an exit of an existing LONG, not an opened SHORT.
    - **Truthful Trading UI:** Every label, icon, marker, filter, metric, and empty state MUST describe what has actually happened and what the engine supports now. A close-long marker must use a distinct exit semantic/icon from a short-entry/sell marker. Do not present a planned or unsupported capability as available; hide/disable it or explicitly label it unavailable. Test the displayed semantics, not only the underlying payload.
 - Never claim instantaneous or fixed latency without a reproducible benchmark fixture. State the workload, cache condition, and measurement method; display ETA as an estimate only.
+- **Renderer benchmark methodology:** A renderer comparison must drive the same immutable source payload, viewport/input sequence, event drain and completed visual grab through both implementations. Record median/p95, DPR, actual backend, environment, visual semantics and warning capture. Treat CPU/GPU frame time and business/pixel correctness as separate proofs; never improve a benchmark by dropping markers, labels, data or a final render check.
+- **Backtest chart host boundary:** Use a narrow Backtest-scoped `Protocol` and transient factory for interchangeable Python/native chart hosts. Presenters and Backtest Views depend only on that port; only factory/host modules import concrete renderers. A host is UI-thread/view-owned and may not be singleton or hot-swapped. Native capability/fallback must be explicit — unsupported Equity/BOTH/script presentation keeps Python rather than silently degrading.
 - **Counterintuitive Story Check:** When a story, label, default, or acceptance criterion can reasonably conflict with a user's mental model (especially a TradingView-style workflow), stop and report the observable behavior, evidence, and trade-off before finalizing the design. Do not invent a hidden user intent; encode the chosen semantics truthfully in UI copy and deterministic acceptance tests.
 
 ---
@@ -105,21 +107,31 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 
 ## 4. Testing & Quality Assurance
 
-- **Every new feature/screen ships with sanity tests** in `tests/sanity/`, alongside its unit tests:
-  - **Sanity (DI):** Boot the real app (`create_app()`, real composition root) and assert every command/query resolves to its handler, and registries have expected keys.
-  - **Sanity (UI):** Construct the real View + Presenter against the real DI container and assert zero exceptions and `quick_widget.errors() == []`.
-  - **Construction-only, always** — no button clicks, no background dispatch, and no network. Sanity proves boot/composition health; it is not an end-to-end test.
-- **User-flow Integration:** Put deterministic UI journeys in `tests/integration/`: drive the QML button signal, wait on a named completion signal/state, and assert the visible result. Use an in-memory/local seeded repository or a fake server; never depend on a public exchange or live account.
-- **Desktop E2E:** For a reported GUI/runtime bug, add and permanently retain an opt-in desktop E2E regression harness. It must start the actual application, seed deterministic local data, use real Qt mouse/keyboard events (`QTest`/`qtbot`) rather than calling presenter methods, wait for the user-visible terminal state, and assert a clean Qt message/stderr capture. Run this tier on a Windows desktop runner or manually/nightly; it is excluded from ordinary fast CI only when native rendering is demonstrably unstable.
-- **Real external services:** A real Binance/server smoke test is opt-in and credential-free wherever possible. It must never be the only regression proof or a required normal CI gate: network availability, rate limits, remote data changes, and credentials make it non-deterministic.
-- **Test Pyramid & Release Evidence:**
-  - **Static quality:** Ruff lint/format checks plus architecture/import rules run on every commit and pull request.
-  - **Unit:** Cover pure Domain rules, indicators, strategies, financial calculations, validation and FSM transitions deterministically.
-  - **Application:** Cover command/query handlers, port contracts, persistence boundaries, cancellation propagation and error translation.
-  - **UI integration:** Cover QML signal → Presenter → ViewModel → visible UI state. Assert what the user can observe, not only that a private method was called.
-  - **Sanity:** Cover real app boot, DI wiring and QML construction only, as defined above.
-  - **Desktop E2E:** Cover critical user journeys and runtime rendering on a desktop runner before release and on a scheduled/nightly cadence.
-  - **External smoke:** Covers a read-only real-service boundary only when explicitly requested; it never replaces deterministic coverage.
+- **Four required test levels:** Every feature defines its proof across the
+  four levels in `.agents/rules/ci-rule.md` — Unit, Integration, Sanity and
+  Desktop E2E. A change may add no new test only when an existing test at the
+  relevant level already proves the exact new behavior; name that evidence in
+  the task/report.
+- **Sanity:** Every new feature/screen ships construction-only sanity coverage
+  in `tests/sanity/`: boot the real app (`create_app()`, real composition root),
+  construct real View + Presenter, assert real DI resolves and
+  `quick_widget.errors() == []`. No click, background dispatch or network.
+- **Integration:** Put deterministic user/application journeys in
+  `tests/integration/`: drive named QML/Qt input, wait on terminal
+  signal/state, and assert the observable result using local seeded/fake
+  boundaries. Never depend on a public exchange or live account.
+- **Desktop E2E:** A reported GUI/runtime defect or native rendering change
+  requires a retained opt-in Windows desktop E2E harness: start the actual app,
+  seed deterministic local data, use real `QTest`/`qtbot` input, wait for the
+  visible terminal state, and capture clean Qt messages/stderr. This level is
+  local/nightly when necessary, but it is not optional evidence for native
+  interaction work.
+- **External service smoke:** An explicitly requested, credential-free smoke
+  check is operational evidence, not a fifth test level and never a normal CI
+  gate or replacement for deterministic coverage.
+- **Static quality:** Ruff lint/format plus architecture/import rules run on
+  every commit and pull request; they support but do not replace the four test
+  levels.
 - **Deterministic Async & UI Testing:** Never use timing sleeps to synchronize a test. Wait for a named completion signal, FSM state, terminal event, or bounded `qtbot.waitUntil(...)` condition. Give every QML control that is a critical user action a stable `objectName` so integration/E2E tests can target it.
 - **Financial & Backtest Invariants:** Add deterministic property/invariant tests for financial code: reject `NaN`/infinite values, keep fees non-negative, keep equity/trade/metrics internally consistent, and require identical outputs for identical input data/configuration. Every new execution mode, fee model or simulation pass must extend these invariants.
 - **Business Acceptance for Trading Features:** A backtest UI test MUST assert the business composition of the result, not merely that a run completed. For example, a long-only result may contain long entries and long exits but MUST contain no short trade; a future short-enabled strategy must prove a downtrend produces an actual SHORT fill, its SHORT table filter shows it, its PnL moves correctly as price falls, and its chart marker represents the fill rather than merely the strategy signal.
