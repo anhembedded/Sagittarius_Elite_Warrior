@@ -513,3 +513,54 @@ def test_draw_markers_is_a_no_op_for_an_inactive_script(runner):
     runner.draw_markers(card, "ema_cross", [(1.0, 100.0, "Buy", "#0ECB81", "up")])
 
     card.set_script_markers.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Dynamic Script Add / Remove (BOT-095F)
+# ---------------------------------------------------------------------------
+
+
+def test_add_script_dynamically_registers_and_feeds_candles(runner, emitted):
+    runner.rebuild([])
+    assert "ema_cross" not in runner.active
+
+    candles = [make_candle(100.0 + i, i) for i in range(30)]
+    runner.add_script("ema_cross", candles)
+
+    assert "ema_cross" in runner.active
+    assert any(qualified.startswith("ema_cross:") for qualified, _, _ in emitted)
+
+
+def test_add_script_ignores_duplicate_key(runner, emitted):
+    runner.rebuild(["ema_cross"])
+    assert "ema_cross" in runner.active
+
+    emitted_count_before = len(emitted)
+    runner.add_script("ema_cross", [make_candle(100.0, 0)])
+
+    assert len(emitted) == emitted_count_before
+
+
+def test_add_script_handles_unknown_key_gracefully(runner, errors):
+    runner.rebuild([])
+    runner.add_script("non_existent_script")
+
+    assert "non_existent_script" not in runner.active
+    assert errors, "expected error callback for unknown script"
+
+
+def test_remove_script_disposes_resources_and_clears_chart(runner):
+    card = MagicMock()
+    runner.rebuild(["ema_cross"])
+    runner.feed(make_candle(100.0, 0), emit=False)
+    runner.draw(card, "ema_cross:EMA 12", [1.0], [100.0])
+
+    assert "ema_cross" in runner.active
+
+    runner.remove_script("ema_cross", card)
+
+    assert "ema_cross" not in runner.active
+    card.remove_indicator.assert_called_once_with("ema_cross:EMA 12")
+    card.clear_script_regions.assert_called_once_with("ema_cross")
+    card.clear_script_info.assert_called_once_with("ema_cross")
+    card.clear_script_markers.assert_called_once_with("ema_cross")

@@ -321,6 +321,10 @@ class BackTestView(BaseView):
             return "python"
         return self._chart_backend
 
+    @property
+    def chart_mode(self) -> ChartDisplayMode:
+        return self._chart_mode
+
     def set_chart_mode(self, mode: ChartDisplayMode) -> bool:
         """Returns True when the effective backend changed and the chart
         host was rebuilt from scratch — BackTestPresenter uses this to know

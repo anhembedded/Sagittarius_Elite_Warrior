@@ -1887,6 +1887,95 @@ def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
     card.set_indicator_visible.assert_any_call("test_script:R", True)
 
 
+def test_dynamic_script_toggle_on_after_run_draws_on_chart_without_rerun(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-095F: toggling an indicator script ON after a backtest run dynamically
+    draws the curves without rerunning the simulation or marking config dirty."""
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    view_model.script_model.setEnabled(0, False)
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    card.add_overlay_indicator.assert_not_called()
+    assert not view_model.isConfigDirty
+    mock_thread_mgr.reset_mock()
+
+    # Now toggle the script ON dynamically
+    view_model.script_model.setEnabled(0, True)
+
+    added_names = {call.args[0] for call in card.add_overlay_indicator.call_args_list}
+    assert added_names == {"test_script:R"}
+    updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
+    assert updated_names == {"test_script:R"}
+
+    # Must NOT re-submit backtest worker and must NOT dirty the toolbar config
+    mock_thread_mgr.submit.assert_not_called()
+    assert not view_model.isConfigDirty
+
+
+def test_dynamic_script_toggle_off_after_run_removes_from_chart(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-095F: toggling an indicator script OFF after a backtest run dynamically
+    removes the curves from the chart."""
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.remove_indicator = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    # Toggle the script OFF dynamically
+    view_model.script_model.setEnabled(0, False)
+
+    card.remove_indicator.assert_called_with("test_script:R")
+    assert "test_script" not in presenter._chart_script_runner.active
+    assert not view_model.isConfigDirty
+
+
+def test_dynamic_script_toggle_on_during_equity_mode_keeps_overlay_hidden(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+):
+    """BOT-095F + BOT-065: enabling an overlay script during Equity mode draws it hidden."""
+    presenter = _build_presenter_with_script(
+        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    )
+    view_model = presenter._view_model
+    view_model.script_model.setEnabled(0, False)
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+    card = presenter.view.chart_cards[0]
+
+    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    qapp.processEvents()
+
+    card.set_indicator_visible = Mock()
+    view_model.script_model.setEnabled(0, True)
+
+    card.set_indicator_visible.assert_called_with("test_script:R", False)
+
+
 def test_mode_buttons_switch_the_chart_mode_end_to_end(
     presenter, view_model, mock_dispatcher, qapp
 ):

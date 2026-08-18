@@ -148,6 +148,52 @@ class IndicatorScriptRunner:
             )
         self.active = active
 
+    def add_script(self, key: str, candles: Iterable[MarketData] | None = None) -> None:
+        """Adds a single script dynamically and optionally feeds it over existing candles."""
+        if key in self.active:
+            return
+        try:
+            script = self._registry.create(key)
+        except KeyError:
+            self._on_error(f"Unknown indicator script: {key}")
+            return
+        active = ActiveScript(
+            script=script,
+            overlay=script.overlay,
+            region_tracker=ScriptRegionTracker(self._bar_width_seconds),
+        )
+        self.active[key] = active
+        if candles:
+            for candle in candles:
+                timestamp = float(candle.close_time.timestamp())
+                for line_name, line in active.script.compute(candle).items():
+                    active.record(line_name, timestamp, line.value)
+                active.region_tracker.record(timestamp, active.script.drain_region())
+                active.latest_info = active.script.drain_info()
+                new_markers = active.script.drain_markers()
+                if new_markers:
+                    active.markers.extend(
+                        (
+                            timestamp,
+                            marker.value,
+                            marker.text,
+                            marker.color,
+                            marker.direction,
+                        )
+                        for marker in new_markers
+                    )
+            self._flush(key, active)
+
+    def remove_script(self, key: str, card) -> None:
+        """Removes a single script dynamically from both internal active map and chart card."""
+        active = self.active.pop(key, None)
+        if active is None or card is None:
+            return
+        active.scope.dispose_all()
+        card.clear_script_regions(key)
+        card.clear_script_info(key)
+        card.clear_script_markers(key)
+
     def clear_from_chart(self, card) -> None:
         """Removes every script-drawn curve, background tint, and status
         panel row before a rebuild. Curve removal goes through each

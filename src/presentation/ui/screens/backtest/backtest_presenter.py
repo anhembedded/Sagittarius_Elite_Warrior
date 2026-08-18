@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
@@ -204,8 +205,8 @@ class BackTestPresenter(BasePresenter):
     _backtestCoverageMissingSignal = Signal(int, object, object, bool)
     _backtestCoverageReadySignal = Signal(int, object)
     _chartDataReadySignal = Signal(
-        int, object, list, list
-    )  # action_id, result, klines, volume
+        int, object, list, list, list
+    )  # action_id, result, klines, volume, raw_klines
     # BOT-060: line_name, color, x_data, y_data — one emit per line, after
     # the whole run has been fed (same O(N) reasoning as BOT-036's feed_all).
     _chartStrategyLineSignal = Signal(int, str, str, list, list)
@@ -219,7 +220,9 @@ class BackTestPresenter(BasePresenter):
     _syncSucceededSignal = Signal(int)  # action_id
     _syncFailedSignal = Signal(int, str)  # action_id, error message
     _syncProgressSignal = Signal(int, int, int)  # action_id, current, total
-    _previewDataReadySignal = Signal(int, object, list, list)
+    _previewDataReadySignal = Signal(
+        int, object, list, list, list
+    )  # preview_id, coverage, klines, volume, raw_klines
     _uiLogSignal = Signal(str, str, bool)  # message, level, is_dev
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
@@ -300,6 +303,7 @@ class BackTestPresenter(BasePresenter):
             on_error=logger.warning,
         )
         self._chart_script_keys: list[str] = []
+        self._current_raw_klines: list[MarketData] = []
 
         self._view_model = BackTestViewModel()
         view.set_view_model(self._view_model)
@@ -1056,17 +1060,22 @@ class BackTestPresenter(BasePresenter):
             percent, f"{phase_label}: {percent:.0f}%{eta_label}"
         )
 
-    @Slot(int, object, list, list)
+    @Slot(int, object, list, list, list)
     @safe_ui_action
     def _on_chart_data_ready_for_action(
-        self, action_id: int, result: BacktestResult, klines: list, volume: list
+        self,
+        action_id: int,
+        result: BacktestResult,
+        klines: list,
+        volume: list,
+        raw_klines: list,
     ) -> None:
         if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             self._ignore_stale_action_callback(
                 "chart_data_ready", action_id, BacktestActionKind.BACKTEST
             )
             return
-        self._on_chart_data_ready(result, klines, volume)
+        self._on_chart_data_ready(result, klines, volume, raw_klines)
 
     @Slot(int, str, str, list, list)
     @safe_ui_action
@@ -1157,11 +1166,17 @@ class BackTestPresenter(BasePresenter):
         if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_FAILED):
             self.fsm.dispatch(BacktestUiEvent.BACKTEST_FAILED)
 
-    @Slot(object, list, list)
+    @Slot(object, list, list, list)
     @safe_ui_action
     def _on_chart_data_ready(
-        self, result: BacktestResult, klines: list, volume: list
+        self,
+        result: BacktestResult,
+        klines: list,
+        volume: list,
+        raw_klines: list | None = None,
     ) -> None:
+        if raw_klines is not None:
+            self._current_raw_klines = list(raw_klines)
         self._log_dev_trace(
             "chart_data_ready",
             klines=len(klines),
@@ -1408,12 +1423,13 @@ class BackTestPresenter(BasePresenter):
                 coverage,
                 map_klines(raw_klines),
                 map_volume(raw_klines),
+                raw_klines,
             )
         except Exception as exc:
             logger.exception("Fetching Backtest chart preview failed")
             self._log_dev_trace("preview_query_failed", message=str(exc))
 
-    @Slot(int, object, list, list)
+    @Slot(int, object, list, list, list)
     @safe_ui_action
     def _on_preview_data_ready(
         self,
@@ -1421,10 +1437,13 @@ class BackTestPresenter(BasePresenter):
         coverage: BacktestRangeCoverage,
         klines: list,
         volume: list,
+        raw_klines: list | None = None,
     ) -> None:
         if preview_id != self._active_preview_id:
             self._log_dev_trace("preview_ignored", preview_id=preview_id)
             return
+        if raw_klines is not None:
+            self._current_raw_klines = list(raw_klines)
         self._view_model.set_data_coverage(
             coverage.is_fully_covered,
             ""
@@ -1469,9 +1488,40 @@ class BackTestPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_indicator_script_selection_changed(self) -> None:
-        enabled_keys = sorted(self._view_model.script_model.enabled_keys)
-        scripts_str = ", ".join(enabled_keys) if enabled_keys else "Không có"
+        """BOT-095F: dynamically adds or removes reference indicator scripts from the chart
+        when toggled in the indicator picker modal, without requiring a full backtest rerun."""
+        enabled_keys = set(self._view_model.script_model.enabled_keys)
+        scripts_str = ", ".join(sorted(enabled_keys)) if enabled_keys else "Không có"
         self._logger.info(f"Đã cập nhật chỉ báo tham chiếu: {scripts_str}")
+
+        current_active_keys = set(self._chart_script_runner.active.keys())
+        disabled_keys = current_active_keys - enabled_keys
+        newly_enabled_keys = enabled_keys - current_active_keys
+
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+
+        for key in disabled_keys:
+            if card is not None:
+                self._chart_script_runner.remove_script(key, card)
+            else:
+                self._chart_script_runner.active.pop(key, None)
+
+        if self._current_raw_klines:
+            is_price_scale = (
+                getattr(self.view, "chart_mode", ChartDisplayMode.OHLC)
+                is not ChartDisplayMode.EQUITY
+            )
+            for key in newly_enabled_keys:
+                self._chart_script_runner.add_script(key, self._current_raw_klines)
+                if not is_price_scale:
+                    active = self._chart_script_runner.active.get(key)
+                    if active and active.overlay and card is not None:
+                        for line_name in active.registered_lines:
+                            card.set_indicator_visible(
+                                qualified_line_name(key, line_name), False
+                            )
+
+        self._chart_script_keys = sorted(enabled_keys)
 
     @Slot(object)
     @safe_ui_action
@@ -2001,7 +2051,9 @@ class BackTestPresenter(BasePresenter):
             mapped_klines=len(mapped_klines),
             mapped_volume=len(mapped_volume),
         )
-        self._chartDataReadySignal.emit(action_id, result, mapped_klines, mapped_volume)
+        self._chartDataReadySignal.emit(
+            action_id, result, mapped_klines, mapped_volume, raw_klines
+        )
 
         self._emit_strategy_indicator_lines(action_id, config, raw_klines)
 
