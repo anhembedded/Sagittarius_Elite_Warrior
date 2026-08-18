@@ -22,8 +22,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
 | 🟢 **Completed** | 85 | 67.5% |
-| 🟡 **In Progress** | 2 | 1.6% |
-| 🔴 **Backlog** | 39 | 31.0% |
+| 🟡 **In Progress** | 3 | 2.4% |
+| 🔴 **Backlog** | 38 | 30.2% |
 | 📈 **Tổng số Task** | **126** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -192,8 +192,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 - [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước benchmark/migration.
 - [ ] **BOT-098F5**: [Shared Backtest renderer benchmark (Python vs native)](in_progress/BOT-098F5_shared_backtest_renderer_benchmark.md) — fixture chung, `grabWindow()`/DPR/semantic diagnostics và report A/B local trước mọi production cutover.
+- [ ] **BOT-098F6C**: [Native Backtest interaction wrapper](in_progress/BOT-098F6C_native_chart_interaction_wrapper.md) — `NativeBacktestChart.qml` (axis/tooltip/FPS + drag/wheel/hover thật) xong; drag/wheel/geometry-retained đã có bằng chứng thật đáng tin, nhưng chỉ ở mức **component probe**, chưa phải Desktop E2E hệ thống thật (chưa nối vào app — việc của `F6D`).
+
 > [!NOTE]
-> **BOT-098F4 mục 3-4 và BOT-098F5 tiêu chí 6 — đều cần Windows Desktop E2E thật (màu pixel thật qua GPU/RHI thật, input chuột/bàn phím thật). Không cách nào làm trên máy Linux này, dù đã build được native plugin và có bằng chứng Wayland thay thế.** Cả hai task vẫn ở trạng thái **chưa xong** cho tới khi có evidence chạy thật trên máy Windows.
+> **BOT-098F4 mục 3-4, BOT-098F5 tiêu chí 6, và BOT-098F6C tiêu chí 3 — đều cần Desktop E2E thật qua app chạy thật (màu pixel thật qua GPU/RHI thật, input chuột/bàn phím thật, và cho F6C là chạy từ `main.py` chứ không chỉ probe độc lập). Không cách nào làm trên máy Linux này lúc này, dù đã có bằng chứng component/Wayland thay thế.** Cả ba đều **chưa xong** cho tới khi có evidence chạy thật trên máy Windows (F4/F5) hoặc sau khi `BOT-098F6D` nối native vào app thật (F6C).
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
@@ -205,7 +207,6 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P1** | **[BOT-098F](backlog/BOT-098F_qt_quick_scene_graph_chart_renderer.md)** | **Qt Quick Scene Graph retained chart renderer** | ⚡ **Specialized** | `BOT-098F1`/`BOT-098F2`/`BOT-098F2A`/`BOT-098F3` ✅, `BOT-098F4` 🟡 | Retained candle/camera/volume/indicator đã xanh; hoàn tất marker/crosshair (`F4`), benchmark chung (`F5`) rồi mới production migration (`F6`). Không dùng TradingView Lightweight Charts/WebEngine. |
 | **P1** | **[BOT-098F5](backlog/BOT-098F5_shared_backtest_renderer_benchmark.md)** | **Shared Backtest renderer benchmark (Python vs native)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4` | A/B chung trên fixture Backtest 6.420 nến + volume + 5 indicator + 1.112 marker + crosshair; đo `grabWindow`, median/p95/DPR, retained geometry và visual semantic. Evidence local, không hard CI timing gate. |
 | **P1** | **[BOT-098F6](backlog/BOT-098F6_backtest_chart_host_migration.md)** | **Backtest native chart-host migration (phase umbrella)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4`, `BOT-098F5` | Umbrella không code trực tiếp: `F6A→F6E` là 5 phase có test/exit criterion riêng; native chỉ OHLC path đã chứng minh, Python fallback một release cho capability chưa parity hoặc lỗi runtime. |
-| **P1** | **[BOT-098F6C](backlog/BOT-098F6C_native_chart_interaction_wrapper.md)** | **Native Backtest interaction wrapper** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F6B` | QML pan/wheel/crosshair/axis/tooltip/FPS wrapper; real desktop input phải chứng minh final state đúng và geometry retained. |
 | **P1** | **[BOT-098F6D](backlog/BOT-098F6D_backtest_native_opt_in_cutover.md)** | **Backtest native opt-in cutover** | 🔴 **`L (Thinking)`** | `BOT-098F5`, `BOT-098F6A`, `BOT-098F6C` | Factory/DI/config chọn native/Python trong Backtest thật cho OHLC path; unsupported modes và runtime failure quay Python rõ ràng. |
 | **P1** | **[BOT-098F6E](backlog/BOT-098F6E_native_default_rollout.md)** | **Native default rollout and Python kill-switch** | 🟡 **`M (Standard)`** | `BOT-098F6D` | Chỉ đổi default native sau F5 + E2E evidence; giữ Python override/fallback trọn một release, không xóa adapter. |
 | **P1** | **[Epic BOT-078](backlog/BOT-078_backtest_trustworthiness_epic.md)** | **Backtest Trustworthiness — kết quả có đáng tin không?** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-047` ✅ | Engine chạy đúng 100% vẫn có thể sinh kết luận sai. Log thật `-80.71%` hoá ra **~96% là phí giao dịch**, edge chiến lược ≈ hoà — mà app không có chỗ nào nói điều đó. Và **không một dòng nào** trong repo nhắc tới chống overfitting, dù bộ máy tinh chỉnh tham số (`BOT-044`…`048`) đã xong. Xem bảng chi tiết bên dưới. 📄 [Rà soát định hướng](reports/app_direction_audit.md). |

@@ -14,6 +14,7 @@ import bisect
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from PySide6.QtCore import QThread, QUrl
 from PySide6.QtQml import QQmlComponent
@@ -42,6 +43,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_snapshot import (
     pack_native_ohlcv_snapshot,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_timezone_bridge import (
+    NativeChartTimezoneBridge,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_viewport_gestures import (
+    NativeChartGestureBridge,
+)
 from sagittarius_engine.extensions.pyside_mvc import create_quick_widget
 
 _MARKER_LABEL_TO_KIND: dict[str, NativeChartMarkerKind] = {
@@ -55,21 +62,9 @@ _MARKER_DIRECTION_STR_TO_ENUM: dict[str, NativeChartMarkerDirection] = {
     "down": NativeChartMarkerDirection.DOWN,
 }
 
-_NATIVE_CHART_QML = b"""
-import QtQuick
-import Sagittarius.NativeChart 1.0
-
-Item {
-    width: 1
-    height: 1
-
-    NativeChartItem {
-        id: chart
-        objectName: "nativeChartItem"
-        anchors.fill: parent
-    }
-}
-"""
+#: BOT-098F6C's declarative wrapper: axis ticks, crosshair tooltip, dev FPS
+#: and real drag/wheel/pointer gesture handling around the bare NativeChartItem.
+_NATIVE_CHART_QML_PATH = Path(__file__).resolve().parents[1] / "NativeBacktestChart.qml"
 
 
 def timestamp_seconds_to_ms(timestamp_seconds: float) -> int:
@@ -255,17 +250,22 @@ class NativeBacktestChartHost:
         component: QQmlComponent,
         root_item: object,
         chart_item: object,
+        gesture_bridge: NativeChartGestureBridge,
+        timezone_bridge: NativeChartTimezoneBridge,
     ) -> None:
-        # component/root_item have no other Python-side owner once create()
-        # returns — QQuickWidget.setContent() does not keep them alive the
-        # way a naive reading of "the widget now owns this" would suggest,
-        # so without holding these references here the underlying C++
-        # objects (chart_item included) get deleted out from under this
-        # host the moment create()'s local variables go out of scope.
+        # component/root_item/the bridges have no other Python-side owner
+        # once create() returns — QQuickWidget.setContent() and
+        # setContextProperty() do not keep them alive the way a naive
+        # reading of "the widget/engine now owns this" would suggest, so
+        # without holding these references here the underlying C++ objects
+        # (chart_item included) get deleted out from under this host the
+        # moment create()'s local variables go out of scope.
         self._widget = widget
         self._component = component
         self._root_item = root_item
         self._chart_item = chart_item
+        self._gesture_bridge = gesture_bridge
+        self._timezone_bridge = timezone_bridge
         self._fence = NativeChartSubmissionFence()
         self._ohlcv_revision = 0
         self._indicator_revision = 0
@@ -276,8 +276,15 @@ class NativeBacktestChartHost:
     def create(cls) -> NativeBacktestChartHost:
         widget = create_quick_widget()
         configure_native_chart_engine(widget.engine(), required=True)
+
+        gesture_bridge = NativeChartGestureBridge()
+        timezone_bridge = NativeChartTimezoneBridge()
+        context = widget.engine().rootContext()
+        context.setContextProperty("gestureBridge", gesture_bridge)
+        context.setContextProperty("timezoneBridge", timezone_bridge)
+
         component = QQmlComponent(widget.engine())
-        component.setData(_NATIVE_CHART_QML, QUrl())
+        component.loadUrl(QUrl.fromLocalFile(str(_NATIVE_CHART_QML_PATH)))
         root_item = component.create()
         if component.errors() or root_item is None:
             raise NativeChartRuntimeError(
@@ -290,11 +297,19 @@ class NativeBacktestChartHost:
             raise NativeChartRuntimeError(
                 "nativeChartItem was not found after construction"
             )
-        return cls(widget, component, root_item, chart_item)
+        return cls(
+            widget, component, root_item, chart_item, gesture_bridge, timezone_bridge
+        )
 
     @property
     def widget(self) -> QQuickWidget:
         return self._widget
+
+    def set_display_timezone(self, tz_name: str) -> None:
+        self._root_item.setProperty("displayTimezone", tz_name)
+
+    def set_dev_fps_enabled(self, enabled: bool) -> None:
+        self._chart_item.setProperty("devFpsEnabled", bool(enabled))
 
     def _assert_owning_gui_thread(self) -> None:
         if QThread.currentThread() is not self._widget.thread():
