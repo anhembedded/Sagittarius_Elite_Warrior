@@ -231,7 +231,7 @@ def test_run_button_completes_real_backtest_and_chart_render(
 
     assert view_model.needsDataSync is False
     assert view._last_klines
-    assert view.chart_cards[0]._raw_history
+    assert view.chart_cards[0].chart_card._raw_history
     log_messages_after = [entry.message for entry in view_model.log_model.entries]
     assert (
         sum("[Health]" in message for message in log_messages_after)
@@ -256,7 +256,7 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
     the visible Backtest ChartCard.
     """
     presenter, view = backtest_screen
-    chart = view.chart_cards[0]
+    chart = view.chart_cards[0].chart_card
     five_minute_button = chart.toolbar._buttons[_TOOLBAR_TIMEFRAME_INTERVAL]
 
     with qtbot.waitSignal(view.chartPreviewRendered, timeout=5000):

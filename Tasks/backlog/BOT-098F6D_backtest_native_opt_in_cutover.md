@@ -1,7 +1,7 @@
 # BOT-098F6D — Backtest native opt-in cutover
 
 **Parent:** [`BOT-098F6`](BOT-098F6_backtest_chart_host_migration.md)  
-**Depends on:** `BOT-098F5`, `BOT-098F6A`, `BOT-098F6C`  
+**Depends on:** `BOT-098F5`, `BOT-098F6A` ✅, `BOT-098F6C`  
 **Priority:** P1  
 **Complexity:** L  
 **Status:** Backlog

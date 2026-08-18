@@ -71,7 +71,13 @@ def test_backtest_screen_constructs_against_the_real_container(
     assert presenter._view_model is not None
     assert view.chart_controls is not None
     assert len(view.chart_cards) == 1
-    assert set(view.chart_cards[0].toolbar._buttons) == {"1m", "5m", "15m", "1h", "1d"}
+    assert set(view.chart_cards[0].chart_card.toolbar._buttons) == {
+        "1m",
+        "5m",
+        "15m",
+        "1h",
+        "1d",
+    }
 
 
 def test_backtest_screen_qml_parses_clean_against_real_theme_and_icons(

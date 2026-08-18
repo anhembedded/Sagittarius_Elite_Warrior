@@ -422,8 +422,8 @@ def test_strategy_options_loaded_from_registry_on_init(view_model):
 def test_dev_mode_enables_fps_overlay_on_the_real_backtest_chart(presenter):
     card = presenter.view.chart_cards[0]
 
-    assert card.fps_overlay.is_enabled is True
-    assert card.fps_overlay.label.isHidden() is False
+    assert card.chart_card.fps_overlay.is_enabled is True
+    assert card.chart_card.fps_overlay.label.isHidden() is False
 
 
 def test_backtest_opengl_can_be_disabled_by_config(
@@ -440,11 +440,11 @@ def test_backtest_opengl_can_be_disabled_by_config(
 
     BackTestPresenter(view, mock_container)
 
-    assert view.chart_cards[0].plot_layout.opengl_requested is False
+    assert view.chart_cards[0].chart_card.plot_layout.opengl_requested is False
 
 
 def test_backtest_cached_interaction_is_enabled_by_default(presenter):
-    assert presenter.view.chart_cards[0].cached_interaction is not None
+    assert presenter.view.chart_cards[0].chart_card.cached_interaction is not None
 
 
 # ---------------------------------------------------------------------------
@@ -466,7 +466,7 @@ def test_reads_default_symbol_and_interval_from_config(
 
     assert presenter._symbol == "BTCUSDT"
     assert presenter._view_model.selectedTimeframe == "5m"
-    assert view.chart_cards[0].symbol == "BTCUSDT"
+    assert view.chart_cards[0].chart_card.symbol == "BTCUSDT"
 
 
 def test_empty_default_symbols_falls_back_to_a_default_symbol(
@@ -1016,7 +1016,7 @@ def test_chart_toolbar_timeframe_click_updates_backtest_data_contract(
     timeframe/preview is a user-visible no-op, not a successful interaction.
     """
     mock_thread_mgr.reset_mock()
-    toolbar = presenter.view.chart_cards[0].toolbar
+    toolbar = presenter.view.chart_cards[0].chart_card.toolbar
 
     toolbar._buttons["5m"].click()
 
@@ -1029,7 +1029,7 @@ def test_chart_toolbar_timeframe_click_updates_backtest_data_contract(
 
 def test_qml_timeframe_selection_keeps_chart_toolbar_in_sync(presenter, view_model):
     """The QML picker and chart header are one selected-timeframe contract."""
-    toolbar = presenter.view.chart_cards[0].toolbar
+    toolbar = presenter.view.chart_cards[0].chart_card.toolbar
 
     view_model.selectedTimeframe = "15m"
 
@@ -1516,8 +1516,11 @@ def test_successful_run_fetches_klines_and_renders_the_ohlc_chart(
     presenter._run_backtest(config)
 
     assert len(presenter.view._last_klines) == 3
-    assert presenter.view.chart_cards[0]._raw_history
-    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+    assert presenter.view.chart_cards[0].chart_card._raw_history
+    assert (
+        presenter.view.chart_cards[0].chart_card.chart_type_renderer.chart_type
+        == CANDLESTICK
+    )
 
 
 def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_chart_usable(
@@ -1545,21 +1548,26 @@ def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_ch
 
     assert len(presenter.view._last_klines) == len(klines)
     assert presenter.view._last_volume
-    assert presenter.view.chart_cards[0]._raw_history
-    timestamps = [candle[0] for candle in presenter.view.chart_cards[0]._raw_history]
+    assert presenter.view.chart_cards[0].chart_card._raw_history
+    timestamps = [
+        candle[0] for candle in presenter.view.chart_cards[0].chart_card._raw_history
+    ]
     assert timestamps == sorted(timestamps)
 
     card = presenter.view.chart_cards[0]
-    x_range, y_range = card.plot_layout.main_plot.vb.viewRange()
-    lows = [candle[3] for candle in card._raw_history]
-    highs = [candle[2] for candle in card._raw_history]
-    assert card.width() > 0
-    assert card.height() > 0
+    x_range, y_range = card.chart_card.plot_layout.main_plot.vb.viewRange()
+    lows = [candle[3] for candle in card.chart_card._raw_history]
+    highs = [candle[2] for candle in card.chart_card._raw_history]
+    assert card.widget.width() > 0
+    assert card.widget.height() > 0
     assert x_range[1] > x_range[0]
     assert y_range[1] > y_range[0]
     assert y_range[0] <= min(lows)
     assert y_range[1] >= max(highs)
-    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+    assert (
+        presenter.view.chart_cards[0].chart_card.chart_type_renderer.chart_type
+        == CANDLESTICK
+    )
 
 
 def test_no_klines_leaves_the_chart_unrendered_without_crashing(
@@ -1586,7 +1594,9 @@ def test_switching_to_equity_mode_renders_a_line_from_the_equity_curve(
 
     presenter.view.set_chart_mode(ChartDisplayMode.EQUITY)
 
-    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == LINE
+    assert (
+        presenter.view.chart_cards[0].chart_card.chart_type_renderer.chart_type == LINE
+    )
 
 
 def test_switching_to_both_mode_adds_an_equity_subplot(
@@ -1601,7 +1611,10 @@ def test_switching_to_both_mode_adds_an_equity_subplot(
     presenter.view.set_chart_mode(ChartDisplayMode.BOTH)
 
     assert presenter.view._equity_subplot_added is True
-    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == CANDLESTICK
+    assert (
+        presenter.view.chart_cards[0].chart_card.chart_type_renderer.chart_type
+        == CANDLESTICK
+    )
 
 
 def test_switching_away_from_both_mode_removes_the_equity_subplot(
@@ -1866,7 +1879,9 @@ def test_mode_buttons_switch_the_chart_mode_end_to_end(
     presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
     qapp.processEvents()
 
-    assert presenter.view.chart_cards[0].chart_type_renderer.chart_type == LINE
+    assert (
+        presenter.view.chart_cards[0].chart_card.chart_type_renderer.chart_type == LINE
+    )
     assert presenter.view.chart_controls._trade_flags_check.isEnabled() is False
     assert presenter.view.chart_controls._ema_check.isEnabled() is False
 
@@ -1913,10 +1928,12 @@ def test_trade_flags_toggle_draws_and_clears_markers(
     card = presenter.view.chart_cards[0]
 
     presenter.view.set_trade_flags_visible(False)
-    assert card.indicators._marker_layer._items.get("backtest_trades", []) == []
+    assert (
+        card.chart_card.indicators._marker_layer._items.get("backtest_trades", []) == []
+    )
 
     presenter.view.set_trade_flags_visible(True)
-    marker_layer = card.indicators._marker_layer
+    marker_layer = card.chart_card.indicators._marker_layer
     # The business contract is that both trade events remain available.
     # Scene-item count is intentionally viewport-dependent (BOT-098A).
     assert marker_layer.stored_marker_count("backtest_trades") == 2

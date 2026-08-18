@@ -5,15 +5,13 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-    ChartCard,
-)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseView,
     OverlayHost,
     create_quick_widget,
 )
 
+from .logic.backtest_chart_host import BacktestChartHostFactory, IBacktestChartHost
 from .logic.chart_canvas_view import (
     ChartDisplayMode,
     equity_curve_to_candles,
@@ -52,9 +50,11 @@ class BackTestView(BaseView):
 
     Chart rendering (BOT-056) is native, driven by `on_backtest_data_ready()`
     plus the mode/toggle setters below — kept out of QML/ViewModel entirely
-    (see `BacktestChartControls`'s own docstring for why) and out of
-    `ChartCard`'s own core: this class only ever calls `ChartCard`'s already
-    public API, never touches its internals.
+    (see `BacktestChartControls`'s own docstring for why). Since BOT-098F6A,
+    this class reaches the chart only through `IBacktestChartHost`
+    (`logic/backtest_chart_host.py`) via `BacktestChartHostFactory`, never a
+    concrete `ChartCard` — that seam is what lets a future native host
+    (BOT-098F6B) replace the renderer without this class changing.
     """
 
     chartPreviewRendered = Signal()
@@ -63,7 +63,8 @@ class BackTestView(BaseView):
         super().__init__(parent)
         self._view_model = None
         self._display_timezone = "UTC"
-        self.chart_cards: list = []
+        self._chart_host_factory = BacktestChartHostFactory()
+        self.chart_cards: list[IBacktestChartHost] = []
         self._chart_dev_mode = False
         self._chart_opengl_enabled = False
         self._chart_cached_interaction_enabled = False
@@ -215,7 +216,7 @@ class BackTestView(BaseView):
         mode_value = getattr(mode, "value", mode)
         self._view_model.set_ui_mode(str(mode_value))
 
-    def render_symbol_cards(self, symbols: list[str]) -> list:
+    def render_symbol_cards(self, symbols: list[str]) -> list[IBacktestChartHost]:
         for i in reversed(range(self.charts_layout.count())):
             item = self.charts_layout.itemAt(i)
             widget = item.widget()
@@ -228,15 +229,15 @@ class BackTestView(BaseView):
         self.chart_cards = []
         self.chart_controls = None
         for symbol in symbols:
-            card = ChartCard(
+            host = self._chart_host_factory.create(
                 symbol,
                 use_opengl=self._chart_opengl_enabled,
                 cached_interaction=self._chart_cached_interaction_enabled,
             )
-            card.set_dev_mode(self._chart_dev_mode)
-            card.set_display_timezone(self._display_timezone)
-            self.chart_cards.append(card)
-            self.charts_layout.addWidget(card, 1)
+            host.set_dev_mode(self._chart_dev_mode)
+            host.set_display_timezone(self._display_timezone)
+            self.chart_cards.append(host)
+            self.charts_layout.addWidget(host.widget, 1)
 
         if self.chart_cards:
             self.chart_controls = BacktestChartControls()

@@ -537,7 +537,7 @@ class BackTestPresenter(BasePresenter):
 
         chart_cards = self.view.chart_cards
         if chart_cards:
-            chart_cards[0].toolbar.sig_timeframe_changed.connect(
+            chart_cards[0].connect_timeframe_changed(
                 self._on_chart_toolbar_timeframe_selected
             )
             self._sync_chart_toolbar_timeframe()
@@ -552,7 +552,7 @@ class BackTestPresenter(BasePresenter):
     def _sync_chart_toolbar_timeframe(self) -> None:
         """Mirror the ViewModel timeframe in the visible native chart header."""
         if self.view.chart_cards:
-            self.view.chart_cards[0].toolbar.set_active(
+            self.view.chart_cards[0].set_active_timeframe(
                 self._view_model.selectedTimeframe
             )
 

@@ -265,13 +265,13 @@ def test_backtest_chart_fps_overlay_follows_dev_mode(qapp, request):
     v.set_chart_dev_mode(True)
     cards = v.render_symbol_cards(["BTCUSDT"])
 
-    assert cards[0].fps_overlay.is_enabled is True
-    assert cards[0].fps_overlay.label.isHidden() is False
+    assert cards[0].chart_card.fps_overlay.is_enabled is True
+    assert cards[0].chart_card.fps_overlay.label.isHidden() is False
 
     v.set_chart_dev_mode(False)
 
-    assert cards[0].fps_overlay.is_enabled is False
-    assert cards[0].fps_overlay.label.isHidden() is True
+    assert cards[0].chart_card.fps_overlay.is_enabled is False
+    assert cards[0].chart_card.fps_overlay.label.isHidden() is True
 
 
 def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, request):
@@ -285,9 +285,9 @@ def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, reque
     ):
         cards = v.render_symbol_cards(["BTCUSDT"])
 
-    assert cards[0].plot_layout.opengl_requested is True
+    assert cards[0].chart_card.plot_layout.opengl_requested is True
     # pytest uses the offscreen Qt platform, so the safety fallback must win.
-    assert cards[0].plot_layout.render_backend == "cpu"
+    assert cards[0].chart_card.plot_layout.render_backend == "cpu"
 
 
 def test_backtest_enables_cached_interaction_for_future_chart_cards(qapp, request):
@@ -297,7 +297,7 @@ def test_backtest_enables_cached_interaction_for_future_chart_cards(qapp, reques
     v.set_chart_cached_interaction_enabled(True)
     cards = v.render_symbol_cards(["BTCUSDT"])
 
-    assert cards[0].cached_interaction is not None
+    assert cards[0].chart_card.cached_interaction is not None
 
 
 def test_trade_log_rows_are_visible_by_default(view, qtbot, qml_item):

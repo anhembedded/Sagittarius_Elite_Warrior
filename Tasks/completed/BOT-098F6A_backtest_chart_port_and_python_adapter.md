@@ -4,7 +4,33 @@
 **Depends on:** `BOT-098F5` ✅  
 **Priority:** P1  
 **Complexity:** M  
-**Status:** In Progress
+**Status:** Completed
+
+## Result
+
+`src/presentation/ui/screens/backtest/logic/backtest_chart_host.py` adds
+`IBacktestChartHost` (Protocol), `PythonBacktestChartHost` (pure delegation
+wrapper around `ChartCard`) and `BacktestChartHostFactory` (transient,
+view-owned). `BackTestView.render_symbol_cards()` now builds hosts through
+the factory instead of constructing `ChartCard` directly, and
+`BackTestPresenter`'s two direct `.toolbar` touches go through
+`connect_timeframe_changed()`/`set_active_timeframe()` instead. Every other
+call site in the View/Presenter needed no change — they already called
+methods like `render_historical_data()`/`set_chart_type()`/
+`add_overlay_indicator()` on whatever object `chart_cards[0]` held, so the
+same duck-typed calls now land on the host instead of the raw card.
+
+Existing tests that reached into `ChartCard`-internal state (`fps_overlay`,
+`plot_layout`, `toolbar._buttons`, `_raw_history`, `chart_type_renderer`,
+`indicators`) migrated to a `PythonBacktestChartHost.chart_card` escape
+hatch — an explicit "tests may still reach the concrete Python renderer's
+internals; production code must not" boundary, since a future native host
+won't have those attributes at all. New tests in
+`tests/unit/presentation/ui/screens/test_backtest_chart_host.py` cover
+delegation of every port method, distinct-instance-per-factory-call, and
+deterministic cleanup of the previous host's `ChartCard` on
+`render_symbol_cards()` replacement. 243 Backtest-scoped tests and
+`./scripts/ci-local.ps1 -Full` pass.
 
 ## Goal
 

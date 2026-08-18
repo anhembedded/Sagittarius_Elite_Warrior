@@ -21,8 +21,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 83 | 65.9% |
-| 🟡 **In Progress** | 3 | 2.4% |
+| 🟢 **Completed** | 84 | 66.7% |
+| 🟡 **In Progress** | 2 | 1.6% |
 | 🔴 **Backlog** | 40 | 31.7% |
 | 📈 **Tổng số Task** | **126** | **100%** |
 
@@ -106,6 +106,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **BOT-098F6A**: [Backtest chart port and Python adapter](completed/BOT-098F6A_backtest_chart_port_and_python_adapter.md) — `IBacktestChartHost`/`PythonBacktestChartHost`/`BacktestChartHostFactory` thay cho gọi thẳng `ChartCard`; `BackTestView`/`Presenter` chỉ còn qua port, hành vi Python giữ nguyên. 243 test Backtest + `ci-local.ps1 -Full` xanh — seam bắt buộc trước khi cắm native host (`F6B`).
 - [x] **BOT-100**: [Backtest chart-toolbar timeframe data contract](completed/BOT-100_backtest_chart_toolbar_timeframe_contract.md) — Nút `1m`/`5m`/`15m`/`1h`/`1d` trên chart không còn chỉ đổi màu: signal đi qua `BackTestViewModel.selectedTimeframe`, query preview đúng interval và render lại candle thật. Regression đủ unit, integration, sanity và Desktop E2E: click thật `5m` trên MainWindow nhận 240 nến cách 300 giây, QML/Qt sạch. Full CI: native CMake + 1.029 primary + 28 sanity, coverage 94.20%.
 - [x] **BOT-098F3**: [Native retained volume & indicator buffers](completed/BOT-098F3_native_volume_indicator_buffers.md) — OHLCV v1 giờ render volume retained; indicator đi qua binary immutable snapshot riêng, envelope giữ peak/trough theo physical-pixel/DPR. Probe 6.420 nến + 5 indicator đạt median camera 8.312 ms/p95 8.837 ms ở DPR 1 và 59.37 updates/s ở DPR 2; pan không rebuild volume/indicator geometry. Full CI: 1.026 primary + 28 sanity xanh, coverage 94.10%.
 - [x] **BOT-099**: [Cooperative desktop shutdown](completed/BOT-099_cooperative_desktop_shutdown.md) — Đóng MainWindow giờ hủy cooperative Backtest/sync, fence callback muộn, dispose database và hủy queued futures. Process-level regression chạy app/QML thật với sync đang bị chặn rồi chứng minh child process thoát đúng hạn. Engine: 449 pass, 8 skip; app Full CI: 1.018 primary + 28 sanity xanh.
@@ -190,8 +191,6 @@ Sagittarius_Elite_Warrior/Tasks/
 
 - [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước benchmark/migration.
 - [ ] **BOT-098F5**: [Shared Backtest renderer benchmark (Python vs native)](in_progress/BOT-098F5_shared_backtest_renderer_benchmark.md) — fixture chung, `grabWindow()`/DPR/semantic diagnostics và report A/B local trước mọi production cutover.
-- [ ] **BOT-098F6A**: [Backtest chart port and Python adapter](in_progress/BOT-098F6A_backtest_chart_port_and_python_adapter.md) — trích host port/factory khỏi `ChartCard`, không đổi renderer/hành vi; seam bắt buộc trước khi cắm native vào (`F6B`).
-
 > [!NOTE]
 > **BOT-098F4 mục 3-4 và BOT-098F5 tiêu chí 6 — đều cần Windows Desktop E2E thật (màu pixel thật qua GPU/RHI thật, input chuột/bàn phím thật). Không cách nào làm trên máy Linux này, dù đã build được native plugin và có bằng chứng Wayland thay thế.** Cả hai task vẫn ở trạng thái **chưa xong** cho tới khi có evidence chạy thật trên máy Windows.
 
