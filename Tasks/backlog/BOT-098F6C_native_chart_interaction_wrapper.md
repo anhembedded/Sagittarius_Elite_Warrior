@@ -1,7 +1,7 @@
 # BOT-098F6C — Native Backtest interaction wrapper
 
 **Parent:** [`BOT-098F6`](BOT-098F6_backtest_chart_host_migration.md)  
-**Depends on:** `BOT-098F6B`  
+**Depends on:** `BOT-098F6B` ✅  
 **Priority:** P1  
 **Complexity:** L / Performance-specialized  
 **Status:** Backlog

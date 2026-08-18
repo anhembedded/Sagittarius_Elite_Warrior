@@ -21,9 +21,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 84 | 66.7% |
+| 🟢 **Completed** | 85 | 67.5% |
 | 🟡 **In Progress** | 2 | 1.6% |
-| 🔴 **Backlog** | 40 | 31.7% |
+| 🔴 **Backlog** | 39 | 31.0% |
 | 📈 **Tổng số Task** | **126** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -106,6 +106,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **BOT-098F6B**: [Native chart adapter and snapshot contract](completed/BOT-098F6B_native_chart_adapter_snapshot_contract.md) — `NativeBacktestChartHost` dựng `NativeChartItem` trong `QQuickWidget` thật (`create_quick_widget()`), convert klines/indicator/marker Backtest sang native ABI (exact-match timestamp→candle-index, forward-fill dense indicator, fencing `action_id`/`generation`). Tìm và sửa bug thật: `component`/`root_item` bị GC sớm nếu không giữ tham chiếu. 19 unit + 3 sanity mới, 265 test Backtest + `ci-local.ps1 -Full` xanh. Chưa chọn native trong production (việc của `F6D`).
 - [x] **BOT-098F6A**: [Backtest chart port and Python adapter](completed/BOT-098F6A_backtest_chart_port_and_python_adapter.md) — `IBacktestChartHost`/`PythonBacktestChartHost`/`BacktestChartHostFactory` thay cho gọi thẳng `ChartCard`; `BackTestView`/`Presenter` chỉ còn qua port, hành vi Python giữ nguyên. 243 test Backtest + `ci-local.ps1 -Full` xanh — seam bắt buộc trước khi cắm native host (`F6B`).
 - [x] **BOT-100**: [Backtest chart-toolbar timeframe data contract](completed/BOT-100_backtest_chart_toolbar_timeframe_contract.md) — Nút `1m`/`5m`/`15m`/`1h`/`1d` trên chart không còn chỉ đổi màu: signal đi qua `BackTestViewModel.selectedTimeframe`, query preview đúng interval và render lại candle thật. Regression đủ unit, integration, sanity và Desktop E2E: click thật `5m` trên MainWindow nhận 240 nến cách 300 giây, QML/Qt sạch. Full CI: native CMake + 1.029 primary + 28 sanity, coverage 94.20%.
 - [x] **BOT-098F3**: [Native retained volume & indicator buffers](completed/BOT-098F3_native_volume_indicator_buffers.md) — OHLCV v1 giờ render volume retained; indicator đi qua binary immutable snapshot riêng, envelope giữ peak/trough theo physical-pixel/DPR. Probe 6.420 nến + 5 indicator đạt median camera 8.312 ms/p95 8.837 ms ở DPR 1 và 59.37 updates/s ở DPR 2; pan không rebuild volume/indicator geometry. Full CI: 1.026 primary + 28 sanity xanh, coverage 94.10%.
@@ -204,7 +205,6 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P1** | **[BOT-098F](backlog/BOT-098F_qt_quick_scene_graph_chart_renderer.md)** | **Qt Quick Scene Graph retained chart renderer** | ⚡ **Specialized** | `BOT-098F1`/`BOT-098F2`/`BOT-098F2A`/`BOT-098F3` ✅, `BOT-098F4` 🟡 | Retained candle/camera/volume/indicator đã xanh; hoàn tất marker/crosshair (`F4`), benchmark chung (`F5`) rồi mới production migration (`F6`). Không dùng TradingView Lightweight Charts/WebEngine. |
 | **P1** | **[BOT-098F5](backlog/BOT-098F5_shared_backtest_renderer_benchmark.md)** | **Shared Backtest renderer benchmark (Python vs native)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4` | A/B chung trên fixture Backtest 6.420 nến + volume + 5 indicator + 1.112 marker + crosshair; đo `grabWindow`, median/p95/DPR, retained geometry và visual semantic. Evidence local, không hard CI timing gate. |
 | **P1** | **[BOT-098F6](backlog/BOT-098F6_backtest_chart_host_migration.md)** | **Backtest native chart-host migration (phase umbrella)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4`, `BOT-098F5` | Umbrella không code trực tiếp: `F6A→F6E` là 5 phase có test/exit criterion riêng; native chỉ OHLC path đã chứng minh, Python fallback một release cho capability chưa parity hoặc lỗi runtime. |
-| **P1** | **[BOT-098F6B](backlog/BOT-098F6B_native_chart_adapter_snapshot_contract.md)** | **Native chart adapter and snapshot contract** | 🔴 **`L (Thinking)`** | `BOT-098F6A`, `BOT-098F4` | QQuickWidget native host + immutable snapshot conversion/action fencing/runtime construction sanity; chưa chọn native trong production. |
 | **P1** | **[BOT-098F6C](backlog/BOT-098F6C_native_chart_interaction_wrapper.md)** | **Native Backtest interaction wrapper** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F6B` | QML pan/wheel/crosshair/axis/tooltip/FPS wrapper; real desktop input phải chứng minh final state đúng và geometry retained. |
 | **P1** | **[BOT-098F6D](backlog/BOT-098F6D_backtest_native_opt_in_cutover.md)** | **Backtest native opt-in cutover** | 🔴 **`L (Thinking)`** | `BOT-098F5`, `BOT-098F6A`, `BOT-098F6C` | Factory/DI/config chọn native/Python trong Backtest thật cho OHLC path; unsupported modes và runtime failure quay Python rõ ràng. |
 | **P1** | **[BOT-098F6E](backlog/BOT-098F6E_native_default_rollout.md)** | **Native default rollout and Python kill-switch** | 🟡 **`M (Standard)`** | `BOT-098F6D` | Chỉ đổi default native sau F5 + E2E evidence; giữ Python override/fallback trọn một release, không xóa adapter. |
