@@ -535,6 +535,27 @@ class BackTestPresenter(BasePresenter):
         controls.sig_volume_toggled.connect(self.view.set_volume_visible)
         controls.sig_trade_flags_toggled.connect(self.view.set_trade_flags_visible)
 
+        chart_cards = self.view.chart_cards
+        if chart_cards:
+            chart_cards[0].toolbar.sig_timeframe_changed.connect(
+                self._on_chart_toolbar_timeframe_selected
+            )
+            self._sync_chart_toolbar_timeframe()
+
+    @Slot(str)
+    @safe_ui_action
+    def _on_chart_toolbar_timeframe_selected(self, timeframe: str) -> None:
+        """Make a chart-header timeframe click change the Backtest data contract."""
+        if timeframe != self._view_model.selectedTimeframe:
+            self._view_model.selectedTimeframe = timeframe
+
+    def _sync_chart_toolbar_timeframe(self) -> None:
+        """Mirror the ViewModel timeframe in the visible native chart header."""
+        if self.view.chart_cards:
+            self.view.chart_cards[0].toolbar.set_active(
+                self._view_model.selectedTimeframe
+            )
+
     def _log_dev_trace(self, action: str, **fields: object) -> None:
         if not self.config.get(DEV_MODE_CONFIG_KEY, False):
             return
@@ -1257,6 +1278,7 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_timeframe_changed(self) -> None:
         self._logger.log_timeframe_selected(self._view_model.selectedTimeframe)
+        self._sync_chart_toolbar_timeframe()
         self._on_config_input_changed()
         self._request_chart_preview()
 

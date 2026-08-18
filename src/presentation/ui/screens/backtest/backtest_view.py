@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QTimer, QUrl
+from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
@@ -56,6 +56,8 @@ class BackTestView(BaseView):
     `ChartCard`'s own core: this class only ever calls `ChartCard`'s already
     public API, never touches its internals.
     """
+
+    chartPreviewRendered = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -287,6 +289,7 @@ class BackTestView(BaseView):
         card.set_chart_type("candlestick")
         card.render_historical_volume(volume)
         card.clear_script_markers(_TRADE_FLAGS_KEY)
+        self.chartPreviewRendered.emit()
         self._remove_equity_subplot(card)
 
     def set_chart_mode(self, mode: ChartDisplayMode) -> None:

@@ -1006,6 +1006,37 @@ def test_timeframe_change_submits_background_preview_with_snapshot(
     assert preview_id == presenter._active_preview_id
 
 
+def test_chart_toolbar_timeframe_click_updates_backtest_data_contract(
+    presenter, view_model, mock_thread_mgr
+):
+    """BUG-008: chart-header timeframe buttons must request new chart data.
+
+    This intentionally clicks the visible QtWidgets control instead of calling
+    the presenter slot.  A highlighted button without a new ViewModel
+    timeframe/preview is a user-visible no-op, not a successful interaction.
+    """
+    mock_thread_mgr.reset_mock()
+    toolbar = presenter.view.chart_cards[0].toolbar
+
+    toolbar._buttons["5m"].click()
+
+    assert view_model.selectedTimeframe == "5m"
+    worker, config, preview_id = mock_thread_mgr.submit.call_args.args
+    assert worker == presenter._run_chart_preview
+    assert config.timeframe is TimeFrame.FIVE_MINUTES
+    assert preview_id == presenter._active_preview_id
+
+
+def test_qml_timeframe_selection_keeps_chart_toolbar_in_sync(presenter, view_model):
+    """The QML picker and chart header are one selected-timeframe contract."""
+    toolbar = presenter.view.chart_cards[0].toolbar
+
+    view_model.selectedTimeframe = "15m"
+
+    assert toolbar._buttons["15m"].isChecked() is True
+    assert toolbar._buttons["1m"].isChecked() is False
+
+
 def test_preview_result_updates_coverage_and_chart_but_stale_result_is_fenced(
     presenter, view_model
 ):

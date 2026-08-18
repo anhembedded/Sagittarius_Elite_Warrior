@@ -17,10 +17,13 @@
 #include <QtEndian>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <memory>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -31,6 +34,8 @@ constexpr float MinimumBodyPixels = 1.0F;
 constexpr float CandleBodyWidthRatio = 0.7F;
 constexpr float VolumeHeightRatio = 0.20F;
 constexpr float IndicatorLineWidth = 1.5F;
+constexpr float MarkerHalfWidthPixels = 5.0F;
+constexpr float MarkerHeightPixels = 8.0F;
 constexpr int AxisTickCount = 5;
 
 template <typename Integer>
@@ -74,7 +79,8 @@ public:
           bullishWicks(createGeometryNode(QSGGeometry::DrawLines, QColor("#00c087"))),
           bearishWicks(createGeometryNode(QSGGeometry::DrawLines, QColor("#f6465d"))),
           bullishBodies(createGeometryNode(QSGGeometry::DrawTriangles, QColor("#00c087"))),
-          bearishBodies(createGeometryNode(QSGGeometry::DrawTriangles, QColor("#f6465d"))) {
+          bearishBodies(createGeometryNode(QSGGeometry::DrawTriangles, QColor("#f6465d"))),
+          crosshair(createGeometryNode(QSGGeometry::DrawLines, QColor("#8a93a6"))) {
         appendChildNode(volumeCamera);
         appendChildNode(camera);
         volumeCamera->appendChildNode(bullishVolume);
@@ -83,6 +89,7 @@ public:
         camera->appendChildNode(bearishWicks);
         camera->appendChildNode(bullishBodies);
         camera->appendChildNode(bearishBodies);
+        appendChildNode(crosshair);
     }
 
     QSGTransformNode* volumeCamera;
@@ -93,18 +100,25 @@ public:
     QSGGeometryNode* bearishWicks;
     QSGGeometryNode* bullishBodies;
     QSGGeometryNode* bearishBodies;
+    QSGGeometryNode* crosshair;
     QSizeF renderedSize;
     quint64 renderedRevision = 0;
     quint64 renderedCameraRevision = 0;
     quint64 buildCount = 0;
     quint64 volumeBuildCount = 0;
     quint64 indicatorBuildCount = 0;
+    quint64 markerBuildCount = 0;
     quint64 cameraUpdateCount = 0;
     quint64 renderedIndicatorRevision = 0;
+    quint64 renderedMarkerRevision = 0;
+    quint64 renderedCrosshairRevision = 0;
     int renderedVolumeBucketSize = 0;
     int renderedIndicatorBucketSize = 0;
     qreal renderedDevicePixelRatio = 1.0;
     std::vector<QSGGeometryNode*> indicatorLines;
+    std::vector<QSGGeometryNode*> markerNodes;
+    int displayedMarkerCount = 0;
+    int representedMarkerCount = 0;
 };
 
 void setVertices(
@@ -246,6 +260,126 @@ void clearIndicatorNodes(ChartRootNode* root) {
     root->indicatorLines.clear();
 }
 
+void clearMarkerNodes(ChartRootNode* root) {
+    for (QSGGeometryNode* node : root->markerNodes) {
+        root->camera->removeChildNode(node);
+        delete node;
+    }
+    root->markerNodes.clear();
+    root->displayedMarkerCount = 0;
+    root->representedMarkerCount = 0;
+}
+
+struct MarkerLodPoint final {
+    NativeMarkerRenderPoint marker;
+    int representedCount;
+};
+
+void populateMarkerGeometry(
+    ChartRootNode* root,
+    const std::vector<NativeMarkerRenderPoint>& markers,
+    qreal viewportStart,
+    qreal viewportEnd,
+    double visiblePriceMinimum,
+    double visiblePriceMaximum,
+    double globalPriceMinimum,
+    const QSizeF& size,
+    qreal devicePixelRatio
+) {
+    clearMarkerNodes(root);
+    const qreal viewportSpan = std::max<qreal>(1.0, viewportEnd - viewportStart);
+    const int physicalColumns = std::max(
+        1,
+        static_cast<int>(std::floor(size.width() * devicePixelRatio))
+    );
+    using LodKey = std::tuple<int, quint8, quint32, quint8>;
+    std::map<LodKey, MarkerLodPoint> selected;
+    for (const NativeMarkerRenderPoint& marker : markers) {
+        const qreal markerIndex = static_cast<qreal>(marker.candleIndex);
+        if (markerIndex < viewportStart || markerIndex >= viewportEnd) {
+            continue;
+        }
+        const qreal ratio = (markerIndex - viewportStart) / viewportSpan;
+        const int column = std::clamp(
+            static_cast<int>(std::floor(ratio * physicalColumns)),
+            0,
+            physicalColumns - 1
+        );
+        const LodKey key{column, marker.kind, marker.rgba, marker.direction};
+        auto [iterator, inserted] = selected.emplace(
+            key,
+            MarkerLodPoint{marker, 1}
+        );
+        if (!inserted) {
+            iterator->second.marker = marker;
+            ++iterator->second.representedCount;
+        }
+    }
+
+    using BatchKey = std::pair<quint8, quint32>;
+    std::map<BatchKey, std::vector<QSGGeometry::Point2D>> batches;
+    const float logicalWidth = std::max(1.0F, static_cast<float>(size.width()));
+    const float logicalHeight = std::max(
+        1.0F,
+        static_cast<float>(size.height()) - 2.0F * ChartPadding
+    );
+    const double priceSpan = std::max(
+        std::numeric_limits<double>::epsilon(),
+        visiblePriceMaximum - visiblePriceMinimum
+    );
+    const float halfWidth = static_cast<float>(
+        MarkerHalfWidthPixels * viewportSpan / logicalWidth
+    );
+    const float markerHeight = static_cast<float>(
+        MarkerHeightPixels * priceSpan / logicalHeight
+    );
+    for (const auto& [key, point] : selected) {
+        Q_UNUSED(key);
+        const NativeMarkerRenderPoint& marker = point.marker;
+        auto& vertices = batches[{marker.kind, marker.rgba}];
+        const float centerX = static_cast<float>(marker.candleIndex) + 0.5F;
+        const float anchorY = static_cast<float>(marker.price - globalPriceMinimum);
+        const float direction = marker.direction == 1U ? 1.0F : -1.0F;
+        vertices.push_back({centerX, anchorY + direction * markerHeight});
+        vertices.push_back({centerX - halfWidth, anchorY});
+        vertices.push_back({centerX + halfWidth, anchorY});
+        ++root->displayedMarkerCount;
+        root->representedMarkerCount += point.representedCount;
+    }
+    for (auto& [batchKey, vertices] : batches) {
+        auto* node = createGeometryNode(
+            QSGGeometry::DrawTriangles,
+            QColor::fromRgba(batchKey.second)
+        );
+        setVertices(node, vertices);
+        root->camera->appendChildNode(node);
+        root->markerNodes.push_back(node);
+    }
+}
+
+void updateCrosshairGeometry(
+    ChartRootNode* root,
+    bool visible,
+    qreal x,
+    qreal y,
+    const QSizeF& size
+) {
+    std::vector<QSGGeometry::Point2D> vertices;
+    if (visible) {
+        const float width = std::max(0.0F, static_cast<float>(size.width()));
+        const float height = std::max(0.0F, static_cast<float>(size.height()));
+        const float crosshairX = std::clamp(static_cast<float>(x), 0.0F, width);
+        const float crosshairY = std::clamp(static_cast<float>(y), 0.0F, height);
+        vertices = {
+            {crosshairX, 0.0F},
+            {crosshairX, height},
+            {0.0F, crosshairY},
+            {width, crosshairY},
+        };
+    }
+    setVertices(root->crosshair, vertices);
+}
+
 void populateIndicatorGeometry(
     ChartRootNode* root,
     const std::vector<NativeIndicatorRenderSeries>& series,
@@ -347,6 +481,7 @@ NativeChartItem::NativeChartItem(QQuickItem* parent)
     : QQuickItem(parent) {
     setFlag(ItemHasContents, true);
     setClip(true);
+    setAcceptHoverEvents(true);
 }
 
 quint64 NativeChartItem::snapshotRevision() const noexcept {
@@ -371,6 +506,18 @@ int NativeChartItem::indicatorSeriesCount() const noexcept {
 
 QString NativeChartItem::lastIndicatorSnapshotError() const {
     return lastIndicatorSnapshotError_;
+}
+
+quint64 NativeChartItem::markerSnapshotRevision() const noexcept {
+    return latestMarkerRevision_;
+}
+
+quint64 NativeChartItem::markerCount() const noexcept {
+    return markerCount_;
+}
+
+QString NativeChartItem::lastMarkerSnapshotError() const {
+    return lastMarkerSnapshotError_;
 }
 
 quint64 NativeChartItem::renderedRevision() const noexcept {
@@ -407,6 +554,22 @@ quint64 NativeChartItem::indicatorGeometryBuildCount() const noexcept {
 
 int NativeChartItem::indicatorPixelColumnCount() const noexcept {
     return indicatorPixelColumnCount_;
+}
+
+int NativeChartItem::markerVertexCount() const noexcept {
+    return markerVertexCount_;
+}
+
+int NativeChartItem::displayedMarkerCount() const noexcept {
+    return displayedMarkerCount_;
+}
+
+int NativeChartItem::representedMarkerCount() const noexcept {
+    return representedMarkerCount_;
+}
+
+quint64 NativeChartItem::markerGeometryBuildCount() const noexcept {
+    return markerGeometryBuildCount_;
 }
 
 qreal NativeChartItem::renderDevicePixelRatio() const noexcept {
@@ -467,6 +630,30 @@ QVariantList NativeChartItem::timeAxisTicks() const {
 
 QString NativeChartItem::lastViewportError() const {
     return lastViewportError_;
+}
+
+bool NativeChartItem::crosshairVisible() const noexcept {
+    return crosshairVisible_;
+}
+
+qint64 NativeChartItem::crosshairCandleIndex() const noexcept {
+    return crosshairCandleIndex_;
+}
+
+QVariantMap NativeChartItem::crosshairTooltip() const {
+    return crosshairTooltip_;
+}
+
+quint64 NativeChartItem::crosshairRevision() const noexcept {
+    return crosshairRevision_.load(std::memory_order_acquire);
+}
+
+bool NativeChartItem::devFpsEnabled() const noexcept {
+    return devFpsEnabled_.load(std::memory_order_acquire);
+}
+
+qreal NativeChartItem::measuredFps() const noexcept {
+    return measuredFps_;
 }
 
 bool NativeChartItem::submitSnapshot(const QByteArray& packedSnapshot) {
@@ -705,6 +892,117 @@ bool NativeChartItem::submitIndicatorSnapshot(const QByteArray& packedSnapshot) 
     return true;
 }
 
+bool NativeChartItem::submitMarkerSnapshot(const QByteArray& packedSnapshot) {
+    using namespace Sagittarius::NativeChart;
+
+    if (QThread::currentThread() != thread()) {
+        return false;
+    }
+    if (packedSnapshot.size() < SnapshotAbi::MarkerHeaderBytes) {
+        return rejectMarkerSnapshot(
+            QStringLiteral("marker snapshot is shorter than the v1 header")
+        );
+    }
+
+    const char* const bytes = packedSnapshot.constData();
+    if (std::memcmp(
+            bytes,
+            SnapshotAbi::MarkerMagic,
+            sizeof(SnapshotAbi::MarkerMagic)
+        ) != 0) {
+        return rejectMarkerSnapshot(QStringLiteral("marker snapshot magic must be SGMK"));
+    }
+
+    const quint16 version = readLittleEndian<quint16>(bytes + 4);
+    const quint16 headerBytes = readLittleEndian<quint16>(bytes + 6);
+    const quint64 revision = readLittleEndian<quint64>(bytes + 8);
+    const quint64 markerCandleCount = readLittleEndian<quint64>(bytes + 16);
+    const quint64 markerCount = readLittleEndian<quint64>(bytes + 24);
+    if (version != SnapshotAbi::MarkerVersion ||
+        headerBytes != SnapshotAbi::MarkerHeaderBytes) {
+        return rejectMarkerSnapshot(QStringLiteral("unsupported marker snapshot ABI"));
+    }
+    if (!uiSnapshot_ || markerCandleCount != uiSnapshot_->candleCount) {
+        return rejectMarkerSnapshot(
+            QStringLiteral("marker snapshot must align with the active candle count")
+        );
+    }
+    if (revision <= latestMarkerRevision_) {
+        return rejectMarkerSnapshot(
+            QStringLiteral("marker snapshot revision must increase monotonically")
+        );
+    }
+    if (markerCount > (std::numeric_limits<quint64>::max() - headerBytes) /
+                          SnapshotAbi::MarkerRecordBytes) {
+        return rejectMarkerSnapshot(QStringLiteral("marker snapshot byte size overflows"));
+    }
+    const quint64 expectedBytes = headerBytes +
+        markerCount * SnapshotAbi::MarkerRecordBytes;
+    if (expectedBytes != static_cast<quint64>(packedSnapshot.size())) {
+        return rejectMarkerSnapshot(
+            QStringLiteral("marker snapshot byte size does not match metadata")
+        );
+    }
+
+    std::vector<NativeMarkerRenderPoint> markers;
+    markers.reserve(static_cast<std::size_t>(markerCount));
+    quint64 previousIndex = 0;
+    for (quint64 markerIndex = 0; markerIndex < markerCount; ++markerIndex) {
+        const std::size_t offset = static_cast<std::size_t>(headerBytes) +
+            static_cast<std::size_t>(markerIndex * SnapshotAbi::MarkerRecordBytes);
+        const quint64 candleIndex = readLittleEndian<quint64>(bytes + offset);
+        const double price = readLittleEndianDouble(bytes + offset + 8U);
+        const quint32 rgba = readLittleEndian<quint32>(bytes + offset + 16U);
+        const quint8 kind = static_cast<quint8>(bytes[offset + 20U]);
+        const quint8 direction = static_cast<quint8>(bytes[offset + 21U]);
+        const quint16 reserved = readLittleEndian<quint16>(bytes + offset + 22U);
+        if (candleIndex >= markerCandleCount) {
+            return rejectMarkerSnapshot(
+                QStringLiteral("marker candle index must align with candle count")
+            );
+        }
+        if (markerIndex > 0U && candleIndex < previousIndex) {
+            return rejectMarkerSnapshot(
+                QStringLiteral("markers must be sorted by candle index")
+            );
+        }
+        if (!std::isfinite(price)) {
+            return rejectMarkerSnapshot(QStringLiteral("marker price must be finite"));
+        }
+        if (kind < 1U || kind > 4U || direction < 1U || direction > 2U ||
+            reserved != 0U) {
+            return rejectMarkerSnapshot(
+                QStringLiteral("marker semantic record is not supported")
+            );
+        }
+        markers.push_back(NativeMarkerRenderPoint{
+            candleIndex,
+            price,
+            rgba,
+            kind,
+            direction,
+        });
+        previousIndex = candleIndex;
+    }
+
+    auto snapshot = std::make_shared<const MarkerSnapshot>(MarkerSnapshot{
+        revision,
+        markerCandleCount,
+        std::move(markers),
+    });
+    uiMarkerSnapshot_ = snapshot;
+    pendingMarkerSnapshot_.store(snapshot, std::memory_order_release);
+    latestMarkerRevision_ = revision;
+    markerCount_ = markerCount;
+    if (!lastMarkerSnapshotError_.isEmpty()) {
+        lastMarkerSnapshotError_.clear();
+        emit lastMarkerSnapshotErrorChanged();
+    }
+    emit markerSnapshotChanged();
+    update();
+    return true;
+}
+
 bool NativeChartItem::setViewport(qreal startIndex, qreal endIndex) {
     if (QThread::currentThread() != thread()) {
         return false;
@@ -733,6 +1031,91 @@ bool NativeChartItem::setViewport(qreal startIndex, qreal endIndex) {
     return true;
 }
 
+bool NativeChartItem::setCrosshairPosition(qreal x, qreal y) {
+    if (QThread::currentThread() != thread() || !uiSnapshot_ ||
+        uiSnapshot_->candleCount == 0U || width() <= 0.0 || height() <= 0.0 ||
+        !std::isfinite(x) || !std::isfinite(y)) {
+        return false;
+    }
+    const qreal clampedX = std::clamp(x, 0.0, width());
+    const qreal clampedY = std::clamp(y, 0.0, height());
+    const qreal viewportSpan = std::max<qreal>(1.0, viewportEnd_ - viewportStart_);
+    const qreal sampleIndex = viewportStart_ + clampedX / width() * viewportSpan;
+    const qint64 firstVisible = std::clamp<qint64>(
+        static_cast<qint64>(std::floor(viewportStart_)),
+        0,
+        static_cast<qint64>(uiSnapshot_->candleCount) - 1
+    );
+    const qint64 lastVisible = std::clamp<qint64>(
+        static_cast<qint64>(std::ceil(viewportEnd_)) - 1,
+        firstVisible,
+        static_cast<qint64>(uiSnapshot_->candleCount) - 1
+    );
+    const qint64 candleIndex = std::clamp<qint64>(
+        static_cast<qint64>(std::floor(sampleIndex)),
+        firstVisible,
+        lastVisible
+    );
+    const qreal snappedX =
+        (static_cast<qreal>(candleIndex) + 0.5 - viewportStart_) /
+        viewportSpan * width();
+    const std::size_t index = static_cast<std::size_t>(candleIndex);
+    const double open = uiSnapshot_->opens[index];
+    const double close = uiSnapshot_->closes[index];
+    QVariantMap tooltip;
+    tooltip.insert(QStringLiteral("candleIndex"), candleIndex);
+    tooltip.insert(
+        QStringLiteral("timestampUtcMs"),
+        QVariant::fromValue(uiSnapshot_->timestamps[index])
+    );
+    tooltip.insert(QStringLiteral("open"), open);
+    tooltip.insert(QStringLiteral("high"), uiSnapshot_->highs[index]);
+    tooltip.insert(QStringLiteral("low"), uiSnapshot_->lows[index]);
+    tooltip.insert(QStringLiteral("close"), close);
+    tooltip.insert(QStringLiteral("volume"), uiSnapshot_->volumes[index]);
+    tooltip.insert(
+        QStringLiteral("changePercent"),
+        open != 0.0 ? (close - open) / open * 100.0 : 0.0
+    );
+
+    crosshairVisible_ = true;
+    crosshairCandleIndex_ = candleIndex;
+    crosshairTooltip_ = std::move(tooltip);
+    crosshairRenderX_.store(snappedX, std::memory_order_release);
+    crosshairRenderY_.store(clampedY, std::memory_order_release);
+    crosshairRenderVisible_.store(true, std::memory_order_release);
+    crosshairRevision_.fetch_add(1U, std::memory_order_acq_rel);
+    emit crosshairChanged();
+    update();
+    return true;
+}
+
+void NativeChartItem::clearCrosshair() {
+    if (!crosshairVisible_) {
+        return;
+    }
+    crosshairVisible_ = false;
+    crosshairCandleIndex_ = -1;
+    crosshairTooltip_.clear();
+    crosshairRenderVisible_.store(false, std::memory_order_release);
+    crosshairRevision_.fetch_add(1U, std::memory_order_acq_rel);
+    emit crosshairChanged();
+    update();
+}
+
+void NativeChartItem::setDevFpsEnabled(bool enabled) {
+    if (devFpsEnabled_.exchange(enabled, std::memory_order_acq_rel) == enabled) {
+        return;
+    }
+    fpsWindowStartedNs_ = 0;
+    fpsWindowFrameCount_ = 0;
+    if (!enabled && measuredFps_ != 0.0) {
+        measuredFps_ = 0.0;
+        emit measuredFpsChanged();
+    }
+    emit devFpsEnabledChanged();
+}
+
 QSGNode* NativeChartItem::updatePaintNode(
     QSGNode* oldNode,
     UpdatePaintNodeData* updatePaintNodeData
@@ -754,11 +1137,23 @@ QSGNode* NativeChartItem::updatePaintNode(
     if (pendingIndicators) {
         renderIndicatorSnapshot_ = std::move(pendingIndicators);
     }
+    auto pendingMarkers = pendingMarkerSnapshot_.exchange(
+        nullptr,
+        std::memory_order_acq_rel
+    );
+    if (pendingMarkers) {
+        renderMarkerSnapshot_ = std::move(pendingMarkers);
+    }
     const QSizeF currentSize(width(), height());
     const bool snapshotChanged = renderSnapshot_ &&
         root->renderedRevision != renderSnapshot_->revision;
     const bool sizeChanged = root->renderedSize != currentSize;
     const bool cameraChanged = root->renderedCameraRevision != cameraRevision_;
+    const quint64 currentCrosshairRevision = crosshairRevision_.load(
+        std::memory_order_acquire
+    );
+    const bool crosshairGeometryChanged =
+        root->renderedCrosshairRevision != currentCrosshairRevision;
     const qreal devicePixelRatio = window() != nullptr
         ? window()->effectiveDevicePixelRatio()
         : 1.0;
@@ -788,8 +1183,15 @@ QSGNode* NativeChartItem::updatePaintNode(
         (root->renderedIndicatorRevision != renderIndicatorSnapshot_->revision ||
          root->renderedIndicatorBucketSize != indicatorBucketSize || sizeChanged ||
          !qFuzzyCompare(root->renderedDevicePixelRatio, devicePixelRatio));
+    const bool markersMatchCandles = renderMarkerSnapshot_ &&
+        renderMarkerSnapshot_->candleCount == renderSnapshot_->candleCount;
+    const bool markerGeometryChanged = markersMatchCandles &&
+        (root->renderedMarkerRevision != renderMarkerSnapshot_->revision ||
+         sizeChanged || cameraChanged ||
+         !qFuzzyCompare(root->renderedDevicePixelRatio, devicePixelRatio));
     if (!snapshotChanged && !sizeChanged && !cameraChanged &&
-        !volumeGeometryChanged && !indicatorGeometryChanged) {
+        !volumeGeometryChanged && !indicatorGeometryChanged &&
+        !markerGeometryChanged && !crosshairGeometryChanged) {
         return root;
     }
 
@@ -833,6 +1235,24 @@ QSGNode* NativeChartItem::updatePaintNode(
         clearIndicatorNodes(root);
         root->renderedIndicatorRevision = 0;
         root->renderedIndicatorBucketSize = 0;
+    }
+    if (markerGeometryChanged) {
+        populateMarkerGeometry(
+            root,
+            renderMarkerSnapshot_->markers,
+            viewportStart_,
+            viewportEnd_,
+            visiblePriceMinimum_,
+            visiblePriceMaximum_,
+            renderSnapshot_->priceMinimum,
+            currentSize,
+            devicePixelRatio
+        );
+        root->renderedMarkerRevision = renderMarkerSnapshot_->revision;
+        ++root->markerBuildCount;
+    } else if (!markersMatchCandles && !root->markerNodes.empty()) {
+        clearMarkerNodes(root);
+        root->renderedMarkerRevision = 0;
     }
     if (snapshotChanged || sizeChanged || cameraChanged || volumeGeometryChanged) {
         updateCameraTransform(
@@ -881,6 +1301,16 @@ QSGNode* NativeChartItem::updatePaintNode(
         root->renderedCameraRevision = cameraRevision_;
         ++root->cameraUpdateCount;
     }
+    if (crosshairGeometryChanged || sizeChanged) {
+        updateCrosshairGeometry(
+            root,
+            crosshairRenderVisible_.load(std::memory_order_acquire),
+            crosshairRenderX_.load(std::memory_order_acquire),
+            crosshairRenderY_.load(std::memory_order_acquire),
+            currentSize
+        );
+        root->renderedCrosshairRevision = currentCrosshairRevision;
+    }
     root->renderedDevicePixelRatio = devicePixelRatio;
 
     const int wickVertices = static_cast<int>(renderSnapshot_->candleCount * 2U);
@@ -891,12 +1321,19 @@ QSGNode* NativeChartItem::updatePaintNode(
     for (QSGGeometryNode* line : root->indicatorLines) {
         indicatorVertices += line->geometry()->vertexCount();
     }
+    int markerVertices = 0;
+    for (QSGGeometryNode* markerNode : root->markerNodes) {
+        markerVertices += markerNode->geometry()->vertexCount();
+    }
     const int indicatorPixelColumns = std::max(
         1,
         static_cast<int>(std::floor(physicalPixelWidth))
     );
     const quint64 volumeBuildCount = root->volumeBuildCount;
     const quint64 indicatorBuildCount = root->indicatorBuildCount;
+    const quint64 markerBuildCount = root->markerBuildCount;
+    const int displayedMarkers = root->displayedMarkerCount;
+    const int representedMarkers = root->representedMarkerCount;
     const int bullishCandles = renderSnapshot_->bullishCandleCount;
     const int bearishCandles = renderSnapshot_->bearishCandleCount;
     const quint64 renderedRevision = renderSnapshot_->revision;
@@ -947,6 +1384,24 @@ QSGNode* NativeChartItem::updatePaintNode(
         },
         Qt::QueuedConnection
     );
+    QMetaObject::invokeMethod(
+        this,
+        [
+            this,
+            markerVertices,
+            displayedMarkers,
+            representedMarkers,
+            markerBuildCount
+        ]() {
+            publishMarkerDiagnostics(
+                markerVertices,
+                displayedMarkers,
+                representedMarkers,
+                markerBuildCount
+            );
+        },
+        Qt::QueuedConnection
+    );
     return root;
 }
 
@@ -958,6 +1413,37 @@ void NativeChartItem::geometryChange(
     if (newGeometry.size() != oldGeometry.size()) {
         update();
     }
+}
+
+void NativeChartItem::hoverMoveEvent(QHoverEvent* event) {
+    setCrosshairPosition(event->position().x(), event->position().y());
+    event->accept();
+}
+
+void NativeChartItem::hoverLeaveEvent(QHoverEvent* event) {
+    clearCrosshair();
+    event->accept();
+}
+
+void NativeChartItem::itemChange(
+    ItemChange change,
+    const ItemChangeData& value
+) {
+    if (change == ItemSceneChange) {
+        if (frameRenderedConnection_) {
+            QObject::disconnect(frameRenderedConnection_);
+        }
+        if (value.window != nullptr) {
+            frameRenderedConnection_ = QObject::connect(
+                value.window,
+                &QQuickWindow::afterRendering,
+                this,
+                &NativeChartItem::handleFrameRendered,
+                Qt::DirectConnection
+            );
+        }
+    }
+    QQuickItem::itemChange(change, value);
 }
 
 bool NativeChartItem::rejectSnapshot(const QString& errorMessage) {
@@ -972,6 +1458,14 @@ bool NativeChartItem::rejectIndicatorSnapshot(const QString& errorMessage) {
     if (lastIndicatorSnapshotError_ != errorMessage) {
         lastIndicatorSnapshotError_ = errorMessage;
         emit lastIndicatorSnapshotErrorChanged();
+    }
+    return false;
+}
+
+bool NativeChartItem::rejectMarkerSnapshot(const QString& errorMessage) {
+    if (lastMarkerSnapshotError_ != errorMessage) {
+        lastMarkerSnapshotError_ = errorMessage;
+        emit lastMarkerSnapshotErrorChanged();
     }
     return false;
 }
@@ -1109,4 +1603,57 @@ void NativeChartItem::publishRenderDiagnostics(
     priceMinimum_ = priceMinimum;
     priceMaximum_ = priceMaximum;
     emit renderDiagnosticsChanged();
+}
+
+void NativeChartItem::publishMarkerDiagnostics(
+    int markerVertices,
+    int displayedMarkers,
+    int representedMarkers,
+    quint64 markerBuildCount
+) {
+    markerVertexCount_ = markerVertices;
+    displayedMarkerCount_ = displayedMarkers;
+    representedMarkerCount_ = representedMarkers;
+    markerGeometryBuildCount_ = markerBuildCount;
+    emit renderDiagnosticsChanged();
+}
+
+void NativeChartItem::handleFrameRendered() {
+    if (!devFpsEnabled_.load(std::memory_order_acquire)) {
+        fpsWindowStartedNs_ = 0;
+        fpsWindowFrameCount_ = 0;
+        return;
+    }
+    const qint64 nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()
+    ).count();
+    if (fpsWindowStartedNs_ == 0) {
+        fpsWindowStartedNs_ = nowNs;
+        fpsWindowFrameCount_ = 1;
+        return;
+    }
+    ++fpsWindowFrameCount_;
+    const qint64 elapsedNs = nowNs - fpsWindowStartedNs_;
+    if (elapsedNs < 500'000'000) {
+        return;
+    }
+    const qreal fps = static_cast<qreal>(fpsWindowFrameCount_ - 1U) *
+        1'000'000'000.0 / static_cast<qreal>(elapsedNs);
+    fpsWindowStartedNs_ = nowNs;
+    fpsWindowFrameCount_ = 1;
+    QMetaObject::invokeMethod(
+        this,
+        [this, fps]() { publishMeasuredFps(fps); },
+        Qt::QueuedConnection
+    );
+}
+
+void NativeChartItem::publishMeasuredFps(qreal fps) {
+    if (!devFpsEnabled_.load(std::memory_order_acquire)) {
+        return;
+    }
+    if (!qFuzzyCompare(measuredFps_, fps)) {
+        measuredFps_ = fps;
+        emit measuredFpsChanged();
+    }
 }

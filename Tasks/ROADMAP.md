@@ -21,10 +21,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 82 | 70.1% |
-| 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 35 | 29.9% |
-| 📈 **Tổng số Task** | **117** | **100%** |
+| 🟢 **Completed** | 83 | 70.3% |
+| 🟡 **In Progress** | 1 | 0.8% |
+| 🔴 **Backlog** | 35 | 29.4% |
+| 📈 **Tổng số Task** | **119** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -104,6 +104,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **BOT-100**: [Backtest chart-toolbar timeframe data contract](completed/BOT-100_backtest_chart_toolbar_timeframe_contract.md) — Nút `1m`/`5m`/`15m`/`1h`/`1d` trên chart không còn chỉ đổi màu: signal đi qua `BackTestViewModel.selectedTimeframe`, query preview đúng interval và render lại candle thật. Regression đủ unit, integration, sanity và Desktop E2E: click thật `5m` trên MainWindow nhận 240 nến cách 300 giây, QML/Qt sạch. Full CI: native CMake + 1.029 primary + 28 sanity, coverage 94.20%.
 - [x] **BOT-098F3**: [Native retained volume & indicator buffers](completed/BOT-098F3_native_volume_indicator_buffers.md) — OHLCV v1 giờ render volume retained; indicator đi qua binary immutable snapshot riêng, envelope giữ peak/trough theo physical-pixel/DPR. Probe 6.420 nến + 5 indicator đạt median camera 8.312 ms/p95 8.837 ms ở DPR 1 và 59.37 updates/s ở DPR 2; pan không rebuild volume/indicator geometry. Full CI: 1.026 primary + 28 sanity xanh, coverage 94.10%.
 - [x] **BOT-099**: [Cooperative desktop shutdown](completed/BOT-099_cooperative_desktop_shutdown.md) — Đóng MainWindow giờ hủy cooperative Backtest/sync, fence callback muộn, dispose database và hủy queued futures. Process-level regression chạy app/QML thật với sync đang bị chặn rồi chứng minh child process thoát đúng hạn. Engine: 449 pass, 8 skip; app Full CI: 1.018 primary + 28 sanity xanh.
 - [x] **BOT-098A1**: [Pixel-budget LOD for truthful Backtest trade markers](completed/BOT-098A1_marker_density_lod.md) — Giữ nguyên full marker history nhưng zoom xa chỉ materialize số label theo pixel budget và gộp riêng từng semantic thành badge `×count`; zoom gần khôi phục marker chính xác. Gesture pan/zoom dùng cached-frame preview và chỉ commit range/render chính xác một lần khi thả chuột hoặc kết thúc wheel burst. Full CI: 1.018 primary + 28 sanity xanh.
@@ -185,7 +186,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-Không có task đang thực hiện.
+- [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước `BOT-098F5` production migration.
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
