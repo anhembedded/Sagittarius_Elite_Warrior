@@ -73,6 +73,8 @@ class BackTestViewModel(BaseQmlViewModel):
     selectedStrategyKeyChanged = Signal()
     initialCapitalTextChanged = Signal()
     capitalValidationMessageChanged = Signal()
+    marketRuleVerificationStatusChanged = Signal()
+    marketRuleExplanationChanged = Signal()
     selectedCurrencyChanged = Signal()
     selectedTimeframeChanged = Signal()
     timeRangePresetChanged = Signal()
@@ -163,6 +165,8 @@ class BackTestViewModel(BaseQmlViewModel):
         self._selected_strategy_key = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
         self._capital_validation_message = ""
+        self._market_rule_verification_status = "UNVERIFIED_MISSING"
+        self._market_rule_explanation = ""
         self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
@@ -350,6 +354,33 @@ class BackTestViewModel(BaseQmlViewModel):
         if message != self._capital_validation_message:
             self._capital_validation_message = message
             self.capitalValidationMessageChanged.emit()
+
+    def _get_market_rule_verification_status(self) -> str:
+        return self._market_rule_verification_status
+
+    marketRuleVerificationStatus = Property(
+        str,
+        _get_market_rule_verification_status,
+        notify=marketRuleVerificationStatusChanged,
+    )
+
+    def _get_market_rule_explanation(self) -> str:
+        return self._market_rule_explanation
+
+    marketRuleExplanation = Property(
+        str,
+        _get_market_rule_explanation,
+        notify=marketRuleExplanationChanged,
+    )
+
+    @Slot(str, str)
+    def set_market_rule_verification(self, status: str, explanation: str) -> None:
+        if status != self._market_rule_verification_status:
+            self._market_rule_verification_status = status
+            self.marketRuleVerificationStatusChanged.emit()
+        if explanation != self._market_rule_explanation:
+            self._market_rule_explanation = explanation
+            self.marketRuleExplanationChanged.emit()
 
     def _get_selected_currency(self) -> str:
         return self._selected_currency

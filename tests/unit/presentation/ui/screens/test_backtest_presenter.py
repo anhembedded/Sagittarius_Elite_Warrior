@@ -58,6 +58,13 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation i
     OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
+    LotSizeFilter,
+    MetadataVerificationStatus,
+    NotionalFilter,
+    PriceFilter,
+    SymbolMarketMetadata,
+)
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
 )
@@ -65,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
@@ -2969,3 +2979,72 @@ def test_presenter_constructs_with_auto_backend_by_default(
         presenter = BackTestPresenter(view, container)
         assert presenter._view_model is not None
         assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+
+# ---------------------------------------------------------------------------
+# Market Metadata & Order Rule Validation (BOT-095E1)
+# ---------------------------------------------------------------------------
+
+
+def test_market_rule_verification_initial_unverified_when_cache_empty(
+    presenter, view_model
+):
+    """BOT-095E1: Without cached exchange metadata, UI truthfully reports UNVERIFIED_MISSING."""
+    assert (
+        view_model.marketRuleVerificationStatus
+        == MetadataVerificationStatus.UNVERIFIED_MISSING.value
+    )
+    assert "chưa có metadata" in view_model.marketRuleExplanation
+
+
+def test_market_rule_verification_verified_when_metadata_cached(presenter, view_model):
+    """BOT-095E1: When fresh exchange metadata is present, order intent is verified."""
+    cache = InMemorySymbolMarketMetadataCache()
+    metadata = SymbolMarketMetadata(
+        symbol=presenter._symbol,
+        status="TRADING",
+        base_asset="ETH",
+        quote_asset="USDT",
+        price_filter=PriceFilter(100.0, 100000.0, 0.01),
+        lot_size_filter=LotSizeFilter(0.0001, 100000.0, 0.0001),
+        notional_filter=NotionalFilter(5.0, apply_to_market=True),
+        fetched_at=datetime.now(UTC),
+    )
+    cache.put(metadata)
+    presenter._market_metadata_cache = cache
+
+    view_model.initialCapitalText = "15000"
+
+    assert (
+        view_model.marketRuleVerificationStatus
+        == MetadataVerificationStatus.VERIFIED.value
+    )
+    assert "Đã xác minh theo quy tắc sàn Binance" in view_model.marketRuleExplanation
+
+
+def test_market_rule_verification_stale_metadata_reported_truthfully(
+    presenter, view_model
+):
+    """BOT-095E1: Stale metadata is flagged as UNVERIFIED_STALE without crashing simulation."""
+    cache = InMemorySymbolMarketMetadataCache()
+    stale_time = datetime.now(UTC) - timedelta(days=3)
+    metadata = SymbolMarketMetadata(
+        symbol=presenter._symbol,
+        status="TRADING",
+        base_asset="ETH",
+        quote_asset="USDT",
+        price_filter=PriceFilter(0.01, 100000.0, 0.01),
+        lot_size_filter=LotSizeFilter(0.0001, 1000.0, 0.0001),
+        notional_filter=NotionalFilter(5.0, apply_to_market=True),
+        fetched_at=stale_time,
+    )
+    cache.put(metadata)
+    presenter._market_metadata_cache = cache
+
+    view_model.initialCapitalText = "5000"
+
+    assert (
+        view_model.marketRuleVerificationStatus
+        == MetadataVerificationStatus.UNVERIFIED_STALE.value
+    )
+    assert "metadata cũ" in view_model.marketRuleExplanation

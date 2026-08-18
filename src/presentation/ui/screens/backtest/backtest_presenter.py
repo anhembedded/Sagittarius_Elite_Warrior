@@ -12,6 +12,9 @@ from PySide6.QtWidgets import QFileDialog
 from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
     SingleSyncProgressEvent,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
@@ -40,6 +43,11 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
+    MetadataVerificationStatus,
+    OrderIntent,
+    validate_order_intent,
+)
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
@@ -51,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
@@ -304,6 +315,15 @@ class BackTestPresenter(BasePresenter):
         )
         self._chart_script_keys: list[str] = []
         self._current_raw_klines: list[MarketData] = []
+        try:
+            resolved_cache = container.resolve(ISymbolMarketMetadataCache)
+            self._market_metadata_cache: ISymbolMarketMetadataCache = (
+                resolved_cache
+                if isinstance(resolved_cache, ISymbolMarketMetadataCache)
+                else InMemorySymbolMarketMetadataCache()
+            )
+        except Exception:  # noqa: BLE001
+            self._market_metadata_cache = InMemorySymbolMarketMetadataCache()
 
         self._view_model = BackTestViewModel()
         view.set_view_model(self._view_model)
@@ -358,6 +378,7 @@ class BackTestPresenter(BasePresenter):
         self._connect_ui_signals()
         self._connect_engine_events()
         self._trigger_initial_health_check()
+        self._refresh_market_rule_verification()
 
         # After render_symbol_cards(): view.chart_controls doesn't exist
         # until the ChartCard it's attached to has been built.
@@ -1177,6 +1198,7 @@ class BackTestPresenter(BasePresenter):
     ) -> None:
         if raw_klines is not None:
             self._current_raw_klines = list(raw_klines)
+            self._refresh_market_rule_verification()
         self._log_dev_trace(
             "chart_data_ready",
             klines=len(klines),
@@ -1483,6 +1505,42 @@ class BackTestPresenter(BasePresenter):
         )
         self._view_model.set_capital_validation_message(
             issues[0].message if issues else ""
+        )
+        self._refresh_market_rule_verification()
+
+    def _refresh_market_rule_verification(self) -> None:
+        """Evaluates whether current symbol and capital comply with exchange order rules (BOT-095E1)."""
+        metadata = self._market_metadata_cache.get(self._symbol)
+        try:
+            capital_val = float(self._view_model.initialCapitalText)
+        except (ValueError, TypeError):
+            capital_val = 0.0
+
+        if metadata is None:
+            self._view_model.set_market_rule_verification(
+                MetadataVerificationStatus.UNVERIFIED_MISSING.value,
+                "Chưa xác minh theo quy tắc sàn (chưa có metadata cho cặp giao dịch).",
+            )
+            return
+
+        if metadata.is_stale():
+            self._view_model.set_market_rule_verification(
+                MetadataVerificationStatus.UNVERIFIED_STALE.value,
+                f"Chưa xác minh theo quy tắc sàn (metadata cũ từ {metadata.fetched_at.strftime('%Y-%m-%d %H:%M:%S UTC')}).",
+            )
+            return
+
+        ref_price = (
+            self._current_raw_klines[-1].close_price
+            if self._current_raw_klines
+            else metadata.price_filter.min_price
+        )
+        qty = capital_val / ref_price if ref_price > 0 else 0.0
+        intent = OrderIntent(symbol=self._symbol, price=ref_price, quantity=qty)
+        result = validate_order_intent(intent, metadata)
+        self._view_model.set_market_rule_verification(
+            result.status.value,
+            result.explanation,
         )
 
     @Slot()
