@@ -67,7 +67,7 @@ the next child starts:
 
 | Child | Goal | Required proof before the next phase |
 | --- | --- | --- |
-| [`BOT-098F6A`](BOT-098F6A_backtest_chart_port_and_python_adapter.md) | Extract the Backtest-only host port, Python adapter and transient factory while preserving the Python renderer exactly. | Unit/Backtest integration prove the same toolbar, modes, indicators and markers; full CI green. |
+| [`BOT-098F6A`](../in_progress/BOT-098F6A_backtest_chart_port_and_python_adapter.md) | Extract the Backtest-only host port, Python adapter and transient factory while preserving the Python renderer exactly. | Unit/Backtest integration prove the same toolbar, modes, indicators and markers; full CI green. |
 | [`BOT-098F6B`](BOT-098F6B_native_chart_adapter_snapshot_contract.md) | Add the main-thread native snapshot adapter and QQuickWidget construction/runtime fallback. No production selection yet. | Unit tests reject stale/misaligned/non-finite conversion; QML sanity constructs in embedded QQuickWidget; full CI green. |
 | [`BOT-098F6C`](BOT-098F6C_native_chart_interaction_wrapper.md) | Add the declarative QML gesture/axis/tooltip/FPS wrapper and native OHLC interaction contract. | Desktop probe sends real pan/wheel/pointer input, verifies final viewport/crosshair and retained geometry; no Qt warnings; full CI green. |
 | [`BOT-098F6D`](BOT-098F6D_backtest_native_opt_in_cutover.md) | Wire config + DI selection into Backtest for supported OHLC scope, retain explicit capability fallback. | Integration proves Python/native selection and unsupported-mode fallback; F5 DPR1/DPR2 report; full CI green. |

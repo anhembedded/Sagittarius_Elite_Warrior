@@ -22,8 +22,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
 | 🟢 **Completed** | 83 | 65.9% |
-| 🟡 **In Progress** | 2 | 1.6% |
-| 🔴 **Backlog** | 41 | 32.5% |
+| 🟡 **In Progress** | 3 | 2.4% |
+| 🔴 **Backlog** | 40 | 31.7% |
 | 📈 **Tổng số Task** | **126** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -190,6 +190,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 - [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước benchmark/migration.
 - [ ] **BOT-098F5**: [Shared Backtest renderer benchmark (Python vs native)](in_progress/BOT-098F5_shared_backtest_renderer_benchmark.md) — fixture chung, `grabWindow()`/DPR/semantic diagnostics và report A/B local trước mọi production cutover.
+- [ ] **BOT-098F6A**: [Backtest chart port and Python adapter](in_progress/BOT-098F6A_backtest_chart_port_and_python_adapter.md) — trích host port/factory khỏi `ChartCard`, không đổi renderer/hành vi; seam bắt buộc trước khi cắm native vào (`F6B`).
 
 > [!NOTE]
 > **BOT-098F4 mục 3-4 và BOT-098F5 tiêu chí 6 — đều cần Windows Desktop E2E thật (màu pixel thật qua GPU/RHI thật, input chuột/bàn phím thật). Không cách nào làm trên máy Linux này, dù đã build được native plugin và có bằng chứng Wayland thay thế.** Cả hai task vẫn ở trạng thái **chưa xong** cho tới khi có evidence chạy thật trên máy Windows.
@@ -204,7 +205,6 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P1** | **[BOT-098F](backlog/BOT-098F_qt_quick_scene_graph_chart_renderer.md)** | **Qt Quick Scene Graph retained chart renderer** | ⚡ **Specialized** | `BOT-098F1`/`BOT-098F2`/`BOT-098F2A`/`BOT-098F3` ✅, `BOT-098F4` 🟡 | Retained candle/camera/volume/indicator đã xanh; hoàn tất marker/crosshair (`F4`), benchmark chung (`F5`) rồi mới production migration (`F6`). Không dùng TradingView Lightweight Charts/WebEngine. |
 | **P1** | **[BOT-098F5](backlog/BOT-098F5_shared_backtest_renderer_benchmark.md)** | **Shared Backtest renderer benchmark (Python vs native)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4` | A/B chung trên fixture Backtest 6.420 nến + volume + 5 indicator + 1.112 marker + crosshair; đo `grabWindow`, median/p95/DPR, retained geometry và visual semantic. Evidence local, không hard CI timing gate. |
 | **P1** | **[BOT-098F6](backlog/BOT-098F6_backtest_chart_host_migration.md)** | **Backtest native chart-host migration (phase umbrella)** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F4`, `BOT-098F5` | Umbrella không code trực tiếp: `F6A→F6E` là 5 phase có test/exit criterion riêng; native chỉ OHLC path đã chứng minh, Python fallback một release cho capability chưa parity hoặc lỗi runtime. |
-| **P1** | **[BOT-098F6A](backlog/BOT-098F6A_backtest_chart_port_and_python_adapter.md)** | **Backtest chart port and Python adapter** | 🟡 **`M (Standard)`** | `BOT-098F5` | Trích Backtest-only port/factory + wrap ChartCard, không đổi renderer/behavior; test toolbar, mode, indicator, marker, timezone và cleanup trước native work. |
 | **P1** | **[BOT-098F6B](backlog/BOT-098F6B_native_chart_adapter_snapshot_contract.md)** | **Native chart adapter and snapshot contract** | 🔴 **`L (Thinking)`** | `BOT-098F6A`, `BOT-098F4` | QQuickWidget native host + immutable snapshot conversion/action fencing/runtime construction sanity; chưa chọn native trong production. |
 | **P1** | **[BOT-098F6C](backlog/BOT-098F6C_native_chart_interaction_wrapper.md)** | **Native Backtest interaction wrapper** | ⚡ **`L (Bolt / Thinking)`** | `BOT-098F6B` | QML pan/wheel/crosshair/axis/tooltip/FPS wrapper; real desktop input phải chứng minh final state đúng và geometry retained. |
 | **P1** | **[BOT-098F6D](backlog/BOT-098F6D_backtest_native_opt_in_cutover.md)** | **Backtest native opt-in cutover** | 🔴 **`L (Thinking)`** | `BOT-098F5`, `BOT-098F6A`, `BOT-098F6C` | Factory/DI/config chọn native/Python trong Backtest thật cho OHLC path; unsupported modes và runtime failure quay Python rõ ràng. |
