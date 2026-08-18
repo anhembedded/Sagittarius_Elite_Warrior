@@ -7,3 +7,8 @@
 **Smell:** The `execute` method was handling both multiple symbols mapping logic with threads as well as single symbol mapping logic, leading to mixed responsibilities and high cognitive load.
 **Solution:** Split out the fetching logic for multiple symbols and single symbols into explicit private helper methods `_execute_multi` and `_execute_single` while the `execute` method only handles argument parsing and routing logic.
 **Learning:** For queries handling single/multi item branching logic, pull out explicit private helper methods for the branches to ensure the main method focuses on routing only.
+
+## 2024-08-17 - Delegate TimeFrame Resolution to Domain Object
+**Smell:** Redundant hardcoded timeframe parsing dictionary (`interval_minutes = {"1m": 1, ...}`) in `SyncMarketDataCommandHandler._estimate_total_klines` instead of utilizing the domain object.
+**Solution:** Refactored the method to use the existing `TimeFrame.to_seconds()` method, replacing the 17-line hardcoded dictionary with a simple division, ensuring single source of truth within the Domain layer.
+**Learning:** Re-evaluate domain enums and value objects for existing resolution logic before hardcoding parameter mappings in Application layer Use Cases.
