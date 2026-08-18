@@ -1,0 +1,113 @@
+{
+  "purpose": "BOT-098F5 local diagnostic evidence; not a shared-CI timing gate.",
+  "environment": {
+    "os": "Linux-7.0.0-29-generic-x86_64-with-glibc2.43",
+    "python": "3.14.4",
+    "pyside": "6.11.1",
+    "qt_platform": "offscreen",
+    "pyqtgraph": "0.14.0"
+  },
+  "fixture": {
+    "candles": 6420,
+    "volume_bars": 6420,
+    "indicators": 5,
+    "markers": 1112,
+    "visible_candles": 150,
+    "logical_resolution": "1600x900",
+    "warmup_updates": 20,
+    "measured_updates": 120,
+    "completion": {
+      "python": "QWidget.grab()",
+      "native": "QQuickView.grabWindow()"
+    }
+  },
+  "results": [
+    {
+      "backend": "python",
+      "actual_backend": "cpu",
+      "median_ms": 72.736,
+      "p95_ms": 77.915,
+      "updates_per_second": 15.17,
+      "completed_captures": 141,
+      "device_pixel_ratio": 2.0,
+      "logical_resolution": "1600x900",
+      "physical_width": 3140,
+      "displayed_markers": 12,
+      "represented_markers": 31,
+      "crosshair_final_candle_index": null,
+      "expected_crosshair_candle_index": 5218,
+      "camera_geometry_retained": {
+        "ohlcv": null,
+        "volume": null,
+        "indicator": null,
+        "marker": null
+      },
+      "pointer_geometry_retained": {
+        "ohlcv": null,
+        "volume": null,
+        "indicator": null,
+        "marker": null
+      },
+      "renderer_diagnostics": {
+        "range_applies": 141,
+        "volume_applies": 142,
+        "indicator_applies": 705,
+        "stored_markers": 1112,
+        "rendered_candles": 150,
+        "rendered_volume_bars": 152
+      },
+      "sampled_expected_colors": {
+        "#f0b90b": true,
+        "#f6465d": true,
+        "#00c087": true,
+        "#00bfff": true
+      },
+      "qt_warnings": []
+    },
+    {
+      "backend": "native",
+      "actual_backend": "qt-quick-scene-graph",
+      "median_ms": 1.449,
+      "p95_ms": 1.611,
+      "updates_per_second": 681.72,
+      "completed_captures": 146,
+      "device_pixel_ratio": 2.0,
+      "logical_resolution": "1600x900",
+      "physical_width": 3200,
+      "displayed_markers": 26,
+      "represented_markers": 26,
+      "crosshair_final_candle_index": 5278,
+      "expected_crosshair_candle_index": 5278,
+      "camera_geometry_retained": {
+        "ohlcv": true,
+        "volume": true,
+        "indicator": true,
+        "marker": false
+      },
+      "pointer_geometry_retained": {
+        "ohlcv": true,
+        "volume": true,
+        "indicator": true,
+        "marker": true
+      },
+      "renderer_diagnostics": {
+        "native_runtime_qt_version": "6.11.1",
+        "native_snapshot_abi": 1,
+        "camera_updates": 141,
+        "geometry_builds": 1,
+        "volume_geometry_builds": 2,
+        "indicator_geometry_builds": 2,
+        "marker_geometry_builds": 141,
+        "completed_frame_fps": 0.0
+      },
+      "sampled_expected_colors": {
+        "#f0b90b": false,
+        "#f6465d": false,
+        "#00c087": false,
+        "#00bfff": false
+      },
+      "qt_warnings": []
+    }
+  ],
+  "python_over_native_median_speedup": 50.197
+}

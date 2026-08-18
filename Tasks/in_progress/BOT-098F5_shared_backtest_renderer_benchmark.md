@@ -6,6 +6,23 @@
 **Complexity:** L / Performance-specialized  
 **Status:** In Progress
 
+## Progress
+
+Harness built and verified end-to-end on a local Linux dev machine (Qt 6.11.1
+`linux_gcc_64` via `aqtinstall`, matching PySide6's ABI). Reference-machine
+report published at
+[`Tasks/reports/BOT-098F5_shared_renderer_benchmark.md`](../reports/BOT-098F5_shared_renderer_benchmark.md)
+with real DPR 1 and DPR 2 `--backend both --ci-contract` runs: native is
+50–129× faster than Python per camera update, crosshair candle truth holds,
+OHLCV/volume/indicator geometry stays retained across camera and pointer
+interaction (marker retained for pointer only, as the boundary contract
+already documents), zero Qt warnings.
+
+Still outstanding: acceptance criterion 6's **Windows Desktop E2E** tier —
+real pixel-color evidence under a real GPU/RHI backend needs an actual
+Windows machine and cannot be produced from this environment. Unit,
+Integration and Sanity tiers are green.
+
 ## Goal
 
 Create one reproducible, fair local benchmark that exercises the same Backtest
