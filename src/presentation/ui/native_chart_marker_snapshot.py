@@ -95,9 +95,7 @@ def pack_native_marker_snapshot(
     return QByteArray(bytes(payload))
 
 
-def _validate_markers(
-    markers: Sequence[NativeChartMarker], candle_count: int
-) -> None:
+def _validate_markers(markers: Sequence[NativeChartMarker], candle_count: int) -> None:
     previous_index = -1
     for marker in markers:
         if marker.candle_index < 0 or marker.candle_index >= candle_count:

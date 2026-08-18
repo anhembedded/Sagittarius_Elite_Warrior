@@ -41,13 +41,21 @@ def select_native_marker_display(
 
     physical_width = max(1, math.floor(logical_pixel_width * device_pixel_ratio))
     span = viewport_end - viewport_start
-    grouped: dict[tuple[int, NativeChartMarkerKind, int, NativeChartMarkerDirection], list[NativeChartMarker]] = {}
+    grouped: dict[
+        tuple[int, NativeChartMarkerKind, int, NativeChartMarkerDirection],
+        list[NativeChartMarker],
+    ] = {}
     for marker in markers:
         if not viewport_start <= marker.candle_index < viewport_end:
             continue
         column = min(
             physical_width - 1,
-            max(0, math.floor((marker.candle_index - viewport_start) / span * physical_width)),
+            max(
+                0,
+                math.floor(
+                    (marker.candle_index - viewport_start) / span * physical_width
+                ),
+            ),
         )
         key = (column, marker.kind, marker.rgba, marker.direction)
         grouped.setdefault(key, []).append(marker)

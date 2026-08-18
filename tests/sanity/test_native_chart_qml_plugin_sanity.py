@@ -220,7 +220,19 @@ def _sampled_colors(view: QQuickView) -> set[str]:
     }
 
 
-def _run_windows_visual_probe() -> None:
+def _has_real_display() -> bool:
+    """True when a real (non-offscreen) windowing session is available.
+
+    Windows and macOS always have a compositor, headless or not. Linux only
+    has one when an X11/Wayland session is actually running (DISPLAY /
+    WAYLAND_DISPLAY), which is not the case on typical headless CI runners.
+    """
+    if sys.platform.startswith("win") or sys.platform == "darwin":
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def _run_real_display_visual_probe() -> None:
     app = QApplication.instance() or QApplication([])
     view, _component, root_item, root = _create_native_chart_view()
     view.show()
@@ -246,14 +258,14 @@ def _run_windows_visual_probe() -> None:
     app.processEvents()
 
 
-def _assert_windows_visual_probe_passes() -> None:
+def _assert_real_display_visual_probe_passes() -> None:
     environment = os.environ.copy()
-    environment["QT_QPA_PLATFORM"] = "windows"
+    # Drop any inherited "offscreen" override so Qt auto-selects the real
+    # backend for this host (windows/cocoa/xcb/wayland) instead of faking it.
+    environment.pop("QT_QPA_PLATFORM", None)
     package_root = str(Path(__file__).resolve().parents[3])
     environment["PYTHONPATH"] = os.pathsep.join(
-        value
-        for value in (package_root, environment.get("PYTHONPATH", ""))
-        if value
+        value for value in (package_root, environment.get("PYTHONPATH", "")) if value
     )
     result = subprocess.run(
         [sys.executable, str(Path(__file__).resolve()), "--visual-probe"],
@@ -295,7 +307,10 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
     assert root.property("bearishCandleCount") == 1
     assert root.property("priceMinimum") == 9.0
     assert root.property("priceMaximum") == 25.0
-    _assert_windows_visual_probe_passes()
+    # Real-backend visual evidence needs an actual windowing session; skip
+    # cleanly on headless CI runners instead of assuming Windows-only.
+    if _has_real_display():
+        _assert_real_display_visual_probe_passes()
 
     unchanged_build_count = root.property("geometryBuildCount")
     unchanged_volume_build_count = root.property("volumeGeometryBuildCount")
@@ -433,4 +448,4 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
 
 
 if __name__ == "__main__" and "--visual-probe" in sys.argv:
-    _run_windows_visual_probe()
+    _run_real_display_visual_probe()

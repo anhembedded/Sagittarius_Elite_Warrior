@@ -1,6 +1,9 @@
-r"""Exercise native marker/crosshair/FPS with real Windows Qt mouse input.
+r"""Exercise native marker/crosshair/FPS with real Qt mouse input.
 
-Run from the Sagittarius-Engine workspace root:
+Requires a real windowing session (Windows/macOS always have one; on Linux
+an X11/Wayland session must actually be running — DISPLAY/WAYLAND_DISPLAY).
+
+Run from the Sagittarius-Engine workspace root, e.g. on Windows:
 
     .\Sagittarius_Elite_Warrior\.venv\Scripts\python.exe -m \
         Sagittarius_Elite_Warrior.scripts.benchmarking.native_chart_interaction_probe
@@ -154,6 +157,11 @@ def main() -> None:
         if chart is None:
             raise RuntimeError("native chart item was not found")
         view.show()
+        # Wait for the window's real first expose/paint to settle before
+        # taking any measurement. Without this, the deferred initial paint
+        # can land mid-interaction-loop and get misattributed as a
+        # pointer-triggered geometry rebuild.
+        QTest.qWaitForWindowExposed(view)
         app.processEvents()
         snapshot, marker_snapshot = _snapshot()
         if not _invoke_bool(chart, "submitSnapshot", snapshot):
@@ -161,7 +169,10 @@ def main() -> None:
         if not _invoke_bool(chart, "submitMarkerSnapshot", marker_snapshot):
             raise RuntimeError(chart.property("lastMarkerSnapshotError"))
         view.grabWindow()
-        app.processEvents()
+        # The scene graph's render thread can take a few extra event-loop
+        # turns to finish flushing the initial frame after the first grab.
+        for _ in range(20):
+            app.processEvents()
         baseline = {
             "ohlcv": chart.property("geometryBuildCount"),
             "volume": chart.property("volumeGeometryBuildCount"),
@@ -169,10 +180,17 @@ def main() -> None:
             "marker": chart.property("markerGeometryBuildCount"),
         }
 
+        # The window manager/compositor — not the app — has final say on the
+        # actual window size (e.g. Wayland routinely grants a smaller size
+        # than requested). Use the real size so synthetic moves always land
+        # inside the window instead of firing "outside target window" noise.
+        actual_width = view.width()
+        actual_height = view.height()
+
         samples: list[float] = []
         for move_index in range(_MOUSE_MOVES):
-            x = 1 + move_index * (_WIDTH - 2) // (_MOUSE_MOVES - 1)
-            y = _HEIGHT // 3 + move_index % 120
+            x = 1 + move_index * (actual_width - 2) // (_MOUSE_MOVES - 1)
+            y = actual_height // 3 + move_index % 120
             started = time.perf_counter()
             QTest.mouseMove(view, QPoint(x, y), 4)
             app.processEvents()
