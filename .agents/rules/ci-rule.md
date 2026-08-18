@@ -80,9 +80,18 @@ the command, environment, affected test(s), and failure output against
 `BOT-038`. A targeted non-flaky regression test is still required for the code
 change.
 
-Desktop E2E is a separate opt-in tier: it requires a Windows desktop runner,
-real Qt mouse/keyboard interaction, deterministic local data, and an assertion
-that Qt stderr/message capture is clean. It does not replace Full CI.
+Desktop E2E is a separate opt-in tier: it requires a real windowing session
+(never `QT_QPA_PLATFORM=offscreen`), real Qt mouse/keyboard interaction,
+deterministic local data, and an assertion that Qt stderr/message capture is
+clean. Windows and macOS always have a real compositor; Linux only has one
+when an X11/Wayland session is actually running (`DISPLAY`/`WAYLAND_DISPLAY`),
+which typical headless CI runners do not — detect this generically rather
+than gating on `sys.platform == "win32"`. A specific task's proof
+requirements may still mandate the production target OS explicitly (e.g. real
+pixel color under Windows' RHI backend) when platform-specific rendering
+behavior is what is being verified; a same-machine real-display run is
+supplementary local evidence, not a substitute for that. This tier does not
+replace Full CI.
 
 ## 4. Focused test workflow
 
@@ -134,10 +143,13 @@ coverage.
    flow, not just a private call or a mock expectation.
 3. **Sanity:** real app boot, DI wiring and QML construction only; no user
    action, background dispatch or network. It proves composition health.
-4. **Desktop E2E:** critical visible journey on a Windows desktop using real Qt
-   mouse/keyboard input, real render backend and clean Qt stderr/message
-   capture. It is opt-in/local or nightly but mandatory evidence for changed
-   native rendering or reported GUI runtime defects.
+4. **Desktop E2E:** critical visible journey on a real windowing session (not
+   offscreen) using real Qt mouse/keyboard input, real render backend and
+   clean Qt stderr/message capture. It is opt-in/local or nightly but
+   mandatory evidence for changed native rendering or reported GUI runtime
+   defects. When a task's proof requirements name a specific production
+   target OS (e.g. Windows RHI pixel evidence), that OS is still required;
+   this tier's own definition does not restrict "real display" to Windows.
 
 An external-service smoke check is an opt-in operational check, not a fifth
 test level and never a normal CI requirement. Passing a lower tier proves only
@@ -154,12 +166,14 @@ thresholds. `F5` specifically represents this tier.
   warmup/measurement counts, DPR, completion path (`grabWindow()`), median/p95
   and whether Qt message capture was clean.
 - Headless/Qt-offscreen may cover serializer, fixture, report and failure-path
-  tests only. Desktop timing comes from a Windows, real-GPU, real-window run.
-- `ci-local.ps1 -Full` and GitHub Actions run
-  `chart_migration_benchmark --backend both --ci-contract` after the native
-  build. This portable contract gate validates both renderers, frozen fixture,
-  completed capture/report shape, native crosshair/retained geometry and clean
-  Qt messages, then uploads its JSON evidence artifact.
+  tests only. Desktop pixel-color timing comes from a real-GPU, real-window
+  run on the production target OS (Windows).
+- `ci-local.ps1 -Full` runs `chart_migration_benchmark --backend both
+  --ci-contract` after the native build. This portable contract gate
+  validates both renderers, frozen fixture, completed capture/report shape,
+  native crosshair/retained geometry and clean Qt messages. CI for this
+  project is local-only (`ci-local.ps1`); there is no GitHub Actions
+  workflow.
 - `./scripts/run-chart-benchmark.ps1` is the one-command local entry point:
   it writes a timestamped JSON result under `Tasks/reports/`; `-Desktop` adds
   the Windows pixel-semantic contract. `ci-local.ps1 -DesktopBenchmark` runs
