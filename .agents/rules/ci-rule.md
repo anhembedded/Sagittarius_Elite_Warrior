@@ -177,6 +177,30 @@ test level and never a normal CI requirement. Passing a lower tier proves only
 that tier's contract. In particular, a green Sanity or UnitOnly run never
 proves a user journey, native render runtime, or business acceptance contract.
 
+**Why these levels, in this order — a V-model reading:** each tier verifies
+exactly the artifact its matching development stage produces, same idea as
+the classic V-model's level-to-level test mapping, without adopting its
+waterfall sequencing (write-every-test-before-any-code, finish one whole side
+of the V before starting the other). This codebase ships incrementally
+(BOT-098F6A→F6B→F6C→F6D→F6E), so the mapping is read per-feature, live,
+against however far that feature has actually been built — not planned
+upfront for the whole system:
+
+| Development stage | Test level |
+| --- | --- |
+| Module/function implementation | **Unit** |
+| Cross-collaborator wiring within a feature | **Integration** |
+| Whole-app boot/composition | **Sanity** |
+| A piece built but not yet reachable from the real app | **Component probe** |
+| Feature actually wired into the real running app | **Desktop E2E** |
+
+The practical rule this gives: test only as far as a feature has actually
+been integrated, never further ahead of it. A native chart host that only
+`BacktestChartHostFactory` will ever construct has no business claiming
+Desktop E2E evidence — nothing a real user runs reaches it yet, so a
+component probe is the correct and honest tier, right up until the phase
+that wires it in exists.
+
 ## 7. Benchmark evidence tier
 
 `scripts/benchmarking/` is a diagnostic, not a gate tier. Its reports are local
