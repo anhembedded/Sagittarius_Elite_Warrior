@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 
 
 @pytest.fixture
@@ -42,11 +45,14 @@ def test_backtest_timezone_integration_updates_trade_log_times(
     config.get.return_value = None
     config.get_all.return_value = {}
 
+    real_chart_host_factory = BacktestChartHostFactory()
     container.resolve.side_effect = lambda key: (
         strategy_registry
         if "StrategyRegistry" in str(key)
         else config
         if "IConfig" in str(key)
+        else real_chart_host_factory
+        if "BacktestChartHostFactory" in str(key)
         else MagicMock()
     )
 

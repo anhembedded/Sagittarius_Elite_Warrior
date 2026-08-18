@@ -165,6 +165,25 @@ class IndicatorScriptRunner:
             card.clear_script_info(key)
             card.clear_script_markers(key)
 
+    def reset_after_host_replaced(self) -> None:
+        """The chart host was just replaced from scratch by something other
+        than this runner's own rebuild flow (BOT-098F6D: BackTestView
+        rebuilds the whole host when a chart-mode switch changes the
+        effective renderer backend) — the new host has zero registered
+        curves, but `registered_lines` still claims otherwise. Unlike
+        `clear_from_chart()`, this must NOT call `scope.dispose_all()`:
+        every dispose callable it holds is bound to the OLD, already-
+        replaced `ChartCard` (BOT-067's `functools.partial(card.remove_indicator,
+        ...)`), which may already be `deleteLater()`-scheduled — invoking it
+        risks a "C++ object already deleted" crash for no benefit, since
+        Qt's parent-child teardown already reclaimed it. Discard the stale
+        bookkeeping outright instead so the next `draw()` call registers
+        cleanly against the new host; cached `series` data is left alone
+        since `draw()` reuses it correctly once re-registered."""
+        for active in self.active.values():
+            active.registered_lines.clear()
+            active.scope = ResourceScope()
+
     # ------------------------------------------------------------------ #
     # Computation — safe to call from either thread (emits, never draws)
     # ------------------------------------------------------------------ #

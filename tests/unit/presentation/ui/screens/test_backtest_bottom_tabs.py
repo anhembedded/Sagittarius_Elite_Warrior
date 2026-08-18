@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from sagittarius_engine.extensions.pyside_mvc import create_quick_widget
 
 _QML_FILE = _QML_DIR / _TRADE_LOGS_QML
@@ -124,6 +127,8 @@ def test_backtest_presenter_event_bus_handlers(qapp) -> None:
             return strategy_reg
         if interface == IndicatorScriptRegistry:
             return script_reg
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
         return MagicMock()
 
     container.resolve.side_effect = resolve_side_effect

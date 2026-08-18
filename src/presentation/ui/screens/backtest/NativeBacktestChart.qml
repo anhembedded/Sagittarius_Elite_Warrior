@@ -16,6 +16,20 @@ Item {
     property string displayTimezone: "UTC"
     property int _lastAppliedCandleCount: -1
 
+    // NativeChartItem's C++ updatePaintNode() only ever builds candle/
+    // volume/axis/marker geometry — it never paints a background — so
+    // without this the widget falls through to QQuickWidget's default
+    // white clear color whenever no snapshot has been submitted yet (e.g.
+    // sync still in progress/failed). Matches BaseCard's own #base_card
+    // QSS background (Palette.BG_CARD / Theme.bgCard) for seamless
+    // blending with the card the chart is embedded in.
+    Rectangle {
+        id: chartBackground
+        objectName: "chartBackground"
+        anchors.fill: parent
+        color: (Theme && Theme.bgCard) ? Theme.bgCard : "#111318"
+    }
+
     NativeChartItem {
         id: chart
         objectName: "nativeChartItem"

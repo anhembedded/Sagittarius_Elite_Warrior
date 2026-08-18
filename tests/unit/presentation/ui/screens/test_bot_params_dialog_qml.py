@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -67,6 +70,8 @@ def bot_params_presenter(qapp, request):
             return registry
         if interface == IndicatorScriptRegistry:
             return IndicatorScriptRegistry()
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
         return Mock()
 
     container.resolve.side_effect = resolve_mock

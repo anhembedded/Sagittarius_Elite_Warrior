@@ -76,6 +76,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+    PythonBacktestChartHost,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BacktestActionKind,
     BacktestActionOutcome,
@@ -194,6 +198,8 @@ def _build_presenter_with_registry(
             return registry
         if interface == IndicatorScriptRegistry:
             return resolved_script_registry
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -381,6 +387,8 @@ def mock_container(
             return strategy_registry
         if interface == IndicatorScriptRegistry:
             return indicator_script_registry
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -2683,3 +2691,141 @@ def test_on_backtest_succeeded_does_not_raise_for_preset_ranges(presenter):
 
     assert presenter.fsm.current_state == BacktestUiState.COMPLETED
     assert presenter._last_run_config is not None
+
+
+# --------------------------------------------------------------------------
+# BOT-098F6D: post-construction native snapshot rejection must fall back to
+# the Python host, not silently leave the chart blank (acceptance criterion
+# 3). NativeBacktestChartHost is faked here; only the presenter/view fallback
+# wiring is under test.
+# --------------------------------------------------------------------------
+
+_NATIVE_HOST_TARGET = (
+    "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic."
+    "native_backtest_chart_adapter.NativeBacktestChartHost"
+)
+
+
+def _rejecting_native_host_factory():
+    """A fake NativeBacktestChartHost whose submit_ohlcv() always reports a
+    rejected snapshot — the adapter turns that into NativeUnsupportedFeatureError,
+    which the presenter must catch and recover from."""
+    from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+        ChartCard,
+    )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+        NativeBacktestChartHost,
+    )
+
+    fake = Mock(spec=NativeBacktestChartHost)
+    fake.widget = ChartCard("placeholder")
+    fake.submit_ohlcv.return_value = False
+    return fake
+
+
+def test_backtest_data_ready_falls_back_to_python_when_native_rejects_the_snapshot(
+    presenter,
+):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+        NativeBacktestChartHostAdapter,
+    )
+
+    presenter.view.set_chart_backend("native")
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
+    ):
+        presenter.view.render_symbol_cards([presenter._symbol])
+        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+        result = _make_result(with_trades=True)
+        klines = [(1.0, 1.0, 2.0, 0.5, 1.5)]
+        volume = [(1.0, 100.0, True)]
+        presenter._on_chart_data_ready(result, klines, volume)
+
+    # The rejected native snapshot must not leave the chart stuck blank —
+    # the presenter rebuilds it with the Python host and re-renders.
+    assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
+
+
+def test_preview_data_ready_falls_back_to_python_when_native_rejects_the_snapshot(
+    presenter,
+):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+        NativeBacktestChartHostAdapter,
+    )
+
+    presenter.view.set_chart_backend("native")
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
+    ):
+        presenter.view.render_symbol_cards([presenter._symbol])
+        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+        presenter._active_preview_id = 7
+        klines = [(1.0, 1.0, 2.0, 0.5, 1.5)]
+        volume = [(1.0, 100.0, True)]
+        presenter._on_preview_data_ready(7, _complete_coverage(), klines, volume)
+
+    assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
+
+
+# --------------------------------------------------------------------------
+# Bug report (real run-ui.ps1 session, 2026-08-18): strategy indicator
+# lines silently vanished after a chart-mode switch (Nến Nhật -> Đường Vốn ->
+# Nến Nhật) while native backend was active, and the very next EMA-visibility
+# toggle then crashed (swallowed silently by safe_ui_action outside dev
+# mode). Root cause: BackTestView.set_chart_mode() rebuilds the chart host
+# from scratch whenever the effective backend changes (BOT-098F6D), but
+# BackTestPresenter kept believing its old _active_strategy_lines/
+# IndicatorScriptRunner bookkeeping still applied to the brand new, empty
+# host. Fix: BackTestPresenter now drops that stale bookkeeping the instant
+# it learns a rebuild happened (set_chart_mode()'s new bool return) —
+# re-running the backtest already redraws every line from scratch, exactly
+# as it did before BOT-098F6D's mode-triggered rebuild existed.
+# --------------------------------------------------------------------------
+
+
+def test_switching_chart_mode_away_and_back_clears_stale_indicator_bookkeeping(
+    presenter,
+):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+        ChartDisplayMode,
+    )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+        NativeBacktestChartHostAdapter,
+    )
+
+    presenter.view.set_chart_backend("native")
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
+    ):
+        presenter.view.render_symbol_cards([presenter._symbol])
+
+    # Ensure the fake native host actually accepts submissions for this
+    # scenario (the "rejecting" factory is reused only for its widget
+    # scaffolding here, not its rejection behavior).
+    host = presenter.view.chart_cards[0]
+    assert isinstance(host, NativeBacktestChartHostAdapter)
+    host.native_host.submit_indicators.return_value = True
+
+    presenter._on_chart_strategy_line("ema_9", "#F3BA2F", [1.0, 2.0], [10.0, 11.0])
+    assert "ema_9" in presenter._active_strategy_lines
+    assert "ema_9" in host._indicator_series
+
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
+    ):
+        # Must not raise — this exact sequence used to crash inside
+        # _on_ema_toggled's set_indicator_visible() call on the second
+        # mode change, silently swallowed by safe_ui_action in production.
+        presenter._on_chart_mode_changed(ChartDisplayMode.EQUITY.value)
+        presenter._on_chart_mode_changed(ChartDisplayMode.OHLC.value)
+
+    rebuilt_host = presenter.view.chart_cards[0]
+    assert isinstance(rebuilt_host, NativeBacktestChartHostAdapter)
+    assert rebuilt_host is not host  # confirms a rebuild actually happened
+
+    # The old name must not linger as phantom bookkeeping the new host
+    # never heard of — cleanly empty, not silently stale.
+    assert presenter._active_strategy_lines == set()
+    assert rebuilt_host._indicator_series == {}

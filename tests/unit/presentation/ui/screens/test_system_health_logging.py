@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
     EmaCrossScript,
     EmaRibbonScript,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
@@ -76,6 +79,8 @@ def health_mock_container(qapp):
             return script_registry
         if interface == HealthCheckQuery:
             return mock_health_query
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
         return MagicMock()
 
     container.resolve.side_effect = resolve_side_effect

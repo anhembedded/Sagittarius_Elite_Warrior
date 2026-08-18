@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 from collections.abc import Callable
 from typing import Protocol
 
@@ -11,6 +13,19 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
     OhlcCandle,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
+    NativeChartRuntimeError,
+)
+
+logger = logging.getLogger("App.BacktestChartHostFactory")
+
+#: One-off env override, following the same os.environ.get(...) convention
+#: native_chart_runtime.py already uses for SAGITTARIUS_NATIVE_QML_IMPORT_PATH
+#: — this codebase has no ConfigManager env layer wired into the real app.
+_BACKEND_ENV_OVERRIDE = "SAGITTARIUS_BACKTEST_CHART_BACKEND"
+_PYTHON_BACKEND = "python"
+_NATIVE_BACKEND = "native"
+_AUTO_BACKEND = "auto"
 
 
 class IBacktestChartHost(Protocol):
@@ -190,12 +205,22 @@ class BacktestChartHostFactory:
     @brief Transient, view-owned factory for `IBacktestChartHost` instances.
 
     @details Every `BackTestView.render_symbol_cards()` call asks for a fresh
-    host per symbol; nothing here is cached or shared across views. Only this
-    factory and `PythonBacktestChartHost` are allowed to import `ChartCard`
-    directly (BOT-098F6A acceptance criteria #2) — `BackTestView`/
-    `BackTestPresenter` reach the renderer only through `IBacktestChartHost`.
-    Backend selection (python|native|auto) is out of scope for this phase
-    (BOT-098F6D); this factory always produces a `PythonBacktestChartHost`.
+    host per symbol; nothing here is cached or shared across views — no
+    QWidget/QQuickWidget this factory produces is ever a singleton. Only this
+    factory, `PythonBacktestChartHost` and `NativeBacktestChartHostAdapter`
+    are allowed to import a concrete renderer directly — `BackTestView`/
+    `BackTestPresenter` reach it only through `IBacktestChartHost`
+    (BOT-098F6A acceptance criteria #2).
+
+    `backend` resolves in this order: the `SAGITTARIUS_BACKTEST_CHART_BACKEND`
+    env var, then the caller-supplied value (from
+    `backtest.chart.backend` config, resolved by `BackTestPresenter`), then
+    `"python"`. `"native"`/`"auto"` both attempt native first; a missing
+    plugin, ABI mismatch or QML construction failure — the exact failure
+    modes `NativeChartRuntimeError` already covers — logs one actionable
+    warning and falls back to Python rather than ever leaving a blank chart.
+    `"auto"` exists as a distinct value only for forward config compatibility
+    with `"native"` (no different runtime behavior in this slice yet).
     """
 
     def create(
@@ -204,10 +229,44 @@ class BacktestChartHostFactory:
         *,
         use_opengl: bool = False,
         cached_interaction: bool = False,
+        backend: str = _PYTHON_BACKEND,
     ) -> IBacktestChartHost:
+        resolved_backend = os.environ.get(_BACKEND_ENV_OVERRIDE, backend)
+        if resolved_backend in (_NATIVE_BACKEND, _AUTO_BACKEND):
+            native_host = self._try_create_native(symbol)
+            if native_host is not None:
+                return native_host
+        return self._create_python(
+            symbol, use_opengl=use_opengl, cached_interaction=cached_interaction
+        )
+
+    def _create_python(
+        self, symbol: str, *, use_opengl: bool, cached_interaction: bool
+    ) -> PythonBacktestChartHost:
         chart_card = ChartCard(
             symbol,
             use_opengl=use_opengl,
             cached_interaction=cached_interaction,
         )
         return PythonBacktestChartHost(chart_card)
+
+    def _try_create_native(self, symbol: str):
+        # Imported lazily so the Python-only path never needs the native
+        # module importable at all, matching how every other native-chart
+        # entry point in this codebase treats the plugin as optional.
+        from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+            NativeBacktestChartHost,
+        )
+        from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+            NativeBacktestChartHostAdapter,
+        )
+
+        try:
+            native_host = NativeBacktestChartHost.create()
+        except NativeChartRuntimeError as error:
+            logger.warning(
+                "Native Backtest chart unavailable, falling back to Python: %s",
+                error,
+            )
+            return None
+        return NativeBacktestChartHostAdapter(symbol, native_host)

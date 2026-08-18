@@ -1,4 +1,5 @@
-"""Tests for BOT-098F6A's Backtest chart host port/adapter/factory.
+"""Tests for BOT-098F6A's Backtest chart host port/adapter/factory, and
+BOT-098F6D's backend-selection/fallback logic layered on top of it.
 
 Covers the seam itself: PythonBacktestChartHost delegates every port
 operation to the wrapped ChartCard without reimplementing behavior, the
@@ -7,10 +8,15 @@ BackTestView.render_symbol_cards() deterministically tears down the previous
 host's ChartCard before building the next one.
 """
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import pytest
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
+    NativeChartRuntimeError,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
@@ -18,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
     PythonBacktestChartHost,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+    NativeBacktestChartHostAdapter,
 )
 
 
@@ -115,3 +124,155 @@ def test_render_symbol_cards_replacement_cleans_up_the_previous_host(qapp, reque
     assert second_cards[0] is not first_cards[0]
     assert second_cards[0].chart_card is not first_chart_card
     assert second_cards[0].symbol == "ETHUSDT"
+
+
+# --------------------------------------------------------------------------
+# BOT-098F6D: backend selection and fallback
+# --------------------------------------------------------------------------
+
+_NATIVE_HOST_TARGET = "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter.NativeBacktestChartHost"
+
+
+def test_default_backend_is_python(qapp, request):
+    factory = BacktestChartHostFactory()
+    host = factory.create("BTCUSDT")
+    request.addfinalizer(host.widget.deleteLater)
+    assert isinstance(host, PythonBacktestChartHost)
+
+
+def test_python_backend_never_touches_the_native_module(qapp, request):
+    factory = BacktestChartHostFactory()
+    with patch(f"{_NATIVE_HOST_TARGET}.create") as mocked_create:
+        host = factory.create("BTCUSDT", backend="python")
+    request.addfinalizer(host.widget.deleteLater)
+    mocked_create.assert_not_called()
+    assert isinstance(host, PythonBacktestChartHost)
+
+
+@pytest.mark.parametrize("backend", ["native", "auto"])
+def test_native_backend_returns_the_adapter_on_success(qapp, request, backend):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+        NativeBacktestChartHost,
+    )
+
+    factory = BacktestChartHostFactory()
+    fake_native_host = Mock(spec=NativeBacktestChartHost)
+    fake_native_host.widget = ChartCard("placeholder")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create", return_value=fake_native_host):
+        host = factory.create("BTCUSDT", backend=backend)
+    # host.widget (NativeChartCard) now owns the placeholder ChartCard as a
+    # Qt child — deleting it alone is enough; Qt's parent-child cascade
+    # handles the child, so deleting both separately double-frees it.
+    request.addfinalizer(host.widget.deleteLater)
+
+    assert isinstance(host, NativeBacktestChartHostAdapter)
+    assert host.native_host is fake_native_host
+
+
+@pytest.mark.parametrize("backend", ["native", "auto"])
+def test_native_backend_falls_back_to_python_on_construction_failure(
+    qapp, request, backend
+):
+    factory = BacktestChartHostFactory()
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create",
+        side_effect=NativeChartRuntimeError("plugin missing"),
+    ):
+        host = factory.create("BTCUSDT", backend=backend)
+    request.addfinalizer(host.widget.deleteLater)
+
+    assert isinstance(host, PythonBacktestChartHost)
+
+
+def test_env_override_takes_priority_over_the_backend_argument(
+    qapp, request, monkeypatch
+):
+    monkeypatch.setenv("SAGITTARIUS_BACKTEST_CHART_BACKEND", "python")
+    factory = BacktestChartHostFactory()
+    with patch(f"{_NATIVE_HOST_TARGET}.create") as mocked_create:
+        host = factory.create("BTCUSDT", backend="native")
+    request.addfinalizer(host.widget.deleteLater)
+
+    mocked_create.assert_not_called()
+    assert isinstance(host, PythonBacktestChartHost)
+
+
+# --------------------------------------------------------------------------
+# BOT-098F6D: BackTestView rebuilds when a mode change alters which backend
+# is eligible (native only supports ChartDisplayMode.OHLC in this slice).
+# --------------------------------------------------------------------------
+
+
+def test_equity_mode_forces_python_even_when_native_is_configured(qapp, request):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+        ChartDisplayMode,
+    )
+
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+    view.set_chart_backend("native")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create") as mocked_create:
+        mocked_create.side_effect = NativeChartRuntimeError("no native for this test")
+        view.set_chart_mode(ChartDisplayMode.EQUITY)
+        cards = view.render_symbol_cards(["BTCUSDT"])
+
+    assert isinstance(cards[0], PythonBacktestChartHost)
+
+
+def _fake_native_host_factory():
+    """A minimal object satisfying just enough of NativeBacktestChartHost's
+    surface for BacktestChartHostFactory._try_create_native() to wrap it."""
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+        NativeBacktestChartHost,
+    )
+
+    fake = Mock(spec=NativeBacktestChartHost)
+    fake.widget = ChartCard("placeholder")
+    return fake
+
+
+def test_switching_from_equity_back_to_ohlc_rebuilds_the_host(qapp, request):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+        ChartDisplayMode,
+    )
+
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+    view.set_chart_backend("native")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create", side_effect=_fake_native_host_factory):
+        view.render_symbol_cards(["BTCUSDT"])
+        first_host = view.chart_cards[0]
+        assert isinstance(first_host, NativeBacktestChartHostAdapter)
+
+        view.set_chart_mode(ChartDisplayMode.EQUITY)
+        equity_host = view.chart_cards[0]
+        assert view.chart_cards[0] is not first_host  # rebuilt: native -> python
+        assert isinstance(equity_host, PythonBacktestChartHost)
+
+        view.set_chart_mode(ChartDisplayMode.OHLC)
+        assert view.chart_cards[0] is not equity_host  # rebuilt again on the way back
+        assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+
+def test_mode_change_within_the_same_backend_does_not_rebuild(qapp, request):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+        ChartDisplayMode,
+    )
+
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+    view.set_chart_backend("native")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create", side_effect=_fake_native_host_factory):
+        view.render_symbol_cards(["BTCUSDT"])
+        first_host = view.chart_cards[0]
+
+        view.set_chart_mode(ChartDisplayMode.EQUITY)
+        equity_host = view.chart_cards[0]
+        assert equity_host is not first_host
+
+        view.set_chart_mode(ChartDisplayMode.BOTH)  # still python-only, no rebuild
+        assert view.chart_cards[0] is equity_host

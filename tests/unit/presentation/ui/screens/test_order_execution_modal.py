@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -68,6 +71,8 @@ def backtest_screen(qapp, request):
             return registry
         if interface == IndicatorScriptRegistry:
             return IndicatorScriptRegistry()
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
         return Mock()
 
     container.resolve.side_effect = resolve_mock

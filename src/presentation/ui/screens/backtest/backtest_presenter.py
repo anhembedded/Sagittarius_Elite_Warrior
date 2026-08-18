@@ -72,6 +72,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_view_model import BackTestViewModel
+from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
     BACKTEST_STATE_TRANSITIONS,
@@ -89,6 +90,7 @@ from .logic.bot_params_form import (
     parse_bot_params,
 )
 from .logic.chart_canvas_view import ChartDisplayMode
+from .logic.native_backtest_chart_host_adapter import NativeUnsupportedFeatureError
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
@@ -371,6 +373,13 @@ class BackTestPresenter(BasePresenter):
                     True,
                 )
             )
+        )
+        # BOT-098F6D: BackTestView has no container access itself, so the
+        # DI-resolved factory is pushed in from here — never a singleton,
+        # container.bind() (transient) hands back a fresh instance.
+        view.set_chart_host_factory(self.container.resolve(BacktestChartHostFactory))
+        view.set_chart_backend(
+            str(self.config.get(ConfigKeys.BACKTEST_CHART_BACKEND.value, "python"))
         )
         view.render_symbol_cards([self._symbol])
         self._connect_chart_controls()
@@ -1161,7 +1170,12 @@ class BackTestPresenter(BasePresenter):
             trades=len(result.trades),
         )
         self._logger.log_klines_loaded(len(klines), self._symbol)
-        self.view.on_backtest_data_ready(result, klines, volume)
+        try:
+            self.view.on_backtest_data_ready(result, klines, volume)
+        except NativeUnsupportedFeatureError:
+            self._fallback_to_python_after_unsupported_native_feature(
+                "backtest OHLCV data"
+            )
 
     @Slot(str, str, list, list)
     @safe_ui_action
@@ -1196,29 +1210,73 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_chart_script_region(self, key: str, spans: list) -> None:
         card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is not None:
+        if card is None:
+            return
+        try:
             self._chart_script_runner.draw_region(card, key, spans)
+        except NativeUnsupportedFeatureError:
+            self._fallback_to_python_after_unsupported_native_feature("script regions")
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_info(self, key: str, fields: list) -> None:
         card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is not None:
+        if card is None:
+            return
+        try:
             self._chart_script_runner.draw_info(card, key, fields)
+        except NativeUnsupportedFeatureError:
+            self._fallback_to_python_after_unsupported_native_feature("script info")
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_marker(self, key: str, markers: list) -> None:
         card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is not None:
+        if card is None:
+            return
+        try:
             self._chart_script_runner.draw_markers(card, key, markers)
+        except NativeUnsupportedFeatureError:
+            self._fallback_to_python_after_unsupported_native_feature("script markers")
+
+    def _fallback_to_python_after_unsupported_native_feature(
+        self, feature_name: str
+    ) -> None:
+        """BOT-098F6D: content outside native's OHLC/volume/indicator/
+        truthful-marker scope (script regions/info/arbitrary markers,
+        equity/BOTH subplot) must never be silently dropped — rebuild with
+        the Python host so it actually renders, and log exactly once why."""
+        self._log_dev_trace(
+            "native_chart_unsupported_feature_fallback", feature=feature_name
+        )
+        logger.warning(
+            "Native Backtest chart does not support %s; rebuilding with the "
+            "Python host.",
+            feature_name,
+        )
+        self.view.set_chart_backend("python")
+        self.view.render_symbol_cards([self._symbol])
+        self._connect_chart_controls()
+        self.view.refresh_chart()
 
     @Slot(str)
     @safe_ui_action
     def _on_chart_mode_changed(self, mode_value: str) -> None:
         mode = ChartDisplayMode(mode_value)
         self._log_dev_trace("chart_mode_changed", mode=mode_value)
-        self.view.set_chart_mode(mode)
+        rebuilt = self.view.set_chart_mode(mode)
+        if rebuilt:
+            # The chart host was just replaced from scratch — nothing on it
+            # knows about strategy/script indicator lines drawn on the old
+            # one, and neither caches the underlying x/y series to replay,
+            # so drop the stale bookkeeping rather than let it silently
+            # desync (BOT-098F6D bug, 2026-08-18: real run-ui.ps1 session —
+            # indicator lines vanished after a mode round-trip, then the
+            # next set_indicator_visible() call crashed and was swallowed
+            # silently by safe_ui_action). Re-running the backtest already
+            # redraws every line from scratch, same as before this existed.
+            self._active_strategy_lines.clear()
+            self._chart_script_runner.reset_after_host_replaced()
         is_price_scale = mode is not ChartDisplayMode.EQUITY
         # Entry/exit PRICE markers AND the strategy indicator overlay are
         # both price-scale — meaningless, and for the overlay actively
@@ -1375,7 +1433,12 @@ class BackTestPresenter(BasePresenter):
             else self._format_coverage_message(coverage),
         )
         self._view_model.set_needs_data_sync(not coverage.is_fully_covered)
-        self.view.on_preview_data_ready(klines, volume)
+        try:
+            self.view.on_preview_data_ready(klines, volume)
+        except NativeUnsupportedFeatureError:
+            self._fallback_to_python_after_unsupported_native_feature(
+                "chart preview data"
+            )
 
     @Slot()
     @safe_ui_action

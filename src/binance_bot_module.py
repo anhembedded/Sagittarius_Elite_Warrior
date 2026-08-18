@@ -118,6 +118,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager i
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from sagittarius_engine import App
 from sagittarius_engine.base import BaseModule
 from sagittarius_engine.interfaces.i_config import IConfig
@@ -161,6 +164,11 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(IExchangeClient, PythonBinanceClient)
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
         app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
+        # BOT-098F6D: transient — BackTestView has no container access itself,
+        # so BackTestPresenter resolves this and pushes it in; never a
+        # singleton, since every BackTestView construction needs its own
+        # factory instance producing its own (never shared) chart widgets.
+        app.container.bind(BacktestChartHostFactory, BacktestChartHostFactory)
 
     def _register_state_singletons(self, app: App) -> None:
         """Registers long-lived application state singletons."""

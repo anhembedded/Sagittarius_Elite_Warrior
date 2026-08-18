@@ -65,6 +65,27 @@ def test_wrapper_exposes_interaction_axis_tooltip_and_fps_elements(
     assert _find(root_item, "devFpsOverlay") is not None
 
 
+def test_chart_has_a_themed_background_before_any_data_is_submitted(
+    qapp, booted_app, request
+):
+    """Bug report (real run-ui.ps1 session, screenshot evidence): the
+    Backtest chart area showed as blank white whenever no candle snapshot
+    had reached the native host yet (e.g. sync still in progress/failed).
+    Root cause: `NativeChartItem::updatePaintNode()`
+    (native/chart_renderer/native_chart_item.cpp) only ever builds candle/
+    volume/axis/marker geometry nodes — it never paints a background — and
+    `NativeBacktestChart.qml`'s root `Item` has no `color` of its own
+    either, so the widget fell through to `QQuickWidget`'s default white
+    clear color. A themed background must exist underneath the chart
+    regardless of whether any snapshot has been submitted yet."""
+    host = NativeBacktestChartHost.create()
+    request.addfinalizer(host.widget.deleteLater)
+
+    background = _find(host._root_item, "chartBackground")
+    assert background is not None, "native chart is missing a themed background"
+    assert background.property("color").name() == "#111318"
+
+
 def test_construction_and_submission_produce_no_qml_warnings(qapp, booted_app, request):
     messages: list[str] = []
 
