@@ -137,7 +137,11 @@ only its own contract; higher levels never replace lower-level deterministic
 coverage.
 
 1. **Unit:** pure functions, data contracts, invariants and deterministic
-   component behavior. No real app/container, network, window or timing gate.
+   component behavior. No real app/container, network or timing gate.
+   Constructing a bare widget/component directly (e.g. `ChartCard(...)`,
+   `BackTestView()`) still counts as Unit as long as it does not boot the
+   real app/DI container — the existing `qapp`-fixture convention across
+   this codebase's component and screen tests.
 2. **Integration:** deterministic application or visible UI journeys across
    real collaborators, with local seeded/fake boundaries. It proves the user
    flow, not just a private call or a mock expectation.
