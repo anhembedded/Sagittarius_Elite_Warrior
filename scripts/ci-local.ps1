@@ -89,6 +89,13 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot   = Split-Path -Parent $scriptDir
 $repoRoot  = Split-Path -Parent $botRoot
 
+# $IsWindows only exists on PowerShell Core (6+); Windows PowerShell 5.1 is
+# Windows-only, so its absence means "definitely Windows".
+$isWindowsOs = if (Test-Path variable:IsWindows) { $IsWindows } else { $true }
+$venvBinSubdir = if ($isWindowsOs) { "Scripts" } else { "bin" }
+$exeSuffix     = if ($isWindowsOs) { ".exe" } else { "" }
+$tempDir = [System.IO.Path]::GetTempPath().TrimEnd('/', '\')
+
 $venvRoot = $null
 if (Test-Path (Join-Path $botRoot ".venv")) {
     $venvRoot = Join-Path $botRoot ".venv"
@@ -96,9 +103,10 @@ if (Test-Path (Join-Path $botRoot ".venv")) {
     $venvRoot = Join-Path $repoRoot ".venv"
 }
 
-$pytestExe = if ($venvRoot) { Join-Path $venvRoot "Scripts\pytest.exe" } else { "pytest" }
-$pythonExe = if ($venvRoot) { Join-Path $venvRoot "Scripts\python.exe" } else { "python" }
-$ruffExe   = if ($venvRoot) { Join-Path $venvRoot "Scripts\ruff.exe" } else { "ruff" }
+$venvBinDir = if ($venvRoot) { Join-Path $venvRoot $venvBinSubdir } else { $null }
+$pytestExe = if ($venvBinDir) { Join-Path $venvBinDir "pytest$exeSuffix" } else { "pytest" }
+$pythonExe = if ($venvBinDir) { Join-Path $venvBinDir "python$exeSuffix" } else { "python" }
+$ruffExe   = if ($venvBinDir) { Join-Path $venvBinDir "ruff$exeSuffix" } else { "ruff" }
 
 # ---------------------------------------------------------------------------
 # Resolve which test tier to run and whether coverage/lint apply.
@@ -179,7 +187,7 @@ if (-not $SkipNativeBuild -and -not $SkipTests -and -not $SanityOnly -and -not $
     Write-Step $benchmarkLabel
     Push-Location $repoRoot
     try {
-        $benchmarkReport = Join-Path $env:TEMP "chart_migration_benchmark_$([System.Diagnostics.Process]::GetCurrentProcess().Id).json"
+        $benchmarkReport = Join-Path $tempDir "chart_migration_benchmark_$([System.Diagnostics.Process]::GetCurrentProcess().Id).json"
         if (-not $DesktopBenchmark) { $env:QT_QPA_PLATFORM = "offscreen" }
         $benchmarkArgs = @(
             "-m", "Sagittarius_Elite_Warrior.scripts.benchmarking.chart_migration_benchmark",
@@ -239,11 +247,16 @@ if (-not $SkipTests) {
 
     $packageAlias = Join-Path $aliasDir "Sagittarius_Elite_Warrior"
     if (-not (Test-Path $packageAlias)) {
-        New-Item -ItemType Junction -Path $packageAlias -Target $botRoot -Force | Out-Null
+        # Junctions are NTFS-only; POSIX platforms use a symlink instead.
+        $aliasLinkType = if ($isWindowsOs) { "Junction" } else { "SymbolicLink" }
+        New-Item -ItemType $aliasLinkType -Path $packageAlias -Target $botRoot -Force | Out-Null
     }
     $testExecutionRoot = $aliasDir
 
-    $env:PYTHONPATH = "$aliasDir;$botRoot"
+    $pythonPathSeparator = [System.IO.Path]::PathSeparator
+    # $repoRoot is required so the sibling `sagittarius_engine` package
+    # (one level above the bot root) is importable during tests.
+    $env:PYTHONPATH = "$aliasDir$pythonPathSeparator$botRoot$pythonPathSeparator$repoRoot"
     $env:QT_QPA_PLATFORM = "offscreen"
     # Suppress 3rd-party DeprecationWarnings at Python interpreter level so they are
     # silenced even at module import time, before pytest filterwarnings can intercept.
@@ -283,16 +296,16 @@ if (-not $SkipTests) {
         }
 
         # Launch sanity as a background PowerShell job
-        $sanityLogFile = Join-Path $env:TEMP "ci_sanity_$([System.Diagnostics.Process]::GetCurrentProcess().Id).log"
+        $sanityLogFile = Join-Path $tempDir "ci_sanity_$([System.Diagnostics.Process]::GetCurrentProcess().Id).log"
         $sanityJob = Start-Job -ScriptBlock {
-            param($executionRoot, $pytestBin, $target, $logFile, $rootDir)
+            param($executionRoot, $pytestBin, $target, $logFile, $rootDir, $repoDir, $pathSep)
             Set-Location $executionRoot
-            $env:PYTHONPATH     = $executionRoot
+            $env:PYTHONPATH     = "$executionRoot$pathSep$repoDir"
             $env:QT_QPA_PLATFORM = "offscreen"
             $output = & $pytestBin $target -v --rootdir=$rootDir 2>&1
             $output | Out-File -FilePath $logFile -Encoding utf8
             return $LASTEXITCODE
-        } -ArgumentList $testExecutionRoot, $pytestExe, $sanityTarget, $sanityLogFile, $botRoot
+        } -ArgumentList $testExecutionRoot, $pytestExe, $sanityTarget, $sanityLogFile, $botRoot, $repoRoot, $pythonPathSeparator
 
         # Run main tests in foreground while sanity runs in background
         Push-Location $testExecutionRoot

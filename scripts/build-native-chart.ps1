@@ -29,9 +29,16 @@ $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot = Split-Path -Parent $scriptDir
-$sourceDir = Join-Path $botRoot "native\chart_renderer"
-$buildDir = Join-Path $botRoot "build\native-chart"
-$pythonExe = Join-Path $botRoot ".venv\Scripts\python.exe"
+$sourceDir = Join-Path (Join-Path $botRoot "native") "chart_renderer"
+$buildDir = Join-Path (Join-Path $botRoot "build") "native-chart"
+
+# $IsWindows only exists on PowerShell Core (6+); Windows PowerShell 5.1 is
+# Windows-only, so its absence means "definitely Windows".
+$isWindowsOs = if (Test-Path variable:IsWindows) { $IsWindows } else { $true }
+$exeSuffix   = if ($isWindowsOs) { ".exe" } else { "" }
+$venvBinSubdir = if ($isWindowsOs) { "Scripts" } else { "bin" }
+
+$pythonExe = Join-Path $botRoot ".venv" $venvBinSubdir "python$exeSuffix"
 
 if (-not (Test-Path $pythonExe)) {
     throw "Python virtual environment not found at $pythonExe"
@@ -42,18 +49,27 @@ if ($LASTEXITCODE -ne 0 -or -not $pysideVersion) {
     throw "Could not read the PySide6 version from $pythonExe"
 }
 
+# The Qt SDK toolchain/ABI subfolder differs per platform (e.g. msvc2022_64
+# on Windows, gcc_64 on Linux). SAGITTARIUS_QT_ROOT always overrides this.
+$qtToolchain = if ($isWindowsOs) { "msvc2022_64" } else { "gcc_64" }
 $qtRoot = $env:SAGITTARIUS_QT_ROOT
 if (-not $qtRoot) {
-    $qtRoot = Join-Path $env:LOCALAPPDATA "SagittariusToolchains\Qt\$pysideVersion\msvc2022_64"
+    $toolchainsBase = if ($isWindowsOs) {
+        Join-Path $env:LOCALAPPDATA "SagittariusToolchains"
+    } else {
+        Join-Path $HOME ".sagittarius-toolchains"
+    }
+    $qtRoot = Join-Path $toolchainsBase "Qt" $pysideVersion $qtToolchain
 }
 
-$qtConfig = Join-Path $qtRoot "lib\cmake\Qt6\Qt6Config.cmake"
-$qmakeExe = Join-Path $qtRoot "bin\qmake.exe"
+$qtConfig = Join-Path $qtRoot "lib" "cmake" "Qt6" "Qt6Config.cmake"
+$qmakeExe = Join-Path $qtRoot "bin" "qmake$exeSuffix"
 if (-not (Test-Path $qtConfig) -or -not (Test-Path $qmakeExe)) {
+    $sdkHint = if ($isWindowsOs) { "the matching MSVC 2022 Qt SDK" } else { "a matching Qt $pysideVersion SDK for $qtToolchain (e.g. via aqtinstall)" }
     throw @"
 Qt SDK $pysideVersion was not found at:
   $qtRoot
-Install the matching MSVC 2022 Qt SDK or set SAGITTARIUS_QT_ROOT.
+Install $sdkHint or set SAGITTARIUS_QT_ROOT.
 "@
 }
 
@@ -71,10 +87,16 @@ if ($Clean -and (Test-Path $buildDir)) {
     Remove-Item -LiteralPath $resolvedBuild -Recurse -Force
 }
 
-& cmake -S $sourceDir -B $buildDir `
-    -G "Visual Studio 17 2022" `
-    -A x64 `
-    "-DCMAKE_PREFIX_PATH=$qtRoot"
+$cmakeConfigureArgs = @("-S", $sourceDir, "-B", $buildDir, "-DCMAKE_PREFIX_PATH=$qtRoot")
+if ($isWindowsOs) {
+    $cmakeConfigureArgs += @("-G", "Visual Studio 17 2022", "-A", "x64")
+} elseif (Get-Command ninja -ErrorAction SilentlyContinue) {
+    $cmakeConfigureArgs += @("-G", "Ninja")
+}
+# Non-Windows without Ninja falls through to CMake's platform default
+# (Unix Makefiles), which needs no explicit -G/-A.
+
+& cmake @cmakeConfigureArgs
 if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed for Sagittarius.NativeChart"
 }
@@ -85,7 +107,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $qmlImportRoot = Join-Path $buildDir "qml"
-$moduleDir = Join-Path $qmlImportRoot "Sagittarius\NativeChart"
+$moduleDir = Join-Path (Join-Path $qmlImportRoot "Sagittarius") "NativeChart"
 if (-not (Test-Path (Join-Path $moduleDir "qmldir"))) {
     throw "Native QML module metadata was not generated at $moduleDir"
 }
