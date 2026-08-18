@@ -1,8 +1,8 @@
 # Epic: Backtest Screen — Full Feature Set (TradingView Strategy Tester Parity)
 
 > Phụ thuộc [Epic BOT-006](BOT-006_backtest_engine_execution.md) — cụ thể là
-> `BOT-021` ✅ (Static engine, đã xong) và `BOT-023` (Dynamic engine, chưa
-> làm). **Supersede** `BOT-022`/`BOT-024` — 2 task đó không bị xoá, chỉ được
+> `BOT-021` ✅ (Static engine, đã xong) và [`BOT-076`](BOT-076_realtime_backtest_engine.md)
+> (Realtime engine, chưa làm — thay cho `BOT-023` [đã huỷ 2026-08-18](../cancelled/BOT-023_dynamic_backtest_engine.md)). **Supersede** `BOT-022`/`BOT-024` — 2 task đó không bị xoá, chỉ được
 > mở rộng scope trực tiếp trong chính file của chúng để bám theo spec đầy đủ
 > ở đây, tránh làm 2 lần (bản "rút gọn" trước rồi làm lại bản "đầy đủ" sau).
 
@@ -141,7 +141,7 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 | ✅ [`BOT-055`](../completed/BOT-055_backtest_performance_metrics_panel.md) | Performance Metrics Panel (4 stat card + mở rộng). |
 | ✅ [`BOT-056`](../completed/BOT-056_backtest_chart_canvas.md) | Chart Canvas — 3 chế độ (OHLC / Equity / Song song) + overlays. |
 | [`BOT-057`](../completed/BOT-057_backtest_trade_logs_table.md) | Trade Logs Table + dòng mở rộng chi tiết. |
-| [`BOT-024`](BOT-024_backtest_screen_dynamic_ui.md) | Phase 2 — kế thừa toàn bộ UI trên + replay controls, sau khi `BOT-023` xong. |
+| [`BOT-024`](BOT-024_backtest_screen_dynamic_ui.md) | Phase 2 — kế thừa toàn bộ UI trên + replay controls, sau khi [`BOT-076`](BOT-076_realtime_backtest_engine.md) xong (`BOT-023` đã huỷ). |
 
 ### Ngoài nhóm
 

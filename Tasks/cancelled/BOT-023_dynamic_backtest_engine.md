@@ -1,36 +1,53 @@
-# Nhiệm vụ: Dynamic Backtest Engine — Paper Exchange & Virtual Event Loop — Phase 2
+# ❌ ĐÃ HUỶ — BOT-023: Dynamic Backtest Engine (Paper Exchange & Virtual Event Loop)
 
-> Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 2 (Dynamic). Phụ thuộc `BOT-020`, `BOT-021`. Nên bắt đầu **sau khi** Phase 1 (`BOT-021`/`BOT-022`) chạy đúng và có unit test đầy đủ.
->
-> ## ⛔ DỪNG — chốt quan hệ với `BOT-076` trước khi bắt đầu
->
-> Nguồn: 📄 [Rà soát định hướng App](../reports/app_direction_audit.md) §4.
->
-> Sau khi [Epic `BOT-073`](BOT-073_realtime_tick_backtest_epic.md) ra đời, repo sắp có
-> **3 engine backtest**, trong đó 2 cái có **bất biến ngược nhau**:
->
-> | Engine | Bất biến đã cam kết |
-> | :--- | :--- |
-> | Static (`BOT-021` ✅) | — |
-> | **Dynamic (task này)** | **"phải khớp Static tuyệt đối"** — `assert dynamic_result == static_result` |
-> | [Realtime (`BOT-076`)](BOT-076_realtime_backtest_engine.md) | **"cố ý khác Static"** |
->
-> **Nghi vấn cần trả lời trước khi viết dòng code nào**: giá trị riêng của task này là
-> *play/pause/tốc độ để xem replay* — nhưng đó là mối quan tâm **trình bày**, không phải
-> engine. Mà `BOT-076` dù sao cũng phải có vòng lặp tick + progress + cancel.
->
-> → Nhiều khả năng đúng là **1 engine tick (`BOT-076`) + lớp điều khiển tốc độ ở trên**,
-> chứ không phải 2 engine replay song song. Duy trì 3 engine trên cùng một
-> `PaperExchange` là bề mặt bảo trì lớn hơn hẳn phần giá trị tăng thêm.
->
-> **3 lựa chọn** (user chốt, không tự quyết):
-> 1. **Gộp**: bỏ task này, chuyển replay control thành một phần của `BOT-076`.
-> 2. **Giữ riêng**: chứng minh được Dynamic có giá trị mà Realtime không thay thế được —
->    ghi rõ giá trị đó ra đây.
-> 3. **Đổi vai**: giữ task này nhưng bỏ ràng buộc "khớp Static tuyệt đối", biến nó thành
->    thuần lớp UI replay chạy trên engine bất kỳ.
->
-> Quyết định muộn thì **đắt** — viết xong engine rồi mới phát hiện thừa.
+> **Trạng thái: HUỶ (2026-08-18), do user quyết định. Không làm task này.**
+> Thay thế bởi [`BOT-076` — Realtime Backtest Engine](../backlog/BOT-076_realtime_backtest_engine.md).
+> Nội dung gốc giữ nguyên bên dưới **chỉ để tham khảo lịch sử** — đừng thực hiện nó.
+
+## Vì sao huỷ
+
+Khối "⛔ DỪNG" trong chính task này (nguồn: 📄 [Rà soát định hướng App](../reports/app_direction_audit.md)
+§4) đã nêu sẵn 3 lựa chọn và yêu cầu user chốt trước khi viết dòng code nào.
+**User chọn phương án 1: Gộp** — bỏ task này, chuyển replay control (play/pause/
+tốc độ) thành một phần của `BOT-076`.
+
+Lý do đằng sau, ghi lại để người sau không "khôi phục" nhầm:
+
+- Repo sắp có **3 engine backtest**, trong đó 2 cái mang **bất biến ngược nhau**:
+
+  | Engine | Bất biến đã cam kết |
+  | :--- | :--- |
+  | Static (`BOT-021` ✅) | — |
+  | **Dynamic (task đã huỷ này)** | **"phải khớp Static tuyệt đối"** — `assert dynamic_result == static_result` |
+  | [Realtime (`BOT-076`)](../backlog/BOT-076_realtime_backtest_engine.md) | **"cố ý khác Static"** |
+
+- Giá trị riêng của task này chỉ là *play/pause/tốc độ để xem replay* — đó là mối
+  quan tâm **trình bày (presentation)**, không phải engine. Mà `BOT-076` dù sao cũng
+  bắt buộc phải có vòng lặp tick + progress + cancel rồi.
+- Đúng hình dạng kiến trúc là **1 engine tick (`BOT-076`) + lớp điều khiển tốc độ ở
+  trên**, không phải 2 engine replay song song. Nuôi 3 engine trên cùng một
+  `PaperExchange` tốn bảo trì hơn hẳn giá trị tăng thêm.
+- Quan trọng hơn cả: Dynamic **không** trả lời được yêu cầu gốc của user (chạy chiến
+  lược mỗi giây, khớp lệnh tại giá thời điểm đó thay vì lúc đóng nến) vì nó vẫn
+  bar-by-bar. Nó chỉ là "xem lại chậm/nhanh" cùng một kết quả Static.
+
+## Hệ quả cần biết
+
+- **Code Dynamic đang tồn tại vẫn còn trong repo, chưa xoá**:
+  `src/application/use_cases/backtest/run_backtest/` (`RunBacktestCommand` /
+  `RunBacktestCommandHandler` / `BacktestState`), có đăng ký DI trong
+  `binance_bot_module.py` và có unit test riêng
+  (`tests/unit/application/use_cases/test_run_backtest.py`). Nó chỉ phát
+  `MarketTickEvent` có throttle, **không chạy chiến lược, không khớp lệnh**, và
+  **không có consumer thật nào** (không màn hình nào dispatch nó).
+- Việc **xoá** phần code đó là một quyết định riêng, chưa được chốt — đừng xoá kèm
+  như dọn dẹp tiện tay. Khi `BOT-076` bắt đầu, cân nhắc: hoặc tái dùng vòng lặp
+  replay đó làm nền, hoặc xoá hẳn và viết mới. Chốt rõ trước, đừng để lửng lơ.
+
+---
+
+<details>
+<summary>📜 Nội dung gốc của task (đã huỷ — chỉ để tham khảo)</summary>
 
 ## 1. Mục tiêu (Objective)
 Mô phỏng lại dữ liệu lịch sử **như đang chạy live** (Virtual Event Loop): chạy chỉ báo + chiến lược + khớp lệnh giả lập theo từng nến phát ra tuần tự, có thể tua nhanh/chậm/tạm dừng — khác Static ở chỗ trải nghiệm giống hệt live trading, không chỉ ra kết quả cuối cùng.
@@ -50,3 +67,5 @@ Mở rộng vòng lặp replay **đã có sẵn** trong `run_backtest/handler.py
 ## 4. Rủi ro / Lưu ý (Constraints & Risks)
 - Parity dynamic-vs-static (dataclass equality, xem mục Action Items) là điều kiện bắt buộc trước khi coi task này hoàn thành — không merge nếu 2 chế độ cho kết quả khác nhau trên cùng input.
 - Cần cơ chế giới hạn/emergency-stop để vòng lặp replay không chạy vô hạn hoặc treo nếu dữ liệu quá lớn.
+
+</details>

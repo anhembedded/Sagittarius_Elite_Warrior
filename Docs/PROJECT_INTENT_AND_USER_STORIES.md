@@ -58,7 +58,7 @@
 - **BOT-020 — Indicator & Strategy Engine (Core)**: *Là dev, tôi muốn 1 bộ Indicator/Strategy dùng chung được cho cả Backtest lẫn Live Trading (BOT-008), để không code trùng logic 2 lần.*
 - **BOT-021 — Static Backtest Execution Engine**: *Là trader muốn kiểm chứng ý tưởng nhanh, tôi muốn chạy chiến lược trên toàn bộ dữ liệu lịch sử trong 1 lượt (không throttle), để nhanh chóng có `BacktestResult` (trades, equity curve, metrics) mà không cần chờ replay real-time.*
 - **BOT-022 — Backtest Screen (Static UI)**: *Là trader, tôi muốn một màn hình thực sự để cấu hình chiến lược, chạy, và xem kết quả (equity curve, trade list, stat cards), thay vì chỉ có kết quả dạng số/log.*
-- **BOT-023 — Dynamic Backtest Engine**: *Là người muốn "xem lại" thị trường như đang chạy thật, tôi muốn 1 Paper Exchange + Virtual Event Loop replay từng nến, có thể tua nhanh/chậm/tạm dừng, để cảm nhận chiến lược phản ứng ra sao theo thời gian thay vì chỉ nhìn kết quả cuối.*
+- ~~**BOT-023 — Dynamic Backtest Engine**~~ — **ĐÃ HUỶ (2026-08-18)**, xem [hồ sơ huỷ](../Tasks/cancelled/BOT-023_dynamic_backtest_engine.md). User story gốc: *Là người muốn "xem lại" thị trường như đang chạy thật, tôi muốn 1 Paper Exchange + Virtual Event Loop replay từng nến, có thể tua nhanh/chậm/tạm dừng...* — nhu cầu **replay để xem** vẫn còn giá trị, nhưng nó là lớp trình bày nên đã chuyển vào [`BOT-076`](../Tasks/backlog/BOT-076_realtime_backtest_engine.md) §3.5 thay vì làm engine backtest thứ ba.
 - **BOT-024 — Backtest Screen (Dynamic UI)**: *Mở rộng BOT-022 với replay controls (play/pause/speed), cập nhật chart/equity/trade log theo từng nến.*
 - **BOT-025 — Backtest Domain Events Completeness**: *Là dev, tôi muốn chuẩn hoá toàn bộ event Backtest (Static + Dynamic) vào 1 chỗ, tài liệu rõ ai phát/ai lắng nghe, để tránh event rải rác khó trace.*
 
@@ -93,4 +93,4 @@
 ## 7. Câu hỏi mở (để bạn xác nhận nếu tôi hiểu sai)
 
 - BOT-008 (Live Trading) và Epic BOT-006 (Backtest) đều ở P1/P2 nhưng độc lập nhau — bạn có muốn ưu tiên **Backtest trước** (an toàn hơn, không đụng tiền thật/testnet) để validate chiến lược trước khi làm Live Trading, hay ngược lại?
-- BOT-017 (Settings Screen) và BOT-018 (Notifications) không phụ thuộc gì và rủi ro thấp — có phải đây là các "quick win" bạn định chen vào giữa lúc chờ đánh giá lại sau Phase 1 của Backtest (theo đúng gợi ý trong BOT-006: `BOT-021 → BOT-022 → (đánh giá lại) → BOT-023`)?
+- BOT-017 (Settings Screen) và BOT-018 (Notifications) không phụ thuộc gì và rủi ro thấp — có phải đây là các "quick win" bạn định chen vào giữa lúc chờ đánh giá lại sau Phase 1 của Backtest (theo đúng gợi ý trong BOT-006: `BOT-021 → BOT-022 → (đánh giá lại) → BOT-023`)? *(cập nhật 2026-08-18: `BOT-023` đã huỷ, bước sau "đánh giá lại" nay là `BOT-075`/`BOT-042`/`BOT-076`.)*

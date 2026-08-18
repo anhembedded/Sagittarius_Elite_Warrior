@@ -19,7 +19,7 @@
 | 1 | `-80.71%` trong log **~96% là phí giao dịch**, không phải chiến lược | 🔴 | ✅ [`BOT-079`](../completed/BOT-079_fee_transparency_and_trade_frequency.md) |
 | 2 | **Không có bất kỳ** cơ chế chống overfitting nào | 🔴 | ✅ [`BOT-080`](../completed/BOT-080_out_of_sample_walk_forward.md) |
 | 3 | Bot **không giao dịch được** — 21/46 task xong là backtest/chart | 🔴 | **Quyết định của user** (§3) |
-| 4 | Sắp có **3 backtest engine** với bất biến ngược nhau | 🟠 | [`BOT-023`](../backlog/BOT-023_dynamic_backtest_engine.md) (đã ghi chú) |
+| 4 | ~~Sắp có **3 backtest engine** với bất biến ngược nhau~~ → **đã đóng**: `BOT-023` bị huỷ, còn 2 engine | ✅ | [`BOT-023`](../cancelled/BOT-023_dynamic_backtest_engine.md) (đã huỷ 2026-08-18) |
 | 5 | Agent tự động tối ưu **concurrency** vào vùng chưa có thread guard | 🟠 | [`BOT-068`](../completed/BOT-068_ui_thread_affinity_guard.md) (đã nâng ưu tiên) |
 | 6 | Một test **đỏ vĩnh viễn** chưa từng pass | 🟠 | [`BOT-082`](../completed/BOT-082_fix_permanently_failing_interactive_shell_test.md) |
 | 7 | Tài liệu-như-lời-hứa **trôi khỏi code** | 🟡 | [`BOT-074`](../backlog/BOT-074_execution_trigger_rule_inverted_lock.md) (ca cụ thể) + §7 (nguyên tắc) |
@@ -133,7 +133,7 @@ không phải suy luận lại.
 | Engine | Bất biến đã cam kết |
 | :--- | :--- |
 | Static ([`BOT-021`](../completed/BOT-021_static_backtest_execution_engine.md) ✅) | — |
-| Dynamic ([`BOT-023`](../backlog/BOT-023_dynamic_backtest_engine.md)) | **"phải khớp Static tuyệt đối"** — `assert dynamic_result == static_result` |
+| ~~Dynamic~~ ([`BOT-023`](../cancelled/BOT-023_dynamic_backtest_engine.md)) — **ĐÃ HUỶ 2026-08-18** | ~~**"phải khớp Static tuyệt đối"** — `assert dynamic_result == static_result`~~ |
 | Realtime ([`BOT-076`](../backlog/BOT-076_realtime_backtest_engine.md)) | **"cố ý khác Static"** |
 
 Hai engine replay, bất biến **ngược nhau**, cùng chạy trên một `PaperExchange`.
@@ -150,6 +150,16 @@ tick + progress + cancel. Nhiều khả năng đúng là **1 engine tick + lớp
 
 → Đã ghi chú thẳng vào `BOT-023`: **phải chốt quan hệ với `BOT-076` trước khi bắt đầu
 một trong hai.** Quyết định muộn thì đắt (đã viết xong engine mới phát hiện thừa).
+
+### ✅ ĐÃ CHỐT (2026-08-18) — user chọn phương án "Gộp"
+
+`BOT-023` **bị huỷ**; hồ sơ chuyển sang
+[`Tasks/cancelled/BOT-023_dynamic_backtest_engine.md`](../cancelled/BOT-023_dynamic_backtest_engine.md).
+App còn đúng **2 engine backtest**: Static (`BOT-021` ✅) và Realtime (`BOT-076`).
+Phần play/pause/tốc độ giữ lại nhưng là **lớp điều khiển** trên vòng lặp tick của
+`BOT-076` (§3.5 của task đó), không phải engine thứ ba. Nghi vấn nêu ở mục này —
+*"giá trị của `BOT-023` là mối quan tâm trình bày, không phải engine"* — được xác
+nhận là đúng. Rủi ro "3 engine, 2 bất biến ngược nhau" coi như đã đóng.
 
 ---
 

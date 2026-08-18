@@ -1,6 +1,15 @@
-# Nhiệm vụ: Backtest Screen — Dynamic Replay UI — Phase 2
+# Nhiệm vụ: Backtest Screen — Replay UI
 
-> Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 2 (Dynamic). Phụ thuộc `BOT-022`, `BOT-023`.
+> Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md). Phụ thuộc `BOT-022` ✅, [`BOT-076`](BOT-076_realtime_backtest_engine.md).
+>
+> 📌 **2026-08-18 — đổi phụ thuộc: `BOT-023` → `BOT-076`.**
+> `BOT-023` (Dynamic Backtest Engine) **đã bị huỷ**
+> ([hồ sơ huỷ](../cancelled/BOT-023_dynamic_backtest_engine.md)); engine replay duy
+> nhất giờ là `BOT-076` (Realtime, chạy theo tick). Mọi command replay
+> (`PauseBacktestCommand`/`ResumeBacktestCommand`/`SetReplaySpeedCommand`) nay thuộc
+> `BOT-076` §3.5, không phải `BOT-023`. Bản thân UI ở task này gần như không đổi —
+> chỉ đổi thứ nó điều khiển. Chữ "Dynamic" trong tài liệu cũ = engine đã huỷ, đừng
+> hiểu là chế độ đang tồn tại.
 >
 > `BOT-022` đã mở rộng scope theo [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md)
 > (Top Toolbar/Performance Metrics/Chart Canvas/Trade Logs Table đầy đủ hơn
@@ -16,7 +25,7 @@ Mở rộng màn hình Backtest (`BOT-022`) với chế độ replay động —
 Thêm control replay (play/pause/stop/tốc độ) và cập nhật trực tiếp `ChartCard` + equity curve + trade log theo từng nến phát ra, tái sử dụng tối đa component đã có (`ChartCard`, `LastPriceLine`, `VolumeItem`...) — không viết lại pipeline nến.
 
 ## 3. Các bước thực hiện (Action Items)
-- [ ] Replay controls: Play/Pause/Stop + speed selector (1x/5x/20x/Instant), dispatch `PauseBacktestCommand`/`ResumeBacktestCommand`/`SetReplaySpeedCommand` (từ `BOT-023`).
+- [ ] Replay controls: Play/Pause/Stop + speed selector (1x/5x/20x/Instant), dispatch `PauseBacktestCommand`/`ResumeBacktestCommand`/`SetReplaySpeedCommand` (từ [`BOT-076`](BOT-076_realtime_backtest_engine.md) §3.5).
 - [ ] `ChartCard` cập nhật candle-by-candle giống hệt cơ chế live tick hiện có (tái sử dụng luồng cập nhật đã có ở live streaming, không tạo pipeline nến thứ 2).
 - [ ] Equity curve + stat cards cập nhật tăng dần theo `BacktestProgressEvent` (khác Static mode — không đợi tới cuối mới hiển thị).
 - [ ] Trade log panel: append dòng mới theo `BacktestTradeSimulatedEvent`, highlight buy/sell theo màu theme đã có (`BULL_COLOR`/`BEAR_COLOR` từ `chart_card/theme.py`).

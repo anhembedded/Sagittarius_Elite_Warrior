@@ -12,6 +12,7 @@ Sagittarius_Elite_Warrior/Tasks/
 ├── 🟢 completed/   # Các nhiệm vụ đã hoàn thành và qua kiểm thử (Passed 100% Tests)
 ├── 🟡 in_progress/ # Các nhiệm vụ đang thực hiện trong Sprint hiện tại
 ├── 🔴 backlog/     # Các nhiệm vụ chờ ưu tiên triển khai
+├── ❌ cancelled/   # Các nhiệm vụ đã huỷ có chủ đích (giữ lại lý do, không thực hiện)
 └── 📄 reports/     # Các báo cáo phân tích & kiểm thử (Audit Reports)
 ```
 
@@ -22,8 +23,9 @@ Sagittarius_Elite_Warrior/Tasks/
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
 | 🟢 **Completed** | 85 | 66.9% |
-| 🟡 **In Progress** | 4 | 3.1% |
-| 🔴 **Backlog** | 38 | 29.9% |
+| 🟡 **In Progress** | 4 | 3.2% |
+| 🔴 **Backlog** | 37 | 29.1% |
+| ❌ **Cancelled** | 1 | 0.8% |
 | 📈 **Tổng số Task** | **127** | **100%** |
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
@@ -139,7 +141,7 @@ Sagittarius_Elite_Warrior/Tasks/
 - [x] **BOT-014**: [Dev Board Single Chart Config](completed/BOT-014_dev_board_single_chart.md) — *Chuyển Dashboard thành Dev Board, đổi mặc định sang 1 chart `ETHUSDT` & cập nhật test suites.*
 - [x] **BOT-015**: [QA & Testing Strategy Audit](completed/BOT-015_qa_testing_strategy_audit.md) — *(một phần)* Thêm tầng `tests/sanity/`, testing guidelines, cờ `-SanityOnly`/`-UnitOnly`/`-Full` + `--cov-fail-under=80` cho `ci-local.ps1`. 📄 [Báo cáo Audit](reports/qa_testing_strategy_report.md). Hoãn Concurrency/Thread-Safety tests.
 - [x] **BOT-016**: [UI Icon Pack & Assets Management](completed/BOT-016_ui_icon_pack_integration.md) — *Tích hợp Lucide Icons (SVG) vào Sidebar/ControlCard/MonitorCard qua `IconLoader` (cache, recolor, fallback).*
-- [x] **BOT-020**: [Indicator & Strategy Engine (Core)](completed/BOT-020_indicator_strategy_engine_core.md) — *Epic `BOT-006` Phase 0. `IIndicator`/`RSI`/`EMA`/`MACD` + `IStrategy`/`StrategyEngine` (batch & incremental, cùng 1 code path đảm bảo 2 chế độ luôn khớp kết quả). Nền tảng dùng chung cho `BOT-008`/`BOT-021`/`BOT-023`.*
+- [x] **BOT-020**: [Indicator & Strategy Engine (Core)](completed/BOT-020_indicator_strategy_engine_core.md) — *Epic `BOT-006` Phase 0. `IIndicator`/`RSI`/`EMA`/`MACD` + `IStrategy`/`StrategyEngine` (batch & incremental, cùng 1 code path đảm bảo 2 chế độ luôn khớp kết quả). Nền tảng dùng chung cho `BOT-008`/`BOT-021`/`BOT-076` (ban đầu ghi `BOT-023`, task đó đã huỷ 2026-08-18).*
 - [x] **BOT-028**: [QML Hybrid Prototype Spike — Settings Screen](completed/BOT-028_qml_hybrid_prototype_spike.md) — *Kiểm chứng khả thi Hybrid (giữ `ChartCard`/pyqtgraph, phần còn lại chuyển QML qua `QQuickWidget`). Kết quả chính: `QQuickWidget` render đúng dưới `QT_QPA_PLATFORM=offscreen`, `PresenterManager` KHÔNG cần sửa gì để host QML. Chưa rút abstraction vào `pyside_mvc` (đợi màn hình QML thứ 2).*
 - [x] **BOT-029**: [UI Restyle — Theme "Sagittarius Elite Warrior"](completed/BOT-029_ui_restyle_sagittarius_theme.md) — *Đổi giao diện đen+gold theo mockup, branding "Sagittarius Elite Warrior". Phase 1-2 (theme/branding/sidebar/Dev Board top bar) + Phase 4 (đảo QML→Widgets cho Settings) xong bằng QtWidgets. Phase 3 (restyle Database) **supersede bởi `BOT-030`** — thiết kế gộp thẳng vào bản QML thay vì làm 2 lần.*
 - [x] **BOT-030**: [Full QML Migration (chart giữ QtWidgets)](completed/BOT-030_full_qml_migration.md) — *Chuyển toàn bộ UI sang QML trừ `ChartCard` — lý do là AI dịch mockup→code trực tiếp hơn ở QML (không phải hiệu năng — bug pan giật đã tìm ra và sửa xong ở Widgets, thuần thuật toán, đảo ngược quyết định QML→Widgets của `BOT-029` Phase 4). 5 phase: nền tảng QML dùng chung → Sidebar → Settings → Database → Dev Board (hybrid `QSplitter` + `ChartCard`) → dọn dẹp (`ui_matrix.json`, dead code). `ci-local.ps1 -Full`: 283 passed, 2 xfailed, coverage 92.31%. Chưa promote hạ tầng QML vào `pyside_mvc` — chỉ 1 app dùng, đợi consumer thứ 2 thật sự.*
@@ -264,7 +266,7 @@ Sagittarius_Elite_Warrior/Tasks/
 >
 > 🤝 **HANDOFF (15/08) — Track A chuyển cho AI session khác, chưa code dòng nào.**
 > Phiên trước dừng ở prompt-adaptation (`.jules/bolt.prompt.md`, `.jules/palette.prompt.md`)
-> và tạo [`.agents/ONBOARDING.md`](../.agents/ONBOARDING.md) — **đọc file đó trước** để nắm
+> và tạo [`.agents/Handover.md`](../.agents/Handover.md) — **đọc file đó trước** để nắm
 > quy ước/gotcha của repo (không có trong task file này). Trạng thái thật:
 > - `BOT-087`/`BOT-088`: cả 2 checklist trong task file **100% chưa tick**, chưa có branch,
 >   chưa có commit nào ở `sagittarius_engine/` hay `Sagittarius_Elite_Warrior/` cho Track A.
@@ -322,7 +324,7 @@ Sagittarius_Elite_Warrior/Tasks/
 >
 > **Supersede scope** của `BOT-042` (task đó không bị xoá, chỉ được chốt lại quyết định kiến trúc còn treo và trở thành task con — giống cách `BOT-040` xử lý `BOT-022`/`BOT-024`).
 >
-> ⚠️ **Đừng nhầm với `BOT-023` (Dynamic Backtest).** `BOT-023` vẫn **bar-by-bar**, chỉ thêm tua/pause/tốc độ để *xem*, và còn ràng buộc "phải khớp Static tuyệt đối". Nó **không** giải quyết yêu cầu này. Đây là hiểu nhầm dễ xảy ra nhất ở epic này.
+> ✅ **`BOT-023` (Dynamic Backtest) đã bị HUỶ (2026-08-18, user chốt)** — [hồ sơ huỷ](cancelled/BOT-023_dynamic_backtest_engine.md). Nó vẫn **bar-by-bar** nên không giải quyết được yêu cầu này, mà lại mang ràng buộc ngược ("phải khớp Static tuyệt đối") trong khi Realtime **cố ý khác** Static. App còn đúng **2 engine**: Static (`BOT-021` ✅) + Realtime (`BOT-076`); phần play/pause/tốc độ trở thành lớp điều khiển trên vòng lặp tick của `BOT-076` (§3.5), không phải engine riêng.
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :---: | :--- |
@@ -344,12 +346,12 @@ Sagittarius_Elite_Warrior/Tasks/
 | **0.5** | ✅ **[BOT-026](completed/BOT-026_concrete_strategy_foundation.md)** | **Concrete Strategy Foundation** | 🟡 **`M (Standard)`** | `BOT-020` ✅ | `BaseStrategy` (ABC, domain-only) + `EmaCrossoverStrategy` cụ thể đầu tiên + `StrategyRegistry`. Dọn `ema_cross_script.py` (indicator không còn tự vẽ marker Buy/Sell — việc đó là của Strategy). |
 | **1** | ✅ **[BOT-021](completed/BOT-021_static_backtest_execution_engine.md)** | **Static Backtest Execution Engine** | 🔴 **`L (Thinking)`** | `BOT-020` ✅, `BOT-026` ✅ | Chạy chiến lược trên toàn bộ dữ liệu lịch sử trong 1 lượt nhanh (không throttle), trả `BacktestResult` (trades, equity curve, 13 metric kiểu TradingView Performance Summary). Fill tại open bar kế tiếp (không phải close bar tín hiệu). |
 | **1** | ✅ **[BOT-022](completed/BOT-022_backtest_screen_static_ui.md)** | **Backtest Screen — Khung màn hình + Top Toolbar** | 🟡 **`M (Standard)`** | `BOT-021` ✅ | Màn hình Backtest thực thụ đầu tiên, chạy được thật end-to-end. 4 panel đẹp (Properties/Performance Summary/Trade Logs/Overview) tiếp theo ở `BOT-055`/`BOT-056`/`BOT-057`. |
-| **2** | **[BOT-023](backlog/BOT-023_dynamic_backtest_engine.md)** | **Dynamic Backtest Engine** | 🔴 **`L (Thinking)`** | `BOT-020` ✅, `BOT-021` ✅ | Mở rộng vòng lặp replay hiện có (`run_backtest/handler.py`) thành Paper Exchange & Virtual Event Loop — chạy chiến lược theo từng nến, tua nhanh/chậm/tạm dừng. Kết quả phải khớp tuyệt đối (`BacktestResult` dataclass equality) với golden file tĩnh của `BOT-021` trên cùng fixture. |
-| **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Dynamic UI** | 🟡 **`M (Standard)`** | `BOT-022` ✅, `BOT-023` | Mở rộng màn hình Phase 1 với replay controls (play/pause/speed) + cập nhật chart/equity/trade log trực tiếp theo từng nến. |
-| **X** | **[BOT-025](backlog/BOT-025_backtest_domain_events_completeness.md)** | **Backtest Domain Events — Completeness Pass** | 🟢 **`S (Fast)`** | `BOT-021`, `BOT-023` | Chuẩn hoá toàn bộ event Backtest (Static + Dynamic) vào 1 module, tài liệu hoá rõ khi nào phát/ai lắng nghe. |
+| ❌ | **[BOT-023](cancelled/BOT-023_dynamic_backtest_engine.md)** | **~~Dynamic Backtest Engine~~ — ĐÃ HUỶ** | — | — | **Huỷ 2026-08-18 (user chốt).** Vẫn bar-by-bar nên không đáp ứng yêu cầu Realtime; giá trị riêng (play/pause/tốc độ) là lớp **trình bày**, đã chuyển vào [`BOT-076`](backlog/BOT-076_realtime_backtest_engine.md) §3.5. Không dựng engine replay thứ hai. |
+| **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Replay UI** | 🟡 **`M (Standard)`** | `BOT-022` ✅, `BOT-076` | Mở rộng màn hình Phase 1 với replay controls (play/pause/speed) + cập nhật chart/equity/trade log trực tiếp theo từng nến. |
+| **X** | **[BOT-025](backlog/BOT-025_backtest_domain_events_completeness.md)** | **Backtest Domain Events — Completeness Pass** | 🟢 **`S (Fast)`** | `BOT-021` ✅, `BOT-076` | Chuẩn hoá toàn bộ event Backtest (Static + Realtime) vào 1 module, tài liệu hoá rõ khi nào phát/ai lắng nghe. |
 | **3** | **[BOT-039](backlog/BOT-039_dev_board_strategy_toggle_and_markers.md)** | **Dev Board — Strategy toggle + markers** | 🟡 **`M (Standard)`** | `BOT-026` ✅ | Nửa UI Dev Board tách khỏi BOT-026 gốc — làm sau khi màn Backtest (Phase 1) ổn định, không phải điều kiện chặn Phase 1/2. |
 
-> Thứ tự khuyến nghị: `BOT-020` ✅ → `BOT-026` ✅ → `BOT-021` ✅ → `BOT-022` ✅ → `BOT-055`/`BOT-056`/`BOT-057` → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-023` → `BOT-024` → `BOT-025`. `BOT-039` làm song song hoặc sau, không chặn đường chính. Đối chiếu kết quả với TradingView thật (báo cáo lưu ở `reports/backtest_tradingview_crosscheck.md`) là bước bắt buộc trước khi coi Phase 1 "xong".
+> Thứ tự khuyến nghị: `BOT-020` ✅ → `BOT-026` ✅ → `BOT-021` ✅ → `BOT-022` ✅ → `BOT-055`/`BOT-056`/`BOT-057` → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-075` → `BOT-042` → `BOT-076` → `BOT-024` → `BOT-025` (`BOT-023` đã huỷ, xem Epic `BOT-073`). `BOT-039` làm song song hoặc sau, không chặn đường chính. Đối chiếu kết quả với TradingView thật (báo cáo lưu ở `reports/backtest_tradingview_crosscheck.md`) là bước bắt buộc trước khi coi Phase 1 "xong".
 
 #### 🎯 Epic BOT-040 — Chi tiết (mở rộng màn Backtest theo spec đầy đủ)
 
@@ -401,7 +403,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-065](completed/BOT-065_backtest_script_overlay_hidden_in_equity_mode.md)** | **Ẩn overlay Script khi chuyển "Đường Vốn"** | 🟢 **`S (Fast)`** | `BOT-060` ✅, `BOT-064` ✅ | `_set_script_overlay_lines_visible()` mới, gọi từ `_on_chart_mode_changed` cạnh `_on_ema_toggled()` đã có — lặp `self._chart_script_runner.active`, chỉ ẩn script `overlay=True` (subplot như RSI/MACD không share trục giá, giữ nguyên hiển thị). Test tái hiện bug thật trước khi sửa (đúng `.agents/rules/code-rule.md`). |
 | **1** | ✅ **[BOT-096](completed/BOT-096_truthful_backtest_exit_markers.md)** | **Backtest: Marker / Icon thoát LONG trung thực** | 🟢 **`S (Fast)`** | `BOT-056` ✅, `BOT-057` ✅ | Phân tách rõ ràng giữa `LONG ENTRY` ("MUA (LONG)") và `LONG EXIT` ("ĐÓNG LONG"), loại bỏ nhãn `Sell` gây hiểu nhầm sang lệnh SHORT; hiển thị trung thực tab `Bán (SHORT) [Chưa hỗ trợ]`. |
 | **1** | ✅ **[BOT-097](completed/BOT-097_backtest_display_timezone_selector.md)** | **Backtest: Chọn múi giờ hiển thị (UTC vs Giờ hệ thống)** | 🟢 **`S (Fast)`** | `BOT-095D` ✅ | Selector múi giờ hiển thị trên toolbar (`UTC`, `Giờ hệ thống`, IANA zones), định dạng đồng bộ cho chart axis, tooltip, trade logs entry/exit; bảo toàn 100% dữ liệu UTC invariant trong engine/DB. |
-| **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Dynamic UI** | 🟡 **`M (Standard)`** | `BOT-022` ✅…`BOT-057` ✅, `BOT-023` | Kế thừa nguyên UI Nhóm D, chỉ thêm replay controls. Không tự mở khoá phần đang chờ Nhóm A/B/C. |
+| **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Replay UI** | 🟡 **`M (Standard)`** | `BOT-022` ✅…`BOT-057` ✅, `BOT-076` | Kế thừa nguyên UI Nhóm D, chỉ thêm replay controls. Không tự mở khoá phần đang chờ Nhóm A/B/C. |
 
 **Ngoài nhóm**
 

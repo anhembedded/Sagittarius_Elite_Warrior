@@ -64,6 +64,86 @@ via `widget.grab()` for exactly this reason. If you extend native-rendering
 work, verify what the user actually *sees*, not just what the code claims
 to have constructed.
 
+## Roadmap decision (2026-08-18) — `BOT-023` Dynamic Backtest is CANCELLED
+
+The user cancelled `BOT-023` (Dynamic Backtest Engine) outright. Record with
+full rationale:
+[`Tasks/cancelled/BOT-023_dynamic_backtest_engine.md`](../Tasks/cancelled/BOT-023_dynamic_backtest_engine.md)
+(new `Tasks/cancelled/` folder — first entry). **Do not resurrect it.**
+
+Why it matters for anyone touching backtest work: the app is planned to have
+exactly **two** backtest engines, not three — Static (`BOT-021` ✅, one pass,
+strategy runs once per closed bar) and Realtime
+([`BOT-076`](../Tasks/backlog/BOT-076_realtime_backtest_engine.md), not started,
+strategy re-runs every tick). Dynamic was a third engine that was still
+bar-by-bar; its only distinct value was play/pause/speed, which is a
+**presentation** concern, so it became §3.5 of `BOT-076` instead. It also
+carried an invariant (`assert dynamic_result == static_result`) directly
+opposed to Realtime's ("deliberately differs from Static"), which is what
+made keeping both untenable.
+
+What the user actually wants from Realtime, in their own words: *"chạy chiến
+thuật từng giây, cho dù tf có là 5 phút đi chăng nữa... nhằm mục đích khớp
+lệnh tại thời điểm giá, chứ không phải lúc close nến"* — run the strategy
+every second regardless of the indicator timeframe, so fills land at the price
+at that moment rather than at bar close. `BOT-076` already describes exactly
+this; it was verified against their description this session, no correction
+needed. The genuinely hard part is **not** performance — it's that indicators
+are stateful and overwrite in place (`EMA._ema`), so calling them 60×/minute
+instead of once silently turns EMA(12)-on-1m into EMA-over-12-seconds. That's
+`BOT-042`'s provisional-vs-commit split, the highest-risk task of the epic.
+
+Live-code caveat: `src/application/use_cases/backtest/run_backtest/`
+(`RunBacktestCommand`/`RunBacktestCommandHandler`) still exists, is DI-registered,
+has unit tests — and has **no consumer at all** (nothing dispatches it; it only
+emits throttled `MarketTickEvent`, no strategy, no fills). `BOT-023` was going
+to build on it. It was deliberately **not** deleted as part of the
+cancellation; `BOT-076` must decide reuse-or-delete explicitly rather than
+leaving it dangling.
+
+**What's still needed before the native chart's actual value proposition
+(50-129x faster, `BOT-098F5`) is proven, not just "wired and not broken,"**
+ordered by what's cheapest to close first:
+
+1. **A real large-dataset run through the real UI.** Every test/E2E written
+   so far uses small synthetic data (~120 candles) — nobody has watched
+   thousands of real candles pan/zoom smoothly through the actual
+   `BackTestPresenter` path yet. Currently blocked by `BUG-010` (Backtest
+   sync never finishes filling real historical data) — fix that first, or
+   seed a database directly for an isolated perf check.
+2. **Real Windows evidence.** Every benchmark and every pixel this session
+   verified was on this machine's Linux/Mesa software rendering — the actual
+   production target is Windows, real GPU/RHI, and nothing has run there
+   yet. This is the single biggest remaining gap against `F4`/`F5`'s own
+   stated acceptance criteria.
+3. **A fresh DPR1/DPR2 benchmark report against the production
+   `BackTestPresenter` path specifically** — the existing 50-129x numbers
+   came from the standalone benchmark harness, before `BOT-098F6D` wired
+   native into the real Presenter/View flow.
+
+**Native chart was built and tested only for Backtest's "submit data once
+per run/mode-change" pattern — do not assume it's safe for a per-tick live
+chart (Dev Board) without new work.** Two concrete reasons, not
+speculation: (1) `NativeBacktestChartHost`'s submission calls
+(`submit_ohlcv`/`submit_indicators`/`submit_markers`) hard-assert the
+calling thread is the widget's own GUI thread
+(`_assert_owning_gui_thread()` in `native_backtest_chart_adapter.py`) and
+raise `RuntimeError` otherwise — this app's live ticks arrive on
+`LiveStreamEngineAdapter`'s background thread, so every tick would need an
+explicit, not-yet-built marshal step onto the GUI thread first. (2) Every
+submission is a **full-replace snapshot**, not an incremental update
+(`NativeBacktestChartHostAdapter._resubmit_indicators()`'s own comment:
+"Native's indicator ABI is a full-replace snapshot... not additive") — at
+real tick frequency (multiple/second from a WebSocket stream) without
+throttling/coalescing, this would just relocate the exact CPU bottleneck
+the whole migration exists to remove, from paint-time to submit-time.
+`BOT-098F6`'s own scope doc excludes "Dev Board / live chart migration"
+for exactly this reason — it is unbenchmarked, untested territory, not an
+oversight. Python's own live chart already needed dedicated mechanisms for
+this problem (cached-frame interaction, coalesced range updates) — treat
+that as evidence this is a real, recognized-hard problem, not a
+hypothetical one.
+
 ## What this project is
 
 **Sagittarius Elite Warrior** is a Binance trading bot: a Python desktop app

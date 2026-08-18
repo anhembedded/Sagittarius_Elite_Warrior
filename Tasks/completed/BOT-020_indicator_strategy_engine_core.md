@@ -8,7 +8,7 @@ Xây dựng lõi tính chỉ báo kỹ thuật + đánh giá chiến lược, d�
 ## 2. Mô tả (Description)
 Lõi tính toán thuần (pure logic), không phụ thuộc UI, I/O hay Binance API, chạy được ở 2 chế độ:
 - **Batch**: nhận toàn bộ mảng nến, trả về danh sách tín hiệu — dùng cho Static Backtest (`BOT-021`).
-- **Incremental**: nhận từng nến/tick một, tự cập nhật state nội bộ, trả về tín hiệu (nếu có) — dùng cho Dynamic Backtest (`BOT-023`) và Live Trading (`BOT-008`).
+- **Incremental**: nhận từng nến/tick một, tự cập nhật state nội bộ, trả về tín hiệu (nếu có) — dùng cho Dynamic Backtest (`BOT-023`) và Live Trading (`BOT-008`). *(Ghi chú 2026-08-18: `BOT-023` sau đó đã bị huỷ; consumer của chế độ incremental nay là `BOT-076` — Realtime Backtest — và `BOT-008`.)*
 
 ## 3. Các bước thực hiện (Action Items)
 - [x] `IIndicator` protocol + cài đặt `RSI`, `EMA`, `MACD` (pure function/class, có thể unit test độc lập với dữ liệu đã biết trước kết quả).

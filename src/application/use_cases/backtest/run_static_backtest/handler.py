@@ -49,10 +49,12 @@ class RunStaticBacktestCommandHandler(
     """
     @brief Runs a strategy over the full historical range in one fast pass
     (no throttling) and returns the completed `BacktestResult`.
-    @details Deliberately separate from `RunBacktestCommandHandler` (Dynamic
-    mode, BOT-023): that handler intentionally throttles via
+    @details Deliberately separate from `RunBacktestCommandHandler` (the
+    older replay-only loop): that handler intentionally throttles via
     `replay_speed_ms` to simulate real time, which would only make a static
-    run slower for no reason. Fills happen at the NEXT bar's open relative
+    run slower for no reason. BOT-023, which would have grown that loop into
+    a second engine, was cancelled on 2026-08-18; the planned second engine
+    is now BOT-076 (Realtime, tick-driven). Fills happen at the NEXT bar's open relative
     to the bar that produced the signal — never the signal's own triggering
     bar — so the strategy can never trade on a price it couldn't have known
     yet.

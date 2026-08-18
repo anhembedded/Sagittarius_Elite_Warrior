@@ -159,13 +159,16 @@ slippage).
 đó là đúng, không phải lỗi.**
 
 Nhưng **phải ghi rõ ra giấy** (việc của `BOT-042`), vì tài liệu hiện đang hứa ngược
-lại, và [`BOT-023`](BOT-023_dynamic_backtest_engine.md) còn có test parity bắt buộc
-`assert dynamic_result == static_result`. Không nói rõ thì người sau sẽ tưởng
-Realtime đang bug.
+lại. Không nói rõ thì người sau sẽ tưởng Realtime đang bug.
 
-⚠️ **Đừng nhầm `BOT-023` (Dynamic) với epic này.** `BOT-023` vẫn **bar-by-bar**, chỉ
-thêm tua/pause/tốc độ để *xem*; nó **không** giải quyết yêu cầu của epic này. Làm
-xong `BOT-023` mà tưởng đã xong Realtime là hiểu nhầm dễ xảy ra nhất ở đây.
+✅ **2026-08-18 — `BOT-023` (Dynamic Backtest Engine) đã bị huỷ**
+([hồ sơ huỷ](../cancelled/BOT-023_dynamic_backtest_engine.md)), theo quyết định của
+user. Trước đây mục này cảnh báo *"đừng nhầm `BOT-023` với epic này"* — giờ nguồn gây
+nhầm đó không còn: nó vẫn bar-by-bar, chỉ thêm tua/pause/tốc độ để *xem*, nên **không**
+giải quyết yêu cầu của epic này, và ràng buộc parity `assert dynamic_result ==
+static_result` của nó cũng đi theo. App còn đúng **2 engine**: Static (`BOT-021` ✅) và
+Realtime (`BOT-076`). Phần play/pause/tốc độ vẫn giữ, nhưng là **lớp điều khiển** nằm
+trên vòng lặp tick của `BOT-076` (§3.5 của task đó), không phải engine riêng.
 
 ## 8. Rủi ro toàn epic
 

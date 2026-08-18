@@ -4,6 +4,14 @@
 > **Chặn bởi** [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md) (contract
 > provisional/commit) và [`BOT-075`](BOT-075_tick_data_feasibility_spike.md) (chi phí
 > dữ liệu — có thể đổi thiết kế).
+>
+> 📌 **2026-08-18 — task này giờ là engine replay DUY NHẤT của app.**
+> `BOT-023` (Dynamic Backtest Engine) **đã bị huỷ** theo quyết định của user
+> ([hồ sơ huỷ](../cancelled/BOT-023_dynamic_backtest_engine.md)): nó vẫn chạy
+> bar-by-bar nên không trả lời được yêu cầu gốc, và giá trị riêng của nó
+> (play/pause/tốc độ) là **lớp trình bày** chứ không phải engine thứ hai.
+> Hệ quả: phần replay control ấy **thuộc về task này** — xem §3.5 mới.
+> Đừng dựng lại engine replay thứ hai.
 
 ## 1. Mục tiêu
 
@@ -43,10 +51,13 @@ Khác biệt **chỉ được phép nằm ở**: (1) vòng lặp replay, (2) th�
       `strategy_key`/`strategy_params`/`initial_balance`/`fee_percent`/`start_time`/
       `end_time`/`limit`) **cộng** độ phân giải tick (`BOT-075` §3.4 chốt hình thức:
       field riêng hay `TimeFrame`).
-- [ ] ⚠️ `interval` (khung indicator, vd `1m`) và độ phân giải tick (vd `1s`) là **2
-      thứ khác nhau** — đây chính là điểm mấu chốt user nêu ra ("indicator could set
-      on tf 1m, but realtime data feed every 1s"). Đặt tên field sao cho không ai
-      nhầm được.
+- [ ] ⚠️ `interval` (khung indicator, vd `1m`/`5m`/`1h`) và độ phân giải tick (vd
+      `1s`) là **2 thứ khác nhau, hoàn toàn độc lập** — đây chính là điểm mấu chốt
+      user nêu ra ("indicator could set on tf 1m, but realtime data feed every 1s").
+      User nhắc lại rõ hơn (2026-08-18): *"phải chạy chiến thuật từng giây, cho dù tf
+      có là 5 phút đi chăng nữa"* — tức là **mọi** khung đều đánh giá lại mỗi giây,
+      không phải chỉ khung nhỏ; nến `5m` đang hình thành vẫn được cập nhật và đánh
+      giá 300 lần trước khi nó đóng. Đặt tên field sao cho không ai nhầm được.
 - [ ] Đăng ký DI trong `binance_bot_module.py` + sanity test
       (`test_backtest_screen_di_sanity.py`) — theo đúng rule "mọi feature ship kèm
       sanity test".
@@ -88,11 +99,30 @@ Khác biệt **chỉ được phép nằm ở**: (1) vòng lặp replay, (2) th�
       chứng 2 đường code không lệch nhau vì lỗi cài đặt, khi mà nói chung chúng cố ý
       khác nhau (xem §5).
 
+### 3.5. Replay control (thừa kế từ `BOT-023` đã huỷ)
+
+Phần này trước đây thuộc `BOT-023`. Sau khi task đó bị huỷ, nó về đây — nhưng **là
+lớp điều khiển tốc độ trên vòng lặp §3.2, không phải engine thứ hai**.
+
+- [ ] Có thể **chạy hết tốc độ** (mặc định, không throttle) — đây là chế độ dùng để
+      lấy kết quả, và là chế độ duy nhất `BOT-077`/so sánh Static-vs-Realtime cần.
+- [ ] **Tuỳ chọn** (làm sau cũng được, không chặn "task xong"): pause/resume + chọn
+      tốc độ phát để *xem* diễn biến. Nếu làm, đi qua command riêng
+      (`PauseBacktestCommand`/`ResumeBacktestCommand`/`SetReplaySpeedCommand`) tác
+      động lên **cùng một** vòng lặp §3.2 — tuyệt đối không fork một vòng lặp
+      "để xem" riêng, vì đó đúng là sai lầm khiến `BOT-023` bị huỷ.
+- [ ] Tốc độ phát **không được** làm đổi kết quả: chạy 1x, 20x hay Instant trên cùng
+      input phải cho `BacktestResult` giống hệt nhau. Cần 1 test khẳng định điều này
+      (throttle chỉ là `sleep` giữa các tick, không đụng thứ tự tính toán).
+
 ## 4. Rủi ro / Lưu ý
 
-- **Đừng nhầm với [`BOT-023`](BOT-023_dynamic_backtest_engine.md) (Dynamic).** Cái đó
-  vẫn bar-by-bar, chỉ thêm tua/pause để *xem*, và còn ràng buộc "phải khớp Static
-  tuyệt đối". Hai task khác mục đích hoàn toàn, đừng gộp.
+- **Không còn engine replay thứ hai để nhầm lẫn nữa** — `BOT-023` (Dynamic) đã bị
+  huỷ ([hồ sơ](../cancelled/BOT-023_dynamic_backtest_engine.md)). Nếu bắt gặp tài
+  liệu cũ nào còn nói "Dynamic mode" như một engine sắp làm, đó là tài liệu lạc hậu.
+  Lưu ý code `run_backtest/` (Dynamic cũ) **vẫn còn trong repo**, chỉ phát
+  `MarketTickEvent`, không có consumer — chốt tái dùng hay xoá **trước khi** bắt đầu
+  §3.2, đừng để nó lửng lơ cạnh vòng lặp mới.
 - Cám dỗ: nhét tick vào thẳng handler Static bằng một cờ `if`. Đừng — hai vòng lặp có
   bất biến khác nhau (Static: 1 lần/bar; Realtime: nhiều lần/bar + chốt ở biên), nhồi
   chung sẽ làm cả hai khó suy luận và làm hỏng khả năng so sánh.
