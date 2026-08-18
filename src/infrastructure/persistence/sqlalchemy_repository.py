@@ -8,6 +8,11 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
+    as_utc,
+    ceil_open_time,
+    floor_open_time,
+)
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
@@ -244,6 +249,15 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         now: datetime,
     ) -> RangeCoverageSnapshot:
         """Run the range probe entirely in SQLite and return six scalars."""
+        interval_seconds = interval.to_seconds()
+        closed_end = floor_open_time(
+            min(as_utc(end_time), as_utc(now)), interval_seconds
+        )
+        aligned_start = (
+            ceil_open_time(as_utc(start_time), interval_seconds)
+            if start_time is not None
+            else None
+        )
         query = sa.text("""
             WITH ordered_klines AS (
                 SELECT
@@ -254,7 +268,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 WHERE symbol = :symbol
                   AND interval = :interval
                   AND (:start_time IS NULL OR open_time >= :start_time)
-                  AND open_time < :end_time
+                  AND open_time < :closed_end
             )
             SELECT
                 MIN(open_time) AS first_record,
@@ -275,10 +289,10 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 {
                     "symbol": symbol,
                     "interval": interval.value,
-                    "start_time": start_time,
-                    "end_time": end_time,
+                    "start_time": aligned_start,
+                    "closed_end": closed_end,
                     "now": now,
-                    "expected_seconds": interval.to_seconds(),
+                    "expected_seconds": interval_seconds,
                 },
             ).fetchone()
         if not result or result[2] == 0:

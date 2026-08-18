@@ -27,13 +27,19 @@ class NativeChartTimezoneBridge(QObject):
     def formatTimestamp(
         self, timestamp_utc_ms: int, tz_name: str = DEFAULT_TIMEZONE
     ) -> str:
-        return format_display_timestamp(timestamp_utc_ms / 1000.0, tz_name=tz_name)
+        try:
+            return format_display_timestamp(timestamp_utc_ms / 1000.0, tz_name=tz_name)
+        except (OSError, ValueError, OverflowError):
+            return ""
 
     @Slot(int, str, result=str)
     def formatAxisTime(
         self, timestamp_utc_ms: int, tz_name: str = DEFAULT_TIMEZONE
     ) -> str:
         """Shorter form for the time-axis ticks (no seconds/date)."""
-        return format_display_timestamp(
-            timestamp_utc_ms / 1000.0, tz_name=tz_name, fmt="%H:%M"
-        )
+        try:
+            return format_display_timestamp(
+                timestamp_utc_ms / 1000.0, tz_name=tz_name, fmt="%H:%M"
+            )
+        except (OSError, ValueError, OverflowError):
+            return ""

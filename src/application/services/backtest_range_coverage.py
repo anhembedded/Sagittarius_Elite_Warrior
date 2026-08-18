@@ -165,17 +165,22 @@ def evaluate_backtest_range_coverage(
     )
 
 
-def _as_utc(value: datetime) -> datetime:
+def as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
 
 
-def _floor_open_time(value: datetime, interval_seconds: int) -> datetime:
+def floor_open_time(value: datetime, interval_seconds: int) -> datetime:
     return datetime.fromtimestamp(
         int(value.timestamp()) // interval_seconds * interval_seconds, UTC
     )
 
 
-def _ceil_open_time(value: datetime, interval_seconds: int) -> datetime:
+def ceil_open_time(value: datetime, interval_seconds: int) -> datetime:
     timestamp = int(value.timestamp())
     aligned = (timestamp + interval_seconds - 1) // interval_seconds * interval_seconds
     return datetime.fromtimestamp(aligned, UTC)
+
+
+_as_utc = as_utc
+_floor_open_time = floor_open_time
+_ceil_open_time = ceil_open_time

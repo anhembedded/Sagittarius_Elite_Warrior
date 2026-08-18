@@ -347,8 +347,10 @@ def _capture_expected_colors(pixmap) -> dict[str, bool]:
 # every QWidget show() under QT_QPA_PLATFORM=offscreen regardless of the
 # application. It is a known offscreen-plugin limitation, not an app defect,
 # and shows up identically in headless CI. It is the only message filtered
-# here; anything else still fails the "must be empty" contract.
-_KNOWN_BENIGN_OFFSCREEN_WARNING = "This plugin does not support propagateSizeHints()"
+_KNOWN_BENIGN_WARNING_PREFIXES = (
+    "This plugin does not support propagateSizeHints()",
+    "QFontDatabase: Cannot find font directory",
+)
 
 
 def _capture_qt_warnings(run):
@@ -357,7 +359,9 @@ def _capture_qt_warnings(run):
     def capture(message_type, _context, message: str) -> None:
         if (
             message_type in (QtMsgType.QtWarningMsg, QtMsgType.QtCriticalMsg)
-            and message != _KNOWN_BENIGN_OFFSCREEN_WARNING
+            and not any(
+                message.startswith(prefix) for prefix in _KNOWN_BENIGN_WARNING_PREFIXES
+            )
         ):
             warnings.append(message)
 

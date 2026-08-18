@@ -119,7 +119,10 @@ def format_display_timestamp(
     fmt: str = "%Y-%m-%d %H:%M:%S",
 ) -> str:
     """Formats a UNIX timestamp in seconds in the requested display timezone."""
-    dt_utc = datetime.fromtimestamp(timestamp, tz=UTC)
+    try:
+        dt_utc = datetime.fromtimestamp(timestamp, tz=UTC)
+    except (OSError, ValueError, OverflowError):
+        return ""
     return format_display_datetime(dt_utc, tz_name=tz_name, fmt=fmt)
 
 
@@ -131,7 +134,10 @@ def get_utc_offset_seconds(
     Returns the UTC offset in seconds at a given timestamp for the target timezone.
     Correctly accounts for Daylight Saving Time (DST).
     """
-    dt_utc = datetime.fromtimestamp(timestamp, tz=UTC)
+    try:
+        dt_utc = datetime.fromtimestamp(timestamp, tz=UTC)
+    except (OSError, ValueError, OverflowError):
+        return 0.0
     target_tz = resolve_zone_info(tz_name)
     converted = dt_utc.astimezone(target_tz)
     offset = converted.utcoffset()

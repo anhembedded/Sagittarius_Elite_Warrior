@@ -1482,7 +1482,21 @@ void NativeChartItem::applyViewport(qreal startIndex, qreal endIndex) {
     viewportStart_ = startIndex;
     viewportEnd_ = endIndex;
 
-    const std::size_t candleCount = uiSnapshot_->opens.size();
+    const std::size_t candleCount = uiSnapshot_ ? uiSnapshot_->opens.size() : 0U;
+    if (candleCount == 0U) {
+        visiblePriceMinimum_ = 0.0;
+        visiblePriceMaximum_ = 1.0;
+        priceAxisTicks_.clear();
+        timeAxisTicks_.clear();
+        if (!lastViewportError_.isEmpty()) {
+            lastViewportError_.clear();
+            emit lastViewportErrorChanged();
+        }
+        ++cameraRevision_;
+        emit cameraChanged();
+        return;
+    }
+
     const std::size_t firstIndex = std::min(
         candleCount - 1U,
         static_cast<std::size_t>(std::floor(startIndex))
@@ -1523,6 +1537,11 @@ void NativeChartItem::rebuildAxisTicks() {
     priceAxisTicks_.clear();
     timeAxisTicks_.clear();
 
+    const std::size_t candleCount = uiSnapshot_ ? uiSnapshot_->timestamps.size() : 0U;
+    if (candleCount == 0U) {
+        return;
+    }
+
     const double priceSpan = visiblePriceMaximum_ - visiblePriceMinimum_;
     for (int tick = 0; tick < AxisTickCount; ++tick) {
         const double position = static_cast<double>(tick) /
@@ -1536,7 +1555,6 @@ void NativeChartItem::rebuildAxisTicks() {
         priceAxisTicks_.append(axisTick);
     }
 
-    const std::size_t candleCount = uiSnapshot_->timestamps.size();
     const std::size_t firstIndex = std::min(
         candleCount - 1U,
         static_cast<std::size_t>(std::floor(viewportStart_))
