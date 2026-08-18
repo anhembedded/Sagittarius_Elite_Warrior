@@ -6,7 +6,56 @@ change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
 
-## Latest session handover (2026-08-18) — BOT-098F6D native chart cutover
+## Latest session handover (2026-08-18) — BUG-009 fixed (cached-frame pan preview)
+
+**BUG-009 is fixed, not just reported anymore.** Full writeup, including the
+disproven original hypothesis, the real root cause, the fix, and the kept
+regression test, is in
+[`Tasks/bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md`](../Tasks/bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md)
+— read its `## Root cause` section before touching `cached_frame_interaction.py`
+again. One-line summary: the overlay `QWidget`'s geometry was never actually
+wrong (it tracked the live viewport exactly); the bug was that
+`_CachedFrameOverlay._frame` — the cached pixmap grabbed once at
+`begin_pan()`/`begin_zoom()` time — never got re-grabbed or rescaled when a
+viewport resize (window resize, splitter move, any layout reflow) happened
+mid-drag, so the stale, smaller pixmap painted as a small patch inside a
+now-larger overlay whose rest was flat `_BACKGROUND_COLOR`. Fixed in
+`CachedFrameInteractionController.eventFilter`'s `QEvent.Type.Resize` branch:
+a resize while a preview is active now commits it immediately
+(`commit_pan()`/`commit_zoom()`, hiding the overlay) before resizing the
+overlay geometry, instead of leaving the stale pixmap stretched.
+
+**How this was actually verified, for calibration on this class of bug:**
+the original bug report's hypothesis (overlay position mismatch) was
+checked first and found **wrong** — `overlay.mapToGlobal(0,0)` matched
+`viewport.mapToGlobal(0,0)` exactly, at every point in a real drag, on a
+real (non-offscreen) window. The real defect only showed up by testing a
+*resize during an active preview*, which isn't something the original bug
+report's symptom description obviously implies — it was found by reasoning
+through what `eventFilter`'s Resize branch actually touches (`overlay`
+geometry) versus what it doesn't (`_frame`), then confirming it both
+numerically (`overlay.geometry().height() > frame.size().height()` after a
+mid-drag resize) and visually (real window screenshots, before/after the
+fix — this machine's Qt platform defaults to `windows`, not `offscreen`, so
+a real screenshot was possible without any special E2E harness). Lesson:
+don't trust a bug report's own root-cause hypothesis at face value, even
+one already in the repo — verify it independently before fixing to it.
+
+**Known gap surfaced, not fixed this session:** this Python environment is
+missing the `pydantic` package (`requirements.txt` lists it, but it's not
+installed), so the full coverage-gated suite
+(`pytest Sagittarius_Elite_Warrior/tests --cov=... --cov-fail-under=80`)
+fails at collection across ~34 unrelated test files and could not be run
+end-to-end this session. Only the directly-relevant test files were run
+(`test_cached_frame_interaction.py` + `test_chart_card.py`, 73/73 pass) plus
+`ruff check`/`ruff format --check` on the touched files. Whoever works here
+next should `pip install -r requirements.txt` first and re-run the full
+gated suite before trusting a green run or a coverage number.
+
+BUG-010 (`Đồng bộ dữ liệu ngay` never satisfies range coverage) is still
+open, not touched this session.
+
+## Prior session handover (2026-08-18) — BOT-098F6D native chart cutover
 
 **What just landed (commit `d0eea47`, already on `master-warrior`):**
 `BacktestChartHostFactory` now actually selects the native C++ chart host

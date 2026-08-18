@@ -215,6 +215,20 @@ class CachedFrameInteractionController(QObject):
         if watched is not self._viewport:
             return False
         if event.type() == QEvent.Type.Resize:
+            # A resize mid-preview (window resize, splitter move, dynamic
+            # layout reflow) invalidates the cached pixmap `begin()` grabbed
+            # at the old viewport size — it never gets re-grabbed, so
+            # stretching it across a now-larger overlay would leave most of
+            # the overlay painted with `_BACKGROUND_COLOR` around a small,
+            # stale surviving patch (BUG-009). Commit immediately instead:
+            # this hides the overlay and applies the exact in-progress
+            # pan/zoom to the live plot, which then resizes correctly on its
+            # own.
+            if self.is_preview_active:
+                if self._mode == "pan":
+                    self.commit_pan()
+                else:
+                    self.commit_zoom()
             self._overlay.setGeometry(self._viewport.rect())
             return False
         if isinstance(event, QMouseEvent):
