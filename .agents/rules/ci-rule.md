@@ -147,13 +147,30 @@ coverage.
    flow, not just a private call or a mock expectation.
 3. **Sanity:** real app boot, DI wiring and QML construction only; no user
    action, background dispatch or network. It proves composition health.
-4. **Desktop E2E:** critical visible journey on a real windowing session (not
-   offscreen) using real Qt mouse/keyboard input, real render backend and
-   clean Qt stderr/message capture. It is opt-in/local or nightly but
-   mandatory evidence for changed native rendering or reported GUI runtime
-   defects. When a task's proof requirements name a specific production
-   target OS (e.g. Windows RHI pixel evidence), that OS is still required;
-   this tier's own definition does not restrict "real display" to Windows.
+4. **Desktop E2E:** a critical visible journey through the **real running
+   app** — started from its real entry point (e.g. `main.py` / `create_app()`
+   booted for real) into the real production window/screen a user would
+   actually see — on a real windowing session (not offscreen), using real Qt
+   mouse/keyboard input, real render backend and clean Qt stderr/message
+   capture. It is opt-in/local or nightly but mandatory evidence for changed
+   native rendering or reported GUI runtime defects. When a task's proof
+   requirements name a specific production target OS (e.g. Windows RHI pixel
+   evidence), that OS is still required; this tier's own definition does not
+   restrict "real display" to Windows.
+
+**Component probe (not a test level, not Desktop E2E):** a script that
+constructs one isolated widget/host/QML piece directly (real rendering, real
+Qt input) without going through the real app's entry point or production
+wiring — e.g. proving a not-yet-integrated native host works before any
+screen actually uses it. This is legitimate opt-in local evidence for a piece
+that is not yet reachable from the real app, and every `scripts/benchmarking/
+*_probe.py` file to date is exactly this. It is **not** interchangeable with
+Desktop E2E and must never be reported as satisfying it: the instant a
+feature becomes reachable from the real running app (wired into production
+selection, not merely built and tested standalone), Desktop E2E — the real
+entry point, the real screen — becomes required evidence before that feature
+counts as done. A passing component probe proves the piece works in
+isolation; it does not prove the app works.
 
 An external-service smoke check is an opt-in operational check, not a fifth
 test level and never a normal CI requirement. Passing a lower tier proves only
