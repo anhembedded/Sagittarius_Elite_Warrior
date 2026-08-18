@@ -983,18 +983,23 @@ class BackTestPresenter(BasePresenter):
             "cancel_completed", action_id=action_id, restore_state=previous_state.value
         )
 
+    def _verify_backtest_action_active(self, action_id: int, callback_name: str) -> bool:
+        if self._is_cancelling_action(action_id):
+            self._complete_cancelled_action(action_id)
+            return False
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                callback_name, action_id, BacktestActionKind.BACKTEST
+            )
+            return False
+        return True
+
     @Slot(int, object)
     @safe_ui_action
     def _on_backtest_succeeded_for_action(
         self, action_id: int, result: BacktestResult
     ) -> None:
-        if self._is_cancelling_action(action_id):
-            self._complete_cancelled_action(action_id)
-            return
-        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
-            self._ignore_stale_action_callback(
-                "backtest_succeeded", action_id, BacktestActionKind.BACKTEST
-            )
+        if not self._verify_backtest_action_active(action_id, "backtest_succeeded"):
             return
         self._on_backtest_succeeded(result)
         self._finish_action(action_id, BacktestActionOutcome.SUCCEEDED)
@@ -1004,13 +1009,7 @@ class BackTestPresenter(BasePresenter):
     def _on_backtest_empty_for_action(
         self, action_id: int, message: str, config: BacktestRunConfig
     ) -> None:
-        if self._is_cancelling_action(action_id):
-            self._complete_cancelled_action(action_id)
-            return
-        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
-            self._ignore_stale_action_callback(
-                "backtest_empty", action_id, BacktestActionKind.BACKTEST
-            )
+        if not self._verify_backtest_action_active(action_id, "backtest_empty"):
             return
         self._on_backtest_empty(message, config)
         self._finish_action(action_id, BacktestActionOutcome.EMPTY)
@@ -1018,13 +1017,7 @@ class BackTestPresenter(BasePresenter):
     @Slot(int, str)
     @safe_ui_action
     def _on_backtest_failed_for_action(self, action_id: int, message: str) -> None:
-        if self._is_cancelling_action(action_id):
-            self._complete_cancelled_action(action_id)
-            return
-        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
-            self._ignore_stale_action_callback(
-                "backtest_failed", action_id, BacktestActionKind.BACKTEST
-            )
+        if not self._verify_backtest_action_active(action_id, "backtest_failed"):
             return
         self._on_backtest_failed(message)
         self._finish_action(action_id, BacktestActionOutcome.FAILED)

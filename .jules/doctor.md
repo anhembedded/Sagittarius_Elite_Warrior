@@ -12,3 +12,7 @@
 **Smell:** Redundant hardcoded timeframe parsing dictionary (`interval_minutes = {"1m": 1, ...}`) in `SyncMarketDataCommandHandler._estimate_total_klines` instead of utilizing the domain object.
 **Solution:** Refactored the method to use the existing `TimeFrame.to_seconds()` method, replacing the 17-line hardcoded dictionary with a simple division, ensuring single source of truth within the Domain layer.
 **Learning:** Re-evaluate domain enums and value objects for existing resolution logic before hardcoding parameter mappings in Application layer Use Cases.
+## 2026-08-18 - [DRY Refactor for Action Callback Guards]
+**Smell:** Duplicated guard logic for checking cancelling and stale statuses across `_on_backtest_succeeded_for_action`, `_on_backtest_empty_for_action`, and `_on_backtest_failed_for_action` in `BackTestPresenter`.
+**Solution:** Extracted the 8-line duplicate boilerplate into a private method `_verify_backtest_action_active(self, action_id, callback_name) -> bool`, keeping the `BackTestPresenter` more readable and SOLID.
+**Learning:** Extracting pre-condition action guards into named helper methods cleans up presenter slot callbacks while preserving safety.
