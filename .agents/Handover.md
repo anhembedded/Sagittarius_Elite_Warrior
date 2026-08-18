@@ -1,10 +1,68 @@
-# Onboarding — start here
+# Handover — start here
 
 This is the "first five minutes" file for an AI new to this repository. It
 tells you what the project is, where the real rules live, how to verify a
 change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
+
+## Latest session handover (2026-08-18) — BOT-098F6D native chart cutover
+
+**What just landed (commit `d0eea47`, already on `master-warrior`):**
+`BacktestChartHostFactory` now actually selects the native C++ chart host
+for the Backtest screen's OHLC mode, config-driven
+(`backtest.chart.backend` = `python|native|auto`, `python` is still the
+shipped default — native is opt-in only, nothing changed for existing
+users). Full detail, including three real bugs found and fixed via actual
+interactive use (not just automated tests) — a `refresh_chart()` crash on a
+`None` result, a blank-white chart background before any data arrives, and
+strategy/script indicator lines silently vanishing after a chart-mode
+round-trip — is in
+[`Tasks/in_progress/BOT-098F6D_backtest_native_opt_in_cutover.md`](../Tasks/in_progress/BOT-098F6D_backtest_native_opt_in_cutover.md).
+Read that file's `## Result` section before touching this area again; don't
+re-derive what it already explains.
+
+**To manually see the native chart running** (`./scripts/run-ui.ps1`):
+set `SAGITTARIUS_BACKTEST_CHART_BACKEND=native` as an environment variable
+for that one shell session — do **not** add `backtest.chart.backend` to the
+committed `src/config/user_config.json`. That was tried mid-session and it
+broke two pre-existing sanity/integration tests that boot the real app via
+`create_app()` and implicitly inherit whatever that file says (they assumed
+the Python-only `.chart_card` attribute exists) — the env var override
+exists specifically so local manual testing never has to touch a shared,
+committed config default.
+
+**Two pre-existing bugs, confirmed unrelated to the chart work above, were
+found during the same manual testing session and are filed but not yet
+fixed:**
+[`BUG-009`](../Tasks/bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md)
+(Python-only cached-frame drag-preview widget appears to reposition, then
+snaps back — `chart_card/cached_frame_interaction.py`, not yet root-caused)
+and
+[`BUG-010`](../Tasks/bug_report/BUG-010_backtest_sync_never_satisfies_range_coverage.md)
+(clicking "Đồng bộ dữ liệu ngay" repeatedly never clears the "missing
+candles" banner — possible cutoff mismatch between the coverage query and
+`_published_candle_cutoff()`, not yet root-caused). Both have a documented
+next-steps list; follow this repo's own test-first bug rule
+(`.agents/rules/code-rule.md`) when picking either up — reproduce and
+confirm the hypothesis before touching code.
+
+**Also planned but not started:**
+[`BOT-098F6F`](../Tasks/backlog/BOT-098F6F_native_equity_and_both_subplot_support.md)
+— native chart backend only covers OHLC candlestick mode today; Equity and
+BOTH (dual-pane) modes always fall back to Python by design
+(`NativeChartItem` has no line-series draw mode or second subplot region
+yet). Has open design questions the user hasn't answered — don't start
+implementing without reading and resolving those first.
+
+**A note on how this session went, for calibration:** the user pushed back
+hard, more than once, when test coverage that only checked "no crash, no Qt
+warning" was reported as sufficient evidence — the actual bugs found were
+silent visual/state defects that kind of check structurally cannot catch.
+`scripts/native_backtest_desktop_e2e.py` now samples real composited pixels
+via `widget.grab()` for exactly this reason. If you extend native-rendering
+work, verify what the user actually *sees*, not just what the code claims
+to have constructed.
 
 ## What this project is
 
