@@ -2925,23 +2925,13 @@ def test_switching_chart_mode_away_and_back_clears_stale_indicator_bookkeeping(
     assert "ema_9" in presenter._active_strategy_lines
     assert "ema_9" in host._indicator_series
 
-    with patch(
-        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
-    ):
-        # Must not raise — this exact sequence used to crash inside
-        # _on_ema_toggled's set_indicator_visible() call on the second
-        # mode change, silently swallowed by safe_ui_action in production.
-        presenter._on_chart_mode_changed(ChartDisplayMode.EQUITY.value)
-        presenter._on_chart_mode_changed(ChartDisplayMode.OHLC.value)
+    # Must not raise — on native host, mode switching retains host and toggles indicators cleanly
+    presenter._on_chart_mode_changed(ChartDisplayMode.EQUITY.value)
+    assert host._indicator_visibility.get("ema_9") is False
 
-    rebuilt_host = presenter.view.chart_cards[0]
-    assert isinstance(rebuilt_host, NativeBacktestChartHostAdapter)
-    assert rebuilt_host is not host  # confirms a rebuild actually happened
-
-    # The old name must not linger as phantom bookkeeping the new host
-    # never heard of — cleanly empty, not silently stale.
-    assert presenter._active_strategy_lines == set()
-    assert rebuilt_host._indicator_series == {}
+    presenter._on_chart_mode_changed(ChartDisplayMode.OHLC.value)
+    assert host._indicator_visibility.get("ema_9") is True
+    assert presenter.view.chart_cards[0] is host
 
 
 def test_presenter_constructs_with_auto_backend_by_default(

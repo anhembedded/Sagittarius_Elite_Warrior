@@ -248,12 +248,11 @@ def test_env_override_native_takes_priority_over_python_argument(
 
 
 # --------------------------------------------------------------------------
-# BOT-098F6D: BackTestView rebuilds when a mode change alters which backend
-# is eligible (native only supports ChartDisplayMode.OHLC in this slice).
+# BOT-098F6F: BackTestView supports Native across OHLC, EQUITY, and BOTH modes.
 # --------------------------------------------------------------------------
 
 
-def test_equity_mode_forces_python_even_when_native_is_configured(qapp, request):
+def test_equity_mode_uses_native_when_native_is_configured(qapp, request):
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
         ChartDisplayMode,
     )
@@ -262,12 +261,27 @@ def test_equity_mode_forces_python_even_when_native_is_configured(qapp, request)
     request.addfinalizer(view.deleteLater)
     view.set_chart_backend("native")
 
-    with patch(f"{_NATIVE_HOST_TARGET}.create") as mocked_create:
-        mocked_create.side_effect = NativeChartRuntimeError("no native for this test")
+    with patch(f"{_NATIVE_HOST_TARGET}.create", side_effect=_fake_native_host_factory):
         view.set_chart_mode(ChartDisplayMode.EQUITY)
         cards = view.render_symbol_cards(["BTCUSDT"])
 
-    assert isinstance(cards[0], PythonBacktestChartHost)
+    assert isinstance(cards[0], NativeBacktestChartHostAdapter)
+
+
+def test_both_mode_uses_native_when_native_is_configured(qapp, request):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+        ChartDisplayMode,
+    )
+
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+    view.set_chart_backend("native")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create", side_effect=_fake_native_host_factory):
+        view.set_chart_mode(ChartDisplayMode.BOTH)
+        cards = view.render_symbol_cards(["BTCUSDT"])
+
+    assert isinstance(cards[0], NativeBacktestChartHostAdapter)
 
 
 def _fake_native_host_factory():
@@ -282,7 +296,7 @@ def _fake_native_host_factory():
     return fake
 
 
-def test_switching_from_equity_back_to_ohlc_rebuilds_the_host(qapp, request):
+def test_mode_changes_within_native_backend_retain_host_without_rebuild(qapp, request):
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
         ChartDisplayMode,
     )
@@ -296,32 +310,17 @@ def test_switching_from_equity_back_to_ohlc_rebuilds_the_host(qapp, request):
         first_host = view.chart_cards[0]
         assert isinstance(first_host, NativeBacktestChartHostAdapter)
 
-        view.set_chart_mode(ChartDisplayMode.EQUITY)
-        equity_host = view.chart_cards[0]
-        assert view.chart_cards[0] is not first_host  # rebuilt: native -> python
-        assert isinstance(equity_host, PythonBacktestChartHost)
-
-        view.set_chart_mode(ChartDisplayMode.OHLC)
-        assert view.chart_cards[0] is not equity_host  # rebuilt again on the way back
+        rebuilt = view.set_chart_mode(ChartDisplayMode.EQUITY)
+        assert rebuilt is False
+        assert view.chart_cards[0] is first_host
         assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)
 
+        rebuilt = view.set_chart_mode(ChartDisplayMode.BOTH)
+        assert rebuilt is False
+        assert view.chart_cards[0] is first_host
+        assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)
 
-def test_mode_change_within_the_same_backend_does_not_rebuild(qapp, request):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
-        ChartDisplayMode,
-    )
-
-    view = BackTestView()
-    request.addfinalizer(view.deleteLater)
-    view.set_chart_backend("native")
-
-    with patch(f"{_NATIVE_HOST_TARGET}.create", side_effect=_fake_native_host_factory):
-        view.render_symbol_cards(["BTCUSDT"])
-        first_host = view.chart_cards[0]
-
-        view.set_chart_mode(ChartDisplayMode.EQUITY)
-        equity_host = view.chart_cards[0]
-        assert equity_host is not first_host
-
-        view.set_chart_mode(ChartDisplayMode.BOTH)  # still python-only, no rebuild
-        assert view.chart_cards[0] is equity_host
+        rebuilt = view.set_chart_mode(ChartDisplayMode.OHLC)
+        assert rebuilt is False
+        assert view.chart_cards[0] is first_host
+        assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)

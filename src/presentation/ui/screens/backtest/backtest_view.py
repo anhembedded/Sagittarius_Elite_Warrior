@@ -314,11 +314,7 @@ class BackTestView(BaseView):
         self._remove_equity_subplot(card)
 
     def _effective_chart_backend(self) -> str:
-        """BOT-098F6D: native supports OHLC only in this slice — Equity/BOTH
-        always render Python regardless of the configured backend, no
-        matter which mode a native-backed host happened to be built under."""
-        if self._chart_mode is not ChartDisplayMode.OHLC:
-            return "python"
+        """BOT-098F6F: Native host supports OHLC, EQUITY, and BOTH modes natively."""
         return self._chart_backend
 
     @property

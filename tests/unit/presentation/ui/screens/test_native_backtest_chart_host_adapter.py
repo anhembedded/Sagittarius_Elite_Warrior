@@ -84,14 +84,24 @@ def test_a_rejected_ohlcv_submission_raises(adapter, fake_native_host):
         adapter.render_historical_volume(_VOLUMES)
 
 
-def test_candlestick_chart_type_is_accepted_silently(adapter):
-    adapter.set_chart_type("candlestick")  # must not raise
+@pytest.mark.parametrize("chart_type", ["candlestick", "line"])
+def test_supported_chart_types_are_accepted_silently(adapter, chart_type):
+    adapter.set_chart_type(chart_type)  # must not raise
 
 
-@pytest.mark.parametrize("chart_type", ["line", "heikin-ashi", "area"])
-def test_non_candlestick_chart_type_is_rejected(adapter, chart_type):
-    with pytest.raises(NativeUnsupportedFeatureError, match="candlestick-only"):
+@pytest.mark.parametrize("chart_type", ["heikin-ashi", "area", "renko"])
+def test_unsupported_chart_type_is_rejected(adapter, chart_type):
+    with pytest.raises(NativeUnsupportedFeatureError, match="candlestick/line only"):
         adapter.set_chart_type(chart_type)
+
+
+def test_line_chart_submits_pending_candles_without_volume(adapter, fake_native_host):
+    adapter.render_historical_data(_CANDLES)
+    adapter.set_chart_type("line")
+    fake_native_host.submit_ohlcv.assert_called_once()
+    args, _kwargs = fake_native_host.submit_ohlcv.call_args
+    assert args[0] == _CANDLES
+    assert args[1] == []
 
 
 def test_indicator_lines_resubmit_the_full_active_set_on_every_change(
@@ -118,14 +128,28 @@ def test_update_indicator_data_without_registration_is_rejected(adapter):
         adapter.update_indicator_data("ghost", [1.0], [1.0])
 
 
-def test_add_subplot_indicator_is_rejected(adapter):
-    with pytest.raises(NativeUnsupportedFeatureError, match="subplot"):
-        adapter.add_subplot_indicator("equity", "#fff")
+def test_add_subplot_indicator_registers_and_submits(adapter, fake_native_host):
+    adapter.add_subplot_indicator("equity", "#3b82f6")
+    adapter.update_indicator_data("equity", [1.0], [100.0])
+    assert fake_native_host.submit_indicators.call_count == 1
+    (series,), _ = fake_native_host.submit_indicators.call_args
+    assert len(series) == 1
 
 
-def test_set_indicator_visible_is_rejected(adapter):
-    with pytest.raises(NativeUnsupportedFeatureError, match="visibility"):
-        adapter.set_indicator_visible("ema", False)
+def test_set_indicator_visible_toggles_submission(adapter, fake_native_host):
+    adapter.add_overlay_indicator("ema", "#ff0000")
+    adapter.update_indicator_data("ema", [1.0], [10.0])
+    assert fake_native_host.submit_indicators.call_count == 1
+
+    adapter.set_indicator_visible("ema", False)
+    assert fake_native_host.submit_indicators.call_count == 2
+    (series,), _ = fake_native_host.submit_indicators.call_args
+    assert len(series) == 0  # hidden
+
+    adapter.set_indicator_visible("ema", True)
+    assert fake_native_host.submit_indicators.call_count == 3
+    (series,), _ = fake_native_host.submit_indicators.call_args
+    assert len(series) == 1  # visible again
 
 
 def test_trade_flag_markers_are_submitted(adapter, fake_native_host):
