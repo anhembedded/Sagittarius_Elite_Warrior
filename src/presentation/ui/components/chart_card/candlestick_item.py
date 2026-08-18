@@ -206,7 +206,10 @@ class FastCandlestickItem(pg.GraphicsObject):
             bear_rects = []
             render_rows = list(rows)
             if self.live_candle:
-                render_rows.append(self.live_candle)
+                if render_rows and render_rows[-1][0] == self.live_candle[0]:
+                    render_rows[-1] = self.live_candle
+                else:
+                    render_rows.append(self.live_candle)
 
             for t, o, h, low, c in render_rows:
                 line = QtCore.QLineF(t, low, t, h)
@@ -268,7 +271,10 @@ class FastCandlestickItem(pg.GraphicsObject):
         @brief Explicitly push a closed candle into the historical cache.
         """
         closed_candle = (timestamp, open_p, high_p, low_p, close_p)
-        self.history_data.append(closed_candle)
+        if self.history_data and self.history_data[-1][0] == timestamp:
+            self.history_data[-1] = closed_candle
+        else:
+            self.history_data.append(closed_candle)
 
         # Recompute width + cached bounds only — no picture to rebuild
         # anymore (fast enough for once per minute either way).

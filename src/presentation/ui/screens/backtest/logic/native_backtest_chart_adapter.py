@@ -148,35 +148,35 @@ def build_native_indicator_series(
     """Backtest indicator samples are timestamp-keyed and often sparse (an
     EMA has no value during its warm-up window); the native ABI requires
     one finite value per candle with no gaps. Missing candles are
-    forward-filled from the most recent known sample — a stepped/held
-    value is a reasonable, honest rendering of "no new sample yet", unlike
-    inventing a number. A gap before the first known sample has nothing to
-    hold, so it is rejected rather than guessed."""
+    forward-filled from the most recent known sample. A gap before the first
+    known sample is backfilled from the first known sample, providing a stable
+    pre-warmup baseline."""
     if len(x_data_seconds) != len(y_data):
         raise ValueError("indicator x_data and y_data must have equal length")
 
     known: dict[int, float] = {}
     for timestamp_seconds, value in zip(x_data_seconds, y_data, strict=True):
+        if not math.isfinite(value):
+            continue
         index = resolve_candle_index_for_timestamp_ms(
             candle_timestamps_ms, timestamp_seconds_to_ms(timestamp_seconds)
         )
-        if index is None:
-            raise ValueError(
-                "indicator sample timestamp does not align with any candle"
-            )
-        known[index] = value
+        if index is not None:
+            known[index] = value
+
+    if not known:
+        return NativeIndicatorSeries(
+            rgba=rgba, values=(0.0,) * len(candle_timestamps_ms)
+        )
+
+    first_index = min(known.keys())
+    first_known = known[first_index]
 
     values: list[float] = []
-    last_known: float | None = None
+    last_known: float = first_known
     for candle_index in range(len(candle_timestamps_ms)):
         if candle_index in known:
             last_known = known[candle_index]
-        if last_known is None:
-            raise ValueError(
-                "indicator data has a leading gap with no prior value to hold"
-            )
-        if not math.isfinite(last_known):
-            raise ValueError("indicator values must be finite")
         values.append(last_known)
 
     return NativeIndicatorSeries(rgba=rgba, values=tuple(values))
@@ -358,11 +358,14 @@ class NativeBacktestChartHost:
         self._assert_owning_gui_thread()
         if not self._fence.admit(action_id, generation):
             return False
+        if not self._candle_timestamps_ms:
+            return True
         native_series = tuple(
             build_native_indicator_series(
                 self._candle_timestamps_ms, x_data, y_data, rgba=rgba
             )
             for rgba, x_data, y_data in series
+            if x_data and y_data
         )
         self._indicator_revision += 1
         snapshot = pack_native_indicator_snapshot(
@@ -382,11 +385,19 @@ class NativeBacktestChartHost:
         self._assert_owning_gui_thread()
         if not self._fence.admit(action_id, generation):
             return False
+        if not self._candle_timestamps_ms:
+            return True
+        native_markers_list: list[NativeChartMarker] = []
+        for marker in markers:
+            try:
+                m = build_native_marker(marker, self._candle_timestamps_ms)
+                native_markers_list.append(m)
+            except ValueError:
+                # Out-of-window trade markers (e.g. earlier trades outside the visible/loaded kline window)
+                # or unsupported labels are skipped cleanly without crashing the render pass.
+                continue
         native_markers = sorted(
-            (
-                build_native_marker(marker, self._candle_timestamps_ms)
-                for marker in markers
-            ),
+            native_markers_list,
             key=lambda marker: marker.candle_index,
         )
         self._marker_revision += 1

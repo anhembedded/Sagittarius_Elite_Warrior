@@ -768,7 +768,11 @@ class DashboardPresenter(BasePresenter):
                 # the chart actually shows; otherwise a prepend's rebuild
                 # would silently drop every candle that arrived live since
                 # the last full Load History/Start Live.
-                self._raw_klines_by_symbol.setdefault(symbol, []).append(candle)
+                raw_list = self._raw_klines_by_symbol.setdefault(symbol, [])
+                if raw_list and raw_list[-1].close_time == candle.close_time:
+                    raw_list[-1] = candle
+                else:
+                    raw_list.append(candle)
                 self._script_runner.feed(candle)
             else:
                 card.update_last_candle(t, o, h, low, c)

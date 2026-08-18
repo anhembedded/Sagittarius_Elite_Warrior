@@ -7,7 +7,10 @@ QQuickWidget host construction itself is sanity-level
 real theme/import bootstrap `create_quick_widget()`-style code depends on.
 """
 
+from unittest.mock import MagicMock
+
 import pytest
+from PySide6.QtCore import QThread
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_marker_snapshot import (
     NativeChartMarkerDirection,
@@ -17,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_snapshot import 
     pack_native_ohlcv_snapshot,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+    NativeBacktestChartHost,
     NativeChartSubmissionFence,
     build_native_indicator_series,
     build_native_marker,
@@ -118,23 +122,29 @@ class TestBuildNativeIndicatorSeries:
         )
         assert series.values == (1.0, 1.0, 3.0)
 
-    def test_rejects_a_leading_gap_with_nothing_to_hold(self):
+    def test_backfills_a_leading_gap_from_the_first_sample(self):
         x_data = [_CANDLES[1][0], _CANDLES[2][0]]
         y_data = [2.0, 3.0]
-        with pytest.raises(ValueError, match="leading gap"):
-            build_native_indicator_series(_CANDLE_TIMESTAMPS_MS, x_data, y_data, rgba=1)
+        series = build_native_indicator_series(
+            _CANDLE_TIMESTAMPS_MS, x_data, y_data, rgba=0xFF00BFFF
+        )
+        assert series.values == (2.0, 2.0, 3.0)
 
-    def test_rejects_non_finite_values(self):
+    def test_skips_non_finite_values(self):
         x_data = [_CANDLES[0][0], _CANDLES[1][0], _CANDLES[2][0]]
         y_data = [1.0, float("nan"), 3.0]
-        with pytest.raises(ValueError, match="finite"):
-            build_native_indicator_series(_CANDLE_TIMESTAMPS_MS, x_data, y_data, rgba=1)
+        series = build_native_indicator_series(
+            _CANDLE_TIMESTAMPS_MS, x_data, y_data, rgba=0xFF00BFFF
+        )
+        assert series.values == (1.0, 1.0, 3.0)
 
-    def test_rejects_a_sample_timestamp_that_does_not_align_with_any_candle(self):
+    def test_skips_unaligned_indicator_timestamps(self):
         x_data = [_CANDLES[0][0], _CANDLES[0][0] + 5.0]
         y_data = [1.0, 2.0]
-        with pytest.raises(ValueError, match="does not align"):
-            build_native_indicator_series(_CANDLE_TIMESTAMPS_MS, x_data, y_data, rgba=1)
+        series = build_native_indicator_series(
+            _CANDLE_TIMESTAMPS_MS, x_data, y_data, rgba=0xFF00BFFF
+        )
+        assert series.values == (1.0, 1.0, 1.0)
 
     def test_x_and_y_length_mismatch_is_rejected(self):
         with pytest.raises(ValueError, match="equal length"):
@@ -201,3 +211,53 @@ class TestNativeChartSubmissionFence:
         fence = NativeChartSubmissionFence()
         assert fence.admit(action_id=1, generation=5) is True
         assert fence.admit(action_id=2, generation=0) is True
+
+
+class TestNativeBacktestChartHostSubmit:
+    def test_submit_markers_skips_out_of_range_markers_without_error(self):
+        widget = MagicMock()
+        widget.thread.return_value = QThread.currentThread()
+        chart_item = MagicMock()
+        chart_item.submitMarkerSnapshot.return_value = True
+        host = NativeBacktestChartHost(
+            widget=widget,
+            component=MagicMock(),
+            root_item=MagicMock(),
+            chart_item=chart_item,
+            gesture_bridge=MagicMock(),
+            timezone_bridge=MagicMock(),
+        )
+        host._candle_timestamps_ms = _CANDLE_TIMESTAMPS_MS
+
+        markers = [
+            (1_600_000_000.0, 50.0, "MUA (LONG)", "#26a69a", "up"),  # Way in the past
+            (_CANDLES[1][0], 12.5, "ĐÓNG LONG", "#ef5350", "down"),  # On candle 1
+            (1_800_000_000.0, 60.0, "MUA (LONG)", "#26a69a", "up"),  # In the future
+        ]
+        assert host.submit_markers(markers, action_id=1, generation=0) is True
+        assert chart_item.submitMarkerSnapshot.call_count == 1
+
+    def test_submit_indicators_with_empty_or_warmup_series_succeeds(self):
+        widget = MagicMock()
+        widget.thread.return_value = QThread.currentThread()
+        chart_item = MagicMock()
+        chart_item.submitIndicatorSnapshot.return_value = True
+        host = NativeBacktestChartHost(
+            widget=widget,
+            component=MagicMock(),
+            root_item=MagicMock(),
+            chart_item=chart_item,
+            gesture_bridge=MagicMock(),
+            timezone_bridge=MagicMock(),
+        )
+        host._candle_timestamps_ms = _CANDLE_TIMESTAMPS_MS
+
+        series = [
+            (
+                0xFF00BFFF,
+                [_CANDLES[1][0], _CANDLES[2][0]],
+                [2.0, 3.0],
+            )
+        ]
+        assert host.submit_indicators(series, action_id=1, generation=0) is True
+        assert chart_item.submitIndicatorSnapshot.call_count == 1

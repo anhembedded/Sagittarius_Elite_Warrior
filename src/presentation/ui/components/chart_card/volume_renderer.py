@@ -75,17 +75,23 @@ class VolumeItem:
 
     def update_live(self, timestamp: float, volume: float, is_bullish: bool) -> None:
         brush = self._bull_brush if is_bullish else self._bear_brush
-        if self._live_index is None:
+        if self._live_index is not None and self._live_index < len(self._timestamps):
+            self._timestamps[self._live_index] = timestamp
+            self._heights[self._live_index] = volume
+            self._brushes[self._live_index] = brush
+            self._update_lod_tail((timestamp, volume, is_bullish), append=False)
+        elif self._timestamps and self._timestamps[-1] == timestamp:
+            self._live_index = len(self._timestamps) - 1
+            self._timestamps[self._live_index] = timestamp
+            self._heights[self._live_index] = volume
+            self._brushes[self._live_index] = brush
+            self._update_lod_tail((timestamp, volume, is_bullish), append=False)
+        else:
             self._timestamps.append(timestamp)
             self._heights.append(volume)
             self._brushes.append(brush)
             self._live_index = len(self._timestamps) - 1
             self._update_lod_tail((timestamp, volume, is_bullish), append=True)
-        else:
-            self._timestamps[self._live_index] = timestamp
-            self._heights[self._live_index] = volume
-            self._brushes[self._live_index] = brush
-            self._update_lod_tail((timestamp, volume, is_bullish), append=False)
         self._data_revision += 1
         self._apply()
 

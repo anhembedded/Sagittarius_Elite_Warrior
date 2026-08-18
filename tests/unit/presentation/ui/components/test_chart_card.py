@@ -1304,3 +1304,58 @@ def test_prepend_historical_volume_inserts_before_existing_bars(qapp):
         (2000.0, 10.0, True),
         (2060.0, 12.0, False),
     ]
+
+
+# ---------------------------------------------------------------------------
+# BOT-085 / BUG-003 — Volume & candle reload deduplication
+# ---------------------------------------------------------------------------
+
+
+def test_volume_live_update_after_historical_reload_does_not_duplicate_or_spike(qapp):
+    card = ChartCard("ETHUSDT")
+    data = [(1000.0, 10.0, True), (1060.0, 20.0, False)]
+    card.render_historical_volume(data)
+
+    assert len(card.volume._timestamps) == 2
+
+    # Live tick arrives for the same trailing timestamp
+    card.update_last_volume(1060.0, 25.0, False)
+    assert len(card.volume._timestamps) == 2
+    assert card.volume._heights[-1] == 25.0
+
+    # Candle closes at the same trailing timestamp
+    card.append_closed_volume(1060.0, 30.0, False)
+    assert len(card.volume._timestamps) == 2
+    assert card.volume._heights[-1] == 30.0
+
+    # Next new forming candle starts at 1120.0
+    card.update_last_volume(1120.0, 5.0, True)
+    assert len(card.volume._timestamps) == 3
+    assert card.volume._heights[-1] == 5.0
+
+
+def test_candlestick_live_update_after_historical_reload_does_not_duplicate(qapp):
+    card = ChartCard("ETHUSDT")
+    history = [
+        (1000.0, 10.0, 12.0, 9.0, 11.0),
+        (1060.0, 11.0, 13.0, 10.0, 12.0),
+    ]
+    card.render_historical_data(history)
+
+    assert len(card._raw_history) == 2
+    assert len(card.candlestick.history_data) == 2
+
+    # Live tick arrives for trailing timestamp
+    card.update_last_candle(1060.0, 11.0, 14.0, 10.0, 13.0)
+    assert card._live_candle == (1060.0, 11.0, 14.0, 10.0, 13.0)
+
+    # Candle closes at trailing timestamp
+    card.append_closed_candle(1060.0, 11.0, 14.0, 10.0, 13.0)
+    assert len(card._raw_history) == 2
+    assert len(card.candlestick.history_data) == 2
+    assert card._raw_history[-1] == (1060.0, 11.0, 14.0, 10.0, 13.0)
+
+    # Next candle opens at 1120.0
+    card.append_closed_candle(1120.0, 13.0, 15.0, 12.0, 14.0)
+    assert len(card._raw_history) == 3
+    assert len(card.candlestick.history_data) == 3

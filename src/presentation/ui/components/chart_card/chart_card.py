@@ -307,7 +307,11 @@ class ChartCard(BaseCard):
         low_p: float,
         close_p: float,
     ) -> None:
-        self._raw_history.append((timestamp, open_p, high_p, low_p, close_p))
+        candle = (timestamp, open_p, high_p, low_p, close_p)
+        if self._raw_history and self._raw_history[-1][0] == timestamp:
+            self._raw_history[-1] = candle
+        else:
+            self._raw_history.append(candle)
         self._live_candle = None
         if self.chart_type_renderer.chart_type == CANDLESTICK:
             self.candlestick.append_closed_candle(

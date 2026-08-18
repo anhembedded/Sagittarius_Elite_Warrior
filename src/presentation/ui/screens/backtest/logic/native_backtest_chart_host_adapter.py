@@ -164,6 +164,7 @@ class NativeBacktestChartHostAdapter:
         series = [
             (rgba, x_data, y_data)
             for rgba, x_data, y_data in self._indicator_series.values()
+            if x_data and y_data
         ]
         accepted = self._native_host.submit_indicators(
             series,
