@@ -15,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
@@ -144,6 +145,7 @@ def booted_backtest_app():
     config_manager.load_json(
         os.path.join(bot_root, "src", "config", "user_config.json")
     )
+    config_manager.load_dict({ConfigKeys.BACKTEST_CHART_BACKEND.value: "python"})
     app = create_app(config_manager)
 
     with (

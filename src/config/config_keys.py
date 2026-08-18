@@ -34,8 +34,8 @@ class ConfigKeys(str, Enum):
     BACKTEST_CHART_CACHED_INTERACTION_ENABLED = (
         "backtest.chart.cached_interaction_enabled"
     )
-    #: BOT-098F6D. One of "python" | "native" | "auto". Also overridable via
-    #: the SAGITTARIUS_BACKTEST_CHART_BACKEND env var (see
+    #: BOT-098F6E. One of "python" | "native" | "auto" (default: "auto").
+    #: Also overridable via the SAGITTARIUS_BACKTEST_CHART_BACKEND env var (see
     #: BacktestChartHostFactory) — this codebase has no ConfigManager env
     #: layer wired into the real app, so a one-off override reads the
     #: environment directly, the same convention native_chart_runtime.py

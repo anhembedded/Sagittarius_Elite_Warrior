@@ -89,8 +89,12 @@ def test_host_timeframe_operations_go_through_the_toolbar(qapp, request):
 def test_factory_creates_a_distinct_host_per_call(qapp, request):
     factory = BacktestChartHostFactory()
 
-    first = factory.create("BTCUSDT", use_opengl=False, cached_interaction=False)
-    second = factory.create("BTCUSDT", use_opengl=False, cached_interaction=False)
+    first = factory.create(
+        "BTCUSDT", use_opengl=False, cached_interaction=False, backend="python"
+    )
+    second = factory.create(
+        "BTCUSDT", use_opengl=False, cached_interaction=False, backend="python"
+    )
     request.addfinalizer(first.widget.deleteLater)
     request.addfinalizer(second.widget.deleteLater)
 
@@ -103,7 +107,9 @@ def test_factory_creates_a_distinct_host_per_call(qapp, request):
 def test_factory_passes_render_backend_options_through_to_chart_card(qapp, request):
     factory = BacktestChartHostFactory()
 
-    host = factory.create("BTCUSDT", use_opengl=True, cached_interaction=True)
+    host = factory.create(
+        "BTCUSDT", use_opengl=True, cached_interaction=True, backend="python"
+    )
     request.addfinalizer(host.widget.deleteLater)
 
     assert host.chart_card._use_opengl is True
@@ -112,6 +118,7 @@ def test_factory_passes_render_backend_options_through_to_chart_card(qapp, reque
 
 def test_render_symbol_cards_replacement_cleans_up_the_previous_host(qapp, request):
     view = BackTestView()
+    view.set_chart_backend("python")
     request.addfinalizer(view.deleteLater)
 
     first_cards = view.render_symbol_cards(["BTCUSDT"])
@@ -127,16 +134,38 @@ def test_render_symbol_cards_replacement_cleans_up_the_previous_host(qapp, reque
 
 
 # --------------------------------------------------------------------------
-# BOT-098F6D: backend selection and fallback
+# BOT-098F6D / BOT-098F6E: backend selection and fallback
 # --------------------------------------------------------------------------
 
 _NATIVE_HOST_TARGET = "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter.NativeBacktestChartHost"
 
 
-def test_default_backend_is_python(qapp, request):
+def test_default_backend_is_auto_and_attempts_native(qapp, request):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+        NativeBacktestChartHost,
+    )
+
     factory = BacktestChartHostFactory()
-    host = factory.create("BTCUSDT")
+    fake_native_host = Mock(spec=NativeBacktestChartHost)
+    fake_native_host.widget = ChartCard("placeholder")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create", return_value=fake_native_host):
+        host = factory.create("BTCUSDT")
     request.addfinalizer(host.widget.deleteLater)
+
+    assert isinstance(host, NativeBacktestChartHostAdapter)
+    assert host.native_host is fake_native_host
+
+
+def test_default_backend_falls_back_to_python_when_native_unavailable(qapp, request):
+    factory = BacktestChartHostFactory()
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create",
+        side_effect=NativeChartRuntimeError("plugin missing"),
+    ):
+        host = factory.create("BTCUSDT")
+    request.addfinalizer(host.widget.deleteLater)
+
     assert isinstance(host, PythonBacktestChartHost)
 
 
@@ -185,7 +214,7 @@ def test_native_backend_falls_back_to_python_on_construction_failure(
     assert isinstance(host, PythonBacktestChartHost)
 
 
-def test_env_override_takes_priority_over_the_backend_argument(
+def test_env_override_python_takes_priority_over_native_argument(
     qapp, request, monkeypatch
 ):
     monkeypatch.setenv("SAGITTARIUS_BACKTEST_CHART_BACKEND", "python")
@@ -196,6 +225,26 @@ def test_env_override_takes_priority_over_the_backend_argument(
 
     mocked_create.assert_not_called()
     assert isinstance(host, PythonBacktestChartHost)
+
+
+def test_env_override_native_takes_priority_over_python_argument(
+    qapp, request, monkeypatch
+):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+        NativeBacktestChartHost,
+    )
+
+    monkeypatch.setenv("SAGITTARIUS_BACKTEST_CHART_BACKEND", "native")
+    factory = BacktestChartHostFactory()
+    fake_native_host = Mock(spec=NativeBacktestChartHost)
+    fake_native_host.widget = ChartCard("placeholder")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create", return_value=fake_native_host):
+        host = factory.create("BTCUSDT", backend="python")
+    request.addfinalizer(host.widget.deleteLater)
+
+    assert isinstance(host, NativeBacktestChartHostAdapter)
+    assert host.native_host is fake_native_host
 
 
 # --------------------------------------------------------------------------

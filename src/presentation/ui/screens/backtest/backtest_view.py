@@ -68,7 +68,7 @@ class BackTestView(BaseView):
         # DI-resolved instance via set_chart_host_factory() in production
         # (BOT-098F6D) — BackTestView itself has no container access.
         self._chart_host_factory = BacktestChartHostFactory()
-        self._chart_backend = "python"
+        self._chart_backend = "auto"
         self._last_symbols: list[str] = []
         self.chart_cards: list[IBacktestChartHost] = []
         self._chart_dev_mode = False

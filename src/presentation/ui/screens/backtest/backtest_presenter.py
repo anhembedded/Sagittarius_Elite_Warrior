@@ -374,12 +374,11 @@ class BackTestPresenter(BasePresenter):
                 )
             )
         )
-        # BOT-098F6D: BackTestView has no container access itself, so the
-        # DI-resolved factory is pushed in from here — never a singleton,
-        # container.bind() (transient) hands back a fresh instance.
+        # BOT-098F6E: Default backend is now "auto" (attempts native first,
+        # falls back to python). "python" remains as explicit fallback override.
         view.set_chart_host_factory(self.container.resolve(BacktestChartHostFactory))
         view.set_chart_backend(
-            str(self.config.get(ConfigKeys.BACKTEST_CHART_BACKEND.value, "python"))
+            str(self.config.get(ConfigKeys.BACKTEST_CHART_BACKEND.value, "auto"))
         )
         view.render_symbol_cards([self._symbol])
         self._connect_chart_controls()

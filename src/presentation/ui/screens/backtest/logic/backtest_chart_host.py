@@ -215,12 +215,12 @@ class BacktestChartHostFactory:
     `backend` resolves in this order: the `SAGITTARIUS_BACKTEST_CHART_BACKEND`
     env var, then the caller-supplied value (from
     `backtest.chart.backend` config, resolved by `BackTestPresenter`), then
-    `"python"`. `"native"`/`"auto"` both attempt native first; a missing
+    `"auto"`. `"native"`/`"auto"` both attempt native first; a missing
     plugin, ABI mismatch or QML construction failure — the exact failure
     modes `NativeChartRuntimeError` already covers — logs one actionable
     warning and falls back to Python rather than ever leaving a blank chart.
-    `"auto"` exists as a distinct value only for forward config compatibility
-    with `"native"` (no different runtime behavior in this slice yet).
+    `"auto"` is the default since BOT-098F6E, while `"python"` remains
+    fully supported as an explicit compatibility fallback.
     """
 
     def create(
@@ -229,13 +229,23 @@ class BacktestChartHostFactory:
         *,
         use_opengl: bool = False,
         cached_interaction: bool = False,
-        backend: str = _PYTHON_BACKEND,
+        backend: str = _AUTO_BACKEND,
     ) -> IBacktestChartHost:
         resolved_backend = os.environ.get(_BACKEND_ENV_OVERRIDE, backend)
         if resolved_backend in (_NATIVE_BACKEND, _AUTO_BACKEND):
             native_host = self._try_create_native(symbol)
             if native_host is not None:
+                logger.info(
+                    "Backtest chart host initialized for symbol '%s' with backend 'native' (requested: '%s').",
+                    symbol,
+                    resolved_backend,
+                )
                 return native_host
+        logger.info(
+            "Backtest chart host initialized for symbol '%s' with backend 'python' (requested: '%s').",
+            symbol,
+            resolved_backend,
+        )
         return self._create_python(
             symbol, use_opengl=use_opengl, cached_interaction=cached_interaction
         )

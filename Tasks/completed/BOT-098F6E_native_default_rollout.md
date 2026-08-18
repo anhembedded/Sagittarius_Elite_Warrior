@@ -4,7 +4,7 @@
 **Depends on:** `BOT-098F6D`  
 **Priority:** P1  
 **Complexity:** M  
-**Status:** Backlog
+**Status:** Completed  
 
 ## Goal
 
@@ -37,3 +37,24 @@ as an emergency compatibility fallback for one release.
 4. One release of desktop evidence records no unresolved native lifecycle or
    semantic regression before any removal task may be proposed.
 5. `./scripts/ci-local.ps1 -Full` and opt-in desktop E2E pass.
+
+## Result
+
+- **Default Backend Configuration**:
+  - `ConfigKeys.BACKTEST_CHART_BACKEND` default is now `"auto"`.
+  - `BacktestChartHostFactory.create()` defaults to `"auto"`.
+  - `BackTestPresenter` and `BackTestView` now default to `"auto"`.
+  - Resolution precedence: `SAGITTARIUS_BACKTEST_CHART_BACKEND` env var $\rightarrow$ `backtest.chart.backend` config $\rightarrow$ `"auto"`.
+  - Under `"auto"`, `NativeBacktestChartHost.create()` is attempted first. When the runtime is valid and native plugin is present, `NativeBacktestChartHostAdapter` is selected.
+  - When native runtime is missing or raises `NativeChartRuntimeError`, it gracefully falls back to `PythonBacktestChartHost` with actionable logging.
+  - When `backend="python"` (or `SAGITTARIUS_BACKTEST_CHART_BACKEND=python`), `PythonBacktestChartHost` is created directly as a kill-switch / emergency fallback.
+- **Structured Diagnostic Logging**:
+  - `BacktestChartHostFactory` logs structured info on each host creation:
+    `"Backtest chart host initialized for symbol '%s' with backend '%s' (requested: '%s')"`.
+- **Verification & CI Evidence**:
+  - Full local CI (`.\scripts\ci-local.ps1 -Full`) passed 100%:
+    - Native QML chart build: `Sagittarius.NativeChart` compiled cleanly.
+    - Chart migration benchmark contract: PASSED.
+    - Read-only Ruff lint & format: PASSED (0 errors, 373 files clean).
+    - Primary unit & integration tests: 1,118 passed (94.11% coverage $\ge$ 80% threshold).
+    - Sanity suite: 37 passed sequentially.

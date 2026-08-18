@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+    ChartCard,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
     CANDLESTICK,
     LINE,
@@ -90,7 +93,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+    NativeBacktestChartHost,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+    NativeBacktestChartHostAdapter,
+)
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
+from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
@@ -352,13 +364,15 @@ def mock_config():
     # DEFAULT_INTERVAL configured) — individual tests override
     # get_all.return_value to exercise the config-driven path instead.
     config.get_all.return_value = {}
-    # BOT-066: dev.mode on for the whole suite, so any exception a
-    # @safe_ui_action-decorated slot swallows re-raises instead of passing
-    # a test that should have failed — every other key still falls back to
-    # None, matching this fixture's previous blanket behavior.
-    config.get.side_effect = lambda key, default=None: (
-        True if key == DEV_MODE_CONFIG_KEY else default
-    )
+
+    def get_config(key, default=None):
+        if key == DEV_MODE_CONFIG_KEY:
+            return True
+        if key == ConfigKeys.BACKTEST_CHART_BACKEND.value:
+            return "python"
+        return default
+
+    config.get.side_effect = get_config
     return config
 
 
@@ -2829,3 +2843,40 @@ def test_switching_chart_mode_away_and_back_clears_stale_indicator_bookkeeping(
     # never heard of — cleanly empty, not silently stale.
     assert presenter._active_strategy_lines == set()
     assert rebuilt_host._indicator_series == {}
+
+
+def test_presenter_constructs_with_auto_backend_by_default(
+    qapp, mock_thread_mgr, mock_dispatcher, strategy_registry, request
+):
+    config = Mock()
+    config.get_all.return_value = {}
+    config.get.side_effect = lambda key, default=None: default
+
+    container = Mock()
+
+    def resolve_mock(interface):
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IDispatcher:
+            return mock_dispatcher
+        if interface == IConfig:
+            return config
+        if interface == StrategyRegistry:
+            return strategy_registry
+        if interface == IndicatorScriptRegistry:
+            return IndicatorScriptRegistry()
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
+        return Mock()
+
+    container.resolve.side_effect = resolve_mock
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    fake_native_host = Mock(spec=NativeBacktestChartHost)
+    fake_native_host.widget = ChartCard("placeholder")
+
+    with patch(f"{_NATIVE_HOST_TARGET}.create", return_value=fake_native_host):
+        presenter = BackTestPresenter(view, container)
+        assert presenter._view_model is not None
+        assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)
