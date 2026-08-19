@@ -134,7 +134,7 @@ không phải suy luận lại.
 | :--- | :--- |
 | Static ([`BOT-021`](../completed/BOT-021_static_backtest_execution_engine.md) ✅) | — |
 | ~~Dynamic~~ ([`BOT-023`](../cancelled/BOT-023_dynamic_backtest_engine.md)) — **ĐÃ HUỶ 2026-08-18** | ~~**"phải khớp Static tuyệt đối"** — `assert dynamic_result == static_result`~~ |
-| Realtime ([`BOT-076`](../backlog/BOT-076_realtime_backtest_engine.md)) | **"cố ý khác Static"** |
+| Realtime ([`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md)) | **"cố ý khác Static"** |
 
 Hai engine replay, bất biến **ngược nhau**, cùng chạy trên một `PaperExchange`.
 

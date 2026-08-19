@@ -25,6 +25,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest i
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.handler import (
     BacktestState,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
+    RunRealtimeBacktestCommand,
+    RunRealtimeBacktestCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     RunStaticBacktestCommand,
     RunStaticBacktestCommandHandler,
@@ -183,6 +187,9 @@ class BinanceBotModule(BaseModule):
         app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
         app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
+        app.container.bind(
+            RunRealtimeBacktestCommand, RunRealtimeBacktestCommandHandler
+        )
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""

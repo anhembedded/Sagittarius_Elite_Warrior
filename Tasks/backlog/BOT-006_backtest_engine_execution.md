@@ -20,7 +20,7 @@ Bản `BOT-006` trước đây là 1 task lớn, mô tả chung chung ("Cỗ má
 
 ### Phase 2 — Realtime Backtest (làm sau, khi Phase 1 đã ổn định)
 > 📌 **2026-08-18:** Phase 2 ban đầu là *Dynamic Backtest* (`BOT-023`). Task đó **đã bị huỷ** ([hồ sơ huỷ](../cancelled/BOT-023_dynamic_backtest_engine.md)) vì vẫn chạy bar-by-bar và mang bất biến ngược với Realtime. Phase 2 nay do Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md) đảm nhiệm.
-- **[BOT-076](BOT-076_realtime_backtest_engine.md)**: Realtime Backtest Engine — chạy chiến lược theo tick (vd mỗi 1s) kể cả khi khung indicator là 5m, khớp lệnh **tại giá tick** thay vì lúc đóng nến. Replay control (play/pause/tốc độ) là §3.5 của chính task này.
+- **[BOT-076](../in_progress/BOT-076_realtime_backtest_engine.md)**: Realtime Backtest Engine — chạy chiến lược theo tick (vd mỗi 1s) kể cả khi khung indicator là 5m, khớp lệnh **tại giá tick** thay vì lúc đóng nến. Replay control (play/pause/tốc độ) là §3.5 của chính task này.
 - **[BOT-024](BOT-024_backtest_screen_dynamic_ui.md)**: Backtest Screen — Replay UI — mở rộng màn hình Phase 1 với replay controls, cập nhật trực tiếp theo từng nến. Kế thừa scope mở rộng của `BOT-022`/`BOT-040`.
 
 ### Cross-cutting

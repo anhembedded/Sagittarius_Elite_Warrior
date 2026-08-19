@@ -1,7 +1,7 @@
 # ❌ ĐÃ HUỶ — BOT-023: Dynamic Backtest Engine (Paper Exchange & Virtual Event Loop)
 
 > **Trạng thái: HUỶ (2026-08-18), do user quyết định. Không làm task này.**
-> Thay thế bởi [`BOT-076` — Realtime Backtest Engine](../backlog/BOT-076_realtime_backtest_engine.md).
+> Thay thế bởi [`BOT-076` — Realtime Backtest Engine](../in_progress/BOT-076_realtime_backtest_engine.md).
 > Nội dung gốc giữ nguyên bên dưới **chỉ để tham khảo lịch sử** — đừng thực hiện nó.
 
 ## Vì sao huỷ
@@ -19,7 +19,7 @@ Lý do đằng sau, ghi lại để người sau không "khôi phục" nhầm:
   | :--- | :--- |
   | Static (`BOT-021` ✅) | — |
   | **Dynamic (task đã huỷ này)** | **"phải khớp Static tuyệt đối"** — `assert dynamic_result == static_result` |
-  | [Realtime (`BOT-076`)](../backlog/BOT-076_realtime_backtest_engine.md) | **"cố ý khác Static"** |
+  | [Realtime (`BOT-076`)](../in_progress/BOT-076_realtime_backtest_engine.md) | **"cố ý khác Static"** |
 
 - Giá trị riêng của task này chỉ là *play/pause/tốc độ để xem replay* — đó là mối
   quan tâm **trình bày (presentation)**, không phải engine. Mà `BOT-076` dù sao cũng

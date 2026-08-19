@@ -122,7 +122,7 @@ bởi cả Dev Board lẫn static backtest.
 | [**BOT-074**](BOT-074_execution_trigger_rule_inverted_lock.md) | **Bug — Execution Trigger Rule: cờ `locked` đảo ngược** | — | Nhỏ, độc lập, **làm ngay**. Không chờ phần còn lại của epic. |
 | [**BOT-075**](BOT-075_tick_data_feasibility_spike.md) | **Spike — khả thi & chi phí dữ liệu tick** | — | **Đo, không đoán.** Có thể đổi cả thiết kế → phải xong trước `BOT-076`. |
 | [**BOT-042**](BOT-042_tick_level_strategy_engine_support.md) | **Provisional vs Commit cho `IIndicator`/`Series`** | `BOT-020` ✅, `BOT-026` ✅ | Đã chốt hướng (b). Thay đổi contract tầng domain — rủi ro cao nhất epic. |
-| [**BOT-076**](BOT-076_realtime_backtest_engine.md) | **Realtime Backtest Engine** | `BOT-042`, `BOT-075` | Chế độ backtest thứ 2 thật sự. |
+| [**BOT-076**](../in_progress/BOT-076_realtime_backtest_engine.md) | **Realtime Backtest Engine** | `BOT-042`, `BOT-075` | Chế độ backtest thứ 2 thật sự. |
 | [**BOT-077**](BOT-077_calc_on_order_fills.md) | **`calc_on_order_fills`** | `BOT-076` | Giá trị thấp hơn hẳn 3 task trên — xem §6. |
 
 ## 6. `calc_on_order_fills` **không phải** cách đúng để giải quyết nỗi lo Stop Loss

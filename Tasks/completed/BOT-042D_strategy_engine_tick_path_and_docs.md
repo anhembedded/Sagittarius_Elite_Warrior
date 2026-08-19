@@ -3,7 +3,7 @@
 > Thuộc Epic [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md).
 > Phụ thuộc [`BOT-042B`](BOT-042B_indicator_provisional_contract.md) ✅ và
 > [`BOT-042C`](BOT-042C_series_provisional_slot.md) ✅ — cả 2 đã xong.
-> **Chặn [`BOT-076`](../backlog/BOT-076_realtime_backtest_engine.md).**
+> **Chặn [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md).**
 
 ## 1. Mục tiêu
 
@@ -83,5 +83,5 @@ là bug.
   đã có `peek_provisional`.
 - [`BOT-042C`](BOT-042C_series_provisional_slot.md) ✅ — `Series` đã có
   ô tạm.
-- Chặn [`BOT-076`](../backlog/BOT-076_realtime_backtest_engine.md) — consumer đầu tiên
+- Chặn [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md) — consumer đầu tiên
   của đường tick mới.
