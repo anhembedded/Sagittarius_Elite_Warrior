@@ -22,15 +22,14 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 98 | 72.6% |
-| 🟡 **In Progress** | 4 | 3.0% |
-| 🔴 **Backlog** | 31 | 23.0% |
-| ❌ **Cancelled** | 2 | 1.5% |
-| 📈 **Tổng số Task** | **135** | **100%** |
+| 🟢 **Completed** | 98 | 65.8% |
+| 🟡 **In Progress** | 4 | 2.7% |
+| 🔴 **Backlog** | 45 | 30.2% |
+| ❌ **Cancelled** | 2 | 1.3% |
+| 📈 **Tổng số Task** | **149** | **100%** |
 
 > Đếm lại 2026-08-19 (tối) trực tiếp theo số file `.md` trong mỗi thư mục `Tasks/{completed,in_progress,backlog,cancelled}/`,
-> thay vì cộng dồn thủ công — sau khi `BOT-076` đóng (in_progress → completed) và `BOT-102`/`BOT-103` được thêm/đóng cùng
-> phiên này. Đếm lại `ls Tasks/{completed,in_progress,backlog,cancelled}/*.md | wc -l` bất cứ khi nào nghi ngờ số lệch.
+> sau khi tạo `BOT-104` (Hộp thoại Đặc tính & Môi giới) và 4 Epic mới `BOT-105` (Quản trị Lệnh & Rủi ro), `BOT-106` (Phân tích Chỉ số Tài chính), `BOT-107` (Kiểm định Monte Carlo & OOS), `BOT-108` (Tối ưu hóa Tham số Tự động).
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -413,7 +412,18 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-065](completed/BOT-065_backtest_script_overlay_hidden_in_equity_mode.md)** | **Ẩn overlay Script khi chuyển "Đường Vốn"** | 🟢 **`S (Fast)`** | `BOT-060` ✅, `BOT-064` ✅ | `_set_script_overlay_lines_visible()` mới, gọi từ `_on_chart_mode_changed` cạnh `_on_ema_toggled()` đã có — lặp `self._chart_script_runner.active`, chỉ ẩn script `overlay=True` (subplot như RSI/MACD không share trục giá, giữ nguyên hiển thị). Test tái hiện bug thật trước khi sửa (đúng `.agents/rules/code-rule.md`). |
 | **1** | ✅ **[BOT-096](completed/BOT-096_truthful_backtest_exit_markers.md)** | **Backtest: Marker / Icon thoát LONG trung thực** | 🟢 **`S (Fast)`** | `BOT-056` ✅, `BOT-057` ✅ | Phân tách rõ ràng giữa `LONG ENTRY` ("MUA (LONG)") và `LONG EXIT` ("ĐÓNG LONG"), loại bỏ nhãn `Sell` gây hiểu nhầm sang lệnh SHORT; hiển thị trung thực tab `Bán (SHORT) [Chưa hỗ trợ]`. |
 | **1** | ✅ **[BOT-097](completed/BOT-097_backtest_display_timezone_selector.md)** | **Backtest: Chọn múi giờ hiển thị (UTC vs Giờ hệ thống)** | 🟢 **`S (Fast)`** | `BOT-095D` ✅ | Selector múi giờ hiển thị trên toolbar (`UTC`, `Giờ hệ thống`, IANA zones), định dạng đồng bộ cho chart axis, tooltip, trade logs entry/exit; bảo toàn 100% dữ liệu UTC invariant trong engine/DB. |
+| **1** | ✅ **[BOT-102](completed/BOT-102_backtest_symbol_picker.md)** | **Backtest: Modal chọn Symbol (Binance Exchange Info)** | 🟡 **`M (Standard)`** | `BOT-095E1` ✅ | Lấy trực tiếp danh sách 1361+ mã từ Binance REST API có tìm kiếm; sửa bug `_build_run_config()` bị gán nhầm default ETHUSDT. |
+| **2** | **[BOT-104](backlog/BOT-104_backtest_properties_and_broker_simulator_modal.md)** | **Backtest: Hộp thoại Đặc tính Chiến lược & Mô phỏng Môi giới** | 🔴 **`L (Thinking)`** | `BOT-022` ✅, `BOT-076` ✅, `BOT-095B` ✅ | Modal đa Tab chuẩn TradingView gom gọn Thông số, Vốn & Position Sizing (% Equity/USD), Pyramiding nhồi lệnh, Slippage trượt giá, Commission, Đòn bẩy & FSM Dirty Tracking. |
 | ❌ | **[BOT-024](cancelled/BOT-024_backtest_screen_dynamic_ui.md)** | **~~Backtest Screen — Replay UI~~ — ĐÃ HUỶ** | — | — | Huỷ 2026-08-19, xem hồ sơ huỷ — trùng tính năng đã bị từ chối ở `BOT-076` §3.5. |
+
+**Nhóm E — Quản trị Lệnh Nâng cao, Phân tích Lượng hóa & Tối ưu hóa Chiến lược**
+
+| Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
+| :--- | :--- | :---: | :---: | :--- |
+| **[Epic BOT-105](backlog/BOT-105_advanced_order_execution_and_risk_epic.md)** | **Quản trị Lệnh Nâng cao & Kiểm soát Rủi ro (SL/TP, Trailing, Magnifier)** | 🔴 **`L (Thinking)`** | `BOT-041`, `BOT-076` ✅ | Quản trị lệnh chuyên nghiệp: Trailing Stop, Break-Even Stop, Partial TP (`BOT-105A`), Bar Magnifier phân xử râu nến chạm cả SL/TP bằng tick 1s (`BOT-105B`). |
+| **[Epic BOT-106](backlog/BOT-106_advanced_financial_analytics_and_reports_epic.md)** | **Báo cáo & Phân tích Chỉ số Tài chính Nâng cao (Sharpe, Sortino, MAE/MFE)** | 🟡 **`M (Standard)`** | `BOT-055` ✅, `BOT-057` ✅ | Sharpe/Sortino/Calmar & Max Drawdown Duration (`BOT-106A`), phân tích MAE/MFE từng trade (`BOT-106B`), Drawdown Underwater Chart & Monthly Returns Heatmap (`BOT-106C`). |
+| **[Epic BOT-107](backlog/BOT-107_strategy_robustness_and_monte_carlo_epic.md)** | **Kiểm định Độ tin cậy Chiến lược & Mô phỏng Monte Carlo (Anti-Overfitting)** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-078` ✅ | Phân tách In-Sample / Out-of-Sample đối sánh mù (`BOT-107A`), mô phỏng ngẫu nhiên 10,000 kịch bản Monte Carlo đánh giá xác suất phá sản (Risk of Ruin %) (`BOT-107B`). |
+| **[Epic BOT-108](backlog/BOT-108_strategy_parameter_optimization_epic.md)** | **Tối ưu hóa Tham số Chiến lược Tự động (Grid Search & Heatmap)** | 🔴 **`L (Thinking)`** | `BOT-044` ✅, `BOT-095C` ✅ | Quét lưới tham số đa tiến trình ProcessPool (`BOT-108A`), bảng xếp hạng Leaderboard + Bản đồ nhiệt tham số 2D tìm vùng bình nguyên ổn định (`BOT-108B`). |
 
 **Ngoài nhóm**
 

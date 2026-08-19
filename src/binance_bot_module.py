@@ -203,9 +203,7 @@ class BinanceBotModule(BaseModule):
             GetBacktestRangeCoverageQuery, GetBacktestRangeCoverageQueryHandler
         )
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
-        app.container.bind(
-            ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler
-        )
+        app.container.bind(ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler)
 
     def _register_indicator_scripts(self, app: App) -> None:
         """Registers all domain indicator scripts into IndicatorScriptRegistry."""

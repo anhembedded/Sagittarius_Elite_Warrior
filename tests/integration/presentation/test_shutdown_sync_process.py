@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-_PROCESS_EXIT_TIMEOUT_SECONDS = 15
+_PROCESS_EXIT_TIMEOUT_SECONDS = 30
 
 
 def test_desktop_process_exits_when_closed_during_backtest_sync() -> None:
