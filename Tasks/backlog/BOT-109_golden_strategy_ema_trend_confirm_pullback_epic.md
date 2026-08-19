@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-109`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
-**Trạng thái:** 🟡 **Đang triển khai — Bước 0 (`BOT-041`) và Bước 1 (`BOT-050`) đã xong 20/08, tiếp theo là `BOT-110`**  
+**Trạng thái:** 🟡 **Đang triển khai — Bước 0 (`BOT-041`), Bước 1 (`BOT-050`) và Bước 3 (`BOT-110`) đã xong 20/08, tiếp theo là `BOT-111`**  
 **Mục tiêu:** Sử dụng chiến lược TradingView Pine Script v6 *"EMA Trend Confirm + Pullback + TP%"* làm **Chuẩn Tham Chiếu Vàng** (Golden Reference Specification) để nâng cấp toàn diện năng lực của engine Backtest, lấp đầy các khoảng trống về Bán khống (Short Selling), Lệnh chốt lời trong nến (Intra-bar TP), và trực quan hóa đa chiều.
 
 ---
@@ -146,7 +146,7 @@ graph TD
     A["BOT-109: Epic Chuẩn Tham Chiếu Vàng"] --> Z["0. BOT-041 ✅: SL/TP cơ bản + Position Sizing<br/>(nền cho BOT-050/BOT-105A) — XONG 19/08"]
     Z --> B["1. BOT-050 ✅: Short-Selling Support<br/>(Hỗ trợ Bán khống 2 chiều) — XONG 20/08"]
     Z --> C["2. BOT-105A: Break-Even/Trailing/Partial TP<br/>(xây trên SL/TP cơ bản của BOT-041)"]
-    B --> D["3. BOT-110: Concrete EmaTrendPullbackStrategy<br/>(Chuyển thể Chiến lược sang Python)"]
+    B --> D["3. BOT-110 ✅: Concrete EmaTrendPullbackStrategy<br/>(Chuyển thể Chiến lược sang Python) — XONG 20/08"]
     C --> D
     D --> E["4. BOT-111: Visual Polish & Đối Soát Backtest<br/>(Vẽ EMA, Marker Mua/Bán & Đối chiếu)"]
 ```
@@ -217,7 +217,17 @@ graph TD
 
 ---
 
-### 📌 3. [`BOT-110`](BOT-110_ema_trend_confirm_pullback_strategy.md): Triển Khai Chiến Lược `EmaTrendPullbackStrategy`
+### 📌 3. [`BOT-110`](../completed/BOT-110_ema_trend_confirm_pullback_strategy.md) ✅: Triển Khai Chiến Lược `EmaTrendPullbackStrategy`
+
+> ✅ **Hoàn thành (20/08)** — câu hỏi kiến trúc mở ở đầu file gốc (strategy
+> cần biết vị thế hiện tại để phát đúng `SELL`/`COVER`) giải quyết bằng
+> `StrategyContext.current_position_side: PositionSide | None = None` mới
+> (additive, luồng qua `StrategyEngine`/`PaperExchange.current_side`/cả 2
+> handler backtest). Bug thật tự phát hiện khi viết test tick-safety (bộ
+> đếm xác nhận xu hướng tự tham chiếu provisional của chính nó qua nhiều
+> `on_forming_bar_tick()` cùng 1 nến) sửa bằng `Series.committed()` mới.
+> Xem file đã đóng để biết chi tiết đầy đủ.
+
 - **Vấn đề**: Cần một lớp chiến lược Python hoàn chỉnh kế thừa `BaseStrategy` khai báo đúng các tham số và logic của Pine Script.
 - **Hạng mục công việc**:
   - Tạo `src/domain/strategies/ema_trend_pullback_strategy.py`.
@@ -244,5 +254,5 @@ graph TD
    (SL/TP cơ bản trong nến + position sizing theo rủi ro).
 1. ✅ **Bước 1 — Hoàn thành (20/08)**: [`BOT-050`](../completed/BOT-050_short_selling_support.md) (Short-Selling trong PaperExchange).
 2. 🏁 **Bước 2 (không bắt buộc cho riêng golden strategy này)**: [`BOT-105A`](BOT-105A_trailing_stop_and_partial_tp.md) (break-even/trailing/partial-TP) — xem ghi chú ở §2.2, cân nhắc bỏ nếu chỉ cần chạy đúng chiến lược tham chiếu.
-3. 🏁 **Bước 3**: Triển khai [`BOT-110`](BOT-110_ema_trend_confirm_pullback_strategy.md) (Viết Strategy `EmaTrendPullbackStrategy`) — **chốt trước** câu hỏi kiến trúc `StrategyContext`/vị thế ở đầu file `BOT-110`.
+3. ✅ **Bước 3 — Hoàn thành (20/08)**: [`BOT-110`](../completed/BOT-110_ema_trend_confirm_pullback_strategy.md) (Strategy `EmaTrendPullbackStrategy`, câu hỏi kiến trúc `StrategyContext`/vị thế đã chốt bằng `current_position_side`).
 4. 🏁 **Bước 4**: Triển khai [`BOT-111`](BOT-111_golden_strategy_visual_and_backtest_verification.md) (UI Marker, Chart & Verification).

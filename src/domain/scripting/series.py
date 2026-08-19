@@ -81,6 +81,24 @@ class Series:
             return None
         return self._values[offset]
 
+    def committed(self, offset: int = 0) -> float | None:
+        """The value as of `offset` bars ago, always ignoring any pending
+        `poke_provisional()` for the bar still forming — unlike `[offset]`,
+        which returns the live provisional at `offset == 0` while one is
+        set. Needed by any accumulator that reads its own history to compute
+        its own next value (e.g. a running counter tracked via `push()`/
+        `poke_provisional()`): such a read-before-write must always see the
+        last bar that actually closed, never a provisional guess this same
+        series poked on an earlier tick of the SAME still-forming bar —
+        otherwise repeated ticks feed the accumulator's own tentative output
+        back into itself as if it were settled history, letting it advance
+        several times within one bar instead of once (BOT-110)."""
+        if offset < 0:
+            raise IndexError(f"Series offset must be >= 0, got {offset}")
+        if offset >= len(self._values):
+            return None
+        return self._values[offset]
+
     def __len__(self) -> int:
         return len(self._values)
 

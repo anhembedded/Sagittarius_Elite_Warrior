@@ -258,7 +258,12 @@ class RunRealtimeBacktestCommandHandler(
                 forming_candle = forming.to_candle(
                     command.symbol, command.interval.value, is_closed=False
                 )
-                signal = engine.on_forming_bar_tick(forming_candle)
+                # BOT-110: read BEFORE this tick's own fill so the strategy
+                # sees the position it actually held going into the tick,
+                # not one this same tick's signal already changed.
+                signal = engine.on_forming_bar_tick(
+                    forming_candle, current_position_side=exchange.current_side
+                )
                 if signal is not None:
                     exchange.fill(signal, tick.close_price, tick.close_time)
 
@@ -308,7 +313,11 @@ class RunRealtimeBacktestCommandHandler(
         closed_candle = forming.to_candle(
             command.symbol, command.interval.value, is_closed=True
         )
-        signal = engine.on_tick(closed_candle)
+        # BOT-110: same "read before this bar's own fill" rule as the
+        # forming-bar path above.
+        signal = engine.on_tick(
+            closed_candle, current_position_side=exchange.current_side
+        )
         if signal is not None:
             exchange.fill(signal, closed_candle.close_price, closed_candle.close_time)
         equity_curve.append(

@@ -140,6 +140,15 @@ class PaperExchange:
         return len(self._positions)
 
     @property
+    def current_side(self) -> PositionSide | None:
+        """BOT-110 — the side every currently open position shares (`_open()`
+        rejects mixing Long+Short, see BOT-050 §3), or `None` when flat. Lets
+        a caller tell a strategy which side it's in via
+        `StrategyContext.current_position_side`, without the strategy ever
+        reading `PaperExchange` directly."""
+        return self._positions[0].side if self._positions else None
+
+    @property
     def trades(self) -> list[Trade]:
         return list(self._trades)
 

@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     IndicatorValue,
     StrategyContext,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
@@ -49,10 +52,18 @@ class StrategyEngine:
         self._strategy = strategy
         self._event_bus = event_bus
 
-    def on_tick(self, candle: MarketData) -> Signal | None:
-        return self._process_one(candle)
+    def on_tick(
+        self,
+        candle: MarketData,
+        current_position_side: PositionSide | None = None,
+    ) -> Signal | None:
+        return self._process_one(candle, current_position_side)
 
     def run_batch(self, klines: list[MarketData]) -> list[Signal]:
+        """Batch mode has no live position to report (used for
+        construct-and-discard indicator-line preview, never a real run) —
+        every candle sees `current_position_side=None`, same as every
+        caller before BOT-110 added the field."""
         signals: list[Signal] = []
         for candle in klines:
             signal = self._process_one(candle)
@@ -60,7 +71,11 @@ class StrategyEngine:
                 signals.append(signal)
         return signals
 
-    def on_forming_bar_tick(self, forming_candle: MarketData) -> Signal | None:
+    def on_forming_bar_tick(
+        self,
+        forming_candle: MarketData,
+        current_position_side: PositionSide | None = None,
+    ) -> Signal | None:
         """
         @brief Evaluates the strategy against a bar still forming (BOT-042D)
         — the Realtime Backtest (`BOT-076`) / tick-driven path.
@@ -82,7 +97,9 @@ class StrategyEngine:
             return None
 
         context = StrategyContext(
-            candle=forming_candle, indicators=MappingProxyType(readings)
+            candle=forming_candle,
+            indicators=MappingProxyType(readings),
+            current_position_side=current_position_side,
         )
         signal = self._strategy.evaluate(context)
         if signal.action is SignalAction.HOLD:
@@ -91,12 +108,20 @@ class StrategyEngine:
         self._event_bus.emit(SignalGeneratedEvent(signal=signal))
         return signal
 
-    def _process_one(self, candle: MarketData) -> Signal | None:
+    def _process_one(
+        self,
+        candle: MarketData,
+        current_position_side: PositionSide | None = None,
+    ) -> Signal | None:
         readings = self._update_indicators(candle)
         if readings is None:
             return None
 
-        context = StrategyContext(candle=candle, indicators=MappingProxyType(readings))
+        context = StrategyContext(
+            candle=candle,
+            indicators=MappingProxyType(readings),
+            current_position_side=current_position_side,
+        )
         signal = self._strategy.evaluate(context)
         if signal.action is SignalAction.HOLD:
             return None

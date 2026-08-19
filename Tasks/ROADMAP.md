@@ -22,13 +22,13 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 101 | 64.3% |
+| 🟢 **Completed** | 102 | 65.0% |
 | 🟡 **In Progress** | 4 | 2.5% |
-| 🔴 **Backlog** | 50 | 31.8% |
+| 🔴 **Backlog** | 49 | 31.2% |
 | ❌ **Cancelled** | 2 | 1.3% |
 | 📈 **Tổng số Task** | **157** | **100%** |
 
-> Cập nhật 2026-08-20: Bổ sung Epic `BOT-112` (Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul) cùng 4 task con `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112D`. Hoàn thành `BOT-041` (SL/TP + Risk Sizing) và `BOT-050` (Short-Selling) — bước 0/1 của Epic `BOT-109`.
+> Cập nhật 2026-08-20: Bổ sung Epic `BOT-112` (Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul) cùng 4 task con `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112D`. Hoàn thành `BOT-041` (SL/TP + Risk Sizing), `BOT-050` (Short-Selling) và `BOT-110` (EMA Trend Confirm + Pullback Strategy) — bước 0/1/3 của Epic `BOT-109`.
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -393,6 +393,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | ✅ **[BOT-051](completed/BOT-051_multi_ema_trend_follower.md)** | **Multi-EMA Trend Follower** | 🟢 **`S (Fast)`** | `BOT-046` ✅ | EMA 8/21/50/200 (đúng tên mockup), vào long khi xếp tầng đầy đủ, thoát khi phá thứ tự — 2 câu hỏi mở của task đã chốt với user trước khi code. |
 | **[BOT-052](backlog/BOT-052_four_ema_pullback_sideways_filter.md)** | **4 EMA Pullback + Sideways Filter** | 🟡 **`M (Standard)`** | `BOT-046` ✅ | Chiến lược trong tiêu đề mockup của user. Phần khó: định nghĩa "sideways" bằng số liệu (ATR/ADX **chưa có**; `IIndicator.update()` chỉ nhận 1 float nên ATR đụng giới hạn kiến trúc). |
 | **[BOT-053](backlog/BOT-053_qml_structure_breakout.md)** | **QML Structure Breakout** | 🔴 **`L (Thinking)`** | `BOT-046` ✅ | Nhận diện price-action pattern (Quasimodo), sinh "QML Score" cho Trade Logs + QML Signal Badges. Cần hạ tầng **swing high/low detection** (chưa có trong `domain/scripting/`). |
+| ✅ | **[BOT-110](completed/BOT-110_ema_trend_confirm_pullback_strategy.md)** | **EMA Trend Confirm + Pullback + TP%** | 🟡 **`M (Standard)`** | `BOT-050` ✅ | **Hoàn thành (20/08)**, bước 3 Epic `BOT-109`. Port 1:1 từ Pine v6. `StrategyContext.current_position_side` mới (additive) giải quyết câu hỏi kiến trúc SELL/COVER mở sẵn trong task gốc. **Bug thật tự phát hiện khi viết test tick-safety**: bộ đếm xác nhận xu hướng đọc `series[0]` làm "giá trị nến trước" tự tham chiếu ngược provisional của chính nó qua nhiều `on_forming_bar_tick()` cùng 1 nến — sửa bằng `Series.committed()` mới (đọc lịch sử đã commit, bỏ qua provisional đang treo). 9 test mới + mutation-verify, full suite 1539 pass. |
 
 > ⏸️ **SMC + Liquidity Sweep (BOT-054 cũ) đã bỏ khỏi phạm vi** — ghi chú đầy đủ để cân nhắc lại sau ở [BOT-043](backlog/BOT-043_named_strategy_library.md) mục 2.
 > ⚠️ **Hạ tầng còn thiếu cho mọi chiến lược phân tích cấu trúc giá** ([BOT-043](backlog/BOT-043_named_strategy_library.md) mục 3): (1) chưa có công cụ phát hiện **swing high/low**; (2) **`Series` mặc định chỉ giữ 16 bar** (`DEFAULT_HISTORY`) — chọn có chủ đích cho lookback ngắn của indicator, nhưng nhiều khả năng **không đủ cho phân tích cấu trúc**. `Series(history=N)` đã hỗ trợ tuỳ chỉnh, cần đánh giá bao nhiêu là đủ.
@@ -420,7 +421,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :---: | :--- |
-| **[Epic BOT-109](backlog/BOT-109_golden_strategy_ema_trend_confirm_pullback_epic.md)** | **Chuẩn Tham Chiếu Vàng — Thực thi Chiến lược "EMA Trend Confirm + Pullback + TP%"** | 🔴 **`L (Thinking)`** | `BOT-041` ✅, `BOT-050` ✅, `BOT-104` ✅ | Bước 0 (`BOT-041`) và bước 1 (`BOT-050`) đã xong (20/08). Tiếp theo: `BOT-110` (Strategy Python — còn 1 câu hỏi kiến trúc mở về `StrategyContext` chưa biết vị thế, cần chốt trước khi code) → `BOT-111` (Visual & Verification). `BOT-105A` không bắt buộc cho riêng golden strategy này. |
+| **[Epic BOT-109](backlog/BOT-109_golden_strategy_ema_trend_confirm_pullback_epic.md)** | **Chuẩn Tham Chiếu Vàng — Thực thi Chiến lược "EMA Trend Confirm + Pullback + TP%"** | 🔴 **`L (Thinking)`** | `BOT-041` ✅, `BOT-050` ✅, `BOT-104` ✅ | Bước 0 (`BOT-041`), bước 1 (`BOT-050`) và bước 3 (`BOT-110` ✅, `StrategyContext.current_position_side` mới giải quyết câu hỏi kiến trúc SELL/COVER) đã xong (20/08). Còn lại: `BOT-111` (Visual & Verification). `BOT-105A` không bắt buộc cho riêng golden strategy này. |
 | **[Epic BOT-105](backlog/BOT-105_advanced_order_execution_and_risk_epic.md)** | **Quản trị Lệnh Nâng cao & Kiểm soát Rủi ro (SL/TP, Trailing, Magnifier)** | 🔴 **`L (Thinking)`** | `BOT-041` ✅, `BOT-076` ✅ | Quản trị lệnh chuyên nghiệp: Trailing Stop, Break-Even Stop, Partial TP (`BOT-105A`), Bar Magnifier phân xử râu nến chạm cả SL/TP bằng tick 1s (`BOT-105B`). |
 | **[Epic BOT-106](backlog/BOT-106_advanced_financial_analytics_and_reports_epic.md)** | **Báo cáo & Phân tích Chỉ số Tài chính Nâng cao (Sharpe, Sortino, MAE/MFE)** | 🟡 **`M (Standard)`** | `BOT-055` ✅, `BOT-057` ✅ | Sharpe/Sortino/Calmar & Max Drawdown Duration (`BOT-106A`), phân tích MAE/MFE từng trade (`BOT-106B`), Drawdown Underwater Chart & Monthly Returns Heatmap (`BOT-106C`). |
 | **[Epic BOT-107](backlog/BOT-107_strategy_robustness_and_monte_carlo_epic.md)** | **Kiểm định Độ tin cậy Chiến lược & Mô phỏng Monte Carlo (Anti-Overfitting)** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-078` ✅ | Phân tách In-Sample / Out-of-Sample đối sánh mù (`BOT-107A`), mô phỏng ngẫu nhiên 10,000 kịch bản Monte Carlo đánh giá xác suất phá sản (Risk of Ruin %) (`BOT-107B`). |

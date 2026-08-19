@@ -231,7 +231,12 @@ class RunStaticBacktestCommandHandler(
                 candle.high_price, candle.low_price, candle.close_time
             )
 
-            signal = engine.on_tick(candle)
+            # BOT-110: tells the strategy which side (if any) is currently
+            # open, read fresh after the fill/stop-check above so it
+            # reflects this bar's true position state, not the previous
+            # bar's — a strategy choosing SELL vs COVER on the same exit
+            # condition needs this to answer correctly.
+            signal = engine.on_tick(candle, current_position_side=exchange.current_side)
             if signal is not None:
                 pending_signal = signal
 

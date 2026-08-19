@@ -107,6 +107,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.rsi_14_script import
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
+    EmaTrendPullbackStrategy,
+)
 from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
     MultiEmaTrendFollowerStrategy,
 )
@@ -230,6 +233,9 @@ class BinanceBotModule(BaseModule):
             "multi_ema_trend_follower", MultiEmaTrendFollowerStrategy
         )
         strategy_registry.register("support_resistance", SupportResistanceStrategy)
+        strategy_registry.register(
+            "ema_trend_confirm_pullback", EmaTrendPullbackStrategy
+        )
         app.container.singleton(StrategyRegistry, strategy_registry)
 
     def boot(self, app: App) -> None:

@@ -4,7 +4,7 @@
 **Độ phức tạp:** 🟡 **M (Standard Agent)**  
 **Trạng thái:** 🔴 **Backlog (Chờ triển khai)**  
 **Thuộc Epic:** [`BOT-109`](BOT-109_golden_strategy_ema_trend_confirm_pullback_epic.md) (Chuẩn Tham Chiếu Vàng)  
-**Phụ thuộc:** [`BOT-110`](BOT-110_ema_trend_confirm_pullback_strategy.md)
+**Phụ thuộc:** [`BOT-110`](../completed/BOT-110_ema_trend_confirm_pullback_strategy.md) ✅
 
 ---
 

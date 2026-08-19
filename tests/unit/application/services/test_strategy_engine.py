@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicators.rsi import RSI
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
@@ -257,3 +260,63 @@ def test_on_forming_bar_tick_can_disagree_with_the_eventual_bar_close():
     # happened as far as committed state is concerned.
     committed_signal = engine.on_tick(replace(forming_candle, is_closed=True))
     assert committed_signal is None
+
+
+# =========================================================================
+# BOT-110: current_position_side reaches the strategy's own context
+# =========================================================================
+
+
+class _PositionSideSpyStrategy:
+    """Records every `current_position_side` it was evaluated with — never
+    ships in src/, exists only to prove the plumbing, not any real
+    decision logic."""
+
+    def __init__(self) -> None:
+        self.seen_sides: list[PositionSide | None] = []
+
+    def evaluate(self, context: StrategyContext) -> Signal:
+        self.seen_sides.append(context.current_position_side)
+        return Signal(
+            symbol=context.candle.symbol,
+            action=SignalAction.HOLD,
+            reason="spy",
+            price=context.candle.close_price,
+            time=context.candle.close_time,
+        )
+
+
+def test_on_tick_forwards_current_position_side_into_the_context():
+    spy = _PositionSideSpyStrategy()
+    engine = StrategyEngine(indicators={}, strategy=spy, event_bus=Mock())
+    candle = _build_klines([100.0])[0]
+
+    engine.on_tick(candle, current_position_side=PositionSide.SHORT)
+
+    assert spy.seen_sides == [PositionSide.SHORT]
+
+
+def test_on_tick_defaults_current_position_side_to_none_when_unspecified():
+    """Every caller that existed before BOT-110 (including every test
+    above this one in this file) never passes this argument — the
+    strategy must keep seeing exactly what it always saw, `None`."""
+    spy = _PositionSideSpyStrategy()
+    engine = StrategyEngine(indicators={}, strategy=spy, event_bus=Mock())
+    candle = _build_klines([100.0])[0]
+
+    engine.on_tick(candle)
+
+    assert spy.seen_sides == [None]
+
+
+def test_on_forming_bar_tick_forwards_current_position_side_into_the_context():
+    spy = _PositionSideSpyStrategy()
+    engine = StrategyEngine(indicators={}, strategy=spy, event_bus=Mock())
+    candle = _build_klines([100.0])[0]
+    forming_candle = replace(candle, is_closed=False)
+
+    engine.on_forming_bar_tick(
+        forming_candle, current_position_side=PositionSide.LONG
+    )
+
+    assert spy.seen_sides == [PositionSide.LONG]

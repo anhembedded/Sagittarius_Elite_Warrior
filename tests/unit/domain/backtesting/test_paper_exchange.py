@@ -790,6 +790,25 @@ def test_check_intrabar_stops_for_short_when_bar_touches_both_stop_loss_wins():
     assert trades[0].exit_price == pytest.approx(101.2)
 
 
+def test_current_side_is_none_when_flat():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+
+    assert exchange.current_side is None
+
+
+def test_current_side_reports_long_or_short_while_open():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.current_side is PositionSide.LONG
+    exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+    assert exchange.current_side is None
+
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+    assert exchange.current_side is PositionSide.SHORT
+    exchange.fill(_signal(SignalAction.COVER), price=90.0, time=_T2)
+    assert exchange.current_side is None
+
+
 def test_risk_percent_sizing_works_symmetrically_for_short_by_hand():
     # risk 1% of 10,000 = 100 USD max loss. SL 2% above entry (100) ->
     # stop distance = 2.0. quantity = 100/2.0 = 50. capital = 5,000.
