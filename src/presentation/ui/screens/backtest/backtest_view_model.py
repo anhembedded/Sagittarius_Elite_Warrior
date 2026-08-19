@@ -72,6 +72,14 @@ class BackTestViewModel(BaseQmlViewModel):
 
     strategyOptionsChanged = Signal()
     selectedStrategyKeyChanged = Signal()
+    #: BOT-102 — symbolOptions starts empty and is populated on demand (the
+    #: Presenter fetches it from the exchange the first time the picker is
+    #: opened, not at screen construction, unlike strategyOptions/
+    #: timeframeOptions which are local/free). An empty list means either
+    #: "not fetched yet" or "fetch failed" — the modal shows a loading/error
+    #: state for either, it cannot tell them apart and doesn't need to.
+    symbolOptionsChanged = Signal()
+    selectedSymbolChanged = Signal()
     initialCapitalTextChanged = Signal()
     capitalValidationMessageChanged = Signal()
     marketRuleVerificationStatusChanged = Signal()
@@ -154,6 +162,7 @@ class BackTestViewModel(BaseQmlViewModel):
     openIndicatorPickerRequested = Signal(float, float)
     openOrderExecutionRequested = Signal(float, float)
     openStrategyPickerRequested = Signal()
+    openSymbolPickerRequested = Signal()
     openTimeframePickerRequested = Signal()
     openTimeRangePickerRequested = Signal()
     openTimezonePickerRequested = Signal()
@@ -165,6 +174,8 @@ class BackTestViewModel(BaseQmlViewModel):
         self._active_bottom_tab = "trades"
         self._strategy_options: list[dict[str, str]] = []
         self._selected_strategy_key = ""
+        self._symbol_options: list[str] = []
+        self._selected_symbol = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
         self._capital_validation_message = ""
         self._market_rule_verification_status = "UNVERIFIED_MISSING"
@@ -264,6 +275,45 @@ class BackTestViewModel(BaseQmlViewModel):
         str,
         _get_selected_strategy_name,
         notify=selectedStrategyKeyChanged,
+    )
+
+    # ------------------------------------------------------------------ #
+    # Symbol selection (BOT-102)
+    # ------------------------------------------------------------------ #
+
+    def _get_symbol_options(self) -> list[str]:
+        return self._symbol_options
+
+    #: Read-only from QML. Set by the Presenter after
+    #: ListAvailableSymbolsQuery resolves — see symbolOptionsChanged.
+    symbolOptions = Property(
+        "QStringList", _get_symbol_options, notify=symbolOptionsChanged
+    )
+
+    @Slot("QStringList")
+    def set_symbol_options(self, options: list[str]) -> None:
+        self._symbol_options = options
+        self.symbolOptionsChanged.emit()
+
+    def _get_selected_symbol(self) -> str:
+        return self._selected_symbol
+
+    def _set_selected_symbol(self, value: str) -> None:
+        if value != self._selected_symbol:
+            self._selected_symbol = value
+            self.selectedSymbolChanged.emit()
+
+    #: Write channel from SymbolPickerModal.qml only — BackTestPresenter owns
+    #: the actual `self._symbol` used for every command/query, and mirrors
+    #: this property's value into it on change (see
+    #: `_on_symbol_selection_changed`). Kept a plain attribute rather than
+    #: reading this property from background threads, matching the existing
+    #: "Presenter workers never touch the ViewModel directly" rule.
+    selectedSymbol = Property(
+        str,
+        _get_selected_symbol,
+        _set_selected_symbol,
+        notify=selectedSymbolChanged,
     )
 
     # ------------------------------------------------------------------ #
@@ -896,6 +946,10 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot()
     def requestOpenStrategyPicker(self) -> None:
         self.openStrategyPickerRequested.emit()
+
+    @Slot()
+    def requestOpenSymbolPicker(self) -> None:
+        self.openSymbolPickerRequested.emit()
 
     @Slot()
     def requestOpenTimeframePicker(self) -> None:

@@ -49,6 +49,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
     GetHistoricalKlinesQuery,
     GetHistoricalKlinesQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
+    ListAvailableSymbolsQuery,
+    ListAvailableSymbolsQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
     ScanAllDatabasesQuery,
     ScanAllDatabasesQueryHandler,
@@ -199,6 +203,9 @@ class BinanceBotModule(BaseModule):
             GetBacktestRangeCoverageQuery, GetBacktestRangeCoverageQueryHandler
         )
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
+        app.container.bind(
+            ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler
+        )
 
     def _register_indicator_scripts(self, app: App) -> None:
         """Registers all domain indicator scripts into IndicatorScriptRegistry."""

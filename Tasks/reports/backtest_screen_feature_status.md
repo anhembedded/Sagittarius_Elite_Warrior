@@ -65,6 +65,7 @@
 | `BacktestUiState` — state machine riêng (`IDLE/RUNNING/SYNCING/ERROR`), thay `UIMode` dùng chung với Dashboard/Data Management | ✅ | `BOT-059` | `backtest_state.py` (mới) — đặt tên `BacktestUiState` chứ không phải `BacktestState` như spec gốc vì trùng tên thật với 1 class không liên quan ở `application/use_cases/backtest/run_backtest/handler.py` | — (phủ gián tiếp qua mọi test dùng `presenter.fsm.current_state`) | — |
 | Trade Logs Table — bảng thật (cột/tab lọc/tìm kiếm/export CSV/phân trang) | ✅ | `BOT-057` §2.1 | `trade_log_row.py`/`trade_log_filter.py`/`trade_log_pagination.py`/`trade_log_export.py` (mới) — `ListView` thật trong `BackTestTradeLogs.qml`, không còn mockup 5 dòng giả | `test_trade_log_row.py`, `test_trade_log_filter.py`, `test_trade_log_pagination.py`, `test_trade_log_export.py`, `test_successful_run_populates_the_trade_log_first_page` (và 9 test khác trong `test_backtest_presenter.py`) | — |
 | Trade Logs — dòng mở rộng chi tiết (lý do vào/thoát lệnh, metadata động theo chiến lược, thời lượng) | ✅ | `BOT-057` §2.2 / `BOT-045` | `Trade.entry_reason`/`exit_reason` (`ExitReason` enum, 5 member)/`metadata`; mỗi dòng `BackTestTradeLogs.qml` là `Button` bấm mở/đóng 1 `Rectangle` chi tiết 3 khối, `metadataItems` render động theo key có mặt (không hardcode) | `test_paper_exchange.py` (entry/exit reason), `test_base_strategy.py` (mới), `test_trade_log_row.py` (metadata/duration/exit-reason formatting), `test_qml_clicking_a_trade_log_row_toggles_its_detail_section` | — |
+| Symbol Picker — đổi symbol từ UI, danh sách thật từ Binance exchange-info | ✅ | `BOT-102` | `IExchangeClient.get_available_symbols()`/`ListAvailableSymbolsQuery` (mới); `SymbolPickerModal.qml` (grid + tìm kiếm); `BackTestPresenter._on_symbol_selection_changed` giữ `self._symbol` là nguồn sự thật duy nhất | `test_list_available_symbols.py`, `test_python_binance_client_unit.py` (+2), `test_backtest_presenter.py` (+9) | — |
 
 ### Chưa có (🔲) — đã có task backlog giữ chỗ
 
@@ -77,7 +78,6 @@
 | Short-selling | [`BOT-050`](../backlog/BOT-050_short_selling_support.md) | — |
 | Thêm chiến lược ngoài `ema_crossover` | [`BOT-051`](../completed/BOT-051_multi_ema_trend_follower.md)/[`052`](../backlog/BOT-052_four_ema_pullback_sideways_filter.md)/[`053`](../backlog/BOT-053_qml_structure_breakout.md) | Dropdown hiện chỉ có 1 lựa chọn thật |
 | Replay mode (tua nến, play/pause) | [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md) §3.5 / [`BOT-024`](../backlog/BOT-024_backtest_screen_dynamic_ui.md) | Chưa bắt đầu. `BOT-023` (Dynamic engine) [đã huỷ 2026-08-18](../cancelled/BOT-023_dynamic_backtest_engine.md) — replay giờ là lớp điều khiển trên engine Realtime, không phải engine riêng |
-| Symbol picker | *(chưa có task)* | **Gap thật, chưa ai giữ chỗ** — Backtest luôn chạy 1 symbol duy nhất, giờ đọc từ `IConfig` (`BOT-058` ✅) nhưng vẫn cố định, không chọn được trong UI |
 
 ### Giới hạn đã biết, cố ý không làm (không phải bug)
 

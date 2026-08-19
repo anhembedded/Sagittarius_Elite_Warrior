@@ -36,3 +36,11 @@ class IExchangeClient(ABC):
         @param cancellation_requested Optional cooperative cancellation check.
         @return A list of MarketData entities.
         """
+
+    @abstractmethod
+    def get_available_symbols(self) -> list[str]:
+        """
+        @brief Lists every actively tradeable symbol on the exchange (BOT-102).
+        @return Sorted list of symbol names (e.g. ["BTCUSDT", "ETHUSDT", ...]),
+        restricted to symbols currently open for trading.
+        """

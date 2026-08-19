@@ -18,6 +18,7 @@ Item {
                                        || (indicatorPickerModal !== null && indicatorPickerModal.visible)
                                        || (orderExecutionModal !== null && orderExecutionModal.visible)
                                        || (strategyPickerModal !== null && strategyPickerModal.visible)
+                                       || (symbolPickerModal !== null && symbolPickerModal.visible)
                                        || (timeframePickerModal !== null && timeframePickerModal.visible)
                                        || (timeRangePickerModal !== null && timeRangePickerModal.visible)
                                        || (timezonePickerModal !== null && timezonePickerModal.visible)
@@ -52,6 +53,10 @@ Item {
 
         function onOpenStrategyPickerRequested() {
             strategyPickerModal.open()
+        }
+
+        function onOpenSymbolPickerRequested() {
+            symbolPickerModal.open()
         }
 
         function onOpenTimeframePickerRequested() {
@@ -113,6 +118,12 @@ Item {
     TimeframePickerModal {
         id: timeframePickerModal
         objectName: "timeframePickerModal"
+    }
+
+    // 11. Symbol Picker Modal (BOT-102)
+    SymbolPickerModal {
+        id: symbolPickerModal
+        objectName: "symbolPickerModal"
     }
 
     // 9. Time Range Picker Modal

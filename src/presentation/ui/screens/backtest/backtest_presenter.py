@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_ra
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols.query import (
+    ListAvailableSymbolsQuery,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
@@ -251,6 +254,8 @@ class BackTestPresenter(BasePresenter):
         int, object, list, list, list
     )  # preview_id, coverage, klines, volume, raw_klines
     _uiLogSignal = Signal(str, str, bool)  # message, level, is_dev
+    _symbolOptionsReadySignal = Signal(list)  # BOT-102: sorted symbol list
+    _symbolOptionsFailedSignal = Signal(str)  # BOT-102: error message
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
         super().__init__(view, container)
@@ -264,6 +269,13 @@ class BackTestPresenter(BasePresenter):
         default_symbols = config_values.get("DEFAULT_SYMBOLS") or []
         self._symbol: str = default_symbols[0] if default_symbols else _FALLBACK_SYMBOL
         default_interval = config_values.get("DEFAULT_INTERVAL") or ""
+
+        # BOT-102: symbol picker. `_symbol_options_cache` avoids re-hitting
+        # the exchange every time the modal is reopened in the same session
+        # (the tradeable symbol set does not change meaningfully within one
+        # run of the app) — None means "never fetched", distinct from an
+        # empty list which would mean "fetched, exchange returned nothing".
+        self._symbol_options_cache: list[str] | None = None
 
         # BOT-059: set only by _on_backtest_empty (a real "no historical
         # data" result), cleared by any successful run or successful sync —
@@ -376,6 +388,9 @@ class BackTestPresenter(BasePresenter):
         # fastest timeframe and so the one most likely to have synced data.
         if default_interval in DEFAULT_TIMEFRAMES:
             self._view_model.selectedTimeframe = default_interval
+        # BOT-102: mirrors the config-derived self._symbol so the picker
+        # highlights the right entry even before it's ever been opened.
+        self._view_model.selectedSymbol = self._symbol
         self._view_model.set_strategy_options(
             [
                 # category/description are blank until a registered strategy
@@ -458,6 +473,12 @@ class BackTestPresenter(BasePresenter):
             self._on_strategy_selection_changed
         )
         self._view_model.selectedTimeframeChanged.connect(self._on_timeframe_changed)
+        self._view_model.selectedSymbolChanged.connect(
+            self._on_symbol_selection_changed
+        )
+        self._view_model.openSymbolPickerRequested.connect(
+            self._on_symbol_picker_open_requested
+        )
         self._view_model.executionModeChanged.connect(self._on_execution_mode_changed)
         self._view_model.timeRangePresetChanged.connect(self._on_time_range_changed)
         self._view_model.displayTimezoneChanged.connect(
@@ -499,6 +520,8 @@ class BackTestPresenter(BasePresenter):
         self._syncProgressSignal.connect(self._on_sync_progress_for_action)
         self._previewDataReadySignal.connect(self._on_preview_data_ready)
         self._uiLogSignal.connect(self._on_ui_log)
+        self._symbolOptionsReadySignal.connect(self._on_symbol_options_ready)
+        self._symbolOptionsFailedSignal.connect(self._on_symbol_options_failed)
         self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
         self._view_model.tradeLogExportRequested.connect(
             self._on_trade_log_export_requested
@@ -1454,6 +1477,66 @@ class BackTestPresenter(BasePresenter):
 
     @Slot()
     @safe_ui_action
+    def _on_symbol_picker_open_requested(self) -> None:
+        """BOT-102: fetches the tradeable symbol list from the exchange the
+        first time the picker is opened in this session; a cache hit means
+        the modal already has `symbolOptions` populated from a prior open
+        and this is a no-op."""
+        if self._symbol_options_cache is not None:
+            return
+        self._thread_manager.submit(self._fetch_symbol_options)
+
+    def _fetch_symbol_options(self) -> None:
+        try:
+            symbols = self.dispatcher.dispatch(
+                ListAvailableSymbolsQuery, ListAvailableSymbolsQuery()
+            )
+        except Exception as exc:
+            logger.exception("Failed to fetch available symbols")
+            self._symbolOptionsFailedSignal.emit(str(exc))
+            return
+        self._symbolOptionsReadySignal.emit(symbols)
+
+    @Slot(list)
+    def _on_symbol_options_ready(self, symbols: list[str]) -> None:
+        self._symbol_options_cache = symbols
+        self._view_model.set_symbol_options(symbols)
+
+    @Slot(str)
+    def _on_symbol_options_failed(self, message: str) -> None:
+        self._emit_ui_log(
+            f"Không tải được danh sách symbol từ sàn: {message}", level="error"
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_symbol_selection_changed(self) -> None:
+        """BOT-102: the picker only ever writes valid, already-picked values
+        to `selectedSymbol` — this mirrors that choice into `self._symbol`,
+        the plain attribute every command/query dispatch actually reads
+        (kept separate from the ViewModel property because background
+        workers must never touch the ViewModel directly)."""
+        new_symbol = self._view_model.selectedSymbol
+        if not new_symbol or new_symbol == self._symbol:
+            return
+        self._symbol = new_symbol
+        # Full chart host rebuild, same as every other render_symbol_cards()
+        # call site outside __init__ (BOT-098F6D's native-fallback path) —
+        # skipping the bookkeeping reset/reconnect leaves the new host's
+        # controls unwired and stale ResourceScope dispose callbacks bound
+        # to the just-deleted old host (BUG-013). Deliberately NOT calling
+        # view.refresh_chart() here: it replays _last_klines/_last_result,
+        # which still belong to the PREVIOUS symbol — _request_chart_preview()
+        # below fetches and renders fresh data for the new one instead.
+        self.view.render_symbol_cards([self._symbol])
+        self._reset_indicator_bookkeeping_after_host_rebuild()
+        self._connect_chart_controls()
+        self._emit_ui_log(f"Đã đổi symbol sang {self._symbol}.")
+        self._on_config_input_changed()
+        self._request_chart_preview()
+
+    @Slot()
+    @safe_ui_action
     def _on_timeframe_changed(self) -> None:
         self._logger.log_timeframe_selected(self._view_model.selectedTimeframe)
         self._sync_chart_toolbar_timeframe()
@@ -1993,6 +2076,7 @@ class BackTestPresenter(BasePresenter):
             end_time=end_time,
             strategy_params=self._strategy_params,
             currency=Currency(view_model.selectedCurrency),
+            symbol=self._symbol,
             execution_mode=self._get_execution_mode_from_view_model(),
         )
 

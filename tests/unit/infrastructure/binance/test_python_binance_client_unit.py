@@ -155,3 +155,30 @@ def test_historical_kline_iteration_stops_cooperatively_when_cancelled():
         )
 
     assert cancellation_checks == 4
+
+
+def test_get_available_symbols_returns_only_trading_status_symbols_sorted():
+    """BOT-102 — BREAK/HALT/other non-TRADING symbols must not appear in the
+    picker; the exchange lists them but they cannot actually be backtested
+    against fresh data."""
+    injected_client = Mock()
+    injected_client.get_exchange_info.return_value = {
+        "symbols": [
+            {"symbol": "ETHUSDT", "status": "TRADING"},
+            {"symbol": "BTCUSDT", "status": "TRADING"},
+            {"symbol": "DELISTEDUSDT", "status": "BREAK"},
+        ]
+    }
+
+    client = PythonBinanceClient(client=injected_client)
+
+    assert client.get_available_symbols() == ["BTCUSDT", "ETHUSDT"]
+
+
+def test_get_available_symbols_returns_empty_list_when_exchange_info_is_empty():
+    injected_client = Mock()
+    injected_client.get_exchange_info.return_value = {"symbols": []}
+
+    client = PythonBinanceClient(client=injected_client)
+
+    assert client.get_available_symbols() == []

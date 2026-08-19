@@ -34,8 +34,12 @@ def test_valid_implementation():
         ) -> list[MarketData]:
             return []
 
+        def get_available_symbols(self) -> list[str]:
+            return []
+
     client = MockExchangeClient()
     result = client.get_historical_klines(
         "BTCUSDT", TimeFrame.ONE_MINUTE, "1 day ago UTC"
     )
     assert result == []
+    assert client.get_available_symbols() == []

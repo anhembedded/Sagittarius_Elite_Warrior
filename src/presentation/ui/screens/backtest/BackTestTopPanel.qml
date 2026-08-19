@@ -85,6 +85,50 @@ Rectangle {
                     height: toolbarScroll.height
                     spacing: 10
 
+                    // 0. Symbol Picker Button (BOT-102)
+                    Button {
+                        id: btnSymbol
+                        objectName: "btnBacktestSymbol"
+                        implicitHeight: 34
+                        implicitWidth: 110
+                        enabled: root.hasViewModel && viewModel.controlsEnabled
+                        background: Rectangle {
+                            color: btnSymbol.hovered ? "#222536" : "#181a24"
+                            border.color: Theme && Theme.border ? Theme.border : "#2a2d3d"
+                            border.width: 1
+                            radius: 6
+                        }
+                        contentItem: RowLayout {
+                            spacing: 8
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            Image {
+                                source: "image://icons/dollar-sign/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+
+                            Text {
+                                text: root.hasViewModel ? viewModel.selectedSymbol : "Symbol"
+                                color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                font.pixelSize: 11
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Image {
+                                source: "image://icons/chevron-down/muted"
+                                sourceSize: Qt.size(11, 11)
+                            }
+                        }
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestOpenSymbolPicker()
+                        }
+                    }
+
                     // 1. Strategy Picker Button
                     Button {
                         id: btnStrategy

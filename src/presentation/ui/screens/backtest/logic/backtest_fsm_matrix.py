@@ -221,6 +221,9 @@ class BacktestRunConfig:
         """
         diffs: list[str] = []
 
+        if self.symbol != other.symbol:
+            diffs.append(f"Symbol ({self.symbol} → {other.symbol})")
+
         if self.timeframe != other.timeframe:
             diffs.append(
                 f"Khung thời gian ({self.timeframe.value} → {other.timeframe.value})"

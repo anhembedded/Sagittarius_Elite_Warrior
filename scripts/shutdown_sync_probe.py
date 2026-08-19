@@ -61,6 +61,9 @@ class _BlockingExchangeClient(IExchangeClient):
         self.finished.set()
         raise ExchangeRequestCancelled("shutdown probe cancelled")
 
+    def get_available_symbols(self) -> list[str]:
+        return []
+
 
 def main() -> None:
     project_root = Path(__file__).resolve().parents[1]

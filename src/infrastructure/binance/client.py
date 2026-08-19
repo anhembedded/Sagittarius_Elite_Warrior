@@ -10,9 +10,18 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.market_metadata_parser import (
+    DEFAULT_STATUS,
+    BinanceMetadataKey,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 logger = logging.getLogger("App.ExchangeClient")
+
+#: Top-level key in Binance's GET /api/v3/exchangeInfo payload holding the
+#: per-symbol entries — distinct from BinanceMetadataKey.FILTERS, which is
+#: the nested filter list *inside* one such entry (BOT-102).
+_EXCHANGE_INFO_SYMBOLS_KEY = "symbols"
 
 
 class PythonBinanceClient(IExchangeClient):
@@ -137,3 +146,16 @@ class PythonBinanceClient(IExchangeClient):
         )
 
         return self._map_to_market_data(raw_klines, symbol, interval.value)
+
+    def get_available_symbols(self) -> list[str]:
+        info = self.client.get_exchange_info()
+        symbols_raw = info.get(_EXCHANGE_INFO_SYMBOLS_KEY, [])
+        tradeable = {
+            str(entry.get(BinanceMetadataKey.SYMBOL.value, "")).upper()
+            for entry in symbols_raw
+            if isinstance(entry, dict)
+            and str(entry.get(BinanceMetadataKey.STATUS.value, "")).upper()
+            == DEFAULT_STATUS
+        }
+        tradeable.discard("")
+        return sorted(tradeable)

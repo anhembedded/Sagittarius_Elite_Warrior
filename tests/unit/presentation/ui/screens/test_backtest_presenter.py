@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols.query import (
+    ListAvailableSymbolsQuery,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
@@ -467,6 +470,123 @@ def test_strategy_options_loaded_from_registry_on_init(view_model):
     assert view_model.selectedStrategyKey == "fake_strategy"
 
 
+# ---------------------------------------------------------------------------
+# Symbol picker (BOT-102)
+# ---------------------------------------------------------------------------
+
+
+def test_selected_symbol_defaults_to_the_presenters_configured_symbol(
+    presenter, view_model
+):
+    assert view_model.selectedSymbol == presenter._symbol
+    assert view_model.symbolOptions == []
+
+
+def test_opening_symbol_picker_fetches_options_from_the_exchange(
+    presenter, mock_thread_mgr
+):
+    presenter._on_symbol_picker_open_requested()
+
+    mock_thread_mgr.submit.assert_called_once_with(presenter._fetch_symbol_options)
+
+
+def test_opening_symbol_picker_again_does_not_refetch_when_already_cached(
+    presenter, mock_thread_mgr
+):
+    presenter._symbol_options_cache = ["BTCUSDT", "ETHUSDT"]
+
+    presenter._on_symbol_picker_open_requested()
+
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_fetch_symbol_options_dispatches_query_and_populates_the_view_model(
+    presenter, view_model, mock_dispatcher
+):
+    mock_dispatcher.dispatch.return_value = ["BTCUSDT", "ETHUSDT"]
+
+    presenter._fetch_symbol_options()
+
+    handler_class, query = mock_dispatcher.dispatch.call_args[0]
+    assert handler_class is ListAvailableSymbolsQuery
+    assert isinstance(query, ListAvailableSymbolsQuery)
+    assert presenter._symbol_options_cache == ["BTCUSDT", "ETHUSDT"]
+    assert view_model.symbolOptions == ["BTCUSDT", "ETHUSDT"]
+
+
+def test_fetch_symbol_options_failure_does_not_cache_and_logs_without_crashing(
+    presenter, view_model, mock_dispatcher
+):
+    mock_dispatcher.dispatch.side_effect = RuntimeError("exchange unreachable")
+
+    presenter._fetch_symbol_options()
+
+    assert presenter._symbol_options_cache is None
+    assert view_model.symbolOptions == []
+    assert "exchange unreachable" in view_model.log_model._entries[-1].message
+
+
+def test_selecting_a_symbol_updates_the_presenters_symbol_and_rebuilds_the_chart(
+    presenter, view_model
+):
+    original_symbol = presenter._symbol
+    new_symbol = "ETHUSDT" if original_symbol != "ETHUSDT" else "BTCUSDT"
+
+    view_model.selectedSymbol = new_symbol
+
+    assert presenter._symbol == new_symbol
+    assert presenter.view._last_symbols == [new_symbol]
+
+
+def test_selecting_the_already_active_symbol_is_a_no_op(
+    presenter, view_model, mock_thread_mgr
+):
+    mock_thread_mgr.reset_mock()
+
+    view_model.selectedSymbol = presenter._symbol
+
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_selecting_a_symbol_submits_a_fresh_chart_preview_for_it(
+    presenter, view_model, mock_thread_mgr
+):
+    new_symbol = "ETHUSDT" if presenter._symbol != "ETHUSDT" else "BTCUSDT"
+    mock_thread_mgr.reset_mock()
+
+    view_model.selectedSymbol = new_symbol
+
+    mock_thread_mgr.submit.assert_called_once()
+    worker, config, _preview_id = mock_thread_mgr.submit.call_args[0]
+    assert worker == presenter._run_chart_preview
+    assert config.symbol == new_symbol
+
+
+def test_selecting_a_symbol_marks_the_config_dirty_with_a_truthful_diff(
+    presenter, view_model
+):
+    """Mirrors test_dirty_tracking_detects_timeframe_change_after_completed —
+    a symbol change must be visible in the diff message too (BOT-102), not
+    only detected by equality (which BacktestRunConfig already got for free
+    since `symbol` was always a dataclass field, just never surfaced)."""
+    view_model.selectedStrategyKey = "fake_strategy"
+    view_model.selectedTimeframe = "1m"
+    view_model.initialCapitalText = "10000"
+    view_model.selectedCurrency = Currency.USD
+    original_symbol = presenter._symbol
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+
+    new_symbol = "ETHUSDT" if original_symbol != "ETHUSDT" else "BTCUSDT"
+    view_model.selectedSymbol = new_symbol
+
+    assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
+    assert f"Symbol ({original_symbol} → {new_symbol})" in view_model.configDiffSummary
+
+
 def test_dev_mode_enables_fps_overlay_on_the_real_backtest_chart(presenter):
     card = presenter.view.chart_cards[0]
 
@@ -634,6 +754,31 @@ def test_run_backtest_and_chart_fetch_use_the_config_driven_symbol(
     for call in mock_dispatcher.dispatch.call_args_list:
         _handler_class, command = call[0]
         assert command.symbol == "BTCUSDT"
+
+
+def test_build_run_config_carries_the_presenters_actual_symbol_not_the_dataclass_default(
+    qapp, mock_container, mock_config, request
+):
+    """`BacktestRunConfig.symbol` defaults to "ETHUSDT" (see
+    backtest_fsm_matrix.py) — `_build_run_config()` had silently omitted
+    `symbol=self._symbol` from its constructor call, so every completed
+    run's stored `_last_run_config`/`lastRunSummary`/action-trace log
+    silently showed "ETHUSDT" regardless of the real symbol, and Dirty
+    Tracking's `symbol` comparison (compute_diff_summary) would spuriously
+    fire on every toolbar edit for anyone whose configured symbol isn't
+    "ETHUSDT". A test using the fixture's own ETHUSDT fallback default
+    could never have caught this — the config here is deliberately anything
+    else (BTCUSDT) so the dataclass default cannot coincidentally match."""
+    mock_config.get_all.return_value = {"DEFAULT_SYMBOLS": ["BTCUSDT"]}
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+    presenter = BackTestPresenter(view, mock_container)
+    assert presenter._symbol == "BTCUSDT"
+
+    config = presenter._build_run_config()
+
+    assert config is not None
+    assert config.symbol == "BTCUSDT"
 
 
 # ---------------------------------------------------------------------------
