@@ -1,10 +1,13 @@
 # BOT-098F6C — Native Backtest interaction wrapper
 
-**Parent:** [`BOT-098F6`](BOT-098F6_backtest_chart_host_migration.md)  
+**Parent:** [`BOT-098F6`](../completed/BOT-098F6_backtest_chart_host_migration.md)  
 **Depends on:** `BOT-098F6B` ✅  
 **Priority:** P1  
 **Complexity:** L / Performance-specialized  
 **Status:** In Progress — acceptance criterion 3 only partially satisfied (see below)
+
+> 🔁 **Reopened 2026-08-19.** This file was moved into `completed/` by an earlier session, but its own `Status:` line here was never changed to `Completed` — a real inconsistency between file location and documented state, not a deliberate sign-off. Investigating why turned up a concrete, unresolved reason this task's own stated proof requirement is not met: acceptance criterion 4 ("leaves OHLCV, volume, indicator and marker geometry-build counts unchanged unless a documented LOD/resize boundary is crossed") is directly violated by [`BUG-015`](../bug_report/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md) — real Windows evidence (Direct3D11 RHI) shows OHLCV/volume geometry rebuilding in ~75% of plain drag+wheel runs, with no documented LOD/resize boundary crossed. This file's own `Status:` line already said "acceptance criterion 3 only partially satisfied" even while sitting in `completed/` — criterion 4 is now known broken too. Do not re-close without fixing `BUG-015`.
+
 
 ## Result
 

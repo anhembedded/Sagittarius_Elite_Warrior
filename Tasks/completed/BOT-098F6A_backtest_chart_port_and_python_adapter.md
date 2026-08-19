@@ -1,6 +1,6 @@
 # BOT-098F6A — Backtest chart port and Python adapter
 
-**Parent:** [`BOT-098F6`](../backlog/BOT-098F6_backtest_chart_host_migration.md)  
+**Parent:** [`BOT-098F6`](../completed/BOT-098F6_backtest_chart_host_migration.md)  
 **Depends on:** `BOT-098F5` ✅  
 **Priority:** P1  
 **Complexity:** M  

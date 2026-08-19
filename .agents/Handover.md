@@ -6,7 +6,40 @@ change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
 
-## Latest session handover (2026-08-18) — BUG-009 fixed (cached-frame preview now OFF by default)
+## Latest session handover (2026-08-19) — ROADMAP.md reconciled against real file state
+
+A prior overnight session physically moved `BOT-098F4`, `BOT-098F5`,
+`BOT-098F6C` and `BOT-098F6D` into `Tasks/completed/`, and marked the two
+umbrella docs (`BOT-098F`, `BOT-098F6`) `Status: Completed ✅` — but never
+updated those 4 children's own `Status:` lines (still said `In Progress`),
+and real Windows verification the same session ([`BUG-015`](../Tasks/bug_report/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md),
+[`BUG-016`](../Tasks/bug_report/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md))
+found each of those 4 tasks has a real, unmet, own-stated acceptance
+criterion. **Moved all 4 back to `Tasks/in_progress/`** (folder recreated —
+it had been emptied), each with a `🔁 Reopened` note explaining exactly
+which criterion and which bug blocks it; added matching caveats to the two
+umbrella docs rather than reverting their status, since everything else
+under them (F1/F2/F2A/F3/F6A/F6B/F6E/F6F) genuinely did finish. **Lesson:
+a file's physical folder is not itself evidence of completion — check the
+file's own `Status:` line and its stated acceptance criteria before trusting
+where it was filed.**
+
+Also reconciled `Tasks/ROADMAP.md` against everything else that landed
+overnight but was never reflected there: `BOT-095E1`, `BOT-095F`, `BOT-085`
+(+`BUG-011`/`BUG-012`), `BOT-098F6E`, `BOT-098F6F` all actually finished
+(commits + file location both confirm) but the backlog table still
+described them as pending, some with stale descriptions ("chưa code, chờ
+user chốt" for `BOT-098F6F`, which was actually implemented). Removed the
+stale rows, added `Completed` bullets, fixed every markdown link the
+`in_progress/` folder round-trip broke, and flagged `BUG-013` (a real,
+unrooted `ResourceScope`/`QQuickWidget`-already-deleted crash starting a
+new backtest run — different from the mode-switch one fixed 2026-08-18,
+same code area) since it had no roadmap visibility at all yet. Task counts
+at the top are now a literal file count per `Tasks/{completed,in_progress,
+backlog,cancelled}/` folder, not a manually-tracked running tally — recount
+the same way next time rather than incrementing by hand, it drifts fast.
+
+## Prior session handover (2026-08-18) — BUG-009 fixed (cached-frame preview now OFF by default)
 
 **BUG-009 is fixed by disabling the cached-frame preview**, not by patching
 it. `backtest.chart.cached_interaction_enabled` now defaults to **false**, so
@@ -101,7 +134,7 @@ next-steps list; follow this repo's own test-first bug rule
 confirm the hypothesis before touching code.
 
 **Also planned but not started:**
-[`BOT-098F6F`](../Tasks/backlog/BOT-098F6F_native_equity_and_both_subplot_support.md)
+[`BOT-098F6F`](../Tasks/completed/BOT-098F6F_native_equity_and_both_subplot_support.md)
 — native chart backend only covers OHLC candlestick mode today; Equity and
 BOTH (dual-pane) modes always fall back to Python by design
 (`NativeChartItem` has no line-series draw mode or second subplot region

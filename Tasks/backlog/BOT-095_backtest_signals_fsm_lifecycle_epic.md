@@ -86,8 +86,8 @@ stateDiagram-v2
 | ✅ **[BOT-095D](../completed/BOT-095D_backtest_timeframe_change_and_data_probe.md)** | **1-Click Auto-Sync & Run, Date Range Gap Check & Live Preview** | **P1 (Data Flow)** | Hoàn thành: cadence coverage probe, UTC range và post-sync re-probe. |
 | ✅ **[BOT-095E](../completed/BOT-095E_backtest_realtime_input_validation.md)** | **Khung Kiểm định Đầu vào Mở rộng (Pre-Backtest Assertion Pipeline) & Stepper** | **P2 (Validation)** | Hoàn thành local validation, Python-owned stepper và published-candle watermark. |
 | ✅ **[BOT-095E2](../completed/BOT-095E2_param_schema_step_metadata.md)** | **Step Metadata cho Strategy Parameter Schema** | **P2 (Validation)** | Hoàn thành contract `step` explicit cho Strategy/Indicator schema. |
-| 🔹 **[BOT-095E1](BOT-095E1_symbol_market_metadata_validation.md)** | **Symbol market metadata & truthful order-rule validation** | **P2 (Validation)** | Còn mở: cache immutable exchange filter và trạng thái "chưa xác minh" khi metadata thiếu/cũ. |
-| 🔹 **[BOT-095F](BOT-095F_backtest_dynamic_indicator_toggle.md)** | **Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest** | **P2 (Visualization)** | Bật/tắt chỉ báo tham chiếu (RSI, MACD, EMA) trên biểu đồ mà không cần chạy lại backtest; fence artifact theo `run_id` của `BOT-095H`. |
+| 🔹 **[BOT-095E1](../completed/BOT-095E1_symbol_market_metadata_validation.md)** | **Symbol market metadata & truthful order-rule validation** | **P2 (Validation)** | Còn mở: cache immutable exchange filter và trạng thái "chưa xác minh" khi metadata thiếu/cũ. |
+| 🔹 **[BOT-095F](../completed/BOT-095F_backtest_dynamic_indicator_toggle.md)** | **Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest** | **P2 (Visualization)** | Bật/tắt chỉ báo tham chiếu (RSI, MACD, EMA) trên biểu đồ mà không cần chạy lại backtest; fence artifact theo `run_id` của `BOT-095H`. |
 | 🔹 **[BOT-095G](BOT-095G_backtest_session_run_history_cache.md)** | **Bộ nhớ đệm Lịch sử Lần chạy (Session Run History Cache)** | **P2 (UX Power)** | Snapshot bất biến có provenance và giới hạn bộ nhớ; phục hồi nhanh Charts, Metrics và Trade Logs. Phụ thuộc `BOT-095H`. |
 
 ---

@@ -1,10 +1,13 @@
 # BOT-098F6D — Backtest native opt-in cutover
 
-**Parent:** [`BOT-098F6`](BOT-098F6_backtest_chart_host_migration.md)  
+**Parent:** [`BOT-098F6`](../completed/BOT-098F6_backtest_chart_host_migration.md)  
 **Depends on:** `BOT-098F5`, `BOT-098F6A` ✅, `BOT-098F6C`  
 **Priority:** P1  
 **Complexity:** L  
 **Status:** In Progress
+
+> 🔁 **Reopened 2026-08-19.** This file was moved into `completed/` by an earlier session, but its own `Status:` line here was never changed to `Completed` — a real inconsistency between file location and documented state, not a deliberate sign-off. Investigating why turned up a concrete, unresolved reason this task's own stated proof requirement is not met: acceptance criterion 5 ("`BOT-098F5` DPR 1 and DPR 2 reports are published against the production host wiring") depends on `BOT-098F5`, which is itself reopened for the same reason ([`BUG-016`](../bug_report/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md) — the exact script that would produce those reports hangs indefinitely on Windows). This file's own "Not yet done" section already named the missing Windows RHI evidence; that gap is now attached to a specific, open bug rather than a generic "no Windows machine" excuse. Do not re-close without `BOT-098F5` closing first.
+
 
 ## Goal
 

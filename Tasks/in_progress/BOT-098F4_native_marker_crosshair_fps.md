@@ -1,9 +1,12 @@
 # BOT-098F4 — Native marker, crosshair/tooltip and dev-FPS interaction
 
-**Parent:** [`BOT-098F`](../backlog/BOT-098F_qt_quick_scene_graph_chart_renderer.md)  
+**Parent:** [`BOT-098F`](../completed/BOT-098F_qt_quick_scene_graph_chart_renderer.md)  
 **Depends on:** `BOT-098F1` / `F2` / `F2A` / `F3` ✅  
 **Priority:** P1  
 **Status:** In Progress
+
+> 🔁 **Reopened 2026-08-19.** This file was moved into `completed/` by an earlier session, but its own `Status:` line here was never changed to `Completed` — a real inconsistency between file location and documented state, not a deliberate sign-off. Investigating why turned up a concrete, unresolved reason this task's own stated proof requirement is not met: "Required proof #2" above requires the native QML sanity to prove "no geometry rebuild across pointer updates" — [`BUG-015`](../bug_report/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md) shows real Windows evidence (Direct3D11 RHI, not software rendering) of OHLCV/volume geometry rebuilding in ~75% of plain drag+wheel runs. Leading hypothesis (not yet confirmed): `native_chart_item.cpp`'s `sizeChanged = root->renderedSize != currentSize` compares `QSizeF` by exact floating-point equality, which is fragile against sub-pixel jitter from the QML anchor chain — plausible, but unproven without `qDebug()` instrumentation and a Windows rebuild, which no session has done yet. Do not re-close this task by moving the file back without either fixing `BUG-015` or striking/renegotiating proof requirement #2.
+
 
 ## Goal
 
