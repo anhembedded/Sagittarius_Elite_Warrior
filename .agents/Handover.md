@@ -6,7 +6,43 @@ change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
 
-## Latest session handover (2026-08-19) — BUG-013 fixed (stale native dispose callback on backtest re-run)
+## Latest session handover (2026-08-19) — TRACE/critical log levels, `--debug` mode, dedicated bug-fix-rule.md
+
+Two related additions, both user-requested mid-session:
+
+1. **New rule file:** `.agents/rules/bug-fix-rule.md` — the full bug-fix
+   workflow (root cause first, regression test before the fix at the
+   correct tier, log evidence for both the reproduction and the fix,
+   permanent test, bug-report writeup) moved here from fragments that used
+   to live in `code-rule.md` and `commit-rule.md`. Read it before touching
+   any reported bug — it's not a duplicate of what those two files say
+   anymore, they now just point at it.
+2. **`TRACE` and `critical` log levels, plus a `--debug` CLI flag.**
+   `ILogger`/`StdLogger`/`NullLogger` (in `sagittarius_engine`, the shared
+   framework) gained `.trace()` and `.critical()` — `TRACE(5)` is one level
+   below `DEBUG(10)`, not a standard Python `logging` level, registered by
+   `sagittarius_engine/infrastructure/logging/logger_config.py` at import
+   time. `--debug` is strictly more verbose than `--dev`, not a separate
+   mode: it implies everything `--dev` does and additionally sets
+   `log.level=TRACE` (`--dev` alone still stops at `DEBUG`). The
+   `--dev`/`--debug` → level/file resolution itself is now a reusable
+   engine helper,
+   `sagittarius_engine.infrastructure.logging.dev_verbosity.resolve_dev_verbosity()`
+   — this was originally hand-rolled directly in this app's
+   `app_bootstrapper.py`; moved to the engine on the user's own suggestion
+   ("có khi nên sửa bên engine") since any app on this framework wants the
+   same "a dev session captures itself to a file automatically" behavior,
+   not just this bot. `scripts/run-ui.ps1` got a matching `-Debug` switch
+   (and `--debug` GNU-style) alongside the existing `-Dev`. Full detail on
+   when to use which level and how to filter a saved log file by
+   level/tag: `.agents/rules/logging-rule.md` §6-8.
+
+Full rationale for the log-evidence workflow point in `bug-fix-rule.md`
+(why a mock silently hid a non-reproduction for `BUG-013`, why keep-vs-
+discard temporary debug logging needs an explicit criterion instead of a
+reflex): read the file itself, it's short.
+
+## Prior session handover (2026-08-19) — BUG-013 fixed (stale native dispose callback on backtest re-run)
 
 **`BUG-013` is fixed.** Root cause: a script-drawn indicator line registered
 against the native chart host, followed by a native→python fallback
@@ -165,9 +201,8 @@ and
 (clicking "Đồng bộ dữ liệu ngay" repeatedly never clears the "missing
 candles" banner — possible cutoff mismatch between the coverage query and
 `_published_candle_cutoff()`, not yet root-caused). Both have a documented
-next-steps list; follow this repo's own test-first bug rule
-(`.agents/rules/code-rule.md`) when picking either up — reproduce and
-confirm the hypothesis before touching code.
+next-steps list; follow `.agents/rules/bug-fix-rule.md` when picking either
+up — reproduce and confirm the hypothesis before touching code.
 
 **Also planned but not started:**
 [`BOT-098F6F`](../Tasks/completed/BOT-098F6F_native_equity_and_both_subplot_support.md)
@@ -302,9 +337,15 @@ pip install -e Sagittarius-Engine
 - **`.agents/rules/code-rule.md`** (this folder) — the real, binding
   engineering rules for this submodule: No Hardcoding, SOLID, No Lazy Code
   (no `lambda` — write a named function instead), mandatory sanity tests
-  for every new feature/screen, write-a-regression-test-before-fixing-a-bug,
-  and the flat MVP-trio screen folder convention. Read it in full before
-  writing any code — this summary is not a substitute.
+  for every new feature/screen, and the flat MVP-trio screen folder
+  convention. Read it in full before writing any code — this summary is
+  not a substitute.
+- **`.agents/rules/bug-fix-rule.md`** (this folder) — the full bug-fix
+  workflow: root cause first, regression test before the fix (confirmed
+  failing for the right reason, at the correct test tier — see `BUG-013`'s
+  own lesson in it about mocks silently hiding a non-reproduction), kept
+  permanently after, then a `Tasks/bug_report/BUG-XXX.md` writeup. Read
+  this before touching any reported bug.
 - **`.agents/rules/install-rule.md`** (this folder) — installation guidelines and
   dependency setup for `sagittarius_engine` (GitHub URL install vs. local editable).
 - **`.agents/rules/native-chart-rule.md`** — mandatory CMake build, Qt/PySide ABI,

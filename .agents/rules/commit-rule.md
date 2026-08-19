@@ -84,12 +84,11 @@ older commit history.
 
 ---
 
-## 5. Bug Fix Commit Rule: Regression Test First (Quy tắc sửa Bug)
+## 5. Bug Fix Commits
 
-- When fixing a bug, the commit MUST include a regression test that specifically exercises the failure condition (preventing regression).
-- State the root cause clearly in the commit body:
-  - What caused the bug.
-  - Why the fix solves it cleanly without breaking architectural layer boundaries.
+Full workflow (root cause first, regression test before the fix, kept
+permanently, commit content) moved to
+`.agents/rules/bug-fix-rule.md` — follow it in full for any `fix:` commit.
 
 ---
 

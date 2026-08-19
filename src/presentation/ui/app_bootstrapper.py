@@ -18,7 +18,6 @@ from __future__ import annotations
 import os
 import sys
 import traceback
-from datetime import UTC, datetime
 
 import qdarktheme
 from PySide6.QtCore import QTimer
@@ -44,6 +43,9 @@ from sagittarius_engine.extensions.pyside_mvc import (
     setup_qt_signal_handling,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.infrastructure.logging.dev_verbosity import (
+    resolve_dev_verbosity,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 
 # ---------------------------------------------------------------------------
@@ -64,13 +66,6 @@ _LOG_DIR = os.path.join(
 )
 
 
-def _prepare_dev_log_file() -> str:
-    """Returns a timestamped log path, creating the directory if needed."""
-    os.makedirs(_LOG_DIR, exist_ok=True)
-    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    return os.path.join(_LOG_DIR, f"dev-{stamp}.log")
-
-
 def main() -> None:
     """Application entry point — boot Engine, boot UI, run event loop, shutdown."""
     # ------------------------------------------------------------------ #
@@ -80,27 +75,29 @@ def main() -> None:
     config_manager.load_json(_APP_CONFIG)
     config_manager.load_json(_USER_CONFIG, writable=True)
 
-    if "--dev" in sys.argv:
-        # Dev mode is when someone is actively diagnosing something, so it
-        # raises verbosity and writes the session to a file. Requiring a
-        # config edit to get DEBUG, and then asking the reporter to copy
-        # console scrollback by hand, is how detail gets lost from bug
-        # reports — see .agents/rules/logging-rule.md.
-        log_path = _prepare_dev_log_file()
+    # The --dev/--debug -> log level/file mapping is generic engine behavior
+    # (see sagittarius_engine.infrastructure.logging.dev_verbosity); what
+    # else dev/debug mode turns on here is this app's own concern —
+    # ConfigKeys.DEV_MODE (button-click auto-logging, per BaseView) and
+    # requiring the native chart environment so a dev session always has it
+    # available to diagnose against.
+    verbosity = resolve_dev_verbosity(sys.argv, _LOG_DIR)
+    if verbosity is not None:
         config_manager.load_dict(
             {
                 ConfigKeys.DEV_MODE.value: True,
-                "log.level": "DEBUG",
-                "log.file": log_path,
+                "log.level": verbosity.log_level,
+                "log.file": verbosity.log_file,
             }
         )
         configure_native_chart_environment(required=True)
         print(
-            "Dev mode enabled — log level DEBUG, full session written to "
-            f"{log_path} (attach this file to bug reports). Button clicks are "
-            "auto-logged for real QPushButtons only (e.g. ChartCard's "
-            "timeframe toolbar); QML screens are not instrumented (see "
-            "BaseView._ButtonClickWatcher)."
+            f"{'Debug' if verbosity.is_debug else 'Dev'} mode enabled — log "
+            f"level {verbosity.log_level}, full session written to "
+            f"{verbosity.log_file} (attach this file to bug reports). Button "
+            "clicks are auto-logged for real QPushButtons only (e.g. "
+            "ChartCard's timeframe toolbar); QML screens are not "
+            "instrumented (see BaseView._ButtonClickWatcher)."
         )
 
     app_engine = create_app(config_manager)

@@ -85,25 +85,77 @@ MUST report whether it had been applied yet — a frame captured while a
 coalesced range update is pending shows candles at the new range and
 indicators at the old one, and nothing else in the log would reveal that.
 
-## 6. Developer runs get more logging, automatically
+## 6. Six levels, in order — pick the narrowest one that fits
 
-`--dev` sets `log.level` to `DEBUG` and writes the whole session to
-`logs/dev-<timestamp>.log`. Never require a config edit to obtain diagnostics,
-and never rely on the reporter copying console scrollback by hand — detail is
-lost exactly where it matters. Ask for the log **file**.
+`TRACE(5) < DEBUG(10) < INFO(20) < WARNING(30) < ERROR(40) < CRITICAL(50)`.
+`TRACE` is not a standard Python `logging` level; `sagittarius_engine`'s
+`StdLogger`/`LoggerConfig` register it (`ILogger.trace()`/`.critical()` exist
+alongside the four you'd expect). Threshold is a single `log.level` config
+key — a call below it is silently dropped, regardless of which method was
+called.
 
-Use `DEBUG` for the per-event detail that would violate rule 4 at INFO, so it
-exists when a developer needs it and stays out of normal runs. Use `INFO` for
-decisions, environment and per-operation summaries.
+- **`TRACE`** — detail too high-frequency even for a normal `--dev` session:
+  per-frame, per-pixel, per-tick. Reserve it for exactly the hot paths rule 4
+  already says never to log per-event at `INFO`. If you'd hesitate to leave
+  a log line on for an entire `--dev` diagnostic session because of the
+  volume, it's `TRACE`, not `DEBUG`.
+- **`DEBUG`** — the per-event detail rule 4 describes: normal dev-session
+  diagnostics, safe to run for a whole reproduction without drowning it.
+- **`INFO`** — decisions, environment, per-operation summaries (rules 2-3).
+- **`WARNING`** — a degraded-but-recovered path (fallback engaged, retry
+  succeeded).
+- **`ERROR`** — an operation failed but the process is still sound.
+- **`CRITICAL`** — the process itself is compromised (unrecoverable startup
+  failure, a corrupted state nothing downstream can trust). Rare by design;
+  don't use it for an ordinary caught exception `ERROR` already covers.
 
-## 7. Prefix log lines with a stable, greppable tag
+## 7. Developer runs get more logging, automatically — `--dev` vs `--debug`
+
+Both flags write the whole session to a timestamped file under `logs/` and
+set `DEV_MODE`; they differ only in threshold and file prefix:
+
+| Flag | `log.level` | File |
+| --- | --- | --- |
+| `--dev` | `DEBUG` | `logs/dev-<timestamp>.log` |
+| `--debug` | `TRACE` | `logs/debug-<timestamp>.log` |
+
+`--debug` **implies** `--dev` — it is strictly more verbose, not a separate
+mode; there is no flag that gets `DEV_MODE` without at least `DEBUG`. Never
+require a config edit to obtain diagnostics, and never rely on the reporter
+copying console scrollback by hand — detail is lost exactly where it
+matters. Ask for the log **file**. The resolution itself
+(`sagittarius_engine.infrastructure.logging.dev_verbosity.resolve_dev_verbosity`)
+is generic engine behavior any app on this engine gets for free; an app's own
+bootstrapper only decides what else `--dev`/`--debug` additionally turns on
+(this app: `ConfigKeys.DEV_MODE`, requiring the native chart environment).
+
+## 8. Prefix log lines with a stable, greppable tag — and keep the format filterable
 
 Use a bracketed subsystem tag as the first token — `[chart-env]`,
 `[chart-data]`, `[cached-frame]` — or the existing `KEY=value` trace style
 (`BACKTEST_TRACE action=...`). A reporter pastes a whole session; the reader
 needs one `Select-String` to isolate a subsystem.
 
-## 8. A diagnostic that has never been seen to emit does not exist
+`StdLogger`'s formatter is fixed-field —
+`%(asctime)s - %(name)s - %(levelname)s - %(message)s` — specifically so a
+saved log file can be filtered two ways without touching the app:
+
+- **By level:** `Select-String "- (WARNING|ERROR|CRITICAL) -" session.log`
+  (PowerShell) or `grep -E '\- (WARNING|ERROR|CRITICAL) \-' session.log`
+  (POSIX) — the `levelname` field is fixed-width-delimited by ` - ` on both
+  sides, so this never accidentally matches a level name appearing inside a
+  message.
+- **By subsystem tag:** `Select-String "\[chart-data\]" session.log` /
+  `grep '\[chart-data\]'` — combine with the level filter
+  (`grep -E '\- (DEBUG|TRACE) \-' session.log | grep '\[cached-frame\]'`) to
+  isolate one subsystem's high-verbosity output from a `--debug` session
+  without reading the rest.
+
+Do not change the formatter's field order or separator without checking
+whether an existing filter/regex (in a task doc, a script, or a bug report's
+own reproduction steps) depends on it.
+
+## 9. A diagnostic that has never been seen to emit does not exist
 
 After adding logging, run the path and confirm the lines actually appear
 through the **real** logging configuration — not `logging.basicConfig` in a

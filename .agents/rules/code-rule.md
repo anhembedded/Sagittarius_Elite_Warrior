@@ -136,7 +136,9 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 - **Financial & Backtest Invariants:** Add deterministic property/invariant tests for financial code: reject `NaN`/infinite values, keep fees non-negative, keep equity/trade/metrics internally consistent, and require identical outputs for identical input data/configuration. Every new execution mode, fee model or simulation pass must extend these invariants.
 - **Business Acceptance for Trading Features:** A backtest UI test MUST assert the business composition of the result, not merely that a run completed. For example, a long-only result may contain long entries and long exits but MUST contain no short trade; a future short-enabled strategy must prove a downtrend produces an actual SHORT fill, its SHORT table filter shows it, its PnL moves correctly as price falls, and its chart marker represents the fill rather than merely the strategy signal.
 - **Read-only CI:** A CI verification command MUST not mutate the working tree. Use `ruff check` and `ruff format --check` in CI; reserve `--fix` and formatter writes for an explicit developer formatting action. A test runner that changes unrelated files is not an acceptable required quality gate.
-- **When fixing a bug, write a regression test first** that reproduces the failure condition before fixing the code. Keep that test permanently after the fix: it is the executable record of the reported failure and MUST NOT be deleted, skipped, weakened, or converted into a test that no longer reaches the original failure path unless it is explicitly replaced by stronger coverage of that same path.
+- **Fixing a bug:** follow `.agents/rules/bug-fix-rule.md` in full — root
+  cause first, regression test before the fix (confirmed failing for the
+  right reason, at the correct test tier), kept permanently after.
 - **Use repo's QML test helpers:** Use `qml_item` / `find_qml_item` fixtures from `tests/conftest.py`, `qtbot.waitUntil(...)`, and `item.mapToItem(root, 0, 0)`.
 - **Do not move click handling off the Button itself** when tests emit `.clicked`.
 - **Local CI/CD Enforcement:**

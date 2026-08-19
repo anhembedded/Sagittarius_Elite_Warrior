@@ -1,12 +1,21 @@
 param(
-    # Enables dev-mode UI instrumentation: click logs and a paint-event FPS
-    # overlay on the Backtest graph. Usage: run-ui.ps1 -Dev
-    [switch]$Dev
+    # Enables dev-mode UI instrumentation (log level DEBUG, session written
+    # to logs/dev-<timestamp>.log): click logs and a paint-event FPS overlay
+    # on the Backtest graph. Usage: run-ui.ps1 -Dev
+    [switch]$Dev,
+    # Strictly more verbose than -Dev, not a separate mode — implies
+    # everything -Dev does, plus drops the log threshold to TRACE (one
+    # level below DEBUG) and writes to logs/debug-<timestamp>.log instead.
+    # See .agents/rules/logging-rule.md §6-7. Usage: run-ui.ps1 -Debug
+    [switch]$Debug
 )
 
-# Also accept the literal GNU-style "--dev" form some users may type.
+# Also accept the literal GNU-style "--dev"/"--debug" forms some users may type.
 if ($args -contains "--dev") {
     $Dev = $true
+}
+if ($args -contains "--debug") {
+    $Debug = $true
 }
 
 $ErrorActionPreference = "Stop"
@@ -81,9 +90,16 @@ Set-Location $BotRoot
 $UIEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "main_window.py")
 
 $UIArgs = @()
-if ($Dev) {
+if ($Debug) {
+    # --debug alone already implies --dev's own behavior on the Python side
+    # (resolve_dev_verbosity treats it as strictly more verbose, not a
+    # separate mode) — passing both would be redundant, not wrong, but
+    # only one is needed.
+    $UIArgs += "--debug"
+    Write-Host "Starting PySide6 Trading Bot UI (debug mode — log level TRACE)..." -ForegroundColor Green
+} elseif ($Dev) {
     $UIArgs += "--dev"
-    Write-Host "Starting PySide6 Trading Bot UI (dev mode)..." -ForegroundColor Green
+    Write-Host "Starting PySide6 Trading Bot UI (dev mode — log level DEBUG)..." -ForegroundColor Green
 } else {
     Write-Host "Starting PySide6 Trading Bot UI..." -ForegroundColor Green
 }
