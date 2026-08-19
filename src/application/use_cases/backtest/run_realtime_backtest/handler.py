@@ -205,6 +205,8 @@ class RunRealtimeBacktestCommandHandler(
             symbol=command.symbol,
             initial_balance=command.initial_balance,
             fee_percent=command.fee_percent,
+            position_sizing=command.position_sizing,
+            broker_config=command.broker_config,
         )
         interval_seconds = command.interval.to_seconds()
 

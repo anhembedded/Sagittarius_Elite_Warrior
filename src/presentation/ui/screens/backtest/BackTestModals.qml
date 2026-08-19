@@ -90,8 +90,8 @@ Item {
         objectName: "limitationsPopup"
     }
 
-    // 4. Dynamic Bot Parameters Dialog
-    BotParamsDialog {
+    // 4. Dynamic Strategy Properties & Broker Simulator Modal (BOT-104)
+    StrategyPropertiesModal {
         id: botParamsDialog
         objectName: "botParamsDialog"
     }

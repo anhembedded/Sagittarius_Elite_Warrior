@@ -1,5 +1,4 @@
-"""Tests for PaperExchange (BOT-021)."""
-
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -8,6 +7,16 @@ import pytest
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.paper_exchange import (
     PaperExchange,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+    CommissionType,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
@@ -175,7 +184,201 @@ def test_metadata_from_the_opening_signal_carries_through_to_the_trade():
     exchange.fill(
         _signal(SignalAction.BUY, metadata={"qml_score": 92}), price=100.0, time=_T1
     )
+    trade = exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+    assert trade is not None
+    assert trade.metadata == {"qml_score": 92}
 
+
+# ================= BOT-104: Position Sizing, Pyramiding & Broker Simulator =================
+
+
+def test_position_sizing_percent_of_equity_allocates_exact_percentage(caplog):
+    caplog.set_level(logging.INFO, logger="App.PaperExchange")
+
+    sizing = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=20.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=10_000.0,
+        fee_percent=0.0,
+        position_sizing=sizing,
+    )
+
+    # Entry 1: 20% of 10,000 = 2,000 USD -> 20.0 BTC at $100
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    assert exchange.balance == pytest.approx(8_000.0)
+    assert exchange.position_count == 1
+    assert exchange.equity(mark_price=100.0) == pytest.approx(10_000.0)
+    assert exchange.equity(mark_price=150.0) == pytest.approx(8_000.0 + 20.0 * 150.0)
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=150.0, time=_T2)
+
+    assert trade is not None
+    assert trade.quantity == pytest.approx(20.0)
+    assert trade.pnl == pytest.approx(1_000.0)  # 20 * 150 - 2000 = +1000
+    assert trade.pnl_percent == pytest.approx(50.0)  # +50% on deployed capital
+    assert exchange.balance == pytest.approx(11_000.0)
+    assert any("[paper-exchange] BUY filled" in rec.message for rec in caplog.records)
+    assert any("[paper-exchange] SELL filled" in rec.message for rec in caplog.records)
+
+
+def test_position_sizing_fixed_cash_allocates_exact_dollar_amount():
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CASH, value=2_500.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=10_000.0,
+        fee_percent=0.0,
+        position_sizing=sizing,
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    assert exchange.balance == pytest.approx(7_500.0)
+    assert exchange.equity(mark_price=100.0) == pytest.approx(10_000.0)
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=120.0, time=_T2)
+
+    assert trade is not None
+    assert trade.quantity == pytest.approx(25.0)  # 2500 / 100
+    assert trade.pnl == pytest.approx(500.0)  # 25 * 120 - 2500 = +500
+    assert exchange.balance == pytest.approx(10_500.0)
+
+
+def test_position_sizing_fixed_contracts_allocates_exact_quantity():
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CONTRACTS, value=2.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=10_000.0,
+        fee_percent=0.0,
+        position_sizing=sizing,
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=1_000.0, time=_T1)
+
+    assert exchange.balance == pytest.approx(8_000.0)  # 10000 - 2 * 1000
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=1_500.0, time=_T2)
+
+    assert trade is not None
+    assert trade.quantity == pytest.approx(2.0)
+    assert trade.pnl == pytest.approx(1_000.0)  # 2 * 1500 - 2000 = +1000
+    assert exchange.balance == pytest.approx(11_000.0)
+
+
+def test_pyramiding_allows_multiple_entries_up_to_limit():
+    broker_cfg = BrokerSimulationConfig(pyramiding=3, commission_value=0.0)
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CASH, value=2_000.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=10_000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+
+    # 1st entry: 2000 / 100 = 20 qty
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.position_count == 1
+    assert exchange.balance == pytest.approx(8_000.0)
+
+    # 2nd entry: 2000 / 110 = 18.1818 qty
+    t1_plus = datetime(2024, 1, 1, 0, 30, tzinfo=UTC)
+    exchange.fill(_signal(SignalAction.BUY), price=110.0, time=t1_plus)
+    assert exchange.position_count == 2
+    assert exchange.balance == pytest.approx(6_000.0)
+
+    # 3rd entry: 2000 / 120 = 16.6667 qty
+    t1_plus2 = datetime(2024, 1, 1, 0, 45, tzinfo=UTC)
+    exchange.fill(_signal(SignalAction.BUY), price=120.0, time=t1_plus2)
+    assert exchange.position_count == 3
+    assert exchange.balance == pytest.approx(4_000.0)
+
+    # 4th entry: Rejected by pyramiding limit (3 max)
+    t1_plus3 = datetime(2024, 1, 1, 0, 50, tzinfo=UTC)
+    exchange.fill(_signal(SignalAction.BUY), price=125.0, time=t1_plus3)
+    assert exchange.position_count == 3
+    assert exchange.balance == pytest.approx(4_000.0)
+
+    # Exit: Closes all 3 positions and yields 3 separate trades
+    last_trade = exchange.fill(_signal(SignalAction.SELL), price=130.0, time=_T2)
+
+    assert last_trade is not None
+    assert len(exchange.trades) == 3
+    assert exchange.is_in_position is False
+
+    # Trade 1: 20 * 130 - 2000 = +600 PnL
+    assert exchange.trades[0].entry_price == 100.0
+    assert exchange.trades[0].pnl == pytest.approx(600.0)
+
+    # Trade 2: (2000/110) * 130 - 2000 = +363.636 PnL
+    assert exchange.trades[1].entry_price == 110.0
+    assert exchange.trades[1].pnl == pytest.approx((2000.0 / 110.0) * 130.0 - 2000.0)
+
+    # Trade 3: (2000/120) * 130 - 2000 = +166.667 PnL
+    assert exchange.trades[2].entry_price == 120.0
+    assert exchange.trades[2].pnl == pytest.approx((2000.0 / 120.0) * 130.0 - 2000.0)
+
+
+def test_slippage_simulation_applies_friction_to_buy_and_sell():
+    # 5 ticks * 0.1 tick_size = $0.50 slippage
+    broker_cfg = BrokerSimulationConfig(
+        slippage_ticks=5,
+        tick_size=0.1,
+        commission_value=0.0,
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1_000.0,
+        broker_config=broker_cfg,
+    )
+
+    # BUY at raw price 100.0 -> effective price = 100.50
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # SELL at raw price 110.0 -> effective price = 109.50
     trade = exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
 
-    assert trade.metadata == {"qml_score": 92}
+    assert trade is not None
+    assert trade.entry_price == pytest.approx(100.50)
+    assert trade.exit_price == pytest.approx(109.50)
+    # Qty = 1000 / 100.50 = 9.950248. Proceeds = 9.950248 * 109.50 = 1089.5522. PnL = +89.5522
+    assert trade.pnl == pytest.approx(1000.0 / 100.50 * 109.50 - 1000.0)
+
+
+def test_commission_cash_per_order_and_cash_per_contract():
+    # $5 fixed fee per order
+    order_cfg = BrokerSimulationConfig(
+        commission_type=CommissionType.CASH_PER_ORDER,
+        commission_value=5.0,
+    )
+    exchange_order = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1_000.0,
+        broker_config=order_cfg,
+    )
+
+    exchange_order.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    trade_order = exchange_order.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
+
+    assert trade_order is not None
+    assert trade_order.fees_paid == pytest.approx(10.0)  # $5 entry + $5 exit
+    assert trade_order.pnl == pytest.approx(-10.0)
+
+    # $1.00 fee per contract (coin)
+    contract_cfg = BrokerSimulationConfig(
+        commission_type=CommissionType.CASH_PER_CONTRACT,
+        commission_value=1.0,
+    )
+    exchange_contract = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1_000.0,
+        broker_config=contract_cfg,
+    )
+
+    # At $100 price + $1/contract fee -> 1000 / (100 + 1) = 9.90099 qty -> fee = 9.90099
+    exchange_contract.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    trade_contract = exchange_contract.fill(
+        _signal(SignalAction.SELL), price=100.0, time=_T2
+    )
+
+    assert trade_contract is not None
+    assert trade_contract.fees_paid == pytest.approx(trade_contract.quantity * 2.0)

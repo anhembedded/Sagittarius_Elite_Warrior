@@ -1,14 +1,27 @@
-from collections.abc import Mapping
+import logging
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+    CommissionType,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
+
+logger = logging.getLogger("App.PaperExchange")
 
 
 @dataclass
@@ -24,119 +37,277 @@ class _OpenPosition:
 
 class PaperExchange:
     """
-    @brief Simulated single-symbol, long-only exchange for the static
-    backtest engine (BOT-021).
+    @brief Simulated broker/exchange for backtesting strategy executions (BOT-021, BOT-104).
 
-    @details All-in position sizing — a BUY deploys the entire current
-    balance — and no pyramiding: a BUY while already in a position, or a
-    SELL with no open position, is a no-op. This matches the long-only,
-    single-position contract `EmaCrossoverStrategy` already documents itself
-    against ("whether a Sell with no open position does anything is a
-    PaperExchange concern"). A taker-style fee (percent of notional) is
-    charged on both entry and exit.
-
-    Callers are responsible for filling at the NEXT bar's open relative to
-    the bar that produced the signal, never the signal's own triggering bar
-    — `PaperExchange` itself is agnostic to *when* a fill happens, it just
-    executes at whatever price/time it's given.
+    @details
+    Supports:
+    1. Flexible Position Sizing: Percent of Equity, Fixed Cash, or Fixed Contracts.
+    2. Pyramiding: Up to N concurrent entries in the same direction.
+    3. Slippage Simulation: Configurable tick slippage applied to market fills.
+    4. Flexible Commission Models: Percentage of notional, Fixed cash per order, or Fixed cash per contract.
     """
 
     def __init__(
-        self, symbol: str, initial_balance: float, fee_percent: float = 0.1
+        self,
+        symbol: str,
+        initial_balance: float,
+        fee_percent: float = 0.1,
+        position_sizing: PositionSizing | None = None,
+        broker_config: BrokerSimulationConfig | None = None,
     ) -> None:
         if initial_balance <= 0:
             raise ValueError(f"initial_balance must be positive, got {initial_balance}")
         if fee_percent < 0:
             raise ValueError(f"fee_percent must be >= 0, got {fee_percent}")
+
         self._symbol = symbol
         self._balance = initial_balance
-        self._fee_percent = fee_percent
-        self._position: _OpenPosition | None = None
+        self._initial_balance = initial_balance
+
+        if broker_config is not None:
+            self._broker_config = broker_config
+        else:
+            self._broker_config = BrokerSimulationConfig(
+                commission_type=CommissionType.PERCENT,
+                commission_value=fee_percent,
+            )
+
+        if position_sizing is not None:
+            self._position_sizing = position_sizing
+        else:
+            self._position_sizing = PositionSizing(
+                type=PositionSizingType.PERCENT_OF_EQUITY,
+                value=100.0,
+            )
+
+        self._positions: list[_OpenPosition] = []
         self._trades: list[Trade] = []
+
+        logger.info(
+            f"[paper-exchange] Initialized for {symbol} | Initial Capital: {initial_balance:,.2f} | "
+            f"Sizing: {self._position_sizing.type.value} ({self._position_sizing.value}) | "
+            f"Pyramiding: {self._broker_config.pyramiding} | Slippage: {self._broker_config.slippage_ticks} ticks | "
+            f"Commission: {self._broker_config.commission_value} ({self._broker_config.commission_type.value})"
+        )
+
+    @property
+    def symbol(self) -> str:
+        return self._symbol
 
     @property
     def balance(self) -> float:
+        """Available unallocated cash balance."""
         return self._balance
 
     @property
     def is_in_position(self) -> bool:
-        return self._position is not None
+        return len(self._positions) > 0
+
+    @property
+    def position_count(self) -> int:
+        return len(self._positions)
 
     @property
     def trades(self) -> list[Trade]:
         return list(self._trades)
 
+    @property
+    def position_sizing(self) -> PositionSizing:
+        return self._position_sizing
+
+    @property
+    def broker_config(self) -> BrokerSimulationConfig:
+        return self._broker_config
+
     def equity(self, mark_price: float) -> float:
-        """Cash balance if flat, or the open position marked to `mark_price`."""
-        if self._position is None:
+        """Cash balance if flat, or cash balance plus marked-to-market position values."""
+        if not self._positions:
             return self._balance
-        return self._position.quantity * mark_price
+        total_open_value = sum(p.quantity * mark_price for p in self._positions)
+        return self._balance + total_open_value
 
     def fill(self, signal: Signal, price: float, time: datetime) -> Trade | None:
-        """Executes `signal` at `price`/`time`. Returns the closed `Trade` on
-        a SELL that actually closed a position, otherwise None (BUY opens
-        but never itself completes a Trade; a no-op fill also returns None)."""
+        """
+        Executes `signal` at `price`/`time`.
+        Returns the last closed `Trade` on a SELL that closed positions, otherwise None.
+        """
         if signal.action is SignalAction.BUY:
             self._open(price, time, signal.reason, signal.metadata)
             return None
         if signal.action is SignalAction.SELL:
-            return self._close(price, time, ExitReason.STRATEGY_SIGNAL)
+            closed = self._close(price, time, ExitReason.STRATEGY_SIGNAL)
+            return closed[-1] if closed else None
         return None
 
     def force_close(self, price: float, time: datetime) -> Trade | None:
-        """Realizes any still-open position at `price`/`time` — used at the
-        end of a backtest run so every trade counted toward the metrics is a
-        genuinely closed trade, never one with an unresolved open PnL."""
-        return self._close(price, time, ExitReason.END_OF_BACKTEST)
+        """
+        Realizes all still-open positions at `price`/`time` at the end of a backtest run.
+        """
+        closed = self._close(price, time, ExitReason.END_OF_BACKTEST)
+        return closed[-1] if closed else None
+
+    def _calculate_buy_capital(
+        self, price: float, current_equity: float
+    ) -> tuple[float, float, float]:
+        """
+        Calculates (capital_deployed, quantity, entry_fee) for a BUY order based on position sizing
+        and commission model. Returns (0.0, 0.0, 0.0) if sizing or cash is insufficient.
+        """
+        slippage_delta = (
+            self._broker_config.slippage_ticks * self._broker_config.tick_size
+        )
+        effective_price = price + slippage_delta
+        if effective_price <= 0:
+            return 0.0, 0.0, 0.0
+
+        sizing_type = self._position_sizing.type
+        sizing_val = self._position_sizing.value
+
+        if sizing_type is PositionSizingType.PERCENT_OF_EQUITY:
+            target_capital = current_equity * (sizing_val / 100.0)
+        elif sizing_type is PositionSizingType.FIXED_CASH:
+            target_capital = sizing_val
+        elif sizing_type is PositionSizingType.FIXED_CONTRACTS:
+            target_capital = sizing_val * effective_price
+        else:
+            target_capital = self._balance
+
+        # Capital deployed cannot exceed currently available liquid cash balance
+        target_capital = min(target_capital, self._balance)
+        if target_capital <= 0:
+            return 0.0, 0.0, 0.0
+
+        comm_type = self._broker_config.commission_type
+        comm_val = self._broker_config.commission_value
+
+        if comm_type is CommissionType.PERCENT:
+            entry_fee = target_capital * (comm_val / 100.0)
+            net_capital = target_capital - entry_fee
+            if net_capital <= 0:
+                return 0.0, 0.0, 0.0
+            quantity = net_capital / effective_price
+            capital_deployed = target_capital
+        elif comm_type is CommissionType.CASH_PER_ORDER:
+            entry_fee = comm_val
+            net_capital = target_capital - entry_fee
+            if net_capital <= 0:
+                return 0.0, 0.0, 0.0
+            quantity = net_capital / effective_price
+            capital_deployed = target_capital
+        elif comm_type is CommissionType.CASH_PER_CONTRACT:
+            quantity = target_capital / (effective_price + comm_val)
+            if quantity <= 0:
+                return 0.0, 0.0, 0.0
+            entry_fee = quantity * comm_val
+            capital_deployed = target_capital
+        else:
+            entry_fee = 0.0
+            quantity = target_capital / effective_price
+            capital_deployed = target_capital
+
+        return capital_deployed, quantity, entry_fee
 
     def _open(
         self, price: float, time: datetime, reason: str, metadata: Mapping[str, Any]
     ) -> None:
-        if self._position is not None:
-            return  # already in a position — no pyramiding
-        entry_fee = self._balance * self._fee_percent / 100
-        capital = self._balance - entry_fee
-        quantity = capital / price
-        self._position = _OpenPosition(
+        if len(self._positions) >= self._broker_config.pyramiding:
+            logger.debug(
+                f"[paper-exchange] BUY rejected: pyramiding limit reached ({len(self._positions)}/{self._broker_config.pyramiding})"
+            )
+            return
+
+        current_eq = self.equity(price)
+        capital_deployed, quantity, entry_fee = self._calculate_buy_capital(
+            price, current_eq
+        )
+        if quantity <= 0 or capital_deployed <= 0:
+            logger.debug(
+                f"[paper-exchange] BUY rejected: insufficient balance ({self._balance:,.2f}) for sizing {self._position_sizing}"
+            )
+            return
+
+        slippage_delta = (
+            self._broker_config.slippage_ticks * self._broker_config.tick_size
+        )
+        effective_price = price + slippage_delta
+
+        self._balance -= capital_deployed
+        position = _OpenPosition(
             quantity=quantity,
-            entry_price=price,
+            entry_price=effective_price,
             entry_time=time,
-            balance_before_entry=self._balance,
+            balance_before_entry=capital_deployed,
             entry_fee=entry_fee,
             entry_reason=reason,
             entry_metadata=metadata,
         )
-        self._balance = 0.0
+        self._positions.append(position)
+        logger.info(
+            f"[paper-exchange] BUY filled | Price: {effective_price:,.2f} (raw: {price:,.2f}, slip: +{slippage_delta:,.2f}) | "
+            f"Qty: {quantity:.6f} | Cost: {capital_deployed:,.2f} | Fee: {entry_fee:,.2f} | "
+            f"Pos: {len(self._positions)}/{self._broker_config.pyramiding} | Cash Left: {self._balance:,.2f}"
+        )
 
     def _close(
         self, price: float, time: datetime, exit_reason: ExitReason
-    ) -> Trade | None:
-        if self._position is None:
-            return None
-        position = self._position
-        proceeds = position.quantity * price
-        exit_fee = proceeds * self._fee_percent / 100
-        self._balance = proceeds - exit_fee
-        pnl = self._balance - position.balance_before_entry
-        pnl_percent = (
-            (pnl / position.balance_before_entry) * 100
-            if position.balance_before_entry
-            else 0.0
+    ) -> Sequence[Trade]:
+        if not self._positions:
+            logger.debug("[paper-exchange] SELL rejected: no open positions to close")
+            return []
+
+        slippage_delta = (
+            self._broker_config.slippage_ticks * self._broker_config.tick_size
         )
-        trade = Trade(
-            symbol=self._symbol,
-            entry_time=position.entry_time,
-            entry_price=position.entry_price,
-            exit_time=time,
-            exit_price=price,
-            quantity=position.quantity,
-            pnl=pnl,
-            pnl_percent=pnl_percent,
-            fees_paid=position.entry_fee + exit_fee,
-            entry_reason=position.entry_reason,
-            exit_reason=exit_reason,
-            metadata=position.entry_metadata,
+        effective_price = max(0.0, price - slippage_delta)
+        comm_type = self._broker_config.commission_type
+        comm_val = self._broker_config.commission_value
+
+        closed_trades: list[Trade] = []
+
+        for pos in self._positions:
+            gross_proceeds = pos.quantity * effective_price
+            if comm_type is CommissionType.PERCENT:
+                exit_fee = gross_proceeds * (comm_val / 100.0)
+            elif comm_type is CommissionType.CASH_PER_ORDER:
+                exit_fee = comm_val
+            elif comm_type is CommissionType.CASH_PER_CONTRACT:
+                exit_fee = pos.quantity * comm_val
+            else:
+                exit_fee = 0.0
+
+            net_proceeds = gross_proceeds - exit_fee
+            self._balance += net_proceeds
+            pnl = net_proceeds - pos.balance_before_entry
+            pnl_percent = (
+                (pnl / pos.balance_before_entry * 100.0)
+                if pos.balance_before_entry > 0
+                else 0.0
+            )
+
+            trade = Trade(
+                symbol=self._symbol,
+                entry_time=pos.entry_time,
+                entry_price=pos.entry_price,
+                exit_time=time,
+                exit_price=effective_price,
+                quantity=pos.quantity,
+                pnl=pnl,
+                pnl_percent=pnl_percent,
+                fees_paid=pos.entry_fee + exit_fee,
+                entry_reason=pos.entry_reason,
+                exit_reason=exit_reason,
+                metadata=pos.entry_metadata,
+            )
+            self._trades.append(trade)
+            closed_trades.append(trade)
+            logger.info(
+                f"[paper-exchange] SELL filled | Price: {effective_price:,.2f} (raw: {price:,.2f}, slip: -{slippage_delta:,.2f}) | "
+                f"Qty: {pos.quantity:.6f} | PnL: {pnl:+,.2f} ({pnl_percent:+.2f}%) | "
+                f"Fee: {pos.entry_fee + exit_fee:,.2f} | Reason: {exit_reason.value}"
+            )
+
+        self._positions = []
+        logger.info(
+            f"[paper-exchange] All positions closed ({len(closed_trades)} trades) | New Balance: {self._balance:,.2f}"
         )
-        self._trades.append(trade)
-        self._position = None
-        return trade
+        return closed_trades

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+    CommissionType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
@@ -154,6 +160,21 @@ class BackTestViewModel(BaseQmlViewModel):
     #: modal's form — BOT-047.
     botParamsSaveRequested = Signal(object)
 
+    #: Strategy Properties Modal save requested (BOT-104)
+    strategyPropertiesSaveRequested = Signal(object)
+
+    #: Broker Simulation Settings signals (BOT-104)
+    orderSizeTypeChanged = Signal()
+    orderSizeValueChanged = Signal()
+    orderSizeTextChanged = Signal()
+    pyramidingChanged = Signal()
+    commissionTypeChanged = Signal()
+    commissionValueChanged = Signal()
+    commissionTextChanged = Signal()
+    slippageTicksChanged = Signal()
+    longLeverageChanged = Signal()
+    shortLeverageChanged = Signal()
+
     #: BOT-088: Signals to trigger overlay modals hosted in OverlayHost.
     openBotParamsRequested = Signal(str)
     openExtendedMetricsRequested = Signal()
@@ -183,6 +204,16 @@ class BackTestViewModel(BaseQmlViewModel):
         self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
         self._execution_mode = BacktestExecutionMode.BAR_CLOSE.value
+        self._order_size_type = PositionSizingType.PERCENT_OF_EQUITY.value
+        self._order_size_value = 100.0
+        self._order_size_text = "100"
+        self._pyramiding = 1
+        self._commission_type = CommissionType.PERCENT.value
+        self._commission_value = 0.1
+        self._commission_text = "0.1"
+        self._slippage_ticks = 0
+        self._long_leverage = 1.0
+        self._short_leverage = 1.0
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
         self._display_timezone = DEFAULT_TIMEZONE
         self._custom_start_text = ""
@@ -501,8 +532,208 @@ class BackTestViewModel(BaseQmlViewModel):
     )
 
     # ------------------------------------------------------------------ #
-    # Time range
+    # Broker simulation & sizing (BOT-104)
     # ------------------------------------------------------------------ #
+
+    def _get_order_size_type(self) -> str:
+        return self._order_size_type
+
+    def _set_order_size_type(self, value: str) -> None:
+        if value != self._order_size_type:
+            self._order_size_type = value
+            self.orderSizeTypeChanged.emit()
+
+    orderSizeType = Property(
+        str,
+        _get_order_size_type,
+        _set_order_size_type,
+        notify=orderSizeTypeChanged,
+    )
+
+    def _get_order_size_value(self) -> float:
+        return self._order_size_value
+
+    def _set_order_size_value(self, value: float) -> None:
+        if value != self._order_size_value:
+            self._order_size_value = value
+            self.orderSizeValueChanged.emit()
+
+    orderSizeValue = Property(
+        float,
+        _get_order_size_value,
+        _set_order_size_value,
+        notify=orderSizeValueChanged,
+    )
+
+    def _get_order_size_text(self) -> str:
+        return self._order_size_text
+
+    def _set_order_size_text(self, value: str) -> None:
+        if value != self._order_size_text:
+            self._order_size_text = value
+            try:
+                self._order_size_value = float(value)
+            except ValueError:
+                pass
+            self.orderSizeTextChanged.emit()
+            self.orderSizeValueChanged.emit()
+
+    orderSizeText = Property(
+        str,
+        _get_order_size_text,
+        _set_order_size_text,
+        notify=orderSizeTextChanged,
+    )
+
+    def _get_pyramiding(self) -> int:
+        return self._pyramiding
+
+    def _set_pyramiding(self, value: int) -> None:
+        if value != self._pyramiding:
+            self._pyramiding = max(1, value)
+            self.pyramidingChanged.emit()
+
+    pyramiding = Property(
+        int,
+        _get_pyramiding,
+        _set_pyramiding,
+        notify=pyramidingChanged,
+    )
+
+    def _get_commission_type(self) -> str:
+        return self._commission_type
+
+    def _set_commission_type(self, value: str) -> None:
+        if value != self._commission_type:
+            self._commission_type = value
+            self.commissionTypeChanged.emit()
+
+    commissionType = Property(
+        str,
+        _get_commission_type,
+        _set_commission_type,
+        notify=commissionTypeChanged,
+    )
+
+    def _get_commission_value(self) -> float:
+        return self._commission_value
+
+    def _set_commission_value(self, value: float) -> None:
+        if value != self._commission_value:
+            self._commission_value = max(0.0, value)
+            self.commissionValueChanged.emit()
+
+    commissionValue = Property(
+        float,
+        _get_commission_value,
+        _set_commission_value,
+        notify=commissionValueChanged,
+    )
+
+    def _get_commission_text(self) -> str:
+        return self._commission_text
+
+    def _set_commission_text(self, value: str) -> None:
+        if value != self._commission_text:
+            self._commission_text = value
+            try:
+                self._commission_value = float(value)
+            except ValueError:
+                pass
+            self.commissionTextChanged.emit()
+            self.commissionValueChanged.emit()
+
+    commissionText = Property(
+        str,
+        _get_commission_text,
+        _set_commission_text,
+        notify=commissionTextChanged,
+    )
+
+    def _get_slippage_ticks(self) -> int:
+        return self._slippage_ticks
+
+    def _set_slippage_ticks(self, value: int) -> None:
+        if value != self._slippage_ticks:
+            self._slippage_ticks = max(0, value)
+            self.slippageTicksChanged.emit()
+
+    slippageTicks = Property(
+        int,
+        _get_slippage_ticks,
+        _set_slippage_ticks,
+        notify=slippageTicksChanged,
+    )
+
+    def _get_long_leverage(self) -> float:
+        return self._long_leverage
+
+    def _set_long_leverage(self, value: float) -> None:
+        if value != self._long_leverage:
+            self._long_leverage = max(1.0, value)
+            self.longLeverageChanged.emit()
+
+    longLeverage = Property(
+        float,
+        _get_long_leverage,
+        _set_long_leverage,
+        notify=longLeverageChanged,
+    )
+
+    def _get_short_leverage(self) -> float:
+        return self._short_leverage
+
+    def _set_short_leverage(self, value: float) -> None:
+        if value != self._short_leverage:
+            self._short_leverage = max(1.0, value)
+            self.shortLeverageChanged.emit()
+
+    shortLeverage = Property(
+        float,
+        _get_short_leverage,
+        _set_short_leverage,
+        notify=shortLeverageChanged,
+    )
+
+    @Slot(str)
+    def set_order_size_type(self, value: str) -> None:
+        self._set_order_size_type(value)
+
+    @Slot(float)
+    def set_order_size_value(self, value: float) -> None:
+        self._set_order_size_value(value)
+
+    @Slot(str)
+    def set_order_size_text(self, value: str) -> None:
+        self._set_order_size_text(value)
+
+    @Slot(int)
+    def set_pyramiding(self, value: int) -> None:
+        self._set_pyramiding(value)
+
+    @Slot(str)
+    def set_commission_type(self, value: str) -> None:
+        self._set_commission_type(value)
+
+    @Slot(float)
+    def set_commission_value(self, value: float) -> None:
+        self._set_commission_value(value)
+
+    @Slot(str)
+    def set_commission_text(self, value: str) -> None:
+        self._set_commission_text(value)
+
+    @Slot(int)
+    def set_slippage_ticks(self, value: int) -> None:
+        self._set_slippage_ticks(value)
+
+    @Slot(float)
+    def set_long_leverage(self, value: float) -> None:
+        self._set_long_leverage(value)
+
+    @Slot(float)
+    def set_short_leverage(self, value: float) -> None:
+        self._set_short_leverage(value)
 
     @Property("QVariantList", constant=True)
     def timeRangePresetOptions(self) -> list[dict[str, str]]:
@@ -918,6 +1149,12 @@ class BackTestViewModel(BaseQmlViewModel):
         argument through it before touching the value.
         """
         self.botParamsSaveRequested.emit(dict(from_qml(values)))
+
+    @Slot("QVariant")
+    def requestStrategyPropertiesSave(self, payload) -> None:
+        """Called from StrategyPropertiesModal.qml's 'Lưu & Chạy lại' button with both
+        strategy inputs and broker properties (BOT-104)."""
+        self.strategyPropertiesSaveRequested.emit(dict(from_qml(payload)))
 
     @Slot(str)
     def requestOpenBotParams(self, strategy_name: str = "") -> None:

@@ -199,6 +199,8 @@ class RunStaticBacktestCommandHandler(
             symbol=command.symbol,
             initial_balance=command.initial_balance,
             fee_percent=command.fee_percent,
+            position_sizing=command.position_sizing,
+            broker_config=command.broker_config,
         )
 
         equity_curve: list[tuple[datetime, float]] = []

@@ -4,6 +4,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 CancellationCheck = Callable[[], bool]
@@ -39,6 +46,16 @@ class RunStaticBacktestCommand(BaseModel):
         default=0.1,
         ge=0,
         description="Taker-style fee applied on both entry and exit, as a percent",
+    )
+    position_sizing: PositionSizing = Field(
+        default_factory=lambda: PositionSizing(
+            type=PositionSizingType.PERCENT_OF_EQUITY, value=100.0
+        ),
+        description="Position sizing rule determining order quantity or capital allocation (BOT-104)",
+    )
+    broker_config: BrokerSimulationConfig | None = Field(
+        default=None,
+        description="Broker simulation settings including pyramiding and slippage (BOT-104)",
     )
     start_time: datetime | None = Field(
         default=None, description="Start of the historical range"

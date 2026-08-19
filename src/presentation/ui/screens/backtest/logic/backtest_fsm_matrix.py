@@ -5,7 +5,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
@@ -214,6 +221,14 @@ class BacktestRunConfig:
     #: follow-up, not required for this mode to work correctly.
     execution_mode: BacktestExecutionMode = BacktestExecutionMode.BAR_CLOSE
     tick_resolution: TimeFrame = TimeFrame.ONE_SECOND
+    position_sizing: PositionSizing = field(
+        default_factory=lambda: PositionSizing(
+            type=PositionSizingType.PERCENT_OF_EQUITY, value=100.0
+        )
+    )
+    broker_config: BrokerSimulationConfig = field(
+        default_factory=BrokerSimulationConfig
+    )
 
     def compute_diff_summary(self, other: BacktestRunConfig) -> str:
         """
@@ -259,6 +274,39 @@ class BacktestRunConfig:
 
         if self.strategy_params != other.strategy_params:
             diffs.append("Thông số Chiến lược")
+
+        if self.position_sizing != other.position_sizing:
+            s_unit = (
+                "%"
+                if self.position_sizing.type == PositionSizingType.PERCENT_OF_EQUITY
+                else " USD"
+            )
+            o_unit = (
+                "%"
+                if other.position_sizing.type == PositionSizingType.PERCENT_OF_EQUITY
+                else " USD"
+            )
+            diffs.append(
+                f"Kích thước lệnh ({self.position_sizing.value}{s_unit} → {other.position_sizing.value}{o_unit})"
+            )
+
+        if self.broker_config.pyramiding != other.broker_config.pyramiding:
+            diffs.append(
+                f"Kim tự tháp ({self.broker_config.pyramiding} → {other.broker_config.pyramiding})"
+            )
+
+        if self.broker_config.slippage_ticks != other.broker_config.slippage_ticks:
+            diffs.append(
+                f"Trượt giá ({self.broker_config.slippage_ticks} → {other.broker_config.slippage_ticks} ticks)"
+            )
+
+        if (
+            self.broker_config.commission_value != other.broker_config.commission_value
+            or self.broker_config.commission_type != other.broker_config.commission_type
+        ):
+            diffs.append(
+                f"Phí hoa hồng ({self.broker_config.commission_value} → {other.broker_config.commission_value})"
+            )
 
         if self.execution_mode != other.execution_mode:
             diffs.append(

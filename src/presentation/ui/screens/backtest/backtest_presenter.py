@@ -63,7 +63,17 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+    CommissionType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
@@ -496,6 +506,9 @@ class BackTestPresenter(BasePresenter):
         )
         self._view_model.botParamsSaveRequested.connect(
             self._on_bot_params_save_requested
+        )
+        self._view_model.strategyPropertiesSaveRequested.connect(
+            self._on_strategy_properties_save_requested
         )
         self._backtestSucceededSignal.connect(self._on_backtest_succeeded_for_action)
         self._backtestEmptySignal.connect(self._on_backtest_empty_for_action)
@@ -1796,6 +1809,62 @@ class BackTestPresenter(BasePresenter):
         self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
         self._start_backtest_run(config, previous_state)
 
+    @Slot(object)
+    @safe_ui_action
+    def _on_strategy_properties_save_requested(self, payload: dict) -> None:
+        """ "Lưu & Chạy lại" (BOT-104): handles combined Strategy Inputs and
+        Broker Properties saving from StrategyPropertiesModal.qml."""
+        inputs = payload.get("inputs", {})
+        props = payload.get("properties", {})
+
+        strategy_cls = self._strategy_registry.available().get(
+            self._view_model.selectedStrategyKey
+        )
+        if strategy_cls is not None and inputs:
+            try:
+                parsed = parse_bot_params(strategy_cls().inputs, inputs)
+                strategy_cls(parsed)
+                self._strategy_params = parsed
+            except ValueError as exc:
+                self._view_model.set_bot_params_error(str(exc))
+                return
+
+        # Apply broker properties to view_model
+        if "initial_capital" in props:
+            self._view_model.initialCapitalText = str(props["initial_capital"])
+        if "currency" in props:
+            self._view_model.selectedCurrency = str(props["currency"])
+        if "order_size_type" in props:
+            self._view_model.orderSizeType = str(props["order_size_type"])
+        if "order_size_text" in props:
+            self._view_model.orderSizeText = str(props["order_size_text"])
+        if "pyramiding" in props:
+            self._view_model.pyramiding = int(props["pyramiding"])
+        if "commission_type" in props:
+            self._view_model.commissionType = str(props["commission_type"])
+        if "commission_text" in props:
+            self._view_model.commissionText = str(props["commission_text"])
+        if "slippage_ticks" in props:
+            self._view_model.slippageTicks = int(props["slippage_ticks"])
+
+        self._view_model.set_bot_params_error("")
+        self._refresh_bot_params_schema()
+        self._view_model.botParamsSaved.emit()
+        self._logger.log_bot_params_saved(
+            self._view_model.selectedStrategyName,
+            self._strategy_params or {},
+        )
+        self._on_config_input_changed()
+
+        if not self.fsm.can_dispatch(BacktestUiEvent.RUN_REQUESTED):
+            return
+        config = self._build_run_config()
+        if config is None:
+            return
+        previous_state = self.fsm.current_state
+        self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
+        self._start_backtest_run(config, previous_state)
+
     def _refresh_bot_params_schema(self) -> None:
         strategy_cls = self._strategy_registry.available().get(
             self._view_model.selectedStrategyKey
@@ -2068,6 +2137,30 @@ class BackTestPresenter(BasePresenter):
             has_params=bool(self._strategy_params),
         )
 
+        try:
+            order_sizing_type = PositionSizingType(view_model.orderSizeType)
+        except ValueError:
+            order_sizing_type = PositionSizingType.PERCENT_OF_EQUITY
+
+        position_sizing = PositionSizing(
+            type=order_sizing_type,
+            value=view_model.orderSizeValue,
+        )
+
+        try:
+            commission_type = CommissionType(view_model.commissionType)
+        except ValueError:
+            commission_type = CommissionType.PERCENT
+
+        broker_config = BrokerSimulationConfig(
+            pyramiding=view_model.pyramiding,
+            slippage_ticks=view_model.slippageTicks,
+            commission_type=commission_type,
+            commission_value=view_model.commissionValue,
+            long_leverage=view_model.longLeverage,
+            short_leverage=view_model.shortLeverage,
+        )
+
         return BacktestRunConfig(
             strategy_key=view_model.selectedStrategyKey,
             timeframe=TimeFrame(view_model.selectedTimeframe),
@@ -2078,6 +2171,8 @@ class BackTestPresenter(BasePresenter):
             currency=Currency(view_model.selectedCurrency),
             symbol=self._symbol,
             execution_mode=self._get_execution_mode_from_view_model(),
+            position_sizing=position_sizing,
+            broker_config=broker_config,
         )
 
     def _get_execution_mode_from_view_model(self) -> BacktestExecutionMode:
@@ -2136,6 +2231,11 @@ class BackTestPresenter(BasePresenter):
                     tick_resolution=config.tick_resolution,
                     strategy_key=config.strategy_key,
                     initial_balance=config.initial_balance,
+                    fee_percent=config.broker_config.commission_value
+                    if config.broker_config.commission_type == CommissionType.PERCENT
+                    else 0.0,
+                    position_sizing=config.position_sizing,
+                    broker_config=config.broker_config,
                     start_time=config.start_time,
                     end_time=config.end_time,
                     strategy_params=config.strategy_params,
@@ -2157,6 +2257,11 @@ class BackTestPresenter(BasePresenter):
                     interval=config.timeframe,
                     strategy_key=config.strategy_key,
                     initial_balance=config.initial_balance,
+                    fee_percent=config.broker_config.commission_value
+                    if config.broker_config.commission_type == CommissionType.PERCENT
+                    else 0.0,
+                    position_sizing=config.position_sizing,
+                    broker_config=config.broker_config,
                     start_time=config.start_time,
                     end_time=config.end_time,
                     strategy_params=config.strategy_params,
