@@ -60,10 +60,27 @@ ModalDialogCard {
 
             model: ListModel {
                 id: listModel
-                ListElement { text: "On bar close"; checked: true; locked: true }
-                ListElement { text: "Khi lệnh được khớp"; checked: false; locked: true }
-                ListElement { text: "Trên mỗi tick của thanh lịch sử"; checked: false; locked: false }
-                ListElement { text: "Trên mỗi tick của thanh thời gian thực"; checked: false; locked: true }
+                ListElement {
+                    text: "On bar close"; checked: true; locked: true
+                    tooltip: ""
+                }
+                ListElement {
+                    text: "Khi lệnh được khớp"; checked: false; locked: true
+                    tooltip: ""
+                }
+                ListElement {
+                    text: "Trên mỗi tick của thanh lịch sử"; checked: false; locked: false
+                    // Answers the exact confusion a real session hit: syncing
+                    // "Toàn bộ lịch sử" beforehand does NOT cover this mode —
+                    // 1-second candles are a separate series from 1-minute
+                    // ones (different rows, same table), so switching here
+                    // triggers a genuinely new sync at tick resolution.
+                    tooltip: "Chế độ này dùng nến 1 giây, tách biệt hoàn toàn với nến bạn đã đồng bộ ở khung thời gian khác — sẽ cần đồng bộ lại dữ liệu riêng cho khung 1 giây."
+                }
+                ListElement {
+                    text: "Trên mỗi tick của thanh thời gian thực"; checked: false; locked: true
+                    tooltip: ""
+                }
             }
 
             delegate: ItemDelegate {
@@ -72,6 +89,9 @@ ModalDialogCard {
                 height: 38
                 enabled: !model.locked
                 objectName: "chkExecutionTrigger_" + index
+                ToolTip.visible: delegateItem.hovered && model.tooltip !== ""
+                ToolTip.delay: 400
+                ToolTip.text: model.tooltip
 
                 background: Rectangle {
                     color: delegateItem.hovered ? "#1c1e2b" : "transparent"
