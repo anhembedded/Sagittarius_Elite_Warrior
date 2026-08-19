@@ -1423,6 +1423,105 @@ def test_sync_failure_keeps_the_flag_and_returns_to_idle(
     mock_thread_mgr.submit.assert_not_called()
 
 
+# ---------------------------------------------------------------------------
+# Cancelling a sync (previously: no way to cancel at all - the FSM had no
+# (SYNCING, CANCEL_REQUESTED) transition, and _run_sync silently returned on
+# a cancelled token without ever emitting a signal, so nothing could ever
+# resolve the UI out of SYNCING once cancel was wired to it.)
+# ---------------------------------------------------------------------------
+
+
+def test_cancel_button_cancels_the_sync_token_not_the_backtest_token(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    assert presenter.fsm.current_state == BacktestUiState.SYNCING
+    sync_token = presenter._sync_cancellation_token
+    assert sync_token is not None
+    presenter._backtest_cancellation_token = CancellationToken()
+
+    presenter._on_cancel_backtest()
+
+    assert presenter.fsm.current_state == BacktestUiState.CANCELLING
+    assert sync_token.is_cancelled() is True
+    assert presenter._backtest_cancellation_token.is_cancelled() is False
+    assert "đồng bộ" in view_model.resultText.lower()
+
+
+def test_run_sync_emits_sync_cancelled_and_resolves_fsm_back_to_idle(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    """End-to-end: _run_sync is called directly (mirrors how every other
+    sync test in this file drives the worker synchronously) with an
+    already-cancelled token, exactly as it would be after
+    _on_cancel_backtest() calls token.cancel() mid-flight. The signal it
+    emits is connected with a same-thread DirectConnection, so this single
+    call exercises the full round trip: _syncCancelledSignal ->
+    _on_sync_cancelled_for_action -> _complete_cancelled_action -> FSM back
+    to IDLE."""
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    action_id = presenter._active_action.action_id
+    presenter._cancelling_action_id = action_id
+    presenter._invalidate_active_action()
+    presenter.fsm.dispatch(BacktestUiEvent.CANCEL_REQUESTED)
+    assert presenter.fsm.current_state == BacktestUiState.CANCELLING
+    token = presenter._sync_cancellation_token
+    token.cancel()
+    mock_dispatcher.dispatch.return_value = None
+
+    presenter._run_sync(config, action_id, token)
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter._sync_cancellation_token is None
+    assert presenter._cancelling_action_id is None
+    assert "hủy đồng bộ" in view_model.resultText.lower()
+
+
+def test_sync_succeeding_right_after_cancel_requested_still_resolves_fsm(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    """The race _on_sync_succeeded_for_action's cancelling-guard exists for:
+    a cancel is requested, but the worker was already past its last
+    cooperative check and reports success normally instead of going through
+    _syncCancelledSignal. Without the guard this left the FSM stuck in
+    CANCELLING forever - only _complete_cancelled_action ever resolves it."""
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    action_id = presenter._active_action.action_id
+    presenter._on_cancel_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.CANCELLING
+
+    presenter._on_sync_succeeded_for_action(action_id)
+
+    assert presenter.fsm.current_state != BacktestUiState.CANCELLING
+    assert presenter._cancelling_action_id is None
+
+
+def test_sync_failing_right_after_cancel_requested_still_resolves_fsm(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    action_id = presenter._active_action.action_id
+    presenter._on_cancel_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.CANCELLING
+
+    presenter._on_sync_failed_for_action(action_id, "irrelevant, arrived too late")
+
+    assert presenter.fsm.current_state != BacktestUiState.CANCELLING
+    assert presenter._cancelling_action_id is None
+
+
+def test_cancel_ignored_when_nothing_is_active(presenter, view_model):
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+
+    presenter._on_cancel_backtest()
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+
+
 def test_qml_sync_button_only_visible_after_no_data_and_click_requests_sync(
     presenter, view_model, mock_dispatcher, qml_item, qapp, mock_thread_mgr
 ):

@@ -158,6 +158,7 @@ _CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
 _NO_STRATEGY_MESSAGE = "Chưa có chiến lược nào được đăng ký."
 _RUNNING_MESSAGE = "Đang chạy backtest..."
 _CANCELLING_MESSAGE = "Đang hủy backtest..."
+_CANCELLING_SYNC_MESSAGE = "Đang hủy đồng bộ..."
 _SYNCING_MESSAGE = "Đang đồng bộ dữ liệu..."
 _ZERO_TRADES_MESSAGE = (
     "Backtest chạy xong nhưng không có giao dịch nào trong khoảng thời gian đã chọn."
@@ -244,6 +245,7 @@ class BackTestPresenter(BasePresenter):
     _chartScriptMarkerSignal = Signal(str, list)  # script key, markers
     _syncSucceededSignal = Signal(int)  # action_id
     _syncFailedSignal = Signal(int, str)  # action_id, error message
+    _syncCancelledSignal = Signal(int)  # action_id
     _syncProgressSignal = Signal(int, int, int)  # action_id, current, total
     _previewDataReadySignal = Signal(
         int, object, list, list, list
@@ -493,6 +495,7 @@ class BackTestPresenter(BasePresenter):
         self._chartScriptMarkerSignal.connect(self._on_chart_script_marker)
         self._syncSucceededSignal.connect(self._on_sync_succeeded_for_action)
         self._syncFailedSignal.connect(self._on_sync_failed_for_action)
+        self._syncCancelledSignal.connect(self._on_sync_cancelled_for_action)
         self._syncProgressSignal.connect(self._on_sync_progress_for_action)
         self._previewDataReadySignal.connect(self._on_preview_data_ready)
         self._uiLogSignal.connect(self._on_ui_log)
@@ -963,29 +966,49 @@ class BackTestPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_cancel_backtest(self) -> None:
-        action_id = self._current_action_id(BacktestActionKind.BACKTEST)
-        if (
-            action_id is None
-            or not self._is_current_pending_action(
-                action_id, BacktestActionKind.BACKTEST
-            )
-            or not self.fsm.can_dispatch(BacktestUiEvent.CANCEL_REQUESTED)
-        ):
+        """Cancels whichever action is currently active — a Backtest run
+        (RUNNING) or a data sync (SYNCING); the two states are mutually
+        exclusive by FSM construction, so `self._active_action.kind` alone
+        disambiguates which token to cancel. Kept as one shared handler
+        rather than a parallel `_on_cancel_sync` because every other piece
+        of the cancel lifecycle (`_is_cancelling_action`,
+        `_complete_cancelled_action`, the CANCELLING resolution transitions)
+        was already kind-agnostic except for this entry point."""
+        if self._active_action is None:
+            self._log_dev_trace("cancel_ignored", state=self.fsm.current_state)
+            return
+        action_id = self._active_action.action_id
+        kind = self._active_action.kind
+        if not self._is_current_pending_action(
+            action_id, kind
+        ) or not self.fsm.can_dispatch(BacktestUiEvent.CANCEL_REQUESTED):
             self._log_dev_trace("cancel_ignored", state=self.fsm.current_state)
             return
 
         self._cancelling_action_id = action_id
         self._invalidate_active_action()
         self.fsm.dispatch(BacktestUiEvent.CANCEL_REQUESTED)
-        if self._backtest_cancellation_token is not None:
-            self._backtest_cancellation_token.cancel()
-        self._view_model.set_result(_CANCELLING_MESSAGE, is_error=False)
-        self._emit_ui_log("Đang gửi yêu cầu hủy Backtest...", "info")
+        if kind is BacktestActionKind.SYNC:
+            if self._sync_cancellation_token is not None:
+                self._sync_cancellation_token.cancel()
+            self._view_model.set_result(_CANCELLING_SYNC_MESSAGE, is_error=False)
+            self._emit_ui_log("Đang gửi yêu cầu hủy đồng bộ...", "info")
+        else:
+            if self._backtest_cancellation_token is not None:
+                self._backtest_cancellation_token.cancel()
+            self._view_model.set_result(_CANCELLING_MESSAGE, is_error=False)
+            self._emit_ui_log("Đang gửi yêu cầu hủy Backtest...", "info")
+        self._log_dev_trace("cancel_requested", action_id=action_id, kind=kind.value)
         self._log_dev_trace("cancel_requested", action_id=action_id)
 
     def _is_cancelling_action(self, action_id: int) -> bool:
+        """Kind-agnostic on purpose: `self._active_action` is a single slot
+        regardless of whether it holds a Backtest run or a Sync (BOT-095B's
+        own design — see `_begin_action`), so `action_id` alone already
+        disambiguates which one without also checking `kind` here."""
         return (
-            self._is_current_action(action_id, BacktestActionKind.BACKTEST)
+            self._active_action is not None
+            and self._active_action.action_id == action_id
             and self._active_action_outcome is BacktestActionOutcome.INVALIDATED
             and self._cancelling_action_id == action_id
             and self.fsm.current_state is BacktestUiState.CANCELLING
@@ -1004,20 +1027,28 @@ class BackTestPresenter(BasePresenter):
                 "backtest_cancelled", action_id, BacktestActionKind.BACKTEST
             )
             return
+        kind = self._active_action.kind
         previous_state = self._active_action.previous_state
         self._finish_action(action_id, BacktestActionOutcome.CANCELLED)
         self._cancelling_action_id = None
-        self._backtest_cancellation_token = None
-        self._view_model.reset_backtest_progress()
-        self._view_model.set_result(
-            "Đã hủy Backtest. Kết quả trước đó được giữ nguyên.", is_error=False
-        )
-        self._emit_ui_log("Đã hủy Backtest. Kết quả trước đó được giữ nguyên.", "info")
+        if kind is BacktestActionKind.SYNC:
+            self._sync_cancellation_token = None
+            self._view_model.reset_sync_progress()
+            message = "Đã hủy đồng bộ dữ liệu."
+        else:
+            self._backtest_cancellation_token = None
+            self._view_model.reset_backtest_progress()
+            message = "Đã hủy Backtest. Kết quả trước đó được giữ nguyên."
+        self._view_model.set_result(message, is_error=False)
+        self._emit_ui_log(message, "info")
         event = self._cancel_restore_event(previous_state)
         if self.fsm.can_dispatch(event):
             self.fsm.dispatch(event)
         self._log_dev_trace(
-            "cancel_completed", action_id=action_id, restore_state=previous_state.value
+            "cancel_completed",
+            action_id=action_id,
+            kind=kind.value,
+            restore_state=previous_state.value,
         )
 
     @Slot(int, object)
@@ -1741,6 +1772,14 @@ class BackTestPresenter(BasePresenter):
     @Slot(int)
     @safe_ui_action
     def _on_sync_succeeded_for_action(self, action_id: int) -> None:
+        # A cancel can race a sync that was already past its last
+        # cooperative check — the worker then finishes and reports success
+        # normally instead of taking the _syncCancelledSignal path. Without
+        # this, that race would leave the FSM stuck in CANCELLING forever,
+        # since only _complete_cancelled_action ever resolves it out.
+        if self._is_cancelling_action(action_id):
+            self._complete_cancelled_action(action_id)
+            return
         if not self._is_current_pending_action(action_id, BacktestActionKind.SYNC):
             self._ignore_stale_action_callback(
                 "sync_succeeded", action_id, BacktestActionKind.SYNC
@@ -1753,6 +1792,9 @@ class BackTestPresenter(BasePresenter):
     @Slot(int, str)
     @safe_ui_action
     def _on_sync_failed_for_action(self, action_id: int, message: str) -> None:
+        if self._is_cancelling_action(action_id):
+            self._complete_cancelled_action(action_id)
+            return
         if not self._is_current_pending_action(action_id, BacktestActionKind.SYNC):
             self._ignore_stale_action_callback(
                 "sync_failed", action_id, BacktestActionKind.SYNC
@@ -1761,6 +1803,17 @@ class BackTestPresenter(BasePresenter):
         self._sync_cancellation_token = None
         self._on_sync_failed(message)
         self._finish_action(action_id, BacktestActionOutcome.FAILED)
+
+    @Slot(int)
+    @safe_ui_action
+    def _on_sync_cancelled_for_action(self, action_id: int) -> None:
+        if not self._is_cancelling_action(action_id):
+            self._ignore_stale_action_callback(
+                "sync_cancelled", action_id, BacktestActionKind.SYNC
+            )
+            return
+        self._log_dev_trace("worker_cancelled", action_id=action_id, kind="SYNC")
+        self._complete_cancelled_action(action_id)
 
     @Slot()
     @safe_ui_action
@@ -2165,6 +2218,14 @@ class BackTestPresenter(BasePresenter):
             return
         if cancellation_token is not None and cancellation_token.is_cancelled():
             self._log_dev_trace("sync_worker_cancelled", action_id=resolved_action_id)
+            # Whatever candles landed before cancellation stay in the DB —
+            # SyncMarketDataCommandHandler checks the token cooperatively and
+            # returns normally rather than raising, so this is the only place
+            # a cancelled sync is distinguishable from one that quietly ran
+            # to completion. Previously this just returned here with no
+            # signal at all, leaving the FSM stuck in SYNCING forever with no
+            # way out once cancel was requested.
+            self._syncCancelledSignal.emit(resolved_action_id)
             return
         coverage = self._probe_data_coverage(config)
         if not coverage.is_fully_covered:

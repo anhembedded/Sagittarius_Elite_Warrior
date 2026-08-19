@@ -382,15 +382,22 @@ Rectangle {
                             objectName: "btnRunBacktest"
                             implicitWidth: 145
                             implicitHeight: 34
-                            enabled: root.hasViewModel && viewModel.uiMode !== "CANCELLING" && (viewModel.controlsEnabled || viewModel.uiMode === "RUNNING")
+                            // A sync has the identical "long background job the
+                            // user needs to be able to stop" shape a backtest
+                            // run does, so it reuses this same toggle instead of
+                            // a separate control — requestCancelBacktest() is
+                            // kind-aware on the Python side (cancels whichever
+                            // of Backtest/Sync is actually the active action).
+                            readonly property bool isCancellableMode: root.hasViewModel && (viewModel.uiMode === "RUNNING" || viewModel.uiMode === "SYNCING")
+                            enabled: root.hasViewModel && viewModel.uiMode !== "CANCELLING" && (viewModel.controlsEnabled || runBtnRoot.isCancellableMode)
                             onClicked: {
                                 if (!root.hasViewModel) return
-                                if (viewModel.uiMode === "RUNNING") viewModel.requestCancelBacktest()
+                                if (runBtnRoot.isCancellableMode) viewModel.requestCancelBacktest()
                                 else viewModel.requestRun()
                             }
                             background: Rectangle {
                                 id: runBtnBg
-                                color: enabled ? ((root.hasViewModel && viewModel.uiMode === "RUNNING") ? (runBtnRoot.hovered ? "#fb7185" : "#ef4444") : ((root.hasViewModel && viewModel.isConfigDirty) ? (runBtnRoot.hovered ? "#fbbf24" : "#f59e0b") : (runBtnRoot.hovered ? "#12e680" : "#10b981"))) : "#242736"
+                                color: enabled ? (runBtnRoot.isCancellableMode ? (runBtnRoot.hovered ? "#fb7185" : "#ef4444") : ((root.hasViewModel && viewModel.isConfigDirty) ? (runBtnRoot.hovered ? "#fbbf24" : "#f59e0b") : (runBtnRoot.hovered ? "#12e680" : "#10b981"))) : "#242736"
                                 radius: 6
                                 Behavior on color { ColorAnimation { duration: 150 } }
                             }
@@ -398,11 +405,11 @@ Rectangle {
                                 spacing: 8
                                 anchors.centerIn: parent
                                 Image {
-                                    source: (root.hasViewModel && viewModel.uiMode === "RUNNING") ? "image://icons/square/black" : ((root.hasViewModel && viewModel.isConfigDirty) ? "image://icons/rotate-ccw/black" : "image://icons/play/black")
+                                    source: runBtnRoot.isCancellableMode ? "image://icons/square/black" : ((root.hasViewModel && viewModel.isConfigDirty) ? "image://icons/rotate-ccw/black" : "image://icons/play/black")
                                     sourceSize: Qt.size(13, 13)
                                 }
                                 Text {
-                                    text: (root.hasViewModel && viewModel.uiMode === "CANCELLING") ? "ĐANG HỦY..." : ((root.hasViewModel && viewModel.uiMode === "RUNNING") ? "HỦY BACKTEST" : ((root.hasViewModel && viewModel.isConfigDirty) ? "CẬP NHẬT LẠI" : "CHẠY BACKTEST"))
+                                    text: (root.hasViewModel && viewModel.uiMode === "CANCELLING") ? "ĐANG HỦY..." : ((root.hasViewModel && viewModel.uiMode === "RUNNING") ? "HỦY BACKTEST" : ((root.hasViewModel && viewModel.uiMode === "SYNCING") ? "HỦY ĐỒNG BỘ" : ((root.hasViewModel && viewModel.isConfigDirty) ? "CẬP NHẬT LẠI" : "CHẠY BACKTEST")))
                                     color: "#08090d"
                                     font.pixelSize: 11
                                     font.bold: true

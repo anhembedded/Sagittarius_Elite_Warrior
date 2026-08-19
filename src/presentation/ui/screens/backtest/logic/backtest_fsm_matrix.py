@@ -154,6 +154,15 @@ BACKTEST_STATE_TRANSITIONS: dict[
     # --- SYNCING ---
     (BacktestUiState.SYNCING, BacktestUiEvent.SYNC_SUCCEEDED): BacktestUiState.RUNNING,
     (BacktestUiState.SYNCING, BacktestUiEvent.SYNC_FAILED): BacktestUiState.ERROR,
+    # A sync can be entered from exactly the same states RUNNING can (IDLE,
+    # COMPLETED, CONFIG_DIRTY, EMPTY_DATA, ERROR — see SYNC_REQUESTED below),
+    # so CANCELLING's existing BACKTEST_CANCELLED* resolution transitions
+    # already cover every previous_state a cancelled sync could restore to;
+    # no new resolution events are needed for this entry point.
+    (
+        BacktestUiState.SYNCING,
+        BacktestUiEvent.CANCEL_REQUESTED,
+    ): BacktestUiState.CANCELLING,
     # --- EMPTY_DATA ---
     (
         BacktestUiState.EMPTY_DATA,
