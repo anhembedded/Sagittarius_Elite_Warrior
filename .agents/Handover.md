@@ -335,6 +335,18 @@ widget's deferred deletion to actually happen inside a test.
   via GIL contention — confirmed NOT literally running on the Qt UI thread,
   see this session's own entry above) is filed, not started, no remediation
   direction chosen yet.
+- **[`BUG-017`](../Tasks/bug_report/BUG-017_backtest_sync_redownloads_full_range_ignoring_cached_coverage.md)**
+  (Backtest screen's "Đồng bộ ngay" re-fetches the **entire** requested
+  range from Binance every time, ignoring how much is already cached — root
+  cause confirmed by reading, not yet fixed): coverage detection
+  (`GetBacktestRangeCoverageQuery`) correctly finds the real gap start, but
+  `BackTestPresenter._run_sync()` throws that away and always passes the
+  original requested range's own start into `SyncMarketDataCommand`, so
+  `SyncMarketDataCommandHandler`'s existing "resume from
+  `get_latest_kline_time`" branch — which works fine elsewhere — never gets
+  a chance to run here (it only fires when no explicit `start_time` is
+  given). Filed instead of fixed live because the user asked for it to go
+  to backlog.
 
 ## What this project is
 
