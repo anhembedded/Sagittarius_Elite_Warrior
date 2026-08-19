@@ -3,8 +3,11 @@ from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACDValue
+from Sagittarius_Elite_Warrior.src.domain.indicators.support_resistance import (
+    SupportResistanceValue,
+)
 
-IndicatorValue = float | MACDValue
+IndicatorValue = float | MACDValue | SupportResistanceValue
 
 
 @dataclass(frozen=True)

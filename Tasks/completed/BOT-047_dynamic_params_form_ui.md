@@ -51,7 +51,7 @@ Nút: **"Khôi phục Mặc định"** (trái) · **"Hủy"** · **"Lưu & Re-Ba
 ## 4. ❓ Cần chốt: SL/TP/Leverage/Risk% thuộc về ai?
 
 Trong mockup 4 field này nằm **cùng modal** với EMA period. Nhưng về kiến trúc
-chúng là cấu hình **`PaperExchange`** ([`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md),
+chúng là cấu hình **`PaperExchange`** ([`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md),
 [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md)), không phải của strategy —
 `IStrategy` theo đặc tả là hàm thuần của `context`, không biết gì về vốn/vị thế.
 

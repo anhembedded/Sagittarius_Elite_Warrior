@@ -22,6 +22,14 @@ class BrokerSimulationConfig:
     pyramiding: int = 1  #: Max allowed open positions in the same direction (default 1)
     long_leverage: float = 1.0  #: Long leverage / margin multiplier (default 1.0x)
     short_leverage: float = 1.0  #: Short leverage / margin multiplier (default 1.0x)
+    #: BOT-041 — % distance from entry to the auto-close stop, e.g. `1.2`
+    #: means 1.2%. `None` (default) disables stop-loss entirely — every
+    #: position behaves exactly as it did before this field existed, only
+    #: closing on a strategy SELL/COVER signal or `force_close()`.
+    stop_loss_pct: float | None = None
+    #: BOT-041 — % distance from entry to the auto-close target, e.g. `3.2`
+    #: means 3.2%. `None` (default) disables take-profit entirely.
+    take_profit_pct: float | None = None
 
     def __post_init__(self) -> None:
         if self.slippage_ticks < 0:
@@ -38,3 +46,11 @@ class BrokerSimulationConfig:
             raise ValueError(f"pyramiding must be at least 1, got {self.pyramiding}")
         if self.long_leverage <= 0 or self.short_leverage <= 0:
             raise ValueError("leverage must be positive")
+        if self.stop_loss_pct is not None and not (0 < self.stop_loss_pct < 100):
+            raise ValueError(
+                f"stop_loss_pct must be in (0, 100), got {self.stop_loss_pct}"
+            )
+        if self.take_profit_pct is not None and self.take_profit_pct <= 0:
+            raise ValueError(
+                f"take_profit_pct must be positive, got {self.take_profit_pct}"
+            )

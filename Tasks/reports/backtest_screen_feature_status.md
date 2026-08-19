@@ -66,6 +66,7 @@
 | Trade Logs Table — bảng thật (cột/tab lọc/tìm kiếm/export CSV/phân trang) | ✅ | `BOT-057` §2.1 | `trade_log_row.py`/`trade_log_filter.py`/`trade_log_pagination.py`/`trade_log_export.py` (mới) — `ListView` thật trong `BackTestTradeLogs.qml`, không còn mockup 5 dòng giả | `test_trade_log_row.py`, `test_trade_log_filter.py`, `test_trade_log_pagination.py`, `test_trade_log_export.py`, `test_successful_run_populates_the_trade_log_first_page` (và 9 test khác trong `test_backtest_presenter.py`) | — |
 | Trade Logs — dòng mở rộng chi tiết (lý do vào/thoát lệnh, metadata động theo chiến lược, thời lượng) | ✅ | `BOT-057` §2.2 / `BOT-045` | `Trade.entry_reason`/`exit_reason` (`ExitReason` enum, 5 member)/`metadata`; mỗi dòng `BackTestTradeLogs.qml` là `Button` bấm mở/đóng 1 `Rectangle` chi tiết 3 khối, `metadataItems` render động theo key có mặt (không hardcode) | `test_paper_exchange.py` (entry/exit reason), `test_base_strategy.py` (mới), `test_trade_log_row.py` (metadata/duration/exit-reason formatting), `test_qml_clicking_a_trade_log_row_toggles_its_detail_section` | — |
 | Symbol Picker — đổi symbol từ UI, danh sách thật từ Binance exchange-info | ✅ | `BOT-102` | `IExchangeClient.get_available_symbols()`/`ListAvailableSymbolsQuery` (mới); `SymbolPickerModal.qml` (grid + tìm kiếm); `BackTestPresenter._on_symbol_selection_changed` giữ `self._symbol` là nguồn sự thật duy nhất | `test_list_available_symbols.py`, `test_python_binance_client_unit.py` (+2), `test_backtest_presenter.py` (+9) | — |
+| SL/TP tự động (intra-bar) + Position Sizing theo % rủi ro | ✅ | `BOT-041` | `PaperExchange.check_intrabar_stops()` (mới, gọi mỗi bar dù không có signal); `PositionSizingType.RISK_PERCENT`; `BrokerSimulationConfig.stop_loss_pct`/`take_profit_pct` | `test_paper_exchange.py` (+13), `test_run_static_backtest.py` (+1, chứng minh SL đóng vị thế trên bar không-signal) | — |
 
 ### Chưa có (🔲) — đã có task backlog giữ chỗ
 
@@ -73,7 +74,6 @@
 |---|---|---|
 | Modal "Cấu hình Thông số Bot" (form động theo schema) | [`BOT-044`](../completed/BOT-044_param_schema_core.md)/[`046`](../completed/BOT-046_strategy_param_plumbing.md)/[`047`](../completed/BOT-047_dynamic_params_form_ui.md) | Nút đã có (`btnBacktestBotParams`), đang khoá |
 | Execution Trigger Rule — 2 lựa chọn còn lại ("Khi lệnh được khớp", "...thanh thời gian thực") | [`BOT-077`](../backlog/BOT-077_calc_on_order_fills.md) | "Trên mỗi tick của thanh lịch sử" đã mở khoá + nối dây thật ở `BOT-076` §3.3 (19/08) — chỉ còn 2 hàng ngoài phạm vi Backtest (order-fill re-run, live bar) |
-| SL/TP + Position sizing theo rủi ro | [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) | Phụ thuộc `BOT-045` ✅ — sẵn sàng bắt đầu |
 | Đòn bẩy & Thanh lý | [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md) | Rủi ro sai số cao nhất Epic |
 | Short-selling | [`BOT-050`](../backlog/BOT-050_short_selling_support.md) | — |
 | Thêm chiến lược ngoài `ema_crossover` | [`BOT-051`](../completed/BOT-051_multi_ema_trend_follower.md)/[`052`](../backlog/BOT-052_four_ema_pullback_sideways_filter.md)/[`053`](../backlog/BOT-053_qml_structure_breakout.md) | Dropdown hiện chỉ có 1 lựa chọn thật |

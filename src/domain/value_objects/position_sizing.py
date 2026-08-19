@@ -12,6 +12,12 @@ class PositionSizingType(str, Enum):
         "fixed_cash"  #: Deploys a fixed currency amount per order (e.g. 1000.0 USD)
     )
     FIXED_CONTRACTS = "fixed_contracts"  #: Deploys a fixed coin/contract quantity per order (e.g. 0.5 BTC)
+    #: BOT-041 — sizes so a stop-loss hit loses exactly `value`% of current
+    #: equity, not a fixed capital allocation. Requires
+    #: `BrokerSimulationConfig.stop_loss_pct` to be set (the stop distance is
+    #: what turns a risk % into a quantity) — `PaperExchange` rejects entries
+    #: when it isn't, rather than silently falling back to another sizing.
+    RISK_PERCENT = "risk_percent"
 
 
 @dataclass(frozen=True)
@@ -33,4 +39,10 @@ class PositionSizing:
         ):
             raise ValueError(
                 f"Percent of equity sizing value must be in (0, 100], got {self.value}"
+            )
+        if self.type is PositionSizingType.RISK_PERCENT and (
+            self.value > 100.0 or self.value <= 0
+        ):
+            raise ValueError(
+                f"Risk percent sizing value must be in (0, 100], got {self.value}"
             )

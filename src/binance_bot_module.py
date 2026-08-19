@@ -110,6 +110,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy impo
 from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
     MultiEmaTrendFollowerStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy import (
+    SupportResistanceStrategy,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
@@ -226,6 +229,7 @@ class BinanceBotModule(BaseModule):
         strategy_registry.register(
             "multi_ema_trend_follower", MultiEmaTrendFollowerStrategy
         )
+        strategy_registry.register("support_resistance", SupportResistanceStrategy)
         app.container.singleton(StrategyRegistry, strategy_registry)
 
     def boot(self, app: App) -> None:
