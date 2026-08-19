@@ -95,10 +95,10 @@ class MultiEmaTrendFollowerStrategy(BaseStrategy):
         mid_fast = self.series(self.MID_FAST_KEY)
         mid_slow = self.series(self.MID_SLOW_KEY)
         slow = self.series(self.SLOW_KEY)
-        fast.push(context.indicators[self.FAST_KEY])
-        mid_fast.push(context.indicators[self.MID_FAST_KEY])
-        mid_slow.push(context.indicators[self.MID_SLOW_KEY])
-        slow.push(context.indicators[self.SLOW_KEY])
+        self.track(fast, context.indicators[self.FAST_KEY], context)
+        self.track(mid_fast, context.indicators[self.MID_FAST_KEY], context)
+        self.track(mid_slow, context.indicators[self.MID_SLOW_KEY], context)
+        self.track(slow, context.indicators[self.SLOW_KEY], context)
 
         is_stacked = (
             is_above(fast, mid_fast)
@@ -106,7 +106,7 @@ class MultiEmaTrendFollowerStrategy(BaseStrategy):
             and is_above(mid_slow, slow)
         )
         stacked = self.series(self.STACKED_KEY)
-        stacked.push(1.0 if is_stacked else 0.0)
+        self.track(stacked, 1.0 if is_stacked else 0.0, context)
 
         if crossed_above(stacked, self._stacked_level):
             return self.buy(f"{self._name} fully stacked")

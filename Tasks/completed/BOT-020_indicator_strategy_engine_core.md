@@ -29,6 +29,20 @@ Lõi tính toán thuần (pure logic), không phụ thuộc UI, I/O hay Binance 
 
 **Cơ chế đảm bảo batch == incremental:** Mỗi indicator (`RSI`/`EMA`/`MACD`) là 1 state machine với 1 điểm mutation duy nhất — `update(value) -> T | None`. `StrategyEngine.run_batch()` chỉ là "gọi lại đúng `on_tick` trên 1 engine mới khởi tạo, trong vòng lặp" — không phải 2 implementation song song — nên 2 chế độ **không thể** lệch nhau về mặt cấu trúc, không chỉ nhờ test. Test đối chiếu (`test_batch_and_incremental_produce_identical_signals`) dùng 2 instance `StrategyEngine` hoàn toàn tách biệt (mỗi bên tự có `RSI`/`Mock event bus` riêng) để loại trừ khả năng pass giả do state dùng chung.
 
+> ⚠️ **2026-08-19 (`BOT-042D`) — lời hứa này chỉ còn đúng cho `run_batch()`/`on_tick()`.**
+> `StrategyEngine` giờ có thêm `on_forming_bar_tick()`: đường đánh giá strategy
+> trên 1 bar **đang hình thành**, dùng `IIndicator.peek_provisional()`
+> (`BOT-042B`) và `Series.poke_provisional()`/`BaseStrategy.track()`
+> (`BOT-042C`) thay vì `update()`/`push()`. Batch (Static) và incremental
+> qua `on_tick()` **vẫn** cho kết quả giống hệt nhau — `update()`/`push()`
+> hoàn toàn không đổi hành vi, `test_batch_and_incremental_produce_identical_signals`
+> vẫn xanh không sửa. Nhưng `on_forming_bar_tick()` **cố ý** có thể quyết định
+> khác với `on_tick()` trên cùng dữ liệu, vì nó thấy giá trị chỉ báo "sống"
+> sớm hơn lúc bar đóng — đây **không phải bug**, xem test
+> `test_on_forming_bar_tick_can_disagree_with_the_eventual_bar_close`
+> (`tests/unit/application/services/test_strategy_engine.py`) chứng minh
+> đúng kịch bản này bằng số liệu thật, không giả định.
+
 **Hold không sinh Signal/Event:** `on_tick()`/`run_batch()` trả về `None` cả khi indicator đang warm-up **lẫn** khi strategy quyết định Hold — chỉ trả `Signal` thật khi có hành động Buy/Sell. `SignalGeneratedEvent` vì vậy chỉ phát khi có Signal thật, giữ đúng yêu cầu "mỗi khi có tín hiệu mới" mà không spam event mỗi tick Hold. Đây là quyết định đã thảo luận với user (phương án được chọn thay vì luôn trả Signal kể cả Hold).
 
 **`Signal` có thêm field `symbol`** (task gốc chỉ liệt kê action/reason/price/time cho `Signal`) — cần thiết vì `SignalGeneratedEvent` bọc `Signal` trong 1 field duy nhất (`signal: Signal`, theo đúng convention của `MarketTickEvent(market_data: MarketData)`), nên `symbol` phải nằm sẵn trong `Signal`.

@@ -21,7 +21,12 @@
 | [**BOT-042A**](../completed/BOT-042A_provisional_commit_design.md) | **Thiết kế** — class/sequence diagram cho provisional/commit | — | ✅ **Đã duyệt** (2 vòng review thật, xem [Docs/Diagrams/tick_provisional_commit_design.md](../../Docs/Diagrams/tick_provisional_commit_design.md)) |
 | [**BOT-042B**](../completed/BOT-042B_indicator_provisional_contract.md) | Contract `IIndicator.peek_provisional()` + áp cho `EMA`/`RSI`/`MACD`/`WMA` | `BOT-042A` duyệt | ✅ **Xong** — 29/29 test, ruff sạch |
 | [**BOT-042C**](../completed/BOT-042C_series_provisional_slot.md) | `Series` — ô tạm tách khỏi lịch sử đã chốt | `BOT-042A` duyệt | ✅ **Xong** — 20/20 test, ruff sạch |
-| [**BOT-042D**](BOT-042D_strategy_engine_tick_path_and_docs.md) | `StrategyEngine` đường nhận tick + sửa lời hứa `BOT-020` | `BOT-042B`, `BOT-042C` | 🟡 Backlog, chờ làm — B+C đã xong nên hết chặn |
+| [**BOT-042D**](../completed/BOT-042D_strategy_engine_tick_path_and_docs.md) | `StrategyEngine` đường nhận tick + sửa lời hứa `BOT-020` | `BOT-042B`, `BOT-042C` | ✅ **Xong** — 4 test mới + 318 test cũ giữ nguyên |
+
+> ✅ **Epic `BOT-042` hoàn thành (2026-08-19)** — cả 4 task con A/B/C/D đã xong.
+> `IIndicator`/`Series` giờ có đường provisional/commit đầy đủ, `StrategyEngine`
+> có `on_forming_bar_tick()`, không còn gì chặn `BOT-076` bắt đầu ngoài chính
+> `BOT-076`.
 
 **Thứ tự bắt buộc**: A → (B, C song song được, không phụ thuộc nhau) → D.
 Đừng bắt đầu B/C trước khi A được duyệt — đúng tinh thần "đây là quyết định

@@ -73,4 +73,4 @@ Chi tiết thiết kế: xem [`Docs/Diagrams/tick_provisional_commit_design.md`]
 ## 4. Phụ thuộc
 
 - [`BOT-042A`](BOT-042A_provisional_commit_design.md) — design phải duyệt trước.
-- Chặn [`BOT-042D`](../backlog/BOT-042D_strategy_engine_tick_path_and_docs.md).
+- Chặn [`BOT-042D`](BOT-042D_strategy_engine_tick_path_and_docs.md).

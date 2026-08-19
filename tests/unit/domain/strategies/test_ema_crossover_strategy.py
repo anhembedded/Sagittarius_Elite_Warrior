@@ -1,5 +1,6 @@
 """Tests for EmaCrossoverStrategy (BOT-026)."""
 
+from dataclasses import replace
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
@@ -91,6 +92,32 @@ def test_batch_and_incremental_produce_identical_signals(make_klines):
     ]
 
     assert batch_signals == tick_signals
+
+
+def test_provisional_ticks_never_leak_into_the_committed_cross_series(make_klines):
+    """End-to-end through StrategyEngine -> BaseStrategy.track() -> Series
+    (BOT-042D): a barrage of wild mid-bar provisional ticks — each one, on
+    its own, looking exactly like a real cross — must not change the
+    committed signal sequence once bars actually close, no matter how many
+    of them fire first."""
+    reference_engine = _build_engine()
+    engine = _build_engine()
+    klines = make_klines(GOLDEN_CLOSES)
+
+    reference_signals = [
+        s for candle in klines if (s := reference_engine.on_tick(candle)) is not None
+    ]
+
+    signals = []
+    for candle in klines:
+        for probe_price in (candle.close_price * 5.0, candle.close_price * 0.1):
+            forming = replace(candle, close_price=probe_price, is_closed=False)
+            engine.on_forming_bar_tick(forming)
+        signal = engine.on_tick(candle)
+        if signal is not None:
+            signals.append(signal)
+
+    assert signals == reference_signals
 
 
 def test_build_indicators_returns_fresh_ema_instances_per_period():

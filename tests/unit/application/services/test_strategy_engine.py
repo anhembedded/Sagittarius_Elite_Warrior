@@ -1,5 +1,8 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
+
+import pytest
 
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
@@ -177,3 +180,80 @@ def test_batch_and_incremental_produce_identical_signals():
     assert batch_signals == tick_signals
     assert len(batch_signals) == EXPECTED_ACTIONABLE_SIGNAL_COUNT
     assert batch_event_bus.emit.call_args_list == tick_event_bus.emit.call_args_list
+
+
+# ---------------------------------------------------------------------------
+# on_forming_bar_tick (BOT-042D)
+# ---------------------------------------------------------------------------
+
+
+def _forming(candle, close_price: float):
+    """A tentative mid-bar reading of `candle`, is_closed=False."""
+    return replace(candle, close_price=close_price, is_closed=False)
+
+
+def test_on_forming_bar_tick_rejects_a_closed_candle():
+    engine, _ = _build_engine()
+    klines = _build_klines(FULL_CLOSES[:15])
+
+    with pytest.raises(ValueError, match="is_closed=False"):
+        engine.on_forming_bar_tick(klines[-1])
+
+
+def test_on_forming_bar_tick_never_mutates_indicator_state():
+    # Two separate engines warmed identically; one gets a barrage of
+    # provisional ticks in between, the other doesn't.
+    engine, event_bus = _build_engine()
+    reference, reference_event_bus = _build_engine()
+    klines = _build_klines(FULL_CLOSES[:20])
+
+    for candle in klines[:-1]:
+        engine.on_tick(candle)
+        reference.on_tick(candle)
+
+    last_candle = klines[-1]
+    for probe_price in (1.0, 999.0, 50.0, last_candle.close_price):
+        engine.on_forming_bar_tick(_forming(last_candle, probe_price))
+    # The provisional ticks above legitimately emit their own signals (that
+    # is their whole purpose) — reset before the real commit so the
+    # assertion below isolates only on_tick()'s own emission, not those.
+    event_bus.reset_mock()
+
+    # However many provisional ticks happened, the real commit must be
+    # identical to an engine that was never peeked at all.
+    committed = engine.on_tick(last_candle)
+    reference_committed = reference.on_tick(last_candle)
+    assert committed == reference_committed
+    assert event_bus.emit.call_args_list == reference_event_bus.emit.call_args_list
+
+
+def test_on_forming_bar_tick_can_disagree_with_the_eventual_bar_close():
+    """The invariant BOT-042 exists to protect: a mid-bar tick can fire a
+    signal that the bar's actual close does not, on the very same bar — this
+    is intentional (see StrategyEngine's own docstring), not a bug."""
+    engine, _ = _build_engine()
+    # 20 closed candles at a constant price: RSI(14) settles at exactly 50.0
+    # (neutral — see WARMUP_AND_HOLD_CLOSES), a genuine Hold zone.
+    klines = _build_klines(FULL_CLOSES[:20])
+    for candle in klines:
+        engine.on_tick(candle)
+
+    next_open_time = klines[-1].close_time
+    forming_candle = _build_klines(FULL_CLOSES[:1])[0]
+    forming_candle = replace(
+        forming_candle,
+        open_time=next_open_time,
+        close_time=next_open_time + timedelta(minutes=1),
+    )
+
+    # Mid-bar: price crashes hard — provisional RSI plunges into oversold,
+    # firing a Buy that only exists because of this one tick.
+    tick_signal = engine.on_forming_bar_tick(_forming(forming_candle, 40.0))
+    assert tick_signal is not None
+    assert tick_signal.action is SignalAction.BUY
+
+    # The bar actually closes flat (price unchanged) — RSI recommits to
+    # 50.0, same neutral Hold as every prior bar. The tick above never
+    # happened as far as committed state is concerned.
+    committed_signal = engine.on_tick(replace(forming_candle, is_closed=True))
+    assert committed_signal is None

@@ -27,6 +27,16 @@ class StrategyEngine:
     runs over the same data can never disagree. Returns None both while
     indicators are still warming up and whenever the strategy decides to
     Hold; only actionable signals are ever surfaced or emitted.
+
+    `on_tick`, despite its name, only ever receives a CLOSED candle — every
+    call funnels through `update()`/`push()` (permanent commit) via
+    `_process_one`. This promise ("batch ≡ incremental") does NOT extend to
+    `on_forming_bar_tick` (BOT-042D): that path evaluates the strategy
+    against a bar still forming, using each indicator's provisional
+    (non-mutating) reading, and can legitimately decide something different
+    from what the same data would decide once the bar actually closes. See
+    `Tasks/completed/BOT-020_indicator_strategy_engine_core.md` for the full
+    reasoning — this is intentional, not a bug.
     """
 
     def __init__(
@@ -50,6 +60,37 @@ class StrategyEngine:
                 signals.append(signal)
         return signals
 
+    def on_forming_bar_tick(self, forming_candle: MarketData) -> Signal | None:
+        """
+        @brief Evaluates the strategy against a bar still forming (BOT-042D)
+        — the Realtime Backtest (`BOT-076`) / tick-driven path.
+        @details Uses `peek_provisional()` (BOT-042B) instead of `update()`,
+        so no indicator's committed state is touched — `on_tick()`'s next
+        real commit is unaffected no matter how many times this was called
+        first, or with what values. `forming_candle.is_closed` must be
+        `False`; a closed candle belongs on `on_tick()`. `run_batch()`
+        (Static) never calls this path.
+        """
+        if forming_candle.is_closed:
+            raise ValueError(
+                "on_forming_bar_tick() requires an open (is_closed=False) "
+                "candle — a closed candle belongs on on_tick()."
+            )
+
+        readings = self._peek_indicators(forming_candle)
+        if readings is None:
+            return None
+
+        context = StrategyContext(
+            candle=forming_candle, indicators=MappingProxyType(readings)
+        )
+        signal = self._strategy.evaluate(context)
+        if signal.action is SignalAction.HOLD:
+            return None
+
+        self._event_bus.emit(SignalGeneratedEvent(signal=signal))
+        return signal
+
     def _process_one(self, candle: MarketData) -> Signal | None:
         readings = self._update_indicators(candle)
         if readings is None:
@@ -70,6 +111,17 @@ class StrategyEngine:
         all_ready = True
         for name, indicator in self._indicators.items():
             reading = indicator.update(candle.close_price)
+            if reading is None:
+                all_ready = False
+                continue
+            readings[name] = reading
+        return readings if all_ready else None
+
+    def _peek_indicators(self, candle: MarketData) -> dict[str, IndicatorValue] | None:
+        readings: dict[str, IndicatorValue] = {}
+        all_ready = True
+        for name, indicator in self._indicators.items():
+            reading = indicator.peek_provisional(candle.close_price)
             if reading is None:
                 all_ready = False
                 continue

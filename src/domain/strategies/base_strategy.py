@@ -185,6 +185,22 @@ class BaseStrategy(ABC):
     def series(self, key: str, history: int = DEFAULT_HISTORY) -> Series:
         return self._series.setdefault(key, Series(history))
 
+    def track(
+        self, series: Series, value: float | None, context: StrategyContext
+    ) -> float | None:
+        """Records `value` into `series` the way `context.candle` calls for
+        (BOT-042D): permanently via `push()` when the candle is closed, or as
+        this bar's tentative reading via `poke_provisional()` while it's
+        still forming (`context.candle.is_closed` is `False`). Concrete
+        strategies call this instead of `series.push()` directly so
+        `decide()` works unmodified whether `StrategyEngine` reached it via
+        `on_tick()` (bar close) or `on_forming_bar_tick()` (mid-bar tick) —
+        calling this any number of times before the bar closes never
+        advances `series`'s committed history (BOT-042C)."""
+        if context.candle.is_closed:
+            return series.push(value)
+        return series.poke_provisional(value)
+
     def buy(
         self, reason: str, **metadata: Any
     ) -> tuple[SignalAction, str, Mapping[str, Any]]:

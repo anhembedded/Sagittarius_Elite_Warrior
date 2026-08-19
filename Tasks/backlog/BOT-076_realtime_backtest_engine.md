@@ -1,9 +1,10 @@
 # Nhiệm vụ: Realtime Backtest Engine — chế độ backtest thứ 2, chạy theo tick
 
 > Thuộc Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md).
-> **Chặn bởi** [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md) (contract
-> provisional/commit) và [`BOT-075`](BOT-075_tick_data_feasibility_spike.md) (chi phí
-> dữ liệu — có thể đổi thiết kế).
+> ✅ **2026-08-19 — hết chặn.** [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md)
+> (contract provisional/commit — cả 4 task con A/B/C/D) và
+> [`BOT-075`](BOT-075_tick_data_feasibility_spike.md) (spike chi phí dữ liệu, kết luận
+> khả thi có điều kiện) đều đã xong. Task này giờ sẵn sàng bắt đầu.
 >
 > 📌 **2026-08-18 — task này giờ là engine replay DUY NHẤT của app.**
 > `BOT-023` (Dynamic Backtest Engine) **đã bị huỷ** theo quyết định của user
@@ -204,10 +205,10 @@ Ghi rõ để người sau không đi tìm "bug" không tồn tại:
 
 ## 6. Phụ thuộc
 
-- [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md) — **chặn cứng**, không
-  có provisional/commit thì không có gì để chạy.
-- [`BOT-075`](BOT-075_tick_data_feasibility_spike.md) — **chặn cứng**, có thể đổi
-  thiết kế.
+- [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md) ✅ — provisional/commit
+  đầy đủ cho `IIndicator`/`Series`/`StrategyEngine`.
+- [`BOT-075`](BOT-075_tick_data_feasibility_spike.md) ✅ — spike xong, khả thi có
+  điều kiện (chạy nền + progress/cancel, nên cho chọn độ phân giải).
 - [`BOT-021`](../completed/BOT-021_static_backtest_execution_engine.md) ✅ —
   `PaperExchange`/`BacktestResult` dùng chung.
 - [`BOT-074`](BOT-074_execution_trigger_rule_inverted_lock.md) — nên xong trước để UI

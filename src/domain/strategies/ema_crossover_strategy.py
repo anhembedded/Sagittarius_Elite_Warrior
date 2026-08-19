@@ -56,8 +56,8 @@ class EmaCrossoverStrategy(BaseStrategy):
     ) -> tuple[SignalAction, str, Mapping[str, Any]]:
         fast_series = self.series(self.FAST_KEY)
         slow_series = self.series(self.SLOW_KEY)
-        fast_series.push(context.indicators[self.FAST_KEY])
-        slow_series.push(context.indicators[self.SLOW_KEY])
+        self.track(fast_series, context.indicators[self.FAST_KEY], context)
+        self.track(slow_series, context.indicators[self.SLOW_KEY], context)
 
         if crossed_above(fast_series, slow_series):
             return self.buy(f"{self._name} crossed above")
