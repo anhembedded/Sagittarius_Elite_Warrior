@@ -6,7 +6,85 @@ change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
 
-## Latest session handover (2026-08-19, later same day) — `BOT-076` fully closed, Symbol Picker (`BOT-102`) shipped, a real Dirty-Tracking bug found and fixed
+## Latest session handover (2026-08-20) — Epic `BOT-109` (Golden Reference Strategy): `BOT-041`/`BOT-050`/`BOT-110` all closed, one real provisional-state bug found and fixed
+
+**Epic `BOT-109`** (port TradingView's "EMA Trend Confirm + Pullback + TP%"
+Pine Script v6 strategy 1:1 as the app's golden reference) is now 3/4 steps
+done — only `BOT-111` (visual polish: draw the 2 EMAs, Buy/Sell/Short/Cover
+markers, E2E verification via `.\scripts\ci-local.ps1 -Full`) is left.
+
+**`BOT-041`** (SL/TP + risk-based position sizing) and **`BOT-050`**
+(short-selling) shipped first, both fully additive to `PaperExchange` — 100%
+of the pre-existing test suite passed unmodified at every stage (19→45
+tests). `BOT-050`'s own design question ("when Long and a SELL arrives,
+close-only or reverse-into-Short?") was put to the user directly; the
+answer — *"không phải đây là chuyện của script stategy sao ta?"* (isn't this
+the strategy script's own business?) — settled it: `SignalAction` gained
+distinct `SHORT`/`COVER` members instead of overloading `BUY`/`SELL` for 4
+meanings, so a strategy always states its own intent and `PaperExchange`
+never infers it. Two mutation tests were "false passes" during `BOT-050`
+(a guard-disabling mutation still passed because default `pyramiding=1` and
+default 100%-equity sizing independently blocked the same action) — both
+caught only by mutating, not by the test looking reasonable on paper; see
+`Tasks/completed/BOT-050_short_selling_support.md` for the full mutation
+log if you're about to trust a guard test at face value.
+
+**`BOT-110`** (`EmaTrendPullbackStrategy`, the actual strategy class) is the
+one with a real finding worth reading before touching `Series`-based
+accumulator state anywhere in this codebase. Its own architecture question
+(strategy needs to know current position side to emit `SELL` vs `COVER` on
+an identical touch-exit condition, but `StrategyContext` was fully
+position-blind by design) was resolved additively:
+`StrategyContext.current_position_side: PositionSide | None = None`, filled
+in by both backtest handlers from a new `PaperExchange.current_side`
+property before each `on_tick`/`on_forming_bar_tick` call.
+
+**The real bug**: `_update_trend_confirmation()` read `series[0]` as "the
+previous bar's committed state" before computing and `track()`-ing the new
+one. That's only correct on a bar's *first* tick. On the 2nd+
+`on_forming_bar_tick()` call for the same still-forming bar, `[0]` already
+holds *this* bar's own not-yet-committed provisional guess from the prior
+tick (poked by this same method) — so the accumulator fed its own tentative
+output back into itself as if it were settled history, and could advance
+`confirmed_trend` several times within one bar instead of exactly once on
+real close. This is precisely the bug class `BOT-042`'s provisional/commit
+machinery exists to prevent, silently reintroduced by an accumulator
+reading its own live-updating series as its own "previous" input — going
+through `track()` does **not** protect against this pattern by itself.
+Fixed with a new `Series.committed(offset)` method
+(`src/domain/scripting/series.py`) that always reads the last bar that
+actually closed, ignoring any pending provisional — `_update_trend_confirmation()`
+and `_entry_confirmation()` both switched from `series[0]` to
+`series.committed(0)`. **If you write a new strategy with any counter/state
+that reads its own history to compute its own next value (not just a
+cross/comparison read), use `.committed()`, not `[0]`, or it will silently
+break under `on_forming_bar_tick()` while looking correct under `on_tick()`
+alone — exactly the trap that hid this bug from `BOT-076`'s Realtime engine
+for as long as it did.**
+
+This was found because the first version of the tick-safety regression
+test was itself a false pass: it drove `on_forming_bar_tick()` 20 times
+with a *static, unchanging* candle *after* the trend was already
+confirmed — every tick recomputed the identical answer regardless of which
+read (`[0]` vs `.committed(0)`) was used, so it couldn't distinguish
+correct from buggy. Rewritten to use a bar that is deliberately one bar
+short of `tick_confirm` with a pullback-shaped candle, so a premature
+confirmation surfaces as an observable, wrong `BUY` signal rather than
+being absorbed by an already-saturated `confirmed_trend`. Mutation-verified
+both ways (reverting `.committed(0)` back to `[0]` makes the rewritten test
+fail with the exact predicted false `BUY`).
+
+**Git note for whoever picks this up next**: this repo's working directory
+was shared with a concurrent AI session during this work — the checked-out
+branch on `master-warrior` changed underneath without action taken here at
+least twice (another session's commits/pushes), each time resolved via
+`git merge-base --is-ancestor` verification before any fast-forward, never
+by force. If you see the branch move on its own, don't assume corruption —
+check ancestry first. Full suite (`--ignore=tests/integration/presentation/ui`):
+1539 passed, `ruff` clean. Local `master-warrior` is 1 commit ahead of
+`origin/master-warrior`, not pushed this session.
+
+## Prior session handover (2026-08-19, later same day) — `BOT-076` fully closed, Symbol Picker (`BOT-102`) shipped, a real Dirty-Tracking bug found and fixed
 
 **`BOT-076` (Realtime Backtest engine) is now fully closed, moved to
 `Tasks/completed/`.** §3.3 (UI wiring) is done: `OrderExecutionModal.qml`
