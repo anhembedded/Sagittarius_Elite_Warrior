@@ -2,6 +2,9 @@ from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -59,6 +62,45 @@ def test_trade_log_row_to_qml_formats_the_position_label_with_stable_index():
 
     assert qml_row["positionLabel"] == "#216 vị thế mua"
     assert qml_row["index"] == "216"
+
+
+def test_trade_log_row_to_qml_labels_a_short_position_distinctly():
+    row = TradeLogRow(
+        index=7,
+        entry_time=_T0,
+        entry_price=1939.5,
+        exit_time=_T1,
+        exit_price=1908.5,
+        quantity=0.5,
+        pnl=34.66,
+        pnl_percent=3.61,
+        side=PositionSide.SHORT,
+    )
+
+    qml_row = trade_log_row_to_qml(row)
+
+    assert qml_row["positionLabel"] == "#7 vị thế bán"
+
+
+def test_build_trade_log_rows_carries_the_trades_side_through():
+    long_trade = _make_trade(10.0)
+    short_trade = Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=1939.5,
+        exit_time=_T1,
+        exit_price=1908.5,
+        quantity=0.5,
+        pnl=15.0,
+        pnl_percent=1.5,
+        fees_paid=0.5,
+        side=PositionSide.SHORT,
+    )
+
+    rows = build_trade_log_rows([long_trade, short_trade])
+
+    assert rows[0].side is PositionSide.LONG
+    assert rows[1].side is PositionSide.SHORT
 
 
 def test_trade_log_row_to_qml_colors_winning_pnl_bull_and_losing_pnl_bear():

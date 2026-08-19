@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
@@ -415,3 +418,85 @@ def test_stop_loss_closes_the_position_on_a_bar_with_no_strategy_signal():
     assert trade.entry_price == pytest.approx(100.0)
     assert trade.exit_reason is ExitReason.STOP_LOSS
     assert trade.exit_price == pytest.approx(95.0)
+
+
+# =========================================================================
+# BOT-050: Short-selling flows end-to-end through the real handler/engine
+# =========================================================================
+
+
+class _ShortOnceThenCoverStrategy(BaseStrategy):
+    """SHORTs on its 2nd `decide()` call, COVERs on its 5th — the
+    short-selling mirror of `_ScriptedStrategy`, proving `SignalAction.
+    SHORT`/`COVER` reach `PaperExchange` correctly through the real
+    `StrategyEngine`/handler chain, not just a direct `PaperExchange.fill()`
+    unit test."""
+
+    ACTIONS: ClassVar[dict[int, SignalAction]] = {
+        1: SignalAction.SHORT,
+        4: SignalAction.COVER,
+    }
+
+    def setup(self) -> None:
+        self._call_index = 0
+
+    def build_indicators(self) -> dict:
+        return {}
+
+    def decide(self, context: StrategyContext) -> tuple[SignalAction, str]:
+        action = self.ACTIONS.get(self._call_index, SignalAction.HOLD)
+        self._call_index += 1
+        if action is SignalAction.SHORT:
+            return self.short("scripted short")
+        if action is SignalAction.COVER:
+            return self.cover("scripted cover")
+        return self.hold()
+
+
+def _build_short_klines() -> list[MarketData]:
+    # SHORT signal fires at call-index 1 (candle 1) -> filled at candle 2's
+    # open (130.0). COVER fires at call-index 4 (candle 4) -> filled at
+    # candle 5's open (100.0, price dropped -> the short wins).
+    opens_closes = [
+        (100.0, 105.0),
+        (110.0, 115.0),  # SHORT signal generated here
+        (130.0, 125.0),  # -> filled here, at open=130 (entry)
+        (120.0, 115.0),
+        (110.0, 105.0),  # COVER signal generated here
+        (100.0, 95.0),  # -> filled here, at open=100 (exit)
+        (90.0, 85.0),
+    ]
+    return [
+        _build_candle(i, open_price, close_price)
+        for i, (open_price, close_price) in enumerate(opens_closes)
+    ]
+
+
+def test_short_and_cover_signals_flow_through_the_real_handler_and_engine():
+    klines = _build_short_klines()
+    repo = Mock()
+    repo.get_klines.return_value = klines
+    registry = StrategyRegistry()
+    registry.register("short_once", _ShortOnceThenCoverStrategy)
+    handler = RunStaticBacktestCommandHandler(
+        repository=repo, strategy_registry=registry, event_bus=Mock()
+    )
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_HOUR,
+        strategy_key="short_once",
+        initial_balance=1000.0,
+        fee_percent=0.0,
+    )
+
+    result = handler.execute(command)
+
+    assert isinstance(result, BacktestResult)
+    assert len(result.trades) == 1
+    trade = result.trades[0]
+    assert trade.side is PositionSide.SHORT
+    assert trade.entry_price == pytest.approx(130.0)
+    assert trade.exit_price == pytest.approx(100.0)
+    # qty = 1000/130 (all-in, no fee); pnl = (130-100)*qty
+    assert trade.pnl == pytest.approx((1000.0 / 130.0) * 30.0)
+    assert trade.pnl > 0  # price dropped after entry -> the short won

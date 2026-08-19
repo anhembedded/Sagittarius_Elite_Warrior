@@ -4,7 +4,7 @@
 **Độ phức tạp:** 🟡 **M (Standard Agent)**  
 **Trạng thái:** 🔴 **Backlog (Chờ triển khai)**  
 **Thuộc Epic:** [`BOT-109`](BOT-109_golden_strategy_ema_trend_confirm_pullback_epic.md) (Chuẩn Tham Chiếu Vàng)  
-**Phụ thuộc:** [`BOT-050`](BOT-050_short_selling_support.md), [`BOT-105A`](BOT-105A_trailing_stop_and_partial_tp.md)
+**Phụ thuộc:** [`BOT-050`](../completed/BOT-050_short_selling_support.md), [`BOT-105A`](BOT-105A_trailing_stop_and_partial_tp.md)
 
 ---
 
@@ -42,7 +42,7 @@ Khai báo thông qua `self.input_int`, `self.input_float`, `self.input_bool`:
    - **SHORT**: `confirmed_trend == -1 and high >= entryLower and close < emaEntry` (kèm điều kiện `high[1] >= entryLower` nếu `candleConfirmEntry == True`).
 3. **Phát Tín Hiệu (Signal Generation)** — dùng đúng 4 giá trị `SignalAction`
    riêng biệt cho 4 ý định khác nhau (quyết định 2026-08-19 ở
-   [`BOT-050`](BOT-050_short_selling_support.md) §3: strategy tự nói rõ ý
+   [`BOT-050`](../completed/BOT-050_short_selling_support.md) §3: strategy tự nói rõ ý
    định, không để `PaperExchange`/`reason` string đoán):
    - `Signal(action=SignalAction.BUY, reason="LONG Pullback EMA")` cho Long Entry.
    - `Signal(action=SignalAction.SHORT, reason="SHORT Pullback EMA")` cho Short Entry (**không** dùng `SELL`).
@@ -56,7 +56,7 @@ Khai báo thông qua `self.input_int`, `self.input_float`, `self.input_bool`:
 > **hoàn toàn không mang thông tin vị thế** (chỉ có `candle`/`indicators`,
 > strategy vốn được thiết kế "position-blind", mọi vị thế do `PaperExchange`
 > giữ). Cùng nguyên tắc "strategy tự quyết, engine không đoán" ở
-> [`BOT-050`](BOT-050_short_selling_support.md) §3 đòi hỏi ngược lại ở đây:
+> [`BOT-050`](../completed/BOT-050_short_selling_support.md) §3 đòi hỏi ngược lại ở đây:
 > muốn strategy tự quyết đúng, nó cần được **cho biết** vị thế hiện tại, chứ
 > không phải tự đoán. Cần chốt trước khi code: thêm trường tuỳ chọn (ví dụ
 > `current_position_side: PositionSide | None`) vào `StrategyContext`, hay

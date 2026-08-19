@@ -4,6 +4,9 @@ from datetime import datetime
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 
 
 @dataclass(frozen=True)
@@ -36,3 +39,6 @@ class Trade:
     #: chiến thuật"), so the UI must render whatever keys are present rather
     #: than assume a fixed schema.
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    #: BOT-050 — LONG for every trade before this field existed (default),
+    #: so no pre-existing `Trade(...)` construction call site needs updating.
+    side: PositionSide = PositionSide.LONG

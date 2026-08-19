@@ -7,6 +7,9 @@ from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -22,11 +25,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_ser
 #: used in this one column.
 _DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 
-#: `PaperExchange` (BOT-021) is long-only, single-position — every `Trade`
-#: this engine ever produces IS an entry-then-exit long. There is no `side`
-#: field on `Trade` to read (that's BOT-050's short-selling support), so this
-#: label is a constant, not derived data.
-_POSITION_LABEL = "vị thế mua"
+#: BOT-050 — `Trade.side` now exists; label reads it instead of assuming
+#: every trade is a long ("vị thế mua"/"vị thế bán").
+_POSITION_LABEL: dict[PositionSide, str] = {
+    PositionSide.LONG: "vị thế mua",
+    PositionSide.SHORT: "vị thế bán",
+}
 
 #: `STOP_LOSS`/`TAKE_PROFIT`/`LIQUIDATION` are declared but unreachable until
 #: `BOT-041`/`BOT-049` — kept here anyway so the table never crashes on an
@@ -65,6 +69,8 @@ class TradeLogRow:
     entry_reason: str = ""
     exit_reason: ExitReason = ExitReason.STRATEGY_SIGNAL
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    #: BOT-050 — LONG for every row before this field existed.
+    side: PositionSide = PositionSide.LONG
 
 
 def build_trade_log_rows(trades: list[Trade]) -> list[TradeLogRow]:
@@ -83,6 +89,7 @@ def build_trade_log_rows(trades: list[Trade]) -> list[TradeLogRow]:
             entry_reason=trade.entry_reason,
             exit_reason=trade.exit_reason,
             metadata=trade.metadata,
+            side=trade.side,
         )
         for position, trade in enumerate(trades, start=1)
     ]
@@ -145,7 +152,7 @@ def trade_log_row_to_qml(
     )
     return {
         "index": str(row.index),
-        "positionLabel": f"#{row.index} {_POSITION_LABEL}",
+        "positionLabel": f"#{row.index} {_POSITION_LABEL[row.side]}",
         "entryTimeText": _format_datetime(row.entry_time, tz_name=tz_name),
         "exitTimeText": _format_datetime(row.exit_time, tz_name=tz_name),
         "entryPriceText": f"{row.entry_price:,.2f} USD",

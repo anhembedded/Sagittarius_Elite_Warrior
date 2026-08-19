@@ -116,7 +116,7 @@ nhóm, thứ tự liệt kê là thứ tự làm khuyến nghị.
 | [`BOT-045`](../completed/BOT-045_trade_journal_detail_and_metadata.md) | **Trade Journal Detail** — lý do vào/thoát + metadata theo chiến lược. Làm **trước** `BOT-041` để SL/TP có sẵn chỗ ghi `exit_reason`. |
 | [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) | SL/TP tự đóng vị thế + position sizing theo % rủi ro (2 cái không tách rời: sizing cần biết SL). |
 | [`BOT-049`](BOT-049_leverage_and_liquidation.md) | Đòn bẩy + **thanh lý**. Rủi ro sai số cao nhất Epic — bắt buộc đối chiếu nguồn ngoài. |
-| [`BOT-050`](BOT-050_short_selling_support.md) | Short-selling. Task duy nhất **đổi hành vi đã có test pin**. |
+| [`BOT-050`](../completed/BOT-050_short_selling_support.md) | Short-selling. Task duy nhất **đổi hành vi đã có test pin**. |
 
 ### Nhóm C — Chiến lược ([`BOT-043`](BOT-043_named_strategy_library.md) là chỉ mục)
 

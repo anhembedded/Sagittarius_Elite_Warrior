@@ -215,3 +215,15 @@ class BaseStrategy(ABC):
         self, reason: str = _HOLD_REASON, **metadata: Any
     ) -> tuple[SignalAction, str, Mapping[str, Any]]:
         return SignalAction.HOLD, reason, metadata
+
+    def short(
+        self, reason: str, **metadata: Any
+    ) -> tuple[SignalAction, str, Mapping[str, Any]]:
+        """BOT-050 — opens (or pyramids into) a SHORT position."""
+        return SignalAction.SHORT, reason, metadata
+
+    def cover(
+        self, reason: str, **metadata: Any
+    ) -> tuple[SignalAction, str, Mapping[str, Any]]:
+        """BOT-050 — closes an open SHORT position."""
+        return SignalAction.COVER, reason, metadata

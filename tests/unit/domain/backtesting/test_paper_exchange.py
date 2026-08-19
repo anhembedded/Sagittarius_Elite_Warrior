@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -577,3 +580,231 @@ def test_broker_simulation_config_rejects_non_positive_take_profit_pct():
 def test_position_sizing_rejects_out_of_range_risk_percent():
     with pytest.raises(ValueError, match="Risk percent"):
         PositionSizing(type=PositionSizingType.RISK_PERCENT, value=150.0)
+
+
+# ================= BOT-050: Short-Selling =================
+
+
+def test_short_then_cover_computes_quantity_fees_and_pnl_by_hand():
+    # Hand-computed, mirrors test_buy_then_sell_... exactly but short wins
+    # when price DROPS: entry_fee = 1000*1% = 10; capital = 990 (margin);
+    # quantity = 990/100 = 9.9. Cover at 90: notional = 9.9*90 = 891;
+    # exit_fee = 891*1% = 8.91; pnl = (100-90)*9.9 - 10 - 8.91 = 80.09;
+    # balance = capital_deployed(1000) + pnl(80.09) = 1080.09.
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=1.0)
+
+    opened = exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    assert opened is None
+    assert exchange.is_in_position is True
+    assert exchange.balance == 0.0
+
+    trade = exchange.fill(_signal(SignalAction.COVER), price=90.0, time=_T2)
+
+    assert trade is not None
+    assert exchange.is_in_position is False
+    assert trade.side is PositionSide.SHORT
+    assert trade.entry_price == 100.0
+    assert trade.exit_price == 90.0
+    assert trade.quantity == pytest.approx(9.9)
+    assert trade.pnl == pytest.approx(80.09)
+    assert trade.fees_paid == pytest.approx(10.0 + 8.91)
+    assert exchange.balance == pytest.approx(1080.09)
+
+
+def test_short_loses_when_price_rises_by_hand():
+    # Same setup, opposite direction: cover at 110 (price rose against the
+    # short). notional = 9.9*110 = 1089; exit_fee = 10.89;
+    # pnl = (100-110)*9.9 - 10 - 10.89 = -119.89;
+    # balance = 1000 + (-119.89) = 880.11.
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=1.0)
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    trade = exchange.fill(_signal(SignalAction.COVER), price=110.0, time=_T2)
+
+    assert trade.pnl == pytest.approx(-119.89)
+    assert exchange.balance == pytest.approx(880.11)
+
+
+def test_cover_with_no_open_short_position_is_a_no_op():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+
+    trade = exchange.fill(_signal(SignalAction.COVER), price=100.0, time=_T1)
+
+    assert trade is None
+    assert exchange.balance == 1000.0
+    assert exchange.trades == []
+
+
+def test_short_while_already_long_is_rejected_not_mixed():
+    """BOT-050 §3: PaperExchange never infers a reversal — an opposite-side
+    entry while one side is open is rejected outright, not silently mixed
+    into the position list. Deliberately generous pyramiding (5) AND small
+    (20%) sizing so this test can't pass by accident: with the default
+    pyramiding=1 and/or default 100%-of-equity sizing, the 2nd entry would
+    already be blocked for a completely different reason (limit reached, or
+    zero balance left) even with the opposite-side guard fully disabled —
+    both were verified as real false-pass traps while writing this test."""
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, pyramiding=5)
+    sizing = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=20.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.position_count == 1
+    assert exchange.balance > 0  # plenty of balance left for a 2nd entry
+
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T2)
+
+    assert exchange.position_count == 1
+    trade = exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+    assert trade is not None
+    assert trade.side is PositionSide.LONG
+
+
+def test_buy_while_already_short_is_rejected_not_mixed():
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, pyramiding=5)
+    sizing = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=20.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+    assert exchange.position_count == 1
+    assert exchange.balance > 0
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T2)
+
+    assert exchange.position_count == 1
+    trade = exchange.fill(_signal(SignalAction.COVER), price=90.0, time=_T2)
+    assert trade is not None
+    assert trade.side is PositionSide.SHORT
+
+
+def test_equity_marks_an_open_short_position_to_market_correctly():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+    # qty = 1000/100 = 10 (all-in, no fee); capital_deployed = 1000, balance = 0
+
+    assert exchange.equity(mark_price=100.0) == pytest.approx(1000.0)
+    # Price drops 10 -> short is up 10*10 = 100
+    assert exchange.equity(mark_price=90.0) == pytest.approx(1100.0)
+    # Price rises 10 -> short is down 10*10 = 100
+    assert exchange.equity(mark_price=110.0) == pytest.approx(900.0)
+
+
+def test_force_close_realizes_a_still_open_short_position_as_a_trade():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    trade = exchange.force_close(price=90.0, time=_T2)
+
+    assert trade is not None
+    assert trade.exit_reason is ExitReason.END_OF_BACKTEST
+    assert trade.pnl == pytest.approx(100.0)  # 10 qty * $10 drop
+    assert exchange.balance == pytest.approx(1100.0)
+
+
+def test_short_slippage_reduces_entry_price_and_increases_cover_price():
+    """Mirrors test_slippage_simulation_applies_friction_to_buy_and_sell —
+    a SHORT entry sells (slippage makes you receive less), a COVER buys
+    back (slippage makes you pay more): the opposite sign from LONG at
+    both ends."""
+    broker_cfg = BrokerSimulationConfig(
+        slippage_ticks=5, tick_size=0.1, commission_value=0.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+    trade = exchange.fill(_signal(SignalAction.COVER), price=90.0, time=_T2)
+
+    assert trade is not None
+    assert trade.entry_price == pytest.approx(99.50)
+    assert trade.exit_price == pytest.approx(90.50)
+
+
+def test_short_trade_records_side_short_and_long_trade_records_side_long():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+    short_trade = exchange.fill(_signal(SignalAction.COVER), price=90.0, time=_T2)
+    assert short_trade.side is PositionSide.SHORT
+
+    exchange2 = PaperExchange(symbol="BTCUSDT", initial_balance=1000.0, fee_percent=0.0)
+    exchange2.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    long_trade = exchange2.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+    assert long_trade.side is PositionSide.LONG
+
+
+def test_short_stop_loss_sits_above_entry_and_closes_on_high():
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, stop_loss_pct=1.2)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # SL 1.2% ABOVE entry (100) = 101.2 — a low bar range must NOT trigger it.
+    assert exchange.check_intrabar_stops(high=101.0, low=98.0, time=_T2) == []
+    trades = exchange.check_intrabar_stops(high=101.5, low=99.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(101.2)
+
+
+def test_short_take_profit_sits_below_entry_and_closes_on_low():
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, take_profit_pct=3.2)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # TP 3.2% BELOW entry (100) = 96.8.
+    trades = exchange.check_intrabar_stops(high=100.5, low=96.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.TAKE_PROFIT
+    assert trades[0].exit_price == pytest.approx(96.8)
+
+
+def test_check_intrabar_stops_for_short_when_bar_touches_both_stop_loss_wins():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, stop_loss_pct=1.2, take_profit_pct=3.2
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # SL=101.2 above, TP=96.8 below — this bar's range reaches both.
+    trades = exchange.check_intrabar_stops(high=105.0, low=95.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(101.2)
+
+
+def test_risk_percent_sizing_works_symmetrically_for_short_by_hand():
+    # risk 1% of 10,000 = 100 USD max loss. SL 2% above entry (100) ->
+    # stop distance = 2.0. quantity = 100/2.0 = 50. capital = 5,000.
+    sizing = PositionSizing(type=PositionSizingType.RISK_PERCENT, value=1.0)
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, stop_loss_pct=2.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=10_000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    assert exchange.balance == pytest.approx(10_000.0 - 5_000.0)
+    trades = exchange.check_intrabar_stops(high=103.0, low=99.0, time=_T2)
+    assert len(trades) == 1
+    assert trades[0].pnl == pytest.approx(-100.0)

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
+
 from .trade_log_row import TradeLogRow
 
 
@@ -20,18 +24,17 @@ def filter_trade_log_rows(
 ) -> list[TradeLogRow]:
     """
     @brief Applies one of the 5 tab filters.
-    @details `SHORT` always returns empty — `PaperExchange` (BOT-021) is
-    long-only, so there is no short trade to ever show. Kept as a real,
-    selectable tab rather than hidden (explicit task decision) so the UI
-    doesn't need reshaping once `BOT-050` (short-selling support) lands;
-    `LONG` is the mirror-image no-op, since every trade IS a long today.
+    @details `LONG`/`SHORT` read `TradeLogRow.side` since `BOT-050` gave
+    `PaperExchange` real short-selling support — before that, this tab was a
+    permanent no-op (kept selectable rather than hidden, an explicit task
+    decision, so the UI wouldn't need reshaping once short-selling landed).
     """
     if filter_ is TradeLogFilter.ALL:
         return rows
     if filter_ is TradeLogFilter.LONG:
-        return rows
+        return [row for row in rows if row.side is PositionSide.LONG]
     if filter_ is TradeLogFilter.SHORT:
-        return []
+        return [row for row in rows if row.side is PositionSide.SHORT]
     if filter_ is TradeLogFilter.WIN:
         return [row for row in rows if row.pnl > 0]
     if filter_ is TradeLogFilter.LOSS:

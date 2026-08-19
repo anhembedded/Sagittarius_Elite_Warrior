@@ -4,7 +4,7 @@
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
 **Trạng thái:** 🔴 **Backlog (Chờ triển khai)**  
 **Ưu tiên:** ⚡ **P1 — Tính năng Cốt lõi (Core Trading Simulation)**  
-**Liên quan:** [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md), [`BOT-049`](BOT-049_leverage_and_liquidation.md), [`BOT-050`](BOT-050_short_selling_support.md), [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md), [`BOT-104`](BOT-104_backtest_properties_and_broker_simulator_modal.md)
+**Liên quan:** [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md), [`BOT-049`](BOT-049_leverage_and_liquidation.md), [`BOT-050`](../completed/BOT-050_short_selling_support.md), [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md), [`BOT-104`](BOT-104_backtest_properties_and_broker_simulator_modal.md)
 
 ---
 

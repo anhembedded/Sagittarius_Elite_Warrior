@@ -36,7 +36,7 @@ mockup user cung cấp.
 - [ ] **Buy/Sell Flags** — marker tại `entry_time`/`entry_price` và
   `exit_time`/`exit_price` từ `BacktestResult.trades`, vẽ qua
   `set_script_markers` (hạ tầng sẵn có từ `BOT-032`). Hiện chỉ có nhãn LONG;
-  nhãn SHORT chờ [`BOT-050`](../backlog/BOT-050_short_selling_support.md).
+  nhãn SHORT chờ [`BOT-050`](BOT-050_short_selling_support.md).
 - [ ] **Volume** — đã có sẵn (`BOT-009`), chỉ expose control.
 - [ ] **QML Signal Badges** — **không làm**, chờ
   [`BOT-053`](../backlog/BOT-053_qml_structure_breakout.md) (chưa có chiến lược QML nào
@@ -59,5 +59,5 @@ mockup user cung cấp.
 
 - [`BOT-022`](BOT-022_backtest_screen_static_ui.md) — khung màn hình.
 - `BOT-032` ✅ — marker/plot; `BOT-009`/`BOT-010` ✅ — volume/crosshair/zoom.
-- [`BOT-050`](../backlog/BOT-050_short_selling_support.md) — nhãn SHORT.
+- [`BOT-050`](BOT-050_short_selling_support.md) — nhãn SHORT.
 - [`BOT-053`](../backlog/BOT-053_qml_structure_breakout.md) — QML badges.

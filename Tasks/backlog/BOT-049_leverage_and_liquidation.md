@@ -3,7 +3,7 @@
 > Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 2/3** nhóm "PaperExchange nâng cao":
 > [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) → `BOT-049`
-> (file này) → [`BOT-050`](BOT-050_short_selling_support.md).
+> (file này) → [`BOT-050`](../completed/BOT-050_short_selling_support.md).
 > Phụ thuộc `BOT-041`.
 
 ## 1. Mục tiêu
