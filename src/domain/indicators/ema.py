@@ -29,3 +29,12 @@ class EMA(IIndicator[float]):
 
         self._ema = (value - self._ema) * self._multiplier + self._ema
         return self._ema
+
+    def peek_provisional(self, value: float) -> float | None:
+        if self._ema is None:
+            # Still seeding — a provisional seed average would only be valid
+            # once `period` values (including this tentative one) exist, and
+            # buffering it would require mutating `_seed_values`. Warm-up
+            # stays None for provisional too, matching `update()`.
+            return None
+        return (value - self._ema) * self._multiplier + self._ema

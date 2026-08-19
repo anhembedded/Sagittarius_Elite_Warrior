@@ -39,6 +39,29 @@ class RSI(IIndicator[float]):
         self._avg_loss = (self._avg_loss * (self._period - 1) + loss) / self._period
         return self._compute_rsi()
 
+    def peek_provisional(self, value: float) -> float | None:
+        if (
+            self._previous_close is None
+            or self._avg_gain is None
+            or self._avg_loss is None
+        ):
+            # No committed previous close yet, or still accumulating the
+            # seed sums — a provisional reading here would need mutating
+            # `_gain_sum`/`_loss_sum`/`_deltas_seen` to mean anything, which
+            # would corrupt the real seed. Stays None, matching `update()`.
+            return None
+
+        change = value - self._previous_close
+        gain = max(change, 0.0)
+        loss = max(-change, 0.0)
+        provisional_avg_gain = (
+            self._avg_gain * (self._period - 1) + gain
+        ) / self._period
+        provisional_avg_loss = (
+            self._avg_loss * (self._period - 1) + loss
+        ) / self._period
+        return self._compute_rsi_from(provisional_avg_gain, provisional_avg_loss)
+
     def _seed(self, gain: float, loss: float) -> float | None:
         self._gain_sum += gain
         self._loss_sum += loss
@@ -51,7 +74,11 @@ class RSI(IIndicator[float]):
         return self._compute_rsi()
 
     def _compute_rsi(self) -> float:
-        if self._avg_loss == 0.0:
-            return 100.0 if self._avg_gain > 0.0 else 50.0
-        relative_strength = self._avg_gain / self._avg_loss
+        return self._compute_rsi_from(self._avg_gain, self._avg_loss)
+
+    @staticmethod
+    def _compute_rsi_from(avg_gain: float, avg_loss: float) -> float:
+        if avg_loss == 0.0:
+            return 100.0 if avg_gain > 0.0 else 50.0
+        relative_strength = avg_gain / avg_loss
         return 100.0 - 100.0 / (1.0 + relative_strength)

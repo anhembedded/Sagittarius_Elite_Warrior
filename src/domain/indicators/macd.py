@@ -52,3 +52,19 @@ class MACD(IIndicator[MACDValue]):
             return None
 
         return MACDValue(macd=macd_line, signal=signal, histogram=macd_line - signal)
+
+    def peek_provisional(self, value: float) -> MACDValue | None:
+        # Mirrors update() exactly, swapping update() for peek_provisional()
+        # on each sub-EMA — none of the three get mutated, so calling this
+        # any number of times never affects the next real update().
+        fast = self._fast_ema.peek_provisional(value)
+        slow = self._slow_ema.peek_provisional(value)
+        if fast is None or slow is None:
+            return None
+
+        macd_line = fast - slow
+        signal = self._signal_ema.peek_provisional(macd_line)
+        if signal is None:
+            return None
+
+        return MACDValue(macd=macd_line, signal=signal, histogram=macd_line - signal)

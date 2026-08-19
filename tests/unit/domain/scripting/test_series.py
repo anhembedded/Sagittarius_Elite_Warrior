@@ -69,6 +69,76 @@ def test_negative_offset_is_rejected():
 
 
 # ---------------------------------------------------------------------------
+# Provisional vs commit (BOT-042C)
+# ---------------------------------------------------------------------------
+
+
+def test_poke_provisional_reads_at_offset_zero_without_occupying_a_slot():
+    series = series_of([1.0, 2.0])  # committed: [0]=2.0, [1]=1.0
+
+    for probe in (99.0, -5.0, 42.0):
+        series.poke_provisional(probe)
+        assert series[0] == probe
+        # Repeated pokes overwrite themselves — never grow committed history.
+        assert len(series) == 2
+
+
+def test_poke_provisional_shifts_committed_history_by_one_offset():
+    series = series_of([1.0, 2.0])  # committed: [0]=2.0 (latest), [1]=1.0
+
+    series.poke_provisional(99.0)
+
+    assert series[0] == 99.0  # the tentative, still-forming bar
+    assert series[1] == 2.0  # what used to be [0] — last CLOSED bar
+    assert series[2] == 1.0  # what used to be [1]
+
+
+def test_push_clears_provisional_and_commits_exactly_one_new_slot():
+    series = series_of([1.0])
+
+    for probe in (5.0, 6.0, 7.0, 8.0):
+        series.poke_provisional(probe)
+    assert len(series) == 1  # still just the original committed bar
+
+    series.push(9.0)
+
+    assert len(series) == 2  # exactly 1 new slot, not 4 (one per poke)
+    assert series[0] == 9.0
+    assert series[1] == 1.0
+
+
+def test_poke_provisional_on_empty_series_does_not_raise():
+    """The cold-start case: the very first tick of an entire run, no
+    committed history exists yet at all."""
+    series = Series()
+
+    series.poke_provisional(50.0)
+
+    assert series[0] == 50.0
+    assert series[1] is None  # no IndexError — same contract as committed history
+
+
+def test_crossed_above_does_not_fire_from_ticks_within_the_same_forming_bar():
+    """The invariant BOT-042 exists to protect: [1] must stay anchored to the
+    last CLOSED bar no matter how many provisional ticks arrive in between —
+    two ticks in the same bar must never be compared as if they were two
+    different bars."""
+    indicator = series_of([40.0])  # 1 committed bar, below the threshold
+    threshold = constant_series(50.0)
+
+    # Tick 1: provisional value crosses above the threshold.
+    indicator.poke_provisional(60.0)
+    assert crossed_above(indicator, threshold) is True
+    assert indicator[1] == 40.0  # previous bar unchanged by this tick
+
+    # Tick 2, same forming bar: provisional value drops back below.
+    indicator.poke_provisional(45.0)
+    assert crossed_above(indicator, threshold) is False
+    # Still the same committed previous bar — not "60.0 from tick 1".
+    assert indicator[1] == 40.0
+
+
+# ---------------------------------------------------------------------------
 # Crossing
 # ---------------------------------------------------------------------------
 

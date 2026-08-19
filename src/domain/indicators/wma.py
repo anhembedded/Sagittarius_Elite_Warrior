@@ -32,3 +32,20 @@ class WMA(IIndicator[float]):
 
         weighted = sum(v * w for v, w in zip(self._values, self._weights, strict=True))
         return weighted / self._weight_total
+
+    def peek_provisional(self, value: float) -> float | None:
+        # No closed form here (unlike EMA/RSI) — WMA has no "committed state
+        # + new value" recurrence, only a rolling window. Build the window
+        # `value` would produce without touching `self._values`: O(period),
+        # not O(1), but still zero-mutation.
+        committed = list(self._values)
+        window = (
+            committed[1:] + [value]
+            if len(committed) == self._period
+            else [*committed, value]
+        )
+        if len(window) < self._period:
+            return None
+
+        weighted = sum(v * w for v, w in zip(window, self._weights, strict=True))
+        return weighted / self._weight_total

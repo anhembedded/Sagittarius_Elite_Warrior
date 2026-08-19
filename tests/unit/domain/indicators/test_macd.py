@@ -97,3 +97,40 @@ def test_macd_constant_price_yields_zero_everywhere():
 def test_macd_invalid_period_ordering_raises():
     with pytest.raises(ValueError):
         MACD(fast_period=26, slow_period=12)
+
+
+def test_macd_peek_provisional_returns_none_during_warmup():
+    macd = MACD(fast_period=12, slow_period=26, signal_period=9)
+    for v in CLOSES[:5]:
+        macd.update(v)
+
+    assert macd.peek_provisional(999.0) is None
+
+
+def test_macd_peek_provisional_matches_what_update_would_return():
+    # Warm-up completes at 34 updates (slow_period + signal_period - 1).
+    provisional_side = MACD(fast_period=12, slow_period=26, signal_period=9)
+    commit_side = MACD(fast_period=12, slow_period=26, signal_period=9)
+    for v in CLOSES[:34]:
+        provisional_side.update(v)
+        commit_side.update(v)
+
+    next_value = CLOSES[34]
+    assert provisional_side.peek_provisional(next_value) == commit_side.update(
+        next_value
+    )
+
+
+def test_macd_peek_provisional_never_mutates_state():
+    # Also proves the 3 composed EMAs (fast/slow/signal) are untouched —
+    # if any of them mutated, the committed update() below would diverge.
+    macd = MACD(fast_period=12, slow_period=26, signal_period=9)
+    reference = MACD(fast_period=12, slow_period=26, signal_period=9)
+    for v in CLOSES[:34]:
+        macd.update(v)
+        reference.update(v)
+
+    for probe in (1.0, 999.0, -50.0, CLOSES[34]):
+        macd.peek_provisional(probe)
+
+    assert macd.update(CLOSES[34]) == reference.update(CLOSES[34])

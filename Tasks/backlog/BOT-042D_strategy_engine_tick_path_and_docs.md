@@ -1,8 +1,8 @@
 # Nhiệm vụ: BOT-042D — `StrategyEngine` đường nhận tick + sửa lời hứa `BOT-020`
 
 > Thuộc Epic [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md).
-> Phụ thuộc [`BOT-042B`](BOT-042B_indicator_provisional_contract.md) và
-> [`BOT-042C`](BOT-042C_series_provisional_slot.md) — cả 2 phải xong trước.
+> Phụ thuộc [`BOT-042B`](../completed/BOT-042B_indicator_provisional_contract.md) ✅ và
+> [`BOT-042C`](../completed/BOT-042C_series_provisional_slot.md) ✅ — cả 2 đã xong.
 > **Chặn [`BOT-076`](BOT-076_realtime_backtest_engine.md).**
 
 ## 1. Mục tiêu
@@ -52,9 +52,9 @@ là bug.
 
 ## 5. Phụ thuộc
 
-- [`BOT-042B`](BOT-042B_indicator_provisional_contract.md) — indicator phải
-  có `peek_provisional` trước.
-- [`BOT-042C`](BOT-042C_series_provisional_slot.md) — `Series` phải có ô tạm
-  trước.
+- [`BOT-042B`](../completed/BOT-042B_indicator_provisional_contract.md) ✅ — indicator
+  đã có `peek_provisional`.
+- [`BOT-042C`](../completed/BOT-042C_series_provisional_slot.md) ✅ — `Series` đã có
+  ô tạm.
 - Chặn [`BOT-076`](BOT-076_realtime_backtest_engine.md) — consumer đầu tiên
   của đường tick mới.

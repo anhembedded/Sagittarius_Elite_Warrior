@@ -80,3 +80,55 @@ def test_wma_invalid_period_raises():
 
     with pytest.raises(ValueError, match="WMA period must be positive"):
         WMA(period=-5)
+
+
+def test_wma_peek_provisional_returns_none_during_warmup():
+    wma = WMA(period=5)
+    for v in CLOSES[:2]:
+        wma.update(v)
+
+    # 2 committed + 1 provisional = 3, still short of period=5.
+    assert wma.peek_provisional(999.0) is None
+
+
+def test_wma_peek_provisional_matches_what_update_would_return_while_filling():
+    # Committed window not yet full (4 of 5) — provisional must extend it,
+    # not slide it, same as update() would.
+    provisional_side = WMA(period=5)
+    commit_side = WMA(period=5)
+    for v in CLOSES[:4]:
+        provisional_side.update(v)
+        commit_side.update(v)
+
+    next_value = CLOSES[4]
+    assert provisional_side.peek_provisional(next_value) == commit_side.update(
+        next_value
+    )
+
+
+def test_wma_peek_provisional_matches_what_update_would_return_once_full():
+    # Committed window already full (5 of 5) — provisional must slide the
+    # window (drop oldest), same as update() would.
+    provisional_side = WMA(period=5)
+    commit_side = WMA(period=5)
+    for v in CLOSES[:6]:
+        provisional_side.update(v)
+        commit_side.update(v)
+
+    next_value = CLOSES[6]
+    assert provisional_side.peek_provisional(next_value) == commit_side.update(
+        next_value
+    )
+
+
+def test_wma_peek_provisional_never_mutates_state():
+    wma = WMA(period=5)
+    reference = WMA(period=5)
+    for v in CLOSES[:6]:
+        wma.update(v)
+        reference.update(v)
+
+    for probe in (1.0, 999.0, -50.0, CLOSES[6]):
+        wma.peek_provisional(probe)
+
+    assert wma.update(CLOSES[6]) == reference.update(CLOSES[6])

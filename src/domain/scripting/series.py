@@ -9,6 +9,12 @@ from collections.abc import Iterable
 #: keeps everything, we deliberately don't.
 DEFAULT_HISTORY = 16
 
+#: Distinguishes "no tick has poked a provisional value for this bar yet"
+#: from "a tick explicitly poked None" (a legitimate provisional reading,
+#: e.g. an indicator still warming up mid-bar) — None itself can't do this
+#: double duty, so a private sentinel object stands in (BOT-042C).
+_NO_PROVISIONAL = object()
+
 
 class Series:
     """
@@ -33,17 +39,37 @@ class Series:
             )
         #: Newest first, so index 0 is always the current bar.
         self._values: deque[float | None] = deque(maxlen=history)
+        #: Tentative value for the bar still forming — separate from
+        #: `_values` so a tick never occupies a history slot on its own.
+        self._provisional: float | None | object = _NO_PROVISIONAL
 
     def push(self, value: float | None) -> float | None:
-        """Records this bar's value. None means "no value this bar" (warming
-        up, or a deliberately skipped bar) and still occupies a slot, so the
-        bar alignment of `[1]`, `[2]` ... stays correct."""
+        """Records this bar's value, committing it permanently. None means
+        "no value this bar" (warming up, or a deliberately skipped bar) and
+        still occupies a slot, so the bar alignment of `[1]`, `[2]` ... stays
+        correct. Clears any pending provisional value for the bar that just
+        closed — the next `poke_provisional()` starts the next bar fresh."""
+        self._provisional = _NO_PROVISIONAL
         self._values.appendleft(value)
+        return value
+
+    def poke_provisional(self, value: float | None) -> float | None:
+        """Tentative value for the bar still forming (BOT-042C) — overwrites
+        itself on every call within the same bar, never occupies a new
+        history slot. `[0]` reads this while set; `[1]`, `[2]`... shift to
+        read what would otherwise be `[0]`, `[1]`... i.e. the already-closed
+        bars, unaffected by how many times this was called. Cleared by the
+        next `push()`."""
+        self._provisional = value
         return value
 
     def __getitem__(self, offset: int) -> float | None:
         if offset < 0:
             raise IndexError(f"Series offset must be >= 0, got {offset}")
+        if self._provisional is not _NO_PROVISIONAL:
+            if offset == 0:
+                return self._provisional  # type: ignore[return-value]
+            offset -= 1
         if offset >= len(self._values):
             return None
         return self._values[offset]

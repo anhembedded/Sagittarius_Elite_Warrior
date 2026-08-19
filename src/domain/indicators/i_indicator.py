@@ -18,3 +18,15 @@ class IIndicator(Protocol[T_co]):
         @returns The indicator's current reading, or None while still warming up.
         """
         ...
+
+    def peek_provisional(self, value: float) -> T_co | None:
+        """
+        @brief Tentative reading for a bar still forming — never mutates state.
+        @details Computes the exact same formula `update()` would, from the
+        already-committed state plus `value`, without writing anything back.
+        Safe to call any number of times per bar (a tick stream); the next
+        `update()` call is unaffected by how many times this was called, or
+        with what values. Returns None under the same warm-up condition as
+        `update()` (BOT-042B).
+        """
+        ...

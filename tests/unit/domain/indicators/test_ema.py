@@ -70,3 +70,42 @@ def test_ema_constant_input_converges_to_input():
 def test_ema_invalid_period_raises():
     with pytest.raises(ValueError):
         EMA(period=0)
+
+
+def test_ema_peek_provisional_returns_none_during_warmup():
+    ema = EMA(period=12)
+    for v in CLOSES[:5]:
+        ema.update(v)
+
+    assert ema.peek_provisional(999.0) is None
+
+
+def test_ema_peek_provisional_matches_what_update_would_return():
+    # Two instances warmed to the same committed state — one takes the
+    # provisional branch, the other the real commit branch. Same formula,
+    # same input, must agree (BOT-042B).
+    provisional_side = EMA(period=12)
+    commit_side = EMA(period=12)
+    for v in CLOSES[:13]:
+        provisional_side.update(v)
+        commit_side.update(v)
+
+    next_value = CLOSES[13]
+    assert provisional_side.peek_provisional(next_value) == commit_side.update(
+        next_value
+    )
+
+
+def test_ema_peek_provisional_never_mutates_state():
+    ema = EMA(period=12)
+    reference = EMA(period=12)
+    for v in CLOSES[:13]:
+        ema.update(v)
+        reference.update(v)
+
+    for probe in (1.0, 999.0, -50.0, CLOSES[13]):
+        ema.peek_provisional(probe)
+
+    # However many times (or with what values) peek_provisional was called,
+    # the next real update() must be identical to an instance never peeked.
+    assert ema.update(CLOSES[13]) == reference.update(CLOSES[13])

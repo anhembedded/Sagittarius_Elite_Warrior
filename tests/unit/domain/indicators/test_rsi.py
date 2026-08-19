@@ -70,3 +70,37 @@ def test_rsi_strictly_increasing_prices_yields_100():
 def test_rsi_invalid_period_raises():
     with pytest.raises(ValueError):
         RSI(period=0)
+
+
+def test_rsi_peek_provisional_returns_none_during_warmup():
+    rsi = RSI(period=14)
+    for v in CLOSES[:5]:
+        rsi.update(v)
+
+    assert rsi.peek_provisional(999.0) is None
+
+
+def test_rsi_peek_provisional_matches_what_update_would_return():
+    provisional_side = RSI(period=14)
+    commit_side = RSI(period=14)
+    for v in CLOSES[:15]:
+        provisional_side.update(v)
+        commit_side.update(v)
+
+    next_value = CLOSES[15]
+    assert provisional_side.peek_provisional(next_value) == commit_side.update(
+        next_value
+    )
+
+
+def test_rsi_peek_provisional_never_mutates_state():
+    rsi = RSI(period=14)
+    reference = RSI(period=14)
+    for v in CLOSES[:15]:
+        rsi.update(v)
+        reference.update(v)
+
+    for probe in (1.0, 999.0, -50.0, CLOSES[15]):
+        rsi.peek_provisional(probe)
+
+    assert rsi.update(CLOSES[15]) == reference.update(CLOSES[15])

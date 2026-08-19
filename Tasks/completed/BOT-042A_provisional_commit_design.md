@@ -1,6 +1,6 @@
 # Nhiệm vụ: BOT-042A — Thiết kế Provisional vs Commit (class + sequence diagram)
 
-> Thuộc Epic [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md).
+> Thuộc Epic [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md).
 > Không phụ thuộc task nào; **chặn `BOT-042B`/`BOT-042C`** — đừng code trước
 > khi task này được duyệt.
 
