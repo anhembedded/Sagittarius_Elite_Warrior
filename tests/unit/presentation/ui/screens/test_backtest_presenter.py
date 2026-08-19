@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest.command import (
+    RunRealtimeBacktestCommand,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
 )
@@ -96,6 +99,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BacktestActionKind,
     BacktestActionOutcome,
+    BacktestExecutionMode,
     BacktestRunConfig,
     BacktestUiEvent,
     BacktestUiState,
@@ -326,13 +330,25 @@ def _make_result_with_trades(trade_count: int, win_count: int) -> BacktestResult
     )
 
 
-def _dispatch_stub(result: BacktestResult | None, klines: list | None = None):
+def _dispatch_stub(
+    result: BacktestResult | None,
+    klines: list | None = None,
+    *,
+    realtime: bool = False,
+):
     """`_run_backtest` dispatches 2 different commands (BacktestResult, then
     chart klines) — a single `mock.return_value` can't tell them apart, so
-    tests that reach the chart-fetch step need this instead."""
+    tests that reach the chart-fetch step need this instead.
+
+    `realtime=True` answers `RunRealtimeBacktestCommand` instead of
+    `RunStaticBacktestCommand` (BOT-076 §3.3) — a test must pick the one that
+    matches the config's `execution_mode`, since `_run_backtest` dispatches
+    exactly one of the two, never both."""
 
     def side_effect(handler_class, command):
-        if handler_class is RunStaticBacktestCommand:
+        if not realtime and handler_class is RunStaticBacktestCommand:
+            return result
+        if realtime and handler_class is RunRealtimeBacktestCommand:
             return result
         if handler_class is GetHistoricalKlinesQuery:
             return klines or []
@@ -618,6 +634,100 @@ def test_run_backtest_and_chart_fetch_use_the_config_driven_symbol(
     for call in mock_dispatcher.dispatch.call_args_list:
         _handler_class, command = call[0]
         assert command.symbol == "BTCUSDT"
+
+
+# ---------------------------------------------------------------------------
+# BOT-076 §3.3 — Realtime execution mode dispatch
+# ---------------------------------------------------------------------------
+
+
+def test_historical_tick_mode_dispatches_run_realtime_backtest_command(
+    presenter, view_model, mock_dispatcher
+):
+    """The one thing BOT-074 explicitly left undone: unlocking the QML row
+    means nothing if the Presenter still always builds a
+    RunStaticBacktestCommand underneath it."""
+    view_model.executionMode = "HISTORICAL_TICK"
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), realtime=True
+    )
+
+    config = _lock_and_get_config(presenter, view_model)
+    assert config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
+    presenter._run_backtest(config)
+
+    dispatched_handlers = [
+        call[0][0] for call in mock_dispatcher.dispatch.call_args_list
+    ]
+    assert RunRealtimeBacktestCommand in dispatched_handlers
+    assert RunStaticBacktestCommand not in dispatched_handlers
+
+    realtime_call = next(
+        call
+        for call in mock_dispatcher.dispatch.call_args_list
+        if call[0][0] is RunRealtimeBacktestCommand
+    )
+    _handler_class, realtime_command = realtime_call[0]
+    assert realtime_command.tick_resolution == config.tick_resolution
+
+
+def test_bar_close_mode_still_dispatches_run_static_backtest_command(
+    presenter, view_model, mock_dispatcher
+):
+    """Explicit regression pin for the default path, now that dispatch
+    branches on execution_mode instead of always building Static."""
+    assert view_model.executionMode == "BAR_CLOSE"
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+
+    config = _lock_and_get_config(presenter, view_model)
+    presenter._run_backtest(config)
+
+    dispatched_handlers = [
+        call[0][0] for call in mock_dispatcher.dispatch.call_args_list
+    ]
+    assert RunStaticBacktestCommand in dispatched_handlers
+    assert RunRealtimeBacktestCommand not in dispatched_handlers
+
+
+def test_result_message_labels_realtime_vs_static_truthfully(
+    presenter, view_model, mock_dispatcher
+):
+    """The two engines are allowed to disagree on the same data (BOT-076
+    §5) — a result with no mode label is exactly the "looks identical, means
+    something different" trap the task's own §3.3 checklist calls out."""
+    view_model.selectedStrategyKey = "fake_strategy"
+
+    view_model.executionMode = "HISTORICAL_TICK"
+    result = _make_result(with_trades=True)
+    presenter._on_backtest_succeeded(result)
+    # No picker exists yet (BOT-076 §3.3 scope) — BacktestRunConfig.tick_resolution
+    # always defaults to 1s, so that is the value a truthful label must show.
+    assert "Realtime" in view_model.resultText
+    assert "tick 1s" in view_model.resultText
+
+    view_model.executionMode = "BAR_CLOSE"
+    presenter._on_backtest_succeeded(result)
+    assert "Static" in view_model.resultText
+
+
+def test_probe_data_coverage_checks_tick_resolution_for_realtime_mode(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-076's handler queries IMarketDataRepository at tick_resolution
+    (e.g. 1s), never at the strategy interval (e.g. 5m) — checking coverage
+    for the wrong one would report "fully covered" while the interval the
+    handler actually reads was never synced at all."""
+    view_model.executionMode = "HISTORICAL_TICK"
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.return_value = Mock(is_fully_covered=True)
+
+    presenter._probe_data_coverage(config)
+
+    _handler_class, query = mock_dispatcher.dispatch.call_args[0]
+    assert query.interval == config.tick_resolution.value
+    assert query.interval != config.timeframe.value
 
 
 # ---------------------------------------------------------------------------

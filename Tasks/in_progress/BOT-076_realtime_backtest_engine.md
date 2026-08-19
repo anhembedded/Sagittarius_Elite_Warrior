@@ -6,14 +6,47 @@
 > [`BOT-075`](../backlog/BOT-075_tick_data_feasibility_spike.md) (spike chi phí dữ liệu, kết luận
 > khả thi có điều kiện) đều đã xong. Task này giờ sẵn sàng bắt đầu.
 >
-> 🟡 **Tiến độ 2026-08-19**: §3.1 (use case & command) và §3.2 (vòng lặp replay)
-> **xong** — `RunRealtimeBacktestCommand`/`RunRealtimeBacktestCommandHandler` thật,
-> đăng ký DI, 12 test mới (8 unit handler + 4 sanity DI) cộng toàn bộ 1369 test
-> `tests/unit/` cũ giữ nguyên. §3.4 (test) xong phần cốt lõi (chốt-đúng-1-lần-bar,
+> 🟡 **Tiến độ 2026-08-19**: §3.1 (use case & command), §3.2 (vòng lặp replay)
+> và §3.3 (UI) **xong**. `RunRealtimeBacktestCommand`/`RunRealtimeBacktestCommandHandler`
+> thật, đăng ký DI. §3.4 (test) xong phần cốt lõi (chốt-đúng-1-lần-bar,
 > không tín hiệu giả, degenerate khớp Static, cộng 1 test phát hiện thêm về
-> tick-gap). **Còn lại: §3.3 (UI — mở khoá Execution Trigger Rule, nối dây
-> `IThreadManager`/`CancellationToken` từ Presenter, hiển thị Realtime vs Static)
-> và §3.5 (replay control, tuỳ chọn không chặn "task xong").**
+> tick-gap). **Còn lại: §3.5 (replay control, tuỳ chọn không chặn "task xong").**
+>
+> **§3.3 chi tiết:** `OrderExecutionModal.qml` mở khoá đúng **1** hàng —
+> "Trên mỗi tick của thanh lịch sử" (index 2) — không đụng index 1 ("Khi lệnh
+> được khớp", thuộc `BOT-077`) hay index 3 ("...thanh thời gian thực", nghĩa
+> là live/Dev Board, không phải backtest). Hành vi single-select thật: check
+> index 2 tự uncheck index 0 và ngược lại, hai chiều (QML→Python qua
+> `viewModel.executionMode`, Python→QML qua `Connections` lắng
+> `executionModeChanged`) — verify bằng ảnh chụp cửa sổ thật, không chỉ test
+> offscreen. `BacktestRunConfig` thêm `execution_mode`/`tick_resolution`
+> (mặc định `TimeFrame.ONE_SECOND` — **chưa có picker chọn độ phân giải**,
+> nằm ngoài phạm vi §3.3, xem §3.5/backlog nếu cần sau). `_run_backtest`
+> dispatch đúng 1 trong 2 lệnh theo `execution_mode`, không bao giờ cả hai.
+>
+> **Bug thật tìm được khi nối dây, không nằm trong checklist gốc:**
+> `_probe_data_coverage()`/`_run_sync()` luôn check/sync coverage theo
+> `config.timeframe` (khung chỉ báo, vd `5m`) — nhưng handler Realtime đọc dữ
+> liệu từ `IMarketDataRepository` ở `tick_resolution` (vd `1s`, đúng quyết
+> định `BOT-075`), một interval hoàn toàn khác. Không sửa thì coverage báo
+> "đủ dữ liệu" trong khi dữ liệu 1s thật chưa từng được sync — Realtime chạy
+> xong luôn trả "không có dữ liệu". Sửa bằng
+> `_effective_data_interval(config)`: trả `tick_resolution` khi Realtime,
+> `timeframe` khi Static; áp dụng cho cả coverage-check lẫn sync-dispatch lẫn
+> thông báo lỗi "không có dữ liệu". Có test riêng xác nhận
+> (`test_probe_data_coverage_checks_tick_resolution_for_realtime_mode`).
+>
+> Kết quả hiển thị dòng đầu `Chế độ: Realtime (tick 1s)` hoặc
+> `Chế độ: Static (theo nến đóng)` — tránh đúng cái bẫy "2 kết quả trông giống
+> hệt nhau mà ngữ nghĩa khác nhau" mà §3.3 tự nêu.
+>
+> Guard test `BOT-074` (`test_order_execution_modal.py`) đã vỡ **đúng như
+> thiết kế** khi mở khoá index 2 và được sửa lại đúng tinh thần đó — 2 test
+> mới xác nhận cả 2 chiều wiring, không chỉ chỗ đã vỡ. 4 test presenter mới
+> (dispatch đúng lệnh theo mode, coverage đúng interval, label đúng nội dung)
+> + mutation-check thủ công (tắt nhánh dispatch → test fail đúng lý do) trước
+> khi tin. 1439 test toàn bộ `tests/unit/`+`tests/sanity/` pass, coverage
+> 94.47%, `ruff` sạch.
 >
 > 📌 **2026-08-18 — task này giờ là engine replay DUY NHẤT của app.**
 > `BOT-023` (Dynamic Backtest Engine) **đã bị huỷ** theo quyết định của user
@@ -91,11 +124,12 @@ Khác biệt **chỉ được phép nằm ở**: (1) vòng lặp replay, (2) th�
 - [x] Equity curve: chốt **theo bar**, không theo tick (nếu không, `equity_curve` sẽ
       to gấp 60× và `BacktestMetrics.max_drawdown` sẽ tính trên tập điểm khác hẳn
       Static → mất khả năng so sánh). Ghi rõ quyết định này vào docstring.
-- [ ] Chạy nền qua `IThreadManager` + `CancellationToken` (pattern đã có từ
+- [x] Chạy nền qua `IThreadManager` + `CancellationToken` (pattern đã có từ
       `BOT-034`), phát progress event — với 604.800 tick/tuần thì UI **bắt buộc** phải
-      huỷ được giữa chừng. **Chưa làm** — handler đã hỗ trợ `cancellation_requested`/
-      `progress_callback` cooperative (đúng contract `ICommandHandler`), nhưng việc
-      submit qua `IThreadManager` từ Presenter là phần việc của §3.3 (UI), chưa đụng.
+      huỷ được giữa chừng. Hoá ra **miễn phí**: `_start_backtest_run()` đã gọi
+      `self._thread_manager.submit(self._run_backtest, ...)` từ trước, mode-agnostic —
+      §3.3 chỉ cần làm `_run_backtest` biết dispatch đúng lệnh theo `execution_mode`,
+      cancellation/progress tự động chạy qua đường có sẵn, không cần code riêng.
 
 ### 3.3. UI
 
@@ -159,14 +193,16 @@ Khác biệt **chỉ được phép nằm ở**: (1) vòng lặp replay, (2) th�
 > liệu đúng 1 lần từ `BacktestResult` cuối cùng, giống hệt luồng Static hôm
 > nay (`_on_chart_data_ready_for_action` → `_on_chart_data_ready`).
 
-- [ ] Mở khoá lựa chọn tick trong
-      [`OrderExecutionMenu.qml`](../../src/presentation/ui/components/OrderExecutionMenu.qml)
+- [x] Mở khoá lựa chọn tick trong
+      [`OrderExecutionModal.qml`](../../src/presentation/ui/components/OrderExecutionModal.qml)
+      (tên file thật — `OrderExecutionMenu.qml` ở trên là tham chiếu cũ sai tên)
       và **nối dây thật** xuống `BackTestViewModel` → command. Đây là phần
       [`BOT-074`](../completed/BOT-074_execution_trigger_rule_inverted_lock.md) cố ý **không** làm
-      (chưa có consumer); giờ đã có.
-- [ ] Test guard của `BOT-074` sẽ vỡ ở bước này — **đúng như thiết kế**. Sửa nó cho
+      (chưa có consumer); giờ đã có. Chỉ mở khoá đúng 1 hàng (index 2, "Trên mỗi
+      tick của thanh lịch sử") — 2 hàng còn lại không thuộc task này (xem note đầu file).
+- [x] Test guard của `BOT-074` sẽ vỡ ở bước này — **đúng như thiết kế**. Sửa nó cho
       khớp trạng thái mới, đừng xoá.
-- [ ] Hiển thị rõ trên kết quả: đây là Realtime hay Static (kèm độ phân giải tick).
+- [x] Hiển thị rõ trên kết quả: đây là Realtime hay Static (kèm độ phân giải tick).
       Hai kết quả trông giống hệt nhau mà ngữ nghĩa khác nhau là bẫy hiểu nhầm.
 
 ### 3.4. Test

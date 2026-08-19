@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
+    RunRealtimeBacktestCommand,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
     RunStaticBacktestCommand,
@@ -91,6 +94,7 @@ from .logic.backtest_fsm_matrix import (
     BacktestActionContext,
     BacktestActionKind,
     BacktestActionOutcome,
+    BacktestExecutionMode,
     BacktestRunConfig,
     BacktestUiEvent,
     BacktestUiState,
@@ -452,6 +456,7 @@ class BackTestPresenter(BasePresenter):
             self._on_strategy_selection_changed
         )
         self._view_model.selectedTimeframeChanged.connect(self._on_timeframe_changed)
+        self._view_model.executionModeChanged.connect(self._on_execution_mode_changed)
         self._view_model.timeRangePresetChanged.connect(self._on_time_range_changed)
         self._view_model.displayTimezoneChanged.connect(
             self._on_display_timezone_changed
@@ -777,6 +782,7 @@ class BackTestPresenter(BasePresenter):
             strategy_params=self._strategy_params,
             currency=currency,
             symbol=self._symbol,
+            execution_mode=self._get_execution_mode_from_view_model(),
         )
 
     def _on_config_input_changed(self) -> None:
@@ -1160,11 +1166,13 @@ class BackTestPresenter(BasePresenter):
         )
         self._view_model.set_result_warning_text(build_result_warning_text(result))
         self._view_model.set_limitations(build_backtest_limitations(result))
+        run_config = self._get_current_config()
         message = (
             format_result_summary(result)
             if result.trades
             else f"{_ZERO_TRADES_MESSAGE}\n\n{format_result_summary(result)}"
         )
+        message = f"{self._execution_mode_label(run_config)}\n{message}"
         self._view_model.set_result(message, is_error=False)
         self._all_trades = result.trades
         self._refresh_trade_log()
@@ -1178,7 +1186,7 @@ class BackTestPresenter(BasePresenter):
             win_rate=win_rate,
             currency=self._view_model.selectedCurrency,
         )
-        self._last_run_config = self._get_current_config()
+        self._last_run_config = run_config
         self._view_model.lastRunSummary = self._last_run_config.to_summary_label()
         self._view_model.configDiffSummary = ""
         if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED):
@@ -1420,6 +1428,16 @@ class BackTestPresenter(BasePresenter):
         self._sync_chart_toolbar_timeframe()
         self._on_config_input_changed()
         self._request_chart_preview()
+
+    @Slot()
+    @safe_ui_action
+    def _on_execution_mode_changed(self) -> None:
+        """BOT-076 §3.3 — OrderExecutionModal's mode selection changed."""
+        logger.info(
+            "[backtest-config] execution mode set to %s",
+            self._view_model.executionMode,
+        )
+        self._on_config_input_changed()
 
     @Slot()
     @safe_ui_action
@@ -1919,7 +1937,14 @@ class BackTestPresenter(BasePresenter):
             end_time=end_time,
             strategy_params=self._strategy_params,
             currency=Currency(view_model.selectedCurrency),
+            execution_mode=self._get_execution_mode_from_view_model(),
         )
+
+    def _get_execution_mode_from_view_model(self) -> BacktestExecutionMode:
+        try:
+            return BacktestExecutionMode(self._view_model.executionMode)
+        except ValueError:
+            return BacktestExecutionMode.BAR_CLOSE
 
     # ================================================================== #
     # Background method — submitted to IThreadManager.
@@ -1953,31 +1978,66 @@ class BackTestPresenter(BasePresenter):
                     )
                     return
                 self._backtestCoverageReadySignal.emit(resolved_action_id, coverage)
-            command = RunStaticBacktestCommand(
-                symbol=self._symbol,
-                interval=config.timeframe,
-                strategy_key=config.strategy_key,
-                initial_balance=config.initial_balance,
-                start_time=config.start_time,
-                end_time=config.end_time,
-                strategy_params=config.strategy_params,
-                cancellation_requested=(
-                    cancellation_token.is_cancelled if cancellation_token else None
-                ),
-                progress_callback=lambda phase, completed, total, elapsed: (
-                    self._backtestProgressSignal.emit(
-                        resolved_action_id, phase, completed, total, elapsed
-                    )
-                ),
+
+            def progress_callback(
+                phase: str, completed: int, total: int, elapsed: float
+            ) -> None:
+                self._backtestProgressSignal.emit(
+                    resolved_action_id, phase, completed, total, elapsed
+                )
+
+            cancellation_requested = (
+                cancellation_token.is_cancelled if cancellation_token else None
             )
-            self._log_dev_trace(
-                "worker_dispatch_run_static_backtest",
-                symbol=command.symbol,
-                timeframe=command.interval.value,
-            )
-            result = self.dispatcher.dispatch(RunStaticBacktestCommand, command)
+            if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
+                realtime_command = RunRealtimeBacktestCommand(
+                    symbol=self._symbol,
+                    interval=config.timeframe,
+                    tick_resolution=config.tick_resolution,
+                    strategy_key=config.strategy_key,
+                    initial_balance=config.initial_balance,
+                    start_time=config.start_time,
+                    end_time=config.end_time,
+                    strategy_params=config.strategy_params,
+                    cancellation_requested=cancellation_requested,
+                    progress_callback=progress_callback,
+                )
+                self._log_dev_trace(
+                    "worker_dispatch_run_realtime_backtest",
+                    symbol=realtime_command.symbol,
+                    timeframe=realtime_command.interval.value,
+                    tick_resolution=realtime_command.tick_resolution.value,
+                )
+                result = self.dispatcher.dispatch(
+                    RunRealtimeBacktestCommand, realtime_command
+                )
+            else:
+                static_command = RunStaticBacktestCommand(
+                    symbol=self._symbol,
+                    interval=config.timeframe,
+                    strategy_key=config.strategy_key,
+                    initial_balance=config.initial_balance,
+                    start_time=config.start_time,
+                    end_time=config.end_time,
+                    strategy_params=config.strategy_params,
+                    cancellation_requested=cancellation_requested,
+                    progress_callback=progress_callback,
+                )
+                self._log_dev_trace(
+                    "worker_dispatch_run_static_backtest",
+                    symbol=static_command.symbol,
+                    timeframe=static_command.interval.value,
+                )
+                result = self.dispatcher.dispatch(
+                    RunStaticBacktestCommand, static_command
+                )
         except Exception as exc:
-            logger.exception("Static backtest failed")
+            logger.exception(
+                "%s backtest failed",
+                "Realtime"
+                if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
+                else "Static",
+            )
             self._log_dev_trace("worker_failed", message=str(exc))
             self._backtestFailedSignal.emit(resolved_action_id, str(exc))
             return
@@ -1991,7 +2051,8 @@ class BackTestPresenter(BasePresenter):
             self._backtestEmptySignal.emit(
                 resolved_action_id,
                 f"Không có dữ liệu lịch sử cho {self._symbol} "
-                f"({config.timeframe.value}). Hãy sync dữ liệu trước.",
+                f"({self._effective_data_interval(config).value}). "
+                "Hãy sync dữ liệu trước.",
                 config,
             )
             return
@@ -2014,11 +2075,36 @@ class BackTestPresenter(BasePresenter):
         # "no historical data at all" (result is None, above) has none.
         self._backtestSucceededSignal.emit(resolved_action_id, result)
 
+    @staticmethod
+    def _execution_mode_label(config: BacktestRunConfig) -> str:
+        """BOT-076 §3.3 — every result must say plainly which of the two
+        parallel engines produced it. They are allowed and expected to
+        disagree on the same data (BOT-076 §5); a result with no label is
+        exactly the "two runs look identical with different meanings" trap
+        that requirement exists to prevent."""
+        if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
+            return f"Chế độ: Realtime (tick {config.tick_resolution.value})"
+        return "Chế độ: Static (theo nến đóng)"
+
+    @staticmethod
+    def _effective_data_interval(config: BacktestRunConfig) -> TimeFrame:
+        """The kline interval that must actually be synced/covered for this
+        run — BOT-076's realtime handler queries `IMarketDataRepository` at
+        `tick_resolution` (e.g. 1s), never at `config.timeframe` (the
+        strategy/indicator interval, e.g. 5m — BOT-075's own decision was 1s
+        kline as the tick data source, same repository, no new pipeline).
+        Checking/syncing `config.timeframe` coverage for a Realtime run would
+        report "fully covered" while the interval the handler actually reads
+        was never fetched at all."""
+        if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
+            return config.tick_resolution
+        return config.timeframe
+
     def _probe_data_coverage(self, config: BacktestRunConfig) -> BacktestRangeCoverage:
         now = datetime.now(UTC)
         query = GetBacktestRangeCoverageQuery(
             symbol=self._symbol,
-            interval=config.timeframe.value,
+            interval=self._effective_data_interval(config).value,
             start_time=config.start_time,
             end_time=config.end_time or now,
             now=now,
@@ -2041,23 +2127,24 @@ class BackTestPresenter(BasePresenter):
         )
         if resolved_action_id is None:
             return
+        sync_interval = self._effective_data_interval(config)
         self._log_dev_trace(
             "sync_worker_start",
             action_id=resolved_action_id,
-            timeframe=config.timeframe.value,
+            timeframe=sync_interval.value,
             start=config.start_time,
             end=config.end_time,
         )
         try:
             command = SyncMarketDataCommand(
                 symbols=[self._symbol],
-                interval=config.timeframe,
+                interval=sync_interval,
                 start_time=config.start_time,
                 # Binance treats the history end boundary as exclusive.
                 # Fetch one extra interval; coverage/backtest still keep
                 # the requested half-open boundary.
                 end_time=(
-                    config.end_time + timedelta(seconds=config.timeframe.to_seconds())
+                    config.end_time + timedelta(seconds=sync_interval.to_seconds())
                     if config.end_time is not None
                     else None
                 ),
@@ -2068,7 +2155,7 @@ class BackTestPresenter(BasePresenter):
             self._log_dev_trace(
                 "sync_dispatch",
                 symbol=self._symbol,
-                timeframe=config.timeframe.value,
+                timeframe=sync_interval.value,
             )
             self.dispatcher.dispatch(SyncMarketDataCommand, command)
         except Exception as exc:

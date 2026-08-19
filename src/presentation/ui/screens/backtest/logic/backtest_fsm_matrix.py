@@ -62,6 +62,21 @@ class BacktestActionKind(str, Enum):
     SYNC = "SYNC"
 
 
+class BacktestExecutionMode(str, Enum):
+    """
+    @brief Which of the two parallel backtest engines a run uses (BOT-076).
+    @details `BAR_CLOSE` dispatches `RunStaticBacktestCommand` (strategy runs
+    once per closed candle, `BOT-021`). `HISTORICAL_TICK` dispatches
+    `RunRealtimeBacktestCommand` (strategy re-evaluated every tick inside the
+    forming bar, `BOT-076`). These are the only two — "on order filled"
+    (`BOT-077`) and "real-time bar tick" (live trading, not backtest) are
+    separate, not-yet-built modes and must not be represented here.
+    """
+
+    BAR_CLOSE = "BAR_CLOSE"
+    HISTORICAL_TICK = "HISTORICAL_TICK"
+
+
 class BacktestActionOutcome(str, Enum):
     """The terminal outcome currently owned by a Backtest action."""
 
@@ -183,6 +198,13 @@ class BacktestRunConfig:
     strategy_params: dict[str, Any] | None = field(default=None)
     currency: Currency = Currency.USD
     symbol: str = "ETHUSDT"
+    #: BOT-076 §3.3. `tick_resolution` is only meaningful when
+    #: `execution_mode == HISTORICAL_TICK`; `BOT-075`'s validated feasibility
+    #: number (1s, ~17s worst-case for a 7-day window, background-safe) is
+    #: the default — no resolution picker exists yet, that is optional
+    #: follow-up, not required for this mode to work correctly.
+    execution_mode: BacktestExecutionMode = BacktestExecutionMode.BAR_CLOSE
+    tick_resolution: TimeFrame = TimeFrame.ONE_SECOND
 
     def compute_diff_summary(self, other: BacktestRunConfig) -> str:
         """
@@ -225,6 +247,20 @@ class BacktestRunConfig:
 
         if self.strategy_params != other.strategy_params:
             diffs.append("Thông số Chiến lược")
+
+        if self.execution_mode != other.execution_mode:
+            diffs.append(
+                f"Chế độ thực thi ({self.execution_mode.value} → "
+                f"{other.execution_mode.value})"
+            )
+        elif (
+            self.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
+            and self.tick_resolution != other.tick_resolution
+        ):
+            diffs.append(
+                f"Độ phân giải tick ({self.tick_resolution.value} → "
+                f"{other.tick_resolution.value})"
+            )
 
         if not diffs:
             return "Cấu hình đã thay đổi"

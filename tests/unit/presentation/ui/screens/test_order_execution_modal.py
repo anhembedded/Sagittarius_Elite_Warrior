@@ -1,13 +1,25 @@
 """
-Unit test for OrderExecutionModal (BOT-074).
-Asserts that all execution trigger rules are truthfully displayed with proper lock states:
-- 'On bar close' is active (checked=True) and locked (enabled=False, cannot be toggled off in current engine).
-- Unimplemented modes are inactive (checked=False) and locked (enabled=False, pending Epic BOT-073 / BOT-076).
+Unit test for OrderExecutionModal (BOT-074, updated by BOT-076).
 
-NOTE for future developers:
-When BOT-076 / BOT-077 implements tick-level / order-fill execution modes and connects them
-to Python ViewModel, this test will fail by design to ensure the new capability is intentionally
-unlocked and verified with real Python plumbing.
+BOT-074 deliberately left all 4 modes locked and predicted this test would
+break "by design" once a real engine existed to unlock one — that happened
+here: BOT-076 unlocks index 2 ("Trên mỗi tick của thanh lịch sử", the
+Realtime/tick-driven engine) and wires it to real Python plumbing
+(`BackTestViewModel.executionMode` -> `BacktestRunConfig.execution_mode` ->
+`RunRealtimeBacktestCommand` dispatch in `backtest_presenter.py`).
+
+Truthful lock states now:
+- Index 0 ("On bar close", BOT-021 static engine) — checked by default,
+  locked (mandatory; the user leaves it by picking index 2 instead, not by
+  unchecking it directly, same as any 2-option radio group).
+- Index 2 ("Trên mỗi tick của thanh lịch sử", BOT-076) — unlocked, real.
+- Index 1 ("Khi lệnh được khớp") and index 3 ("Trên mỗi tick của thanh thời
+  gian thực") stay locked — index 1 is `BOT-077`'s scope (calc_on_order_fills,
+  a different re-run trigger, not this engine), index 3 means a live/real-time
+  bar (Dev Board), and this modal only ever opens from the Backtest screen.
+  If a later task unlocks either of those, THIS test should fail again "by
+  design" the same way BOT-074's did — do not weaken the loop below to
+  silently accept it.
 """
 
 from __future__ import annotations
@@ -86,20 +98,19 @@ def backtest_screen(qapp, request):
     return view
 
 
-def test_order_execution_modal_all_items_locked_truthfully(
-    qapp, qml_item, backtest_screen
-):
-    """
-    Asserts BOT-074:
-    - All 4 triggers must have enabled == False (locked).
-    - Trigger 0 ('On bar close') must be checked == True.
-    - Triggers 1, 2, 3 must be checked == False.
-    """
-    view = backtest_screen
+#: index -> expected (locked, initially checked). Index 2 is BOT-076's real
+#: mode; everything else is exactly BOT-074's original truthful lock state.
+_EXPECTED_LOCK_STATE = {
+    0: (True, True),  # On bar close — locked, mandatory default
+    1: (True, False),  # Khi lệnh được khớp — BOT-077, not this task
+    2: (False, False),  # Trên mỗi tick của thanh lịch sử — BOT-076, real
+    3: (True, False),  # Trên mỗi tick của thanh thời gian thực — live, not backtest
+}
+
+
+def _open_order_execution_modal(qapp, qml_item, view):
     top_root = view.top_widget.rootObject()
     overlay_host = view.overlay_host
-
-    # Open Order Execution Modal
     btn_order_exec = qml_item(top_root, "btnBacktestOrderExecution")
     assert btn_order_exec is not None, "btnBacktestOrderExecution not found"
     btn_order_exec.clicked.emit()
@@ -110,36 +121,70 @@ def test_order_execution_modal_all_items_locked_truthfully(
     modal = overlay_root.findChild(object, "orderExecutionModal")
     assert modal is not None, "orderExecutionModal not found in overlay"
     assert modal.property("visible") is True
-
     # ModalDialogCard is a Popup, its visual root is contentItem property
-    search_root = modal.property("contentItem") or modal
+    return modal.property("contentItem") or modal
 
-    # Search visual children of modal contentItem
-    for i in range(4):
-        item = qml_item(search_root, f"chkExecutionTrigger_{i}")
-        assert item is not None, (
-            f"chkExecutionTrigger_{i} not found in OrderExecutionModal"
+
+def test_order_execution_modal_lock_states_and_default_selection_are_truthful(
+    qapp, qml_item, backtest_screen
+):
+    search_root = _open_order_execution_modal(qapp, qml_item, backtest_screen)
+
+    for index, (locked, checked) in _EXPECTED_LOCK_STATE.items():
+        item = qml_item(search_root, f"chkExecutionTrigger_{index}")
+        assert item is not None, f"chkExecutionTrigger_{index} not found"
+        checkbox = qml_item(search_root, f"triggerCheckBox_{index}")
+        assert checkbox is not None, f"triggerCheckBox_{index} not found"
+
+        assert checkbox.property("checked") is checked, (
+            f"Trigger {index} checked should be {checked}, was "
+            f"{checkbox.property('checked')}"
+        )
+        assert item.property("enabled") is not locked, (
+            f"Trigger {index} item enabled should be {not locked} "
+            f"(locked={locked}), was {item.property('enabled')}"
+        )
+        assert checkbox.property("enabled") is not locked, (
+            f"Trigger {index} checkbox enabled should be {not locked} "
+            f"(locked={locked}), was {checkbox.property('enabled')}"
         )
 
-        checkbox = qml_item(search_root, f"triggerCheckBox_{i}")
-        assert checkbox is not None, (
-            f"triggerCheckBox_{i} not found in OrderExecutionModal"
-        )
-        checked_val = checkbox.property("checked")
 
-        if i == 0:
-            assert checked_val is True, (
-                f"Trigger 0 ('On bar close') should be checked, but was {checked_val}"
-            )
-        else:
-            assert checked_val is False, (
-                f"Trigger {i} should not be checked, but was {checked_val}"
-            )
+def test_checking_historical_tick_mode_sets_view_model_execution_mode(
+    qapp, qml_item, backtest_screen
+):
+    """BOT-076: the one real interactive row must actually reach Python —
+    exactly the plumbing gap BOT-074 documented as its own reason for
+    leaving every row locked in the first place."""
+    view = backtest_screen
+    search_root = _open_order_execution_modal(qapp, qml_item, view)
+    checkbox = qml_item(search_root, "triggerCheckBox_2")
+    assert checkbox is not None
 
-        # Must be locked / disabled: enabled should be False
-        assert item.property("enabled") is False, (
-            f"Trigger item {i} should be disabled/locked (enabled=False), but was enabled={item.property('enabled')}"
-        )
-        assert checkbox.property("enabled") is False, (
-            f"Trigger checkbox {i} should be disabled/locked (enabled=False), but was enabled={checkbox.property('enabled')}"
-        )
+    view_model = view._view_model
+    assert view_model.executionMode == "BAR_CLOSE"
+
+    checkbox.setProperty("checked", True)
+    qapp.processEvents()
+    assert view_model.executionMode == "HISTORICAL_TICK"
+
+    checkbox.setProperty("checked", False)
+    qapp.processEvents()
+    assert view_model.executionMode == "BAR_CLOSE"
+
+
+def test_setting_execution_mode_from_python_updates_the_modal_checkboxes(
+    qapp, qml_item, backtest_screen
+):
+    """The reverse direction: an external reset (e.g. FSM going back to IDLE)
+    must not leave the modal showing a stale selection."""
+    view = backtest_screen
+    search_root = _open_order_execution_modal(qapp, qml_item, view)
+
+    view._view_model.executionMode = "HISTORICAL_TICK"
+    qapp.processEvents()
+
+    bar_close_checkbox = qml_item(search_root, "triggerCheckBox_0")
+    tick_checkbox = qml_item(search_root, "triggerCheckBox_2")
+    assert bar_close_checkbox.property("checked") is False
+    assert tick_checkbox.property("checked") is True

@@ -7,6 +7,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_t
     DEFAULT_TIMEFRAMES,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
+    BacktestExecutionMode,
     BacktestUiState,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.bot_params_form import (
@@ -77,6 +78,7 @@ class BackTestViewModel(BaseQmlViewModel):
     marketRuleExplanationChanged = Signal()
     selectedCurrencyChanged = Signal()
     selectedTimeframeChanged = Signal()
+    executionModeChanged = Signal()
     timeRangePresetChanged = Signal()
     displayTimezoneChanged = Signal()
     customStartTextChanged = Signal()
@@ -169,6 +171,7 @@ class BackTestViewModel(BaseQmlViewModel):
         self._market_rule_explanation = ""
         self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
+        self._execution_mode = BacktestExecutionMode.BAR_CLOSE.value
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
         self._display_timezone = DEFAULT_TIMEZONE
         self._custom_start_text = ""
@@ -418,6 +421,33 @@ class BackTestViewModel(BaseQmlViewModel):
         _get_selected_timeframe,
         _set_selected_timeframe,
         notify=selectedTimeframeChanged,
+    )
+
+    def _get_execution_mode(self) -> str:
+        return self._execution_mode
+
+    def _set_execution_mode(self, value: str) -> None:
+        # Reject silently-wrong values from QML rather than let an invalid
+        # string reach BacktestRunConfig/RunRealtimeBacktestCommand — the
+        # only two real modes are the ones BacktestExecutionMode declares
+        # (BOT-076 §3.3; "on order filled"/BOT-077 and "real-time bar tick"
+        # are not represented here at all, see that enum's own docstring).
+        try:
+            mode = BacktestExecutionMode(value)
+        except ValueError:
+            return
+        if mode.value != self._execution_mode:
+            self._execution_mode = mode.value
+            self.executionModeChanged.emit()
+
+    #: QML-facing values are the enum's own string values (BacktestExecutionMode
+    #: is itself a str Enum), so OrderExecutionModal.qml can bind/write this
+    #: directly without a separate translation layer.
+    executionMode = Property(
+        str,
+        _get_execution_mode,
+        _set_execution_mode,
+        notify=executionModeChanged,
     )
 
     # ------------------------------------------------------------------ #
