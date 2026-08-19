@@ -1,4 +1,4 @@
-# Nhiệm vụ: Tick-Level Indicator/Strategy Engine Support — *Provisional vs Commit*
+# Epic: Tick-Level Indicator/Strategy Engine Support — *Provisional vs Commit*
 
 > Thuộc [Epic BOT-073](BOT-073_realtime_tick_backtest_epic.md) (chủ sở hữu mới)
 > và [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0
@@ -8,6 +8,24 @@
 > ✅ **Câu hỏi kiến trúc ở §3 đã được user chốt: chọn hướng (b).** Mục 3 giữ
 > nguyên phần phân tích (vẫn đúng và là bối cảnh cần thiết), quyết định + action
 > item cụ thể nằm ở **mục 4 mới**.
+>
+> 📌 **2026-08-19 — chia thành 4 task con**, theo yêu cầu: có 1 task thiết kế
+> riêng cần user duyệt trước khi code. File này giờ là epic umbrella, giữ
+> nguyên toàn bộ phân tích/quyết định gốc (§1-4) làm bối cảnh dùng chung cho
+> cả 4 task con — không xoá nội dung cũ.
+
+## 0. Bảng task con
+
+| Task | Tên | Phụ thuộc | Trạng thái |
+| :--- | :--- | :---: | :--- |
+| [**BOT-042A**](BOT-042A_provisional_commit_design.md) | **Thiết kế** — class/sequence diagram cho provisional/commit | — | 🔴 **Chờ user duyệt** (xem [Docs/Diagrams/tick_provisional_commit_design.md](../../Docs/Diagrams/tick_provisional_commit_design.md)) |
+| [**BOT-042B**](BOT-042B_indicator_provisional_contract.md) | Contract `IIndicator.peek_provisional()` + áp cho `EMA`/`RSI`/`MACD`/`WMA` | `BOT-042A` duyệt | Backlog, chờ A |
+| [**BOT-042C**](BOT-042C_series_provisional_slot.md) | `Series` — ô tạm tách khỏi lịch sử đã chốt | `BOT-042A` duyệt | Backlog, chờ A |
+| [**BOT-042D**](BOT-042D_strategy_engine_tick_path_and_docs.md) | `StrategyEngine` đường nhận tick + sửa lời hứa `BOT-020` | `BOT-042B`, `BOT-042C` | Backlog, chờ B+C |
+
+**Thứ tự bắt buộc**: A → (B, C song song được, không phụ thuộc nhau) → D.
+Đừng bắt đầu B/C trước khi A được duyệt — đúng tinh thần "đây là quyết định
+kiến trúc, không tự chọn khi bắt đầu code" đã có sẵn ở §3 dưới đây.
 
 ## 1. Mục tiêu
 

@@ -78,6 +78,66 @@ Khác biệt **chỉ được phép nằm ở**: (1) vòng lặp replay, (2) th�
 
 ### 3.3. UI
 
+> 📌 **2026-08-19 — xác nhận với user: KHÔNG vẽ chart realtime theo từng tick.**
+> Vòng lặp §3.2 chạy hết tốc độ trong nền (progress + Hủy như Static hôm nay);
+> chart chỉ **render đúng 1 lần** khi có `BacktestResult` cuối cùng — giống hệt
+> cách Static Backtest hoạt động, không phải animation tick-by-tick. Play/
+> pause/tốc độ phát ở §3.5 (nếu làm) chỉ đổi **tốc độ vòng lặp tính toán nền**,
+> không phải "vẽ lại chart mỗi tick" — 2 việc khác nhau, đừng nhầm. Quyết định
+> này còn vì lý do kỹ thuật: native chart (`BOT-098F`) hiện chỉ hỗ trợ nạp
+> full-replace-snapshot, không có đường incremental per-tick an toàn — vẽ
+> realtime thật sẽ mở thêm hẳn 1 mảng việc ngoài phạm vi epic này.
+>
+> **Sequence — progress bar cập nhật nhiều lần, chart vẽ đúng 1 lần**, tái
+> dùng nguyên cơ chế `set_backtest_progress()`/`_backtestProgressSignal` mà
+> Static Backtest (`BOT-034`/`BOT-095C`) đã có, không xây mới:
+>
+> ```mermaid
+> sequenceDiagram
+>     autonumber
+>     actor User
+>     participant VM as BackTestViewModel (QML progress bar)
+>     participant P as BackTestPresenter
+>     participant TM as IThreadManager (background thread)
+>     participant H as RunRealtimeBacktestCommandHandler
+>     participant PE as PaperExchange
+>
+>     User->>P: Bấm "Chạy Backtest" (mode = Realtime)
+>     P->>TM: submit(RunRealtimeBacktestCommand, progress_callback, cancellation_requested)
+>     TM->>H: execute(command) [background thread]
+>
+>     loop Mỗi tick trong cửa sổ backtest (vd 604.800 tick/7 ngày)
+>         H->>H: cập nhật nến đang hình thành + indicator tính TẠM (BOT-042B)
+>         H->>PE: khớp lệnh tại giá tick nếu có Signal
+>         alt Biên bar đi qua
+>             H->>H: CHỐT indicator + Series.push() đúng 1 lần (BOT-042C)
+>         end
+>         opt Định kỳ (không phải mỗi tick — coalesce, xem logging-rule §4)
+>             H-->>P: progress_callback(phase, completed, total, elapsed)
+>             P->>VM: set_backtest_progress(percent, label) [qua Qt signal, thread-safe]
+>             VM-->>User: Progress bar + % + ETA cập nhật
+>         end
+>         opt User bấm Hủy giữa chừng
+>             User->>P: Bấm "Hủy"
+>             P->>H: cancellation_requested() = true
+>             H-->>TM: raise BacktestCancelled
+>             TM-->>P: BacktestCancelled
+>             P->>VM: hiện trạng thái đã hủy, KHÔNG vẽ chart
+>         end
+>     end
+>
+>     H-->>TM: trả về BacktestResult đầy đủ (klines + trades + equity + metrics)
+>     TM-->>P: BacktestResult [qua Qt signal, thread-safe]
+>     P->>VM: set_stat_cards() + set_result() + render chart 1 LẦN DUY NHẤT
+>     VM-->>User: Kết quả cuối cùng hiện ra — không có bước vẽ trung gian nào trước đó
+> ```
+>
+> Điểm mấu chốt: nhánh `opt Định kỳ` (progress bar) và nhánh cuối (render
+> chart) là **2 con đường hoàn toàn tách biệt** — progress bar không bao giờ
+> đụng tới `ChartCard`/`NativeBacktestChartHostAdapter`, chart chỉ nhận dữ
+> liệu đúng 1 lần từ `BacktestResult` cuối cùng, giống hệt luồng Static hôm
+> nay (`_on_chart_data_ready_for_action` → `_on_chart_data_ready`).
+
 - [ ] Mở khoá lựa chọn tick trong
       [`OrderExecutionMenu.qml`](../../src/presentation/ui/components/OrderExecutionMenu.qml)
       và **nối dây thật** xuống `BackTestViewModel` → command. Đây là phần
