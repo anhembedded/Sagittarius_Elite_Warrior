@@ -38,50 +38,11 @@ Sagittarius_Elite_Warrior/Tasks/
 | 🛡️ / ⚡ **`Specialized`** | **Chuyên biệt** | **Specialized Agents** *(Sentinel 🛡️ / Bolt ⚡)* | **Sentinel 🛡️**: Security audit, injection defense. **Bolt ⚡**: Tối ưu thuật toán O(N²), profiling rendering/memory, benchmark throughput. |
 
 
-> Backlog tăng mạnh (20 → 31) **không phải vì thêm việc mới**, mà vì Epic `BOT-040` đã được **chia nhỏ** theo yêu cầu: 5 task lớn (`BOT-041`…`BOT-045`) + `BOT-022` tách thành 16 task con có phạm vi rõ ràng, mỗi task để lại một sản phẩm chạy được. (Đã trừ `BOT-054` SMC — bỏ khỏi phạm vi theo quyết định của user.)
->
-> Lần tăng thứ hai (+6, `BOT-066`…`BOT-071`): rà soát toàn bộ lịch sử bug theo yêu cầu user, nhóm thành **6 lớp lỗi** rồi đề xuất cơ chế tầng engine chặn cả lớp thay vì vá từng ca. Đây là **nợ kỹ thuật đã tồn tại sẵn được ghi nhận ra giấy**, không phải tính năng mới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md).
->
-> Lần tăng thứ ba (+5, [Epic `BOT-073`](backlog/BOT-073_realtime_tick_backtest_epic.md) + `BOT-074`…`BOT-077`): user yêu cầu **chế độ backtest thứ 2 chạy theo tick** ("indicator set on tf 1m, but realtime data feed every 1s") — đây **là tính năng mới thật**, không phải nợ kỹ thuật. Kèm theo: 1 bug thật tìm được khi điều tra (`BOT-074`), và 2 câu hỏi kiến trúc treo lâu nay được user chốt dứt điểm (hướng (b) của `BOT-042`; ý nghĩa "On order filled" của `BOT-040` §2.1).
->
-> Lần tăng thứ tư (+5, [Epic `BOT-078`](backlog/BOT-078_backtest_trustworthiness_epic.md) + `BOT-079`…`BOT-082`): user hỏi *"còn thấy vấn đề gì trong định hướng của app không?"* → rà soát toàn diện, tìm ra **7 red flag/mâu thuẫn** có bằng chứng verify được. Đây là **nợ đã tồn tại sẵn được ghi ra giấy**, không phải việc mới. 📄 [Rà soát định hướng App](reports/app_direction_audit.md).
->
-> Lần tăng thứ năm (+8, [Epic `BOT-095`](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md) + `BOT-095A`…`BOT-095G`): user yêu cầu hoàn thiện toàn bộ **hệ thống UI signals, State Machine và vòng đời tham số cho màn hình Backtest** (tách riêng hạ tầng Engine `DeclarativeStateMachine`, Dirty Tracking & Diff Summary, nút Hủy + Progress Bar ETA, 1-Click Auto-Sync & Run, Khung Assertion Pipeline mở rộng OCP, Dynamic Indicators, và Session Run History Cache). 📄 [Đặc tả Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md).
->
-> Lần tăng thứ sáu (+1, `BOT-095H`): phản biện code/roadmap chỉ ra race condition cấp lifecycle — callback của sync/backtest cũ có thể ghi đè intent mới khi thêm cancel/auto-run/history. Task P1 mới chuẩn hóa `action_id`/generation, snapshot cấu hình và stale-callback fencing trước `BOT-095C`/`D`/`G`. 📄 [Rà soát BOT-095](reports/BOT-095_review_phan_bien.md).
->
-> Lần tăng thứ bảy (+1, `BOT-096`): bug/contract audit từ backtest thật phát hiện UI dùng marker `Sell` cho **thoát LONG**, trong khi tab `Bán (SHORT)` khiến người dùng hiểu đó là lệnh short đã khớp. Task này tách marker/icon `EXIT LONG` khỏi `SHORT ENTRY`, giữ engine long-only và không mở rộng ngầm phạm vi `BOT-050`.
->
-> Lần tăng thứ tám (+1, `BOT-097`): user cần đọc thời gian Backtest theo múi giờ quen thuộc. Task chuẩn hóa timezone selector theo đúng contract: UTC luôn là nguồn thời gian của database/API/engine, còn timezone chỉ là lựa chọn trình bày nhất quán trên chart, trade log, coverage và thông báo.
->
-> Lần tăng thứ chín (+1, `BOT-098`): benchmark từ phản ánh pan/zoom Backtest bị trễ xác nhận performance defect độc lập với GPU: 1.112 trade marker dạng `TextItem` làm range-update throughput giảm từ khoảng 27–33 xuống 9 lần/giây. Task mới đặt frame budget, benchmark harness và thứ tự tối ưu marker/range/crosshair; giữ riêng với lỗi hybrid frame lifecycle `BOT-091`.
->
-> Lần tăng thứ mười (+1, `BOT-095E1`): khi bắt đầu `BOT-095E`, audit xác nhận repo chưa có symbol exchange metadata và vốn backtest không phải order notional thật. Subtask tách boundary metadata/cache/order-intent để UI chỉ nói "chưa xác minh" khi thiếu facts, không hard-code Binance filter hoặc chặn simulation sai.
->
-> Lần tăng thứ mười một (+1, `BOT-095E2`): rule audit QML phát hiện schema `step` chưa là metadata rõ ràng. Subtask tách contract này khỏi suy đoán trong QML; hoàn thành cùng `BOT-095E`, còn `BOT-095E1` vẫn là boundary market-data độc lập.
->
-> Lần tăng thứ mười hai (+1, `BOT-098A`): tách marker viewport virtualization và FPS overlay dev-only thành mốc đo độc lập của `BOT-098`. 1.112 marker full history chỉ còn 31 scene item active trong viewport; parent vẫn mở cho range pipeline/crosshair.
->
-> Lần tăng thứ mười ba (+1, `BOT-098B`): tách cache/coalescing range pipeline thành mốc đo thứ hai của `BOT-098`. Scheduler giảm 140 raw callbacks còn 70–71 applies; parent vẫn mở cho paint/crosshair.
->
-> Lần tăng thứ mười bốn (+1, `BOT-098C`): tách cache crosshair và paint-path probe thành mốc đo thứ ba của `BOT-098`. Full interaction chỉ tốn khoảng 1,8 ms ở Python nhưng khoảng 41 ms ở Qt CPU paint; OpenGL A/B giảm median khoảng 42,9 → 22,9 ms, nên bước kế tiếp phải kiểm tra visual/hybrid/fallback trước khi bật cho Backtest.
->
-> Lần tăng thứ mười lăm (+1, `BOT-098D`): tách backend OpenGL + hybrid/fallback guard. Probe thật phát hiện QOpenGLWidget có object nhưng context `None` cạnh QQuickWidget; OpenGL được giữ opt-in và tự fallback CPU, không bật mặc định.
->
-> Lần tăng thứ mười sáu (+1, `BOT-098E`): từ đề xuất áp dụng kỹ thuật game, tách LOD/mipmap + batched rendering. CSV chỉ giúp load; task mới nhắm giảm paint primitive theo pixel budget nhưng bảo toàn OHLC/volume/marker business contract.
->
-> Lần tăng thứ mười bảy (+1, `BOT-098F`): native gate `BOT-098E` xác nhận cached-frame làm gesture phản hồi tức thời và LOD giảm primitive khi zoom xa, nhưng PyQtGraph CPU repaint vẫn vượt budget ở viewport mặc định. Theo quyết định user, dừng micro-benchmark và tách migration chuẩn sang Qt Quick Scene Graph retained geometry; tiếp tục loại trừ TradingView Lightweight Charts/WebEngine.
->
-> Lần tăng thứ mười tám (+1, `BOT-098F1`): audit dependency xác nhận repo chưa có CMake/C++ QML plugin pipeline. Best practice không đặt `updatePaintNode()` trên Python/GIL; subtask mới dựng native build/ABI boundary trước khi viết retained renderer thật.
->
-> Lần tăng thứ mười chín (+1, `BOT-098F2`): sau khi CMake/QML boundary xanh, tách retained candle geometry thành slice độc lập. Task chỉ vẽ wick/body read-only bằng batched `QSGGeometryNode`; chưa thay production chart hay trộn pan/zoom/indicator/marker vào cùng một bước.
->
-> Lần tăng thứ hai mươi (+1, `BOT-098F2A`): retained candles đã xanh nhưng chưa có camera/axis contract. Tách bước này để pan/zoom chỉ đổi scene transform, axis giữ raw UTC timestamp và không rebuild candle buffers trước khi thêm volume/indicator.
->
-> Lần tăng thứ hai mươi mốt (+1, `BOT-098F3`): native candle/camera đã xanh nhưng volume vẫn chưa được native renderer dùng và indicator còn nằm ở PyQtGraph. Subtask tách immutable indicator snapshot, retained volume bars và indicator envelope theo pixel vật lý/DPR trước marker/crosshair hoặc production migration.
->
-> Lần tăng thứ hai mươi hai (+7, `BOT-098F5`/`BOT-098F6`/`F6A`…`F6E`): native probes độc lập đạt frame budget nhưng chưa chứng minh được hiệu năng trong Backtest hybrid host thực tế. Đầu tiên là A/B benchmark cùng payload Python/C++ (evidence local, không hard CI gate). Migration sau đó được tách thành 5 phase test độc lập: port+Python adapter, native snapshot host, QML interaction wrapper, opt-in cutover, rồi mới default rollout/fallback. Các decision gate bắt buộc: không claim 8ms ngoài production host; không giả vờ parity khi Equity/BOTH/script annotation chưa native support; không hot-swap QWidget/QQuickWidget; không dùng FPS để đánh đổi semantic/pixel correctness; lỗi native phải fallback rõ ràng, không blank chart.
->
+> Lịch sử tăng backlog theo từng đợt (22 lần, `BOT-040` → `BOT-098F6`) đã được
+> gỡ khỏi file này 2026-08-19 vì trùng lặp thuần tuý với "Vấn đề"/rationale đã
+> có sẵn trong từng file task liên quan (`Tasks/completed/`, `Tasks/backlog/`).
+> Xem lại qua `git log -p -- Tasks/ROADMAP.md` nếu cần nguyên văn.
+
 ---
 
 > ## 🧭 Định hướng đã chốt: **Backtest đáng tin trước, giao dịch thật gác lại**
