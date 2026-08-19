@@ -23,6 +23,15 @@ class RangeUpdateScheduler(QObject):
         self._timer.setInterval(_UI_FRAME_INTERVAL_MS)
         self._timer.timeout.connect(self.flush_pending)
 
+    @property
+    def has_pending(self) -> bool:
+        """Whether a coalesced range is still waiting to be applied.
+
+        Read by diagnostics: a frame captured while this is True shows
+        candles at the new range but indicators/volume at the old one.
+        """
+        return self._pending_range is not None
+
     def schedule(self, min_x: float, max_x: float) -> None:
         if self._disposed:
             return

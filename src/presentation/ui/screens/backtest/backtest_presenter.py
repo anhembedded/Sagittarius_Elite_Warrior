@@ -163,9 +163,19 @@ _EXPORT_DIALOG_TITLE = "Xuất Trade Logs"
 _EXPORT_DEFAULT_FILENAME = "trade_logs.csv"
 _EXPORT_FILE_FILTER = "CSV Files (*.csv)"
 
-#: Preview/chart rendering is intentionally bounded; range coverage itself is
-#: checked by a compact SQLite aggregate and is not inferred from this window.
-_CHART_KLINES_FETCH_LIMIT = 5000
+#: Default safety cap on chart candles, overridable via
+#: ConfigKeys.BACKTEST_CHART_KLINES_FETCH_LIMIT.
+#:
+#: This used to be 5 000, which silently truncated the chart to the most
+#: recent slice of a much longer run: a 52 000-candle backtest drew its 960
+#: trade markers across the full range while only the last 5 000 candles
+#: existed on the chart, so panning left ran out of candles and older markers
+#: stood over empty space. Measured cost of lifting it: a 52 147-candle load
+#: takes 179ms once (vs 63ms for 5 000) and pans at 18.2ms/frame — identical
+#: to 5 000, because viewport windowing draws only the visible ~200 bars.
+#: Range coverage itself is still checked by a compact SQLite aggregate and is
+#: not inferred from this window.
+_DEFAULT_CHART_KLINES_FETCH_LIMIT = 200_000
 
 #: A kline can be closed locally yet still be absent from the exchange's
 #: historical endpoint for a short publication window.  Live-ended backtests
@@ -315,6 +325,13 @@ class BackTestPresenter(BasePresenter):
         )
         self._chart_script_keys: list[str] = []
         self._current_raw_klines: list[MarketData] = []
+        self._chart_klines_fetch_limit = int(
+            self.config.get(
+                ConfigKeys.BACKTEST_CHART_KLINES_FETCH_LIMIT.value,
+                _DEFAULT_CHART_KLINES_FETCH_LIMIT,
+            )
+            or _DEFAULT_CHART_KLINES_FETCH_LIMIT
+        )
         try:
             resolved_cache = container.resolve(ISymbolMarketMetadataCache)
             self._market_metadata_cache: ISymbolMarketMetadataCache = (
@@ -391,11 +408,25 @@ class BackTestPresenter(BasePresenter):
                 )
             )
         )
+        # BUG-009: defaults to OFF. The cached-frame preview replaces live
+        # rendering with a translated snapshot of the last frame, and every
+        # symptom the user reported follows from that one decision — the
+        # snapshot holds no pixels past its own edge (blank band), its Y axis
+        # cannot re-autoscale (vertical jump on release), and its indicator
+        # and volume windows are frozen at capture time. None of that is
+        # fixable while the frame is a snapshot.
+        #
+        # Its premise no longer holds either: CHART_CARD_MAX_ZOOM_OUT_CANDLES
+        # caps the plot at ~200 visible candles, so a real pan re-render costs
+        # ~32ms regardless of how much history is loaded — bounded, not
+        # unbounded. Dragging from the volume subplot already bypasses the
+        # preview and pans natively, and that path was confirmed defect-free
+        # in use. Set this key to true to opt back in.
         view.set_chart_cached_interaction_enabled(
             bool(
                 self.config.get(
                     ConfigKeys.BACKTEST_CHART_CACHED_INTERACTION_ENABLED.value,
-                    True,
+                    False,
                 )
             )
         )
@@ -1423,7 +1454,7 @@ class BackTestPresenter(BasePresenter):
             query = GetHistoricalKlinesQuery(
                 symbol=self._symbol,
                 interval=config.timeframe.value,
-                limit=_CHART_KLINES_FETCH_LIMIT,
+                limit=self._chart_klines_fetch_limit,
                 start_time=config.start_time,
                 end_time=config.end_time or now,
                 order_by_desc=True,
@@ -2075,12 +2106,12 @@ class BackTestPresenter(BasePresenter):
             query = GetHistoricalKlinesQuery(
                 symbol=self._symbol,
                 interval=config.timeframe.value,
-                limit=_CHART_KLINES_FETCH_LIMIT,
+                limit=self._chart_klines_fetch_limit,
                 start_time=config.start_time,
                 end_time=config.end_time,
                 # Descending + reversed below (mirrors dashboard_presenter's
                 # own _run_load_history) so a range with more than
-                # _CHART_KLINES_FETCH_LIMIT bars keeps the MOST RECENT ones —
+                # the fetch limit keeps the MOST RECENT ones —
                 # ascending order would silently cap at the OLDEST instead.
                 order_by_desc=True,
             )
@@ -2088,7 +2119,7 @@ class BackTestPresenter(BasePresenter):
                 "chart_query_dispatch",
                 symbol=self._symbol,
                 timeframe=config.timeframe.value,
-                limit=_CHART_KLINES_FETCH_LIMIT,
+                limit=self._chart_klines_fetch_limit,
             )
             response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
             raw_klines = list(reversed(getattr(response, "data", response) or []))
@@ -2100,6 +2131,17 @@ class BackTestPresenter(BasePresenter):
         if not raw_klines:
             self._log_dev_trace("chart_query_empty")
             return
+
+        if len(raw_klines) >= self._chart_klines_fetch_limit:
+            logger.warning(
+                "Backtest chart truncated to the %d most recent candles by "
+                "%s; older trade markers will have no candles beneath them.",
+                self._chart_klines_fetch_limit,
+                ConfigKeys.BACKTEST_CHART_KLINES_FETCH_LIMIT.value,
+            )
+            self._log_dev_trace(
+                "chart_query_truncated", limit=self._chart_klines_fetch_limit
+            )
 
         mapped_klines = map_klines(raw_klines)
         mapped_volume = map_volume(raw_klines)

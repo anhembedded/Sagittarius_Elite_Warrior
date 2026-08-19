@@ -34,6 +34,12 @@ class ConfigKeys(str, Enum):
     BACKTEST_CHART_CACHED_INTERACTION_ENABLED = (
         "backtest.chart.cached_interaction_enabled"
     )
+    #: Safety cap on how many candles the Backtest chart loads. It exists
+    #: only to bound memory: per-frame pan cost is flat in history size
+    #: (viewport windowing draws ~200 bars regardless), so this should stay
+    #: large enough to cover a whole backtested range. A chart shorter than
+    #: the run leaves trade markers sitting over empty space.
+    BACKTEST_CHART_KLINES_FETCH_LIMIT = "backtest.chart.klines_fetch_limit"
     #: BOT-098F6E. One of "python" | "native" | "auto" (default: "auto").
     #: Also overridable via the SAGITTARIUS_BACKTEST_CHART_BACKEND env var (see
     #: BacktestChartHostFactory) — this codebase has no ConfigManager env

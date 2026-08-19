@@ -97,13 +97,19 @@ def _percentile_95(samples: list[float]) -> float:
 def _snapshot():
     timestamps = [1_700_000_000_000 + index * 60_000 for index in range(_CANDLE_COUNT)]
     opens = [60_000.0 + index * 0.1 for index in range(_CANDLE_COUNT)]
-    closes = [value + math.sin(index / 11.0) * 10.0 for index, value in enumerate(opens)]
+    closes = [
+        value + math.sin(index / 11.0) * 10.0 for index, value in enumerate(opens)
+    ]
     snapshot = pack_native_ohlcv_snapshot(
         revision=1,
         timestamps=timestamps,
         opens=opens,
-        highs=[max(open_, close) + 5.0 for open_, close in zip(opens, closes, strict=True)],
-        lows=[min(open_, close) - 5.0 for open_, close in zip(opens, closes, strict=True)],
+        highs=[
+            max(open_, close) + 5.0 for open_, close in zip(opens, closes, strict=True)
+        ],
+        lows=[
+            min(open_, close) - 5.0 for open_, close in zip(opens, closes, strict=True)
+        ],
         closes=closes,
         volumes=[10.0 + index % 100 for index in range(_CANDLE_COUNT)],
     )

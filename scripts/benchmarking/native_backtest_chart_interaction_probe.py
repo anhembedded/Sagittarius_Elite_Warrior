@@ -23,7 +23,10 @@ from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette, get_icon_loader
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+    Palette,
+    get_icon_loader,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
     NativeBacktestChartHost,
 )
@@ -35,7 +38,13 @@ _MARKER_COUNT = 40
 
 def _fixture():
     candles = [
-        (1_700_000_000.0 + i * 60.0, 60_000.0 + i, 60_010.0 + i, 59_990.0 + i, 60_005.0 + i)
+        (
+            1_700_000_000.0 + i * 60.0,
+            60_000.0 + i,
+            60_010.0 + i,
+            59_990.0 + i,
+            60_005.0 + i,
+        )
         for i in range(_CANDLE_COUNT)
     ]
     volumes = [(t, 10.0 + i % 5, True) for i, (t, *_rest) in enumerate(candles)]
@@ -173,7 +182,9 @@ def main() -> None:
             crosshair_candle_index = host._chart_item.property("crosshairCandleIndex")
             if crosshair_visible and crosshair_candle_index >= 0:
                 break
-        crosshair_resolved_via_real_hover = crosshair_visible and crosshair_candle_index >= 0
+        crosshair_resolved_via_real_hover = (
+            crosshair_visible and crosshair_candle_index >= 0
+        )
         geometry_after_interaction = _geometry_build_counts()
         geometry_retained = {
             name: geometry_after_interaction[name] == geometry_before_interaction[name]
@@ -188,7 +199,9 @@ def main() -> None:
             "viewport_after_drag": list(viewport_after_drag),
             "drag_panned_the_viewport": viewport_after_drag != viewport_before_drag,
             "viewport_after_wheel": list(viewport_after_wheel),
-            "wheel_narrowed_the_viewport": (viewport_after_wheel[1] - viewport_after_wheel[0])
+            "wheel_narrowed_the_viewport": (
+                viewport_after_wheel[1] - viewport_after_wheel[0]
+            )
             < (viewport_after_drag[1] - viewport_after_drag[0]),
             "crosshair_resolved_via_real_hover": crosshair_resolved_via_real_hover,
             "geometry_retained_across_camera_and_pointer_interaction": geometry_retained,
@@ -203,7 +216,8 @@ def main() -> None:
         print(json.dumps(report, indent=2))
         if not all(geometry_retained.values()):
             raise SystemExit(
-                "camera/pointer interaction rebuilt bulk geometry: " + str(geometry_retained)
+                "camera/pointer interaction rebuilt bulk geometry: "
+                + str(geometry_retained)
             )
         if not report["drag_panned_the_viewport"]:
             raise SystemExit("real drag did not pan the viewport")

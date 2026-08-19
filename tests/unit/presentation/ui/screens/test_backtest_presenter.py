@@ -475,8 +475,66 @@ def test_backtest_opengl_can_be_disabled_by_config(
     assert view.chart_cards[0].chart_card.plot_layout.opengl_requested is False
 
 
-def test_backtest_cached_interaction_is_enabled_by_default(presenter):
-    assert presenter.view.chart_cards[0].chart_card.cached_interaction is not None
+def test_chart_klines_fetch_limit_covers_a_whole_backtested_range(presenter):
+    """The chart must not be truncated to a slice of the run it is drawing.
+
+    This was hardcoded to 5 000. A real session backtested 52 147 candles and
+    plotted 960 trade markers across the full range, while the chart held only
+    the most recent 5 000 — so panning left ran out of candles and the older
+    markers stood over empty space. Per-frame pan cost is flat in history size
+    (viewport windowing draws ~200 bars regardless: measured 18.2ms/frame at
+    52 147 candles vs 20.9ms at 5 000), so the cap exists for memory only and
+    must comfortably exceed a normal run.
+    """
+    assert presenter._chart_klines_fetch_limit >= 52_147
+
+
+def test_chart_klines_fetch_limit_is_config_overridable(
+    qapp, mock_container, mock_config, request
+):
+    previous_side_effect = mock_config.get.side_effect
+    mock_config.get.side_effect = lambda key, default=None: (
+        1234
+        if key == ConfigKeys.BACKTEST_CHART_KLINES_FETCH_LIMIT.value
+        else previous_side_effect(key, default)
+    )
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    built = BackTestPresenter(view, mock_container)
+
+    assert built._chart_klines_fetch_limit == 1234
+
+
+def test_backtest_cached_interaction_is_disabled_by_default(presenter):
+    """BUG-009: the cached-frame preview must not be on by default.
+
+    It previews a pan by translating a snapshot of the last rendered frame,
+    which cannot show data past the snapshot's edge, cannot re-autoscale Y,
+    and freezes the indicator/volume windows — the user-reported blank band,
+    vertical jump on release and missing indicator lines all follow from
+    that. Panning natively costs ~32ms/frame and is bounded by
+    CHART_CARD_MAX_ZOOM_OUT_CANDLES, so the preview is no longer worth its
+    visual cost. It stays available behind the config key.
+    """
+    assert presenter.view.chart_cards[0].chart_card.cached_interaction is None
+
+
+def test_backtest_cached_interaction_can_be_re_enabled_by_config(
+    qapp, mock_container, mock_config, request
+):
+    previous_side_effect = mock_config.get.side_effect
+    mock_config.get.side_effect = lambda key, default=None: (
+        True
+        if key == ConfigKeys.BACKTEST_CHART_CACHED_INTERACTION_ENABLED.value
+        else previous_side_effect(key, default)
+    )
+    view = BackTestView()
+    request.addfinalizer(view.deleteLater)
+
+    BackTestPresenter(view, mock_container)
+
+    assert view.chart_cards[0].chart_card.cached_interaction is not None
 
 
 # ---------------------------------------------------------------------------

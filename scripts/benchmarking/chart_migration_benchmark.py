@@ -176,13 +176,14 @@ def make_standard_fixture() -> BenchmarkFixture:
             color=color,
             rgba=_rgba_from_hex(color),
             values=tuple(
-                candle[4] + (indicator_index - 2) * 10.0
-                for candle in candles
+                candle[4] + (indicator_index - 2) * 10.0 for candle in candles
             ),
         )
         for indicator_index, color in enumerate(_INDICATOR_COLORS)
     )
-    markers = tuple(_make_marker(marker_index, candles) for marker_index in range(_MARKER_COUNT))
+    markers = tuple(
+        _make_marker(marker_index, candles) for marker_index in range(_MARKER_COUNT)
+    )
     return BenchmarkFixture(
         candles=tuple(candles),
         volumes=tuple(volumes),
@@ -201,7 +202,9 @@ def viewport_starts(
         raise ValueError("viewport update count must be positive")
 
     final_start = candle_count - visible_candles
-    return tuple((update_index * 37) % (final_start + 1) for update_index in range(update_count))
+    return tuple(
+        (update_index * 37) % (final_start + 1) for update_index in range(update_count)
+    )
 
 
 def percentile_95(samples: Sequence[float]) -> float:
@@ -223,7 +226,10 @@ def comparison_speedup(results: Sequence[RendererBenchmarkResult]) -> float | No
 
 
 def build_report(
-    *, app: QApplication, fixture: BenchmarkFixture, results: Sequence[RendererBenchmarkResult]
+    *,
+    app: QApplication,
+    fixture: BenchmarkFixture,
+    results: Sequence[RendererBenchmarkResult],
 ) -> dict[str, object]:
     """Create a stable JSON shape usable as a local evidence artifact."""
     return {
@@ -342,7 +348,6 @@ def _capture_expected_colors(pixmap) -> dict[str, bool]:
     return expected
 
 
-
 # QOffscreenWindow does not implement size-hint propagation; Qt logs this on
 # every QWidget show() under QT_QPA_PLATFORM=offscreen regardless of the
 # application. It is a known offscreen-plugin limitation, not an app defect,
@@ -357,11 +362,11 @@ def _capture_qt_warnings(run):
     warnings: list[str] = []
 
     def capture(message_type, _context, message: str) -> None:
-        if (
-            message_type in (QtMsgType.QtWarningMsg, QtMsgType.QtCriticalMsg)
-            and not any(
-                message.startswith(prefix) for prefix in _KNOWN_BENIGN_WARNING_PREFIXES
-            )
+        if message_type in (
+            QtMsgType.QtWarningMsg,
+            QtMsgType.QtCriticalMsg,
+        ) and not any(
+            message.startswith(prefix) for prefix in _KNOWN_BENIGN_WARNING_PREFIXES
         ):
             warnings.append(message)
 
@@ -396,7 +401,15 @@ def _run_python(
         card.set_script_markers(
             _MARKER_KEY,
             [
-                (marker.timestamp, marker.price, marker.label, marker.color, "up" if marker.direction == NativeChartMarkerDirection.UP else "down")
+                (
+                    marker.timestamp,
+                    marker.price,
+                    marker.label,
+                    marker.color,
+                    "up"
+                    if marker.direction == NativeChartMarkerDirection.UP
+                    else "down",
+                )
                 for marker in fixture.markers
             ],
         )
@@ -567,7 +580,9 @@ def _run_native(
             if update_index == warmup_updates:
                 before_camera = _native_build_counts(chart)
             began = time.perf_counter()
-            if not chart.setViewport(float(start_index), float(start_index + _VISIBLE_CANDLES)):
+            if not chart.setViewport(
+                float(start_index), float(start_index + _VISIBLE_CANDLES)
+            ):
                 raise RuntimeError(str(chart.property("lastViewportError")))
             app.processEvents()
             view.grabWindow()
@@ -603,7 +618,9 @@ def _run_native(
             p95_ms=round(percentile_95(samples), 3),
             updates_per_second=round(len(samples) / elapsed_seconds, 2),
             completed_captures=len(starts) + 1 + 5,
-            device_pixel_ratio=round(float(chart.property("renderDevicePixelRatio")), 3),
+            device_pixel_ratio=round(
+                float(chart.property("renderDevicePixelRatio")), 3
+            ),
             logical_resolution=f"{_WINDOW_WIDTH}x{_WINDOW_HEIGHT}",
             physical_width=round(
                 _WINDOW_WIDTH * float(chart.property("renderDevicePixelRatio"))
@@ -619,11 +636,15 @@ def _run_native(
                 "native_snapshot_abi": runtime.snapshot_abi,
                 "camera_updates": int(chart.property("cameraUpdateCount")),
                 "geometry_builds": int(chart.property("geometryBuildCount")),
-                "volume_geometry_builds": int(chart.property("volumeGeometryBuildCount")),
+                "volume_geometry_builds": int(
+                    chart.property("volumeGeometryBuildCount")
+                ),
                 "indicator_geometry_builds": int(
                     chart.property("indicatorGeometryBuildCount")
                 ),
-                "marker_geometry_builds": int(chart.property("markerGeometryBuildCount")),
+                "marker_geometry_builds": int(
+                    chart.property("markerGeometryBuildCount")
+                ),
                 "completed_frame_fps": round(float(chart.property("measuredFps")), 2),
             },
             sampled_expected_colors=_capture_expected_colors(initial_capture),
@@ -645,9 +666,7 @@ def _native_build_counts(chart) -> dict[str, int]:
     }
 
 
-def _retained_counts(
-    before: dict[str, int], after: dict[str, int]
-) -> dict[str, bool]:
+def _retained_counts(before: dict[str, int], after: dict[str, int]) -> dict[str, bool]:
     return {name: after[name] == value for name, value in before.items()}
 
 
@@ -662,7 +681,9 @@ def _with_warnings(run):
 
 
 def assert_benchmark_contract(
-    report: dict[str, object], *, require_desktop_visuals: bool = False,
+    report: dict[str, object],
+    *,
+    require_desktop_visuals: bool = False,
     require_native_retained_geometry: bool = False,
 ) -> tuple[bool, str]:
     """Return whether the CI-eligible renderer contract passes.
@@ -704,39 +725,80 @@ def assert_benchmark_contract(
             backend = item.get("backend")
             if backend not in ("python", "native"):
                 return False, "result.backend must be python or native"
-            if item.get("actual_backend") is None or not str(item.get("actual_backend")).strip():
+            if (
+                item.get("actual_backend") is None
+                or not str(item.get("actual_backend")).strip()
+            ):
                 return False, f"result[{backend}].actual_backend must be set"
-            if not isinstance(item.get("median_ms"), (int, float)) or not isinstance(item.get("p95_ms"), (int, float)):
+            if not isinstance(item.get("median_ms"), (int, float)) or not isinstance(
+                item.get("p95_ms"), (int, float)
+            ):
                 return False, f"result[{backend}].median/p95 must be numeric"
-            if float(item.get("median_ms", 0)) <= 0 or float(item.get("p95_ms", 0)) <= 0:
+            if (
+                float(item.get("median_ms", 0)) <= 0
+                or float(item.get("p95_ms", 0)) <= 0
+            ):
                 return False, f"result[{backend}].median/p95 must be positive"
-            if not isinstance(item.get("updates_per_second"), (int, float)) or float(item.get("updates_per_second", 0)) <= 0:
+            if (
+                not isinstance(item.get("updates_per_second"), (int, float))
+                or float(item.get("updates_per_second", 0)) <= 0
+            ):
                 return False, f"result[{backend}].updates_per_second must be positive"
-            if not isinstance(item.get("completed_captures"), int) or int(item.get("completed_captures", 0)) <= 0:
-                return False, f"result[{backend}].completed_captures must be a positive integer"
-            if not isinstance(item.get("device_pixel_ratio"), (int, float)) or float(item.get("device_pixel_ratio", 0)) <= 0:
+            if (
+                not isinstance(item.get("completed_captures"), int)
+                or int(item.get("completed_captures", 0)) <= 0
+            ):
+                return (
+                    False,
+                    f"result[{backend}].completed_captures must be a positive integer",
+                )
+            if (
+                not isinstance(item.get("device_pixel_ratio"), (int, float))
+                or float(item.get("device_pixel_ratio", 0)) <= 0
+            ):
                 return False, f"result[{backend}].device_pixel_ratio must be positive"
             if item.get("logical_resolution") != f"{_WINDOW_WIDTH}x{_WINDOW_HEIGHT}":
-                return False, f"result[{backend}].logical_resolution must be {_WINDOW_WIDTH}x{_WINDOW_HEIGHT}"
-            if backend == "python" and item.get("actual_backend") not in ("cpu", "opengl"):
+                return (
+                    False,
+                    f"result[{backend}].logical_resolution must be {_WINDOW_WIDTH}x{_WINDOW_HEIGHT}",
+                )
+            if backend == "python" and item.get("actual_backend") not in (
+                "cpu",
+                "opengl",
+            ):
                 return False, "python actual_backend must be cpu or opengl"
-            if backend == "native" and item.get("actual_backend") not in ("qt-quick-scene-graph", "qt-quick-rhi"):
+            if backend == "native" and item.get("actual_backend") not in (
+                "qt-quick-scene-graph",
+                "qt-quick-rhi",
+            ):
                 # Provide both names: F3/F4 evidence describes this as "qt-quick-scene-graph" via
                 # retained SG nodes, but Qt's underlying implementation is the RHI. Keep CI flexible.
-                return False, "native actual_backend must be qt-quick-scene-graph or qt-quick-rhi"
+                return (
+                    False,
+                    "native actual_backend must be qt-quick-scene-graph or qt-quick-rhi",
+                )
             sampled = item.get("sampled_expected_colors")
             if not isinstance(sampled, dict):
-                return False, f"result[{backend}].sampled_expected_colors must be a mapping"
+                return (
+                    False,
+                    f"result[{backend}].sampled_expected_colors must be a mapping",
+                )
             if require_desktop_visuals:
                 for color in ("#00c087", "#f6465d", "#00bfff", "#f0b90b"):
                     if color not in sampled or sampled[color] is not True:
-                        return False, f"result[{backend}] missing required visual color {color}"
+                        return (
+                            False,
+                            f"result[{backend}] missing required visual color {color}",
+                        )
             warnings = item.get("qt_warnings")
             if not isinstance(warnings, (list, tuple)) or warnings:
                 return False, f"result[{backend}].qt_warnings must be empty"
             diagnostics = item.get("renderer_diagnostics")
             if not isinstance(diagnostics, dict):
-                return False, f"result[{backend}].renderer_diagnostics must be a mapping"
+                return (
+                    False,
+                    f"result[{backend}].renderer_diagnostics must be a mapping",
+                )
             if backend == "native":
                 # Native report is viable only when geometry-retained semantics and final
                 # crosshair truth are present. This is the integrity gate, not a perf gate.
@@ -754,20 +816,44 @@ def assert_benchmark_contract(
                 # retained. Pointer movement has no viewport change and must retain
                 # every bulk layer, including markers.
                 for name in ("ohlcv", "volume", "indicator"):
-                    if require_native_retained_geometry and camera.get(name) is not True:
-                        return False, f"native {name} geometry must be retained during camera movement"
+                    if (
+                        require_native_retained_geometry
+                        and camera.get(name) is not True
+                    ):
+                        return (
+                            False,
+                            f"native {name} geometry must be retained during camera movement",
+                        )
                 for name in ("ohlcv", "volume", "indicator", "marker"):
-                    if require_native_retained_geometry and pointer.get(name) is not True:
-                        return False, f"native {name} geometry must be retained during pointer movement"
-                if item.get("crosshair_final_candle_index") != item.get("expected_crosshair_candle_index"):
+                    if (
+                        require_native_retained_geometry
+                        and pointer.get(name) is not True
+                    ):
+                        return (
+                            False,
+                            f"native {name} geometry must be retained during pointer movement",
+                        )
+                if item.get("crosshair_final_candle_index") != item.get(
+                    "expected_crosshair_candle_index"
+                ):
                     return False, "native final crosshair candle truth violated"
             else:
-                if item.get("displayed_markers") is None or item.get("represented_markers") is None:
+                if (
+                    item.get("displayed_markers") is None
+                    or item.get("represented_markers") is None
+                ):
                     return False, "python displayed/represented markers must be present"
         speedup = report.get("python_over_native_median_speedup")
         if len(results) == 2:
-            if speedup is None or not isinstance(speedup, (int, float)) or float(speedup) <= 0:
-                return False, "python_over_native_median_speedup must be positive when both backends run"
+            if (
+                speedup is None
+                or not isinstance(speedup, (int, float))
+                or float(speedup) <= 0
+            ):
+                return (
+                    False,
+                    "python_over_native_median_speedup must be positive when both backends run",
+                )
     except Exception as exc:  # noqa: BLE001 - contract must never propagate
         return False, f"contract validation raised {type(exc).__name__}: {exc}"
     # Explicitly do NOT assert median/p95 absolute timing here; the runner in CI
