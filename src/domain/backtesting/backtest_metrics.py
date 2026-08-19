@@ -133,12 +133,22 @@ class BacktestMetrics:
 
 def _max_drawdown_percent(equity_curve: list[tuple[datetime, float]]) -> float:
     """Largest peak-to-trough drop in equity, as a percent of the peak."""
-    peak: float | None = None
+    if not equity_curve:
+        return 0.0
+
+    # BOT-081: Optimization - avoid calling max() and doing math on every
+    # single bar. By tracking the peak and only computing drawdown when
+    # equity is below the peak, we skip operations on new highs. Inlining
+    # the max_drawdown > check saves significant overhead in tight loops.
+    peak = equity_curve[0][1]
     max_drawdown = 0.0
+
     for _, equity in equity_curve:
-        if peak is None or equity > peak:
+        if equity > peak:
             peak = equity
-        if peak:
+        elif peak:  # Guard against DivisionByZero if starting equity was 0
             drawdown = (peak - equity) / peak * 100
-            max_drawdown = max(max_drawdown, drawdown)
+            if drawdown > max_drawdown:
+                max_drawdown = drawdown
+
     return max_drawdown
