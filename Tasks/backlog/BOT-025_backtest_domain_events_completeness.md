@@ -1,6 +1,6 @@
 # Nhiệm vụ: Backtest Domain Events — Completeness Pass
 
-> Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Cross-cutting. Phụ thuộc `BOT-021` ✅, [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md) (làm **sau** khi cả 2 đã có code thật để rà soát).
+> Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Cross-cutting. Phụ thuộc `BOT-021` ✅, [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md) (làm **sau** khi cả 2 đã có code thật để rà soát).
 >
 > 📌 **2026-08-18 — đổi phụ thuộc: `BOT-023` → `BOT-076`.** `BOT-023` (Dynamic) đã bị huỷ ([hồ sơ huỷ](../cancelled/BOT-023_dynamic_backtest_engine.md)). Bộ event cần chuẩn hoá giờ là Static (`BOT-021`) + **Realtime** (`BOT-076`), không còn "Dynamic".
 

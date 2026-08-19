@@ -144,7 +144,7 @@ Nên đây là **thay đổi contract**, không phải thay đổi thuật toán
 - `BOT-020` ✅ — `IIndicator`/`StrategyEngine`, nơi thay đổi sẽ xảy ra.
 - `BOT-026` ✅ — `Series`/`BaseStrategy`, bị ảnh hưởng (đã chọn hướng (b)).
 - [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md) — epic chủ sở hữu.
-- [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md) — consumer đầu tiên; task này
+- [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md) — consumer đầu tiên; task này
   **chặn** nó.
 - Dữ liệu tick 1s — user tự làm, ngoài phạm vi. Chi phí lưu trữ/runtime:
   [`BOT-075`](BOT-075_tick_data_feasibility_spike.md).

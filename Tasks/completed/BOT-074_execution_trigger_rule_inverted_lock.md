@@ -69,7 +69,7 @@ có tác dụng** cho tới khi có người nối dây.
 **KHÔNG làm trong task này**: nối `executionTrigger` xuống ViewModel/Command. Chưa có
 consumer thật nào ở engine để nối tới — dựng plumbing trước consumer là đúng thứ
 `BOT-032`/`BOT-044` đã phải trả giá một lần (chừa sẵn `params` rồi bỏ không dùng suốt
-nhiều task). Việc nối dây thuộc [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md), lúc
+nhiều task). Việc nối dây thuộc [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md), lúc
 đã có chế độ thật để chọn.
 
 ## 4. Rủi ro / Lưu ý
@@ -87,4 +87,4 @@ nhiều task). Việc nối dây thuộc [`BOT-076`](../in_progress/BOT-076_real
 ## 5. Phụ thuộc
 
 - Không phụ thuộc task nào. Sửa **chỉ trong `Sagittarius_Elite_Warrior/src/`**.
-- [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md) — sẽ mở khoá & nối dây thật.
+- [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md) — sẽ mở khoá & nối dây thật.

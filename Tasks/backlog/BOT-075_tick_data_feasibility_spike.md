@@ -1,7 +1,7 @@
 # Nhiệm vụ: Spike — khả thi & chi phí của dữ liệu tick (đo, không đoán)
 
 > Thuộc Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md).
-> **Phải xong trước [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md)** — kết quả spike
+> **Phải xong trước [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md)** — kết quả spike
 > này có thể đổi cả thiết kế engine, làm ngược thứ tự thì rủi ro phải viết lại.
 >
 > **Đây là task điều tra, không phải task code engine.** Sản phẩm bàn giao là một

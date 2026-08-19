@@ -1,7 +1,7 @@
 # Nhiệm vụ: `calc_on_order_fills` — chạy lại strategy ngay khoảnh khắc lệnh khớp
 
 > Thuộc Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md).
-> **Chặn bởi** [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md).
+> **Chặn bởi** [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md).
 >
 > Làm rõ dòng *"Execution Trigger Rules — **On order filled** — ❓ chưa rõ nghĩa
 > trong ngữ cảnh backtest"* ở [`BOT-040`](BOT-040_backtest_screen_full_feature_epic.md)
@@ -103,7 +103,7 @@ cảnh backtest"* — nhận định đó **đúng** với hoàn cảnh lúc b�
 
 ## 7. Phụ thuộc
 
-- [`BOT-076`](../in_progress/BOT-076_realtime_backtest_engine.md) — **chặn cứng** (xem §4).
+- [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md) — **chặn cứng** (xem §4).
 - [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) — không chặn nhau,
   nhưng **ưu tiên cao hơn hẳn** (xem §2).
 - [`BOT-040`](BOT-040_backtest_screen_full_feature_epic.md) §2.1 — dòng "On order

@@ -1,5 +1,11 @@
 # Nhiệm vụ: Realtime Backtest Engine — chế độ backtest thứ 2, chạy theo tick
 
+**Trạng thái:** Hoàn thành (19/08) — §3.1-3.4 xong; §3.5 (replay control) **bị
+huỷ có chủ đích**, xem ghi chú trong chính §3.5 bên dưới, không phải bỏ sót.
+GIL contention của vòng lặp tick (UI phản hồi chậm khi Realtime đang chạy,
+dù kiến trúc đã đúng chạy nền) được tách ra thành task riêng
+[`BOT-103`](../backlog/BOT-103_realtime_backtest_gil_contention.md), chưa sửa.
+
 > Thuộc Epic [`BOT-073`](../backlog/BOT-073_realtime_tick_backtest_epic.md).
 > ✅ **2026-08-19 — hết chặn.** [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md)
 > (contract provisional/commit — cả 4 task con A/B/C/D) và
@@ -228,21 +234,26 @@ Khác biệt **chỉ được phép nằm ở**: (1) vòng lặp replay, (2) th�
       thiếu tick giữa 2 bar phải log cảnh báo rõ ràng + tự chốt bar dở dang, không
       được lặng lẽ mất dữ liệu.
 
-### 3.5. Replay control (thừa kế từ `BOT-023` đã huỷ)
+### 3.5. Replay control (thừa kế từ `BOT-023` đã huỷ) — ĐÃ HUỶ, không làm
+
+> ✅ **2026-08-19 — chốt với user, không làm.** Hỏi thẳng trước khi code:
+> "why need that? play/pause/replay speed i thougth i remove that yet. or
+> you thing we still need that feature?" — user chọn **"Drop it, close out
+> BOT-076"**. §3.1-3.4 (chạy hết tốc độ, không throttle) đã là chế độ duy
+> nhất `BOT-077`/so sánh Static-vs-Realtime cần; play/pause/tốc độ phát
+> không có consumer thật nào đòi hỏi. Đừng resurrect mục này trừ khi user
+> yêu cầu lại từ đầu.
 
 Phần này trước đây thuộc `BOT-023`. Sau khi task đó bị huỷ, nó về đây — nhưng **là
-lớp điều khiển tốc độ trên vòng lặp §3.2, không phải engine thứ hai**.
+lớp điều khiển tốc độ trên vòng lặp §3.2, không phải engine thứ hai** — mô tả
+gốc giữ lại dưới đây chỉ để tham khảo nếu ai đó thật sự cần nó sau này:
 
-- [ ] Có thể **chạy hết tốc độ** (mặc định, không throttle) — đây là chế độ dùng để
-      lấy kết quả, và là chế độ duy nhất `BOT-077`/so sánh Static-vs-Realtime cần.
-- [ ] **Tuỳ chọn** (làm sau cũng được, không chặn "task xong"): pause/resume + chọn
-      tốc độ phát để *xem* diễn biến. Nếu làm, đi qua command riêng
-      (`PauseBacktestCommand`/`ResumeBacktestCommand`/`SetReplaySpeedCommand`) tác
-      động lên **cùng một** vòng lặp §3.2 — tuyệt đối không fork một vòng lặp
-      "để xem" riêng, vì đó đúng là sai lầm khiến `BOT-023` bị huỷ.
-- [ ] Tốc độ phát **không được** làm đổi kết quả: chạy 1x, 20x hay Instant trên cùng
-      input phải cho `BacktestResult` giống hệt nhau. Cần 1 test khẳng định điều này
-      (throttle chỉ là `sleep` giữa các tick, không đụng thứ tự tính toán).
+- ~~Có thể **chạy hết tốc độ** (mặc định, không throttle)~~ — đã có sẵn từ
+  §3.1-3.4, không cần thêm gì.
+- ~~pause/resume + chọn tốc độ phát để *xem* diễn biến~~ — huỷ, xem ghi chú
+  trên.
+- ~~Tốc độ phát không được làm đổi kết quả~~ — không áp dụng nữa, không có
+  throttle nào được xây.
 
 ## 4. Rủi ro / Lưu ý
 

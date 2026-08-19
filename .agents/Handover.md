@@ -6,14 +6,92 @@ change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
 
-## Latest session handover (2026-08-19) — Epic `BOT-042` closed, `BOT-076` core engine built, `BOT-075` spike done
+## Latest session handover (2026-08-19, later same day) — `BOT-076` fully closed, Symbol Picker (`BOT-102`) shipped, a real Dirty-Tracking bug found and fixed
+
+**`BOT-076` (Realtime Backtest engine) is now fully closed, moved to
+`Tasks/completed/`.** §3.3 (UI wiring) is done: `OrderExecutionModal.qml`
+unlocks the tick-based execution mode, `BackTestPresenter` branches between
+`RunRealtimeBacktestCommand`/`RunStaticBacktestCommand` based on
+`BacktestExecutionMode`, results are labeled "Realtime (tick ...)" vs
+"Static (theo nến đóng)" so they never look identical with different
+meanings, and `TickModeRequiresBoundedRangeRule` rejects tick mode combined
+with "Toàn bộ lịch sử" (an unbounded `start_time` made the coverage query's
+window-function scan grow forever while the live-trailing cutoff kept
+moving — a real session got stuck in an infinite "Đồng bộ dữ liệu ngay"
+retry loop because of this before the rule existed). §3.5 (play/pause/replay
+speed) was explicitly dropped by user decision — asked directly, answer was
+"drop it, close out BOT-076," don't resurrect it as a gap.
+
+**A real bug was found and fixed while adding this: `BOT-076`'s tick loop is
+CPU-bound Python with no yield points, and even though it genuinely already
+runs on a background `ThreadPoolExecutor` thread (verified: `IThreadManager`
+is a real `concurrent.futures.ThreadPoolExecutor`, not a fake), sustained
+GIL contention from that loop still makes the UI thread sluggish — the user
+reported this as "chạy trên UI thread kìa" and the instinct to believe them
+literally would have been wrong. Filed as
+[`BOT-103`](../Tasks/backlog/BOT-103_realtime_backtest_gil_contention.md)
+with 3 remediation options (periodic `time.sleep(0)`, `ProcessPoolExecutor`,
+reduce per-tick indicator cost) — **not started**, no direction chosen yet.
+
+**`BOT-102` (Backtest Symbol Picker) shipped.** Backtest previously had no
+way to change the trading symbol from the UI — `self._symbol` was set once
+in `BackTestPresenter.__init__` from config and never written again. User
+chose a real Binance exchange-info source over a static list (bigger
+scope, no existing infra reused — `BOT-095E1`'s market-metadata cache is a
+different concern, per-symbol filters, not a symbol *listing* call — this
+repo had genuinely never called Binance exchange-info before). New:
+`IExchangeClient.get_available_symbols()` + `ListAvailableSymbolsQuery`,
+`SymbolPickerModal.qml` (grid + client-side search, since Binance returns
+1300+ tradeable symbols — the other pickers, Strategy/Timeframe, never
+needed search). **Architectural rule preserved on purpose:** `self._symbol`
+on the Presenter stays the single source of truth every command/query
+reads; `BackTestViewModel.selectedSymbol` is only ever a write channel from
+the modal, never read from a background thread — matches this repo's
+existing "background workers never touch the ViewModel directly" rule.
+Verified with a real-window probe script (real app boot via `create_app()`,
+a genuine `QTest.mouseClick` on the real button, a real network call that
+fetched 1361 live symbols from Binance, search-filter and full
+selection-round-trip checks, 2 screenshots) — not just automated tests.
+
+**Found independently while verifying `BOT-102`, via a user-supplied
+dev-mode log: `_build_run_config()` built `BacktestRunConfig(...)` without
+`symbol=self._symbol`, silently falling back to the dataclass's own
+`"ETHUSDT"` default.** This is a pre-existing bug (nothing to do with the
+picker), invisible to every prior test because the test fixture's own
+default symbol happens to be `"ETHUSDT"` too — coincidence masked it. Real
+impact: `lastRunSummary` showed the wrong symbol after every completed run,
+and Dirty Tracking's `compute_diff_summary()` would report a fake "Symbol
+(... → ...)" change on the very next toolbar edit for anyone whose
+configured default symbol isn't ETHUSDT, even with zero real changes. Fixed
+(one line), with a regression test that deliberately configures a
+*different* symbol so the dataclass default can't coincidentally mask it
+again — see `test_build_run_config_carries_the_presenters_actual_symbol_not_the_dataclass_default`
+in `tests/unit/presentation/ui/screens/test_backtest_presenter.py`. **If you
+add a third `BacktestRunConfig(...)` construction site anywhere, grep for
+this test's name first and make sure it would still catch a missing
+`symbol=`.**
+
+**Also this session:** `BUG-009` (chart drag inside the grid moved the
+whole graph) is fixed and verified — see its own file for the final root
+cause, `Tasks/bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md`.
+The engine-side crash-on-every-launch
+(`ModuleNotFoundError: sagittarius_engine.infrastructure.logging.dev_verbosity`)
+is fixed — a prior session's submodule commit referenced a module that was
+never actually created/committed in the `Sagittarius-Engine` engine repo;
+rebuilt end-to-end with `TRACE`/`critical` log level support. A Cancel
+button for an in-progress data sync now exists (FSM's `CANCELLING` state
+extended to be reachable from `SYNCING`, plus a real race-condition fix:
+`_on_sync_succeeded_for_action`/`_on_sync_failed_for_action` lacked the same
+cancelling-guard the `BACKTEST`-kind handlers already had).
+
+## Prior session handover (2026-08-19, earlier same day) — Epic `BOT-042` closed, `BOT-076` core engine built, `BOT-075` spike done
 
 **Big picture: the Realtime Backtest epic (`BOT-073`) is no longer blocked.**
 Both of its hard prerequisites finished this session —
 [`BOT-075`](../Tasks/backlog/BOT-075_tick_data_feasibility_spike.md) (tick
 data feasibility) and [`BOT-042`](../Tasks/backlog/BOT-042_tick_level_strategy_engine_support.md)
 (provisional/commit contract) — and
-[`BOT-076`](../Tasks/in_progress/BOT-076_realtime_backtest_engine.md) (the
+[`BOT-076`](../Tasks/completed/BOT-076_realtime_backtest_engine.md) (the
 engine itself) now has a real, tested core (§3.1 use case + §3.2 replay
 loop). **Read `BOT-076`'s own file before touching it again** — its top note
 says exactly what's done vs. open, don't re-derive.
@@ -141,8 +219,9 @@ widget's deferred deletion to actually happen inside a test.
 - **`BOT-023` (Dynamic Backtest) is CANCELLED** — do not resurrect it. Full
   rationale: [`Tasks/cancelled/BOT-023_dynamic_backtest_engine.md`](../Tasks/cancelled/BOT-023_dynamic_backtest_engine.md).
   The app has exactly **two** backtest engines: Static (`BOT-021` ✅) and
-  Realtime (`BOT-076`, now in progress) — not three. Dynamic's only distinct
-  value (play/pause/speed) became `BOT-076` §3.5.
+  Realtime (`BOT-076` ✅, now complete) — not three. Dynamic's only distinct
+  value (play/pause/speed) became `BOT-076` §3.5, then was explicitly
+  dropped by user decision when `BOT-076` was closed out.
 - **`BUG-015`/`BUG-016` are Windows-only, still open, block `BOT-098F4`/`F5`/`F6C`/`F6D`
   from being called done.** `BUG-015`: native chart OHLCV/volume geometry
   randomly rebuilds (~75% of runs) on plain drag+wheel on real Windows 11
@@ -166,8 +245,13 @@ widget's deferred deletion to actually happen inside a test.
   just relocate the CPU bottleneck the whole native migration exists to
   remove. `BOT-098F6`'s own scope doc excludes this for exactly this reason.
 - **`BUG-009`/`BUG-010`** (cached-frame drag-preview widget shift, "Đồng bộ
-  ngay" never clearing the missing-candles banner) are filed with documented
-  next-steps but not yet root-caused — see `Tasks/bug_report/`.
+  ngay" never clearing the missing-candles banner) are both **fixed and
+  verified** — see their own files in `Tasks/bug_report/` for the final root
+  causes, do not re-open unless a new, different symptom is reported.
+- **`BOT-103`** (Realtime Backtest's tick loop causes real UI sluggishness
+  via GIL contention — confirmed NOT literally running on the Qt UI thread,
+  see this session's own entry above) is filed, not started, no remediation
+  direction chosen yet.
 
 ## What this project is
 
