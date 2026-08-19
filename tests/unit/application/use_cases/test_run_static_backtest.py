@@ -17,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
@@ -24,7 +25,6 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,

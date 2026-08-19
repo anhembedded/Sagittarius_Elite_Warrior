@@ -16,6 +16,12 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
+    MultiEmaTrendFollowerStrategy,
+)
+from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy import (
+    SupportResistanceStrategy,
+)
 
 
 def _registry() -> StrategyRegistry:
@@ -24,6 +30,8 @@ def _registry() -> StrategyRegistry:
     module (and its PySide6/engine imports) just to enumerate strategies."""
     registry = StrategyRegistry()
     registry.register("ema_crossover", EmaCrossoverStrategy)
+    registry.register("multi_ema_trend_follower", MultiEmaTrendFollowerStrategy)
+    registry.register("support_resistance", SupportResistanceStrategy)
     return registry
 
 
