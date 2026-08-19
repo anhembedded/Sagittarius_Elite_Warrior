@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 
 from PySide6.QtCore import QPoint, QPointF, Qt, QtMsgType, qInstallMessageHandler
 from PySide6.QtGui import QWheelEvent
@@ -51,7 +52,15 @@ def _fixture():
     markers = [
         (
             candles[i * (_CANDLE_COUNT // _MARKER_COUNT)][0],
-            60_000.0,
+            # Anchor to that candle's own close, not a fixed price. Candle
+            # prices climb from 60_000 to 60_400 across the fixture; a fixed
+            # marker price only ever sits near index 0, so it was permanently
+            # below every viewport this probe actually visits (initial window
+            # is candles[250:400], drag moves it to [190:340] — never near
+            # index 0). Found by grabbing and visually inspecting a real
+            # frame on Windows: zero marker pixels anywhere despite 40
+            # markers submitted successfully.
+            candles[i * (_CANDLE_COUNT // _MARKER_COUNT)][4],
             "MUA (LONG)" if i % 2 == 0 else "ĐÓNG LONG",
             "#26a69a" if i % 2 == 0 else "#ef5350",
             "up" if i % 2 == 0 else "down",
@@ -158,25 +167,32 @@ def main() -> None:
             host._chart_item.property("viewportEnd"),
         )
 
-        # Real hover: crosshair should resolve to a real candle. Resend the
-        # same target position (same reason as the drag loop above) until
-        # it actually lands rather than asserting on the very first event.
+        # Real hover: crosshair should resolve to a real candle.
         #
-        # Unlike drag/wheel (proven 100% reliable across repeated runs on
-        # this machine), a plain hover-only synthetic QTest.mouseMove — no
-        # button held — to a QQuickWidget has been observed to not land at
-        # all on some remote/virtual Wayland sessions, even after 50
-        # retries, while a *direct* Python call to
-        # NativeChartItem.setCrosshairPosition() with identical coordinates
-        # always succeeds (proven separately, see BOT-098F6C's sanity
-        # tests). That isolates the flakiness to this environment's
-        # synthetic hover-event delivery, not this project's crosshair
-        # logic — so this check is a warning, not a hard failure.
+        # ROOT CAUSE (found and fixed 2026-08-19, real Windows Direct3D11
+        # session): this used to resend the exact same target position on
+        # every retry. Qt only synthesizes a real native mouse-move when
+        # QTest.mouseMove() actually moves the OS cursor; if the cursor is
+        # already resting at that pixel (trivially true from the second
+        # retry onward, and often true from the first if a prior script run
+        # or the drag/wheel steps above happened to leave it nearby), the
+        # move is a no-op and no event ever reaches the QML MouseArea's
+        # onPositionChanged — so it could retry 50 times and never once
+        # actually hover. Verified directly: a bare Python call to
+        # NativeChartItem.setCrosshairPosition() with the identical
+        # coordinates always resolves correctly, proving the native/QML
+        # logic was never the problem — only this probe's retry shape was.
+        # Alternating +-1px between attempts guarantees a genuine delta each
+        # time, which resolved on the very first retry in that verification.
+        # This was previously misdiagnosed as environment-specific
+        # (remote/virtual Wayland) flakiness; it reproduces identically on
+        # real Windows hardware and is a probe bug, not a platform one.
         hover_pos = QPoint(actual_width // 2, actual_height // 2)
         crosshair_visible = False
         crosshair_candle_index = -1
-        for _ in range(50):
-            QTest.mouseMove(host.widget, hover_pos)
+        for attempt in range(50):
+            jitter = 1 if attempt % 2 == 0 else -1
+            QTest.mouseMove(host.widget, QPoint(hover_pos.x() + jitter, hover_pos.y()))
             QTest.qWait(20)
             crosshair_visible = host._chart_item.property("crosshairVisible")
             crosshair_candle_index = host._chart_item.property("crosshairCandleIndex")
@@ -190,6 +206,27 @@ def main() -> None:
             name: geometry_after_interaction[name] == geometry_before_interaction[name]
             for name in geometry_before_interaction
         }
+
+        # NativeChartItem::handleFrameRendered() only PUBLISHES measuredFps
+        # once >=500ms of real time has elapsed between two of its own
+        # QQuickWindow::afterRendering firings (native_chart_item.cpp); it
+        # never republishes on a timer, only from inside that handler. The
+        # interaction above easily finishes in well under 500ms (hover now
+        # breaks out on its first successful attempt), so without this,
+        # measuredFps would still read its 0.0 default even though every
+        # frame that DID render was genuinely fast — not a slowness finding,
+        # a "didn't measure long enough" one. Keep moving for >=600ms so at
+        # least one publish has a chance to land before reading it.
+        fps_hover_pos = QPoint(actual_width // 2, actual_height // 2)
+        fps_warmup_deadline = time.monotonic() + 0.6
+        step = 0
+        while time.monotonic() < fps_warmup_deadline:
+            offset = 1 if step % 2 == 0 else -1
+            QTest.mouseMove(
+                host.widget, QPoint(fps_hover_pos.x() + offset, fps_hover_pos.y())
+            )
+            QTest.qWait(20)
+            step += 1
 
         sampled_colors = _sampled_colors(host.widget)
 

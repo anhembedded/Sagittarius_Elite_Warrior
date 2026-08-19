@@ -159,7 +159,40 @@ Sagittarius_Elite_Warrior/Tasks/
 - [ ] **BOT-098F6D**: [Backtest native opt-in cutover](in_progress/BOT-098F6D_backtest_native_opt_in_cutover.md) — `BacktestChartHostFactory` giờ chọn native/Python thật qua `backtest.chart.backend` (env → config → mặc định `"python"`); `NativeBacktestChartHostAdapter` bridge port cho OHLC/volume/indicator/marker thật, raise lỗi rõ ràng cho phần chưa hỗ trợ (equity/BOTH/script region-info/marker lạ) để `BackTestPresenter` tự rebuild lại Python — không bao giờ để trống chart. Tìm và sửa 1 bug thật lúc viết test cho đường fallback: `_render_chart()` đọc `self._last_result.trades` vô điều kiện, crash khi fallback xảy ra lúc còn ở trạng thái preview (`_last_result=None`). **Bằng chứng Desktop E2E thật lần đầu tiên** cho toàn bộ epic `BOT-098F`: script mới `scripts/native_backtest_desktop_e2e.py` chạy đúng `MainWindow`/`QApplication` thật trên phiên Wayland thật của máy này (không offscreen), xác nhận host thật trong màn Backtest thật là `NativeBacktestChartHostAdapter` (không phải mock), nạp dữ liệu preview thật qua đúng call path production dùng, gửi input chuột/wheel thật — 0 Qt warning, exit 0 hai lần chạy độc lập. 1112 test + `ci-local.ps1 -Full` xanh. **Chưa xong:** bằng chứng RHI thật trên Windows (máy này là Linux) — không nằm trong 6 tiêu chí của chính task này nhưng vẫn ghi nhận là mở; báo cáo DPR1/DPR2 riêng cho đúng production host path (khác với benchmark harness độc lập) cũng chưa xuất bản riêng.
 
 > [!NOTE]
-> **BOT-098F4 mục 3-4, BOT-098F5 tiêu chí 6, và BOT-098F6C tiêu chí 3 — cả ba đều tự đặt tên riêng yêu cầu Windows (màu pixel/FPS thật qua GPU/RHI thật) — vẫn chưa xong, không cách nào làm trên máy Linux này.** Điều **đã thay đổi**: phần lo ngại chung "chưa chạy qua app thật, chỉ mới probe độc lập" — nêu ở NOTE cũ của mục này — đã được giải quyết cho `F6C`, vì `BOT-098F6D` giờ đã nối native vào app thật và có bằng chứng Desktop E2E thật trên phiên Wayland thật của máy này (`scripts/native_backtest_desktop_e2e.py`, chạy đúng `MainWindow`/`QApplication` thật, không offscreen). Bằng chứng Windows RHI cho F4/F5/F6C vẫn là hạng mục mở riêng biệt.
+> **Cập nhật 2026-08-19, verify thật trên máy Windows 11 thật (D3D11 RHI thật,
+> `graphicsApi() == Direct3D11`, không phải software rendering).** Giả định
+> cũ của NOTE này — "không cách nào làm trên máy Linux, phải chờ máy
+> Windows" — **sai một nửa**: khi thật sự chạy trên Windows, evidence-gathering
+> script của chính `F4`/`F6C` (`native_backtest_chart_interaction_probe.py`)
+> lộ ra nó có **3 bug thật trong chính bản thân probe**, tồn tại độc lập với
+> platform, từng bị đổ lỗi nhầm cho "Wayland/software-RHI flaky": (1) vòng
+> lặp hover gửi lại đúng 1 toạ độ cố định 50 lần — Qt không bao giờ phát lại
+> sự kiện move nếu con trỏ chưa thật sự đổi vị trí, nên không bao giờ có thể
+> thành công; (2) đọc `measuredFps` ngay sau khi tương tác xong dưới 100ms,
+> trong khi code native chỉ publish sau khi tích luỹ ≥500ms paint liên tục;
+> (3) fixture marker đặt cố định ở price=60000 trong khi giá nến trong bài
+> test chạy 60000→60400, nên marker **không bao giờ** nằm trong viewport mà
+> probe thật sự ghé qua. Sau khi sửa cả 3 (cùng session này), probe chạy
+> thành công thật trên Windows: màu pixel thật đúng, FPS thật ~47, hover
+> crosshair thật resolve đúng, 0 Qt warning — đúng thứ NOTE cũ nói "không làm
+> được", giờ **làm được**.
+>
+> Nhưng verify thật cũng lộ ra **2 vấn đề mới, thật, chưa có trước đây** —
+> không phải lý do cũ ("chưa có máy Windows") nữa:
+> - [`BUG-015`](bug_report/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md):
+>   OHLCV/volume geometry rebuild ngẫu nhiên (~75% số lần chạy) khi chỉ
+>   drag+wheel thường, vi phạm tiêu chí 4 của chính `BOT-098F6C`. Nghi vấn
+>   `sizeChanged` trong `native_chart_item.cpp` bị trigger giả, **chưa xác
+>   nhận** — cần thêm `qDebug()` + build lại mới kết luận được.
+> - [`BUG-016`](bug_report/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md):
+>   `chart_migration_benchmark.py --desktop-contract` — đúng script tiêu chí
+>   6 của `BOT-098F5` yêu cầu — treo hoàn toàn trên Windows, 0 output, CPU
+>   gần như không tăng suốt 15+ phút, phải force-kill. Chưa root-cause được
+>   vị trí treo.
+>
+> `F4`/`F6C`'s màu-pixel/FPS-thật giờ đã có bằng chứng Windows thật (xem
+> `BUG-015`/`BUG-016` để biết phần còn thiếu chính xác là gì thay vì lặp lại
+> khẳng định chung chung "chưa xong trên Windows").
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 
