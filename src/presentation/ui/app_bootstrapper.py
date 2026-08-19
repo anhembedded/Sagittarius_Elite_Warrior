@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import sys
 import traceback
+from datetime import datetime
 
 import qdarktheme
 from PySide6.QtCore import QTimer
@@ -55,6 +56,21 @@ _APP_CONFIG = os.path.join(_CONFIG_DIR, "app_config.json")
 _USER_CONFIG = os.path.join(_CONFIG_DIR, "user_config.json")
 
 
+#: Kept out of the repo root so a dev session never dirties `git status`;
+#: `logs/` is git-ignored.
+_LOG_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+    "logs",
+)
+
+
+def _prepare_dev_log_file() -> str:
+    """Returns a timestamped log path, creating the directory if needed."""
+    os.makedirs(_LOG_DIR, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return os.path.join(_LOG_DIR, f"dev-{stamp}.log")
+
+
 def main() -> None:
     """Application entry point — boot Engine, boot UI, run event loop, shutdown."""
     # ------------------------------------------------------------------ #
@@ -65,12 +81,26 @@ def main() -> None:
     config_manager.load_json(_USER_CONFIG, writable=True)
 
     if "--dev" in sys.argv:
-        config_manager.load_dict({ConfigKeys.DEV_MODE.value: True})
+        # Dev mode is when someone is actively diagnosing something, so it
+        # raises verbosity and writes the session to a file. Requiring a
+        # config edit to get DEBUG, and then asking the reporter to copy
+        # console scrollback by hand, is how detail gets lost from bug
+        # reports — see .agents/rules/logging-rule.md.
+        log_path = _prepare_dev_log_file()
+        config_manager.load_dict(
+            {
+                ConfigKeys.DEV_MODE.value: True,
+                "log.level": "DEBUG",
+                "log.file": log_path,
+            }
+        )
         configure_native_chart_environment(required=True)
         print(
-            "Dev mode enabled — button clicks are auto-logged for real "
-            "QPushButtons only (e.g. ChartCard's timeframe toolbar); QML "
-            "screens are not instrumented (see BaseView._ButtonClickWatcher)."
+            "Dev mode enabled — log level DEBUG, full session written to "
+            f"{log_path} (attach this file to bug reports). Button clicks are "
+            "auto-logged for real QPushButtons only (e.g. ChartCard's "
+            "timeframe toolbar); QML screens are not instrumented (see "
+            "BaseView._ButtonClickWatcher)."
         )
 
     app_engine = create_app(config_manager)

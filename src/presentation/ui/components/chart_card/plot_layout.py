@@ -10,7 +10,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_ser
     get_utc_offset_seconds,
 )
 
-logger = logging.getLogger(__name__)
+# Under "App" so StdLogger's handlers apply — see cached_frame_interaction.
+logger = logging.getLogger("App.ChartPlotLayout")
 
 _HEADLESS_QT_PLATFORMS = frozenset({"offscreen", "minimal", "minimalegl"})
 
