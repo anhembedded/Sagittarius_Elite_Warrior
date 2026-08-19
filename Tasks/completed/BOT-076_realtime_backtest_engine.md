@@ -292,7 +292,7 @@ Ghi rõ để người sau không đi tìm "bug" không tồn tại:
   `PaperExchange`/`BacktestResult` dùng chung.
 - [`BOT-074`](../completed/BOT-074_execution_trigger_rule_inverted_lock.md) — nên xong trước để UI
   ở trạng thái trung thực trước khi mở khoá.
-- [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) — không chặn nhau,
+- [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md) — không chặn nhau,
   nhưng SL/TP intra-bar **chỉ chính xác thật** khi có tick → cân nhắc làm task này
   trước.
 - [`BOT-077`](../backlog/BOT-077_calc_on_order_fills.md) — consumer tiếp theo, chặn bởi task này.

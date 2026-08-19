@@ -4,7 +4,7 @@
 **Thuộc Epic:** [`BOT-105`](BOT-105_advanced_order_execution_and_risk_epic.md)  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
 **Trạng thái:** 🔴 **Backlog**  
-**Dependencies:** [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md), [`BOT-021`](../completed/BOT-021_static_backtest_engine.md)
+**Dependencies:** [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md), [`BOT-021`](../completed/BOT-021_static_backtest_engine.md)
 
 ---
 

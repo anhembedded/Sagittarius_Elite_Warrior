@@ -222,6 +222,15 @@ class RunStaticBacktestCommandHandler(
                 exchange.fill(pending_signal, candle.open_price, candle.open_time)
                 pending_signal = None
 
+            # BOT-041: must run every bar, signal or not — fill() only ever
+            # runs when pending_signal exists, so a stop hit on a
+            # signal-free bar would otherwise never be caught. Runs after
+            # the pending-signal fill above so a position opened at this
+            # bar's open is still checked against this same bar's range.
+            exchange.check_intrabar_stops(
+                candle.high_price, candle.low_price, candle.close_time
+            )
+
             signal = engine.on_tick(candle)
             if signal is not None:
                 pending_signal = signal

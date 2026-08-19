@@ -4,6 +4,8 @@ from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 from unittest.mock import Mock
 
+import pytest
+
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -22,9 +24,13 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+    BrokerSimulationConfig,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
@@ -322,3 +328,90 @@ def test_progress_is_coalesced_and_reaches_full_range_completion():
     # A callback per candle would flood the Qt event queue on long histories;
     # this 16-unit fixture emits only phase-start/phase-end updates.
     assert len(updates) == 6
+
+
+# =========================================================================
+# BOT-041: Stop-Loss must be checked every bar, not only on signal bars
+# =========================================================================
+
+
+class _BuyOnceThenHoldStrategy(BaseStrategy):
+    """BUYs on its 2nd `decide()` call, then HOLDs forever — never emits a
+    SELL. Proves a stop-loss can close the position on its own, with no
+    strategy signal anywhere near the closing bar."""
+
+    def setup(self) -> None:
+        self._call_index = 0
+
+    def build_indicators(self) -> dict:
+        return {}
+
+    def decide(self, context: StrategyContext) -> tuple[SignalAction, str]:
+        call_index = self._call_index
+        self._call_index += 1
+        if call_index == 1:
+            return self.buy("scripted buy")
+        return self.hold()
+
+
+def _build_stop_loss_klines() -> list[MarketData]:
+    # BUY signal fires at call-index 1 (candle 1) -> filled at candle 2's
+    # open (100.0). Stop-loss 5% below entry = 95.0.
+    # Candle 2's own low (98.0) stays above the stop — no same-bar trigger.
+    # Candles 3-4 stay above it too. Candle 5's low (90.0) breaches it, with
+    # the strategy never having emitted another signal anywhere in between.
+    opens_closes_highs_lows = [
+        (100.0, 100.0, 101.0, 99.0),  # 0: HOLD
+        (100.0, 100.0, 101.0, 99.0),  # 1: BUY signal generated here
+        (100.0, 102.0, 103.0, 98.0),  # 2: filled at open=100.0; SL=95.0
+        (102.0, 103.0, 104.0, 101.0),  # 3: still above SL
+        (103.0, 104.0, 105.0, 102.0),  # 4: still above SL
+        (104.0, 93.0, 104.5, 90.0),  # 5: low=90.0 breaches SL=95.0
+        (93.0, 94.0, 95.0, 92.0),  # 6: irrelevant, position already closed
+    ]
+    return [
+        MarketData(
+            symbol="BTCUSDT",
+            interval=TimeFrame.ONE_HOUR.value,
+            open_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=i),
+            open_price=o,
+            high_price=h,
+            low_price=low,
+            close_price=c,
+            volume=10.0,
+            close_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=i + 1),
+            quote_asset_volume=1000.0,
+            number_of_trades=5,
+            taker_buy_base_asset_volume=5.0,
+            taker_buy_quote_asset_volume=500.0,
+        )
+        for i, (o, c, h, low) in enumerate(opens_closes_highs_lows)
+    ]
+
+
+def test_stop_loss_closes_the_position_on_a_bar_with_no_strategy_signal():
+    klines = _build_stop_loss_klines()
+    repo = Mock()
+    repo.get_klines.return_value = klines
+    registry = StrategyRegistry()
+    registry.register("buy_once_hold", _BuyOnceThenHoldStrategy)
+    handler = RunStaticBacktestCommandHandler(
+        repository=repo, strategy_registry=registry, event_bus=Mock()
+    )
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_HOUR,
+        strategy_key="buy_once_hold",
+        initial_balance=1_000.0,
+        fee_percent=0.0,
+        broker_config=BrokerSimulationConfig(commission_value=0.0, stop_loss_pct=5.0),
+    )
+
+    result = handler.execute(command)
+
+    assert isinstance(result, BacktestResult)
+    assert len(result.trades) == 1
+    trade = result.trades[0]
+    assert trade.entry_price == pytest.approx(100.0)
+    assert trade.exit_reason is ExitReason.STOP_LOSS
+    assert trade.exit_price == pytest.approx(95.0)

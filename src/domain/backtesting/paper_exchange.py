@@ -33,18 +33,26 @@ class _OpenPosition:
     entry_fee: float
     entry_reason: str
     entry_metadata: Mapping[str, Any] = field(default_factory=dict)
+    #: BOT-041 — absolute prices computed once at entry from
+    #: `BrokerSimulationConfig.stop_loss_pct`/`take_profit_pct`. `None` when
+    #: the corresponding config field is `None` (feature off for this run).
+    stop_loss_price: float | None = None
+    take_profit_price: float | None = None
 
 
 class PaperExchange:
     """
-    @brief Simulated broker/exchange for backtesting strategy executions (BOT-021, BOT-104).
+    @brief Simulated broker/exchange for backtesting strategy executions (BOT-021, BOT-041, BOT-104).
 
     @details
     Supports:
-    1. Flexible Position Sizing: Percent of Equity, Fixed Cash, or Fixed Contracts.
+    1. Flexible Position Sizing: Percent of Equity, Fixed Cash, Fixed Contracts, or Risk Percent.
     2. Pyramiding: Up to N concurrent entries in the same direction.
     3. Slippage Simulation: Configurable tick slippage applied to market fills.
     4. Flexible Commission Models: Percentage of notional, Fixed cash per order, or Fixed cash per contract.
+    5. Stop-Loss / Take-Profit: optional per-run % thresholds, checked every
+       bar via `check_intrabar_stops()` — callers must call it every bar,
+       not only when a signal fires.
     """
 
     def __init__(
@@ -169,6 +177,24 @@ class PaperExchange:
             target_capital = sizing_val
         elif sizing_type is PositionSizingType.FIXED_CONTRACTS:
             target_capital = sizing_val * effective_price
+        elif sizing_type is PositionSizingType.RISK_PERCENT:
+            # risk_amount = current_equity * risk% — the cash lost if the
+            # stop is hit. quantity = risk_amount / stop_distance, so
+            # capital = quantity * effective_price = risk_amount *
+            # (effective_price / stop_distance). stop_distance is a % of
+            # effective_price (stop_loss_pct), not the raw entry price, to
+            # stay consistent with where slippage is already applied above.
+            if self._broker_config.stop_loss_pct is None:
+                logger.debug(
+                    "[paper-exchange] BUY rejected: RISK_PERCENT sizing requires "
+                    "BrokerSimulationConfig.stop_loss_pct to be set"
+                )
+                return 0.0, 0.0, 0.0
+            stop_distance = effective_price * (
+                self._broker_config.stop_loss_pct / 100.0
+            )
+            risk_amount = current_equity * (sizing_val / 100.0)
+            target_capital = risk_amount * (effective_price / stop_distance)
         else:
             target_capital = self._balance
 
@@ -231,6 +257,17 @@ class PaperExchange:
         )
         effective_price = price + slippage_delta
 
+        stop_loss_price = (
+            effective_price * (1 - self._broker_config.stop_loss_pct / 100.0)
+            if self._broker_config.stop_loss_pct is not None
+            else None
+        )
+        take_profit_price = (
+            effective_price * (1 + self._broker_config.take_profit_pct / 100.0)
+            if self._broker_config.take_profit_pct is not None
+            else None
+        )
+
         self._balance -= capital_deployed
         position = _OpenPosition(
             quantity=quantity,
@@ -239,6 +276,8 @@ class PaperExchange:
             balance_before_entry=capital_deployed,
             entry_fee=entry_fee,
             entry_reason=reason,
+            stop_loss_price=stop_loss_price,
+            take_profit_price=take_profit_price,
             entry_metadata=metadata,
         )
         self._positions.append(position)
@@ -247,6 +286,77 @@ class PaperExchange:
             f"Qty: {quantity:.6f} | Cost: {capital_deployed:,.2f} | Fee: {entry_fee:,.2f} | "
             f"Pos: {len(self._positions)}/{self._broker_config.pyramiding} | Cash Left: {self._balance:,.2f}"
         )
+
+    def _close_one_position(
+        self,
+        pos: _OpenPosition,
+        exit_price: float,
+        time: datetime,
+        exit_reason: ExitReason,
+        *,
+        raw_price: float | None = None,
+        slippage_delta: float = 0.0,
+    ) -> Trade:
+        """Realizes exactly one open position at `exit_price` (already the
+        final fill price — callers apply slippage themselves beforehand if
+        the fill type warrants it; a stop-loss/take-profit fill does not,
+        see `check_intrabar_stops`). Does not touch `self._positions` —
+        callers own removing the position, since `_close()` clears the
+        whole list at once while `check_intrabar_stops()` removes only the
+        subset that triggered this bar. `raw_price`/`slippage_delta` are
+        log-only detail for a market-order close (`_close()`); left at their
+        defaults for a stop/target fill, which has no raw-vs-effective
+        distinction — the target price itself is the fill."""
+        comm_type = self._broker_config.commission_type
+        comm_val = self._broker_config.commission_value
+
+        gross_proceeds = pos.quantity * exit_price
+        if comm_type is CommissionType.PERCENT:
+            exit_fee = gross_proceeds * (comm_val / 100.0)
+        elif comm_type is CommissionType.CASH_PER_ORDER:
+            exit_fee = comm_val
+        elif comm_type is CommissionType.CASH_PER_CONTRACT:
+            exit_fee = pos.quantity * comm_val
+        else:
+            exit_fee = 0.0
+
+        net_proceeds = gross_proceeds - exit_fee
+        self._balance += net_proceeds
+        pnl = net_proceeds - pos.balance_before_entry
+        pnl_percent = (
+            (pnl / pos.balance_before_entry * 100.0)
+            if pos.balance_before_entry > 0
+            else 0.0
+        )
+
+        trade = Trade(
+            symbol=self._symbol,
+            entry_time=pos.entry_time,
+            entry_price=pos.entry_price,
+            exit_time=time,
+            exit_price=exit_price,
+            quantity=pos.quantity,
+            pnl=pnl,
+            pnl_percent=pnl_percent,
+            fees_paid=pos.entry_fee + exit_fee,
+            entry_reason=pos.entry_reason,
+            exit_reason=exit_reason,
+            metadata=pos.entry_metadata,
+        )
+        self._trades.append(trade)
+        if raw_price is not None:
+            price_detail = (
+                f"Price: {exit_price:,.2f} (raw: {raw_price:,.2f}, "
+                f"slip: -{slippage_delta:,.2f})"
+            )
+        else:
+            price_detail = f"Price: {exit_price:,.2f}"
+        logger.info(
+            f"[paper-exchange] SELL filled | {price_detail} | "
+            f"Qty: {pos.quantity:.6f} | PnL: {pnl:+,.2f} ({pnl_percent:+.2f}%) | "
+            f"Fee: {pos.entry_fee + exit_fee:,.2f} | Reason: {exit_reason.value}"
+        )
+        return trade
 
     def _close(
         self, price: float, time: datetime, exit_reason: ExitReason
@@ -259,55 +369,68 @@ class PaperExchange:
             self._broker_config.slippage_ticks * self._broker_config.tick_size
         )
         effective_price = max(0.0, price - slippage_delta)
-        comm_type = self._broker_config.commission_type
-        comm_val = self._broker_config.commission_value
 
-        closed_trades: list[Trade] = []
-
-        for pos in self._positions:
-            gross_proceeds = pos.quantity * effective_price
-            if comm_type is CommissionType.PERCENT:
-                exit_fee = gross_proceeds * (comm_val / 100.0)
-            elif comm_type is CommissionType.CASH_PER_ORDER:
-                exit_fee = comm_val
-            elif comm_type is CommissionType.CASH_PER_CONTRACT:
-                exit_fee = pos.quantity * comm_val
-            else:
-                exit_fee = 0.0
-
-            net_proceeds = gross_proceeds - exit_fee
-            self._balance += net_proceeds
-            pnl = net_proceeds - pos.balance_before_entry
-            pnl_percent = (
-                (pnl / pos.balance_before_entry * 100.0)
-                if pos.balance_before_entry > 0
-                else 0.0
+        closed_trades = [
+            self._close_one_position(
+                pos,
+                effective_price,
+                time,
+                exit_reason,
+                raw_price=price,
+                slippage_delta=slippage_delta,
             )
-
-            trade = Trade(
-                symbol=self._symbol,
-                entry_time=pos.entry_time,
-                entry_price=pos.entry_price,
-                exit_time=time,
-                exit_price=effective_price,
-                quantity=pos.quantity,
-                pnl=pnl,
-                pnl_percent=pnl_percent,
-                fees_paid=pos.entry_fee + exit_fee,
-                entry_reason=pos.entry_reason,
-                exit_reason=exit_reason,
-                metadata=pos.entry_metadata,
-            )
-            self._trades.append(trade)
-            closed_trades.append(trade)
-            logger.info(
-                f"[paper-exchange] SELL filled | Price: {effective_price:,.2f} (raw: {price:,.2f}, slip: -{slippage_delta:,.2f}) | "
-                f"Qty: {pos.quantity:.6f} | PnL: {pnl:+,.2f} ({pnl_percent:+.2f}%) | "
-                f"Fee: {pos.entry_fee + exit_fee:,.2f} | Reason: {exit_reason.value}"
-            )
+            for pos in self._positions
+        ]
 
         self._positions = []
         logger.info(
             f"[paper-exchange] All positions closed ({len(closed_trades)} trades) | New Balance: {self._balance:,.2f}"
         )
         return closed_trades
+
+    def check_intrabar_stops(
+        self, high: float, low: float, time: datetime
+    ) -> Sequence[Trade]:
+        """
+        @brief Checks every open position's stop-loss/take-profit against
+        one bar's high/low range and closes whichever triggered (BOT-041).
+        @details Must be called every bar regardless of whether the strategy
+        emitted a signal — `fill()` only ever runs when a signal exists, so
+        this is the only path that can catch a stop hit on a signal-free
+        bar. A position with neither `stop_loss_price` nor
+        `take_profit_price` set (the default, `BrokerSimulationConfig`'s
+        pct fields are `None`) is never touched here — existing callers
+        that never configured SL/TP see zero behavior change. Fills at the
+        exact target price, not `high`/`low` themselves, matching real
+        stop/limit order semantics (and the Pine Script reference this task
+        was modeled on) — no slippage applied, unlike a market-order
+        `fill()`. When one bar's range reaches both the stop and the target
+        (a real, unresolvable ambiguity — OHLC data cannot say which the
+        price touched first), **stop-loss wins**: the conservative
+        assumption, documented here because it changes results.
+        """
+        if not self._positions:
+            return []
+
+        triggered: list[tuple[_OpenPosition, float, ExitReason]] = []
+        still_open: list[_OpenPosition] = []
+        for pos in self._positions:
+            stop_hit = pos.stop_loss_price is not None and low <= pos.stop_loss_price
+            target_hit = (
+                pos.take_profit_price is not None and high >= pos.take_profit_price
+            )
+            if stop_hit:
+                triggered.append((pos, pos.stop_loss_price, ExitReason.STOP_LOSS))
+            elif target_hit:
+                triggered.append((pos, pos.take_profit_price, ExitReason.TAKE_PROFIT))
+            else:
+                still_open.append(pos)
+
+        if not triggered:
+            return []
+
+        self._positions = still_open
+        return [
+            self._close_one_position(pos, exit_price, time, reason)
+            for pos, exit_price, reason in triggered
+        ]

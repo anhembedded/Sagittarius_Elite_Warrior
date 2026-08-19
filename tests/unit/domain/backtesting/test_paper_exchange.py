@@ -382,3 +382,198 @@ def test_commission_cash_per_order_and_cash_per_contract():
 
     assert trade_contract is not None
     assert trade_contract.fees_paid == pytest.approx(trade_contract.quantity * 2.0)
+
+
+# ================= BOT-041: Stop Loss / Take Profit + Risk Sizing =================
+
+
+def test_check_intrabar_stops_closes_at_stop_loss_price_when_low_touches_it():
+    # Entry 100, SL 1.2% below -> stop price = 98.8. Bar's low reaches 98.5
+    # (through the stop) but the fill is AT the stop price, not the low.
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, stop_loss_pct=1.2)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.is_in_position is True
+
+    trades = exchange.check_intrabar_stops(high=101.0, low=98.5, time=_T2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_price == pytest.approx(98.8)
+    assert trade.exit_reason is ExitReason.STOP_LOSS
+    # qty = 1000/100 = 10; pnl = 10*98.8 - 1000 = -12.0
+    assert trade.pnl == pytest.approx(-12.0)
+    assert exchange.is_in_position is False
+
+
+def test_check_intrabar_stops_closes_at_take_profit_price_when_high_touches_it():
+    # Entry 100, TP 3.2% above -> target price = 103.2.
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, take_profit_pct=3.2)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=104.0, low=99.5, time=_T2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_price == pytest.approx(103.2)
+    assert trade.exit_reason is ExitReason.TAKE_PROFIT
+    # qty = 10; pnl = 10*103.2 - 1000 = +32.0
+    assert trade.pnl == pytest.approx(32.0)
+
+
+def test_check_intrabar_stops_when_bar_touches_both_stop_loss_wins():
+    # Conservative rule (BOT-041 §3): SL and TP both inside the bar's range
+    # -> assume stop-loss triggered first, since OHLC can't say which the
+    # price actually touched first.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, stop_loss_pct=1.2, take_profit_pct=3.2
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=105.0, low=95.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(98.8)
+
+
+def test_check_intrabar_stops_is_a_no_op_when_neither_sl_nor_tp_is_configured():
+    """Default BrokerSimulationConfig (BOT-021 behavior) must not change at
+    all — every existing caller that never opted into SL/TP keeps working
+    exactly as before this feature existed."""
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1_000.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=1_000.0, low=0.01, time=_T2)
+
+    assert trades == []
+    assert exchange.is_in_position is True
+
+
+def test_check_intrabar_stops_is_a_no_op_when_flat():
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1_000.0,
+        broker_config=BrokerSimulationConfig(stop_loss_pct=1.0),
+    )
+
+    assert exchange.check_intrabar_stops(high=200.0, low=1.0, time=_T1) == []
+
+
+def test_check_intrabar_stops_leaves_a_position_open_when_range_does_not_reach_either():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, stop_loss_pct=1.2, take_profit_pct=3.2
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=101.0, low=99.0, time=_T2)
+
+    assert trades == []
+    assert exchange.is_in_position is True
+
+
+def test_check_intrabar_stops_only_closes_the_pyramided_position_that_triggered():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, pyramiding=2, stop_loss_pct=1.2
+    )
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CASH, value=200.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1_000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+    # Position 1: entry 100 -> stop 98.8
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    # Position 2: entry 200 -> stop 197.6
+    exchange.fill(_signal(SignalAction.BUY), price=200.0, time=_T2)
+    assert exchange.position_count == 2
+
+    # low=150 is below position 2's stop (197.6) but well above position
+    # 1's (98.8) — a single low value implies the price swept continuously
+    # down to it, so only the position whose OWN stop sits within [low,
+    # high] triggers, not every position on the book.
+    trades = exchange.check_intrabar_stops(high=201.0, low=150.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].entry_price == pytest.approx(200.0)
+    assert exchange.position_count == 1
+    assert exchange.is_in_position is True
+
+
+def test_stop_loss_price_stays_off_when_only_take_profit_is_configured():
+    """Configuring only one of the two thresholds must not accidentally
+    switch the other one on."""
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, take_profit_pct=3.2)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # A catastrophic drop must NOT close the position — no stop configured.
+    trades = exchange.check_intrabar_stops(high=101.0, low=1.0, time=_T2)
+
+    assert trades == []
+    assert exchange.is_in_position is True
+
+
+def test_risk_percent_sizing_computes_quantity_from_stop_distance_by_hand():
+    # risk 1% of 10,000 equity = 100 USD max loss. SL 2% below entry (100)
+    # -> stop distance = 2.0 per unit. quantity = 100 / 2.0 = 50.
+    # capital = 50 * 100 = 5,000 (well within the 10,000 balance).
+    sizing = PositionSizing(type=PositionSizingType.RISK_PERCENT, value=1.0)
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, stop_loss_pct=2.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=10_000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    assert exchange.balance == pytest.approx(10_000.0 - 5_000.0)
+    trades = exchange.check_intrabar_stops(high=101.0, low=97.0, time=_T2)
+    assert len(trades) == 1
+    # Loss realized at the stop must equal the risked 1% of equity by design.
+    assert trades[0].pnl == pytest.approx(-100.0)
+
+
+def test_risk_percent_sizing_rejects_entry_when_stop_loss_pct_is_not_configured():
+    sizing = PositionSizing(type=PositionSizingType.RISK_PERCENT, value=1.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=10_000.0, position_sizing=sizing
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    assert exchange.is_in_position is False
+    assert exchange.balance == 10_000.0
+
+
+def test_broker_simulation_config_rejects_out_of_range_stop_loss_pct():
+    with pytest.raises(ValueError, match="stop_loss_pct"):
+        BrokerSimulationConfig(stop_loss_pct=100.0)
+    with pytest.raises(ValueError, match="stop_loss_pct"):
+        BrokerSimulationConfig(stop_loss_pct=0.0)
+
+
+def test_broker_simulation_config_rejects_non_positive_take_profit_pct():
+    with pytest.raises(ValueError, match="take_profit_pct"):
+        BrokerSimulationConfig(take_profit_pct=0.0)
+
+
+def test_position_sizing_rejects_out_of_range_risk_percent():
+    with pytest.raises(ValueError, match="Risk percent"):
+        PositionSizing(type=PositionSizingType.RISK_PERCENT, value=150.0)

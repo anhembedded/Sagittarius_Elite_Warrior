@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-109`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
-**Trạng thái:** 🔴 **Backlog (Sẵn sàng triển khai)**  
+**Trạng thái:** 🟡 **Đang triển khai — Bước 0 (`BOT-041`) đã xong 19/08, tiếp theo là `BOT-050`**  
 **Mục tiêu:** Sử dụng chiến lược TradingView Pine Script v6 *"EMA Trend Confirm + Pullback + TP%"* làm **Chuẩn Tham Chiếu Vàng** (Golden Reference Specification) để nâng cấp toàn diện năng lực của engine Backtest, lấp đầy các khoảng trống về Bán khống (Short Selling), Lệnh chốt lời trong nến (Intra-bar TP), và trực quan hóa đa chiều.
 
 ---
@@ -143,7 +143,7 @@ Epic này được chia thành **5 nhiệm vụ tuần tự** (thêm `BOT-041` l
 
 ```mermaid
 graph TD
-    A["BOT-109: Epic Chuẩn Tham Chiếu Vàng"] --> Z["0. BOT-041: SL/TP cơ bản + Position Sizing<br/>(nền cho BOT-050/BOT-105A)"]
+    A["BOT-109: Epic Chuẩn Tham Chiếu Vàng"] --> Z["0. BOT-041 ✅: SL/TP cơ bản + Position Sizing<br/>(nền cho BOT-050/BOT-105A) — XONG 19/08"]
     Z --> B["1. BOT-050: Short-Selling Support<br/>(Hỗ trợ Bán khống 2 chiều)"]
     Z --> C["2. BOT-105A: Break-Even/Trailing/Partial TP<br/>(xây trên SL/TP cơ bản của BOT-041)"]
     B --> D["3. BOT-110: Concrete EmaTrendPullbackStrategy<br/>(Chuyển thể Chiến lược sang Python)"]
@@ -153,7 +153,13 @@ graph TD
 
 ---
 
-### 📌 0. [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md): SL/TP Cơ Bản Trong Nến + Position Sizing Theo Rủi Ro
+### 📌 0. [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md) ✅: SL/TP Cơ Bản Trong Nến + Position Sizing Theo Rủi Ro
+
+> ✅ **Hoàn thành (19/08)** — `PaperExchange.check_intrabar_stops()` gọi mỗi
+> bar từ `RunStaticBacktestCommandHandler`, khớp tại đúng giá mục tiêu, SL
+> thắng khi 1 nến chạm cả hai. `PositionSizingType.RISK_PERCENT` mới. 14 test
+> mới + mutation-check, 19 test cũ không sửa vẫn pass. Xem file đã đóng để
+> biết chi tiết đầy đủ.
 
 - **Vấn đề**: `fill()` hiện chỉ được gọi khi strategy phát signal — kiểm tra
   TP `2.0%` mỗi nến (kể cả nến không có signal) đòi hỏi handler gọi vào
@@ -228,10 +234,9 @@ graph TD
 
 ## 🎯 3. Thứ Tự Triển Khai Đề Xuất
 
-0. 🏁 **Bước 0 (mới, bắt buộc trước)**: Triển khai [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md)
-   (SL/TP cơ bản trong nến + position sizing theo rủi ro) — cả bước 1 lẫn 2
-   dưới đây đều tự khai phụ thuộc task này, không thể bỏ qua.
-1. 🏁 **Bước 1**: Triển khai [`BOT-050`](BOT-050_short_selling_support.md) (Short-Selling trong PaperExchange) — bao gồm thêm `SHORT`/`COVER` vào `SignalAction`.
+0. ✅ **Bước 0 — Hoàn thành (19/08)**: [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md)
+   (SL/TP cơ bản trong nến + position sizing theo rủi ro).
+1. 🏁 **Bước 1 (tiếp theo)**: Triển khai [`BOT-050`](BOT-050_short_selling_support.md) (Short-Selling trong PaperExchange) — bao gồm thêm `SHORT`/`COVER` vào `SignalAction`.
 2. 🏁 **Bước 2 (không bắt buộc cho riêng golden strategy này)**: [`BOT-105A`](BOT-105A_trailing_stop_and_partial_tp.md) (break-even/trailing/partial-TP) — xem ghi chú ở §2.2, cân nhắc bỏ nếu chỉ cần chạy đúng chiến lược tham chiếu.
 3. 🏁 **Bước 3**: Triển khai [`BOT-110`](BOT-110_ema_trend_confirm_pullback_strategy.md) (Viết Strategy `EmaTrendPullbackStrategy`) — **chốt trước** câu hỏi kiến trúc `StrategyContext`/vị thế ở đầu file `BOT-110`.
 4. 🏁 **Bước 4**: Triển khai [`BOT-111`](BOT-111_golden_strategy_visual_and_backtest_verification.md) (UI Marker, Chart & Verification).

@@ -2,9 +2,9 @@
 
 > Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 3/3** nhóm "PaperExchange nâng cao":
-> [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) →
+> [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md) ✅ →
 > [`BOT-049`](BOT-049_leverage_and_liquidation.md) → `BOT-050` (file này).
-> Phụ thuộc `BOT-041`.
+> Phụ thuộc `BOT-041` ✅ — hết chặn, sẵn sàng bắt đầu.
 
 ## 1. Mục tiêu
 
@@ -69,7 +69,7 @@ vì overload `SELL` cho cả "đóng long" lẫn "mở short".
 
 ## 5. Phụ thuộc
 
-- [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) — SL/TP để đảo
+- [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md) — SL/TP để đảo
   chiều.
 - [`BOT-049`](BOT-049_leverage_and_liquidation.md) — nếu cần liquidation cho
   short (không bắt buộc làm trước).
