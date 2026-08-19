@@ -33,53 +33,66 @@ buộc đã biết thay vì phát hiện giữa chừng:
 
 ### 3.1. Nguồn dữ liệu — chốt 1 trong 2
 
-- [ ] So sánh **Binance 1s kline** (`interval="1s"`) và **`aggTrades`** (tick thật):
+- [x] So sánh **Binance 1s kline** (`interval="1s"`) và **`aggTrades`** (tick thật):
       - Giới hạn API (bao nhiêu bản ghi/request, rate limit, lịch sử lùi được bao xa
         — 1s kline **không** có sẵn lùi vô hạn như 1m).
       - `aggTrades` là tick thật nhưng **không đều nhịp** và lớn hơn nhiều bậc.
-- [ ] Chốt: dùng cái nào, và **ghi rõ giới hạn fidelity kèm theo** (xem `BOT-073` §8
-      — 1s kline **vẫn không phải** tick thật; nhiều lệnh có thể xảy ra trong 1 giây).
+      → Xem [báo cáo](../reports/tick_data_feasibility.md) §3.1: weight 2 vs 4/request, số đo docs chính thức.
+- [x] Chốt: dùng cái nào, và **ghi rõ giới hạn fidelity kèm theo** — **user xác nhận
+      19/08: dùng `1s kline`, không dùng `aggTrades`.** Giới hạn fidelity (gộp OHLCV
+      trong giây, không phải từng lệnh riêng lẻ) đã ghi ở báo cáo §3.1.
 
 ### 3.2. Lưu trữ — đo thật, không ngoại suy từ lý thuyết
 
-- [ ] Sync thật **1 symbol × 7 ngày** ở `1s`, đo dung lượng file `.db` thực tế
-      (`database/<SYMBOL>.db`), so với chính nó ở `1m`.
-- [ ] Ngoại suy ra 1 tháng / 1 năm / nhiều symbol từ **số đo đó**, không từ giả định
-      "mỗi dòng ~X byte".
-- [ ] Kiểm tra sharding hiện tại (`database/<SYMBOL>.db` mỗi symbol 1 file) có cần
-      shard thêm theo thời gian không (vd `<SYMBOL>_2026-08.db`), hay index hiện tại
-      đủ.
-- [ ] Đo thời gian `get_klines()` cho 1 khoảng 7 ngày ở `1s` — query chậm thì engine
-      nhanh cũng vô nghĩa.
+- [x] Sync thật **1 symbol × 7 ngày** ở `1s`, đo dung lượng file `.db` thực tế
+      (`database/<SYMBOL>.db`), so với chính nó ở `1m`. → 120,12 MiB vs 2,11 MiB thật,
+      xem báo cáo §3.2 (kèm 1 gotcha WAL checkpoint tìm được lúc đo).
+- [x] Ngoại suy ra 1 năm từ số đo đó (~6,3 GiB/năm/symbol) — **chưa** ngoại suy nhiều
+      symbol cùng lúc, ngoài phạm vi cửa sổ 7 ngày × 1 symbol đã đo.
+- [ ] Kiểm tra sharding hiện tại có cần shard thêm theo thời gian không — **chưa đánh
+      giá kỹ ở quy mô nhiều symbol × nhiều tháng**; ở quy mô 1 symbol/7 ngày (120 MiB)
+      rõ ràng chưa cần, nhưng đó không phải câu hỏi mà mục này thật sự hỏi.
+- [x] Đo thời gian `get_klines()` cho 1 khoảng 7 ngày ở `1s` — 6,32s thật (so với
+      0,16s ở `1m`), xem báo cáo §3.2.
 
 ### 3.3. Runtime — có số so sánh sẵn
 
-- [ ] Điểm neo đã biết từ log [`BUG-002`](../bug_report/BUG-002.md): static backtest
+- [x] Điểm neo đã biết từ log [`BUG-002`](../bug_report/BUG-002.md): static backtest
       **10.079 nến (7 ngày, 1m) mất ~1,5 giây** (`19:13:19,548` →
       `19:13:21,033`). Cùng 7 ngày đó ở `1s` = **604.800 tick**.
-- [ ] Đo thật thời gian chạy hết 604.800 điểm dữ liệu qua vòng lặp **hiện tại**
-      (chưa cần indicator provisional — chỉ cần biết trần chi phí của riêng
-      vòng lặp + `PaperExchange`).
-- [ ] Ước lượng thêm chi phí tính lại N indicator mỗi tick (đo 1 indicator × 1 tick
-      rồi nhân, đủ để biết bậc độ lớn).
-- [ ] Kết luận: chạy trong UI được không, hay bắt buộc phải có progress + cancel +
-      chạy nền (`CancellationToken` đã có sẵn từ `BOT-034`).
+- [x] Đo thật thời gian chạy hết 604.801 điểm dữ liệu — không phải vòng lặp trần, mà
+      chạy thẳng `RunStaticBacktestCommandHandler` thật (`ema_crossover`, có indicator
+      + out-of-sample) → **10,98s**, 11.285 trades. Xem báo cáo §3.3.
+- [ ] Ước lượng thêm chi phí tính lại N indicator mỗi tick riêng biệt (đo 1 indicator ×
+      1 tick rồi nhân) — **chưa tách riêng**; số 10,98s ở trên đã bao gồm indicator của
+      `ema_crossover` (2 EMA) lẫn trong đó, không phải baseline "không indicator".
+- [x] Kết luận: chạy trong UI được không, hay bắt buộc phải có progress + cancel +
+      chạy nền — **bắt buộc chạy nền**: query + handler ≈ 17s tổng, hạ tầng
+      `CancellationToken` sẵn có từ `BOT-034`/`BOT-095C` dùng lại được, không cần xây
+      mới. Xem báo cáo §3.3.
 
 ### 3.4. Độ phân giải — cố định hay cho chọn
 
-- [ ] Đánh giá đề xuất: cho user chọn **1s / 5s / 15s** thay vì cố định 1s. Đổi 60×
-      thành 4–12×, và là **một tham số** chứ không phải viết lại engine.
+- [x] Đánh giá đề xuất: cho user chọn **1s / 5s / 15s** thay vì cố định 1s — số đo
+      thật (17s cho `1s`) ủng hộ rõ đề xuất này. Xem báo cáo §3.4.
 - [ ] Nếu chọn được: nó là field trên `RunRealtimeBacktestCommand` (`BOT-076`) hay
-      một `TimeFrame` riêng? Chốt để `BOT-076` khỏi phải đoán.
+      một `TimeFrame` riêng? — **cố ý để `BOT-076` tự chốt lúc code**, spike này chỉ
+      xác nhận "có nên cho chọn", không chốt kiến trúc field.
+
+> ✅ **Kết luận spike (19/08)**: câu 1-3 đã đo thật đầy đủ, câu 4 đã có kết luận sơ bộ
+> đủ để `BOT-076` bắt đầu. **Không còn chặn `BOT-076`.** 2 mục còn để trống ở trên
+> (sharding đa symbol/nhiều tháng, chi phí indicator tách riêng theo tick) là phần
+> tinh chỉnh — không phải điều kiện tiên quyết, người làm `BOT-076` bổ sung khi cần
+> chứ không phải quay lại làm task này trước.
 
 ## 4. Sản phẩm bàn giao
 
-- [ ] Một báo cáo ở `Tasks/reports/tick_data_feasibility.md` gồm: bảng số đo thật
-      (dung lượng, thời gian query, thời gian chạy), quyết định nguồn dữ liệu, quyết
-      định độ phân giải, và **giới hạn fidelity đã biết**.
-- [ ] Nếu kết luận là **không khả thi** ở quy mô mong muốn — nói thẳng, kèm số. Đó
-      vẫn là kết quả thành công của spike, và tốt hơn nhiều so với phát hiện sau khi
-      `BOT-076` viết xong nửa đường.
+- [x] Một báo cáo ở [`Tasks/reports/tick_data_feasibility.md`](../reports/tick_data_feasibility.md)
+      gồm: bảng số đo thật (dung lượng, thời gian query, thời gian chạy), quyết định
+      nguồn dữ liệu, quyết định độ phân giải, và **giới hạn fidelity đã biết**.
+- [x] Kết luận: **khả thi**, không phải "không khả thi" — nhưng có điều kiện rõ ràng
+      (bắt buộc chạy nền, nên cho chọn độ phân giải) chứ không phải "cứ code là chạy
+      mượt". Nói thẳng kèm số thật, đúng tinh thần mục này.
 
 ## 5. Rủi ro / Lưu ý
 
