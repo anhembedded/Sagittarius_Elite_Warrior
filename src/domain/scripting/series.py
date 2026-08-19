@@ -9,11 +9,18 @@ from collections.abc import Iterable
 #: keeps everything, we deliberately don't.
 DEFAULT_HISTORY = 16
 
-#: Distinguishes "no tick has poked a provisional value for this bar yet"
-#: from "a tick explicitly poked None" (a legitimate provisional reading,
-#: e.g. an indicator still warming up mid-bar) — None itself can't do this
-#: double duty, so a private sentinel object stands in (BOT-042C).
-_NO_PROVISIONAL = object()
+
+class _NoProvisional:
+    """Sentinel type: distinguishes "no tick has poked a provisional value
+    for this bar yet" from "a tick explicitly poked None" (a legitimate
+    provisional reading, e.g. an indicator still warming up mid-bar) — plain
+    `None`, or a bare `object()`, can't carry that distinction precisely in
+    a type hint (BOT-042C)."""
+
+    __slots__ = ()
+
+
+_NO_PROVISIONAL = _NoProvisional()
 
 
 class Series:
@@ -41,7 +48,7 @@ class Series:
         self._values: deque[float | None] = deque(maxlen=history)
         #: Tentative value for the bar still forming — separate from
         #: `_values` so a tick never occupies a history slot on its own.
-        self._provisional: float | None | object = _NO_PROVISIONAL
+        self._provisional: float | None | _NoProvisional = _NO_PROVISIONAL
 
     def push(self, value: float | None) -> float | None:
         """Records this bar's value, committing it permanently. None means
