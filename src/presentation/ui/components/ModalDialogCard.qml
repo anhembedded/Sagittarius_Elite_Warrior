@@ -99,6 +99,10 @@ Popup {
                 Button {
                     objectName: "btnModalClose"
                     visible: root.showCloseButton
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Đóng"
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Đóng"
                     implicitWidth: 26
                     implicitHeight: 26
                     background: Rectangle {
