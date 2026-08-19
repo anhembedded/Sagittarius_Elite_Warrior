@@ -648,6 +648,9 @@ def test_historical_tick_mode_dispatches_run_realtime_backtest_command(
     means nothing if the Presenter still always builds a
     RunStaticBacktestCommand underneath it."""
     view_model.executionMode = "HISTORICAL_TICK"
+    # Tick mode rejects the ALL_HISTORY default (unbounded start_time) -
+    # see TickModeRequiresBoundedRangeRule.
+    view_model.timeRangePreset = "7d"
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result(with_trades=True), realtime=True
     )
@@ -720,6 +723,7 @@ def test_probe_data_coverage_checks_tick_resolution_for_realtime_mode(
     for the wrong one would report "fully covered" while the interval the
     handler actually reads was never synced at all."""
     view_model.executionMode = "HISTORICAL_TICK"
+    view_model.timeRangePreset = "7d"
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.return_value = Mock(is_fully_covered=True)
 
@@ -1520,6 +1524,58 @@ def test_cancel_ignored_when_nothing_is_active(presenter, view_model):
     presenter._on_cancel_backtest()
 
     assert presenter.fsm.current_state == BacktestUiState.IDLE
+
+
+# ---------------------------------------------------------------------------
+# BOT-076 — tick mode rejects an unbounded (ALL_HISTORY) time range.
+#
+# GetBacktestRangeCoverageQuery's SQL has no lower bound when start_time is
+# None, so it scans every 1s-interval row ever synced for the symbol. A real
+# session got stuck retrying "Đồng bộ dữ liệu ngay" forever: the coverage
+# round-trip got slower every retry as more tick data accumulated, while the
+# live-trailing end_time cutoff kept advancing with real time regardless, so
+# the two could never converge.
+# ---------------------------------------------------------------------------
+
+
+def test_all_history_with_tick_mode_is_rejected_before_any_dispatch(
+    presenter, view_model, mock_dispatcher
+):
+    view_model.executionMode = "HISTORICAL_TICK"
+    assert view_model.timeRangePreset == "all"  # the actual default, unchanged
+
+    view_model.requestRun()
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert view_model.resultIsError is True
+    assert "Toàn bộ lịch sử" in view_model.resultText
+    mock_dispatcher.dispatch.assert_not_called()
+
+
+def test_all_history_with_bar_close_mode_is_still_allowed(
+    presenter, view_model, mock_dispatcher
+):
+    """The new rule is tick-mode-specific — Static backtests must keep
+    being allowed to run over the full local history exactly as before."""
+    assert view_model.executionMode == "BAR_CLOSE"
+    assert view_model.timeRangePreset == "all"
+    mock_dispatcher.dispatch.return_value = None
+
+    view_model.requestRun()
+
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+
+
+def test_tick_mode_with_a_bounded_range_is_allowed(
+    presenter, view_model, mock_dispatcher
+):
+    view_model.executionMode = "HISTORICAL_TICK"
+    view_model.timeRangePreset = "7d"
+    mock_dispatcher.dispatch.return_value = None
+
+    view_model.requestRun()
+
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
 
 
 def test_qml_sync_button_only_visible_after_no_data_and_click_requests_sync(

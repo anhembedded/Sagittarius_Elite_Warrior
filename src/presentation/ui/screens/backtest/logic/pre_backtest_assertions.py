@@ -18,6 +18,12 @@ _INVALID_CUSTOM_END_MESSAGE = (
     f"Ngày kết thúc không hợp lệ — định dạng {_CUSTOM_TIME_FORMAT}."
 )
 _INVALID_CUSTOM_RANGE_MESSAGE = "Ngày bắt đầu phải trước ngày kết thúc."
+_TICK_MODE_REQUIRES_BOUNDED_RANGE_MESSAGE = (
+    'Chế độ Realtime (theo tick) không hỗ trợ "Toàn bộ lịch sử" — hãy chọn '
+    "một khoảng thời gian có giới hạn. Kiểm tra phạm vi dữ liệu ở độ phân "
+    "giải tick (giây) không có điểm bắt đầu khiến việc xác minh dữ liệu "
+    "chậm dần theo mỗi lần thử và không bao giờ bắt kịp."
+)
 
 
 class BacktestInputField(str, Enum):
@@ -26,6 +32,7 @@ class BacktestInputField(str, Enum):
     INITIAL_CAPITAL = "initialCapital"
     CUSTOM_START = "customStart"
     CUSTOM_END = "customEnd"
+    TIME_RANGE_PRESET = "timeRangePreset"
 
 
 @dataclass(frozen=True)
@@ -36,6 +43,15 @@ class PreBacktestInput:
     is_custom_range: bool
     custom_start_text: str
     custom_end_text: str
+    #: BOT-076 — True only for the ALL_HISTORY preset (start_time=None).
+    #: Named around the trait that actually matters (no lower bound), not
+    #: the preset enum, so this stays meaningful if another unbounded
+    #: preset is ever added.
+    is_unbounded_range: bool = False
+    #: BOT-076 — True when execution_mode is HISTORICAL_TICK. A plain bool
+    #: rather than importing BacktestExecutionMode, so this module stays
+    #: decoupled from the FSM layer the way its other fields already are.
+    is_tick_mode: bool = False
 
 
 @dataclass(frozen=True)
@@ -108,6 +124,29 @@ class CustomDateRangeRule:
         return None
 
 
+class TickModeRequiresBoundedRangeRule:
+    """Reject Realtime/tick mode combined with an unbounded start_time.
+
+    A None start_time makes GetBacktestRangeCoverageQuery's SQL scan every
+    row ever synced for that symbol/interval with no lower bound (see
+    sqlalchemy_repository.py's window-function coverage query). At 1-second
+    granularity that scan gets slower every time more tick data is synced,
+    while the live-trailing end_time cutoff keeps advancing with real time
+    regardless — a real session got stuck retrying "Đồng bộ dữ liệu ngay"
+    forever because the coverage round-trip could never finish faster than
+    the cutoff kept moving. BOT-075's own validated feasibility number was a
+    bounded 7-day window, never unbounded history.
+    """
+
+    def validate(self, input_: PreBacktestInput) -> BacktestInputIssue | None:
+        if input_.is_tick_mode and input_.is_unbounded_range:
+            return BacktestInputIssue(
+                BacktestInputField.TIME_RANGE_PRESET,
+                _TICK_MODE_REQUIRES_BOUNDED_RANGE_MESSAGE,
+            )
+        return None
+
+
 @dataclass(frozen=True)
 class PreBacktestAssertionPipeline:
     """Runs local rules without assuming exchange metadata or an order intent."""
@@ -118,7 +157,13 @@ class PreBacktestAssertionPipeline:
     def default(cls) -> PreBacktestAssertionPipeline:
         """The rules that can be truthfully evaluated from local UI input."""
 
-        return cls((InitialCapitalRule(), CustomDateRangeRule()))
+        return cls(
+            (
+                InitialCapitalRule(),
+                CustomDateRangeRule(),
+                TickModeRequiresBoundedRangeRule(),
+            )
+        )
 
     def validate(self, input_: PreBacktestInput) -> tuple[BacktestInputIssue, ...]:
         issues: list[BacktestInputIssue] = []

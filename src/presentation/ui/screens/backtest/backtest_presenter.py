@@ -1938,6 +1938,9 @@ class BackTestPresenter(BasePresenter):
                 is_custom_range=preset is TimeRangePreset.CUSTOM,
                 custom_start_text=view_model.customStartText,
                 custom_end_text=view_model.customEndText,
+                is_unbounded_range=preset is TimeRangePreset.ALL_HISTORY,
+                is_tick_mode=self._get_execution_mode_from_view_model()
+                is BacktestExecutionMode.HISTORICAL_TICK,
             )
         )
         if assertions:
