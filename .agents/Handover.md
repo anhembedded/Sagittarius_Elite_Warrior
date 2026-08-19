@@ -82,7 +82,12 @@ rebuilt end-to-end with `TRACE`/`critical` log level support. A Cancel
 button for an in-progress data sync now exists (FSM's `CANCELLING` state
 extended to be reachable from `SYNCING`, plus a real race-condition fix:
 `_on_sync_succeeded_for_action`/`_on_sync_failed_for_action` lacked the same
-cancelling-guard the `BACKTEST`-kind handlers already had).
+cancelling-guard the `BACKTEST`-kind handlers already had). While closing
+out `BOT-076`, `BOT-024` (Backtest Replay UI — play/pause/speed) was found
+sitting in the backlog as the *same* feature `BOT-076` §3.5 had just been
+told to drop, under a different task ID from before the two were linked —
+cancelled it too (`Tasks/cancelled/BOT-024_backtest_screen_dynamic_ui.md`),
+confirmed with the user first.
 
 ## Prior session handover (2026-08-19, earlier same day) — Epic `BOT-042` closed, `BOT-076` core engine built, `BOT-075` spike done
 

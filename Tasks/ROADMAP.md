@@ -24,8 +24,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | :--- | :---: | :---: |
 | 🟢 **Completed** | 98 | 72.6% |
 | 🟡 **In Progress** | 4 | 3.0% |
-| 🔴 **Backlog** | 32 | 23.7% |
-| ❌ **Cancelled** | 1 | 0.7% |
+| 🔴 **Backlog** | 31 | 23.0% |
+| ❌ **Cancelled** | 2 | 1.5% |
 | 📈 **Tổng số Task** | **135** | **100%** |
 
 > Đếm lại 2026-08-19 (tối) trực tiếp theo số file `.md` trong mỗi thư mục `Tasks/{completed,in_progress,backlog,cancelled}/`,
@@ -357,7 +357,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-021](completed/BOT-021_static_backtest_execution_engine.md)** | **Static Backtest Execution Engine** | 🔴 **`L (Thinking)`** | `BOT-020` ✅, `BOT-026` ✅ | Chạy chiến lược trên toàn bộ dữ liệu lịch sử trong 1 lượt nhanh (không throttle), trả `BacktestResult` (trades, equity curve, 13 metric kiểu TradingView Performance Summary). Fill tại open bar kế tiếp (không phải close bar tín hiệu). |
 | **1** | ✅ **[BOT-022](completed/BOT-022_backtest_screen_static_ui.md)** | **Backtest Screen — Khung màn hình + Top Toolbar** | 🟡 **`M (Standard)`** | `BOT-021` ✅ | Màn hình Backtest thực thụ đầu tiên, chạy được thật end-to-end. 4 panel đẹp (Properties/Performance Summary/Trade Logs/Overview) tiếp theo ở `BOT-055`/`BOT-056`/`BOT-057`. |
 | ❌ | **[BOT-023](cancelled/BOT-023_dynamic_backtest_engine.md)** | **~~Dynamic Backtest Engine~~ — ĐÃ HUỶ** | — | — | **Huỷ 2026-08-18 (user chốt).** Vẫn bar-by-bar nên không đáp ứng yêu cầu Realtime; giá trị riêng (play/pause/tốc độ) là lớp **trình bày**, đã chuyển vào [`BOT-076`](completed/BOT-076_realtime_backtest_engine.md) §3.5. Không dựng engine replay thứ hai. |
-| **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Replay UI** | 🟡 **`M (Standard)`** | `BOT-022` ✅, `BOT-076` ✅ | Mở rộng màn hình Phase 1 với replay controls (play/pause/speed) + cập nhật chart/equity/trade log trực tiếp theo từng nến. |
+| ❌ | **[BOT-024](cancelled/BOT-024_backtest_screen_dynamic_ui.md)** | **~~Backtest Screen — Replay UI~~ — ĐÃ HUỶ** | — | — | **Huỷ 2026-08-19 (user chốt).** Cùng tính năng play/pause/replay speed đã bị từ chối ở `BOT-076` §3.5 dưới mã task khác — giữ cả hai sẽ để backlog treo một việc đã bị từ chối. |
 | **X** | **[BOT-025](backlog/BOT-025_backtest_domain_events_completeness.md)** | **Backtest Domain Events — Completeness Pass** | 🟢 **`S (Fast)`** | `BOT-021` ✅, `BOT-076` ✅ | Chuẩn hoá toàn bộ event Backtest (Static + Realtime) vào 1 module, tài liệu hoá rõ khi nào phát/ai lắng nghe. |
 | **3** | **[BOT-039](backlog/BOT-039_dev_board_strategy_toggle_and_markers.md)** | **Dev Board — Strategy toggle + markers** | 🟡 **`M (Standard)`** | `BOT-026` ✅ | Nửa UI Dev Board tách khỏi BOT-026 gốc — làm sau khi màn Backtest (Phase 1) ổn định, không phải điều kiện chặn Phase 1/2. |
 
@@ -413,7 +413,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-065](completed/BOT-065_backtest_script_overlay_hidden_in_equity_mode.md)** | **Ẩn overlay Script khi chuyển "Đường Vốn"** | 🟢 **`S (Fast)`** | `BOT-060` ✅, `BOT-064` ✅ | `_set_script_overlay_lines_visible()` mới, gọi từ `_on_chart_mode_changed` cạnh `_on_ema_toggled()` đã có — lặp `self._chart_script_runner.active`, chỉ ẩn script `overlay=True` (subplot như RSI/MACD không share trục giá, giữ nguyên hiển thị). Test tái hiện bug thật trước khi sửa (đúng `.agents/rules/code-rule.md`). |
 | **1** | ✅ **[BOT-096](completed/BOT-096_truthful_backtest_exit_markers.md)** | **Backtest: Marker / Icon thoát LONG trung thực** | 🟢 **`S (Fast)`** | `BOT-056` ✅, `BOT-057` ✅ | Phân tách rõ ràng giữa `LONG ENTRY` ("MUA (LONG)") và `LONG EXIT` ("ĐÓNG LONG"), loại bỏ nhãn `Sell` gây hiểu nhầm sang lệnh SHORT; hiển thị trung thực tab `Bán (SHORT) [Chưa hỗ trợ]`. |
 | **1** | ✅ **[BOT-097](completed/BOT-097_backtest_display_timezone_selector.md)** | **Backtest: Chọn múi giờ hiển thị (UTC vs Giờ hệ thống)** | 🟢 **`S (Fast)`** | `BOT-095D` ✅ | Selector múi giờ hiển thị trên toolbar (`UTC`, `Giờ hệ thống`, IANA zones), định dạng đồng bộ cho chart axis, tooltip, trade logs entry/exit; bảo toàn 100% dữ liệu UTC invariant trong engine/DB. |
-| **2** | **[BOT-024](backlog/BOT-024_backtest_screen_dynamic_ui.md)** | **Backtest Screen — Replay UI** | 🟡 **`M (Standard)`** | `BOT-022` ✅…`BOT-057` ✅, `BOT-076` ✅ | Kế thừa nguyên UI Nhóm D, chỉ thêm replay controls. Không tự mở khoá phần đang chờ Nhóm A/B/C. |
+| ❌ | **[BOT-024](cancelled/BOT-024_backtest_screen_dynamic_ui.md)** | **~~Backtest Screen — Replay UI~~ — ĐÃ HUỶ** | — | — | Huỷ 2026-08-19, xem hồ sơ huỷ — trùng tính năng đã bị từ chối ở `BOT-076` §3.5. |
 
 **Ngoài nhóm**
 

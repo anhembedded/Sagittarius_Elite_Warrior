@@ -72,12 +72,11 @@
 | Tính năng | Task | Ghi chú |
 |---|---|---|
 | Modal "Cấu hình Thông số Bot" (form động theo schema) | [`BOT-044`](../completed/BOT-044_param_schema_core.md)/[`046`](../completed/BOT-046_strategy_param_plumbing.md)/[`047`](../completed/BOT-047_dynamic_params_form_ui.md) | Nút đã có (`btnBacktestBotParams`), đang khoá |
-| Execution Trigger Rule — tick-level (3 lựa chọn còn lại) | [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md) | Chưa có action item cụ thể, còn câu hỏi kiến trúc |
+| Execution Trigger Rule — 2 lựa chọn còn lại ("Khi lệnh được khớp", "...thanh thời gian thực") | [`BOT-077`](../backlog/BOT-077_calc_on_order_fills.md) | "Trên mỗi tick của thanh lịch sử" đã mở khoá + nối dây thật ở `BOT-076` §3.3 (19/08) — chỉ còn 2 hàng ngoài phạm vi Backtest (order-fill re-run, live bar) |
 | SL/TP + Position sizing theo rủi ro | [`BOT-041`](../backlog/BOT-041_stop_loss_take_profit_and_risk_sizing.md) | Phụ thuộc `BOT-045` ✅ — sẵn sàng bắt đầu |
 | Đòn bẩy & Thanh lý | [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md) | Rủi ro sai số cao nhất Epic |
 | Short-selling | [`BOT-050`](../backlog/BOT-050_short_selling_support.md) | — |
 | Thêm chiến lược ngoài `ema_crossover` | [`BOT-051`](../completed/BOT-051_multi_ema_trend_follower.md)/[`052`](../backlog/BOT-052_four_ema_pullback_sideways_filter.md)/[`053`](../backlog/BOT-053_qml_structure_breakout.md) | Dropdown hiện chỉ có 1 lựa chọn thật |
-| Replay mode (tua nến, play/pause) | [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md) §3.5 / [`BOT-024`](../backlog/BOT-024_backtest_screen_dynamic_ui.md) | Chưa bắt đầu. `BOT-023` (Dynamic engine) [đã huỷ 2026-08-18](../cancelled/BOT-023_dynamic_backtest_engine.md) — replay giờ là lớp điều khiển trên engine Realtime, không phải engine riêng |
 
 ### Giới hạn đã biết, cố ý không làm (không phải bug)
 
@@ -88,6 +87,11 @@
   (kỳ tính return, risk-free rate), quyết định "hỏi lại khi tới lúc làm".
 - **QML Signal Badges** — chờ `BOT-053` (chưa có chiến lược QML nào tồn tại
   để sinh badge).
+- **Replay mode (tua nến, play/pause/tốc độ)** — **đã huỷ có chủ đích**
+  ([`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md) §3.5 +
+  [`BOT-024`](../cancelled/BOT-024_backtest_screen_dynamic_ui.md), cả hai
+  huỷ 19/08 theo quyết định trực tiếp của user). Không phải gap, đừng đề
+  xuất lại trừ khi user yêu cầu.
 
 ---
 
