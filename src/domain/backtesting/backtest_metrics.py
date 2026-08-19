@@ -148,7 +148,6 @@ def _max_drawdown_percent(equity_curve: list[tuple[datetime, float]]) -> float:
             peak = equity
         elif peak:  # Guard against DivisionByZero if starting equity was 0
             drawdown = (peak - equity) / peak * 100
-            if drawdown > max_drawdown:
-                max_drawdown = drawdown
+            max_drawdown = max(max_drawdown, drawdown)
 
     return max_drawdown

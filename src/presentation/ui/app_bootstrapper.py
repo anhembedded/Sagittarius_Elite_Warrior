@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 import sys
 import traceback
-from datetime import datetime
+from datetime import UTC, datetime
 
 import qdarktheme
 from PySide6.QtCore import QTimer
@@ -67,7 +67,7 @@ _LOG_DIR = os.path.join(
 def _prepare_dev_log_file() -> str:
     """Returns a timestamped log path, creating the directory if needed."""
     os.makedirs(_LOG_DIR, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     return os.path.join(_LOG_DIR, f"dev-{stamp}.log")
 
 

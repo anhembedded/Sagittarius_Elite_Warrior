@@ -6,7 +6,43 @@ change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
 
-## Latest session handover (2026-08-19) — ROADMAP.md reconciled against real file state
+## Latest session handover (2026-08-19) — BUG-013 fixed (stale native dispose callback on backtest re-run)
+
+**`BUG-013` is fixed.** Root cause: a script-drawn indicator line registered
+against the native chart host, followed by a native→python fallback
+rebuild (`_fallback_to_python_after_unsupported_native_feature()` —
+triggered by any `NativeUnsupportedFeatureError`, e.g. an out-of-scope
+script region), left `IndicatorScriptRunner`'s dispose callback bound to
+the now-`deleteLater()`'d native `QQuickWidget`. The next "Chạy Backtest"
+click's `clear_from_chart()` invoked that stale callback unconditionally,
+crashing with a real shiboken "C++ object already deleted" `RuntimeError`.
+This is the exact same bug class already fixed for `_on_chart_mode_changed()`
+on 2026-08-18 (chart-mode round-trips losing indicator lines) — that fix
+only wired the reset into the mode-change path; this bug is the *second*,
+independent rebuild path (`_fallback_to_python_after_unsupported_native_feature()`)
+it never touched. Fix: extracted the shared reset into
+`BackTestPresenter._reset_indicator_bookkeeping_after_host_rebuild()` and
+call it from both paths now. Full writeup:
+[`Tasks/bug_report/BUG-013.md`](../Tasks/bug_report/BUG-013.md).
+
+**Process note for next time:** the first regression-test attempt used a
+`Mock(spec=NativeBacktestChartHost)` (the same pattern the existing
+unit-level fallback tests use) and it **silently passed without the fix
+at all** — twice, for two different reasons, before the mistake was
+caught. A `Mock` never executes the real method body, so it structurally
+cannot reproduce a crash that lives inside that real method
+(`_assert_owning_gui_thread()` reading `self._widget.thread()`). The
+working regression test is `tests/sanity/test_bug013_native_fallback_stale_script_dispose.py`
+— sanity tier, real native host, real DI container. If a bug's crash site
+is inside code a test double stands in for, verify the test actually fails
+before trusting it as a reproduction, not just that it references the
+right call chain. Also: plain `QApplication.processEvents()` does not
+reliably flush a posted `DeferredDelete` event in this environment (an
+object stayed `shiboken6.isValid() == True` after 5 consecutive calls) —
+use `QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)` to
+force a widget's deferred deletion to actually happen in a test.
+
+## Prior session handover (2026-08-19) — ROADMAP.md reconciled against real file state
 
 A prior overnight session physically moved `BOT-098F4`, `BOT-098F5`,
 `BOT-098F6C` and `BOT-098F6D` into `Tasks/completed/`, and marked the two

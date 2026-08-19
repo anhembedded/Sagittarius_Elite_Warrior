@@ -1306,6 +1306,29 @@ class BackTestPresenter(BasePresenter):
         except NativeUnsupportedFeatureError:
             self._fallback_to_python_after_unsupported_native_feature("script markers")
 
+    def _reset_indicator_bookkeeping_after_host_rebuild(self) -> None:
+        """The chart host was just replaced from scratch — nothing on the
+        new one knows about strategy/script indicator lines drawn on the
+        old one, and neither caches the underlying x/y series to replay, so
+        drop the stale bookkeeping rather than let it silently desync
+        (BOT-098F6D bug, 2026-08-18: real run-ui.ps1 session — indicator
+        lines vanished after a chart-mode round-trip, then the next
+        set_indicator_visible() call crashed and was swallowed silently by
+        safe_ui_action). Re-running the backtest already redraws every line
+        from scratch, same as before host rebuilding existed.
+
+        Shared by every rebuild path — `_on_chart_mode_changed()` and
+        `_fallback_to_python_after_unsupported_native_feature()` — because
+        skipping it is not just a cosmetic gap: `IndicatorScriptRunner`'s
+        `ResourceScope` still holds a dispose callback bound to the
+        already-`deleteLater()`'d old host, and the *next* backtest run's
+        `clear_from_chart()` invokes it unconditionally, crashing with a
+        real shiboken "C++ object already deleted" `RuntimeError`
+        (BUG-013, 2026-08-19 — found reachable only through the fallback
+        path, since F6D's own fix here only covered the mode-change path)."""
+        self._active_strategy_lines.clear()
+        self._chart_script_runner.reset_after_host_replaced()
+
     def _fallback_to_python_after_unsupported_native_feature(
         self, feature_name: str
     ) -> None:
@@ -1323,6 +1346,7 @@ class BackTestPresenter(BasePresenter):
         )
         self.view.set_chart_backend("python")
         self.view.render_symbol_cards([self._symbol])
+        self._reset_indicator_bookkeeping_after_host_rebuild()
         self._connect_chart_controls()
         self.view.refresh_chart()
 
@@ -1333,17 +1357,7 @@ class BackTestPresenter(BasePresenter):
         self._log_dev_trace("chart_mode_changed", mode=mode_value)
         rebuilt = self.view.set_chart_mode(mode)
         if rebuilt:
-            # The chart host was just replaced from scratch — nothing on it
-            # knows about strategy/script indicator lines drawn on the old
-            # one, and neither caches the underlying x/y series to replay,
-            # so drop the stale bookkeeping rather than let it silently
-            # desync (BOT-098F6D bug, 2026-08-18: real run-ui.ps1 session —
-            # indicator lines vanished after a mode round-trip, then the
-            # next set_indicator_visible() call crashed and was swallowed
-            # silently by safe_ui_action). Re-running the backtest already
-            # redraws every line from scratch, same as before this existed.
-            self._active_strategy_lines.clear()
-            self._chart_script_runner.reset_after_host_replaced()
+            self._reset_indicator_bookkeeping_after_host_rebuild()
         is_price_scale = mode is not ChartDisplayMode.EQUITY
         # Entry/exit PRICE markers AND the strategy indicator overlay are
         # both price-scale — meaningless, and for the overlay actively
