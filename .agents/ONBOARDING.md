@@ -30,6 +30,7 @@ bookkeeping `ROADMAP.md`).
 | 9 | `.agents/rules/native-chart-rule.md` | Khi đụng chart/native renderer |
 | 10 | `.agents/Handover.md` | Khi cần bối cảnh lịch sử của một mảng cụ thể |
 | — | `Tasks/ROADMAP.md` | Khi cần biết hệ thống đang ở đâu, task nào tồn tại |
+| — | `Tasks/bug_report/README.md` | Bug Board — hệ thống đang gánh lỗi gì (mở/đã sửa) |
 
 `.agents/rules/sentinel-rule.md` và `install-rule.md` là chuyên đề riêng
 (bảo mật / cài đặt), đọc khi task chạm đúng phạm vi đó.
@@ -100,7 +101,9 @@ bị vi phạm nhiều nhất:
   với `Mock(spec=...)`, pass ngay cả khi chưa sửa gì.
 - **Bug report bắt buộc:** `Tasks/bug_report/BUG-XXX_mô_tả.md`, có
   Symptom (bằng chứng thật: traceback/log/ảnh, không diễn giải lại), Root
-  cause (cơ chế thật kèm file:line), Fix, Regression test.
+  cause (cơ chế thật kèm file:line), Fix, Regression test. Lập xong thì
+  **thêm dòng vào [Bug Board](../Tasks/bug_report/README.md)** — đó là chỗ
+  duy nhất thấy được bug nào đang mở; `ROADMAP.md` chỉ hiện bug đã sửa.
 
 Nếu user dán log/ảnh vào chat, **đọc chúng bằng công cụ thật** (Read ảnh,
 đọc file log) trước khi đưa ra giả thuyết. Một chi tiết trong ảnh thường

@@ -28,6 +28,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | ❌ **Cancelled** | 2 | 1.2% |
 | 📈 **Tổng số Task** | **168** | **100%** |
 
+> 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
+
 > Cập nhật 2026-08-20: Bổ sung Epic `BOT-112` (Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul) cùng 4 task con `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112D`; merge nhánh `feat/compact-triangle-trade-markers` (marker tam giác gọn, CSV export có cột side, 4 task đề xuất `PROP-001`…`PROP-004`). Hoàn thành `BOT-041` (SL/TP + Risk Sizing), `BOT-050` (Short-Selling), `BOT-110` (EMA Trend Confirm + Pullback Strategy), `BOT-111` (Xác thực trực quan & backtest cho chiến lược vàng) — cả 4 bước của Epic `BOT-109`, epic này đã hoàn thành —, `BOT-113` (Tô nền xu hướng cho chiến lược, kèm chiến lược demo `LongTermTrendZoneStrategy`), `BOT-106A` (Sharpe/Sortino/Calmar/Max Drawdown Duration/chuỗi thắng-thua liên tiếp — bước 1/3 của Epic `BOT-106`), và `BOT-114` (Áp dụng đòn bẩy thật vào `PaperExchange` — trước đây chỉ có UI/config, engine không hề đọc). Bổ sung Epic `BOT-115` (Lưu trữ & Nạp lại Báo cáo Backtest) cùng 4 task con `BOT-115A`…`BOT-115D` — hiện app không có bất kỳ cơ chế persist kết quả nào, chạy lại là mất vĩnh viễn; `BOT-095G` chỉ cache trong RAM một phiên.
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
