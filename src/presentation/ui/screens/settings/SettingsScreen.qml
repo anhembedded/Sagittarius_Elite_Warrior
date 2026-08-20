@@ -200,6 +200,8 @@ Rectangle {
                             Button {
                                 id: revealSecret
                                 objectName: "btnRevealSecret"
+                                Accessible.role: Accessible.Button
+                                Accessible.name: checked ? "Hide secret" : "Show secret"
                                 checkable: true
                                 implicitWidth: 36
                                 implicitHeight: 34
