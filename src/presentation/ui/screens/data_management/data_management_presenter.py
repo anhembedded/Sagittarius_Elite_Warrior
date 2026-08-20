@@ -70,6 +70,8 @@ _DATABASE_DIR_CONFIG_KEY = "database.dir"
 _UNKNOWN_STAT = "—"
 _BYTES_PER_MB = 1024 * 1024
 
+logger = logging.getLogger("App.DataManagement")
+
 
 class DataManagementPresenter(BasePresenter):
     """
@@ -523,10 +525,21 @@ class DataManagementPresenter(BasePresenter):
                 )
 
             if results:
+                logger.info(
+                    f"[storage-vault] Auto-discovered {len(results)} active database tables."
+                )
                 self.ui_log_signal.emit(
                     f"Auto-discovered {len(results)} active database tables."
                 )
+            else:
+                logger.info(
+                    "[storage-vault] Storage Vault is empty: 0 database shards found on disk."
+                )
+                self.ui_log_signal.emit(
+                    "Storage Vault trống (chưa có cơ sở dữ liệu cục bộ). Hãy chọn cặp giao dịch và nhấn Sync để tải dữ liệu."
+                )
         except Exception as exc:  # noqa: BLE001 - boundary: log without crashing
+            logger.error(f"[storage-vault] Auto-discovery error: {exc}")
             self.ui_log_signal.emit(f"Storage Vault auto-discovery complete: {exc}")
         finally:
             # BUG-018: stats only. `__init__` submits this worker without
@@ -578,7 +591,20 @@ class DataManagementPresenter(BasePresenter):
                     item.interval,
                 )
 
-            self.ui_log_signal.emit("Full scan complete.")
+            if results:
+                logger.info(
+                    f"[storage-vault] Full scan complete: {len(results)} active database tables."
+                )
+                self.ui_log_signal.emit(
+                    f"Full scan complete. Found {len(results)} active database tables."
+                )
+            else:
+                logger.info(
+                    "[storage-vault] Full scan complete: 0 database tables found."
+                )
+                self.ui_log_signal.emit(
+                    "Full scan complete. No database tables found in Storage Vault."
+                )
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Error scanning databases: {exc}")
         finally:

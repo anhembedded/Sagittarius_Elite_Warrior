@@ -487,11 +487,20 @@ Rectangle {
                             Text {
                                 anchors.centerIn: parent
                                 visible: statusList.count === 0
-                                text: !root.hasViewModel || viewModel.searchText === ""
-                                      ? "Đang quét Storage Vault..."
-                                      : "Không tìm thấy dữ liệu khớp với “" + (root.hasViewModel ? viewModel.searchText : "") + "”."
+                                text: {
+                                    if (!root.hasViewModel) return "Đang khởi tạo...";
+                                    if (viewModel.searchText !== "") {
+                                        return "Không tìm thấy dữ liệu khớp với “" + viewModel.searchText + "”.";
+                                    }
+                                    if (viewModel.uiMode === "SCANNING") {
+                                        return "Đang quét Storage Vault...";
+                                    }
+                                    return "Storage Vault trống (chưa có cơ sở dữ liệu cục bộ).\nHãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu.";
+                                }
                                 color: Theme.muted
                                 font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                lineHeight: 1.4
                             }
 
                             delegate: Rectangle {

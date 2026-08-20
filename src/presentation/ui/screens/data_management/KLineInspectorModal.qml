@@ -18,6 +18,12 @@ ModalDialogCard {
     preferredWidth: 840
     preferredHeight: 600
 
+    readonly property real colTimeWidth: 140
+    readonly property real colPriceWidth: 80
+    readonly property real colVolWidth: 105
+    readonly property real colChangeWidth: 75
+    readonly property real colTradesWidth: 70
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
@@ -149,12 +155,6 @@ ModalDialogCard {
             }
         }
 
-    readonly property real colTimeWidth: 140
-    readonly property real colPriceWidth: 80
-    readonly property real colVolWidth: 105
-    readonly property real colChangeWidth: 75
-    readonly property real colTradesWidth: 70
-
         // ==================================================================
         // 3. Table Header
         // ==================================================================
@@ -190,6 +190,15 @@ ModalDialogCard {
             Layout.fillHeight: true
             clip: true
             model: root.hasViewModel ? viewModel.klineInspectorModel : null
+
+            Text {
+                anchors.centerIn: parent
+                visible: klineListView.count === 0
+                text: "Không có dữ liệu nến nào trong cơ sở dữ liệu."
+                color: Theme.muted
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignHCenter
+            }
 
             delegate: Rectangle {
                 width: klineListView.width

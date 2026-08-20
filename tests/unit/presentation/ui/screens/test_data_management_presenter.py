@@ -11,12 +11,12 @@ Design notes carried over and enforced here:
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
     ClearMarketDataResult,
 )
@@ -503,3 +503,50 @@ def test_data_management_view_model_supports_one_second_and_all_standard_interva
     assert "1d" in view_model.intervals
     assert "1w" in view_model.intervals
     assert "1M" in view_model.intervals
+
+
+def test_auto_discover_empty_database_logs_informative_message(
+    presenter, view_model, mock_dispatcher
+):
+    """When disk has no databases, auto-discover should log a clear message for the user."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
+
+    presenter._run_auto_discover()
+
+    log_entries = [
+        view_model.log_model.data(view_model.log_model.index(i, 0), 257)
+        for i in range(view_model.log_model.rowCount())
+    ]
+    assert any("Storage Vault trống" in entry for entry in log_entries)
+
+
+def test_scan_all_empty_database_logs_informative_message(
+    presenter, view_model, mock_dispatcher
+):
+    """When a scan finds 0 tables, full scan should log that no database tables were found."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
+
+    presenter._run_scan_all(["BTCUSDT"], ["1m"])
+
+    log_entries = [
+        view_model.log_model.data(view_model.log_model.index(i, 0), 257)
+        for i in range(view_model.log_model.rowCount())
+    ]
+    assert any(
+        "No database tables found in Storage Vault" in entry for entry in log_entries
+    )
+
+
+def test_auto_discover_empty_database_emits_storage_vault_logger(
+    presenter, mock_dispatcher, caplog
+):
+    """Asserts that App.DataManagement emits structured [storage-vault] INFO logs."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
+    with caplog.at_level(logging.INFO, logger="App.DataManagement"):
+        presenter._run_auto_discover()
+
+    assert any(
+        "[storage-vault]" in record.message
+        and "Storage Vault is empty" in record.message
+        for record in caplog.records
+    )
