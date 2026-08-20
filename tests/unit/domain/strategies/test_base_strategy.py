@@ -103,3 +103,18 @@ def test_evaluate_defaults_to_empty_metadata_when_decide_attaches_none():
     signal = strategy.evaluate(_context())
 
     assert signal.metadata == {}
+
+
+def test_chart_line_colors_defaults_to_empty_for_a_strategy_that_declares_none():
+    # BOT-111: opting into a chart color override is optional — a strategy
+    # that never overrides it must not break line-drawing for lines that
+    # don't exist (empty dict, not None or an error).
+    strategy = _ScriptedStrategy()
+
+    assert strategy.chart_line_colors() == {}
+
+
+def test_chart_line_widths_defaults_to_empty_for_a_strategy_that_declares_none():
+    strategy = _ScriptedStrategy()
+
+    assert strategy.chart_line_widths() == {}

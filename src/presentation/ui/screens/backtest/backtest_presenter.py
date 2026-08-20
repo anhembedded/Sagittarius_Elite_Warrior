@@ -173,6 +173,10 @@ _RUNNING_MESSAGE = "Đang chạy backtest..."
 _CANCELLING_MESSAGE = "Đang hủy backtest..."
 _CANCELLING_SYNC_MESSAGE = "Đang hủy đồng bộ..."
 _SYNCING_MESSAGE = "Đang đồng bộ dữ liệu..."
+#: BOT-111 — matches IndicatorManager.add_overlay()'s own pre-existing
+#: default, so a strategy that never overrides chart_line_widths() draws
+#: exactly like it did before this feature existed.
+_DEFAULT_STRATEGY_LINE_WIDTH = 2
 _ZERO_TRADES_MESSAGE = (
     "Backtest chạy xong nhưng không có giao dịch nào trong khoảng thời gian đã chọn."
 )
@@ -246,9 +250,12 @@ class BackTestPresenter(BasePresenter):
     _chartDataReadySignal = Signal(
         int, object, list, list, list
     )  # action_id, result, klines, volume, raw_klines
-    # BOT-060: line_name, color, x_data, y_data — one emit per line, after
-    # the whole run has been fed (same O(N) reasoning as BOT-036's feed_all).
-    _chartStrategyLineSignal = Signal(int, str, str, list, list)
+    # BOT-060: line_name, color, x_data, y_data, width — one emit per line,
+    # after the whole run has been fed (same O(N) reasoning as BOT-036's
+    # feed_all). `width` added BOT-111 — defaults preserved via
+    # BaseStrategy.chart_line_widths() returning {} for every pre-existing
+    # strategy.
+    _chartStrategyLineSignal = Signal(int, str, str, list, list, int)
     # BOT-064: user-picked reference indicator scripts (RSI/MACD/...),
     # independent of the strategy's own lines above — same 4-signal shape
     # DashboardPresenter uses for IndicatorScriptRunner's 4 output channels.
@@ -1210,17 +1217,23 @@ class BackTestPresenter(BasePresenter):
             return
         self._on_chart_data_ready(result, klines, volume, raw_klines)
 
-    @Slot(int, str, str, list, list)
+    @Slot(int, str, str, list, list, int)
     @safe_ui_action
     def _on_chart_strategy_line_for_action(
-        self, action_id: int, name: str, color: str, x_data: list, y_data: list
+        self,
+        action_id: int,
+        name: str,
+        color: str,
+        x_data: list,
+        y_data: list,
+        width: int,
     ) -> None:
         if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             self._ignore_stale_action_callback(
                 "chart_strategy_line", action_id, BacktestActionKind.BACKTEST
             )
             return
-        self._on_chart_strategy_line(name, color, x_data, y_data)
+        self._on_chart_strategy_line(name, color, x_data, y_data, width)
 
     @Slot(object)
     @safe_ui_action
@@ -1335,18 +1348,21 @@ class BackTestPresenter(BasePresenter):
     @Slot(str, str, list, list)
     @safe_ui_action
     def _on_chart_strategy_line(
-        self, name: str, color: str, x_data: list, y_data: list
+        self, name: str, color: str, x_data: list, y_data: list, width: int = 2
     ) -> None:
         """BOT-060: one call per strategy indicator line, emitted once the
         whole run has been fed (`_fetch_and_emit_chart_data`) — adds the
         curve on first use, same as `IndicatorScriptRunner.draw()` does for
         Dev Board scripts, just without needing that class at all (a
-        strategy has no `.line_colors()`/`.compute()` to drive it)."""
+        strategy has no `.line_colors()`/`.compute()` to drive it). `width`
+        (BOT-111) lets a strategy request a different line weight per line,
+        e.g. a thinner entry EMA than trend EMA — Python `ChartCard` only;
+        the native chart's indicator ABI has no per-line width concept."""
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
         if name not in self._active_strategy_lines:
-            card.add_overlay_indicator(name, color)
+            card.add_overlay_indicator(name, color, width)
             self._active_strategy_lines.add(name)
         card.update_indicator_data(name, x_data, y_data)
 
@@ -2589,8 +2605,16 @@ class BackTestPresenter(BasePresenter):
             return
         strategy = strategy_cls(config.strategy_params)
         lines = compute_strategy_indicator_lines(strategy, raw_klines)
-        colors = assign_strategy_line_colors(list(lines.keys()))
+        colors = assign_strategy_line_colors(
+            list(lines.keys()), strategy.chart_line_colors()
+        )
+        widths = strategy.chart_line_widths()
         for name, (x_data, y_data) in lines.items():
             self._chartStrategyLineSignal.emit(
-                action_id, name, colors[name], x_data, y_data
+                action_id,
+                name,
+                colors[name],
+                x_data,
+                y_data,
+                widths.get(name, _DEFAULT_STRATEGY_LINE_WIDTH),
             )

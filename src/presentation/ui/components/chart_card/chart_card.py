@@ -506,8 +506,8 @@ class ChartCard(BaseCard):
         spacing = span / (len(self._raw_history) - 1)
         return spacing if spacing > 0 else _FALLBACK_BAR_SECONDS
 
-    def add_overlay_indicator(self, name: str, color: str) -> None:
-        self.indicators.add_overlay(name, color)
+    def add_overlay_indicator(self, name: str, color: str, width: int = 2) -> None:
+        self.indicators.add_overlay(name, color, width)
         self._sync_indicator_window()
 
     def add_subplot_indicator(

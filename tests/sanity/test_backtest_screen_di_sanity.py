@@ -120,6 +120,14 @@ def test_strategy_registry_has_multi_ema_trend_follower(booted_app):
     assert "multi_ema_trend_follower" in registry.available()
 
 
+def test_strategy_registry_has_the_golden_reference_strategy(booted_app):
+    """BOT-109/BOT-111 — the golden-reference "EMA Trend Confirm + Pullback"
+    strategy must resolve through the real DI container the Backtest
+    screen's dropdown reads from, same as every other registered strategy."""
+    registry = booted_app.context.container.resolve(StrategyRegistry)
+    assert "ema_trend_confirm_pullback" in registry.available()
+
+
 def test_indicator_script_registry_resolves_for_the_backtest_screen(booted_app):
     """BOT-064 — BackTestPresenter now resolves `IndicatorScriptRegistry`
     too (for the "Chỉ báo tham khảo" picker), same registry Dev Board

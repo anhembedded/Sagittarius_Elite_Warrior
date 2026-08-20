@@ -109,7 +109,34 @@ def test_build_indicators_returns_two_emas_at_the_declared_periods():
     }
 
 
-def _uptrend_warmup(engine: StrategyEngine, side: PositionSide | None = None) -> MarketData:
+def test_chart_line_colors_matches_the_pine_scripts_reference_colors():
+    # BOT-111: chart lines must mirror the Pine Script's own plot colors,
+    # not whatever order-based color the generic palette would pick.
+    strategy = EmaTrendPullbackStrategy()
+
+    colors = strategy.chart_line_colors()
+
+    assert colors == {
+        EmaTrendPullbackStrategy.EMA_LONG_KEY: "#f6465d",
+        EmaTrendPullbackStrategy.EMA_ENTRY_KEY: "#2962ff",
+    }
+    assert set(colors.keys()) == set(strategy.build_indicators().keys())
+
+
+def test_chart_line_widths_draws_the_trend_ema_thicker_than_the_entry_ema():
+    strategy = EmaTrendPullbackStrategy()
+
+    widths = strategy.chart_line_widths()
+
+    assert widths == {
+        EmaTrendPullbackStrategy.EMA_LONG_KEY: 2,
+        EmaTrendPullbackStrategy.EMA_ENTRY_KEY: 1,
+    }
+
+
+def _uptrend_warmup(
+    engine: StrategyEngine, side: PositionSide | None = None
+) -> MarketData:
     """Feeds `_WARMUP_BARS` steep, unbroken up-closes (no wick reaches back
     to ema_long, so no touch-reset) — comfortably more than tick_confirm=3,
     so confirmed_trend is UP by the last bar. Returns that last candle."""
@@ -119,7 +146,9 @@ def _uptrend_warmup(engine: StrategyEngine, side: PositionSide | None = None) ->
     return ramp[-1]
 
 
-def _downtrend_warmup(engine: StrategyEngine, side: PositionSide | None = None) -> MarketData:
+def _downtrend_warmup(
+    engine: StrategyEngine, side: PositionSide | None = None
+) -> MarketData:
     ramp = [_flat(i, 3_000.0 - 20.0 * i) for i in range(_WARMUP_BARS)]
     for c in ramp:
         engine.on_tick(c, current_position_side=side)

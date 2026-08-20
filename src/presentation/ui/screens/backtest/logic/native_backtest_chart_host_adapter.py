@@ -138,9 +138,15 @@ class NativeBacktestChartHostAdapter:
         # separate visibility toggle to wire up in this slice.
         pass
 
-    def add_overlay_indicator(self, name: str, color: str) -> None:
+    def add_overlay_indicator(self, name: str, color: str, width: int = 2) -> None:
         # Registers the color; update_indicator_data() supplies the series
         # and triggers the actual (whole-set) native resubmission.
+        # `width` (BOT-111, IBacktestChartHost port parity) is accepted but
+        # not applied — the native indicator series ABI has no per-line
+        # width field (rgba + x/y only); every native indicator line renders
+        # at the renderer's own fixed weight regardless. A documented scope
+        # boundary, same class as the marker-kind ABI limit in
+        # native_backtest_chart_adapter.py, not a bug.
         self._indicator_series[name] = (_color_to_rgba(color), [], [])
         self._indicator_visibility[name] = True
 

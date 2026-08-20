@@ -172,6 +172,44 @@ class TestBuildNativeMarker:
         assert exit_marker.kind is NativeChartMarkerKind.LONG_EXIT
         assert exit_marker.direction is NativeChartMarkerDirection.DOWN
 
+    def test_truthful_short_entry_and_exit_conversion(self):
+        # BOT-111/BOT-050 — short markers must resolve to their own kind,
+        # not silently fall through to the long ones.
+        entry = build_native_marker(
+            (_CANDLES[0][0], 10.5, "BÁN (SHORT)", "#ef5350", "down"),
+            _CANDLE_TIMESTAMPS_MS,
+        )
+        assert entry.kind is NativeChartMarkerKind.SHORT_ENTRY
+        assert entry.direction is NativeChartMarkerDirection.DOWN
+
+        exit_marker = build_native_marker(
+            (_CANDLES[1][0], 12.5, "ĐÓNG SHORT", "#26a69a", "up"),
+            _CANDLE_TIMESTAMPS_MS,
+        )
+        assert exit_marker.kind is NativeChartMarkerKind.SHORT_EXIT
+        assert exit_marker.direction is NativeChartMarkerDirection.UP
+
+    def test_take_profit_exit_labels_map_onto_the_same_exit_kind_with_custom_color(
+        self,
+    ):
+        # BOT-111: no dedicated native marker kind exists for "why this
+        # exited" — a TP exit must still resolve (not raise) and keep its
+        # own gold rgba, distinct from the plain exit color, even though the
+        # native-rendered label text falls back to the generic one.
+        long_tp = build_native_marker(
+            (_CANDLES[0][0], 10.5, "ĐÓNG LONG (TP)", "#F3BA2F", "down"),
+            _CANDLE_TIMESTAMPS_MS,
+        )
+        assert long_tp.kind is NativeChartMarkerKind.LONG_EXIT
+        assert long_tp.rgba == 0xFFF3BA2F
+
+        short_tp = build_native_marker(
+            (_CANDLES[1][0], 12.5, "ĐÓNG SHORT (TP)", "#F3BA2F", "up"),
+            _CANDLE_TIMESTAMPS_MS,
+        )
+        assert short_tp.kind is NativeChartMarkerKind.SHORT_EXIT
+        assert short_tp.rgba == 0xFFF3BA2F
+
     def test_rejects_an_unaligned_marker_timestamp(self):
         with pytest.raises(ValueError, match="does not align"):
             build_native_marker(

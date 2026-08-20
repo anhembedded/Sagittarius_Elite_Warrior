@@ -64,7 +64,7 @@ class IBacktestChartHost(Protocol):
 
     def set_volume_visible(self, visible: bool) -> None: ...
 
-    def add_overlay_indicator(self, name: str, color: str) -> None: ...
+    def add_overlay_indicator(self, name: str, color: str, width: int = 2) -> None: ...
 
     def add_subplot_indicator(
         self, name: str, color: str, height_ratio: int = 1
@@ -151,8 +151,8 @@ class PythonBacktestChartHost:
     def set_volume_visible(self, visible: bool) -> None:
         self._chart_card.set_volume_visible(visible)
 
-    def add_overlay_indicator(self, name: str, color: str) -> None:
-        self._chart_card.add_overlay_indicator(name, color)
+    def add_overlay_indicator(self, name: str, color: str, width: int = 2) -> None:
+        self._chart_card.add_overlay_indicator(name, color, width)
 
     def add_subplot_indicator(
         self, name: str, color: str, height_ratio: int = 1

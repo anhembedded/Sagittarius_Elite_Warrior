@@ -2262,6 +2262,41 @@ def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
     assert added_names == {"ema_fast", "ema_slow"}
     updated_names = {call.args[0] for call in card.update_indicator_data.call_args_list}
     assert updated_names == {"ema_fast", "ema_slow"}
+    # BOT-111: a strategy that never overrides chart_line_widths() must
+    # still draw at the pre-existing fixed width, forwarded explicitly.
+    widths = {
+        call.args[0]: call.args[2] for call in card.add_overlay_indicator.call_args_list
+    }
+    assert widths == {"ema_fast": 2, "ema_slow": 2}
+
+
+def test_successful_run_honors_a_strategys_own_chart_line_widths(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-111: EmaTrendPullbackStrategy-style strategies can request a
+    different pen width per line (e.g. a thinner entry EMA) — proven here
+    through the real presenter wiring, not just the isolated helper."""
+
+    class _WidthOverridingStrategy(_EmaIndicatorStrategy):
+        def chart_line_widths(self) -> dict[str, int]:
+            return {"ema_fast": 1}  # ema_slow deliberately left at the default
+
+    presenter._strategy_registry.register("width_strategy", _WidthOverridingStrategy)
+    view_model.selectedStrategyKey = "width_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.add_overlay_indicator = Mock()
+    card.update_indicator_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    widths = {
+        call.args[0]: call.args[2] for call in card.add_overlay_indicator.call_args_list
+    }
+    assert widths == {"ema_fast": 1, "ema_slow": 2}
 
 
 def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(

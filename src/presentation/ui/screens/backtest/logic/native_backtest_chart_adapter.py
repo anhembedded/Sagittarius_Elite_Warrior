@@ -56,6 +56,17 @@ _MARKER_LABEL_TO_KIND: dict[str, NativeChartMarkerKind] = {
     "ĐÓNG LONG": NativeChartMarkerKind.LONG_EXIT,
     "BÁN (SHORT)": NativeChartMarkerKind.SHORT_ENTRY,
     "ĐÓNG SHORT": NativeChartMarkerKind.SHORT_EXIT,
+    # BOT-111: take-profit exits (chart_canvas_view.py's _exit_marker) reuse
+    # the same LONG_EXIT/SHORT_EXIT kind — the native ABI has no separate
+    # "why this closed" semantic, only entry/exit × side (BOT-096). The
+    # marker's own custom rgba (not kind-derived) still carries the distinct
+    # TAKE_PROFIT_COLOR through correctly; only the native-rendered label
+    # text falls back to the generic "ĐÓNG LONG"/"ĐÓNG SHORT" (_MARKER_LABELS
+    # is kind-derived, not label-derived) — a deliberate, documented scope
+    # boundary, not a bug: adding a distinct native marker kind would mean an
+    # ABI/C++ change this task doesn't need.
+    "ĐÓNG LONG (TP)": NativeChartMarkerKind.LONG_EXIT,
+    "ĐÓNG SHORT (TP)": NativeChartMarkerKind.SHORT_EXIT,
 }
 _MARKER_DIRECTION_STR_TO_ENUM: dict[str, NativeChartMarkerDirection] = {
     "up": NativeChartMarkerDirection.UP,

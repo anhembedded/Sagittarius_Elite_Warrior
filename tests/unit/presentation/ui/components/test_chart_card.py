@@ -57,6 +57,24 @@ def test_layered_antialias_keeps_indicator_and_line_chart_curves_smooth(qapp):
     assert card.chart_type_renderer._curve.opts["antialias"] is True
 
 
+def test_add_overlay_indicator_defaults_to_the_pre_existing_line_width(qapp):
+    card = ChartCard("BTCUSDT")
+
+    card.add_overlay_indicator("ema_20", "#00bcd4")
+
+    assert card.indicators._curves["ema_20"].opts["pen"].width() == 2
+
+
+def test_add_overlay_indicator_honors_a_custom_line_width(qapp):
+    # BOT-111: a strategy can request a thinner/thicker line per indicator
+    # (e.g. EmaTrendPullbackStrategy's own entry EMA at width 1).
+    card = ChartCard("BTCUSDT")
+
+    card.add_overlay_indicator("ema_entry", "#2962ff", width=1)
+
+    assert card.indicators._curves["ema_entry"].opts["pen"].width() == 1
+
+
 def test_chart_plot_layout_falls_back_to_cpu_on_headless_platform(qapp):
     with (
         patch(

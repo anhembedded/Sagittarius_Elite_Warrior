@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
@@ -64,11 +64,22 @@ def _flatten(name: str, value: Any) -> list[tuple[str, float]]:
     return [(name, value)]
 
 
-def assign_strategy_line_colors(line_names: Sequence[str]) -> dict[str, str]:
+def assign_strategy_line_colors(
+    line_names: Sequence[str], overrides: Mapping[str, str] | None = None
+) -> dict[str, str]:
     """Deterministic color per line, in the order the caller lists them —
     cycles through `_LINE_COLOR_PALETTE` if a strategy has more lines than
-    it has colors."""
-    return {
-        name: _LINE_COLOR_PALETTE[index % len(_LINE_COLOR_PALETTE)]
-        for index, name in enumerate(line_names)
-    }
+    it has colors. `overrides` (BOT-111, from `BaseStrategy.chart_line_colors()`)
+    takes priority for any name it names; every other line still gets the
+    next palette color in order, so a strategy overriding some but not all
+    of its lines doesn't skip palette slots for the ones it left alone."""
+    overrides = overrides or {}
+    colors: dict[str, str] = {}
+    palette_index = 0
+    for name in line_names:
+        if name in overrides:
+            colors[name] = overrides[name]
+            continue
+        colors[name] = _LINE_COLOR_PALETTE[palette_index % len(_LINE_COLOR_PALETTE)]
+        palette_index += 1
+    return colors

@@ -165,6 +165,24 @@ class EmaTrendPullbackStrategy(BaseStrategy):
             self.EMA_ENTRY_KEY: EMA(self._ema_entry_len),
         }
 
+    def chart_line_colors(self) -> dict[str, str]:
+        """BOT-111: mirrors the Pine Script reference's own plot colors —
+        long-trend EMA in red, entry EMA in blue — rather than whatever
+        order-based color `assign_strategy_line_colors()`'s generic palette
+        would otherwise pick."""
+        return {
+            self.EMA_LONG_KEY: "#f6465d",
+            self.EMA_ENTRY_KEY: "#2962ff",
+        }
+
+    def chart_line_widths(self) -> dict[str, int]:
+        """BOT-111: mirrors the Pine Script reference's own plot weights —
+        the long-trend EMA drawn thicker than the entry EMA."""
+        return {
+            self.EMA_LONG_KEY: 2,
+            self.EMA_ENTRY_KEY: 1,
+        }
+
     def decide(
         self, context: StrategyContext
     ) -> tuple[SignalAction, str, Mapping[str, Any]]:
@@ -183,7 +201,9 @@ class EmaTrendPullbackStrategy(BaseStrategy):
         entry_upper = ema_entry * (1 + self._pullback_sensitivity / 100.0)
         entry_lower = ema_entry * (1 - self._pullback_sensitivity / 100.0)
 
-        pullback_long = candle.low_price <= entry_upper and candle.close_price > ema_entry
+        pullback_long = (
+            candle.low_price <= entry_upper and candle.close_price > ema_entry
+        )
         pullback_short = (
             candle.high_price >= entry_lower and candle.close_price < ema_entry
         )
@@ -247,7 +267,9 @@ class EmaTrendPullbackStrategy(BaseStrategy):
         prev_consecutive = consecutive_series.committed(0)
         prev_consecutive = int(prev_consecutive) if prev_consecutive is not None else 0
         prev_confirmed = confirmed_series.committed(0)
-        prev_confirmed = int(prev_confirmed) if prev_confirmed is not None else _TREND_FLAT
+        prev_confirmed = (
+            int(prev_confirmed) if prev_confirmed is not None else _TREND_FLAT
+        )
 
         if touches_long and self._enable_touch_reset:
             new_trend, new_consecutive, new_confirmed = (
@@ -260,9 +282,7 @@ class EmaTrendPullbackStrategy(BaseStrategy):
             below = close_price < ema_long
             if above:
                 new_trend = _TREND_UP
-                new_consecutive = (
-                    prev_consecutive + 1 if prev_trend == _TREND_UP else 1
-                )
+                new_consecutive = prev_consecutive + 1 if prev_trend == _TREND_UP else 1
             elif below:
                 new_trend = _TREND_DOWN
                 new_consecutive = (
@@ -305,9 +325,7 @@ class EmaTrendPullbackStrategy(BaseStrategy):
             return True, True
 
         bounce_long = (
-            prev_low is not None
-            and close_price > ema_entry
-            and prev_low <= entry_upper
+            prev_low is not None and close_price > ema_entry and prev_low <= entry_upper
         )
         reject_short = (
             prev_high is not None

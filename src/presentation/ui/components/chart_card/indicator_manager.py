@@ -63,10 +63,14 @@ class IndicatorManager:
         self._script_info: dict[str, list[InfoField]] = {}
         self._marker_layer = MarkerLayer(self._plot_layout.main_plot)
 
-    def add_overlay(self, name: str, color: str) -> None:
-        """Adds a line indicator on top of the main candlestick plot (e.g. SMA)."""
+    def add_overlay(self, name: str, color: str, width: int = 2) -> None:
+        """Adds a line indicator on top of the main candlestick plot (e.g. SMA).
+        `width` defaults to the pre-existing fixed value (BOT-111 added the
+        parameter so a strategy can request a different one per line, e.g.
+        a thinner entry-EMA than trend-EMA — every pre-existing caller that
+        doesn't pass it keeps today's line weight unchanged)."""
         curve = self._plot_layout.main_plot.plot(
-            pen=pg.mkPen(color=color, width=2),
+            pen=pg.mkPen(color=color, width=width),
             antialias=_SMOOTH_LINE_ANTIALIAS,
         )
         self._register(name, curve, self._plot_layout.main_plot)

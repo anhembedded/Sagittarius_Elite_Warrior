@@ -48,7 +48,7 @@ Rectangle {
     readonly property var filterTabs: [
         { value: "all", label: "Tất cả" },
         { value: "long", label: "Mua (LONG)" },
-        { value: "short", label: "Bán (SHORT) [Chưa hỗ trợ]" },
+        { value: "short", label: "Bán (SHORT)" },
         { value: "win", label: "Lệnh thắng" },
         { value: "loss", label: "Lệnh thua" }
     ]
@@ -447,13 +447,14 @@ Rectangle {
                         }
                     }
 
-                    // Empty state
+                    // Empty state — BOT-050 shipped short-selling support, so
+                    // the "short" tab is a normal filter now (0 rows just
+                    // means no SHORT trades in this run), not a "not
+                    // supported yet" case needing its own message.
                     Text {
                         anchors.centerIn: parent
                         visible: !root.hasViewModel || viewModel.tradeLogRows.length === 0
-                        text: (root.hasViewModel && viewModel.tradeLogFilter === "short")
-                            ? "Chế độ bán khống (SHORT) chưa được hỗ trợ trong engine hiện tại (Đang phát triển theo BOT-050)"
-                            : "Chưa có dữ liệu lệnh giao dịch"
+                        text: "Chưa có dữ liệu lệnh giao dịch"
                         color: root.themeMuted
                         font.pixelSize: 12
                         textFormat: Text.PlainText

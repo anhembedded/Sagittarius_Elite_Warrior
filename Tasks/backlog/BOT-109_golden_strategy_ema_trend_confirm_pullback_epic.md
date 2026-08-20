@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-109`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
-**Trạng thái:** 🟡 **Đang triển khai — Bước 0 (`BOT-041`), Bước 1 (`BOT-050`) và Bước 3 (`BOT-110`) đã xong 20/08, tiếp theo là `BOT-111`**  
+**Trạng thái:** ✅ **Hoàn thành (2026-08-20)** — cả 4 bước (`BOT-041`/`BOT-050`/`BOT-110`/`BOT-111`) đã xong. `BOT-105A` (bước 2) không bắt buộc cho riêng golden strategy này, vẫn ở backlog riêng.  
 **Mục tiêu:** Sử dụng chiến lược TradingView Pine Script v6 *"EMA Trend Confirm + Pullback + TP%"* làm **Chuẩn Tham Chiếu Vàng** (Golden Reference Specification) để nâng cấp toàn diện năng lực của engine Backtest, lấp đầy các khoảng trống về Bán khống (Short Selling), Lệnh chốt lời trong nến (Intra-bar TP), và trực quan hóa đa chiều.
 
 ---
@@ -238,7 +238,7 @@ graph TD
 
 ---
 
-### 📌 4. [`BOT-111`](BOT-111_golden_strategy_visual_and_backtest_verification.md): Trực Quan Hóa & Kiểm Thử Đối Soát
+### 📌 4. [`BOT-111`](../completed/BOT-111_golden_strategy_visual_and_backtest_verification.md): Trực Quan Hóa & Kiểm Thử Đối Soát
 - **Vấn đề**: Cần hiển thị trực quan các đường chỉ báo, marker lệnh Long/Short trên biểu đồ và đối soát kết quả chạy Backtest.
 - **Hạng mục công việc**:
   - Vẽ 2 đường EMA (200 màu đỏ, 50 màu xanh) trên `ChartCard` / Native Chart.
@@ -255,4 +255,11 @@ graph TD
 1. ✅ **Bước 1 — Hoàn thành (20/08)**: [`BOT-050`](../completed/BOT-050_short_selling_support.md) (Short-Selling trong PaperExchange).
 2. 🏁 **Bước 2 (không bắt buộc cho riêng golden strategy này)**: [`BOT-105A`](BOT-105A_trailing_stop_and_partial_tp.md) (break-even/trailing/partial-TP) — xem ghi chú ở §2.2, cân nhắc bỏ nếu chỉ cần chạy đúng chiến lược tham chiếu.
 3. ✅ **Bước 3 — Hoàn thành (20/08)**: [`BOT-110`](../completed/BOT-110_ema_trend_confirm_pullback_strategy.md) (Strategy `EmaTrendPullbackStrategy`, câu hỏi kiến trúc `StrategyContext`/vị thế đã chốt bằng `current_position_side`).
-4. 🏁 **Bước 4**: Triển khai [`BOT-111`](BOT-111_golden_strategy_visual_and_backtest_verification.md) (UI Marker, Chart & Verification).
+4. ✅ **Bước 4 — Hoàn thành (20/08)**: [`BOT-111`](../completed/BOT-111_golden_strategy_visual_and_backtest_verification.md)
+   (UI Marker, Chart & Verification) — `BaseStrategy.chart_line_colors()`/`chart_line_widths()`
+   mới (optional hook), marker Short thật sự emit lần đầu (mapping native đã
+   có sẵn từ trước nhưng chưa ai gọi tới), marker TP màu vàng riêng. Label TP
+   cố định `"(TP)"` thay vì `%` động (spec gốc ghi `"TP 2.0%"`) — số % động sẽ
+   phá dispatch cố định của native marker adapter, đã ghi rõ lý do trong chính
+   file task. 20 test mới, ruff sạch, full suite 1494 unit + 40 sanity xanh
+   (2 test cũ phải cập nhật vì hành vi thật đổi, không phải làm yếu test).

@@ -171,3 +171,32 @@ def test_assign_strategy_line_colors_cycles_past_the_palette():
     # Palette has 8 entries — the 9th and 1st line share a color.
     assert colors[names[8]] == colors[names[0]]
     assert colors[names[9]] == colors[names[1]]
+
+
+def test_assign_strategy_line_colors_prefers_override_for_named_lines():
+    # BOT-111: a strategy's own chart_line_colors() must win over the
+    # generic order-based palette for the lines it names.
+    colors = assign_strategy_line_colors(
+        ["ema_long", "ema_entry"], {"ema_long": "#f6465d", "ema_entry": "#2962ff"}
+    )
+
+    assert colors == {"ema_long": "#f6465d", "ema_entry": "#2962ff"}
+
+
+def test_assign_strategy_line_colors_only_overrides_named_lines():
+    # A strategy overriding some but not all of its lines must not skip
+    # palette slots for the ones it left alone — they still get the next
+    # slot in declaration order, as if the override didn't exist for them.
+    colors = assign_strategy_line_colors(["a", "b", "c"], {"b": "#123456"})
+
+    assert colors["b"] == "#123456"
+    assert colors["a"] == assign_strategy_line_colors(["a", "c"])["a"]
+    assert colors["c"] == assign_strategy_line_colors(["a", "c"])["c"]
+
+
+def test_assign_strategy_line_colors_with_no_overrides_matches_the_plain_call():
+    names = ["x", "y", "z"]
+
+    assert assign_strategy_line_colors(names, None) == assign_strategy_line_colors(
+        names
+    )

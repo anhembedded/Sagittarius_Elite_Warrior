@@ -53,7 +53,11 @@ def test_host_delegates_every_port_operation_to_the_chart_card(qapp, request):
         ("render_historical_volume", ([],), {}),
         ("set_chart_type", ("candlestick",), {}),
         ("set_volume_visible", (False,), {}),
-        ("add_overlay_indicator", ("ema", "#fff"), {}),
+        # BOT-111: width defaults to 2 and is always forwarded explicitly,
+        # even when the caller didn't pass one — matches the pre-existing
+        # fixed width IndicatorManager.add_overlay() used before this
+        # parameter existed.
+        ("add_overlay_indicator", ("ema", "#fff", 2), {}),
         ("add_subplot_indicator", ("rsi", "#fff", 2), {}),
         ("update_indicator_data", ("ema", [1.0], [2.0]), {}),
         ("set_indicator_visible", ("ema", False), {}),

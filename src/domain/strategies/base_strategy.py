@@ -182,6 +182,25 @@ class BaseStrategy(ABC):
         `context.indicators`."""
         ...
 
+    def chart_line_colors(self) -> dict[str, str]:
+        """Optional (BOT-111): a strategy may declare a preferred hex color
+        for any of its own `build_indicators()` line names, drawn on the
+        Backtest chart via `strategy_indicator_lines.py`. Empty by default —
+        `assign_strategy_line_colors()` then assigns every line a color from
+        its own fixed palette, in declaration order. Override only to match
+        an established reference (e.g. mirroring the exact colors a ported
+        TradingView script uses), not as a general theming mechanism."""
+        return {}
+
+    def chart_line_widths(self) -> dict[str, int]:
+        """Optional (BOT-111): a strategy may declare a preferred pen width
+        for any of its own line names — e.g. a thicker trend EMA than entry
+        EMA, mirroring a ported reference script's own plot weights. Empty
+        by default; `BackTestPresenter` falls back to the pre-existing fixed
+        width for any line not named here. Python `ChartCard` only — the
+        native chart's indicator ABI has no per-line width concept."""
+        return {}
+
     def series(self, key: str, history: int = DEFAULT_HISTORY) -> Series:
         return self._series.setdefault(key, Series(history))
 
