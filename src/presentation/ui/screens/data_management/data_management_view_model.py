@@ -34,6 +34,11 @@ class DataManagementViewModel(BaseQmlViewModel):
     progressChanged = Signal()
     statsChanged = Signal()
 
+    gapInspectorChanged = Signal()
+    gapListChanged = Signal()
+    coverageSegmentsChanged = Signal()
+    openGapInspectorRequested = Signal()
+
     # --- Requests the Presenter acts on -------------------------------- #
     checkStatusRequested = Signal()
     checkAllStatusRequested = Signal()
@@ -46,6 +51,12 @@ class DataManagementViewModel(BaseQmlViewModel):
     syncRowRequested = Signal(str, str)
     #: symbol and interval for a single row's Clear button.
     clearRowRequested = Signal(str, str)
+    #: symbol and interval for Inspect Gaps.
+    inspectGapsRequested = Signal(str, str)
+    #: symbol, interval, start_time, end_time for Repair Gap.
+    repairGapRequested = Signal(str, str, str, str)
+    #: symbol and interval for Repair All Gaps.
+    repairAllGapsRequested = Signal(str, str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -68,6 +79,15 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._progress_visible = False
         self._stored_records = "—"
         self._database_size = "—"
+
+        # Gap Inspector State
+        self._gap_inspector_symbol = ""
+        self._gap_inspector_interval = "1m"
+        self._gap_inspector_total_gaps = 0
+        self._gap_inspector_total_missing = 0
+        self._gap_inspector_coverage_pct = 100.0
+        self._gap_list: list[dict] = []
+        self._coverage_segments: list[dict] = []
 
     # ------------------------------------------------------------------ #
     # Models
@@ -285,6 +305,75 @@ class DataManagementViewModel(BaseQmlViewModel):
     @Slot(str, str)
     def requestClearRow(self, symbol: str, interval: str = "1m") -> None:
         self.clearRowRequested.emit(symbol, interval)
+
+    @Slot(str, str)
+    def requestInspectGaps(self, symbol: str, interval: str = "1m") -> None:
+        self.inspectGapsRequested.emit(symbol, interval)
+
+    @Slot(str, str, str, str)
+    def requestRepairGap(
+        self, symbol: str, interval: str, start_time: str, end_time: str
+    ) -> None:
+        self.repairGapRequested.emit(symbol, interval, start_time, end_time)
+
+    @Slot(str, str)
+    def requestRepairAllGaps(self, symbol: str, interval: str = "1m") -> None:
+        self.repairAllGapsRequested.emit(symbol, interval)
+
+    # ------------------------------------------------------------------ #
+    # Gap Inspector Properties
+    # ------------------------------------------------------------------ #
+
+    @Property(str, notify=gapInspectorChanged)
+    def gapInspectorSymbol(self) -> str:
+        return self._gap_inspector_symbol
+
+    @Property(str, notify=gapInspectorChanged)
+    def gapInspectorInterval(self) -> str:
+        return self._gap_inspector_interval
+
+    @Property(int, notify=gapInspectorChanged)
+    def gapInspectorTotalGaps(self) -> int:
+        return self._gap_inspector_total_gaps
+
+    @Property(int, notify=gapInspectorChanged)
+    def gapInspectorTotalMissing(self) -> int:
+        return self._gap_inspector_total_missing
+
+    @Property(float, notify=gapInspectorChanged)
+    def gapInspectorCoveragePct(self) -> float:
+        return self._gap_inspector_coverage_pct
+
+    @Property("QVariantList", notify=gapListChanged)
+    def gapList(self) -> list[dict]:
+        return self._gap_list
+
+    @Property("QVariantList", notify=coverageSegmentsChanged)
+    def coverageSegments(self) -> list[dict]:
+        return self._coverage_segments
+
+    @Slot(str, str, int, int, float, list, list)
+    def set_gap_inspector_data(
+        self,
+        symbol: str,
+        interval: str,
+        total_gaps: int,
+        total_missing: int,
+        coverage_pct: float,
+        gaps: list[dict],
+        segments: list[dict],
+    ) -> None:
+        self._gap_inspector_symbol = symbol
+        self._gap_inspector_interval = interval
+        self._gap_inspector_total_gaps = total_gaps
+        self._gap_inspector_total_missing = total_missing
+        self._gap_inspector_coverage_pct = coverage_pct
+        self._gap_list = list(gaps)
+        self._coverage_segments = list(segments)
+        self.gapInspectorChanged.emit()
+        self.gapListChanged.emit()
+        self.coverageSegmentsChanged.emit()
+        self.openGapInspectorRequested.emit()
 
     # ------------------------------------------------------------------ #
     # Python-side accessors

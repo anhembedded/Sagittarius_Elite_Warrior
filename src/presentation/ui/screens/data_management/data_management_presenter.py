@@ -19,6 +19,14 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_d
     ClearMarketDataCommand,
     ClearMarketDataResult,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
+    RepairDataGapCommand,
+    RepairDataGapResult,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_gaps import (
+    GetDatabaseGapsQuery,
+    GetDatabaseGapsResult,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
@@ -85,6 +93,7 @@ class DataManagementPresenter(BasePresenter):
     ui_stats_refresh_signal = Signal()
     ui_sync_complete_signal = Signal()
     ui_symbol_options_signal = Signal(list)
+    ui_gap_inspector_signal = Signal(str, str, int, int, float, list, list)
 
     def __init__(self, view: DataManagementView, container: IContainer) -> None:
         super().__init__(view, container)
@@ -144,6 +153,9 @@ class DataManagementPresenter(BasePresenter):
         view_model.vacuumRequested.connect(self._on_vacuum)
         view_model.syncRowRequested.connect(self._trigger_single_sync)
         view_model.clearRowRequested.connect(self._on_clear_row)
+        view_model.inspectGapsRequested.connect(self._on_inspect_gaps)
+        view_model.repairGapRequested.connect(self._on_repair_gap)
+        view_model.repairAllGapsRequested.connect(self._on_repair_all_gaps)
 
         # Internal signals -> main-thread model updates
         self.ui_log_signal.connect(self._append_log)
@@ -157,6 +169,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_stats_refresh_signal.connect(self._on_stats_refresh_requested)
         self.ui_sync_complete_signal.connect(self._on_sync_complete)
         self.ui_symbol_options_signal.connect(view_model.set_symbol_options)
+        self.ui_gap_inspector_signal.connect(view_model.set_gap_inspector_data)
 
     def _connect_engine_events(self) -> None:
         """Subscribe to Engine EventBus events emitted from background handlers."""
@@ -594,3 +607,136 @@ class DataManagementPresenter(BasePresenter):
             # so refresh the tiles (VACUUM reclaims disk space — the size tile is
             # exactly what changed) instead of unlocking a lock never taken.
             self.ui_stats_refresh_signal.emit()
+
+    # ------------------------------------------------------------------ #
+    # Gap Inspector & Repair Actions
+    # ------------------------------------------------------------------ #
+
+    @Slot(str, str)
+    @safe_ui_action
+    def _on_inspect_gaps(self, symbol: str, interval: str) -> None:
+        self._thread_manager.submit(self._run_inspect_gaps, symbol, interval)
+
+    def _run_inspect_gaps(self, symbol: str, interval: str) -> None:
+        """Background worker: dispatches GetDatabaseGapsQuery and opens modal."""
+        try:
+            query = GetDatabaseGapsQuery(symbol=symbol, interval=interval)
+            result: GetDatabaseGapsResult = self.dispatcher.dispatch(
+                GetDatabaseGapsQuery, query
+            )
+            gaps_data = [
+                {
+                    "gap_id": g.gap_id,
+                    "symbol": g.symbol,
+                    "interval": g.interval,
+                    "start_time": g.start_time,
+                    "end_time": g.end_time,
+                    "fetch_start_time": g.fetch_start_time,
+                    "fetch_end_time": g.fetch_end_time,
+                    "duration_text": g.duration_text,
+                    "missing_candles": g.missing_candles,
+                }
+                for g in result.gaps
+            ]
+            segments_data = [
+                {
+                    "is_gap": s.is_gap,
+                    "start_time": s.start_time,
+                    "end_time": s.end_time,
+                    "ratio": s.ratio,
+                    "candle_count": s.candle_count,
+                }
+                for s in result.coverage_segments
+            ]
+            self.ui_gap_inspector_signal.emit(
+                result.symbol,
+                result.interval,
+                result.total_gaps,
+                result.total_missing_candles,
+                result.coverage_percentage,
+                gaps_data,
+                segments_data,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.ui_error_log_signal.emit(f"Error inspecting gaps for {symbol}: {exc}")
+
+    @Slot(str, str, str, str)
+    @safe_ui_action
+    def _on_repair_gap(
+        self, symbol: str, interval: str, start_time: str, end_time: str
+    ) -> None:
+        if self.fsm and not self.fsm.transition_to(UIMode.SYNCING):
+            return
+        self._thread_manager.submit(
+            self._run_repair_gap, symbol, interval, start_time, end_time
+        )
+
+    def _run_repair_gap(
+        self, symbol: str, interval: str, start_iso: str, end_iso: str
+    ) -> None:
+        """Background worker: downloads missing klines for a single gap."""
+        try:
+            start_dt = datetime.fromisoformat(start_iso).replace(tzinfo=UTC)
+            end_dt = datetime.fromisoformat(end_iso).replace(tzinfo=UTC)
+            interval_vo = TimeFrame(interval)
+
+            cmd = RepairDataGapCommand(
+                symbol=symbol,
+                interval=interval_vo,
+                start_time=start_dt,
+                end_time=end_dt,
+            )
+            result: RepairDataGapResult = self.dispatcher.dispatch(
+                RepairDataGapCommand, cmd
+            )
+
+            if result.success:
+                self.ui_log_signal.emit(result.message)
+            else:
+                self.ui_error_log_signal.emit(result.message)
+
+            self._run_inspect_gaps(symbol, interval)
+            self._run_check_status(symbol, interval)
+        except Exception as exc:  # noqa: BLE001
+            self.ui_error_log_signal.emit(f"Failed to repair gap: {exc}")
+        finally:
+            self.ui_unlock_signal.emit()
+
+    @Slot(str, str)
+    @safe_ui_action
+    def _on_repair_all_gaps(self, symbol: str, interval: str) -> None:
+        if self.fsm and not self.fsm.transition_to(UIMode.SYNCING):
+            return
+        self._thread_manager.submit(self._run_repair_all_gaps, symbol, interval)
+
+    def _run_repair_all_gaps(self, symbol: str, interval: str) -> None:
+        """Background worker: sequentially repairs all detected gaps."""
+        try:
+            query = GetDatabaseGapsQuery(symbol=symbol, interval=interval)
+            result: GetDatabaseGapsResult = self.dispatcher.dispatch(
+                GetDatabaseGapsQuery, query
+            )
+
+            for gap in result.gaps:
+                start_dt = datetime.fromisoformat(gap.fetch_start_time).replace(
+                    tzinfo=UTC
+                )
+                end_dt = datetime.fromisoformat(gap.fetch_end_time).replace(tzinfo=UTC)
+                interval_vo = TimeFrame(interval)
+                cmd = RepairDataGapCommand(
+                    symbol=symbol,
+                    interval=interval_vo,
+                    start_time=start_dt,
+                    end_time=end_dt,
+                )
+                self.dispatcher.dispatch(RepairDataGapCommand, cmd)
+
+            self.ui_log_signal.emit(
+                f"Đã hoàn tất vá tất cả {result.total_gaps} lỗ hổng cho {symbol} ({interval})."
+            )
+            self._run_inspect_gaps(symbol, interval)
+            self._run_check_status(symbol, interval)
+        except Exception as exc:  # noqa: BLE001
+            self.ui_error_log_signal.emit(f"Failed to repair all gaps: {exc}")
+        finally:
+            self.ui_unlock_signal.emit()

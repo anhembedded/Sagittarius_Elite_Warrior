@@ -30,7 +30,9 @@ class ClearMarketDataCommandHandler(
                 count = self._repository.purge_all()
                 msg = f"Đã xóa toàn bộ cơ sở dữ liệu ({count} database shards)."
                 logger.info(msg)
-                return ClearMarketDataResult(deleted_records=count, success=True, message=msg)
+                return ClearMarketDataResult(
+                    deleted_records=count, success=True, message=msg
+                )
 
             if not command.symbol.strip():
                 return ClearMarketDataResult(
@@ -47,8 +49,12 @@ class ClearMarketDataCommandHandler(
             )
             msg = f"Đã xóa thành công {count:,} nến của {command.symbol.strip()}{interval_label}."
             logger.info(msg)
-            return ClearMarketDataResult(deleted_records=count, success=True, message=msg)
+            return ClearMarketDataResult(
+                deleted_records=count, success=True, message=msg
+            )
         except Exception as exc:  # noqa: BLE001 - boundary: wrap exception in result
             err_msg = f"Lỗi khi xóa dữ liệu: {exc}"
             logger.error(err_msg)
-            return ClearMarketDataResult(deleted_records=0, success=False, message=err_msg)
+            return ClearMarketDataResult(
+                deleted_records=0, success=False, message=err_msg
+            )
