@@ -615,20 +615,86 @@ Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 1.8
                                     }
-                                    Text {
-                                        text: statusRow.statusText
-                                        color: statusRow.isHealthy ? Theme.success : Theme.danger
-                                        font.pixelSize: 11
-                                        font.bold: true
+
+                                    Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 2.2
-                                        elide: Text.ElideRight
+                                        implicitHeight: 22
+                                        color: statusRow.isHealthy ? "transparent" : "#2a1518"
+                                        radius: 4
+                                        border.color: statusRow.isHealthy ? "transparent" : Theme.danger
+                                        border.width: statusRow.isHealthy ? 0 : 1
+
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 4
+                                            anchors.rightMargin: 4
+                                            spacing: 4
+
+                                            Text {
+                                                text: statusRow.statusText
+                                                color: statusRow.isHealthy ? Theme.success : Theme.danger
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                Layout.fillWidth: true
+                                                elide: Text.ElideRight
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+
+                                            Image {
+                                                visible: !statusRow.isHealthy
+                                                source: "image://icons/alert-triangle/danger"
+                                                sourceSize.width: 12
+                                                sourceSize.height: 12
+                                                Layout.preferredWidth: 12
+                                                Layout.preferredHeight: 12
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: !statusRow.isHealthy ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            enabled: !statusRow.isHealthy
+                                            onClicked: {
+                                                if (root.hasViewModel) {
+                                                    viewModel.requestInspectGaps(statusRow.symbol, statusRow.interval || "1m");
+                                                }
+                                            }
+                                        }
                                     }
 
                                     RowLayout {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 2.6
                                         spacing: 4
+
+                                        Button {
+                                            id: rowInspectButton
+                                            objectName: "btnRowInspect_" + statusRow.symbol + "_" + (statusRow.interval || "1m")
+                                            text: "Inspect"
+                                            visible: !statusRow.isHealthy
+                                            Layout.fillWidth: true
+                                            enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                                            onClicked: if (root.hasViewModel) viewModel.requestInspectGaps(statusRow.symbol, statusRow.interval || "1m")
+
+                                            contentItem: Text {
+                                                text: rowInspectButton.text
+                                                color: Theme.accent
+                                                font.pixelSize: 10
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                opacity: rowInspectButton.enabled ? 1.0 : 0.4
+                                            }
+                                            background: Rectangle {
+                                                implicitHeight: 22
+                                                radius: 4
+                                                color: rowInspectButton.hovered && rowInspectButton.enabled
+                                                       ? "#1f2a3a" : "#131822"
+                                                border.color: Theme.accent
+                                                border.width: 1
+                                                opacity: rowInspectButton.enabled ? 1.0 : 0.4
+                                            }
+                                        }
 
                                         Button {
                                             id: rowSyncButton
@@ -708,6 +774,18 @@ Rectangle {
     SymbolPickerModal {
         id: symbolPickerModal
         objectName: "symbolPickerModal"
+    }
+
+    GapInspectorModal {
+        id: gapInspectorModal
+        objectName: "gapInspectorModal"
+    }
+
+    Connections {
+        target: root.hasViewModel ? viewModel : null
+        function onOpenGapInspectorRequested() {
+            gapInspectorModal.open()
+        }
     }
 
     ModalDialogCard {
