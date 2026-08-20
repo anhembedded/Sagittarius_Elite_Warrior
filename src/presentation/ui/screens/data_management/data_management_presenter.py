@@ -270,16 +270,20 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_check_status(self) -> None:
-        """Dispatch GetDatabaseStatusQuery for the currently selected symbol/interval."""
+        """Dispatch GetDatabaseStatusQuery for the currently selected symbol/interval in background."""
         symbol = self._view_model.selectedSymbol.strip()
         interval = self._view_model.selectedInterval.strip() or "1m"
 
         self.ui_log_signal.emit(
             f"Checking database status for {symbol} ({interval})..."
         )
+        self.fsm.transition_to(UIMode.SCANNING)
+        self._thread_manager.submit(self._run_check_status, symbol, interval)
 
-        query = GetDatabaseStatusQuery(symbol=symbol, interval=interval)
+    def _run_check_status(self, symbol: str, interval: str) -> None:
+        """Background worker: dispatches GetDatabaseStatusQuery."""
         try:
+            query = GetDatabaseStatusQuery(symbol=symbol, interval=interval)
             response = self.dispatcher.dispatch(GetDatabaseStatusQuery, query)
             status: DatabaseStatusDTO | None = (
                 getattr(response, "data", response) if response else None
@@ -298,9 +302,10 @@ class DataManagementPresenter(BasePresenter):
                 interval,
             )
             self.ui_log_signal.emit("Scan complete.")
-            self._refresh_stats()
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Error scanning database: {exc}")
+        finally:
+            self.ui_unlock_signal.emit()
 
     @Slot()
     @safe_ui_action

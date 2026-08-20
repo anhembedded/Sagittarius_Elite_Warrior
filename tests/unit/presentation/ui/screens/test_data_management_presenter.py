@@ -218,7 +218,21 @@ def test_run_scan_all_fills_the_table_model(presenter, view_model, mock_dispatch
     assert view_model.status_model.gap_targets() == [("ETHUSDT", "15m")]
 
 
-def test_on_check_status_populates_the_row_for_the_selection(
+def test_on_check_status_submits_background_task(
+    presenter, view_model, mock_thread_mgr
+):
+    view_model.selectedSymbol = "BTCUSDT"
+    view_model.selectedInterval = "1h"
+
+    view_model.requestCheckStatus()
+
+    mock_thread_mgr.submit.assert_called_with(
+        presenter._run_check_status, "BTCUSDT", "1h"
+    )
+    assert presenter.fsm.current_state == UIMode.SCANNING
+
+
+def test_run_check_status_populates_the_row_for_the_selection(
     presenter, view_model, mock_dispatcher
 ):
     response = Mock()
@@ -232,16 +246,16 @@ def test_on_check_status_populates_the_row_for_the_selection(
         status_text="OK",
     )
     mock_dispatcher.dispatch.return_value = response
-    view_model.selectedSymbol = "BTCUSDT"
-    view_model.selectedInterval = "1h"
 
-    view_model.requestCheckStatus()
+    presenter.fsm.transition_to(UIMode.SCANNING)
+    presenter._run_check_status("BTCUSDT", "1h")
 
     rows = view_model.status_model.rows
     assert len(rows) == 1
     assert rows[0].symbol == "BTCUSDT"
     assert rows[0].interval == "1h"
     assert rows[0].status_text == "OK"
+    assert presenter.fsm.current_state == UIMode.IDLE
 
 
 # ---------------------------------------------------------------------------

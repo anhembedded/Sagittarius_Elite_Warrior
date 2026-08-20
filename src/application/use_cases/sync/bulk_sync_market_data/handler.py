@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
-from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.services.rate_limiter import (
@@ -13,11 +12,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-
-if TYPE_CHECKING:
-    from sagittarius_engine.interfaces.i_config import IConfig
-    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-    from sagittarius_engine.interfaces.i_event_bus import IEventBus
+from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import BulkSyncMarketDataCommand
 from .progress_reporter import BulkSyncProgressReporter

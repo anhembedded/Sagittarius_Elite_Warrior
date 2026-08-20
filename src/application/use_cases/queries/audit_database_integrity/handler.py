@@ -1,20 +1,15 @@
-from __future__ import annotations
-
 import math
-from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
+    IMarketDataRepository,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_integrity.query import (
     AuditDatabaseIntegrityQuery,
     DataAnomalyDTO,
     DatabaseAuditResultDTO,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-
-if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
-        IMarketDataRepository,
-    )
 
 
 class AuditDatabaseIntegrityQueryHandler(

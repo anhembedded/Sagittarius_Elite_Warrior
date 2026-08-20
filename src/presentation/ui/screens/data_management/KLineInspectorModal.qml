@@ -149,6 +149,12 @@ ModalDialogCard {
             }
         }
 
+    readonly property real colTimeWidth: 140
+    readonly property real colPriceWidth: 80
+    readonly property real colVolWidth: 105
+    readonly property real colChangeWidth: 75
+    readonly property real colTradesWidth: 70
+
         // ==================================================================
         // 3. Table Header
         // ==================================================================
@@ -164,14 +170,14 @@ ModalDialogCard {
                 anchors.rightMargin: 8
                 spacing: 4
 
-                Text { text: "Thời gian (UTC)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 140 }
-                Text { text: "Mở (Open)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 90; horizontalAlignment: Text.AlignRight }
-                Text { text: "Cao (High)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 90; horizontalAlignment: Text.AlignRight }
-                Text { text: "Thấp (Low)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 90; horizontalAlignment: Text.AlignRight }
-                Text { text: "Đóng (Close)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 90; horizontalAlignment: Text.AlignRight }
-                Text { text: "Khối lượng (Vol)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 90; horizontalAlignment: Text.AlignRight }
-                Text { text: "Biến động"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
-                Text { text: "Số lệnh"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                Text { text: "Thời gian (UTC)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: root.colTimeWidth; Layout.minimumWidth: root.colTimeWidth; elide: Text.ElideRight }
+                Text { text: "Mở (Open)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: root.colPriceWidth; Layout.minimumWidth: root.colPriceWidth; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                Text { text: "Cao (High)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: root.colPriceWidth; Layout.minimumWidth: root.colPriceWidth; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                Text { text: "Thấp (Low)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: root.colPriceWidth; Layout.minimumWidth: root.colPriceWidth; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                Text { text: "Đóng (Close)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: root.colPriceWidth; Layout.minimumWidth: root.colPriceWidth; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                Text { text: "Khối lượng (Vol)"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: root.colVolWidth; Layout.minimumWidth: root.colVolWidth; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                Text { text: "Biến động"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.preferredWidth: root.colChangeWidth; Layout.minimumWidth: root.colChangeWidth; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                Text { text: "Số lệnh"; color: Theme.muted; font.pixelSize: 11; font.bold: true; Layout.fillWidth: true; Layout.minimumWidth: root.colTradesWidth; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
             }
         }
 
@@ -201,7 +207,9 @@ ModalDialogCard {
                         color: Theme.textPrimary
                         font.pixelSize: 11
                         font.family: "monospace"
-                        Layout.preferredWidth: 140
+                        Layout.preferredWidth: root.colTimeWidth
+                        Layout.minimumWidth: root.colTimeWidth
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
 
@@ -210,8 +218,10 @@ ModalDialogCard {
                         color: Theme.textPrimary
                         font.pixelSize: 11
                         font.family: "monospace"
-                        Layout.preferredWidth: 90
+                        Layout.preferredWidth: root.colPriceWidth
+                        Layout.minimumWidth: root.colPriceWidth
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
 
@@ -220,8 +230,10 @@ ModalDialogCard {
                         color: Theme.textPrimary
                         font.pixelSize: 11
                         font.family: "monospace"
-                        Layout.preferredWidth: 90
+                        Layout.preferredWidth: root.colPriceWidth
+                        Layout.minimumWidth: root.colPriceWidth
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
 
@@ -230,8 +242,10 @@ ModalDialogCard {
                         color: Theme.textPrimary
                         font.pixelSize: 11
                         font.family: "monospace"
-                        Layout.preferredWidth: 90
+                        Layout.preferredWidth: root.colPriceWidth
+                        Layout.minimumWidth: root.colPriceWidth
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
 
@@ -241,8 +255,10 @@ ModalDialogCard {
                         font.pixelSize: 11
                         font.bold: true
                         font.family: "monospace"
-                        Layout.preferredWidth: 90
+                        Layout.preferredWidth: root.colPriceWidth
+                        Layout.minimumWidth: root.colPriceWidth
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
 
@@ -251,8 +267,10 @@ ModalDialogCard {
                         color: Theme.muted
                         font.pixelSize: 11
                         font.family: "monospace"
-                        Layout.preferredWidth: 90
+                        Layout.preferredWidth: root.colVolWidth
+                        Layout.minimumWidth: root.colVolWidth
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
 
@@ -261,8 +279,10 @@ ModalDialogCard {
                         color: model.isBullish ? "#0ecb81" : "#f6465d"
                         font.pixelSize: 11
                         font.family: "monospace"
-                        Layout.preferredWidth: 80
+                        Layout.preferredWidth: root.colChangeWidth
+                        Layout.minimumWidth: root.colChangeWidth
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
 
@@ -272,7 +292,9 @@ ModalDialogCard {
                         font.pixelSize: 11
                         font.family: "monospace"
                         Layout.fillWidth: true
+                        Layout.minimumWidth: root.colTradesWidth
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
                 }
