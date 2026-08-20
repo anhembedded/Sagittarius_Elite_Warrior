@@ -5,9 +5,11 @@ import pyqtgraph as pg
 import pytest
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.marker_layer import (
+    TriangleMarkerItem,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout import (
     ChartAntialiasMode,
@@ -1116,15 +1118,18 @@ def test_main_plot_still_spans_the_full_width_with_the_info_column_present(qapp)
 # ---------------------------------------------------------------------------
 
 
-def test_script_markers_are_drawn_as_text_items_on_the_main_plot(qapp):
+def test_script_markers_are_drawn_as_triangle_marker_items_on_the_main_plot(
+    qapp,
+):
     card = ChartCard("BTCUSDT")
 
     card.set_script_markers("ema_cross", [(1000.0, 100.0, "Buy", "#0ECB81", "up")])
 
     items = card.indicators._marker_layer._items["ema_cross"]
     assert len(items) == 1
-    assert isinstance(items[0], pg.TextItem)
+    assert isinstance(items[0], TriangleMarkerItem)
     assert items[0] in card.plot_layout.main_plot.items
+    assert "Buy @ 100.00" in items[0].toolTip()
 
 
 def test_setting_markers_again_replaces_rather_than_accumulates(qapp):

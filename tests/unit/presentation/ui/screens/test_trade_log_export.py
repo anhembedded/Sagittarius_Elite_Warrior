@@ -4,6 +4,9 @@ from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_export import (
     export_trades_to_csv,
 )
@@ -41,6 +44,7 @@ def test_export_writes_a_header_and_one_row_per_trade(tmp_path):
     assert rows[0] == [
         "index",
         "symbol",
+        "side",
         "entry_time",
         "entry_price",
         "exit_time",
@@ -56,10 +60,11 @@ def test_export_writes_a_header_and_one_row_per_trade(tmp_path):
     assert len(rows) == 3  # header + 2 trades
     assert rows[1][0] == "1"
     assert rows[1][1] == "ETHUSDT"
+    assert rows[1][2] == "LONG"
     assert rows[2][0] == "2"
-    assert rows[1][10] == "EMA Crossover 3/5 crossed above"
-    assert rows[1][11] == "strategy_signal"
-    assert json.loads(rows[1][12]) == {"qml_score": 92}
+    assert rows[1][11] == "EMA Crossover 3/5 crossed above"
+    assert rows[1][12] == "strategy_signal"
+    assert json.loads(rows[1][13]) == {"qml_score": 92}
 
 
 def test_export_with_no_trades_writes_only_the_header(tmp_path):
@@ -71,3 +76,28 @@ def test_export_with_no_trades_writes_only_the_header(tmp_path):
         rows = list(csv.reader(f))
 
     assert len(rows) == 1
+
+
+def test_export_writes_short_trade_side_truthfully(tmp_path):
+    short_trade = Trade(
+        symbol="BTCUSDT",
+        entry_time=_T0,
+        entry_price=50000.0,
+        exit_time=_T1,
+        exit_price=48000.0,
+        quantity=0.1,
+        pnl=200.0,
+        pnl_percent=4.0,
+        fees_paid=5.0,
+        side=PositionSide.SHORT,
+    )
+    csv_path = tmp_path / "short_trades.csv"
+
+    export_trades_to_csv([short_trade], str(csv_path))
+
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+
+    assert len(rows) == 2
+    assert rows[1][1] == "BTCUSDT"
+    assert rows[1][2] == "SHORT"

@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
 
 class TradeMarkerType(str, Enum):
     """
-    Semantic execution marker types for Backtest chart (BOT-096).
+    Semantic execution marker types for Backtest chart (BOT-096 / BOT-050).
     Distinguishes Long entries and exits from Short entries and exits.
     """
 

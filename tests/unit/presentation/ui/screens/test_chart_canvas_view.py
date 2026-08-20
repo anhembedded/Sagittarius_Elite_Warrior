@@ -103,6 +103,37 @@ def test_trade_flag_markers_emits_one_long_entry_and_one_long_exit_per_trade():
     ]
 
 
+def test_trade_flag_markers_emits_short_entry_and_exit_for_short_trade():
+    short_trade = Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T1,
+        exit_price=90.0,
+        quantity=1.0,
+        pnl=10.0,
+        pnl_percent=10.0,
+        fees_paid=0.0,
+        side=PositionSide.SHORT,
+    )
+    result = BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1010.0,
+        trades=[short_trade],
+        equity_curve=[(_T0, 1000.0), (_T1, 1010.0)],
+        metrics=BacktestMetrics.compute(
+            [short_trade], [(_T0, 1000.0), (_T1, 1010.0)], 1000.0
+        ),
+    )
+
+    markers = trade_flag_markers(result)
+    assert markers == [
+        (_T0.timestamp(), 100.0, _SHORT_ENTRY_LABEL, BEAR_COLOR, "down"),
+        (_T1.timestamp(), 90.0, _SHORT_EXIT_LABEL, BULL_COLOR, "up"),
+    ]
+
+
 def test_exit_marker_does_not_use_ambiguous_sell_or_short_label():
     # BOT-096 product truth: long exit must never be labeled "Sell" or "Short"
     markers = trade_flag_markers(_result_with_one_trade())
