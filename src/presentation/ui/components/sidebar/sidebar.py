@@ -5,13 +5,14 @@ from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
-
 from sagittarius_engine.extensions.pyside_mvc import QmlHostView
 
 from .nav_section import NavSection
 from .sidebar_view_model import SidebarViewModel
 
 _MAX_WIDTH = 250
+_EXPANDED_WIDTH = 220
+_COLLAPSED_WIDTH = 64
 
 
 class Sidebar(QmlHostView):
@@ -50,15 +51,26 @@ class Sidebar(QmlHostView):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setMinimumWidth(_COLLAPSED_WIDTH)
         self.setMaximumWidth(_MAX_WIDTH)
 
         view_model = SidebarViewModel(sections, bottom_actions)
         # Re-emitted rather than exposing the view model, so callers depend on
         # this component's signal instead of reaching into its internals.
         view_model.navigationRequested.connect(self.sig_navigate)
+        view_model.isCollapsedChanged.connect(self._on_collapsed_changed)
 
         self.set_view_model(view_model)
         self.load_qml("Sidebar.qml")
+        self._on_collapsed_changed()
+
+    def _on_collapsed_changed(self) -> None:
+        if self._view_model and self._view_model.isCollapsed:
+            self.setFixedWidth(_COLLAPSED_WIDTH)
+        else:
+            self.setMinimumWidth(_COLLAPSED_WIDTH)
+            self.setMaximumWidth(_MAX_WIDTH)
+            self.resize(_EXPANDED_WIDTH, self.height())
 
     def set_active(self, route_name: str) -> None:
         """

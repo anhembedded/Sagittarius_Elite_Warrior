@@ -215,3 +215,48 @@ def test_set_active_highlights_only_the_active_entry(sidebar, qml_item, qapp):
     qapp.processEvents()
     assert qml_item(root, "navButton_dashboard").property("isActive") is False
     assert qml_item(root, "navButton_settings").property("isActive") is True
+
+
+def test_sidebar_view_model_toggle_collapsed(sections):
+    view_model = SidebarViewModel(sections)
+    assert view_model.isCollapsed is False
+
+    changes = []
+    view_model.isCollapsedChanged.connect(
+        lambda: changes.append(view_model.isCollapsed)
+    )
+
+    view_model.toggleCollapsed()
+    assert view_model.isCollapsed is True
+
+    view_model.set_collapsed(True)  # same value — no extra signal
+    assert len(changes) == 1
+
+    view_model.toggleCollapsed()
+    assert view_model.isCollapsed is False
+    assert changes == [True, False]
+
+
+def test_clicking_collapse_button_toggles_collapsed_state(sidebar, qml_item, qapp):
+    root = sidebar.quick_widget.rootObject()
+    collapse_button = qml_item(root, "btnCollapseSidebar")
+    assert collapse_button is not None
+
+    # Initially expanded
+    assert sidebar.width() == 220 or sidebar.width() == 250
+    btn_dashboard = qml_item(root, "navButton_dashboard")
+    assert btn_dashboard.property("text") == "Dev Board"
+
+    # Click to collapse
+    collapse_button.clicked.emit()
+    qapp.processEvents()
+
+    assert sidebar.width() == 64
+    assert btn_dashboard.property("text") == ""
+
+    # Click to expand again
+    collapse_button.clicked.emit()
+    qapp.processEvents()
+
+    assert sidebar.width() == 220
+    assert btn_dashboard.property("text") == "Dev Board"
