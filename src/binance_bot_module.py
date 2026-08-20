@@ -110,6 +110,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy impo
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.long_term_trend_zone_strategy import (
+    LongTermTrendZoneStrategy,
+)
 from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
     MultiEmaTrendFollowerStrategy,
 )
@@ -236,6 +239,7 @@ class BinanceBotModule(BaseModule):
         strategy_registry.register(
             "ema_trend_confirm_pullback", EmaTrendPullbackStrategy
         )
+        strategy_registry.register("long_term_trend_zone", LongTermTrendZoneStrategy)
         app.container.singleton(StrategyRegistry, strategy_registry)
 
     def boot(self, app: App) -> None:

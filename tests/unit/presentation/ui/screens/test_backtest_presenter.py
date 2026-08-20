@@ -75,7 +75,11 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_scrip
     BaseIndicatorScript,
 )
 from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
+    TREND_ZONE_DOWN,
+    TREND_ZONE_UP,
+    BaseStrategy,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
@@ -87,6 +91,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
     CANDLESTICK,
     LINE,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     _FALLBACK_SYMBOL,
@@ -115,6 +123,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
     NativeBacktestChartHostAdapter,
+    NativeUnsupportedFeatureError,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig
@@ -144,6 +153,23 @@ class _EmaIndicatorStrategy(BaseStrategy):
 
     def decide(self, context):
         return self.hold()
+
+
+class _TrendZoneStrategy(BaseStrategy):
+    """BOT-113 — classifies purely off `close_price` (no indicator-value
+    dependency), so it stays deterministic against `_make_klines()`'s bare
+    close ramp without needing a hand-verified EMA sequence."""
+
+    def build_indicators(self):
+        return {"ema_fast": EMA(1)}
+
+    def decide(self, context):
+        return self.hold()
+
+    def classify_trend_zone(self, context):
+        if context.candle.close_price >= 103.0:
+            return TREND_ZONE_UP
+        return TREND_ZONE_DOWN
 
 
 class _TestReferenceScript(BaseIndicatorScript):
@@ -2297,6 +2323,89 @@ def test_successful_run_honors_a_strategys_own_chart_line_widths(
         call.args[0]: call.args[2] for call in card.add_overlay_indicator.call_args_list
     }
     assert widths == {"ema_fast": 1, "ema_slow": 2}
+
+
+def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
+    presenter, view_model, mock_dispatcher
+):
+    """BOT-113: a strategy that overrides classify_trend_zone() must have
+    its background zones drawn on the chart via the same set_script_regions()
+    API BOT-032's custom scripts already use — under the fixed
+    "strategy_trend_zone" key."""
+    presenter._strategy_registry.register("trend_zone_strategy", _TrendZoneStrategy)
+    view_model.selectedStrategyKey = "trend_zone_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.set_script_regions = Mock()
+    # _fetch_and_emit_chart_data reverses the query response back to
+    # chronological order (Binance's own newest-first convention) before
+    # replaying it — the stub must hand it descending so this order-sensitive
+    # assertion sees the same chronological sequence a real run would.
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=list(reversed(_make_klines()))
+    )
+
+    presenter._run_backtest(config)
+
+    # Chronological closes 102/103/104 -> DOWN, UP, UP (merged into 2 spans).
+    card.set_script_regions.assert_called_once()
+    key, spans = card.set_script_regions.call_args.args
+    assert key == "strategy_trend_zone"
+    assert len(spans) == 2
+    assert spans[0][2] == BEAR_COLOR
+    assert spans[1][2] == BULL_COLOR
+
+
+def test_strategy_with_no_trend_zone_override_draws_no_zones(
+    presenter, view_model, mock_dispatcher
+):
+    """A strategy predating BOT-113 (never overrides classify_trend_zone())
+    must still call set_script_regions() — with an empty span list, not skip
+    the call — so a stale zone from a previous strategy's run never lingers
+    on the chart after switching to one with no zone opinion."""
+    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    view_model.selectedStrategyKey = "ema_strategy"
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.set_script_regions = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True), klines=_make_klines()
+    )
+
+    presenter._run_backtest(config)
+
+    card.set_script_regions.assert_called_once_with("strategy_trend_zone", [])
+
+
+def test_strategy_trend_zone_is_cleared_before_each_new_run(presenter, view_model):
+    """Mirrors test_active_strategy_lines_are_cleared_before_each_new_run_not_after
+    for the zone key — must clear synchronously on the main thread before the
+    background run starts, so a stale zone never survives a switch to a
+    strategy with a different (or no) zone opinion."""
+    card = presenter.view.chart_cards[0]
+    card.clear_script_regions = Mock()
+
+    view_model.requestRun()
+
+    card.clear_script_regions.assert_any_call("strategy_trend_zone")
+
+
+def test_chart_strategy_region_falls_back_to_python_on_native_unsupported_feature(
+    presenter,
+):
+    """BOT-113: native chart has no background-region ABI at all — the same
+    fallback-to-Python path every other native-unsupported feature already
+    uses (BOT-098F6D)."""
+    card = Mock()
+    card.set_script_regions.side_effect = NativeUnsupportedFeatureError("no regions")
+    presenter.view.chart_cards = [card]
+    presenter._fallback_to_python_after_unsupported_native_feature = Mock()
+
+    presenter._on_chart_strategy_region([(0.0, 1.0, "#000000", 0.15)])
+
+    presenter._fallback_to_python_after_unsupported_native_feature.assert_called_once_with(
+        "strategy trend zones"
+    )
 
 
 def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(

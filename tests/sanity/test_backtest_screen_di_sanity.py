@@ -128,6 +128,14 @@ def test_strategy_registry_has_the_golden_reference_strategy(booted_app):
     assert "ema_trend_confirm_pullback" in registry.available()
 
 
+def test_strategy_registry_has_the_trend_zone_demo_strategy(booted_app):
+    """BOT-113 — LongTermTrendZoneStrategy (the classify_trend_zone() demo)
+    must resolve through the real DI container too, same as every other
+    registered strategy."""
+    registry = booted_app.context.container.resolve(StrategyRegistry)
+    assert "long_term_trend_zone" in registry.available()
+
+
 def test_indicator_script_registry_resolves_for_the_backtest_screen(booted_app):
     """BOT-064 — BackTestPresenter now resolves `IndicatorScriptRegistry`
     too (for the "Chỉ báo tham khảo" picker), same registry Dev Board

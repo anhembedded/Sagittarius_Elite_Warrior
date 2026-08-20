@@ -136,6 +136,7 @@ from .logic.strategy_indicator_lines import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
 )
+from .logic.strategy_trend_zones import compute_strategy_trend_zones
 from .logic.time_range_preset import TimeRangePreset, resolve_time_range
 from .logic.trade_log_export import export_trades_to_csv
 from .logic.trade_log_filter import (
@@ -177,6 +178,11 @@ _SYNCING_MESSAGE = "Đang đồng bộ dữ liệu..."
 #: default, so a strategy that never overrides chart_line_widths() draws
 #: exactly like it did before this feature existed.
 _DEFAULT_STRATEGY_LINE_WIDTH = 2
+#: BOT-113 — fixed script-region key for the backtested strategy's own
+#: classify_trend_zone() output. A single strategy run only ever has one
+#: zone series (unlike BOT-064's reference scripts, which are keyed per
+#: user-picked script), so this never needs to vary.
+_STRATEGY_TREND_ZONE_KEY = "strategy_trend_zone"
 _ZERO_TRADES_MESSAGE = (
     "Backtest chạy xong nhưng không có giao dịch nào trong khoảng thời gian đã chọn."
 )
@@ -256,6 +262,11 @@ class BackTestPresenter(BasePresenter):
     # BaseStrategy.chart_line_widths() returning {} for every pre-existing
     # strategy.
     _chartStrategyLineSignal = Signal(int, str, str, list, list, int)
+    # BOT-113: the backtested strategy's own classify_trend_zone() output —
+    # one span list per full-run replay, same action_id fencing as the
+    # strategy line signal above (both fire from the same background
+    # _fetch_and_emit_chart_data pass).
+    _chartStrategyRegionSignal = Signal(int, list)
     # BOT-064: user-picked reference indicator scripts (RSI/MACD/...),
     # independent of the strategy's own lines above — same 4-signal shape
     # DashboardPresenter uses for IndicatorScriptRunner's 4 output channels.
@@ -537,6 +548,9 @@ class BackTestPresenter(BasePresenter):
         )
         self._chartDataReadySignal.connect(self._on_chart_data_ready_for_action)
         self._chartStrategyLineSignal.connect(self._on_chart_strategy_line_for_action)
+        self._chartStrategyRegionSignal.connect(
+            self._on_chart_strategy_region_for_action
+        )
         self._chartScriptLineSignal.connect(self._on_chart_script_line)
         self._chartScriptRegionSignal.connect(self._on_chart_script_region)
         self._chartScriptInfoSignal.connect(self._on_chart_script_info)
@@ -936,6 +950,7 @@ class BackTestPresenter(BasePresenter):
             for name in self._active_strategy_lines:
                 card.remove_indicator(name)
             self._chart_script_runner.clear_from_chart(card)
+            card.clear_script_regions(_STRATEGY_TREND_ZONE_KEY)
         self._active_strategy_lines.clear()
 
         # BOT-064: snapshot which reference scripts are enabled right now —
@@ -1235,6 +1250,16 @@ class BackTestPresenter(BasePresenter):
             return
         self._on_chart_strategy_line(name, color, x_data, y_data, width)
 
+    @Slot(int, list)
+    @safe_ui_action
+    def _on_chart_strategy_region_for_action(self, action_id: int, spans: list) -> None:
+        if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
+            self._ignore_stale_action_callback(
+                "chart_strategy_region", action_id, BacktestActionKind.BACKTEST
+            )
+            return
+        self._on_chart_strategy_region(spans)
+
     @Slot(object)
     @safe_ui_action
     def _on_backtest_succeeded(self, result: BacktestResult) -> None:
@@ -1365,6 +1390,26 @@ class BackTestPresenter(BasePresenter):
             card.add_overlay_indicator(name, color, width)
             self._active_strategy_lines.add(name)
         card.update_indicator_data(name, x_data, y_data)
+
+    @Slot(list)
+    @safe_ui_action
+    def _on_chart_strategy_region(self, spans: list) -> None:
+        """BOT-113: the backtested strategy's own `classify_trend_zone()`
+        output, emitted once per run (`_emit_strategy_trend_zones`) under a
+        fixed key — unlike `_on_chart_script_region` there is only ever one
+        strategy per run, so no key needs to travel through the signal.
+        Native chart has no background-region ABI at all (BOT-032's own
+        scope boundary); same fallback-to-Python path every other
+        native-unsupported feature already uses."""
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is None:
+            return
+        try:
+            card.set_script_regions(_STRATEGY_TREND_ZONE_KEY, spans)
+        except NativeUnsupportedFeatureError:
+            self._fallback_to_python_after_unsupported_native_feature(
+                "strategy trend zones"
+            )
 
     @Slot(str, list, list)
     @safe_ui_action
@@ -2574,6 +2619,7 @@ class BackTestPresenter(BasePresenter):
         )
 
         self._emit_strategy_indicator_lines(action_id, config, raw_klines)
+        self._emit_strategy_trend_zones(action_id, config, raw_klines)
 
         # BOT-064: user-picked reference scripts — batch feed, same klines
         # already fetched above, entirely independent of the strategy lines
@@ -2618,3 +2664,26 @@ class BackTestPresenter(BasePresenter):
                 y_data,
                 widths.get(name, _DEFAULT_STRATEGY_LINE_WIDTH),
             )
+
+    def _emit_strategy_trend_zones(
+        self, action_id: int, config: BacktestRunConfig, raw_klines: list
+    ) -> None:
+        """
+        @brief BOT-113: draws the backtested strategy's own long-term-trend
+        background shading (`classify_trend_zone()`), TradingView's
+        `bgcolor()` pattern.
+        @details A second, separate throwaway strategy instance from
+        `_emit_strategy_indicator_lines()` — that one's indicators are
+        already fully replayed to the end of `raw_klines` by the time this
+        runs, so reusing the same instance here would resume mid-warmup
+        instead of starting fresh. A strategy that never overrides
+        `classify_trend_zone()` (every strategy predating BOT-113) computes
+        an empty span list — one no-op signal emit, no zones drawn, chart
+        looks exactly as it did before this feature existed.
+        """
+        strategy_cls = self._strategy_registry.available().get(config.strategy_key)
+        if strategy_cls is None:
+            return
+        strategy = strategy_cls(config.strategy_params)
+        spans = compute_strategy_trend_zones(strategy, raw_klines)
+        self._chartStrategyRegionSignal.emit(action_id, spans)

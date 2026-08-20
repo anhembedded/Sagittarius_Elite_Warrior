@@ -22,6 +22,12 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
 
 _HOLD_REASON = "no signal"
 
+#: BOT-113 — the only two `classify_trend_zone()` return values besides
+#: `None`. Plain strings (not an enum) to match `chart_line_colors()`'s own
+#: precedent of returning bare display-hint values, not domain types.
+TREND_ZONE_UP = "up"
+TREND_ZONE_DOWN = "down"
+
 
 class BaseStrategy(ABC):
     """
@@ -200,6 +206,20 @@ class BaseStrategy(ABC):
         width for any line not named here. Python `ChartCard` only — the
         native chart's indicator ABI has no per-line width concept."""
         return {}
+
+    def classify_trend_zone(self, context: StrategyContext) -> str | None:
+        """Optional (BOT-113): a strategy may classify each bar's long-term
+        trend regime for background-zone shading on the Backtest chart —
+        TradingView's `bgcolor()` pattern. Return `TREND_ZONE_UP`,
+        `TREND_ZONE_DOWN`, or `None` (no tint — the default, and also
+        correct for any bar the strategy has no opinion on, e.g. still
+        warming up or genuinely sideways). Only 2 non-`None` states by
+        design: a third "neutral" tint would need its own color and mostly
+        reads as visual noise between clearer up/down stretches, where
+        `None` already means "no tint" without one. Same replay contract as
+        `build_indicators()`/`decide()` — called with the same
+        `StrategyContext` shape, once every indicator has warmed up."""
+        return None
 
     def series(self, key: str, history: int = DEFAULT_HISTORY) -> Series:
         return self._series.setdefault(key, Series(history))

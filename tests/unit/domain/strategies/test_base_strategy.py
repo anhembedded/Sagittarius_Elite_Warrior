@@ -118,3 +118,12 @@ def test_chart_line_widths_defaults_to_empty_for_a_strategy_that_declares_none()
     strategy = _ScriptedStrategy()
 
     assert strategy.chart_line_widths() == {}
+
+
+def test_classify_trend_zone_defaults_to_none_for_a_strategy_that_declares_none():
+    # BOT-113: opting into background-zone shading is optional — a strategy
+    # that never overrides this must draw no zone at all (None, not a
+    # crash or a made-up direction).
+    strategy = _ScriptedStrategy()
+
+    assert strategy.classify_trend_zone(_context()) is None
