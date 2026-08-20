@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
@@ -14,7 +15,7 @@ from .database_status_table_model import (
 from .kline_inspector_table_model import KLineInspectorTableModel
 
 _DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
-_SUPPORTED_INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"]
+_SUPPORTED_INTERVALS = [tf.value for tf in TimeFrame]
 
 
 class DataManagementViewModel(BaseQmlViewModel):

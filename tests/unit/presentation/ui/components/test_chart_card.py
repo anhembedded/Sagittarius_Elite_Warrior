@@ -990,7 +990,7 @@ def test_script_regions_are_drawn_as_linear_region_items_on_the_main_plot(qapp):
 
     card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
 
-    items = card.indicators._region_items["ema_cross"]
+    items = card.indicators._region_layer._items["ema_cross"]
     assert len(items) == 1
     assert isinstance(items[0], pg.LinearRegionItem)
     assert items[0] in card.plot_layout.main_plot.items
@@ -1004,7 +1004,7 @@ def test_a_growing_region_updates_the_existing_item_instead_of_duplicating(qapp)
     card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
     card.set_script_regions("ema_cross", [(1000.0, 1120.0, "#0ECB81", 0.1)])
 
-    items = card.indicators._region_items["ema_cross"]
+    items = card.indicators._region_layer._items["ema_cross"]
     assert len(items) == 1
     assert items[0].getRegion() == (1000.0, 1120.0)
 
@@ -1018,17 +1018,17 @@ def test_a_new_span_after_a_colour_change_adds_a_second_item(qapp):
         [(1000.0, 1060.0, "#0ECB81", 0.1), (1060.0, 1120.0, "#F6465D", 0.1)],
     )
 
-    assert len(card.indicators._region_items["ema_cross"]) == 2
+    assert len(card.indicators._region_layer._items["ema_cross"]) == 2
 
 
 def test_clear_script_regions_removes_every_item_for_that_key(qapp):
     card = ChartCard("BTCUSDT")
     card.set_script_regions("ema_cross", [(1000.0, 1060.0, "#0ECB81", 0.1)])
-    region_item = card.indicators._region_items["ema_cross"][0]
+    region_item = card.indicators._region_layer._items["ema_cross"][0]
 
     card.clear_script_regions("ema_cross")
 
-    assert card.indicators._region_items == {}
+    assert card.indicators._region_layer._items == {}
     assert region_item not in card.plot_layout.main_plot.items
 
 
@@ -1039,8 +1039,62 @@ def test_two_scripts_regions_do_not_interfere_with_each_other(qapp):
     card.set_script_regions("dev_showcase", [(2000.0, 2060.0, "#F6465D", 0.1)])
     card.clear_script_regions("ema_cross")
 
-    assert "ema_cross" not in card.indicators._region_items
-    assert len(card.indicators._region_items["dev_showcase"]) == 1
+    assert "ema_cross" not in card.indicators._region_layer._items
+    assert len(card.indicators._region_layer._items["dev_showcase"]) == 1
+
+
+def test_script_regions_only_materialize_the_visible_viewport_slice(qapp):
+    """BUG-024: 2,065 spans in a real backtest made every pan/zoom step ~9x
+    slower because every span became a permanent LinearRegionItem with no
+    viewport culling. Business history stays complete while display cost
+    follows the visible window, same contract as
+    test_script_markers_only_materialize_the_visible_viewport_slice."""
+    card = ChartCard("BTCUSDT")
+    card.plot_layout.main_plot.setXRange(1000.0, 1010.0, padding=0)
+    card.range_updates.flush_pending()
+    # 1000 contiguous, non-overlapping 1-wide spans spanning x=[0, 1000).
+    spans = [(float(index), float(index + 1), "#0ECB81", 0.1) for index in range(1000)]
+
+    card.set_script_regions("trend_zone", spans)
+
+    layer = card.indicators._region_layer
+    assert layer.stored_span_count("trend_zone") == 1000
+    assert layer.active_span_count("trend_zone") < 100
+    assert all(item.getRegion()[1] >= 900.0 for item in layer._items["trend_zone"])
+
+
+def test_panning_recycles_region_items_and_restores_regions_when_returning(qapp):
+    card = ChartCard("BTCUSDT")
+    spans = [(float(index), float(index + 1), "#0ECB81", 0.1) for index in range(1000)]
+    card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.range_updates.flush_pending()
+    card.set_script_regions("trend_zone", spans)
+    layer = card.indicators._region_layer
+    first_regions = {item.getRegion() for item in layer._items["trend_zone"]}
+
+    card.plot_layout.main_plot.setXRange(700.0, 800.0, padding=0)
+    card.range_updates.flush_pending()
+    second_regions = {item.getRegion() for item in layer._items["trend_zone"]}
+    assert first_regions.isdisjoint(second_regions)
+
+    card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.range_updates.flush_pending()
+    restored_regions = {item.getRegion() for item in layer._items["trend_zone"]}
+    assert restored_regions == first_regions
+
+
+def test_region_refresh_does_not_rebuild_items_when_visible_slice_is_unchanged(qapp):
+    card = ChartCard("BTCUSDT")
+    card.plot_layout.main_plot.setXRange(100.0, 200.0, padding=0)
+    card.range_updates.flush_pending()
+    spans = [(float(index), float(index + 1), "#0ECB81", 0.1) for index in range(1000)]
+    card.set_script_regions("trend_zone", spans)
+    layer = card.indicators._region_layer
+    item_ids_before = [id(item) for item in layer._items["trend_zone"]]
+
+    layer.refresh_window(100.0, 200.0)
+
+    assert [id(item) for item in layer._items["trend_zone"]] == item_ids_before
 
 
 def test_script_info_renders_label_value_pairs_into_the_panel(qapp):

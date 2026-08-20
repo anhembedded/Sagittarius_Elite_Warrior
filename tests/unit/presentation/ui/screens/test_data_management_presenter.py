@@ -475,3 +475,17 @@ def test_unlock_ui_is_idempotent_when_already_idle(
 
     assert presenter.fsm.current_state == UIMode.IDLE
     assert view_model.storedRecords == "777"
+
+
+def test_data_management_view_model_supports_one_second_and_all_standard_intervals(
+    view_model,
+):
+    """BOT-112E: Ensure 1s sub-minute timeframe and all TimeFrame VOs are exposed in intervals."""
+    assert "1s" in view_model.intervals
+    assert "1m" in view_model.intervals
+    assert "5m" in view_model.intervals
+    assert "15m" in view_model.intervals
+    assert "1h" in view_model.intervals
+    assert "1d" in view_model.intervals
+    assert "1w" in view_model.intervals
+    assert "1M" in view_model.intervals

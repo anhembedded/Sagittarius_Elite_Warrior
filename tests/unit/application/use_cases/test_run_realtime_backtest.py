@@ -82,9 +82,7 @@ def _build_bar_ticks(
     for i, close in enumerate(closes):
         open_time = bar_start + timedelta(seconds=i * step)
         close_time = (
-            bar_start
-            + timedelta(seconds=(i + 1) * step)
-            - timedelta(milliseconds=1)
+            bar_start + timedelta(seconds=(i + 1) * step) - timedelta(milliseconds=1)
         )
         ticks.append(
             MarketData(

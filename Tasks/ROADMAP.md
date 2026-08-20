@@ -22,15 +22,15 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 107 | 63.7% |
+| 🟢 **Completed** | 108 | 63.9% |
 | 🟡 **In Progress** | 4 | 2.4% |
-| 🔴 **Backlog** | 55 | 32.7% |
+| 🔴 **Backlog** | 55 | 32.5% |
 | ❌ **Cancelled** | 2 | 1.2% |
-| 📈 **Tổng số Task** | **168** | **100%** |
+| 📈 **Tổng số Task** | **169** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
-> Cập nhật 2026-08-20: Hoàn thành `BOT-112B` (Bảng tra cứu nến KLine Inspector phân trang, nhảy nhanh theo Timestamp, và kiểm định tính toàn vẹn nến lỗi $H < L, V < 0$, duplicate timestamp). Bổ sung Epic `BOT-112` (Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul) cùng các task con `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112D`. Hoàn thành `BOT-041` (SL/TP + Risk Sizing), `BOT-050` (Short-Selling), `BOT-110` (EMA Trend Confirm + Pullback Strategy), `BOT-111` (Xác thực trực quan & backtest cho chiến lược vàng) — cả 4 bước của Epic `BOT-109`, epic này đã hoàn thành —, `BOT-113` (Tô nền xu hướng cho chiến lược, kèm chiến lược demo `LongTermTrendZoneStrategy`), `BOT-106A` (Sharpe/Sortino/Calmar/Max Drawdown Duration/chuỗi thắng-thua liên tiếp — bước 1/3 của Epic `BOT-106`), và `BOT-114` (Áp dụng đòn bẩy thật vào `PaperExchange` — trước đây chỉ có UI/config, engine không hề đọc). Bổ sung Epic `BOT-115` (Lưu trữ & Nạp lại Báo cáo Backtest) cùng 4 task con `BOT-115A`…`BOT-115D`.
+> Cập nhật 2026-08-20: Hoàn thành `BOT-112E` (Bổ sung hỗ trợ đầy đủ khung thời gian 1 giây `1s` và toàn bộ TimeFrame chuẩn trên màn hình Database Storage Vault). Hoàn thành `BOT-112B` (Bảng tra cứu nến KLine Inspector phân trang, nhảy nhanh theo Timestamp, và kiểm định tính toàn vẹn nến lỗi $H < L, V < 0$, duplicate timestamp). Bổ sung Epic `BOT-112` (Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul) cùng các task con `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112D`, `BOT-112E`. Hoàn thành `BOT-041` (SL/TP + Risk Sizing), `BOT-050` (Short-Selling), `BOT-110` (EMA Trend Confirm + Pullback Strategy), `BOT-111` (Xác thực trực quan & backtest cho chiến lược vàng) — cả 4 bước của Epic `BOT-109`, epic này đã hoàn thành —, `BOT-113` (Tô nền xu hướng cho chiến lược, kèm chiến lược demo `LongTermTrendZoneStrategy`), `BOT-106A` (Sharpe/Sortino/Calmar/Max Drawdown Duration/chuỗi thắng-thua liên tiếp — bước 1/3 của Epic `BOT-106`), và `BOT-114` (Áp dụng đòn bẩy thật vào `PaperExchange` — trước đây chỉ có UI/config, engine không hề đọc). Bổ sung Epic `BOT-115` (Lưu trữ & Nạp lại Báo cáo Backtest) cùng 4 task con `BOT-115A`…`BOT-115D`.
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 

@@ -73,9 +73,18 @@ graph TD
 
 ---
 
+### 📌 5. [`BOT-112E`](BOT-112E_support_1s_kline_fetch_and_storage.md): Hỗ Trợ Đồng Bộ & Lưu Trữ Nến 1 Giây (1s Sub-Minute)
+- **Phạm vi**:
+  - Bổ sung tùy chọn `1s` vào dropdown Timeframe của Storage Vault và KLine Inspector.
+  - Hỗ trợ tải dữ liệu nến 1 giây từ Binance REST API `/api/v3/klines?interval=1s`.
+  - Lưu trữ và phân tích nến 1 giây trong SQLite shard.
+
+---
+
 ## 🎯 3. Thứ Tự Triển Khai Đề Xuất
 
 1. 🏁 **Bước 1**: Triển khai [`BOT-112A`](BOT-112A_data_management_core_actions_and_timeframe_support.md) (Làm sạch UI, đa Timeframe, Xóa thật & Auto-discover).
-2. 🏁 **Bước 2**: Triển khai [`BOT-112C`](BOT-112C_gap_detection_visualizer_and_selective_repair.md) (Gap Visualizer & Vá lỗ hổng).
-3. 🏁 **Bước 3**: Triển khai [`BOT-112B`](BOT-112B_kline_data_inspector_and_integrity_audit.md) (KLine Data Inspector).
+2. 🏁 **Bước 2**: Triển khai [`BOT-112B`](BOT-112B_kline_data_inspector_and_integrity_audit.md) (KLine Data Inspector).
+3. 🏁 **Bước 3**: Triển khai [`BOT-112C`](BOT-112C_gap_detection_visualizer_and_selective_repair.md) (Gap Visualizer & Vá lỗ hổng).
 4. 🏁 **Bước 4**: Triển khai [`BOT-112D`](BOT-112D_market_data_import_export_csv_parquet.md) (Import/Export & Vacuum).
+5. 🏁 **Bước 5**: Triển khai [`BOT-112E`](BOT-112E_support_1s_kline_fetch_and_storage.md) (Nến 1 giây `1s`).
