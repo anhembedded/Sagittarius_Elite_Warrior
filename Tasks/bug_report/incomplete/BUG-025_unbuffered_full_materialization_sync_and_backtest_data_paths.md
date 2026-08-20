@@ -2,7 +2,7 @@
 
 **Reported:** 2026-08-20
 **Severity:** 🟡 **P2** (chưa crash trong điều kiện thông thường, nhưng scale kém — đặc biệt với khung 1s vừa thêm ở `BOT-112E` và tuỳ chọn "Toàn bộ lịch sử")
-**Status:** 🔴 **Open (Đã root-cause bằng đọc code, chưa sửa)**
+**Status:** 🟡 **Mở một phần (2026-08-21) — nhánh Sync đã sửa + regression-tested; nhánh Backtest vẫn mở, cần bàn thiết kế trước khi code (xem §3.2)**
 
 ---
 
@@ -81,39 +81,80 @@ lịch sử" ở 1s có thể kéo RAM lên hàng trăm MB đến hàng GB tuỳ
 
 ---
 
-## 3. Các Bước Đề Xuất Khắc Phục (Suggested Next Steps)
+## 3. Các Bước Khắc Phục
 
-1. **Sync — ghi theo lô (chunked write) thay vì gom hết rồi ghi 1 lần:**
-   Đổi `_fetch_raw_klines()`/`get_historical_klines()` thành generator/iterator
-   trả về theo lô (ví dụ mỗi 1000 nến — đúng theo trang Binance đã trả), và
-   `SyncMarketDataCommandHandler` gọi `repo.save_klines(chunk)` mỗi lô rồi xả,
-   thay vì gom hết vào một `klines: list` rồi ghi 1 lần ở cuối.
-2. **Backtest — đọc DB theo streaming/server-side cursor:**
-   Đổi `get_klines()` sang trả về iterator dùng `yield_per()` (hoặc tương
-   đương) thay vì `query.all()`, và refactor `_simulate()` để tiêu thụ iterator
-   trực tiếp (chỉ cần giữ lại nến cuối cùng cho `force_close()`, không cần giữ
-   cả list). Ràng buộc khó hơn: `split_klines_for_out_of_sample()` hiện cần
-   biết tổng số nến trước khi chạy — cần quyết định giữa (a) query 2 lần
-   (COUNT rồi stream), hay (b) buffer toàn bộ chỉ cho nhánh out-of-sample và
-   giữ nguyên full-load, việc này cần bàn thiết kế trước khi code chứ không tự
-   quyết.
-3. **Viết regression test đo RAM có giới hạn:**
-   Test tạo dataset lớn giả lập (ví dụ 500k+ nến trong DB test), chạy qua cả
-   hai đường, và assert bằng cách nào đó peak RAM/objects sống không tỷ lệ
-   thuận tuyến tính không giới hạn theo cỡ dataset (ví dụ đếm số object
-   `MarketData` sống cùng lúc qua `tracemalloc` hoặc `gc` thay vì đo RSS hệ
-   điều hành vốn nhiễu).
-4. **Xác nhận lại RAM baseline lúc rảnh (862.1 MB) có thực sự do đợt fetch/backtest
-   trước đó để lại hay không** — trước khi coi đây là bằng chứng bổ sung của
-   chính bug này, nên đo lại RSS ngay sau khi app khởi động (chưa sync/backtest
-   lần nào) để có baseline sạch so sánh.
+### 3.1. Sync — ✅ Đã sửa (2026-08-21)
+
+Thêm `IExchangeClient.stream_historical_klines()` (`src/application/ports/i_exchange_client.py`)
+— method **mới**, song song với `get_historical_klines()` cũ chứ không thay
+thế nó, vì 29 chỗ khác trong repo gọi `get_historical_klines()` cho các
+truy vấn nhỏ/bounded (Dashboard, Dev Board load-more, Backtest fetch panel,
+Gap Repair...) không có rủi ro RAM gì — đổi interface đó sẽ là thay đổi không
+cần thiết và rủi ro hồi quy cho toàn bộ 29 chỗ đó một cách vô ích.
+
+`PythonBinanceClient.stream_historical_klines()`
+(`src/infrastructure/binance/client.py`, method `_stream_raw_klines_as_market_data`)
+gom nến theo lô 1000 (`_KLINE_STREAM_CHUNK_SIZE`, khớp đúng page size Binance
+trả về), `yield` từng lô ngay khi đủ, không giữ toàn bộ range trong RAM.
+`_fetch_raw_klines()`/`get_historical_klines()`/`_map_to_market_data()` cũ
+**giữ nguyên không đổi một dòng nào** — chỉ thêm nhánh mới.
+
+`SyncMarketDataCommandHandler._sync_single_symbol()` đổi sang tiêu thụ
+`stream_historical_klines()` bằng vòng `for chunk in ...`, gọi
+`repo.save_klines(chunk)` **mỗi lô**, kiểm tra `cancellation_requested()`
+trước mỗi lần lưu (rộng hơn bản cũ — trước đây chỉ kiểm tra 1 lần duy nhất
+sau khi fetch xong toàn bộ).
+
+**Regression test (chạy fail đúng lý do trên code cũ trước khi sửa, xác nhận
+bằng `git stash` tạm lùi `handler.py` rồi chạy lại):**
+- `tests/unit/application/use_cases/test_sync_market_data_handler.py::test_sync_streams_each_chunk_to_the_db_as_it_arrives_instead_of_buffering_the_whole_range`
+  — assert `save_klines` được gọi 2 lần (1 lần/lô), không phải 1 lần với toàn
+  bộ dữ liệu.
+- `test_cancellation_mid_stream_stops_before_saving_the_in_flight_chunk` —
+  lô đã fetch trước thời điểm hủy vẫn được lưu, lô sau thời điểm hủy thì
+  không.
+- `tests/unit/infrastructure/binance/test_python_binance_client_unit.py::test_stream_historical_klines_yields_bounded_chunks_instead_of_one_giant_list`
+  — 2005 nến giả lập → yield đúng 3 lô `[1000, 1000, 5]`, chứng minh kích
+  thước lô có trần cố định, không tỷ lệ thuận theo tổng số nến.
+- 6 test cũ trong `test_sync_market_data_handler.py` đổi mock target từ
+  `get_historical_klines` sang `stream_historical_klines`, hành vi giữ
+  nguyên. Toàn bộ 1619 test unit pass sau khi sửa, `ruff` sạch.
+
+### 3.2. Backtest — 🔴 Vẫn mở, cần bàn thiết kế trước khi code
+
+`get_klines()` (DB → RAM) và `RunStaticBacktestCommandHandler` chưa đổi.
+Đổi `get_klines()` sang trả về iterator dùng `yield_per()` (hoặc tương đương)
+thay vì `query.all()`, và refactor `_simulate()` để tiêu thụ iterator trực
+tiếp (chỉ cần giữ lại nến cuối cùng cho `force_close()`, không cần giữ cả
+list). Ràng buộc khó hơn nhánh sync: `split_klines_for_out_of_sample()` cần
+biết tổng số nến **trước khi chạy** để chia in-sample/out-of-sample — cần
+quyết định giữa (a) query 2 lần (COUNT rồi stream), hay (b) buffer toàn bộ
+chỉ riêng cho nhánh out-of-sample và giữ nguyên full-load cho nhánh chính.
+Chưa tự quyết, cần hỏi trước khi code.
+
+### 3.3. Còn lại
+
+- **Viết regression test đo RAM có giới hạn cho nhánh Backtest** khi làm
+  §3.2 — test tạo dataset lớn giả lập (ví dụ 500k+ nến trong DB test), assert
+  bằng cách nào đó peak RAM/objects sống không tỷ lệ thuận tuyến tính không
+  giới hạn theo cỡ dataset (ví dụ đếm số object `MarketData` sống cùng lúc
+  qua `tracemalloc`/`gc` thay vì đo RSS hệ điều hành vốn nhiễu). Nhánh Sync
+  đã có regression test riêng ở §3.1 (call-count based, không cần profiler).
+- **Xác nhận lại RAM baseline lúc rảnh (862.1 MB) có thực sự do đợt fetch/backtest
+  trước đó để lại hay không** — trước khi coi đây là bằng chứng bổ sung của
+  chính bug này, nên đo lại RSS ngay sau khi app khởi động (chưa sync/backtest
+  lần nào) để có baseline sạch so sánh. Vẫn chưa làm.
 
 ---
 
 ## Ghi chú
 
-Không root-cause bằng cách chạy thật + đo log/profiler — root-cause hiện tại
-chỉ dựa trên **đọc code tĩnh** (đúng bước 1 của `bug-fix-rule.md`, nhưng thiếu
-bước 2: bằng chứng log/profiler thật cho việc reproduce). Trước khi sửa, nên
-đo RAM thật bằng `tracemalloc`/profiler trên một sync hoặc backtest khoảng dài
-thật để có con số cụ thể, tránh sửa dựa trên suy luận thuần tuý.
+Root cause ban đầu chỉ dựa trên **đọc code tĩnh** (bước 1 của `bug-fix-rule.md`),
+không có log/profiler thật đo RAM (bước 2 đầy đủ). Khi sửa nhánh Sync (§3.1),
+quyết định **không** cần `tracemalloc`/profiler để chứng minh — bug này có
+mô tả hành vi rõ ràng ở mức kiến trúc (gọi `save_klines()` 1 lần hay N lần)
+mà một test call-count-based có thể tái hiện tất định 100%, không cần đo RAM
+thật vốn nhiễu và khó xác nhận. Test đã được xác nhận **fail đúng lý do**
+trên code cũ (§3.1) trước khi fix, đúng quy trình. Nhánh Backtest (§3.2) vẫn
+giữ nguyên khuyến nghị đo RAM baseline thật trước khi bắt tay sửa, vì đó là
+bước còn thiếu để quyết định phương án (a) hay (b).

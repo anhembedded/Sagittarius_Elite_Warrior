@@ -2,14 +2,31 @@ from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelled,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
+    _KLINE_STREAM_CHUNK_SIZE,
     PythonBinanceClient,
 )
+
+
+def _raw_kline(index: int) -> list:
+    return [
+        1672531200000 + index * 60_000,
+        "100.0",
+        "110.0",
+        "90.0",
+        "105.0",
+        "1000.0",
+        1672531259999 + index * 60_000,
+        "105000.0",
+        50,
+        "500.0",
+        "52500.0",
+        "0",
+    ]
 
 
 def test_injected_client_is_used_directly_without_patching_the_sdk():
@@ -152,6 +169,83 @@ def test_historical_kline_iteration_stops_cooperatively_when_cancelled():
             TimeFrame.ONE_MINUTE,
             datetime(2023, 1, 1, tzinfo=UTC),
             cancellation_requested=cancellation_requested,
+        )
+
+    assert cancellation_checks == 4
+
+
+def test_stream_historical_klines_yields_bounded_chunks_instead_of_one_giant_list():
+    """BUG-025 regression test: the whole point of streaming is that no
+    single chunk grows past the page size, regardless of how many klines
+    the underlying generator produces in total — proving RAM usage per
+    chunk is bounded, not proportional to the requested range."""
+    total_raw_klines = _KLINE_STREAM_CHUNK_SIZE * 2 + 5
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = (
+        _raw_kline(i) for i in range(total_raw_klines)
+    )
+
+    client = PythonBinanceClient(client=injected_client)
+
+    chunks = list(
+        client.stream_historical_klines(
+            "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+        )
+    )
+
+    assert [len(c) for c in chunks] == [
+        _KLINE_STREAM_CHUNK_SIZE,
+        _KLINE_STREAM_CHUNK_SIZE,
+        5,
+    ]
+    assert sum(len(c) for c in chunks) == total_raw_klines
+    assert all(kline.symbol == "BTCUSDT" for chunk in chunks for kline in chunk)
+
+
+def test_stream_historical_klines_reports_progress_and_maps_fields_correctly():
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = [_raw_kline(0)]
+    progress_calls: list[int] = []
+
+    client = PythonBinanceClient(client=injected_client)
+
+    chunks = list(
+        client.stream_historical_klines(
+            "BTCUSDT",
+            TimeFrame.ONE_MINUTE,
+            datetime(2023, 1, 1, tzinfo=UTC),
+            progress_callback=progress_calls.append,
+        )
+    )
+
+    assert len(chunks) == 1
+    assert progress_calls == [1]
+    assert chunks[0][0].symbol == "BTCUSDT"
+    assert chunks[0][0].open_price == 100.0
+
+
+def test_stream_historical_klines_stops_cooperatively_when_cancelled():
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = (
+        _raw_kline(i) for i in range(10)
+    )
+    cancellation_checks = 0
+
+    def cancellation_requested() -> bool:
+        nonlocal cancellation_checks
+        cancellation_checks += 1
+        return cancellation_checks >= 4
+
+    client = PythonBinanceClient(client=injected_client)
+
+    with pytest.raises(ExchangeRequestCancelled):
+        list(
+            client.stream_historical_klines(
+                "BTCUSDT",
+                TimeFrame.ONE_MINUTE,
+                datetime(2023, 1, 1, tzinfo=UTC),
+                cancellation_requested=cancellation_requested,
+            )
         )
 
     assert cancellation_checks == 4

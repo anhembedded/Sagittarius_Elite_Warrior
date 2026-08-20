@@ -1,9 +1,8 @@
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 
 from binance.client import Client
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     CancellationCheck,
     ExchangeRequestCancelled,
@@ -22,6 +21,11 @@ logger = logging.getLogger("App.ExchangeClient")
 #: per-symbol entries — distinct from BinanceMetadataKey.FILTERS, which is
 #: the nested filter list *inside* one such entry (BOT-102).
 _EXCHANGE_INFO_SYMBOLS_KEY = "symbols"
+
+#: Klines per yielded chunk in `stream_historical_klines` (BUG-025) — matches
+#: Binance's own per-request page size, so a chunk boundary always lines up
+#: with a page boundary already paid for over the network.
+_KLINE_STREAM_CHUNK_SIZE = 1000
 
 
 class PythonBinanceClient(IExchangeClient):
@@ -84,6 +88,70 @@ class PythonBinanceClient(IExchangeClient):
             raise
         except Exception as e:
             logger.error(f"Failed to fetch historical klines for {symbol}: {e}")
+            raise
+
+    def stream_historical_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_str: str | datetime,
+        end_str: str | datetime | None = None,
+        progress_callback: Callable[[int], None] | None = None,
+        cancellation_requested: CancellationCheck | None = None,
+    ) -> Iterator[list[MarketData]]:
+        formatted_start = self._format_time(start_str)
+        formatted_end = self._format_time(end_str)
+
+        logger.info(
+            f"Streaming historical klines for {symbol} at {interval.value} from {formatted_start} to {formatted_end or 'NOW'}"
+        )
+
+        yield from self._stream_raw_klines_as_market_data(
+            symbol,
+            interval.value,
+            formatted_start,
+            formatted_end,
+            progress_callback,
+            cancellation_requested,
+        )
+
+    def _stream_raw_klines_as_market_data(
+        self,
+        symbol: str,
+        interval: str,
+        start_str: str,
+        end_str: str | None,
+        progress_callback: Callable[[int], None] | None,
+        cancellation_requested: CancellationCheck | None,
+    ) -> Iterator[list[MarketData]]:
+        try:
+            self._raise_if_cancelled(cancellation_requested)
+            generator = self.client.get_historical_klines_generator(
+                symbol, interval, start_str, end_str
+            )
+            buffer: list = []
+            total_fetched = 0
+            for k in generator:
+                self._raise_if_cancelled(cancellation_requested)
+                buffer.append(k)
+                if len(buffer) >= _KLINE_STREAM_CHUNK_SIZE:
+                    total_fetched += len(buffer)
+                    if progress_callback:
+                        progress_callback(total_fetched)
+                    yield self._map_to_market_data(buffer, symbol, interval)
+                    buffer = []
+
+            if buffer:
+                total_fetched += len(buffer)
+                if progress_callback:
+                    progress_callback(total_fetched)
+                yield self._map_to_market_data(buffer, symbol, interval)
+
+            logger.info(f"Successfully streamed {total_fetched} klines for {symbol}.")
+        except ExchangeRequestCancelled:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to stream historical klines for {symbol}: {e}")
             raise
 
     @staticmethod
