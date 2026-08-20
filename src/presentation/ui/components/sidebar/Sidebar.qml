@@ -151,7 +151,7 @@ Rectangle {
                             isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
 
                             ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
-                            ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
+                            ToolTip.text: modelData.tooltip ? modelData.tooltip : (!modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label)
 
                             onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
                         }
@@ -215,7 +215,7 @@ Rectangle {
                     isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
 
                     ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
-                    ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
+                    ToolTip.text: modelData.tooltip ? modelData.tooltip : (!modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label)
 
                     onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
                 }

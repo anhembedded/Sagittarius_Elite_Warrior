@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
-from .nav_section import NavSection
+from .tab_interface import ITab
+from .tabs import SidebarSection
 
 
 class SidebarViewModel(QObject):
@@ -13,14 +15,9 @@ class SidebarViewModel(QObject):
     structure and the active route, and turns QML clicks into a Python signal.
 
     @details
-    Deliberately a plain QObject rather than a BaseQmlViewModel: the sidebar
-    is shell chrome with no FSM behind it, so inheriting that base would
-    force an unused `uiMode` property onto it (Interface Segregation).
-
-    `sections` is a constant Property — the nav structure is fixed at
-    construction and never mutates at runtime, so declaring it `constant`
-    states that contract to QML instead of implying a change signal that
-    would never fire.
+    Operates on open ITab abstractions and SidebarSection aggregates.
+    Each tab exposes both `tab_full` and `tab_icon` representations,
+    allowing clean rendering in both expanded and collapsed modes.
     """
 
     activeRouteChanged = Signal()
@@ -30,7 +27,10 @@ class SidebarViewModel(QObject):
     navigationRequested = Signal(str)
 
     def __init__(
-        self, sections: Sequence[NavSection], bottom_actions: Sequence = (), parent=None
+        self,
+        sections: Sequence[SidebarSection],
+        bottom_actions: Sequence[ITab] = (),
+        parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._sections = tuple(sections)
@@ -42,44 +42,23 @@ class SidebarViewModel(QObject):
             item.route
             for section in self._sections
             for item in section.items
-            if item.is_navigable
+            if item.is_navigable and item.route
         }
         bottom_routes = {
-            item.route for item in self._bottom_actions if item.is_navigable
+            item.route
+            for item in self._bottom_actions
+            if item.is_navigable and item.route
         }
         self._navigable_routes = routes | bottom_routes
 
     @Property("QVariantList", constant=True)
-    def sections(self) -> list[dict]:
-        """Nav structure as plain dicts — the shape QML's Repeater consumes
-        (`modelData.label`, `modelData.route`, ...)."""
-        return [
-            {
-                "title": section.title,
-                "items": [
-                    {
-                        "label": item.label,
-                        "route": item.route or "",
-                        "icon": item.icon,
-                        "navigable": item.is_navigable,
-                    }
-                    for item in section.items
-                ],
-            }
-            for section in self._sections
-        ]
+    def sections(self) -> list[dict[str, Any]]:
+        """Nav structure as plain dicts — the shape QML's Repeater consumes."""
+        return [section.to_dict() for section in self._sections]
 
     @Property("QVariantList", constant=True)
-    def bottomActions(self) -> list[dict]:
-        return [
-            {
-                "label": item.label,
-                "route": item.route or "",
-                "icon": item.icon,
-                "navigable": item.is_navigable,
-            }
-            for item in self._bottom_actions
-        ]
+    def bottomActions(self) -> list[dict[str, Any]]:
+        return [item.to_dict() for item in self._bottom_actions]
 
     def _get_active_route(self) -> str:
         return self._active_route

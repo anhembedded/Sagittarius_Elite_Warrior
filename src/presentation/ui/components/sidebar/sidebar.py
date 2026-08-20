@@ -7,8 +7,9 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
 from sagittarius_engine.extensions.pyside_mvc import QmlHostView
 
-from .nav_section import NavSection
 from .sidebar_view_model import SidebarViewModel
+from .tab_interface import ITab
+from .tabs import SidebarSection
 
 _MAX_WIDTH = 250
 _EXPANDED_WIDTH = 220
@@ -30,8 +31,8 @@ class Sidebar(QmlHostView):
 
     Usage:
         sections = [
-            NavSection("NAVIGATION", (
-                NavItem("Dev Board", "dashboard", "layout-dashboard"),
+            SidebarSection("NAVIGATION", (
+                SidebarTab("Dev Board", "dashboard", "layout-dashboard"),
             )),
         ]
         sidebar = Sidebar(sections=sections)
@@ -46,8 +47,8 @@ class Sidebar(QmlHostView):
 
     def __init__(
         self,
-        sections: Sequence[NavSection],
-        bottom_actions: Sequence = (),
+        sections: Sequence[SidebarSection],
+        bottom_actions: Sequence[ITab] = (),
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)

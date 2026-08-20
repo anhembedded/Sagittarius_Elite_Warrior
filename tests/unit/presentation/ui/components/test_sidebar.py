@@ -11,10 +11,18 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
+    ActionTab,
+    DisabledTab,
+    ITab,
     NavItem,
     NavSection,
+    RouteTab,
     Sidebar,
+    SidebarSection,
+    SidebarTab,
     SidebarViewModel,
+    TabFullPresentation,
+    TabIconPresentation,
 )
 
 
@@ -260,3 +268,101 @@ def test_clicking_collapse_button_toggles_collapsed_state(sidebar, qml_item, qap
 
     assert sidebar.width() == 220
     assert btn_dashboard.property("text") == "Dev Board"
+
+
+# ---------------------------------------------------------------------------
+# ITab & Open Tab Architecture (OCP) Tests
+# ---------------------------------------------------------------------------
+
+
+def test_itab_protocol_conformance():
+    route_tab = RouteTab("Analytics", "analytics", "line-chart")
+    action_tab = ActionTab("Export", None, "download")
+    disabled_tab = DisabledTab("Live Trading", None, "activity")
+    sidebar_tab = SidebarTab("Settings", "settings", "settings")
+
+    assert isinstance(route_tab, ITab)
+    assert isinstance(action_tab, ITab)
+    assert isinstance(disabled_tab, ITab)
+    assert isinstance(sidebar_tab, ITab)
+
+
+def test_tab_full_and_tab_icon_properties():
+    tab = SidebarTab(
+        label="Quant Lab",
+        route="quant_lab",
+        icon="flask-conical",
+        badge="NEW",
+        description="Algorithmic research workspace",
+        tooltip="Mở Quant Lab",
+    )
+
+    full = tab.tab_full
+    assert isinstance(full, TabFullPresentation)
+    assert full.label == "Quant Lab"
+    assert full.route == "quant_lab"
+    assert full.badge == "NEW"
+    assert full.description == "Algorithmic research workspace"
+
+    icon = tab.tab_icon
+    assert isinstance(icon, TabIconPresentation)
+    assert icon.icon == "flask-conical"
+    assert icon.tooltip == "Mở Quant Lab"
+    assert icon.badge == "NEW"
+
+
+def test_custom_itab_extension_in_sidebar_view_model():
+    """Verify OCP: a custom third-party ITab class integrates seamlessly."""
+
+    class PluginTab(ITab):
+        @property
+        def id(self) -> str:
+            return "plugin_screener"
+
+        @property
+        def route(self) -> str | None:
+            return "screener"
+
+        @property
+        def is_navigable(self) -> bool:
+            return True
+
+        @property
+        def is_enabled(self) -> bool:
+            return True
+
+        @property
+        def tab_full(self) -> TabFullPresentation:
+            return TabFullPresentation(label="AI Screener", route="screener")
+
+        @property
+        def tab_icon(self) -> TabIconPresentation:
+            return TabIconPresentation(icon="cpu", tooltip="AI Market Screener")
+
+        def to_dict(self) -> dict:
+            return {
+                "id": self.id,
+                "label": self.tab_full.label,
+                "route": self.route,
+                "icon": self.tab_icon.icon,
+                "tooltip": self.tab_icon.tooltip,
+                "badge": "",
+                "navigable": self.is_navigable,
+                "enabled": self.is_enabled,
+            }
+
+    custom_tab = PluginTab()
+    section = SidebarSection("PLUGINS", (custom_tab,))
+    vm = SidebarViewModel([section])
+
+    assert len(vm.sections) == 1
+    assert vm.sections[0]["title"] == "PLUGINS"
+    assert vm.sections[0]["items"][0]["label"] == "AI Screener"
+    assert vm.sections[0]["items"][0]["icon"] == "cpu"
+    assert vm.sections[0]["items"][0]["tooltip"] == "AI Market Screener"
+
+    # Navigation routing works with custom ITab
+    requested = []
+    vm.navigationRequested.connect(requested.append)
+    vm.navigate("screener")
+    assert requested == ["screener"]
