@@ -8,6 +8,7 @@ from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
 from .marker_lod import DisplayMarker, MarkerPoint, select_marker_display
+from .viewport_culled_layer import ViewportCulledLayer
 from .viewport_windowing import visible_slice_indices
 
 _MARKER_HALF_WIDTH_PIXELS = 5.0
@@ -87,7 +88,7 @@ class TriangleMarkerItem(QGraphicsPathItem):
         self.setPath(path)
 
 
-class MarkerLayer:
+class MarkerLayer(ViewportCulledLayer):
     """
     @brief Draws compact triangle markers for trade entries, exits, and custom indicator scripts.
     @details Always drawn on the main price plot, regardless of the owning

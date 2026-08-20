@@ -1,18 +1,17 @@
 from collections.abc import Callable
 
 import pyqtgraph as pg
-from PySide6 import QtGui
 
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
 from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout
+from .region_layer import RegionLayer, RegionSpan
+from .viewport_culled_layer import ViewportCulledLayer
 from .viewport_windowing import visible_slice_indices
 
 #: Default text colour for an InfoField that didn't specify one.
 _DEFAULT_INFO_COLOR = "#c9cdd3"
-#: Drawn beneath candles/curves/volume so a background tint never occludes them.
-_REGION_Z_VALUE = -10
 _SMOOTH_LINE_ANTIALIAS = True
 
 
@@ -55,13 +54,22 @@ class IndicatorManager:
         self.applied_update_count = 0
         self._visible_range: tuple[float, float] | None = None
 
-        # BOT-032 — custom indicator scripts' background tints and status
-        # panel, each keyed by script registry key (not by line name: unlike
-        # curves, a script has exactly one tint timeline and one status block,
-        # not one per line).
-        self._region_items: dict[str, list[pg.LinearRegionItem]] = {}
+        # BOT-032 — custom indicator scripts' status panel, keyed by script
+        # registry key (not by line name: unlike curves, a script has
+        # exactly one status block, not one per line).
         self._script_info: dict[str, list[InfoField]] = {}
         self._marker_layer = MarkerLayer(self._plot_layout.main_plot)
+        self._region_layer = RegionLayer(self._plot_layout.main_plot)
+        #: Every registered `ViewportCulledLayer` gets `refresh_window()` on
+        #: every pan/zoom (see `refresh_window()` below). Adding a future
+        #: overlay layer here is what makes the ABC's enforcement actually
+        #: bite: `ViewportCulledLayer` subclasses that forget to implement
+        #: real windowing fail at construction (BUG-024's root cause was
+        #: exactly a layer that never went through this list at all).
+        self._layers: tuple[ViewportCulledLayer, ...] = (
+            self._marker_layer,
+            self._region_layer,
+        )
 
     def add_overlay(self, name: str, color: str, width: int = 2) -> None:
         """Adds a line indicator on top of the main candlestick plot (e.g. SMA).
@@ -112,7 +120,8 @@ class IndicatorManager:
         self._visible_range = (min_x, max_x)
         for name in self._curves:
             self._apply_window(name)
-        self._marker_layer.refresh_window(min_x, max_x)
+        for layer in self._layers:
+            layer.refresh_window(min_x, max_x)
 
     def _apply_window(self, name: str) -> None:
         full = self._full_data.get(name)
@@ -176,48 +185,30 @@ class IndicatorManager:
         self._full_data.clear()
         self._data_revisions.clear()
         self._last_applied_signatures.clear()
-        self._region_items.clear()
         self._script_info.clear()
-        self._marker_layer.clear_all()
+        for layer in self._layers:
+            layer.clear_all()
 
     # ------------------------------------------------------------------ #
     # BOT-032 — custom indicator script backgrounds & status panel
     # ------------------------------------------------------------------ #
 
-    def set_script_regions(
-        self, key: str, spans: list[tuple[float, float, str, float]]
-    ) -> None:
+    def set_script_regions(self, key: str, spans: list[RegionSpan]) -> None:
         """
         @brief Draws (or extends) a script's background tint spans.
         @param spans (start_x, end_x, color, opacity) tuples, always the full
         current set — same "always the whole series" contract as
-        update_data(). Existing spans are updated in place via setRegion()
-        rather than being torn down and recreated, since the common case is
-        one previous span growing by exactly one bar; only genuinely new spans
-        allocate a new LinearRegionItem.
-        @details Regions always draw on the main price plot regardless of the
-        owning script's `overlay` flag — a background tint is a property of
+        update_data(). Delegates to `RegionLayer`, which only materializes
+        the spans overlapping the current viewport (BUG-024) — regions
+        always draw on the main price plot regardless of the owning
+        script's `overlay` flag, since a background tint is a property of
         the whole timeline, not of one particular price/subplot scale.
         """
-        items = self._region_items.setdefault(key, [])
-        for index, (start, end, color, opacity) in enumerate(spans):
-            if index < len(items):
-                items[index].setRegion((start, end))
-                continue
-            region_item = pg.LinearRegionItem(
-                values=(start, end),
-                brush=pg.mkBrush(_color_with_alpha(color, opacity)),
-                pen=pg.mkPen(None),
-                movable=False,
-            )
-            region_item.setZValue(_REGION_Z_VALUE)
-            self._plot_layout.main_plot.addItem(region_item)
-            items.append(region_item)
+        self._region_layer.set_regions(key, spans)
 
     def clear_script_regions(self, key: str) -> None:
         """Removes every background span belonging to one script."""
-        for item in self._region_items.pop(key, []):
-            self._plot_layout.main_plot.removeItem(item)
+        self._region_layer.clear(key)
 
     def set_script_info(self, key: str, fields: list[InfoField]) -> None:
         """
@@ -252,13 +243,3 @@ class IndicatorManager:
             for field in fields
         ]
         self._plot_layout.script_info_label.setText("<br>".join(rows))
-
-
-def _color_with_alpha(color: str, opacity: float) -> QtGui.QColor:
-    """@brief Turns a plain hex color + a 0..1 opacity into a QColor with alpha.
-    @details Kept separate from PlottedRegion itself, which deliberately has
-    no QColor/UI-toolkit dependency (see the domain layer's guard test) —
-    this is the one place that dependency is allowed to exist."""
-    qcolor = pg.mkColor(color)
-    qcolor.setAlphaF(max(0.0, min(1.0, opacity)))
-    return qcolor

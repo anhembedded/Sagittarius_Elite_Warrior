@@ -47,3 +47,30 @@ def visible_slice_indices(
     lo = bisect.bisect_left(sorted_values, min_x - padding, key=key)
     hi = bisect.bisect_right(sorted_values, max_x + padding, key=key)
     return lo, hi
+
+
+def visible_span_indices(
+    sorted_spans: Sequence,
+    min_x: float,
+    max_x: float,
+    padding: float = 0.0,
+    start_key: Callable[[object], float] = lambda span: span[0],
+    end_key: Callable[[object], float] = lambda span: span[1],
+) -> tuple[int, int]:
+    """
+    @brief Same idea as `visible_slice_indices`, for **intervals** rather
+    than points — a background-shading span (start_x, end_x, ...) is
+    visible whenever it overlaps `[min_x, max_x]`, not just when its start
+    falls inside it (a wide, already-open span whose start is off-screen to
+    the left must still be drawn).
+    @param sorted_spans Ascending-sorted-by-start, NON-OVERLAPPING intervals
+    — the shape `strategy_trend_zones.compute_strategy_trend_zones()`'s
+    consecutive-bar merging already guarantees. Overlapping spans would need
+    a different (interval-tree) structure; this one relies on that
+    guarantee to stay O(log N).
+    @returns (lo, hi) such that sorted_spans[lo:hi] all overlap
+    [min_x - padding, max_x + padding].
+    """
+    lo = bisect.bisect_right(sorted_spans, min_x - padding, key=end_key)
+    hi = bisect.bisect_left(sorted_spans, max_x + padding, key=start_key)
+    return lo, max(lo, hi)
