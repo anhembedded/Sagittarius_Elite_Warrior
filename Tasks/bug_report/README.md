@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa** | 16 |
-| 📈 **Tổng** | **20** |
+| ✅ **Đã sửa** | 18 |
+| 📈 **Tổng** | **22** |
 
 ---
 
@@ -48,6 +48,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-022](completed/BUG-022_realtime_last_tick_of_every_bar_evaluated_twice.md)** | Realtime đánh giá tick cuối của **mọi** bar 2 lần — sai số PnL/trade | 🔴 P1 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20). Tìm ra nhờ điều tra WARNING theo rule CI/CD mới; 6 tick → 9 lần gọi strategy, nay còn 6 |
+| **[BUG-021](completed/BUG-021_realtime_backtest_chart_blank_queries_unsynced_timeframe.md)** | Chart trắng hoàn toàn sau mỗi lần chạy Realtime backtest | 🔴 P1 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
 | **[BUG-018](completed/BUG-018_data_management_idle_to_idle_unlock_kills_stat_refresh.md)** | Ô "Stored KLines Records" mãi hiện `—` vì auto-discovery kết thúc bằng transition `IDLE -> IDLE` | 🟡 P2 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
 | **[BUG-017](completed/BUG-017_backtest_sync_redownloads_full_range_ignoring_cached_coverage.md)** | "Đồng bộ ngay" tải lại toàn bộ range, bỏ qua phần đã cache | 🟡 P2 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
 | **[BUG-014](completed/BUG-014_chart_pans_into_empty_space_and_goes_blank.md)** | Chart pan/zoom ra vùng trống rồi trắng hoàn toàn | 🔴 P1 | 2026-08-19 | Trong chính hồ sơ này |

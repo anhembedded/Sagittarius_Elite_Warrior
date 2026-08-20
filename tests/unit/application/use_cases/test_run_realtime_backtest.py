@@ -64,16 +64,28 @@ class _CountingHoldStrategy(BaseStrategy):
 def _build_bar_ticks(
     bar_index: int, closes: list[float], bar_seconds: int = 60
 ) -> list[MarketData]:
-    """`len(closes)` ticks evenly spaced within 1 bar of `bar_seconds`,
-    tick_resolution=1s in spirit (real spacing doesn't matter to
-    `_bar_bounds`, only that the last tick's close_time lands exactly on the
-    bar boundary)."""
+    """`len(closes)` ticks evenly spaced within 1 bar of `bar_seconds`.
+
+    BUG-022: `close_time` uses the exchange's real convention — the LAST
+    INSTANT the tick covers, i.e. `next_open - 1ms`, never the boundary
+    itself. An earlier version of this helper put the last tick's
+    `close_time` exactly on `bar_end`, which no Binance kline ever does
+    (verified in the stored 1s data: `open=12:14:59.000` pairs with
+    `close=12:14:59.999`). That made
+    `test_every_tick_is_evaluated_exactly_once_no_double_firing_on_bar_close`
+    pass for a reason unrelated to the invariant it protects, hiding a real
+    double-evaluation on every bar of every run against live-sourced data.
+    """
     bar_start = _BASE_TIME + timedelta(seconds=bar_index * bar_seconds)
     step = bar_seconds / len(closes)
     ticks = []
     for i, close in enumerate(closes):
         open_time = bar_start + timedelta(seconds=i * step)
-        close_time = bar_start + timedelta(seconds=(i + 1) * step)
+        close_time = (
+            bar_start
+            + timedelta(seconds=(i + 1) * step)
+            - timedelta(milliseconds=1)
+        )
         ticks.append(
             MarketData(
                 symbol="BTCUSDT",

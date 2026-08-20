@@ -62,7 +62,12 @@ param(
     [int]$Workers = 6,   # Default: 6 workers (benchmark sweet spot for this machine)
     [switch]$IncludeFlakyUi,
     [switch]$SkipNativeBuild,
-    [switch]$DesktopBenchmark
+    [switch]$DesktopBenchmark,
+    # code-rule.md §4 "CI/CD MUST capture a log file, then scan it for problem
+    # levels": a green exit code is not proof a run was clean. Set this only
+    # to triage a run whose hits are already understood and recorded — never
+    # as the normal way to get a green build.
+    [switch]$AllowLogWarnings
 )
 
 $ErrorActionPreference = "Stop"
@@ -83,6 +88,52 @@ function Write-Success {
 function Write-Failure {
     param([string]$Name)
     Write-Host "  ❌  $Name FAILED" -ForegroundColor Red
+}
+
+#: code-rule.md §4 — scan a captured run log for the problem levels
+#: logging-rule.md defines (WARNING/ERROR/CRITICAL), using that file's own
+#: documented matcher. Automated here rather than left to a human/AI reading
+#: the log by hand, so it actually happens on every run.
+#:
+#: Matches the `logger - LEVEL - message` shape a real log line has, NOT bare
+#: words: pytest's own output says things like "warnings summary" and "ERROR"
+#: for collection errors, which are not application log records.
+function Invoke-RunLogScan {
+    param([string]$LogFile, [string]$Label)
+
+    if (-not (Test-Path $LogFile)) {
+        Write-Host "  ⚠️  $Label — no log file captured at $LogFile" -ForegroundColor Yellow
+        return $false
+    }
+
+    $hits = Select-String -Path $LogFile -Pattern '- (WARNING|ERROR|CRITICAL) -'
+    if (-not $hits -or $hits.Count -eq 0) {
+        Write-Host "  ✅  $Label — no WARNING/ERROR/CRITICAL log records" -ForegroundColor Green
+        return $false
+    }
+
+    Write-Host ""
+    Write-Host "  🔎  $Label — $($hits.Count) problem-level log record(s) found:" -ForegroundColor Yellow
+    foreach ($level in @('CRITICAL', 'ERROR', 'WARNING')) {
+        $ofLevel = $hits | Where-Object { $_.Line -match "- $level -" }
+        if ($ofLevel.Count -gt 0) {
+            Write-Host "     $level : $($ofLevel.Count)" -ForegroundColor Yellow
+        }
+    }
+    Write-Host ""
+    # Distinct messages only — one real defect usually logs the same line on
+    # every bar/tick/event, and 600 copies of it hide the other hits.
+    $hits |
+        ForEach-Object { $_.Line.Trim() } |
+        Select-Object -Unique |
+        Select-Object -First 25 |
+        ForEach-Object { Write-Host "     $_" -ForegroundColor DarkYellow }
+    Write-Host ""
+    Write-Host "  Every hit MUST be investigated and reported (code-rule.md §4):" -ForegroundColor Yellow
+    Write-Host "  either a real defect (then follow bug-fix-rule.md in full), or an" -ForegroundColor Yellow
+    Write-Host "  understood expected condition, named with its reason." -ForegroundColor Yellow
+    Write-Host "  Full log: $LogFile" -ForegroundColor DarkGray
+    return $true
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -262,6 +313,11 @@ if (-not $SkipTests) {
     # silenced even at module import time, before pytest filterwarnings can intercept.
     $env:PYTHONWARNINGS  = "ignore::DeprecationWarning:binance,ignore::DeprecationWarning:websockets"
 
+    # code-rule.md §4 — every run is captured to a file so it can be scanned
+    # for problem-level log records afterwards.
+    $runLogFile = Join-Path $tempDir "ci_run_$([System.Diagnostics.Process]::GetCurrentProcess().Id).log"
+    if (Test-Path $runLogFile) { Remove-Item $runLogFile -Force -ErrorAction SilentlyContinue }
+
     if ($SanityOnly) {
         # ----------------------------------------------------------------
         # Sanity-only mode: sequential, 1 process
@@ -269,7 +325,7 @@ if (-not $SkipTests) {
         Write-Step "Sanity Tests (sequential — Qt DI boot checks)"
         Push-Location $testExecutionRoot
         try {
-            & $pytestExe $sanityTarget -v
+            & $pytestExe $sanityTarget -v 2>&1 | Tee-Object -FilePath $runLogFile
             if ($LASTEXITCODE -ne 0) { $failed += "Sanity"; Write-Failure "Sanity" }
             else { Write-Success "Sanity" }
         } catch {
@@ -330,7 +386,7 @@ if (-not $SkipTests) {
                 $pytestArgs += @("-n", "$workerCount")
             }
 
-            & $pytestExe @pytestArgs
+            & $pytestExe @pytestArgs 2>&1 | Tee-Object -FilePath $runLogFile
             $mainExitCode = $LASTEXITCODE
         } catch {
             $mainExitCode = 1
@@ -345,6 +401,10 @@ if (-not $SkipTests) {
         # Print sanity output
         if (Test-Path $sanityLogFile) {
             Get-Content $sanityLogFile | Select-String -Pattern "PASSED|FAILED|ERROR|passed|failed|error|warning"
+            # Fold the background job's output into the scanned run log too —
+            # sanity boots the real app/DI, so it is exactly where a startup
+            # WARNING/ERROR would surface (code-rule.md §4).
+            Get-Content $sanityLogFile | Add-Content -Path $runLogFile
             Remove-Item $sanityLogFile -Force -ErrorAction SilentlyContinue
         }
 
@@ -353,6 +413,21 @@ if (-not $SkipTests) {
 
         if ($sanityExitCode -ne 0) { $failed += "Sanity"; Write-Failure "Sanity" }
         else { Write-Success "Sanity" }
+    }
+
+    # -----------------------------------------------------------------------
+    # Run-log scan (code-rule.md §4) — a green exit code is not proof a run
+    # was clean. BUG-021/BUG-022 both passed every test while logging the
+    # real defect on every single bar.
+    # -----------------------------------------------------------------------
+    Write-Step "Run Log Scan (WARNING / ERROR / CRITICAL)"
+    $hasLogProblems = Invoke-RunLogScan -LogFile $runLogFile -Label "Run log"
+    if ($hasLogProblems) {
+        if ($AllowLogWarnings) {
+            Write-Host "  ⚠️  -AllowLogWarnings set — not failing the run." -ForegroundColor Yellow
+        } else {
+            $failed += "Log Scan"; Write-Failure "Log Scan"
+        }
     }
 }
 

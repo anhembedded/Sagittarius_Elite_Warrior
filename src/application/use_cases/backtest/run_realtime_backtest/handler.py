@@ -40,6 +40,19 @@ logger = logging.getLogger("App.RunRealtimeBacktest")
 _TRACE_PREFIX = "REALTIME_BACKTEST_TRACE"
 _PHASE = "realtime"
 
+#: BUG-022 — a kline's `close_time` is the LAST INSTANT it covers, not the
+#: exclusive end of its interval: Binance publishes `next_open - 1ms` (the
+#: stored 1s data pairs `open=12:14:59.000` with `close=12:14:59.999`, never
+#: `12:15:00.000`). So a tick reaches a bar's end when
+#: `close_time + 1ms >= bar_end`, and comparing `close_time >= bar_end`
+#: directly is never true for real data — which silently sent the closing
+#: tick of EVERY bar down the "missing data" path, evaluating it once
+#: provisionally and again on commit with identical state. This is the
+#: exchange's own millisecond granularity, not a tolerance: a feed that
+#: instead reports `close_time == bar_end` also satisfies the comparison,
+#: so both conventions close their bars on the correct tick.
+_CLOSE_TIME_IS_INCLUSIVE_BY = timedelta(milliseconds=1)
+
 
 @dataclass
 class _FormingBar:
@@ -49,6 +62,12 @@ class _FormingBar:
 
     bar_start: datetime
     bar_end: datetime
+    #: BUG-022 — the last absorbed tick's own `close_time`, NOT `bar_end`.
+    #: A published kline's `close_time` is the last instant it covers
+    #: (`bar_end - 1ms`), so using `bar_end` made every aggregated bar sit
+    #: 1ms later than the identical kline Static reads, breaking BOT-076
+    #: §3.4's "1 tick per bar must match Static bit-for-bit" cross-check.
+    last_tick_close_time: datetime
     open_price: float
     high_price: float
     low_price: float
@@ -66,6 +85,7 @@ class _FormingBar:
         return _FormingBar(
             bar_start=bar_start,
             bar_end=bar_end,
+            last_tick_close_time=tick.close_time,
             open_price=tick.open_price,
             high_price=tick.high_price,
             low_price=tick.low_price,
@@ -78,6 +98,7 @@ class _FormingBar:
         )
 
     def absorb(self, tick: MarketData) -> None:
+        self.last_tick_close_time = tick.close_time
         self.high_price = max(self.high_price, tick.high_price)
         self.low_price = min(self.low_price, tick.low_price)
         self.close_price = tick.close_price
@@ -97,7 +118,7 @@ class _FormingBar:
             low_price=self.low_price,
             close_price=self.close_price,
             volume=self.volume,
-            close_time=self.bar_end,
+            close_time=self.last_tick_close_time,
             quote_asset_volume=self.quote_asset_volume,
             number_of_trades=self.number_of_trades,
             taker_buy_base_asset_volume=self.taker_buy_base_asset_volume,
@@ -211,8 +232,12 @@ class RunRealtimeBacktestCommandHandler(
         interval_seconds = command.interval.to_seconds()
 
         equity_curve: list[tuple[datetime, float]] = []
+        #: Kept so the chart draws the bars this run actually evaluated
+        #: rather than re-querying the exchange's own published candles for
+        #: `interval` — those are complete, these are aggregated from only
+        #: the ticks that existed, so the two are not interchangeable.
+        committed_bars: list[MarketData] = []
         forming: _FormingBar | None = None
-        bars_committed = 0
         started_at = perf_counter()
         total_ticks = len(ticks)
 
@@ -238,8 +263,14 @@ class RunRealtimeBacktestCommandHandler(
                         f"next_tick_bar_start={bar_start!r} — committing early, "
                         "likely missing tick data in this window"
                     )
-                    self._commit_bar(engine, exchange, equity_curve, forming, command)
-                    bars_committed += 1
+                    self._commit_bar(
+                        engine,
+                        exchange,
+                        equity_curve,
+                        committed_bars,
+                        forming,
+                        command,
+                    )
                 forming = _FormingBar.start(bar_start, bar_end, tick)
             else:
                 forming.absorb(tick)
@@ -250,9 +281,10 @@ class RunRealtimeBacktestCommandHandler(
             # strategy.evaluate() a second time right after committing it,
             # firing every real signal twice. So it gets committed only;
             # every other tick in the bar is provisional only (BOT-042D).
-            if tick.close_time >= bar_end:
-                self._commit_bar(engine, exchange, equity_curve, forming, command)
-                bars_committed += 1
+            if tick.close_time + _CLOSE_TIME_IS_INCLUSIVE_BY >= bar_end:
+                self._commit_bar(
+                    engine, exchange, equity_curve, committed_bars, forming, command
+                )
                 forming = None
             else:
                 forming_candle = forming.to_candle(
@@ -278,8 +310,9 @@ class RunRealtimeBacktestCommandHandler(
             # The tick stream ended mid-bar (didn't reach this bar's own
             # close boundary) — still commit whatever was seen rather than
             # silently dropping the last partial bar.
-            self._commit_bar(engine, exchange, equity_curve, forming, command)
-            bars_committed += 1
+            self._commit_bar(
+                engine, exchange, equity_curve, committed_bars, forming, command
+            )
 
         last_tick = ticks[-1]
         exchange.force_close(last_tick.close_price, last_tick.close_time)
@@ -287,7 +320,7 @@ class RunRealtimeBacktestCommandHandler(
         self._log_trace(
             "handler_simulation_complete",
             ticks=total_ticks,
-            bars_committed=bars_committed,
+            bars_committed=len(committed_bars),
         )
         return BacktestResult.compute(
             symbol=command.symbol,
@@ -295,6 +328,7 @@ class RunRealtimeBacktestCommandHandler(
             final_balance=exchange.balance,
             trades=exchange.trades,
             equity_curve=equity_curve,
+            committed_bars=committed_bars,
         )
 
     def _commit_bar(
@@ -302,6 +336,7 @@ class RunRealtimeBacktestCommandHandler(
         engine: StrategyEngine,
         exchange: PaperExchange,
         equity_curve: list[tuple[datetime, float]],
+        committed_bars: list[MarketData],
         forming: _FormingBar,
         command: RunRealtimeBacktestCommand,
     ) -> None:
@@ -313,6 +348,7 @@ class RunRealtimeBacktestCommandHandler(
         closed_candle = forming.to_candle(
             command.symbol, command.interval.value, is_closed=True
         )
+        committed_bars.append(closed_candle)
         # BOT-110: same "read before this bar's own fill" rule as the
         # forming-bar path above.
         signal = engine.on_tick(
