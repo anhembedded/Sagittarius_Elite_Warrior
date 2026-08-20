@@ -469,33 +469,25 @@ Rectangle {
                 id: progressBanner
                 objectName: "backtestProgressBanner"
                 Layout.fillWidth: true
-                implicitHeight: visible ? 32 : 0
+                implicitHeight: visible ? 38 : 0
                 visible: root.hasViewModel && (viewModel.uiMode === "RUNNING" || viewModel.uiMode === "CANCELLING" || viewModel.uiMode === "SYNCING")
                 color: "#12141d"
                 border.color: "#2a2d3d"
                 border.width: 1
                 radius: 6
 
-                RowLayout {
+                AppProgressBar {
                     anchors.fill: parent
                     anchors.leftMargin: 12
                     anchors.rightMargin: 12
-                    spacing: 10
-
-                    Text {
-                        text: !root.hasViewModel ? "" : (viewModel.uiMode === "CANCELLING" ? "Đang hủy an toàn..." : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressText : viewModel.backtestProgressText))
-                        color: Theme && Theme.textSecondary ? Theme.textSecondary : "#94a3b8"
-                        font.pixelSize: 10
-                        Layout.preferredWidth: 245
-                        elide: Text.ElideRight
-                    }
-
-                    ProgressBar {
-                        Layout.fillWidth: true
-                        from: 0
-                        to: 100
-                        value: !root.hasViewModel ? 0 : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressPercent : viewModel.backtestProgressPercent)
-                    }
+                    anchors.topMargin: 6
+                    anchors.bottomMargin: 6
+                    statusText: !root.hasViewModel ? "" : (viewModel.uiMode === "CANCELLING" ? "Đang hủy an toàn..." : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressText : viewModel.backtestProgressText))
+                    value: !root.hasViewModel ? 0 : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressPercent : viewModel.backtestProgressPercent)
+                    from: 0
+                    to: 100
+                    indeterminate: root.hasViewModel && viewModel.uiMode === "CANCELLING"
+                    barHeight: 6
                 }
             }
 

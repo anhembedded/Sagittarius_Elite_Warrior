@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
@@ -89,7 +88,7 @@ class DataManagementPresenter(BasePresenter):
     ui_log_signal = Signal(str)
     ui_error_log_signal = Signal(str)
     ui_progress_signal = Signal(int)
-    ui_single_sync_progress_signal = Signal(int, int, bool)
+    ui_single_sync_progress_signal = Signal(int, int, bool, str)
     ui_status_table_signal = Signal(str, str, str, str, str, str)
     ui_remove_symbol_signal = Signal(str, str)
     ui_clear_table_signal = Signal()
@@ -210,7 +209,12 @@ class DataManagementPresenter(BasePresenter):
             self.ui_log_signal.emit(event.message)
 
         if event.total_targets > 0:
-            self.ui_progress_signal.emit(event.current_index)
+            msg = f"Đang đồng bộ: {event.current_index}/{event.total_targets} mục"
+            if event.current_symbol and event.current_interval:
+                msg += f" ({event.current_symbol} {event.current_interval})"
+            self.ui_single_sync_progress_signal.emit(
+                event.current_index, event.total_targets, True, msg
+            )
 
         if event.is_complete or event.has_error:
             if event.is_complete:
@@ -219,7 +223,8 @@ class DataManagementPresenter(BasePresenter):
 
     def _handle_single_sync_progress(self, event: SingleSyncProgressEvent) -> None:
         """Bridge Single Sync Progress Events -> Qt Signals."""
-        self.ui_single_sync_progress_signal.emit(event.current, event.total, True)
+        msg = f"Đang đồng bộ {event.symbol} {event.interval} ({event.current:,}/{event.total:,} nến)"
+        self.ui_single_sync_progress_signal.emit(event.current, event.total, True, msg)
 
     # ================================================================== #
     # Qt Slots — execute on the main thread.

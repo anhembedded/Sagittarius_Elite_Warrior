@@ -359,66 +359,17 @@ Rectangle {
                         }
                     }
 
-                    ProgressBar {
+                    AppProgressBar {
                         id: syncProgress
                         objectName: "syncProgress"
                         Layout.fillWidth: true
                         visible: root.hasViewModel && viewModel.progressVisible
-                        indeterminate: !root.hasViewModel || viewModel.progressMaximum === 0
-                        from: 0
-                        to: root.hasViewModel ? Math.max(1, viewModel.progressMaximum) : 1
+                        statusText: root.hasViewModel ? viewModel.progressText : ""
                         value: root.hasViewModel ? viewModel.progressValue : 0
-
-                        background: Rectangle {
-                            implicitHeight: 8
-                            color: "#1e1e24"
-                            radius: 4
-                            border.color: "#33ffffff"
-                            border.width: 1
-                        }
-
-                        contentItem: Item {
-                            implicitHeight: 8
-
-                            Rectangle {
-                                visible: !syncProgress.indeterminate
-                                width: syncProgress.visualPosition * parent.width
-                                height: parent.height
-                                radius: 4
-                                gradient: Gradient {
-                                    orientation: Gradient.Horizontal
-                                    GradientStop { position: 0.0; color: Theme.accent }
-                                    GradientStop { position: 1.0; color: "#00f0ff" }
-                                }
-                                Behavior on width {
-                                    NumberAnimation { duration: 300; easing.type: Easing.OutQuart }
-                                }
-                            }
-
-                            Rectangle {
-                                id: indetRect
-                                visible: syncProgress.indeterminate
-                                width: parent.width * 0.4
-                                height: parent.height
-                                radius: 4
-                                gradient: Gradient {
-                                    orientation: Gradient.Horizontal
-                                    GradientStop { position: 0.0; color: "transparent" }
-                                    GradientStop { position: 0.5; color: Theme.accent }
-                                    GradientStop { position: 1.0; color: "transparent" }
-                                }
-                                SequentialAnimation on x {
-                                    loops: Animation.Infinite
-                                    running: syncProgress.indeterminate && syncProgress.visible
-                                    NumberAnimation {
-                                        from: -indetRect.width
-                                        to: syncProgress.width
-                                        duration: 1200
-                                        easing.type: Easing.InOutQuad
-                                    }
-                                }
-                            }
-                        }
+                        from: 0
+                        to: root.hasViewModel ? Math.max(1, viewModel.progressMaximum) : 100
+                        indeterminate: !root.hasViewModel || viewModel.progressMaximum === 0
+                        barHeight: 8
                     }
 
                     Item { Layout.fillHeight: true }

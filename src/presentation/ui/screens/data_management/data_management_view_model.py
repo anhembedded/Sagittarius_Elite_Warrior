@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
@@ -88,6 +87,7 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._progress_value = 0
         self._progress_maximum = 0
         self._progress_visible = False
+        self._progress_text = ""
         self._stored_records = "—"
         self._database_size = "—"
 
@@ -255,11 +255,30 @@ class DataManagementViewModel(BaseQmlViewModel):
 
     progressVisible = Property(bool, _get_progress_visible, notify=progressChanged)
 
+    def _get_progress_text(self) -> str:
+        return self._progress_text
+
+    progressText = Property(str, _get_progress_text, notify=progressChanged)
+
+    def _get_progress_percent(self) -> float:
+        if self._progress_maximum <= 0:
+            return 0.0
+        return min(
+            100.0, max(0.0, (self._progress_value / self._progress_maximum) * 100.0)
+        )
+
+    progressPercent = Property(float, _get_progress_percent, notify=progressChanged)
+
     @Slot(int, int, bool)
-    def set_progress(self, value: int, maximum: int, visible: bool) -> None:
+    @Slot(int, int, bool, str)
+    def set_progress(
+        self, value: int, maximum: int, visible: bool, text: str = ""
+    ) -> None:
         self._progress_value = value
         self._progress_maximum = maximum
         self._progress_visible = visible
+        if text:
+            self._progress_text = text
         self.progressChanged.emit()
 
     @Slot(int)
@@ -267,9 +286,14 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._progress_value = value
         self.progressChanged.emit()
 
+    @Slot(str)
+    def set_progress_text(self, text: str) -> None:
+        self._progress_text = text
+        self.progressChanged.emit()
+
     @Slot()
     def hide_progress(self) -> None:
-        self.set_progress(0, 0, False)
+        self.set_progress(0, 0, False, "")
 
     # ------------------------------------------------------------------ #
     # Stat tiles
