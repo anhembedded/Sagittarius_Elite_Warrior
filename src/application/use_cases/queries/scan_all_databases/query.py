@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
@@ -26,7 +28,7 @@ class DatabaseStatusDTO:
     @classmethod
     def from_snapshot(
         cls, symbol: str, interval: str, snapshot: DatabaseStatusSnapshot
-    ) -> "DatabaseStatusDTO":
+    ) -> DatabaseStatusDTO:
         """
         @brief Builds a display-ready DTO from a raw repository snapshot.
         @details Single source of truth for the "OK" vs "N gaps found!" status text and
@@ -50,11 +52,10 @@ class DatabaseStatusDTO:
 @dataclass(frozen=True)
 class ScanAllDatabasesQuery:
     """
-    @brief Query to scan the database status for all provided symbol/interval combinations.
-    @details Eliminates the Domain Leakage anti-pattern where the Presenter was
-    orchestrating a nested loop of individual GetDatabaseStatusQuery dispatches.
-    The Handler owns the iteration logic; the Presenter simply dispatches once.
+    @brief Query to scan the database status for provided symbol/interval combinations.
+    @details If symbols is empty, automatically discovers all storage shards on disk.
+    If intervals is empty, defaults to standard intervals.
     """
 
-    symbols: list[str]
-    intervals: list[str]
+    symbols: list[str] = field(default_factory=list)
+    intervals: list[str] = field(default_factory=list)

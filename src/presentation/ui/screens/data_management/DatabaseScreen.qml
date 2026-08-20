@@ -2,14 +2,15 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
+import "../../components"
 
-// Database screen (BOT-030 Phase 3). Folds in the visual design BOT-029
-// Phase 3 planned for QtWidgets (stat tiles, search, placeholder actions)
-// rather than building it twice.
+// Database screen (Storage Vault — BOT-112A).
 Rectangle {
     id: root
 
     color: Theme.bg
+
+    readonly property bool hasViewModel: typeof viewModel !== "undefined" && viewModel !== null
 
     component SectionLabel: Text {
         color: Theme.muted
@@ -23,7 +24,7 @@ Rectangle {
         anchors.margins: 20
         spacing: 14
 
-        // ================= Header + placeholder actions ================
+        // ================= Header + Real Functional Actions ================
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
@@ -45,7 +46,7 @@ Rectangle {
                     font.bold: true
                 }
                 Text {
-                    text: "Historical Market KLines Database"
+                    text: "Historical Market KLines Multi-Timeframe Database Hub"
                     color: Theme.muted
                     font.pixelSize: 11
                 }
@@ -53,66 +54,69 @@ Rectangle {
 
             Item { Layout.fillWidth: true }
 
-            // Rendered but disabled: no seeding/export/purge logic exists.
-            // Shown for layout parity with the mock without pretending to
-            // work — clicking must never look like it did something.
-            Repeater {
-                model: [
-                    { 
-                        name: "Seed_Records", label: "Seed 1,000 Records", icon: "plus-circle", 
-                        idleBg: "#131418", hoverBg: "#131418",
-                        idleBorder: Theme.border, hoverBorder: "#ffffff",
-                        idleText: Theme.textPrimary, hoverText: Theme.textPrimary,
-                        idleIcon: "success", hoverIcon: "success"
-                    },
-                    { 
-                        name: "Export_JSON", label: "Export JSON", icon: "download", 
-                        idleBg: "#131418", hoverBg: Theme.accent,
-                        idleBorder: Theme.accent, hoverBorder: Theme.accent,
-                        idleText: Theme.accent, hoverText: Theme.bg,
-                        idleIcon: "accent", hoverIcon: "bg"
-                    },
-                    { 
-                        name: "Purge_Vault", label: "Purge Vault", icon: "trash-2", 
-                        idleBg: "#131418", hoverBg: Theme.danger,
-                        idleBorder: Theme.danger, hoverBorder: Theme.danger,
-                        idleText: Theme.danger, hoverText: Theme.textPrimary,
-                        idleIcon: "danger", hoverIcon: "text"
-                    }
-                ]
+            // Functional Header Action: Vacuum / Optimize DB
+            Button {
+                id: btnVacuum
+                objectName: "btnVacuum"
+                text: "Tối ưu hóa Database (Vacuum)"
+                enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                onClicked: if (root.hasViewModel) viewModel.requestVacuum()
 
-                Button {
-                    id: placeholderButton
-                    required property var modelData
-                    objectName: "btnPlaceholder_" + modelData.name
-                    text: modelData.label
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Not implemented yet"
+                contentItem: RowLayout {
+                    spacing: 6
+                    Image {
+                        source: "image://icons/zap/accent"
+                        sourceSize.width: 14
+                        sourceSize.height: 14
+                        Layout.preferredWidth: 14
+                        Layout.preferredHeight: 14
+                    }
+                    Text {
+                        text: btnVacuum.text
+                        color: Theme.accent
+                        font.pixelSize: 11
+                        font.bold: true
+                    }
+                }
+                background: Rectangle {
+                    implicitHeight: 30
+                    radius: 6
+                    color: btnVacuum.hovered && btnVacuum.enabled ? "#1f2127" : "#131418"
+                    border.color: Theme.accent
+                    border.width: 1
+                }
+            }
 
-                    contentItem: RowLayout {
-                        spacing: 5
-                        Image {
-                            source: "image://icons/" + placeholderButton.modelData.icon + "/" + (placeholderButton.hovered ? placeholderButton.modelData.hoverIcon : placeholderButton.modelData.idleIcon)
-                            sourceSize.width: 13
-                            sourceSize.height: 13
-                            Layout.preferredWidth: 13
-                            Layout.preferredHeight: 13
-                        }
-                        Text {
-                            text: placeholderButton.text
-                            color: placeholderButton.hovered ? placeholderButton.modelData.hoverText : placeholderButton.modelData.idleText
-                            font.pixelSize: 11
-                            font.bold: true
-                        }
+            // Functional Header Action: Purge All Vault
+            Button {
+                id: btnPurgeVault
+                objectName: "btnPurgeVault"
+                text: "Xóa toàn bộ Vault (Purge)"
+                enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                onClicked: purgeConfirmDialog.open()
+
+                contentItem: RowLayout {
+                    spacing: 6
+                    Image {
+                        source: "image://icons/trash-2/danger"
+                        sourceSize.width: 14
+                        sourceSize.height: 14
+                        Layout.preferredWidth: 14
+                        Layout.preferredHeight: 14
                     }
-                    background: Rectangle {
-                        implicitHeight: 30
-                        implicitWidth: 135
-                        radius: 6
-                        color: placeholderButton.hovered ? placeholderButton.modelData.hoverBg : placeholderButton.modelData.idleBg
-                        border.color: placeholderButton.hovered ? placeholderButton.modelData.hoverBorder : placeholderButton.modelData.idleBorder
-                        border.width: 1
+                    Text {
+                        text: btnPurgeVault.text
+                        color: Theme.danger
+                        font.pixelSize: 11
+                        font.bold: true
                     }
+                }
+                background: Rectangle {
+                    implicitHeight: 30
+                    radius: 6
+                    color: btnPurgeVault.hovered && btnPurgeVault.enabled ? "#2a1518" : "#131418"
+                    border.color: Theme.danger
+                    border.width: 1
                 }
             }
         }
@@ -124,10 +128,10 @@ Rectangle {
 
             Repeater {
                 model: [
-                    { label: "Stored KLines Records", value: viewModel.storedRecords,
+                    { label: "Stored KLines Records", value: root.hasViewModel ? viewModel.storedRecords : "—",
                       hint: "across scanned symbol/interval pairs" },
-                    { label: "Est. Database Size", value: viewModel.databaseSize,
-                      hint: "on-disk SQLite file (WAL mode)" }
+                    { label: "Est. Database Size", value: root.hasViewModel ? viewModel.databaseSize : "—",
+                      hint: "on-disk SQLite storage files (WAL mode)" }
                 ]
 
                 Rectangle {
@@ -173,7 +177,7 @@ Rectangle {
 
             // ---------------- Sync controls -------------------------
             Rectangle {
-                Layout.preferredWidth: 300
+                Layout.preferredWidth: 320
                 Layout.fillHeight: true
                 color: Theme.bgCard
                 border.color: Theme.border
@@ -192,7 +196,7 @@ Rectangle {
                         font.bold: true
                     }
 
-                    SectionLabel { text: "TARGET" }
+                    SectionLabel { text: "TARGET & TIMEFRAME" }
 
                     GridLayout {
                         Layout.fillWidth: true
@@ -201,57 +205,103 @@ Rectangle {
                         rowSpacing: 8
 
                         Text { text: "Symbol:"; color: Theme.textPrimary; font.pixelSize: 12 }
-                        ComboBox {
-                            objectName: "cboSymbol"
+                        RowLayout {
                             Layout.fillWidth: true
-                            model: viewModel.symbols
-                            editable: true
-                            enabled: viewModel.uiMode === "IDLE"
-                            currentIndex: Math.max(0, viewModel.symbols.indexOf(viewModel.selectedSymbol))
-                            onCurrentTextChanged: viewModel.selectedSymbol = currentText
-                            background: FieldBackground {}
-                            contentItem: Text {
-                                leftPadding: 8
-                                text: parent.editText
-                                color: Theme.textPrimary
-                                font.pixelSize: 12
-                                verticalAlignment: Text.AlignVCenter
+                            spacing: 6
+
+                            ComboBox {
+                                id: cboSymbol
+                                objectName: "cboSymbol"
+                                Layout.fillWidth: true
+                                model: root.hasViewModel ? viewModel.symbols : []
+                                editable: true
+                                enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                                currentIndex: root.hasViewModel ? Math.max(0, viewModel.symbols.indexOf(viewModel.selectedSymbol)) : 0
+                                onCurrentTextChanged: if (root.hasViewModel && currentText.trim()) viewModel.selectedSymbol = currentText
+                                onEditTextChanged: if (root.hasViewModel && editText.trim()) viewModel.selectedSymbol = editText
+                                background: FieldBackground {}
+                                contentItem: Text {
+                                    leftPadding: 8
+                                    text: cboSymbol.editText
+                                    color: Theme.textPrimary
+                                    font.pixelSize: 12
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+
+                            Button {
+                                id: btnSearchSymbol
+                                objectName: "btnSearchSymbol"
+                                implicitWidth: 32
+                                implicitHeight: 32
+                                enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                                ToolTip.visible: hovered
+                                ToolTip.text: "Tìm kiếm nhanh trong 1.361+ mã Binance"
+                                onClicked: symbolPickerModal.open()
+
+                                contentItem: Image {
+                                    source: "image://icons/search/" + (btnSearchSymbol.hovered ? "accent" : "muted")
+                                    sourceSize.width: 14
+                                    sourceSize.height: 14
+                                    anchors.centerIn: parent
+                                }
+                                background: Rectangle {
+                                    radius: 6
+                                    color: btnSearchSymbol.hovered ? "#1f2127" : "#17181d"
+                                    border.color: btnSearchSymbol.hovered ? Theme.accent : Theme.border
+                                    border.width: 1
+                                }
                             }
                         }
 
-
+                        Text { text: "Timeframe:"; color: Theme.textPrimary; font.pixelSize: 12 }
+                        ComboBox {
+                            id: cboInterval
+                            objectName: "cboInterval"
+                            Layout.fillWidth: true
+                            model: root.hasViewModel ? viewModel.intervals : []
+                            enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                            currentIndex: root.hasViewModel ? Math.max(0, viewModel.intervals.indexOf(viewModel.selectedInterval)) : 0
+                            onCurrentTextChanged: if (root.hasViewModel && currentText.trim()) viewModel.selectedInterval = currentText
+                            background: FieldBackground {}
+                            contentItem: Text {
+                                leftPadding: 8
+                                text: cboInterval.currentText
+                                color: Theme.textPrimary
+                                font.pixelSize: 12
+                                font.bold: true
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
                     }
 
                     TimeRangeCard {
                         Layout.fillWidth: true
                         color: "transparent"
                         border.width: 0
-                        useCustomTime: viewModel.useCustomTime
-                        readOnly: viewModel.uiMode !== "IDLE"
-                        fromDateTime: viewModel.fromDateTime
-                        toDateTime: viewModel.toDateTime
+                        useCustomTime: root.hasViewModel ? viewModel.useCustomTime : false
+                        readOnly: !root.hasViewModel || viewModel.uiMode !== "IDLE"
+                        fromDateTime: root.hasViewModel ? viewModel.fromDateTime : ""
+                        toDateTime: root.hasViewModel ? viewModel.toDateTime : ""
 
-                        onCustomTimeToggled: checked => viewModel.useCustomTime = checked
-                        onFromDateTimeEdited: text => viewModel.fromDateTime = text
-                        onToDateTimeEdited: text => viewModel.toDateTime = text
+                        onCustomTimeToggled: checked => { if (root.hasViewModel) viewModel.useCustomTime = checked; }
+                        onFromDateTimeEdited: text => { if (root.hasViewModel) viewModel.fromDateTime = text; }
+                        onToDateTimeEdited: text => { if (root.hasViewModel) viewModel.toDateTime = text; }
                     }
 
                     SectionLabel { text: "ACTIONS" }
 
-                    // One declarative table drives every action button, so a
-                    // new action is a row here rather than another copy of
-                    // the same 20 lines of styling.
                     Repeater {
                         model: [
                             { name: "btnCheckStatus", label: "Scan Current Status",
                               icon: "database", tint: "muted", action: "checkStatus" },
-                            { name: "btnCheckAll", label: "Scan All Status",
+                            { name: "btnCheckAll", label: "Scan All Shards & Timeframes",
                               icon: "layout-dashboard", tint: "muted", action: "checkAll" },
-                            { name: "btnSyncData", label: "Sync Current",
+                            { name: "btnSyncData", label: "Sync Current Timeframe",
                               icon: "play", tint: "success", action: "sync" },
                             { name: "btnSyncAllGaps", label: "Sync All Gaps",
                               icon: "clock", tint: "success", action: "syncAllGaps" },
-                            { name: "btnClearData", label: "Clear Local Data",
+                            { name: "btnClearData", label: "Clear Selected Local Data",
                               icon: "trash-2", tint: "danger", action: "clearData" }
                         ]
 
@@ -261,15 +311,16 @@ Rectangle {
                             objectName: modelData.name
                             text: modelData.label
                             Layout.fillWidth: true
-                            enabled: viewModel.uiMode === "IDLE"
+                            enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
 
                             onClicked: {
+                                if (!root.hasViewModel) return;
                                 switch (modelData.action) {
                                 case "checkStatus": viewModel.requestCheckStatus(); break;
                                 case "checkAll": viewModel.requestCheckAllStatus(); break;
                                 case "sync": viewModel.requestSync(); break;
                                 case "syncAllGaps": viewModel.requestSyncAllGaps(); break;
-                                case "clearData": viewModel.requestClearData(); break;
+                                case "clearData": clearConfirmDialog.open(); break;
                                 }
                             }
 
@@ -312,15 +363,15 @@ Rectangle {
                         id: syncProgress
                         objectName: "syncProgress"
                         Layout.fillWidth: true
-                        visible: viewModel.progressVisible
-                        indeterminate: viewModel.progressMaximum === 0
+                        visible: root.hasViewModel && viewModel.progressVisible
+                        indeterminate: !root.hasViewModel || viewModel.progressMaximum === 0
                         from: 0
-                        to: Math.max(1, viewModel.progressMaximum)
-                        value: viewModel.progressValue
+                        to: root.hasViewModel ? Math.max(1, viewModel.progressMaximum) : 1
+                        value: root.hasViewModel ? viewModel.progressValue : 0
 
                         background: Rectangle {
                             implicitHeight: 8
-                            color: "#1e1e24" // Dark, matching Theme.bgCard but recessed
+                            color: "#1e1e24"
                             radius: 4
                             border.color: "#33ffffff"
                             border.width: 1
@@ -329,7 +380,6 @@ Rectangle {
                         contentItem: Item {
                             implicitHeight: 8
 
-                            // Determinate Bar
                             Rectangle {
                                 visible: !syncProgress.indeterminate
                                 width: syncProgress.visualPosition * parent.width
@@ -338,14 +388,13 @@ Rectangle {
                                 gradient: Gradient {
                                     orientation: Gradient.Horizontal
                                     GradientStop { position: 0.0; color: Theme.accent }
-                                    GradientStop { position: 1.0; color: "#00f0ff" } // Neon Cyan
+                                    GradientStop { position: 1.0; color: "#00f0ff" }
                                 }
                                 Behavior on width {
                                     NumberAnimation { duration: 300; easing.type: Easing.OutQuart }
                                 }
                             }
 
-                            // Indeterminate Bar
                             Rectangle {
                                 id: indetRect
                                 visible: syncProgress.indeterminate
@@ -408,15 +457,13 @@ Rectangle {
 
                             Text {
                                 objectName: "lblRowSummary"
-                                text: statusList.count + (statusList.count === 1 ? " row" : " rows")
+                                text: statusList.count + (statusList.count === 1 ? " table" : " tables")
                                 color: Theme.muted
                                 font.pixelSize: 11
                             }
 
                             Item { Layout.fillWidth: true }
 
-                            // Client-side filter over already-scanned rows —
-                            // never re-queries the database.
                             RowLayout {
                                 spacing: 6
                                 Image {
@@ -429,9 +476,9 @@ Rectangle {
                                 TextField {
                                     objectName: "txtSearch"
                                     Layout.preferredWidth: 180
-                                    placeholderText: "Search symbol / interval…"
-                                    text: viewModel.searchText
-                                    onTextEdited: viewModel.searchText = text
+                                    placeholderText: "Search symbol / timeframe…"
+                                    text: root.hasViewModel ? viewModel.searchText : ""
+                                    onTextEdited: if (root.hasViewModel) viewModel.searchText = text
                                     color: Theme.textPrimary
                                     font.pixelSize: 11
                                     background: FieldBackground { implicitHeight: 26 }
@@ -453,12 +500,13 @@ Rectangle {
                                 spacing: 6
                                 Repeater {
                                     model: [
-                                        { title: "SYMBOL", weight: 2 },
-                                        { title: "FIRST RECORD", weight: 3 },
-                                        { title: "LAST RECORD", weight: 3 },
-                                        { title: "TOTAL", weight: 2 },
-                                        { title: "STATUS", weight: 3 },
-                                        { title: "ACTION", weight: 2 }
+                                        { title: "SYMBOL", weight: 2.2 },
+                                        { title: "TF", weight: 1.0 },
+                                        { title: "FIRST RECORD", weight: 2.8 },
+                                        { title: "LAST RECORD", weight: 2.8 },
+                                        { title: "TOTAL", weight: 1.8 },
+                                        { title: "STATUS", weight: 2.2 },
+                                        { title: "ACTIONS", weight: 2.6 }
                                     ]
                                     Text {
                                         required property var modelData
@@ -480,7 +528,7 @@ Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
-                            model: viewModel.statusModel
+                            model: root.hasViewModel ? viewModel.statusModel : null
                             spacing: 1
 
                             ScrollBar.vertical: ScrollBar {}
@@ -488,9 +536,9 @@ Rectangle {
                             Text {
                                 anchors.centerIn: parent
                                 visible: statusList.count === 0
-                                text: viewModel.searchText === ""
-                                      ? "No scan results yet — run a status scan."
-                                      : "No rows match “" + viewModel.searchText + "”."
+                                text: !root.hasViewModel || viewModel.searchText === ""
+                                      ? "Đang quét Storage Vault..."
+                                      : "Không tìm thấy dữ liệu khớp với “" + (root.hasViewModel ? viewModel.searchText : "") + "”."
                                 color: Theme.muted
                                 font.pixelSize: 12
                             }
@@ -498,11 +546,12 @@ Rectangle {
                             delegate: Rectangle {
                                 id: statusRow
                                 width: ListView.view.width
-                                height: 34
+                                height: 36
                                 color: index % 2 === 0 ? "transparent" : "#15171d"
 
                                 required property int index
                                 required property string symbol
+                                required property string interval
                                 required property string firstRecord
                                 required property string lastRecord
                                 required property string totalCandles
@@ -519,16 +568,36 @@ Rectangle {
                                         text: statusRow.symbol
                                         color: Theme.textPrimary
                                         font.pixelSize: 11
+                                        font.bold: true
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 2
+                                        Layout.preferredWidth: 2.2
                                         elide: Text.ElideRight
                                     }
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 1.0
+                                        Layout.fillWidth: true
+                                        implicitHeight: 20
+                                        color: "#1a1d29"
+                                        radius: 4
+                                        border.color: Theme.accent
+                                        border.width: 1
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: statusRow.interval || "1m"
+                                            color: Theme.accent
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                        }
+                                    }
+
                                     Text {
                                         text: statusRow.firstRecord
                                         color: Theme.muted
                                         font.pixelSize: 11
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 3
+                                        Layout.preferredWidth: 2.8
                                         elide: Text.ElideRight
                                     }
                                     Text {
@@ -536,7 +605,7 @@ Rectangle {
                                         color: Theme.muted
                                         font.pixelSize: 11
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 3
+                                        Layout.preferredWidth: 2.8
                                         elide: Text.ElideRight
                                     }
                                     Text {
@@ -544,42 +613,75 @@ Rectangle {
                                         color: Theme.textPrimary
                                         font.pixelSize: 11
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 2
+                                        Layout.preferredWidth: 1.8
                                     }
                                     Text {
                                         text: statusRow.statusText
                                         color: statusRow.isHealthy ? Theme.success : Theme.danger
                                         font.pixelSize: 11
+                                        font.bold: true
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 3
+                                        Layout.preferredWidth: 2.2
                                         elide: Text.ElideRight
                                     }
 
-                                    Button {
-                                        id: rowSyncButton
-                                        objectName: "btnRowSync_" + statusRow.symbol
-                                        text: "Sync"
+                                    RowLayout {
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 2
-                                        enabled: viewModel.uiMode === "IDLE"
-                                        onClicked: viewModel.requestSyncRow(statusRow.symbol)
+                                        Layout.preferredWidth: 2.6
+                                        spacing: 4
 
-                                        contentItem: Text {
-                                            text: rowSyncButton.text
-                                            color: Theme.success
-                                            font.pixelSize: 10
-                                            horizontalAlignment: Text.AlignHCenter
-                                            verticalAlignment: Text.AlignVCenter
-                                            opacity: rowSyncButton.enabled ? 1.0 : 0.4
+                                        Button {
+                                            id: rowSyncButton
+                                            objectName: "btnRowSync_" + statusRow.symbol + "_" + (statusRow.interval || "1m")
+                                            text: "Sync"
+                                            Layout.fillWidth: true
+                                            enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                                            onClicked: if (root.hasViewModel) viewModel.requestSyncRow(statusRow.symbol, statusRow.interval || "1m")
+
+                                            contentItem: Text {
+                                                text: rowSyncButton.text
+                                                color: Theme.success
+                                                font.pixelSize: 10
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                opacity: rowSyncButton.enabled ? 1.0 : 0.4
+                                            }
+                                            background: Rectangle {
+                                                implicitHeight: 22
+                                                radius: 4
+                                                color: rowSyncButton.hovered && rowSyncButton.enabled
+                                                       ? "#1f2127" : "#17181d"
+                                                border.color: Theme.success
+                                                border.width: 1
+                                                opacity: rowSyncButton.enabled ? 1.0 : 0.4
+                                            }
                                         }
-                                        background: Rectangle {
-                                            implicitHeight: 22
-                                            radius: 4
-                                            color: rowSyncButton.hovered && rowSyncButton.enabled
-                                                   ? "#1f2127" : "#17181d"
-                                            border.color: Theme.success
-                                            border.width: 1
-                                            opacity: rowSyncButton.enabled ? 1.0 : 0.4
+
+                                        Button {
+                                            id: rowClearButton
+                                            objectName: "btnRowClear_" + statusRow.symbol + "_" + (statusRow.interval || "1m")
+                                            text: "Clear"
+                                            Layout.fillWidth: true
+                                            enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                                            onClicked: if (root.hasViewModel) viewModel.requestClearRow(statusRow.symbol, statusRow.interval || "1m")
+
+                                            contentItem: Text {
+                                                text: rowClearButton.text
+                                                color: Theme.danger
+                                                font.pixelSize: 10
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                opacity: rowClearButton.enabled ? 1.0 : 0.4
+                                            }
+                                            background: Rectangle {
+                                                implicitHeight: 22
+                                                radius: 4
+                                                color: rowClearButton.hovered && rowClearButton.enabled
+                                                       ? "#2a1518" : "#17181d"
+                                                border.color: Theme.danger
+                                                border.width: 1
+                                                opacity: rowClearButton.enabled ? 1.0 : 0.4
+                                            }
                                         }
                                     }
                                 }
@@ -593,7 +695,183 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 190
                     title: "SYNC LOG"
-                    logModel: viewModel.logModel
+                    logModel: root.hasViewModel ? viewModel.logModel : null
+                }
+            }
+        }
+    }
+
+    // ==================================================================
+    // Modals & Confirmation Dialogs
+    // ==================================================================
+
+    SymbolPickerModal {
+        id: symbolPickerModal
+        objectName: "symbolPickerModal"
+    }
+
+    ModalDialogCard {
+        id: clearConfirmDialog
+        objectName: "clearConfirmDialog"
+        title: "XÁC NHẬN XÓA DỮ LIỆU"
+        subtitle: "Xóa các nến đã lưu trong SQLite shard"
+        iconSource: "image://icons/trash-2/danger"
+        preferredWidth: 420
+        preferredHeight: 220
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 16
+            spacing: 12
+
+            Text {
+                Layout.fillWidth: true
+                text: "Bạn có chắc chắn muốn xóa toàn bộ nến của " + (root.hasViewModel ? (viewModel.selectedSymbol + " (" + viewModel.selectedInterval + ")") : "") + " không?"
+                color: Theme.textPrimary
+                font.pixelSize: 13
+                wrapMode: Text.Wrap
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "Thao tác này sẽ giải phóng dung lượng đĩa và làm trống bảng klines tương ứng."
+                color: Theme.muted
+                font.pixelSize: 11
+                wrapMode: Text.Wrap
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "Hủy bỏ"
+                    onClicked: clearConfirmDialog.close()
+                    background: Rectangle {
+                        implicitHeight: 34
+                        radius: 6
+                        color: "#1c202d"
+                        border.color: Theme.border
+                        border.width: 1
+                    }
+                    contentItem: Text {
+                        text: "Hủy bỏ"
+                        color: Theme.textPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                    }
+                }
+
+                Button {
+                    id: btnConfirmClear
+                    objectName: "btnConfirmClear"
+                    Layout.fillWidth: true
+                    text: "Xác nhận Xóa"
+                    onClicked: {
+                        clearConfirmDialog.close()
+                        viewModel.requestClearData()
+                    }
+                    background: Rectangle {
+                        implicitHeight: 34
+                        radius: 6
+                        color: btnConfirmClear.hovered ? "#e02e2e" : Theme.danger
+                    }
+                    contentItem: Text {
+                        text: btnConfirmClear.text
+                        color: "#ffffff"
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                    }
+                }
+            }
+        }
+    }
+
+    ModalDialogCard {
+        id: purgeConfirmDialog
+        objectName: "purgeConfirmDialog"
+        title: "CẢNH BÁO NGUY HIỂM — PURGE VAULT"
+        subtitle: "Xóa toàn bộ database SQLite"
+        iconSource: "image://icons/alert-triangle/danger"
+        preferredWidth: 460
+        preferredHeight: 240
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 16
+            spacing: 12
+
+            Text {
+                Layout.fillWidth: true
+                text: "CẢNH BÁO NGUY HIỂM: Bạn đang chuẩn bị xóa TOÀN BỘ dữ liệu của tất cả các symbol trong Storage Vault!"
+                color: Theme.danger
+                font.pixelSize: 13
+                font.bold: true
+                wrapMode: Text.Wrap
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "Hành động này sẽ xóa tất cả các file SQLite shard (.db) và không thể hoàn tác."
+                color: Theme.muted
+                font.pixelSize: 11
+                wrapMode: Text.Wrap
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "Hủy bỏ"
+                    onClicked: purgeConfirmDialog.close()
+                    background: Rectangle {
+                        implicitHeight: 34
+                        radius: 6
+                        color: "#1c202d"
+                        border.color: Theme.border
+                        border.width: 1
+                    }
+                    contentItem: Text {
+                        text: "Hủy bỏ"
+                        color: Theme.textPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                    }
+                }
+
+                Button {
+                    id: btnConfirmPurge
+                    objectName: "btnConfirmPurge"
+                    Layout.fillWidth: true
+                    text: "XÓA TOÀN BỘ (PURGE)"
+                    onClicked: {
+                        purgeConfirmDialog.close()
+                        viewModel.requestPurgeAll()
+                    }
+                    background: Rectangle {
+                        implicitHeight: 34
+                        radius: 6
+                        color: btnConfirmPurge.hovered ? "#c01010" : Theme.danger
+                    }
+                    contentItem: Text {
+                        text: btnConfirmPurge.text
+                        color: "#ffffff"
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                    }
                 }
             }
         }
