@@ -22,13 +22,13 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 106 | 65.0% |
-| 🟡 **In Progress** | 4 | 2.5% |
-| 🔴 **Backlog** | 51 | 31.3% |
+| 🟢 **Completed** | 106 | 63.1% |
+| 🟡 **In Progress** | 4 | 2.4% |
+| 🔴 **Backlog** | 56 | 33.3% |
 | ❌ **Cancelled** | 2 | 1.2% |
-| 📈 **Tổng số Task** | **163** | **100%** |
+| 📈 **Tổng số Task** | **168** | **100%** |
 
-> Cập nhật 2026-08-20: Bổ sung Epic `BOT-112` (Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul) cùng 4 task con `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112D`; merge nhánh `feat/compact-triangle-trade-markers` (marker tam giác gọn, CSV export có cột side, 4 task đề xuất `PROP-001`…`PROP-004`). Hoàn thành `BOT-041` (SL/TP + Risk Sizing), `BOT-050` (Short-Selling), `BOT-110` (EMA Trend Confirm + Pullback Strategy), `BOT-111` (Xác thực trực quan & backtest cho chiến lược vàng) — cả 4 bước của Epic `BOT-109`, epic này đã hoàn thành —, `BOT-113` (Tô nền xu hướng cho chiến lược, kèm chiến lược demo `LongTermTrendZoneStrategy`), `BOT-106A` (Sharpe/Sortino/Calmar/Max Drawdown Duration/chuỗi thắng-thua liên tiếp — bước 1/3 của Epic `BOT-106`), và `BOT-114` (Áp dụng đòn bẩy thật vào `PaperExchange` — trước đây chỉ có UI/config, engine không hề đọc).
+> Cập nhật 2026-08-20: Bổ sung Epic `BOT-112` (Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul) cùng 4 task con `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112D`; merge nhánh `feat/compact-triangle-trade-markers` (marker tam giác gọn, CSV export có cột side, 4 task đề xuất `PROP-001`…`PROP-004`). Hoàn thành `BOT-041` (SL/TP + Risk Sizing), `BOT-050` (Short-Selling), `BOT-110` (EMA Trend Confirm + Pullback Strategy), `BOT-111` (Xác thực trực quan & backtest cho chiến lược vàng) — cả 4 bước của Epic `BOT-109`, epic này đã hoàn thành —, `BOT-113` (Tô nền xu hướng cho chiến lược, kèm chiến lược demo `LongTermTrendZoneStrategy`), `BOT-106A` (Sharpe/Sortino/Calmar/Max Drawdown Duration/chuỗi thắng-thua liên tiếp — bước 1/3 của Epic `BOT-106`), và `BOT-114` (Áp dụng đòn bẩy thật vào `PaperExchange` — trước đây chỉ có UI/config, engine không hề đọc). Bổ sung Epic `BOT-115` (Lưu trữ & Nạp lại Báo cáo Backtest) cùng 4 task con `BOT-115A`…`BOT-115D` — hiện app không có bất kỳ cơ chế persist kết quả nào, chạy lại là mất vĩnh viễn; `BOT-095G` chỉ cache trong RAM một phiên.
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
@@ -431,6 +431,11 @@ Sagittarius_Elite_Warrior/Tasks/
 | 🟡 | **[Epic BOT-106](backlog/BOT-106_advanced_financial_analytics_and_reports_epic.md)** | **Báo cáo & Phân tích Chỉ số Tài chính Nâng cao (Sharpe, Sortino, MAE/MFE)** | 🟡 **`M (Standard)`** | `BOT-055` ✅, `BOT-057` ✅ | **1/3 xong (20/08)**: `BOT-106A` ✅ (Sharpe/Sortino/Calmar & Max Drawdown Duration), còn lại `BOT-106B` (MAE/MFE từng trade), `BOT-106C` (Drawdown Underwater Chart & Monthly Returns Heatmap). |
 | **[Epic BOT-107](backlog/BOT-107_strategy_robustness_and_monte_carlo_epic.md)** | **Kiểm định Độ tin cậy Chiến lược & Mô phỏng Monte Carlo (Anti-Overfitting)** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-078` ✅ | Phân tách In-Sample / Out-of-Sample đối sánh mù (`BOT-107A`), mô phỏng ngẫu nhiên 10,000 kịch bản Monte Carlo đánh giá xác suất phá sản (Risk of Ruin %) (`BOT-107B`). |
 | **[Epic BOT-108](backlog/BOT-108_strategy_parameter_optimization_epic.md)** | **Tối ưu hóa Tham số Chiến lược Tự động (Grid Search & Heatmap)** | 🔴 **`L (Thinking)`** | `BOT-044` ✅, `BOT-095C` ✅ | Quét lưới tham số đa tiến trình ProcessPool (`BOT-108A`), bảng xếp hạng Leaderboard + Bản đồ nhiệt tham số 2D tìm vùng bình nguyên ổn định (`BOT-108B`). |
+| **[Epic BOT-115](backlog/BOT-115_backtest_report_persistence_epic.md)** | **Lưu trữ & Nạp lại Báo cáo Backtest (Report Persistence & Portability)** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-095B` | Xuất một lần chạy ra file `.sagi-report.json` độc lập (kết quả + cấu hình + provenance), nạp lại sau nhiều ngày trên máy khác mà không chạy lại engine, và so sánh 2 báo cáo cạnh nhau. JSON có `schema_version`, **không bao giờ `pickle`** (file report là input không tin cậy). |
+| **[BOT-115A](backlog/BOT-115A_backtest_report_schema_and_serializer.md)** | **Schema `BacktestReport` & Serializer JSON** | 🟡 **`M (Standard)`** | `BOT-021` ✅, `BOT-104` ✅ | Thuần domain, zero UI: dataclass + `to_json`/`from_json` + provenance + validate nghiêm ngặt (whitelist `strategy_key`/enum, tính lại metrics để phát hiện file bị sửa tay). Equity curve lưu dạng cột cho gọn. |
+| **[BOT-115B](backlog/BOT-115B_backtest_report_export_ui.md)** | **Xuất báo cáo từ màn Backtest** | 🟢 **`S (Fast)`** | `BOT-115A` | Nút "Lưu báo cáo" + `QFileDialog` theo đúng khuôn `_on_trade_log_export_requested()` đã có, thư mục `reports/` mặc định. Ghi config của **lần chạy đã sinh ra kết quả**, không phải toolbar đang gõ dở. |
+| **[BOT-115C](backlog/BOT-115C_backtest_report_import_and_readonly_state.md)** | **Nạp báo cáo & Chế độ xem chỉ đọc** | 🔴 **`L (Thinking)`** | `BOT-115A`, `BOT-095B` | State `VIEWING_IMPORTED_REPORT` để dirty-tracking của `BOT-095B` không bắn banner vô nghĩa; badge cảnh báo khi provenance lệch; thiếu nến trong vault thì hạ cấp có giải thích + nút sync (`BOT-059`) thay vì chart rỗng. |
+| **[BOT-115D](backlog/BOT-115D_backtest_report_side_by_side_comparison.md)** | **So sánh 2 báo cáo cạnh nhau** | 🟡 **`M (Standard)`** | `BOT-115C` | Modal 2 cột: diff cấu hình (tái dùng `compute_diff_summary()`), metrics side-by-side có tô màu đúng chiều (`max_drawdown` nhỏ hơn là tốt hơn), 2 đường vốn chồng nhau đã chuẩn hoá cùng mốc. |
 
 **Nhóm F — Quản trị Cơ sở Dữ liệu & Kho Dữ liệu Thị trường Nâng cao (Market Data Hub & Storage Vault)**
 
