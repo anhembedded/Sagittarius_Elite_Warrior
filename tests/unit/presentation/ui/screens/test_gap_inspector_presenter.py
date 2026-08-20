@@ -168,3 +168,18 @@ def test_run_repair_gap_dispatches_command(presenter, view_model, mock_dispatche
         for call in mock_dispatcher.dispatch.call_args_list
     )
     assert presenter.fsm.current_state == UIMode.IDLE
+
+
+def test_database_screen_loads_gap_inspector_modal_with_zero_qml_errors(
+    presenter,
+):
+    """
+    Regression test ensuring GapInspectorModal.qml and DatabaseScreen.qml
+    load cleanly without any missing module imports.
+    """
+    view = presenter._view
+    assert view.errors() == []
+    root_obj = view.rootObject()
+    assert root_obj is not None
+    gap_modal = root_obj.findChild(object, "gapInspectorModal")
+    assert gap_modal is not None
