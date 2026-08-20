@@ -631,26 +631,29 @@ class PaperExchange:
         triggered: list[tuple[_OpenPosition, float, ExitReason]] = []
         still_open: list[_OpenPosition] = []
         for pos in self._positions:
-            if pos.side is PositionSide.LONG:
-                stop_hit = (
-                    pos.stop_loss_price is not None and low <= pos.stop_loss_price
-                )
-                target_hit = (
-                    pos.take_profit_price is not None and high >= pos.take_profit_price
-                )
-            else:
-                stop_hit = (
-                    pos.stop_loss_price is not None and high >= pos.stop_loss_price
-                )
-                target_hit = (
-                    pos.take_profit_price is not None and low <= pos.take_profit_price
-                )
-            if stop_hit:
-                triggered.append((pos, pos.stop_loss_price, ExitReason.STOP_LOSS))
-            elif target_hit:
-                triggered.append((pos, pos.take_profit_price, ExitReason.TAKE_PROFIT))
-            else:
+            # BOT-081: Optimization - avoid attribute lookups and side checks
+            # if the position has no SL/TP (the default).
+            sl = pos.stop_loss_price
+            tp = pos.take_profit_price
+
+            if sl is None and tp is None:
                 still_open.append(pos)
+                continue
+
+            if pos.side is PositionSide.LONG:
+                if sl is not None and low <= sl:
+                    triggered.append((pos, sl, ExitReason.STOP_LOSS))
+                elif tp is not None and high >= tp:
+                    triggered.append((pos, tp, ExitReason.TAKE_PROFIT))
+                else:
+                    still_open.append(pos)
+            else:
+                if sl is not None and high >= sl:
+                    triggered.append((pos, sl, ExitReason.STOP_LOSS))
+                elif tp is not None and low <= tp:
+                    triggered.append((pos, tp, ExitReason.TAKE_PROFIT))
+                else:
+                    still_open.append(pos)
 
         if not triggered:
             return []

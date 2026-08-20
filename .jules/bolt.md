@@ -40,3 +40,7 @@
 ## 2024-12-06 - Avoid setdefault with complex default factories in tight loops
 **Learning:** Using `series.setdefault("line1", ([], []))` in a high-frequency tick simulation (like `ActiveScript.record()`) forces the Python interpreter to instantiate the default tuple and two empty lists *on every single tick*, generating millions of garbage collection objects.
 **Action:** Prefer `if key not in dict: dict[key] = ([], [])` or a `try/except KeyError` block instead of `setdefault` when the default value involves object instantiation. This eliminates memory allocation overhead.
+
+## 2024-12-07 - Avoid redundant attribute lookups and side checks in PaperExchange intrabar stops
+**Learning:** In the extremely hot backtesting inner loop (`PaperExchange.check_intrabar_stops`), reading object properties (like `pos.stop_loss_price`) and doing conditional assignments for every bar, on every position, even when the properties are `None` (which is the default) creates significant overhead.
+**Action:** When iterating over objects in hot paths, extract properties to local variables and use early exits (`continue`) if the properties are their default/inactive values. This prevents the interpreter from doing pointless object lookups and side-specific logic evaluation.
