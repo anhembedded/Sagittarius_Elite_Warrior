@@ -666,12 +666,37 @@ Rectangle {
                                     RowLayout {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 2.6
-                                        spacing: 4
+                                                        Button {
+                                            id: rowInspectKlinesButton
+                                            objectName: "btnRowInspectKlines_" + statusRow.symbol + "_" + (statusRow.interval || "1m")
+                                            text: "KLines"
+                                            Layout.fillWidth: true
+                                            enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
+                                            onClicked: if (root.hasViewModel) viewModel.requestInspectKlines(statusRow.symbol, statusRow.interval || "1m")
+
+                                            contentItem: Text {
+                                                text: rowInspectKlinesButton.text
+                                                color: Theme.accent
+                                                font.pixelSize: 10
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                opacity: rowInspectKlinesButton.enabled ? 1.0 : 0.4
+                                            }
+                                            background: Rectangle {
+                                                implicitHeight: 22
+                                                radius: 4
+                                                color: rowInspectKlinesButton.hovered && rowInspectKlinesButton.enabled
+                                                       ? "#1f2a3a" : "#131822"
+                                                border.color: Theme.accent
+                                                border.width: 1
+                                                opacity: rowInspectKlinesButton.enabled ? 1.0 : 0.4
+                                            }
+                                        }
 
                                         Button {
                                             id: rowInspectButton
                                             objectName: "btnRowInspect_" + statusRow.symbol + "_" + (statusRow.interval || "1m")
-                                            text: "Inspect"
+                                            text: "Gaps"
                                             visible: !statusRow.isHealthy
                                             Layout.fillWidth: true
                                             enabled: root.hasViewModel && viewModel.uiMode === "IDLE"
@@ -743,7 +768,7 @@ Rectangle {
                                                 implicitHeight: 22
                                                 radius: 4
                                                 color: rowClearButton.hovered && rowClearButton.enabled
-                                                       ? "#2a1518" : "#17181d"
+                                                       ? "#2b1414" : "#191212"
                                                 border.color: Theme.danger
                                                 border.width: 1
                                                 opacity: rowClearButton.enabled ? 1.0 : 0.4
@@ -781,10 +806,18 @@ Rectangle {
         objectName: "gapInspectorModal"
     }
 
+    KLineInspectorModal {
+        id: klineInspectorModal
+        objectName: "klineInspectorModal"
+    }
+
     Connections {
         target: root.hasViewModel ? viewModel : null
         function onOpenGapInspectorRequested() {
             gapInspectorModal.open()
+        }
+        function onOpenKlineInspectorRequested() {
+            klineInspectorModal.open()
         }
     }
 

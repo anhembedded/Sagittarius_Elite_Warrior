@@ -1,6 +1,6 @@
 # Epic EPIC-001 — Đối chiếu `EmaTrendPullbackStrategy` với TradingView thật
 
-**Trạng thái:** 🔴 Mới tạo, chưa bắt đầu.
+**Trạng thái:** 🟡 Đang làm — `EPIC-001A` xong (20/08), tiếp theo `EPIC-001B`.
 **Bối cảnh:** `EmaTrendPullbackStrategy` (`BOT-110`) là bản port 1:1 từ Pine
 Script v6 của Epic `BOT-109` (Chuẩn Tham Chiếu Vàng). Có 2 lớp kiểm tra khác
 nhau cho câu hỏi "chart/kết quả hiển thị có đúng là cái strategy thật sự đã
@@ -45,5 +45,5 @@ lệch không có nghĩa là bug — chỉ là 2 bên chưa cùng cấu hình)
 
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
-| **[EPIC-001A](incomplete/EPIC-001A_align_broker_simulator_config_for_comparison.md)** | Chuẩn hoá Broker Simulator config cho phép so sánh công bằng | 🔴 Chưa làm |
+| **[EPIC-001A](completed/EPIC-001A_align_broker_simulator_config_for_comparison.md)** | Chuẩn hoá Broker Simulator config cho phép so sánh công bằng | ✅ Xong (20/08) — tìm ra và vá luôn gap thật: TP% chưa từng có ô nhập UI |
 | **[EPIC-001B](incomplete/EPIC-001B_run_and_diff_tradingview_vs_app_trade_lists.md)** | Chạy song song 2 bên, đối chiếu trade-by-trade, ghi kết quả | 🔴 Chưa làm |

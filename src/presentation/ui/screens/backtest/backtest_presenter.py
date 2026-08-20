@@ -1924,6 +1924,10 @@ class BackTestPresenter(BasePresenter):
             self._view_model.longLeverage = float(props["long_leverage"])
         if "short_leverage" in props:
             self._view_model.shortLeverage = float(props["short_leverage"])
+        if "take_profit_enabled" in props:
+            self._view_model.takeProfitPctEnabled = bool(props["take_profit_enabled"])
+        if "take_profit_pct_text" in props:
+            self._view_model.takeProfitPctText = str(props["take_profit_pct_text"])
 
         self._view_model.set_bot_params_error("")
         self._refresh_bot_params_schema()
@@ -2238,6 +2242,15 @@ class BackTestPresenter(BasePresenter):
         except ValueError:
             commission_type = CommissionType.PERCENT
 
+        take_profit_pct: float | None = None
+        if view_model.takeProfitPctEnabled:
+            try:
+                parsed_take_profit_pct = float(view_model.takeProfitPctText)
+            except ValueError:
+                parsed_take_profit_pct = 0.0
+            if parsed_take_profit_pct > 0:
+                take_profit_pct = parsed_take_profit_pct
+
         broker_config = BrokerSimulationConfig(
             pyramiding=view_model.pyramiding,
             slippage_ticks=view_model.slippageTicks,
@@ -2245,6 +2258,7 @@ class BackTestPresenter(BasePresenter):
             commission_value=view_model.commissionValue,
             long_leverage=view_model.longLeverage,
             short_leverage=view_model.shortLeverage,
+            take_profit_pct=take_profit_pct,
         )
 
         return BacktestRunConfig(
@@ -2569,31 +2583,46 @@ class BackTestPresenter(BasePresenter):
         them for this screen). A failure here must not undo the
         already-reported BacktestResult; it only leaves the chart empty.
         """
-        try:
-            query = GetHistoricalKlinesQuery(
-                symbol=self._symbol,
-                interval=config.timeframe.value,
-                limit=self._chart_klines_fetch_limit,
-                start_time=config.start_time,
-                end_time=config.end_time,
-                # Descending + reversed below (mirrors dashboard_presenter's
-                # own _run_load_history) so a range with more than
-                # the fetch limit keeps the MOST RECENT ones —
-                # ascending order would silently cap at the OLDEST instead.
-                order_by_desc=True,
-            )
+        if result.committed_bars:
+            # A Realtime run built its own bars by aggregating ticks, so the
+            # exchange's published candles for this interval are a DIFFERENT
+            # series — complete where these have gaps (`tick_gap_forced_commit`)
+            # — and may not exist in storage at all, since a Realtime run only
+            # ever syncs/coverage-checks `tick_resolution`, never `timeframe`.
+            # Drawing published candles beneath markers derived from these
+            # would show a chart disagreeing with the decisions actually made.
+            raw_klines = list(result.committed_bars)
             self._log_dev_trace(
-                "chart_query_dispatch",
-                symbol=self._symbol,
+                "chart_source_committed_bars",
                 timeframe=config.timeframe.value,
-                limit=self._chart_klines_fetch_limit,
+                bars=len(raw_klines),
             )
-            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            raw_klines = list(reversed(getattr(response, "data", response) or []))
-        except Exception as exc:
-            logger.exception("Fetching chart klines failed")
-            self._log_dev_trace("chart_query_failed", message=str(exc))
-            return
+        else:
+            try:
+                query = GetHistoricalKlinesQuery(
+                    symbol=self._symbol,
+                    interval=config.timeframe.value,
+                    limit=self._chart_klines_fetch_limit,
+                    start_time=config.start_time,
+                    end_time=config.end_time,
+                    # Descending + reversed below (mirrors dashboard_presenter's
+                    # own _run_load_history) so a range with more than
+                    # the fetch limit keeps the MOST RECENT ones —
+                    # ascending order would silently cap at the OLDEST instead.
+                    order_by_desc=True,
+                )
+                self._log_dev_trace(
+                    "chart_query_dispatch",
+                    symbol=self._symbol,
+                    timeframe=config.timeframe.value,
+                    limit=self._chart_klines_fetch_limit,
+                )
+                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+                raw_klines = list(reversed(getattr(response, "data", response) or []))
+            except Exception as exc:
+                logger.exception("Fetching chart klines failed")
+                self._log_dev_trace("chart_query_failed", message=str(exc))
+                return
 
         if not raw_klines:
             self._log_dev_trace("chart_query_empty")

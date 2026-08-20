@@ -137,9 +137,12 @@ tempCodeRunnerFile.py
 .ruff_cache/
 
 # Custom Database for Sagittarius_Elite_Warrior
+database/
 /database/
 *.db
-.venv_alias/
+*.db-shm
+*.db-wal
+Sagittarius_Elite_Warrior/
 
 # Dev-mode session logs (app_bootstrapper --dev)
 logs/

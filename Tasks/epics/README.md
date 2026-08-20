@@ -38,4 +38,4 @@ Tasks/epics/
 
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
-| **[EPIC-001](EPIC-001_ema_trend_pullback_tradingview_cross_reference/README.md)** | Đối chiếu `EmaTrendPullbackStrategy` với TradingView thật | 🔴 Mới tạo |
+| **[EPIC-001](EPIC-001_ema_trend_pullback_tradingview_cross_reference/README.md)** | Đối chiếu `EmaTrendPullbackStrategy` với TradingView thật | 🟡 Đang làm (1/2 task con xong) |

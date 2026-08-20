@@ -11,6 +11,7 @@ from .database_status_table_model import (
     DatabaseStatusFilterProxy,
     DatabaseStatusTableModel,
 )
+from .kline_inspector_table_model import KLineInspectorTableModel
 
 _DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
 _SUPPORTED_INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"]
@@ -40,6 +41,10 @@ class DataManagementViewModel(BaseQmlViewModel):
     coverageSegmentsChanged = Signal()
     openGapInspectorRequested = Signal()
 
+    klineInspectorChanged = Signal()
+    openKlineInspectorRequested = Signal()
+    auditResultChanged = Signal()
+
     # --- Requests the Presenter acts on -------------------------------- #
     checkStatusRequested = Signal()
     checkAllStatusRequested = Signal()
@@ -58,6 +63,10 @@ class DataManagementViewModel(BaseQmlViewModel):
     repairGapRequested = Signal(str, str, str, str)
     #: symbol and interval for Repair All Gaps.
     repairAllGapsRequested = Signal(str, str)
+    #: symbol and interval for Inspect KLines.
+    inspectKlinesRequested = Signal(str, str)
+    #: symbol and interval for Run Data Integrity Audit.
+    runAuditRequested = Signal(str, str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -90,6 +99,16 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._gap_list: list[dict] = []
         self._coverage_segments: list[dict] = []
 
+        # KLine Inspector & Audit State (BOT-112B)
+        self._kline_inspector_model = KLineInspectorTableModel(self, page_size=100)
+        self._kline_inspector_symbol = ""
+        self._kline_inspector_interval = "1m"
+        self._audit_running = False
+        self._audit_passed = True
+        self._audit_anomaly_count = 0
+        self._audit_summary_text = ""
+        self._audit_anomalies: list[dict] = []
+
     # ------------------------------------------------------------------ #
     # Models
     # ------------------------------------------------------------------ #
@@ -102,6 +121,10 @@ class DataManagementViewModel(BaseQmlViewModel):
     @Property(QObject, constant=True)
     def logModel(self) -> QObject:
         return self._log_model
+
+    @Property(QObject, constant=True)
+    def klineInspectorModel(self) -> QObject:
+        return self._kline_inspector_model
 
     # ------------------------------------------------------------------ #
     # Selection (Symbol & Timeframe)
@@ -377,6 +400,113 @@ class DataManagementViewModel(BaseQmlViewModel):
         self.openGapInspectorRequested.emit()
 
     # ------------------------------------------------------------------ #
+    # KLine Inspector & Audit Properties (BOT-112B)
+    # ------------------------------------------------------------------ #
+
+    @Property(str, notify=klineInspectorChanged)
+    def klineInspectorSymbol(self) -> str:
+        return self._kline_inspector_symbol
+
+    @Property(str, notify=klineInspectorChanged)
+    def klineInspectorInterval(self) -> str:
+        return self._kline_inspector_interval
+
+    @Property(int, notify=klineInspectorChanged)
+    def klineInspectorTotalRecords(self) -> int:
+        return self._kline_inspector_model.total_records
+
+    @Property(int, notify=klineInspectorChanged)
+    def klineInspectorCurrentPage(self) -> int:
+        return self._kline_inspector_model.current_page
+
+    @Property(int, notify=klineInspectorChanged)
+    def klineInspectorTotalPages(self) -> int:
+        return self._kline_inspector_model.total_pages
+
+    @Property(int, notify=klineInspectorChanged)
+    def klineInspectorPageSize(self) -> int:
+        return self._kline_inspector_model.page_size
+
+    @Property(bool, notify=auditResultChanged)
+    def auditRunning(self) -> bool:
+        return self._audit_running
+
+    @Property(bool, notify=auditResultChanged)
+    def auditPassed(self) -> bool:
+        return self._audit_passed
+
+    @Property(int, notify=auditResultChanged)
+    def auditAnomalyCount(self) -> int:
+        return self._audit_anomaly_count
+
+    @Property(str, notify=auditResultChanged)
+    def auditSummaryText(self) -> str:
+        return self._audit_summary_text
+
+    @Property("QVariantList", notify=auditResultChanged)
+    def auditAnomalies(self) -> list[dict]:
+        return self._audit_anomalies
+
+    @Slot(str, str)
+    def requestInspectKlines(self, symbol: str, interval: str = "1m") -> None:
+        self.inspectKlinesRequested.emit(symbol, interval)
+
+    @Slot(str, str)
+    def requestRunAudit(self, symbol: str, interval: str = "1m") -> None:
+        self._audit_running = True
+        self.auditResultChanged.emit()
+        self.runAuditRequested.emit(symbol, interval)
+
+    @Slot(int)
+    def requestKlinePage(self, page: int) -> None:
+        self._kline_inspector_model.set_page(page)
+        self.klineInspectorChanged.emit()
+
+    @Slot(int)
+    def requestKlinePageSize(self, page_size: int) -> None:
+        self._kline_inspector_model.set_page_size(page_size)
+        self.klineInspectorChanged.emit()
+
+    @Slot(str, result=bool)
+    def requestKlineJumpToDate(self, date_query: str) -> bool:
+        found = self._kline_inspector_model.jump_to_date(date_query)
+        if found:
+            self.klineInspectorChanged.emit()
+        return found
+
+    @Slot(str, str, list)
+    def set_kline_inspector_data(
+        self,
+        symbol: str,
+        interval: str,
+        klines: list,
+    ) -> None:
+        self._kline_inspector_symbol = symbol
+        self._kline_inspector_interval = interval
+        self._kline_inspector_model.set_klines(klines)
+        self._audit_running = False
+        self._audit_summary_text = ""
+        self._audit_anomalies = []
+        self.klineInspectorChanged.emit()
+        self.auditResultChanged.emit()
+        self.openKlineInspectorRequested.emit()
+
+    @Slot(bool, int, str, list)
+    def set_audit_result(
+        self,
+        is_clean: bool,
+        anomaly_count: int,
+        summary: str,
+        anomalies: list[dict],
+    ) -> None:
+        self._audit_running = False
+        self._audit_passed = is_clean
+        self._audit_anomaly_count = anomaly_count
+        self._audit_summary_text = summary
+        self._audit_anomalies = list(anomalies)
+        self.auditResultChanged.emit()
+
+    # ------------------------------------------------------------------ #
     # Python-side accessors
     # ------------------------------------------------------------------ #
 
@@ -387,3 +517,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     @property
     def log_model(self) -> LogListModel:
         return self._log_model
+
+    @property
+    def kline_inspector_model(self) -> KLineInspectorTableModel:
+        return self._kline_inspector_model

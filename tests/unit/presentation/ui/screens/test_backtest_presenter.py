@@ -2356,6 +2356,62 @@ def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
     assert spans[1][2] == BULL_COLOR
 
 
+def test_realtime_run_draws_its_own_committed_bars_not_a_fresh_kline_query(
+    presenter, view_model, mock_dispatcher
+):
+    """BUG-021: a Realtime run only ever syncs/coverage-checks
+    `tick_resolution` (1s), never `config.timeframe` — so querying the
+    exchange's published candles for the timeframe returned 0 rows and the
+    chart came up blank after every tick-based run. It must instead draw the
+    bars the run's own engine aggregated from the ticks it actually had
+    (`BacktestResult.committed_bars`), which is also the only truthful
+    source: those bars carry the tick gaps the published candles don't, so
+    markers derived from them would otherwise sit above candles that
+    disagree with the decisions actually made.
+
+    The dispatch stub deliberately answers GetHistoricalKlinesQuery with []
+    to reproduce the real "no candles stored for this timeframe" condition.
+    """
+    committed = _make_klines(count=4)
+    result = _make_result(with_trades=True)
+    result = replace(result, committed_bars=committed)
+    config = _lock_and_get_config(presenter, view_model)
+    config = replace(config, execution_mode=BacktestExecutionMode.HISTORICAL_TICK)
+    card = presenter.view.chart_cards[0]
+    card.render_historical_data = Mock()
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        result, klines=[], realtime=True
+    )
+
+    presenter._run_backtest(config)
+
+    card.render_historical_data.assert_called_once()
+    drawn = card.render_historical_data.call_args.args[0]
+    assert len(drawn) == len(committed)
+
+
+def test_static_run_still_queries_klines_when_no_committed_bars(
+    presenter, view_model, mock_dispatcher
+):
+    """The BUG-021 fix must stay scoped to engines that build their own bars.
+    Static reads its bars straight from storage and reports
+    `committed_bars=None`, so it must keep querying — otherwise it would
+    silently render an empty chart."""
+    config = _lock_and_get_config(presenter, view_model)
+    card = presenter.view.chart_cards[0]
+    card.render_historical_data = Mock()
+    result = _make_result(with_trades=True)
+    assert result.committed_bars is None
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        result, klines=_make_klines(count=3)
+    )
+
+    presenter._run_backtest(config)
+
+    card.render_historical_data.assert_called_once()
+    assert len(card.render_historical_data.call_args.args[0]) == 3
+
+
 def test_strategy_with_no_trend_zone_override_draws_no_zones(
     presenter, view_model, mock_dispatcher
 ):
@@ -3726,3 +3782,53 @@ def test_strategy_properties_save_applies_leverage_to_the_view_model(
 
     assert view_model.longLeverage == 5.0
     assert view_model.shortLeverage == 3.0
+
+
+def test_strategy_properties_save_applies_take_profit_pct_to_the_view_model(
+    presenter, view_model
+):
+    """EPIC-001A: `BrokerSimulationConfig.take_profit_pct` had no UI path at
+    all before this — only ever set directly in tests — so a strategy's own
+    `take_profit_percent` input never actually triggered a take-profit exit
+    in the real app. StrategyPropertiesModal.qml's new checkbox + text field
+    save through the same "properties" payload path as leverage."""
+    presenter._on_strategy_properties_save_requested(
+        {
+            "properties": {
+                "take_profit_enabled": True,
+                "take_profit_pct_text": "2.0",
+            }
+        }
+    )
+
+    assert view_model.takeProfitPctEnabled is True
+    assert view_model.takeProfitPctText == "2.0"
+
+
+def test_build_run_config_sets_take_profit_pct_only_when_enabled(presenter, view_model):
+    """`_build_run_config()` must thread the enabled+parsed value into
+    `BrokerSimulationConfig.take_profit_pct` — and must leave it `None`
+    (BOT-041's own untouched default) when the checkbox is off, even if the
+    text field still holds a leftover value from a previous toggle."""
+    view_model.takeProfitPctEnabled = True
+    view_model.takeProfitPctText = "3.5"
+    config = presenter._build_run_config()
+    assert config is not None
+    assert config.broker_config.take_profit_pct == 3.5
+
+    view_model.takeProfitPctEnabled = False
+    config = presenter._build_run_config()
+    assert config is not None
+    assert config.broker_config.take_profit_pct is None
+
+
+def test_build_run_config_ignores_malformed_take_profit_pct_text(presenter, view_model):
+    """A stray non-numeric or zero/negative value in the text field must not
+    crash `_build_run_config()` (`BrokerSimulationConfig` itself raises for
+    `take_profit_pct <= 0`) — falls back to disabled, matching the lenient
+    fallback this function already uses for `order_size_type`/`commission_type`."""
+    view_model.takeProfitPctEnabled = True
+    view_model.takeProfitPctText = "not-a-number"
+    config = presenter._build_run_config()
+    assert config is not None
+    assert config.broker_config.take_profit_pct is None

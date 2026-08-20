@@ -98,6 +98,8 @@ def test_view_model_broker_properties_defaults_and_mutation():
     assert vm.slippageTicks == 0
     assert vm.longLeverage == 1.0
     assert vm.shortLeverage == 1.0
+    assert vm.takeProfitPctEnabled is False
+    assert vm.takeProfitPctText == "2.0"
 
     # Test property setters
     vm.orderSizeType = "fixed_cash"
@@ -121,6 +123,12 @@ def test_view_model_broker_properties_defaults_and_mutation():
 
     vm.longLeverage = 10.0
     assert vm.longLeverage == 10.0
+
+    vm.takeProfitPctEnabled = True
+    assert vm.takeProfitPctEnabled is True
+
+    vm.takeProfitPctText = "4.0"
+    assert vm.takeProfitPctText == "4.0"
 
 
 def test_presenter_strategy_properties_save_updates_config_and_runs(
@@ -149,6 +157,8 @@ def test_presenter_strategy_properties_save_updates_config_and_runs(
             "commission_type": "percent",
             "commission_text": "0.05",
             "slippage_ticks": 2,
+            "take_profit_enabled": True,
+            "take_profit_pct_text": "2.5",
         },
     }
 
@@ -164,6 +174,8 @@ def test_presenter_strategy_properties_save_updates_config_and_runs(
     assert vm.commissionType == "percent"
     assert vm.commissionValue == 0.05
     assert vm.slippageTicks == 2
+    assert vm.takeProfitPctEnabled is True
+    assert vm.takeProfitPctText == "2.5"
 
     # Check that BacktestRunConfig built by presenter contains all broker settings
     run_config = modal_presenter._build_run_config()
@@ -176,6 +188,7 @@ def test_presenter_strategy_properties_save_updates_config_and_runs(
     assert run_config.broker_config.slippage_ticks == 2
     assert run_config.broker_config.commission_type == CommissionType.PERCENT
     assert run_config.broker_config.commission_value == 0.05
+    assert run_config.broker_config.take_profit_pct == 2.5
 
 
 def test_strategy_properties_modal_qml_content_and_controls(
@@ -211,3 +224,15 @@ def test_strategy_properties_modal_qml_content_and_controls(
     prop_slippage = overlay_root.findChild(object, "propSlippageTicks")
     assert prop_slippage is not None
     assert prop_slippage.property("value") == 0
+
+    # EPIC-001A: BrokerSimulationConfig.take_profit_pct had no UI control at
+    # all before this — proves the real QML actually renders both new
+    # controls, not just that the ViewModel/presenter plumbing exists.
+    prop_tp_enabled = overlay_root.findChild(object, "propTakeProfitEnabled")
+    assert prop_tp_enabled is not None
+    assert prop_tp_enabled.property("checked") is False
+
+    prop_tp_pct = overlay_root.findChild(object, "propTakeProfitPct")
+    assert prop_tp_pct is not None
+    assert prop_tp_pct.property("text") == "2.0"
+    assert prop_tp_pct.property("enabled") is False
