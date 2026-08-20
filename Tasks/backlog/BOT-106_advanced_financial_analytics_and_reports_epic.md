@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-106`  
 **Độ phức tạp:** 🟡 **M (Standard Agent)**  
-**Trạng thái:** 🔴 **Backlog**  
+**Trạng thái:** 🟡 **Đang triển khai (1/3 task con xong — 20/08)**  
 **Ưu tiên:** 📈 **P2 — Phân tích Hiệu suất & Đo lường Rủi ro (Performance & Risk Analytics)**  
 **Liên quan:** [`BOT-055`](../completed/BOT-055_backtest_performance_metrics_panel.md), [`BOT-057`](../completed/BOT-057_backtest_trade_logs_table.md), [`BOT-056`](../completed/BOT-056_backtest_chart_canvas.md)
 
@@ -23,6 +23,6 @@ Nâng cấp bảng báo cáo hiệu suất Backtest từ mức 4 chỉ số cơ 
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp | Mô tả tóm tắt |
 | :--- | :--- | :---: | :--- |
-| **`BOT-106A`** | **Sharpe, Sortino, Calmar & Max Drawdown Duration** | 🟡 `M` | Mở rộng `BacktestMetrics` tính toán các chỉ số định lượng theo chuẩn tài chính quốc tế. |
+| ✅ **[`BOT-106A`](../completed/BOT-106A_advanced_metrics_sharpe_sortino_drawdown_duration.md)** | **Sharpe, Sortino, Calmar & Max Drawdown Duration** | 🟡 `M` | **Xong (20/08).** Mở rộng `BacktestMetrics` tính toán các chỉ số định lượng theo chuẩn tài chính quốc tế. |
 | **`BOT-106B`** | **MAE / MFE Trade Excursion Analysis** | 🟡 `M` | Tính toán MAE/MFE cho từng lệnh trong `Trade`, hiển thị trên cột mở rộng Trade Logs. |
 | **`BOT-106C`** | **Drawdown Underwater Chart & Monthly Heatmap View** | 🟡 `M` | Xây dựng 2 QML component trực quan hóa sụt giảm vốn và bảng nhiệt lợi nhuận 12 tháng. |

@@ -204,8 +204,40 @@ def test_extended_cards_cover_every_remaining_metrics_field():
         "Largest Winning Trade",
         "Largest Losing Trade",
         "Total Closed Trades",
+        "Sharpe Ratio",  # BOT-106A
+        "Sortino Ratio",  # BOT-106A
+        "Calmar Ratio",  # BOT-106A
+        "Max Drawdown Duration",  # BOT-106A
+        "Max Consecutive Wins",  # BOT-106A
+        "Max Consecutive Losses",  # BOT-106A
         "Total Fees Paid",  # BOT-079
     }
+
+
+def test_extended_cards_format_the_new_bot_106a_metrics():
+    result = _result(trades=[_trade(50.0)], equity_curve=[(_T0, 1000.0)])
+    result = replace(
+        result,
+        metrics=replace(
+            result.metrics,
+            sharpe_ratio=1.5,
+            sortino_ratio=2.25,
+            calmar_ratio=-0.75,
+            max_drawdown_duration_bars=12,
+            max_consecutive_wins=4,
+            max_consecutive_losses=2,
+        ),
+    )
+
+    cards = {card.title: card for card in build_extended_stat_cards(result)}
+
+    assert cards["Sharpe Ratio"].value == "1.50"
+    assert cards["Sortino Ratio"].value == "2.25"
+    assert cards["Calmar Ratio"].value == "-0.75"
+    assert cards["Max Drawdown Duration"].value == "12"
+    assert cards["Max Drawdown Duration"].suffix == "bars"
+    assert cards["Max Consecutive Wins"].value == "4"
+    assert cards["Max Consecutive Losses"].value == "2"
 
 
 # ---------------------------------------------------------------------------

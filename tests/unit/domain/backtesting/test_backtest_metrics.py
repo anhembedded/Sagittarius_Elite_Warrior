@@ -1,6 +1,9 @@
 """Tests for BacktestMetrics.compute (BOT-021) — known-scenario metric math."""
 
-from datetime import UTC, datetime
+import math
+from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
     BacktestMetrics,
@@ -197,3 +200,154 @@ def test_reproduces_the_bug_002_scenario_fees_explain_almost_all_the_loss():
     assert metrics.total_fees_paid >= abs(metrics.net_profit) * 0.9
     assert metrics.has_high_fee_ratio is True
     assert metrics.has_high_trade_frequency is True  # ~12.5 bars/trade
+
+
+# ---------------------------------------------------------------------------
+# BOT-106A — Sharpe/Sortino/Calmar/Max Drawdown Duration/Consecutive streaks.
+# ---------------------------------------------------------------------------
+
+
+def _daily_curve(equity_values: list[float]) -> list[tuple[datetime, float]]:
+    return [(_T0 + timedelta(days=i), v) for i, v in enumerate(equity_values)]
+
+
+def test_sharpe_and_sortino_are_zero_not_a_float_precision_artifact_when_returns_are_constant():
+    # Every bar compounds by the exact same 1% — mathematically zero
+    # volatility, but statistics.stdev() over these floats lands on the
+    # order of 1e-16, not exactly 0.0 (verified by actually running this
+    # exact case before adding the math.isclose() guard: it produced a
+    # Sharpe of ~3.2e15 instead of 0.0 — a real bug, not a hand-guess).
+    equity_curve = _daily_curve([1000.0, 1010.0, 1020.1, 1030.301])
+
+    metrics = BacktestMetrics.compute([], equity_curve, initial_balance=1000.0)
+
+    assert metrics.sharpe_ratio == 0.0
+    assert metrics.sortino_ratio == 0.0
+
+
+def test_sortino_is_zero_with_no_negative_bars_while_sharpe_still_reflects_volatility():
+    # All 3 per-bar returns are positive but unequal (real volatility) —
+    # Sortino has nothing to measure (no downside bars) and must read 0.0,
+    # while Sharpe (which uses total volatility) must not.
+    equity_curve = _daily_curve([1000.0, 1010.0, 1050.0, 1055.0])
+
+    metrics = BacktestMetrics.compute([], equity_curve, initial_balance=1000.0)
+
+    assert metrics.sortino_ratio == 0.0
+    assert metrics.sharpe_ratio == pytest.approx(18.43457869358698, rel=1e-9)
+
+
+def test_sharpe_and_sortino_are_zero_with_fewer_than_2_bar_returns():
+    assert (
+        BacktestMetrics.compute(
+            [], [(_T0, 1000.0)], initial_balance=1000.0
+        ).sharpe_ratio
+        == 0.0
+    )
+    assert BacktestMetrics.compute([], [], initial_balance=1000.0).sortino_ratio == 0.0
+
+
+def test_max_drawdown_duration_bars_counts_bars_strictly_below_the_running_peak():
+    # Peak 1000 at bar[0]; bar[1]/bar[2] sit below it (2-bar drawdown);
+    # bar[3] recovers back to the peak (resets to 0); bar[4] sets a new
+    # peak. Longest stretch strictly below a peak is 2 bars, not 4.
+    equity_curve = _daily_curve([1000.0, 900.0, 950.0, 1000.0, 1050.0])
+
+    metrics = BacktestMetrics.compute([], equity_curve, initial_balance=1000.0)
+
+    assert metrics.max_drawdown_duration_bars == 2
+
+
+def test_max_drawdown_duration_bars_counts_through_the_end_when_never_recovered():
+    equity_curve = _daily_curve([1000.0, 900.0, 850.0, 875.0])
+
+    metrics = BacktestMetrics.compute([], equity_curve, initial_balance=1000.0)
+
+    assert metrics.max_drawdown_duration_bars == 3
+
+
+def test_calmar_ratio_matches_hand_calculated_cagr_over_max_drawdown():
+    # Exactly 1 year (365.25 days) start-to-end: 1000 -> dip to 900 (10%
+    # drawdown, the only drawdown in the series) -> 1200 (CAGR = +20%
+    # over exactly 1 year). Calmar = 20 / 10 = 2.0 exactly.
+    equity_curve = [
+        (_T0, 1000.0),
+        (_T0 + timedelta(days=182.625), 900.0),
+        (_T0 + timedelta(days=365.25), 1200.0),
+    ]
+
+    metrics = BacktestMetrics.compute([], equity_curve, initial_balance=1000.0)
+
+    assert metrics.max_drawdown_percent == 10.0
+    assert metrics.calmar_ratio == pytest.approx(2.0, rel=1e-9)
+
+
+def test_calmar_ratio_is_zero_with_no_real_drawdown_to_divide_by():
+    equity_curve = _daily_curve([1000.0, 1050.0, 1100.0])  # monotonic, no dip
+
+    metrics = BacktestMetrics.compute([], equity_curve, initial_balance=1000.0)
+
+    assert metrics.max_drawdown_percent == 0.0
+    assert metrics.calmar_ratio == 0.0
+
+
+def test_max_consecutive_wins_and_losses_track_separate_streaks_and_reset_on_breakeven():
+    trades = [
+        _trade(10.0),  # win streak 1
+        _trade(-5.0),  # loss streak 1
+        _trade(20.0),  # win streak 1
+        _trade(30.0),  # win streak 2 <- longest win streak
+        _trade(-1.0),  # loss streak 1
+        _trade(-2.0),  # loss streak 2
+        _trade(-3.0),  # loss streak 3 <- longest loss streak
+        _trade(15.0),  # win streak 1
+        _trade(0.0),  # breakeven — ends both streaks
+        _trade(5.0),  # win streak 1 (restarted after the breakeven)
+        _trade(5.0),  # win streak 2
+    ]
+
+    metrics = BacktestMetrics.compute(
+        trades, [(_T0, 1000.0)] * len(trades), initial_balance=1000.0
+    )
+
+    assert metrics.max_consecutive_wins == 2
+    assert metrics.max_consecutive_losses == 3
+
+
+def test_no_trades_still_computes_equity_curve_driven_metrics_not_hardcoded_zero():
+    # BOT-106A: Sharpe/Sortino/Calmar/max-drawdown-duration are driven by
+    # the equity curve, not by trades — a strategy that opened zero trades
+    # but held cash through a real drawdown-and-recover still gets a real
+    # (non-fake-zero) reading for these, same as max_drawdown_percent
+    # already did before this task.
+    equity_curve = _daily_curve([1000.0, 900.0, 950.0, 1000.0, 1050.0])
+
+    metrics = BacktestMetrics.compute([], equity_curve, initial_balance=1000.0)
+
+    assert metrics.max_drawdown_duration_bars == 2
+    assert metrics.max_consecutive_wins == 0
+    assert metrics.max_consecutive_losses == 0
+
+
+@pytest.mark.parametrize(
+    "trades,equity_curve",
+    [
+        ([], []),
+        ([], [(_T0, 1000.0)]),
+        ([_trade(10.0)], [(_T0, 1000.0), (_T0, 1000.0)]),
+        ([_trade(0.0)], [(_T0, 0.0), (_T0, 0.0)]),
+    ],
+)
+def test_new_metrics_are_never_nan_or_infinite_for_degenerate_inputs(
+    trades, equity_curve
+):
+    # BOT-106A acceptance criterion: safe when sigma == 0, never divides by
+    # zero into NaN/Inf.
+    metrics = BacktestMetrics.compute(trades, equity_curve, initial_balance=1000.0)
+
+    for value in (
+        metrics.sharpe_ratio,
+        metrics.sortino_ratio,
+        metrics.calmar_ratio,
+    ):
+        assert math.isfinite(value)

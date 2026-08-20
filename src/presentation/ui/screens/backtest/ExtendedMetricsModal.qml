@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QmlShared 1.0
 import "../../components"
 
-// ExtendedMetricsModal (BOT-088) — Modal card for displaying the 11 detailed backtest performance metric cards.
+// ExtendedMetricsModal (BOT-088) — Modal card for displaying the up-to-17 detailed backtest performance metric cards (BOT-106A adds Sharpe/Sortino/Calmar/Max Drawdown Duration/Max Consecutive Wins/Losses).
 ModalDialogCard {
     id: root
     objectName: "extendedMetricsPopup"

@@ -80,12 +80,13 @@ def test_view_model_exposes_sections_as_qml_friendly_dicts(sections):
     assert [section["title"] for section in exposed] == ["NAVIGATION", "QUANT ENGINE"]
 
     first_item = exposed[0]["items"][0]
-    assert first_item == {
-        "label": "Dev Board",
-        "route": "dashboard",
-        "icon": "layout-dashboard",
-        "navigable": True,
-    }
+    # Subset check, not full-dict equality: to_dict() also carries id/badge/
+    # description/tooltip/enabled (the ITab full/icon presentation split) —
+    # this test only cares about the 4 fields it names here.
+    assert first_item["label"] == "Dev Board"
+    assert first_item["route"] == "dashboard"
+    assert first_item["icon"] == "layout-dashboard"
+    assert first_item["navigable"] is True
     # A routeless placeholder exposes "" (QML has no None) and navigable=False.
     placeholder = exposed[1]["items"][0]
     assert placeholder["route"] == ""
