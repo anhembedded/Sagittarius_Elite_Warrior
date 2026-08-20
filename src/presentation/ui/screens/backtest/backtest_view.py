@@ -3,8 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
-from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
-
+from PySide6.QtWidgets import QFrame, QScrollArea, QSplitter, QVBoxLayout, QWidget
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseView,
     OverlayHost,
@@ -30,31 +29,19 @@ _EQUITY_SUBPLOT_COLOR = (
     "#f0b90b"  # Theme.accent's hex — chart_card has no Qt theme singleton access
 )
 _TRADE_FLAGS_KEY = "backtest_trades"
+_CHART_MINIMUM_HEIGHT = 550
+_TRADE_LOGS_MINIMUM_HEIGHT = 450
+_MAIN_SPLITTER_MINIMUM_HEIGHT = 1000
 
 
 class BackTestView(BaseView):
     """
-    @brief View for the Backtest Screen, using a hybrid QSplitter layout:
-    a fixed-height top toolbar/metrics panel (QML), a chart area (QtWidgets
-    `ChartCard`, matching the Dev Board's hybrid approach), and a bottom
-    trade-logs panel (QML).
-
+    @brief View for the Backtest Screen, using a scrollable layout with a
+    QSplitter: a top toolbar/metrics panel (QML), a tall chart area
+    (QtWidgets `ChartCard` or native host), and a bottom trade-logs panel (QML).
     @details
-    Two `QQuickWidget`s share one `viewModel` context property — set once via
-    `set_view_model()` — rather than one `QmlHostView` per the framework's
-    single-document convention, because this screen genuinely needs 2 QML
-    documents at once (BOT-022 §2 layout) plus a native chart widget between
-    them. Ordering contract mirrors `QmlHostView` exactly: the Presenter
-    calls `set_view_model()` before `load_qml()`, so both QML documents parse
-    against a view model that already holds real values.
-
-    Chart rendering (BOT-056) is native, driven by `on_backtest_data_ready()`
-    plus the mode/toggle setters below — kept out of QML/ViewModel entirely
-    (see `BacktestChartControls`'s own docstring for why). Since BOT-098F6A,
-    this class reaches the chart only through `IBacktestChartHost`
-    (`logic/backtest_chart_host.py`) via `BacktestChartHostFactory`, never a
-    concrete `ChartCard` — that seam is what lets a future native host
-    (BOT-098F6B) replace the renderer without this class changing.
+    Wraps content inside a `QScrollArea` to allow smooth vertical rolling on
+    any viewport height without squeezing the candlestick chart or trade logs.
     """
 
     chartPreviewRendered = Signal()
@@ -88,33 +75,45 @@ class BackTestView(BaseView):
 
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(10, 10, 10, 10)
-        outer_layout.setSpacing(10)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        outer_layout.addWidget(self.scroll_area)
+
+        self.scroll_content = QWidget()
+        scroll_content_layout = QVBoxLayout(self.scroll_content)
+        scroll_content_layout.setContentsMargins(10, 10, 10, 10)
+        scroll_content_layout.setSpacing(10)
 
         self.top_widget = create_quick_widget()
-        outer_layout.addWidget(self.top_widget)
+        scroll_content_layout.addWidget(self.top_widget)
 
         main_splitter = QSplitter(Qt.Orientation.Vertical)
-        outer_layout.addWidget(main_splitter, 1)
+        main_splitter.setMinimumHeight(_MAIN_SPLITTER_MINIMUM_HEIGHT)
+        scroll_content_layout.addWidget(main_splitter, 1)
 
         self.charts_container = QWidget()
+        self.charts_container.setMinimumHeight(_CHART_MINIMUM_HEIGHT)
         self.charts_layout = QVBoxLayout(self.charts_container)
         self.charts_layout.setContentsMargins(0, 0, 0, 0)
         self.charts_layout.setSpacing(0)
         main_splitter.addWidget(self.charts_container)
 
         self.bottom_widget = create_quick_widget()
+        self.bottom_widget.setMinimumHeight(_TRADE_LOGS_MINIMUM_HEIGHT)
         main_splitter.addWidget(self.bottom_widget)
 
         main_splitter.setStretchFactor(0, 3)
-        main_splitter.setStretchFactor(1, 1)
-        # BOT-090: was [600, 200] — 200px is well below what the Trade Logs
-        # pane actually needs (BUG-004: rendered header/tabs/pagination,
-        # zero rows visible). `_bind_trade_log_minimum_height()` enforces a
-        # real floor via setMinimumHeight() regardless of this hint, but
-        # starting close to that floor avoids a visible jump/snap on first
-        # show.
-        main_splitter.setSizes([500, 350])
+        main_splitter.setStretchFactor(1, 2)
+        main_splitter.setSizes([_CHART_MINIMUM_HEIGHT, _TRADE_LOGS_MINIMUM_HEIGHT])
+
+        self.scroll_area.setWidget(self.scroll_content)
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Registers the screen's ViewModel as a QML context property on
