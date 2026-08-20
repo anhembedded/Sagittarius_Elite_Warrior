@@ -87,6 +87,13 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                     return
                 self.repo.save_klines(chunk)
                 synced_count += len(chunk)
+                self.logger.debug(
+                    "[%s] Persisted chunk of %d klines (%d total so far) — "
+                    "streamed straight to DB, not held in RAM.",
+                    symbol,
+                    len(chunk),
+                    synced_count,
+                )
         except ExchangeRequestCancelled:
             self.logger.info("[%s] Market data sync cancelled.", symbol)
             return

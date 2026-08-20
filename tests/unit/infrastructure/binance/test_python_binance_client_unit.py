@@ -1,3 +1,4 @@
+import gc
 from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
@@ -5,11 +6,21 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelled,
 )
+from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
     _KLINE_STREAM_CHUNK_SIZE,
     PythonBinanceClient,
 )
+
+
+def _live_market_data_count() -> int:
+    """Counts real, currently-alive `MarketData` instances via the GC heap
+    — deterministic and reproducible across machines/CI, unlike sampling
+    OS-level RSS (which is noisy and affected by allocator behavior, see
+    BUG-025's own report for why an RSS-based test was rejected)."""
+    gc.collect()
+    return sum(1 for obj in gc.get_objects() if type(obj) is MarketData)
 
 
 def _raw_kline(index: int) -> list:
@@ -200,6 +211,38 @@ def test_stream_historical_klines_yields_bounded_chunks_instead_of_one_giant_lis
     ]
     assert sum(len(c) for c in chunks) == total_raw_klines
     assert all(kline.symbol == "BTCUSDT" for chunk in chunks for kline in chunk)
+
+
+def test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_alive():
+    """Real memory proof for BUG-025, not just a call-count assertion: this
+    drives a 5000-kline stream while discarding each chunk right after it's
+    yielded — exactly what the fixed handler now does via save_klines() —
+    and counts real live `MarketData` objects on the GC heap at every step.
+    If streaming secretly still built one giant list under the hood (the
+    original bug), or something in the mapping path kept a stray reference
+    to earlier chunks, the live count would grow across iterations instead
+    of staying flat at (at most) one chunk's worth."""
+    total_raw_klines = _KLINE_STREAM_CHUNK_SIZE * 5
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = (
+        _raw_kline(i) for i in range(total_raw_klines)
+    )
+    client = PythonBinanceClient(client=injected_client)
+
+    baseline = _live_market_data_count()
+    peak_live_beyond_baseline = 0
+
+    for chunk in client.stream_historical_klines(
+        "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+    ):
+        live_now = _live_market_data_count() - baseline
+        peak_live_beyond_baseline = max(peak_live_beyond_baseline, live_now)
+        del chunk  # mirrors the handler: save_klines(chunk) then move on
+
+    final_live = _live_market_data_count() - baseline
+
+    assert peak_live_beyond_baseline <= _KLINE_STREAM_CHUNK_SIZE
+    assert final_live == 0
 
 
 def test_stream_historical_klines_reports_progress_and_maps_fields_correctly():

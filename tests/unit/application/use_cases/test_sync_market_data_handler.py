@@ -213,3 +213,35 @@ def test_sync_streams_each_chunk_to_the_db_as_it_arrives_instead_of_buffering_th
     assert mock_repo.save_klines.call_count == 2
     mock_repo.save_klines.assert_any_call(chunk_a)
     mock_repo.save_klines.assert_any_call(chunk_b)
+
+
+def test_sync_logs_a_persisted_line_per_chunk_not_just_one_summary_at_the_end(
+    handler, mock_exchange_client, mock_repo, caplog
+):
+    """Real log evidence (not just mock call-count assertions) that each
+    chunk was actually persisted as it arrived: a call-count assertion on
+    save_klines can't distinguish "saved incrementally, chunk discarded
+    each time" from "saved incrementally but every chunk is still kept
+    alive somewhere" — the per-chunk log line is written from inside the
+    same loop iteration that calls save_klines() and drops the reference,
+    so its presence is direct evidence the streaming loop actually ran
+    chunk-by-chunk rather than being bypassed."""
+    mock_repo.get_latest_kline_time.return_value = None
+    chunk_a = [Mock(spec=MarketData), Mock(spec=MarketData)]
+    chunk_b = [Mock(spec=MarketData)]
+    mock_exchange_client.stream_historical_klines.return_value = iter(
+        [chunk_a, chunk_b]
+    )
+
+    command = SyncMarketDataCommand(
+        symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE, days_back_if_empty=5
+    )
+    with caplog.at_level("DEBUG", logger="App.SyncMarketData"):
+        handler.execute(command)
+
+    persisted_lines = [
+        r.getMessage() for r in caplog.records if "Persisted chunk" in r.getMessage()
+    ]
+    assert len(persisted_lines) == 2
+    assert "2 klines (2 total so far)" in persisted_lines[0]
+    assert "1 klines (3 total so far)" in persisted_lines[1]

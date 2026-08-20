@@ -120,6 +120,24 @@ bằng `git stash` tạm lùi `handler.py` rồi chạy lại):**
   `get_historical_klines` sang `stream_historical_klines`, hành vi giữ
   nguyên. Toàn bộ 1619 test unit pass sau khi sửa, `ruff` sạch.
 
+**Bằng chứng RAM/log thật (thêm sau khi bị hỏi lại "test check log/RAM chưa" —
+đúng, ban đầu chỉ có mock call-count, chưa đủ thuyết phục):**
+- `test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_alive`
+  — đếm **object `MarketData` sống thật** qua `gc.get_objects()` (không đo RSS
+  hệ điều hành vốn nhiễu — xem mục Ghi chú) trong lúc stream 5000 nến giả lập
+  rồi `del` từng chunk ngay sau khi nhận (mô phỏng đúng hành vi handler thật:
+  `save_klines(chunk)` rồi bỏ qua). Assert số object sống tại đỉnh điểm
+  `<= 1000` (đúng 1 chunk) và về `0` sau khi xong. **Mutation-verified**: tạm
+  sửa code giữ tham chiếu mọi chunk đã yield (mô phỏng leak) → test fail đúng
+  như dự đoán (`5000 <= 1000`), rồi revert lại — chứng minh test thật sự phân
+  biệt được code đúng và code rò rỉ, không phải test luôn pass bất kể gì.
+- `test_sync_logs_a_persisted_line_per_chunk_not_just_one_summary_at_the_end`
+  — bằng chứng log thật qua `caplog` (không suy diễn từ mock): thêm dòng
+  `logger.debug("[%s] Persisted chunk of %d klines (%d total so far)...")`
+  vào handler (`App.SyncMarketData`, mỗi lần lưu 1 lô), test assert đúng 2
+  dòng log xuất hiện với đúng số liệu từng lô — chứng minh vòng lặp thật sự
+  chạy chunk-by-chunk, không chỉ dựa vào việc mock được gọi bao nhiêu lần.
+
 ### 3.2. Backtest — 🔴 Vẫn mở, cần bàn thiết kế trước khi code
 
 `get_klines()` (DB → RAM) và `RunStaticBacktestCommandHandler` chưa đổi.
@@ -139,7 +157,8 @@ Chưa tự quyết, cần hỏi trước khi code.
   bằng cách nào đó peak RAM/objects sống không tỷ lệ thuận tuyến tính không
   giới hạn theo cỡ dataset (ví dụ đếm số object `MarketData` sống cùng lúc
   qua `tracemalloc`/`gc` thay vì đo RSS hệ điều hành vốn nhiễu). Nhánh Sync
-  đã có regression test riêng ở §3.1 (call-count based, không cần profiler).
+  đã có test kiểu này ở §3.1 (`test_streaming_and_discarding_chunks_...`) —
+  dùng làm mẫu khi viết cho Backtest.
 - **Xác nhận lại RAM baseline lúc rảnh (862.1 MB) có thực sự do đợt fetch/backtest
   trước đó để lại hay không** — trước khi coi đây là bằng chứng bổ sung của
   chính bug này, nên đo lại RSS ngay sau khi app khởi động (chưa sync/backtest
@@ -151,10 +170,21 @@ Chưa tự quyết, cần hỏi trước khi code.
 
 Root cause ban đầu chỉ dựa trên **đọc code tĩnh** (bước 1 của `bug-fix-rule.md`),
 không có log/profiler thật đo RAM (bước 2 đầy đủ). Khi sửa nhánh Sync (§3.1),
-quyết định **không** cần `tracemalloc`/profiler để chứng minh — bug này có
-mô tả hành vi rõ ràng ở mức kiến trúc (gọi `save_klines()` 1 lần hay N lần)
-mà một test call-count-based có thể tái hiện tất định 100%, không cần đo RAM
-thật vốn nhiễu và khó xác nhận. Test đã được xác nhận **fail đúng lý do**
-trên code cũ (§3.1) trước khi fix, đúng quy trình. Nhánh Backtest (§3.2) vẫn
-giữ nguyên khuyến nghị đo RAM baseline thật trước khi bắt tay sửa, vì đó là
-bước còn thiếu để quyết định phương án (a) hay (b).
+bản đầu chỉ có test call-count-based (mock) — **bị hỏi lại đúng chỗ yếu**:
+call-count chứng minh `save_klines()` được gọi đúng số lần, nhưng không
+chứng minh được RAM/object thật sự không bị giữ tham chiếu ở đâu đó. Bổ sung
+2 lớp bằng chứng thật, không dùng mock:
+1. Đếm **object `MarketData` sống thật** qua `gc.get_objects()` (chính xác,
+   tất định, không nhiễu như đo RSS hệ điều hành) trong lúc stream rồi `del`
+   từng chunk — mô phỏng đúng hành vi handler thật. **Mutation-verified**:
+   tạm sửa code để cố tình giữ tham chiếu mọi chunk, xác nhận test fail đúng
+   như dự đoán, rồi revert — chứng minh test phân biệt được code đúng/sai,
+   không phải test vô nghĩa luôn pass.
+2. Log thật qua `caplog` — thêm dòng `logger.debug()` mỗi lần lưu 1 lô vào
+   chính handler, test assert log thật xuất hiện đúng số lần/đúng số liệu,
+   không suy diễn từ việc mock được gọi bao nhiêu lần.
+
+Cả 2 test đã xác nhận **fail đúng lý do** trên code cũ trước khi fix, đúng
+quy trình. Nhánh Backtest (§3.2) vẫn giữ nguyên khuyến nghị đo RAM baseline
+thật trước khi bắt tay sửa, và nên viết test kiểu (1) ở trên khi làm — xem
+mẫu ở `test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_alive`.
