@@ -12,7 +12,7 @@ from .sidebar_view_model import SidebarViewModel
 
 _MAX_WIDTH = 250
 _EXPANDED_WIDTH = 220
-_COLLAPSED_WIDTH = 64
+_COLLAPSED_WIDTH = 48
 
 
 class Sidebar(QmlHostView):

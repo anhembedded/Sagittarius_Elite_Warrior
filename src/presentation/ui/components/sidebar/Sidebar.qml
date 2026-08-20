@@ -3,13 +3,13 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
 
-// Navigation sidebar (BOT-030 / Collapsible Nav Rail):
-// Supports full expanded view (220px) and compact icon-only rail (64px)
-// with smooth toggle transition and tooltips.
+// Navigation sidebar (VS Code Activity Bar style):
+// Supports full expanded view (220px) and sleek compact icon-only rail (48px)
+// with left accent indicators and hover tooltips.
 Rectangle {
     id: root
 
-    implicitWidth: (viewModel && viewModel.isCollapsed) ? 64 : 220
+    implicitWidth: (viewModel && viewModel.isCollapsed) ? 48 : 220
 
     color: Theme.bgSidebar
 
@@ -23,11 +23,11 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: (viewModel && viewModel.isCollapsed) ? 6 : 10
-        anchors.topMargin: 16
-        spacing: 10
+        anchors.margins: (viewModel && viewModel.isCollapsed) ? 4 : 10
+        anchors.topMargin: (viewModel && viewModel.isCollapsed) ? 10 : 16
+        spacing: 8
 
-        // ---- Brand & Toggle cluster -------------------------------------------
+        // ---- Brand & Toggle Header -------------------------------------------
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
@@ -60,35 +60,20 @@ Rectangle {
                 }
             }
 
-            // When COLLAPSED: Mini Logo "S"
-            Rectangle {
-                visible: (viewModel && viewModel.isCollapsed)
-                radius: 4
-                color: Theme.accent
-                Layout.preferredWidth: 26
-                Layout.preferredHeight: 26
-                Layout.alignment: Qt.AlignHCenter
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "S"
-                    color: Theme.bg
-                    font.pixelSize: 14
-                    font.bold: true
-                }
+            Item {
+                visible: !(viewModel && viewModel.isCollapsed)
+                Layout.fillWidth: true
             }
 
-            Item { Layout.fillWidth: true }
-
-            // Toggle collapse/expand button
+            // Sleek Toggle Button (VS Code style panel icon)
             StatefulButton {
                 id: btnCollapse
                 objectName: "btnCollapseSidebar"
-                iconSource: (viewModel && viewModel.isCollapsed) ? "chevron-right" : "chevron-left"
-                iconSize: 14
-                implicitHeight: 28
-                Layout.preferredWidth: 28
-                Layout.alignment: Qt.AlignVCenter
+                iconSource: (viewModel && viewModel.isCollapsed) ? "panel-left" : "panel-left"
+                iconSize: 16
+                implicitHeight: (viewModel && viewModel.isCollapsed) ? 36 : 28
+                Layout.preferredWidth: (viewModel && viewModel.isCollapsed) ? 36 : 28
+                Layout.alignment: (viewModel && viewModel.isCollapsed) ? Qt.AlignHCenter : Qt.AlignVCenter
                 accentBorder: "transparent"
                 idleBgColor: "transparent"
                 hoverBgColor: Theme.stateHoverBg
@@ -102,7 +87,7 @@ Rectangle {
             }
         }
 
-        Item { Layout.preferredHeight: 6 }
+        Item { Layout.preferredHeight: (viewModel && viewModel.isCollapsed) ? 4 : 8 }
 
         // ---- Sections ------------------------------------------------
         Repeater {
@@ -112,7 +97,7 @@ Rectangle {
                 required property var modelData
 
                 Layout.fillWidth: true
-                spacing: (viewModel && viewModel.isCollapsed) ? 6 : 10
+                spacing: (viewModel && viewModel.isCollapsed) ? 6 : 8
 
                 Text {
                     visible: !(viewModel && viewModel.isCollapsed)
@@ -121,47 +106,67 @@ Rectangle {
                     font.pixelSize: 10
                     font.bold: true
                     font.letterSpacing: 1
-                    Layout.topMargin: 6
+                    Layout.topMargin: 4
                     Layout.leftMargin: 4
                 }
 
                 Rectangle {
                     visible: (viewModel && viewModel.isCollapsed)
-                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 24
                     height: 1
                     color: Theme.border
-                    opacity: 0.6
-                    Layout.topMargin: 4
-                    Layout.bottomMargin: 4
+                    opacity: 0.4
+                    Layout.topMargin: 2
+                    Layout.bottomMargin: 2
                 }
 
                 Repeater {
                     model: modelData.items
 
-                    StatefulButton {
+                    Item {
                         required property var modelData
-
-                        // Lets tests address a specific entry without
-                        // depending on layout order or coordinates.
-                        objectName: "navButton_" + (modelData.route || modelData.label)
-
-                        text: (viewModel && viewModel.isCollapsed) ? "" : modelData.label
-                        enabled: modelData.navigable
                         Layout.fillWidth: true
-                        implicitHeight: 40
+                        implicitHeight: (viewModel && viewModel.isCollapsed) ? 38 : 40
 
-                        iconSource: modelData.icon
-                        iconSize: 18
-                        fontSize: 13
-                        contentSpacing: (viewModel && viewModel.isCollapsed) ? 0 : 8
-                        textFillWidth: !(viewModel && viewModel.isCollapsed)
-                        accentBorder: Theme.stateNavBorder
-                        isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
+                        StatefulButton {
+                            id: navBtn
+                            objectName: "navButton_" + (modelData.route || modelData.label)
 
-                        ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
-                        ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
+                            anchors.centerIn: (viewModel && viewModel.isCollapsed) ? parent : undefined
+                            anchors.fill: !(viewModel && viewModel.isCollapsed) ? parent : undefined
+                            width: (viewModel && viewModel.isCollapsed) ? 36 : undefined
+                            height: (viewModel && viewModel.isCollapsed) ? 36 : undefined
 
-                        onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
+                            text: (viewModel && viewModel.isCollapsed) ? "" : modelData.label
+                            enabled: modelData.navigable
+                            implicitHeight: (viewModel && viewModel.isCollapsed) ? 36 : 40
+
+                            iconSource: modelData.icon
+                            iconSize: (viewModel && viewModel.isCollapsed) ? 19 : 18
+                            fontSize: 13
+                            contentSpacing: (viewModel && viewModel.isCollapsed) ? 0 : 8
+                            textFillWidth: !(viewModel && viewModel.isCollapsed)
+                            accentBorder: (viewModel && viewModel.isCollapsed) ? "transparent" : Theme.stateNavBorder
+                            isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
+
+                            ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
+                            ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
+
+                            onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
+                        }
+
+                        // VS Code style left vertical indicator for active route
+                        Rectangle {
+                            visible: (viewModel && viewModel.isCollapsed) && (modelData.navigable && viewModel && modelData.route === viewModel.activeRoute)
+                            anchors.left: parent.left
+                            anchors.leftMargin: -3
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 3
+                            height: 22
+                            radius: 1.5
+                            color: Theme.accent
+                        }
                     }
                 }
             }
@@ -169,41 +174,63 @@ Rectangle {
 
         Item { Layout.fillHeight: true }
 
-        // ---- Bottom Actions ------------------------------------------
+        // ---- Bottom Actions (Settings) -------------------------------
         Rectangle {
             Layout.fillWidth: true
             height: 1
             color: Theme.border
-            Layout.leftMargin: (viewModel && viewModel.isCollapsed) ? -6 : -10
-            Layout.rightMargin: (viewModel && viewModel.isCollapsed) ? -6 : -10
+            Layout.leftMargin: (viewModel && viewModel.isCollapsed) ? 4 : -10
+            Layout.rightMargin: (viewModel && viewModel.isCollapsed) ? 4 : -10
+            opacity: (viewModel && viewModel.isCollapsed) ? 0.4 : 1.0
             visible: viewModel ? viewModel.bottomActions.length > 0 : false
         }
 
         Repeater {
             model: viewModel ? viewModel.bottomActions : null
 
-            StatefulButton {
+            Item {
                 required property var modelData
-
-                objectName: "bottomNavButton_" + (modelData.route || modelData.label)
-
-                text: (viewModel && viewModel.isCollapsed) ? "" : modelData.label
-                enabled: modelData.navigable
                 Layout.fillWidth: true
-                implicitHeight: 40
+                implicitHeight: (viewModel && viewModel.isCollapsed) ? 38 : 40
 
-                iconSource: modelData.icon
-                iconSize: 18
-                fontSize: 13
-                contentSpacing: (viewModel && viewModel.isCollapsed) ? 0 : 8
-                textFillWidth: !(viewModel && viewModel.isCollapsed)
-                accentBorder: Theme.stateNavBorder
-                isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
+                StatefulButton {
+                    id: bottomNavBtn
+                    objectName: "bottomNavButton_" + (modelData.route || modelData.label)
 
-                ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
-                ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
+                    anchors.centerIn: (viewModel && viewModel.isCollapsed) ? parent : undefined
+                    anchors.fill: !(viewModel && viewModel.isCollapsed) ? parent : undefined
+                    width: (viewModel && viewModel.isCollapsed) ? 36 : undefined
+                    height: (viewModel && viewModel.isCollapsed) ? 36 : undefined
 
-                onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
+                    text: (viewModel && viewModel.isCollapsed) ? "" : modelData.label
+                    enabled: modelData.navigable
+                    implicitHeight: (viewModel && viewModel.isCollapsed) ? 36 : 40
+
+                    iconSource: modelData.icon
+                    iconSize: (viewModel && viewModel.isCollapsed) ? 19 : 18
+                    fontSize: 13
+                    contentSpacing: (viewModel && viewModel.isCollapsed) ? 0 : 8
+                    textFillWidth: !(viewModel && viewModel.isCollapsed)
+                    accentBorder: (viewModel && viewModel.isCollapsed) ? "transparent" : Theme.stateNavBorder
+                    isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
+
+                    ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
+                    ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
+
+                    onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
+                }
+
+                // VS Code style left vertical indicator for active bottom action
+                Rectangle {
+                    visible: (viewModel && viewModel.isCollapsed) && (modelData.navigable && viewModel && modelData.route === viewModel.activeRoute)
+                    anchors.left: parent.left
+                    anchors.leftMargin: -3
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 3
+                    height: 22
+                    radius: 1.5
+                    color: Theme.accent
+                }
             }
         }
     }

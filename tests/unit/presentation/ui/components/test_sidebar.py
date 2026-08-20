@@ -251,7 +251,7 @@ def test_clicking_collapse_button_toggles_collapsed_state(sidebar, qml_item, qap
     collapse_button.clicked.emit()
     qapp.processEvents()
 
-    assert sidebar.width() == 64
+    assert sidebar.width() == 48
     assert btn_dashboard.property("text") == ""
 
     # Click to expand again
