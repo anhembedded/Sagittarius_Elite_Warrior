@@ -8,6 +8,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 _CSV_HEADER = [
     "index",
     "symbol",
+    "side",
     "entry_time",
     "entry_price",
     "exit_time",
@@ -36,10 +37,16 @@ def export_trades_to_csv(trades: list[Trade], path: str) -> None:
         writer = csv.writer(csv_file)
         writer.writerow(_CSV_HEADER)
         for position, trade in enumerate(trades, start=1):
+            side_str = (
+                trade.side.value.upper()
+                if hasattr(trade, "side") and trade.side
+                else "LONG"
+            )
             writer.writerow(
                 [
                     position,
                     trade.symbol,
+                    side_str,
                     trade.entry_time.isoformat(),
                     trade.entry_price,
                     trade.exit_time.isoformat(),

@@ -1,45 +1,114 @@
+from __future__ import annotations
+
 import math
 
 import pyqtgraph as pg
+from PySide6.QtCore import QPointF
+from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen, QPolygonF
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
 from .marker_lod import DisplayMarker, MarkerPoint, select_marker_display
 from .viewport_windowing import visible_slice_indices
 
-_UP_ANCHOR = (0.5, 1.2)
-_DOWN_ANCHOR = (0.5, -0.2)
-_DEFAULT_MARKER_TEXT_COLOR = "#0B0E11"
+_MARKER_HALF_WIDTH_PIXELS = 5.0
+_MARKER_HEIGHT_PIXELS = 8.0
+_MARKER_VERTICAL_OFFSET_PIXELS = 2.0
+_DEFAULT_BORDER_DARKEN_RATIO = 120
 _VIEWPORT_PADDING_RATIO = 0.1
 _FALLBACK_VIEWPORT_WIDTH_PIXELS = 1200.0
 
 
+class TriangleMarkerItem(QGraphicsPathItem):
+    """
+    @brief Compact, fixed-pixel triangle marker (TradingView style) for trade entries and exits.
+    @details
+    - Renders as a small solid triangle (width 10px, height 8px), matching native C++ chart dimensions.
+    - 'up' (BUY / LONG ENTRY / SHORT COVER): Triangle points UP (▲), positioned below the candle price.
+    - 'down' (SELL / LONG EXIT / SHORT ENTRY): Triangle points DOWN (▼), positioned above the candle price.
+    - Uses `ItemIgnoresTransformations` so the marker maintains constant screen pixel size regardless of chart zoom/pan.
+    - Tooltip displays full execution details on hover (e.g. 'MUA (LONG) @ 69,400.00') without cluttering the chart.
+    """
+
+    def __init__(self, parent: QGraphicsItem | None = None) -> None:
+        super().__init__(parent)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        self._direction: str = ""
+        self._color: str = ""
+
+    def configure(
+        self,
+        *,
+        x: float,
+        y: float,
+        text: str,
+        color: str,
+        direction: str,
+        brush: QBrush,
+        pen: QPen,
+    ) -> None:
+        if self._direction != direction:
+            self._direction = direction
+            self._update_geometry(direction)
+
+        if self._color != color:
+            self._color = color
+            self.setBrush(brush)
+            self.setPen(pen)
+
+        self.setPos(x, y)
+        if text:
+            self.setToolTip(f"{text} @ {y:,.2f}" if y else text)
+        else:
+            self.setToolTip(f"{y:,.2f}")
+
+    def _update_geometry(self, direction: str) -> None:
+        path = QPainterPath()
+        half_w = _MARKER_HALF_WIDTH_PIXELS
+        h = _MARKER_HEIGHT_PIXELS
+        offset = _MARKER_VERTICAL_OFFSET_PIXELS
+
+        if direction == "up":
+            poly = QPolygonF(
+                [
+                    QPointF(0.0, offset),
+                    QPointF(half_w, offset + h),
+                    QPointF(-half_w, offset + h),
+                ]
+            )
+        else:
+            poly = QPolygonF(
+                [
+                    QPointF(0.0, -offset),
+                    QPointF(half_w, -offset - h),
+                    QPointF(-half_w, -offset - h),
+                ]
+            )
+        path.addPolygon(poly)
+        self.setPath(path)
+
+
 class MarkerLayer:
     """
-    @brief Draws labelled markers (Pine's `plotshape`) for custom indicator
-    scripts — e.g. a "Buy"/"Sell" tag on a crossover bar.
+    @brief Draws compact triangle markers for trade entries, exits, and custom indicator scripts.
     @details Always drawn on the main price plot, regardless of the owning
-    script's `overlay` flag — the same reasoning IndicatorManager.
-    set_script_regions uses for background tints: every `self.mark()` call
-    seen in practice places a marker at a *price*-scale value (close, a
-    price-scale indicator reading), so it is read against the visible price
-    action, not against whichever subplot the script's own lines happen to
-    live on.
+    script's `overlay` flag.
 
     A shared registry.key namespace (not per-line) — one script's markers
-    accumulate as one growing list across the whole run, same as
-    IndicatorManager tracks one region-span timeline per script rather than
-    per line.
+    accumulate as one growing list across the whole run. Only the visible
+    timestamp slice is materialized as scene items to keep pan/zoom cost
+    proportional to visible markers rather than the entire history.
     """
 
     def __init__(self, plot: pg.PlotItem) -> None:
         self._plot = plot
         self._markers: dict[str, tuple[MarkerPoint, ...]] = {}
         self._timestamps: dict[str, tuple[float, ...]] = {}
-        self._active_items: dict[str, dict[int, pg.TextItem]] = {}
+        self._active_items: dict[str, dict[int, TriangleMarkerItem]] = {}
         self._active_slices: dict[str, tuple[int, int]] = {}
         self._display_markers: dict[str, tuple[DisplayMarker, ...]] = {}
-        self._items: dict[str, list[pg.TextItem]] = {}
-        self._brushes: dict[str, pg.QtGui.QBrush] = {}
-        self._pens: dict[str, pg.QtGui.QPen] = {}
+        self._items: dict[str, list[TriangleMarkerItem]] = {}
+        self._brushes: dict[str, QBrush] = {}
+        self._pens: dict[str, QPen] = {}
         self._visible_range: tuple[float, float] | None = None
 
     def set_markers(self, key: str, markers: list[MarkerPoint]) -> None:
@@ -85,7 +154,7 @@ class MarkerLayer:
 
         active_items = self._active_items.setdefault(key, {})
         reusable_items = [active_items[index] for index in sorted(active_items)]
-        next_items: dict[int, pg.TextItem] = {}
+        next_items: dict[int, TriangleMarkerItem] = {}
         for display_index, display_marker in enumerate(display_markers):
             if display_index < len(reusable_items):
                 item = reusable_items[display_index]
@@ -136,27 +205,30 @@ class MarkerLayer:
         padding = (max_x - min_x) * _VIEWPORT_PADDING_RATIO
         return visible_slice_indices(timestamps, min_x, max_x, padding=padding)
 
-    def _create_item(self, marker: MarkerPoint) -> pg.TextItem:
-        item = pg.TextItem(color=_DEFAULT_MARKER_TEXT_COLOR)
+    def _create_item(self, marker: MarkerPoint) -> TriangleMarkerItem:
+        item = TriangleMarkerItem()
         self._configure_item(item, marker)
         return item
 
-    def _configure_item(self, item: pg.TextItem, marker: MarkerPoint) -> None:
+    def _configure_item(self, item: TriangleMarkerItem, marker: MarkerPoint) -> None:
         x, y, text, color, direction = marker
         brush = self._brushes.get(color)
         if brush is None:
-            brush = pg.mkBrush(color)
+            brush = QBrush(QColor(color))
             self._brushes[color] = brush
         pen = self._pens.get(color)
         if pen is None:
-            pen = pg.mkPen(color)
+            pen = QPen(QColor(color).darker(_DEFAULT_BORDER_DARKEN_RATIO), 1)
             self._pens[color] = pen
-        item.setText(text, color=_DEFAULT_MARKER_TEXT_COLOR)
-        item.setAnchor(_UP_ANCHOR if direction == "up" else _DOWN_ANCHOR)
-        item.fill = brush
-        item.border = pen
-        item.setPos(x, y)
-        item.update()
+        item.configure(
+            x=x,
+            y=y,
+            text=text,
+            color=color,
+            direction=direction,
+            brush=brush,
+            pen=pen,
+        )
 
     def clear(self, key: str) -> None:
         """Removes every marker belonging to one script."""

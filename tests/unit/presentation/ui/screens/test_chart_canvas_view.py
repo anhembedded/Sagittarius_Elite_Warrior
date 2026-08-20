@@ -7,6 +7,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -14,6 +17,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     _LONG_ENTRY_LABEL,
     _LONG_EXIT_LABEL,
+    _SHORT_ENTRY_LABEL,
+    _SHORT_EXIT_LABEL,
     ChartDisplayMode,
     TradeMarkerType,
     equity_curve_to_candles,
@@ -86,6 +91,37 @@ def test_trade_flag_markers_emits_one_long_entry_and_one_long_exit_per_trade():
     assert markers == [
         (_T0.timestamp(), 100.0, _LONG_ENTRY_LABEL, BULL_COLOR, "up"),
         (_T1.timestamp(), 110.0, _LONG_EXIT_LABEL, BEAR_COLOR, "down"),
+    ]
+
+
+def test_trade_flag_markers_emits_short_entry_and_exit_for_short_trade():
+    short_trade = Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T1,
+        exit_price=90.0,
+        quantity=1.0,
+        pnl=10.0,
+        pnl_percent=10.0,
+        fees_paid=0.0,
+        side=PositionSide.SHORT,
+    )
+    result = BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1010.0,
+        trades=[short_trade],
+        equity_curve=[(_T0, 1000.0), (_T1, 1010.0)],
+        metrics=BacktestMetrics.compute(
+            [short_trade], [(_T0, 1000.0), (_T1, 1010.0)], 1000.0
+        ),
+    )
+
+    markers = trade_flag_markers(result)
+    assert markers == [
+        (_T0.timestamp(), 100.0, _SHORT_ENTRY_LABEL, BEAR_COLOR, "down"),
+        (_T1.timestamp(), 90.0, _SHORT_EXIT_LABEL, BULL_COLOR, "up"),
     ]
 
 

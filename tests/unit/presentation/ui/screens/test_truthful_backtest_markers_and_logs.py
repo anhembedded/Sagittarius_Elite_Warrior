@@ -7,6 +7,9 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+    PositionSide,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -14,6 +17,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     _LONG_ENTRY_LABEL,
     _LONG_EXIT_LABEL,
+    _SHORT_ENTRY_LABEL,
+    _SHORT_EXIT_LABEL,
     TradeMarkerType,
     trade_flag_markers,
 )
@@ -102,6 +107,48 @@ def test_trade_markers_reflect_long_only_execution_truth():
     assert "SHORT" not in exit1_label.upper()
     assert "SELL" not in exit1_label.upper()
     assert "ĐÓNG" in exit1_label or "EXIT" in exit1_label
+
+
+def test_trade_markers_reflect_short_execution_truth():
+    trade = Trade(
+        symbol="BTCUSDT",
+        entry_time=_T0,
+        entry_price=50000.0,
+        exit_time=_T1,
+        exit_price=48000.0,
+        quantity=0.1,
+        pnl=200.0,
+        pnl_percent=4.0,
+        fees_paid=5.0,
+        side=PositionSide.SHORT,
+    )
+    result = BacktestResult(
+        symbol="BTCUSDT",
+        initial_balance=10000.0,
+        final_balance=10200.0,
+        trades=[trade],
+        equity_curve=[(_T0, 10000.0), (_T1, 10200.0)],
+        metrics=BacktestMetrics.compute(
+            [trade], [(_T0, 10000.0), (_T1, 10200.0)], 10000.0
+        ),
+    )
+    markers = trade_flag_markers(result)
+    assert len(markers) == 2
+
+    entry_x, entry_y, entry_label, entry_color, entry_dir = markers[0]
+    exit_x, exit_y, exit_label, exit_color, exit_dir = markers[1]
+
+    assert entry_x == _T0.timestamp()
+    assert entry_y == 50000.0
+    assert entry_label == _SHORT_ENTRY_LABEL
+    assert entry_color == BEAR_COLOR
+    assert entry_dir == "down"
+
+    assert exit_x == _T1.timestamp()
+    assert exit_y == 48000.0
+    assert exit_label == _SHORT_EXIT_LABEL
+    assert exit_color == BULL_COLOR
+    assert exit_dir == "up"
 
 
 def test_short_filter_truthfully_returns_empty_in_long_only_engine():

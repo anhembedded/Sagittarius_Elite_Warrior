@@ -1,0 +1,4 @@
+index,symbol,side,entry_time,entry_price,exit_time,exit_price,quantity,pnl,pnl_percent,fees_paid,entry_reason,exit_reason,metadata
+1,BTCUSDT,LONG,2026-01-01T10:00:00+00:00,68500.0,2026-01-01T14:00:00+00:00,69800.0,0.25,325.0,1.89,3.45,EMA 9 crossed above EMA 21,take_profit,"{""qml_score"": 95, ""trigger"": ""crossover""}"
+2,BTCUSDT,SHORT,2026-01-01T18:00:00+00:00,69400.0,2026-01-02T00:00:00+00:00,67800.0,0.25,400.0,2.3,3.43,EMA 9 crossed below EMA 21 (Short),strategy_signal,"{""qml_score"": 88, ""trigger"": ""breakdown""}"
+3,BTCUSDT,LONG,2026-01-02T10:00:00+00:00,67200.0,2026-01-02T16:00:00+00:00,66800.0,0.25,-100.0,-0.59,3.35,RSI Oversold Bounce,stop_loss,"{""rsi_14"": 28.5}"
