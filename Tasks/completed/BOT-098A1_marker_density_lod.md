@@ -1,7 +1,7 @@
 # BOT-098A1 — Pixel-budget LOD for truthful Backtest trade markers
 
 **Parent:** `BOT-098`  
-**Source:** [`BUG-006`](../bug_report/BUG-006.md)  
+**Source:** [`BUG-006`](../bug_report/completed/BUG-006.md)  
 **Priority:** P1  
 **Status:** Completed
 

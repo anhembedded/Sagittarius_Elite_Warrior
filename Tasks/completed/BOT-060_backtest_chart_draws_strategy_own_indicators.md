@@ -4,7 +4,7 @@
 
 ## 1. Mục tiêu (Objective)
 
-User phát hiện qua ảnh chụp thật (`Tasks/bug_report/BUG-002.md`): marker
+User phát hiện qua ảnh chụp thật (`Tasks/bug_report/completed/BUG-002.md`): marker
 Buy/Sell trên biểu đồ Backtest không nằm ở chỗ các đường EMA cắt nhau — vì
 đường đang vẽ **không phải** đường mà strategy dùng để ra quyết định. Toggle
 "4 EMA" hiện hard-code luôn vẽ script `ema_ribbon` (EMA 20/50/100/200,

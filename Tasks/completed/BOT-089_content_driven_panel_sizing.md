@@ -1,7 +1,7 @@
 # Nhiệm vụ: Panel co giãn theo nội dung — cắt vòng lặp "nâng magic number"
 
 > Thuộc Epic [`BOT-086`](BOT-086_ui_layout_and_overlay_architecture_epic.md), **Track B**,
-> task 1/2. Nguồn: 📄 [`BUG-004`](../bug_report/BUG-004.md) — user hỏi thẳng
+> task 1/2. Nguồn: 📄 [`BUG-004`](../bug_report/completed/BUG-004.md) — user hỏi thẳng
 > *"Do we need dynamic layout mechanism?"*. **Câu trả lời: có.**
 
 ## 1. Vấn đề — container phớt lờ chiều cao nội dung tự khai

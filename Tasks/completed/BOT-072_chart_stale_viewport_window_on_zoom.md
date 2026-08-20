@@ -1,7 +1,7 @@
 # Nhiệm vụ: Chart mất nến sau khi zoom out rồi zoom in — viewport window bị stale
 
-> Nguồn: 📄 [`BUG-002`](../bug_report/BUG-002.md) do user báo kèm ảnh chụp
-> ([`image.png`](../bug_report/image.png)): *"zoom out nhiều, sau đó zoom in lại thì bị vầy"*.
+> Nguồn: 📄 [`BUG-002`](../bug_report/completed/BUG-002.md) do user báo kèm ảnh chụp
+> ([`image.png`](../bug_report/completed/image.png)): *"zoom out nhiều, sau đó zoom in lại thì bị vầy"*.
 >
 > **Đã điều tra, xác định được root cause, CHƯA sửa.** Toàn bộ §2 đã verify trực tiếp trên
 > code (kể cả source của `pyqtgraph` đang cài) tại thời điểm viết task — không suy đoán.
@@ -166,6 +166,6 @@ ca này là ví dụ tốt để nhắc tới.
 
 ## 7. Phụ thuộc
 
-- 📄 [`BUG-002`](../bug_report/BUG-002.md) + [ảnh chụp](../bug_report/image.png) — báo cáo gốc của user.
+- 📄 [`BUG-002`](../bug_report/completed/BUG-002.md) + [ảnh chụp](../bug_report/completed/image.png) — báo cáo gốc của user.
 - Không phụ thuộc task nào khác. Sửa **chỉ trong `Sagittarius_Elite_Warrior/src/`** (không đụng
   `sagittarius_engine/`) → chỉ cần commit ở submodule + bump pointer.

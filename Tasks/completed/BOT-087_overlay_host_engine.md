@@ -3,7 +3,7 @@
 > **Trạng thái:** 🟢 Hoàn tất — hạ tầng `OverlayHost` đã triển khai xong, tích hợp sạch sẽ vào engine và màn hình Backtest.
 
 > Thuộc Epic [`BOT-086`](../backlog/BOT-086_ui_layout_and_overlay_architecture_epic.md), **Track A**,
-> task 1/2. Nguồn: 📄 [`BUG-004`](../bug_report/BUG-004.md).
+> task 1/2. Nguồn: 📄 [`BUG-004`](../bug_report/completed/BUG-004.md).
 >
 > ⚠️ **Sửa `sagittarius_engine/` (repo cha)** → commit ở **cả hai repo** + bump submodule
 > pointer, giống `BOT-066`…`BOT-071`.

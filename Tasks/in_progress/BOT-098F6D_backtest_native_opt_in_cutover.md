@@ -6,7 +6,7 @@
 **Complexity:** L  
 **Status:** In Progress
 
-> 🔁 **Reopened 2026-08-19.** This file was moved into `completed/` by an earlier session, but its own `Status:` line here was never changed to `Completed` — a real inconsistency between file location and documented state, not a deliberate sign-off. Investigating why turned up a concrete, unresolved reason this task's own stated proof requirement is not met: acceptance criterion 5 ("`BOT-098F5` DPR 1 and DPR 2 reports are published against the production host wiring") depends on `BOT-098F5`, which is itself reopened for the same reason ([`BUG-016`](../bug_report/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md) — the exact script that would produce those reports hangs indefinitely on Windows). This file's own "Not yet done" section already named the missing Windows RHI evidence; that gap is now attached to a specific, open bug rather than a generic "no Windows machine" excuse. Do not re-close without `BOT-098F5` closing first.
+> 🔁 **Reopened 2026-08-19.** This file was moved into `completed/` by an earlier session, but its own `Status:` line here was never changed to `Completed` — a real inconsistency between file location and documented state, not a deliberate sign-off. Investigating why turned up a concrete, unresolved reason this task's own stated proof requirement is not met: acceptance criterion 5 ("`BOT-098F5` DPR 1 and DPR 2 reports are published against the production host wiring") depends on `BOT-098F5`, which is itself reopened for the same reason ([`BUG-016`](../bug_report/incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md) — the exact script that would produce those reports hangs indefinitely on Windows). This file's own "Not yet done" section already named the missing Windows RHI evidence; that gap is now attached to a specific, open bug rather than a generic "no Windows machine" excuse. Do not re-close without `BOT-098F5` closing first.
 
 
 ## Goal
@@ -177,9 +177,9 @@ Two more, unrelated, pre-existing bugs were found by the user during the same
 manual testing session and filed separately rather than fixed here, since
 neither has anything to do with this task's scope (confirmed: both predate
 `BOT-098F6A`, neither touches chart-host/native code):
-[`BUG-009`](../bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md)
+[`BUG-009`](../bug_report/completed/BUG-009_backtest_cached_frame_preview_widget_shift.md)
 (Python-only cached-frame drag-preview widget positioning) and
-[`BUG-010`](../bug_report/BUG-010_backtest_sync_never_satisfies_range_coverage.md)
+[`BUG-010`](../bug_report/completed/BUG-010_backtest_sync_never_satisfies_range_coverage.md)
 (Backtest sync/coverage-check possible cutoff mismatch).
 
 **Not yet done:** real-Windows RHI verification of this same cutover (this

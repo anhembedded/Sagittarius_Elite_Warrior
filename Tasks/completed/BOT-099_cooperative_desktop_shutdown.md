@@ -1,6 +1,6 @@
 # BOT-099 — Cooperative desktop shutdown with in-flight work
 
-**Source:** [`BUG-007`](../bug_report/BUG-007.md)  
+**Source:** [`BUG-007`](../bug_report/completed/BUG-007.md)  
 **Priority:** P1  
 **Status:** Completed  
 **Repositories:** Sagittarius Engine + Sagittarius Elite Warrior

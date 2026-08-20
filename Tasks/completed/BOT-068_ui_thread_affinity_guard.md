@@ -3,7 +3,7 @@
 > Thuộc nhóm 6 task cơ chế engine sinh ra từ
 > 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — **lớp lỗi A**.
 >
-> Trả lời trực tiếp ghi chú của user ở cuối [`BUG-001`](../bug_report/BUG-001.md):
+> Trả lời trực tiếp ghi chú của user ở cuối [`BUG-001`](../bug_report/completed/BUG-001.md):
 > *"tôi nghĩ engine nên có cơ chế lo điều này"*.
 >
 > Nên làm **sau** [`BOT-066`](BOT-066_fail_loud_ui_action_errors.md) ✅ — guard này chỉ có
@@ -33,7 +33,7 @@
 > Trong khi đó:
 > - [`BOT-038`](../backlog/BOT-038_intermittent_segfault_full_ui_integration_suite.md) — **segfault
 >   ngẫu nhiên đã biết** ở integration UI suite, đã điều tra 1 vòng rồi dừng.
-> - [`BUG-001`](../bug_report/BUG-001.md) — app từng **treo** vì chạm UI từ luồng nền.
+> - [`BUG-001`](../bug_report/completed/BUG-001.md) — app từng **treo** vì chạm UI từ luồng nền.
 > - Task này ghi rõ: *"Engine hiện có **0** guard thread nào"*.
 >
 > Thứ tự đang **ngược**: thêm concurrency vào codebase chưa có cơ chế phát hiện sai luồng
@@ -49,7 +49,7 @@
 hoàn toàn không có guard thread-affinity nào. Toàn bộ tính đúng đắn của lớp lỗi này đang
 dựa vào kỷ luật thủ công của người viết Presenter.
 
-Chẩn đoán của user ở [`BUG-001`](../bug_report/BUG-001.md) chính xác và đáng giữ nguyên văn:
+Chẩn đoán của user ở [`BUG-001`](../bug_report/completed/BUG-001.md) chính xác và đáng giữ nguyên văn:
 progress update bắn thẳng từ luồng nền lên UI; các phiên bản trước sống sót **chỉ vì**
 progress bar không có animation nên QML không tạo Timer nào — *"về lý thuyết vẫn là một
 quả bom nổ chậm"*. Thêm `Behavior on width { NumberAnimation }` là kích nổ: app treo kèm
@@ -132,7 +132,7 @@ minh test có tác dụng thật. Sửa `set_stats()` là một phần của tas
 ## 5. Phụ thuộc
 
 - 📄 [Phân tích Lớp Lỗi Engine](../reports/engine_defect_class_analysis.md) — nguồn phân tích, lớp A.
-- 📄 [`BUG-001`](../bug_report/BUG-001.md) — ca thật, có chẩn đoán gốc của user.
+- 📄 [`BUG-001`](../bug_report/completed/BUG-001.md) — ca thật, có chẩn đoán gốc của user.
 - [`BOT-066`](BOT-066_fail_loud_ui_action_errors.md) — nên làm trước.
 - Sửa `sagittarius_engine/` (repo cha) → commit ở **cả hai** repo.
 

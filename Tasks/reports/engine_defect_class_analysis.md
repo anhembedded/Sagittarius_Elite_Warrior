@@ -6,7 +6,7 @@
 > (defect class)** rồi hỏi: *cơ chế nào ở tầng engine sẽ khiến cả lớp đó không
 > xảy ra được nữa?* — thay vì vá từng ca một như hiện tại.
 >
-> Xuất phát từ ghi chú của user ở cuối [`BUG-001`](../bug_report/BUG-001.md):
+> Xuất phát từ ghi chú của user ở cuối [`BUG-001`](../bug_report/completed/BUG-001.md):
 > *"tôi nghĩ engine nên có cơ chế lo điều này"*.
 
 ---
@@ -17,8 +17,8 @@ Nguồn dữ liệu (toàn bộ đã verify tại thời điểm viết, không 
 
 - Toàn bộ commit `fix(...)`/`Fix ...` trong lịch sử `Sagittarius_Elite_Warrior`
   (`git log --oneline --all | grep -iE "fix|bug"` → 50+ commit).
-- 2 bug report do user viết tay: [`BUG-001`](../bug_report/BUG-001.md) (app treo),
-  [`BUG-002`](../bug_report/BUG-002.md) (chart lỗi khi zoom + log đầy warning).
+- 2 bug report do user viết tay: [`BUG-001`](../bug_report/completed/BUG-001.md) (app treo),
+  [`BUG-002`](../bug_report/completed/BUG-002.md) (chart lỗi khi zoom + log đầy warning).
 - Các task đã đóng có bản chất bug: `BOT-027`, `BOT-061`, `BOT-062`, `BOT-065`.
 - Code hiện trạng của `sagittarius_engine/` (các điểm mở rộng đã có sẵn).
 
@@ -34,7 +34,7 @@ layout) **không** tính là lớp lỗi — vá tại chỗ là đúng, thêm c
 | :--- | :--- | :--- |
 | **C. Tài nguyên nhân bản khi chạy lại** | `a84f58a` (legend), `4ba1eae` (subplot row), `dd565a0` (nến live), `5a063b5` (legend EMA), `f07d490` (overlay EMA) | Một object sống lâu, dùng lại nhiều lần (`ChartCard`) tích luỹ tài nguyên qua từng lần chạy. Teardown làm tay, **nhạy thứ tự** và **nhạy thread** |
 | **B. Lỗi bị nuốt âm thầm** | `BOT-061` (thông số user gõ bị vứt, không báo gì) | `safe_ui_action` `print()` rồi `return None` — đang dùng ở **45 chỗ** |
-| **A. Chạm UI từ luồng nền** | [`BUG-001`](../bug_report/BUG-001.md) (app treo, `QBasicTimer`) | Luồng nền chạm object Qt; **chỉ phát bệnh** khi Qt cần Timer nội bộ |
+| **A. Chạm UI từ luồng nền** | [`BUG-001`](../bug_report/completed/BUG-001.md) (app treo, `QBasicTimer`) | Luồng nền chạm object Qt; **chỉ phát bệnh** khi Qt cần Timer nội bộ |
 | **D. Re-entrancy khi user bấm chồng** | `BOT-027` / `22166fa` | Không có guard single-flight; fix phải viết tay 2 lần cho 2 entry point |
 | **E. Marshaling ranh giới QML↔Python** | `BOT-061` (`QJSValue`), 7× `Unable to assign [undefined]` trong log `BUG-002` | Ranh giới không có kiểu, không có tầng chuyển đổi |
 | **F. Asset thiếu nhưng fallback im lặng** | `IconLoader` thiếu 7 icon (`BOT-048` khôi phục) | Warn-and-continue; ship lỗi qua nhiều phiên tới khi user tự đọc log |
@@ -131,7 +131,7 @@ nó sẽ dễ triển khai đúng hơn nhiều **sau khi** `BOT-066` đã bật 
 ## 4. 📎 Phụ lục — Bằng chứng cho từng lớp lỗi
 
 ### Lớp A — Chạm UI từ luồng nền
-Chẩn đoán của user trong [`BUG-001`](../bug_report/BUG-001.md) là chính xác và đáng
+Chẩn đoán của user trong [`BUG-001`](../bug_report/completed/BUG-001.md) là chính xác và đáng
 giữ nguyên văn: progress update bắn thẳng từ luồng nền lên UI; các phiên bản trước
 sống sót chỉ vì progress bar **không có animation** nên QML không tạo Timer nào —
 *"về lý thuyết vẫn là một quả bom nổ chậm"*. Thêm `Behavior on width { NumberAnimation }`
@@ -157,7 +157,7 @@ Fix của `BOT-027` là cờ `historyLoading` + check FSM viết tay, lặp ở 
 thêm vào sau này sẽ không tự có guard.
 
 ### Lớp E — Marshaling QML
-Log trong [`BUG-002`](../bug_report/BUG-002.md) còn 7 dòng
+Log trong [`BUG-002`](../bug_report/completed/BUG-002.md) còn 7 dòng
 `Unable to assign [undefined] to QString/QColor` (`BotParamField.qml`,
 `StrategyComboBox.qml`) — đã xác định ở `BOT-061` là **vô hại** (nhiễu lúc parse
 QML lần đầu), nhưng chúng cùng một gốc: ranh giới QML↔Python không có kiểu, nên

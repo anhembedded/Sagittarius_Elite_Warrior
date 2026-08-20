@@ -57,7 +57,7 @@ buộc đã biết thay vì phát hiện giữa chừng:
 
 ### 3.3. Runtime — có số so sánh sẵn
 
-- [x] Điểm neo đã biết từ log [`BUG-002`](../bug_report/BUG-002.md): static backtest
+- [x] Điểm neo đã biết từ log [`BUG-002`](../bug_report/completed/BUG-002.md): static backtest
       **10.079 nến (7 ngày, 1m) mất ~1,5 giây** (`19:13:19,548` →
       `19:13:21,033`). Cùng 7 ngày đó ở `1s` = **604.800 tick**.
 - [x] Đo thật thời gian chạy hết 604.801 điểm dữ liệu — không phải vòng lặp trần, mà

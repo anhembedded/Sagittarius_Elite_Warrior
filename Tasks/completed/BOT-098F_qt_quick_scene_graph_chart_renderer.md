@@ -5,7 +5,7 @@
 **Complexity:** L / Performance-specialized  
 **Status:** Completed ✅ **— except see caveat below (F4 reopened)**  
 
-> ⚠️ **2026-08-19:** [`BOT-098F4`](../in_progress/BOT-098F4_native_marker_crosshair_fps.md) was reopened after real Windows evidence ([`BUG-015`](../bug_report/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)) showed its own proof requirement #2 ("no geometry rebuild across pointer updates") is not actually met. Left this epic doc's status as Completed since every other sub-phase (F1/F2/F2A/F3) genuinely finished and F4 is not a full re-do, just one reopened bug — but do not read "Completed ✅" here as proof F4 is done; check F4's own file.
+> ⚠️ **2026-08-19:** [`BOT-098F4`](../in_progress/BOT-098F4_native_marker_crosshair_fps.md) was reopened after real Windows evidence ([`BUG-015`](../bug_report/incomplete/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)) showed its own proof requirement #2 ("no geometry rebuild across pointer updates") is not actually met. Left this epic doc's status as Completed since every other sub-phase (F1/F2/F2A/F3) genuinely finished and F4 is not a full re-do, just one reopened bug — but do not read "Completed ✅" here as proof F4 is done; check F4's own file.
 
 ## Architecture Summary
 

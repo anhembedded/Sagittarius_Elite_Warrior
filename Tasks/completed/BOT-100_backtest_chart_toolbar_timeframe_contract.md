@@ -1,6 +1,6 @@
 # BOT-100 — Backtest chart-toolbar timeframe data contract
 
-**Source:** [`BUG-008`](../bug_report/BUG-008_backtest_chart_toolbar_timeframe_noop.md)  
+**Source:** [`BUG-008`](../bug_report/completed/BUG-008_backtest_chart_toolbar_timeframe_noop.md)  
 **Priority:** P1  
 **Status:** Completed
 

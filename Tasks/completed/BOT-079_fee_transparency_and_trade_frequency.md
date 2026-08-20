@@ -8,7 +8,7 @@
 
 ## 1. Vấn đề cụ thể
 
-Log [`BUG-002`](../bug_report/BUG-002.md) ghi `807 trades, net profit -80.71%`. Người
+Log [`BUG-002`](../bug_report/completed/BUG-002.md) ghi `807 trades, net profit -80.71%`. Người
 đọc kết luận tự nhiên: *"chiến lược này tệ."*
 
 Sự thật, tính từ chính con số đó (`fee_percent = 0.1`, thu cả 2 chiều):

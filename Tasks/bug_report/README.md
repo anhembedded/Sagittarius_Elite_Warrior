@@ -6,7 +6,14 @@ thì xuất hiện ở mục Completed của nó, nhưng bug **đang mở** thì
 không có chỗ nào hiển thị cả. Muốn biết hệ thống đang gánh lỗi gì, phải mở
 từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
-- File bug đặt tại `Tasks/bug_report/BUG-XXX_mô_tả.md`, số kế tiếp số lớn nhất.
+- **Bố cục thư mục** (song song với `Tasks/backlog|completed/` của task):
+  - `incomplete/` — bug **chưa sửa xong**. Bug mới luôn tạo ở đây.
+  - `completed/` — bug đã sửa, kèm ảnh chụp/bằng chứng của chính nó.
+- Đặt tên `BUG-XXX_mô_tả.md`, số kế tiếp số lớn nhất đang tồn tại **ở cả hai
+  thư mục**.
+- **Khi sửa xong:** `git mv incomplete/BUG-XXX_*.md completed/` (kèm ảnh của
+  nó), cập nhật `Status` trong file, rồi chuyển dòng tương ứng ở bảng dưới từ
+  mục "Đang mở" sang mục "Đã sửa".
 - Quy trình xử lý bug: [`.agents/rules/bug-fix-rule.md`](../../.agents/rules/bug-fix-rule.md)
   — root cause trước, regression test **fail đúng lý do** trước khi sửa, giữ
   test vĩnh viễn, ghi hồ sơ.
@@ -30,10 +37,10 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-019](BUG-019_gap_inspector_modal_unavailable_unknown_qml_module.md)** | `GapInspectorModal` không dựng được — `import Sagittarius.Theme` là module không tồn tại | 🔴 **P1** | 2026-08-20 | **Đang làm `master-warrior` đỏ** (`test_all_discovered_previews_build_cleanly`). Modal Gap Inspector của `BOT-112C` không mở được trong app thật. Đã root-cause, chưa sửa. |
-| **[BUG-020](BUG-020_gap_repair_calls_undefined_run_check_status.md)** | Vá lỗ hổng thành công vẫn báo lỗi — gọi `_run_check_status()` không tồn tại | 🟡 P2 | 2026-08-20 | Cùng nguồn `BOT-112C`. `AttributeError` bị `except Exception` nuốt thành thông báo thất bại sai; bảng status không refresh. Đã root-cause, chưa sửa. |
-| **[BUG-015](BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)** | Native chart dựng lại geometry OHLCV/volume khi chỉ rê chuột (bằng chứng Windows thật) | 🟡 P2 | 2026-08-19 | Vi phạm tiêu chí nghiệm thu của `BOT-098F4`/`F5`/`F6C`. Root cause đã khoanh về 1 hàm nhưng **chưa xác nhận**. Cần phiên làm việc trên máy Windows thật. |
-| **[BUG-016](BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Chặn tiêu chí 6 của `BOT-098F5`, kéo theo `BOT-098F6D` chưa đóng được. **Chưa root-cause**, process phải force-kill. Cần máy Windows thật. |
+| **[BUG-019](incomplete/BUG-019_gap_inspector_modal_unavailable_unknown_qml_module.md)** | `GapInspectorModal` không dựng được — `import Sagittarius.Theme` là module không tồn tại | 🔴 **P1** | 2026-08-20 | **Đang làm `master-warrior` đỏ** (`test_all_discovered_previews_build_cleanly`). Modal Gap Inspector của `BOT-112C` không mở được trong app thật. Đã root-cause, chưa sửa. |
+| **[BUG-020](incomplete/BUG-020_gap_repair_calls_undefined_run_check_status.md)** | Vá lỗ hổng thành công vẫn báo lỗi — gọi `_run_check_status()` không tồn tại | 🟡 P2 | 2026-08-20 | Cùng nguồn `BOT-112C`. `AttributeError` bị `except Exception` nuốt thành thông báo thất bại sai; bảng status không refresh. Đã root-cause, chưa sửa. |
+| **[BUG-015](incomplete/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)** | Native chart dựng lại geometry OHLCV/volume khi chỉ rê chuột (bằng chứng Windows thật) | 🟡 P2 | 2026-08-19 | Vi phạm tiêu chí nghiệm thu của `BOT-098F4`/`F5`/`F6C`. Root cause đã khoanh về 1 hàm nhưng **chưa xác nhận**. Cần phiên làm việc trên máy Windows thật. |
+| **[BUG-016](incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Chặn tiêu chí 6 của `BOT-098F5`, kéo theo `BOT-098F6D` chưa đóng được. **Chưa root-cause**, process phải force-kill. Cần máy Windows thật. |
 
 ---
 
@@ -41,22 +48,22 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-018](BUG-018_data_management_idle_to_idle_unlock_kills_stat_refresh.md)** | Ô "Stored KLines Records" mãi hiện `—` vì auto-discovery kết thúc bằng transition `IDLE -> IDLE` | 🟡 P2 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
-| **[BUG-017](BUG-017_backtest_sync_redownloads_full_range_ignoring_cached_coverage.md)** | "Đồng bộ ngay" tải lại toàn bộ range, bỏ qua phần đã cache | 🟡 P2 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
-| **[BUG-014](BUG-014_chart_pans_into_empty_space_and_goes_blank.md)** | Chart pan/zoom ra vùng trống rồi trắng hoàn toàn | 🔴 P1 | 2026-08-19 | Trong chính hồ sơ này |
-| **[BUG-013](BUG-013.md)** | `ResourceScope` teardown crash khi bắt đầu backtest mới (stale native dispose callback) | 🔴 P1 | 2026-08-19 | Trong chính hồ sơ này (2026-08-19) |
-| **[BUG-012](BUG-012.md)** | Indicator data có leading gap, không có giá trị trước để giữ | 🟡 P2 | 2026-08-18 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
-| **[BUG-011](BUG-011.md)** | UI block ở trạng thái health-check | 🟡 P2 | 2026-08-18 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
-| **[BUG-010](BUG-010_backtest_sync_never_satisfies_range_coverage.md)** | "Đồng bộ dữ liệu ngay" không bao giờ thoả range coverage, bấm bao nhiêu lần cũng vậy | 🔴 P1 | 2026-08-18 | Trong chính hồ sơ này (2026-08-18) |
-| **[BUG-009](BUG-009_backtest_cached_frame_preview_widget_shift.md)** | Cached-frame drag preview trông như dịch cả widget rồi giật về | 🟡 P2 | 2026-08-18 | Trong chính hồ sơ này (2026-08-18). Là case study của [`logging-rule.md`](../../.agents/rules/logging-rule.md) |
-| **[BUG-008](BUG-008_backtest_chart_toolbar_timeframe_noop.md)** | Nút timeframe trên chart-header chỉ có hình, không có tác dụng | 🔴 P1 | 2026-08-17 | Trong chính hồ sơ này |
-| **[BUG-007](BUG-007.md)** | Đóng app desktop nhưng tiến trình Python vẫn chạy | 🔴 P1 | 2026-08-17 | [`BOT-099`](../completed/) |
-| **[BUG-006](BUG-006.md)** | Trade marker chồng lên nhau đến mức không đọc nổi chart | 🟡 P2 | 2026-08-17 | [`BOT-098A1`](../completed/) |
-| **[BUG-005](BUG-005.md)** | Hộp thoại `Critical System Error` cố định kích thước, không xem hết stack trace | 🟡 P2 | 2026-08-14 | Trong chính hồ sơ này |
-| **[BUG-004](BUG-004.md)** | Bảng Trade Logs lệch cột giữa header và hàng dữ liệu | 🟡 P2 | 2026-08-14 | [`BOT-089`](../completed/BOT-089_content_driven_panel_sizing.md) — nguyên nhân thật khác với chẩn đoán ban đầu trong hồ sơ |
-| **[BUG-003](BUG-003.md)** | Volume bar bất thường sau khi Start Live reload chart | 🟡 P2 | 2026-08-14 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
-| **[BUG-002](BUG-002.md)** | Chart mất nến sau khi zoom out rồi zoom in | 🟡 P2 | 2026-08-12 | [`BOT-072`](../completed/BOT-072_chart_stale_viewport_window_on_zoom.md) |
-| **[BUG-001](BUG-001.md)** | App treo khi chưa sync xong (luồng nền chạm UI trực tiếp) | 🔴 P1 | 2026-08-12 | [`BOT-068`](../completed/BOT-068_ui_thread_affinity_guard.md) |
+| **[BUG-018](completed/BUG-018_data_management_idle_to_idle_unlock_kills_stat_refresh.md)** | Ô "Stored KLines Records" mãi hiện `—` vì auto-discovery kết thúc bằng transition `IDLE -> IDLE` | 🟡 P2 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
+| **[BUG-017](completed/BUG-017_backtest_sync_redownloads_full_range_ignoring_cached_coverage.md)** | "Đồng bộ ngay" tải lại toàn bộ range, bỏ qua phần đã cache | 🟡 P2 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
+| **[BUG-014](completed/BUG-014_chart_pans_into_empty_space_and_goes_blank.md)** | Chart pan/zoom ra vùng trống rồi trắng hoàn toàn | 🔴 P1 | 2026-08-19 | Trong chính hồ sơ này |
+| **[BUG-013](completed/BUG-013.md)** | `ResourceScope` teardown crash khi bắt đầu backtest mới (stale native dispose callback) | 🔴 P1 | 2026-08-19 | Trong chính hồ sơ này (2026-08-19) |
+| **[BUG-012](completed/BUG-012.md)** | Indicator data có leading gap, không có giá trị trước để giữ | 🟡 P2 | 2026-08-18 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
+| **[BUG-011](completed/BUG-011.md)** | UI block ở trạng thái health-check | 🟡 P2 | 2026-08-18 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
+| **[BUG-010](completed/BUG-010_backtest_sync_never_satisfies_range_coverage.md)** | "Đồng bộ dữ liệu ngay" không bao giờ thoả range coverage, bấm bao nhiêu lần cũng vậy | 🔴 P1 | 2026-08-18 | Trong chính hồ sơ này (2026-08-18) |
+| **[BUG-009](completed/BUG-009_backtest_cached_frame_preview_widget_shift.md)** | Cached-frame drag preview trông như dịch cả widget rồi giật về | 🟡 P2 | 2026-08-18 | Trong chính hồ sơ này (2026-08-18). Là case study của [`logging-rule.md`](../../.agents/rules/logging-rule.md) |
+| **[BUG-008](completed/BUG-008_backtest_chart_toolbar_timeframe_noop.md)** | Nút timeframe trên chart-header chỉ có hình, không có tác dụng | 🔴 P1 | 2026-08-17 | Trong chính hồ sơ này |
+| **[BUG-007](completed/BUG-007.md)** | Đóng app desktop nhưng tiến trình Python vẫn chạy | 🔴 P1 | 2026-08-17 | [`BOT-099`](../completed/) |
+| **[BUG-006](completed/BUG-006.md)** | Trade marker chồng lên nhau đến mức không đọc nổi chart | 🟡 P2 | 2026-08-17 | [`BOT-098A1`](../completed/) |
+| **[BUG-005](completed/BUG-005.md)** | Hộp thoại `Critical System Error` cố định kích thước, không xem hết stack trace | 🟡 P2 | 2026-08-14 | Trong chính hồ sơ này |
+| **[BUG-004](completed/BUG-004.md)** | Bảng Trade Logs lệch cột giữa header và hàng dữ liệu | 🟡 P2 | 2026-08-14 | [`BOT-089`](../completed/BOT-089_content_driven_panel_sizing.md) — nguyên nhân thật khác với chẩn đoán ban đầu trong hồ sơ |
+| **[BUG-003](completed/BUG-003.md)** | Volume bar bất thường sau khi Start Live reload chart | 🟡 P2 | 2026-08-14 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
+| **[BUG-002](completed/BUG-002.md)** | Chart mất nến sau khi zoom out rồi zoom in | 🟡 P2 | 2026-08-12 | [`BOT-072`](../completed/BOT-072_chart_stale_viewport_window_on_zoom.md) |
+| **[BUG-001](completed/BUG-001.md)** | App treo khi chưa sync xong (luồng nền chạm UI trực tiếp) | 🔴 P1 | 2026-08-12 | [`BOT-068`](../completed/BOT-068_ui_thread_affinity_guard.md) |
 
 ---
 

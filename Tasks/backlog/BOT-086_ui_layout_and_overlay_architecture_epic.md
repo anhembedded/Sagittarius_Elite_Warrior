@@ -1,6 +1,6 @@
 # Epic: Kiến trúc Layout & Overlay của UI — hết vá pixel bằng tay
 
-> Nguồn: 📄 [`BUG-004`](../bug_report/BUG-004.md) — user báo *"Extension window not so full,
+> Nguồn: 📄 [`BUG-004`](../bug_report/completed/BUG-004.md) — user báo *"Extension window not so full,
 > layout not optimize"* kèm câu hỏi thẳng: ***"Do we need dynamic layout mechanism?"***
 >
 > Đánh giá của user: *"UI mechanical, philosophy chưa tốt, chứ không phải riêng 1 view nào"*

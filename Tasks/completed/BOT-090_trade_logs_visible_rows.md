@@ -2,7 +2,7 @@
 
 > Thuộc Epic [`BOT-086`](BOT-086_ui_layout_and_overlay_architecture_epic.md), **Track B**,
 > task 2/2. Phụ thuộc [`BOT-089`](BOT-089_content_driven_panel_sizing.md).
-> Nguồn: 📄 [`BUG-004`](../bug_report/BUG-004.md).
+> Nguồn: 📄 [`BUG-004`](../bug_report/completed/BUG-004.md).
 
 ## 1. Vấn đề — mất tính năng hoàn toàn, không phải xấu
 

@@ -30,7 +30,7 @@
 
 ### Bằng chứng
 
-Log [`BUG-002`](../bug_report/BUG-002.md):
+Log [`BUG-002`](../bug_report/completed/BUG-002.md):
 
 ```
 19:13:21,033 - App.RunStaticBacktest - INFO -
@@ -183,7 +183,7 @@ Trong khi đó:
   **segfault ngẫu nhiên đã biết** ở integration UI suite; đã điều tra 1 vòng rồi dừng.
 - [`BOT-068`](../completed/BOT-068_ui_thread_affinity_guard.md) — **chưa làm**. Chính
   ROADMAP ghi: *"Engine hiện có **0** guard thread nào"*.
-- [`BUG-001`](../bug_report/BUG-001.md) — app từng treo vì chạm UI từ luồng nền.
+- [`BUG-001`](../bug_report/completed/BUG-001.md) — app từng treo vì chạm UI từ luồng nền.
 
 ### Diễn giải
 

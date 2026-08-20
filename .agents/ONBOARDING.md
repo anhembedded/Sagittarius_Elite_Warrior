@@ -99,7 +99,8 @@ bị vi phạm nhiều nhất:
   của bạn thay thế, test đó *không thể* tái hiện bug — `Mock` không chạy
   thân hàm thật. `BUG-013` đã "tái hiện" nhầm kiểu này hai lần liên tiếp
   với `Mock(spec=...)`, pass ngay cả khi chưa sửa gì.
-- **Bug report bắt buộc:** `Tasks/bug_report/BUG-XXX_mô_tả.md`, có
+- **Bug report bắt buộc:** `Tasks/bug_report/incomplete/BUG-XXX_mô_tả.md`
+  (sửa xong thì `git mv` sang `completed/`), có
   Symptom (bằng chứng thật: traceback/log/ảnh, không diễn giải lại), Root
   cause (cơ chế thật kèm file:line), Fix, Regression test. Lập xong thì
   **thêm dòng vào [Bug Board](../Tasks/bug_report/README.md)** — đó là chỗ

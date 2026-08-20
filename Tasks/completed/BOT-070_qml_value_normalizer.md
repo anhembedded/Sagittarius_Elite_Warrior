@@ -58,7 +58,7 @@ thứ 3.
 - Rủi ro thấp. Cạm bẫy duy nhất đáng kể: **giả định `.toVariant()` đã xử lý xong đệ quy**.
   Phải chứng minh bằng test với dict lồng nhau, không suy luận.
 - 7 dòng `Unable to assign [undefined] to QString/QColor` trong log
-  [`BUG-002`](../bug_report/BUG-002.md) **không** phải bug và **không** thuộc phạm vi task
+  [`BUG-002`](../bug_report/completed/BUG-002.md) **không** phải bug và **không** thuộc phạm vi task
   này — đã xác định ở `BOT-061` là nhiễu vô hại lúc QML parse lần đầu. Ghi ở đây để lần
   sau không ai tưởng task này sẽ dọn sạch chúng.
 - Engine là framework dùng chung — `from_qml()` không được giả định shape dữ liệu riêng

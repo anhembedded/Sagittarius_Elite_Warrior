@@ -2,7 +2,7 @@
 
 **Written:** 2026-08-18, after `BUG-009` was actually root-caused and fixed
 (disable the cached-frame preview by default — see
-[`Tasks/bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md`](../bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md)
+[`Tasks/bug_report/completed/BUG-009_backtest_cached_frame_preview_widget_shift.md`](../bug_report/completed/BUG-009_backtest_cached_frame_preview_widget_shift.md)
 for the fix itself). This document exists to answer two questions the user
 asked directly: *why didn't the test system catch this*, and *what should the
 logging system have done differently*. Read alongside

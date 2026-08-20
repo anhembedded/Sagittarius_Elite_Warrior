@@ -12,7 +12,7 @@
 
 ### 1.1. Con số `-80.71%` gần như hoàn toàn là phí
 
-Log [`BUG-002`](../bug_report/BUG-002.md): `807 trades, net profit -80.71%`. Với
+Log [`BUG-002`](../bug_report/completed/BUG-002.md): `807 trades, net profit -80.71%`. Với
 `fee_percent = 0.1` thu **cả 2 chiều**:
 
 | | Hệ số còn lại | % |

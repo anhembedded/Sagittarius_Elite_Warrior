@@ -101,8 +101,9 @@ apart.
 
 ## 6. Document it as a bug report
 
-Every bug worth this workflow gets a file in `Tasks/bug_report/BUG-XXX.md`
-(next number after the highest existing one), following the structure
+Every bug worth this workflow gets a file in
+`Tasks/bug_report/incomplete/BUG-XXX_description.md` (next number after the
+highest existing one across *both* subdirectories), following the structure
 established across `BUG-006` onward:
 
 - **Header:** Reported date, Severity, Status (`Open`, or `✅ Fixed <date>`
@@ -119,3 +120,9 @@ If the report is filed before the fix (bug found but not yet worked), it's
 fine to leave `Status: Open` with a `Suggested next steps` section instead
 of a fix — do not guess at a root cause you have not verified just to fill
 the section in.
+
+Once the fix lands, `git mv` the report (and any screenshots it embeds) from
+`incomplete/` to `Tasks/bug_report/completed/`, update its `Status` line, and
+move its row in [`Tasks/bug_report/README.md`](../../Tasks/bug_report/README.md)
+— the Bug Board — from the open table to the fixed one. The board is the only
+place an *open* bug is visible; `ROADMAP.md` only ever lists fixed ones.
