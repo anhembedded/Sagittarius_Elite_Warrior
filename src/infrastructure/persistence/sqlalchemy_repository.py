@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage 
     floor_open_time,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.models.data_gap import DataGap
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
     DatabaseManager,
@@ -363,3 +364,52 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         @brief Compacts SQLite storage files by running VACUUM.
         """
         self.db_manager.vacuum(symbol)
+
+    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
+        """
+        @brief Retrieves all gaps in historical market data for a symbol/interval.
+        """
+        expected_seconds = interval.to_seconds()
+        query = sa.text("""
+            WITH ordered_klines AS (
+                SELECT
+                    open_time,
+                    LAG(open_time) OVER (ORDER BY open_time ASC) AS prev_time
+                FROM klines
+                WHERE symbol = :symbol
+                  AND interval = :interval
+            )
+            SELECT
+                prev_time AS gap_start,
+                open_time AS gap_end,
+                CAST((unixepoch(open_time) - unixepoch(prev_time) - :expected_seconds) / :expected_seconds AS INTEGER) AS missing_candles
+            FROM ordered_klines
+            WHERE prev_time IS NOT NULL
+              AND (unixepoch(open_time) - unixepoch(prev_time)) > :expected_seconds
+            ORDER BY prev_time ASC
+        """)
+        with self.db_manager.get_session(symbol) as session:
+            rows = session.execute(
+                query,
+                {
+                    "symbol": symbol,
+                    "interval": interval.value,
+                    "expected_seconds": expected_seconds,
+                },
+            ).fetchall()
+
+            gaps: list[DataGap] = []
+            for row in rows:
+                start_dt = self._parse_db_datetime(row[0])
+                end_dt = self._parse_db_datetime(row[1])
+                if start_dt is not None and end_dt is not None:
+                    gaps.append(
+                        DataGap(
+                            symbol=symbol,
+                            interval=interval,
+                            start_time=start_dt,
+                            end_time=end_dt,
+                            missing_candles=max(1, int(row[2] or 1)),
+                        )
+                    )
+            return gaps

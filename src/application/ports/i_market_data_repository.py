@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.models.data_gap import DataGap
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
@@ -114,4 +115,11 @@ class IMarketDataRepository(ABC):
     def vacuum(self, symbol: str | None = None) -> None:
         """
         @brief Optimizes SQLite storage by running VACUUM on specified or all shards.
+        """
+
+    @abstractmethod
+    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
+        """
+        @brief Scans and returns all detected gaps in historical market data for a symbol/interval.
+        @return Ordered list of DataGap objects.
         """
