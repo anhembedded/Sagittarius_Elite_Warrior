@@ -437,6 +437,15 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[BOT-112C](backlog/BOT-112C_gap_detection_visualizer_and_selective_repair.md)** | **Trực quan hóa Lỗ hổng & Vá Từng Đoạn Dữ liệu (Selective Gap Repair)** | 🔴 **`L (Thinking)`** | `BOT-112A` | Thanh Timeline độ phủ dữ liệu trực quan, danh sách chi tiết các lỗ hổng thời gian và nút "Vá Lỗ Hổng Này" chỉ tải bù đúng đoạn thiếu. |
 | **[BOT-112D](backlog/BOT-112D_market_data_import_export_csv_parquet.md)** | **Nhập / Xuất Dữ liệu Lịch sử (CSV/Parquet) & Bảo trì Ổ cứng** | 🟡 **`M (Standard)`** | `BOT-112A` | Xuất dữ liệu KLines ra CSV/Parquet/JSON, nạp file CSV nến offline vào SQLite, nút bảo trì thu hồi dung lượng đĩa `VACUUM` & `WAL checkpoint`. |
 
+**Nhóm G — Đề xuất Cải tiến Giao diện & Trải nghiệm Người dùng (UI / UX Proposals — PROP Series)**
+
+| Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
+| :--- | :--- | :---: | :---: | :--- |
+| **[PROP-001](backlog/PROP-001_trade_entry_exit_connection_line.md)** | **Đường Nối Lệnh Vào - Ra (Trade Entry-Exit Connection Line on Hover & Selection)** | 🟡 **`M (Standard)`** | `BOT-056` ✅ | Khi rê chuột vào marker hoặc chọn dòng trong Trade Logs, vẽ đường nét đứt mờ (xanh cho Win, đỏ cho Loss) nối từ Entry sang Exit, hiển thị thời gian giữ lệnh & % PnL. |
+| **[PROP-002](backlog/PROP-002_bidirectional_table_chart_interaction.md)** | **Tương Tác Hai Chiều Bảng Trade Logs & Biểu Đồ (Bi-directional Table & Chart)** | 🟡 **`M (Standard)`** | `BOT-056` ✅, `BOT-057` ✅ | Click hàng trong Trade Logs $\rightarrow$ chart tự động smooth pan & highlight marker; Click marker trên chart $\rightarrow$ Trade Logs tự lật đến đúng trang & chọn hàng. |
+| **[PROP-003](backlog/PROP-003_zoom_adaptive_trade_marker_details.md)** | **Chi Tiết Marker Thích Ứng Mức Phóng To (Zoom-Adaptive Trade Marker PnL Details)** | 🟡 **`M (Standard)`** | `BOT-098A` ✅ | Zoom xa: Giữ tam giác tối giản; Zoom cực gần (< 30 nến): Tự động hiển thị mini-badge % PnL và nhãn lệnh (TP, SL, Sig) bên cạnh tam giác. |
+| **[PROP-004](backlog/PROP-004_advanced_chart_marker_filters.md)** | **Bộ Lọc Marker Nâng Cao Trên Biểu Đồ Backtest (Advanced Chart Marker Filter Controls)** | 🟢 **`S (Fast)`** | `BOT-056` ✅ | Dropdown lọc nhanh marker trên chart: Tất cả / Chỉ lệnh Thắng / Chỉ lệnh Thua / Chỉ Long / Chỉ Short / Lọc theo ngưỡng $|PnL| \ge X\%$. |
+
 **Ngoài nhóm**
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
