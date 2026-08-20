@@ -45,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_ga
     RepairDataGapCommand,
     RepairDataGapCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_integrity import (
+    AuditDatabaseIntegrityQuery,
+    AuditDatabaseIntegrityQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
     GetBacktestRangeCoverageQuery,
     GetBacktestRangeCoverageQueryHandler,
@@ -223,6 +227,9 @@ class BinanceBotModule(BaseModule):
         app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
         app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
         app.container.bind(GetDatabaseGapsQuery, GetDatabaseGapsQueryHandler)
+        app.container.bind(
+            AuditDatabaseIntegrityQuery, AuditDatabaseIntegrityQueryHandler
+        )
         app.container.bind(
             GetBacktestRangeCoverageQuery, GetBacktestRangeCoverageQueryHandler
         )

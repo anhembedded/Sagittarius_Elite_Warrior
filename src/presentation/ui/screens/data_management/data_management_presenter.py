@@ -24,12 +24,19 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_ga
     RepairDataGapCommand,
     RepairDataGapResult,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_integrity import (
+    AuditDatabaseIntegrityQuery,
+    DatabaseAuditResultDTO,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_gaps import (
     GetDatabaseGapsQuery,
     GetDatabaseGapsResult,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
+    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
     ListAvailableSymbolsQuery,
@@ -44,9 +51,11 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_d
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .data_management_view_model import DataManagementViewModel
@@ -95,12 +104,22 @@ class DataManagementPresenter(BasePresenter):
     ui_sync_complete_signal = Signal()
     ui_symbol_options_signal = Signal(list)
     ui_gap_inspector_signal = Signal(str, str, int, int, float, list, list)
+    ui_kline_inspector_signal = Signal(str, str, list)
+    ui_audit_result_signal = Signal(bool, int, str, list)
 
     def __init__(self, view: DataManagementView, container: IContainer) -> None:
         super().__init__(view, container)
 
         self._view_model = DataManagementViewModel()
         view.set_view_model(self._view_model)
+
+        config: IConfig = container.resolve(IConfig)
+        cfg_page_size = config.get(ConfigKeys.KLINE_INSPECTOR_PAGE_SIZE.value)
+        if cfg_page_size is not None:
+            try:
+                self._view_model.kline_inspector_model.set_page_size(int(cfg_page_size))
+            except (ValueError, TypeError):
+                pass
 
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
 
@@ -157,6 +176,8 @@ class DataManagementPresenter(BasePresenter):
         view_model.inspectGapsRequested.connect(self._on_inspect_gaps)
         view_model.repairGapRequested.connect(self._on_repair_gap)
         view_model.repairAllGapsRequested.connect(self._on_repair_all_gaps)
+        view_model.inspectKlinesRequested.connect(self._on_inspect_klines)
+        view_model.runAuditRequested.connect(self._on_run_audit)
 
         # Internal signals -> main-thread model updates
         self.ui_log_signal.connect(self._append_log)
@@ -171,6 +192,8 @@ class DataManagementPresenter(BasePresenter):
         self.ui_sync_complete_signal.connect(self._on_sync_complete)
         self.ui_symbol_options_signal.connect(view_model.set_symbol_options)
         self.ui_gap_inspector_signal.connect(view_model.set_gap_inspector_data)
+        self.ui_kline_inspector_signal.connect(view_model.set_kline_inspector_data)
+        self.ui_audit_result_signal.connect(view_model.set_audit_result)
 
     def _connect_engine_events(self) -> None:
         """Subscribe to Engine EventBus events emitted from background handlers."""
@@ -741,3 +764,70 @@ class DataManagementPresenter(BasePresenter):
             self.ui_error_log_signal.emit(f"Failed to repair all gaps: {exc}")
         finally:
             self.ui_unlock_signal.emit()
+
+    # ================================================================== #
+    # KLine Inspector & Audit Handlers (BOT-112B)
+    # ================================================================== #
+
+    @Slot(str, str)
+    @safe_ui_action
+    def _on_inspect_klines(self, symbol: str, interval: str = "1m") -> None:
+        """User clicked 'Inspect KLines' or double-clicked a status row."""
+        self._thread_manager.submit(self._run_inspect_klines, symbol, interval)
+
+    def _run_inspect_klines(self, symbol: str, interval: str) -> None:
+        """Background worker: queries historical klines and delivers to UI."""
+        try:
+            query = GetHistoricalKlinesQuery(
+                symbol=symbol,
+                interval=interval,
+                limit=10000,
+                order_by_desc=False,
+            )
+            klines = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
+            self.ui_kline_inspector_signal.emit(symbol, interval, klines or [])
+        except Exception as exc:  # noqa: BLE001
+            self.ui_error_log_signal.emit(f"Failed to inspect klines: {exc}")
+
+    @Slot(str, str)
+    @safe_ui_action
+    def _on_run_audit(self, symbol: str, interval: str = "1m") -> None:
+        """User clicked 'Kiểm định Dữ liệu (Audit)' in the inspector."""
+        self._thread_manager.submit(self._run_audit, symbol, interval)
+
+    def _run_audit(self, symbol: str, interval: str) -> None:
+        """Background worker: runs integrity audit on the selected shard."""
+        try:
+            query = AuditDatabaseIntegrityQuery(symbol=symbol, interval=interval)
+            result: DatabaseAuditResultDTO = self.dispatcher.dispatch(
+                AuditDatabaseIntegrityQuery, query
+            )
+            if result.is_clean:
+                summary = (
+                    f"Dữ liệu toàn vẹn 100%! Đã kiểm định {result.total_checked:,} nến, "
+                    f"không phát hiện nến lỗi."
+                )
+            else:
+                summary = (
+                    f"Cảnh báo: Phát hiện {result.anomaly_count:,} nến bất thường trong "
+                    f"{result.total_checked:,} nến đã kiểm định."
+                )
+
+            anomalies_list = [
+                {
+                    "timestamp": a.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "type": a.anomaly_type,
+                    "description": a.description,
+                    "raw": str(a.raw_values),
+                }
+                for a in result.anomalies
+            ]
+            self.ui_audit_result_signal.emit(
+                result.is_clean,
+                result.anomaly_count,
+                summary,
+                anomalies_list,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.ui_error_log_signal.emit(f"Failed to audit database: {exc}")
+            self.ui_audit_result_signal.emit(False, 0, f"Lỗi kiểm định: {exc}", [])

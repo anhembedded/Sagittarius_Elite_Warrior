@@ -178,9 +178,11 @@ def test_database_screen_loads_gap_inspector_modal_with_zero_qml_errors(
     Regression test ensuring GapInspectorModal.qml and DatabaseScreen.qml
     load cleanly without any missing module imports.
     """
-    view = presenter._view
-    assert view.errors() == []
-    root_obj = view.rootObject()
+    view = presenter.view
+    assert view.quick_widget.errors() == []
+    root_obj = view.quick_widget.rootObject()
     assert root_obj is not None
     gap_modal = root_obj.findChild(object, "gapInspectorModal")
     assert gap_modal is not None
+    kline_modal = root_obj.findChild(object, "klineInspectorModal")
+    assert kline_modal is not None
