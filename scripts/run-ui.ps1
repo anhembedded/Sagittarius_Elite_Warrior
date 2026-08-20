@@ -24,6 +24,9 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $BotRoot = Split-Path -Parent $ScriptDir
 $ProjectRoot = Split-Path -Parent $BotRoot
 
+$isWindowsPlatform = ($env:OS -eq "Windows_NT") -or ($PSVersionTable.PSEdition -eq "Desktop") -or ($IsWindows -eq $true)
+$PathSeparator = if ($isWindowsPlatform) { ";" } else { ":" }
+
 # Support cloning with hyphens (Sagittarius-Elite-Warrior) while code expects underscores
 $PackageName = "Sagittarius_Elite_Warrior"
 if ((Split-Path -Leaf $BotRoot) -ne $PackageName) {
@@ -32,7 +35,7 @@ if ((Split-Path -Leaf $BotRoot) -ne $PackageName) {
     if (-not (Test-Path $AliasDir)) { New-Item -ItemType Directory -Path $AliasDir -Force | Out-Null }
     $JunctionPath = Join-Path $AliasDir $PackageName
     if (-not (Test-Path $JunctionPath)) { New-Item -ItemType Junction -Path $JunctionPath -Target $BotRoot -Force | Out-Null }
-    $env:PYTHONPATH = $AliasDir
+    $env:PYTHONPATH = "$AliasDir$PathSeparator$ProjectRoot"
 } else {
     $env:PYTHONPATH = $ProjectRoot
 }
@@ -57,7 +60,7 @@ if (-not (Test-Path $VenvRoot)) {
     & $PythonCommand -m venv $VenvRoot
 }
 
-$ActivateScript = if ($IsWindows) {
+$ActivateScript = if ($isWindowsPlatform) {
     Join-Path $VenvRoot "Scripts/Activate.ps1"
 } else {
     Join-Path $VenvRoot "bin/Activate.ps1"
@@ -70,7 +73,7 @@ if (-not (Test-Path $ActivateScript)) {
 Write-Host "Activating virtual environment..." -ForegroundColor Cyan
 . $ActivateScript
 
-$VenvPython = if ($IsWindows) {
+$VenvPython = if ($isWindowsPlatform) {
     Join-Path $VenvRoot "Scripts/python.exe"
 } else {
     Join-Path $VenvRoot "bin/python"
