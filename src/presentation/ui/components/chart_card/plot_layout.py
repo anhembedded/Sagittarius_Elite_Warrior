@@ -4,7 +4,6 @@ from enum import Enum
 
 import pyqtgraph as pg
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     get_utc_offset_seconds,

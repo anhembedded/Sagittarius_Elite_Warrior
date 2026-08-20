@@ -3,7 +3,6 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from binance.client import Client
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     CancellationCheck,
     ExchangeRequestCancelled,

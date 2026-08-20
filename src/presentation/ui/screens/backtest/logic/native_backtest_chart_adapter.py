@@ -19,7 +19,6 @@ from pathlib import Path
 from PySide6.QtCore import QThread, QUrl
 from PySide6.QtQml import QQmlComponent
 from PySide6.QtQuickWidgets import QQuickWidget
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
     OhlcCandle,
 )

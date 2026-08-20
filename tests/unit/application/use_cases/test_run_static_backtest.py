@@ -5,7 +5,6 @@ from typing import ClassVar
 from unittest.mock import Mock
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )

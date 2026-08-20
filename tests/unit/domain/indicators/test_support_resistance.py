@@ -1,5 +1,4 @@
 import pytest
-
 from Sagittarius_Elite_Warrior.src.domain.indicators.support_resistance import (
     SupportResistance,
     SupportResistanceValue,

@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )

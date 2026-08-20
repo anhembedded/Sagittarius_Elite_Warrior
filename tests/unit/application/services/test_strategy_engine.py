@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
 )
@@ -315,8 +314,6 @@ def test_on_forming_bar_tick_forwards_current_position_side_into_the_context():
     candle = _build_klines([100.0])[0]
     forming_candle = replace(candle, is_closed=False)
 
-    engine.on_forming_bar_tick(
-        forming_candle, current_position_side=PositionSide.LONG
-    )
+    engine.on_forming_bar_tick(forming_candle, current_position_side=PositionSide.LONG)
 
     assert spy.seen_sides == [PositionSide.LONG]

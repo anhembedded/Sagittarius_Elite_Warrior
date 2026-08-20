@@ -11,7 +11,6 @@ host's ChartCard before building the next one.
 from unittest.mock import Mock, patch
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )

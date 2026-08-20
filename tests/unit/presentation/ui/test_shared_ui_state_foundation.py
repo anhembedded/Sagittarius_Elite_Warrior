@@ -27,7 +27,6 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtQuickWidgets import QQuickWidget
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc import (
     BasePresenter,

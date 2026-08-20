@@ -458,9 +458,7 @@ class PaperExchange:
             pnl = net_proceeds - pos.balance_before_entry
         else:
             pnl = (
-                (pos.entry_price - exit_price) * pos.quantity
-                - pos.entry_fee
-                - exit_fee
+                (pos.entry_price - exit_price) * pos.quantity - pos.entry_fee - exit_fee
             )
             self._balance += pos.balance_before_entry + pnl
 
@@ -577,8 +575,7 @@ class PaperExchange:
                     pos.stop_loss_price is not None and low <= pos.stop_loss_price
                 )
                 target_hit = (
-                    pos.take_profit_price is not None
-                    and high >= pos.take_profit_price
+                    pos.take_profit_price is not None and high >= pos.take_profit_price
                 )
             else:
                 stop_hit = (

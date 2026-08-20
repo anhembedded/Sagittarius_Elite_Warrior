@@ -11,7 +11,6 @@ timezone name).
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Slot
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_timestamp,

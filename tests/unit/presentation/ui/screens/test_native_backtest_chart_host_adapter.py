@@ -7,7 +7,6 @@ these tests do not need the native plugin built.
 from unittest.mock import Mock
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
