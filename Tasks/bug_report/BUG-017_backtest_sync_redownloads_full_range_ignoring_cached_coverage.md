@@ -5,7 +5,9 @@
 local database first.
 **Severity:** P2 — wasted network I/O and needless wait time on every sync,
 not a correctness bug (no duplicate rows are created; see Investigation).
-**Status:** Open — root cause found and confirmed by reading, not yet fixed.
+**Status:** ✅ Fixed 2026-08-20 — root-caused, reproduced with a regression
+test confirmed failing for the right reason, fixed, re-verified with log
+evidence.
 
 ## Symptom
 
@@ -58,24 +60,54 @@ that confirmation the observed symptom (huge total count, slow sync) is
 explained entirely by the redundant network fetch, independent of whatever
 the save step does with the redundant rows.
 
-## Suggested fix (not yet attempted)
+## Fix
 
-In `BackTestPresenter._run_sync()`, pass the coverage-detected gap start
-instead of the full requested range start when a gap was already found —
-i.e. thread `coverage.missing_open_times[0]` (already computed by
-`_probe_data_coverage()` just before `_start_sync_for_config()` is called)
-through to the `SyncMarketDataCommand(start_time=...)` construction, falling
-back to `config.start_time` only when there is no prior coverage probe
-result to use (e.g. a cold DB with zero cached candles, where the whole
-range genuinely is missing). Needs a regression test that seeds the DB with
-a partial range, triggers sync, and asserts the dispatched
-`SyncMarketDataCommand.start_time` equals the gap start, not the original
-requested start — a `Mock`-based assertion on the dispatched command is
-the right tier here (no real network call needed to prove the fix, per
-this repo's own gotcha about mocks hiding real logic: this one specifically
-must NOT mock away `_probe_data_coverage`/`GetBacktestRangeCoverageQuery`,
-or the test would pass without ever exercising the real gap-detection value
-being threaded through).
+`BackTestPresenter` now threads the coverage probe's gap through the whole
+sync path instead of discarding it:
+
+- New `self._last_no_data_coverage: BacktestRangeCoverage | None`, kept in
+  lockstep with the pre-existing `self._last_no_data_config` at every point
+  that field is set or cleared — `None` specifically for the "totally empty
+  DB, nothing was ever probed" path (`_on_backtest_empty`), set to the real
+  `coverage` object for the "partial coverage, a real gap exists" path
+  (`_on_backtest_coverage_missing_for_action`).
+- `_start_sync_for_config()`/`_run_sync()` both gained an optional
+  `coverage: BacktestRangeCoverage | None = None` parameter, threaded
+  through the `IThreadManager.submit(...)` call exactly like `action_id`/
+  `cancellation_token` already were.
+- New `BackTestPresenter._resolve_sync_start(config, coverage)`: returns
+  `coverage.missing_open_times[0]` when a gap was found, else falls back to
+  `config.start_time` (the cold-DB case, where the whole range genuinely is
+  missing — not a bug). `SyncMarketDataCommand(start_time=...)` now calls
+  this instead of using `config.start_time` unconditionally.
+- Always logged (not `--dev`-gated, so it's in every real user's session
+  log): `BACKTEST_TRACE action=sync_start_resolved source=coverage_gap
+  gap_start=... requested_start=...` or `source=requested_range
+  requested_start=...` — explains after the fact exactly which start a
+  given sync used and why.
+
+## Regression test
+
+`tests/unit/presentation/ui/screens/test_backtest_presenter.py`:
+
+- `test_run_sync_resumes_from_the_coverage_gap_not_the_full_requested_range`
+  — drives the real `_on_backtest_coverage_missing_for_action()` →
+  `_start_sync_for_config()` → `IThreadManager.submit(...)` wiring (not a
+  hand-built call), then runs exactly what was actually submitted and
+  asserts the dispatched `SyncMarketDataCommand.start_time` equals the
+  coverage gap, not the originally requested start. **Confirmed failing
+  before the fix** with `assert datetime(2020, 1, 1, ...) ==
+  datetime(2026, 1, 1, ...)` — i.e. it caught the exact real symptom, the
+  full requested start leaking through instead of the gap. Also asserts the
+  `sync_start_resolved`/`source=coverage_gap` log line is present —
+  log-proved, not just inferred from the dispatched command.
+- `test_run_sync_falls_back_to_the_requested_start_with_no_prior_coverage`
+  — companion test for the cold-DB case (`coverage=None`), asserting the
+  fix does *not* change that path: `command.start_time == config.start_time`
+  and the log line says `source=requested_range`.
+
+Both kept permanently. Full `tests/unit/` suite (1475 tests) and the
+Backtest screen DI sanity suite pass, `ruff` clean.
 
 ## Reproduction
 

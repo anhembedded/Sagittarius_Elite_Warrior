@@ -1486,6 +1486,67 @@ def test_run_sync_fetches_one_interval_past_the_frozen_probe_boundary(
     assert command.end_time == end_time + timedelta(minutes=1)
 
 
+def test_run_sync_resumes_from_the_coverage_gap_not_the_full_requested_range(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr, caplog
+):
+    """BUG-017 regression: coverage detection correctly finds the real gap
+    (`coverage.missing_open_times[0]`), but the sync it triggers must resume
+    from THAT point, not silently discard it and re-fetch the entire
+    originally requested range from Binance."""
+    view_model.requestRun()
+    action = presenter._active_action
+    assert action is not None
+    requested_start = datetime(2020, 1, 1, tzinfo=UTC)  # long before the gap
+    config = replace(action.config, start_time=requested_start)
+    coverage = _missing_coverage()  # gap at _T0 = 2026-01-01
+    assert coverage.missing_open_times[0] != requested_start
+    mock_thread_mgr.reset_mock()
+    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+
+    with caplog.at_level(logging.INFO, logger="App.BackTestPresenter"):
+        presenter._on_backtest_coverage_missing_for_action(
+            action.action_id, config, coverage, True
+        )
+        # Exercise exactly what was actually submitted to the thread pool —
+        # not a hand-built call — so this proves the real wiring, not just a
+        # plausible-looking call to _run_sync in isolation.
+        submitted_args = mock_thread_mgr.submit.call_args[0][1:]
+        presenter._run_sync(*submitted_args)
+
+    _, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert command.start_time == coverage.missing_open_times[0]
+    assert command.start_time != requested_start
+    # Log-proved: the decision (which start it resumed from and why) must be
+    # findable in a real session's log, not just inferable from the outcome.
+    resolved_lines = [
+        r.message for r in caplog.records if "sync_start_resolved" in r.message
+    ]
+    assert len(resolved_lines) == 1
+    assert "source=coverage_gap" in resolved_lines[0]
+
+
+def test_run_sync_falls_back_to_the_requested_start_with_no_prior_coverage(
+    presenter, view_model, mock_dispatcher, caplog
+):
+    """The cold-DB case (BUG-017's suggested-fix note): with no coverage
+    probe result at all, the full requested range genuinely is missing, so
+    falling back to `config.start_time` is correct, not a regression."""
+    config = _run_to_no_data(presenter, view_model, mock_dispatcher)
+    view_model.requestSync()
+    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+
+    with caplog.at_level(logging.INFO, logger="App.BackTestPresenter"):
+        presenter._run_sync(config)
+
+    _, command = mock_dispatcher.dispatch.call_args_list[0][0]
+    assert command.start_time == config.start_time
+    resolved_lines = [
+        r.message for r in caplog.records if "sync_start_resolved" in r.message
+    ]
+    assert len(resolved_lines) == 1
+    assert "source=requested_range" in resolved_lines[0]
+
+
 def test_sync_without_the_required_candle_reports_incomplete_and_keeps_retry_available(
     presenter, view_model, mock_dispatcher, mock_thread_mgr
 ):

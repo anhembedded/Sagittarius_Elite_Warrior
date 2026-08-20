@@ -291,6 +291,13 @@ class BackTestPresenter(BasePresenter):
         # data" result), cleared by any successful run or successful sync —
         # the single source of truth for whether "Đồng bộ ngay" is offered.
         self._last_no_data_config: BacktestRunConfig | None = None
+        # BUG-017: the coverage probe result that produced the missing-data
+        # state above, when one exists — None for the "totally empty DB, no
+        # coverage was ever probed" path (_on_backtest_empty). Lets the sync
+        # this triggers resume from the real gap instead of re-fetching the
+        # entire originally requested range. Kept in lockstep with
+        # _last_no_data_config: set/cleared at every point that field is.
+        self._last_no_data_coverage: BacktestRangeCoverage | None = None
 
         # BOT-095B: Snapshot of the last executed backtest run configuration.
         # Used for Dirty Tracking to compare against active toolbar inputs.
@@ -969,13 +976,14 @@ class BackTestPresenter(BasePresenter):
             return
         message = self._format_coverage_message(coverage)
         self._last_no_data_config = config
+        self._last_no_data_coverage = coverage
         self._view_model.set_data_coverage(False, message)
         self._view_model.set_needs_data_sync(True)
         self._finish_action(action_id, BacktestActionOutcome.EMPTY)
         if allow_auto_sync:
             if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_EMPTY):
                 self.fsm.dispatch(BacktestUiEvent.BACKTEST_EMPTY)
-            self._start_sync_for_config(config)
+            self._start_sync_for_config(config, coverage)
             return
         self._on_backtest_failed(message)
 
@@ -1226,6 +1234,7 @@ class BackTestPresenter(BasePresenter):
             net_profit_percent=result.metrics.net_profit_percent,
         )
         self._last_no_data_config = None
+        self._last_no_data_coverage = None
         self._view_model.set_needs_data_sync(False)
         self._view_model.set_stat_cards(
             stat_cards_to_qml(build_primary_stat_cards(result)),
@@ -1267,6 +1276,10 @@ class BackTestPresenter(BasePresenter):
         "Đồng bộ ngay" (`_on_request_sync`) knows exactly what to sync and,
         on success, what to re-run."""
         self._last_no_data_config = config
+        # No coverage probe backs this path (totally empty DB) — must not
+        # reuse a stale gap from an earlier, unrelated missing-coverage
+        # event, or the next sync would resume from the wrong point.
+        self._last_no_data_coverage = None
         self._view_model.set_needs_data_sync(True)
         self._view_model.set_stat_cards([], [])
         self._view_model.set_result_warning_text("")
@@ -1886,9 +1899,15 @@ class BackTestPresenter(BasePresenter):
         if not self.fsm.can_dispatch(BacktestUiEvent.SYNC_REQUESTED):
             self._log_dev_trace("sync_ignored", state=self.fsm.current_state)
             return
-        self._start_sync_for_config(self._last_no_data_config)
+        self._start_sync_for_config(
+            self._last_no_data_config, self._last_no_data_coverage
+        )
 
-    def _start_sync_for_config(self, sync_config: BacktestRunConfig) -> None:
+    def _start_sync_for_config(
+        self,
+        sync_config: BacktestRunConfig,
+        coverage: BacktestRangeCoverage | None = None,
+    ) -> None:
         if not self.fsm.can_dispatch(BacktestUiEvent.SYNC_REQUESTED):
             self._log_dev_trace("sync_ignored", state=self.fsm.current_state)
             return
@@ -1906,6 +1925,7 @@ class BackTestPresenter(BasePresenter):
             action.config,
             action.action_id,
             self._sync_cancellation_token,
+            coverage,
         )
 
     @Slot(int, int, int)
@@ -1981,6 +2001,7 @@ class BackTestPresenter(BasePresenter):
         cached_config = self._last_no_data_config
         self._view_model.set_needs_data_sync(False)
         self._last_no_data_config = None
+        self._last_no_data_coverage = None
         if self.fsm.can_dispatch(BacktestUiEvent.SYNC_SUCCEEDED):
             self.fsm.dispatch(BacktestUiEvent.SYNC_SUCCEEDED)
 
@@ -2356,11 +2377,37 @@ class BackTestPresenter(BasePresenter):
         )
         return self.dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
 
+    @staticmethod
+    def _resolve_sync_start(
+        config: BacktestRunConfig, coverage: BacktestRangeCoverage | None
+    ) -> datetime | None:
+        """BUG-017: resume a sync from the coverage-detected gap instead of
+        re-fetching the entire originally requested range, when a prior
+        coverage probe found one. `coverage` is only ever `None` for the
+        "totally empty DB, nothing was ever probed" path — the full
+        requested range genuinely is missing there, so falling back to
+        `config.start_time` is correct, not the bug this guards against.
+        Always logged (not gated on --dev): explains after the fact why a
+        given sync fetched however many candles it did."""
+        if coverage is not None and coverage.missing_open_times:
+            gap_start = coverage.missing_open_times[0]
+            logger.info(
+                f"{_TRACE_PREFIX} action=sync_start_resolved source=coverage_gap "
+                f"gap_start={gap_start!r} requested_start={config.start_time!r}"
+            )
+            return gap_start
+        logger.info(
+            f"{_TRACE_PREFIX} action=sync_start_resolved source=requested_range "
+            f"requested_start={config.start_time!r}"
+        )
+        return config.start_time
+
     def _run_sync(
         self,
         config: BacktestRunConfig,
         action_id: int | None = None,
         cancellation_token: CancellationToken | None = None,
+        coverage: BacktestRangeCoverage | None = None,
     ) -> None:
         """Background worker: dispatches `SyncMarketDataCommand` for the
         symbol/timeframe/range that just came back "no data" — mirrors
@@ -2373,18 +2420,19 @@ class BackTestPresenter(BasePresenter):
         if resolved_action_id is None:
             return
         sync_interval = self._effective_data_interval(config)
+        sync_start = self._resolve_sync_start(config, coverage)
         self._log_dev_trace(
             "sync_worker_start",
             action_id=resolved_action_id,
             timeframe=sync_interval.value,
-            start=config.start_time,
+            start=sync_start,
             end=config.end_time,
         )
         try:
             command = SyncMarketDataCommand(
                 symbols=[self._symbol],
                 interval=sync_interval,
-                start_time=config.start_time,
+                start_time=sync_start,
                 # Binance treats the history end boundary as exclusive.
                 # Fetch one extra interval; coverage/backtest still keep
                 # the requested half-open boundary.
