@@ -2,6 +2,7 @@ import argparse
 import shlex
 
 from pydantic import ValidationError
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
 )

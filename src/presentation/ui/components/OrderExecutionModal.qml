@@ -52,12 +52,7 @@ ModalDialogCard {
         anchors.margins: 12
         spacing: 4
 
-        ListView {
-            id: listView
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            interactive: false
-
+        Repeater {
             model: ListModel {
                 id: listModel
                 ListElement {
@@ -83,10 +78,10 @@ ModalDialogCard {
                 }
             }
 
-            delegate: ItemDelegate {
+            ItemDelegate {
                 id: delegateItem
-                width: listView.width
-                height: 38
+                Layout.fillWidth: true
+                implicitHeight: 38
                 enabled: !model.locked
                 objectName: "chkExecutionTrigger_" + index
                 ToolTip.visible: delegateItem.hovered && model.tooltip !== ""

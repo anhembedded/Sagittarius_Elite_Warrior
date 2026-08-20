@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
+
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
 )

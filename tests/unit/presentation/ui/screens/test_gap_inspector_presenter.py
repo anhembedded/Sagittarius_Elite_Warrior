@@ -4,6 +4,7 @@ import os
 from unittest.mock import Mock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
     RepairDataGapCommand,
     RepairDataGapResult,

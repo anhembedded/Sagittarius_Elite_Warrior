@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,

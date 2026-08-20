@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
     BacktestMetrics,
 )

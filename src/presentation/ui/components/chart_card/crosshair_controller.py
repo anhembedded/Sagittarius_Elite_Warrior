@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import pyqtgraph as pg
 from PySide6 import QtCore
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_timestamp,

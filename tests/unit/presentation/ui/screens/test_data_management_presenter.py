@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
     ClearMarketDataResult,
 )

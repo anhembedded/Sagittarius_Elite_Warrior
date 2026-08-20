@@ -9,6 +9,7 @@ without falsely failing on the unclosed candle.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
     build_backtest_range_coverage,
 )

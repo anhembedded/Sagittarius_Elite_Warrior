@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.base_card import (
     BaseCard,
 )

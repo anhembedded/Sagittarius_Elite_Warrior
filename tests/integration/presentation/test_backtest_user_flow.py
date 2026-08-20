@@ -9,8 +9,10 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
+
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
+    DataGap,
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
@@ -109,6 +111,21 @@ class _InMemoryMarketDataRepository(IMarketDataRepository):
                 bool(row.close_time and row.close_time > now) for row in rows
             ),
         )
+
+    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
+        return 0
+
+    def purge_all(self) -> int:
+        return 0
+
+    def list_available_shards(self) -> list[str]:
+        return [_RUNTIME_SYMBOL]
+
+    def vacuum(self, symbol: str | None = None) -> None:
+        pass
+
+    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
+        return []
 
 
 def _make_runtime_klines(interval: str = _RUNTIME_INTERVAL) -> list[MarketData]:

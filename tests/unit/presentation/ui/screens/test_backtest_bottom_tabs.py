@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from PySide6.QtCore import QUrl
 from PySide6.QtQuick import QQuickItem
+
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )

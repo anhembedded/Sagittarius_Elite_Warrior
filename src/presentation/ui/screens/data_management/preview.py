@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QWidget
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
     DataManagementViewModel,
 )

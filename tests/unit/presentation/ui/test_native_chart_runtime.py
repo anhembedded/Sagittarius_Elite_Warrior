@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import PySide6
 import pytest
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
     NativeChartRuntimeError,
     resolve_native_chart_runtime,

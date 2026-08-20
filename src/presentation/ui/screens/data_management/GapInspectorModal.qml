@@ -1,7 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Sagittarius.Theme
+import QmlShared 1.0
+import "../../components"
 
 ModalDialogCard {
     id: root

@@ -11,6 +11,7 @@ import os
 import pytest
 from PySide6.QtCore import QtMsgType, qInstallMessageHandler
 from PySide6.QtQuick import QQuickItem
+
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
     NativeBacktestChartHost,

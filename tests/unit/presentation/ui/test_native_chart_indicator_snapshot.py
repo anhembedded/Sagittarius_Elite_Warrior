@@ -3,6 +3,7 @@ from __future__ import annotations
 import struct
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_indicator_snapshot import (
     NativeIndicatorSeries,
     pack_native_indicator_snapshot,

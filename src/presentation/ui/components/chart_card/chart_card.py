@@ -4,6 +4,7 @@ from collections.abc import Sequence
 import pyqtgraph as pg
 from PySide6.QtCore import QPointF, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.base_card import BaseCard
 
 from .cached_frame_interaction import CachedFrameInteractionController

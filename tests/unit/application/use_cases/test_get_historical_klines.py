@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.handler import (
     GetHistoricalKlinesQueryHandler,
 )

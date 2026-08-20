@@ -5,6 +5,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
+
 from sagittarius_engine.extensions.pyside_mvc import QmlHostView
 
 from .sidebar_view_model import SidebarViewModel

@@ -4,6 +4,7 @@ import math
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
     BacktestMetrics,
 )

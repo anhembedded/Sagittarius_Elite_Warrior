@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock, call, patch
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.command import (
     RunBacktestCommand,
 )

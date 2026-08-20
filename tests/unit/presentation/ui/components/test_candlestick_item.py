@@ -11,6 +11,7 @@ changed, leaving a stale slice on screen.
 """
 
 import pyqtgraph as pg
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.candlestick_item import (
     FastCandlestickItem,
 )

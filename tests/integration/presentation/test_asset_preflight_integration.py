@@ -6,6 +6,7 @@ and AssetValidatorExtension.
 from unittest.mock import patch
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets.asset_validator_extension import (
     AssetValidatorExtension,
 )
