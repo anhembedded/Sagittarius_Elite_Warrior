@@ -37,6 +37,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest 
     StopBacktestCommand,
     StopBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
+    ClearMarketDataCommand,
+    ClearMarketDataCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
     GetBacktestRangeCoverageQuery,
     GetBacktestRangeCoverageQueryHandler,
@@ -203,6 +207,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(
             RunRealtimeBacktestCommand, RunRealtimeBacktestCommandHandler
         )
+        app.container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""

@@ -318,3 +318,48 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         if isinstance(value, datetime):
             return value.replace(tzinfo=UTC)
         return datetime.fromisoformat(value).replace(tzinfo=UTC)
+
+    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
+        """
+        @brief Deletes klines for a given symbol and optional interval.
+        @details If interval is None, removes the entire shard database file to reclaim disk space.
+        If interval is specified, deletes matching rows in KlineModel and commits.
+        """
+        if interval is None:
+            count = 0
+            try:
+                with self.db_manager.get_session(symbol) as session:
+                    count = session.query(KlineModel).filter_by(symbol=symbol).count()
+            except Exception as err:  # noqa: BLE001
+                logger.debug(f"Could not count klines before shard removal: {err}")
+            self.db_manager.remove_shard(symbol)
+            return count
+
+        with self.db_manager.get_session(symbol) as session:
+            stmt = sa.delete(KlineModel).where(
+                KlineModel.symbol == symbol,
+                KlineModel.interval == interval.value,
+            )
+            result = session.execute(stmt)
+            deleted_count = result.rowcount
+            session.commit()
+            return int(deleted_count)
+
+    def purge_all(self) -> int:
+        """
+        @brief Purges all market data databases / shards.
+        @return Total count of shards purged.
+        """
+        return self.db_manager.purge_all_shards()
+
+    def list_available_shards(self) -> list[str]:
+        """
+        @brief Lists all symbol names that have existing storage shards on disk.
+        """
+        return self.db_manager.list_shards()
+
+    def vacuum(self, symbol: str | None = None) -> None:
+        """
+        @brief Compacts SQLite storage files by running VACUUM.
+        """
+        self.db_manager.vacuum(symbol)

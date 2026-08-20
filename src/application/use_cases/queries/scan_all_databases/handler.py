@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
@@ -13,14 +15,23 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 
 logger = logging.getLogger("App.QueryHandler")
 
+_DEFAULT_SCAN_INTERVALS = [
+    TimeFrame.ONE_MINUTE.value,
+    TimeFrame.FIVE_MINUTES.value,
+    TimeFrame.FIFTEEN_MINUTES.value,
+    TimeFrame.ONE_HOUR.value,
+    TimeFrame.FOUR_HOURS.value,
+    TimeFrame.ONE_DAY.value,
+]
+
 
 class ScanAllDatabasesQueryHandler(
     IQueryHandler[ScanAllDatabasesQuery, list[DatabaseStatusDTO]]
 ):
     """
     @brief Handler for ScanAllDatabasesQuery.
-    @details Owns the nested iteration logic over all symbol/interval combinations,
-    removing this orchestration responsibility from the Presenter (Domain Leakage fix).
+    @details Owns the nested iteration logic over all symbol/interval combinations.
+    If symbols is not specified, auto-discovers all shards currently on disk.
     Entries with zero candles are skipped to avoid table clutter during bulk scans.
     Returns a typed list of DatabaseStatusDTO — no raw dicts.
     """
@@ -31,20 +42,21 @@ class ScanAllDatabasesQueryHandler(
     def execute(self, query: ScanAllDatabasesQuery) -> list[DatabaseStatusDTO]:
         """
         @brief Scans all symbol/interval pairs and returns formatted status DTOs.
-        @param query ScanAllDatabasesQuery carrying the lists of symbols and intervals.
+        @param query ScanAllDatabasesQuery carrying lists of symbols and intervals.
         @return List of DatabaseStatusDTO, one per non-empty symbol/interval pair.
         """
+        symbols = (
+            query.symbols if query.symbols else self._repository.list_available_shards()
+        )
+        intervals = query.intervals if query.intervals else _DEFAULT_SCAN_INTERVALS
+
         logger.debug(
-            f"Handling ScanAllDatabasesQuery for {len(query.symbols)} symbols "
-            f"x {len(query.intervals)} intervals."
+            f"Handling ScanAllDatabasesQuery for {len(symbols)} symbols "
+            f"x {len(intervals)} intervals."
         )
 
         results: list[DatabaseStatusDTO] = []
-        tasks = [
-            (symbol, interval)
-            for symbol in query.symbols
-            for interval in query.intervals
-        ]
+        tasks = [(symbol, interval) for symbol in symbols for interval in intervals]
 
         if not tasks:
             return results

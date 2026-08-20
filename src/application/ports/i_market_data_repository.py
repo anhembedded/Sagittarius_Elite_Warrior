@@ -88,3 +88,30 @@ class IMarketDataRepository(ABC):
         now: datetime,
     ) -> RangeCoverageSnapshot:
         """Aggregate coverage facts for ``[start_time, end_time)``."""
+
+    @abstractmethod
+    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
+        """
+        @brief Deletes klines for a given symbol and optional interval.
+        @return The number of deleted records.
+        """
+
+    @abstractmethod
+    def purge_all(self) -> int:
+        """
+        @brief Purges all market data databases / shards.
+        @return Total number of shards or records purged.
+        """
+
+    @abstractmethod
+    def list_available_shards(self) -> list[str]:
+        """
+        @brief Lists all symbol names that have existing storage shards on disk.
+        @return List of symbol names (e.g. ['BTCUSDT', 'ETHUSDT']).
+        """
+
+    @abstractmethod
+    def vacuum(self, symbol: str | None = None) -> None:
+        """
+        @brief Optimizes SQLite storage by running VACUUM on specified or all shards.
+        """
