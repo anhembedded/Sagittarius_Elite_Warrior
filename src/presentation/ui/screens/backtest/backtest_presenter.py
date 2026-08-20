@@ -1924,6 +1924,10 @@ class BackTestPresenter(BasePresenter):
             self._view_model.longLeverage = float(props["long_leverage"])
         if "short_leverage" in props:
             self._view_model.shortLeverage = float(props["short_leverage"])
+        if "take_profit_enabled" in props:
+            self._view_model.takeProfitPctEnabled = bool(props["take_profit_enabled"])
+        if "take_profit_pct_text" in props:
+            self._view_model.takeProfitPctText = str(props["take_profit_pct_text"])
 
         self._view_model.set_bot_params_error("")
         self._refresh_bot_params_schema()
@@ -2238,6 +2242,15 @@ class BackTestPresenter(BasePresenter):
         except ValueError:
             commission_type = CommissionType.PERCENT
 
+        take_profit_pct: float | None = None
+        if view_model.takeProfitPctEnabled:
+            try:
+                parsed_take_profit_pct = float(view_model.takeProfitPctText)
+            except ValueError:
+                parsed_take_profit_pct = 0.0
+            if parsed_take_profit_pct > 0:
+                take_profit_pct = parsed_take_profit_pct
+
         broker_config = BrokerSimulationConfig(
             pyramiding=view_model.pyramiding,
             slippage_ticks=view_model.slippageTicks,
@@ -2245,6 +2258,7 @@ class BackTestPresenter(BasePresenter):
             commission_value=view_model.commissionValue,
             long_leverage=view_model.longLeverage,
             short_leverage=view_model.shortLeverage,
+            take_profit_pct=take_profit_pct,
         )
 
         return BacktestRunConfig(

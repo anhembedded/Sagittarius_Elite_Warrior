@@ -174,6 +174,8 @@ class BackTestViewModel(BaseQmlViewModel):
     slippageTicksChanged = Signal()
     longLeverageChanged = Signal()
     shortLeverageChanged = Signal()
+    takeProfitPctEnabledChanged = Signal()
+    takeProfitPctTextChanged = Signal()
 
     #: BOT-088: Signals to trigger overlay modals hosted in OverlayHost.
     openBotParamsRequested = Signal(str)
@@ -214,6 +216,12 @@ class BackTestViewModel(BaseQmlViewModel):
         self._slippage_ticks = 0
         self._long_leverage = 1.0
         self._short_leverage = 1.0
+        #: EPIC-001A — BrokerSimulationConfig.take_profit_pct had no UI path
+        #: at all before this (only ever set in tests); None until the user
+        #: opts in, so a fresh app still behaves exactly as before this field
+        #: existed (BOT-041's own default).
+        self._take_profit_pct_enabled = False
+        self._take_profit_pct_text = "2.0"
         self._time_range_preset = TimeRangePreset.ALL_HISTORY.value
         self._display_timezone = DEFAULT_TIMEZONE
         self._custom_start_text = ""
@@ -693,6 +701,36 @@ class BackTestViewModel(BaseQmlViewModel):
         _get_short_leverage,
         _set_short_leverage,
         notify=shortLeverageChanged,
+    )
+
+    def _get_take_profit_pct_enabled(self) -> bool:
+        return self._take_profit_pct_enabled
+
+    def _set_take_profit_pct_enabled(self, value: bool) -> None:
+        if value != self._take_profit_pct_enabled:
+            self._take_profit_pct_enabled = bool(value)
+            self.takeProfitPctEnabledChanged.emit()
+
+    takeProfitPctEnabled = Property(
+        bool,
+        _get_take_profit_pct_enabled,
+        _set_take_profit_pct_enabled,
+        notify=takeProfitPctEnabledChanged,
+    )
+
+    def _get_take_profit_pct_text(self) -> str:
+        return self._take_profit_pct_text
+
+    def _set_take_profit_pct_text(self, value: str) -> None:
+        if value != self._take_profit_pct_text:
+            self._take_profit_pct_text = value
+            self.takeProfitPctTextChanged.emit()
+
+    takeProfitPctText = Property(
+        str,
+        _get_take_profit_pct_text,
+        _set_take_profit_pct_text,
+        notify=takeProfitPctTextChanged,
     )
 
     @Slot(str)

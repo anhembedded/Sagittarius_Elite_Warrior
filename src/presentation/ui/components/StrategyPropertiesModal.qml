@@ -535,6 +535,74 @@ ModalDialogCard {
                             }
                         }
                     }
+
+                    // Group 5: Chốt lời tự động (Take Profit %) — BOT-041's
+                    // broker-level TP had no UI path at all before EPIC-001A.
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+
+                            Image {
+                                source: "image://icons/settings/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+                            Text {
+                                text: "CHỐT LỜI TỰ ĐỘNG (TAKE PROFIT %)"
+                                textFormat: Text.PlainText
+                                color: Theme && Theme.accent ? Theme.accent : "#f0b90b"
+                                font.pixelSize: 11
+                                font.bold: true
+                            }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme && Theme.border ? Theme.border : "#2a2d3e" }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            CheckBox {
+                                id: propTakeProfitEnabled
+                                objectName: "propTakeProfitEnabled"
+                                text: "Bật Take Profit %"
+                                checked: root.hasViewModel ? viewModel.takeProfitPctEnabled : false
+                                contentItem: Text {
+                                    text: propTakeProfitEnabled.text
+                                    color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                    font.pixelSize: 11
+                                    leftPadding: propTakeProfitEnabled.indicator.width + 6
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+                                Text {
+                                    text: "% Chốt lời (khớp take_profit_percent của strategy)"
+                                    color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                    font.pixelSize: 11
+                                }
+                                TextField {
+                                    id: propTakeProfitPct
+                                    objectName: "propTakeProfitPct"
+                                    Layout.fillWidth: true
+                                    implicitHeight: 32
+                                    enabled: propTakeProfitEnabled.checked
+                                    text: root.hasViewModel ? viewModel.takeProfitPctText : "2.0"
+                                    color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                    background: Rectangle {
+                                        color: "#181a26"
+                                        border.color: Theme && Theme.border ? Theme.border : "#2a2d3e"
+                                        radius: 4
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -663,6 +731,8 @@ ModalDialogCard {
         propSlippageTicks.value = 0
         propLongLeverage.value = 1
         propShortLeverage.value = 1
+        propTakeProfitEnabled.checked = false
+        propTakeProfitPct.text = "2.0"
     }
 
     function saveAndRerun() {
@@ -683,7 +753,9 @@ ModalDialogCard {
             "commission_text": propCommissionValue.text,
             "slippage_ticks": propSlippageTicks.value,
             "long_leverage": propLongLeverage.value,
-            "short_leverage": propShortLeverage.value
+            "short_leverage": propShortLeverage.value,
+            "take_profit_enabled": propTakeProfitEnabled.checked,
+            "take_profit_pct_text": propTakeProfitPct.text
         }
 
         viewModel.requestStrategyPropertiesSave({

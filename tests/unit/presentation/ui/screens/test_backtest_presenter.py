@@ -3726,3 +3726,57 @@ def test_strategy_properties_save_applies_leverage_to_the_view_model(
 
     assert view_model.longLeverage == 5.0
     assert view_model.shortLeverage == 3.0
+
+
+def test_strategy_properties_save_applies_take_profit_pct_to_the_view_model(
+    presenter, view_model
+):
+    """EPIC-001A: `BrokerSimulationConfig.take_profit_pct` had no UI path at
+    all before this — only ever set directly in tests — so a strategy's own
+    `take_profit_percent` input never actually triggered a take-profit exit
+    in the real app. StrategyPropertiesModal.qml's new checkbox + text field
+    save through the same "properties" payload path as leverage."""
+    presenter._on_strategy_properties_save_requested(
+        {
+            "properties": {
+                "take_profit_enabled": True,
+                "take_profit_pct_text": "2.0",
+            }
+        }
+    )
+
+    assert view_model.takeProfitPctEnabled is True
+    assert view_model.takeProfitPctText == "2.0"
+
+
+def test_build_run_config_sets_take_profit_pct_only_when_enabled(
+    presenter, view_model
+):
+    """`_build_run_config()` must thread the enabled+parsed value into
+    `BrokerSimulationConfig.take_profit_pct` — and must leave it `None`
+    (BOT-041's own untouched default) when the checkbox is off, even if the
+    text field still holds a leftover value from a previous toggle."""
+    view_model.takeProfitPctEnabled = True
+    view_model.takeProfitPctText = "3.5"
+    config = presenter._build_run_config()
+    assert config is not None
+    assert config.broker_config.take_profit_pct == 3.5
+
+    view_model.takeProfitPctEnabled = False
+    config = presenter._build_run_config()
+    assert config is not None
+    assert config.broker_config.take_profit_pct is None
+
+
+def test_build_run_config_ignores_malformed_take_profit_pct_text(
+    presenter, view_model
+):
+    """A stray non-numeric or zero/negative value in the text field must not
+    crash `_build_run_config()` (`BrokerSimulationConfig` itself raises for
+    `take_profit_pct <= 0`) — falls back to disabled, matching the lenient
+    fallback this function already uses for `order_size_type`/`commission_type`."""
+    view_model.takeProfitPctEnabled = True
+    view_model.takeProfitPctText = "not-a-number"
+    config = presenter._build_run_config()
+    assert config is not None
+    assert config.broker_config.take_profit_pct is None
