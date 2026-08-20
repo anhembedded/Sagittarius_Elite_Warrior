@@ -3711,3 +3711,18 @@ def test_market_rule_verification_stale_metadata_reported_truthfully(
         == MetadataVerificationStatus.UNVERIFIED_STALE.value
     )
     assert "metadata cũ" in view_model.marketRuleExplanation
+
+
+def test_strategy_properties_save_applies_leverage_to_the_view_model(
+    presenter, view_model
+):
+    """BOT-105: StrategyPropertiesModal.qml's new leverage spin boxes save
+    through the same "properties" payload path pyramiding/slippage already
+    use — must reach view_model.longLeverage/shortLeverage, which
+    _build_run_config threads into BrokerSimulationConfig."""
+    presenter._on_strategy_properties_save_requested(
+        {"properties": {"long_leverage": 5, "short_leverage": 3}}
+    )
+
+    assert view_model.longLeverage == 5.0
+    assert view_model.shortLeverage == 3.0

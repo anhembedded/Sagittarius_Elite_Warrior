@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.paper_exchange import (
     PaperExchange,
@@ -826,3 +827,165 @@ def test_risk_percent_sizing_works_symmetrically_for_short_by_hand():
     trades = exchange.check_intrabar_stops(high=103.0, low=99.0, time=_T2)
     assert len(trades) == 1
     assert trades[0].pnl == pytest.approx(-100.0)
+
+
+# ================= BOT-105: Leverage =================
+
+
+def test_leverage_multiplies_notional_and_quantity_but_not_margin_for_percent_of_equity():
+    # PERCENT_OF_EQUITY specifies a CAPITAL (margin) amount — leverage
+    # multiplies that into a bigger notional/quantity, margin unchanged.
+    # margin = 1000 * 100% = 1000; notional = 1000 * 5x = 5000;
+    # quantity = 5000 / 100 = 50 (fee=0). capital drawn from balance is
+    # still just the margin (1000), not the full 5000 notional.
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, long_leverage=5.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1000.0, broker_config=broker_cfg
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    assert exchange.balance == pytest.approx(0.0)  # 1000 margin, not 5000
+    trade = exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
+    assert trade.quantity == pytest.approx(50.0)
+
+
+def test_leverage_amplifies_pnl_percent_by_the_leverage_factor():
+    # 5x leverage on a 10% price move must return ~50% on margin, not 10%.
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, long_leverage=5.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+
+    assert trade.pnl == pytest.approx(500.0)  # 50 qty * 10 price delta
+    assert trade.pnl_percent == pytest.approx(50.0)  # 500 / 1000 margin
+    assert exchange.balance == pytest.approx(1500.0)
+
+
+def test_default_leverage_never_amplifies_pnl_matching_pre_leverage_behavior():
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0)  # long_leverage=1.0
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=110.0, time=_T2)
+
+    assert trade.pnl == pytest.approx(100.0)
+    assert trade.pnl_percent == pytest.approx(10.0)  # unamplified
+    assert exchange.balance == pytest.approx(1100.0)
+
+
+def test_mark_to_market_of_a_leveraged_position_at_entry_price_equals_margin_only():
+    # Marking at the exact entry price must show zero unrealized PnL — the
+    # equity contribution is exactly the margin, never the full notional
+    # (which would silently invent unrealized profit out of nothing).
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, long_leverage=10.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    assert exchange.equity(mark_price=100.0) == pytest.approx(1000.0)
+
+
+def test_risk_percent_sizing_keeps_real_dollar_risk_independent_of_leverage():
+    # BOT-105's core safety invariant: RISK_PERCENT's whole point is "the
+    # cash lost if the stop is hit equals risk% of equity" — leverage must
+    # NEVER silently multiply that. risk_amount = 1000*2% = 20;
+    # stop_distance = 100*5% = 5; quantity = 20/5 = 4 regardless of
+    # leverage — only the margin drawn from balance shrinks with leverage.
+    sizing = PositionSizing(type=PositionSizingType.RISK_PERCENT, value=2.0)
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, stop_loss_pct=5.0, long_leverage=10.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # notional = 400, margin = 400 / 10x = 40.
+    assert exchange.balance == pytest.approx(1000.0 - 40.0)
+    trades = exchange.check_intrabar_stops(high=101.0, low=94.0, time=_T2)
+    assert len(trades) == 1
+    assert trades[0].pnl == pytest.approx(-20.0)  # exactly risk_amount, not *10
+
+
+def test_fixed_contracts_sizing_quantity_is_leverage_independent_margin_only_shrinks():
+    # FIXED_CONTRACTS specifies an exact QUANTITY — leverage must not
+    # change that quantity, only the margin needed to hold it.
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CONTRACTS, value=10.0)
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, long_leverage=4.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=50.0, time=_T1)
+
+    # notional = 10 * 50 = 500, margin = 500 / 4x = 125.
+    assert exchange.balance == pytest.approx(1000.0 - 125.0)
+    trade = exchange.fill(_signal(SignalAction.SELL), price=50.0, time=_T2)
+    assert trade.quantity == pytest.approx(10.0)
+
+
+def test_short_leverage_is_read_independently_from_long_leverage():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, long_leverage=1.0, short_leverage=5.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1000.0, broker_config=broker_cfg
+    )
+
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # margin = 1000 (100% equity), notional = 1000*5x = 5000, qty = 50.
+    assert exchange.balance == pytest.approx(0.0)
+    trade = exchange.fill(_signal(SignalAction.COVER), price=90.0, time=_T2)
+    assert trade.quantity == pytest.approx(50.0)
+    assert trade.pnl == pytest.approx(500.0)  # 50 qty * 10 price drop
+
+
+def test_leverage_fee_is_charged_on_the_full_notional_not_just_the_margin():
+    # 1% fee on a 5x-leveraged $1000-margin position is charged on the
+    # $5000 notional (50), not the $1000 margin (10) — matches real
+    # exchange behavior (fees scale with position size, not margin).
+    broker_cfg = BrokerSimulationConfig(commission_value=1.0, long_leverage=5.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1000.0, broker_config=broker_cfg
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trade = exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
+    assert trade.fees_paid == pytest.approx(50.0 + 49.5)  # entry ~50, exit ~49.5
+
+
+def test_leverage_margin_is_clamped_to_available_balance_preserving_the_ratio():
+    # FIXED_CASH requesting a 2000 margin on a 1000 balance — clamped to
+    # the available 1000, with notional scaled down by the exact same
+    # factor so the effective leverage stays 5x, not silently diluted.
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CASH, value=2000.0)
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, long_leverage=5.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    assert exchange.balance == pytest.approx(0.0)  # entire 1000 margin used
+    trade = exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
+    # margin=1000, notional capped at 1000*5x=5000 (not the requested 10000).
+    assert trade.quantity == pytest.approx(50.0)

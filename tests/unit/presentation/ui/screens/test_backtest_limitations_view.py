@@ -37,7 +37,6 @@ def test_always_applicable_limitations_are_present_for_every_run():
     assert "slippage" in joined
     assert "độ trễ mạng" in joined
     assert "sổ lệnh" in joined
-    assert "Long" in joined
     assert "Stop Loss" in joined
     assert "giá mở nến kế tiếp" in joined
     assert "Phí giao dịch" in joined

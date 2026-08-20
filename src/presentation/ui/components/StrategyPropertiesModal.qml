@@ -468,6 +468,73 @@ ModalDialogCard {
                             }
                         }
                     }
+
+                    // Group 4: Đòn bẩy (Leverage) — BOT-105
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+
+                            Image {
+                                source: "image://icons/settings/accent"
+                                sourceSize: Qt.size(13, 13)
+                            }
+                            Text {
+                                text: "ĐÒN BẨY (LEVERAGE)"
+                                textFormat: Text.PlainText
+                                color: Theme && Theme.accent ? Theme.accent : "#f0b90b"
+                                font.pixelSize: 11
+                                font.bold: true
+                            }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme && Theme.border ? Theme.border : "#2a2d3e" }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+                                Text {
+                                    text: "Đòn bẩy Long (x)"
+                                    color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                    font.pixelSize: 11
+                                }
+                                SpinBox {
+                                    id: propLongLeverage
+                                    objectName: "propLongLeverage"
+                                    Layout.fillWidth: true
+                                    implicitHeight: 32
+                                    from: 1
+                                    to: 125
+                                    value: root.hasViewModel ? viewModel.longLeverage : 1
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+                                Text {
+                                    text: "Đòn bẩy Short (x)"
+                                    color: Theme && Theme.textPrimary ? Theme.textPrimary : "#e5e7eb"
+                                    font.pixelSize: 11
+                                }
+                                SpinBox {
+                                    id: propShortLeverage
+                                    objectName: "propShortLeverage"
+                                    Layout.fillWidth: true
+                                    implicitHeight: 32
+                                    from: 1
+                                    to: 125
+                                    value: root.hasViewModel ? viewModel.shortLeverage : 1
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -594,6 +661,8 @@ ModalDialogCard {
         propCommissionType.currentIndex = 0
         propCommissionValue.text = "0.1"
         propSlippageTicks.value = 0
+        propLongLeverage.value = 1
+        propShortLeverage.value = 1
     }
 
     function saveAndRerun() {
@@ -612,7 +681,9 @@ ModalDialogCard {
             "pyramiding": propPyramiding.value,
             "commission_type": propCommissionType.currentValue,
             "commission_text": propCommissionValue.text,
-            "slippage_ticks": propSlippageTicks.value
+            "slippage_ticks": propSlippageTicks.value,
+            "long_leverage": propLongLeverage.value,
+            "short_leverage": propShortLeverage.value
         }
 
         viewModel.requestStrategyPropertiesSave({

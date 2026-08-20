@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
+
 from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
     SingleSyncProgressEvent,
 )
@@ -1919,6 +1920,10 @@ class BackTestPresenter(BasePresenter):
             self._view_model.commissionText = str(props["commission_text"])
         if "slippage_ticks" in props:
             self._view_model.slippageTicks = int(props["slippage_ticks"])
+        if "long_leverage" in props:
+            self._view_model.longLeverage = float(props["long_leverage"])
+        if "short_leverage" in props:
+            self._view_model.shortLeverage = float(props["short_leverage"])
 
         self._view_model.set_bot_params_error("")
         self._refresh_bot_params_schema()

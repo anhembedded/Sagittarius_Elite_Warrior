@@ -56,6 +56,13 @@ class _OpenPosition:
     take_profit_price: float | None = None
     #: BOT-050 — LONG for every position before this field existed.
     side: PositionSide = PositionSide.LONG
+    #: BOT-105 — snapshotted from `BrokerSimulationConfig.long_leverage`/
+    #: `short_leverage` at entry, not re-read from config later (same
+    #: reasoning as `stop_loss_price`/`take_profit_price` above): a
+    #: position's own leverage must stay fixed for its whole lifetime even
+    #: if a caller somehow mutated the config mid-run. `1.0` for every
+    #: position opened before this field existed.
+    leverage: float = 1.0
 
 
 class PaperExchange:
@@ -172,19 +179,29 @@ class PaperExchange:
     @staticmethod
     def _mark_to_market(pos: _OpenPosition, mark_price: float) -> float:
         """@brief Current account-value contribution of one open position at
-        `mark_price` (BOT-050), gross of any hypothetical exit fee — the
-        same convention this always had for LONG (a fee is only ever
+        `mark_price` (BOT-050/BOT-105), gross of any hypothetical exit fee —
+        the same convention this always had for LONG (a fee is only ever
         charged on an actual close, never estimated ahead of time).
-        @details LONG: `self._balance` already had `capital_deployed` spent
-        on it, so the position's current value is simply quantity marked at
-        the current price. SHORT: `self._balance` already had
-        `capital_deployed` held aside as margin (never actually spent), so
-        its current value is that margin plus the unrealized
-        (entry - mark) price move — zero change in value exactly when
-        `mark_price == entry_price`, same as LONG's zero unrealized PnL at
-        that point."""
+        @details An unleveraged (1.0x, the default) LONG keeps its original
+        spot-style formula exactly (`self._balance` already had the FULL
+        notional spent on it, so the position's current value is simply
+        quantity marked at the current price) — this branch is preserved
+        bit-for-bit rather than folded into the margin-style formula below,
+        since every existing unleveraged backtest's equity curve already
+        depends on this exact value.
+        A leveraged LONG (and every SHORT, BOT-050) is margin-style instead:
+        `self._balance` only had `capital_deployed` (the MARGIN, smaller
+        than the notional under leverage) held aside — never the full
+        notional — so the position's current value is that margin plus the
+        unrealized price move, zero change in value exactly when
+        `mark_price == entry_price`. LONG and SHORT are mirror images of
+        the same formula (`mark - entry` vs `entry - mark`)."""
         if pos.side is PositionSide.LONG:
-            return pos.quantity * mark_price
+            if pos.leverage == 1.0:
+                return pos.quantity * mark_price
+            return (
+                pos.balance_before_entry + (mark_price - pos.entry_price) * pos.quantity
+            )
         return pos.balance_before_entry + (pos.entry_price - mark_price) * pos.quantity
 
     def fill(self, signal: Signal, price: float, time: datetime) -> Trade | None:
@@ -243,38 +260,65 @@ class PaperExchange:
             return max(0.0, price - delta)
         return price + delta
 
+    def _leverage_for(self, side: PositionSide) -> float:
+        return (
+            self._broker_config.long_leverage
+            if side is PositionSide.LONG
+            else self._broker_config.short_leverage
+        )
+
     def _calculate_entry_capital(
         self, side: PositionSide, price: float, current_equity: float
     ) -> tuple[float, float, float]:
         """
         Calculates (capital_deployed, quantity, entry_fee) for opening a
-        position, either side, based on position sizing and commission
-        model. Returns (0.0, 0.0, 0.0) if sizing or cash is insufficient.
-        `capital_deployed` is spent cash for LONG and margin held aside for
-        SHORT (BOT-050) — see `_open()`/`_close_one_position()`.
+        position, either side, based on position sizing, leverage (BOT-105)
+        and commission model. Returns (0.0, 0.0, 0.0) if sizing or cash is
+        insufficient. `capital_deployed` is the MARGIN held aside — spent
+        cash for LONG and margin reserved for SHORT (BOT-050) — see
+        `_open()`/`_close_one_position()`.
+
+        @details Leverage means two different things depending on what the
+        sizing type actually specifies, by design:
+        - `PERCENT_OF_EQUITY`/`FIXED_CASH` specify a CAPITAL amount to
+          commit as margin — leverage multiplies that into a bigger
+          notional position, exactly matching how every real exchange's
+          "size % + leverage" order entry works (5x leverage on 100% of a
+          $1,000 equity controls a $5,000 position, using $1,000 margin).
+        - `FIXED_CONTRACTS`/`RISK_PERCENT` specify an exact QUANTITY (a
+          contract count, or the quantity that keeps a stop-loss's real $
+          loss at exactly `risk%` of equity) — leverage must NOT change
+          that quantity, only how much margin is needed to hold it, or
+          `RISK_PERCENT`'s own documented invariant ("risk_amount = the
+          cash lost if the stop is hit") would silently multiply by
+          `leverage` and quietly risk far more than the user configured.
         """
         effective_price = self._entry_effective_price(side, price)
         if effective_price <= 0:
             return 0.0, 0.0, 0.0
 
+        leverage = self._leverage_for(side)
         sizing_type = self._position_sizing.type
         sizing_val = self._position_sizing.value
 
         if sizing_type is PositionSizingType.PERCENT_OF_EQUITY:
-            target_capital = current_equity * (sizing_val / 100.0)
+            margin = current_equity * (sizing_val / 100.0)
+            notional_capital = margin * leverage
         elif sizing_type is PositionSizingType.FIXED_CASH:
-            target_capital = sizing_val
+            margin = sizing_val
+            notional_capital = margin * leverage
         elif sizing_type is PositionSizingType.FIXED_CONTRACTS:
-            target_capital = sizing_val * effective_price
+            notional_capital = sizing_val * effective_price
+            margin = notional_capital / leverage
         elif sizing_type is PositionSizingType.RISK_PERCENT:
             # risk_amount = current_equity * risk% — the cash lost if the
-            # stop is hit. quantity = risk_amount / stop_distance, so
-            # capital = quantity * effective_price = risk_amount *
-            # (effective_price / stop_distance). stop_distance is a % of
-            # effective_price (stop_loss_pct), not the raw entry price, to
-            # stay consistent with where slippage is already applied above.
-            # Symmetric for both sides — stop_distance is a magnitude, not
-            # a signed direction.
+            # stop is hit, regardless of leverage. quantity = risk_amount /
+            # stop_distance, so notional = quantity * effective_price =
+            # risk_amount * (effective_price / stop_distance). stop_distance
+            # is a % of effective_price (stop_loss_pct), not the raw entry
+            # price, to stay consistent with where slippage is already
+            # applied above. Symmetric for both sides — stop_distance is a
+            # magnitude, not a signed direction.
             if self._broker_config.stop_loss_pct is None:
                 logger.debug(
                     f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} rejected: RISK_PERCENT "
@@ -285,44 +329,52 @@ class PaperExchange:
                 self._broker_config.stop_loss_pct / 100.0
             )
             risk_amount = current_equity * (sizing_val / 100.0)
-            target_capital = risk_amount * (effective_price / stop_distance)
+            notional_capital = risk_amount * (effective_price / stop_distance)
+            margin = notional_capital / leverage
         else:
-            target_capital = self._balance
+            margin = self._balance
+            notional_capital = margin * leverage
 
-        # Capital deployed cannot exceed currently available liquid cash balance
-        target_capital = min(target_capital, self._balance)
-        if target_capital <= 0:
+        # Margin cannot exceed currently available liquid cash — clamp
+        # margin, then scale notional down by the same factor so the
+        # margin:notional ratio always stays exactly `leverage`. Clamping
+        # notional alone (leaving margin untouched) would silently change
+        # the effective leverage of an undersized fill.
+        if margin > self._balance:
+            scale = (self._balance / margin) if margin else 0.0
+            margin = self._balance
+            notional_capital *= scale
+        if margin <= 0 or notional_capital <= 0:
             return 0.0, 0.0, 0.0
 
         comm_type = self._broker_config.commission_type
         comm_val = self._broker_config.commission_value
 
+        # Fee is charged on the notional actually traded (real exchange
+        # behavior), same as it always was for every sizing type at the
+        # default 1.0x leverage, where notional_capital == margin.
         if comm_type is CommissionType.PERCENT:
-            entry_fee = target_capital * (comm_val / 100.0)
-            net_capital = target_capital - entry_fee
-            if net_capital <= 0:
+            entry_fee = notional_capital * (comm_val / 100.0)
+            net_notional = notional_capital - entry_fee
+            if net_notional <= 0:
                 return 0.0, 0.0, 0.0
-            quantity = net_capital / effective_price
-            capital_deployed = target_capital
+            quantity = net_notional / effective_price
         elif comm_type is CommissionType.CASH_PER_ORDER:
             entry_fee = comm_val
-            net_capital = target_capital - entry_fee
-            if net_capital <= 0:
+            net_notional = notional_capital - entry_fee
+            if net_notional <= 0:
                 return 0.0, 0.0, 0.0
-            quantity = net_capital / effective_price
-            capital_deployed = target_capital
+            quantity = net_notional / effective_price
         elif comm_type is CommissionType.CASH_PER_CONTRACT:
-            quantity = target_capital / (effective_price + comm_val)
+            quantity = notional_capital / (effective_price + comm_val)
             if quantity <= 0:
                 return 0.0, 0.0, 0.0
             entry_fee = quantity * comm_val
-            capital_deployed = target_capital
         else:
             entry_fee = 0.0
-            quantity = target_capital / effective_price
-            capital_deployed = target_capital
+            quantity = notional_capital / effective_price
 
-        return capital_deployed, quantity, entry_fee
+        return margin, quantity, entry_fee
 
     def _open(
         self,
@@ -398,6 +450,7 @@ class PaperExchange:
             take_profit_price=take_profit_price,
             entry_metadata=metadata,
             side=side,
+            leverage=self._leverage_for(side),
         )
         self._positions.append(position)
         slippage_delta = self._slippage_delta()
@@ -431,14 +484,17 @@ class PaperExchange:
         which has no raw-vs-effective distinction — the target price itself
         is the fill.
 
-        PnL (BOT-050): LONG realizes `net_proceeds - capital_deployed`,
-        where `capital_deployed` already embeds the entry fee (it was never
-        subtracted out of it, only used to compute a smaller quantity) —
-        algebraically this equals `quantity*(exit-entry) - entry_fee -
-        exit_fee`. SHORT computes that same expanded form directly (entry
-        and exit price roles swapped) since there's no "proceeds" to net
-        against for a short — the margin (`capital_deployed`) was reserved,
-        not spent, and gets released back plus/minus `pnl`."""
+        PnL (BOT-050/BOT-105): an unleveraged (1.0x) LONG realizes
+        `net_proceeds - capital_deployed`, where `capital_deployed` already
+        embeds the entry fee (it was never subtracted out of it, only used
+        to compute a smaller quantity) — algebraically this equals
+        `quantity*(exit-entry) - entry_fee - exit_fee`, preserved
+        bit-for-bit as its own branch below for the same reason
+        `_mark_to_market` keeps one. A leveraged LONG (and every SHORT)
+        computes that same expanded form directly instead, since there's no
+        "proceeds" to net against `capital_deployed` once it's only the
+        MARGIN and not the full notional — the margin was reserved, not
+        spent, and gets released back plus/minus `pnl`."""
         comm_type = self._broker_config.commission_type
         comm_val = self._broker_config.commission_value
 
@@ -452,10 +508,15 @@ class PaperExchange:
         else:
             exit_fee = 0.0
 
-        if pos.side is PositionSide.LONG:
+        if pos.side is PositionSide.LONG and pos.leverage == 1.0:
             net_proceeds = notional - exit_fee
             self._balance += net_proceeds
             pnl = net_proceeds - pos.balance_before_entry
+        elif pos.side is PositionSide.LONG:
+            pnl = (
+                (exit_price - pos.entry_price) * pos.quantity - pos.entry_fee - exit_fee
+            )
+            self._balance += pos.balance_before_entry + pnl
         else:
             pnl = (
                 (pos.entry_price - exit_price) * pos.quantity - pos.entry_fee - exit_fee

@@ -301,6 +301,17 @@ class BacktestRunConfig:
             )
 
         if (
+            self.broker_config.long_leverage != other.broker_config.long_leverage
+            or self.broker_config.short_leverage != other.broker_config.short_leverage
+        ):
+            diffs.append(
+                f"Đòn bẩy (Long {self.broker_config.long_leverage}x/Short "
+                f"{self.broker_config.short_leverage}x → Long "
+                f"{other.broker_config.long_leverage}x/Short "
+                f"{other.broker_config.short_leverage}x)"
+            )
+
+        if (
             self.broker_config.commission_value != other.broker_config.commission_value
             or self.broker_config.commission_type != other.broker_config.commission_type
         ):

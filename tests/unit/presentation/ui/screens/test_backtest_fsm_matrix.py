@@ -87,3 +87,26 @@ def test_compute_diff_summary_detects_broker_simulation_changes():
     assert "Kim tự tháp (1 → 3)" in diff
     assert "Trượt giá (0 → 5 ticks)" in diff
     assert "Phí hoa hồng (0.1 → 0.05)" in diff
+
+
+def test_compute_diff_summary_detects_leverage_changes():
+    cfg1 = _base_config()
+    cfg2 = BacktestRunConfig(
+        strategy_key=cfg1.strategy_key,
+        timeframe=cfg1.timeframe,
+        initial_balance=cfg1.initial_balance,
+        start_time=cfg1.start_time,
+        end_time=cfg1.end_time,
+        broker_config=BrokerSimulationConfig(long_leverage=5.0, short_leverage=3.0),
+    )
+
+    diff = cfg1.compute_diff_summary(cfg2)
+    assert "Đòn bẩy (Long 1.0x/Short 1.0x → Long 5.0x/Short 3.0x)" in diff
+
+
+def test_compute_diff_summary_does_not_flag_leverage_when_unchanged():
+    cfg1 = _base_config()
+    cfg2 = _base_config()
+
+    diff = cfg1.compute_diff_summary(cfg2)
+    assert "Đòn bẩy" not in diff

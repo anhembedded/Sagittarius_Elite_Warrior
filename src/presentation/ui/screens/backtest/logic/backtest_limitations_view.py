@@ -5,15 +5,17 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 )
 
 #: BOT-081 — every entry here is true for every run TODAY because the
-#: underlying feature simply doesn't exist yet in the engine (no slippage
-#: model, no SL/TP field on `BacktestRunConfig`, no leverage/short toggle on
-#: `PaperExchange`...) — there is no live config to branch on. This is the
-#: single place that changes when one of those features ships (task's own
-#: §5: "mỗi task đó xoá bớt một dòng khỏi danh sách"), rather than a
-#: doc/comment scattered across files that nobody remembers to update.
-#: Genuinely per-run items (out-of-sample presence, execution mode once
-#: BOT-073 ships) are computed in `build_backtest_limitations()` below, not
-#: listed here.
+#: underlying feature simply doesn't exist yet in the engine — there is no
+#: live config to branch on. This is the single place that changes when one
+#: of those features ships (task's own §5: "mỗi task đó xoá bớt một dòng
+#: khỏi danh sách"), rather than a doc/comment scattered across files that
+#: nobody remembers to update. Genuinely per-run items (out-of-sample
+#: presence, execution mode once BOT-073 ships) are computed in
+#: `build_backtest_limitations()` below, not listed here.
+#: BOT-105 — the sizing/pyramiding/Short/leverage line that used to sit
+#: here was removed: Short (BOT-050), pyramiding + flexible sizing
+#: (BOT-104) and leverage (BOT-105) all shipped, so nothing in that claim
+#: was still true.
 _ALWAYS_APPLICABLE_LIMITATIONS = [
     "Chế độ đang chạy: Static — dựa trên nến đã đóng, không phải tick thật.",
     "Không mô phỏng slippage — mọi lệnh khớp đúng giá yêu cầu.",
@@ -22,10 +24,6 @@ _ALWAYS_APPLICABLE_LIMITATIONS = [
         "Không mô phỏng độ sâu sổ lệnh (orderbook depth) — lệnh luôn khớp "
         "trọn vẹn bất kể khối lượng."
     ),
-    (
-        "All-in sizing, chỉ 1 vị thế tại 1 thời điểm, chỉ Long — chưa hỗ trợ "
-        "đòn bẩy hay Short."
-    ),  # BOT-049/BOT-050
     "Chưa có Stop Loss / Take Profit.",  # BOT-041
     (
         "Lệnh khớp tại giá mở nến kế tiếp — chặn lookahead bias, nhưng tạo "
