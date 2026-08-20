@@ -1,5 +1,11 @@
 # Development Guidelines
 
+> **Agent mới bắt đầu ở đây:** đọc [`ONBOARDING.md`](ONBOARDING.md) trước file
+> này. Nó là bản đồ quy trình — bố cục 2 repo, vòng đời task/bug, lệnh chạy
+> test thật trên từng OS, bookkeeping `ROADMAP.md`, và danh sách các bẫy đã
+> thật sự gây ra code lỗi trong repo này. File dưới đây là *nguyên tắc kỹ
+> thuật*; `ONBOARDING.md` là *cách làm việc*.
+
 - **Installation & Dependencies (Sagittarius Engine Setup)**:
   - Option 1 (GitHub Repository): `pip install git+https://github.com/anhembedded/Sagittarius-Engine.git`
   - Option 2 (Local Editable): `pip install -e Sagittarius-Engine`
