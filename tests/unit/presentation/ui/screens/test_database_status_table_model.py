@@ -142,7 +142,7 @@ def test_gap_targets_lists_only_unhealthy_rows(model):
     _upsert(model, symbol="ETHUSDT", status="4 gaps found!")
     _upsert(model, symbol="SOLUSDT", status="1 gaps found!")
 
-    assert model.gap_targets() == ["ETHUSDT", "SOLUSDT"]
+    assert model.gap_targets() == [("ETHUSDT", "1m"), ("SOLUSDT", "1m")]
 
 
 def test_symbol_at_row_is_qml_callable(model):

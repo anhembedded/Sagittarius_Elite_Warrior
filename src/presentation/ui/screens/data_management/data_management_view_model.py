@@ -12,24 +12,21 @@ from .database_status_table_model import (
 )
 
 _DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
+_SUPPORTED_INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"]
 
 
 class DataManagementViewModel(BaseQmlViewModel):
     """
-    @brief QML-facing state for the Database screen.
+    @brief QML-facing state for the Database screen (Storage Vault).
 
     @details
     Owns the table model, its search proxy, and the log model, and turns QML
-    interactions into request signals for DataManagementPresenter — the same
-    "view model holds state, presenter decides what happens" split used by
-    SidebarViewModel and SettingsViewModel.
-
-    The models are exposed as constant properties: QML binds to the object
-    once, and row-level updates flow through the models' own change signals
-    rather than by replacing the property.
+    interactions into request signals for DataManagementPresenter.
     """
 
     selectedSymbolChanged = Signal()
+    selectedIntervalChanged = Signal()
+    symbolOptionsChanged = Signal()
 
     useCustomTimeChanged = Signal()
     customRangeChanged = Signal()
@@ -43,8 +40,12 @@ class DataManagementViewModel(BaseQmlViewModel):
     syncRequested = Signal()
     syncAllGapsRequested = Signal()
     clearDataRequested = Signal()
-    #: symbol for a single row's Sync button.
-    syncRowRequested = Signal(str)
+    purgeAllRequested = Signal()
+    vacuumRequested = Signal()
+    #: symbol and interval for a single row's Sync button.
+    syncRowRequested = Signal(str, str)
+    #: symbol and interval for a single row's Clear button.
+    clearRowRequested = Signal(str, str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -55,6 +56,8 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._log_model = LogListModel(self)
 
         self._selected_symbol = _DEFAULT_SYMBOLS[0]
+        self._selected_interval = _SUPPORTED_INTERVALS[0]
+        self._symbol_options: list[str] = list(_DEFAULT_SYMBOLS)
 
         self._use_custom_time = False
         self._from_datetime = ""
@@ -67,14 +70,12 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._database_size = "—"
 
     # ------------------------------------------------------------------ #
-    # Models (bound once by QML; row updates flow via the models' own signals)
+    # Models
     # ------------------------------------------------------------------ #
 
     @Property(QObject, constant=True)
     def statusModel(self) -> QObject:
-        """The SEARCH-FILTERED view of the status table — QML must bind to
-        the proxy, not the source model, or typing in the search box would
-        have no visible effect."""
+        """The SEARCH-FILTERED view of the status table."""
         return self._status_proxy
 
     @Property(QObject, constant=True)
@@ -82,23 +83,54 @@ class DataManagementViewModel(BaseQmlViewModel):
         return self._log_model
 
     # ------------------------------------------------------------------ #
-    # Selection
+    # Selection (Symbol & Timeframe)
     # ------------------------------------------------------------------ #
 
     @Property("QStringList", constant=True)
     def symbols(self) -> list[str]:
-        return list(_DEFAULT_SYMBOLS)
+        return list(self._symbol_options)
+
+    @Property("QStringList", notify=symbolOptionsChanged)
+    def symbolOptions(self) -> list[str]:
+        return list(self._symbol_options)
+
+    @Slot(list)
+    def set_symbol_options(self, options: list[str]) -> None:
+        if options != self._symbol_options:
+            self._symbol_options = list(options)
+            self.symbolOptionsChanged.emit()
 
     def _get_selected_symbol(self) -> str:
         return self._selected_symbol
 
     def _set_selected_symbol(self, value: str) -> None:
-        if value != self._selected_symbol:
-            self._selected_symbol = value
+        val = str(value or "").strip().upper()
+        if val and val != self._selected_symbol:
+            self._selected_symbol = val
             self.selectedSymbolChanged.emit()
 
     selectedSymbol = Property(
         str, _get_selected_symbol, _set_selected_symbol, notify=selectedSymbolChanged
+    )
+
+    @Property("QStringList", constant=True)
+    def intervals(self) -> list[str]:
+        return list(_SUPPORTED_INTERVALS)
+
+    def _get_selected_interval(self) -> str:
+        return self._selected_interval
+
+    def _set_selected_interval(self, value: str) -> None:
+        val = str(value or "").strip()
+        if val and val != self._selected_interval:
+            self._selected_interval = val
+            self.selectedIntervalChanged.emit()
+
+    selectedInterval = Property(
+        str,
+        _get_selected_interval,
+        _set_selected_interval,
+        notify=selectedIntervalChanged,
     )
 
     # ------------------------------------------------------------------ #
@@ -142,7 +174,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     )
 
     # ------------------------------------------------------------------ #
-    # Search (client-side filter over already-scanned rows)
+    # Search
     # ------------------------------------------------------------------ #
 
     def _get_search_text(self) -> str:
@@ -180,8 +212,6 @@ class DataManagementViewModel(BaseQmlViewModel):
 
     @Slot(int, int, bool)
     def set_progress(self, value: int, maximum: int, visible: bool) -> None:
-        """`maximum == 0` means indeterminate — QML renders it as a busy bar,
-        matching QProgressBar's own setRange(0, 0) convention."""
         self._progress_value = value
         self._progress_maximum = maximum
         self._progress_visible = visible
@@ -240,12 +270,24 @@ class DataManagementViewModel(BaseQmlViewModel):
     def requestClearData(self) -> None:
         self.clearDataRequested.emit()
 
-    @Slot(str)
-    def requestSyncRow(self, symbol: str) -> None:
-        self.syncRowRequested.emit(symbol)
+    @Slot()
+    def requestPurgeAll(self) -> None:
+        self.purgeAllRequested.emit()
+
+    @Slot()
+    def requestVacuum(self) -> None:
+        self.vacuumRequested.emit()
+
+    @Slot(str, str)
+    def requestSyncRow(self, symbol: str, interval: str = "1m") -> None:
+        self.syncRowRequested.emit(symbol, interval)
+
+    @Slot(str, str)
+    def requestClearRow(self, symbol: str, interval: str = "1m") -> None:
+        self.clearRowRequested.emit(symbol, interval)
 
     # ------------------------------------------------------------------ #
-    # Python-side accessors (Presenter/tests)
+    # Python-side accessors
     # ------------------------------------------------------------------ #
 
     @property

@@ -26,10 +26,11 @@ class DatabaseStatusRow:
     last_record: str
     total_candles: str
     status_text: str
+    interval: str = "1m"
 
     @property
     def key(self) -> str:
-        return self.symbol
+        return f"{self.symbol}:{self.interval}" if self.interval else self.symbol
 
     @property
     def is_healthy(self) -> bool:
@@ -42,14 +43,8 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     status table in QML.
 
     @details
-    Rows are keyed by (symbol, interval) and updated in place — the same
-    upsert behavior the QtWidgets DatabaseStatusCard implemented by scanning
-    its QTableWidget, but O(1) via a key index instead of O(rows), and
-    without the view owning the data.
-
-    Exposes named roles rather than columns-with-DisplayRole, because QML's
-    TableView/delegates address fields by role name (`model.symbol`), which
-    also keeps the QML readable instead of indexing magic column numbers.
+    Rows are keyed by (symbol, interval) and updated in place.
+    Exposes named roles so QML delegates address fields by role name (`model.symbol`, `model.interval`).
     """
 
     SymbolRole = Qt.ItemDataRole.UserRole + 1
@@ -58,6 +53,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     TotalCandlesRole = Qt.ItemDataRole.UserRole + 4
     StatusTextRole = Qt.ItemDataRole.UserRole + 5
     IsHealthyRole = Qt.ItemDataRole.UserRole + 6
+    IntervalRole = Qt.ItemDataRole.UserRole + 7
 
     _ROLE_NAMES: ClassVar[dict[int, bytes]] = {
         SymbolRole: b"symbol",
@@ -66,6 +62,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
         TotalCandlesRole: b"totalCandles",
         StatusTextRole: b"statusText",
         IsHealthyRole: b"isHealthy",
+        IntervalRole: b"interval",
     }
 
     #: Emitted whenever the row set changes, so QML can show live counts
@@ -107,6 +104,8 @@ class DatabaseStatusTableModel(QAbstractTableModel):
             return row.status_text
         if role == self.IsHealthyRole:
             return row.is_healthy
+        if role == self.IntervalRole:
+            return row.interval
         return None
 
     # ------------------------------------------------------------------ #
@@ -120,13 +119,11 @@ class DatabaseStatusTableModel(QAbstractTableModel):
         last_record: str,
         total_candles: str,
         status_text: str,
+        interval: str = "1m",
     ) -> None:
         """
         @brief Updates the row for this symbol/interval, appending it if it
         isn't present yet.
-        @details Re-scanning the same target must refresh its line rather
-        than stack a duplicate — the behavior DatabaseStatusCard._find_row
-        provided before.
         """
         row = DatabaseStatusRow(
             symbol=symbol,
@@ -134,6 +131,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
             last_record=str(last_record),
             total_candles=str(total_candles),
             status_text=status_text,
+            interval=interval,
         )
 
         existing = self._row_index.get(row.key)
@@ -148,6 +146,24 @@ class DatabaseStatusTableModel(QAbstractTableModel):
             index = self.index(existing, 0)
             self.dataChanged.emit(index, index, list(self._ROLE_NAMES.keys()))
 
+        self.countsChanged.emit()
+
+    def remove_symbol(self, symbol: str, interval: str | None = None) -> None:
+        """
+        @brief Removes rows matching symbol (and optionally interval).
+        """
+        keys_to_remove = [
+            r.key
+            for r in self._rows
+            if r.symbol == symbol and (interval is None or r.interval == interval)
+        ]
+        if not keys_to_remove:
+            return
+
+        self.beginResetModel()
+        self._rows = [r for r in self._rows if r.key not in keys_to_remove]
+        self._row_index = {r.key: i for i, r in enumerate(self._rows)}
+        self.endResetModel()
         self.countsChanged.emit()
 
     def clear(self) -> None:
@@ -165,10 +181,13 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     def symbolAt(self, row: int) -> str:
         return self._rows[row].symbol if 0 <= row < len(self._rows) else ""
 
-    def gap_targets(self) -> list[str]:
-        """symbols whose status indicates missing data —
-        what "Sync All Gaps" acts on."""
-        return [row.key for row in self._rows if not row.is_healthy]
+    @Slot(int, result=str)
+    def intervalAt(self, row: int) -> str:
+        return self._rows[row].interval if 0 <= row < len(self._rows) else "1m"
+
+    def gap_targets(self) -> list[tuple[str, str]]:
+        """List of (symbol, interval) tuples whose status indicates missing data."""
+        return [(row.symbol, row.interval) for row in self._rows if not row.is_healthy]
 
     @property
     def rows(self) -> list[DatabaseStatusRow]:
@@ -178,15 +197,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
 class DatabaseStatusFilterProxy(QSortFilterProxyModel):
     """
     @brief Client-side search over an already-loaded DatabaseStatusTableModel.
-
-    @details
-    Matches the search text against symbol, case-insensitively.
-    A proxy (rather than filtering in the QML delegate) keeps the row count
-    QML sees honest, so "N rows" and an empty-state message reflect what is
-    actually visible.
-
-    Purely a view concern: filtering never re-queries the database, it only
-    hides rows the scan already produced.
+    Matches search text against symbol or interval, case-insensitively.
     """
 
     def __init__(self, parent=None) -> None:
@@ -210,4 +221,5 @@ class DatabaseStatusFilterProxy(QSortFilterProxyModel):
 
         index = model.index(source_row, 0, source_parent)
         symbol = model.data(index, DatabaseStatusTableModel.SymbolRole) or ""
-        return self._needle in symbol.lower()
+        interval = model.data(index, DatabaseStatusTableModel.IntervalRole) or ""
+        return (self._needle in symbol.lower()) or (self._needle in interval.lower())

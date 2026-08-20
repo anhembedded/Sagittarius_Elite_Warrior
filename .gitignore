@@ -137,7 +137,7 @@ tempCodeRunnerFile.py
 .ruff_cache/
 
 # Custom Database for Sagittarius_Elite_Warrior
-database/
+/database/
 *.db
 .venv_alias/
 
