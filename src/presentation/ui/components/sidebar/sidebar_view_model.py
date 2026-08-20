@@ -24,6 +24,7 @@ class SidebarViewModel(QObject):
     """
 
     activeRouteChanged = Signal()
+    isCollapsedChanged = Signal()
 
     #: Emitted when the user activates a navigable entry. Carries the route key.
     navigationRequested = Signal(str)
@@ -35,6 +36,7 @@ class SidebarViewModel(QObject):
         self._sections = tuple(sections)
         self._bottom_actions = tuple(bottom_actions)
         self._active_route = ""
+        self._is_collapsed = False
 
         routes = {
             item.route
@@ -84,11 +86,33 @@ class SidebarViewModel(QObject):
 
     activeRoute = Property(str, _get_active_route, notify=activeRouteChanged)
 
+    def _get_is_collapsed(self) -> bool:
+        return self._is_collapsed
+
+    def _set_is_collapsed(self, value: bool) -> None:
+        self.set_collapsed(value)
+
+    isCollapsed = Property(
+        bool, _get_is_collapsed, _set_is_collapsed, notify=isCollapsedChanged
+    )
+
     def set_active_route(self, route: str) -> None:
         if route == self._active_route:
             return
         self._active_route = route
         self.activeRouteChanged.emit()
+
+    @Slot(bool)
+    def set_collapsed(self, collapsed: bool) -> None:
+        val = bool(collapsed)
+        if val == self._is_collapsed:
+            return
+        self._is_collapsed = val
+        self.isCollapsedChanged.emit()
+
+    @Slot()
+    def toggleCollapsed(self) -> None:
+        self.set_collapsed(not self._is_collapsed)
 
     @Slot(str)
     def navigate(self, route: str) -> None:

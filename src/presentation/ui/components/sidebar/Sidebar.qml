@@ -3,23 +3,17 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QmlShared 1.0
 
-// Navigation sidebar (BOT-030 Phase 1) — QML replacement for the QtWidgets
-// sidebar built in BOT-029 Phase 1, keeping the same visual design:
-// brand cluster, titled sections, and a dimmed placeholder entry for
-// screens that don't exist yet.
+// Navigation sidebar (BOT-030 / Collapsible Nav Rail):
+// Supports full expanded view (220px) and compact icon-only rail (64px)
+// with smooth toggle transition and tooltips.
 Rectangle {
     id: root
 
-    // Natural width of the nav rail. QQuickWidget derives its sizeHint from
-    // the QML root's implicit size, so without this the hosting widget
-    // reports 0x0 and the shell layout collapses the sidebar to nothing
-    // (the QtWidgets version got its width from QPushButton size hints).
-    implicitWidth: 220
+    implicitWidth: (viewModel && viewModel.isCollapsed) ? 64 : 220
 
     color: Theme.bgSidebar
 
-    // Right-edge separator, matching the QSS `border-right` the widget
-    // version used (Rectangle has no per-side border).
+    // Right-edge separator
     Rectangle {
         anchors.right: parent.right
         width: 1
@@ -29,42 +23,86 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 10
-        anchors.topMargin: 20
+        anchors.margins: (viewModel && viewModel.isCollapsed) ? 6 : 10
+        anchors.topMargin: 16
         spacing: 10
 
-        // ---- Brand cluster -------------------------------------------
+        // ---- Brand & Toggle cluster -------------------------------------------
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
 
+            // When NOT collapsed: Full Brand Title
             Text {
+                visible: !(viewModel && viewModel.isCollapsed)
                 text: "SAGITTARIUS"
                 color: Theme.accent
-                font.pixelSize: 16
+                font.pixelSize: 15
                 font.bold: true
+                Layout.alignment: Qt.AlignVCenter
             }
 
             Rectangle {
+                visible: !(viewModel && viewModel.isCollapsed)
                 radius: 3
                 color: Theme.accent
-                Layout.preferredWidth: tagText.implicitWidth + 10
+                Layout.preferredWidth: tagText.implicitWidth + 8
                 Layout.preferredHeight: tagText.implicitHeight + 2
+                Layout.alignment: Qt.AlignVCenter
 
                 Text {
                     id: tagText
                     anchors.centerIn: parent
-                    text: "ELITE WARRIOR"
+                    text: "ELITE"
                     color: Theme.bg
-                    font.pixelSize: 10
+                    font.pixelSize: 9
+                    font.bold: true
+                }
+            }
+
+            // When COLLAPSED: Mini Logo "S"
+            Rectangle {
+                visible: (viewModel && viewModel.isCollapsed)
+                radius: 4
+                color: Theme.accent
+                Layout.preferredWidth: 26
+                Layout.preferredHeight: 26
+                Layout.alignment: Qt.AlignHCenter
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "S"
+                    color: Theme.bg
+                    font.pixelSize: 14
                     font.bold: true
                 }
             }
 
             Item { Layout.fillWidth: true }
+
+            // Toggle collapse/expand button
+            StatefulButton {
+                id: btnCollapse
+                objectName: "btnCollapseSidebar"
+                iconSource: (viewModel && viewModel.isCollapsed) ? "chevron-right" : "chevron-left"
+                iconSize: 14
+                implicitHeight: 28
+                Layout.preferredWidth: 28
+                Layout.alignment: Qt.AlignVCenter
+                accentBorder: "transparent"
+                idleBgColor: "transparent"
+                hoverBgColor: Theme.stateHoverBg
+
+                ToolTip.visible: hovered
+                ToolTip.text: (viewModel && viewModel.isCollapsed) ? "Mở rộng thanh bên" : "Thu gọn thanh bên"
+
+                onClicked: {
+                    if (viewModel) viewModel.toggleCollapsed()
+                }
+            }
         }
 
-        Item { Layout.preferredHeight: 10 }
+        Item { Layout.preferredHeight: 6 }
 
         // ---- Sections ------------------------------------------------
         Repeater {
@@ -74,9 +112,10 @@ Rectangle {
                 required property var modelData
 
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: (viewModel && viewModel.isCollapsed) ? 6 : 10
 
                 Text {
+                    visible: !(viewModel && viewModel.isCollapsed)
                     text: modelData.title
                     color: "#5b6270"
                     font.pixelSize: 10
@@ -84,6 +123,16 @@ Rectangle {
                     font.letterSpacing: 1
                     Layout.topMargin: 6
                     Layout.leftMargin: 4
+                }
+
+                Rectangle {
+                    visible: (viewModel && viewModel.isCollapsed)
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.border
+                    opacity: 0.6
+                    Layout.topMargin: 4
+                    Layout.bottomMargin: 4
                 }
 
                 Repeater {
@@ -96,7 +145,7 @@ Rectangle {
                         // depending on layout order or coordinates.
                         objectName: "navButton_" + (modelData.route || modelData.label)
 
-                        text: modelData.label
+                        text: (viewModel && viewModel.isCollapsed) ? "" : modelData.label
                         enabled: modelData.navigable
                         Layout.fillWidth: true
                         implicitHeight: 40
@@ -104,13 +153,13 @@ Rectangle {
                         iconSource: modelData.icon
                         iconSize: 18
                         fontSize: 13
-                        contentSpacing: 8
-                        textFillWidth: true
+                        contentSpacing: (viewModel && viewModel.isCollapsed) ? 0 : 8
+                        textFillWidth: !(viewModel && viewModel.isCollapsed)
                         accentBorder: Theme.stateNavBorder
                         isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
 
-                        ToolTip.visible: !modelData.navigable && hovered
-                        ToolTip.text: "Coming soon"
+                        ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
+                        ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
 
                         onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
                     }
@@ -125,8 +174,8 @@ Rectangle {
             Layout.fillWidth: true
             height: 1
             color: Theme.border
-            Layout.leftMargin: -10
-            Layout.rightMargin: -10
+            Layout.leftMargin: (viewModel && viewModel.isCollapsed) ? -6 : -10
+            Layout.rightMargin: (viewModel && viewModel.isCollapsed) ? -6 : -10
             visible: viewModel ? viewModel.bottomActions.length > 0 : false
         }
 
@@ -138,7 +187,7 @@ Rectangle {
 
                 objectName: "bottomNavButton_" + (modelData.route || modelData.label)
 
-                text: modelData.label
+                text: (viewModel && viewModel.isCollapsed) ? "" : modelData.label
                 enabled: modelData.navigable
                 Layout.fillWidth: true
                 implicitHeight: 40
@@ -146,16 +195,17 @@ Rectangle {
                 iconSource: modelData.icon
                 iconSize: 18
                 fontSize: 13
-                contentSpacing: 8
-                textFillWidth: true
+                contentSpacing: (viewModel && viewModel.isCollapsed) ? 0 : 8
+                textFillWidth: !(viewModel && viewModel.isCollapsed)
                 accentBorder: Theme.stateNavBorder
                 isActive: modelData.navigable && viewModel && modelData.route === viewModel.activeRoute
 
-                ToolTip.visible: !modelData.navigable && hovered
-                ToolTip.text: "Coming soon"
+                ToolTip.visible: ((viewModel && viewModel.isCollapsed) || !modelData.navigable) && hovered
+                ToolTip.text: !modelData.navigable ? (modelData.label + " (Sắp ra mắt)") : modelData.label
 
                 onClicked: { if (viewModel) viewModel.navigate(modelData.route) }
             }
         }
     }
 }
+
