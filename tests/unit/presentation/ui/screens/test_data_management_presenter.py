@@ -375,3 +375,102 @@ def test_dead_screen_does_not_break_app_wide_logging(qapp, mock_container, reque
 
     logging.getLogger("App.IconLoader").warning("icon missing")
     assert handler not in logging.getLogger("App").handlers
+
+
+# ---------------------------------------------------------------------------
+# BUG-018 — startup auto-discovery must not fire an IDLE -> IDLE transition
+# ---------------------------------------------------------------------------
+
+
+def _dispatch_by_query_type(scan_results):
+    """Auto-discovery dispatches two different queries; a single
+    `return_value` would hand the DTO list to the symbol-options path too."""
+
+    def _dispatch(query_type, _query):
+        if query_type is ScanAllDatabasesQuery:
+            return scan_results
+        return ["BTCUSDT", "ETHUSDT"]
+
+    return _dispatch
+
+
+def test_startup_auto_discovery_refreshes_the_stat_tiles(
+    presenter, view_model, mock_dispatcher
+):
+    """Regression (BUG-018): auto-discovery runs from __init__ while the FSM
+    is still IDLE, but its `finally` block used to emit the *unlock* signal —
+    `_unlock_ui` then called `transition_to(IDLE)` from IDLE, which the
+    transition matrix rejects. The raised `InvalidStateTransitionError` aborted
+    the slot before `_refresh_stats()`, so "Stored KLines Records" stayed "—"
+    forever even though the table below it had just been filled with rows."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
+        [
+            DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "1440", "0", "OK"),
+            DatabaseStatusDTO("ETHUSDT", "15m", "a", "b", "1,200", "0", "OK"),
+        ]
+    )
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+    presenter._run_auto_discover()
+
+    assert view_model.status_model.rowCount() == 2
+    assert view_model.storedRecords == "2,640"
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+
+def test_startup_auto_discovery_does_not_unlock_a_sync_started_meanwhile(
+    presenter, view_model, mock_dispatcher
+):
+    """The screen stays interactive during auto-discovery (a Binance symbol
+    fetch can take seconds), so the user can start a sync before it finishes.
+    Auto-discovery never locked the UI, so it must never unlock it — otherwise
+    every control re-enables mid-sync."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
+    presenter.fsm.transition_to(UIMode.SYNCING)
+
+    presenter._run_auto_discover()
+
+    assert presenter.fsm.current_state == UIMode.SYNCING
+
+
+def test_vacuum_refreshes_the_stat_tiles(presenter, view_model, mock_dispatcher):
+    """Same defect class as BUG-018: `_on_vacuum` submits its worker without
+    locking the FSM, so the worker's `finally` unlock also transitioned
+    IDLE -> IDLE. VACUUM reclaims disk space, so the size tile is exactly what
+    must refresh afterwards."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
+        [DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "500", "0", "OK")]
+    )
+    presenter.fsm.transition_to(UIMode.SCANNING)
+    presenter._run_scan_all(["BTCUSDT"], ["1m"])
+
+    presenter._run_vacuum()
+
+    assert presenter.fsm.current_state == UIMode.IDLE
+    assert view_model.storedRecords == "500"
+
+
+def test_unlock_ui_from_a_locked_state_returns_to_idle(presenter):
+    presenter.fsm.transition_to(UIMode.SCANNING)
+
+    presenter._unlock_ui()
+
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+
+def test_unlock_ui_is_idempotent_when_already_idle(
+    presenter, view_model, mock_dispatcher
+):
+    """Restoring the UI to IDLE is a request for an end state, not for a
+    transition — being there already is success, not an error to raise on."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
+        [DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "777", "0", "OK")]
+    )
+    presenter.fsm.transition_to(UIMode.SCANNING)
+    presenter._run_scan_all(["BTCUSDT"], ["1m"])
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+    presenter._unlock_ui()
+
+    assert presenter.fsm.current_state == UIMode.IDLE
+    assert view_model.storedRecords == "777"

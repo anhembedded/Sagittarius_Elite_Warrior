@@ -76,6 +76,13 @@ class DataManagementPresenter(BasePresenter):
     ui_remove_symbol_signal = Signal(str, str)
     ui_clear_table_signal = Signal()
     ui_unlock_signal = Signal()
+    #: BUG-018 — for background work that never *locked* the UI (startup
+    #: auto-discovery, VACUUM). Those workers still need the stat tiles
+    #: recomputed when they finish, but must not touch the FSM: emitting
+    #: `ui_unlock_signal` from IDLE raised `InvalidStateTransitionError`, and
+    #: emitting it while the user had meanwhile started a sync would re-enable
+    #: every control mid-sync.
+    ui_stats_refresh_signal = Signal()
     ui_sync_complete_signal = Signal()
     ui_symbol_options_signal = Signal(list)
 
@@ -147,6 +154,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_remove_symbol_signal.connect(view_model.status_model.remove_symbol)
         self.ui_clear_table_signal.connect(view_model.status_model.clear)
         self.ui_unlock_signal.connect(self._unlock_ui)
+        self.ui_stats_refresh_signal.connect(self._on_stats_refresh_requested)
         self.ui_sync_complete_signal.connect(self._on_sync_complete)
         self.ui_symbol_options_signal.connect(view_model.set_symbol_options)
 
@@ -191,9 +199,26 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _unlock_ui(self) -> None:
-        """Restore the UI to the IDLE state after any background operation ends."""
+        """
+        @brief Restore the UI to the IDLE state after any background operation
+        ends.
+        @details BUG-018: this asks for an *end state*, not for a transition —
+        already being IDLE is success, not an error. The transition matrix has
+        no IDLE -> IDLE edge (deliberately: a self-transition would re-run every
+        `on_enter` callback), so calling it unguarded raised and aborted the
+        slot before `_refresh_stats()` below ever ran. Two callers can legitimately
+        arrive here already-IDLE: a bulk sync that emits both a completion event
+        and an error, and any worker whose start path never locked the UI.
+        """
         self._view_model.hide_progress()
-        self.fsm.transition_to(UIMode.IDLE)
+        if self.fsm.current_state is not UIMode.IDLE:
+            self.fsm.transition_to(UIMode.IDLE)
+        self._refresh_stats()
+
+    @Slot()
+    @safe_ui_action
+    def _on_stats_refresh_requested(self) -> None:
+        """Recompute the stat tiles without touching the FSM (BUG-018)."""
         self._refresh_stats()
 
     @Slot()
@@ -457,7 +482,12 @@ class DataManagementPresenter(BasePresenter):
         except Exception as exc:  # noqa: BLE001 - boundary: log without crashing
             self.ui_log_signal.emit(f"Storage Vault auto-discovery complete: {exc}")
         finally:
-            self.ui_unlock_signal.emit()
+            # BUG-018: stats only. `__init__` submits this worker without
+            # locking the screen (the Binance symbol fetch can take seconds and
+            # the user must stay able to act), so unlocking here is both an
+            # illegal IDLE -> IDLE transition and a way to re-enable the UI
+            # underneath an operation the user started meanwhile.
+            self.ui_stats_refresh_signal.emit()
 
     def _run_single_sync(
         self,
@@ -560,4 +590,7 @@ class DataManagementPresenter(BasePresenter):
         except Exception as exc:  # noqa: BLE001
             self.ui_error_log_signal.emit(f"VACUUM optimization failed: {exc}")
         finally:
-            self.ui_unlock_signal.emit()
+            # BUG-018: `_on_vacuum` submits this without locking the FSM either,
+            # so refresh the tiles (VACUUM reclaims disk space — the size tile is
+            # exactly what changed) instead of unlocking a lock never taken.
+            self.ui_stats_refresh_signal.emit()
