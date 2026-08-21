@@ -38,7 +38,7 @@ $isWindowsOs = if (Test-Path variable:IsWindows) { $IsWindows } else { $true }
 $exeSuffix   = if ($isWindowsOs) { ".exe" } else { "" }
 $venvBinSubdir = if ($isWindowsOs) { "Scripts" } else { "bin" }
 
-$pythonExe = Join-Path $botRoot ".venv" $venvBinSubdir "python$exeSuffix"
+$pythonExe = Join-Path (Join-Path (Join-Path $botRoot ".venv") $venvBinSubdir) "python$exeSuffix"
 
 if (-not (Test-Path $pythonExe)) {
     throw "Python virtual environment not found at $pythonExe"
@@ -59,11 +59,11 @@ if (-not $qtRoot) {
     } else {
         Join-Path $HOME ".sagittarius-toolchains"
     }
-    $qtRoot = Join-Path $toolchainsBase "Qt" $pysideVersion $qtToolchain
+    $qtRoot = Join-Path (Join-Path (Join-Path $toolchainsBase "Qt") $pysideVersion) $qtToolchain
 }
 
-$qtConfig = Join-Path $qtRoot "lib" "cmake" "Qt6" "Qt6Config.cmake"
-$qmakeExe = Join-Path $qtRoot "bin" "qmake$exeSuffix"
+$qtConfig = Join-Path (Join-Path (Join-Path (Join-Path $qtRoot "lib") "cmake") "Qt6") "Qt6Config.cmake"
+$qmakeExe = Join-Path (Join-Path $qtRoot "bin") "qmake$exeSuffix"
 if (-not (Test-Path $qtConfig) -or -not (Test-Path $qmakeExe)) {
     $sdkHint = if ($isWindowsOs) { "the matching MSVC 2022 Qt SDK" } else { "a matching Qt $pysideVersion SDK for $qtToolchain (e.g. via aqtinstall)" }
     throw @"
