@@ -20,6 +20,9 @@ All AI assistants working on this repository MUST strictly follow these commit r
   ```powershell
   .\scripts\ci-local.ps1 -Full
   ```
+- **Exception:** a commit touching no code file (docs/task/`.agents/`-only —
+  see `.agents/rules/ci-rule.md` §1 "Exception — commits that touch no code
+  file" for the exact boundary) does not require this verification step.
 
 ---
 

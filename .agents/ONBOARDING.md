@@ -363,3 +363,25 @@ PowerShell**. Trên Linux dùng lệnh ở §5.
 - **Code, tên biến, docstring, comment, commit subject:** tiếng Anh.
 - **Chuỗi hiển thị trên UI:** tiếng Việt (đúng thuật ngữ domain đã chốt,
   ví dụ "Thông số Chiến lược" khác với cài đặt Bot chung).
+
+---
+
+## 11. Báo cáo với user — mức project lead, không phải mức implementation
+
+**Thêm 2026-08-21 (yêu cầu trực tiếp của user).**
+
+- Khi báo cáo tiến độ, trạng thái task/epic, tóm tắt điều tra, hay kết quả
+  test cho user trong hội thoại, mặc định viết như đang báo cáo cho một
+  **project lead**: kết luận, trạng thái hiện tại, quyết định cần user ra, và
+  rủi ro/blocker. **Không** đi vào chi tiết implementation (tên hàm cụ thể,
+  dòng code, so sánh kiểu dữ liệu nội bộ, tên biến C++...) trừ khi user hỏi
+  thẳng vào đó, hoặc chi tiết đó **quyết định trực tiếp** hành động tiếp theo.
+  Ví dụ: báo "F4 đang bị chặn bởi BUG-015 (Windows: geometry bị rebuild khi
+  pointer move), giả thuyết root cause đang điều tra" là đủ cho báo cáo tình
+  trạng; không cần liệt kê `QSizeF`/tên file `.cpp` trong câu trả lời đó trừ
+  khi user muốn đi sâu sửa bug.
+- **Không áp dụng cho tài liệu lưu trữ lâu dài** — task file, bug report
+  (`Tasks/bug_report/`), báo cáo (`Tasks/reports/`) vẫn phải đầy đủ root
+  cause/file:line/bằng chứng theo đúng `bug-fix-rule.md` và §3/§4 ở trên; quy
+  tắc "mức project lead" ở đây chỉ áp dụng cho câu trả lời trong hội thoại,
+  không áp dụng cho nội dung ghi vào file.

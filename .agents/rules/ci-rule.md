@@ -61,6 +61,21 @@ Sanity fails is a failed verification, not a successful handoff.
 `-SkipNativeBuild` is a Python-only diagnostic escape hatch. Like `-SkipLint`
 and `-SkipTests`, it never qualifies as commit, merge, or release evidence.
 
+### Exception — commits that touch no code file
+
+**Added 2026-08-21 (user request).** A commit whose diff touches **no** file
+under `src/`, `tests/`, `scripts/`, `native/`, and no file that affects build,
+dependency or runtime behavior (`pyproject.toml`, `requirements.txt`, CMake
+files, `.qml`) does not require running `ci-local.ps1 -Full` or any test tier
+before commit — there is no code change for a test to verify. This covers, for
+example, a commit limited to `Tasks/`, `.agents/`, `README.md`, `Docs/`, or
+other Markdown/doc-only files.
+
+A commit that touches even one file able to affect build, runtime, lint, type
+check, or test behavior still requires the full gate per §1 above — this
+exception does not apply just because most of the diff is docs; it applies
+only when *none* of the diff is code.
+
 ## 2. Diagnostic modes — never enough by themselves
 
 | Purpose | Command | What it does | May replace Full? |
