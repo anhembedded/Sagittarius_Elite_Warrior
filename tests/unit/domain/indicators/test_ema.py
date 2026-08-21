@@ -139,7 +139,10 @@ def test_ema_custom_wilder_alpha_matches_recurrence():
     assert outputs[5] == pytest.approx(expected_6, rel=1e-12)
 
 
-@pytest.mark.parametrize("invalid_alpha", [0.0, -0.1, -1.0, 1.0001, 2.0, float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize(
+    "invalid_alpha",
+    [0.0, -0.1, -1.0, 1.0001, 2.0, float("nan"), float("inf"), float("-inf")],
+)
 def test_ema_invalid_alpha_raises(invalid_alpha: float):
     with pytest.raises(ValueError, match="EMA alpha must be a finite float in"):
         EMA(period=10, alpha=invalid_alpha)
