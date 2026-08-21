@@ -1,6 +1,6 @@
 # Epic EPIC-003 — Phân rã Presenter/File quá tải (God Object/God File Decomposition)
 
-**Trạng thái:** 🔴 Chưa làm — 6 task con, chưa bắt đầu task nào.
+**Trạng thái:** 🟡 Đang làm — 1/6 xong (21/08): `EPIC-003A`. Tiếp theo `EPIC-003B`/`EPIC-003C`/`EPIC-003D` làm được song song.
 **Nguồn:** [`PRO-001`](../../proposal/PRO-001.md) (Coordinator Pattern cho Presenter),
 [`PRO-002`](../../proposal/PRO-002.md) (khảo sát toàn bộ file quá tải trong `src/`) —
 2 đề xuất do một phiên làm việc khác viết, được đối chiếu lại với quy tắc đã
@@ -86,7 +86,7 @@ dòng.
 
 | ID | Tên | Rủi ro | Trạng thái |
 | :--- | :--- | :---: | :---: |
-| **[EPIC-003A](incomplete/EPIC-003A_shared_action_ownership_tracker.md)** | Trích xuất cơ chế Action-Ownership dùng chung | 🟡 | 🔴 Chưa làm |
+| **[EPIC-003A](completed/EPIC-003A_shared_action_ownership_tracker.md)** | Trích xuất cơ chế Action-Ownership dùng chung | 🟡 | ✅ Xong (21/08) — 172 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003B](incomplete/EPIC-003B_data_management_coordinator_pilot.md)** | `DataManagementPresenter` → Coordinator Pattern (pilot) | 🟡 | 🔴 Chưa làm |
 | **[EPIC-003C](incomplete/EPIC-003C_paper_exchange_policy_split.md)** | `PaperExchange` → Domain Policy (Margin/Matching/Fee) | 🟢 | 🔴 Chưa làm |
 | **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Dọn 8 file misplaced trong `components/` (Phase 1) + tách 3 file QML lớn (Phase 2) | 🟢 | 🔴 Chưa làm |

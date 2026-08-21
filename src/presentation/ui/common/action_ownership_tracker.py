@@ -2,11 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Generic, Protocol, TypeVar
-
-TKind = TypeVar("TKind")
-TConfig = TypeVar("TConfig")
-TState = TypeVar("TState")
+from typing import Protocol
 
 
 class ActionOutcome(str, Enum):
@@ -39,7 +35,7 @@ def _format_config_label(config: object) -> str:
 
 
 @dataclass(frozen=True)
-class ActionContext(Generic[TKind, TConfig, TState]):
+class ActionContext[TKind, TConfig, TState]:
     """Immutable owner record for one submitted background action."""
 
     action_id: int
@@ -49,7 +45,7 @@ class ActionContext(Generic[TKind, TConfig, TState]):
     previous_state: TState
 
 
-class ActionOwnershipTracker(Generic[TKind, TConfig, TState]):
+class ActionOwnershipTracker[TKind, TConfig, TState]:
     """Tracks active async action generation, fencing, and lifecycle outcomes.
 
     Provides single-source-of-truth action identity to prevent race conditions

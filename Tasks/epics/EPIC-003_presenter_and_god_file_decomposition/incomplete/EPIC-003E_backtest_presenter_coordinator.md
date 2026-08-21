@@ -2,7 +2,7 @@
 
 **Thuộc Epic:** [`EPIC-003`](../README.md)
 **Trạng thái:** 🔴 Chưa làm
-**Phụ thuộc:** [`EPIC-003A`](EPIC-003A_shared_action_ownership_tracker.md) **và** [`EPIC-003B`](EPIC-003B_data_management_coordinator_pilot.md) — không bắt đầu file rủi ro cao nhất trước khi pattern đã chứng minh đúng ở pilot.
+**Phụ thuộc:** [`EPIC-003A`](../completed/EPIC-003A_shared_action_ownership_tracker.md) **và** [`EPIC-003B`](EPIC-003B_data_management_coordinator_pilot.md) — không bắt đầu file rủi ro cao nhất trước khi pattern đã chứng minh đúng ở pilot.
 
 ---
 
