@@ -70,7 +70,7 @@ dưới đây là bước bắt buộc làm **trước tiên**, đúng vì lý d
 | Phần | Rủi ro | Lý do |
 | :--- | :---: | :--- |
 | `PaperExchange` → Policy (Domain) | 🟢 Thấp | Thuần Domain, không đụng QML/PySide6, có sẵn 47+ test bảo vệ. |
-| Tách QML lớn thành component | 🟢 Thấp | Đúng tiền lệ đã có (`ModalDialogCard.qml`), không đổi kiểu dữ liệu binding. |
+| Dọn vị trí sai chỗ + tách QML lớn thành component | 🟢 Thấp | Đúng tiền lệ đã có (`ModalDialogCard.qml`), không đổi kiểu dữ liệu binding. 8/17 file trong `components/` thực ra chỉ dùng bởi Backtest — vi phạm rule "Component File Structure" đã có sẵn trong `qml-rule.md`. |
 | `DataManagementPresenter` → Coordinator | 🟡 Trung bình | File nhỏ hơn, chưa có cơ chế action-ownership riêng phức tạp — pilot hợp lý. |
 | `BacktestPresenter` → Coordinator | 🔴 Cao | File lớn nhất, đã có cơ chế action-ownership bespoke phức tạp nhất — chỉ làm sau khi pilot ở trên chứng minh được pattern. |
 | `BacktestViewModel` → Composite ViewModel | 🔴 Cao nhất | Mọi `.qml` đang bind `viewModel.xxx` trực tiếp phải đổi cách bind — blast radius lớn hơn hẳn 4 việc trên, đúng lớp lỗi binding đã gặp (`BUG-018`, `BUG-019`). **Chưa greenlight** — cần 1 vòng thiết kế riêng trước khi bắt đầu, xem `EPIC-003F`. |
@@ -89,7 +89,7 @@ dòng.
 | **[EPIC-003A](incomplete/EPIC-003A_shared_action_ownership_tracker.md)** | Trích xuất cơ chế Action-Ownership dùng chung | 🟡 | 🔴 Chưa làm |
 | **[EPIC-003B](incomplete/EPIC-003B_data_management_coordinator_pilot.md)** | `DataManagementPresenter` → Coordinator Pattern (pilot) | 🟡 | 🔴 Chưa làm |
 | **[EPIC-003C](incomplete/EPIC-003C_paper_exchange_policy_split.md)** | `PaperExchange` → Domain Policy (Margin/Matching/Fee) | 🟢 | 🔴 Chưa làm |
-| **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Tách 3 file QML lớn thành component | 🟢 | 🔴 Chưa làm |
+| **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Dọn 8 file misplaced trong `components/` (Phase 1) + tách 3 file QML lớn (Phase 2) | 🟢 | 🔴 Chưa làm |
 | **[EPIC-003E](incomplete/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | 🔴 Chưa làm |
 | **[EPIC-003F](incomplete/EPIC-003F_backtest_viewmodel_composite_design_review.md)** | `BacktestViewModel` → Composite ViewModel — **vòng thiết kế trước**, chưa code | 🔴 | 🔴 Chưa làm |
 
