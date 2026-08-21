@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import logging
-from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-
 from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
     SingleSyncProgressEvent,
 )
@@ -77,6 +75,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
+    ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
@@ -321,11 +322,10 @@ class BackTestPresenter(BasePresenter):
         # Used for Dirty Tracking to compare against active toolbar inputs.
         self._last_run_config: BacktestRunConfig | None = None
 
-        # BOT-095H: each background action owns one generation. A later
-        # action invalidates callbacks from every earlier generation.
-        self._next_action_id = 0
-        self._active_action: BacktestActionContext | None = None
-        self._active_action_outcome: BacktestActionOutcome | None = None
+        # BOT-095H & EPIC-003A: shared action ownership tracker
+        self._action_tracker = ActionOwnershipTracker[
+            BacktestActionKind, BacktestRunConfig, BacktestUiState
+        ](on_trace=self._log_dev_trace)
         self._backtest_cancellation_token: CancellationToken | None = None
         self._sync_cancellation_token: CancellationToken | None = None
         self._cancelling_action_id: int | None = None
@@ -708,6 +708,14 @@ class BackTestPresenter(BasePresenter):
     ) -> None:
         self._view_model.set_ui_mode(new_state.value)
 
+    @property
+    def _active_action(self) -> BacktestActionContext | None:
+        return self._action_tracker.active_action
+
+    @property
+    def _active_action_outcome(self) -> BacktestActionOutcome | None:
+        return self._action_tracker.active_outcome
+
     def _begin_action(
         self,
         kind: BacktestActionKind,
@@ -715,69 +723,21 @@ class BackTestPresenter(BasePresenter):
         previous_state: BacktestUiState,
     ) -> BacktestActionContext:
         """Create the immutable owner record before background submission."""
-        if self._active_action is not None:
-            self._log_dev_trace(
-                "action_superseded",
-                action_id=self._active_action.action_id,
-                kind=self._active_action.kind.value,
-                outcome=(
-                    self._active_action_outcome.value
-                    if self._active_action_outcome is not None
-                    else None
-                ),
-            )
-            if self._active_action_outcome is BacktestActionOutcome.PENDING:
-                self._finish_action(
-                    self._active_action.action_id, BacktestActionOutcome.INVALIDATED
-                )
-        self._next_action_id += 1
-        context = BacktestActionContext(
-            action_id=self._next_action_id,
-            kind=kind,
-            config=deepcopy(config),
-            started_at=datetime.now(UTC),
-            previous_state=previous_state,
-        )
-        self._active_action = context
-        self._active_action_outcome = BacktestActionOutcome.PENDING
-        self._log_dev_trace(
-            "action_started",
-            action_id=context.action_id,
-            kind=context.kind.value,
-            config=context.config.to_summary_label(),
-            previous_state=context.previous_state.value,
-        )
-        return context
+        return self._action_tracker.begin_action(kind, config, previous_state)
 
     def _is_current_action(self, action_id: int, kind: BacktestActionKind) -> bool:
-        return (
-            self._active_action is not None
-            and self._active_action.action_id == action_id
-            and self._active_action.kind is kind
-        )
+        return self._action_tracker.is_current(action_id, kind)
 
     def _is_current_pending_action(
         self, action_id: int, kind: BacktestActionKind
     ) -> bool:
-        return self._is_current_action(action_id, kind) and (
-            self._active_action_outcome is BacktestActionOutcome.PENDING
-        )
+        return self._action_tracker.is_current_pending(action_id, kind)
 
     def _current_action_id(self, kind: BacktestActionKind) -> int | None:
-        if self._active_action is not None and self._active_action.kind is kind:
-            return self._active_action.action_id
-        return None
+        return self._action_tracker.current_action_id(kind)
 
     def _finish_action(self, action_id: int, outcome: BacktestActionOutcome) -> None:
-        if self._active_action is None or self._active_action.action_id != action_id:
-            return
-        self._active_action_outcome = outcome
-        self._log_dev_trace(
-            "action_finished",
-            action_id=action_id,
-            kind=self._active_action.kind.value,
-            outcome=outcome.value,
-        )
+        self._action_tracker.finish_action(action_id, outcome)
 
     def _invalidate_active_action(self) -> None:
         """Invalidate a pending action without assigning a replacement.
@@ -785,31 +745,12 @@ class BackTestPresenter(BasePresenter):
         BOT-095C's cancel flow will call this before requesting cooperative
         worker cancellation, so late callbacks are fenced immediately.
         """
-        if (
-            self._active_action is not None
-            and self._active_action_outcome is BacktestActionOutcome.PENDING
-        ):
-            self._finish_action(
-                self._active_action.action_id, BacktestActionOutcome.INVALIDATED
-            )
+        self._action_tracker.invalidate_active()
 
     def _ignore_stale_action_callback(
         self, callback: str, action_id: int, kind: BacktestActionKind
     ) -> None:
-        self._log_dev_trace(
-            "action_callback_ignored",
-            callback=callback,
-            action_id=action_id,
-            kind=kind.value,
-            active_action_id=(
-                self._active_action.action_id if self._active_action else None
-            ),
-            active_outcome=(
-                self._active_action_outcome.value
-                if self._active_action_outcome is not None
-                else None
-            ),
-        )
+        self._action_tracker.log_stale_callback(callback, action_id, kind)
 
     def _get_current_config(self) -> BacktestRunConfig:
         timeframe_str = self._view_model.selectedTimeframe
