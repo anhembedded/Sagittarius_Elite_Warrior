@@ -1,5 +1,5 @@
 """
-Regression test for BUG-025: KLineInspectorModal column width scope.
+Regression test for BUG-028: KLineInspectorModal column width scope.
 Proves that column widths are declared directly on the modal root object
 and do not evaluate to undefined.
 """
@@ -29,7 +29,7 @@ _MODAL_FILE = _UI_DIR / "screens" / "data_management" / "KLineInspectorModal.qml
 
 def test_kline_inspector_modal_root_exposes_column_widths(qapp):
     """
-    BUG-025 regression test:
+    BUG-028 regression test:
     Column widths must be declared at the modal root so bindings like `root.colTimeWidth`
     do not evaluate to undefined / fail type coercion to double.
     """
@@ -53,11 +53,11 @@ def test_kline_inspector_modal_root_exposes_column_widths(qapp):
         col_change = modal.property("colChangeWidth")
         col_trades = modal.property("colTradesWidth")
 
-        assert col_time is not None, "colTimeWidth is undefined on root (BUG-025)"
-        assert col_price is not None, "colPriceWidth is undefined on root (BUG-025)"
-        assert col_vol is not None, "colVolWidth is undefined on root (BUG-025)"
-        assert col_change is not None, "colChangeWidth is undefined on root (BUG-025)"
-        assert col_trades is not None, "colTradesWidth is undefined on root (BUG-025)"
+        assert col_time is not None, "colTimeWidth is undefined on root (BUG-028)"
+        assert col_price is not None, "colPriceWidth is undefined on root (BUG-028)"
+        assert col_vol is not None, "colVolWidth is undefined on root (BUG-028)"
+        assert col_change is not None, "colChangeWidth is undefined on root (BUG-028)"
+        assert col_trades is not None, "colTradesWidth is undefined on root (BUG-028)"
 
         assert col_time == 140.0
         assert col_price == 80.0

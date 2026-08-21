@@ -1,4 +1,4 @@
-# BUG-025 — KLineInspectorModal emits "Unable to assign [undefined] to double" QML warnings on open because column widths are declared inside ColumnLayout instead of the modal root
+# BUG-028 — KLineInspectorModal emits "Unable to assign [undefined] to double" QML warnings on open because column widths are declared inside ColumnLayout instead of the modal root
 
 **Reported:** 2026-08-21, user opened the Database (Storage Vault) screen in dev mode and observed QML binding evaluation warnings on loading `data_management`:
 `KLineInspectorModal.qml:173:148: Unable to assign [undefined] to double` across all header and delegate column width bindings.
