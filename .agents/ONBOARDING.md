@@ -20,7 +20,7 @@ bookkeeping `ROADMAP.md`).
 | Thứ tự | File | Khi nào |
 | :--- | :--- | :--- |
 | 1 | `.agents/ONBOARDING.md` (file này) | Luôn luôn, đầu tiên |
-| 2 | `.agents/AGENTS.md` | Luôn luôn — nguyên tắc kiến trúc/SOLID/QML/typing |
+| 2 | `.agents/AGENTS.md` | Chỉ để điều hướng — nội dung thật nằm ở `rules/code-rule.md` (sửa 21/08: file này trước là bản sao trôi của `code-rule.md`, đã rút gọn) |
 | 3 | `.agents/rules/code-rule.md` | Mọi thay đổi code Python |
 | 4 | `.agents/rules/ci-rule.md` | Trước khi tuyên bố "xong" bất cứ thứ gì — định nghĩa 4 tầng test |
 | 5 | `.agents/rules/commit-rule.md` | Trước mọi commit |
@@ -242,7 +242,7 @@ thân `PRO-XXX.md` không tự thực thi được.
 | Sửa file ngoài phạm vi task | Không, trừ khi user yêu cầu |
 | Xoá/ghi đè file của user | Đọc nội dung trước, hỏi trước |
 
-**Phản biện là bắt buộc, không phải tuỳ chọn** (`AGENTS.md`): nếu yêu cầu
+**Phản biện là bắt buộc, không phải tuỳ chọn** (`code-rule.md` §5): nếu yêu cầu
 của user tạo ra mâu thuẫn kiến trúc, vi phạm ranh giới tầng, hoặc phá
 nguyên tắc đã chốt — phải nói ra và đề xuất phương án sạch, không im lặng
 làm theo. Nhưng nếu user đã nghe và vẫn quyết định giữ nguyên yêu cầu thì
@@ -341,8 +341,16 @@ Số liệu test/lint ở §5 ("1564 test tại 2026-08-20", "38 lỗi I001") đ
 so với thực tế (1641 test, 14 lỗi) — đổi cách viết để không tự tin tuyệt
 đối vào con số cố định trong tài liệu nữa, luôn trỏ về lệnh kiểm tra thật.
 §1 và §6 thiếu hẳn quy ước `Tasks/epics/` (có từ 20/08, đã có 3 epic) và
-`Tasks/proposal/` — bổ sung. Nếu phát hiện thêm chỗ lỗi thời, sửa và ghi
-lại ở đây thay vì im lặng đi đường vòng.
+`Tasks/proposal/` — bổ sung. **Cùng ngày, phát hiện thêm (user chỉ ra):**
+`AGENTS.md` gần như toàn bộ là bản sao trôi độc lập của `code-rule.md` —
+xác nhận bằng cách grep 7 cụm từ đặc trưng, cả 7 tồn tại y hệt ở cả hai
+file — cộng 1 lỗi thật nguy hiểm: mục Git Commits ghi cứng
+`Co-Authored-By: Antigravity <noreply@google.com>`, vi phạm thẳng
+`commit-rule.md` tự nói rõ trailer phải khớp đúng AI thực sự tạo commit.
+Đã rút gọn `AGENTS.md` thành file điều hướng thuần tuý — xem chính file đó
+để biết chi tiết. Cập nhật lại dòng #2 và trích dẫn "Phản biện là bắt buộc"
+ở §7 (trước trỏ vào `AGENTS.md`, giờ trỏ đúng `code-rule.md` §5). Nếu phát
+hiện thêm chỗ lỗi thời, sửa và ghi lại ở đây thay vì im lặng đi đường vòng.
 
 Lưu ý còn tồn tại: **mọi rule file của cả hai repo chỉ ghi lệnh
 PowerShell**. Trên Linux dùng lệnh ở §5.

@@ -119,7 +119,7 @@ except Exception as e:
 - Add a dedicated regression test in `tests/unit/` for every fixed vulnerability.
 - Keep individual security fixes compact (< 50 lines).
 - Follow Clean Architecture: domain logic remains pure; security adapters live in Infrastructure/Application.
-- End all AI commit messages with: `Co-Authored-By: Antigravity <noreply@google.com>`
+- End all AI commit messages with a `Co-Authored-By` trailer naming the AI assistant that actually authored the commit (see `.agents/rules/commit-rule.md` — never a fixed placeholder or a different tool's name).
 
 ⚠️ **Ask first:**
 - Introducing new cryptography or external security dependencies.

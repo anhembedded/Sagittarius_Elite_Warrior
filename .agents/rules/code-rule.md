@@ -203,4 +203,4 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 ## 6. Git Commits & Version Control
 
 - **DO NOT commit code changes (e.g., using `git commit`) autonomously unless the user explicitly requests you to do so. Always wait for explicit permission before saving changes to version control.**
-- When committing upon user request, strictly follow `.agents/rules/commit-rule.md` (Conventional Commits, pre-commit test verification, atomic changes, and mandatory `Co-Authored-By: Antigravity <noreply@google.com>` signature).
+- When committing upon user request, strictly follow `.agents/rules/commit-rule.md` (Conventional Commits, pre-commit test verification, atomic changes, and the mandatory `Co-Authored-By` trailer — naming the AI assistant that actually authored the commit, never a fixed placeholder; misattributing to a different tool is not acceptable per `commit-rule.md`).

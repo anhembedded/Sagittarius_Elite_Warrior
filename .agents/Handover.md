@@ -411,9 +411,11 @@ pip install -e Sagittarius-Engine
   for the full timeline, including why the existing tests didn't catch the
   bug either (zero pixel-level assertions existed for the Python chart host
   before this session).
-- **`.agents/AGENTS.md`** (this folder) — short SOLID recap plus the
-  mandatory commit signature: every AI-authored commit ends with
-  `Co-Authored-By: Antigravity <noreply@google.com>`.
+- **`.agents/AGENTS.md`** (this folder) — navigation stub pointing to
+  `rules/code-rule.md` and friends (rewritten 2026-08-21; used to duplicate
+  most of `code-rule.md` verbatim, including a wrong hardcoded commit
+  trailer — see `rules/commit-rule.md` for the real rule: the trailer must
+  name the actual AI that authored the commit, never a fixed placeholder).
 - **`.agents/context/`** (this folder) — workload-specific, non-binding
   context. Read the matching file when working in that area; it records
   current facts, task order, and known hazards without duplicating rules.
