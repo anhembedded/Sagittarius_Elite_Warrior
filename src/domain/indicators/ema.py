@@ -1,3 +1,5 @@
+import math
+
 from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
 
 
@@ -10,11 +12,18 @@ class EMA(IIndicator[float]):
     EMA recurrence. Pure, stateful, zero I/O.
     """
 
-    def __init__(self, period: int) -> None:
+    def __init__(self, period: int, alpha: float | None = None) -> None:
         if period <= 0:
             raise ValueError(f"EMA period must be positive, got {period}")
+        if alpha is not None:
+            if not math.isfinite(alpha) or not (0.0 < alpha <= 1.0):
+                raise ValueError(
+                    f"EMA alpha must be a finite float in (0.0, 1.0], got {alpha}"
+                )
+            self._multiplier = float(alpha)
+        else:
+            self._multiplier = 2.0 / (period + 1)
         self._period = period
-        self._multiplier = 2 / (period + 1)
         self._seed_values: list[float] = []
         self._ema: float | None = None
 
