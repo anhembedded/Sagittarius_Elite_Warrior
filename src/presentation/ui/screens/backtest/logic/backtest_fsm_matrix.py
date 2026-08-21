@@ -14,6 +14,10 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
+    ActionContext,
+    ActionOutcome,
+)
 
 
 class BacktestUiState(str, Enum):
@@ -84,15 +88,7 @@ class BacktestExecutionMode(str, Enum):
     HISTORICAL_TICK = "HISTORICAL_TICK"
 
 
-class BacktestActionOutcome(str, Enum):
-    """The terminal outcome currently owned by a Backtest action."""
-
-    PENDING = "PENDING"
-    SUCCEEDED = "SUCCEEDED"
-    EMPTY = "EMPTY"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
-    INVALIDATED = "INVALIDATED"
+BacktestActionOutcome = ActionOutcome
 
 
 #: Declarative State Transition Matrix: (CurrentState, Event) -> NextState
@@ -345,12 +341,6 @@ class BacktestRunConfig:
         return f"{self.symbol} | {self.timeframe.value} | {self.strategy_key} | Vốn: {self.initial_balance:,.0f} {self.currency.value}"
 
 
-@dataclass(frozen=True)
-class BacktestActionContext:
-    """Immutable owner record for one submitted background action."""
-
-    action_id: int
-    kind: BacktestActionKind
-    config: BacktestRunConfig
-    started_at: datetime
-    previous_state: BacktestUiState
+BacktestActionContext = ActionContext[
+    BacktestActionKind, BacktestRunConfig, BacktestUiState
+]
