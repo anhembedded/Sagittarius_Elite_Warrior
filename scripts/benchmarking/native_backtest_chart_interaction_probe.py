@@ -115,10 +115,47 @@ def main() -> None:
             raise SystemExit(
                 f"initial viewport was not the expected latest-150 window: {viewport_before_drag}"
             )
-        # The deferred initial-viewport Qt.callLater (see
-        # NativeBacktestChart.qml) has now provably already run — its own
-        # one-time geometry rebuild must not be blamed on the interaction
-        # that follows, so the "before" baseline is captured only here.
+        # BUG-015 ROOT CAUSE (found and fixed 2026-08-21, real Windows
+        # Direct3D11 session): NativeChartItem::updatePaintNode() runs on
+        # the Qt Quick RENDER thread and captures its geometry build counts
+        # there, but publishes them to the geometryBuildCount/
+        # volumeGeometryBuildCount Q_PROPERTYs read here via a
+        # QMetaObject::invokeMethod(..., Qt::QueuedConnection) hop back to
+        # the GUI thread (native_chart_item.cpp's publishRenderDiagnostics).
+        # A fixed number of app.processEvents() calls only drains events
+        # already posted to the GUI queue — it does not wait for the render
+        # thread to actually finish its first paint and post that queued
+        # call, so on ~75% of runs the "before" baseline below read the
+        # properties' default 0 (before the cold-start build's diagnostics
+        # had synced), while native_chart_item.cpp's own root->buildCount
+        # was already 1 the whole time — confirmed by temporarily adding a
+        # qWarning() print inside updatePaintNode() and observing buildCount
+        # never exceeds 1 across an entire interaction sequence, on both
+        # "passing" and "failing" runs alike. There was never a real
+        # redundant vertex-buffer rebuild; this was a probe-side race
+        # reading a diagnostics-only property before its first async
+        # publish landed, the same class of probe bug (not a rendering bug)
+        # as the crosshair-hover and FPS-measurement fixes already made in
+        # this same investigation. Waiting for a real post-condition here —
+        # not more processEvents() iterations — is the fix.
+        diagnostics_synced = False
+        diagnostics_deadline = time.monotonic() + 2.0
+        while time.monotonic() < diagnostics_deadline:
+            app.processEvents()
+            if (
+                host._chart_item.property("geometryBuildCount") > 0
+                and host._chart_item.property("volumeGeometryBuildCount") > 0
+            ):
+                diagnostics_synced = True
+                break
+            QTest.qWait(10)
+        if not diagnostics_synced:
+            raise SystemExit(
+                "initial render diagnostics never synced from the render "
+                "thread (geometryBuildCount/volumeGeometryBuildCount still "
+                "0 after 2s) — the cold-start build itself may be broken, "
+                "not just slow to publish"
+            )
         geometry_before_interaction = _geometry_build_counts()
 
         # Real drag: press, several moves, release. Drag *right* (start_pos
