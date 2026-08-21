@@ -43,33 +43,33 @@ exclude = [
     # instead of the runtime value type it actually returns. Not a real
     # bug category; needs a stub/plugin decision before this layer can be
     # checked meaningfully. See EPIC-002A report §2, §6.
-    "^Sagittarius_Elite_Warrior/src/presentation/",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]presentation[\\/]",
 
     # Everything below: real per-file baseline debt (not Property noise),
     # frozen at EPIC-002A's measurement.
     # `scripts/backtest_timeframe_toolbar_e2e.py` was here too — the LIVE
     # bug EPIC-002A found (same class as BUG-026) — fixed immediately after
     # this gate landed, so it's already off this list.
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_cached_interaction_hybrid_probe\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_chart_interaction\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_hybrid_opengl_probe\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/chart_migration_benchmark\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/native_backtest_chart_interaction_probe\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/native_chart_camera_probe\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/native_backtest_desktop_e2e\\.py$",
-    "^Sagittarius_Elite_Warrior/src/application/use_cases/database/repair_data_gap/handler\\.py$",
-    "^Sagittarius_Elite_Warrior/src/application/use_cases/queries/audit_database_integrity/handler\\.py$",
-    "^Sagittarius_Elite_Warrior/src/application/use_cases/queries/get_historical_klines/handler\\.py$",
-    "^Sagittarius_Elite_Warrior/src/domain/backtesting/paper_exchange\\.py$",
-    "^Sagittarius_Elite_Warrior/src/domain/indicators/rsi\\.py$",
-    "^Sagittarius_Elite_Warrior/src/domain/strategies/ema_crossover_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior/src/domain/strategies/ema_trend_pullback_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior/src/domain/strategies/long_term_trend_zone_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior/src/domain/strategies/multi_ema_trend_follower_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior/src/infrastructure/binance/client\\.py$",
-    "^Sagittarius_Elite_Warrior/src/infrastructure/binance/market_metadata_parser\\.py$",
-    "^Sagittarius_Elite_Warrior/src/infrastructure/persistence/models\\.py$",
-    "^Sagittarius_Elite_Warrior/src/infrastructure/persistence/sqlalchemy_repository\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_cached_interaction_hybrid_probe\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_chart_interaction\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_hybrid_opengl_probe\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]chart_migration_benchmark\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]native_backtest_chart_interaction_probe\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]native_chart_camera_probe\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]native_backtest_desktop_e2e\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]database[\\/]repair_data_gap[\\/]handler\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]queries[\\/]audit_database_integrity[\\/]handler\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]queries[\\/]get_historical_klines[\\/]handler\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]backtesting[\\/]paper_exchange\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]indicators[\\/]rsi\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_crossover_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_trend_pullback_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]long_term_trend_zone_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]multi_ema_trend_follower_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]binance[\\/]client\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]binance[\\/]market_metadata_parser\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]models\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]sqlalchemy_repository\\.py$",
 
     # Surfaced only AFTER the exclusions above were applied — not part of the
     # original 45-file/251-error combined baseline scan (EPIC-002A), but
@@ -78,10 +78,10 @@ exclude = [
     # always there but previously masked. Small, independent issues (Qt
     # attribute typos in probe scripts; one dispatch() type mismatch) —
     # frozen as debt the same way, not evidence of a config bug.
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_cached_frame_probe\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/benchmarking/native_chart_interaction_probe\\.py$",
-    "^Sagittarius_Elite_Warrior/scripts/shutdown_sync_probe\\.py$",
-    "^Sagittarius_Elite_Warrior/src/application/use_cases/sync/bulk_sync_market_data/handler\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_cached_frame_probe\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]native_chart_interaction_probe\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]shutdown_sync_probe\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]sync[\\/]bulk_sync_market_data[\\/]handler\\.py$",
 
     # Same "surfaced only after exclusion" effect as above, found while
     # fixing `backtest_timeframe_toolbar_e2e.py`'s real BUG-026-class defect
@@ -90,13 +90,13 @@ exclude = [
     # error in it (`QApplication.instance()` typed as the more general
     # `QCoreApplication`, missing `setQuitOnLastWindowClosed`) — same class
     # already excluded for `shutdown_sync_probe.py` above.
-    "^Sagittarius_Elite_Warrior/scripts/backtest_timeframe_toolbar_e2e\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]backtest_timeframe_toolbar_e2e\\.py$",
 ]
 
 [[tool.mypy.overrides]]
-# python-binance ships no type stubs / py.typed marker — a third-party gap,
-# not our code's debt. Without this, mypy's "Skipping analyzing binance"
-# resolution failure cascades into dependents (binance_websocket_service.py)
-# in a way that silently shrinks how many files get fully checked.
-module = ["binance", "binance.*"]
+# python-binance and sagittarius_engine ship no type stubs / py.typed marker — a third-party/engine gap,
+# not our code's debt. Without this, mypy's "Skipping analyzing"
+# resolution failure cascades into dependents in a way that silently shrinks how many files get fully checked.
+module = ["binance", "binance.*", "sagittarius_engine", "sagittarius_engine.*"]
 ignore_missing_imports = true
+
