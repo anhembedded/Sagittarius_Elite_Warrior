@@ -12,3 +12,8 @@
 **Smell:** Redundant hardcoded timeframe parsing dictionary (`interval_minutes = {"1m": 1, ...}`) in `SyncMarketDataCommandHandler._estimate_total_klines` instead of utilizing the domain object.
 **Solution:** Refactored the method to use the existing `TimeFrame.to_seconds()` method, replacing the 17-line hardcoded dictionary with a simple division, ensuring single source of truth within the Domain layer.
 **Learning:** Re-evaluate domain enums and value objects for existing resolution logic before hardcoding parameter mappings in Application layer Use Cases.
+
+## 2024-11-21 - [Refactor] Split AuditDatabaseIntegrityQueryHandler execute method
+**Smell:** The `execute` method was iterating over `klines` and performing multiple independent checks (NaN/Inf values, price positivity, extrema inversion, duplicate timestamps) directly within the loop. This resulted in a 123-line God method with mixed responsibilities.
+**Solution:** Extracted the body of the `klines` loop into a private helper method `_check_kline_anomalies(self, kline: MarketData, seen_timestamps: set[float]) -> list[DataAnomalyDTO]`. The `execute` method now purely handles data fetching and delegating the anomaly checks, reducing it to under 50 lines.
+**Learning:** For handlers that perform iterative data validation, extract the item-level validation rules into a dedicated private method to maintain SRP and keep the main `execute` method's focus on orchestration.
