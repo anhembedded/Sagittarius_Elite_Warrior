@@ -71,6 +71,19 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ---
 
+## 🏛️ Epics — Dự Án Lớn & Phân Rã Hệ Thống
+
+> Chi tiết mục tiêu, bối cảnh và danh sách task con được quản lý tại [**Tasks/epics/README.md**](epics/README.md).
+
+| ID | Tên Epic | Trạng thái |
+| :--- | :--- | :---: |
+| **[EPIC-001](epics/EPIC-001_ema_trend_pullback_tradingview_cross_reference/README.md)** | Đối chiếu `EmaTrendPullbackStrategy` với TradingView thật | 🟡 Đang làm (1/2 task con xong) |
+| **[EPIC-002](epics/EPIC-002_static_type_checking_in_local_ci/README.md)** | Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ | 🟡 Đang làm (3/4 task con xong) |
+| **[EPIC-003](epics/EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (2/6 task con xong) |
+| **[EPIC-004](epics/EPIC-004_static_security_and_quality_analysis/README.md)** | Static security & quality analysis gate (Bandit + magic-number qua Ruff) | 🟡 Đang làm (1/4 task con xong) |
+
+---
+
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
