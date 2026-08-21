@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa** | 23 |
-| 📈 **Tổng** | **26** |
+| ✅ **Đã sửa** | 24 |
+| 📈 **Tổng** | **27** |
 
 ---
 
@@ -47,6 +47,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-026](completed/BUG-026_shutdown_probe_missing_stream_historical_klines_implementation.md)** | Test probe đóng-app-khi-đang-sync crash — `_BlockingExchangeClient` thiếu `stream_historical_klines()` | 🟡 P2 | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Có sẵn từ trước (xác nhận qua `git stash`), lộ ra khi chạy full suite sau `BUG-025`; test double chưa theo kịp interface `IExchangeClient` mới. |
 | **[BUG-025](completed/BUG-025_unbuffered_full_materialization_sync_and_backtest_data_paths.md)** | Đường dữ liệu Sync (Binance→DB) và Backtest (DB→RAM) không streaming — RAM phình theo độ dài range | 🔴 **P1** | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Nhánh Backtest: `count_klines()`/`stream_klines()` mới trên `IMarketDataRepository`, `RunStaticBacktestCommandHandler` tiêu thụ generator thay vì `list`. ⚠️ Trùng mã với `BUG-025` khác (KLine Inspector column widths), cần đánh số lại. |
 | **[BUG-020](completed/BUG-020_gap_repair_calls_undefined_run_check_status.md)** | Vá lỗ hổng thành công vẫn báo lỗi — gọi `_run_check_status()` không tồn tại | 🟡 P2 | 2026-08-20 | Sửa 2026-08-21 trong đợt refactor `_on_check_status()` của phiên khác |
 | **[BUG-019](completed/BUG-019_gap_inspector_modal_unavailable_unknown_qml_module.md)** | `GapInspectorModal` không dựng được — `import Sagittarius.Theme` không tồn tại | 🔴 P1 | 2026-08-20 | Sửa 2026-08-21 bởi phiên khác, đúng đề xuất trong hồ sơ |

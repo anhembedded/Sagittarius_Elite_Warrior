@@ -11,6 +11,8 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from collections.abc import Iterator
+
 from PySide6.QtWidgets import QApplication
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
@@ -52,6 +54,32 @@ class _BlockingExchangeClient(IExchangeClient):
         progress_callback: Callable[[int], None] | None = None,
         cancellation_requested: Callable[[], bool] | None = None,
     ) -> list[MarketData]:
+        del symbol, interval, start_str, end_str, progress_callback
+        self.started.set()
+        if cancellation_requested is None:
+            raise RuntimeError("Shutdown probe requires a cancellation callback")
+        while not cancellation_requested():
+            self.finished.wait(0.01)
+        self.finished.set()
+        raise ExchangeRequestCancelled("shutdown probe cancelled")
+
+    def stream_historical_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_str: str | datetime,
+        end_str: str | datetime | None = None,
+        progress_callback: Callable[[int], None] | None = None,
+        cancellation_requested: Callable[[], bool] | None = None,
+    ) -> Iterator[list[MarketData]]:
+        """Mirrors `get_historical_klines` above: blocks until cancelled,
+        then raises. `SyncMarketDataCommandHandler` calls this one now
+        (BUG-025), so this is what the probe must actually block in for the
+        shutdown-during-sync scenario to be real. The real implementation is
+        a lazy generator; this one raises synchronously on call instead of
+        on first iteration — harmless here, since the handler's own
+        `for chunk in self.exchange_client.stream_historical_klines(...)`
+        calls and iterates it on the same line."""
         del symbol, interval, start_str, end_str, progress_callback
         self.started.set()
         if cancellation_requested is None:
