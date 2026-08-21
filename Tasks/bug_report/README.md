@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-21
+> Cập nhật: 2026-08-22
 
 ---
 
@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 3 |
 | ✅ **Đã sửa** | 28 |
-| 📈 **Tổng** | **30** |
+| 📈 **Tổng** | **31** |
 
 ---
 
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-031](incomplete/BUG-031_cross_thread_timer_start_hangs_ui_during_backtest.md)** | `QBasicTimer::start: Timers cannot be started from another thread` treo UI màn hình Backtest | 🔴 **P1** | 2026-08-22 | Xuất hiện khi chạy Backtest (query historical klines / cập nhật chart) trong khi `LiveStream` hoặc background tasks đang chạy; timer của QObject bị gọi từ worker thread làm đóng băng UI. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky). Không phải do test nơi nó xuất hiện, không phải do fixture `repo` chuẩn (đã có `dispose_all()`). Nghi phạm: `gc.collect()` lặp trong `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` làm lộ ra leak có sẵn từ test khác — chưa bisect ra nguồn chính xác. |
 | **[BUG-016](incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Root cause đã khoanh chính xác 2026-08-21: treo đúng tại `view.grabWindow()` (API `QQuickView` top-level, khác `QWidget.grab()` production dùng qua `QQuickWidget`) — không phải 1 dòng sửa được ngay vì đây là chủ đích đo riêng đường đó theo docstring. Tác động thật thấp: native đã là default production (`BOT-098F6E` xong), chỉ chặn đóng bookkeeping `BOT-098F5`/`F6D`. |
 
