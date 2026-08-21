@@ -1,7 +1,7 @@
+from collections.abc import Iterator
 from datetime import datetime
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
@@ -34,6 +34,17 @@ def test_valid_implementation():
         ) -> list[MarketData]:
             return []
 
+        def stream_historical_klines(
+            self,
+            symbol: str,
+            interval: TimeFrame,
+            start_str: str | datetime,
+            end_str: str | datetime | None = None,
+            progress_callback=None,
+            cancellation_requested=None,
+        ) -> Iterator[list[MarketData]]:
+            yield []
+
         def get_available_symbols(self) -> list[str]:
             return []
 
@@ -42,4 +53,9 @@ def test_valid_implementation():
         "BTCUSDT", TimeFrame.ONE_MINUTE, "1 day ago UTC"
     )
     assert result == []
+    assert list(
+        client.stream_historical_klines(
+            "BTCUSDT", TimeFrame.ONE_MINUTE, "1 day ago UTC"
+        )
+    ) == [[]]
     assert client.get_available_symbols() == []

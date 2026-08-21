@@ -66,26 +66,40 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                 )
             )
 
+        # BUG-025: consume the exchange stream chunk-by-chunk and persist
+        # each chunk immediately, instead of accumulating the full requested
+        # range into one list before a single save_klines() call — RAM usage
+        # is now bounded by chunk size, not by how long the sync range is.
+        synced_count = 0
         try:
-            klines = self.exchange_client.get_historical_klines(
+            for chunk in self.exchange_client.stream_historical_klines(
                 symbol,
                 command.interval,
                 start_time,
                 command.end_time,
                 _progress_cb,
                 command.cancellation_requested,
-            )
+            ):
+                if command.cancellation_requested and command.cancellation_requested():
+                    self.logger.info(
+                        "[%s] Market data sync cancelled before save.", symbol
+                    )
+                    return
+                self.repo.save_klines(chunk)
+                synced_count += len(chunk)
+                self.logger.debug(
+                    "[%s] Persisted chunk of %d klines (%d total so far) — "
+                    "streamed straight to DB, not held in RAM.",
+                    symbol,
+                    len(chunk),
+                    synced_count,
+                )
         except ExchangeRequestCancelled:
             self.logger.info("[%s] Market data sync cancelled.", symbol)
             return
 
-        if command.cancellation_requested and command.cancellation_requested():
-            self.logger.info("[%s] Market data sync cancelled before save.", symbol)
-            return
-
-        if klines:
-            self.repo.save_klines(klines)
-            self.logger.info(f"[{symbol}] Successfully synced {len(klines)} klines.")
+        if synced_count:
+            self.logger.info(f"[{symbol}] Successfully synced {synced_count} klines.")
         else:
             self.logger.info(f"[{symbol}] Already up to date.")
 

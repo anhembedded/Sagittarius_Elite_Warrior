@@ -27,8 +27,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 5 |
-| ✅ **Đã sửa** | 20 |
+| 🔴 **Đang mở** | 6 |
+| ✅ **Đã sửa** | 19 |
 | 📈 **Tổng** | **25** |
 
 ---
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-025](incomplete/BUG-025_unbuffered_full_materialization_sync_and_backtest_data_paths.md)** | Không buffer/streaming ở Sync (Binance→DB) và Backtest (DB→RAM) — RAM phình theo độ dài khoảng, không có trần | 🟡 P2 | 2026-08-20 | Mở một phần: nhánh Sync đã sửa 2026-08-21 (`stream_historical_klines`, ghi DB theo lô 1000 nến, regression-tested). Nhánh Backtest (`get_klines()`/`query.all()`) vẫn mở — cần bàn thiết kế (COUNT+stream vs buffer riêng out-of-sample) trước khi code. |
 | **[BUG-023](incomplete/BUG-023_app_shutdown_hangs_when_database_sync_running.md)** | App dừng giao diện nhưng tiến trình Python và Sync DB không thoát (Zombie / File Lock) | 🔴 **P1** | 2026-08-20 | Log báo `App stopped.` nhưng thread sync ngầm không nhận cờ hủy, SQLite shard connections bị giữ khóa file `.db-wal`. |
 | **[BUG-019](incomplete/BUG-019_gap_inspector_modal_unavailable_unknown_qml_module.md)** | `GapInspectorModal` không dựng được — `import Sagittarius.Theme` là module không tồn tại | 🔴 **P1** | 2026-08-20 | **Đang làm `master-warrior` đỏ** (`test_all_discovered_previews_build_cleanly`). Modal Gap Inspector của `BOT-112C` không mở được trong app thật. Đã root-cause, chưa sửa. |
 | **[BUG-020](incomplete/BUG-020_gap_repair_calls_undefined_run_check_status.md)** | Vá lỗ hổng thành công vẫn báo lỗi — gọi `_run_check_status()` không tồn tại | 🟡 P2 | 2026-08-20 | Cùng nguồn `BOT-112C`. `AttributeError` bị `except Exception` nuốt thành thông báo thất bại sai; bảng status không refresh. Đã root-cause, chưa sửa. |
