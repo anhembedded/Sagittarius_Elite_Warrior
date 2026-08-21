@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -5,6 +7,15 @@ from datetime import datetime
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
+from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.fee_calculator_policy import (
+    FeeCalculatorPolicy,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.margin_risk_policy import (
+    MarginRiskPolicy,
+)
+from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.order_matching_policy import (
+    OrderMatchingPolicy,
+)
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
@@ -26,10 +37,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
 
 logger = logging.getLogger("App.PaperExchange")
 
-#: Log-message verbs — deliberately mirror the SignalAction names (BUY/SELL/
-#: SHORT/COVER), not PositionSide's own values ("long"/"short"), so a LONG
-#: entry keeps logging "BUY filled" exactly as it always has (existing tests
-#: grep for that literal substring) instead of becoming "LONG filled".
 _ENTRY_LOG_LABEL: dict[PositionSide, str] = {
     PositionSide.LONG: "BUY",
     PositionSide.SHORT: "SHORT",
@@ -49,41 +56,19 @@ class _OpenPosition:
     entry_fee: float
     entry_reason: str
     entry_metadata: Mapping[str, Any] = field(default_factory=dict)
-    #: BOT-041 — absolute prices computed once at entry from
-    #: `BrokerSimulationConfig.stop_loss_pct`/`take_profit_pct`. `None` when
-    #: the corresponding config field is `None` (feature off for this run).
     stop_loss_price: float | None = None
     take_profit_price: float | None = None
-    #: BOT-050 — LONG for every position before this field existed.
     side: PositionSide = PositionSide.LONG
-    #: BOT-105 — snapshotted from `BrokerSimulationConfig.long_leverage`/
-    #: `short_leverage` at entry, not re-read from config later (same
-    #: reasoning as `stop_loss_price`/`take_profit_price` above): a
-    #: position's own leverage must stay fixed for its whole lifetime even
-    #: if a caller somehow mutated the config mid-run. `1.0` for every
-    #: position opened before this field existed.
     leverage: float = 1.0
 
 
 class PaperExchange:
     """
-    @brief Simulated broker/exchange for backtesting strategy executions (BOT-021, BOT-041, BOT-050, BOT-104).
-
-    @details
-    Supports:
-    1. Flexible Position Sizing: Percent of Equity, Fixed Cash, Fixed Contracts, or Risk Percent.
-    2. Pyramiding: Up to N concurrent entries in the same direction.
-    3. Slippage Simulation: Configurable tick slippage applied to market fills.
-    4. Flexible Commission Models: Percentage of notional, Fixed cash per order, or Fixed cash per contract.
-    5. Stop-Loss / Take-Profit: optional per-run % thresholds, checked every
-       bar via `check_intrabar_stops()` — callers must call it every bar,
-       not only when a signal fires.
-    6. Short-Selling: `SignalAction.SHORT`/`COVER` open/close a SHORT
-       position — mirrors LONG's PnL/SL-TP/sizing math with entry/exit and
-       stop/target roles reversed. A strategy owns reversal explicitly (two
-       signals, e.g. SELL then SHORT); this exchange never infers one from
-       position state, and rejects an opposite-side entry while one side is
-       already open rather than silently mixing them.
+    @brief Simulated broker/exchange for backtesting strategy executions (BOT-021, BOT-041, BOT-050, BOT-104, EPIC-003C).
+    @details Orchestrates trade lifecycle, delegating financial calculations to pure Domain Policies:
+    - MarginRiskPolicy: margin, leverage, mark-to-market, realized PnL
+    - OrderMatchingPolicy: slippage, effective entry/exit prices, intrabar stops
+    - FeeCalculatorPolicy: commission calculation on notional/contracts
     """
 
     def __init__(
@@ -93,6 +78,9 @@ class PaperExchange:
         fee_percent: float = 0.1,
         position_sizing: PositionSizing | None = None,
         broker_config: BrokerSimulationConfig | None = None,
+        margin_policy: MarginRiskPolicy | None = None,
+        matching_policy: OrderMatchingPolicy | None = None,
+        fee_policy: FeeCalculatorPolicy | None = None,
     ) -> None:
         if initial_balance <= 0:
             raise ValueError(f"initial_balance must be positive, got {initial_balance}")
@@ -118,6 +106,10 @@ class PaperExchange:
                 type=PositionSizingType.PERCENT_OF_EQUITY,
                 value=100.0,
             )
+
+        self._margin_policy = margin_policy or MarginRiskPolicy()
+        self._matching_policy = matching_policy or OrderMatchingPolicy()
+        self._fee_policy = fee_policy or FeeCalculatorPolicy()
 
         self._positions: list[_OpenPosition] = []
         self._trades: list[Trade] = []
@@ -148,11 +140,7 @@ class PaperExchange:
 
     @property
     def current_side(self) -> PositionSide | None:
-        """BOT-110 — the side every currently open position shares (`_open()`
-        rejects mixing Long+Short, see BOT-050 §3), or `None` when flat. Lets
-        a caller tell a strategy which side it's in via
-        `StrategyContext.current_position_side`, without the strategy ever
-        reading `PaperExchange` directly."""
+        """BOT-110 — the side every currently open position shares, or None when flat."""
         return self._positions[0].side if self._positions else None
 
     @property
@@ -172,42 +160,22 @@ class PaperExchange:
         if not self._positions:
             return self._balance
         total_open_value = sum(
-            self._mark_to_market(pos, mark_price) for pos in self._positions
+            self._margin_policy.mark_to_market(
+                pos.side,
+                pos.leverage,
+                pos.quantity,
+                pos.entry_price,
+                pos.balance_before_entry,
+                mark_price,
+            )
+            for pos in self._positions
         )
         return self._balance + total_open_value
 
-    @staticmethod
-    def _mark_to_market(pos: _OpenPosition, mark_price: float) -> float:
-        """@brief Current account-value contribution of one open position at
-        `mark_price` (BOT-050/BOT-105), gross of any hypothetical exit fee —
-        the same convention this always had for LONG (a fee is only ever
-        charged on an actual close, never estimated ahead of time).
-        @details An unleveraged (1.0x, the default) LONG keeps its original
-        spot-style formula exactly (`self._balance` already had the FULL
-        notional spent on it, so the position's current value is simply
-        quantity marked at the current price) — this branch is preserved
-        bit-for-bit rather than folded into the margin-style formula below,
-        since every existing unleveraged backtest's equity curve already
-        depends on this exact value.
-        A leveraged LONG (and every SHORT, BOT-050) is margin-style instead:
-        `self._balance` only had `capital_deployed` (the MARGIN, smaller
-        than the notional under leverage) held aside — never the full
-        notional — so the position's current value is that margin plus the
-        unrealized price move, zero change in value exactly when
-        `mark_price == entry_price`. LONG and SHORT are mirror images of
-        the same formula (`mark - entry` vs `entry - mark`)."""
-        if pos.side is PositionSide.LONG:
-            if pos.leverage == 1.0:
-                return pos.quantity * mark_price
-            return (
-                pos.balance_before_entry + (mark_price - pos.entry_price) * pos.quantity
-            )
-        return pos.balance_before_entry + (pos.entry_price - mark_price) * pos.quantity
-
     def fill(self, signal: Signal, price: float, time: datetime) -> Trade | None:
         """
-        Executes `signal` at `price`/`time`.
-        Returns the last closed `Trade` on a SELL/COVER that closed positions, otherwise None.
+        Executes signal at price/time.
+        Returns the last closed Trade on a SELL/COVER that closed positions, otherwise None.
         """
         if signal.action is SignalAction.BUY:
             self._open(PositionSide.LONG, price, time, signal.reason, signal.metadata)
@@ -229,8 +197,7 @@ class PaperExchange:
 
     def force_close(self, price: float, time: datetime) -> Trade | None:
         """
-        Realizes every still-open position, either side, at `price`/`time`
-        at the end of a backtest run.
+        Realizes every still-open position, either side, at price/time at the end of a backtest run.
         """
         closed = list(
             self._close(PositionSide.LONG, price, time, ExitReason.END_OF_BACKTEST)
@@ -241,138 +208,57 @@ class PaperExchange:
         return closed[-1] if closed else None
 
     def _slippage_delta(self) -> float:
-        return self._broker_config.slippage_ticks * self._broker_config.tick_size
+        return self._matching_policy.calculate_slippage_delta(
+            self._broker_config.slippage_ticks, self._broker_config.tick_size
+        )
 
     def _entry_effective_price(self, side: PositionSide, price: float) -> float:
-        """A LONG entry buys (pays more with slippage); a SHORT entry sells
-        (receives less with slippage) — same direction of unfavorability,
-        mirrored."""
-        delta = self._slippage_delta()
-        if side is PositionSide.LONG:
-            return price + delta
-        return max(0.0, price - delta)
+        return self._matching_policy.calculate_entry_effective_price(
+            side, price, self._slippage_delta()
+        )
 
     def _exit_effective_price(self, side: PositionSide, price: float) -> float:
-        """A LONG exit sells (receives less); a SHORT exit/cover buys (pays
-        more) — the mirror image of `_entry_effective_price`."""
-        delta = self._slippage_delta()
-        if side is PositionSide.LONG:
-            return max(0.0, price - delta)
-        return price + delta
+        return self._matching_policy.calculate_exit_effective_price(
+            side, price, self._slippage_delta()
+        )
 
     def _leverage_for(self, side: PositionSide) -> float:
-        return (
-            self._broker_config.long_leverage
-            if side is PositionSide.LONG
-            else self._broker_config.short_leverage
+        return self._margin_policy.get_leverage(
+            side,
+            self._broker_config.long_leverage,
+            self._broker_config.short_leverage,
         )
 
     def _calculate_entry_capital(
         self, side: PositionSide, price: float, current_equity: float
     ) -> tuple[float, float, float]:
-        """
-        Calculates (capital_deployed, quantity, entry_fee) for opening a
-        position, either side, based on position sizing, leverage (BOT-105)
-        and commission model. Returns (0.0, 0.0, 0.0) if sizing or cash is
-        insufficient. `capital_deployed` is the MARGIN held aside — spent
-        cash for LONG and margin reserved for SHORT (BOT-050) — see
-        `_open()`/`_close_one_position()`.
-
-        @details Leverage means two different things depending on what the
-        sizing type actually specifies, by design:
-        - `PERCENT_OF_EQUITY`/`FIXED_CASH` specify a CAPITAL amount to
-          commit as margin — leverage multiplies that into a bigger
-          notional position, exactly matching how every real exchange's
-          "size % + leverage" order entry works (5x leverage on 100% of a
-          $1,000 equity controls a $5,000 position, using $1,000 margin).
-        - `FIXED_CONTRACTS`/`RISK_PERCENT` specify an exact QUANTITY (a
-          contract count, or the quantity that keeps a stop-loss's real $
-          loss at exactly `risk%` of equity) — leverage must NOT change
-          that quantity, only how much margin is needed to hold it, or
-          `RISK_PERCENT`'s own documented invariant ("risk_amount = the
-          cash lost if the stop is hit") would silently multiply by
-          `leverage` and quietly risk far more than the user configured.
-        """
         effective_price = self._entry_effective_price(side, price)
         if effective_price <= 0:
             return 0.0, 0.0, 0.0
 
         leverage = self._leverage_for(side)
-        sizing_type = self._position_sizing.type
-        sizing_val = self._position_sizing.value
+        margin, notional_capital = self._margin_policy.calculate_margin_and_notional(
+            side,
+            effective_price,
+            current_equity,
+            self._balance,
+            self._position_sizing,
+            leverage,
+            self._broker_config.stop_loss_pct,
+        )
 
-        if sizing_type is PositionSizingType.PERCENT_OF_EQUITY:
-            margin = current_equity * (sizing_val / 100.0)
-            notional_capital = margin * leverage
-        elif sizing_type is PositionSizingType.FIXED_CASH:
-            margin = sizing_val
-            notional_capital = margin * leverage
-        elif sizing_type is PositionSizingType.FIXED_CONTRACTS:
-            notional_capital = sizing_val * effective_price
-            margin = notional_capital / leverage
-        elif sizing_type is PositionSizingType.RISK_PERCENT:
-            # risk_amount = current_equity * risk% — the cash lost if the
-            # stop is hit, regardless of leverage. quantity = risk_amount /
-            # stop_distance, so notional = quantity * effective_price =
-            # risk_amount * (effective_price / stop_distance). stop_distance
-            # is a % of effective_price (stop_loss_pct), not the raw entry
-            # price, to stay consistent with where slippage is already
-            # applied above. Symmetric for both sides — stop_distance is a
-            # magnitude, not a signed direction.
-            if self._broker_config.stop_loss_pct is None:
-                logger.debug(
-                    f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} rejected: RISK_PERCENT "
-                    "sizing requires BrokerSimulationConfig.stop_loss_pct to be set"
-                )
-                return 0.0, 0.0, 0.0
-            stop_distance = effective_price * (
-                self._broker_config.stop_loss_pct / 100.0
-            )
-            risk_amount = current_equity * (sizing_val / 100.0)
-            notional_capital = risk_amount * (effective_price / stop_distance)
-            margin = notional_capital / leverage
-        else:
-            margin = self._balance
-            notional_capital = margin * leverage
-
-        # Margin cannot exceed currently available liquid cash — clamp
-        # margin, then scale notional down by the same factor so the
-        # margin:notional ratio always stays exactly `leverage`. Clamping
-        # notional alone (leaving margin untouched) would silently change
-        # the effective leverage of an undersized fill.
-        if margin > self._balance:
-            scale = (self._balance / margin) if margin else 0.0
-            margin = self._balance
-            notional_capital *= scale
         if margin <= 0 or notional_capital <= 0:
             return 0.0, 0.0, 0.0
 
-        comm_type = self._broker_config.commission_type
-        comm_val = self._broker_config.commission_value
+        entry_fee, quantity = self._fee_policy.calculate_entry_fee_and_quantity(
+            notional_capital,
+            effective_price,
+            self._broker_config.commission_type,
+            self._broker_config.commission_value,
+        )
 
-        # Fee is charged on the notional actually traded (real exchange
-        # behavior), same as it always was for every sizing type at the
-        # default 1.0x leverage, where notional_capital == margin.
-        if comm_type is CommissionType.PERCENT:
-            entry_fee = notional_capital * (comm_val / 100.0)
-            net_notional = notional_capital - entry_fee
-            if net_notional <= 0:
-                return 0.0, 0.0, 0.0
-            quantity = net_notional / effective_price
-        elif comm_type is CommissionType.CASH_PER_ORDER:
-            entry_fee = comm_val
-            net_notional = notional_capital - entry_fee
-            if net_notional <= 0:
-                return 0.0, 0.0, 0.0
-            quantity = net_notional / effective_price
-        elif comm_type is CommissionType.CASH_PER_CONTRACT:
-            quantity = notional_capital / (effective_price + comm_val)
-            if quantity <= 0:
-                return 0.0, 0.0, 0.0
-            entry_fee = quantity * comm_val
-        else:
-            entry_fee = 0.0
-            quantity = notional_capital / effective_price
+        if quantity <= 0:
+            return 0.0, 0.0, 0.0
 
         return margin, quantity, entry_fee
 
@@ -413,30 +299,12 @@ class PaperExchange:
             return
 
         effective_price = self._entry_effective_price(side, price)
-
-        if self._broker_config.stop_loss_pct is not None:
-            stop_pct = self._broker_config.stop_loss_pct / 100.0
-            # LONG stop sits BELOW entry (a drop hurts); SHORT stop sits
-            # ABOVE entry (a rise hurts) — mirrored.
-            stop_loss_price = (
-                effective_price * (1 - stop_pct)
-                if side is PositionSide.LONG
-                else effective_price * (1 + stop_pct)
-            )
-        else:
-            stop_loss_price = None
-
-        if self._broker_config.take_profit_pct is not None:
-            tp_pct = self._broker_config.take_profit_pct / 100.0
-            # LONG target sits ABOVE entry; SHORT target sits BELOW —
-            # mirrored.
-            take_profit_price = (
-                effective_price * (1 + tp_pct)
-                if side is PositionSide.LONG
-                else effective_price * (1 - tp_pct)
-            )
-        else:
-            take_profit_price = None
+        stop_loss_price = self._matching_policy.calculate_stop_loss_price(
+            side, effective_price, self._broker_config.stop_loss_pct
+        )
+        take_profit_price = self._matching_policy.calculate_take_profit_price(
+            side, effective_price, self._broker_config.take_profit_pct
+        )
 
         self._balance -= capital_deployed
         position = _OpenPosition(
@@ -472,62 +340,24 @@ class PaperExchange:
         raw_price: float | None = None,
         slippage_delta: float = 0.0,
     ) -> Trade:
-        """Realizes exactly one open position at `exit_price` (already the
-        final fill price — callers apply slippage themselves beforehand if
-        the fill type warrants it; a stop-loss/take-profit fill does not,
-        see `check_intrabar_stops`). Does not touch `self._positions` —
-        callers own removing the position, since `_close()` clears every
-        matching-side position at once while `check_intrabar_stops()`
-        removes only the subset that triggered this bar.
-        `raw_price`/`slippage_delta` are log-only detail for a market-order
-        close (`_close()`); left at their defaults for a stop/target fill,
-        which has no raw-vs-effective distinction — the target price itself
-        is the fill.
-
-        PnL (BOT-050/BOT-105): an unleveraged (1.0x) LONG realizes
-        `net_proceeds - capital_deployed`, where `capital_deployed` already
-        embeds the entry fee (it was never subtracted out of it, only used
-        to compute a smaller quantity) — algebraically this equals
-        `quantity*(exit-entry) - entry_fee - exit_fee`, preserved
-        bit-for-bit as its own branch below for the same reason
-        `_mark_to_market` keeps one. A leveraged LONG (and every SHORT)
-        computes that same expanded form directly instead, since there's no
-        "proceeds" to net against `capital_deployed` once it's only the
-        MARGIN and not the full notional — the margin was reserved, not
-        spent, and gets released back plus/minus `pnl`."""
-        comm_type = self._broker_config.commission_type
-        comm_val = self._broker_config.commission_value
-
-        notional = pos.quantity * exit_price
-        if comm_type is CommissionType.PERCENT:
-            exit_fee = notional * (comm_val / 100.0)
-        elif comm_type is CommissionType.CASH_PER_ORDER:
-            exit_fee = comm_val
-        elif comm_type is CommissionType.CASH_PER_CONTRACT:
-            exit_fee = pos.quantity * comm_val
-        else:
-            exit_fee = 0.0
-
-        if pos.side is PositionSide.LONG and pos.leverage == 1.0:
-            net_proceeds = notional - exit_fee
-            self._balance += net_proceeds
-            pnl = net_proceeds - pos.balance_before_entry
-        elif pos.side is PositionSide.LONG:
-            pnl = (
-                (exit_price - pos.entry_price) * pos.quantity - pos.entry_fee - exit_fee
-            )
-            self._balance += pos.balance_before_entry + pnl
-        else:
-            pnl = (
-                (pos.entry_price - exit_price) * pos.quantity - pos.entry_fee - exit_fee
-            )
-            self._balance += pos.balance_before_entry + pnl
-
-        pnl_percent = (
-            (pnl / pos.balance_before_entry * 100.0)
-            if pos.balance_before_entry > 0
-            else 0.0
+        exit_fee = self._fee_policy.calculate_exit_fee(
+            pos.quantity,
+            exit_price,
+            self._broker_config.commission_type,
+            self._broker_config.commission_value,
         )
+
+        pnl, pnl_percent, balance_release = self._margin_policy.calculate_realized_pnl(
+            pos.side,
+            pos.leverage,
+            pos.quantity,
+            pos.entry_price,
+            exit_price,
+            pos.balance_before_entry,
+            pos.entry_fee,
+            exit_fee,
+        )
+        self._balance += balance_release
 
         trade = Trade(
             symbol=self._symbol,
@@ -602,55 +432,14 @@ class PaperExchange:
         self, high: float, low: float, time: datetime
     ) -> Sequence[Trade]:
         """
-        @brief Checks every open position's stop-loss/take-profit against
-        one bar's high/low range and closes whichever triggered (BOT-041,
-        extended for SHORT by BOT-050).
-        @details Must be called every bar regardless of whether the strategy
-        emitted a signal — `fill()` only ever runs when a signal exists, so
-        this is the only path that can catch a stop hit on a signal-free
-        bar. A position with neither `stop_loss_price` nor
-        `take_profit_price` set (the default, `BrokerSimulationConfig`'s
-        pct fields are `None`) is never touched here — existing callers
-        that never configured SL/TP see zero behavior change. Fills at the
-        exact target price, not `high`/`low` themselves, matching real
-        stop/limit order semantics (and the Pine Script reference this task
-        was modeled on) — no slippage applied, unlike a market-order
-        `fill()`. When one bar's range reaches both the stop and the target
-        (a real, unresolvable ambiguity — OHLC data cannot say which the
-        price touched first), **stop-loss wins**: the conservative
-        assumption, documented here because it changes results.
-
-        LONG and SHORT check the opposite edges of the bar for each
-        threshold: a LONG stop sits below entry and triggers on `low`, a
-        SHORT stop sits above entry and triggers on `high` — mirrored for
-        the take-profit target too.
+        @brief Checks every open position's stop-loss/take-profit against bar high/low boundaries.
         """
         if not self._positions:
             return []
 
-        triggered: list[tuple[_OpenPosition, float, ExitReason]] = []
-        still_open: list[_OpenPosition] = []
-        for pos in self._positions:
-            if pos.side is PositionSide.LONG:
-                stop_hit = (
-                    pos.stop_loss_price is not None and low <= pos.stop_loss_price
-                )
-                target_hit = (
-                    pos.take_profit_price is not None and high >= pos.take_profit_price
-                )
-            else:
-                stop_hit = (
-                    pos.stop_loss_price is not None and high >= pos.stop_loss_price
-                )
-                target_hit = (
-                    pos.take_profit_price is not None and low <= pos.take_profit_price
-                )
-            if stop_hit:
-                triggered.append((pos, pos.stop_loss_price, ExitReason.STOP_LOSS))
-            elif target_hit:
-                triggered.append((pos, pos.take_profit_price, ExitReason.TAKE_PROFIT))
-            else:
-                still_open.append(pos)
+        triggered, still_open = self._matching_policy.evaluate_intrabar_stops(
+            self._positions, high, low
+        )
 
         if not triggered:
             return []

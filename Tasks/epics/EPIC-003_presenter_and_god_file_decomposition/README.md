@@ -1,6 +1,6 @@
 # Epic EPIC-003 — Phân rã Presenter/File quá tải (God Object/God File Decomposition)
 
-**Trạng thái:** 🟡 Đang làm — 2/6 xong (21/08): `EPIC-003A`, `EPIC-003B`. Tiếp theo `EPIC-003C`/`EPIC-003D`/`EPIC-003E` làm được tiếp.
+**Trạng thái:** 🟡 Đang làm — 3/6 xong (22/08): `EPIC-003A`, `EPIC-003B`, `EPIC-003C`. Tiếp theo `EPIC-003D`/`EPIC-003E` làm được tiếp.
 **Nguồn:** [`PRO-001`](../../proposal/PRO-001.md) (Coordinator Pattern cho Presenter),
 [`PRO-002`](../../proposal/PRO-002.md) (khảo sát toàn bộ file quá tải trong `src/`) —
 2 đề xuất do một phiên làm việc khác viết, được đối chiếu lại với quy tắc đã
@@ -88,7 +88,7 @@ dòng.
 | :--- | :--- | :---: | :---: |
 | **[EPIC-003A](completed/EPIC-003A_shared_action_ownership_tracker.md)** | Trích xuất cơ chế Action-Ownership dùng chung | 🟡 | ✅ Xong (21/08) — 172 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003B](completed/EPIC-003B_data_management_coordinator_pilot.md)** | `DataManagementPresenter` → Coordinator Pattern (pilot) | 🟡 | ✅ Xong (21/08) — 57 test pass, `mypy`/`ruff` sạch |
-| **[EPIC-003C](incomplete/EPIC-003C_paper_exchange_policy_split.md)** | `PaperExchange` → Domain Policy (Margin/Matching/Fee) | 🟢 | 🔴 Chưa làm |
+| **[EPIC-003C](completed/EPIC-003C_paper_exchange_policy_split.md)** | `PaperExchange` → Domain Policy (Margin/Matching/Fee) | 🟢 | ✅ Xong (22/08) — 119 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Dọn 9 file misplaced (Phase 1) + tách 3 file QML lớn (Phase 2) + danh mục `components/README.md` có test enforce (Phase 3) | 🟢 | 🔴 Chưa làm |
 | **[EPIC-003E](incomplete/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | 🔴 Chưa làm |
 | **[EPIC-003F](incomplete/EPIC-003F_backtest_viewmodel_composite_design_review.md)** | `BacktestViewModel` → Composite ViewModel — **vòng thiết kế trước**, chưa code | 🔴 | 🔴 Chưa làm |
