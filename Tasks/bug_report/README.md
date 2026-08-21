@@ -27,8 +27,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa** | 25 |
+| 🔴 **Đang mở** | 2 |
+| ✅ **Đã sửa** | 26 |
 | 📈 **Tổng** | **28** |
 
 ---
@@ -37,7 +37,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-023](incomplete/BUG-023_app_shutdown_hangs_when_database_sync_running.md)** | Đóng UI nhưng tiến trình Python + Database Sync không thoát (zombie process) | 🔴 **P1** | 2026-08-20 | Đã ghi nhận log, chưa root-cause. Cùng họ với `BUG-007` (đã sửa qua `BOT-099`) nhưng đường sync khác. |
 | **[BUG-016](incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Chặn tiêu chí 6 của `BOT-098F5`, kéo theo `BOT-098F6D` chưa đóng được. **Chưa root-cause**, phải force-kill. Cần máy Windows thật. |
 | **[BUG-015](incomplete/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)** | Native chart dựng lại geometry OHLCV/volume khi chỉ rê chuột (bằng chứng Windows thật) | 🟡 P2 | 2026-08-19 | Vi phạm tiêu chí nghiệm thu `BOT-098F4`/`F5`/`F6C`. Root cause đã khoanh về 1 hàm nhưng **chưa xác nhận**. Cần máy Windows thật. |
 
@@ -47,7 +46,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-023](completed/BUG-023_app_shutdown_hangs_when_database_sync_running.md)** | Đóng UI nhưng tiến trình Python + Database Sync không thoát (zombie process) | 🔴 **P1** | 2026-08-20 | Trong chính hồ sơ này (2026-08-21). Bổ sung `shutdown()` vào `DataManagementPresenter` và `DashboardPresenter`, cooperative cancellation trong `rate_limiter` & bulk sync, sửa tên tham số `RepairDataGapCommandHandler`. |
 | **[BUG-027](completed/BUG-027_seeded_market_data_repository_missing_seven_port_methods.md)** | `_SeededMarketDataRepository` (Desktop E2E probe) thiếu 7/12 method của `IMarketDataRepository` — cùng lớp `BUG-026` | 🟡 P2 | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Tự phát hiện qua `EPIC-002A`'s audit `mypy`, không phải user báo. 2/7 method thiếu do chính `BUG-025` (phiên này) gây ra — phạm vi grep khi đó bỏ sót `scripts/`. |
+
 | **[BUG-026](completed/BUG-026_shutdown_probe_missing_stream_historical_klines_implementation.md)** | Test probe đóng-app-khi-đang-sync crash — `_BlockingExchangeClient` thiếu `stream_historical_klines()` | 🟡 P2 | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Có sẵn từ trước (xác nhận qua `git stash`), lộ ra khi chạy full suite sau `BUG-025`; test double chưa theo kịp interface `IExchangeClient` mới. |
 | **[BUG-025](completed/BUG-025_unbuffered_full_materialization_sync_and_backtest_data_paths.md)** | Đường dữ liệu Sync (Binance→DB) và Backtest (DB→RAM) không streaming — RAM phình theo độ dài range | 🔴 **P1** | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Nhánh Backtest: `count_klines()`/`stream_klines()` mới trên `IMarketDataRepository`, `RunStaticBacktestCommandHandler` tiêu thụ generator thay vì `list`. ⚠️ Trùng mã với `BUG-025` khác (KLine Inspector column widths), cần đánh số lại. |
 | **[BUG-020](completed/BUG-020_gap_repair_calls_undefined_run_check_status.md)** | Vá lỗ hổng thành công vẫn báo lỗi — gọi `_run_check_status()` không tồn tại | 🟡 P2 | 2026-08-20 | Sửa 2026-08-21 trong đợt refactor `_on_check_status()` của phiên khác |

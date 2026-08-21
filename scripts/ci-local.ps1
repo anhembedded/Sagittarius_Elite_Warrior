@@ -228,9 +228,22 @@ if (-not $SkipNativeBuild -and -not $SkipTests) {
     }
 }
 
+$aliasDir = Join-Path $botRoot ".venv_alias"
+if (-not (Test-Path $aliasDir)) { New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null }
+
+$packageAlias = Join-Path $aliasDir "Sagittarius_Elite_Warrior"
+if (-not (Test-Path $packageAlias)) {
+    $aliasLinkType = if ($isWindowsOs) { "Junction" } else { "SymbolicLink" }
+    New-Item -ItemType $aliasLinkType -Path $packageAlias -Target $botRoot -Force | Out-Null
+}
+
+$pythonPathSeparator = [System.IO.Path]::PathSeparator
+$env:PYTHONPATH = "$aliasDir$pythonPathSeparator$botRoot$pythonPathSeparator$repoRoot"
+
 # ---------------------------------------------------------------------------
 # Portable benchmark contract (BOT-098F5)
 # ---------------------------------------------------------------------------
+
 if (-not $SkipNativeBuild -and -not $SkipTests -and -not $SanityOnly -and -not $UnitOnly) {
     $benchmarkLabel = if ($DesktopBenchmark) {
         "Chart Benchmark — CI + Desktop Contract"
@@ -300,16 +313,19 @@ if (-not $SkipLint) {
     # defining module in the same analysis pass (verified empirically while
     # writing this gate, see Tasks/reports/EPIC-002A_mypy_baseline_audit.md §3).
     Write-Step "Mypy — Static Type Check (src + scripts, baseline-gated)"
-    Push-Location $repoRoot
+    Push-Location $aliasDir
     try {
-        $env:PYTHONPATH = $repoRoot
-        & $mypyExe --config-file (Join-Path $botRoot "pyproject.toml") --namespace-packages --explicit-package-bases (Join-Path $botRoot "src") (Join-Path $botRoot "scripts")
+        $engineDir = Join-Path $repoRoot "Sagittarius-Engine"
+        $env:MYPYPATH = "$engineDir$pythonPathSeparator$aliasDir"
+        $env:PYTHONPATH = "$aliasDir$pythonPathSeparator$botRoot$pythonPathSeparator$repoRoot"
+        & $mypyExe --config-file (Join-Path $botRoot "pyproject.toml") --namespace-packages --explicit-package-bases "Sagittarius_Elite_Warrior/src" "Sagittarius_Elite_Warrior/scripts"
         if ($LASTEXITCODE -ne 0) { $failed += "Mypy"; Write-Failure "Mypy" }
         else { Write-Success "Mypy" }
     } catch {
         $failed += "Mypy"; Write-Failure "Mypy"
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
+
 }
 
 # ---------------------------------------------------------------------------

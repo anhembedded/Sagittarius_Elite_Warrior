@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtWidgets import QWidget
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
     OhlcCandle,
 )

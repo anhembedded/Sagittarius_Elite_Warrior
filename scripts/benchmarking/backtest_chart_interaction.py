@@ -22,7 +22,6 @@ import pyqtgraph as pg
 from PySide6 import __version__ as pyside_version
 from PySide6.QtCore import QPointF
 from PySide6.QtWidgets import QApplication, QGraphicsView
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )

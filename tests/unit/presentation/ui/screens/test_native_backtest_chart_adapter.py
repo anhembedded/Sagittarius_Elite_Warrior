@@ -11,7 +11,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from PySide6.QtCore import QThread
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_marker_snapshot import (
     NativeChartMarkerDirection,
     NativeChartMarkerKind,

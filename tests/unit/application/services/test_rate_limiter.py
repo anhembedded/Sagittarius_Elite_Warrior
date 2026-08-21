@@ -32,3 +32,13 @@ def test_rate_limiter_reset():
     limiter.acquire()
     limiter.reset()
     assert limiter._last_time == 0.0
+
+
+@patch("time.sleep")
+def test_rate_limiter_acquire_aborts_on_cancellation(mock_sleep):
+    limiter = ThreadSafeRateLimiter(delay_sec=1.0)
+    limiter.acquire()
+    mock_sleep.reset_mock()
+
+    limiter.acquire(cancellation_requested=lambda: True)
+    assert mock_sleep.call_count == 0

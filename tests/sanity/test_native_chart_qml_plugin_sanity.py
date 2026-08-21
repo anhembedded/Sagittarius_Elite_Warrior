@@ -12,7 +12,6 @@ from PySide6.QtQml import QQmlComponent
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_indicator_snapshot import (
     NativeIndicatorSeries,
     pack_native_indicator_snapshot,

@@ -5,7 +5,6 @@ import pyqtgraph as pg
 import pytest
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )

@@ -3,7 +3,6 @@ from __future__ import annotations
 import struct
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_snapshot import (
     pack_native_ohlcv_snapshot,
 )

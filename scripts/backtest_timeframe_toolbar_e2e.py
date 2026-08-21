@@ -22,7 +22,6 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QtMsgType, qInstallMessageHandler
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,

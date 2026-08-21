@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Signal, Slot
-
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -231,6 +230,7 @@ class DashboardPresenter(BasePresenter):
         # BinanceWebsocketService makes a fresh CancellationToken per
         # start_stream() call rather than reusing one for its whole lifetime.
         self._cancellation_token = CancellationToken()
+        self._shutdown_requested: bool = False
 
         self.active_charts: dict = {}
 
@@ -373,6 +373,21 @@ class DashboardPresenter(BasePresenter):
                 parent=self,
             )
             self._autostart.begin()
+
+    def shutdown(self) -> None:
+        """Cancels owned workers and autostart controller on desktop shutdown."""
+        if self._shutdown_requested:
+            return
+        self._shutdown_requested = True
+        if self._cancellation_token is not None:
+            self._cancellation_token.cancel()
+        if hasattr(self, "_autostart") and self._autostart is not None:
+            self._autostart.shutdown()
+        if (
+            hasattr(self, "_autostart_controller")
+            and self._autostart_controller is not None
+        ):
+            self._autostart_controller.shutdown()
 
     # ================================================================== #
     # BasePresenter contract implementations

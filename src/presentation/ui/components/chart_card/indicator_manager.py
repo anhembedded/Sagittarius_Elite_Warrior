@@ -1,7 +1,6 @@
 from collections.abc import Callable
 
 import pyqtgraph as pg
-
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
 
 from .marker_layer import MarkerLayer, MarkerPoint

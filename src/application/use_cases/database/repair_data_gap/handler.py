@@ -49,12 +49,13 @@ class RepairDataGapCommandHandler(
             klines = self.exchange_client.get_historical_klines(
                 symbol=command.symbol,
                 interval=command.interval,
-                start_time=command.start_time,
-                end_time=command.end_time,
+                start_str=command.start_time,
+                end_str=command.end_time,
                 progress_callback=None,
                 cancellation_requested=command.cancellation_requested,
             )
         except ExchangeRequestCancelled:
+
             logger.info("Gap repair cancelled by user.")
             return RepairDataGapResult(
                 success=False,

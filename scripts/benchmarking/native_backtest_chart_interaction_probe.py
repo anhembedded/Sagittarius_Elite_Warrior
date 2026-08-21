@@ -23,7 +23,6 @@ from PySide6.QtCore import QPoint, QPointF, Qt, QtMsgType, qInstallMessageHandle
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,

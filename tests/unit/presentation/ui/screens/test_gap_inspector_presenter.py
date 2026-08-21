@@ -4,7 +4,6 @@ import os
 from unittest.mock import Mock
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
     RepairDataGapCommand,
     RepairDataGapResult,
@@ -151,6 +150,7 @@ def test_on_repair_gap_submits_worker(presenter, view_model, mock_thread_mgr):
         "1m",
         "2024-01-01 00:01:00",
         "2024-01-01 01:00:00",
+        presenter._cancellation_token,
     )
 
 

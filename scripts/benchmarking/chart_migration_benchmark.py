@@ -27,13 +27,11 @@ from pathlib import Path
 
 import pyqtgraph as pg
 from PySide6 import __version__ as PYSIDE_VERSION
-from PySide6.QtCore import QPointF, QUrl, QtMsgType, qInstallMessageHandler
+from PySide6.QtCore import QPointF, QtMsgType, QUrl, qInstallMessageHandler
 from PySide6.QtQml import QQmlComponent
 from PySide6.QtQuick import QQuickView
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-from shiboken6 import isValid
-
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
@@ -53,6 +51,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_snapshot import (
     pack_native_ohlcv_snapshot,
 )
+from shiboken6 import isValid
 
 _CANDLE_COUNT = 6_420
 _INDICATOR_COUNT = 5

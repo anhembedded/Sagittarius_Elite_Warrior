@@ -120,7 +120,7 @@ class BulkSyncMarketDataCommandHandler(
         """Dispatches a single sync command with rate limiting and catches any execution errors."""
         if cancellation_requested and cancellation_requested():
             return symbol, interval, False, "Cancelled"
-        rate_limiter.acquire()
+        rate_limiter.acquire(cancellation_requested=cancellation_requested)
         if cancellation_requested and cancellation_requested():
             return symbol, interval, False, "Cancelled"
         try:
@@ -160,10 +160,18 @@ class BulkSyncMarketDataCommandHandler(
             ]
 
             for future in concurrent.futures.as_completed(futures):
-                symbol, interval, has_error, error_msg = future.result()
-                reporter.report_target(
-                    symbol=symbol,
-                    interval=interval,
-                    has_error=has_error,
-                    error_msg=error_msg,
-                )
+                if cancellation_requested and cancellation_requested():
+                    for f in futures:
+                        f.cancel()
+                if future.cancelled():
+                    continue
+                try:
+                    symbol, interval, has_error, error_msg = future.result()
+                    reporter.report_target(
+                        symbol=symbol,
+                        interval=interval,
+                        has_error=has_error,
+                        error_msg=error_msg,
+                    )
+                except concurrent.futures.CancelledError:
+                    continue

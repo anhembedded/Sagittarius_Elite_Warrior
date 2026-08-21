@@ -612,3 +612,51 @@ def test_bulk_sync_with_cancelled_token_logs_cancellation_message(
     ]
     assert any("Đã dừng quá trình đồng bộ hàng loạt" in entry for entry in log_entries)
     assert presenter._cancellation_token is None
+
+
+def test_presenter_shutdown_cancels_inflight_sync_token_idempotently(
+    presenter,
+):
+    token = Mock()
+    presenter._cancellation_token = token
+
+    presenter.shutdown()
+
+    token.cancel.assert_called_once()
+    assert presenter._shutdown_requested is True
+
+    # Calling shutdown again should be idempotent and not raise
+    presenter.shutdown()
+    assert token.cancel.call_count == 1
+
+
+def test_presenter_shutdown_prevents_subsequent_worker_submissions(
+    presenter, mock_thread_mgr
+):
+    presenter.shutdown()
+    mock_thread_mgr.submit.reset_mock()
+
+    presenter._trigger_single_sync("BTCUSDT", "1m")
+    presenter._on_repair_gap("BTCUSDT", "1m", "2024-01-01", "2024-01-02")
+    presenter._on_clear_data()
+    presenter._on_vacuum()
+
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_repair_gap_wires_cancellation_token(
+    presenter, mock_thread_mgr, mock_dispatcher
+):
+    mock_thread_mgr.submit.reset_mock()
+    presenter._on_repair_gap("BTCUSDT", "1m", "2024-01-01", "2024-01-02")
+
+    assert presenter._cancellation_token is not None
+    assert mock_thread_mgr.submit.call_count == 1
+
+    call_args = mock_thread_mgr.submit.call_args[0]
+    assert call_args[0] == presenter._run_repair_gap
+    assert call_args[1] == "BTCUSDT"
+    assert call_args[2] == "1m"
+    assert call_args[3] == "2024-01-01"
+    assert call_args[4] == "2024-01-02"
+    assert call_args[5] == presenter._cancellation_token

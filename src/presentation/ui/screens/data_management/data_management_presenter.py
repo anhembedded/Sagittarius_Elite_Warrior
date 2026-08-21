@@ -115,6 +115,7 @@ class DataManagementPresenter(BasePresenter):
         self._view_model = DataManagementViewModel()
         view.set_view_model(self._view_model)
         self._cancellation_token: CancellationToken | None = None
+        self._shutdown_requested = False
 
         config: IConfig = container.resolve(IConfig)
         cfg_page_size = config.get(ConfigKeys.KLINE_INSPECTOR_PAGE_SIZE.value)
@@ -268,6 +269,14 @@ class DataManagementPresenter(BasePresenter):
             self.fsm.transition_to(UIMode.IDLE)
         self._refresh_stats()
 
+    def shutdown(self) -> None:
+        """Cancels owned background workers before the desktop UI and engine teardown."""
+        if self._shutdown_requested:
+            return
+        self._shutdown_requested = True
+        if self._cancellation_token is not None:
+            self._cancellation_token.cancel()
+
     @Slot()
     @safe_ui_action
     def _on_stats_refresh_requested(self) -> None:
@@ -350,6 +359,9 @@ class DataManagementPresenter(BasePresenter):
         Lock the UI and submit a background single-sync task. Reads the
         optional custom time range on the main thread before handing off.
         """
+        if self._shutdown_requested:
+            return
+
         start_time, end_time = self._custom_time_range()
         if self._view_model.useCustomTime:
             if start_time is None:
@@ -388,6 +400,9 @@ class DataManagementPresenter(BasePresenter):
         """
         Dispatch ScanAllDatabasesQuery for every symbol and active intervals.
         """
+        if self._shutdown_requested:
+            return
+
         self.ui_clear_table_signal.emit()
         self.ui_log_signal.emit("Scanning DB status for ALL symbols & intervals...")
         self.fsm.transition_to(UIMode.SCANNING)
@@ -402,6 +417,9 @@ class DataManagementPresenter(BasePresenter):
     @safe_ui_action
     def _on_sync_all_gaps(self) -> None:
         """Submit a bulk sync for every scanned row whose status shows gaps."""
+        if self._shutdown_requested:
+            return
+
         targets = self._view_model.status_model.gap_targets()
         if not targets:
             self.ui_log_signal.emit("No gaps found to sync.")
@@ -421,6 +439,8 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_clear_data(self) -> None:
+        if self._shutdown_requested:
+            return
         symbol = self._view_model.selectedSymbol.strip()
         interval = self._view_model.selectedInterval.strip()
         self.ui_log_signal.emit(f"Requesting data clear for {symbol} ({interval})...")
@@ -430,6 +450,8 @@ class DataManagementPresenter(BasePresenter):
     @Slot(str, str)
     @safe_ui_action
     def _on_clear_row(self, symbol: str, interval: str) -> None:
+        if self._shutdown_requested:
+            return
         self.ui_log_signal.emit(f"Requesting data clear for {symbol} ({interval})...")
         self.fsm.transition_to(UIMode.CLEARING)
         self._thread_manager.submit(self._run_clear_data, symbol, interval)
@@ -437,6 +459,8 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_purge_all(self) -> None:
+        if self._shutdown_requested:
+            return
         self.ui_log_signal.emit("Requesting PURGE of all Storage Vault databases...")
         self.fsm.transition_to(UIMode.CLEARING)
         self._thread_manager.submit(self._run_purge_all)
@@ -444,6 +468,8 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_vacuum(self) -> None:
+        if self._shutdown_requested:
+            return
         self.ui_log_signal.emit("Running SQLite VACUUM optimization...")
         self._thread_manager.submit(self._run_vacuum)
 
@@ -775,14 +801,27 @@ class DataManagementPresenter(BasePresenter):
     def _on_repair_gap(
         self, symbol: str, interval: str, start_time: str, end_time: str
     ) -> None:
+        if self._shutdown_requested:
+            return
         if self.fsm and not self.fsm.transition_to(UIMode.SYNCING):
             return
+        self._cancellation_token = CancellationToken()
         self._thread_manager.submit(
-            self._run_repair_gap, symbol, interval, start_time, end_time
+            self._run_repair_gap,
+            symbol,
+            interval,
+            start_time,
+            end_time,
+            self._cancellation_token,
         )
 
     def _run_repair_gap(
-        self, symbol: str, interval: str, start_iso: str, end_iso: str
+        self,
+        symbol: str,
+        interval: str,
+        start_iso: str,
+        end_iso: str,
+        cancellation_token: CancellationToken | None = None,
     ) -> None:
         """Background worker: downloads missing klines for a single gap."""
         try:
@@ -795,6 +834,9 @@ class DataManagementPresenter(BasePresenter):
                 interval=interval_vo,
                 start_time=start_dt,
                 end_time=end_dt,
+                cancellation_requested=(
+                    cancellation_token.is_cancelled if cancellation_token else None
+                ),
             )
             result: RepairDataGapResult = self.dispatcher.dispatch(
                 RepairDataGapCommand, cmd
@@ -805,21 +847,33 @@ class DataManagementPresenter(BasePresenter):
             else:
                 self.ui_error_log_signal.emit(result.message)
 
-            self._run_inspect_gaps(symbol, interval)
-            self._run_check_status(symbol, interval)
+            if cancellation_token is None or not cancellation_token.is_cancelled():
+                self._run_inspect_gaps(symbol, interval)
+                self._run_check_status(symbol, interval)
         except Exception as exc:  # noqa: BLE001
             self.ui_error_log_signal.emit(f"Failed to repair gap: {exc}")
         finally:
+            self._cancellation_token = None
             self.ui_unlock_signal.emit()
 
     @Slot(str, str)
     @safe_ui_action
     def _on_repair_all_gaps(self, symbol: str, interval: str) -> None:
+        if self._shutdown_requested:
+            return
         if self.fsm and not self.fsm.transition_to(UIMode.SYNCING):
             return
-        self._thread_manager.submit(self._run_repair_all_gaps, symbol, interval)
+        self._cancellation_token = CancellationToken()
+        self._thread_manager.submit(
+            self._run_repair_all_gaps, symbol, interval, self._cancellation_token
+        )
 
-    def _run_repair_all_gaps(self, symbol: str, interval: str) -> None:
+    def _run_repair_all_gaps(
+        self,
+        symbol: str,
+        interval: str,
+        cancellation_token: CancellationToken | None = None,
+    ) -> None:
         """Background worker: sequentially repairs all detected gaps."""
         try:
             query = GetDatabaseGapsQuery(symbol=symbol, interval=interval)
@@ -828,6 +882,9 @@ class DataManagementPresenter(BasePresenter):
             )
 
             for gap in result.gaps:
+                if cancellation_token is not None and cancellation_token.is_cancelled():
+                    self.ui_log_signal.emit("Đã dừng quá trình vá lỗ hổng.")
+                    return
                 start_dt = datetime.fromisoformat(gap.fetch_start_time).replace(
                     tzinfo=UTC
                 )
@@ -838,17 +895,22 @@ class DataManagementPresenter(BasePresenter):
                     interval=interval_vo,
                     start_time=start_dt,
                     end_time=end_dt,
+                    cancellation_requested=(
+                        cancellation_token.is_cancelled if cancellation_token else None
+                    ),
                 )
                 self.dispatcher.dispatch(RepairDataGapCommand, cmd)
 
             self.ui_log_signal.emit(
                 f"Đã hoàn tất vá tất cả {result.total_gaps} lỗ hổng cho {symbol} ({interval})."
             )
-            self._run_inspect_gaps(symbol, interval)
-            self._run_check_status(symbol, interval)
+            if cancellation_token is None or not cancellation_token.is_cancelled():
+                self._run_inspect_gaps(symbol, interval)
+                self._run_check_status(symbol, interval)
         except Exception as exc:  # noqa: BLE001
             self.ui_error_log_signal.emit(f"Failed to repair all gaps: {exc}")
         finally:
+            self._cancellation_token = None
             self.ui_unlock_signal.emit()
 
     # ================================================================== #

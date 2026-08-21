@@ -15,7 +15,6 @@ from PySide6.QtCore import QPoint, QPointF, Qt, qInstallMessageHandler
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction import (
     _INDICATOR_COUNT,
     _VISIBLE_CANDLES,

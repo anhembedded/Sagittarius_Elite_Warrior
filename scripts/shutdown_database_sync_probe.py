@@ -1,17 +1,16 @@
-"""Process-level regression probe for closing the app during Backtest sync."""
+"""Process-level regression probe for closing the app during Data Management sync (BUG-023)."""
 
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
-from collections.abc import Iterator
 
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
@@ -26,12 +25,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
-    BackTestPresenter,
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
+    DataManagementPresenter,
 )
 from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0
@@ -71,14 +72,6 @@ class _BlockingExchangeClient(IExchangeClient):
         progress_callback: Callable[[int], None] | None = None,
         cancellation_requested: Callable[[], bool] | None = None,
     ) -> Iterator[list[MarketData]]:
-        """Mirrors `get_historical_klines` above: blocks until cancelled,
-        then raises. `SyncMarketDataCommandHandler` calls this one now
-        (BUG-025), so this is what the probe must actually block in for the
-        shutdown-during-sync scenario to be real. The real implementation is
-        a lazy generator; this one raises synchronously on call instead of
-        on first iteration — harmless here, since the handler's own
-        `for chunk in self.exchange_client.stream_historical_klines(...)`
-        calls and iterates it on the same line."""
         del symbol, interval, start_str, end_str, progress_callback
         self.started.set()
         if cancellation_requested is None:
@@ -89,16 +82,17 @@ class _BlockingExchangeClient(IExchangeClient):
         raise ExchangeRequestCancelled("shutdown probe cancelled")
 
     def get_available_symbols(self) -> list[str]:
-        return []
+        return ["BTCUSDT", "ETHUSDT"]
 
 
 def main() -> None:
+    mode = sys.argv[1] if len(sys.argv) > 1 else "single_sync"
     project_root = Path(__file__).resolve().parents[1]
     config = ConfigManager()
     config.load_json(str(project_root / "src" / "config" / "app_config.json"))
     config.load_json(str(project_root / "src" / "config" / "user_config.json"))
 
-    with tempfile.TemporaryDirectory(prefix="sagittarius-shutdown-probe-") as db_dir:
+    with tempfile.TemporaryDirectory(prefix="sagittarius-shutdown-db-probe-") as db_dir:
         config.load_dict(
             {
                 ConfigKeys.DATABASE_DIR.value: db_dir,
@@ -110,28 +104,54 @@ def main() -> None:
         exchange = _BlockingExchangeClient()
         engine.container.singleton(IExchangeClient, exchange)
 
-        app = QApplication.instance() or QApplication([])
+        app_instance = QApplication.instance()
+        app = (
+            app_instance if isinstance(app_instance, QApplication) else QApplication([])
+        )
         app.setQuitOnLastWindowClosed(False)
         configure_app_qml(
             Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict()
         )
         window = MainWindow(engine)
-        window.switch_screen("backtest")
+        window.switch_screen("data_management")
         presenter = window._router.get_current_presenter()
-        if not isinstance(presenter, BackTestPresenter):
-            raise TypeError("Backtest presenter did not load")
+        if not isinstance(presenter, DataManagementPresenter):
+            raise TypeError("Data management presenter did not load")
 
-        presenter._last_no_data_config = presenter._get_current_config()
-        presenter._view_model.requestSync()
+        if mode == "single_sync":
+            presenter._trigger_single_sync("BTCUSDT", "1h")
+        elif mode == "bulk_sync":
+            fsm = getattr(presenter, "fsm", None)
+            if fsm is not None:
+                fsm.transition_to(UIMode.SYNCING)
+            presenter._cancellation_token = CancellationToken()
+            presenter._thread_manager.submit(
+                presenter._run_bulk_sync,
+                [("BTCUSDT", "1h")],
+                presenter._cancellation_token,
+            )
+
+        elif mode == "repair_gap":
+            presenter._on_repair_gap(
+                "BTCUSDT",
+                "1h",
+                "2024-01-01T00:00:00",
+                "2024-01-02T00:00:00",
+            )
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
         if not exchange.started.wait(_START_TIMEOUT_SECONDS):
-            raise RuntimeError("Backtest sync worker did not start")
+            raise RuntimeError(f"Data management {mode} worker did not start")
 
         window.close()
         app.processEvents()
         engine.stop()
         if not exchange.finished.wait(_FINISH_TIMEOUT_SECONDS):
-            raise RuntimeError("Backtest sync worker ignored desktop shutdown")
-        print("SHUTDOWN_SYNC_PROBE_OK")
+            raise RuntimeError(
+                f"Data management {mode} worker ignored desktop shutdown"
+            )
+        print(f"SHUTDOWN_DB_SYNC_PROBE_OK_{mode.upper()}")
 
 
 if __name__ == "__main__":

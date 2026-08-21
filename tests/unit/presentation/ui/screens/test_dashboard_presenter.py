@@ -23,7 +23,6 @@ from datetime import UTC
 from unittest.mock import MagicMock
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
@@ -1228,3 +1227,18 @@ def test_script_marker_signal_reaches_the_runner_and_the_chart(presenter):
     mock_card.set_script_markers.assert_called_once_with(
         "ema_cross", [(1.0, 100.0, "Buy", "#0ECB81", "up")]
     )
+
+
+def test_presenter_shutdown_cancels_cancellation_token_and_shuts_down_autostart(
+    presenter,
+):
+    token = MagicMock()
+    presenter._cancellation_token = token
+    autostart = MagicMock()
+    presenter._autostart_controller = autostart
+
+    presenter.shutdown()
+
+    token.cancel.assert_called_once()
+    autostart.shutdown.assert_called_once()
+    assert presenter._shutdown_requested is True

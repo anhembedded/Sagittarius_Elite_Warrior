@@ -16,7 +16,6 @@ from pathlib import Path
 
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import QWidget
-
 from Sagittarius_Elite_Warrior.scripts.preview_qml import discover_previews
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,

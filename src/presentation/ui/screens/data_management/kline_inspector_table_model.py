@@ -10,7 +10,6 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 

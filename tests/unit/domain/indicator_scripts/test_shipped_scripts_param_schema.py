@@ -14,7 +14,6 @@ declare nothing and stay pinned by the original "no inputs yet" checks
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
     DevIndicatorScript,

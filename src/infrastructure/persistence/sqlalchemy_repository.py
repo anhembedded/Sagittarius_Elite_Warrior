@@ -3,7 +3,6 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     IMarketDataRepository,

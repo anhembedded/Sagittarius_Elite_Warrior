@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
