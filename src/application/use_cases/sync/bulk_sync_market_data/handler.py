@@ -16,7 +16,7 @@ from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
-from .command import BulkSyncMarketDataCommand
+from .command import BulkSyncMarketDataCommand, CancellationCheck
 from .progress_reporter import BulkSyncProgressReporter
 
 #: Default delay between concurrent target dispatches in milliseconds.
@@ -69,6 +69,7 @@ class BulkSyncMarketDataCommandHandler(
             targets=targets,
             rate_limiter=rate_limiter,
             reporter=reporter,
+            cancellation_requested=command.cancellation_requested,
         )
 
         self.logger.info("Bulk sync completed.")
@@ -110,16 +111,25 @@ class BulkSyncMarketDataCommandHandler(
         )
 
     def _sync_single_target(
-        self, symbol: str, interval: str, rate_limiter: ThreadSafeRateLimiter
+        self,
+        symbol: str,
+        interval: str,
+        rate_limiter: ThreadSafeRateLimiter,
+        cancellation_requested: CancellationCheck | None = None,
     ) -> tuple[str, str, bool, str]:
         """Dispatches a single sync command with rate limiting and catches any execution errors."""
+        if cancellation_requested and cancellation_requested():
+            return symbol, interval, False, "Cancelled"
         rate_limiter.acquire()
+        if cancellation_requested and cancellation_requested():
+            return symbol, interval, False, "Cancelled"
         try:
             sync_cmd = SyncMarketDataCommand(
                 symbols=[symbol],
                 interval=TimeFrame(interval),
                 start_time=None,
                 end_time=None,
+                cancellation_requested=cancellation_requested,
             )
             self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
             return symbol, interval, False, ""
@@ -132,6 +142,7 @@ class BulkSyncMarketDataCommandHandler(
         targets: list[tuple[str, str]],
         rate_limiter: ThreadSafeRateLimiter,
         reporter: BulkSyncProgressReporter,
+        cancellation_requested: CancellationCheck | None = None,
     ) -> None:
         """Runs the thread pool execution and reports completion events via reporter."""
         max_workers = self._calculate_max_workers(len(targets))
@@ -143,6 +154,7 @@ class BulkSyncMarketDataCommandHandler(
                     symbol,
                     interval,
                     rate_limiter,
+                    cancellation_requested,
                 )
                 for symbol, interval in targets
             ]

@@ -67,6 +67,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     inspectKlinesRequested = Signal(str, str)
     #: symbol and interval for Run Data Integrity Audit.
     runAuditRequested = Signal(str, str)
+    cancelRequested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -481,6 +482,10 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._audit_running = True
         self.auditResultChanged.emit()
         self.runAuditRequested.emit(symbol, interval)
+
+    @Slot()
+    def requestCancel(self) -> None:
+        self.cancelRequested.emit()
 
     @Slot(int)
     def requestKlinePage(self, page: int) -> None:

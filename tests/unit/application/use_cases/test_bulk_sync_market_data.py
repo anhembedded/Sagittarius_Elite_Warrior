@@ -1,7 +1,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
@@ -149,3 +148,18 @@ def test_bulk_sync_error_handling(mock_sleep, handler, mock_event_bus, mock_disp
 
     eth_event = next(e for e in progress_events if e.symbol == "ETHUSDT")
     assert eth_event.has_error is False
+
+
+def test_bulk_sync_cancellation_stops_dispatching(
+    handler, mock_event_bus, mock_dispatcher
+):
+    targets = [("BTCUSDT", "1m"), ("ETHUSDT", "5m")]
+    cmd = BulkSyncMarketDataCommand(
+        targets=targets,
+        cancellation_requested=lambda: True,
+    )
+
+    handler.execute(cmd)
+
+    # When cancellation is requested before dispatching, single target aborts without dispatching
+    mock_dispatcher.dispatch.assert_not_called()

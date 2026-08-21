@@ -35,6 +35,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -107,7 +108,12 @@ def test_on_sync_data_submits_background_task(presenter, view_model, mock_thread
 
     assert presenter.fsm.current_state == UIMode.SYNCING
     mock_thread_mgr.submit.assert_called_with(
-        presenter._run_single_sync, "BTCUSDT", "15m", None, None
+        presenter._run_single_sync,
+        "BTCUSDT",
+        "15m",
+        None,
+        None,
+        presenter._cancellation_token,
     )
 
 
@@ -137,11 +143,12 @@ def test_custom_time_range_is_parsed_and_passed_through(
 
     view_model.requestSync()
 
-    _, symbol, interval, start, end = mock_thread_mgr.submit.call_args.args
+    _, symbol, interval, start, end, token = mock_thread_mgr.submit.call_args.args
     assert symbol == "BTCUSDT"
     assert interval == "1h"
     assert start == datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
     assert end == datetime(2024, 1, 2, 12, 30, tzinfo=UTC)
+    assert isinstance(token, CancellationToken)
 
 
 def test_invalid_custom_time_range_is_rejected_without_syncing(
@@ -269,9 +276,10 @@ def test_sync_all_gaps_uses_only_unhealthy_rows(presenter, view_model, mock_thre
 
     view_model.requestSyncAllGaps()
 
-    method, targets = mock_thread_mgr.submit.call_args.args
+    method, targets, token = mock_thread_mgr.submit.call_args.args
     assert method == presenter._run_bulk_sync
     assert targets == [("ETHUSDT", "15m")]
+    assert isinstance(token, CancellationToken)
     assert view_model.progressMaximum == 1
     assert view_model.progressVisible is True
 
@@ -550,3 +558,57 @@ def test_auto_discover_empty_database_emits_storage_vault_logger(
         and "Storage Vault is empty" in record.message
         for record in caplog.records
     )
+
+
+def test_on_cancel_cancels_active_cancellation_token_and_transitions_fsm_to_cancelling(
+    presenter, view_model
+):
+    token = CancellationToken()
+    presenter._cancellation_token = token
+    presenter.fsm.transition_to(UIMode.SYNCING)
+
+    presenter._on_cancel()
+
+    assert token.is_cancelled() is True
+    assert presenter.fsm.current_state == UIMode.CANCELLING
+
+
+def test_single_sync_with_cancelled_token_logs_cancellation_message(
+    presenter, view_model, mock_dispatcher
+):
+    token = CancellationToken()
+    token.cancel()
+
+    presenter._run_single_sync(
+        symbol="BTCUSDT",
+        interval="1m",
+        start_time=None,
+        end_time=None,
+        cancellation_token=token,
+    )
+
+    log_entries = [
+        view_model.log_model.data(view_model.log_model.index(i, 0), 257)
+        for i in range(view_model.log_model.rowCount())
+    ]
+    assert any("Đã dừng đồng bộ BTCUSDT (1m)" in entry for entry in log_entries)
+    assert presenter._cancellation_token is None
+
+
+def test_bulk_sync_with_cancelled_token_logs_cancellation_message(
+    presenter, view_model, mock_dispatcher
+):
+    token = CancellationToken()
+    token.cancel()
+
+    presenter._run_bulk_sync(
+        targets=[("BTCUSDT", "1m"), ("ETHUSDT", "5m")],
+        cancellation_token=token,
+    )
+
+    log_entries = [
+        view_model.log_model.data(view_model.log_model.index(i, 0), 257)
+        for i in range(view_model.log_model.rowCount())
+    ]
+    assert any("Đã dừng quá trình đồng bộ hàng loạt" in entry for entry in log_entries)
+    assert presenter._cancellation_token is None

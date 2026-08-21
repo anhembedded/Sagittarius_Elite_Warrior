@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .data_management_view_model import DataManagementViewModel
 from .signal_log_handler import SignalLogHandler
@@ -113,6 +114,7 @@ class DataManagementPresenter(BasePresenter):
 
         self._view_model = DataManagementViewModel()
         view.set_view_model(self._view_model)
+        self._cancellation_token: CancellationToken | None = None
 
         config: IConfig = container.resolve(IConfig)
         cfg_page_size = config.get(ConfigKeys.KLINE_INSPECTOR_PAGE_SIZE.value)
@@ -142,6 +144,12 @@ class DataManagementPresenter(BasePresenter):
             self.fsm.add_transition(UIMode.SYNCING, UIMode.IDLE)
             self.fsm.add_transition(UIMode.CLEARING, UIMode.IDLE)
 
+            # Transitions for cancellation
+            self.fsm.add_transition(UIMode.SCANNING, UIMode.CANCELLING)
+            self.fsm.add_transition(UIMode.SYNCING, UIMode.CANCELLING)
+            self.fsm.add_transition(UIMode.CANCELLING, UIMode.IDLE)
+            self.fsm.add_transition(UIMode.CANCELLING, UIMode.ERROR)
+
             # Transitions to ERROR
             self.fsm.add_transition(UIMode.SCANNING, UIMode.ERROR)
             self.fsm.add_transition(UIMode.SYNCING, UIMode.ERROR)
@@ -169,6 +177,7 @@ class DataManagementPresenter(BasePresenter):
         view_model.checkAllStatusRequested.connect(self._on_check_all_status)
         view_model.syncRequested.connect(self._on_sync_data)
         view_model.syncAllGapsRequested.connect(self._on_sync_all_gaps)
+        view_model.cancelRequested.connect(self._on_cancel)
         view_model.clearDataRequested.connect(self._on_clear_data)
         view_model.purgeAllRequested.connect(self._on_purge_all)
         view_model.vacuumRequested.connect(self._on_vacuum)
@@ -316,6 +325,16 @@ class DataManagementPresenter(BasePresenter):
 
     @Slot()
     @safe_ui_action
+    def _on_cancel(self) -> None:
+        """Cooperatively cancel whichever background sync/scan is currently active."""
+        if self._cancellation_token is not None:
+            self._cancellation_token.cancel()
+        if self.fsm and self.fsm.current_state in (UIMode.SYNCING, UIMode.SCANNING):
+            self.fsm.transition_to(UIMode.CANCELLING)
+            self.ui_log_signal.emit("Đang gửi yêu cầu hủy tác vụ...")
+
+    @Slot()
+    @safe_ui_action
     def _on_sync_data(self) -> None:
         """Read the current symbol/interval selection and trigger a single sync."""
         self._trigger_single_sync(
@@ -353,8 +372,14 @@ class DataManagementPresenter(BasePresenter):
         self.fsm.transition_to(UIMode.SYNCING)
         self._view_model.set_progress(value=0, maximum=0, visible=True)
 
+        self._cancellation_token = CancellationToken()
         self._thread_manager.submit(
-            self._run_single_sync, symbol, target_interval, start_time, end_time
+            self._run_single_sync,
+            symbol,
+            target_interval,
+            start_time,
+            end_time,
+            self._cancellation_token,
         )
 
     @Slot()
@@ -388,7 +413,10 @@ class DataManagementPresenter(BasePresenter):
         self.fsm.transition_to(UIMode.SYNCING)
         self._view_model.set_progress(value=0, maximum=len(targets), visible=True)
 
-        self._thread_manager.submit(self._run_bulk_sync, targets)
+        self._cancellation_token = CancellationToken()
+        self._thread_manager.submit(
+            self._run_bulk_sync, targets, self._cancellation_token
+        )
 
     @Slot()
     @safe_ui_action
@@ -555,6 +583,7 @@ class DataManagementPresenter(BasePresenter):
         interval: str,
         start_time: datetime | None,
         end_time: datetime | None,
+        cancellation_token: CancellationToken | None = None,
     ) -> None:
         """Background worker: dispatches SyncMarketDataCommand for a single target."""
         try:
@@ -563,14 +592,22 @@ class DataManagementPresenter(BasePresenter):
                 interval=TimeFrame(interval),
                 start_time=start_time,
                 end_time=end_time,
+                cancellation_requested=(
+                    cancellation_token.is_cancelled if cancellation_token else None
+                ),
             )
             self.dispatcher.dispatch(SyncMarketDataCommand, cmd)
-            self.ui_log_signal.emit(
-                f"Sync completed successfully for {symbol} ({interval})."
-            )
-            self.ui_sync_complete_signal.emit()
+            if cancellation_token is not None and cancellation_token.is_cancelled():
+                self.ui_log_signal.emit(f"Đã dừng đồng bộ {symbol} ({interval}).")
+            else:
+                self.ui_log_signal.emit(
+                    f"Sync completed successfully for {symbol} ({interval})."
+                )
+                self.ui_sync_complete_signal.emit()
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Sync failed: {exc}")
+        finally:
+            self._cancellation_token = None
             self.ui_unlock_signal.emit()
 
     def _run_scan_all(self, symbols: list[str], intervals: list[str]) -> None:
@@ -610,13 +647,26 @@ class DataManagementPresenter(BasePresenter):
         finally:
             self.ui_unlock_signal.emit()
 
-    def _run_bulk_sync(self, targets: list[tuple[str, str]]) -> None:
+    def _run_bulk_sync(
+        self,
+        targets: list[tuple[str, str]],
+        cancellation_token: CancellationToken | None = None,
+    ) -> None:
         """Background worker: dispatches BulkSyncMarketDataCommand."""
         try:
-            cmd = BulkSyncMarketDataCommand(targets=targets)
+            cmd = BulkSyncMarketDataCommand(
+                targets=targets,
+                cancellation_requested=(
+                    cancellation_token.is_cancelled if cancellation_token else None
+                ),
+            )
             self.dispatcher.dispatch(BulkSyncMarketDataCommand, cmd)
+            if cancellation_token is not None and cancellation_token.is_cancelled():
+                self.ui_log_signal.emit("Đã dừng quá trình đồng bộ hàng loạt.")
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing the presenter
             self.ui_error_log_signal.emit(f"Failed to dispatch bulk sync: {exc}")
+        finally:
+            self._cancellation_token = None
             self.ui_unlock_signal.emit()
 
     def _run_clear_data(self, symbol: str, interval: str) -> None:
