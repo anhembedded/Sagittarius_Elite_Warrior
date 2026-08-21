@@ -6,7 +6,7 @@
 
 **Báo cáo đầy đủ:** [`Tasks/reports/EPIC-002A_mypy_baseline_audit.md`](../../../reports/EPIC-002A_mypy_baseline_audit.md).
 
-**Tóm tắt kết quả:** `src/` 183 lỗi (241 file) — 73% ở `presentation/`, trong đó 52% toàn bộ (`96/183`) là nhiễu hệ thống PySide6 `@Property`, không phải bug thật. `scripts/` 29 lỗi, `tests/` 9 lỗi. Phát hiện kỹ thuật quan trọng: `mypy` chỉ bắt được lỗi lớp `BUG-026` khi chạy `src`+`scripts` **cùng 1 lệnh**, chạy riêng lẻ từng thư mục sẽ báo "Success" giả. Phát hiện 1 defect sống cùng lớp `BUG-026`, chưa fix, chưa từng báo cáo: `scripts/backtest_timeframe_toolbar_e2e.py`'s `_SeededMarketDataRepository` thiếu 7 method — 2 trong số đó do chính `BUG-025` (phiên này) thêm vào mà phạm vi grep audit khi đó bỏ sót `scripts/`.
+**Tóm tắt kết quả:** `src/` 183 lỗi (241 file) — 73% ở `presentation/`, trong đó 52% toàn bộ (`96/183`) là nhiễu hệ thống PySide6 `@Property`, không phải bug thật. `scripts/` 29 lỗi, `tests/` 9 lỗi. Phát hiện kỹ thuật quan trọng: `mypy` chỉ bắt được lỗi lớp `BUG-026` khi chạy `src`+`scripts` **cùng 1 lệnh**, chạy riêng lẻ từng thư mục sẽ báo "Success" giả. Phát hiện 1 defect sống cùng lớp `BUG-026`, chưa từng báo cáo: `scripts/backtest_timeframe_toolbar_e2e.py`'s `_SeededMarketDataRepository` thiếu 7 method — 2 trong số đó do chính `BUG-025` (phiên này) thêm vào mà phạm vi grep audit khi đó bỏ sót `scripts/`. **Đã sửa ngay sau khi `EPIC-002B` xong** — xem [`BUG-027`](../../../bug_report/completed/BUG-027_seeded_market_data_repository_missing_seven_port_methods.md).
 
 ---
 

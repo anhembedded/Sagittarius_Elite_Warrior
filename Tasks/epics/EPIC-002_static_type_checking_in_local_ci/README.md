@@ -51,7 +51,7 @@ gian chứ không "bật hết 1 lần".
 
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
-| **[EPIC-002A](completed/EPIC-002A_mypy_baseline_audit.md)** | Đo baseline: `mypy` bắt bao nhiêu lỗi thật trên codebase hiện tại | ✅ Xong (21/08) — [báo cáo đầy đủ](../../reports/EPIC-002A_mypy_baseline_audit.md), phát hiện thêm 1 defect sống cùng lớp `BUG-026` |
+| **[EPIC-002A](completed/EPIC-002A_mypy_baseline_audit.md)** | Đo baseline: `mypy` bắt bao nhiêu lỗi thật trên codebase hiện tại | ✅ Xong (21/08) — [báo cáo đầy đủ](../../reports/EPIC-002A_mypy_baseline_audit.md), phát hiện thêm 1 defect sống cùng lớp `BUG-026` (đã sửa: `BUG-027`) |
 | **[EPIC-002B](completed/EPIC-002B_wire_mypy_into_ci_local.md)** | Nối `mypy` (chế độ tối thiểu) vào `ci-local.ps1 -Full` | ✅ Xong (21/08) — verify thật qua `pwsh`, cổng chạy "Success: no issues found in 128 source files" |
 | **[EPIC-002C](completed/EPIC-002C_document_mypy_gate_in_rules.md)** | Ghi nhận cổng `mypy` vào `ci-rule.md`/`ONBOARDING.md` | ✅ Xong (21/08) — kèm sửa 1 câu sai trong `ONBOARDING.md` (PowerShell thật ra chạy được trên máy này qua `pwsh`) |
 | **[EPIC-002D](incomplete/EPIC-002D_incremental_strictness_rollout.md)** | Lộ trình siết `--strict` dần theo module (giai đoạn sau, không chặn 3 task trên) | 🔴 Chưa làm |

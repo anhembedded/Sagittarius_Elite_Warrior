@@ -14,6 +14,7 @@ not an ordinary CI timing gate.
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import QApplication
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
+    DataGap,
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
@@ -84,6 +86,50 @@ class _SeededMarketDataRepository(IMarketDataRepository):
             rows = [row for row in rows if row.open_time <= end_time]
         rows.sort(key=lambda row: row.open_time, reverse=order_by_desc)
         return rows[:limit] if limit is not None else rows
+
+    def count_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int | None = None,
+    ) -> int:
+        return len(self.get_klines(symbol, interval, start_time, end_time, limit))
+
+    def stream_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        order_by_desc: bool = False,
+    ) -> Iterator[MarketData]:
+        rows = self.get_klines(
+            symbol, interval, start_time, end_time, None, order_by_desc
+        )
+        if offset is not None:
+            rows = rows[offset:]
+        if limit is not None:
+            rows = rows[:limit]
+        yield from rows
+
+    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
+        return 0
+
+    def purge_all(self) -> int:
+        return 0
+
+    def list_available_shards(self) -> list[str]:
+        return [_SYMBOL]
+
+    def vacuum(self, symbol: str | None = None) -> None:
+        pass
+
+    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
+        return []
 
     def get_database_status(
         self, symbol: str, interval: TimeFrame
