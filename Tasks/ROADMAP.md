@@ -22,22 +22,22 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 110 | 65.1% |
+| 🟢 **Completed** | 111 | 65.7% |
 | 🟡 **In Progress** | 4 | 2.4% |
-| 🔴 **Backlog** | 53 | 31.4% |
+| 🔴 **Backlog** | 52 | 30.8% |
 | ❌ **Cancelled** | 2 | 1.2% |
 | 📈 **Tổng số Task** | **169** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
-> Cập nhật 2026-08-21: **Đối soát lại toàn bộ bảng theo thực tế trên đĩa** — trước đó bảng ghi 108 completed/55 backlog trong khi thư mục thật là 106/57: `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112E` đã ship code (PR #72/#73/#74/#75) nhưng file task vẫn nằm ở `backlog/` và 2 trong 4 file còn ghi trạng thái `🔴 Backlog`. Cả 4 đã được cập nhật trạng thái và chuyển sang `completed/`; Epic `BOT-112` giờ **4/5**, chỉ còn `BOT-112D`. Bug cũng đã đối soát: `BUG-019`/`BUG-020` (sinh ra từ `BOT-112C`), `BUG-023`, `BUG-025` (streaming data path), `BUG-026`, `BUG-027`, và `BUG-028` (trước trùng mã BUG-025, đã re-index) đã ở `bug_report/completed/`. `BUG-015` cũng vừa đóng (2026-08-21, native chart geometry rebuild) — hoá ra không phải bug renderer, mà là race trong chính probe script đọc property chẩn đoán trước khi render thread kịp publish qua cross-thread hop. Hiện còn **1 bug đang mở**: `BUG-016` — root cause đã khoanh chính xác (treo tại `view.grabWindow()`, xem hồ sơ), tác động thật thấp vì native đã là default production, chỉ chặn bookkeeping `BOT-098F5`/`F6D` — xem [Bug Board](bug_report/README.md).
+> Cập nhật 2026-08-21: Hoàn thành `BOT-101` (RSI compose generalized smoothing + 18 edge-case unit tests). **Đối soát lại toàn bộ bảng theo thực tế trên đĩa** — trước đó bảng ghi 108 completed/55 backlog trong khi thư mục thật là 106/57: `BOT-112A`, `BOT-112B`, `BOT-112C`, `BOT-112E` đã ship code (PR #72/#73/#74/#75) nhưng file task vẫn nằm ở `backlog/` và 2 trong 4 file còn ghi trạng thái `🔴 Backlog`. Cả 4 đã được cập nhật trạng thái và chuyển sang `completed/`; Epic `BOT-112` giờ **4/5**, chỉ còn `BOT-112D`. Bug cũng đã đối soát: `BUG-019`/`BUG-020` (sinh ra từ `BOT-112C`), `BUG-023`, `BUG-025` (streaming data path), `BUG-026`, `BUG-027`, và `BUG-028` (trước trùng mã BUG-025, đã re-index) đã ở `bug_report/completed/`. `BUG-015` cũng vừa đóng (2026-08-21, native chart geometry rebuild) — hoá ra không phải bug renderer, mà là race trong chính probe script đọc property chẩn đoán trước khi render thread kịp publish qua cross-thread hop. Hiện còn **1 bug đang mở**: `BUG-016` — root cause đã khoanh chính xác (treo tại `view.grabWindow()`, xem hồ sơ), tác động thật thấp vì native đã là default production, chỉ chặn bookkeeping `BOT-098F5`/`F6D` — xem [Bug Board](bug_report/README.md).
 >
 > Trước đó (2026-08-20): hoàn thành `BOT-041`, `BOT-050`, `BOT-110`, `BOT-111` (trọn Epic `BOT-109`), `BOT-113`, `BOT-106A` (bước 1/3 Epic `BOT-106`), `BOT-114`; bổ sung Epic `BOT-112` (5 task con) và Epic `BOT-115` (Lưu trữ & Nạp lại Báo cáo Backtest, 4 task con `BOT-115A`…`BOT-115D`).
 
 ### 🤖 Phân loại Độ phức tạp & Loại Agent AI phù hợp (Agent Complexity Matrix)
 
 | Ký hiệu / Badge | Độ phức tạp | Loại AI Agent phù hợp | Tiêu chí đánh giá & Loại Task |
-| :---: | :---: | :--- | :--- |
+| :---: | :---: | :---: | :--- |
 | 🟢 **`S (Fast Agent)`** | **Thấp** | **Fast / Routine Models** *(Gemini Flash, Haiku, GPT-4o-mini)* | Sửa Docs/Roadmap, thêm config key, styling QML đơn giản, refactor 1 file độc lập, unit test nhỏ. |
 | 🟡 **`M (Standard Agent)`** | **Trung bình** | **Standard Coding Models** *(Gemini Pro, GPT-4o, Sonnet non-thinking)* | Thêm Use Case mới (Command + Handler), QML component/modal mới, mở rộng Parameter Schema, kết nối ViewModel. |
 | 🔴 **`L (Thinking Agent)`** | **Cao** | **Deep Reasoning / Thinking Models** *(Sonnet Thinking, Gemini Thinking, o3-mini)* | FSM State Machine, Thread-affinity (UI vs Worker), Thuật toán tài chính, Out-of-sample, Cooperative Cancellation, Action Ownership. |
@@ -75,6 +75,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BOT-101`**: [RSI compose 2 instance smoothing tổng quát thay vì tự tính avg_gain/avg_loss](completed/BOT-101_rsi_compose_generalized_smoothing.md) — Tái cấu trúc `RSI` sang composition 2 instance `EMA(period, alpha=1/period)` thay vì tự quản lý biến phụ trợ thủ công (`_gain_sum`, `_avg_gain`...); mở rộng `EMA` hỗ trợ tham số `alpha` tường minh với validation Sentinel; bổ sung 18 unit tests bao phủ toàn bộ edge cases (flat market, pure uptrend/downtrend, period 1/50, giá âm, quy mô $10^9$/$10^{-8}$, stress-test 500+ probes `peek_provisional()`, đối chiếu với hàm toán học chuẩn Wilder). 100% Full CI xanh (1666 unit + 41 sanity pass).
 - [x] **`BOT-112C`**: [Trực quan hóa Lỗ hổng & Vá Từng Đoạn Dữ liệu](completed/BOT-112C_gap_detection_visualizer_and_selective_repair.md) — Thanh timeline độ phủ, `GapInspectorModal`, `RepairDataGapCommand`/`GetDatabaseGapsQuery` vá đúng từng đoạn thiếu. **Ship kèm 2 lỗi thật, cả hai đã sửa sau đó**: [`BUG-019`](bug_report/completed/BUG-019_gap_inspector_modal_unavailable_unknown_qml_module.md) (`import Sagittarius.Theme` — module không tồn tại — khiến modal không dựng nổi và làm đỏ `test_all_discovered_previews_build_cleanly`) và [`BUG-020`](bug_report/completed/BUG-020_gap_repair_calls_undefined_run_check_status.md) (gọi `_run_check_status()` chưa tồn tại nên vá thành công vẫn báo lỗi ngược cho user). Bài học ghi lại trong 2 hồ sơ: test của task chỉ chạy tầng Python nên không bao giờ chạm QML, và test vá gap chỉ assert lệnh đã dispatch (xảy ra trước điểm ném lỗi) nên xanh trong khi tính năng hỏng.
 - [x] **`BOT-112B`**: [Bảng Tra cứu Nến KLine Inspector & Kiểm định Tính toàn vẹn](completed/BOT-112B_kline_data_inspector_and_integrity_audit.md) — Xem nến thô OHLCV phân trang, nhảy nhanh theo timestamp, kiểm định nến bất thường ($H < L$, $V < 0$, trùng timestamp). Kèm [`BUG-028`](bug_report/completed/BUG-028_kline_inspector_column_widths_misplaced_scope_qml_warning.md) (column width sai scope) đã sửa.
 - [x] **`BOT-112E`**: [Hỗ trợ khung thời gian 1 giây và toàn bộ TimeFrame chuẩn](completed/BOT-112E_support_1s_kline_fetch_and_storage.md) — Fetch/lưu nến `1s` cùng đầy đủ interval chuẩn trên Storage Vault.
