@@ -1,8 +1,41 @@
 # EPIC-002B — Nối `mypy` (chế độ tối thiểu) vào `ci-local.ps1 -Full`
 
 **Thuộc Epic:** [`EPIC-002`](../README.md)
-**Trạng thái:** 🔴 Chưa làm
+**Trạng thái:** ✅ **Hoàn thành (2026-08-21)**
 **Phụ thuộc:** [`EPIC-002A`](../completed/EPIC-002A_mypy_baseline_audit.md) — cần biết baseline trước khi chọn cấu hình.
+
+---
+
+## 0. Kết quả thật
+
+Cơ chế đã chọn: `[tool.mypy]` trong `pyproject.toml` — `exclude` liệt kê
+`src/presentation/` (loại trừ cả thư mục, do nhiễu `@Property`) cộng danh
+sách tường minh từng file baseline dơ (không dùng `[[tool.mypy.overrides]]
+ignore_errors` theo module — `exclude` theo đường dẫn file đơn giản hơn,
+không cần tính tên module dotted). `-SkipLint` tắt cả 3 (ruff check/format +
+mypy) — không tách cờ riêng, vì cả 3 đều là "static check" theo đúng khung
+đã có của script.
+
+**Phát hiện kỹ thuật quan trọng lúc verify (khác dự đoán ban đầu):** chạy
+`mypy` từ thư mục submodule (`$botRoot`, giống mọi bước khác của
+`ci-local.ps1`) với đường dẫn tương đối gây xung đột danh tính module —
+mypy thấy cùng 1 file được resolve qua 2 tên khác nhau
+(`src.domain....trade` từ đường dẫn tương đối, và
+`Sagittarius_Elite_Warrior.src.domain....trade` từ chính câu lệnh `import`
+tuyệt đối mà code tự viết) → lỗi `"Source file found twice under different
+module names"`. Toàn bộ codebase dùng import tuyệt đối
+`Sagittarius_Elite_Warrior.src...` nhất quán — nên bước `mypy` **bắt buộc**
+chạy từ `$repoRoot` (thư mục cha, superproject), khác mọi bước khác của
+script. Đã verify bằng cách chạy thật qua `pwsh` (có sẵn trên máy này qua
+snap, xem sửa lại ở `ONBOARDING.md` §5).
+
+Baseline audit ban đầu (`mypy src` rồi `mypy scripts` tách rời) thiếu chính
+xác — chạy gộp `src scripts` một lệnh (đúng yêu cầu thiết kế) lộ thêm lỗi
+mới không thấy ở 2 lần chạy tách rời trước đó (`251 lỗi/45 file` thay vì
+`183+29`), và loại trừ các file dơ ban đầu lại làm lộ thêm 5 file khác (do
+mypy đổi cách phân giải phụ thuộc khi 1 file bị loại khỏi lần quét) — tất cả
+đã được thêm vào danh sách loại trừ, xác nhận cổng cuối cùng chạy
+`Success: no issues found in 128 source files`.
 
 ---
 

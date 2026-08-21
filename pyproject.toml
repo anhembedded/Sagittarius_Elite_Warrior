@@ -26,3 +26,70 @@ filterwarnings = [
 ]
 
 asyncio_mode = "auto"
+
+[tool.mypy]
+# EPIC-002 — gate opened at the exact baseline measured by EPIC-002A
+# (Tasks/reports/EPIC-002A_mypy_baseline_audit.md), not at zero. Anything
+# excluded here is PRE-EXISTING debt frozen at 2026-08-21, not permanently
+# exempt — EPIC-002D's job is to shrink this list over time, never to grow
+# it silently. A NEW file (or a file not in this list) that fails must be
+# fixed, not added here.
+namespace_packages = true
+explicit_package_bases = true
+exclude = [
+    # `presentation/` excluded WHOLESALE (24 files / 133 errors) — 52% of
+    # ALL src/ baseline errors are one systemic false-positive class: mypy
+    # reads PySide6's `@Property` descriptor as its own `Property` type
+    # instead of the runtime value type it actually returns. Not a real
+    # bug category; needs a stub/plugin decision before this layer can be
+    # checked meaningfully. See EPIC-002A report §2, §6.
+    "^Sagittarius_Elite_Warrior/src/presentation/",
+
+    # Everything below: real per-file baseline debt (not Property noise),
+    # 21 files, frozen at EPIC-002A's measurement. `scripts/
+    # backtest_timeframe_toolbar_e2e.py` is deliberately still here even
+    # though it's a known LIVE bug (same class as BUG-026, see EPIC-002A
+    # report §5) — the fix is a separate, immediate follow-up to this gate
+    # landing, not bundled into it; remove this line the moment it's fixed.
+    "^Sagittarius_Elite_Warrior/scripts/backtest_timeframe_toolbar_e2e\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_cached_interaction_hybrid_probe\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_chart_interaction\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_hybrid_opengl_probe\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/chart_migration_benchmark\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/native_backtest_chart_interaction_probe\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/native_chart_camera_probe\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/native_backtest_desktop_e2e\\.py$",
+    "^Sagittarius_Elite_Warrior/src/application/use_cases/database/repair_data_gap/handler\\.py$",
+    "^Sagittarius_Elite_Warrior/src/application/use_cases/queries/audit_database_integrity/handler\\.py$",
+    "^Sagittarius_Elite_Warrior/src/application/use_cases/queries/get_historical_klines/handler\\.py$",
+    "^Sagittarius_Elite_Warrior/src/domain/backtesting/paper_exchange\\.py$",
+    "^Sagittarius_Elite_Warrior/src/domain/indicators/rsi\\.py$",
+    "^Sagittarius_Elite_Warrior/src/domain/strategies/ema_crossover_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior/src/domain/strategies/ema_trend_pullback_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior/src/domain/strategies/long_term_trend_zone_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior/src/domain/strategies/multi_ema_trend_follower_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior/src/infrastructure/binance/client\\.py$",
+    "^Sagittarius_Elite_Warrior/src/infrastructure/binance/market_metadata_parser\\.py$",
+    "^Sagittarius_Elite_Warrior/src/infrastructure/persistence/models\\.py$",
+    "^Sagittarius_Elite_Warrior/src/infrastructure/persistence/sqlalchemy_repository\\.py$",
+
+    # Surfaced only AFTER the exclusions above were applied — not part of the
+    # original 45-file/251-error combined baseline scan (EPIC-002A), but
+    # genuinely pre-existing: excluding the noisier files above changed how
+    # mypy resolves a few of their dependents, revealing errors that were
+    # always there but previously masked. Small, independent issues (Qt
+    # attribute typos in probe scripts; one dispatch() type mismatch) —
+    # frozen as debt the same way, not evidence of a config bug.
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/backtest_cached_frame_probe\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/benchmarking/native_chart_interaction_probe\\.py$",
+    "^Sagittarius_Elite_Warrior/scripts/shutdown_sync_probe\\.py$",
+    "^Sagittarius_Elite_Warrior/src/application/use_cases/sync/bulk_sync_market_data/handler\\.py$",
+]
+
+[[tool.mypy.overrides]]
+# python-binance ships no type stubs / py.typed marker — a third-party gap,
+# not our code's debt. Without this, mypy's "Skipping analyzing binance"
+# resolution failure cascades into dependents (binance_websocket_service.py)
+# in a way that silently shrinks how many files get fully checked.
+module = ["binance", "binance.*"]
+ignore_missing_imports = true

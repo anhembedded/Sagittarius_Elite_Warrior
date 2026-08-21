@@ -4,7 +4,8 @@
     Local CI runner - mirrors the GitHub Actions CI pipeline for Binance Bot.
 
 .DESCRIPTION
-    Runs Ruff lint, Ruff format check, and Pytest with coverage locally.
+    Runs Ruff lint, Ruff format check, Mypy static type check, and Pytest
+    with coverage locally.
 
     By default, unit/full test runs use 6 parallel workers (benchmark sweet spot
     on this machine). Sanity tests always run on 1 sequential process because they
@@ -15,7 +16,7 @@
     time ≈ max(sanity_time, unit_time) instead of their sum.
 
 .PARAMETER SkipLint
-    Skip Ruff lint and format check steps.
+    Skip Ruff lint, Ruff format check, and Mypy static type check steps.
 
 .PARAMETER SkipTests
     Skip Pytest step.
@@ -158,6 +159,7 @@ $venvBinDir = if ($venvRoot) { Join-Path $venvRoot $venvBinSubdir } else { $null
 $pytestExe = if ($venvBinDir) { Join-Path $venvBinDir "pytest$exeSuffix" } else { "pytest" }
 $pythonExe = if ($venvBinDir) { Join-Path $venvBinDir "python$exeSuffix" } else { "python" }
 $ruffExe   = if ($venvBinDir) { Join-Path $venvBinDir "ruff$exeSuffix" } else { "ruff" }
+$mypyExe   = if ($venvBinDir) { Join-Path $venvBinDir "mypy$exeSuffix" } else { "mypy" }
 
 # ---------------------------------------------------------------------------
 # Resolve which test tier to run and whether coverage/lint apply.
@@ -285,6 +287,27 @@ if (-not $SkipLint) {
         else { Write-Success "Ruff Format" }
     } catch {
         $failed += "Ruff Format"; Write-Failure "Ruff Format"
+        Write-Host $_.Exception.Message -ForegroundColor Yellow
+    } finally { Pop-Location }
+
+    # EPIC-002B — static type check, opened at the exact baseline EPIC-002A
+    # measured (see [tool.mypy] in pyproject.toml), not at zero. Catches what
+    # Ruff structurally cannot: e.g. a class that stops fully implementing a
+    # Port's abstract methods (BUG-026). Must run from $repoRoot with both
+    # `Sagittarius_Elite_Warrior/src` and `Sagittarius_Elite_Warrior/scripts`
+    # in the SAME invocation — checking either alone lets exactly this error
+    # class go undetected, because mypy then never resolves the Port's own
+    # defining module in the same analysis pass (verified empirically while
+    # writing this gate, see Tasks/reports/EPIC-002A_mypy_baseline_audit.md §3).
+    Write-Step "Mypy — Static Type Check (src + scripts, baseline-gated)"
+    Push-Location $repoRoot
+    try {
+        $env:PYTHONPATH = $repoRoot
+        & $mypyExe --config-file (Join-Path $botRoot "pyproject.toml") --namespace-packages --explicit-package-bases (Join-Path $botRoot "src") (Join-Path $botRoot "scripts")
+        if ($LASTEXITCODE -ne 0) { $failed += "Mypy"; Write-Failure "Mypy" }
+        else { Write-Success "Mypy" }
+    } catch {
+        $failed += "Mypy"; Write-Failure "Mypy"
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 }

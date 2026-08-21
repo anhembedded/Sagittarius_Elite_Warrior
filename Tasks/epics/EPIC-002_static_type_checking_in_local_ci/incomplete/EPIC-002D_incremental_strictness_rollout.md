@@ -2,7 +2,7 @@
 
 **Thuộc Epic:** [`EPIC-002`](../README.md)
 **Trạng thái:** 🔴 Chưa làm — backlog dài hạn, không chặn `EPIC-002A`/`B`/`C`.
-**Phụ thuộc:** [`EPIC-002B`](EPIC-002B_wire_mypy_into_ci_local.md).
+**Phụ thuộc:** [`EPIC-002B`](../completed/EPIC-002B_wire_mypy_into_ci_local.md).
 
 ---
 

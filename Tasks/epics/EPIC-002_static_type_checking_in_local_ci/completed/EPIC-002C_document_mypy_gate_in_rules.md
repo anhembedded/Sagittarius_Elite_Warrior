@@ -1,8 +1,11 @@
 # EPIC-002C — Ghi nhận cổng `mypy` vào `ci-rule.md`/`ONBOARDING.md`
 
 **Thuộc Epic:** [`EPIC-002`](../README.md)
-**Trạng thái:** 🔴 Chưa làm
-**Phụ thuộc:** [`EPIC-002B`](EPIC-002B_wire_mypy_into_ci_local.md) — tài liệu hoá đúng cấu hình đã chọn, không viết trước khi biết chốt gì.
+**Trạng thái:** ✅ **Hoàn thành (2026-08-21)**
+**Phụ thuộc:** [`EPIC-002B`](../completed/EPIC-002B_wire_mypy_into_ci_local.md) — tài liệu hoá đúng cấu hình đã chọn, không viết trước khi biết chốt gì.
+
+**Đã làm cả 4 việc mục 2, cộng 1 sửa lỗi thời phát hiện thêm khi làm:**
+`ci-rule.md` §1 thêm mô tả bước `mypy` đúng scope thật đã chọn. `ONBOARDING.md` §5 thêm lệnh Linux tương đương, **và sửa luôn 1 câu sai**: mục này từng ghi "PowerShell không chạy được trên máy Linux hiện tại" — sai, `pwsh` có sẵn qua snap, đã tự verify bằng cách chạy thật `ci-local.ps1 -Full` (kể cả bước `mypy` mới) qua `pwsh` thành công. `ONBOARDING.md` §8 thêm bẫy thứ 11 kể lại `BUG-026` (đổi tên mục thành "Mười một cái bẫy"). `BUG-026` report đã trỏ ngược sang epic này từ trước (làm lúc filing epic).
 
 ---
 

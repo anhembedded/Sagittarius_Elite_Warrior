@@ -117,9 +117,21 @@ từ bảng chứ không phải ở tầng đọc đĩa.
 ## 5. Chạy verification THẬT
 
 `.agents/rules/ci-rule.md` quy định `scripts/ci-local.ps1 -Full` là cổng
-bắt buộc. **Nhưng script đó là PowerShell** — trên máy Linux hiện tại nó
-không chạy được, và mọi rule file đều chỉ ghi lệnh Windows. Lệnh tương
-đương thật sự đang dùng, chạy **từ thư mục superproject**:
+bắt buộc. **Sửa lại (2026-08-21, phát hiện khi làm `EPIC-002B`):** trước
+đây mục này ghi "PowerShell không chạy được trên máy Linux hiện tại" —
+**sai**, `pwsh` có sẵn qua snap (`which pwsh` → `/snap/powershell/.../pwsh`).
+`ci-local.ps1` chạy được thật, đã tự verify bằng cách chạy thẳng:
+
+```bash
+pwsh -NoProfile -Command "./scripts/ci-local.ps1 -Full"
+# chạy từ thư mục Sagittarius_Elite_Warrior/ (đây là $botRoot, khác mọi lệnh
+# bash bên dưới vốn chạy từ superproject)
+```
+
+Ưu tiên dùng `pwsh` khi cần đúng cổng CI thật (nó nối dây đúng `mypy`,
+coverage, build native — dùng bash tự ráp lại từng phần dễ thiếu bước).
+Bộ lệnh bash bên dưới vẫn hữu ích cho kiểm tra nhanh, có chủ đích, không cần
+chờ toàn bộ orchestration của script — chạy **từ thư mục superproject**:
 
 ```bash
 # Unit (~3 phút, hiện 1564 test tại 2026-08-20)
@@ -133,6 +145,13 @@ PYTHONPATH=. QT_QPA_PLATFORM=offscreen \
 # Lint (read-only, không bao giờ để CI tự --fix)
 Sagittarius_Elite_Warrior/.venv/bin/python -m ruff check  <file...>
 Sagittarius_Elite_Warrior/.venv/bin/python -m ruff format --check <file...>
+
+# Mypy (EPIC-002, gate thật — src VÀ scripts PHẢI chung 1 lệnh, xem lý do
+# ở ci-rule.md §1 và Tasks/reports/EPIC-002A_mypy_baseline_audit.md §3)
+PYTHONPATH=. \
+  Sagittarius_Elite_Warrior/.venv/bin/mypy --config-file Sagittarius_Elite_Warrior/pyproject.toml \
+  --namespace-packages --explicit-package-bases \
+  Sagittarius_Elite_Warrior/src Sagittarius_Elite_Warrior/scripts
 ```
 
 **Bẫy đọc kết quả — quan trọng:** ở chế độ `offscreen`, QML xả rất nhiều
@@ -198,7 +217,7 @@ làm đầy đủ theo họ.
 
 ---
 
-## 8. Mười cái bẫy khiến agent khác tạo ra code lỗi
+## 8. Mười một cái bẫy khiến agent khác tạo ra code lỗi
 
 Tất cả đều là chuyện đã xảy ra thật trong repo này, không phải giả định.
 
@@ -238,6 +257,18 @@ Tất cả đều là chuyện đã xảy ra thật trong repo này, không ph�
 10. **Sửa file `.qml` mà quên logic phải nằm ở Python.** QML chỉ khai báo và
     binding; state machine, validate, tính toán đều thuộc Presenter/ViewModel.
     Và `.qml` > 300 dòng thì tách component.
+11. **Thêm `@abstractmethod` mới vào một Port rồi chỉ cập nhật implementer
+    "chính".** `ruff` không bắt được thiếu sót này — kiểm tra 1 class có
+    implement đủ interface hay không là việc của type checker, ngoài phạm
+    vi kiến trúc của linter. `BUG-026`: một script probe implement
+    `IExchangeClient` bị bỏ quên khi interface đó có thêm method, crash
+    ngay lúc khởi tạo (`TypeError: Can't instantiate abstract class`). Khi
+    đổi 1 Port, grep implementer ở **cả `src/`, `scripts/`, VÀ `tests/`**
+    — không chỉ `src/`/`tests/` (đây chính là lỗi lúc sửa `BUG-025`: phạm
+    vi grep khi đó bỏ sót `scripts/`, để lọt 1 defect sống y hệt, mãi sau
+    mới lộ ra qua `EPIC-002A`'s audit). Từ `EPIC-002B`: `mypy` (gate
+    `src`+`scripts` chung 1 lệnh, xem §5) là lưới an toàn thứ hai — nhưng
+    đừng chỉ dựa vào tool, grep vẫn phải làm khi đổi interface.
 
 ---
 

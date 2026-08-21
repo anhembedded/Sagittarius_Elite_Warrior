@@ -37,6 +37,19 @@ import or Qt environment.
   Qt SDK whose version exactly matches the active PySide6 runtime;
 - `ruff check src tests` (read-only lint check);
 - `ruff format --check src tests` (read-only format check);
+- `mypy` static type check over `src` **and** `scripts` in one invocation
+  (`EPIC-002`, sourced from `BUG-026` — a class implementing a Port silently
+  fell behind an interface change; `ruff` cannot catch this, only a type
+  checker can). Gated at the exact baseline `EPIC-002A` measured, not at
+  zero — `[tool.mypy]` in `pyproject.toml` excludes `src/presentation/`
+  wholesale (dominated by one systemic PySide6 `@Property`-typing false
+  positive, not real defects) plus a named list of pre-existing dirty files
+  frozen as debt (`EPIC-002D` tracks shrinking that list). A file not on
+  that list must pass clean; `src` and `scripts` MUST be checked together —
+  checking either alone lets an ABC-completeness error like `BUG-026`'s go
+  undetected, because mypy then never resolves the Port's own defining
+  module in the same analysis pass (verified empirically, see
+  `Tasks/reports/EPIC-002A_mypy_baseline_audit.md` §3);
 - all primary tests under `tests/`, excluding `tests/sanity/` and the known
   unstable `tests/integration/presentation/ui/` group by default;
 - `tests/sanity/` sequentially in a separate job;

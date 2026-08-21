@@ -28,6 +28,22 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
    - Adhere strictly to the Dependency Inversion Principle (DIP). High-level business logic must depend on abstractions, not concrete implementations.
    - Prefer Dependency Injection (DI) over hardcoded class instantiations inside domain logic.
    - **NO Multiple Inheritance:** Strictly avoid multiple inheritance. Use composition over inheritance, and flatten interfaces where necessary to avoid complex method resolution orders (MRO).
+   - **Every `abc.ABC` implementer must stay complete, everywhere.** When a
+     Port (`IExchangeClient`, `IMarketDataRepository`, ...) gains a new
+     `@abstractmethod`, every concrete class implementing it must be updated
+     in the same change — not just the real production implementation. Search
+     `src/`, `scripts/`, **and** `tests/` for every implementer; a hand-rolled
+     test double or probe script left behind an interface change instantiates
+     fine until the exact moment something runs it, then fails with
+     `TypeError: Can't instantiate abstract class`
+     (`BUG-026`: a shutdown-probe script's fake exchange client silently fell
+     behind a Port change; a second, still-unfixed instance
+     (`scripts/backtest_timeframe_toolbar_e2e.py`) was only found later by
+     `EPIC-002A`'s static audit — not by anyone running that script). `ruff`
+     cannot catch this — verifying ABC completeness across files is a type
+     checker's job, not a linter's; `mypy` (`EPIC-002`) is the mechanical
+     backstop, but do not rely on the tool alone — grep for implementers
+     as part of the change itself.
 
 3. **Readability & Clean Code (Over Brevity):**
    - Follow PEP 8 guidelines. Prioritize explicit and self-documenting code over short one-liners.
