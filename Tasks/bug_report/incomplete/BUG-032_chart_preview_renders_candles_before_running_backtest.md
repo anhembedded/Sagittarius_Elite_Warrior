@@ -13,6 +13,8 @@ Khi người dùng mở màn hình **Backtest Engine** hoặc chọn đổi sang
 - Trên giao diện xuất hiện banner cảnh báo thiếu nến (`Thiếu nến từ 2026-08-21 17:58 UTC.`) kèm nút `Đồng bộ dữ liệu ngay`.
 - Tuy nhiên, vùng biểu đồ chính (Live Chart) đã tự động thực thi query nến lịch sử và render đầy đủ đồ thị nến (candlesticks) cùng volume bars của symbol đó trước khi bất kỳ lệnh backtest nào được chạy.
 
+![Giao diện Backtest hiển thị nến khi chưa nhấn Chạy Backtest](BUG-032_chart_preview_before_run.png)
+
 ### Bằng chứng Log thực tế (Captured Log Evidence)
 
 ```text
