@@ -89,7 +89,7 @@ dòng.
 | **[EPIC-003A](completed/EPIC-003A_shared_action_ownership_tracker.md)** | Trích xuất cơ chế Action-Ownership dùng chung | 🟡 | ✅ Xong (21/08) — 172 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003B](incomplete/EPIC-003B_data_management_coordinator_pilot.md)** | `DataManagementPresenter` → Coordinator Pattern (pilot) | 🟡 | 🔴 Chưa làm |
 | **[EPIC-003C](incomplete/EPIC-003C_paper_exchange_policy_split.md)** | `PaperExchange` → Domain Policy (Margin/Matching/Fee) | 🟢 | 🔴 Chưa làm |
-| **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Dọn 8 file misplaced trong `components/` (Phase 1) + tách 3 file QML lớn (Phase 2) | 🟢 | 🔴 Chưa làm |
+| **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Dọn 9 file misplaced (Phase 1) + tách 3 file QML lớn (Phase 2) + danh mục `components/README.md` có test enforce (Phase 3) | 🟢 | 🔴 Chưa làm |
 | **[EPIC-003E](incomplete/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | 🔴 Chưa làm |
 | **[EPIC-003F](incomplete/EPIC-003F_backtest_viewmodel_composite_design_review.md)** | `BacktestViewModel` → Composite ViewModel — **vòng thiết kế trước**, chưa code | 🔴 | 🔴 Chưa làm |
 
