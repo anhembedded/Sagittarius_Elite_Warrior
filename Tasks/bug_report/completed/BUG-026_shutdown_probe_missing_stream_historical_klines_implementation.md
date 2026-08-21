@@ -59,3 +59,13 @@ Không cần viết test mới — `test_desktop_process_exits_when_closed_durin
 nhận fail đúng lý do (`TypeError: Can't instantiate abstract class`) trước
 fix qua `git stash`, pass sau fix. `ruff check`/`format` sạch trên
 `scripts/shutdown_sync_probe.py`.
+
+## Giải pháp hạ tầng phát sinh từ bug này
+
+`ruff` (công cụ tĩnh duy nhất đang chạy trong CI cục bộ) không có cách nào
+bắt được lớp lỗi này — kiểm tra "class con thiếu method abstract của
+interface" là việc của type checker (`mypy`/`pyright`), ngoài phạm vi kiến
+trúc của linter. Đã verify thật bằng cách cài `mypy` vào venv tạm, tái hiện
+đúng hình dạng lỗi này trong 1 file cô lập — bắt được ngay lập tức, không cần
+chạy test. Mở [`EPIC-002`](../../epics/EPIC-002_static_type_checking_in_local_ci/README.md)
+để nối `mypy` vào `ci-local.ps1 -Full`, tránh lớp lỗi này tái diễn.
