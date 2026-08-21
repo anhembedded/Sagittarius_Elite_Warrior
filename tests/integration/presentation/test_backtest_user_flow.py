@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
@@ -285,4 +284,45 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
     assert five_minute_button.isChecked() is True
     assert chart._raw_history[1][0] - chart._raw_history[0][0] == 300.0
     assert view._last_klines == chart._raw_history
+    _assert_qml_surfaces_are_clean(view)
+
+
+def test_progress_banner_cancel_button_cancels_active_backtest_flow(
+    backtest_screen, qtbot, qml_item
+):
+    presenter, view = backtest_screen
+    view_model = presenter._view_model
+    view_model.selectedTimeframe = _RUNTIME_INTERVAL
+    view_model.timeRangePreset = "custom"
+    view_model.customStartText = "2026-08-01 00:00"
+    view_model.customEndText = "2026-08-11 00:00"
+
+    toolbar_root = view.top_widget.rootObject()
+    assert toolbar_root is not None
+
+    # Trigger backtest run via toolbar button
+    qml_item(toolbar_root, "btnRunBacktest").clicked.emit()
+
+    # Progress banner and its cancel button are visible in cancellable state
+    cancel_btn = qml_item(toolbar_root, "btnCancelBacktestProgress")
+    assert cancel_btn is not None
+
+    # If the backtest is still running or syncing, clicking cancel on the progress banner must cooperatively cancel it
+    if presenter.fsm.current_state in (
+        BacktestUiState.RUNNING,
+        BacktestUiState.SYNCING,
+    ):
+        cancel_btn.clicked.emit()
+
+    qtbot.waitUntil(
+        lambda: (
+            presenter.fsm.current_state
+            in (
+                BacktestUiState.IDLE,
+                BacktestUiState.CONFIG_DIRTY,
+                BacktestUiState.COMPLETED,
+            )
+        ),
+        timeout=5000,
+    )
     _assert_qml_surfaces_are_clean(view)

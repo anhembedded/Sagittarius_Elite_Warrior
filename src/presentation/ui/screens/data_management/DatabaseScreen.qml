@@ -359,17 +359,60 @@ Rectangle {
                         }
                     }
 
-                    AppProgressBar {
-                        id: syncProgress
-                        objectName: "syncProgress"
+                    ColumnLayout {
                         Layout.fillWidth: true
                         visible: root.hasViewModel && viewModel.progressVisible
-                        statusText: root.hasViewModel ? viewModel.progressText : ""
-                        value: root.hasViewModel ? viewModel.progressValue : 0
-                        from: 0
-                        to: root.hasViewModel ? Math.max(1, viewModel.progressMaximum) : 100
-                        indeterminate: !root.hasViewModel || viewModel.progressMaximum === 0
-                        barHeight: 8
+                        spacing: 8
+
+                        AppProgressBar {
+                            id: syncProgress
+                            objectName: "syncProgress"
+                            Layout.fillWidth: true
+                            visible: true
+                            statusText: root.hasViewModel ? viewModel.progressText : ""
+                            value: root.hasViewModel ? viewModel.progressValue : 0
+                            from: 0
+                            to: root.hasViewModel ? Math.max(1, viewModel.progressMaximum) : 100
+                            indeterminate: !root.hasViewModel || viewModel.progressMaximum === 0
+                            barHeight: 8
+                        }
+
+                        Button {
+                            id: btnCancelSync
+                            objectName: "btnCancelSync"
+                            Layout.fillWidth: true
+                            text: (root.hasViewModel && viewModel.uiMode === "CANCELLING") ? "Đang hủy..." : "Hủy Tiến Trình (Cancel)"
+                            enabled: root.hasViewModel && viewModel.uiMode !== "CANCELLING"
+                            implicitHeight: 32
+                            background: Rectangle {
+                                color: btnCancelSync.enabled
+                                       ? (btnCancelSync.hovered ? "#3b171c" : "#2a1518")
+                                       : "#1c1416"
+                                border.color: btnCancelSync.enabled ? (Theme && Theme.danger ? Theme.danger : "#ef4444") : "#4a252b"
+                                border.width: 1
+                                radius: 6
+                            }
+                            contentItem: RowLayout {
+                                spacing: 6
+                                anchors.centerIn: parent
+                                Image {
+                                    source: "image://icons/square/danger"
+                                    sourceSize: Qt.size(12, 12)
+                                    visible: root.hasViewModel && viewModel.uiMode !== "CANCELLING"
+                                }
+                                Text {
+                                    text: btnCancelSync.text
+                                    color: btnCancelSync.enabled ? (Theme && Theme.danger ? Theme.danger : "#ef4444") : (Theme && Theme.muted ? Theme.muted : "#8b949e")
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                            onClicked: {
+                                if (root.hasViewModel) viewModel.requestCancel()
+                            }
+                        }
                     }
 
                     Item { Layout.fillHeight: true }
@@ -487,11 +530,20 @@ Rectangle {
                             Text {
                                 anchors.centerIn: parent
                                 visible: statusList.count === 0
-                                text: !root.hasViewModel || viewModel.searchText === ""
-                                      ? "Đang quét Storage Vault..."
-                                      : "Không tìm thấy dữ liệu khớp với “" + (root.hasViewModel ? viewModel.searchText : "") + "”."
+                                text: {
+                                    if (!root.hasViewModel) return "Đang khởi tạo...";
+                                    if (viewModel.searchText !== "") {
+                                        return "Không tìm thấy dữ liệu khớp với “" + viewModel.searchText + "”.";
+                                    }
+                                    if (viewModel.uiMode === "SCANNING") {
+                                        return "Đang quét Storage Vault...";
+                                    }
+                                    return "Storage Vault trống (chưa có cơ sở dữ liệu cục bộ).\nHãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu.";
+                                }
                                 color: Theme.muted
                                 font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                lineHeight: 1.4
                             }
 
                             delegate: Rectangle {

@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-20
+> Cập nhật: 2026-08-21
 
 ---
 
@@ -50,6 +50,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-025](completed/BUG-025_kline_inspector_column_widths_misplaced_scope_qml_warning.md)** | `KLineInspectorModal` phát sinh cảnh báo QML `Unable to assign [undefined] to double` | 🟢 P3 | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Chuyển 5 thuộc tính `col*Width` về phạm vi root `ModalDialogCard` thay vì bên trong `ColumnLayout`. |
 | **[BUG-024](completed/BUG-024_trend_zone_background_regions_uncapped_causes_pan_lag.md)** | Nền đỏ/xanh (trend zone) làm pan/zoom lag ~9x — 2065 `LinearRegionItem` không cắt tỉa viewport | 🔴 P1 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20). Refactor `ViewportCulledLayer` ABC + `RegionLayer` mirror `MarkerLayer`. Đo lại: 234.7ms → 20.4ms median mỗi bước pan |
 | **[BUG-022](completed/BUG-022_realtime_last_tick_of_every_bar_evaluated_twice.md)** | Realtime đánh giá tick cuối của **mọi** bar 2 lần — sai số PnL/trade | 🔴 P1 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20). Tìm ra nhờ điều tra WARNING theo rule CI/CD mới; 6 tick → 9 lần gọi strategy, nay còn 6 |
 | **[BUG-021](completed/BUG-021_realtime_backtest_chart_blank_queries_unsynced_timeframe.md)** | Chart trắng hoàn toàn sau mỗi lần chạy Realtime backtest | 🔴 P1 | 2026-08-20 | Trong chính hồ sơ này (2026-08-20) |
