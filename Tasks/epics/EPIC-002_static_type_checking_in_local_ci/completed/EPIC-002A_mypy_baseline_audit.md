@@ -1,8 +1,12 @@
 # EPIC-002A — Đo baseline: `mypy` bắt bao nhiêu lỗi thật trên codebase hiện tại
 
 **Thuộc Epic:** [`EPIC-002`](../README.md)
-**Trạng thái:** 🔴 Chưa làm
+**Trạng thái:** ✅ **Hoàn thành (2026-08-21)**
 **Phụ thuộc:** Không có — làm trước tiên, kết quả quyết định thiết kế của `EPIC-002B`.
+
+**Báo cáo đầy đủ:** [`Tasks/reports/EPIC-002A_mypy_baseline_audit.md`](../../../reports/EPIC-002A_mypy_baseline_audit.md).
+
+**Tóm tắt kết quả:** `src/` 183 lỗi (241 file) — 73% ở `presentation/`, trong đó 52% toàn bộ (`96/183`) là nhiễu hệ thống PySide6 `@Property`, không phải bug thật. `scripts/` 29 lỗi, `tests/` 9 lỗi. Phát hiện kỹ thuật quan trọng: `mypy` chỉ bắt được lỗi lớp `BUG-026` khi chạy `src`+`scripts` **cùng 1 lệnh**, chạy riêng lẻ từng thư mục sẽ báo "Success" giả. Phát hiện 1 defect sống cùng lớp `BUG-026`, chưa fix, chưa từng báo cáo: `scripts/backtest_timeframe_toolbar_e2e.py`'s `_SeededMarketDataRepository` thiếu 7 method — 2 trong số đó do chính `BUG-025` (phiên này) thêm vào mà phạm vi grep audit khi đó bỏ sót `scripts/`.
 
 ---
 

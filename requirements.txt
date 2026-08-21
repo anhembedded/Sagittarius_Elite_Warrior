@@ -11,3 +11,4 @@ pyqtdarktheme
 pytest-qt
 pytest-xdist
 flake8
+mypy==2.1.0

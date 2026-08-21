@@ -2,7 +2,7 @@
 
 **Thuộc Epic:** [`EPIC-002`](../README.md)
 **Trạng thái:** 🔴 Chưa làm
-**Phụ thuộc:** [`EPIC-002A`](EPIC-002A_mypy_baseline_audit.md) — cần biết baseline trước khi chọn cấu hình.
+**Phụ thuộc:** [`EPIC-002A`](../completed/EPIC-002A_mypy_baseline_audit.md) — cần biết baseline trước khi chọn cấu hình.
 
 ---
 

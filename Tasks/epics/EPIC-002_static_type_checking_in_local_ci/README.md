@@ -1,6 +1,6 @@
 # Epic EPIC-002 — Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ
 
-**Trạng thái:** 🔴 Chưa làm — 4 task con, chưa bắt đầu task nào.
+**Trạng thái:** 🟡 Đang làm — `EPIC-002A` xong (21/08), tiếp theo `EPIC-002B`.
 **Nguồn:** [`BUG-026`](../../bug_report/completed/BUG-026_shutdown_probe_missing_stream_historical_klines_implementation.md).
 
 ---
@@ -51,7 +51,7 @@ gian chứ không "bật hết 1 lần".
 
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
-| **[EPIC-002A](incomplete/EPIC-002A_mypy_baseline_audit.md)** | Đo baseline: `mypy` bắt bao nhiêu lỗi thật trên codebase hiện tại | 🔴 Chưa làm |
+| **[EPIC-002A](completed/EPIC-002A_mypy_baseline_audit.md)** | Đo baseline: `mypy` bắt bao nhiêu lỗi thật trên codebase hiện tại | ✅ Xong (21/08) — [báo cáo đầy đủ](../../reports/EPIC-002A_mypy_baseline_audit.md), phát hiện thêm 1 defect sống cùng lớp `BUG-026` |
 | **[EPIC-002B](incomplete/EPIC-002B_wire_mypy_into_ci_local.md)** | Nối `mypy` (chế độ tối thiểu) vào `ci-local.ps1 -Full` | 🔴 Chưa làm |
 | **[EPIC-002C](incomplete/EPIC-002C_document_mypy_gate_in_rules.md)** | Ghi nhận cổng `mypy` vào `ci-rule.md`/`ONBOARDING.md` | 🔴 Chưa làm |
 | **[EPIC-002D](incomplete/EPIC-002D_incremental_strictness_rollout.md)** | Lộ trình siết `--strict` dần theo module (giai đoạn sau, không chặn 3 task trên) | 🔴 Chưa làm |
