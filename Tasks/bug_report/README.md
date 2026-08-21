@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 6 |
-| ✅ **Đã sửa** | 19 |
-| 📈 **Tổng** | **25** |
+| 🔴 **Đang mở** | 3 |
+| ✅ **Đã sửa** | 23 |
+| 📈 **Tổng** | **26** |
 
 ---
 
@@ -37,7 +37,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-025](incomplete/BUG-025_unbuffered_full_materialization_sync_and_backtest_data_paths.md)** | Đường dữ liệu Sync (Binance→DB) và Backtest (DB→RAM) không streaming — RAM phình theo độ dài range | 🔴 **P1** | 2026-08-21 | 🟡 **Mở một phần** — nhánh Sync đã sửa (ghi DB theo chunk, có bằng chứng RAM + log); nhánh Backtest DB→RAM còn nguyên. ⚠️ Trùng mã với `BUG-025` đã sửa. |
 | **[BUG-023](incomplete/BUG-023_app_shutdown_hangs_when_database_sync_running.md)** | Đóng UI nhưng tiến trình Python + Database Sync không thoát (zombie process) | 🔴 **P1** | 2026-08-20 | Đã ghi nhận log, chưa root-cause. Cùng họ với `BUG-007` (đã sửa qua `BOT-099`) nhưng đường sync khác. |
 | **[BUG-016](incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Chặn tiêu chí 6 của `BOT-098F5`, kéo theo `BOT-098F6D` chưa đóng được. **Chưa root-cause**, phải force-kill. Cần máy Windows thật. |
 | **[BUG-015](incomplete/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)** | Native chart dựng lại geometry OHLCV/volume khi chỉ rê chuột (bằng chứng Windows thật) | 🟡 P2 | 2026-08-19 | Vi phạm tiêu chí nghiệm thu `BOT-098F4`/`F5`/`F6C`. Root cause đã khoanh về 1 hàm nhưng **chưa xác nhận**. Cần máy Windows thật. |
@@ -48,6 +47,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-025](completed/BUG-025_unbuffered_full_materialization_sync_and_backtest_data_paths.md)** | Đường dữ liệu Sync (Binance→DB) và Backtest (DB→RAM) không streaming — RAM phình theo độ dài range | 🔴 **P1** | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Nhánh Backtest: `count_klines()`/`stream_klines()` mới trên `IMarketDataRepository`, `RunStaticBacktestCommandHandler` tiêu thụ generator thay vì `list`. ⚠️ Trùng mã với `BUG-025` khác (KLine Inspector column widths), cần đánh số lại. |
 | **[BUG-020](completed/BUG-020_gap_repair_calls_undefined_run_check_status.md)** | Vá lỗ hổng thành công vẫn báo lỗi — gọi `_run_check_status()` không tồn tại | 🟡 P2 | 2026-08-20 | Sửa 2026-08-21 trong đợt refactor `_on_check_status()` của phiên khác |
 | **[BUG-019](completed/BUG-019_gap_inspector_modal_unavailable_unknown_qml_module.md)** | `GapInspectorModal` không dựng được — `import Sagittarius.Theme` không tồn tại | 🔴 P1 | 2026-08-20 | Sửa 2026-08-21 bởi phiên khác, đúng đề xuất trong hồ sơ |
 | **[BUG-025](completed/BUG-025_kline_inspector_column_widths_misplaced_scope_qml_warning.md)** | `KLineInspectorModal` phát sinh cảnh báo QML `Unable to assign [undefined] to double` | 🟢 P3 | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). Chuyển 5 thuộc tính `col*Width` về phạm vi root `ModalDialogCard` thay vì bên trong `ColumnLayout`. |

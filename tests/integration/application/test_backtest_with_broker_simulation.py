@@ -99,7 +99,17 @@ def test_static_backtest_with_position_sizing_and_pyramiding_integration(caplog)
 
     repo = Mock()
     klines = _make_klines(count=8, start_price=100.0, step=10.0)
-    repo.get_klines.return_value = klines
+    # BUG-025: RunStaticBacktestCommandHandler streams via count_klines()/
+    # stream_klines() instead of get_klines() — mirror that contract here
+    # against this test's static `klines` list.
+    repo.count_klines.side_effect = lambda **kwargs: (
+        len(klines)
+        if kwargs.get("limit") is None
+        else min(kwargs["limit"], len(klines))
+    )
+    repo.stream_klines.side_effect = lambda **kwargs: iter(
+        klines[kwargs.get("offset") or 0 :][: kwargs.get("limit")]
+    )
 
     registry = StrategyRegistry()
     registry.register("pyramiding_test", _PyramidingStrategy)

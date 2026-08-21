@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import datetime
 from time import perf_counter
@@ -18,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_split import (
     DEFAULT_IN_SAMPLE_RATIO,
-    split_klines_for_out_of_sample,
+    split_count_for_out_of_sample,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
     OutOfSampleValidation,
@@ -86,15 +87,15 @@ class RunStaticBacktestCommandHandler(
             end=command.end_time,
             has_params=bool(command.strategy_params),
         )
-        klines = self._repository.get_klines(
+        total_count = self._repository.count_klines(
             symbol=command.symbol,
             interval=command.interval,
             start_time=command.start_time,
             end_time=command.end_time,
             limit=command.limit,
         )
-        self._log_trace("handler_klines_loaded", count=len(klines))
-        if not klines:
+        self._log_trace("handler_klines_loaded", count=total_count)
+        if not total_count:
             reason = (
                 f"No historical data found for {command.symbol} "
                 f"({command.interval.value}). Please run sync first."
@@ -105,11 +106,11 @@ class RunStaticBacktestCommandHandler(
             return None
 
         self._log_trace("handler_simulation_start")
-        in_sample_klines, out_of_sample_klines = split_klines_for_out_of_sample(
-            klines, DEFAULT_IN_SAMPLE_RATIO
+        in_sample_count, out_of_sample_count = split_count_for_out_of_sample(
+            total_count, DEFAULT_IN_SAMPLE_RATIO
         )
-        has_out_of_sample = bool(in_sample_klines and out_of_sample_klines)
-        total_bars = len(klines) * (2 if has_out_of_sample else 1)
+        has_out_of_sample = bool(in_sample_count and out_of_sample_count)
+        total_bars = total_count * (2 if has_out_of_sample else 1)
         started_at = perf_counter()
         completed_bars = 0
         out_of_sample: OutOfSampleValidation | None = None
@@ -117,43 +118,48 @@ class RunStaticBacktestCommandHandler(
         if has_out_of_sample:
             self._log_trace(
                 "handler_out_of_sample_split",
-                in_sample=len(in_sample_klines),
-                out_of_sample=len(out_of_sample_klines),
+                in_sample=in_sample_count,
+                out_of_sample=out_of_sample_count,
             )
             in_sample = self._simulate(
-                in_sample_klines,
+                self._stream_phase_klines(command, limit=in_sample_count),
                 command,
                 phase="in_sample",
+                phase_bar_count=in_sample_count,
                 completed_before=completed_bars,
                 total_bars=total_bars,
                 started_at=started_at,
             )
             if isinstance(in_sample, BacktestCancelled):
                 return in_sample
-            completed_bars += len(in_sample_klines)
+            completed_bars += in_sample_count
             out_sample = self._simulate(
-                out_of_sample_klines,
+                self._stream_phase_klines(
+                    command, offset=in_sample_count, limit=out_of_sample_count
+                ),
                 command,
                 phase="out_of_sample",
+                phase_bar_count=out_of_sample_count,
                 completed_before=completed_bars,
                 total_bars=total_bars,
                 started_at=started_at,
             )
             if isinstance(out_sample, BacktestCancelled):
                 return out_sample
-            completed_bars += len(out_of_sample_klines)
+            completed_bars += out_of_sample_count
             out_of_sample = OutOfSampleValidation(
                 in_sample=in_sample,
                 out_of_sample=out_sample,
                 in_sample_ratio=DEFAULT_IN_SAMPLE_RATIO,
             )
         else:
-            self._log_trace("handler_out_of_sample_skipped", total=len(klines))
+            self._log_trace("handler_out_of_sample_skipped", total=total_count)
 
         result = self._simulate(
-            klines,
+            self._stream_phase_klines(command, limit=total_count),
             command,
             phase="full",
+            phase_bar_count=total_count,
             completed_before=completed_bars,
             total_bars=total_bars,
             started_at=started_at,
@@ -175,12 +181,34 @@ class RunStaticBacktestCommandHandler(
         self._event_bus.emit(BacktestCompletedEvent(result=result))
         return result
 
+    def _stream_phase_klines(
+        self,
+        command: RunStaticBacktestCommand,
+        *,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> Iterable[MarketData]:
+        """BUG-025 — one phase's worth of klines, streamed from the
+        repository rather than sliced out of an already-materialized list.
+        `offset`/`limit` are row counts already resolved by the caller (from
+        `count_klines()` + `split_count_for_out_of_sample()`), so this never
+        needs to know the phase's meaning, only its position in the range."""
+        return self._repository.stream_klines(
+            symbol=command.symbol,
+            interval=command.interval,
+            start_time=command.start_time,
+            end_time=command.end_time,
+            offset=offset,
+            limit=limit,
+        )
+
     def _simulate(
         self,
-        klines: list[MarketData],
+        klines: Iterable[MarketData],
         command: RunStaticBacktestCommand,
         *,
         phase: str,
+        phase_bar_count: int,
         completed_before: int,
         total_bars: int,
         started_at: float,
@@ -188,7 +216,10 @@ class RunStaticBacktestCommandHandler(
         """Runs `command`'s strategy over exactly the given klines with a
         fresh `PaperExchange`/engine — the full-range run and each
         in-sample/out-of-sample split (BOT-080) all go through this same
-        path, so they're computed identically, just over different slices."""
+        path, so they're computed identically, just over different slices.
+        `klines` is consumed once, in order — a stream, not a list (BUG-025)
+        — so `phase_bar_count` (from `count_klines()`/`split_count_for_out_of_sample()`)
+        stands in for the `len(klines)` this used to read directly."""
         engine = build_engine(
             self._strategy_registry,
             command.strategy_key,
@@ -205,7 +236,9 @@ class RunStaticBacktestCommandHandler(
 
         equity_curve: list[tuple[datetime, float]] = []
         pending_signal: Signal | None = None
+        last_candle: MarketData | None = None
         for index, candle in enumerate(klines, start=1):
+            last_candle = candle
             if command.cancellation_requested and command.cancellation_requested():
                 self._log_trace(
                     "handler_cancelled",
@@ -244,7 +277,7 @@ class RunStaticBacktestCommandHandler(
                 (candle.close_time, exchange.equity(candle.close_price))
             )
             if command.progress_callback and (
-                index == 1 or index % 16 == 0 or index == len(klines)
+                index == 1 or index % 16 == 0 or index == phase_bar_count
             ):
                 command.progress_callback(
                     phase,
@@ -253,7 +286,20 @@ class RunStaticBacktestCommandHandler(
                     perf_counter() - started_at,
                 )
 
-        last_candle = klines[-1]
+        if last_candle is None:
+            # BUG-025: count_klines() and stream_klines() are two separate
+            # queries (unlike the old single get_klines() call), so this
+            # phase's row count could — in principle, if data were mutated
+            # between the two — end up not matching what actually streamed.
+            # `phase_bar_count > 0` is guaranteed by every caller of
+            # `_simulate()` above; reaching an empty stream anyway is a
+            # contract violation, not a normal "no data" outcome (that case
+            # returns None before `_simulate` is ever called), so this fails
+            # loudly instead of crashing inside `force_close()` on `None`.
+            raise RuntimeError(
+                f"BUG-025 invariant violated: phase {phase!r} expected "
+                f"{phase_bar_count} klines but the stream yielded none."
+            )
         exchange.force_close(last_candle.close_price, last_candle.close_time)
 
         return BacktestResult.compute(

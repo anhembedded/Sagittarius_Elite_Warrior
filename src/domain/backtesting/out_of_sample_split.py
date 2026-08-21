@@ -8,6 +8,20 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 DEFAULT_IN_SAMPLE_RATIO = 0.7
 
 
+def split_count_for_out_of_sample(
+    total: int,
+    in_sample_ratio: float = DEFAULT_IN_SAMPLE_RATIO,
+) -> tuple[int, int]:
+    """
+    @brief Count-only counterpart to `split_klines_for_out_of_sample`, for
+    callers that know how many klines there are without having materialized
+    them (BUG-025's streaming Backtest data path — `stream_klines()` needs a
+    concrete offset/limit pair before any row is fetched).
+    """
+    split_index = round(total * in_sample_ratio)
+    return split_index, total - split_index
+
+
 def split_klines_for_out_of_sample(
     klines: list[MarketData],
     in_sample_ratio: float = DEFAULT_IN_SAMPLE_RATIO,
@@ -23,5 +37,5 @@ def split_klines_for_out_of_sample(
     empty out-of-sample side means "skip validation" rather than treating it
     as an error.
     """
-    split_index = round(len(klines) * in_sample_ratio)
+    split_index, _ = split_count_for_out_of_sample(len(klines), in_sample_ratio)
     return klines[:split_index], klines[split_index:]

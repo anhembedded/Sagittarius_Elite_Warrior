@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
+
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
@@ -69,6 +70,35 @@ class _InMemoryMarketDataRepository(IMarketDataRepository):
             rows = [kline for kline in rows if kline.open_time <= end_time]
         rows.sort(key=lambda kline: kline.open_time, reverse=order_by_desc)
         return rows[:limit] if limit is not None else rows
+
+    def count_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int | None = None,
+    ) -> int:
+        return len(self.get_klines(symbol, interval, start_time, end_time, limit))
+
+    def stream_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        order_by_desc: bool = False,
+    ):
+        rows = self.get_klines(
+            symbol, interval, start_time, end_time, None, order_by_desc
+        )
+        if offset is not None:
+            rows = rows[offset:]
+        if limit is not None:
+            rows = rows[:limit]
+        yield from rows
 
     def get_database_status(
         self, symbol: str, interval: TimeFrame

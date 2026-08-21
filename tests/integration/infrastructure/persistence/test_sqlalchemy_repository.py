@@ -1,3 +1,4 @@
+import gc
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -259,3 +260,117 @@ def test_get_range_coverage_is_half_open_and_reports_first_gap(repo):
     assert snapshot.last_record == start + timedelta(minutes=3)
     assert snapshot.total_candles == 3
     assert snapshot.first_gap_after == start + timedelta(minutes=1)
+
+
+def _live_market_data_count() -> int:
+    """Counts real, currently-alive `MarketData` instances via the GC heap —
+    deterministic and reproducible across machines/CI, unlike sampling OS-level
+    RSS (noisy, affected by allocator behavior — see BUG-025's own report for
+    why an RSS-based test was rejected). Same helper as the Sync side's proof
+    in `test_python_binance_client_unit.py`, duplicated locally rather than
+    shared since it is 4 lines and this is the only other file that needs it."""
+    gc.collect()
+    return sum(1 for obj in gc.get_objects() if type(obj) is MarketData)
+
+
+def test_count_klines_matches_get_klines_length(repo):
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
+    ]
+    repo.save_klines(klines)
+
+    assert repo.count_klines("BTCUSDT", TimeFrame.ONE_MINUTE) == 10
+
+
+def test_count_klines_respects_time_range_and_limit(repo):
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
+    ]
+    repo.save_klines(klines)
+
+    assert (
+        repo.count_klines(
+            "BTCUSDT", TimeFrame.ONE_MINUTE, start_time=base_dt + timedelta(minutes=5)
+        )
+        == 5
+    )
+    assert repo.count_klines("BTCUSDT", TimeFrame.ONE_MINUTE, limit=3) == 3
+
+
+def test_count_klines_on_empty_database_is_zero(repo):
+    assert repo.count_klines("BTCUSDT", TimeFrame.ONE_MINUTE) == 0
+
+
+def test_stream_klines_yields_the_same_rows_as_get_klines(repo):
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
+    ]
+    repo.save_klines(klines)
+
+    streamed = list(repo.stream_klines("BTCUSDT", TimeFrame.ONE_MINUTE))
+    fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
+
+    assert [k.open_time for k in streamed] == [k.open_time for k in fetched]
+
+
+def test_stream_klines_offset_and_limit_select_the_out_of_sample_tail(repo):
+    """Mirrors exactly how RunStaticBacktestCommandHandler asks for the
+    out-of-sample phase (BUG-025): offset = in-sample count, limit =
+    out-of-sample count, over the same ascending chronological order."""
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
+    ]
+    repo.save_klines(klines)
+
+    tail = list(repo.stream_klines("BTCUSDT", TimeFrame.ONE_MINUTE, offset=7, limit=3))
+
+    assert [k.open_time for k in tail] == [
+        base_dt + timedelta(minutes=i) for i in (7, 8, 9)
+    ]
+
+
+def test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live(repo):
+    """Real memory proof for BUG-025's Backtest side, not just a row-count
+    assertion — same technique as the Sync side's
+    `test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_alive`,
+    adapted for a per-row (not per-chunk) generator: `gc.collect()` is not
+    cheap, so this samples the live count periodically instead of on every
+    single row — sampling every row across thousands of them made the test
+    itself take minutes.
+
+    Saves far more rows than one internal fetch chunk, then walks the
+    generator discarding each row immediately (mirrors how `_simulate()`
+    consumes it: one candle touched at a time, nothing retained), sampling
+    real live `MarketData` objects on the GC heap periodically. If
+    `stream_klines()` secretly materialized the whole result set first (the
+    original bug), the sampled live count would climb roughly linearly with
+    rows streamed instead of staying flat and small."""
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    total_rows = 2500
+    sample_every = 250
+    klines = [
+        create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i))
+        for i in range(total_rows)
+    ]
+    repo.save_klines(klines)
+
+    baseline = _live_market_data_count()
+    peak_live_beyond_baseline = 0
+
+    for index, row in enumerate(repo.stream_klines("BTCUSDT", TimeFrame.ONE_MINUTE)):
+        if index % sample_every == 0:
+            live_now = _live_market_data_count() - baseline
+            peak_live_beyond_baseline = max(peak_live_beyond_baseline, live_now)
+        del row
+
+    final_live = _live_market_data_count() - baseline
+
+    # Generous bound: well under total_rows is enough to prove this isn't a
+    # full materialization, without pinning to SQLAlchemy's exact internal
+    # yield_per buffering, which is an implementation detail, not a contract.
+    assert peak_live_beyond_baseline < total_rows // 2
+    assert final_live == 0

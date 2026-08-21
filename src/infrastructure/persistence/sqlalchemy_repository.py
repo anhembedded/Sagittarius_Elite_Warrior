@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
@@ -22,6 +23,13 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager i
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.models import KlineModel
 
 logger = logging.getLogger("App.Database")
+
+#: BUG-025 — `stream_klines()`'s server-side fetch batch size, matching the
+#: `_KLINE_STREAM_CHUNK_SIZE` convention already established for the Sync
+#: (Binance -> DB) side of this same bug. Bounds how many ORM rows SQLAlchemy
+#: materializes per round trip, independent of how many rows the caller's own
+#: `limit` ultimately asks for.
+_KLINE_STREAM_CHUNK_SIZE = 1000
 
 
 class SQLAlchemyMarketDataRepository(IMarketDataRepository):
@@ -160,6 +168,61 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 query = query.limit(limit)
 
             return [self._to_market_data_entity(row) for row in query.all()]
+
+    def count_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int | None = None,
+    ) -> int:
+        with self.db_manager.get_session(symbol) as session:
+            query = session.query(KlineModel).filter_by(
+                symbol=symbol, interval=interval.value
+            )
+
+            if start_time:
+                query = query.filter(KlineModel.open_time >= start_time)
+            if end_time:
+                query = query.filter(KlineModel.open_time <= end_time)
+            if limit is not None:
+                query = query.limit(limit)
+
+            return query.count()
+
+    def stream_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        order_by_desc: bool = False,
+    ) -> Iterator[MarketData]:
+        with self.db_manager.get_session(symbol) as session:
+            query = session.query(KlineModel).filter_by(
+                symbol=symbol, interval=interval.value
+            )
+
+            if start_time:
+                query = query.filter(KlineModel.open_time >= start_time)
+            if end_time:
+                query = query.filter(KlineModel.open_time <= end_time)
+
+            if order_by_desc:
+                query = query.order_by(KlineModel.open_time.desc())
+            else:
+                query = query.order_by(KlineModel.open_time.asc())
+
+            if offset is not None:
+                query = query.offset(offset)
+            if limit is not None:
+                query = query.limit(limit)
+
+            for row in query.yield_per(_KLINE_STREAM_CHUNK_SIZE):
+                yield self._to_market_data_entity(row)
 
     @staticmethod
     def _to_market_data_entity(row: KlineModel) -> MarketData:

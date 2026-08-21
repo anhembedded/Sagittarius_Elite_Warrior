@@ -2,7 +2,7 @@
 
 **Reported:** 2026-08-20
 **Severity:** 🟡 **P2** (chưa crash trong điều kiện thông thường, nhưng scale kém — đặc biệt với khung 1s vừa thêm ở `BOT-112E` và tuỳ chọn "Toàn bộ lịch sử")
-**Status:** 🟡 **Mở một phần (2026-08-21) — nhánh Sync đã sửa + regression-tested; nhánh Backtest vẫn mở, cần bàn thiết kế trước khi code (xem §3.2)**
+**Status:** ✅ **Fixed 2026-08-21 — cả 2 nhánh Sync và Backtest đã sửa + regression-tested**
 
 ---
 
@@ -138,31 +138,50 @@ bằng `git stash` tạm lùi `handler.py` rồi chạy lại):**
   dòng log xuất hiện với đúng số liệu từng lô — chứng minh vòng lặp thật sự
   chạy chunk-by-chunk, không chỉ dựa vào việc mock được gọi bao nhiêu lần.
 
-### 3.2. Backtest — 🔴 Vẫn mở, cần bàn thiết kế trước khi code
+### 3.2. Backtest — ✅ Đã sửa (2026-08-21)
 
-`get_klines()` (DB → RAM) và `RunStaticBacktestCommandHandler` chưa đổi.
-Đổi `get_klines()` sang trả về iterator dùng `yield_per()` (hoặc tương đương)
-thay vì `query.all()`, và refactor `_simulate()` để tiêu thụ iterator trực
-tiếp (chỉ cần giữ lại nến cuối cùng cho `force_close()`, không cần giữ cả
-list). Ràng buộc khó hơn nhánh sync: `split_klines_for_out_of_sample()` cần
-biết tổng số nến **trước khi chạy** để chia in-sample/out-of-sample — cần
-quyết định giữa (a) query 2 lần (COUNT rồi stream), hay (b) buffer toàn bộ
-chỉ riêng cho nhánh out-of-sample và giữ nguyên full-load cho nhánh chính.
-Chưa tự quyết, cần hỏi trước khi code.
+Chọn phương án (a) đã nêu — **COUNT rồi 2 truy vấn `LIMIT`/`OFFSET` streaming**
+— sau khi hỏi và được xác nhận trực tiếp, vì đây là cách duy nhất thực sự
+giải quyết vấn đề RAM (phương án (b) gần như giữ nguyên hiện trạng).
+
+`IMarketDataRepository` có thêm 2 method mới, song song với `get_klines()` cũ
+(giữ nguyên không đổi — cùng nguyên tắc "thêm method mới, không sửa cái cũ"
+đã dùng cho nhánh Sync ở §3.1, vì `get_klines()` còn 2 người gọi khác không
+liên quan tới rủi ro RAM):
+- `count_klines(...)` — `COUNT(*)` có cùng bộ filter với `get_klines()`.
+- `stream_klines(...)` — như `get_klines()` nhưng trả về generator (dùng
+  `yield_per()`, cùng `_KLINE_STREAM_CHUNK_SIZE=1000` như nhánh Sync), có
+  thêm `offset` để lấy đúng đoạn out-of-sample tail mà không đọc lại đoạn
+  in-sample đã stream trước đó.
+
+`split_klines_for_out_of_sample()` (thao tác trên `list` đã có sẵn) giữ
+nguyên; thêm `split_count_for_out_of_sample(total, ratio)` — cùng công thức
+`round(total * ratio)`, chỉ khác là hoạt động trên **số đếm** thay vì trên
+list đã materialize, để `RunStaticBacktestCommandHandler` biết offset/limit
+cho từng pha (in-sample, out-of-sample, full-range) **trước khi** đọc bất kỳ
+dòng nào. Cả 2 hàm dùng chung 1 công thức `round()` (hàm list gọi lại hàm
+count) để không có 2 nơi tính split khác nhau.
+
+`RunStaticBacktestCommandHandler.execute()`/`_simulate()` viết lại để tiêu
+thụ generator thay vì `list`: `len(klines)` cũ (cho tiến độ % và cho
+`klines[-1]`) được thay bằng `phase_bar_count` truyền vào tường minh và một
+biến `last_candle` cập nhật trong vòng lặp. Có 1 rủi ro biên đã cân nhắc và
+chấp nhận có ghi chú: `count_klines()` và `stream_klines()` là 2 truy vấn
+riêng biệt (khác nhánh Sync vốn chỉ 1 lần fetch), nên về lý thuyết nếu có
+ghi dữ liệu xen vào giữa 2 truy vấn thì số đếm có thể lệch — `_simulate()`
+raise `RuntimeError` tường minh nếu điều đó xảy ra (thay vì crash mù trên
+`None.close_price`), không âm thầm cho ra kết quả sai.
 
 ### 3.3. Còn lại
 
-- **Viết regression test đo RAM có giới hạn cho nhánh Backtest** khi làm
-  §3.2 — test tạo dataset lớn giả lập (ví dụ 500k+ nến trong DB test), assert
-  bằng cách nào đó peak RAM/objects sống không tỷ lệ thuận tuyến tính không
-  giới hạn theo cỡ dataset (ví dụ đếm số object `MarketData` sống cùng lúc
-  qua `tracemalloc`/`gc` thay vì đo RSS hệ điều hành vốn nhiễu). Nhánh Sync
-  đã có test kiểu này ở §3.1 (`test_streaming_and_discarding_chunks_...`) —
-  dùng làm mẫu khi viết cho Backtest.
+- ✅ **Regression test đo RAM có giới hạn cho nhánh Backtest** — xem mục
+  "Regression test (Backtest)" bên dưới. Đếm object `MarketData` sống thật
+  qua `gc.get_objects()` (không đo RSS hệ điều hành), lấy mẫu định kỳ thay vì
+  mỗi dòng (mỗi dòng gọi `gc.collect()` quá chậm, ban đầu làm test chạy hàng
+  phút — phát hiện lúc chạy thật, không phải suy đoán).
 - **Xác nhận lại RAM baseline lúc rảnh (862.1 MB) có thực sự do đợt fetch/backtest
-  trước đó để lại hay không** — trước khi coi đây là bằng chứng bổ sung của
-  chính bug này, nên đo lại RSS ngay sau khi app khởi động (chưa sync/backtest
-  lần nào) để có baseline sạch so sánh. Vẫn chưa làm.
+  trước đó để lại hay không** — vẫn chưa làm, không thuộc phạm vi nhánh code
+  đã sửa (đo baseline là việc vận hành/quan sát, không phải bug code).
 
 ---
 
@@ -185,6 +204,33 @@ chứng minh được RAM/object thật sự không bị giữ tham chiếu ở 
    không suy diễn từ việc mock được gọi bao nhiêu lần.
 
 Cả 2 test đã xác nhận **fail đúng lý do** trên code cũ trước khi fix, đúng
-quy trình. Nhánh Backtest (§3.2) vẫn giữ nguyên khuyến nghị đo RAM baseline
-thật trước khi bắt tay sửa, và nên viết test kiểu (1) ở trên khi làm — xem
-mẫu ở `test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_alive`.
+quy trình.
+
+**Regression test (Backtest, §3.2):**
+- `tests/unit/domain/backtesting/test_out_of_sample_split.py` — 5 test mới
+  cho `split_count_for_out_of_sample()`, kể cả 1 test đối chiếu với hàm list
+  cũ trên 50 giá trị tổng khác nhau để đảm bảo 2 công thức không bao giờ
+  lệch nhau.
+- `tests/integration/infrastructure/persistence/test_sqlalchemy_repository.py`:
+  `test_count_klines_*` (3 test), `test_stream_klines_yields_the_same_rows_as_get_klines`,
+  `test_stream_klines_offset_and_limit_select_the_out_of_sample_tail`, và
+  **bằng chứng RAM thật**
+  `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` —
+  cùng kỹ thuật đếm object sống qua `gc.get_objects()` như nhánh Sync, lấy
+  mẫu định kỳ (mỗi 250 dòng trong 2500 dòng) thay vì mỗi dòng. **Mutation-verified**:
+  tạm sửa `stream_klines()` quay về `query.all()` (mô phỏng đúng bug gốc),
+  xác nhận test fail đúng như dự đoán (`2500 < 1250` sai), rồi revert lại.
+- `tests/unit/application/use_cases/test_run_static_backtest.py`,
+  `tests/integration/application/test_backtest_with_broker_simulation.py`,
+  `tests/unit/application/use_cases/test_ema_trend_pullback_backtest_integration.py`,
+  `tests/unit/application/use_cases/test_run_realtime_backtest.py`: mọi test
+  dựng `RunStaticBacktestCommandHandler` với `Mock` repository đổi sang mock
+  `count_klines()`/`stream_klines()` thay vì `get_klines()` (5 file, hành vi
+  test giữ nguyên — đây là các test đã có từ trước, không phải test mới).
+  `tests/integration/presentation/test_backtest_user_flow.py`'s
+  `_InMemoryMarketDataRepository` (test double thật implement
+  `IMarketDataRepository`) thêm 2 method mới, delegate về `get_klines()` có
+  sẵn.
+
+Toàn bộ `tests/unit/` (1636 test) + `tests/sanity/` (50 test) pass sau khi
+sửa, `ruff check`/`format` sạch trên mọi file đã sửa.

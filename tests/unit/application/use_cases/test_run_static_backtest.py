@@ -109,11 +109,43 @@ def _build_klines() -> list[MarketData]:
     ]
 
 
+def _configure_repo_with_klines(repo: Mock, klines: list[MarketData]) -> None:
+    """
+    @brief Makes a `Mock` stand in for `IMarketDataRepository`'s streaming
+    contract (BUG-025) — `count_klines()`/`stream_klines()` mirror exactly
+    what a real repository would report for the given static `klines` list,
+    the same way the old tests configured `get_klines.return_value` before
+    the handler moved off it.
+    """
+
+    def _count(
+        *, symbol=None, interval=None, start_time=None, end_time=None, limit=None
+    ) -> int:
+        return len(klines) if limit is None else min(limit, len(klines))
+
+    def _stream(
+        *,
+        symbol=None,
+        interval=None,
+        start_time=None,
+        end_time=None,
+        offset=None,
+        limit=None,
+        order_by_desc=False,
+    ):
+        rows = klines[offset:] if offset is not None else klines
+        rows = rows[:limit] if limit is not None else rows
+        return iter(rows)
+
+    repo.count_klines.side_effect = _count
+    repo.stream_klines.side_effect = _stream
+
+
 def _build_handler(
     klines: list[MarketData],
 ) -> tuple[RunStaticBacktestCommandHandler, Mock]:
     repo = Mock()
-    repo.get_klines.return_value = klines
+    _configure_repo_with_klines(repo, klines)
     registry = StrategyRegistry()
     registry.register("scripted", _ScriptedStrategy)
     event_bus = Mock()
@@ -395,7 +427,7 @@ def _build_stop_loss_klines() -> list[MarketData]:
 def test_stop_loss_closes_the_position_on_a_bar_with_no_strategy_signal():
     klines = _build_stop_loss_klines()
     repo = Mock()
-    repo.get_klines.return_value = klines
+    _configure_repo_with_klines(repo, klines)
     registry = StrategyRegistry()
     registry.register("buy_once_hold", _BuyOnceThenHoldStrategy)
     handler = RunStaticBacktestCommandHandler(
@@ -475,7 +507,7 @@ def _build_short_klines() -> list[MarketData]:
 def test_short_and_cover_signals_flow_through_the_real_handler_and_engine():
     klines = _build_short_klines()
     repo = Mock()
-    repo.get_klines.return_value = klines
+    _configure_repo_with_klines(repo, klines)
     registry = StrategyRegistry()
     registry.register("short_once", _ShortOnceThenCoverStrategy)
     handler = RunStaticBacktestCommandHandler(

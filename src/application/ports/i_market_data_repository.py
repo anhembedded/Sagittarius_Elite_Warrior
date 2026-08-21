@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -68,6 +69,46 @@ class IMarketDataRepository(ABC):
     ) -> list[MarketData]:
         """
         @brief Retrieves historical klines from the repository.
+        """
+
+    @abstractmethod
+    def count_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int | None = None,
+    ) -> int:
+        """
+        @brief Counts historical klines matching the given filters, without
+        materializing any of them.
+        @details BUG-025 — lets a caller learn how many rows a range holds
+        before deciding how to stream it (e.g. computing an in-sample /
+        out-of-sample split point), instead of loading the whole range into
+        RAM just to call `len()` on it.
+        """
+
+    @abstractmethod
+    def stream_klines(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        order_by_desc: bool = False,
+    ) -> Iterator[MarketData]:
+        """
+        @brief Streams historical klines matching the given filters without
+        holding the full result set in RAM at once.
+        @details BUG-025 — the Backtest data path's counterpart to
+        `get_klines()`. Same filters plus `offset`, since a caller that
+        already knows the row count (via `count_klines()`) needs to fetch
+        specific sub-ranges (e.g. an out-of-sample tail) without re-reading
+        rows it already streamed. Does not replace `get_klines()`, which
+        every other, small/bounded caller keeps using unchanged.
         """
 
     @abstractmethod

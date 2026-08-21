@@ -100,7 +100,17 @@ def _klines_with_one_confirmed_long_trade() -> list[MarketData]:
 def _run_real_backtest() -> tuple:
     klines = _klines_with_one_confirmed_long_trade()
     repo = Mock()
-    repo.get_klines.return_value = klines
+    # BUG-025: RunStaticBacktestCommandHandler streams via count_klines()/
+    # stream_klines() instead of get_klines() — mirror that contract here
+    # against this test's static `klines` list.
+    repo.count_klines.side_effect = lambda **kwargs: (
+        len(klines)
+        if kwargs.get("limit") is None
+        else min(kwargs["limit"], len(klines))
+    )
+    repo.stream_klines.side_effect = lambda **kwargs: iter(
+        klines[kwargs.get("offset") or 0 :][: kwargs.get("limit")]
+    )
     registry = StrategyRegistry()
     registry.register(_STRATEGY_KEY, EmaTrendPullbackStrategy)
     handler = RunStaticBacktestCommandHandler(

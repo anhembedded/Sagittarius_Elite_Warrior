@@ -212,7 +212,16 @@ def test_one_tick_per_bar_matches_static_exactly():
         ticks, strategy_key="ema", strategy_cls=EmaCrossoverStrategy
     )
     static_repo = Mock()
-    static_repo.get_klines.return_value = ticks  # 1 tick per bar == 1 kline per bar
+    # BUG-025: RunStaticBacktestCommandHandler streams via count_klines()/
+    # stream_klines() instead of get_klines() — mirror that contract here
+    # against this test's static `ticks` list (1 tick per bar == 1 kline per
+    # bar, per the comment this replaces).
+    static_repo.count_klines.side_effect = lambda **kwargs: (
+        len(ticks) if kwargs.get("limit") is None else min(kwargs["limit"], len(ticks))
+    )
+    static_repo.stream_klines.side_effect = lambda **kwargs: iter(
+        ticks[kwargs.get("offset") or 0 :][: kwargs.get("limit")]
+    )
     static_registry = StrategyRegistry()
     static_registry.register("ema", EmaCrossoverStrategy)
     static_handler = RunStaticBacktestCommandHandler(
