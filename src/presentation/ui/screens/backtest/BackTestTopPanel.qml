@@ -469,25 +469,67 @@ Rectangle {
                 id: progressBanner
                 objectName: "backtestProgressBanner"
                 Layout.fillWidth: true
-                implicitHeight: visible ? 38 : 0
+                implicitHeight: visible ? 42 : 0
                 visible: root.hasViewModel && (viewModel.uiMode === "RUNNING" || viewModel.uiMode === "CANCELLING" || viewModel.uiMode === "SYNCING")
                 color: "#12141d"
                 border.color: "#2a2d3d"
                 border.width: 1
                 radius: 6
 
-                AppProgressBar {
+                RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 12
                     anchors.rightMargin: 12
-                    anchors.topMargin: 6
-                    anchors.bottomMargin: 6
-                    statusText: !root.hasViewModel ? "" : (viewModel.uiMode === "CANCELLING" ? "Đang hủy an toàn..." : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressText : viewModel.backtestProgressText))
-                    value: !root.hasViewModel ? 0 : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressPercent : viewModel.backtestProgressPercent)
-                    from: 0
-                    to: 100
-                    indeterminate: root.hasViewModel && viewModel.uiMode === "CANCELLING"
-                    barHeight: 6
+                    anchors.topMargin: 4
+                    anchors.bottomMargin: 4
+                    spacing: 10
+
+                    AppProgressBar {
+                        Layout.fillWidth: true
+                        statusText: !root.hasViewModel ? "" : (viewModel.uiMode === "CANCELLING" ? "Đang hủy an toàn..." : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressText : viewModel.backtestProgressText))
+                        value: !root.hasViewModel ? 0 : (viewModel.uiMode === "SYNCING" ? viewModel.syncProgressPercent : viewModel.backtestProgressPercent)
+                        from: 0
+                        to: 100
+                        indeterminate: root.hasViewModel && viewModel.uiMode === "CANCELLING"
+                        barHeight: 6
+                    }
+
+                    Button {
+                        id: btnCancelProgress
+                        objectName: "btnCancelBacktestProgress"
+                        text: (root.hasViewModel && viewModel.uiMode === "CANCELLING") ? "Đang hủy..." : "Hủy"
+                        enabled: root.hasViewModel && viewModel.uiMode !== "CANCELLING"
+                        implicitHeight: 26
+                        implicitWidth: 76
+                        background: Rectangle {
+                            color: btnCancelProgress.enabled
+                                   ? (btnCancelProgress.hovered ? "#3b171c" : "#2a1518")
+                                   : "#1c1416"
+                            border.color: btnCancelProgress.enabled ? (Theme && Theme.danger ? Theme.danger : "#ef4444") : "#4a252b"
+                            border.width: 1
+                            radius: 4
+                        }
+                        contentItem: RowLayout {
+                            spacing: 4
+                            anchors.centerIn: parent
+                            Image {
+                                source: "image://icons/square/danger"
+                                sourceSize: Qt.size(11, 11)
+                                visible: root.hasViewModel && viewModel.uiMode !== "CANCELLING"
+                            }
+                            Text {
+                                text: btnCancelProgress.text
+                                color: btnCancelProgress.enabled ? (Theme && Theme.danger ? Theme.danger : "#ef4444") : (Theme && Theme.muted ? Theme.muted : "#8b949e")
+                                font.pixelSize: 11
+                                font.bold: true
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        onClicked: {
+                            if (root.hasViewModel) viewModel.requestCancelBacktest()
+                        }
+                    }
                 }
             }
 
