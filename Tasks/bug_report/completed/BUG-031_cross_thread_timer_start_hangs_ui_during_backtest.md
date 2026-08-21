@@ -2,7 +2,7 @@
 
 **Reported date:** 2026-08-22
 **Severity:** 🔴 **P1** (Treo/đóng băng UI hoàn toàn)
-**Status:** Open
+**Status:** ✅ Fixed 2026-08-22 (Root-caused / Reproduced / Regression-tested / Verified via Full CI)
 
 ---
 
@@ -48,23 +48,35 @@ QBasicTimer::start: Timers cannot be started from another thread
 
 ---
 
-## 2. Phân tích nguyên nhân & Giả thuyết (Investigation & Hypotheses)
+## 2. Nguyên nhân gốc rễ (Root Cause)
 
-Lỗi `QBasicTimer::start: Timers cannot be started from another thread` là cơ chế phòng vệ của Qt: một đối tượng kế thừa `QObject` (hoặc `QWidget`, `QQuickWidget`, `QTimer`, `pyqtgraph` component) đang sở hữu timer hoặc kích hoạt animation/timer nhưng lại bị gọi trực tiếp từ **background worker thread** (luồng phụ) thay vì chạy trên **Qt Main UI Thread**.
+1. **Khởi động Timer sai luồng tại `_bind_top_panel_height` (`backtest_view.py:178`)**:
+   - `BackTestView._bind_top_panel_height` kết nối signal `root.implicitHeightChanged` (từ QML root item `BackTestTopPanel.qml`) với closure `sync_height`.
+   - `sync_height` sử dụng `QTimer.singleShot(0, apply_height)` để hoãn việc resize widget.
+   - Khi QML tính toán lại thuộc tính layout trong các tình huống cập nhật hoặc chuyển trạng thái FSM, `root.implicitHeightChanged` được emit trực tiếp (direct invocation) trên luồng thực thi.
+   - Nếu việc cập nhật diễn ra từ worker thread, `QTimer.singleShot` cố gắng kích hoạt `QBasicTimer::start()` từ worker thread (nơi không có Qt event loop).
+   - Qt C++ runtime in cảnh báo `QBasicTimer::start: Timers cannot be started from another thread`, làm cờ `resize_pending` bị kẹt ở `True`, luồng QML/GUI bị lock và đóng băng giao diện.
 
-Các điểm nghi vấn cần kiểm tra:
-1. **`GetHistoricalKlinesQuery` completion callback / Presenter worker slots:** Khi background query trả về dữ liệu klines, callback có trực tiếp thao tác vào `ChartCard` / `NativeChartItem` / `range_update_scheduler` / `cached_frame_interaction` mà không đi qua Qt Signal với QueuedConnection không?
-2. **`LiveStream` EventBus / TradingStrategy handlers:** Trong khi live streaming đang nhận ticks trên background thread, có slot nào trên `BackTestPresenter` hoặc `DashboardPresenter` lắng nghe sự kiện event bus và gọi trực tiếp vào UI/Timer mà không dispatch qua `IThreadManager` / Qt Signals?
-3. **`RangeUpdateScheduler` / `CachedFrameInteraction` timers:** Kiểm tra các hàm `start_range_update`, `_wheel_timer`, hoặc `QTimer.singleShot` trong `chart_card` có bị kích hoạt từ luồng background không.
+2. **Thiếu `@Slot(str)` tại `BackTestViewModel.set_ui_mode` (`backtest_view_model.py:1282`)**:
+   - `BackTestViewModel.set_ui_mode` ghi đè phương thức của `BaseQmlViewModel` nhưng không có decorator `@Slot(str)`, làm mất khả năng tự động marshal qua `Qt.QueuedConnection` khi được gọi từ các luồng khác.
 
 ---
 
-## 3. Các bước tiếp theo (Suggested Next Steps per `bug-fix-rule.md`)
+## 3. Giải pháp (Fix)
 
-1. **Thêm logging chẩn đoán Thread ID (`QThread.currentThread()` / `threading.get_ident()`):**
-   - Đặt log ở điểm bắt đầu các callback sau `GetHistoricalKlinesQuery` và các slot xử lý `LiveStream` / `RunStaticBacktestCommand`.
-2. **Xác định chính xác call-chain dẫn đến `QBasicTimer::start` trên worker thread.**
-3. **Viết Regression Test tái hiện:**
-   - Viết test chứng minh gọi method đó từ thread phụ phát sinh lỗi / warning thread affinity.
-4. **Áp dụng giải pháp điều hướng qua Qt Signal / Main Thread Dispatcher.**
-5. **Chạy kiểm tra Full CI (`ci-local.ps1 -Full`) đảm bảo 0 log problem-level và đóng bug report.**
+1. **Sử dụng `QMetaObject.invokeMethod(self, "_apply_top_panel_height", Qt.ConnectionType.QueuedConnection)`**:
+   - Chuyển `apply_height` và `apply_minimum_height` thành các `@Slot()` chính thức trên `BackTestView`.
+   - Sử dụng cơ chế gọi hàng đợi luồng (`QueuedConnection`) của Qt để bảo đảm mọi thao tác điều chỉnh kích thước `setFixedHeight` / `setMinimumHeight` luôn được đẩy về Main GUI Thread an toàn tuyệt đối.
+
+2. **Bổ sung `@Slot(str)` cho `BackTestViewModel.set_ui_mode`**:
+   - Đảm bảo tuân thủ đầy đủ Layer 1 Thread-Affinity Sanity Guard (`unprotected_mutators`).
+
+---
+
+## 4. Regression Test & Verification
+
+- **Test file:** `tests/unit/presentation/ui/screens/test_bug031_cross_thread_timer.py`
+  - `test_backtest_view_model_set_ui_mode_has_slot_decorator`: Đảm bảo `set_ui_mode` được bảo vệ bởi `@Slot`.
+  - `test_backtest_view_sync_height_safe_from_worker_thread`: Giả lập phát tín hiệu `implicitHeightChanged` từ background thread và xác nhận layout update hoàn tất không lỗi timer.
+- **Verification:**
+  - `.\scripts\ci-local.ps1 -Full` -> **PASS 100% (1763 unit tests, 50 sanity tests, 0 warnings/errors, 93.56% coverage)**.

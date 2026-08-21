@@ -1279,6 +1279,7 @@ class BackTestViewModel(BaseQmlViewModel):
     # ------------------------------------------------------------------ #
     # Stale Data / Dirty Tracking (BOT-095B)
     # ------------------------------------------------------------------ #
+    @Slot(str)
     def set_ui_mode(self, mode: str) -> None:
         super().set_ui_mode(mode)
         self.isConfigDirtyChanged.emit()

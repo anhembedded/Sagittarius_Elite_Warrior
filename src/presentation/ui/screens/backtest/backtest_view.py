@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QMetaObject, QObject, Qt, QUrl, Signal, Slot
 from PySide6.QtWidgets import QFrame, QScrollArea, QSplitter, QVBoxLayout, QWidget
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseView,
@@ -162,23 +162,25 @@ class BackTestView(BaseView):
         if content_column is None:
             return
 
-        resize_pending = False
-
-        def apply_height() -> None:
-            nonlocal resize_pending
-            resize_pending = False
-            content_column.ensurePolished()
-            self.top_widget.setFixedHeight(int(root.property("implicitHeight")))
-
         def sync_height() -> None:
-            nonlocal resize_pending
-            if resize_pending:
-                return
-            resize_pending = True
-            QTimer.singleShot(0, apply_height)
+            QMetaObject.invokeMethod(
+                self,
+                "_apply_top_panel_height",
+                Qt.ConnectionType.QueuedConnection,
+            )
 
         root.implicitHeightChanged.connect(sync_height)
         sync_height()
+
+    @Slot()
+    def _apply_top_panel_height(self) -> None:
+        root = self.top_widget.rootObject()
+        if root is None:
+            return
+        content_column = root.findChild(QObject, "contentColumn")
+        if content_column is not None:
+            content_column.ensurePolished()
+        self.top_widget.setFixedHeight(int(root.property("implicitHeight")))
 
     def _bind_trade_log_minimum_height(self) -> None:
         """
@@ -205,12 +207,25 @@ class BackTestView(BaseView):
             return
 
         def sync_minimum_height() -> None:
-            toolbar_row.ensurePolished()
-            minimum = int(root.property("minimumUsableHeight"))
-            self.bottom_widget.setMinimumHeight(minimum)
+            QMetaObject.invokeMethod(
+                self,
+                "_apply_trade_log_minimum_height",
+                Qt.ConnectionType.QueuedConnection,
+            )
 
         root.minimumUsableHeightChanged.connect(sync_minimum_height)
         sync_minimum_height()
+
+    @Slot()
+    def _apply_trade_log_minimum_height(self) -> None:
+        root = self.bottom_widget.rootObject()
+        if root is None:
+            return
+        toolbar_row = root.findChild(QObject, "toolbarRow")
+        if toolbar_row is not None:
+            toolbar_row.ensurePolished()
+        minimum = int(root.property("minimumUsableHeight"))
+        self.bottom_widget.setMinimumHeight(minimum)
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter and forwards them to
