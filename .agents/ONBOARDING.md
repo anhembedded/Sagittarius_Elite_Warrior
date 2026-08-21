@@ -6,7 +6,7 @@ trigger: always_on
 
 # ONBOARDING — Đọc file này TRƯỚC KHI viết dòng code đầu tiên
 
-Dự án này đã có 10 file rule chi tiết. Vấn đề không phải thiếu rule — mà là
+Dự án này đã có 9 file rule chi tiết. Vấn đề không phải thiếu rule — mà là
 một agent mới **không biết có những file đó, đọc theo thứ tự nào, và quy
 trình thật sự chạy ra sao**. File này là bản đồ đó. Nó không lặp lại nội
 dung rule; nó nói *khi nào* đọc rule nào, và mô tả những phần quy trình
@@ -31,33 +31,44 @@ bookkeeping `ROADMAP.md`).
 | 10 | `.agents/Handover.md` | Khi cần bối cảnh lịch sử của một mảng cụ thể |
 | — | `Tasks/ROADMAP.md` | Khi cần biết hệ thống đang ở đâu, task nào tồn tại |
 | — | `Tasks/bug_report/README.md` | Bug Board — hệ thống đang gánh lỗi gì (mở/đã sửa) |
+| — | `Tasks/epics/README.md` | Danh sách Epic đang có (mỗi Epic có thư mục + README riêng, xem §3) |
 
 `.agents/rules/sentinel-rule.md` và `install-rule.md` là chuyên đề riêng
 (bảo mật / cài đặt), đọc khi task chạm đúng phạm vi đó.
 
 ---
 
-## 2. Đây là HAI repo, không phải một
+## 2. HAI repo độc lập, không phải submodule — đổi từ 21/08
 
 ```
-Sagittarius-Engine/                  ← superproject: framework (sagittarius_engine/)
-└── Sagittarius_Elite_Warrior/       ← submodule, nhánh `master-warrior`: app bot Binance
+Sagittarius-Engine/                  ← repo framework (sagittarius_engine/), remote riêng
+└── Sagittarius_Elite_Warrior/       ← repo app bot Binance, nhánh `master-warrior`, remote riêng
 ```
 
-Gần như mọi task nghiệp vụ nằm trong **submodule**. Framework
-(`sagittarius_engine/`) chỉ sửa khi thật sự thiếu cơ chế nền — và khi đó
-phải commit ở cả hai repo.
+**Đổi 21/08 (commit `a1efcd6`, quyết định của user, đọc nguyên văn message
+commit đó nếu cần bối cảnh đầy đủ):** trước đây `Sagittarius_Elite_Warrior/`
+là **git submodule** của `Sagittarius-Engine` — superproject giữ 1 con trỏ
+(gitlink) tới đúng commit của submodule, và mọi lần đổi submodule phải
+"bump" con trỏ đó ở superproject rồi commit riêng. **Không còn đúng nữa** —
+`a1efcd6` đã xoá hẳn khai báo submodule (`.gitmodules` không còn tồn tại,
+`git ls-files -s Sagittarius_Elite_Warrior` từ superproject trả về rỗng).
+Hai thư mục giờ chỉ là 2 **repo Git hoàn toàn độc lập**, tình cờ nằm lồng
+nhau trên đĩa của máy phát triển này — không có con trỏ nào cần đồng bộ.
 
-**Quy trình commit bắt buộc, đúng thứ tự:**
+**Quy trình commit bây giờ, đơn giản hơn hẳn trước:**
 
-1. Commit trong submodule (`Sagittarius_Elite_Warrior/`) với message
-   Conventional Commits đầy đủ, mô tả *tại sao*, không chỉ *cái gì*.
-2. Quay ra superproject, `git add Sagittarius_Elite_Warrior` rồi commit
-   `chore(submodule): bump to <mô tả ngắn>`.
+- Việc trong `Sagittarius_Elite_Warrior/` (gần như mọi task nghiệp vụ): vào
+  đúng thư mục đó, `git commit`/`git push` — **chỉ 1 repo, không có bước
+  "bump" nào ở superproject nữa.**
+- Việc trong `sagittarius_engine/` (hiếm — chỉ khi thật sự thiếu cơ chế
+  nền): commit/push riêng trong `Sagittarius-Engine`, **hoàn toàn không
+  liên quan tới `Sagittarius_Elite_Warrior/`** — không cần bump gì cả vì
+  không còn gì để bump.
 
-Bỏ bước 2 = con trỏ submodule của superproject vẫn trỏ commit cũ, người
-khác clone về sẽ không thấy thay đổi của bạn. Đây là lỗi im lặng, không
-có thông báo nào cảnh báo.
+Nếu thấy tài liệu hoặc thói quen cũ nhắc "bump submodule pointer" /
+`chore(submodule): bump to ...` — đó là quy trình **đã hết hiệu lực**, đừng
+làm theo mà không kiểm tra lại `git ls-files -s Sagittarius_Elite_Warrior`
+từ superproject trước (rỗng = xác nhận đã detach, đừng bump gì cả).
 
 **Không bao giờ `git push` nếu user không yêu cầu rõ ràng.** Commit là
 mặc định-hỏi (xem §7); push là mặc định-cấm.
@@ -134,7 +145,8 @@ Bộ lệnh bash bên dưới vẫn hữu ích cho kiểm tra nhanh, có chủ �
 chờ toàn bộ orchestration của script — chạy **từ thư mục superproject**:
 
 ```bash
-# Unit (~3 phút, hiện 1564 test tại 2026-08-20)
+# Unit (~3 phút, hiện 1641 test tại 2026-08-21 — con số này TRÔI liên tục,
+# đừng tin tuyệt đối, chỉ để biết cỡ)
 PYTHONPATH=. QT_QPA_PLATFORM=offscreen \
   Sagittarius_Elite_Warrior/.venv/bin/python -m pytest Sagittarius_Elite_Warrior/tests/unit/ -q
 
@@ -163,11 +175,13 @@ xem nhầm đống nhiễu đó và tưởng test hỏng. Luôn ghi ra file rồ
 ... -q > /tmp/run.log 2>&1; grep -E "^[0-9]+ (passed|failed)|failed," /tmp/run.log | tail -3
 ```
 
-Về lint: repo hiện có **38 lỗi `I001` (import chưa sort) tồn tại sẵn** trên
-`src/`, không do bạn gây ra. Quy tắc: chỉ sửa lint trong **file bạn đang
-sửa cho task hiện tại**, không đi dọn dẹp file vô can — làm vậy diff bug-fix
-sẽ lẫn thay đổi không liên quan và không ai review nổi. Muốn dọn toàn repo
-thì làm một commit `style:` riêng, sau khi hỏi user.
+Về lint: repo luôn có sẵn vài lỗi `I001` (import chưa sort) từ phiên khác
+không do bạn gây ra (14 lỗi trên `src tests` tại 21/08, con số này cũng
+trôi — kiểm tra thật bằng `ruff check src tests` thay vì tin số ở đây). Quy
+tắc: chỉ sửa lint trong **file bạn đang sửa cho task hiện tại**, không đi
+dọn dẹp file vô can — làm vậy diff bug-fix sẽ lẫn thay đổi không liên quan
+và không ai review nổi. Muốn dọn toàn repo thì làm một commit `style:`
+riêng, sau khi hỏi user.
 
 ---
 
@@ -196,6 +210,25 @@ cd Tasks/backlog && grep -oh "](\.\./\?[^)]*\.md)" BOT-XXX*.md | tr -d '](' | se
   | sort -u | while read -r l; do [ -f "$l" ] || echo "BROKEN: $l"; done
 ```
 
+**Epic lớn (nhiều task con, nhiều lần cập nhật trạng thái) dùng
+`Tasks/epics/EPIC-XXX_slug/` riêng, không phải 1 dòng trong `ROADMAP.md`**
+— quy ước mới từ 20/08 (xem `Tasks/epics/README.md` để biết chi tiết đầy
+đủ, đã có 3 epic theo kiểu này: `EPIC-001`/`002`/`003`). Cấu trúc:
+`README.md` (tổng quan + bảng task con) + `incomplete/`/`completed/` (y hệt
+`Tasks/backlog/`/`completed/` nhưng riêng cho epic đó, mã task con
+`EPIC-XXXA`, `EPIC-XXXB`…). `ROADMAP.md` khi đó **chỉ giữ 1 dòng liên kết**
+tới `README.md` của epic — không chép nội dung. Nhớ cập nhật cả 3 nơi khi
+xong 1 task con: `README.md` của epic, `Tasks/epics/README.md` (đếm lại
+X/N), và dòng 1-liên-kết ở `ROADMAP.md`. (Epic kiểu cũ, phẳng trong
+`Tasks/backlog/`/`completed/` — ví dụ `BOT-109`, `BOT-112`, `BOT-115` — vẫn
+giữ nguyên định dạng cũ, không bị dời ngược sang `epics/`.)
+
+Đề xuất kiến trúc chưa thành task (ai đó viết ra một hướng đi, chưa ai
+duyệt) sống ở `Tasks/proposal/PRO-XXX.md` — khác `Tasks/backlog/` (đã là
+task được chấp nhận) và khác `Tasks/epics/` (đã tách task con cụ thể). Khi
+1 đề xuất được duyệt, chuyển hoá nó thành `BOT-XXX`/`EPIC-XXX` thật — bản
+thân `PRO-XXX.md` không tự thực thi được.
+
 ---
 
 ## 7. Quyền hạn — cái gì được tự làm, cái gì phải hỏi
@@ -205,7 +238,7 @@ cd Tasks/backlog && grep -oh "](\.\./\?[^)]*\.md)" BOT-XXX*.md | tr -d '](' | se
 | Đọc, phân tích, chạy test | Tự do |
 | Sửa code trong phạm vi user yêu cầu | Tự do |
 | `git commit` | **Hỏi trước.** Không bao giờ commit tự phát |
-| `git push` | **Chỉ khi user yêu cầu rõ ràng**, và submodule/superproject là 2 lần xác nhận riêng |
+| `git push` | **Chỉ khi user yêu cầu rõ ràng**, và mỗi repo (app / engine) là 1 lần xác nhận riêng — 2 repo độc lập từ §2, không còn liên đới nhau |
 | Sửa file ngoài phạm vi task | Không, trừ khi user yêu cầu |
 | Xoá/ghi đè file của user | Đọc nội dung trước, hỏi trước |
 
@@ -274,27 +307,42 @@ Tất cả đều là chuyện đã xảy ra thật trong repo này, không ph�
 
 ## 9. Hai bộ `.agents/` — đừng đọc nhầm repo
 
-Cả superproject lẫn submodule đều có thư mục `.agents/`, **nội dung khác
-nhau và phục vụ hai dự án khác nhau**. Đây là chỗ nhầm lẫn nguy hiểm nhất
-với agent mới:
+`Sagittarius-Engine` (framework) và `Sagittarius_Elite_Warrior` (app bot,
+thư mục này) đều có `.agents/` riêng, **là 2 repo Git độc lập** (không còn
+quan hệ submodule — xem §2), chỉ tình cờ nằm lồng nhau trên đĩa. Nội dung
+khác nhau và phục vụ hai dự án khác nhau — đây vẫn là chỗ nhầm lẫn nguy
+hiểm nhất với agent mới, càng dễ nhầm hơn từ khi hết còn dấu hiệu "submodule"
+rõ ràng để phân biệt:
 
-| | `../.agents/` (superproject) | `.agents/` (submodule — thư mục này) |
+| | `../.agents/` (`Sagittarius-Engine`) | `.agents/` (`Sagittarius_Elite_Warrior` — thư mục này) |
 | :--- | :--- | :--- |
-| Phục vụ | framework `sagittarius_engine/` | app bot `Sagittarius_Elite_Warrior/` |
-| Bảng task | `../Tasks/README.md` (Kanban, mã `TASK-XXX`) | `Tasks/ROADMAP.md` (mã `BOT-XXX`/`BUG-XXX`) |
+| Phục vụ | framework `sagittarius_engine/` | app bot |
+| Bảng task | `../Tasks/README.md` (Kanban, mã `TASK-XXX`) | `Tasks/ROADMAP.md` (mã `BOT-XXX`/`BUG-XXX`/`EPIC-XXX`) |
 | Entry point | `PLAYBOOK.md` + `manifest.yml` | `ONBOARDING.md` (file này) + `AGENTS.md` |
+| Remote Git | riêng, repo `Sagittarius-Engine` | riêng, repo `Sagittarius-Elite-Warrior` |
 
-Khi làm việc trong app, **luôn ưu tiên rule của submodule**. Rule của
-superproject chỉ áp dụng khi bạn thật sự sửa code framework. Hai bảng task
-không liên quan gì nhau — đừng ghi task app vào `Tasks/README.md` của
-engine và ngược lại.
+Khi làm việc trong app, **luôn ưu tiên rule của repo này**. Rule của
+`Sagittarius-Engine` chỉ áp dụng khi bạn thật sự sửa code framework — và khi
+đó là 1 commit/push hoàn toàn tách biệt (§2), không có bước đồng bộ nào giữa
+2 repo. Hai bảng task không liên quan gì nhau — đừng ghi task app vào
+`Tasks/README.md` của engine và ngược lại.
 
 **Đã dọn 2026-08-20:** `../.agents/PLAYBOOK.md` trước đó mô tả cây thư mục
 `.ai/` (không tồn tại) và định tuyến sang 8 skill file không có thật;
 `../.agents/manifest.yml` khai báo 9 mục không tồn tại đồng thời bỏ sót 5
 file có thật. Cả hai đã được sửa — mọi mục trong manifest giờ trỏ đúng file
-thật. Nếu phát hiện thêm chỗ lỗi thời, sửa và ghi lại ở đây thay vì im lặng
-đi đường vòng.
+thật.
+
+**Đã dọn 2026-08-21 (rà soát toàn bộ file này theo yêu cầu user):** toàn bộ
+§2 và §9 vẫn mô tả quan hệ **submodule** giữa 2 repo — đã hết đúng từ
+`a1efcd6` cùng ngày (xem §2), viết lại hoàn toàn thay vì chỉ sửa câu chữ.
+Số "10 file rule" ở đầu file sai (thực tế 9, đếm bằng `ls .agents/rules/`).
+Số liệu test/lint ở §5 ("1564 test tại 2026-08-20", "38 lỗi I001") đã trôi
+so với thực tế (1641 test, 14 lỗi) — đổi cách viết để không tự tin tuyệt
+đối vào con số cố định trong tài liệu nữa, luôn trỏ về lệnh kiểm tra thật.
+§1 và §6 thiếu hẳn quy ước `Tasks/epics/` (có từ 20/08, đã có 3 epic) và
+`Tasks/proposal/` — bổ sung. Nếu phát hiện thêm chỗ lỗi thời, sửa và ghi
+lại ở đây thay vì im lặng đi đường vòng.
 
 Lưu ý còn tồn tại: **mọi rule file của cả hai repo chỉ ghi lệnh
 PowerShell**. Trên Linux dùng lệnh ở §5.
