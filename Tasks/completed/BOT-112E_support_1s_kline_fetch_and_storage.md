@@ -3,7 +3,7 @@
 **Mã Task:** `BOT-112E`  
 **Độ phức tạp:** 🟢 **S (Fast Agent)**  
 **Trạng thái:** 🟢 **Hoàn thành (2026-08-20)**  
-**Thuộc Epic:** [`BOT-112`](BOT-112_data_management_and_market_vault_overhaul_epic.md) (Market Data Vault Overhaul)  
+**Thuộc Epic:** [`BOT-112`](../backlog/BOT-112_data_management_and_market_vault_overhaul_epic.md) (Market Data Vault Overhaul)  
 **Phụ thuộc:** [`BOT-112A`](BOT-112A_data_management_core_actions_and_timeframe_support.md), [`BOT-112B`](BOT-112B_kline_data_inspector_and_integrity_audit.md)
 
 ---

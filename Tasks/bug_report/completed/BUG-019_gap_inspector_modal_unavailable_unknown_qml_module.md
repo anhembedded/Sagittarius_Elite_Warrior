@@ -5,8 +5,10 @@ nhánh `feat/BOT-112C-gap-visualizer-and-repair` (PR #73) vào `master-warrior`.
 **Severity:** P1 — modal Gap Inspector là giao diện chính của `BOT-112C`, và
 nó **không mở được trong app thật**, không chỉ hỏng trong test. Đồng thời làm
 nhánh `master-warrior` đỏ.
-**Status:** 🔴 **Open** — đã root-cause và xác minh, **chưa sửa** (theo yêu
-cầu: chỉ lập hồ sơ).
+**Status:** ✅ **Fixed 2026-08-21** — sửa bởi một phiên làm việc khác, không
+phải trong hồ sơ này. `GapInspectorModal.qml` giờ dùng `import QmlShared 1.0`
++ `import "../../components"` đúng như đề xuất ở mục *Suggested next steps*.
+Xác minh bằng cách chạy thật `test_all_discovered_previews_build_cleanly`: pass.
 
 ## Symptom
 

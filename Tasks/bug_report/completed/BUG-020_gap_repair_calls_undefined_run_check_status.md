@@ -5,8 +5,12 @@
 **Severity:** P2 — không mất dữ liệu (việc vá đã hoàn tất trước điểm lỗi),
 nhưng user luôn nhận thông báo thất bại cho một thao tác đã thành công, và
 bảng trạng thái không tự làm mới như thiết kế.
-**Status:** 🔴 **Open** — đã root-cause và xác minh, **chưa sửa** (theo yêu
-cầu: chỉ lập hồ sơ).
+**Status:** ✅ **Fixed 2026-08-21** — sửa bởi một phiên làm việc khác, như một
+phần của đợt refactor `_on_check_status()`: giờ đã có worker nền thật
+`_run_check_status(symbol, interval)` (`data_management_presenter.py:299`) và
+`_on_check_status` submit nó qua `IThreadManager`. Có test
+`test_run_check_status_populates_the_row_for_the_selection`. Xác minh bằng
+cách chạy thật: pass.
 
 ## Symptom
 
