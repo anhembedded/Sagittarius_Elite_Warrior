@@ -175,6 +175,22 @@ xem nhầm đống nhiễu đó và tưởng test hỏng. Luôn ghi ra file rồ
 ... -q > /tmp/run.log 2>&1; grep -E "^[0-9]+ (passed|failed)|failed," /tmp/run.log | tail -3
 ```
 
+**Luật này áp dụng cho MỌI lệnh verification, không chỉ pytest — kể cả
+chính `ci-local.ps1 -Full`.** Lý do còn nặng hơn "nhiễu": nếu chỉ xem qua
+`| tail -N` hay terminal cắt xén, có thể **mất hẳn** đúng dòng lỗi thật,
+không phải chỉ bị làm phiền bởi nhiễu. Bằng chứng thật (2026-08-21,
+`BUG-029`/`BUG-030`): agent trước đó chỉ chạy `pytest` thô, không bao giờ
+chạy `ci-local.ps1 -Full` thật; khi cuối cùng chạy và **redirect toàn bộ ra
+file** (`> file 2>&1`, không phải pipe/tail), phát hiện được 2 bug thật
+cùng lúc mà cách làm cũ không bao giờ bắt được: (1) `build-native-chart.ps1`
+lỗi `Join-Path` chỉ chạy trên PowerShell 7+, phá cổng CI trên PowerShell
+5.1 mà `ci-local.ps1` tự khai hỗ trợ, và (2) `-n 6` (song song) làm 1
+worker chết giữa chừng sau `ResourceWarning: unclosed database`, tái hiện
+2/2 lần — không phải flaky. Cả hai chỉ lộ ra được vì có file log đầy đủ để
+`grep`/đọc lại sau, không phải vì nhìn màn hình lúc chạy. Luôn dùng
+`> logfile 2>&1` (không phải `| tail`) cho bất kỳ lệnh verification nào
+đủ dài để cần đọc lại — pytest, `ci-local.ps1`, hay build script.
+
 Về lint: repo luôn có sẵn vài lỗi `I001` (import chưa sort) từ phiên khác
 không do bạn gây ra (14 lỗi trên `src tests` tại 21/08, con số này cũng
 trôi — kiểm tra thật bằng `ruff check src tests` thay vì tin số ở đây). Quy

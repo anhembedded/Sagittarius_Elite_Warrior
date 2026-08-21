@@ -141,6 +141,24 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot   = Split-Path -Parent $scriptDir
 $repoRoot  = Split-Path -Parent $botRoot
 
+# ONBOARDING.md §5 / BUG-029 / BUG-030 (2026-08-21): a truncated terminal or
+# `| tail -N` view can hide a real failure ENTIRELY, not just add noise — a
+# session reported "100% green" from a run that, fully captured, actually
+# failed. Every step's full output (native build, benchmark, lint, mypy,
+# tests, sanity) is captured to a real file automatically here, so nobody —
+# human or AI — has to remember to redirect manually.
+$logsDir = Join-Path $botRoot "logs"
+if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null }
+$transcriptLog = Join-Path $logsDir "ci-local-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+$latestLogPointer = Join-Path $logsDir "ci-local-latest.log"
+$transcriptStarted = $false
+try {
+    Start-Transcript -Path $transcriptLog -Force | Out-Null
+    $transcriptStarted = $true
+} catch {
+    Write-Warning "Could not start full-run transcript ($($_.Exception.Message)) — falling back to the Tests-only log capture below."
+}
+
 # $IsWindows only exists on PowerShell Core (6+); Windows PowerShell 5.1 is
 # Windows-only, so its absence means "definitely Windows".
 $isWindowsOs = if (Test-Path variable:IsWindows) { $IsWindows } else { $true }
@@ -470,12 +488,25 @@ if (-not $SkipTests) {
     }
 }
 
-Write-Host ""
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-if ($failed.Count -eq 0) {
-    Write-Host "  🎉  All checks passed!" -ForegroundColor Green
-    exit 0
-} else {
-    Write-Host "  💥  Failed steps: $($failed -join ', ')" -ForegroundColor Red
-    exit 1
+$exitCode = if ($failed.Count -eq 0) { 0 } else { 1 }
+
+if ($transcriptStarted) {
+    try { Stop-Transcript | Out-Null } catch {}
+    Copy-Item -Path $transcriptLog -Destination $latestLogPointer -Force -ErrorAction SilentlyContinue
 }
+
+# Machine-readable summary block, always the LAST thing printed. An agent
+# reading truncated/tail output only needs these final lines — never trust
+# a status claimed from anything earlier in the stream without opening
+# LOG_FILE first (BUG-029/BUG-030, 2026-08-21: a run that "looked green" in
+# a truncated view was actually failing every time, reproducibly).
+Write-Host ""
+Write-Host "===CI_LOCAL_RESULT==="
+Write-Host "RESULT: $(if ($exitCode -eq 0) { 'PASS' } else { 'FAIL' })"
+Write-Host "FAILED_STEPS: $(if ($failed.Count -eq 0) { 'none' } else { $failed -join ',' })"
+Write-Host "LOG_FILE: $transcriptLog"
+Write-Host "LOG_FILE_LATEST: $latestLogPointer"
+Write-Host "INSTRUCTION: Do not report PASS/FAIL from this console output alone. Read LOG_FILE (grep for FAILED, ERROR, Traceback, ResourceWarning) before declaring the gate green."
+Write-Host "===END_CI_LOCAL_RESULT==="
+
+exit $exitCode
