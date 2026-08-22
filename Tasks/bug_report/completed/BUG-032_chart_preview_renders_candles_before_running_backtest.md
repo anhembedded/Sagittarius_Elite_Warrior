@@ -2,7 +2,7 @@
 
 **Reported date:** 2026-08-22
 **Severity:** 🟡 **P2** (Trải nghiệm người dùng / Hành vi hiển thị dữ liệu)
-**Status:** Open
+**Status:** ✅ **Fixed 2026-08-22** — root-caused, regression-tested, verified qua `ci-local.ps1 -Full` (build native + lint + mypy + 1764 unit + 50 sanity, tất cả pass).
 
 ---
 
@@ -51,8 +51,65 @@ Khi người dùng mở màn hình **Backtest Engine** hoặc chọn đổi sang
 
 ---
 
-## 3. Các bước tiếp theo (Suggested Next Steps)
+## 3. Root cause
 
-1. Thảo luận và thống nhất thiết kế UX cho trạng thái ban đầu của biểu đồ Backtest trước khi chạy mô phỏng.
-2. Kiểm tra logic kích hoạt `_request_chart_preview()` trong `BacktestPresenter` khi thay đổi cấu hình (`_on_symbol_changed`, `_on_timeframe_changed`, `_on_time_range_changed`).
-3. Viết regression test và cập nhật lại luồng hiển thị nếu cần thay đổi.
+Không phải side-effect ngẫu nhiên — đây là tính năng "Live Chart Preview" có
+chủ đích, bắt nguồn từ `BOT-095D` (2026-08-17, acceptance criterion #3:
+*"Preview nến tức thì: Đổi khung 1m sang 5m có data → Chart cập nhật nến 5m
+ngay lập tức"*) và mở rộng sang symbol-change ở `BOT-102`.
+
+`_request_chart_preview()`
+([`backtest_presenter.py:1602`](../../../src/presentation/ui/screens/backtest/backtest_presenter.py))
+được gọi từ `_on_symbol_selection_changed`, `_on_timeframe_changed`,
+`_on_time_range_changed`, `_on_custom_time_changed` — tải nến thật rồi render
+qua `_on_preview_data_ready` → `view.on_preview_data_ready()`
+([`backtest_view.py:315`](../../../src/presentation/ui/screens/backtest/backtest_view.py)),
+gọi **đúng** `card.render_historical_data()`/`render_historical_volume()`
+mà kết quả backtest thật cũng dùng
+(`_on_chart_data_ready` → `view.on_backtest_data_ready()` →
+[`backtest_view.py:389`](../../../src/presentation/ui/screens/backtest/backtest_view.py)).
+
+Lỗ hổng thật: không có state/label nào phân biệt 2 trường hợp. FSM
+(`backtest_fsm_matrix.py`) không có state `PREVIEW`; ViewModel và QML không
+có property/label nào tên "preview" trước khi sửa. Người dùng nhìn thấy 2
+kiểu dữ liệu **giống hệt nhau** trên chart.
+
+## 4. Fix
+
+Giữ nguyên tính năng Live Chart Preview (đã acceptance-test ở `BOT-095D`),
+thêm state + badge phân biệt rõ ràng (Lựa chọn B trong mục 2):
+
+- **`backtest_view_model.py`**: thêm property `isChartPreview` (đọc-only từ
+  QML, cùng convention với `needsDataSync`) + signal `isChartPreviewChanged`
+  + slot `set_chart_preview_mode(bool)`.
+- **`backtest_presenter.py`**:
+  - `_on_preview_data_ready()` gọi `set_chart_preview_mode(True)` sau khi
+    render preview (kể cả qua nhánh fallback Python khi native từ chối
+    snapshot).
+  - `_on_chart_data_ready()` (nơi duy nhất render `BacktestResult` thật) gọi
+    `set_chart_preview_mode(False)` — xoá cờ preview ngay khi kết quả thật
+    lên chart.
+- **`BackTestTopPanel.qml`**: thêm banner `backtestChartPreviewBanner`
+  (cùng vị trí/style với `backtestStaleWarningBanner`/
+  `backtestCoverageWarningBanner` đã có), `visible: viewModel.isChartPreview`,
+  nội dung: *"Đồ thị xem trước — chưa chạy Backtest. Nhấn "CHẠY BACKTEST" để
+  xem kết quả thật."*
+
+Không đổi gì ở tầng chart-host/native — badge là QML/ViewModel thuần, không
+chạm interface `IBacktestChartHost`.
+
+## 5. Regression test
+
+[`tests/unit/presentation/ui/screens/test_backtest_presenter.py::test_chart_preview_flag_distinguishes_preview_from_real_backtest_result`](../../../tests/unit/presentation/ui/screens/test_backtest_presenter.py) —
+gọi `_on_preview_data_ready()` thật (không mock `view.on_preview_data_ready`)
+với dữ liệu kline hợp lệ, assert `view_model.isChartPreview is True`; sau đó
+gọi `_on_chart_data_ready()` thật với 1 `BacktestResult`, assert
+`view_model.isChartPreview is False`.
+
+Xác nhận FAIL trước fix: `AttributeError: 'BackTestViewModel' object has no
+attribute 'isChartPreview'`. Sau fix: PASS, cùng với 3 test liên quan khác
+(`test_preview_result_updates_coverage_and_chart_but_stale_result_is_fenced`,
+`test_preview_data_ready_falls_back_to_python_when_native_rejects_the_snapshot`,
+`test_backtest_data_ready_falls_back_to_python_when_native_rejects_the_snapshot`)
+và toàn bộ `ci-local.ps1 -Full` (build native, ruff lint/format, mypy, 1764
+unit test, 50 sanity test).
