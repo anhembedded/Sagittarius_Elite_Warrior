@@ -532,6 +532,49 @@ Rectangle {
                     }
                 }
             }
+                                
+            // ================= ROW 1.4: CHART PREVIEW MODE BANNER (BUG-032) =================
+            // Distinguishes candles loaded by _request_chart_preview() (open
+            // screen / change symbol-timeframe-range before a run) from a
+            // completed BacktestResult — both render through the exact same
+            // render_historical_data()/render_historical_volume() calls, so
+            // without this the chart looked identical either way.
+            Rectangle {
+                id: chartPreviewBanner
+                objectName: "backtestChartPreviewBanner"
+                Layout.fillWidth: true
+                implicitHeight: visible ? 32 : 0
+                visible: root.hasViewModel && viewModel.isChartPreview
+                color: "#0f1b2e"
+                border.color: Theme.accent
+                border.width: 1
+                radius: 6
+                clip: true
+
+                Behavior on implicitHeight { NumberAnimation { duration: 150 } }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 8
+
+                    Image {
+                        source: "image://icons/info/accent"
+                        sourceSize: Qt.size(14, 14)
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Đồ thị xem trước — chưa chạy Backtest. Nhấn \"CHẠY BACKTEST\" để xem kết quả thật."
+                        color: Theme.accent
+                        font.pixelSize: 11
+                        font.bold: true
+                        elide: Text.ElideRight
+                        textFormat: Text.PlainText
+                    }
+                }
+            }
 
             // ================= ROW 1.5: STALE CONFIG WARNING BANNER (BOT-095B) =================
             Rectangle {

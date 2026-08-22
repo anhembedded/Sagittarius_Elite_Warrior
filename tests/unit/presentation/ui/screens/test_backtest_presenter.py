@@ -1428,6 +1428,28 @@ def test_preview_result_updates_coverage_and_chart_but_stale_result_is_fenced(
     presenter.view.on_preview_data_ready.assert_called_once_with(["new"], ["volume"])
 
 
+def test_chart_preview_flag_distinguishes_preview_from_real_backtest_result(
+    presenter, view_model
+):
+    """BUG-032: opening the screen / changing symbol renders real candles via
+    `_request_chart_preview()` through the exact same `render_historical_data`
+    call a completed backtest uses — nothing told the user the chart was only
+    a preview. `isChartPreview` must be True after a preview render and flip
+    back to False only once a real `BacktestResult` chart renders."""
+    presenter._active_preview_id = 3
+    klines = [(1.0, 1.0, 2.0, 0.5, 1.5)]
+    volume = [(1.0, 100.0, True)]
+
+    presenter._on_preview_data_ready(3, _complete_coverage(), klines, volume)
+
+    assert view_model.isChartPreview is True
+
+    result = _make_result(with_trades=True)
+    presenter._on_chart_data_ready(result, klines, volume)
+
+    assert view_model.isChartPreview is False
+
+
 def test_request_sync_ignored_without_a_cached_no_data_config(
     presenter, view_model, mock_thread_mgr
 ):

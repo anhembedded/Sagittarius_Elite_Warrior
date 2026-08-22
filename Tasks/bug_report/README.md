@@ -27,8 +27,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa** | 29 |
+| 🔴 **Đang mở** | 2 |
+| ✅ **Đã sửa** | 30 |
 | 📈 **Tổng** | **32** |
 
 ---
@@ -37,7 +37,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-032](incomplete/BUG-032_chart_preview_renders_candles_before_running_backtest.md)** | Chart tự động vẽ nến và volume khi chưa nhấn "Chạy Backtest" | 🟡 P2 | 2026-08-22 | Khi chuyển sang màn hình Backtest hoặc đổi symbol trên toolbar, hệ thống tự động chạy `GetHistoricalKlinesQuery` và render đầy đủ đồ thị nến/volume trước khi người dùng thực hiện chạy backtest. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky). Không phải do test nơi nó xuất hiện, không phải do fixture `repo` chuẩn (đã có `dispose_all()`). Nghi phạm: `gc.collect()` lặp trong `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` làm lộ ra leak có sẵn từ test khác — chưa bisect ra nguồn chính xác. |
 | **[BUG-016](incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Root cause đã khoanh chính xác 2026-08-21: treo đúng tại `view.grabWindow()` (API `QQuickView` top-level, khác `QWidget.grab()` production dùng qua `QQuickWidget`) — không phải 1 dòng sửa được ngay vì đây là chủ đích đo riêng đường đó theo docstring. Tác động thật thấp: native đã là default production (`BOT-098F6E` xong), chỉ chặn đóng bookkeeping `BOT-098F5`/`F6D`. |
 
@@ -47,6 +46,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-032](completed/BUG-032_chart_preview_renders_candles_before_running_backtest.md)** | Chart tự động vẽ nến và volume khi chưa nhấn "Chạy Backtest" | 🟡 P2 | 2026-08-22 | Trong chính hồ sơ này (2026-08-22). Không phải bug ngẫu nhiên — tính năng "Live Chart Preview" có chủ đích (`BOT-095D`/`BOT-102`) nhưng thiếu state phân biệt. Thêm `isChartPreview` (ViewModel) + badge QML, bật ở `_on_preview_data_ready`, tắt ở `_on_chart_data_ready`. |
 | **[BUG-031](completed/BUG-031_cross_thread_timer_start_hangs_ui_during_backtest.md)** | `QBasicTimer::start: Timers cannot be started from another thread` treo UI màn hình Backtest | 🔴 **P1** | 2026-08-22 | Trong chính hồ sơ này (2026-08-22). Chuyển `apply_height` / `apply_minimum_height` thành `@Slot()` trên `BackTestView` gọi qua `QMetaObject.invokeMethod(..., QueuedConnection)`; bổ sung `@Slot(str)` cho `BackTestViewModel.set_ui_mode`. |
 | **[BUG-029](completed/BUG-029_build_native_chart_join_path_powershell5_incompatible.md)** | `build-native-chart.ps1` dùng `Join-Path` 3-5 tham số, không chạy được trên Windows PowerShell 5.1 | 🔴 P1 | 2026-08-21 | Trong chính hồ sơ này (2026-08-21). `ci-local.ps1` tự khai `#Requires -Version 5.1` nhưng bị chính script con phá tương thích. Sửa 4 chỗ thành `Join-Path` lồng nhau 2 tham số. Verify trên đúng PowerShell 5.1 + `$ErrorActionPreference=Stop`. |
 | **[BUG-015](completed/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)** | Native chart "dựng lại" geometry OHLCV/volume khi rê chuột — hoá ra không phải bug renderer | 🟡 P2 | 2026-08-19 | Trong chính hồ sơ này (2026-08-21). **Không phải bug native code** — `root->buildCount` luôn = 1, đúng. Bug thật nằm ở probe script đọc property `geometryBuildCount` trước khi render thread kịp publish qua cross-thread hop — cùng lớp lỗi với 3 probe-bug khác đã sửa. Sửa: chờ post-condition thật thay vì đếm `processEvents()` cố định. 25% → 15/15 pass. |

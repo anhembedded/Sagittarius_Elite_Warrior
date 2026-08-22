@@ -114,6 +114,7 @@ class BackTestViewModel(BaseQmlViewModel):
     limitationsChanged = Signal()
     showExtendedMetricsChanged = Signal()
     needsDataSyncChanged = Signal()
+    isChartPreviewChanged = Signal()
     tradeLogFilterChanged = Signal()
     tradeLogSearchTextChanged = Signal()
     tradeLogCurrentPageChanged = Signal()
@@ -239,6 +240,7 @@ class BackTestViewModel(BaseQmlViewModel):
         self._limitations: list[str] = []
         self._show_extended_metrics = False
         self._needs_data_sync = False
+        self._is_chart_preview = False
         self._trade_log_rows: list[dict[str, str]] = []
         self._trade_log_total_count = 0
         self._trade_log_total_pages = 1
@@ -1039,6 +1041,24 @@ class BackTestViewModel(BaseQmlViewModel):
         if value != self._needs_data_sync:
             self._needs_data_sync = value
             self.needsDataSyncChanged.emit()
+
+    def _get_is_chart_preview(self) -> bool:
+        return self._is_chart_preview
+
+    #: BUG-032 — True whenever the chart currently shows candles loaded by
+    #: `_request_chart_preview()` (opening the screen / changing symbol,
+    #: timeframe, or range before a run) rather than a completed
+    #: `BacktestResult`. Both paths render through the same
+    #: `render_historical_data`/`render_historical_volume` calls, so QML
+    #: needs this flag to tell the user which one they're looking at.
+    #: Read-only from QML by design, same convention as `needsDataSync`.
+    isChartPreview = Property(bool, _get_is_chart_preview, notify=isChartPreviewChanged)
+
+    @Slot(bool)
+    def set_chart_preview_mode(self, value: bool) -> None:
+        if value != self._is_chart_preview:
+            self._is_chart_preview = value
+            self.isChartPreviewChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Trade Logs table (BOT-057 §2.1)

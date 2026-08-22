@@ -1310,6 +1310,10 @@ class BackTestPresenter(BasePresenter):
             self._fallback_to_python_after_unsupported_native_feature(
                 "backtest OHLCV data"
             )
+        # BUG-032: this is the one place a real BacktestResult chart lands —
+        # clears the preview flag `_on_preview_data_ready` set, so QML stops
+        # showing the "preview" badge once real results are on screen.
+        self._view_model.set_chart_preview_mode(False)
 
     @Slot(str, str, list, list)
     @safe_ui_action
@@ -1684,6 +1688,7 @@ class BackTestPresenter(BasePresenter):
             self._fallback_to_python_after_unsupported_native_feature(
                 "chart preview data"
             )
+        self._view_model.set_chart_preview_mode(True)
 
     @Slot()
     @safe_ui_action
