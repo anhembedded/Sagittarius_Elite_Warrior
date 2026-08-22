@@ -65,6 +65,31 @@ condition given the same test collection and 6-worker split.
   new from the same BUG-025 backtest-streaming work), not yet proven by
   bisection.
 
+## Additional finding (2026-08-23, Linux dev machine)
+
+Ran the identical `ci-local.ps1 -Full` gate (same scope — `unit` +
+`integration` excl. `sanity`/flaky-UI, same default 6 xdist workers) on a
+Linux machine: **1764 tests passed, zero `ResourceWarning`, no crash.** Same
+command, same test collection, no repro — strong evidence this is
+Windows-specific (most likely how Windows locks/handles open SQLite file
+descriptors vs. POSIX, interacting with GC finalization timing under xdist).
+
+Also audited every other test file that constructs a `DatabaseManager`/raw
+`sqlite3`/SQLAlchemy engine directly, beyond what this report already ruled
+out: `test_sqlalchemy_repository_gaps.py`, `test_security.py`,
+`test_database_manager_shards.py`,
+`test_bug010_sync_range_coverage_regression.py` (all in
+`tests/unit/infrastructure/persistence/` or
+`tests/integration/infrastructure/persistence/`). **All four already call
+`dispose_all()` in a `finally`/fixture teardown** — same well-behaved pattern
+as `test_sqlalchemy_repository.py`'s `repo` fixture. Ruled out, same as the
+candidates already eliminated above.
+
+**Consequence:** the "Suggested next steps" bisection plan below requires a
+Windows machine to produce any signal — re-running on Linux only yields clean
+passes regardless of which tests are deselected, since the condition never
+triggers here at all.
+
 ## Suggested next steps (not yet attempted)
 
 1. **Bisect by disabling tests, not by reading code further.** Run the same

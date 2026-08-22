@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 4 |
 | ✅ **Đã sửa** | 30 |
-| 📈 **Tổng** | **32** |
+| 📈 **Tổng** | **34** |
 
 ---
 
@@ -37,6 +37,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
+| **[BUG-033](incomplete/BUG-033_realtime_backtest_progress_flood_freezes_ui_thread.md)** | Realtime Backtest tick-level làm UI thread đơ 5+ giây (progress signal flood) | 🟡 P2 | 2026-08-23 | Root cause đã khoanh (chưa xác nhận sống): throttle theo tick-index (mỗi 256 tick) tạo ~10,125 lần emit signal cross-thread cho 1 lần chạy 2.59M tick, mỗi lần kéo theo Property write + QML notify + `Behavior on width` animation retrigger trên `AppProgressBar`. Xác nhận qua đối chiếu timestamp log thật + `UIWatchdog`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky). Không phải do test nơi nó xuất hiện, không phải do fixture `repo` chuẩn (đã có `dispose_all()`). Nghi phạm: `gc.collect()` lặp trong `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` làm lộ ra leak có sẵn từ test khác — chưa bisect ra nguồn chính xác. |
 | **[BUG-016](incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Root cause đã khoanh chính xác 2026-08-21: treo đúng tại `view.grabWindow()` (API `QQuickView` top-level, khác `QWidget.grab()` production dùng qua `QQuickWidget`) — không phải 1 dòng sửa được ngay vì đây là chủ đích đo riêng đường đó theo docstring. Tác động thật thấp: native đã là default production (`BOT-098F6E` xong), chỉ chặn đóng bookkeeping `BOT-098F5`/`F6D`. |
 
