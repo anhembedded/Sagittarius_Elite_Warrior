@@ -41,13 +41,13 @@ bookkeeping `ROADMAP.md`).
 ## 2. HAI repo độc lập, không phải submodule — đổi từ 21/08
 
 ```
-Sagittarius-Engine/                  ← repo framework (sagittarius_engine/), remote riêng
+Sagittarius_Engine/                  ← repo framework (sagittarius_engine/), remote riêng
 └── Sagittarius_Elite_Warrior/       ← repo app bot Binance, nhánh `master-warrior`, remote riêng
 ```
 
 **Đổi 21/08 (commit `a1efcd6`, quyết định của user, đọc nguyên văn message
 commit đó nếu cần bối cảnh đầy đủ):** trước đây `Sagittarius_Elite_Warrior/`
-là **git submodule** của `Sagittarius-Engine` — superproject giữ 1 con trỏ
+là **git submodule** của `Sagittarius_Engine` — superproject giữ 1 con trỏ
 (gitlink) tới đúng commit của submodule, và mọi lần đổi submodule phải
 "bump" con trỏ đó ở superproject rồi commit riêng. **Không còn đúng nữa** —
 `a1efcd6` đã xoá hẳn khai báo submodule (`.gitmodules` không còn tồn tại,
@@ -61,7 +61,7 @@ nhau trên đĩa của máy phát triển này — không có con trỏ nào c�
   đúng thư mục đó, `git commit`/`git push` — **chỉ 1 repo, không có bước
   "bump" nào ở superproject nữa.**
 - Việc trong `sagittarius_engine/` (hiếm — chỉ khi thật sự thiếu cơ chế
-  nền): commit/push riêng trong `Sagittarius-Engine`, **hoàn toàn không
+  nền): commit/push riêng trong `Sagittarius_Engine`, **hoàn toàn không
   liên quan tới `Sagittarius_Elite_Warrior/`** — không cần bump gì cả vì
   không còn gì để bump.
 
@@ -323,22 +323,22 @@ Tất cả đều là chuyện đã xảy ra thật trong repo này, không ph�
 
 ## 9. Hai bộ `.agents/` — đừng đọc nhầm repo
 
-`Sagittarius-Engine` (framework) và `Sagittarius_Elite_Warrior` (app bot,
+`Sagittarius_Engine` (framework) và `Sagittarius_Elite_Warrior` (app bot,
 thư mục này) đều có `.agents/` riêng, **là 2 repo Git độc lập** (không còn
 quan hệ submodule — xem §2), chỉ tình cờ nằm lồng nhau trên đĩa. Nội dung
 khác nhau và phục vụ hai dự án khác nhau — đây vẫn là chỗ nhầm lẫn nguy
 hiểm nhất với agent mới, càng dễ nhầm hơn từ khi hết còn dấu hiệu "submodule"
 rõ ràng để phân biệt:
 
-| | `../.agents/` (`Sagittarius-Engine`) | `.agents/` (`Sagittarius_Elite_Warrior` — thư mục này) |
+| | `../.agents/` (`Sagittarius_Engine`) | `.agents/` (`Sagittarius_Elite_Warrior` — thư mục này) |
 | :--- | :--- | :--- |
 | Phục vụ | framework `sagittarius_engine/` | app bot |
 | Bảng task | `../Tasks/README.md` (Kanban, mã `TASK-XXX`) | `Tasks/ROADMAP.md` (mã `BOT-XXX`/`BUG-XXX`/`EPIC-XXX`) |
 | Entry point | `PLAYBOOK.md` + `manifest.yml` | `ONBOARDING.md` (file này) + `AGENTS.md` |
-| Remote Git | riêng, repo `Sagittarius-Engine` | riêng, repo `Sagittarius-Elite-Warrior` |
+| Remote Git | riêng, repo `Sagittarius_Engine` | riêng, repo `Sagittarius_Elite_Warrior` |
 
 Khi làm việc trong app, **luôn ưu tiên rule của repo này**. Rule của
-`Sagittarius-Engine` chỉ áp dụng khi bạn thật sự sửa code framework — và khi
+`Sagittarius_Engine` chỉ áp dụng khi bạn thật sự sửa code framework — và khi
 đó là 1 commit/push hoàn toàn tách biệt (§2), không có bước đồng bộ nào giữa
 2 repo. Hai bảng task không liên quan gì nhau — đừng ghi task app vào
 `Tasks/README.md` của engine và ngược lại.

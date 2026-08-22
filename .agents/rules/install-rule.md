@@ -11,39 +11,39 @@ All developers and AI assistants working on this repository MUST strictly follow
 ## 1. Sagittarius Engine Installation Options
 
 ### Option 1: Install from GitHub Repository (Production / Shared / CI)
-When installing in fresh environments, CI pipelines, or when sharing builds, install `sagittarius_engine` directly from the official GitHub repository:
+When installing in fresh environments, CI pipelines, or when sharing builds, install `sagittarius_engine` directly from the official GitHub repository ([Sagittarius_Engine](https://github.com/anhembedded/Sagittarius_Engine)):
 
 ```bash
-pip install git+https://github.com/anhembedded/Sagittarius-Engine.git
+pip install git+https://github.com/anhembedded/Sagittarius_Engine.git
 ```
 
 For editable / upgrade mode from GitHub:
 ```bash
-pip install --upgrade --force-reinstall git+https://github.com/anhembedded/Sagittarius-Engine.git
+pip install --upgrade --force-reinstall git+https://github.com/anhembedded/Sagittarius_Engine.git
 ```
 
 ---
 
 ### Option 2: Local Editable Installation (Development & Debugging)
-When actively developing or debugging both the engine and the bot concurrently in a local monorepo / submodule setup:
+When actively developing or debugging both the engine and the bot concurrently in a local monorepo / multi-repo setup:
 
 ```bash
 # From workspace root
-pip install -e Sagittarius-Engine
+pip install -e Sagittarius_Engine
 ```
 
 ---
 
 ## 2. Full Environment Bootstrap
 
-To install all application dependencies and tools:
+To install all application dependencies and tools for [Sagittarius_Elite_Warrior](https://github.com/anhembedded/Sagittarius_Elite_Warrior):
 
 ```bash
 # 1. Base requirements
 pip install -r requirements.txt
 
 # 2. Sagittarius Engine (GitHub)
-pip install git+https://github.com/anhembedded/Sagittarius-Engine.git
+pip install git+https://github.com/anhembedded/Sagittarius_Engine.git
 ```
 
 Or run the automated setup scripts:
@@ -87,5 +87,5 @@ AI rule in `native-chart-rule.md` and the user guide at
    - Do NOT run plain `pip install sagittarius-engine` or `pip install sagittarius_engine` without the git URL prefix.
 
 2. **Clean Submodule Tree Preservation:**
-   - If using Option 2 (local editable installation), ensure no temporary build artifacts, `.egg-info`, or `__pycache__` leave `Sagittarius-Engine` in a `(dirty)` git state.
-   - In automated agent runs, prefer Option 1 or clean with `git -C Sagittarius-Engine clean -fdx`.
+   - If using Option 2 (local editable installation), ensure no temporary build artifacts, `.egg-info`, or `__pycache__` leave `Sagittarius_Engine` in a `(dirty)` git state.
+   - In automated agent runs, prefer Option 1 or clean with `git -C Sagittarius_Engine clean -fdx`.

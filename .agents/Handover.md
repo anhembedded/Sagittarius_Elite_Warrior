@@ -371,12 +371,12 @@ together:
 
 ### Option 1: Install from GitHub Repository (Production / Shared)
 ```bash
-pip install git+https://github.com/anhembedded/Sagittarius-Engine.git
+pip install git+https://github.com/anhembedded/Sagittarius_Engine.git
 ```
 
 ### Option 2: Local Editable Installation (Development)
 ```bash
-pip install -e Sagittarius-Engine
+pip install -e Sagittarius_Engine
 ```
 
 ## Where the actual rules live (read these, don't guess)
