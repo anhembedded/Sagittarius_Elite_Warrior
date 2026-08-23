@@ -304,3 +304,33 @@ def test_tick_resolution_coarser_than_interval_is_rejected():
             tick_resolution=TimeFrame.ONE_MINUTE,
             strategy_key="counting",
         )
+
+
+def test_progress_callback_rate_is_bounded_regardless_of_tick_count():
+    """BUG-033: an index-based throttle (`index % 256 == 0`) fires
+    proportionally to tick count — a real 2.59M-tick run produced ~10,125
+    calls, each costing a cross-thread Qt signal + Property write + QML
+    notify + progress-bar animation retrigger, which froze the UI thread
+    for 5.2 real seconds (confirmed via the UIWatchdog's own captured stack
+    trace and log timestamps). The fix throttles by wall-clock time
+    instead, so the call count must stay small no matter how many ticks a
+    run processes. A fast unit test's own real elapsed time never crosses
+    `ProgressThrottle`'s interval, so only the guaranteed first/last calls
+    (plus, rarely, one crossing the interval on a loaded CI machine) fire —
+    proportional-to-N behaviour would instead produce ~78 calls here
+    (20,000 / 256)."""
+    ticks = _build_bar_ticks(0, [100.0] * 20_000, bar_seconds=1200.0)
+    handler, _ = _build_handler(ticks)
+    updates: list[tuple[str, int, int, float]] = []
+
+    handler.execute(
+        _build_command(
+            progress_callback=lambda phase, done, total, elapsed: updates.append(
+                (phase, done, total, elapsed)
+            )
+        )
+    )
+
+    assert len(updates) < 20
+    assert updates[0][1:3] == (1, 20_000)
+    assert updates[-1][1:3] == (20_000, 20_000)

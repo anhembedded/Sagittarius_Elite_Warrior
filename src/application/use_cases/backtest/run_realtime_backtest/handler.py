@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_factory import 
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.progress_throttle import (
+    ProgressThrottle,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.backtest_cancelled import (
     BacktestCancelled,
 )
@@ -240,6 +243,7 @@ class RunRealtimeBacktestCommandHandler(
         forming: _FormingBar | None = None
         started_at = perf_counter()
         total_ticks = len(ticks)
+        progress_throttle = ProgressThrottle()
 
         for index, tick in enumerate(ticks, start=1):
             if command.cancellation_requested and command.cancellation_requested():
@@ -299,8 +303,8 @@ class RunRealtimeBacktestCommandHandler(
                 if signal is not None:
                     exchange.fill(signal, tick.close_price, tick.close_time)
 
-            if command.progress_callback and (
-                index == 1 or index % 256 == 0 or index == total_ticks
+            if command.progress_callback and progress_throttle.should_emit(
+                index, total_ticks
             ):
                 command.progress_callback(
                     _PHASE, index, total_ticks, perf_counter() - started_at

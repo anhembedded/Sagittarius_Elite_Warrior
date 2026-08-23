@@ -5,8 +5,9 @@ run (BTCUSDT, `HISTORICAL_TICK` execution mode).
 **Severity:** 🟡 P2 — does not corrupt data or crash the app (the watchdog itself confirms
 recovery: "UI Thread recovered from freeze. Event loop responsive."), but the entire UI is
 genuinely unresponsive to input for 5+ seconds on every large tick-range Realtime Backtest run.
-**Status:** 🔴 **Open — root cause narrowed via log-timestamp cross-reference + code trace
-(2026-08-23), not yet reproduced live with debug instrumentation or fixed.**
+**Status:** ✅ **Fixed 2026-08-23** — regression-tested, verified via `ci-local.ps1 -Full`
+(1773 unit + 50 sanity, `FAILED_STEPS: none`). Root cause narrowed via log-timestamp
+cross-reference + code trace, not confirmed by live debug instrumentation (see caveat below).
 
 ## Symptom
 
@@ -70,21 +71,56 @@ still process very large bar counts. This report only has direct evidence for th
 path; the static path is flagged here as sharing the same *class* of risk, not asserted to have
 actually frozen anyone's UI.
 
-## Suggested next steps (not yet attempted)
+## Fix
 
-1. Reproduce live with temporary instrumentation: log `perf_counter()` on both the emit side
-   (`progress_callback`) and the receive side (`_on_backtest_progress_for_action`) for a subset
-   of calls, to directly measure emit rate vs. drain rate and confirm the backlog theory instead
-   of inferring it from timestamps alone.
-2. If confirmed, throttle `progress_callback` by **wall-clock time** (e.g. "at most once per
-   ~100-150ms of real time", always still firing on `index == 1`/`index == total` so the bar
-   never gets visually stuck at 0% or fails to reach 100%) instead of by tick/bar index — bounds
-   the absolute emission rate regardless of how many ticks/bars a given run processes. Natural
-   shared location: both `run_static_backtest/handler.py` and `run_realtime_backtest/handler.py`
-   currently duplicate the same index-based throttle condition; a shared, wall-clock-based
-   helper would fix both instead of patching one and leaving the other's same-shaped risk.
-3. Separately worth checking (lower priority, only if step 1-2 doesn't fully explain the 5.2s):
-   whether `AppProgressBar`'s `Behavior on width` should be suppressed above some update
-   frequency, independent of the emission-rate fix — 10,000+ animation retriggers is wasted work
-   even after throttling reduces the count, if the throttle still allows a burst faster than
-   ~5/sec.
+Replaced the index-based throttle (`index == 1 or index % 256 == 0 or index == total_ticks`,
+and the static handler's equivalent `% 16`) with
+[`ProgressThrottle`](../../../src/application/use_cases/backtest/progress_throttle.py) — a
+small, injectable-clock class that gates `progress_callback` by **wall-clock time**
+(`min_interval_seconds=0.15` by default) instead of iteration count, while still always firing
+on the first and last index so a progress bar never looks stuck at 0% or fails to reach 100%.
+Applied to both handlers that duplicated the same index-based pattern:
+
+- [`run_realtime_backtest/handler.py`](../../../src/application/use_cases/backtest/run_realtime_backtest/handler.py) —
+  one `ProgressThrottle` instance per run (single tick loop).
+- [`run_static_backtest/handler.py`](../../../src/application/use_cases/backtest/run_static_backtest/handler.py) —
+  one `ProgressThrottle` instance per `_simulate()` call, i.e. per phase (in-sample,
+  out-of-sample, full each get their own, matching how `index`/`phase_bar_count` already reset
+  per phase). Only had *circumstantial* risk (no direct evidence of ever freezing anyone's UI),
+  fixed anyway since it shared the exact same code shape and downstream risk as the confirmed
+  realtime case.
+
+This bounds the absolute emission rate to roughly `run_duration / 0.15s` regardless of how many
+ticks/bars a given run processes — a 2.59M-tick run would now emit on the order of tens of
+updates over its real duration, not ~10,125.
+
+**Caveat carried forward, not fully closed by this fix:** the root cause was narrowed via
+log-timestamp cross-reference and code trace, not confirmed by live reproduction with direct
+timing instrumentation on both the emit and receive sides (Suggested next step 1 from the
+original report). The fix is still correct and low-risk on its own terms (it directly removes
+the mechanism that produces a ~10,000-call burst, which is real regardless of exactly how much
+of the 5.2s it explains), but if UI freezes are ever reported again on a large Realtime Backtest
+run after this fix, do not assume this same mechanism without re-checking.
+
+## Regression test
+
+[`tests/unit/application/use_cases/test_run_realtime_backtest.py::test_progress_callback_rate_is_bounded_regardless_of_tick_count`](../../../tests/unit/application/use_cases/test_run_realtime_backtest.py) —
+runs 20,000 ticks through the real (unmocked) handler with a real `progress_callback` collecting
+every call, asserting the call count stays under 20 and the first/last calls always report
+`(1, 20_000)`/`(20_000, 20_000)`. Confirmed **FAIL before the fix**: `assert 80 < 20` (matches
+`20_000 / 256 ≈ 78`, i.e. the old throttle's real behavior). Passes after the fix.
+
+Also added
+[`tests/unit/application/use_cases/test_progress_throttle.py`](../../../tests/unit/application/use_cases/test_progress_throttle.py)
+(7 tests, deterministic via an injectable fake clock — no `time.sleep()`) covering
+`ProgressThrottle` directly: always-emit on first/last/single-element runs, suppression within
+the interval, emission after the interval elapses, a simulated 1,000,000-iteration/2-real-second
+run staying under 20 emitted calls, and a long real-world gap not causing a catch-up burst.
+
+Verified the existing `test_progress_is_coalesced_and_reaches_full_range_completion`
+(static handler, asserts exactly 6 updates for a small fixture) still passes unchanged — a fast
+unit test's real elapsed time never crosses the 150ms interval, so behavior for small/fast runs
+is unaffected; only large/slow runs (the actual bug condition) see fewer calls now.
+
+Full suite: `ci-local.ps1 -Full` — native build, ruff lint/format, mypy, 1773 unit tests, 50
+sanity tests, `FAILED_STEPS: none`.

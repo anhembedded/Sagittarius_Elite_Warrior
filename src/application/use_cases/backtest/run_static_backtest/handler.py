@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_factory import 
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.progress_throttle import (
+    ProgressThrottle,
+)
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
@@ -237,6 +240,7 @@ class RunStaticBacktestCommandHandler(
         equity_curve: list[tuple[datetime, float]] = []
         pending_signal: Signal | None = None
         last_candle: MarketData | None = None
+        progress_throttle = ProgressThrottle()
         for index, candle in enumerate(klines, start=1):
             last_candle = candle
             if command.cancellation_requested and command.cancellation_requested():
@@ -276,8 +280,8 @@ class RunStaticBacktestCommandHandler(
             equity_curve.append(
                 (candle.close_time, exchange.equity(candle.close_price))
             )
-            if command.progress_callback and (
-                index == 1 or index % 16 == 0 or index == phase_bar_count
+            if command.progress_callback and progress_throttle.should_emit(
+                index, phase_bar_count
             ):
                 command.progress_callback(
                     phase,
