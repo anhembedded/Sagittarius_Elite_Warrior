@@ -11,5 +11,6 @@
     "log.viewer.module": "binance-bot",
     "binance.rate_limit_delay_ms": 500,
     "backtest.log_max_entries": 6000,
+    "backtest.chart.backend": "python",
     "dev.mode": false
 }
