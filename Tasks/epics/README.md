@@ -42,3 +42,4 @@ Tasks/epics/
 | **[EPIC-002](EPIC-002_static_type_checking_in_local_ci/README.md)** | Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ | 🟡 Đang làm (4/5 task con xong) |
 | **[EPIC-003](EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (3/6 task con xong) |
 | **[EPIC-004](EPIC-004_static_security_and_quality_analysis/README.md)** | Static security & quality analysis gate (Bandit + magic-number + code-smell qua Ruff) | 🟡 Đang làm (1/4 task con xong) |
+| **[EPIC-005](EPIC-005_qml_to_qtwidgets_migration/README.md)** | Rút khỏi QML về QtWidgets, **trừ chart** — theo từng màn hình, mỗi bước rollback được | 🔴 Chưa làm (0/6 task con) — nhánh riêng `epic/EPIC-005-qml-to-qtwidgets` |
