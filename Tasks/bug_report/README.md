@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 4 |
+| 🔴 **Đang mở** | 5 |
 | ✅ **Đã sửa** | 33 |
-| 📈 **Tổng** | **37** |
+| 📈 **Tổng** | **38** |
 
 ---
 
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-038](incomplete/BUG-038_native_fallback_drops_the_content_it_fell_back_for.md)** | Fallback sang Python vứt luôn nội dung mà nó fallback vì nó — nền trend zone không bao giờ được vẽ | 🔴 **P1** | 2026-08-23 | User phát hiện bằng mắt (ảnh chụp), test và log đều "xanh". Sau rebuild, spans không được áp lại lên host mới; `refresh_chart()` chỉ replay OHLC/volume, region không được cache ở đâu. Test cũ chỉ khẳng định *kiểu host*, không khẳng định *đã vẽ gì*. |
 | **[BUG-037](incomplete/BUG-037_empty_trend_zone_payload_kills_native_chart_every_run.md)** | Native chart bị bỏ ở **mọi** lần chạy Backtest vì payload trend-zone **rỗng** | 🔴 **P1** | 2026-08-23 | Vô hiệu hoá cả epic `BOT-098F` ở runtime trong khi log vẫn báo `backend 'native'`. `set_script_regions()` raise mà không nhìn payload; presenter emit spans rỗng mỗi lần chạy. Test cũ dùng `[]` nên đã đóng băng đúng hành vi sai. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky). Không phải do test nơi nó xuất hiện, không phải do fixture `repo` chuẩn (đã có `dispose_all()`). Nghi phạm: `gc.collect()` lặp trong `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` làm lộ ra leak có sẵn từ test khác — chưa bisect ra nguồn chính xác. |

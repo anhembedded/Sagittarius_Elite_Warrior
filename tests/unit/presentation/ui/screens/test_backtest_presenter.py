@@ -2477,12 +2477,28 @@ def test_chart_strategy_region_falls_back_to_python_on_native_unsupported_featur
     card = Mock()
     card.set_script_regions.side_effect = NativeUnsupportedFeatureError("no regions")
     presenter.view.chart_cards = [card]
-    presenter._fallback_to_python_after_unsupported_native_feature = Mock()
 
-    presenter._on_chart_strategy_region([(0.0, 1.0, "#000000", 0.15)])
+    # BUG-038: the stub has to model what the real fallback does — swap the
+    # host — because the presenter now replays the spans onto the rebuilt one.
+    # A stub that leaves the refusing card in place would assert a path that
+    # cannot occur in production and hide whether the replay works at all.
+    rebuilt_card = Mock()
+
+    def _rebuild(_feature_name):
+        presenter.view.chart_cards = [rebuilt_card]
+
+    presenter._fallback_to_python_after_unsupported_native_feature = Mock(
+        side_effect=_rebuild
+    )
+
+    spans = [(0.0, 1.0, "#000000", 0.15)]
+    presenter._on_chart_strategy_region(spans)
 
     presenter._fallback_to_python_after_unsupported_native_feature.assert_called_once_with(
         "strategy trend zones"
+    )
+    rebuilt_card.set_script_regions.assert_called_once_with(
+        "strategy_trend_zone", spans
     )
 
 
@@ -3704,6 +3720,34 @@ def test_real_strategy_trend_zones_still_fall_back_to_python(presenter):
         presenter._on_chart_strategy_region([(0.0, 1.0, "#0ECB81", 0.15)])
 
     assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
+
+
+def test_trend_zones_are_actually_drawn_on_the_host_it_fell_back_to(presenter):
+    """BUG-038: falling back is worthless if the content never lands.
+
+    Asserting only the host TYPE (as the test above does) cannot see this —
+    it was green while the chart rendered no background at all. What the user
+    reported is the absence of a *drawn* zone, so that is what this asserts:
+    the spans reach the rebuilt Python host's chart card.
+    """
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+        NativeBacktestChartHostAdapter,
+    )
+
+    spans = [(0.0, 1.0, "#0ECB81", 0.15), (2.0, 3.0, "#F6465D", 0.15)]
+    presenter.view.set_chart_backend("native")
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_accepting_native_host_factory
+    ):
+        presenter.view.render_symbol_cards([presenter._symbol])
+        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+        presenter._on_chart_strategy_region(spans)
+
+    rebuilt = presenter.view.chart_cards[0]
+    assert isinstance(rebuilt, PythonBacktestChartHost)
+    layer = rebuilt.chart_card.indicators._region_layer
+    assert layer.stored_span_count("strategy_trend_zone") == len(spans)
 
 
 # --------------------------------------------------------------------------

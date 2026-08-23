@@ -1349,12 +1349,11 @@ class BackTestPresenter(BasePresenter):
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
-        try:
-            card.set_script_regions(_STRATEGY_TREND_ZONE_KEY, spans)
-        except NativeUnsupportedFeatureError:
-            self._fallback_to_python_after_unsupported_native_feature(
-                "strategy trend zones"
-            )
+        self._apply_after_native_fallback(
+            "strategy trend zones",
+            lambda host: host.set_script_regions(_STRATEGY_TREND_ZONE_KEY, spans),
+            drawn_count=len(spans),
+        )
 
     @Slot(str, list, list)
     @safe_ui_action
@@ -1373,10 +1372,11 @@ class BackTestPresenter(BasePresenter):
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
-        try:
-            self._chart_script_runner.draw_region(card, key, spans)
-        except NativeUnsupportedFeatureError:
-            self._fallback_to_python_after_unsupported_native_feature("script regions")
+        self._apply_after_native_fallback(
+            "script regions",
+            lambda host: self._chart_script_runner.draw_region(host, key, spans),
+            drawn_count=len(spans),
+        )
 
     @Slot(str, list)
     @safe_ui_action
@@ -1384,10 +1384,11 @@ class BackTestPresenter(BasePresenter):
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
-        try:
-            self._chart_script_runner.draw_info(card, key, fields)
-        except NativeUnsupportedFeatureError:
-            self._fallback_to_python_after_unsupported_native_feature("script info")
+        self._apply_after_native_fallback(
+            "script info",
+            lambda host: self._chart_script_runner.draw_info(host, key, fields),
+            drawn_count=len(fields),
+        )
 
     @Slot(str, list)
     @safe_ui_action
@@ -1395,10 +1396,11 @@ class BackTestPresenter(BasePresenter):
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
-        try:
-            self._chart_script_runner.draw_markers(card, key, markers)
-        except NativeUnsupportedFeatureError:
-            self._fallback_to_python_after_unsupported_native_feature("script markers")
+        self._apply_after_native_fallback(
+            "script markers",
+            lambda host: self._chart_script_runner.draw_markers(host, key, markers),
+            drawn_count=len(markers),
+        )
 
     def _reset_indicator_bookkeeping_after_host_rebuild(self) -> None:
         """The chart host was just replaced from scratch — nothing on the
@@ -1422,6 +1424,71 @@ class BackTestPresenter(BasePresenter):
         path, since F6D's own fix here only covered the mode-change path)."""
         self._active_strategy_lines.clear()
         self._chart_script_runner.reset_after_host_replaced()
+
+    def _apply_after_native_fallback(
+        self, feature_name: str, draw, *, drawn_count: int
+    ) -> None:
+        """Draw `draw` on the live host, replaying it if that forces a rebuild.
+
+        BUG-038: the old shape caught `NativeUnsupportedFeatureError`, rebuilt
+        with the Python host, and then **returned** — dropping the very content
+        the rebuild was performed for. A strategy with real trend zones tore the
+        native chart down (correctly) and still rendered no background at all,
+        because the spans were never re-applied to the new host. That is worse
+        than either honest outcome: it pays the whole cost of the fallback and
+        delivers none of its benefit, violating `BOT-098F6`'s "no silent visual
+        omission" rule in exactly the way the fallback exists to prevent.
+
+        The `[chart-region]` lines exist because nothing in the log said whether
+        the background was actually *drawn* — only which host had been chosen,
+        so a reader could not tell this defect from a working run
+        (`.agents/rules/logging-rule.md` §2/§5: log what was applied, not just
+        what was decided).
+        """
+        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        if card is None:
+            return
+        try:
+            draw(card)
+        except NativeUnsupportedFeatureError:
+            self._fallback_to_python_after_unsupported_native_feature(feature_name)
+            rebuilt = self.view.chart_cards[0] if self.view.chart_cards else None
+            if rebuilt is None:
+                logger.error(
+                    "[chart-region] %s: host rebuild left no chart card; "
+                    "%d item(s) dropped",
+                    feature_name,
+                    drawn_count,
+                )
+                return
+            try:
+                draw(rebuilt)
+            except NativeUnsupportedFeatureError:
+                # The rebuilt host should be the Python one, which supports all
+                # of this. If it still refuses, the content really is lost —
+                # say so at ERROR instead of letting it escape into
+                # @safe_ui_action, which swallows exceptions and would put the
+                # chart back to failing invisibly (ONBOARDING trap #8).
+                logger.error(
+                    "[chart-region] %s: rebuilt host still refused %d item(s); "
+                    "content dropped",
+                    feature_name,
+                    drawn_count,
+                )
+                return
+            logger.info(
+                "[chart-region] %s: replayed %d item(s) onto %s after fallback",
+                feature_name,
+                drawn_count,
+                type(rebuilt).__name__,
+            )
+            return
+        logger.debug(
+            "[chart-region] %s: drew %d item(s) on %s",
+            feature_name,
+            drawn_count,
+            type(card).__name__,
+        )
 
     def _fallback_to_python_after_unsupported_native_feature(
         self, feature_name: str
