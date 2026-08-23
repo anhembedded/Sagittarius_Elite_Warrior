@@ -22,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
     AppProgressBarWidget,
     ConfirmDialog,
+    GapInspectorDialog,
     KLineInspectorDialog,
     LogPanelWidget,
     SymbolPickerDialog,
@@ -247,6 +248,7 @@ class DataManagementView(BaseView):
         self._view_model: DataManagementViewModel | None = None
         self._symbol_picker: SymbolPickerDialog | None = None
         self._kline_inspector: KLineInspectorDialog | None = None
+        self._gap_inspector: GapInspectorDialog | None = None
         self._build_ui()
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
@@ -309,6 +311,7 @@ class DataManagementView(BaseView):
 
         self._btn_cancel_sync.clicked.connect(view_model.requestCancel)
         view_model.openKlineInspectorRequested.connect(self._open_kline_inspector)
+        view_model.openGapInspectorRequested.connect(self._open_gap_inspector)
 
         view_model.selectedSymbolChanged.connect(self._sync_symbol_combo)
         view_model.selectedIntervalChanged.connect(self._sync_interval_combo)
@@ -374,6 +377,13 @@ class DataManagementView(BaseView):
         if self._kline_inspector is None:
             self._kline_inspector = KLineInspectorDialog(self._view_model, parent=self)
         self._kline_inspector.open()
+
+    def _open_gap_inspector(self) -> None:
+        if self._view_model is None:
+            return
+        if self._gap_inspector is None:
+            self._gap_inspector = GapInspectorDialog(self._view_model, parent=self)
+        self._gap_inspector.open()
 
     # ------------------------------------------------------------------ #
     # Time range

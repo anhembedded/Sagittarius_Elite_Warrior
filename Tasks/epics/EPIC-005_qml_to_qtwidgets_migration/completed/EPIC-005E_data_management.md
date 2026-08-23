@@ -1,7 +1,7 @@
 # EPIC-005E — Migrate `data_management` (mật độ form cao nhất)
 
 **Thuộc Epic:** [`EPIC-005`](../README.md)
-**Trạng thái:** 🟡 Đang làm (2/3 sub-task xong)
+**Trạng thái:** ✅ Xong (2026-08-24) — 3/3 sub-task
 **Phụ thuộc:** [`EPIC-005D`](../completed/EPIC-005D_pilot_settings_screen.md) ✅ — user đồng ý
 đi tiếp tại điểm quyết định của D
 
@@ -56,4 +56,18 @@ Gate giữ đúng baseline tự chụp ngay trước khi bắt đầu mỗi sub-
   (jump-to-date, audit, bảng nến phân trang). ✅ Xong — 0 kit component, cùng quyết định
   `QListView`+`setIndexWidget` như `E1` (model đọc theo role, không theo cột dù
   `columnCount()` trả 11).
-- **EPIC-005E3** — `GapInspectorModal.qml`. Chưa làm.
+- **[EPIC-005E3](../completed/EPIC-005E3_gap_inspector_modal.md)** — `GapInspectorModal.qml`
+  (timeline coverage bar, bảng gap, vá từng gap/vá toàn bộ). ✅ Xong — 0 kit component,
+  `gapList`/`coverageSegments` là `QVariantList` thuần (không phải `QAbstractItemModel`), nên
+  rebuild toàn bộ hàng mỗi lần đổi thay vì `setIndexWidget` incremental.
+
+## 5. Tổng kết chi phí thực tế (đối chiếu mục 1.5)
+
+| Sub-task | Kit component | Model đặc biệt | Test mới |
+| :--- | ---: | :--- | ---: |
+| `E1` | 3 (`TimeRangeCard`/`LogPanel`/`FieldBackground`) | `QAbstractTableModel` 1 cột nhiều role | +3 sửa, +1 skip |
+| `E2` | 0 | `QAbstractTableModel` 11-cột-danh-nghĩa, đọc theo role | +3 |
+| `E3` | 0 | `QVariantList` thuần, không phải Qt model | +4, +1 skip gỡ |
+
+Không sub-task nào cần đổi model Python hay đổi hành vi — đúng ràng buộc "giữ nguyên hành vi"
+đặt ra từ đầu epic.

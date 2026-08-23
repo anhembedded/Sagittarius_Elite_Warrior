@@ -823,3 +823,322 @@ class KLineInspectorDialog(QDialog):
             self._kline_list.setIndexWidget(index, widget)
         self._empty_label.setVisible(row_count == 0)
         self._sync_header()
+
+
+#: (label, stretch) for the gap table columns — matches GapInspectorModal.qml's
+#: Repeater header (weights 0.6/2.5/2.5/1.2/1.4/1.8).
+_GAP_COLUMNS = [
+    ("#", 6),
+    ("START (FROM)", 25),
+    ("END (TO)", 25),
+    ("DURATION", 12),
+    ("MISSING", 14),
+    ("ACTION", 18),
+]
+
+
+class _GapRowWidget(QFrame):
+    """One row of the gap table — direct port of GapInspectorModal.qml's
+    ListView delegate. `gapList` is a plain `QVariantList` (list[dict]), not
+    a Qt model, so rows are rebuilt from Python data directly rather than via
+    `setIndexWidget`."""
+
+    def __init__(
+        self,
+        index: int,
+        gap: dict,
+        on_repair: Callable[[dict], None],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(36)
+        self.setStyleSheet(
+            "background-color: transparent;"
+            if index % 2 == 0
+            else f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
+        )
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 0, 8, 0)
+        layout.setSpacing(6)
+
+        gap_id_label = QLabel(str(gap.get("gap_id") or (index + 1)))
+        gap_id_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
+        layout.addWidget(gap_id_label, 6)
+
+        start_label = QLabel(str(gap.get("start_time") or ""))
+        start_label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 11px;")
+        layout.addWidget(start_label, 25)
+
+        end_label = QLabel(str(gap.get("end_time") or ""))
+        end_label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 11px;")
+        layout.addWidget(end_label, 25)
+
+        duration_label = QLabel(str(gap.get("duration_text") or ""))
+        duration_label.setStyleSheet(
+            f"color: {Palette.ACCENT}; font-size: 11px; font-weight: bold;"
+        )
+        layout.addWidget(duration_label, 12)
+
+        missing_label = QLabel(f"-{gap.get('missing_candles') or 0} nến")
+        missing_label.setStyleSheet(
+            f"color: {Palette.DANGER}; font-size: 11px; font-weight: bold;"
+        )
+        layout.addWidget(missing_label, 14)
+
+        self._repair_button = QPushButton("Vá Gap")
+        self._repair_button.setObjectName(f"btnRepairGap_{index}")
+        self._repair_button.setFixedHeight(24)
+        self._repair_button.setStyleSheet(
+            f"QPushButton {{ background-color: #131822; color: {Palette.ACCENT}; "
+            f"border: 1px solid {Palette.ACCENT}; border-radius: 4px; font-size: 10px; "
+            f"font-weight: bold; }} "
+            f"QPushButton:hover {{ background-color: #1f2a3a; }}"
+        )
+        self._repair_button.clicked.connect(lambda: on_repair(gap))
+        layout.addWidget(self._repair_button, 18)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._repair_button.setEnabled(enabled)
+
+
+class _CoverageSegmentWidget(QFrame):
+    """One segment of the timeline coverage bar — port of the QML `Repeater`
+    inside the coverage `Rectangle`. Width is proportional to `ratio` within
+    its host's `resizeEvent`-driven layout (a plain `QHBoxLayout` with
+    stretch factors does the same job as QML's `width: parent.width * ratio`,
+    since Qt layouts already distribute width by relative stretch)."""
+
+    def __init__(self, segment: dict, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        is_gap = bool(segment.get("is_gap"))
+        color = Palette.DANGER if is_gap else Palette.SUCCESS
+        opacity = "e6" if is_gap else "bf"  # ~0.9 / ~0.75 alpha, matches QML
+        self.setStyleSheet(f"background-color: {color}{opacity};")
+        tip = (
+            f"{'⚠️ GAP: ' if is_gap else '✅ DATA: '}"
+            f"{segment.get('start_time', '')} → {segment.get('end_time', '')} "
+            f"({segment.get('candle_count', 0)} nến)"
+        )
+        self.setToolTip(tip)
+
+
+class GapInspectorDialog(QDialog):
+    """Port of `GapInspectorModal.qml`: timeline coverage bar, a gaps table
+    (plain Python list rows, no Qt model — `gapList`/`coverageSegments` are
+    `QVariantList` properties, rebuilt wholesale on change same as the QML
+    `Repeater` did), and footer Repair-All/Close actions. Stays alive for the
+    view's lifetime, same as `KLineInspectorDialog`."""
+
+    def __init__(
+        self, view_model: DataManagementViewModel, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("gapInspectorModal")
+        self._view_model = view_model
+        self.setModal(True)
+        self.resize(680, 520)
+        self.setStyleSheet(
+            f"background-color: {Palette.BG_CARD}; color: {Palette.TEXT_PRIMARY};"
+        )
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(12)
+
+        outer.addLayout(self._build_title_row())
+        outer.addLayout(self._build_coverage_bar())
+        outer.addWidget(self._build_column_header())
+        outer.addWidget(self._build_table(), 1)
+        outer.addLayout(self._build_footer())
+
+        view_model.gapInspectorChanged.connect(self._sync_header)
+        view_model.gapListChanged.connect(self._rebuild_rows)
+        view_model.coverageSegmentsChanged.connect(self._rebuild_coverage_bar)
+        view_model.uiModeChanged.connect(self._sync_enabled_state)
+
+        self._sync_header()
+        self._rebuild_rows()
+        self._rebuild_coverage_bar()
+
+    def _build_title_row(self) -> QVBoxLayout:
+        box = QVBoxLayout()
+        box.setSpacing(2)
+        title = QLabel("CHI TIẾT LỖ HỔNG DỮ LIỆU (GAP INSPECTOR)")
+        title.setStyleSheet(
+            f"color: {Palette.ACCENT}; font-size: 13px; font-weight: bold;"
+        )
+        box.addWidget(title)
+        self._subtitle_label = QLabel()
+        self._subtitle_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
+        box.addWidget(self._subtitle_label)
+        return box
+
+    def _build_coverage_bar(self) -> QVBoxLayout:
+        box = QVBoxLayout()
+        box.setSpacing(4)
+
+        header = QHBoxLayout()
+        label = QLabel("TIMELINE COVERAGE")
+        label.setStyleSheet(
+            f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 1px;"
+        )
+        header.addWidget(label)
+        header.addStretch()
+        self._coverage_pct_label = QLabel()
+        header.addWidget(self._coverage_pct_label)
+        box.addLayout(header)
+
+        self._coverage_bar_frame = QFrame()
+        self._coverage_bar_frame.setFixedHeight(18)
+        self._coverage_bar_frame.setStyleSheet(
+            f"background-color: #15171e; border: 1px solid {Palette.BORDER}; border-radius: 4px;"
+        )
+        self._coverage_bar_layout = QHBoxLayout(self._coverage_bar_frame)
+        self._coverage_bar_layout.setContentsMargins(1, 1, 1, 1)
+        self._coverage_bar_layout.setSpacing(0)
+        box.addWidget(self._coverage_bar_frame)
+
+        return box
+
+    def _build_column_header(self) -> QFrame:
+        header = QFrame()
+        header.setFixedHeight(28)
+        header.setStyleSheet(
+            f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
+        )
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(8, 0, 8, 0)
+        layout.setSpacing(6)
+        for text, stretch in _GAP_COLUMNS:
+            label = QLabel(text)
+            label.setStyleSheet(
+                f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold;"
+            )
+            layout.addWidget(label, stretch)
+        return header
+
+    def _build_table(self) -> QWidget:
+        host = QWidget()
+        host.setObjectName("gapListView")
+        self._rows_layout = QVBoxLayout(host)
+        self._rows_layout.setContentsMargins(0, 0, 0, 0)
+        self._rows_layout.setSpacing(2)
+
+        self._empty_label = QLabel(
+            "Không có lỗ hổng nào được phát hiện (Dữ liệu liên tục 100%)."
+        )
+        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_label.setStyleSheet(
+            f"color: {Palette.SUCCESS}; font-size: 12px; font-weight: bold;"
+        )
+        self._rows_layout.addWidget(self._empty_label)
+        self._rows_layout.addStretch(1)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: none;")
+        scroll.setWidget(host)
+        self._row_widgets: list[_GapRowWidget] = []
+        return scroll
+
+    def _build_footer(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(12)
+
+        self._total_missing_label = QLabel()
+        self._total_missing_label.setStyleSheet(
+            f"color: {Palette.DANGER}; font-size: 11px; font-weight: bold;"
+        )
+        row.addWidget(self._total_missing_label)
+        row.addStretch()
+
+        self._btn_repair_all = QPushButton("Vá Toàn Bộ Lỗ Hổng (Repair All)")
+        self._btn_repair_all.setObjectName("btnRepairAllGaps")
+        self._btn_repair_all.setIcon(
+            get_icon_loader().get_icon("zap", Palette.ACCENT, 14)
+        )
+        self._btn_repair_all.setFixedHeight(32)
+        self._btn_repair_all.setStyleSheet(
+            f"QPushButton {{ background-color: #131822; color: {Palette.ACCENT}; "
+            f"border: 1px solid {Palette.ACCENT}; border-radius: 6px; font-size: 11px; "
+            f"font-weight: bold; padding: 0 10px; }} "
+            f"QPushButton:hover {{ background-color: #1f2a3a; }} "
+            f"QPushButton:disabled {{ color: {Palette.MUTED}; border-color: {Palette.BORDER}; }}"
+        )
+        self._btn_repair_all.clicked.connect(self._on_repair_all)
+        row.addWidget(self._btn_repair_all)
+
+        btn_close = QPushButton("Đóng")
+        btn_close.setFixedSize(80, 32)
+        btn_close.setStyleSheet(
+            f"QPushButton {{ background-color: #1e1e24; color: {Palette.TEXT_PRIMARY}; "
+            f"border: 1px solid {Palette.BORDER}; border-radius: 6px; }}"
+        )
+        btn_close.clicked.connect(self.close)
+        row.addWidget(btn_close)
+
+        return row
+
+    def _on_repair(self, gap: dict) -> None:
+        vm = self._view_model
+        start = gap.get("fetch_start_time") or gap.get("start_time")
+        end = gap.get("fetch_end_time") or gap.get("end_time")
+        vm.requestRepairGap(vm.gapInspectorSymbol, vm.gapInspectorInterval, start, end)
+
+    def _on_repair_all(self) -> None:
+        vm = self._view_model
+        vm.requestRepairAllGaps(vm.gapInspectorSymbol, vm.gapInspectorInterval)
+
+    def _sync_header(self) -> None:
+        vm = self._view_model
+        self._subtitle_label.setText(
+            f"{vm.gapInspectorSymbol} ({vm.gapInspectorInterval}) • "
+            f"{vm.gapInspectorTotalGaps} gaps detected"
+        )
+        coverage_pct = vm.gapInspectorCoveragePct
+        self._coverage_pct_label.setText(f"Độ phủ: {coverage_pct}%")
+        color = Palette.SUCCESS if coverage_pct >= 99.0 else Palette.ACCENT
+        self._coverage_pct_label.setStyleSheet(
+            f"color: {color}; font-size: 11px; font-weight: bold;"
+        )
+        self._total_missing_label.setText(
+            f"Tổng số nến bị thiếu: {vm.gapInspectorTotalMissing} nến"
+        )
+        self._sync_enabled_state()
+
+    def _sync_enabled_state(self) -> None:
+        idle = self._view_model.uiMode == "IDLE"
+        has_gaps = len(self._view_model.gapList) > 0
+        self._btn_repair_all.setEnabled(idle and has_gaps)
+        for row_widget in self._row_widgets:
+            row_widget.set_enabled(idle)
+
+    def _rebuild_rows(self) -> None:
+        for row_widget in self._row_widgets:
+            self._rows_layout.removeWidget(row_widget)
+            row_widget.deleteLater()
+        self._row_widgets = []
+
+        gaps = self._view_model.gapList
+        for index, gap in enumerate(gaps):
+            row_widget = _GapRowWidget(index, gap, self._on_repair)
+            self._rows_layout.insertWidget(index, row_widget)
+            self._row_widgets.append(row_widget)
+
+        self._empty_label.setVisible(len(gaps) == 0)
+        self._sync_enabled_state()
+
+    def _rebuild_coverage_bar(self) -> None:
+        while self._coverage_bar_layout.count():
+            item = self._coverage_bar_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        segments = self._view_model.coverageSegments
+        for segment in segments:
+            ratio = segment.get("ratio") or 0.05
+            stretch = max(2, round(ratio * 1000))
+            self._coverage_bar_layout.addWidget(
+                _CoverageSegmentWidget(segment), stretch
+            )
