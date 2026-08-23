@@ -1,5 +1,12 @@
 """
-Tests for the API & Credentials screen (BOT-030 Phase 2 — QML).
+Tests for the API & Credentials screen.
+
+Migrated off QML onto QtWidgets (EPIC-005D) — was BOT-030 Phase 2 QML.
+SettingsPresenter/SettingsViewModel are unchanged; only SettingsView's
+rendering layer moved, so this file's "QML rendering" section below was
+rewritten to assert against real QWidget children (found by objectName,
+the same automation contract qml-rule.md already required of the QML
+version) instead of `qml_item()`/`quick_widget.rootObject()`.
 
 Uses the REAL SettingsViewModel rather than a mock: it is a plain state
 holder with no I/O, so exercising it end-to-end catches property/signal
@@ -14,9 +21,11 @@ import os
 from unittest.mock import Mock, call
 
 import pytest
+from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton, QSpinBox
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
@@ -193,11 +202,10 @@ def test_save_persists_to_disk_through_a_real_config_manager(qapp, tmp_path, req
     assert on_disk["API_KEY"] == "real-key"
 
 
-def test_qml_request_save_slot_triggers_the_same_path(
-    presenter, view_model, mock_config
-):
-    """`requestSave()` is what the QML Save button calls — proves the QML
-    entry point reaches the presenter, not just the raw signal."""
+def test_request_save_slot_triggers_the_same_path(presenter, view_model, mock_config):
+    """`requestSave()` is what the Save button's `clicked` handler calls
+    (see SettingsView.set_view_model) — proves that entry point reaches the
+    presenter, not just the raw `saveRequested` signal."""
     mock_config.reset_mock()
 
     view_model.requestSave()
@@ -206,54 +214,49 @@ def test_qml_request_save_slot_triggers_the_same_path(
 
 
 # ---------------------------------------------------------------------------
-# QML rendering
+# Widget rendering (EPIC-005D — was "QML rendering"; SettingsView is
+# QtWidgets now, so these assert against real QWidget children instead of
+# qml_item()/quick_widget.rootObject())
 # ---------------------------------------------------------------------------
 
 
-def test_qml_screen_loads_and_shows_config_values(presenter, qml_item, qapp):
-    """Proves the QML document parses and binds to the view model — the
-    values must be readable off the real QML items, not just off Python."""
+def test_screen_shows_config_values_on_real_widgets(presenter, qapp):
+    """Proves the widget tree is actually built and bound to the view model
+    — the values must be readable off the real QLineEdit/QSpinBox children,
+    not just off Python."""
     view = presenter.view
     qapp.processEvents()
 
-    assert view.quick_widget.errors() == []
-    root = view.quick_widget.rootObject()
-    assert root is not None
-
-    assert qml_item(root, "txtApiKey").property("text") == "test-key"
-    assert qml_item(root, "txtDefaultSymbols").property("text") == "BTCUSDT, ETHUSDT"
-    assert qml_item(root, "spinDefaultSyncDays").property("value") == 30
+    assert view.findChild(QLineEdit, "txtApiKey").text() == "test-key"
+    assert view.findChild(QLineEdit, "txtDefaultSymbols").text() == "BTCUSDT, ETHUSDT"
+    assert view.findChild(QSpinBox, "spinDefaultSyncDays").value() == 30
 
 
-def test_api_secret_is_masked_until_revealed(presenter, qml_item, qapp):
-    """
-    Asserts what the user actually sees: `displayText` is the rendered
-    string, so a masked field shows bullets while `text` still holds the
-    real secret. (Checking `echoMode` directly isn't possible — PySide6 has
-    no converter for QQuickTextInput::EchoMode — and this is the more
-    meaningful assertion anyway.)
-    """
+def test_api_secret_is_masked_until_revealed(presenter, qapp):
+    """Asserts what the user actually sees: `echoMode` is directly readable
+    on a real QLineEdit (unlike the old QQuickTextInput, which had no
+    PySide6 converter for it — this migration makes the more direct
+    assertion possible instead of having to check `displayText`)."""
     qapp.processEvents()
-    root = presenter.view.quick_widget.rootObject()
-    secret_field = qml_item(root, "txtApiSecret")
+    view = presenter.view
+    secret_field = view.findChild(QLineEdit, "txtApiSecret")
 
-    assert secret_field.property("text") == "test-secret"
-    assert secret_field.property("displayText") != "test-secret"
+    assert secret_field.text() == "test-secret"
+    assert secret_field.echoMode() == QLineEdit.EchoMode.Password
 
-    qml_item(root, "btnRevealSecret").toggle()
+    view.findChild(QPushButton, "btnRevealSecret").toggle()
     qapp.processEvents()
 
-    assert secret_field.property("displayText") == "test-secret"
+    assert secret_field.echoMode() == QLineEdit.EchoMode.Normal
 
 
-def test_qml_save_button_click_writes_config(presenter, qml_item, qapp, mock_config):
-    """Full chain: QML button -> viewModel.requestSave() -> presenter -> IConfig."""
+def test_save_button_click_writes_config(presenter, qapp, mock_config):
+    """Full chain: real QPushButton click -> viewModel.requestSave() ->
+    presenter -> IConfig."""
     qapp.processEvents()
     mock_config.reset_mock()
 
-    qml_item(
-        presenter.view.quick_widget.rootObject(), "btnSaveCredentials"
-    ).clicked.emit()
+    presenter.view.findChild(QPushButton, "btnSaveCredentials").click()
     qapp.processEvents()
 
     mock_config.set.assert_any_call("API_KEY", "test-key")
@@ -261,11 +264,12 @@ def test_qml_save_button_click_writes_config(presenter, qml_item, qapp, mock_con
 
 def test_view_model_writes_flow_back_into_a_save(presenter, view_model, mock_config):
     """
-    The write half of the two-way binding: QML's `onTextEdited` handlers
-    assign to these properties, so a value written that way must be what
-    Save persists. (Simulating real keystrokes into a QML TextField isn't
-    practical here, so this drives the same property the delegate writes —
-    the QML side of that wiring is covered by the render test above.)
+    The write half of the two-way binding: the widget's `textEdited`/
+    `valueChanged` handlers assign to these properties (see
+    SettingsView._on_*_edited), so a value written that way must be what
+    Save persists. Drives the same property the handler writes rather than
+    simulating real keystrokes — the widget side of that wiring is covered
+    by the round-trip test below.
     """
     mock_config.reset_mock()
 
@@ -279,38 +283,45 @@ def test_view_model_writes_flow_back_into_a_save(presenter, view_model, mock_con
     mock_config.set.assert_any_call("DEFAULT_SYNC_DAYS", 90)
 
 
-def test_status_line_is_laid_out_below_the_form_not_stacked_on_it(
-    presenter, qml_item, qapp
-):
-    """
-    Regression test: the status label used `visible: text !== ""`, and a
-    ColumnLayout skips invisible children — flipping that binding when a
-    save produced a message did NOT re-run the layout, leaving the label
-    stranded at y=0, drawn on top of the warning banner. Asserts it ends up
-    BELOW the last form row once it has text.
-    """
+def test_editing_a_widget_reaches_the_view_model(presenter, view_model, qapp):
+    """The other half of the round-trip, driven through the real widget this
+    time: typing in the QLineEdit must update the view model, proving
+    `textEdited` is actually connected (not just the property-level path
+    the test above exercises)."""
     qapp.processEvents()
-    root = presenter.view.quick_widget.rootObject()
+    field = presenter.view.findChild(QLineEdit, "txtApiKey")
 
-    presenter._settings_view_model.saveRequested.emit()
+    field.setText("typed-key")
+    field.textEdited.emit("typed-key")
+
+    assert view_model.apiKey == "typed-key"
+
+
+def test_updating_the_view_model_refreshes_the_widget(presenter, qapp):
+    """The read half: a Python-side change must reach the rendered widget
+    (proves the `*Changed` NOTIFY signal is wired to the widget, not just
+    read once at construction)."""
     qapp.processEvents()
-
-    status = qml_item(root, "lblStatus")
-    sync_days = qml_item(root, "spinDefaultSyncDays")
-    assert status.property("text") != ""
-
-    status_y = status.mapToItem(None, 0, 0).y()
-    last_row_y = sync_days.mapToItem(None, 0, 0).y()
-    assert status_y > last_row_y
-
-
-def test_updating_the_view_model_refreshes_the_qml_field(presenter, qml_item, qapp):
-    """The read half: a Python-side change must reach the rendered QML item
-    (proves the NOTIFY signal is wired, not just the getter)."""
-    qapp.processEvents()
-    root = presenter.view.quick_widget.rootObject()
 
     presenter._settings_view_model.apiKey = "rotated-key"
     qapp.processEvents()
 
-    assert qml_item(root, "txtApiKey").property("text") == "rotated-key"
+    assert presenter.view.findChild(QLineEdit, "txtApiKey").text() == "rotated-key"
+
+
+def test_status_label_reflects_success_and_error_colour(presenter, view_model, qapp):
+    """Regression coverage for the QML version's status-line styling logic
+    (statusIsError -> danger/success colour), now driven through
+    SettingsView._apply_status()."""
+    qapp.processEvents()
+    status_label = presenter.view.findChild(QLabel, "lblStatus")
+
+    view_model.set_status("all good", is_error=False)
+    qapp.processEvents()
+    assert status_label.text() == "all good"
+    assert Palette.SUCCESS in status_label.styleSheet()
+
+    view_model.set_status("broken", is_error=True)
+    qapp.processEvents()
+    assert status_label.text() == "broken"
+    assert Palette.DANGER in status_label.styleSheet()
