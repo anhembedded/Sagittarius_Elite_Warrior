@@ -8,12 +8,14 @@ one QML component this screen used: `TimeRangeCard`, `LogPanel`, `AppProgressBar
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QModelIndex, QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -30,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+
+if TYPE_CHECKING:
+    from .data_management_view_model import DataManagementViewModel
+    from .kline_inspector_table_model import KLineInspectorTableModel
 
 
 def field_style(extra_height: int | None = None) -> str:
@@ -436,3 +442,384 @@ class ConfirmDialog(QDialog):
         button_row.addWidget(confirm_button)
 
         layout.addLayout(button_row)
+
+
+#: (label, Layout stretch) for the KLine table columns — matches
+#: KLineInspectorModal.qml's fixed column widths (140/80/80/80/80/105/75/70).
+_KLINE_COLUMNS = [
+    ("Thời gian (UTC)", 20, Qt.AlignmentFlag.AlignLeft),
+    ("Mở (Open)", 11, Qt.AlignmentFlag.AlignRight),
+    ("Cao (High)", 11, Qt.AlignmentFlag.AlignRight),
+    ("Thấp (Low)", 11, Qt.AlignmentFlag.AlignRight),
+    ("Đóng (Close)", 11, Qt.AlignmentFlag.AlignRight),
+    ("Khối lượng (Vol)", 15, Qt.AlignmentFlag.AlignRight),
+    ("Biến động", 11, Qt.AlignmentFlag.AlignRight),
+    ("Số lệnh", 10, Qt.AlignmentFlag.AlignRight),
+]
+
+_KLINE_PAGE_SIZES = [50, 100, 200, 500]
+
+
+class _KLineRowWidget(QFrame):
+    """One row of the KLine table — a direct port of
+    `KLineInspectorModal.qml`'s `ListView` delegate. Same `setIndexWidget`
+    pattern as `_StatusRowWidget`: `KLineInspectorTableModel` addresses its
+    fields by role (`data(index, role)`), not by `index.column()`, even
+    though `columnCount()` returns 11 — it was built for a QML delegate that
+    reads named roles per row, not a real per-column `QTableView`."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(28)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 0, 8, 0)
+        layout.setSpacing(4)
+
+        self._labels: list[QLabel] = []
+        for _text, stretch, alignment in _KLINE_COLUMNS:
+            label = QLabel()
+            label.setAlignment(alignment | Qt.AlignmentFlag.AlignVCenter)
+            label.setStyleSheet(
+                f"color: {Palette.TEXT_PRIMARY}; font-size: 11px; font-family: monospace;"
+            )
+            layout.addWidget(label, stretch)
+            self._labels.append(label)
+
+        (
+            self._time_label,
+            self._open_label,
+            self._high_label,
+            self._low_label,
+            self._close_label,
+            self._volume_label,
+            self._change_label,
+            self._trades_label,
+        ) = self._labels
+
+        self._volume_label.setStyleSheet(
+            f"color: {Palette.MUTED}; font-size: 11px; font-family: monospace;"
+        )
+        self._trades_label.setStyleSheet(
+            f"color: {Palette.MUTED}; font-size: 11px; font-family: monospace;"
+        )
+
+    def apply_row(self, index: QModelIndex, row_number: int) -> None:
+        model = index.model()
+        M = _kline_model_class(model)
+        is_bullish = bool(model.data(index, M.IsBullishRole))
+        color = Palette.SUCCESS if is_bullish else Palette.DANGER
+
+        self.setStyleSheet(
+            f"background-color: {Palette.BG_CARD if row_number % 2 == 0 else Palette.BG};"
+        )
+        self._time_label.setText(str(model.data(index, M.FormattedTimeRole) or ""))
+        self._open_label.setText(str(model.data(index, M.OpenRole) or "0"))
+        self._high_label.setText(str(model.data(index, M.HighRole) or "0"))
+        self._low_label.setText(str(model.data(index, M.LowRole) or "0"))
+        self._close_label.setText(str(model.data(index, M.CloseRole) or "0"))
+        self._close_label.setStyleSheet(
+            f"color: {color}; font-size: 11px; font-weight: bold; font-family: monospace;"
+        )
+        self._volume_label.setText(str(model.data(index, M.VolumeRole) or "0"))
+        self._change_label.setText(str(model.data(index, M.ChangePctRole) or "0.00%"))
+        self._change_label.setStyleSheet(
+            f"color: {color}; font-size: 11px; font-family: monospace;"
+        )
+        self._trades_label.setText(str(model.data(index, M.TradesRole) or 0))
+
+
+def _kline_model_class(model) -> type[KLineInspectorTableModel]:
+    """`index.model()` is the real `KLineInspectorTableModel` here (no proxy,
+    unlike the status table) — this just gives the role constants a typed
+    name to read at the call site."""
+    return type(model)
+
+
+class KLineInspectorDialog(QDialog):
+    """Port of `KLineInspectorModal.qml`: jump-to-date + audit controls,
+    an audit result banner, the paginated KLine table (`QListView` +
+    `setIndexWidget`, same reasoning as `_StatusRowWidget`), and a bottom
+    pagination bar with page-size buttons. Stays alive for the view's
+    lifetime (like the QML `Popup` it replaces) and wires directly to
+    `DataManagementViewModel` signals rather than being rebuilt per open."""
+
+    def __init__(
+        self, view_model: DataManagementViewModel, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("klineInspectorModal")
+        self._view_model = view_model
+        self.setModal(True)
+        self.resize(840, 600)
+        self.setStyleSheet(
+            f"background-color: {Palette.BG_CARD}; color: {Palette.TEXT_PRIMARY};"
+        )
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(10)
+
+        outer.addLayout(self._build_title_row())
+        outer.addLayout(self._build_controls_row())
+        outer.addWidget(self._build_audit_banner())
+        outer.addWidget(self._build_column_header())
+        outer.addWidget(self._build_table(), 1)
+        outer.addWidget(self._build_pagination_bar())
+
+        view_model.klineInspectorChanged.connect(self._sync_header)
+        view_model.auditResultChanged.connect(self._sync_audit)
+        view_model.klineInspectorModel.modelReset.connect(self._rebuild_rows)
+
+        self._sync_header()
+        self._sync_audit()
+        self._rebuild_rows()
+
+    def _build_title_row(self) -> QVBoxLayout:
+        box = QVBoxLayout()
+        box.setSpacing(2)
+        title = QLabel("TRA CỨU DỮ LIỆU NẾN (KLINE INSPECTOR)")
+        title.setStyleSheet(
+            f"color: {Palette.ACCENT}; font-size: 13px; font-weight: bold;"
+        )
+        box.addWidget(title)
+        self._subtitle_label = QLabel()
+        self._subtitle_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
+        box.addWidget(self._subtitle_label)
+        return box
+
+    def _build_controls_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(8)
+
+        self._txt_jump_date = QLineEdit()
+        self._txt_jump_date.setObjectName("txtJumpDate")
+        self._txt_jump_date.setPlaceholderText("YYYY-MM-DD...")
+        self._txt_jump_date.setFixedWidth(160)
+        self._txt_jump_date.setStyleSheet(field_style())
+        self._txt_jump_date.returnPressed.connect(self._on_jump)
+        row.addWidget(self._txt_jump_date)
+
+        btn_jump = QPushButton("Nhảy tới ngày")
+        btn_jump.setObjectName("btnJump")
+        btn_jump.setFixedHeight(32)
+        btn_jump.clicked.connect(self._on_jump)
+        row.addWidget(btn_jump)
+
+        row.addStretch()
+
+        self._btn_audit = QPushButton("Kiểm định Dữ liệu (Audit)")
+        self._btn_audit.setObjectName("btnAudit")
+        self._btn_audit.setIcon(get_icon_loader().get_icon("shield", "#ffffff", 14))
+        self._btn_audit.setFixedHeight(32)
+        self._btn_audit.setStyleSheet(
+            f"QPushButton {{ background-color: {Palette.SUCCESS}; color: #ffffff; "
+            f"font-weight: bold; border-radius: 4px; padding: 0 10px; }} "
+            f"QPushButton:disabled {{ background-color: {Palette.STATE_IDLE_BG}; color: {Palette.MUTED}; }}"
+        )
+        self._btn_audit.clicked.connect(self._on_audit)
+        row.addWidget(self._btn_audit)
+
+        return row
+
+    def _build_audit_banner(self) -> QFrame:
+        self._audit_banner = QFrame()
+        self._audit_banner.setFixedHeight(36)
+        layout = QHBoxLayout(self._audit_banner)
+        layout.setContentsMargins(8, 0, 8, 0)
+        layout.setSpacing(8)
+
+        self._audit_icon_label = QLabel()
+        layout.addWidget(self._audit_icon_label)
+
+        self._audit_summary_label = QLabel()
+        self._audit_summary_label.setStyleSheet("font-size: 12px; font-weight: bold;")
+        layout.addWidget(self._audit_summary_label, 1)
+
+        return self._audit_banner
+
+    def _build_column_header(self) -> QFrame:
+        header = QFrame()
+        header.setFixedHeight(28)
+        header.setStyleSheet(
+            f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
+        )
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(8, 0, 8, 0)
+        layout.setSpacing(4)
+        for text, stretch, alignment in _KLINE_COLUMNS:
+            label = QLabel(text)
+            label.setAlignment(alignment | Qt.AlignmentFlag.AlignVCenter)
+            label.setStyleSheet(
+                f"color: {Palette.MUTED}; font-size: 11px; font-weight: bold;"
+            )
+            layout.addWidget(label, stretch)
+        return header
+
+    def _build_table(self) -> QWidget:
+        host = QWidget()
+        layout = QVBoxLayout(host)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self._kline_list = QListView()
+        self._kline_list.setObjectName("klineList")
+        self._kline_list.setStyleSheet(
+            f"background-color: transparent; border: none; color: {Palette.TEXT_PRIMARY};"
+        )
+        self._kline_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self._kline_list.setUniformItemSizes(True)
+        self._kline_list.setModel(self._view_model.klineInspectorModel)
+        layout.addWidget(self._kline_list, 1)
+
+        self._empty_label = QLabel("Không có dữ liệu nến nào trong cơ sở dữ liệu.")
+        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 12px;")
+        layout.addWidget(self._empty_label)
+
+        return host
+
+    def _build_pagination_bar(self) -> QFrame:
+        bar = QFrame()
+        bar.setFixedHeight(36)
+        bar.setStyleSheet(
+            f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
+        )
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(12, 0, 12, 0)
+        layout.setSpacing(8)
+
+        self._count_label = QLabel()
+        self._count_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
+        layout.addWidget(self._count_label)
+        layout.addStretch()
+
+        page_size_hint = QLabel("Số nến/trang:")
+        page_size_hint.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
+        layout.addWidget(page_size_hint)
+
+        self._page_size_buttons: dict[int, QPushButton] = {}
+        for size in _KLINE_PAGE_SIZES:
+            button = QPushButton(str(size))
+            button.setFixedSize(36, 24)
+            button.clicked.connect(
+                lambda _checked, s=size: self._view_model.requestKlinePageSize(s)
+            )
+            layout.addWidget(button)
+            self._page_size_buttons[size] = button
+
+        self._btn_first_page = QPushButton("<<")
+        self._btn_first_page.setFixedSize(32, 26)
+        self._btn_first_page.clicked.connect(
+            lambda: self._view_model.requestKlinePage(1)
+        )
+        layout.addWidget(self._btn_first_page)
+
+        self._btn_prev_page = QPushButton("<")
+        self._btn_prev_page.setFixedSize(28, 26)
+        self._btn_prev_page.clicked.connect(
+            lambda: self._view_model.requestKlinePage(
+                self._view_model.klineInspectorCurrentPage - 1
+            )
+        )
+        layout.addWidget(self._btn_prev_page)
+
+        self._page_label = QLabel()
+        self._page_label.setStyleSheet(
+            f"color: {Palette.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;"
+        )
+        layout.addWidget(self._page_label)
+
+        self._btn_next_page = QPushButton(">")
+        self._btn_next_page.setFixedSize(28, 26)
+        self._btn_next_page.clicked.connect(
+            lambda: self._view_model.requestKlinePage(
+                self._view_model.klineInspectorCurrentPage + 1
+            )
+        )
+        layout.addWidget(self._btn_next_page)
+
+        self._btn_last_page = QPushButton(">>")
+        self._btn_last_page.setFixedSize(32, 26)
+        self._btn_last_page.clicked.connect(
+            lambda: self._view_model.requestKlinePage(
+                self._view_model.klineInspectorTotalPages
+            )
+        )
+        layout.addWidget(self._btn_last_page)
+
+        return bar
+
+    def _on_jump(self) -> None:
+        text = self._txt_jump_date.text()
+        if text:
+            self._view_model.requestKlineJumpToDate(text)
+
+    def _on_audit(self) -> None:
+        vm = self._view_model
+        vm.requestRunAudit(vm.klineInspectorSymbol, vm.klineInspectorInterval)
+
+    def _sync_header(self) -> None:
+        vm = self._view_model
+        self._subtitle_label.setText(
+            f"{vm.klineInspectorSymbol} ({vm.klineInspectorInterval}) • "
+            f"{vm.klineInspectorTotalRecords} nến • "
+            f"Trang {vm.klineInspectorCurrentPage}/{vm.klineInspectorTotalPages}"
+        )
+        self._count_label.setText(
+            f"Hiển thị {vm.klineInspectorModel.rowCount()} / "
+            f"{vm.klineInspectorTotalRecords} nến"
+        )
+        self._page_label.setText(
+            f"Trang {vm.klineInspectorCurrentPage} / {vm.klineInspectorTotalPages}"
+        )
+
+        current_page = vm.klineInspectorCurrentPage
+        total_pages = vm.klineInspectorTotalPages
+        self._btn_first_page.setEnabled(current_page > 1)
+        self._btn_prev_page.setEnabled(current_page > 1)
+        self._btn_next_page.setEnabled(current_page < total_pages)
+        self._btn_last_page.setEnabled(current_page < total_pages)
+
+        page_size = vm.klineInspectorPageSize
+        for size, button in self._page_size_buttons.items():
+            selected = size == page_size
+            button.setStyleSheet(
+                f"QPushButton {{ background-color: {Palette.ACCENT if selected else Palette.STATE_IDLE_BG}; "
+                f"color: {'#000000' if selected else Palette.TEXT_PRIMARY}; "
+                f"font-size: 10px; font-weight: {'bold' if selected else 'normal'}; "
+                f"border-radius: 3px; }} "
+                f"QPushButton:hover {{ background-color: {Palette.ACCENT if selected else Palette.STATE_HOVER_BG}; }}"
+            )
+
+    def _sync_audit(self) -> None:
+        vm = self._view_model
+        self._btn_audit.setEnabled(not vm.auditRunning)
+        self._btn_audit.setText(
+            "Đang kiểm định..." if vm.auditRunning else "Kiểm định Dữ liệu (Audit)"
+        )
+
+        has_summary = bool(vm.auditSummaryText)
+        self._audit_banner.setVisible(has_summary)
+        if has_summary:
+            self._audit_icon_label.setText("✅" if vm.auditPassed else "⚠️")
+            color = Palette.SUCCESS if vm.auditPassed else Palette.DANGER
+            bg = "#0d2818" if vm.auditPassed else "#381214"
+            self._audit_banner.setStyleSheet(
+                f"background-color: {bg}; border: 1px solid {color}; border-radius: 4px;"
+            )
+            self._audit_summary_label.setStyleSheet(
+                f"color: {color}; font-size: 12px; font-weight: bold;"
+            )
+            self._audit_summary_label.setText(vm.auditSummaryText)
+
+    def _rebuild_rows(self) -> None:
+        model = self._view_model.klineInspectorModel
+        row_count = model.rowCount()
+        for row in range(row_count):
+            index = model.index(row, 0)
+            widget = _KLineRowWidget()
+            widget.apply_row(index, row)
+            self._kline_list.setIndexWidget(index, widget)
+        self._empty_label.setVisible(row_count == 0)
+        self._sync_header()

@@ -1,7 +1,7 @@
 # EPIC-005E — Migrate `data_management` (mật độ form cao nhất)
 
 **Thuộc Epic:** [`EPIC-005`](../README.md)
-**Trạng thái:** 🟡 Đang làm (1/3 sub-task xong)
+**Trạng thái:** 🟡 Đang làm (2/3 sub-task xong)
 **Phụ thuộc:** [`EPIC-005D`](../completed/EPIC-005D_pilot_settings_screen.md) ✅ — user đồng ý
 đi tiếp tại điểm quyết định của D
 
@@ -52,5 +52,8 @@ Gate giữ đúng baseline tự chụp ngay trước khi bắt đầu mỗi sub-
 
 - **[EPIC-005E1](../completed/EPIC-005E1_database_screen_main.md)** — `DatabaseScreen.qml`
   (màn chính: sync controls, status table, log panel, symbol picker, 2 confirm dialog). ✅ Xong.
-- **EPIC-005E2** — `KLineInspectorModal.qml`. Chưa làm.
+- **[EPIC-005E2](../completed/EPIC-005E2_kline_inspector_modal.md)** — `KLineInspectorModal.qml`
+  (jump-to-date, audit, bảng nến phân trang). ✅ Xong — 0 kit component, cùng quyết định
+  `QListView`+`setIndexWidget` như `E1` (model đọc theo role, không theo cột dù
+  `columnCount()` trả 11).
 - **EPIC-005E3** — `GapInspectorModal.qml`. Chưa làm.
