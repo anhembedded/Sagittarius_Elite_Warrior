@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 import "../../components"
 
 // LimitationsModal (BOT-088) — Modal card for displaying the active limitations/assumptions of the current backtest run.

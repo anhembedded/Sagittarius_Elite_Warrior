@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // CapitalDialog (BOT-088) — Modal dialog for configuring initial capital and currency.
 ModalDialogCard {

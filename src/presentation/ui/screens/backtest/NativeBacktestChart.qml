@@ -1,5 +1,5 @@
 import QtQuick
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 import Sagittarius.NativeChart 1.0
 
 // BOT-098F6C — thin declarative wrapper around NativeChartItem: axis ticks,

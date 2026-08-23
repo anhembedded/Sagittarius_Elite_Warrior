@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // IndicatorPickerModal (BOT-088) — Modal card for selecting custom indicator scripts.
 ModalDialogCard {

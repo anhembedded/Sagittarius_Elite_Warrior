@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // Navigation sidebar (VS Code Activity Bar style):
 // Supports full expanded view (220px) and sleek compact icon-only rail (48px)

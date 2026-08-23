@@ -1,7 +1,7 @@
 """
 Foundation gate for the shared "UI state" standardization work in
 sagittarius_engine: state-aware Theme tokens (stateDisabledOpacity/
-stateHoverBg/stateIdleBg/stateActiveTint/stateNavBorder), the QmlShared
+stateHoverBg/stateIdleBg/stateActiveTint/stateNavBorder), the Sagittarius.UI
 components built on them (FieldBackground, StyledCheck, StatefulButton —
 including its `isActive`, merged in from a since-removed standalone
 NavButton — and BaseCard, the Rectangle-rooted setActive()/setDisabled()
@@ -36,7 +36,7 @@ from sagittarius_engine.extensions.pyside_mvc import (
 
 _PROBE_QML = """
 import QtQuick
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 Item {
     id: root
@@ -97,7 +97,7 @@ def probe_view(qapp, probe_qml_file, request):
 
 
 def test_probe_qml_loads_the_shared_components(probe_view):
-    """Baseline: every new QmlShared type resolves and constructs without a
+    """Baseline: every new Sagittarius.UI type resolves and constructs without a
     QML error — an unresolved type/property would leave status != Ready."""
     assert probe_view.quick_widget.status() == QQuickWidget.Status.Ready
     assert probe_view.quick_widget.rootObject() is not None
@@ -113,9 +113,7 @@ def test_state_tokens_resolve_to_this_apps_real_palette_values(probe_view):
     default of 0.45 already matches the value this task standardized on),
     so that one alone still falls back to state_tokens.DEFAULT_STATE_TOKENS."""
     from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
-    from sagittarius_engine.extensions.pyside_mvc.QmlShared.state_tokens import (
-        DEFAULT_STATE_TOKENS,
-    )
+    from sagittarius_engine.extensions.pyside_mvc import DEFAULT_STATE_TOKENS
 
     root = probe_view.quick_widget.rootObject()
     assert root.property("probedDisabledOpacity") == pytest.approx(
@@ -185,14 +183,16 @@ def test_log_panel_still_constructs_after_migrating_to_base_card(qapp, request):
     proving the migration was a drop-in with no behavior change."""
     from pathlib import Path
 
-    import sagittarius_engine.extensions.pyside_mvc.QmlShared as qml_shared_pkg
+    import sagittarius_engine.extensions.pyside_mvc as pyside_mvc_pkg
     from sagittarius_engine.extensions.pyside_mvc import QmlHostView
     from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
         LogListModel,
     )
 
     class _LogPanelProbeView(QmlHostView):
-        QML_DIR = Path(qml_shared_pkg.__file__).parent
+        QML_DIR = (
+            Path(pyside_mvc_pkg.__file__).parent / "Sagittarius" / "UI" / "LogPanel"
+        )
 
     view = _LogPanelProbeView()
     view.set_view_model(BaseQmlViewModel())

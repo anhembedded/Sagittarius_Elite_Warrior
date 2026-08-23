@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // OrderExecutionModal (BOT-074 / BOT-076 / BOT-088) — Modal card for order execution trigger modes.
 //

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // SymbolPickerModal (BOT-102) — Modal dialog for picking the Backtest
 // symbol. Unlike TimeframePickerModal/StrategyPickerModal (local, always

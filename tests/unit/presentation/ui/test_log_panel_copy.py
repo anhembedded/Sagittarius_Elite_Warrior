@@ -4,7 +4,7 @@ Board's System Monitor (shared with the Database screen's sync log, since
 both already use this one component — see LogPanel.qml's own header
 comment).
 
-Loads the REAL LogPanel.qml straight from `sagittarius_engine`'s QmlShared
+Loads the REAL LogPanel.qml straight from `sagittarius_engine`'s Sagittarius.UI
 directory (not embedded inside a screen), same probe-QML approach as
 test_qml_shared_foundation.py, so this proves the change against the actual
 shared component every screen gets, not a copy of it.
@@ -16,7 +16,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-import sagittarius_engine.extensions.pyside_mvc.QmlShared as qml_shared_pkg
+import sagittarius_engine.extensions.pyside_mvc as pyside_mvc_pkg
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQuickWidgets import QQuickWidget
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, QmlHostView
@@ -24,7 +24,13 @@ from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
     LogListModel,
 )
 
-_QML_SHARED_DIR = Path(qml_shared_pkg.__file__).parent
+# The widget kit's QML moved to `pyside_mvc/Sagittarius/UI/<Component>/` in
+# engine 2.0.0 (module `Sagittarius.UI`, was `QmlShared`). This test loads the
+# engine's REAL LogPanel.qml file directly, so it needs the on-disk path, not
+# the QML module name.
+_QML_SHARED_DIR = (
+    Path(pyside_mvc_pkg.__file__).parent / "Sagittarius" / "UI" / "LogPanel"
+)
 
 
 @pytest.fixture

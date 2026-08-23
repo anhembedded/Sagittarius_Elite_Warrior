@@ -52,3 +52,11 @@ Không cần test mới (không đổi hành vi runtime). Xác nhận bằng:
 grep -n "QmlShared" src/presentation/ui/assets/palette.py
 ```
 phải không còn kết quả nào sau khi sửa.
+
+---
+
+## ✅ Đã sửa — 2026-08-23
+
+Đóng chung trong [`BUG-035`](../bug_report/completed/BUG-035_engine_2_0_0_qml_module_rename_breaks_all_ui.md)
+— cùng gốc là đợt tái cấu trúc `pyside_mvc` của engine, làm một thể như task này đã đề xuất.
+Chi tiết và bằng chứng verify nằm trong file đó. Gate `ci-local.ps1 -Full`: **PASS**, 1773 passed.

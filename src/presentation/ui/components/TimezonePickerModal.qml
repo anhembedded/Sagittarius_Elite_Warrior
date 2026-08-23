@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // TimezonePickerModal (BOT-097) — Modal dialog for selecting display timezone.
 // Note: Display concern only — data/engine/database always remain UTC.

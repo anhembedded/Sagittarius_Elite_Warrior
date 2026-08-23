@@ -2,7 +2,7 @@
 
 **Reported date:** 2026-08-23
 **Severity:** Cao — toàn bộ UI không render, 69 test đỏ
-**Status:** 🔴 Open — root cause đã xác định chính xác, chưa sửa (theo quy trình: phát hiện thì
+**Status:** ✅ Fixed 2026-08-23 — xem mục cuối file. (Ban đầu: root cause xác định, chưa sửa theo quy trình
 lập task, không sửa tại phiên phát hiện)
 
 ---
@@ -114,3 +114,60 @@ Engine's `CHANGELOG.md` bản đầu **thiếu** breaking change này; đã đư
 ## 6. Phân loại
 
 UI / QML / Engine integration
+
+---
+
+## ✅ Đã sửa — 2026-08-23
+
+**Status: ✅ Fixed.** Gate `./scripts/ci-local.ps1 -Full` về **PASS**, 8/8 bước xanh,
+**1773 passed, 0 failed** (trước khi sửa: 69 failed / 1702 passed).
+
+### Đã làm
+
+1. **26 file `.qml` trong `src/`** — đổi `import QmlShared 1.0` → `import Sagittarius.UI 1.0`.
+   Kiểm trước khi sửa: chỉ có đúng 1 biến thể chuỗi, không có file `.qml` nào ngoài `src/`,
+   nên thay thế cơ học là an toàn. Diff: 26 file, 26 dòng thêm / 26 dòng xoá — mỗi file đúng 1
+   dòng, không đụng gì khác.
+2. **`tests/unit/presentation/ui/test_shared_ui_state_foundation.py`** — 3 chỗ:
+   - QML inline `_PROBE_QML` cũng `import QmlShared 1.0` (đây là lý do 7 test còn đỏ sau khi
+     đã sửa hết `src/`).
+   - `QML_DIR` trỏ vào thư mục package `QmlShared` — nay QML thật ở
+     `pyside_mvc/Sagittarius/UI/LogPanel/`.
+   - Gộp luôn **BOT-118**: `QmlShared.state_tokens` → dùng đường public `from
+     sagittarius_engine.extensions.pyside_mvc import DEFAULT_STATE_TOKENS` (top-level re-export,
+     tránh deep-import theo đúng rule của engine).
+3. **`tests/unit/presentation/ui/test_log_panel_copy.py`** — cùng vấn đề `QML_DIR`; đây chính
+   là "2 errors" trong lần chạy thứ hai.
+4. **Gộp BOT-117**: 2 docstring path cũ trong `src/presentation/ui/assets/palette.py` →
+   `pyside_mvc.tokens` / `pyside_mvc.tokens.state_tokens`.
+
+`QmlShared.log_list_model` **giữ nguyên** ở mọi nơi — engine cố ý duy trì shim đó cho app này.
+
+### Guard mới
+
+`tests/unit/presentation/ui/test_qml_imports_match_engine_qmldir.py` — đọc mọi `qmldir` engine
+thực sự ship, rồi assert mọi `import <Module>` trong `src/**/*.qml` khớp. Không cần Qt,
+QApplication hay scene; chạy 0.3s.
+
+Đã chứng minh nó bắt được lỗi thật, không phải test cho có: tái tạo bug trên đúng 1 file
+(`Sidebar.qml`) → đỏ ngay với thông báo dùng được:
+
+```
+QML files import a module the installed engine does not ship:
+  src/presentation/ui/components/sidebar/Sidebar.qml: import QmlShared
+Modules the engine actually ships: ['Sagittarius.UI']
+```
+
+Khôi phục → xanh lại. Đó là điểm chính: **một dòng nêu đúng file và đúng module**, thay cho 69
+test đỏ với ~400 dòng `Cannot read property ... of null` che mất nguyên nhân thật.
+
+Guard có 2 test tự-bảo-vệ (`test_engine_actually_ships_at_least_one_qml_module`,
+`test_app_qml_files_were_discovered`) để nếu đường dẫn discovery sai thì nó fail thẳng, chứ
+không pass rỗng.
+
+### Ghi chú kiểm chứng
+
+Log đã grep theo đúng `INSTRUCTION` của script: `FAILED: 0`, `Traceback: 0`, `QmlShared: 0`.
+Còn 6 `ResourceWarning` (`unclosed database` trong `test_screen_layer_structure.py`) — **có sẵn
+từ trước, không do sửa này**: lần chạy đầu (trước khi sửa) có 11, sau khi sửa còn 7. Không liên
+quan QML; nếu muốn xử lý thì nên là bug riêng.

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // Dynamic "Cấu hình Thông số Bot" form (BOT-047/BOT-088). Renders whatever
 // `viewModel.botParamsSchema` says using the unified ModalDialogCard frame.

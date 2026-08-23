@@ -7,7 +7,7 @@ class Palette:
     `IconTheme` (icon_loader.py) re-exports the icon-relevant subset of
     these for backward compatibility with existing QtWidgets code. QML
     screens (BOT-030) consume the same values via the engine's shared
-    theme bridge (sagittarius_engine.extensions.pyside_mvc.QmlShared,
+    theme bridge (sagittarius_engine.extensions.pyside_mvc.tokens,
     configured once with this app's own palette dict via
     `configure_app_qml()` in app_bootstrapper.py) — so QtWidgets and QML
     never hardcode the same hex value in two places independently.
@@ -29,7 +29,7 @@ class Palette:
     DANGER = "#F6465D"  # red
     MUTED = "#848E9C"  # gray
 
-    # State tokens (sagittarius_engine.extensions.pyside_mvc.QmlShared.state_tokens) —
+    # State tokens (sagittarius_engine.extensions.pyside_mvc.tokens.state_tokens) —
     # this app's real values, overriding the engine's generic placeholders.
     # These are the exact literals every button/card in this app already
     # hand-rolled independently before the StatefulButton/FieldBackground/

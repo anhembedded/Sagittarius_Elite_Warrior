@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // ModalDialogCard (BOT-088) — Shared abstraction layer for modal card dialogs.
 // Provides standardized card styling (dark theme, rounded border, elevation),

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 
 // One row of the "Thông số Bot" modal (BOT-047) — picks its widget purely
 // from `fieldData.kind` ("int"/"float"/"bool"/"string"), never from which

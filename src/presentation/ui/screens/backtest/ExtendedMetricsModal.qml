@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlShared 1.0
+import Sagittarius.UI 1.0
 import "../../components"
 
 // ExtendedMetricsModal (BOT-088) — Modal card for displaying the up-to-17 detailed backtest performance metric cards (BOT-106A adds Sharpe/Sortino/Calmar/Max Drawdown Duration/Max Consecutive Wins/Losses).
