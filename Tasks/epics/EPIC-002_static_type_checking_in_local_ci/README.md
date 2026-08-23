@@ -1,6 +1,6 @@
 # Epic EPIC-002 — Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ
 
-**Trạng thái:** 🟡 Đang làm — 3/4 xong (21/08): `A`, `B`, `C` đã xong. Còn `EPIC-002D` (backlog dài hạn, không chặn gì).
+**Trạng thái:** 🟡 Đang làm — 4/5 xong (23/08): `A`, `B`, `C`, `E` đã xong. Còn `EPIC-002D` (backlog dài hạn, không chặn gì).
 **Nguồn:** [`BUG-026`](../../bug_report/completed/BUG-026_shutdown_probe_missing_stream_historical_klines_implementation.md).
 
 ---
@@ -55,6 +55,10 @@ gian chứ không "bật hết 1 lần".
 | **[EPIC-002B](completed/EPIC-002B_wire_mypy_into_ci_local.md)** | Nối `mypy` (chế độ tối thiểu) vào `ci-local.ps1 -Full` | ✅ Xong (21/08) — verify thật qua `pwsh`, cổng chạy "Success: no issues found in 128 source files" |
 | **[EPIC-002C](completed/EPIC-002C_document_mypy_gate_in_rules.md)** | Ghi nhận cổng `mypy` vào `ci-rule.md`/`ONBOARDING.md` | ✅ Xong (21/08) — kèm sửa 1 câu sai trong `ONBOARDING.md` (PowerShell thật ra chạy được trên máy này qua `pwsh`) |
 | **[EPIC-002D](incomplete/EPIC-002D_incremental_strictness_rollout.md)** | Lộ trình siết `--strict` dần theo module (giai đoạn sau, không chặn 3 task trên) | 🔴 Chưa làm |
+| **[EPIC-002E](completed/EPIC-002E_drop_engine_ignore_missing_imports.md)** | Gỡ `sagittarius_engine` khỏi `ignore_missing_imports` (engine đã ship `py.typed` từ 2.2.0) | ✅ Xong (23/08) — 0 lỗi mới, cổng thật `RESULT: PASS`, mypy `no issues found in 134 source files` |
 
 Thứ tự bắt buộc: `A` → `B` → `C`. `D` là backlog dài hạn, không phụ thuộc
-tuyến tính, có thể làm bất kỳ lúc nào sau `B`.
+tuyến tính, có thể làm bất kỳ lúc nào sau `B`. `E` sinh ra từ sự kiện bên
+ngoài (engine 2.2.0 ship `py.typed`), không nằm trong kế hoạch ban đầu của
+epic — nó **thu hẹp phần bị che khuất** của cổng `mypy`, cùng hướng với `D`
+nhưng độc lập.

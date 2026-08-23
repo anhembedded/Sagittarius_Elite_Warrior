@@ -94,9 +94,15 @@ exclude = [
 ]
 
 [[tool.mypy.overrides]]
-# python-binance and sagittarius_engine ship no type stubs / py.typed marker — a third-party/engine gap,
+# python-binance ships no type stubs / py.typed marker — a third-party gap,
 # not our code's debt. Without this, mypy's "Skipping analyzing"
 # resolution failure cascades into dependents in a way that silently shrinks how many files get fully checked.
-module = ["binance", "binance.*", "sagittarius_engine", "sagittarius_engine.*"]
+#
+# `sagittarius_engine` was in this list too until 2026-08-23. It no longer
+# belongs here: the engine ships a py.typed marker from 2.2.0 onward (engine
+# TASK-027) and the installed version is 2.3.0, so mypy now reads its real
+# annotations. Keeping the override would have silently degraded every engine
+# symbol to `Any` — the opposite of what this gate exists for.
+module = ["binance", "binance.*"]
 ignore_missing_imports = true
 
