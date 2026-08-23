@@ -16,9 +16,11 @@ performance remains a separate F6D validation gate.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import platform
 import statistics
+import sys
 import time
 from argparse import ArgumentParser, Namespace
 from collections.abc import Sequence
@@ -29,7 +31,7 @@ import pyqtgraph as pg
 from PySide6 import __version__ as PYSIDE_VERSION
 from PySide6.QtCore import QPointF, QtMsgType, QUrl, qInstallMessageHandler
 from PySide6.QtQml import QQmlComponent
-from PySide6.QtQuick import QQuickView
+from PySide6.QtQuick import QQuickItem, QQuickView
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
@@ -72,6 +74,15 @@ _INDICATOR_COLORS = (
     "#00c087",
 )
 _EXPECTED_COLORS = frozenset({"#00c087", "#f6465d", "#00bfff", "#f0b90b"})
+# Pointer sweep across the viewport, as fractions of the item's real width.
+_CROSSHAIR_SWEEP_FRACTIONS = (0.1, 0.25, 0.5, 0.75, 0.9)
+
+# This script runs standalone, outside the app bootstrapper, so nothing has
+# attached handlers to the "App" tree — see .agents/rules/logging-rule.md §1.
+# _configure_logging() below attaches one, which is that rule's stated
+# exemption (getLogger purely to addHandler on a tree you then own).
+logger = logging.getLogger("App.ChartBenchmark")
+_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 _NATIVE_QML_DOCUMENT = b"""
 import QtQuick
 import Sagittarius.NativeChart 1.0
@@ -286,6 +297,15 @@ def make_argument_parser() -> ArgumentParser:
         help="Optional JSON output path for a local benchmark evidence run.",
     )
     parser.add_argument(
+        "--log-level",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
+        default="INFO",
+        help=(
+            "Diagnostic verbosity written to stderr (default: INFO). DEBUG "
+            "adds one line per pointer move."
+        ),
+    )
+    parser.add_argument(
         "--ci-contract",
         action="store_true",
         help=(
@@ -487,6 +507,110 @@ def _run_python(
         app.processEvents()
 
 
+@dataclass(frozen=True, slots=True)
+class CrosshairSweepOutcome:
+    """What one programmatic pointer sweep observed about the crosshair.
+
+    ``authored_candle_index`` is the contract value: what
+    ``setCrosshairPosition()`` itself resolved for the final pointer position.
+    ``flushed_candle_index`` is the same property re-read after the event loop
+    and one frame have been pumped, and is reported as a diagnostic only — see
+    :func:`drive_programmatic_crosshair_sweep` for why the two can differ.
+    """
+
+    authored_candle_index: int
+    flushed_candle_index: int
+
+
+def drive_programmatic_crosshair_sweep(
+    app: QApplication,
+    view: QQuickView,
+    chart: QQuickItem,
+    *,
+    width: float,
+    height: float,
+    fractions: Sequence[float] = _CROSSHAIR_SWEEP_FRACTIONS,
+) -> CrosshairSweepOutcome:
+    """Sweep the crosshair programmatically and report the candle it resolved.
+
+    The sweep asserts exactly one thing: that ``setCrosshairPosition()`` maps a
+    pointer x-coordinate onto the correct candle of the current viewport. That
+    mapping is pure and synchronous — the setter has already written
+    ``crosshairCandleIndex`` by the time it returns — so this reads the
+    property **before pumping any events**, which is the only read point no
+    other writer can reach.
+
+    That matters because the item has a second, asynchronous writer
+    (``BUG-036``): Qt Quick delivers *synthetic* hover events while flushing
+    frame-synchronous events, positioned at the platform's own phantom cursor
+    (``(8, 8)`` under ``offscreen``, where no pointer exists at all).
+    ``NativeChartItem::hoverMoveEvent()`` feeds those straight back into
+    ``setCrosshairPosition()``. The previous code read the property *after*
+    ``processEvents()`` and ``grabWindow()``, so whenever a phantom hover
+    happened to land in that window the reported index collapsed onto the
+    first visible candle. Whether it landed there was pure frame scheduling,
+    which is why the CI contract failed only under machine load and passed
+    again on a byte-identical tree.
+
+    The post-flush value is still captured, as a diagnostic, so that a phantom
+    write shows up in the report instead of silently deciding the gate.
+    """
+    if not fractions:
+        raise ValueError("crosshair sweep requires at least one fraction")
+    # Rule 5: log what would let this layer be ruled out. The item's real
+    # width and the live viewport are the only two inputs to the mapping, and
+    # neither is recoverable from the failure message alone.
+    logger.info(
+        "[bench-crosshair] sweep begin item=%.1fx%.1f viewport=[%.1f,%.1f) "
+        "fractions=%s",
+        chart.width(),
+        chart.height(),
+        float(chart.property("viewportStart")),
+        float(chart.property("viewportEnd")),
+        ",".join(f"{fraction:g}" for fraction in fractions),
+    )
+    authored_candle_index = -1
+    for fraction in fractions:
+        pointer_x = width * fraction
+        if not chart.setCrosshairPosition(pointer_x, height * 0.5):
+            raise RuntimeError("native crosshair position was rejected")
+        # Read before the event loop runs: from here until the next statement
+        # nothing else can write crosshairCandleIndex.
+        authored_candle_index = int(chart.property("crosshairCandleIndex"))
+        # Rule 4/6: one line per pointer move is per-event detail -> DEBUG.
+        logger.debug(
+            "[bench-crosshair] move fraction=%g x=%.2f -> candle=%d",
+            fraction,
+            pointer_x,
+            authored_candle_index,
+        )
+        app.processEvents()
+        view.grabWindow()
+    flushed_candle_index = int(chart.property("crosshairCandleIndex"))
+    if flushed_candle_index != authored_candle_index:
+        # Degraded-but-recovered (rule 6): a synthetic hover overwrote the
+        # value after the last programmatic move. The contract reads the
+        # authored index, so this no longer decides the gate — but it must
+        # never be silent, or the flake goes back to being invisible.
+        logger.warning(
+            "[bench-crosshair] synthetic hover overwrote the crosshair after "
+            "the final move: authored=%d flushed=%d (BUG-036; contract uses "
+            "authored)",
+            authored_candle_index,
+            flushed_candle_index,
+        )
+    logger.info(
+        "[bench-crosshair] sweep end authored=%d flushed=%d perturbed=%s",
+        authored_candle_index,
+        flushed_candle_index,
+        flushed_candle_index != authored_candle_index,
+    )
+    return CrosshairSweepOutcome(
+        authored_candle_index=authored_candle_index,
+        flushed_candle_index=flushed_candle_index,
+    )
+
+
 def _run_native(
     app: QApplication,
     fixture: BenchmarkFixture,
@@ -515,6 +639,33 @@ def _run_native(
         # and get misattributed as a camera/pointer-triggered rebuild.
         QTest.qWaitForWindowExposed(view)
         app.processEvents()
+        # Rule 3: one-shot environment line. Requested vs granted geometry is
+        # the pair that matters here — the compositor has final say, and every
+        # crosshair coordinate is derived from the granted width.
+        logger.info(
+            "[bench-env] backend=native platform=%s pyside=%s qt=%s abi=%s "
+            "dpr=%.3f requested=%dx%d granted=%dx%d item=%.1fx%.1f",
+            QApplication.platformName(),
+            PYSIDE_VERSION,
+            runtime.qt_version,
+            runtime.snapshot_abi,
+            float(chart.property("renderDevicePixelRatio")),
+            _WINDOW_WIDTH,
+            _WINDOW_HEIGHT,
+            view.width(),
+            view.height(),
+            chart.width(),
+            chart.height(),
+        )
+        if (view.width(), view.height()) != (_WINDOW_WIDTH, _WINDOW_HEIGHT):
+            logger.warning(
+                "[bench-env] compositor granted %dx%d, not the requested "
+                "%dx%d; crosshair coordinates follow the granted size",
+                view.width(),
+                view.height(),
+                _WINDOW_WIDTH,
+                _WINDOW_HEIGHT,
+            )
 
         candles = fixture.candles
         if not chart.submitSnapshot(
@@ -600,14 +751,13 @@ def _run_native(
         # the window's own bounds.
         actual_width = view.width()
         actual_height = view.height()
-        for fraction in (0.1, 0.25, 0.5, 0.75, 0.9):
-            if not chart.setCrosshairPosition(
-                float(actual_width) * fraction,
-                float(actual_height) * 0.5,
-            ):
-                raise RuntimeError("native crosshair position was rejected")
-            app.processEvents()
-            view.grabWindow()
+        crosshair_sweep = drive_programmatic_crosshair_sweep(
+            app,
+            view,
+            chart,
+            width=float(actual_width),
+            height=float(actual_height),
+        )
         after_pointer = _native_build_counts(chart)
         elapsed_seconds = sum(samples) / 1_000.0
         return RendererBenchmarkResult(
@@ -616,7 +766,7 @@ def _run_native(
             median_ms=round(statistics.median(samples), 3),
             p95_ms=round(percentile_95(samples), 3),
             updates_per_second=round(len(samples) / elapsed_seconds, 2),
-            completed_captures=len(starts) + 1 + 5,
+            completed_captures=len(starts) + 1 + len(_CROSSHAIR_SWEEP_FRACTIONS),
             device_pixel_ratio=round(
                 float(chart.property("renderDevicePixelRatio")), 3
             ),
@@ -626,13 +776,21 @@ def _run_native(
             ),
             displayed_markers=int(chart.property("displayedMarkerCount")),
             represented_markers=int(chart.property("representedMarkerCount")),
-            crosshair_final_candle_index=int(chart.property("crosshairCandleIndex")),
-            expected_crosshair_candle_index=final_start + int(_VISIBLE_CANDLES * 0.9),
+            crosshair_final_candle_index=crosshair_sweep.authored_candle_index,
+            expected_crosshair_candle_index=(
+                final_start + int(_VISIBLE_CANDLES * _CROSSHAIR_SWEEP_FRACTIONS[-1])
+            ),
             camera_geometry_retained=_retained_counts(before_camera, after_camera),
             pointer_geometry_retained=_retained_counts(before_pointer, after_pointer),
             renderer_diagnostics={
                 "native_runtime_qt_version": runtime.qt_version,
                 "native_snapshot_abi": runtime.snapshot_abi,
+                # Diagnostic, never a gate: when this differs from
+                # crosshair_final_candle_index a synthetic hover event reached
+                # the item after the last programmatic move (BUG-036).
+                "crosshair_candle_index_after_flush": (
+                    crosshair_sweep.flushed_candle_index
+                ),
                 "camera_updates": int(chart.property("cameraUpdateCount")),
                 "geometry_builds": int(chart.property("geometryBuildCount")),
                 "volume_geometry_builds": int(
@@ -832,10 +990,18 @@ def assert_benchmark_contract(
                             False,
                             f"native {name} geometry must be retained during pointer movement",
                         )
-                if item.get("crosshair_final_candle_index") != item.get(
-                    "expected_crosshair_candle_index"
-                ):
-                    return False, "native final crosshair candle truth violated"
+                actual_crosshair = item.get("crosshair_final_candle_index")
+                expected_crosshair = item.get("expected_crosshair_candle_index")
+                if actual_crosshair != expected_crosshair:
+                    # Carry the numbers: the bare sentence this used to print
+                    # sent BUG-036's investigation through three CI log files
+                    # before anyone could even see which way it diverged.
+                    flushed = diagnostics.get("crosshair_candle_index_after_flush")
+                    return False, (
+                        "native final crosshair candle truth violated: "
+                        f"got {actual_crosshair}, expected {expected_crosshair} "
+                        f"(index after event flush: {flushed})"
+                    )
             else:
                 if (
                     item.get("displayed_markers") is None
@@ -893,8 +1059,26 @@ def run_benchmark(args: Namespace) -> dict[str, object]:
     return build_report(app=app, fixture=fixture, results=results)
 
 
+def _configure_logging(level_name: str) -> None:
+    """Attach one stderr handler to the "App" tree for this standalone run.
+
+    Diagnostics go to stderr, never stdout: stdout carries the JSON report and
+    callers pipe it. The format matches ``StdLogger``'s fixed-field layout so a
+    captured CI log filters by level and by ``[tag]`` exactly like an app log
+    (``.agents/rules/logging-rule.md`` §8).
+    """
+    app_logger = logging.getLogger("App")
+    app_logger.setLevel(getattr(logging, level_name.upper(), logging.INFO))
+    app_logger.propagate = False
+    if not app_logger.handlers:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+        app_logger.addHandler(handler)
+
+
 def main() -> None:
     args = make_argument_parser().parse_args()
+    _configure_logging(args.log_level)
     report = run_benchmark(args)
     passed, message = assert_benchmark_contract(
         report,
@@ -902,7 +1086,10 @@ def main() -> None:
         require_native_retained_geometry=args.ci_contract,
     )
     if (args.ci_contract or args.desktop_contract) and not passed:
+        logger.error("[bench-contract] %s", message)
         raise SystemExit(f"Benchmark contract violation: {message}")
+    if args.ci_contract or args.desktop_contract:
+        logger.info("[bench-contract] all contract assertions passed")
     serialized = json.dumps(report, indent=2, ensure_ascii=False)
     if args.report is not None:
         args.report.parent.mkdir(parents=True, exist_ok=True)

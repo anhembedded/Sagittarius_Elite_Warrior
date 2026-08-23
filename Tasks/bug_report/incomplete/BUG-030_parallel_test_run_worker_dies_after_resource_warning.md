@@ -113,6 +113,19 @@ triggers here at all.
    `pytest tests/unit/ -n 6` alone (verified: that narrower command passed
    cleanly, 1678/1678, in the same investigation that found this bug).
 
+## Data point khác từ 2026-08-23 (`BUG-036`) — có thể liên quan, chưa xác nhận
+
+Trong lúc xác minh [`BUG-036`](../completed/BUG-036_benchmark_crosshair_contract_synthetic_hover_race.md),
+một lần chạy `-Full` (`logs/ci-local-20260823-203040.log`) hỏng ở
+`tests/integration/presentation/test_database_user_flow.py::test_database_cancel_button_cancels_active_sync_flow`,
+kèm `ListAvailableSymbolsQuery failed: object of type 'Mock' has no len()`.
+
+Cùng vùng (`-n 6` song song, tầng integration, đường Database Sync) nhưng
+**triệu chứng khác hồ sơ này**: ở đây worker chết giữa chừng không có summary,
+còn lần đó test fail bình thường và gate vẫn in đủ summary. Không tái hiện:
+test đó chạy riêng pass 3/3, và 3 lần `-Full` tiếp theo đều PASS. Ghi lại để
+lần điều tra sau có thêm một mẫu — **không kết luận là cùng nguyên nhân.**
+
 ## Note
 
 Found only because the user pushed to actually run the real `-Full` gate
