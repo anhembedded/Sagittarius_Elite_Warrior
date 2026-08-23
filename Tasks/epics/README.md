@@ -39,6 +39,6 @@ Tasks/epics/
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
 | **[EPIC-001](EPIC-001_ema_trend_pullback_tradingview_cross_reference/README.md)** | Đối chiếu `EmaTrendPullbackStrategy` với TradingView thật | 🟡 Đang làm (1/2 task con xong) |
-| **[EPIC-002](EPIC-002_static_type_checking_in_local_ci/README.md)** | Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ | 🟡 Đang làm (3/4 task con xong) |
+| **[EPIC-002](EPIC-002_static_type_checking_in_local_ci/README.md)** | Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ | 🟡 Đang làm (4/5 task con xong) |
 | **[EPIC-003](EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (3/6 task con xong) |
 | **[EPIC-004](EPIC-004_static_security_and_quality_analysis/README.md)** | Static security & quality analysis gate (Bandit + magic-number + code-smell qua Ruff) | 🟡 Đang làm (1/4 task con xong) |
