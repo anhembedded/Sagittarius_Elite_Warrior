@@ -18,6 +18,8 @@ double for the item cannot reach the failure path at all
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt, QTimer, QUrl
 from PySide6.QtGui import QMouseEvent
@@ -102,6 +104,46 @@ def _deliver_phantom_hover(view: QQuickView) -> None:
 
 
 @pytest.fixture()
+def crosshair_logs():
+    """Capture the sweep's own log records, and keep them off every other handler.
+
+    Two reasons this is a fixture and not an afterthought. First, these tests
+    deliberately provoke the phantom hover, so the sweep emits a real WARNING —
+    and `ci-local.ps1`'s Run Log Scan step fails the gate on any
+    `- WARNING -` record in the pytest log. A test that proves the flake is
+    reported must not itself trip the gate. Second, capturing the records lets
+    the tests assert the report actually happened, which is the behaviour
+    BUG-036 added; asserting only the returned value would let the WARNING
+    silently rot away.
+    """
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    handler = _Capture()
+    sweep_logger = logging.getLogger("App.ChartBenchmark")
+    previous_propagate = sweep_logger.propagate
+    previous_level = sweep_logger.level
+    sweep_logger.addHandler(handler)
+    sweep_logger.propagate = False
+    sweep_logger.setLevel(logging.DEBUG)
+    try:
+        yield records
+    finally:
+        sweep_logger.removeHandler(handler)
+        sweep_logger.propagate = previous_propagate
+        sweep_logger.setLevel(previous_level)
+
+
+def _warnings_in(records: list[logging.LogRecord]) -> list[str]:
+    return [
+        record.getMessage() for record in records if record.levelno >= logging.WARNING
+    ]
+
+
+@pytest.fixture()
 def native_chart(qapp):
     view = QQuickView()
     view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
@@ -138,7 +180,7 @@ def native_chart(qapp):
 
 
 def test_crosshair_sweep_reports_the_candle_it_authored_despite_phantom_hover(
-    qapp, native_chart
+    qapp, native_chart, crosshair_logs
 ):
     """A hover landing after the last programmatic move must not change the gate.
 
@@ -166,7 +208,7 @@ def test_crosshair_sweep_reports_the_candle_it_authored_despite_phantom_hover(
 
 
 def test_crosshair_sweep_records_a_phantom_hover_instead_of_hiding_it(
-    qapp, native_chart
+    qapp, native_chart, crosshair_logs
 ):
     """The overwrite still has to be visible in the report, just not decisive."""
     view, chart = native_chart
@@ -187,8 +229,17 @@ def test_crosshair_sweep_records_a_phantom_hover_instead_of_hiding_it(
     assert outcome.flushed_candle_index == _PHANTOM_CANDLE_INDEX
     assert outcome.flushed_candle_index != outcome.authored_candle_index
 
+    # ...and it must say so out loud, or the flake is invisible again.
+    warnings = _warnings_in(crosshair_logs)
+    assert len(warnings) == 1
+    assert "synthetic hover overwrote the crosshair" in warnings[0]
+    assert str(expected) in warnings[0]
+    assert str(_PHANTOM_CANDLE_INDEX) in warnings[0]
 
-def test_crosshair_sweep_is_stable_without_any_phantom_hover(qapp, native_chart):
+
+def test_crosshair_sweep_is_stable_without_any_phantom_hover(
+    qapp, native_chart, crosshair_logs
+):
     """Undisturbed, both readings agree — the diagnostic only fires on a real race."""
     view, chart = native_chart
     fraction = 0.5
@@ -205,9 +256,14 @@ def test_crosshair_sweep_is_stable_without_any_phantom_hover(qapp, native_chart)
 
     assert outcome.authored_candle_index == expected
     assert outcome.flushed_candle_index == expected
+    # No phantom writer, so nothing to report — a WARNING here would mean the
+    # diagnostic cries wolf on every clean run and stops meaning anything.
+    assert _warnings_in(crosshair_logs) == []
 
 
-def test_crosshair_sweep_rejects_an_empty_fraction_sequence(qapp, native_chart):
+def test_crosshair_sweep_rejects_an_empty_fraction_sequence(
+    qapp, native_chart, crosshair_logs
+):
     """An empty sweep must not silently report the -1 'no crosshair' sentinel."""
     view, chart = native_chart
 
