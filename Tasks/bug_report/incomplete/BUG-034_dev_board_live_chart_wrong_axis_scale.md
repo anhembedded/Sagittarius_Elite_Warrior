@@ -60,8 +60,72 @@ Trục Y của chart chính phải auto-range theo đúng vùng giá thực củ
 cho ETHUSDT), và thân nến phải hiển thị được trong vùng plot — giống cách chart hoạt động ở
 màn hình Backtest.
 
-## 4. Chưa làm (theo yêu cầu)
+## 4. Lượt điều tra 1 (2026-08-23) — chưa ra root cause, nhưng đã loại trừ được 4 giả thuyết
 
-Báo cáo này **chỉ ghi nhận hiện tượng**, chưa xác định root cause, chưa đọc code liên quan
-(candle series binding, auto-range logic của chart Dev Board, v.v.), và chưa có Suggested Next
-Steps — để dành cho lượt điều tra sau.
+**Trạng thái: vẫn Open.** Ghi lại để lượt sau không làm lại từ đầu.
+
+### Đã loại trừ, kèm bằng chứng
+
+| # | Giả thuyết | Kết quả | Bằng chứng |
+| :--- | :--- | :--- | :--- |
+| 1 | Indicator thang dao động bị vẽ `overlay` lên plot giá, kéo auto-range | ❌ Sai | `macd_full_script.py` và `rsi_14_script.py` đều `overlay = False`; `IndicatorScriptRunner` gán `overlay=script.overlay` đúng ở cả 2 chỗ (dòng 146, 162) rồi rẽ `add_overlay_indicator`/`add_subplot_indicator` theo đúng cờ đó |
+| 2 | `DevIndicatorScript` (`overlay=True`, chạy trên Dev Board) vẽ RSI/MACD lên plot giá | ❌ Sai | Nó *khai báo* `rsi(14)`/`macd()`/`level(70)` nhưng chỉ dùng cho điều kiện/marker. Toàn bộ lệnh `plot()` của nó là `EMA 12`, `EMA 26`, `WMA 20`, `close + session_range` — đều thang giá |
+| 3 | `add_subplot_indicator` rò dữ liệu subplot sang plot chính | ❌ Sai | `IndicatorManager.add_subplot()` tạo `PlotItem` riêng qua `_plot_layout.add_subplot()` rồi mới `plot()` lên đó |
+| 4 | Dữ liệu nến bị map sai thang | ❌ Sai | `kline_mapping.map_klines()` lấy thẳng `open/high/low/close_price`, không chia/nhân gì |
+
+### Probe tái hiện — đường đi bình thường HOÀN TOÀN ĐÚNG
+
+Dựng `ChartCard` thật, lặp lại đúng chuỗi Dev Board (2000 nến ETH ~2425 → volume →
+4 EMA overlay → RSI subplot 0–100 → MACD subplot ±45), in dải Y sau từng bước:
+
+```
+0. chưa có data                    Y=[0.00, 1.00]
+1. sau render_historical_data      Y=[2408.96, 2442.34]
+2. sau render_historical_volume    Y=[2408.96, 2442.34]
+3. sau 4 EMA overlay               Y=[2408.96, 2442.34]
+4. sau subplot rsi_14 (0..100)     Y=[2408.76, 2442.54]
+5. sau subplot macd (-45..45)      Y=[2406.28, 2442.87]
+```
+
+Y bám đúng ~2425 xuyên suốt; **subplot không hề rò sang plot chính**. Đáng chú ý: dải
+mặc định khi chưa có data là `[0, 1]`, **không phải** `-50..100` — nên `-50..100` không
+đến từ trạng thái "plot rỗng".
+
+### Ghi chú đọc lại triệu chứng
+
+- Con số `12.6405` có **đúng 4 chữ số thập phân**, khớp format `f"{name}: {y[-1]:.4f}"` của
+  legend (`IndicatorManager.update_data`) và cũng khớp nhãn crosshair. **Không nên coi nó là
+  giá trị của một indicator** cho tới khi có bằng chứng khác.
+- Vì subplot RSI/MACD (nếu bật) nằm **giữa** plot chính và volume, có khả năng dải
+  `-50..100` nhìn thấy trong ảnh là trục của *subplot đó*, còn plot chính thì rỗng và bị
+  ép mỏng. Chưa xác nhận được — cần ảnh/log của đúng lần tái hiện.
+
+### Đã làm để lượt sau tự chẩn đoán được
+
+Dòng log `[chart-data]` sẵn có trong `ChartCard.render_historical_data()` trước đây chỉ
+ghi số nến + **x-range** — không đủ để phân biệt hai khả năng hoàn toàn khác nhau:
+"data không tới card này" và "data tới rồi nhưng range bỏ qua nó". Đã bổ sung vào **chính
+dòng đó** (không thêm dòng mới, không thêm nhiễu):
+
+- `price [min_low, max_high]` — thang giá mà dữ liệu thật sự mang
+- `y-range [min, max]` — dải mà view thật sự lấy
+- `autorange=[x, y]` — auto-range còn bật không
+
+```
+[chart-data] ChartCard(ETHUSDT): loaded 2000 candles spanning [...]
+| price [2408.0137, 2441.9807] | initial view x-range [...]
+| y-range [2406.4262, 2443.5681] | autorange=[False, True] | chart type=candlestick
+```
+
+## 5. Suggested next steps
+
+1. **Tái hiện với `--debug`** rồi `grep '\[chart-data\]' logs/debug-*.log`. Ba khả năng,
+   dòng log phân biệt được ngay:
+   - `loaded 0 candles` → data không tới card đang hiển thị (nghi vấn re-key card ở
+     `_ensure_chart_cards`).
+   - `price [~2400]` nhưng `y-range [-50, 100]` → range bỏ qua data; đào tiếp
+     `_set_initial_view_range()` / `_apply_view_bounds()`.
+   - `autorange=[..., False]` → auto-range Y đã bị tắt ở đâu đó.
+2. Chụp lại ảnh **kèm cả vùng subplot**, để xác nhận `-50..100` là trục của plot chính hay
+   của subplot RSI/MACD.
+3. Chỉ sau khi có 1 hoặc 2 mới viết regression test — hiện chưa biết đủ để test đúng chỗ.

@@ -286,16 +286,31 @@ class ChartCard(BaseCard):
             last_t, open_p, _, _, close_p = data[-1]
             self.price_line.update_price(close_p, close_p >= open_p)
             self.viewport.notify_new_data(last_t)
-        (min_x, max_x), _ = self.plot_layout.main_plot.vb.viewRange()
+        # BUG-034: the y-axis half of this line is what the report needed and
+        # did not have. "Y axis reads -50..100 while price is ~2400" is only
+        # diagnosable by seeing the price the data actually carries next to
+        # the range the view actually took — x-range and candle count cannot
+        # distinguish "no data reached this card" from "data reached it and
+        # the range ignored it" (logging-rule §5: log what lets a layer be
+        # ruled out).
+        (min_x, max_x), (min_y, max_y) = self.plot_layout.main_plot.vb.viewRange()
+        lows = [candle[3] for candle in self._raw_history]
+        highs = [candle[2] for candle in self._raw_history]
         logger.info(
             "[chart-data] ChartCard(%s): loaded %d candles spanning [%.1f, %.1f] "
-            "| initial view x-range [%.1f, %.1f] | chart type=%s",
+            "| price [%.4f, %.4f] | initial view x-range [%.1f, %.1f] "
+            "| y-range [%.4f, %.4f] | autorange=%s | chart type=%s",
             self.symbol,
             len(self._raw_history),
             self._raw_history[0][0] if self._raw_history else 0.0,
             self._raw_history[-1][0] if self._raw_history else 0.0,
+            min(lows) if lows else 0.0,
+            max(highs) if highs else 0.0,
             min_x,
             max_x,
+            min_y,
+            max_y,
+            self.plot_layout.main_plot.vb.autoRangeEnabled(),
             self.chart_type_renderer.chart_type,
         )
 
