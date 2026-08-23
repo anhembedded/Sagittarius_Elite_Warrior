@@ -1,9 +1,9 @@
 # EPIC-005E — Migrate `data_management` (mật độ form cao nhất)
 
 **Thuộc Epic:** [`EPIC-005`](../README.md)
-**Trạng thái:** 🔴 Chưa làm
-**Phụ thuộc:** [`EPIC-005D`](EPIC-005D_pilot_settings_screen.md) **và** user đã đồng ý đi tiếp
-tại điểm quyết định của D
+**Trạng thái:** 🟡 Đang làm (1/3 sub-task xong)
+**Phụ thuộc:** [`EPIC-005D`](../completed/EPIC-005D_pilot_settings_screen.md) ✅ — user đồng ý
+đi tiếp tại điểm quyết định của D
 
 ---
 
@@ -13,27 +13,30 @@ tại điểm quyết định của D
 nhất repo. Đây là màn hình *đau nhất* và cũng là nơi QtWidgets *thắng rõ nhất*: toàn bảng,
 form, dialog kiểm tra dữ liệu.
 
-| File | LOC |
-| :--- | ---: |
-| `DatabaseScreen.qml` | 993 |
-| `KLineInspectorModal.qml` | 415 |
-| `GapInspectorModal.qml` | 328 |
+| File | LOC | Sub-task |
+| :--- | ---: | :--- |
+| `DatabaseScreen.qml` | 993 | `EPIC-005E1` ✅ |
+| `KLineInspectorModal.qml` | 415 | `EPIC-005E2` (chưa làm) |
+| `GapInspectorModal.qml` | 328 | `EPIC-005E3` (chưa làm) |
 
-Đây cũng là nơi câu hỏi "`QTableView` có hơn `AppDataTable` không" được trả lời bằng code
-thật thay vì tranh luận: shard/kline là dữ liệu bảng đúng nghĩa, cần sort, resize cột, cuộn
-lượng lớn dòng.
+**Chia nhỏ thành 3 sub-task, làm tuần tự** (quyết định khi bắt đầu E, sau khi thấy quy mô
+thật khác hẳn `EPIC-005D`'s Settings — có `QAbstractTableModel` thật, 3 kit component,
+2 modal con). Mỗi sub-task tự chạy gate + báo cáo riêng, rollback từng phần được thay vì toàn
+bộ.
 
-## 1. Yêu cầu
+## 1. Yêu cầu (áp dụng cho cả 3 sub-task)
 
-1. Chuyển 3 màn hình/modal trên sang QtWidgets, dùng `QTableView` + `QAbstractTableModel` cho
-   phần bảng (**không** `QTableWidget` — dữ liệu đến từ DB, model/view mới đúng và mới ảo hoá
-   được lượng dòng lớn).
-2. Giữ nguyên hành vi. Không "nhân tiện" đổi layout hay thêm tính năng — trộn vào là mất khả
-   năng khẳng định không regression.
+1. Chuyển sang QtWidgets. **Điều chỉnh so với yêu cầu gốc**: dự kiến ban đầu dùng
+   `QTableView` + `QAbstractTableModel`, nhưng `EPIC-005E1` phát hiện
+   `DatabaseStatusTableModel` là **1 cột, nhiều role** (không phải N-cột thật) — model được
+   thiết kế cho `ListView`'s named-role delegate pattern của QML, không phải cho `QTableView`
+   chuẩn. Viết lại thành N-cột thật sẽ đổi model Python (ngoài phạm vi migration này). Dùng
+   `QListView` + `setIndexWidget()` per row thay thế — tương đương trực tiếp với QML's
+   `Repeater`/`delegate`, không đổi model.
+2. Giữ nguyên hành vi. Không "nhân tiện" đổi layout hay thêm tính năng.
 3. Vẫn **không xoá** file `.qml`.
-4. Mỗi màn hình một commit riêng để revert lẻ được.
-5. Ghi vào ADR của `EPIC-005A`: chi phí thực so với dự đoán từ pilot. Nếu lệch nhiều — đó là
-   tín hiệu phải xem lại điều kiện dừng, không phải cắm đầu chạy tiếp.
+4. Mỗi sub-task một commit riêng để revert lẻ được.
+5. Ghi vào ADR của `EPIC-005A`: chi phí thực so với dự đoán từ pilot.
 
 ## 2. Rủi ro riêng của màn hình này
 
@@ -41,10 +44,13 @@ lượng lớn dòng.
 có thể dẫn tới quyết định sai về dữ liệu. Cần ít nhất một test khẳng định dữ liệu hiển thị
 khớp nguồn — không chỉ "màn hình mở được".
 
-Lưu ý `data_management` mới vừa bị ảnh hưởng bởi EPIC-004 (persistence chuyển sang
-`SqliteShardManager`). Chụp lại baseline ngay trước khi bắt đầu, đừng dùng lại con số cũ.
-
 ## 3. Xác minh
 
-Gate giữ đúng baseline tự chụp ngay trước khi bắt đầu (`EPIC-005D` nhiều khả năng đã thêm
-test — ghi rõ mốc mới là bao nhiêu và vì sao). So bằng log file.
+Gate giữ đúng baseline tự chụp ngay trước khi bắt đầu mỗi sub-task. So bằng log file.
+
+## 4. Sub-tasks
+
+- **[EPIC-005E1](../completed/EPIC-005E1_database_screen_main.md)** — `DatabaseScreen.qml`
+  (màn chính: sync controls, status table, log panel, symbol picker, 2 confirm dialog). ✅ Xong.
+- **EPIC-005E2** — `KLineInspectorModal.qml`. Chưa làm.
+- **EPIC-005E3** — `GapInspectorModal.qml`. Chưa làm.

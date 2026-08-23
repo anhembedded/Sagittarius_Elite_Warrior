@@ -171,6 +171,15 @@ def test_run_repair_gap_dispatches_command(presenter, view_model, mock_dispatche
     assert presenter.fsm.current_state == UIMode.IDLE
 
 
+@pytest.mark.skip(
+    reason="EPIC-005E: DataManagementView no longer loads DatabaseScreen.qml "
+    "(migrated to QtWidgets, EPIC-005E1). GapInspectorModal.qml/"
+    "KLineInspectorModal.qml still exist and are still reachable through the app "
+    "in their old, separately-run QML-based tests, but this specific check — "
+    "'both load cleanly as children of the DatabaseScreen.qml root object' — has "
+    "no equivalent to assert until those two modals are themselves migrated "
+    "(EPIC-005E2/E3). Restore or rewrite then, don't delete outright."
+)
 def test_database_screen_loads_gap_inspector_modal_with_zero_qml_errors(
     presenter,
 ):

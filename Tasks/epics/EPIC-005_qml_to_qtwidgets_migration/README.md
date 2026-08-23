@@ -94,7 +94,7 @@ Ai đọc epic này mà kỳ vọng "bỏ QML cho gọn stack" là kỳ vọng s
 | **[EPIC-005B](completed/EPIC-005B_xoa_qss_chet_va_chan_tai_phat.md)** | `style.qss` hoá ra đã chết — xoá + chặn trùng lặp token thật | ✅ Xong |
 | **[EPIC-005C](completed/EPIC-005C_dong_bang_qml_va_go_xung_dot.md)** | Đóng băng QML (phạm vi thu hẹp) + gỡ xung đột với EPIC-003D | ✅ Xong — xung đột tự biến mất sau khi `F` hoãn |
 | **[EPIC-005D](completed/EPIC-005D_pilot_settings_screen.md)** | Pilot: `SettingsScreen` (nhỏ nhất) — đo chi phí thật | ✅ Xong — chi phí thấp hơn dự kiến, N=0 component kit |
-| **[EPIC-005E](incomplete/EPIC-005E_data_management.md)** | `data_management` (mật độ form cao nhất) | 🔴 Chưa làm |
+| **[EPIC-005E](incomplete/EPIC-005E_data_management.md)** | `data_management` (mật độ form cao nhất) — chia 3 sub-task (E1/E2/E3) | 🟡 Đang làm (1/3: `E1` màn chính ✅) |
 | **[EPIC-005F](incomplete/EPIC-005F_backtest_dashboard_va_don_dep.md)** | `backtest` (trừ chart) + `dashboard` | ⏸️ **Hoãn vô thời hạn** — xem ADR §4 |
 
 **Thứ tự bắt buộc:** `A` ✅ → `B` ✅ → `C` ✅ → `D` ✅ *(điểm quyết định — đi tiếp)* → `E`.

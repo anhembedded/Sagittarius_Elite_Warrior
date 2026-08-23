@@ -69,14 +69,14 @@ def database_app_context(qapp, qtbot, monkeypatch, request):
 
 
 def test_database_cancel_button_cancels_active_sync_flow(
-    qapp, qtbot, qml_item, database_app_context
+    qapp, qtbot, database_app_context
 ):
+    """EPIC-005E: DataManagementView is QtWidgets now (was QmlHostView) —
+    `btnCancelSync` is a real QPushButton (`view._btn_cancel_sync`), not a
+    QML item reached through `qml_item()`/`quick_widget.rootObject()`."""
     view, presenter, _ = database_app_context
-    root = view.quick_widget.rootObject()
+    cancel_btn = view._btn_cancel_sync
     view_model = presenter._view_model
-
-    cancel_btn = qml_item(root, "btnCancelSync")
-    assert cancel_btn is not None
 
     # Start single sync
     view_model.selectedSymbol = "BTCUSDT"
@@ -86,11 +86,11 @@ def test_database_cancel_button_cancels_active_sync_flow(
 
     # Wait until in SYNCING state and progress is visible
     qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
-    assert cancel_btn.property("visible") is True
-    assert cancel_btn.property("enabled") is True
+    assert cancel_btn.isVisible() is True
+    assert cancel_btn.isEnabled() is True
 
     # Click Cancel
-    cancel_btn.clicked.emit()
+    cancel_btn.click()
     qapp.processEvents()
 
     # FSM transitions through CANCELLING then back to IDLE
