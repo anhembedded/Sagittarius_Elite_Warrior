@@ -1,8 +1,24 @@
 # EPIC-005F — `backtest` (trừ chart) + `dashboard` + dọn dẹp
 
 **Thuộc Epic:** [`EPIC-005`](../README.md)
-**Trạng thái:** 🔴 Chưa làm
+**Trạng thái:** ⏸️ **Hoãn vô thời hạn** (2026-08-23, user duyệt theo `EPIC-005A`'s ADR)
 **Phụ thuộc:** [`EPIC-005E`](EPIC-005E_data_management.md)
+
+---
+
+## ⏸️ Vì sao hoãn — không phải huỷ, không phải "làm sau theo lịch"
+
+[`DECISION_2026-08-23.md`](../DECISION_2026-08-23.md) (§2, §4): lý do gốc chọn QML —
+*"AI dịch mockup sang code trực tiếp hơn ở QML"* (`BOT-030`) — vẫn đúng và vẫn đang hoạt
+động. `backtest`/`dashboard` chính là nơi bằng chứng đó rõ nhất: 7+ task riêng
+(`BOT-040`..`BOT-104`) theo mockup mới trong `backtest` chỉ trong vài tuần gần đây, commit
+tính năng gần nhất cách hôm nay 1-10 ngày. Migrate ở đây đổi lấy chi phí thật (mất tốc độ
+dịch mockup) lấy lợi ích không rõ ràng bằng, vì đây không phải nơi QtWidgets thắng rõ như
+form/bảng tra cứu (`EPIC-005D`/`E`).
+
+**Điều kiện xem lại** (không phải ngày cụ thể): `backtest`/`dashboard` ngừng nhận mockup mới
+liên tục trong một khoảng thời gian đáng kể — tức chuyển từ "phát triển tính năng" sang "bảo
+trì". Khi đó phần dưới đây vẫn còn giá trị tham khảo, đọc lại trước khi bắt đầu.
 
 ---
 
