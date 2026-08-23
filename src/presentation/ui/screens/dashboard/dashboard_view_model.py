@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
@@ -11,7 +12,7 @@ from sagittarius_engine.extensions.pyside_mvc import (
 from .indicator_script_list_model import IndicatorScriptListModel
 
 _IDLE_STATUS_TEXT = "WS: IDLE"
-_IDLE_STATUS_COLOR = "#848E9C"
+_IDLE_STATUS_COLOR = Palette.MUTED
 
 # BOT-033 Phase 2 — Symbol/Start date/End date defaults. Self-contained here
 # (not imported from dashboard_presenter.py's _DEFAULT_SYMBOLS) to match

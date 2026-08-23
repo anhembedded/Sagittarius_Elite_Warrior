@@ -11,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -78,8 +79,8 @@ _DEFAULT_LOAD_MORE_BATCH_CANDLES: int = 75
 # WS status badge (top bar) text/color per FSM state — presentational only,
 # derived from the state DashboardPresenter already tracks.
 _WS_STATUS_BY_MODE = {
-    UIMode.IDLE: ("WS: IDLE", "#848E9C"),
-    UIMode.LOCKED: ("WS: SYNCING", "#F3BA2F"),
+    UIMode.IDLE: ("WS: IDLE", Palette.MUTED),
+    UIMode.LOCKED: ("WS: SYNCING", Palette.ACCENT),
     UIMode.LIVE: ("WS: LIVE", BULL_COLOR),
     UIMode.ERROR: ("WS: ERROR", BEAR_COLOR),
 }

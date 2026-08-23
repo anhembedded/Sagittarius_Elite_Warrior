@@ -197,8 +197,14 @@ def _apply_font(app: QApplication, config: IConfig) -> None:
 
 
 def _apply_theme(app: QApplication, config: IConfig) -> None:
-    """Apply qdarktheme, replacing the default accent color with the one from config."""
-    accent = config.get(ConfigKeys.UI_THEME_ACCENT_COLOR, "#F3BA2F")
+    """Apply qdarktheme, replacing the default accent color with the one from config.
+
+    @details The fallback below reads `Palette.ACCENT` rather than repeating the hex
+    literal — EPIC-005B found this was the only place the app still hardcoded its own
+    copy of the accent color outside `Palette`, once `qss/style.qss` (dead, unloaded
+    since the BOT-030 QML migration) was confirmed orphaned and removed.
+    """
+    accent = config.get(ConfigKeys.UI_THEME_ACCENT_COLOR, Palette.ACCENT)
     replace = config.get(
         ConfigKeys.UI_THEME_REPLACE_COLOR,
         "rgba(138.000, 180.000, 247.000, 1.000)",

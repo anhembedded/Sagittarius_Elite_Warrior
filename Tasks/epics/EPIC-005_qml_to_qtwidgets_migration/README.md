@@ -1,6 +1,6 @@
 # EPIC-005 — Rút khỏi QML, quay về QtWidgets (trừ chart)
 
-**Trạng thái:** 🔴 Chưa làm (0/6 task con)
+**Trạng thái:** 🟡 Đang làm (1/6 task con xong)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime; đây là quyết định hướng đi dài hạn
 **Nhánh:** `epic/EPIC-005-qml-to-qtwidgets` — tách riêng vì epic này **có thể phải rollback**
@@ -83,7 +83,7 @@ Ai đọc epic này mà kỳ vọng "bỏ QML cho gọn stack" là kỳ vọng s
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
 | **[EPIC-005A](incomplete/EPIC-005A_quyet_dinh_va_dieu_kien_dung.md)** | Ghi lại vì sao đảo chiều, và điều kiện dừng | 🔴 Chưa làm |
-| **[EPIC-005B](incomplete/EPIC-005B_sinh_qss_tu_palette.md)** | Sinh QSS từ `Palette` (thắng vô điều kiện) | 🔴 Chưa làm |
+| **[EPIC-005B](completed/EPIC-005B_xoa_qss_chet_va_chan_tai_phat.md)** | `style.qss` hoá ra đã chết — xoá + chặn trùng lặp token thật | ✅ Xong |
 | **[EPIC-005C](incomplete/EPIC-005C_dong_bang_qml_va_go_xung_dot.md)** | Đóng băng QML + gỡ xung đột với EPIC-003D | 🔴 Chưa làm |
 | **[EPIC-005D](incomplete/EPIC-005D_pilot_settings_screen.md)** | Pilot: `SettingsScreen` (nhỏ nhất) — đo chi phí thật | 🔴 Chưa làm |
 | **[EPIC-005E](incomplete/EPIC-005E_data_management.md)** | `data_management` (mật độ form cao nhất) | 🔴 Chưa làm |
