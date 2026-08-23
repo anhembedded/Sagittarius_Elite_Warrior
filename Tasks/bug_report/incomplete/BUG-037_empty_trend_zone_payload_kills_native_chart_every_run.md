@@ -186,6 +186,44 @@ E  NativeUnsupportedFeatureError: native script regions are not supported
 chứng minh test không chỉ đỏ, mà đỏ **đúng chỗ**. Sau khi khôi phục fix:
 `6 passed`.
 
+### Thêm 2 test ở tầng Presenter — bằng chứng end-to-end thật
+
+Test unit ở trên chứng minh adapter, nhưng câu hỏi thật của bug là *"native
+host có sống sót qua một lần chạy không"*. Hai test mới trong
+[`test_backtest_presenter.py`](../../../tests/unit/presentation/ui/screens/test_backtest_presenter.py)
+chạy với **`NativeBacktestChartHostAdapter` thật** (chỉ fake
+`NativeBacktestChartHost` tầng dưới), rồi kiểm tra **kiểu thật của
+`view.chart_cards[0]` sau thao tác** — kết quả quan sát được, không phải niềm
+tin của người viết test:
+
+| Test | Khẳng định |
+| :--- | :--- |
+| `test_empty_strategy_trend_zones_keep_the_native_host` | `_on_chart_strategy_region([])` → vẫn là `NativeBacktestChartHostAdapter` |
+| `test_real_strategy_trend_zones_still_fall_back_to_python` | `_on_chart_strategy_region([span])` → thành `PythonBacktestChartHost` |
+
+**Cố ý không dùng `Mock` card với `side_effect`** như test `BOT-113` sẵn có: một
+mock như vậy chỉ khẳng định lại đúng cái niềm tin "adapter raise khi nào" của
+người viết — mà chính niềm tin đó mới là thứ sai. Đây là bẫy `Mock` mà
+`bug-fix-rule.md` §3 và `BUG-013` đã cảnh báo.
+
+**Xác nhận đỏ đúng lý do** (`git checkout HEAD~1 -- <file adapter>`):
+
+```
+FAILED ... ::test_empty_strategy_trend_zones_keep_the_native_host
+1 failed, 1 passed
+```
+
+Đúng hình dạng cần có: bảo đảm **mới** thì đỏ, bảo đảm **cũ** (fallback khi có
+zone thật) vẫn xanh — fix không hề nới lỏng giới hạn thật. Khôi phục fix:
+`175 passed`.
+
+> **Ghi chú về quy trình:** lần đầu tôi thử revert bằng `git stash push <file>`
+> sau khi đã commit fix — không có thay đổi chưa commit nên **không stash gì
+> cả**, test "pass" và suýt bị đọc nhầm thành "test không tái hiện được bug".
+> Phải dùng `git checkout HEAD~1 -- <file>` mới revert thật. Đây đúng là kiểu
+> bẫy `bug-fix-rule.md` §3 nói tới: một test pass trước khi sửa **không chứng
+> minh điều gì**, và lý do nó pass có thể chỉ là thao tác revert đã thất bại.
+
 ---
 
 ## Ghi chú
