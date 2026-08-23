@@ -247,6 +247,42 @@ hình dạng với `5143` vs `5278`** của lần FAIL thật. Khôi phục fix 
 
 ---
 
+## Xác minh bằng gate thật
+
+| Lần chạy | Cây code | Kết quả | Log |
+| :--- | :--- | :--- | :--- |
+| 1 | Có fix | ❌ `Tests` + `Log Scan` | `logs/ci-local-20260823-203040.log` |
+| baseline | master-warrior sạch | ✅ PASS | `logs/ci-local-20260823-204021.log` |
+| 2 | Có fix | ✅ PASS | `logs/ci-local-20260823-204755.log` |
+| 3 | Có fix | ✅ PASS | `logs/ci-local-20260823-205432.log` |
+| 4 | Có fix | ✅ PASS | `logs/ci-local-20260823-210050.log` |
+
+Bước `Chart Benchmark Contract` — bước gây ra chính hồ sơ này — **PASS ở cả 4
+lần**, kể cả lần 1.
+
+### Về lần 1 — ghi nhận trung thực, không phải do fix này
+
+Lần 1 hỏng ở `test_database_cancel_button_cancels_active_sync_flow`
+(`tests/integration/presentation/test_database_user_flow.py`) kèm 2 bản ghi
+log: `ListAvailableSymbolsQuery failed: object of type 'Mock' has no len()`
+(ERROR) và `Stream is not running.` (WARNING) — làm bước `Log Scan` hỏng theo.
+
+Đã kiểm chứng thay vì suy đoán:
+
+- Chạy riêng test đó trên master-warrior sạch: **3/3 pass**.
+- Chạy nguyên gate `-Full` trên master-warrior sạch: **PASS**.
+- Chạy lại nguyên gate `-Full` với fix: **3/3 PASS**, không tái hiện.
+
+Thay đổi của hồ sơ này chỉ đụng benchmark chart và 2 file test sanity, không
+có đường nào chạm tới luồng Database Sync. Kết luận: đây là flake riêng của
+tầng integration khi chạy song song `-n 6`, **cùng họ với `BUG-030` đang mở**
+(bug đó ghi nhận `-n 6` làm worker chết sau `ResourceWarning: unclosed
+database`) nhưng triệu chứng khác — ở đây test fail chứ worker không chết.
+**Chưa gộp vào `BUG-030`** vì chưa đủ bằng chứng đó là cùng một nguyên nhân;
+ghi lại ở đây làm 1 data point cho lần điều tra `BUG-030` tiếp theo.
+
+---
+
 ## Ghi chú
 
 - Thông báo bị **in hai lần** trong log là do cách `ci-local.ps1` gom
