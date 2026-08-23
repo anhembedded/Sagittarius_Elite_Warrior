@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-22
+> Cập nhật: 2026-08-23
 
 ---
 
@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa** | 32 |
-| 📈 **Tổng** | **35** |
+| ✅ **Đã sửa** | 33 |
+| 📈 **Tổng** | **36** |
 
 ---
 
@@ -47,6 +47,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-036](completed/BUG-036_benchmark_crosshair_contract_synthetic_hover_race.md)** | Gate `Chart Benchmark Contract` lúc PASS lúc FAIL trên cây code giống hệt — synthetic hover ghi đè crosshair | 🟡 P2 | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). Qt tự sinh hover tại con trỏ ma `(8,8)` của platform `offscreen`; `hoverMoveEvent()` đẩy thẳng vào `setCrosshairPosition()`, ghi đè giá trị benchmark vừa đặt. Sửa: đọc property ngay sau setter (đồng bộ), giữ giá trị sau-flush làm diagnostic + WARNING. Tái hiện 5/40 dưới tải, 0/40 sau sửa. |
 | **[BUG-035](completed/BUG-035_engine_2_0_0_qml_module_rename_breaks_all_ui.md)** | Engine 2.0.0 đổi tên QML module `QmlShared` → `Sagittarius.UI`, hỏng toàn bộ UI | Cao | 2026-08-23 | 26 file `.qml` + 2 test file. Đóng chung BOT-117/BOT-118. Thêm guard `test_qml_imports_match_engine_qmldir.py`. Gate PASS, 1773 passed. |
 | **[BUG-033](completed/BUG-033_realtime_backtest_progress_flood_freezes_ui_thread.md)** | Realtime Backtest tick-level làm UI thread đơ 5+ giây (progress signal flood) | 🟡 P2 | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). Throttle `progress_callback` đổi từ đếm index (mỗi 256 tick/16 bar) sang thời gian thực (`ProgressThrottle`, ~150ms/lần) ở cả 2 handler (realtime + static) — chặn burst ~10,125 lần emit signal cross-thread cho 1 lần chạy 2.59M tick. |
 | **[BUG-032](completed/BUG-032_chart_preview_renders_candles_before_running_backtest.md)** | Chart tự động vẽ nến và volume khi chưa nhấn "Chạy Backtest" | 🟡 P2 | 2026-08-22 | Trong chính hồ sơ này (2026-08-22). Không phải bug ngẫu nhiên — tính năng "Live Chart Preview" có chủ đích (`BOT-095D`/`BOT-102`) nhưng thiếu state phân biệt. Thêm `isChartPreview` (ViewModel) + badge QML, bật ở `_on_preview_data_ready`, tắt ở `_on_chart_data_ready`. |

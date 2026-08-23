@@ -351,10 +351,17 @@ def test_native_chart_qml_plugin_constructs_and_enforces_snapshot_revision(qapp)
     unchanged_marker_build_count = root.property("markerGeometryBuildCount")
 
     assert root.setCrosshairPosition(320.0, 180.0) is True
+    # Sample the crosshair the setter just authored *before* pumping any
+    # events. Qt Quick's synthetic frame-synchronous hover events are a second
+    # writer of these properties, landing at the platform's phantom cursor
+    # (x=8 under offscreen, which resolves to candle 1 here) at a moment
+    # decided by frame scheduling — see BUG-036, where exactly that made the
+    # chart benchmark's CI contract pass or fail on identical trees.
+    authored_candle_index = root.property("crosshairCandleIndex")
+    tooltip = root.property("crosshairTooltip")
     view.grabWindow()
     _wait_for_property(qapp, root, "crosshairVisible", True)
-    assert root.property("crosshairCandleIndex") == 2
-    tooltip = root.property("crosshairTooltip")
+    assert authored_candle_index == 2
     assert tooltip["timestampUtcMs"] == 1_700_000_120_000
     assert tooltip["open"] == 11.0
     assert tooltip["close"] == 11.0
