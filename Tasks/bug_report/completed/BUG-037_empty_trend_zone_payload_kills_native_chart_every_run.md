@@ -8,7 +8,11 @@ tới bug này — kết luận cũ đúng, nhưng **lý do thì sai**.
 **Severity:** 🔴 **P1** — vô hiệu hoá toàn bộ đường native chart
 (`BOT-098F`, một epic nhiều task) ở runtime, trong khi log khởi động vẫn báo
 `backend 'native'`. Không crash, không thông báo, không ai biết.
-**Status:** 🔴 Open
+**Status:** ✅ **Fixed 2026-08-23** — root-caused, regression test xác nhận FAIL
+đúng lý do trước khi sửa (cả tầng adapter lẫn tầng presenter với adapter thật),
+`ci-local.ps1 -Full` PASS 3/3 lần (`logs/ci-local-20260823-215933.log`,
+`-220052.log`, `-220214.log`), 1788 unit + 54 sanity, không FAILED/Traceback/
+ResourceWarning.
 
 ---
 

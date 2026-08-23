@@ -7,7 +7,19 @@ toàn không có**.
 **Severity:** 🔴 **P1** — mất hẳn một tính năng (`BOT-113` trend zone,
 `BOT-032` `shade()`), và mất *im lặng*: log báo fallback "thành công", test
 xanh, không có cảnh báo nào.
-**Status:** 🔴 Open
+**Status:** ✅ **Fixed 2026-08-23** — user tự xác nhận trên app thật
+(*"oki ngon, co rui"*). Bằng chứng log từ chính lần chạy đó
+(`logs/debug-20260823-151802.log`):
+
+```
+22:18:17,729 - App.BackTestPresenter - INFO -
+[chart-region] strategy trend zones: replayed 1504 item(s) onto
+PythonBacktestChartHost after fallback
+```
+
+1504 vùng nền thật sự được vẽ, thay vì bị bỏ im lặng. `ci-local.ps1 -Full`
+PASS 3/3 (`logs/ci-local-20260823-221949.log`, `-2211*`, `-222228.log`),
+1789 unit + 54 sanity, sạch.
 
 ---
 
