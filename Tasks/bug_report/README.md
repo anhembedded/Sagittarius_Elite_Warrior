@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa** | 33 |
-| 📈 **Tổng** | **36** |
+| ✅ **Đã sửa** | 35 |
+| 📈 **Tổng** | **38** |
 
 ---
 
@@ -47,6 +47,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-038](completed/BUG-038_native_fallback_drops_the_content_it_fell_back_for.md)** | Fallback sang Python vứt luôn nội dung mà nó fallback vì nó — nền trend zone không bao giờ được vẽ | 🔴 **P1** | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). User phát hiện bằng mắt; test và log đều "xanh". Thêm `_apply_after_native_fallback()` phát lại nội dung lên host mới (cả 4 call site) + log `[chart-region]` ghi **đã vẽ mấy vùng lên host nào**. Xác nhận trên app thật: `replayed 1504 item(s)`. |
+| **[BUG-037](completed/BUG-037_empty_trend_zone_payload_kills_native_chart_every_run.md)** | Native chart bị bỏ ở **mọi** lần chạy Backtest vì payload trend-zone **rỗng** | 🔴 **P1** | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). `set_script_regions()` raise mà không nhìn payload; presenter emit spans rỗng mỗi lần chạy → cả epic `BOT-098F` chết ở runtime. Test cũ dùng `[]` nên đã đóng băng đúng hành vi sai. |
 | **[BUG-036](completed/BUG-036_benchmark_crosshair_contract_synthetic_hover_race.md)** | Gate `Chart Benchmark Contract` lúc PASS lúc FAIL trên cây code giống hệt — synthetic hover ghi đè crosshair | 🟡 P2 | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). Qt tự sinh hover tại con trỏ ma `(8,8)` của platform `offscreen`; `hoverMoveEvent()` đẩy thẳng vào `setCrosshairPosition()`, ghi đè giá trị benchmark vừa đặt. Sửa: đọc property ngay sau setter (đồng bộ), giữ giá trị sau-flush làm diagnostic + WARNING. Tái hiện 5/40 dưới tải, 0/40 sau sửa. |
 | **[BUG-035](completed/BUG-035_engine_2_0_0_qml_module_rename_breaks_all_ui.md)** | Engine 2.0.0 đổi tên QML module `QmlShared` → `Sagittarius.UI`, hỏng toàn bộ UI | Cao | 2026-08-23 | 26 file `.qml` + 2 test file. Đóng chung BOT-117/BOT-118. Thêm guard `test_qml_imports_match_engine_qmldir.py`. Gate PASS, 1773 passed. |
 | **[BUG-033](completed/BUG-033_realtime_backtest_progress_flood_freezes_ui_thread.md)** | Realtime Backtest tick-level làm UI thread đơ 5+ giây (progress signal flood) | 🟡 P2 | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). Throttle `progress_callback` đổi từ đếm index (mỗi 256 tick/16 bar) sang thời gian thực (`ProgressThrottle`, ~150ms/lần) ở cả 2 handler (realtime + static) — chặn burst ~10,125 lần emit signal cross-thread cho 1 lần chạy 2.59M tick. |

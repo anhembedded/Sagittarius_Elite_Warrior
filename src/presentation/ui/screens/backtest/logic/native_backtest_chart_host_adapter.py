@@ -198,12 +198,25 @@ class NativeBacktestChartHostAdapter:
     def set_script_regions(
         self, key: str, spans: list[tuple[float, float, str, float]]
     ) -> None:
+        # BUG-037: refuse only what we are actually asked to *draw*. An empty
+        # span list asks for nothing, which this renderer can satisfy exactly
+        # as well as any other — and is already what clear_script_regions()
+        # below does. Raising on it used to drag the whole native host down:
+        # BackTestPresenter._emit_strategy_trend_zones() emits on every run,
+        # and every strategy that does not override classify_trend_zone()
+        # (all but one) produces an empty list, so each run fell back to the
+        # Python host even though there was never a region to render.
+        if not spans:
+            return
         raise NativeUnsupportedFeatureError("native script regions are not supported")
 
     def clear_script_regions(self, key: str) -> None:
         pass
 
     def set_script_info(self, key: str, fields: list) -> None:
+        # BUG-037: same rule as set_script_regions() above.
+        if not fields:
+            return
         raise NativeUnsupportedFeatureError("native script info is not supported")
 
     def clear_script_info(self, key: str) -> None:

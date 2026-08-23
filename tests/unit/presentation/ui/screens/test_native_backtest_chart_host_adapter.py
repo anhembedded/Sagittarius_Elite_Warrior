@@ -166,10 +166,19 @@ def test_non_trade_marker_keys_are_rejected(adapter, fake_native_host):
 
 
 def test_script_regions_and_info_are_rejected(adapter):
+    # BUG-037: these used to pass `[]` as a throwaway payload, which quietly
+    # froze the defect — the adapter refused work it was never asked to do,
+    # and the test asserted that refusal was correct. Pass real content, so
+    # the assertion is about the actual limitation (no background-region ABI)
+    # rather than about the empty call every run makes. The empty-payload
+    # contract has its own coverage in
+    # test_bug037_native_empty_region_keeps_native_host.py.
     with pytest.raises(NativeUnsupportedFeatureError, match="regions"):
-        adapter.set_script_regions("k", [])
+        adapter.set_script_regions(
+            "k", [(1_700_000_000.0, 1_700_000_060.0, "#fff", 0.1)]
+        )
     with pytest.raises(NativeUnsupportedFeatureError, match="info"):
-        adapter.set_script_info("k", [])
+        adapter.set_script_info("k", [("Label", "value", None)])
 
 
 def test_generation_strictly_increases_across_calls(adapter, fake_native_host):

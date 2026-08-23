@@ -2477,12 +2477,28 @@ def test_chart_strategy_region_falls_back_to_python_on_native_unsupported_featur
     card = Mock()
     card.set_script_regions.side_effect = NativeUnsupportedFeatureError("no regions")
     presenter.view.chart_cards = [card]
-    presenter._fallback_to_python_after_unsupported_native_feature = Mock()
 
-    presenter._on_chart_strategy_region([(0.0, 1.0, "#000000", 0.15)])
+    # BUG-038: the stub has to model what the real fallback does — swap the
+    # host — because the presenter now replays the spans onto the rebuilt one.
+    # A stub that leaves the refusing card in place would assert a path that
+    # cannot occur in production and hide whether the replay works at all.
+    rebuilt_card = Mock()
+
+    def _rebuild(_feature_name):
+        presenter.view.chart_cards = [rebuilt_card]
+
+    presenter._fallback_to_python_after_unsupported_native_feature = Mock(
+        side_effect=_rebuild
+    )
+
+    spans = [(0.0, 1.0, "#000000", 0.15)]
+    presenter._on_chart_strategy_region(spans)
 
     presenter._fallback_to_python_after_unsupported_native_feature.assert_called_once_with(
         "strategy trend zones"
+    )
+    rebuilt_card.set_script_regions.assert_called_once_with(
+        "strategy_trend_zone", spans
     )
 
 
@@ -3631,6 +3647,107 @@ def test_preview_data_ready_falls_back_to_python_when_native_rejects_the_snapsho
         presenter._on_preview_data_ready(7, _complete_coverage(), klines, volume)
 
     assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
+
+
+# --------------------------------------------------------------------------
+# BUG-037: _emit_strategy_trend_zones() fires on EVERY run, and every strategy
+# that does not override classify_trend_zone() produces an empty span list.
+# The native adapter used to raise on that empty call, so the presenter threw
+# the native host away on every run for every strategy — the whole BOT-098F
+# native path was dead at runtime while the startup log still said 'native'.
+#
+# These two run against the REAL NativeBacktestChartHostAdapter (only the
+# low-level NativeBacktestChartHost is faked), because a Mock card with a
+# side_effect would just re-assert whatever the test author already believed
+# about when the adapter raises — which is precisely the belief that was
+# wrong. The type of chart_cards[0] afterwards is the observable outcome.
+# --------------------------------------------------------------------------
+
+
+def _accepting_native_host_factory():
+    """A fake NativeBacktestChartHost that accepts every submission."""
+    from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+        ChartCard,
+    )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
+        NativeBacktestChartHost,
+    )
+
+    fake = Mock(spec=NativeBacktestChartHost)
+    fake.widget = ChartCard("placeholder")
+    fake.submit_ohlcv.return_value = True
+    fake.submit_indicators.return_value = True
+    fake.submit_markers.return_value = True
+    return fake
+
+
+def test_empty_strategy_trend_zones_keep_the_native_host(presenter):
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+        NativeBacktestChartHostAdapter,
+    )
+
+    presenter.view.set_chart_backend("native")
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_accepting_native_host_factory
+    ):
+        presenter.view.render_symbol_cards([presenter._symbol])
+        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+        # Exactly what ema_crossover (and every other non-trend-zone strategy)
+        # emits on every single run.
+        presenter._on_chart_strategy_region([])
+
+    assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+
+def test_real_strategy_trend_zones_still_fall_back_to_python(presenter):
+    """The other half: a genuine zone must still reach the Python host.
+
+    Native has no background-region ABI, so real spans have to fall back
+    rather than be silently dropped (BOT-098F6's no-silent-omission rule).
+    """
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+        NativeBacktestChartHostAdapter,
+    )
+
+    presenter.view.set_chart_backend("native")
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_accepting_native_host_factory
+    ):
+        presenter.view.render_symbol_cards([presenter._symbol])
+        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+        presenter._on_chart_strategy_region([(0.0, 1.0, "#0ECB81", 0.15)])
+
+    assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
+
+
+def test_trend_zones_are_actually_drawn_on_the_host_it_fell_back_to(presenter):
+    """BUG-038: falling back is worthless if the content never lands.
+
+    Asserting only the host TYPE (as the test above does) cannot see this —
+    it was green while the chart rendered no background at all. What the user
+    reported is the absence of a *drawn* zone, so that is what this asserts:
+    the spans reach the rebuilt Python host's chart card.
+    """
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
+        NativeBacktestChartHostAdapter,
+    )
+
+    spans = [(0.0, 1.0, "#0ECB81", 0.15), (2.0, 3.0, "#F6465D", 0.15)]
+    presenter.view.set_chart_backend("native")
+    with patch(
+        f"{_NATIVE_HOST_TARGET}.create", side_effect=_accepting_native_host_factory
+    ):
+        presenter.view.render_symbol_cards([presenter._symbol])
+        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
+
+        presenter._on_chart_strategy_region(spans)
+
+    rebuilt = presenter.view.chart_cards[0]
+    assert isinstance(rebuilt, PythonBacktestChartHost)
+    layer = rebuilt.chart_card.indicators._region_layer
+    assert layer.stored_span_count("strategy_trend_zone") == len(spans)
 
 
 # --------------------------------------------------------------------------
