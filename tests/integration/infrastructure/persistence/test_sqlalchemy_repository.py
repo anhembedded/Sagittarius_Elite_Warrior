@@ -196,10 +196,10 @@ def test_multi_symbol_db_separation(repo):
     assert all(k.symbol == "BTCUSDT" for k in btc_fetched)
     assert all(k.symbol == "ETHUSDT" for k in eth_fetched)
 
-    # Verify internal session pool created two engines
-    assert len(repo.db_manager._sessions) == 2
-    assert "BTCUSDT" in repo.db_manager._sessions
-    assert "ETHUSDT" in repo.db_manager._sessions
+    # Verify two separate shards were created, one per symbol. Asserted through
+    # list_shards() rather than a private session dict: the sharding internals moved
+    # into the engine's SqliteShardManager, and the observable outcome is the point.
+    assert sorted(repo.db_manager.list_shards()) == ["BTCUSDT", "ETHUSDT"]
 
 
 def test_get_database_status_empty_database(repo):
