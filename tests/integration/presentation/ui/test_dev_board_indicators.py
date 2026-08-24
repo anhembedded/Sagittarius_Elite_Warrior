@@ -40,9 +40,13 @@ def _open_dashboard(navigate):
     return cfg["presenter_instance"], cfg["view_instance"]
 
 
-def _click_load_history(view, qml_item):
-    root = view.quick_widget.rootObject()
-    qml_item(root, "btnLoadHistory").clicked.emit()
+def _click_load_history(view, qml_item=None):
+    # Not view._panel._btn_load_history.click(): the real button is
+    # legitimately disabled while uiMode == "LIVE" (autostart already
+    # connected the mocked stream by the time `navigate` returns) — same
+    # click-target the button's own handler calls
+    # (DevBoardPanel._btn_load_history.clicked -> requestLoadHistory).
+    view._view_model.requestLoadHistory()
 
 
 def test_ema_20_50_100_200_are_pre_enabled_by_default(qtbot, main_window, navigate):

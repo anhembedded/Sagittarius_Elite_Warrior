@@ -24,9 +24,12 @@ def _open_dashboard(navigate):
     return cfg["presenter_instance"], cfg["view_instance"]
 
 
-def _click_load_history(view, qml_item):
-    root = view.quick_widget.rootObject()
-    qml_item(root, "btnLoadHistory").clicked.emit()
+def _click_load_history(view, qml_item=None):
+    # Not view._panel._btn_load_history.click(): the button is legitimately
+    # disabled while uiMode == "LIVE" (autostart already connected the
+    # mocked stream by the time `navigate` returns) — same target the
+    # button's own handler calls.
+    view._view_model.requestLoadHistory()
 
 
 def _wait_for_reload_or_restart(qtbot, presenter, action, timeout=3000):
@@ -69,16 +72,11 @@ def test_symbol_dropdown_changes_which_symbol_load_history_fetches(
 ):
     """TC-GAP-02: FIXED by BOT-033 Phase 2 — picking "BTCUSDT" from the
     Symbol dropdown now changes which symbol Load History actually fetches
-    (was hard-coded to ETHUSDT via `_DEFAULT_SYMBOLS` before this task).
-    Driven via `currentIndex` (a plain property whose notify signal
-    `onCurrentTextChanged` is wired regardless of how it changed), not
-    `editText` — an editable ComboBox's `editText` only feeds `currentText`
-    on a real Return/focus-out, which `setProperty` cannot simulate."""
+    (was hard-coded to ETHUSDT via `_DEFAULT_SYMBOLS` before this task)."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    root = view.quick_widget.rootObject()
 
-    qml_item(root, "cboSymbol").setProperty("currentIndex", 0)  # "BTCUSDT"
+    view._panel._cbo_symbol.setCurrentIndex(0)  # "BTCUSDT"
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         _click_load_history(view, qml_item)
 
@@ -94,10 +92,9 @@ def test_market_dropdown_has_no_presenter_effect(
     action at all — there is no binding connected to it."""
     qtbot.addWidget(main_window)
     _, view = _open_dashboard(navigate)
-    root = view.quick_widget.rootObject()
 
     log_before = list(view._view_model.log_model.entries)
-    qml_item(root, "cboMarket").setProperty("currentIndex", 1)  # "Futures"
+    view._panel._cbo_market.setCurrentIndex(1)  # "Futures"
     qtbot.wait(50)
 
     assert list(view._view_model.log_model.entries) == log_before
@@ -166,9 +163,8 @@ def test_strategy_dropdown_has_no_presenter_effect(
     §6.1)."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    root = view.quick_widget.rootObject()
 
-    qml_item(root, "cboStrategy").setProperty("currentIndex", 1)  # "SMA Crossover"
+    view._panel._cbo_strategy.setCurrentIndex(1)  # "SMA Crossover"
 
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         _click_load_history(view, qml_item)
@@ -181,21 +177,15 @@ def test_strategy_dropdown_has_no_presenter_effect(
 def test_start_date_field_binds_to_the_view_model(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-GAP-05: FIXED by BOT-033 Phase 2 — txtStartDate now displays
-    viewModel.startDate (was a static `Qt.formatDateTime(...)` cosmetic
-    default). Setting the ViewModel from Python — the same thing
-    `onTextEdited` does for a real keystroke, which `setProperty("text", ...)`
-    cannot simulate (TextField.textEdited only fires from actual editing,
-    not a programmatic `text` assignment) — must show up in the rendered
-    QML item."""
+    """TC-GAP-05: FIXED by BOT-033 Phase 2 — `_txt_start_date` now displays
+    `viewModel.startDate` (was a static cosmetic default)."""
     qtbot.addWidget(main_window)
     _, view = _open_dashboard(navigate)
-    root = view.quick_widget.rootObject()
 
     view._view_model.startDate = "2000-01-01 00:00"
     qtbot.wait(50)
 
-    assert qml_item(root, "txtStartDate").property("text") == "2000-01-01 00:00"
+    assert view._panel._txt_start_date.text() == "2000-01-01 00:00"
 
 
 def test_an_invalid_date_range_blocks_load_history(

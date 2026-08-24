@@ -31,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
 _MOCK_KLINE_COUNT = 5
 
 
-def test_sanity_boot_and_dashboard(qtbot, main_window, navigate, qml_item):
+def test_sanity_boot_and_dashboard(qtbot, main_window, navigate):
     """
     Test that the app boots correctly, navigation to Dashboard works, and
     BOT-034's auto-start safely drives the FSM through LOCKED to a settled
@@ -41,8 +41,8 @@ def test_sanity_boot_and_dashboard(qtbot, main_window, navigate, qml_item):
 
     # Labeled "Dev Board" (not "Dashboard") to avoid implying this is the
     # app's end-user dashboard — it's a developer testbed screen (BOT-014).
-    sidebar_root = main_window._sidebar.quick_widget.rootObject()
-    assert qml_item(sidebar_root, "navButton_dashboard").property("text") == "Dev Board"
+    nav_button = main_window._sidebar._nav_buttons["dashboard"]
+    assert nav_button.display_text == "Dev Board"
 
     # Navigate to dashboard
     dashboard_cfg = navigate("dashboard")
@@ -60,11 +60,10 @@ def test_sanity_boot_and_dashboard(qtbot, main_window, navigate, qml_item):
     assert presenter.fsm.current_state.value in ["LOCKED", "LIVE", "ERROR"]
 
 
-def test_sanity_data_management_sync(qtbot, main_window, navigate, qml_item, qapp):
+def test_sanity_data_management_sync(qtbot, main_window, navigate, qapp):
     """
-    Database screen (BOT-030 Phase 3 — QML). Loads through the router, and a
-    real QML "Sync Current" click drives the presenter's FSM into LOCKED —
-    the same behavior the QtWidgets version asserted, through the new UI.
+    Database screen (QtWidgets, EPIC-005E). Loads through the router, and a
+    real "Sync Current" click drives the presenter's FSM into LOCKED.
     """
     qtbot.addWidget(main_window)
 
@@ -74,23 +73,14 @@ def test_sanity_data_management_sync(qtbot, main_window, navigate, qml_item, qap
     assert view is not None
     qapp.processEvents()
 
-    assert view.quick_widget.errors() == []
     presenter = data_mgt_cfg["presenter_instance"]
 
     # Ensure starting mode is IDLE
     assert presenter.fsm.current_state.value == "IDLE"
 
     # Simulate user clicking "Sync Current"
-    qml_item(view.quick_widget.rootObject(), "btnSyncData").clicked.emit()
+    view._action_buttons["btnSyncData"].click()
 
-    # waitUntil (not a bare processEvents()+assert): when this screen is
-    # navigated to right after a screen that spun up a real background
-    # thread (e.g. the Dev Board's Start Live in test_sanity_boot_and_dashboard,
-    # which runs immediately before this test in file order), the QML
-    # click's delivery can take a few extra event-loop iterations — root-
-    # caused via a standalone repro script that isolated it to genuine
-    # event-delivery latency (a bounded poll always converges), not a
-    # dropped click or broken FSM matrix.
     qtbot.waitUntil(
         lambda: presenter.fsm.current_state.value == "SYNCING", timeout=2000
     )
@@ -98,14 +88,14 @@ def test_sanity_data_management_sync(qtbot, main_window, navigate, qml_item, qap
 
 @pytest.mark.parametrize("app_engine", [True], indirect=True)
 def test_sanity_dev_board_full_feature_walkthrough(
-    qtbot, main_window, app_engine, navigate, qml_item, qapp
+    qtbot, main_window, app_engine, navigate, qapp
 ):
     """
     Walks through every feature currently reachable on the Dev Board screen
     in one continuous sequence — this screen is used for day-to-day
     development, so a broken button here blocks manual testing entirely.
     Covers: Load History, live-tick chart updates, Start/Stop Stream, and
-    Clear Logs — driven through DevBoardPanel.qml (BOT-030 Phase 4).
+    Clear Logs — driven through `DevBoardPanel` (QtWidgets, EPIC-006D).
 
     BOT-034: opening the Dev Board now auto-starts Start Live, and
     navigate() already waited for it to settle — so by the time this test's
@@ -121,13 +111,15 @@ def test_sanity_dev_board_full_feature_walkthrough(
     dashboard_cfg = navigate("dashboard")
     presenter = dashboard_cfg["presenter_instance"]
     view = dashboard_cfg["view_instance"]
-    assert view.quick_widget.errors() == []
-    root = view.quick_widget.rootObject()
+    panel = view._panel
     assert presenter.fsm.current_state.value == "LIVE"
 
     # --- 1. Load History (manual re-load, on top of auto-start's own) ----
+    # Not panel._btn_load_history.click(): legitimately disabled while
+    # uiMode == "LIVE" (see test_dev_board_*.py's own note on this) — same
+    # target the button's own handler calls.
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
-        qml_item(root, "btnLoadHistory").clicked.emit()
+        view._view_model.requestLoadHistory()
 
     chart_card = view.chart_cards[0]
     assert chart_card.symbol == "ETHUSDT"
@@ -135,7 +127,7 @@ def test_sanity_dev_board_full_feature_walkthrough(
 
     # --- 2. Start Stream — already running via auto-start ----------------
     assert presenter.fsm.current_state.value == "LIVE"
-    assert qml_item(root, "btnStop").property("enabled") is True
+    assert panel._btn_stop.isEnabled() is True
 
     # --- 3. Live tick -> chart update (simulates the WebSocket adapter) --
     history_before = len(chart_card._raw_history)
@@ -164,19 +156,15 @@ def test_sanity_dev_board_full_feature_walkthrough(
 
     # --- 4. Clear Logs -----------------------------------------------------
     assert len(view._view_model.log_model.entries) > 0
-    # LogPanel.qml's Clear button calls the log model's clear() Slot
-    # directly — no Presenter round-trip (same as MonitorCard's old wiring).
-    qml_item(root, "btnClearLog").clicked.emit()
+    panel._log_panel.findChild(object, "btnClearLog").click()
     assert view._view_model.log_model.entries == []
 
     # --- 5. Stop Stream ------------------------------------------------
-    qml_item(root, "btnStop").clicked.emit()
+    panel._btn_stop.click()
     assert presenter.fsm.current_state.value == "IDLE"
 
 
-def test_sanity_dev_mode_off_by_default_no_click_logging(
-    qtbot, main_window, navigate, qml_item
-):
+def test_sanity_dev_mode_off_by_default_no_click_logging(qtbot, main_window, navigate):
     """
     dev.mode defaults to False (app_config.json) — clicking a button must NOT
     produce a "User clicked" line, proving BaseView/BasePresenter's automatic
@@ -185,29 +173,24 @@ def test_sanity_dev_mode_off_by_default_no_click_logging(
     qtbot.addWidget(main_window)
 
     view = navigate("dashboard")["view_instance"]
-    root = view.quick_widget.rootObject()
-
-    qml_item(root, "btnLoadHistory").clicked.emit()
+    view._view_model.requestLoadHistory()
 
     assert not any(
         "User clicked" in entry.message for entry in view._view_model.log_model.entries
     )
 
 
-def test_sanity_settings_screen_save(qtbot, main_window, navigate, qml_item, qapp):
+def test_sanity_settings_screen_save(qtbot, main_window, navigate, qapp):
     """
-    API & Credentials screen (BOT-030 Phase 2 — QML). Proves the screen
-    loads through the router, its fields populate from IConfig, and a real
-    QML Save click reaches the presenter — all while the QtWidgets chart
-    screens keep working alongside it.
+    API & Credentials screen (QtWidgets, EPIC-005D). Proves the screen loads
+    through the router, its fields populate from IConfig, and a real Save
+    click reaches the presenter — all while the other screens keep working
+    alongside it.
     """
     qtbot.addWidget(main_window)
 
-    sidebar_root = main_window._sidebar.quick_widget.rootObject()
-    assert (
-        qml_item(sidebar_root, "bottomNavButton_settings").property("text")
-        == "API & Credentials"
-    )
+    nav_button = main_window._sidebar._nav_buttons["settings"]
+    assert nav_button.display_text == "API & Credentials"
 
     settings_cfg = navigate("settings")
     assert settings_cfg is not None
@@ -215,15 +198,14 @@ def test_sanity_settings_screen_save(qtbot, main_window, navigate, qml_item, qap
     assert view is not None
     qapp.processEvents()
 
-    assert view.quick_widget.errors() == []
-    root = view.quick_widget.rootObject()
+    from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton
 
     # Fields populated from IConfig (user_config.json) on load.
-    assert qml_item(root, "txtDefaultInterval").property("text") != ""
+    assert view.findChild(QLineEdit, "txtDefaultInterval").text() != ""
 
-    qml_item(root, "btnSaveCredentials").clicked.emit()
+    view.findChild(QPushButton, "btnSaveCredentials").click()
     qapp.processEvents()
-    assert qml_item(root, "lblStatus").property("text") != ""
+    assert view.findChild(QLabel, "lblStatus").text() != ""
 
     # Navigating away and back to the other screens must still work —
     # coexistence, not a one-way trip.
@@ -232,28 +214,33 @@ def test_sanity_settings_screen_save(qtbot, main_window, navigate, qml_item, qap
 
 
 @pytest.mark.parametrize("app_engine", [True], indirect=True)
-def test_sanity_dev_mode_click_logging_does_not_reach_qml_buttons(
-    qtbot, main_window, app_engine, navigate, qml_item
+def test_sanity_dev_mode_click_logging_does_not_yet_reach_the_dev_board_panel(
+    qtbot, main_window, app_engine, navigate
 ):
     """
-    Documents a known, pre-existing limitation rather than silently losing
-    coverage of it: dev.mode=True's auto click-logging
-    (_ButtonClickWatcher in sagittarius_engine's base_view.py) instruments
-    QPushButton instances found via QWidget.findChildren() — it cannot see
-    a QQuickWidget's internal QML scene graph. This has been true for every
-    QML screen since BOT-030 Phase 2 (Settings), but was only ever pinned
-    for the Dev Board back when its buttons were still QtWidgets
-    (ControlCard). Phase 4 moved those to QML too, so this test now
-    documents the same (unchanged) limitation here — see
-    test_base_view_click_logging.py for the isolated mechanism this exercises
-    end-to-end.
-    """
+    Documents a still-open gap, now for a different reason than before:
+    dev.mode=True's auto click-logging (`_ButtonClickWatcher` in
+    sagittarius_engine's base_view.py) used to miss every Dev Board button
+    because they lived inside a `QQuickWidget`'s QML scene graph
+    (invisible to `QWidget.findChildren()`). EPIC-006D moved
+    `DevBoardPanel` to plain QtWidgets, so that specific reason is gone —
+    but clicking a real, enabled `DevBoardPanel` button (`_btn_stop`, the
+    one guaranteed enabled at this point: uiMode == "LIVE" post
+    auto-start) still produces no "User clicked" log line, verified
+    empirically. `BasePresenter.__init__` calls
+    `view.enable_dev_click_logging()` before `DashboardPresenter` ever
+    calls `view.set_view_model()` (which is what actually constructs
+    `DevBoardPanel` and attaches it to the splitter) — `_ButtonClickWatcher`
+    is documented to pick up children added later via a `ChildAdded` event
+    filter, but empirically doesn't for this specific
+    lazily-built-then-`QSplitter.addWidget()`-attached case. Root cause not
+    chased further here (an engine-side mechanism, not something this
+    session's own changes touch) — kept as a live tripwire pointing at the
+    right two lines to start from if this needs fixing."""
     qtbot.addWidget(main_window)
 
     view = navigate("dashboard")["view_instance"]
-    root = view.quick_widget.rootObject()
-
-    qml_item(root, "btnLoadHistory").clicked.emit()
+    view._panel._btn_stop.click()
 
     assert not any(
         "User clicked" in entry.message for entry in view._view_model.log_model.entries
