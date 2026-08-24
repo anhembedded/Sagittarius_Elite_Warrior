@@ -173,6 +173,21 @@ def native_chart(qapp):
     view.grabWindow()
     qapp.processEvents()
 
+    # 2026-08-24: under machine load, the offscreen platform's own exposure
+    # sequence (show() -> qWaitForWindowExposed() -> grabWindow()) can queue
+    # its *own* phantom hover at the synthetic cursor without any test code
+    # asking for one. A single processEvents() call above does not guarantee
+    # that queued event has actually been dispatched yet — it can arrive late
+    # and land inside the next test's sweep instead, which is exactly the
+    # "stable without any phantom hover" test failing under gate load despite
+    # never calling _deliver_phantom_hover() itself. Drain with a bounded
+    # settle loop so fixture-setup-triggered events are fully resolved before
+    # any test body starts driving its own sweep, matching the settle pattern
+    # in test_native_chart_qml_plugin_sanity.py's _wait_for_property().
+    for _ in range(20):
+        qapp.processEvents()
+        QTest.qWait(5)
+
     yield view, chart
 
     view.close()
