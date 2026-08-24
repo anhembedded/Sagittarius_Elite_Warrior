@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication
+
 from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction import (
     _candles,
     _markers,
@@ -140,7 +141,7 @@ def _run_probe(app: QApplication) -> CachedFrameProbeResult:
     actual_range = card.plot_layout.main_plot.vb.viewRange()[0]
     final_range_matches = all(
         math.isclose(actual, expected, rel_tol=0.0, abs_tol=1e-6)
-        for actual, expected in zip(actual_range, expected_range)
+        for actual, expected in zip(actual_range, expected_range, strict=True)
     )
 
     elapsed_seconds = sum(frame_samples) / 1000.0

@@ -4,7 +4,7 @@ import logging
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
-    ExchangeRequestCancelled,
+    ExchangeRequestCancelledError,
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
@@ -54,8 +54,7 @@ class RepairDataGapCommandHandler(
                 progress_callback=None,
                 cancellation_requested=command.cancellation_requested,
             )
-        except ExchangeRequestCancelled:
-
+        except ExchangeRequestCancelledError:
             logger.info("Gap repair cancelled by user.")
             return RepairDataGapResult(
                 success=False,

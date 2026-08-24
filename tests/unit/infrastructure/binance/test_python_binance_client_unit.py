@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
-    ExchangeRequestCancelled,
+    ExchangeRequestCancelledError,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
@@ -174,7 +174,7 @@ def test_historical_kline_iteration_stops_cooperatively_when_cancelled():
 
     client = PythonBinanceClient(client=injected_client)
 
-    with pytest.raises(ExchangeRequestCancelled):
+    with pytest.raises(ExchangeRequestCancelledError):
         client.get_historical_klines(
             "BTCUSDT",
             TimeFrame.ONE_MINUTE,
@@ -281,7 +281,7 @@ def test_stream_historical_klines_stops_cooperatively_when_cancelled():
 
     client = PythonBinanceClient(client=injected_client)
 
-    with pytest.raises(ExchangeRequestCancelled):
+    with pytest.raises(ExchangeRequestCancelledError):
         list(
             client.stream_historical_klines(
                 "BTCUSDT",

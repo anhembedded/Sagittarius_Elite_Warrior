@@ -15,6 +15,8 @@ import time
 
 from PySide6.QtCore import QPointF, qInstallMessageHandler
 from PySide6.QtWidgets import QApplication
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+
 from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction import (
     _CANDLE_COUNT,
     _INDICATOR_COUNT,
@@ -34,7 +36,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 
 _FORBIDDEN_RENDER_MESSAGES = (
     "QQuickRenderControl",
@@ -42,6 +43,7 @@ _FORBIDDEN_RENDER_MESSAGES = (
     "Failed to create context",
     "composeAndFlush",
 )
+_MINIMUM_CAPTURE_COLORS = 5
 
 
 def _process_for(app: QApplication, seconds: float) -> None:
@@ -149,7 +151,7 @@ def main() -> None:
             card.plot_layout.backend_fallback_reason
         ):
             raise SystemExit("OpenGL was neither activated nor safely rejected")
-        if sampled_colors < 5:
+        if sampled_colors < _MINIMUM_CAPTURE_COLORS:
             raise SystemExit("Hybrid frame capture is blank or visually empty")
         if forbidden:
             raise SystemExit("Hybrid render lifecycle emitted forbidden warnings")

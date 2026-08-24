@@ -1,5 +1,6 @@
 import argparse
 import sys
+from contextlib import suppress
 
 from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
@@ -77,10 +78,8 @@ def _load_configuration() -> ConfigManager:
     config_manager.load_json(app_json)
     config_manager.load_json(user_json, writable=True)
 
-    try:
+    with suppress(FileNotFoundError):
         config_manager.load_json(cli_json)
-    except FileNotFoundError:
-        pass  # Will fail if missing
 
     return config_manager
 

@@ -1,4 +1,5 @@
 import os
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -292,10 +293,8 @@ def navigate(qapp, qtbot, main_window):
 
             presenter.ui_stream_success_signal.connect(_mark_settled)
             presenter.ui_stream_failed_signal.connect(_mark_settled)
-            try:
+            with suppress(Exception):
                 qtbot.waitUntil(lambda: settled["done"], timeout=2000)
-            except Exception:  # noqa: BLE001, S110
-                pass
 
         return entry
 

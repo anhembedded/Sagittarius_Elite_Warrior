@@ -436,7 +436,9 @@ class BackTestTradeLogsPanel(QWidget):
             Qt.AlignmentFlag.AlignRight,
             Qt.AlignmentFlag.AlignRight,
         )
-        for text, stretch, alignment in zip(_HEADERS, _COLUMNS, alignments):
+        for text, stretch, alignment in zip(
+            _HEADERS, _COLUMNS, alignments, strict=True
+        ):
             label = QLabel(text)
             label.setAlignment(alignment | Qt.AlignmentFlag.AlignVCenter)
             label.setStyleSheet(

@@ -6,7 +6,7 @@ from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
-    ExchangeRequestCancelled,
+    ExchangeRequestCancelledError,
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
@@ -94,7 +94,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                     len(chunk),
                     synced_count,
                 )
-        except ExchangeRequestCancelled:
+        except ExchangeRequestCancelledError:
             self.logger.info("[%s] Market data sync cancelled.", symbol)
             return
 

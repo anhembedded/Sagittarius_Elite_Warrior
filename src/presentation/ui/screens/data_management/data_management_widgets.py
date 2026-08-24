@@ -33,6 +33,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     get_icon_loader,
 )
 
+_FULL_COVERAGE_THRESHOLD = 99.0
+
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
     from .kline_inspector_table_model import KLineInspectorTableModel
@@ -506,27 +508,33 @@ class _KLineRowWidget(QFrame):
 
     def apply_row(self, index: QModelIndex, row_number: int) -> None:
         model = index.model()
-        M = _kline_model_class(model)
-        is_bullish = bool(model.data(index, M.IsBullishRole))
+        model_roles = _kline_model_class(model)
+        is_bullish = bool(model.data(index, model_roles.IsBullishRole))
         color = Palette.SUCCESS if is_bullish else Palette.DANGER
 
         self.setStyleSheet(
             f"background-color: {Palette.BG_CARD if row_number % 2 == 0 else Palette.BG};"
         )
-        self._time_label.setText(str(model.data(index, M.FormattedTimeRole) or ""))
-        self._open_label.setText(str(model.data(index, M.OpenRole) or "0"))
-        self._high_label.setText(str(model.data(index, M.HighRole) or "0"))
-        self._low_label.setText(str(model.data(index, M.LowRole) or "0"))
-        self._close_label.setText(str(model.data(index, M.CloseRole) or "0"))
+        self._time_label.setText(
+            str(model.data(index, model_roles.FormattedTimeRole) or "")
+        )
+        self._open_label.setText(str(model.data(index, model_roles.OpenRole) or "0"))
+        self._high_label.setText(str(model.data(index, model_roles.HighRole) or "0"))
+        self._low_label.setText(str(model.data(index, model_roles.LowRole) or "0"))
+        self._close_label.setText(str(model.data(index, model_roles.CloseRole) or "0"))
         self._close_label.setStyleSheet(
             f"color: {color}; font-size: 11px; font-weight: bold; font-family: monospace;"
         )
-        self._volume_label.setText(str(model.data(index, M.VolumeRole) or "0"))
-        self._change_label.setText(str(model.data(index, M.ChangePctRole) or "0.00%"))
+        self._volume_label.setText(
+            str(model.data(index, model_roles.VolumeRole) or "0")
+        )
+        self._change_label.setText(
+            str(model.data(index, model_roles.ChangePctRole) or "0.00%")
+        )
         self._change_label.setStyleSheet(
             f"color: {color}; font-size: 11px; font-family: monospace;"
         )
-        self._trades_label.setText(str(model.data(index, M.TradesRole) or 0))
+        self._trades_label.setText(str(model.data(index, model_roles.TradesRole) or 0))
 
 
 def _kline_model_class(model) -> type[KLineInspectorTableModel]:
@@ -1098,7 +1106,11 @@ class GapInspectorDialog(QDialog):
         )
         coverage_pct = vm.gapInspectorCoveragePct
         self._coverage_pct_label.setText(f"Độ phủ: {coverage_pct}%")
-        color = Palette.SUCCESS if coverage_pct >= 99.0 else Palette.ACCENT
+        color = (
+            Palette.SUCCESS
+            if coverage_pct >= _FULL_COVERAGE_THRESHOLD
+            else Palette.ACCENT
+        )
         self._coverage_pct_label.setStyleSheet(
             f"color: {color}; font-size: 11px; font-weight: bold;"
         )

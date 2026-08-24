@@ -22,6 +22,9 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QtMsgType, qInstallMessageHandler
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
@@ -40,8 +43,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _SYMBOL = "BTCUSDT"
 _CANDLE_COUNT = 240

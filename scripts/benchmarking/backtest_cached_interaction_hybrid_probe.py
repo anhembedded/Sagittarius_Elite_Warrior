@@ -15,6 +15,8 @@ from PySide6.QtCore import QPoint, QPointF, Qt, qInstallMessageHandler
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+
 from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction import (
     _INDICATOR_COUNT,
     _VISIBLE_CANDLES,
@@ -40,16 +42,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 
 _PAN_PIXELS = 120
 _WHEEL_DELTA = 120
+_MINIMUM_PREVIEW_COLORS = 5
 
 
 def _ranges_match(left: tuple[float, float], right: tuple[float, float]) -> bool:
     return all(
         math.isclose(left_value, right_value, rel_tol=0.0, abs_tol=1e-6)
-        for left_value, right_value in zip(left, right)
+        for left_value, right_value in zip(left, right, strict=True)
     )
 
 
@@ -186,7 +188,7 @@ def main() -> None:
             )
         ):
             raise SystemExit("Cached interaction lifecycle contract failed")
-        if min(pan_preview_colors, zoom_preview_colors) < 5:
+        if min(pan_preview_colors, zoom_preview_colors) < _MINIMUM_PREVIEW_COLORS:
             raise SystemExit("Cached interaction preview is visually empty")
         if dense_active_markers > dense_marker_capacity:
             raise SystemExit("Dense marker display exceeded its pixel budget")

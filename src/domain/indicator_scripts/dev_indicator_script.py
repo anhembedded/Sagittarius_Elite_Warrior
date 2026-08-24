@@ -11,6 +11,8 @@ _BULL = "#0ECB81"
 _BEAR = "#F6465D"
 _NEUTRAL = "#848E9C"
 _ACCENT = "#F3BA2F"
+_MOMENTUM_MIDPOINT = 50
+_TREND_CONFIRMATION_BARS = 3
 
 
 class DevIndicatorScript(BaseIndicatorScript):
@@ -175,7 +177,9 @@ class DevIndicatorScript(BaseIndicatorScript):
         # directly, and push one into a Series of your own if it needs history.
         if trend is not None and momentum is not None:
             self.mark(
-                close if trend.histogram > 0 and momentum > 50 else None,
+                close
+                if trend.histogram > 0 and momentum > _MOMENTUM_MIDPOINT
+                else None,
                 "Strong",
                 color=_ACCENT,
                 direction="up",
@@ -188,7 +192,7 @@ class DevIndicatorScript(BaseIndicatorScript):
         held_since_last_bar = trending_up == self.last_direction_up
         bars_in_trend = self.trend_confirmation.update(held_since_last_bar)
         self.last_direction_up = trending_up
-        if bars_in_trend >= 3:
+        if bars_in_trend >= _TREND_CONFIRMATION_BARS:
             self.confirmed_side = 1 if trending_up else -1
 
         # --- 13. Background tint — only while a *confirmed* trend is running,

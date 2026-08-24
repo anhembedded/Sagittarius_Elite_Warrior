@@ -11,6 +11,8 @@ from PySide6.QtWidgets import QApplication
 
 from .chart_card import ChartCard
 
+_TICKS_PER_CANDLE = 20
+
 app = QApplication(sys.argv)
 
 app.setStyleSheet("""
@@ -85,7 +87,7 @@ def on_live_tick():
     card.update_indicator_data("RSI_14", rsi_x, rsi_y)
 
     tick_count += 1
-    if tick_count >= 20:
+    if tick_count >= _TICKS_PER_CANDLE:
         tick_count = 0
         live_t += 60
         live_o = live_c

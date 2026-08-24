@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_ser
 #: existing formatter anywhere else in this codebase and would only ever be
 #: used in this one column.
 _DATETIME_FORMAT = "%Y-%m-%d %H:%M"
+_THOUSAND = 1000.0
 
 #: BOT-050 — `Trade.side` now exists; label reads it instead of assuming
 #: every trade is a long ("vị thế mua"/"vị thế bán").
@@ -122,8 +123,8 @@ def _format_compact_usd(value: float) -> str:
     """@brief Mirrors the mockup's "0.96 K USD" compact notation for the
     Quy mô (position size) column — full precision would make wide numbers
     dominate a column meant to be scanned quickly, not read exactly."""
-    if abs(value) >= 1000:
-        return f"{value / 1000:,.2f} K USD"
+    if abs(value) >= _THOUSAND:
+        return f"{value / _THOUSAND:,.2f} K USD"
     return f"{value:,.2f} USD"
 
 

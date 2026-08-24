@@ -2,7 +2,7 @@
 
 **Thuộc Epic:** [`EPIC-004`](../README.md)
 **Trạng thái:** 🔴 Chưa làm
-**Phụ thuộc:** [`EPIC-004B`](../incomplete/EPIC-004B_wire_gate_into_ci_local.md)
+**Phụ thuộc:** [`EPIC-004B`](../completed/EPIC-004B_wire_gate_into_ci_local.md)
 
 ---
 

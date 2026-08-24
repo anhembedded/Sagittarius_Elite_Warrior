@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
-    ExchangeRequestCancelled,
+    ExchangeRequestCancelledError,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
     RepairDataGapCommand,
@@ -55,7 +55,7 @@ def test_repair_data_gap_success():
 
 def test_repair_data_gap_cancelled():
     client = Mock()
-    client.get_historical_klines.side_effect = ExchangeRequestCancelled()
+    client.get_historical_klines.side_effect = ExchangeRequestCancelledError()
     repo = Mock()
 
     handler = RepairDataGapCommandHandler(client, repo)

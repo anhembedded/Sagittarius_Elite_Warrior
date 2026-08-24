@@ -27,6 +27,22 @@ filterwarnings = [
 
 asyncio_mode = "auto"
 
+[tool.ruff.lint]
+# EPIC-004 — security and maintainability rules enabled incrementally from
+# the baseline audit (Tasks/reports/EPIC-004A_ruff_security_quality_baseline_audit.md).
+extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+# These patterns are intentional in tests and Qt override methods respectively.
+"tests/**" = ["S101", "S603", "S106", "S108", "PLR2004"]
+"src/presentation/ui/**" = ["N802", "N803", "N815"]
+# The repository/package name is intentionally PascalCase; Ruff otherwise
+# derives it as the parent module name for these package markers.
+"scripts/__init__.py" = ["N999"]
+"scripts/benchmarking/__init__.py" = ["N999"]
+# This standalone chart demo generates visual noise, never security tokens.
+"src/presentation/ui/components/chart_card/__main__.py" = ["S311"]
+
 [tool.mypy]
 # EPIC-002 — gate opened at the exact baseline measured by EPIC-002A
 # (Tasks/reports/EPIC-002A_mypy_baseline_audit.md), not at zero. Anything

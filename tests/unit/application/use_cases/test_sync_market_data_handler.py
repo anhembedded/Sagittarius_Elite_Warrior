@@ -3,7 +3,7 @@ from unittest.mock import ANY, Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
-    ExchangeRequestCancelled,
+    ExchangeRequestCancelledError,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
@@ -148,7 +148,7 @@ def test_cancelled_sync_never_persists_partial_exchange_data(
 ):
     mock_repo.get_latest_kline_time.return_value = None
     mock_exchange_client.stream_historical_klines.side_effect = (
-        ExchangeRequestCancelled("cancelled")
+        ExchangeRequestCancelledError("cancelled")
     )
     command = SyncMarketDataCommand(
         symbols=["BTCUSDT"],

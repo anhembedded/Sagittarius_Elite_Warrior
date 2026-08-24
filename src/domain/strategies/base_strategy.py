@@ -64,7 +64,7 @@ class BaseStrategy(ABC):
                 f"{type(self).__name__} got param(s) it never declares: {list(unused)}"
             )
 
-    def setup(self) -> None:
+    def setup(self) -> None:  # noqa: B027 - optional extension hook
         """Override to declare this strategy's parameters via `input_*()`.
         Runs once per instance, before `build_indicators()`/`decide()` are
         ever called. The default does nothing — a strategy with nothing to

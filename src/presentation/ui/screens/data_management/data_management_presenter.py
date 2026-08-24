@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -90,10 +91,8 @@ class DataManagementPresenter(BasePresenter):
         config: IConfig = container.resolve(IConfig)
         cfg_page_size = config.get(ConfigKeys.KLINE_INSPECTOR_PAGE_SIZE.value)
         if cfg_page_size is not None:
-            try:
+            with suppress(ValueError, TypeError):
                 self._view_model.kline_inspector_model.set_page_size(int(cfg_page_size))
-            except (ValueError, TypeError):
-                pass
 
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         market_data_repo: IMarketDataRepository = container.resolve(

@@ -29,11 +29,12 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
 
 _UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
 

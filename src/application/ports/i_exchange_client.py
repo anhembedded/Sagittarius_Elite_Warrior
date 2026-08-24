@@ -8,7 +8,7 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 CancellationCheck = Callable[[], bool]
 
 
-class ExchangeRequestCancelled(RuntimeError):
+class ExchangeRequestCancelledError(RuntimeError):
     """Raised when a cooperative exchange request is cancelled by its owner."""
 
 

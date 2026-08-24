@@ -22,9 +22,8 @@ _TEST_PERIODS = {
 
 # Flat (lets every EMA converge before anything can stack), then a long ramp
 # up, a long ramp down, then a ramp up again — guarantees a stack, a break,
-# and a re-stack. Verified by actually running EMA(2/3/4/5) through
-# MultiEmaTrendFollowerStrategy + StrategyEngine (not hand-guessed), same
-# convention test_ema_crossover_strategy.py uses.
+# and a re-stack. The expected sequence was verified by executing the real
+# strategy and engine with all four configured periods, not hand-guessed.
 GOLDEN_CLOSES = (
     [100.0] * 6
     + [100.0 + 3 * i for i in range(1, 13)]

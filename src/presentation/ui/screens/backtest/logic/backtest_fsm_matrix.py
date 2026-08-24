@@ -19,6 +19,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_track
     ActionOutcome,
 )
 
+_BALANCE_COMPARISON_TOLERANCE = 1e-6
+
 
 class BacktestUiState(str, Enum):
     """
@@ -243,7 +245,10 @@ class BacktestRunConfig:
         if self.strategy_key != other.strategy_key:
             diffs.append(f"Chiến lược ({self.strategy_key} → {other.strategy_key})")
 
-        if abs(self.initial_balance - other.initial_balance) > 1e-6:
+        if (
+            abs(self.initial_balance - other.initial_balance)
+            > _BALANCE_COMPARISON_TOLERANCE
+        ):
             diffs.append(
                 f"Vốn ({self.initial_balance:,.0f} → {other.initial_balance:,.0f})"
             )

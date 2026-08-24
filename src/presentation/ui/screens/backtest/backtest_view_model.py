@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import suppress
+
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
@@ -580,10 +582,8 @@ class BackTestViewModel(BaseQmlViewModel):
     def _set_order_size_text(self, value: str) -> None:
         if value != self._order_size_text:
             self._order_size_text = value
-            try:
+            with suppress(ValueError):
                 self._order_size_value = float(value)
-            except ValueError:
-                pass
             self.orderSizeTextChanged.emit()
             self.orderSizeValueChanged.emit()
 
@@ -645,10 +645,8 @@ class BackTestViewModel(BaseQmlViewModel):
     def _set_commission_text(self, value: str) -> None:
         if value != self._commission_text:
             self._commission_text = value
-            try:
+            with suppress(ValueError):
                 self._commission_value = float(value)
-            except ValueError:
-                pass
             self.commissionTextChanged.emit()
             self.commissionValueChanged.emit()
 

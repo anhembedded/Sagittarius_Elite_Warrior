@@ -186,20 +186,24 @@ class _StatusRowWidget(QFrame):
         # the source model's roles pass through proxy indexes unchanged, so
         # DatabaseStatusTableModel's constants are used directly here.
         model = index.model()
-        M = DatabaseStatusTableModel
-        self._symbol = model.data(index, M.SymbolRole) or ""
-        self._interval = model.data(index, M.IntervalRole) or "1m"
-        is_healthy = bool(model.data(index, M.IsHealthyRole))
+        model_roles = DatabaseStatusTableModel
+        self._symbol = model.data(index, model_roles.SymbolRole) or ""
+        self._interval = model.data(index, model_roles.IntervalRole) or "1m"
+        is_healthy = bool(model.data(index, model_roles.IsHealthyRole))
 
         self._symbol_label.setText(self._symbol)
         self._interval_badge.setText(self._interval or "1m")
         self._first_record_label.setText(
-            str(model.data(index, M.FirstRecordRole) or "")
+            str(model.data(index, model_roles.FirstRecordRole) or "")
         )
-        self._last_record_label.setText(str(model.data(index, M.LastRecordRole) or ""))
-        self._total_label.setText(str(model.data(index, M.TotalCandlesRole) or ""))
+        self._last_record_label.setText(
+            str(model.data(index, model_roles.LastRecordRole) or "")
+        )
+        self._total_label.setText(
+            str(model.data(index, model_roles.TotalCandlesRole) or "")
+        )
 
-        status_text = str(model.data(index, M.StatusTextRole) or "")
+        status_text = str(model.data(index, model_roles.StatusTextRole) or "")
         self.setObjectName(
             f"statusRow_{self._symbol}_{self._interval}"
         )  # not a public contract, but useful for debugging

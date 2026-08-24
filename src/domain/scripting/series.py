@@ -8,6 +8,7 @@ from collections.abc import Iterable
 #: back) without letting memory grow with the length of a backtest — Pine
 #: keeps everything, we deliberately don't.
 DEFAULT_HISTORY = 16
+MINIMUM_HISTORY = 2
 
 
 class _NoProvisional:
@@ -40,7 +41,7 @@ class Series:
     """
 
     def __init__(self, history: int = DEFAULT_HISTORY) -> None:
-        if history < 2:
+        if history < MINIMUM_HISTORY:
             raise ValueError(
                 f"history must be at least 2 to compare bars, got {history}"
             )

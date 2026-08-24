@@ -60,7 +60,7 @@ def test_audit_clean_data():
 def test_audit_detects_high_less_than_low():
     t0 = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
     repo = Mock()
-    # High (90) < Low (110)
+    # High is deliberately 90 while low is 110.
     repo.get_klines.return_value = [_make_candle(t0, 100.0, 90.0, 110.0, 95.0, 50.0)]
 
     handler = AuditDatabaseIntegrityQueryHandler(repo)

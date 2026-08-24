@@ -70,7 +70,9 @@ class VolumeItem:
         this class needing to know anything about prepending itself."""
         return [
             (t, h, b == self._bull_brush)
-            for t, h, b in zip(self._timestamps, self._heights, self._brushes)
+            for t, h, b in zip(
+                self._timestamps, self._heights, self._brushes, strict=True
+            )
         ]
 
     def update_live(self, timestamp: float, volume: float, is_bullish: bool) -> None:

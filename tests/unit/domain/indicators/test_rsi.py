@@ -229,7 +229,7 @@ def test_rsi_peek_provisional_stress_pure_state():
     rsi = RSI(period=14)
     reference = RSI(period=14)
 
-    for step, v in enumerate(CLOSES):
+    for _step, v in enumerate(CLOSES):
         # Stress with chaotic probes before each commit
         for probe in (-1e9, 1e9, 0.0, v - 10.0, v + 10.0, v):
             rsi.peek_provisional(probe)

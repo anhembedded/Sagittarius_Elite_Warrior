@@ -36,7 +36,7 @@ def test_ha_high_low_extend_to_include_the_ha_body():
     data = [(0.0, 10.0, 12.0, 9.0, 11.0), (1.0, 11.0, 13.0, 10.0, 12.0)]
     ha = to_heikin_ashi(data)
 
-    for t, ha_open, ha_high, ha_low, ha_close in ha:
+    for _timestamp, ha_open, ha_high, ha_low, ha_close in ha:
         assert ha_high >= max(ha_open, ha_close)
         assert ha_low <= min(ha_open, ha_close)
 

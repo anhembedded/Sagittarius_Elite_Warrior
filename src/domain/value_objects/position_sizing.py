@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
 
+_MAX_PERCENT = 100.0
+
 
 class PositionSizingType(str, Enum):
     """
@@ -35,13 +37,13 @@ class PositionSizing:
                 f"Position sizing value must be positive, got {self.value}"
             )
         if self.type is PositionSizingType.PERCENT_OF_EQUITY and (
-            self.value > 100.0 or self.value <= 0
+            self.value > _MAX_PERCENT or self.value <= 0
         ):
             raise ValueError(
                 f"Percent of equity sizing value must be in (0, 100], got {self.value}"
             )
         if self.type is PositionSizingType.RISK_PERCENT and (
-            self.value > 100.0 or self.value <= 0
+            self.value > _MAX_PERCENT or self.value <= 0
         ):
             raise ValueError(
                 f"Risk percent sizing value must be in (0, 100], got {self.value}"

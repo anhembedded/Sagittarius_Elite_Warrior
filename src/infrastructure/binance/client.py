@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     CancellationCheck,
-    ExchangeRequestCancelled,
+    ExchangeRequestCancelledError,
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
@@ -84,7 +84,7 @@ class PythonBinanceClient(IExchangeClient):
 
             logger.info(f"Successfully fetched {len(raw_klines)} klines for {symbol}.")
             return raw_klines
-        except ExchangeRequestCancelled:
+        except ExchangeRequestCancelledError:
             raise
         except Exception as e:
             logger.error(f"Failed to fetch historical klines for {symbol}: {e}")
@@ -148,7 +148,7 @@ class PythonBinanceClient(IExchangeClient):
                 yield self._map_to_market_data(buffer, symbol, interval)
 
             logger.info(f"Successfully streamed {total_fetched} klines for {symbol}.")
-        except ExchangeRequestCancelled:
+        except ExchangeRequestCancelledError:
             raise
         except Exception as e:
             logger.error(f"Failed to stream historical klines for {symbol}: {e}")
@@ -159,7 +159,7 @@ class PythonBinanceClient(IExchangeClient):
         cancellation_requested: CancellationCheck | None,
     ) -> None:
         if cancellation_requested is not None and cancellation_requested():
-            raise ExchangeRequestCancelled("Historical kline request cancelled")
+            raise ExchangeRequestCancelledError("Historical kline request cancelled")
 
     def _map_to_market_data(
         self, raw_klines: list[list], symbol: str, interval: str

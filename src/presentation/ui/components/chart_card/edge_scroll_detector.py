@@ -10,6 +10,7 @@ from PySide6 import QtCore
 #: the user can pan into empty space, far enough that idle panning near the
 #: middle of the chart doesn't trigger a fetch.
 _DEFAULT_EDGE_THRESHOLD_BARS = 20
+_MINIMUM_CANDLES_FOR_EDGE_DETECTION = 2
 
 
 class EdgeScrollDetector(QtCore.QObject):
@@ -45,7 +46,7 @@ class EdgeScrollDetector(QtCore.QObject):
     def check_edge(self, *_args) -> None:
         """Evaluates whether the view is near the left edge, and emits sig_near_left_edge if so."""
         history = self._get_raw_history()
-        if len(history) < 2:
+        if len(history) < _MINIMUM_CANDLES_FOR_EDGE_DETECTION:
             return
 
         oldest_timestamp = history[0][0]

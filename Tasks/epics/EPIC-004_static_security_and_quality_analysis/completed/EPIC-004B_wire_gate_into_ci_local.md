@@ -1,7 +1,7 @@
 # EPIC-004B — Nối rule set (`S`/`PLR2004`/`B`/`SIM`/`ERA`/`N`) vào `ci-local.ps1 -Full`
 
 **Thuộc Epic:** [`EPIC-004`](../README.md)
-**Trạng thái:** 🔴 Chưa làm
+**Trạng thái:** ✅ Hoàn thành (24/08/2026)
 **Phụ thuộc:** [`EPIC-004A`](../completed/EPIC-004A_ruff_baseline_audit.md) — đã đo baseline, có cấu hình đề xuất sẵn.
 
 ---
@@ -39,3 +39,13 @@ Không có test Python — đây là cấu hình lint/CI. Verify bằng chạy t
 `ci-local.ps1 -Full` (đọc `logs/ci-local-latest.log` đầy đủ, không chỉ nhìn
 terminal — đúng bài học `BUG-029`/`BUG-030`) và xác nhận số lỗi mới xuất
 hiện đúng như dự đoán từ `EPIC-004A`.
+
+## 3. Kết quả hoàn thành
+
+- Đã bật cứng `S`, `PLR2004`, `B`, `SIM`, `ERA`, `N` trong gate Ruff hiện có.
+- Per-file ignore chỉ giữ các false positive đã xác minh: pytest assertions /
+  fixture literals, Qt override naming, tên package PascalCase và randomness
+  trong chart demo.
+- `EPIC-004D` được dọn cùng đợt nên không cần giai đoạn warning-only.
+- `ci-local.ps1 -Full` trên Windows: Ruff lint/format, Mypy, 1.695 test và
+  38 sanity test đều pass; log scan sạch.

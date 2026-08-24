@@ -129,7 +129,7 @@ class DataManagementViewModel(BaseQmlViewModel):
         return self._kline_inspector_model
 
     # ------------------------------------------------------------------ #
-    # Selection (Symbol & Timeframe)
+    # Symbol and timeframe selection
     # ------------------------------------------------------------------ #
 
     @Property("QStringList", constant=True)

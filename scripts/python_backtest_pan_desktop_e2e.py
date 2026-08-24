@@ -28,6 +28,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
@@ -42,6 +43,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.cached_
 _CANDLE_COUNT = 5000
 _BASE_TIME = 1786768980.0
 _VISIBLE_CANDLES = 155
+_MAX_BLANK_WIDTH_RATIO = 0.02
+_MAX_VERTICAL_JUMP_PIXELS = 2.0
 
 
 def _build_card() -> ChartCard:
@@ -125,7 +128,7 @@ def main() -> None:
 
     before_image = viewport.grab().toImage()
     before_axis = axis_ink(before_image)
-    (_, _), y_before = plot.vb.viewRange()
+    (_, _), _y_before = plot.vb.viewRange()
 
     start = canvas.mapFromScene(view_rect.center())
     QTest.mousePress(viewport, Qt.MouseButton.LeftButton, pos=start)
@@ -151,7 +154,7 @@ def main() -> None:
     app.processEvents()
     (_, _), y_after = plot.vb.viewRange()
 
-    if worst_blank > 0.02:
+    if worst_blank > _MAX_BLANK_WIDTH_RATIO:
         raise RuntimeError(
             f"{worst_blank:.0%} of the plot width was bare background mid-drag "
             "— the chart is showing captured pixels instead of real data "
@@ -160,7 +163,7 @@ def main() -> None:
 
     height = max(1.0, y_during[1] - y_during[0])
     jump_pixels = abs(y_after[0] - y_during[0]) / height * region.height()
-    if jump_pixels > 2.0:
+    if jump_pixels > _MAX_VERTICAL_JUMP_PIXELS:
         raise RuntimeError(
             f"The chart jumped {jump_pixels:.0f}px vertically on mouse release "
             "— Y autoscale was frozen during the drag and only corrected at "

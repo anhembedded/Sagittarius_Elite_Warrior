@@ -23,6 +23,10 @@ import time
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
+    MemoryEventBus,
+)
+
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -45,9 +49,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager i
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
-)
-from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
-    MemoryEventBus,
 )
 
 SYMBOL = "BTCUSDT"

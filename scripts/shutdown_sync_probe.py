@@ -14,8 +14,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from collections.abc import Iterator
 
 from PySide6.QtWidgets import QApplication
+from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
-    ExchangeRequestCancelled,
+    ExchangeRequestCancelledError,
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
@@ -30,8 +33,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0
@@ -60,7 +61,7 @@ class _BlockingExchangeClient(IExchangeClient):
         while not cancellation_requested():
             self.finished.wait(0.01)
         self.finished.set()
-        raise ExchangeRequestCancelled("shutdown probe cancelled")
+        raise ExchangeRequestCancelledError("shutdown probe cancelled")
 
     def stream_historical_klines(
         self,
@@ -86,7 +87,7 @@ class _BlockingExchangeClient(IExchangeClient):
         while not cancellation_requested():
             self.finished.wait(0.01)
         self.finished.set()
-        raise ExchangeRequestCancelled("shutdown probe cancelled")
+        raise ExchangeRequestCancelledError("shutdown probe cancelled")
 
     def get_available_symbols(self) -> list[str]:
         return []

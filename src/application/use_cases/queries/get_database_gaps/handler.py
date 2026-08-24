@@ -18,6 +18,7 @@ from .query import (
 )
 
 logger = logging.getLogger("App.QueryHandler")
+_HOURS_PER_DAY = 24.0
 
 
 class GetDatabaseGapsQueryHandler(
@@ -65,10 +66,10 @@ class GetDatabaseGapsQueryHandler(
             duration_hrs = gap.duration_hours
             if duration_hrs < 1.0:
                 duration_str = f"{int(duration_hrs * 60)}m"
-            elif duration_hrs < 24.0:
+            elif duration_hrs < _HOURS_PER_DAY:
                 duration_str = f"{duration_hrs:.1f}h"
             else:
-                duration_str = f"{duration_hrs / 24.0:.1f}d"
+                duration_str = f"{duration_hrs / _HOURS_PER_DAY:.1f}d"
 
             gap_dtos.append(
                 DataGapDTO(

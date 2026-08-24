@@ -31,6 +31,7 @@ OhlcCandle = tuple[float, float, float, float, float]
 # once by default makes every subplot's auto-visible Y-range (Volume/RSI/
 # MACD) span the ENTIRE history instead of a readable recent window.
 _DEFAULT_INITIAL_VISIBLE_CANDLES = 150
+_MINIMUM_CANDLES_FOR_SPACING = 2
 
 #: Empty space allowed beyond the oldest/newest candle before the viewport is
 #: clamped. Enough to keep the newest bar off the right edge, far too little to
@@ -514,7 +515,7 @@ class ChartCard(BaseCard):
 
     def _bar_seconds(self) -> float:
         """Spacing between candles, inferred from the loaded history."""
-        if len(self._raw_history) < 2:
+        if len(self._raw_history) < _MINIMUM_CANDLES_FOR_SPACING:
             return _FALLBACK_BAR_SECONDS
         span = self._raw_history[-1][0] - self._raw_history[0][0]
         spacing = span / (len(self._raw_history) - 1)

@@ -12,6 +12,10 @@ from PySide6.QtCore import (
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
+_LARGE_PRICE_THRESHOLD = 100.0
+_THOUSAND = 1_000.0
+_MILLION = 1_000_000.0
+
 
 @dataclass(frozen=True)
 class KLineDisplayRow:
@@ -33,7 +37,7 @@ class KLineDisplayRow:
 
 
 def _format_price(val: float) -> str:
-    if val >= 100:
+    if val >= _LARGE_PRICE_THRESHOLD:
         return f"{val:,.2f}"
     if val >= 1:
         return f"{val:.4f}"
@@ -41,10 +45,10 @@ def _format_price(val: float) -> str:
 
 
 def _format_volume(val: float) -> str:
-    if val >= 1_000_000:
-        return f"{val / 1_000_000:.2f}M"
-    if val >= 1_000:
-        return f"{val / 1_000:.2f}K"
+    if val >= _MILLION:
+        return f"{val / _MILLION:.2f}M"
+    if val >= _THOUSAND:
+        return f"{val / _THOUSAND:.2f}K"
     return f"{val:.4f}".rstrip("0").rstrip(".")
 
 

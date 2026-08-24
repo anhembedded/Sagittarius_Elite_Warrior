@@ -4,6 +4,8 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
 
+_PERCENT_UPPER_BOUND = 100.0
+
 
 @dataclass(frozen=True)
 class BrokerSimulationConfig:
@@ -46,7 +48,9 @@ class BrokerSimulationConfig:
             raise ValueError(f"pyramiding must be at least 1, got {self.pyramiding}")
         if self.long_leverage <= 0 or self.short_leverage <= 0:
             raise ValueError("leverage must be positive")
-        if self.stop_loss_pct is not None and not (0 < self.stop_loss_pct < 100):
+        if self.stop_loss_pct is not None and not (
+            0 < self.stop_loss_pct < _PERCENT_UPPER_BOUND
+        ):
             raise ValueError(
                 f"stop_loss_pct must be in (0, 100), got {self.stop_loss_pct}"
             )

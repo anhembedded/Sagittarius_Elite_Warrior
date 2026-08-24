@@ -103,10 +103,7 @@ def format_display_datetime(
     Formats a datetime object in the requested display timezone.
     Assumes naive datetime is UTC (standard across this application).
     """
-    if dt.tzinfo is None:
-        dt_utc = dt.replace(tzinfo=UTC)
-    else:
-        dt_utc = dt.astimezone(UTC)
+    dt_utc = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
 
     target_tz = resolve_zone_info(tz_name)
     converted = dt_utc.astimezone(target_tz)

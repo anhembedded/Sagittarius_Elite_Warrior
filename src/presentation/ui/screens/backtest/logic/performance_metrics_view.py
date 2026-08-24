@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
 _INFINITY_DISPLAY = "∞"  # "∞" — profit_factor is float("inf") with 0 losers
 _LOSING_PROFIT_FACTOR_BADGE = "Rủi ro"
 _NEUTRAL_COLOR = ""  # empty = "let QML fall back to Theme.muted/textPrimary"
+_WIN_RATE_SUCCESS_THRESHOLD = 50.0
 
 #: BOT-079 — `build_result_warning_text()`'s own dedicated line under the
 #: stat cards (BOT-079 follow-up fix — an earlier version of this squeezed
@@ -124,7 +125,11 @@ def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
     drawdown_amount = compute_max_drawdown_amount(result.equity_curve)
 
     profit_color = BULL_COLOR if metrics.net_profit >= 0 else BEAR_COLOR
-    win_rate_color = BULL_COLOR if metrics.percent_profitable >= 50 else BEAR_COLOR
+    win_rate_color = (
+        BULL_COLOR
+        if metrics.percent_profitable >= _WIN_RATE_SUCCESS_THRESHOLD
+        else BEAR_COLOR
+    )
     profit_factor_color = BULL_COLOR if metrics.profit_factor >= 1 else BEAR_COLOR
 
     return [

@@ -39,8 +39,7 @@ def test_percent_commission_entry_and_exit(policy: FeeCalculatorPolicy):
 
 def test_cash_per_order_commission(policy: FeeCalculatorPolicy):
     # $1,000 notional at $100 with $2.5 fixed fee per order
-    # entry_fee = 2.5
-    # net_notional = 997.5 -> qty = 9.975
+    # The fixed entry fee is 2.5, leaving 997.5 notional and 9.975 quantity.
     entry_fee, qty = policy.calculate_entry_fee_and_quantity(
         notional_capital=1000.0,
         effective_price=100.0,
@@ -61,8 +60,7 @@ def test_cash_per_order_commission(policy: FeeCalculatorPolicy):
 
 def test_cash_per_contract_commission(policy: FeeCalculatorPolicy):
     # $1,000 notional at $100 with $0.05 fee per contract
-    # qty = 1000 / (100 + 0.05) = 1000 / 100.05 = 9.99500249875
-    # entry_fee = qty * 0.05
+    # Quantity is 1000 / 100.05; entry fee is quantity multiplied by 0.05.
     entry_fee, qty = policy.calculate_entry_fee_and_quantity(
         notional_capital=1000.0,
         effective_price=100.0,

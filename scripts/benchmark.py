@@ -120,7 +120,7 @@ def run_batch_approach(candles, registry, scripts_to_run):
     # 1. Tính toán mọi thứ trước
     for candle in candles:
         timestamp = float(candle.close_time.timestamp())
-        for key, active in runner.active.items():
+        for active in runner.active.values():
             for line_name, line in active.script.compute(candle).items():
                 active.record(line_name, timestamp, line.value)
 

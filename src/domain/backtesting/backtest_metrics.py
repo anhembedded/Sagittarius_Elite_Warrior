@@ -25,6 +25,7 @@ _SECONDS_PER_YEAR = 365.25 * 24 * 3600
 #: anything below this as zero; per-bar returns in practice are O(1e-3) to
 #: O(1e-1), so this is far below any volatility that should ever register.
 _ZERO_VOLATILITY_TOLERANCE = 1e-9
+_MINIMUM_STATISTICAL_SAMPLE_COUNT = 2
 
 #: BOT-079 — if total fees paid exceed this fraction of |net_profit|, the
 #: result is flagged as fee-dominated: net_profit alone can read as "this
@@ -232,7 +233,7 @@ def _bar_returns(equity_curve: list[tuple[datetime, float]]) -> list[float]:
 def _periods_per_year(equity_curve: list[tuple[datetime, float]]) -> float:
     """Annualization factor derived from the equity curve's own average bar
     spacing — timeframe-independent, no separate TimeFrame input needed."""
-    if len(equity_curve) < 2:
+    if len(equity_curve) < _MINIMUM_STATISTICAL_SAMPLE_COUNT:
         return 0.0
     total_seconds = (equity_curve[-1][0] - equity_curve[0][0]).total_seconds()
     if total_seconds <= 0:
@@ -249,7 +250,7 @@ def _sharpe_and_sortino(
     volatility is 0 — fewer than 2 per-bar returns, every return identical
     (Sharpe), or no negative returns to measure (Sortino)."""
     returns = _bar_returns(equity_curve)
-    if len(returns) < 2:
+    if len(returns) < _MINIMUM_STATISTICAL_SAMPLE_COUNT:
         return 0.0, 0.0
 
     periods_per_year = _periods_per_year(equity_curve)
@@ -279,7 +280,10 @@ def _calmar_ratio(
     drawdown to divide by, starting equity was 0, or the run spans under a
     day (a CAGR extrapolated from a near-zero year-fraction is not a
     meaningful annual rate)."""
-    if not max_drawdown_percent or len(equity_curve) < 2:
+    if (
+        not max_drawdown_percent
+        or len(equity_curve) < _MINIMUM_STATISTICAL_SAMPLE_COUNT
+    ):
         return 0.0
     start_equity = equity_curve[0][1]
     end_equity = equity_curve[-1][1]

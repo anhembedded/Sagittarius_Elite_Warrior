@@ -28,6 +28,8 @@ _CARD_BG = "#14161f"
 _CARD_BORDER = "#232634"
 _CARD_HOVER_BG = "#1a1d29"
 _CARD_HOVER_BORDER = "#363a4d"
+_RGB_HEX_LENGTH = 6
+_COMPACT_VALUE_LENGTH_THRESHOLD = 10
 
 
 def with_alpha(hex_color: str, alpha: float) -> str:
@@ -35,7 +37,7 @@ def with_alpha(hex_color: str, alpha: float) -> str:
     QSS literal from a `#RRGGBB` string, matching `Qt.rgba()`'s semantics
     without needing a QML `Qt.color()` call."""
     color = hex_color.lstrip("#")
-    if len(color) != 6:
+    if len(color) != _RGB_HEX_LENGTH:
         return hex_color
     r, g, b = (int(color[i : i + 2], 16) for i in (0, 2, 4))
     return f"rgba({r},{g},{b},{alpha})"
@@ -124,7 +126,8 @@ class MetricCardWidget(QFrame):
         self._title_label.setText(title.upper())
         self._value_label.setText(value)
         self._value_label.setStyleSheet(
-            f"color: {value_color}; font-size: {16 if len(value) > 10 else 18}px; "
+            f"color: {value_color}; font-size: "
+            f"{16 if len(value) > _COMPACT_VALUE_LENGTH_THRESHOLD else 18}px; "
             f"font-weight: bold; background: transparent; border: none;"
         )
         self._suffix_label.setText(suffix)
