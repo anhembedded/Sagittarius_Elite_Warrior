@@ -265,7 +265,7 @@ if (-not $SkipLint) {
     Write-Step "Mypy — Static Type Check (src + scripts, baseline-gated)"
     Push-Location $repoRoot
     try {
-        $engineDir = Join-Path $repoRoot "Sagittarius-Engine"
+        $engineDir = Join-Path $repoRoot "Sagittarius_Engine"
         $env:MYPYPATH = "$engineDir$pythonPathSeparator$repoRoot"
         $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
         & $mypyExe --config-file (Join-Path $botRoot "pyproject.toml") --namespace-packages --explicit-package-bases "Sagittarius_Elite_Warrior/src" "Sagittarius_Elite_Warrior/scripts"

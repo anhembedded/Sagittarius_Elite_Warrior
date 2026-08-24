@@ -27,6 +27,18 @@ $ProjectRoot = Split-Path -Parent $BotRoot
 $isWindowsPlatform = ($env:OS -eq "Windows_NT") -or ($PSVersionTable.PSEdition -eq "Desktop") -or ($IsWindows -eq $true)
 $PathSeparator = if ($isWindowsPlatform) { ";" } else { ":" }
 
+# The engine is a sibling repository in the local workspace, not a child of
+# the application repository. Keep the application root on PYTHONPATH for
+# package imports, and add the engine repository root when that checkout is
+# available. A separately installed engine remains the fallback for clones
+# that do not have the sibling checkout.
+$PythonPathEntries = @($ProjectRoot)
+$EngineRoot = Join-Path $ProjectRoot "Sagittarius_Engine"
+if (Test-Path (Join-Path $EngineRoot "sagittarius_engine")) {
+    $PythonPathEntries += $EngineRoot
+}
+$env:PYTHONPATH = $PythonPathEntries -join $PathSeparator
+
 # Support cloning with hyphens (Sagittarius-Elite-Warrior) while code expects underscores
 $PackageName = "Sagittarius_Elite_Warrior"
 if ((Split-Path -Leaf $BotRoot) -ne $PackageName) {
@@ -35,9 +47,9 @@ if ((Split-Path -Leaf $BotRoot) -ne $PackageName) {
     if (-not (Test-Path $AliasDir)) { New-Item -ItemType Directory -Path $AliasDir -Force | Out-Null }
     $JunctionPath = Join-Path $AliasDir $PackageName
     if (-not (Test-Path $JunctionPath)) { New-Item -ItemType Junction -Path $JunctionPath -Target $BotRoot -Force | Out-Null }
-    $env:PYTHONPATH = "$AliasDir$PathSeparator$ProjectRoot"
+    $env:PYTHONPATH = "$AliasDir$PathSeparator$($PythonPathEntries -join $PathSeparator)"
 } else {
-    $env:PYTHONPATH = $ProjectRoot
+    $env:PYTHONPATH = $PythonPathEntries -join $PathSeparator
 }
 
 $PythonCandidates = @("python", "python3")
@@ -87,6 +99,18 @@ if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
     Write-Host "Installing Python dependencies from requirements.txt..." -ForegroundColor Cyan
     & $VenvPython -m pip install --upgrade pip
     & $VenvPython -m pip install -r (Join-Path $BotRoot "requirements.txt")
+}
+
+if (Test-Path (Join-Path $EngineRoot "pyproject.toml")) {
+    Write-Host "Installing Sagittarius Engine from the local sibling checkout..." -ForegroundColor Cyan
+    & $VenvPython -m pip install -e $EngineRoot
+} else {
+    Write-Host "Installing Sagittarius Engine from GitHub..." -ForegroundColor Cyan
+    & $VenvPython -m pip install "git+https://github.com/anhembedded/Sagittarius_Engine.git"
+}
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Sagittarius Engine installation failed with exit code $LASTEXITCODE."
 }
 
 Set-Location $BotRoot

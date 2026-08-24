@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa / đã đóng** | 39 |
-| 📈 **Tổng** | **42** |
+| ✅ **Đã sửa / đã đóng** | 40 |
+| 📈 **Tổng** | **43** |
 
 ---
 
@@ -47,6 +47,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-043](completed/BUG-043_run_ui_cannot_import_local_engine.md)** | `run-ui.ps1` không import được Sagittarius Engine local | 🟡 P2 | 2026-08-24 | Bootstrap engine bằng editable sibling checkout hoặc GitHub theo `install-rule.md`; đồng thời cấu hình đúng local import path. |
 | **[BUG-042](completed/BUG-042_paper_exchange_log_flood_freezes_ui_thread.md)** | Backtest nhiều trade đơ cứng UI — `PaperExchange` log INFO mỗi lệnh khớp, đổ vào `LogListModel` trên UI thread | 🔴 **P1** | 2026-08-24 | Trong chính hồ sơ này (2026-08-24). Tuân thủ `logging-rule.md` Rule 4 & 6: hạ 3 log per-fill/close sang `DEBUG`, giữ init ở `INFO`. `SignalLogHandler` (INFO) không nhận log per-trade; test red $\rightarrow$ green, CI full pass 1695 tests. |
 | **[BUG-039](completed/BUG-039_native_chart_default_regressed_backtest_visuals.md)** | Native chart làm mặc định khiến Backtest mất grid, nến vẽ sai, tự phá chart khi có trend zone | 🔴 **P1** | 2026-08-24 | **Đóng 2026-08-24:** xoá hẳn native chart (`36f3a9f`) — không còn backend thì không còn đường tái hiện. Chính hồ sơ này là lý do quyết định xoá. |
 | **[BUG-040](completed/BUG-040_ci_local_flaky_under_full_gate_load.md)** | `ci-local.ps1` flaky dưới tải full gate | 🟡 P2 | 2026-08-24 | Xem hồ sơ. |
