@@ -139,7 +139,7 @@ pwsh -NoProfile -Command "./scripts/ci-local.ps1 -Full"
 ```
 
 Ưu tiên dùng `pwsh` khi cần đúng cổng CI thật (nó nối dây đúng `mypy`,
-coverage, build native — dùng bash tự ráp lại từng phần dễ thiếu bước).
+coverage, sanity tuần tự — dùng bash tự ráp lại từng phần dễ thiếu bước).
 Bộ lệnh bash bên dưới vẫn hữu ích cho kiểm tra nhanh, có chủ đích, không cần
 chờ toàn bộ orchestration của script — chạy **từ thư mục superproject**:
 
@@ -182,7 +182,8 @@ không phải chỉ bị làm phiền bởi nhiễu. Bằng chứng thật (2026
 chạy `ci-local.ps1 -Full` thật; khi cuối cùng chạy và **redirect toàn bộ ra
 file** (`> file 2>&1`, không phải pipe/tail), phát hiện được 2 bug thật
 cùng lúc mà cách làm cũ không bao giờ bắt được: (1) `build-native-chart.ps1`
-lỗi `Join-Path` chỉ chạy trên PowerShell 7+, phá cổng CI trên PowerShell
+(script này đã bị xoá 2026-08-24 cùng native chart — giữ lại ở đây làm bằng
+chứng lịch sử) lỗi `Join-Path` chỉ chạy trên PowerShell 7+, phá cổng CI trên PowerShell
 5.1 mà `ci-local.ps1` tự khai hỗ trợ, và (2) `-n 6` (song song) làm 1
 worker chết giữa chừng sau `ResourceWarning: unclosed database`, tái hiện
 2/2 lần — không phải flaky. Cả hai chỉ lộ ra được vì có file log đầy đủ để
@@ -297,11 +298,18 @@ Tất cả đều là chuyện đã xảy ra thật trong repo này, không ph�
 8. **Quên rằng `@safe_ui_action` nuốt exception.** Một slot có thể chết im
    lặng ở giữa. Đừng đặt việc quan trọng (refresh dữ liệu) *sau* một lời
    gọi có thể ném lỗi.
-9. **Đưa tính năng mới vào chart mà quên đường native.**
-   `NativeBacktestChartHostAdapter` ném `NativeUnsupportedFeatureError` cho
-   mọi thứ ngoài phạm vi nó hỗ trợ, và `BackTestPresenter` phải bắt để
-   rebuild host Python. Thêm lời gọi chart mới thì phải có test cho nhánh
-   fallback đó. Không cần sửa C++ cho tính năng phía Python.
+9. **Thêm `logger.info()` vào một vòng lặp nóng.** Log **không** miễn phí ở
+   app này: `SignalLogHandler` gắn vào logger **gốc** `"App"` ở mức INFO
+   (`data_management_presenter.py`), nên **mọi** `App.*` của **mọi**
+   subsystem đều bị đẩy qua queued cross-thread signal sang UI thread, rồi
+   mỗi dòng chạy trọn một chu kỳ `beginInsertRows`/`endInsertRows`/
+   `countChanged` trong `LogListModel`. `BUG-042`: `PaperExchange` log INFO
+   mỗi lệnh khớp → 838 trades sinh **5.028 dòng trong 2 giây** → UI đơ cứng,
+   đơ tuyến tính theo số trade. Việc log nằm ở màn hình nào **không** quan
+   trọng — handler bắt ở logger gốc. Trong vòng lặp chạy nhiều lần (mỗi
+   trade, mỗi nến, mỗi tick) thì dùng `logger.debug()`, hoặc gộp/throttle
+   trước khi log — xem `ProgressThrottle` (`BUG-033`) làm mẫu cho đúng đường
+   signal.
 10. **Sửa file `.qml` mà quên logic phải nằm ở Python.** QML chỉ khai báo và
     binding; state machine, validate, tính toán đều thuộc Presenter/ViewModel.
     Và `.qml` > 300 dòng thì tách component.

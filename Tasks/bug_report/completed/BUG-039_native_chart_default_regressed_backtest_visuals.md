@@ -1,6 +1,12 @@
 # BUG-039 — Native chart làm mặc định khiến Backtest mất grid, nến vẽ sai, và tự phá chart mỗi khi có trend zone
 
-**Trạng thái:** 🟡 Đã né bằng kill-switch (config), **chưa sửa gốc**
+> **Đóng 2026-08-24 — giải quyết triệt để bằng cách xoá hẳn native chart.** Theo quyết định
+> của user, toàn bộ native C++/QML chart backend đã bị xoá (commit `36f3a9f`): nó chưa từng
+> render 1 frame production nào kể từ khi bị tắt mặc định, và pyqtgraph đủ nhanh. Không còn
+> native backend thì 3 lỗi hình ảnh trong hồ sơ này không còn đường tái hiện. 4 task hiệu năng
+> native liên quan (`BOT-098F4`/`F5`/`F6C`/`F6D`) đã sang [`../../cancelled/`](../../cancelled/).
+
+**Trạng thái:** ~~🟡 Đã né bằng kill-switch (config), chưa sửa gốc~~ ✅ Đóng — native chart đã bị xoá hẳn
 **Phát hiện:** 2026-08-24, người dùng báo qua ảnh chụp app đang chạy
 **Nguồn gốc:** [`30ffa18`](../../..) — `feat(backtest): promote native chart to default backend with python kill-switch (BOT-098F6E)`, 2026-08-18
 

@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 36 |
-| 📈 **Tổng** | **38** |
+| 🔴 **Đang mở** | 4 |
+| ✅ **Đã sửa / đã đóng** | 38 |
+| 📈 **Tổng** | **42** |
 
 ---
 
@@ -37,7 +37,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-042](incomplete/BUG-042_paper_exchange_log_flood_freezes_ui_thread.md)** | Backtest nhiều trade đơ cứng UI — `PaperExchange` log INFO mỗi lệnh khớp, đổ vào `LogListModel` trên UI thread | 🔴 **P1** | 2026-08-24 | Đếm thật: 838 trades → **5.028 dòng INFO trong 2 giây**. `SignalLogHandler` bắt toàn bộ logger gốc `"App"` nên log của Backtest chảy vào log panel của Data Management. Đơ tuyến tính theo số trade. **Không** do EPIC-006/xoá native chart (đã loại trừ bằng code). Cùng họ `BUG-033` nhưng khác đường dẫn (logging, chưa ai chặn). |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
+| **[BUG-041](incomplete/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)** | App không thực sự thoát tiến trình khi có job nền đang chạy trên `ThreadManager` | 🟡 P2 | 2026-08-24 | Nguyên nhân đã xác minh bằng source CPython thật: `_python_exit()` luôn `join()` mọi worker thread bất kể `wait=False`. `ScanCoordinator` không có cooperative cancellation nên job quét 1350×6 chạy tới xong (đo được trễ 68s). Fix cần quyết định API shape ở `IThreadManager` (Engine) — không phải fix 1 dòng. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky). Không phải do test nơi nó xuất hiện, không phải do fixture `repo` chuẩn (đã có `dispose_all()`). Nghi phạm: `gc.collect()` lặp trong `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` làm lộ ra leak có sẵn từ test khác — chưa bisect ra nguồn chính xác. |
 
 ---
@@ -46,6 +48,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-039](completed/BUG-039_native_chart_default_regressed_backtest_visuals.md)** | Native chart làm mặc định khiến Backtest mất grid, nến vẽ sai, tự phá chart khi có trend zone | 🔴 **P1** | 2026-08-24 | **Đóng 2026-08-24:** xoá hẳn native chart (`36f3a9f`) — không còn backend thì không còn đường tái hiện. Chính hồ sơ này là lý do quyết định xoá. |
+| **[BUG-040](completed/BUG-040_ci_local_flaky_under_full_gate_load.md)** | `ci-local.ps1` flaky dưới tải full gate | 🟡 P2 | 2026-08-24 | Xem hồ sơ. |
 | **[BUG-016](completed/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | **Đóng 2026-08-24 (moot, không phải fix):** native chart backend và script benchmark của nó đã bị xoá hoàn toàn để mở khoá `EPIC-006F`. |
 | **[BUG-038](completed/BUG-038_native_fallback_drops_the_content_it_fell_back_for.md)** | Fallback sang Python vứt luôn nội dung mà nó fallback vì nó — nền trend zone không bao giờ được vẽ | 🔴 **P1** | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). User phát hiện bằng mắt; test và log đều "xanh". Thêm `_apply_after_native_fallback()` phát lại nội dung lên host mới (cả 4 call site) + log `[chart-region]` ghi **đã vẽ mấy vùng lên host nào**. Xác nhận trên app thật: `replayed 1504 item(s)`. |
 | **[BUG-037](completed/BUG-037_empty_trend_zone_payload_kills_native_chart_every_run.md)** | Native chart bị bỏ ở **mọi** lần chạy Backtest vì payload trend-zone **rỗng** | 🔴 **P1** | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). `set_script_regions()` raise mà không nhìn payload; presenter emit spans rỗng mỗi lần chạy → cả epic `BOT-098F` chết ở runtime. Test cũ dùng `[]` nên đã đóng băng đúng hành vi sai. |
