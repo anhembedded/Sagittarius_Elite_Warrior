@@ -2,50 +2,58 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtQuickWidgets import QQuickWidget
-from PySide6.QtWidgets import QScrollArea, QSplitter
+from PySide6.QtWidgets import QLabel, QScrollArea, QSplitter
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_panel import (
+    DevBoardPanel,
+)
 
 
-def test_dashboard_view_hybrid_layout_hosts_chart_scroll_area_and_qml_panel(qapp):
+def test_dashboard_view_hybrid_layout_hosts_chart_scroll_area_and_dev_board_panel(
+    qapp,
+):
     """
-    Regression test for the BOT-030 Phase 4 hybrid layout: the chart column
-    stays a QScrollArea of QtWidgets ChartCards (unchanged), and System
-    Controls/Indicators/Monitor move into a single QQuickWidget — both
-    living inside a QSplitter so the user can resize either side.
+    Regression test for the BOT-030 Phase 4 hybrid layout (QtWidgets since
+    EPIC-006D): the chart column stays a QScrollArea of QtWidgets
+    ChartCards (unchanged), and System Controls/Indicators/Monitor move
+    into a single DevBoardPanel — both living inside a QSplitter so the
+    user can resize either side. The panel builds lazily, at
+    set_view_model() time (it needs a real ViewModel to construct against),
+    not eagerly in __init__ the way the old QQuickWidget did.
     """
     view = DashboardView()
 
     assert isinstance(view.scroll_area, QScrollArea)
     assert view.scroll_area.widgetResizable() is True
-    assert isinstance(view.quick_widget, QQuickWidget)
+    assert view._panel is None
 
+    view.set_view_model(DashboardQmlViewModel())
+
+    assert isinstance(view._panel, DevBoardPanel)
     splitters = view.findChildren(QSplitter)
     assert len(splitters) == 1
     splitter = splitters[0]
     assert view.scroll_area in [splitter.widget(i) for i in range(splitter.count())]
-    assert view.quick_widget in [splitter.widget(i) for i in range(splitter.count())]
+    assert view._panel in [splitter.widget(i) for i in range(splitter.count())]
 
 
-def test_dashboard_view_header_title(qapp, qml_item):
+def test_dashboard_view_header_title(qapp):
     """The Dev Board header clearly labels itself as a developer testbed,
-    distinct from the app's end-user dashboard (BOT-014) — now rendered by
-    DevBoardPanel.qml instead of a QLabel."""
+    distinct from the app's end-user dashboard (BOT-014) — rendered by
+    DevBoardPanel (QtWidgets since EPIC-006D)."""
     view = DashboardView()
     view.resize(1200, 800)
     view.set_view_model(DashboardQmlViewModel())
-    view.load_qml()
     qapp.processEvents()
 
-    assert view.quick_widget.errors() == []
-    root = view.quick_widget.rootObject()
-    header = qml_item(root, "lblHeaderTitle")
-    assert header.property("text") == "Developer Board (Live Testbed)"
+    header = view._panel.findChild(QLabel, "lblHeaderTitle")
+    assert header is not None
+    assert header.text() == "Developer Board (Live Testbed)"
 
 
 def test_dashboard_view_apply_ui_mode_forwards_to_view_model(qapp):

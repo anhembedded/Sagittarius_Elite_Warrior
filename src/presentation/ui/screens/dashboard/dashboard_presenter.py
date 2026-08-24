@@ -338,13 +338,14 @@ class DashboardPresenter(BasePresenter):
         self._run_load_more_history = self._stream_controller._run_load_more_history
         self._run_sync_and_start = self._stream_controller._run_sync_and_start
 
-        # Must be called explicitly at the end of BasePresenter's contract,
-        # and before load_qml() so QML parses against a ready view model.
+        # Must be called explicitly at the end of BasePresenter's contract.
         self._connect_ui_signals()
         self._connect_engine_events()
         self._trigger_initial_health_check()
 
-        view.load_qml("DevBoardPanel.qml")
+        # EPIC-006D: DevBoardPanel.qml is no longer loaded here — view's
+        # set_view_model() now builds the QtWidgets DevBoardPanel directly.
+        # .qml file kept on disk, unloaded (EPIC-006's rollback convention).
 
         # BOT-034 — auto-start Start Live the moment the Dev Board opens,
         # falling back to Load History if no MarketTickEvent proves a real
