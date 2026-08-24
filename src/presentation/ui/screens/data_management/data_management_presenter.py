@@ -197,7 +197,9 @@ class DataManagementPresenter(BasePresenter):
         self._connect_engine_events()
 
         self._refresh_stats()
-        view.load_qml("DatabaseScreen.qml")
+        # EPIC-005E: DataManagementView builds its own QtWidgets tree instead of
+        # loading DatabaseScreen.qml (kept on disk, unloaded). view.set_view_model()
+        # above already wires everything; there is no load step left to call.
 
         # Auto-discover shards and symbol list in background on open
         self._thread_manager.submit(self._run_auto_discover)

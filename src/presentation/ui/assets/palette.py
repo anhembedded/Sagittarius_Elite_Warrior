@@ -12,9 +12,12 @@ class Palette:
     `configure_app_qml()` in app_bootstrapper.py) — so QtWidgets and QML
     never hardcode the same hex value in two places independently.
 
-    `qss/style.qss` still hardcodes its own literal hex values (QSS is a
-    static text file, not generated from Python) — keeping it in sync with
-    this class when the palette changes is a manual step, same as today.
+    Widgets get their look from `qdarktheme` (`app_bootstrapper.py:_apply_theme`), whose
+    only accent override reads `Palette.ACCENT` — not a second hardcoded copy. There used
+    to be a `qss/style.qss` claimed here as the one place still copying hex by hand; it
+    was actually dead since the BOT-030 QML migration (nothing in `src/` loaded it —
+    confirmed via `git log`/grep before removal, EPIC-005B) and has been deleted rather
+    than kept "just in case", to stop a future reader trusting a comment over the code.
     """
 
     BG = "#0a0a0c"

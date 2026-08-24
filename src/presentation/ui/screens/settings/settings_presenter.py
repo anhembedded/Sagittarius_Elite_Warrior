@@ -54,16 +54,19 @@ class SettingsPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._settings_view_model = SettingsViewModel()
-        view.set_view_model(self._settings_view_model)
         self._load_from_config()
 
-        # Must be called explicitly at the end of __init__ per BasePresenter
-        # contract — and before load_qml(), so the QML document parses against
-        # a view model that already holds real values.
+        # view.set_view_model() now happens AFTER _load_from_config() (order
+        # flipped from the QML version, EPIC-005D): SettingsView reads the
+        # view model's field values immediately, synchronously, to populate
+        # its QLineEdit/QSpinBox widgets — unlike QmlHostView.set_view_model(),
+        # which only registered a context property for QML to bind against
+        # later at load_qml() time, so the old order (before load) was
+        # correct for QML and would show blank fields here.
         self._connect_ui_signals()
         self._connect_engine_events()
 
-        view.load_qml("SettingsScreen.qml")
+        view.set_view_model(self._settings_view_model)
 
     def _connect_ui_signals(self) -> None:
         self._settings_view_model.saveRequested.connect(self._on_save)

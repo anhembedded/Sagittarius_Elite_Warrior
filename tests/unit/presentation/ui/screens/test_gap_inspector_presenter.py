@@ -171,18 +171,25 @@ def test_run_repair_gap_dispatches_command(presenter, view_model, mock_dispatche
     assert presenter.fsm.current_state == UIMode.IDLE
 
 
-def test_database_screen_loads_gap_inspector_modal_with_zero_qml_errors(
-    presenter,
+def test_database_screen_constructs_both_inspector_modals_with_the_right_object_names(
+    presenter, view_model
 ):
     """
-    Regression test ensuring GapInspectorModal.qml and DatabaseScreen.qml
-    load cleanly without any missing module imports.
+    Rewritten for EPIC-005E3: `GapInspectorModal.qml`/`KLineInspectorModal.qml`
+    are unloaded now (DataManagementView is QtWidgets, EPIC-005E1/E2/E3) — the
+    original QML check ("both load cleanly as children of the
+    DatabaseScreen.qml root object") has a direct QtWidgets equivalent: both
+    dialogs construct lazily on their `open*InspectorRequested` signal and
+    carry over the same `objectName` contract the QML versions had.
     """
     view = presenter.view
-    assert view.quick_widget.errors() == []
-    root_obj = view.quick_widget.rootObject()
-    assert root_obj is not None
-    gap_modal = root_obj.findChild(object, "gapInspectorModal")
-    assert gap_modal is not None
-    kline_modal = root_obj.findChild(object, "klineInspectorModal")
-    assert kline_modal is not None
+    assert view._gap_inspector is None
+    assert view._kline_inspector is None
+
+    view_model.set_gap_inspector_data("BTCUSDT", "1m", 0, 0, 100.0, [], [])
+    view_model.set_kline_inspector_data("BTCUSDT", "1m", [])
+
+    assert view._gap_inspector is not None
+    assert view._gap_inspector.objectName() == "gapInspectorModal"
+    assert view._kline_inspector is not None
+    assert view._kline_inspector.objectName() == "klineInspectorModal"

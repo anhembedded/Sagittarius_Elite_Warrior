@@ -2,6 +2,23 @@
 
 All UI components and QML files developed for the **Sagittarius Elite Warrior** project MUST strictly adhere to these declarative guidelines, architecture patterns, and design standards.
 
+> **Scope note (2026-08-23, `EPIC-005A`'s ADR — [`DECISION_2026-08-23.md`](../../Tasks/epics/EPIC-005_qml_to_qtwidgets_migration/DECISION_2026-08-23.md)):**
+> QML stays the **default** for any screen that receives new UI directly from a user-supplied
+> mockup — `BOT-030`'s own reason for choosing QML (*"AI translates a mockup to code more
+> directly in QML than QtWidgets"*) was re-checked against git history and found still true
+> and still in active use (15+ mockup-driven tasks since `BOT-030`, most recently in
+> `backtest`/`dashboard`). Do **not** treat this rule as legacy or QML as being phased out.
+>
+> `EPIC-005` (`Tasks/epics/EPIC-005_qml_to_qtwidgets_migration/`) migrates a narrow,
+> deliberately-chosen slice — form/lookup screens (`SettingsScreen`, parts of
+> `DatabaseScreen`) where QtWidgets' built-in tab-order/sort/accessibility outweighs the
+> mockup-translation cost, because those screens are not where new mockups keep arriving.
+> This rule's QML standards below still govern every screen that epic does not touch,
+> including the chart (`native/chart_renderer/`, permanent QtQuick, never in scope) and
+> `backtest`/`dashboard` (`EPIC-005F`, indefinitely deferred). A screen migrating onto
+> QtWidgets follows `main_window.py`/`Palette` conventions instead — see
+> `EPIC-005D`/`EPIC-005E` for that pattern once they land.
+
 ---
 
 ## 1. 🧩 Code Practices & Architecture Separation

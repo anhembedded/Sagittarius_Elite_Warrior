@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,
@@ -73,7 +74,7 @@ _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # content being clipped the instant the window opens, before the user ever
 # touches the (now resizable) splitter.
 _WINDOW_SIZE = (1440, 860)
-_CONTENT_BG_STYLE = "background-color: #0a0a0c; color: #e8e9ec;"
+_CONTENT_BG_STYLE = f"background-color: {Palette.BG}; color: {Palette.TEXT_PRIMARY};"
 
 
 class MainWindow(QMainWindow):

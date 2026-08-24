@@ -1,10 +1,20 @@
 # EPIC-003D — Dọn `components/`: đúng chỗ, đúng kích thước, đúng danh mục
 
 **Thuộc Epic:** [`EPIC-003`](../README.md)
-**Trạng thái:** 🔴 Chưa làm
+**Trạng thái:** 🔴 Chưa làm — **xung đột với `EPIC-005` đã kiểm tra và gỡ (2026-08-23)**
 **Phụ thuộc:** Không có — độc lập hoàn toàn với `A`/`B`/`E`/`F`.
 
 ---
+
+## ⚠️ Note gỡ xung đột (2026-08-23, `EPIC-005C`)
+
+Từng bị đánh dấu có thể đá nhau với
+[`EPIC-005`](../../EPIC-005_qml_to_qtwidgets_migration/README.md) (dời file QML trong khi
+epic kia định xoá chúng). Sau khi `EPIC-005A`'s ADR thu hẹp phạm vi `EPIC-005` (chỉ
+Settings/DatabaseScreen, **`backtest` hoãn vô thời hạn**), đã kiểm tra lại bằng grep thật:
+cả 9 file mục 0 dưới đây định dời **đều chỉ thuộc `backtest/`**, không file nào được
+`SettingsScreen`/`DatabaseScreen` tham chiếu. Task này **an toàn để làm bình thường**, không
+còn lý do hoãn.
 
 ## 0. Gộp 3 việc, làm theo đúng thứ tự — vì sao
 
