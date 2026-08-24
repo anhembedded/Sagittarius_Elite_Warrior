@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
     configure_app_qml,
+    get_theme_bridge,
     setup_qt_signal_handling,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
@@ -115,6 +116,14 @@ def main() -> None:
     _apply_font(app, config_manager)
     _apply_theme(app, config_manager)
     configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
+    # EPIC-006B: pyside_mvc.widgets' apply_role() reads get_theme_bridge()
+    # directly and needs it populated regardless of whether any QML screen
+    # ever constructs (configure_app_qml() only stashes the palette for
+    # QmlHostView's own lazy registration, it does not populate the shared
+    # bridge itself — see that function's docstring). Called unconditionally
+    # here rather than only from the widgets/QML path, so screen construction
+    # order (QtWidgets vs QML) never matters.
+    get_theme_bridge(Palette.as_ui_dict())
 
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow
