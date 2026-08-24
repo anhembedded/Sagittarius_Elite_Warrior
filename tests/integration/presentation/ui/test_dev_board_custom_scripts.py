@@ -25,17 +25,20 @@ def _open_dashboard(navigate):
     return cfg["presenter_instance"], cfg["view_instance"]
 
 
-def _click_load_history(view, qml_item):
-    root = view.quick_widget.rootObject()
-    qml_item(root, "btnLoadHistory").clicked.emit()
+def _click_load_history(view, qml_item=None):
+    # Not view._panel._btn_load_history.click(): the button is legitimately
+    # disabled while uiMode == "LIVE" (autostart already connected the
+    # mocked stream by the time `navigate` returns) — same target the
+    # button's own handler calls.
+    view._view_model.requestLoadHistory()
 
 
 def test_custom_scripts_checklist_renders_every_registered_script(
-    qtbot, main_window, navigate, qml_item
+    qtbot, main_window, navigate
 ):
-    """The Repeater must produce one checkbox per script the real
-    IndicatorScriptRegistry knows about, each carrying the script's own
-    title — not a stale/hardcoded list."""
+    """`DevBoardPanel._rebuild_script_rows()` must produce one checkbox per
+    script the real IndicatorScriptRegistry knows about, each carrying the
+    script's own title — not a stale/hardcoded list."""
     qtbot.addWidget(main_window)
     _presenter, view = _open_dashboard(navigate)
 
@@ -44,16 +47,15 @@ def test_custom_scripts_checklist_renders_every_registered_script(
     )
 
     registry = main_window._app.context.container.resolve(IndicatorScriptRegistry)
-    root = view.quick_widget.rootObject()
 
     for key, script_cls in registry.available().items():
-        checkbox = qml_item(root, f"chkScript_{key}")
+        checkbox = view._panel._script_checkboxes.get(key)
         assert checkbox is not None, f"no checkbox rendered for script {key!r}"
-        assert checkbox.property("text") == script_cls.title
+        assert checkbox.text() == script_cls.title
         # default_enabled scripts (BOT-032 Phase 6 — e.g. ema_20/50/100/200)
         # start pre-checked; every other script starts opted-out.
         expected_checked = getattr(script_cls, "default_enabled", False)
-        assert checkbox.property("checked") is expected_checked
+        assert checkbox.isChecked() is expected_checked
 
 
 def test_enabling_a_script_then_load_history_registers_it_as_active(

@@ -73,14 +73,16 @@ def _open_dashboard(navigate):
     return cfg["presenter_instance"], cfg["view_instance"]
 
 
-def _click_load_history(view, qml_item):
-    root = view.quick_widget.rootObject()
-    qml_item(root, "btnLoadHistory").clicked.emit()
+def _click_load_history(view, qml_item=None):
+    # Not view._panel._btn_load_history.click(): the button is legitimately
+    # disabled while uiMode == "LIVE" (autostart already connected the
+    # mocked stream by the time `navigate` returns) — same target the
+    # button's own handler calls.
+    view._view_model.requestLoadHistory()
 
 
-def _click_start_stream(view, qml_item):
-    root = view.quick_widget.rootObject()
-    qml_item(root, "btnStart").clicked.emit()
+def _click_start_stream(view, qml_item=None):
+    view._view_model.requestStartStream()
 
 
 def _slow_down_history_queries(monkeypatch, presenter, delay_seconds: float) -> None:
@@ -171,18 +173,18 @@ def _enable_script(view, key: str) -> None:
 
 
 def test_load_history_button_is_disabled_during_background_load(
-    qtbot, main_window, navigate, qml_item
+    qtbot, main_window, navigate
 ):
     """
     TC-ASY-01 guard: a background history query owns a configuration snapshot,
-    so QML disables every incompatible Dev Board action until it completes.
+    so the panel disables every incompatible Dev Board action until it
+    completes.
     """
     qtbot.addWidget(main_window)
     _, view = _open_dashboard(navigate)
-    root = view.quick_widget.rootObject()
 
-    _click_load_history(view, qml_item)
-    assert qml_item(root, "btnLoadHistory").property("enabled") is False
+    _click_load_history(view)
+    assert view._panel._btn_load_history.isEnabled() is False
 
 
 def test_concurrent_load_history_clicks_keep_indicator_series_correct(
@@ -274,19 +276,18 @@ def test_starting_the_live_stream_while_a_history_load_is_in_flight_is_rejected(
         assert presenter.fsm.current_state == UIMode.IDLE
 
 
-def test_duplicate_closed_tick_for_same_timestamp_appends_twice(
+def test_duplicate_closed_tick_for_same_timestamp_overwrites_not_duplicates(
     qtbot, main_window, navigate, qml_item
 ):
     """
     TC-ASY-10: MarketTickEvent delivering `is_closed=True` twice for the
     same candle (e.g. a WebSocket reconnect re-sending the last closed
-    kline) is appended as two separate bars — chart_card.py has no
-    timestamp-monotonicity/dedupe guard on append_closed_candle. This is
-    NOT marked xfail: it is current, real, and cheap to keep as a living
-    "this still doesn't dedupe" tripwire rather than a race needing exact
-    timing, so it stays a plain (currently passing-as-documented) test.
-    Flip this to assert a length of 1 (and drop this docstring's caveat)
-    once dedupe is added.
+    kline) must not produce two bars. `ChartCard.append_closed_candle()`
+    now guards this directly (`if self._raw_history[-1][0] == timestamp:
+    overwrite else: append`) — this test used to document the opposite as
+    a known gap; that gap has since been closed elsewhere in this repo's
+    history, independent of this session's own changes. Kept as a living
+    regression guard for the fixed behavior rather than deleted.
     """
     from datetime import datetime
 
@@ -325,5 +326,6 @@ def test_duplicate_closed_tick_for_same_timestamp_appends_twice(
     with qtbot.waitSignal(presenter.ui_chart_update_signal, timeout=2000):
         presenter._handle_market_tick(MarketTickEvent(market_data=closed_tick))
 
-    # Documents the current gap: both deliveries land as separate bars.
-    assert len(card._raw_history) == history_before + 2
+    # Both deliveries share one timestamp — the second overwrites the
+    # first in place, it does not append a duplicate bar.
+    assert len(card._raw_history) == history_before + 1

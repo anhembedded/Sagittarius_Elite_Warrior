@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from PySide6.QtCore import QUrl
-from PySide6.QtQuick import QQuickItem
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
@@ -13,9 +11,8 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
-    _QML_DIR,
-    _TRADE_LOGS_QML,
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_trade_logs_panel import (
+    BackTestTradeLogsPanel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
@@ -23,9 +20,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
 )
-from sagittarius_engine.extensions.pyside_mvc import create_quick_widget
-
-_QML_FILE = _QML_DIR / _TRADE_LOGS_QML
 
 
 def test_backtest_view_model_bottom_tabs_and_log_model(qapp) -> None:
@@ -50,41 +44,33 @@ def test_backtest_view_model_bottom_tabs_and_log_model(qapp) -> None:
     assert tab_changed_spy.call_count == 2
 
 
-def test_backtest_bottom_tabs_qml_parses_and_renders(qapp, qtbot) -> None:
+def test_backtest_bottom_tabs_switch_between_trades_and_logs(qapp) -> None:
     vm = BackTestViewModel()
-    widget = create_quick_widget()
-    widget.rootContext().setContextProperty("viewModel", vm)
-    widget.setSource(QUrl.fromLocalFile(str(_QML_FILE)))
+    panel = BackTestTradeLogsPanel(vm)
 
-    assert widget.errors() == []
-    root = widget.rootObject()
-    assert root is not None
+    assert panel._tab_bar.objectName() == "bottomTabBar"
+    assert panel._trades_tab.objectName() == "tradeLogsTabContent"
+    assert panel._log_panel.objectName() == "backtestLogPanel"
 
-    # Check that bottomTabBar exists
-    tab_bar = root.findChild(QQuickItem, "bottomTabBar")
-    assert tab_bar is not None
-
-    # Check tab 1 (trade logs tab content) is visible initially
-    trade_logs_content = root.findChild(QQuickItem, "tradeLogsTabContent")
-    assert trade_logs_content is not None
-    assert trade_logs_content.isVisible()
-
-    # Check log panel is hidden initially
-    log_panel = root.findChild(QQuickItem, "backtestLogPanel")
-    assert log_panel is not None
-    assert not log_panel.isVisible()
+    # Tab 1 (trades) visible initially, log panel hidden. `isVisibleTo(panel)`
+    # rather than `isVisible()` — this test never calls `panel.show()`, and
+    # `isVisible()` stays False regardless of `setVisible()` until the whole
+    # ancestor chain is actually shown (see Sidebar/Overlay tests for the
+    # same gotcha).
+    assert panel._trades_tab.isVisibleTo(panel)
+    assert not panel._log_panel.isVisibleTo(panel)
 
     # Switch to logs tab
     vm.setActiveBottomTab("logs")
-    qtbot.waitUntil(lambda: log_panel.isVisible(), timeout=1000)
-    assert not trade_logs_content.isVisible()
-    assert log_panel.isVisible()
+    qapp.processEvents()
+    assert not panel._trades_tab.isVisibleTo(panel)
+    assert panel._log_panel.isVisibleTo(panel)
 
     # Switch back to trades tab
     vm.setActiveBottomTab("trades")
-    qtbot.waitUntil(lambda: trade_logs_content.isVisible(), timeout=1000)
-    assert trade_logs_content.isVisible()
-    assert not log_panel.isVisible()
+    qapp.processEvents()
+    assert panel._trades_tab.isVisibleTo(panel)
+    assert not panel._log_panel.isVisibleTo(panel)
 
 
 def test_backtest_presenter_event_bus_handlers(qapp) -> None:

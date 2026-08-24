@@ -254,24 +254,21 @@ def main_window(qapp, qtbot, app_engine):
 
 
 @pytest.fixture
-def navigate(qapp, qtbot, main_window, qml_item):
+def navigate(qapp, qtbot, main_window):
     """
     Clicks a sidebar entry the way a user would and returns that route's
     router registry entry (which holds the lazily-created view/presenter).
 
-    The sidebar is QML (BOT-030 Phase 1), so navigation goes through the
-    QML button's `clicked` signal rather than `qtbot.mouseClick` on a
-    QPushButton. Centralized here so every screen test shares one
-    implementation instead of repeating the item lookup.
+    The sidebar is plain QtWidgets (EPIC-006C) — navigation goes through
+    `Sidebar._nav_buttons[route]`'s real `QPushButton.click()`.
+    Centralized here so every screen test shares one implementation
+    instead of repeating the item lookup.
     """
 
     def _navigate(route: str) -> dict:
-        root = main_window._sidebar.quick_widget.rootObject()
-        button = qml_item(root, f"navButton_{route}") or qml_item(
-            root, f"bottomNavButton_{route}"
-        )
+        button = main_window._sidebar._nav_buttons.get(route)
         assert button is not None, f"No sidebar nav button for route {route!r}"
-        button.clicked.emit()
+        button.click()
         qapp.processEvents()
         entry = main_window._router._registry[route]
 

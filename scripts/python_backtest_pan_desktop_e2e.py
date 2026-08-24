@@ -1,17 +1,13 @@
-"""Desktop E2E pixel evidence for the PYTHON Backtest chart host (BUG-009).
+"""Desktop E2E pixel evidence for the Backtest chart host (BUG-009).
 
 Why this exists
 ---------------
-`native_backtest_desktop_e2e.py` samples real composited pixels, but only for
-the *native* host. The Python host had no pixel-level coverage at any test
-level — and the Python host is what actually runs for most real sessions,
-because `BackTestPresenter` falls back to it whenever a strategy publishes
-script regions (see the `native_chart_unsupported_feature_fallback` log line).
-
-BUG-009 lived in exactly that blind spot. Its unit tests asserted view ranges
-and state flags and passed throughout, because the *data* was always correct;
-the defect was entirely in what got painted. This script asserts what the user
-actually sees during a real drag.
+The chart host had no pixel-level coverage at any test level (a former
+native C++/QML host existed alongside it and was deleted outright — this
+is the sole host now). BUG-009 lived in exactly that blind spot: its unit
+tests asserted view ranges and state flags and passed throughout, because
+the *data* was always correct; the defect was entirely in what got painted.
+This script asserts what the user actually sees during a real drag.
 
 Run only on a machine with a real display session:
     python scripts/python_backtest_pan_desktop_e2e.py

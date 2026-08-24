@@ -127,7 +127,7 @@ matters. Ask for the log **file**. The resolution itself
 (`sagittarius_engine.infrastructure.logging.dev_verbosity.resolve_dev_verbosity`)
 is generic engine behavior any app on this engine gets for free; an app's own
 bootstrapper only decides what else `--dev`/`--debug` additionally turns on
-(this app: `ConfigKeys.DEV_MODE`, requiring the native chart environment).
+(this app: `ConfigKeys.DEV_MODE`, enabling button-click auto-logging).
 
 ## 8. Prefix log lines with a stable, greppable tag — and keep the format filterable
 

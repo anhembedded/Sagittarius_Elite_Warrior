@@ -33,8 +33,6 @@ import or Qt environment.
 
 `-Full` runs:
 
-- CMake configure/build for the `Sagittarius.NativeChart` QML plugin, using a
-  Qt SDK whose version exactly matches the active PySide6 runtime;
 - `ruff check src tests` (read-only lint check);
 - `ruff format --check src tests` (read-only format check);
 - `mypy` static type check over `src` **and** `scripts` in one invocation
@@ -58,15 +56,12 @@ import or Qt environment.
 Full CI MUST exit `0`. A passing test count while lint, formatting, coverage, or
 Sanity fails is a failed verification, not a successful handoff.
 
-`-SkipNativeBuild` is a Python-only diagnostic escape hatch. Like `-SkipLint`
-and `-SkipTests`, it never qualifies as commit, merge, or release evidence.
-
 ### Exception — commits that touch no code file
 
 **Added 2026-08-21 (user request).** A commit whose diff touches **no** file
-under `src/`, `tests/`, `scripts/`, `native/`, and no file that affects build,
-dependency or runtime behavior (`pyproject.toml`, `requirements.txt`, CMake
-files, `.qml`) does not require running `ci-local.ps1 -Full` or any test tier
+under `src/`, `tests/`, `scripts/`, and no file that affects build,
+dependency or runtime behavior (`pyproject.toml`, `requirements.txt`,
+`.qml`) does not require running `ci-local.ps1 -Full` or any test tier
 before commit — there is no code change for a test to verify. This covers, for
 example, a commit limited to `Tasks/`, `.agents/`, `README.md`, `Docs/`, or
 other Markdown/doc-only files.
@@ -94,16 +89,16 @@ mark a task complete.
 ## 3. Qt integration exception (BOT-038)
 
 `tests/integration/presentation/ui/` is excluded from ordinary Full CI because
-it has a known intermittent native Qt/PySide crash (`BOT-038`). When a change
-touches that directory, QML object lifetime, native chart rendering, or shared
-Qt fixtures, run the affected test(s) directly as a focused diagnosis and then
-attempt the opt-in suite:
+it has a known intermittent native Qt/PySide crash (`BOT-038`) when the whole
+directory runs as one pytest invocation. When a change touches that directory,
+QML object lifetime, or shared Qt fixtures, run the affected test(s) directly
+as a focused diagnosis and then attempt the opt-in suite:
 
 ```powershell
 .\scripts\ci-local.ps1 -Full -IncludeFlakyUi
 ```
 
-If the native suite crashes or hangs, do not hide it with `-SkipTests`. Record
+If the suite crashes or hangs, do not hide it with `-SkipTests`. Record
 the command, environment, affected test(s), and failure output against
 `BOT-038`. A targeted non-flaky regression test is still required for the code
 change.
@@ -181,7 +176,7 @@ coverage.
    actually see — on a real windowing session (not offscreen), using real Qt
    mouse/keyboard input, real render backend and clean Qt stderr/message
    capture. It is opt-in/local or nightly but mandatory evidence for changed
-   native rendering or reported GUI runtime defects. When a task's proof
+   rendering-critical UI code or reported GUI runtime defects. When a task's proof
    requirements name a specific production target OS (e.g. Windows RHI pixel
    evidence), that OS is still required; this tier's own definition does not
    restrict "real display" to Windows.
@@ -189,10 +184,9 @@ coverage.
 **Component probe (not a test level, not Desktop E2E):** a script that
 constructs one isolated widget/host/QML piece directly (real rendering, real
 Qt input) without going through the real app's entry point or production
-wiring — e.g. proving a not-yet-integrated native host works before any
-screen actually uses it. This is legitimate opt-in local evidence for a piece
-that is not yet reachable from the real app, and every `scripts/benchmarking/
-*_probe.py` file to date is exactly this. It is **not** interchangeable with
+wiring — e.g. proving a not-yet-integrated widget works before any screen
+actually uses it. This is legitimate opt-in local evidence for a piece
+that is not yet reachable from the real app. It is **not** interchangeable with
 Desktop E2E and must never be reported as satisfying it: the instant a
 feature becomes reachable from the real running app (wired into production
 selection, not merely built and tested standalone), Desktop E2E — the real
@@ -203,7 +197,7 @@ isolation; it does not prove the app works.
 An external-service smoke check is an opt-in operational check, not a fifth
 test level and never a normal CI requirement. Passing a lower tier proves only
 that tier's contract. In particular, a green Sanity or UnitOnly run never
-proves a user journey, native render runtime, or business acceptance contract.
+proves a user journey or business acceptance contract.
 
 **Why these levels, in this order — a V-model reading:** each tier verifies
 exactly the artifact its matching development stage produces, same idea as
@@ -223,37 +217,19 @@ upfront for the whole system:
 | Feature actually wired into the real running app | **Desktop E2E** |
 
 The practical rule this gives: test only as far as a feature has actually
-been integrated, never further ahead of it. A native chart host that only
-`BacktestChartHostFactory` will ever construct has no business claiming
-Desktop E2E evidence — nothing a real user runs reaches it yet, so a
-component probe is the correct and honest tier, right up until the phase
-that wires it in exists.
+been integrated, never further ahead of it. A widget or host that is built
+but not yet wired into a real screen has no business claiming Desktop E2E
+evidence — nothing a real user runs reaches it yet, so a component probe is
+the correct and honest tier, right up until the phase that wires it in
+exists.
 
 ## 7. Benchmark evidence tier
 
 `scripts/benchmarking/` is a diagnostic, not a gate tier. Its reports are local
 evidence for sizing, regression detection and release judgment — not shared-CI
-thresholds. `F5` specifically represents this tier.
+thresholds.
 
-- Every Backtest benchmark report MUST describe the standard fixture, viewport,
-  warmup/measurement counts, DPR, completion path (`grabWindow()`), median/p95
-  and whether Qt message capture was clean.
-- Headless/Qt-offscreen may cover serializer, fixture, report and failure-path
-  tests only. Desktop pixel-color timing comes from a real-GPU, real-window
-  run on the production target OS (Windows).
-- `ci-local.ps1 -Full` runs `chart_migration_benchmark --backend both
-  --ci-contract` after the native build. This portable contract gate
-  validates both renderers, frozen fixture, completed capture/report shape,
-  native crosshair/retained geometry and clean Qt messages. CI for this
-  project is local-only (`ci-local.ps1`); there is no GitHub Actions
-  workflow.
-- `./scripts/run-chart-benchmark.ps1` is the one-command local entry point:
-  it writes a timestamped JSON result under `Tasks/reports/`; `-Desktop` adds
-  the Windows pixel-semantic contract. `ci-local.ps1 -DesktopBenchmark` runs
-  the same Desktop contract alongside the normal Full gate.
-- The CI contract never asserts a machine-sensitive median/p95/FPS threshold or
-  offscreen pixel colors. Those remain Desktop E2E Windows evidence through
-  `--desktop-contract`, real input and real RHI output.
-- `ci-local.ps1 -Full` still includes lint, format, native build, primary and
-  sequential sanity. It is the only local handoff evidence.
+- `ci-local.ps1 -Full` still includes lint, format, primary and sequential
+  sanity. It is the only local handoff evidence. CI for this project is
+  local-only (`ci-local.ps1`); there is no GitHub Actions workflow.
 

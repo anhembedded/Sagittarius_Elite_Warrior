@@ -1,6 +1,0 @@
-{
-  "module_uri": "Sagittarius.NativeChart",
-  "module_version": "1.0",
-  "snapshot_abi": 1,
-  "qt_version": "@Qt6_VERSION@"
-}

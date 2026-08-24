@@ -1,8 +1,10 @@
-"""
-Regression test reproducing the Backtest popups clipping bug (BOT-088 / BUG-004).
-Asserts that toolbar dialogs/popups (BotParamsDialog, limitationsPopup,
-extendedMetricsPopup, capitalPopup) are hosted in OverlayHost covering the full
-window (1400x800) and are not clipped within top_widget's 190px height budget.
+"""EPIC-006E3: `BackTestModals.qml`'s 11 modals -> `Overlay`-based
+`QDialog`s owned by `BackTestModalsHost`. Originally a regression test for
+the popups-clipping bug (BOT-088/BUG-004) that `OverlayHost` fixed — no
+longer applicable now that each modal is a real top-level `QDialog`
+(clipping by a small host widget is structurally impossible), so these
+assert each modal opens (built lazily, becomes visible) and exposes the
+right content, not overlay-host geometry.
 """
 
 from __future__ import annotations
@@ -87,44 +89,30 @@ def backtest_screen(qapp, request):
     return view, presenter
 
 
-def test_bot_params_dialog_opens_in_overlay_host_without_clipping(
-    qapp, qml_item, backtest_screen
+def test_bot_params_dialog_opens_with_the_strategys_declared_params(
+    qapp, backtest_screen
 ):
     view, _ = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
 
-    assert overlay_host.content_item is not None
-    assert overlay_host.overlay_size[1] >= 800
-    assert overlay_host.is_click_through is True
-
-    # Click Thông số Bot button on toolbar
-    btn_bot_params = qml_item(top_root, "btnBacktestBotParams")
-    assert btn_bot_params is not None
-    btn_bot_params.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_bot_params.click()
     qapp.processEvents()
 
-    # Modal must be open in overlay_host, capturing mouse input
-    assert overlay_host.is_click_through is False
-
-    # The save button must be inside overlay content and visible
-    overlay_root = overlay_host.content_item
-    save_btn = overlay_root.findChild(object, "btnBotParamsSave")
-    assert save_btn is not None
-    assert save_btn.property("visible") is True
-
-    # The save button's global Y coordinate must be outside top_widget (height ~190px),
-    # proving the dialog extends into the full window without being clipped by top_widget
-    save_pos = save_btn.mapToItem(overlay_root, 0, 0)
-    assert save_pos.y() > view.top_widget.height()
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+    assert dialog.objectName() == "botParamsDialog"
+    assert dialog.isVisible() is True
+    assert len(dialog._field_widgets) == 3
+    assert {fw.field_name for fw in dialog._field_widgets} == {
+        "period",
+        "slow_period",
+        "signal_period",
+    }
 
 
-def test_extended_metrics_popup_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
+    qapp, backtest_screen
+):
     view, presenter = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
-
     presenter._view_model.set_stat_cards(
         [],
         [
@@ -134,136 +122,111 @@ def test_extended_metrics_popup_opens_in_overlay_host(qapp, qml_item, backtest_s
     )
     qapp.processEvents()
 
-    # Click Mở rộng chỉ số chi tiết link
-    expand_link = top_root.findChild(object, "lnkExpandMetrics")
-    assert expand_link is not None
     presenter._view_model.requestOpenExtendedMetrics()
     qapp.processEvents()
-    qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
-    overlay_root = overlay_host.content_item
-    popup = overlay_root.findChild(object, "extendedMetricsPopup")
-    assert popup is not None
-    assert popup.property("visible") is True
+    dialog = view._modals_host._extended_metrics
+    assert dialog is not None
+    assert dialog.objectName() == "extendedMetricsPopup"
+    assert dialog.isVisible() is True
+    assert dialog._grid.count() == 2
 
 
-def test_limitations_popup_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
+    qapp, backtest_screen
+):
     view, presenter = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
-
     presenter._view_model.set_limitations(["Limitation 1", "Limitation 2"])
     qapp.processEvents()
 
-    btn_limitations = qml_item(top_root, "btnBacktestLimitations")
-    assert btn_limitations is not None
-    btn_limitations.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_limitations.click()
     qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
-    overlay_root = overlay_host.content_item
-    popup = overlay_root.findChild(object, "limitationsPopup")
-    assert popup is not None
-    assert popup.property("visible") is True
+    dialog = view._modals_host._limitations
+    assert dialog is not None
+    assert dialog.objectName() == "limitationsPopup"
+    assert dialog.isVisible() is True
+    assert dialog._list_layout.count() == 2
 
 
-def test_capital_popup_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_screen):
     view, _ = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
 
-    btn_capital = qml_item(top_root, "btnBacktestCapital")
-    assert btn_capital is not None
-    btn_capital.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_capital.click()
     qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
-    overlay_root = overlay_host.content_item
-    txt_capital = overlay_root.findChild(object, "txtBacktestCapital")
-    assert txt_capital is not None
-    assert txt_capital.property("visible") is True
+    dialog = view._modals_host._capital
+    assert dialog is not None
+    assert dialog.objectName() == "capitalDialog"
+    assert dialog.isVisible() is True
+    assert dialog._capital_input.objectName() == "txtBacktestCapital"
+    assert dialog._capital_input.text() != ""
 
 
-def test_indicator_picker_menu_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+def test_indicator_picker_menu_opens(qapp, backtest_screen):
     view, _ = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
 
-    btn_picker = qml_item(top_root, "btnBacktestIndicatorPicker")
-    assert btn_picker is not None
-    btn_picker.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_indicator_picker.click()
     qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
+    dialog = view._modals_host._indicator_picker
+    assert dialog is not None
+    assert dialog.objectName() == "indicatorPickerModal"
+    assert dialog.isVisible() is True
 
 
-def test_order_execution_menu_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+def test_order_execution_menu_opens(qapp, backtest_screen):
     view, _ = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
 
-    btn_order_exec = qml_item(top_root, "btnBacktestOrderExecution")
-    assert btn_order_exec is not None
-    btn_order_exec.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_order_exec.click()
     qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
+    dialog = view._modals_host._order_execution
+    assert dialog is not None
+    assert dialog.objectName() == "orderExecutionModal"
+    assert dialog.isVisible() is True
 
 
-def test_strategy_picker_modal_opens_in_overlay_host(qapp, qml_item, backtest_screen):
+def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
+    qapp, backtest_screen
+):
     view, _ = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
 
-    btn_strategy = qml_item(top_root, "btnBacktestStrategy")
-    assert btn_strategy is not None
-    btn_strategy.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_strategy.click()
     qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
-    overlay_root = overlay_host.content_item
-    modal = overlay_root.findChild(object, "strategyPickerModal")
-    assert modal is not None
-    assert modal.property("visible") is True
+    dialog = view._modals_host._strategy_picker
+    assert dialog is not None
+    assert dialog.objectName() == "strategyPickerModal"
+    assert dialog.isVisible() is True
+    assert dialog._list_layout.count() == 1
 
 
-def test_timeframe_picker_modal_opens_in_overlay_host(qapp, qml_item, backtest_screen):
-    view, _ = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
+def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
+    qapp, backtest_screen
+):
+    view, presenter = backtest_screen
 
-    btn_timeframe = qml_item(top_root, "btnBacktestTimeframe")
-    assert btn_timeframe is not None
-    btn_timeframe.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_timeframe.click()
     qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
-    overlay_root = overlay_host.content_item
-    modal = overlay_root.findChild(object, "timeframePickerModal")
-    assert modal is not None
-    assert modal.property("visible") is True
+    dialog = view._modals_host._timeframe_picker
+    assert dialog is not None
+    assert dialog.objectName() == "timeframePickerModal"
+    assert dialog.isVisible() is True
+    assert dialog._grid.count() == len(presenter._view_model.timeframeOptions)
 
 
-def test_time_range_picker_modal_opens_in_overlay_host(qapp, qml_item, backtest_screen):
-    view, _ = backtest_screen
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
+def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):
+    view, presenter = backtest_screen
 
-    btn_range = qml_item(top_root, "btnBacktestRange")
-    assert btn_range is not None
-    btn_range.clicked.emit()
-    qapp.processEvents()
+    view.top_widget._btn_range.click()
     qapp.processEvents()
 
-    assert overlay_host.is_click_through is False
-    overlay_root = overlay_host.content_item
-    modal = overlay_root.findChild(object, "timeRangePickerModal")
-    assert modal is not None
-    assert modal.property("visible") is True
+    dialog = view._modals_host._time_range_picker
+    assert dialog is not None
+    assert dialog.objectName() == "timeRangePickerModal"
+    assert dialog.isVisible() is True
+    assert dialog._list_layout.count() == len(
+        presenter._view_model.timeRangePresetOptions
+    )

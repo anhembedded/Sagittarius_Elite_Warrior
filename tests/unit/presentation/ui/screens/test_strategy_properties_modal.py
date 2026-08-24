@@ -190,48 +190,44 @@ def test_presenter_strategy_properties_save_updates_config_and_runs(
     assert run_config.broker_config.take_profit_pct == 2.5
 
 
-def test_strategy_properties_modal_qml_content_and_controls(
-    qapp, qml_item, modal_presenter
-):
-    top_root = modal_presenter.view.top_widget.rootObject()
-    btn = qml_item(top_root, "btnBacktestBotParams")
-    btn.clicked.emit()
-    qapp.processEvents()
+def test_strategy_properties_modal_content_and_controls(qapp, modal_presenter):
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
     qapp.processEvents()
 
-    overlay_root = modal_presenter.view.overlay_host.content_item
-    assert overlay_root is not None
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
 
-    save_btn = overlay_root.findChild(object, "btnBotParamsSave")
+    save_btn = dialog.findChild(object, "btnBotParamsSave")
     assert save_btn is not None
 
-    cancel_btn = overlay_root.findChild(object, "btnBotParamsCancel")
+    cancel_btn = dialog.findChild(object, "btnBotParamsCancel")
     assert cancel_btn is not None
 
-    reset_btn = overlay_root.findChild(object, "btnResetBotParams")
+    reset_btn = dialog.findChild(object, "btnResetBotParams")
     assert reset_btn is not None
 
-    # Verify input controls exist in the QML hierarchy
-    prop_capital = overlay_root.findChild(object, "propInitialCapital")
+    # Verify input controls exist
+    prop_capital = dialog.findChild(object, "propInitialCapital")
     assert prop_capital is not None
-    assert prop_capital.property("text") == "10000"
+    assert prop_capital.text() == "10000"
 
-    prop_pyramiding = overlay_root.findChild(object, "propPyramiding")
+    prop_pyramiding = dialog.findChild(object, "propPyramiding")
     assert prop_pyramiding is not None
-    assert prop_pyramiding.property("value") == 1
+    assert prop_pyramiding.value() == 1
 
-    prop_slippage = overlay_root.findChild(object, "propSlippageTicks")
+    prop_slippage = dialog.findChild(object, "propSlippageTicks")
     assert prop_slippage is not None
-    assert prop_slippage.property("value") == 0
+    assert prop_slippage.value() == 0
 
     # EPIC-001A: BrokerSimulationConfig.take_profit_pct had no UI control at
-    # all before this — proves the real QML actually renders both new
-    # controls, not just that the ViewModel/presenter plumbing exists.
-    prop_tp_enabled = overlay_root.findChild(object, "propTakeProfitEnabled")
+    # all before this — proves the port actually renders both new controls,
+    # not just that the ViewModel/presenter plumbing exists.
+    prop_tp_enabled = dialog.findChild(object, "propTakeProfitEnabled")
     assert prop_tp_enabled is not None
-    assert prop_tp_enabled.property("checked") is False
+    assert prop_tp_enabled.isChecked() is False
 
-    prop_tp_pct = overlay_root.findChild(object, "propTakeProfitPct")
+    prop_tp_pct = dialog.findChild(object, "propTakeProfitPct")
     assert prop_tp_pct is not None
-    assert prop_tp_pct.property("text") == "2.0"
-    assert prop_tp_pct.property("enabled") is False
+    assert prop_tp_pct.text() == "2.0"
+    assert prop_tp_pct.isEnabled() is False

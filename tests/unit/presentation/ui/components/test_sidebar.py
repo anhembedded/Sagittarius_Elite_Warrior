@@ -1,7 +1,7 @@
 """
-Tests for the QML navigation sidebar (BOT-030 Phase 1) — the ViewModel's
-pure logic, plus an end-to-end check that the QML actually renders the
-entries and routes clicks back to the Python signal.
+Tests for the navigation sidebar (EPIC-006C: QtWidgets, was QML) — the
+ViewModel's pure logic, plus an end-to-end check that the real widget tree
+renders the entries and routes clicks back to the Python signal.
 """
 
 import os
@@ -134,7 +134,7 @@ def test_set_active_route_emits_change_only_when_value_differs(sections):
 
 
 # ---------------------------------------------------------------------------
-# Sidebar (QML) — rendering + Python-facing contract
+# Sidebar (QtWidgets) — rendering + Python-facing contract
 # ---------------------------------------------------------------------------
 
 
@@ -148,19 +148,17 @@ def sidebar(qapp, sections, request):
     return widget
 
 
-def test_sidebar_qml_loads_without_errors(sidebar):
-    assert sidebar.quick_widget.errors() == []
-    assert sidebar.quick_widget.rootObject() is not None
+def test_sidebar_constructs_with_a_real_widget_tree(sidebar):
+    assert sidebar._nav_buttons != {}
 
 
 def test_sidebar_reports_a_natural_width_to_the_layout(qapp, sections):
     """
-    Regression test: QQuickWidget derives its sizeHint from the QML root's
-    implicit size. Without an explicit `implicitWidth` in Sidebar.qml the
-    hint is 0x0, and MainWindow's shell layout collapses the sidebar to
-    zero width — it renders as if missing entirely. Deliberately does NOT
-    call resize(): the other tests here pre-size the widget, which is
-    exactly why they all passed while the real window showed no sidebar.
+    Regression test carried over from the QML version: MainWindow's shell
+    layout must never collapse the sidebar to zero width. Deliberately does
+    NOT call resize() — the fixture above pre-sizes the widget, which would
+    hide a regression here the same way it did for the original QML bug
+    this test was written against.
     """
     widget = Sidebar(sections=sections)
     widget.show()
@@ -173,59 +171,55 @@ def test_sidebar_reports_a_natural_width_to_the_layout(qapp, sections):
         widget.deleteLater()
 
 
-def test_sidebar_renders_one_button_per_nav_item(sidebar, qml_item):
-    root = sidebar.quick_widget.rootObject()
-
-    for object_name, label in [
-        ("navButton_dashboard", "Dev Board"),
-        ("navButton_data_management", "Database"),
-        ("navButton_settings", "API & Credentials"),
-        ("navButton_Backtest Engine", "Backtest Engine"),
+def test_sidebar_renders_one_button_per_nav_item(sidebar):
+    for key, label in [
+        ("dashboard", "Dev Board"),
+        ("data_management", "Database"),
+        ("settings", "API & Credentials"),
+        ("Backtest Engine", "Backtest Engine"),
     ]:
-        button = qml_item(root, object_name)
-        assert button is not None, f"missing nav button {object_name!r}"
-        assert button.property("text") == label
+        button = sidebar._nav_buttons.get(key)
+        assert button is not None, f"missing nav button {key!r}"
+        assert button.display_text == label
 
 
-def test_clicking_a_nav_button_emits_sig_navigate(sidebar, qml_item, qapp):
-    """Proves the full QML -> ViewModel -> component-signal chain, which is
-    the contract MainWindow.switch_screen depends on."""
+def test_clicking_a_nav_button_emits_sig_navigate(sidebar, qapp):
+    """Proves the full button -> ViewModel -> component-signal chain, which
+    is the contract MainWindow.switch_screen depends on."""
     emitted = []
     sidebar.sig_navigate.connect(emitted.append)
 
-    qml_item(sidebar.quick_widget.rootObject(), "navButton_settings").clicked.emit()
+    sidebar._nav_buttons["settings"].click()
     qapp.processEvents()
 
     assert emitted == ["settings"]
 
 
-def test_placeholder_entry_is_disabled_and_does_not_navigate(sidebar, qml_item, qapp):
+def test_placeholder_entry_is_disabled_and_does_not_navigate(sidebar, qapp):
     """ "Backtest Engine" has no screen registered yet (BOT-021/022 backlog),
     so it renders disabled and must never reach the router."""
     emitted = []
     sidebar.sig_navigate.connect(emitted.append)
 
-    button = qml_item(sidebar.quick_widget.rootObject(), "navButton_Backtest Engine")
-    assert button.property("enabled") is False
+    button = sidebar._nav_buttons["Backtest Engine"]
+    assert button.isEnabled() is False
 
-    button.clicked.emit()
+    button.click()
     qapp.processEvents()
 
     assert emitted == []
 
 
-def test_set_active_highlights_only_the_active_entry(sidebar, qml_item, qapp):
-    root = sidebar.quick_widget.rootObject()
-
+def test_set_active_highlights_only_the_active_entry(sidebar, qapp):
     sidebar.set_active("dashboard")
     qapp.processEvents()
-    assert qml_item(root, "navButton_dashboard").property("isActive") is True
-    assert qml_item(root, "navButton_settings").property("isActive") is False
+    assert sidebar._nav_buttons["dashboard"].is_active is True
+    assert sidebar._nav_buttons["settings"].is_active is False
 
     sidebar.set_active("settings")
     qapp.processEvents()
-    assert qml_item(root, "navButton_dashboard").property("isActive") is False
-    assert qml_item(root, "navButton_settings").property("isActive") is True
+    assert sidebar._nav_buttons["dashboard"].is_active is False
+    assert sidebar._nav_buttons["settings"].is_active is True
 
 
 def test_sidebar_view_model_toggle_collapsed(sections):
@@ -248,29 +242,28 @@ def test_sidebar_view_model_toggle_collapsed(sections):
     assert changes == [True, False]
 
 
-def test_clicking_collapse_button_toggles_collapsed_state(sidebar, qml_item, qapp):
-    root = sidebar.quick_widget.rootObject()
-    collapse_button = qml_item(root, "btnCollapseSidebar")
+def test_clicking_collapse_button_toggles_collapsed_state(sidebar, qapp):
+    collapse_button = sidebar._btn_collapse
     assert collapse_button is not None
 
     # Initially expanded
     assert sidebar.width() == 220 or sidebar.width() == 250
-    btn_dashboard = qml_item(root, "navButton_dashboard")
-    assert btn_dashboard.property("text") == "Dev Board"
+    btn_dashboard = sidebar._nav_buttons["dashboard"]
+    assert btn_dashboard.display_text == "Dev Board"
 
     # Click to collapse
-    collapse_button.clicked.emit()
+    collapse_button.click()
     qapp.processEvents()
 
     assert sidebar.width() == 48
-    assert btn_dashboard.property("text") == ""
+    assert btn_dashboard.display_text == ""
 
     # Click to expand again
-    collapse_button.clicked.emit()
+    collapse_button.click()
     qapp.processEvents()
 
     assert sidebar.width() == 220
-    assert btn_dashboard.property("text") == "Dev Board"
+    assert btn_dashboard.display_text == "Dev Board"
 
 
 # ---------------------------------------------------------------------------

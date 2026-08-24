@@ -15,7 +15,6 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
@@ -189,7 +188,6 @@ def booted_backtest_app():
     config_manager.load_json(
         os.path.join(bot_root, "src", "config", "user_config.json")
     )
-    config_manager.load_dict({ConfigKeys.BACKTEST_CHART_BACKEND.value: "python"})
     app = create_app(config_manager)
 
     with (
@@ -224,36 +222,25 @@ def backtest_screen(qapp, qtbot, booted_backtest_app):
     view.deleteLater()
 
 
-def _assert_qml_surfaces_are_clean(view: BackTestView) -> None:
-    assert view.top_widget.errors() == []
-    assert view.bottom_widget.errors() == []
-    assert view.overlay_host.quick_widget.errors() == []
-
-
-def test_toolbar_popups_open_through_real_qml_signals(backtest_screen, qapp, qml_item):
+def test_toolbar_popups_open_through_real_signals(backtest_screen, qapp):
     _, view = backtest_screen
-    toolbar_root = view.top_widget.rootObject()
-    overlay_root = view.overlay_host.content_item
-    assert toolbar_root is not None
-    assert overlay_root is not None
 
-    capital_input = overlay_root.findChild(object, "txtBacktestCapital")
-    assert capital_input is not None
-    qml_item(toolbar_root, "btnBacktestCapital").clicked.emit()
+    view.top_widget._btn_capital.click()
     qapp.processEvents()
-    assert capital_input.property("visible") is True
+    capital_dialog = view._modals_host._capital
+    assert capital_dialog is not None
+    assert capital_dialog._capital_input.isVisible() is True
 
-    bot_params_save = overlay_root.findChild(object, "btnBotParamsSave")
-    assert bot_params_save is not None
-    qml_item(toolbar_root, "btnBacktestBotParams").clicked.emit()
+    view.top_widget._btn_bot_params.click()
     qapp.processEvents()
-    assert bot_params_save.property("visible") is True
-    _assert_qml_surfaces_are_clean(view)
+    bot_params_dialog = view._modals_host._strategy_properties
+    assert bot_params_dialog is not None
+    save_btn = bot_params_dialog.findChild(object, "btnBotParamsSave")
+    assert save_btn is not None
+    assert save_btn.isVisible() is True
 
 
-def test_run_button_completes_real_backtest_and_chart_render(
-    backtest_screen, qtbot, qml_item
-):
+def test_run_button_completes_real_backtest_and_chart_render(backtest_screen, qtbot):
     presenter, view = backtest_screen
     view_model = presenter._view_model
     view_model.selectedTimeframe = _RUNTIME_INTERVAL
@@ -266,10 +253,8 @@ def test_run_button_completes_real_backtest_and_chart_render(
         for message in log_messages_before
     )
     health_count_before = sum("[Health]" in message for message in log_messages_before)
-    toolbar_root = view.top_widget.rootObject()
-    assert toolbar_root is not None
 
-    qml_item(toolbar_root, "btnRunBacktest").clicked.emit()
+    view.top_widget._btn_run.click()
     qtbot.waitUntil(
         lambda: presenter.fsm.current_state is BacktestUiState.COMPLETED,
         timeout=5000,
@@ -288,7 +273,6 @@ def test_run_button_completes_real_backtest_and_chart_render(
     view.set_chart_mode(view._chart_mode.EQUITY)
     view.set_chart_mode(view._chart_mode.BOTH)
     view.set_chart_mode(view._chart_mode.OHLC)
-    _assert_qml_surfaces_are_clean(view)
 
 
 def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
@@ -313,11 +297,10 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
     assert five_minute_button.isChecked() is True
     assert chart._raw_history[1][0] - chart._raw_history[0][0] == 300.0
     assert view._last_klines == chart._raw_history
-    _assert_qml_surfaces_are_clean(view)
 
 
 def test_progress_banner_cancel_button_cancels_active_backtest_flow(
-    backtest_screen, qtbot, qml_item
+    backtest_screen, qtbot
 ):
     presenter, view = backtest_screen
     view_model = presenter._view_model
@@ -326,14 +309,11 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
     view_model.customStartText = "2026-08-01 00:00"
     view_model.customEndText = "2026-08-11 00:00"
 
-    toolbar_root = view.top_widget.rootObject()
-    assert toolbar_root is not None
-
     # Trigger backtest run via toolbar button
-    qml_item(toolbar_root, "btnRunBacktest").clicked.emit()
+    view.top_widget._btn_run.click()
 
     # Progress banner and its cancel button are visible in cancellable state
-    cancel_btn = qml_item(toolbar_root, "btnCancelBacktestProgress")
+    cancel_btn = view.top_widget._btn_cancel_progress
     assert cancel_btn is not None
 
     # If the backtest is still running or syncing, clicking cancel on the progress banner must cooperatively cancel it
@@ -341,7 +321,7 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
         BacktestUiState.RUNNING,
         BacktestUiState.SYNCING,
     ):
-        cancel_btn.clicked.emit()
+        cancel_btn.click()
 
     qtbot.waitUntil(
         lambda: (
@@ -354,4 +334,3 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
         ),
         timeout=5000,
     )
-    _assert_qml_surfaces_are_clean(view)

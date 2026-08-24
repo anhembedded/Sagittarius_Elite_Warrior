@@ -1,11 +1,10 @@
 """
-Regression test for the Backtest bot-params dialog after BOT-087 moved popup
-hosting into the screen's engine-owned OverlayHost.
-
-The old field-lookup assertion no longer matches the render boundary: the
-purpose here is now to prove that clicking the real toolbar button loads real
-overlay content against the live ViewModel without QML parse failure, not to
-re-assert the pre-BOT-087 visual tree shape.
+Regression coverage for the Backtest "Thông số Chiến lược" dialog
+(`StrategyPropertiesDialog`, EPIC-006E3 — `BotParamsDialog.qml` was already
+dead by BOT-104; `StrategyPropertiesModal.qml` was the live one and is what
+this dialog replaces). Proves clicking the real toolbar button opens the
+dialog against the live ViewModel with the strategy's real declared params,
+including the Up/Down-key numeric stepper `BotParamField.qml` had.
 """
 
 import os
@@ -84,77 +83,63 @@ def bot_params_presenter(qapp, request):
     return presenter
 
 
-def test_opening_bot_params_dialog_loads_real_content(
-    qapp, qml_item, bot_params_presenter
-):
-    top_root = bot_params_presenter.view.top_widget.rootObject()
-    btn = qml_item(top_root, "btnBacktestBotParams")
-    btn.clicked.emit()
-    qapp.processEvents()
+def test_opening_bot_params_dialog_loads_real_content(qapp, bot_params_presenter):
+    view = bot_params_presenter.view
+    view.top_widget._btn_bot_params.click()
     qapp.processEvents()
 
-    overlay_root = bot_params_presenter.view.overlay_host.content_item
-    assert overlay_root is not None
-    save_btn = overlay_root.findChild(object, "btnBotParamsSave")
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+    save_btn = dialog.findChild(object, "btnBotParamsSave")
     assert save_btn is not None
-    assert save_btn.property("visible") is True
+    assert save_btn.isVisible() is True
 
 
 def test_opening_bot_params_dialog_keeps_strategy_schema_live(
-    qapp, qml_item, bot_params_presenter
+    qapp, bot_params_presenter
 ):
-    top_root = bot_params_presenter.view.top_widget.rootObject()
-    btn = qml_item(top_root, "btnBacktestBotParams")
-    btn.clicked.emit()
-    qapp.processEvents()
+    view = bot_params_presenter.view
+    view.top_widget._btn_bot_params.click()
     qapp.processEvents()
 
-    overlay_root = bot_params_presenter.view.overlay_host.content_item
-    assert overlay_root is not None
-    save_btn = overlay_root.findChild(object, "btnBotParamsSave")
-    assert save_btn is not None
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
     assert bot_params_presenter._view_model.botParamsSchema != []
-    assert bot_params_presenter.view.top_widget.errors() == []
-    assert bot_params_presenter.view.overlay_host.quick_widget.errors() == []
 
 
 def test_bot_params_dialog_materializes_schema_rows_for_the_open_modal(
-    qapp, qml_item, bot_params_presenter
+    qapp, bot_params_presenter
 ):
     assert bot_params_presenter._view_model.botParamsSchema
-    top_root = bot_params_presenter.view.top_widget.rootObject()
-    qml_item(top_root, "btnBacktestBotParams").clicked.emit()
+    view = bot_params_presenter.view
+    view.top_widget._btn_bot_params.click()
     qapp.processEvents()
 
-    overlay_root = bot_params_presenter.view.overlay_host.content_item
-    dialog = overlay_root.findChild(object, "botParamsDialog")
+    dialog = view._modals_host._strategy_properties
     assert dialog is not None
-    assert dialog.property("visible") is True
-    assert dialog.property("hasViewModel") is True
-    assert dialog.property("parameterGroupCount") == 1
-    assert dialog.property("parameterRowCount") == 2
-    assert bot_params_presenter.view.overlay_host.quick_widget.errors() == []
+    assert dialog.objectName() == "botParamsDialog"
+    assert dialog.isVisible() is True
+    assert len(dialog._field_widgets) == 1
+    assert dialog._field_widgets[0].field_name == "period"
 
 
 def test_up_key_steps_a_visible_numeric_parameter_through_the_view_model(
-    qapp, qml_item, bot_params_presenter
+    qapp, bot_params_presenter
 ):
-    """The real QML key event must use Python schema normalization, not JS math."""
-    top_root = bot_params_presenter.view.top_widget.rootObject()
-    qml_item(top_root, "btnBacktestBotParams").clicked.emit()
-    qapp.processEvents()
+    """The real key event must use Python schema normalization (BOT-104's
+    `step_bot_param_value()`), not JS math — `_NumericStepLineEdit`'s port
+    of `BotParamField.qml`'s `Keys.onPressed`/`WheelHandler`."""
+    view = bot_params_presenter.view
+    view.top_widget._btn_bot_params.click()
     qapp.processEvents()
 
-    overlay_root = bot_params_presenter.view.overlay_host.content_item
-    dialog = overlay_root.findChild(object, "botParamsDialog")
-    assert dialog is not None
-    content_item = dialog.property("contentItem")
-    field = qml_item(content_item, "fldBotParam_period")
+    dialog = view._modals_host._strategy_properties
+    field = dialog.findChild(object, "fldBotParam_period")
     assert field is not None
-    assert field.property("text") == "20"
+    assert field.text() == "20"
 
-    field.forceActiveFocus()
-    QTest.keyClick(bot_params_presenter.view.overlay_host.quick_widget, Qt.Key_Up)
+    field.setFocus()
+    QTest.keyClick(field, Qt.Key.Key_Up)
     qapp.processEvents()
 
-    assert field.property("text") == "21"
+    assert field.text() == "21"

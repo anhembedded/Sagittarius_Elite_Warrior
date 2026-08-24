@@ -17,8 +17,7 @@ QApplication, or a rendered scene.
 
 Scope: engine-provided modules only. Qt's own modules (`QtQuick`,
 `QtQuick.Controls`, ...) are resolved by Qt itself and are not our business
-here; `Sagittarius.NativeChart` is registered from C++ at runtime by this app's
-own native plugin, so it has no qmldir on the Python side to check against.
+here.
 """
 
 from __future__ import annotations
@@ -35,12 +34,9 @@ _PYSIDE_MVC_ROOT = Path(pyside_mvc_pkg.__file__).parent
 #: `import Foo.Bar 1.0` / `import Foo 1.0` — captures the module name only.
 _QML_IMPORT = re.compile(r"^\s*import\s+([A-Za-z][\w.]*)\s", re.MULTILINE)
 
-#: Not engine-provided, so not checkable from a shipped qmldir:
-#: - Qt's own modules, resolved by Qt.
-#: - Sagittarius.NativeChart, registered from C++ at runtime by this app's
-#:   native chart plugin (see scripts/build-native-chart.ps1).
+#: Not engine-provided, so not checkable from a shipped qmldir — Qt's own
+#: modules, resolved by Qt itself.
 _NOT_ENGINE_PROVIDED = ("QtQuick", "QtQml", "Qt", "QtCharts", "QtGraphs")
-_RUNTIME_REGISTERED = frozenset({"Sagittarius.NativeChart"})
 
 
 def _engine_qml_modules() -> set[str]:
@@ -86,8 +82,6 @@ def test_every_qml_import_resolves_to_a_shipped_engine_module() -> None:
         text = qml_file.read_text(encoding="utf-8")
         for module in _QML_IMPORT.findall(text):
             if module.startswith(_NOT_ENGINE_PROVIDED):
-                continue
-            if module in _RUNTIME_REGISTERED:
                 continue
             if module not in available:
                 rel = qml_file.relative_to(_SRC)

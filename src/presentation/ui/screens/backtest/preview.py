@@ -82,6 +82,5 @@ def build_preview() -> QWidget:
     rows = trade_log_rows_to_qml(build_trade_log_rows(sample_trades))
     view_model.set_trade_log_page_state(rows, total_count=len(rows), total_pages=1)
     view.set_view_model(view_model)
-    view.load_qml()
     view.resize(1400, 850)
     return view

@@ -40,13 +40,6 @@ class ConfigKeys(str, Enum):
     #: large enough to cover a whole backtested range. A chart shorter than
     #: the run leaves trade markers sitting over empty space.
     BACKTEST_CHART_KLINES_FETCH_LIMIT = "backtest.chart.klines_fetch_limit"
-    #: BOT-098F6E. One of "python" | "native" | "auto" (default: "auto").
-    #: Also overridable via the SAGITTARIUS_BACKTEST_CHART_BACKEND env var (see
-    #: BacktestChartHostFactory) — this codebase has no ConfigManager env
-    #: layer wired into the real app, so a one-off override reads the
-    #: environment directly, the same convention native_chart_runtime.py
-    #: already uses for SAGITTARIUS_NATIVE_QML_IMPORT_PATH.
-    BACKTEST_CHART_BACKEND = "backtest.chart.backend"
 
     # Market Data Hub / KLine Inspector
     KLINE_INSPECTOR_PAGE_SIZE = "kline_inspector.page_size"

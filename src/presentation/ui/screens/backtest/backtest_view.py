@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-from PySide6.QtCore import QMetaObject, QObject, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QScrollArea, QSplitter, QVBoxLayout, QWidget
-from sagittarius_engine.extensions.pyside_mvc import (
-    BaseView,
-    OverlayHost,
-    create_quick_widget,
-)
+from sagittarius_engine.extensions.pyside_mvc import BaseView
 
+from .backtest_modals import BackTestModalsHost
+from .backtest_top_panel import BackTestTopPanel
+from .backtest_trade_logs_panel import BackTestTradeLogsPanel
 from .logic.backtest_chart_host import BacktestChartHostFactory, IBacktestChartHost
 from .logic.chart_canvas_view import (
     ChartDisplayMode,
@@ -18,11 +15,6 @@ from .logic.chart_canvas_view import (
     trade_flag_markers,
 )
 from .logic.chart_controls import BacktestChartControls
-
-_QML_DIR = Path(__file__).parent
-_TOP_PANEL_QML = "BackTestTopPanel.qml"
-_TRADE_LOGS_QML = "BackTestTradeLogs.qml"
-_MODALS_QML = "BackTestModals.qml"
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (
@@ -36,9 +28,10 @@ _MAIN_SPLITTER_MINIMUM_HEIGHT = 1000
 
 class BackTestView(BaseView):
     """
-    @brief View for the Backtest Screen, using a scrollable layout with a
-    QSplitter: a top toolbar/metrics panel (QML), a tall chart area
-    (QtWidgets `ChartCard` or native host), and a bottom trade-logs panel (QML).
+    @brief View for the Backtest Screen: plain QtWidgets throughout
+    (EPIC-006E) — a top toolbar/metrics panel (`BackTestTopPanel`), a tall
+    chart area (`ChartCard`/pyqtgraph), and a bottom trade-logs panel
+    (`BackTestTradeLogsPanel`), inside a scrollable `QSplitter` layout.
     @details
     Wraps content inside a `QScrollArea` to allow smooth vertical rolling on
     any viewport height without squeezing the candlestick chart or trade logs.
@@ -55,7 +48,6 @@ class BackTestView(BaseView):
         # DI-resolved instance via set_chart_host_factory() in production
         # (BOT-098F6D) — BackTestView itself has no container access.
         self._chart_host_factory = BacktestChartHostFactory()
-        self._chart_backend = "auto"
         self._last_symbols: list[str] = []
         self.chart_cards: list[IBacktestChartHost] = []
         self._chart_dev_mode = False
@@ -68,10 +60,12 @@ class BackTestView(BaseView):
         self._last_klines: list = []
         self._last_volume: list = []
         self._setup_ui()
-        # BOT-087: this direct child deliberately stays out of the layout so
-        # a future QML Popup can use the Backtest view's full bounds rather
-        # than the small top QQuickWidget that defines the toolbar.
-        self.overlay_host = OverlayHost(self)
+        # BackTestModalsHost (EPIC-006E3) owns all 11 modal QDialogs, built
+        # lazily in set_view_model() below — replaces OverlayHost/QQuickWidget
+        # (BOT-087's full-window click-through overlay existed only because
+        # QML Popups needed a host; a real QDialog is already modal and
+        # self-centering, no host widget required).
+        self._modals_host: BackTestModalsHost | None = None
 
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)
@@ -87,145 +81,56 @@ class BackTestView(BaseView):
         outer_layout.addWidget(self.scroll_area)
 
         self.scroll_content = QWidget()
-        scroll_content_layout = QVBoxLayout(self.scroll_content)
-        scroll_content_layout.setContentsMargins(10, 10, 10, 10)
-        scroll_content_layout.setSpacing(10)
+        self._scroll_content_layout = QVBoxLayout(self.scroll_content)
+        self._scroll_content_layout.setContentsMargins(10, 10, 10, 10)
+        self._scroll_content_layout.setSpacing(10)
 
-        self.top_widget = create_quick_widget()
-        scroll_content_layout.addWidget(self.top_widget)
+        # BackTestTopPanel (EPIC-006E) needs the ViewModel at construction
+        # time (same lazy-build contract as DevBoardPanel, EPIC-006D) — built
+        # in set_view_model() below, not here, and inserted at index 0.
+        self.top_widget: BackTestTopPanel | None = None
 
-        main_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_splitter.setMinimumHeight(_MAIN_SPLITTER_MINIMUM_HEIGHT)
-        scroll_content_layout.addWidget(main_splitter, 1)
+        self._main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self._main_splitter.setMinimumHeight(_MAIN_SPLITTER_MINIMUM_HEIGHT)
+        self._scroll_content_layout.addWidget(self._main_splitter, 1)
 
         self.charts_container = QWidget()
         self.charts_container.setMinimumHeight(_CHART_MINIMUM_HEIGHT)
         self.charts_layout = QVBoxLayout(self.charts_container)
         self.charts_layout.setContentsMargins(0, 0, 0, 0)
         self.charts_layout.setSpacing(0)
-        main_splitter.addWidget(self.charts_container)
+        self._main_splitter.addWidget(self.charts_container)
 
-        self.bottom_widget = create_quick_widget()
-        self.bottom_widget.setMinimumHeight(_TRADE_LOGS_MINIMUM_HEIGHT)
-        main_splitter.addWidget(self.bottom_widget)
-
-        main_splitter.setStretchFactor(0, 3)
-        main_splitter.setStretchFactor(1, 2)
-        main_splitter.setSizes([_CHART_MINIMUM_HEIGHT, _TRADE_LOGS_MINIMUM_HEIGHT])
+        # BackTestTradeLogsPanel (EPIC-006E) also needs the ViewModel at
+        # construction — built in set_view_model() below, added as the
+        # splitter's 2nd child there.
+        self.bottom_widget: BackTestTradeLogsPanel | None = None
 
         self.scroll_area.setWidget(self.scroll_content)
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
-        """Registers the screen's ViewModel as a QML context property on
-        quick widgets. Must be called before load_qml() — see the
-        ordering contract in this class's docstring."""
+        """Registers the screen's ViewModel and builds every child that
+        needs it at construction time (EPIC-006E: `top_widget`,
+        `bottom_widget`, and the 11 modal `QDialog`s owned by
+        `_modals_host` — all plain QtWidgets now, no QML context property
+        registration left to do). `context_name` is unused, kept only for
+        call-site compatibility with `BasePresenter`'s generic wiring."""
         self._view_model = view_model
-        self._set_context_property(self.top_widget, context_name, view_model)
-        self._set_context_property(self.bottom_widget, context_name, view_model)
-        self._set_context_property(
-            self.overlay_host.quick_widget, context_name, view_model
+        self.top_widget = BackTestTopPanel(view_model)
+        self._scroll_content_layout.insertWidget(0, self.top_widget)
+
+        self.bottom_widget = BackTestTradeLogsPanel(view_model)
+        self.bottom_widget.setMinimumHeight(
+            max(_TRADE_LOGS_MINIMUM_HEIGHT, self.bottom_widget.minimum_usable_height())
+        )
+        self._main_splitter.addWidget(self.bottom_widget)
+        self._main_splitter.setStretchFactor(0, 3)
+        self._main_splitter.setStretchFactor(1, 2)
+        self._main_splitter.setSizes(
+            [_CHART_MINIMUM_HEIGHT, _TRADE_LOGS_MINIMUM_HEIGHT]
         )
 
-    def load_qml(self) -> None:
-        """Loads this screen's fixed pair of QML documents and modals overlay."""
-        self.top_widget.setSource(QUrl.fromLocalFile(str(_QML_DIR / _TOP_PANEL_QML)))
-        self.bottom_widget.setSource(
-            QUrl.fromLocalFile(str(_QML_DIR / _TRADE_LOGS_QML))
-        )
-        self.overlay_host.load_content(QUrl.fromLocalFile(str(_QML_DIR / _MODALS_QML)))
-        self._bind_top_panel_height()
-        self._bind_trade_log_minimum_height()
-
-    def _set_context_property(self, widget, name: str, value: QObject) -> None:
-        widget.rootContext().setContextProperty(name, value)
-
-    def _bind_top_panel_height(self) -> None:
-        """
-        @brief BOT-089 — `top_widget` is `SizeRootObjectToView` (the shared
-        default from `create_quick_widget()`, same as every other QML host
-        in the app), so the QML root's `implicitHeight` never drives the
-        widget's size on its own. This is the one place that reads it back
-        and applies it, replacing the `_TOP_PANEL_HEIGHT` constant that had
-        already needed bumping once before (120 -> 190, BOT-055) for the
-        exact same reason: a hardcoded number ignoring what the content
-        actually needs.
-        @details Deliberately local to this View, not a change to
-        `create_quick_widget()`'s shared resize mode — Settings/Database/
-        Dashboard's QML hosts fill whatever space their container gives
-        them and must keep doing so; only this screen's top panel is meant
-        to size itself to its content.
-        """
-        root = self.top_widget.rootObject()
-        if root is None:
-            return
-        content_column = root.findChild(QObject, "contentColumn")
-        if content_column is None:
-            return
-
-        def sync_height() -> None:
-            QMetaObject.invokeMethod(
-                self,
-                "_apply_top_panel_height",
-                Qt.ConnectionType.QueuedConnection,
-            )
-
-        root.implicitHeightChanged.connect(sync_height)
-        sync_height()
-
-    @Slot()
-    def _apply_top_panel_height(self) -> None:
-        root = self.top_widget.rootObject()
-        if root is None:
-            return
-        content_column = root.findChild(QObject, "contentColumn")
-        if content_column is not None:
-            content_column.ensurePolished()
-        self.top_widget.setFixedHeight(int(root.property("implicitHeight")))
-
-    def _bind_trade_log_minimum_height(self) -> None:
-        """
-        @brief BOT-090 — `bottom_widget` sits inside `main_splitter`, whose
-        `setSizes([600, 200])` was only ever an initial hint: nothing
-        stopped the splitter from squeezing it far below what the table
-        actually needs (BUG-004's exact symptom — header/tabs/pagination
-        all rendered, zero trade rows visible, because 200px < toolbar +
-        table header + 20 rows + pagination by a wide margin).
-        @details Unlike `_bind_top_panel_height` (a fixed size, since that
-        panel has nothing else competing for space), this applies
-        `setMinimumHeight()` — the splitter still distributes extra space
-        and the user can still drag it larger, but can never drag it below
-        `minimumUsableHeight` (a deliberate "stay usable for N rows" floor
-        computed in `BackTestTradeLogs.qml`, not a rediscovered content
-        size — a paginated ListView has no single natural height, unlike
-        BOT-089's stat cards).
-        """
-        root = self.bottom_widget.rootObject()
-        if root is None:
-            return
-        toolbar_row = root.findChild(QObject, "toolbarRow")
-        if toolbar_row is None:
-            return
-
-        def sync_minimum_height() -> None:
-            QMetaObject.invokeMethod(
-                self,
-                "_apply_trade_log_minimum_height",
-                Qt.ConnectionType.QueuedConnection,
-            )
-
-        root.minimumUsableHeightChanged.connect(sync_minimum_height)
-        sync_minimum_height()
-
-    @Slot()
-    def _apply_trade_log_minimum_height(self) -> None:
-        root = self.bottom_widget.rootObject()
-        if root is None:
-            return
-        toolbar_row = root.findChild(QObject, "toolbarRow")
-        if toolbar_row is not None:
-            toolbar_row.ensurePolished()
-        minimum = int(root.property("minimumUsableHeight"))
-        self.bottom_widget.setMinimumHeight(minimum)
+        self._modals_host = BackTestModalsHost(view_model, self)
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter and forwards them to
@@ -254,7 +159,6 @@ class BackTestView(BaseView):
                 symbol,
                 use_opengl=self._chart_opengl_enabled,
                 cached_interaction=self._chart_cached_interaction_enabled,
-                backend=self._effective_chart_backend(),
             )
             host.set_dev_mode(self._chart_dev_mode)
             host.set_display_timezone(self._display_timezone)
@@ -286,12 +190,6 @@ class BackTestView(BaseView):
         (BackTestView itself has no container access) before the first
         render_symbol_cards() call."""
         self._chart_host_factory = factory
-
-    def set_chart_backend(self, backend: str) -> None:
-        """BOT-098F6D: "python" | "native" | "auto", from
-        backtest.chart.backend config. Takes effect on the next
-        render_symbol_cards() call — an already-built host is not hot-swapped."""
-        self._chart_backend = backend
 
     def set_display_timezone(self, tz_name: str) -> None:
         """Propagates display timezone to all active chart cards."""
@@ -327,36 +225,17 @@ class BackTestView(BaseView):
         self.chartPreviewRendered.emit()
         self._remove_equity_subplot(card)
 
-    def _effective_chart_backend(self) -> str:
-        """BOT-098F6F: Native host supports OHLC, EQUITY, and BOTH modes natively."""
-        return self._chart_backend
-
     @property
     def chart_mode(self) -> ChartDisplayMode:
         return self._chart_mode
 
-    def set_chart_mode(self, mode: ChartDisplayMode) -> bool:
-        """Returns True when the effective backend changed and the chart
-        host was rebuilt from scratch — BackTestPresenter uses this to know
-        it must drop any indicator-line bookkeeping tied to the old host
-        (BOT-098F6D bug, 2026-08-18: a rebuilt host starts with zero
-        indicators, but the presenter kept believing stale ones were still
-        registered, which crashed the next visibility toggle and left
-        strategy/script lines silently missing)."""
-        backend_before = self._effective_chart_backend()
+    def set_chart_mode(self, mode: ChartDisplayMode) -> None:
+        """`PythonBacktestChartHost` supports OHLC/EQUITY/BOTH directly, so
+        switching modes never needs a host rebuild — it did while a native
+        host (with a narrower supported-mode set) could still be active."""
         self._chart_mode = mode
-        rebuilt = False
-        if self._effective_chart_backend() != backend_before and self._last_symbols:
-            # The active host's renderer is no longer valid for this mode
-            # (e.g. native + OHLC -> Equity, or back) — rebuild rather than
-            # push incompatible data into it. BOT-098F6D acceptance
-            # criterion 2 explicitly allows this: "requires view
-            # reconstruction on backend change."
-            self.render_symbol_cards(self._last_symbols)
-            rebuilt = True
         if self._last_result is not None:
             self._render_chart()
-        return rebuilt
 
     def set_volume_visible(self, visible: bool) -> None:
         card = self._current_card()
@@ -376,15 +255,6 @@ class BackTestView(BaseView):
 
     def _current_card(self):
         return self.chart_cards[0] if self.chart_cards else None
-
-    def refresh_chart(self) -> None:
-        """Re-renders whatever data is already cached (last run result or
-        preview klines) onto the current host — the public re-entry point
-        BackTestPresenter uses after rebuilding the host mid-session
-        (BOT-098F6D unsupported-native-feature fallback), instead of
-        reaching into this View's private render state directly."""
-        if self._last_result is not None or self._last_klines:
-            self._render_chart()
 
     def _render_chart(self) -> None:
         card = self._current_card()
