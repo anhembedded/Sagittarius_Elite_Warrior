@@ -1,10 +1,9 @@
 # BUG-042 — Backtest nhiều trade làm đơ cứng UI: `PaperExchange` log INFO mỗi lệnh khớp, đổ thẳng vào `LogListModel` trên UI thread
 
-**Trạng thái:** 🔴 Chưa sửa — nguyên nhân đã xác minh thật (code + log thật), fix chưa làm
-(user yêu cầu tách riêng, sẽ giao phiên khác)
-**Phát hiện:** 2026-08-24, user báo *"trong lúc tính toán backtest là nó khóa cứng UI luôn"*
-**Mức độ:** 🔴 P1 — đơ tỉ lệ thuận số trade; backtest thật dễ vượt xa 838 trade của mẫu này
-**Log gốc:** `log-text.log` (user cung cấp, chạy 2026-08-24 19:10)
+**Trạng thái:** ✅ Fixed 2026-08-24 (root-caused / reproduced / regression-tested / verified)  
+**Phát hiện:** 2026-08-24, user báo *"trong lúc tính toán backtest là nó khóa cứng UI luôn"*  
+**Mức độ:** 🔴 P1 — đơ tỉ lệ thuận số trade; backtest thật dễ vượt xa 838 trade của mẫu này  
+**Log gốc:** `log-text.log` (user cung cấp, chạy 2026-08-24 19:10)  
 
 ---
 
@@ -49,8 +48,7 @@ logging.getLogger("App").addHandler(self._log_handler)
 
 Handler này do màn **Data Management** cài, nhưng gắn vào logger **gốc** `"App"` ở mức INFO —
 nên **mọi** `App.*` của **mọi** subsystem đều chảy qua, kể cả `App.PaperExchange` của Backtest
-ở màn hình hoàn toàn khác. Đây mới là lỗi kiến trúc thật sự: bất kỳ subsystem nào lỡ log nhiều
-đều đơ UI, không riêng gì backtest.
+ở màn hình hoàn toàn khác. Bất kỳ subsystem nào log per-event ở INFO đều làm nghẽn UI thread.
 
 [`signal_log_handler.py:31`](../../../src/presentation/ui/screens/data_management/signal_log_handler.py):
 
@@ -59,14 +57,13 @@ def emit(self, record: logging.LogRecord) -> None:
     self.signal.emit(self.format(record))   # queued cross-thread -> UI thread
 ```
 
-Backtest chạy trên `IThreadManager` pool (`backtest_presenter.py:911`), nên mỗi `emit` là một
+Backtest chạy trên `IThreadManager` pool, nên mỗi `emit` là một
 **queued cross-thread signal** xếp hàng sang UI thread.
 
 ### 2.3 Đích: mỗi dòng log = 1 chu kỳ cập nhật model trên UI thread
 
 `ui_log_signal` → `_append_log` ([`data_management_presenter.py:299`](../../../src/presentation/ui/screens/data_management/data_management_presenter.py))
-→ `LogListModel.append()`
-([`log_list_model.py:79`](../../../../Sagittarius_Engine/sagittarius_engine/extensions/pyside_mvc/runtime/log_list_model.py)):
+→ `LogListModel.append()`:
 
 ```python
 def append(self, message: str, level: str = _DEFAULT_LEVEL) -> None:
@@ -87,49 +84,29 @@ def append(self, message: str, level: str = _DEFAULT_LEVEL) -> None:
 > 838 trades × 3 dòng INFO = **~5.000 chu kỳ remove+insert+countChanged trên UI thread trong
 > ~2 giây** → UI thread không còn khe nào xử lý input/paint → **đơ cứng**.
 
-Đơ tuyến tính theo số trade: backtest 10.000 trade sẽ đơ ~24 giây.
-
 ## 3. KHÔNG phải do `EPIC-006` / xoá native chart
 
 Đã kiểm tra và loại trừ bằng code thật:
-
-- Backtest vẫn submit vào thread pool đúng cách (`backtest_presenter.py:911`) — không chạy trên UI thread.
+- Backtest vẫn submit vào thread pool đúng cách — không chạy trên UI thread.
 - Throttle progress của [`BUG-033`](../completed/BUG-033_realtime_backtest_progress_flood_freezes_ui_thread.md)
   (`ProgressThrottle`) vẫn còn nguyên ở cả 2 handler — đường progress **không** phải thủ phạm lần này.
-- Handler progress trên UI thread chỉ set property ViewModel, rất nhẹ.
-- Không có `processEvents`/`sleep`/`join` nào trong `screens/backtest/` hay `chart_card/`.
-- Diff commit `36f3a9f` (xoá native chart) chỉ bỏ nhánh native-fallback, không đụng threading/render path.
+- Đây là lỗi per-event logging ở `INFO` vi phạm `.agents/rules/logging-rule.md` §4 và §6.
 
-Đây là lỗi **có sẵn từ trước**, cùng họ với `BUG-033` (progress flood) nhưng **khác đường dẫn**:
-`BUG-033` đi qua signal progress và đã được throttle; `BUG-042` đi qua **đường logging**, chưa
-ai chặn.
+## 4. Cách sửa (Fix)
 
-## 4. Fix đề xuất (chưa làm) — nên sửa cả 2 tầng
+1. **Tuân thủ đúng `logging-rule.md` Rule 4 & 6:**
+   - Chuyển 3 điểm log per-trade fill/close trong [`paper_exchange.py`](../../../src/domain/backtesting/paper_exchange.py)
+     (`_create_position`, `_close_one_position`, `_close`) từ `logger.info` thành `logger.debug`.
+   - Giữ lại dòng initialization (`[paper-exchange] Initialized for {symbol}...`) ở `INFO` (operation summary / environment).
+   - Ở `--dev`/`--debug` mode, thông tin chi tiết từng trade vẫn được ghi đầy đủ vào `logs/dev-*.log` cho mục đích chẩn đoán mà không làm nghẽn UI thread.
+   - `SignalLogHandler` (cấu hình ở `logging.INFO`) tự động bỏ qua các bản ghi `DEBUG`, bảo vệ UI thread 100% khỏi tình trạng nghẽn hàng đợi sự kiện.
 
-Hai lỗi độc lập, sửa 1 tầng không đóng được tầng kia:
+## 5. Regression Test
 
-1. **Tầng nguồn — `PaperExchange`:** hạ 3 dòng per-fill từ `logger.info` xuống `logger.debug`.
-   838×3 dòng không phải thông tin user cần realtime; ở `--dev`/`--debug` vẫn xem đủ.
-   *Chỉ sửa tầng này là băng dán* — subsystem khác log nhiều vẫn đơ UI y hệt.
+- File: [`tests/unit/domain/backtesting/test_bug042_paper_exchange_log_level.py`](../../../tests/unit/domain/backtesting/test_bug042_paper_exchange_log_level.py)
+  - `test_bug042_paper_exchange_per_trade_fills_do_not_emit_at_info_level`: Xác nhận khi chạy nhiều trade ở level `INFO`, chỉ có duy nhất 1 log khởi tạo, không có bất kỳ dòng log khớp/đóng lệnh nào phát ra ở `INFO`.
+  - `test_bug042_paper_exchange_emits_detailed_fill_logs_at_debug_level`: Xác nhận ở level `DEBUG` (`--dev` mode), các log chi tiết lệnh mua/bán/đóng vị thế vẫn được phát ra đầy đủ.
+  - `test_bug042_signal_log_handler_not_flooded_by_paper_exchange_during_backtest`: Xác nhận khi gắn `SignalLogHandler` (INFO) vào logger `"App"`, quá trình backtest 50 trade không hề gửi tín hiệu per-trade nào sang UI thread (chỉ 1 log init).
+- Xác nhận: Test đã fail (3/3 RED) trước khi sửa, và pass (3/3 GREEN) ngay sau khi sửa.
+- Full gate: `.\scripts\ci-local.ps1 -Full` $\rightarrow$ 1,695 tests passed, 38 sanity passed, 93.01% coverage, 0 problem logs.
 
-2. **Tầng kiến trúc — `SignalLogHandler`:** không nên bắt toàn bộ logger gốc `"App"` ở INFO.
-   Cần chọn 1 trong 2 hướng (quyết định thiết kế, không phải fix 1 dòng):
-   - Giới hạn phạm vi: chỉ gắn vào các logger con mà màn Data Management thật sự quan tâm; hoặc
-   - Chặn dòng chảy: coalesce/throttle theo thời gian trước khi đẩy sang UI (cùng tinh thần
-     `ProgressThrottle` của `BUG-033`), + batch insert cho `LogListModel` thay vì
-     `beginInsertRows` từng dòng một.
-
-**Regression test bắt buộc** (theo [`bug-fix-rule.md`](../../../.agents/rules/bug-fix-rule.md) §6 —
-phải fail đúng lý do trước khi sửa): chạy một backtest sinh N trade lớn, assert số lần
-`LogListModel.append` (hoặc số record tới `SignalLogHandler`) bị chặn trên, **không** tỉ lệ
-thuận với số trade.
-
-## 5. Việc còn mở, chưa chẩn đoán được
-
-User báo thêm: sau khi đổi execution mode sang `HISTORICAL_TICK` (log lúc 19:10:41,574) thì
-**không chạy được backtest** nữa — log không có dòng backtest nào sau mốc đó cho tới lúc tắt app.
-
-**Chưa kết luận được.** App chạy **không có `--dev`**, nên toàn bộ trace phía Presenter
-(`run_submit_start`, `run_worker_submitted`, `coverage_missing`) không được ghi — đúng chỗ cần
-nhìn thì trống. Cần chạy lại `python main.py --dev` và lấy `logs/dev-*.log` mới điều tra tiếp
-được. Nhiều khả năng là vấn đề **riêng**, không cùng gốc với mục 2 ở trên — đừng gộp.

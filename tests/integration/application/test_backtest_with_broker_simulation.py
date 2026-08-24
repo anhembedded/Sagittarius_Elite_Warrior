@@ -94,7 +94,7 @@ def _make_klines(
 
 
 def test_static_backtest_with_position_sizing_and_pyramiding_integration(caplog):
-    caplog.set_level(logging.INFO, logger="App.PaperExchange")
+    caplog.set_level(logging.DEBUG, logger="App.PaperExchange")
 
     repo = Mock()
     klines = _make_klines(count=8, start_price=100.0, step=10.0)
@@ -178,7 +178,7 @@ def test_static_backtest_with_position_sizing_and_pyramiding_integration(caplog)
 
 
 def test_realtime_backtest_with_broker_simulation_integration(caplog):
-    caplog.set_level(logging.INFO, logger="App.PaperExchange")
+    caplog.set_level(logging.DEBUG, logger="App.PaperExchange")
 
     repo = Mock()
     # Synthetic 1s ticks: 60 ticks per 1m bar

@@ -323,7 +323,7 @@ class PaperExchange:
         self._positions.append(position)
         slippage_delta = self._slippage_delta()
         slip_sign = "+" if side is PositionSide.LONG else "-"
-        logger.info(
+        logger.debug(
             f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} filled | Price: {effective_price:,.2f} "
             f"(raw: {price:,.2f}, slip: {slip_sign}{slippage_delta:,.2f}) | "
             f"Qty: {quantity:.6f} | Cost: {capital_deployed:,.2f} | Fee: {entry_fee:,.2f} | "
@@ -384,7 +384,7 @@ class PaperExchange:
             )
         else:
             price_detail = f"Price: {exit_price:,.2f}"
-        logger.info(
+        logger.debug(
             f"[paper-exchange] {exit_label} filled | {price_detail} | "
             f"Qty: {pos.quantity:.6f} | PnL: {pnl:+,.2f} ({pnl_percent:+.2f}%) | "
             f"Fee: {pos.entry_fee + exit_fee:,.2f} | Reason: {exit_reason.value}"
@@ -422,7 +422,7 @@ class PaperExchange:
         ]
 
         self._positions = [pos for pos in self._positions if pos.side is not side]
-        logger.info(
+        logger.debug(
             f"[paper-exchange] All positions closed "
             f"({len(closed_trades)} trades) | New Balance: {self._balance:,.2f}"
         )

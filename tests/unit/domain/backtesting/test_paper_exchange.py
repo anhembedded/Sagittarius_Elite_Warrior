@@ -195,7 +195,7 @@ def test_metadata_from_the_opening_signal_carries_through_to_the_trade():
 
 
 def test_position_sizing_percent_of_equity_allocates_exact_percentage(caplog):
-    caplog.set_level(logging.INFO, logger="App.PaperExchange")
+    caplog.set_level(logging.DEBUG, logger="App.PaperExchange")
 
     sizing = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=20.0)
     exchange = PaperExchange(
