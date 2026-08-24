@@ -77,6 +77,30 @@ Gate: `pwsh -NoProfile -File scripts/ci-local.ps1 -Full` → `RESULT: PASS`,
 `1800 passed / 54 sanity` — không test nào vỡ, tức **không có test nào từng khẳng định mặc định
 phải là native**. Đây tự nó đã là một lỗ hổng: `BOT-098F6E` đổi mặc định mà không có test khoá lại.
 
+## 4b. Phát hiện lớn nhất: native **chưa từng chạy thật** trong 5 ngày làm mặc định
+
+Ghép mốc thời gian với chính comment của `BUG-037`:
+
+| Thời điểm | Sự kiện | Chart thực tế render |
+| :--- | :--- | :--- |
+| 18/08 19:51 | `30ffa18` — native thành mặc định | — |
+| 18/08 → 23/08 | mọi run emit trend zone rỗng → native raise → fallback | **pyqtgraph** (5 ngày) |
+| 23/08 21:51 | `d70e53f` — `BUG-037`: list rỗng thì đừng raise | **native** (lần đầu sống sót) |
+| 24/08 ~01:40 | user mở app, thấy mất grid, nến sai | native |
+
+`BUG-037`'s commit tự nói: *"`_emit_strategy_trend_zones()` emits on every run …
+so **each run fell back to the Python host**"*. Nghĩa là suốt 5 ngày, mặc định ghi `native`
+nhưng pixel trên màn hình luôn là pyqtgraph. Chính fix `BUG-037` mới là thứ lần đầu cho native
+trụ lại — nên "regression" này thực chất chỉ mới tồn tại vài giờ, và nó không phải lỗi mới sinh
+ra mà là **lần đầu tiên native được nhìn thấy**.
+
+Hệ quả với lý do tồn tại của native: nó được xây để giải quyết vấn đề hiệu năng, nhưng **chưa
+từng render một khung hình nào trong production**, nên không có bằng chứng thực tế nào cho thấy
+nó từng giải quyết được vấn đề đó. Trong khi đó nhánh Python vẫn tiếp tục nhanh lên — riêng
+`BUG-024` báo **~11x pan speedup** nhờ viewport-cull trend zone — và 5 ngày dùng thật trên
+pyqtgraph không phát sinh phàn nàn hiệu năng nào. Lý do ban đầu để làm C++ có thể đã hết hiệu
+lực từ trước khi native kịp được bật.
+
 ## 5. Còn phải làm (chưa xong)
 
 1. **Quyết định hướng đi cho native renderer.** Hai lựa chọn, không được để lửng:

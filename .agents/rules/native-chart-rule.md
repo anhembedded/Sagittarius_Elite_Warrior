@@ -132,3 +132,49 @@ custom scene-graph material.
   timestamp-to-index alignment; camera/pointer movement must not rebuild bulk
   OHLCV/volume/indicator/marker geometry.
 
+## 6. Current status (2026-08-24): native is OFF by default — do not re-promote it blindly
+
+`src/config/app_config.json` pins `"backtest.chart.backend": "python"`. Backtest
+runs on `ChartCard`/pyqtgraph, the same renderer Dashboard's Dev Board uses.
+Native is built and importable but **no production code path reaches it**. See
+[`BUG-039`](../../Tasks/bug_report/incomplete/BUG-039_native_chart_default_regressed_backtest_visuals.md).
+
+Why this happened, because the reasoning matters more than the switch:
+
+- **Native was never actually exercised in production.** `BOT-098F6E` made it
+  the default on 2026-08-18 19:51. `_emit_strategy_trend_zones()` fires on every
+  run, native has no background-region ABI, so every single run raised
+  `NativeUnsupportedFeatureError` and rebuilt the Python host mid-run — the
+  defect `BUG-037` names in its own commit message. For five days the default
+  said `native` while the pixels on screen were always pyqtgraph. `BUG-037`'s fix
+  (2026-08-23 21:51) was the first time native survived a run, and the missing
+  grid and thin candle bodies became visible within hours.
+- **The performance premise is unverified in production.** Native exists to fix
+  a rendering-throughput problem, but it never rendered a production frame, so
+  there is no production evidence it fixed anything. Meanwhile the Python host
+  kept getting faster on its own — `BUG-024` alone reports ~11x pan speedup from
+  viewport-culling trend zones — and five days of real use on pyqtgraph surfaced
+  no performance complaint. The original justification may simply have expired.
+- **Feature parity runs the wrong way.** The QtWidgets renderer is the more
+  complete one: grid, correct candle bodies, background regions. Native has none
+  of the three.
+
+Before `"auto"`/`"native"` is ever made the default again, all three must hold,
+and each needs evidence in the task that proposes it:
+
+1. Feature parity: grid, candle-body geometry, and a real background-region ABI —
+   not a fallback that tears the host down.
+2. A measured performance deficit **on the current Python host, in production**,
+   that native demonstrably removes. Benchmark numbers against an older ChartCard
+   do not count; neither does a `QQuickView` probe (§5).
+3. A test that pins the resolved default backend, so flipping it turns CI red.
+   No such test existed for `BOT-098F6E` — the gate stayed green at
+   `1800 passed` when the default was flipped back, which is why a user
+   screenshot, not CI, is what caught this.
+
+Treat "delete the native chart entirely" as a live option, not a failure. It is
+~1,950 lines of C++ plus a QML plugin, a CMake toolchain, an ABI contract and a
+build gate, currently carrying zero production traffic and four bugs
+(`BUG-013`, `BUG-037`, `BUG-038`, `BUG-039`). Keep it only if item 2 above can
+actually be shown.
+
