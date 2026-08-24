@@ -82,6 +82,9 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-003](epics/EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (2/6 task con xong) |
 | **[EPIC-004](epics/EPIC-004_static_security_and_quality_analysis/README.md)** | Static security & quality analysis gate (Bandit + magic-number qua Ruff) | 🟡 Đang làm (3/4 task con xong) |
 | **[EPIC-005](epics/EPIC-005_qml_to_qtwidgets_migration/README.md)** | Rút khỏi QML về QtWidgets, **trừ chart** — theo từng màn hình, mỗi bước rollback được | 🟡 Đang làm (1/6 task con xong) — nhánh riêng `epic/EPIC-005-qml-to-qtwidgets` |
+| **[EPIC-006](epics/EPIC-006_drop_qml/README.md)** | Bỏ hẳn QML, thuần QtWidgets | 🟡 Đang làm (5/6 task con xong) |
+| **[EPIC-007](epics/EPIC-007_chuan_hoa_card_dung_chung/README.md)** | **Chuẩn hoá card dùng chung, đưa hình dạng lên Engine** — gộp ~10 biến thể màu card về 1 token, 6 hình dạng surface lên `pyside_mvc.widgets`, cắt 3 import chéo màn hình | 🔵 Chưa bắt đầu (0/7 task con) |
+| **[EPIC-008](epics/EPIC-008_chuan_hoa_luong_event/README.md)** | **Chuẩn hoá luồng sự kiện** — Shared Kernel + port, `BaseEvent` kế thừa được thật, `EventRegistry` + catalog sinh tự động, 3 Feed thay 48 signal cầu nối | 🔵 Chưa bắt đầu (0/8 task con) |
 
 ---
 

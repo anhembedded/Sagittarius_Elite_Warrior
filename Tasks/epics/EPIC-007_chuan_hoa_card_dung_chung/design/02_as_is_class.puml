@@ -1,0 +1,177 @@
+@startuml 02_as_is_class
+' EPIC-007 — Cây kế thừa HIỆN TẠI của toàn bộ widget ở 4 màn hình.
+' Nguồn: grep "^class" trên src/presentation/ui, 2026-08-24.
+
+title EPIC-007 — HIỆN TRẠNG: cây kế thừa (đỏ = kế thừa thẳng lớp Qt gốc)
+
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam classAttributeIconSize 0
+
+package "Qt (PySide6)" #ECEFF1 {
+  class QFrame
+  class QWidget
+  class QDialog
+  class QPushButton
+  class QLineEdit
+  class QCheckBox
+}
+
+package "Engine :: pyside_mvc.widgets" #E8F0FE {
+  abstract class Surface {
+    body_layout
+    _on_enabled_changed()
+  }
+  class Panel
+  class Card {
+    title
+    header_actions
+  }
+  class SelectableCard {
+    selected
+    clicked
+  }
+  abstract class Overlay {
+    title / subtitle
+    body_layout
+    _build_buttons()
+  }
+  class StyledButton
+  class StyledCheckBox
+  class StyledField
+  class DateTimeField
+
+  QFrame <|-- Surface
+  Surface <|-- Panel
+  Surface <|-- Card
+  Panel <|-- SelectableCard
+  QDialog <|-- Overlay
+  QPushButton <|-- StyledButton
+  QCheckBox <|-- StyledCheckBox
+  QLineEdit <|-- StyledField
+  StyledField <|-- DateTimeField
+}
+
+note top of Surface
+  <b>Surface / Card / Panel: 0 consumer trong Elite.</b>
+  StyledButton / StyledField / DateTimeField: 0 consumer.
+  Chỉ Overlay, SelectableCard, StyledCheckBox có người dùng.
+end note
+
+note right of Overlay
+  Thông báo lỗi của chính nó bảo người dùng hãy
+  dựng <b>ConfirmOverlay</b> / <b>PickerOverlay</b> —
+  <b>cả hai lớp này không tồn tại</b> ở bất kỳ đâu
+  trong engine (chỉ có một bản `_ConfirmOverlay`
+  cục bộ trong file test). → BUG doc-code-sync.
+end note
+
+package "Elite :: backtest" #FFF3E0 {
+  class CapitalDialogWidget
+  class ExtendedMetricsDialog
+  class LimitationsDialog
+  class IndicatorPickerDialog
+  class OrderExecutionDialog
+  class StrategyPickerDialog
+  class TimeframePickerDialog
+  class BacktestSymbolPickerDialog
+  class TimeRangePickerDialog
+  class TimezonePickerDialog
+  class StrategyPropertiesDialog
+  class MetricCardWidget #FFCDD2
+  class "_TradeLogRowWidget" as TradeRow #FFCDD2
+  class BackTestTopPanel #FFE0B2
+  class BackTestTradeLogsPanel #FFE0B2
+  class DynamicTabBarWidget #FFE0B2
+  class "_BotParamFieldWidget" as BotParam #FFE0B2
+  class "_TabButton" as BtTab
+  class "_FilterTabButton" as BtFilterTab
+  class "_NumericStepLineEdit" as BtNumeric
+}
+
+Overlay <|-- CapitalDialogWidget
+Overlay <|-- ExtendedMetricsDialog
+Overlay <|-- LimitationsDialog
+Overlay <|-- IndicatorPickerDialog
+Overlay <|-- OrderExecutionDialog
+Overlay <|-- StrategyPickerDialog
+Overlay <|-- TimeframePickerDialog
+Overlay <|-- BacktestSymbolPickerDialog
+Overlay <|-- TimeRangePickerDialog
+Overlay <|-- TimezonePickerDialog
+Overlay <|-- StrategyPropertiesDialog
+QFrame <|-- MetricCardWidget
+QFrame <|-- TradeRow
+QWidget <|-- BackTestTopPanel
+QWidget <|-- BackTestTradeLogsPanel
+QWidget <|-- DynamicTabBarWidget
+QWidget <|-- BotParam
+QPushButton <|-- BtTab
+QPushButton <|-- BtFilterTab
+QLineEdit <|-- BtNumeric
+
+package "Elite :: data_management" #FFF3E0 {
+  class "_StatusRowWidget" as StatusRow #FFCDD2
+  class "_KLineRowWidget" as KlineRow #FFCDD2
+  class "_GapRowWidget" as GapRow #FFCDD2
+  class "_CoverageSegmentWidget" as CovSeg #FFCDD2
+  class SymbolPickerDialog #FFCDD2
+  class ConfirmDialog #FFCDD2
+  class KLineInspectorDialog #FFCDD2
+  class GapInspectorDialog #FFCDD2
+  class LogPanelWidget #FFCC80
+  class AppProgressBarWidget #FFCC80
+  class TimeRangeCardWidget #FFE0B2
+}
+
+QFrame <|-- StatusRow
+QFrame <|-- KlineRow
+QFrame <|-- GapRow
+QFrame <|-- CovSeg
+QDialog <|-- SymbolPickerDialog
+QDialog <|-- ConfirmDialog
+QDialog <|-- KLineInspectorDialog
+QDialog <|-- GapInspectorDialog
+QWidget <|-- LogPanelWidget
+QWidget <|-- AppProgressBarWidget
+QWidget <|-- TimeRangeCardWidget
+
+package "Elite :: dashboard + settings + chrome" #FFF3E0 {
+  class DevBoardPanel #FFE0B2
+  class "_SectionLabel" as SectionLbl #FFE0B2
+  class BaseCard #FFCDD2
+  class ChartCard
+  class CriticalErrorDialog #FFCDD2
+  class "_NavButton" as NavBtn
+}
+
+QWidget <|-- DevBoardPanel
+QFrame <|-- BaseCard
+BaseCard <|-- ChartCard
+QDialog <|-- CriticalErrorDialog
+QPushButton <|-- NavBtn
+
+note as N_BASECARD #FFCDD2
+  <b>BaseCard (Elite, components/base_card.py)</b> là bản sao
+  chồng lấn của engine's <b>Card</b>: cùng cấu trúc
+  header/body/footer, nhưng docstring nói "style qua QSS
+  #base_card" — <b>file QSS đó đã bị xoá từ EPIC-005B</b>, nên
+  BaseCard hiện <b>không được style bởi bất cứ thứ gì</b>.
+  Consumer duy nhất còn lại: ChartCard.
+end note
+BaseCard .. N_BASECARD
+
+note as N_SUM #FFF9C4
+  <b>Tổng kết cây kế thừa hiện tại</b>
+  ---
+  Kế thừa từ engine widgets : <b>14</b> lớp (11 Overlay ở Backtest + 3 chỗ dùng SelectableCard/StyledCheckBox)
+  Kế thừa thẳng QFrame/QDialog : <b>12</b> lớp  ← guard <i>find_bare_qt_base_widgets</i> bắt được
+  Kế thừa thẳng QWidget (card giả dạng) : <b>7</b> lớp ← guard <b>KHÔNG</b> bắt: regex chỉ khớp QFrame|QDialog
+  ---
+  <b>Lỗ hổng guard:</b> LogPanelWidget / AppProgressBarWidget / TimeRangeCardWidget /
+  DevBoardPanel / BackTestTopPanel / BackTestTradeLogsPanel / DynamicTabBarWidget đều là
+  vùng nền có viền — đúng định nghĩa Surface — nhưng vì kế thừa QWidget chứ không phải
+  QFrame nên guard hiện tại im lặng. Đây là lý do "12 lỗi" ở guard nhẹ hơn thực tế.
+end note
+
+@enduml

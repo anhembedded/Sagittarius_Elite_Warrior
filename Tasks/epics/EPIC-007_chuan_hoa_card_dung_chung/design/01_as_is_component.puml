@@ -1,0 +1,120 @@
+@startuml 01_as_is_component
+' EPIC-007 — Hiện trạng (đo 2026-08-24 bằng engine's widgets.guards + grep, không ước lượng)
+' Mỗi con số trong file này đều lấy từ mã nguồn thật, xem PHỤ LỤC cuối file.
+
+title EPIC-007 — HIỆN TRẠNG: mỗi màn hình tự đẻ card riêng
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam ArrowFontSize 11
+
+legend top left
+  |= Ký hiệu |= Ý nghĩa |
+  | <b>[QFrame]</b> | kế thừa thẳng lớp Qt gốc — guard <i>find_bare_qt_base_widgets</i> báo lỗi |
+  | <b>#hex</b> | tự chế màu trong file, không đọc token |
+  | <b>(0)</b> | số consumer thật trong Elite |
+endlegend
+
+package "Sagittarius_Engine :: pyside_mvc.widgets" as ENGINE #E8F0FE {
+  component "Surface (abstract)" as E_Surface #FFCDD2
+  component "Card  (title + header_actions + body)" as E_Card #FFCDD2
+  component "Panel (không header)" as E_Panel #FFCDD2
+  component "SelectableCard" as E_SelCard #C8E6C9
+  component "Overlay (QDialog)" as E_Overlay #C8E6C9
+  component "StyledButton" as E_Btn #FFCDD2
+  component "StyledCheckBox" as E_Chk #C8E6C9
+  component "StyledField / DateTimeField" as E_Field #FFCDD2
+  component "apply_role() + StyleRole\nSURFACE · SELECTABLE_CARD · FIELD\nPRIMARY/SECONDARY/DANGER_BUTTON · CHECKBOX" as E_Style #FFF9C4
+
+  note right of E_Card
+    <b>0 consumer.</b> Card/Panel/Surface/StyledButton/
+    StyledField/DateTimeField chưa từng được
+    Elite dùng một lần nào — nửa "Surface" của
+    EPIC-006B ship xong rồi nằm không.
+    <b>Không có StyleRole cho BADGE / BANNER /</b>
+    <b>SECTION_LABEL</b> — 3 hình dạng bị lặp nhiều nhất.
+  end note
+}
+
+package "Elite :: screens/dashboard (Dev Board)" as SC_DASH #FFF3E0 {
+  component "DashboardView (BaseView)" as D_View
+  component "DevBoardPanel [QWidget]\n8 hằng hex riêng · _card_style()\n22 × setStyleSheet" as D_Panel #FFE0B2
+  component "_SectionLabel [QHBoxLayout]" as D_Section #FFE0B2
+  D_View --> D_Panel
+  D_Panel *-- D_Section
+}
+
+package "Elite :: screens/backtest" as SC_BT #FFF3E0 {
+  component "BackTestView (BaseView)" as B_View
+  component "BackTestTopPanel [QWidget]\n6 hằng hex riêng · 33 × setStyleSheet\n4 banner tự dựng" as B_Top #FFE0B2
+  component "MetricCardWidget [QFrame]\n4 hằng hex riêng (#14161f...)" as B_Metric #FFE0B2
+  component "DynamicTabBarWidget + _TabButton" as B_Tab #FFE0B2
+  component "BackTestTradeLogsPanel [QWidget]\n_TradeLogRowWidget [QFrame]\n_FilterTabButton · header + pagination" as B_Logs #FFE0B2
+  component "backtest_modals: 11 × Overlay\n(EPIC-006E3 — làm ĐÚNG)" as B_Modals #C8E6C9
+  B_View --> B_Top
+  B_View --> B_Logs
+  B_View --> B_Modals
+  B_Top *-- B_Metric
+  B_Logs *-- B_Tab
+}
+
+package "Elite :: screens/data_management" as SC_DM #FFF3E0 {
+  component "DataManagementView (BaseView)\n_build_stat_tile() · _section_label()\n31 × setStyleSheet" as M_View #FFE0B2
+  component "_StatusRowWidget [QFrame]" as M_Row #FFE0B2
+  component "LogPanelWidget [QWidget]" as M_Log #FFCC80
+  component "AppProgressBarWidget [QWidget]" as M_Prog #FFCC80
+  component "TimeRangeCardWidget [QWidget]" as M_Time #FFE0B2
+  component "SymbolPickerDialog [QDialog]\nConfirmDialog [QDialog]\nKLineInspectorDialog [QDialog]\nGapInspectorDialog [QDialog]" as M_Dlg #FFE0B2
+  component "_KLineRowWidget [QFrame]\n_GapRowWidget [QFrame]\n_CoverageSegmentWidget [QFrame]" as M_Rows #FFE0B2
+  M_View *-- M_Row
+  M_View *-- M_Log
+  M_View *-- M_Prog
+  M_View *-- M_Time
+  M_View *-- M_Dlg
+  M_Dlg *-- M_Rows
+}
+
+package "Elite :: screens/settings" as SC_SET #FFF3E0 {
+  component "SettingsView (BaseView)\ncard dựng inline bằng setStyleSheet (13 ×)" as S_View #FFE0B2
+}
+
+' ---- Cái đang được dùng thật từ engine ----
+B_Modals ..> E_Overlay : <b>dùng</b> (11)
+B_Modals ..> E_SelCard : <b>dùng</b> (7)
+D_Panel  ..> E_Chk     : <b>dùng</b> (3)
+
+' ---- Vấn đề 1: rò rỉ giữa các màn hình ----
+B_Top --> M_Prog  : <color:red><b>import chéo màn hình</b></color>
+B_Logs --> M_Log  : <color:red><b>import chéo màn hình</b></color>
+D_Panel --> M_Log : <color:red><b>import chéo màn hình</b></color>
+
+note bottom of SC_DM
+  <b>data_management_widgets.py (1.156 dòng) đã vô tình</b>
+  <b>trở thành "thư viện widget chung" của cả app</b> — 3 file ở 2
+  màn hình khác với tay vào đây lấy LogPanelWidget /
+  AppProgressBarWidget. Không ai quyết định điều này;
+  nó xảy ra vì không có chỗ nào khác để đặt.
+end note
+
+note as N_DUP #FFCDD2
+  <b>VẤN ĐỀ 2 — cùng một hình dạng, viết lại 3–5 lần</b>
+  ---
+  • Nhãn mục (section label): 3 bản (DevBoard, DataMgmt, Backtest modals)
+  • Badge nhỏ: 4 bản (_side_badge, _interval_badge, MetricCard._badge_label, DevBoard _BADGE_BG)
+  • Dòng dữ liệu + nút hành động: 4 bản (_TradeLogRow, _StatusRow, _KLineRow, _GapRow)
+  • Header cột + thanh phân trang: 3 bản (TradeLogs, KLineInspector, GapInspector)
+  • Banner thông báo trong khung: 5 bản (4 ở Backtest + 1 audit banner ở DataMgmt)
+  • Thẻ số liệu: 2 bản (MetricCardWidget, _build_stat_tile)
+  ---
+  <b>VẤN ĐỀ 3 — màu nền card có ~10 biến thể gần trùng nhau</b>
+  #12141d · #14161f · #131418 · #131822 · #141620 · #15171e · #171922 · #1b1d28 · #1c1e2d · #1e1e24
+  ...còn <b>Palette.BG_CARD (#111318)</b> thì <b>không màn nào dùng</b>.
+  backtest_top_panel.py và dev_board_panel.py chép <b>y hệt 5 giá trị</b> của nhau
+  → docstring "bản sắc testbed riêng" của Dev Board đã không còn đúng.
+  ---
+  <b>Số đo bằng guard của chính engine:</b> 12 lớp kế thừa thẳng QFrame/QDialog,
+  130 hex literal, 246 lần gọi setStyleSheet trong src/presentation/ui.
+end note
+
+@enduml

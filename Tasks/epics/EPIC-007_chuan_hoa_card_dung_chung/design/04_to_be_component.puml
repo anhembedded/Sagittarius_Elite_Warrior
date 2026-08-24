@@ -1,0 +1,89 @@
+@startuml 04_to_be_component
+' EPIC-007 — Sơ đồ thành phần ĐỀ XUẤT: ai sở hữu cái gì, ai phụ thuộc ai.
+' Ràng buộc kiến trúc: mũi tên chỉ được đi từ Elite -> Engine, không bao giờ ngược lại,
+' và KHÔNG có mũi tên nào giữa 2 gói screens/ với nhau.
+
+title EPIC-007 — ĐỀ XUẤT: quyền sở hữu và hướng phụ thuộc
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+package "Sagittarius_Engine :: pyside_mvc.widgets" as ENGINE #E8F0FE {
+  component "**style.py**\napply_role() · StyleRole\n<b>nơi duy nhất có hex literal</b>" as W_Style #FFF9C4
+  component "**surface.py** (giữ nguyên)\nSurface · Panel · Card · SelectableCard\n\n**surfaces/** — 1 file 1 lớp\n<b>log_panel · stat_card · data_row</b>\n<b>table_card · banner · tab_bar</b>" as W_Surface #FFF9C4
+  component "**overlay.py** (giữ nguyên)\nOverlay\n\n**overlays/** — 1 file 1 lớp\n<b>confirm_overlay · picker_overlay</b>" as W_Overlay #FFF9C4
+  component "**controls.py** (giữ nguyên)\nStyledButton · StyledCheckBox\nStyledField · DateTimeField\n\n**controls/** — 1 file 1 lớp\n<b>styled_label · section_label · badge</b>\n<b>styled_progress_bar</b>" as W_Controls #FFF9C4
+  component "**guards.py**\nfind_inline_stylesheets\nfind_bare_qt_base_widgets\n<b>+ QWidget vào diện kiểm tra</b>\n<b>+ coverage guard cho showcase</b>" as W_Guards #FFF9C4
+  component "**showcase/**\ntrang trình diễn mọi widget\n<i>(guard coverage kiểm tra ở đây)</i>" as W_Show #FFF9C4
+
+  W_Surface ..> W_Style
+  W_Overlay ..> W_Style
+  W_Controls ..> W_Style
+  W_Guards ..> W_Surface : kiểm tra
+  W_Show ..> W_Surface
+  W_Show ..> W_Overlay
+  W_Show ..> W_Controls
+}
+
+package "Sagittarius_Engine :: pyside_mvc.tokens" as TOKENS #E8F0FE {
+  component "theme_bridge · defaults\nbgCard · border · accent · radius* · space*" as T_Bridge #C8E6C9
+}
+W_Style ..> T_Bridge : đọc token
+
+package "Elite :: presentation/ui/components" as EL_COMP #FFF3E0 {
+  component "ChartCard (Card)" as C_Chart
+  component "TimeRangeCard (Card)" as C_Time
+  component "SymbolPickerOverlay (PickerOverlay)" as C_Symbol
+  component "TradeSideBadge (Badge)" as C_Side
+  component "Sidebar" as C_Side2
+}
+
+package "Elite :: screens/dashboard" as EL_D #F3E5F5 {
+  component "DashboardView\nDevBoardPanel (Panel)" as D
+}
+package "Elite :: screens/backtest" as EL_B #F3E5F5 {
+  component "BackTestView\nBackTestTopPanel (Panel)\nTradeLogRow (DataRow)\n11 × Overlay" as B
+}
+package "Elite :: screens/data_management" as EL_M #F3E5F5 {
+  component "DataManagementView\nStatusRow/KlineRow/GapRow (DataRow)\nCoverageSegment (Panel)" as M
+}
+package "Elite :: screens/settings" as EL_S #F3E5F5 {
+  component "SettingsView\nSettingsCard (Card)" as S
+}
+
+component "**Palette**\nas_ui_dict() — 1 bộ token duy nhất\n<b>bgCard = #111318 cho MỌI card</b>" as PAL #FFECB3
+PAL --> T_Bridge : nạp 1 lần ở app_bootstrapper
+
+D --> EL_COMP
+B --> EL_COMP
+M --> EL_COMP
+S --> EL_COMP
+
+D --> ENGINE
+B --> ENGINE
+M --> ENGINE
+S --> ENGINE
+EL_COMP --> ENGINE
+
+note as N_GONE #C8E6C9
+  <b>BIẾN MẤT sau epic này</b>
+  ---
+  ✗ 3 mũi tên import chéo màn hình (Backtest→DataMgmt ×2, Dashboard→DataMgmt)
+  ✗ Elite's <b>components/base_card.py</b> (BaseCard trùng lặp với engine's Card, không được style)
+  ✗ 18 hằng hex riêng của màn hình (_CARD_BG, _PANEL_BG, _FIELD_BG, ...)
+  ✗ ~10 biến thể màu nền card → còn <b>1</b> (Palette.BG_CARD)
+  ✗ 12 lớp kế thừa thẳng QFrame/QDialog → còn <b>0</b>
+  ✗ phần lớn trong 246 lời gọi setStyleSheet → chỉ còn ở style.py + các ngoại lệ có đánh dấu
+end note
+
+note as N_RULE #FFF9C4
+  <b>Luật kiểm chứng được bằng máy (guard, không phải lời hứa)</b>
+  ---
+  1. Không file nào trong <i>screens/</i> được import từ <i>screens/</i> khác  → guard mới ở Elite
+  2. Không hex literal ngoài <i>style.py</i> (trừ dòng có <code>token-exempt</code>) → guard đã có
+  3. Không kế thừa thẳng QFrame/QDialog/<b>QWidget</b> khi đã có Surface/Overlay → guard đã có, <b>mở rộng thêm QWidget</b>
+  4. Mọi type trong <i>widgets/</i> phải xuất hiện ở showcase → guard mới (chỗ trống engine tự ghi nhận là còn thiếu)
+end note
+
+@enduml

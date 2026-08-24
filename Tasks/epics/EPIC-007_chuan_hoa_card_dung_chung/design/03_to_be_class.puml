@@ -1,0 +1,214 @@
+@startuml 03_to_be_class
+' EPIC-007 — Thiết kế ĐỀ XUẤT. Mọi lớp mới ở engine đều ghi kèm số instance
+' thật hiện có (kỷ luật ADR EPIC-006 §4: chỉ tạo abstraction khi ≥2 nhu cầu thật).
+
+title EPIC-007 — ĐỀ XUẤT: hình dạng ở Engine, tên nghiệp vụ ở Elite
+
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam classAttributeIconSize 0
+
+legend top left
+  |= Màu |= Ý nghĩa |
+  |<#C8E6C9>| đã có ở engine, giữ nguyên |
+  |<#FFF9C4>| <b>THÊM MỚI</b> ở engine — kèm số consumer thật |
+  |<#FFE0B2>| Elite: dùng chung nhiều màn, có tên nghiệp vụ |
+  |<#E1BEE7>| Elite: riêng của 1 màn hình |
+endlegend
+
+package "Qt (PySide6)" #ECEFF1 {
+  class QFrame
+  class QDialog
+  class QLabel
+  class QProgressBar
+  class QPushButton
+  class QCheckBox
+  class QLineEdit
+}
+
+package "Engine :: pyside_mvc.widgets  —  CHỈ HÌNH DẠNG, KHÔNG BIẾT NGHIỆP VỤ" #E8F0FE {
+
+  together {
+    abstract class Surface #C8E6C9
+    class Panel #C8E6C9
+    class Card #C8E6C9
+    class SelectableCard #C8E6C9
+  }
+
+  class LogPanel #FFF9C4 {
+    .. 3 consumer thật ..
+    append(line) / clear() / copy()
+    auto_scroll · max_lines
+  }
+  class StatCard #FFF9C4 {
+    .. 2 consumer thật ..
+    title · value · suffix · badge
+    set_data(...)
+  }
+  class DataRow #FFF9C4 {
+    .. 4 consumer thật ..
+    add_cell(w, weight)
+    add_action(button)
+  }
+  class TableCard #FFF9C4 {
+    .. 3 consumer thật ..
+    set_columns([...])
+    set_rows([DataRow])
+    pagination (page/total)
+  }
+  class Banner #FFF9C4 {
+    .. 5 consumer thật ..
+    kind: INFO|WARN|DANGER
+    text · action_button
+  }
+  class TabBar #FFF9C4 {
+    .. 2 consumer thật ..
+    set_tabs([...]) · current
+    currentChanged
+  }
+
+  abstract class Overlay #C8E6C9
+  class ConfirmOverlay #FFF9C4 {
+    .. 2 consumer thật ..
+    message · confirm/cancel text
+    danger: bool
+  }
+  class PickerOverlay #FFF9C4 {
+    .. 7 consumer thật ..
+    set_items([...]) · search
+    selected
+  }
+
+  abstract class StyledLabel #FFF9C4
+  class SectionLabel #FFF9C4 {
+    .. 3 consumer thật ..
+  }
+  class Badge #FFF9C4 {
+    .. 4 consumer thật ..
+    kind: NEUTRAL|SUCCESS|DANGER|ACCENT
+  }
+  class StyledProgressBar #FFF9C4 {
+    .. 2 consumer thật ..
+  }
+
+  class StyledButton #C8E6C9
+  class StyledCheckBox #C8E6C9
+  class StyledField #C8E6C9
+  class DateTimeField #C8E6C9
+
+  class "apply_role() + StyleRole" as StyleMod #FFF9C4 {
+    SURFACE · SELECTABLE_CARD · FIELD
+    PRIMARY/SECONDARY/DANGER_BUTTON · CHECKBOX
+    <b>+ BADGE</b>
+    <b>+ BANNER_INFO / BANNER_WARN / BANNER_DANGER</b>
+    <b>+ SECTION_LABEL</b>
+    <b>+ TABLE_HEADER</b>
+    <b>+ PROGRESS</b>
+  }
+
+  QFrame <|-- Surface
+  Surface <|-- Panel
+  Surface <|-- Card
+  Panel <|-- SelectableCard
+  Card <|-- LogPanel
+  Card <|-- StatCard
+  Card <|-- TableCard
+  Panel <|-- DataRow
+  Panel <|-- Banner
+  Panel <|-- TabBar
+
+  QDialog <|-- Overlay
+  Overlay <|-- ConfirmOverlay
+  Overlay <|-- PickerOverlay
+
+  QLabel <|-- StyledLabel
+  StyledLabel <|-- SectionLabel
+  StyledLabel <|-- Badge
+  QProgressBar <|-- StyledProgressBar
+  QPushButton <|-- StyledButton
+  QCheckBox <|-- StyledCheckBox
+  QLineEdit <|-- StyledField
+  StyledField <|-- DateTimeField
+}
+
+note right of StyleMod
+  <b>Vẫn là nơi DUY NHẤT có hex literal.</b>
+  Mọi lớp ở trên gọi apply_role() trong __init__
+  của chính nó — composition, không kế thừa style
+  (ADR EPIC-006 §3, giữ nguyên không đổi).
+  <b>6 chuỗi đơn tuyến, không đa kế thừa ở đâu cả.</b>
+end note
+
+note bottom of TableCard
+  <b>Tên "TableCard" trùng 1 trong 4 stub QML đã bị xoá</b>
+  (ActionCard/FormCard/StreamCard/TableCard). Khác biệt:
+  4 stub đó suy đoán từ docstring, <b>0 instance thật</b>;
+  cái này có <b>3 instance thật đang tồn tại</b> với cùng một
+  contract (header cột + hàng + phân trang). Nếu vẫn thấy
+  gợn, đổi tên thành ListCard — không đổi thiết kế.
+end note
+
+package "Elite :: components/  —  DÙNG CHUNG, CÓ TÊN NGHIỆP VỤ" #FFF3E0 {
+  class ChartCard #FFE0B2 {
+    pyqtgraph · candlestick
+    <b>bỏ BaseCard, kế thừa Card</b>
+  }
+  class TimeRangeCard #FFE0B2 {
+    interval/candle của sàn — 2 consumer
+    <b>không lên engine: là khái niệm giao dịch</b>
+  }
+  class SymbolPickerOverlay #FFE0B2 {
+    danh sách symbol Binance — 2 consumer
+  }
+  class TradeSideBadge #FFE0B2 {
+    LONG/SHORT — ánh xạ nghiệp vụ sang Badge.kind
+  }
+}
+
+Card <|-- ChartCard
+Card <|-- TimeRangeCard
+PickerOverlay <|-- SymbolPickerOverlay
+Badge <|-- TradeSideBadge
+
+package "Elite :: screens/  —  RIÊNG TỪNG MÀN" #F3E5F5 {
+  class DevBoardPanel #E1BEE7
+  class BackTestTopPanel #E1BEE7
+  class TradeLogRow #E1BEE7
+  class StatusRow #E1BEE7
+  class KlineRow #E1BEE7
+  class GapRow #E1BEE7
+  class CoverageSegment #E1BEE7
+  class StrategyPropertiesOverlay #E1BEE7
+  class BotParamField #E1BEE7
+  class SettingsCard #E1BEE7
+}
+
+Panel <|-- DevBoardPanel
+Panel <|-- BackTestTopPanel
+DataRow <|-- TradeLogRow
+DataRow <|-- StatusRow
+DataRow <|-- KlineRow
+DataRow <|-- GapRow
+Panel <|-- CoverageSegment
+Overlay <|-- StrategyPropertiesOverlay
+StyledField <|-- BotParamField
+Card <|-- SettingsCard
+
+note as N_RULE #FFF9C4
+  <b>TIÊU CHÍ 3 TẦNG — dùng để trả lời "cái này để đâu?"</b>
+  ---
+  <b>1. Lên Engine</b> khi: mô tả được mà <b>không nhắc tới giao dịch/Binance/nến/backtest</b>,
+     VÀ đã có <b>≥2 instance thật</b> ở Elite hôm nay.
+     → LogPanel, StatCard, DataRow, TableCard, Banner, TabBar, Badge, SectionLabel,
+       ConfirmOverlay, PickerOverlay, StyledProgressBar
+  ---
+  <b>2. Ở Elite/components/</b> khi: dùng ở ≥2 màn <b>nhưng</b> tên/hành vi mang nghiệp vụ.
+     → ChartCard, TimeRangeCard, SymbolPickerOverlay, TradeSideBadge
+  ---
+  <b>3. Ở lại screens/</b> khi: chỉ 1 màn dùng.
+     → DevBoardPanel, BackTestTopPanel, CoverageSegment, StrategyPropertiesOverlay, SettingsCard
+  ---
+  Tiêu chí này chính là thứ đã ngăn 4 stub QML thừa ở EPIC-006 — giữ nguyên, không nới lỏng.
+end note
+
+@enduml
