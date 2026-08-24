@@ -1,5 +1,6 @@
 import dataclasses
 from datetime import UTC, datetime
+from threading import Event
 from unittest.mock import Mock
 
 import pytest
@@ -147,3 +148,46 @@ def test_dto_is_frozen(handler, mock_repo):
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         dto.symbol = "ETHUSDT"  # type: ignore[misc]
+
+
+def test_cancelled_query_does_not_start_repository_scan(handler, mock_repo):
+    """BUG-041: shutdown cancellation must prevent queued database work."""
+    cancellation = Event()
+    cancellation.set()
+    query = ScanAllDatabasesQuery(
+        symbols=["BTCUSDT", "ETHUSDT"],
+        intervals=["1m", "1h"],
+        cancellation_requested=cancellation.is_set,
+    )
+
+    results = handler.execute(query)
+
+    assert results == []
+    mock_repo.get_database_status.assert_not_called()
+
+
+def test_cancellation_stops_pairs_queued_after_an_inflight_scan(handler, mock_repo):
+    """BUG-041: a cancellation raised mid-scan must skip the remaining pairs."""
+    cancellation = Event()
+    symbols = [f"SYMBOL_{index}" for index in range(100)]
+    snapshot = DatabaseStatusSnapshot(
+        first_record=None,
+        last_record=None,
+        total_candles=1,
+        gaps=0,
+    )
+
+    def cancel_during_first_scan(*_args, **_kwargs):
+        cancellation.set()
+        return snapshot
+
+    mock_repo.get_database_status.side_effect = cancel_during_first_scan
+    query = ScanAllDatabasesQuery(
+        symbols=symbols,
+        intervals=["1m"],
+        cancellation_requested=cancellation.is_set,
+    )
+
+    handler.execute(query)
+
+    assert 1 <= mock_repo.get_database_status.call_count < len(symbols)

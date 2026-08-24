@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Callable
+from threading import Lock
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
@@ -32,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 )
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 logger = logging.getLogger("App.DataManagement")
 
@@ -73,9 +75,32 @@ class ScanCoordinator:
         self._ui_symbol_options_signal = ui_symbol_options_signal
         self._transition_fsm = transition_fsm
         self._get_current_fsm_state = get_current_fsm_state
+        self._cancellation_lock = Lock()
+        self._cancellation_tokens: set[CancellationToken] = set()
 
-    def run_auto_discover(self) -> None:
+    def create_cancellation_token(self) -> CancellationToken:
+        """Create and register a token before a scan is submitted to the pool."""
+        token = CancellationToken()
+        with self._cancellation_lock:
+            self._cancellation_tokens.add(token)
+        return token
+
+    def cancel(self) -> None:
+        """Idempotently cancel every queued or active database scan."""
+        with self._cancellation_lock:
+            tokens = tuple(self._cancellation_tokens)
+        for token in tokens:
+            token.cancel()
+
+    def _release_cancellation_token(self, token: CancellationToken) -> None:
+        with self._cancellation_lock:
+            self._cancellation_tokens.discard(token)
+
+    def run_auto_discover(
+        self, cancellation_token: CancellationToken | None = None
+    ) -> None:
         """Background worker: Scans all existing SQLite shards on disk and populates the table."""
+        token = cancellation_token or self.create_cancellation_token()
         action = self._tracker.begin_action(
             DataManagementActionKind.AUTO_DISCOVER,
             None,
@@ -95,7 +120,11 @@ class ScanCoordinator:
                     f"Exchange symbols not available at auto-discover: {err}"
                 )
 
-            query = ScanAllDatabasesQuery(symbols=[], intervals=[])
+            query = ScanAllDatabasesQuery(
+                symbols=[],
+                intervals=[],
+                cancellation_requested=token.is_cancelled,
+            )
             results: list[DatabaseStatusDTO] = self._dispatcher.dispatch(
                 ScanAllDatabasesQuery, query
             )
@@ -140,6 +169,7 @@ class ScanCoordinator:
             self._ui_log_signal(f"Storage Vault auto-discovery complete: {exc}")
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
+            self._release_cancellation_token(token)
             self._ui_stats_refresh_signal()
 
     def run_check_status(self, symbol: str, interval: str) -> None:
@@ -187,15 +217,25 @@ class ScanCoordinator:
         finally:
             self._ui_unlock_signal()
 
-    def run_scan_all(self, symbols: list[str], intervals: list[str]) -> None:
+    def run_scan_all(
+        self,
+        symbols: list[str],
+        intervals: list[str],
+        cancellation_token: CancellationToken | None = None,
+    ) -> None:
         """Background worker: dispatches ScanAllDatabasesQuery."""
+        token = cancellation_token or self.create_cancellation_token()
         action = self._tracker.begin_action(
             DataManagementActionKind.SCAN_ALL,
             {"symbols": symbols, "intervals": intervals},
             self._get_current_fsm_state(),
         )
         try:
-            query = ScanAllDatabasesQuery(symbols=symbols, intervals=intervals)
+            query = ScanAllDatabasesQuery(
+                symbols=symbols,
+                intervals=intervals,
+                cancellation_requested=token.is_cancelled,
+            )
             results: list[DatabaseStatusDTO] = self._dispatcher.dispatch(
                 ScanAllDatabasesQuery, query
             )
@@ -237,6 +277,7 @@ class ScanCoordinator:
             self._ui_error_log_signal(f"Error scanning databases: {exc}")
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
+            self._release_cancellation_token(token)
             self._ui_unlock_signal()
 
     def run_clear_data(self, symbol: str, interval: str) -> None:

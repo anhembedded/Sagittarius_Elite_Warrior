@@ -178,10 +178,13 @@ def test_on_check_all_status_submits_background_task(
     view_model.requestCheckAllStatus()
 
     assert presenter.fsm.current_state == UIMode.SCANNING
-    method, symbols, intervals = mock_thread_mgr.submit.call_args.args
+    method, symbols, intervals, cancellation_token = (
+        mock_thread_mgr.submit.call_args.args
+    )
     assert method == presenter._run_scan_all
     assert symbols == list(view_model.symbols)
     assert intervals == list(view_model.intervals)
+    assert isinstance(cancellation_token, CancellationToken)
 
 
 def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
@@ -628,6 +631,15 @@ def test_presenter_shutdown_cancels_inflight_sync_token_idempotently(
     # Calling shutdown again should be idempotent and not raise
     presenter.shutdown()
     assert token.cancel.call_count == 1
+
+
+def test_presenter_shutdown_cancels_inflight_database_scan(presenter):
+    """BUG-041: shutdown must signal ScanAllDatabasesQuery before engine teardown."""
+    presenter._scan_coordinator.cancel = Mock()
+
+    presenter.shutdown()
+
+    presenter._scan_coordinator.cancel.assert_called_once()
 
 
 def test_presenter_shutdown_prevents_subsequent_worker_submissions(

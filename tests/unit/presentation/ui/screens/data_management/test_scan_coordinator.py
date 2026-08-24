@@ -161,3 +161,17 @@ def test_scan_coordinator_vacuum_uses_injected_repository(scan_fixture):
     market_data_repo.vacuum.assert_called_once()
     signals["ui_stats_refresh"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+
+
+def test_scan_coordinator_cancel_is_wired_into_scan_query(scan_fixture):
+    """BUG-041: coordinator cancellation must reach the application handler."""
+    coordinator, dispatcher, _, _, _ = scan_fixture
+    dispatcher.dispatch.return_value = []
+
+    cancellation_token = coordinator.create_cancellation_token()
+    coordinator.cancel()
+    coordinator.run_scan_all(["BTCUSDT"], ["1m"], cancellation_token)
+
+    query = dispatcher.dispatch.call_args.args[1]
+    assert query.cancellation_requested is not None
+    assert query.cancellation_requested() is True

@@ -89,6 +89,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BUG-041`**: [App không thoát tiến trình khi đóng trong lúc Storage Vault đang scan DB](bug_report/completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)
 - [x] **`BOT-101`**: [RSI compose 2 instance smoothing tổng quát thay vì tự tính avg_gain/avg_loss](completed/BOT-101_rsi_compose_generalized_smoothing.md)
 - [x] **`BOT-112C`**: [Trực quan hóa Lỗ hổng & Vá Từng Đoạn Dữ liệu](completed/BOT-112C_gap_detection_visualizer_and_selective_repair.md)
 - [x] **`BOT-112B`**: [Bảng Tra cứu Nến KLine Inspector & Kiểm định Tính toàn vẹn](completed/BOT-112B_kline_data_inspector_and_integrity_audit.md)

@@ -1,7 +1,7 @@
 # BUG-041 — App không thực sự thoát tiến trình khi có job nền đang chạy trên `ThreadManager`
 
-**Trạng thái:** 🔴 Chưa sửa — nguyên nhân đã xác minh thật, fix chưa làm (ngoài phạm vi
-`EPIC-006`, để lại cho task riêng)
+**Trạng thái:** ✅ Fixed 2026-08-24 — root-caused, regression-tested ở unit +
+process level, full CI verified
 **Phát hiện:** 2026-08-24, user chạy app tay, thấy phải Ctrl+C mới thoát, log tiếp tục ghi
 ~68 giây sau khi "App stopped" đã in ra
 
@@ -53,16 +53,36 @@ gọi `.shutdown()` tự nó không block, nhưng interpreter vẫn treo ở bư
 worker thread thật sự xong. Vì `run_auto_discover()` không có cách nào ngắt sớm vòng quét 1350×6,
 job đó chạy tới khi tự xong — đúng khớp với độ trễ 68s quan sát được.
 
-## 3. Fix thật cần làm (chưa làm — ngoài phạm vi `EPIC-006`)
+## 3. Fix
 
-Cooperative cancellation xuyên suốt: truyền 1 `threading.Event` (hoặc token tương đương) vào
-`ScanAllDatabasesQuery` handler
-(`src/application/use_cases/queries/scan_all_databases/handler.py`), check giữa mỗi
-symbol/interval trong vòng lặp quét, `set()` event đó từ `ThreadManagerExtension.shutdown()`
-trước khi gọi `executor.shutdown()`. Cần quyết định API shape ở `IThreadManager`
-(`Sagittarius_Engine`) trước — task riêng, không phải 1-dòng fix.
+Không cần đổi API `IThreadManager` ở Engine. `MainWindow.shutdown()` đã shutdown presenter
+trước Engine, nên ownership đúng nằm ở app:
 
-## 4. Không liên quan `EPIC-006`
+1. `ScanCoordinator` tạo và đăng ký một `CancellationToken` riêng **trước khi** mỗi scan được
+   submit. Cách này phủ cả race “shutdown xảy ra trước khi worker bắt đầu chạy”.
+2. `DataManagementPresenter.shutdown()` và nút Cancel gọi `ScanCoordinator.cancel()` để hủy
+   mọi scan đang queued/running.
+3. `ScanAllDatabasesQuery` mang callback `cancellation_requested`; handler kiểm tra trước shard
+   discovery và trước từng symbol/interval pair. Các task executor đã queued lập tức trả về mà
+   không mở/thăm DB mới.
+4. Handler giữ log DEBUG dương tính:
+   `Database scan observed cancellation and skipped queued pairs.` để chứng minh đường hủy thật
+   sự chạy, đồng thời hữu ích cho chẩn đoán shutdown sau này.
+
+## 4. Regression test và verification
+
+- Red trước fix: 4 test fail đúng vì query không nhận `cancellation_requested`, coordinator
+  không có `cancel()`, và presenter shutdown không gọi cancellation scan.
+- Green sau fix: 49 unit tests liên quan scan/presenter pass.
+- Process probe vĩnh viễn:
+  `tests/integration/presentation/test_shutdown_database_scan_process.py` chạy
+  `scripts/shutdown_database_scan_probe.py` với 2.000 pair, mỗi pair chậm 50 ms. Sau khi cancel,
+  process hoàn tất trong khoảng 1,1 giây (timeout 5 giây) và phát đúng cancellation log. Không
+  có fix, workload này cần khoảng 10 giây với 10 inner workers.
+- `scripts/ci-local.ps1 -Full`: Ruff/format/Mypy pass, 1.700 tests + 38 sanity pass,
+  coverage 93,07%, run log không có WARNING/ERROR/CRITICAL.
+
+## 5. Không liên quan `EPIC-006`
 
 Phát hiện giữa lúc làm `EPIC-006E` (Backtest QML migration) nhưng nguyên nhân nằm hoàn toàn ở
 tầng threading/Application layer, không phải QML/QtWidgets. Không block epic này.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
@@ -59,3 +60,8 @@ class ScanAllDatabasesQuery:
 
     symbols: list[str] = field(default_factory=list)
     intervals: list[str] = field(default_factory=list)
+    cancellation_requested: Callable[[], bool] | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )

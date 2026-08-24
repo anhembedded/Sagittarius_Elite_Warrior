@@ -45,6 +45,10 @@ class ScanAllDatabasesQueryHandler(
         @param query ScanAllDatabasesQuery carrying lists of symbols and intervals.
         @return List of DatabaseStatusDTO, one per non-empty symbol/interval pair.
         """
+        if query.cancellation_requested and query.cancellation_requested():
+            logger.debug("[storage-vault] Database scan cancelled before it started.")
+            return []
+
         symbols = (
             query.symbols if query.symbols else self._repository.list_available_shards()
         )
@@ -62,6 +66,8 @@ class ScanAllDatabasesQueryHandler(
             return results
 
         def _scan(args: tuple[str, str]) -> DatabaseStatusDTO | None:
+            if query.cancellation_requested and query.cancellation_requested():
+                return None
             return self._scan_single(*args)
 
         max_workers = min(len(tasks), 10)
@@ -69,6 +75,11 @@ class ScanAllDatabasesQueryHandler(
             for dto in executor.map(_scan, tasks):
                 if dto is not None:
                     results.append(dto)
+
+        if query.cancellation_requested and query.cancellation_requested():
+            logger.debug(
+                "[storage-vault] Database scan observed cancellation and skipped queued pairs."
+            )
 
         return results
 

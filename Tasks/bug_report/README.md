@@ -27,8 +27,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa / đã đóng** | 40 |
+| 🔴 **Đang mở** | 2 |
+| ✅ **Đã sửa / đã đóng** | 41 |
 | 📈 **Tổng** | **43** |
 
 ---
@@ -38,7 +38,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
-| **[BUG-041](incomplete/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)** | App không thực sự thoát tiến trình khi có job nền đang chạy trên `ThreadManager` | 🟡 P2 | 2026-08-24 | Nguyên nhân đã xác minh bằng source CPython thật: `_python_exit()` luôn `join()` mọi worker thread bất kể `wait=False`. `ScanCoordinator` không có cooperative cancellation nên job quét 1350×6 chạy tới xong (đo được trễ 68s). Fix cần quyết định API shape ở `IThreadManager` (Engine) — không phải fix 1 dòng. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky). Không phải do test nơi nó xuất hiện, không phải do fixture `repo` chuẩn (đã có `dispose_all()`). Nghi phạm: `gc.collect()` lặp trong `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` làm lộ ra leak có sẵn từ test khác — chưa bisect ra nguồn chính xác. |
 
 ---
@@ -47,6 +46,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-041](completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)** | App không thực sự thoát tiến trình khi có job nền đang chạy trên `ThreadManager` | 🟡 P2 | 2026-08-24 | Per-scan cooperative cancellation xuyên Presenter → Coordinator → Query Handler; process probe 2.000 pair thoát ~1,1s, full CI 1.700 tests pass. |
 | **[BUG-043](completed/BUG-043_run_ui_cannot_import_local_engine.md)** | `run-ui.ps1` không import được Sagittarius Engine local | 🟡 P2 | 2026-08-24 | Bootstrap engine bằng editable sibling checkout hoặc GitHub theo `install-rule.md`; đồng thời cấu hình đúng local import path. |
 | **[BUG-042](completed/BUG-042_paper_exchange_log_flood_freezes_ui_thread.md)** | Backtest nhiều trade đơ cứng UI — `PaperExchange` log INFO mỗi lệnh khớp, đổ vào `LogListModel` trên UI thread | 🔴 **P1** | 2026-08-24 | Trong chính hồ sơ này (2026-08-24). Tuân thủ `logging-rule.md` Rule 4 & 6: hạ 3 log per-fill/close sang `DEBUG`, giữ init ở `INFO`. `SignalLogHandler` (INFO) không nhận log per-trade; test red $\rightarrow$ green, CI full pass 1695 tests. |
 | **[BUG-039](completed/BUG-039_native_chart_default_regressed_backtest_visuals.md)** | Native chart làm mặc định khiến Backtest mất grid, nến vẽ sai, tự phá chart khi có trend zone | 🔴 **P1** | 2026-08-24 | **Đóng 2026-08-24:** xoá hẳn native chart (`36f3a9f`) — không còn backend thì không còn đường tái hiện. Chính hồ sơ này là lý do quyết định xoá. |

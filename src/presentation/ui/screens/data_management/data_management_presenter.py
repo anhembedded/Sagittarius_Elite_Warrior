@@ -201,7 +201,8 @@ class DataManagementPresenter(BasePresenter):
         # above already wires everything; there is no load step left to call.
 
         # Auto-discover shards and symbol list in background on open
-        self._thread_manager.submit(self._run_auto_discover)
+        scan_token = self._scan_coordinator.create_cancellation_token()
+        self._thread_manager.submit(self._run_auto_discover, scan_token)
 
     # ------------------------------------------------------------------ #
     # Coordinators & Tracker access
@@ -322,6 +323,7 @@ class DataManagementPresenter(BasePresenter):
         self._tracker.invalidate_active()
         if self._cancellation_token is not None:
             self._cancellation_token.cancel()
+        self._scan_coordinator.cancel()
         self._sync_coordinator.cancel()
         self._gap_coordinator.cancel()
 
@@ -365,10 +367,12 @@ class DataManagementPresenter(BasePresenter):
         if self.fsm:
             self.fsm.transition_to(UIMode.SCANNING)
 
+        scan_token = self._scan_coordinator.create_cancellation_token()
         self._thread_manager.submit(
             self._run_scan_all,
             list(self._view_model.symbols),
             list(self._view_model.intervals),
+            scan_token,
         )
 
     @Slot()
@@ -378,6 +382,7 @@ class DataManagementPresenter(BasePresenter):
         if self._cancellation_token is not None:
             self._cancellation_token.cancel()
         self._tracker.invalidate_active()
+        self._scan_coordinator.cancel()
         self._sync_coordinator.cancel()
         self._gap_coordinator.cancel()
         if self.fsm and self.fsm.current_state in (UIMode.SYNCING, UIMode.SCANNING):
@@ -592,14 +597,21 @@ class DataManagementPresenter(BasePresenter):
     # Backward-compatible worker delegates (delegate to Coordinators)
     # ================================================================== #
 
-    def _run_auto_discover(self) -> None:
-        self._scan_coordinator.run_auto_discover()
+    def _run_auto_discover(
+        self, cancellation_token: CancellationToken | None = None
+    ) -> None:
+        self._scan_coordinator.run_auto_discover(cancellation_token)
 
     def _run_check_status(self, symbol: str, interval: str) -> None:
         self._scan_coordinator.run_check_status(symbol, interval)
 
-    def _run_scan_all(self, symbols: list[str], intervals: list[str]) -> None:
-        self._scan_coordinator.run_scan_all(symbols, intervals)
+    def _run_scan_all(
+        self,
+        symbols: list[str],
+        intervals: list[str],
+        cancellation_token: CancellationToken | None = None,
+    ) -> None:
+        self._scan_coordinator.run_scan_all(symbols, intervals, cancellation_token)
 
     def _run_single_sync(
         self,
