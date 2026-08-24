@@ -1,6 +1,6 @@
 # EPIC-006 — Bỏ hẳn QML, thuần QtWidgets
 
-**Trạng thái:** 🟡 Đang làm (1/6 sub-task xong)
+**Trạng thái:** 🟡 Đang làm (2/6 sub-task xong)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; quyết định hướng đi dài hạn
 **Nhánh:** `epic/EPIC-006-drop-qml`
@@ -64,7 +64,7 @@ thể đúng ngay cả khi ta không bỏ QML, và ngược lại). Tóm tắt:
 | ID | Việc | Trạng thái |
 | :--- | :--- | :---: |
 | **EPIC-006A** | Xoá 2.099 dòng QML đã chết (4 file EPIC-005 để lại) + 1 test standalone lỗi thời (`BUG-028` không còn khả năng xảy ra khi hết QML) | ✅ Xong |
-| **EPIC-006B** | Engine: xây `Surface`/`Card`/`Overlay`/`Styled*`/`apply_role()` theo ADR §2, port Gallery-equivalent, guard mới | 🔴 Chưa làm |
+| **[EPIC-006B](completed/EPIC-006B_engine_widget_base_classes.md)** | Engine: xây `Surface`/`Card`/`Overlay`/`Styled*`/`apply_role()` theo ADR §2, guard mới (`TASK-038`) | ✅ Xong |
 | **EPIC-006C** | Elite: `Sidebar.qml` (238 dòng, always-on, pilot rủi ro thấp nhưng lỗi lộ ngay) | 🔴 Chưa làm |
 | **EPIC-006D** | Elite: `DevBoardPanel.qml` (385 dòng, Dashboard, độc lập) | 🔴 Chưa làm |
 | **EPIC-006E** | Elite: Backtest — chia nhỏ như `EPIC-005E` (top panel / trade logs / modals riêng biệt) | 🔴 Chưa làm |
