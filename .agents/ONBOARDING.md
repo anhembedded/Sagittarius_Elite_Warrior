@@ -31,6 +31,7 @@ bookkeeping `ROADMAP.md`).
 | — | `Tasks/ROADMAP.md` | Khi cần biết hệ thống đang ở đâu, task nào tồn tại |
 | — | `Tasks/bug_report/README.md` | Bug Board — hệ thống đang gánh lỗi gì (mở/đã sửa) |
 | — | `Tasks/epics/README.md` | Danh sách Epic đang có (mỗi Epic có thư mục + README riêng, xem §3) |
+| — | **§12 của file này** | **Bắt tay vào việc đang dở** — epic nào đang chạy, task con tiếp theo, cơ chế mới ở Engine phải dùng |
 
 `.agents/rules/sentinel-rule.md` và `install-rule.md` là chuyên đề riêng
 (bảo mật / cài đặt), đọc khi task chạm đúng phạm vi đó.
@@ -408,3 +409,88 @@ PowerShell**. Trên Linux dùng lệnh ở §5.
   cause/file:line/bằng chứng theo đúng `bug-fix-rule.md` và §3/§4 ở trên; quy
   tắc "mức project lead" ở đây chỉ áp dụng cho câu trả lời trong hội thoại,
   không áp dụng cho nội dung ghi vào file.
+
+---
+
+## 12. Bắt tay vào việc đang dở — đọc mục này trước khi gõ dòng đầu tiên
+
+**Thêm 2026-08-25.** Mục này tồn tại để một agent mới đọc xong là làm được ngay, không phải
+dò lại từ đầu.
+
+### 12.1 Ba lệnh đầu tiên, lần nào cũng vậy
+
+```bash
+git -C . status
+git -C ../Sagittarius_Engine status
+cat Tasks/epics/README.md
+```
+
+**Việc ở dự án này thường được để lại chưa commit giữa các phiên** — theo đúng §7, agent không
+tự commit. Tính đến 2026-08-25, **cả hai repo đều đang có một lượng lớn công việc đã làm xong,
+đã verify, nhưng chưa commit**. Nên `git status` không phải thủ tục: bảng task trông như chưa
+ai đụng cộng với cây làm việc bẩn nghĩa là việc **đã làm rồi**, chỉ chưa được ghi lại. Đọc diff
+trước khi kết luận một task còn nguyên.
+
+### 12.2 Hai epic đang chạy, đều điều phối từ repo này
+
+| Epic | Nội dung | Trạng thái (đọc `README.md` của epic để biết chính xác) |
+| :--- | :--- | :--- |
+| [`EPIC-007`](../Tasks/epics/EPIC-007_chuan_hoa_card_dung_chung/README.md) | Chuẩn hoá card dùng chung, đưa hình dạng lên Engine | Chưa bắt đầu. 7 task con, `007A`–`007C` làm ở repo **Engine** trước |
+| [`EPIC-008`](../Tasks/epics/EPIC-008_chuan_hoa_luong_event/README.md) | Chuẩn hoá luồng sự kiện | Đang làm. `008A`–`008E` ở **Engine**, `008F`–`008H` ở repo này |
+
+**Bắt buộc: đọc `README.md` của epic + file `DECISION_*.md` (ADR) của nó trước khi làm bất kỳ
+task con nào.** ADR ghi lại những quyết định đã tranh luận xong với user — trong đó có vài
+quyết định **đảo ngược** phương án trước đó. Tự suy luận lại sẽ tốn một phiên và thường ra kết
+quả khác.
+
+`EPIC-007` có thêm 4 sơ đồ PlantUML ở `Tasks/epics/EPIC-007_.../design/` (2 hiện trạng, 2 đề
+xuất) — xem trước khi động vào widget.
+
+### 12.3 Task con tiếp theo và thứ tự
+
+Mỗi epic `README.md` có bảng "Thứ tự thực hiện" với cột trạng thái và cột **Repo**. Task ghi
+`Engine` phải commit ở repo Engine, không phải repo này (§2, §9). Đừng làm nhảy cóc: bảng đó
+xếp theo rủi ro tăng dần và có ghi rõ cái nào chặn cái nào.
+
+Khi làm xong một task con: `git mv incomplete/EPIC-XXXY_*.md completed/`, ghi phần "Xong
+<ngày>" vào cuối file đó (root cause, quyết định, bằng chứng verify), cập nhật dòng tương ứng
+trong bảng ở `README.md` của epic và số "x/y task con xong" ở đầu file. Đúng quy ước
+`Tasks/epics/README.md`.
+
+### 12.4 Cơ chế mới ở Engine — dùng, đừng viết lại
+
+`EPIC-008` đã dựng sẵn một số cơ chế ở repo Engine. Viết cái khác thay thế là tái tạo lại đúng
+lỗi mà chúng vừa đóng. Chi tiết đầy đủ ở `Sagittarius_Engine/.agents/context/events.md`:
+
+| Cần gì | Dùng cái gì |
+| :--- | :--- |
+| Định nghĩa event | kế thừa `BaseEvent` — được `event_id`/`occurred_on`/`event_name` + tự vào catalog |
+| Presenter đăng ký nghe event | `self.subscribe(...)`, **không** `self.event_bus.on(...)` — tự nhảy về main thread và tự gỡ khi dispose |
+| Dọn dẹp khi tắt presenter | override `shutdown()`, **không bao giờ** override `dispose()` |
+| Báo lỗi handler | `report_handler_failure` |
+| Logger khi không được inject | `resolve_bus_logger` — **không** `NullLogger` |
+
+### 12.5 Bốn nguyên tắc user đã chốt, áp cho mọi task
+
+1. **Sửa cơ chế, không hot fix.** Cùng một lỗi lặp ở nhiều nơi thì sửa mỗi chỗ được báo là
+   không chấp nhận được. Sửa mà không giải thích được *vì sao* triệu chứng biến mất thì không
+   tính là sửa (`bug-fix-rule.md`).
+2. **Một abstraction một file, và chia được bao nhiêu file thì chia.** Gộp những thứ khác
+   abstraction vào một file bị coi là anti-pattern. Đối trọng duy nhất là Single-Scope Cohesion
+   trong `code-rule.md`: những định nghĩa mô tả **cùng một vòng đời** phải ở chung (enum + ma
+   trận của một FSM). Cùng abstraction nhiều symbol → một file; khác abstraction → tách.
+3. **Trình design trước khi implement** với mọi việc tái cấu trúc: PlantUML class + component,
+   as-is và to-be, chỉ rõ cái gì dùng chung / cái gì riêng từng màn — duyệt xong mới viết task
+   file và code.
+4. **Không commit, không push nếu user không yêu cầu** (§7).
+
+### 12.6 Bẫy khi chạy gate ở repo Engine
+
+`scripts/ci-local.ps1` bên Engine có thể báo đỏ những test **không liên quan** tới thay đổi của
+bạn: `BUG-006` (hai test "no QML runtime warnings" phụ thuộc thứ tự collection — thêm một file
+test mới cũng đổi được kết quả) và `tests/test_agents_docs_resolve.py` (không tìm thấy `grep`
+trên `PATH` khi chạy qua PowerShell).
+
+**Trước khi kết luận lỗi là do mình gây ra, A/B nó:** `git stash push -u` → chạy → `git stash
+pop` → chạy. Mất hai phút, và đó là khác biệt giữa một regression thật với một giờ đuổi theo
+môi trường.
