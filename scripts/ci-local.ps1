@@ -219,19 +219,13 @@ if ($venvActivateWin) {
 
 $failed = @()
 
-$aliasDir = Join-Path $botRoot ".venv_alias"
-if (-not (Test-Path $aliasDir)) { New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null }
-
-$packageAlias = Join-Path $aliasDir "Sagittarius_Elite_Warrior"
-if (-not (Test-Path $packageAlias)) {
-    # Junctions are NTFS-only; POSIX platforms use a symlink instead.
-    $aliasLinkType = if ($isWindowsOs) { "Junction" } else { "SymbolicLink" }
-    New-Item -ItemType $aliasLinkType -Path $packageAlias -Target $botRoot -Force | Out-Null
-}
-$testExecutionRoot = $aliasDir
-
+# The repo directory's own name now matches the Python package name
+# (Sagittarius_Elite_Warrior), so $repoRoot alone on PYTHONPATH already
+# resolves `import Sagittarius_Elite_Warrior` -- no .venv_alias symlink
+# needed. That alias existed only to paper over a checkout cloned with
+# hyphens (see run-ui.ps1's still-present name-mismatch fallback).
 $pythonPathSeparator = [System.IO.Path]::PathSeparator
-$env:PYTHONPATH = "$aliasDir$pythonPathSeparator$botRoot$pythonPathSeparator$repoRoot"
+$env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
 
 # ---------------------------------------------------------------------------
 # Lint
@@ -269,11 +263,11 @@ if (-not $SkipLint) {
     # defining module in the same analysis pass (verified empirically while
     # writing this gate, see Tasks/reports/EPIC-002A_mypy_baseline_audit.md §3).
     Write-Step "Mypy — Static Type Check (src + scripts, baseline-gated)"
-    Push-Location $aliasDir
+    Push-Location $repoRoot
     try {
         $engineDir = Join-Path $repoRoot "Sagittarius-Engine"
-        $env:MYPYPATH = "$engineDir$pythonPathSeparator$aliasDir"
-        $env:PYTHONPATH = "$aliasDir$pythonPathSeparator$botRoot$pythonPathSeparator$repoRoot"
+        $env:MYPYPATH = "$engineDir$pythonPathSeparator$repoRoot"
+        $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
         & $mypyExe --config-file (Join-Path $botRoot "pyproject.toml") --namespace-packages --explicit-package-bases "Sagittarius_Elite_Warrior/src" "Sagittarius_Elite_Warrior/scripts"
         if ($LASTEXITCODE -ne 0) { $failed += "Mypy"; Write-Failure "Mypy" }
         else { Write-Success "Mypy" }
@@ -288,10 +282,16 @@ if (-not $SkipLint) {
 # Tests
 # ---------------------------------------------------------------------------
 if (-not $SkipTests) {
+    # $repoRoot's basename check: the repo directory is expected to already
+    # be named Sagittarius_Elite_Warrior, matching the Python package name,
+    # so running pytest from $repoRoot with target "Sagittarius_Elite_Warrior/tests"
+    # resolves against the real directory -- no .venv_alias symlink needed.
+    $testExecutionRoot = $repoRoot
+
     $pythonPathSeparator = [System.IO.Path]::PathSeparator
     # $repoRoot is required so the sibling `sagittarius_engine` package
     # (one level above the bot root) is importable during tests.
-    $env:PYTHONPATH = "$aliasDir$pythonPathSeparator$botRoot$pythonPathSeparator$repoRoot"
+    $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
     $env:QT_QPA_PLATFORM = "offscreen"
     # Suppress 3rd-party DeprecationWarnings at Python interpreter level so they are
     # silenced even at module import time, before pytest filterwarnings can intercept.
