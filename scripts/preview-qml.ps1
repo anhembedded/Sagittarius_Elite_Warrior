@@ -27,14 +27,10 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $botRoot   = Split-Path -Parent $scriptDir
 $repoRoot  = Split-Path -Parent $botRoot
 
-$aliasDir = Join-Path $botRoot ".venv_alias"
-if (-not (Test-Path $aliasDir)) { New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null }
-$packageAlias = Join-Path $aliasDir "Sagittarius_Elite_Warrior"
-if (-not (Test-Path $packageAlias)) {
-    New-Item -ItemType Junction -Path $packageAlias -Target $botRoot -Force | Out-Null
-}
-
-$env:PYTHONPATH = "$aliasDir;$botRoot"
+# The repo directory's own name matches the Python package name
+# (Sagittarius_Elite_Warrior), so $repoRoot alone resolves
+# `import Sagittarius_Elite_Warrior` -- no .venv_alias symlink needed.
+$env:PYTHONPATH = "$repoRoot;$botRoot"
 
 $venvRoot = $null
 if (Test-Path (Join-Path $botRoot ".venv")) {

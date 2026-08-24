@@ -3,10 +3,13 @@ $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot   = Split-Path -Parent $scriptDir
-$aliasDir  = Join-Path $botRoot ".venv_alias"
+$repoRoot  = Split-Path -Parent $botRoot
 $pytestExe = Join-Path $botRoot ".venv\Scripts\pytest.exe"
 
-$env:PYTHONPATH     = $aliasDir
+# The repo directory's own name matches the Python package name
+# (Sagittarius_Elite_Warrior), so $repoRoot alone resolves
+# `import Sagittarius_Elite_Warrior` -- no .venv_alias symlink needed.
+$env:PYTHONPATH     = $repoRoot
 $env:QT_QPA_PLATFORM = "offscreen"
 
 $TestTarget = "Sagittarius_Elite_Warrior/tests/unit"
@@ -26,7 +29,7 @@ foreach ($w in $workerCounts) {
     $label = if ($w -eq 1) { "Sequential (no xdist)" } else { "$w workers" }
     Write-Host "`n  ▶  Running: $label ..." -ForegroundColor Yellow
 
-    Push-Location $aliasDir
+    Push-Location $repoRoot
     try {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
