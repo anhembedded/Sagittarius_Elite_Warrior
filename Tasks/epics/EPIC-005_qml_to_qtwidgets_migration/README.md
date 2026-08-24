@@ -54,6 +54,15 @@ năng ở đúng component nặng nhất của một app giao dịch.
 
 `NativeBacktestChart.qml` và `components/native_chart_card.py` **không nằm trong epic này.**
 
+> ⚠️ **Cập nhật 2026-08-24 — đoạn ngay trên đã lỗi thời, giữ lại để đối chiếu.** Nó giả định app
+> đang chạy trên chart native. Thực tế: native chưa từng render một khung hình nào trong
+> production (mọi backtest run đều fallback về pyqtgraph), và từ 2026-08-24 nó đã bị tắt hẳn qua
+> config. **Backtest hiện chạy trên `ChartCard`/pyqtgraph — tức là QtWidgets** — và đó lại là bản
+> vẽ đầy đủ hơn (có grid, thân nến đúng, background region). Xem
+> [`DECISION_2026-08-23.md` §7](DECISION_2026-08-23.md) và
+> [`BUG-039`](../../bug_report/incomplete/BUG-039_native_chart_default_regressed_backtest_visuals.md).
+> Hệ quả: kết quả cuối của epic **không còn bắt buộc** phải là "QtWidgets + QML(chart)".
+
 ## 🧭 Hệ quả phải chấp nhận trước khi bắt đầu
 
 **Migrate KHÔNG xoá được pipeline styling thứ hai.** Vì chart ở lại QtQuick, app vẫn phải
