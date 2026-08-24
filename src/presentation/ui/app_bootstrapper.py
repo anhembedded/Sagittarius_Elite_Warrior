@@ -25,20 +25,13 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.main import create_app
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-    get_icon_loader,
-)
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.presentation.ui.native_chart_runtime import (
-    configure_native_chart_environment,
-)
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
-    configure_app_qml,
     get_theme_bridge,
     setup_qt_signal_handling,
 )
@@ -78,9 +71,7 @@ def main() -> None:
     # The --dev/--debug -> log level/file mapping is generic engine behavior
     # (see sagittarius_engine.infrastructure.logging.dev_verbosity); what
     # else dev/debug mode turns on here is this app's own concern —
-    # ConfigKeys.DEV_MODE (button-click auto-logging, per BaseView) and
-    # requiring the native chart environment so a dev session always has it
-    # available to diagnose against.
+    # ConfigKeys.DEV_MODE (button-click auto-logging, per BaseView).
     verbosity = resolve_dev_verbosity(sys.argv, _LOG_DIR)
     if verbosity is not None:
         config_manager.load_dict(
@@ -90,14 +81,10 @@ def main() -> None:
                 "log.file": verbosity.log_file,
             }
         )
-        configure_native_chart_environment(required=True)
         print(
             f"{'Debug' if verbosity.is_debug else 'Dev'} mode enabled — log "
             f"level {verbosity.log_level}, full session written to "
-            f"{verbosity.log_file} (attach this file to bug reports). Button "
-            "clicks are auto-logged for real QPushButtons only (e.g. "
-            "ChartCard's timeframe toolbar); QML screens are not "
-            "instrumented (see BaseView._ButtonClickWatcher)."
+            f"{verbosity.log_file} (attach this file to bug reports)."
         )
 
     app_engine = create_app(config_manager)
@@ -115,14 +102,11 @@ def main() -> None:
     sig_timer = setup_qt_signal_handling(app)
     _apply_font(app, config_manager)
     _apply_theme(app, config_manager)
-    configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
-    # EPIC-006B: pyside_mvc.widgets' apply_role() reads get_theme_bridge()
-    # directly and needs it populated regardless of whether any QML screen
-    # ever constructs (configure_app_qml() only stashes the palette for
-    # QmlHostView's own lazy registration, it does not populate the shared
-    # bridge itself — see that function's docstring). Called unconditionally
-    # here rather than only from the widgets/QML path, so screen construction
-    # order (QtWidgets vs QML) never matters.
+    # EPIC-006F: no QML left in this app at all (the last consumer, the
+    # native chart, was deleted outright) — pyside_mvc.widgets' apply_role()
+    # is the only remaining reader of get_theme_bridge(), populated
+    # directly instead of as a side effect of configure_app_qml() (which no
+    # longer needs calling here).
     get_theme_bridge(Palette.as_ui_dict())
 
     # ------------------------------------------------------------------ #

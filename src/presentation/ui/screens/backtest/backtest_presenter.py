@@ -120,7 +120,6 @@ from .logic.bot_params_form import (
     parse_bot_params,
 )
 from .logic.chart_canvas_view import ChartDisplayMode
-from .logic.native_backtest_chart_host_adapter import NativeUnsupportedFeatureError
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
@@ -486,12 +485,7 @@ class BackTestPresenter(BasePresenter):
                 )
             )
         )
-        # BOT-098F6E: Default backend is now "auto" (attempts native first,
-        # falls back to python). "python" remains as explicit fallback override.
         view.set_chart_host_factory(self.container.resolve(BacktestChartHostFactory))
-        view.set_chart_backend(
-            str(self.config.get(ConfigKeys.BACKTEST_CHART_BACKEND.value, "auto"))
-        )
         view.render_symbol_cards([self._symbol])
         self._connect_chart_controls()
 
@@ -685,7 +679,7 @@ class BackTestPresenter(BasePresenter):
             self._view_model.selectedTimeframe = timeframe
 
     def _sync_chart_toolbar_timeframe(self) -> None:
-        """Mirror the ViewModel timeframe in the visible native chart header."""
+        """Mirror the ViewModel timeframe in the visible chart header."""
         if self.view.chart_cards:
             self.view.chart_cards[0].set_active_timeframe(
                 self._view_model.selectedTimeframe
@@ -1303,12 +1297,7 @@ class BackTestPresenter(BasePresenter):
             trades=len(result.trades),
         )
         self._logger.log_klines_loaded(len(klines), self._symbol)
-        try:
-            self.view.on_backtest_data_ready(result, klines, volume)
-        except NativeUnsupportedFeatureError:
-            self._fallback_to_python_after_unsupported_native_feature(
-                "backtest OHLCV data"
-            )
+        self.view.on_backtest_data_ready(result, klines, volume)
         # BUG-032: this is the one place a real BacktestResult chart lands —
         # clears the preview flag `_on_preview_data_ready` set, so QML stops
         # showing the "preview" badge once real results are on screen.
@@ -1325,8 +1314,7 @@ class BackTestPresenter(BasePresenter):
         Dev Board scripts, just without needing that class at all (a
         strategy has no `.line_colors()`/`.compute()` to drive it). `width`
         (BOT-111) lets a strategy request a different line weight per line,
-        e.g. a thinner entry EMA than trend EMA — Python `ChartCard` only;
-        the native chart's indicator ABI has no per-line width concept."""
+        e.g. a thinner entry EMA than trend EMA."""
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
@@ -1341,10 +1329,7 @@ class BackTestPresenter(BasePresenter):
         """BOT-113: the backtested strategy's own `classify_trend_zone()`
         output, emitted once per run (`_emit_strategy_trend_zones`) under a
         fixed key — unlike `_on_chart_script_region` there is only ever one
-        strategy per run, so no key needs to travel through the signal.
-        Native chart has no background-region ABI at all (BOT-032's own
-        scope boundary); same fallback-to-Python path every other
-        native-unsupported feature already uses."""
+        strategy per run, so no key needs to travel through the signal."""
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
@@ -1427,61 +1412,24 @@ class BackTestPresenter(BasePresenter):
     def _apply_after_native_fallback(
         self, feature_name: str, draw, *, drawn_count: int
     ) -> None:
-        """Draw `draw` on the live host, replaying it if that forces a rebuild.
+        """Draw `draw` on the live host.
 
-        BUG-038: the old shape caught `NativeUnsupportedFeatureError`, rebuilt
-        with the Python host, and then **returned** — dropping the very content
-        the rebuild was performed for. A strategy with real trend zones tore the
-        native chart down (correctly) and still rendered no background at all,
-        because the spans were never re-applied to the new host. That is worse
-        than either honest outcome: it pays the whole cost of the fallback and
-        delivers none of its benefit, violating `BOT-098F6`'s "no silent visual
-        omission" rule in exactly the way the fallback exists to prevent.
-
-        The `[chart-region]` lines exist because nothing in the log said whether
-        the background was actually *drawn* — only which host had been chosen,
-        so a reader could not tell this defect from a working run
-        (`.agents/rules/logging-rule.md` §2/§5: log what was applied, not just
-        what was decided).
+        Named for its now-deleted native-fallback history (BUG-038): a
+        native C++/QML chart host used to raise `NativeUnsupportedFeatureError`
+        for exactly this class of content (script regions/info/markers,
+        equity/BOTH subplot) and this method rebuilt onto the Python host
+        and replayed `draw`. The native host is gone outright — `draw`
+        always succeeds on `PythonBacktestChartHost` — but the call sites
+        (`_on_chart_strategy_region`/`_on_chart_script_region`/etc.) still
+        route through here rather than calling `draw(card)` directly, so
+        the `[chart-region]` logging (`.agents/rules/logging-rule.md`
+        §2/§5: log what was applied, not just what was decided) stays in
+        one place.
         """
         card = self.view.chart_cards[0] if self.view.chart_cards else None
         if card is None:
             return
-        try:
-            draw(card)
-        except NativeUnsupportedFeatureError:
-            self._fallback_to_python_after_unsupported_native_feature(feature_name)
-            rebuilt = self.view.chart_cards[0] if self.view.chart_cards else None
-            if rebuilt is None:
-                logger.error(
-                    "[chart-region] %s: host rebuild left no chart card; "
-                    "%d item(s) dropped",
-                    feature_name,
-                    drawn_count,
-                )
-                return
-            try:
-                draw(rebuilt)
-            except NativeUnsupportedFeatureError:
-                # The rebuilt host should be the Python one, which supports all
-                # of this. If it still refuses, the content really is lost —
-                # say so at ERROR instead of letting it escape into
-                # @safe_ui_action, which swallows exceptions and would put the
-                # chart back to failing invisibly (ONBOARDING trap #8).
-                logger.error(
-                    "[chart-region] %s: rebuilt host still refused %d item(s); "
-                    "content dropped",
-                    feature_name,
-                    drawn_count,
-                )
-                return
-            logger.info(
-                "[chart-region] %s: replayed %d item(s) onto %s after fallback",
-                feature_name,
-                drawn_count,
-                type(rebuilt).__name__,
-            )
-            return
+        draw(card)
         logger.debug(
             "[chart-region] %s: drew %d item(s) on %s",
             feature_name,
@@ -1489,35 +1437,12 @@ class BackTestPresenter(BasePresenter):
             type(card).__name__,
         )
 
-    def _fallback_to_python_after_unsupported_native_feature(
-        self, feature_name: str
-    ) -> None:
-        """BOT-098F6D: content outside native's OHLC/volume/indicator/
-        truthful-marker scope (script regions/info/arbitrary markers,
-        equity/BOTH subplot) must never be silently dropped — rebuild with
-        the Python host so it actually renders, and log exactly once why."""
-        self._log_dev_trace(
-            "native_chart_unsupported_feature_fallback", feature=feature_name
-        )
-        logger.warning(
-            "Native Backtest chart does not support %s; rebuilding with the "
-            "Python host.",
-            feature_name,
-        )
-        self.view.set_chart_backend("python")
-        self.view.render_symbol_cards([self._symbol])
-        self._reset_indicator_bookkeeping_after_host_rebuild()
-        self._connect_chart_controls()
-        self.view.refresh_chart()
-
     @Slot(str)
     @safe_ui_action
     def _on_chart_mode_changed(self, mode_value: str) -> None:
         mode = ChartDisplayMode(mode_value)
         self._log_dev_trace("chart_mode_changed", mode=mode_value)
-        rebuilt = self.view.set_chart_mode(mode)
-        if rebuilt:
-            self._reset_indicator_bookkeeping_after_host_rebuild()
+        self.view.set_chart_mode(mode)
         is_price_scale = mode is not ChartDisplayMode.EQUITY
         # Entry/exit PRICE markers AND the strategy indicator overlay are
         # both price-scale — meaningless, and for the overlay actively
@@ -1618,14 +1543,12 @@ class BackTestPresenter(BasePresenter):
         if not new_symbol or new_symbol == self._symbol:
             return
         self._symbol = new_symbol
-        # Full chart host rebuild, same as every other render_symbol_cards()
-        # call site outside __init__ (BOT-098F6D's native-fallback path) —
-        # skipping the bookkeeping reset/reconnect leaves the new host's
-        # controls unwired and stale ResourceScope dispose callbacks bound
-        # to the just-deleted old host (BUG-013). Deliberately NOT calling
-        # view.refresh_chart() here: it replays _last_klines/_last_result,
-        # which still belong to the PREVIOUS symbol — _request_chart_preview()
-        # below fetches and renders fresh data for the new one instead.
+        # Full chart host rebuild — skipping the bookkeeping reset/reconnect
+        # leaves the new host's controls unwired and stale ResourceScope
+        # dispose callbacks bound to the just-deleted old host (BUG-013).
+        # _last_klines/_last_result still belong to the PREVIOUS symbol —
+        # _request_chart_preview() below fetches and renders fresh data for
+        # the new one instead.
         self.view.render_symbol_cards([self._symbol])
         self._reset_indicator_bookkeeping_after_host_rebuild()
         self._connect_chart_controls()
@@ -1748,12 +1671,7 @@ class BackTestPresenter(BasePresenter):
             else self._format_coverage_message(coverage),
         )
         self._view_model.set_needs_data_sync(not coverage.is_fully_covered)
-        try:
-            self.view.on_preview_data_ready(klines, volume)
-        except NativeUnsupportedFeatureError:
-            self._fallback_to_python_after_unsupported_native_feature(
-                "chart preview data"
-            )
+        self.view.on_preview_data_ready(klines, volume)
         self._view_model.set_chart_preview_mode(True)
 
     @Slot()

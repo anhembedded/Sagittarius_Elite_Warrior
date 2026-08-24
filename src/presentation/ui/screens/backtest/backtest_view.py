@@ -28,9 +28,10 @@ _MAIN_SPLITTER_MINIMUM_HEIGHT = 1000
 
 class BackTestView(BaseView):
     """
-    @brief View for the Backtest Screen, using a scrollable layout with a
-    QSplitter: a top toolbar/metrics panel (QML), a tall chart area
-    (QtWidgets `ChartCard` or native host), and a bottom trade-logs panel (QML).
+    @brief View for the Backtest Screen: plain QtWidgets throughout
+    (EPIC-006E) — a top toolbar/metrics panel (`BackTestTopPanel`), a tall
+    chart area (`ChartCard`/pyqtgraph), and a bottom trade-logs panel
+    (`BackTestTradeLogsPanel`), inside a scrollable `QSplitter` layout.
     @details
     Wraps content inside a `QScrollArea` to allow smooth vertical rolling on
     any viewport height without squeezing the candlestick chart or trade logs.
@@ -47,7 +48,6 @@ class BackTestView(BaseView):
         # DI-resolved instance via set_chart_host_factory() in production
         # (BOT-098F6D) — BackTestView itself has no container access.
         self._chart_host_factory = BacktestChartHostFactory()
-        self._chart_backend = "auto"
         self._last_symbols: list[str] = []
         self.chart_cards: list[IBacktestChartHost] = []
         self._chart_dev_mode = False
@@ -159,7 +159,6 @@ class BackTestView(BaseView):
                 symbol,
                 use_opengl=self._chart_opengl_enabled,
                 cached_interaction=self._chart_cached_interaction_enabled,
-                backend=self._effective_chart_backend(),
             )
             host.set_dev_mode(self._chart_dev_mode)
             host.set_display_timezone(self._display_timezone)
@@ -191,12 +190,6 @@ class BackTestView(BaseView):
         (BackTestView itself has no container access) before the first
         render_symbol_cards() call."""
         self._chart_host_factory = factory
-
-    def set_chart_backend(self, backend: str) -> None:
-        """BOT-098F6D: "python" | "native" | "auto", from
-        backtest.chart.backend config. Takes effect on the next
-        render_symbol_cards() call — an already-built host is not hot-swapped."""
-        self._chart_backend = backend
 
     def set_display_timezone(self, tz_name: str) -> None:
         """Propagates display timezone to all active chart cards."""
@@ -232,36 +225,17 @@ class BackTestView(BaseView):
         self.chartPreviewRendered.emit()
         self._remove_equity_subplot(card)
 
-    def _effective_chart_backend(self) -> str:
-        """BOT-098F6F: Native host supports OHLC, EQUITY, and BOTH modes natively."""
-        return self._chart_backend
-
     @property
     def chart_mode(self) -> ChartDisplayMode:
         return self._chart_mode
 
-    def set_chart_mode(self, mode: ChartDisplayMode) -> bool:
-        """Returns True when the effective backend changed and the chart
-        host was rebuilt from scratch — BackTestPresenter uses this to know
-        it must drop any indicator-line bookkeeping tied to the old host
-        (BOT-098F6D bug, 2026-08-18: a rebuilt host starts with zero
-        indicators, but the presenter kept believing stale ones were still
-        registered, which crashed the next visibility toggle and left
-        strategy/script lines silently missing)."""
-        backend_before = self._effective_chart_backend()
+    def set_chart_mode(self, mode: ChartDisplayMode) -> None:
+        """`PythonBacktestChartHost` supports OHLC/EQUITY/BOTH directly, so
+        switching modes never needs a host rebuild — it did while a native
+        host (with a narrower supported-mode set) could still be active."""
         self._chart_mode = mode
-        rebuilt = False
-        if self._effective_chart_backend() != backend_before and self._last_symbols:
-            # The active host's renderer is no longer valid for this mode
-            # (e.g. native + OHLC -> Equity, or back) — rebuild rather than
-            # push incompatible data into it. BOT-098F6D acceptance
-            # criterion 2 explicitly allows this: "requires view
-            # reconstruction on backend change."
-            self.render_symbol_cards(self._last_symbols)
-            rebuilt = True
         if self._last_result is not None:
             self._render_chart()
-        return rebuilt
 
     def set_volume_visible(self, visible: bool) -> None:
         card = self._current_card()
@@ -281,15 +255,6 @@ class BackTestView(BaseView):
 
     def _current_card(self):
         return self.chart_cards[0] if self.chart_cards else None
-
-    def refresh_chart(self) -> None:
-        """Re-renders whatever data is already cached (last run result or
-        preview klines) onto the current host — the public re-entry point
-        BackTestPresenter uses after rebuilding the host mid-session
-        (BOT-098F6D unsupported-native-feature fallback), instead of
-        reaching into this View's private render state directly."""
-        if self._last_result is not None or self._last_klines:
-            self._render_chart()
 
     def _render_chart(self) -> None:
         card = self._current_card()

@@ -192,56 +192,17 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-> [!NOTE]
-> **Quyết định 2026-08-19: Backtest core coi như xong, native chart perf (`BOT-098F4`/`F5`/`F6C`/`F6D` dưới đây) tạm gác lại.**
-> Engine tĩnh (`BOT-006` Phase 1) + độ tin cậy kết quả (`BOT-078`, xem Backlog) đã hoàn
-> thành và có test thật; đường Python chart (mặc định an toàn, `"auto"` tự fallback khi
-> native gặp gì chưa hỗ trợ) đã đủ dùng production. 4 task còn mở dưới đây thuần là *tối
-> ưu hiệu năng render native*, bị khoá cứng bởi 2 bug Windows-only chưa root-cause xong
-> (`BUG-015`/`BUG-016`, xem NOTE Windows bên dưới) — không phải việc nên ưu tiên tiếp tục
-> ngay bây giờ. Không đóng/huỷ 4 task này (khác `BOT-023`), chỉ hạ độ ưu tiên sprint;
-> mở lại khi có phiên làm việc trên máy Windows thật để đào tiếp `BUG-015`/`BUG-016`.
-
-- [ ] **BOT-098F4**: [Native marker, crosshair/tooltip and dev-FPS interaction](in_progress/BOT-098F4_native_marker_crosshair_fps.md) — hoàn thiện interaction native trước benchmark/migration.
-- [ ] **BOT-098F5**: [Shared Backtest renderer benchmark (Python vs native)](in_progress/BOT-098F5_shared_backtest_renderer_benchmark.md) — fixture chung, `grabWindow()`/DPR/semantic diagnostics và report A/B local trước mọi production cutover.
-- [ ] **BOT-098F6C**: [Native Backtest interaction wrapper](in_progress/BOT-098F6C_native_chart_interaction_wrapper.md) — `NativeBacktestChart.qml` (axis/tooltip/FPS + drag/wheel/hover thật) xong; drag/wheel/geometry-retained đã có bằng chứng thật đáng tin. **Cập nhật:** giờ `BOT-098F6D` đã nối native vào app thật, nên phần "phải chạy qua `main.py`/app thật, không chỉ probe độc lập" đã có bằng chứng thật (Linux/Wayland) — nhưng tiêu chí 3 của chính task này tự đặt tên riêng "Windows desktop probe" (màu pixel/FPS thật qua RHI Windows) nên vẫn **chưa xong**, không đổi.
-- [ ] **BOT-098F6D**: [Backtest native opt-in cutover](in_progress/BOT-098F6D_backtest_native_opt_in_cutover.md) — `BacktestChartHostFactory` giờ chọn native/Python thật qua `backtest.chart.backend` (env → config → mặc định `"python"`); `NativeBacktestChartHostAdapter` bridge port cho OHLC/volume/indicator/marker thật, raise lỗi rõ ràng cho phần chưa hỗ trợ (equity/BOTH/script region-info/marker lạ) để `BackTestPresenter` tự rebuild lại Python — không bao giờ để trống chart. Tìm và sửa 1 bug thật lúc viết test cho đường fallback: `_render_chart()` đọc `self._last_result.trades` vô điều kiện, crash khi fallback xảy ra lúc còn ở trạng thái preview (`_last_result=None`). **Bằng chứng Desktop E2E thật lần đầu tiên** cho toàn bộ epic `BOT-098F`: script mới `scripts/native_backtest_desktop_e2e.py` chạy đúng `MainWindow`/`QApplication` thật trên phiên Wayland thật của máy này (không offscreen), xác nhận host thật trong màn Backtest thật là `NativeBacktestChartHostAdapter` (không phải mock), nạp dữ liệu preview thật qua đúng call path production dùng, gửi input chuột/wheel thật — 0 Qt warning, exit 0 hai lần chạy độc lập. 1112 test + `ci-local.ps1 -Full` xanh. **Chưa xong:** bằng chứng RHI thật trên Windows (máy này là Linux) — không nằm trong 6 tiêu chí của chính task này nhưng vẫn ghi nhận là mở; báo cáo DPR1/DPR2 riêng cho đúng production host path (khác với benchmark harness độc lập) cũng chưa xuất bản riêng. **Cập nhật 2026-08-19:** tiêu chí 5 của chính task này phụ thuộc `BOT-098F5`, mà `F5` đang mở lại vì `BUG-016` (xem NOTE bên dưới) — nên `F6D` chưa thể đóng độc lập với `F5`.
+*(trống — xem NOTE bên dưới)*
 
 > [!NOTE]
-> **Cập nhật 2026-08-19, verify thật trên máy Windows 11 thật (D3D11 RHI thật,
-> `graphicsApi() == Direct3D11`, không phải software rendering).** Giả định
-> cũ của NOTE này — "không cách nào làm trên máy Linux, phải chờ máy
-> Windows" — **sai một nửa**: khi thật sự chạy trên Windows, evidence-gathering
-> script của chính `F4`/`F6C` (`native_backtest_chart_interaction_probe.py`)
-> lộ ra nó có **3 bug thật trong chính bản thân probe**, tồn tại độc lập với
-> platform, từng bị đổ lỗi nhầm cho "Wayland/software-RHI flaky": (1) vòng
-> lặp hover gửi lại đúng 1 toạ độ cố định 50 lần — Qt không bao giờ phát lại
-> sự kiện move nếu con trỏ chưa thật sự đổi vị trí, nên không bao giờ có thể
-> thành công; (2) đọc `measuredFps` ngay sau khi tương tác xong dưới 100ms,
-> trong khi code native chỉ publish sau khi tích luỹ ≥500ms paint liên tục;
-> (3) fixture marker đặt cố định ở price=60000 trong khi giá nến trong bài
-> test chạy 60000→60400, nên marker **không bao giờ** nằm trong viewport mà
-> probe thật sự ghé qua. Sau khi sửa cả 3 (cùng session này), probe chạy
-> thành công thật trên Windows: màu pixel thật đúng, FPS thật ~47, hover
-> crosshair thật resolve đúng, 0 Qt warning — đúng thứ NOTE cũ nói "không làm
-> được", giờ **làm được**.
->
-> Nhưng verify thật cũng lộ ra **2 vấn đề mới, thật, chưa có trước đây** —
-> không phải lý do cũ ("chưa có máy Windows") nữa:
-> - [`BUG-015`](bug_report/incomplete/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md):
->   OHLCV/volume geometry rebuild ngẫu nhiên (~75% số lần chạy) khi chỉ
->   drag+wheel thường, vi phạm tiêu chí 4 của chính `BOT-098F6C`. Nghi vấn
->   `sizeChanged` trong `native_chart_item.cpp` bị trigger giả, **chưa xác
->   nhận** — cần thêm `qDebug()` + build lại mới kết luận được.
-> - [`BUG-016`](bug_report/incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md):
->   `chart_migration_benchmark.py --desktop-contract` — đúng script tiêu chí
->   6 của `BOT-098F5` yêu cầu — treo hoàn toàn trên Windows, 0 output, CPU
->   gần như không tăng suốt 15+ phút, phải force-kill. Chưa root-cause được
->   vị trí treo.
->
-> `F4`/`F6C`'s màu-pixel/FPS-thật giờ đã có bằng chứng Windows thật (xem
-> `BUG-015`/`BUG-016` để biết phần còn thiếu chính xác là gì thay vì lặp lại
-> khẳng định chung chung "chưa xong trên Windows").
+> **Cập nhật 2026-08-24, do user quyết định: native C++/QML chart backend đã
+> bị xoá hoàn toàn** (`BUG-039`: chưa từng render 1 frame production kể từ khi
+> tắt mặc định 2026-08-24, pyqtgraph đủ nhanh) để mở khoá `EPIC-006F` (dỡ QML
+> kit của Engine). 4 task hiệu năng native (`BOT-098F4`/`F5`/`F6C`/`F6D`) và
+> 2 bug Windows-only chưa root-cause xong chặn chúng (`BUG-015`/`BUG-016`) đã
+> chuyển sang [`cancelled/`](cancelled/) — không còn đối tượng để áp dụng.
+> Toàn bộ lịch sử điều tra Windows RHI (D3D11, probe bug fixes) trước đây ghi
+> ở đây giờ nằm trong chính các file task/bug đã huỷ, không lặp lại ở đây.
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
 

@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-23
+> Cập nhật: 2026-08-24
 
 ---
 
@@ -27,8 +27,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa** | 35 |
+| 🔴 **Đang mở** | 2 |
+| ✅ **Đã sửa / đã đóng** | 36 |
 | 📈 **Tổng** | **38** |
 
 ---
@@ -39,7 +39,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | :--- | :--- | :---: | :---: | :--- |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky). Không phải do test nơi nó xuất hiện, không phải do fixture `repo` chuẩn (đã có `dispose_all()`). Nghi phạm: `gc.collect()` lặp trong `test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live` làm lộ ra leak có sẵn từ test khác — chưa bisect ra nguồn chính xác. |
-| **[BUG-016](incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | Root cause đã khoanh chính xác 2026-08-21: treo đúng tại `view.grabWindow()` (API `QQuickView` top-level, khác `QWidget.grab()` production dùng qua `QQuickWidget`) — không phải 1 dòng sửa được ngay vì đây là chủ đích đo riêng đường đó theo docstring. Tác động thật thấp: native đã là default production (`BOT-098F6E` xong), chỉ chặn đóng bookkeeping `BOT-098F5`/`F6D`. |
 
 ---
 
@@ -47,6 +46,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-016](completed/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)** | `chart_migration_benchmark.py --desktop-contract` treo vô hạn trên Windows | 🔴 **P1** | 2026-08-19 | **Đóng 2026-08-24 (moot, không phải fix):** native chart backend và script benchmark của nó đã bị xoá hoàn toàn để mở khoá `EPIC-006F`. |
 | **[BUG-038](completed/BUG-038_native_fallback_drops_the_content_it_fell_back_for.md)** | Fallback sang Python vứt luôn nội dung mà nó fallback vì nó — nền trend zone không bao giờ được vẽ | 🔴 **P1** | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). User phát hiện bằng mắt; test và log đều "xanh". Thêm `_apply_after_native_fallback()` phát lại nội dung lên host mới (cả 4 call site) + log `[chart-region]` ghi **đã vẽ mấy vùng lên host nào**. Xác nhận trên app thật: `replayed 1504 item(s)`. |
 | **[BUG-037](completed/BUG-037_empty_trend_zone_payload_kills_native_chart_every_run.md)** | Native chart bị bỏ ở **mọi** lần chạy Backtest vì payload trend-zone **rỗng** | 🔴 **P1** | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). `set_script_regions()` raise mà không nhìn payload; presenter emit spans rỗng mỗi lần chạy → cả epic `BOT-098F` chết ở runtime. Test cũ dùng `[]` nên đã đóng băng đúng hành vi sai. |
 | **[BUG-036](completed/BUG-036_benchmark_crosshair_contract_synthetic_hover_race.md)** | Gate `Chart Benchmark Contract` lúc PASS lúc FAIL trên cây code giống hệt — synthetic hover ghi đè crosshair | 🟡 P2 | 2026-08-23 | Trong chính hồ sơ này (2026-08-23). Qt tự sinh hover tại con trỏ ma `(8,8)` của platform `offscreen`; `hoverMoveEvent()` đẩy thẳng vào `setCrosshairPosition()`, ghi đè giá trị benchmark vừa đặt. Sửa: đọc property ngay sau setter (đồng bộ), giữ giá trị sau-flush làm diagnostic + WARNING. Tái hiện 5/40 dưới tải, 0/40 sau sửa. |

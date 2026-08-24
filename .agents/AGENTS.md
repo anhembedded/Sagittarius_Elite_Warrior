@@ -31,7 +31,6 @@ move, bản đầy đủ hơn đã tồn tại sẵn ở các file `rules/` tư�
 | Quy trình sửa bug | [`rules/bug-fix-rule.md`](rules/bug-fix-rule.md) |
 | Logging | [`rules/logging-rule.md`](rules/logging-rule.md) |
 | QML chi tiết | [`rules/qml-rule.md`](rules/qml-rule.md) |
-| Native chart | [`rules/native-chart-rule.md`](rules/native-chart-rule.md) |
 | Bảo mật | [`rules/sentinel-rule.md`](rules/sentinel-rule.md) |
 
 File này giữ lại (không xoá hẳn) vì `AGENTS.md` là tên file nhiều công cụ

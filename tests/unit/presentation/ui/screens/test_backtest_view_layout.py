@@ -152,7 +152,6 @@ def test_trade_log_rows_are_visible_by_default(view, qapp):
 
 def test_backtest_chart_fps_overlay_follows_dev_mode(qapp, request):
     v = BackTestView()
-    v.set_chart_backend("python")
     request.addfinalizer(v.deleteLater)
 
     v.set_chart_dev_mode(True)
@@ -169,7 +168,6 @@ def test_backtest_chart_fps_overlay_follows_dev_mode(qapp, request):
 
 def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, request):
     v = BackTestView()
-    v.set_chart_backend("python")
     request.addfinalizer(v.deleteLater)
 
     v.set_chart_opengl_enabled(True)
@@ -186,7 +184,6 @@ def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, reque
 
 def test_backtest_enables_cached_interaction_for_future_chart_cards(qapp, request):
     v = BackTestView()
-    v.set_chart_backend("python")
     request.addfinalizer(v.deleteLater)
 
     v.set_chart_cached_interaction_enabled(True)

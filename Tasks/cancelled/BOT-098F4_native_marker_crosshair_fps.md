@@ -1,9 +1,15 @@
 # BOT-098F4 — Native marker, crosshair/tooltip and dev-FPS interaction
 
+> **Trạng thái: HUỶ (2026-08-24), do user quyết định.** Native C++/QML chart
+> backend đã bị xoá hoàn toàn (`BUG-039`: chưa từng render 1 frame production,
+> pyqtgraph đủ nhanh, tắt mặc định từ 2026-08-24) để mở khoá `EPIC-006F`. Task
+> này (và `BUG-015` nó phụ thuộc) không còn đối tượng để áp dụng. Nội dung gốc
+> giữ nguyên bên dưới chỉ để tham khảo lịch sử.
+
 **Parent:** [`BOT-098F`](../completed/BOT-098F_qt_quick_scene_graph_chart_renderer.md)  
 **Depends on:** `BOT-098F1` / `F2` / `F2A` / `F3` ✅  
 **Priority:** P1  
-**Status:** In Progress
+**Status:** ~~In Progress~~ Cancelled (native chart deleted)
 
 > 🔁 **Reopened 2026-08-19.** This file was moved into `completed/` by an earlier session, but its own `Status:` line here was never changed to `Completed` — a real inconsistency between file location and documented state, not a deliberate sign-off. Investigating why turned up a concrete, unresolved reason this task's own stated proof requirement is not met: "Required proof #2" above requires the native QML sanity to prove "no geometry rebuild across pointer updates" — [`BUG-015`](../bug_report/incomplete/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md) shows real Windows evidence (Direct3D11 RHI, not software rendering) of OHLCV/volume geometry rebuilding in ~75% of plain drag+wheel runs. Leading hypothesis (not yet confirmed): `native_chart_item.cpp`'s `sizeChanged = root->renderedSize != currentSize` compares `QSizeF` by exact floating-point equality, which is fragile against sub-pixel jitter from the QML anchor chain — plausible, but unproven without `qDebug()` instrumentation and a Windows rebuild, which no session has done yet. Do not re-close this task by moving the file back without either fixing `BUG-015` or striking/renegotiating proof requirement #2.
 

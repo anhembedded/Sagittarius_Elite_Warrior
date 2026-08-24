@@ -27,8 +27,7 @@ bookkeeping `ROADMAP.md`).
 | 6 | `.agents/rules/bug-fix-rule.md` | **Bắt buộc** khi user báo bug |
 | 7 | `.agents/rules/logging-rule.md` | Khi thêm/sửa log, và trong mọi bug fix |
 | 8 | `.agents/rules/qml-rule.md` | Khi đụng file `.qml` |
-| 9 | `.agents/rules/native-chart-rule.md` | Khi đụng chart/native renderer |
-| 10 | `.agents/Handover.md` | Khi cần bối cảnh lịch sử của một mảng cụ thể |
+| 9 | `.agents/Handover.md` | Khi cần bối cảnh lịch sử của một mảng cụ thể |
 | — | `Tasks/ROADMAP.md` | Khi cần biết hệ thống đang ở đâu, task nào tồn tại |
 | — | `Tasks/bug_report/README.md` | Bug Board — hệ thống đang gánh lỗi gì (mở/đã sửa) |
 | — | `Tasks/epics/README.md` | Danh sách Epic đang có (mỗi Epic có thư mục + README riêng, xem §3) |

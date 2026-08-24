@@ -40,10 +40,6 @@
 .PARAMETER IncludeFlakyUi
     Also run tests/integration/presentation/ui/, excluded by default (BOT-038).
 
-.PARAMETER SkipNativeBuild
-    Skip the CMake native chart plugin build. Intended only for Python-only
-    diagnostics; it is not valid release or commit evidence.
-
 .EXAMPLE
     .\scripts\ci-local.ps1                  # Full: lint + parallel tests (default)
     .\scripts\ci-local.ps1 -UnitOnly        # Unit (6 workers) + sanity (concurrent)
@@ -51,7 +47,6 @@
     .\scripts\ci-local.ps1 -Workers 4       # Full with 4 workers
     .\scripts\ci-local.ps1 -SkipLint        # Full, skip lint
     .\scripts\ci-local.ps1 -IncludeFlakyUi  # Full, include flaky UI integration
-    .\scripts\ci-local.ps1 -DesktopBenchmark # Full + Windows desktop benchmark contract
 #>
 [CmdletBinding()]
 param(
@@ -62,8 +57,6 @@ param(
     [switch]$Full,
     [int]$Workers = 6,   # Default: 6 workers (benchmark sweet spot for this machine)
     [switch]$IncludeFlakyUi,
-    [switch]$SkipNativeBuild,
-    [switch]$DesktopBenchmark,
     # code-rule.md §4 "CI/CD MUST capture a log file, then scan it for problem
     # levels": a green exit code is not proof a run was clean. Set this only
     # to triage a run whose hits are already understood and recorded — never
@@ -144,7 +137,7 @@ $repoRoot  = Split-Path -Parent $botRoot
 # ONBOARDING.md §5 / BUG-029 / BUG-030 (2026-08-21): a truncated terminal or
 # `| tail -N` view can hide a real failure ENTIRELY, not just add noise — a
 # session reported "100% green" from a run that, fully captured, actually
-# failed. Every step's full output (native build, benchmark, lint, mypy,
+# failed. Every step's full output (lint, mypy,
 # tests, sanity) is captured to a real file automatically here, so nobody —
 # human or AI — has to remember to redirect manually.
 $logsDir = Join-Path $botRoot "logs"
@@ -226,26 +219,6 @@ if ($venvActivateWin) {
 
 $failed = @()
 
-# ---------------------------------------------------------------------------
-# Native QML plugin
-# ---------------------------------------------------------------------------
-if (-not $SkipNativeBuild -and -not $SkipTests) {
-    Write-Step "CMake — Native Chart QML Plugin"
-    try {
-        & (Join-Path $scriptDir "build-native-chart.ps1")
-        if ($LASTEXITCODE -ne 0) {
-            $failed += "Native Chart Build"
-            Write-Failure "Native Chart Build"
-        } else {
-            Write-Success "Native Chart Build"
-        }
-    } catch {
-        $failed += "Native Chart Build"
-        Write-Failure "Native Chart Build"
-        Write-Host $_.Exception.Message -ForegroundColor Yellow
-    }
-}
-
 # The repo directory's own name now matches the Python package name
 # (Sagittarius_Elite_Warrior), so $repoRoot alone on PYTHONPATH already
 # resolves `import Sagittarius_Elite_Warrior` -- no .venv_alias symlink
@@ -253,43 +226,6 @@ if (-not $SkipNativeBuild -and -not $SkipTests) {
 # hyphens (see run-ui.ps1's still-present name-mismatch fallback).
 $pythonPathSeparator = [System.IO.Path]::PathSeparator
 $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
-
-# ---------------------------------------------------------------------------
-# Portable benchmark contract (BOT-098F5)
-# ---------------------------------------------------------------------------
-
-if (-not $SkipNativeBuild -and -not $SkipTests -and -not $SanityOnly -and -not $UnitOnly) {
-    $benchmarkLabel = if ($DesktopBenchmark) {
-        "Chart Benchmark — CI + Desktop Contract"
-    } else {
-        "Chart Benchmark Contract — Python vs Native"
-    }
-    Write-Step $benchmarkLabel
-    Push-Location $repoRoot
-    try {
-        $benchmarkReport = Join-Path $tempDir "chart_migration_benchmark_$([System.Diagnostics.Process]::GetCurrentProcess().Id).json"
-        if (-not $DesktopBenchmark) { $env:QT_QPA_PLATFORM = "offscreen" }
-        $benchmarkArgs = @(
-            "-m", "Sagittarius_Elite_Warrior.scripts.benchmarking.chart_migration_benchmark",
-            "--backend", "both",
-            "--ci-contract",
-            "--report", $benchmarkReport
-        )
-        if ($DesktopBenchmark) { $benchmarkArgs += "--desktop-contract" }
-        & $pythonExe @benchmarkArgs
-        if ($LASTEXITCODE -ne 0) {
-            $failed += "Chart Benchmark Contract"
-            Write-Failure "Chart Benchmark Contract"
-        } else {
-            Write-Success "Chart Benchmark Contract"
-        }
-        Remove-Item $benchmarkReport -Force -ErrorAction SilentlyContinue
-    } catch {
-        $failed += "Chart Benchmark Contract"
-        Write-Failure "Chart Benchmark Contract"
-        Write-Host $_.Exception.Message -ForegroundColor Yellow
-    } finally { Pop-Location }
-}
 
 # ---------------------------------------------------------------------------
 # Lint

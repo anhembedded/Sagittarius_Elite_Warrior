@@ -1,15 +1,21 @@
 # BUG-016 — `chart_migration_benchmark.py --backend both --desktop-contract` hangs indefinitely on Windows
 
+> **Đóng 2026-08-24, do user quyết định — moot, không phải fix.** Native
+> C++/QML chart backend đã bị xoá hoàn toàn (`BUG-039`: chưa từng render 1
+> frame production, tắt mặc định từ 2026-08-24) để mở khoá `EPIC-006F`.
+> `chart_migration_benchmark.py` (script này báo cáo) đã bị xoá cùng đợt —
+> không còn script, không còn `--desktop-contract`, không còn gì để treo.
+> `BOT-098F5`/`F6D` (2 task bị chặn bởi bug này) đã chuyển sang
+> [`../../cancelled/`](../../cancelled/) cùng lý do. Nội dung điều tra gốc bên
+> dưới giữ nguyên chỉ để tham khảo lịch sử.
+
 **Reported:** 2026-08-19, same investigation as `BUG-015`.
 **Severity:** P1 — this is the exact script `BOT-098F5` acceptance criterion 6
 requires to run to completion for Windows Desktop E2E evidence; it currently
 cannot run to completion at all.
-**Status:** 🔴 **Open — root cause narrowed to one exact API call (2026-08-21),
-not yet fixed.** Real-world impact is low (see note at the end) — this only
-blocks closing `BOT-098F5`/`F6D`'s own bookkeeping/acceptance criteria, not
-anything shipped: native chart is already the production default
-(`BOT-098F6E`, done) and already has real Desktop E2E evidence on Windows
-from a different script (`BUG-015`'s probe).
+**Status:** ~~🔴 Open~~ Closed as moot (2026-08-24) — root cause narrowed to
+one exact API call (2026-08-21), never actually fixed; the script and the
+native chart it benchmarked are both deleted, so there is nothing left to fix.
 
 ## Symptom
 

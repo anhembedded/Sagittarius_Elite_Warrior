@@ -1,10 +1,17 @@
 # BOT-098F5 — Shared Backtest renderer benchmark (Python vs native)
 
+> **Trạng thái: HUỶ (2026-08-24), do user quyết định.** Native C++/QML chart
+> backend đã bị xoá hoàn toàn (`BUG-039`: chưa từng render 1 frame production,
+> pyqtgraph đủ nhanh, tắt mặc định từ 2026-08-24) để mở khoá `EPIC-006F`.
+> `chart_migration_benchmark.py` (script này phụ thuộc) đã bị xoá cùng đợt;
+> `BUG-016` nó phụ thuộc không còn đối tượng để fix. Nội dung gốc giữ nguyên
+> bên dưới chỉ để tham khảo lịch sử.
+
 **Parent:** [`BOT-098F`](../completed/BOT-098F_qt_quick_scene_graph_chart_renderer.md)  
 **Depends on:** `BOT-098F1` / `BOT-098F2` / `BOT-098F2A` / `BOT-098F3` ✅, `BOT-098F4`  
 **Priority:** P1  
 **Complexity:** L / Performance-specialized  
-**Status:** In Progress
+**Status:** ~~In Progress~~ Cancelled (native chart deleted)
 
 > 🔁 **Reopened 2026-08-19.** This file was moved into `completed/` by an earlier session, but its own `Status:` line here was never changed to `Completed` — a real inconsistency between file location and documented state, not a deliberate sign-off. Investigating why turned up a concrete, unresolved reason this task's own stated proof requirement is not met: acceptance criterion 6 requires `chart_migration_benchmark.py --desktop-contract` (the exact Windows Desktop E2E evidence script) to run to completion — [`BUG-016`](../bug_report/incomplete/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md) reports it hangs indefinitely on a real Windows 11 machine (zero output, flat CPU, force-killed after 15+ minutes), root cause and hang location still unknown. Criterion 6 cannot be satisfied while this script cannot even run. Do not re-close this task without first fixing `BUG-016`.
 

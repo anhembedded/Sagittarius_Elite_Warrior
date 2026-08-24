@@ -85,9 +85,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-    ChartCard,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
     CANDLESTICK,
     LINE,
@@ -105,7 +102,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
-    PythonBacktestChartHost,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BacktestActionKind,
@@ -117,13 +113,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
-    NativeBacktestChartHost,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
-    NativeBacktestChartHostAdapter,
-    NativeUnsupportedFeatureError,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig
@@ -235,9 +224,6 @@ def _build_presenter_with_registry(
     need more than the shared fixture's single zero-param `_FakeStrategy`.
     `script_registry` (BOT-064) defaults to a fresh empty one, same as the
     shared `indicator_script_registry` fixture."""
-    from sagittarius_engine.interfaces.i_config import IConfig
-    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
     container = Mock()
     resolved_script_registry = script_registry or IndicatorScriptRegistry()
@@ -423,8 +409,6 @@ def mock_config():
     def get_config(key, default=None):
         if key == DEV_MODE_CONFIG_KEY:
             return True
-        if key == ConfigKeys.BACKTEST_CHART_BACKEND.value:
-            return "python"
         return default
 
     config.get.side_effect = get_config
@@ -442,9 +426,6 @@ def mock_container(
     container = Mock()
 
     def resolve_mock(interface):
-        from sagittarius_engine.interfaces.i_config import IConfig
-        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
         if interface == IThreadManager:
             return mock_thread_mgr
@@ -2124,11 +2105,11 @@ def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_ch
     presenter, view_model, mock_dispatcher, qapp
 ):
     """Regression harness for the real Backtest runtime path the user hit:
-    run backtest -> fetch historical klines -> push them through the hybrid
-    screen's live QQuickWidget + native ChartCard composition.
+    run backtest -> fetch historical klines -> push them through the chart
+    widget composition.
 
     Existing tests already proved each piece in isolation (use case, query,
-    chart widget, QML parse/load), but this stitches them together in the
+    chart widget), but this stitches them together in the
     exact order `_run_backtest()` uses at runtime and asserts the hybrid view
     stays internally consistent after the render burst."""
     config = _lock_and_get_config(presenter, view_model)
@@ -2450,40 +2431,6 @@ def test_strategy_trend_zone_is_cleared_before_each_new_run(presenter, view_mode
     view_model.requestRun()
 
     card.clear_script_regions.assert_any_call("strategy_trend_zone")
-
-
-def test_chart_strategy_region_falls_back_to_python_on_native_unsupported_feature(
-    presenter,
-):
-    """BOT-113: native chart has no background-region ABI at all — the same
-    fallback-to-Python path every other native-unsupported feature already
-    uses (BOT-098F6D)."""
-    card = Mock()
-    card.set_script_regions.side_effect = NativeUnsupportedFeatureError("no regions")
-    presenter.view.chart_cards = [card]
-
-    # BUG-038: the stub has to model what the real fallback does — swap the
-    # host — because the presenter now replays the spans onto the rebuilt one.
-    # A stub that leaves the refusing card in place would assert a path that
-    # cannot occur in production and hide whether the replay works at all.
-    rebuilt_card = Mock()
-
-    def _rebuild(_feature_name):
-        presenter.view.chart_cards = [rebuilt_card]
-
-    presenter._fallback_to_python_after_unsupported_native_feature = Mock(
-        side_effect=_rebuild
-    )
-
-    spans = [(0.0, 1.0, "#000000", 0.15)]
-    presenter._on_chart_strategy_region(spans)
-
-    presenter._fallback_to_python_after_unsupported_native_feature.assert_called_once_with(
-        "strategy trend zones"
-    )
-    rebuilt_card.set_script_regions.assert_called_once_with(
-        "strategy_trend_zone", spans
-    )
 
 
 def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
@@ -3562,272 +3509,6 @@ def test_on_backtest_succeeded_does_not_raise_for_preset_ranges(presenter):
 
     assert presenter.fsm.current_state == BacktestUiState.COMPLETED
     assert presenter._last_run_config is not None
-
-
-# --------------------------------------------------------------------------
-# BOT-098F6D: post-construction native snapshot rejection must fall back to
-# the Python host, not silently leave the chart blank (acceptance criterion
-# 3). NativeBacktestChartHost is faked here; only the presenter/view fallback
-# wiring is under test.
-# --------------------------------------------------------------------------
-
-_NATIVE_HOST_TARGET = (
-    "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic."
-    "native_backtest_chart_adapter.NativeBacktestChartHost"
-)
-
-
-def _rejecting_native_host_factory():
-    """A fake NativeBacktestChartHost whose submit_ohlcv() always reports a
-    rejected snapshot — the adapter turns that into NativeUnsupportedFeatureError,
-    which the presenter must catch and recover from."""
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-        ChartCard,
-    )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
-        NativeBacktestChartHost,
-    )
-
-    fake = Mock(spec=NativeBacktestChartHost)
-    fake.widget = ChartCard("placeholder")
-    fake.submit_ohlcv.return_value = False
-    return fake
-
-
-def test_backtest_data_ready_falls_back_to_python_when_native_rejects_the_snapshot(
-    presenter,
-):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
-        NativeBacktestChartHostAdapter,
-    )
-
-    presenter.view.set_chart_backend("native")
-    with patch(
-        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
-    ):
-        presenter.view.render_symbol_cards([presenter._symbol])
-        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
-
-        result = _make_result(with_trades=True)
-        klines = [(1.0, 1.0, 2.0, 0.5, 1.5)]
-        volume = [(1.0, 100.0, True)]
-        presenter._on_chart_data_ready(result, klines, volume)
-
-    # The rejected native snapshot must not leave the chart stuck blank —
-    # the presenter rebuilds it with the Python host and re-renders.
-    assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
-
-
-def test_preview_data_ready_falls_back_to_python_when_native_rejects_the_snapshot(
-    presenter,
-):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
-        NativeBacktestChartHostAdapter,
-    )
-
-    presenter.view.set_chart_backend("native")
-    with patch(
-        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
-    ):
-        presenter.view.render_symbol_cards([presenter._symbol])
-        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
-
-        presenter._active_preview_id = 7
-        klines = [(1.0, 1.0, 2.0, 0.5, 1.5)]
-        volume = [(1.0, 100.0, True)]
-        presenter._on_preview_data_ready(7, _complete_coverage(), klines, volume)
-
-    assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
-
-
-# --------------------------------------------------------------------------
-# BUG-037: _emit_strategy_trend_zones() fires on EVERY run, and every strategy
-# that does not override classify_trend_zone() produces an empty span list.
-# The native adapter used to raise on that empty call, so the presenter threw
-# the native host away on every run for every strategy — the whole BOT-098F
-# native path was dead at runtime while the startup log still said 'native'.
-#
-# These two run against the REAL NativeBacktestChartHostAdapter (only the
-# low-level NativeBacktestChartHost is faked), because a Mock card with a
-# side_effect would just re-assert whatever the test author already believed
-# about when the adapter raises — which is precisely the belief that was
-# wrong. The type of chart_cards[0] afterwards is the observable outcome.
-# --------------------------------------------------------------------------
-
-
-def _accepting_native_host_factory():
-    """A fake NativeBacktestChartHost that accepts every submission."""
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-        ChartCard,
-    )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_adapter import (
-        NativeBacktestChartHost,
-    )
-
-    fake = Mock(spec=NativeBacktestChartHost)
-    fake.widget = ChartCard("placeholder")
-    fake.submit_ohlcv.return_value = True
-    fake.submit_indicators.return_value = True
-    fake.submit_markers.return_value = True
-    return fake
-
-
-def test_empty_strategy_trend_zones_keep_the_native_host(presenter):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
-        NativeBacktestChartHostAdapter,
-    )
-
-    presenter.view.set_chart_backend("native")
-    with patch(
-        f"{_NATIVE_HOST_TARGET}.create", side_effect=_accepting_native_host_factory
-    ):
-        presenter.view.render_symbol_cards([presenter._symbol])
-        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
-
-        # Exactly what ema_crossover (and every other non-trend-zone strategy)
-        # emits on every single run.
-        presenter._on_chart_strategy_region([])
-
-    assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
-
-
-def test_real_strategy_trend_zones_still_fall_back_to_python(presenter):
-    """The other half: a genuine zone must still reach the Python host.
-
-    Native has no background-region ABI, so real spans have to fall back
-    rather than be silently dropped (BOT-098F6's no-silent-omission rule).
-    """
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
-        NativeBacktestChartHostAdapter,
-    )
-
-    presenter.view.set_chart_backend("native")
-    with patch(
-        f"{_NATIVE_HOST_TARGET}.create", side_effect=_accepting_native_host_factory
-    ):
-        presenter.view.render_symbol_cards([presenter._symbol])
-        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
-
-        presenter._on_chart_strategy_region([(0.0, 1.0, "#0ECB81", 0.15)])
-
-    assert isinstance(presenter.view.chart_cards[0], PythonBacktestChartHost)
-
-
-def test_trend_zones_are_actually_drawn_on_the_host_it_fell_back_to(presenter):
-    """BUG-038: falling back is worthless if the content never lands.
-
-    Asserting only the host TYPE (as the test above does) cannot see this —
-    it was green while the chart rendered no background at all. What the user
-    reported is the absence of a *drawn* zone, so that is what this asserts:
-    the spans reach the rebuilt Python host's chart card.
-    """
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
-        NativeBacktestChartHostAdapter,
-    )
-
-    spans = [(0.0, 1.0, "#0ECB81", 0.15), (2.0, 3.0, "#F6465D", 0.15)]
-    presenter.view.set_chart_backend("native")
-    with patch(
-        f"{_NATIVE_HOST_TARGET}.create", side_effect=_accepting_native_host_factory
-    ):
-        presenter.view.render_symbol_cards([presenter._symbol])
-        assert isinstance(presenter.view.chart_cards[0], NativeBacktestChartHostAdapter)
-
-        presenter._on_chart_strategy_region(spans)
-
-    rebuilt = presenter.view.chart_cards[0]
-    assert isinstance(rebuilt, PythonBacktestChartHost)
-    layer = rebuilt.chart_card.indicators._region_layer
-    assert layer.stored_span_count("strategy_trend_zone") == len(spans)
-
-
-# --------------------------------------------------------------------------
-# Bug report (real run-ui.ps1 session, 2026-08-18): strategy indicator
-# lines silently vanished after a chart-mode switch (Nến Nhật -> Đường Vốn ->
-# Nến Nhật) while native backend was active, and the very next EMA-visibility
-# toggle then crashed (swallowed silently by safe_ui_action outside dev
-# mode). Root cause: BackTestView.set_chart_mode() rebuilds the chart host
-# from scratch whenever the effective backend changes (BOT-098F6D), but
-# BackTestPresenter kept believing its old _active_strategy_lines/
-# IndicatorScriptRunner bookkeeping still applied to the brand new, empty
-# host. Fix: BackTestPresenter now drops that stale bookkeeping the instant
-# it learns a rebuild happened (set_chart_mode()'s new bool return) —
-# re-running the backtest already redraws every line from scratch, exactly
-# as it did before BOT-098F6D's mode-triggered rebuild existed.
-# --------------------------------------------------------------------------
-
-
-def test_switching_chart_mode_away_and_back_clears_stale_indicator_bookkeeping(
-    presenter,
-):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
-        ChartDisplayMode,
-    )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.native_backtest_chart_host_adapter import (
-        NativeBacktestChartHostAdapter,
-    )
-
-    presenter.view.set_chart_backend("native")
-    with patch(
-        f"{_NATIVE_HOST_TARGET}.create", side_effect=_rejecting_native_host_factory
-    ):
-        presenter.view.render_symbol_cards([presenter._symbol])
-
-    # Ensure the fake native host actually accepts submissions for this
-    # scenario (the "rejecting" factory is reused only for its widget
-    # scaffolding here, not its rejection behavior).
-    host = presenter.view.chart_cards[0]
-    assert isinstance(host, NativeBacktestChartHostAdapter)
-    host.native_host.submit_indicators.return_value = True
-
-    presenter._on_chart_strategy_line("ema_9", "#F3BA2F", [1.0, 2.0], [10.0, 11.0])
-    assert "ema_9" in presenter._active_strategy_lines
-    assert "ema_9" in host._indicator_series
-
-    # Must not raise — on native host, mode switching retains host and toggles indicators cleanly
-    presenter._on_chart_mode_changed(ChartDisplayMode.EQUITY.value)
-    assert host._indicator_visibility.get("ema_9") is False
-
-    presenter._on_chart_mode_changed(ChartDisplayMode.OHLC.value)
-    assert host._indicator_visibility.get("ema_9") is True
-    assert presenter.view.chart_cards[0] is host
-
-
-def test_presenter_constructs_with_auto_backend_by_default(
-    qapp, mock_thread_mgr, mock_dispatcher, strategy_registry, request
-):
-    config = Mock()
-    config.get_all.return_value = {}
-    config.get.side_effect = lambda key, default=None: default
-
-    container = Mock()
-
-    def resolve_mock(interface):
-        if interface == IThreadManager:
-            return mock_thread_mgr
-        if interface == IDispatcher:
-            return mock_dispatcher
-        if interface == IConfig:
-            return config
-        if interface == StrategyRegistry:
-            return strategy_registry
-        if interface == IndicatorScriptRegistry:
-            return IndicatorScriptRegistry()
-        if interface == BacktestChartHostFactory:
-            return BacktestChartHostFactory()
-        return Mock()
-
-    container.resolve.side_effect = resolve_mock
-    view = BackTestView()
-    request.addfinalizer(view.deleteLater)
-
-    fake_native_host = Mock(spec=NativeBacktestChartHost)
-    fake_native_host.widget = ChartCard("placeholder")
-
-    with patch(f"{_NATIVE_HOST_TARGET}.create", return_value=fake_native_host):
-        presenter = BackTestPresenter(view, container)
-        assert presenter._view_model is not None
-        assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)
 
 
 # ---------------------------------------------------------------------------
