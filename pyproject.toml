@@ -27,6 +27,16 @@ filterwarnings = [
 
 asyncio_mode = "auto"
 
+[tool.ruff.lint]
+# EPIC-004 — security and maintainability rules enabled incrementally from
+# the baseline audit (Tasks/reports/EPIC-004A_ruff_security_quality_baseline_audit.md).
+extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+# These patterns are intentional in tests and Qt override methods respectively.
+"tests/**" = ["S101", "S603", "S106", "S108"]
+"src/presentation/ui/**" = ["N802", "N815"]
+
 [tool.mypy]
 # EPIC-002 — gate opened at the exact baseline measured by EPIC-002A
 # (Tasks/reports/EPIC-002A_mypy_baseline_audit.md), not at zero. Anything
