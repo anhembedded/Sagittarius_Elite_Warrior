@@ -1169,19 +1169,17 @@ def test_no_historical_data_clears_limitations(presenter, view_model, mock_dispa
 
 
 def test_qml_limitations_button_opens_without_crashing(
-    presenter, view_model, qml_item, qapp, mock_dispatcher
+    presenter, view_model, qapp, mock_dispatcher
 ):
-    """BOT-081: the info icon must be a real `Button` (Python-test-clickable,
-    per BOT-057/BOT-083's convention), not a Rectangle+MouseArea."""
+    """BOT-081: the info icon must be a real, clickable button."""
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
     qapp.processEvents()
-    root = presenter.view.top_widget.rootObject()
 
-    qml_item(root, "btnBacktestLimitations").clicked.emit()
+    presenter.view.top_widget._btn_limitations.click()
     qapp.processEvents()
 
 
@@ -1833,18 +1831,18 @@ def test_tick_mode_with_a_bounded_range_is_allowed(
 
 
 def test_qml_sync_button_only_visible_after_no_data_and_click_requests_sync(
-    presenter, view_model, mock_dispatcher, qml_item, qapp, mock_thread_mgr
+    presenter, view_model, mock_dispatcher, qapp, mock_thread_mgr
 ):
     qapp.processEvents()
-    root = presenter.view.top_widget.rootObject()
-    assert qml_item(root, "btnRequestSync").property("visible") is False
+    button = presenter.view.top_widget._btn_request_sync
+    assert button.isVisible() is False
 
     _run_to_no_data(presenter, view_model, mock_dispatcher)
     qapp.processEvents()
     mock_thread_mgr.reset_mock()
 
-    assert qml_item(root, "btnRequestSync").property("visible") is True
-    qml_item(root, "btnRequestSync").clicked.emit()
+    assert button.isVisible() is True
+    button.click()
     qapp.processEvents()
 
     mock_thread_mgr.submit.assert_called_once()
@@ -1852,7 +1850,7 @@ def test_qml_sync_button_only_visible_after_no_data_and_click_requests_sync(
 
 
 def test_qml_sync_button_retries_from_error_when_data_is_still_missing(
-    presenter, view_model, mock_dispatcher, qml_item, qapp, mock_thread_mgr
+    presenter, view_model, mock_dispatcher, qapp, mock_thread_mgr
 ):
     """Regression: the visible yellow retry button used to be a dead control.
 
@@ -1866,12 +1864,12 @@ def test_qml_sync_button_retries_from_error_when_data_is_still_missing(
     presenter._on_sync_failed_for_action(sync_action.action_id, "missing tail")
     qapp.processEvents()
     mock_thread_mgr.reset_mock()
-    button = qml_item(presenter.view.top_widget.rootObject(), "btnRequestSync")
+    button = presenter.view.top_widget._btn_request_sync
 
     assert presenter.fsm.current_state is BacktestUiState.ERROR
-    assert button.property("visible") is True
-    assert button.property("enabled") is True
-    button.clicked.emit()
+    assert button.isVisible() is True
+    assert button.isEnabled() is True
+    button.click()
     qapp.processEvents()
 
     mock_thread_mgr.submit.assert_called_once()
@@ -1885,7 +1883,7 @@ def test_qml_sync_button_retries_from_error_when_data_is_still_missing(
 
 
 def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
-    presenter, view_model, qml_item, qapp, mock_dispatcher
+    presenter, view_model, qapp, mock_dispatcher
 ):
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
@@ -1895,46 +1893,36 @@ def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
     presenter._run_backtest(config)
     qapp.processEvents()
 
-    root = presenter.view.top_widget.rootObject()
-    card = qml_item(root, "cardMetric_0")
+    card = presenter.view.top_widget._stat_cards_row.layout().itemAt(0).widget()
     assert card is not None
-    assert card.property("value") != ""
-
-
-# ---------------------------------------------------------------------------
-# QML rendering
-# ---------------------------------------------------------------------------
+    assert card.objectName() == "cardMetric_0"
 
 
 def test_qml_documents_load_without_errors(presenter, qapp):
+    """No QML left in `BackTestView` at all (EPIC-006E) — kept as a
+    construction smoke test."""
     qapp.processEvents()
-    assert presenter.view.top_widget.errors() == []
-    assert presenter.view.bottom_widget.errors() == []
-    assert presenter.view.overlay_host.quick_widget.errors() == []
-    assert presenter.view.top_widget.rootObject() is not None
-    assert presenter.view.bottom_widget.rootObject() is not None
-    assert presenter.view.overlay_host.quick_widget.rootObject() is not None
+    assert presenter.view.top_widget is not None
+    assert presenter.view.bottom_widget is not None
 
 
 def test_qml_run_button_click_requests_a_run(
-    presenter, view_model, qml_item, qapp, mock_thread_mgr
+    presenter, view_model, qapp, mock_thread_mgr
 ):
     qapp.processEvents()
-    root = presenter.view.top_widget.rootObject()
 
-    qml_item(root, "btnRunBacktest").clicked.emit()
+    presenter.view.top_widget._btn_run.click()
     qapp.processEvents()
 
     mock_thread_mgr.submit.assert_called_once()
 
 
-def test_bot_params_button_is_enabled(presenter, qml_item, qapp):
+def test_bot_params_button_is_enabled(presenter, qapp):
     """BOT-047: unlike BOT-022's placeholder, the dialog now renders a real,
     strategy-driven form, so the button no longer needs to stay locked."""
     qapp.processEvents()
-    root = presenter.view.top_widget.rootObject()
 
-    assert qml_item(root, "btnBacktestBotParams").property("enabled") is True
+    assert presenter.view.top_widget._btn_bot_params.isEnabled() is True
 
 
 def test_bot_params_schema_is_empty_for_a_strategy_with_no_declared_params(
@@ -2150,10 +2138,6 @@ def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_ch
 
     presenter._run_backtest(config)
     qapp.processEvents()
-
-    assert presenter.view.top_widget.errors() == []
-    assert presenter.view.bottom_widget.errors() == []
-    assert presenter.view.overlay_host.quick_widget.errors() == []
 
     assert len(presenter.view._last_klines) == len(klines)
     assert presenter.view._last_volume
@@ -2975,8 +2959,17 @@ def test_export_does_nothing_when_there_are_no_trades_yet(presenter, view_model)
     mock_dialog.assert_not_called()
 
 
+def _find_trade_log_row(panel, index: int):
+    row_layout = panel._rows_layout
+    for i in range(row_layout.count() - 1):
+        widget = row_layout.itemAt(i).widget()
+        if widget._summary_btn.objectName() == f"rowTradeLog_{index}":
+            return widget
+    raise AssertionError(f"no trade log row for index {index}")
+
+
 def test_qml_trade_log_filter_tab_click_updates_the_view_model(
-    presenter, view_model, mock_dispatcher, qml_item, qapp
+    presenter, view_model, mock_dispatcher, qapp
 ):
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
@@ -2984,9 +2977,12 @@ def test_qml_trade_log_filter_tab_click_updates_the_view_model(
     )
     presenter._run_backtest(config)
     qapp.processEvents()
-    root = presenter.view.bottom_widget.rootObject()
+    panel = presenter.view.bottom_widget
 
-    qml_item(root, "tabTradeLogFilter_win").clicked.emit()
+    win_button = next(
+        b for b in panel._filter_buttons if b.objectName() == "tabTradeLogFilter_win"
+    )
+    win_button.click()
     qapp.processEvents()
 
     assert view_model.tradeLogFilter == "win"
@@ -2994,7 +2990,7 @@ def test_qml_trade_log_filter_tab_click_updates_the_view_model(
 
 
 def test_qml_trade_log_export_button_click_requests_export(
-    presenter, view_model, mock_dispatcher, qml_item, qapp
+    presenter, view_model, mock_dispatcher, qapp
 ):
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
@@ -3002,21 +2998,20 @@ def test_qml_trade_log_export_button_click_requests_export(
     )
     presenter._run_backtest(config)
     qapp.processEvents()
-    root = presenter.view.bottom_widget.rootObject()
 
     with patch(
         "Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest."
         "backtest_presenter.QFileDialog.getSaveFileName",
         return_value=("", ""),
     ) as mock_dialog:
-        qml_item(root, "btnTradeLogExport").clicked.emit()
+        presenter.view.bottom_widget._btn_export.click()
         qapp.processEvents()
 
     mock_dialog.assert_called_once()
 
 
 def test_qml_trade_log_search_field_updates_the_view_model(
-    presenter, view_model, mock_dispatcher, qml_item, qapp
+    presenter, view_model, mock_dispatcher, qapp
 ):
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
@@ -3024,11 +3019,10 @@ def test_qml_trade_log_search_field_updates_the_view_model(
     )
     presenter._run_backtest(config)
     qapp.processEvents()
-    root = presenter.view.bottom_widget.rootObject()
 
-    search_field = qml_item(root, "txtTradeLogSearch")
-    search_field.setProperty("text", "#3")
-    search_field.textEdited.emit()
+    search_field = presenter.view.bottom_widget._search_field
+    search_field.setText("#3")
+    search_field.textEdited.emit("#3")
     qapp.processEvents()
 
     assert view_model.tradeLogSearchText == "#3"
@@ -3036,12 +3030,14 @@ def test_qml_trade_log_search_field_updates_the_view_model(
 
 
 def test_qml_trade_logs_document_loads_without_errors(presenter, qapp):
+    """No QML left in `BackTestTradeLogsPanel` (EPIC-006E2) — kept as a
+    construction smoke test."""
     qapp.processEvents()
-    assert presenter.view.bottom_widget.errors() == []
+    assert presenter.view.bottom_widget is not None
 
 
 def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
-    presenter, view_model, mock_dispatcher, qml_item, qapp
+    presenter, view_model, mock_dispatcher, qapp
 ):
     """BOT-045 §2.2: clicking the summary row expands/collapses the entry
     catalyst / exit execution / metadata block below it."""
@@ -3051,19 +3047,20 @@ def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
     )
     presenter._run_backtest(config)
     qapp.processEvents()
-    root = presenter.view.bottom_widget.rootObject()
+    panel = presenter.view.bottom_widget
 
-    assert qml_item(root, "detailTradeLog_1").property("visible") is False
+    row = _find_trade_log_row(panel, 1)
+    assert row._detail.isVisible() is False
 
-    qml_item(root, "rowTradeLog_1").clicked.emit()
+    row._summary_btn.click()
     qapp.processEvents()
+    row = _find_trade_log_row(panel, 1)
+    assert row._detail.isVisible() is True
 
-    assert qml_item(root, "detailTradeLog_1").property("visible") is True
-
-    qml_item(root, "rowTradeLog_1").clicked.emit()
+    row._summary_btn.click()
     qapp.processEvents()
-
-    assert qml_item(root, "detailTradeLog_1").property("visible") is False
+    row = _find_trade_log_row(panel, 1)
+    assert row._detail.isVisible() is False
 
 
 def test_selected_currency_default_and_change(view_model):
@@ -3272,8 +3269,9 @@ def test_failed_backtest_transitions_to_idle_with_error(presenter):
     assert "Connection timed out" in vm.resultText
 
 
-def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qml_item, qapp):
-    """Verify QML TopPanel renders amber warning banner when isConfigDirty is True."""
+def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qapp):
+    """`BackTestTopPanel` renders the amber warning banner when
+    isConfigDirty is True."""
     vm = presenter._view_model
     vm.selectedStrategyKey = "fake_strategy"
     vm.selectedTimeframe = "1m"
@@ -3284,18 +3282,14 @@ def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qml_item
     presenter._on_backtest_succeeded(result)
     qapp.processEvents()
 
-    root = presenter.view.top_widget.rootObject()
-    banner = qml_item(root, "backtestStaleWarningBanner")
-    assert banner is not None
-    assert banner.property("visible") is False
+    banner = presenter.view.top_widget._stale_banner
+    assert banner.isVisible() is False
 
     # Modify timeframe -> CONFIG_DIRTY
     vm.selectedTimeframe = "5m"
     qapp.processEvents()
 
-    assert banner.property("visible") is True
-    btn_run = qml_item(root, "btnRunBacktest")
-    assert btn_run is not None
+    assert banner.isVisible() is True
 
 
 # ================================================================== #
@@ -3367,14 +3361,11 @@ def test_progress_updates_are_ignored_after_cancel(presenter, view_model):
 
 
 def test_qml_run_button_requests_cancel_while_backtest_is_running(
-    presenter, view_model, qml_item, qapp
+    presenter, view_model, qapp
 ):
     view_model.requestRun()
-    root = presenter.view.top_widget.rootObject()
-    run_button = qml_item(root, "btnRunBacktest")
-    assert run_button is not None
 
-    run_button.clicked.emit()
+    presenter.view.top_widget._btn_run.click()
     qapp.processEvents()
 
     assert presenter.fsm.current_state is BacktestUiState.CANCELLING

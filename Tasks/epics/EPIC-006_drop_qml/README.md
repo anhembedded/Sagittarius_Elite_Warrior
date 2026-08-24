@@ -1,6 +1,6 @@
 # EPIC-006 — Bỏ hẳn QML, thuần QtWidgets
 
-**Trạng thái:** 🟡 Đang làm (4/6 sub-task xong)
+**Trạng thái:** 🟡 Đang làm (5/6 sub-task xong)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; quyết định hướng đi dài hạn
 **Nhánh:** `epic/EPIC-006-drop-qml`
@@ -67,7 +67,7 @@ thể đúng ngay cả khi ta không bỏ QML, và ngược lại). Tóm tắt:
 | **[EPIC-006B](completed/EPIC-006B_engine_widget_base_classes.md)** | Engine: xây `Surface`/`Card`/`Overlay`/`Styled*`/`apply_role()` theo ADR §2, guard mới (`TASK-038`) | ✅ Xong |
 | **[EPIC-006C](completed/EPIC-006C_sidebar.md)** | Elite: `Sidebar.qml` (238 dòng, always-on, pilot rủi ro thấp nhưng lỗi lộ ngay) | ✅ Xong |
 | **[EPIC-006D](completed/EPIC-006D_dev_board_panel.md)** | Elite: `DevBoardPanel.qml` (385 dòng, Dashboard, độc lập) | ✅ Xong |
-| **EPIC-006E** | Elite: Backtest — chia nhỏ như `EPIC-005E` (top panel / trade logs / modals riêng biệt) | 🔴 Chưa làm |
+| **[EPIC-006E](completed/EPIC-006E_backtest.md)** | Elite: Backtest — top panel / trade logs / 11 modal (không tách 3 lần commit như dự kiến — 1 file test dùng chung cả 3 phần) | ✅ Xong |
 | **EPIC-006F** | Engine: tháo dỡ kit QML (`Sagittarius/UI/`, `QmlHostView`, `configure_app_qml`, `theme_bridge`, guard cũ) sau khi Elite hết consumer; xử lý `examples/student_management/RosterScreen.qml` (consumer duy nhất còn lại ngoài Elite) | 🔴 Chưa làm |
 
 `EPIC-006B` phải xong trước `C`/`D`/`E` vì các sub-task đó cần base class thật để kế thừa, không

@@ -494,7 +494,6 @@ class BackTestPresenter(BasePresenter):
         )
         view.render_symbol_cards([self._symbol])
         self._connect_chart_controls()
-        view.load_qml()
 
     # ================================================================== #
     # BasePresenter contract implementations

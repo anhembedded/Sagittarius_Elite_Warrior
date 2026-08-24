@@ -75,26 +75,23 @@ def backtest_screen(qapp, request):
 
 
 def test_progress_banner_cancel_button_in_running_and_syncing_modes(
-    qapp, qml_item, backtest_screen
+    qapp, backtest_screen
 ):
     view, presenter = backtest_screen
-    top_root = view.top_widget.rootObject()
+    banner = view.top_widget._progress_banner
+    cancel_btn = view.top_widget._btn_cancel_progress
     view_model = presenter._view_model
 
     # 1. In IDLE mode, progress banner is hidden
-    banner = qml_item(top_root, "backtestProgressBanner")
-    assert banner is not None
-    assert banner.property("visible") is False
+    assert banner.isVisible() is False
 
     # 2. In SYNCING mode, banner and cancel button are visible and enabled
     view_model.set_ui_mode("SYNCING")
     qapp.processEvents()
 
-    assert banner.property("visible") is True
-    cancel_btn = qml_item(top_root, "btnCancelBacktestProgress")
-    assert cancel_btn is not None
-    assert cancel_btn.property("enabled") is True
-    assert cancel_btn.property("text") == "Hủy"
+    assert banner.isVisible() is True
+    assert cancel_btn.isEnabled() is True
+    assert cancel_btn.text() == "Hủy"
 
     # Click Cancel on progress banner
     cancel_signal_called = False
@@ -104,7 +101,7 @@ def test_progress_banner_cancel_button_in_running_and_syncing_modes(
         cancel_signal_called = True
 
     view_model.cancelBacktestRequested.connect(on_cancel)
-    cancel_btn.clicked.emit()
+    cancel_btn.click()
     qapp.processEvents()
 
     assert cancel_signal_called is True
@@ -113,14 +110,14 @@ def test_progress_banner_cancel_button_in_running_and_syncing_modes(
     view_model.set_ui_mode("CANCELLING")
     qapp.processEvents()
 
-    assert banner.property("visible") is True
-    assert cancel_btn.property("enabled") is False
-    assert cancel_btn.property("text") == "Đang hủy..."
+    assert banner.isVisible() is True
+    assert cancel_btn.isEnabled() is False
+    assert cancel_btn.text() == "Đang hủy..."
 
     # 4. In RUNNING mode, button is enabled and text is "Hủy"
     view_model.set_ui_mode("RUNNING")
     qapp.processEvents()
 
-    assert banner.property("visible") is True
-    assert cancel_btn.property("enabled") is True
-    assert cancel_btn.property("text") == "Hủy"
+    assert banner.isVisible() is True
+    assert cancel_btn.isEnabled() is True
+    assert cancel_btn.text() == "Hủy"

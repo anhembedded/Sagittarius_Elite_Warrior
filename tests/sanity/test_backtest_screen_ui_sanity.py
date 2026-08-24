@@ -72,24 +72,3 @@ def test_backtest_screen_constructs_against_the_real_container(
     assert len(view.chart_cards) == 1
     assert view.chart_cards[0].symbol == "BTCUSDT"
     assert view.chart_cards[0].widget is not None
-
-
-def test_backtest_screen_qml_parses_clean_against_real_theme_and_icons(
-    qapp, booted_app, request
-):
-    """Separate from the construction assertions above — QML parsing errors
-    (a typo'd Theme.* property, a missing icon binding) don't raise a Python
-    exception, they only show up in QQuickWidget.errors(), so they need
-    their own explicit check."""
-    view = BackTestView()
-    request.addfinalizer(view.deleteLater)
-
-    BackTestPresenter(view, booted_app.context.container)
-    qapp.processEvents()
-
-    assert view.top_widget.errors() == []
-    assert view.bottom_widget.errors() == []
-    assert view.overlay_host.quick_widget.errors() == []
-    assert view.top_widget.rootObject() is not None
-    assert view.bottom_widget.rootObject() is not None
-    assert view.overlay_host.quick_widget.rootObject() is not None

@@ -107,83 +107,71 @@ _EXPECTED_LOCK_STATE = {
 }
 
 
-def _open_order_execution_modal(qapp, qml_item, view):
-    top_root = view.top_widget.rootObject()
-    overlay_host = view.overlay_host
-    btn_order_exec = qml_item(top_root, "btnBacktestOrderExecution")
-    assert btn_order_exec is not None, "btnBacktestOrderExecution not found"
-    btn_order_exec.clicked.emit()
-    qapp.processEvents()
+def _open_order_execution_modal(qapp, view):
+    view.top_widget._btn_order_exec.click()
     qapp.processEvents()
 
-    overlay_root = overlay_host.content_item
-    modal = overlay_root.findChild(object, "orderExecutionModal")
-    assert modal is not None, "orderExecutionModal not found in overlay"
-    assert modal.property("visible") is True
-    # ModalDialogCard is a Popup, its visual root is contentItem property
-    return modal.property("contentItem") or modal
+    dialog = view._modals_host._order_execution
+    assert dialog is not None, "OrderExecutionDialog not built"
+    assert dialog.isVisible() is True
+    return dialog
 
 
 def test_order_execution_modal_lock_states_and_default_selection_are_truthful(
-    qapp, qml_item, backtest_screen
+    qapp, backtest_screen
 ):
-    search_root = _open_order_execution_modal(qapp, qml_item, backtest_screen)
+    dialog = _open_order_execution_modal(qapp, backtest_screen)
 
     for index, (locked, checked) in _EXPECTED_LOCK_STATE.items():
-        item = qml_item(search_root, f"chkExecutionTrigger_{index}")
+        item = dialog.findChild(object, f"chkExecutionTrigger_{index}")
         assert item is not None, f"chkExecutionTrigger_{index} not found"
-        checkbox = qml_item(search_root, f"triggerCheckBox_{index}")
+        checkbox = dialog.findChild(object, f"triggerCheckBox_{index}")
         assert checkbox is not None, f"triggerCheckBox_{index} not found"
 
-        assert checkbox.property("checked") is checked, (
-            f"Trigger {index} checked should be {checked}, was "
-            f"{checkbox.property('checked')}"
+        assert checkbox.isChecked() is checked, (
+            f"Trigger {index} checked should be {checked}, was {checkbox.isChecked()}"
         )
-        assert item.property("enabled") is not locked, (
-            f"Trigger {index} item enabled should be {not locked} "
-            f"(locked={locked}), was {item.property('enabled')}"
-        )
-        assert checkbox.property("enabled") is not locked, (
+        assert checkbox.isEnabled() is not locked, (
             f"Trigger {index} checkbox enabled should be {not locked} "
-            f"(locked={locked}), was {checkbox.property('enabled')}"
+            f"(locked={locked}), was {checkbox.isEnabled()}"
         )
 
 
 def test_checking_historical_tick_mode_sets_view_model_execution_mode(
-    qapp, qml_item, backtest_screen
+    qapp, backtest_screen
 ):
     """BOT-076: the one real interactive row must actually reach Python —
     exactly the plumbing gap BOT-074 documented as its own reason for
     leaving every row locked in the first place."""
     view = backtest_screen
-    search_root = _open_order_execution_modal(qapp, qml_item, view)
-    checkbox = qml_item(search_root, "triggerCheckBox_2")
+    dialog = _open_order_execution_modal(qapp, view)
+    checkbox = dialog.findChild(object, "triggerCheckBox_2")
     assert checkbox is not None
 
     view_model = view._view_model
     assert view_model.executionMode == "BAR_CLOSE"
 
-    checkbox.setProperty("checked", True)
+    checkbox.setChecked(True)
     qapp.processEvents()
     assert view_model.executionMode == "HISTORICAL_TICK"
 
-    checkbox.setProperty("checked", False)
+    checkbox.setChecked(False)
     qapp.processEvents()
     assert view_model.executionMode == "BAR_CLOSE"
 
 
 def test_setting_execution_mode_from_python_updates_the_modal_checkboxes(
-    qapp, qml_item, backtest_screen
+    qapp, backtest_screen
 ):
     """The reverse direction: an external reset (e.g. FSM going back to IDLE)
     must not leave the modal showing a stale selection."""
     view = backtest_screen
-    search_root = _open_order_execution_modal(qapp, qml_item, view)
+    dialog = _open_order_execution_modal(qapp, view)
 
     view._view_model.executionMode = "HISTORICAL_TICK"
     qapp.processEvents()
 
-    bar_close_checkbox = qml_item(search_root, "triggerCheckBox_0")
-    tick_checkbox = qml_item(search_root, "triggerCheckBox_2")
-    assert bar_close_checkbox.property("checked") is False
-    assert tick_checkbox.property("checked") is True
+    bar_close_checkbox = dialog.findChild(object, "triggerCheckBox_0")
+    tick_checkbox = dialog.findChild(object, "triggerCheckBox_2")
+    assert bar_close_checkbox.isChecked() is False
+    assert tick_checkbox.isChecked() is True

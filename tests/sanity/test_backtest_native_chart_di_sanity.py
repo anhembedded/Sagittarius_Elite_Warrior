@@ -70,5 +70,3 @@ def test_native_backend_config_reaches_the_real_presenter_and_produces_the_nativ
 
     assert len(view.chart_cards) == 1
     assert isinstance(view.chart_cards[0], NativeBacktestChartHostAdapter)
-    assert view.top_widget.errors() == []
-    assert view.bottom_widget.errors() == []
