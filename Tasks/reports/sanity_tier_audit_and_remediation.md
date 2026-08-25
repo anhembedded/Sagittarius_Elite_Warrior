@@ -265,6 +265,43 @@ Neither matches the pattern. And **no test file in the repository uses
 `qInstallMessageHandler`** (repo-wide grep → 0 hits). Qt's entire diagnostic
 channel is currently **unobserved at every tier**.
 
+### F9b — `ruff check` passes on Python it cannot parse, and `tests/` has no second gate
+
+Found on 2026-08-25 while standing up a clean environment, and reproduced here
+from scratch on ruff 0.15.8:
+
+```
+$ cat ruff_blindspot.py
+try:
+    pass
+except ValueError, TypeError:
+    pass
+
+$ ruff check ruff_blindspot.py
+All checks passed!            exit=0
+
+$ python3 -c "import ast; ast.parse(open('ruff_blindspot.py').read())"
+SyntaxError: multiple exception types must be parenthesized
+```
+
+Ruff's parser accepts the bare tuple; CPython refuses it. This is not
+hypothetical for this project — it is exactly how `BUG-044` shipped a
+syntactically invalid `sagittarius_engine` to a published tag, in a commit whose
+own subject was *"fix(lint): consolidate ruff config"*.
+
+`ci-local.ps1` runs `ruff check src tests`, so the gate has the same blind spot
+here. `src/` and `scripts/` have `mypy` as a backstop, which does catch it.
+**`tests/` has neither** — mypy does not cover it, so an unparseable test file
+is caught only if pytest happens to collect it.
+
+The repository is currently clean: all **484** files under `src/`, `tests/` and
+`scripts/` parse, and the `except A, B:` pattern appears nowhere. But nothing
+was guarding that; it is luck, not a gate.
+
+`.claude/skills/test-health/`'s **C0** check (`ast.parse` over every test file)
+is the only thing in this repository that covers the gap, which is a stronger
+justification than the one it was written with.
+
 ### F10 — No sanity coverage for shutdown
 
 `app.stop()` appears only in fixture teardown, carrying no assertion. If it

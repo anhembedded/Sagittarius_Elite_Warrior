@@ -3,7 +3,10 @@
 **Reported:** 2026-08-25, while standing up a clean environment for `EPIC-009`.
 **Severity:** 🔴 **P1** — anyone installing per `install-rule.md` Option 1 gets an
 engine that raises `SyntaxError` on import. Blocks every fresh environment and CI.
-**Status:** 🔴 Open
+**Status:** 🟠 **Fixed upstream, not yet on `main`** — fix pushed to
+`anhembedded/sagittarius_engine` branch `claude/python2-exception-syntax-590urp`
+(`c0bafe2`). Closes here once that lands on `main` and this repo pins a
+release containing it.
 
 ## Symptom
 
@@ -63,17 +66,60 @@ shallow (`--depth 1`), so `git log -- <file>` cannot see past HEAD. Worth a
 `git bisect` on a full clone, because the answer decides whether any released
 version is safe.
 
-### Note on the concurrent engine session
+### Verified independently in this repository's session, 2026-08-25
 
-A Claude session (`session_01WUsUMutFtqiMjemMTiTtWY`, idle/review-ready) reports
-*"dev env setup complete: Python 3.14rc2, .venv, 953 tests pass"* for this
-repository. Those two facts cannot both hold on `main` as published: the suite
-does not collect there. Its branch `claude/dazzling-clarke-knjtv4` **does not
-exist on the remote**, so that work is local to that session's container. The
-most likely reading is that the session already carries a local fix it has not
-pushed — which should be confirmed before anyone duplicates the work.
+Everything below was checked against a full clone
+(`git fetch --unshallow`, 760 commits, tags `v1.0.0`/`v2.1.0`/`v2.2.0`), not
+taken from a report.
 
-## Fix
+| Claim | Verdict |
+| :--- | :--- |
+| Introduced by `df51202` *"fix(lint): consolidate ruff config; apply the rule set for the first time"* (2026-08-23) | ✅ **5 sites at `df51202`, 0 at its parent `1e300ac`** |
+| `v2.1.0` affected | ✅ 5 sites |
+| `v2.2.0` affected | ✅ 5 sites |
+| `v1.0.0` affected | ❌ 0 sites — predates the file |
+| Fix branch closes all five | ✅ all parenthesized; `compileall` over the package reports **0 errors** |
+
+**Both published tags ship an unimportable package.** `pip install
+git+...@v2.1.0` and `@v2.2.0` both yield an engine that raises `SyntaxError`.
+
+The commit that broke it was a **lint-tidying commit** — which is the part worth
+remembering, and leads directly to the root cause below.
+
+### Root cause of the *escape*: `ruff check` passes on unparseable Python
+
+Reproduced here from scratch, on a different ruff version than the one upstream
+used (0.15.8 vs 0.16.4), so it is not version-specific:
+
+```
+$ cat ruff_blindspot.py
+try:
+    pass
+except ValueError, TypeError:
+    pass
+
+$ ruff check ruff_blindspot.py
+All checks passed!            exit=0
+
+$ python3 -c "import ast; ast.parse(open('ruff_blindspot.py').read())"
+SyntaxError: multiple exception types must be parenthesized
+```
+
+Ruff's parser accepts the bare tuple; CPython does not. So the lint gate was
+green on code no interpreter can run — and the commit that introduced the defect
+was itself a lint commit. `mypy` does catch it, but upstream CI's other jobs
+declare `needs: lint`, so once lint went red for unrelated reasons everything
+else was **skipped, not run**.
+
+### Correction to this report's first version
+
+It originally reasoned that the concurrent engine session *"most likely already
+carries a local fix it has not pushed"*. **That was wrong.** That container's
+tree matched `main` exactly — all five sites broken, nothing fixed — and it had
+no `.venv` and Python 3.11, so the *"Python 3.14rc2, 953 tests pass"* summary
+described neither container. The inference was drawn from an untrustworthy
+session summary rather than from the repository; recorded here because the
+lesson is the same one this bug teaches.
 
 Parenthesise all five: `except (A, B):`. Repository: `anhembedded/Sagittarius_Engine`.
 
@@ -102,3 +148,25 @@ most expensive to discover downstream.
 the five `except` clauses are fixed, so the `>= 3.14` floor may be higher than
 the code actually requires. Verify before it forces anyone onto a release
 candidate.
+
+
+## Downstream impact on this repository
+
+`tests/sanity/`'s first green run was measured against a **hand-patched** local
+engine. It has since been re-measured against the real fix branch installed
+clean — **16 passed, no local modification** — so `EPIC-009`'s numbers stand on
+a legitimate engine.
+
+Two items this repository must decide separately:
+
+- **Pin.** `pyproject.toml`'s notes reference engine `2.3.0`. Both published
+  tags carry the defect, so any pin must name a release made *after* the fix
+  lands on `main`.
+- **`requires-python`.** Upstream declares `>= 3.14`, but the real syntax floor
+  is **3.12** (PEP 695 generics in `repository.py`, `state_machine.py`,
+  `declarative_state_machine.py`), and the engine runs correctly on 3.12 and
+  3.13. The declared floor makes the wheel uninstallable on interpreters it
+  demonstrably works on — and no stable CPython 3.14 was reachable here, only
+  `3.14.0rc2`, on which this project's pinned `pydantic` fails
+  (`typing._eval_type() got an unexpected keyword argument 'prefer_fwd_module'`).
+  The engine imports no pydantic, so that failure is ours to own, not theirs.

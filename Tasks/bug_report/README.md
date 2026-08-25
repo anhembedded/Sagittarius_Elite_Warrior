@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-24
+> Cập nhật: 2026-08-25
 
 ---
 
@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 4 |
 | ✅ **Đã sửa / đã đóng** | 41 |
-| 📈 **Tổng** | **43** |
+| 📈 **Tổng** | **45** |
 
 ---
 
@@ -37,6 +37,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-044](incomplete/BUG-044_published_engine_has_python2_except_syntax.md)** | `sagittarius_engine` 2.3.0 publish lên GitHub không import được — cú pháp `except A, B:` của Python 2 | 🔴 **P1** | 2026-08-25 | Fix đã push lên nhánh engine `claude/python2-exception-syntax-590urp`, chờ vào `main`. `v2.1.0`/`v2.2.0` đều dính (tự verify trên full clone). Thoát được vì `ruff check` báo "All checks passed!" trên file CPython không parse nổi. |
+| **[BUG-045](incomplete/BUG-045_sanity_tier_makes_live_binance_network_calls.md)** | Tầng Sanity gọi mạng thật lên `api.binance.com` mỗi lần chạy CI | 🟡 P2 | 2026-08-25 | `container.resolve(...)` dựng `PythonBinanceClient`, constructor ping `/api/v3/ping`. Fixture chỉ patch websocket. Vi phạm `ci-rule.md` §6 "no network". Fix là `EPIC-009` D6 (fake Binance server). |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky), chỉ trên Windows. **Cập nhật 2026-08-25:** cơ chế đã chứng minh — `engine.dispose()` chỉ đóng connection *checked-in*; một `Session` còn checked-out thì `dispose_all()` **không** đóng, để lại cho GC → đúng điều kiện sinh `ResourceWarning`. Nên bước "cứ thêm `dispose_all()`" là **không đủ**. Linux đo lại bằng bằng chứng dương tính: 0 connection chưa đóng trên cả 6 worker. Đã có `scripts/bug030_connection_leak_probe.py` để chỉ đích danh file:line khi chạy được trên Windows. |
 
