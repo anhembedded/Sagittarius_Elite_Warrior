@@ -171,8 +171,15 @@ coverage.
 2. **Integration:** deterministic application or visible UI journeys across
    real collaborators, with local seeded/fake boundaries. It proves the user
    flow, not just a private call or a mock expectation.
-3. **Sanity:** real app boot, DI wiring and QML construction only; no user
-   action, background dispatch or network. It proves composition health.
+3. **Sanity:** real app boot, DI wiring and View/Presenter construction only;
+   no user action, no background dispatch. It proves composition health —
+   the app assembles, resolves and shuts down in silence — via a real
+   composition-root boot plus a real subprocess launch, not QML checks
+   (retired with `EPIC-006`, zero QML left in this app). "No network" means
+   no code-path substitution for a port (that produced `BUG-026`/`BUG-027`);
+   the network boundary is drawn at configuration instead — see
+   `testing-rule.md`'s Sanity bullet and
+   `Tasks/epics/EPIC-009_sanity_tier_redesign/` for the full model.
 4. **Desktop E2E:** a critical visible journey through the **real running
    app** — started from its real entry point (e.g. `main.py` / `create_app()`
    booted for real) into the real production window/screen a user would
