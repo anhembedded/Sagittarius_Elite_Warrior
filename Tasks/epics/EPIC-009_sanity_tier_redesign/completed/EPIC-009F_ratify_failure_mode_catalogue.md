@@ -1,6 +1,6 @@
 # EPIC-009F — Ratify the 12-mode failure catalogue (ADR §4, Q1)
 
-**Status:** 🔴 Not started — blocks nothing built so far, blocks what's next
+**Status:** ✅ Done — 2026-08-25 (reviewer replied "12")
 **Depends on:** nothing (should have come first; recorded honestly as
 overtaken by events — `EPIC-009A/B/C` were built against the catalogue's
 current *draft* form before this ratification happened)
@@ -38,3 +38,24 @@ argument) — but "the design was never formally agreed" is exactly the
 kind of gap `EPIC-009`'s own Principle 8 (a contract nobody executes does
 not exist) warns about. Closing this task turns the ADR's status from
 🔵 Proposed to something the project can point at as settled.
+
+
+## Decision, as recorded in the ADR §4
+
+- **Mode 2 (orphan node) — dropped.** No bug behind it; this codebase
+  registers extension points for decided-but-unbuilt work on purpose
+  (`BaseFeed`), so a test asserting "everything registered must be used"
+  would false-positive on that legitimate pattern.
+- **Mode 6 (registration pointing at deleted code) — kept, marked
+  untestable today.** Confirmed directly against `sagittarius_engine`'s
+  `StdLibContainer`: no public API enumerates registrations (only
+  `bind`/`singleton`/`resolve`/`scoped`/`create_scope`). Testing it would
+  mean reaching into private container state, which D4 forbids. Accepted
+  as a named, open gap — reopens if `IContainer` grows an enumeration
+  method upstream.
+- **Mode 12 (screen package with no route) — ratified as already shipped.**
+  `test_every_screen_package_has_a_navigable_route` (`EPIC-009A`) already
+  covers it and is green. No skip/allowlist mechanism added ahead of a
+  real need for one.
+
+ADR moved from *Proposed* to *Approved* on this decision.

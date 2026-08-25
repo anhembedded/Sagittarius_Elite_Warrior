@@ -2,7 +2,9 @@
 
 **Belongs to:** [`EPIC-009`](README.md)
 **Date:** 2026-08-25
-**Status:** 🔵 **Proposed — under discussion. Nothing approved, nothing implemented.**
+**Status:** 🟢 **Approved — model, catalogue, D2/D2b/D6 ratified and largely
+implemented. D2b's full control channel (event publish / command dispatch) and
+D3's execution-level detail stay Proposed — see §7.1 for what's still open.**
 
 > [!IMPORTANT]
 > **Read the status column, not the prose.** Every claim in this document is
@@ -94,7 +96,7 @@ is a prose definition, and it is how the tier came to guard nothing.
 
 ---
 
-## 4. Draft failure-mode catalogue 🟠 Draft — **not ratified**
+## 4. Failure-mode catalogue ✅ **Ratified 2026-08-25 (reviewer: "12")**
 
 Derived from §3 alone. No bug consulted while writing this table; the bug
 column was filled in afterwards, as validation.
@@ -102,11 +104,11 @@ column was filled in afterwards, as validation.
 | # | Failure mode | From | Witnessed by | IN | OUT |
 | --: | :--- | :--- | :--- | :---: | :---: |
 | 1 | Missing node — something needed was never registered | graph | — | ✅ | ❌ |
-| 2 | **Orphan node** — registered, nothing depends on it | graph | **none yet** | ✅ | ❌ |
+| ~~2~~ | ~~Orphan node — registered, nothing depends on it~~ **dropped** | graph | — | — | — |
 | 3 | Broken edge — node registered, its dependency is not | graph | — | ✅ | ❌ |
 | 4 | Wrong node — right key, wrong type or interface | graph | BUG-020, BUG-026, BUG-027 | ✅ | ❌ |
 | 5 | In source, not in graph — added and never registered | graph ↔ source | BUG-039 | ✅ | ❌ |
-| 6 | **In graph, not in source** — registration points at deleted code | graph ↔ source | **none yet** | ✅ | ❌ |
+| 6 | **In graph, not in source** — registration points at deleted code | graph ↔ source | **none yet** | ⚠️ | ❌ |
 | 7 | Cannot enter — boot fails | lifecycle | BUG-043 | 🟡 | ✅ |
 | 8 | **Enters degraded** — boot "succeeds" while emitting problems | lifecycle | BUG-028, BUG-031 | 🟡 | ✅ |
 | 9 | **Cannot exit** — the process does not die | lifecycle | BUG-007, BUG-023, BUG-041 | ❌ | ✅ |
@@ -121,16 +123,36 @@ as the process dying, because pytest's own process keeps living —
 literally *"the UI closed but the Python process kept running"*. Only a
 subprocess exit code proves that.
 
-**Modes 2, 6 and 12 have no bug behind them.** That is not a reason to drop
-them — it is the entire argument for §2's method. Mode 12 in particular is
-cheap to cover and currently invisible: a screen package under
-`src/presentation/ui/screens/` that was never added to
-`MainWindow._setup_router()` is unreachable to every existing test, and the
-scanning technique needed already exists in
-`tests/unit/presentation/ui/test_preview_fixtures_exist.py`.
+**Ratification, reviewer replied "12" to the three open calls below** — read
+as: mode 12 stands as shipped (no change), modes 2 and 6 resolved per this
+session's own recommendation, stated here so a wrong reading is cheap to
+correct.
 
-❓ **This table is the first thing to ratify.** Every later decision is derived
-from it, so an error here propagates to everything.
+- **Mode 2 — dropped from the catalogue.** No bug ever exercised it, and this
+  codebase registers extension points for decided-but-unbuilt work on purpose
+  (`BaseFeed` is the current example) — a test asserting "everything
+  registered must be depended upon" would false-positive on exactly that
+  legitimate pattern, or would need a hand-maintained expected-dependency
+  list, which reintroduces business facts into this tier (violates C3). Not
+  implemented, not planned.
+- **Mode 6 — kept in the catalogue, marked untestable today (⚠️).**
+  Confirmed against the real engine (`anhembedded/sagittarius_engine`,
+  `std_container.py`): `StdLibContainer` exposes only `bind` / `singleton` /
+  `resolve` / `scoped` / `create_scope` — no way to enumerate its own
+  registrations. The only way to test this mode today would be reaching into
+  private state (`_bindings`/`_instances`/`_factories`), which is fragile
+  reliance on a third party's internals, not a config value — D4 forbids
+  exactly this class of substitution. Accepted as a real, named, open gap
+  rather than silently absent. Reopens if `IContainer` ever grows an
+  enumeration method upstream.
+- **Mode 12 — ratified as already shipped, no skip mechanism added.**
+  `test_every_screen_package_has_a_navigable_route`
+  (`tests/sanity/test_composition_root.py`, landed in `EPIC-009A`) already
+  covers this and is green — every screen package currently has a route. No
+  legitimate case for an intentionally-unrouted screen exists yet, so no
+  exception/skip list is added ahead of one; per this project's own
+  anti-speculation stance, that gets built when a real case shows up, not
+  before.
 
 ---
 
@@ -505,6 +527,8 @@ Not decisions about *what* Sanity is — conditions any implementation must meet
 
 | # | Was | Decision |
 | --: | :--- | :--- |
+| Q2 | Can `StdLibContainer` enumerate its own registrations? | **No** — confirmed against the real engine: only `bind`/`singleton`/`resolve`/`scoped`/`create_scope` are public. Mode 6 marked untestable (⚠️) rather than reached into private state for; mode 2 dropped on separate grounds (§4). |
+| Q1 | Ratify §4's failure-mode catalogue | **Ratified** — see §4's ratification note. Mode 2 dropped, mode 6 kept as an accepted gap, mode 12 kept as already shipped. |
 | Q13 | Offline mode: what does it disable? | **Superseded by D6** — nothing is disabled; a fake Binance server is stood up and the real client points at it. |
 | Q17 | Does adopting D2b mean amending the tier definitions, and does "Sanity" keep its name? | **Scope it as a *test automation surface*** shared by Sanity, Integration and Desktop E2E — not as a Sanity feature. `ci-rule.md` §6 is amended accordingly. |
 | ~~Q18~~ | ~~Sequencing against BOT-038~~ **Done 2026-08-25** — see Q8. D6 and D2b now proceed from a known position: 36 journey tests run by default, and the tier's own bar (a single boot, structural assertions) is unaffected by any of this. | resolved |
@@ -514,7 +538,6 @@ Not decisions about *what* Sanity is — conditions any implementation must meet
 | # | Question | Blocks |
 | --: | :--- | :--- |
 | Q1 | Ratify, amend or reject the 12-mode catalogue (§4) | everything |
-| Q2 | Can `StdLibContainer` enumerate its own registrations? | modes 2 and 6; if not, only the source→graph direction is testable |
 | Q3 | Does `MainWindow` construct under `offscreen` *with* the full bootstrap? Unverified — today's tier constructs it *without* theme/font/theme-bridge | D3 |
 | Q4 | Can `@Property` be enumerated via metaobject on `BaseQmlViewModel`? | D5 assertion 5 |
 | Q5 | Inherit or override production's `QT_LOGGING_RULES` suppression? | D4, mode 8 |

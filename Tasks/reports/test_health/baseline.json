@@ -5,8 +5,8 @@
       "files": 14
     },
     "integration/presentation/ui": {
-      "tests": 36,
-      "files": 8
+      "tests": 37,
+      "files": 9
     },
     "sanity": {
       "tests": 16,
@@ -217,6 +217,12 @@
       "file": "tests/conftest.py",
       "line": 37,
       "detail": "fixture `qapp` calls pytest.skip — every test depending on it disappears silently and the tier still reports green"
+    },
+    {
+      "check": "C6",
+      "file": "tests/integration/presentation/ui/test_capture_screenshots.py",
+      "line": 39,
+      "detail": "`_ROUTES` drives parametrize but this file never scans the real source of truth — the list catches deletions, never an addition someone forgot to register"
     },
     {
       "check": "C6",

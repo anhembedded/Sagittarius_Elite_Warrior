@@ -1,10 +1,10 @@
 # EPIC-009 — Sanity Tier Redesign
 
-**Status:** 🟡 In progress — 4/6 sub-tasks done, ADR still at *Proposed*
-(see the honest note in `EPIC-009F` about that ordering)
+**Status:** 🟡 In progress — 5/6 sub-tasks done, ADR now *Approved*
+(see the honest note below about `EPIC-009A/B/C` predating that approval)
 **Type:** Testing architecture / quality gates
-**Priority:** P1 — actively closing real gaps (`BUG-045`, `BUG-048` found and
-one closed), not just a proposal anymore
+**Priority:** P1 — actively closing real gaps: `BUG-045` and `BUG-048` found
+and closed, `BUG-049` found and open (non-blocking)
 
 > Still **not** registered in [`Tasks/ROADMAP.md`](../../ROADMAP.md) — see
 > `Tasks/epics/README.md`'s own convention. Add the line once `EPIC-009F`
@@ -39,7 +39,7 @@ work already shipped.
 | [`EPIC-009C`](completed/EPIC-009C_fake_binance_rest_server.md) | D6 REST — fake Binance server, closes `BUG-045` | ✅ Done |
 | [`EPIC-009D`](incomplete/EPIC-009D_fake_binance_websocket_server.md) | D6 continued — fake Binance WebSocket server | 🔴 Not started |
 | [`EPIC-009E`](completed/EPIC-009E_fix_uncaught_exception_hang_bug048.md) | Fix `BUG-048` — uncaught exception hangs the process | ✅ Done |
-| [`EPIC-009F`](incomplete/EPIC-009F_ratify_failure_mode_catalogue.md) | Ratify the 12-mode catalogue (ADR Q1) | 🔴 Not started |
+| [`EPIC-009F`](completed/EPIC-009F_ratify_failure_mode_catalogue.md) | Ratify the 12-mode catalogue (ADR Q1) | ✅ Done |
 
 ## 4. Findings this epic has produced so far
 
