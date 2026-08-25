@@ -68,7 +68,11 @@ _COLOUR_SOURCES = ("palette.py",)
 #: vùng màn hình vẽ trên nền app (`Palette.BG`), không viền, tức là chỗ các
 #: card *nằm lên*, không phải một card. Kế thừa `Panel` sẽ cho nó `BG_CARD`
 #: cộng một viền, thành card thứ tư bọc quanh ba card kia.
-_BARE_QT_BASE_CEILING = 16
+#:
+#: 16 → 15: `MetricCardWidget` bị xoá hẳn, 2 call site chuyển sang `StatCard`
+#: của Engine. Đi kèm là `StatCardData` bỏ chuỗi hex, mang `Tone` — đúng thứ
+#: `Tone` sinh ra để làm.
+_BARE_QT_BASE_CEILING = 15
 
 
 def test_ui_root_is_where_we_think_it_is() -> None:
