@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-25 (lần 2)
+> Cập nhật: 2026-08-25 (lần 3)
 
 ---
 
@@ -27,8 +27,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa / đã đóng** | 47 |
+| 🔴 **Đang mở** | 2 |
+| ✅ **Đã sửa / đã đóng** | 48 |
 | 📈 **Tổng** | **50** |
 
 ---
@@ -37,8 +37,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-048](completed/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `_handler` kiểm `is_headless_qt_platform()` trước khi gọi `dialog.exec()`. Xác nhận bằng đúng fault injection đã phát hiện bug — exit code 1 dưới 5s thay vì treo. Regression test đỏ-đúng-lý-do trước fix, xanh sau fix. |
-| **[BUG-049](incomplete/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Không fail test nào. Đã điều tra: không phải do server tự nó (isolated repro sạch), là tương tác với phần còn lại của session, chưa bisect ra nguồn — cùng dạng BUG-030. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky), chỉ trên Windows. **Cập nhật 2026-08-25:** cơ chế đã chứng minh — `engine.dispose()` chỉ đóng connection *checked-in*; một `Session` còn checked-out thì `dispose_all()` **không** đóng, để lại cho GC → đúng điều kiện sinh `ResourceWarning`. Nên bước "cứ thêm `dispose_all()`" là **không đủ**. Linux đo lại bằng bằng chứng dương tính: 0 connection chưa đóng trên cả 6 worker. Đã có `scripts/bug030_connection_leak_probe.py` để chỉ đích danh file:line khi chạy được trên Windows. |
 
@@ -48,6 +46,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-049](completed/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Đóng 2026-08-25: root-caused, không sửa code được. `gc.set_debug(gc.DEBUG_UNCOLLECTABLE)` cho thấy đúng dạng cycle metaobject PySide6/shiboken (`QtCore.Property` + closure + `QMetaObject`/`Shiboken.ObjectType`) — đặc tính binding, không phải do `binance_fake_server.py` tạo ra. D6 chỉ là cái khiến `app.boot()` chạy đủ xa để cycle có sẵn lộ ra (trước đó treo/lỗi mạng thật theo BUG-045). |
+| **[BUG-048](completed/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `_handler` kiểm `is_headless_qt_platform()` trước khi gọi `dialog.exec()`. Xác nhận bằng đúng fault injection đã phát hiện bug — exit code 1 dưới 5s thay vì treo. Regression test đỏ-đúng-lý-do trước fix, xanh sau fix. |
 | **[BUG-050](completed/BUG-050_capital_dialog_apply_button_can_never_be_disabled.md)** | `CapitalDialogWidget`'s "Áp dụng" button không bao giờ bị disable, kể cả khi vốn nhập sai | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `__init__` ghi đè nút thật (do `_build_buttons()` tạo trong `super().__init__()`) bằng `self._btn_apply = None` ở cuối `__init__`. Regression test đỏ đúng lý do (`AttributeError: 'NoneType' object has no attribute 'isEnabled'`) trước fix, xanh sau. 0 test coverage trước đó cho cả widget. |
 | **[BUG-046](completed/BUG-046_dashboard_exception_fallback_fsm_state_assumption_stale.md)** | `test_dashboard_integration_exception_fallback` giả định FSM đã LIVE lúc assert, thực tế IDLE | 🟡 P2 | 2026-08-25 | Đóng 2026-08-25: `BOT-062` đã đổi mặc định autostart sang tắt, assertion cũ chưa cập nhật theo. Sửa test, không đụng production code. |
 | **[BUG-047](completed/BUG-047_dashboard_live_stream_candlestick_history_not_populated.md)** | `test_dashboard_integration_start_stream_chart_rendering`: candlestick history rỗng sau Load History + Start Stream | 🟡 P2 | 2026-08-25 | Đóng 2026-08-25: 2 mock cũ độc lập — `submit()` trả `None` thay vì `Future` (ExclusiveAction/BOT-069 cần), `GetHistoricalKlinesQuery` response sai shape (list thay vì dict theo symbol). Sửa test, không đụng production code. |
