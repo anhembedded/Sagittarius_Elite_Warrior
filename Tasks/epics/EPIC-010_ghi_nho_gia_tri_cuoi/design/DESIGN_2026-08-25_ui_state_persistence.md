@@ -211,9 +211,10 @@ việc lưu giá trị.
 
 | | Phương án | Ưu | Nhược |
 | :-: | :--- | :--- | :--- |
-| **A** | Tái dùng `user_config.json` qua `ConfigManager` | Không phải viết gì mới; `save()` đã có `_dirty` tracking | Xem 5 điểm chặn bên dưới |
-| **B** | File riêng `ui_state.json` + store riêng | Tách bạch, schema riêng, xoá được để reset | Thêm 1 file, thêm ~150 dòng |
-| **C** | `QSettings` | Native, đúng chuẩn desktop | Vị trí mờ (registry/plist), khó diff, khó reset, khác nhau theo OS — tệ cho một repo mà **cách debug chính là đọc file** |
+| **A** | Tái dùng **chính file** `user_config.json` qua `ConfigManager` hiện có | Không phải viết gì mới | Xem 5 điểm chặn bên dưới |
+| **B** | File riêng `ui_state.json` + **store tự viết** | Kiểm soát hoàn toàn, ghi atomic được | Thêm ~150 dòng I/O tự viết; **thêm một paradigm thứ hai vào dự án** |
+| **B2** | File riêng `ui_state.json` nhưng dùng **một instance `ConfigManager` thứ hai** | Tách file (giải quyết cả 5 điểm chặn của A) **nhưng vẫn đúng một cơ chế** trong toàn dự án | Ghi không atomic (§4.1.3) |
+| **C** | `QSettings` | Native desktop, `saveGeometry()` xử lý đa màn hình đúng | Xem §4.1.2 |
 | **D** | SQLite (đã có sẵn DB) | Transactional | Quá nặng cho ~45 scalar; buộc "trí nhớ UI" vào vòng đời DB thị trường — mà `BUG-030` cho thấy vòng đời đó đang mong manh |
 
 **Năm điểm chặn phương án A** ✅ Đã kiểm chứng — đây là lý do quyết định:
@@ -237,15 +238,118 @@ việc lưu giá trị.
    save. Một cơ chế auto-save sẽ biến mỗi lần chạy test thành một lần ghi đè
    config trong repo của dev.
 
-> **Quyết định: B** 🔵 Đề xuất.
-> Lý do cốt lõi không phải "file riêng cho gọn", mà là: **preference và hint có
-> ngữ nghĩa hỏng khác nhau.** Preference là thứ user *chủ động khai báo* và mong
-> được tôn trọng nguyên văn. Hint là *tác dụng phụ của việc dùng app*, user không
-> yêu cầu, và phải được phép **vứt đi im lặng** khi nghi ngờ. Hai thứ có chính
-> sách hỏng ngược nhau thì không được ở chung một file.
+**Vì sao vẫn phải tách file** (áp cho cả B, B2 và C): **preference và hint có
+ngữ nghĩa hỏng ngược nhau.** Preference là thứ user *chủ động khai báo* và mong
+được tôn trọng nguyên văn. Hint là *tác dụng phụ của việc dùng app*, user không
+yêu cầu, và phải được phép **vứt đi im lặng** khi nghi ngờ. Hai thứ có chính sách
+hỏng ngược nhau thì không được ở chung một file.
+
+Phần thưởng kèm theo: *"xoá `ui_state.json` để reset"* là một câu hướng dẫn hỗ
+trợ một dòng, không rủi ro.
+
+---
+
+#### 4.1.1 Tính nhất quán — vì sao B thua B2
+
+> **Phản biện đúng (user nêu 2026-08-25):** *"đã có `ConfigManager` rồi mà còn
+> thêm cơ chế nữa thì dự án mất tính nhất quán."*
+
+Phản biện này **cũng áp cho phương án B**, không riêng gì QSettings — đó là điểm
+mấu chốt. Bản thiết kế đầu tiên chọn B, tức cũng đang thêm cơ chế thứ hai. Vậy
+câu hỏi đúng không phải *"một cơ chế hay hai"* (đằng nào cũng hai, vì A bị chặn),
+mà là:
+
+> **Thêm bao nhiêu *khái niệm* mà một dev phải học?**
+
+Nhất quán là chuyện **paradigm**, không phải chuyện đếm số class:
+
+| Phương án | Số file store | Số **paradigm** dev phải học | Câu chuyện debug |
+| :--- | :---: | :---: | :--- |
+| A | 1 | 1 | Nhưng mâu thuẫn **chui vào trong file**, vô hình — tệ hơn |
+| B | 2 | **2** (ConfigManager + I/O tự viết) | Hai đường đọc/ghi khác nhau |
+| **B2** | 2 | **1** | Y hệt nhau: JSON phẳng, `get`/`set`/`save`, `cat` ra đọc được |
+| C (QSettings) | 2 | **2** + khác theo OS | Linux: INI ngoài repo. Windows: **registry, không phải file** |
+
+**B2 = "cùng một ý tưởng, áp cho một vòng đời khác".** Dev nào hiểu
+`user_config.json` thì hiểu `ui_state.json` trong 30 giây.
+
+#### 4.1.2 Đánh giá `QSettings` — đo thật, không phán từ trí nhớ ✅ Đã kiểm chứng
+
+Chạy thật trên container này (PySide6 6.11.1):
+
+```text
+--- QSettings khi CHƯA set org/app name ---
+  fileName: '/root/.config/Unknown Organization/PySideApp.conf'
+  organizationName: ''
+--- sau khi setOrganizationName/setApplicationName ---
+  fileName: /root/.config/Sagittarius/EliteWarrior.conf
+  format:   Format.NativeFormat
+--- saveGeometry() ---
+  type: QByteArray | bytes: 66
+```
+
+Bốn hệ quả:
+
+1. **App hiện KHÔNG set `organizationName`** (đo được: chuỗi rỗng). Dùng QSettings
+   mà quên set thì nó **âm thầm** ghi vào `Unknown Organization/PySideApp.conf` —
+   sai chỗ, không lỗi, không ai biết.
+2. **`NativeFormat` trên Windows là registry, không phải file.** Repo này có luật
+   debug bằng file ghi thẳng trong `CLAUDE.md`: *"Không tin console — đọc file
+   log."* Một store không `grep` được, không `cat` được, không đính vào bug report
+   được là đi ngược văn hoá chẩn đoán của chính dự án.
+3. **Ghi ra `~/.config/`, ngoài repo** → mọi test chạm QSettings sẽ ghi vào máy
+   thật của dev, trừ khi gọi `QSettings.setPath()`. Đây đúng cái mìn đã nêu ở
+   điểm 5 bên trên (`tests/sanity/conftest.py`), chỉ đổi chỗ nổ.
+4. **Điểm QSettings thật sự thắng:** `saveGeometry()` trả `QByteArray` 66 byte mà
+   `restoreGeometry()` hiểu — Qt tự lo đa màn hình, đổi DPI, cửa sổ nằm ngoài
+   vùng nhìn thấy. Lưu `x/y/w/h` thô bằng JSON **có rủi ro thật**: khôi phục cửa
+   sổ về một màn hình không còn cắm nữa.
+
+> **Xử lý điểm 4 mà không cần QSettings:** validate rect khôi phục có giao với
+> `QGuiApplication.screens()` nào không; không giao thì bỏ, dùng mặc định. Khoảng
+> 5 dòng, và nó **đúng tinh thần D5 hơn** cả `restoreGeometry()` — D5 nói giá trị
+> đọc lên là *lời đề nghị phải kiểm tra*, còn blob nhị phân thì khôi phục mù.
+
+#### 4.1.3 B2 — đã kiểm chứng bằng thực nghiệm ✅ Đã kiểm chứng
+
+Probe chạy thật với `ConfigManager` của engine, 4 giả thuyết, **cả 4 PASS**.
+Probe được **giữ lại trong repo** để lần sau kiểm lại bằng một lệnh, thay vì
+phải tin văn xuôi ở đây:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/ui_state_store_feasibility_probe.py
+# exit 0 = B2 còn khả thi; khác 0 = D1 phải xem lại vì engine đã đổi
+```
+
+| Giả thuyết | Kết quả |
+| :--- | :--- |
+| **H1** — slice lồng (`dict`) sống sót qua `set()` + `save()` | ✅ ghi xuống JSON lồng đúng, đọc lại đúng |
+| **H2** — phiên chỉ mở Dev Board, ghi slice `dashboard` → slice `backtest` **còn nguyên** | ✅ **D2 có sẵn, không phải tự viết** — `save()` chỉ ghi `_dirty` lên nội dung file hiện có |
+| **H3** — file JSON cụt (mô phỏng crash giữa lúc ghi) | ✅ `get()` trả default, **không raise** — `JsonSource.read()` nuốt `JSONDecodeError` → `{}` |
+| **H4** — hai instance độc lập | ✅ `user_config.json` không bị đụng; state store `get("API_KEY")` → `None` |
+
+Nghĩa là B2 **đạt sẵn** ba thứ mà phương án B phải tự viết: merge theo slice (D2),
+fail-safe khi file hỏng (mode #9), và cách ly credential.
+
+**Cái giá phải trả — ghi không atomic.** `save()` mở file bằng `open(path, "w")`,
+không tmp+rename. Crash **giữa** lúc ghi → file cụt. Nhưng theo H3, hậu quả là
+*lần mở sau về hết mặc định* — user mất trí nhớ một lần, app vẫn boot bình
+thường. **Với dữ liệu hạng *hint* thì đây là mất mát chấp nhận được** — và đó
+chính là logic "preference vs hint" ở trên, áp nhất quán: hint được phép mất.
+
+> ⚠️ `architecture-rule.md` §7.1 quy định: cái giá đã chấp nhận trả **phải có một
+> test khoá hành vi hiện tại**, không được chỉ ghi chú. Vậy `EPIC-010A` bắt buộc
+> có test khoá đúng H3: *file cụt → boot ra mặc định, không raise*.
+
+> ### ✅ Quyết định: **B2** 🔵 Đề xuất — đổi so với bản nháp đầu (vốn chọn B)
 >
-> Phần thưởng kèm theo: *"xoá `ui_state.json` để reset"* là một câu hướng dẫn hỗ
-> trợ một dòng, không rủi ro.
+> File riêng `state/ui_state.json`, nhưng backend là **một instance
+> `ConfigManager` thứ hai**, đặt sau port `IUiStateStore` của D3.
+> Port giữ nguyên vai trò: chỗ cắm `NullUiStateStore` cho tầng Sanity, và **chặn
+> việc lặp lại wart `isinstance(self.config, ConfigManager)`** mà
+> `SettingsPresenter:109` đang phải làm ở 4 presenter nữa.
+> Nếu sau này thật sự cần ghi atomic, đổi sang `JsonFileUiStateStore` là **thay
+> một dòng ở composition root** — đúng công dụng của port.
 
 **Vị trí file:** `state/ui_state.json` ở gốc repo, thêm `state/` vào `.gitignore`
 — nhất quán với `logs/` (dòng 147) và `database/` (dòng 139) đang làm đúng vậy.
@@ -383,14 +487,18 @@ Repo đã có tiền lệ đúng cho việc này: `BOT-115` (persistence báo c�
 chốt *"JSON có `schema_version`, **không bao giờ `pickle`** (file report là input
 không tin cậy)"*. ✅ Đã kiểm chứng — áp dụng nguyên tắc y hệt:
 
-| Vấn đề | Giải pháp |
-| :--- | :--- |
-| Ghi bị crash giữa chừng (#5) | Ghi ra `.tmp` rồi `os.replace()` — atomic ở cả POSIX lẫn Windows |
-| Hai instance ghi đè (#6) | `os.replace()` là atomic; last-writer-wins **có chủ đích** và được ghi rõ. Không làm file lock — độ phức tạp không xứng với "quên mất symbol" |
-| Ghi thất bại (#7) | Nuốt `OSError`, log một lần, degrade sang in-memory |
-| File hỏng (#9) | Cách ly sang `ui_state.corrupt.json` (giữ để chẩn đoán) rồi đi tiếp bằng default. **Không bao giờ chặn boot** |
-| Schema đổi (#10) | `schema_version: int`. Version lạ **mới hơn** code → bỏ qua toàn bộ. Key lạ → bỏ qua, không lỗi |
-| Không JSON-safe (#4) | Slice chỉ chấp nhận `str/int/float/bool/list/dict`. Có test khoá |
+| Vấn đề | Giải pháp với **B2** | Ai lo? |
+| :--- | :--- | :--- |
+| Ghi bị crash giữa chừng (#5) | **Cái giá chấp nhận trả** (§4.1.3): file cụt → lần mở sau về mặc định. Hint được phép mất. **Bắt buộc có test khoá đúng hành vi này** (`architecture-rule.md` §7.1) | — |
+| Hai instance ghi đè (#6) | Last-writer-wins, **có chủ đích**, ghi rõ trong docstring. Không làm file lock — độ phức tạp không xứng với "quên mất symbol" | — |
+| Ghi thất bại (#7) | `UiStateService` bắt `OSError`/`ValueError` quanh `save()`, log **một lần**, chuyển sang `Degraded` (§5.5). **Không bao giờ ném ra đường shutdown** — bài học `BUG-048` | Ta viết |
+| File hỏng (#9) | ✅ **Có sẵn** — `JsonSource.read()` nuốt `JSONDecodeError` → `{}` → mặc định (đã đo, H3) | ConfigManager |
+| Merge theo slice (D2) | ✅ **Có sẵn** — `save()` chỉ ghi `_dirty` lên nội dung file hiện có (đã đo, H2) | ConfigManager |
+| Schema đổi (#10) | `schema_version: int` là một key thường trong file. Version **mới hơn** code → bỏ qua toàn bộ slice. Key lạ → bỏ qua, không lỗi | Ta viết |
+| Không JSON-safe (#4) | Slice chỉ chấp nhận `str/int/float/bool/list/dict` — `json.dump` của `save()` sẽ ném `TypeError` nếu sai. Có test khoá đệ quy trên mọi `capture_state()` | Ta viết |
+
+> Cột "Ai lo?" là lý do B2 thắng B: **hai dòng nặng nhất đã có sẵn**, không phải
+> code ta phải viết rồi tự test.
 
 ---
 
@@ -410,9 +518,14 @@ graph TB
     end
 
     subgraph INFRA["Hiện thực store"]
-        JSON["JsonFileUiStateStore<br/>atomic tmp+replace"]
+        CMS["ConfigManagerUiStateStore<br/>MẶC ĐỊNH — cùng cơ chế<br/>dự án đang dùng"]
+        JSON["JsonFileUiStateStore<br/>dự phòng, nếu cần atomic"]
         MEM["InMemoryUiStateStore<br/>dùng cho test"]
         NULL["NullUiStateStore<br/>tầng Sanity"]
+    end
+
+    subgraph ENG["Engine — dùng lại nguyên xi"]
+        CM2["ConfigManager #2<br/>writable=True"]
     end
 
     subgraph DISK["Đĩa"]
@@ -422,6 +535,7 @@ graph TB
     subgraph UNTOUCHED["KHÔNG bị epic này đụng tới"]
         APP["src/application/"]
         DOM["src/domain/"]
+        CM1["ConfigManager #1<br/>writable=True"]
         CFG["src/config/user_config.json<br/>API_KEY, preference"]
     end
 
@@ -430,10 +544,13 @@ graph TB
     BP --> SVC
     DMP --> SVC
     SVC --> PORT
+    PORT -.->|"implements (mặc định)"| CMS
     PORT -.->|implements| JSON
     PORT -.->|implements| MEM
     PORT -.->|implements| NULL
-    JSON --> F
+    CMS --> CM2
+    CM2 --> F
+    CM1 --> CFG
 
     style UNTOUCHED fill:#2B2B2B,color:#888,stroke:#555
     style CFG fill:#2B2B2B,color:#888,stroke:#555
@@ -451,22 +568,34 @@ classDiagram
         +flush() None
     }
 
-    class JsonFileUiStateStore {
-        -_path: Path
-        -_pending: dict
+    class ConfigManagerUiStateStore {
+        -_cm: ConfigManager
         +read() UiStateDocument
         +write_slice(key, data) None
         +flush() None
+        note "MẶC ĐỊNH (B2). Bọc một instance
+        ConfigManager thứ hai trỏ vào
+        state/ui_state.json. Merge theo slice
+        và fail-safe khi hỏng là CÓ SẴN."
+    }
+
+    class JsonFileUiStateStore {
+        -_path: Path
         -_atomic_write(doc) None
-        -_quarantine_corrupt() None
+        note "DỰ PHÒNG. Chỉ dựng nếu ghi
+        atomic thật sự cần thiết —
+        đổi 1 dòng ở composition root."
     }
 
     class InMemoryUiStateStore {
         -_doc: UiStateDocument
+        note "Dùng cho unit/integration test"
     }
 
     class NullUiStateStore {
-        note "read() luôn rỗng, write() là no-op"
+        note "read() luôn rỗng, write() no-op.
+        Dùng cho tầng Sanity — test không
+        được ghi ra đĩa thật."
     }
 
     class UiStateDocument {
@@ -511,6 +640,7 @@ classDiagram
         note "geometry + route cuối"
     }
 
+    IUiStateStore <|.. ConfigManagerUiStateStore
     IUiStateStore <|.. JsonFileUiStateStore
     IUiStateStore <|.. InMemoryUiStateStore
     IUiStateStore <|.. NullUiStateStore
@@ -538,17 +668,16 @@ sequenceDiagram
     participant PM as PresenterManager
     participant DP as DashboardPresenter
     participant SVC as UiStateService
-    participant ST as JsonFileUiStateStore
+    participant ST as ConfigManagerUiStateStore
     participant FS as state/ui_state.json
 
     Note over MW: build() — boot
     MW->>SVC: restore_into(ShellStateContributor)
     SVC->>ST: read()
-    ST->>FS: đọc file
-    alt file hỏng
-        FS-->>ST: JSON không parse được
-        ST->>FS: đổi tên → ui_state.corrupt.json
-        ST-->>SVC: document rỗng
+    ST->>FS: ConfigManager.get_all()
+    alt file hỏng hoặc chưa tồn tại
+        FS-->>ST: JsonSource.read() nuốt lỗi → {}
+        ST-->>SVC: document rỗng (đã đo — H3)
     else bình thường
         FS-->>ST: nội dung
         ST-->>SVC: UiStateDocument
@@ -576,7 +705,7 @@ sequenceDiagram
     participant VM as DashboardViewModel
     participant DP as DashboardPresenter
     participant SVC as UiStateService
-    participant ST as JsonFileUiStateStore
+    participant ST as ConfigManagerUiStateStore
     participant FS as Đĩa
 
     U->>VM: đổi symbol ETHUSDT → BTCUSDT
@@ -593,12 +722,13 @@ sequenceDiagram
     SVC->>DP: capture_state()
     DP-->>SVC: {"symbol": "BTCUSDT", "interval": "5m", ...}
     SVC->>ST: write_slice("dashboard", data)
-    ST->>FS: đọc tài liệu hiện có
-    FS-->>ST: {shell, dashboard, backtest, database}
-    ST->>ST: MERGE chỉ slice "dashboard"<br/>(backtest/database giữ NGUYÊN)
-    ST->>FS: ghi ui_state.json.tmp
-    ST->>FS: os.replace() — atomic
-    Note over ST,FS: Lỗi OSError ở đây bị NUỐT + log.<br/>Không bao giờ ném ra ngoài.
+    ST->>ST: ConfigManager.set("dashboard", data)<br/>(chỉ key này vào _dirty)
+    ST->>FS: ConfigManager.save()
+    FS-->>ST: đọc lại tài liệu hiện có
+    ST->>ST: existing.update(_dirty)<br/>MERGE sẵn có — backtest/database giữ NGUYÊN
+    ST->>FS: json.dump ghi đè
+    Note over ST,FS: Không atomic — giá đã chấp nhận (§4.1.3).<br/>Crash ở đây = lần sau về mặc định, app vẫn boot.
+    Note over SVC,ST: OSError/ValueError bị NUỐT + log MỘT lần.<br/>Không bao giờ ném ra đường shutdown (BUG-048).
 ```
 
 ### 5.5 Máy trạng thái của bộ ghi
@@ -703,7 +833,8 @@ Ví dụ file thật:
 
 | Tầng | Chứng minh cái gì | Ví dụ test |
 | :--- | :--- | :--- |
-| **Unit** | `JsonFileUiStateStore` chịu được mọi mode ở §2.1 | file thiếu → doc rỗng; JSON hỏng → cách ly + rỗng; `schema_version` tương lai → bỏ qua; `OSError` khi ghi → không ném; **merge giữ nguyên slice không liên quan** (D2) |
+| **Unit** | `ConfigManagerUiStateStore` chịu được mọi mode ở §2.1 | file thiếu → doc rỗng; **JSON cụt → doc rỗng, KHÔNG raise** (khoá cái giá ở §4.1.3 — bắt buộc theo `architecture-rule.md` §7.1); `schema_version` tương lai → bỏ qua; `OSError` khi ghi → không ném; **merge giữ nguyên slice không liên quan** (D2) |
+| **Unit** | Store **không** thấy được config thật | `store.read()` không chứa `API_KEY`; ghi state không đụng `user_config.json` (đã đo — H4) |
 | **Unit** | Mỗi contributor round-trip đúng | `capture_state()` → `restore_state()` ra đúng giá trị ban đầu; giá trị không hợp lệ bị bỏ **riêng lẻ**, không kéo cả slice |
 | **Unit** | Chỉ chứa kiểu JSON-safe (mode #4) | assert đệ quy trên output của mọi `capture_state()` |
 | **Integration** | **Restore không gây side effect** (mode #12) | restore Dev Board slice → assert `dispatch` **không** được gọi lần nào |
@@ -726,7 +857,7 @@ gantt
     axisFormat %d/%m
 
     section Nền móng
-    010A store + port + test unit đủ 12 mode   :a1, 2026-08-26, 2d
+    010A port + ConfigManagerUiStateStore      :a1, 2026-08-26, 2d
     010B UiStateService + debounce + flush     :a2, after a1, 1d
 
     section T1 giá trị an toàn

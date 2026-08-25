@@ -35,7 +35,7 @@ journey).
 
 | # | Quyết định | Lý do quyết định |
 | :-: | :--- | :--- |
-| **D1** | File **riêng** `state/ui_state.json`, **không** dùng lại `user_config.json` | `user_config.json` được git track **và** chứa `API_KEY`/`API_SECRET`; `ConfigManager.save()` không atomic và **âm thầm ghi đè file hỏng**; tầng Sanity đang nạp đúng file thật đó với `writable=True`. Sâu xa hơn: *preference* (user chủ động khai, phải tôn trọng nguyên văn) và *hint* (tác dụng phụ của việc dùng app, được phép vứt im lặng) có chính sách hỏng ngược nhau |
+| **D1** | File **riêng** `state/ui_state.json`, nhưng backend là **một instance `ConfigManager` thứ hai** — không phải store tự viết, không phải `QSettings` | Phải tách **file** vì `user_config.json` được git track **và** chứa `API_KEY`/`API_SECRET`, còn tầng Sanity đang nạp đúng file thật đó với `writable=True`. Nhưng **không** tách **cơ chế**: giữ đúng một paradigm cho cả dự án. Probe đo thật cho thấy `ConfigManager` cho sẵn merge-theo-slice (D2) và fail-safe khi file hỏng — hai thứ nặng nhất khỏi phải tự viết |
 | **D2** | Tài liệu chia **slice theo màn**, ghi thì **merge từng slice**, không bao giờ thay cả tài liệu | `PresenterManager` là *TRUE LAZY* — presenter chỉ dựng khi user vào màn. Ghi cả tài liệu lúc shutdown sẽ **xoá sạch** slice của những màn phiên này không mở |
 | **D6** | Lưu **ý định**, không bao giờ lưu **hoạt động** (FSM, stream đang chạy) | `BOT-062` đã chủ động tắt autostart vì *"opening the Dev Board must not silently start a live connection unless the user has opted in"*. Restore FSM về `LIVE` là lách đúng quyết định đó bằng cửa sau |
 
@@ -43,7 +43,7 @@ journey).
 
 | ID | Tên | Tầng | Trạng thái |
 | :--- | :--- | :---: | :---: |
-| `EPIC-010A` | `IUiStateStore` + `JsonFileUiStateStore` + unit test đủ 12 failure mode | Nền móng | 🔵 Chưa bắt đầu |
+| `EPIC-010A` | `IUiStateStore` + `ConfigManagerUiStateStore` + unit test đủ 12 failure mode | Nền móng | 🔵 Chưa bắt đầu |
 | `EPIC-010B` | `UiStateService` — debounce, flush trong `teardown()` | Nền móng | 🔵 Chưa bắt đầu |
 | `EPIC-010C` | Shell: kích thước cửa sổ + route cuối + sidebar | T1 | 🔵 Chưa bắt đầu |
 | `EPIC-010D` | Dev Board: symbol + interval | T1 | 🔵 Chưa bắt đầu |
