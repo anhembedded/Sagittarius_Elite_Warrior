@@ -1,6 +1,6 @@
 # EPIC-007F — Elite: migrate 4 màn hình sang widget dùng chung
 
-**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings: 1/13 `setStyleSheet` xong)
+**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings: 6/13 `setStyleSheet` xong)
 **Phụ thuộc:** `007D`, `007E`
 
 ---
@@ -95,12 +95,49 @@ hai lớp header chồng nhau. `Card` dành cho screen khác trong task này có
 ngoài phạm vi đo của nó dù vẫn đáng làm (bỏ 1 khối QSS tay viết). 24 test liên quan (`settings`,
 2 guard, `no_cross_screen_imports`) xanh; full suite `1809 passed, 4 skipped, 0 failed`.
 
-**Còn lại của Settings (12/13 `setStyleSheet`):** header/title/subtitle/save button/warning/
-status label/field label/4× `QLineEdit`/reveal button/`QSpinBox`. Phần lớn có thể map thẳng sang
-control đã có (`StyledButton`, `StyledField`) — rủi ro thấp hơn bước card vì không cần quyết định
-kiến trúc mới. `QSpinBox` chưa có `Styled*` tương ứng ở Engine — cần thêm trước, không vá tại
-chỗ (yêu cầu 3). Header riêng (icon + dải `BG_CARD_HEADER` + border-bottom) không khớp hình dạng
-`Card` hiện có — giữ tại `screens/settings/` theo tiêu chí "1 màn dùng" (§3), không đẩy lên
-Engine chỉ vì đây là nơi đầu tiên cần nó.
+### Settings, bước 2/13: 4 `QLineEdit` → `StyledField`, save button → `StyledButton`
 
-**Dashboard, Backtest, Data Management:** chưa bắt đầu.
+`_style_line_edit()` (một khối QSS tay viết dùng lại cho 4 field) bị xoá, thay bằng
+`_make_field()` dựng `StyledField` (role `FIELD` của Engine). Hai thứ role `FIELD` **cố ý không
+có ý kiến** — chiều cao 34px (phải khớp nút reveal `setFixedSize(36, 34)` bên cạnh) và font
+monospace (credential là chuỗi user phải dò từng ký tự) — đặt qua **API widget**
+(`setMinimumHeight`, `setFont`), **không** qua stylesheet thứ hai: thêm QSS ở đây sẽ dựng lại
+đúng cái cascade không-selector mà `BUG-008` vừa sửa.
+
+Save button → `StyledButton(role=PRIMARY_BUTTON)`.
+
+**Một regression thật, bắt được đúng bằng ảnh so sánh (không phải bằng test):** nút Save mất
+`font-weight: bold`. `PRIMARY_BUTTON` mang màu và chrome, không mang weight; QSS cũ có
+`font-weight: bold` và role không thay được phần đó. Không có test nào assert lên weight, và
+suite vẫn xanh — **chỉ ảnh chụp cho thấy**. Đúng loại lỗi yêu cầu "bằng chứng phải nộp" của task
+này sinh ra để bắt. Khôi phục bằng `QFont.setBold(True)` qua API widget, giữ nguyên nguyên tắc
+màn này không tự viết QSS.
+
+**Diff pixel: 23.409 / 1.600.000 (1,5%)**, khu trú đúng vùng field + nút (bbox `286,32 →
+1563,617`), không lan ra chỗ khác — khác hẳn bước 1 (48%, vì bước 1 đổi `sizeHint` của mọi nhãn).
+Phần còn lại là bo góc field 6px → 4px (`radiusSm`) và dịch 1px theo trục dọc, cùng loại chấp
+nhận đã ghi ở bước 1: token dùng chung, không sửa tại chỗ được mà không lệch khỏi mọi field khác.
+
+**Kiểm tra:** `ruff` sạch, `mypy` giữ nguyên baseline, 862 test UI unit xanh, full suite
+`1809 passed, 4 skipped, 0 failed`.
+
+**Còn lại của Settings (7/13 `setStyleSheet`):** `self.setStyleSheet(background BG)` ở
+`_build_ui`, header (dải `BG_CARD_HEADER` + border-bottom), title, subtitle, warning label,
+status label, `_field_label()`, reveal button, `QSpinBox`.
+
+Bốn cái trong số đó **chưa có role tương ứng ở Engine**, và theo yêu cầu 3 phải thêm `StyleRole`
+mới chứ không vá tại chỗ — chưa làm, ghi lại cụ thể để lần sau không phải đo lại:
+
+| Chỗ | Cần gì | Vì sao role hiện có không khớp |
+| :--- | :--- | :--- |
+| `_field_label()` | Nhãn body thường: `TEXT_PRIMARY`, 12px, không bold, không letter-spacing | `CAPTION` là `muted` + `fontSizeSm` (11px) — chữ mờ hơn và nhỏ hơn, dùng vào đây là đổi thị giác |
+| title (`SAGITTARIUS API KEYS VAULT`) | `ACCENT`, 14px, bold | `SECTION_LABEL` là `muted` + 11px + letter-spacing |
+| subtitle / warning | `MUTED` 11px / `ACCENT` 11px | `CAPTION` khớp subtitle; warning cần accent, chưa có |
+| `QSpinBox` | Chrome field cho `QSpinBox` | `StyledField` là `QLineEdit`; không có `StyledSpinBox` |
+
+Header riêng (icon + dải `BG_CARD_HEADER` + border-bottom) **giữ tại `screens/settings/`** theo
+tiêu chí "1 màn dùng" (§3) — không đẩy lên Engine chỉ vì đây là nơi đầu tiên cần nó.
+
+**Dashboard, Backtest, Data Management:** chưa bắt đầu. Đây mới là phần guard đo được — cả 17
+finding `find_bare_qt_base_widgets` nằm ở ba màn này cộng `components/` (Settings đóng góp **0**,
+nên yêu cầu 1 của task không đổi số qua hai bước trên).

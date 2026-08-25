@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -21,7 +22,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     get_icon_loader,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
-from sagittarius_engine.extensions.pyside_mvc.widgets import Panel
+from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    Panel,
+    StyledButton,
+    StyledField,
+    StyleRole,
+)
 
 if TYPE_CHECKING:
     from .settings_view_model import SettingsViewModel
@@ -34,6 +40,16 @@ if TYPE_CHECKING:
 #: QtWidgets version has no reason to repeat the duplication.
 _FIELD_BG = Palette.STATE_IDLE_BG
 _FIELD_HOVER_BG = Palette.STATE_HOVER_BG
+
+#: The two things `StyleRole.FIELD` deliberately has no opinion on, so they
+#: are set through the widget API instead of a second stylesheet (EPIC-007F).
+#: The height matches the reveal button beside the secret field, which is
+#: `setFixedSize(36, 34)` — they must line up.
+_FIELD_HEIGHT = 34
+#: Credentials are opaque strings a user compares character by character;
+#: a monospace face is what makes that possible. Carried over verbatim from
+#: the QSS this replaced.
+_FIELD_FONT_FAMILY = "Consolas"
 
 
 class SettingsView(BaseView):
@@ -208,15 +224,19 @@ class SettingsView(BaseView):
 
         layout.addStretch()
 
-        self._save_button = QPushButton("Save Credentials")
+        self._save_button = StyledButton(
+            "Save Credentials", role=StyleRole.PRIMARY_BUTTON
+        )
         self._save_button.setObjectName("btnSaveCredentials")
         self._save_button.setFixedSize(150, 32)
         self._save_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._save_button.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.ACCENT}; color: {Palette.BG}; "
-            f"font-size: 12px; font-weight: bold; border-radius: 6px; border: none; }} "
-            f"QPushButton:pressed {{ background-color: {Palette.ACCENT}; }}"
-        )
+        # PRIMARY_BUTTON carries colour and chrome, not weight. The QSS this
+        # replaced set `font-weight: bold`, and dropping it was a visible
+        # regression caught in the before/after capture — restored through the
+        # widget API so this screen still adds no QSS of its own.
+        _save_font = self._save_button.font()
+        _save_font.setBold(True)
+        self._save_button.setFont(_save_font)
         layout.addWidget(self._save_button)
 
         return header
@@ -273,12 +293,17 @@ class SettingsView(BaseView):
         label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 12px;")
         return label
 
-    def _style_line_edit(self, field: QLineEdit) -> None:
-        field.setStyleSheet(
-            f"QLineEdit {{ background-color: {_FIELD_BG}; color: {Palette.TEXT_PRIMARY}; "
-            f"border: 1px solid {Palette.BORDER}; border-radius: 6px; "
-            f"padding: 0 8px; min-height: 34px; font-family: Consolas; }}"
-        )
+    def _make_field(self, object_name: str) -> StyledField:
+        """A `StyledField` (engine `FIELD` role) plus the two properties that
+        role has no opinion on. Both are set through the widget API rather
+        than a second stylesheet, so this screen adds no QSS of its own —
+        a stylesheet here would also re-introduce the unscoped cascade
+        `BUG-008` fixed."""
+        field = StyledField()
+        field.setObjectName(object_name)
+        field.setMinimumHeight(_FIELD_HEIGHT)
+        field.setFont(QFont(_FIELD_FONT_FAMILY))
+        return field
 
     def _add_field_row(
         self,
@@ -289,10 +314,8 @@ class SettingsView(BaseView):
         placeholder: str = "",
     ) -> int:
         grid.addWidget(self._field_label(label_text), row, 0)
-        field = QLineEdit()
-        field.setObjectName(object_name)
+        field = self._make_field(object_name)
         field.setPlaceholderText(placeholder)
-        self._style_line_edit(field)
         grid.addWidget(field, row, 1)
         self._last_field = field
         return row + 1
@@ -305,10 +328,8 @@ class SettingsView(BaseView):
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(6)
 
-        self._api_secret_field = QLineEdit()
-        self._api_secret_field.setObjectName("txtApiSecret")
+        self._api_secret_field = self._make_field("txtApiSecret")
         self._api_secret_field.setEchoMode(QLineEdit.EchoMode.Password)
-        self._style_line_edit(self._api_secret_field)
         row_layout.addWidget(self._api_secret_field, 1)
 
         self._reveal_button = QPushButton()
