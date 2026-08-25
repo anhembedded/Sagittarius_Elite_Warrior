@@ -8,6 +8,8 @@ import time
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from sagittarius_engine.extensions.pyside_mvc.tokens import get_theme_bridge
 
 from .chart_card import ChartCard
 
@@ -15,11 +17,11 @@ _TICKS_PER_CANDLE = 20
 
 app = QApplication(sys.argv)
 
-app.setStyleSheet("""
-    #base_card { background-color: #1e1e24; border: 1px solid #333333; border-radius: 8px; }
-    #base_card_header { background-color: #25252b; padding: 10px; border-bottom: 1px solid #333333; }
-    #base_card_title { color: {Palette.TEXT_PRIMARY}; font-weight: bold; font-family: sans-serif; }
-""")
+# EPIC-007E: the card styles itself through the engine's `apply_role()`, so
+# the #base_card / #base_card_header / #base_card_title rules that used to
+# sit here have nothing left to target. The theme bridge below is what the
+# card actually reads.
+get_theme_bridge(Palette.as_ui_dict())
 
 card = ChartCard("BTCUSDT")
 card.resize(1000, 700)

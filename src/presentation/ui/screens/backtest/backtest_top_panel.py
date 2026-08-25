@@ -26,8 +26,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
-    AppProgressBarWidget,
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar import (
+    AppProgressBar,
 )
 
 from .backtest_widgets import MetricCardWidget
@@ -302,7 +302,7 @@ class BackTestTopPanel(QWidget):
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
         layout.setSpacing(10)
-        self._progress_bar = AppProgressBarWidget()
+        self._progress_bar = AppProgressBar()
         layout.addWidget(self._progress_bar, 1)
         self._btn_cancel_progress = QPushButton("Hủy")
         self._btn_cancel_progress.setObjectName("btnCancelBacktestProgress")

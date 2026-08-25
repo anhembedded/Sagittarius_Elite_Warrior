@@ -2,7 +2,7 @@
 
 Bottom pane of the Backtest screen: a `DynamicTabBarWidget` switching
 between the paginated Trade Logs table and the Backtest execution log
-(`LogPanelWidget`, already ported in EPIC-005E/EPIC-006D). Rows rebuild
+(`AppLogPanel`, already ported in EPIC-005E/EPIC-006D). Rows rebuild
 wholesale on every `tradeLogRowsChanged` — same "rebuild, don't diff"
 precedent `DevBoardPanel._rebuild_script_rows()` established (EPIC-006D):
 a page tops out at 20 rows, so a full rebuild is cheap and keeps this file
@@ -28,8 +28,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
-    LogPanelWidget,
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
+    AppLogPanel,
 )
 
 from .backtest_widgets import DynamicTabBarWidget, with_alpha
@@ -318,7 +318,7 @@ class BackTestTradeLogsPanel(QWidget):
         self._trades_tab = self._build_trades_tab()
         outer.addWidget(self._trades_tab, 1)
 
-        self._log_panel = LogPanelWidget("NHẬT KÝ BACKTEST")
+        self._log_panel = AppLogPanel("NHẬT KÝ BACKTEST")
         self._log_panel.setObjectName("backtestLogPanel")
         self._log_panel.set_log_model(view_model.log_model)
         outer.addWidget(self._log_panel, 1)

@@ -44,8 +44,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
-    LogPanelWidget,
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
+    AppLogPanel,
 )
 from sagittarius_engine.extensions.pyside_mvc.widgets import (
     StyledCheckBox,
@@ -119,7 +119,7 @@ class DevBoardPanel(QWidget):
         scroll.setWidget(scroll_body)
         outer.addWidget(scroll, 1)
 
-        self._log_panel = LogPanelWidget("SYSTEM MONITOR")
+        self._log_panel = AppLogPanel("SYSTEM MONITOR")
         self._log_panel.setObjectName("monitorLogPanel")
         self._log_panel.setMinimumHeight(160)
         self._log_panel.set_log_model(view_model.log_model)

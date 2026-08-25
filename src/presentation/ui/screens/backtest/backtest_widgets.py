@@ -2,9 +2,10 @@
 (EPIC-006E) — each a direct port of a `components/` QML file used by more
 than one of `BackTestTopPanel`/`BackTestTradeLogsPanel`/the modals: `MetricCard`
 (top panel stat cards + `ExtendedMetricsModal`) and `DynamicTabBar` (trade
-logs' trades/logs switch). `AppProgressBar.qml`'s port already exists —
-`data_management.data_management_widgets.AppProgressBarWidget` — reused
-as-is rather than duplicated.
+logs' trades/logs switch). `AppProgressBar.qml`'s port lives in
+`components/app_progress_bar.py` — reused rather than duplicated. It sat in
+`data_management/` until `EPIC-007E`, which is why two other screens used to
+import across a screen boundary to reach it.
 """
 
 from __future__ import annotations
