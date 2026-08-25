@@ -1,5 +1,23 @@
 # EPIC-003D — Dọn `components/`: đúng chỗ, đúng kích thước, đúng danh mục
 
+> ## ❌ HUỶ 2026-08-25 (user duyệt) — Phase 1+2 hết đối tượng
+>
+> Cả Phase 1 (dời 9 file đặt sai chỗ) và Phase 2 (tách 3 file QML lớn) đều thao tác trên **file
+> `.qml`**. `EPIC-006F` đã **xoá sạch 22 file `.qml` cuối cùng** của Elite ngày 2026-08-25
+> (`find src -name '*.qml'` → 0). Không còn gì để dời, không còn gì để tách.
+>
+> Đây không phải "bỏ vì ngại làm" — đối tượng của task biến mất do một epic khác đi trước.
+>
+> ### Phần còn giá trị: **Phase 3** — danh mục `components/README.md` có test enforce
+>
+> `src/presentation/ui/components/README.md` **vẫn chưa tồn tại** (kiểm 2026-08-25), nên vấn đề
+> Phase 3 nêu ra vẫn nguyên: nhìn một thư mục filename phẳng thì không trả lời được câu *"đã có
+> sẵn thứ tôi tái dùng được chưa, trước khi tôi viết cái mới"*.
+>
+> Nhưng phạm vi phải đổi: áp cho file **`.py`**, không phải `.qml`. Đây là **ứng viên task mới**,
+> không phải phần còn lại của task này — `EPIC-007G` (tách file quá ngưỡng) cũng đụng
+> `components/`, nên nên gộp vào đó thay vì mở task riêng.
+
 **Thuộc Epic:** [`EPIC-003`](../README.md)
 **Trạng thái:** 🔴 Chưa làm — **xung đột với `EPIC-005` đã kiểm tra và gỡ (2026-08-23)**
 **Phụ thuộc:** Không có — độc lập hoàn toàn với `A`/`B`/`E`/`F`.

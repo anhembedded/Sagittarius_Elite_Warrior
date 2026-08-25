@@ -11,10 +11,12 @@
 >   bởi `EPIC-006D` (Dev Board) và `EPIC-006E` (Backtest), theo con đường triệt để hơn (bỏ hẳn
 >   QML thay vì "trừ chart").
 >
-> **Không mở lại epic này.** Việc còn lại duy nhất của cả hướng đi là `EPIC-006F` (dỡ kit QML
-> bên repo Engine). Giữ file lại làm hồ sơ lịch sử + ADR gốc, đừng coi là việc đang chờ.
+> **Không mở lại epic này.** Cả hướng đi đã kết thúc: `EPIC-006` đóng 6/6 ngày 2026-08-25 và
+> Elite hết sạch `.qml`. Kit QML của **Engine** vẫn còn (sample app cần nó) — tháo kit là task
+> riêng ở repo Engine, không thuộc đây. Giữ file lại làm hồ sơ lịch sử + ADR gốc, đừng coi là
+> việc đang chờ.
 
-**Trạng thái:** ⏹️ Bị thay thế bởi `EPIC-006` (5/6 task con xong; `005F` do `EPIC-006D/E` làm)
+**Trạng thái:** ⏹️ Bị thay thế bởi `EPIC-006` — **6/6 task con xong**, `005F` do `EPIC-006D/E` làm
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime; đây là quyết định hướng đi dài hạn
 **Nhánh:** `epic/EPIC-005-qml-to-qtwidgets` — tách riêng vì epic này **có thể phải rollback**
@@ -118,16 +120,23 @@ Ai đọc epic này mà kỳ vọng "bỏ QML cho gọn stack" là kỳ vọng s
 | **[EPIC-005C](completed/EPIC-005C_dong_bang_qml_va_go_xung_dot.md)** | Đóng băng QML (phạm vi thu hẹp) + gỡ xung đột với EPIC-003D | ✅ Xong — xung đột tự biến mất sau khi `F` hoãn |
 | **[EPIC-005D](completed/EPIC-005D_pilot_settings_screen.md)** | Pilot: `SettingsScreen` (nhỏ nhất) — đo chi phí thật | ✅ Xong — chi phí thấp hơn dự kiến, N=0 component kit |
 | **[EPIC-005E](completed/EPIC-005E_data_management.md)** | `data_management` (mật độ form cao nhất) — chia 3 sub-task (E1/E2/E3) | ✅ Xong (3/3) |
-| **[EPIC-005F](incomplete/EPIC-005F_backtest_dashboard_va_don_dep.md)** | `backtest` (trừ chart) + `dashboard` | ⏸️ **Hoãn vô thời hạn** — xem ADR §4 |
+| **[EPIC-005F](completed/EPIC-005F_backtest_dashboard_va_don_dep.md)** | `backtest` (trừ chart) + `dashboard` | ✅ Xong — **do `EPIC-006D`/`E` làm** (2026-08-25), không phải task này tự làm |
 
-**Thứ tự bắt buộc:** `A` ✅ → `B` ✅ → `C` ✅ → `D` ✅ *(điểm quyết định — đi tiếp)* → `E` ✅.
-`F` không nằm trong lộ trình chủ động nữa — xem lại nếu Backtest/Dashboard vào giai đoạn bảo
-trì (ít nhận mockup mới liên tục), không phải theo lịch cố định.
+**Thứ tự bắt buộc:** `A` ✅ → `B` ✅ → `C` ✅ → `D` ✅ *(điểm quyết định — đi tiếp)* → `E` ✅ → `F` ✅.
+
+`F` từng bị hoãn vô thời hạn với điều kiện xem lại *"khi Backtest/Dashboard ngừng nhận mockup
+mới"*. Điều kiện đó **chưa từng xảy ra** — `EPIC-006` đảo ngược ADR vì một lý do khác hẳn
+(`BUG-039`: chart native chưa từng render frame production, nên ràng buộc "chart phải ở lại
+QtQuick" sụp đổ). Ghi lại vì đây là một dự đoán **sai theo hướng không ai lường**: task được mở
+lại không phải vì điều kiện dừng được thoả, mà vì tiền đề của nó hết đúng.
 
 ## 🚧 Xung đột đã biết: EPIC-003D
 
+> ✅ **Xung đột này đã tự tan 2026-08-25:** `EPIC-003D` bị **huỷ** vì `EPIC-006F` xoá sạch
+> `.qml` — không còn file nào để dời hay tách. Đoạn dưới giữ lại làm hồ sơ.
+
 [`EPIC-003D — Dọn components/`](../EPIC-003_presenter_and_god_file_decomposition/incomplete/EPIC-003D_qml_component_split.md)
-đang 🔴 chưa làm, và nội dung của nó là **sắp xếp lại 16 file QML trong `components/`** (9 file
+từng 🔴 chưa làm, và nội dung của nó là **sắp xếp lại 16 file QML trong `components/`** (9 file
 chỉ dùng bởi đúng 1 màn hình, cần dời về thư mục màn hình đó).
 
 Hai epic này đá nhau: dời file QML rồi sau đó xoá chính nó là công cốc. `EPIC-005C` phải

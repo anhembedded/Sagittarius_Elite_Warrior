@@ -1,7 +1,17 @@
 # EPIC-005F — `backtest` (trừ chart) + `dashboard` + dọn dẹp
 
 **Thuộc Epic:** [`EPIC-005`](../README.md)
-**Trạng thái:** ⏸️ **Hoãn vô thời hạn** (2026-08-23, user duyệt theo `EPIC-005A`'s ADR)
+**Trạng thái:** ✅ **Xong — do [`EPIC-006D`/`EPIC-006E`](../../EPIC-006_drop_qml/README.md) thực hiện** (2026-08-25)
+
+> **Không phải task này tự làm.** Nó bị hoãn vô thời hạn ngày 2026-08-23 vì lý do ghi ở dưới.
+> `EPIC-006` sau đó **đảo ngược ADR của `EPIC-005`** và làm luôn phạm vi này theo con đường triệt
+> để hơn (bỏ hẳn QML thay vì "trừ chart"): `EPIC-006D` làm Dev Board, `EPIC-006E` làm Backtest.
+>
+> Kiểm chứng 2026-08-25: `find src/presentation/ui/screens/backtest src/presentation/ui/screens/dashboard -name '*.qml'`
+> → **0 file**. Toàn bộ `src/` cũng đã hết `.qml` sau `EPIC-006F`.
+>
+> Giữ nguyên phần lý do hoãn bên dưới làm hồ sơ lịch sử — nó ghi lại một phán đoán *đã được
+> kiểm chứng là sai*, và đó là thứ đáng đọc hơn cả kết luận.
 **Phụ thuộc:** [`EPIC-005E`](EPIC-005E_data_management.md)
 
 ---

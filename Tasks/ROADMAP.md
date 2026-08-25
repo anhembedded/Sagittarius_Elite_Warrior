@@ -79,9 +79,9 @@ Sagittarius_Elite_Warrior/Tasks/
 | :--- | :--- | :---: |
 | **[EPIC-001](epics/EPIC-001_ema_trend_pullback_tradingview_cross_reference/README.md)** | Đối chiếu `EmaTrendPullbackStrategy` với TradingView thật | 🟡 Đang làm (1/2 task con xong) |
 | **[EPIC-002](epics/EPIC-002_static_type_checking_in_local_ci/README.md)** | Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ | 🟡 Đang làm (4/5 task con xong) |
-| **[EPIC-003](epics/EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (3/6 task con xong) |
+| **[EPIC-003](epics/EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (3/6 xong, 1 huỷ — `003D` hết đối tượng sau `EPIC-006F`) |
 | **[EPIC-004](epics/EPIC-004_static_security_and_quality_analysis/README.md)** | Static security & quality analysis gate (Bandit + magic-number qua Ruff) | 🟡 Đang làm (3/4 task con xong) |
-| **[EPIC-005](epics/EPIC-005_qml_to_qtwidgets_migration/README.md)** | Rút khỏi QML về QtWidgets, **trừ chart** — theo từng màn hình, mỗi bước rollback được | ⏹️ **Bị thay thế bởi `EPIC-006`** (5/6 task con xong; `005F` bị hoãn nay đã do `EPIC-006D/E` làm) |
+| **[EPIC-005](epics/EPIC-005_qml_to_qtwidgets_migration/README.md)** | Rút khỏi QML về QtWidgets, **trừ chart** — theo từng màn hình, mỗi bước rollback được | ⏹️ **Bị thay thế bởi `EPIC-006`** — 6/6 task con xong (`005F` do `EPIC-006D/E` làm) |
 | **[EPIC-006](epics/EPIC-006_drop_qml/README.md)** | Bỏ hẳn QML, thuần QtWidgets | ✅ **Hoàn thành (6/6 task con)** — 2026-08-25; Elite hết sạch `.qml`. Kit QML của Engine ở lại (sample app cần) |
 | **[EPIC-007](epics/EPIC-007_chuan_hoa_card_dung_chung/README.md)** | **Chuẩn hoá card dùng chung, đưa hình dạng lên Engine** — gộp ~10 biến thể màu card về 1 token, 6 hình dạng surface lên `pyside_mvc.widgets`, cắt 3 import chéo màn hình | 🔵 Chưa bắt đầu (0/7 task con) |
 | **[EPIC-008](epics/EPIC-008_chuan_hoa_luong_event/README.md)** | **Chuẩn hoá luồng sự kiện** — Shared Kernel + port, `BaseEvent` kế thừa được thật, `EventRegistry` + catalog sinh tự động, 3 Feed thay 48 signal cầu nối | ✅ **Hoàn thành (8/8 task con)** — 2026-08-25 |
