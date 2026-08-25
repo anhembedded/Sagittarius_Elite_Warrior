@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     get_icon_loader,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
+from sagittarius_engine.extensions.pyside_mvc.widgets import Panel
 
 if TYPE_CHECKING:
     from .settings_view_model import SettingsViewModel
@@ -162,18 +163,18 @@ class SettingsView(BaseView):
         content_layout.setContentsMargins(20, 20, 20, 20)
         scroll.setWidget(content)
 
-        card = QFrame()
-        card.setStyleSheet(
-            f"QFrame {{ background-color: {Palette.BG_CARD}; "
-            f"border: 1px solid {Palette.BORDER}; border-radius: 8px; }}"
-        )
+        # A bare Panel, not Card: this screen's header (icon, two-line
+        # title/subtitle, its own BG_CARD_HEADER band) is materially richer
+        # than Card's built-in title-label + header_actions row, so it stays
+        # hand-built and goes into Panel's plain body_layout rather than
+        # fighting Card's own header slot for a second one (EPIC-007F).
+        card = Panel()
         content_layout.addWidget(card)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        card_layout.setSpacing(0)
+        card.body_layout.setContentsMargins(0, 0, 0, 0)
+        card.body_layout.setSpacing(0)
 
-        card_layout.addWidget(self._build_header())
-        card_layout.addWidget(self._build_body())
+        card.body_layout.addWidget(self._build_header())
+        card.body_layout.addWidget(self._build_body())
 
     def _build_header(self) -> QWidget:
         header = QFrame()
