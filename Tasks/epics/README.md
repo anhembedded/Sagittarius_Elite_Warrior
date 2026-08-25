@@ -15,8 +15,10 @@ Tasks/epics/
     ├── README.md                      # Tổng quan epic: mục tiêu, bối cảnh, danh sách task con
     ├── incomplete/                    # Task con CHƯA xong — task mới luôn tạo ở đây
     │   └── EPIC-XXXA_ten_task.md
-    └── completed/                     # Task con ĐÃ xong, dời từ incomplete/ sang
-        └── EPIC-XXXB_ten_task.md
+    ├── completed/                     # Task con ĐÃ xong, dời từ incomplete/ sang
+    │   └── EPIC-XXXB_ten_task.md
+    └── cancelled/                     # Task con bị HUỶ — chỉ tạo khi thật sự cần
+        └── EPIC-XXXC_ten_task.md
 ```
 
 - **ID Epic**: `EPIC-XXX` (số tăng dần riêng, không dùng chung pool với
@@ -27,6 +29,17 @@ Tasks/epics/
 - **Khi task con xong**: `git mv incomplete/EPIC-XXXA_*.md completed/`, cập
   nhật `Status` trong file, cập nhật dòng tương ứng ở bảng trong epic's
   `README.md`.
+- **Khi task con bị huỷ**: `git mv` sang `cancelled/` (tạo thư mục nếu chưa
+  có), **không xoá file**. Lý do phải là "việc này không còn tồn tại/không còn
+  đúng", và **viết ra ở đầu file** — huỷ mà không ghi lý do thì lần sau sẽ có
+  người mở lại đúng task đó. Bảng ở epic's `README.md` giữ dòng của nó với
+  trạng thái ❌ để lịch sử không bị thủng.
+
+  Thư mục là nguồn sự thật mà người ta *liệt kê*, README là thứ người ta *đọc*.
+  Để một task đã huỷ nằm lại `incomplete/` thì `ls` vẫn báo nó là việc đang
+  chờ, dù README nói ngược lại — đó chính là kiểu lệch đã khiến `EPIC-003D`
+  bị đưa vào danh sách việc còn lại nhiều lần. Tiền lệ có sẵn ở cấp repo:
+  [`Tasks/cancelled/`](../cancelled/).
 - **`Tasks/ROADMAP.md` chỉ giữ 1 dòng liên kết** tới `README.md` của epic —
   không chép lại nội dung, không viết đoạn dài. Muốn biết chi tiết thì mở
   thẳng file epic. (Áp dụng từ epic mới tạo theo quy ước này trở đi — các

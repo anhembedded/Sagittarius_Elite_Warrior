@@ -135,7 +135,7 @@ lại không phải vì điều kiện dừng được thoả, mà vì tiền đ
 > ✅ **Xung đột này đã tự tan 2026-08-25:** `EPIC-003D` bị **huỷ** vì `EPIC-006F` xoá sạch
 > `.qml` — không còn file nào để dời hay tách. Đoạn dưới giữ lại làm hồ sơ.
 
-[`EPIC-003D — Dọn components/`](../EPIC-003_presenter_and_god_file_decomposition/incomplete/EPIC-003D_qml_component_split.md)
+[`EPIC-003D — Dọn components/`](../EPIC-003_presenter_and_god_file_decomposition/cancelled/EPIC-003D_qml_component_split.md)
 từng 🔴 chưa làm, và nội dung của nó là **sắp xếp lại 16 file QML trong `components/`** (9 file
 chỉ dùng bởi đúng 1 màn hình, cần dời về thư mục màn hình đó).
 
