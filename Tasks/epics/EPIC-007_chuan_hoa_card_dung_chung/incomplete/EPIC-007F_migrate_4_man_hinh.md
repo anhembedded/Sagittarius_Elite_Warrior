@@ -237,5 +237,37 @@ của nó, badge WS, nút action (`_action_button_style`), `_ws_dot`, scroll are
 còn lại của Settings: phần lớn là widget lá, cần role mới ở Engine (`ACCENT` + bold + 11px cho
 nhãn field; chrome `QComboBox`) mà hình dạng chưa đủ rõ để chốt.
 
-**Backtest, Data Management:** chưa bắt đầu — đây là phần nặng nhất (33+27+16 và 31+65
-`setStyleSheet`) và là nơi 15 finding guard còn lại nằm.
+## Quét toàn bộ `screens/` tìm cascade `BUG-008` — 2026-08-25
+
+Viết script đếm mọi `setStyleSheet(...)` **không có selector** (bare property list = universal
+selector của Qt) trong `screens/`: **39 chỗ**. Nhưng phần lớn **không nguy hiểm** — chúng nằm trên
+**widget lá** (label, field, button, combo), không có con để đổ xuống.
+
+Chỉ **2 chỗ là container thật** và đã sửa:
+
+- `dev_board_panel.py` — `QScrollArea` chứa cả cột card. `border: none` không scoped sẽ **gỡ viền
+  của mọi widget con nào không tự khai viền**.
+- `data_management_widgets.py` — `QScrollArea` chứa danh sách gap row, cùng lý do.
+
+Cả hai scoped thành `QScrollArea { ... }`. Ảnh chụp trước/sau **không đổi gì** ngoài đồng hồ
+(`13:44` → `14:01` ở ô DATA RANGE và dấu thời gian log) — đúng thứ docstring của bộ chụp ảnh cảnh
+báo. Không đổi là kết quả đúng ở đây: các `Panel` bên trong đã có QSS scoped riêng từ bước trước
+nên vốn đã miễn nhiễm; sửa này là bịt lỗ hổng cho widget **tương lai** đặt vào scroll area.
+
+## Backtest và Data Management — chưa bắt đầu, và vì sao dừng ở đây
+
+Hai màn này giữ **15/16** finding guard còn lại và phần lớn `setStyleSheet` (76 + 96). Chúng
+**không** dừng vì hết thời gian mà vì mỗi cái đều cần **một quyết định về hành vi thấy được**,
+không phải một phép thay thế cơ học:
+
+| Migration | Vướng gì |
+| :--- | :--- |
+| `MetricCardWidget` → `StatCard` | `StatCard` **cố ý không** có 2 thứ `MetricCardWidget` đang có: icon `info` luôn vẽ, và hover highlight (`enterEvent`/`leaveEvent` đổi nền + viền). Docstring `StatCard` ghi rõ là bỏ vì lúc đó mỗi thứ chỉ có 1 call site. Migrate nguyên trạng = **mất 2 hành vi thấy được** → vi phạm yêu cầu 2. Cần: hoặc thêm vào `StatCard` ở Engine, hoặc user chấp nhận bỏ. |
+| `MetricCardWidget.set_data()` | Nhận màu thô (`value_color`, `badge_color`); `StatCard` nhận `Tone`. Phải ánh xạ tại từng call site — không khó nhưng phải đọc từng chỗ để biết màu đó đang mang nghĩa gì. |
+| `DynamicTabBarWidget` → `TabBar` | Chưa đối chiếu hình dạng. |
+| `_TradeLogRowWidget` → `DataRow` | Chưa đối chiếu hình dạng. |
+| 4 `QDialog` của DataMgmt → `ConfirmOverlay`/`PickerOverlay` | `EPIC-007A` đã cố ý để multi-select ra ngoài `PickerOverlay`; phải kiểm từng dialog xem có rơi vào ca đó không. |
+
+Kinh nghiệm rút ra từ Dashboard trong chính task này: gỡ cascade `BUG-008` **đổi diện mạo thấy
+rõ** (mất khung quanh mỗi dòng chỉ báo). Làm hai màn còn lại mà không có người xem lại từng ảnh
+thì rủi ro cao hơn nhiều so với giá trị — nên dừng đúng chỗ này và trình bày các quyết định trên.

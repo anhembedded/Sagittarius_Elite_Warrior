@@ -115,7 +115,10 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: none; background: transparent;")
+        # Scoped: unscoped, `border: none` would strip the border from every
+        # descendant that does not set one of its own (`BUG-008`), and this
+        # scroll area contains the whole card column.
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         scroll_body = QWidget()
         scroll_layout = QVBoxLayout(scroll_body)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
