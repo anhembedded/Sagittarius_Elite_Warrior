@@ -64,7 +64,11 @@ _COLOUR_SOURCES = ("palette.py",)
 #: Ratchet báo đỏ **ba lần** trong task đó, mỗi lần đúng lúc con số giảm mà
 #: trần chưa hạ theo. Đó là việc nó sinh ra để làm — và nó cũng là thứ duy
 #: nhất buộc người ta phải ghi lại tiến độ, thay vì để khoảng hở tích lại.
-_BARE_QT_BASE_CEILING = 17
+#: 17 → 16 ở `EPIC-007F` bước 4: `DevBoardPanel` mang `base-exempt` — nó là
+#: vùng màn hình vẽ trên nền app (`Palette.BG`), không viền, tức là chỗ các
+#: card *nằm lên*, không phải một card. Kế thừa `Panel` sẽ cho nó `BG_CARD`
+#: cộng một viền, thành card thứ tư bọc quanh ba card kia.
+_BARE_QT_BASE_CEILING = 16
 
 
 def test_ui_root_is_where_we_think_it_is() -> None:

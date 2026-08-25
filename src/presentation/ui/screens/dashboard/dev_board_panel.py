@@ -48,17 +48,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
     AppLogPanel,
 )
 from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    Panel,
+    SectionLabel,
     StyledCheckBox,
 )
 
 from .dashboard_view_model import DashboardQmlViewModel
-
-
-def _card_style() -> str:
-    return (
-        f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
-        f"border-radius: 8px;"
-    )
 
 
 def _field_style() -> str:
@@ -68,37 +63,49 @@ def _field_style() -> str:
     )
 
 
-class _SectionLabel(QHBoxLayout):
-    """Small accent-tick + uppercase muted title — port of the QML inline
-    `component SectionLabel`."""
+def _section_row(title_text: str) -> QHBoxLayout:
+    """A section heading in a row of its own.
 
-    def __init__(self, title_text: str) -> None:
-        super().__init__()
-        self.setSpacing(6)
-        tick = QFrame()
-        tick.setFixedSize(3, 12)
-        tick.setStyleSheet(f"background-color: {Palette.ACCENT}; border-radius: 1px;")
-        self.addWidget(tick)
-        label = QLabel(title_text.upper())
-        label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold; "
-            f"letter-spacing: 0.8px;"
-        )
-        self.addWidget(label)
-        self.addStretch(1)
+    Was `_SectionLabel(QHBoxLayout)` — a heading that was an *arrangement*
+    (a 3x12px tick `QFrame` beside a styled `QLabel`) rather than a thing,
+    so it could not be styled, hidden or enabled as a unit. `EPIC-007F`
+    replaces it with the engine's `SectionLabel`, whose tick is a QSS
+    `border-left` on the label itself: one object where there were three.
+
+    The wrapping row survives only because every call site pairs the
+    heading with `addStretch(1)` to keep it left-aligned in a stretching
+    column; the heading itself is now a widget.
+    """
+    row = QHBoxLayout()
+    row.setSpacing(6)
+    row.addWidget(SectionLabel(title_text, tick=True))
+    row.addStretch(1)
+    return row
 
 
-class DevBoardPanel(QWidget):
+class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a card
     """The right-hand panel of the Dev Board screen — everything that used
     to be `DevBoardPanel.qml`. `DashboardView` hosts this directly as a
-    `QSplitter` child instead of a `QQuickWidget`."""
+    `QSplitter` child instead of a `QQuickWidget`.
+
+    **Deliberately not a `Surface`/`Panel`**, unlike the three cards it
+    contains. It paints the app background (`Palette.BG`) and draws no
+    border of its own — it is the region the cards sit *on*, not one of
+    them. Inheriting `Panel` would give it `BG_CARD` plus a border, i.e.
+    a fourth card wrapped around the other three.
+    """
 
     def __init__(
         self, view_model: DashboardQmlViewModel, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
-        self.setStyleSheet(f"background-color: {Palette.BG};")
+        # Scoped, not a bare property list: unscoped this would repaint
+        # every descendant that has no rule of its own (`BUG-008`), which
+        # here is most of the screen.
+        self.setStyleSheet(
+            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+        )
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(14, 14, 14, 14)
@@ -134,13 +141,17 @@ class DevBoardPanel(QWidget):
     # Layout
     # ------------------------------------------------------------------ #
 
-    def _build_header(self) -> QFrame:
-        bar = QFrame()
+    def _build_header(self) -> Panel:
+        bar = Panel()
         bar.setFixedHeight(44)
-        bar.setStyleSheet(_card_style())
-        row = QHBoxLayout(bar)
+        # `Panel` already owns its own layout (`body_layout`), so content
+        # goes *into* it rather than a second layout being installed on the
+        # widget — Qt refuses the latter and leaves the content unparented.
+        bar.body_layout.setContentsMargins(0, 0, 0, 0)
+        row = QHBoxLayout()
         row.setContentsMargins(12, 0, 12, 0)
         row.setSpacing(10)
+        bar.body_layout.addLayout(row)
 
         title_row = QHBoxLayout()
         title_row.setSpacing(6)
@@ -191,20 +202,19 @@ class DevBoardPanel(QWidget):
 
         return bar
 
-    def _build_system_controls(self) -> QFrame:
-        card = QFrame()
-        card.setStyleSheet(_card_style())
-        layout = QVBoxLayout(card)
+    def _build_system_controls(self) -> Panel:
+        card = Panel()
+        layout = card.body_layout
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(12)
 
-        layout.addLayout(_SectionLabel("System Controls"))
+        layout.addLayout(_section_row("System Controls"))
 
         layout.addWidget(self._field_row("Market:", self._build_market_combo()))
         layout.addWidget(self._field_row("Symbol:", self._build_symbol_combo()))
         layout.addWidget(self._field_row("Strategy:", self._build_strategy_combo()))
 
-        layout.addLayout(_SectionLabel("Data Range"))
+        layout.addLayout(_section_row("Data Range"))
 
         self._txt_start_date = QLineEdit()
         self._txt_start_date.setObjectName("txtStartDate")
@@ -224,7 +234,7 @@ class DevBoardPanel(QWidget):
         self._txt_end_date.textEdited.connect(self._on_end_date_edited)
         layout.addWidget(self._txt_end_date)
 
-        layout.addLayout(_SectionLabel("Actions"))
+        layout.addLayout(_section_row("Actions"))
 
         actions_row = QHBoxLayout()
         actions_row.setSpacing(8)
@@ -254,13 +264,12 @@ class DevBoardPanel(QWidget):
         layout.addLayout(actions_row)
         return card
 
-    def _build_indicators(self) -> QFrame:
-        card = QFrame()
-        card.setStyleSheet(_card_style())
-        self._indicators_layout = QVBoxLayout(card)
+    def _build_indicators(self) -> Panel:
+        card = Panel()
+        self._indicators_layout = card.body_layout
         self._indicators_layout.setContentsMargins(14, 14, 14, 14)
         self._indicators_layout.setSpacing(10)
-        self._indicators_layout.addLayout(_SectionLabel("Indicators"))
+        self._indicators_layout.addLayout(_section_row("Indicators"))
 
         self._script_checkboxes: dict[str, StyledCheckBox] = {}
         self._rebuild_script_rows()
