@@ -14,7 +14,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from collections.abc import Iterator
 
 from PySide6.QtWidgets import QApplication
-from sagittarius_engine.extensions.pyside_mvc import configure_app_qml
+from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
@@ -25,10 +25,7 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-    get_icon_loader,
-)
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
@@ -113,9 +110,13 @@ def main() -> None:
 
         app = QApplication.instance() or QApplication([])
         app.setQuitOnLastWindowClosed(False)
-        configure_app_qml(
-            Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict()
-        )
+        # EPIC-006F: no QML left in this app — apply_role() is the only
+        # remaining reader of get_theme_bridge(), and it must be seeded
+        # directly before the first widget is constructed (see
+        # app_bootstrapper.py's own bootstrap sequence, which this probe
+        # mirrors). configure_app_qml() used to do this as a side effect of
+        # creating the first QML-hosted view; there is no such view anymore.
+        get_theme_bridge(Palette.as_ui_dict())
         window = MainWindow(engine)
         window.switch_screen("backtest")
         presenter = window._router.get_current_presenter()

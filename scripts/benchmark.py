@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_100_script impor
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_200_script import (
     Ema200Script,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
     qualified_line_name,
 )

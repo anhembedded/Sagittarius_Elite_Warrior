@@ -41,19 +41,14 @@ _SCREEN_IMPORT_RE = re.compile(r"presentation\.ui\.screens\.([a-z_]+)")
 
 #: Import chéo được phép tồn tại tạm, mỗi cái một lý do và một task để đóng.
 #:
-#: Ba cái này **không phải widget** — chúng là logic chỉ báo và ánh xạ nến mà
-#: màn Backtest mượn của Dashboard chỉ vì Dashboard viết ra trước. Chúng nằm
-#: ngoài phạm vi `EPIC-007` (epic đó về card và widget), nên được ghi ra đây
-#: thay vì nới guard trong im lặng.
-#:
-#: Đóng chúng là việc của `Tasks/backlog/BOT-120_backtest_depends_on_dashboard_for_non_ui_logic.md`.
-#: Khi task đó xong, xoá cả ba dòng dưới đây.
-_ALLOWED: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("backtest_presenter.py", "dashboard"),
-        ("backtest_view_model.py", "dashboard"),
-    }
-)
+#: Trống — `BOT-120` đã chuyển `map_klines`/`map_volume`,
+#: `IndicatorScriptRunner`/`qualified_line_name` và `IndicatorScriptListModel`
+#: (ba thứ *không phải* widget mà Backtest từng mượn của Dashboard) lên
+#: `components/chart_card/` và `components/indicator_scripts/` — cả hai đều
+#: dùng chung đúng nghĩa, không còn thuộc riêng màn nào. Giữ khung rỗng thay
+#: vì xoá biến này để một exemption tương lai có chỗ ghi lại, giống cách
+#: `_BARE_QT_BASE_CEILING` giữ ratchet thay vì test bị xoá.
+_ALLOWED: frozenset[tuple[str, str]] = frozenset()
 
 
 def _cross_screen_imports() -> list[tuple[str, int, str, str, str]]:

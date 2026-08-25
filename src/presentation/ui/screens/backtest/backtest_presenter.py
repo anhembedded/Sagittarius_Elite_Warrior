@@ -89,19 +89,19 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report i
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
+    map_klines,
+    map_volume,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
+    IndicatorScriptRunner,
+    qualified_line_name,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
-    IndicatorScriptRunner,
-    qualified_line_name,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mapping import (
-    map_klines,
-    map_volume,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY

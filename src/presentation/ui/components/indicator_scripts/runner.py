@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
 )
 from sagittarius_engine.runtime.tasks import ResourceScope
 
-from .script_region_tracker import RegionSpan, ScriptRegionTracker
+from .region_tracker import RegionSpan, ScriptRegionTracker
 
 #: One marker as forwarded to the chart: (x, y, text, color, direction).
 MarkerPoint = tuple[float, float, str, str, str]

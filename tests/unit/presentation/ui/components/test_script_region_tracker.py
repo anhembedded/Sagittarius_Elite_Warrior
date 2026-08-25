@@ -1,7 +1,7 @@
 """Tests for ScriptRegionTracker (BOT-032) — pure Python, no Qt needed."""
 
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import PlottedRegion
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.script_region_tracker import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.region_tracker import (
     ScriptRegionTracker,
 )
 

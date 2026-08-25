@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
+    IndicatorScriptListModel,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestExecutionMode,
     BacktestUiState,
@@ -25,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_r
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
     TradeLogFilter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_list_model import (
-    IndicatorScriptListModel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
