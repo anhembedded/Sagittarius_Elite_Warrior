@@ -54,11 +54,71 @@ class Palette:
     STATE_ACTIVE_TINT = "#1FF3BA2F"
     STATE_NAV_BORDER = "#2a2d36"
 
+    #: Corner radii, measured from what this app actually draws — counted
+    #: across every `border-radius:` in `src/presentation/ui` on 2026-08-25:
+    #: 6px ×29, 4px ×20, 8px ×8, then a negligible tail (3/2/1/9/11px).
+    #:
+    #: Named by the tier each engine role reads, NOT by "small/medium/large"
+    #: in the abstract: `FIELD`/`BADGE`/the button roles read `radiusSm`, and
+    #: this app's fields and buttons are 6px; `SURFACE` reads `radiusMd`, and
+    #: its cards are 8px. Getting these backwards is what turned Settings'
+    #: cards 8px→6px and its fields 6px→4px earlier in `EPIC-007F`.
+    RADIUS_SM = 6
+    RADIUS_MD = 8
+    #: Unused by any role today. Kept so an app value exists for the tier
+    #: rather than silently falling through to the engine's 10px.
+    RADIUS_LG = 10
+
+    #: Font sizes, same method: 11px ×64, 10px ×27, 12px ×20, 13px ×8,
+    #: 18px ×2, 15px ×2, 9px ×4. Note the engine's default `fontSizeLg` of
+    #: 16px appears **zero** times in this app.
+    #:
+    #: `CAPTION`/`SECTION_LABEL` read `fontSizeSm` (11px here — the app's
+    #: single most common size); `BODY_LABEL` reads `fontSizeMd` (12px, its
+    #: form-field labels); `HEADING` reads `fontSizeLg` (14px, its panel and
+    #: dialog titles).
+    FONT_SIZE_SM = 11
+    FONT_SIZE_MD = 12
+    FONT_SIZE_LG = 14
+
     @classmethod
-    def as_ui_dict(cls) -> dict[str, str]:
-        """Maps QML property name -> color, for `configure_app_qml()`'s
-        `ui_palette` (exposed to QML as `Theme.<name>`)."""
+    def _size_tokens(cls) -> dict[str, float]:
+        """The non-colour half of the vocabulary the engine reads.
+
+        Split out from `as_ui_dict()` so the colour map stays readable and
+        so a test can assert on sizes alone.
+        """
         return {
+            "radiusSm": cls.RADIUS_SM,
+            "radiusMd": cls.RADIUS_MD,
+            "radiusLg": cls.RADIUS_LG,
+            "fontSizeSm": cls.FONT_SIZE_SM,
+            "fontSizeMd": cls.FONT_SIZE_MD,
+            "fontSizeLg": cls.FONT_SIZE_LG,
+        }
+
+    @classmethod
+    def as_ui_dict(cls) -> dict[str, str | float]:
+        """Maps token name -> value, for the engine's shared theme bridge.
+
+        **Sizes are here, not just colours** (`EPIC-007F`). The engine ships
+        *defaults* for spacing/radius/typography and lets an app's own values
+        win on any key collision (`tokens.defaults.with_token_defaults`), but
+        this app supplied none — so its widgets silently rendered on a scale
+        the engine invented (`radiusLg` 10px, `fontSizeMd` 13px, `fontSizeLg`
+        16px) and this app has never used anywhere.
+
+        That is where every visual change in `EPIC-007F` came from: adopting
+        an engine widget quietly reskinned the screen it landed on. The
+        values below are measured from what this app actually draws, so the
+        engine renders *this* design instead of its own generic one.
+
+        Engine owns the vocabulary (which token a role reads); the app owns
+        what each token means. Colours already worked this way — the required
+        colour tokens have no engine default at all, by design.
+        """
+        return {
+            **cls._size_tokens(),
             "bg": cls.BG,
             "bgSidebar": cls.BG_SIDEBAR,
             "bgCard": cls.BG_CARD,
