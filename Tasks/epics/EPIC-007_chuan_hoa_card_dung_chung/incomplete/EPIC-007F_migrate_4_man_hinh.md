@@ -1,6 +1,6 @@
 # EPIC-007F — Elite: migrate 4 màn hình sang widget dùng chung
 
-**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings: 9/13 `setStyleSheet` xong, 4 chỗ còn lại cố ý dừng)
+**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings 9/13; Dashboard: `SectionLabel` + 3 `Panel`, guard 17→16)
 **Phụ thuộc:** `007D`, `007E`
 
 ---
@@ -192,6 +192,50 @@ phải "sai":
 | warning label | `ACCENT` + 11px | Cần role mới. Đo được 5 chỗ `ACCENT` + 11px nhưng **4 trong số đó bold** và chỗ này không — hai hình dạng khác nhau, chưa đủ rõ để chốt một role |
 | reveal button + `QSpinBox` | chrome kiểu field | `StyledField` là `QLineEdit`; `QSpinBox` chỉ có **1** consumer trong toàn app |
 
-**Dashboard, Backtest, Data Management:** chưa bắt đầu. Đây mới là phần guard đo được — cả 17
-finding `find_bare_qt_base_widgets` nằm ở ba màn này cộng `components/` (Settings đóng góp **0**,
-nên yêu cầu 1 của task không đổi số qua ba bước trên).
+## Màn 2 — Dashboard (Dev Board), 2026-08-25
+
+`_SectionLabel(QHBoxLayout)` → `SectionLabel(tick=True)` của Engine (4 call site);
+3 × `QFrame` + `_card_style()` → `Panel`; `setStyleSheet` gốc của `DevBoardPanel` được scoped.
+
+**Guard giảm lần đầu trong `007F`: 17 → 16.** `DevBoardPanel` nhận `# base-exempt` chứ **không**
+kế thừa `Panel`: nó vẽ nền app (`Palette.BG`), không viền — là **vùng các card nằm lên**, không
+phải card. Cho nó kế thừa `Panel` sẽ thành `BG_CARD` + viền, tức card thứ tư bọc quanh ba card
+kia. Trần `_BARE_QT_BASE_CEILING` hạ theo, kèm lý do ngay tại chỗ.
+
+`Panel` **tự sở hữu layout của nó** (`body_layout`) — không lắp được layout thứ hai lên widget,
+Qt từ chối và nội dung mất cha. Ba chỗ chuyển đổi đều phải đi qua `body_layout`, không phải
+`QVBoxLayout(card)`. Ghi lại vì đây là cái bẫy sẽ gặp lại ở Backtest và Data Management.
+
+### `BUG-008` lộ ra lần ba — và lần này nó **thêm** chrome chứ không phải đổi cỡ chữ
+
+Trước/sau khác nhau rõ ở hai chỗ: mỗi dòng chỉ báo (`RSI (14)`, `EMA 20`, ...) và mỗi nhãn
+`Market:`/`Symbol:`/`Strategy:` **mất cái khung viền bao quanh**.
+
+Không phải regression. Đã **đo bằng repro tối giản**, không phỏng đoán: dựng một `QFrame` con
+khai báo đúng `QFrame { background-color: transparent; border-radius: 6px; }` bên trong một
+`QFrame` cha mang QSS **không selector** (`background-color: BG_CARD; border: 1px solid ...`),
+rồi lấy pixel ngay mép trên của frame con — ra `(17, 19, 24)` = `#111318` = đúng `BG_CARD` của
+cha. Nói cách khác **QSS không-selector của cha đè lên chính chữ `transparent` mà widget con tự
+khai báo**. Đổi cha sang dạng scoped thì frame con không còn bị chạm tới.
+
+Nên cái khung quanh mỗi dòng chỉ báo **chưa bao giờ là ý đồ của code** — code viết rõ
+`transparent` + hover highlight. Nó là chrome do `BUG-008` âm thầm thêm vào. Sau bước này widget
+hiển thị đúng thứ nó khai báo.
+
+⚠️ **Đây là thay đổi thị giác thấy rõ trên một màn đang chạy** (khác với bước 1 của Settings, chỉ
+là cỡ chữ lệch ~2px). Bảng chỉ báo giờ phẳng hơn, không còn khung từng dòng. Giữ nguyên vì khôi
+phục khung nghĩa là **viết styling mới chưa từng tồn tại**, không phải khôi phục thứ đã có. Cần
+user xem lại và quyết nếu muốn khung đó thật.
+
+**Kiểm tra:** `ruff` sạch, `mypy` sạch, guard hex vẫn 0, guard bare-base 17 → 16, full suite
+`1809 passed, 4 skipped, 0 failed`.
+
+### Dashboard còn lại
+
+`_field_style()` (4 chỗ: 3 combo + 2 date field), nhãn `_field_row`, tiêu đề header + tick riêng
+của nó, badge WS, nút action (`_action_button_style`), `_ws_dot`, scroll area. Cùng loại với phần
+còn lại của Settings: phần lớn là widget lá, cần role mới ở Engine (`ACCENT` + bold + 11px cho
+nhãn field; chrome `QComboBox`) mà hình dạng chưa đủ rõ để chốt.
+
+**Backtest, Data Management:** chưa bắt đầu — đây là phần nặng nhất (33+27+16 và 31+65
+`setStyleSheet`) và là nơi 15 finding guard còn lại nằm.
