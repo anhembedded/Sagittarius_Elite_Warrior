@@ -29,6 +29,15 @@ class Palette:
 
     ACCENT = "#F3BA2F"  # Binance yellow
     SUCCESS = "#0ECB81"  # green
+    #: Amber — "something needs attention but nothing has failed". Not a new
+    #: colour invented here: this is the exact literal the backtest screen's
+    #: stale-results and coverage-gap banners already hardcoded
+    #: (`backtest_top_panel.py`, `#d97706` border over a `#2a1c07` ground).
+    #: Deliberately NOT folded into ACCENT — the preview banner right beside
+    #: them uses ACCENT for "here is some information", so merging the two
+    #: would make a warning indistinguishable from a notice. Required by the
+    #: engine since EPIC-007B (`tokens.vocabulary.REQUIRED_COLOUR_TOKENS`).
+    WARNING = "#d97706"  # amber
     DANGER = "#F6465D"  # red
     MUTED = "#848E9C"  # gray
 
@@ -58,6 +67,7 @@ class Palette:
             "textPrimary": cls.TEXT_PRIMARY,
             "accent": cls.ACCENT,
             "success": cls.SUCCESS,
+            "warning": cls.WARNING,
             "danger": cls.DANGER,
             "muted": cls.MUTED,
             "stateIdleBg": cls.STATE_IDLE_BG,

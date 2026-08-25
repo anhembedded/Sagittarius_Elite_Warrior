@@ -1,6 +1,6 @@
 # EPIC-007 — Chuẩn hoá card dùng chung, đưa hình dạng lên Engine
 
-**Trạng thái:** 🔵 Chưa bắt đầu (0/7 task con)
+**Trạng thái:** 🟡 Đang làm (2/7 task con — `007A`, `007B` xong 2026-08-25)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; giảm chi phí sửa UI về sau
 **Nhánh đề xuất:** `epic/EPIC-007-chuan-hoa-card`
@@ -84,8 +84,8 @@ ghi chú.
 
 | ID | Việc | Repo | Trạng thái |
 | :--- | :--- | :--- | :---: |
-| **[007A](incomplete/EPIC-007A_guard_va_overlay_con.md)** | Engine: mở rộng guard sang `QWidget`; thêm `ConfirmOverlay`/`PickerOverlay` thật | Engine | 🔵 |
-| **[007B](incomplete/EPIC-007B_engine_surface_family.md)** | Engine: `LogPanel`, `StatCard`, `DataRow`, `TableCard`, `Banner`, `TabBar` — 1 file 1 lớp | Engine | 🔵 |
+| **[007A](completed/EPIC-007A_guard_va_overlay_con.md)** | Engine: mở rộng guard sang `QWidget`; thêm `ConfirmOverlay`/`PickerOverlay` thật | Engine | ✅ |
+| **[007B](completed/EPIC-007B_engine_surface_family.md)** | Engine: `LogPanel`, `StatCard`, `DataRow`, `TableCard`, `Banner`, `TabBar` — 1 file 1 lớp | Engine | ✅ |
 | **[007C](incomplete/EPIC-007C_engine_controls_va_showcase.md)** | Engine: `StyledLabel`/`SectionLabel`/`Badge`/`StyledProgressBar` + showcase + coverage guard | Engine | 🔵 |
 | **[007D](incomplete/EPIC-007D_gop_token_mau.md)** | Elite: xoá 18 hằng màu riêng, gộp về `Palette`; sửa docstring sai của Dev Board | Elite | 🔵 |
 | **[007E](incomplete/EPIC-007E_elite_components_dung_chung.md)** | Elite: `components/` — `ChartCard(Card)` thay `BaseCard`, `TimeRangeCard`, `SymbolPickerOverlay`, `TradeSideBadge`; cắt 3 import chéo | Elite | 🔵 |
@@ -106,7 +106,12 @@ Task Engine (`007A`–`007C`) commit ở repo Engine; task Elite commit ở repo
   làm việc đó → dừng, rollback.
 - `scripts/ci-local.ps1` không giữ được baseline chụp trước mỗi sub-task → dừng, sửa nguyên
   nhân trước, không merge lúc đỏ.
-- Một base class mới sinh ra mà chưa có ≥2 consumer thật → **không tạo**, ghi lại làm ứng viên.
+- ~~Một base class mới sinh ra mà chưa có ≥2 consumer thật → **không tạo**~~ — ngưỡng ≥2 đã bị
+  user bỏ 2026-08-25 (xem cảnh báo ở §3.3). Thay bằng: **một base class mới mà hình dạng của nó
+  là phỏng đoán** — chưa có consumer thật nào để đối chiếu — thì **không tạo**, ghi lại làm ứng
+  viên. Cái sai của 4 stub `ActionCard`/`FormCard`/`StreamCard`/`TableCard` là đoán sai hình
+  dạng thứ chưa tồn tại, không phải "mới có 1 consumer". `007A` áp đúng luật này khi để
+  multi-select của `IndicatorPickerDialog` ra ngoài `PickerOverlay`.
 
 ## 6. Ngoài phạm vi
 
