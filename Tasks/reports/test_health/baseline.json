@@ -9,8 +9,8 @@
       "files": 8
     },
     "sanity": {
-      "tests": 10,
-      "files": 4
+      "tests": 13,
+      "files": 5
     },
     "unit": {
       "tests": 1365,

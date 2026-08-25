@@ -1,3 +1,23 @@
+[project]
+# Declared floor, and it is enforced rather than merely stated:
+# `tests/sanity/test_python_floor.py` reads this value and re-parses every
+# first-party module at it, so code using newer syntax fails the tier even when
+# the run happens on a newer interpreter.
+#
+# 3.12 is not a preference, it is the real minimum. `sagittarius_engine` uses
+# PEP 695 generic syntax (`class Foo[T]:`) in three modules, which Python 3.11
+# cannot parse at all. Verified 2026-08-25 on 3.12.3: 1,702 unit + 38
+# integration + 16 sanity, all green. 3.13.12 is equally green; 3.14 is not
+# usable yet — no stable CPython 3.14 was reachable, and on 3.14.0rc2 the
+# pinned pydantic fails with `typing._eval_type() got an unexpected keyword
+# argument 'prefer_fwd_module'`.
+#
+# This project is run from source, never installed as a distribution; there is
+# deliberately no [build-system] table, so this block is metadata only.
+name = "sagittarius-elite-warrior"
+version = "0.0.0"
+requires-python = ">=3.12"
+
 [tool.pytest.ini_options]
 # ---------------------------------------------------------------------------
 # Warning filters
