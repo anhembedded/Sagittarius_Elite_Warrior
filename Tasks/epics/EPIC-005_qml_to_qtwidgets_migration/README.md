@@ -1,6 +1,20 @@
 # EPIC-005 — Rút khỏi QML, quay về QtWidgets (form/bảng tra cứu, không phải toàn app)
 
-**Trạng thái:** 🟡 Đang làm (5/6 task con xong)
+> ## ⏹️ Epic này đã bị [`EPIC-006`](../EPIC-006_drop_qml/README.md) thay thế (2026-08-25)
+>
+> `EPIC-006` **đảo ngược kết luận §4 của ADR trong chính epic này** — ghi rõ ở đầu README của
+> `EPIC-006`, không phải bỏ qua lặng lẽ. Hệ quả trạng thái:
+>
+> - `EPIC-005A`–`E` ✅ đã xong, thành quả vẫn còn nguyên trong code (`SettingsScreen`,
+>   `data_management` đều là QtWidgets thật).
+> - `EPIC-005F` (`backtest` + `dashboard`) từng **hoãn vô thời hạn** — nay **đã được làm xong**
+>   bởi `EPIC-006D` (Dev Board) và `EPIC-006E` (Backtest), theo con đường triệt để hơn (bỏ hẳn
+>   QML thay vì "trừ chart").
+>
+> **Không mở lại epic này.** Việc còn lại duy nhất của cả hướng đi là `EPIC-006F` (dỡ kit QML
+> bên repo Engine). Giữ file lại làm hồ sơ lịch sử + ADR gốc, đừng coi là việc đang chờ.
+
+**Trạng thái:** ⏹️ Bị thay thế bởi `EPIC-006` (5/6 task con xong; `005F` do `EPIC-006D/E` làm)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime; đây là quyết định hướng đi dài hạn
 **Nhánh:** `epic/EPIC-005-qml-to-qtwidgets` — tách riêng vì epic này **có thể phải rollback**
@@ -60,7 +74,7 @@ năng ở đúng component nặng nhất của một app giao dịch.
 > config. **Backtest hiện chạy trên `ChartCard`/pyqtgraph — tức là QtWidgets** — và đó lại là bản
 > vẽ đầy đủ hơn (có grid, thân nến đúng, background region). Xem
 > [`DECISION_2026-08-23.md` §7](DECISION_2026-08-23.md) và
-> [`BUG-039`](../../bug_report/incomplete/BUG-039_native_chart_default_regressed_backtest_visuals.md).
+> [`BUG-039`](../../bug_report/completed/BUG-039_native_chart_default_regressed_backtest_visuals.md).
 > Hệ quả: kết quả cuối của epic **không còn bắt buộc** phải là "QtWidgets + QML(chart)".
 
 ## 🧭 Hệ quả phải chấp nhận trước khi bắt đầu
@@ -99,7 +113,7 @@ Ai đọc epic này mà kỳ vọng "bỏ QML cho gọn stack" là kỳ vọng s
 
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
-| **[EPIC-005A](incomplete/EPIC-005A_quyet_dinh_va_dieu_kien_dung.md)** | Ghi lại vì sao đảo chiều, và điều kiện dừng | ✅ Xong — ADR duyệt 2026-08-23 |
+| **[EPIC-005A](completed/EPIC-005A_quyet_dinh_va_dieu_kien_dung.md)** | Ghi lại vì sao đảo chiều, và điều kiện dừng | ✅ Xong — ADR duyệt 2026-08-23 |
 | **[EPIC-005B](completed/EPIC-005B_xoa_qss_chet_va_chan_tai_phat.md)** | `style.qss` hoá ra đã chết — xoá + chặn trùng lặp token thật | ✅ Xong |
 | **[EPIC-005C](completed/EPIC-005C_dong_bang_qml_va_go_xung_dot.md)** | Đóng băng QML (phạm vi thu hẹp) + gỡ xung đột với EPIC-003D | ✅ Xong — xung đột tự biến mất sau khi `F` hoãn |
 | **[EPIC-005D](completed/EPIC-005D_pilot_settings_screen.md)** | Pilot: `SettingsScreen` (nhỏ nhất) — đo chi phí thật | ✅ Xong — chi phí thấp hơn dự kiến, N=0 component kit |

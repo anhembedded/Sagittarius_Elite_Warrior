@@ -6,7 +6,7 @@ trigger: always_on
 
 # ONBOARDING — Đọc file này TRƯỚC KHI viết dòng code đầu tiên
 
-Dự án này đã có 9 file rule chi tiết. Vấn đề không phải thiếu rule — mà là
+Dự án này đã có 8 file rule chi tiết. Vấn đề không phải thiếu rule — mà là
 một agent mới **không biết có những file đó, đọc theo thứ tự nào, và quy
 trình thật sự chạy ra sao**. File này là bản đồ đó. Nó không lặp lại nội
 dung rule; nó nói *khi nào* đọc rule nào, và mô tả những phần quy trình
@@ -426,17 +426,28 @@ cat Tasks/epics/README.md
 ```
 
 **Việc ở dự án này thường được để lại chưa commit giữa các phiên** — theo đúng §7, agent không
-tự commit. Tính đến 2026-08-25, **cả hai repo đều đang có một lượng lớn công việc đã làm xong,
-đã verify, nhưng chưa commit**. Nên `git status` không phải thủ tục: bảng task trông như chưa
-ai đụng cộng với cây làm việc bẩn nghĩa là việc **đã làm rồi**, chỉ chưa được ghi lại. Đọc diff
-trước khi kết luận một task còn nguyên.
+tự commit. Nên `git status` không phải thủ tục: bảng task trông như chưa ai đụng cộng với cây
+làm việc bẩn nghĩa là việc **đã làm rồi**, chỉ chưa được ghi lại. Đọc diff trước khi kết luận
+một task còn nguyên.
+
+**Đừng tin con số trạng thái trong chính mục này** — nó trôi nhanh hơn mọi thứ khác trong file.
+Bản trước ghi cứng "tính đến 2026-08-25 cả hai repo đều đang có lượng lớn việc chưa commit";
+chỉ vài giờ sau **cả hai repo đều đã sạch hoàn toàn**, khiến câu đó thành sai và gây hiểu nhầm
+đúng chiều nguy hiểm nhất (tưởng còn việc dang dở trong cây làm việc). Chạy 3 lệnh trên rồi tin
+kết quả, không tin đoạn văn này.
 
 ### 12.2 Hai epic đang chạy, đều điều phối từ repo này
 
 | Epic | Nội dung | Trạng thái (đọc `README.md` của epic để biết chính xác) |
 | :--- | :--- | :--- |
-| [`EPIC-007`](../Tasks/epics/EPIC-007_chuan_hoa_card_dung_chung/README.md) | Chuẩn hoá card dùng chung, đưa hình dạng lên Engine | Chưa bắt đầu. 7 task con, `007A`–`007C` làm ở repo **Engine** trước |
-| [`EPIC-008`](../Tasks/epics/EPIC-008_chuan_hoa_luong_event/README.md) | Chuẩn hoá luồng sự kiện | Đang làm. `008A`–`008E` ở **Engine**, `008F`–`008H` ở repo này |
+| [`EPIC-007`](../Tasks/epics/EPIC-007_chuan_hoa_card_dung_chung/README.md) | Chuẩn hoá card dùng chung, đưa hình dạng lên Engine | Chưa bắt đầu (0/7). `007A`–`007C` làm ở repo **Engine** trước |
+| [`EPIC-008`](../Tasks/epics/EPIC-008_chuan_hoa_luong_event/README.md) | Chuẩn hoá luồng sự kiện | Đang làm (**4/8** — `008A`–`008D` xong ở Engine, tiếp theo `008E`). `008A`–`008E` ở **Engine**, `008F`–`008H` ở repo này |
+
+**`EPIC-006` chưa đóng** dù đã merge vào `master-warrior`: còn `EPIC-006F` (dỡ kit QML bên
+Engine) — và task đó **chưa có file**, phải tạo trước khi làm. Kèm theo là 22 file `.qml` chết
+còn sót trong `src/` của repo này. Chi tiết ở đầu
+[`EPIC-006/README.md`](../Tasks/epics/EPIC-006_drop_qml/README.md).
+`EPIC-005` **đã bị `EPIC-006` thay thế** — đừng mở lại nó.
 
 **Bắt buộc: đọc `README.md` của epic + file `DECISION_*.md` (ADR) của nó trước khi làm bất kỳ
 task con nào.** ADR ghi lại những quyết định đã tranh luận xong với user — trong đó có vài

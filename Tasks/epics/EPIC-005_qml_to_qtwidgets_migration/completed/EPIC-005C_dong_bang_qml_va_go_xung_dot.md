@@ -2,7 +2,7 @@
 
 **Thuộc Epic:** [`EPIC-005`](../README.md)
 **Trạng thái:** ✅ Xong (2026-08-23)
-**Phụ thuộc:** [`EPIC-005A`](../incomplete/EPIC-005A_quyet_dinh_va_dieu_kien_dung.md) ✅
+**Phụ thuộc:** [`EPIC-005A`](../completed/EPIC-005A_quyet_dinh_va_dieu_kien_dung.md) ✅
 
 ---
 

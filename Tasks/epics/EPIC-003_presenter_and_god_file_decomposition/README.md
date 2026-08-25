@@ -89,9 +89,26 @@ dòng.
 | **[EPIC-003A](completed/EPIC-003A_shared_action_ownership_tracker.md)** | Trích xuất cơ chế Action-Ownership dùng chung | 🟡 | ✅ Xong (21/08) — 172 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003B](completed/EPIC-003B_data_management_coordinator_pilot.md)** | `DataManagementPresenter` → Coordinator Pattern (pilot) | 🟡 | ✅ Xong (21/08) — 57 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003C](completed/EPIC-003C_paper_exchange_policy_split.md)** | `PaperExchange` → Domain Policy (Margin/Matching/Fee) | 🟢 | ✅ Xong (22/08) — 119 test pass, `mypy`/`ruff` sạch |
-| **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Dọn 9 file misplaced (Phase 1) + tách 3 file QML lớn (Phase 2) + danh mục `components/README.md` có test enforce (Phase 3) | 🟢 | 🔴 Chưa làm |
+| **[EPIC-003D](incomplete/EPIC-003D_qml_component_split.md)** | Dọn 9 file misplaced (Phase 1) + tách 3 file QML lớn (Phase 2) + danh mục `components/README.md` có test enforce (Phase 3) | 🟢 | ⚠️ **Cần xem lại — gần như đã vô nghĩa** (xem ghi chú dưới bảng) |
 | **[EPIC-003E](incomplete/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | 🔴 Chưa làm |
 | **[EPIC-003F](incomplete/EPIC-003F_backtest_viewmodel_composite_design_review.md)** | `BacktestViewModel` → Composite ViewModel — **vòng thiết kế trước**, chưa code | 🔴 | 🔴 Chưa làm |
+
+> ### ⚠️ `EPIC-003D` gần như đã vô nghĩa — cần user quyết trước khi ai đó làm (rà soát 2026-08-25)
+>
+> Cả 3 phase của `EPIC-003D` đều thao tác trên **file `.qml` trong `components/`**: dời 9 file
+> đặt sai chỗ, tách 3 file QML lớn, lập danh mục `components/README.md`. Nhưng `EPIC-006` đã
+> chuyển toàn bộ UI sang QtWidgets — **không `.py` nào còn nạp `.qml` nữa** (đã kiểm chứng
+> 2026-08-25). 22 file `.qml` còn lại trong `src/` là rác chết, và
+> [`EPIC-006F`](../EPIC-006_drop_qml/README.md) đã nhận nhiệm vụ **xoá** chúng.
+>
+> Sắp xếp lại file rồi xoá chính nó là công cốc — đúng loại xung đột mà `EPIC-005C` từng phải
+> xử lý một lần (xem mục "Xung đột đã biết" trong README của `EPIC-005`), lần này thì
+> `EPIC-006` đã tự giải quyết theo hướng xoá hẳn.
+>
+> **Đề xuất:** huỷ `EPIC-003D`, chuyển sang `Tasks/cancelled/` với lý do "QML đã bị xoá bởi
+> `EPIC-006`". Phần duy nhất còn giá trị là **Phase 3** (danh mục `components/README.md` có
+> test enforce) — nếu muốn giữ, tách thành task riêng áp cho **file `.py`** của
+> `components/`, không phải `.qml`. Chưa tự huỷ vì đây là quyết định phạm vi, thuộc về user.
 
 **Thứ tự phụ thuộc:** `A` chặn `B` và `E` (không Coordinator nào được cài
 action-ownership riêng trước khi có tracker dùng chung). `C` và `D` độc lập

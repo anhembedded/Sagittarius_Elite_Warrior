@@ -1,7 +1,7 @@
 # BOT-098F5 — Shared Backtest renderer benchmark (Python vs native)
 
 **Status:** Local diagnostic evidence — not a shared-CI timing gate.
-**Task:** [`BOT-098F5`](../in_progress/BOT-098F5_shared_backtest_renderer_benchmark.md)
+**Task:** [`BOT-098F5`](../cancelled/BOT-098F5_shared_backtest_renderer_benchmark.md)
 **Reference machine:** local Linux dev box (see Environment below). This is a
 renderer-level A/B, not a claim about the production `QQuickWidget` host —
 `BOT-098F6D` must rerun this profile after production host wiring before
