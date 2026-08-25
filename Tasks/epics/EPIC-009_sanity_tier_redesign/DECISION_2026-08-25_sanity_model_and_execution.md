@@ -384,6 +384,60 @@ Integration's contract.
 
 ---
 
+### D6 — Offline mode is a **fake Binance server**, not a fake adapter ✅ **Decided 2026-08-25 (reviewer)**
+
+**Decision.** The blocking prerequisite from D2b is satisfied by running a local
+service that speaks Binance's protocol, with the **real** `python-binance`
+client pointed at it by base URL. Not by registering a substitute
+`IExchangeClient`.
+
+**The surface is small enough to make this practical.** ✅ Established — the
+whole application uses five Binance operations:
+
+| Layer | Operations used | Call sites |
+| :--- | :--- | :--- |
+| REST | `get_historical_klines_generator()` | `client.py:68`, `client.py:129` |
+| REST | `get_exchange_info()` | `client.py:219` |
+| WS | `AsyncClient.create()` | `binance_websocket_service.py:98` |
+| WS | `bsm.kline_socket()` / `bsm.multiplex_socket()` | `binance_websocket_service.py:135-136` |
+
+**Why not the cheaper option.** A substitute `IExchangeClient` bypasses
+`PythonBinanceClient` entirely — its kline mapping (`_map_to_market_data`), its
+generator-based pagination, its cancellation checks (`_raise_if_cancelled`), the
+websocket frame parser (`_parse_kline`), and all HTTP behaviour. That is D4's
+forbidden category, *code path substitution*, and it is the exact shape that
+produced **BUG-026** (`_BlockingExchangeClient`) and **BUG-027**
+(`_SeededMarketDataRepository`): hand-written `IExchangeClient` /
+`IMarketDataRepository` implementations that silently fell behind their ports.
+
+With a fake server, production's entire adapter stack runs unchanged and only
+the **endpoint** moves — a configuration change, which D4 permits.
+
+**Consequence: the three probe scripts lose their reason to exist.** The
+"shutdown while a sync is in flight" scenario currently needs a hand-written
+blocking client. Against a fake server it needs a **slow server response**. The
+same applies to rate limiting (429), a mid-stream disconnect, and gapped klines
+— all become server behaviour rather than substitute code inside the app. This
+is how the BUG-010 / BUG-017 / BUG-023 scenarios get covered without incurring
+the debt that BUG-026 and BUG-027 were.
+
+**Consequence: D2b gets simpler.** Responsibility splits cleanly —
+
+- **Fake server** supplies *market data*, through the app's real pipeline.
+- **Control channel** supplies *UI actions and observation* (navigate, dispatch,
+  wait on FSM state, read diagnostics, quit).
+
+Injecting `MarketTickEvent` through the control channel is therefore no longer
+needed for market data: the app receives real ticks over its real websocket
+path. More realistic and a smaller harness.
+
+**Also a product feature.** A developer with no API keys can run the whole
+application against it — the same justification the offline mode had on its own.
+
+**Determinism requirement.** The server must serve seeded, fixed data. A fake
+that generates random or time-dependent responses reintroduces the flakiness
+this tier exists to avoid.
+
 ## 6. Implementation constraints (demoted from §2's principle list) 🔵 Proposed
 
 Not decisions about *what* Sanity is — conditions any implementation must meet:
@@ -405,7 +459,17 @@ Not decisions about *what* Sanity is — conditions any implementation must meet
 
 ---
 
-## 7. Open questions — blocking ❓
+## 7. Open questions
+
+### 7.0 Decided by the reviewer, 2026-08-25 ✅
+
+| # | Was | Decision |
+| --: | :--- | :--- |
+| Q13 | Offline mode: what does it disable? | **Superseded by D6** — nothing is disabled; a fake Binance server is stood up and the real client points at it. |
+| Q17 | Does adopting D2b mean amending the tier definitions, and does "Sanity" keep its name? | **Scope it as a *test automation surface*** shared by Sanity, Integration and Desktop E2E — not as a Sanity feature. `ci-rule.md` §6 is amended accordingly. |
+| Q18 | Sequencing against BOT-038 | **BOT-038 re-verification runs first.** It costs one command and may unlock 36 journey tests immediately; D6 and D2b are weeks of work and should start from a known position. |
+
+### 7.1 Still blocking ❓
 
 | # | Question | Blocks |
 | --: | :--- | :--- |
@@ -421,12 +485,14 @@ Not decisions about *what* Sanity is — conditions any implementation must meet
 | Q10 | Do the three `scripts/shutdown_*_probe.py` scripts fold into `--self-check`, or stay as scenario probes? Their "sync in flight" setup genuinely needs a blocking double, which `--self-check` must not carry | D2, scope |
 | Q11 | If they stay: one shared, type-checked set of test doubles instead of one per script? BUG-026 and BUG-027 were both per-script doubles drifting from their ports | D2 |
 | Q12 | Does the OUT layer run on every CI invocation, or only in the full gate? It costs a real process launch per run | C4 |
-| Q13 | Offline mode: what is the config key, and what exactly does it disable — the websocket service, the REST client, or both? | D2b, blocking |
 | Q14 | Control transport: stdio, loopback socket, or both? Stdio is simplest and safest; a socket allows attaching to an already-running app | D2b |
 | Q15 | How are JSON payloads turned into real typed events/commands? Reuse the Pydantic layer already registered as `PydanticValidationMiddleware`, or a separate registry? | D2b |
 | Q16 | What can `wait.until` observe — FSM state, a named signal, a log line, all three? This decides whether the harness is deterministic or sleep-based | D2b |
-| Q17 | Does adopting D2b mean amending `ci-rule.md` §6's tier definitions, and if so, does "Sanity" keep its name for an event-driven tier? | D2b, taxonomy |
-| Q18 | Sequencing: does D2b come before or after re-verifying BOT-038? One is weeks, the other is one command | epic scope |
+| Q19 | **Does the installed `python-binance` support overriding the REST base URL and the stream URL?** If it does not, D6 needs a different injection point and its cost changes materially | **D6, blocking** |
+| Q20 | Which failure behaviours must the fake server simulate — slow response, 429, mid-stream disconnect, gapped klines? This is the list that replaces the three probe scripts | D6 |
+| Q21 | Who owns the fake server's lifecycle: spawned by the test harness, or a separate process the harness connects to? | D6 |
+| Q22 | Does the fake server also serve manual development runs (no API keys), or is it test-only? Decides where it lives and how much polish it needs | D6 |
+
 
 Q2, Q3, Q4 and Q6 cannot be answered from the authoring environment — it has
 neither PySide6 nor `sagittarius_engine` installed, and this project's CI is
@@ -458,8 +524,6 @@ acceptable is pretending it is not there.
 - The Integration tier and BOT-038. Related, separately decided.
 - Deleting the 22 dead `.qml` files — already recorded as EPIC-006 debt in
   [its README](../EPIC-006_drop_qml/README.md); this ADR does not claim it.
-- The offline mode itself (Q13) — a product feature this ADR depends on but
-  does not design.
 - The `test-health` skill, already shipped. It enforces this ADR once ratified;
   it does not depend on it.
 - Any implementation. Nothing is built until §7 is closed.
