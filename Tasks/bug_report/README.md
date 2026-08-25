@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 6 |
-| ✅ **Đã sửa / đã đóng** | 42 |
-| 📈 **Tổng** | **48** |
+| ✅ **Đã sửa / đã đóng** | 43 |
+| 📈 **Tổng** | **49** |
 
 ---
 
@@ -37,10 +37,10 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-049](incomplete/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Không fail test nào. Đã điều tra: không phải do server tự nó (isolated repro sạch), là tương tác với phần còn lại của session, chưa bisect ra nguồn — cùng dạng BUG-030. |
 | **[BUG-048](incomplete/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | `sys.excepthook`'s fallback UI gọi `dialog.exec()` vô điều kiện — dưới `offscreen` không ai bấm được. Tái hiện 2 lần bằng fault injection khi build `EPIC-009` D2's OUT-of-process layer; xác nhận không phải do thread nền sống sót. |
 | **[BUG-047](incomplete/BUG-047_dashboard_live_stream_candlestick_history_not_populated.md)** | `test_dashboard_integration_start_stream_chart_rendering`: candlestick history rỗng sau Load History + Start Stream | 🟡 P2 | 2026-08-25 | Lộ ra khi gỡ `--ignore` của BOT-038. Deterministic, có sẵn từ `f27649e`, chưa root-cause. |
 | **[BUG-046](incomplete/BUG-046_dashboard_exception_fallback_fsm_state_assumption_stale.md)** | `test_dashboard_integration_exception_fallback` giả định FSM đã LIVE lúc assert, thực tế IDLE | 🟡 P2 | 2026-08-25 | Lộ ra khi gỡ `--ignore` của BOT-038. Deterministic, có sẵn từ `f27649e`, chưa root-cause. |
-| **[BUG-045](incomplete/BUG-045_sanity_tier_makes_live_binance_network_calls.md)** | Tầng Sanity gọi mạng thật lên `api.binance.com` mỗi lần chạy CI | 🟡 P2 | 2026-08-25 | `container.resolve(...)` dựng `PythonBinanceClient`, constructor ping `/api/v3/ping`. Fixture chỉ patch websocket. Vi phạm `ci-rule.md` §6 "no network". Fix là `EPIC-009` D6 (fake Binance server). |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky), chỉ trên Windows. **Cập nhật 2026-08-25:** cơ chế đã chứng minh — `engine.dispose()` chỉ đóng connection *checked-in*; một `Session` còn checked-out thì `dispose_all()` **không** đóng, để lại cho GC → đúng điều kiện sinh `ResourceWarning`. Nên bước "cứ thêm `dispose_all()`" là **không đủ**. Linux đo lại bằng bằng chứng dương tính: 0 connection chưa đóng trên cả 6 worker. Đã có `scripts/bug030_connection_leak_probe.py` để chỉ đích danh file:line khi chạy được trên Windows. |
 
@@ -50,6 +50,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-045](completed/BUG-045_sanity_tier_makes_live_binance_network_calls.md)** | Tầng Sanity gọi mạng thật lên `api.binance.com` mỗi lần chạy CI | 🟡 P2 | 2026-08-25 | Đóng 2026-08-25: `EPIC-009` D6 — fake Binance REST server (stdlib, 3 endpoint thật), `Client.API_URL` trỏ vào đó thay vì mock `IExchangeClient`. Cả 17 use case resolve sạch, 0 network call. |
 | **[BUG-044](completed/BUG-044_published_engine_has_python2_except_syntax.md)** | `sagittarius_engine` publish lên GitHub không import được — cú pháp `except A, B:` của Python 2 | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: merged upstream (PR #175), `requires-python` hạ về `>=3.12` (PR #177). Verify từ repo này bằng clean install, full gate 1.761 pass trên 3.12.3. `v2.1.0`/`v2.2.0` vẫn dính. Thoát được vì `ruff check` báo "All checks passed!" trên file CPython không parse nổi. |
 | **[BUG-041](completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)** | App không thực sự thoát tiến trình khi có job nền đang chạy trên `ThreadManager` | 🟡 P2 | 2026-08-24 | Per-scan cooperative cancellation xuyên Presenter → Coordinator → Query Handler; process probe 2.000 pair thoát ~1,1s, full CI 1.700 tests pass. |
 | **[BUG-043](completed/BUG-043_run_ui_cannot_import_local_engine.md)** | `run-ui.ps1` không import được Sagittarius Engine local | 🟡 P2 | 2026-08-24 | Bootstrap engine bằng editable sibling checkout hoặc GitHub theo `install-rule.md`; đồng thời cấu hình đúng local import path. |

@@ -404,7 +404,7 @@ Integration's contract.
 
 ---
 
-### D6 — Offline mode is a **fake Binance server**, not a fake adapter ✅ **Decided 2026-08-25 (reviewer)**
+### D6 — Offline mode is a **fake Binance server**, not a fake adapter ✅ **Implemented 2026-08-25**
 
 **Decision.** The blocking prerequisite from D2b is satisfied by running a local
 service that speaks Binance's protocol, with the **real** `python-binance`
@@ -453,6 +453,26 @@ path. More realistic and a smaller harness.
 
 **Also a product feature.** A developer with no API keys can run the whole
 application against it — the same justification the offline mode had on its own.
+
+> **Built and verified 2026-08-25.** `tests/sanity/binance_fake_server.py` —
+> a stdlib-only `http.server.HTTPServer` on a background thread, serving the
+> three real REST paths this app calls (`/api/v3/ping`,
+> `/api/v3/exchangeInfo`, `/api/v3/klines`), verified against
+> `src/infrastructure/binance/client.py`'s actual call sites, not assumed.
+> `conftest.py`'s `booted_app` points `binance.client.Client.API_URL` at it —
+> a class attribute on a third-party class, restored after — while the real
+> `Client` runs completely unmodified. **`BUG-045` is closed**: all 17 use
+> cases in `test_composition_root.py` now resolve with zero network calls,
+> `_BLOCKED_BY_BUG` deleted rather than emptied. The websocket side is not yet
+> covered (a real protocol is materially more work than a REST GET handler)
+> and stays mocked at its two entry points, unchanged from before.
+>
+> One real finding from building it, filed separately and not blocking:
+> `BUG-049` — the fake server's background thread leaves 5 uncollectable GC
+> objects at interpreter shutdown, confirmed introduced by this work
+> (A/B'd), but confirmed *not* caused by the server in isolation either
+> (isolated repro showed zero garbage) — an interaction with the rest of the
+> session, not yet root-caused. Same shape as the project's own `BUG-030`.
 
 **Determinism requirement.** The server must serve seeded, fixed data. A fake
 that generates random or time-dependent responses reintroduces the flakiness

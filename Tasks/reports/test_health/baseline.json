@@ -49,7 +49,7 @@
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "Presenter\\(|switch_screen\\(",
       "hits": [
-        "tests/sanity/test_composition_root.py:224"
+        "tests/sanity/test_composition_root.py:209"
       ],
       "hit_count": 1
     },
@@ -60,7 +60,7 @@
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "create_app\\(",
       "hits": [
-        "tests/sanity/conftest.py:87",
+        "tests/sanity/conftest.py:113",
         "tests/sanity/test_event_bus_has_a_real_logger_sanity.py:31"
       ],
       "hit_count": 2
@@ -72,9 +72,9 @@
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "qInstallMessageHandler",
       "hits": [
-        "tests/sanity/conftest.py:128",
-        "tests/sanity/conftest.py:149",
-        "tests/sanity/conftest.py:159"
+        "tests/sanity/conftest.py:165",
+        "tests/sanity/conftest.py:186",
+        "tests/sanity/conftest.py:196"
       ],
       "hit_count": 3
     },
@@ -85,13 +85,13 @@
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "shutdown\\(\\)|threading\\.enumerate",
       "hits": [
-        "tests/sanity/test_composition_root.py:232",
-        "tests/sanity/test_composition_root.py:277",
-        "tests/sanity/test_composition_root.py:284",
-        "tests/sanity/test_composition_root.py:290",
-        "tests/sanity/test_composition_root.py:298"
+        "tests/sanity/binance_fake_server.py:100",
+        "tests/sanity/test_composition_root.py:217",
+        "tests/sanity/test_composition_root.py:262",
+        "tests/sanity/test_composition_root.py:269",
+        "tests/sanity/test_composition_root.py:275"
       ],
-      "hit_count": 6
+      "hit_count": 7
     },
     {
       "id": "integration-proves-user-journeys",
@@ -251,8 +251,8 @@
     {
       "check": "C7",
       "file": "tests/sanity/conftest.py",
-      "line": 65,
-      "detail": "fixture `booted_app` is defined 2x in `sanity` (tests/sanity/conftest.py:65, tests/sanity/test_event_bus_has_a_real_logger_sanity.py:24) — copies drift; there is no single definition to keep correct"
+      "line": 76,
+      "detail": "fixture `booted_app` is defined 2x in `sanity` (tests/sanity/conftest.py:76, tests/sanity/test_event_bus_has_a_real_logger_sanity.py:24) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
@@ -353,6 +353,6 @@
   ],
   "bug_board": {
     "open": 6,
-    "closed": 42
+    "closed": 43
   }
 }

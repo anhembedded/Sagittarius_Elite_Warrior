@@ -43,6 +43,17 @@ _ALLOWED_QT_MESSAGES: list[str] = []
 #: Same contract for Python log records at WARNING or above.
 _ALLOWED_LOG_MESSAGES: list[str] = []
 
+#: Same contract for `warnings.warn(...)`. One entry, sourced to the exact
+#: line: `python-binance`'s `helpers.py:96` calls `asyncio.get_event_loop()`
+#: unconditionally inside `Client.__init__` — every one of this tier's 17 use
+#: cases that resolves a `PythonBinanceClient` triggers it, verified by
+#: isolating a plain `Client()` construction with no app code involved. This
+#: is `python-binance`'s own known-deprecated pattern (`asyncio.get_event_
+#: loop()` outside a running loop, deprecated since Python 3.10), already
+#: allowlisted the same way in `pyproject.toml`'s `filterwarnings` for the
+#: rest of the suite — not a defect this tier's own code introduced.
+_ALLOWED_WARNING_SUBSTRINGS: tuple[str, ...] = ("There is no current event loop",)
+
 
 @pytest.fixture(scope="session")
 def qapp():
@@ -70,15 +81,30 @@ def booted_app(qapp):
     test-only config set. No test in this tier triggers a config save, so the
     writable flag is faithful without being dangerous.
 
-    Only the network boundary is substituted. That boundary is temporary: once
-    EPIC-009's D6 lands a fake Binance server, the real client points at it and
-    these patches disappear entirely — no test double will exist to fall behind
-    its port, which is the class BUG-026 and BUG-027 came from.
+    Only the network boundary is substituted, and D6 draws that boundary at
+    the transport, not at the application's own code: the REST side points
+    the real `python-binance` `Client` at `binance_fake_server.py` — a local
+    server speaking Binance's protocol — by overriding its `API_URL` class
+    attribute, a configuration value, not a code path. `PythonBinanceClient`,
+    its kline mapping, its pagination, all of `python-binance`'s own HTTP
+    behavior still run unchanged; only the endpoint moves. No hand-written
+    substitute for `IExchangeClient` exists to fall behind its port, which is
+    the class `BUG-026` and `BUG-027` came from. `BUG-045` — the DI graph
+    reaching `api.binance.com` merely by being resolved, since `Client()`
+    pings on construction by default — is closed by this alone.
+
+    The websocket side is not yet covered by a fake server (a real websocket
+    protocol is a materially larger undertaking than a REST GET handler); it
+    stays mocked at its two entry points, `AsyncClient`/`BinanceSocketManager`,
+    same as before.
     """
     from unittest.mock import patch
 
+    from binance.client import Client
     from Sagittarius_Elite_Warrior.src.main import create_app
     from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+
+    from binance_fake_server import run_binance_fake_server
 
     config_manager = ConfigManager()
     config_manager.load_json(str(_CONFIG_DIR / "app_config.json"))
@@ -86,7 +112,9 @@ def booted_app(qapp):
 
     app = create_app(config_manager)
 
+    real_client_api_url = Client.API_URL
     with (
+        run_binance_fake_server() as fake_url,
         patch(
             "Sagittarius_Elite_Warrior.src.infrastructure.binance."
             "binance_websocket_service.AsyncClient"
@@ -96,9 +124,18 @@ def booted_app(qapp):
             "binance_websocket_service.BinanceSocketManager"
         ),
     ):
-        app.boot()
-        yield app
-        app.stop()
+        # A class attribute on a third-party class, not an instance patch —
+        # every `Client(...)` constructed anywhere in the app for the rest of
+        # this fixture's scope picks it up, restored in `finally` so no other
+        # test module (or a human reading `Client.API_URL` mid-session) is
+        # left thinking real network access is disabled process-wide.
+        Client.API_URL = fake_url
+        try:
+            app.boot()
+            yield app
+            app.stop()
+        finally:
+            Client.API_URL = real_client_api_url
 
 
 @pytest.fixture(autouse=True)
@@ -157,7 +194,11 @@ def diagnostic_guard(request):
 
     root_logger.removeHandler(trap)
     qInstallMessageHandler(previous_handler)
-    problems.extend(f"[warning] {w.category.__name__}: {w.message}" for w in caught)
+    problems.extend(
+        f"[warning] {w.category.__name__}: {w.message}"
+        for w in caught
+        if not any(allowed in str(w.message) for allowed in _ALLOWED_WARNING_SUBSTRINGS)
+    )
 
     assert problems == [], (
         f"{request.node.name} provoked {len(problems)} diagnostic(s) on channels "
