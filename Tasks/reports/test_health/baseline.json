@@ -270,7 +270,7 @@
       "check": "C7",
       "file": "tests/integration/presentation/ui/test_dashboard_integration.py",
       "line": 18,
-      "detail": "fixture `mock_app` is defined 2x in `integration/presentation/ui` (tests/integration/presentation/ui/test_dashboard_integration.py:18, tests/integration/presentation/ui/test_dashboard_live_stream.py:19) — copies drift; there is no single definition to keep correct"
+      "detail": "fixture `mock_app` is defined 2x in `integration/presentation/ui` (tests/integration/presentation/ui/test_dashboard_integration.py:18, tests/integration/presentation/ui/test_dashboard_live_stream.py:20) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
@@ -376,7 +376,7 @@
     }
   ],
   "bug_board": {
-    "open": 5,
-    "closed": 44
+    "open": 3,
+    "closed": 46
   }
 }

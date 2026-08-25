@@ -1,3 +1,4 @@
+from concurrent.futures import Future
 from unittest.mock import MagicMock
 
 import pytest
@@ -43,7 +44,22 @@ def mock_app():
     mock_thread_mgr = MagicMock()
 
     def submit_sync(task, *args, **kwargs):
-        task(*args, **kwargs)  # Execute synchronously in the test
+        # Must return a real Future, not None: ExclusiveAction.submit()
+        # (BOT-069, landed after this fixture was first written) calls
+        # `future.add_done_callback(...)` on whatever IThreadManager.submit()
+        # returns, to release its exclusive-action slot once the task
+        # settles. Returning None here used to work because nothing read
+        # the return value — now it crashes with AttributeError, which
+        # @safe_ui_action (BOT-066, also later) catches and logs instead of
+        # raising, so the crash was invisible and just left the
+        # "load_history" slot stuck forever, silently rejecting every
+        # subsequent _on_start_stream() call via its own try_start() guard.
+        future: Future = Future()
+        try:
+            future.set_result(task(*args, **kwargs))  # Execute synchronously
+        except Exception as exc:  # noqa: BLE001 - mirror the real thread pool's contract
+            future.set_exception(exc)
+        return future
 
     mock_thread_mgr.submit.side_effect = submit_sync
 
@@ -84,7 +100,16 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
             mock_kline.close_price = 1050.0
             mock_kline.volume = 250.0
             response = MagicMock()
-            response.data = [mock_kline]
+            # Keyed by symbol, not a flat list: GetHistoricalKlinesQuery now
+            # takes `symbol` as a list (multi-symbol support,
+            # handler.py::_execute_multi), which returns dict[str,
+            # list[MarketData]] — one entry per requested symbol. A flat
+            # list here fails stream_lifecycle_controller.py's own
+            # `isinstance(results, dict)` guard, which logs "Unexpected
+            # response format" and returns before ever touching the
+            # candlestick — never a raised exception, so this stayed
+            # invisible until BUG-047 traced it.
+            response.data = {sym: [mock_kline] for sym in cmd.symbol}
             return response
         if cmd_type == StartLiveStreamCommand:
             response = MagicMock()
