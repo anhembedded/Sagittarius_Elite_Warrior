@@ -204,6 +204,96 @@ import the only mode.
 reason, now with receipts: that is what the three probe scripts do, and it cost
 two bugs.
 
+### D2b — The OUT layer is a control channel, not just a boot-and-exit check 🔵 Proposed — **added 2026-08-25 after review**
+
+> **Supersedes the `--self-check` scope in D2.** D2's OUT layer only booted the
+> app, idled and exited. Review position: Sanity should *run the app and then
+> test it*, driven by a command that starts the app for real and exposes an API
+> to publish events or trigger actions. Boot-and-exit is a strict subset of
+> that, so `--self-check` becomes the degenerate case of one control session
+> that sends `quit` immediately.
+
+**Decision.** The app gains an opt-in control channel. A real process, started
+normally, plus a transport that exposes the app's **existing** internal APIs to
+a caller outside the process.
+
+**No new API is designed.** ✅ Established — the surface already exists:
+
+| Capability | Already in the repo |
+| :--- | :--- |
+| Publish an event | `IEventBus.emit()` — `test_sanity_ui_e2e.py` already drives the app this way, in-process |
+| Trigger an action | `IDispatcher.dispatch()` — every Command and Query already routes through it |
+| A command loop inside the running app | `InteractiveShell` (`IHostedService`, routed from `cli_commands.json`, handlers for `sync` / `stream`) |
+
+What is missing is only a **transport**: a machine-readable channel reaching
+those two calls from outside the process.
+
+**Shape.**
+
+```
+python -m ...app_bootstrapper --control=stdio
+```
+
+The app starts completely normally — real `main()`, real window, real wiring —
+plus one hosted service reading newline-delimited JSON:
+
+```json
+{"op":"publish",  "event":"MarketTickEvent", "payload":{...}}
+{"op":"dispatch", "command":"SyncMarketDataCommand", "payload":{...}}
+{"op":"navigate", "route":"backtest"}
+{"op":"wait",     "until":{"fsm":"DONE"}, "timeout_ms":30000}
+{"op":"quit"}
+```
+
+Responses **and every diagnostic** — Qt messages, log records, warnings — stream
+back as JSON lines. The harness asserts on that stream plus the exit code.
+
+**Why this is materially better than mocking, not merely different.** Today's
+tier patches `AsyncClient` and `BinanceSocketManager`; the review's objection
+was precisely that Sanity "creates mock test cases" instead of running the app.
+With a control channel the boundary is not faked at all — the app runs offline
+and is **fed through its own event bus**. No test double exists to fall behind
+its port. That eliminates the BUG-026 / BUG-027 class structurally rather than
+by discipline.
+
+**Three constraints that decide whether this works.**
+
+1. **Thread affinity.** Every op must reach the Qt main thread via
+   `QMetaObject.invokeMethod(..., QueuedConnection)`. A control channel that
+   touches the UI from its own thread manufactures exactly BUG-001 and BUG-031
+   — the defect class this tier exists to catch.
+2. **Transport only, never a second path.** It calls the same `emit` /
+   `dispatch` production calls, and does nothing else. Violating this returns
+   the project to the probe-script disease (see D2's evidence).
+3. **Security — non-negotiable.** This is a trading application holding Binance
+   API credentials, and the channel can dispatch *any* command. It must be off
+   by default, enabled only by an explicit flag, bound to stdio or loopback
+   only, and must never open a network port by default. This is an approval
+   condition, not an implementation detail.
+
+**Blocking prerequisite: the app has no offline mode.** ✅ Established —
+`src/config/*.json` contains no flag that disables Binance access. Without one,
+a "real" run still reaches the network and the mocks come straight back. An
+offline mode is a genuine product feature (developing without keys), and it
+must land before this decision can be implemented.
+
+**Scope note.** This transport serves Integration and Desktop E2E as much as
+Sanity — the three shutdown probes collapse into it, and driving a real screen
+becomes a control session. It should be scoped as a **test automation surface**
+for the whole pyramid, not as a Sanity feature.
+
+**Taxonomy conflict to resolve.** Under `ci-rule.md` §6, publishing events and
+triggering actions places a test in **Integration**, not Sanity. Adopting this
+decision therefore requires amending the tier definitions explicitly. Leaving
+the boundary informal is what produced the original problem, so it must not be
+left implicit.
+
+**Cost.** Weeks, not days: transport and protocol, JSON payload to typed
+event/command construction (Pydantic is already in the stack via
+`PydanticValidationMiddleware`), wait/observe primitives, thread discipline,
+security gating, and the offline mode. This competes for time with re-verifying
+BOT-038, which costs one command and may unlock 36 journey tests immediately.
+
 ### D3 — Execution level L2, on both layers 🔵 Proposed
 
 | Level | Runs | Realism | Cost |
@@ -331,6 +421,12 @@ Not decisions about *what* Sanity is — conditions any implementation must meet
 | Q10 | Do the three `scripts/shutdown_*_probe.py` scripts fold into `--self-check`, or stay as scenario probes? Their "sync in flight" setup genuinely needs a blocking double, which `--self-check` must not carry | D2, scope |
 | Q11 | If they stay: one shared, type-checked set of test doubles instead of one per script? BUG-026 and BUG-027 were both per-script doubles drifting from their ports | D2 |
 | Q12 | Does the OUT layer run on every CI invocation, or only in the full gate? It costs a real process launch per run | C4 |
+| Q13 | Offline mode: what is the config key, and what exactly does it disable — the websocket service, the REST client, or both? | D2b, blocking |
+| Q14 | Control transport: stdio, loopback socket, or both? Stdio is simplest and safest; a socket allows attaching to an already-running app | D2b |
+| Q15 | How are JSON payloads turned into real typed events/commands? Reuse the Pydantic layer already registered as `PydanticValidationMiddleware`, or a separate registry? | D2b |
+| Q16 | What can `wait.until` observe — FSM state, a named signal, a log line, all three? This decides whether the harness is deterministic or sleep-based | D2b |
+| Q17 | Does adopting D2b mean amending `ci-rule.md` §6's tier definitions, and if so, does "Sanity" keep its name for an event-driven tier? | D2b, taxonomy |
+| Q18 | Sequencing: does D2b come before or after re-verifying BOT-038? One is weeks, the other is one command | epic scope |
 
 Q2, Q3, Q4 and Q6 cannot be answered from the authoring environment — it has
 neither PySide6 nor `sagittarius_engine` installed, and this project's CI is
@@ -362,6 +458,8 @@ acceptable is pretending it is not there.
 - The Integration tier and BOT-038. Related, separately decided.
 - Deleting the 22 dead `.qml` files — already recorded as EPIC-006 debt in
   [its README](../EPIC-006_drop_qml/README.md); this ADR does not claim it.
+- The offline mode itself (Q13) — a product feature this ADR depends on but
+  does not design.
 - The `test-health` skill, already shipped. It enforces this ADR once ratified;
   it does not depend on it.
 - Any implementation. Nothing is built until §7 is closed.
