@@ -1,0 +1,97 @@
+"""
+Chạy hai guard của engine lên `src/presentation/ui` và khoá kết quả.
+
+**Vì sao file này tồn tại.** Hai guard `find_inline_stylesheets` và
+`find_bare_qt_base_widgets` đã có từ `EPIC-006B`, được mở rộng ở `EPIC-007A`,
+và cho tới `EPIC-007D` **chưa từng được trỏ vào một cây nguồn thật nào** —
+chúng chỉ chạy qua fixture `tmp_path` trong test của engine. `EPIC-007D` kéo
+`find_inline_stylesheets` từ 130 finding về 0; không có file này thì con số đó
+là ảnh chụp một khoảnh khắc, và lần `setStyleSheet("#1a1b22")` tiếp theo đưa
+nó về 1 mà không ai biết.
+
+Guard mạnh mà không ai chạy thì không bảo vệ gì cả.
+
+## Hai ngưỡng, hai cách đối xử khác nhau
+
+`find_inline_stylesheets` khoá ở **0 tuyệt đối**. Không có "cho phép thêm vài
+cái"; muốn một literal thì viết `# token-exempt: <lý do>` ngay tại dòng đó, và
+lý do ấy đi qua review.
+
+`find_bare_qt_base_widgets` khoá bằng **trần chỉ được giảm**. Nó còn 21 finding
+— đó là công việc của `EPIC-007E`/`007F`, chưa làm được hôm nay. Trần ngăn con
+số tăng, và test sẽ **báo đỏ khi bạn làm nó giảm** mà quên hạ trần theo, nên
+trần không thể phình ra rồi nằm đó mãi.
+
+## Bẫy đã thật sự xảy ra, đừng lặp lại
+
+`ruff format` và marker `token-exempt` đánh nhau: marker phải nằm **cùng dòng**
+với hex vì guard đọc theo dòng, nhưng thêm nó vào thường làm dòng vượt 88 cột,
+formatter ngắt dòng, và marker rơi xuống dòng dưới — nơi guard không thấy.
+Trong `EPIC-007D` việc này làm con số nhảy 0 → 8 → 3 → 0. **Luôn chạy format
+trước, guard sau.** File này chạy trong CI nên nó bắt được, nhưng biết trước
+thì đỡ mất một vòng.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from sagittarius_engine.extensions.pyside_mvc.widgets.guards import (
+    find_bare_qt_base_widgets,
+    find_inline_stylesheets,
+    format_bare_qt_base_findings,
+    format_inline_stylesheet_findings,
+)
+
+_UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
+
+#: File định nghĩa màu của app — tương đương `style.py` của engine. Không có
+#: nó thì `palette.py` bị báo 15 lần vì *chứa* token, và 0 là bất khả thi.
+_COLOUR_SOURCES = ("palette.py",)
+
+#: Số lớp còn kế thừa thẳng `QFrame`/`QDialog`/`QWidget`, tính lúc `EPIC-007D`
+#: đóng. `007E`/`007F` sẽ kéo xuống khi migrate sang `Card`/`Panel`/`Overlay`.
+#: Chỉ được phép giảm — xem docstring module.
+_BARE_QT_BASE_CEILING = 21
+
+
+def test_ui_root_is_where_we_think_it_is() -> None:
+    """Đường dẫn tính bằng `parents[4]`; nếu ai đó di chuyển file test này,
+    hai test dưới sẽ quét một thư mục rỗng và xanh vì không có gì để tìm.
+    Đây là thứ chặn cái đó."""
+    assert _UI_ROOT.is_dir(), f"không thấy cây UI ở {_UI_ROOT}"
+    assert (_UI_ROOT / "assets" / "palette.py").is_file()
+
+
+def test_no_hardcoded_colour_outside_palette() -> None:
+    findings = find_inline_stylesheets(_UI_ROOT, colour_source_names=_COLOUR_SOURCES)
+
+    assert findings == [], (
+        "EPIC-007D đưa con số này về 0 và nó phải ở đó.\n"
+        "Dùng token trong `Palette`, hoặc nếu literal là có chủ đích thì viết\n"
+        "`# token-exempt: <lý do>` NGAY TRÊN DÒNG chứa nó.\n\n"
+        + format_inline_stylesheet_findings(findings)
+    )
+
+
+def test_bare_qt_base_classes_do_not_grow() -> None:
+    findings = find_bare_qt_base_widgets(_UI_ROOT)
+
+    assert len(findings) <= _BARE_QT_BASE_CEILING, (
+        f"số lớp kế thừa thẳng base của Qt tăng từ {_BARE_QT_BASE_CEILING} "
+        f"lên {len(findings)}. Kế thừa `Card`/`Panel`/`Overlay` của engine, "
+        f"hoặc `# base-exempt: <lý do>` nếu nó thật sự không phải surface.\n\n"
+        + format_bare_qt_base_findings(findings)
+    )
+
+
+def test_the_ceiling_is_not_stale() -> None:
+    """Trần chỉ hữu ích khi nó bám sát thực tế. Khi `007E`/`007F` kéo con số
+    xuống, test này đỏ và buộc phải hạ trần theo — nếu không, khoảng hở tích
+    lại và guard lặng lẽ ngừng có ý nghĩa."""
+    findings = find_bare_qt_base_widgets(_UI_ROOT)
+
+    assert len(findings) == _BARE_QT_BASE_CEILING, (
+        f"tốt — còn {len(findings)}, ít hơn trần {_BARE_QT_BASE_CEILING}. "
+        f"Hạ `_BARE_QT_BASE_CEILING` xuống {len(findings)} để khoá lại."
+    )

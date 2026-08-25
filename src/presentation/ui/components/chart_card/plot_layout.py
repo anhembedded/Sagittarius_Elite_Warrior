@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from enum import Enum
 
 import pyqtgraph as pg
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
     is_headless_qt_platform,
     qt_platform_name,
@@ -50,7 +51,7 @@ class ChartPlotLayout:
         self.widget.setBackground("default")
 
         self.crosshair_label = self.widget.addLabel(
-            "<span style='color: #888888; font-size: 11px;'>Hover to see data</span>",  # token-exempt: chart_card avoids Palette, see theme.py
+            f"<span style=f'color: {Palette.MUTED}; font-size: 11px;'>Hover to see data</span>",
             row=0,
             col=0,
             justify="right",
