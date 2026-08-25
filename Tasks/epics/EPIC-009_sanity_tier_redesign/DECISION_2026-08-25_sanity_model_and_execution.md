@@ -99,20 +99,27 @@ is a prose definition, and it is how the tier came to guard nothing.
 Derived from §3 alone. No bug consulted while writing this table; the bug
 column was filled in afterwards, as validation.
 
-| # | Failure mode | From | Witnessed by |
-| --: | :--- | :--- | :--- |
-| 1 | Missing node — something needed was never registered | graph | — |
-| 2 | **Orphan node** — registered, nothing depends on it | graph | **none yet** |
-| 3 | Broken edge — node registered, its dependency is not | graph | — |
-| 4 | Wrong node — right key, wrong type or interface | graph | BUG-020, BUG-026, BUG-027 |
-| 5 | In source, not in graph — added and never registered | graph ↔ source | BUG-039 |
-| 6 | **In graph, not in source** — registration points at deleted code | graph ↔ source | **none yet** |
-| 7 | Cannot enter — boot fails | lifecycle | — |
-| 8 | **Enters degraded** — boot "succeeds" while emitting problems | lifecycle | BUG-028, BUG-031 |
-| 9 | Cannot exit — shutdown hangs | lifecycle | BUG-007, BUG-023, BUG-041 |
-| 10 | Exits dirty — stop() returns, threads/handles survive | lifecycle | BUG-041 |
-| 11 | Entry point registered but cannot be constructed | entry points | BUG-019, BUG-035 |
-| 12 | **Entry point exists but nothing registers it** | entry points | **none yet** |
+| # | Failure mode | From | Witnessed by | IN | OUT |
+| --: | :--- | :--- | :--- | :---: | :---: |
+| 1 | Missing node — something needed was never registered | graph | — | ✅ | ❌ |
+| 2 | **Orphan node** — registered, nothing depends on it | graph | **none yet** | ✅ | ❌ |
+| 3 | Broken edge — node registered, its dependency is not | graph | — | ✅ | ❌ |
+| 4 | Wrong node — right key, wrong type or interface | graph | BUG-020, BUG-026, BUG-027 | ✅ | ❌ |
+| 5 | In source, not in graph — added and never registered | graph ↔ source | BUG-039 | ✅ | ❌ |
+| 6 | **In graph, not in source** — registration points at deleted code | graph ↔ source | **none yet** | ✅ | ❌ |
+| 7 | Cannot enter — boot fails | lifecycle | BUG-043 | 🟡 | ✅ |
+| 8 | **Enters degraded** — boot "succeeds" while emitting problems | lifecycle | BUG-028, BUG-031 | 🟡 | ✅ |
+| 9 | **Cannot exit** — the process does not die | lifecycle | BUG-007, BUG-023, BUG-041 | ❌ | ✅ |
+| 10 | Exits dirty — stop() returns, threads/handles survive | lifecycle | BUG-041 | 🟡 | ✅ |
+| 11 | Entry point registered but cannot be constructed | entry points | BUG-019, BUG-035 | ✅ | 🟡 |
+| 12 | **Entry point exists but nothing registers it** | entry points | **none yet** | ✅ | ❌ |
+
+`IN` / `OUT` are the two execution layers defined in D2. **Mode 9 is the one
+that forces the split**: inside pytest, `teardown()` returning is not the same
+as the process dying, because pytest's own process keeps living —
+`threading.enumerate()` is a proxy, not the fact. BUG-007's symptom was
+literally *"the UI closed but the Python process kept running"*. Only a
+subprocess exit code proves that.
 
 **Modes 2, 6 and 12 have no bug behind them.** That is not a reason to drop
 them — it is the entire argument for §2's method. Mode 12 in particular is
@@ -129,10 +136,36 @@ from it, so an error here propagates to everything.
 
 ## 5. Decisions proposed
 
-### D2 — Sanity gets **no** entry point of its own 🔵 Proposed
+### D2 — Two execution layers; neither may rebuild the app 🔵 Proposed — **revised 2026-08-25 after review**
 
-**Decision.** Do not add a CLI, headless or "test mode" path for Sanity. Split
-the existing production entry point at the event loop instead:
+> **Superseded:** the first version of D2 read *"Sanity gets no entry point of
+> its own"* and concluded that Sanity should call `build()` from pytest. That
+> answered the wrong question. It conflated **(A)** *may Sanity use different
+> wiring?* — no, correctly — with **(B)** *must Sanity ever run as a real
+> process, launched the way production launches?* Answering (A) and stopping
+> silently answered (B) with "no", which is wrong.
+
+**Decision.** Sanity runs at **two layers**, which cover disjoint failure modes:
+
+| | **IN-process** | **OUT-of-process** |
+| :--- | :--- | :--- |
+| Invocation | pytest imports and calls `build()` / `teardown()` | `python -m ...app_bootstrapper --self-check`, spawned by pytest via `subprocess.run` |
+| Reality | fake `__main__`, pytest's `sys.argv`, pytest's process lifetime | real `__main__`, real `sys.argv`, real `QApplication`, real `app.exec()`, real `sys.exit()` |
+| Can assert | objects — view attached to the stack, properties readable, routes construct, registry scans | the process boundary — exit code, exit within budget, clean stdout/stderr |
+| Covers | modes 1–6, 11, 12 | modes 7–10 |
+
+**`--self-check` is not a second composition root.** It runs the real `main()`
+and changes exactly one thing: the loop's **termination condition** — "quit when
+the user closes the window" becomes "quit after the first idle turn". No branch
+in the wiring, no injected double, no step skipped. The diff is a handful of
+lines inside `main()`, downstream of everything that composes the app.
+
+It is also a real product capability, not scaffolding: it lets a human verify an
+installation actually starts — exactly what BUG-043 (`run-ui.ps1` could not
+import the local engine) needed and did not have.
+
+**The entry-point split from the original D2 still stands**, because the
+IN-process layer needs it:
 
 ```python
 def build() -> AppRuntime:            # everything up to, and not including, app.exec()
@@ -140,26 +173,38 @@ def teardown(rt: AppRuntime) -> None: # window.shutdown, watchdog.stop, sig_time
 def main() -> None:                   # build() -> app.exec() -> teardown() -> sys.exit()
 ```
 
-Sanity calls `build()` and `teardown()` — **the same two functions production
-calls**, with no duplicated logic and no `if testing:` branch.
+**Evidence — the repo has already paid for both halves of this.** ✅ Established
 
-**Rationale.** A path built for Sanity is a path only Sanity proves. It would
-be a third composition root alongside `app_bootstrapper.main()` and
-`main.main()`, and it would drift — the same disease as the six copied fixtures
-(audit F7), one level up and harder to see. The repo already carries a mild
-form of this: today's tier boots `create_app()` directly and proves a path
-production never runs (§1.3).
+*For the OUT layer being necessary:* three tests already spawn the app as a
+subprocess and assert on its exit code —
+`tests/integration/presentation/test_shutdown_sync_process.py`,
+`test_shutdown_database_sync_process.py`, `test_shutdown_database_scan_process.py`
+(`subprocess.run([sys.executable, "-m", ...])`, `returncode == 0`, 30s timeout).
+Nobody called it Sanity, but it is exactly "launch the real thing and check it".
 
-**Bonus, not incidental.** The split hands Sanity production's *real* teardown,
-which no tier currently touches — modes 9 and 10, three bugs, two of them P1.
+*For "must not rebuild the app":* those three probes
+(`scripts/shutdown_*_probe.py`, 366 lines) each call `create_app()`, build their
+own `QApplication` and `MainWindow`, and inject their own hand-written doubles —
+bypassing `app_bootstrapper.main()` entirely. That duplication is the direct
+cause of **BUG-026** (`_BlockingExchangeClient` missing
+`stream_historical_klines`) and **BUG-027** (`_SeededMarketDataRepository`
+missing 7 of 12 port methods): the doubles fell behind the real interfaces and
+nothing noticed.
 
-**Rejected alternative.** *"Add a `--sanity` headless mode."* Rejected: it makes
-the realism gap larger, not smaller, and it is exactly the kind of convenience
-that reads as pragmatic and quietly invalidates the tier.
+So the rule is not "no subprocess" — it is **launch production's own entry
+point, never a bespoke script that re-composes the app.**
 
----
+**Not "pytest vs command line".** pytest remains the runner for both layers;
+the existing shutdown tests already demonstrate pytest driving a real process.
+The distinction that matters is **import vs launch**, and the defect was making
+import the only mode.
 
-### D3 — Execution level L2 🔵 Proposed
+**Rejected alternative.** A `--sanity` flag that builds a *different* app
+(skips theme, injects fakes, swaps wiring). Rejected for the original D2's
+reason, now with receipts: that is what the three probe scripts do, and it cost
+two bugs.
+
+### D3 — Execution level L2, on both layers 🔵 Proposed
 
 | Level | Runs | Realism | Cost |
 | :--- | :--- | :---: | :--- |
@@ -168,7 +213,12 @@ that reads as pragmatic and quietly invalidates the tier.
 | **L2** | **L1 + a bounded run of the real event loop, offscreen** | **highest headless can reach** | **cheap** |
 | L3 | real display, real input, real pixels | total | expensive, flaky |
 
-**Decision.** Sanity targets **L2**. It is at **L0** today. L3 stays Desktop E2E.
+**Decision.** Sanity targets **L2 on the IN layer**, and the OUT layer runs
+the real `main()` end to end. It is at **L0, IN only**, today. L3 stays
+Desktop E2E.
+
+The OUT layer needs no level choice: it *is* production's own startup, with
+one changed stop condition. Its realism is not a dial.
 
 **Why the event loop is mandatory, i.e. why not stop at L1.** An entire defect
 class only exists once the loop turns: `QTimer`, `QueuedConnection`,
@@ -277,6 +327,10 @@ Not decisions about *what* Sanity is — conditions any implementation must meet
 | Q6 | Does config expose the DB path, so it can be redirected without a code path change? | D4 |
 | Q7 | What is `BUDGET_MS`, and what happens on overrun? | D3, C4 |
 | Q8 | Is re-verifying BOT-038 inside this epic or a prerequisite to it? | epic scope |
+| Q9 | What is the `--self-check` termination condition — first idle turn, N loop turns, or a fixed timeout? | D2 OUT layer |
+| Q10 | Do the three `scripts/shutdown_*_probe.py` scripts fold into `--self-check`, or stay as scenario probes? Their "sync in flight" setup genuinely needs a blocking double, which `--self-check` must not carry | D2, scope |
+| Q11 | If they stay: one shared, type-checked set of test doubles instead of one per script? BUG-026 and BUG-027 were both per-script doubles drifting from their ports | D2 |
+| Q12 | Does the OUT layer run on every CI invocation, or only in the full gate? It costs a real process launch per run | C4 |
 
 Q2, Q3, Q4 and Q6 cannot be answered from the authoring environment — it has
 neither PySide6 nor `sagittarius_engine` installed, and this project's CI is
@@ -286,7 +340,7 @@ Windows/PowerShell-only. They need one session on the real machine.
 
 ## 8. Consequences if accepted
 
-**Gained.** Coverage for modes 8, 9, 10 and 12 — none of which any tier
+**Gained.** Coverage for modes 7, 8, 9, 10 and 12 — none of which any tier
 currently holds, and which account for 6 filed bugs, 3 of them P1. Tier cost
 drops from ~24 app boots to 1. Test count stops tracking feature count.
 
