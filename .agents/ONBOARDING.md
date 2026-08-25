@@ -500,10 +500,17 @@ tái tạo lại đúng lỗi mà chúng vừa đóng. Chi tiết đầy đủ �
 1. **Sửa cơ chế, không hot fix.** Cùng một lỗi lặp ở nhiều nơi thì sửa mỗi chỗ được báo là
    không chấp nhận được. Sửa mà không giải thích được *vì sao* triệu chứng biến mất thì không
    tính là sửa (`bug-fix-rule.md`).
-2. **Một abstraction một file, và chia được bao nhiêu file thì chia.** Gộp những thứ khác
-   abstraction vào một file bị coi là anti-pattern. Đối trọng duy nhất là Single-Scope Cohesion
-   trong `code-rule.md`: những định nghĩa mô tả **cùng một vòng đời** phải ở chung (enum + ma
-   trận của một FSM). Cùng abstraction nhiều symbol → một file; khác abstraction → tách.
+2. **Càng nhiều file càng tốt — một abstraction một file, và khác abstraction thì cũng không
+   chung thư mục.** Tách là mặc định, **gộp mới là thứ phải có lý do**. Hai ràng buộc cứng:
+   (a) hai thứ **khác abstraction level** không được nằm chung một file (Port vs
+   implementation, base class vs subclass); (b) các file **khác abstraction level** không được
+   nằm chung một `dir` — thư mục là một tầng, không phải cái sọt (`interfaces/` không chứa
+   implementation, `widgets/` dùng chung không chứa widget riêng của 1 màn). Đối trọng duy
+   nhất là Single-Scope Cohesion trong `code-rule.md`, và nó **chỉ** thắng khi các định nghĩa
+   mô tả **cùng một vòng đời** (enum + ma trận của một FSM) — "cùng feature"/"cùng màn hình"
+   **không** tính. Ngưỡng buộc tách: **>400 dòng/file** hoặc **>15 method công khai/lớp**.
+   Phân xử nhanh: *đổi A có bắt buộc phải sửa B không?* Có → chung file; không → tách.
+   Toàn văn ở [`rules/code-rule.md`](rules/code-rule.md) §7 "Abstraction-Level Separation".
 3. **Trình design trước khi implement** với mọi việc tái cấu trúc: PlantUML class + component,
    as-is và to-be, chỉ rõ cái gì dùng chung / cái gì riêng từng màn — duyệt xong mới viết task
    file và code.
