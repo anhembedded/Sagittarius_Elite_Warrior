@@ -168,8 +168,6 @@ class CapitalDialogWidget(Overlay):
 
         view_model.capitalValidationMessageChanged.connect(self._sync_validation)
 
-        self._btn_apply: QPushButton | None = None
-
     def _build_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
         row.addStretch(1)
@@ -177,7 +175,7 @@ class CapitalDialogWidget(Overlay):
         btn_cancel.setObjectName("btnCancelCapital")
         btn_cancel.clicked.connect(self.reject)
         row.addWidget(btn_cancel)
-        self._btn_apply = QPushButton("Áp dụng")
+        self._btn_apply: QPushButton = QPushButton("Áp dụng")
         self._btn_apply.setObjectName("btnApplyCapital")
         self._btn_apply.clicked.connect(self._on_apply)
         row.addWidget(self._btn_apply)
@@ -187,8 +185,7 @@ class CapitalDialogWidget(Overlay):
         message = self._vm.capitalValidationMessage
         self._validation_label.setText(message)
         self._validation_label.setVisible(bool(message))
-        if self._btn_apply is not None:
-            self._btn_apply.setEnabled(not message)
+        self._btn_apply.setEnabled(not message)
 
     def open_dialog(self) -> None:
         self._capital_input.setText(self._vm.initialCapitalText)
