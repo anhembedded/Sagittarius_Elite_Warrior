@@ -1,7 +1,7 @@
 # EPIC-006F — Tháo dỡ kit QML của Engine + xoá QML chết ở Elite
 
 **Thuộc:** [`EPIC-006`](../README.md) · **Repo:** `Sagittarius_Engine` **và** `Sagittarius_Elite_Warrior`
-**Trạng thái:** 🔵 Chưa làm
+**Trạng thái:** ✅ Xong (2026-08-25) — phần Elite; phần Engine tách ra task riêng
 **Phụ thuộc:** `006A`–`006E` ✅ (Elite đã hết consumer QML thật)
 
 > **File này được tạo 2026-08-25.** `006F` tồn tại suốt epic dưới dạng **một dòng trong bảng
@@ -85,3 +85,42 @@ thuộc `EPIC-006`.
 Xoá `.qml` là thao tác một chiều với 22 file. Nhánh `epic/EPIC-006-drop-qml` đã merge vào
 `master-warrior` (`f4076a7`) nên **không còn nhánh rollback rẻ** như các sub-task trước — làm
 trên nhánh riêng, hoặc chấp nhận rollback bằng revert commit.
+
+---
+
+## Xong 2026-08-25 — phần Elite. Phần Engine **không thuộc epic này** (xem §2)
+
+**Gate:** `RESULT: PASS`, **1734 passed** (baseline trước khi xoá: 1741).
+
+### Đã xoá
+
+- **22 file `.qml`** trong `src/` — `find src -name '*.qml'` giờ trả về **0**.
+- **2 file test** (7 test): `test_app_progress_bar.py` (nạp `AppProgressBar.qml` của Elite),
+  `test_qml_imports_match_engine_qmldir.py` (quét import trong `.qml` của Elite — hết `.qml`
+  thì hết đối tượng canh, guard `BUG-035` không còn gì để bảo vệ).
+
+Tổng **4.978 dòng**. `1741 − 7 = 1734` khớp chính xác, và **không test nào khác vỡ** — bằng chứng
+mạnh nhất cho việc 22 file kia thật sự chết.
+
+### Sửa một giả định sai của chính file task này
+
+Mục 1 ở trên (viết trước khi làm) liệt kê **4 file test, 24 test** sẽ chết theo. **Sai.** Kiểm
+từng file thì chỉ **2 file, 7 test** phụ thuộc `.qml` của Elite:
+
+| File | Đọc gì | Kết luận |
+| :--- | :--- | :--- |
+| `test_qml_shared_foundation.py` (6) | tự viết `_PROBE_QML` vào tmp, kiểm **kit của Engine** | **GIỮ** |
+| `test_shared_ui_state_foundation.py` (11) | tự viết `_PROBE_QML`, kiểm token + component **Engine** | **GIỮ** |
+| `test_app_progress_bar.py` (4) | nạp `src/.../AppProgressBar.qml` của Elite | xoá |
+| `test_qml_imports_match_engine_qmldir.py` (3) | quét `.qml` trong `src/` của Elite | xoá |
+
+Hai file giữ lại kiểm **kit QML của Engine — thứ vẫn còn nguyên** (§2). Xoá chúng là mất phần
+kiểm cho một thứ đang sống. Ghi lại vì đây đúng loại nhầm mà "đếm rồi xoá theo danh sách" hay
+mắc: tên file có chữ `qml` không có nghĩa nó phụ thuộc `.qml` của app.
+
+### Việc còn lại, **không** thuộc epic này
+
+Kit QML của Engine (14 component + `QmlHostView`/`OverlayHost`/`configure_app_qml`) **ở lại**,
+vì `examples/student_management` `import Sagittarius.UI 1.0` và §5 của README cấm xoá thứ sample
+app cần. Muốn tháo thật thì mở **task riêng ở repo Engine**, sau khi quyết: đảo mặc định sample
+app sang qfluentwidgets, hay tách kit thành extension tuỳ chọn.

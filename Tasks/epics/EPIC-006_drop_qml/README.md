@@ -1,6 +1,6 @@
 # EPIC-006 — Bỏ hẳn QML, thuần QtWidgets
 
-**Trạng thái:** 🟡 Đang làm (5/6 sub-task xong)
+**Trạng thái:** ✅ **Hoàn thành (6/6 sub-task)** — 2026-08-25
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; quyết định hướng đi dài hạn
 **Nhánh:** `epic/EPIC-006-drop-qml` — **đã merge vào `master-warrior`** (`f4076a7`, 2026-08-24,
@@ -84,7 +84,7 @@ thể đúng ngay cả khi ta không bỏ QML, và ngược lại). Tóm tắt:
 | **[EPIC-006C](completed/EPIC-006C_sidebar.md)** | Elite: `Sidebar.qml` (238 dòng, always-on, pilot rủi ro thấp nhưng lỗi lộ ngay) | ✅ Xong |
 | **[EPIC-006D](completed/EPIC-006D_dev_board_panel.md)** | Elite: `DevBoardPanel.qml` (385 dòng, Dashboard, độc lập) | ✅ Xong |
 | **[EPIC-006E](completed/EPIC-006E_backtest.md)** | Elite: Backtest — top panel / trade logs / 11 modal (không tách 3 lần commit như dự kiến — 1 file test dùng chung cả 3 phần) | ✅ Xong |
-| **[EPIC-006F](incomplete/EPIC-006F_thao_do_kit_qml.md)** | Engine: tháo dỡ kit QML (`Sagittarius/UI/`, `QmlHostView`, `configure_app_qml`, `theme_bridge`, guard cũ) sau khi Elite hết consumer; xử lý `examples/student_management/RosterScreen.qml` (consumer duy nhất còn lại ngoài Elite). **Kèm: xoá 22 file `.qml` chết còn sót ở `src/` của Elite** (xem cảnh báo đầu file) | 🔴 Chưa làm — file task tạo 2026-08-25. **Phạm vi thu hẹp:** sample app import `Sagittarius.UI 1.0` nên §5 dưới đây cấm tháo kit; việc thật còn lại chỉ là xoá 22 `.qml` chết + 4 file test gate của Elite |
+| **[EPIC-006F](completed/EPIC-006F_thao_do_kit_qml.md)** | Engine: tháo dỡ kit QML (`Sagittarius/UI/`, `QmlHostView`, `configure_app_qml`, `theme_bridge`, guard cũ) sau khi Elite hết consumer; xử lý `examples/student_management/RosterScreen.qml` (consumer duy nhất còn lại ngoài Elite). **Kèm: xoá 22 file `.qml` chết còn sót ở `src/` của Elite** (xem cảnh báo đầu file) | ✅ Xong — Elite hết `.qml` (xoá 22 file + 2 test phụ thuộc, 4.978 dòng). Kit Engine **ở lại** vì sample app cần (§5); tháo kit là task riêng ở repo Engine |
 
 `EPIC-006B` phải xong trước `C`/`D`/`E` vì các sub-task đó cần base class thật để kế thừa, không
 tự chế QSS inline như `EPIC-005` từng làm tạm (bài học rút ra: 8 widget viết ở `EPIC-005` đều tự
