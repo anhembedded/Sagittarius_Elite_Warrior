@@ -75,7 +75,11 @@ def test_stop_stream_not_running():
         result = service.stop_stream()
 
     assert result is False
-    mock_logger.warning.assert_called_once_with("Stream is not running.")
+    # Dừng khi chưa chạy là trạng thái bình thường -> DEBUG, không WARNING.
+    # Trước đây là WARNING và nó nổ mỗi lần app tắt mà không mở stream, đủ làm
+    # đỏ bước "Run Log Scan" của gate.
+    mock_logger.warning.assert_not_called()
+    assert mock_logger.debug.called
 
 
 def test_create_socket_uses_plain_kline_socket_for_a_single_symbol():

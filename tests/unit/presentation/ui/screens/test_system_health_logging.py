@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_v
     DashboardView,
 )
 from sagittarius_engine.extensions.health.health_check_query import HealthCheckQuery
+from sagittarius_engine.extensions.health.health_check_requested import (
+    HealthCheckRequested,
+)
 from sagittarius_engine.extensions.health.health_module import HealthUpdatedEvent
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -86,18 +89,32 @@ def health_mock_container(qapp):
     return container, mock_health_query, mock_event_bus
 
 
-def test_dashboard_initializes_with_system_health_log(qapp, health_mock_container):
-    """Verify DashboardPresenter executes initial HealthCheckQuery and logs to UI log model."""
-    container, mock_health_query, _ = health_mock_container
+def test_dashboard_asks_for_health_instead_of_running_the_query_itself(
+    qapp, health_mock_container
+):
+    """`EPIC-008G`: the screen no longer resolves `HealthCheckQuery` and builds
+    its own `HealthUpdatedEvent`.
+
+    That workaround existed because `HealthExtension.boot()` publishes exactly
+    once, at `app.boot()`, before any lazily-built presenter exists.
+    `EPIC-008E` replaced it with a real request/response pair, so the screen
+    now just asks — and the answer arrives over the same event path as every
+    other health update, leaving one code path instead of two."""
+    container, mock_health_query, mock_event_bus = health_mock_container
     view = DashboardView()
 
     presenter = DashboardPresenter(view, container)
 
-    assert mock_health_query.execute.call_count >= 1
-    log_texts = [entry.message for entry in presenter._view_model.log_model.entries]
-    assert any("System Health: HEALTHY" in log for log in log_texts)
-    assert any("DB: OK" in log for log in log_texts)
-    assert any("EventBus: OK" in log for log in log_texts)
+    assert mock_health_query.execute.call_count == 0, (
+        "the screen must not run the health query itself any more"
+    )
+    published = [
+        call.args[0] for call in mock_event_bus.emit.call_args_list if call.args
+    ]
+    assert any(isinstance(event, HealthCheckRequested) for event in published), (
+        "opening the screen must publish HealthCheckRequested"
+    )
+    assert presenter._health_feed is not None
 
 
 def test_dashboard_handles_health_updated_event(qapp, health_mock_container):
@@ -119,21 +136,34 @@ def test_dashboard_handles_health_updated_event(qapp, health_mock_container):
             },
         }
     )
-    presenter._handle_health_updated(degraded_event)
+    presenter._health_feed._on_health_updated(degraded_event)
 
     assert len(presenter._view_model.log_model.entries) == initial_log_count + 1
     latest_entry = presenter._view_model.log_model.entries[-1]
-    assert "System Health: DEGRADED" in latest_entry.message
-    assert "DB: CONNECTION FAILED" in latest_entry.message
+    # Format changed with EPIC-008G and the user approved it: both screens now
+    # render through HealthStatusReport.to_log_line(), so they can no longer
+    # disagree about the same fact the way they used to.
+    assert "Trạng thái hệ thống: DEGRADED" in latest_entry.message
+    assert "Database: CONNECTION FAILED" in latest_entry.message
+    # Backtest's own formatter used to omit `container` entirely; nothing is
+    # hand-picked any more, so it survives.
+    assert "Container: OK" in latest_entry.message
 
 
 def test_dashboard_initial_health_check_single_log(qapp, health_mock_container):
     """Verify that clicking Start Live or Load History does not duplicate health log."""
-    container, mock_health_query, _ = health_mock_container
+    container, _mock_health_query, mock_event_bus = health_mock_container
     view = DashboardView()
     presenter = DashboardPresenter(view, container)
 
-    count_before = mock_health_query.execute.call_count
+    def _requests() -> int:
+        return sum(
+            1
+            for call in mock_event_bus.emit.call_args_list
+            if call.args and isinstance(call.args[0], HealthCheckRequested)
+        )
+
+    count_before = _requests()
     assert count_before >= 1
 
     presenter._view_model.symbol = "BTCUSDT"
@@ -141,8 +171,8 @@ def test_dashboard_initial_health_check_single_log(qapp, health_mock_container):
     presenter._view_model.endDate = "2024-01-02 00:00"
 
     presenter._on_load_history()
-    # Execute count does not increment unnecessarily on load history
-    assert mock_health_query.execute.call_count == count_before
+    # An ordinary user action must not re-ask for health.
+    assert _requests() == count_before
 
 
 def test_backtest_initializes_and_handles_health_updated_event(
@@ -188,7 +218,12 @@ def test_backtest_initializes_and_handles_health_updated_event(
     view = BackTestView()
     presenter = BackTestPresenter(view, container)
 
-    # Initial health check was triggered on presenter init
-    assert mock_health_query.execute.call_count >= 1
+    # Opening the screen asks; it no longer runs the query itself.
+    assert mock_health_query.execute.call_count == 0
+    presenter._health_feed._on_health_updated(
+        HealthUpdatedEvent(
+            {"status": "healthy", "components": {"database": "ok", "event_bus": "ok"}}
+        )
+    )
     log_texts = [entry.message for entry in presenter._view_model.log_model.entries]
     assert any("[Health] Trạng thái hệ thống: HEALTHY" in log for log in log_texts)

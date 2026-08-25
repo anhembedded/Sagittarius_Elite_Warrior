@@ -66,6 +66,12 @@ class BaseFeed(QObject):
         **không thể** quên bước này.
         """
         super().__init__(parent)
+        #: Name-mangled on purpose (`_BaseFeed__bus`). A subclass that could
+        #: reach the raw bus would be one `on()` away from subscribing without
+        #: the main-thread hop — the mistake this base class exists to make
+        #: impossible. Subscribe through `self._events`; publish through
+        #: `self._publish()`.
+        self.__bus = event_bus
         self._events = QtEventBridge(event_bus, parent=self)
         self._subscribe()
 
@@ -81,6 +87,22 @@ class BaseFeed(QObject):
         raise NotImplementedError(
             f"{type(self).__name__} phải cài _subscribe() — xem BaseFeed's docstring"
         )
+
+    def _publish(self, event: object) -> None:
+        """
+        @brief Phát một event lên bus — dùng cho Feed dạng **request/response**.
+
+        @details Không phải Feed nào cũng cần. `HealthFeed` cần: nó phát
+        `HealthCheckRequested` để `HealthExtension` đo lại rồi trả lời bằng
+        `HealthUpdatedEvent` (`EPIC-008E`). Nhờ vậy màn hình **không** cần biết
+        `HealthCheckRequested` tồn tại — nó chỉ gọi `feed.request_refresh()`.
+
+        Phát thì không cần hop về main thread (hop chỉ cần cho chiều **nhận**),
+        nên ở đây dùng thẳng bus. Đây là lý do `_publish()` tồn tại thay vì đưa
+        hẳn bus thô cho lớp con: cho đúng một khả năng cần, không mở cửa cho
+        `on()` vòng qua `QtEventBridge`.
+        """
+        self.__bus.emit(event)
 
     def stop(self) -> None:
         """@brief Gỡ mọi đăng ký Feed này đã tạo. Idempotent."""

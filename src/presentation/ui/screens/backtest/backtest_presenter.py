@@ -79,6 +79,10 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_meta
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
+    HealthStatusReport,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
@@ -93,8 +97,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
     map_klines,
     map_volume,
 )
-from sagittarius_engine.extensions.health.health_check_query import HealthCheckQuery
-from sagittarius_engine.extensions.health.health_module import HealthUpdatedEvent
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -587,30 +589,26 @@ class BackTestPresenter(BasePresenter):
         self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
         self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
         self.event_bus.on(SingleSyncProgressEvent, self._handle_sync_progress_event)
-        self.event_bus.on(
-            HealthUpdatedEvent.event_name, self._handle_health_updated_event
-        )
+        # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này — đi
+        # qua HealthFeed, một nơi nghe nhiều màn hiển thị
+        # (`architecture-rule.md` §6). Bản tự ghép chuỗi cũ ở đây từng **bỏ sót
+        # `Container`** so với Dashboard, đúng hệ quả của việc mỗi màn tự chuẩn hoá.
+        self._health_feed = HealthFeed(self.event_bus, parent=self)
+        self._health_feed.healthUpdated.connect(self._on_health_report)
 
     def _trigger_initial_health_check(self) -> None:
-        """Trigger an initial health check when backtest screen initializes."""
-        try:
-            health_query = self.container.resolve(HealthCheckQuery)
-            status = health_query.execute()
-            self._handle_health_updated_event(HealthUpdatedEvent(status))
-        except Exception:  # noqa: BLE001, S110
-            pass
+        """Xin số liệu sức khoẻ tươi ngay khi mở màn.
 
-    def _handle_health_updated_event(self, event: Any) -> None:
-        status_dict = getattr(event, "status", {})
-        status_str = status_dict.get("status", "unknown").upper()
-        components = status_dict.get("components", {})
-        db_stat = components.get("database", "ok").upper()
-        bus_stat = components.get("event_bus", "ok").upper()
-        self._emit_ui_log(
-            f"[Health] Trạng thái hệ thống: {status_str} (Database: {db_stat}, EventBus: {bus_stat})",
-            "info",
-            is_dev=False,
-        )
+        Trước `EPIC-008G` hàm này resolve `HealthCheckQuery` rồi **tự dựng một
+        `HealthUpdatedEvent`** gọi thẳng handler của chính mình — cách vá cho việc
+        `HealthExtension.boot()` chỉ phát đúng một lần lúc `app.boot()`, trước khi
+        presenter (lazy) kịp tồn tại. `EPIC-008E` thay bằng cặp request/response thật.
+        """
+        self._health_feed.request_refresh()
+
+    def _on_health_report(self, report: HealthStatusReport) -> None:
+        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
+        self._emit_ui_log(report.to_log_line(), "info", is_dev=False)
 
     def _handle_backtest_completed_event(self, event: BacktestCompletedEvent) -> None:
         result = getattr(event, "result", None)
