@@ -27,6 +27,7 @@ from sagittarius_engine.extensions.pyside_mvc.widgets import (
     StyledButton,
     StyledField,
     StyleRole,
+    apply_role,
 )
 
 if TYPE_CHECKING:
@@ -167,7 +168,13 @@ class SettingsView(BaseView):
     def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        self.setStyleSheet(f"background-color: {Palette.BG};")
+        # Scoped to this class, not written bare. A bare property list is
+        # Qt's universal selector, so the screen background would repaint
+        # every descendant that has no rule of its own — the whole of
+        # `BUG-008`, on the widget that contains the entire screen.
+        self.setStyleSheet(
+            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+        )
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -194,11 +201,21 @@ class SettingsView(BaseView):
 
     def _build_header(self) -> QWidget:
         header = QFrame()
+        header.setObjectName("settingsCardHeader")
         header.setFixedHeight(56)
+        # Scoped by objectName rather than left bare, for the same reason as
+        # the screen background above: unscoped, this band's colour and
+        # border would cascade onto the icon, title, subtitle and Save
+        # button it contains. Kept hand-written rather than given a
+        # `StyleRole` — a card header band with its own top-corner radii is
+        # one screen's shape today, and the engine's `Card` header is a
+        # different one (a title label plus an actions row).
         header.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; "
-            f"border-top-left-radius: 8px; border-top-right-radius: 8px; "
+            f"#settingsCardHeader {{"
+            f"background-color: {Palette.BG_CARD_HEADER};"
+            f"border-top-left-radius: 8px; border-top-right-radius: 8px;"
             f"border-bottom: 1px solid {Palette.BORDER};"
+            f"}}"
         )
         layout = QHBoxLayout(header)
         layout.setContentsMargins(15, 0, 15, 0)
@@ -213,11 +230,9 @@ class SettingsView(BaseView):
         title_box = QVBoxLayout()
         title_box.setSpacing(0)
         title = QLabel("SAGITTARIUS API KEYS VAULT")
-        title.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 14px; font-weight: bold;"
-        )
+        apply_role(title, StyleRole.HEADING)
         subtitle = QLabel("HMAC SHA256 API Key & Secret Management")
-        subtitle.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
+        apply_role(subtitle, StyleRole.CAPTION)
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
         layout.addLayout(title_box)
@@ -290,7 +305,7 @@ class SettingsView(BaseView):
 
     def _field_label(self, text: str) -> QLabel:
         label = QLabel(text)
-        label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 12px;")
+        apply_role(label, StyleRole.BODY_LABEL)
         return label
 
     def _make_field(self, object_name: str) -> StyledField:

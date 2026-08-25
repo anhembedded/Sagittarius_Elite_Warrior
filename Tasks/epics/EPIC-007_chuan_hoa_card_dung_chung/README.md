@@ -1,6 +1,6 @@
 # EPIC-007 — Chuẩn hoá card dùng chung, đưa hình dạng lên Engine
 
-**Trạng thái:** 🟡 Đang làm (5/7 task con — `007A`–`007E` xong 2026-08-25; `007F` bắt đầu — Settings 6/13)
+**Trạng thái:** 🟡 Đang làm (5/7 task con — `007A`–`007E` xong 2026-08-25; `007F` bắt đầu — Settings 9/13)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; giảm chi phí sửa UI về sau
 **Nhánh đề xuất:** `epic/EPIC-007-chuan-hoa-card`
