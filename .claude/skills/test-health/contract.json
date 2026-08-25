@@ -1,0 +1,53 @@
+{
+  "_comment": [
+    "Each mandatory clause of the project's own test rules, restated as",
+    "something a grep can find. This file is the machine-readable half of",
+    ".agents/rules/ci-rule.md §6 and code-rule.md §4 — when either rule is",
+    "edited, edit this too, or the audit starts checking a rule nobody has.",
+    "A clause with zero hits is a written promise the suite never kept."
+  ],
+  "clauses": [
+    {
+      "id": "sanity-asserts-qml-errors-empty",
+      "source": ".agents/rules/code-rule.md §4 (Sanity)",
+      "requirement": "Sanity must assert quick_widget.errors() == []",
+      "evidence_dir": "tests/sanity",
+      "evidence_pattern": "\\.errors\\(\\)"
+    },
+    {
+      "id": "sanity-constructs-real-view-and-presenter",
+      "source": ".agents/rules/code-rule.md §4 (Sanity)",
+      "requirement": "Sanity must construct the real View + Presenter",
+      "evidence_dir": "tests/sanity",
+      "evidence_pattern": "Presenter\\("
+    },
+    {
+      "id": "sanity-boots-the-real-composition-root",
+      "source": ".agents/rules/ci-rule.md §6 (level 3)",
+      "requirement": "Sanity must boot the real app via create_app()",
+      "evidence_dir": "tests/sanity",
+      "evidence_pattern": "create_app\\("
+    },
+    {
+      "id": "diagnostics-are-observed-during-boot",
+      "source": "Tasks/reports/sanity_redesign_philosophy.md — Principle 4 (silence is the assertion)",
+      "requirement": "Sanity must fail on any problem-level diagnostic emitted during boot/construct/shutdown, on every channel the app owns (Python logging, Qt message handler, warnings, stderr)",
+      "evidence_dir": "tests/sanity",
+      "evidence_pattern": "qInstallMessageHandler"
+    },
+    {
+      "id": "shutdown-is-proven-not-merely-attempted",
+      "source": "Tasks/reports/sanity_redesign_philosophy.md — Principle 5 (the whole lifecycle)",
+      "requirement": "Sanity must assert the app shuts down within a budget, not just call stop() in teardown",
+      "evidence_dir": "tests/sanity",
+      "evidence_pattern": "shutdown\\(\\)|threading\\.enumerate"
+    },
+    {
+      "id": "integration-proves-user-journeys",
+      "source": ".agents/rules/ci-rule.md §6 (level 2)",
+      "requirement": "Integration must drive real input and wait on a terminal signal/state",
+      "evidence_dir": "tests/integration",
+      "evidence_pattern": "\\.click\\(\\)|waitSignal|waitUntil"
+    }
+  ]
+}
