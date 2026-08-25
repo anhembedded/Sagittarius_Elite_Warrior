@@ -93,13 +93,15 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     logs = []
     presenter.ui_log_signal.connect(lambda msg: logs.append(msg))
 
-    # BOT-034: construction already auto-started Start Live, and this
-    # fixture's mock_thread_mgr runs submitted tasks synchronously — so by
-    # the time we get here, that background run already completed (dispatch
-    # wasn't broken yet) and landed on LIVE. Not this test's concern (it's
-    # about _on_load_history's exception handling, not FSM state) — just
-    # documenting why this isn't IDLE anymore.
-    assert presenter.fsm.current_state == UIMode.LIVE
+    # BOT-034 auto-started Start Live on construction; BOT-062 later
+    # changed DEV_BOARD_AUTOSTART_ENABLED's default to False (opening the
+    # Dev Board must not silently start a live connection unless the user
+    # opted in), and this fixture's mock_config.get() always returns
+    # whatever default the caller passed, so it now takes that off switch.
+    # Construction therefore leaves the FSM at IDLE — not this test's
+    # concern (it's about _on_load_history's exception handling, not FSM
+    # state) — just documenting why this isn't LIVE the way it used to be.
+    assert presenter.fsm.current_state == UIMode.IDLE
 
     # Emit load history, which will hit the exception in mock_app.dispatch
     presenter._on_load_history()
@@ -108,6 +110,6 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     assert any("Engine died" in log for log in logs)
 
     # _on_load_history never locks the FSM (only _on_start_stream does), so
-    # an exception here must leave it exactly where it started (LIVE, from
-    # auto-start above) — not stuck mid-load in some other state.
-    assert presenter.fsm.current_state == UIMode.LIVE
+    # an exception here must leave it exactly where it started (IDLE) — not
+    # stuck mid-load in some other state.
+    assert presenter.fsm.current_state == UIMode.IDLE
