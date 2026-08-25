@@ -347,14 +347,17 @@ class BackTestTopPanel(QWidget):
         banner = QFrame()
         banner.setObjectName("backtestStaleWarningBanner")
         banner.setStyleSheet(
-            "background-color: #2a1c07; border: 1px solid #d97706; border-radius: 6px;"
+            f"background-color: #2a1c07; border: 1px solid {Palette.WARNING}; "
+            f"border-radius: 6px;"
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
         layout.setSpacing(8)
         icon_label = QLabel()
         icon_label.setPixmap(
-            get_icon_loader().get_icon("triangle-alert", "#d97706", 14).pixmap(14, 14)
+            get_icon_loader()
+            .get_icon("triangle-alert", Palette.WARNING, 14)
+            .pixmap(14, 14)
         )
         icon_label.setStyleSheet("background: transparent; border: none;")
         layout.addWidget(icon_label)
@@ -366,8 +369,8 @@ class BackTestTopPanel(QWidget):
         rerun_btn = QPushButton("Chạy lại ngay")
         rerun_btn.setFixedSize(95, 24)
         rerun_btn.setStyleSheet(
-            "background-color: #d97706; color: #08090d; font-size: 10px; "
-            "font-weight: bold; border-radius: 4px; border: none;"
+            f"background-color: {Palette.WARNING}; color: #08090d; font-size: 10px; "
+            f"font-weight: bold; border-radius: 4px; border: none;"
         )
         rerun_btn.clicked.connect(self._vm.requestRun)
         layout.addWidget(rerun_btn)
@@ -378,7 +381,8 @@ class BackTestTopPanel(QWidget):
         banner = QFrame()
         banner.setObjectName("backtestCoverageWarningBanner")
         banner.setStyleSheet(
-            "background-color: #2a1c07; border: 1px solid #d97706; border-radius: 6px;"
+            f"background-color: #2a1c07; border: 1px solid {Palette.WARNING}; "
+            f"border-radius: 6px;"
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
