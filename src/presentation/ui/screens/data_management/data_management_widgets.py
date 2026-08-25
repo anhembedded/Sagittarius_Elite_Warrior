@@ -786,7 +786,10 @@ class GapInspectorDialog(QDialog):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: none;")
+        # Scoped: unscoped, `border: none` would strip the border from every
+        # descendant that does not set one of its own (`BUG-008`), and this
+        # scroll area contains the whole gap-row list.
+        scroll.setStyleSheet("QScrollArea { border: none; }")
         scroll.setWidget(host)
         self._row_widgets: list[_GapRowWidget] = []
         return scroll
