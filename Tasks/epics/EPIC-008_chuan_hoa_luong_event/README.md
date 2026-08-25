@@ -1,36 +1,12 @@
 # EPIC-008 — Chuẩn hoá luồng sự kiện từ nền lên màn hình
 
-**Trạng thái:** 🟡 Đang làm (4/8 task con xong — **phần Engine chưa xác minh được từ laptop**, xem cảnh báo dưới)
+**Trạng thái:** 🟡 Đang làm (4/8 task con xong — `008A`–`008D` đã verify thật trên cả 2 máy)
 **Loại:** Kiến trúc / Presentation + Application
 **Ưu tiên:** **P1** — cao hơn `EPIC-007`: hiện có lỗi runtime thật đang bị nuốt không dấu vết
 **Nhánh đề xuất:** `epic/EPIC-008-chuan-hoa-event`
 **ADR:** [`DECISION_2026-08-24_event_architecture.md`](DECISION_2026-08-24_event_architecture.md)
 — **đọc trước README này.** Mọi quyết định nằm ở đó; README chỉ là thứ tự thi công.
 **Epic song sinh:** [`EPIC-007`](../EPIC-007_chuan_hoa_card_dung_chung/) (card) — độc lập.
-
-> ## ⚠️ `008A`–`008D`: chưa xác minh được từ laptop (2026-08-25)
->
-> ¹ Bốn task Engine này ghi ✅ kèm mô tả chi tiết, nhưng **từ máy laptop không nhìn thấy sản
-> phẩm nào của chúng**. User cho biết đêm 2026-08-24 làm trên **máy PC** và **có thể quên
-> push** — nên nhiều khả năng việc **có thật, chỉ chưa lên remote**. Giữ nguyên ✅, đánh dấu
-> để không ai kết luận nhầm theo cả hai hướng.
->
-> Đã kiểm trên laptop sau `git fetch --all --prune`: `origin/main` của Engine vẫn ở `1358e3c`;
-> không nhánh remote nào mới hơn; Engine local sạch, 0 ahead, 0 stash, 0 worktree phụ;
-> `git log --all -S` trả 0 commit cho `kw_only`/`EventRegistry`/`QtEventBridge`/
-> `handler_reporting`/`FallbackLogger`; `base_event.py` sửa lần cuối 2026-07-09.
->
-> **Chốt bằng cách:** bật PC → `git -C Sagittarius_Engine log origin/main..HEAD` → push. Xong
-> thì xoá khối này. Bằng chứng chi tiết ở đầu mỗi file `completed/EPIC-008A..D`.
->
-> **Trong lúc chờ, trên laptop phải coi các API sau là chưa tồn tại:** `BaseEvent` `kw_only`,
-> `EventRegistry`, `QtEventBridge`, `BasePresenter.subscribe/shutdown/dispose`,
-> `report_handler_failure`, `resolve_bus_logger`. `ONBOARDING.md` §12.4 đang bảo agent dùng
-> chúng — chưa kiểm lại sau khi push thì đừng tin.
->
-> **Phần §1 (mô tả vấn đề) đã kiểm chứng lại và vẫn đúng nguyên** trên laptop: `main.py:40`
-> dựng `MemoryEventBus()` không logger; `emit()` vẫn nuốt mọi exception; `UiActionFailedEvent`
-> và `runtime.tasks.failed` không được nhắc tới lần nào trong `src/`. Nhãn **P1 vẫn đúng**.
 
 ---
 
@@ -81,10 +57,10 @@ Nhật ký đầy đủ ở ADR §7. Tóm tắt:
 
 | ID | Việc | Repo | Trạng thái |
 | :--- | :--- | :--- | :---: |
-| **[008A](completed/EPIC-008A_sua_base_event.md)** | Engine: `BaseEvent` thành dataclass `kw_only` + `event_name` tự đặt (`BUG-005`) | Engine | ✅¹ |
-| **[008B](completed/EPIC-008B_event_registry_va_catalog.md)** | Engine: `EventRegistry` + sinh `EVENT_CATALOG.md` + test so khớp | Engine | ✅¹ |
-| **[008C](completed/EPIC-008C_bus_khong_nuot_loi.md)** | Engine: bus không nuốt lỗi — `handler_reporting` dùng chung cho cả 5 bus, `FallbackLogger`, TRACE thay INFO | Engine | ✅¹ |
-| **[008D](completed/EPIC-008D_qt_event_bridge_va_base_presenter.md)** | Engine: `QtEventBridge` + `BasePresenter.dispose()` tự gỡ đăng ký + bỏ `NotImplementedError` (LSP) | Engine | ✅¹ |
+| **[008A](completed/EPIC-008A_sua_base_event.md)** | Engine: `BaseEvent` thành dataclass `kw_only` + `event_name` tự đặt (`BUG-005`) | Engine | ✅ |
+| **[008B](completed/EPIC-008B_event_registry_va_catalog.md)** | Engine: `EventRegistry` + sinh `EVENT_CATALOG.md` + test so khớp | Engine | ✅ |
+| **[008C](completed/EPIC-008C_bus_khong_nuot_loi.md)** | Engine: bus không nuốt lỗi — `handler_reporting` dùng chung cho cả 5 bus, `FallbackLogger`, TRACE thay INFO | Engine | ✅ |
+| **[008D](completed/EPIC-008D_qt_event_bridge_va_base_presenter.md)** | Engine: `QtEventBridge` + `BasePresenter.dispose()` tự gỡ đăng ký + bỏ `NotImplementedError` (LSP) | Engine | ✅ |
 | **[008E](incomplete/EPIC-008E_health_check_requested.md)** | Engine: `HealthCheckRequested` + `HealthExtension` nghe request | Engine | 🔵 |
 | **[008F](incomplete/EPIC-008F_shared_kernel_va_ports.md)** | Elite: Shared Kernel vào `code-rule.md`; `IEventPublisher(ABC)`; đổi 3 port `Protocol`→`ABC`; bỏ `import App` | Elite | 🔵 |
 | **[008G](incomplete/EPIC-008G_ba_feed_va_xoa_signal_cau_noi.md)** | Elite: 3 Feed + xoá 48 signal cầu nối + payload dataclass | Elite | 🔵 |
