@@ -36,7 +36,7 @@ from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
-from .data_management_signal_payloads import StatusRowUpdate
+from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
 from .signal_log_handler import SignalLogHandler
 
@@ -100,7 +100,9 @@ class DataManagementPresenter(BasePresenter):
     ui_stats_refresh_signal = Signal()
     ui_sync_complete_signal = Signal()
     ui_symbol_options_signal = Signal(list)
-    ui_gap_inspector_signal = Signal(str, str, int, int, float, list, list)
+    #: Mang một `GapInspectorPayload` — trước là 7 tham số vị trí, có 2 `int`
+    #: liền nhau và 2 `list` liền nhau (xem `data_management_signal_payloads.py`).
+    ui_gap_inspector_signal = Signal(object)
     ui_kline_inspector_signal = Signal(str, str, list)
     ui_audit_result_signal = Signal(bool, int, str, list)
 
@@ -302,7 +304,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_stats_refresh_signal.connect(self._on_stats_refresh_requested)
         self.ui_sync_complete_signal.connect(self._on_sync_complete)
         self.ui_symbol_options_signal.connect(view_model.set_symbol_options)
-        self.ui_gap_inspector_signal.connect(view_model.set_gap_inspector_data)
+        self.ui_gap_inspector_signal.connect(self._on_gap_inspector_payload)
         self.ui_kline_inspector_signal.connect(view_model.set_kline_inspector_data)
         self.ui_audit_result_signal.connect(view_model.set_audit_result)
 
@@ -318,6 +320,19 @@ class DataManagementPresenter(BasePresenter):
         # `HealthUpdatedEvent` từng đi tới ba bản định dạng.
         self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
         self._sync_feed.progressUpdated.connect(self._on_sync_progress)
+
+    def _on_gap_inspector_payload(self, payload: GapInspectorPayload) -> None:
+        """Mở gói vào API sẵn có của view model — cùng lý do với
+        `_on_status_row_update`: chỗ được bảo vệ là biên signal."""
+        self._view_model.set_gap_inspector_data(
+            payload.symbol,
+            payload.interval,
+            payload.total_gaps,
+            payload.total_missing_candles,
+            payload.coverage_percentage,
+            payload.gaps,
+            payload.segments,
+        )
 
     def _on_status_row_update(self, update: StatusRowUpdate) -> None:
         """Mở gói `StatusRowUpdate` vào API sẵn có của model.

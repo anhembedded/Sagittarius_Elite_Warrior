@@ -92,6 +92,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_t
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
+    BacktestProgress,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
     qualified_line_name,
@@ -275,7 +278,9 @@ class BackTestPresenter(BasePresenter):
     _backtestEmptySignal = Signal(int, str, object)  # action_id, message, config
     _backtestFailedSignal = Signal(int, str)  # action_id, error message
     _backtestCancelledSignal = Signal(int, object)  # action_id, BacktestCancelled
-    _backtestProgressSignal = Signal(int, str, int, int, float)
+    #: Mang một `BacktestProgress`. Trước là 5 tham số vị trí với 2 `int` liền
+    #: nhau (xem `backtest_signal_payloads.py`).
+    _backtestProgressSignal = Signal(object)
     _backtestCoverageMissingSignal = Signal(int, object, object, bool)
     _backtestCoverageReadySignal = Signal(int, object)
     _chartDataReadySignal = Signal(
@@ -1144,14 +1149,12 @@ class BackTestPresenter(BasePresenter):
 
     @Slot(int, str, int, int, float)
     @safe_ui_action
-    def _on_backtest_progress_for_action(
-        self,
-        action_id: int,
-        phase: str,
-        completed_bars: int,
-        total_bars: int,
-        elapsed_seconds: float,
-    ) -> None:
+    def _on_backtest_progress_for_action(self, progress: BacktestProgress) -> None:
+        action_id = progress.action_id
+        phase = progress.phase
+        completed_bars = progress.completed_bars
+        total_bars = progress.total_bars
+        elapsed_seconds = progress.elapsed_seconds
         if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             return
         if total_bars <= 0:
@@ -2274,7 +2277,13 @@ class BackTestPresenter(BasePresenter):
                 phase: str, completed: int, total: int, elapsed: float
             ) -> None:
                 self._backtestProgressSignal.emit(
-                    resolved_action_id, phase, completed, total, elapsed
+                    BacktestProgress(
+                        action_id=resolved_action_id,
+                        phase=phase,
+                        completed_bars=completed,
+                        total_bars=total,
+                        elapsed_seconds=elapsed,
+                    )
                 )
 
             cancellation_requested = (

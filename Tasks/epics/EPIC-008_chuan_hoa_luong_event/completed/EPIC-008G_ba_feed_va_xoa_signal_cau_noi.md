@@ -15,7 +15,7 @@
 >
 > **Không đặt chỉ tiêu theo số đếm signal.** Sai ranh giới thì con số chỉ dẫn tới phá code đúng.
 
-**Thuộc:** [`EPIC-008`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🔵 Chưa làm
+**Thuộc:** [`EPIC-008`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** ✅ Xong (2026-08-25) — §1/§3/§4 xong, §2 dừng có lý do
 **Phụ thuộc:** `008C`, `008D`, `008E`, `008F`
 
 ---
@@ -145,3 +145,65 @@ và đúng kiểu hỏng "app chạy, test xanh, màn hình không cập nhật"
 
 Đề xuất: **1 + 3**. Giữ cơ chế, gộp payload để giảm số signal một cách có lý do, và sửa lại §2
 của task cho khớp thực tế thay vì ép chỉ tiêu 48.
+
+---
+
+## Xong 2026-08-25 (§1, §3, §4 — §2 dừng có lý do)
+
+**Gate:** `RESULT: PASS`, **1738 passed** (trước task: 1715).
+
+### §1 — ba Feed, dùng chung `BaseFeed`
+
+| Feed | Thay cho |
+| :--- | :--- |
+| `SystemErrorFeed` | **0 subscriber** — `UiActionFailedEvent` + `runtime.tasks.failed` chảy vào hư không |
+| `HealthFeed` | 2 bản `_trigger_initial_health_check()` tự chế event + 3 bản định dạng |
+| `SyncProgressFeed` | 2 handler độc lập; chỉ 1 nơi có câu chữ |
+
+`BaseFeed` ra đời đúng lúc có 3 consumer thật (`architecture-rule.md` §7.2). Nó **ép** chứ không
+khuyên: tự bọc `QtEventBridge` nên không Feed nào quên hop về main thread; lớp con quên
+`_subscribe()` thì **vỡ ngay lúc dựng** kèm tên lớp. `_publish()` thêm vào khi `HealthFeed` cần
+nửa request — bus giữ ở thuộc tính name-mangled nên lớp con vẫn không thể subscribe vòng qua bridge.
+
+**Lỗi thật tìm được:** bản định dạng của Backtest tự chọn khoá `database`+`event_bus` nên
+**`Container` biến mất** khỏi màn đó. Feed giữ nguyên mọi component engine trả về → không chọn
+lọc thì không mất được nữa. Sanity test khoá lại bằng cách assert **hai màn ra chuỗi giống hệt**.
+
+### §3 — payload dataclass, cả 3 signal
+
+| Signal | Trước | Sau |
+| :--- | :--- | :--- |
+| `ui_status_table_signal` | `Signal(str×6)` | `StatusRowUpdate` |
+| `ui_gap_inspector_signal` | `Signal(str,str,int,int,float,list,list)` | `GapInspectorPayload` |
+| `_backtestProgressSignal` | `Signal(int,str,int,int,float)` | `BacktestProgress` |
+
+Cả ba đều có **tham số cùng kiểu nằm liền nhau** (6 `str`; 2 `int`+2 `list`; 2 `int`) — hoán nhầm
+không sai kiểu nên `mypy` im lặng, Qt vẫn giao, UI chỉ hiển thị sai. Không có traceback để lần.
+
+**Cố ý không đổi `upsert_row()`/`set_gap_inspector_data()`:** nguy hiểm nằm ở **biên signal**, nơi
+giá trị qua hàng đợi cross-thread và không còn gì cạnh nhau để đối chiếu. Nơi gọi model trực tiếp
+(`preview.py`, test) nằm ngay cạnh định nghĩa đọc được — đổi ở đó chỉ lan call site mà không mua
+thêm an toàn.
+
+### §4 — bus có `ILogger` thật, và nó lộ ra lỗi giấu
+
+Không phải sửa "mất log" (`008C` đã lo). Nó quyết định lỗi **rơi vào đâu**: file log mà
+`ci-local.ps1`'s "Run Log Scan" thật sự đọc.
+
+Bật lên là gate đỏ ngay với **2 lỗi vốn vẫn xảy ra suốt nhưng vô hình**:
+
+```
+ListAvailableSymbolsQuery failed: object of type 'Mock' has no len()
+SyncMarketDataCommand failed: 'Mock' object is not iterable
+```
+
+`Mock(spec=...)` ràng buộc **tên** method chứ không ràng buộc kiểu trả về, nên method nào fixture
+quên cấu hình sẽ đưa `Mock` thô cho handler thật. Test vẫn xanh vì không assert vào đường đó.
+**A/B để chắc:** tắt §4 giữ §3 → 2 lỗi biến mất ⇒ §4 **làm lộ**, không **gây ra**.
+
+### Ngoài phạm vi task, sửa kèm vì làm gate đỏ
+
+`BinanceWebsocketService.stop_stream()` log WARNING mỗi khi không có gì để dừng, mà adapter gọi
+nó vô điều kiện lúc tắt app → mọi phiên không mở stream đều sinh WARNING. Dừng một stream chưa
+chạy là **bình thường**, và giá trị trả về `False` đã nói điều đó → hạ xuống DEBUG. Có sẵn trong
+log user chạy tay 2026-08-24, tức không do task này gây ra.

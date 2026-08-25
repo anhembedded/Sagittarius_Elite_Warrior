@@ -39,3 +39,24 @@ class StatusRowUpdate:
     total_candles: str
     status_text: str
     interval: str = "1m"
+
+
+@dataclass(frozen=True)
+class GapInspectorPayload:
+    """
+    @brief Kết quả soi lỗ hổng dữ liệu của một cặp symbol/interval.
+
+    @details Signal cũ là `Signal(str, str, int, int, float, list, list)` — bảy
+    tham số vị trí, trong đó **hai `int` liền nhau** (`total_gaps`,
+    `total_missing_candles`) và **hai `list` liền nhau** (`gaps`, `segments`).
+    Hoán nhầm một trong hai cặp đó không sai kiểu, nên `mypy` im lặng và Qt vẫn
+    giao — chỉ có con số/bảng hiển thị sai.
+    """
+
+    symbol: str
+    interval: str
+    total_gaps: int
+    total_missing_candles: int
+    coverage_percentage: float
+    gaps: list[dict]
+    segments: list[dict]

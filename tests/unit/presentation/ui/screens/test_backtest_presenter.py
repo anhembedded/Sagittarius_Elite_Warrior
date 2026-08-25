@@ -97,6 +97,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
     _FALLBACK_SYMBOL,
     BackTestPresenter,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
+    BacktestProgress,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
@@ -3298,11 +3301,29 @@ def test_progress_updates_are_ignored_after_cancel(presenter, view_model):
     view_model.requestRun()
     action = presenter._active_action
     assert action is not None
-    presenter._on_backtest_progress_for_action(action.action_id, "full", 50, 100, 2.0)
+    # EPIC-008G §3: một payload có tên thay cho 5 tham số vị trí — hoán nhầm
+    # `completed_bars`/`total_bars` giờ không còn lọt qua kiểu.
+    presenter._on_backtest_progress_for_action(
+        BacktestProgress(
+            action_id=action.action_id,
+            phase="full",
+            completed_bars=50,
+            total_bars=100,
+            elapsed_seconds=2.0,
+        )
+    )
     assert view_model.backtestProgressPercent == 50.0
 
     view_model.requestCancelBacktest()
-    presenter._on_backtest_progress_for_action(action.action_id, "full", 90, 100, 3.0)
+    presenter._on_backtest_progress_for_action(
+        BacktestProgress(
+            action_id=action.action_id,
+            phase="full",
+            completed_bars=90,
+            total_bars=100,
+            elapsed_seconds=3.0,
+        )
+    )
 
     assert view_model.backtestProgressPercent == 50.0
 
