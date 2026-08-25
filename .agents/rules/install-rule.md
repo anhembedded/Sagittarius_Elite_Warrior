@@ -56,10 +56,18 @@ at all**, so nothing below 3.12 can run this project.
 | 3.13 | ✅ Equally green; supported, but not what CI should run |
 | 3.14 | ❌ No stable CPython 3.14 was reachable, and on `3.14.0rc2` the pinned `pydantic` fails with `typing._eval_type() got an unexpected keyword argument 'prefer_fwd_module'` |
 
-The engine currently declares `requires-python >= 3.14`, which is higher than
-anything it actually needs and makes its wheel refuse to install on
-interpreters it demonstrably runs on. Until that is corrected upstream, install
-it with `--ignore-requires-python`; the constraint is wrong, not the interpreter.
+The engine declared `requires-python >= 3.14` until 2026-08-25, which was higher
+than anything it needed and made its wheel refuse to install on interpreters it
+demonstrably ran on. **Corrected upstream** (engine PR #177, now `>=3.12`), so
+Option 1 installs plainly — do **not** pass `--ignore-requires-python`; if that
+flag is ever needed again, the constraint has regressed and it belongs in a bug
+report, not in a command line.
+
+Note when pinning: the fixed engine still reports version `2.3.0`, the same
+number the broken build carried (see
+[`BUG-044`](../../Tasks/bug_report/completed/BUG-044_published_engine_has_python2_except_syntax.md)).
+An environment created before 2026-08-25 must reinstall rather than trust the
+version string.
 
 ### Why CI must run *on* the floor, not merely declare it
 

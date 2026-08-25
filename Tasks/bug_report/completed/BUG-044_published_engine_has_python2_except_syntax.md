@@ -3,10 +3,8 @@
 **Reported:** 2026-08-25, while standing up a clean environment for `EPIC-009`.
 **Severity:** 🔴 **P1** — anyone installing per `install-rule.md` Option 1 gets an
 engine that raises `SyntaxError` on import. Blocks every fresh environment and CI.
-**Status:** 🟠 **Fixed upstream, not yet on `main`** — fix pushed to
-`anhembedded/sagittarius_engine` branch `claude/python2-exception-syntax-590urp`
-(`c0bafe2`). Closes here once that lands on `main` and this repo pins a
-release containing it.
+**Status:** ✅ **Fixed 2026-08-25** — merged upstream (PR #175), verified from
+this repository by a clean install, full gate green.
 
 ## Symptom
 
@@ -170,3 +168,38 @@ Two items this repository must decide separately:
   `3.14.0rc2`, on which this project's pinned `pydantic` fails
   (`typing._eval_type() got an unexpected keyword argument 'prefer_fwd_module'`).
   The engine imports no pydantic, so that failure is ours to own, not theirs.
+
+
+## Closing verification, 2026-08-25
+
+Checked from this repository against `anhembedded/sagittarius_engine` `main`
+(`2b72557`), not taken from a report:
+
+| Check | Result |
+| :--- | :--- |
+| Python-2 `except` sites in the package on `main` | **0** |
+| `requires-python` | now `>=3.12` (was `>=3.14`) — PR #177 |
+| `pip install git+...` **without** `--ignore-requires-python` | ✅ succeeds |
+| `compileall` over the installed package | ✅ 0 errors, no local patch |
+| `from ...config_manager import ConfigManager` | ✅ imports clean |
+
+Downstream gate on Python 3.12.3 with that engine installed plainly:
+
+```
+1,761 passed, 0 failed, exit 0      log scan FAILED/ERROR/Traceback -> 0
+mypy 142 files / 0 errors           ruff + ruff format -> clean
+```
+
+### One thing left open deliberately
+
+The fixed engine still reports **version `2.3.0`** — the same number the broken
+build carried. Any environment that installed `2.3.0` before 2026-08-25 holds an
+unimportable package under a version string that now also names a working one.
+A version string that identifies two different artefacts cannot be pinned
+against.
+
+This is upstream's call, not this repository's, but it is worth raising: a
+patch release (`2.3.1`) would make the fix nameable. Until then, "engine 2.3.0"
+in `pyproject.toml`'s notes and in `install-rule.md` means *whatever `main` held
+when you installed*, and any environment predating the fix must reinstall rather
+than trust the version.
