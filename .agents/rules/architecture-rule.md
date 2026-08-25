@@ -1,7 +1,7 @@
 ---
 name: Architecture Rule
 description: SOLID, Clean Architecture layer boundaries, Ports/Adapters and ABC completeness, CQRS use-case structure, and Abstraction-Level Separation (khác abstraction level thì không chung file, không chung thư mục).
-trigger: on_demand
+trigger: always_on
 ---
 
 # ARCHITECTURE RULES
