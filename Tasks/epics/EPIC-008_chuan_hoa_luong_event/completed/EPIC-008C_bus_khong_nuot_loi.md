@@ -40,8 +40,32 @@ tái tạo lại một bug đã biết.
 
 ---
 
-## Xong 2026-08-25
+## ⚠️ CHƯA XÁC MINH ĐƯỢC từ máy laptop (rà soát 2026-08-25)
 
+Mục "Xong" bên dưới ghi task này đã làm ở repo `Sagittarius_Engine`. **Từ máy laptop không
+nhìn thấy việc đó ở đâu cả** — nhưng user cho biết đêm 2026-08-24 làm trên **máy PC** và **có
+thể quên push**, nên đây rất có thể là việc **có thật nhưng chưa đẩy lên remote**, không phải
+khai khống. Ghi lại để người sau không kết luận nhầm theo cả hai hướng.
+
+**Đã kiểm (2026-08-25, trên laptop, sau `git fetch --all --prune`):**
+
+- `origin/main` của Engine vẫn ở `1358e3c` (2026-08-24, merge `SelectableCard`); không có nhánh
+  remote nào mới hơn.
+- Engine local: `git status` sạch, `main` 0 commit ahead, 0 stash, 0 worktree phụ.
+- `git log --all -S` trên mọi ref: 0 commit chứa `kw_only`, `EventRegistry`, `QtEventBridge`,
+  `handler_reporting`, `FallbackLogger`.
+- `sagittarius_engine/domain/base_event.py` sửa lần cuối `27ba032` — **2026-07-09**.
+- `BUG-005` mà mục dưới trích dẫn theo đường dẫn đầy đủ: không có; Engine chỉ có `BUG-001..003`.
+
+**Việc cần làm để chốt:** bật máy PC, `git -C Sagittarius_Engine status && git log origin/main..HEAD`,
+rồi push. Push xong thì xoá khối cảnh báo này.
+
+**Cho tới lúc đó, trên laptop phải coi các API sau là CHƯA TỒN TẠI** — `BaseEvent` dạng
+`kw_only`, `EventRegistry`, `QtEventBridge`, `BasePresenter.subscribe/shutdown/dispose`,
+`report_handler_failure`, `resolve_bus_logger`. Chúng là *đầu ra mong muốn* của `008A`–`008D`.
+`ONBOARDING.md` §12.4 đang bảo agent dùng chúng; đừng tin cho tới khi push xong và kiểm lại.
+
+### Nội dung mục "Xong" gốc, giữ nguyên văn
 **Trạng thái:** ✅ Xong. Sửa ở **repo Engine**, file này ghi tiến độ phía Elite.
 
 ### Sửa cơ chế, không sửa một chỗ

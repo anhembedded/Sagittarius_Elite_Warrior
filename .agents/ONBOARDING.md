@@ -470,8 +470,22 @@ trong bảng ở `README.md` của epic và số "x/y task con xong" ở đầu 
 
 ### 12.4 Cơ chế mới ở Engine — dùng, đừng viết lại
 
-`EPIC-008` đã dựng sẵn một số cơ chế ở repo Engine. Viết cái khác thay thế là tái tạo lại đúng
-lỗi mà chúng vừa đóng. Chi tiết đầy đủ ở `Sagittarius_Engine/.agents/context/events.md`:
+> ⚠️ **Kiểm tra sự tồn tại trước khi dùng — bảng dưới có thể chưa đúng trên máy bạn đang ngồi
+> (2026-08-25).** Bốn task `EPIC-008A`–`D` sinh ra bảng này được ghi ✅, nhưng rà soát trên
+> **laptop** (sau `git fetch --all --prune`) cho thấy **không có ký hiệu nào trong bảng tồn tại**
+> ở repo Engine: `origin/main` vẫn ở `1358e3c`, `base_event.py` sửa lần cuối 2026-07-09.
+> User cho biết đêm đó làm trên **máy PC** và có thể **quên push** — nên nhiều khả năng việc có
+> thật, chỉ chưa lên remote. Xem khối cảnh báo đầu
+> [`EPIC-008/README.md`](../Tasks/epics/EPIC-008_chuan_hoa_luong_event/README.md).
+>
+> **Trước khi dùng bất kỳ dòng nào dưới đây:** `git -C ../Sagittarius_Engine pull`, rồi
+> `grep -r "class EventRegistry" ../Sagittarius_Engine/sagittarius_engine/`. Không thấy thì
+> chúng **chưa tồn tại** — đừng cố import, và cũng đừng tự viết bản thay thế; báo lại cho user
+> để push từ PC trước.
+
+`EPIC-008` dựng các cơ chế sau ở repo Engine. Khi chúng đã có thật, viết cái khác thay thế là
+tái tạo lại đúng lỗi mà chúng vừa đóng. Chi tiết đầy đủ ở
+`Sagittarius_Engine/.agents/context/events.md`:
 
 | Cần gì | Dùng cái gì |
 | :--- | :--- |
