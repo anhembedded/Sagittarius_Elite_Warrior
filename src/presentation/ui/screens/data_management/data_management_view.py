@@ -114,7 +114,7 @@ class _StatusRowWidget(QFrame):
         self._interval_badge = QLabel()
         self._interval_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._interval_badge.setStyleSheet(
-            f"background-color: #1a1d29; border: 1px solid {Palette.ACCENT}; "
+            f"background-color: {Palette.STATE_HOVER_BG}; border: 1px solid {Palette.ACCENT}; "
             f"border-radius: 4px; color: {Palette.ACCENT}; font-size: 10px; font-weight: bold;"
         )
         layout.addWidget(self._interval_badge, 10)
@@ -174,9 +174,9 @@ class _StatusRowWidget(QFrame):
         button = QPushButton(text)
         button.setFixedHeight(22)
         button.setStyleSheet(
-            f"QPushButton {{ background-color: #131822; color: {color}; "
+            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {color}; "
             f"border: 1px solid {color}; border-radius: 4px; font-size: 10px; }} "
-            f"QPushButton:hover {{ background-color: #1f2a3a; }}"
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
         return button
 
@@ -532,7 +532,7 @@ class DataManagementView(BaseView):
         self._btn_vacuum.setObjectName("btnVacuum")
         self._btn_vacuum.setIcon(get_icon_loader().get_icon("zap", Palette.ACCENT, 14))
         self._btn_vacuum.setStyleSheet(
-            f"QPushButton {{ background-color: #131418; color: {Palette.ACCENT}; "
+            f"QPushButton {{ background-color: {Palette.BG_CARD}; color: {Palette.ACCENT}; "
             f"border: 1px solid {Palette.ACCENT}; border-radius: 6px; min-height: 30px; "
             f"font-size: 11px; font-weight: bold; }} "
             f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
@@ -545,10 +545,10 @@ class DataManagementView(BaseView):
             get_icon_loader().get_icon("trash-2", Palette.DANGER, 14)
         )
         self._btn_purge.setStyleSheet(
-            f"QPushButton {{ background-color: #131418; color: {Palette.DANGER}; "
+            f"QPushButton {{ background-color: {Palette.BG_CARD}; color: {Palette.DANGER}; "
             f"border: 1px solid {Palette.DANGER}; border-radius: 6px; min-height: 30px; "
             f"font-size: 11px; font-weight: bold; }} "
-            f"QPushButton:hover {{ background-color: #2a1518; }}"
+            f"QPushButton:hover {{ background-color: {Palette.BG_CARD_HEADER}; }}"
         )
         row.addWidget(self._btn_purge)
 
@@ -593,7 +593,9 @@ class DataManagementView(BaseView):
         layout.addWidget(label)
 
         value_label.setObjectName(f"statValue_{label_text}")
-        value_label.setStyleSheet("color: #ffffff; font-size: 18px; font-weight: bold;")
+        value_label.setStyleSheet(
+            f"color: {Palette.TEXT_PRIMARY}; font-size: 18px; font-weight: bold;"
+        )
         layout.addWidget(value_label)
 
         hint = QLabel(hint_text)
@@ -688,9 +690,9 @@ class DataManagementView(BaseView):
         self._btn_cancel_sync.setObjectName("btnCancelSync")
         self._btn_cancel_sync.setFixedHeight(32)
         self._btn_cancel_sync.setStyleSheet(
-            f"QPushButton {{ background-color: #2a1518; color: {Palette.DANGER}; "
+            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {Palette.DANGER}; "
             f"border: 1px solid {Palette.DANGER}; border-radius: 6px; font-weight: bold; }} "
-            f"QPushButton:hover {{ background-color: #3b171c; }}"
+            f"QPushButton:hover {{ background-color: {Palette.BG_CARD_HEADER}; }}"
         )
         progress_layout.addWidget(self._btn_cancel_sync)
 

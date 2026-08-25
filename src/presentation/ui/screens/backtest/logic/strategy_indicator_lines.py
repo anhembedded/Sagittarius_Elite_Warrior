@@ -12,14 +12,14 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseSt
 #: 1:1 with that script still looks familiar on this chart; the rest are
 #: fallbacks for strategies with more lines than that.
 _LINE_COLOR_PALETTE = (
-    "#e74c3c",
-    "#e67e22",
-    "#00bcd4",
-    "#3498db",
-    "#2ecc71",
-    "#9b59b6",
-    "#f1c40f",
-    "#95a5a6",
+    "#e74c3c",  # token-exempt: indicator series colour, not chrome
+    "#e67e22",  # token-exempt: indicator series colour, not chrome
+    "#00bcd4",  # token-exempt: indicator series colour, not chrome
+    "#3498db",  # token-exempt: indicator series colour, not chrome
+    "#2ecc71",  # token-exempt: indicator series colour, not chrome
+    "#9b59b6",  # token-exempt: indicator series colour, not chrome
+    "#f1c40f",  # token-exempt: indicator series colour, not chrome
+    "#95a5a6",  # token-exempt: indicator series colour, not chrome
 )
 
 

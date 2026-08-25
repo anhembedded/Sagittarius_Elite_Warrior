@@ -1,6 +1,6 @@
 # EPIC-007 — Chuẩn hoá card dùng chung, đưa hình dạng lên Engine
 
-**Trạng thái:** 🟡 Đang làm (2/7 task con — `007A`, `007B` xong 2026-08-25)
+**Trạng thái:** 🟡 Đang làm (4/7 task con — `007A`–`007D` xong 2026-08-25)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; giảm chi phí sửa UI về sau
 **Nhánh đề xuất:** `epic/EPIC-007-chuan-hoa-card`
@@ -86,8 +86,8 @@ ghi chú.
 | :--- | :--- | :--- | :---: |
 | **[007A](completed/EPIC-007A_guard_va_overlay_con.md)** | Engine: mở rộng guard sang `QWidget`; thêm `ConfirmOverlay`/`PickerOverlay` thật | Engine | ✅ |
 | **[007B](completed/EPIC-007B_engine_surface_family.md)** | Engine: `LogPanel`, `StatCard`, `DataRow`, `TableCard`, `Banner`, `TabBar` — 1 file 1 lớp | Engine | ✅ |
-| **[007C](incomplete/EPIC-007C_engine_controls_va_showcase.md)** | Engine: `StyledLabel`/`SectionLabel`/`Badge`/`StyledProgressBar` + showcase + coverage guard | Engine | 🔵 |
-| **[007D](incomplete/EPIC-007D_gop_token_mau.md)** | Elite: xoá 18 hằng màu riêng, gộp về `Palette`; sửa docstring sai của Dev Board | Elite | 🔵 |
+| **[007C](completed/EPIC-007C_engine_controls_va_showcase.md)** | Engine: `StyledLabel`/`SectionLabel`/`Badge`/`StyledProgressBar` + showcase + coverage guard | Engine | ✅ |
+| **[007D](completed/EPIC-007D_gop_token_mau.md)** | Elite: xoá 18 hằng màu riêng, gộp về `Palette`; sửa docstring sai của Dev Board | Elite | ✅ |
 | **[007E](incomplete/EPIC-007E_elite_components_dung_chung.md)** | Elite: `components/` — `ChartCard(Card)` thay `BaseCard`, `TimeRangeCard`, `SymbolPickerOverlay`, `TradeSideBadge`; cắt 3 import chéo | Elite | 🔵 |
 | **[007F](incomplete/EPIC-007F_migrate_4_man_hinh.md)** | Elite: migrate 4 màn sang widget mới | Elite | 🔵 |
 | **[007G](incomplete/EPIC-007G_tach_file_qua_nguong.md)** | Elite: tách các file vượt ngưỡng | Elite | 🔵 |

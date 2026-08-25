@@ -25,8 +25,12 @@ from PySide6.QtWidgets import QGraphicsView, QWidget
 # would emit it — INFO diagnostics would vanish silently.
 logger = logging.getLogger("App.CachedFrameInteraction")
 
-_BACKGROUND_COLOR = QColor("#0b0e14")
-_CROSSHAIR_COLOR = QColor("#8a8f98")
+_BACKGROUND_COLOR = QColor(
+    "#0b0e14"  # token-exempt: chart_card avoids Palette, see theme.py
+)
+_CROSSHAIR_COLOR = QColor(
+    "#8a8f98"  # token-exempt: chart_card avoids Palette, see theme.py
+)
 _CROSSHAIR_WIDTH = 1.0
 _WHEEL_COMMIT_INTERVAL_MS = 80
 _WHEEL_DELTA_UNIT = 120.0

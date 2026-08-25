@@ -69,8 +69,8 @@ class _FilterTabButton(QPushButton):
 
     def set_active(self, active: bool) -> None:
         self.setStyleSheet(
-            f"QPushButton {{ background-color: {'#252838' if active else 'transparent'}; "
-            f"border: 1px solid {'#3d425c' if active else 'transparent'}; border-radius: 6px; "
+            f"QPushButton {{ background-color: {Palette.STATE_HOVER_BG if active else 'transparent'}; "
+            f"border: 1px solid {Palette.STATE_NAV_BORDER if active else 'transparent'}; border-radius: 6px; "
             f"color: {Palette.TEXT_PRIMARY if active else Palette.MUTED}; font-size: 11px; "
             f"font-weight: {'bold' if active else 'normal'}; padding: 0 10px; }}"
         )
@@ -179,7 +179,7 @@ class _TradeLogRowWidget(QFrame):
         self._detail = QFrame()
         self._detail.setObjectName("detailTradeLog")
         self._detail.setStyleSheet(
-            "background-color: #0f1018; border-top: 1px solid #282c3f;"
+            f"background-color: {Palette.BG}; border-top: 1px solid {Palette.STATE_NAV_BORDER};"
         )
         detail_layout = QHBoxLayout(self._detail)
         detail_layout.setContentsMargins(14, 14, 14, 14)
@@ -232,18 +232,20 @@ class _TradeLogRowWidget(QFrame):
         self._summary_btn.setObjectName(f"rowTradeLog_{index}")
         self._detail.setObjectName(f"detailTradeLog_{index}")
         self._summary_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {'#12141d' if row_number % 2 == 0 else '#161823'}; "
-            f"border: none; }} QPushButton:hover {{ background-color: #1e2130; }}"
+            f"QPushButton {{ background-color: {Palette.BG_CARD if row_number % 2 == 0 else Palette.BG_CARD_HEADER}; "
+            f"border: none; }} QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
         self._position_label.setText(row.get("positionLabel", ""))
         self._entry_time_label.setText(row.get("entryTimeText", ""))
 
         side_text = row.get("sideText") or "LONG"
         is_short = side_text == "SHORT"
-        side_color = "#f43f5e" if is_short else "#10b981"
+        side_color = Palette.DANGER if is_short else Palette.SUCCESS
         self._side_badge.setText(side_text)
         self._side_badge.setStyleSheet(
-            f"color: {side_color}; background-color: {'#2a1215' if is_short else '#0a291e'}; "
+            # Ground is uniform; long-vs-short is carried by `side_color` on the
+            # text and border, the same split EPIC-007B's Banner makes.
+            f"color: {side_color}; background-color: {Palette.BG_CARD_HEADER}; "
             f"border: 1px solid {side_color}; border-radius: 4px; font-size: 10px; font-weight: bold;"
         )
 
@@ -302,7 +304,7 @@ class BackTestTradeLogsPanel(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self._expanded_rows: dict[int, bool] = {}
-        self.setStyleSheet("background-color: #0d0e14;")
+        self.setStyleSheet(f"background-color: {Palette.BG};")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 12, 12, 12)
@@ -361,7 +363,7 @@ class BackTestTradeLogsPanel(QWidget):
         self._search_field.setPlaceholderText("🔍  Tìm theo mã, ngày...")
         self._search_field.setFixedSize(200, 28)
         self._search_field.setStyleSheet(
-            f"background-color: #141620; border: 1px solid #242736; border-radius: 6px; "
+            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.STATE_HOVER_BG}; border-radius: 6px; "
             f"color: {Palette.TEXT_PRIMARY}; font-size: 11px; padding: 0 6px;"
         )
         self._search_field.textEdited.connect(self._on_search_edited)
@@ -374,7 +376,7 @@ class BackTestTradeLogsPanel(QWidget):
             get_icon_loader().get_icon("download", Palette.ACCENT, 12)
         )
         self._btn_export.setStyleSheet(
-            "background-color: #1c1e2b; border: 1px solid #30344a; border-radius: 6px; "
+            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; "
             f"color: {Palette.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; padding: 0 10px;"
         )
         self._btn_export.clicked.connect(self._vm.requestTradeLogExport)
@@ -384,7 +386,7 @@ class BackTestTradeLogsPanel(QWidget):
 
         table_container = QFrame()
         table_container.setStyleSheet(
-            "background-color: #12141d; border: 1px solid #222533; border-radius: 8px;"
+            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
         )
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
@@ -423,7 +425,7 @@ class BackTestTradeLogsPanel(QWidget):
         header = QFrame()
         header.setFixedHeight(34)
         header.setStyleSheet(
-            "background-color: #181a26; border-bottom: 1px solid #222533;"
+            f"background-color: {Palette.BG_CARD_HEADER}; border-bottom: 1px solid {Palette.BORDER};"
         )
         row = QHBoxLayout(header)
         row.setContentsMargins(12, 0, 12, 0)
@@ -468,7 +470,7 @@ class BackTestTradeLogsPanel(QWidget):
         self._page_label.setFixedHeight(22)
         self._page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._page_label.setStyleSheet(
-            f"background-color: #181a24; border-radius: 4px; color: {Palette.ACCENT}; "
+            f"background-color: {Palette.STATE_IDLE_BG}; border-radius: 4px; color: {Palette.ACCENT}; "
             f"font-size: 11px; font-weight: bold; padding: 0 8px;"
         )
         row.addWidget(self._page_label)

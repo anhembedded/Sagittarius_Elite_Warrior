@@ -34,8 +34,15 @@ rsi_x, rsi_y = [], []
 base_price = 60000.0
 
 # 1. SETUP INDICATORS
-card.add_overlay_indicator("SMA_20", color="#f39c12")
-card.add_subplot_indicator("RSI_14", color="#9b59b6", height_ratio=1)
+card.add_overlay_indicator(
+    "SMA_20",
+    color="#f39c12",  # token-exempt: chart_card avoids Palette, see theme.py
+)
+card.add_subplot_indicator(
+    "RSI_14",
+    color="#9b59b6",  # token-exempt: chart_card avoids Palette, see theme.py
+    height_ratio=1,
+)
 
 # 2. MOCK 5,000 CANDLES + INDICATOR DATA
 for i in range(5000):

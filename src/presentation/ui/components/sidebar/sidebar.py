@@ -31,7 +31,12 @@ _COLLAPSED_WIDTH = 48
 #: original used a distinctly dimmer grey for section titles specifically,
 #: separate from the general "muted" semantic token. One-off, not promoted
 #: to Palette — nothing else in this screen needs it.
-_SECTION_TITLE_COLOR = "#5b6270"
+#: EPIC-007D kept it rather than folding it into MUTED: that epic merges
+#: near-duplicate *card grounds*, and this is a deliberate one-off with a
+#: recorded reason, not drift.
+_SECTION_TITLE_COLOR = (
+    "#5b6270"  # token-exempt: dimmer than MUTED on purpose, see above
+)
 
 
 class _NavButton(QPushButton):

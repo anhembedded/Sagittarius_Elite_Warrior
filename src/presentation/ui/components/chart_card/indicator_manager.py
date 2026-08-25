@@ -10,7 +10,7 @@ from .viewport_culled_layer import ViewportCulledLayer
 from .viewport_windowing import visible_slice_indices
 
 #: Default text colour for an InfoField that didn't specify one.
-_DEFAULT_INFO_COLOR = "#c9cdd3"
+_DEFAULT_INFO_COLOR = "#c9cdd3"  # token-exempt: chart_card avoids Palette, see theme.py
 _SMOOTH_LINE_ANTIALIAS = True
 
 

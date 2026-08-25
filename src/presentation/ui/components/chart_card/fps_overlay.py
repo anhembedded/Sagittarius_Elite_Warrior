@@ -42,9 +42,9 @@ class ChartFpsOverlay(QObject):
         self.label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.label.setStyleSheet(
             "QLabel {"
-            " color: #F0B90B;"
+            " color: #F0B90B;"  # token-exempt: chart_card avoids Palette, see theme.py
             " background: rgba(11, 14, 17, 190);"
-            " border: 1px solid #474D57;"
+            " border: 1px solid #474D57;"  # token-exempt: chart_card avoids Palette, see theme.py
             " border-radius: 3px;"
             " padding: 3px 6px;"
             " font-family: monospace;"
