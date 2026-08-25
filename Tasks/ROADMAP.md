@@ -273,8 +273,10 @@ Sagittarius_Elite_Warrior/Tasks/
 >
 > 🤝 **HANDOFF (15/08) — Track A chuyển cho AI session khác, chưa code dòng nào.**
 > Phiên trước dừng ở prompt-adaptation (`.jules/bolt.prompt.md`, `.jules/palette.prompt.md`)
-> và tạo [`.agents/Handover.md`](../.agents/Handover.md) — **đọc file đó trước** để nắm
-> quy ước/gotcha của repo (không có trong task file này). Trạng thái thật:
+> và tạo [`.agents/Handover.md`](../.agents/Handover.md).
+> ⚠️ *Sửa 2026-08-25: `Handover.md` đã được viết lại hoàn toàn và **không còn** mục quy ước/gotcha
+> mà dòng trên hứa hẹn — quy ước thật ở [`.agents/ONBOARDING.md`](../.agents/ONBOARDING.md), bản
+> Handover cũ ở `git show f0e63ca:.agents/Handover.md`.* Trạng thái thật:
 > - `BOT-087`/`BOT-088`: cả 2 checklist trong task file **100% chưa tick**, chưa có branch,
 >   chưa có commit nào ở `sagittarius_engine/` hay `Sagittarius_Elite_Warrior/` cho Track A.
 > - Bắt đầu từ `BOT-087` (không phụ thuộc gì) — đọc §2 của file đó, đã có probe khả thi thật

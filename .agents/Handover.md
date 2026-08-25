@@ -1,585 +1,136 @@
-# Handover — start here
+# Handover — phiên gần nhất, và việc phải làm tiếp
 
-This is the "first five minutes" file for an AI new to this repository. It
-tells you what the project is, where the real rules live, how to verify a
-change, and which mistakes have already bitten a previous AI session so you
-don't repeat them. It does not duplicate the rules themselves — it points
-you at the file that owns each one, so there's a single source of truth.
+**Chốt lúc:** 2026-08-25 · **Elite** `f0e63ca` (`master-warrior`) · **Engine** `2d9154b` (`main`)
+Cả hai repo: cây sạch, đã push, không còn commit chờ.
 
-> [!IMPORTANT]
-> **Read `ONBOARDING.md` first, not this file — audited 2026-08-25.** The
-> dated session entries below are a **historical record** and are kept as
-> written; several of the facts they state were true then and are **not true
-> now**. The two biggest reversals, both of which invalidate whole sections
-> below on sight:
+> **File này bị THAY THẾ mỗi phiên, không được nối thêm.** Bản trước dài 585 dòng gồm 3 mục
+> "session handover" chồng lên nhau từ 19–20/08, và tới cuối đời nó phải mang một khối cảnh báo
+> ở đầu để nói rằng phần lớn nội dung bên dưới **đã sai** (chart native đã bị xoá, hai repo
+> không còn là submodule). Một file handover mà người đọc phải tự lọc đúng-sai thì tệ hơn không
+> có. Bối cảnh lịch sử đã nằm trong `git log`, trong task file đã đóng và trong `Tasks/reports/` —
+> đó mới là nơi giữ nó. Bản cũ: `git show f0e63ca:.agents/Handover.md`.
 >
-> 1. **The native C++/QML chart backend was deleted outright** on 2026-08-24
->    (commit `36f3a9f`, `refactor(backtest): delete native C++/QML chart
->    backend entirely`) — triggered by `BUG-039`. Every mention below of
->    `NativeBacktestChartHost`, `native_chart_item.cpp`,
->    `Sagittarius.NativeChart`, `chart_migration_benchmark.py`, or
->    `BOT-098F*` describes code that **no longer exists**. `BUG-015` and
->    `BUG-016` are both **closed** (`Tasks/bug_report/completed/`), not open.
-> 2. **The two repos are no longer superproject/submodule** — detached
->    2026-08-21 (commit `a1efcd6`). There is no `.gitmodules` and nothing to
->    "bump". See [`ONBOARDING.md` §2](ONBOARDING.md) for the current commit
->    workflow; ignore any "superproject"/"submodule" wording below.
+> **Phân vai để không có 2 nguồn sự thật:** file này giữ thứ **thay đổi mỗi phiên** (đang ở đâu,
+> làm gì tiếp, vừa quyết định gì). [`ONBOARDING.md`](ONBOARDING.md) giữ thứ **ổn định** (quy
+> trình, lệnh gate, bẫy cố hữu, quyền hạn). Đừng chép qua lại.
+
+---
+
+## 1. Việc tiếp theo: `EPIC-007A`, ở repo **Engine**
+
+[`EPIC-007`](../Tasks/epics/EPIC-007_chuan_hoa_card_dung_chung/README.md) — chuẩn hoá card dùng
+chung, 0/7. Bảng thứ tự trong README của nó có cột **Repo**; ba task đầu (`007A`–`007C`) nằm ở
+`Sagittarius_Engine`, bốn task sau ở đây. Không nhảy cóc — bảng xếp theo rủi ro tăng dần.
+
+```bash
+cd ../Sagittarius_Engine && git pull
+```
+
+`007A` làm hai việc: mở rộng guard `find_bare_qt_base_widgets` để bắt cả `QWidget` (regex hiện
+chỉ khớp `QFrame|QDialog`, nên 7 widget của Elite lọt), và hiện thực `ConfirmOverlay` /
+`PickerOverlay` — hai lớp mà `widgets/overlay.py` đang **nhắc tên trong thông báo lỗi nhưng
+chưa từng tồn tại**. Việc thứ hai phải mở `BUG` bên Engine trước khi sửa (phát biểu sai sự thật
+về code = BUG theo luật repo đó), file task đã ghi rõ.
+
+**Bắt buộc đọc trước khi gõ dòng đầu:** [`EPIC-007/README.md`](../Tasks/epics/EPIC-007_chuan_hoa_card_dung_chung/README.md)
+và 4 sơ đồ PlantUML ở `EPIC-007/design/` (2 as-is, 2 to-be). ADR ghi lại những quyết định đã
+tranh luận xong — tự suy luận lại tốn một phiên và thường ra kết quả khác.
+
+> ### ⚠️ Một câu trong `EPIC-007A` đã bị luật mới phủ định
 >
-> **Current state of play is in [`ONBOARDING.md` §12](ONBOARDING.md)**
-> (`EPIC-007` / `EPIC-008`, and `EPIC-006F` still open) — not here. The most
-> recent session entry below is 2026-08-20.
+> `007A` §2 viết *"cả hai đều thoả kỷ luật ≥2 instance thật"*, và `EPIC-007` §3.3 dựng trên
+> cùng ngưỡng đó. **Ngưỡng "≥2 nhu cầu thật mới được tạo abstraction" đã bị user xoá khỏi
+> `architecture-rule.md` ngày 2026-08-25** (commit `ca45e0f`). Luật hiện hành ngược lại:
+> abstraction **luôn được khuyến khích**; viết một class thì phải cân nhắc khả năng mở rộng và
+> API của nó, vì class là một **contract** với các class khác.
+>
+> Không có nghĩa là đẻ bừa lớp trung gian — `EPIC-006`'s ADR §2 có bài học thật: 4 stub
+> `ActionCard`/`FormCard`/`StreamCard`/`TableCard` của kit QML cũ tự biến mất khi phát hiện
+> `setEnabled()` của Qt đã làm sẵn việc đó. Nhưng lý do loại chúng là **"Qt đã có rồi"**, không
+> phải **"mới có 1 consumer"**. Khi làm `007A`, đừng dùng câu ≥2 đó để biện minh cho bất cứ
+> quyết định nào; sửa luôn câu chữ trong file task nếu nó chặn đường.
 
-## Latest session handover (2026-08-20) — Epic `BOT-109` (Golden Reference Strategy): `BOT-041`/`BOT-050`/`BOT-110` all closed, one real provisional-state bug found and fixed
+### Việc khác đang mở, nếu `EPIC-007` bị chặn
 
-**Epic `BOT-109`** (port TradingView's "EMA Trend Confirm + Pullback + TP%"
-Pine Script v6 strategy 1:1 as the app's golden reference) is now 3/4 steps
-done — only `BOT-111` (visual polish: draw the 2 EMAs, Buy/Sell/Short/Cover
-markers, E2E verification via `.\scripts\ci-local.ps1 -Full`) is left.
+| | |
+| :--- | :--- |
+| `EPIC-001` 1/2 · `EPIC-002` 4/5 · `EPIC-003` 3/6 (1 huỷ) · `EPIC-004` 3/4 | Elite — đều dở dang, mở README từng epic |
+| `BUG-030`, `BUG-034` | 2 bug Elite đang mở, chưa ai nhận |
+| Tháo kit QML của Engine | **Chưa có file task.** Bị chặn bởi một quyết định chưa hỏi user: lật default của sample app sang `qfluentwidgets`, hay tách kit thành extension tuỳ chọn. Elite đã hết `.qml` nên nó không chặn gì bên này |
+| 66 link hỏng trong `Tasks/` | Có từ trước, cố ý hoãn sang một commit `docs:` riêng |
 
-**`BOT-041`** (SL/TP + risk-based position sizing) and **`BOT-050`**
-(short-selling) shipped first, both fully additive to `PaperExchange` — 100%
-of the pre-existing test suite passed unmodified at every stage (19→45
-tests). `BOT-050`'s own design question ("when Long and a SELL arrives,
-close-only or reverse-into-Short?") was put to the user directly; the
-answer — *"không phải đây là chuyện của script stategy sao ta?"* (isn't this
-the strategy script's own business?) — settled it: `SignalAction` gained
-distinct `SHORT`/`COVER` members instead of overloading `BUY`/`SELL` for 4
-meanings, so a strategy always states its own intent and `PaperExchange`
-never infers it. Two mutation tests were "false passes" during `BOT-050`
-(a guard-disabling mutation still passed because default `pyramiding=1` and
-default 100%-equity sizing independently blocked the same action) — both
-caught only by mutating, not by the test looking reasonable on paper; see
-`Tasks/completed/BOT-050_short_selling_support.md` for the full mutation
-log if you're about to trust a guard test at face value.
+---
 
-**`BOT-110`** (`EmaTrendPullbackStrategy`, the actual strategy class) is the
-one with a real finding worth reading before touching `Series`-based
-accumulator state anywhere in this codebase. Its own architecture question
-(strategy needs to know current position side to emit `SELL` vs `COVER` on
-an identical touch-exit condition, but `StrategyContext` was fully
-position-blind by design) was resolved additively:
-`StrategyContext.current_position_side: PositionSide | None = None`, filled
-in by both backtest handlers from a new `PaperExchange.current_side`
-property before each `on_tick`/`on_forming_bar_tick` call.
+## 2. Phiên vừa rồi đã làm gì
 
-**The real bug**: `_update_trend_confirmation()` read `series[0]` as "the
-previous bar's committed state" before computing and `track()`-ing the new
-one. That's only correct on a bar's *first* tick. On the 2nd+
-`on_forming_bar_tick()` call for the same still-forming bar, `[0]` already
-holds *this* bar's own not-yet-committed provisional guess from the prior
-tick (poked by this same method) — so the accumulator fed its own tentative
-output back into itself as if it were settled history, and could advance
-`confirmed_trend` several times within one bar instead of exactly once on
-real close. This is precisely the bug class `BOT-042`'s provisional/commit
-machinery exists to prevent, silently reintroduced by an accumulator
-reading its own live-updating series as its own "previous" input — going
-through `track()` does **not** protect against this pattern by itself.
-Fixed with a new `Series.committed(offset)` method
-(`src/domain/scripting/series.py`) that always reads the last bar that
-actually closed, ignoring any pending provisional — `_update_trend_confirmation()`
-and `_entry_confirmation()` both switched from `series[0]` to
-`series.committed(0)`. **If you write a new strategy with any counter/state
-that reads its own history to compute its own next value (not just a
-cross/comparison read), use `.committed()`, not `[0]`, or it will silently
-break under `on_forming_bar_tick()` while looking correct under `on_tick()`
-alone — exactly the trap that hid this bug from `BOT-076`'s Realtime engine
-for as long as it did.**
+**`EPIC-008` đóng 8/8** (`bf88b51`…`9af4ea5`) — chuẩn hoá luồng event. Elite giờ có 3 Feed
+(`SystemErrorFeed`, `HealthFeed`, `SyncProgressFeed`) ở `presentation/ui/common/`, 3 port
+(`IEventPublisher`, `IConfigReader`, `ICommandDispatcher`) + adapter tương ứng, và 4 guard chạy
+trong CI. Bên Engine: `BaseEvent` equality, `EventRegistry` cảnh báo trùng tên, bus không nuốt
+lỗi, `QtEventBridge`.
 
-This was found because the first version of the tick-safety regression
-test was itself a false pass: it drove `on_forming_bar_tick()` 20 times
-with a *static, unchanging* candle *after* the trend was already
-confirmed — every tick recomputed the identical answer regardless of which
-read (`[0]` vs `.committed(0)`) was used, so it couldn't distinguish
-correct from buggy. Rewritten to use a bar that is deliberately one bar
-short of `tick_confirm` with a pullback-shaped candle, so a premature
-confirmation surfaces as an observable, wrong `BUY` signal rather than
-being absorbed by an already-saturated `confirmed_trend`. Mutation-verified
-both ways (reverting `.committed(0)` back to `[0]` makes the rewritten test
-fail with the exact predicted false `BUY`).
+**`EPIC-006` đóng 6/6** (`0112839`) — Elite **hết sạch `.qml`** (xoá 22 file + 2 test phụ thuộc,
+4.978 dòng). Kit QML bên Engine **ở lại** vì sample app cần nó.
 
-**Git note for whoever picks this up next**: this repo's working directory
-was shared with a concurrent AI session during this work — the checked-out
-branch on `master-warrior` changed underneath without action taken here at
-least twice (another session's commits/pushes), each time resolved via
-`git merge-base --is-ancestor` verification before any fast-forward, never
-by force. If you see the branch move on its own, don't assume corruption —
-check ancestry first. Full suite (`--ignore=tests/integration/presentation/ui`):
-1539 passed, `ruff` clean. Local `master-warrior` is 1 commit ahead of
-`origin/master-warrior`, not pushed this session.
+**Bookkeeping** (`8b049b5`, `f0e63ca`) — `EPIC-005F` đóng (do `006D/E` làm), `EPIC-003D` huỷ,
+và thêm quy ước `cancelled/` cho bố cục epic.
 
-## Prior session handover (2026-08-19, later same day) — `BOT-076` fully closed, Symbol Picker (`BOT-102`) shipped, a real Dirty-Tracking bug found and fixed
+## 3. Quyết định đắt tiền — đừng suy luận lại từ đầu
 
-**`BOT-076` (Realtime Backtest engine) is now fully closed, moved to
-`Tasks/completed/`.** §3.3 (UI wiring) is done: `OrderExecutionModal.qml`
-unlocks the tick-based execution mode, `BackTestPresenter` branches between
-`RunRealtimeBacktestCommand`/`RunStaticBacktestCommand` based on
-`BacktestExecutionMode`, results are labeled "Realtime (tick ...)" vs
-"Static (theo nến đóng)" so they never look identical with different
-meanings, and `TickModeRequiresBoundedRangeRule` rejects tick mode combined
-with "Toàn bộ lịch sử" (an unbounded `start_time` made the coverage query's
-window-function scan grow forever while the live-trailing cutoff kept
-moving — a real session got stuck in an infinite "Đồng bộ dữ liệu ngay"
-retry loop because of this before the rule existed). §3.5 (play/pause/replay
-speed) was explicitly dropped by user decision — asked directly, answer was
-"drop it, close out BOT-076," don't resurrect it as a gap.
+**`EPIC-008G` §2 dừng theo chính kill criterion của nó, không phải bỏ dở.** Nó định xoá các
+signal "cầu nối" của presenter để worker bắn thẳng lên UI. Đo thật: **47/48 signal đang bắc cầu
+*thread*, không phải bắc cầu *bus handler*** — hai chuyện hoàn toàn khác nhau mà task file gộp
+làm một. Qt queued signal là cơ chế **đúng** cho thread affinity. Xoá chúng là tự tay tạo ra
+lỗi cross-thread. Bằng chứng quyết định nằm trong chính docstring hợp đồng của
+`stream_lifecycle_controller.py`. Ba presenter giờ có banner tiếng Việt ngay trên chỗ khai báo
+signal — **đọc trước khi xoá bất kỳ signal nào**.
 
-**A real bug was found and fixed while adding this: `BOT-076`'s tick loop is
-CPU-bound Python with no yield points, and even though it genuinely already
-runs on a background `ThreadPoolExecutor` thread (verified: `IThreadManager`
-is a real `concurrent.futures.ThreadPoolExecutor`, not a fake), sustained
-GIL contention from that loop still makes the UI thread sluggish — the user
-reported this as "chạy trên UI thread kìa" and the instinct to believe them
-literally would have been wrong. Filed as
-[`BOT-103`](../Tasks/backlog/BOT-103_realtime_backtest_gil_contention.md)
-with 3 remediation options (periodic `time.sleep(0)`, `ProcessPoolExecutor`,
-reduce per-tick indicator cost) — **not started**, no direction chosen yet.
+**Guard thứ 5 bị bỏ, cố ý.** Nó sẽ báo đỏ đúng cái pattern Feed mà epic vừa dựng. Một guard
+false-positive tệ hơn không có guard, vì người ta sẽ học cách bỏ qua nó.
 
-**`BOT-102` (Backtest Symbol Picker) shipped.** Backtest previously had no
-way to change the trading symbol from the UI — `self._symbol` was set once
-in `BackTestPresenter.__init__` from config and never written again. User
-chose a real Binance exchange-info source over a static list (bigger
-scope, no existing infra reused — `BOT-095E1`'s market-metadata cache is a
-different concern, per-symbol filters, not a symbol *listing* call — this
-repo had genuinely never called Binance exchange-info before). New:
-`IExchangeClient.get_available_symbols()` + `ListAvailableSymbolsQuery`,
-`SymbolPickerModal.qml` (grid + client-side search, since Binance returns
-1300+ tradeable symbols — the other pickers, Strategy/Timeframe, never
-needed search). **Architectural rule preserved on purpose:** `self._symbol`
-on the Presenter stays the single source of truth every command/query
-reads; `BackTestViewModel.selectedSymbol` is only ever a write channel from
-the modal, never read from a background thread — matches this repo's
-existing "background workers never touch the ViewModel directly" rule.
-Verified with a real-window probe script (real app boot via `create_app()`,
-a genuine `QTest.mouseClick` on the real button, a real network call that
-fetched 1361 live symbols from Binance, search-filter and full
-selection-round-trip checks, 2 screenshots) — not just automated tests.
+**4 domain event mất `frozen=True`.** Python cấm dataclass `frozen` kế thừa dataclass không
+`frozen`, và `BaseEvent` không thể `frozen` vì có subclass tự viết `__init__`. Đây là đánh đổi
+đã ghi rõ trong docstring của cả 4 và trong test đã viết lại — không phải sơ suất. Nếu định
+"sửa lại cho đúng", đọc docstring trước.
 
-**Found independently while verifying `BOT-102`, via a user-supplied
-dev-mode log: `_build_run_config()` built `BacktestRunConfig(...)` without
-`symbol=self._symbol`, silently falling back to the dataclass's own
-`"ETHUSDT"` default.** This is a pre-existing bug (nothing to do with the
-picker), invisible to every prior test because the test fixture's own
-default symbol happens to be `"ETHUSDT"` too — coincidence masked it. Real
-impact: `lastRunSummary` showed the wrong symbol after every completed run,
-and Dirty Tracking's `compute_diff_summary()` would report a fake "Symbol
-(... → ...)" change on the very next toolbar edit for anyone whose
-configured default symbol isn't ETHUSDT, even with zero real changes. Fixed
-(one line), with a regression test that deliberately configures a
-*different* symbol so the dataclass default can't coincidentally mask it
-again — see `test_build_run_config_carries_the_presenters_actual_symbol_not_the_dataclass_default`
-in `tests/unit/presentation/ui/screens/test_backtest_presenter.py`. **If you
-add a third `BacktestRunConfig(...)` construction site anywhere, grep for
-this test's name first and make sure it would still catch a missing
-`symbol=`.**
+**Đặt chỗ event = ai sở hữu nó, không phải nó tiện cho ai.** Riêng một màn → Qt signal. Toàn hệ
+thống / ≥2 màn → bus + đúng **một** Feed. Luật đầy đủ: `architecture-rule.md` §6, và guard 3
+ép được nó.
 
-**Also this session:** `BUG-009` (chart drag inside the grid moved the
-whole graph) is fixed and verified — see its own file for the final root
-cause, `Tasks/bug_report/BUG-009_backtest_cached_frame_preview_widget_shift.md`.
-The engine-side crash-on-every-launch
-(`ModuleNotFoundError: sagittarius_engine.infrastructure.logging.dev_verbosity`)
-is fixed — a prior session's submodule commit referenced a module that was
-never actually created/committed in the `Sagittarius-Engine` engine repo;
-rebuilt end-to-end with `TRACE`/`critical` log level support. A Cancel
-button for an in-progress data sync now exists (FSM's `CANCELLING` state
-extended to be reachable from `SYNCING`, plus a real race-condition fix:
-`_on_sync_succeeded_for_action`/`_on_sync_failed_for_action` lacked the same
-cancelling-guard the `BACKTEST`-kind handlers already had). While closing
-out `BOT-076`, `BOT-024` (Backtest Replay UI — play/pause/speed) was found
-sitting in the backlog as the *same* feature `BOT-076` §3.5 had just been
-told to drop, under a different task ID from before the two were linked —
-cancelled it too (`Tasks/cancelled/BOT-024_backtest_screen_dynamic_ui.md`),
-confirmed with the user first.
+**Shared Kernel: đúng 2 symbol của Engine** (`IDomainEvent`, `BaseEvent`) được phép xuất hiện
+trong `domain/`+`application/` của Elite. Mọi thứ khác đi qua port.
 
-## Prior session handover (2026-08-19, earlier same day) — Epic `BOT-042` closed, `BOT-076` core engine built, `BOT-075` spike done
+**Luật mới, áp cho mọi task từ đây:** thứ gì đã quyết làm sau, hoặc đánh đổi đã chấp nhận, thì
+**trong code phải có Interface/type/test nói lên điều đó** — code tự nói lên chính nó, không
+để luật nằm mồ côi trong file rule. (`architecture-rule.md` §7)
 
-**Big picture: the Realtime Backtest epic (`BOT-073`) is no longer blocked.**
-Both of its hard prerequisites finished this session —
-[`BOT-075`](../Tasks/backlog/BOT-075_tick_data_feasibility_spike.md) (tick
-data feasibility) and [`BOT-042`](../Tasks/backlog/BOT-042_tick_level_strategy_engine_support.md)
-(provisional/commit contract) — and
-[`BOT-076`](../Tasks/completed/BOT-076_realtime_backtest_engine.md) (the
-engine itself) now has a real, tested core (§3.1 use case + §3.2 replay
-loop). **Read `BOT-076`'s own file before touching it again** — its top note
-says exactly what's done vs. open, don't re-derive.
+## 4. Bẫy phát hiện trong phiên này, chưa nằm ở file rule nào
 
-**`BOT-075` (tick feasibility spike) — done, real numbers, no more guessing.**
-Synced 7 real days of `BTCUSDT` at `1s` via Binance public REST: 604,801
-rows, 120.12 MiB `.db` (checkpoint the WAL before trusting `os.path.getsize()`
-— right after `save_klines()` it lies), a `get_klines()` query over that
-range takes 6.32s, and a real `RunStaticBacktestCommandHandler` pass over
-all of it takes 10.98s. **Conclusion: feasible, but not synchronous-UI-safe**
-(~17s total) — must run in the background with the existing
-`CancellationToken` machinery (already built for `BOT-034`/`BOT-095C`, don't
-build a new one), and should let the user pick 1s/5s/15s resolution rather
-than hardcoding 1s. Data source decided: `1s kline`, not `aggTrades` (half
-the request weight, existing pipeline needs zero changes, `aggTrades` has no
-client adapter at all). Full report:
-[`Tasks/reports/tick_data_feasibility.md`](../Tasks/reports/tick_data_feasibility.md).
+- **`Mock(spec=...)` chặn được tên method, không chặn được kiểu trả về.** Method chưa cấu hình
+  trả về một `Mock` trần, và nó đi thẳng vào handler thật. Đây là nguồn của 2 lỗi mà `EPIC-008`
+  §4 làm lộ ra — §4 **phơi bày** chứ không **gây ra** chúng (đã A/B bằng `git stash` để chứng
+  minh, trước khi kết luận).
+- **`StdLogger.__init__` xoá sạch handler** của `logging.getLogger("App")`. Hai instance cùng
+  bọc một logger stdlib — tạo instance thứ hai là giết log của instance thứ nhất.
+- **`__init_subclass__` đăng ký lúc class được thực thi.** Muốn test va chạm tên thì phải
+  **định nghĩa** class thứ hai, gọi hàm đăng ký bằng tay không tái hiện được.
+- **`\bevent_bus\b` không khớp `self._event_bus`** — `_` là word character. Đã trượt một lượt
+  vì bẫy này; luôn kiểm lại bằng lượt grep thứ hai sau mỗi lần rename bằng regex.
+- **`trigger: always_on` trong frontmatter `.agents/rules/*.md` không phải Claude Code đọc** —
+  đó là quy ước của 7 file `.jules/*.prompt.md`. Claude Code chỉ tự nạp
+  [`CLAUDE.md`](../CLAUDE.md) (thêm 2026-08-25, `0de5403`), và file đó **chỉ điều hướng**.
 
-**`BOT-042` (provisional vs. commit) — done, all 4 sub-tasks (A design,
-B indicators, C `Series`, D `StrategyEngine`), now in `Tasks/completed/`.**
-The core mechanism: `IIndicator` gained `peek_provisional(value)` alongside
-`update(value)` — same formula, but reads committed state and returns a
-result **without writing it back**, so it's safe to call any number of
-times per bar. `EMA`/`RSI` do this by using a local variable instead of
-`self._ema =`; `WMA` has no closed-form recurrence so it builds a temporary
-window from the deque without appending to it (O(period), not O(1), the one
-exception); `MACD` just calls `peek_provisional()` on its 3 sub-`EMA`s in
-the same order `update()` does. `Series` gained a `poke_provisional()` and a
-`_NoProvisional` sentinel (distinct from `None`, which is itself a valid
-provisional reading) — while a provisional value is set, `Series[0]` reads
-it and every other offset shifts by one, so `crossed_above`/`crossed_below`
-needed **zero changes** and are automatically correct, including the
-cold-start case (no committed history at all yet — already handled safely
-by the pre-existing `__getitem__` bounds check, just needed an explicit test).
+## 5. Đã bỏ khỏi file này, và tại sao
 
-**Real gap the task doc didn't anticipate, found while wiring `StrategyEngine`:**
-`Series.push()` turns out to be called **directly inside each concrete
-strategy's `decide()`** (`EmaCrossoverStrategy`, `MultiEmaTrendFollowerStrategy`),
-not inside `StrategyEngine` — so adding `StrategyEngine.on_forming_bar_tick()`
-alone would compute correct provisional indicator readings but still
-`push()` them straight into `Series`, corrupting committed cross-detection
-history. Fixed with `BaseStrategy.track(series, value, context)`, which
-dispatches to `push()` or `poke_provisional()` based on
-`context.candle.is_closed` — reusing an existing `MarketData` field (already
-used by the live websocket path) rather than adding a new one to
-`StrategyContext`. Both concrete strategies now call `self.track(...)`
-instead of `series.push(...)` directly (9 call sites) — if you add a third
-strategy, use `track()`, not `push()`, or its `Series` will silently commit
-provisional ticks as if they were real bar closes.
+Bản cũ có mục "Test-writing gotchas" ~8 gạch đầu dòng về `Repeater`/`findChild`,
+`mapToItem`, `ensurePolished`, `SizeRootObjectToView`, `ScrollBar.qml`, `OverlayHost`. **Toàn
+bộ là bẫy của QML, và Elite giờ có 0 file `.qml`** — giữ lại chỉ khiến người đọc tưởng repo này
+còn chạy QML. Chúng vẫn có thể còn giá trị cho kit QML bên **Engine**; nếu cần, lấy ở
+`git show f0e63ca:.agents/Handover.md`.
 
-**Two architecture proposals were reviewed and one was rejected — don't
-re-propose it without re-reading why:** injecting `IIndicator` into `MACD`
-via DI (so it's not hardcoded to `EMA`) was rejected — `EMA` isn't an
-implementation detail of MACD, it's MACD's actual mathematical definition
-(fast EMA − slow EMA, signal = EMA of that), swapping it produces a
-different indicator, not "MACD with a pluggable internals." The parallel DRY
-observation about `RSI` (Wilder's smoothing is mathematically an EMA variant
-with `α=1/period`, currently hand-rolled instead of composed) was accepted
-as legitimate, but deliberately *not* bundled into `BOT-042` — it's now its
-own low-priority task,
-[`BOT-101`](../Tasks/completed/BOT-101_rsi_compose_generalized_smoothing.md).
-
-**`BOT-076` §3.1/§3.2 — the engine core, done.** `RunRealtimeBacktestCommand`
-has its own `tick_resolution: TimeFrame` field, independent of `interval` (a
-strategy on `interval=5m` still gets evaluated every `tick_resolution`
-inside the forming 5-minute bar — the user's original ask, verbatim: *"phải
-chạy chiến thuật từng giây, cho dù tf có là 5 phút đi chăng nữa"*). **The
-real bug found while wiring the replay loop, exactly where `BOT-076`'s own
-doc warned it would be ("chỗ dễ sai nhất"):** the first version called
-`on_forming_bar_tick()` unconditionally for every tick, including the tick
-that closes a bar — that tick then got evaluated a *second* time via
-`on_tick()` right after, with identical data, firing every real signal
-twice on every single bar. Fixed by detecting "this tick's own close
-reaches the bar boundary" (`tick.close_time >= bar_end`) and routing that
-tick through `on_tick()` (commit) only — every other tick in the bar goes
-through `on_forming_bar_tick()` (provisional) only, never both. If you touch
-this loop, the regression test to run first is
-`test_every_tick_is_evaluated_exactly_once_no_double_firing_on_bar_close`
-in `tests/unit/application/use_cases/test_run_realtime_backtest.py`. A tick
-gap between bars (missing data) force-commits the stale bar and logs a
-`WARNING` rather than silently dropping it. Equity curve appends once per
-committed bar, never per tick (so `max_drawdown` stays comparable to
-Static's point set); signals fill immediately at the triggering tick's
-price (`PaperExchange` is documented as agnostic to *when* a fill happens),
-unlike Static's next-bar-open deferral — the deferral exists to prevent
-look-ahead bias, and tick-level granularity removes the need for it.
-
-**Still open on `BOT-076`:** §3.3 (UI — unlock the two tick-based Execution
-Trigger Rule options in `OrderExecutionMenu.qml`, wire
-`IThreadManager`/`CancellationToken` from `BackTestPresenter` the same way
-Static's run already does, label results Realtime-vs-Static so the two
-don't look identical with different meanings) and §3.5 (optional
-play/pause/speed replay control — explicitly **not** required to call the
-task done, see its own §3.5 note). Neither is started.
-
-**Standing practice from this session, not just this task:** the user wants
-logging added proactively during *all* feature dev (not only bug fixes), and
-wants tests backed by log-based proof where the claim is really "did the
-right decision/branch execute" — e.g. asserting on `caplog` output for a
-commit/bar-close event, not just inferring it from the final result. Two of
-`BOT-076`'s new tests do this explicitly; keep doing it going forward.
-
-**Also this session:** `.agents/rules/bug-fix-rule.md` (new file — the full
-bug-fix workflow, root cause first, log evidence for both repro and fix,
-regression test before the fix at the correct tier, moved here from
-fragments that used to live in `code-rule.md`/`commit-rule.md`) and
-`TRACE`/`critical` log levels plus a `--debug` CLI flag
-(`sagittarius_engine.infrastructure.logging.dev_verbosity.resolve_dev_verbosity()`
-— generic engine behavior, not app-specific; `--debug` implies `--dev` and
-additionally drops the threshold to `TRACE`). `BUG-013` (stale native
-dispose callback crashing "Chạy Backtest" on the fallback-to-Python path)
-is fixed — full writeup in
-[`Tasks/bug_report/completed/BUG-013.md`](../Tasks/bug_report/completed/BUG-013.md); the
-regression-test lesson worth repeating: a `Mock(spec=NativeBacktestChartHost)`
-silently passed with **no fix applied at all**, twice, because the crash
-lived inside a real method (`_assert_owning_gui_thread()`) a Mock never
-executes — the working test uses a real native host at the Sanity tier.
-Also: plain `QApplication.processEvents()` does not reliably flush a posted
-`DeferredDelete` event in this environment — use
-`QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)` to force a
-widget's deferred deletion to actually happen inside a test.
-
-## Longer-running open threads (not from this session, still true)
-
-- **`BOT-023` (Dynamic Backtest) is CANCELLED** — do not resurrect it. Full
-  rationale: [`Tasks/cancelled/BOT-023_dynamic_backtest_engine.md`](../Tasks/cancelled/BOT-023_dynamic_backtest_engine.md).
-  The app has exactly **two** backtest engines: Static (`BOT-021` ✅) and
-  Realtime (`BOT-076` ✅, now complete) — not three. Dynamic's only distinct
-  value (play/pause/speed) became `BOT-076` §3.5, then was explicitly
-  dropped by user decision when `BOT-076` was closed out.
-- **~~`BUG-015`/`BUG-016` are Windows-only, still open~~ — both CLOSED, and
-  the native chart they were about no longer exists.** Corrected 2026-08-25.
-  [`BUG-015`](../Tasks/bug_report/completed/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)
-  closed 2026-08-21: it was **not** a renderer bug at all —
-  `root->buildCount` was always 1; the real defect was in the probe script,
-  which read the `geometryBuildCount` diagnostic property before the render
-  thread had published it across the cross-thread hop (same class as 3 other
-  probe bugs already fixed). Fixed by waiting on a real post-condition
-  instead of a fixed number of `processEvents()` calls: 25% → 15/15 pass.
-  [`BUG-016`](../Tasks/bug_report/completed/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)
-  closed 2026-08-24 as **moot, not fixed** — the native backend and its
-  benchmark script were both deleted to unblock `EPIC-006F`. Do not go
-  looking for a Windows machine to investigate either one.
-- **~~Native chart is not safe for a per-tick live chart~~ — moot, the
-  native chart is gone.** Corrected 2026-08-25. The whole native C++/QML
-  backend (`NativeBacktestChartHost`, `native_chart_item.cpp`,
-  `Sagittarius.NativeChart`, `build-native-chart.ps1`) was deleted in
-  `36f3a9f` on 2026-08-24 after [`BUG-039`](../Tasks/bug_report/completed/BUG-039_native_chart_default_regressed_backtest_visuals.md)
-  (making it the default regressed Backtest visuals). The `IBacktestChartHost`
-  **port** survived the deletion and is still the right boundary — see
-  `domain-truth-rule.md` "Backtest chart host boundary" — it simply has one
-  implementation now. Every `BOT-098F*` task is either completed or
-  cancelled; none describes live code.
-- **`BUG-009`/`BUG-010`** (cached-frame drag-preview widget shift, "Đồng bộ
-  ngay" never clearing the missing-candles banner) are both **fixed and
-  verified** — see their own files in `Tasks/bug_report/` for the final root
-  causes, do not re-open unless a new, different symptom is reported.
-- **`BOT-103`** (Realtime Backtest's tick loop causes real UI sluggishness
-  via GIL contention — confirmed NOT literally running on the Qt UI thread,
-  see this session's own entry above) is filed, not started, no remediation
-  direction chosen yet.
-- **[`BUG-017`](../Tasks/bug_report/completed/BUG-017_backtest_sync_redownloads_full_range_ignoring_cached_coverage.md)**
-  (Backtest screen's "Đồng bộ ngay" re-fetches the **entire** requested
-  range from Binance every time, ignoring how much is already cached — root
-  cause confirmed by reading, ~~not yet fixed~~ — **fixed 2026-08-20, now in
-  `Tasks/bug_report/completed/`; the description below is the original
-  root-cause analysis, kept for reference**): coverage detection
-  (`GetBacktestRangeCoverageQuery`) correctly finds the real gap start, but
-  `BackTestPresenter._run_sync()` throws that away and always passes the
-  original requested range's own start into `SyncMarketDataCommand`, so
-  `SyncMarketDataCommandHandler`'s existing "resume from
-  `get_latest_kline_time`" branch — which works fine elsewhere — never gets
-  a chance to run here (it only fires when no explicit `start_time` is
-  given). Filed instead of fixed live because the user asked for it to go
-  to backlog.
-
-## What this project is
-
-**Sagittarius Elite Warrior** is a Binance trading bot: a Python desktop app
-(PySide6 + QML/Qt Quick UI) built on **Clean Architecture**, itself built on
-top of a separate shared framework, **Sagittarius Engine**. Two repos work
-together — **two fully independent Git repos** that merely sit nested on
-disk, *not* superproject/submodule (detached 2026-08-21, commit `a1efcd6`;
-this paragraph was corrected 2026-08-25 — it still said "superproject" /
-"submodule", which had been wrong for four days). There is no `.gitmodules`
-and no gitlink to bump: commit and push each repo on its own. Full rules in
-[`ONBOARDING.md` §2 and §9](ONBOARDING.md).
-
-- `Sagittarius_Engine/` — the **framework repo**. Contains the shared
-  `sagittarius_engine/` framework (DI container, `IThreadManager`,
-  `ConfigManager`, the `pyside_mvc` extension with shared QML components
-  like `StatefulButton.qml`). Its own `.agents/` playbook
-  (`Sagittarius_Engine/.agents/PLAYBOOK.md` + `rules/`, `skills/`,
-  `context/`) is generic — it doesn't know this app exists.
-- `Sagittarius_Elite_Warrior/` — the **app repo** (this one), branch
-  `master-warrior`. The actual bot application: `src/domain/`,
-  `src/application/`, `src/infrastructure/`, `src/presentation/ui/` (PySide6
-  screens, each a `<name>_presenter.py` / `<name>_view.py` /
-  `<name>_view_model.py` MVP trio plus QML). This is where you'll do almost
-  all real work.
-
-## Installation & Dependencies
-
-### Option 1: Install from GitHub Repository (Production / Shared)
-```bash
-pip install git+https://github.com/anhembedded/Sagittarius_Engine.git
-```
-
-### Option 2: Local Editable Installation (Development)
-```bash
-pip install -e Sagittarius_Engine
-```
-
-## Where the actual rules live (read these, don't guess)
-
-- **`.agents/rules/`** (this folder) — the real, binding engineering rules.
-  Split by abstraction level on 2026-08-25; `code-rule.md` is now only a
-  navigation stub listing where each former section went. Open the one your
-  task needs, not all of them:
-  [`architecture-rule.md`](rules/architecture-rule.md) (SOLID, layers, Port/ABC
-  completeness, CQRS, Abstraction-Level Separation),
-  [`code-quality-rule.md`](rules/code-quality-rule.md) (typing, immutability,
-  No Hardcoding, No Lazy Code — no `lambda`, write a named function),
-  [`async-ui-action-rule.md`](rules/async-ui-action-rule.md) (action ownership,
-  cancellation, Coordinator Pattern),
-  [`domain-truth-rule.md`](rules/domain-truth-rule.md) (truthful data, trading
-  semantics, chart host boundary),
-  [`ui-presentation-rule.md`](rules/ui-presentation-rule.md) (MVP trio folder
-  layout, `preview.py`), and
-  [`testing-rule.md`](rules/testing-rule.md) (mandatory sanity coverage for
-  every new feature/screen, invariants, Boundary Value Analysis).
-  Read the relevant one in full before writing code — this summary is not a
-  substitute.
-- **`.agents/rules/bug-fix-rule.md`** (this folder) — the full bug-fix
-  workflow: root cause first, regression test before the fix (confirmed
-  failing for the right reason, at the correct test tier — see `BUG-013`'s
-  own lesson in it about mocks silently hiding a non-reproduction), kept
-  permanently after, then a `Tasks/bug_report/BUG-XXX.md` writeup. Read
-  this before touching any reported bug.
-- **`.agents/rules/install-rule.md`** (this folder) — installation guidelines and
-  dependency setup for `sagittarius_engine` (GitHub URL install vs. local editable).
-- **`.agents/rules/logging-rule.md`** — where to place diagnostic logging so
-  a single reproduce-and-send-log cycle can find a root cause: `"App."`
-  namespace only (enforced by `tests/unit/test_logging_namespace_guard.py`),
-  log decisions/fallbacks not just outcomes, one-shot environment lines for
-  UI/rendering code, per-gesture (not per-event) summaries with pixel-scale
-  numbers, and `--dev` now raises log level to DEBUG and writes a session
-  file under `logs/`. Written after `BUG-009` cost three separate
-  reproduce-and-send-log cycles to two different silent/misplaced-logging
-  failures — see
-  [`Tasks/reports/BUG-009_logging_and_test_gap_case_study.md`](../Tasks/reports/BUG-009_logging_and_test_gap_case_study.md)
-  for the full timeline, including why the existing tests didn't catch the
-  bug either (zero pixel-level assertions existed for the Python chart host
-  before this session).
-- **`.agents/AGENTS.md`** (this folder) — navigation stub pointing to
-  `rules/code-rule.md` and friends (rewritten 2026-08-21; used to duplicate
-  most of `code-rule.md` verbatim, including a wrong hardcoded commit
-  trailer — see `rules/commit-rule.md` for the real rule: the trailer must
-  name the actual AI that authored the commit, never a fixed placeholder).
-- **`.agents/context/`** — was a folder of workload-specific, non-binding
-  context. **Empty as of 2026-08-25:** its only file,
-  `BOT-095_backtest_lifecycle.md`, was deleted as obsolete in `b84a365`, so
-  this bullet's old instruction ("for Backtest lifecycle/FSM/async work, read
-  `.agents/context/BOT-095_backtest_lifecycle.md` before editing code")
-  pointed at nothing. For that area read
-  [`rules/async-ui-action-rule.md`](rules/async-ui-action-rule.md) instead —
-  it owns action ownership, cancellation and the Coordinator Pattern.
-- **`../.agents/PLAYBOOK.md`** (the Engine repo, i.e. the parent directory
-  on disk — a separate repo, not a parent project) — generic AI working
-  process (understand → load context → apply rules → pick a skill →
-  execute → validate). Its context/rule/skill routing tables reference an
-  `.ai/` path that doesn't actually exist in this repo (the real directory
-  is `.agents/`) — a known stale reference, not something to "fix" as a
-  drive-by unless asked.
-- **`Tasks/ROADMAP.md`** — the live status board: completed vs. backlog
-  task counts, and a table of every `BOT-XXX`/`BUG-XXX` task. Check this
-  before assuming a feature is missing or unimplemented.
-- **`.jules/*.prompt.md`** — the system prompts for the automation agents
-  (`bolt` performance, `palette` UX/accessibility, `sentinel` security,
-  plus `doctor`, `janitor`, `scout`, `scribe`). Read the matching prompt
-  when doing work in that area.
-  **Corrected 2026-08-25:** this entry previously pointed at running
-  *journals* `.jules/bolt.md` / `palette.md` / `sentinel.md` — **those
-  files do not exist**; `.jules/` contains only the seven `*.prompt.md`
-  files (`ls .jules/`). Do not go looking for accumulated agent lessons
-  there; the real codebase-specific lessons live in `Tasks/reports/` and in
-  each completed task's "Ghi chú Triển khai" section.
-
-## How to verify a change (real commands, ground truth)
-
-From inside `Sagittarius_Elite_Warrior/`:
-
-```bash
-ruff check src tests
-ruff format --check src tests
-```
-
-Full test suite, run from the **workspace root** — the directory that
-contains both repos (`PYTHONPATH=..` is
-load-bearing — tests import this app as the `Sagittarius_Elite_Warrior`
-package):
-
-```bash
-PYTHONPATH=.. QT_QPA_PLATFORM=offscreen pytest Sagittarius_Elite_Warrior/tests \
-  --ignore=Sagittarius_Elite_Warrior/tests/integration/presentation/ui \
-  --cov=Sagittarius_Elite_Warrior/src --cov-report=term-missing --cov-fail-under=80 -v
-```
-
-This approximates what `scripts/ci-local.ps1` wraps (`-SanityOnly` /
-`-UnitOnly` for fast subsets during a dev loop, `-Full` for the gated
-version above, `-IncludeFlakyUi` to deliberately include the excluded
-UI-integration suite). `tests/integration/presentation/ui/` is skipped by
-default in `ci-local.ps1` because it has a known intermittent native
-Qt/PySide6 crash (tracked as `BOT-038`) — do not "fix" that as a drive-by,
-it's an open investigation.
-
-> **Corrected 2026-08-25:** this paragraph used to say the command above is
-> "exactly what `.github/workflows/ci.yml` runs", and closed on a
-> "real, unresolved discrepancy" between that workflow and `ci-local.ps1`.
-> **There is no `.github/` directory in this repo at all** — no GitHub
-> Actions workflow exists, so there is no discrepancy to chase.
-> `.agents/rules/ci-rule.md` §7 already states the correct position: *"CI
-> for this project is local-only (`ci-local.ps1`); there is no GitHub
-> Actions workflow."* `ci-local.ps1` is the only gate. Note also that
-> `ONBOARDING.md` §5 supersedes the bash commands above for day-to-day use:
-> `pwsh` **is** available on Linux via snap, so run the real gate
-> (`pwsh -NoProfile -Command "./scripts/ci-local.ps1 -Full"`) rather than
-> re-assembling the steps by hand, and always redirect to a log file
-> (`> run.log 2>&1`, never `| tail`) before reading results.
-
-## Test-writing gotchas already discovered here
-
-These cost real debugging time in previous sessions — check them before
-you hit the same wall:
-
-- **`Repeater`-instantiated QML items are invisible to `findChild()`.**
-  `findChild()` walks the QObject tree; `Repeater` delegates only exist in
-  the *visual* tree. Use this repo's own `qml_item` / `find_qml_item`
-  pytest fixture (`tests/conftest.py`) instead.
-- **A QML item's local `y`/`x` can look correct while it's actually
-  clipped or off-screen.** Local coordinates are relative to the
-  *immediate* parent and stay "correct" even past a clipped boundary. Use
-  `item.mapToItem(root, 0, 0)` to get the real absolute position before
-  comparing against a widget's bounds.
-- **A single `qapp.processEvents()` is not enough** for anything that
-  depends on QtQuick Layouts' deferred `implicitHeight`/`implicitWidth`
-  recompute — it passes in isolation but flakes once run alongside the
-  rest of the suite. Use `qtbot.waitUntil(condition, timeout=...)`.
-- **`QQuickItem.ensurePolished()` only forces the polish job on the exact
-  item you call it on.** If the pending recompute actually lives on a
-  child `ColumnLayout`/`RowLayout`, calling it on the parent silently
-  reads a stale value — find the actual item with the pending layout
-  (`objectName` + `findChild`) and call it there.
-- **Never put `onClicked` on a `MouseArea` nested inside a `Button`.**
-  Real mouse clicks still work, but `qml_item(root, name).clicked.emit()`
-  from a Python test finds nothing — the handler moved off the `Button`
-  itself. This exact regression has happened twice (`BOT-057`, `BOT-083`).
-- **`QQuickWidget`'s default resize mode is `SizeRootObjectToView`** — the
-  root QML item's `implicitWidth`/`implicitHeight` are ignored unless
-  Python explicitly reads them back and calls
-  `setFixedHeight()`/`setMinimumHeight()`. A hardcoded pixel constant on
-  the Python side is a red flag; prefer binding to the QML's own computed
-  `implicitHeight`.
-- **The bundled Basic-style `ScrollBar.qml`** renders invisible
-  (`opacity: 0.0`) until `state === "active"`. `policy: AsNeeded` alone
-  produces a scrollbar nobody sees; use a ternary between `AlwaysOn` (when
-  content actually overflows) and `AlwaysOff`.
-- **Popup bounds need an overlay assertion, not merely a click assertion.**
-  For a modal hosted through `OverlayHost`, assert `overlay_host.overlay_size`
-  from Python. It reads QML's real `Overlay.overlay` dimensions, which catches
-  a popup trapped inside a short `QQuickWidget`; `find_qml_item()` alone cannot
-  inspect Popup content reliably.
-
-## Naming collision to watch for
-
-`src/presentation/ui/assets/palette.py` defines a `Palette` class (the
-app's real theme-color tokens, exposed to QML as `Theme.*`). This is
-unrelated to the "Palette" UX agent in `.jules/palette.prompt.md` — don't
-confuse the two when either is mentioned.
-
-## When you're unsure
-
-Search the repo first — `Tasks/ROADMAP.md`, existing tests, existing
-screens under `src/presentation/ui/screens/` — before asking the user or
-inventing behavior. Only ask if the answer genuinely isn't findable.
+Cũng bỏ: mục "What this project is" và "Where the actual rules live" — trùng
+[`ONBOARDING.md`](ONBOARDING.md) §1/§2/§9 và [`CLAUDE.md`](../CLAUDE.md), mà bản trùng thì đã
+kịp trôi sai (nó vẫn mô tả hai repo là superproject/submodule suốt 4 ngày sau khi tách). Mục
+"How to verify a change" bỏ vì `ci-rule.md` §7 + `ONBOARDING.md` §5 mới là chủ sở hữu — bản
+trong Handover từng khẳng định có `.github/workflows/ci.yml` "chạy đúng lệnh này", trong khi
+repo **không có thư mục `.github/` nào cả**.

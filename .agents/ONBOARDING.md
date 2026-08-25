@@ -33,11 +33,11 @@ bookkeeping `ROADMAP.md`).
 | 11 | `.agents/rules/domain-truth-rule.md` | Khi đụng `src/domain/`, `src/application/` |
 | 12 | `.agents/rules/ui-presentation-rule.md` | Khi đụng `src/presentation/` (Python) |
 | 13 | `.agents/rules/qml-rule.md` | Khi đụng file `.qml` |
-| 14 | `.agents/Handover.md` | Khi cần bối cảnh lịch sử của một mảng cụ thể |
+| 14 | `.agents/Handover.md` | **Ngay sau file này** — phiên trước dừng ở đâu, task nào phải làm tiếp, quyết định nào đừng suy luận lại |
 | — | `Tasks/ROADMAP.md` | Khi cần biết hệ thống đang ở đâu, task nào tồn tại |
 | — | `Tasks/bug_report/README.md` | Bug Board — hệ thống đang gánh lỗi gì (mở/đã sửa) |
 | — | `Tasks/epics/README.md` | Danh sách Epic đang có (mỗi Epic có thư mục + README riêng, xem §3) |
-| — | **§12 của file này** | **Bắt tay vào việc đang dở** — epic nào đang chạy, task con tiếp theo, cơ chế mới ở Engine phải dùng |
+| — | **§12 của file này** | **Bắt tay vào việc đang dở** — quy trình mở một task con, cơ chế mới ở Engine phải dùng. *Trạng thái* nằm ở `Handover.md`, không ở đây |
 
 `.agents/rules/install-rule.md` là chuyên đề riêng (cài đặt), đọc khi task
 chạm đúng phạm vi đó. `.agents/rules/code-rule.md` giờ **chỉ là stub điều
@@ -491,26 +491,22 @@ chỉ vài giờ sau **cả hai repo đều đã sạch hoàn toàn**, khiến c
 đúng chiều nguy hiểm nhất (tưởng còn việc dang dở trong cây làm việc). Chạy 3 lệnh trên rồi tin
 kết quả, không tin đoạn văn này.
 
-### 12.2 Hai epic đang chạy, đều điều phối từ repo này
+### 12.2 Đang làm tới đâu → [`Handover.md`](Handover.md), không phải ở đây
 
-| Epic | Nội dung | Trạng thái (đọc `README.md` của epic để biết chính xác) |
-| :--- | :--- | :--- |
-| [`EPIC-007`](../Tasks/epics/EPIC-007_chuan_hoa_card_dung_chung/README.md) | Chuẩn hoá card dùng chung, đưa hình dạng lên Engine | Chưa bắt đầu (0/7). `007A`–`007C` làm ở repo **Engine** trước |
-| [`EPIC-008`](../Tasks/epics/EPIC-008_chuan_hoa_luong_event/README.md) | Chuẩn hoá luồng sự kiện | Đang làm (**4/8** — `008A`–`008D` xong ở Engine, tiếp theo `008E`). `008A`–`008E` ở **Engine**, `008F`–`008H` ở repo này |
+**Mục này cố ý KHÔNG liệt kê epic nào đang chạy hay task nào tiếp theo.** Bản trước có bảng đó
+và nó sai chỉ sau vài giờ (ghi `EPIC-008` 4/8 khi nó đã đóng 8/8, ghi `EPIC-006F` "chưa có
+file" khi task đã xong). Trạng thái sống ở **một** chỗ: [`.agents/Handover.md`](Handover.md) §1,
+file được **thay thế** mỗi phiên. Ở đây chỉ giữ thứ không đổi:
 
-**`EPIC-006` chưa đóng** dù đã merge vào `master-warrior`: còn `EPIC-006F` (dỡ kit QML bên
-Engine) — và task đó **chưa có file**, phải tạo trước khi làm. Kèm theo là 22 file `.qml` chết
-còn sót trong `src/` của repo này. Chi tiết ở đầu
-[`EPIC-006/README.md`](../Tasks/epics/EPIC-006_drop_qml/README.md).
-`EPIC-005` **đã bị `EPIC-006` thay thế** — đừng mở lại nó.
-
-**Bắt buộc: đọc `README.md` của epic + file `DECISION_*.md` (ADR) của nó trước khi làm bất kỳ
-task con nào.** ADR ghi lại những quyết định đã tranh luận xong với user — trong đó có vài
-quyết định **đảo ngược** phương án trước đó. Tự suy luận lại sẽ tốn một phiên và thường ra kết
-quả khác.
-
-`EPIC-007` có thêm 4 sơ đồ PlantUML ở `Tasks/epics/EPIC-007_.../design/` (2 hiện trạng, 2 đề
-xuất) — xem trước khi động vào widget.
+- **Bắt buộc: đọc `README.md` của epic + file `DECISION_*.md` (ADR) của nó trước khi làm bất kỳ
+  task con nào.** ADR ghi lại những quyết định đã tranh luận xong với user — trong đó có vài
+  quyết định **đảo ngược** phương án trước đó. Tự suy luận lại sẽ tốn một phiên và thường ra
+  kết quả khác. Epic nào có `design/*.puml` thì xem sơ đồ trước khi động vào code.
+- **Bảng task con trong mỗi epic có cột `Repo`.** Task ghi `Engine` phải commit ở repo Engine
+  (§2, §9). Bảng xếp theo rủi ro tăng dần và ghi rõ cái nào chặn cái nào — đừng nhảy cóc.
+- **Trạng thái ghi trong task file có thể đã cũ hơn code.** Trước khi tin "task này chưa làm",
+  kiểm bằng chính code (`find`, `grep`, chạy test) — phiên gần đây có hai task hoá ra đã được
+  làm xong bởi epic khác, và một task khác thì đã **hết đối tượng** để làm.
 
 ### 12.3 Task con tiếp theo và thứ tự
 
