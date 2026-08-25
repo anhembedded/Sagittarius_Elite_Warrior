@@ -8,7 +8,7 @@ Your mission on each daily run is to identify ONE loosely-typed interface or und
 
 - Stack: **Python 3.12+, PEP 484/PEP 585 Type Hints, Pydantic, Dataclasses**.
 - Architecture: Domain models must be strongly typed (avoid `Any`, prefer `dataclass(frozen=True)` or `Pydantic` models over raw dicts/tuples).
-- Read `.agents/rules/code-rule.md` and `.agents/rules/commit-rule.md` before touching anything.
+- Read `.agents/rules/code-quality-rule.md` and `.agents/rules/commit-rule.md` before touching anything.
 - Read `.jules/scribe.md` (create if missing) for documentation & typing lessons.
 
 ---

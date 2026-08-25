@@ -233,3 +233,46 @@ thresholds.
   sanity. It is the only local handoff evidence. CI for this project is
   local-only (`ci-local.ps1`); there is no GitHub Actions workflow.
 
+---
+
+## 8. Static quality, read-only gate, and the mandatory log scan
+
+> **Nguồn (2026-08-25):** bốn mục dưới đây được **chuyển nguyên văn** từ
+> `code-rule.md` §4 khi file đó được tách. Chúng nói về *chạy* gate CI nên
+> thuộc file này, không thuộc [`testing-rule.md`](testing-rule.md) (vốn chỉ
+> giữ cách *viết* test). Không có quy tắc nào bị đổi nghĩa.
+
+- **Static quality:** Ruff lint/format plus architecture/import rules run on
+  every commit and pull request; they support but do not replace the four test
+  levels.
+- **Read-only CI:** A CI verification command MUST not mutate the working tree. Use `ruff check` and `ruff format --check` in CI; reserve `--fix` and formatter writes for an explicit developer formatting action. A test runner that changes unrelated files is not an acceptable required quality gate.
+- **Local CI/CD Enforcement:**
+  - Always run `.\scripts\ci-local.ps1 -Full` to validate your code before finishing changes. This includes lint, format, coverage, Unit and Sanity checks; `-UnitOnly` is diagnostic-only and never sufficient for handoff or commit.
+  - For lifecycle/concurrency work, add deterministic tests for stale-success, stale-failure, success-after-cancel, and cancellation during every relevant computation phase. Do not rely on timing sleeps to test races.
+- **CI/CD MUST capture a log file, then scan it for problem levels:** A green
+  exit code is not sufficient evidence that a run was clean. `scripts/ci-local.ps1`
+  automates this — it captures every test run to a log file and runs
+  `Invoke-RunLogScan` afterward, which greps for the problem levels
+  `.agents/rules/logging-rule.md` §"Log levels" defines (`WARNING`, `ERROR`,
+  `CRITICAL`) using that file's own documented matcher
+  (`Select-String "- (WARNING|ERROR|CRITICAL) -"` / `grep -E '\- (WARNING|ERROR|CRITICAL) \-'`)
+  and fails the run if any are found. This runs automatically on every
+  `ci-local.ps1` invocation (both `-SanityOnly` and the Unit/Full path) — do
+  this in the script, not by hand each time.
+  Every hit the scan reports MUST be investigated and reported — never
+  silently accepted because the tests still passed, and never bypassed with
+  `-AllowLogWarnings` as a way to get a green build. Report each one as
+  either (a) a real defect, which then follows `.agents/rules/bug-fix-rule.md`
+  in full, or (b) an understood, explicitly justified expected condition,
+  naming the reason. "It was already there before my change" is a reason to
+  check whether it is a known open bug in `Tasks/bug_report/incomplete/`, not
+  a reason to skip it. `-AllowLogWarnings` exists only to triage a run whose
+  hits are already understood and recorded.
+  This rule exists because a run can exit 0 while logging a real, silently
+  degraded path — e.g. a realtime backtest that logged repeated
+  `tick_gap_forced_commit` WARNINGs on every bar of every run (`BUG-022`: the
+  bar-close condition never matched real exchange `close_time` values, so the
+  closing tick of every bar was evaluated twice) and still reported success,
+  or a chart query returning `rows=0` that produced a blank chart with no
+  failure anywhere (`BUG-021`).
+

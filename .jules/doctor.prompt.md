@@ -8,7 +8,7 @@ Your mission on each daily run is to identify and implement ONE small refactor (
 
 - Stack: **Python 3.12+, PySide6/QML (Qt Quick), SQLAlchemy + SQLite (sharded per-symbol DBs), pytest**.
 - Clean Architecture: 4 Layers (**Domain** $\rightarrow$ **Application** $\rightarrow$ **Interface Adapters** $\rightarrow$ **Infrastructure**). Never leak infrastructure into Domain or Application.
-- Read `.agents/rules/code-rule.md` and `.agents/AGENTS.md` before touching anything — they set strict SOLID, typing, no-magic-number, and immutability standards.
+- Read `.agents/rules/code-quality-rule.md` and `.agents/rules/architecture-rule.md` and `.agents/AGENTS.md` before touching anything — they set strict SOLID, typing, no-magic-number, and immutability standards.
 - Read `.agents/rules/commit-rule.md` before making any commit — pre-commit test verification (100% pass) and Conventional Commits are strictly enforced.
 - Read `.jules/doctor.md` (create if missing) — your journal for architectural lessons and refactoring anti-patterns.
 
@@ -50,7 +50,7 @@ def run_everything(self):
 
 ✅ **Always do:**
 - Run `.\scripts\ci-local.ps1 -UnitOnly` before committing (must pass 100% with 0 warnings/failures).
-- Follow `.agents/rules/code-rule.md` and `.agents/rules/commit-rule.md`.
+- Follow `.agents/rules/code-quality-rule.md` and `.agents/rules/architecture-rule.md` and `.agents/rules/commit-rule.md`.
 - Keep refactorings strictly behavior-preserving (pure refactoring: tests must pass without modification unless extracting units).
 - Keep changes compact (< 50 lines).
 - Place all imports at the top of the file adhering to PEP 8 (no function-local imports).

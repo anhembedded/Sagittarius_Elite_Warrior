@@ -1,0 +1,37 @@
+---
+name: Async UI Action Ownership Rule
+description: Action ownership, stale-callback fencing, cooperative cancellation cho mọi tác vụ nền do người dùng khởi tạo, và Coordinator Pattern khi một Presenter quá tải.
+trigger: on_demand
+---
+
+# ASYNC UI ACTION OWNERSHIP & CANCELLATION
+
+> **Nguồn (2026-08-25):** nội dung dưới đây được **chuyển nguyên văn** từ
+> `code-rule.md` khi file đó được tách theo abstraction level. Không có quy tắc
+> nào bị đổi nghĩa, thêm hay bớt trong lần tách này — chỉ đổi chỗ ở.
+
+Đọc file này khi: sửa Presenter, submit việc lên `IThreadManager`, xử lý
+`CancellationToken`, viết slot nhận kết quả từ worker nền, hoặc tách một
+Presenter quá tải thành Coordinator.
+
+Đây là mảng đã sinh ra nhiều bug thật nhất trong repo (`BUG-018`, `BUG-023`,
+`BUG-031`, `BUG-033`, `BUG-041`) — đọc hết trước khi sửa, đừng đọc lướt.
+
+---
+
+## 1. Action Ownership & Cancellation
+
+8. **Async UI Action Ownership & Cancellation:**
+   - Every user-initiated background action that can alter UI lifecycle state (for example backtest, sync, load, or render) MUST have an immutable action context: unique `action_id`/generation, action kind, immutable input snapshot, start time, and explicit terminal outcome.
+   - Worker signals and completion callbacks MUST carry the action identity. Before changing ViewModel state, FSM state, chart data, or starting a follow-up action, the receiving slot MUST verify that the action is still active. Stale callbacks are ignored and logged; they must never overwrite a newer user intent.
+   - Cancellation MUST be cooperative and idempotent. A cancelled action may not later publish success/failure UI state, and its final transition must restore the appropriate pre-action lifecycle state rather than blindly forcing `IDLE`.
+   - Long-running use cases MUST propagate cancellation checks through every computational pass, including validation/split passes. Progress events must be throttled or coalesced before reaching the UI thread.
+
+---
+
+## 2. Coordinator Pattern cho một Presenter quá tải
+
+- **Coordinator Pattern for an overgrown Presenter (`PRO-001`/`PRO-002`, `EPIC-003`):**
+  - When a Presenter's background-action logic outgrows one file, split it by feature slice into `<name>/coordinators/<feature>_coordinator.py` — a Presenter-owned, constructor-injected class (`thread_manager`, `dispatcher`, and the specific `view_model` signals it handles), never something that resolves its own container or is independently discoverable/DI-registered. This is a distinct, sanctioned category from the plain `logic/`/`helpers/` above — those stay pure functions/stateless transforms; a Coordinator is allowed to hold state and submit its own background work.
+  - **A Coordinator MUST NOT own independent FSM state or its own action-ownership/cancellation bookkeeping** (the `action_id`/generation, stale-callback fencing, and cooperative-cancellation contract from "Async UI Action Ownership & Cancellation" in §2 item 8 above). That bookkeeping has exactly one owner — the Presenter (or a single shared tracker the Presenter owns and hands to every Coordinator) — never reimplemented per-Coordinator. Splitting a Presenter into Coordinators that each keep their own action-id counter is the same "Single-Scope Cohesion" violation as scattering one FSM's Enum/matrix across files: one lifecycle, fragmented into several sources of truth that can silently disagree. Before splitting any Presenter that already has bespoke action-ownership machinery (e.g. `BacktestPresenter`'s `_next_action_id`/`_active_action`/`BacktestActionKind`), extract that machinery into one shared, reusable tracker first — do not duplicate it across the new Coordinator files.
+  - The Presenter that owns a screen's Coordinators keeps the FSM, keeps `_connect_ui_signals()`/`_connect_engine_events()`, and keeps final say over UI-visible state; Coordinators do the work and report back through it, they do not become parallel mini-Presenters with their own UI-mode opinions.

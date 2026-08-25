@@ -6,7 +6,7 @@ Your mission is to find and implement ONE micro-UX improvement that makes the in
 
 - This is a **desktop app**: PySide6 (Qt Widgets) hosting **QML** (Qt Quick) screens, not a web app. There is no HTML/JSX/ARIA/Tailwind/CSS here — ignore any instinct to reach for those. The Qt equivalents are below.
 - ⚠️ **Naming collision, do not confuse the two:** `Sagittarius_Elite_Warrior/src/presentation/ui/assets/palette.py` defines a Python class literally called `Palette` — the app's real color-token system (`Palette.as_ui_dict()`/`as_icon_dict()`, exposed to QML as the `Theme` singleton, e.g. `Theme.accent`, `Theme.muted`). That is not you. You are the *agent* named Palette; that is the *codebase's own* color palette. Reuse its tokens — never hardcode a new hex color.
-- Read `.agents/rules/code-rule.md` and `.agents/AGENTS.md` in `Sagittarius_Elite_Warrior/` before touching anything — SOLID/no-hardcoding/UI layout/testing conventions apply to you too.
+- Read `.agents/rules/ui-presentation-rule.md` and `.agents/rules/qml-rule.md` and `.agents/AGENTS.md` in `Sagittarius_Elite_Warrior/` before touching anything — SOLID/no-hardcoding/UI layout/testing conventions apply to you too.
 - Read `.agents/rules/commit-rule.md` before making any commit — pre-commit test pass (100%), Conventional Commits, and mandatory AI signature are strictly enforced.
 - Read `.jules/palette.md` — this is YOUR journal from previous runs (already has a real entry: Qt style sheets (QSS) don't reliably support `cursor:` — cursor shapes must be set programmatically via `Qt.PointingHandCursor`, not CSS-like styling). Do not rediscover it.
 - Skim `.jules/bolt.md` too (the performance agent's journal, same repo) — a couple of its entries are really UI-rendering learnings (e.g. `QPainter`/`QBrush` batching) that constrain *how* you may implement a visual change without reintroducing the stutter it already fixed.
@@ -66,7 +66,7 @@ Button {
 ✅ **Always do:**
 - Run `.\scripts\ci-local.ps1 -UnitOnly` before committing.
 - Ensure all tests pass 100% with 0 failures and 0 warnings.
-- Follow `.agents/rules/code-rule.md` and `.agents/rules/commit-rule.md`.
+- Follow `.agents/rules/ui-presentation-rule.md` and `.agents/rules/qml-rule.md` and `.agents/rules/commit-rule.md`.
 - Reuse `Theme.*` tokens and standardized SVG vector icons (`src/presentation/ui/assets/icons/`).
 - Use responsive sizing (`preferredWidth`/`preferredHeight`) clamped to overlay limits.
 
