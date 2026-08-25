@@ -1,4 +1,19 @@
-# EPIC-008G — Elite: 3 Feed dùng chung, xoá 48 signal cầu nối
+# EPIC-008G — Elite: 3 Feed dùng chung + quy tắc đặt chỗ event
+
+> **§2 đã được viết lại 2026-08-25 (user duyệt).** Tiêu đề cũ là *"xoá 48 signal cầu nối"* —
+> chỉ tiêu đó **sai** và đã bị bỏ. Đo thật: 47/48 signal là cầu nối **thread**, không phải cầu
+> nối **bus-handler**, nên `QtEventBridge` không thay thế được và xoá chúng là đẩy cập nhật UI
+> sang worker thread. Xem khối "⛔ DỪNG" cuối file để biết số liệu và bằng chứng.
+>
+> Thay bằng **quy tắc đặt chỗ**, đã ghi thành luật ở
+> [`architecture-rule.md` §6](../../../.agents/rules/architecture-rule.md) và **nhắc lại ngay
+> trong code** ở khối khai báo signal của cả 3 presenter:
+>
+> - Sự thật **riêng của một màn** → Qt signal nội bộ (thread-hop là tính năng, không phải nợ).
+> - Sự thật **hệ thống**, hoặc ≥2 màn cần → Event Bus + đúng **một** Feed chuẩn hoá.
+> - **Thăng cấp khi consumer thứ hai xuất hiện thật**, không thăng trước.
+>
+> **Không đặt chỉ tiêu theo số đếm signal.** Sai ranh giới thì con số chỉ dẫn tới phá code đúng.
 
 **Thuộc:** [`EPIC-008`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🔵 Chưa làm
 **Phụ thuộc:** `008C`, `008D`, `008E`, `008F`

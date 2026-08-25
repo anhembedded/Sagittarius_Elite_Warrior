@@ -101,3 +101,59 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 > Đối trọng của quy tắc này là **Single-Scope Cohesion**, sống ở
 > [`code-quality-rule.md`](code-quality-rule.md) — đọc cả hai trước khi
 > quyết định gộp hay tách.
+
+---
+
+## 6. Event Placement — Qt signal hay Event Bus? (user chốt 2026-08-25)
+
+Câu hỏi **không phải** "signal hay bus", cũng không phải "signal cầu nối là nợ kỹ thuật".
+Câu hỏi đúng là: **ai sở hữu sự thật này?**
+
+> **Sự thật riêng của MỘT màn** → Qt signal nội bộ.
+> **Sự thật của HỆ THỐNG, hoặc ≥2 màn cần** → Event Bus + đúng **một** Feed chuẩn hoá.
+
+### 6.1 Tách hai vấn đề đang hay bị gộp
+
+| | Vấn đề | Cơ chế đúng |
+| :-: | :--- | :--- |
+| **A** | Đưa dữ liệu từ thread nền về main thread **an toàn** | Qt queued signal **hoặc** `QtEventBridge` — cả hai đều đúng |
+| **B** | **Ai được biết về ai**; một sự thật bị xử lý lặp ở mấy nơi | Bus + đúng 1 subscriber chuẩn hoá (Feed), nhiều nơi *hiển thị* |
+
+**Qt queued signal chính là cơ chế Qt thiết kế ra cho (A).** Nó **không** phải nợ kỹ thuật,
+không phải workaround, và **không** phải thứ cần xoá. Thấy một signal bắc cầu worker → main
+thread thì đó là code **đúng**, đừng "dọn" nó.
+
+`QtEventBridge` chỉ thay thế được signal nào phát ra **từ handler của event bus**. Worker chạy
+nền mà không đi qua bus thì bridge không giúp gì — xoá signal của nó là đẩy cập nhật UI sang
+worker thread, đúng lớp lỗi [`BUG-031`](../../Tasks/bug_report/completed/BUG-031_cross_thread_timer_start_hangs_ui_during_backtest.md).
+
+### 6.2 Phân loại — hỏi đúng một câu
+
+*"Nếu màn khác cũng muốn biết chuyện này, nó có vô lý không?"*
+
+- **Vô lý** → sự thật riêng tư (`history load xong`, `stream của tôi start được`,
+  `indicator của tôi tính xong`). Dùng Qt signal nội bộ trong presenter/controller.
+  Đẩy lên bus là **rò rỉ**: mọi màn đều có thể nghe, bề mặt coupling phình ra, và nhìn code
+  không còn biết ai phụ thuộc ai.
+- **Hợp lý** → sự thật hệ thống (`health đổi`, `task nền chết`, `sync tiến độ`, `log`).
+  Lên bus, **đúng một** Feed nghe và chuẩn hoá, nhiều màn *hiển thị*.
+
+### 6.3 Thăng cấp khi consumer thứ hai xuất hiện THẬT — không thăng trước
+
+Cùng kỷ luật `EPIC-006`'s ADR §4 (chỉ tạo abstraction khi có ≥2 nhu cầu thật — chính nó đã chặn
+4 stub card thừa). Lý do bất đối xứng:
+
+- **Thăng cấp muộn thì rẻ:** worker vốn đã emit *một cái gì đó*; đổi chỗ nó emit tới là sửa cục bộ.
+- **Đẩy hết lên bus trước thì đắt và gần như không lùi được** — sau đó không ai dám xoá
+  subscriber nào vì không biết còn ai đang nghe.
+
+### 6.4 Bằng chứng thật, đo 2026-08-25 (`EPIC-008G`)
+
+Đếm trên 3 presenter: **48 signal, 46 cái có đúng 1 nơi nghe.** Cái duy nhất fan-out là
+`ui_log_signal` (2 nơi) — và nó đúng là sự thật hệ thống, tức đúng thứ *nên* thành Feed.
+
+Nói cách khác: **code đã tự phân loại đúng từ trước, chỉ là chưa ai đặt tên cho quy tắc.**
+`EPIC-008G` §2 ban đầu đặt chỉ tiêu "xoá 48 signal cầu nối" vì gộp nhầm (A) vào (B); đo thật thì
+**47/48 tồn tại vì (A)**, xoá được ≈1. Đã dừng theo đúng điều kiện dừng của chính task đó.
+
+**Đừng đặt chỉ tiêu theo số đếm signal.** Sai ranh giới thì con số chỉ dẫn tới việc phá code đúng.

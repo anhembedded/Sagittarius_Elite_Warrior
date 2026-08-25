@@ -151,8 +151,31 @@ class DashboardPresenter(BasePresenter):
     """
 
     # ------------------------------------------------------------------ #
-    # Thread-safe Signal Bridges
-    # Dùng để truyền dữ liệu từ Background Thread về Main UI Thread
+    # Thread-safe Signal Bridges — worker thread → main UI thread
+    #
+    # ĐỌC TRƯỚC KHI XOÁ BẤT KỲ SIGNAL NÀO Ở ĐÂY.
+    #
+    # Đây KHÔNG phải nợ kỹ thuật. Qt queued signal chính là cơ chế Qt thiết kế
+    # ra để đưa dữ liệu từ thread nền về main thread. Worker gọi `.emit` của các
+    # signal này (được truyền vào controller dưới dạng callback), slot ở main
+    # thread mới chạm widget. Xoá chúng = đẩy cập nhật UI sang worker thread,
+    # đúng lớp lỗi BUG-031 (QBasicTimer: Timers cannot be started from another
+    # thread) — và là kiểu hỏng "app chạy, test xanh, màn hình không cập nhật"
+    # mà test offscreen KHÔNG bắt được.
+    #
+    # `QtEventBridge` (EPIC-008D) KHÔNG thay thế được chúng: nó chỉ bắc cầu cho
+    # event đi qua event bus, còn các worker này không bao giờ đụng bus.
+    #
+    # Signal ở đây hay Event Bus? Hỏi: "màn khác cũng muốn biết chuyện này thì
+    # có vô lý không?"
+    #   - Vô lý  → sự thật riêng của màn này → giữ Qt signal (chính là đây).
+    #   - Hợp lý → sự thật hệ thống → Event Bus + đúng 1 Feed chuẩn hoá
+    #              (`presentation/ui/common/`), nhiều màn chỉ *hiển thị*.
+    # Thăng cấp lên bus KHI consumer thứ hai xuất hiện thật, không thăng trước.
+    #
+    # Luật đầy đủ + số liệu đo thật: .agents/rules/architecture-rule.md §6.
+    # Lịch sử: EPIC-008G §2 từng đặt chỉ tiêu "xoá 48 signal cầu nối"; đo lại
+    # thấy 47/48 là cầu nối thread (không phải cầu nối bus) nên đã dừng.
     # ------------------------------------------------------------------ #
     ui_log_signal = Signal(str)
     ui_chart_update_signal = Signal(str, float, float, float, float, float, float, bool)

@@ -61,7 +61,24 @@ class DataManagementPresenter(BasePresenter):
     INITIAL_STATE = UIMode.IDLE
 
     # ------------------------------------------------------------------ #
-    # Thread-safe signals
+    # Thread-safe Signal Bridges — worker thread → main UI thread
+    #
+    # ĐỌC TRƯỚC KHI XOÁ BẤT KỲ SIGNAL NÀO Ở ĐÂY.
+    #
+    # Đây KHÔNG phải nợ kỹ thuật. Qt queued signal chính là cơ chế Qt thiết kế
+    # ra để đưa dữ liệu từ thread nền về main thread. Xoá chúng = đẩy cập nhật
+    # UI sang worker thread, đúng lớp lỗi BUG-031 — kiểu hỏng "app chạy, test
+    # xanh, màn hình không cập nhật" mà test offscreen KHÔNG bắt được.
+    #
+    # `QtEventBridge` (EPIC-008D) KHÔNG thay thế được: nó chỉ bắc cầu cho event
+    # đi qua event bus, còn các worker này không bao giờ đụng bus.
+    #
+    # Signal ở đây hay Event Bus? Hỏi: "màn khác cũng muốn biết chuyện này thì
+    # có vô lý không?"  Vô lý → giữ Qt signal. Hợp lý → Event Bus + đúng 1 Feed
+    # chuẩn hoá (`presentation/ui/common/`). Thăng cấp KHI có consumer thứ hai
+    # thật, không thăng trước.
+    #
+    # Luật đầy đủ: .agents/rules/architecture-rule.md §6.
     # ------------------------------------------------------------------ #
     ui_log_signal = Signal(str)
     ui_error_log_signal = Signal(str)
