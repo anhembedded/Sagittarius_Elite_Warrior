@@ -1,6 +1,6 @@
 # EPIC-007F — Elite: migrate 4 màn hình sang widget dùng chung
 
-**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings: 6/13 `setStyleSheet` xong)
+**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings: 9/13 `setStyleSheet` xong, 4 chỗ còn lại cố ý dừng)
 **Phụ thuộc:** `007D`, `007E`
 
 ---
@@ -138,6 +138,60 @@ mới chứ không vá tại chỗ — chưa làm, ghi lại cụ thể để l�
 Header riêng (icon + dải `BG_CARD_HEADER` + border-bottom) **giữ tại `screens/settings/`** theo
 tiêu chí "1 màn dùng" (§3) — không đẩy lên Engine chỉ vì đây là nơi đầu tiên cần nó.
 
+### Settings, bước 3/13: thêm 2 role ở Engine, áp vào title/subtitle/nhãn field, và bịt 2 chỗ cascade
+
+**Engine trước, Elite sau** — đúng thứ tự đã học được từ sự cố merge lệch ở `EPIC-007E`. Engine
+PR #191 merge vào `main` xong mới đụng tới Elite.
+
+**Hai `StyleRole` mới, đo consumer thật trước khi thêm** (đúng phương pháp §5 kill-criteria: hình
+dạng phải có consumer thật để đối chiếu, không được đoán):
+
+| Role mới | Consumer thật | Vì sao role sẵn có không dùng được |
+| :--- | ---: | :--- |
+| `BODY_LABEL` (`textPrimary`, `fontSizeMd`) | 4, ở 3 màn | `CAPTION` cố ý mờ hơn (`muted`, nhỏ hơn 1 bậc) để **lùi ra sau** heading. Nhãn field là chữ user đọc để **thao tác**, không được lùi. |
+| `HEADING` (`accent`, `fontSizeMd`, bold) | 3 | `SECTION_LABEL` là nhãn mờ + letter-spacing cho **một nhóm bên trong** panel. Dùng nó cho tiêu đề dialog sẽ làm tiêu đề tụt xuống ngang hàng các nhãn nhóm bên dưới nó. |
+
+Mỗi nhóm mang sẵn kích thước gần-trùng hard-code (12/13px cho body, 13/14px cho heading) — gộp cả
+hai về `fontSizeMd` chính là việc epic này sinh ra để làm. Có test ghim rằng chúng không lặng lẽ
+tách lại thành hai literal bên trong `style.py`.
+
+**Không thêm widget class mới** — nhãn chỉ cần constructor thì thuộc về `QLabel` + `apply_role()`,
+đúng luật `StyledLabel` tự ghi trong docstring của nó.
+
+**`subtitle` dùng `CAPTION` có sẵn, không thêm role.** Đo được **19** chỗ `MUTED` + 11px trong
+Elite khớp đúng `CAPTION` — role này đã tồn tại từ `007C` và chưa ai dùng.
+
+**Hai chỗ cascade `BUG-008` bị bịt (giá trị thật, không phải dọn dẹp hình thức):**
+
+- `self.setStyleSheet(background-color: BG)` ở `_build_ui` — bare property list trên widget chứa
+  **toàn bộ màn hình**. Đây đúng là `BUG-008` ở quy mô lớn nhất có thể trên một màn. Nay scoped
+  `SettingsView { ... }`.
+- Dải header (`BG_CARD_HEADER` + border-bottom + bo góc trên) — không scoped thì màu và viền của
+  nó đổ xuống icon, title, subtitle và nút Save nằm trong nó. Nay scoped bằng
+  `#settingsCardHeader`. Giữ tay viết, **không** cấp `StyleRole`: một dải header có bo góc trên
+  riêng hiện là hình dạng của **một** màn, và header của `Card` bên Engine là hình dạng khác
+  (một label + hàng action).
+
+**Diff pixel: 16.096 / 1.600.000 (1,0%)**, bbox `286,21 → 616,668` — đúng cột nhãn + vùng tiêu đề,
+không lan ra ngoài. Chênh lệch là nhãn field 12px → 13px và tiêu đề 14px → 13px, đúng phần gộp
+token đã nêu ở bảng trên.
+
+**Kiểm tra:** Engine `1267 passed` (1262 + 5 test mới), `mypy` sạch 343 file. Elite: `ruff` sạch,
+`mypy` giữ baseline, full suite `1809 passed, 4 skipped, 0 failed`.
+
+### Settings: 4 chỗ `setStyleSheet` còn lại — cố ý dừng, không phải bỏ sót
+
+Cả 4 đều là **widget lá** (không có con), nên **không** mang rủi ro cascade `BUG-008`, và đều đã
+dùng token `Palette` nên guard `find_inline_stylesheets` vẫn 0. Chúng là "chưa lên role", không
+phải "sai":
+
+| Chỗ | Còn gì | Cần gì để đóng |
+| :--- | :--- | :--- |
+| `_apply_status()` | `color: DANGER/SUCCESS` đổi theo runtime | Đúng ca `semantic_colour()` sinh ra để phục vụ — màu chọn theo *instance*, không theo *role*. `apply_role` không diễn đạt được. |
+| status label | `font-size: 11px` | Gộp được vào `CAPTION` nếu chấp nhận đổi màu sang `muted` |
+| warning label | `ACCENT` + 11px | Cần role mới. Đo được 5 chỗ `ACCENT` + 11px nhưng **4 trong số đó bold** và chỗ này không — hai hình dạng khác nhau, chưa đủ rõ để chốt một role |
+| reveal button + `QSpinBox` | chrome kiểu field | `StyledField` là `QLineEdit`; `QSpinBox` chỉ có **1** consumer trong toàn app |
+
 **Dashboard, Backtest, Data Management:** chưa bắt đầu. Đây mới là phần guard đo được — cả 17
 finding `find_bare_qt_base_widgets` nằm ở ba màn này cộng `components/` (Settings đóng góp **0**,
-nên yêu cầu 1 của task không đổi số qua hai bước trên).
+nên yêu cầu 1 của task không đổi số qua ba bước trên).
