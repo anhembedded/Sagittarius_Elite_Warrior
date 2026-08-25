@@ -52,6 +52,21 @@ _SHUTDOWN_BUDGET_SECONDS = 10.0
 #: populated once, from the first real run, and then to stay still.
 _NOT_DISPATCHED: set[str] = set()
 
+#: Use cases this test genuinely cannot check yet, each with the open bug that
+#: blocks it. Recorded debt, not an exemption: every entry names a bug that must
+#: be closed, and the entry is deleted when it is.
+#:
+#: BUG-045 — resolving these constructs `PythonBinanceClient`, whose
+#: `Client(...)` pings `api.binance.com/api/v3/ping` inside the constructor. The
+#: DI graph therefore reaches the network merely by being resolved. Removed once
+#: EPIC-009's D6 (a local fake Binance server) lands; substituting
+#: `IExchangeClient` here instead would recreate BUG-026/BUG-027.
+_BLOCKED_BY_BUG: dict[str, str] = {
+    "SyncMarketDataCommand": "BUG-045",
+    "RepairDataGapCommand": "BUG-045",
+    "ListAvailableSymbolsQuery": "BUG-045",
+}
+
 
 def _import_all_under(relative_dir: str):
     """Imports every module under `src/<relative_dir>` and yields them.
@@ -105,7 +120,7 @@ def test_every_use_case_resolves_to_a_handler(booted_app):
         for cls in _classes_defined_in(module, "Command") + _classes_defined_in(
             module, "Query"
         ):
-            if cls.__name__ in _NOT_DISPATCHED:
+            if cls.__name__ in _NOT_DISPATCHED or cls.__name__ in _BLOCKED_BY_BUG:
                 continue
             checked += 1
             try:
@@ -117,6 +132,10 @@ def test_every_use_case_resolves_to_a_handler(booted_app):
     assert checked > 0, (
         "Scanned src/application/use_cases and found no Command/Query classes — "
         "the scan itself is broken, which would make this test silently vacuous."
+    )
+    assert _BLOCKED_BY_BUG, (
+        "_BLOCKED_BY_BUG is empty — if the bugs it recorded are fixed, delete "
+        "this guard too; if it was emptied to make the tier green, restore it."
     )
     assert unresolved == [], (
         f"{len(unresolved)} of {checked} use cases do not resolve through the "
