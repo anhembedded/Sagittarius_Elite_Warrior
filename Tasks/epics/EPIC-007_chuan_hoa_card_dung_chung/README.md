@@ -71,7 +71,10 @@ ghi chú.
    - **Elite `components/`** — dùng ở ≥2 màn nhưng tên/hành vi mang nghiệp vụ.
    - **`screens/`** — chỉ 1 màn dùng.
 
-   Giữ nguyên kỷ luật `EPIC-006` ADR §4 (chỉ tạo abstraction khi có ≥2 nhu cầu thật) — chính
+   ⚠️ **Sửa 2026-08-25:** ngưỡng *"≥2 nhu cầu thật"* đã bị user bỏ; nay **luôn khuyến khích
+   abstraction** ([`architecture-rule.md` §7.2](../../../.agents/rules/architecture-rule.md)).
+   Bài học chống-đoán-sai vẫn giữ: 4 stub kia sai vì **đoán sai hình dạng** thứ chưa tồn tại,
+   không phải vì "có abstraction". Câu gốc giữ lại bên dưới làm bối cảnh — chính
    nó đã ngăn được 4 stub thừa `ActionCard`/`FormCard`/`StreamCard`/`TableCard`.
 4. **Phân rã file**: 1 file 1 lớp cho widget ở Engine. Ngưỡng phải tách: **>400 dòng** hoặc
    **>15 phương thức công khai**. Giới hạn duy nhất là Single-Scope Cohesion — `StyleRole` và

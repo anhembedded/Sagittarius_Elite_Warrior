@@ -140,8 +140,8 @@ worker thread, đúng lớp lỗi [`BUG-031`](../../Tasks/bug_report/completed/B
 
 ### 6.3 Thăng cấp khi consumer thứ hai xuất hiện THẬT — không thăng trước
 
-Cùng kỷ luật `EPIC-006`'s ADR §4 (chỉ tạo abstraction khi có ≥2 nhu cầu thật — chính nó đã chặn
-4 stub card thừa). Lý do bất đối xứng:
+Đây là quy tắc về **định tuyến** (sự thật này đi đường nào), không phải về việc có tạo
+abstraction hay không — xem §7 cho luật abstraction. Lý do bất đối xứng:
 
 - **Thăng cấp muộn thì rẻ:** worker vốn đã emit *một cái gì đó*; đổi chỗ nó emit tới là sửa cục bộ.
 - **Đẩy hết lên bus trước thì đắt và gần như không lùi được** — sau đó không ai dám xoá
@@ -191,21 +191,37 @@ Ví dụ thật trong repo này:
   là sẽ có. Vậy phải có `BaseFeed` làm hợp đồng, để "thăng cấp một sự thật riêng tư lên bus"
   (§6.3) có **chỗ hạ cánh có tên**, thay vì mỗi người tự chế một kiểu.
 
-### 7.2 Hoà giải với "chỉ tạo abstraction khi có ≥2 nhu cầu thật"
+### 7.2 Luôn khuyến khích abstraction — class là một **hợp đồng**, không phải một cục code
 
-Hai luật này **không** mâu thuẫn, vì chúng trả lời hai câu hỏi khác nhau. Phân biệt bằng đúng
-một câu hỏi:
+> **Luật hiện hành (user chốt 2026-08-25).** Khi viết một class, **đánh giá khả năng mở rộng và
+> API của nó trước**, rồi mới viết thân. Mặc định là **có abstraction**: class phải là một
+> **hợp đồng** với các class khác, không phải một khối implementation mà nơi khác phải biết ruột
+> gan mới dùng được.
 
-> **Quyết định đã được ra chưa?**
+Cụ thể, khi thêm một class mới, hỏi theo thứ tự:
 
-- **Chưa ra** — "biết đâu sau này ai đó cần 2 loại kênh truyền" → **đầu cơ**. Cấm. Bạn đang đoán
-  hình dạng của một thứ chưa tồn tại, và đoán sai thì abstraction đó thành gánh nặng vĩnh viễn.
-  (`EPIC-006` ADR §4 đã chặn được 4 stub card thừa đúng theo cách này.)
-- **Đã ra** — "đã chốt sẽ có 3 Feed", "đã chốt chấp nhận mất `frozen`" → **bắt buộc có type**.
-  Đây không phải đoán; quyết định có thật, chỉ là chưa thi hành xong. Để nó vô hình trong code
-  là giấu thông tin.
+1. **Ai sẽ gọi nó, và họ cần thấy gì?** Đó chính là API — thiết kế nó trước, không phải rút ra
+   sau khi đã viết xong thân hàm.
+2. **Chỗ nào có khả năng mở rộng?** (đổi backend, đổi nguồn dữ liệu, thêm biến thể). Chỗ đó
+   phải là một `abc.ABC` / Port, để người sau thay được mà không phải sửa consumer.
+3. **Consumer có buộc phải biết chi tiết bên trong không?** Nếu có → hợp đồng chưa đủ, siết lại.
 
-Nói ngắn: **`≥2 nhu cầu` chặn abstraction cho thứ CHƯA quyết. §7 bắt buộc type cho thứ ĐÃ quyết.**
+Abstraction ở đây **không** có nghĩa "đẻ thêm lớp trung gian cho có". Nó có nghĩa: **bề mặt công
+khai của class phải là thứ người khác lập trình vào được**, và điểm nào biết trước là sẽ thay đổi
+thì điểm đó có kiểu trừu tượng đại diện.
+
+> #### ⚠️ Đảo ngược `EPIC-006`'s ADR §4 — ghi rõ, không xoá lặng lẽ
+>
+> Luật cũ: *"chỉ tạo abstraction khi có ≥2 nhu cầu thật"* (lý do: nó đã chặn được 4 stub card
+> `ActionCard`/`FormCard`/`StreamCard`/`TableCard` suy đoán từ docstring, 0 instance thật).
+> **User bỏ luật này ngày 2026-08-25.** Từ nay **luôn khuyến khích abstraction**; ngưỡng "≥2 nhu
+> cầu" **không còn là điều kiện chặn**.
+>
+> Ghi lại vì hai lý do: (a) `EPIC-006`'s ADR và `EPIC-007`'s design (`03_to_be_class.puml`,
+> `README` §3.3) vẫn viện dẫn luật cũ như tiêu chí đang hiệu lực — đọc chúng phải biết là đã bị
+> thay; (b) bài học chống lại vẫn còn giá trị: 4 stub kia sai **không** phải vì thiếu abstraction,
+> mà vì chúng **đoán sai hình dạng** của thứ chưa tồn tại. Khuyến khích abstraction là khuyến
+> khích **thiết kế API cho cái đang viết**, không phải khuyến khích đoán trước cái chưa ai cần.
 
 ### 7.3 Không được lách bằng docstring
 

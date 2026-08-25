@@ -87,6 +87,8 @@ User: "luôn luôn có abstract". Áp dụng cho **gốc của mỗi chuỗi ph�
 (`Surface`, `Card`, `Overlay`) — đây là phân loại, không phải suy đoán, và mỗi cái đã có ≥2
 instance cụ thể ngay từ đầu.
 
+> ⚠️ **Hết hiệu lực 2026-08-25:** ngưỡng *"chỉ tạo abstraction khi có ≥2 nhu cầu thật"* đã bị user bỏ. Nay **luôn khuyến khích abstraction** — xem [`architecture-rule.md` §7.2](../../../.agents/rules/architecture-rule.md). Đoạn dưới giữ nguyên làm hồ sơ lịch sử; đừng dùng nó làm tiêu chí chặn.
+
 **Không** áp dụng để tạo lại kiểu tầng trung gian như `FormCard`/`StreamCard`/`TableCard`/
 `ActionCard` cũ — cả 4 cái đó được suy đoán ra từ một docstring, chưa từng có 2 nhu cầu thật
 giống nhau, và khi kiểm tra lại thì **toàn bộ lý do chúng tồn tại tự biến mất** khi chuyển sang
