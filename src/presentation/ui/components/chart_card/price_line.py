@@ -1,5 +1,6 @@
 import pyqtgraph as pg
 from PySide6 import QtCore
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 
 from . import theme
 
@@ -20,7 +21,7 @@ class LastPriceLine:
             label="{value:.4f}",
             labelOpts={
                 "position": 1.0,
-                "color": "#ffffff",  # token-exempt: chart_card avoids Palette, see theme.py
+                "color": Palette.TEXT_PRIMARY,
                 "fill": pg.mkBrush(theme.BULL_COLOR),
                 "movable": False,
             },

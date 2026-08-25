@@ -1,5 +1,6 @@
 from PySide6.QtCore import QElapsedTimer, QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QLabel, QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 
 _FPS_SAMPLE_INTERVAL_MS = 500
 _OVERLAY_MARGIN = 8
@@ -42,9 +43,9 @@ class ChartFpsOverlay(QObject):
         self.label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.label.setStyleSheet(
             "QLabel {"
-            " color: #F0B90B;"  # token-exempt: chart_card avoids Palette, see theme.py
+            f" color: {Palette.ACCENT};"
             " background: rgba(11, 14, 17, 190);"
-            " border: 1px solid #474D57;"  # token-exempt: chart_card avoids Palette, see theme.py
+            f" border: 1px solid {Palette.MUTED};"
             " border-radius: 3px;"
             " padding: 3px 6px;"
             " font-family: monospace;"

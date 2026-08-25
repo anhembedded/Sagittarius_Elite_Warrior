@@ -130,12 +130,26 @@ Cách thoát: rút gọn câu lý do, và với chỗ vẫn dài thì đưa giá
 (`crosshair_controller._LABEL_FILL`) để dòng đủ ngắn. **Luôn chạy guard SAU `ruff format`,
 không phải trước** — nếu không, cổng xanh giả.
 
+## Hai ứng viên đã được user chốt và làm ngay sau đó
+
+Cả hai nằm trong commit tiếp theo, không phải trong `007D` — ghi ở đây để nối mạch.
+
+**1. `chart_card/` là code của app.** User chốt 2026-08-25: thừa nhận nó đã phụ thuộc app
+(`indicator_manager` import `src.domain`) thay vì giả vờ khả chuyển. 19 marker `token-exempt`
+→ **4**, và cả 4 đều là màu nghiệp vụ thật (nến tăng/giảm, 2 màu chỉ báo trong script demo).
+Docstring `theme.py` — vốn khẳng định package "doesn't import the app's global Palette" — đã
+viết lại theo sự thật, kèm chỉ dẫn phải gỡ gì nếu sau này thật sự muốn làm nó khả chuyển.
+
+**2. Guard đã được nối vào CI.** `tests/unit/presentation/ui/test_widget_guards_hold.py`.
+`find_inline_stylesheets` khoá **0 tuyệt đối**; `find_bare_qt_base_widgets` khoá bằng **trần
+21 chỉ được giảm**, kèm một test thứ hai báo đỏ khi con số *giảm* mà quên hạ trần — nếu không
+trần sẽ phình ra rồi nằm đó vô nghĩa. Có cả test kiểm `_UI_ROOT` trỏ đúng chỗ, vì một đường
+dẫn sai sẽ khiến hai guard quét thư mục rỗng và xanh vì không tìm thấy gì.
+
 ## Ứng viên ghi lại
 
 | Thứ | Vì sao hoãn |
 | :--- | :--- |
-| `chart_card/` portable hay không | Xem §Lệch 2 — cần user quyết |
-| Nối dây guard vào CI | Guard giờ về 0 nhưng **vẫn chưa ai chạy nó tự động**; đây là lúc rẻ nhất để khoá lại, ứng viên cho `007G` |
 | Đóng băng đồng hồ trong harness chụp ảnh | Sẽ làm ảnh so sánh được từng pixel; cần VM nhận thời gian cố định |
 | Test khoá sọc vằn | Không test nào bảo vệ nó — xem §1 trên. Ứng viên cho `007F` khi bảng chuyển sang `TableCard` |
 | `ruff` `UP017` ở `test_kline_inspector_widget.py` | **Đã đỏ sẵn trước task này** (xác minh bằng `git stash`), ở file `007D` không đụng tới. Không sửa kèm để diff không lẫn |
