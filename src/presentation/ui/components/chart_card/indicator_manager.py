@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import pyqtgraph as pg
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 
 from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout
@@ -10,7 +11,7 @@ from .viewport_culled_layer import ViewportCulledLayer
 from .viewport_windowing import visible_slice_indices
 
 #: Default text colour for an InfoField that didn't specify one.
-_DEFAULT_INFO_COLOR = "#c9cdd3"  # token-exempt: chart_card avoids Palette, see theme.py
+_DEFAULT_INFO_COLOR = Palette.MUTED
 _SMOOTH_LINE_ANTIALIAS = True
 
 

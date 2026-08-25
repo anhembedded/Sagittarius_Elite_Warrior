@@ -18,6 +18,7 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import QGraphicsView, QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 
 # Must live under "App": StdLogger attaches every handler to the "App" logger
 # and sets `propagate = False` on it, so a `__name__`-based logger here has no
@@ -25,12 +26,8 @@ from PySide6.QtWidgets import QGraphicsView, QWidget
 # would emit it — INFO diagnostics would vanish silently.
 logger = logging.getLogger("App.CachedFrameInteraction")
 
-_BACKGROUND_COLOR = QColor(
-    "#0b0e14"  # token-exempt: chart_card avoids Palette, see theme.py
-)
-_CROSSHAIR_COLOR = QColor(
-    "#8a8f98"  # token-exempt: chart_card avoids Palette, see theme.py
-)
+_BACKGROUND_COLOR = QColor(Palette.BG)
+_CROSSHAIR_COLOR = QColor(Palette.MUTED)
 _CROSSHAIR_WIDTH = 1.0
 _WHEEL_COMMIT_INTERVAL_MS = 80
 _WHEEL_DELTA_UNIT = 120.0

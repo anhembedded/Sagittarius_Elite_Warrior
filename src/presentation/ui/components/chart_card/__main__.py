@@ -18,7 +18,7 @@ app = QApplication(sys.argv)
 app.setStyleSheet("""
     #base_card { background-color: #1e1e24; border: 1px solid #333333; border-radius: 8px; }
     #base_card_header { background-color: #25252b; padding: 10px; border-bottom: 1px solid #333333; }
-    #base_card_title { color: #ffffff; font-weight: bold; font-family: sans-serif; }
+    #base_card_title { color: {Palette.TEXT_PRIMARY}; font-weight: bold; font-family: sans-serif; }
 """)
 
 card = ChartCard("BTCUSDT")
@@ -36,11 +36,11 @@ base_price = 60000.0
 # 1. SETUP INDICATORS
 card.add_overlay_indicator(
     "SMA_20",
-    color="#f39c12",  # token-exempt: chart_card avoids Palette, see theme.py
+    color="#f39c12",  # token-exempt: candle/indicator series colour, not chrome
 )
 card.add_subplot_indicator(
     "RSI_14",
-    color="#9b59b6",  # token-exempt: chart_card avoids Palette, see theme.py
+    color="#9b59b6",  # token-exempt: candle/indicator series colour, not chrome
     height_ratio=1,
 )
 
