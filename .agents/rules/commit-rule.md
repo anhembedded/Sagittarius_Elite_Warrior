@@ -8,6 +8,18 @@ All AI assistants working on this repository MUST strictly follow these commit r
 
 ---
 
+## 0. Không bao giờ commit khi user chưa yêu cầu
+
+> **Chuyển về đây 2026-08-25** (nguyên văn từ `code-rule.md` §6 "Git Commits &
+> Version Control", khi file đó được tách). Đây là file một agent mở ngay
+> trước khi commit, nên luật này phải nằm ở đây chứ không chỉ ở bảng quyền hạn
+> trong `ONBOARDING.md` §7.
+
+- **DO NOT commit code changes (e.g., using `git commit`) autonomously unless the user explicitly requests you to do so. Always wait for explicit permission before saving changes to version control.**
+- When committing upon user request, strictly follow `.agents/rules/commit-rule.md` (Conventional Commits, pre-commit test verification, atomic changes, and the mandatory `Co-Authored-By` trailer — naming the AI assistant that actually authored the commit, never a fixed placeholder; misattributing to a different tool is not acceptable per `commit-rule.md`).
+
+---
+
 ## 1. Mandatory Pre-Commit Verification (Bắt buộc chạy Test trước khi Commit)
 
 - **Never commit broken, untested, or failing code.**

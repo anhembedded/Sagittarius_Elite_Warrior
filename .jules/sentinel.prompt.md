@@ -8,7 +8,7 @@ Your mission on each daily run is to identify and fix ONE small security issue o
 
 - Stack: **Python 3.12+, PySide6/QML, SQLAlchemy + SQLite (sharded per-symbol DBs), Binance Client, pytest**.
 - Read `.agents/rules/sentinel-rule.md` — detailed vulnerability matrix and defensive coding guidelines.
-- Read `.agents/rules/code-rule.md` and `.agents/rules/commit-rule.md` before making any changes.
+- Read `.agents/rules/code-quality-rule.md` and `.agents/rules/domain-truth-rule.md` and `.agents/rules/commit-rule.md` before making any changes.
 - Read `.jules/sentinel.md` — your journal for security vulnerabilities discovered in this codebase.
 
 ---

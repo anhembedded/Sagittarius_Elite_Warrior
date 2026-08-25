@@ -6,6 +6,29 @@ change, and which mistakes have already bitten a previous AI session so you
 don't repeat them. It does not duplicate the rules themselves — it points
 you at the file that owns each one, so there's a single source of truth.
 
+> [!IMPORTANT]
+> **Read `ONBOARDING.md` first, not this file — audited 2026-08-25.** The
+> dated session entries below are a **historical record** and are kept as
+> written; several of the facts they state were true then and are **not true
+> now**. The two biggest reversals, both of which invalidate whole sections
+> below on sight:
+>
+> 1. **The native C++/QML chart backend was deleted outright** on 2026-08-24
+>    (commit `36f3a9f`, `refactor(backtest): delete native C++/QML chart
+>    backend entirely`) — triggered by `BUG-039`. Every mention below of
+>    `NativeBacktestChartHost`, `native_chart_item.cpp`,
+>    `Sagittarius.NativeChart`, `chart_migration_benchmark.py`, or
+>    `BOT-098F*` describes code that **no longer exists**. `BUG-015` and
+>    `BUG-016` are both **closed** (`Tasks/bug_report/completed/`), not open.
+> 2. **The two repos are no longer superproject/submodule** — detached
+>    2026-08-21 (commit `a1efcd6`). There is no `.gitmodules` and nothing to
+>    "bump". See [`ONBOARDING.md` §2](ONBOARDING.md) for the current commit
+>    workflow; ignore any "superproject"/"submodule" wording below.
+>
+> **Current state of play is in [`ONBOARDING.md` §12](ONBOARDING.md)**
+> (`EPIC-007` / `EPIC-008`, and `EPIC-006F` still open) — not here. The most
+> recent session entry below is 2026-08-20.
+
 ## Latest session handover (2026-08-20) — Epic `BOT-109` (Golden Reference Strategy): `BOT-041`/`BOT-050`/`BOT-110` all closed, one real provisional-state bug found and fixed
 
 **Epic `BOT-109`** (port TradingView's "EMA Trend Confirm + Pullback + TP%"
@@ -235,7 +258,7 @@ observation about `RSI` (Wilder's smoothing is mathematically an EMA variant
 with `α=1/period`, currently hand-rolled instead of composed) was accepted
 as legitimate, but deliberately *not* bundled into `BOT-042` — it's now its
 own low-priority task,
-[`BOT-101`](../Tasks/backlog/BOT-101_rsi_compose_generalized_smoothing.md).
+[`BOT-101`](../Tasks/completed/BOT-101_rsi_compose_generalized_smoothing.md).
 
 **`BOT-076` §3.1/§3.2 — the engine core, done.** `RunRealtimeBacktestCommand`
 has its own `tick_resolution: TimeFrame` field, independent of `interval` (a
@@ -287,7 +310,7 @@ fragments that used to live in `code-rule.md`/`commit-rule.md`) and
 additionally drops the threshold to `TRACE`). `BUG-013` (stale native
 dispose callback crashing "Chạy Backtest" on the fallback-to-Python path)
 is fixed — full writeup in
-[`Tasks/bug_report/BUG-013.md`](../Tasks/bug_report/BUG-013.md); the
+[`Tasks/bug_report/completed/BUG-013.md`](../Tasks/bug_report/completed/BUG-013.md); the
 regression-test lesson worth repeating: a `Mock(spec=NativeBacktestChartHost)`
 silently passed with **no fix applied at all**, twice, because the crash
 lived inside a real method (`_assert_owning_gui_thread()`) a Mock never
@@ -305,28 +328,29 @@ widget's deferred deletion to actually happen inside a test.
   Realtime (`BOT-076` ✅, now complete) — not three. Dynamic's only distinct
   value (play/pause/speed) became `BOT-076` §3.5, then was explicitly
   dropped by user decision when `BOT-076` was closed out.
-- **`BUG-015`/`BUG-016` are Windows-only, still open, block `BOT-098F4`/`F5`/`F6C`/`F6D`
-  from being called done.** `BUG-015`: native chart OHLCV/volume geometry
-  randomly rebuilds (~75% of runs) on plain drag+wheel on real Windows 11
-  D3D11 RHI — root cause narrowed to `sizeChanged` in `native_chart_item.cpp`
-  possibly firing spuriously, **not confirmed**, needs `qDebug()` + rebuild
-  on an actual Windows machine. `BUG-016`: `chart_migration_benchmark.py
-  --desktop-contract` hangs completely on Windows, zero output, not
-  root-caused at all. **If you're reading this because you just switched to
-  a Windows machine — this is exactly the kind of investigation that needed
-  real Windows access and couldn't be done on Linux.** See both bug reports
-  in `Tasks/bug_report/` and the `[!NOTE]` block near the top of
-  `Tasks/ROADMAP.md`'s "In Progress" section for the full context (including
-  3 real probe-script bugs that were previously mis-blamed on "Wayland/
-  software-RHI flaky" and have already been fixed).
-- **Native chart was built/tested only for Backtest's "submit once per
-  run/mode-change" pattern — not safe for a per-tick live chart (Dev Board)
-  without new work.** `NativeBacktestChartHost`'s submission calls hard-assert
-  the calling thread is the GUI thread (live ticks arrive on a background
-  thread — no marshal step exists yet), and every submission is a
-  full-replace snapshot, not incremental — at real tick frequency this would
-  just relocate the CPU bottleneck the whole native migration exists to
-  remove. `BOT-098F6`'s own scope doc excludes this for exactly this reason.
+- **~~`BUG-015`/`BUG-016` are Windows-only, still open~~ — both CLOSED, and
+  the native chart they were about no longer exists.** Corrected 2026-08-25.
+  [`BUG-015`](../Tasks/bug_report/completed/BUG-015_native_chart_geometry_rebuild_on_pointer_interaction_windows.md)
+  closed 2026-08-21: it was **not** a renderer bug at all —
+  `root->buildCount` was always 1; the real defect was in the probe script,
+  which read the `geometryBuildCount` diagnostic property before the render
+  thread had published it across the cross-thread hop (same class as 3 other
+  probe bugs already fixed). Fixed by waiting on a real post-condition
+  instead of a fixed number of `processEvents()` calls: 25% → 15/15 pass.
+  [`BUG-016`](../Tasks/bug_report/completed/BUG-016_chart_migration_benchmark_desktop_contract_hangs_windows.md)
+  closed 2026-08-24 as **moot, not fixed** — the native backend and its
+  benchmark script were both deleted to unblock `EPIC-006F`. Do not go
+  looking for a Windows machine to investigate either one.
+- **~~Native chart is not safe for a per-tick live chart~~ — moot, the
+  native chart is gone.** Corrected 2026-08-25. The whole native C++/QML
+  backend (`NativeBacktestChartHost`, `native_chart_item.cpp`,
+  `Sagittarius.NativeChart`, `build-native-chart.ps1`) was deleted in
+  `36f3a9f` on 2026-08-24 after [`BUG-039`](../Tasks/bug_report/completed/BUG-039_native_chart_default_regressed_backtest_visuals.md)
+  (making it the default regressed Backtest visuals). The `IBacktestChartHost`
+  **port** survived the deletion and is still the right boundary — see
+  `domain-truth-rule.md` "Backtest chart host boundary" — it simply has one
+  implementation now. Every `BOT-098F*` task is either completed or
+  cancelled; none describes live code.
 - **`BUG-009`/`BUG-010`** (cached-frame drag-preview widget shift, "Đồng bộ
   ngay" never clearing the missing-candles banner) are both **fixed and
   verified** — see their own files in `Tasks/bug_report/` for the final root
@@ -335,10 +359,12 @@ widget's deferred deletion to actually happen inside a test.
   via GIL contention — confirmed NOT literally running on the Qt UI thread,
   see this session's own entry above) is filed, not started, no remediation
   direction chosen yet.
-- **[`BUG-017`](../Tasks/bug_report/BUG-017_backtest_sync_redownloads_full_range_ignoring_cached_coverage.md)**
+- **[`BUG-017`](../Tasks/bug_report/completed/BUG-017_backtest_sync_redownloads_full_range_ignoring_cached_coverage.md)**
   (Backtest screen's "Đồng bộ ngay" re-fetches the **entire** requested
   range from Binance every time, ignoring how much is already cached — root
-  cause confirmed by reading, not yet fixed): coverage detection
+  cause confirmed by reading, ~~not yet fixed~~ — **fixed 2026-08-20, now in
+  `Tasks/bug_report/completed/`; the description below is the original
+  root-cause analysis, kept for reference**): coverage detection
   (`GetBacktestRangeCoverageQuery`) correctly finds the real gap start, but
   `BackTestPresenter._run_sync()` throws that away and always passes the
   original requested range's own start into `SyncMarketDataCommand`, so
@@ -353,19 +379,25 @@ widget's deferred deletion to actually happen inside a test.
 **Sagittarius Elite Warrior** is a Binance trading bot: a Python desktop app
 (PySide6 + QML/Qt Quick UI) built on **Clean Architecture**, itself built on
 top of a separate shared framework, **Sagittarius Engine**. Two repos work
-together:
+together — **two fully independent Git repos** that merely sit nested on
+disk, *not* superproject/submodule (detached 2026-08-21, commit `a1efcd6`;
+this paragraph was corrected 2026-08-25 — it still said "superproject" /
+"submodule", which had been wrong for four days). There is no `.gitmodules`
+and no gitlink to bump: commit and push each repo on its own. Full rules in
+[`ONBOARDING.md` §2 and §9](ONBOARDING.md).
 
-- `Sagittarius-Engine/` — the **superproject**. Contains the shared
+- `Sagittarius_Engine/` — the **framework repo**. Contains the shared
   `sagittarius_engine/` framework (DI container, `IThreadManager`,
   `ConfigManager`, the `pyside_mvc` extension with shared QML components
   like `StatefulButton.qml`). Its own `.agents/` playbook
-  (`Sagittarius-Engine/.agents/PLAYBOOK.md` + `rules/`, `skills/`,
+  (`Sagittarius_Engine/.agents/PLAYBOOK.md` + `rules/`, `skills/`,
   `context/`) is generic — it doesn't know this app exists.
-- `Sagittarius_Elite_Warrior/` — this **submodule**. The actual bot
-  application: `src/domain/`, `src/application/`, `src/infrastructure/`,
-  `src/presentation/ui/` (PySide6 screens, each a `<name>_presenter.py` /
-  `<name>_view.py` / `<name>_view_model.py` MVP trio plus QML). This is
-  where you'll do almost all real work.
+- `Sagittarius_Elite_Warrior/` — the **app repo** (this one), branch
+  `master-warrior`. The actual bot application: `src/domain/`,
+  `src/application/`, `src/infrastructure/`, `src/presentation/ui/` (PySide6
+  screens, each a `<name>_presenter.py` / `<name>_view.py` /
+  `<name>_view_model.py` MVP trio plus QML). This is where you'll do almost
+  all real work.
 
 ## Installation & Dependencies
 
@@ -381,12 +413,24 @@ pip install -e Sagittarius_Engine
 
 ## Where the actual rules live (read these, don't guess)
 
-- **`.agents/rules/code-rule.md`** (this folder) — the real, binding
-  engineering rules for this submodule: No Hardcoding, SOLID, No Lazy Code
-  (no `lambda` — write a named function instead), mandatory sanity tests
-  for every new feature/screen, and the flat MVP-trio screen folder
-  convention. Read it in full before writing any code — this summary is
-  not a substitute.
+- **`.agents/rules/`** (this folder) — the real, binding engineering rules.
+  Split by abstraction level on 2026-08-25; `code-rule.md` is now only a
+  navigation stub listing where each former section went. Open the one your
+  task needs, not all of them:
+  [`architecture-rule.md`](rules/architecture-rule.md) (SOLID, layers, Port/ABC
+  completeness, CQRS, Abstraction-Level Separation),
+  [`code-quality-rule.md`](rules/code-quality-rule.md) (typing, immutability,
+  No Hardcoding, No Lazy Code — no `lambda`, write a named function),
+  [`async-ui-action-rule.md`](rules/async-ui-action-rule.md) (action ownership,
+  cancellation, Coordinator Pattern),
+  [`domain-truth-rule.md`](rules/domain-truth-rule.md) (truthful data, trading
+  semantics, chart host boundary),
+  [`ui-presentation-rule.md`](rules/ui-presentation-rule.md) (MVP trio folder
+  layout, `preview.py`), and
+  [`testing-rule.md`](rules/testing-rule.md) (mandatory sanity coverage for
+  every new feature/screen, invariants, Boundary Value Analysis).
+  Read the relevant one in full before writing code — this summary is not a
+  substitute.
 - **`.agents/rules/bug-fix-rule.md`** (this folder) — the full bug-fix
   workflow: root cause first, regression test before the fix (confirmed
   failing for the right reason, at the correct test tier — see `BUG-013`'s
@@ -395,9 +439,6 @@ pip install -e Sagittarius_Engine
   this before touching any reported bug.
 - **`.agents/rules/install-rule.md`** (this folder) — installation guidelines and
   dependency setup for `sagittarius_engine` (GitHub URL install vs. local editable).
-- **`.agents/rules/native-chart-rule.md`** — mandatory CMake build, Qt/PySide ABI,
-  staging, and verification rules for `Sagittarius.NativeChart`. User commands
-  live in `Docs/NATIVE_CHART_BUILD_AND_DEPLOY.md`.
 - **`.agents/rules/logging-rule.md`** — where to place diagnostic logging so
   a single reproduce-and-send-log cycle can find a root cause: `"App."`
   namespace only (enforced by `tests/unit/test_logging_namespace_guard.py`),
@@ -416,12 +457,16 @@ pip install -e Sagittarius_Engine
   most of `code-rule.md` verbatim, including a wrong hardcoded commit
   trailer — see `rules/commit-rule.md` for the real rule: the trailer must
   name the actual AI that authored the commit, never a fixed placeholder).
-- **`.agents/context/`** (this folder) — workload-specific, non-binding
-  context. Read the matching file when working in that area; it records
-  current facts, task order, and known hazards without duplicating rules.
-  For Backtest lifecycle/FSM/async work, read
-  `.agents/context/BOT-095_backtest_lifecycle.md` before editing code.
-- **`../.agents/PLAYBOOK.md`** (superproject root) — generic AI working
+- **`.agents/context/`** — was a folder of workload-specific, non-binding
+  context. **Empty as of 2026-08-25:** its only file,
+  `BOT-095_backtest_lifecycle.md`, was deleted as obsolete in `b84a365`, so
+  this bullet's old instruction ("for Backtest lifecycle/FSM/async work, read
+  `.agents/context/BOT-095_backtest_lifecycle.md` before editing code")
+  pointed at nothing. For that area read
+  [`rules/async-ui-action-rule.md`](rules/async-ui-action-rule.md) instead —
+  it owns action ownership, cancellation and the Coordinator Pattern.
+- **`../.agents/PLAYBOOK.md`** (the Engine repo, i.e. the parent directory
+  on disk — a separate repo, not a parent project) — generic AI working
   process (understand → load context → apply rules → pick a skill →
   execute → validate). Its context/rule/skill routing tables reference an
   `.ai/` path that doesn't actually exist in this repo (the real directory
@@ -430,12 +475,16 @@ pip install -e Sagittarius_Engine
 - **`Tasks/ROADMAP.md`** — the live status board: completed vs. backlog
   task counts, and a table of every `BOT-XXX`/`BUG-XXX` task. Check this
   before assuming a feature is missing or unimplemented.
-- **`.jules/bolt.md`, `.jules/palette.md`, `.jules/sentinel.md`** —
-  running journals (critical learnings only, not logs) for three daily
-  automation agents: Bolt (performance), Palette (UX/accessibility),
-  Sentinel (security). `.jules/*.prompt.md` are their actual system
-  prompts. If you're doing performance/UX/security work, read the
-  matching journal first — it already has real, codebase-specific lessons.
+- **`.jules/*.prompt.md`** — the system prompts for the automation agents
+  (`bolt` performance, `palette` UX/accessibility, `sentinel` security,
+  plus `doctor`, `janitor`, `scout`, `scribe`). Read the matching prompt
+  when doing work in that area.
+  **Corrected 2026-08-25:** this entry previously pointed at running
+  *journals* `.jules/bolt.md` / `palette.md` / `sentinel.md` — **those
+  files do not exist**; `.jules/` contains only the seven `*.prompt.md`
+  files (`ls .jules/`). Do not go looking for accumulated agent lessons
+  there; the real codebase-specific lessons live in `Tasks/reports/` and in
+  each completed task's "Ghi chú Triển khai" section.
 
 ## How to verify a change (real commands, ground truth)
 
@@ -446,7 +495,8 @@ ruff check src tests
 ruff format --check src tests
 ```
 
-Full test suite, run from the **superproject root** (`PYTHONPATH=..` is
+Full test suite, run from the **workspace root** — the directory that
+contains both repos (`PYTHONPATH=..` is
 load-bearing — tests import this app as the `Sagittarius_Elite_Warrior`
 package):
 
@@ -456,15 +506,27 @@ PYTHONPATH=.. QT_QPA_PLATFORM=offscreen pytest Sagittarius_Elite_Warrior/tests \
   --cov=Sagittarius_Elite_Warrior/src --cov-report=term-missing --cov-fail-under=80 -v
 ```
 
-This is exactly what `.github/workflows/ci.yml` runs, and what
-`scripts/ci-local.ps1` wraps (`-SanityOnly` / `-UnitOnly` for fast
-subsets during a dev loop, `-Full` for the gated version above,
-`-IncludeFlakyUi` to deliberately include the excluded UI-integration
-suite). `tests/integration/presentation/ui/` is skipped by default in
-`ci-local.ps1` because it has a known intermittent native Qt/PySide6
-crash (tracked as `BOT-038`) — do not "fix" that as a drive-by, it's an
-open investigation, and note the actual GitHub Actions workflow does
-**not** exclude it (a real, unresolved discrepancy).
+This approximates what `scripts/ci-local.ps1` wraps (`-SanityOnly` /
+`-UnitOnly` for fast subsets during a dev loop, `-Full` for the gated
+version above, `-IncludeFlakyUi` to deliberately include the excluded
+UI-integration suite). `tests/integration/presentation/ui/` is skipped by
+default in `ci-local.ps1` because it has a known intermittent native
+Qt/PySide6 crash (tracked as `BOT-038`) — do not "fix" that as a drive-by,
+it's an open investigation.
+
+> **Corrected 2026-08-25:** this paragraph used to say the command above is
+> "exactly what `.github/workflows/ci.yml` runs", and closed on a
+> "real, unresolved discrepancy" between that workflow and `ci-local.ps1`.
+> **There is no `.github/` directory in this repo at all** — no GitHub
+> Actions workflow exists, so there is no discrepancy to chase.
+> `.agents/rules/ci-rule.md` §7 already states the correct position: *"CI
+> for this project is local-only (`ci-local.ps1`); there is no GitHub
+> Actions workflow."* `ci-local.ps1` is the only gate. Note also that
+> `ONBOARDING.md` §5 supersedes the bash commands above for day-to-day use:
+> `pwsh` **is** available on Linux via snap, so run the real gate
+> (`pwsh -NoProfile -Command "./scripts/ci-local.ps1 -Full"`) rather than
+> re-assembling the steps by hand, and always redirect to a log file
+> (`> run.log 2>&1`, never `| tail`) before reading results.
 
 ## Test-writing gotchas already discovered here
 

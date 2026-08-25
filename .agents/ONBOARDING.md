@@ -6,7 +6,8 @@ trigger: always_on
 
 # ONBOARDING — Đọc file này TRƯỚC KHI viết dòng code đầu tiên
 
-Dự án này đã có 8 file rule chi tiết. Vấn đề không phải thiếu rule — mà là
+Dự án này đã có 13 file rule (đếm thật: `ls .agents/rules/`) — **đừng nạp hết**;
+mỗi file có `trigger` riêng, đọc đúng cái việc bạn đang làm cần. Vấn đề không phải thiếu rule — mà là
 một agent mới **không biết có những file đó, đọc theo thứ tự nào, và quy
 trình thật sự chạy ra sao**. File này là bản đồ đó. Nó không lặp lại nội
 dung rule; nó nói *khi nào* đọc rule nào, và mô tả những phần quy trình
@@ -20,21 +21,34 @@ bookkeeping `ROADMAP.md`).
 | Thứ tự | File | Khi nào |
 | :--- | :--- | :--- |
 | 1 | `.agents/ONBOARDING.md` (file này) | Luôn luôn, đầu tiên |
-| 2 | `.agents/AGENTS.md` | Chỉ để điều hướng — nội dung thật nằm ở `rules/code-rule.md` (sửa 21/08: file này trước là bản sao trôi của `code-rule.md`, đã rút gọn) |
-| 3 | `.agents/rules/code-rule.md` | Mọi thay đổi code Python |
-| 4 | `.agents/rules/ci-rule.md` | Trước khi tuyên bố "xong" bất cứ thứ gì — định nghĩa 4 tầng test |
-| 5 | `.agents/rules/commit-rule.md` | Trước mọi commit |
-| 6 | `.agents/rules/bug-fix-rule.md` | **Bắt buộc** khi user báo bug |
-| 7 | `.agents/rules/logging-rule.md` | Khi thêm/sửa log, và trong mọi bug fix |
-| 8 | `.agents/rules/qml-rule.md` | Khi đụng file `.qml` |
-| 9 | `.agents/Handover.md` | Khi cần bối cảnh lịch sử của một mảng cụ thể |
+| 2 | `.agents/AGENTS.md` | Chỉ để điều hướng — bảng trong đó trỏ đúng file rule theo chủ đề |
+| 3 | `.agents/rules/code-quality-rule.md` | Mọi thay đổi code Python trong `src/`, `scripts/` |
+| 4 | `.agents/rules/architecture-rule.md` | Khi đụng kiến trúc: Port/ABC, tầng, CQRS, tách file theo abstraction level |
+| 5 | `.agents/rules/ci-rule.md` | Trước khi tuyên bố "xong" bất cứ thứ gì — định nghĩa 4 tầng test + lệnh gate |
+| 6 | `.agents/rules/commit-rule.md` | Trước mọi commit |
+| 7 | `.agents/rules/bug-fix-rule.md` | **Bắt buộc** khi user báo bug |
+| 8 | `.agents/rules/logging-rule.md` | Khi thêm/sửa log, và trong mọi bug fix |
+| 9 | `.agents/rules/testing-rule.md` | Khi viết test (cách viết; lệnh chạy ở `ci-rule.md`) |
+| 10 | `.agents/rules/async-ui-action-rule.md` | Khi sửa Presenter, tác vụ nền, cancellation, Coordinator |
+| 11 | `.agents/rules/domain-truth-rule.md` | Khi đụng `src/domain/`, `src/application/` |
+| 12 | `.agents/rules/ui-presentation-rule.md` | Khi đụng `src/presentation/` (Python) |
+| 13 | `.agents/rules/qml-rule.md` | Khi đụng file `.qml` |
+| 14 | `.agents/Handover.md` | Khi cần bối cảnh lịch sử của một mảng cụ thể |
 | — | `Tasks/ROADMAP.md` | Khi cần biết hệ thống đang ở đâu, task nào tồn tại |
 | — | `Tasks/bug_report/README.md` | Bug Board — hệ thống đang gánh lỗi gì (mở/đã sửa) |
 | — | `Tasks/epics/README.md` | Danh sách Epic đang có (mỗi Epic có thư mục + README riêng, xem §3) |
 | — | **§12 của file này** | **Bắt tay vào việc đang dở** — epic nào đang chạy, task con tiếp theo, cơ chế mới ở Engine phải dùng |
 
-`.agents/rules/sentinel-rule.md` và `install-rule.md` là chuyên đề riêng
-(bảo mật / cài đặt), đọc khi task chạm đúng phạm vi đó.
+`.agents/rules/install-rule.md` là chuyên đề riêng (cài đặt), đọc khi task
+chạm đúng phạm vi đó. `.agents/rules/code-rule.md` giờ **chỉ là stub điều
+hướng** — nội dung thật đã tách ra 6 file ở bảng trên (tách 2026-08-25); file
+stub được giữ lại vì 7 `.jules/*.prompt.md` đang trỏ vào nó.
+
+> **Sửa 2026-08-25:** dòng này trước đây còn nhắc
+> `.agents/rules/sentinel-rule.md` — **file đó không tồn tại** (và cũng không
+> có trong lịch sử `git log`). Quy tắc bảo mật thật sống ở
+> `.jules/sentinel.prompt.md` + `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`,
+> không phải ở `rules/`.
 
 ---
 
@@ -259,11 +273,20 @@ thân `PRO-XXX.md` không tự thực thi được.
 | Sửa file ngoài phạm vi task | Không, trừ khi user yêu cầu |
 | Xoá/ghi đè file của user | Đọc nội dung trước, hỏi trước |
 
-**Phản biện là bắt buộc, không phải tuỳ chọn** (`code-rule.md` §5): nếu yêu cầu
-của user tạo ra mâu thuẫn kiến trúc, vi phạm ranh giới tầng, hoặc phá
-nguyên tắc đã chốt — phải nói ra và đề xuất phương án sạch, không im lặng
-làm theo. Nhưng nếu user đã nghe và vẫn quyết định giữ nguyên yêu cầu thì
-làm đầy đủ theo họ.
+### Phản biện là bắt buộc, không phải tuỳ chọn
+
+> **Chuyển về đây 2026-08-25** (nguyên văn từ `code-rule.md` §5 "Proactive
+> Inconsistency Challenge & Constructive Pushback"). Nó là nguyên tắc làm việc
+> chung, không phải quy tắc code cụ thể, nên thuộc file này chứ không thuộc
+> `rules/`.
+
+- The AI assistant MUST actively challenge/refute user requests if they introduce inconsistencies, anti-patterns, layer violations, or break established domain principles.
+- Never blindly follow contradictory instructions; explain the root issue and propose a clean, consistent alternative.
+
+Nói cách khác: nếu yêu cầu của user tạo ra mâu thuẫn kiến trúc, vi phạm ranh
+giới tầng, hoặc phá nguyên tắc đã chốt — phải nói ra và đề xuất phương án
+sạch, không im lặng làm theo. Nhưng nếu user đã nghe và vẫn quyết định giữ
+nguyên yêu cầu thì làm đầy đủ theo họ.
 
 ---
 
@@ -375,6 +398,38 @@ file — cộng 1 lỗi thật nguy hiểm: mục Git Commits ghi cứng
 để biết chi tiết. Cập nhật lại dòng #2 và trích dẫn "Phản biện là bắt buộc"
 ở §7 (trước trỏ vào `AGENTS.md`, giờ trỏ đúng `code-rule.md` §5). Nếu phát
 hiện thêm chỗ lỗi thời, sửa và ghi lại ở đây thay vì im lặng đi đường vòng.
+
+**Đã dọn 2026-08-25 (rà soát `.agents/` đối chiếu thực tế trên đĩa):** phát
+hiện 8 chỗ **sai thật**, không phải chỉ lỗi thời câu chữ — tất cả đã sửa:
+
+1. `AGENTS.md` và §1 của file này cùng trỏ tới `.agents/rules/sentinel-rule.md`
+   — **file chưa bao giờ tồn tại**. Đã xoá cả 2 link gãy; nội dung bảo mật
+   thật ở `.jules/sentinel.prompt.md` + `Tasks/epics/EPIC-004_.../`.
+2. §1 ghi "8 file rule", thực tế **7** (`ls .agents/rules/`). Con số này đã
+   sai 3 lần liên tiếp (10 → 9 → 8 → thực tế 7) — đừng chép lại, hãy đếm.
+3. `Handover.md` mô tả 2 repo là **superproject/submodule** — sai từ
+   2026-08-21 (`a1efcd6`), đúng cái mà §2 file này đã sửa. Đã sửa 4 chỗ.
+4. `Handover.md` trỏ tới `.agents/rules/native-chart-rule.md` và
+   `Docs/NATIVE_CHART_BUILD_AND_DEPLOY.md` — **cả hai đều không tồn tại**.
+   Đã xoá mục đó.
+5. `Handover.md` nói `.github/workflows/ci.yml` "chạy đúng lệnh này" và có
+   một "discrepancy chưa giải quyết" với `ci-local.ps1` — **repo này không
+   có thư mục `.github/` nào cả**, đúng như `ci-rule.md` §7 đã ghi
+   (CI local-only). Không có discrepancy nào để đuổi theo.
+6. `Handover.md` trỏ tới journal `.jules/bolt.md` / `palette.md` /
+   `sentinel.md` — **không tồn tại**, `.jules/` chỉ có 7 file `*.prompt.md`.
+7. `BUG-015`/`BUG-016` bị mô tả là "Windows-only, còn mở, chặn `BOT-098F*`"
+   — **cả hai đã đóng** (`bug_report/completed/`): `BUG-015` hoá ra là lỗi
+   probe script chứ không phải renderer; `BUG-016` đóng dạng *moot* vì
+   native chart đã bị xoá hẳn (`36f3a9f`, 2026-08-24). `BUG-017` cũng bị
+   ghi "chưa sửa" trong khi đã sửa.
+8. 3 link `.md` gãy trong `Handover.md` (`BOT-101`, `BUG-013`, `BUG-017`
+   đều đã chuyển sang `completed/`). Đã trỏ lại đúng chỗ.
+
+`Handover.md` giờ có khối `[!IMPORTANT]` ở đầu nói thẳng: các mục theo phiên
+bên dưới là **bản ghi lịch sử**, mục mới nhất là 2026-08-20, và trạng thái
+hiện tại nằm ở §12 file này. Không xoá phần lịch sử — chỉ đánh dấu chỗ đã
+hết đúng.
 
 Lưu ý còn tồn tại: **mọi rule file của cả hai repo chỉ ghi lệnh
 PowerShell**. Trên Linux dùng lệnh ở §5.
@@ -493,11 +548,12 @@ Engine gate xanh). Viết cái khác thay thế là tái tạo lại đúng lỗ
    implementation, base class vs subclass); (b) các file **khác abstraction level** không được
    nằm chung một `dir` — thư mục là một tầng, không phải cái sọt (`interfaces/` không chứa
    implementation, `widgets/` dùng chung không chứa widget riêng của 1 màn). Đối trọng duy
-   nhất là Single-Scope Cohesion trong `code-rule.md`, và nó **chỉ** thắng khi các định nghĩa
+   nhất là Single-Scope Cohesion trong `code-quality-rule.md`, và nó **chỉ** thắng khi các định nghĩa
    mô tả **cùng một vòng đời** (enum + ma trận của một FSM) — "cùng feature"/"cùng màn hình"
    **không** tính. Ngưỡng buộc tách: **>400 dòng/file** hoặc **>15 method công khai/lớp**.
    Phân xử nhanh: *đổi A có bắt buộc phải sửa B không?* Có → chung file; không → tách.
-   Toàn văn ở [`rules/code-rule.md`](rules/code-rule.md) §7 "Abstraction-Level Separation".
+   Toàn văn ở [`rules/architecture-rule.md`](rules/architecture-rule.md) §5
+   "Abstraction-Level Separation".
 3. **Trình design trước khi implement** với mọi việc tái cấu trúc: PlantUML class + component,
    as-is và to-be, chỉ rõ cái gì dùng chung / cái gì riêng từng màn — duyệt xong mới viết task
    file và code.
