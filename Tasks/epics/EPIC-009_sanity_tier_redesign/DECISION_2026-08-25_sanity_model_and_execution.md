@@ -136,7 +136,7 @@ from it, so an error here propagates to everything.
 
 ## 5. Decisions proposed
 
-### D2 — Two execution layers; neither may rebuild the app 🔵 Proposed — **revised 2026-08-25 after review**
+### D2 — Two execution layers; neither may rebuild the app ✅ **Implemented 2026-08-25**
 
 > **Superseded:** the first version of D2 read *"Sanity gets no entry point of
 > its own"* and concluded that Sanity should call `build()` from pytest. That
@@ -203,6 +203,26 @@ import the only mode.
 (skips theme, injects fakes, swaps wiring). Rejected for the original D2's
 reason, now with receipts: that is what the three probe scripts do, and it cost
 two bugs.
+
+> **Built and verified 2026-08-25.** `src/presentation/ui/app_bootstrapper.py`
+> now exposes `build()` / `teardown()` / `AppRuntime`, and `main()` is reduced
+> to `build() -> app.exec() -> teardown()`. `--self-check` is the degenerate
+> control session D2b names below: boot for real, one event-loop turn, exit
+> with a real process exit code. New tier:
+> `tests/sanity/test_self_check_process.py` — 3 tests, real subprocess launch,
+> ~4.4s each.
+>
+> Verified by fault injection, not just by passing: an exception raised inside
+> `teardown()` was injected twice (before any step ran, and after
+> `app_engine.stop()` completed) to confirm the OUT-layer test actually
+> detects failure rather than trivially passing. Both hung the real process
+> instead of producing a non-zero exit — a genuine finding, not the predicted
+> failure mode, filed as `BUG-048` (P1): `sys.excepthook`'s fallback UI shows
+> a blocking modal (`dialog.exec()`) unconditionally, which nothing can
+> dismiss under `QT_QPA_PLATFORM=offscreen`, so *any* uncaught exception after
+> boot hangs the process forever rather than crashing it. Not fixed here — out
+> of this ADR's scope — but it is exactly the class of defect this layer was
+> built to catch, caught on the first real test of it.
 
 ### D2b — The OUT layer is a control channel, not just a boot-and-exit check 🔵 Proposed — **added 2026-08-25 after review**
 

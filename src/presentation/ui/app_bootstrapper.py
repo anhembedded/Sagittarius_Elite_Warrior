@@ -9,8 +9,29 @@ Responsible for:
 - Creating and showing MainWindow.
 - Shutting down the Engine and background diagnostics on exit.
 
-This module owns the `main()` function so that `MainWindow` is a pure
-assembly component with no Engine-boot side effects.
+`main()` is deliberately split into `build()` / `teardown()`, with `main()`
+itself reduced to `build() -> app.exec() -> teardown()`. This is not a
+refactor for its own sake — it is `EPIC-009`'s D2: the Sanity tier needs to
+launch this exact application, not a bespoke re-composition of it, and the
+only way to do that without duplicating every line above is to give the real
+entry point two callable halves instead of one monolithic function that also
+owns the event loop.
+
+`--self-check` is the smallest real consumer of that split (`EPIC-009`'s D2b,
+degenerate case): boots the application for real, lets the event loop turn
+once, then exits with a real process exit code — proving the app can start
+and stop cleanly, out of process, the one thing no in-process test can prove
+(see `tests/sanity/test_composition_root.py`'s own note on why
+`threading.enumerate()` is only a proxy for a process actually dying). It is
+not the general control channel D2b also describes (publish an event,
+dispatch a command from outside the process) — that protocol is still
+`Proposed` and gated on open questions in the ADR, several of them
+security-relevant for an application holding exchange API credentials. Do not
+extend `--self-check` into that protocol without resolving those first; see
+`Tasks/epics/EPIC-009_sanity_tier_redesign/`.
+
+`MainWindow` itself stays a pure assembly component with no Engine-boot side
+effects.
 """
 
 from __future__ import annotations
@@ -18,6 +39,7 @@ from __future__ import annotations
 import os
 import sys
 import traceback
+from dataclasses import dataclass
 
 import qdarktheme
 from PySide6.QtCore import QTimer
@@ -30,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from sagittarius_engine import App
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
     get_theme_bridge,
@@ -40,6 +63,11 @@ from sagittarius_engine.infrastructure.logging.dev_verbosity import (
     resolve_dev_verbosity,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
+
+#: `python -m ...app_bootstrapper --self-check`: boot for real, let the event
+#: loop turn once, exit with a real process exit code. See the module
+#: docstring for what this is and — just as importantly — what it is not.
+_SELF_CHECK_FLAG = "--self-check"
 
 # ---------------------------------------------------------------------------
 # Config file paths — resolved relative to this file's location
@@ -59,8 +87,38 @@ _LOG_DIR = os.path.join(
 )
 
 
-def main() -> None:
-    """Application entry point — boot Engine, boot UI, run event loop, shutdown."""
+@dataclass
+class AppRuntime:
+    """Everything `build()` constructs that `teardown()` needs back.
+
+    Not a general-purpose context object — it holds exactly the five handles
+    `main()` used to keep as locals between assembly and shutdown, named the
+    same as they always were. `app.exec()` deliberately stays outside both
+    functions: it belongs to whichever caller decides how the event loop
+    ends (waiting for the user to close the window, or `--self-check`'s
+    single scheduled `quit()`), not to bootstrapping or to teardown.
+    """
+
+    app_engine: App
+    app: QApplication
+    window: MainWindow
+    watchdog: UIWatchdog
+    sig_timer: object
+
+
+def build() -> AppRuntime:
+    """Boots the Engine, then the UI, up to and NOT including `app.exec()`.
+
+    Every step production runs before the event loop starts — real config,
+    real DI container, real QApplication, real theme, real MainWindow. The
+    only thing a caller can vary is what happens after this returns: run the
+    event loop until the user closes the window (`main()`), or until one
+    scheduled `quit()` fires (`--self-check`, and `EPIC-009`'s Sanity tier).
+    Neither caller may skip a step here or substitute a piece of it — the
+    instant they do, they are proving a different application, which is
+    exactly what made the three `scripts/shutdown_*_probe.py` scripts drift
+    from their real interfaces (`BUG-026`, `BUG-027`).
+    """
     # ------------------------------------------------------------------ #
     # 1. Boot the Sagittarius Engine
     # ------------------------------------------------------------------ #
@@ -127,15 +185,50 @@ def main() -> None:
     # Schedule readiness confirmation on the first event loop tick
     QTimer.singleShot(0, lambda: _log_ui_ready(app_engine))
 
-    exit_code = app.exec()
+    return AppRuntime(
+        app_engine=app_engine,
+        app=app,
+        window=window,
+        watchdog=watchdog,
+        sig_timer=sig_timer,
+    )
 
-    # ------------------------------------------------------------------ #
-    # 4. Shutdown Watchdog & Engine
-    # ------------------------------------------------------------------ #
-    window.shutdown()
-    watchdog.stop()
-    sig_timer.stop()
-    app_engine.stop()
+
+def teardown(runtime: AppRuntime) -> None:
+    """Production's real shutdown path — window, watchdog, signal timer,
+    engine, in that order. Every caller of `build()` must call this exactly
+    once, whatever stopped the event loop.
+
+    This is the half of the lifecycle no test tier used to reach at all:
+    `tests/sanity/`'s old fixtures called `app.stop()` in teardown with no
+    assertion, so a hang surfaced as a hung test run, not a failure. Three
+    filed bugs — `BUG-007`, `BUG-023`, `BUG-041`, two of them P1 — were all
+    found by a person watching a real process refuse to exit. Calling this
+    from a real subprocess (`--self-check`, or a `subprocess.run(...)`-based
+    sanity test) is the only way to prove that class of defect for real: a
+    non-daemon thread surviving `teardown()` keeps the *process* alive, which
+    `threading.enumerate()` inside pytest can only approximate.
+    """
+    runtime.window.shutdown()
+    runtime.watchdog.stop()
+    runtime.sig_timer.stop()
+    runtime.app_engine.stop()
+
+
+def main() -> None:
+    """Application entry point — boot Engine, boot UI, run event loop, shutdown.
+
+    `--self-check` (see the module docstring) schedules its own exit instead
+    of waiting on the window; every other line of the real application still
+    runs unchanged.
+    """
+    runtime = build()
+
+    if _SELF_CHECK_FLAG in sys.argv:
+        QTimer.singleShot(0, runtime.app.quit)
+
+    exit_code = runtime.app.exec()
+    teardown(runtime)
     sys.exit(exit_code)
 
 

@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 5 |
+| 🔴 **Đang mở** | 6 |
 | ✅ **Đã sửa / đã đóng** | 42 |
-| 📈 **Tổng** | **47** |
+| 📈 **Tổng** | **48** |
 
 ---
 
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-048](incomplete/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | `sys.excepthook`'s fallback UI gọi `dialog.exec()` vô điều kiện — dưới `offscreen` không ai bấm được. Tái hiện 2 lần bằng fault injection khi build `EPIC-009` D2's OUT-of-process layer; xác nhận không phải do thread nền sống sót. |
 | **[BUG-047](incomplete/BUG-047_dashboard_live_stream_candlestick_history_not_populated.md)** | `test_dashboard_integration_start_stream_chart_rendering`: candlestick history rỗng sau Load History + Start Stream | 🟡 P2 | 2026-08-25 | Lộ ra khi gỡ `--ignore` của BOT-038. Deterministic, có sẵn từ `f27649e`, chưa root-cause. |
 | **[BUG-046](incomplete/BUG-046_dashboard_exception_fallback_fsm_state_assumption_stale.md)** | `test_dashboard_integration_exception_fallback` giả định FSM đã LIVE lúc assert, thực tế IDLE | 🟡 P2 | 2026-08-25 | Lộ ra khi gỡ `--ignore` của BOT-038. Deterministic, có sẵn từ `f27649e`, chưa root-cause. |
 | **[BUG-045](incomplete/BUG-045_sanity_tier_makes_live_binance_network_calls.md)** | Tầng Sanity gọi mạng thật lên `api.binance.com` mỗi lần chạy CI | 🟡 P2 | 2026-08-25 | `container.resolve(...)` dựng `PythonBinanceClient`, constructor ping `/api/v3/ping`. Fixture chỉ patch websocket. Vi phạm `ci-rule.md` §6 "no network". Fix là `EPIC-009` D6 (fake Binance server). |

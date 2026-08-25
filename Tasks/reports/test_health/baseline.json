@@ -9,12 +9,12 @@
       "files": 8
     },
     "sanity": {
-      "tests": 13,
-      "files": 5
+      "tests": 16,
+      "files": 6
     },
     "unit": {
-      "tests": 1365,
-      "files": 158
+      "tests": 1358,
+      "files": 156
     }
   },
   "ci_exclusions": [
@@ -31,96 +31,7 @@
       "run_elsewhere": false
     }
   ],
-  "orphaned_assets": [
-    {
-      "file": "src/presentation/ui/components/OrderExecutionModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/ModalDialogCard.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/TimeRangePickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/IndicatorPickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/CapitalDialog.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/StrategyPickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/TimezonePickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/StrategyPropertiesModal.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/SymbolPickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/AppProgressBar.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/BotParamField.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/MetricCard.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/DynamicTabBar.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/BotParamsDialog.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/TimeframePickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/sidebar/Sidebar.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/BackTestModals.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/BackTestTradeLogs.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/LimitationsModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/ExtendedMetricsModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/BackTestTopPanel.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/dashboard/DevBoardPanel.qml",
-      "guarded_by_tests": true
-    }
-  ],
+  "orphaned_assets": [],
   "contract": [
     {
       "id": "sanity-asserts-qml-errors-empty",
@@ -441,7 +352,7 @@
     }
   ],
   "bug_board": {
-    "open": 5,
+    "open": 6,
     "closed": 42
   }
 }
