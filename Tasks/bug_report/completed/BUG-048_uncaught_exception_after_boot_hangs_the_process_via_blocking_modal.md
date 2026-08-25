@@ -7,7 +7,7 @@ direct evidence.
 **Severity:** 🔴 **P1** — the failure mode is worse than a crash: the process
 does not exit at all, indefinitely, with zero indication anything is wrong
 short of watching it never terminate. A crash is visible; this is silent.
-**Status:** 🔴 Open
+**Status:** ✅ **Fixed 2026-08-25**
 
 ## Symptom
 
@@ -101,3 +101,40 @@ already covers the *symptom* (process must exit within budget) for the
 regression test for the *mechanism*: an uncaught exception under
 `QT_QPA_PLATFORM=offscreen` must not block process exit, asserted directly
 against `_handler` rather than through a 30-second subprocess round-trip.
+
+
+## Fix landed
+
+`_install_exception_handler`'s `_handler` now checks
+`is_headless_qt_platform()` (new shared helper,
+`src/presentation/ui/common/qt_platform.py`) before constructing the dialog —
+under a headless platform it logs and returns, never calling `dialog.exec()`.
+A real interactive session is unaffected: the dialog still shows.
+
+Verified by re-running the exact fault injection that found this bug:
+`raise` inside `teardown()`, both before any step ran and after
+`app_engine.stop()` completed. Both now produce a clean **exit code 1** in
+under 5 seconds — previously both hung until an external 30s timeout killed
+the process.
+
+Fast regression test:
+`tests/unit/presentation/ui/test_app_bootstrapper_exception_handler.py` — 3
+tests, calls the installed `sys.excepthook` directly (no subprocess), proven
+red-then-green: reverting the fix reproduces the original failure signature
+(`dialog.exec()` called) in 1.7s, not a hang, because the test module patches
+`CriticalErrorDialog` unconditionally for every test so a regression here can
+never hang CI the way the original bug hung the real process. Restored and
+re-verified green immediately after.
+
+`tests/sanity/test_self_check_process.py` (the test that originally found
+this) continues to cover the same class end-to-end, as a real subprocess.
+
+Full gate re-run clean: 1,795 passed (+4 from the new regression test module),
+only the two pre-existing, unrelated `BUG-046`/`BUG-047` remain.
+
+## Not investigated
+
+Whether this mechanism was the actual root cause of `BUG-007`/`023`/`041` (the
+three previously "fixed" shutdown-hang bugs this bug's report named as
+plausible candidates). Worth checking those three bugs' original repro steps
+against this one before considering the connection closed either way.

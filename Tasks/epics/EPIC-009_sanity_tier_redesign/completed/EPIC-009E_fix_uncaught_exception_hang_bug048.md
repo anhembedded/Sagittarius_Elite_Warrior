@@ -1,6 +1,6 @@
 # EPIC-009E — Fix BUG-048: uncaught exception after boot hangs the process
 
-**Status:** 🔴 Not started
+**Status:** ✅ Done — 2026-08-25
 **Depends on:** `EPIC-009B` (found while building it; not part of it)
 
 ## What
@@ -38,3 +38,24 @@ budget). Add a second, fast regression test asserting on `_handler`
 directly — an uncaught exception under `QT_QPA_PLATFORM=offscreen` must
 not block — so the fix is proven without a 30-second subprocess
 round-trip on every run.
+
+
+## What actually landed
+
+`src/presentation/ui/common/qt_platform.py` — new shared module
+(`is_headless_qt_platform()`, `qt_platform_name()`), extracted from
+`chart_card/plot_layout.py`'s original private copy once
+`app_bootstrapper.py` became a second real consumer. `_handler` now returns
+after logging when headless, before ever constructing `CriticalErrorDialog`.
+
+Verified by re-running the exact fault injection that found the bug: hung
+before, exits 1 in <5s after. Fast regression test added
+(`tests/unit/presentation/ui/test_app_bootstrapper_exception_handler.py`),
+proven red-then-green, hang-proof by construction (patches
+`CriticalErrorDialog` unconditionally for every test in the module so a
+regression can never stall CI the way the original bug stalled the real
+process).
+
+Fixing 5 existing `plot_layout.py` tests broken by the extraction (they
+patched the old private `_qt_platform_name` name at its old location) was
+part of landing this cleanly — full gate re-verified green after.

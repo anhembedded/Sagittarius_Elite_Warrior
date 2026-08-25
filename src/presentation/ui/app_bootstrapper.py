@@ -48,6 +48,9 @@ from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
+    is_headless_qt_platform,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
@@ -247,7 +250,18 @@ def _log_ui_ready(app_engine) -> None:
 
 
 def _install_exception_handler(app_engine) -> None:
-    """Install a global Qt exception handler that logs and shows a resizable dialog."""
+    """Install a global Qt exception handler that logs and shows a resizable dialog.
+
+    `BUG-048`: showing the dialog used to be unconditional. `QDialog.exec()`
+    is modal and blocking — under a headless Qt platform (this project's own
+    test/CI runs, `QT_QPA_PLATFORM=offscreen`) there is no window manager and
+    no user, so nothing can ever dismiss it. Any uncaught exception reaching
+    this handler — anywhere, any time after `build()` installs it — hung the
+    real process forever instead of letting it exit non-zero, confirmed by
+    fault injection in `tests/sanity/test_self_check_process.py` even after
+    `teardown()` had already finished its own cleanup. A hang here is strictly
+    worse than a crash: it gives no signal that anything is wrong.
+    """
 
     def _handler(exc_type, exc_value, exc_tb) -> None:
         tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -258,6 +272,12 @@ def _install_exception_handler(app_engine) -> None:
             )
         else:
             print(f"Uncaught UI Exception:\n{tb_str}")
+
+        if is_headless_qt_platform():
+            # No human is there to see or dismiss a dialog — the log line
+            # above is the only report this session gets, and that is
+            # correct: reporting loudly beats hanging silently.
+            return
 
         dialog = CriticalErrorDialog(
             title="Critical System Error",

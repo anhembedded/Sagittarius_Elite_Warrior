@@ -3,7 +3,10 @@ from datetime import UTC, datetime
 from enum import Enum
 
 import pyqtgraph as pg
-from PySide6.QtWidgets import QApplication
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
+    is_headless_qt_platform,
+    qt_platform_name,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     get_utc_offset_seconds,
@@ -12,19 +15,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_ser
 # Under "App" so StdLogger's handlers apply — see cached_frame_interaction.
 logger = logging.getLogger("App.ChartPlotLayout")
 
-_HEADLESS_QT_PLATFORMS = frozenset({"offscreen", "minimal", "minimalegl"})
-
 
 class ChartAntialiasMode(str, Enum):
     """Controls whether smoothing is paid globally or only by line layers."""
 
     GLOBAL = "global"
     LAYERED = "layered"
-
-
-def _qt_platform_name() -> str:
-    app = QApplication.instance()
-    return app.platformName().lower() if app is not None else ""
 
 
 class ChartPlotLayout:
@@ -100,9 +96,10 @@ class ChartPlotLayout:
     def _configure_render_backend(self) -> None:
         if not self.opengl_requested:
             return
-        platform_name = _qt_platform_name()
-        if platform_name in _HEADLESS_QT_PLATFORMS:
-            self.backend_fallback_reason = f"unsupported Qt platform: {platform_name}"
+        if is_headless_qt_platform():
+            self.backend_fallback_reason = (
+                f"unsupported Qt platform: {qt_platform_name()}"
+            )
             return
         try:
             # Per-widget switch: Dashboard and every existing ChartCard stay

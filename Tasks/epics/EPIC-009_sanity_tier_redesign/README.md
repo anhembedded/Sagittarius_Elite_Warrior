@@ -1,6 +1,6 @@
 # EPIC-009 — Sanity Tier Redesign
 
-**Status:** 🟡 In progress — 3/6 sub-tasks done, ADR still at *Proposed*
+**Status:** 🟡 In progress — 4/6 sub-tasks done, ADR still at *Proposed*
 (see the honest note in `EPIC-009F` about that ordering)
 **Type:** Testing architecture / quality gates
 **Priority:** P1 — actively closing real gaps (`BUG-045`, `BUG-048` found and
@@ -38,7 +38,7 @@ work already shipped.
 | [`EPIC-009B`](completed/EPIC-009B_out_of_process_layer_and_self_check.md) | `build()`/`teardown()` split, `--self-check`, OUT-of-process tests | ✅ Done |
 | [`EPIC-009C`](completed/EPIC-009C_fake_binance_rest_server.md) | D6 REST — fake Binance server, closes `BUG-045` | ✅ Done |
 | [`EPIC-009D`](incomplete/EPIC-009D_fake_binance_websocket_server.md) | D6 continued — fake Binance WebSocket server | 🔴 Not started |
-| [`EPIC-009E`](incomplete/EPIC-009E_fix_uncaught_exception_hang_bug048.md) | Fix `BUG-048` — uncaught exception hangs the process | 🔴 Not started |
+| [`EPIC-009E`](completed/EPIC-009E_fix_uncaught_exception_hang_bug048.md) | Fix `BUG-048` — uncaught exception hangs the process | ✅ Done |
 | [`EPIC-009F`](incomplete/EPIC-009F_ratify_failure_mode_catalogue.md) | Ratify the 12-mode catalogue (ADR Q1) | 🔴 Not started |
 
 ## 4. Findings this epic has produced so far
@@ -47,7 +47,7 @@ work already shipped.
 | :--- | :---: | :---: |
 | `BUG-044` — published engine unimportable (Python-2 syntax) | P1 | ✅ Closed |
 | `BUG-045` — Sanity reached the real network | P2 | ✅ Closed (`EPIC-009C`) |
-| `BUG-048` — uncaught exception after boot hangs the process | P1 | 🔴 Open (`EPIC-009E`) |
+| `BUG-048` — uncaught exception after boot hangs the process | P1 | ✅ Closed (`EPIC-009E`) |
 | `BUG-049` — fake server thread leaves 5 uncollectable GC objects | P3 | 🔴 Open |
 | `BUG-046`/`BUG-047` — pre-existing Dashboard test failures, surfaced by `BOT-038`'s re-verification (not this epic — filed under that task) | P2 | 🔴 Open, out of this epic's scope |
 

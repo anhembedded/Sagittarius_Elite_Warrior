@@ -13,8 +13,8 @@
       "files": 6
     },
     "unit": {
-      "tests": 1358,
-      "files": 156
+      "tests": 1361,
+      "files": 157
     }
   },
   "ci_exclusions": [
@@ -352,7 +352,7 @@
     }
   ],
   "bug_board": {
-    "open": 6,
-    "closed": 43
+    "open": 5,
+    "closed": 44
   }
 }

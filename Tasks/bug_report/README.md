@@ -27,8 +27,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 6 |
-| ✅ **Đã sửa / đã đóng** | 43 |
+| 🔴 **Đang mở** | 5 |
+| ✅ **Đã sửa / đã đóng** | 44 |
 | 📈 **Tổng** | **49** |
 
 ---
@@ -37,8 +37,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-048](completed/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `_handler` kiểm `is_headless_qt_platform()` trước khi gọi `dialog.exec()`. Xác nhận bằng đúng fault injection đã phát hiện bug — exit code 1 dưới 5s thay vì treo. Regression test đỏ-đúng-lý-do trước fix, xanh sau fix. |
 | **[BUG-049](incomplete/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Không fail test nào. Đã điều tra: không phải do server tự nó (isolated repro sạch), là tương tác với phần còn lại của session, chưa bisect ra nguồn — cùng dạng BUG-030. |
-| **[BUG-048](incomplete/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | `sys.excepthook`'s fallback UI gọi `dialog.exec()` vô điều kiện — dưới `offscreen` không ai bấm được. Tái hiện 2 lần bằng fault injection khi build `EPIC-009` D2's OUT-of-process layer; xác nhận không phải do thread nền sống sót. |
 | **[BUG-047](incomplete/BUG-047_dashboard_live_stream_candlestick_history_not_populated.md)** | `test_dashboard_integration_start_stream_chart_rendering`: candlestick history rỗng sau Load History + Start Stream | 🟡 P2 | 2026-08-25 | Lộ ra khi gỡ `--ignore` của BOT-038. Deterministic, có sẵn từ `f27649e`, chưa root-cause. |
 | **[BUG-046](incomplete/BUG-046_dashboard_exception_fallback_fsm_state_assumption_stale.md)** | `test_dashboard_integration_exception_fallback` giả định FSM đã LIVE lúc assert, thực tế IDLE | 🟡 P2 | 2026-08-25 | Lộ ra khi gỡ `--ignore` của BOT-038. Deterministic, có sẵn từ `f27649e`, chưa root-cause. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
