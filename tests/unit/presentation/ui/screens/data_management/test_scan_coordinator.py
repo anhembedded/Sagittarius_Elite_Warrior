@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coord
     DataManagementActionKind,
     ScanCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_signal_payloads import (
+    StatusRowUpdate,
+)
 
 
 @pytest.fixture
@@ -91,8 +94,17 @@ def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
     coordinator.run_auto_discover()
 
     signals["ui_symbol_options"].assert_called_once_with(["BTCUSDT", "ETHUSDT"])
+    # EPIC-008G §3: signal mang `StatusRowUpdate` thay vì 6 chuỗi vị trí, nên
+    # assert theo TÊN trường — hoán nhầm 2 cột giờ làm test đỏ chứ không lọt.
     signals["ui_status_table"].assert_called_once_with(
-        "BTCUSDT", "2024-01-01", "2024-01-02", "100", "OK", "15m"
+        StatusRowUpdate(
+            symbol="BTCUSDT",
+            first_record="2024-01-01",
+            last_record="2024-01-02",
+            total_candles="100",
+            status_text="OK",
+            interval="15m",
+        )
     )
     signals["ui_stats_refresh"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
@@ -116,8 +128,17 @@ def test_scan_coordinator_check_status_success(scan_fixture):
 
     dispatcher.dispatch.assert_called_once()
     assert isinstance(dispatcher.dispatch.call_args[0][1], GetDatabaseStatusQuery)
+    # EPIC-008G §3: signal mang `StatusRowUpdate` thay vì 6 chuỗi vị trí, nên
+    # assert theo TÊN trường — hoán nhầm 2 cột giờ làm test đỏ chứ không lọt.
     signals["ui_status_table"].assert_called_once_with(
-        "BTCUSDT", "2024-01-01", "2024-01-02", "500", "OK", "15m"
+        StatusRowUpdate(
+            symbol="BTCUSDT",
+            first_record="2024-01-01",
+            last_record="2024-01-02",
+            total_candles="500",
+            status_text="OK",
+            interval="15m",
+        )
     )
     signals["ui_unlock"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED

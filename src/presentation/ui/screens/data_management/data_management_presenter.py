@@ -36,6 +36,7 @@ from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
+from .data_management_signal_payloads import StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
 from .signal_log_handler import SignalLogHandler
 
@@ -87,7 +88,10 @@ class DataManagementPresenter(BasePresenter):
     ui_error_log_signal = Signal(str)
     ui_progress_signal = Signal(int)
     ui_single_sync_progress_signal = Signal(int, int, bool, str)
-    ui_status_table_signal = Signal(str, str, str, str, str, str)
+    #: Mang một `StatusRowUpdate`. Trước đây là 6 `str` vị trí — hoán nhầm 2
+    #: cột là lỗi thầm lặng mà `mypy` không thể bắt (xem
+    #: `data_management_signal_payloads.py`).
+    ui_status_table_signal = Signal(object)
     ui_remove_symbol_signal = Signal(str, str)
     ui_clear_table_signal = Signal()
     ui_unlock_signal = Signal()
@@ -291,7 +295,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_error_log_signal.connect(self._append_error_log)
         self.ui_progress_signal.connect(view_model.set_progress_value)
         self.ui_single_sync_progress_signal.connect(view_model.set_progress)
-        self.ui_status_table_signal.connect(view_model.status_model.upsert_row)
+        self.ui_status_table_signal.connect(self._on_status_row_update)
         self.ui_remove_symbol_signal.connect(view_model.status_model.remove_symbol)
         self.ui_clear_table_signal.connect(view_model.status_model.clear)
         self.ui_unlock_signal.connect(self._unlock_ui)
@@ -314,6 +318,20 @@ class DataManagementPresenter(BasePresenter):
         # `HealthUpdatedEvent` từng đi tới ba bản định dạng.
         self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
         self._sync_feed.progressUpdated.connect(self._on_sync_progress)
+
+    def _on_status_row_update(self, update: StatusRowUpdate) -> None:
+        """Mở gói `StatusRowUpdate` vào API sẵn có của model.
+
+        Model giữ nguyên chữ ý nghĩa-theo-tên của nó; chỗ được bảo vệ là biên
+        signal, nơi 6 chuỗi vị trí đi qua hàng đợi cross-thread."""
+        self._view_model.status_model.upsert_row(
+            update.symbol,
+            update.first_record,
+            update.last_record,
+            update.total_candles,
+            update.status_text,
+            update.interval,
+        )
 
     def _on_sync_progress(self, report: SyncProgressReport) -> None:
         """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""

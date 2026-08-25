@@ -52,6 +52,14 @@ def database_app_context(qapp, qtbot, monkeypatch, request):
             return []
 
         mock_client.get_historical_klines.side_effect = mock_get_historical_klines
+        # `Mock(spec=...)` chỉ ràng buộc *tên* method, không ràng buộc kiểu trả
+        # về: method chưa cấu hình trả về một `Mock` thô, nên handler thật gọi
+        # `len()` hay lặp lên nó là nổ. Hai lỗi đó vẫn xảy ra từ trước nhưng
+        # **vô hình** — chúng đi vào `logging` chuẩn thay vì file log của app.
+        # `EPIC-008G` §4 (bus có `ILogger` thật) làm chúng hiện ra ở bước
+        # "Run Log Scan" của gate. Cấu hình nốt để test không tạo lỗi giả.
+        mock_client.get_available_symbols.return_value = ["BTCUSDT", "ETHUSDT"]
+        mock_client.stream_historical_klines.return_value = iter(())
         app.context.container.singleton(IExchangeClient, mock_client)
 
         view = DataManagementView()

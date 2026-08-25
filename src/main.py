@@ -26,6 +26,7 @@ from sagittarius_engine.extensions.thread_manager.thread_manager_module import (
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
+from sagittarius_engine.infrastructure.logging.std_logger import StdLogger
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
@@ -37,7 +38,21 @@ from sagittarius_engine.utils.path_utils import PathUtils
 
 def create_app(config_manager: ConfigManager) -> App:
     container = StdLibContainer()
-    event_bus = MemoryEventBus()
+
+    # EPIC-008G §4 — bus nhận logger tường minh, không để `None`.
+    #
+    # `EPIC-008C` đã khiến bus không-logger vẫn báo được lỗi handler (nó tự lùi
+    # về `FallbackLogger` dùng `logging` chuẩn), nên đây KHÔNG phải sửa lỗi mất
+    # log. Cái nó mua: lỗi handler đi qua **đúng `ILogger` của app** — cùng
+    # formatter, cùng file log mà `ci-local.ps1`'s "Run Log Scan" đọc — thay vì
+    # rơi vào `logging` chuẩn ngoài file đó.
+    #
+    # Dựng `StdLogger` ở đây, trước `App`, là có chủ đích: bus tồn tại trước khi
+    # `LoggerExtension` chạy `register()`. Lát nữa extension sẽ dựng một
+    # `StdLogger` nữa cho DI — không nhân đôi log, vì **cả hai bọc cùng một**
+    # `logging.getLogger("App")`; lần dựng sau chỉ dọn rồi gắn lại đúng bộ
+    # handler theo cùng config.
+    event_bus = MemoryEventBus(StdLogger(config_manager))
 
     # Register core ports
     container.singleton(IContainer, container)
