@@ -157,3 +157,59 @@ Nói cách khác: **code đã tự phân loại đúng từ trước, chỉ là 
 **47/48 tồn tại vì (A)**, xoá được ≈1. Đã dừng theo đúng điều kiện dừng của chính task đó.
 
 **Đừng đặt chỉ tiêu theo số đếm signal.** Sai ranh giới thì con số chỉ dẫn tới việc phá code đúng.
+
+---
+
+## 7. Code phải tự nói lên chính nó — cái gì hoãn lại hoặc đánh đổi thì phải có Interface (user chốt 2026-08-25)
+
+> **Nếu một thứ sẽ được phát triển sau, hoặc là một cái giá đã chấp nhận trả, thì trong code
+> phải có một Interface / kiểu dữ liệu / test đại diện cho nó. Không được để nó chỉ nằm trong
+> tài liệu.**
+
+Lý do: tài liệu là thứ agent phải **đi tìm mới thấy**; kiểu dữ liệu là thứ **đập vào mắt khi đọc
+code**. Một quyết định chỉ ghi trong `.agents/` hoặc trong task file thì lần sau người khác sẽ
+làm sai — không phải vì họ ẩu, mà vì code không hề gợi ý gì cả.
+
+Bằng chứng thật: `EPIC-008G` §2 đặt chỉ tiêu "xoá 48 signal cầu nối". Người viết nó **có đủ**
+rule trong tay. Vẫn đặt sai, vì chỗ khai báo signal trong code **không nói một chữ nào** về việc
+chúng là cầu nối thread và xoá đi thì hỏng gì. Luật đúng mà code câm thì luật vô dụng.
+
+### 7.1 Hai dạng, hai cách thể hiện
+
+| Dạng | Bắt buộc phải có trong code |
+| :--- | :--- |
+| **Sẽ phát triển sau** (điểm mở rộng đã biết, giai đoạn sau đã chốt) | Một **type/ABC/base class** đóng vai điểm hạ cánh, kèm docstring ghi công thức mở rộng. Agent sau `grep` ra được, và bắt chước được. |
+| **Cái giá đã chấp nhận trả** (đánh đổi có chủ đích) | Một **test khoá hành vi hiện tại** + docstring nói rõ mất gì, vì sao chấp nhận. Không phải chỉ một dòng ghi chú. |
+
+Ví dụ thật trong repo này:
+
+- **Đánh đổi:** `EPIC-008F` bỏ `frozen=True` của 4 domain event để kế thừa được `BaseEvent`.
+  Không xoá test bất biến — **đổi nó thành test khoá hành vi mới**
+  (`test_signal_generated_event_is_no_longer_frozen`) kèm lý do và điều kiện khôi phục. Mất mát
+  nằm trong test suite, không nằm trong một dòng ghi chú ai cũng lướt qua.
+- **Điểm mở rộng:** `SystemErrorFeed` là Feed đầu tiên; `HealthFeed`/`SyncProgressFeed` đã chốt
+  là sẽ có. Vậy phải có `BaseFeed` làm hợp đồng, để "thăng cấp một sự thật riêng tư lên bus"
+  (§6.3) có **chỗ hạ cánh có tên**, thay vì mỗi người tự chế một kiểu.
+
+### 7.2 Hoà giải với "chỉ tạo abstraction khi có ≥2 nhu cầu thật"
+
+Hai luật này **không** mâu thuẫn, vì chúng trả lời hai câu hỏi khác nhau. Phân biệt bằng đúng
+một câu hỏi:
+
+> **Quyết định đã được ra chưa?**
+
+- **Chưa ra** — "biết đâu sau này ai đó cần 2 loại kênh truyền" → **đầu cơ**. Cấm. Bạn đang đoán
+  hình dạng của một thứ chưa tồn tại, và đoán sai thì abstraction đó thành gánh nặng vĩnh viễn.
+  (`EPIC-006` ADR §4 đã chặn được 4 stub card thừa đúng theo cách này.)
+- **Đã ra** — "đã chốt sẽ có 3 Feed", "đã chốt chấp nhận mất `frozen`" → **bắt buộc có type**.
+  Đây không phải đoán; quyết định có thật, chỉ là chưa thi hành xong. Để nó vô hình trong code
+  là giấu thông tin.
+
+Nói ngắn: **`≥2 nhu cầu` chặn abstraction cho thứ CHƯA quyết. §7 bắt buộc type cho thứ ĐÃ quyết.**
+
+### 7.3 Không được lách bằng docstring
+
+Docstring/comment là **bổ sung**, không phải thay thế. Comment giải thích *vì sao*; type và test
+mới là thứ **buộc** người sau đi đúng đường, và là thứ **vỡ ra** khi thực tế đổi. Một quyết định
+chỉ sống trong prose thì không có gì phát hiện khi nó hết đúng — đúng cơ chế đã khiến
+`.agents/context/` mục ruỗng suốt 3 tuần (`EPIC-002`).

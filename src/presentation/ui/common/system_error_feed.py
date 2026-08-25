@@ -28,19 +28,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import Signal
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.system_error_report import (
     SystemErrorReport,
 )
-from sagittarius_engine.extensions.pyside_mvc.mvc.qt_event_bridge import QtEventBridge
 from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
     UiActionFailedEvent,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.runtime.tasks.events import TaskFailed
 
 
-class SystemErrorFeed(QObject):
+class SystemErrorFeed(BaseFeed):
     """
     @brief Listens for failures on the event bus and re-broadcasts them to any
     screen that wants to show them.
@@ -51,22 +50,12 @@ class SystemErrorFeed(QObject):
     #: (`EPIC-008G` §3).
     errorReported = Signal(object)
 
-    def __init__(self, event_bus: IEventBus, parent: QObject | None = None) -> None:
-        """
-        @param event_bus Subscribed through `QtEventBridge` (`EPIC-008D`), not
-        directly: `runtime.tasks.failed` is published from a worker thread, and
-        touching a Qt display object off the main thread is the class of defect
-        `BUG-031` already cost a day to. The bridge hops delivery to the main
-        thread, so every connected screen is safe to update widgets directly.
-        """
-        super().__init__(parent)
-        self._events = QtEventBridge(event_bus, parent=self)
+    def _subscribe(self) -> None:
+        """@brief Both failure paths, one subscriber each. `BaseFeed` wraps
+        the bus in `QtEventBridge`, so `runtime.tasks.failed` — published from a
+        worker thread — is delivered on the main thread."""
         self._events.on(UiActionFailedEvent, self._on_ui_action_failed)
         self._events.on(TaskFailed.event_name, self._on_task_failed)
-
-    def stop(self) -> None:
-        """@brief Drops both subscriptions. Idempotent."""
-        self._events.off_all()
 
     def _on_ui_action_failed(self, event: Any) -> None:
         self.errorReported.emit(
