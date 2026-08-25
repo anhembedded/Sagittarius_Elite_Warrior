@@ -33,12 +33,15 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
+    map_klines,
+    map_volume,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.runtime.tasks import ExclusiveAction
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .dashboard_view_model import DATETIME_FORMAT
-from .kline_mapping import map_klines, map_volume
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_config import IConfig

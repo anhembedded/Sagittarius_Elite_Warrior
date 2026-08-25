@@ -37,7 +37,7 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
     IndicatorScriptRegistry,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
 )
 

@@ -23,7 +23,7 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
     EmaRibbonScript,
     MacdFullScript,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
     qualified_line_name,
     split_line_name,

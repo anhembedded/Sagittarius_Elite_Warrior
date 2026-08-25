@@ -15,21 +15,25 @@ class _ScriptRow:
 
 class IndicatorScriptListModel(QAbstractListModel):
     """
-    @brief Backs the "CUSTOM SCRIPTS" checklist in DevBoardPanel.qml — which
-    registered indicator scripts exist, and which ones the user has enabled.
+    @brief Backs the "CUSTOM SCRIPTS" checklist shared by Dashboard's and
+    Backtest's indicator pickers — which registered indicator scripts
+    exist, and which ones the user has enabled.
 
     @details
-    Shape copied from LogListModel (see its docstring for the general
-    roleNames()/beginInsertRows() idiom this repo uses for QAbstractListModel).
     The list of available scripts comes from IndicatorScriptRegistry.available()
-    at runtime, not a static QML array like DatabaseScreen.qml's Repeater — new
-    scripts appear here automatically as soon as they're registered in
-    binance_bot_module.py, with no QML change needed.
+    at runtime, so new scripts appear here automatically as soon as they're
+    registered in binance_bot_module.py, with no view change needed.
 
-    Enabled state lives here, in the ViewModel layer, not in DashboardPresenter.
-    The Presenter only reads `enabled_keys` at the moment Load History/Start
-    Live is clicked (see DashboardPresenter._enabled_script_keys) — ticking a
-    box mid-run has no retroactive effect (TC-GAP-07).
+    Enabled state lives here, in the ViewModel layer, not in the presenter.
+    A presenter only reads `enabled_keys` at the moment Load History/Start
+    Live is clicked — ticking a box mid-run has no retroactive effect
+    (TC-GAP-07).
+
+    Moved here from `screens/dashboard/` by `BOT-120` — Backtest's own
+    ViewModel constructs one too, and nothing about "which indicator
+    scripts are enabled" is specific to either screen. The docstring above
+    used to name `DevBoardPanel.qml` and a QML `Repeater` delegate; both
+    were dropped by `EPIC-006` and the mention was stale.
     """
 
     KeyRole = Qt.ItemDataRole.UserRole + 1
@@ -98,8 +102,10 @@ class IndicatorScriptListModel(QAbstractListModel):
 
     @Slot(int, bool)
     def setEnabled(self, row: int, value: bool) -> None:
-        """Callable from QML — the Repeater delegate's checkbox calls this
-        directly, same as LogListModel.clear()."""
+        """Called directly by each screen's checklist checkbox
+        (`dev_board_panel.py`, `backtest_modals.py`) — kept as a `@Slot`
+        from the QML-hosted era this class predates, not because anything
+        still calls it across a QML/Python boundary."""
         if not 0 <= row < len(self._rows):
             return
         key = self._rows[row].key

@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
+    IndicatorScriptRunner,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -28,7 +31,6 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 from .autostart_controller import AutoStartController
 from .dashboard_view_model import DashboardQmlViewModel
 from .history_pagination_controller import HistoryPaginationController
-from .indicator_script_runner import IndicatorScriptRunner
 from .stream_lifecycle_controller import StreamLifecycleController
 
 if TYPE_CHECKING:

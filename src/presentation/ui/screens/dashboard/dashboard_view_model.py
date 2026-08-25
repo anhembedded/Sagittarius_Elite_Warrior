@@ -4,12 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
+    IndicatorScriptListModel,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
 )
-
-from .indicator_script_list_model import IndicatorScriptListModel
 
 _IDLE_STATUS_TEXT = "WS: IDLE"
 _IDLE_STATUS_COLOR = Palette.MUTED
