@@ -26,7 +26,7 @@
     },
     {
       "file": "scripts/ci-local.ps1",
-      "line": "361",
+      "line": "371",
       "target": "Sagittarius_Elite_Warrior/tests/integration/presentation/ui",
       "run_elsewhere": false
     }
@@ -441,7 +441,7 @@
     }
   ],
   "bug_board": {
-    "open": 3,
+    "open": 5,
     "closed": 42
   }
 }

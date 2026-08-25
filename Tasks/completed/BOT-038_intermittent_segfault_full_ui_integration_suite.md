@@ -129,3 +129,49 @@ task này. **Đây chỉ là né tạm (workaround), không phải fix** — roo
 mục 4 vẫn chưa làm. Khi rảnh quay lại điều tra tiếp, nhớ gỡ default
 `--ignore` này ra sau khi fix xong (hoặc giữ luôn nếu quyết định tách suite
 UI integration thành 1 lần chạy riêng, ngoài phạm vi task này).
+
+## 8. Re-verified 2026-08-25 — does not reproduce, `--ignore` removed
+
+Re-run per this file's own §7 instruction ("khi rảnh quay lại điều tra tiếp,
+nhớ gỡ default `--ignore` này ra sau khi fix xong"), triggered by
+[`EPIC-009`](../epics/EPIC-009_sanity_tier_redesign/) needing to know whether
+the tier this exclusion blocks was still unsafe to run.
+
+**7 runs, 0 crash markers** (`Segmentation`, `Fatal Python error`, `Aborted`,
+`core dumped`, `INTERNALERROR`, worker-crashed) across two execution profiles:
+
+| Profile | Runs | Result each time |
+| :--- | :---: | :--- |
+| Single process, sequential (`pytest tests/integration/presentation/ui`) | 4 | `2 failed, 34 passed`, ~113s |
+| `-n 6` parallel, **with `tests/sanity` running concurrently in a background process** — matching `ci-local.ps1`'s real `-Full` load, the condition §7's own note flagged as a contributing factor | 3 | `2 failed, 34 passed`, 30–38s |
+
+Identical failing tests every time (see §9) — deterministic, not the
+"crashes at a different test each run" signature this bug was filed on.
+
+**Leading hypothesis for why it stopped reproducing:** §4's top suspect was
+*"mỗi lần lặp tạo `QQuickWidget`/`QQmlEngine` MỚI, không share engine"* — an
+object-lifetime class of native Qt bug tied to `QQuickWidget`. `EPIC-006`
+(2026-08-24, landed after this task was filed) deleted QML from the
+application entirely — `grep -rn "QQuickWidget" src --include=*.py` now
+matches only comments. The mechanism this bug depended on may no longer exist
+in the app. Not proven by elimination alone — recorded as the most likely
+explanation, not a confirmed root cause.
+
+**Action taken:** the default `--ignore` in `ci-local.ps1` is removed;
+`-IncludeFlakyUi` is now a no-op kept only for command-line compatibility.
+`tests/integration/presentation/ui/` runs in every mode from now on.
+
+**Two real, deterministic failures were hiding behind the exclusion** and now
+surface on every run — filed separately as they are unrelated to the crash
+this task investigated:
+[`BUG-046`](../bug_report/incomplete/BUG-046_dashboard_exception_fallback_fsm_state_assumption_stale.md),
+[`BUG-047`](../bug_report/incomplete/BUG-047_dashboard_live_stream_candlestick_history_not_populated.md).
+Both also fail at `f27649e` (the commit immediately before this re-verification
+session's own EPIC-009 work began), so neither is a regression from anything in
+this session — they were always broken, just never run in CI.
+
+**Status:** closing as re-verified / not reproducing, not as "fixed" — no code
+change addresses a mechanism, because none could be identified as still
+present. If this resurfaces, treat it as a new bug: the evidence trail here
+should not be assumed to still apply, since the object-lifetime class it named
+may explicitly no longer exist to cause it.

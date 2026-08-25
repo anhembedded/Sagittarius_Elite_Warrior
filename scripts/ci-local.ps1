@@ -38,7 +38,7 @@
     Use -Workers 1 to force sequential execution.
 
 .PARAMETER IncludeFlakyUi
-    Also run tests/integration/presentation/ui/, excluded by default (BOT-038).
+    No-op as of 2026-08-25 (BOT-038 re-verified, does not reproduce): tests/integration/presentation/ui/ now runs by default in every mode. Kept only so existing invocations of this flag do not error.
 
 .EXAMPLE
     .\scripts\ci-local.ps1                  # Full: lint + parallel tests (default)
@@ -46,7 +46,7 @@
     .\scripts\ci-local.ps1 -SanityOnly      # Sanity only
     .\scripts\ci-local.ps1 -Workers 4       # Full with 4 workers
     .\scripts\ci-local.ps1 -SkipLint        # Full, skip lint
-    .\scripts\ci-local.ps1 -IncludeFlakyUi  # Full, include flaky UI integration
+    .\scripts\ci-local.ps1 -IncludeFlakyUi  # No-op flag, kept for compatibility -- see PARAMETER IncludeFlakyUi
 #>
 [CmdletBinding()]
 param(
@@ -356,8 +356,18 @@ if (-not $SkipTests) {
             # Exclude sanity from main parallel run (sanity runs in background job)
             $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/sanity"
 
-            if (-not $IncludeFlakyUi) {
-                # BOT-038: intermittent native crash/hang in Qt process — excluded by default.
+            # BOT-038's exclusion is REMOVED as of 2026-08-25 -- see BOT-038's own
+            # task file and Tasks/epics/EPIC-009_sanity_tier_redesign/ for the
+            # re-verification. 7 runs (sequential and -n 6 + a concurrent sanity
+            # process, matching this script's real load) produced zero crash
+            # markers across the board -- the native Qt/PySide6 segfault this
+            # exclusion existed for did not reproduce. Most likely cause: EPIC-006
+            # deleted every QQuickWidget/QQmlEngine from this app (the object-
+            # lifetime class BOT-038 itself named as the top suspect), so the
+            # mechanism the bug depended on may no longer exist. -IncludeFlakyUi
+            # is now a no-op kept only so existing invocations do not break; it
+            # will be removed once nothing references it.
+            if ($false) {
                 $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/integration/presentation/ui"
             }
             if ($useCoverage) {

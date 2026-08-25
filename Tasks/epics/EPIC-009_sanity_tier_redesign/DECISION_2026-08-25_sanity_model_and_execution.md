@@ -467,7 +467,7 @@ Not decisions about *what* Sanity is — conditions any implementation must meet
 | --: | :--- | :--- |
 | Q13 | Offline mode: what does it disable? | **Superseded by D6** — nothing is disabled; a fake Binance server is stood up and the real client points at it. |
 | Q17 | Does adopting D2b mean amending the tier definitions, and does "Sanity" keep its name? | **Scope it as a *test automation surface*** shared by Sanity, Integration and Desktop E2E — not as a Sanity feature. `ci-rule.md` §6 is amended accordingly. |
-| Q18 | Sequencing against BOT-038 | **BOT-038 re-verification runs first.** It costs one command and may unlock 36 journey tests immediately; D6 and D2b are weeks of work and should start from a known position. |
+| ~~Q18~~ | ~~Sequencing against BOT-038~~ **Done 2026-08-25** — see Q8. D6 and D2b now proceed from a known position: 36 journey tests run by default, and the tier's own bar (a single boot, structural assertions) is unaffected by any of this. | resolved |
 
 ### 7.1 Still blocking ❓
 

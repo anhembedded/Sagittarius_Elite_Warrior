@@ -357,29 +357,25 @@ test count have saturated as signals on this project.**
 
 Ordered by benefit-to-cost, not by diagnosis number.
 
-### P2.0 — 🚩 Do this before anything else: re-verify BOT-038 (cost: one run)
+### P2.0 — ✅ Done 2026-08-25 — re-verified, does not reproduce
 
-```powershell
-.\scripts\ci-local.ps1 -Full -IncludeFlakyUi
-```
+7 runs — 4 single-process sequential, 3 under `-n 6` with `tests/sanity`
+running concurrently (matching this script's real `-Full` load) — produced
+**zero crash markers**, identical `2 failed, 34 passed` every time. Leading
+hypothesis: `EPIC-006` deleted `QQuickWidget`/QML entirely, and BOT-038's own
+top suspect named exactly that object-lifetime class.
 
-Run it five times and record the results.
+**Action taken:** the default `--ignore` in `ci-local.ps1` is removed;
+`-IncludeFlakyUi` is now a no-op. `tests/integration/presentation/ui/` (36
+tests, 49% of the integration tier) runs in every mode from now on — this
+closes the largest part of §5's escape analysis without waiting on `EPIC-009`.
 
-**Why:** `BOT-038` §3 concluded the suspect was *"each iteration creates a NEW
-`QQuickWidget`/`QQmlEngine`, no shared engine"* — the same object-lifetime class
-partially fixed in BOT-034. **EPIC-006 removed `QQuickWidget` from the app
-entirely.** If BOT-038 has resolved itself, this one command unlocks **36
-user-journey tests = 49% of the integration tier**, and addresses the largest
-part of "why are basic user cases getting through".
+**Two real, deterministic failures were hiding behind the exclusion**, filed as
+`BUG-046` and `BUG-047` — both predate this session (reproduce at `f27649e`),
+so removing the exclusion did not introduce them, only stopped hiding them.
 
-This is the cheapest action in the report with the largest leverage.
-
-- ✅ **If green 5/5:** drop the `--ignore` at `ci-local.ps1:359-361`, close
-  BOT-038, update `ci-rule.md` §3. That closes 44% of the escapes.
-- ❌ **If it still crashes:** BOT-038 becomes P1 and the blocking task for the
-  whole quality roadmap. Preferred direction: move the `main_window`/`app_engine`
-  fixtures (`tests/integration/presentation/ui/conftest.py`) to session scope
-  with explicit teardown, instead of rebuilding the entire widget tree per test.
+Details: `Tasks/completed/BOT-038_intermittent_segfault_full_ui_integration_suite.md`
+§8, and `.agents/rules/ci-rule.md` §3.
 
 ### P0 — Stop the fake-green (~0.5 day)
 
