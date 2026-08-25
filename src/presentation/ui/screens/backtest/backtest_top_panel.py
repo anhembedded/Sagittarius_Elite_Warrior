@@ -35,13 +35,6 @@ from .backtest_widgets import MetricCardWidget
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
 
-_PANEL_BG = "#0d0e14"
-_CARD_BG = "#12141d"
-_CARD_BORDER = "#222533"
-_FIELD_BG = "#181a24"
-_FIELD_BORDER = "#2a2d3d"
-_FIELD_HOVER_BG = "#222536"
-
 
 def _pill_button(object_name: str, min_width: int = 0) -> QPushButton:
     btn = QPushButton()
@@ -66,7 +59,7 @@ class BackTestTopPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self._vm = view_model
-        self.setStyleSheet(f"background-color: {_PANEL_BG};")
+        self.setStyleSheet(f"background-color: {Palette.BG};")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 12, 12, 12)
@@ -74,7 +67,7 @@ class BackTestTopPanel(QWidget):
 
         self._card = QFrame()
         self._card.setStyleSheet(
-            f"background-color: {_CARD_BG}; border: 1px solid {_CARD_BORDER}; "
+            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
             f"border-radius: 8px;"
         )
         card_layout = QVBoxLayout(self._card)
@@ -193,8 +186,10 @@ class BackTestTopPanel(QWidget):
 
         self._btn_bot_params = _pill_button("btnBacktestBotParams")
         self._btn_bot_params.setStyleSheet(
-            "QPushButton { background-color: #1c1e2b; border: 1px solid #2d3145; "
-            "border-radius: 6px; } QPushButton:hover { background-color: #242840; }"
+            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; "
+            f"border: 1px solid {Palette.STATE_NAV_BORDER}; "
+            f"border-radius: 6px; }} "
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
         self._btn_bot_params.setLayout(
             self._icon_label_row("sliders", Palette.ACCENT, "Thông số Chiến lược")
@@ -212,7 +207,7 @@ class BackTestTopPanel(QWidget):
         run_row.addWidget(self._run_icon_label)
         self._run_text_label = QLabel()
         self._run_text_label.setStyleSheet(
-            "color: #08090d; font-size: 11px; font-weight: bold; background: transparent; border: none;"
+            f"color: {Palette.BG}; font-size: 11px; font-weight: bold; background: transparent; border: none;"
         )
         run_row.addWidget(self._run_text_label)
         self._btn_run.setLayout(run_row)
@@ -283,9 +278,9 @@ class BackTestTopPanel(QWidget):
     @staticmethod
     def _field_button_style() -> str:
         return (
-            f"QPushButton {{ background-color: {_FIELD_BG}; border: 1px solid "
-            f"{_FIELD_BORDER}; border-radius: 6px; }} "
-            f"QPushButton:hover {{ background-color: {_FIELD_HOVER_BG}; }}"
+            f"QPushButton {{ background-color: {Palette.STATE_IDLE_BG}; border: 1px solid "
+            f"{Palette.STATE_NAV_BORDER}; border-radius: 6px; }} "
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
 
     @staticmethod
@@ -301,7 +296,7 @@ class BackTestTopPanel(QWidget):
         banner = QFrame()
         banner.setObjectName("backtestProgressBanner")
         banner.setStyleSheet(
-            f"background-color: {_CARD_BG}; border: 1px solid {_FIELD_BORDER}; "
+            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.STATE_NAV_BORDER}; "
             f"border-radius: 6px;"
         )
         layout = QHBoxLayout(banner)
@@ -321,7 +316,7 @@ class BackTestTopPanel(QWidget):
         banner = QFrame()
         banner.setObjectName("backtestChartPreviewBanner")
         banner.setStyleSheet(
-            f"background-color: #0f1b2e; border: 1px solid {Palette.ACCENT}; border-radius: 6px;"
+            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.ACCENT}; border-radius: 6px;"
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
@@ -347,7 +342,7 @@ class BackTestTopPanel(QWidget):
         banner = QFrame()
         banner.setObjectName("backtestStaleWarningBanner")
         banner.setStyleSheet(
-            f"background-color: #2a1c07; border: 1px solid {Palette.WARNING}; "
+            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.WARNING}; "
             f"border-radius: 6px;"
         )
         layout = QHBoxLayout(banner)
@@ -363,13 +358,13 @@ class BackTestTopPanel(QWidget):
         layout.addWidget(icon_label)
         self._stale_text = QLabel()
         self._stale_text.setStyleSheet(
-            "color: #fbbf24; font-size: 11px; font-weight: bold; background: transparent; border: none;"
+            f"color: {Palette.WARNING}; font-size: 11px; font-weight: bold; background: transparent; border: none;"
         )
         layout.addWidget(self._stale_text, 1)
         rerun_btn = QPushButton("Chạy lại ngay")
         rerun_btn.setFixedSize(95, 24)
         rerun_btn.setStyleSheet(
-            f"background-color: {Palette.WARNING}; color: #08090d; font-size: 10px; "
+            f"background-color: {Palette.WARNING}; color: {Palette.BG}; font-size: 10px; "
             f"font-weight: bold; border-radius: 4px; border: none;"
         )
         rerun_btn.clicked.connect(self._vm.requestRun)
@@ -381,14 +376,14 @@ class BackTestTopPanel(QWidget):
         banner = QFrame()
         banner.setObjectName("backtestCoverageWarningBanner")
         banner.setStyleSheet(
-            f"background-color: #2a1c07; border: 1px solid {Palette.WARNING}; "
+            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.WARNING}; "
             f"border-radius: 6px;"
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
         self._coverage_text = QLabel()
         self._coverage_text.setStyleSheet(
-            "color: #fbbf24; font-size: 10px; background: transparent; border: none;"
+            f"color: {Palette.WARNING}; font-size: 10px; background: transparent; border: none;"
         )
         self._coverage_text.setWordWrap(False)
         layout.addWidget(self._coverage_text, 1)
@@ -439,7 +434,8 @@ class BackTestTopPanel(QWidget):
         self._result_warning_label = QLabel()
         self._result_warning_label.setObjectName("lblResultWarning")
         self._result_warning_label.setStyleSheet(
-            "color: #ef5350; font-size: 11px; font-weight: bold; background: transparent; border: none;"
+            f"color: {Palette.DANGER}; font-size: 11px; font-weight: bold; "
+            f"background: transparent; border: none;"
         )
         self._result_warning_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         row.addWidget(self._result_warning_label, 1)
@@ -492,7 +488,7 @@ class BackTestTopPanel(QWidget):
         self._result_text.setReadOnly(True)
         self._result_text.setFixedHeight(120)
         self._result_text.setStyleSheet(
-            f"background-color: {_CARD_BG}; border: 1px solid {_CARD_BORDER}; "
+            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
             f"border-radius: 6px; color: {Palette.TEXT_PRIMARY}; font-size: 11px; "
             f"font-family: 'JetBrains Mono', 'Fira Code', monospace;"
         )
@@ -576,21 +572,21 @@ class BackTestTopPanel(QWidget):
             mode != "CANCELLING" and (bool(vm.controlsEnabled) or is_cancellable)
         )
         if is_cancellable:
-            color, hover_color = "#ef4444", "#fb7185"
+            color, hover_color = Palette.DANGER, Palette.DANGER
             icon_name = "square"
         elif vm.isConfigDirty:
-            color, hover_color = "#f59e0b", "#fbbf24"
+            color, hover_color = Palette.WARNING, Palette.WARNING
             icon_name = "rotate-ccw"
         else:
-            color, hover_color = "#10b981", "#12e680"
+            color, hover_color = Palette.SUCCESS, Palette.SUCCESS
             icon_name = "play"
         self._btn_run.setStyleSheet(
             f"QPushButton {{ background-color: {color}; border-radius: 6px; border: none; }} "
             f"QPushButton:hover {{ background-color: {hover_color}; }} "
-            f"QPushButton:disabled {{ background-color: #242736; }}"
+            f"QPushButton:disabled {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
         self._run_icon_label.setPixmap(
-            get_icon_loader().get_icon(icon_name, "#08090d", 13).pixmap(13, 13)
+            get_icon_loader().get_icon(icon_name, Palette.BG, 13).pixmap(13, 13)
         )
         if mode == "CANCELLING":
             text = "ĐANG HỦY..."
@@ -687,8 +683,8 @@ class BackTestTopPanel(QWidget):
         vm = self._vm
         self._result_text.setPlainText(vm.resultText)
         self._result_text.setStyleSheet(
-            f"background-color: {_CARD_BG}; border: 1px solid {_CARD_BORDER}; "
-            f"border-radius: 6px; color: {'#ff5252' if vm.resultIsError else Palette.TEXT_PRIMARY}; "
+            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
+            f"border-radius: 6px; color: {Palette.DANGER if vm.resultIsError else Palette.TEXT_PRIMARY}; "
             f"font-size: 11px; font-family: 'JetBrains Mono', 'Fira Code', monospace;"
         )
         self._btn_request_sync.setVisible(bool(vm.needsDataSync))
@@ -696,6 +692,6 @@ class BackTestTopPanel(QWidget):
         text = "Đang đồng bộ..." if vm.uiMode == "SYNCING" else "Đồng bộ dữ liệu ngay"
         self._btn_request_sync.setText(text)
         self._btn_request_sync.setStyleSheet(
-            f"background-color: {Palette.ACCENT if self._btn_request_sync.isEnabled() else '#282b3a'}; "
-            f"color: #000000; font-size: 12px; font-weight: bold; border-radius: 6px; border: none;"
+            f"background-color: {Palette.ACCENT if self._btn_request_sync.isEnabled() else Palette.STATE_NAV_BORDER}; "
+            f"color: {Palette.BG}; font-size: 12px; font-weight: bold; border-radius: 6px; border: none;"
         )

@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_ser
 
 from . import theme
 
+#: Crosshair readout label background.
+_LABEL_FILL = "#2b3139"  # token-exempt: chart_card avoids Palette, see theme.py
+
 OhlcCandle = tuple[float, float, float, float, float]
 
 
@@ -63,12 +66,18 @@ class CrosshairController:
 
         # We use HTML/CSS inside TextItem for background styling.
         # fill is not strictly needed if we style the HTML background, but it sets the item background.
-        x_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
+        x_label = pg.TextItem(
+            fill=pg.mkBrush(_LABEL_FILL),
+            color="w",
+        )
         x_label.setAnchor((0.5, 1.0))
         x_label.hide()
         x_label.setZValue(1000)
 
-        y_label = pg.TextItem(fill=pg.mkBrush("#2b3139"), color="w")
+        y_label = pg.TextItem(
+            fill=pg.mkBrush(_LABEL_FILL),
+            color="w",
+        )
         y_label.setAnchor((0.0, 0.5))
         y_label.hide()
         y_label.setZValue(1000)
@@ -196,7 +205,7 @@ class CrosshairController:
     def _update_label(self, x_val: float, y_val: float) -> None:
         dt_str = format_display_timestamp(x_val, tz_name=self._display_timezone)
         self._set_info_text(
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>Time:</span> <span style='color: #ffffff'>{dt_str}</span> | "
+            f"<span style='color: {theme.CROSSHAIR_COLOR}'>Time:</span> <span style='color: #ffffff'>{dt_str}</span> | "  # token-exempt: chart_card avoids Palette, see theme.py
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>Value:</span> <span style='color: {theme.BULL_COLOR}'>{y_val:.4f}</span>"
         )
 
@@ -207,10 +216,10 @@ class CrosshairController:
         dt_str = format_display_timestamp(t, tz_name=self._display_timezone)
         self._set_info_text(
             f"<span style='color: {theme.CROSSHAIR_COLOR}'>{dt_str}</span> &nbsp; "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>O</span> <span style='color: #ffffff'>{o:.4f}</span> "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>H</span> <span style='color: #ffffff'>{h:.4f}</span> "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>L</span> <span style='color: #ffffff'>{low:.4f}</span> "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>C</span> <span style='color: #ffffff'>{c:.4f}</span> "
+            f"<span style='color: {theme.CROSSHAIR_COLOR}'>O</span> <span style='color: #ffffff'>{o:.4f}</span> "  # token-exempt: chart_card avoids Palette, see theme.py
+            f"<span style='color: {theme.CROSSHAIR_COLOR}'>H</span> <span style='color: #ffffff'>{h:.4f}</span> "  # token-exempt: chart_card avoids Palette, see theme.py
+            f"<span style='color: {theme.CROSSHAIR_COLOR}'>L</span> <span style='color: #ffffff'>{low:.4f}</span> "  # token-exempt: chart_card avoids Palette, see theme.py
+            f"<span style='color: {theme.CROSSHAIR_COLOR}'>C</span> <span style='color: #ffffff'>{c:.4f}</span> "  # token-exempt: chart_card avoids Palette, see theme.py
             f"<span style='color: {change_color}'>({change_pct:+.2f}%)</span>"
         )
 

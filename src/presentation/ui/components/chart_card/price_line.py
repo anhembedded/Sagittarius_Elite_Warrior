@@ -20,7 +20,7 @@ class LastPriceLine:
             label="{value:.4f}",
             labelOpts={
                 "position": 1.0,
-                "color": "#ffffff",
+                "color": "#ffffff",  # token-exempt: chart_card avoids Palette, see theme.py
                 "fill": pg.mkBrush(theme.BULL_COLOR),
                 "movable": False,
             },

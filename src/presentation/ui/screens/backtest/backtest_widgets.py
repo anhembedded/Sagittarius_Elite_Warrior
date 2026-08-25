@@ -24,10 +24,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     get_icon_loader,
 )
 
-_CARD_BG = "#14161f"
-_CARD_BORDER = "#232634"
-_CARD_HOVER_BG = "#1a1d29"
-_CARD_HOVER_BORDER = "#363a4d"
 _RGB_HEX_LENGTH = 6
 _COMPACT_VALUE_LENGTH_THRESHOLD = 10
 
@@ -52,8 +48,8 @@ class MetricCardWidget(QFrame):
         super().__init__(parent)
         self.setMinimumSize(120, 80)
         self.setStyleSheet(
-            f"MetricCardWidget {{ background-color: {_CARD_BG}; "
-            f"border: 1px solid {_CARD_BORDER}; border-radius: 8px; }}"
+            f"MetricCardWidget {{ background-color: {Palette.BG_CARD}; "
+            f"border: 1px solid {Palette.BORDER}; border-radius: 8px; }}"
         )
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -102,15 +98,15 @@ class MetricCardWidget(QFrame):
     def enterEvent(self, event) -> None:
         super().enterEvent(event)
         self.setStyleSheet(
-            f"MetricCardWidget {{ background-color: {_CARD_HOVER_BG}; "
-            f"border: 1px solid {_CARD_HOVER_BORDER}; border-radius: 8px; }}"
+            f"MetricCardWidget {{ background-color: {Palette.STATE_HOVER_BG}; "
+            f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 8px; }}"
         )
 
     def leaveEvent(self, event) -> None:
         super().leaveEvent(event)
         self.setStyleSheet(
-            f"MetricCardWidget {{ background-color: {_CARD_BG}; "
-            f"border: 1px solid {_CARD_BORDER}; border-radius: 8px; }}"
+            f"MetricCardWidget {{ background-color: {Palette.BG_CARD}; "
+            f"border: 1px solid {Palette.BORDER}; border-radius: 8px; }}"
         )
 
     def set_data(
@@ -196,17 +192,17 @@ class _TabButton(QPushButton):
             f"color: {Palette.TEXT_PRIMARY if active else Palette.MUTED}; "
             f"font-size: 11px; font-weight: {'bold' if active else 'normal'};"
         )
-        badge_bg = "#272a3e" if active else "#141620"
-        badge_border = Palette.ACCENT if active else "#242738"
+        badge_bg = Palette.STATE_HOVER_BG if active else Palette.BG_CARD_HEADER
+        badge_border = Palette.ACCENT if active else Palette.STATE_NAV_BORDER
         badge_color = Palette.ACCENT if active else Palette.MUTED
         self._badge.setStyleSheet(
             f"background-color: {badge_bg}; border: 1px solid {badge_border}; "
             f"border-radius: 9px; color: {badge_color}; font-size: 10px; font-weight: bold;"
         )
         self.setStyleSheet(
-            f"QPushButton {{ background-color: {'#1c1e2d' if active else 'transparent'}; "
-            f"border: 1px solid {'#2c3045' if active else 'transparent'}; border-radius: 6px; }} "
-            f"QPushButton:hover {{ background-color: {'#1c1e2d' if active else '#161722'}; }}"
+            f"QPushButton {{ background-color: {Palette.STATE_HOVER_BG if active else 'transparent'}; "
+            f"border: 1px solid {Palette.STATE_NAV_BORDER if active else 'transparent'}; border-radius: 6px; }} "
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
 
 

@@ -54,7 +54,7 @@ class ChartPlotLayout:
         self.widget.setBackground("default")
 
         self.crosshair_label = self.widget.addLabel(
-            "<span style='color: #888888; font-size: 11px;'>Hover to see data</span>",
+            "<span style='color: #888888; font-size: 11px;'>Hover to see data</span>",  # token-exempt: chart_card avoids Palette, see theme.py
             row=0,
             col=0,
             justify="right",

@@ -214,7 +214,7 @@ class SettingsView(BaseView):
         self._save_button.setStyleSheet(
             f"QPushButton {{ background-color: {Palette.ACCENT}; color: {Palette.BG}; "
             f"font-size: 12px; font-weight: bold; border-radius: 6px; border: none; }} "
-            f"QPushButton:pressed {{ background-color: #cf9e28; }}"
+            f"QPushButton:pressed {{ background-color: {Palette.ACCENT}; }}"
         )
         layout.addWidget(self._save_button)
 

@@ -12,8 +12,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_p
 def build_preview() -> QWidget:
     """Builds a standalone preview for the Dev Board panel."""
     view_model = DashboardQmlViewModel()
-    view_model.set_price_ticker("ETHUSDT  3,241.55", "#26a69a")
-    view_model.set_ws_status("WS: LIVE", "#26a69a")
+    view_model.set_price_ticker(
+        "ETHUSDT  3,241.55",
+        "#26a69a",  # token-exempt: bull colour, matches chart_card/theme.py
+    )
+    view_model.set_ws_status(
+        "WS: LIVE",
+        "#26a69a",  # token-exempt: bull colour, matches chart_card/theme.py
+    )
     view_model.log_model.append("Prepared 1 charts.")
     view_model.log_model.append(
         "Live stream for ['ETHUSDT'] is running.", level="success"

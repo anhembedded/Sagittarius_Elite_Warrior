@@ -265,7 +265,7 @@ class AppProgressBarWidget(QWidget):
         self._bar.setTextVisible(True)
         self._bar.setFixedHeight(10)
         self._bar.setStyleSheet(
-            f"QProgressBar {{ background-color: #171922; border: 1px solid #2a2d3d; "
+            f"QProgressBar {{ background-color: {Palette.BG_CARD}; border: 1px solid {Palette.STATE_NAV_BORDER}; "
             f"border-radius: 3px; color: {Palette.ACCENT}; font-size: 10px; }} "
             f"QProgressBar::chunk {{ background-color: {Palette.ACCENT}; border-radius: 3px; }}"
         )
@@ -368,9 +368,9 @@ class SymbolPickerDialog(QDialog):
             button = QPushButton(symbol)
             button.setFixedHeight(36)
             button.setStyleSheet(
-                f"QPushButton {{ background-color: #141620; color: {Palette.TEXT_PRIMARY}; "
+                f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {Palette.TEXT_PRIMARY}; "
                 f"border: 1px solid {Palette.BORDER}; border-radius: 8px; font-size: 11px; }} "
-                f"QPushButton:hover {{ background-color: #1b1d28; }}"
+                f"QPushButton:hover {{ background-color: {Palette.BG_CARD_HEADER}; }}"
             )
             button.clicked.connect(lambda _checked, s=symbol: self._choose(s))
             self._grid_layout.addWidget(button, i // columns, i % columns)
@@ -618,10 +618,12 @@ class KLineInspectorDialog(QDialog):
 
         self._btn_audit = QPushButton("Kiểm định Dữ liệu (Audit)")
         self._btn_audit.setObjectName("btnAudit")
-        self._btn_audit.setIcon(get_icon_loader().get_icon("shield", "#ffffff", 14))
+        self._btn_audit.setIcon(
+            get_icon_loader().get_icon("shield", Palette.TEXT_PRIMARY, 14)
+        )
         self._btn_audit.setFixedHeight(32)
         self._btn_audit.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.SUCCESS}; color: #ffffff; "
+            f"QPushButton {{ background-color: {Palette.SUCCESS}; color: {Palette.TEXT_PRIMARY}; "
             f"font-weight: bold; border-radius: 4px; padding: 0 10px; }} "
             f"QPushButton:disabled {{ background-color: {Palette.STATE_IDLE_BG}; color: {Palette.MUTED}; }}"
         )
@@ -794,7 +796,7 @@ class KLineInspectorDialog(QDialog):
             selected = size == page_size
             button.setStyleSheet(
                 f"QPushButton {{ background-color: {Palette.ACCENT if selected else Palette.STATE_IDLE_BG}; "
-                f"color: {'#000000' if selected else Palette.TEXT_PRIMARY}; "
+                f"color: {Palette.BG if selected else Palette.TEXT_PRIMARY}; "
                 f"font-size: 10px; font-weight: {'bold' if selected else 'normal'}; "
                 f"border-radius: 3px; }} "
                 f"QPushButton:hover {{ background-color: {Palette.ACCENT if selected else Palette.STATE_HOVER_BG}; }}"
@@ -812,7 +814,8 @@ class KLineInspectorDialog(QDialog):
         if has_summary:
             self._audit_icon_label.setText("✅" if vm.auditPassed else "⚠️")
             color = Palette.SUCCESS if vm.auditPassed else Palette.DANGER
-            bg = "#0d2818" if vm.auditPassed else "#381214"
+            # Uniform ground; pass-vs-fail is carried by `color` below.
+            bg = Palette.BG_CARD_HEADER
             self._audit_banner.setStyleSheet(
                 f"background-color: {bg}; border: 1px solid {color}; border-radius: 4px;"
             )
@@ -898,10 +901,10 @@ class _GapRowWidget(QFrame):
         self._repair_button.setObjectName(f"btnRepairGap_{index}")
         self._repair_button.setFixedHeight(24)
         self._repair_button.setStyleSheet(
-            f"QPushButton {{ background-color: #131822; color: {Palette.ACCENT}; "
+            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {Palette.ACCENT}; "
             f"border: 1px solid {Palette.ACCENT}; border-radius: 4px; font-size: 10px; "
             f"font-weight: bold; }} "
-            f"QPushButton:hover {{ background-color: #1f2a3a; }}"
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
         self._repair_button.clicked.connect(lambda: on_repair(gap))
         layout.addWidget(self._repair_button, 18)
@@ -1000,7 +1003,7 @@ class GapInspectorDialog(QDialog):
         self._coverage_bar_frame = QFrame()
         self._coverage_bar_frame.setFixedHeight(18)
         self._coverage_bar_frame.setStyleSheet(
-            f"background-color: #15171e; border: 1px solid {Palette.BORDER}; border-radius: 4px;"
+            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 4px;"
         )
         self._coverage_bar_layout = QHBoxLayout(self._coverage_bar_frame)
         self._coverage_bar_layout.setContentsMargins(1, 1, 1, 1)
@@ -1068,10 +1071,10 @@ class GapInspectorDialog(QDialog):
         )
         self._btn_repair_all.setFixedHeight(32)
         self._btn_repair_all.setStyleSheet(
-            f"QPushButton {{ background-color: #131822; color: {Palette.ACCENT}; "
+            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {Palette.ACCENT}; "
             f"border: 1px solid {Palette.ACCENT}; border-radius: 6px; font-size: 11px; "
             f"font-weight: bold; padding: 0 10px; }} "
-            f"QPushButton:hover {{ background-color: #1f2a3a; }} "
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }} "
             f"QPushButton:disabled {{ color: {Palette.MUTED}; border-color: {Palette.BORDER}; }}"
         )
         self._btn_repair_all.clicked.connect(self._on_repair_all)
@@ -1080,7 +1083,7 @@ class GapInspectorDialog(QDialog):
         btn_close = QPushButton("Đóng")
         btn_close.setFixedSize(80, 32)
         btn_close.setStyleSheet(
-            f"QPushButton {{ background-color: #1e1e24; color: {Palette.TEXT_PRIMARY}; "
+            f"QPushButton {{ background-color: {Palette.BG_CARD}; color: {Palette.TEXT_PRIMARY}; "
             f"border: 1px solid {Palette.BORDER}; border-radius: 6px; }}"
         )
         btn_close.clicked.connect(self.close)

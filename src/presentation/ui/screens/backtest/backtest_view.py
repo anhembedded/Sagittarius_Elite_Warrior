@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QScrollArea, QSplitter, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from .backtest_modals import BackTestModalsHost
@@ -18,7 +19,7 @@ from .logic.chart_controls import BacktestChartControls
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (
-    "#f0b90b"  # Theme.accent's hex — chart_card has no Qt theme singleton access
+    Palette.ACCENT  # Theme.accent's hex — chart_card has no Qt theme singleton access
 )
 _TRADE_FLAGS_KEY = "backtest_trades"
 _CHART_MINIMUM_HEIGHT = 550
