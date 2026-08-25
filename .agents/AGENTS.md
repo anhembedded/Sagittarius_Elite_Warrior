@@ -31,7 +31,12 @@ move, bản đầy đủ hơn đã tồn tại sẵn ở các file `rules/` tư�
 | Quy trình sửa bug | [`rules/bug-fix-rule.md`](rules/bug-fix-rule.md) |
 | Logging | [`rules/logging-rule.md`](rules/logging-rule.md) |
 | QML chi tiết | [`rules/qml-rule.md`](rules/qml-rule.md) |
-| Bảo mật | [`rules/sentinel-rule.md`](rules/sentinel-rule.md) |
+
+**Sửa 2026-08-25:** bảng trên trước đây có thêm dòng "Bảo mật →
+`rules/sentinel-rule.md`" — file đó **chưa bao giờ tồn tại** trong
+`.agents/rules/` (chỉ có 7 file rule; xác nhận bằng `ls .agents/rules/`).
+Đã xoá dòng link gãy đó. Nội dung bảo mật thật nằm ở `.jules/sentinel.prompt.md`
+(system prompt của agent Sentinel) và `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`.
 
 File này giữ lại (không xoá hẳn) vì `AGENTS.md` là tên file nhiều công cụ
 AI tự động tìm và đọc theo mặc định — mất file này thì công cụ đó không còn

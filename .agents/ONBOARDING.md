@@ -6,7 +6,7 @@ trigger: always_on
 
 # ONBOARDING — Đọc file này TRƯỚC KHI viết dòng code đầu tiên
 
-Dự án này đã có 8 file rule chi tiết. Vấn đề không phải thiếu rule — mà là
+Dự án này đã có 7 file rule chi tiết (đếm thật: `ls .agents/rules/`). Vấn đề không phải thiếu rule — mà là
 một agent mới **không biết có những file đó, đọc theo thứ tự nào, và quy
 trình thật sự chạy ra sao**. File này là bản đồ đó. Nó không lặp lại nội
 dung rule; nó nói *khi nào* đọc rule nào, và mô tả những phần quy trình
@@ -33,8 +33,14 @@ bookkeeping `ROADMAP.md`).
 | — | `Tasks/epics/README.md` | Danh sách Epic đang có (mỗi Epic có thư mục + README riêng, xem §3) |
 | — | **§12 của file này** | **Bắt tay vào việc đang dở** — epic nào đang chạy, task con tiếp theo, cơ chế mới ở Engine phải dùng |
 
-`.agents/rules/sentinel-rule.md` và `install-rule.md` là chuyên đề riêng
-(bảo mật / cài đặt), đọc khi task chạm đúng phạm vi đó.
+`.agents/rules/install-rule.md` là chuyên đề riêng (cài đặt), đọc khi task
+chạm đúng phạm vi đó.
+
+> **Sửa 2026-08-25:** dòng này trước đây còn nhắc
+> `.agents/rules/sentinel-rule.md` — **file đó không tồn tại** (và cũng không
+> có trong lịch sử `git log`). Quy tắc bảo mật thật sống ở
+> `.jules/sentinel.prompt.md` + `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`,
+> không phải ở `rules/`.
 
 ---
 
@@ -375,6 +381,38 @@ file — cộng 1 lỗi thật nguy hiểm: mục Git Commits ghi cứng
 để biết chi tiết. Cập nhật lại dòng #2 và trích dẫn "Phản biện là bắt buộc"
 ở §7 (trước trỏ vào `AGENTS.md`, giờ trỏ đúng `code-rule.md` §5). Nếu phát
 hiện thêm chỗ lỗi thời, sửa và ghi lại ở đây thay vì im lặng đi đường vòng.
+
+**Đã dọn 2026-08-25 (rà soát `.agents/` đối chiếu thực tế trên đĩa):** phát
+hiện 8 chỗ **sai thật**, không phải chỉ lỗi thời câu chữ — tất cả đã sửa:
+
+1. `AGENTS.md` và §1 của file này cùng trỏ tới `.agents/rules/sentinel-rule.md`
+   — **file chưa bao giờ tồn tại**. Đã xoá cả 2 link gãy; nội dung bảo mật
+   thật ở `.jules/sentinel.prompt.md` + `Tasks/epics/EPIC-004_.../`.
+2. §1 ghi "8 file rule", thực tế **7** (`ls .agents/rules/`). Con số này đã
+   sai 3 lần liên tiếp (10 → 9 → 8 → thực tế 7) — đừng chép lại, hãy đếm.
+3. `Handover.md` mô tả 2 repo là **superproject/submodule** — sai từ
+   2026-08-21 (`a1efcd6`), đúng cái mà §2 file này đã sửa. Đã sửa 4 chỗ.
+4. `Handover.md` trỏ tới `.agents/rules/native-chart-rule.md` và
+   `Docs/NATIVE_CHART_BUILD_AND_DEPLOY.md` — **cả hai đều không tồn tại**.
+   Đã xoá mục đó.
+5. `Handover.md` nói `.github/workflows/ci.yml` "chạy đúng lệnh này" và có
+   một "discrepancy chưa giải quyết" với `ci-local.ps1` — **repo này không
+   có thư mục `.github/` nào cả**, đúng như `ci-rule.md` §7 đã ghi
+   (CI local-only). Không có discrepancy nào để đuổi theo.
+6. `Handover.md` trỏ tới journal `.jules/bolt.md` / `palette.md` /
+   `sentinel.md` — **không tồn tại**, `.jules/` chỉ có 7 file `*.prompt.md`.
+7. `BUG-015`/`BUG-016` bị mô tả là "Windows-only, còn mở, chặn `BOT-098F*`"
+   — **cả hai đã đóng** (`bug_report/completed/`): `BUG-015` hoá ra là lỗi
+   probe script chứ không phải renderer; `BUG-016` đóng dạng *moot* vì
+   native chart đã bị xoá hẳn (`36f3a9f`, 2026-08-24). `BUG-017` cũng bị
+   ghi "chưa sửa" trong khi đã sửa.
+8. 3 link `.md` gãy trong `Handover.md` (`BOT-101`, `BUG-013`, `BUG-017`
+   đều đã chuyển sang `completed/`). Đã trỏ lại đúng chỗ.
+
+`Handover.md` giờ có khối `[!IMPORTANT]` ở đầu nói thẳng: các mục theo phiên
+bên dưới là **bản ghi lịch sử**, mục mới nhất là 2026-08-20, và trạng thái
+hiện tại nằm ở §12 file này. Không xoá phần lịch sử — chỉ đánh dấu chỗ đã
+hết đúng.
 
 Lưu ý còn tồn tại: **mọi rule file của cả hai repo chỉ ghi lệnh
 PowerShell**. Trên Linux dùng lệnh ở §5.
