@@ -348,7 +348,7 @@ widget's deferred deletion to actually happen inside a test.
   `36f3a9f` on 2026-08-24 after [`BUG-039`](../Tasks/bug_report/completed/BUG-039_native_chart_default_regressed_backtest_visuals.md)
   (making it the default regressed Backtest visuals). The `IBacktestChartHost`
   **port** survived the deletion and is still the right boundary — see
-  `code-rule.md` §2 "Backtest chart host boundary" — it simply has one
+  `domain-truth-rule.md` "Backtest chart host boundary" — it simply has one
   implementation now. Every `BOT-098F*` task is either completed or
   cancelled; none describes live code.
 - **`BUG-009`/`BUG-010`** (cached-frame drag-preview widget shift, "Đồng bộ
@@ -413,12 +413,24 @@ pip install -e Sagittarius_Engine
 
 ## Where the actual rules live (read these, don't guess)
 
-- **`.agents/rules/code-rule.md`** (this folder) — the real, binding
-  engineering rules for this app repo: No Hardcoding, SOLID, No Lazy Code
-  (no `lambda` — write a named function instead), mandatory sanity tests
-  for every new feature/screen, and the flat MVP-trio screen folder
-  convention. Read it in full before writing any code — this summary is
-  not a substitute.
+- **`.agents/rules/`** (this folder) — the real, binding engineering rules.
+  Split by abstraction level on 2026-08-25; `code-rule.md` is now only a
+  navigation stub listing where each former section went. Open the one your
+  task needs, not all of them:
+  [`architecture-rule.md`](rules/architecture-rule.md) (SOLID, layers, Port/ABC
+  completeness, CQRS, Abstraction-Level Separation),
+  [`code-quality-rule.md`](rules/code-quality-rule.md) (typing, immutability,
+  No Hardcoding, No Lazy Code — no `lambda`, write a named function),
+  [`async-ui-action-rule.md`](rules/async-ui-action-rule.md) (action ownership,
+  cancellation, Coordinator Pattern),
+  [`domain-truth-rule.md`](rules/domain-truth-rule.md) (truthful data, trading
+  semantics, chart host boundary),
+  [`ui-presentation-rule.md`](rules/ui-presentation-rule.md) (MVP trio folder
+  layout, `preview.py`), and
+  [`testing-rule.md`](rules/testing-rule.md) (mandatory sanity coverage for
+  every new feature/screen, invariants, Boundary Value Analysis).
+  Read the relevant one in full before writing code — this summary is not a
+  substitute.
 - **`.agents/rules/bug-fix-rule.md`** (this folder) — the full bug-fix
   workflow: root cause first, regression test before the fix (confirmed
   failing for the right reason, at the correct test tier — see `BUG-013`'s
@@ -445,11 +457,14 @@ pip install -e Sagittarius_Engine
   most of `code-rule.md` verbatim, including a wrong hardcoded commit
   trailer — see `rules/commit-rule.md` for the real rule: the trailer must
   name the actual AI that authored the commit, never a fixed placeholder).
-- **`.agents/context/`** (this folder) — workload-specific, non-binding
-  context. Read the matching file when working in that area; it records
-  current facts, task order, and known hazards without duplicating rules.
-  For Backtest lifecycle/FSM/async work, read
-  `.agents/context/BOT-095_backtest_lifecycle.md` before editing code.
+- **`.agents/context/`** — was a folder of workload-specific, non-binding
+  context. **Empty as of 2026-08-25:** its only file,
+  `BOT-095_backtest_lifecycle.md`, was deleted as obsolete in `b84a365`, so
+  this bullet's old instruction ("for Backtest lifecycle/FSM/async work, read
+  `.agents/context/BOT-095_backtest_lifecycle.md` before editing code")
+  pointed at nothing. For that area read
+  [`rules/async-ui-action-rule.md`](rules/async-ui-action-rule.md) instead —
+  it owns action ownership, cancellation and the Coordinator Pattern.
 - **`../.agents/PLAYBOOK.md`** (the Engine repo, i.e. the parent directory
   on disk — a separate repo, not a parent project) — generic AI working
   process (understand → load context → apply rules → pick a skill →

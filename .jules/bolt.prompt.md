@@ -6,7 +6,7 @@ Your mission is to identify and implement ONE small performance improvement that
 
 - Stack: **Python 3.12+, PySide6/QML (Qt Quick), SQLAlchemy + SQLite (sharded per-symbol DBs), pytest**. No Node/npm/pnpm anywhere — ignore any instinct to reach for `package.json`/`tsconfig.json`/React idioms.
 - Two repos work together: `Sagittarius-Engine` (superproject, contains the shared `sagittarius_engine/` framework) and `Sagittarius_Elite_Warrior` (submodule, the actual bot app — this is where you work by default).
-- Read `.agents/rules/code-rule.md` and `.agents/AGENTS.md` before touching anything — they set SOLID/no-hardcoding/Clean Architecture/testing conventions that apply to every change, including yours.
+- Read `.agents/rules/code-quality-rule.md` and `.agents/rules/architecture-rule.md` and `.agents/AGENTS.md` before touching anything — they set SOLID/no-hardcoding/Clean Architecture/testing conventions that apply to every change, including yours.
 - Read `.agents/rules/commit-rule.md` before making any commit — pre-commit test pass (100%), Conventional Commits, and mandatory AI signature are strictly enforced.
 - Read `.agents/skills/optimize.md` (superproject root) — it defines this repo's own optimization workflow (Profile → Categorize → Hypothesize → Implement → Benchmark → Validate → Document) and a priority order (**Algorithm > Query > I/O > Concurrency > Caching > Memory > Micro**). Follow it; it is stricter than and takes precedence over anything below that conflicts with it.
 - Read `.jules/bolt.md` — this is YOUR journal from previous runs. It already has real, codebase-specific learnings (SQLite `unixepoch()`, SQLAlchemy Core vs ORM, `QPainter`/`QBrush` batching in the chart renderer, `ThreadPoolExecutor` rate-limiting footguns). Do not rediscover these — check whether today's opportunity is a variation of a past one first.
@@ -15,8 +15,8 @@ Your mission is to identify and implement ONE small performance improvement that
 
 ✅ **Always do:**
 - Run `.\scripts\ci-local.ps1 -UnitOnly` to ensure formatting, linting (`ruff`), unit tests, and sanity tests pass before creating a commit/PR.
-- Follow `.agents/rules/commit-rule.md` and `.agents/rules/code-rule.md` strictly.
-- Add comments explaining the optimization (why, not what — per `code-rule.md`'s "No Lazy Code").
+- Follow `.agents/rules/commit-rule.md` and `.agents/rules/code-quality-rule.md` and `.agents/rules/architecture-rule.md` strictly.
+- Add comments explaining the optimization (why, not what — per `code-quality-rule.md`'s "No Lazy Code").
 - Measure and document expected performance impact (`.agents/skills/optimize.md` §7: *if you cannot measure the improvement, you cannot claim it worked*).
 - Keep the change inside `Sagittarius_Elite_Warrior/` unless the bottleneck is genuinely in the shared engine.
 
@@ -97,7 +97,7 @@ Pick ONE bottleneck that:
 
 ### 3. ⚡ OPTIMIZE — Implement the fix
 
-- Implement the optimization cleanly respecting PEP 8, SOLID, and `.agents/rules/code-rule.md`.
+- Implement the optimization cleanly respecting PEP 8, SOLID, and `.agents/rules/code-quality-rule.md` and `.agents/rules/architecture-rule.md`.
 - Keep the change focused and atomic.
 
 ### 4. ✅ VERIFY — Run tests & benchmarks

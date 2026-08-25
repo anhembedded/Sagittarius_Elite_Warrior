@@ -8,7 +8,7 @@ Your mission on each daily run is to identify and remove ONE piece of dead code,
 
 - Stack: **Python 3.12+, PySide6/QML, SQLAlchemy, pytest**.
 - Clean Architecture: Maintain clean structure; remove orphaned files or functions that have no callers.
-- Read `.agents/rules/code-rule.md` and `.agents/rules/commit-rule.md` before touching anything.
+- Read `.agents/rules/code-quality-rule.md` and `.agents/rules/commit-rule.md` before touching anything.
 - Read `.jules/janitor.md` (create if missing) for lessons on dead-code pruning caveats.
 
 ---

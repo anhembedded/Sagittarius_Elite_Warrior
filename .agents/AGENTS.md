@@ -24,7 +24,12 @@ move, bản đầy đủ hơn đã tồn tại sẵn ở các file `rules/` tư�
 
 | Chủ đề | Đọc ở |
 | :--- | :--- |
-| SOLID, Clean Architecture, Typing, QML, Async Action Ownership, Testing, God Object, Coordinator Pattern... | [`rules/code-rule.md`](rules/code-rule.md) |
+| SOLID, Clean Architecture, Port/ABC, CQRS, Abstraction-Level Separation | [`rules/architecture-rule.md`](rules/architecture-rule.md) |
+| Typing, immutability, magic number, God object, lazy import, Single-Scope Cohesion | [`rules/code-quality-rule.md`](rules/code-quality-rule.md) |
+| Async UI action ownership, cancellation, Coordinator Pattern | [`rules/async-ui-action-rule.md`](rules/async-ui-action-rule.md) |
+| Dữ liệu trung thực, ngữ nghĩa giao dịch, snapshot, benchmark | [`rules/domain-truth-rule.md`](rules/domain-truth-rule.md) |
+| Tầng presentation (Python), MVP trio, `preview.py` | [`rules/ui-presentation-rule.md`](rules/ui-presentation-rule.md) |
+| Cách viết test, invariant, Boundary Value Analysis | [`rules/testing-rule.md`](rules/testing-rule.md) |
 | Cài đặt `sagittarius_engine` (2 phương án) | [`rules/install-rule.md`](rules/install-rule.md) |
 | Quy tắc commit, trailer `Co-Authored-By` đúng | [`rules/commit-rule.md`](rules/commit-rule.md) |
 | CI/CD, 4 tầng test | [`rules/ci-rule.md`](rules/ci-rule.md) |
@@ -32,9 +37,16 @@ move, bản đầy đủ hơn đã tồn tại sẵn ở các file `rules/` tư�
 | Logging | [`rules/logging-rule.md`](rules/logging-rule.md) |
 | QML chi tiết | [`rules/qml-rule.md`](rules/qml-rule.md) |
 
+**Tách rule 2026-08-25:** `rules/code-rule.md` (213 dòng, 9 nhóm quy tắc khác
+abstraction level) đã được tách thành 6 file chuyên biệt — 6 dòng đầu bảng
+trên. Bản thân `code-rule.md` **được giữ làm stub điều hướng, không xoá**: nó
+đang được 7 file `.jules/*.prompt.md` (system prompt của agent tự động) đọc
+như điểm vào bắt buộc, cùng lý do `AGENTS.md` này từng được giữ lại.
+
 **Sửa 2026-08-25:** bảng trên trước đây có thêm dòng "Bảo mật →
 `rules/sentinel-rule.md`" — file đó **chưa bao giờ tồn tại** trong
-`.agents/rules/` (chỉ có 7 file rule; xác nhận bằng `ls .agents/rules/`).
+`.agents/rules/` (lúc đó có 7 file rule; sau đợt tách cùng ngày là 13 — luôn
+xác nhận bằng `ls .agents/rules/`).
 Đã xoá dòng link gãy đó. Nội dung bảo mật thật nằm ở `.jules/sentinel.prompt.md`
 (system prompt của agent Sentinel) và `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`.
 
