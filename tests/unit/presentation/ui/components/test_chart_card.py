@@ -25,7 +25,11 @@ def test_chart_card_initialization(qapp):
 
     # Kiểm tra tiêu đề có được set đúng không
     assert card.symbol == "BTCUSDT"
-    assert card.lbl_title.text() == "Live Chart: BTCUSDT"
+    # `title`, not `lbl_title`: EPIC-007E moved this card onto the engine's
+    # `Card`, which exposes the heading as a property rather than the label
+    # widget. Reading the property is also the better assertion — it does not
+    # depend on the header being built out of a QLabel.
+    assert card.title == "Live Chart: BTCUSDT"
 
 
 def test_chart_plot_layout_defaults_to_layered_antialias_without_global_side_effect(

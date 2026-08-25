@@ -19,13 +19,19 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
+    AppLogPanel,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar import (
+    AppProgressBar,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker_overlay import (
+    SymbolPickerOverlay,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
-    AppProgressBarWidget,
     ConfirmDialog,
     GapInspectorDialog,
     KLineInspectorDialog,
-    LogPanelWidget,
-    SymbolPickerDialog,
     TimeRangeCardWidget,
     field_style,
 )
@@ -250,7 +256,7 @@ class DataManagementView(BaseView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._view_model: DataManagementViewModel | None = None
-        self._symbol_picker: SymbolPickerDialog | None = None
+        self._symbol_picker: SymbolPickerOverlay | None = None
         self._kline_inspector: KLineInspectorDialog | None = None
         self._gap_inspector: GapInspectorDialog | None = None
         self._build_ui()
@@ -364,7 +370,7 @@ class DataManagementView(BaseView):
         if self._view_model is None:
             return
         if self._symbol_picker is None:
-            self._symbol_picker = SymbolPickerDialog(
+            self._symbol_picker = SymbolPickerOverlay(
                 get_options=lambda: self._view_model.symbolOptions,
                 on_symbol_chosen=self._choose_symbol,
                 parent=self,
@@ -683,7 +689,7 @@ class DataManagementView(BaseView):
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(8)
 
-        self._progress_bar = AppProgressBarWidget()
+        self._progress_bar = AppProgressBar()
         progress_layout.addWidget(self._progress_bar)
 
         self._btn_cancel_sync = QPushButton("Hủy Tiến Trình (Cancel)")
@@ -775,7 +781,7 @@ class DataManagementView(BaseView):
 
         column.addWidget(table_card, 1)
 
-        self._log_panel = LogPanelWidget("SYNC LOG")
+        self._log_panel = AppLogPanel("SYNC LOG")
         self._log_panel.setObjectName("syncLogPanel")
         self._log_panel.setFixedHeight(190)
         column.addWidget(self._log_panel)

@@ -8,7 +8,7 @@ opens.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -62,7 +62,7 @@ def database_screen(qapp, request):
 
 
 def _make_klines(count: int) -> list[MarketData]:
-    base = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
     return [
         MarketData(
             symbol="BTCUSDT",

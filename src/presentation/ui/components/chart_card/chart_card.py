@@ -4,7 +4,8 @@ from collections.abc import Sequence
 import pyqtgraph as pg
 from PySide6.QtCore import QPointF, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.base_card import BaseCard
+from PySide6.QtWidgets import QWidget
+from sagittarius_engine.extensions.pyside_mvc.widgets import Card
 
 from .cached_frame_interaction import CachedFrameInteractionController
 from .candlestick_item import FastCandlestickItem
@@ -42,7 +43,7 @@ _VIEW_EDGE_MARGIN_BARS = 30
 _FALLBACK_BAR_SECONDS = 60.0
 
 
-class ChartCard(BaseCard):
+class ChartCard(Card):
     """
     @brief The Chart component for visualizing Candlestick data & Extensible Technical Indicators.
     @details Facade Pattern — composes ChartPlotLayout, CrosshairController, IndicatorManager,
@@ -110,6 +111,26 @@ class ChartCard(BaseCard):
             QGuiApplication.platformName(),
             f"{screen.size().width()}x{screen.size().height()}" if screen else "?",
         )
+
+    def add_to_header(self, widget: QWidget) -> None:
+        """
+        @brief Appends a widget to this card's header row.
+
+        @details Kept as a method after `EPIC-007E` moved this class onto the
+        engine's `Card`, which exposes the header as a `header_actions`
+        layout instead. Four things call it by name — this class, the
+        `IBacktestChartHost` Protocol, that Protocol's adapter, and
+        `backtest_view` injecting a second widget after construction — and
+        one test reaches it through `patch.object`, which raises at patch
+        time if the attribute is gone.
+
+        Appending, not inserting: the header is `title | stretch | ...`, so
+        widgets land right-aligned in call order. On the Backtest screen that
+        is `ChartToolbar` then `BacktestChartControls`, which
+        `chart_controls.py` documents as being "next to" the toolbar. No test
+        covers that ordering — it is held by this method's behaviour alone.
+        """
+        self.header_actions.addWidget(widget)
 
     def _setup_layout(self) -> None:
         self.toolbar = ChartToolbar()
@@ -268,7 +289,7 @@ class ChartCard(BaseCard):
     # ==========================================
     def set_symbol_title(self, symbol: str) -> None:
         self.symbol = symbol
-        self.lbl_title.setText(f"Live Chart: {symbol}")
+        self.title = f"Live Chart: {symbol}"
 
     def set_dev_mode(self, enabled: bool) -> None:
         """Shows chart paint FPS only for explicitly enabled developer sessions."""

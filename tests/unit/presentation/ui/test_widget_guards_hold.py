@@ -49,10 +49,22 @@ _UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
 #: nó thì `palette.py` bị báo 15 lần vì *chứa* token, và 0 là bất khả thi.
 _COLOUR_SOURCES = ("palette.py",)
 
-#: Số lớp còn kế thừa thẳng `QFrame`/`QDialog`/`QWidget`, tính lúc `EPIC-007D`
-#: đóng. `007E`/`007F` sẽ kéo xuống khi migrate sang `Card`/`Panel`/`Overlay`.
+#: Số lớp còn kế thừa thẳng `QFrame`/`QDialog`/`QWidget`. `007F` sẽ kéo tiếp
+#: xuống khi migrate 4 màn sang `Card`/`Panel`/`Overlay`.
 #: Chỉ được phép giảm — xem docstring module.
-_BARE_QT_BASE_CEILING = 21
+#:
+#: 21 lúc `EPIC-007D` đóng → 17 sau `EPIC-007E`, qua bốn lần xoá:
+#: `LogPanelWidget` và `AppProgressBarWidget` (thay bằng
+#: `components/app_log_panel.py` và `components/app_progress_bar.py`, cái sau
+#: mang `base-exempt` vì nó là một cột caption + bar, không phải surface), và
+#: `BaseCard` — bản trùng lặp `Card` của engine, `ChartCard` giờ kế thừa
+#: thẳng engine; và `SymbolPickerDialog`, thay bằng
+#: `components/symbol_picker_overlay.py` trên `PickerOverlay`.
+#:
+#: Ratchet báo đỏ **ba lần** trong task đó, mỗi lần đúng lúc con số giảm mà
+#: trần chưa hạ theo. Đó là việc nó sinh ra để làm — và nó cũng là thứ duy
+#: nhất buộc người ta phải ghi lại tiến độ, thay vì để khoảng hở tích lại.
+_BARE_QT_BASE_CEILING = 17
 
 
 def test_ui_root_is_where_we_think_it_is() -> None:
