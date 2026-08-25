@@ -3,14 +3,28 @@
 bar, System Controls, Indicators checklist, and the System Monitor log.
 
 @details
-Deliberately does NOT use `pyside_mvc.widgets`' `Card`/`Panel` for the three
-bordered sections below — this screen's own colours (`#12141d` card bg,
-`#222533` border, `#181a24` field bg, ...) are close to but genuinely
-distinct from `Palette`'s shared tokens (verified: none of them collide
-with an existing `Palette` value). `DevBoardPanel.qml`'s own docstring
-calls this a "Live Testbed" — a deliberately separate visual identity from
-the rest of the app, not drift to be silently corrected as a side effect of
-this migration (`EPIC-005`'s own rule: change technology, not visuals).
+This screen used to keep eight of its own colour constants, and this
+docstring used to defend them: it called them a deliberate "Live Testbed"
+identity, distinct from `Palette`, and claimed the distinction had been
+verified.
+
+**That defence did not survive being checked** (`EPIC-007`, finding #3).
+Five of the eight values were byte-identical to constants in
+`backtest_top_panel.py`, a screen with no testbed identity to protect. Two screens holding the same private copy
+of the same colour is not an identity; it is one copy-paste that nobody
+went back to. The "verified" claim was about collisions with `Palette`, and
+said nothing about collisions with each other, which is where they were.
+
+So the constants are gone, and this screen reads `Palette` like every
+other. The pixels did move — those five values sat a shade off the shared
+tokens — and that was the accepted trade in `EPIC-007` §3.1: one token per
+role, so changing a token changes every screen at once, which was the whole
+promise `ui-architecture.md` §1 makes and could not keep while eight
+private constants existed.
+
+If this screen ever does want its own identity, the way to have one is a
+named token in `Palette`, not a module constant a reader has to diff
+against another file to discover is shared.
 """
 
 from __future__ import annotations
@@ -39,29 +53,18 @@ from sagittarius_engine.extensions.pyside_mvc.widgets import (
 
 from .dashboard_view_model import DashboardQmlViewModel
 
-#: This screen's own "testbed" colours — close to but distinct from
-#: Palette's shared tokens (verified no collision; see module docstring).
-_ROOT_BG = "#0d0e14"
-_CARD_BG = "#12141d"
-_CARD_BORDER = "#222533"
-_FIELD_BG = "#181a24"
-_FIELD_BORDER = "#2a2d3d"
-_BADGE_BG = "#181a26"
-_BADGE_BORDER = "#282b3d"
-_ROW_HOVER_BG = "#181b27"
-
 
 def _card_style() -> str:
     return (
-        f"background-color: {_CARD_BG}; border: 1px solid {_CARD_BORDER}; "
+        f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
         f"border-radius: 8px;"
     )
 
 
 def _field_style() -> str:
     return (
-        f"background-color: {_FIELD_BG}; color: {Palette.TEXT_PRIMARY}; "
-        f"border: 1px solid {_FIELD_BORDER}; border-radius: 6px; padding: 0 10px;"
+        f"background-color: {Palette.STATE_IDLE_BG}; color: {Palette.TEXT_PRIMARY}; "
+        f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; padding: 0 10px;"
     )
 
 
@@ -95,7 +98,7 @@ class DevBoardPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
-        self.setStyleSheet(f"background-color: {_ROOT_BG};")
+        self.setStyleSheet(f"background-color: {Palette.BG};")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(14, 14, 14, 14)
@@ -163,7 +166,7 @@ class DevBoardPanel(QWidget):
         ws_badge = QFrame()
         ws_badge.setFixedHeight(22)
         ws_badge.setStyleSheet(
-            f"background-color: {_BADGE_BG}; border: 1px solid {_BADGE_BORDER}; "
+            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.STATE_NAV_BORDER}; "
             f"border-radius: 11px;"
         )
         badge_row = QHBoxLayout(ws_badge)
@@ -309,10 +312,10 @@ class DevBoardPanel(QWidget):
     @staticmethod
     def _action_button_style(accent: str) -> str:
         return (
-            f"QPushButton {{ background-color: {_FIELD_BG}; color: {Palette.TEXT_PRIMARY}; "
+            f"QPushButton {{ background-color: {Palette.STATE_IDLE_BG}; color: {Palette.TEXT_PRIMARY}; "
             f"border: 1px solid {accent}; border-radius: 6px; min-height: 32px; "
             f"font-size: 12px; }} "
-            f"QPushButton:disabled {{ color: {Palette.MUTED}; border-color: {_FIELD_BORDER}; }}"
+            f"QPushButton:disabled {{ color: {Palette.MUTED}; border-color: {Palette.STATE_NAV_BORDER}; }}"
         )
 
     # ------------------------------------------------------------------ #
@@ -349,7 +352,7 @@ class DevBoardPanel(QWidget):
             row_frame.setFixedHeight(32)
             row_frame.setStyleSheet(
                 f"QFrame {{ background-color: transparent; border-radius: 6px; }} "
-                f"QFrame:hover {{ background-color: {_ROW_HOVER_BG}; }}"
+                f"QFrame:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
             )
             row_layout = QHBoxLayout(row_frame)
             row_layout.setContentsMargins(8, 0, 8, 0)

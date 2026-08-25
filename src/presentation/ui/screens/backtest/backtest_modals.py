@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
 
 _FIELD_STYLE = (
-    "background-color: #181a26; border: 1px solid #2a2d3e; border-radius: 4px; "
+    f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 4px; "
     f"color: {Palette.TEXT_PRIMARY}; padding: 0 6px;"
 )
 _ACCENT = Palette.ACCENT
@@ -72,7 +72,9 @@ def _section_header(icon_text: str, text: str) -> QHBoxLayout:
     row.addWidget(label)
     line = QFrame()
     line.setFrameShape(QFrame.Shape.HLine)
-    line.setStyleSheet("background-color: #2a2d3e; border: none; max-height: 1px;")
+    line.setStyleSheet(
+        f"background-color: {Palette.STATE_NAV_BORDER}; border: none; max-height: 1px;"
+    )
     row.addWidget(line, 1)
     return row
 
@@ -626,7 +628,7 @@ class TimeRangePickerDialog(Overlay):
         apply_btn = QPushButton("Áp dụng")
         apply_btn.setFixedSize(100, 32)
         apply_btn.setStyleSheet(
-            f"background-color: {_ACCENT}; color: #000000; font-size: 11px; "
+            f"background-color: {_ACCENT}; color: {Palette.BG}; font-size: 11px; "
             f"font-weight: bold; border-radius: 6px; border: none;"
         )
         apply_btn.clicked.connect(self.accept)
@@ -1021,7 +1023,7 @@ class StrategyPropertiesDialog(Overlay):
         btn_save = QPushButton("Lưu & Chạy lại")
         btn_save.setObjectName("btnBotParamsSave")
         btn_save.setStyleSheet(
-            f"background-color: {_ACCENT}; color: #000000; font-weight: bold; "
+            f"background-color: {_ACCENT}; color: {Palette.BG}; font-weight: bold; "
             f"border-radius: 6px; padding: 6px 14px;"
         )
         btn_save.clicked.connect(self.save_and_rerun)
