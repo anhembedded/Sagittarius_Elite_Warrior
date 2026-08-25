@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
-    SingleSyncProgressEvent,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
@@ -82,6 +79,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_track
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
     HealthStatusReport,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
+    SyncProgressFeed,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+    SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
@@ -588,7 +591,11 @@ class BackTestPresenter(BasePresenter):
         self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
         self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
         self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
-        self.event_bus.on(SingleSyncProgressEvent, self._handle_sync_progress_event)
+        # Tiến độ đồng bộ là sự thật của HỆ THỐNG (Data Management cũng cần) →
+        # đi qua SyncProgressFeed. Phần `action_id` bên dưới là sự thật RIÊNG
+        # của màn này nên ở lại đây (`architecture-rule.md` §6).
+        self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
+        self._sync_feed.progressUpdated.connect(self._on_sync_progress)
         # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này — đi
         # qua HealthFeed, một nơi nghe nhiều màn hiển thị
         # (`architecture-rule.md` §6). Bản tự ghép chuỗi cũ ở đây từng **bỏ sót
@@ -639,10 +646,11 @@ class BackTestPresenter(BasePresenter):
             is_dev=True,
         )
 
-    def _handle_sync_progress_event(self, event: SingleSyncProgressEvent) -> None:
+    def _on_sync_progress(self, report: SyncProgressReport) -> None:
+        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
         action_id = self._current_action_id(BacktestActionKind.SYNC)
         if action_id is not None:
-            self._syncProgressSignal.emit(action_id, event.current, event.total)
+            self._syncProgressSignal.emit(action_id, report.current, report.total)
 
     def _emit_ui_log(
         self, message: str, level: str = "info", is_dev: bool = False

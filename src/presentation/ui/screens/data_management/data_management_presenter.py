@@ -10,15 +10,18 @@ from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
-from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
-    SingleSyncProgressEvent,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
+    SyncProgressFeed,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+    SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
@@ -304,9 +307,17 @@ class DataManagementPresenter(BasePresenter):
         self.event_bus.on(
             BulkSyncProgressEvent, self._sync_coordinator.handle_bulk_sync_progress
         )
-        self.event_bus.on(
-            SingleSyncProgressEvent, self._sync_coordinator.handle_single_sync_progress
-        )
+        # Tiến độ đồng bộ là sự thật của HỆ THỐNG (Backtest cũng hiển thị) →
+        # đi qua SyncProgressFeed, một nơi chuẩn hoá + ghép chuỗi
+        # (`architecture-rule.md` §6). Trước đây chỉ màn này có câu chữ, nên màn
+        # thứ hai cần dòng tiến độ sẽ ghép bản thứ hai — đúng cách
+        # `HealthUpdatedEvent` từng đi tới ba bản định dạng.
+        self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
+        self._sync_feed.progressUpdated.connect(self._on_sync_progress)
+
+    def _on_sync_progress(self, report: SyncProgressReport) -> None:
+        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
+        self._sync_coordinator.publish_single_sync_progress(report)
 
     # ================================================================== #
     # Qt Slots — execute on the main thread.
