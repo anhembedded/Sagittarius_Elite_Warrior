@@ -70,3 +70,63 @@ Sau `008C`, `MemoryEventBus` nhận logger tường minh thay vì `None`.
 không gộp. Nếu số signal xoá được ít hơn hẳn dự kiến (ví dụ < 30/48), dừng lại và ghi lý do —
 nhiều khả năng ranh giới "cầu nối vs ngữ nghĩa" ở §2 chưa đúng, chứ không phải phải cố xoá cho
 đủ số.
+
+---
+
+## ⛔ DỪNG ở §2 theo đúng điều kiện dừng của chính task (2026-08-25)
+
+§1 (`SystemErrorFeed`) **đã xong** — xem commit `60c857b`. Phần §2 (xoá 48 signal) **dừng lại**,
+đúng như mục "Rủi ro" của task tự quy định: *"Nếu số signal xoá được ít hơn hẳn dự kiến
+(ví dụ < 30/48), dừng lại và ghi lý do — nhiều khả năng ranh giới 'cầu nối vs ngữ nghĩa' ở §2
+chưa đúng, chứ không phải phải cố xoá cho đủ số."*
+
+**Số xoá được ≈ 1/48.** Dưới ngưỡng 30 rất xa.
+
+### Vì sao — tiền đề của §2 sai
+
+§2 lập luận: *"Handler đăng ký qua `QtEventBridge` (`008D`) đã ở main thread ⇒ cầu nối không
+còn lý do tồn tại."* Đúng — **nhưng chỉ với signal được emit từ handler của event bus.**
+
+Đo thật cả 3 presenter:
+
+| Presenter | Signal | Được truyền làm callback `.emit` vào controller/coordinator | Đăng ký bus |
+| :--- | ---: | ---: | ---: |
+| `dashboard_presenter` | 12 | **12** | 2 |
+| `data_management_presenter` | 14 | **13** | 2 |
+| `backtest_presenter` | 22 | **22** | 5 |
+| **Tổng** | **48** | **47** | 9 |
+
+**47/48 signal là cầu nối `worker thread → main thread`, không phải cầu nối bus-handler.** Chúng
+được truyền vào controller dưới dạng callback (`emit_history_reloaded=self.ui_history_reloaded_signal.emit`,
+…), và worker gọi callback đó để nhảy về main thread. Những worker này **không bao giờ đi qua
+event bus**, nên `QtEventBridge` không thay thế được — nó chỉ bắc cầu cho event *trên bus*.
+
+Bằng chứng mạnh nhất là chính file controller tự khai hợp đồng của nó
+(`stream_lifecycle_controller.py`, dòng 10-13):
+
+```
+Threading contract:
+- Worker methods (_run_load_history, _run_sync_and_start, _run_load_more_history) run in background threads.
+- Background workers communicate with the main thread ONLY via Qt Signal callables (emit helpers).
+- Main-thread slots (_on_load_history, _on_start_stream, etc.) execute UI state updates.
+```
+
+Xoá chúng mà không thay bằng cơ chế hop khác = đẩy cập nhật UI sang worker thread — đúng lớp lỗi
+`BUG-031` (`QBasicTimer::start: Timers cannot be started from another thread`) đã tốn một ngày,
+và đúng kiểu hỏng "app chạy, test xanh, màn hình không cập nhật" mà test offscreen không bắt.
+
+### Cần user quyết trước khi đi tiếp
+
+`008G` §2 như đang viết **không thực hiện được**. Ba hướng, không cái nào là "cứ xoá":
+
+1. **Giữ 47 signal, chỉ làm §1/§3/§4.** Rẻ nhất, trung thực nhất. Signal worker→main là *đúng*
+   cách làm trong Qt, không phải nợ kỹ thuật. Cái đáng dọn chỉ là 3 quy ước đặt tên lẫn lộn và
+   payload thô (§3) — hai thứ đó vẫn làm được.
+2. **Cho worker phát qua event bus** rồi presenter nghe qua `QtEventBridge`. Xoá được signal
+   thật, nhưng biến mọi cập nhật UI nội bộ thành event toàn cục — trái §6 của epic
+   (*"không thêm subscriber mới ngoài 3 Feed"*) và làm luồng khó lần hơn hẳn.
+3. **Rút gọn số signal bằng cách gộp payload** (§3): ví dụ 4 signal history của Dashboard gộp
+   thành 1 signal mang `HistoryUpdate`. Giảm *số lượng* mà vẫn giữ cơ chế hop đúng.
+
+Đề xuất: **1 + 3**. Giữ cơ chế, gộp payload để giảm số signal một cách có lý do, và sửa lại §2
+của task cho khớp thực tế thay vì ép chỉ tiêu 48.
