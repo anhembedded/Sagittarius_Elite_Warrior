@@ -40,7 +40,7 @@ def _build_engine(periods: dict[str, int] = _TEST_PERIODS) -> StrategyEngine:
     return StrategyEngine(
         indicators=strategy.build_indicators(),
         strategy=strategy,
-        event_bus=Mock(),
+        event_publisher=Mock(),
     )
 
 

@@ -21,7 +21,7 @@ class _NetworkError(Exception):
 
 
 @pytest.fixture
-def mock_event_bus():
+def mock_event_publisher():
     return Mock()
 
 
@@ -39,20 +39,22 @@ def mock_dispatcher():
 
 
 @pytest.fixture
-def handler(mock_event_bus, mock_config, mock_dispatcher):
+def handler(mock_event_publisher, mock_config, mock_dispatcher):
     return BulkSyncMarketDataCommandHandler(
-        event_bus=mock_event_bus, config=mock_config, dispatcher=mock_dispatcher
+        event_publisher=mock_event_publisher,
+        config=mock_config,
+        dispatcher=mock_dispatcher,
     )
 
 
-def test_bulk_sync_empty_targets(handler, mock_event_bus, mock_dispatcher):
+def test_bulk_sync_empty_targets(handler, mock_event_publisher, mock_dispatcher):
     cmd = BulkSyncMarketDataCommand(targets=[])
     handler.execute(cmd)
 
     mock_dispatcher.dispatch.assert_not_called()
-    assert mock_event_bus.emit.call_count == 1
+    assert mock_event_publisher.publish.call_count == 1
 
-    event = mock_event_bus.emit.call_args[0][0]
+    event = mock_event_publisher.publish.call_args[0][0]
     assert isinstance(event, BulkSyncProgressEvent)
     assert event.is_complete is True
     assert event.total_targets == 0
@@ -60,7 +62,7 @@ def test_bulk_sync_empty_targets(handler, mock_event_bus, mock_dispatcher):
 
 @patch("time.sleep")
 def test_bulk_sync_success(
-    mock_sleep, handler, mock_event_bus, mock_dispatcher, mock_config
+    mock_sleep, handler, mock_event_publisher, mock_dispatcher, mock_config
 ):
     # Set config rate limit delay to 100ms
     mock_config.get.side_effect = lambda key, default: (
@@ -94,9 +96,9 @@ def test_bulk_sync_success(
     assert 0 <= mock_sleep.call_args[0][0] <= 0.1
 
     # Check event emissions (2 progress events + 1 complete event = 3 total)
-    assert mock_event_bus.emit.call_count == 3
+    assert mock_event_publisher.publish.call_count == 3
 
-    events = [call[0][0] for call in mock_event_bus.emit.call_args_list]
+    events = [call[0][0] for call in mock_event_publisher.publish.call_args_list]
 
     # One completion event
     completion_events = [e for e in events if e.is_complete]
@@ -115,7 +117,9 @@ def test_bulk_sync_success(
 
 
 @patch("time.sleep")
-def test_bulk_sync_error_handling(mock_sleep, handler, mock_event_bus, mock_dispatcher):
+def test_bulk_sync_error_handling(
+    mock_sleep, handler, mock_event_publisher, mock_dispatcher
+):
     targets = [("BTCUSDT", "1m"), ("ETHUSDT", "5m")]
     cmd = BulkSyncMarketDataCommand(targets=targets)
 
@@ -132,9 +136,9 @@ def test_bulk_sync_error_handling(mock_sleep, handler, mock_event_bus, mock_disp
     assert mock_dispatcher.dispatch.call_count == 2
 
     # Events emitted: 1 error progress, 1 success progress, 1 complete = 3 total
-    assert mock_event_bus.emit.call_count == 3
+    assert mock_event_publisher.publish.call_count == 3
 
-    events = [call[0][0] for call in mock_event_bus.emit.call_args_list]
+    events = [call[0][0] for call in mock_event_publisher.publish.call_args_list]
 
     completion_events = [e for e in events if e.is_complete]
     assert len(completion_events) == 1
@@ -151,7 +155,7 @@ def test_bulk_sync_error_handling(mock_sleep, handler, mock_event_bus, mock_disp
 
 
 def test_bulk_sync_cancellation_stops_dispatching(
-    handler, mock_event_bus, mock_dispatcher
+    handler, mock_event_publisher, mock_dispatcher
 ):
     targets = [("BTCUSDT", "1m"), ("ETHUSDT", "5m")]
     cmd = BulkSyncMarketDataCommand(

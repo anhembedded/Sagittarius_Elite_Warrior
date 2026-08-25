@@ -147,11 +147,11 @@ def _build_handler(
     _configure_repo_with_klines(repo, klines)
     registry = StrategyRegistry()
     registry.register("scripted", _ScriptedStrategy)
-    event_bus = Mock()
+    event_publisher = Mock()
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_bus=event_bus
+        repository=repo, strategy_registry=registry, event_publisher=event_publisher
     )
-    return handler, event_bus
+    return handler, event_publisher
 
 
 def test_fills_happen_at_the_next_bars_open_not_the_signal_bar():
@@ -195,7 +195,7 @@ def test_emits_backtest_completed_event_with_the_returned_result():
     each actionable signal — this only checks the BacktestCompletedEvent
     among whatever else was emitted, not that it was the sole event."""
     klines = _build_klines()
-    handler, event_bus = _build_handler(klines)
+    handler, event_publisher = _build_handler(klines)
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT", interval=TimeFrame.ONE_HOUR, strategy_key="scripted"
     )
@@ -204,7 +204,7 @@ def test_emits_backtest_completed_event_with_the_returned_result():
 
     completed_events = [
         call.args[0]
-        for call in event_bus.emit.call_args_list
+        for call in event_publisher.publish.call_args_list
         if isinstance(call.args[0], BacktestCompletedEvent)
     ]
     assert len(completed_events) == 1
@@ -212,7 +212,7 @@ def test_emits_backtest_completed_event_with_the_returned_result():
 
 
 def test_no_historical_data_emits_failed_event_and_returns_none():
-    handler, event_bus = _build_handler(klines=[])
+    handler, event_publisher = _build_handler(klines=[])
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT", interval=TimeFrame.ONE_HOUR, strategy_key="scripted"
     )
@@ -220,8 +220,8 @@ def test_no_historical_data_emits_failed_event_and_returns_none():
     result = handler.execute(command)
 
     assert result is None
-    event_bus.emit.assert_called_once()
-    (emitted_event,), _ = event_bus.emit.call_args
+    event_publisher.publish.assert_called_once()
+    (emitted_event,), _ = event_publisher.publish.call_args
     assert isinstance(emitted_event, BacktestFailedEvent)
 
 
@@ -314,7 +314,7 @@ def test_in_sample_and_out_of_sample_are_simulated_independently_of_the_full_ran
 def test_cancellation_during_out_of_sample_returns_explicit_outcome_without_event():
     """Regression for a dangerous false-positive: partial validation must
     never be labelled a completed backtest or emitted as one."""
-    handler, event_bus = _build_handler(_build_klines())
+    handler, event_publisher = _build_handler(_build_klines())
     checks = 0
 
     def cancellation_requested() -> bool:
@@ -338,7 +338,7 @@ def test_cancellation_during_out_of_sample_returns_explicit_outcome_without_even
     assert result.processed_bars == 6
     assert not any(
         isinstance(call.args[0], BacktestCompletedEvent)
-        for call in event_bus.emit.call_args_list
+        for call in event_publisher.publish.call_args_list
     )
 
 
@@ -430,7 +430,7 @@ def test_stop_loss_closes_the_position_on_a_bar_with_no_strategy_signal():
     registry = StrategyRegistry()
     registry.register("buy_once_hold", _BuyOnceThenHoldStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_bus=Mock()
+        repository=repo, strategy_registry=registry, event_publisher=Mock()
     )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT",
@@ -510,7 +510,7 @@ def test_short_and_cover_signals_flow_through_the_real_handler_and_engine():
     registry = StrategyRegistry()
     registry.register("short_once", _ShortOnceThenCoverStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_bus=Mock()
+        repository=repo, strategy_registry=registry, event_publisher=Mock()
     )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT",

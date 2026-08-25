@@ -1,25 +1,46 @@
-from typing import Protocol, TypeVar
+"""
+@brief CQRS handler ports — `ICommandHandler` and `IQueryHandler`.
 
-TCommand_contra = TypeVar("TCommand_contra", contravariant=True)
-TResponse_co = TypeVar("TResponse_co", covariant=True)
+@details Application-layer definitions, deliberately not the engine's own
+`ICommand`/`IQuery`, so this layer carries zero framework dependencies
+(`code-rule.md` §5).
+
+**`ABC`, not `Protocol` (`EPIC-008F`).** Both were `Protocol` before. A
+`Protocol` is structural and checked only by the type checker: a handler that
+forgets `execute()` still constructs and still runs, failing later at the call
+site with an `AttributeError` far from the class that is actually wrong. An
+`ABC` refuses to instantiate at all, naming the missing method. Every one of
+the 17 handlers already declared the inheritance explicitly even while it was
+optional, so this makes the existing contract enforced rather than imposing a
+new one.
+"""
+
+from abc import ABC, abstractmethod
 
 
-class ICommandHandler[TCommand_contra, TResponse_co](Protocol):
+class ICommandHandler[TCommand, TResponse](ABC):
     """
-    @brief Pure Application Layer definition for CQRS Command Handlers.
-    @details Replaces the engine's ICommand to maintain zero framework dependencies.
+    @brief Handles exactly one command type and returns its result.
+
+    @details PEP 695 type parameters, which work with `ABC` — the class's own
+    `[TCommand, TResponse]` are real, scoped type variables. The module used to
+    also declare `TypeVar("TCommand_contra", contravariant=True)` and friends at
+    module level; those were dead, shadowed by these same-named PEP 695
+    parameters, and were removed in `EPIC-008F`.
     """
 
-    def execute(self, command: TCommand_contra) -> TResponse_co: ...
+    @abstractmethod
+    def execute(self, command: TCommand) -> TResponse:
+        """@brief Executes the command and returns its result."""
+        ...
 
 
-TQuery_contra = TypeVar("TQuery_contra", contravariant=True)
-TQueryResult_co = TypeVar("TQueryResult_co", covariant=True)
-
-
-class IQueryHandler[TQuery_contra, TQueryResult_co](Protocol):
+class IQueryHandler[TQuery, TQueryResult](ABC):
     """
-    @brief Pure Application Layer definition for CQRS Query Handlers.
+    @brief Answers exactly one query type.
     """
 
-    def execute(self, query: TQuery_contra) -> TQueryResult_co: ...
+    @abstractmethod
+    def execute(self, query: TQuery) -> TQueryResult:
+        """@brief Executes the query and returns its result."""
+        ...

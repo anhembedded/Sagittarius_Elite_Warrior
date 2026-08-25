@@ -5,6 +5,9 @@ from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
     SingleSyncProgressEvent,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
@@ -12,7 +15,6 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import SyncMarketDataCommand
 
@@ -26,11 +28,11 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         self,
         exchange_client: IExchangeClient,
         repo: IMarketDataRepository,
-        event_bus: IEventBus,
+        event_publisher: IEventPublisher,
     ) -> None:
         self.exchange_client = exchange_client
         self.repo = repo
-        self.event_bus = event_bus
+        self.event_publisher = event_publisher
         self.logger = logging.getLogger("App.SyncMarketData")
 
     def execute(self, command: SyncMarketDataCommand) -> None:
@@ -57,7 +59,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
             current_symbol: str = symbol,
             total_count: int = total_klines,
         ) -> None:
-            self.event_bus.emit(
+            self.event_publisher.publish(
                 SingleSyncProgressEvent(
                     symbol=current_symbol,
                     interval=command.interval.value,

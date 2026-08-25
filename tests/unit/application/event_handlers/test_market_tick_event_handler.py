@@ -14,8 +14,8 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 def test_market_tick_event_handler():
     # Arrange
     logger_mock = Mock()
-    app_mock = Mock()
-    handler = MarketTickEventHandler(app_mock)
+    # EPIC-008F: no longer takes the engine's App — it never used it.
+    handler = MarketTickEventHandler()
 
     # Inject mock logger for testing
     handler.logger = logger_mock

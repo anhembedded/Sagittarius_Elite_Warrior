@@ -1,6 +1,6 @@
 # EPIC-008 — Chuẩn hoá luồng sự kiện từ nền lên màn hình
 
-**Trạng thái:** 🟡 Đang làm (5/8 task con xong) — tiếp theo `008F` (Elite)
+**Trạng thái:** 🟡 Đang làm (6/8 task con xong) — tiếp theo `008G` (Elite)
 **Loại:** Kiến trúc / Presentation + Application
 **Ưu tiên:** **P1** — cao hơn `EPIC-007`: hiện có lỗi runtime thật đang bị nuốt không dấu vết
 **Nhánh đề xuất:** `epic/EPIC-008-chuan-hoa-event`
@@ -62,7 +62,7 @@ Nhật ký đầy đủ ở ADR §7. Tóm tắt:
 | **[008C](completed/EPIC-008C_bus_khong_nuot_loi.md)** | Engine: bus không nuốt lỗi — `handler_reporting` dùng chung cho cả 5 bus, `FallbackLogger`, TRACE thay INFO | Engine | ✅ |
 | **[008D](completed/EPIC-008D_qt_event_bridge_va_base_presenter.md)** | Engine: `QtEventBridge` + `BasePresenter.dispose()` tự gỡ đăng ký + bỏ `NotImplementedError` (LSP) | Engine | ✅ |
 | **[008E](completed/EPIC-008E_health_check_requested.md)** | Engine: `HealthCheckRequested` + `HealthExtension` nghe request | Engine | ✅ |
-| **[008F](incomplete/EPIC-008F_shared_kernel_va_ports.md)** | Elite: Shared Kernel vào `code-rule.md`; `IEventPublisher(ABC)`; đổi 3 port `Protocol`→`ABC`; bỏ `import App` | Elite | 🔵 |
+| **[008F](completed/EPIC-008F_shared_kernel_va_ports.md)** | Elite: Shared Kernel vào `code-rule.md`; `IEventPublisher(ABC)`; đổi 3 port `Protocol`→`ABC`; bỏ `import App` | Elite | ✅ |
 | **[008G](incomplete/EPIC-008G_ba_feed_va_xoa_signal_cau_noi.md)** | Elite: 3 Feed + xoá 48 signal cầu nối + payload dataclass | Elite | 🔵 |
 | **[008H](incomplete/EPIC-008H_guard_va_doi_ten.md)** | Elite: 5 guard + đổi tên `RunRealtimeBacktest*` → `RunHistoricalTick*` | Elite | 🔵 |
 

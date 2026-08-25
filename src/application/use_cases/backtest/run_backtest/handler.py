@@ -2,6 +2,9 @@ import logging
 import time
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
@@ -9,7 +12,6 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import RunBacktestCommand
 
@@ -29,10 +31,13 @@ class RunBacktestCommandHandler(ICommandHandler[RunBacktestCommand, None]):
     """
 
     def __init__(
-        self, repo: IMarketDataRepository, event_bus: IEventBus, state: BacktestState
+        self,
+        repo: IMarketDataRepository,
+        event_publisher: IEventPublisher,
+        state: BacktestState,
     ) -> None:
         self.repo = repo
-        self.event_bus = event_bus
+        self.event_publisher = event_publisher
         self.state = state
         self.logger = logging.getLogger("App.RunBacktest")
 
@@ -96,7 +101,7 @@ class RunBacktestCommandHandler(ICommandHandler[RunBacktestCommand, None]):
             event = MarketTickEvent(market_data=kline)
 
             # Emit the event
-            self.event_bus.emit(event)
+            self.event_publisher.publish(event)
 
             # Throttle the simulation
             if command.replay_speed_ms > 0:

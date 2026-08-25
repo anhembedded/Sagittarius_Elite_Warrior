@@ -144,7 +144,7 @@ def test_create_returns_an_independent_strategy_instance_per_call(registry):
     engine_a = StrategyEngine(
         indicators=strategy_a.build_indicators(),
         strategy=strategy_a,
-        event_bus=Mock(),
+        event_publisher=Mock(),
     )
     # 30 rising closes is enough to clear EmaCrossoverStrategy's default
     # warm-up (slow EMA period 26) and push at least one real value into

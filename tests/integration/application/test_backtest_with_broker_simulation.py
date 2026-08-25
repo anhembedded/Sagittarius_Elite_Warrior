@@ -113,11 +113,11 @@ def test_static_backtest_with_position_sizing_and_pyramiding_integration(caplog)
     registry = StrategyRegistry()
     registry.register("pyramiding_test", _PyramidingStrategy)
 
-    event_bus = Mock()
+    event_publisher = Mock()
     handler = RunStaticBacktestCommandHandler(
         repository=repo,
         strategy_registry=registry,
-        event_bus=event_bus,
+        event_publisher=event_publisher,
     )
 
     # Configure 25% equity sizing, pyramiding=3, slippage=2 ticks (tick_size=0.1 -> 0.20 slippage)
@@ -207,11 +207,11 @@ def test_realtime_backtest_with_broker_simulation_integration(caplog):
     registry = StrategyRegistry()
     registry.register("pyramiding_test", _PyramidingStrategy)
 
-    event_bus = Mock()
+    event_publisher = Mock()
     handler = RunRealtimeBacktestCommandHandler(
         repository=repo,
         strategy_registry=registry,
-        event_bus=event_bus,
+        event_publisher=event_publisher,
     )
 
     sizing = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=50.0)

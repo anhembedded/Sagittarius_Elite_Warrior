@@ -9,12 +9,12 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_d
 
 
 def test_bulk_sync_progress_reporter_empty():
-    mock_bus = Mock()
-    reporter = BulkSyncProgressReporter(mock_bus, total_targets=0)
+    mock_publisher = Mock()
+    reporter = BulkSyncProgressReporter(mock_publisher, total_targets=0)
     reporter.report_empty()
 
-    assert mock_bus.emit.call_count == 1
-    event = mock_bus.emit.call_args[0][0]
+    assert mock_publisher.publish.call_count == 1
+    event = mock_publisher.publish.call_args[0][0]
     assert isinstance(event, BulkSyncProgressEvent)
     assert event.is_complete is True
     assert event.total_targets == 0
@@ -22,13 +22,13 @@ def test_bulk_sync_progress_reporter_empty():
 
 
 def test_bulk_sync_progress_reporter_target_and_completion():
-    mock_bus = Mock()
-    reporter = BulkSyncProgressReporter(mock_bus, total_targets=2)
+    mock_publisher = Mock()
+    reporter = BulkSyncProgressReporter(mock_publisher, total_targets=2)
 
     reporter.report_target("BTCUSDT", "1m")
     assert reporter.completed_count == 1
-    assert mock_bus.emit.call_count == 1
-    ev1 = mock_bus.emit.call_args[0][0]
+    assert mock_publisher.publish.call_count == 1
+    ev1 = mock_publisher.publish.call_args[0][0]
     assert ev1.current_index == 1
     assert ev1.symbol == "BTCUSDT"
     assert ev1.has_error is False
@@ -36,15 +36,15 @@ def test_bulk_sync_progress_reporter_target_and_completion():
 
     reporter.report_target("ETHUSDT", "5m", has_error=True, error_msg="Timeout")
     assert reporter.completed_count == 2
-    assert mock_bus.emit.call_count == 2
-    ev2 = mock_bus.emit.call_args[0][0]
+    assert mock_publisher.publish.call_count == 2
+    ev2 = mock_publisher.publish.call_args[0][0]
     assert ev2.current_index == 2
     assert ev2.has_error is True
     assert ev2.message == "Failed: Timeout"
 
     reporter.report_completed()
-    assert mock_bus.emit.call_count == 3
-    ev3 = mock_bus.emit.call_args[0][0]
+    assert mock_publisher.publish.call_count == 3
+    ev3 = mock_publisher.publish.call_args[0][0]
     assert ev3.is_complete is True
     assert ev3.current_index == 2
     assert ev3.message == "Bulk sync completed successfully."

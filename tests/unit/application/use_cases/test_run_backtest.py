@@ -22,14 +22,14 @@ def repo_mock():
 
 
 @pytest.fixture
-def event_bus_mock():
+def event_publisher_mock():
     return Mock()
 
 
 @pytest.fixture
-def handler(repo_mock, event_bus_mock):
+def handler(repo_mock, event_publisher_mock):
     state = BacktestState()
-    return RunBacktestCommandHandler(repo_mock, event_bus_mock, state)
+    return RunBacktestCommandHandler(repo_mock, event_publisher_mock, state)
 
 
 def create_mock_kline(timestamp: datetime) -> MarketData:
@@ -50,7 +50,7 @@ def create_mock_kline(timestamp: datetime) -> MarketData:
     )
 
 
-def test_run_backtest_handler_emits_events(handler, repo_mock, event_bus_mock):
+def test_run_backtest_handler_emits_events(handler, repo_mock, event_publisher_mock):
     dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=UTC)
     klines = [create_mock_kline(dt1), create_mock_kline(dt2)]
@@ -67,9 +67,9 @@ def test_run_backtest_handler_emits_events(handler, repo_mock, event_bus_mock):
     handler.execute(command)
 
     assert repo_mock.get_klines.called
-    assert event_bus_mock.emit.call_count == 2
+    assert event_publisher_mock.publish.call_count == 2
 
-    first_event = event_bus_mock.emit.call_args_list[0][0][0]
+    first_event = event_publisher_mock.publish.call_args_list[0][0][0]
     assert isinstance(first_event, MarketTickEvent)
     assert first_event.market_data.symbol == "BTCUSDT"
     assert first_event.market_data.close_price == 105.0
@@ -78,7 +78,7 @@ def test_run_backtest_handler_emits_events(handler, repo_mock, event_bus_mock):
 
 @patch("time.sleep")
 def test_run_backtest_handler_throttling(
-    sleep_mock, handler, repo_mock, event_bus_mock
+    sleep_mock, handler, repo_mock, event_publisher_mock
 ):
     dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=UTC)
@@ -97,7 +97,7 @@ def test_run_backtest_handler_throttling(
     sleep_mock.assert_has_calls([call(0.1), call(0.1)])
 
 
-def test_run_backtest_no_data(handler, repo_mock, event_bus_mock):
+def test_run_backtest_no_data(handler, repo_mock, event_publisher_mock):
     repo_mock.get_klines.return_value = []
 
     command = RunBacktestCommand(
@@ -107,4 +107,4 @@ def test_run_backtest_no_data(handler, repo_mock, event_bus_mock):
     handler.execute(command)
 
     # Should exit early without emitting anything
-    assert event_bus_mock.emit.call_count == 0
+    assert event_publisher_mock.publish.call_count == 0

@@ -114,7 +114,7 @@ def _run_real_backtest() -> tuple:
     registry = StrategyRegistry()
     registry.register(_STRATEGY_KEY, EmaTrendPullbackStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_bus=Mock()
+        repository=repo, strategy_registry=registry, event_publisher=Mock()
     )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT",

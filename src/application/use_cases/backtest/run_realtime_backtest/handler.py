@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 from time import perf_counter
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
@@ -35,7 +38,6 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import RunRealtimeBacktestCommand
 
@@ -160,11 +162,11 @@ class RunRealtimeBacktestCommandHandler(
         self,
         repository: IMarketDataRepository,
         strategy_registry: StrategyRegistry,
-        event_bus: IEventBus,
+        event_publisher: IEventPublisher,
     ) -> None:
         self._repository = repository
         self._strategy_registry = strategy_registry
-        self._event_bus = event_bus
+        self._event_publisher = event_publisher
 
     def _log_trace(self, action: str, **fields: object) -> None:
         suffix = " ".join(f"{key}={value!r}" for key, value in fields.items())
@@ -196,7 +198,7 @@ class RunRealtimeBacktestCommandHandler(
                 f"{command.symbol}. Please run sync first."
             )
             logger.warning(reason)
-            self._event_bus.emit(BacktestFailedEvent(reason=reason))
+            self._event_publisher.publish(BacktestFailedEvent(reason=reason))
             return None
 
         result = self._simulate(ticks, command)
@@ -213,7 +215,7 @@ class RunRealtimeBacktestCommandHandler(
             f"{len(result.trades)} trades, "
             f"net profit {result.metrics.net_profit_percent:.2f}%"
         )
-        self._event_bus.emit(BacktestCompletedEvent(result=result))
+        self._event_publisher.publish(BacktestCompletedEvent(result=result))
         return result
 
     def _simulate(
@@ -222,7 +224,7 @@ class RunRealtimeBacktestCommandHandler(
         engine = build_engine(
             self._strategy_registry,
             command.strategy_key,
-            self._event_bus,
+            self._event_publisher,
             params=command.strategy_params,
         )
         exchange = PaperExchange(

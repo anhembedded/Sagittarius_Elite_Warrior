@@ -60,6 +60,21 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
    - Always strictly respect the 4 Layers: **Domain** (Pure) $\rightarrow$ **Application** (Use Cases/Ports) $\rightarrow$ **Interface Adapters** (CLI/UI Presenters) $\rightarrow$ **Infrastructure** (DB/API/Frameworks).
    - Never leak Infrastructure concerns (like `sagittarius_engine` base classes, SQLAlchemy, or API clients) into the Domain or Application layers.
    - Prioritize building reusable abstraction base layers (base cards, base dialogs, base presenters/view models) over concrete duplication.
+   - **Shared Kernel — đúng 2 ký hiệu, không hơn (user chốt 2026-08-24, `EPIC-008`'s ADR §4.1):** `src/domain/` và `src/application/` được phép import **duy nhất** hai ký hiệu này của engine:
+     - `sagittarius_engine.domain.i_domain_event.IDomainEvent`
+     - `sagittarius_engine.domain.base_event.BaseEvent`
+
+     **Lý do có ngoại lệ:** user chốt mọi domain event phải kế thừa `BaseEvent` để engine dựng được registry/catalog và tool audit về sau (event nào tồn tại, ai nghe, chạy bao lâu). Một marker type dùng chung là điều kiện cần — copy `BaseEvent` sang Elite sẽ tạo hai cây kế thừa không nhận ra nhau, đúng thứ registry sinh ra để tránh. Đây là **Shared Kernel** theo nghĩa DDD: một vùng nhỏ, **có tên, được ghi thành luật**, hai bên cùng sở hữu — không phải "ngoại lệ cho tiện".
+
+     **Mọi thứ khác của engine PHẢI qua port** trong `src/application/ports/`, và adapter bọc nó sống ở `src/infrastructure/engine_adapters/` — nơi được phép biết engine. `EPIC-008F` đã dựng 3 port cho đúng mục đích này: `IEventPublisher` (thay `IEventBus`), `IConfigReader` (thay `IConfig`), `ICommandDispatcher` (thay `IDispatcher`).
+
+     **Tầng Presentation không bị ràng buộc này** — nó được phép biết engine trực tiếp (`BasePresenter`, `QtEventBridge`, `IEventBus.on/off`). Chiều **nghe** event chỉ xảy ra ở đó; `IEventPublisher` cố ý chỉ có chiều **phát**.
+
+     Kiểm bằng lệnh thật, không bằng trí nhớ:
+     ```bash
+     grep -rn "sagittarius_engine" src/domain src/application --include=*.py
+     ```
+     Kết quả chỉ được chứa 2 ký hiệu trên. Thêm bất kỳ import engine nào khác vào 2 tầng đó là **sai**, kể cả khi "chỉ dùng 1 method" — đó chính là lý do `IConfigReader`/`ICommandDispatcher` tồn tại thay vì import thẳng `IConfig`/`IDispatcher`.
 
 6. **Use Case Structure (CQRS):**
    - Every Application Use Case must reside in its own dedicated directory (e.g., `src/application/use_cases/<my_use_case>/`).
