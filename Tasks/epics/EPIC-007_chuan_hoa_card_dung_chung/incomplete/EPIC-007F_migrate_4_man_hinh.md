@@ -1,6 +1,6 @@
 # EPIC-007F — Elite: migrate 4 màn hình sang widget dùng chung
 
-**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings 9/13; Dashboard: `SectionLabel` + 3 `Panel`, guard 17→16)
+**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings 9/13 · Dashboard xong · Backtest: `StatCard` · guard 17→15 · thang token về app)
 **Phụ thuộc:** `007D`, `007E`
 
 ---
@@ -254,7 +254,68 @@ Cả hai scoped thành `QScrollArea { ... }`. Ảnh chụp trước/sau **không
 báo. Không đổi là kết quả đúng ở đây: các `Panel` bên trong đã có QSS scoped riêng từ bước trước
 nên vốn đã miễn nhiễm; sửa này là bịt lỗ hổng cho widget **tương lai** đặt vào scroll area.
 
-## Backtest và Data Management — chưa bắt đầu, và vì sao dừng ở đây
+## Chốt lại ranh giới theme — 2026-08-25, sau câu hỏi của user
+
+User đặt đúng câu hỏi: *"theme chỉ nên ở app thôi, bữa giờ mình làm sai vãi?"*
+
+Đo lại thì khuyết điểm **hẹp hơn** thế. Màu vốn đã đúng — `REQUIRED_COLOUR_TOKENS` cố ý **không
+có default** ở Engine, giá trị đến từ `Palette` của app. Cái sai là **số**: Engine ship default
+cho spacing/radius/typography, `with_token_defaults()` cho app thắng khi trùng key, nhưng
+**app chưa bao giờ cấp cái nào**. Nên thang đo của app do Engine tự phát minh quyết định —
+`radiusLg` 10px, `fontSizeMd` 13px, `fontSizeLg` 16px, trong đó **16px không xuất hiện một lần
+nào** trong `src/presentation/ui`.
+
+**Đó là nguồn duy nhất của mọi thay đổi thị giác ở `007F`.** Card 8→6, field 6→4, nhãn 12→13,
+tiêu đề 14→13 không phải bốn phán đoán riêng lẻ — chỉ là một cái dict thiếu.
+
+Sửa: `Palette` tự cấp thang số, **đo từ chính app** (radius 6px ×29, 4px ×20, 8px ×8; font 11px
+×64, 12px ×20, 13px ×8). Đặt tên theo **bậc mà role thật sự đọc**, không theo "nhỏ/vừa/lớn"
+trừu tượng: `FIELD` đọc `radiusSm` mà field của app là 6px → `radiusSm = 6`. Đảo ngược chỗ này
+chính là thứ đẻ ra hai regression bo góc.
+
+Kiểm bằng assert chứ không bằng mắt (`test_app_owns_its_size_tokens.py`): `SURFACE` 8px,
+`FIELD` 6px, `BODY_LABEL` 12px, `HEADING` 14px, `CAPTION` 11px — đúng giá trị app vẽ tay
+trước `007F`. Mọi regression thị giác của task này **đã đảo ngược**.
+
+Một lỗi của chính task này cũng lộ ra: `HEADING` và `BODY_LABEL` bị ghim chung `fontSizeMd`,
+nên app không thể vừa có nhãn 12px vừa có tiêu đề 14px. Sửa ở Engine (PR #195), `HEADING` đọc
+`fontSizeLg`. Test cũ ghim "hai role dùng chung một token" đã viết lại ghim ngược.
+
+**Ranh giới chốt: Engine sở hữu từ vựng (role nào đọc token nào), app sở hữu nghĩa (token đó
+bằng bao nhiêu px).**
+
+## Backtest bước 1: `MetricCardWidget` → `StatCard`, guard 16 → 15
+
+Nhờ ranh giới trên, câu hỏi "StatCard thiếu icon + hover" hết là tranh luận kiến trúc.
+
+**Engine (PR #196):** thêm `fontSizeXl` (bậc hiển thị — `StatCard` tự gọi giá trị của nó là
+"headline figure" mà **không có font rule nào**, nên số headline render bằng cỡ body; thang
+typography dừng ở `fontSizeLg`, không có bậc nào để đặt tên). Thêm `STAT_VALUE` (cỡ + đậm,
+**cố ý không màu** — màu quyết định theo instance qua `set_value(tone=)`) và `STAT_CARD`
+(hover, viết bằng QSS `:hover` thay cho cặp `enterEvent`/`leaveEvent` của app — một khai báo
+thay vì hai handler phải giữ đồng bộ, và không thể kẹt ở trạng thái hover nếu lỡ mất leave
+event). Tiêu đề nhận styling `SECTION_LABEL`.
+
+**Một thử nghiệm bị hoàn tác, ghi lại vì đáng:** tôi có viết hoa luôn tiêu đề trong `StatCard`,
+rồi bỏ. Nó làm `Card.title` **mất mát** — caller không đọc lại được thứ mình vừa set, và một
+test có sẵn bắt được. Một label tự định nghĩa lại text của chính nó thì được (`SectionLabel`
+làm vậy và ghi rõ lý do); một subclass lặng lẽ đổi vòng round-trip của **property kế thừa** là
+chuyện khác và tệ hơn. Giờ chỉ style, không sửa text; muốn hoa thì call site truyền hoa.
+
+**Elite:** `StatCardData` bỏ chuỗi hex, mang `Tone`. Đây đúng là pattern "literal with extra
+steps" mà docstring của `Tone` nêu đích danh — `BULL_COLOR if net_profit >= 0 else BEAR_COLOR`
+tính ở tầng logic rồi tuồn hex xuống widget. Phép so sánh nghiệp vụ **ở lại** chỗ có tri thức
+nghiệp vụ; chỉ **câu trả lời** của nó đi xuống widget. Xanh nghĩa là gì là việc của theme.
+
+`MetricCardWidget` xoá hẳn, 2 call site chuyển sang `StatCard`. Guard **16 → 15**.
+
+**Hai thứ vẫn không tái hiện, có chủ đích:** icon `info` (không tooltip, không click — thuần
+trang trí; tái hiện nghĩa là mọi `StatCard` ở mọi app mọc thêm một icon không làm gì) và việc
+co cỡ chữ khi giá trị dài quá 10 ký tự (là cải thiện thật, nhưng cần một luật *khi nào* co —
+quyết định layout mà class này không có cơ sở để chốt thay cho một caller). Vẫn nằm ở
+`EPIC-007B` làm ứng viên.
+
+## Data Management và phần còn lại của Backtest — chưa bắt đầu
 
 Hai màn này giữ **15/16** finding guard còn lại và phần lớn `setStyleSheet` (76 + 96). Chúng
 **không** dừng vì hết thời gian mà vì mỗi cái đều cần **một quyết định về hành vi thấy được**,

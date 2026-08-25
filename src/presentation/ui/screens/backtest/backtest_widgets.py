@@ -16,13 +16,10 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSizePolicy,
-    QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
-    get_icon_loader,
 )
 
 _RGB_HEX_LENGTH = 6
@@ -38,106 +35,6 @@ def with_alpha(hex_color: str, alpha: float) -> str:
         return hex_color
     r, g, b = (int(color[i : i + 2], 16) for i in (0, 2, 4))
     return f"rgba({r},{g},{b},{alpha})"
-
-
-class MetricCardWidget(QFrame):
-    """Port of `components/MetricCard.qml`: title + value/suffix + optional
-    badge, with a hover highlight. Used by `BackTestTopPanel`'s stat-cards
-    row and `ExtendedMetricsModal` (EPIC-006E3)."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setMinimumSize(120, 80)
-        self.setStyleSheet(
-            f"MetricCardWidget {{ background-color: {Palette.BG_CARD}; "
-            f"border: 1px solid {Palette.BORDER}; border-radius: 8px; }}"
-        )
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(4)
-
-        title_row = QHBoxLayout()
-        title_row.setSpacing(6)
-        self._title_label = QLabel()
-        self._title_label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold; "
-            f"letter-spacing: 0.8px; background: transparent; border: none;"
-        )
-        title_row.addWidget(self._title_label, 1)
-        self._info_icon = QLabel()
-        self._info_icon.setPixmap(
-            get_icon_loader().get_icon("info", Palette.MUTED, 12).pixmap(12, 12)
-        )
-        self._info_icon.setStyleSheet("background: transparent; border: none;")
-        title_row.addWidget(self._info_icon)
-        layout.addLayout(title_row)
-
-        value_row = QHBoxLayout()
-        value_row.setSpacing(4)
-        self._value_label = QLabel()
-        self._value_label.setStyleSheet(
-            "font-size: 18px; font-weight: bold; background: transparent; border: none;"
-        )
-        value_row.addWidget(self._value_label)
-        self._suffix_label = QLabel()
-        self._suffix_label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold; "
-            f"background: transparent; border: none;"
-        )
-        value_row.addWidget(self._suffix_label)
-        self._badge_label = QLabel()
-        self._badge_label.setStyleSheet(
-            "font-size: 10px; font-weight: bold; border: none;"
-        )
-        self._badge_label.setContentsMargins(5, 2, 5, 2)
-        value_row.addWidget(self._badge_label)
-        value_row.addStretch(1)
-        layout.addLayout(value_row)
-
-    def enterEvent(self, event) -> None:
-        super().enterEvent(event)
-        self.setStyleSheet(
-            f"MetricCardWidget {{ background-color: {Palette.STATE_HOVER_BG}; "
-            f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 8px; }}"
-        )
-
-    def leaveEvent(self, event) -> None:
-        super().leaveEvent(event)
-        self.setStyleSheet(
-            f"MetricCardWidget {{ background-color: {Palette.BG_CARD}; "
-            f"border: 1px solid {Palette.BORDER}; border-radius: 8px; }}"
-        )
-
-    def set_data(
-        self,
-        *,
-        title: str,
-        value: str,
-        value_color: str,
-        suffix: str,
-        badge_text: str,
-        badge_color: str,
-    ) -> None:
-        self._title_label.setText(title.upper())
-        self._value_label.setText(value)
-        self._value_label.setStyleSheet(
-            f"color: {value_color}; font-size: "
-            f"{16 if len(value) > _COMPACT_VALUE_LENGTH_THRESHOLD else 18}px; "
-            f"font-weight: bold; background: transparent; border: none;"
-        )
-        self._suffix_label.setText(suffix)
-        self._suffix_label.setVisible(bool(suffix))
-        self._badge_label.setText(badge_text)
-        self._badge_label.setVisible(bool(badge_text))
-        if badge_text:
-            badge_text_color = badge_color if badge_color else Palette.MUTED
-            badge_bg = with_alpha(badge_color, 0.2) if badge_color else "transparent"
-            self._badge_label.setStyleSheet(
-                f"color: {badge_text_color}; background-color: {badge_bg}; "
-                f"font-size: 10px; font-weight: bold; border-radius: 4px; border: none;"
-            )
 
 
 class _TabButton(QPushButton):

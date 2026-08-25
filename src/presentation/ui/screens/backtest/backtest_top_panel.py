@@ -29,8 +29,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar import (
     AppProgressBar,
 )
-
-from .backtest_widgets import MetricCardWidget
+from sagittarius_engine.extensions.pyside_mvc.widgets import StatCard, Tone
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -659,16 +658,19 @@ class BackTestTopPanel(QWidget):
             return
 
         for index, card_data in enumerate(cards):
-            card = MetricCardWidget()
+            # Title uppercased here, not by the widget: `StatCard` styles its
+            # title but never rewrites it, so that `Card.title` still reads
+            # back what was set.
+            card = StatCard(card_data.get("title", "").upper())
             card.setObjectName(f"cardMetric_{index}")
-            badge_color = card_data.get("badgeColor", "")
-            card.set_data(
-                title=card_data.get("title", ""),
-                value=card_data.get("value", ""),
-                value_color=card_data.get("valueColor") or Palette.TEXT_PRIMARY,
-                suffix=card_data.get("suffix", ""),
-                badge_text=card_data.get("badgeText", ""),
-                badge_color=badge_color,
+            card.set_value(
+                card_data.get("value", ""),
+                tone=card_data.get("valueTone", Tone.NEUTRAL),
+            )
+            card.set_suffix(card_data.get("suffix", ""))
+            card.set_badge(
+                card_data.get("badgeText", ""),
+                tone=card_data.get("badgeTone", Tone.NEUTRAL),
             )
             layout.addWidget(card)
 

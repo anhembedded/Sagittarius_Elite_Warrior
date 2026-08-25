@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
+from sagittarius_engine.extensions.pyside_mvc.widgets import Tone
 
 
 def _stat_cards(count: int) -> list[dict[str, str]]:
@@ -28,10 +29,10 @@ def _stat_cards(count: int) -> list[dict[str, str]]:
         {
             "title": f"Card {i}",
             "value": "1.00",
-            "valueColor": "",
+            "valueTone": Tone.NEUTRAL,
             "suffix": "USD",
             "badgeText": "",
-            "badgeColor": "",
+            "badgeTone": Tone.NEUTRAL,
         }
         for i in range(count)
     ]
