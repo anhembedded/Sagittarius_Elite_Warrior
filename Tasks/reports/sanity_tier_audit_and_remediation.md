@@ -1,155 +1,162 @@
-# 🔬 Đánh giá Tầng Sanity & Phương án Khắc phục
+# Sanity Tier Audit & Remediation
 
 > [!NOTE]
-> **Báo cáo SA — trả lời câu hỏi: "sanity không bắt được user case cơ bản".**
+> **SA audit answering: "sanity isn't catching basic user cases."**
 >
-> Kết luận ngắn: **đúng, nhưng không phải vì sanity yếu.** Có 3 nguyên nhân
-> tách bạch, và chỉ 1 trong 3 là lỗi của tầng sanity. Hai cái còn lại quan
-> trọng hơn nhiều, và một trong số đó là thứ đang khiến **49% tầng
-> integration bị tắt khỏi mọi lần chạy CI mặc định**.
+> Short answer: **correct — but not because the sanity tier is weak.** There
+> are three separate causes, and only one of them is the sanity tier's fault.
+> The other two matter more, and one of them is currently keeping **49% of the
+> integration tier switched off in every default CI run**.
 >
-> Kế thừa [`qa_testing_strategy_report.md`](qa_testing_strategy_report.md)
-> (BOT-015, thời điểm 477 test) — báo cáo này đo lại trên hiện trạng
-> 2026-08-25 (~1.700 test) và đi vào đúng tầng Sanity.
+> Successor to [`qa_testing_strategy_report.md`](qa_testing_strategy_report.md)
+> (BOT-015, measured at 477 tests). This one re-measures the tree as of
+> 2026-08-25 (~1,700 tests) and goes specifically at the Sanity tier.
+>
+> Companion document: [`sanity_redesign_philosophy.md`](sanity_redesign_philosophy.md)
+> — what the tier should have been, such that it could not have rotted this way.
 
 ---
 
-## 1. 📐 Phương pháp & giới hạn
+## 1. Method and limits
 
-**Nguồn dữ liệu** (đã verify từng cái, không suy đoán):
+**Sources** (each verified, nothing inferred):
 
-- Toàn bộ 9 file `tests/sanity/` — đọc hết, không sampling.
-- `scripts/ci-local.ps1` — cách tier được gọi thật, không theo mô tả trong docs.
+- All 9 files under `tests/sanity/` — read in full, not sampled.
+- `scripts/ci-local.ps1` — how the tier is actually invoked, not how the docs
+  describe it.
 - `.agents/rules/ci-rule.md` §6 (four-level test contract), `code-rule.md` §4.
-- 43 hồ sơ bug trong `Tasks/bug_report/` — nguồn escape analysis ở §5.
+- All 43 bug records in `Tasks/bug_report/` — the basis for the escape
+  analysis in §5.
 - `src/main.py`, `src/presentation/ui/app_bootstrapper.py`, `main_window.py` —
-  đối chiếu "cái sanity boot" với "cái production boot".
+  comparing what sanity boots against what production boots.
 
-**Giới hạn phải nói rõ:** báo cáo này là **phân tích tĩnh + đối chiếu hồ sơ
-bug**, không phải kết quả chạy suite. Môi trường viết báo cáo không có
-`PySide6` lẫn `sagittarius_engine`, và CI của dự án là PowerShell/Windows-only
-(`ci-local.ps1`). Mọi con số test đều đếm từ source; mọi khẳng định hành vi
-đều dẫn `file:line`. Các đề xuất ở §6 **chưa được chạy CI** — cần verify theo
-đúng `ci-rule.md` trước khi merge.
+**Limit, stated plainly:** this is **static analysis plus bug-record
+correlation**, not a suite run. The authoring environment has neither `PySide6`
+nor `sagittarius_engine`, and this project's CI is PowerShell/Windows-only
+(`ci-local.ps1`). Every test count is derived from source; every behavioural
+claim cites `file:line`. **The proposals in §6 have not been through CI** and
+must be verified per `ci-rule.md` before merge.
 
 ---
 
-## 2. 📊 Hiện trạng tầng Sanity — số liệu
+## 2. Current state — the numbers
 
-| Tier | Test function | File | Chạy trong `-Full` mặc định? |
+| Tier | Test functions | Files | Runs in default `-Full`? |
 | :--- | ---: | ---: | :---: |
-| `tests/unit/` | 1.334 | 153 | ✅ (song song, 6 worker) |
-| `tests/integration/` (không tính UI) | 37 | 15 | ✅ |
+| `tests/unit/` | 1,339 | 153 | ✅ (parallel, 6 workers) |
+| `tests/integration/` (excluding UI) | 37 | 15 | ✅ |
 | `tests/integration/presentation/ui/` | **36** | 8 | ❌ **`--ignore` (BOT-038)** |
-| `tests/sanity/` | 19 (→ **38 case** sau parametrize) | 9 | ✅ (tuần tự, job nền) |
+| `tests/sanity/` | 19 (→ **38 cases** after parametrize) | 9 | ✅ (sequential, background job) |
 
-Con số 38 khớp đúng với ghi nhận trong `BUG-041`/`BUG-042` (2026-08-24: *"38
-sanity"*), nên đây là hiện trạng thật, không phải đếm nhầm.
+The figure of 38 matches what `BUG-041`/`BUG-042` recorded on 2026-08-24
+(*"38 sanity"*), so this is the real state and not a miscount.
 
-**38 case đó thực sự assert cái gì:**
+**What those 38 cases actually assert:**
 
-| Loại assertion | Số case | Tỷ lệ |
+| Assertion kind | Cases | Share |
 | :--- | ---: | ---: |
-| `container.resolve(X)` → `isinstance` / tra nội dung registry | ≈24 | **63%** |
-| Introspection class-level (thread-affinity `unprotected_mutators`) | 5 | 13% |
-| Dựng View + Presenter thật | 4 | 11% |
-| Boot chạy sạch / log health / AST circular-import | 5 | 13% |
+| `container.resolve(X)` → `isinstance`, or registry content lookup | ~24 | **63%** |
+| Class-level introspection (thread affinity, `unprotected_mutators`) | 5 | 13% |
+| Constructing a real View + Presenter | 4 | 11% |
+| Clean boot / health log / AST circular-import check | 5 | 13% |
 
-**Chi phí:** fixture `booted_app` là **function-scoped** ở 5/6 file → tier boot
-lại toàn bộ app thật khoảng **24 lần** để lấy 38 assertion. Đây là lý do nó
-phải chạy tuần tự trong job riêng.
+**Cost:** the `booted_app` fixture is **function-scoped** in 5 of 6 files, so
+the tier boots the entire real application roughly **24 times** to produce 38
+assertions. That is why it has to run sequentially in a job of its own.
 
 ---
 
-## 3. 🎯 Ba chẩn đoán (TL;DR)
+## 3. Three diagnoses
 
-### 🔴 Chẩn đoán 1 — Hợp đồng tầng Sanity đang viết cho một kiến trúc app **không còn tồn tại**
+### 🔴 Diagnosis 1 — The sanity contract is written for an architecture the app no longer has
 
-`code-rule.md` §4 quy định sanity phải: *"boot the real app, construct real
-View + Presenter, assert real DI resolves and **`quick_widget.errors() == []`**"*.
+`code-rule.md` §4 requires sanity to *"boot the real app, construct real View +
+Presenter, assert real DI resolves and **`quick_widget.errors() == []`**"*.
 
-Nhưng **EPIC-006 đã migrate toàn bộ UI khỏi QML sang QtWidgets.** Xác nhận:
+But **EPIC-006 migrated the entire UI off QML onto QtWidgets.** Confirmed:
 
-- `grep -rn "QQuickWidget\|QmlHostView" src --include=*.py` → **chỉ còn trong
-  comment**, không còn một chỗ dùng thật nào.
-- `app_bootstrapper.py:105` ghi thẳng: *"EPIC-006F: no QML left in this app at
-  all (the last consumer, the native chart, was deleted outright)"*.
-- 22 file `.qml` vẫn nằm trong `src/` nhưng ở trạng thái *"kept on disk,
-  unloaded"* (`sidebar.py:141`, `data_management_view.py:238`,
-  `settings_view.py:43`).
+- `grep -rn "QQuickWidget\|QmlHostView" src --include=*.py` → **comments only**;
+  not one live usage remains.
+- `app_bootstrapper.py:105` states it outright: *"EPIC-006F: no QML left in this
+  app at all (the last consumer, the native chart, was deleted outright)"*.
+- 22 `.qml` files still sit under `src/` in a *"kept on disk, unloaded"* state
+  (`sidebar.py:141`, `data_management_view.py:238`, `settings_view.py:43`).
 
-Hệ quả dây chuyền:
+The knock-on effects:
 
-1. **0/38 sanity test có `errors()`** (`grep -rn "errors()" tests/sanity/` →
-   rỗng). Điều khoản bắt buộc của rule chưa từng được thực thi ở tầng nó quy
-   định — và bây giờ thì **không thể thực thi được nữa**, vì không còn
-   `QQuickWidget` nào để hỏi.
+1. **0 of 38 sanity cases call `errors()`** (`grep -rn "errors()" tests/sanity/`
+   → empty). A mandatory clause of the rule was never enforced in the tier it
+   governs — and now **cannot** be, because there is no `QQuickWidget` left to
+   ask.
 2. `tests/unit/.../test_preview_fixtures_exist.py::test_all_discovered_previews_build_cleanly`
-   vẫn assert `widget.errors() == []` và duyệt `findChildren(QQuickWidget)` —
-   sau EPIC-006 cả hai đều **vacuous**: luôn rỗng, luôn xanh, không còn canh gì.
-3. `tests/conftest.py` có fixture session-autouse `_configure_app_qml` cấu hình
-   nguyên một stack QML mà production **không còn gọi nữa**
-   (`app_bootstrapper.py:105` nói rõ *"which no longer needs calling here"*).
-   Test harness đang dựng một môi trường khác production.
-4. Hai file `test_qml_imports_match_engine_qmldir.py` và
-   `test_qml_shared_foundation.py` đang canh 22 file QML chết. Trớ trêu: file
-   thứ nhất được thêm vào chính là để chặn tái diễn `BUG-035`.
+   still asserts `widget.errors() == []` and walks `findChildren(QQuickWidget)`.
+   After EPIC-006 both are **vacuous**: always empty, always green, guarding
+   nothing.
+3. `tests/conftest.py` has a session-autouse `_configure_app_qml` fixture
+   configuring a whole QML stack that production **no longer initialises**
+   (`app_bootstrapper.py:105`: *"which no longer needs calling here"*). The test
+   harness is standing up an environment production does not have.
+4. `test_qml_imports_match_engine_qmldir.py` and `test_qml_shared_foundation.py`
+   guard 22 dead QML files. The first of those was added specifically to prevent
+   a recurrence of `BUG-035`.
 
-**Đây là gốc rễ của cảm giác "sanity không làm tốt việc của nó":** tầng này
-đang canh một thứ không còn tồn tại, và chưa ai viết lại hợp đồng cho thứ
-đang tồn tại (QtWidgets).
+**This is the root of the feeling that sanity isn't doing its job:** the tier is
+guarding something that no longer exists, and nobody has written the contract
+for what does exist (QtWidgets).
 
-### 🔴 Chẩn đoán 2 — Tầng chứng minh user journey **đang bị tắt**, không phải đang thiếu
+### 🔴 Diagnosis 2 — The tier that proves user journeys is switched off, not missing
 
-Test hành trình người dùng **có tồn tại**: `tests/integration/presentation/ui/`
-— 36 test function, gồm navigation, click "Sync Current" thật, walkthrough
-toàn bộ Dev Board, Save trên màn hình Settings.
+User-journey tests **do exist**: `tests/integration/presentation/ui/` — 36 test
+functions covering navigation, a real "Sync Current" click, a full Dev Board
+walkthrough, and Save on the Settings screen.
 
-Chúng bị `--ignore` khỏi mọi lần chạy `-Full` mặc định
-(`ci-local.ps1:359-361`), vì `BOT-038` — segfault native Qt/PySide6 không ổn
-định. `-IncludeFlakyUi` là opt-in, và theo `ci-rule.md` §3 thì chỉ chạy *"when
+They are `--ignore`d from every default `-Full` run (`ci-local.ps1:359-361`)
+because of `BOT-038`, an intermittent native Qt/PySide6 segfault.
+`-IncludeFlakyUi` is opt-in, and per `ci-rule.md` §3 it is only expected *"when
 a change touches that directory"*.
 
-Kết quả: **tầng integration chạy mặc định chỉ còn 37 test function, so với
-1.334 unit test — 2,7%.** Kim tự tháp không phải hình tháp, nó là một cây
-kim: rất nhiều unit, gần như không có gì chứng minh các mảnh ghép lại thành
-một app dùng được.
+The result: **the integration tier that actually runs is 37 test functions
+against 1,334 unit tests — 2.7%.** That is not a pyramid; it is a needle. A very
+large body of unit tests, and almost nothing proving the pieces add up to a
+usable application.
 
-> **Không có phương án nào ở tầng sanity bù được việc này.** Sanity bị chính
-> hợp đồng của nó cấm click, cấm dispatch, cấm mạng (`ci-rule.md` §6 mục 3).
-> Nó *không được phép* bắt user case.
+> **No sanity-tier proposal can compensate for this.** Sanity's own contract
+> forbids clicks, dispatch and network (`ci-rule.md` §6, level 3). It is *not
+> permitted* to catch user cases.
 
-Điểm đáng chú ý: `BOT-038` §3 chỉ nghi phạm là *"mỗi lần lặp tạo `QQuickWidget`/
-`QQmlEngine` MỚI, không share engine"*. **Sau EPIC-006, `QQuickWidget` đã bị xoá
-sạch khỏi app.** Rất có khả năng BOT-038 đã tự khỏi và không ai kiểm tra lại.
-Xem P2.0 ở §6 — đây là hành động có tỷ lệ lợi ích/chi phí cao nhất trong cả
-báo cáo này.
+Worth noting: `BOT-038` §3 names its prime suspect as *"each iteration creates a
+NEW `QQuickWidget`/`QQmlEngine`, no shared engine"*. **After EPIC-006 there are
+no `QQuickWidget`s left in this app.** There is a real chance BOT-038 resolved
+itself and nobody re-checked. See P2.0 in §6 — the highest benefit-to-cost
+action in this report.
 
-### 🟡 Chẩn đoán 3 — Trong phạm vi việc của chính nó, sanity cũng có lỗ hổng thật
+### 🟡 Diagnosis 3 — Within its own remit, the sanity tier has genuine holes too
 
-Chi tiết ở §4. Tóm tắt: tier chỉ dựng **2/4 màn hình**, có 1 test rỗng luôn
-xanh, 1 docstring nói dối assertion, không bắt được Qt message, fixture nhân
-bản 6 lần và đã drift thật, và có thể **skip im lặng toàn bộ** khi thiếu Qt.
+Detailed in §4. In summary: it constructs **2 of 4 screens**, contains one
+assertion-free test that can never fail, one docstring that misrepresents its
+own assertion, no observation of Qt diagnostics at all, a boot fixture copied
+six times that has already drifted, and a path where the whole UI portion
+**skips silently**.
 
 ---
 
-## 4. 🔍 Mười phát hiện cụ thể
+## 4. Ten specific findings
 
-### F1 — `tests/integration/test_ui_sanity.py` là một test **rỗng**, luôn xanh
+### F1 — `tests/integration/test_ui_sanity.py` is an empty test that always passes
 
 ```python
 def test_sanity_ui_boot_and_navigation():
     print("Sanity Check GUI Setup...")
 ```
 
-8 dòng, không một assertion. Tên hứa "boot and navigation". Đây là fake-green
-thuần túy — nó chỉ làm số đếm test đẹp lên.
+Eight lines, not one assertion, and a name promising "boot and navigation".
+Pure fake-green: its only effect is to make the test count larger.
 
-### F2 — Điều khoản bắt buộc của `code-rule.md` §4 chưa từng được thực thi
+### F2 — A mandatory clause of `code-rule.md` §4 has never been enforced
 
-`quick_widget.errors() == []`: **0/38** sanity case. Xem Chẩn đoán 1.
+`quick_widget.errors() == []`: **0 of 38** sanity cases. See Diagnosis 1.
 
-### F3 — Docstring nói một đằng, assertion làm một nẻo
+### F3 — A docstring that claims more than the assertion delivers
 
 `tests/sanity/test_health_boot_and_ui_sanity.py:106-112`:
 
@@ -160,55 +167,57 @@ def test_real_mainwindow_construction_initializes_health_cleanly(...):
     assert window is not None
 ```
 
-`MainWindow.__init__` không bao giờ trả `None`. Test này **về mặt logic không
-thể fail** trừ khi có exception. Nó không kiểm tra "zero QML errors" như
-docstring khẳng định. Ai đọc tên test và tin nó sẽ tin nhầm.
+`MainWindow.__init__` never returns `None`, so this test **cannot logically
+fail** short of raising. It does not check "zero QML errors" as the docstring
+claims. Anyone reading the test name and trusting it is being misled.
 
-### F4 — Sanity chỉ dựng **2/4 màn hình**, và **0 modal**
+### F4 — Sanity constructs **2 of 4 screens**, and **zero modals**
 
-`PresenterManager` là lazy-loading (`main_window.py:130`), và
-`MainWindow.__init__` chỉ gọi `switch_screen("dashboard")` (`main_window.py:119`).
+`PresenterManager` is lazy-loading (`main_window.py:130`), and
+`MainWindow.__init__` only calls `switch_screen("dashboard")`
+(`main_window.py:119`).
 
-| Màn hình | Được dựng ở sanity? |
+| Screen | Constructed in sanity? |
 | :--- | :---: |
-| Dev Board (dashboard) | ✅ (`test_health_boot_and_ui_sanity.py` + qua MainWindow) |
+| Dev Board (dashboard) | ✅ (`test_health_boot_and_ui_sanity.py`, and via MainWindow) |
 | Backtest | ✅ (`test_backtest_screen_ui_sanity.py`) |
-| **Database (data_management)** | ❌ **chưa bao giờ** |
-| **Settings** | ❌ **chưa bao giờ** |
+| **Database (data_management)** | ❌ **never** |
+| **Settings** | ❌ **never** |
 
-Với Database, sanity chỉ resolve 9 handler trong container
-(`test_database_screen_di_sanity.py`) rồi dừng — **không dựng View lấy một
-lần**. `BUG-019` (`GapInspectorModal` không dựng được vì `import
-Sagittarius.Theme` không tồn tại — P1) rơi đúng vào khe này. Chính hồ sơ
-BUG-019 đã đề nghị *"cân nhắc bổ sung sanity/preview check cho mọi modal
-mới"* — chưa làm.
+For the Database screen, sanity resolves 9 handlers from the container
+(`test_database_screen_di_sanity.py`) and stops — **it never constructs the
+View at all**. `BUG-019` (`GapInspectorModal` fails to build because `import
+Sagittarius.Theme` does not exist — P1) landed exactly in that gap. The BUG-019
+record itself recommended *"adding a sanity/preview check for every new
+modal"*; that was never done.
 
-### F5 — 63% tier chứng minh "đã đăng ký", không chứng minh "gọi được"
+### F5 — 63% of the tier proves "registered", not "callable"
 
-`container.resolve(X)` trả về instance ≠ handler đó chạy được. Hai lớp lỗi
-sống sót qua nó:
+`container.resolve(X)` returning an instance is not the same as that handler
+working. Two defect classes walked straight through it:
 
-- `BUG-020` — vá lỗ hổng thành công vẫn báo lỗi vì gọi `_run_check_status()`
-  **không tồn tại**. Handler resolve sạch.
-- `BUG-026`/`BUG-027` — test double thiếu 7/12 method của `IMarketDataRepository`.
-  Bắt được nhờ **mypy**, không phải nhờ test.
+- `BUG-020` — gap repair reported failure on success because it called
+  `_run_check_status()`, **which does not exist**. The handler resolved cleanly.
+- `BUG-026`/`BUG-027` — a test double missing 7 of 12 `IMarketDataRepository`
+  methods. Caught by **mypy**, not by any test.
 
-### F6 — Allowlist viết tay, không có drift guard (dù pattern đúng đã có sẵn trong cùng tier)
+### F6 — Hand-written allowlists with no drift guard, though the correct pattern already exists in the same tier
 
-`_BACKTEST_COMMANDS` (`test_backtest_screen_di_sanity.py:54`) và
-`_DATABASE_COMMANDS` (`test_database_screen_di_sanity.py:54`) là danh sách gõ
-tay. Chúng bắt được thứ bị **xoá** khỏi `binance_bot_module.py`, nhưng **mù
-hoàn toàn** với use case **mới thêm mà quên đăng ký** — mà đó mới là ca hay
-xảy ra.
+`_BACKTEST_COMMANDS` (`test_backtest_screen_di_sanity.py:54`) and
+`_DATABASE_COMMANDS` (`test_database_screen_di_sanity.py:54`) are typed by hand.
+They catch something **removed** from `binance_bot_module.py`, and are
+**completely blind** to a use case that is **newly added and never registered**
+— which is the failure that actually occurs.
 
-Đối lập ngay trong cùng thư mục: `test_view_model_thread_affinity_sanity.py:60`
-có hẳn `test_every_view_model_subclass_in_this_app_is_covered_by_this_list()`
-— quét `__subclasses__()` thật và so với danh sách tay. **Pattern đúng đã tồn
-tại, chỉ chưa được nhân bản sang 2 file DI.** Đây là fix rẻ nhất trong báo cáo.
+Contrast, in the same directory: `test_view_model_thread_affinity_sanity.py:62`
+has `test_every_view_model_subclass_in_this_app_is_covered_by_this_list()`,
+which scans real `__subclasses__()` and compares against the hand-written list.
+**The right pattern already exists; it just was never copied to the two DI
+files.** This is the cheapest fix in the report.
 
-### F7 — Không có `tests/sanity/conftest.py` → fixture nhân bản 6 lần và **đã drift thật**
+### F7 — No `tests/sanity/conftest.py`, so the fixture is copied 6 times and **has already drifted**
 
-| File | Config load | Patch WebSocket | Fixture scope |
+| File | Config loaded | WebSocket patched | Fixture scope |
 | :--- | :--- | :---: | :--- |
 | `test_bootstrapper_di_sanity.py` | app + user | ✅ | function |
 | `test_backtest_screen_di_sanity.py` | app + user | ✅ | function |
@@ -216,18 +225,19 @@ tại, chỉ chưa được nhân bản sang 2 file DI.** Đây là fix rẻ nh�
 | `test_asset_preflight_sanity.py` | app + user | ✅ | (inline ×2) |
 | `test_health_boot_and_ui_sanity.py` | app + user | ✅ | function |
 | **`test_database_screen_di_sanity.py`** | app + user | ✅ | **module** |
-| **`test_health_sanity.py`** | **chỉ app** | ❌ **không patch** | (inline) |
+| **`test_health_sanity.py`** | **app only** | ❌ **not patched** | (inline) |
 
-`test_health_sanity.py` là test sanity **duy nhất** boot mà không patch
-`AsyncClient`/`BinanceSocketManager`. Một trong hai điều đang đúng, và cả hai
-đều là lỗi:
+`test_health_sanity.py` is the **only** sanity test that boots without patching
+`AsyncClient`/`BinanceSocketManager`. Exactly one of the following is true, and
+both are defects:
 
-- hoặc nó **thật sự chạm mạng** khi boot → tier sanity có một điểm
-  non-deterministic không ai biết;
-- hoặc thiếu `user_config.json` khiến nó boot một composition root **khác** 5
-  test kia → nó đang xác thực một cấu hình production không dùng.
+- it **genuinely touches the network** on boot, giving the tier a
+  non-determinism nobody knows about; or
+- the missing `user_config.json` makes it boot a **different** composition root
+  from the other five, meaning it validates a configuration production never
+  uses.
 
-### F8 — Thiếu PySide6 = **skip im lặng**, tier vẫn báo xanh
+### F8 — A missing PySide6 **skips silently** and the tier still reports green
 
 `tests/conftest.py:53`:
 
@@ -236,183 +246,191 @@ except ImportError:
     pytest.skip("PySide6 not installed — skipping UI tests")
 ```
 
-Trên môi trường thiếu Qt, 4 case dựng UI (11% tier) biến mất **không tiếng
-động** và `-SanityOnly` vẫn exit 0. Với một tier có nhiệm vụ *"chứng minh
-composition health"*, môi trường thiếu Qt phải là **FAIL**, không phải SKIP.
-(`BUG-043` — `run-ui.ps1` không import được engine local — đúng lớp "môi
-trường hỏng nhưng test không kêu".)
+In an environment without Qt, the 4 UI-construction cases (11% of the tier)
+vanish **without a sound**, and `-SanityOnly` still exits 0. For a tier whose
+job is *proving composition health*, a broken environment must be a **failure**,
+not a skip. (`BUG-043` — `run-ui.ps1` unable to import the local engine — is the
+same class: environment broken, tests silent.)
 
-### F9 — Log scan không nhìn thấy Qt message
+### F9 — The log scan cannot see Qt messages
 
-`Invoke-RunLogScan` (`ci-local.ps1:103`) grep `- (WARNING|ERROR|CRITICAL) -`
-— đúng format `logging` của Python. Nhưng Qt phát cảnh báo qua kênh riêng:
+`Invoke-RunLogScan` (`ci-local.ps1:103`) greps `- (WARNING|ERROR|CRITICAL) -`,
+which is Python's `logging` format. Qt emits diagnostics through a separate
+channel:
 
 - `qt.qml: Unable to assign [undefined] to double` → **BUG-028**
 - `QBasicTimer::start: Timers cannot be started from another thread` → **BUG-031 (P1)**
 
-Không khớp pattern nào cả. Và **không một file test nào trong repo dùng
-`qInstallMessageHandler`** (grep toàn repo → 0 hit). Toàn bộ kênh chẩn đoán
-của Qt hiện **không được quan sát ở bất kỳ tầng nào**.
+Neither matches the pattern. And **no test file in the repository uses
+`qInstallMessageHandler`** (repo-wide grep → 0 hits). Qt's entire diagnostic
+channel is currently **unobserved at every tier**.
 
-### F10 — Không có sanity cho **shutdown**
+### F10 — No sanity coverage for shutdown
 
-`app.stop()` chỉ nằm trong teardown fixture, không có assertion nào. Nếu nó
-treo, test **hang** chứ không fail — tệ hơn.
+`app.stop()` appears only in fixture teardown, carrying no assertion. If it
+hangs, the test **hangs** rather than failing — which is worse.
 
-Ba bug treo shutdown, hai trong đó P1, cả ba đều do user báo:
-`BUG-007`, `BUG-023`, `BUG-041`. `MainWindow.shutdown()` /
-`closeEvent()` (`main_window.py:121-127`) chưa từng được gọi ở tầng sanity.
-Chính `BUG-007` §"Why sanity missed it" đã ghi nhận điều này và kết luận giữ
-nguyên hiện trạng.
+Three shutdown bugs, two of them P1, all reported by a human: `BUG-007`,
+`BUG-023`, `BUG-041`. `MainWindow.shutdown()` / `closeEvent()`
+(`main_window.py:121-127`) have never been invoked at the sanity tier.
+`BUG-007`'s own *"Why sanity missed it"* section recorded this and concluded
+that the status quo should stand.
 
 ---
 
-## 5. 📉 Phân tích thoát lỗi — 43 bug
+## 5. Escape analysis — 43 bugs
 
-Phân loại toàn bộ `Tasks/bug_report/` theo lớp lỗi, và tầng **đáng ra** phải bắt:
+All of `Tasks/bug_report/` classified by defect class, against the tier that
+**should** have caught it:
 
-| Lớp lỗi | Bug | SL | Tầng đáng ra phải bắt | Sanity có quyền đụng? |
+| Defect class | Bugs | Count | Tier that should catch it | May sanity touch it? |
 | :--- | :--- | ---: | :--- | :---: |
-| Render/hiển thị sai | 002,003,004,005,006,009,012,014,021,032,034,037,038,039 | **14** | Desktop E2E / visual | ❌ cấm |
-| Thread / lifecycle / shutdown treo | 001,007,011,013,023,031,033,041,042 | **9** | Sanity (mở rộng) + Integration | 🟡 một phần |
-| Hạ tầng test flaky | 015,016,029,030,036,040,043 | 7 | — (meta) | ❌ |
-| Hành động không có tác dụng | 008,010,017,018,020 | **5** | Integration (user journey) | ❌ cấm |
-| **QML / module import vỡ** | **019,028,035** | **3** | **Sanity** | ✅ **đúng việc** |
-| Drift interface/port | 026,027 | 2 | mypy (đã bắt) | ❌ |
-| Hiệu năng / bộ nhớ | 024,025 | 2 | Benchmark tier | ❌ |
-| Logic domain sai | 022 | 1 | Unit | ❌ |
+| Rendering / visual incorrectness | 002,003,004,005,006,009,012,014,021,032,034,037,038,039 | **14** | Desktop E2E / visual | ❌ forbidden |
+| Threading / lifecycle / shutdown hangs | 001,007,011,013,023,031,033,041,042 | **9** | Sanity (extended) + Integration | 🟡 partly |
+| Test-infrastructure flakiness | 015,016,029,030,036,040,043 | 7 | — (meta) | ❌ |
+| Action wired but does nothing | 008,010,017,018,020 | **5** | Integration (user journey) | ❌ forbidden |
+| **QML / module import breakage** | **019,028,035** | **3** | **Sanity** | ✅ **its own job** |
+| Interface / port drift | 026,027 | 2 | mypy (did catch these) | ❌ |
+| Performance / memory | 024,025 | 2 | Benchmark tier | ❌ |
+| Domain logic incorrectness | 022 | 1 | Unit | ❌ |
 
-**Đọc bảng này ra hai câu:**
+**Two conclusions:**
 
-1. **Chỉ 3/43 (7%) bug nằm trong đúng thẩm quyền của tầng sanity — và sanity
-   trượt cả 3.** Đó là phần lỗi thật của tier, và F4 + F9 giải thích chính
-   xác tại sao (không dựng màn hình Database → BUG-019; không nghe Qt message
-   → BUG-028; không có "dựng mọi màn hình" → BUG-035).
-2. **19/43 (44%) bug thuộc hai lớp mà sanity bị *cấm* đụng vào** (render sai +
-   hành động không tác dụng). Đây chính là "user case cơ bản" mà anh thấy lọt.
-   Việc chúng lọt **không phải lỗi của sanity** — đó là hệ quả trực tiếp của
-   Chẩn đoán 2: tầng chứng minh chúng đang bị tắt.
+1. **Only 3 of 43 (7%) fall within sanity's own remit — and sanity missed all
+   three.** That is the tier's real share of the blame, and F4 + F9 explain it
+   precisely: the Database screen is never constructed (→ BUG-019), Qt messages
+   are never heard (→ BUG-028), and there is no "construct every screen" test
+   (→ BUG-035).
+2. **19 of 43 (44%) fall into two classes sanity is *forbidden* to touch**
+   (visual incorrectness, and actions that do nothing). These are the "basic
+   user cases" that are getting through. Their escape **is not sanity's fault**
+   — it is the direct consequence of Diagnosis 2: the tier that proves them is
+   switched off.
 
-Thêm một dữ kiện đáng lo: nhiều hồ sơ bug ghi rõ CI xanh sạch ngay tại thời
-điểm bug đang sống. `BUG-038`: *"1789 unit + 54 sanity, sạch"* — user phát
-hiện bằng mắt. `BUG-039`: *"1800 passed / 54 sanity — không test nào vỡ, tức
-**không có test nào từng khẳng định mặc định** đó là đúng"*. Coverage 93% cùng
-tồn tại với 43 bug. **Coverage và số lượng test đã bão hoà giá trị tín hiệu ở
-dự án này.**
+One further data point worth sitting with: several bug records explicitly note
+CI was green and clean while the bug was live. `BUG-038`: *"1789 unit + 54
+sanity, clean"* — found by a human looking at the screen. `BUG-039`: *"1800
+passed / 54 sanity — nothing broke, i.e. **no test had ever asserted** that the
+default was correct."* 93% coverage coexists with 43 filed bugs. **Coverage and
+test count have saturated as signals on this project.**
 
 ---
 
-## 6. 🛠️ Phương án khắc phục
+## 6. Remediation
 
-Xếp theo tỷ lệ lợi ích/chi phí, không theo thứ tự chẩn đoán.
+Ordered by benefit-to-cost, not by diagnosis number.
 
-### P2.0 — 🚩 Làm cái này TRƯỚC MỌI THỨ: kiểm chứng lại BOT-038 (chi phí: 1 lần chạy)
+### P2.0 — 🚩 Do this before anything else: re-verify BOT-038 (cost: one run)
 
 ```powershell
 .\scripts\ci-local.ps1 -Full -IncludeFlakyUi
 ```
 
-Chạy 5 lần, ghi lại kết quả.
+Run it five times and record the results.
 
-**Lý do:** `BOT-038` §3 kết luận nghi phạm là *"mỗi lần lặp tạo
-`QQuickWidget`/`QQmlEngine` MỚI, không share engine"* — cùng lớp với crash
-object-lifetime đã fix một phần ở BOT-034. **EPIC-006 đã xoá sạch
-`QQuickWidget` khỏi app.** Nếu BOT-038 đã tự khỏi, một lệnh này mở khoá lại
-**36 test hành trình người dùng = 49% tầng integration**, và giải quyết phần
-lớn nhất của câu hỏi "tại sao user case cơ bản lọt".
+**Why:** `BOT-038` §3 concluded the suspect was *"each iteration creates a NEW
+`QQuickWidget`/`QQmlEngine`, no shared engine"* — the same object-lifetime class
+partially fixed in BOT-034. **EPIC-006 removed `QQuickWidget` from the app
+entirely.** If BOT-038 has resolved itself, this one command unlocks **36
+user-journey tests = 49% of the integration tier**, and addresses the largest
+part of "why are basic user cases getting through".
 
-Đây là hành động rẻ nhất và có đòn bẩy lớn nhất trong toàn bộ báo cáo.
+This is the cheapest action in the report with the largest leverage.
 
-- ✅ **Nếu xanh 5/5:** bỏ `--ignore` ở `ci-local.ps1:359-361`, đóng BOT-038,
-  cập nhật `ci-rule.md` §3. Xong 44% escape.
-- ❌ **Nếu vẫn crash:** BOT-038 lên P1 và trở thành task chặn của cả roadmap
-  chất lượng. Hướng fix ưu tiên: chuyển `main_window`/`app_engine` fixture
-  (`tests/integration/presentation/ui/conftest.py`) sang session-scope với
-  teardown tường minh, thay vì function-scope dựng lại toàn bộ cây widget mỗi test.
+- ✅ **If green 5/5:** drop the `--ignore` at `ci-local.ps1:359-361`, close
+  BOT-038, update `ci-rule.md` §3. That closes 44% of the escapes.
+- ❌ **If it still crashes:** BOT-038 becomes P1 and the blocking task for the
+  whole quality roadmap. Preferred direction: move the `main_window`/`app_engine`
+  fixtures (`tests/integration/presentation/ui/conftest.py`) to session scope
+  with explicit teardown, instead of rebuilding the entire widget tree per test.
 
-### P0 — Chặn fake-green (≈0,5 ngày)
+### P0 — Stop the fake-green (~0.5 day)
 
-Làm trước khi thêm bất kỳ test mới nào — nếu không, drift và fake-green sẽ được
-nhân bản theo.
+Do this before adding any new test — otherwise the drift and the fake-green get
+copied forward.
 
-| # | Việc | Fix |
+| # | Finding | Fix |
 | :--- | :--- | :--- |
-| **P0.1** | F1 — test rỗng | Xoá `tests/integration/test_ui_sanity.py`. Nội dung nó hứa đã được `test_sanity_ui_e2e.py` làm thật. |
-| **P0.2** | F7 — fixture nhân bản & drift | Tạo `tests/sanity/conftest.py`: **một** fixture `booted_app` **session-scope**, load đúng 2 file config như `app_bootstrapper.py:67-69` (kèm `writable=True`), patch WebSocket nhất quán. Xoá 6 bản sao. Phụ lợi: **24 lần boot → 1**, tier nhanh lên khoảng một bậc độ lớn. |
-| **P0.3** | F8 — skip im lặng | Trong `tests/sanity/conftest.py`, override `qapp`: thiếu PySide6 → `pytest.fail`, không `skip`. Với tier "composition health", môi trường hỏng là kết quả hợp lệ và phải đỏ. |
-| **P0.4** | F3 — docstring nói dối | Sửa `test_real_mainwindow_construction_initializes_health_cleanly` — sau P1.2 nó sẽ có assertion thật để mà giữ. |
+| **P0.1** | F1 — empty test | Delete `tests/integration/test_ui_sanity.py`. What it promises is already done for real by `test_sanity_ui_e2e.py`. |
+| **P0.2** | F7 — duplicated, drifted fixture | Add `tests/sanity/conftest.py` with **one** **session-scoped** `booted_app`, loading exactly what `app_bootstrapper.py:67-69` loads (including `writable=True`) and patching the WebSocket boundary consistently. Delete the 6 copies. Side benefit: **24 boots → 1**, roughly an order of magnitude off the tier's runtime. |
+| **P0.3** | F8 — silent skip | Override `qapp` in `tests/sanity/conftest.py`: missing PySide6 → `pytest.fail`, not `skip`. For a composition-health tier, a broken environment is a valid result and must be red. |
+| **P0.4** | F3 — misleading docstring | Fix `test_real_mainwindow_construction_initializes_health_cleanly`. After P1.2 it will have a real assertion to keep. |
 
-### P1 — Viết lại hợp đồng Sanity cho kiến trúc QtWidgets (≈2–3 ngày)
+### P1 — Rewrite the sanity contract for the QtWidgets architecture (~2–3 days)
 
-| # | Việc | Fix |
+| # | Finding | Fix |
 | :--- | :--- | :--- |
-| **P1.1** | Chẩn đoán 1 — rule lỗi thời | Sửa `code-rule.md` §4: bỏ `quick_widget.errors() == []` (vô nghĩa sau EPIC-006), thay bằng *"dựng View + Presenter thật cho **mọi** route đăng ký trong `MainWindow._setup_router()`, dưới `qt_message_guard`, và đóng sạch"*. **Rule phải sửa trước code** — nếu không, mọi feature mới lại ship theo một hợp đồng đã chết. |
-| **P1.2** | F9 — Qt message mù | `qt_message_guard` — fixture autouse toàn tier sanity, dùng `qInstallMessageHandler`, fail khi có `QtWarningMsg`/`QtCriticalMsg`/`QtFatalMsg`. Allowlist phải hẹp và khai báo tường minh từng dòng. **Đây mới là thứ thay thế đúng nghĩa cho `errors()`** trong thế giới QtWidgets, và nó bắt được cả `BUG-028` lẫn `BUG-031` — hai thứ `Invoke-RunLogScan` cấu trúc không thể thấy. |
-| **P1.3** | F4 — 2/4 màn hình | `test_every_registered_route_constructs.py`: tách registry trong `MainWindow._setup_router()` thành hằng số module-level, rồi parametrize sanity **từ chính nó** (không phải allowlist tay). 2/4 → **4/4**, và tự động phủ mọi màn hình thêm sau này. |
-| **P1.4** | F6 — allowlist mù với cái mới | Thay `_BACKTEST_COMMANDS` / `_DATABASE_COMMANDS` bằng scan: quét mọi class `*Command`/`*Query` dưới `src/application/use_cases/`, assert container resolve được. Sao chép nguyên pattern drift-guard đã có ở `test_view_model_thread_affinity_sanity.py:60`. |
-| **P1.5** | F10 — shutdown không được canh | Sanity shutdown: boot → dựng `MainWindow` → `window.shutdown()` + `app.stop()` **có timeout**, assert không còn thread non-daemon sống. Lớp `BUG-007`/`023`/`041` (2×P1) hiện không có tầng nào canh. |
-| **P1.6** | Chẩn đoán 1 — tài sản chết | 22 file `.qml` + `test_qml_imports_match_engine_qmldir.py` + `test_qml_shared_foundation.py` + fixture `_configure_app_qml` trong `tests/conftest.py` + các assertion `errors()`/`QQuickWidget` đã vacuous trong `test_preview_fixtures_exist.py`. Xoá, hoặc chuyển hẳn vào `Docs/legacy/`. **Test canh code chết không phải trung tính — nó làm loãng tín hiệu và tạo cảm giác an toàn giả.** |
+| **P1.1** | Diagnosis 1 — obsolete rule | Amend `code-rule.md` §4: drop `quick_widget.errors() == []` (meaningless post-EPIC-006) and replace it with *"construct the real View + Presenter for **every** route registered in `MainWindow._setup_router()`, under `diagnostic_guard`, and shut down cleanly"*. **The rule must change before the code** — otherwise every new feature keeps shipping against a dead contract. |
+| **P1.2** | F9 — Qt diagnostics unobserved | `diagnostic_guard` — an autouse fixture across the tier using `qInstallMessageHandler`, failing on `QtWarningMsg`/`QtCriticalMsg`/`QtFatalMsg`. Any allowlist must be narrow and declared line by line. **This is the true replacement for `errors()`** in a QtWidgets world, and it catches both `BUG-028` and `BUG-031` — neither of which `Invoke-RunLogScan` can structurally see. |
+| **P1.3** | F4 — 2 of 4 screens | `test_every_registered_route_constructs.py`: lift the registry inside `MainWindow._setup_router()` into a module-level constant, then parametrize sanity **from that** rather than a hand-written list. 2/4 → **4/4**, and automatically covers screens added later. |
+| **P1.4** | F6 — allowlists blind to additions | Replace `_BACKTEST_COMMANDS` / `_DATABASE_COMMANDS` with a scan: walk every `*Command`/`*Query` class under `src/application/use_cases/` and assert the container resolves it. Copy the drift-guard pattern already at `test_view_model_thread_affinity_sanity.py:62`. |
+| **P1.5** | F10 — shutdown unguarded | Sanity shutdown test: boot → construct `MainWindow` → `window.shutdown()` + `app.stop()` **with a timeout**, asserting no live non-daemon threads remain. The `BUG-007`/`023`/`041` class (2× P1) currently has no tier watching it. |
+| **P1.6** | Diagnosis 1 — dead assets | The 22 `.qml` files, `test_qml_imports_match_engine_qmldir.py`, `test_qml_shared_foundation.py`, the `_configure_app_qml` fixture in `tests/conftest.py`, and the now-vacuous `errors()`/`QQuickWidget` assertions in `test_preview_fixtures_exist.py`. Delete them, or move them to `Docs/legacy/`. **A test guarding dead code is not neutral — it dilutes the signal and manufactures false confidence.** |
 
-### P2 — Đóng khe user journey (≈1 tuần, sau P2.0)
+### P2 — Close the user-journey gap (~1 week, after P2.0)
 
-| # | Việc |
+| # | Action |
 | :--- | :--- |
-| **P2.1** | Nếu P2.0 xanh: nâng `tests/integration/presentation/ui/` thành gate bắt buộc trong `-Full`, bỏ `-IncludeFlakyUi`. |
-| **P2.2** | Lập danh mục user journey lõi từ [`Docs/PROJECT_INTENT_AND_USER_STORIES.md`](../../Docs/PROJECT_INTENT_AND_USER_STORIES.md) + [`dev_board_user_end_test_cases.md`](dev_board_user_end_test_cases.md). Mỗi journey đúng **1** test, chạy **mọi** lần CI. Ưu tiên theo §5: lớp "hành động không có tác dụng" (5 bug) trước — rẻ nhất, deterministic nhất, không cần màn hình thật. |
-| **P2.3** | Sửa `ci-rule.md` §6: nói thẳng rằng tầng Sanity **cấu trúc không thể** chứng minh user case, và Integration mới là tầng chịu trách nhiệm — để không ai đọc "38 sanity passed" rồi tưởng app dùng được. |
+| **P2.1** | If P2.0 comes back green: promote `tests/integration/presentation/ui/` to a required gate in `-Full` and retire `-IncludeFlakyUi`. |
+| **P2.2** | Draw up the core user-journey catalogue from [`Docs/PROJECT_INTENT_AND_USER_STORIES.md`](../../Docs/PROJECT_INTENT_AND_USER_STORIES.md) and [`dev_board_user_end_test_cases.md`](dev_board_user_end_test_cases.md). One test per journey, run on **every** CI invocation. Prioritise by §5: the "action does nothing" class (5 bugs) first — cheapest, most deterministic, no real display needed. |
+| **P2.3** | Amend `ci-rule.md` §6 to state outright that the Sanity tier is **structurally incapable** of proving user cases and that Integration owns that responsibility — so nobody reads "38 sanity passed" as evidence the app works. |
 
 ---
 
-## 7. 📏 Chỉ số theo dõi
+## 7. Metrics to track
 
-Bỏ "số test" và "coverage %" làm chỉ số sức khỏe — §5 đã cho thấy cả hai bão
-hoà. Thay bằng:
+Drop "test count" and "coverage %" as health indicators — §5 shows both have
+saturated. Replace with:
 
-| Chỉ số | Hiện tại | Mục tiêu |
+| Metric | Now | Target |
 | :--- | :---: | :---: |
-| Test hành trình chạy mặc định trong `-Full` | **0** | ≥ 36 (P2.0) |
-| Màn hình được dựng ở tầng Sanity | **2 / 4** | 4 / 4 |
-| Qt message lọt qua CI | **không đo được** | 0 (đo được sau P1.2) |
-| Tỷ lệ Integration / Unit (chạy mặc định) | **2,7%** | ≥ 10% |
-| Escape rate: bug do **user** phát hiện / tổng bug mới, theo tháng | ~ chưa đo | giảm dần |
+| User-journey tests running in default `-Full` | **0** | ≥ 36 (P2.0) |
+| Screens constructed by the sanity tier | **2 / 4** | 4 / 4 |
+| Qt messages escaping CI | **not measurable** | 0 (measurable after P1.2) |
+| Integration / Unit ratio (default run) | **2.7%** | ≥ 10% |
+| Escape rate: bugs found by **users** / all new bugs, per month | not yet tracked | declining |
 
-Chỉ số cuối là chỉ số thật duy nhất. Mọi thứ khác chỉ là proxy.
-
----
-
-## 8. 🚫 Việc KHÔNG nên làm
-
-- **Đừng nhét user journey vào `tests/sanity/`.** Tier này boot app thật, chạy
-  tuần tự, và (trước P0.2) boot lại 24 lần. Đó là chỗ đắt nhất trong toàn suite
-  để thêm hành vi. Sanity phải **nhanh và hẹp**; user journey thuộc Integration.
-- **Đừng nâng ngưỡng coverage.** Coverage 93% đang cùng tồn tại với 43 bug và
-  hai bug P1 mà *"không test nào từng khẳng định"* (`BUG-039`). Nâng ngưỡng
-  chỉ đẻ thêm test cho code dễ test.
-- **Đừng thêm test mới trước khi xong P0.1 + P0.2.** Fake-green và fixture
-  drift sẽ được sao chép vào mọi file mới — đúng cách 6 bản sao hiện tại ra đời.
-- **Đừng xoá `tests/sanity/` để gộp vào integration.** Tier này có giá trị
-  thật và duy nhất: `test_view_model_thread_affinity_sanity.py` là guard chặn
-  cả một lớp lỗi (BUG-001), và `test_circular_imports.py` bắt thứ pytest
-  không bao giờ chạm tới. Vấn đề là **phạm vi và hợp đồng**, không phải sự tồn tại.
+The last one is the only real metric. Everything above it is a proxy.
 
 ---
 
-## 9. ✅ Tóm tắt hành động
+## 8. What not to do
 
-1. **Chạy `.\scripts\ci-local.ps1 -Full -IncludeFlakyUi` ×5, ngay.** (P2.0)
-   Kết quả quyết định toàn bộ ưu tiên phía sau.
-2. Song song: P0.1–P0.4 (nửa ngày, không phụ thuộc kết quả trên).
-3. Sửa `code-rule.md` §4 (P1.1) **trước** khi viết bất kỳ sanity test mới nào.
-4. P1.2 (`qt_message_guard`) và P1.3 (dựng 4/4 màn hình) — hai thứ duy nhất
-   trong tầng sanity thật sự đóng được lớp lỗi đã từng thoát ra ngoài.
-
-> Câu trả lời một dòng cho câu hỏi ban đầu: **sanity không bắt được user case
-> vì nó bị cấm làm việc đó — cái đáng lẽ phải làm việc đó thì đang bị
-> `--ignore` khỏi CI, và hợp đồng của sanity thì được viết cho một kiến trúc
-> QML mà app đã bỏ từ EPIC-006.**
+- **Do not push user journeys into `tests/sanity/`.** The tier boots the real
+  app, runs sequentially, and (before P0.2) boots 24 times. It is the most
+  expensive place in the suite to add behaviour. Sanity must stay **fast and
+  narrow**; user journeys belong to Integration.
+- **Do not raise the coverage threshold.** 93% coverage coexists with 43 bugs
+  and two P1s that *"no test had ever asserted"* (`BUG-039`). Raising the bar
+  only produces more tests for the code that is easy to test.
+- **Do not add new tests before P0.1 and P0.2 land.** Fake-green and fixture
+  drift will be copied into every new file — which is exactly how the current
+  six copies came about.
+- **Do not delete `tests/sanity/` and fold it into integration.** The tier has
+  real and unique value: `test_view_model_thread_affinity_sanity.py` blocks an
+  entire defect class (BUG-001), and `test_circular_imports.py` catches
+  something pytest structurally never reaches. The problem is **scope and
+  contract**, not existence.
 
 ---
 
-*Báo cáo lập 2026-08-25. Toàn bộ số liệu đếm từ source tại commit `f27649e`.
-Phân tích tĩnh — chưa chạy suite (xem §1, Giới hạn). Mọi đề xuất cần verify
-qua `ci-local.ps1 -Full` trước khi merge.*
+## 9. Action summary
+
+1. **Run `.\scripts\ci-local.ps1 -Full -IncludeFlakyUi` ×5, now.** (P2.0) The
+   result determines every priority behind it.
+2. In parallel: P0.1–P0.4 (half a day, independent of the above).
+3. Amend `code-rule.md` §4 (P1.1) **before** writing any new sanity test.
+4. P1.2 (`diagnostic_guard`) and P1.3 (construct 4/4 screens) — the only two
+   sanity-tier changes that genuinely close defect classes that have already
+   escaped.
+
+> The one-line answer to the original question: **sanity isn't catching user
+> cases because it is forbidden to; the tier that should be catching them is
+> `--ignore`d out of CI; and sanity's own contract was written for a QML
+> architecture the app abandoned in EPIC-006.**
+
+---
+
+*Audit dated 2026-08-25, counted from source at commit `f27649e`. Static
+analysis — the suite was not run (see §1, Limits). Every proposal requires
+verification via `ci-local.ps1 -Full` before merge.*
