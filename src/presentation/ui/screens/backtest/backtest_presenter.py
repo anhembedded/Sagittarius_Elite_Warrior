@@ -19,8 +19,8 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
-    RunRealtimeBacktestCommand,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
@@ -2290,7 +2290,7 @@ class BackTestPresenter(BasePresenter):
                 cancellation_token.is_cancelled if cancellation_token else None
             )
             if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-                realtime_command = RunRealtimeBacktestCommand(
+                realtime_command = RunHistoricalTickBacktestCommand(
                     symbol=self._symbol,
                     interval=config.timeframe,
                     tick_resolution=config.tick_resolution,
@@ -2308,13 +2308,13 @@ class BackTestPresenter(BasePresenter):
                     progress_callback=progress_callback,
                 )
                 self._log_dev_trace(
-                    "worker_dispatch_run_realtime_backtest",
+                    "worker_dispatch_run_historical_tick_backtest",
                     symbol=realtime_command.symbol,
                     timeframe=realtime_command.interval.value,
                     tick_resolution=realtime_command.tick_resolution.value,
                 )
                 result = self.dispatcher.dispatch(
-                    RunRealtimeBacktestCommand, realtime_command
+                    RunHistoricalTickBacktestCommand, realtime_command
                 )
             else:
                 static_command = RunStaticBacktestCommand(

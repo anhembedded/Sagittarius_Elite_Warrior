@@ -1,4 +1,4 @@
-"""Tests for RunRealtimeBacktestCommandHandler (BOT-076)."""
+"""Tests for RunHistoricalTickBacktestCommandHandler (BOT-076)."""
 
 import logging
 from datetime import UTC, datetime, timedelta
@@ -8,9 +8,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
-    RunRealtimeBacktestCommand,
-    RunRealtimeBacktestCommandHandler,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
+    RunHistoricalTickBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
@@ -105,13 +105,13 @@ def _build_bar_ticks(
 
 def _build_handler(
     ticks: list[MarketData], strategy_key: str = "counting", strategy_cls=None
-) -> tuple[RunRealtimeBacktestCommandHandler, Mock]:
+) -> tuple[RunHistoricalTickBacktestCommandHandler, Mock]:
     repo = Mock()
     repo.get_klines.return_value = ticks
     registry = StrategyRegistry()
     registry.register(strategy_key, strategy_cls or _CountingHoldStrategy)
     event_publisher = Mock()
-    handler = RunRealtimeBacktestCommandHandler(
+    handler = RunHistoricalTickBacktestCommandHandler(
         repository=repo, strategy_registry=registry, event_publisher=event_publisher
     )
     return handler, event_publisher
@@ -119,7 +119,7 @@ def _build_handler(
 
 def _build_command(
     strategy_key: str = "counting", **overrides
-) -> RunRealtimeBacktestCommand:
+) -> RunHistoricalTickBacktestCommand:
     defaults = {
         "symbol": "BTCUSDT",
         "interval": TimeFrame.ONE_MINUTE,
@@ -127,7 +127,7 @@ def _build_command(
         "strategy_key": strategy_key,
     }
     defaults.update(overrides)
-    return RunRealtimeBacktestCommand(**defaults)
+    return RunHistoricalTickBacktestCommand(**defaults)
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +162,7 @@ def test_bars_commit_exactly_once_each_not_once_per_tick(caplog):
     handler, _ = _build_handler(ticks)
     command = _build_command()
 
-    with caplog.at_level(logging.DEBUG, logger="App.RunRealtimeBacktest"):
+    with caplog.at_level(logging.DEBUG, logger="App.RunHistoricalTickBacktest"):
         result = handler.execute(command)
 
     assert isinstance(result, BacktestResult)
@@ -185,7 +185,7 @@ def test_a_tick_gap_between_bars_is_logged_and_force_commits_the_stale_bar(caplo
     handler, _ = _build_handler(ticks)
     command = _build_command()
 
-    with caplog.at_level(logging.WARNING, logger="App.RunRealtimeBacktest"):
+    with caplog.at_level(logging.WARNING, logger="App.RunHistoricalTickBacktest"):
         result = handler.execute(command)
 
     assert isinstance(result, BacktestResult)
@@ -300,7 +300,7 @@ def test_emits_backtest_completed_event_with_the_returned_result():
 
 def test_tick_resolution_coarser_than_interval_is_rejected():
     with pytest.raises(ValueError, match="cannot be coarser"):
-        RunRealtimeBacktestCommand(
+        RunHistoricalTickBacktestCommand(
             symbol="BTCUSDT",
             interval=TimeFrame.ONE_SECOND,
             tick_resolution=TimeFrame.ONE_MINUTE,

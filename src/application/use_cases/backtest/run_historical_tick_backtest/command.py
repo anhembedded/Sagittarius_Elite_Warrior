@@ -16,7 +16,7 @@ CancellationCheck = Callable[[], bool]
 ProgressCallback = Callable[[str, int, int, float], None]
 
 
-class RunRealtimeBacktestCommand(BaseModel):
+class RunHistoricalTickBacktestCommand(BaseModel):
     """
     @brief Command representing the intent to run a realtime (tick-driven)
     backtest: the strategy is re-evaluated on every tick within a bar still
@@ -93,7 +93,7 @@ class RunRealtimeBacktestCommand(BaseModel):
     @model_validator(mode="after")
     def _tick_resolution_must_not_be_coarser_than_interval(
         self,
-    ) -> "RunRealtimeBacktestCommand":
+    ) -> "RunHistoricalTickBacktestCommand":
         if self.tick_resolution.to_seconds() > self.interval.to_seconds():
             raise ValueError(
                 f"tick_resolution ({self.tick_resolution.value}) cannot be coarser "

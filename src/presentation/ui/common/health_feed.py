@@ -45,7 +45,7 @@ class HealthFeed(BaseFeed):
     healthUpdated = Signal(object)
 
     def _subscribe(self) -> None:
-        self._events.on(HealthUpdatedEvent.event_name, self._on_health_updated)
+        self._events.on(HealthUpdatedEvent, self._on_health_updated)
 
     def request_refresh(self) -> None:
         """

@@ -55,7 +55,7 @@ class SystemErrorFeed(BaseFeed):
         the bus in `QtEventBridge`, so `runtime.tasks.failed` — published from a
         worker thread — is delivered on the main thread."""
         self._events.on(UiActionFailedEvent, self._on_ui_action_failed)
-        self._events.on(TaskFailed.event_name, self._on_task_failed)
+        self._events.on(TaskFailed, self._on_task_failed)
 
     def _on_ui_action_failed(self, event: Any) -> None:
         self.errorReported.emit(

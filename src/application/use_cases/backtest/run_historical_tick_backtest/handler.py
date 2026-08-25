@@ -39,9 +39,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
 
-from .command import RunRealtimeBacktestCommand
+from .command import RunHistoricalTickBacktestCommand
 
-logger = logging.getLogger("App.RunRealtimeBacktest")
+logger = logging.getLogger("App.RunHistoricalTickBacktest")
 _TRACE_PREFIX = "REALTIME_BACKTEST_TRACE"
 _PHASE = "realtime"
 
@@ -144,9 +144,9 @@ def _bar_bounds(
     return bar_start, bar_start + timedelta(seconds=interval_seconds)
 
 
-class RunRealtimeBacktestCommandHandler(
+class RunHistoricalTickBacktestCommandHandler(
     ICommandHandler[
-        RunRealtimeBacktestCommand, BacktestResult | BacktestCancelled | None
+        RunHistoricalTickBacktestCommand, BacktestResult | BacktestCancelled | None
     ]
 ):
     """
@@ -173,7 +173,7 @@ class RunRealtimeBacktestCommandHandler(
         logger.info(f"{_TRACE_PREFIX} action={action} {suffix}".rstrip())
 
     def execute(
-        self, command: RunRealtimeBacktestCommand
+        self, command: RunHistoricalTickBacktestCommand
     ) -> BacktestResult | BacktestCancelled | None:
         self._log_trace(
             "handler_execute_start",
@@ -219,7 +219,7 @@ class RunRealtimeBacktestCommandHandler(
         return result
 
     def _simulate(
-        self, ticks: list[MarketData], command: RunRealtimeBacktestCommand
+        self, ticks: list[MarketData], command: RunHistoricalTickBacktestCommand
     ) -> BacktestResult | BacktestCancelled:
         engine = build_engine(
             self._strategy_registry,
@@ -344,7 +344,7 @@ class RunRealtimeBacktestCommandHandler(
         equity_curve: list[tuple[datetime, float]],
         committed_bars: list[MarketData],
         forming: _FormingBar,
-        command: RunRealtimeBacktestCommand,
+        command: RunHistoricalTickBacktestCommand,
     ) -> None:
         """Closes exactly one bar: commits the indicator/Series state
         (BOT-042B/C, via `on_tick`) and appends exactly one equity-curve

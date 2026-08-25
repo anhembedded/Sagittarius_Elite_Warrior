@@ -35,8 +35,8 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest.command import (
-    RunRealtimeBacktestCommand,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.command import (
+    RunHistoricalTickBacktestCommand,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
@@ -358,7 +358,7 @@ def _dispatch_stub(
     chart klines) — a single `mock.return_value` can't tell them apart, so
     tests that reach the chart-fetch step need this instead.
 
-    `realtime=True` answers `RunRealtimeBacktestCommand` instead of
+    `realtime=True` answers `RunHistoricalTickBacktestCommand` instead of
     `RunStaticBacktestCommand` (BOT-076 §3.3) — a test must pick the one that
     matches the config's `execution_mode`, since `_run_backtest` dispatches
     exactly one of the two, never both."""
@@ -366,7 +366,7 @@ def _dispatch_stub(
     def side_effect(handler_class, command):
         if not realtime and handler_class is RunStaticBacktestCommand:
             return result
-        if realtime and handler_class is RunRealtimeBacktestCommand:
+        if realtime and handler_class is RunHistoricalTickBacktestCommand:
             return result
         if handler_class is GetHistoricalKlinesQuery:
             return klines or []
@@ -796,7 +796,7 @@ def test_build_run_config_carries_the_presenters_actual_symbol_not_the_dataclass
 # ---------------------------------------------------------------------------
 
 
-def test_historical_tick_mode_dispatches_run_realtime_backtest_command(
+def test_historical_tick_mode_dispatches_run_historical_tick_backtest_command(
     presenter, view_model, mock_dispatcher
 ):
     """The one thing BOT-074 explicitly left undone: unlocking the QML row
@@ -817,13 +817,13 @@ def test_historical_tick_mode_dispatches_run_realtime_backtest_command(
     dispatched_handlers = [
         call[0][0] for call in mock_dispatcher.dispatch.call_args_list
     ]
-    assert RunRealtimeBacktestCommand in dispatched_handlers
+    assert RunHistoricalTickBacktestCommand in dispatched_handlers
     assert RunStaticBacktestCommand not in dispatched_handlers
 
     realtime_call = next(
         call
         for call in mock_dispatcher.dispatch.call_args_list
-        if call[0][0] is RunRealtimeBacktestCommand
+        if call[0][0] is RunHistoricalTickBacktestCommand
     )
     _handler_class, realtime_command = realtime_call[0]
     assert realtime_command.tick_resolution == config.tick_resolution
@@ -846,7 +846,7 @@ def test_bar_close_mode_still_dispatches_run_static_backtest_command(
         call[0][0] for call in mock_dispatcher.dispatch.call_args_list
     ]
     assert RunStaticBacktestCommand in dispatched_handlers
-    assert RunRealtimeBacktestCommand not in dispatched_handlers
+    assert RunHistoricalTickBacktestCommand not in dispatched_handlers
 
 
 def test_result_message_labels_realtime_vs_static_truthfully(

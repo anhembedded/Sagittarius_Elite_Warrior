@@ -17,11 +17,11 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest.command import (
-    RunRealtimeBacktestCommand,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.command import (
+    RunHistoricalTickBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest.handler import (
-    RunRealtimeBacktestCommandHandler,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.handler import (
+    RunHistoricalTickBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
     RunStaticBacktestCommand,
@@ -53,7 +53,7 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 #: goes through exactly these registrations today.
 _BACKTEST_COMMANDS = {
     RunStaticBacktestCommand: RunStaticBacktestCommandHandler,
-    RunRealtimeBacktestCommand: RunRealtimeBacktestCommandHandler,
+    RunHistoricalTickBacktestCommand: RunHistoricalTickBacktestCommandHandler,
     GetBacktestRangeCoverageQuery: GetBacktestRangeCoverageQueryHandler,
     GetHistoricalKlinesQuery: GetHistoricalKlinesQueryHandler,
     SyncMarketDataCommand: SyncMarketDataCommandHandler,

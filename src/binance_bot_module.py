@@ -34,9 +34,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest i
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.handler import (
     BacktestState,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
-    RunRealtimeBacktestCommand,
-    RunRealtimeBacktestCommandHandler,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
+    RunHistoricalTickBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     RunStaticBacktestCommand,
@@ -244,7 +244,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
         app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
         app.container.bind(
-            RunRealtimeBacktestCommand, RunRealtimeBacktestCommandHandler
+            RunHistoricalTickBacktestCommand, RunHistoricalTickBacktestCommandHandler
         )
         app.container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
         app.container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)

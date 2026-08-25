@@ -9,9 +9,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
-    RunRealtimeBacktestCommand,
-    RunRealtimeBacktestCommandHandler,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
+    RunHistoricalTickBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     RunStaticBacktestCommand,
@@ -208,7 +208,7 @@ def test_realtime_backtest_with_broker_simulation_integration(caplog):
     registry.register("pyramiding_test", _PyramidingStrategy)
 
     event_publisher = Mock()
-    handler = RunRealtimeBacktestCommandHandler(
+    handler = RunHistoricalTickBacktestCommandHandler(
         repository=repo,
         strategy_registry=registry,
         event_publisher=event_publisher,
@@ -222,7 +222,7 @@ def test_realtime_backtest_with_broker_simulation_integration(caplog):
         commission_value=0.0,
     )
 
-    cmd = RunRealtimeBacktestCommand(
+    cmd = RunHistoricalTickBacktestCommand(
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
         tick_resolution=TimeFrame.ONE_SECOND,
