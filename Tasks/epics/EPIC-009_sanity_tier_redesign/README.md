@@ -1,7 +1,8 @@
 # EPIC-009 — Sanity Tier Redesign
 
-**Status:** 🟡 In progress — 5/6 sub-tasks done, ADR now *Approved*
-(see the honest note below about `EPIC-009A/B/C` predating that approval)
+**Status:** 🟢 **Sanity tier redesign closed** — 4/6 sub-tasks done, 1 deferred
+(`EPIC-009D`, no confirmed need), 1 folded into ratification (`EPIC-009F`).
+ADR *Approved*.
 **Type:** Testing architecture / quality gates
 **Priority:** P1 — actively closing real gaps: `BUG-045` and `BUG-048` found
 and closed, `BUG-049` found and open (non-blocking)
@@ -37,7 +38,7 @@ work already shipped.
 | [`EPIC-009A`](completed/EPIC-009A_composition_root_scan_and_diagnostic_guard.md) | Retire legacy tier, rebuild as composition-root scans + `diagnostic_guard` | ✅ Done |
 | [`EPIC-009B`](completed/EPIC-009B_out_of_process_layer_and_self_check.md) | `build()`/`teardown()` split, `--self-check`, OUT-of-process tests | ✅ Done |
 | [`EPIC-009C`](completed/EPIC-009C_fake_binance_rest_server.md) | D6 REST — fake Binance server, closes `BUG-045` | ✅ Done |
-| [`EPIC-009D`](incomplete/EPIC-009D_fake_binance_websocket_server.md) | D6 continued — fake Binance WebSocket server | 🔴 Not started |
+| [`EPIC-009D`](cancelled/EPIC-009D_fake_binance_websocket_server.md) | D6 continued — fake Binance WebSocket server | ⚪ Deferred — no confirmed need |
 | [`EPIC-009E`](completed/EPIC-009E_fix_uncaught_exception_hang_bug048.md) | Fix `BUG-048` — uncaught exception hangs the process | ✅ Done |
 | [`EPIC-009F`](completed/EPIC-009F_ratify_failure_mode_catalogue.md) | Ratify the 12-mode catalogue (ADR Q1) | ✅ Done |
 

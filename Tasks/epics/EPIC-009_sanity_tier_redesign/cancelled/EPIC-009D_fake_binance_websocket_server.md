@@ -1,6 +1,6 @@
 # EPIC-009D — D6 continued: fake Binance WebSocket server
 
-**Status:** 🔴 Not started
+**Status:** ⚪ **Deferred 2026-08-25** — not cancelled outright, no confirmed need yet
 **Depends on:** `EPIC-009C` (extends the same fake-server module)
 
 ## What
@@ -35,3 +35,26 @@ already-delivered) value.
   pyramid, not just Sanity.)
 - Confirm before starting whether this belongs to this epic at all, or
   should be its own epic once Sanity's own scope is fully closed.
+
+
+## Why deferred, not built
+
+Checked before starting, per this task's own "open questions" above: **no
+use case blocked by `BUG-045` needed the websocket path** — all three were
+REST-only, and REST alone (`EPIC-009C`) closed that bug completely. The
+websocket path (`BinanceWebsocketService`, the live-stream adapter) has no
+open bug against it and stays covered by its existing mock
+(`AsyncClient`/`BinanceSocketManager` patched in `conftest.py`).
+
+Building this now would be designing for a need not yet demonstrated — a
+real websocket protocol is materially more work than the REST server
+(protocol framing, exact message shapes, multiplexed-symbol scenarios,
+streaming rather than request/response), and nothing today asks for that
+cost to be paid.
+
+## Reopen when
+
+Integration or Desktop E2E needs to exercise the live-stream path against
+something more real than a mock — at that point, decide there whether this
+belongs to a revived `EPIC-009D` or to its own epic, since by then Sanity's
+own scope will already be closed.
