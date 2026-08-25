@@ -35,40 +35,42 @@ tượng, xoá kèm ghi lý do. Cái thứ tư (`BUG-035` guard) đáng cân nh�
 thật (engine đổi tên module QML), nhưng nếu Elite hết `.qml` thì nó không còn gì để canh — khi đó
 xoá là đúng, **không phải** giữ cho có.
 
-## 2. Phần Engine — câu hỏi mở, cần user quyết
+## 2. Phần Engine — **không làm được trong epic này** (đã kết luận, không còn là câu hỏi mở)
 
 Kit QML của Engine ở `extensions/pyside_mvc/Sagittarius/UI/`: **14 component** (`ActionCard`,
 `AppDataTable`, `AppModal`, `BaseCard`, `DateTimePicker`, `FieldBackground`, `FormCard`,
 `Gallery`, `LogPanel`, `StatefulButton`, `StreamCard`, `StyledCheck`, `TableCard`,
 `TimeRangeCard`) + `qmldir`, cộng `QmlHostView`, `OverlayHost`, `qml_style`, `configure_app_qml`.
 
-**Vướng mắc thật:** sample app `examples/student_management` **vẫn dùng QML**, và nó có **hai
-backend chọn bằng config**:
+**Câu hỏi này đã có lời giải — bằng chính README của epic, không phải theo ý ai.**
 
-```python
-# roster_view_factory.py
-use_qtwidget = bool(config.get("ui.qtwidget", False))
+Đo thật: cả hai file `.qml` của sample app đều mở đầu bằng
+
+```qml
+import Sagittarius.UI 1.0
 ```
 
-Tức QML là **đường mặc định** ở đó (`ui.qtwidget` mặc định `False`), còn qfluentwidgets là đường
-opt-in. Xoá kit là sample app mất backend mặc định.
+tức sample app **cần** kit. Mà §5 của [`README`](../README.md) đã chốt sẵn:
 
-`EPIC-006`'s README ghi `examples/student_management` **ngoài phạm vi** epic, nhưng dòng `006F`
-lại yêu cầu "xử lý `RosterScreen.qml`". Hai câu đó không thể cùng đúng.
+> *"`examples/student_management` (Engine sample app) **không bị xoá QML** — nó là ví dụ minh
+> hoạ cách dùng framework QML […]. Quyết định số phận của nó thuộc về Engine repo, không phải
+> epic này. `EPIC-006F` chỉ cần đảm bảo **không xoá nhầm thứ nó cần**."*
 
-**Ba lựa chọn, cần user chốt trước khi động vào Engine:**
+Hai điều đó cộng lại: **kit QML không tháo được trong phạm vi epic này.** Tháo kit chính là
+"xoá nhầm thứ sample app cần" — đúng thứ §5 cấm.
 
-1. **Đảo mặc định của sample app sang qfluentwidgets**, rồi xoá kit QML + cả 2 file `.qml` của
-   sample. Sạch nhất; nhưng sample app mất khả năng minh hoạ backend QML, mà đó có thể chính là
-   giá trị của nó với người dùng engine khác.
-2. **Giữ kit QML ở Engine**, chỉ làm phần Elite (mục 1). Engine vẫn là framework hỗ trợ cả hai
-   backend — hợp lý cho một thư viện có người dùng ngoài Elite. `006F` khi đó thu hẹp lại, và
-   nên đổi tên cho đúng việc.
-3. **Tách kit QML thành extension tuỳ chọn** — ai cần thì cài. Đúng nhất về kiến trúc, đắt nhất
-   về công.
+Sample app còn có hai backend chọn bằng config (`roster_view_factory.py`:
+`use_qtwidget = bool(config.get("ui.qtwidget", False))`) và **QML là mặc định**, nên kể cả về
+mặt hành vi thì tháo kit cũng làm hỏng đường mặc định.
 
-Nghiêng về **2**: Engine là thư viện, Elite chỉ là một consumer. Việc Elite bỏ QML **không** đủ
-lý do để tước một backend của framework, nhất là khi sample app đang dùng nó làm mặc định.
+### Hệ quả: `006F` thu hẹp lại, và nên đổi tên
+
+Việc thật còn lại **chỉ là phần Elite** ở mục 1. Tên "tháo dỡ kit QML" không còn mô tả đúng việc
+— đề nghị đổi thành *"xoá QML chết ở Elite"*.
+
+Muốn thật sự tháo kit của Engine thì đó là **một task riêng ở repo Engine**, và phải quyết trước:
+đảo mặc định của sample app sang qfluentwidgets, hay tách kit thành extension tuỳ chọn. Không
+thuộc `EPIC-006`.
 
 ## Bằng chứng phải nộp
 

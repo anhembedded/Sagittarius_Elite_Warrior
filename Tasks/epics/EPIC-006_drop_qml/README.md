@@ -10,9 +10,10 @@
 >
 > 1. ~~`EPIC-006F` chưa có file task~~ — **đã tạo 2026-08-25**:
 >    [`incomplete/EPIC-006F_thao_do_kit_qml.md`](incomplete/EPIC-006F_thao_do_kit_qml.md).
->    Nó ghi lại phạm vi đo thật, và **một câu hỏi mở phải để user chốt**: kit QML của Engine
->    vẫn là backend **mặc định** của `examples/student_management`, nên xoá kit là tước một
->    backend của framework vì lý do chỉ đúng với Elite.
+>    Nó cũng khép lại một mâu thuẫn có sẵn trong chính README này: dòng `006F` ở bảng §3 bảo
+>    "tháo dỡ kit QML", còn §5 bảo không được xoá thứ sample app cần. Đo thật cho thấy sample
+>    app `import Sagittarius.UI 1.0` ⇒ **§5 thắng, kit không tháo được trong epic này**. `006F`
+>    thu hẹp còn phần Elite; muốn tháo kit thật thì đó là task riêng ở repo Engine.
 > 2. **22 file `.qml` chết vẫn còn trong `src/`** (`components/*.qml`, `screens/backtest/*.qml`
 >    …). Đã kiểm chứng: **không `.py` nào còn nạp chúng** — mọi hit `load_qml`/`QQuickWidget`
 >    trong `src/` giờ đều là docstring/comment. Chúng chỉ tham chiếu lẫn nhau nên phép dò
@@ -83,7 +84,7 @@ thể đúng ngay cả khi ta không bỏ QML, và ngược lại). Tóm tắt:
 | **[EPIC-006C](completed/EPIC-006C_sidebar.md)** | Elite: `Sidebar.qml` (238 dòng, always-on, pilot rủi ro thấp nhưng lỗi lộ ngay) | ✅ Xong |
 | **[EPIC-006D](completed/EPIC-006D_dev_board_panel.md)** | Elite: `DevBoardPanel.qml` (385 dòng, Dashboard, độc lập) | ✅ Xong |
 | **[EPIC-006E](completed/EPIC-006E_backtest.md)** | Elite: Backtest — top panel / trade logs / 11 modal (không tách 3 lần commit như dự kiến — 1 file test dùng chung cả 3 phần) | ✅ Xong |
-| **[EPIC-006F](incomplete/EPIC-006F_thao_do_kit_qml.md)** | Engine: tháo dỡ kit QML (`Sagittarius/UI/`, `QmlHostView`, `configure_app_qml`, `theme_bridge`, guard cũ) sau khi Elite hết consumer; xử lý `examples/student_management/RosterScreen.qml` (consumer duy nhất còn lại ngoài Elite). **Kèm: xoá 22 file `.qml` chết còn sót ở `src/` của Elite** (xem cảnh báo đầu file) | 🔴 Chưa làm — file task đã tạo 2026-08-25; **có 1 câu hỏi mở cần user chốt** (sample app của Engine vẫn dùng QML làm backend mặc định) |
+| **[EPIC-006F](incomplete/EPIC-006F_thao_do_kit_qml.md)** | Engine: tháo dỡ kit QML (`Sagittarius/UI/`, `QmlHostView`, `configure_app_qml`, `theme_bridge`, guard cũ) sau khi Elite hết consumer; xử lý `examples/student_management/RosterScreen.qml` (consumer duy nhất còn lại ngoài Elite). **Kèm: xoá 22 file `.qml` chết còn sót ở `src/` của Elite** (xem cảnh báo đầu file) | 🔴 Chưa làm — file task tạo 2026-08-25. **Phạm vi thu hẹp:** sample app import `Sagittarius.UI 1.0` nên §5 dưới đây cấm tháo kit; việc thật còn lại chỉ là xoá 22 `.qml` chết + 4 file test gate của Elite |
 
 `EPIC-006B` phải xong trước `C`/`D`/`E` vì các sub-task đó cần base class thật để kế thừa, không
 tự chế QSS inline như `EPIC-005` từng làm tạm (bài học rút ra: 8 widget viết ở `EPIC-005` đều tự
