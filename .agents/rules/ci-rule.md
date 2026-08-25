@@ -86,22 +86,23 @@ only when *none* of the diff is code.
 They MUST NOT be used to bypass a failing required gate, justify a commit, or
 mark a task complete.
 
-## 3. Qt integration exception (BOT-038)
+## 3. Qt integration directory — re-verified 2026-08-25, runs by default again
 
-`tests/integration/presentation/ui/` is excluded from ordinary Full CI because
-it has a known intermittent native Qt/PySide crash (`BOT-038`) when the whole
-directory runs as one pytest invocation. When a change touches that directory,
-QML object lifetime, or shared Qt fixtures, run the affected test(s) directly
-as a focused diagnosis and then attempt the opt-in suite:
+`tests/integration/presentation/ui/` used to be excluded from ordinary Full CI
+for a known intermittent native Qt/PySide crash (`BOT-038`). Re-verified
+2026-08-25 (triggered by `EPIC-009`): 7 runs — 4 single-process sequential, 3
+under `-n 6` with `tests/sanity` running concurrently, matching this script's
+real `-Full` load — produced zero crash markers. Leading hypothesis: `EPIC-006`
+(2026-08-24) deleted `QQuickWidget`/QML from the application entirely, and
+BOT-038's own top suspect was an object-lifetime bug tied to exactly that
+class. Not proven by elimination alone; see BOT-038's closing note in
+`Tasks/completed/`.
 
-```powershell
-.\scripts\ci-local.ps1 -Full -IncludeFlakyUi
-```
-
-If the suite crashes or hangs, do not hide it with `-SkipTests`. Record
-the command, environment, affected test(s), and failure output against
-`BOT-038`. A targeted non-flaky regression test is still required for the code
-change.
+`-IncludeFlakyUi` is now a no-op kept only for command-line compatibility — the
+directory runs in every mode. If a native crash resurfaces here, it is a *new*
+finding: file a fresh bug rather than reopening `BOT-038`, since the mechanism
+that bug named may no longer be present to cause it, and treating a new crash
+as a known-flaky recurrence is how a real regression hides again.
 
 Desktop E2E is a separate opt-in tier: it requires a real windowing session
 (never `QT_QPA_PLATFORM=offscreen`), real Qt mouse/keyboard interaction,
@@ -149,9 +150,11 @@ integration tier next, and run `-Full` last.
    `.\scripts\ci-local.ps1 -Full`. CI itself MUST remain read-only and MUST
    use neither `--fix` nor formatter writes.
 4. Do not commit while Full CI is red. If the failure is an established external
-   blocker (for example the native crash documented in `BOT-038`), report the
-   evidence and keep the required deterministic coverage rather than declaring
-   an unverified success.
+   blocker, report the evidence and keep the required deterministic coverage
+   rather than declaring an unverified success. `BOT-038`'s exclusion was this
+   kind of blocker for over a year — re-verify a standing "known flaky/crashy"
+   exclusion periodically rather than trusting it indefinitely; it may have
+   silently stopped being true.
 
 ## 6. Four-level test contract
 
@@ -168,8 +171,15 @@ coverage.
 2. **Integration:** deterministic application or visible UI journeys across
    real collaborators, with local seeded/fake boundaries. It proves the user
    flow, not just a private call or a mock expectation.
-3. **Sanity:** real app boot, DI wiring and QML construction only; no user
-   action, background dispatch or network. It proves composition health.
+3. **Sanity:** real app boot, DI wiring and View/Presenter construction only;
+   no user action, no background dispatch. It proves composition health —
+   the app assembles, resolves and shuts down in silence — via a real
+   composition-root boot plus a real subprocess launch, not QML checks
+   (retired with `EPIC-006`, zero QML left in this app). "No network" means
+   no code-path substitution for a port (that produced `BUG-026`/`BUG-027`);
+   the network boundary is drawn at configuration instead — see
+   `testing-rule.md`'s Sanity bullet and
+   `Tasks/epics/EPIC-009_sanity_tier_redesign/` for the full model.
 4. **Desktop E2E:** a critical visible journey through the **real running
    app** — started from its real entry point (e.g. `main.py` / `create_app()`
    booted for real) into the real production window/screen a user would

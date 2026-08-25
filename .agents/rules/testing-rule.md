@@ -27,10 +27,32 @@ regression test phải viết **trước** khi sửa và phải xác nhận fail
   Desktop E2E. A change may add no new test only when an existing test at the
   relevant level already proves the exact new behavior; name that evidence in
   the task/report.
-- **Sanity:** Every new feature/screen ships construction-only sanity coverage
-  in `tests/sanity/`: boot the real app (`create_app()`, real composition root),
-  construct real View + Presenter, assert real DI resolves and
-  `quick_widget.errors() == []`. No click, background dispatch or network.
+- **Sanity:** Proves the real composition root exists and assembles in
+  silence — model, decisions and the full failure-mode catalogue live in
+  [`Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md`](../../Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md).
+  Rules that follow directly from it:
+  - **Adding a feature/screen adds zero new tests to `tests/sanity/`.** Every
+    assertion scans a real source of truth (every registered use case, every
+    navigable route, every screen package on disk) — never a hand-written
+    per-feature test. If a new screen needs a new sanity test, the existing
+    ones were written wrong.
+  - One real app boot for the whole session (`tests/sanity/conftest.py`'s
+    `booted_app`), not one per test.
+  - `diagnostic_guard` (autouse) fails on any Qt message, Python log record
+    at WARNING+, or `warnings.warn(...)` during boot/construct/shutdown —
+    silence is the assertion, not just a green exit code. `quick_widget.
+    errors() == []` is retired: the app has had zero QML since `EPIC-006`.
+  - The only permitted substitution is the network boundary, drawn at
+    configuration, never at a code path: point the real client at a local
+    fake server (`tests/sanity/binance_fake_server.py`), never hand-write a
+    substitute for a port like `IExchangeClient` — that shape is what
+    produced `BUG-026`/`BUG-027`.
+  - No assertion may name a business fact (a strategy, a screen's content) —
+    that belongs to Integration.
+  - The OUT-of-process layer (`--self-check`,
+    `tests/sanity/test_self_check_process.py`) launches the real entry point
+    as a real subprocess — the only tier that can prove the process actually
+    exits, not just that `teardown()` returned inside pytest's own process.
 - **Integration:** Put deterministic user/application journeys in
   `tests/integration/`: drive named QML/Qt input, wait on terminal
   signal/state, and assert the observable result using local seeded/fake

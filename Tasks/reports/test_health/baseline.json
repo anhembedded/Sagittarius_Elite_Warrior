@@ -5,12 +5,12 @@
       "files": 14
     },
     "integration/presentation/ui": {
-      "tests": 36,
-      "files": 8
+      "tests": 37,
+      "files": 9
     },
     "sanity": {
-      "tests": 13,
-      "files": 5
+      "tests": 16,
+      "files": 6
     },
     "unit": {
       "tests": 1365,
@@ -26,111 +26,13 @@
     },
     {
       "file": "scripts/ci-local.ps1",
-      "line": "361",
+      "line": "371",
       "target": "Sagittarius_Elite_Warrior/tests/integration/presentation/ui",
       "run_elsewhere": false
     }
   ],
-  "orphaned_assets": [
-    {
-      "file": "src/presentation/ui/components/OrderExecutionModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/ModalDialogCard.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/TimeRangePickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/IndicatorPickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/CapitalDialog.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/StrategyPickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/TimezonePickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/StrategyPropertiesModal.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/SymbolPickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/AppProgressBar.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/BotParamField.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/MetricCard.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/DynamicTabBar.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/BotParamsDialog.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/components/TimeframePickerModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/components/sidebar/Sidebar.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/BackTestModals.qml",
-      "guarded_by_tests": true
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/BackTestTradeLogs.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/LimitationsModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/ExtendedMetricsModal.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/backtest/BackTestTopPanel.qml",
-      "guarded_by_tests": false
-    },
-    {
-      "file": "src/presentation/ui/screens/dashboard/DevBoardPanel.qml",
-      "guarded_by_tests": true
-    }
-  ],
+  "orphaned_assets": [],
   "contract": [
-    {
-      "id": "sanity-asserts-qml-errors-empty",
-      "source": ".agents/rules/testing-rule.md (Sanity)",
-      "requirement": "Sanity must assert quick_widget.errors() == []",
-      "evidence_dir": "tests/sanity",
-      "evidence_pattern": "\\.errors\\(\\)",
-      "hits": [],
-      "hit_count": 0
-    },
     {
       "id": "sanity-constructs-real-view-and-presenter",
       "source": ".agents/rules/testing-rule.md (Sanity)",
@@ -138,7 +40,7 @@
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "Presenter\\(|switch_screen\\(",
       "hits": [
-        "tests/sanity/test_composition_root.py:224"
+        "tests/sanity/test_composition_root.py:209"
       ],
       "hit_count": 1
     },
@@ -149,38 +51,65 @@
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "create_app\\(",
       "hits": [
-        "tests/sanity/conftest.py:87",
+        "tests/sanity/conftest.py:113",
         "tests/sanity/test_event_bus_has_a_real_logger_sanity.py:31"
       ],
       "hit_count": 2
     },
     {
       "id": "diagnostics-are-observed-during-boot",
-      "source": "Tasks/reports/sanity_redesign_philosophy.md — Principle 4 (silence is the assertion)",
-      "requirement": "Sanity must fail on any problem-level diagnostic emitted during boot/construct/shutdown, on every channel the app owns (Python logging, Qt message handler, warnings, stderr)",
+      "source": ".agents/rules/testing-rule.md (Sanity) / ci-rule.md §6 (level 3)",
+      "requirement": "Sanity must fail on any problem-level diagnostic emitted during boot/construct/shutdown, on every channel the app owns (Python logging, Qt message handler, warnings) — the retired quick_widget.errors() clause's successor",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "qInstallMessageHandler",
       "hits": [
-        "tests/sanity/conftest.py:128",
-        "tests/sanity/conftest.py:149",
-        "tests/sanity/conftest.py:159"
+        "tests/sanity/conftest.py:165",
+        "tests/sanity/conftest.py:186",
+        "tests/sanity/conftest.py:196"
       ],
       "hit_count": 3
     },
     {
       "id": "shutdown-is-proven-not-merely-attempted",
-      "source": "Tasks/reports/sanity_redesign_philosophy.md — Principle 5 (the whole lifecycle)",
+      "source": ".agents/rules/testing-rule.md (Sanity)",
       "requirement": "Sanity must assert the app shuts down within a budget, not just call stop() in teardown",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "shutdown\\(\\)|threading\\.enumerate",
       "hits": [
-        "tests/sanity/test_composition_root.py:232",
-        "tests/sanity/test_composition_root.py:277",
-        "tests/sanity/test_composition_root.py:284",
-        "tests/sanity/test_composition_root.py:290",
-        "tests/sanity/test_composition_root.py:298"
+        "tests/sanity/binance_fake_server.py:100",
+        "tests/sanity/test_composition_root.py:217",
+        "tests/sanity/test_composition_root.py:262",
+        "tests/sanity/test_composition_root.py:269",
+        "tests/sanity/test_composition_root.py:275"
       ],
-      "hit_count": 6
+      "hit_count": 7
+    },
+    {
+      "id": "sanity-adds-zero-tests-per-feature",
+      "source": ".agents/rules/testing-rule.md (Sanity)",
+      "requirement": "Every assertion scans a real source of truth (registered use cases, navigable routes, screen packages on disk) rather than naming features by hand — the mechanism that makes 'adding a feature adds zero new sanity tests' true",
+      "evidence_dir": "tests/sanity",
+      "evidence_pattern": "__subclasses__|iterdir\\(|rglob\\(",
+      "hits": [
+        "tests/sanity/test_composition_root.py:63",
+        "tests/sanity/test_composition_root.py:184",
+        "tests/sanity/test_python_floor.py:72",
+        "tests/sanity/test_view_model_thread_affinity_sanity.py:68",
+        "tests/sanity/test_view_model_thread_affinity_sanity.py:77"
+      ],
+      "hit_count": 5
+    },
+    {
+      "id": "out-of-process-layer-launches-a-real-process",
+      "source": ".agents/rules/testing-rule.md (Sanity)",
+      "requirement": "The OUT-of-process layer must launch the real entry point as a real subprocess, not import it — the only tier that can prove the process actually exits",
+      "evidence_dir": "tests/sanity",
+      "evidence_pattern": "subprocess\\.run\\(",
+      "hits": [
+        "tests/sanity/test_self_check_process.py:14",
+        "tests/sanity/test_self_check_process.py:73"
+      ],
+      "hit_count": 2
     },
     {
       "id": "integration-proves-user-journeys",
@@ -309,6 +238,12 @@
     },
     {
       "check": "C6",
+      "file": "tests/integration/presentation/ui/test_capture_screenshots.py",
+      "line": 39,
+      "detail": "`_ROUTES` drives parametrize but this file never scans the real source of truth — the list catches deletions, never an addition someone forgot to register"
+    },
+    {
+      "check": "C6",
       "file": "tests/unit/domain/indicator_scripts/test_shipped_scripts_param_schema.py",
       "line": 32,
       "detail": "`SHIPPED_SCRIPTS` drives parametrize but this file never scans the real source of truth — the list catches deletions, never an addition someone forgot to register"
@@ -340,8 +275,8 @@
     {
       "check": "C7",
       "file": "tests/sanity/conftest.py",
-      "line": 65,
-      "detail": "fixture `booted_app` is defined 2x in `sanity` (tests/sanity/conftest.py:65, tests/sanity/test_event_bus_has_a_real_logger_sanity.py:24) — copies drift; there is no single definition to keep correct"
+      "line": 76,
+      "detail": "fixture `booted_app` is defined 2x in `sanity` (tests/sanity/conftest.py:76, tests/sanity/test_event_bus_has_a_real_logger_sanity.py:24) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
@@ -441,7 +376,7 @@
     }
   ],
   "bug_board": {
-    "open": 3,
-    "closed": 42
+    "open": 5,
+    "closed": 44
   }
 }
