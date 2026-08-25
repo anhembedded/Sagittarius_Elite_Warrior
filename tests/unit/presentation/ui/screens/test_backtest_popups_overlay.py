@@ -163,6 +163,27 @@ def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_scr
     assert dialog._capital_input.text() != ""
 
 
+def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_screen):
+    """Regression: `CapitalDialogWidget.__init__` used to overwrite the real
+    Apply button `_build_buttons()` had already created (called by `Overlay.
+    __init__` before this class's own `__init__` body runs any further) with
+    a bare `self._btn_apply = None` at the end of `__init__` — so `_sync_
+    validation()`'s guard was always False and the button could never be
+    disabled, letting a user submit an invalid capital value."""
+    view, _ = backtest_screen
+
+    view.top_widget._btn_capital.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._capital
+    assert dialog._btn_apply.isEnabled() is True
+
+    dialog._capital_input.setText("")
+    qapp.processEvents()
+
+    assert dialog._btn_apply.isEnabled() is False
+
+
 def test_indicator_picker_menu_opens(qapp, backtest_screen):
     view, _ = backtest_screen
 

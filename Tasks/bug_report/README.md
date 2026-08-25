@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa / đã đóng** | 46 |
-| 📈 **Tổng** | **49** |
+| ✅ **Đã sửa / đã đóng** | 47 |
+| 📈 **Tổng** | **50** |
 
 ---
 
@@ -48,6 +48,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-050](completed/BUG-050_capital_dialog_apply_button_can_never_be_disabled.md)** | `CapitalDialogWidget`'s "Áp dụng" button không bao giờ bị disable, kể cả khi vốn nhập sai | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `__init__` ghi đè nút thật (do `_build_buttons()` tạo trong `super().__init__()`) bằng `self._btn_apply = None` ở cuối `__init__`. Regression test đỏ đúng lý do (`AttributeError: 'NoneType' object has no attribute 'isEnabled'`) trước fix, xanh sau. 0 test coverage trước đó cho cả widget. |
 | **[BUG-046](completed/BUG-046_dashboard_exception_fallback_fsm_state_assumption_stale.md)** | `test_dashboard_integration_exception_fallback` giả định FSM đã LIVE lúc assert, thực tế IDLE | 🟡 P2 | 2026-08-25 | Đóng 2026-08-25: `BOT-062` đã đổi mặc định autostart sang tắt, assertion cũ chưa cập nhật theo. Sửa test, không đụng production code. |
 | **[BUG-047](completed/BUG-047_dashboard_live_stream_candlestick_history_not_populated.md)** | `test_dashboard_integration_start_stream_chart_rendering`: candlestick history rỗng sau Load History + Start Stream | 🟡 P2 | 2026-08-25 | Đóng 2026-08-25: 2 mock cũ độc lập — `submit()` trả `None` thay vì `Future` (ExclusiveAction/BOT-069 cần), `GetHistoricalKlinesQuery` response sai shape (list thay vì dict theo symbol). Sửa test, không đụng production code. |
 | **[BUG-045](completed/BUG-045_sanity_tier_makes_live_binance_network_calls.md)** | Tầng Sanity gọi mạng thật lên `api.binance.com` mỗi lần chạy CI | 🟡 P2 | 2026-08-25 | Đóng 2026-08-25: `EPIC-009` D6 — fake Binance REST server (stdlib, 3 endpoint thật), `Client.API_URL` trỏ vào đó thay vì mock `IExchangeClient`. Cả 17 use case resolve sạch, 0 network call. |
