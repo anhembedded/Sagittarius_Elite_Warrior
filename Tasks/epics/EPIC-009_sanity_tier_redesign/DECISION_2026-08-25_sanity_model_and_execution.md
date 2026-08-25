@@ -530,6 +530,34 @@ acceptable is pretending it is not there.
 
 ---
 
+## 9b. Conflicts with concurrent work ⚠️ **as of 2026-08-25**
+
+Three streams are moving against the same files. Recorded so that whoever picks
+this up next does not discover it by hitting a conflict.
+
+| Stream | Where | Collision |
+| :--- | :--- | :--- |
+| **Engine session** `session_01WUsUMutFtqiMjemMTiTtWY` | `anhembedded/sagittarius_engine`, branch `claude/dazzling-clarke-knjtv4` — **not pushed to the remote** | Owns BUG-044. This entire ADR's verification was measured against engine `2.3.0`; if that branch lands, the dependency moves underneath every number here. It also standardises on **Python 3.14rc2**, on which the bot's pinned `pydantic` fails (`typing._eval_type() got an unexpected keyword argument 'prefer_fwd_module'`) — verified, not predicted. |
+| **`master-warrior` session** `session_01Ms4HCFAjX8CTyp96bvWKhW` | this repository, blocked awaiting task selection | Its candidate list includes **EPIC-006F** — deleting the 22 dead `.qml` files. That is the same work as this epic's clean-up of `test_qml_imports_match_engine_qmldir.py`, `test_qml_shared_foundation.py` and the `_configure_app_qml` fixture. Two branches editing the same test files will conflict; one of them should own it. |
+| **11 open pull requests** | this repository, dated 2026-08-12 → 08-21 | None touches `tests/sanity/`. Not a risk. |
+
+**Already collided once, benignly.** The base branch added
+`tests/sanity/test_event_bus_has_a_real_logger_sanity.py` while this work was in
+progress. It merged cleanly and passes, but it is a **per-feature sanity test** —
+exactly the pattern D-constraint C2 exists to stop, and evidence that the old
+contract is still being followed because nobody has replaced it yet. Fixing the
+rule (D2's prerequisite) is therefore more urgent than fixing the tier.
+
+**Second instance of this epic's own root cause, found during the merge.** The
+base split `code-rule.md` into six rules. The Sanity contract moved to
+`testing-rule.md` (lines 30-33) **carrying the dead `quick_widget.errors() == []`
+clause unchanged**, and `qml-rule.md:118` repeats it. A reorganisation touched
+the clause and still did not notice it had been meaningless since EPIC-006. This
+is precisely why D8's enforcement mechanism (`contract.json` plus the
+`test-health` audit) is part of the decision and not an afterthought.
+
+---
+
 ## 10. References
 
 - [`sanity_tier_audit_and_remediation.md`](../../reports/sanity_tier_audit_and_remediation.md)
