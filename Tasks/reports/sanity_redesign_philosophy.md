@@ -17,7 +17,7 @@
 
 **The tier was defined by its mechanism instead of by its question.**
 
-`code-rule.md` §4 defines Sanity as: *"boot the real app, construct real View +
+`testing-rule.md` defines Sanity as: *"boot the real app, construct real View +
 Presenter, assert real DI resolves and `quick_widget.errors() == []`"*. Every
 clause is a **how**. There is no **why** anywhere in the contract.
 
@@ -175,7 +175,7 @@ not belong in Sanity.**
 
 ### P8 — A contract nobody executes does not exist
 
-`code-rule.md` mandated `quick_widget.errors() == []`. Zero of 38 tests ever
+`testing-rule.md` mandates `quick_widget.errors() == []`. Zero of 38 tests ever
 did it. The clause was, in every sense that matters, not a rule — it was a
 sentence in a file.
 
@@ -186,7 +186,7 @@ enforcement in the tier it governs. Rule and enforcement change in the same
 commit, or neither changes.
 
 This is the principle that makes the other seven durable. Without it, this
-document becomes the next `code-rule.md` §4.
+document becomes the next `testing-rule.md`.
 
 ---
 
@@ -240,7 +240,7 @@ in the same change:
 - Both `parametrize` allowlists, and the 5 name-pinned registry tests.
 - 6 copies of the boot fixture, including the one that loads a different config
   and is the only test in the tier that does not patch the network.
-- The `quick_widget.errors() == []` clause in `code-rule.md` §4, and the
+- The `quick_widget.errors() == []` clause in `testing-rule.md`, and the
   now-vacuous `errors()` / `findChildren(QQuickWidget)` assertions in
   `test_preview_fixtures_exist.py`.
 - The 22 unloaded `.qml` files, the 2 test files still guarding them, and the
@@ -260,7 +260,7 @@ Each step is independently revertible and leaves the tier green.
 1. **`conftest.py` first.** Pure consolidation, no behavioural change, no new
    assertion. Buys the single boot (P6) and removes the drift surface, which
    makes every later step smaller.
-2. **Rewrite `code-rule.md` §4 and seed `contract.json`** (P1, P8). Rule before
+2. **Rewrite `testing-rule.md` and seed `contract.json`** (P1, P8). Rule before
    code — otherwise the next feature ships against the dead contract, and the
    audit grades against a rule nobody holds.
 3. **Add the scanning tests alongside the allowlist tests.** Both run. Confirm

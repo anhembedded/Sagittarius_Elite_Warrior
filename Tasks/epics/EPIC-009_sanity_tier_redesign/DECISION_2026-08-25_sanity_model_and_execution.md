@@ -30,7 +30,7 @@ Two reports established the problem; this ADR does not restate them:
 
 The three findings that make this an epic rather than a fix: ✅ **Established**
 
-1. The Sanity contract in `code-rule.md` §4 mandates `quick_widget.errors() == []`,
+1. The Sanity contract in `testing-rule.md` mandates `quick_widget.errors() == []`,
    which no test performs and none now can — EPIC-006 removed QML from the app
    entirely. The tier has been guarding an architecture the app abandoned.
 2. Of 43 filed bugs, only 3 fall inside Sanity's remit; the tier missed all 3.
@@ -510,7 +510,7 @@ drops from ~24 app boots to 1. Test count stops tracking feature count.
 changed to serve testability, which needs its own verification. Adding the
 diagnostic guard is expected to turn the tier **red**, and every message it
 surfaces must be triaged per `bug-fix-rule.md` rather than allowlisted for
-convenience. `code-rule.md` §4 and `ci-rule.md` §6 both have to be rewritten
+convenience. `testing-rule.md` and `ci-rule.md` §6 both have to be rewritten
 before any code lands.
 
 **Unchanged.** `offscreen` remains a real gap from production rendering. That
@@ -535,5 +535,5 @@ acceptable is pretending it is not there.
 - [`sanity_tier_audit_and_remediation.md`](../../reports/sanity_tier_audit_and_remediation.md)
 - [`sanity_redesign_philosophy.md`](../../reports/sanity_redesign_philosophy.md) — superseded in method (§2)
 - [`EPIC-006` ADR](../EPIC-006_drop_qml/DECISION_2026-08-24_widget_architecture.md) — the migration whose fallout §1.1 describes
-- `.agents/rules/ci-rule.md` §6, `.agents/rules/code-rule.md` §4 — the contracts this ADR replaces
+- `.agents/rules/ci-rule.md` §6, `.agents/rules/testing-rule.md` — the contracts this ADR replaces
 - `.claude/skills/test-health/` — the enforcement mechanism

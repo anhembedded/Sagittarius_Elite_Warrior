@@ -15,8 +15,7 @@
 
 The Sanity tier reports green while proving substantially less than it claims:
 
-- Its mandatory contract clause (`quick_widget.errors() == []`, `code-rule.md`
-  §4) is enforced by **0 of 38** cases and is now unenforceable — EPIC-006
+- Its mandatory contract clause (`quick_widget.errors() == []`, `testing-rule.md`) is enforced by **0 of 38** cases and is now unenforceable — EPIC-006
   removed QML from the app.
 - It constructs **2 of 4** screens; two screens have never been built by any
   sanity test.

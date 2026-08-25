@@ -24,7 +24,7 @@
 - All 9 files under `tests/sanity/` — read in full, not sampled.
 - `scripts/ci-local.ps1` — how the tier is actually invoked, not how the docs
   describe it.
-- `.agents/rules/ci-rule.md` §6 (four-level test contract), `code-rule.md` §4.
+- `.agents/rules/ci-rule.md` §6 (four-level test contract), `testing-rule.md`.
 - All 43 bug records in `Tasks/bug_report/` — the basis for the escape
   analysis in §5.
 - `src/main.py`, `src/presentation/ui/app_bootstrapper.py`, `main_window.py` —
@@ -70,7 +70,7 @@ assertions. That is why it has to run sequentially in a job of its own.
 
 ### 🔴 Diagnosis 1 — The sanity contract is written for an architecture the app no longer has
 
-`code-rule.md` §4 requires sanity to *"boot the real app, construct real View +
+`testing-rule.md` requires sanity to *"boot the real app, construct real View +
 Presenter, assert real DI resolves and **`quick_widget.errors() == []`**"*.
 
 But **EPIC-006 migrated the entire UI off QML onto QtWidgets.** Confirmed:
@@ -152,7 +152,7 @@ def test_sanity_ui_boot_and_navigation():
 Eight lines, not one assertion, and a name promising "boot and navigation".
 Pure fake-green: its only effect is to make the test count larger.
 
-### F2 — A mandatory clause of `code-rule.md` §4 has never been enforced
+### F2 — A mandatory clause of `testing-rule.md` has never been enforced
 
 `quick_widget.errors() == []`: **0 of 38** sanity cases. See Diagnosis 1.
 
@@ -360,7 +360,7 @@ copied forward.
 
 | # | Finding | Fix |
 | :--- | :--- | :--- |
-| **P1.1** | Diagnosis 1 — obsolete rule | Amend `code-rule.md` §4: drop `quick_widget.errors() == []` (meaningless post-EPIC-006) and replace it with *"construct the real View + Presenter for **every** route registered in `MainWindow._setup_router()`, under `diagnostic_guard`, and shut down cleanly"*. **The rule must change before the code** — otherwise every new feature keeps shipping against a dead contract. |
+| **P1.1** | Diagnosis 1 — obsolete rule | Amend `testing-rule.md`: drop `quick_widget.errors() == []` (meaningless post-EPIC-006) and replace it with *"construct the real View + Presenter for **every** route registered in `MainWindow._setup_router()`, under `diagnostic_guard`, and shut down cleanly"*. **The rule must change before the code** — otherwise every new feature keeps shipping against a dead contract. |
 | **P1.2** | F9 — Qt diagnostics unobserved | `diagnostic_guard` — an autouse fixture across the tier using `qInstallMessageHandler`, failing on `QtWarningMsg`/`QtCriticalMsg`/`QtFatalMsg`. Any allowlist must be narrow and declared line by line. **This is the true replacement for `errors()`** in a QtWidgets world, and it catches both `BUG-028` and `BUG-031` — neither of which `Invoke-RunLogScan` can structurally see. |
 | **P1.3** | F4 — 2 of 4 screens | `test_every_registered_route_constructs.py`: lift the registry inside `MainWindow._setup_router()` into a module-level constant, then parametrize sanity **from that** rather than a hand-written list. 2/4 → **4/4**, and automatically covers screens added later. |
 | **P1.4** | F6 — allowlists blind to additions | Replace `_BACKTEST_COMMANDS` / `_DATABASE_COMMANDS` with a scan: walk every `*Command`/`*Query` class under `src/application/use_cases/` and assert the container resolves it. Copy the drift-guard pattern already at `test_view_model_thread_affinity_sanity.py:62`. |
@@ -419,7 +419,7 @@ The last one is the only real metric. Everything above it is a proxy.
 1. **Run `.\scripts\ci-local.ps1 -Full -IncludeFlakyUi` ×5, now.** (P2.0) The
    result determines every priority behind it.
 2. In parallel: P0.1–P0.4 (half a day, independent of the above).
-3. Amend `code-rule.md` §4 (P1.1) **before** writing any new sanity test.
+3. Amend `testing-rule.md` (P1.1) **before** writing any new sanity test.
 4. P1.2 (`diagnostic_guard`) and P1.3 (construct 4/4 screens) — the only two
    sanity-tier changes that genuinely close defect classes that have already
    escaped.

@@ -2,24 +2,24 @@
   "_comment": [
     "Each mandatory clause of the project's own test rules, restated as",
     "something a grep can find. This file is the machine-readable half of",
-    ".agents/rules/ci-rule.md §6 and code-rule.md §4 — when either rule is",
-    "edited, edit this too, or the audit starts checking a rule nobody has.",
+    "something a grep can find. This file is the machine-readable half of",
+    ".agents/rules/ci-rule.md and testing-rule.md — when either rule is",
     "A clause with zero hits is a written promise the suite never kept."
   ],
   "clauses": [
     {
       "id": "sanity-asserts-qml-errors-empty",
-      "source": ".agents/rules/code-rule.md §4 (Sanity)",
+      "source": ".agents/rules/testing-rule.md (Sanity)",
       "requirement": "Sanity must assert quick_widget.errors() == []",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "\\.errors\\(\\)"
     },
     {
       "id": "sanity-constructs-real-view-and-presenter",
-      "source": ".agents/rules/code-rule.md §4 (Sanity)",
-      "requirement": "Sanity must construct the real View + Presenter",
+      "source": ".agents/rules/testing-rule.md (Sanity)",
+      "requirement": "Sanity must construct the real View + Presenter — directly, or through the real router for every navigable route",
       "evidence_dir": "tests/sanity",
-      "evidence_pattern": "Presenter\\("
+      "evidence_pattern": "Presenter\\(|switch_screen\\("
     },
     {
       "id": "sanity-boots-the-real-composition-root",

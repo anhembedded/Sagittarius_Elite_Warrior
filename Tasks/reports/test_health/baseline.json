@@ -1,20 +1,20 @@
 {
   "tiers": {
     "integration": {
-      "tests": 37,
-      "files": 15
+      "tests": 36,
+      "files": 14
     },
     "integration/presentation/ui": {
       "tests": 36,
       "files": 8
     },
     "sanity": {
-      "tests": 19,
-      "files": 9
+      "tests": 10,
+      "files": 4
     },
     "unit": {
-      "tests": 1339,
-      "files": 153
+      "tests": 1365,
+      "files": 158
     }
   },
   "ci_exclusions": [
@@ -124,7 +124,7 @@
   "contract": [
     {
       "id": "sanity-asserts-qml-errors-empty",
-      "source": ".agents/rules/code-rule.md §4 (Sanity)",
+      "source": ".agents/rules/testing-rule.md (Sanity)",
       "requirement": "Sanity must assert quick_widget.errors() == []",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "\\.errors\\(\\)",
@@ -133,16 +133,14 @@
     },
     {
       "id": "sanity-constructs-real-view-and-presenter",
-      "source": ".agents/rules/code-rule.md §4 (Sanity)",
-      "requirement": "Sanity must construct the real View + Presenter",
+      "source": ".agents/rules/testing-rule.md (Sanity)",
+      "requirement": "Sanity must construct the real View + Presenter — directly, or through the real router for every navigable route",
       "evidence_dir": "tests/sanity",
-      "evidence_pattern": "Presenter\\(",
+      "evidence_pattern": "Presenter\\(|switch_screen\\(",
       "hits": [
-        "tests/sanity/test_backtest_screen_ui_sanity.py:68",
-        "tests/sanity/test_health_boot_and_ui_sanity.py:84",
-        "tests/sanity/test_health_boot_and_ui_sanity.py:96"
+        "tests/sanity/test_composition_root.py:224"
       ],
-      "hit_count": 3
+      "hit_count": 1
     },
     {
       "id": "sanity-boots-the-real-composition-root",
@@ -151,13 +149,10 @@
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "create_app\\(",
       "hits": [
-        "tests/sanity/test_asset_preflight_sanity.py:3",
-        "tests/sanity/test_asset_preflight_sanity.py:16",
-        "tests/sanity/test_asset_preflight_sanity.py:17",
-        "tests/sanity/test_asset_preflight_sanity.py:25",
-        "tests/sanity/test_asset_preflight_sanity.py:32"
+        "tests/sanity/conftest.py:87",
+        "tests/sanity/test_event_bus_has_a_real_logger_sanity.py:31"
       ],
-      "hit_count": 13
+      "hit_count": 2
     },
     {
       "id": "diagnostics-are-observed-during-boot",
@@ -165,8 +160,12 @@
       "requirement": "Sanity must fail on any problem-level diagnostic emitted during boot/construct/shutdown, on every channel the app owns (Python logging, Qt message handler, warnings, stderr)",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "qInstallMessageHandler",
-      "hits": [],
-      "hit_count": 0
+      "hits": [
+        "tests/sanity/conftest.py:128",
+        "tests/sanity/conftest.py:149",
+        "tests/sanity/conftest.py:159"
+      ],
+      "hit_count": 3
     },
     {
       "id": "shutdown-is-proven-not-merely-attempted",
@@ -174,8 +173,14 @@
       "requirement": "Sanity must assert the app shuts down within a budget, not just call stop() in teardown",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "shutdown\\(\\)|threading\\.enumerate",
-      "hits": [],
-      "hit_count": 0
+      "hits": [
+        "tests/sanity/test_composition_root.py:232",
+        "tests/sanity/test_composition_root.py:277",
+        "tests/sanity/test_composition_root.py:284",
+        "tests/sanity/test_composition_root.py:290",
+        "tests/sanity/test_composition_root.py:298"
+      ],
+      "hit_count": 6
     },
     {
       "id": "integration-proves-user-journeys",
@@ -186,20 +191,14 @@
       "hits": [
         "tests/integration/presentation/test_backtest_user_flow.py:228",
         "tests/integration/presentation/test_backtest_user_flow.py:234",
-        "tests/integration/presentation/test_backtest_user_flow.py:257",
-        "tests/integration/presentation/test_backtest_user_flow.py:258",
-        "tests/integration/presentation/test_backtest_user_flow.py:292"
+        "tests/integration/presentation/test_backtest_user_flow.py:263",
+        "tests/integration/presentation/test_backtest_user_flow.py:264",
+        "tests/integration/presentation/test_backtest_user_flow.py:298"
       ],
       "hit_count": 53
     }
   ],
   "findings": [
-    {
-      "check": "C1",
-      "file": "tests/integration/test_ui_sanity.py",
-      "line": 7,
-      "detail": "`test_sanity_ui_boot_and_navigation` contains no assertion — it cannot fail"
-    },
     {
       "check": "C1",
       "file": "tests/unit/domain/indicator_scripts/test_dev_indicator_script.py",
@@ -226,6 +225,18 @@
     },
     {
       "check": "C1",
+      "file": "tests/unit/presentation/ui/common/test_base_feed.py",
+      "line": 64,
+      "detail": "`test_stop_is_idempotent` contains no assertion — it cannot fail"
+    },
+    {
+      "check": "C1",
+      "file": "tests/unit/presentation/ui/common/test_system_error_feed.py",
+      "line": 115,
+      "detail": "`test_stop_is_idempotent` contains no assertion — it cannot fail"
+    },
+    {
+      "check": "C1",
       "file": "tests/unit/presentation/ui/screens/test_autostart_controller.py",
       "line": 87,
       "detail": "`test_on_market_tick_before_begin_is_a_safe_no_op` contains no assertion — it cannot fail"
@@ -233,19 +244,19 @@
     {
       "check": "C1",
       "file": "tests/unit/presentation/ui/screens/test_backtest_presenter.py",
-      "line": 1152,
+      "line": 1155,
       "detail": "`test_qml_limitations_button_opens_without_crashing` contains no assertion — it cannot fail"
     },
     {
       "check": "C1",
       "file": "tests/unit/presentation/ui/screens/test_backtest_presenter.py",
-      "line": 2209,
+      "line": 2212,
       "detail": "`test_ema_toggle_is_a_no_op_when_the_strategy_declares_no_indicators` contains no assertion — it cannot fail"
     },
     {
       "check": "C1",
       "file": "tests/unit/presentation/ui/screens/test_backtest_presenter.py",
-      "line": 2882,
+      "line": 2885,
       "detail": "`test_export_does_nothing_when_the_dialog_is_cancelled` contains no assertion — it cannot fail"
     },
     {
@@ -279,22 +290,10 @@
       "detail": "`test_instantiates_without_raising` contains no assertion — it cannot fail"
     },
     {
-      "check": "C2",
-      "file": "tests/sanity/test_health_boot_and_ui_sanity.py",
-      "line": 106,
-      "detail": "`test_real_mainwindow_construction_initializes_health_cleanly` — every assertion is vacuous: assert window is not None — window was constructed in this test; a constructor returning None is not a reachable state"
-    },
-    {
       "check": "C3",
       "file": "tests/integration/presentation/test_asset_preflight_integration.py",
       "line": 37,
       "detail": "`test_asset_preflight_integration_passes_in_production_mode` docstring promises \"cleanly\" but the body never inspects errors/warnings/log records"
-    },
-    {
-      "check": "C3",
-      "file": "tests/sanity/test_health_boot_and_ui_sanity.py",
-      "line": 106,
-      "detail": "`test_real_mainwindow_construction_initializes_health_cleanly` docstring promises \"renders clean\" but the body never inspects errors/warnings/log records"
     },
     {
       "check": "C3",
@@ -307,24 +306,6 @@
       "file": "tests/conftest.py",
       "line": 37,
       "detail": "fixture `qapp` calls pytest.skip — every test depending on it disappears silently and the tier still reports green"
-    },
-    {
-      "check": "C6",
-      "file": "tests/sanity/test_backtest_screen_di_sanity.py",
-      "line": 54,
-      "detail": "`_BACKTEST_COMMANDS` drives parametrize but this file never scans the real source of truth — the list catches deletions, never an addition someone forgot to register"
-    },
-    {
-      "check": "C6",
-      "file": "tests/sanity/test_bootstrapper_di_sanity.py",
-      "line": 21,
-      "detail": "`_CORE_INTERFACES` drives parametrize but this file never scans the real source of truth — the list catches deletions, never an addition someone forgot to register"
-    },
-    {
-      "check": "C6",
-      "file": "tests/sanity/test_database_screen_di_sanity.py",
-      "line": 54,
-      "detail": "`_DATABASE_COMMANDS` drives parametrize but this file never scans the real source of truth — the list catches deletions, never an addition someone forgot to register"
     },
     {
       "check": "C6",
@@ -358,9 +339,9 @@
     },
     {
       "check": "C7",
-      "file": "tests/sanity/test_backtest_screen_di_sanity.py",
-      "line": 64,
-      "detail": "fixture `booted_app` is defined 4x in `sanity` (tests/sanity/test_backtest_screen_di_sanity.py:64, tests/sanity/test_backtest_screen_ui_sanity.py:36, tests/sanity/test_bootstrapper_di_sanity.py:25, tests/sanity/test_database_screen_di_sanity.py:68) — copies drift; there is no single definition to keep correct"
+      "file": "tests/sanity/conftest.py",
+      "line": 65,
+      "detail": "fixture `booted_app` is defined 2x in `sanity` (tests/sanity/conftest.py:65, tests/sanity/test_event_bus_has_a_real_logger_sanity.py:24) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
@@ -371,20 +352,14 @@
     {
       "check": "C7",
       "file": "tests/unit/application/use_cases/test_bulk_sync_market_data.py",
-      "line": 24,
-      "detail": "fixture `mock_event_bus` is defined 2x in `unit` (tests/unit/application/use_cases/test_bulk_sync_market_data.py:24, tests/unit/application/use_cases/test_sync_market_data_handler.py:27) — copies drift; there is no single definition to keep correct"
-    },
-    {
-      "check": "C7",
-      "file": "tests/unit/application/use_cases/test_bulk_sync_market_data.py",
       "line": 29,
-      "detail": "fixture `mock_config` is defined 4x in `unit` (tests/unit/application/use_cases/test_bulk_sync_market_data.py:29, tests/unit/presentation/ui/screens/test_backtest_presenter.py:402, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:64, tests/unit/presentation/ui/screens/test_settings_presenter.py:42) — copies drift; there is no single definition to keep correct"
+      "detail": "fixture `mock_config` is defined 4x in `unit` (tests/unit/application/use_cases/test_bulk_sync_market_data.py:29, tests/unit/presentation/ui/screens/test_backtest_presenter.py:405, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:64, tests/unit/presentation/ui/screens/test_settings_presenter.py:42) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
       "file": "tests/unit/application/use_cases/test_bulk_sync_market_data.py",
       "line": 37,
-      "detail": "fixture `mock_dispatcher` is defined 5x in `unit` (tests/unit/application/use_cases/test_bulk_sync_market_data.py:37, tests/unit/presentation/ui/screens/test_backtest_presenter.py:397, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:59, tests/unit/presentation/ui/screens/test_data_management_presenter.py:49, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:33) — copies drift; there is no single definition to keep correct"
+      "detail": "fixture `mock_dispatcher` is defined 5x in `unit` (tests/unit/application/use_cases/test_bulk_sync_market_data.py:37, tests/unit/presentation/ui/screens/test_backtest_presenter.py:400, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:59, tests/unit/presentation/ui/screens/test_data_management_presenter.py:49, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:33) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
@@ -419,26 +394,26 @@
     {
       "check": "C7",
       "file": "tests/unit/presentation/ui/screens/test_backtest_presenter.py",
-      "line": 392,
-      "detail": "fixture `mock_thread_mgr` is defined 4x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:392, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:54, tests/unit/presentation/ui/screens/test_data_management_presenter.py:44, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:28) — copies drift; there is no single definition to keep correct"
+      "line": 395,
+      "detail": "fixture `mock_thread_mgr` is defined 4x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:395, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:54, tests/unit/presentation/ui/screens/test_data_management_presenter.py:44, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:28) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
       "file": "tests/unit/presentation/ui/screens/test_backtest_presenter.py",
-      "line": 419,
-      "detail": "fixture `mock_container` is defined 5x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:419, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:88, tests/unit/presentation/ui/screens/test_data_management_presenter.py:54, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:38, tests/unit/presentation/ui/screens/test_settings_presenter.py:63) — copies drift; there is no single definition to keep correct"
+      "line": 422,
+      "detail": "fixture `mock_container` is defined 5x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:422, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:88, tests/unit/presentation/ui/screens/test_data_management_presenter.py:54, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:38, tests/unit/presentation/ui/screens/test_settings_presenter.py:63) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
       "file": "tests/unit/presentation/ui/screens/test_backtest_presenter.py",
-      "line": 449,
-      "detail": "fixture `presenter` is defined 5x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:449, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:133, tests/unit/presentation/ui/screens/test_data_management_presenter.py:83, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:67, tests/unit/presentation/ui/screens/test_settings_presenter.py:78) — copies drift; there is no single definition to keep correct"
+      "line": 452,
+      "detail": "fixture `presenter` is defined 5x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:452, tests/unit/presentation/ui/screens/test_dashboard_presenter.py:133, tests/unit/presentation/ui/screens/test_data_management_presenter.py:83, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:67, tests/unit/presentation/ui/screens/test_settings_presenter.py:78) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
       "file": "tests/unit/presentation/ui/screens/test_backtest_presenter.py",
-      "line": 459,
-      "detail": "fixture `view_model` is defined 5x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:459, tests/unit/presentation/ui/screens/test_data_management_presenter.py:93, tests/unit/presentation/ui/screens/test_dev_board_panel.py:26, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:77, tests/unit/presentation/ui/screens/test_settings_presenter.py:91) — copies drift; there is no single definition to keep correct"
+      "line": 462,
+      "detail": "fixture `view_model` is defined 5x in `unit` (tests/unit/presentation/ui/screens/test_backtest_presenter.py:462, tests/unit/presentation/ui/screens/test_data_management_presenter.py:93, tests/unit/presentation/ui/screens/test_dev_board_panel.py:26, tests/unit/presentation/ui/screens/test_gap_inspector_presenter.py:77, tests/unit/presentation/ui/screens/test_settings_presenter.py:91) — copies drift; there is no single definition to keep correct"
     },
     {
       "check": "C7",
@@ -466,7 +441,7 @@
     }
   ],
   "bug_board": {
-    "open": 2,
+    "open": 4,
     "closed": 41
   }
 }
