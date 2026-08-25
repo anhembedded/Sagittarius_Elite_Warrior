@@ -27,6 +27,10 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
 
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
+    EngineEventPublisher,
+)
+
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -117,7 +121,9 @@ def main() -> None:
     print("\n=== Static backtest runtime on the 1s shard (no extra API calls) ===")
     registry = StrategyRegistry()
     registry.register("ema_crossover", EmaCrossoverStrategy)
-    handler = RunStaticBacktestCommandHandler(repo, registry, MemoryEventBus())
+    handler = RunStaticBacktestCommandHandler(
+        repo, registry, EngineEventPublisher(MemoryEventBus())
+    )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT_1S_SPIKE",
         interval=TimeFrame.ONE_SECOND,

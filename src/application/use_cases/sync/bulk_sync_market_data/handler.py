@@ -3,7 +3,16 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 
+from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_config_reader import (
+    IConfigReader,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.services.rate_limiter import (
     ThreadSafeRateLimiter,
 )
@@ -12,9 +21,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from sagittarius_engine.interfaces.i_config import IConfig
-from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .command import BulkSyncMarketDataCommand, CancellationCheck
 from .progress_reporter import BulkSyncProgressReporter
@@ -31,7 +37,7 @@ class BulkSyncMarketDataCommandHandler(
 ):
     """
     @brief Handler for BulkSyncMarketDataCommand. Orchestrates bulk sync concurrently.
-    @details Depends on IDispatcher rather than the concrete SyncMarketDataCommandHandler
+    @details Depends on ICommandDispatcher rather than the concrete SyncMarketDataCommandHandler
     (Dependency Inversion) — dispatches SyncMarketDataCommand the same way the
     Presenter layer already does, instead of holding a direct reference to another
     use case's handler.
@@ -39,11 +45,11 @@ class BulkSyncMarketDataCommandHandler(
 
     def __init__(
         self,
-        event_bus: IEventBus,
-        config: IConfig,
-        dispatcher: IDispatcher,
+        event_publisher: IEventPublisher,
+        config: IConfigReader,
+        dispatcher: ICommandDispatcher,
     ) -> None:
-        self.event_bus = event_bus
+        self.event_publisher = event_publisher
         self.config = config
         self.dispatcher = dispatcher
         self.logger = logging.getLogger("App.BulkSync")
@@ -54,7 +60,7 @@ class BulkSyncMarketDataCommandHandler(
         """
         targets = command.targets
         total = len(targets)
-        reporter = BulkSyncProgressReporter(self.event_bus, total_targets=total)
+        reporter = BulkSyncProgressReporter(self.event_publisher, total_targets=total)
 
         if self._handle_empty_targets(total, reporter):
             return

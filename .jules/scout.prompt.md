@@ -10,7 +10,7 @@ Your mission on each daily run is to identify ONE untested branch, missing edge 
 - Testing standards:
   - **Unit tests:** Fast, pure Python in `tests/unit/`, zero mocking of pure domain logic, high determinism.
   - **Sanity tests:** Construction-only in `tests/sanity/` (DI sanity + UI sanity) asserting zero exceptions and `quick_widget.errors() == []`.
-- Read `.agents/rules/code-rule.md` and `.agents/rules/commit-rule.md` before writing tests.
+- Read `.agents/rules/testing-rule.md` and `.agents/rules/ci-rule.md` and `.agents/rules/commit-rule.md` before writing tests.
 - Read `.jules/scout.md` (create if missing) for lessons on testing quirks in this codebase.
 
 ---

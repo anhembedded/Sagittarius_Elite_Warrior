@@ -248,10 +248,16 @@ def test_run_button_completes_real_backtest_and_chart_render(backtest_screen, qt
     view_model.customStartText = "2026-08-01 00:00"
     view_model.customEndText = "2026-08-11 00:00"
     log_messages_before = [entry.message for entry in view_model.log_model.entries]
-    assert any(
-        "[Health] Trạng thái hệ thống: HEALTHY (Database: OK" in message
+    # EPIC-008G: cả 2 màn giờ render qua HealthStatusReport.to_log_line(), và
+    # nó giữ NGUYÊN thứ tự component engine trả về thay vì tự chọn vài khoá —
+    # nên đừng assert theo vị trí, assert theo nội dung.
+    health_lines = [
+        message
         for message in log_messages_before
-    )
+        if "[Health] Trạng thái hệ thống: HEALTHY" in message
+    ]
+    assert health_lines, "màn Backtest phải nhận được báo cáo sức khoẻ khi mở"
+    assert "Database: OK" in health_lines[-1]
     health_count_before = sum("[Health]" in message for message in log_messages_before)
 
     view.top_widget._btn_run.click()

@@ -5,6 +5,9 @@ from datetime import datetime
 from time import perf_counter
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
@@ -38,7 +41,6 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .backtest_cancelled import BacktestCancelled
 from .command import RunStaticBacktestCommand
@@ -68,11 +70,11 @@ class RunStaticBacktestCommandHandler(
         self,
         repository: IMarketDataRepository,
         strategy_registry: StrategyRegistry,
-        event_bus: IEventBus,
+        event_publisher: IEventPublisher,
     ) -> None:
         self._repository = repository
         self._strategy_registry = strategy_registry
-        self._event_bus = event_bus
+        self._event_publisher = event_publisher
 
     def _log_trace(self, action: str, **fields: object) -> None:
         suffix = " ".join(f"{key}={value!r}" for key, value in fields.items())
@@ -105,7 +107,7 @@ class RunStaticBacktestCommandHandler(
             )
             self._log_trace("handler_no_data", reason=reason)
             logger.warning(reason)
-            self._event_bus.emit(BacktestFailedEvent(reason=reason))
+            self._event_publisher.publish(BacktestFailedEvent(reason=reason))
             return None
 
         self._log_trace("handler_simulation_start")
@@ -181,7 +183,7 @@ class RunStaticBacktestCommandHandler(
             f"{len(result.trades)} trades, "
             f"net profit {result.metrics.net_profit_percent:.2f}%"
         )
-        self._event_bus.emit(BacktestCompletedEvent(result=result))
+        self._event_publisher.publish(BacktestCompletedEvent(result=result))
         return result
 
     def _stream_phase_klines(
@@ -226,7 +228,7 @@ class RunStaticBacktestCommandHandler(
         engine = build_engine(
             self._strategy_registry,
             command.strategy_key,
-            self._event_bus,
+            self._event_publisher,
             params=command.strategy_params,
         )
         exchange = PaperExchange(

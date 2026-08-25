@@ -520,7 +520,7 @@ class BackTestViewModel(BaseQmlViewModel):
 
     def _set_execution_mode(self, value: str) -> None:
         # Reject silently-wrong values from QML rather than let an invalid
-        # string reach BacktestRunConfig/RunRealtimeBacktestCommand — the
+        # string reach BacktestRunConfig/RunHistoricalTickBacktestCommand — the
         # only two real modes are the ones BacktestExecutionMode declares
         # (BOT-076 §3.3; "on order filled"/BOT-077 and "real-time bar tick"
         # are not represented here at all, see that enum's own docstring).

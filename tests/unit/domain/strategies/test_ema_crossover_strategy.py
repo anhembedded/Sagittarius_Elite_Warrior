@@ -38,7 +38,7 @@ def _build_engine(fast_period: int = 3, slow_period: int = 5) -> StrategyEngine:
     return StrategyEngine(
         indicators=strategy.build_indicators(),
         strategy=strategy,
-        event_bus=Mock(),
+        event_publisher=Mock(),
     )
 
 

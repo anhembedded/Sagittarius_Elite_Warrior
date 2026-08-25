@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
-    SingleSyncProgressEvent,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
@@ -22,8 +19,8 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
-    RunRealtimeBacktestCommand,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
@@ -79,11 +76,24 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_meta
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
+    HealthStatusReport,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
+    SyncProgressFeed,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+    SyncProgressReport,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
+    BacktestProgress,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.indicator_script_runner import (
     IndicatorScriptRunner,
@@ -93,8 +103,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.kline_mappi
     map_klines,
     map_volume,
 )
-from sagittarius_engine.extensions.health.health_check_query import HealthCheckQuery
-from sagittarius_engine.extensions.health.health_module import HealthUpdatedEvent
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -246,11 +254,33 @@ class BackTestPresenter(BasePresenter):
     INITIAL_STATE = BacktestUiState.IDLE
     UI_TRANSITION_MATRIX = BACKTEST_STATE_TRANSITIONS
 
+    # ------------------------------------------------------------------ #
+    # Thread-safe Signal Bridges — worker thread → main UI thread
+    #
+    # ĐỌC TRƯỚC KHI XOÁ BẤT KỲ SIGNAL NÀO Ở ĐÂY.
+    #
+    # Đây KHÔNG phải nợ kỹ thuật. Qt queued signal chính là cơ chế Qt thiết kế
+    # ra để đưa dữ liệu từ thread nền về main thread. Xoá chúng = đẩy cập nhật
+    # UI sang worker thread, đúng lớp lỗi BUG-031 — kiểu hỏng "app chạy, test
+    # xanh, màn hình không cập nhật" mà test offscreen KHÔNG bắt được.
+    #
+    # `QtEventBridge` (EPIC-008D) KHÔNG thay thế được: nó chỉ bắc cầu cho event
+    # đi qua event bus, còn các worker này không bao giờ đụng bus.
+    #
+    # Signal ở đây hay Event Bus? Hỏi: "màn khác cũng muốn biết chuyện này thì
+    # có vô lý không?"  Vô lý → giữ Qt signal. Hợp lý → Event Bus + đúng 1 Feed
+    # chuẩn hoá (`presentation/ui/common/`). Thăng cấp KHI có consumer thứ hai
+    # thật, không thăng trước.
+    #
+    # Luật đầy đủ: .agents/rules/architecture-rule.md §6.
+    # ------------------------------------------------------------------ #
     _backtestSucceededSignal = Signal(int, object)  # action_id, BacktestResult
     _backtestEmptySignal = Signal(int, str, object)  # action_id, message, config
     _backtestFailedSignal = Signal(int, str)  # action_id, error message
     _backtestCancelledSignal = Signal(int, object)  # action_id, BacktestCancelled
-    _backtestProgressSignal = Signal(int, str, int, int, float)
+    #: Mang một `BacktestProgress`. Trước là 5 tham số vị trí với 2 `int` liền
+    #: nhau (xem `backtest_signal_payloads.py`).
+    _backtestProgressSignal = Signal(object)
     _backtestCoverageMissingSignal = Signal(int, object, object, bool)
     _backtestCoverageReadySignal = Signal(int, object)
     _chartDataReadySignal = Signal(
@@ -566,31 +596,31 @@ class BackTestPresenter(BasePresenter):
         self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
         self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
         self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
-        self.event_bus.on(SingleSyncProgressEvent, self._handle_sync_progress_event)
-        self.event_bus.on(
-            HealthUpdatedEvent.event_name, self._handle_health_updated_event
-        )
+        # Tiến độ đồng bộ là sự thật của HỆ THỐNG (Data Management cũng cần) →
+        # đi qua SyncProgressFeed. Phần `action_id` bên dưới là sự thật RIÊNG
+        # của màn này nên ở lại đây (`architecture-rule.md` §6).
+        self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
+        self._sync_feed.progressUpdated.connect(self._on_sync_progress)
+        # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này — đi
+        # qua HealthFeed, một nơi nghe nhiều màn hiển thị
+        # (`architecture-rule.md` §6). Bản tự ghép chuỗi cũ ở đây từng **bỏ sót
+        # `Container`** so với Dashboard, đúng hệ quả của việc mỗi màn tự chuẩn hoá.
+        self._health_feed = HealthFeed(self.event_bus, parent=self)
+        self._health_feed.healthUpdated.connect(self._on_health_report)
 
     def _trigger_initial_health_check(self) -> None:
-        """Trigger an initial health check when backtest screen initializes."""
-        try:
-            health_query = self.container.resolve(HealthCheckQuery)
-            status = health_query.execute()
-            self._handle_health_updated_event(HealthUpdatedEvent(status))
-        except Exception:  # noqa: BLE001, S110
-            pass
+        """Xin số liệu sức khoẻ tươi ngay khi mở màn.
 
-    def _handle_health_updated_event(self, event: Any) -> None:
-        status_dict = getattr(event, "status", {})
-        status_str = status_dict.get("status", "unknown").upper()
-        components = status_dict.get("components", {})
-        db_stat = components.get("database", "ok").upper()
-        bus_stat = components.get("event_bus", "ok").upper()
-        self._emit_ui_log(
-            f"[Health] Trạng thái hệ thống: {status_str} (Database: {db_stat}, EventBus: {bus_stat})",
-            "info",
-            is_dev=False,
-        )
+        Trước `EPIC-008G` hàm này resolve `HealthCheckQuery` rồi **tự dựng một
+        `HealthUpdatedEvent`** gọi thẳng handler của chính mình — cách vá cho việc
+        `HealthExtension.boot()` chỉ phát đúng một lần lúc `app.boot()`, trước khi
+        presenter (lazy) kịp tồn tại. `EPIC-008E` thay bằng cặp request/response thật.
+        """
+        self._health_feed.request_refresh()
+
+    def _on_health_report(self, report: HealthStatusReport) -> None:
+        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
+        self._emit_ui_log(report.to_log_line(), "info", is_dev=False)
 
     def _handle_backtest_completed_event(self, event: BacktestCompletedEvent) -> None:
         result = getattr(event, "result", None)
@@ -621,10 +651,11 @@ class BackTestPresenter(BasePresenter):
             is_dev=True,
         )
 
-    def _handle_sync_progress_event(self, event: SingleSyncProgressEvent) -> None:
+    def _on_sync_progress(self, report: SyncProgressReport) -> None:
+        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
         action_id = self._current_action_id(BacktestActionKind.SYNC)
         if action_id is not None:
-            self._syncProgressSignal.emit(action_id, event.current, event.total)
+            self._syncProgressSignal.emit(action_id, report.current, report.total)
 
     def _emit_ui_log(
         self, message: str, level: str = "info", is_dev: bool = False
@@ -1118,14 +1149,12 @@ class BackTestPresenter(BasePresenter):
 
     @Slot(int, str, int, int, float)
     @safe_ui_action
-    def _on_backtest_progress_for_action(
-        self,
-        action_id: int,
-        phase: str,
-        completed_bars: int,
-        total_bars: int,
-        elapsed_seconds: float,
-    ) -> None:
+    def _on_backtest_progress_for_action(self, progress: BacktestProgress) -> None:
+        action_id = progress.action_id
+        phase = progress.phase
+        completed_bars = progress.completed_bars
+        total_bars = progress.total_bars
+        elapsed_seconds = progress.elapsed_seconds
         if not self._is_current_pending_action(action_id, BacktestActionKind.BACKTEST):
             return
         if total_bars <= 0:
@@ -2248,14 +2277,20 @@ class BackTestPresenter(BasePresenter):
                 phase: str, completed: int, total: int, elapsed: float
             ) -> None:
                 self._backtestProgressSignal.emit(
-                    resolved_action_id, phase, completed, total, elapsed
+                    BacktestProgress(
+                        action_id=resolved_action_id,
+                        phase=phase,
+                        completed_bars=completed,
+                        total_bars=total,
+                        elapsed_seconds=elapsed,
+                    )
                 )
 
             cancellation_requested = (
                 cancellation_token.is_cancelled if cancellation_token else None
             )
             if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-                realtime_command = RunRealtimeBacktestCommand(
+                realtime_command = RunHistoricalTickBacktestCommand(
                     symbol=self._symbol,
                     interval=config.timeframe,
                     tick_resolution=config.tick_resolution,
@@ -2273,13 +2308,13 @@ class BackTestPresenter(BasePresenter):
                     progress_callback=progress_callback,
                 )
                 self._log_dev_trace(
-                    "worker_dispatch_run_realtime_backtest",
+                    "worker_dispatch_run_historical_tick_backtest",
                     symbol=realtime_command.symbol,
                     timeframe=realtime_command.interval.value,
                     tick_resolution=realtime_command.tick_resolution.value,
                 )
                 result = self.dispatcher.dispatch(
-                    RunRealtimeBacktestCommand, realtime_command
+                    RunHistoricalTickBacktestCommand, realtime_command
                 )
             else:
                 static_command = RunStaticBacktestCommand(

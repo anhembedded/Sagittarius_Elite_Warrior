@@ -77,30 +77,66 @@ def test_engine_boot_logs_health_to_console(booted_app_with_logs):
     )
 
 
-def test_real_dashboard_screen_contains_health_log(qapp, booted_app_with_logs):
-    """Assert real DashboardPresenter populates log_model with Health log upon construction."""
-    app, _ = booted_app_with_logs
-    view = DashboardView()
-    presenter = DashboardPresenter(view, app.context.container)
+_HEALTH_PREFIX = "[Health] Trạng thái hệ thống: HEALTHY"
 
-    log_messages = [entry.message for entry in presenter._view_model.log_model.entries]
-    assert any("System Health: HEALTHY" in msg for msg in log_messages), (
-        f"Expected 'System Health: HEALTHY' in Dashboard logs, got: {log_messages}"
+
+def _health_lines(presenter) -> list[str]:
+    return [
+        entry.message
+        for entry in presenter._view_model.log_model.entries
+        if _HEALTH_PREFIX in entry.message
+    ]
+
+
+def test_real_dashboard_screen_contains_health_log(qapp, booted_app_with_logs):
+    """Real screen, real booted app: opening Dashboard produces a health line.
+
+    Proves `EPIC-008E`'s request/response works end to end — the screen asks
+    (`HealthCheckRequested`), `HealthExtension` re-measures, and the answer
+    comes back over the bus. Before that, this line could only exist because
+    the screen fabricated its own `HealthUpdatedEvent`."""
+    app, _ = booted_app_with_logs
+    presenter = DashboardPresenter(DashboardView(), app.context.container)
+
+    assert _health_lines(presenter), (
+        "Dashboard phải nhận báo cáo sức khoẻ khi mở: "
+        f"{[e.message for e in presenter._view_model.log_model.entries]}"
     )
 
 
 def test_real_backtest_screen_contains_health_log(qapp, booted_app_with_logs):
-    """Assert real BackTestPresenter populates log_model with Health log upon construction."""
     app, _ = booted_app_with_logs
-    view = BackTestView()
-    presenter = BackTestPresenter(view, app.context.container)
+    presenter = BackTestPresenter(BackTestView(), app.context.container)
 
-    log_messages = [entry.message for entry in presenter._view_model.log_model.entries]
-    assert any(
-        "[Health] Trạng thái hệ thống: HEALTHY" in msg for msg in log_messages
-    ), (
-        f"Expected '[Health] Trạng thái hệ thống: HEALTHY' in Backtest logs, got: {log_messages}"
+    assert _health_lines(presenter), (
+        "Backtest phải nhận báo cáo sức khoẻ khi mở: "
+        f"{[e.message for e in presenter._view_model.log_model.entries]}"
     )
+
+
+def test_both_screens_report_health_with_the_identical_string(
+    qapp, booted_app_with_logs
+):
+    """`EPIC-008G` §1's stated evidence: the two screens must say the *same*
+    thing about the same fact.
+
+    They did not before. Each parsed the raw status `dict` itself, producing
+    two formats — and Backtest's hand-picked its component keys, so it silently
+    dropped `Container` entirely:
+
+        Backtest  : [Health] Trạng thái hệ thống: HEALTHY (Database: OK, EventBus: OK)
+        Dashboard : System Health: HEALTHY (DB: OK, Container: OK, EventBus: OK)
+
+    One `HealthFeed` now normalises once and both render through
+    `HealthStatusReport.to_log_line()`, so they cannot disagree again."""
+    app, _ = booted_app_with_logs
+
+    dashboard = DashboardPresenter(DashboardView(), app.context.container)
+    backtest = BackTestPresenter(BackTestView(), app.context.container)
+
+    assert _health_lines(dashboard)[-1] == _health_lines(backtest)[-1]
+    # And nothing is hand-picked any more, so every component survives.
+    assert "Container: OK" in _health_lines(dashboard)[-1]
 
 
 def test_real_mainwindow_construction_initializes_health_cleanly(

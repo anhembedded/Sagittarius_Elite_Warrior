@@ -21,7 +21,7 @@ def test_build_engine_wires_a_fresh_strategy_with_its_own_indicators():
     registry = StrategyRegistry()
     registry.register("ema_crossover", EmaCrossoverStrategy)
 
-    engine = build_engine(registry, "ema_crossover", event_bus=Mock())
+    engine = build_engine(registry, "ema_crossover", event_publisher=Mock())
 
     assert isinstance(engine, StrategyEngine)
     assert isinstance(engine._strategy, EmaCrossoverStrategy)
@@ -35,7 +35,7 @@ def test_build_engine_raises_for_an_unregistered_key():
     registry = StrategyRegistry()
 
     with pytest.raises(KeyError):
-        build_engine(registry, "nope", event_bus=Mock())
+        build_engine(registry, "nope", event_publisher=Mock())
 
 
 def test_build_engine_passes_params_through_and_builds_indicators_from_them():
@@ -48,7 +48,7 @@ def test_build_engine_passes_params_through_and_builds_indicators_from_them():
     engine = build_engine(
         registry,
         "ema_crossover",
-        event_bus=Mock(),
+        event_publisher=Mock(),
         params={"fast_period": 7, "slow_period": 21},
     )
 

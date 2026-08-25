@@ -9,9 +9,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
-    RunRealtimeBacktestCommand,
-    RunRealtimeBacktestCommandHandler,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
+    RunHistoricalTickBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     RunStaticBacktestCommand,
@@ -113,11 +113,11 @@ def test_static_backtest_with_position_sizing_and_pyramiding_integration(caplog)
     registry = StrategyRegistry()
     registry.register("pyramiding_test", _PyramidingStrategy)
 
-    event_bus = Mock()
+    event_publisher = Mock()
     handler = RunStaticBacktestCommandHandler(
         repository=repo,
         strategy_registry=registry,
-        event_bus=event_bus,
+        event_publisher=event_publisher,
     )
 
     # Configure 25% equity sizing, pyramiding=3, slippage=2 ticks (tick_size=0.1 -> 0.20 slippage)
@@ -207,11 +207,11 @@ def test_realtime_backtest_with_broker_simulation_integration(caplog):
     registry = StrategyRegistry()
     registry.register("pyramiding_test", _PyramidingStrategy)
 
-    event_bus = Mock()
-    handler = RunRealtimeBacktestCommandHandler(
+    event_publisher = Mock()
+    handler = RunHistoricalTickBacktestCommandHandler(
         repository=repo,
         strategy_registry=registry,
-        event_bus=event_bus,
+        event_publisher=event_publisher,
     )
 
     sizing = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=50.0)
@@ -222,7 +222,7 @@ def test_realtime_backtest_with_broker_simulation_integration(caplog):
         commission_value=0.0,
     )
 
-    cmd = RunRealtimeBacktestCommand(
+    cmd = RunHistoricalTickBacktestCommand(
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
         tick_resolution=TimeFrame.ONE_SECOND,

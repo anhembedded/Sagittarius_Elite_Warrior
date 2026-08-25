@@ -10,15 +10,18 @@ from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
-from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
-    SingleSyncProgressEvent,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
+    SyncProgressFeed,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+    SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
@@ -33,6 +36,7 @@ from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
+from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
 from .signal_log_handler import SignalLogHandler
 
@@ -61,13 +65,33 @@ class DataManagementPresenter(BasePresenter):
     INITIAL_STATE = UIMode.IDLE
 
     # ------------------------------------------------------------------ #
-    # Thread-safe signals
+    # Thread-safe Signal Bridges — worker thread → main UI thread
+    #
+    # ĐỌC TRƯỚC KHI XOÁ BẤT KỲ SIGNAL NÀO Ở ĐÂY.
+    #
+    # Đây KHÔNG phải nợ kỹ thuật. Qt queued signal chính là cơ chế Qt thiết kế
+    # ra để đưa dữ liệu từ thread nền về main thread. Xoá chúng = đẩy cập nhật
+    # UI sang worker thread, đúng lớp lỗi BUG-031 — kiểu hỏng "app chạy, test
+    # xanh, màn hình không cập nhật" mà test offscreen KHÔNG bắt được.
+    #
+    # `QtEventBridge` (EPIC-008D) KHÔNG thay thế được: nó chỉ bắc cầu cho event
+    # đi qua event bus, còn các worker này không bao giờ đụng bus.
+    #
+    # Signal ở đây hay Event Bus? Hỏi: "màn khác cũng muốn biết chuyện này thì
+    # có vô lý không?"  Vô lý → giữ Qt signal. Hợp lý → Event Bus + đúng 1 Feed
+    # chuẩn hoá (`presentation/ui/common/`). Thăng cấp KHI có consumer thứ hai
+    # thật, không thăng trước.
+    #
+    # Luật đầy đủ: .agents/rules/architecture-rule.md §6.
     # ------------------------------------------------------------------ #
     ui_log_signal = Signal(str)
     ui_error_log_signal = Signal(str)
     ui_progress_signal = Signal(int)
     ui_single_sync_progress_signal = Signal(int, int, bool, str)
-    ui_status_table_signal = Signal(str, str, str, str, str, str)
+    #: Mang một `StatusRowUpdate`. Trước đây là 6 `str` vị trí — hoán nhầm 2
+    #: cột là lỗi thầm lặng mà `mypy` không thể bắt (xem
+    #: `data_management_signal_payloads.py`).
+    ui_status_table_signal = Signal(object)
     ui_remove_symbol_signal = Signal(str, str)
     ui_clear_table_signal = Signal()
     ui_unlock_signal = Signal()
@@ -76,7 +100,9 @@ class DataManagementPresenter(BasePresenter):
     ui_stats_refresh_signal = Signal()
     ui_sync_complete_signal = Signal()
     ui_symbol_options_signal = Signal(list)
-    ui_gap_inspector_signal = Signal(str, str, int, int, float, list, list)
+    #: Mang một `GapInspectorPayload` — trước là 7 tham số vị trí, có 2 `int`
+    #: liền nhau và 2 `list` liền nhau (xem `data_management_signal_payloads.py`).
+    ui_gap_inspector_signal = Signal(object)
     ui_kline_inspector_signal = Signal(str, str, list)
     ui_audit_result_signal = Signal(bool, int, str, list)
 
@@ -271,14 +297,14 @@ class DataManagementPresenter(BasePresenter):
         self.ui_error_log_signal.connect(self._append_error_log)
         self.ui_progress_signal.connect(view_model.set_progress_value)
         self.ui_single_sync_progress_signal.connect(view_model.set_progress)
-        self.ui_status_table_signal.connect(view_model.status_model.upsert_row)
+        self.ui_status_table_signal.connect(self._on_status_row_update)
         self.ui_remove_symbol_signal.connect(view_model.status_model.remove_symbol)
         self.ui_clear_table_signal.connect(view_model.status_model.clear)
         self.ui_unlock_signal.connect(self._unlock_ui)
         self.ui_stats_refresh_signal.connect(self._on_stats_refresh_requested)
         self.ui_sync_complete_signal.connect(self._on_sync_complete)
         self.ui_symbol_options_signal.connect(view_model.set_symbol_options)
-        self.ui_gap_inspector_signal.connect(view_model.set_gap_inspector_data)
+        self.ui_gap_inspector_signal.connect(self._on_gap_inspector_payload)
         self.ui_kline_inspector_signal.connect(view_model.set_kline_inspector_data)
         self.ui_audit_result_signal.connect(view_model.set_audit_result)
 
@@ -287,9 +313,44 @@ class DataManagementPresenter(BasePresenter):
         self.event_bus.on(
             BulkSyncProgressEvent, self._sync_coordinator.handle_bulk_sync_progress
         )
-        self.event_bus.on(
-            SingleSyncProgressEvent, self._sync_coordinator.handle_single_sync_progress
+        # Tiến độ đồng bộ là sự thật của HỆ THỐNG (Backtest cũng hiển thị) →
+        # đi qua SyncProgressFeed, một nơi chuẩn hoá + ghép chuỗi
+        # (`architecture-rule.md` §6). Trước đây chỉ màn này có câu chữ, nên màn
+        # thứ hai cần dòng tiến độ sẽ ghép bản thứ hai — đúng cách
+        # `HealthUpdatedEvent` từng đi tới ba bản định dạng.
+        self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
+        self._sync_feed.progressUpdated.connect(self._on_sync_progress)
+
+    def _on_gap_inspector_payload(self, payload: GapInspectorPayload) -> None:
+        """Mở gói vào API sẵn có của view model — cùng lý do với
+        `_on_status_row_update`: chỗ được bảo vệ là biên signal."""
+        self._view_model.set_gap_inspector_data(
+            payload.symbol,
+            payload.interval,
+            payload.total_gaps,
+            payload.total_missing_candles,
+            payload.coverage_percentage,
+            payload.gaps,
+            payload.segments,
         )
+
+    def _on_status_row_update(self, update: StatusRowUpdate) -> None:
+        """Mở gói `StatusRowUpdate` vào API sẵn có của model.
+
+        Model giữ nguyên chữ ý nghĩa-theo-tên của nó; chỗ được bảo vệ là biên
+        signal, nơi 6 chuỗi vị trí đi qua hàng đợi cross-thread."""
+        self._view_model.status_model.upsert_row(
+            update.symbol,
+            update.first_record,
+            update.last_record,
+            update.total_candles,
+            update.status_text,
+            update.interval,
+        )
+
+    def _on_sync_progress(self, report: SyncProgressReport) -> None:
+        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
+        self._sync_coordinator.publish_single_sync_progress(report)
 
     # ================================================================== #
     # Qt Slots — execute on the main thread.

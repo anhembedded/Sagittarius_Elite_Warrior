@@ -62,7 +62,16 @@ class BinanceWebsocketService(ILiveStreamService):
         @return True if stopped, False if no stream was running.
         """
         if self._task_handle is None:
-            logger.warning("Stream is not running.")
+            # DEBUG, không phải WARNING: dừng một stream chưa từng chạy là
+            # trạng thái **bình thường**, không phải sự cố.
+            # `LiveStreamEngineAdapter.stop()` gọi hàm này vô điều kiện mỗi lần
+            # tắt app, nên mọi phiên không mở stream đều sinh một WARNING —
+            # đủ để làm đỏ bước "Run Log Scan" của `ci-local.ps1`, và làm loãng
+            # log tới mức WARNING thật bị chìm (`logging-rule.md`).
+            # Thông tin "không có gì để dừng" đã nằm ở giá trị trả về `False`;
+            # nơi gọi mới đủ ngữ cảnh để quyết định đó có đáng cảnh báo không
+            # (user bấm Stop khi chưa chạy = đáng; app shutdown = không).
+            logger.debug("Stop requested but no stream is running; nothing to do.")
             return False
 
         logger.info("Stopping Binance WebSocket stream...")

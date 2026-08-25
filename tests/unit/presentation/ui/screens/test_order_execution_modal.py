@@ -6,7 +6,7 @@ break "by design" once a real engine existed to unlock one — that happened
 here: BOT-076 unlocks index 2 ("Trên mỗi tick của thanh lịch sử", the
 Realtime/tick-driven engine) and wires it to real Python plumbing
 (`BackTestViewModel.executionMode` -> `BacktestRunConfig.execution_mode` ->
-`RunRealtimeBacktestCommand` dispatch in `backtest_presenter.py`).
+`RunHistoricalTickBacktestCommand` dispatch in `backtest_presenter.py`).
 
 Truthful lock states now:
 - Index 0 ("On bar close", BOT-021 static engine) — checked by default,

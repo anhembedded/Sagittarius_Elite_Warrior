@@ -80,7 +80,7 @@ class BacktestExecutionMode(str, Enum):
     @brief Which of the two parallel backtest engines a run uses (BOT-076).
     @details `BAR_CLOSE` dispatches `RunStaticBacktestCommand` (strategy runs
     once per closed candle, `BOT-021`). `HISTORICAL_TICK` dispatches
-    `RunRealtimeBacktestCommand` (strategy re-evaluated every tick inside the
+    `RunHistoricalTickBacktestCommand` (strategy re-evaluated every tick inside the
     forming bar, `BOT-076`). These are the only two — "on order filled"
     (`BOT-077`) and "real-time bar tick" (live trading, not backtest) are
     separate, not-yet-built modes and must not be represented here.

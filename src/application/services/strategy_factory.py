@@ -1,19 +1,21 @@
 from collections.abc import Mapping
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
 )
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 def build_engine(
     registry: StrategyRegistry,
     key: str,
-    event_bus: IEventBus,
+    event_publisher: IEventPublisher,
     params: Mapping[str, Any] | None = None,
 ) -> StrategyEngine:
     """
@@ -32,5 +34,5 @@ def build_engine(
     return StrategyEngine(
         indicators=strategy.build_indicators(),
         strategy=strategy,
-        event_bus=event_bus,
+        event_publisher=event_publisher,
     )

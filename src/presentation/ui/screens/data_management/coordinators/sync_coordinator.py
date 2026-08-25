@@ -4,9 +4,6 @@ from datetime import UTC, datetime
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
-from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
-    SingleSyncProgressEvent,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
@@ -17,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+    SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators.action_kinds import (
@@ -191,10 +191,17 @@ class SyncCoordinator:
                 self._ui_sync_complete_signal()
             self._ui_unlock_signal()
 
-    def handle_single_sync_progress(self, event: SingleSyncProgressEvent) -> None:
-        """Bridge SingleSyncProgressEvent -> Qt Signals."""
-        msg = f"Đang đồng bộ {event.symbol} {event.interval} ({event.current:,}/{event.total:,} nến)"
-        self._ui_single_sync_progress_signal(event.current, event.total, True, msg)
+    def publish_single_sync_progress(self, report: SyncProgressReport) -> None:
+        """Đẩy một `SyncProgressReport` (đã chuẩn hoá bởi `SyncProgressFeed`)
+        lên UI.
+
+        Trước `EPIC-008G` hàm này nhận thẳng `SingleSyncProgressEvent` từ bus và
+        **tự ghép chuỗi** — nơi duy nhất trong app có câu chữ tiến độ, nên màn
+        thứ hai muốn hiển thị sẽ phải ghép bản riêng. Câu chữ giờ nằm ở
+        `SyncProgressReport.to_message()`."""
+        self._ui_single_sync_progress_signal(
+            report.current, report.total, True, report.to_message()
+        )
 
     def custom_time_range(self) -> tuple[datetime | None, datetime | None]:
         """Parse custom time range from view model."""

@@ -1,12 +1,23 @@
-from typing import Protocol
+"""
+@brief `ILiveStreamService` — the port for starting and stopping the live
+market-data stream.
+
+@details Declared in the Application layer, implemented in Infrastructure.
+Converted from `Protocol` to `ABC` in `EPIC-008F` for the same reason as
+`i_cqrs.py`: a structural `Protocol` lets an incomplete implementation
+construct successfully and fail later somewhere else, while an `ABC` refuses
+construction and names the missing method.
+"""
+
+from abc import ABC, abstractmethod
 
 
-class ILiveStreamService(Protocol):
+class ILiveStreamService(ABC):
     """
-    @brief Port interface for managing live market data stream.
-    @details Defined in Application Layer. Implemented by Infrastructure Layer.
+    @brief Port interface for managing the live market data stream.
     """
 
+    @abstractmethod
     def start_stream(self, symbols: list[str], interval_str: str) -> bool:
         """
         @brief Starts the live data stream.
@@ -14,6 +25,7 @@ class ILiveStreamService(Protocol):
         """
         ...
 
+    @abstractmethod
     def stop_stream(self) -> bool:
         """
         @brief Stops the running stream.

@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators.action_kinds import (
     DataManagementActionKind,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_signal_payloads import (
+    StatusRowUpdate,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
     DataManagementViewModel,
 )
@@ -50,7 +53,7 @@ class ScanCoordinator:
         market_data_repo: IMarketDataRepository,
         ui_log_signal: Callable[[str], None],
         ui_error_log_signal: Callable[[str], None],
-        ui_status_table_signal: Callable[[str, str, str, str, str, str], None],
+        ui_status_table_signal: Callable[[StatusRowUpdate], None],
         ui_remove_symbol_signal: Callable[[str, str], None],
         ui_clear_table_signal: Callable[[], None],
         ui_stats_refresh_signal: Callable[[], None],
@@ -141,12 +144,14 @@ class ScanCoordinator:
 
             for item in results:
                 self._ui_status_table_signal(
-                    item.symbol,
-                    item.first_record,
-                    item.last_record,
-                    item.total_candles,
-                    item.status_text,
-                    item.interval,
+                    StatusRowUpdate(
+                        symbol=item.symbol,
+                        first_record=item.first_record,
+                        last_record=item.last_record,
+                        total_candles=item.total_candles,
+                        status_text=item.status_text,
+                        interval=item.interval,
+                    )
                 )
 
             if results:
@@ -202,12 +207,14 @@ class ScanCoordinator:
                 return
 
             self._ui_status_table_signal(
-                symbol,
-                status.first_record,
-                status.last_record,
-                status.total_candles,
-                status.status_text,
-                interval,
+                StatusRowUpdate(
+                    symbol=symbol,
+                    first_record=status.first_record,
+                    last_record=status.last_record,
+                    total_candles=status.total_candles,
+                    status_text=status.status_text,
+                    interval=interval,
+                )
             )
             self._ui_log_signal("Scan complete.")
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
@@ -250,12 +257,14 @@ class ScanCoordinator:
 
             for item in results:
                 self._ui_status_table_signal(
-                    item.symbol,
-                    item.first_record,
-                    item.last_record,
-                    item.total_candles,
-                    item.status_text,
-                    item.interval,
+                    StatusRowUpdate(
+                        symbol=item.symbol,
+                        first_record=item.first_record,
+                        last_record=item.last_record,
+                        total_candles=item.total_candles,
+                        status_text=item.status_text,
+                        interval=item.interval,
+                    )
                 )
 
             if results:

@@ -7,9 +7,6 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
-from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
-    SingleSyncProgressEvent,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
@@ -19,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+    SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
@@ -109,12 +109,18 @@ def test_sync_coordinator_bulk_sync_success(sync_fixture):
 def test_sync_coordinator_progress_event_handlers(sync_fixture):
     coordinator, _, _, _, signals = sync_fixture
 
-    # Single sync progress
-    single_event = SingleSyncProgressEvent(
-        symbol="BTCUSDT", interval="1h", current=50, total=100
+    # Single sync progress — `EPIC-008G`: the coordinator no longer subscribes
+    # to the bus and formats the string itself. `SyncProgressFeed` normalises
+    # once and the presenter hands the report over, so the message has a single
+    # source (`SyncProgressReport.to_message()`).
+    coordinator.publish_single_sync_progress(
+        SyncProgressReport(symbol="BTCUSDT", interval="1h", current=50, total=100)
     )
-    coordinator.handle_single_sync_progress(single_event)
     signals["ui_single_sync_progress"].assert_called_once()
+    _current, _total, _active, message = signals[
+        "ui_single_sync_progress"
+    ].call_args.args
+    assert "BTCUSDT" in message and "50" in message
 
     # Bulk sync progress
     bulk_event = BulkSyncProgressEvent(

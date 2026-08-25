@@ -79,13 +79,13 @@ def _build_klines(closes: list[float]) -> list[MarketData]:
 
 
 def _build_engine() -> tuple[StrategyEngine, Mock]:
-    event_bus = Mock()
+    event_publisher = Mock()
     engine = StrategyEngine(
         indicators={"rsi": RSI(period=14)},
         strategy=_StubRsiThresholdStrategy(),
-        event_bus=event_bus,
+        event_publisher=event_publisher,
     )
-    return engine, event_bus
+    return engine, event_publisher
 
 
 # Verified via scratch simulation (RSI(14) over this exact series):
@@ -101,7 +101,7 @@ EXPECTED_ACTIONABLE_SIGNAL_COUNT = 17
 
 def test_on_tick_returns_none_during_warmup():
     # Arrange
-    engine, event_bus = _build_engine()
+    engine, event_publisher = _build_engine()
     klines = _build_klines(FULL_CLOSES[:14])
 
     # Act
@@ -109,14 +109,14 @@ def test_on_tick_returns_none_during_warmup():
 
     # Assert
     assert results == [None] * 14
-    event_bus.emit.assert_not_called()
+    event_publisher.publish.assert_not_called()
 
 
 def test_on_tick_returns_none_on_hold_decision():
     # Arrange — candles 14-19 are RSI == 50.0, a genuine Hold decision from
     # the strategy (not missing indicator data); confirms Hold collapses to
     # None at the engine boundary, distinct from the warm-up case above.
-    engine, event_bus = _build_engine()
+    engine, event_publisher = _build_engine()
     klines = _build_klines(FULL_CLOSES[:20])
 
     # Act
@@ -124,12 +124,12 @@ def test_on_tick_returns_none_on_hold_decision():
 
     # Assert
     assert results == [None] * 20
-    event_bus.emit.assert_not_called()
+    event_publisher.publish.assert_not_called()
 
 
 def test_signal_generated_event_emitted_for_every_returned_signal():
     # Arrange
-    engine, event_bus = _build_engine()
+    engine, event_publisher = _build_engine()
     klines = _build_klines(FULL_CLOSES)
 
     # Act
@@ -139,11 +139,11 @@ def test_signal_generated_event_emitted_for_every_returned_signal():
     # Assert — dataset genuinely exercises warm-up, Hold, Buy, and Sell, so
     # this isn't vacuously true.
     assert len(signals) == EXPECTED_ACTIONABLE_SIGNAL_COUNT
-    assert event_bus.emit.call_count == EXPECTED_ACTIONABLE_SIGNAL_COUNT
+    assert event_publisher.publish.call_count == EXPECTED_ACTIONABLE_SIGNAL_COUNT
     assert any(s.action is SignalAction.BUY for s in signals)
     assert any(s.action is SignalAction.SELL for s in signals)
     assert all(s.action is not SignalAction.HOLD for s in signals)
-    for call in event_bus.emit.call_args_list:
+    for call in event_publisher.publish.call_args_list:
         (event,), _ = call
         assert isinstance(event, SignalGeneratedEvent)
         assert event.signal.action is not SignalAction.HOLD
@@ -151,7 +151,7 @@ def test_signal_generated_event_emitted_for_every_returned_signal():
 
 def test_run_batch_returns_only_actionable_signals():
     # Arrange
-    engine, event_bus = _build_engine()
+    engine, event_publisher = _build_engine()
     klines = _build_klines(FULL_CLOSES)
 
     # Act
@@ -159,14 +159,14 @@ def test_run_batch_returns_only_actionable_signals():
 
     # Assert
     assert len(signals) == EXPECTED_ACTIONABLE_SIGNAL_COUNT
-    assert event_bus.emit.call_count == EXPECTED_ACTIONABLE_SIGNAL_COUNT
+    assert event_publisher.publish.call_count == EXPECTED_ACTIONABLE_SIGNAL_COUNT
 
 
 def test_batch_and_incremental_produce_identical_signals():
     # Arrange — two entirely separate engines (own RSI, own Mock event bus)
     # so this test can't pass by accident from shared mutable state.
-    batch_engine, batch_event_bus = _build_engine()
-    tick_engine, tick_event_bus = _build_engine()
+    batch_engine, batch_event_publisher = _build_engine()
+    tick_engine, tick_event_publisher = _build_engine()
     klines = _build_klines(FULL_CLOSES)
 
     # Act
@@ -181,7 +181,10 @@ def test_batch_and_incremental_produce_identical_signals():
     # not just counts/actions, plus identical emitted events in the same order.
     assert batch_signals == tick_signals
     assert len(batch_signals) == EXPECTED_ACTIONABLE_SIGNAL_COUNT
-    assert batch_event_bus.emit.call_args_list == tick_event_bus.emit.call_args_list
+    assert (
+        batch_event_publisher.publish.call_args_list
+        == tick_event_publisher.publish.call_args_list
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +208,8 @@ def test_on_forming_bar_tick_rejects_a_closed_candle():
 def test_on_forming_bar_tick_never_mutates_indicator_state():
     # Two separate engines warmed identically; one gets a barrage of
     # provisional ticks in between, the other doesn't.
-    engine, event_bus = _build_engine()
-    reference, reference_event_bus = _build_engine()
+    engine, event_publisher = _build_engine()
+    reference, reference_event_publisher = _build_engine()
     klines = _build_klines(FULL_CLOSES[:20])
 
     for candle in klines[:-1]:
@@ -219,14 +222,17 @@ def test_on_forming_bar_tick_never_mutates_indicator_state():
     # The provisional ticks above legitimately emit their own signals (that
     # is their whole purpose) — reset before the real commit so the
     # assertion below isolates only on_tick()'s own emission, not those.
-    event_bus.reset_mock()
+    event_publisher.reset_mock()
 
     # However many provisional ticks happened, the real commit must be
     # identical to an engine that was never peeked at all.
     committed = engine.on_tick(last_candle)
     reference_committed = reference.on_tick(last_candle)
     assert committed == reference_committed
-    assert event_bus.emit.call_args_list == reference_event_bus.emit.call_args_list
+    assert (
+        event_publisher.publish.call_args_list
+        == reference_event_publisher.publish.call_args_list
+    )
 
 
 def test_on_forming_bar_tick_can_disagree_with_the_eventual_bar_close():
@@ -287,7 +293,7 @@ class _PositionSideSpyStrategy:
 
 def test_on_tick_forwards_current_position_side_into_the_context():
     spy = _PositionSideSpyStrategy()
-    engine = StrategyEngine(indicators={}, strategy=spy, event_bus=Mock())
+    engine = StrategyEngine(indicators={}, strategy=spy, event_publisher=Mock())
     candle = _build_klines([100.0])[0]
 
     engine.on_tick(candle, current_position_side=PositionSide.SHORT)
@@ -300,7 +306,7 @@ def test_on_tick_defaults_current_position_side_to_none_when_unspecified():
     above this one in this file) never passes this argument — the
     strategy must keep seeing exactly what it always saw, `None`."""
     spy = _PositionSideSpyStrategy()
-    engine = StrategyEngine(indicators={}, strategy=spy, event_bus=Mock())
+    engine = StrategyEngine(indicators={}, strategy=spy, event_publisher=Mock())
     candle = _build_klines([100.0])[0]
 
     engine.on_tick(candle)
@@ -310,7 +316,7 @@ def test_on_tick_defaults_current_position_side_to_none_when_unspecified():
 
 def test_on_forming_bar_tick_forwards_current_position_side_into_the_context():
     spy = _PositionSideSpyStrategy()
-    engine = StrategyEngine(indicators={}, strategy=spy, event_bus=Mock())
+    engine = StrategyEngine(indicators={}, strategy=spy, event_publisher=Mock())
     candle = _build_klines([100.0])[0]
     forming_candle = replace(candle, is_closed=False)
 

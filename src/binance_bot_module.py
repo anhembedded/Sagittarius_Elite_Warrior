@@ -3,6 +3,15 @@ import os
 from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_config_reader import (
+    IConfigReader,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
@@ -25,9 +34,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest i
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.handler import (
     BacktestState,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_realtime_backtest import (
-    RunRealtimeBacktestCommand,
-    RunRealtimeBacktestCommandHandler,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
+    RunHistoricalTickBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     RunStaticBacktestCommand,
@@ -141,6 +150,15 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_serv
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
     PythonBinanceClient,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
+    EngineCommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.config_reader_adapter import (
+    EngineConfigReader,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
+    EngineEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
@@ -196,6 +214,15 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
+
+        # EPIC-008F: the Application layer talks to the engine only through
+        # these three ports; the adapters are the only place naming IEventBus,
+        # IConfig or IDispatcher.
+        app.container.singleton(IEventPublisher, EngineEventPublisher(app.event_bus))
+        app.container.singleton(IConfigReader, EngineConfigReader(config))
+        app.container.singleton(
+            ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)
+        )
         app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
         # BOT-098F6D: transient — BackTestView has no container access itself,
         # so BackTestPresenter resolves this and pushes it in; never a
@@ -217,7 +244,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
         app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
         app.container.bind(
-            RunRealtimeBacktestCommand, RunRealtimeBacktestCommandHandler
+            RunHistoricalTickBacktestCommand, RunHistoricalTickBacktestCommandHandler
         )
         app.container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
         app.container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)
@@ -271,7 +298,7 @@ class BinanceBotModule(BaseModule):
         app.context.hosted_services.register(adapter)
 
         # Initialize Event Handlers and subscribe to the Event Bus
-        event_handler = MarketTickEventHandler(app)
+        event_handler = MarketTickEventHandler()
         app.event_bus.on(MarketTickEvent, event_handler.handle)
 
     def shutdown(self, app: App) -> None:

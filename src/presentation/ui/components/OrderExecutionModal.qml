@@ -10,7 +10,7 @@ import Sagittarius.UI 1.0
 //   directly toggled off (locked: true) — the user leaves it by picking a different mode
 //   instead, same as any single-select group.
 // - "Trên mỗi tick của thanh lịch sử" is BOT-076's tick-driven Realtime Backtest engine —
-//   real, selectable, dispatches RunRealtimeBacktestCommand (locked: false).
+//   real, selectable, dispatches RunHistoricalTickBacktestCommand (locked: false).
 // - The remaining 2 modes are NOT this screen's concern and stay locked: "Khi lệnh được
 //   khớp" is calc_on_order_fills, BOT-077's scope (a strategy re-run at the moment of fill,
 //   not this engine); "Trên mỗi tick của thanh thời gian thực" means a live/real-time bar,

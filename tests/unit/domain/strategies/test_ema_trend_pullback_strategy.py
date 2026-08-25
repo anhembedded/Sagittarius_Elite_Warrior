@@ -72,7 +72,7 @@ def _build_engine(params: dict[str, object] = _TEST_PARAMS) -> StrategyEngine:
     return StrategyEngine(
         indicators=strategy.build_indicators(),
         strategy=strategy,
-        event_bus=Mock(),
+        event_publisher=Mock(),
     )
 
 

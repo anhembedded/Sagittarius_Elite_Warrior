@@ -1,5 +1,8 @@
 from types import MappingProxyType
 
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
@@ -17,7 +20,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 class StrategyEngine:
@@ -46,11 +48,11 @@ class StrategyEngine:
         self,
         indicators: dict[str, IIndicator[IndicatorValue]],
         strategy: IStrategy,
-        event_bus: IEventBus,
+        event_publisher: IEventPublisher,
     ) -> None:
         self._indicators = indicators
         self._strategy = strategy
-        self._event_bus = event_bus
+        self._event_publisher = event_publisher
 
     def on_tick(
         self,
@@ -105,7 +107,7 @@ class StrategyEngine:
         if signal.action is SignalAction.HOLD:
             return None
 
-        self._event_bus.emit(SignalGeneratedEvent(signal=signal))
+        self._event_publisher.publish(SignalGeneratedEvent(signal=signal))
         return signal
 
     def _process_one(
@@ -126,7 +128,7 @@ class StrategyEngine:
         if signal.action is SignalAction.HOLD:
             return None
 
-        self._event_bus.emit(SignalGeneratedEvent(signal=signal))
+        self._event_publisher.publish(SignalGeneratedEvent(signal=signal))
         return signal
 
     def _update_indicators(

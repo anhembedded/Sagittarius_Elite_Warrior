@@ -6,8 +6,10 @@
 **Severity:** 🟡 P2 — does not affect the shipped app (test-infrastructure
 only), but silently breaks the mandatory local CI gate's "Tests" step under
 its own default parallel settings, with no useful summary to diagnose from.
-**Status:** 🔴 **Open — reproduced twice at the identical spot, root cause
-narrowed to a resource-leak class but not pinned to one exact source.**
+**Status:** 🔴 **Open — cơ chế rò rỉ đã được xác định và chứng minh bằng thực
+nghiệm (2026-08-25, xem §"Điều tra 2026-08-25"); chưa pin được test cụ thể vì
+cần chạy trên Windows. Đã có công cụ sẵn sàng chỉ đích danh file:line khi ai đó
+chạy được trên Windows: `scripts/bug030_connection_leak_probe.py`.**
 
 ## Symptom
 
@@ -133,3 +135,95 @@ Found only because the user pushed to actually run the real `-Full` gate
 a stand-in — `tests/unit/ -n 6` alone is clean and would never have surfaced
 this; it needs the broader `unit + integration` scope's real SQLite/subprocess
 tests present to trigger.
+
+---
+
+## Điều tra 2026-08-25 (Linux) — tìm ra **cơ chế** rò rỉ, và một giả định trong hồ sơ này bị bác bỏ
+
+### 1. Linux vẫn không tái hiện — nhưng lần này kiểm bằng bằng chứng dương tính
+
+Lần kiểm 2026-08-23 kết luận "không có `ResourceWarning`". Đó là bằng chứng
+**vắng mặt triệu chứng**, yếu: connection có thể vẫn đang mở mà GC chưa kịp
+than phiền. Lần này đo thẳng **trạng thái đóng/mở của từng connection**, không
+chờ GC:
+
+| Cấu hình | Kết quả |
+| :--- | :--- |
+| Tuần tự, `unit + integration` (trừ `sanity`/flaky-UI) | 1700 passed, **31 connection mở, 0 chưa đóng** |
+| `-n 6` (đúng cấu hình bug mô tả) | 1700 passed, 0 `ResourceWarning`, **0 rò rỉ trên cả 6 worker** |
+
+Phân bố dưới `-n 6`: `gw0` mở 21 connection (nhiều nhất — đúng worker chết trên
+Windows), `gw2` 5, `gw4` 3, còn lại 0. **Tất cả đều được đóng tường minh.**
+
+Kết luận không đổi so với 23/08 nhưng nay chắc chắn hơn: ở HEAD hiện tại, trên
+Linux, **không test nào để lại connection chưa đóng** — kể cả nghi phạm chính
+`test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live`.
+
+### 2. Cơ chế rò rỉ — đã chứng minh, và nó bác bỏ bước 3 của kế hoạch cũ
+
+`SqliteShardManager.dispose_all()` gọi `engine.dispose()` cho mọi engine. Nhưng
+`Engine.dispose()` **chỉ đóng connection đang nằm trong pool (checked-in)**.
+Một `Session` còn đang giữ connection (checked-out) thì `dispose()` **không
+đóng** — nó detach, và connection chỉ được đóng khi GC finalize. Đó **chính xác**
+là điều kiện sinh ra `ResourceWarning` ở thời điểm ngẫu nhiên trên Windows.
+
+Chứng minh (dùng `DatabaseManager` thật, không mock):
+
+```
+A. session KHÔNG close, rồi dispose_all()   -> connection VẪN MỞ   ← rò rỉ
+B. session.close() rồi dispose_all()        -> connection ĐÃ ĐÓNG
+```
+
+**Hệ quả cho bước 3 của "Suggested next steps" ở trên:** kế hoạch đó nói cứ áp
+lại "fix pattern" `dispose_all()` trong teardown là xong. **Không đủ.**
+`dispose_all()` là điều kiện cần, không phải điều kiện đủ — bất kỳ đường code
+nào lấy session mà không đóng đều sống sót qua `dispose_all()`. Khi truy trên
+Windows, thứ cần tìm **không phải** "fixture nào quên `dispose_all()`" mà là
+"**session/connection nào bị bỏ quên ở trạng thái checked-out**".
+
+### 3. `test_sqlalchemy_repository.py` được minh oan — lần thứ hai, và lần này có bằng chứng
+
+Một bản probe sai (xem §4) từng tố cáo 18 test của file này. Sau khi sửa probe,
+file này cho **0 rò rỉ trên 17 connection**. Đánh giá ban đầu của hồ sơ về fixture
+`repo` là **đúng**; `SQLAlchemyMarketDataRepository` cũng dùng
+`with self.db_manager.get_session(symbol) as session:` ở toàn bộ 11 call site, tức
+luôn `close()`.
+
+### 4. Công cụ: `scripts/bug030_connection_leak_probe.py`
+
+Đây là thứ mà bước 2 của kế hoạch cũ mô tả, nay đã tồn tại và đã được kiểm chứng.
+Nó gán **đích danh test** để lại connection chưa đóng, kèm stack nơi connection
+được mở. Cách chạy nằm trong docstring của chính file.
+
+**Ba cái bẫy đã làm probe trả về "sạch" một cách sai lệch — ghi lại vì bất kỳ ai
+tự viết lại probe này sẽ dẫm đúng vào:**
+
+1. `sqlite3.Connection` **không weak-reference được** trong CPython —
+   `weakref.ref()` ném `TypeError`. Nuốt lỗi đó = probe im lặng không theo dõi gì,
+   báo "0 connection".
+2. SQLAlchemy gọi `sqlite3.dbapi2.connect`, là **attribute module khác** với
+   `sqlite3.connect` dù cùng trỏ tới một builtin. Patch mỗi cái sau = chặn hụt
+   hoàn toàn.
+3. `pytest_runtest_teardown` **phải là hookwrapper**. Bản impl thường đua với
+   hook teardown của chính pytest và có thể chạy **trước** finalizer của fixture
+   — đó là nguồn của 18 cáo buộc sai ở §3.
+
+Cả ba đều cho ra kết quả trông rất thuyết phục mà hoàn toàn sai. Đây đúng loại
+"test/probe pass mà không chứng minh được gì" mà `bug-fix-rule.md` §3 cảnh báo.
+
+### 5. Bước tiếp theo (cần một máy Windows)
+
+1. Chạy probe trên Windows đúng cấu hình `-n 6` của gate thật. Nó sẽ in ra test
+   nào để lại connection mở, kèm stack — biến "một test nào đó rò rỉ" thành
+   file:line cụ thể.
+2. Với test đó, tìm session **checked-out** không được đóng (theo §2), không phải
+   tìm `dispose_all()` thiếu.
+3. Nếu probe trên Windows cũng báo 0 rò rỉ: giả thuyết "unclosed connection" sai
+   hẳn, và hướng điều tra phải chuyển sang xdist/Windows file-handle thay vì
+   SQLite — lúc đó §2 vẫn còn giá trị như một defect độc lập cần vá phòng ngừa.
+
+### 6. Ghi chú môi trường
+
+Repo Engine yêu cầu **Python ≥3.14** (dùng cú pháp PEP 758 `except A, B:` không
+ngoặc, 3.13 không parse được). Máy Linux phải dựng venv 3.14 riêng mới chạy được
+bộ test — `python3` mặc định của môi trường CI cloud là 3.11.

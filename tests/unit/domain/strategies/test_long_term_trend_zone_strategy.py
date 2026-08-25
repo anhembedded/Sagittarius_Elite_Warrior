@@ -25,7 +25,7 @@ def _build_engine(trend_ema_len: int = 10) -> StrategyEngine:
     return StrategyEngine(
         indicators=strategy.build_indicators(),
         strategy=strategy,
-        event_bus=Mock(),
+        event_publisher=Mock(),
     )
 
 

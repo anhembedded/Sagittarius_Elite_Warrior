@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators.action_kinds import (
     DataManagementActionKind,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_signal_payloads import (
+    GapInspectorPayload,
+)
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -121,13 +124,15 @@ class GapCoordinator:
                 for s in result.coverage_segments
             ]
             self._ui_gap_inspector_signal(
-                result.symbol,
-                result.interval,
-                result.total_gaps,
-                result.total_missing_candles,
-                result.coverage_percentage,
-                gaps_data,
-                segments_data,
+                GapInspectorPayload(
+                    symbol=result.symbol,
+                    interval=result.interval,
+                    total_gaps=result.total_gaps,
+                    total_missing_candles=result.total_missing_candles,
+                    coverage_percentage=result.coverage_percentage,
+                    gaps=gaps_data,
+                    segments=segments_data,
+                )
             )
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001
