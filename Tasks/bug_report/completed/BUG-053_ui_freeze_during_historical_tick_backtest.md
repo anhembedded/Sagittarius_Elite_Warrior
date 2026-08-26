@@ -1,9 +1,10 @@
 # BUG-053 — UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest
 
 **Reported date:** 2026-08-26
-**Severity:** Chưa đánh giá (chưa điều tra)
-**Status:** 🔴 Open — chỉ mới ghi nhận hiện tượng theo yêu cầu người báo,
-**chưa điều tra root cause**.
+**Severity:** 🔴 **P1** — UI đơ tới 69 giây, người dùng không thao tác được gì
+**Status:** ✅ **Fixed 2026-08-26** — root-caused (đo được, không phải suy luận),
+tái hiện bằng probe, regression test đỏ-đúng-lý-do trước fix, xanh sau, và đo lại
+bằng **bằng chứng dương tính** (đỉnh trễ heartbeat 4,02s → 0,18s).
 
 ---
 
@@ -102,26 +103,121 @@ Chỉ ghi lại những gì đọc **trực tiếp** được trên log, không 
 UI vẫn phản hồi (di chuột, đổi tab, bấm huỷ) trong suốt lúc Historical Tick Backtest chạy —
 công việc nặng phải nằm ngoài Qt main thread; watchdog không được bắn.
 
-## 4. Suggested next steps
+## 4. Root cause
 
-*(Chưa thực hiện — người báo yêu cầu chỉ tạo hồ sơ, không điều tra.)*
+**Cơ chế: heap vài triệu object → mỗi lần GC gen-2 mất vài giây → GC giữ GIL →
+Qt main thread không chạy nổi cả slot heartbeat của chính nó.**
 
-1. Trước hết sửa chỗ khiến chính bằng chứng vô dụng: **stack dump của watchdog dừng ở
-   `app.exec()`**, không có frame nào bên dưới, nên 4/5 lần đơ không truy được. Xác định
-   watchdog đang chụp stack bằng cách nào và vì sao chỉ thấy 2–3 frame.
-2. Tái hiện với `--debug` trên đúng đường `RunHistoricalTickBacktestCommand` ở range lớn
-   (`1h` / tick `1s` / 30 ngày ≈ 2.59M tick) rồi đọc file log (không đọc console — theo
-   `CLAUDE.md` §2).
-3. Cần tách bạch **3 pha** trong lần chạy, vì log cho thấy đơ ở cả 3: nạp tick
-   (`execute_start` → `ticks_loaded`), mô phỏng (`ticks_loaded` → `simulation_complete`), và
-   vẽ lại chart (`ChartCard [chart-data]` ngay sau đó).
-4. Đối chiếu với 2 hồ sơ đã đóng cùng khu vực trước khi kết luận trùng lặp hay không —
-   **chưa xác minh, chỉ ghi để lượt sau kiểm tra**:
-   [`BUG-033`](../completed/BUG-033_realtime_backtest_progress_flood_freezes_ui_thread.md)
-   (progress signal flood cùng màn hình Realtime Backtest, đóng 2026-08-23) và
-   [`BUG-042`](../completed/BUG-042_paper_exchange_log_flood_freezes_ui_thread.md)
-   (log flood của `PaperExchange`, đóng 2026-08-24).
-5. Ghi nhận riêng quan sát #4 mục 2 (timestamp `recovered` sớm hơn `DETECTED`) — nếu xác
-   nhận là lỗi độc lập thì tách hồ sơ riêng, đừng gộp vào đây.
-6. Chỉ viết regression test **sau khi** biết pha nào chặn main thread — hiện chưa đủ dữ
-   kiện để test đúng chỗ.
+`RunHistoricalTickBacktestCommandHandler.execute()` nạp **toàn bộ** range tick
+bằng một lời gọi duy nhất:
+
+```python
+ticks = self._repository.get_klines(...)   # src/.../run_historical_tick_backtest/handler.py
+self._log_trace("handler_ticks_loaded", count=len(ticks))
+```
+
+`SQLAlchemyMarketDataRepository.get_klines()` chạy `query.all()` rồi
+list-comprehension sang `MarketData`, nên ở đỉnh điểm **mỗi tick tồn tại 2 lần**:
+một `KlineModel` (ORM) và một `MarketData` (dataclass, kèm 2 `datetime`). Với
+2.592.000 tick là hàng chục triệu object sống cùng lúc. Chi phí một lần quét
+gen-2 của CPython tỉ lệ với **tổng số object đang được GC theo dõi**, và
+**GC chạy trong khi giữ GIL** — nên suốt lần quét đó main thread không thực thi
+được một bytecode Python nào.
+
+Điều này giải thích trọn vẹn cả 4 quan sát ở §2:
+
+| Quan sát §2 | Giải thích |
+| :--- | :--- |
+| #1 chỉ đơ trong `RunHistoricalTickBacktestCommand` | Chỉ đường tick mới nạp cả range; đây là handler duy nhất còn gọi `get_klines()` cho dữ liệu lớn |
+| #2 Static backtest **không** đơ dù 48.131 nến | Đường Static đã chuyển sang `count_klines()`/`stream_klines()` từ [`BUG-025`](../completed/BUG-025_unbuffered_full_materialization_sync_and_backtest_data_paths.md) — heap không phình |
+| #3 4/5 stack dump dừng ở `app.exec()` | **Bản dump không hỏng — nó đúng.** `UIWatchdog._handle_freeze()` gọi `traceback.format_stack()` trên frame Python của main thread; main thread lúc đó nằm trong C++ của Qt và đang **chờ GIL**, nên nó thật sự *không có* frame Python nào sâu hơn. "Stack rỗng" chính là bằng chứng: main thread không bị kẹt trong code của app, nó bị bỏ đói GIL |
+| Thời lượng đơ tăng theo số tick (5,1s ở 604.800 → 69,1s ở 2.592.000) | Heap càng lớn, mỗi lần quét gen-2 càng lâu |
+
+### Bằng chứng đo được (không phải suy luận)
+
+Probe dựng đúng hình dạng production — Qt event loop trên main thread với một
+`QTimer` 100ms đóng vai heartbeat, handler thật chạy trên thread nền, DB SQLite
+thật 2.592.000 tick 1s:
+
+| Cấu hình | Đỉnh trễ heartbeat | Số lần trễ >1s | Wall |
+| :--- | :---: | :---: | :---: |
+| **A. Trước fix, GC bật** | **4,02s** | 6 | 159,2s |
+| **B. Trước fix, `gc.disable()` trên thread nền** | 0,80s | 0 | 131,2s |
+| **C. Sau fix, GC bật** | **0,18s** | 0 | 106,3s |
+
+Chuỗi các lần trễ ở cấu hình A tăng **đơn điệu** đúng như một heap đang phình:
+
+```
+gap 1.08s at t+42.7s
+gap 1.43s at t+47.9s
+gap 1.80s at t+55.2s
+gap 2.16s at t+63.8s
+gap 2.68s at t+75.4s
+gap 4.02s at t+90.9s
+```
+
+A → B là phép thử quyết định: **chỉ tắt GC**, không đụng gì khác, mọi lần trễ
+nhiều giây biến mất. Đó là bằng chứng trực tiếp rằng thủ phạm là pha GC, không
+phải "thread nền ăn CPU".
+
+Con số ở máy này thấp hơn máy người báo (4,02s so với 69,1s) vì probe chạy
+`QCoreApplication` offscreen, không gánh cả cây widget + wayland + DPR 2 như
+app thật; cơ chế thì giống hệt, chỉ khác hệ số.
+
+## 5. Fix
+
+Chuyển đường tick sang **đúng contract mà `BUG-025` đã dựng cho đường Static** —
+`count_klines()` để biết tổng, `stream_klines()` để tiêu thụ:
+
+- `handler.execute()`: `get_klines()` → `count_klines()` + `stream_klines()`.
+  `handler_ticks_loaded` giờ lấy số từ `count_klines()` (giữ nguyên tên action
+  để log lịch sử vẫn so sánh được, y như `handler_klines_loaded` của Static).
+- `handler._simulate()`: nhận `Iterator[MarketData]` + `total_ticks: int` thay
+  cho `list`. `len(ticks)` → tham số; `ticks[-1]` → biến `last_tick` cập nhật
+  trong vòng lặp (iterator không index ngược được, và đọc lại range chỉ để lấy
+  tick cuối thì tái lập đúng cái vừa bỏ).
+
+Không đụng logic mô phỏng: thứ tự tick, ranh giới bar, `_commit_bar`, throttle
+tiến độ đều giữ nguyên — 10/10 test hành vi sẵn có của handler vẫn xanh.
+
+**Tại sao đủ:** không còn lúc nào cả range cùng sống, nên heap không bao giờ
+phình tới ngưỡng làm một lần quét gen-2 kéo dài nhiều giây. Đo lại ở cấu hình C
+với GC **vẫn bật**: đỉnh trễ 0,18s — tốt hơn cả lúc tắt GC ở B, và wall giảm
+159,2s → 106,3s (−33%).
+
+## 6. Regression test
+
+`tests/unit/application/use_cases/test_run_historical_tick_backtest.py`
+
+- `test_ticks_are_streamed_never_all_held_alive_at_once` — dùng `weakref.WeakSet`
+  đếm **số tick object sống cùng lúc** ở giữa lúc handler đang chạy, chặn trần 16
+  trên 600 tick. Đây là bất biến gây ra bug, không phải "đã gọi hàm nào".
+- `_configure_repo_with_ticks()` (helper dùng chung cho cả file) gắn
+  `repo.get_klines.side_effect = AssertionError(...)`, nên đường materialize cũ
+  **không thể** đi qua file test này nữa.
+
+Đỏ trước fix, đúng lý do:
+
+```
+AssertionError: BUG-053: the historical-tick path must stream via count_klines()/
+stream_klines(); materializing the whole range with get_klines() is what starved
+the Qt main thread.
+```
+
+Xanh sau fix: 10 passed.
+
+`tests/integration/application/test_backtest_with_broker_simulation.py` cũng
+được cập nhật mock sang `count_klines()`/`stream_klines()` — theo interface, không
+nới lỏng assertion nào.
+
+## 7. Việc còn mở, tách khỏi bug này
+
+- Quan sát §2 #4 (dòng `recovered` ghi timestamp sớm hơn 10ms so với chính dòng
+  `DETECTED` nó phục hồi) **chưa điều tra**. Nằm trong `UIWatchdog` của
+  `sagittarius_engine`, không phải repo này; không ảnh hưởng tới fix ở trên. Nếu
+  xác nhận là lỗi thật thì mở hồ sơ riêng ở repo engine.
+- `UIWatchdog._handle_freeze()` chỉ dump stack Python của main thread. Như §4
+  giải thích, với lớp bug bỏ-đói-GIL thì dump đó **đúng nhưng vô dụng cho việc
+  quy trách nhiệm** — muốn lần sau chỉ thẳng được thủ phạm thì watchdog cần dump
+  **mọi** thread (`sys._current_frames()` đã có sẵn tất cả). Cũng là việc của repo
+  engine.

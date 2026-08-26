@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import perf_counter
@@ -184,15 +185,23 @@ class RunHistoricalTickBacktestCommandHandler(
             start=command.start_time,
             end=command.end_time,
         )
-        ticks = self._repository.get_klines(
+        # BUG-053: count first, then stream — never materialize the range.
+        # `get_klines()` held every tick of the range alive at once (plus one
+        # ORM row each, in the SQLAlchemy repository), and a multi-million
+        # object heap makes each CPython gen-2 collection take seconds. The
+        # GC holds the GIL for the whole collection, so the Qt main thread
+        # cannot run even its own heartbeat slot — which is what the
+        # UIWatchdog reported as a UI freeze. Same contract the Static path
+        # moved to in BUG-025.
+        total_ticks = self._repository.count_klines(
             symbol=command.symbol,
             interval=command.tick_resolution,
             start_time=command.start_time,
             end_time=command.end_time,
             limit=command.limit,
         )
-        self._log_trace("handler_ticks_loaded", count=len(ticks))
-        if not ticks:
+        self._log_trace("handler_ticks_loaded", count=total_ticks)
+        if not total_ticks:
             reason = (
                 f"No {command.tick_resolution.value} tick data found for "
                 f"{command.symbol}. Please run sync first."
@@ -201,7 +210,14 @@ class RunHistoricalTickBacktestCommandHandler(
             self._event_publisher.publish(BacktestFailedEvent(reason=reason))
             return None
 
-        result = self._simulate(ticks, command)
+        ticks = self._repository.stream_klines(
+            symbol=command.symbol,
+            interval=command.tick_resolution,
+            start_time=command.start_time,
+            end_time=command.end_time,
+            limit=command.limit,
+        )
+        result = self._simulate(ticks, total_ticks, command)
         if isinstance(result, BacktestCancelled):
             return result
 
@@ -219,7 +235,10 @@ class RunHistoricalTickBacktestCommandHandler(
         return result
 
     def _simulate(
-        self, ticks: list[MarketData], command: RunHistoricalTickBacktestCommand
+        self,
+        ticks: Iterator[MarketData],
+        total_ticks: int,
+        command: RunHistoricalTickBacktestCommand,
     ) -> BacktestResult | BacktestCancelled:
         engine = build_engine(
             self._strategy_registry,
@@ -244,10 +263,15 @@ class RunHistoricalTickBacktestCommandHandler(
         committed_bars: list[MarketData] = []
         forming: _FormingBar | None = None
         started_at = perf_counter()
-        total_ticks = len(ticks)
         progress_throttle = ProgressThrottle()
+        #: BUG-053 — the stream is consumed once and never kept, so the last
+        #: tick has to be remembered as it goes past; `ticks[-1]` is not
+        #: available on an iterator (and re-reading the range to get it would
+        #: reintroduce exactly the materialization this fix removes).
+        last_tick: MarketData | None = None
 
         for index, tick in enumerate(ticks, start=1):
+            last_tick = tick
             if command.cancellation_requested and command.cancellation_requested():
                 self._log_trace(
                     "handler_cancelled", processed=index - 1, total=total_ticks
@@ -320,8 +344,8 @@ class RunHistoricalTickBacktestCommandHandler(
                 engine, exchange, equity_curve, committed_bars, forming, command
             )
 
-        last_tick = ticks[-1]
-        exchange.force_close(last_tick.close_price, last_tick.close_time)
+        if last_tick is not None:
+            exchange.force_close(last_tick.close_price, last_tick.close_time)
 
         self._log_trace(
             "handler_simulation_complete",

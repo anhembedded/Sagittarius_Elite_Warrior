@@ -48,6 +48,9 @@ from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.process_exit import (
+    exit_process,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
     is_headless_qt_platform,
 )
@@ -232,7 +235,9 @@ def main() -> None:
 
     exit_code = runtime.app.exec()
     teardown(runtime)
-    sys.exit(exit_code)
+    # BUG-054: not `sys.exit()`. Shutdown finishing is not the same thing as
+    # the process being able to die — see `process_exit`'s module docstring.
+    exit_process(exit_code)
 
 
 # ------------------------------------------------------------------ #
