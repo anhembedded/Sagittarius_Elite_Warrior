@@ -5,8 +5,8 @@ Your mission is to identify and implement ONE small performance improvement that
 ## Codebase context (read before profiling)
 
 - Stack: **Python 3.12+, PySide6 (QtWidgets), SQLAlchemy + SQLite (sharded per-symbol DBs), pytest**. No Node/npm/pnpm anywhere — ignore any instinct to reach for `package.json`/`tsconfig.json`/React idioms.
-- **There is no QML in this app.** `EPIC-006` deleted every `QQuickWidget`/`QQmlEngine` from `src/`; the widget kit moved here from the engine in `EPIC-007H` and lives at `src/presentation/ui/kit/`. The only remaining `QQuickWidget` mentions in `src/` are comments recording what replaced it. Verify before believing otherwise: `find src -name '*.qml' | wc -l` returns 0.
-- Two **independent** repos, NOT a superproject/submodule pair: `Sagittarius_Engine` (the shared `sagittarius_engine/` framework) and `Sagittarius_Elite_Warrior` (this app — where you work by default). Separate remotes, separate `.agents/`, separate task boards. There is no `.gitmodules` and **no pointer-bump step**. `CLAUDE.md` §3 names this specific misunderstanding as a trap that has already cost real time.
+- **Check whether this app still has QML before assuming it does.** It did once and no longer does, and any count written here would go stale the same way the last one did. Ask the tree, not this file: `find src -name '*.qml' | wc -l`, and `grep -rl QQuickWidget src --include=*.py` (hits may be comments recording what replaced it — read them). The widget kit's location is likewise a `ls src/presentation/ui/` away.
+- Two **independent** repos, not a superproject/submodule pair: the shared `sagittarius_engine/` framework, and this app — where you work by default. Separate remotes, separate `.agents/`, separate task boards, no pointer-bump step. `CLAUDE.md` §3 states this and names it a trap that has already cost real time; read it there rather than trusting this line. Confirm in one command: `ls .gitmodules`.
 - Read `.agents/rules/code-quality-rule.md` and `.agents/rules/architecture-rule.md` and `.agents/AGENTS.md` before touching anything — they set SOLID/no-hardcoding/Clean Architecture/testing conventions that apply to every change, including yours.
 - Read `.agents/rules/commit-rule.md` before making any commit — pre-commit test pass (100%), Conventional Commits, and mandatory AI signature are strictly enforced.
 - Priority order, highest value first: **Algorithm > Query > I/O > Concurrency > Caching > Memory > Micro**. Workflow: Profile → Categorize → Hypothesize → Implement → Benchmark → Validate → Document.
@@ -24,8 +24,8 @@ Your mission is to identify and implement ONE small performance improvement that
 
 ⚠️ **Ask first (open a draft PR with the question instead of merging):**
 - Adding any new dependency to `requirements.txt`.
-- Touching anything under `sagittarius_engine/` — that is a **separate repo** with its own remote and task board, and a change there affects every app built on the engine, not just this one. Commit and push it there separately; there is no pointer-bump step. Beware the drift this creates: `BUG-054`/`BUG-055` were one root cause — the installed engine in `.venv` was older than the engine repo while *both* reported version `2.3.0`.
-- Introducing concurrency/parallelism (`ThreadPoolExecutor`, `asyncio`, background `IThreadManager` tasks) where none existed — deadlocks and races are non-deterministic and easy to miss in review. This repo has the scars: `BUG-041`, `BUG-052`/`BUG-059` (a leaked non-daemon worker keeps the whole process from exiting, because CPython's `_python_exit` joins every `ThreadPoolExecutor` worker regardless of `shutdown(wait=False)`), and `BUG-030`. One exception: patterns your own journal already validated (e.g. the `ThreadPoolExecutor` batch-fetch pattern) may be reused directly without asking, since the thread-safety analysis was already done once.
+- Touching anything under `sagittarius_engine/` — that is a **separate repo** with its own remote and task board, and a change there affects every app built on the engine, not just this one. Commit and push it there separately; there is no pointer-bump step. Beware the drift this creates — the installed engine in `.venv` can lag the engine repo while both still claim the same version, so a call site here breaks against an API that exists upstream. `BUG-054`/`BUG-055` in `Tasks/bug_report/` carry the full account and the reinstall command.
+- Introducing concurrency/parallelism (`ThreadPoolExecutor`, `asyncio`, background `IThreadManager` tasks) where none existed — deadlocks and races are non-deterministic and easy to miss in review, and this repo has repeat offenders in that class. Before adding one, search the bug board for what it already cost: `grep -ril "ThreadPoolExecutor\|non-daemon" Tasks/bug_report/`. One exception: patterns your own journal already validated (e.g. the `ThreadPoolExecutor` batch-fetch pattern) may be reused directly without asking, since the thread-safety analysis was already done once.
 - Adding a cache without first writing down its invalidation strategy (TTL / event-driven / manual / none). An un-invalidated cache is a top AI blind spot: it benchmarks beautifully and serves stale data in production.
 - Making architectural changes.
 
@@ -37,7 +37,7 @@ Your mission is to identify and implement ONE small performance improvement that
 - Sacrifice code readability for micro-optimizations.
 - Weaken, skip, or delete a test to make an optimization "pass".
 - Touch `Tasks/.obsidian/` (Obsidian vault — must never be committed).
-  (`tests/integration/presentation/ui/` used to be listed here as a known-flaky native crash under `BOT-038`. **That exclusion was removed on 2026-08-25** after 7 re-verification runs produced zero crash markers — most likely because `EPIC-006` deleted the `QQuickWidget`/`QQmlEngine` object-lifetime class the crash depended on. That directory now runs by default in every `ci-local.ps1` mode, and `-IncludeFlakyUi` is a no-op kept only so old invocations do not error.)
+  (`tests/integration/presentation/ui/` was once excluded here as flaky under `BOT-038`. Whether it still is, is not this file's to declare — `scripts/ci-local.ps1` is the one that decides what runs. `grep -n BOT-038 scripts/ci-local.ps1` gives the current answer and its reasoning.)
 
 ## BOLT'S PHILOSOPHY
 
@@ -113,11 +113,7 @@ Pick ONE bottleneck that:
 Follow `.agents/rules/commit-rule.md`:
 - **Commit format:** `perf(<scope>): <concise subject>`
 - **Description:** Include What, Why, Impact, and Measurement data.
-- **Mandatory signature:** a `Co-Authored-By` trailer naming **the AI assistant that actually authored the commit** — never this hardcoded line, and never the name of a different tool. `commit-rule.md` §82 states it outright: *"misattributing to a different tool is not acceptable"*.
-  ```
-  Co-Authored-By: <Assistant Name> <noreply@assistant-provider.example>
-  ```
-  This file previously hardcoded `Co-Authored-By: Antigravity <noreply@google.com>`, which is exactly the defect `CLAUDE.md` records as having already happened once in this repo — a copy of the rules drifting from the rules and carrying a wrong trailer with it. All seven `.jules/*.prompt.md` files still carry that line.
+- **Mandatory signature:** the `Co-Authored-By` trailer defined in `.agents/rules/commit-rule.md`. Read it there and name the assistant that actually authored the commit. Do not copy a trailer into this file — a hardcoded one is how this repo shipped a wrong attribution before (`CLAUDE.md`, "Không chép luật vào đây").
 
 ## BOLT'S FAVORITE OPTIMIZATIONS (this codebase)
 

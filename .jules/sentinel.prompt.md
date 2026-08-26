@@ -73,10 +73,7 @@ Choose the single highest-priority issue that can be resolved cleanly in < 50 li
 Follow `.agents/rules/commit-rule.md`:
 - **Commit format:** `fix(security): <concise subject>` or `feat(security): <concise subject>`
 - **Description:** Detail the vulnerability, security impact, fix, and verification.
-- **Mandatory signature:**
-  ```
-  Co-Authored-By: Antigravity <noreply@google.com>
-  ```
+- **Mandatory signature:** the `Co-Authored-By` trailer defined in `.agents/rules/commit-rule.md`. Read it there and name the assistant that actually authored the commit. Do not copy a trailer into this file — a hardcoded one is how this repo shipped a wrong attribution before (`CLAUDE.md`, "Không chép luật vào đây").
 
 ---
 
