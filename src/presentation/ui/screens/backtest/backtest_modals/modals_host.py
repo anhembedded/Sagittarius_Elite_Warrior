@@ -1,0 +1,125 @@
+"""Lazily builds each Backtest modal and wires it to the view model."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from PySide6.QtWidgets import (
+    QWidget,
+)
+
+from .capital_dialog import CapitalDialogWidget
+from .extended_metrics_dialog import ExtendedMetricsDialog
+from .indicator_picker_dialog import IndicatorPickerDialog
+from .limitations_dialog import LimitationsDialog
+from .order_execution_dialog import OrderExecutionDialog
+from .strategy_picker_dialog import StrategyPickerDialog
+from .strategy_properties_dialog import StrategyPropertiesDialog
+from .symbol_picker_dialog import BacktestSymbolPickerDialog
+from .time_range_picker_dialog import TimeRangePickerDialog
+from .timeframe_picker_dialog import TimeframePickerDialog
+from .timezone_picker_dialog import TimezonePickerDialog
+
+if TYPE_CHECKING:
+    from ..backtest_view_model import BackTestViewModel
+
+
+class BackTestModalsHost:
+    """Owns all 11 modal `QDialog`s, built lazily on first open (matching
+    every other lazy-modal precedent in this app —
+    `DataManagementView._kline_inspector`, EPIC-005E2/E3), and wires
+    `BackTestViewModel`'s `openXRequested` signals to them. Replaces both
+    `BackTestModals.qml` and Engine's `OverlayHost`/`QQuickWidget` — a real
+    `QDialog` is already modal and self-centering over its parent, so the
+    full-window click-through overlay QML existed for no longer applies."""
+
+    def __init__(self, view_model: BackTestViewModel, parent: QWidget) -> None:
+        self._vm = view_model
+        self._parent = parent
+        self._capital: CapitalDialogWidget | None = None
+        self._extended_metrics: ExtendedMetricsDialog | None = None
+        self._limitations: LimitationsDialog | None = None
+        self._indicator_picker: IndicatorPickerDialog | None = None
+        self._order_execution: OrderExecutionDialog | None = None
+        self._strategy_picker: StrategyPickerDialog | None = None
+        self._timeframe_picker: TimeframePickerDialog | None = None
+        self._symbol_picker: BacktestSymbolPickerDialog | None = None
+        self._time_range_picker: TimeRangePickerDialog | None = None
+        self._timezone_picker: TimezonePickerDialog | None = None
+        self._strategy_properties: StrategyPropertiesDialog | None = None
+
+        view_model.openCapitalRequested.connect(self._open_capital)
+        view_model.openExtendedMetricsRequested.connect(self._open_extended_metrics)
+        view_model.openLimitationsRequested.connect(self._open_limitations)
+        view_model.openIndicatorPickerRequested.connect(self._open_indicator_picker)
+        view_model.openOrderExecutionRequested.connect(self._open_order_execution)
+        view_model.openStrategyPickerRequested.connect(self._open_strategy_picker)
+        view_model.openTimeframePickerRequested.connect(self._open_timeframe_picker)
+        view_model.openSymbolPickerRequested.connect(self._open_symbol_picker)
+        view_model.openTimeRangePickerRequested.connect(self._open_time_range_picker)
+        view_model.openTimezonePickerRequested.connect(self._open_timezone_picker)
+        view_model.openBotParamsRequested.connect(self._open_bot_params)
+
+    def _open_capital(self, _x: float, _y: float) -> None:
+        if self._capital is None:
+            self._capital = CapitalDialogWidget(self._vm, self._parent)
+        self._capital.open_dialog()
+
+    def _open_extended_metrics(self) -> None:
+        if self._extended_metrics is None:
+            self._extended_metrics = ExtendedMetricsDialog(self._vm, self._parent)
+        self._extended_metrics.show()
+        self._extended_metrics.raise_()
+
+    def _open_limitations(self) -> None:
+        if self._limitations is None:
+            self._limitations = LimitationsDialog(self._vm, self._parent)
+        self._limitations.show()
+        self._limitations.raise_()
+
+    def _open_indicator_picker(self, _x: float, _y: float) -> None:
+        if self._indicator_picker is None:
+            self._indicator_picker = IndicatorPickerDialog(self._vm, self._parent)
+        self._indicator_picker.show()
+        self._indicator_picker.raise_()
+
+    def _open_order_execution(self, _x: float, _y: float) -> None:
+        if self._order_execution is None:
+            self._order_execution = OrderExecutionDialog(self._vm, self._parent)
+        self._order_execution.show()
+        self._order_execution.raise_()
+
+    def _open_strategy_picker(self) -> None:
+        if self._strategy_picker is None:
+            self._strategy_picker = StrategyPickerDialog(self._vm, self._parent)
+        self._strategy_picker.show()
+        self._strategy_picker.raise_()
+
+    def _open_timeframe_picker(self) -> None:
+        if self._timeframe_picker is None:
+            self._timeframe_picker = TimeframePickerDialog(self._vm, self._parent)
+        self._timeframe_picker.show()
+        self._timeframe_picker.raise_()
+
+    def _open_symbol_picker(self) -> None:
+        if self._symbol_picker is None:
+            self._symbol_picker = BacktestSymbolPickerDialog(self._vm, self._parent)
+        self._symbol_picker.show()
+        self._symbol_picker.raise_()
+
+    def _open_time_range_picker(self) -> None:
+        if self._time_range_picker is None:
+            self._time_range_picker = TimeRangePickerDialog(self._vm, self._parent)
+        self._time_range_picker.show()
+        self._time_range_picker.raise_()
+
+    def _open_timezone_picker(self) -> None:
+        if self._timezone_picker is None:
+            self._timezone_picker = TimezonePickerDialog(self._vm, self._parent)
+        self._timezone_picker.show()
+        self._timezone_picker.raise_()
+
+    def _open_bot_params(self, strategy_name: str) -> None:
+        if self._strategy_properties is None:
+            self._strategy_properties = StrategyPropertiesDialog(self._vm, self._parent)
+        self._strategy_properties.open_for_strategy(strategy_name)
