@@ -305,6 +305,36 @@ def test_sync_all_gaps_with_no_gaps_does_nothing(
 # ---------------------------------------------------------------------------
 
 
+def test_status_rows_are_not_clipped_to_one_line_of_text(presenter, view_model, qapp):
+    """BUG-051. `setIndexWidget()` does not tell a `QListView` how tall its
+    widget is — the item keeps the delegate's default height, which is one
+    line of text. Every row on this screen was 14px against a 23px widget,
+    so the four action buttons rendered as empty outlines with their labels
+    cut off.
+
+    Asserted against the widget's own `sizeHint()` rather than a number, so
+    a row that later grows a taller control is covered too. A test that only
+    asks whether the widget exists says nothing about whether it is legible,
+    which is exactly how this survived since the screen was ported.
+    """
+    view = presenter.view
+    view.resize(1400, 800)
+    view.show()
+    view_model.status_model.upsert_row(
+        "BTCUSDT", "2024-01-01 00:00", "2024-06-30 23:59", "262800", "OK", "1m"
+    )
+    qapp.processEvents()
+
+    status_list = view._status_list
+    index = status_list.model().index(0, 0)
+    row_widget = status_list.indexWidget(index)
+
+    assert row_widget is not None
+    assert status_list.visualRect(index).height() >= row_widget.sizeHint().height(), (
+        "row is clipped — its action buttons render as outlines with no text"
+    )
+
+
 def test_confirm_overlays_reach_the_view_model_after_it_is_attached(
     presenter, view_model, mock_thread_mgr
 ):
