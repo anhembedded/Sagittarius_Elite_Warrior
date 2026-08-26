@@ -1,6 +1,6 @@
 # EPIC-007 — Chuẩn hoá card dùng chung, đưa hình dạng lên Engine
 
-**Trạng thái:** 🟡 Đang làm (7/8 task con — `007A`–`007F` và `007H` xong; còn `007G`. Guard bare-base 17 → **2**, và trên `screens/` là **0** — yêu cầu 1 của `007F` đạt)
+**Trạng thái:** ✅ Xong 2026-08-26 (8/8 task con, `007A`–`007H`). Guard bare-base 17 → **2**, trên `screens/` là **0** — yêu cầu 1 của `007F` đạt
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; giảm chi phí sửa UI về sau
 **Nhánh đề xuất:** `epic/EPIC-007-chuan-hoa-card`
@@ -90,7 +90,7 @@ ghi chú.
 | **[007D](completed/EPIC-007D_gop_token_mau.md)** | Elite: xoá 18 hằng màu riêng, gộp về `Palette`; sửa docstring sai của Dev Board | Elite | ✅ |
 | **[007E](completed/EPIC-007E_elite_components_dung_chung.md)** | Elite: `components/` — `ChartCard(Card)` thay `BaseCard`, `TimeRangeCard`, `SymbolPickerOverlay`; cắt 3 import chéo | Elite | ✅ |
 | **[007F](completed/EPIC-007F_migrate_4_man_hinh.md)** | Elite: migrate 4 màn sang widget mới | Elite | ✅ |
-| **[007G](incomplete/EPIC-007G_tach_file_qua_nguong.md)** | Elite: tách các file vượt ngưỡng | Elite | 🔵 |
+| **[007G](completed/EPIC-007G_tach_file_qua_nguong.md)** | Elite: tách các file vượt ngưỡng | Elite | ✅ |
 | **[007H](completed/EPIC-007H_kit_ve_elite.md)** | Mang widget kit từ Engine về Elite | Cả hai | ✅ |
 
 `007A`→`007C` phải xong trước `007D`→`007G`: các task Elite cần base class thật để kế thừa,
@@ -147,6 +147,18 @@ vựng token và kit QML — những thứ **có** consumer thứ hai. Chi tiế
 Đáng ghi lại: bản thân việc chuyển chỗ lộ ra **4 lỗ hổng** không ai thấy khi kit còn ở Engine —
 trong đó có một guard chưa từng quét thư mục `overlays/`, và 8 lỗi lint ruff Engine cho qua. Đổi
 chỗ một thứ là một cách kiểm tra nó, và ở đây nó rẻ hơn cách kiểm tra khác.
+
+## 5d. `007G` để lại một ranh giới, và nó thuộc về epic khác
+
+`007G` đưa 3/5 file về dưới ngưỡng. Hai file còn lại — `backtest_top_panel.py` (682) và
+`data_management_view.py` (699) — **mỗi file là một lớp duy nhất** dài 627 và 615 dòng. Không
+còn gì để *di chuyển*; muốn xuống ngưỡng phải **chẻ chính lớp đó**, tức đổi hành vi — thứ yêu
+cầu 3 của `007G` cấm.
+
+Đo lại toàn cây UI: còn **15 file** trên ngưỡng, phần lớn là presenter/view-model
+(`backtest_presenter.py` **2.803** dòng là lớn nhất). Đó là bài của
+[`EPIC-003`](../EPIC-003_presenter_and_god_file_decomposition/), không phải của epic này. Ghi
+lại ở đây để nó không rơi vào khoảng trống giữa hai epic.
 
 ## 6. Ngoài phạm vi
 
