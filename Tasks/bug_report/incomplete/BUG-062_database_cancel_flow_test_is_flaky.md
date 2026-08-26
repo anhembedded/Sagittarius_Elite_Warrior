@@ -2,49 +2,84 @@
 
 | Trường | Giá trị |
 | :--- | :--- |
-| **Trạng thái** | 🔴 Mở — **chỉ ghi hiện tượng**, chưa điều tra root cause |
-| **Mức độ** | 🟡 P2 — không ảnh hưởng app đã ship; làm CI đỏ ngẫu nhiên, và một cổng đỏ ngẫu nhiên thì mất tin cậy rất nhanh |
-| **Phát hiện** | 2026-08-26, khi chạy tier integration trong lúc điều tra `BUG-060` |
-| **Liên quan** | `BUG-030` (worker chết trong lần chạy song song) — cùng họ "suite không ổn định khi chạy `-n`" |
+| **Trạng thái** | 🟡 **Đã bịt lớp lỗi, chưa tái hiện được cú đỏ** — xem §Đã làm và §Chưa chứng minh |
+| **Mức độ** | 🟡 P2 — không ảnh hưởng app đã ship; làm CI đỏ ngẫu nhiên |
+| **Phát hiện** | 2026-08-26, khi chạy tier integration lúc điều tra `BUG-060` |
+| **Liên quan** | **`BUG-030` §"Data point khác từ 2026-08-23" — cùng test, cùng lớp lỗi, cách nhau 3 ngày** |
+
+## Đây là lần gặp THỨ HAI, không phải bug mới
+
+`BUG-030` đã ghi lại một lần gặp mà lúc đó chưa ai nối được với gì:
+
+| Ngày | Test | Lỗi |
+| :--- | :--- | :--- |
+| 2026-08-23 | `test_database_cancel_button_cancels_active_sync_flow` | `ListAvailableSymbolsQuery failed: object of type 'Mock' has no len()` |
+| 2026-08-26 | **cùng test** | `SyncMarketDataCommand failed: 'Mock' object is not iterable` |
+
+Cùng test, cùng lớp lỗi (**một `Mock` thô nằm ở chỗ đáng lẽ là collection thật**),
+cùng chạy `-n` song song, cùng không tái hiện khi chạy lại. Hai mẫu độc lập.
 
 ## Hiện tượng
-
-`tests/integration/presentation/test_database_user_flow.py::test_database_cancel_button_cancels_active_sync_flow`
 
 ```
 >       qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
 E       pytestqt.exceptions.TimeoutError: waitUntil timed out in 2000 milliseconds
 ```
 
-Ngay phía trên trong log của **đúng lần chạy đỏ đó**:
+kèm, ngay phía trên trong log của **đúng lần đỏ đó**:
 
 ```
 ERROR    App:std_logger.py:87 SyncMarketDataCommand failed: 'Mock' object is not iterable
 ```
 
-## Bằng chứng nó là flake, không phải hỏng thật
-
-Chạy **cùng một lệnh, cùng cấu hình** ngay sau đó:
-
-| Lần | Kết quả | Số lần lỗi `'Mock' object is not iterable` |
-| :-- | :--- | :-: |
-| 1 | `1 failed, 81 passed, 4 skipped` | 1 |
-| 2 | `82 passed, 4 skipped` | 0 |
-
-Và bốn lần chạy tier này trước đó (log còn giữ) đều **0 lần** xuất hiện lỗi Mock.
+Chạy lại cùng lệnh, cùng cấu hình: `82 passed`, **0** lỗi Mock. Bốn lần chạy tier
+này trước đó cũng 0.
 
 Thứ tự test **không** phải biến số: `pytest-randomly` không hề được cài trong
-repo này — mọi cờ `-p no:randomly` rải rác trong tài liệu/bug cũ đều là no-op.
+repo — mọi cờ `-p no:randomly` rải rác trong tài liệu cũ đều là no-op.
 
-## Chưa điều tra
+## Đã làm — bịt cả lớp, không vá từng lần gặp
 
-Chưa xác định vì sao `SyncMarketDataCommand` đôi khi nhận `Mock` không iterable
-được từ `IExchangeClient` giả, trong khi phần lớn lần chạy thì không. Hai
-hướng chưa loại trừ:
+Fixture `database_app_context` dùng `Mock(spec=IExchangeClient)`. `spec=` chỉ
+ràng buộc **tên** method, không ràng buộc kiểu trả về — nên bất kỳ đường nào
+fixture chưa cấu hình sẽ trao một `Mock` thô cho code production thật, rồi nổ
+khi handler gọi `len()` hoặc lặp lên nó.
 
-1. Fixture `database_app_context` cấu hình mock theo một đường phụ thuộc thời
-   điểm (ví dụ `return_value` được set sau khi một task nền đã kịp gọi).
-2. Một task nền của test **trước đó** trong cùng xdist worker còn sống và gọi
-   vào mock của test này — đúng lớp hazard `BUG-030` mô tả.
+Chính comment cũ trong fixture đã mô tả đúng lớp lỗi này. Nhưng cách xử lý mỗi
+lần gặp là **cấu hình thêm một method nữa** — sửa được lần đó, để nguyên lớp.
+`get_available_symbols` được thêm sau lần 2026-08-23; lần 2026-08-26 nổ ở
+method tiếp theo trong dãy.
 
-Hướng (2) đáng thử trước, vì nó giải thích luôn tính ngẫu nhiên.
+Thay bằng `_FakeExchangeClient` **viết tay**. Một class thật không thể sinh ra
+`Mock` thô: method thiếu là `AttributeError` gọi đúng tên nó, tại call site,
+**mọi lần chạy**.
+
+Kèm hai test, đã fault-inject:
+
+| Phá gì | Kết quả |
+| :--- | :--- |
+| bỏ một method khỏi fake | test drift đỏ, gọi đúng tên method thiếu |
+| trả iterator dùng-một-lần | test iterator đỏ |
+| khôi phục | 3 passed |
+
+Cũng sửa một khiếm khuyết tiềm ẩn độc lập: Mock cũ dùng
+`return_value = iter(())` — iterator **dùng một lần**, nên mọi lần gọi sau lần
+đầu trả về **cùng một** object đã cạn. Ở đây đều rỗng nên vô hại, nhưng một test
+sync hai lần sẽ im lặng nhận rỗng ở lần hai và đọc như đang pass.
+
+## Chưa chứng minh — đọc kỹ chỗ này
+
+**Chưa tái hiện được cú đỏ**, nên **không tuyên bố** bản thay này sửa nó. Nó bịt
+đường mà cả hai lần gặp đều đi qua (một `Mock` thô tới được code thật); nó không
+giải thích *vì sao* đường đó chỉ thỉnh thoảng bị đi.
+
+Hai giả thuyết đã **bị bác bỏ** trong lúc điều tra, ghi lại để lần sau khỏi đi lại:
+
+1. **"Method chưa được cấu hình."** Sai: `IExchangeClient` có đúng ba method, và
+   fixture cấu hình **cả ba**.
+2. **"`unittest.mock` không thread-safe nên child mock đã cấu hình bị thay."**
+   Không tái hiện được: stress test 8 thread × 4000 vòng reset/cấu hình lại,
+   **0 lỗi**.
+
+Vẫn để **Open**. Đóng khi tái hiện được, hoặc khi tier integration chạy đủ nhiều
+lần sau thay đổi này mà không tái xuất.
