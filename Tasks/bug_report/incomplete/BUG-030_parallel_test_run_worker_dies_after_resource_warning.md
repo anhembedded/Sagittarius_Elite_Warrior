@@ -122,6 +122,13 @@ một lần chạy `-Full` (`logs/ci-local-20260823-203040.log`) hỏng ở
 `tests/integration/presentation/test_database_user_flow.py::test_database_cancel_button_cancels_active_sync_flow`,
 kèm `ListAvailableSymbolsQuery failed: object of type 'Mock' has no len()`.
 
+**Cập nhật 2026-08-26:** data point này đã có **lần gặp thứ hai** — cùng đúng
+test đó, cùng lớp lỗi (một `Mock` thô tới được code thật), cách nhau 3 ngày. Nay
+mang mã [`BUG-062`](BUG-062_database_cancel_flow_test_is_flaky.md), nơi fixture
+đã được đổi từ `Mock(spec=...)` sang một fake viết tay để bịt cả lớp. **Vẫn chưa
+kết luận là cùng nguyên nhân với hồ sơ này** — triệu chứng khác nhau như đoạn
+dưới đã ghi.
+
 Cùng vùng (`-n 6` song song, tầng integration, đường Database Sync) nhưng
 **triệu chứng khác hồ sơ này**: ở đây worker chết giữa chừng không có summary,
 còn lần đó test fail bình thường và gate vẫn in đủ summary. Không tái hiện:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
@@ -21,6 +21,52 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+class _FakeExchangeClient:
+    """A hand-written `IExchangeClient`, deliberately not a `Mock(spec=...)`.
+
+    @par Why not a Mock
+    `spec=` constrains method *names* only, never return types, so any path
+    this fixture has not explicitly configured hands a bare `Mock` to real
+    production code, which then blows up on `len()` or iteration deep inside
+    a handler. This has bitten twice, both under parallel runs, both in this
+    file, three days apart:
+
+      * 2026-08-23 — `ListAvailableSymbolsQuery failed: object of type
+        'Mock' has no len()` (recorded in `BUG-030`)
+      * 2026-08-26 — `SyncMarketDataCommand failed: 'Mock' object is not
+        iterable` (`BUG-062`)
+
+    Each was patched by configuring one more method on the Mock, which fixes
+    that sighting and leaves the class open. A real class cannot produce a
+    bare `Mock` at all: an unimplemented method is an `AttributeError` naming
+    itself, at the call site, every run.
+
+    @par `stream_historical_klines` returns a FRESH iterator per call
+    The Mock it replaces used `return_value = iter(())` — a one-shot
+    iterator, so every call after the first returned the *same*, already
+    exhausted object. Empty either way here, but a test that ever syncs
+    twice would silently get nothing the second time and read as passing.
+    """
+
+    #: Kept a plain attribute so a test can widen it without touching a Mock.
+    available_symbols: list[str]
+
+    def __init__(self) -> None:
+        self.available_symbols = ["BTCUSDT", "ETHUSDT"]
+
+    def get_historical_klines(self, *args: object, **kwargs: object) -> list:
+        # The 0.3s the Mock's side_effect slept for: these tests need the
+        # fetch to still be in flight when they assert on the busy state.
+        time.sleep(0.3)
+        return []
+
+    def stream_historical_klines(self, *args: object, **kwargs: object):
+        return iter(())
+
+    def get_available_symbols(self) -> list[str]:
+        return list(self.available_symbols)
 
 
 @pytest.fixture
@@ -45,21 +91,7 @@ def database_app_context(qapp, qtbot, monkeypatch, request):
         ),
     ):
         app.boot()
-        mock_client = Mock(spec=IExchangeClient)
-
-        def mock_get_historical_klines(*args, **kwargs):
-            time.sleep(0.3)
-            return []
-
-        mock_client.get_historical_klines.side_effect = mock_get_historical_klines
-        # `Mock(spec=...)` chỉ ràng buộc *tên* method, không ràng buộc kiểu trả
-        # về: method chưa cấu hình trả về một `Mock` thô, nên handler thật gọi
-        # `len()` hay lặp lên nó là nổ. Hai lỗi đó vẫn xảy ra từ trước nhưng
-        # **vô hình** — chúng đi vào `logging` chuẩn thay vì file log của app.
-        # `EPIC-008G` §4 (bus có `ILogger` thật) làm chúng hiện ra ở bước
-        # "Run Log Scan" của gate. Cấu hình nốt để test không tạo lỗi giả.
-        mock_client.get_available_symbols.return_value = ["BTCUSDT", "ETHUSDT"]
-        mock_client.stream_historical_klines.return_value = iter(())
+        mock_client = _FakeExchangeClient()
         app.context.container.singleton(IExchangeClient, mock_client)
 
         view = DataManagementView()
@@ -104,3 +136,46 @@ def test_database_cancel_button_cancels_active_sync_flow(
     # FSM transitions through CANCELLING then back to IDLE
     qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.IDLE, timeout=5000)
     assert view_model.progressVisible is False
+
+
+def test_the_fake_client_still_covers_every_method_the_port_declares():
+    """The one thing a hand-written fake gives up versus `Mock(spec=...)`:
+    it does not follow the port automatically. A method added to
+    `IExchangeClient` would reach this fixture as an `AttributeError` at
+    whatever call site happened to hit it first — loud, but late and in a
+    confusing place. Asserted here instead, where the message says what to do.
+
+    The reverse direction matters too: a method the fake declares and the
+    port no longer has is dead weight that outlives the port, so both sets
+    are compared, not just one inclusion.
+    """
+    port_methods = {
+        name
+        for name in vars(IExchangeClient)
+        if callable(getattr(IExchangeClient, name)) and not name.startswith("_")
+    }
+    fake_methods = {
+        name
+        for name in vars(_FakeExchangeClient)
+        if callable(getattr(_FakeExchangeClient, name)) and not name.startswith("_")
+    }
+
+    assert port_methods == fake_methods, (
+        "_FakeExchangeClient has drifted from IExchangeClient — "
+        f"only on the port: {sorted(port_methods - fake_methods)}; "
+        f"only on the fake: {sorted(fake_methods - port_methods)}"
+    )
+
+
+def test_streaming_twice_yields_a_fresh_iterator_each_time():
+    """Pins the defect the replaced Mock carried: `return_value = iter(())`
+    handed back the *same* exhausted iterator on every call after the first.
+    Both calls are empty here either way — the point is that the second one
+    is empty because there is nothing to stream, not because the first call
+    consumed the object."""
+    client = _FakeExchangeClient()
+
+    first = client.stream_historical_klines()
+    second = client.stream_historical_klines()
+
+    assert first is not second
