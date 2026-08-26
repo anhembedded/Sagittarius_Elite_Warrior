@@ -55,6 +55,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
+    ConfigManagerStateStore,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.repo_state_store_locator import (
+    RepoStateStoreLocator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
@@ -173,7 +182,14 @@ def build() -> AppRuntime:
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow
     # ------------------------------------------------------------------ #
-    window = MainWindow(app_engine)
+    # EPIC-010 — remembered UI state. Constructed here, after QApplication
+    # exists, because UiStateCoordinator owns a QTimer. Nothing else needs a
+    # handle on it: MainWindow.shutdown() flushes it, and teardown() already
+    # calls that, so it stays out of AppRuntime.
+    state_coordinator = UiStateCoordinator(
+        ConfigManagerStateStore(RepoStateStoreLocator())
+    )
+    window = MainWindow(app_engine, state_coordinator=state_coordinator)
     window.show()
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime
