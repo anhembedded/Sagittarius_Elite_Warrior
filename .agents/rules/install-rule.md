@@ -135,6 +135,49 @@ Or run the automated setup scripts:
 - **Windows (PowerShell):** `.\scripts\run.ps1` or `.\scripts\run-ui.ps1`
 - **Verification:** `.\scripts\ci-local.ps1 -Full`
 
+### 2b. Trên Linux: phải cài PowerShell trước, nếu không cổng bắt buộc không chạy được
+
+`ci-rule.md` §1 gọi `scripts/ci-local.ps1` là **nguồn chân lý duy nhất** cho
+verification, và nó là file `.ps1`. Trên một máy Linux sạch, `pwsh` không có
+sẵn — nghĩa là cổng bắt buộc **không thể chạy**, và rất dễ trượt sang chạy tay
+từng lệnh rồi tưởng là tương đương. Không tương đương: chạy tay bỏ mất bước
+quét log cuối cùng và phần chạy Sanity song song mà script tự lo.
+
+```bash
+V=7.5.0
+curl -fsSL -o /tmp/pwsh.tar.gz \
+  "https://github.com/PowerShell/PowerShell/releases/download/v$V/powershell-$V-linux-x64.tar.gz"
+mkdir -p /opt/microsoft/powershell/7
+tar -xzf /tmp/pwsh.tar.gz -C /opt/microsoft/powershell/7
+chmod +x /opt/microsoft/powershell/7/pwsh
+ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+pwsh --version        # PowerShell 7.5.0
+```
+
+Tarball chứ không phải repo apt của Microsoft: không cần thêm khoá GPG hay
+apt source, và không đụng gì tới hệ thống ngoài một thư mục cộng một symlink.
+
+Sau đó chạy đúng như trên Windows, đường dẫn đổi dấu gạch:
+
+```bash
+pwsh -NoProfile -File scripts/ci-local.ps1 -Full
+```
+
+**Đừng tăng `-Workers` để chạy nhanh hơn nếu chưa đo.** Mặc định 6 là
+"benchmark sweet spot" của máy tác giả. Đo thật trên một container **4 nhân**:
+
+| `-Workers` | Pha pytest |
+| :-: | :--- |
+| 6 (mặc định) | ~147s |
+| 12 | 150.5s |
+
+Tăng gấp đôi worker trên 4 nhân **không đổi gì** — không nhanh hơn, cũng không
+chậm hơn đáng kể. Số worker vượt số nhân chỉ thêm tranh chấp, không thêm thông
+lượng. Kiểm `nproc` trước, và coi mọi con số thời gian là của riêng từng máy.
+
+Toàn bộ full gate trên máy này: **~2 phút 30** (`ci-local.ps1 -Full`, gồm cả
+lint/format/mypy và tier Sanity chạy song song).
+
 ---
 
 ## 3. Mandatory Rules for AI Agents & Automated Tools
