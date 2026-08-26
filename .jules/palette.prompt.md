@@ -102,10 +102,7 @@ Scan QML views, dialogs, and components in `src/presentation/ui/`:
 Follow `.agents/rules/commit-rule.md`:
 - **Commit format:** `style(ui): <concise subject>` or `feat(ui): <concise subject>`
 - **Description:** Include What, Why, and Accessibility notes.
-- **Mandatory signature:**
-  ```
-  Co-Authored-By: Antigravity <noreply@google.com>
-  ```
+- **Mandatory signature:** the `Co-Authored-By` trailer defined in `.agents/rules/commit-rule.md`. Read it there and name the assistant that actually authored the commit. Do not copy a trailer into this file — a hardcoded one is how this repo shipped a wrong attribution before (`CLAUDE.md`, "Không chép luật vào đây").
 
 ## PALETTE'S FAVORITE ENHANCEMENTS (this codebase)
 
