@@ -56,19 +56,27 @@ engine design doc §9.1): first-pass scope, dates as a **duration**, and
 
 ### First pass — build these, then stop and run it for real
 
+> ✅ **Xong 2026-08-26 (PR #109).** `010A`/`010B` dựng trong **Elite**, chưa
+> promote lên Engine — theo đúng quyết định "Elite first". Cột Repo dưới đây
+> ghi nơi code **đang** nằm, không phải nơi nó sẽ về.
+>
+> Một việc không có trong bảng nhưng bắt buộc phải làm: **wire coordinator vào
+> composition root**. Không có nó thì `010A`–`010C` chỉ sống trong test và
+> **chết trong app thật**.
+
 | ID | Name | Repo | Status |
 | :--- | :--- | :---: | :---: |
-| **[`EPIC-010A`](incomplete/EPIC-010A_state_scope_and_store.md)** | `StateScope`, `IStateStore`, the ConfigManager-backed store | Engine | 🔵 Not started |
-| **[`EPIC-010B`](incomplete/EPIC-010B_coordinator_and_contributor.md)** | `UiStateCoordinator`, contributor contract, `UiStateExtension` | Engine | 🔵 Not started |
-| **[`EPIC-010C`](incomplete/EPIC-010C_shell_state.md)** | Shell — geometry, splitters, last route, sidebar | Elite | 🔵 Not started |
-| **[`EPIC-010D`](incomplete/EPIC-010D_dev_board_state.md)** | Dev Board — symbol, interval, lookback duration | Elite | 🔵 Not started |
-| **[`EPIC-010E`](incomplete/EPIC-010E_database_state.md)** | Database — symbol, interval | Elite | 🔵 Not started |
+| **[`EPIC-010A`](incomplete/EPIC-010A_state_scope_and_store.md)** | `StateScope`, `IStateStore`, the ConfigManager-backed store | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010B`](incomplete/EPIC-010B_coordinator_and_contributor.md)** | `UiStateCoordinator`, contributor contract, `UiStateExtension` | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010C`](incomplete/EPIC-010C_shell_state.md)** | Shell — geometry, splitters, last route, sidebar | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010D`](incomplete/EPIC-010D_dev_board_state.md)** | Dev Board — symbol, interval, lookback duration | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010E`](incomplete/EPIC-010E_database_state.md)** | Database — symbol, interval | Elite | ✅ Done 2026-08-26 |
 
 ### Held until the first pass has run
 
 | ID | Name | Why it waits |
 | :--- | :--- | :--- |
-| `EPIC-010F` | Backtest — the full slice (~25 values) | Deliberately gated on evaluating `010A`–`010E` in real use. Every value needs its own validation, so the cost of getting the mechanism wrong is highest here |
+| **[`EPIC-010F`](incomplete/EPIC-010F_backtest_state.md)** | Backtest — 19 form values | ✅ **Done 2026-08-26.** 58 Property → 19 giá trị là *ý định*; phần còn lại là output hoặc trạng thái phiên. `selectedSymbol`/`selectedTimeframe` cố ý **không** lưu — chúng là chỗ duy nhất đụng thứ tự ưu tiên 3 tầng, thuộc `010H` |
 | `EPIC-010G` | Indicator scripts + the `_user_touched` flag | Same gate; fixes the "a script the user turned off turns itself back on" defect |
 | `EPIC-010H` | Collapse duplicated defaults into one source | Can be deferred, **but the precedence order below must be settled before `010D`** |
 

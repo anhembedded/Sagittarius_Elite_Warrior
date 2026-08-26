@@ -1,6 +1,6 @@
 # EPIC-010A — `StateScope`, `IStateStore` and the ConfigManager-backed store
 
-**Status:** 🔵 Not started
+**Status:** ✅ Done 2026-08-26 — Elite (PR #109)
 **Repo:** **Engine** (`sagittarius_engine`) — see design §8 step 1
 **Depends on:** nothing
 
