@@ -78,7 +78,28 @@ _COLOUR_SOURCES = ("palette.py",)
 #: nên vẽ nền card + viền, trong khi thanh tab của app trong suốt — mà chính
 #: `_TabButton` của Engine đã ghi `base-exempt: a tab is a button, not a
 #: surface`, nên một hàng nút cũng không phải surface.
-_BARE_QT_BASE_CEILING = 14
+#: 14 → 7 across one stretch of `007F` on Backtest and Data Management,
+#: recorded here rather than as one unexplained drop:
+#:   · 4 Backtest widgets `base-exempt` — three screen regions painted on
+#:     the app background, one label stacked over a field
+#:   · `_CoverageSegmentWidget` and `TimeRangeCardWidget` `base-exempt` —
+#:     a coloured bar segment and a form group
+#:   · `ConfirmDialog` deleted, both call sites on the engine's
+#:     `ConfirmOverlay`
+#:
+#: 7 → 6: `_StatusRowWidget` now derives `DataRow`. That needed the engine
+#: first (PRs #199/#200): `DataRow` was a `Panel`, so every row drew a card
+#: frame, and it had no vocabulary for table text, outlined row actions or a
+#: per-record status colour. Fourth time in this epic that a widget shipped
+#: without a consumer turned out to be broken.
+#: 6 → 2, and `screens/` is now at **0** — requirement 1 of `007F` met.
+#: `_KLineRowWidget`/`_GapRowWidget` derive `DataRow`, both inspector
+#: dialogs derive `Overlay`. What is left sits in `components/`, outside
+#: what that requirement asked for: `_CachedFrameOverlay` (a paint surface
+#: for a cached chart frame) and `CriticalErrorDialog` (the last-resort box
+#: shown when the app cannot start — it must not depend on a theme bridge
+#: that may be exactly what failed).
+_BARE_QT_BASE_CEILING = 2
 
 
 def test_ui_root_is_where_we_think_it_is() -> None:

@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-25 (lần 3)
+> Cập nhật: 2026-08-26
 
 ---
 
@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 48 |
-| 📈 **Tổng** | **50** |
+| ✅ **Đã sửa / đã đóng** | 49 |
+| 📈 **Tổng** | **51** |
 
 ---
 
@@ -46,6 +46,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-051](completed/BUG-051_status_row_clipped_to_one_line_of_text.md)** | Mọi dòng bảng Database Status bị cắt còn 14px, 4 nút hành động render thành viền rỗng không chữ | 🟡 P2 | 2026-08-26 | `setIndexWidget()` không cấp chiều cao cho ô; delegate mặc định trả về chiều cao **một dòng text**. Sửa bằng delegate đọc `sizeHint()` của chính widget. Lộ ra khi chụp ảnh trước/sau cho `EPIC-007F`, không phải user báo. |
 | **[BUG-049](completed/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Đóng 2026-08-25: root-caused, không sửa code được. `gc.set_debug(gc.DEBUG_UNCOLLECTABLE)` cho thấy đúng dạng cycle metaobject PySide6/shiboken (`QtCore.Property` + closure + `QMetaObject`/`Shiboken.ObjectType`) — đặc tính binding, không phải do `binance_fake_server.py` tạo ra. D6 chỉ là cái khiến `app.boot()` chạy đủ xa để cycle có sẵn lộ ra (trước đó treo/lỗi mạng thật theo BUG-045). |
 | **[BUG-048](completed/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `_handler` kiểm `is_headless_qt_platform()` trước khi gọi `dialog.exec()`. Xác nhận bằng đúng fault injection đã phát hiện bug — exit code 1 dưới 5s thay vì treo. Regression test đỏ-đúng-lý-do trước fix, xanh sau fix. |
 | **[BUG-050](completed/BUG-050_capital_dialog_apply_button_can_never_be_disabled.md)** | `CapitalDialogWidget`'s "Áp dụng" button không bao giờ bị disable, kể cả khi vốn nhập sai | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `__init__` ghi đè nút thật (do `_build_buttons()` tạo trong `super().__init__()`) bằng `self._btn_apply = None` ở cuối `__init__`. Regression test đỏ đúng lý do (`AttributeError: 'NoneType' object has no attribute 'isEnabled'`) trước fix, xanh sau. 0 test coverage trước đó cho cả widget. |
