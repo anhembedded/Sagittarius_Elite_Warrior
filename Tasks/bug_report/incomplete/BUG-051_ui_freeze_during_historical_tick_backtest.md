@@ -74,7 +74,9 @@ Current Main Thread Stack Trace:
 ```
 
 Log đầy đủ của phiên (từ boot `08:15:18` tới `08:24:29`) do người báo dán trong hội thoại
-ngày 2026-08-26.
+ngày 2026-08-26. **Cùng phiên đó** còn lộ ra một lỗi thứ hai, khác hẳn triệu chứng, đã tách
+hồ sơ riêng: [`BUG-052`](BUG-052_process_does_not_exit_after_graceful_shutdown.md) — shutdown
+chạy hết nhưng tiến trình không thoát.
 
 ## 2. Quan sát thô từ log (chưa phải root cause — **chưa điều tra**)
 

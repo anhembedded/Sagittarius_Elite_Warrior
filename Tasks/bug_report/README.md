@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 3 |
+| 🔴 **Đang mở** | 4 |
 | ✅ **Đã sửa / đã đóng** | 48 |
-| 📈 **Tổng** | **51** |
+| 📈 **Tổng** | **52** |
 
 ---
 
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-052](incomplete/BUG-052_process_does_not_exit_after_graceful_shutdown.md)** | Thoát app: shutdown chạy hết, log `App stopped.` nhưng tiến trình không return | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Shutdown **không** treo giữa chừng — chạy đủ 8,8s rồi log `App stopped.`, sau đó im hẳn mà process vẫn sống. 8,71/8,8s nằm gọn ở `BinanceBotModule.stop()`. Cùng phiên với BUG-051. Cùng lớp với BUG-007/023/041 đã đóng — chưa xác minh có phải regression không. |
 | **[BUG-051](incomplete/BUG-051_ui_freeze_during_historical_tick_backtest.md)** | UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Watchdog bắn 5 lần trong ~4 phút, cả 5 đều nằm trong cửa sổ `RunHistoricalTickBacktestCommand`; 4/5 stack dump dừng ở `app.exec()` nên không truy được frame chặn. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky), chỉ trên Windows. **Cập nhật 2026-08-25:** cơ chế đã chứng minh — `engine.dispose()` chỉ đóng connection *checked-in*; một `Session` còn checked-out thì `dispose_all()` **không** đóng, để lại cho GC → đúng điều kiện sinh `ResourceWarning`. Nên bước "cứ thêm `dispose_all()`" là **không đủ**. Linux đo lại bằng bằng chứng dương tính: 0 connection chưa đóng trên cả 6 worker. Đã có `scripts/bug030_connection_leak_probe.py` để chỉ đích danh file:line khi chạy được trên Windows. |
