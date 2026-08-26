@@ -84,6 +84,28 @@ jobs:
       - name: Ruff — Format Check
         run: ruff format --check src tests tools
 
+      - name: Mypy — Static Type Check
+        # Left out when this workflow was restored (PR #114) because the gate
+        # was red on a clean base with two errors in scripts/; PR #122 fixed
+        # them, so it can be enforced now rather than traded for a gate that
+        # is always red.
+        #
+        # Two details are load-bearing, both copied from scripts/ci-local.ps1:
+        #   * run from the PARENT of the checkout and name the targets
+        #     `Sagittarius_Elite_Warrior/{src,scripts}` — src and scripts must
+        #     be in the SAME invocation or a Port that stops being fully
+        #     implemented goes undetected (BUG-026);
+        #   * PYTHONPATH must carry the checkout AND its parent. Without it
+        #     mypy cannot resolve `Sagittarius_Elite_Warrior.src...` to the
+        #     same module names the config excludes, so `presentation/` stops
+        #     being excluded and the run reports 561 errors instead of 0.
+        run: |
+          cd ..
+          PYTHONPATH="$GITHUB_WORKSPACE:$PWD" mypy \
+            --config-file "$GITHUB_WORKSPACE/pyproject.toml" \
+            --namespace-packages --explicit-package-bases \
+            Sagittarius_Elite_Warrior/src Sagittarius_Elite_Warrior/scripts
+
       - name: Run Pytest with Coverage
         # Tests import `Sagittarius_Elite_Warrior.src...` — the checkout
         # directory itself as a package — so the PARENT of the checkout must be
