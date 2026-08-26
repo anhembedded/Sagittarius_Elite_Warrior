@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 4 |
+| 🔴 **Đang mở** | 5 |
 | ✅ **Đã sửa / đã đóng** | 51 |
-| 📈 **Tổng** | **55** |
+| 📈 **Tổng** | **56** |
 
 ---
 
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-056](incomplete/BUG-056_integration_and_sanity_tiers_together_abort_the_process.md)** | Chạy chung `integration/` + `sanity/` làm tiến trình abort/segfault, **không test nào FAILED** | 🟡 P2 | 2026-08-26 | Cơ chế có bằng chứng: worker thread tạo child-`MagicMock` trong lúc main thread GC — `unittest.mock` **không thread-safe**. **Cùng lớp** với deadlock ở `test_main_window_state.py`. Chạy riêng: 82 + 24 đều xanh. Đã đối chiếu `git stash` — **base cũng crash y hệt**, không phải regression. |
 | **[BUG-052](incomplete/BUG-052_process_does_not_exit_after_graceful_shutdown.md)** | Thoát app: shutdown chạy hết, log `App stopped.` nhưng tiến trình không return | 🟠 P1 (cơ chế root-caused, task cụ thể chưa tìm ra) | 2026-08-26 | **Cập nhật 2026-08-26:** cơ chế chung xác nhận thật — `ThreadPoolExecutor.shutdown(wait=False)` không ngăn được CPython's `_python_exit()` atexit hook join mọi worker thread khi thoát, y hệt `BUG-041` (tái hiện tối giản: `timeout 8 python3 ...` → exit code 124). Đã loại `BinanceBotModule.dispose_all()` (2ms kể cả DB 1.77GB) và chính Historical Tick Backtest của phiên đó (đã hoàn tất 73 phút trước shutdown, cancellation token đã có sẵn) khỏi danh sách nghi phạm. Task cụ thể gây treo **chưa xác định** — thêm `_log_surviving_non_daemon_threads()` (dump tên thread sống ngay sau `app_engine.stop()`) để lần tái hiện sống tiếp theo tự chỉ đích danh. **Rà soát 2026-08-26:** đã map đủ **19 điểm `submit()`** — 6 đường của `ScanCoordinator`/inspector **không có token** (`clear_data`, `purge_all`, `vacuum` rủi ro cao), và `KLineInspectorCoordinator` **không có `cancel()`** nên `shutdown()` bỏ sót hẳn. Quan trọng: **thêm token không đủ** — `run_vacuum` gọi lệnh blocking không có checkpoint, token chỉ chặn được *giữa các shard*. |
 | **[BUG-051](incomplete/BUG-051_ui_freeze_during_historical_tick_backtest.md)** | UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest | 🟠 P1 (đã sửa 1 phần) | 2026-08-26 | **Cập nhật 2026-08-26:** freeze #1/#2/#3 (giai đoạn nạp tick, gồm outlier 69,1s nặng nhất) root-caused + sửa — `RunHistoricalTickBacktestCommandHandler` dùng `get_klines()` (vật chất hoá cả dải tick 1 lần, tới 2,59 triệu dòng), chưa từng được áp fix streaming mà `BUG-025` đã làm cho `RunStaticBacktestCommandHandler`. Đo thật: `get_klines()` 1,5M dòng = 69,9s + heartbeat gap tới 1,88s; `count_klines()+stream_klines()` = 28,0s + gap tối đa 0,09s. Freeze #4/#5 (sau `ticks_loaded`, trong lúc mô phỏng) **vẫn Open**, chưa root-caused — xem §6 trong hồ sơ. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. **Cập nhật 2026-08-26:** headless repro (cùng tổ hợp script Dev Board thật) không tái hiện được `-50..100`, nhưng lộ ra 1 defect thật khác cùng subsystem, đã tách và đóng riêng ở [`BUG-053`](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md) — không đóng được bug này, vẫn cần ảnh/log tái hiện sống. |

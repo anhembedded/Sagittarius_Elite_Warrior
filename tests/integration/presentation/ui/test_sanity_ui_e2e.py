@@ -122,7 +122,12 @@ def test_sanity_dev_board_full_feature_walkthrough(
         view._view_model.requestLoadHistory()
 
     chart_card = view.chart_cards[0]
-    assert chart_card.symbol == "ETHUSDT"
+    # EPIC-010H: the Dev Board now honours Settings' DEFAULT_SYMBOLS, so the
+    # symbol it opens on depends on config rather than a module constant.
+    # Asserted against the symbol actually loaded, because what this
+    # walkthrough is really checking is that history arrived for the chart the
+    # screen built — not which pair that happens to be.
+    assert chart_card.symbol == presenter._active_symbol
     assert len(chart_card._raw_history) == _MOCK_KLINE_COUNT
 
     # --- 2. Start Stream — already running via auto-start ----------------
@@ -132,7 +137,7 @@ def test_sanity_dev_board_full_feature_walkthrough(
     # --- 3. Live tick -> chart update (simulates the WebSocket adapter) --
     history_before = len(chart_card._raw_history)
     closed_tick = MarketData(
-        symbol="ETHUSDT",
+        symbol=chart_card.symbol,
         interval="1m",
         open_time=datetime(2024, 1, 1, 1, 0, tzinfo=UTC),
         open_price=200.0,

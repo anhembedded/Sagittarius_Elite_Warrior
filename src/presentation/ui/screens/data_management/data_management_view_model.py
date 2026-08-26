@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_SYMBOL_OPTIONS,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
@@ -13,7 +16,11 @@ from .database_status_table_model import (
 )
 from .kline_inspector_table_model import KLineInspectorTableModel
 
-_DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
+#: `EPIC-010H`: the real list now comes from Settings via
+#: `app_defaults.default_symbol_options()`, which the presenter applies
+#: right after constructing this ViewModel. This stays as the bottom-tier
+#: fallback, written down in one place instead of two.
+_DEFAULT_SYMBOLS = list(FALLBACK_SYMBOL_OPTIONS)
 _SUPPORTED_INTERVALS = [tf.value for tf in TimeFrame]
 
 

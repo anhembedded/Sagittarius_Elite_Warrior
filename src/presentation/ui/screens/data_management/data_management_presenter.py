@@ -17,6 +17,12 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_SYMBOL_OPTIONS,
+    default_interval,
+    default_symbol,
+    default_symbol_options,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
     SyncProgressFeed,
 )
@@ -126,6 +132,23 @@ class DataManagementPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._view_model = DataManagementViewModel()
+        # EPIC-010H, middle tier: this screen used to ignore Settings entirely,
+        # so editing DEFAULT_SYMBOLS/DEFAULT_INTERVAL changed the Backtest
+        # screen and silently left this one on its own hardcoded list.
+        # `restore_state()` later overrides these with remembered values if
+        # there are any, which is the top tier.
+        config_values = container.resolve(IConfig).get_all()
+        # This screen's own floors, unchanged: its picker has always started on
+        # the first of its five symbols and on the first supported interval.
+        # Sharing a floor across screens would have quietly moved both.
+        options = default_symbol_options(config_values, FALLBACK_SYMBOL_OPTIONS)
+        self._view_model.set_symbol_options(options)
+        self._view_model.selectedSymbol = default_symbol(config_values, options[0])
+        self._view_model.selectedInterval = default_interval(
+            config_values,
+            fallback=self._view_model.intervals[0],
+            allowed=self._view_model.intervals,
+        )
         view.set_view_model(self._view_model)
         self._shutdown_requested = False
         self._cancellation_token: CancellationToken | None = None
