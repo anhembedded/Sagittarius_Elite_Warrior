@@ -19,24 +19,11 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
-    RunHistoricalTickBacktestCommand,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
-    RunStaticBacktestCommand,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols.query import (
     ListAvailableSymbolsQuery,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
@@ -44,11 +31,6 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
-    MetadataVerificationStatus,
-    OrderIntent,
-    validate_order_intent,
-)
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
@@ -92,13 +74,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report i
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
-    map_klines,
-    map_volume,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
-    qualified_line_name,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
@@ -134,6 +111,14 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_view_model import BackTestViewModel
+from .coordinators import (
+    ChartRenderCoordinator,
+    DataSyncCoordinator,
+    ExecutionCoordinator,
+    IndicatorCoordinator,
+    StrategyConfigCoordinator,
+    TradeLogCoordinator,
+)
 from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
@@ -147,11 +132,6 @@ from .logic.backtest_fsm_matrix import (
     BacktestUiState,
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
-from .logic.bot_params_form import (
-    build_bot_params_rows,
-    build_bot_params_schema,
-    parse_bot_params,
-)
 from .logic.chart_canvas_view import ChartDisplayMode
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
@@ -165,23 +145,9 @@ from .logic.pre_backtest_assertions import (
     parse_custom_datetime,
 )
 from .logic.result_formatter import format_result_summary
-from .logic.strategy_indicator_lines import (
-    assign_strategy_line_colors,
-    compute_strategy_indicator_lines,
-)
-from .logic.strategy_trend_zones import compute_strategy_trend_zones
 from .logic.time_range_preset import TimeRangePreset, resolve_time_range
-from .logic.trade_log_export import export_trades_to_csv
-from .logic.trade_log_filter import (
-    TradeLogFilter,
-    filter_trade_log_rows,
-    search_trade_log_rows,
-)
-from .logic.trade_log_pagination import paginate_trade_log_rows, total_pages
 from .logic.trade_log_row import (
     TradeLogRow,
-    build_trade_log_rows,
-    trade_log_rows_to_qml,
 )
 
 if TYPE_CHECKING:
@@ -471,6 +437,117 @@ class BackTestPresenter(BasePresenter):
             emit_signal=self._emit_ui_log,
             max_entries=self._log_max_entries,
         )
+
+        # Reads `_all_trades` through a lambda rather than being handed the
+        # list: the presenter rebinds it on every run, and three existing
+        # tests assign `presenter._all_trades` directly before calling in.
+        self._trade_log = TradeLogCoordinator(
+            view_model=self._view_model,
+            get_all_trades=lambda: self._all_trades,
+            set_chart_display_timezone=lambda tz: self.view.set_display_timezone(tz),
+            ask_export_path=self._ask_trade_log_export_path,
+            logger=self._logger,
+        )
+        self._strategy_config = StrategyConfigCoordinator(
+            view_model=self._view_model,
+            strategy_registry=self._strategy_registry,
+            logger=self._logger,
+            get_strategy_params=lambda: self._strategy_params,
+            set_strategy_params=self._set_strategy_params,
+            get_symbol=lambda: self._symbol,
+            # `lambda`, not `self._market_metadata_cache.get`: binding the
+            # method captures the cache object that exists right now, and
+            # tests replace `presenter._market_metadata_cache` after
+            # construction. The bound version read the original cache and
+            # reported UNVERIFIED_MISSING for every symbol.
+            get_market_metadata=lambda symbol: self._market_metadata_cache.get(symbol),
+            get_current_raw_klines=lambda: self._current_raw_klines,
+            notify_config_changed=self._on_config_input_changed,
+        )
+        self._indicators = IndicatorCoordinator(
+            view_model=self._view_model,
+            strategy_registry=self._strategy_registry,
+            logger=self._logger,
+            script_runner=self._chart_script_runner,
+            get_first_chart_card=self._first_chart_card,
+            get_active_strategy_lines=lambda: self._active_strategy_lines,
+            get_current_raw_klines=lambda: self._current_raw_klines,
+            get_chart_mode=lambda: getattr(
+                self.view, "chart_mode", ChartDisplayMode.OHLC
+            ),
+            apply_after_native_fallback=self._apply_after_native_fallback,
+            emit_strategy_line=self._chartStrategyLineSignal.emit,
+            emit_strategy_region=self._chartStrategyRegionSignal.emit,
+            set_chart_script_keys=self._set_chart_script_keys,
+        )
+        self._data_sync = DataSyncCoordinator(
+            dispatcher=self.dispatcher,
+            get_symbol=lambda: self._symbol,
+            effective_data_interval=self._effective_data_interval,
+            resolve_action_id=lambda: self._current_action_id(BacktestActionKind.SYNC),
+            log_dev_trace=self._log_dev_trace,
+            emit_progress=self._syncProgressSignal.emit,
+            emit_succeeded=self._syncSucceededSignal.emit,
+            emit_failed=self._syncFailedSignal.emit,
+            emit_cancelled=self._syncCancelledSignal.emit,
+        )
+        self._chart_render = ChartRenderCoordinator(
+            view=self.view,
+            view_model=self._view_model,
+            dispatcher=self.dispatcher,
+            thread_manager=self._thread_manager,
+            logger_=self._logger,
+            get_symbol=lambda: self._symbol,
+            get_active_strategy_lines=lambda: self._active_strategy_lines,
+            set_current_raw_klines=self._set_current_raw_klines,
+            refresh_market_rule_verification=(
+                self._strategy_config.refresh_market_rule_verification
+            ),
+            log_dev_trace=self._log_dev_trace,
+            format_coverage_message=DataSyncCoordinator.format_coverage_message,
+            # Routed through the presenter's own methods, not bound straight
+            # to the indicator coordinator: a test replaces
+            # `presenter._on_ema_toggled` with a Mock and asserts the
+            # mode-change path calls it. Binding early skipped it entirely.
+            set_strategy_lines_visible=lambda visible: self._on_ema_toggled(visible),
+            set_script_overlay_lines_visible=(
+                lambda visible: self._set_script_overlay_lines_visible(visible)
+            ),
+            get_chart_klines_fetch_limit=lambda: self._chart_klines_fetch_limit,
+            get_current_config=self._get_current_config,
+            is_busy=self._is_busy_for_preview,
+            next_preview_id=self._claim_preview_id,
+            get_active_preview_id=lambda: self._active_preview_id,
+            emit_preview_ready=self._previewDataReadySignal.emit,
+            run_preview_worker=self._run_chart_preview,
+        )
+        self._execution = ExecutionCoordinator(
+            view_model=self._view_model,
+            dispatcher=self.dispatcher,
+            script_runner=self._chart_script_runner,
+            get_symbol=lambda: self._symbol,
+            get_chart_klines_fetch_limit=lambda: self._chart_klines_fetch_limit,
+            get_chart_script_keys=lambda: self._chart_script_keys,
+            resolve_action_id=lambda: self._current_action_id(
+                BacktestActionKind.BACKTEST
+            ),
+            log_dev_trace=self._log_dev_trace,
+            probe_coverage=self._probe_data_coverage,
+            emit_coverage_missing=self._backtestCoverageMissingSignal.emit,
+            emit_coverage_ready=self._backtestCoverageReadySignal.emit,
+            emit_progress=self._backtestProgressSignal.emit,
+            emit_failed=self._backtestFailedSignal.emit,
+            emit_cancelled=self._backtestCancelledSignal.emit,
+            emit_empty=self._backtestEmptySignal.emit,
+            emit_succeeded=self._backtestSucceededSignal.emit,
+            emit_chart_data_ready=self._chartDataReadySignal.emit,
+            # Through the presenter's own methods, not bound to the indicator
+            # coordinator: tests replace these on the presenter.
+            emit_strategy_indicator_lines=(
+                lambda *a: self._emit_strategy_indicator_lines(*a)
+            ),
+            emit_strategy_trend_zones=lambda *a: self._emit_strategy_trend_zones(*a),
+        )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
@@ -691,10 +768,7 @@ class BackTestPresenter(BasePresenter):
         )
 
     def _on_sync_progress(self, report: SyncProgressReport) -> None:
-        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
-        action_id = self._current_action_id(BacktestActionKind.SYNC)
-        if action_id is not None:
-            self._syncProgressSignal.emit(action_id, report.current, report.total)
+        self._data_sync.on_progress(report)
 
     def _emit_ui_log(
         self, message: str, level: str = "info", is_dev: bool = False
@@ -949,7 +1023,7 @@ class BackTestPresenter(BasePresenter):
         # _fetch_and_emit_chart_data (background thread) will repopulate as
         # it draws the new run's lines; clearing after that started would
         # race and could remove lines the new run just added.
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        card = self._first_chart_card()
         if card is not None:
             for name in self._active_strategy_lines:
                 card.remove_indicator(name)
@@ -1025,13 +1099,7 @@ class BackTestPresenter(BasePresenter):
 
     @staticmethod
     def _format_coverage_message(coverage: BacktestRangeCoverage) -> str:
-        if coverage.missing_open_times:
-            return f"Thiếu nến từ {coverage.missing_open_times[0]:%Y-%m-%d %H:%M UTC}."
-        if coverage.duplicate_candles:
-            return f"Dữ liệu có {coverage.duplicate_candles} nến trùng thời điểm."
-        if coverage.has_unclosed_candle:
-            return "Khoảng dữ liệu chứa nến chưa đóng."
-        return "Dữ liệu local chưa đủ cho khoảng Backtest đã chọn."
+        return DataSyncCoordinator.format_coverage_message(coverage)
 
     @Slot()
     @safe_ui_action
@@ -1355,216 +1423,88 @@ class BackTestPresenter(BasePresenter):
         volume: list,
         raw_klines: list | None = None,
     ) -> None:
-        if raw_klines is not None:
-            self._current_raw_klines = list(raw_klines)
-            self._refresh_market_rule_verification()
-        self._log_dev_trace(
-            "chart_data_ready",
-            klines=len(klines),
-            volume=len(volume),
-            trades=len(result.trades),
-        )
-        self._logger.log_klines_loaded(len(klines), self._symbol)
-        self.view.on_backtest_data_ready(result, klines, volume)
-        # BUG-032: this is the one place a real BacktestResult chart lands —
-        # clears the preview flag `_on_preview_data_ready` set, so QML stops
-        # showing the "preview" badge once real results are on screen.
-        self._view_model.set_chart_preview_mode(False)
+        self._chart_render.on_data_ready(result, klines, volume, raw_klines)
 
     @Slot(str, str, list, list)
     @safe_ui_action
     def _on_chart_strategy_line(
         self, name: str, color: str, x_data: list, y_data: list, width: int = 2
     ) -> None:
-        """BOT-060: one call per strategy indicator line, emitted once the
-        whole run has been fed (`_fetch_and_emit_chart_data`) — adds the
-        curve on first use, same as `IndicatorScriptRunner.draw()` does for
-        Dev Board scripts, just without needing that class at all (a
-        strategy has no `.line_colors()`/`.compute()` to drive it). `width`
-        (BOT-111) lets a strategy request a different line weight per line,
-        e.g. a thinner entry EMA than trend EMA."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        if name not in self._active_strategy_lines:
-            card.add_overlay_indicator(name, color, width)
-            self._active_strategy_lines.add(name)
-        card.update_indicator_data(name, x_data, y_data)
+        self._chart_render.on_strategy_line(name, color, x_data, y_data, width)
 
     @Slot(list)
     @safe_ui_action
     def _on_chart_strategy_region(self, spans: list) -> None:
-        """BOT-113: the backtested strategy's own `classify_trend_zone()`
-        output, emitted once per run (`_emit_strategy_trend_zones`) under a
-        fixed key — unlike `_on_chart_script_region` there is only ever one
-        strategy per run, so no key needs to travel through the signal."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "strategy trend zones",
-            lambda host: host.set_script_regions(_STRATEGY_TREND_ZONE_KEY, spans),
-            drawn_count=len(spans),
-        )
+        self._chart_render.on_strategy_region(spans)
 
     @Slot(str, list, list)
     @safe_ui_action
+    def _set_chart_script_keys(self, keys: list[str]) -> None:
+        self._chart_script_keys = keys
+
+    def _first_chart_card(self):
+        """The chart card everything draws onto, or None before one exists.
+
+        Was written out inline eleven times. Never cached: the host is
+        rebuilt on every chart-mode change, so a stored card becomes a
+        `deleteLater()`'d C++ object — the shape of BUG-013.
+        """
+        return self.view.chart_cards[0] if self.view.chart_cards else None
+
     def _on_chart_script_line(self, name: str, x_data: list, y_data: list) -> None:
-        """BOT-064: one call per user-picked reference script line, mirrors
-        DashboardPresenter._on_indicator_data — pure delegate to
-        IndicatorScriptRunner.draw(), which registers the overlay/subplot
-        curve on first use and knows the script's own line color."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is not None:
-            self._chart_script_runner.draw(card, name, x_data, y_data)
+        self._indicators.on_script_line(name, x_data, y_data)
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_region(self, key: str, spans: list) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "script regions",
-            lambda host: self._chart_script_runner.draw_region(host, key, spans),
-            drawn_count=len(spans),
-        )
+        self._indicators.on_script_region(key, spans)
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_info(self, key: str, fields: list) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "script info",
-            lambda host: self._chart_script_runner.draw_info(host, key, fields),
-            drawn_count=len(fields),
-        )
+        self._indicators.on_script_info(key, fields)
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_marker(self, key: str, markers: list) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "script markers",
-            lambda host: self._chart_script_runner.draw_markers(host, key, markers),
-            drawn_count=len(markers),
-        )
+        self._indicators.on_script_marker(key, markers)
 
     def _reset_indicator_bookkeeping_after_host_rebuild(self) -> None:
-        """The chart host was just replaced from scratch — nothing on the
-        new one knows about strategy/script indicator lines drawn on the
-        old one, and neither caches the underlying x/y series to replay, so
-        drop the stale bookkeeping rather than let it silently desync
-        (BOT-098F6D bug, 2026-08-18: real run-ui.ps1 session — indicator
-        lines vanished after a chart-mode round-trip, then the next
-        set_indicator_visible() call crashed and was swallowed silently by
-        safe_ui_action). Re-running the backtest already redraws every line
-        from scratch, same as before host rebuilding existed.
-
-        Shared by every rebuild path — `_on_chart_mode_changed()` and
-        `_fallback_to_python_after_unsupported_native_feature()` — because
-        skipping it is not just a cosmetic gap: `IndicatorScriptRunner`'s
-        `ResourceScope` still holds a dispose callback bound to the
-        already-`deleteLater()`'d old host, and the *next* backtest run's
-        `clear_from_chart()` invokes it unconditionally, crashing with a
-        real shiboken "C++ object already deleted" `RuntimeError`
-        (BUG-013, 2026-08-19 — found reachable only through the fallback
-        path, since F6D's own fix here only covered the mode-change path)."""
-        self._active_strategy_lines.clear()
-        self._chart_script_runner.reset_after_host_replaced()
+        self._indicators.reset_bookkeeping_after_host_rebuild()
 
     def _apply_after_native_fallback(
         self, feature_name: str, draw, *, drawn_count: int
     ) -> None:
-        """Draw `draw` on the live host.
-
-        Named for its now-deleted native-fallback history (BUG-038): a
-        native C++/QML chart host used to raise `NativeUnsupportedFeatureError`
-        for exactly this class of content (script regions/info/markers,
-        equity/BOTH subplot) and this method rebuilt onto the Python host
-        and replayed `draw`. The native host is gone outright — `draw`
-        always succeeds on `PythonBacktestChartHost` — but the call sites
-        (`_on_chart_strategy_region`/`_on_chart_script_region`/etc.) still
-        route through here rather than calling `draw(card)` directly, so
-        the `[chart-region]` logging (`.agents/rules/logging-rule.md`
-        §2/§5: log what was applied, not just what was decided) stays in
-        one place.
-        """
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        draw(card)
-        logger.debug(
-            "[chart-region] %s: drew %d item(s) on %s",
-            feature_name,
-            drawn_count,
-            type(card).__name__,
+        self._chart_render.apply_after_native_fallback(
+            feature_name, draw, drawn_count=drawn_count
         )
 
     @Slot(str)
     @safe_ui_action
     def _on_chart_mode_changed(self, mode_value: str) -> None:
-        mode = ChartDisplayMode(mode_value)
-        self._log_dev_trace("chart_mode_changed", mode=mode_value)
-        self.view.set_chart_mode(mode)
-        is_price_scale = mode is not ChartDisplayMode.EQUITY
-        # Entry/exit PRICE markers AND the strategy indicator overlay are
-        # both price-scale — meaningless, and for the overlay actively
-        # harmful (drags the shared main plot's auto-range onto price
-        # values), once the main plot is showing Equity instead of price.
-        # See BacktestChartControls' set_trade_flags_enabled/set_ema_enabled.
-        controls = self.view.chart_controls
-        controls.set_trade_flags_enabled(is_price_scale)
-        controls.set_ema_enabled(is_price_scale)
-        self._on_ema_toggled(is_price_scale and controls.is_ema_checked())
-        self._set_script_overlay_lines_visible(is_price_scale)
+        self._chart_render.on_mode_changed(mode_value)
 
     @Slot(bool)
     @safe_ui_action
     def _on_ema_toggled(self, visible: bool) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        for name in self._active_strategy_lines:
-            card.set_indicator_visible(name, visible)
+        self._indicators.set_strategy_lines_visible(visible)
 
     def _set_script_overlay_lines_visible(self, visible: bool) -> None:
-        """BOT-065: the reference-script counterpart to `_on_ema_toggled` —
-        not the same checkbox/state (a script's line count isn't tied to
-        "Chỉ báo Chiến lược" at all), but the same underlying problem: an
-        overlay script left plotted through Equity-solo mode drags the
-        shared main plot's auto-range onto price values, squashing the
-        equity curve flat. Subplot scripts (RSI/MACD, `overlay=False`)
-        don't share that plot, so they're excluded — nothing to fix for
-        them."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        for key, active in self._chart_script_runner.active.items():
-            if not active.overlay:
-                continue
-            for line_name in active.registered_lines:
-                card.set_indicator_visible(qualified_line_name(key, line_name), visible)
+        self._indicators.set_script_overlay_lines_visible(visible)
 
     @Slot()
     @safe_ui_action
+    def _set_strategy_params(self, params: dict[str, Any] | None) -> None:
+        """Write access to `_strategy_params` for `StrategyConfigCoordinator`.
+
+        A method rather than handing the coordinator the presenter: it is the
+        only attribute the coordinator writes, and four tests read
+        `presenter._strategy_params` directly, so it has to stay here.
+        """
+        self._strategy_params = params
+
     def _on_strategy_selection_changed(self) -> None:
-        """A different strategy has an entirely different parameter schema —
-        any values saved for the previous one would either be silently
-        ignored or raise "param nobody declares" against the new one, so
-        they're discarded rather than carried over (BOT-047)."""
-        self._strategy_params = None
-        self._view_model.set_bot_params_error("")
-        self._refresh_bot_params_schema()
-        self._logger.log_strategy_selected(
-            self._view_model.selectedStrategyName,
-            self._view_model.selectedStrategyKey,
-        )
-        self._on_config_input_changed()
+        self._strategy_config.on_strategy_selection_changed()
 
     @Slot()
     @safe_ui_action
@@ -1660,62 +1600,34 @@ class BackTestPresenter(BasePresenter):
             self._on_config_input_changed()
             self._request_chart_preview()
 
-    def _request_chart_preview(self) -> None:
-        """Probe and preview a toolbar range without blocking the Qt thread."""
-        if self.fsm.current_state in (
+    def _set_current_raw_klines(self, klines: list) -> None:
+        self._current_raw_klines = klines
+
+    def _claim_preview_id(self) -> int:
+        """Next preview generation id, and the one now considered current.
+
+        Stays on the presenter because four tests read or write
+        `presenter._active_preview_id` directly.
+        """
+        self._next_preview_id += 1
+        self._active_preview_id = self._next_preview_id
+        return self._active_preview_id
+
+    def _is_busy_for_preview(self) -> bool:
+        """A preview during a run would race the run's own chart writes."""
+        return self.fsm.current_state in (
             BacktestUiState.RUNNING,
             BacktestUiState.CANCELLING,
             BacktestUiState.SYNCING,
-        ):
-            return
-        config = self._get_current_config()
-        if self._view_model.timeRangePreset == TimeRangePreset.CUSTOM.value:
-            if config.start_time is None or config.end_time is None:
-                return
-            if config.start_time >= config.end_time:
-                return
-        self._next_preview_id += 1
-        self._active_preview_id = self._next_preview_id
-        self._thread_manager.submit(
-            self._run_chart_preview,
-            config,
-            self._active_preview_id,
         )
 
+    def _request_chart_preview(self) -> None:
+        self._chart_render.request_preview()
+
     def _run_chart_preview(self, config: BacktestRunConfig, preview_id: int) -> None:
-        """Background preview query; generation ID fences rapid toolbar changes."""
-        now = datetime.now(UTC)
-        try:
-            query = GetHistoricalKlinesQuery(
-                symbol=self._symbol,
-                interval=config.timeframe.value,
-                limit=self._chart_klines_fetch_limit,
-                start_time=config.start_time,
-                end_time=config.end_time or now,
-                order_by_desc=True,
-            )
-            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            raw_klines = list(reversed(list(getattr(response, "data", response) or [])))
-            coverage = self.dispatcher.dispatch(
-                GetBacktestRangeCoverageQuery,
-                GetBacktestRangeCoverageQuery(
-                    symbol=self._symbol,
-                    interval=config.timeframe.value,
-                    start_time=config.start_time,
-                    end_time=config.end_time or now,
-                    now=now,
-                ),
-            )
-            self._previewDataReadySignal.emit(
-                preview_id,
-                coverage,
-                map_klines(raw_klines),
-                map_volume(raw_klines),
-                raw_klines,
-            )
-        except Exception as exc:
-            logger.exception("Fetching Backtest chart preview failed")
-            self._log_dev_trace("preview_query_failed", message=str(exc))
+        """Kept with this signature: three tests call it directly, and
+        `request_preview` submits this bound method to the thread manager."""
+        self._chart_render.run_preview(config, preview_id)
 
     @Slot(int, object, list, list, list)
     @safe_ui_action
@@ -1727,215 +1639,48 @@ class BackTestPresenter(BasePresenter):
         volume: list,
         raw_klines: list | None = None,
     ) -> None:
-        if preview_id != self._active_preview_id:
-            self._log_dev_trace("preview_ignored", preview_id=preview_id)
-            return
-        if raw_klines is not None:
-            self._current_raw_klines = list(raw_klines)
-        self._view_model.set_data_coverage(
-            coverage.is_fully_covered,
-            ""
-            if coverage.is_fully_covered
-            else self._format_coverage_message(coverage),
+        self._chart_render.on_preview_data_ready(
+            preview_id, coverage, klines, volume, raw_klines
         )
-        self._view_model.set_needs_data_sync(not coverage.is_fully_covered)
-        self.view.on_preview_data_ready(klines, volume)
-        self._view_model.set_chart_preview_mode(True)
 
     @Slot()
     @safe_ui_action
     def _on_capital_changed(self) -> None:
-        self._set_capital_validation_message(self._view_model.initialCapitalText)
-        try:
-            capital_val = float(self._view_model.initialCapitalText)
-            self._logger.log_capital_updated(
-                capital_val,
-                self._view_model.selectedCurrency,
-            )
-        except (ValueError, TypeError):
-            pass
-        self._on_config_input_changed()
+        self._strategy_config.on_capital_changed()
 
     @Slot(str)
     @safe_ui_action
     def _on_capital_validation_requested(self, value: str) -> None:
-        self._set_capital_validation_message(value)
+        self._strategy_config.on_capital_validation_requested(value)
 
     def _set_capital_validation_message(self, value: str) -> None:
-        issues = PreBacktestAssertionPipeline.default().validate(
-            PreBacktestInput(value, False, "", "")
-        )
-        self._view_model.set_capital_validation_message(
-            issues[0].message if issues else ""
-        )
-        self._refresh_market_rule_verification()
+        self._strategy_config.set_capital_validation_message(value)
 
     def _refresh_market_rule_verification(self) -> None:
-        """Evaluates whether current symbol and capital comply with exchange order rules (BOT-095E1)."""
-        metadata = self._market_metadata_cache.get(self._symbol)
-        try:
-            capital_val = float(self._view_model.initialCapitalText)
-        except (ValueError, TypeError):
-            capital_val = 0.0
-
-        if metadata is None:
-            self._view_model.set_market_rule_verification(
-                MetadataVerificationStatus.UNVERIFIED_MISSING.value,
-                "Chưa xác minh theo quy tắc sàn (chưa có metadata cho cặp giao dịch).",
-            )
-            return
-
-        if metadata.is_stale():
-            self._view_model.set_market_rule_verification(
-                MetadataVerificationStatus.UNVERIFIED_STALE.value,
-                f"Chưa xác minh theo quy tắc sàn (metadata cũ từ {metadata.fetched_at.strftime('%Y-%m-%d %H:%M:%S UTC')}).",
-            )
-            return
-
-        ref_price = (
-            self._current_raw_klines[-1].close_price
-            if self._current_raw_klines
-            else metadata.price_filter.min_price
-        )
-        qty = capital_val / ref_price if ref_price > 0 else 0.0
-        intent = OrderIntent(symbol=self._symbol, price=ref_price, quantity=qty)
-        result = validate_order_intent(intent, metadata)
-        self._view_model.set_market_rule_verification(
-            result.status.value,
-            result.explanation,
-        )
+        self._strategy_config.refresh_market_rule_verification()
 
     @Slot()
     @safe_ui_action
     def _on_indicator_script_selection_changed(self) -> None:
-        """BOT-095F: dynamically adds or removes reference indicator scripts from the chart
-        when toggled in the indicator picker modal, without requiring a full backtest rerun."""
-        enabled_keys = set(self._view_model.script_model.enabled_keys)
-        scripts_str = ", ".join(sorted(enabled_keys)) if enabled_keys else "Không có"
-        self._logger.info(f"Đã cập nhật chỉ báo tham chiếu: {scripts_str}")
-
-        current_active_keys = set(self._chart_script_runner.active.keys())
-        disabled_keys = current_active_keys - enabled_keys
-        newly_enabled_keys = enabled_keys - current_active_keys
-
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-
-        for key in disabled_keys:
-            if card is not None:
-                self._chart_script_runner.remove_script(key, card)
-            else:
-                self._chart_script_runner.active.pop(key, None)
-
-        if self._current_raw_klines:
-            is_price_scale = (
-                getattr(self.view, "chart_mode", ChartDisplayMode.OHLC)
-                is not ChartDisplayMode.EQUITY
-            )
-            for key in newly_enabled_keys:
-                self._chart_script_runner.add_script(key, self._current_raw_klines)
-                if not is_price_scale:
-                    active = self._chart_script_runner.active.get(key)
-                    if active and active.overlay and card is not None:
-                        for line_name in active.registered_lines:
-                            card.set_indicator_visible(
-                                qualified_line_name(key, line_name), False
-                            )
-
-        self._chart_script_keys = sorted(enabled_keys)
+        self._indicators.on_script_selection_changed()
 
     @Slot(object)
     @safe_ui_action
     def _on_bot_params_save_requested(self, raw_values: dict) -> None:
-        """ "Lưu & Re-Backtest" (BOT-047): validates the modal's values
-        against the selected strategy's own declarations before accepting
-        anything — an out-of-range/mistyped value must show an inline error
-        and leave the modal open, never silently fall back to a default."""
-        strategy_cls = self._strategy_registry.available().get(
-            self._view_model.selectedStrategyKey
-        )
-        if strategy_cls is None:
-            return
-        try:
-            parsed = parse_bot_params(strategy_cls().inputs, raw_values)
-            strategy_cls(parsed)  # construct-and-discard: the real validator
-        except ValueError as exc:
-            self._view_model.set_bot_params_error(str(exc))
-            return
-
-        self._strategy_params = parsed
-        self._view_model.set_bot_params_error("")
-        self._refresh_bot_params_schema()
-        self._view_model.botParamsSaved.emit()
-        self._logger.log_bot_params_saved(
-            self._view_model.selectedStrategyName,
-            parsed,
-        )
-        self._on_config_input_changed()
-
-        if not self.fsm.can_dispatch(BacktestUiEvent.RUN_REQUESTED):
-            return
-        config = self._build_run_config()
-        if config is None:
-            return
-        previous_state = self.fsm.current_state
-        self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
-        self._start_backtest_run(config, previous_state)
+        if self._strategy_config.apply_bot_params(raw_values):
+            self._start_run_after_config_save()
 
     @Slot(object)
     @safe_ui_action
     def _on_strategy_properties_save_requested(self, payload: dict) -> None:
-        """ "Lưu & Chạy lại" (BOT-104): handles combined Strategy Inputs and
-        Broker Properties saving from StrategyPropertiesModal.qml."""
-        inputs = payload.get("inputs", {})
-        props = payload.get("properties", {})
+        if self._strategy_config.apply_strategy_properties(payload):
+            self._start_run_after_config_save()
 
-        strategy_cls = self._strategy_registry.available().get(
-            self._view_model.selectedStrategyKey
-        )
-        if strategy_cls is not None and inputs:
-            try:
-                parsed = parse_bot_params(strategy_cls().inputs, inputs)
-                strategy_cls(parsed)
-                self._strategy_params = parsed
-            except ValueError as exc:
-                self._view_model.set_bot_params_error(str(exc))
-                return
-
-        # Apply broker properties to view_model
-        if "initial_capital" in props:
-            self._view_model.initialCapitalText = str(props["initial_capital"])
-        if "currency" in props:
-            self._view_model.selectedCurrency = str(props["currency"])
-        if "order_size_type" in props:
-            self._view_model.orderSizeType = str(props["order_size_type"])
-        if "order_size_text" in props:
-            self._view_model.orderSizeText = str(props["order_size_text"])
-        if "pyramiding" in props:
-            self._view_model.pyramiding = int(props["pyramiding"])
-        if "commission_type" in props:
-            self._view_model.commissionType = str(props["commission_type"])
-        if "commission_text" in props:
-            self._view_model.commissionText = str(props["commission_text"])
-        if "slippage_ticks" in props:
-            self._view_model.slippageTicks = int(props["slippage_ticks"])
-        if "long_leverage" in props:
-            self._view_model.longLeverage = float(props["long_leverage"])
-        if "short_leverage" in props:
-            self._view_model.shortLeverage = float(props["short_leverage"])
-        if "take_profit_enabled" in props:
-            self._view_model.takeProfitPctEnabled = bool(props["take_profit_enabled"])
-        if "take_profit_pct_text" in props:
-            self._view_model.takeProfitPctText = str(props["take_profit_pct_text"])
-
-        self._view_model.set_bot_params_error("")
-        self._refresh_bot_params_schema()
-        self._view_model.botParamsSaved.emit()
-        self._logger.log_bot_params_saved(
-            self._view_model.selectedStrategyName,
-            self._strategy_params or {},
-        )
-        self._on_config_input_changed()
-
+    def _start_run_after_config_save(self) -> None:
+        """The "and now re-run it" tail both save handlers ended with, byte
+        for byte. It stays on the presenter because it owns the FSM, and it
+        is one method now because two copies of a dispatch-then-start
+        sequence is one copy too many."""
         if not self.fsm.can_dispatch(BacktestUiEvent.RUN_REQUESTED):
             return
         config = self._build_run_config()
@@ -1946,16 +1691,7 @@ class BackTestPresenter(BasePresenter):
         self._start_backtest_run(config, previous_state)
 
     def _refresh_bot_params_schema(self) -> None:
-        strategy_cls = self._strategy_registry.available().get(
-            self._view_model.selectedStrategyKey
-        )
-        schema = (
-            build_bot_params_schema(strategy_cls, self._strategy_params)
-            if strategy_cls is not None
-            else []
-        )
-        self._view_model.set_bot_params_schema(schema)
-        self._view_model.set_bot_params_rows(build_bot_params_rows(schema))
+        self._strategy_config.refresh_bot_params_schema()
 
     @Slot()
     @safe_ui_action
@@ -2094,76 +1830,46 @@ class BackTestPresenter(BasePresenter):
 
     @Slot()
     @safe_ui_action
-    def _on_trade_log_query_changed(self) -> None:
-        self._refresh_trade_log()
+    def _ask_trade_log_export_path(self) -> str:
+        """Where to write the CSV, or "" if the user cancelled.
 
-    @Slot()
-    @safe_ui_action
-    def _on_trade_log_export_requested(self) -> None:
-        if not self._all_trades:
-            return
-        if self._view_model.isConfigDirty:
-            self._logger.info(
-                f"Đang xuất Trade Logs của lần chạy trước ({self._view_model.lastRunSummary})."
-            )
+        Kept on the presenter rather than in `TradeLogCoordinator`: the dialog
+        needs `self.view` as its parent, and a coordinator that opens Qt
+        dialogs cannot be unit-tested without one.
+        """
         path, _selected_filter = QFileDialog.getSaveFileName(
             self.view,
             _EXPORT_DIALOG_TITLE,
             _EXPORT_DEFAULT_FILENAME,
             _EXPORT_FILE_FILTER,
         )
-        if not path:
-            return
-        export_trades_to_csv(self._currently_filtered_trades(), path)
+        return path
+
+    def _on_trade_log_query_changed(self) -> None:
+        self._trade_log.on_query_changed()
+
+    @Slot()
+    @safe_ui_action
+    def _on_trade_log_export_requested(self) -> None:
+        self._trade_log.on_export_requested()
 
     @Slot()
     @safe_ui_action
     def _on_display_timezone_changed(self) -> None:
-        """Propagates display timezone change to the chart and re-renders trade log table without dirtying config."""
-        tz_name = self._view_model.displayTimezone
-        self.view.set_display_timezone(tz_name)
-        self._refresh_trade_log()
+        self._trade_log.on_display_timezone_changed()
 
     # ================================================================== #
     # Main-thread helpers
     # ================================================================== #
 
     def _filtered_and_searched_trade_log_rows(self) -> list[TradeLogRow]:
-        """The rows matching the CURRENT filter tab + search text, in full
-        (not yet paginated) — shared by `_refresh_trade_log` (which then
-        paginates) and CSV export (which doesn't)."""
-        view_model = self._view_model
-        rows = build_trade_log_rows(self._all_trades)
-        filter_ = TradeLogFilter(view_model.tradeLogFilter)
-        filtered = filter_trade_log_rows(rows, filter_)
-        return search_trade_log_rows(filtered, view_model.tradeLogSearchText)
+        return self._trade_log.filtered_and_searched_rows()
 
     def _currently_filtered_trades(self) -> list[Trade]:
-        """The `Trade`s behind whatever's currently filtered/searched into
-        view — CSV export matches what the user is looking at, not
-        necessarily everything a run produced."""
-        matching_indexes = {
-            row.index for row in self._filtered_and_searched_trade_log_rows()
-        }
-        return [
-            trade
-            for position, trade in enumerate(self._all_trades, start=1)
-            if position in matching_indexes
-        ]
+        return self._trade_log.currently_filtered_trades()
 
     def _refresh_trade_log(self) -> None:
-        """Recomputes the Trade Logs table from `self._all_trades` — called
-        after every run (new data) and every filter/search/page change from
-        QML (`tradeLogQueryChanged`)."""
-        matched = self._filtered_and_searched_trade_log_rows()
-        page_rows = paginate_trade_log_rows(
-            matched, self._view_model.tradeLogCurrentPage
-        )
-        self._view_model.set_trade_log_page_state(
-            trade_log_rows_to_qml(page_rows, tz_name=self._view_model.displayTimezone),
-            len(matched),
-            total_pages(len(matched)),
-        )
+        self._trade_log.refresh()
 
     def _build_run_config(self) -> BacktestRunConfig | None:
         """Reads and validates the toolbar fields. Returns `None` (having
@@ -2274,10 +1980,7 @@ class BackTestPresenter(BasePresenter):
         )
 
     def _get_execution_mode_from_view_model(self) -> BacktestExecutionMode:
-        try:
-            return BacktestExecutionMode(self._view_model.executionMode)
-        except ValueError:
-            return BacktestExecutionMode.BAR_CLOSE
+        return self._execution.execution_mode_from_view_model()
 
     # ================================================================== #
     # Background method — submitted to IThreadManager.
@@ -2291,199 +1994,27 @@ class BackTestPresenter(BasePresenter):
         cancellation_token: CancellationToken | None = None,
         allow_auto_sync: bool = False,
     ) -> None:
-        resolved_action_id = action_id or self._current_action_id(
-            BacktestActionKind.BACKTEST
-        )
-        if resolved_action_id is None:
-            return
-        self._log_dev_trace(
-            "worker_start",
-            action_id=resolved_action_id,
-            strategy=config.strategy_key,
-            timeframe=config.timeframe.value,
-        )
-        try:
-            if cancellation_token is not None:
-                coverage = self._probe_data_coverage(config)
-                if not coverage.is_fully_covered:
-                    self._backtestCoverageMissingSignal.emit(
-                        resolved_action_id, config, coverage, allow_auto_sync
-                    )
-                    return
-                self._backtestCoverageReadySignal.emit(resolved_action_id, coverage)
-
-            def progress_callback(
-                phase: str, completed: int, total: int, elapsed: float
-            ) -> None:
-                self._backtestProgressSignal.emit(
-                    BacktestProgress(
-                        action_id=resolved_action_id,
-                        phase=phase,
-                        completed_bars=completed,
-                        total_bars=total,
-                        elapsed_seconds=elapsed,
-                    )
-                )
-
-            cancellation_requested = (
-                cancellation_token.is_cancelled if cancellation_token else None
-            )
-            if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-                realtime_command = RunHistoricalTickBacktestCommand(
-                    symbol=self._symbol,
-                    interval=config.timeframe,
-                    tick_resolution=config.tick_resolution,
-                    strategy_key=config.strategy_key,
-                    initial_balance=config.initial_balance,
-                    fee_percent=config.broker_config.commission_value
-                    if config.broker_config.commission_type == CommissionType.PERCENT
-                    else 0.0,
-                    position_sizing=config.position_sizing,
-                    broker_config=config.broker_config,
-                    start_time=config.start_time,
-                    end_time=config.end_time,
-                    strategy_params=config.strategy_params,
-                    cancellation_requested=cancellation_requested,
-                    progress_callback=progress_callback,
-                )
-                self._log_dev_trace(
-                    "worker_dispatch_run_historical_tick_backtest",
-                    symbol=realtime_command.symbol,
-                    timeframe=realtime_command.interval.value,
-                    tick_resolution=realtime_command.tick_resolution.value,
-                )
-                result = self.dispatcher.dispatch(
-                    RunHistoricalTickBacktestCommand, realtime_command
-                )
-            else:
-                static_command = RunStaticBacktestCommand(
-                    symbol=self._symbol,
-                    interval=config.timeframe,
-                    strategy_key=config.strategy_key,
-                    initial_balance=config.initial_balance,
-                    fee_percent=config.broker_config.commission_value
-                    if config.broker_config.commission_type == CommissionType.PERCENT
-                    else 0.0,
-                    position_sizing=config.position_sizing,
-                    broker_config=config.broker_config,
-                    start_time=config.start_time,
-                    end_time=config.end_time,
-                    strategy_params=config.strategy_params,
-                    cancellation_requested=cancellation_requested,
-                    progress_callback=progress_callback,
-                )
-                self._log_dev_trace(
-                    "worker_dispatch_run_static_backtest",
-                    symbol=static_command.symbol,
-                    timeframe=static_command.interval.value,
-                )
-                result = self.dispatcher.dispatch(
-                    RunStaticBacktestCommand, static_command
-                )
-        except Exception as exc:
-            logger.exception(
-                "%s backtest failed",
-                "Realtime"
-                if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
-                else "Static",
-            )
-            self._log_dev_trace("worker_failed", message=str(exc))
-            self._backtestFailedSignal.emit(resolved_action_id, str(exc))
-            return
-
-        if isinstance(result, BacktestCancelled):
-            self._backtestCancelledSignal.emit(resolved_action_id, result)
-            return
-
-        if result is None:
-            self._log_dev_trace("worker_no_data")
-            self._backtestEmptySignal.emit(
-                resolved_action_id,
-                f"Không có dữ liệu lịch sử cho {self._symbol} "
-                f"({self._effective_data_interval(config).value}). "
-                "Hãy sync dữ liệu trước.",
-                config,
-            )
-            return
-
-        if cancellation_token is not None and cancellation_token.is_cancelled():
-            self._backtestCancelledSignal.emit(
-                resolved_action_id,
-                BacktestCancelled("post_dispatch", 0, 0),
-            )
-            return
-
-        self._log_dev_trace(
-            "worker_result_ready",
-            trades=len(result.trades),
-            net_profit_percent=result.metrics.net_profit_percent,
-        )
-        self._fetch_and_emit_chart_data(resolved_action_id, config, result)
-        # Emitted whether or not there are trades — _on_backtest_succeeded
-        # always has a real BacktestResult to build stat cards from; only
-        # "no historical data at all" (result is None, above) has none.
-        self._backtestSucceededSignal.emit(resolved_action_id, result)
+        """Kept with this exact signature: 67 test call sites go through
+        `presenter._run_backtest(...)`, and `_start_backtest_run` submits the
+        bound method to the thread manager."""
+        self._execution.run(config, action_id, cancellation_token, allow_auto_sync)
 
     @staticmethod
     def _execution_mode_label(config: BacktestRunConfig) -> str:
-        """BOT-076 §3.3 — every result must say plainly which of the two
-        parallel engines produced it. They are allowed and expected to
-        disagree on the same data (BOT-076 §5); a result with no label is
-        exactly the "two runs look identical with different meanings" trap
-        that requirement exists to prevent."""
-        if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-            return f"Chế độ: Realtime (tick {config.tick_resolution.value})"
-        return "Chế độ: Static (theo nến đóng)"
+        return ExecutionCoordinator.execution_mode_label(config)
 
     @staticmethod
     def _effective_data_interval(config: BacktestRunConfig) -> TimeFrame:
-        """The kline interval that must actually be synced/covered for this
-        run — BOT-076's realtime handler queries `IMarketDataRepository` at
-        `tick_resolution` (e.g. 1s), never at `config.timeframe` (the
-        strategy/indicator interval, e.g. 5m — BOT-075's own decision was 1s
-        kline as the tick data source, same repository, no new pipeline).
-        Checking/syncing `config.timeframe` coverage for a Realtime run would
-        report "fully covered" while the interval the handler actually reads
-        was never fetched at all."""
-        if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-            return config.tick_resolution
-        return config.timeframe
+        return ExecutionCoordinator.effective_data_interval(config)
 
     def _probe_data_coverage(self, config: BacktestRunConfig) -> BacktestRangeCoverage:
-        now = datetime.now(UTC)
-        query = GetBacktestRangeCoverageQuery(
-            symbol=self._symbol,
-            interval=self._effective_data_interval(config).value,
-            start_time=config.start_time,
-            end_time=config.end_time or now,
-            now=now,
-        )
-        return self.dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
+        return self._data_sync.probe_coverage(config)
 
     @staticmethod
     def _resolve_sync_start(
         config: BacktestRunConfig, coverage: BacktestRangeCoverage | None
     ) -> datetime | None:
-        """BUG-017: resume a sync from the coverage-detected gap instead of
-        re-fetching the entire originally requested range, when a prior
-        coverage probe found one. `coverage` is only ever `None` for the
-        "totally empty DB, nothing was ever probed" path — the full
-        requested range genuinely is missing there, so falling back to
-        `config.start_time` is correct, not the bug this guards against.
-        Always logged (not gated on --dev): explains after the fact why a
-        given sync fetched however many candles it did."""
-        if coverage is not None and coverage.missing_open_times:
-            gap_start = coverage.missing_open_times[0]
-            logger.info(
-                f"{_TRACE_PREFIX} action=sync_start_resolved source=coverage_gap "
-                f"gap_start={gap_start!r} requested_start={config.start_time!r}"
-            )
-            return gap_start
-        logger.info(
-            f"{_TRACE_PREFIX} action=sync_start_resolved source=requested_range "
-            f"requested_start={config.start_time!r}"
-        )
-        return config.start_time
+        return DataSyncCoordinator.resolve_sync_start(config, coverage)
 
     def _run_sync(
         self,
@@ -2492,78 +2023,12 @@ class BackTestPresenter(BasePresenter):
         cancellation_token: CancellationToken | None = None,
         coverage: BacktestRangeCoverage | None = None,
     ) -> None:
-        """Background worker: dispatches `SyncMarketDataCommand` for the
-        symbol/timeframe/range that just came back "no data" — mirrors
-        `DataManagementPresenter._run_single_sync`, minus the progress-bar
-        events that screen needs and this one doesn't (one sync, one
-        outcome, no multi-target loop)."""
-        resolved_action_id = action_id or self._current_action_id(
-            BacktestActionKind.SYNC
-        )
-        if resolved_action_id is None:
-            return
-        sync_interval = self._effective_data_interval(config)
-        sync_start = self._resolve_sync_start(config, coverage)
-        self._log_dev_trace(
-            "sync_worker_start",
-            action_id=resolved_action_id,
-            timeframe=sync_interval.value,
-            start=sync_start,
-            end=config.end_time,
-        )
-        try:
-            command = SyncMarketDataCommand(
-                symbols=[self._symbol],
-                interval=sync_interval,
-                start_time=sync_start,
-                # Binance treats the history end boundary as exclusive.
-                # Fetch one extra interval; coverage/backtest still keep
-                # the requested half-open boundary.
-                end_time=(
-                    config.end_time + timedelta(seconds=sync_interval.to_seconds())
-                    if config.end_time is not None
-                    else None
-                ),
-                cancellation_requested=(
-                    cancellation_token.is_cancelled if cancellation_token else None
-                ),
-            )
-            self._log_dev_trace(
-                "sync_dispatch",
-                symbol=self._symbol,
-                timeframe=sync_interval.value,
-            )
-            self.dispatcher.dispatch(SyncMarketDataCommand, command)
-        except Exception as exc:
-            logger.exception("Market data sync failed")
-            self._log_dev_trace("sync_worker_failed", message=str(exc))
-            self._syncFailedSignal.emit(resolved_action_id, str(exc))
-            return
-        if cancellation_token is not None and cancellation_token.is_cancelled():
-            self._log_dev_trace("sync_worker_cancelled", action_id=resolved_action_id)
-            # Whatever candles landed before cancellation stay in the DB —
-            # SyncMarketDataCommandHandler checks the token cooperatively and
-            # returns normally rather than raising, so this is the only place
-            # a cancelled sync is distinguishable from one that quietly ran
-            # to completion. Previously this just returned here with no
-            # signal at all, leaving the FSM stuck in SYNCING forever with no
-            # way out once cancel was requested.
-            self._syncCancelledSignal.emit(resolved_action_id)
-            return
-        coverage = self._probe_data_coverage(config)
-        if not coverage.is_fully_covered:
-            message = (
-                "Đồng bộ chưa đủ để chạy Backtest: "
-                f"{self._format_coverage_message(coverage)}"
-            )
-            self._log_dev_trace(
-                "sync_coverage_incomplete",
-                action_id=resolved_action_id,
-                message=message,
-            )
-            self._syncFailedSignal.emit(resolved_action_id, message)
-            return
-        self._syncSucceededSignal.emit(resolved_action_id)
+        """Kept on the presenter with this exact signature: nine tests call
+        `presenter._run_sync(...)` directly with two, three and four
+        arguments, and `_start_sync_for_config` submits this bound method to
+        the thread manager, which one test then re-invokes through
+        `presenter._run_sync(*submitted_args)`."""
+        self._data_sync.run_sync(config, action_id, cancellation_token, coverage)
 
     # ================================================================== #
     # IStateContributor — structural, no base class (EPIC-010F)
@@ -2657,147 +2122,14 @@ class BackTestPresenter(BasePresenter):
     def _fetch_and_emit_chart_data(
         self, action_id: int, config: BacktestRunConfig, result: BacktestResult
     ) -> None:
-        """
-        @brief Separate from the BacktestResult dispatch above — the chart
-        needs the raw candles too, which `RunStaticBacktestCommand` never
-        returns (BOT-056 §1 finding: nothing before this task ever fetched
-        them for this screen). A failure here must not undo the
-        already-reported BacktestResult; it only leaves the chart empty.
-        """
-        if result.committed_bars:
-            # A Realtime run built its own bars by aggregating ticks, so the
-            # exchange's published candles for this interval are a DIFFERENT
-            # series — complete where these have gaps (`tick_gap_forced_commit`)
-            # — and may not exist in storage at all, since a Realtime run only
-            # ever syncs/coverage-checks `tick_resolution`, never `timeframe`.
-            # Drawing published candles beneath markers derived from these
-            # would show a chart disagreeing with the decisions actually made.
-            raw_klines = list(result.committed_bars)
-            self._log_dev_trace(
-                "chart_source_committed_bars",
-                timeframe=config.timeframe.value,
-                bars=len(raw_klines),
-            )
-        else:
-            try:
-                query = GetHistoricalKlinesQuery(
-                    symbol=self._symbol,
-                    interval=config.timeframe.value,
-                    limit=self._chart_klines_fetch_limit,
-                    start_time=config.start_time,
-                    end_time=config.end_time,
-                    # Descending + reversed below (mirrors dashboard_presenter's
-                    # own _run_load_history) so a range with more than
-                    # the fetch limit keeps the MOST RECENT ones —
-                    # ascending order would silently cap at the OLDEST instead.
-                    order_by_desc=True,
-                )
-                self._log_dev_trace(
-                    "chart_query_dispatch",
-                    symbol=self._symbol,
-                    timeframe=config.timeframe.value,
-                    limit=self._chart_klines_fetch_limit,
-                )
-                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                raw_klines = list(reversed(getattr(response, "data", response) or []))
-            except Exception as exc:
-                logger.exception("Fetching chart klines failed")
-                self._log_dev_trace("chart_query_failed", message=str(exc))
-                return
-
-        if not raw_klines:
-            self._log_dev_trace("chart_query_empty")
-            return
-
-        if len(raw_klines) >= self._chart_klines_fetch_limit:
-            logger.warning(
-                "Backtest chart truncated to the %d most recent candles by "
-                "%s; older trade markers will have no candles beneath them.",
-                self._chart_klines_fetch_limit,
-                ConfigKeys.BACKTEST_CHART_KLINES_FETCH_LIMIT.value,
-            )
-            self._log_dev_trace(
-                "chart_query_truncated", limit=self._chart_klines_fetch_limit
-            )
-
-        mapped_klines = map_klines(raw_klines)
-        mapped_volume = map_volume(raw_klines)
-        self._log_dev_trace(
-            "chart_query_ready",
-            raw_klines=len(raw_klines),
-            mapped_klines=len(mapped_klines),
-            mapped_volume=len(mapped_volume),
-        )
-        self._chartDataReadySignal.emit(
-            action_id, result, mapped_klines, mapped_volume, raw_klines
-        )
-
-        self._emit_strategy_indicator_lines(action_id, config, raw_klines)
-        self._emit_strategy_trend_zones(action_id, config, raw_klines)
-
-        # BOT-064: user-picked reference scripts — batch feed, same klines
-        # already fetched above, entirely independent of the strategy lines
-        # just emitted (self._chart_script_keys was snapshotted on the main
-        # thread by _start_backtest_run before this background method ran).
-        self._log_dev_trace(
-            "chart_scripts_rebuild", script_keys=self._chart_script_keys
-        )
-        self._chart_script_runner.rebuild(self._chart_script_keys)
-        self._chart_script_runner.feed_all(raw_klines)
-        self._log_dev_trace("chart_scripts_fed", raw_klines=len(raw_klines))
+        self._execution.fetch_and_emit_chart_data(action_id, config, result)
 
     def _emit_strategy_indicator_lines(
         self, action_id: int, config: BacktestRunConfig, raw_klines: list
     ) -> None:
-        """
-        @brief BOT-060: draws whatever indicators the backtested strategy
-        itself declares (`build_indicators()`), instead of the fixed
-        `ema_ribbon` script this used to hardcode — so the chart always
-        matches what actually drove that run's Buy/Sell decisions.
-        @details Builds a second, throwaway strategy instance (construct-
-        and-discard, same pattern `BOT-047`'s save-validation uses) purely
-        to replay its indicators over the candles already fetched above —
-        entirely separate from the real `StrategyEngine` run behind
-        `result`, so `strategy_engine.py` stays untouched.
-        """
-        strategy_cls = self._strategy_registry.available().get(config.strategy_key)
-        if strategy_cls is None:
-            return
-        strategy = strategy_cls(config.strategy_params)
-        lines = compute_strategy_indicator_lines(strategy, raw_klines)
-        colors = assign_strategy_line_colors(
-            list(lines.keys()), strategy.chart_line_colors()
-        )
-        widths = strategy.chart_line_widths()
-        for name, (x_data, y_data) in lines.items():
-            self._chartStrategyLineSignal.emit(
-                action_id,
-                name,
-                colors[name],
-                x_data,
-                y_data,
-                widths.get(name, _DEFAULT_STRATEGY_LINE_WIDTH),
-            )
+        self._indicators.emit_strategy_indicator_lines(action_id, config, raw_klines)
 
     def _emit_strategy_trend_zones(
         self, action_id: int, config: BacktestRunConfig, raw_klines: list
     ) -> None:
-        """
-        @brief BOT-113: draws the backtested strategy's own long-term-trend
-        background shading (`classify_trend_zone()`), TradingView's
-        `bgcolor()` pattern.
-        @details A second, separate throwaway strategy instance from
-        `_emit_strategy_indicator_lines()` — that one's indicators are
-        already fully replayed to the end of `raw_klines` by the time this
-        runs, so reusing the same instance here would resume mid-warmup
-        instead of starting fresh. A strategy that never overrides
-        `classify_trend_zone()` (every strategy predating BOT-113) computes
-        an empty span list — one no-op signal emit, no zones drawn, chart
-        looks exactly as it did before this feature existed.
-        """
-        strategy_cls = self._strategy_registry.available().get(config.strategy_key)
-        if strategy_cls is None:
-            return
-        strategy = strategy_cls(config.strategy_params)
-        spans = compute_strategy_trend_zones(strategy, raw_klines)
-        self._chartStrategyRegionSignal.emit(action_id, spans)
+        self._indicators.emit_strategy_trend_zones(action_id, config, raw_klines)
