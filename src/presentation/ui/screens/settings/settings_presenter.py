@@ -17,12 +17,18 @@ from .settings_view_model import SettingsViewModel
 
 #: `EPIC-010H` — which remembered keys each screen loses when this screen
 #: saves. Only the values `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` actually
-#: govern; everything else those slices hold is none of Settings' business.
-#: The Dev Board and Database screens are absent on purpose — they read
-#: neither config key today, so Settings does not outrank anything of
-#: theirs (see this task's file).
+#: govern; everything else those slices hold (leverage, commission, the
+#: script checklist, the lookback window) is none of Settings' business.
+#:
+#: The Dev Board and Database screens joined this map in the same change that
+#: made them read those config keys at all. Before that they ignored Settings
+#: entirely, so Settings outranked nothing of theirs and invalidating their
+#: remembered values would have been wrong — it would have discarded a real
+#: user choice in favour of a default that screen never consulted.
 _STATE_KEYS_OWNED_BY_SETTINGS: dict[str, tuple[str, ...]] = {
     "backtest": ("symbol", "timeframe"),
+    "dashboard": ("symbol", "interval"),
+    "data_management": ("symbol", "interval"),
 }
 
 if TYPE_CHECKING:

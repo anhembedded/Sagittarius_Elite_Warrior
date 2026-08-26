@@ -1,6 +1,6 @@
 # EPIC-010H — Thứ tự ưu tiên 3 tầng, và hệ quả bắt buộc của nó
 
-**Status:** ✅ Done 2026-08-26 (phần precedence) — Elite
+**Status:** ✅ Done 2026-08-26 (cả hai phần) — Elite
 **Repo:** **Elite**
 **Depends on:** `EPIC-010F`
 
@@ -50,15 +50,39 @@ phải membership** — khác với `strategy` ngay cạnh: `symbolOptions` đư
 và membership sẽ loại sạch mọi symbol, mọi lần khởi động. Cùng kết luận `010D`
 đã đi tới, bằng con đường khác.
 
-## Còn lại: dẹp literal trùng lặp
+## Nửa hai: tầng giữa giờ mới thật sự tồn tại
 
-**Chưa làm.** `"ETHUSDT"` còn ở 3 file, `"1m"` ở 4+. Và sâu hơn: Dev Board với
-Database **bỏ qua hoàn toàn** `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL`, nên đổi
-Settings hôm nay vẫn cho ra default **không nhất quán giữa các màn**.
+**Đã làm.** Trước đó chỉ `BackTestPresenter` đọc
+`DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL`; Dev Board và Database **bỏ qua hoàn
+toàn**. Nghĩa là sửa Settings đổi **1 trong 3 màn**, im lặng, không có gì báo
+cho user biết 2 màn kia không nghe.
 
-Tách ra vì đó là **thay đổi hành vi** người dùng nhìn thấy (Settings bỗng ảnh
-hưởng thêm 2 màn), không phải dọn dẹp. Phần precedence ở trên đứng độc lập và
-đã đủ để mở khoá `010F`.
+Thêm tầng "giá trị đã nhớ" lên trên nền đó mới ép phải xử: tầng giữa **không
+thể có ý nghĩa** trên một màn không bao giờ hỏi tới nó.
+
+`presentation/ui/common/app_defaults.py` giữ phần **đọc config**, không giữ
+sàn. Mỗi hàm nhận `fallback` của chính người gọi.
+
+### ⚠️ Tôi từng vi phạm chính luật mình đặt ra, và test bắt được
+
+Bản đầu của module đó có **một sàn dùng chung** cho mọi màn. Nó lặng lẽ đổi
+symbol khởi đầu của màn Database từ `BTCUSDT` sang `ETHUSDT`, và interval từ
+`1s` sang `1m` — trong khi docstring của chính module ghi *"đổi **nơi** default
+đến từ đâu, không đổi **giá trị** của nó trên máy chưa cấu hình"*.
+
+Test của màn Database bắt được. Đã sửa thành sàn theo từng màn, và ghim bất
+biến đó bằng test riêng để nó không quay lại.
+
+### Thay đổi hành vi người dùng nhìn thấy
+
+Với `user_config.json` thật (`DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT"]`), Dev
+Board giờ mở ở **BTCUSDT** thay vì ETHUSDT. Đó là **đúng ý đồ** — Settings cuối
+cùng cũng có tác dụng. Ảnh hưởng chỉ ở **lần mở đầu tiên sau khi nâng cấp**: từ
+lần sau giá trị đã nhớ (`EPIC-010D`) thắng.
+
+3 test integration hardcode `"ETHUSDT"` đã được sửa để **lấy symbol từ card
+thật** — như vậy chúng kiểm đúng điều muốn kiểm ("tick của symbol đang nạp cập
+nhật chart") thay vì "symbol tình cờ là ETHUSDT".
 
 ## Acceptance
 

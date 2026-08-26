@@ -133,7 +133,9 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
 
         # Check if the chart was created
         assert len(presenter.active_charts) == 1
-        card = presenter.active_charts["ETHUSDT"]
+        # Keyed by whatever symbol the screen loaded — EPIC-010H made that come
+        # from Settings rather than a module constant.
+        card = presenter.active_charts[presenter._active_symbol]
 
         # Assert history was added to the candlestick
         assert len(card.candlestick.history_data) == 1

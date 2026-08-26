@@ -115,13 +115,19 @@ def _use_synthetic_klines(monkeypatch, presenter, count: int) -> None:
     whatever `presenter.dispatcher.dispatch` currently is and wrap it.
     """
     base_time = datetime(2024, 1, 1, tzinfo=UTC)
+    # Whatever symbol this presenter actually loaded — EPIC-010H made that come
+    # from Settings' DEFAULT_SYMBOLS rather than a module constant, so a
+    # hardcoded pair here would be routed to no chart card and every test using
+    # this helper would see an empty history for a reason unrelated to what it
+    # is testing.
+    symbol = presenter._active_symbol
     klines = []
     for i in range(count):
         open_time = base_time + timedelta(minutes=i)
         close_time = open_time + timedelta(minutes=1)
         klines.append(
             MarketData(
-                symbol="ETHUSDT",
+                symbol=symbol,
                 interval="1m",
                 open_time=open_time,
                 open_price=100.0 + i,
@@ -305,7 +311,10 @@ def test_duplicate_closed_tick_for_same_timestamp_overwrites_not_duplicates(
     history_before = len(card._raw_history)
 
     closed_tick = MarketData(
-        symbol="ETHUSDT",
+        # The chart the screen actually built — EPIC-010H made the Dev Board
+        # honour Settings' DEFAULT_SYMBOLS, so a hardcoded pair here would be
+        # routed to no card at all and the tick would silently do nothing.
+        symbol=card.symbol,
         interval="1m",
         open_time=datetime(2024, 1, 1, 2, 0, tzinfo=UTC),
         open_price=300.0,

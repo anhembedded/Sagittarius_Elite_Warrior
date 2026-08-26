@@ -13,6 +13,12 @@ from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_INTERVAL,
+    FALLBACK_SYMBOL,
+    default_interval,
+    default_symbol,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
     HealthStatusReport,
@@ -57,8 +63,13 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Constants — no magic values scattered in method bodies
 # ---------------------------------------------------------------------------
-_DEFAULT_SYMBOLS: tuple[str, ...] = ("ETHUSDT",)
-_DEFAULT_INTERVAL_STR: str = "1m"
+#: `EPIC-010H` moved the actual defaults into
+#: `presentation/ui/common/app_defaults.py`, which reads Settings first and
+#: falls back to the same literals these held. Kept as thin aliases so the
+#: names existing comments and tests refer to still resolve, and so there is
+#: exactly one place left where the value itself is written down.
+_DEFAULT_SYMBOLS: tuple[str, ...] = (FALLBACK_SYMBOL,)
+_DEFAULT_INTERVAL_STR: str = FALLBACK_INTERVAL
 
 # --- EPIC-010D — remembered form values ------------------------------------
 #: This slice's flat keys, named so `capture_state()`/`restore_state()` cannot
@@ -308,6 +319,11 @@ class DashboardPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._view_model = DashboardQmlViewModel()
+        # EPIC-010H, middle tier: seed the form from Settings before the view
+        # builds its widgets — `DevBoardPanel` reads `view_model.symbol` once
+        # while constructing the combo. `restore_state()` later overrides this
+        # with a remembered value if there is one, which is the top tier.
+        self._view_model.symbol = default_symbol(self.config.get_all(), FALLBACK_SYMBOL)
         view.set_view_model(self._view_model)
 
         # Resolve IThreadManager exactly once — stored as an instance attribute.
@@ -374,7 +390,11 @@ class DashboardPresenter(BasePresenter):
         # ChartToolbar.sig_timeframe_changed (see _ensure_chart_cards). An
         # instance attribute rather than the module constant so it can change
         # per-run without a restart.
-        self._active_interval: str = _DEFAULT_INTERVAL_STR
+        # EPIC-010H — Settings' DEFAULT_INTERVAL now reaches this screen too.
+        # It used to read the module constant only, so editing Settings
+        # changed the Backtest screen and silently left this one alone.
+        config_values = self.config.get_all()
+        self._active_interval: str = default_interval(config_values, FALLBACK_INTERVAL)
 
         # BOT-033 Phase 2 — symbol actually used by Load History/Start Live,
         # set from DashboardQmlViewModel.symbol at click time (see
@@ -386,7 +406,7 @@ class DashboardPresenter(BasePresenter):
         # loaded, not the _DEFAULT_SYMBOLS[0] constant — otherwise switching
         # to a different symbol silently stops routing indicator data to the
         # (correctly re-keyed) chart card _ensure_chart_cards just built.
-        self._active_symbol: str = _DEFAULT_SYMBOLS[0]
+        self._active_symbol: str = default_symbol(config_values, FALLBACK_SYMBOL)
 
         # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
         # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD

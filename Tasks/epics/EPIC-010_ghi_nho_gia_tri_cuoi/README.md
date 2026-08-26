@@ -78,7 +78,7 @@ engine design doc §9.1): first-pass scope, dates as a **duration**, and
 | :--- | :--- | :--- |
 | **[`EPIC-010F`](incomplete/EPIC-010F_backtest_state.md)** | Backtest — 19 form values | ✅ **Done 2026-08-26.** 58 Property → 19 giá trị là *ý định*; phần còn lại là output hoặc trạng thái phiên. `selectedSymbol`/`selectedTimeframe` cố ý **không** lưu — chúng là chỗ duy nhất đụng thứ tự ưu tiên 3 tầng, thuộc `010H` |
 | **[`EPIC-010G`](incomplete/EPIC-010G_indicator_scripts.md)** | Indicator scripts + the `_user_touched` flag | ✅ **Done 2026-08-26.** Lưu **2** tập (`enabled` + `touched`) — chỉ nhớ tập bật là không đủ. `restore_selection()` **lớp lên** default chứ không thay thế, để script `default_enabled` mới thêm vẫn tự bật cho user đã có slice |
-| **[`EPIC-010H`](incomplete/EPIC-010H_defaults_precedence.md)** | Thứ tự ưu tiên 3 tầng + dẹp default trùng | 🟡 **Precedence xong 2026-08-26** (`discard_keys()` + Settings vô hiệu đúng 2 key nó sở hữu; mở khoá 2 field cuối của `010F`). **Dẹp literal trùng vẫn còn** — tách vì đó là thay đổi hành vi, không phải dọn dẹp |
+| **[`EPIC-010H`](incomplete/EPIC-010H_defaults_precedence.md)** | Thứ tự ưu tiên 3 tầng + dẹp default trùng | ✅ **Xong 2026-08-26** (`discard_keys()` + Settings vô hiệu đúng 2 key nó sở hữu; mở khoá 2 field cuối của `010F`). Nửa hai xong luôn: `app_defaults.py` chia sẻ phần đọc config (không chia sẻ sàn), Dev Board và Database **lần đầu tiên** đọc Settings |
 
 > Task files for `010F`–`010H` are not written yet, on purpose. Their shape
 > depends on what the first pass teaches, and writing them now would be the

@@ -4,6 +4,9 @@ from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_SYMBOL,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
 )
@@ -23,7 +26,7 @@ _IDLE_STATUS_COLOR = Palette.MUTED
 # source. DATETIME_FORMAT matches DataManagementPresenter's
 # _CUSTOM_TIME_FORMAT so a value typed on one screen reads the same on the
 # other.
-_DEFAULT_SYMBOL = "ETHUSDT"
+_DEFAULT_SYMBOL = FALLBACK_SYMBOL
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 #: Public because `DashboardPresenter` needs the same number to fall back on
 #: when a remembered `lookback_days` is missing or nonsense (`EPIC-010D`).
