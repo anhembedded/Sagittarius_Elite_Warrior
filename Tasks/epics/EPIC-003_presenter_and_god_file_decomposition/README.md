@@ -1,6 +1,6 @@
 # Epic EPIC-003 — Phân rã Presenter/File quá tải (God Object/God File Decomposition)
 
-**Trạng thái:** 🟡 Đang làm — 3/6 xong, **1 huỷ** (`003D`), còn `003E`/`003F`. Cập nhật 2026-08-25.
+**Trạng thái:** 🟡 Đang làm — 4/6 xong, **1 huỷ** (`003D`), còn `003F`. Cập nhật 2026-08-26.
 **Nguồn:** [`PRO-001`](../../proposal/PRO-001.md) (Coordinator Pattern cho Presenter),
 [`PRO-002`](../../proposal/PRO-002.md) (khảo sát toàn bộ file quá tải trong `src/`) —
 2 đề xuất do một phiên làm việc khác viết, được đối chiếu lại với quy tắc đã
@@ -90,7 +90,7 @@ dòng.
 | **[EPIC-003B](completed/EPIC-003B_data_management_coordinator_pilot.md)** | `DataManagementPresenter` → Coordinator Pattern (pilot) | 🟡 | ✅ Xong (21/08) — 57 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003C](completed/EPIC-003C_paper_exchange_policy_split.md)** | `PaperExchange` → Domain Policy (Margin/Matching/Fee) | 🟢 | ✅ Xong (22/08) — 119 test pass, `mypy`/`ruff` sạch |
 | **[EPIC-003D](cancelled/EPIC-003D_qml_component_split.md)** | Dọn 9 file misplaced (Phase 1) + tách 3 file QML lớn (Phase 2) + danh mục `components/README.md` có test enforce (Phase 3) | 🟢 | ❌ **HUỶ 2026-08-25** — Phase 1+2 hết đối tượng (`EPIC-006F` xoá sạch `.qml`); Phase 3 gộp vào `EPIC-007G` |
-| **[EPIC-003E](incomplete/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | 🔴 Chưa làm |
+| **[EPIC-003E](completed/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | ✅ Xong 2026-08-26 — 6 coordinator, 2.803 → 2.135 dòng |
 | **[EPIC-003F](incomplete/EPIC-003F_backtest_viewmodel_composite_design_review.md)** | `BacktestViewModel` → Composite ViewModel — **vòng thiết kế trước**, chưa code | 🔴 | 🔴 Chưa làm |
 
 > ### ❌ `EPIC-003D` đã huỷ (2026-08-25, user duyệt)
