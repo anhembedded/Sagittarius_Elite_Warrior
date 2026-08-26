@@ -31,8 +31,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
+from sagittarius_engine.extensions.pyside_mvc.widgets import Tab, TabBar
 
-from .backtest_widgets import DynamicTabBarWidget, with_alpha
+from .backtest_widgets import with_alpha
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -310,9 +311,9 @@ class BackTestTradeLogsPanel(QWidget):
         outer.setContentsMargins(12, 12, 12, 12)
         outer.setSpacing(10)
 
-        self._tab_bar = DynamicTabBarWidget()
+        self._tab_bar = TabBar()
         self._tab_bar.setObjectName("bottomTabBar")
-        self._tab_bar.tabSelected.connect(self._on_tab_selected)
+        self._tab_bar.tab_selected.connect(self._on_tab_selected)
         outer.addWidget(self._tab_bar)
 
         self._trades_tab = self._build_trades_tab()
@@ -516,7 +517,7 @@ class BackTestTradeLogsPanel(QWidget):
         is_logs = self._vm.activeBottomTab == "logs"
         self._trades_tab.setVisible(not is_logs)
         self._log_panel.setVisible(is_logs)
-        self._tab_bar.set_current_index(1 if is_logs else 0)
+        self._tab_bar.set_current_id("logs" if is_logs else "trades")
 
     def _on_tab_selected(self, index: int, tab_id: str) -> None:
         self._vm.setActiveBottomTab(tab_id)
@@ -524,14 +525,10 @@ class BackTestTradeLogsPanel(QWidget):
     def _sync_tab_badges(self) -> None:
         total = self._vm.tradeLogTotalCount
         log_count = self._vm.logModel.rowCount()
-        self._tab_bar.set_tabs_model(
+        self._tab_bar.set_tabs(
             [
-                {"id": "trades", "label": "DANH SÁCH LỆNH", "badge": f"{total} LỆNH"},
-                {
-                    "id": "logs",
-                    "label": "NHẬT KÝ BACKTEST",
-                    "badge": f"{log_count} EVENTS",
-                },
+                Tab("trades", "DANH SÁCH LỆNH", f"{total} LỆNH"),
+                Tab("logs", "NHẬT KÝ BACKTEST", f"{log_count} EVENTS"),
             ]
         )
         self._sync_active_tab()

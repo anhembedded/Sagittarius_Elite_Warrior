@@ -72,7 +72,13 @@ _COLOUR_SOURCES = ("palette.py",)
 #: 16 → 15: `MetricCardWidget` bị xoá hẳn, 2 call site chuyển sang `StatCard`
 #: của Engine. Đi kèm là `StatCardData` bỏ chuỗi hex, mang `Tone` — đúng thứ
 #: `Tone` sinh ra để làm.
-_BARE_QT_BASE_CEILING = 15
+#:
+#: 15 → 14: `DynamicTabBarWidget` (+ `_TabButton` riêng của nó) xoá, dùng
+#: `TabBar` của Engine. Trước đó phải sửa `TabBar` bên Engine: nó là `Panel`
+#: nên vẽ nền card + viền, trong khi thanh tab của app trong suốt — mà chính
+#: `_TabButton` của Engine đã ghi `base-exempt: a tab is a button, not a
+#: surface`, nên một hàng nút cũng không phải surface.
+_BARE_QT_BASE_CEILING = 14
 
 
 def test_ui_root_is_where_we_think_it_is() -> None:
