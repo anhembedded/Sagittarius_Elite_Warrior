@@ -1,9 +1,10 @@
 import os
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
 
 import pytest
+from PySide6.QtCore import QEvent
+from PySide6.QtWidgets import QApplication
 
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -20,6 +21,35 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 # thread pool (e.g. async/race-condition reproductions) — kept in one place
 # so `_MOCK_KLINE_COUNT` never silently drifts between files.
 MOCK_KLINE_COUNT = 5
+
+
+class _FakeResponse:
+    """A dispatch result that is safe to build on a worker thread (`BUG-056`).
+
+    @details This used to be a `MagicMock()`, constructed fresh inside
+    `mock_dispatch` — which runs on whichever thread called `dispatch`, and in
+    this suite that is regularly a `ThreadManager` worker (`_run_load_history`,
+    `_sync_market_data`, the Database scans).
+
+    `unittest.mock` is not thread-safe. Building a `MagicMock` runs
+    `_mock_set_magics`, which mutates the mock's *type*, and doing that while
+    the main thread is garbage-collecting aborted the interpreter partway
+    through a combined `integration/ + sanity/` run — no test `FAILED`, just
+    `Fatal Python error: Aborted`. Same root cause as the deadlock documented
+    in `test_main_window_state.py`, a different symptom.
+
+    Plain attributes have nothing to mutate and nothing to race, so this is
+    the whole fix. Deliberately strict rather than permissive: a consumer
+    reading a field this does not define now raises `AttributeError` naming
+    it, instead of silently receiving a truthy `Mock` — which is how a mock
+    can make a test pass for the wrong reason.
+    """
+
+    __slots__ = ("data", "success")
+
+    def __init__(self, data=None, success: bool = True) -> None:
+        self.success = success
+        self.data = [] if data is None else data
 
 
 def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
@@ -65,6 +95,31 @@ def app_engine(request, monkeypatch, tmp_path):
     threads, not a synchronous `submit()` stub.
     """
     dev_mode = getattr(request, "param", False)
+
+    # BUG-056 — flush the PREVIOUS test's pending widget deletions before this
+    # one starts any background work.
+    #
+    # `qtbot.addWidget()` schedules `deleteLater()` as part of qtbot's own
+    # teardown, which runs *after* every other fixture here (fixtures tear down
+    # in reverse dependency order, and qtbot is the innermost). Nothing pumps
+    # the event loop after that, so those deletions sit queued until pytest-qt
+    # pumps at the NEXT test's setup — by which point this fixture has booted
+    # an engine and the Dev Board's auto-start has a worker running. Any
+    # allocation that worker makes can then trigger a GC that runs shiboken
+    # destructors for those just-freed widgets **on the worker thread**, and
+    # the interpreter aborts: `Fatal Python error: Aborted` partway through a
+    # run with no test `FAILED`.
+    #
+    # Draining here is the one moment when that is safe — the previous
+    # engine's pool is already shut down (see this fixture's teardown) and this
+    # one has not started. `main_window`'s own teardown drains what it owns;
+    # this catches what qtbot deletes afterwards, for every test in the
+    # directory.
+    app = QApplication.instance()
+    if app is not None:
+        app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        app.processEvents()
+
     config_manager = ConfigManager()
 
     base_dir = os.path.dirname(
@@ -114,8 +169,7 @@ def app_engine(request, monkeypatch, tmp_path):
     engine = create_app(config_manager)
 
     def mock_dispatch(command_type, command_obj):
-        response = MagicMock()
-        response.success = True
+        response = _FakeResponse()
         if command_type is GetHistoricalKlinesQuery:
             # Mirrors GetHistoricalKlinesQueryHandler's own contract (added by
             # the "Batch concurrent fetches" change): `symbol` is `str | list[str]`,
@@ -144,6 +198,33 @@ def app_engine(request, monkeypatch, tmp_path):
 
     engine.boot()
     yield engine
+
+    # BUG-056 — no background task may outlive the test that started it.
+    #
+    # pytest-qt pumps the Qt event loop during the NEXT test's setup, which is
+    # where the previous test's `deleteLater()` calls finally destroy their
+    # widgets. If a `ThreadManager` worker from the finished test is still
+    # running then, any allocation it makes can trigger a GC that runs
+    # shiboken destructors for those just-freed Qt objects **on the worker
+    # thread** — and the interpreter aborts. Observed as
+    # `Fatal Python error: Aborted` / `Segmentation fault` partway through a
+    # run with no test `FAILED`, the main thread sitting in
+    # `pytest_runtest_setup -> _process_events`.
+    #
+    # `engine.stop()` alone does not prevent it: `ThreadManagerExtension`
+    # deliberately calls `shutdown(wait=False)` so production shutdown never
+    # blocks (see `BUG-041`), which returns while workers are still running.
+    # The `main_window` fixture drains for the tests that use it; this covers
+    # every test in this directory, including any that builds its own window.
+    #
+    # Safe to call twice — `ThreadPoolExecutor.shutdown` is idempotent, which
+    # is why the `main_window` fixture doing the same is not a conflict.
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+    thread_manager = engine.context.container.resolve(IThreadManager)
+    if thread_manager is not None:
+        thread_manager.shutdown(wait=True)
+
     engine.stop()
 
 
