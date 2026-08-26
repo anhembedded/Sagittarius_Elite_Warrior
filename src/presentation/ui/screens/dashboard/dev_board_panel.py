@@ -29,6 +29,7 @@ against another file to discover is shared.
 
 from __future__ import annotations
 
+from PySide6.QtCore import QSignalBlocker
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -386,6 +387,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         vm.uiModeChanged.connect(self._sync_controls_active)
         vm.startDateChanged.connect(self._sync_start_date)
         vm.endDateChanged.connect(self._sync_end_date)
+        vm.symbolChanged.connect(self._sync_symbol)
 
     def _on_start_date_edited(self, text: str) -> None:
         self._view_model.startDate = text
@@ -404,6 +406,24 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
     def _on_symbol_changed(self, text: str) -> None:
         if text.strip():
             self._view_model.symbol = text
+
+    def _sync_symbol(self) -> None:
+        """ViewModel → combo, the direction the other fields already had.
+
+        @details The combo used to be seeded once in `_build_symbol_combo()`
+        and never re-read, so anything that set `view_model.symbol` after
+        construction left the widget showing a stale value. `EPIC-010D`
+        restores a remembered symbol into the ViewModel, which made that gap
+        reachable on every launch rather than rarely.
+
+        `QSignalBlocker` because `setCurrentText()` emits
+        `currentTextChanged`, which is wired to `_on_symbol_changed` and would
+        write straight back into the ViewModel — a restore must never look
+        like the user typing (`EPIC-010` design D6/mode #12).
+        """
+        if self._cbo_symbol.currentText() != self._view_model.symbol:
+            with QSignalBlocker(self._cbo_symbol):
+                self._cbo_symbol.setCurrentText(self._view_model.symbol)
 
     def _sync_price_ticker(self) -> None:
         vm = self._view_model

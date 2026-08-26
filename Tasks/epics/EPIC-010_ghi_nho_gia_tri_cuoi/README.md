@@ -1,6 +1,6 @@
 # EPIC-010 — Remembering the user's last values (UI State Persistence)
 
-**Status:** 🔵 **Not started — awaiting design approval** (0/8 sub-tasks)
+**Status:** 🟢 **Design closed 2026-08-26** — 0/5 first-pass sub-tasks built; 3 more held pending evaluation
 **Created:** 2026-08-25
 
 ---
@@ -28,13 +28,16 @@ A repo-wide grep confirms it: **no `QSettings`**, **no
    12 mermaid diagrams. **D1's location and D3 are superseded by (2).**
 2. 📄 **[`design/DESIGN_2026-08-26_engine_state_extension.md`](design/DESIGN_2026-08-26_engine_state_extension.md)**
    — moves the mechanism into the Engine as `UiStateExtension`, and replaces
-   route-keyed slices with `StateScope` (key + instance + lifetime) so a screen
-   can have tabs. Adds failure modes 13-15 and the build-now / landing-place
-   split.
+   route-keyed slices with `StateScope` (key + instance + lifetime), so any
+   form of multiplicity — tabs, a second window, split panes — has an identity.
+   Adds failure modes 13-16, the reuse audit (§5.6.6), and §9.1's settled
+   product decisions.
 
-The second document exists because a review found a real hole in the first: it
+The second document exists because review found a real hole in the first: it
 keyed every slice by **route name**, which silently assumes one presenter per
-route. Four tabs of the same view would have collapsed into one shared slice.
+route. Four copies of the same view would have collapsed into one shared slice
+— and the same defect applies to the `shell` slice the moment a second window
+can exist.
 
 ### The three decisions that matter most
 
@@ -45,24 +48,35 @@ route. Four tabs of the same view would have collapsed into one shared slice.
 | **D6** | Persist **intent**, never persist **activity** (FSM state, a running stream) | `BOT-062` deliberately disabled autostart because *"opening the Dev Board must not silently start a live connection unless the user has opted in"*. Restoring the FSM into `LIVE` routes around that exact decision through the back door |
 | **D8** | The mechanism lives in the **Engine**; the key carries **identity and lifetime** from day one, but no tab machinery is built | `PresenterManager` holds exactly one presenter instance per route today, so tabs are structurally impossible — building for them now would be speculation. But adding identity to a key *later* is a data migration plus a breaking API change across two repos, while adding it *now* is one optional field. Asymmetric cost, so the shape goes in early and the machinery does not |
 
-## Sub-tasks (files not created yet — awaiting design approval)
+## Sub-tasks
 
-| ID | Name | Tier | Status |
+**Design closed 2026-08-26.** The three product decisions are settled (see the
+engine design doc §9.1): first-pass scope, dates as a **duration**, and
+`state/ui_state.json` in the repo.
+
+### First pass — build these, then stop and run it for real
+
+| ID | Name | Repo | Status |
 | :--- | :--- | :---: | :---: |
-| `EPIC-010A` | `IUiStateStore` + `ConfigManagerUiStateStore` + unit tests for all 12 failure modes | Foundation | 🔵 Not started |
-| `EPIC-010B` | `UiStateService` — debounce, flush inside `teardown()` | Foundation | 🔵 Not started |
-| `EPIC-010C` | Shell: window size + last route + sidebar | T1 | 🔵 Not started |
-| `EPIC-010D` | Dev Board: symbol + interval | T1 | 🔵 Not started |
-| `EPIC-010E` | Database: symbol + interval | T1 | 🔵 Not started |
-| `EPIC-010F` | Backtest: the full slice | T2 | 🔵 Not started |
-| `EPIC-010G` | Indicator scripts + the `_user_touched` flag | T2 | 🔵 Not started |
-| `EPIC-010H` | Collapse duplicated defaults into one source | Tech debt | 🔵 Not started |
+| **[`EPIC-010A`](incomplete/EPIC-010A_state_scope_and_store.md)** | `StateScope`, `IStateStore`, the ConfigManager-backed store | Engine | 🔵 Not started |
+| **[`EPIC-010B`](incomplete/EPIC-010B_coordinator_and_contributor.md)** | `UiStateCoordinator`, contributor contract, `UiStateExtension` | Engine | 🔵 Not started |
+| **[`EPIC-010C`](incomplete/EPIC-010C_shell_state.md)** | Shell — geometry, splitters, last route, sidebar | Elite | 🔵 Not started |
+| **[`EPIC-010D`](incomplete/EPIC-010D_dev_board_state.md)** | Dev Board — symbol, interval, lookback duration | Elite | 🔵 Not started |
+| **[`EPIC-010E`](incomplete/EPIC-010E_database_state.md)** | Database — symbol, interval | Elite | 🔵 Not started |
 
-> Sub-task files are **deliberately not created yet**. The design still has 3 open
-> questions for the user (see §8 of the design doc), and writing 8 task files for
-> an unapproved design is exactly the "guessing the shape of something that does
-> not exist yet" mistake that `architecture-rule.md` §7.2 names as the lesson from
-> `EPIC-006`'s four stub cards.
+### Held until the first pass has run
+
+| ID | Name | Why it waits |
+| :--- | :--- | :--- |
+| `EPIC-010F` | Backtest — the full slice (~25 values) | Deliberately gated on evaluating `010A`–`010E` in real use. Every value needs its own validation, so the cost of getting the mechanism wrong is highest here |
+| `EPIC-010G` | Indicator scripts + the `_user_touched` flag | Same gate; fixes the "a script the user turned off turns itself back on" defect |
+| `EPIC-010H` | Collapse duplicated defaults into one source | Can be deferred, **but the precedence order below must be settled before `010D`** |
+
+> Task files for `010F`–`010H` are not written yet, on purpose. Their shape
+> depends on what the first pass teaches, and writing them now would be the
+> "guessing the shape of something that does not exist yet" mistake
+> `architecture-rule.md` §7.2 names as the lesson from `EPIC-006`'s four stub
+> cards.
 
 ## `EPIC-010H` is not a side quest
 

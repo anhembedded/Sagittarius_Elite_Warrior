@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 4 |
+| 🔴 **Đang mở** | 6 |
 | ✅ **Đã sửa / đã đóng** | 49 |
-| 📈 **Tổng** | **53** |
+| 📈 **Tổng** | **55** |
 
 ---
 
@@ -37,6 +37,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-055](incomplete/BUG-055_data_row_action_stretch_not_in_installed_engine.md)** | Bảng Database vỡ — `DataRow` của Engine đang cài không nhận `action_stretch` | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng, chưa điều tra root cause. **2 call site** truyền tham số này (`data_management_view.py:161`, `data_management_widgets.py:569`) — sửa 1 chỉ đẩy lỗi sang cái kia. Cùng họ drift-2-repo với BUG-054. Đo được: 11 failed/26 passed/1 error, **giống hệt trước và sau** code EPIC-010E (đối chiếu bằng `git stash`), nên là lỗi có sẵn của base. |
+| **[BUG-054](incomplete/BUG-054_settings_screen_crashes_on_missing_stylerole_members.md)** | Màn hình Settings vỡ hoàn toàn — `StyleRole` không có `HEADING` (và `BODY_LABEL`) | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Route `settings` chết ngay lúc dựng view (`settings_view.py:233`). **2 call site hỏng**, không phải 1 (dòng 233 `HEADING`, dòng 308 `BODY_LABEL`) — sửa mỗi dòng 233 chỉ đẩy lỗi xuống dưới. Phát hiện khi chạy regression của EPIC-010, **không do EPIC-010 gây ra** (`git log -S` truy về `8254df7`, EPIC-007F). |
 | **[BUG-052](incomplete/BUG-052_process_does_not_exit_after_graceful_shutdown.md)** | Thoát app: shutdown chạy hết, log `App stopped.` nhưng tiến trình không return | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Shutdown **không** treo giữa chừng — chạy đủ 8,8s rồi log `App stopped.`, sau đó im hẳn mà process vẫn sống. 8,71/8,8s nằm gọn ở `BinanceBotModule.stop()`. Cùng phiên với BUG-051. Cùng lớp với BUG-007/023/041 đã đóng — chưa xác minh có phải regression không. |
 | **[BUG-051](incomplete/BUG-051_ui_freeze_during_historical_tick_backtest.md)** | UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest | 🟠 P1 (đã sửa 1 phần) | 2026-08-26 | **Cập nhật 2026-08-26:** freeze #1/#2/#3 (giai đoạn nạp tick, gồm outlier 69,1s nặng nhất) root-caused + sửa — `RunHistoricalTickBacktestCommandHandler` dùng `get_klines()` (vật chất hoá cả dải tick 1 lần, tới 2,59 triệu dòng), chưa từng được áp fix streaming mà `BUG-025` đã làm cho `RunStaticBacktestCommandHandler`. Đo thật: `get_klines()` 1,5M dòng = 69,9s + heartbeat gap tới 1,88s; `count_klines()+stream_klines()` = 28,0s + gap tối đa 0,09s. Freeze #4/#5 (sau `ticks_loaded`, trong lúc mô phỏng) **vẫn Open**, chưa root-caused — xem §6 trong hồ sơ. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. **Cập nhật 2026-08-26:** headless repro (cùng tổ hợp script Dev Board thật) không tái hiện được `-50..100`, nhưng lộ ra 1 defect thật khác cùng subsystem, đã tách và đóng riêng ở [`BUG-053`](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md) — không đóng được bug này, vẫn cần ảnh/log tái hiện sống. |
