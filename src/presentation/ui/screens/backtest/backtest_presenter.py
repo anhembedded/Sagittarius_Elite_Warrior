@@ -200,7 +200,6 @@ _TRACE_PREFIX = "BACKTEST_TRACE"
 #: symbol this resolves to is the only one this screen ever backtests.
 _FALLBACK_SYMBOL = "ETHUSDT"
 
-_CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
 
 _NO_STRATEGY_MESSAGE = "Chưa có chiến lược nào được đăng ký."
 _RUNNING_MESSAGE = "Đang chạy backtest..."

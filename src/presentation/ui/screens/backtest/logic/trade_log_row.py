@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_datetime,
@@ -23,7 +24,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_ser
 #: of the mockup's Vietnamese "16 thg 7, 2026" cosmetic format, which has no
 #: existing formatter anywhere else in this codebase and would only ever be
 #: used in this one column.
-_DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 _THOUSAND = 1000.0
 
 #: BOT-050 — `Trade.side` now exists; label reads it instead of assuming
@@ -116,7 +116,7 @@ def _format_metadata_items(metadata: Mapping[str, Any]) -> list[dict[str, str]]:
 
 
 def _format_datetime(value: datetime, tz_name: str = DEFAULT_TIMEZONE) -> str:
-    return format_display_datetime(value, tz_name=tz_name, fmt=_DATETIME_FORMAT)
+    return format_display_datetime(value, tz_name=tz_name, fmt=DATETIME_FORMAT)
 
 
 def _format_compact_usd(value: float) -> str:

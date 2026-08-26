@@ -1,6 +1,6 @@
 # EPIC-010 — Remembering the user's last values (UI State Persistence)
 
-**Status:** 🟢 **Design closed 2026-08-26** — 0/5 first-pass sub-tasks built; 3 more held pending evaluation
+**Status:** ✅ **Đóng 2026-08-26 — 8/8 task con xong** (PR #109, #115, #116, #117, #118), cộng promote lên Engine ([PR #216](https://github.com/anhembedded/Sagittarius_Engine/pull/216))
 **Created:** 2026-08-25
 
 ---
@@ -80,6 +80,10 @@ engine design doc §9.1): first-pass scope, dates as a **duration**, and
 | **[`EPIC-010G`](completed/EPIC-010G_indicator_scripts.md)** | Indicator scripts + the `_user_touched` flag | ✅ **Done 2026-08-26.** Lưu **2** tập (`enabled` + `touched`) — chỉ nhớ tập bật là không đủ. `restore_selection()` **lớp lên** default chứ không thay thế, để script `default_enabled` mới thêm vẫn tự bật cho user đã có slice |
 | **[`EPIC-010H`](completed/EPIC-010H_defaults_precedence.md)** | Thứ tự ưu tiên 3 tầng + dẹp default trùng | ✅ **Xong 2026-08-26** (`discard_keys()` + Settings vô hiệu đúng 2 key nó sở hữu; mở khoá 2 field cuối của `010F`). Nửa hai xong luôn: `app_defaults.py` chia sẻ phần đọc config (không chia sẻ sàn), Dev Board và Database **lần đầu tiên** đọc Settings |
 
+> ~~Task files for `010F`–`010H` are not written yet, on purpose.~~ Viết và làm xong 2026-08-26.
+>
+> _(Giữ lại lý do gốc bên dưới — nó vẫn đúng ở thời điểm viết.)_
+>
 > Task files for `010F`–`010H` are not written yet, on purpose. Their shape
 > depends on what the first pass teaches, and writing them now would be the
 > "guessing the shape of something that does not exist yet" mistake
@@ -115,3 +119,42 @@ sees nothing happen.
 - [`BOT-047`](../../completed/BOT-047_dynamic_params_form_ui.md) — has a "Khôi
   phục Mặc định" (Restore Defaults) button; the UI precedent for R1 in the design
   doc.
+
+---
+
+## Đóng epic — design nói gì, và thực tế giao gì
+
+Ghi lại **chỗ lệch**, không phải chỉ chỗ khớp. Ba mục.
+
+### 1. `IStateDefaultsProvider` — design đánh dấu "dựng ngay", **không dựng**
+
+§7 của design ghi `✅ ABC + the §4.3 chain`. Không có dòng code nào của nó tồn tại.
+
+Và **không dựng là đúng**: chuỗi phân giải mà nó định phục vụ hoá ra chỉ có
+**hai tầng thật** (config → hằng số của từng màn), do
+`presentation/ui/common/app_defaults.py` xử lý bằng hàm thuần trong `010H`.
+Tầng per-instance mà ABC đó sinh ra để phục vụ **chưa tồn tại** — không có
+multiplicity nào trong app.
+
+Dựng một ABC có đúng một implementation và không có link thứ hai chính là lỗi
+*"đoán hình dạng của thứ chưa tồn tại"* mà `architecture-rule.md` §7.2 gọi tên.
+Nên bảng §7 của design giờ **sai**, và dòng này là đính chính.
+
+### 2. `IStateStoreLocator` — bọc `RepoStateStoreLocator`, không phải `QStandardPaths`
+
+Design đề xuất `QStandardPaths`. Quyết định sản phẩm 2026-08-26 chọn
+`state/ui_state.json` trong repo. Đo được lý do: app không set
+`organizationName`, nên `QStandardPaths.AppConfigLocation` trả về `/root/.config`
+trần chứ không phải thư mục riêng của app. ABC vẫn khiến việc đổi chỗ là thay
+**một class**.
+
+### 3. Khôi phục **layout** đa-instance — vẫn mở, đúng như design nói
+
+Tab / cửa sổ thứ hai / split pane: **không dựng gì**, và `StateScope.instance_id`
+vẫn luôn là `None`. Đây là mục design đã tự dán nhãn *"phải để mở"* — nó cần
+identity ổn định xuyên restart, roster có thứ tự, và thu gom orphan. Nhớ **giá
+trị** là một việc; khôi phục **layout** là việc lớn hơn hẳn.
+
+`D10` (§5.5) đã chốt *chính sách* cho nó (uuid + roster lưu lại, roster làm GC
+root). Chưa dựng dòng nào, và không nên, cho tới khi thật sự có một instance
+owner.

@@ -18,7 +18,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_track
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
+    DATETIME_FORMAT,
+    UIMode,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators.action_kinds import (
     DataManagementActionKind,
 )
@@ -28,8 +31,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
-
-_CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
 
 
 class SyncCoordinator:
@@ -224,8 +225,6 @@ class SyncCoordinator:
     @staticmethod
     def parse_datetime(raw: str) -> datetime | None:
         try:
-            return datetime.strptime(raw.strip(), _CUSTOM_TIME_FORMAT).replace(
-                tzinfo=UTC
-            )
+            return datetime.strptime(raw.strip(), DATETIME_FORMAT).replace(tzinfo=UTC)
         except (ValueError, AttributeError):
             return None

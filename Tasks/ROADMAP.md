@@ -86,7 +86,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-007](epics/EPIC-007_chuan_hoa_card_dung_chung/README.md)** | **Chuẩn hoá card dùng chung, đưa hình dạng lên Engine** — gộp ~10 biến thể màu card về 1 token, 6 hình dạng surface lên `pyside_mvc.widgets`, cắt 3 import chéo màn hình | 🟡 Đang làm (6/7 — `007A`–`007F` xong; còn `007G`) |
 | **[EPIC-008](epics/EPIC-008_chuan_hoa_luong_event/README.md)** | **Chuẩn hoá luồng sự kiện** — Shared Kernel + port, `BaseEvent` kế thừa được thật, `EventRegistry` + catalog sinh tự động, 3 Feed thay 48 signal cầu nối | ✅ **Hoàn thành (8/8 task con)** — 2026-08-25 |
 | **[EPIC-009](epics/EPIC-009_sanity_tier_redesign/README.md)** | **Thiết kế lại tầng Sanity** — mô hình composition-root (scan chứ không liệt kê), `diagnostic_guard`, tầng out-of-process `--self-check`, fake Binance REST server | ✅ **Hoàn thành (5/6 task con, 1 hoãn)** — 2026-08-25; ADR *Approved* |
-| **[EPIC-010](epics/EPIC-010_ghi_nho_gia_tri_cuoi/README.md)** | **Ghi nhớ giá trị cuối** — ~45 giá trị user đặt mất sạch mỗi lần mở lại app; store riêng `ui_state.json`, slice theo màn, merge khi ghi | 🔵 Chưa bắt đầu (0/8 task con) — thiết kế chờ duyệt |
+| **[EPIC-010](epics/EPIC-010_ghi_nho_gia_tri_cuoi/README.md)** | **Ghi nhớ giá trị cuối** — ~45 giá trị user đặt mất sạch mỗi lần mở lại app; store riêng `ui_state.json`, slice theo màn, merge khi ghi | ✅ Xong 2026-08-26 (8/8 task con) — cơ chế đã promote lên Engine (`ui_state` extension) |
 
 ---
 

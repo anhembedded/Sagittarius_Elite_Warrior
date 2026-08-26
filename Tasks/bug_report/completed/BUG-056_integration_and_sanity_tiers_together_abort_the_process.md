@@ -2,7 +2,7 @@
 
 **Reported date:** 2026-08-26
 **Severity:** 🟡 P2 (không sai kết quả test, nhưng làm bộ test **không đáng tin**)
-**Status:** 🔴 Mở — cơ chế đã xác định, **chưa sửa**
+**Status:** ✅ Đã sửa 2026-08-26 — root cause **khác với chẩn đoán ban đầu**, xem §Sửa lại
 **Found by:** chạy regression trong lúc làm `EPIC-010H` (không do EPIC-010H gây ra)
 
 ---
@@ -75,3 +75,68 @@ cái phản xạ mà `.agents/rules/ci-rule.md` cấm.
 
 Không chọn hướng "chạy 2 tầng ở 2 process" — nó giấu lỗi chứ không sửa, và
 `scripts/ci-local.ps1 -Full` vẫn sẽ gộp.
+
+---
+
+## ⚠️ Sửa lại: chẩn đoán ban đầu ở trên **sai**
+
+Mục "Cơ chế" phía trên đổ cho `unittest.mock` không thread-safe. **Sai** — hoặc
+chính xác hơn: đó chỉ là **chỗ** crash xảy ra, không phải **nguyên nhân**.
+
+Thay `MagicMock` dispatcher bằng một fake thread-safe (`_FakeResponse`) —
+crash **vẫn còn**, chỉ **dời sang** chỗ cấp phát kế tiếp trong cùng worker
+thread (`runner.py:248 in feed`, code Python thuần, không mock nào).
+
+## Root cause thật
+
+Chạy với `-v` cho bằng chứng quyết định — main thread lúc crash:
+
+```
+Thread ... (most recent call first):
+  File "pytestqt/plugin.py", line 220 in _process_events
+  File "pytestqt/plugin.py", line 179 in pytest_runtest_setup
+```
+
+Chuỗi sự việc:
+
+1. `qtbot.addWidget()` lên lịch `deleteLater()` như một phần teardown **của
+   chính qtbot** — chạy **sau** mọi fixture khác (fixture teardown theo thứ tự
+   ngược, qtbot nằm trong cùng).
+2. **Không ai bơm event loop sau đó**, nên đống deletion đó nằm chờ.
+3. pytest-qt bơm event loop ở **setup của test kế tiếp** → widget của test
+   trước bị huỷ **đúng lúc** fixture của test mới đã boot engine và auto-start
+   của Dev Board đã có worker đang chạy.
+4. Worker cấp phát → kích hoạt GC **trên worker thread** → destructor
+   shiboken của đám widget vừa được giải phóng chạy **sai thread** → abort.
+
+Không có test nào `FAILED` vì không test nào sai — tiến trình chết giữa hai
+test.
+
+## Cách sửa
+
+`app_engine` xả sạch deletion còn tồn đọng **trước khi** boot engine mới:
+
+```python
+app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+app.processEvents()
+```
+
+Đó là **thời điểm duy nhất an toàn**: pool của engine trước đã shutdown (thêm ở
+teardown của cùng fixture), engine mới chưa khởi động — không worker nào đang
+chạy.
+
+Giữ luôn `_FakeResponse` dù nó không phải bản sửa: nó loại bỏ một mối nguy
+thread-safety có thật, và **strict** thay vì permissive nên consumer đọc field
+không tồn tại sẽ `AttributeError` nêu đích danh, thay vì lặng lẽ nhận một
+`Mock` truthy — cách một mock làm test xanh vì lý do sai.
+
+## Xác minh
+
+| | Trước | Sau |
+| :--- | :--- | :--- |
+| `tests/integration/presentation/ui/` | **Segfault** (exit 139) | **42 passed**, 4 skipped — và nhanh hơn: 122s so với 179s |
+| `tests/integration/` (phần còn lại) | — | **40 passed** |
+| `tests/sanity/` | — | **24 passed** |
+
+Bản repro nhanh nhất là `tests/integration/presentation/ui/` chạy một mình —
+nó crash trước khi sửa, xanh sau khi sửa.
