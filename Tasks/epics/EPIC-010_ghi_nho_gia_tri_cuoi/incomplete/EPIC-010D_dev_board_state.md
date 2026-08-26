@@ -1,6 +1,6 @@
 # EPIC-010D — Dev Board: symbol, interval, and the lookback duration
 
-**Status:** 🔵 Not started
+**Status:** ✅ Done 2026-08-26 — Elite
 **Repo:** **Elite** — design §8 step 3
 **Depends on:** `EPIC-010B`
 
@@ -24,8 +24,13 @@ fetch an enormous range after the app sits unused for a month.
 
 ## Restore is a request (D5) — validate each value separately
 
-- Symbol: only apply if it is still in the symbol options the app knows about;
-  otherwise fall back. A dropped symbol must **not** also discard the interval.
+- Symbol: **shape, not membership** — deviation from this task's original
+  wording, decided while implementing. This screen's combo is
+  `setEditable(True)` and `_DEFAULT_SYMBOLS` holds a single entry, so a
+  membership check would silently hand the user "ETHUSDT" back on every
+  launch and throw away any symbol they legitimately typed. `EPIC-010E`'s
+  Database screen has a genuinely closed list and keeps the membership rule.
+  A dropped symbol must **not** also discard the interval.
 - Interval: only apply if still a valid `TimeFrame`.
 - `lookback_days`: must be a positive int within a sane bound.
 

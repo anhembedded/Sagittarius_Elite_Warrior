@@ -189,6 +189,13 @@ def build() -> AppRuntime:
     state_coordinator = UiStateCoordinator(
         ConfigManagerStateStore(RepoStateStoreLocator())
     )
+    # Registered so screen presenters can find it: PresenterManager builds
+    # each presenter as `presenter_class(view, container)`, with no seam for
+    # extra constructor arguments, so the container is the only way through.
+    # A presenter must therefore treat it as optional (see
+    # DashboardPresenter) — every test that builds a presenter against a bare
+    # container would otherwise break.
+    app_engine.context.container.singleton(UiStateCoordinator, state_coordinator)
     window = MainWindow(app_engine, state_coordinator=state_coordinator)
     window.show()
 
