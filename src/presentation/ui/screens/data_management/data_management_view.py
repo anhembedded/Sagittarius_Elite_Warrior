@@ -496,7 +496,11 @@ class DataManagementView(BaseView):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 20, 20, 20)
         outer.setSpacing(14)
-        self.setStyleSheet(f"background-color: {Palette.BG};")
+        # Scoped: the screen root holds every widget on it, so an unscoped
+        # property list here is `BUG-008` at the largest scale a screen has.
+        self.setStyleSheet(
+            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+        )
 
         outer.addLayout(self._build_header())
         outer.addLayout(self._build_stat_tiles())
@@ -584,10 +588,13 @@ class DataManagementView(BaseView):
         self, label_text: str, value_label: QLabel, hint_text: str
     ) -> QFrame:
         tile = QFrame()
-        tile.setFixedHeight(74)
-        tile.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
-        )
+        # Minimum, not fixed. At `setFixedHeight(74)` the tile was 5px short
+        # of its own content — 12+12 margins, three labels of 15/23/13, two
+        # gaps of 2 — so the hint line at the bottom rendered cut in half
+        # (`BUG-052`). A floor keeps the tiles matching without capping them
+        # below what they hold.
+        tile.setMinimumHeight(74)
+        apply_role(tile, StyleRole.SURFACE)
         layout = QVBoxLayout(tile)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(2)
@@ -611,9 +618,7 @@ class DataManagementView(BaseView):
     def _build_sync_controls(self) -> QFrame:
         card = QFrame()
         card.setFixedWidth(320)
-        card.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
-        )
+        apply_role(card, StyleRole.SURFACE)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
@@ -711,9 +716,7 @@ class DataManagementView(BaseView):
         column.setSpacing(14)
 
         table_card = QFrame()
-        table_card.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
-        )
+        apply_role(table_card, StyleRole.SURFACE)
         table_layout = QVBoxLayout(table_card)
         table_layout.setContentsMargins(12, 12, 12, 12)
         table_layout.setSpacing(8)

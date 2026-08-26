@@ -33,7 +33,9 @@ from sagittarius_engine.extensions.pyside_mvc.widgets import (
     Banner,
     Severity,
     StatCard,
+    StyleRole,
     Tone,
+    apply_role,
 )
 
 if TYPE_CHECKING:
@@ -80,10 +82,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         outer.setSpacing(12)
 
         self._card = QFrame()
-        self._card.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
-            f"border-radius: 8px;"
-        )
+        apply_role(self._card, StyleRole.SURFACE)
         card_layout = QVBoxLayout(self._card)
         card_layout.setContentsMargins(12, 10, 12, 10)
         card_layout.setSpacing(8)
@@ -309,9 +308,12 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     def _build_progress_banner(self) -> QFrame:
         banner = QFrame()
         banner.setObjectName("backtestProgressBanner")
+        # The one banner `Banner` deliberately does not cover — its body is
+        # a progress bar and a cancel button, no message and no icon. Scoped
+        # by hand so its border stays on the banner and off the bar inside.
         banner.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.STATE_NAV_BORDER}; "
-            f"border-radius: 6px;"
+            f"QFrame {{ background-color: {Palette.BG_CARD}; "
+            f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; }}"
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
