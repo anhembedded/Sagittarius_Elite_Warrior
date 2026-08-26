@@ -30,10 +30,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     get_icon_loader,
 )
 from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    Banner,
     Column,
     DataRow,
     Overlay,
     RowAction,
+    Severity,
     StyleRole,
     Tone,
     apply_role,
@@ -334,20 +336,15 @@ class KLineInspectorDialog(Overlay):
 
         return row
 
-    def _build_audit_banner(self) -> QFrame:
-        self._audit_banner = QFrame()
+    def _build_audit_banner(self) -> Banner:
+        # The banner `Severity.SUCCESS` was added for: it recolours itself on
+        # every sync depending on whether the check passed, which is the one
+        # thing `Banner` is settable-after-construction for.
+        self._audit_banner = Banner(severity=Severity.SUCCESS)
         self._audit_banner.setFixedHeight(36)
-        layout = QHBoxLayout(self._audit_banner)
-        layout.setContentsMargins(8, 0, 8, 0)
-        layout.setSpacing(8)
-
-        self._audit_icon_label = QLabel()
-        layout.addWidget(self._audit_icon_label)
-
-        self._audit_summary_label = QLabel()
-        self._audit_summary_label.setStyleSheet("font-size: 12px; font-weight: bold;")
-        layout.addWidget(self._audit_summary_label, 1)
-
+        # `Banner` is a `Panel` and inherits Qt's default layout margins;
+        # this one is fixed at 36px tall and was built at 8px horizontally.
+        self._audit_banner.body_layout.setContentsMargins(8, 0, 8, 0)
         return self._audit_banner
 
     def _build_column_header(self) -> QFrame:
@@ -511,17 +508,11 @@ class KLineInspectorDialog(Overlay):
         has_summary = bool(vm.auditSummaryText)
         self._audit_banner.setVisible(has_summary)
         if has_summary:
-            self._audit_icon_label.setText("✅" if vm.auditPassed else "⚠️")
-            color = Palette.SUCCESS if vm.auditPassed else Palette.DANGER
-            # Uniform ground; pass-vs-fail is carried by `color` below.
-            bg = Palette.BG_CARD_HEADER
-            self._audit_banner.setStyleSheet(
-                f"background-color: {bg}; border: 1px solid {color}; border-radius: 4px;"
+            self._audit_banner.icon = "✅" if vm.auditPassed else "⚠️"
+            self._audit_banner.set_severity(
+                Severity.SUCCESS if vm.auditPassed else Severity.DANGER
             )
-            self._audit_summary_label.setStyleSheet(
-                f"color: {color}; font-size: 12px; font-weight: bold;"
-            )
-            self._audit_summary_label.setText(vm.auditSummaryText)
+            self._audit_banner.message = vm.auditSummaryText
 
     def _rebuild_rows(self) -> None:
         model = self._view_model.klineInspectorModel

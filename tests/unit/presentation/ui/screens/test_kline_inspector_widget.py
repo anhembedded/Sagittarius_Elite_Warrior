@@ -155,4 +155,4 @@ def test_audit_result_updates_banner_text_and_color(qapp, database_screen):
 
     assert dialog._btn_audit.isEnabled() is True
     assert dialog._audit_banner.isVisible() is True
-    assert dialog._audit_summary_label.text() == "2 anomalies found"
+    assert dialog._audit_banner.message == "2 anomalies found"
