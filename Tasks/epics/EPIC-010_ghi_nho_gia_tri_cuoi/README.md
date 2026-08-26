@@ -1,86 +1,89 @@
-# EPIC-010 — Ghi nhớ giá trị cuối (UI State Persistence)
+# EPIC-010 — Remembering the user's last values (UI State Persistence)
 
-**Trạng thái:** 🔵 **Chưa bắt đầu — đang chờ duyệt thiết kế** (0/8 task con)
-**Ngày tạo:** 2026-08-25
+**Status:** 🔵 **Not started — awaiting design approval** (0/8 sub-tasks)
+**Created:** 2026-08-25
 
 ---
 
-## Vấn đề
+## The problem
 
-App hiện có **đúng một** đường lưu xuống đĩa: màn Settings ghi 5 key
-(`API_KEY`, `API_SECRET`, `DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`,
-`DEFAULT_SYNC_DAYS`) vào `src/config/user_config.json`.
+The app has exactly **one** path that writes to disk: the Settings screen saves 5
+keys (`API_KEY`, `API_SECRET`, `DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`,
+`DEFAULT_SYNC_DAYS`) into `src/config/user_config.json`.
 
-**Mọi thứ khác người dùng chạm vào đều mất khi đóng app** — khoảng **45 giá trị**
-trên 4 màn hình: symbol và interval của Dev Board, toàn bộ form Backtest
-(strategy, vốn, timeframe, khoảng thời gian, commission, leverage…), lựa chọn
-của màn Database, kích thước cửa sổ, màn hình đang mở, danh sách indicator script
-đã bật.
+**Everything else the user touches is lost when the app closes** — roughly **45
+values** across 4 screens: the Dev Board's symbol and interval, the entire
+Backtest form (strategy, capital, timeframe, date range, commission, leverage…),
+the Database screen's selections, window size, which screen was open, and which
+indicator scripts were enabled.
 
-Grep toàn repo xác nhận: **không có `QSettings`**, **không có
-`saveGeometry`/`restoreGeometry`**, và **không có `config.set()`** nào trong
-`src/presentation/` ngoài `settings_presenter.py`.
+A repo-wide grep confirms it: **no `QSettings`**, **no
+`saveGeometry`/`restoreGeometry`**, and **no `config.set()`** anywhere in
+`src/presentation/` outside `settings_presenter.py`.
 
-## Thiết kế
+## The design
 
 📄 **[`design/DESIGN_2026-08-25_ui_state_persistence.md`](design/DESIGN_2026-08-25_ui_state_persistence.md)**
 
-Tài liệu đó chứa: mô hình cấu trúc + danh mục 12 failure mode suy ra từ vòng đời
-của một giá trị được lưu, đánh giá 7 quyết định thiết kế (mỗi cái có bảng so
-sánh phương án và lý do chọn), kiến trúc đề xuất, và 12 sơ đồ mermaid
-(component, class, 2 sequence, state machine, ER, 2 flowchart, mindmap, gantt,
-journey).
+That document contains: the structural model plus a 12-failure-mode catalogue
+derived from the lifecycle of one persisted value, an evaluation of 7 design
+decisions (each with an options table and the reasoning behind the choice), the
+proposed architecture, and 12 mermaid diagrams (component, class, 2 sequence,
+state machine, ER, 2 flowchart, mindmap, gantt, journey).
 
-### Ba quyết định quan trọng nhất
+### The three decisions that matter most
 
-| # | Quyết định | Lý do quyết định |
+| # | Decision | What decided it |
 | :-: | :--- | :--- |
-| **D1** | File **riêng** `state/ui_state.json`, nhưng backend là **một instance `ConfigManager` thứ hai** — không phải store tự viết, không phải `QSettings` | Phải tách **file** vì `user_config.json` được git track **và** chứa `API_KEY`/`API_SECRET`, còn tầng Sanity đang nạp đúng file thật đó với `writable=True`. Nhưng **không** tách **cơ chế**: giữ đúng một paradigm cho cả dự án. Probe đo thật cho thấy `ConfigManager` cho sẵn merge-theo-slice (D2) và fail-safe khi file hỏng — hai thứ nặng nhất khỏi phải tự viết |
-| **D2** | Tài liệu chia **slice theo màn**, ghi thì **merge từng slice**, không bao giờ thay cả tài liệu | `PresenterManager` là *TRUE LAZY* — presenter chỉ dựng khi user vào màn. Ghi cả tài liệu lúc shutdown sẽ **xoá sạch** slice của những màn phiên này không mở |
-| **D6** | Lưu **ý định**, không bao giờ lưu **hoạt động** (FSM, stream đang chạy) | `BOT-062` đã chủ động tắt autostart vì *"opening the Dev Board must not silently start a live connection unless the user has opted in"*. Restore FSM về `LIVE` là lách đúng quyết định đó bằng cửa sau |
+| **D1** | A **separate** `state/ui_state.json`, but backed by a **second `ConfigManager` instance** — not a hand-written store, not `QSettings` | The **file** must be separate because `user_config.json` is git-tracked **and** holds `API_KEY`/`API_SECRET`, and the Sanity tier loads that very file with `writable=True`. But the **mechanism** must not be: keep exactly one paradigm project-wide. A measured probe shows `ConfigManager` already provides slice-merge (D2) and fail-safe corruption handling — the two heaviest parts, free |
+| **D2** | The document is split into **per-screen slices**; each write **merges one slice** and never replaces the whole document | `PresenterManager` is *TRUE LAZY* — a presenter is only built when the user visits that screen. Writing the whole document at shutdown would **wipe out** the slices for screens this session never opened |
+| **D6** | Persist **intent**, never persist **activity** (FSM state, a running stream) | `BOT-062` deliberately disabled autostart because *"opening the Dev Board must not silently start a live connection unless the user has opted in"*. Restoring the FSM into `LIVE` routes around that exact decision through the back door |
 
-## Task con (chưa tạo file — chờ duyệt thiết kế)
+## Sub-tasks (files not created yet — awaiting design approval)
 
-| ID | Tên | Tầng | Trạng thái |
+| ID | Name | Tier | Status |
 | :--- | :--- | :---: | :---: |
-| `EPIC-010A` | `IUiStateStore` + `ConfigManagerUiStateStore` + unit test đủ 12 failure mode | Nền móng | 🔵 Chưa bắt đầu |
-| `EPIC-010B` | `UiStateService` — debounce, flush trong `teardown()` | Nền móng | 🔵 Chưa bắt đầu |
-| `EPIC-010C` | Shell: kích thước cửa sổ + route cuối + sidebar | T1 | 🔵 Chưa bắt đầu |
-| `EPIC-010D` | Dev Board: symbol + interval | T1 | 🔵 Chưa bắt đầu |
-| `EPIC-010E` | Database: symbol + interval | T1 | 🔵 Chưa bắt đầu |
-| `EPIC-010F` | Backtest: slice đầy đủ | T2 | 🔵 Chưa bắt đầu |
-| `EPIC-010G` | Indicator script + cờ `_user_touched` | T2 | 🔵 Chưa bắt đầu |
-| `EPIC-010H` | Gộp default trùng lặp về một nguồn | Nợ kỹ thuật | 🔵 Chưa bắt đầu |
+| `EPIC-010A` | `IUiStateStore` + `ConfigManagerUiStateStore` + unit tests for all 12 failure modes | Foundation | 🔵 Not started |
+| `EPIC-010B` | `UiStateService` — debounce, flush inside `teardown()` | Foundation | 🔵 Not started |
+| `EPIC-010C` | Shell: window size + last route + sidebar | T1 | 🔵 Not started |
+| `EPIC-010D` | Dev Board: symbol + interval | T1 | 🔵 Not started |
+| `EPIC-010E` | Database: symbol + interval | T1 | 🔵 Not started |
+| `EPIC-010F` | Backtest: the full slice | T2 | 🔵 Not started |
+| `EPIC-010G` | Indicator scripts + the `_user_touched` flag | T2 | 🔵 Not started |
+| `EPIC-010H` | Collapse duplicated defaults into one source | Tech debt | 🔵 Not started |
 
-> File task con **cố ý chưa tạo**. Thiết kế còn 3 câu hỏi mở cần user quyết
-> (xem §8 của design doc), và tạo 8 file task cho một thiết kế chưa duyệt là
-> đúng kiểu "đoán sai hình dạng của thứ chưa tồn tại" mà
-> `architecture-rule.md` §7.2 nêu đích danh là bài học từ 4 stub card của
-> `EPIC-006`.
+> Sub-task files are **deliberately not created yet**. The design still has 3 open
+> questions for the user (see §8 of the design doc), and writing 8 task files for
+> an unapproved design is exactly the "guessing the shape of something that does
+> not exist yet" mistake that `architecture-rule.md` §7.2 names as the lesson from
+> `EPIC-006`'s four stub cards.
 
-## `EPIC-010H` không phải việc phụ
+## `EPIC-010H` is not a side quest
 
-Cùng một khái niệm đang có nhiều bản sao độc lập: `"ETHUSDT"` là literal ở **3
-file**, `"1m"` ở **4+ file**. Và chỉ `BackTestPresenter` đọc
-`DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` từ config — Dev Board và Database bỏ qua
-hoàn toàn, nên **sửa Settings hôm nay đã tạo default không nhất quán giữa các
-màn rồi**.
+The same concept currently has several independent copies: `"ETHUSDT"` is a
+literal in **3 files**, `"1m"` in **4+**. And only `BackTestPresenter` reads
+`DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` from config — the Dev Board and Database
+screens ignore them entirely, so **changing Settings today already produces
+inconsistent defaults across screens**.
 
-Chồng thêm một tầng "giá trị cuối" lên trên nền đó sẽ tạo ra thứ tự ưu tiên 3
-tầng mà chưa ai định nghĩa. Design doc §7 đề xuất:
+Stacking a "last value" tier on top of that foundation creates a three-level
+precedence order nobody has defined. §7 of the design doc proposes:
 
 ```text
-ui_state (điều user vừa làm)  >  user_config DEFAULT_* (điều user khai ở Settings)  >  hằng số module
+ui_state (what the user just did)  >  user_config DEFAULT_* (what they declared in Settings)  >  module constants
 ```
 
-kèm hệ quả bắt buộc: **đổi giá trị ở Settings phải xoá key tương ứng trong
-`ui_state`** — nếu không, user đổi Settings mà không thấy gì xảy ra.
+with one mandatory consequence: **changing a value in Settings must delete the
+corresponding key from `ui_state`** — otherwise the user changes Settings and
+sees nothing happen.
 
-## Liên quan
+## Related
 
-- [`BOT-115`](../../backlog/BOT-115_backtest_report_persistence_epic.md) — lưu
-  **báo cáo backtest** ra file. Khác epic này (lưu *kết quả một lần chạy*, không
-  phải *lựa chọn của user*), nhưng đã chốt sẵn 2 nguyên tắc mà epic này dùng
-  lại: JSON có `schema_version`, và **không bao giờ `pickle`**.
-- [`BOT-047`](../../completed/BOT-047_dynamic_params_form_ui.md) — có nút "Khôi
-  phục Mặc định"; là tiền lệ UI cho R1 trong design doc.
+- [`BOT-115`](../../backlog/BOT-115_backtest_report_persistence_epic.md) —
+  persisting **backtest reports** to a file. A different epic (it stores *the
+  result of one run*, not *the user's selections*), but it already settled two
+  principles this one reuses: JSON with a `schema_version`, and **never
+  `pickle`**.
+- [`BOT-047`](../../completed/BOT-047_dynamic_params_form_ui.md) — has a "Khôi
+  phục Mặc định" (Restore Defaults) button; the UI precedent for R1 in the design
+  doc.

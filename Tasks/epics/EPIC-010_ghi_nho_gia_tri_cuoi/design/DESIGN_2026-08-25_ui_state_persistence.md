@@ -1,93 +1,95 @@
-# DESIGN — Cơ chế ghi nhớ giá trị cuối (UI State Persistence)
+# DESIGN — Remembering the user's last values (UI State Persistence)
 
-**Thuộc:** [`EPIC-010`](../README.md)
-**Ngày:** 2026-08-25
-**Trạng thái:** 🔵 **Proposed** — chưa phê duyệt, chưa viết dòng code nào.
+**Belongs to:** [`EPIC-010`](../README.md)
+**Date:** 2026-08-25
+**Status:** 🔵 **Proposed** — not approved, not a line of code written.
 
 > [!IMPORTANT]
-> **Đọc nhãn trạng thái, đừng đọc văn xuôi.** Mọi khẳng định trong file này đều
-> có nhãn. Bài học lấy từ `EPIC-009`: một luật viết ra nghe như đã chốt nhưng
-> thật ra chưa bao giờ được duyệt, chưa bao giờ được enforce, và sống lâu hơn
-> cả thứ nó mô tả.
+> **Read the status tag, not the prose.** Every claim in this file carries one.
+> The lesson comes from `EPIC-009`: a rule that reads like a settled decision
+> but was never approved, never enforced, and outlived the thing it described.
 >
-> | Nhãn | Nghĩa |
+> | Tag | Meaning |
 > | :--- | :--- |
-> | ✅ **Đã kiểm chứng** | Đối chiếu với cây code thật; có `file:line`; không phải ý kiến |
-> | 🔵 **Đề xuất** | Đã hội tụ khi phân tích; **chưa** duyệt; có thể đổi |
-> | ❓ **Còn mở** | Chặn implementation cho tới khi có câu trả lời |
+> | ✅ **Established** | Checked against the real tree; cites `file:line`; not an opinion |
+> | 🔵 **Proposed** | Converged on during analysis; **not** approved; may change |
+> | ❓ **Open** | Blocks implementation until answered |
 
 ---
 
-## 1. Bối cảnh — vấn đề thật, đo được
+## 1. Context — a real, measured problem
 
-### 1.1 Hiện trạng: đúng **một** đường persistence tồn tại ✅ Đã kiểm chứng
+### 1.1 Current state: exactly **one** persistence path exists ✅ Established
 
-Toàn bộ app hiện chỉ có một chỗ ghi xuống đĩa:
+The entire app writes to disk in exactly one place:
 
 ```text
 SettingsPresenter._on_save()          settings_presenter.py:88-117
-  → IConfig.set() × 5 key
+  → IConfig.set() × 5 keys
   → ConfigManager.save()               settings_presenter.py:109-116
-  → src/config/user_config.json        (load writable=True tại app_bootstrapper.py:130)
+  → src/config/user_config.json        (loaded writable=True at app_bootstrapper.py:130)
 ```
 
-Grep toàn repo: **không có `QSettings`**, **không có `saveGeometry`/`restoreGeometry`/
-`saveState`**, và **không có `config.set()` nào khác trong `src/presentation/`**.
-Mọi thứ còn lại được khởi tạo lại từ hằng số module, default trong config, hoặc
-chuỗi rỗng ở **mỗi lần khởi động**.
+Repo-wide grep: **no `QSettings`**, **no `saveGeometry`/`restoreGeometry`/
+`saveState`**, and **no other `config.set()` anywhere in `src/presentation/`**.
+Everything else is re-initialised from a module constant, a config default, or an
+empty string on **every single launch**.
 
-### 1.2 Quy mô mất mát: ~45 giá trị người dùng đặt, mất sạch mỗi lần mở lại ✅ Đã kiểm chứng
+### 1.2 Scale of the loss: ~45 user-set values, gone on every restart ✅ Established
 
-| Màn | Số giá trị user đặt bị mất | Ví dụ đau nhất |
+| Screen | User-set values lost | Most painful examples |
 | :--- | :---: | :--- |
-| Dev Board | 6 | symbol, interval, start/end date, danh sách indicator script bật |
-| Backtest | ~25 | strategy, vốn, timeframe, khoảng thời gian, execution mode, commission, leverage, TP% |
+| Dev Board | 6 | symbol, interval, start/end date, which indicator scripts are enabled |
+| Backtest | ~25 | strategy, capital, timeframe, date range, execution mode, commission, leverage, TP% |
 | Database | 8 | symbol, interval, custom time range, search text |
-| Shell / MainWindow | 4 | kích thước cửa sổ, màn hình đang mở, sidebar thu gọn |
+| Shell / MainWindow | 4 | window size, current screen, sidebar collapsed |
 | Chart | 3 | zoom/pan, follow-latest, chart type |
 
-Chỉ **5 key** của màn Settings là sống sót qua restart.
+Only the Settings screen's **5 keys** survive a restart.
 
-### 1.3 Ba triệu chứng phái sinh, đã tồn tại **trước** khi có epic này ✅ Đã kiểm chứng
+### 1.3 Three derived symptoms that existed **before** this epic ✅ Established
 
-1. **Hằng số trùng lặp cho cùng một khái niệm.** `"ETHUSDT"` là literal độc lập ở
-   **3 nơi**: `dashboard_view_model.py:26`, `dashboard_presenter.py:45`,
-   `backtest_presenter.py:176`. `"1m"` ở **4+ nơi**: `dashboard_presenter.py:46`,
-   `backtest_view_model.py:48`, `chart_toolbar.py:6`, và inline khắp
-   `data_management_view_model.py`.
-2. **Ba màn bất đồng về "default" nghĩa là gì.** Chỉ `BackTestPresenter.__init__`
-   (`:326-329`) đọc `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` từ config. Dev Board và
-   Database **bỏ qua hoàn toàn** 2 key đó và hardcode literal riêng. Nghĩa là:
-   *sửa Settings hôm nay đã tạo ra default không nhất quán giữa các màn rồi.*
-3. **Script bị user tắt sẽ tự bật lại.** `IndicatorScriptListModel` có cờ
-   `_user_touched` (`list_model.py:59`) nhưng cờ đó không được lưu, nên script
-   có `default_enabled = True` quay lại bật ở lần mở sau — **xoá đúng ý định user
-   vừa thể hiện**.
+1. **Duplicated constants for one concept.** `"ETHUSDT"` is an independent
+   literal in **3 places**: `dashboard_view_model.py:26`,
+   `dashboard_presenter.py:45`, `backtest_presenter.py:176`. `"1m"` appears in
+   **4+ places**: `dashboard_presenter.py:46`, `backtest_view_model.py:48`,
+   `chart_toolbar.py:6`, plus inline throughout `data_management_view_model.py`.
+2. **Three screens disagree on what "default" means.** Only
+   `BackTestPresenter.__init__` (`:326-329`) reads `DEFAULT_SYMBOLS`/
+   `DEFAULT_INTERVAL` from config. The Dev Board and Database screens **ignore
+   those two keys entirely** and hardcode their own literals. Meaning:
+   *changing Settings today already produces inconsistent defaults across screens.*
+3. **A script the user turned off turns itself back on.**
+   `IndicatorScriptListModel` has a `_user_touched` flag (`list_model.py:59`),
+   but that flag is never persisted, so any script with `default_enabled = True`
+   comes back enabled next launch — **erasing the exact intent the user just
+   expressed**.
 
-> Điểm 1 và 2 nghĩa là: epic này **không chỉ** thêm tính năng lưu. Nó buộc phải
-> trả lời "default của một giá trị đến từ đâu" — câu hỏi hiện đang có 3 đáp án
-> mâu thuẫn trong cùng một app.
+> Points 1 and 2 mean this epic is **not only** about adding persistence. It is
+> forced to answer "where does a value's default come from" — a question that
+> currently has three contradictory answers inside one app.
 
 ---
 
-## 2. Mô hình cấu trúc — suy ra failure mode từ cấu trúc, không từ lịch sử bug
+## 2. Structural model — deriving failure modes from structure, not from bug history
 
-`EPIC-009` đã bác bỏ phương pháp "rút luật từ những lỗi đã xảy ra" vì *thiết kế
-suy từ lịch sử chỉ biết nhớ, không biết đoán*. Ở đây dùng lại phương pháp đúng:
-lấy **vòng đời của một giá trị được lưu** làm cấu trúc, rồi mỗi mũi tên trong
-vòng đời là một chỗ hỏng.
+`EPIC-009` rejected the "extract rules from mistakes that already happened"
+method because *a design derived from history can only remember; it cannot
+predict*. The correct method is reused here: take the **lifecycle of one
+persisted value** as the structure, then every arrow in that lifecycle is a place
+it can break.
 
 ```mermaid
 flowchart LR
-    subgraph S1["Phiên N — ghi"]
-        A["Capture<br/>đọc giá trị khỏi ViewModel"] --> B["Serialize<br/>sang JSON-safe"]
-        B --> C["Write<br/>xuống đĩa"]
+    subgraph S1["Session N — writing"]
+        A["Capture<br/>read the value off the ViewModel"] --> B["Serialize<br/>to something JSON-safe"]
+        B --> C["Write<br/>to disk"]
     end
-    C -.->|"ranh giới tiến trình<br/>(process boundary)"| D
-    subgraph S2["Phiên N+1 — đọc"]
-        D["Read<br/>đọc file"] --> E["Deserialize<br/>parse JSON"]
-        E --> F["Validate<br/>giá trị còn hợp lệ?"]
-        F --> G["Apply<br/>đưa vào ViewModel"]
+    C -.->|"process boundary"| D
+    subgraph S2["Session N+1 — reading"]
+        D["Read<br/>read the file"] --> E["Deserialize<br/>parse JSON"]
+        E --> F["Validate<br/>is the value still legal?"]
+        F --> G["Apply<br/>push into the ViewModel"]
     end
 
     style C fill:#8B2E2E,color:#fff
@@ -96,447 +98,470 @@ flowchart LR
     style G fill:#7A5B00,color:#fff
 ```
 
-### 2.1 Danh mục 12 failure mode 🔵 Đề xuất
+### 2.1 The 12-failure-mode catalogue 🔵 Proposed
 
-| # | Giai đoạn | Chế độ hỏng | Hậu quả nếu thiết kế bỏ qua |
+| # | Stage | Failure mode | Consequence if the design ignores it |
 | :-: | :--- | :--- | :--- |
-| 1 | Capture | Đọc giá trị **giữa lúc user đang gõ dở** | Lưu `"2026-08-2"` (ngày cụt), lần sau restore ra rác |
-| 2 | Capture | Lưu **hoạt động** thay vì **ý định** (FSM đang `LIVE`) | Mở app là tự nối mạng — phá đúng quyết định `BOT-062` |
-| 3 | Capture | Lưu control **chết** (`cboMarket`, `cboStrategy` — không nối gì) | Đóng băng vĩnh viễn một UI chưa hoàn thiện vào schema |
-| 4 | Serialize | Giá trị không JSON-safe (`datetime`, `Decimal`, `Enum`) | `TypeError` ngay đường shutdown |
-| 5 | Write | Crash **giữa lúc ghi** | File cụt → lần mở sau parse lỗi |
-| 6 | Write | Hai instance app ghi đè nhau | Mất state, không ai biết |
-| 7 | Write | Ghi thất bại (đĩa đầy, read-only, permission) | Exception trên đường shutdown — **đúng lớp `BUG-048`** |
-| 8 | Boundary | File bị xoá/đổi chỗ giữa 2 phiên | Phải coi là hợp lệ, không được lỗi |
-| 9 | Read | File hỏng / JSON sai cú pháp | **Không bao giờ được chặn boot** |
-| 10 | Deserialize | Schema đổi giữa 2 version (key đổi tên/bỏ) | Đọc ra hình dạng cũ, apply sai |
-| 11 | Validate | Giá trị **không còn hợp lệ** (symbol bị delist, strategy bị xoá, timeframe bỏ) | Restore vào một lựa chọn không tồn tại |
-| 12 | Apply | Restore **kích hoạt side effect** (set symbol → signal → fetch) | Boot xong tự đi làm việc user không yêu cầu |
+| 1 | Capture | Reading a value **mid-keystroke** | Persists `"2026-08-2"` (a truncated date); next restore yields garbage |
+| 2 | Capture | Persisting **activity** instead of **intent** (FSM in `LIVE`) | Opening the app silently connects to the network — breaks the `BOT-062` decision |
+| 3 | Capture | Persisting **dead** controls (`cboMarket`, `cboStrategy` — wired to nothing) | Freezes an unfinished UI into the schema permanently |
+| 4 | Serialize | A value that is not JSON-safe (`datetime`, `Decimal`, `Enum`) | `TypeError` right on the shutdown path |
+| 5 | Write | Crash **mid-write** | Truncated file → next launch fails to parse |
+| 6 | Write | Two app instances overwriting each other | State lost, nobody notices |
+| 7 | Write | Write fails (disk full, read-only, permissions) | Exception on the shutdown path — **exactly the `BUG-048` class** |
+| 8 | Boundary | File deleted/moved between sessions | Must be treated as legal, must not error |
+| 9 | Read | Corrupt file / malformed JSON | **Must never block boot** |
+| 10 | Deserialize | Schema changed between versions (key renamed/removed) | Reads an old shape, applies it wrongly |
+| 11 | Validate | Value **no longer legal** (symbol delisted, strategy deleted, timeframe dropped) | Restores into a choice that does not exist |
+| 12 | Apply | Restore **triggers side effects** (set symbol → signal → fetch) | Boot finishes and the app goes off doing work nobody asked for |
 
-Mode **2**, **3** và **12** là ba cái mà một thiết kế "cứ lưu hết cho tiện" chắc
-chắn trượt — và cả ba đều có bằng chứng thật trong repo này (xem §3.3, §1.3, §5.2).
+Modes **2**, **3** and **12** are the three a "just persist everything, it's
+easier" design will certainly miss — and all three have real evidence in this
+repo (see §3.3, §1.3, §5.2).
 
 ---
 
-## 3. Phạm vi — lưu cái gì, và **tuyệt đối không** lưu cái gì
+## 3. Scope — what to persist, and what to **never** persist
 
-### 3.1 Nguyên tắc phân loại 🔵 Đề xuất
+### 3.1 The classification principle 🔵 Proposed
 
-> **Lưu *ý định* của người dùng. Không bao giờ lưu *hoạt động* của hệ thống.**
+> **Persist the user's *intent*. Never persist the system's *activity*.**
 
 ```mermaid
 mindmap
-  root((Giá trị<br/>trong app))
-    Ý định người dùng
-      Lựa chọn
+  root((Values<br/>in the app))
+    User intent
+      Selections
         symbol
         interval
         strategy
         timeframe
-      Tham số nhập
-        vốn ban đầu
+      Typed parameters
+        initial capital
         commission
         leverage
-        khoảng thời gian
-      Sở thích hiển thị
-        kích thước cửa sổ
-        màn hình cuối
-        sidebar thu gọn
-        timezone hiển thị
-    Hoạt động hệ thống
-      Trạng thái FSM
+        date range
+      Display preferences
+        window size
+        last screen
+        sidebar collapsed
+        display timezone
+    System activity
+      FSM state
         IDLE LIVE LOCKED
-      Kết nối đang chạy
+      Live connections
         websocket
-        job đồng bộ
-      Kết quả tạm
+        sync job
+      Transient results
         log panel
         status message
         health report
-    Không thuộc về đây
-      Bí mật
+    Does not belong here
+      Secrets
         API_KEY
         API_SECRET
-      Control chết
+      Dead controls
         cboMarket
         cboStrategy
 ```
 
-### 3.2 Phân tầng triển khai 🔵 Đề xuất
+### 3.2 Rollout tiers 🔵 Proposed
 
-Chia tầng theo **giá trị mang lại / rủi ro**, không theo màn hình — để Phase 1
-ship được thứ hữu ích ngay mà chưa cần đụng chỗ khó.
+Tiered by **value delivered / risk taken**, not by screen — so Phase 1 ships
+something useful without having to touch the hard parts.
 
-| Tầng | Giá trị | Vì sao xếp ở đây |
+| Tier | Values | Why it sits here |
 | :--- | :--- | :--- |
-| **T1 — làm trước** | Dev Board `symbol`+`interval`; Database `symbol`+`interval`; route cuối; kích thước/vị trí cửa sổ; sidebar thu gọn | Vô hại tuyệt đối, sai thì user chỉ chọn lại; **đây là 80% cảm giác "app nhớ tôi"** |
-| **T2 — sau khi T1 chạy thật** | Backtest: strategy, vốn, timeframe, preset thời gian, execution mode, commission/leverage/TP; danh sách indicator script bật (kèm `_user_touched`); toggle toolbar chart | Nhiều giá trị, cần validate kỹ (strategy có thể bị xoá khỏi registry) |
-| **T3 — hoãn, cần quyết định riêng** | Splitter sizes; zoom/pan chart; trade-log filter/page/search | Xem §3.4 — có xung đột thật với code hiện tại |
-| **❌ KHÔNG BAO GIỜ** | FSM state; stream đang chạy; `API_KEY`/`API_SECRET`; status message; `cboMarket`/`cboStrategy`; gap-inspector transient | Xem §3.3 |
+| **T1 — first** | Dev Board `symbol`+`interval`; Database `symbol`+`interval`; last route; window size/position; sidebar collapsed | Completely harmless — if it is wrong the user just picks again; **this is 80% of the "the app remembers me" feeling** |
+| **T2 — after T1 runs for real** | Backtest: strategy, capital, timeframe, date preset, execution mode, commission/leverage/TP; enabled indicator scripts (with `_user_touched`); chart toolbar toggles | Many values, needs careful validation (a strategy can vanish from the registry) |
+| **T3 — deferred, needs its own decision** | Splitter sizes; chart zoom/pan; trade-log filter/page/search | See §3.4 — genuine conflicts with current code |
+| **❌ NEVER** | FSM state; running stream; `API_KEY`/`API_SECRET`; status message; `cboMarket`/`cboStrategy`; gap-inspector transients | See §3.3 |
 
-### 3.3 Vì sao "không bao giờ lưu FSM/stream" là luật, không phải sở thích ✅ Đã kiểm chứng
+### 3.3 Why "never persist FSM/stream" is a rule, not a preference ✅ Established
 
-`BOT-062` đã **chủ động** đổi `DEV_BOARD_AUTOSTART_ENABLED` về mặc định `False`,
-với lý do ghi thẳng trong code (`dashboard_presenter.py:375-383`):
+`BOT-062` **deliberately** flipped `DEV_BOARD_AUTOSTART_ENABLED` to default
+`False`, with the reason written straight into the code
+(`dashboard_presenter.py:375-383`):
 
 > *"opening the Dev Board must not silently start a live connection unless the
 > user has opted in"*
 
-Lưu FSM state rồi restore lại `LIVE` sẽ **lách qua chính quyết định đó bằng cửa
-sau**: user không bật autostart, nhưng app vẫn tự nối mạng vì "lần trước đang
-nối". Đây là failure mode #2, và nó có tiền lệ chống lại rõ ràng trong repo.
+Persisting FSM state and restoring back into `LIVE` would **route around that
+exact decision through the back door**: the user never enabled autostart, yet the
+app connects anyway because "it was connected last time". This is failure mode
+#2, and the repo already contains an explicit precedent against it.
 
-Tương tự, `API_KEY`/`API_SECRET` đã có nhà riêng (`user_config.json`, màn
-Settings). Cơ chế mới **không được** đụng vào — xem §4.1.
+Likewise `API_KEY`/`API_SECRET` already have a home (`user_config.json`, the
+Settings screen). The new mechanism **must not** touch it — see §4.1.
 
-### 3.4 T3 hoãn vì lý do kỹ thuật thật, không phải vì lười ✅ Đã kiểm chứng
+### 3.4 T3 is deferred for real technical reasons, not laziness ✅ Established
 
-**Zoom/pan chart:** mọi lần `render_historical_data` đều ép viewport về "150 nến
-cuối" (`chart_card.py:339-366`, `_DEFAULT_INITIAL_VISIBLE_CANDLES = 150` tại
-`:34`). Nghĩa là zoom/pan **đã** bị reset ở mỗi lần Load History / Start Live /
-đổi symbol — không riêng gì restart. Lưu x-range thô xuyên restart sẽ **đâm vào
-đúng đường reset đó** trừ khi luồn qua `_set_initial_view_range`. Đó là một thay
-đổi hành vi chart, phải là task riêng, không nhét vào epic persistence.
+**Chart zoom/pan:** every `render_historical_data` forces the viewport back to
+"the last 150 candles" (`chart_card.py:339-366`,
+`_DEFAULT_INITIAL_VISIBLE_CANDLES = 150` at `:34`). So zoom/pan is **already**
+reset on every Load History / Start Live / symbol change — not just on restart.
+Persisting a raw x-range across restarts would **collide with that same reset
+path** unless threaded through `_set_initial_view_range`. That is a change to
+chart behaviour, and must be its own task, not smuggled into a persistence epic.
 
-**Splitter sizes:** `dashboard_view.py:59-61` set `[900, 400]` ở **mỗi lần
-construct**. Vì presenter là lazy và không bị huỷ khi rời màn, splitter reset khi
-*chuyển màn lần đầu*, không chỉ khi restart. Sửa cái đó là sửa bug bố cục, khác
-việc lưu giá trị.
+**Splitter sizes:** `dashboard_view.py:59-61` sets `[900, 400]` on **every
+construction**. Because presenters are lazy and are not torn down when you leave
+a screen, the splitter resets on the *first screen switch*, not only on restart.
+Fixing that is fixing a layout bug — a different thing from persisting a value.
 
 ---
 
-## 4. Đánh giá phương án — 7 quyết định
+## 4. Evaluating the options — 7 decisions
 
-### 4.1 D1 — Lưu ở đâu?
+### 4.1 D1 — Where does it get stored?
 
-| | Phương án | Ưu | Nhược |
+| | Option | Pro | Con |
 | :-: | :--- | :--- | :--- |
-| **A** | Tái dùng **chính file** `user_config.json` qua `ConfigManager` hiện có | Không phải viết gì mới | Xem 5 điểm chặn bên dưới |
-| **B** | File riêng `ui_state.json` + **store tự viết** | Kiểm soát hoàn toàn, ghi atomic được | Thêm ~150 dòng I/O tự viết; **thêm một paradigm thứ hai vào dự án** |
-| **B2** | File riêng `ui_state.json` nhưng dùng **một instance `ConfigManager` thứ hai** | Tách file (giải quyết cả 5 điểm chặn của A) **nhưng vẫn đúng một cơ chế** trong toàn dự án | Ghi không atomic (§4.1.3) |
-| **C** | `QSettings` | Native desktop, `saveGeometry()` xử lý đa màn hình đúng | Xem §4.1.2 |
-| **D** | SQLite (đã có sẵn DB) | Transactional | Quá nặng cho ~45 scalar; buộc "trí nhớ UI" vào vòng đời DB thị trường — mà `BUG-030` cho thấy vòng đời đó đang mong manh |
+| **A** | Reuse **the same file** `user_config.json` through the existing `ConfigManager` | Nothing new to write | See the 5 blockers below |
+| **B** | Separate `ui_state.json` + a **hand-written store** | Full control, atomic writes possible | ~150 lines of hand-written I/O; **adds a second paradigm to the project** |
+| **B2** | Separate `ui_state.json` but backed by a **second `ConfigManager` instance** | Separate file (clears all 5 of A's blockers) **while keeping exactly one mechanism** project-wide | Writes are not atomic (§4.1.3) |
+| **C** | `QSettings` | Native desktop; `saveGeometry()` handles multi-monitor correctly | See §4.1.2 |
+| **D** | SQLite (a DB already exists) | Transactional | Massively overweight for ~45 scalars; chains "UI memory" to the market DB's lifecycle — which `BUG-030` shows is already fragile |
 
-**Năm điểm chặn phương án A** ✅ Đã kiểm chứng — đây là lý do quyết định:
+**Five blockers against option A** ✅ Established — these are what decided it:
 
-1. **`user_config.json` được git track.** `git check-ignore` trả exit 1; nó nằm
-   trong `git ls-files`. Ghi state mỗi lần user đổi combobox = `git status` bẩn
-   liên tục.
-2. **Nó chứa `API_KEY`/`API_SECRET`.** Một file mang bí mật mà bị ghi tự động,
-   thường xuyên, bởi một cơ chế nền là rủi ro vận hành thật: tăng xác suất
-   credential thật bị `git add .` vào repo.
-3. **Namespace phẳng, không có provenance.** `_load()` là `dict.update` nông; sau
-   khi merge **không thể biết** một key đến từ `app_config.json`, `user_config.json`
-   hay `load_dict`. Trộn "sở thích user" với "gợi ý phiên trước" vào cùng một
-   không gian phẳng là mất khả năng phân biệt vĩnh viễn.
-4. **`save()` âm thầm ghi đè file hỏng.** Nó đọc lại file, nuốt `JSONDecodeError`
-   thành `existing = {}`, rồi ghi đè. Nghĩa là một `ui_state` hỏng có thể **xoá
-   luôn preference thật** của user. Và nó **không atomic** — không tmp+rename,
-   không lock, không backup.
-5. **Tầng Sanity đang nạp đúng file thật đó với `writable=True`**
-   (`tests/sanity/conftest.py:110-111`). Hiện an toàn *chỉ vì* không test nào gọi
-   save. Một cơ chế auto-save sẽ biến mỗi lần chạy test thành một lần ghi đè
-   config trong repo của dev.
+1. **`user_config.json` is git-tracked.** `git check-ignore` exits 1; it appears
+   in `git ls-files`. Writing state on every combobox change means a permanently
+   dirty `git status`.
+2. **It holds `API_KEY`/`API_SECRET`.** A secrets-bearing file being written
+   automatically and frequently by a background mechanism is a genuine
+   operational risk: it raises the odds of real credentials being swept into the
+   repo by a `git add .`.
+3. **Flat namespace, no provenance.** `_load()` is a shallow `dict.update`; after
+   the merge it is **impossible to tell** whether a key came from
+   `app_config.json`, `user_config.json`, or a `load_dict` layer. Mixing "user
+   preference" with "hint from last session" in one flat space destroys that
+   distinction permanently.
+4. **`save()` silently clobbers a corrupt file.** It re-reads the file, swallows
+   `JSONDecodeError` into `existing = {}`, then overwrites. So a corrupt
+   `ui_state` could **wipe the user's real preferences**. And it is **not
+   atomic** — no tmp+rename, no lock, no backup.
+5. **The Sanity tier loads that very real file with `writable=True`**
+   (`tests/sanity/conftest.py:110-111`). It is safe today *only because* no test
+   triggers a save. An auto-save mechanism would turn every test run into an
+   overwrite of the config inside the developer's repo.
 
-**Vì sao vẫn phải tách file** (áp cho cả B, B2 và C): **preference và hint có
-ngữ nghĩa hỏng ngược nhau.** Preference là thứ user *chủ động khai báo* và mong
-được tôn trọng nguyên văn. Hint là *tác dụng phụ của việc dùng app*, user không
-yêu cầu, và phải được phép **vứt đi im lặng** khi nghi ngờ. Hai thứ có chính sách
-hỏng ngược nhau thì không được ở chung một file.
+**Why the file must be separate regardless** (applies to B, B2 and C alike):
+**preference and hint have opposite failure semantics.** A preference is
+something the user *deliberately declared* and expects honoured verbatim. A hint
+is a *side effect of using the app*; the user never asked for it, and it must be
+allowed to be **discarded silently** whenever it looks doubtful. Two things with
+opposite failure policies must not share one file.
 
-Phần thưởng kèm theo: *"xoá `ui_state.json` để reset"* là một câu hướng dẫn hỗ
-trợ một dòng, không rủi ro.
+A bonus that follows: *"delete `ui_state.json` to reset"* becomes a one-line,
+zero-risk support instruction.
 
 ---
 
-#### 4.1.1 Tính nhất quán — vì sao B thua B2
+#### 4.1.1 Consistency — why B loses to B2
 
-> **Phản biện đúng (user nêu 2026-08-25):** *"đã có `ConfigManager` rồi mà còn
-> thêm cơ chế nữa thì dự án mất tính nhất quán."*
+> **A correct objection (raised by the user, 2026-08-25):** *"we already have
+> `ConfigManager`; adding another mechanism costs the project its consistency."*
 
-Phản biện này **cũng áp cho phương án B**, không riêng gì QSettings — đó là điểm
-mấu chốt. Bản thiết kế đầu tiên chọn B, tức cũng đang thêm cơ chế thứ hai. Vậy
-câu hỏi đúng không phải *"một cơ chế hay hai"* (đằng nào cũng hai, vì A bị chặn),
-mà là:
+That objection **applies to option B too**, not just to QSettings — and that is
+the crux. The first draft chose B, which is also a second mechanism. So the right
+question is not *"one mechanism or two"* (it will be two either way, since A is
+blocked), but:
 
-> **Thêm bao nhiêu *khái niệm* mà một dev phải học?**
+> **How many *concepts* does a developer have to learn?**
 
-Nhất quán là chuyện **paradigm**, không phải chuyện đếm số class:
+Consistency is about the **paradigm**, not the class count:
 
-| Phương án | Số file store | Số **paradigm** dev phải học | Câu chuyện debug |
+| Option | Store files | **Paradigms** a dev must learn | The debugging story |
 | :--- | :---: | :---: | :--- |
-| A | 1 | 1 | Nhưng mâu thuẫn **chui vào trong file**, vô hình — tệ hơn |
-| B | 2 | **2** (ConfigManager + I/O tự viết) | Hai đường đọc/ghi khác nhau |
-| **B2** | 2 | **1** | Y hệt nhau: JSON phẳng, `get`/`set`/`save`, `cat` ra đọc được |
-| C (QSettings) | 2 | **2** + khác theo OS | Linux: INI ngoài repo. Windows: **registry, không phải file** |
+| A | 1 | 1 | But the contradiction moves **inside the file**, invisible — worse |
+| B | 2 | **2** (ConfigManager + hand-written I/O) | Two different read/write paths |
+| **B2** | 2 | **1** | Identical: flat JSON, `get`/`set`/`save`, readable with `cat` |
+| C (QSettings) | 2 | **2** + varies by OS | Linux: an INI outside the repo. Windows: **the registry, not a file** |
 
-**B2 = "cùng một ý tưởng, áp cho một vòng đời khác".** Dev nào hiểu
-`user_config.json` thì hiểu `ui_state.json` trong 30 giây.
+**B2 = "the same idea, applied to a different lifetime".** Any developer who
+understands `user_config.json` understands `ui_state.json` in 30 seconds.
 
-#### 4.1.2 Đánh giá `QSettings` — đo thật, không phán từ trí nhớ ✅ Đã kiểm chứng
+#### 4.1.2 Evaluating `QSettings` — measured, not recalled ✅ Established
 
-Chạy thật trên container này (PySide6 6.11.1):
+Run for real on this container (PySide6 6.11.1):
 
 ```text
---- QSettings khi CHƯA set org/app name ---
+--- QSettings BEFORE any org/app name is set ---
   fileName: '/root/.config/Unknown Organization/PySideApp.conf'
   organizationName: ''
---- sau khi setOrganizationName/setApplicationName ---
+--- after setOrganizationName/setApplicationName ---
   fileName: /root/.config/Sagittarius/EliteWarrior.conf
   format:   Format.NativeFormat
 --- saveGeometry() ---
   type: QByteArray | bytes: 66
 ```
 
-Bốn hệ quả:
+Four consequences:
 
-1. **App hiện KHÔNG set `organizationName`** (đo được: chuỗi rỗng). Dùng QSettings
-   mà quên set thì nó **âm thầm** ghi vào `Unknown Organization/PySideApp.conf` —
-   sai chỗ, không lỗi, không ai biết.
-2. **`NativeFormat` trên Windows là registry, không phải file.** Repo này có luật
-   debug bằng file ghi thẳng trong `CLAUDE.md`: *"Không tin console — đọc file
-   log."* Một store không `grep` được, không `cat` được, không đính vào bug report
-   được là đi ngược văn hoá chẩn đoán của chính dự án.
-3. **Ghi ra `~/.config/`, ngoài repo** → mọi test chạm QSettings sẽ ghi vào máy
-   thật của dev, trừ khi gọi `QSettings.setPath()`. Đây đúng cái mìn đã nêu ở
-   điểm 5 bên trên (`tests/sanity/conftest.py`), chỉ đổi chỗ nổ.
-4. **Điểm QSettings thật sự thắng:** `saveGeometry()` trả `QByteArray` 66 byte mà
-   `restoreGeometry()` hiểu — Qt tự lo đa màn hình, đổi DPI, cửa sổ nằm ngoài
-   vùng nhìn thấy. Lưu `x/y/w/h` thô bằng JSON **có rủi ro thật**: khôi phục cửa
-   sổ về một màn hình không còn cắm nữa.
+1. **The app currently does NOT set `organizationName`** (measured: empty
+   string). Adopt QSettings and forget that step, and it **silently** writes to
+   `Unknown Organization/PySideApp.conf` — wrong place, no error, nobody notices.
+2. **`NativeFormat` on Windows is the registry, not a file.** This repo has a
+   read-the-file debugging rule written straight into `CLAUDE.md`: *"Don't trust
+   the console — read the log file."* A store you cannot `grep`, cannot `cat`,
+   and cannot attach to a bug report runs against the project's own diagnostic
+   culture.
+3. **It writes to `~/.config/`, outside the repo** → any test touching QSettings
+   writes to the developer's real machine unless `QSettings.setPath()` is called.
+   That is exactly the landmine from blocker 5 above
+   (`tests/sanity/conftest.py`), just relocated.
+4. **Where QSettings genuinely wins:** `saveGeometry()` returns a 66-byte
+   `QByteArray` that `restoreGeometry()` understands — Qt handles multi-monitor,
+   DPI changes, and windows landing off-screen. Storing raw `x/y/w/h` as JSON
+   carries a **real risk**: restoring a window onto a monitor that is no longer
+   plugged in.
 
-> **Xử lý điểm 4 mà không cần QSettings:** validate rect khôi phục có giao với
-> `QGuiApplication.screens()` nào không; không giao thì bỏ, dùng mặc định. Khoảng
-> 5 dòng, và nó **đúng tinh thần D5 hơn** cả `restoreGeometry()` — D5 nói giá trị
-> đọc lên là *lời đề nghị phải kiểm tra*, còn blob nhị phân thì khôi phục mù.
+> **Handling point 4 without QSettings:** validate that the restored rect
+> intersects one of `QGuiApplication.screens()`; if it does not, drop it and use
+> the default. About 5 lines — and it is **more in the spirit of D5** than
+> `restoreGeometry()` is, because D5 says a restored value is *a request that
+> must be checked*, whereas an opaque blob restores blind.
 
-#### 4.1.3 B2 — đã kiểm chứng bằng thực nghiệm ✅ Đã kiểm chứng
+#### 4.1.3 B2 — verified experimentally ✅ Established
 
-Probe chạy thật với `ConfigManager` của engine, 4 giả thuyết, **cả 4 PASS**.
-Probe được **giữ lại trong repo** để lần sau kiểm lại bằng một lệnh, thay vì
-phải tin văn xuôi ở đây:
+A probe run against the engine's real `ConfigManager`, 4 hypotheses, **all 4
+PASS**. The probe is **kept in the repo** so the next person can re-check with
+one command instead of having to trust the prose here:
 
 ```bash
 PYTHONPATH=. .venv/bin/python scripts/ui_state_store_feasibility_probe.py
-# exit 0 = B2 còn khả thi; khác 0 = D1 phải xem lại vì engine đã đổi
+# exit 0 = B2 still viable; non-zero = D1 must be revisited, the engine changed
 ```
 
-| Giả thuyết | Kết quả |
+| Hypothesis | Result |
 | :--- | :--- |
-| **H1** — slice lồng (`dict`) sống sót qua `set()` + `save()` | ✅ ghi xuống JSON lồng đúng, đọc lại đúng |
-| **H2** — phiên chỉ mở Dev Board, ghi slice `dashboard` → slice `backtest` **còn nguyên** | ✅ **D2 có sẵn, không phải tự viết** — `save()` chỉ ghi `_dirty` lên nội dung file hiện có |
-| **H3** — file JSON cụt (mô phỏng crash giữa lúc ghi) | ✅ `get()` trả default, **không raise** — `JsonSource.read()` nuốt `JSONDecodeError` → `{}` |
-| **H4** — hai instance độc lập | ✅ `user_config.json` không bị đụng; state store `get("API_KEY")` → `None` |
+| **H1** — a nested `dict` slice survives `set()` + `save()` | ✅ writes nested JSON correctly, reads back intact |
+| **H2** — a session that only opens the Dev Board writes the `dashboard` slice and leaves `backtest` **untouched** | ✅ **D2 comes for free, nothing to hand-write** — `save()` writes only `_dirty` onto the file's existing contents |
+| **H3** — a truncated JSON file (simulating a crash mid-write) | ✅ `get()` returns the default, **does not raise** — `JsonSource.read()` swallows `JSONDecodeError` → `{}` |
+| **H4** — two instances stay isolated | ✅ `user_config.json` untouched; the state store's `get("API_KEY")` → `None` |
 
-Nghĩa là B2 **đạt sẵn** ba thứ mà phương án B phải tự viết: merge theo slice (D2),
-fail-safe khi file hỏng (mode #9), và cách ly credential.
+So B2 **already provides** three things option B would have to hand-write:
+slice-merge (D2), fail-safe corruption handling (mode #9), and credential
+isolation.
 
-**Cái giá phải trả — ghi không atomic.** `save()` mở file bằng `open(path, "w")`,
-không tmp+rename. Crash **giữa** lúc ghi → file cụt. Nhưng theo H3, hậu quả là
-*lần mở sau về hết mặc định* — user mất trí nhớ một lần, app vẫn boot bình
-thường. **Với dữ liệu hạng *hint* thì đây là mất mát chấp nhận được** — và đó
-chính là logic "preference vs hint" ở trên, áp nhất quán: hint được phép mất.
+**The accepted cost — writes are not atomic.** `save()` opens the file with
+`open(path, "w")`, no tmp+rename. A crash **mid-write** truncates the file. But
+per H3, the consequence is *the next launch falls back to defaults everywhere* —
+the user loses their memory once, and the app still boots normally. **For
+*hint*-class data that is an acceptable loss** — which is exactly the
+"preference vs hint" logic above, applied consistently: hints are allowed to be
+lost.
 
-> ⚠️ `architecture-rule.md` §7.1 quy định: cái giá đã chấp nhận trả **phải có một
-> test khoá hành vi hiện tại**, không được chỉ ghi chú. Vậy `EPIC-010A` bắt buộc
-> có test khoá đúng H3: *file cụt → boot ra mặc định, không raise*.
+> ⚠️ `architecture-rule.md` §7.1 requires that an accepted cost **has a test
+> locking the current behaviour**, not merely a note. So `EPIC-010A` must carry a
+> test locking exactly H3: *truncated file → boot yields defaults, no raise*.
 
-> ### ✅ Quyết định: **B2** 🔵 Đề xuất — đổi so với bản nháp đầu (vốn chọn B)
+> ### ✅ Decision: **B2** 🔵 Proposed — changed from the first draft (which chose B)
 >
-> File riêng `state/ui_state.json`, nhưng backend là **một instance
-> `ConfigManager` thứ hai**, đặt sau port `IUiStateStore` của D3.
-> Port giữ nguyên vai trò: chỗ cắm `NullUiStateStore` cho tầng Sanity, và **chặn
-> việc lặp lại wart `isinstance(self.config, ConfigManager)`** mà
-> `SettingsPresenter:109` đang phải làm ở 4 presenter nữa.
-> Nếu sau này thật sự cần ghi atomic, đổi sang `JsonFileUiStateStore` là **thay
-> một dòng ở composition root** — đúng công dụng của port.
+> A separate `state/ui_state.json`, but backed by a **second `ConfigManager`
+> instance**, sitting behind D3's `IUiStateStore` port.
+> The port keeps its role: the socket for `NullUiStateStore` in the Sanity tier,
+> and the thing that **stops the `isinstance(self.config, ConfigManager)` wart**
+> — which `SettingsPresenter:109` already has to do — from spreading to four more
+> presenters.
+> If atomic writes ever genuinely become necessary, switching to
+> `JsonFileUiStateStore` is **one line at the composition root** — precisely what
+> the port is for.
 
-**Vị trí file:** `state/ui_state.json` ở gốc repo, thêm `state/` vào `.gitignore`
-— nhất quán với `logs/` (dòng 147) và `database/` (dòng 139) đang làm đúng vậy.
-❓ **Còn mở:** app đóng gói để cài đặt thật thì nên chuyển sang
-`QStandardPaths.AppConfigLocation`. Port ở D3 khiến việc đổi này là thay 1 class.
+**File location:** `state/ui_state.json` at the repo root, adding `state/` to
+`.gitignore` — consistent with `logs/` (line 147) and `database/` (line 139),
+which already do exactly that.
+❓ **Open:** a properly packaged, installed app should move to
+`QStandardPaths.AppConfigLocation`. D3's port makes that a one-class change.
 
-### 4.2 D2 — Cấu trúc tài liệu: slice theo màn, **merge khi ghi**
+### 4.2 D2 — Document structure: per-screen slices, **merge on write**
 
-**Đây là quyết định dễ làm sai nhất, và lý do nằm ở lazy loading.** ✅ Đã kiểm chứng
+**This is the easiest decision to get wrong, and the reason is lazy loading.** ✅ Established
 
-`PresenterManager.navigate_to()` là *TRUE LAZY INITIALIZATION*
-(`presenter_manager.py:70-86`): presenter chỉ được dựng khi user vào màn đó lần
-đầu. `PresenterManager.shutdown()` cũng chỉ duyệt những presenter **đã** dựng.
+`PresenterManager.navigate_to()` is *TRUE LAZY INITIALIZATION*
+(`presenter_manager.py:70-86`): a presenter is only constructed when the user
+first navigates to that screen. `PresenterManager.shutdown()` likewise only
+iterates presenters that **were** constructed.
 
-Hệ quả chí mạng:
+The fatal consequence:
 
-> Nếu ghi **cả tài liệu** một lượt lúc shutdown, thì một phiên mà user chỉ mở Dev
-> Board sẽ ghi ra tài liệu **chỉ có slice của Dev Board** — **xoá sạch** slice
-> Backtest và Database mà phiên trước đã lưu.
+> If the **whole document** is written in one go at shutdown, then a session
+> where the user only opened the Dev Board writes a document containing **only
+> the Dev Board slice** — **wiping out** the Backtest and Database slices saved
+> by an earlier session.
 
 ```mermaid
 flowchart TD
-    A["Phiên 1: user dùng cả 3 màn"] --> B["ui_state.json<br/>dashboard + backtest + database"]
-    B --> C["Phiên 2: user chỉ mở Dev Board"]
-    C --> D{"Chiến lược ghi?"}
-    D -->|"Ghi cả tài liệu<br/>(SAI)"| E["ui_state.json<br/>CHỈ CÒN dashboard<br/>mất 2 slice"]
-    D -->|"Merge theo slice<br/>(ĐÚNG)"| F["ui_state.json<br/>dashboard cập nhật<br/>backtest + database giữ nguyên"]
+    A["Session 1: user visits all 3 screens"] --> B["ui_state.json<br/>dashboard + backtest + database"]
+    B --> C["Session 2: user only opens Dev Board"]
+    C --> D{"Write strategy?"}
+    D -->|"Write whole document<br/>(WRONG)"| E["ui_state.json<br/>ONLY dashboard left<br/>2 slices lost"]
+    D -->|"Merge per slice<br/>(RIGHT)"| F["ui_state.json<br/>dashboard updated<br/>backtest + database preserved"]
 
     style E fill:#8B2E2E,color:#fff
     style F fill:#1F5C2E,color:#fff
 ```
 
-> **Quyết định:** tài liệu chia **slice theo route**; mỗi lần ghi chỉ **merge một
-> slice**, không bao giờ thay cả tài liệu. Slice của màn chưa mở được giữ nguyên
-> không đụng tới. 🔵 Đề xuất
+> **Decision:** the document is split into **slices keyed by route**; each write
+> **merges a single slice** and never replaces the whole document. Slices for
+> screens that were never opened are left untouched. 🔵 Proposed
 
-### 4.3 D3 — Port đặt ở tầng nào?
+### 4.3 D3 — Which layer does the port live in?
 
-Luật kiến trúc rất chặt: `src/domain/` và `src/application/` chỉ được import đúng
-2 ký hiệu Shared Kernel của engine; mọi thứ khác phải qua port.
+The architecture rule is strict: `src/domain/` and `src/application/` may import
+exactly 2 Shared Kernel symbols from the engine; everything else goes through a
+port.
 
-Nhưng câu hỏi đúng là: **"symbol user xem lần cuối" có phải sự thật nghiệp vụ
-không?** Không. Không use case nào cần nó. Không quyết định giao dịch nào phụ
-thuộc nó. Đưa nó xuống `src/application/ports/` là tạo một use case
-`SaveUiState` mà **không tầng nghiệp vụ nào tiêu thụ** — nghi lễ thuần tuý.
+But the right question is: **is "the symbol the user last looked at" a business
+fact?** No. No use case needs it. No trading decision depends on it. Pushing it
+down into `src/application/ports/` would create a `SaveUiState` use case that
+**no business layer consumes** — pure ceremony.
 
-Mặt khác `architecture-rule.md` §7.2 nói **luôn khuyến khích abstraction**, class
-phải là một *hợp đồng*.
+On the other hand `architecture-rule.md` §7.2 says **always encourage
+abstraction**; a class must be a *contract*.
 
-Hai điều đó không mâu thuẫn nếu đặt port **trong tầng Presentation**. Và điều này
-có tiền lệ vững trong chính repo ✅ Đã kiểm chứng:
+Those two are not in conflict if the port lives **in the Presentation layer**.
+And there is solid precedent for that in this very repo ✅ Established:
 
-| ABC sống ở Presentation | File |
+| ABC living in Presentation | File |
 | :--- | :--- |
-| `BaseFeed` — được `architecture-rule.md` §7.1 nêu đích danh là "chỗ hạ cánh có tên" | `common/base_feed.py` |
-| `ViewportCulledLayer` — sinh ra từ `BUG-024` | `components/chart_card/viewport_culled_layer.py` |
+| `BaseFeed` — named explicitly in `architecture-rule.md` §7.1 as "a landing place with a name" | `common/base_feed.py` |
+| `ViewportCulledLayer` — born out of `BUG-024` | `components/chart_card/viewport_culled_layer.py` |
 | `IBacktestChartHost` | `screens/backtest/logic/backtest_chart_host.py` |
 | `TabInterface` | `components/sidebar/tab_interface.py` |
 
-> **Quyết định:** port `IUiStateStore` đặt tại `src/presentation/ui/state/`.
-> Tầng Application **không biết gì** về epic này. 🔵 Đề xuất
+> **Decision:** the `IUiStateStore` port lives at `src/presentation/ui/state/`.
+> The Application layer **knows nothing** about this epic. 🔵 Proposed
 
-### 4.4 D4 — Ghi lúc nào?
+### 4.4 D4 — When does it write?
 
-| Phương án | Đánh giá |
+| Option | Assessment |
 | :--- | :--- |
-| Ghi mỗi lần đổi | Ghi đĩa mỗi ký tự user gõ vào ô ngày — quá nhiều, và dính failure mode #1 (ghi giá trị đang gõ dở) |
-| **Chỉ ghi lúc shutdown** | **Không an toàn trong app này** — xem bằng chứng dưới |
-| **Debounce + flush cuối** | ✅ Chọn |
+| Write on every change | A disk write per keystroke in the date field — far too many, and it walks straight into failure mode #1 (persisting a half-typed value) |
+| **Write only at shutdown** | **Not safe in this app** — see the evidence below |
+| **Debounce + a final flush** | ✅ Chosen |
 
-**Bằng chứng chống "chỉ ghi lúc shutdown"** ✅ Đã kiểm chứng — docstring của
-chính `teardown()` (`app_bootstrapper.py:205-213`) ghi:
+**Evidence against "write only at shutdown"** ✅ Established — from the docstring
+of `teardown()` itself (`app_bootstrapper.py:205-213`):
 
 > *"Three filed bugs — `BUG-007`, `BUG-023`, `BUG-041`, two of them P1 — were all
 > found by a person watching a real process refuse to exit."*
 
-Cộng thêm `BUG-048`: một exception sau boot từng **treo hẳn tiến trình**. Một app
-có tiền sử *không đến được đường shutdown* thì không được đặt toàn bộ trí nhớ của
-nó lên đúng đường đó.
+Plus `BUG-048`: an exception after boot once **hung the process outright**. An app
+with a history of *not reaching its shutdown path* must not stake its entire
+memory on that path.
 
-> **Quyết định:** debounce ~800ms sau thay đổi cuối cùng, cộng một lần flush
-> **best-effort** trong `teardown()`. Lỗi ghi **không bao giờ** được propagate ra
-> ngoài — nuốt, log, đi tiếp (đây chính là bài học `BUG-048`: đường shutdown
-> không được phép ném). 🔵 Đề xuất
+> **Decision:** debounce ~800ms after the last change, plus one **best-effort**
+> flush inside `teardown()`. A write failure must **never** propagate — swallow
+> it, log it, carry on (this is the `BUG-048` lesson: the shutdown path is not
+> allowed to throw). 🔵 Proposed
 
-### 4.5 D5 — Ngữ nghĩa restore: giá trị đọc lên là **lời đề nghị**, không phải mệnh lệnh
+### 4.5 D5 — Restore semantics: a restored value is a **request**, not a command
 
-Symbol đến từ auto-discovery trong DB (`data_management_presenter.py:102,177,306`);
-strategy đến từ `StrategyRegistry.available()`; timeframe đến từ enum `TimeFrame`.
-**Cả ba đều có thể đổi giữa hai phiên.**
+Symbols come from DB auto-discovery
+(`data_management_presenter.py:102,177,306`); strategies come from
+`StrategyRegistry.available()`; timeframes come from the `TimeFrame` enum.
+**All three can change between two sessions.**
 
 ```mermaid
 flowchart TD
-    Start(["Presenter được lazy-construct"]) --> R1{"File tồn tại?"}
-    R1 -->|Không| DEF["Dùng default<br/>(im lặng, đây là trạng thái hợp lệ)"]
-    R1 -->|Có| R2{"Parse JSON được?"}
-    R2 -->|Không| QUAR["Đổi tên thành ui_state.corrupt.json<br/>log WARNING một lần<br/>→ default"]
-    R2 -->|Có| R3{"schema_version<br/>hiểu được?"}
-    R3 -->|"Mới hơn code"| DEF2["Bỏ qua toàn bộ<br/>→ default"]
-    R3 -->|"Cũ hơn"| MIG["Chạy migration<br/>hoặc bỏ slice không map được"]
-    R3 -->|Bằng| R4{"Có slice của<br/>màn này?"}
+    Start(["Presenter is lazy-constructed"]) --> R1{"File exists?"}
+    R1 -->|No| DEF["Use defaults<br/>(silently — this is a legal state)"]
+    R1 -->|Yes| R2{"Parses as JSON?"}
+    R2 -->|No| QUAR["Rename to ui_state.corrupt.json<br/>log WARNING once<br/>→ defaults"]
+    R2 -->|Yes| R3{"schema_version<br/>understood?"}
+    R3 -->|"Newer than the code"| DEF2["Ignore everything<br/>→ defaults"]
+    R3 -->|Older| MIG["Run migration<br/>or drop slices that cannot be mapped"]
+    R3 -->|Equal| R4{"Is there a slice<br/>for this screen?"}
     MIG --> R4
-    R4 -->|Không| DEF3["default"]
-    R4 -->|Có| R5{"Từng giá trị<br/>còn hợp lệ?"}
-    R5 -->|"Không<br/>(symbol bị xoá,<br/>strategy không còn)"| PART["Bỏ RIÊNG giá trị đó<br/>→ default cho nó<br/>giữ các giá trị còn lại"]
-    R5 -->|Có| APPLY["Apply với signal bị chặn"]
+    R4 -->|No| DEF3["defaults"]
+    R4 -->|Yes| R5{"Is each value<br/>still legal?"}
+    R5 -->|"No<br/>(symbol removed,<br/>strategy gone)"| PART["Drop THAT value only<br/>→ default for it<br/>keep the remaining values"]
+    R5 -->|Yes| APPLY["Apply with signals blocked"]
     PART --> APPLY
 
     style QUAR fill:#7A5B00,color:#fff
     style APPLY fill:#1F5C2E,color:#fff
 ```
 
-Hai điểm quan trọng trong sơ đồ trên:
+Two things matter in the diagram above:
 
-- **Validate ở mức từng giá trị, không phải cả slice.** Strategy bị xoá không
-  được kéo theo việc quên luôn số vốn user đã nhập.
-- **Ai validate?** *Chính presenter của màn đó*, không phải service trung tâm.
-  Service không được biết `TimeFrame` là gì hay strategy nào tồn tại — đó là
-  nguyên tắc "không nhét sự thật nghiệp vụ vào cơ chế" mà `EPIC-009` C3 đã chốt.
+- **Validate per value, not per slice.** A deleted strategy must not drag down
+  the capital figure the user typed.
+- **Who validates?** *The screen's own presenter*, not the central service. The
+  service must not know what a `TimeFrame` is or which strategies exist — that is
+  the "no business facts inside the mechanism" principle `EPIC-009` C3 settled.
 
-### 4.6 D6 — Apply không được gây side effect ⚠️ Failure mode #12
+### 4.6 D6 — Apply must not cause side effects ⚠️ Failure mode #12
 
-`_cbo_symbol.currentTextChanged` đang nối thẳng vào handler
-(`data_management_view.py:302,349-351`). Restore bằng cách set text lên widget sẽ
-**bắn signal** → presenter tưởng user vừa chọn → đi fetch dữ liệu.
-**Kết quả: mở app lên là tự đi làm việc user không yêu cầu.**
+`_cbo_symbol.currentTextChanged` is wired directly into a handler
+(`data_management_view.py:302,349-351`). Restoring by setting text on the widget
+will **fire that signal** → the presenter believes the user just chose something
+→ it goes and fetches data.
+**Result: opening the app makes it go off doing work nobody asked for.**
 
-> **Quyết định:** restore ghi vào **ViewModel**, không ghi vào widget; hoặc nếu
-> buộc phải chạm widget thì bọc `QSignalBlocker`. Có test khoá riêng cho điều
-> này (§6). 🔵 Đề xuất
+> **Decision:** restore writes into the **ViewModel**, not the widget; or, where a
+> widget must be touched, wrap it in `QSignalBlocker`. There is a dedicated test
+> locking this (§6). 🔵 Proposed
 
-### 4.7 D7 — Schema & an toàn ghi
+### 4.7 D7 — Schema & write safety
 
-Repo đã có tiền lệ đúng cho việc này: `BOT-115` (persistence báo cáo backtest) đã
-chốt *"JSON có `schema_version`, **không bao giờ `pickle`** (file report là input
-không tin cậy)"*. ✅ Đã kiểm chứng — áp dụng nguyên tắc y hệt:
+The repo already has the right precedent: `BOT-115` (backtest report persistence)
+settled on *"JSON with a `schema_version`, **never `pickle`** (a report file is
+untrusted input)"*. ✅ Established — the same principles apply here:
 
-| Vấn đề | Giải pháp với **B2** | Ai lo? |
+| Problem | Solution under **B2** | Who handles it? |
 | :--- | :--- | :--- |
-| Ghi bị crash giữa chừng (#5) | **Cái giá chấp nhận trả** (§4.1.3): file cụt → lần mở sau về mặc định. Hint được phép mất. **Bắt buộc có test khoá đúng hành vi này** (`architecture-rule.md` §7.1) | — |
-| Hai instance ghi đè (#6) | Last-writer-wins, **có chủ đích**, ghi rõ trong docstring. Không làm file lock — độ phức tạp không xứng với "quên mất symbol" | — |
-| Ghi thất bại (#7) | `UiStateService` bắt `OSError`/`ValueError` quanh `save()`, log **một lần**, chuyển sang `Degraded` (§5.5). **Không bao giờ ném ra đường shutdown** — bài học `BUG-048` | Ta viết |
-| File hỏng (#9) | ✅ **Có sẵn** — `JsonSource.read()` nuốt `JSONDecodeError` → `{}` → mặc định (đã đo, H3) | ConfigManager |
-| Merge theo slice (D2) | ✅ **Có sẵn** — `save()` chỉ ghi `_dirty` lên nội dung file hiện có (đã đo, H2) | ConfigManager |
-| Schema đổi (#10) | `schema_version: int` là một key thường trong file. Version **mới hơn** code → bỏ qua toàn bộ slice. Key lạ → bỏ qua, không lỗi | Ta viết |
-| Không JSON-safe (#4) | Slice chỉ chấp nhận `str/int/float/bool/list/dict` — `json.dump` của `save()` sẽ ném `TypeError` nếu sai. Có test khoá đệ quy trên mọi `capture_state()` | Ta viết |
+| Crash mid-write (#5) | **Accepted cost** (§4.1.3): truncated file → next launch falls back to defaults. Hints are allowed to be lost. **Must carry a test locking this behaviour** (`architecture-rule.md` §7.1) | — |
+| Two instances overwriting (#6) | Last-writer-wins, **deliberately**, stated in the docstring. No file locking — the complexity is not worth "it forgot the symbol" | — |
+| Write fails (#7) | `UiStateService` catches `OSError`/`ValueError` around `save()`, logs **once**, moves to `Degraded` (§5.5). **Never throws onto the shutdown path** — the `BUG-048` lesson | We write it |
+| Corrupt file (#9) | ✅ **Free** — `JsonSource.read()` swallows `JSONDecodeError` → `{}` → defaults (measured, H3) | ConfigManager |
+| Slice merge (D2) | ✅ **Free** — `save()` writes only `_dirty` onto the file's existing contents (measured, H2) | ConfigManager |
+| Schema change (#10) | `schema_version: int` is an ordinary key in the file. A version **newer** than the code → ignore all slices. Unknown keys → ignore, no error | We write it |
+| Not JSON-safe (#4) | A slice accepts only `str/int/float/bool/list/dict` — `save()`'s `json.dump` raises `TypeError` otherwise. A recursive test locks every `capture_state()` | We write it |
 
-> Cột "Ai lo?" là lý do B2 thắng B: **hai dòng nặng nhất đã có sẵn**, không phải
-> code ta phải viết rồi tự test.
+> The "Who handles it?" column is why B2 beats B: **the two heaviest rows are
+> already provided**, rather than being code we have to write and then test
+> ourselves.
 
 ---
 
-## 5. Kiến trúc đề xuất
+## 5. Proposed architecture
 
-### 5.1 Vị trí trong hệ thống
+### 5.1 Position in the system
 
 ```mermaid
 graph TB
-    subgraph PRES["Tầng Presentation — nơi epic này sống trọn vẹn"]
-        MW["MainWindow<br/>geometry, route cuối"]
+    subgraph PRES["Presentation layer — where this epic lives entirely"]
+        MW["MainWindow<br/>geometry, last route"]
         DP["DashboardPresenter"]
         BP["BackTestPresenter"]
         DMP["DataManagementPresenter"]
-        SVC["UiStateService<br/>debounce, điều phối"]
+        SVC["UiStateService<br/>debounce, coordination"]
         PORT["IUiStateStore<br/>«Protocol / ABC»"]
     end
 
-    subgraph INFRA["Hiện thực store"]
-        CMS["ConfigManagerUiStateStore<br/>MẶC ĐỊNH — cùng cơ chế<br/>dự án đang dùng"]
-        JSON["JsonFileUiStateStore<br/>dự phòng, nếu cần atomic"]
-        MEM["InMemoryUiStateStore<br/>dùng cho test"]
-        NULL["NullUiStateStore<br/>tầng Sanity"]
+    subgraph INFRA["Store implementations"]
+        CMS["ConfigManagerUiStateStore<br/>DEFAULT — the same mechanism<br/>the project already uses"]
+        JSON["JsonFileUiStateStore<br/>fallback, if atomic writes are needed"]
+        MEM["InMemoryUiStateStore<br/>for tests"]
+        NULL["NullUiStateStore<br/>Sanity tier"]
     end
 
-    subgraph ENG["Engine — dùng lại nguyên xi"]
+    subgraph ENG["Engine — reused as-is"]
         CM2["ConfigManager #2<br/>writable=True"]
     end
 
-    subgraph DISK["Đĩa"]
+    subgraph DISK["Disk"]
         F["state/ui_state.json<br/>(gitignored)"]
     end
 
-    subgraph UNTOUCHED["KHÔNG bị epic này đụng tới"]
+    subgraph UNTOUCHED["NOT touched by this epic"]
         APP["src/application/"]
         DOM["src/domain/"]
         CM1["ConfigManager #1<br/>writable=True"]
-        CFG["src/config/user_config.json<br/>API_KEY, preference"]
+        CFG["src/config/user_config.json<br/>API_KEY, preferences"]
     end
 
     MW --> SVC
@@ -544,7 +569,7 @@ graph TB
     BP --> SVC
     DMP --> SVC
     SVC --> PORT
-    PORT -.->|"implements (mặc định)"| CMS
+    PORT -.->|"implements (default)"| CMS
     PORT -.->|implements| JSON
     PORT -.->|implements| MEM
     PORT -.->|implements| NULL
@@ -557,7 +582,7 @@ graph TB
     style PORT fill:#1F4E5C,color:#fff
 ```
 
-### 5.2 Hợp đồng (class diagram)
+### 5.2 The contracts (class diagram)
 
 ```mermaid
 classDiagram
@@ -573,29 +598,29 @@ classDiagram
         +read() UiStateDocument
         +write_slice(key, data) None
         +flush() None
-        note "MẶC ĐỊNH (B2). Bọc một instance
-        ConfigManager thứ hai trỏ vào
-        state/ui_state.json. Merge theo slice
-        và fail-safe khi hỏng là CÓ SẴN."
+        note "DEFAULT (B2). Wraps a second
+        ConfigManager instance pointed at
+        state/ui_state.json. Slice-merge and
+        fail-safe corruption come FREE."
     }
 
     class JsonFileUiStateStore {
         -_path: Path
         -_atomic_write(doc) None
-        note "DỰ PHÒNG. Chỉ dựng nếu ghi
-        atomic thật sự cần thiết —
-        đổi 1 dòng ở composition root."
+        note "FALLBACK. Only build this if
+        atomic writes genuinely matter —
+        one line at the composition root."
     }
 
     class InMemoryUiStateStore {
         -_doc: UiStateDocument
-        note "Dùng cho unit/integration test"
+        note "For unit/integration tests"
     }
 
     class NullUiStateStore {
-        note "read() luôn rỗng, write() no-op.
-        Dùng cho tầng Sanity — test không
-        được ghi ra đĩa thật."
+        note "read() always empty, write() no-op.
+        For the Sanity tier — tests must not
+        write to the real disk."
     }
 
     class UiStateDocument {
@@ -637,7 +662,7 @@ classDiagram
 
     class ShellStateContributor {
         +state_key = "shell"
-        note "geometry + route cuối"
+        note "geometry + last route"
     }
 
     IUiStateStore <|.. ConfigManagerUiStateStore
@@ -653,13 +678,14 @@ classDiagram
     UiStateService ..> IUiStateContributor
 ```
 
-> **`IUiStateContributor` là `typing.Protocol`, KHÔNG phải ABC để kế thừa.**
-> `architecture-rule.md` §2 cấm multiple inheritance, mà presenter đã kế thừa
-> `BasePresenter` rồi. Protocol thoả cấu trúc, không đụng MRO. Tiền lệ:
-> `PresenterManager.register` cũng cố ý duck-typed — *"this router deliberately
-> does not require that base"* (`presenter_manager.py:104-115`). ✅ Đã kiểm chứng
+> **`IUiStateContributor` is a `typing.Protocol`, NOT an ABC to inherit from.**
+> `architecture-rule.md` §2 forbids multiple inheritance, and presenters already
+> inherit `BasePresenter`. A Protocol is satisfied structurally and never touches
+> the MRO. Precedent: `PresenterManager.register` is deliberately duck-typed too
+> — *"this router deliberately does not require that base"*
+> (`presenter_manager.py:104-115`). ✅ Established
 
-### 5.3 Luồng restore (lazy-aware)
+### 5.3 Restore flow (lazy-aware)
 
 ```mermaid
 sequenceDiagram
@@ -675,29 +701,29 @@ sequenceDiagram
     MW->>SVC: restore_into(ShellStateContributor)
     SVC->>ST: read()
     ST->>FS: ConfigManager.get_all()
-    alt file hỏng hoặc chưa tồn tại
-        FS-->>ST: JsonSource.read() nuốt lỗi → {}
-        ST-->>SVC: document rỗng (đã đo — H3)
-    else bình thường
-        FS-->>ST: nội dung
+    alt file corrupt or missing
+        FS-->>ST: JsonSource.read() swallows the error → {}
+        ST-->>SVC: empty document (measured — H3)
+    else normal
+        FS-->>ST: contents
         ST-->>SVC: UiStateDocument
     end
-    SVC-->>MW: slice "shell"
-    MW->>MW: resize + route cuối (đã validate)
+    SVC-->>MW: the "shell" slice
+    MW->>MW: resize + last route (after validation)
 
-    Note over U,PM: User vào Dev Board lần đầu
+    Note over U,PM: User opens the Dev Board for the first time
     U->>PM: navigate_to("dashboard")
     PM->>DP: construct (TRUE LAZY)
     DP->>SVC: restore_into(self)
-    SVC->>ST: read() (đã cache)
-    ST-->>SVC: slice "dashboard"
+    SVC->>ST: read() (already cached)
+    ST-->>SVC: the "dashboard" slice
     SVC->>DP: restore_state({symbol, interval, ...})
-    DP->>DP: validate TỪNG giá trị<br/>symbol còn trong DB? interval còn hợp lệ?
-    DP->>DP: ghi vào ViewModel<br/>(KHÔNG chạm widget — mode #12)
-    Note over DP: Không fetch, không nối mạng.<br/>Chỉ điền sẵn form.
+    DP->>DP: validate EACH value<br/>symbol still in the DB? interval still legal?
+    DP->>DP: write into the ViewModel<br/>(NOT the widget — mode #12)
+    Note over DP: No fetch, no network.<br/>Just a pre-filled form.
 ```
 
-### 5.4 Luồng lưu (debounce + merge theo slice)
+### 5.4 Save flow (debounce + slice merge)
 
 ```mermaid
 sequenceDiagram
@@ -706,77 +732,77 @@ sequenceDiagram
     participant DP as DashboardPresenter
     participant SVC as UiStateService
     participant ST as ConfigManagerUiStateStore
-    participant FS as Đĩa
+    participant FS as Disk
 
-    U->>VM: đổi symbol ETHUSDT → BTCUSDT
+    U->>VM: change symbol ETHUSDT → BTCUSDT
     VM->>DP: symbolChanged
     DP->>SVC: mark_dirty(self)
-    SVC->>SVC: khởi động/reset timer 800ms
+    SVC->>SVC: start/reset the 800ms timer
 
-    U->>VM: đổi interval 1m → 5m
+    U->>VM: change interval 1m → 5m
     VM->>DP: intervalChanged
     DP->>SVC: mark_dirty(self)
-    SVC->>SVC: reset timer (gộp 2 thay đổi thành 1 lần ghi)
+    SVC->>SVC: reset timer (coalesces both changes into one write)
 
-    Note over SVC: 800ms trôi qua, user ngừng thao tác
+    Note over SVC: 800ms elapses, the user has stopped
     SVC->>DP: capture_state()
     DP-->>SVC: {"symbol": "BTCUSDT", "interval": "5m", ...}
     SVC->>ST: write_slice("dashboard", data)
-    ST->>ST: ConfigManager.set("dashboard", data)<br/>(chỉ key này vào _dirty)
+    ST->>ST: ConfigManager.set("dashboard", data)<br/>(only this key enters _dirty)
     ST->>FS: ConfigManager.save()
-    FS-->>ST: đọc lại tài liệu hiện có
-    ST->>ST: existing.update(_dirty)<br/>MERGE sẵn có — backtest/database giữ NGUYÊN
-    ST->>FS: json.dump ghi đè
-    Note over ST,FS: Không atomic — giá đã chấp nhận (§4.1.3).<br/>Crash ở đây = lần sau về mặc định, app vẫn boot.
-    Note over SVC,ST: OSError/ValueError bị NUỐT + log MỘT lần.<br/>Không bao giờ ném ra đường shutdown (BUG-048).
+    FS-->>ST: re-reads the existing document
+    ST->>ST: existing.update(_dirty)<br/>MERGE is built in — backtest/database PRESERVED
+    ST->>FS: json.dump overwrites
+    Note over ST,FS: Not atomic — the accepted cost (§4.1.3).<br/>A crash here = defaults next launch, the app still boots.
+    Note over SVC,ST: OSError/ValueError SWALLOWED + logged ONCE.<br/>Never thrown onto the shutdown path (BUG-048).
 ```
 
-### 5.5 Máy trạng thái của bộ ghi
+### 5.5 The writer's state machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle: khởi động
+    [*] --> Idle: startup
 
     Idle --> Dirty: mark_dirty()
-    Dirty --> Dirty: mark_dirty() (reset timer)
-    Dirty --> Writing: hết 800ms
-    Dirty --> Writing: teardown() flush ngay
+    Dirty --> Dirty: mark_dirty() (resets the timer)
+    Dirty --> Writing: 800ms elapsed
+    Dirty --> Writing: teardown() flushes immediately
 
-    Writing --> Idle: ghi xong
-    Writing --> Degraded: OSError / đĩa đầy / read-only
+    Writing --> Idle: write succeeded
+    Writing --> Degraded: OSError / disk full / read-only
 
-    Degraded --> Degraded: mark_dirty() (chỉ giữ trong RAM)
-    Degraded --> Idle: lần ghi sau thành công
+    Degraded --> Degraded: mark_dirty() (kept in RAM only)
+    Degraded --> Idle: a later write succeeds
 
     note right of Degraded
-        App vẫn chạy bình thường.
-        Log WARNING đúng MỘT lần,
-        không spam mỗi lần ghi hỏng.
-        User không thấy dialog nào.
+        The app keeps running normally.
+        Log WARNING exactly ONCE,
+        never once per failed write.
+        The user sees no dialog.
     end note
 
     note right of Writing
-        Không bao giờ ném exception
-        ra ngoài — bài học BUG-048.
+        Never lets an exception escape
+        — the BUG-048 lesson.
     end note
 ```
 
-### 5.6 Schema tài liệu
+### 5.6 Document schema
 
 ```mermaid
 erDiagram
-    UI_STATE_DOCUMENT ||--o{ SLICE : "chứa"
+    UI_STATE_DOCUMENT ||--o{ SLICE : "contains"
     UI_STATE_DOCUMENT {
-        int schema_version "bắt buộc; lạ+mới hơn code thì bỏ toàn bộ"
-        string written_at "ISO-8601, chỉ để chẩn đoán"
+        int schema_version "required; if newer than the code, ignore everything"
+        string written_at "ISO-8601, diagnostics only"
     }
     SLICE {
         string key PK "route: shell dashboard backtest data_management"
-        json payload "phẳng, chỉ kiểu JSON nguyên thuỷ"
+        json payload "flat, primitive JSON types only"
     }
-    SLICE ||--o{ SHELL_STATE : "khi key=shell"
-    SLICE ||--o{ DASHBOARD_STATE : "khi key=dashboard"
-    SLICE ||--o{ BACKTEST_STATE : "khi key=backtest"
+    SLICE ||--o{ SHELL_STATE : "when key=shell"
+    SLICE ||--o{ DASHBOARD_STATE : "when key=dashboard"
+    SLICE ||--o{ BACKTEST_STATE : "when key=backtest"
 
     SHELL_STATE {
         int window_width
@@ -790,10 +816,10 @@ erDiagram
     DASHBOARD_STATE {
         string symbol
         string interval
-        string start_date "định dạng %Y-%m-%d %H:%M"
+        string start_date "format %Y-%m-%d %H:%M"
         string end_date
         list enabled_scripts
-        list user_touched_scripts "sửa lỗi 1.3 điểm 3"
+        list user_touched_scripts "fixes section 1.3 point 3"
     }
     BACKTEST_STATE {
         string strategy_key
@@ -808,7 +834,7 @@ erDiagram
     }
 ```
 
-Ví dụ file thật:
+A real example file:
 
 ```json
 {
@@ -829,99 +855,102 @@ Ví dụ file thật:
 
 ---
 
-## 6. Chiến lược test
+## 6. Test strategy
 
-| Tầng | Chứng minh cái gì | Ví dụ test |
+| Tier | Proves what | Example tests |
 | :--- | :--- | :--- |
-| **Unit** | `ConfigManagerUiStateStore` chịu được mọi mode ở §2.1 | file thiếu → doc rỗng; **JSON cụt → doc rỗng, KHÔNG raise** (khoá cái giá ở §4.1.3 — bắt buộc theo `architecture-rule.md` §7.1); `schema_version` tương lai → bỏ qua; `OSError` khi ghi → không ném; **merge giữ nguyên slice không liên quan** (D2) |
-| **Unit** | Store **không** thấy được config thật | `store.read()` không chứa `API_KEY`; ghi state không đụng `user_config.json` (đã đo — H4) |
-| **Unit** | Mỗi contributor round-trip đúng | `capture_state()` → `restore_state()` ra đúng giá trị ban đầu; giá trị không hợp lệ bị bỏ **riêng lẻ**, không kéo cả slice |
-| **Unit** | Chỉ chứa kiểu JSON-safe (mode #4) | assert đệ quy trên output của mọi `capture_state()` |
-| **Integration** | **Restore không gây side effect** (mode #12) | restore Dev Board slice → assert `dispatch` **không** được gọi lần nào |
-| **Integration** | Lazy-aware | chỉ mở Dev Board rồi shutdown → slice `backtest` trên đĩa **còn nguyên** |
-| **Sanity** | Boot không bị file state chi phối | tiêm `ui_state.json` hỏng → app vẫn boot sạch (`diagnostic_guard` đang bắt sẵn) |
-| **Sanity** | **Test không được ghi ra đĩa thật** | tầng Sanity dùng `NullUiStateStore`; assert không file nào được tạo |
+| **Unit** | `ConfigManagerUiStateStore` survives every mode in §2.1 | missing file → empty doc; **truncated JSON → empty doc, NO raise** (locks the accepted cost in §4.1.3 — required by `architecture-rule.md` §7.1); future `schema_version` → ignored; `OSError` on write → does not throw; **merge preserves unrelated slices** (D2) |
+| **Unit** | The store **cannot** see the real config | `store.read()` contains no `API_KEY`; writing state does not touch `user_config.json` (measured — H4) |
+| **Unit** | Every contributor round-trips | `capture_state()` → `restore_state()` yields the original values; an illegal value is dropped **individually**, not taking the slice with it |
+| **Unit** | Only JSON-safe types (mode #4) | recursive assertion over the output of every `capture_state()` |
+| **Integration** | **Restore causes no side effects** (mode #12) | restore the Dev Board slice → assert `dispatch` was never called |
+| **Integration** | Lazy-aware | open only the Dev Board then shut down → the `backtest` slice on disk is **intact** |
+| **Sanity** | Boot is not at the mercy of the state file | inject a corrupt `ui_state.json` → the app still boots clean (`diagnostic_guard` already catches this) |
+| **Sanity** | **Tests must not write to the real disk** | the Sanity tier uses `NullUiStateStore`; assert no file was created |
 
-> Hàng áp chót là bắt buộc: `tests/sanity/conftest.py:110-111` đang nạp
-> `user_config.json` **thật** với `writable=True`. Epic này không được làm tình
-> trạng đó tệ thêm. ✅ Đã kiểm chứng
+> The second-to-last row is mandatory: `tests/sanity/conftest.py:110-111`
+> currently loads the **real** `user_config.json` with `writable=True`. This epic
+> must not make that situation worse. ✅ Established
 
 ---
 
-## 7. Lộ trình
+## 7. Roadmap
 
 ```mermaid
 gantt
-    title EPIC-010 — thứ tự triển khai
+    title EPIC-010 — implementation order
     dateFormat YYYY-MM-DD
     axisFormat %d/%m
 
-    section Nền móng
+    section Foundation
     010A port + ConfigManagerUiStateStore      :a1, 2026-08-26, 2d
     010B UiStateService + debounce + flush     :a2, after a1, 1d
 
-    section T1 giá trị an toàn
-    010C Shell geometry + route cuối           :b1, after a2, 1d
+    section T1 safe values
+    010C Shell geometry + last route           :b1, after a2, 1d
     010D Dev Board symbol + interval           :b2, after a2, 1d
     010E Database symbol + interval            :b3, after b2, 1d
 
-    section T2 sau khi T1 chạy thật
-    010F Backtest slice đầy đủ                 :c1, after b3, 2d
-    010G Indicator script + user_touched       :c2, after b2, 1d
+    section T2 after T1 runs for real
+    010F Full Backtest slice                   :c1, after b3, 2d
+    010G Indicator scripts + user_touched      :c2, after b2, 1d
 
-    section Dọn nợ đi kèm
-    010H Gộp default trùng lặp về 1 nguồn      :d1, after c1, 2d
+    section Debt paid alongside
+    010H Collapse duplicated defaults          :d1, after c1, 2d
 ```
 
-**`010H` không phải việc phụ.** §1.3 cho thấy `"ETHUSDT"` và `"1m"` đang có
-3-4 bản sao độc lập, và 3 màn bất đồng về việc có đọc config hay không. Thêm một
-tầng "giá trị cuối" lên trên một nền default đã mâu thuẫn sẽ tạo ra **thứ tự ưu
-tiên 3 tầng mà không ai định nghĩa**: `ui_state` → `user_config` → hằng số module.
-Phải chốt rõ thứ tự đó, nếu không epic này sẽ đẻ ra bug "tôi đổi Settings mà nó
-không ăn".
+**`010H` is not a side quest.** §1.3 shows `"ETHUSDT"` and `"1m"` each have 3-4
+independent copies, and three screens disagree about whether to read config at
+all. Layering a "last value" tier on top of an already-contradictory default
+foundation produces a **three-level precedence order nobody has defined**:
+`ui_state` → `user_config` → module constants. That order must be settled, or
+this epic will breed a "I changed Settings and nothing happened" bug.
 
-> 🔵 **Đề xuất thứ tự ưu tiên:** `ui_state` (điều user làm gần nhất) **>**
-> `user_config` `DEFAULT_*` (điều user khai báo ở Settings) **>** hằng số module
-> (đáy an toàn). Kèm hệ quả bắt buộc: **đổi giá trị ở Settings phải xoá key tương
-> ứng trong `ui_state`**, nếu không user sẽ đổi Settings mà không thấy gì xảy ra.
+> 🔵 **Proposed precedence:** `ui_state` (what the user did most recently) **>**
+> `user_config` `DEFAULT_*` (what the user declared in Settings) **>** module
+> constants (the safe floor). With one mandatory consequence: **changing a value
+> in Settings must delete the corresponding key from `ui_state`** — otherwise the
+> user changes Settings and sees nothing happen.
 
-### 7.1 Trải nghiệm trước / sau
+### 7.1 Experience, before / after
 
 ```mermaid
 journey
-    title Mở app và chạy một backtest quen thuộc
-    section Hôm nay
-      Mở app: 3: User
-      Vào Backtest: 3: User
-      Chọn lại strategy: 1: User
-      Gõ lại vốn 10000: 1: User
-      Chọn lại timeframe: 1: User
-      Chọn lại khoảng thời gian: 1: User
-      Bấm Chạy: 4: User
-    section Sau EPIC-010
-      Mở app, vào thẳng Backtest: 5: User
-      Kiểm tra form đã điền sẵn: 5: User
-      Bấm Chạy: 5: User
+    title Opening the app to run a familiar backtest
+    section Today
+      Open the app: 3: User
+      Go to Backtest: 3: User
+      Re-pick the strategy: 1: User
+      Re-type capital 10000: 1: User
+      Re-pick the timeframe: 1: User
+      Re-pick the date range: 1: User
+      Press Run: 4: User
+    section After EPIC-010
+      Open the app, straight to Backtest: 5: User
+      Check the pre-filled form: 5: User
+      Press Run: 5: User
 ```
 
 ---
 
-## 8. Rủi ro & câu hỏi còn mở
+## 8. Risks & open questions
 
-| # | Rủi ro | Giảm thiểu |
+| # | Risk | Mitigation |
 | :-: | :--- | :--- |
-| R1 | State "dính" làm user bối rối — không hiểu vì sao app không về mặc định | Thêm "Khôi phục mặc định" ở Settings (xoá `ui_state.json`). Đã có tiền lệ: `BOT-047` có nút "Khôi phục Mặc định" |
-| R2 | Restore một giá trị hợp lệ **về cú pháp** nhưng vô lý (start_date 6 tháng trước → Load History kéo về khối lượng khổng lồ) | Ngày là T2, không phải T1. Cân nhắc lưu **độ dài khoảng** thay vì mốc tuyệt đối |
-| R3 | Debounce timer là `QTimer` → phải sống trên main thread | `UiStateService` parent vào `MainWindow`; có test khoá thread affinity (`BUG-031` là tiền lệ lớp lỗi này) |
-| R4 | Epic phình sang việc "sửa kiến trúc default" | `010H` được tách riêng, có thể hoãn — nhưng thứ tự ưu tiên ở §7 phải chốt **trước** `010D` |
+| R1 | "Sticky" state confuses the user — they cannot tell why the app will not go back to defaults | Add a "Restore defaults" action in Settings (deletes `ui_state.json`). Precedent exists: `BOT-047` already has a "Khôi phục Mặc định" button |
+| R2 | Restoring a value that is **syntactically** valid but nonsensical (a start_date 6 months back → Load History pulls an enormous range) | Dates are T2, not T1. Consider persisting a **duration** rather than an absolute timestamp |
+| R3 | The debounce timer is a `QTimer` → it must live on the main thread | Parent `UiStateService` to `MainWindow`; add a thread-affinity test (`BUG-031` is the precedent for this bug class) |
+| R4 | The epic sprawls into "fix the default architecture" | `010H` is separated out and can be deferred — but the precedence order in §7 must be settled **before** `010D` |
 
-### Câu hỏi cần user quyết ❓
+### Questions the user must decide ❓
 
-1. **Phạm vi phiên đầu:** làm T1 (5 giá trị, an toàn tuyệt đối) rồi đánh giá, hay
-   làm luôn T1+T2 (~30 giá trị)?
-2. **Ngày tháng trên Dev Board:** lưu **mốc tuyệt đối** (mở lại thấy đúng ngày cũ,
-   nhưng ngày càng cũ dần) hay **độ dài khoảng** (luôn là "7 ngày gần nhất", tự
-   trượt theo hiện tại)? Hiện tại code tính `now - 7 days` mỗi lần dựng.
-3. **Vị trí file:** `state/ui_state.json` trong repo (dễ xem, dễ xoá, hợp thói
-   quen `logs/`+`database/`) hay `QStandardPaths.AppConfigLocation` (đúng chuẩn
-   desktop, nhưng khó tìm khi debug)?
+1. **Scope of the first pass:** do T1 only (5 values, completely safe) and then
+   reassess, or do T1+T2 (~30 values) in one go?
+2. **Dev Board dates:** persist an **absolute timestamp** (reopening shows the
+   same dates as before, but they age) or a **duration** (always "the last 7
+   days", sliding with the present)? The code currently computes `now - 7 days`
+   on every construction.
+3. **File location:** `state/ui_state.json` inside the repo (easy to inspect,
+   easy to delete, matches the `logs/`+`database/` habit) or
+   `QStandardPaths.AppConfigLocation` (the proper desktop convention, but hard to
+   find when debugging)?
