@@ -232,3 +232,69 @@ khác còn sống sót ảnh hưởng lẫn nhau.
 Lần treo tiếp theo (GUI thật) sẽ tự in ra tên thread thủ phạm nhờ §5.5 — khi đó tra ngược tên
 đó về đúng call site (giống `BUG-041` đã làm với `ScanCoordinator`) và thêm cancellation token
 đúng chỗ. Không còn cần `faulthandler`/`py-spy` bên ngoài nữa cho lần tới; chỉ cần đọc log.
+
+---
+
+## 6. Rà soát toàn bộ điểm `thread_manager.submit(...)` — 2026-08-26
+
+§5.6 để lại đúng một việc: *"rà tất cả điểm submit xem chỗ nào thiếu cancellation
+token"*. Đã rà **19 điểm submit** (grep toàn `src/`).
+
+### 6.1. Kết quả
+
+| Task | Có token? | `shutdown()` hủy? | Rủi ro giữ tiến trình |
+| :--- | :---: | :---: | :--- |
+| `ScanCoordinator.run_auto_discover` | ✅ | ✅ | thấp — `BUG-041` đã sửa |
+| `ScanCoordinator.run_scan_all` | ✅ | ✅ | thấp — `BUG-041` đã sửa |
+| `SyncCoordinator.run_single_sync` / `run_bulk_sync` | ✅ | ✅ | thấp |
+| `GapCoordinator.run_repair_gap` / `run_repair_all_gaps` | ✅ | ✅ | thấp |
+| `StreamLifecycleController` (load history/more/stream) | ✅ | ✅ | thấp |
+| `BackTestPresenter._run_backtest` / `_run_sync` | ✅ | ✅ | thấp |
+| `BackTestPresenter._run_chart_preview` | ⚠️ chỉ generation counter | — | thấp (đọc ngắn) |
+| `BackTestPresenter._fetch_symbol_options` | ❌ | ❌ | thấp (1 dispatch ngắn) |
+| `ScanCoordinator.run_check_status` | ❌ | ❌ | trung bình |
+| `ScanCoordinator.run_clear_data` | ❌ | ❌ | **cao** — xoá dữ liệu, DB lớn |
+| `ScanCoordinator.run_purge_all` | ❌ | ❌ | **cao** — xoá toàn bộ |
+| `ScanCoordinator.run_vacuum` | ❌ | ❌ | **cao** — xem §6.2 |
+| `GapCoordinator.run_inspect_gaps` | ❌ | ❌ | trung bình |
+| `KLineInspectorCoordinator.run_inspect_klines` | ❌ | ❌ **coordinator không có `cancel()`** | trung bình |
+| `KLineInspectorCoordinator.run_audit` | ❌ | ❌ **coordinator không có `cancel()`** | trung bình |
+
+### 6.2. ⚠️ "Thêm token vào mọi chỗ" **không** phải câu trả lời đủ
+
+Đây là điều quan trọng nhất từ đợt rà này, và nó **sửa lại hướng đi mặc định**
+mà §7 (bản cũ) ngụ ý.
+
+`ScanCoordinator.run_vacuum` gọi thẳng `self._market_data_repo.vacuum()` — một
+lệnh **blocking**. Token chỉ có tác dụng ở nơi có **checkpoint** để kiểm; giữa
+chừng một lệnh `VACUUM` của SQLite thì **không có checkpoint nào**, và Python
+không ngắt được nó bằng cách hợp tác.
+
+Có một checkpoint duy nhất dùng được: `DatabaseManager.vacuum()` lặp **qua từng
+shard** (`database_manager.py:82-90`), nên token chặn được **giữa các shard** —
+không chặn được bên trong một shard. Với DB 1,77 GB, một shard đơn cũng đủ lâu.
+
+Kết luận: với nhóm "cao", token giúp **giảm** thời gian treo chứ không **loại
+bỏ** được nó. Muốn cắt thật thì cần cơ chế khác (ví dụ
+`sqlite3.Connection.interrupt()`), và đó là một quyết định thiết kế riêng, không
+phải việc vá thêm token.
+
+### 6.3. Hai lỗ hổng rõ ràng, không cần tranh luận
+
+1. `KLineInspectorCoordinator` **không có `cancel()`**, và
+   `DataManagementPresenter.shutdown()` (dòng 468-470) chỉ gọi `cancel()` cho
+   scan/sync/gap coordinator — bỏ sót hẳn coordinator này.
+2. `BUG-041` sửa **2/8** đường của `ScanCoordinator`. Sáu đường còn lại
+   (`check_status`, `clear_data`, `purge_all`, `vacuum`, và 2 của inspector)
+   nằm cùng một class, cùng một kiểu rủi ro, và chưa từng được đụng tới.
+
+### 6.4. Chưa sửa gì trong đợt này
+
+Cố ý. Mỗi đường muốn có token thật thì query handler tương ứng phải nhận
+`cancellation_requested` (đúng cách `BUG-041` đã làm cho `ScanAllDatabasesQuery`)
+— tức là 6 use case riêng biệt. Và theo §6.2, với 3 đường rủi ro cao nhất thì
+việc đó vẫn **không** đóng được lỗ hổng.
+
+Nên đợt này dừng ở **bản đồ chính xác** thay vì vá vội nửa vời: đã biết chỗ nào
+hở, chỗ nào token cứu được, chỗ nào không.
+
