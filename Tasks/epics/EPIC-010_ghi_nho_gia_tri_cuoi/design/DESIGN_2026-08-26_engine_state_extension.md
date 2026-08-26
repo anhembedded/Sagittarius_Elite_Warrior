@@ -222,7 +222,7 @@ flowchart LR
     style P fill:#1F4E5C,color:#fff
 ```
 
-This also answers the user's question — *"does `StateStoreLocator` already have
+This also answers the user's question — *"does the locator already have
 that mechanism?"* — honestly: **no, and it should not.** Deciding *which store*
 is routing, not locating. The locator answers "which file, where, and how do I
 delete it" for the persistent store only. Splitting those two keeps each with one
@@ -324,13 +324,22 @@ classDiagram
         read() empty, write() no-op."
     }
 
-    class StateStoreLocator {
+    class IStateStoreLocator {
+        <<abstract>>
         +path_for(name) Path
         +reset() None
-        note "Plain class, not a port — see 5.6.5.
-        Owns WHERE and WHEN-DELETED for the
-        persistent store only. Promote to an
-        ABC when QStandardPaths arrives."
+        note "Owns WHERE and WHEN-DELETED
+        for the persistent store only.
+        Wraps QStandardPaths — audit row 11.
+        Knows nothing about lifetime."
+    }
+
+    class IStateDefaultsProvider {
+        <<abstract>>
+        +defaults_for(scope) Mapping
+        note "One link in the chain of 4.3.
+        THE place a future WorkspaceDefaults
+        or UserPreset plugs in."
     }
 
     class IStateContributor {
@@ -368,7 +377,8 @@ classDiagram
     IStateStore ..> StateScope
     UiStateCoordinator o-- IStateStore
     UiStateCoordinator ..> IStateContributor
-    ConfigManagerStateStore o-- StateStoreLocator
+    ConfigManagerStateStore o-- IStateStoreLocator
+    UiStateCoordinator o-- IStateDefaultsProvider
     UiStateExtension ..> UiStateCoordinator
 ```
 
@@ -623,28 +633,73 @@ application.
 It does not answer D10, whose case is the ordinary one: the user quit normally
 and reopened the app tomorrow. No session manager is involved in that at all.
 
-### 5.6.5 The complexity answer, and three real cuts 🔵 Proposed
+### 5.6.5 The complexity answer: reuse, don't cut 🔵 Proposed
 
-The concern is fair, and the honest response separates two things:
+An earlier revision answered the complexity concern by cutting three
+abstractions. The user rejected that and gave a better rule:
+
+> *"Don't cut them. But show me: wherever a problem already has a library, apply
+> it — don't write code."*
+
+That is the right instinct, and it is a **stronger** answer than cutting, because
+the abstractions were never the weight. The weight is hand-written mechanism.
+So: every abstraction in §5 stays, and §5.6.6 audits each *problem* against what
+already exists.
+
+The complexity concern still gets its honest half:
 
 > **The document is complex. The first increment is not.**
 
 Of the 16 failure modes, **13-16 all concern a feature that is not being built**;
-D10 authorises no code at all. What §7 actually builds first is one store, one
-coordinator, and roughly ten lines per screen.
+D10 authorises no code at all.
 
-Even so, re-reading §5 against *"is every piece of this earning its place?"*
-found three that are not — cut rather than defended:
+### 5.6.6 Problem-by-problem reuse audit ✅ Established
 
-| Piece | Verdict |
-| :--- | :--- |
-| `IStateDefaultsProvider` | ⛔ **Cut.** A chain-of-responsibility ABC with exactly one link is the speculative abstraction `architecture-rule.md` §7.2 warns about. The chain in §4.3 is two hardcoded steps until something real needs a third |
-| `IStateStoreLocator` as an ABC | 🟠 **Demoted** to a plain class. It has one implementation; promote it to a port when a second location strategy (`QStandardPaths`) actually arrives |
-| `Lifetime.SESSION` | ✅ **Kept** — but only because `InMemoryStateStore` is the test double regardless, so the member costs nothing. It has no application consumer today, and that is stated rather than hidden |
+Every row measured on this container (PySide6 6.11.1, Python 3.12.3), not
+recalled. **"Write" appears eight times, and six of those are a handful of lines.**
 
-`StateScope` stays exactly as it is. It is the one piece whose *absence* would be
-expensive later (§2), which is precisely what distinguishes it from the three
-above.
+| # | Problem | Already solved by | Verified how |
+| :-: | :--- | :--- | :--- |
+| 1 | Persist JSON, merge one slice, leave others alone | ✅ `ConfigManager.save()` — writes only `_dirty` onto the file's current contents | probe H1/H2 |
+| 2 | Corrupt file must not block boot | ✅ `JsonSource.read()` swallows `JSONDecodeError` → `{}` | probe H3 |
+| 3 | Dirty tracking (which keys changed) | ✅ `ConfigManager._dirty` | source read |
+| 4 | Window size / position / maximised / off-screen / DPI | ✅ `QWidget.saveGeometry()` / `restoreGeometry()` | §5.6.1 |
+| 5 | Splitter sizes | ✅ `QSplitter.saveState()` / `restoreState()` | §5.6.1 |
+| 6 | Table column widths, order, sort | ✅ `QHeaderView.saveState()` / `restoreState()` | §5.6.1 |
+| 7 | Dock / toolbar layout | ✅ `QMainWindow.saveState()` / `restoreState()` | §5.6.1 |
+| 8 | **Debounce** — coalesce a burst of changes into one write | ✅ **`QTimer` natively.** `setSingleShot(True)`, then `start()` on every change *restarts* the countdown | measured: 3 rapid `start()` calls → **1** `timeout` |
+| 9 | **Restore without firing signals** (mode #12) | ✅ **`QSignalBlocker`** | measured: value applied, **0** signals emitted |
+| 10 | Putting a Qt binary blob into JSON | ✅ `QByteArray.toBase64()` / `fromBase64()` | measured: round-trip exact |
+| 11 | Per-user config directory | ✅ `QStandardPaths.AppConfigLocation` — yields `.../Sagittarius/EliteWarrior` once org/app name is set | measured |
+| 12 | Unique, never-reused instance id | ✅ `uuid.uuid4()` (stdlib) — and the Engine's own house style | `BackgroundTask:31`, `BaseEvent:71` |
+| 13 | Immutable value object | ✅ `dataclasses.dataclass(frozen=True)` (stdlib) | — |
+| 14 | Closed set of lifetimes | ✅ `enum.Enum` (stdlib) | — |
+| 15 | Main-thread enforcement | ✅ Engine's `@ui_mutator` / `set_thread_affinity_dev_mode` | `safety/thread_affinity.py:30` |
+| 16 | Atomic write, if ever wanted | ✅ `os.replace()` (stdlib) — not needed now (§4.1.3) | — |
+| 17 | Presenter lifecycle + teardown hook | ✅ `PresenterManager` + `BasePresenter.dispose()` | §3.2 |
+| — | **`StateScope` / `Lifetime` definitions** | ✍️ write — ~20 lines of dataclass + enum | |
+| — | **`IStateStore` + the 3 implementations** | ✍️ write — but `ConfigManagerStateStore` is a thin wrapper over row 1-3; `InMemory` and `Null` are ~10 lines each | |
+| — | **`StateStoreLocator`** | ✍️ write — wraps row 11 plus a `reset()` that deletes the file | |
+| — | **`IStateContributor` + no-op defaults** | ✍️ write — a Protocol and two empty methods | |
+| — | **`UiStateCoordinator`** | ✍️ write — but debounce is row 8, so it is bookkeeping, not timing logic |
+| — | **`IStateDefaultsProvider` + the chain** | ✍️ write — the §4.3 resolution order | |
+| — | **`UiStateExtension`** | ✍️ write — `register`/`boot`/`shutdown` wiring |
+| — | **Per screen: `capture_state` / `restore_state`** | ✍️ write — ~10 lines each, and this is the part **no library can ever supply**, because it is application policy (rule 4) |
+
+**What the audit changes, concretely:**
+
+- **Row 8 removes the piece that sounded hardest.** "Debounce with coalescing"
+  reads like real machinery; it is `setSingleShot(True)` plus calling `start()`
+  again. `UiStateCoordinator` shrinks to bookkeeping.
+- **Row 9 turns mode #12 from a discipline into a mechanism.** D6 said *"restore
+  the ViewModel, not the widget"* partly to dodge signals. With `QSignalBlocker`
+  measured to work, touching a widget is safe when it is genuinely needed —
+  though writing the ViewModel stays preferred, because it also keeps restore
+  testable without a widget tree.
+- **Rows 4-7 + 10 mean nothing is hand-rolled for chrome**, per §5.6.3.
+- **The last row is the floor.** Validation and capture are policy; no library
+  can know whether `"SOLUSDT"` is still tradeable. That is rule 4 restated as a
+  cost estimate.
 
 ---
 
@@ -675,8 +730,8 @@ The whole point of §2's asymmetry, made concrete:
 | `StateScope` with `instance_id` | ✅ the field exists | every scope passes `None` |
 | `Lifetime` | ✅ both members | only `PERSISTENT` has real consumers |
 | `InMemoryStateStore` | ✅ (it is the test double anyway) | no app code requests `SESSION` yet |
-| `IStateDefaultsProvider` | ⛔ **cut** (§5.6.5) | the §4.3 chain is two hardcoded steps until a third is genuinely needed |
-| `StateStoreLocator` | ✅ plain class, **not** a port (§5.6.5) | promote to an ABC when `QStandardPaths` arrives |
+| `IStateDefaultsProvider` | ✅ ABC + the §4.3 chain | more links (workspace, preset) plug in without touching consumers |
+| `IStateStoreLocator` | ✅ ABC, wrapping `QStandardPaths` (audit row 11) | a second location strategy swaps one class |
 | Qt-owned chrome — geometry, splitters, headers | ✅ store Qt's own blob (§5.6.3) | nothing hand-rolled; this also makes most of **T3 cheap** |
 | Any instance owner — tab host, second window, pane splitter (§1.1) | ❌ nothing | `PresenterManager` stays one-per-route |
 | Restoring a whole multi-instance layout | ❌ nothing | **policy settled by D10** (§5.5) — uuid + persisted roster, rosters as GC roots. Still needs an instance owner to exist before any of it is built |
