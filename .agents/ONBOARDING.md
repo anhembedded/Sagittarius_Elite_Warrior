@@ -42,7 +42,13 @@ bookkeeping `ROADMAP.md`).
 `.agents/rules/install-rule.md` là chuyên đề riêng (cài đặt), đọc khi task
 chạm đúng phạm vi đó. `.agents/rules/code-rule.md` giờ **chỉ là stub điều
 hướng** — nội dung thật đã tách ra 6 file ở bảng trên (tách 2026-08-25); file
-stub được giữ lại vì 7 `.jules/*.prompt.md` đang trỏ vào nó.
+stub được giữ lại vì các file trong `.jules/` đang trỏ vào nó.
+
+> **Sửa 2026-08-26 (`EPIC-011`):** dòng trên trước đây ghi "7
+> `.jules/*.prompt.md` đang trỏ vào nó". Sau `EPIC-011`, phần chung của 7 prompt
+> được rút ra `.jules/README.md` và **chỉ file đó** còn trỏ tới `code-rule.md`.
+> Lý do giữ stub không đổi; số 7 thì đã sai — đếm bằng
+> `grep -rl code-rule .jules/` thay vì tin dòng này.
 
 > **Sửa 2026-08-25:** dòng này trước đây còn nhắc
 > `.agents/rules/sentinel-rule.md` — **file đó không tồn tại** (và cũng không
@@ -416,8 +422,20 @@ hiện 8 chỗ **sai thật**, không phải chỉ lỗi thời câu chữ — t
    một "discrepancy chưa giải quyết" với `ci-local.ps1` — **repo này không
    có thư mục `.github/` nào cả**, đúng như `ci-rule.md` §7 đã ghi
    (CI local-only). Không có discrepancy nào để đuổi theo.
+
+   > **Sửa 2026-08-26 (phát hiện khi làm `EPIC-011`):** mục 5 này **đã lỗi
+   > thời**. `.github/workflows/ci.yml` hiện **có** trên `master-warrior` và
+   > đang chạy — chính comment đầu file nói nó được khôi phục sau khi biến mất
+   > khỏi nhánh này. Nhận định "repo không có `.github/`" chỉ đúng tại thời
+   > điểm 2026-08-25. Xác nhận bằng `ls .github/workflows/`, đừng tin dòng gốc.
+   > Việc đối chiếu workflow đó với `ci-local.ps1` **chưa ai làm** — không nằm
+   > trong phạm vi `EPIC-011`.
 6. `Handover.md` trỏ tới journal `.jules/bolt.md` / `palette.md` /
-   `sentinel.md` — **không tồn tại**, `.jules/` chỉ có 7 file `*.prompt.md`.
+   `sentinel.md` — **không tồn tại**, `.jules/` lúc đó chỉ có 7 file
+   `*.prompt.md`. *(Vẫn đúng về journal 2026-08-26: chưa file nào tồn tại,
+   `git log --all -- .jules/bolt.md` rỗng. Nhưng `.jules/` giờ có thêm
+   `README.md` — phần context dùng chung do `EPIC-011` tách ra. Đừng chép lại
+   con số; `ls .jules/`.)*
 7. `BUG-015`/`BUG-016` bị mô tả là "Windows-only, còn mở, chặn `BOT-098F*`"
    — **cả hai đã đóng** (`bug_report/completed/`): `BUG-015` hoá ra là lỗi
    probe script chứ không phải renderer; `BUG-016` đóng dạng *moot* vì

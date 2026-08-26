@@ -87,6 +87,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-008](epics/EPIC-008_chuan_hoa_luong_event/README.md)** | **Chuẩn hoá luồng sự kiện** — Shared Kernel + port, `BaseEvent` kế thừa được thật, `EventRegistry` + catalog sinh tự động, 3 Feed thay 48 signal cầu nối | ✅ **Hoàn thành (8/8 task con)** — 2026-08-25 |
 | **[EPIC-009](epics/EPIC-009_sanity_tier_redesign/README.md)** | **Thiết kế lại tầng Sanity** — mô hình composition-root (scan chứ không liệt kê), `diagnostic_guard`, tầng out-of-process `--self-check`, fake Binance REST server | ✅ **Hoàn thành (5/6 task con, 1 hoãn)** — 2026-08-25; ADR *Approved* |
 | **[EPIC-010](epics/EPIC-010_ghi_nho_gia_tri_cuoi/README.md)** | **Ghi nhớ giá trị cuối** — ~45 giá trị user đặt mất sạch mỗi lần mở lại app; store riêng `ui_state.json`, slice theo màn, merge khi ghi | ✅ Xong 2026-08-26 (8/8 task con) — cơ chế đã promote lên Engine (`ui_state` extension) |
+| **[EPIC-011](epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md)** | **Đồng bộ 7 skill chạy định kỳ (`.jules/`) với repo hiện tại** — sai cổng CI ở cả 7 file, một authority chưa bao giờ tồn tại, bãi săn QML đã bị gỡ; `.jules/README.md` giữ phần chung, guard chặn tham chiếu gãy | 🟡 Đang làm (7/8 task con xong) |
 
 ---
 
