@@ -35,9 +35,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols.query import (
     ListAvailableSymbolsQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
@@ -129,6 +126,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from .backtest_view_model import BackTestViewModel
 from .coordinators import (
+    DataSyncCoordinator,
     IndicatorCoordinator,
     StrategyConfigCoordinator,
     TradeLogCoordinator,
@@ -494,6 +492,17 @@ class BackTestPresenter(BasePresenter):
             emit_strategy_region=self._chartStrategyRegionSignal.emit,
             set_chart_script_keys=self._set_chart_script_keys,
         )
+        self._data_sync = DataSyncCoordinator(
+            dispatcher=self.dispatcher,
+            get_symbol=lambda: self._symbol,
+            effective_data_interval=self._effective_data_interval,
+            resolve_action_id=lambda: self._current_action_id(BacktestActionKind.SYNC),
+            log_dev_trace=self._log_dev_trace,
+            emit_progress=self._syncProgressSignal.emit,
+            emit_succeeded=self._syncSucceededSignal.emit,
+            emit_failed=self._syncFailedSignal.emit,
+            emit_cancelled=self._syncCancelledSignal.emit,
+        )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
@@ -714,10 +723,7 @@ class BackTestPresenter(BasePresenter):
         )
 
     def _on_sync_progress(self, report: SyncProgressReport) -> None:
-        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
-        action_id = self._current_action_id(BacktestActionKind.SYNC)
-        if action_id is not None:
-            self._syncProgressSignal.emit(action_id, report.current, report.total)
+        self._data_sync.on_progress(report)
 
     def _emit_ui_log(
         self, message: str, level: str = "info", is_dev: bool = False
@@ -1048,13 +1054,7 @@ class BackTestPresenter(BasePresenter):
 
     @staticmethod
     def _format_coverage_message(coverage: BacktestRangeCoverage) -> str:
-        if coverage.missing_open_times:
-            return f"Thiếu nến từ {coverage.missing_open_times[0]:%Y-%m-%d %H:%M UTC}."
-        if coverage.duplicate_candles:
-            return f"Dữ liệu có {coverage.duplicate_candles} nến trùng thời điểm."
-        if coverage.has_unclosed_candle:
-            return "Khoảng dữ liệu chứa nến chưa đóng."
-        return "Dữ liệu local chưa đủ cho khoảng Backtest đã chọn."
+        return DataSyncCoordinator.format_coverage_message(coverage)
 
     @Slot()
     @safe_ui_action
@@ -2222,40 +2222,13 @@ class BackTestPresenter(BasePresenter):
         return config.timeframe
 
     def _probe_data_coverage(self, config: BacktestRunConfig) -> BacktestRangeCoverage:
-        now = datetime.now(UTC)
-        query = GetBacktestRangeCoverageQuery(
-            symbol=self._symbol,
-            interval=self._effective_data_interval(config).value,
-            start_time=config.start_time,
-            end_time=config.end_time or now,
-            now=now,
-        )
-        return self.dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
+        return self._data_sync.probe_coverage(config)
 
     @staticmethod
     def _resolve_sync_start(
         config: BacktestRunConfig, coverage: BacktestRangeCoverage | None
     ) -> datetime | None:
-        """BUG-017: resume a sync from the coverage-detected gap instead of
-        re-fetching the entire originally requested range, when a prior
-        coverage probe found one. `coverage` is only ever `None` for the
-        "totally empty DB, nothing was ever probed" path — the full
-        requested range genuinely is missing there, so falling back to
-        `config.start_time` is correct, not the bug this guards against.
-        Always logged (not gated on --dev): explains after the fact why a
-        given sync fetched however many candles it did."""
-        if coverage is not None and coverage.missing_open_times:
-            gap_start = coverage.missing_open_times[0]
-            logger.info(
-                f"{_TRACE_PREFIX} action=sync_start_resolved source=coverage_gap "
-                f"gap_start={gap_start!r} requested_start={config.start_time!r}"
-            )
-            return gap_start
-        logger.info(
-            f"{_TRACE_PREFIX} action=sync_start_resolved source=requested_range "
-            f"requested_start={config.start_time!r}"
-        )
-        return config.start_time
+        return DataSyncCoordinator.resolve_sync_start(config, coverage)
 
     def _run_sync(
         self,
@@ -2264,78 +2237,12 @@ class BackTestPresenter(BasePresenter):
         cancellation_token: CancellationToken | None = None,
         coverage: BacktestRangeCoverage | None = None,
     ) -> None:
-        """Background worker: dispatches `SyncMarketDataCommand` for the
-        symbol/timeframe/range that just came back "no data" — mirrors
-        `DataManagementPresenter._run_single_sync`, minus the progress-bar
-        events that screen needs and this one doesn't (one sync, one
-        outcome, no multi-target loop)."""
-        resolved_action_id = action_id or self._current_action_id(
-            BacktestActionKind.SYNC
-        )
-        if resolved_action_id is None:
-            return
-        sync_interval = self._effective_data_interval(config)
-        sync_start = self._resolve_sync_start(config, coverage)
-        self._log_dev_trace(
-            "sync_worker_start",
-            action_id=resolved_action_id,
-            timeframe=sync_interval.value,
-            start=sync_start,
-            end=config.end_time,
-        )
-        try:
-            command = SyncMarketDataCommand(
-                symbols=[self._symbol],
-                interval=sync_interval,
-                start_time=sync_start,
-                # Binance treats the history end boundary as exclusive.
-                # Fetch one extra interval; coverage/backtest still keep
-                # the requested half-open boundary.
-                end_time=(
-                    config.end_time + timedelta(seconds=sync_interval.to_seconds())
-                    if config.end_time is not None
-                    else None
-                ),
-                cancellation_requested=(
-                    cancellation_token.is_cancelled if cancellation_token else None
-                ),
-            )
-            self._log_dev_trace(
-                "sync_dispatch",
-                symbol=self._symbol,
-                timeframe=sync_interval.value,
-            )
-            self.dispatcher.dispatch(SyncMarketDataCommand, command)
-        except Exception as exc:
-            logger.exception("Market data sync failed")
-            self._log_dev_trace("sync_worker_failed", message=str(exc))
-            self._syncFailedSignal.emit(resolved_action_id, str(exc))
-            return
-        if cancellation_token is not None and cancellation_token.is_cancelled():
-            self._log_dev_trace("sync_worker_cancelled", action_id=resolved_action_id)
-            # Whatever candles landed before cancellation stay in the DB —
-            # SyncMarketDataCommandHandler checks the token cooperatively and
-            # returns normally rather than raising, so this is the only place
-            # a cancelled sync is distinguishable from one that quietly ran
-            # to completion. Previously this just returned here with no
-            # signal at all, leaving the FSM stuck in SYNCING forever with no
-            # way out once cancel was requested.
-            self._syncCancelledSignal.emit(resolved_action_id)
-            return
-        coverage = self._probe_data_coverage(config)
-        if not coverage.is_fully_covered:
-            message = (
-                "Đồng bộ chưa đủ để chạy Backtest: "
-                f"{self._format_coverage_message(coverage)}"
-            )
-            self._log_dev_trace(
-                "sync_coverage_incomplete",
-                action_id=resolved_action_id,
-                message=message,
-            )
-            self._syncFailedSignal.emit(resolved_action_id, message)
-            return
-        self._syncSucceededSignal.emit(resolved_action_id)
+        """Kept on the presenter with this exact signature: nine tests call
+        `presenter._run_sync(...)` directly with two, three and four
+        arguments, and `_start_sync_for_config` submits this bound method to
+        the thread manager, which one test then re-invokes through
+        `presenter._run_sync(*submitted_args)`."""
+        self._data_sync.run_sync(config, action_id, cancellation_token, coverage)
 
     # ================================================================== #
     # IStateContributor — structural, no base class (EPIC-010F)
