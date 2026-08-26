@@ -1,6 +1,6 @@
 # EPIC-010B — `UiStateCoordinator`, the contributor contract, and the extension
 
-**Status:** 🔵 Not started
+**Status:** ✅ Done 2026-08-26 — Elite (PR #109)
 **Repo:** **Engine** — design §8 steps 1-2
 **Depends on:** `EPIC-010A`
 

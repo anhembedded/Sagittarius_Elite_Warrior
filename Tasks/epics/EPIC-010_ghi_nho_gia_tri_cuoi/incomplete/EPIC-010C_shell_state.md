@@ -1,6 +1,6 @@
 # EPIC-010C — Shell: window geometry, splitters, last route, sidebar
 
-**Status:** 🔵 Not started
+**Status:** ✅ Done 2026-08-26 — Elite (PR #109)
 **Repo:** **Elite** (`Sagittarius_Elite_Warrior`) — design §8 step 3
 **Depends on:** `EPIC-010B`
 
