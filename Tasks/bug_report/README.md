@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 51 |
-| 📈 **Tổng** | **53** |
+| ✅ **Đã sửa / đã đóng** | 52 |
+| 📈 **Tổng** | **54** |
 
 ---
 
@@ -48,6 +48,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | :--- | :--- | :---: | :---: | :--- |
 | **[BUG-054](completed/BUG-054_process_does_not_exit_after_graceful_shutdown.md)** | Thoát app: shutdown chạy hết, log `App stopped.` nhưng tiến trình không return | 🔴 **P1** | 2026-08-26 | Đóng 2026-08-26: `wait=False` không tránh được việc chờ, nó dời việc chờ sang `atexit` của `concurrent.futures` — nơi worker non-daemon bị `join()` **không timeout**, sau dòng log cuối, không in gì. Thêm `process_exit.exit_process()`: đường sạch giữ nguyên `sys.exit`, còn thread thì chờ 5s, hết thì log tên+stack rồi `os._exit`. Tái hiện 1:1 bằng fault injection (treo vô hạn, `SIGTERM` không giết nổi) → sau fix exit 0 trong 9,5s. **Chưa** xác định được job nào kẹt trong phiên của user — xem §7 trong hồ sơ. |
 | **[BUG-053](completed/BUG-053_ui_freeze_during_historical_tick_backtest.md)** | UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest | 🔴 **P1** | 2026-08-26 | Đóng 2026-08-26: đường tick vẫn `get_klines()` nạp cả range (2,59M tick = hàng chục triệu object sống cùng lúc) → mỗi lần GC gen-2 mất vài giây, mà **GC giữ GIL**, nên main thread không chạy nổi slot heartbeat. Chuyển sang `count_klines()`/`stream_klines()` đúng như `BUG-025` đã làm cho Static. Đo: đỉnh trễ heartbeat 4,02s → **0,18s** (GC vẫn bật), wall −33%. Cũng giải thích vì sao 4/5 stack dump chỉ tới `app.exec()` — dump đúng, main thread thật sự không ở trong Python mà đang chờ GIL. |
+| **[BUG-052](completed/BUG-052_unscoped_stylesheets_box_every_label.md)** | Mọi nhãn trong app bị vẽ khung riêng; chữ trong stat tile bị cắt 5px | 🟠 P1 | 2026-08-26 | **Gốc thật của `BUG-008`**: selector kiểu trong Qt khớp cả lớp con, `QLabel` kế thừa `QFrame` → `.ClassName`. Chỗ rò lớn nhất là `QStackedWidget` chứa mọi màn hình. Chữ bị cắt là lỗi **riêng**: `setFixedHeight(74)` < 79px nội dung. 6 PR Engine + guard khoá 0. |
 | **[BUG-051](completed/BUG-051_status_row_clipped_to_one_line_of_text.md)** | Mọi dòng bảng Database Status bị cắt còn 14px, 4 nút hành động render thành viền rỗng không chữ | 🟡 P2 | 2026-08-26 | `setIndexWidget()` không cấp chiều cao cho ô; delegate mặc định trả về chiều cao **một dòng text**. Sửa bằng delegate đọc `sizeHint()` của chính widget. Lộ ra khi chụp ảnh trước/sau cho `EPIC-007F`, không phải user báo. |
 | **[BUG-049](completed/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Đóng 2026-08-25: root-caused, không sửa code được. `gc.set_debug(gc.DEBUG_UNCOLLECTABLE)` cho thấy đúng dạng cycle metaobject PySide6/shiboken (`QtCore.Property` + closure + `QMetaObject`/`Shiboken.ObjectType`) — đặc tính binding, không phải do `binance_fake_server.py` tạo ra. D6 chỉ là cái khiến `app.boot()` chạy đủ xa để cycle có sẵn lộ ra (trước đó treo/lỗi mạng thật theo BUG-045). |
 | **[BUG-048](completed/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `_handler` kiểm `is_headless_qt_platform()` trước khi gọi `dialog.exec()`. Xác nhận bằng đúng fault injection đã phát hiện bug — exit code 1 dưới 5s thay vì treo. Regression test đỏ-đúng-lý-do trước fix, xanh sau fix. |
