@@ -39,8 +39,10 @@ from pathlib import Path
 from sagittarius_engine.extensions.pyside_mvc.widgets.guards import (
     find_bare_qt_base_widgets,
     find_inline_stylesheets,
+    find_unscoped_container_stylesheets,
     format_bare_qt_base_findings,
     format_inline_stylesheet_findings,
+    format_unscoped_container_findings,
 )
 
 _UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
@@ -141,4 +143,29 @@ def test_the_ceiling_is_not_stale() -> None:
     assert len(findings) == _BARE_QT_BASE_CEILING, (
         f"tốt — còn {len(findings)}, ít hơn trần {_BARE_QT_BASE_CEILING}. "
         f"Hạ `_BARE_QT_BASE_CEILING` xuống {len(findings)} để khoá lại."
+    )
+
+
+def test_no_container_leaks_its_chrome_onto_its_children() -> None:
+    """Locked at 0 absolutely, like the colour guard — not on a ratchet.
+
+    `BUG-008` has come back five times because nothing ran this check. A
+    property list with no selector is Qt's universal selector: on a widget
+    with children it hands them its border and its background. The worst
+    single instance was `MainWindow`'s `QStackedWidget`, which holds every
+    screen — `Palette.BG` was being repainted onto every label in the app
+    that had no rule of its own, which is what a user finally reported as
+    "too many borders" (`BUG-052`).
+
+    A deliberate exception is `# cascade-exempt: <reason>` on the same line,
+    and that reason goes through review.
+    """
+    findings = find_unscoped_container_stylesheets(_UI_ROOT)
+
+    assert findings == [], (
+        "a widget that owns children is styled with a bare property list, "
+        "which Qt reads as the universal selector.\n"
+        "Scope it — `apply_role()` for a shape the engine already has, or "
+        "`Selector { ... }` for one it does not.\n\n"
+        + format_unscoped_container_findings(findings)
     )

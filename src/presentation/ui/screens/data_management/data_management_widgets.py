@@ -388,9 +388,7 @@ class KLineInspectorDialog(Overlay):
     def _build_pagination_bar(self) -> QFrame:
         bar = QFrame()
         bar.setFixedHeight(36)
-        bar.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
-        )
+        apply_role(bar, StyleRole.TABLE_HEADER)
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(12, 0, 12, 0)
         layout.setSpacing(8)
@@ -696,8 +694,12 @@ class GapInspectorDialog(Overlay):
 
         self._coverage_bar_frame = QFrame()
         self._coverage_bar_frame.setFixedHeight(18)
+        # Scoped by hand rather than given `SURFACE`: this is an 18px-tall
+        # meter whose children are the coloured coverage segments, and
+        # `SURFACE`'s 8px radius would round a bar half that height.
         self._coverage_bar_frame.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 4px;"
+            f"QFrame {{ background-color: {Palette.BG_CARD}; "
+            f"border: 1px solid {Palette.BORDER}; border-radius: 4px; }}"
         )
         self._coverage_bar_layout = QHBoxLayout(self._coverage_bar_frame)
         self._coverage_bar_layout.setContentsMargins(1, 1, 1, 1)
@@ -709,9 +711,7 @@ class GapInspectorDialog(Overlay):
     def _build_column_header(self) -> QFrame:
         header = QFrame()
         header.setFixedHeight(28)
-        header.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
-        )
+        apply_role(header, StyleRole.TABLE_HEADER)
         layout = QHBoxLayout(header)
         layout.setContentsMargins(8, 0, 8, 0)
         layout.setSpacing(6)
