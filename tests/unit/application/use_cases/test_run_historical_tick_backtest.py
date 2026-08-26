@@ -12,6 +12,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical
     RunHistoricalTickBacktestCommand,
     RunHistoricalTickBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.handler import (
+    _bar_bounds,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
     RunStaticBacktestCommand,
@@ -388,10 +391,6 @@ def test_the_containment_check_agrees_with_bar_bounds_on_every_tick():
     both agree on every single tick, including the two that decide where the
     bar ends.
     """
-    from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.handler import (
-        _bar_bounds,
-    )
-
     interval_seconds = 300
     origin = datetime(2026, 1, 1, tzinfo=UTC)
     bar_start, bar_end = _bar_bounds(origin, interval_seconds)

@@ -83,3 +83,39 @@ Hai giả thuyết đã **bị bác bỏ** trong lúc điều tra, ghi lại đ�
 
 Vẫn để **Open**. Đóng khi tái hiện được, hoặc khi tier integration chạy đủ nhiều
 lần sau thay đổi này mà không tái xuất.
+
+---
+
+## Cập nhật 2026-08-26 (lần 2) — bản sửa fixture KHÔNG chặn được flake
+
+Sau khi thay `Mock(spec=IExchangeClient)` bằng `_FakeExchangeClient` viết tay,
+test **vẫn đỏ** trong một lần chạy `ci-local.ps1 -Full` ngay sau đó:
+
+```
+>       qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
+E       pytestqt.exceptions.TimeoutError: waitUntil timed out in 2000 milliseconds
+```
+
+Điểm quyết định: fixture trong dòng header của lần đỏ này đúng là
+`_FakeExchangeClient`, và **toàn bộ log có 0 lỗi `Mock`**.
+
+**Kết luận rút ra:** lỗi `'Mock' object is not iterable` / `has no len()` là
+**triệu chứng đi kèm, không phải nguyên nhân**. Bản sửa fixture đã đóng đúng
+đường nó bịt — không còn `Mock` thô nào tới được code thật — nhưng cái làm test
+đỏ là **FSM không kịp vào `UIMode.SYNCING` trong 2000ms**, và điều đó vẫn xảy ra.
+
+Giả thuyết mới, chưa kiểm chứng: dưới tải song song (`-n`), tác vụ nền dispatch
+`SyncMarketDataCommand` không được lập lịch kịp trong cửa sổ 2 giây, nên FSM
+chưa chuyển trạng thái khi `waitUntil` hết giờ. Nếu đúng thì đây là **test quá
+chặt về thời gian**, không phải lỗi sản phẩm — nhưng phải đo, không đoán.
+
+Hướng điều tra tiếp:
+
+1. Ghi lại `presenter.fsm.current_state` **thực tế** lúc timeout (hiện tại
+   thông báo chỉ nói "không phải SYNCING", không nói nó đang ở đâu).
+2. Nếu nó đang ở trạng thái trung gian hợp lệ → nới timeout hoặc chờ theo tín
+   hiệu thay vì theo đồng hồ.
+3. Nếu nó ở trạng thái lỗi → có lỗi thật, và cần biết lỗi gì.
+
+**Không nới timeout trước khi biết câu 1** — nới mù là cách biến một bug thật
+thành một test ngủ quên.

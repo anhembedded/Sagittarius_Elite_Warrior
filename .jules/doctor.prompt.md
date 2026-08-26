@@ -98,7 +98,8 @@ without saying so and asking first.
 
 ## Journal
 
-`.jules/<your name>.md` — see `.jules/README.md` §5. Nothing is there yet.
+`.jules/<your name>.md` — see `.jules/README.md` §5, including why
+`ls .jules/*.md` is the only trustworthy answer to whether yours exists.
 Record architectural traps in *this* codebase, not textbook refactoring advice.
 
 If you find no refactor worth doing, stop and open nothing. An empty run is a

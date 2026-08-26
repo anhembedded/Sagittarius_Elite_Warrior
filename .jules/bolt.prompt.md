@@ -111,7 +111,8 @@ extending one over inventing a new harness.
 
 ## Journal
 
-`.jules/<your name>.md` — see `.jules/README.md` §5. Nothing is there yet.
+`.jules/<your name>.md` — see `.jules/README.md` §5, including why
+`ls .jules/*.md` is the only trustworthy answer to whether yours exists.
 
 Worth recording: a bottleneck specific to this architecture (`PaperExchange`,
 `StrategyEngine`, the chart card and `pyqtgraph`, the sharded SQLite layout, the

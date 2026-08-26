@@ -93,7 +93,8 @@ variable name; silence `mypy` with `# type: ignore` instead of fixing the type
 
 ## Journal
 
-`.jules/<your name>.md` — see `.jules/README.md` §5. Nothing is there yet.
+`.jules/<your name>.md` — see `.jules/README.md` §5, including why
+`ls .jules/*.md` is the only trustworthy answer to whether yours exists.
 Record PySide6 signal-typing and SQLAlchemy typing traps as you hit them — this
 codebase has more of both than a generic Python project.
 

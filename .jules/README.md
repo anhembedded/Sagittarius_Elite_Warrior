@@ -132,11 +132,20 @@ commit code. Prompt/task/`.agents/`-only edits are exempt: see `ci-rule.md` §1
 
 Each agent has a journal at `.jules/<agent>.md`.
 
-**None of them exist yet** — verify with `ls .jules/*.md`, and note that no
-journal has ever existed on any branch reachable from here (`git log --all --
-.jules/bolt.md` is empty). Earlier versions of these prompts claimed otherwise
-and told the agent not to "rediscover" entries that were never written. Create
-yours on your first real learning; until then, there is nothing to read.
+**Check whether yours exists — do not assume either way, in either direction.**
+
+```bash
+ls .jules/*.md          # which journals exist right now
+```
+
+The history here is the reason that command is the answer and no sentence is.
+Earlier prompts asserted a journal was already written when none had ever
+existed, and told the agent not to "rediscover" entries nobody wrote. This file
+then asserted the opposite — *"none of them exist yet"* — and was **false within
+hours**, because Bolt wrote its first real entries the same day. Both sentences
+were accurate when typed. Neither survived. Run the command.
+
+Create yours on your first real learning.
 
 A journal is **not a run log**. Add an entry only for something that will change
 a future decision:

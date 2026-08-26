@@ -30,7 +30,7 @@ này nó nằm trong prompt chứ không nằm trong file rule.
 | :--: | :--- | :--- | :--- | :--- |
 | 1 | **Cổng pre-commit sai**: cả 7 prompt bắt agent chạy `ci-local.ps1 -UnitOnly` rồi commit | cả 7 | `ci-rule.md` §1 nói nguyên văn `-UnitOnly` *"is diagnostic-only and never sufficient for handoff or commit"*; `commit-rule.md` §1 yêu cầu `-Full` | **Nặng nhất.** Mọi commit của cả 7 agent định kỳ đều đi vòng qua lint, format, `mypy` (`EPIC-002`), cổng bảo mật Ruff (`EPIC-004`) và ngưỡng coverage |
 | 2 | Trỏ tới `.agents/rules/sentinel-rule.md` — **file chưa bao giờ tồn tại** | `sentinel` | `ls .agents/rules/`; `ONBOARDING.md` §8 mục 1 đã ghi nhận đúng file này | Agent bảo mật được lệnh quét theo "ma trận lỗ hổng" của một file rỗng → không có tiêu chí nào để quét |
-| 3 | Journal `.jules/<agent>.md` **không tồn tại**, prompt lại khẳng định là có | `bolt`, `palette` khẳng định; 5 file còn lại trỏ vào | `git log --all -- .jules/bolt.md` rỗng — chưa từng có ở bất kỳ nhánh nào | `palette` dặn agent *"đã có entry thật, đừng khám phá lại"* một bài học chưa ai viết → agent tin vào ký ức không tồn tại |
+| 3 | Journal `.jules/<agent>.md` **không tồn tại**, prompt lại khẳng định là có | `bolt`, `palette` khẳng định; 5 file còn lại trỏ vào | `git log --all -- .jules/bolt.md` rỗng tại thời điểm rà soát — chưa từng có ở bất kỳ nhánh nào. *(Đã đổi cùng ngày — xem §8)* | `palette` dặn agent *"đã có entry thật, đừng khám phá lại"* một bài học chưa ai viết → agent tin vào ký ức không tồn tại |
 | 4 | Stack ghi **"PySide6/QML"** | `doctor`, `janitor`, `scout`, `scribe`, `sentinel`, `palette` | `find src -name '*.qml' \| wc -l` → `0`; `EPIC-006` đóng 2026-08-25 | 6/7 agent nhắm vào tầng công nghệ đã bị gỡ khỏi app |
 | 5 | **Toàn bộ bãi săn của Palette là QML**: `Accessible.name`, `ToolTip.visible: hovered`, `StatefulButton`, `Sidebar.qml`, `BotParamsDialog.qml` | `palette` | không còn file `.qml` nào trong `src/`; `StatefulButton` chỉ còn trong test QML probe của Engine | Agent UX chạy định kỳ mà **không còn gì để làm** — đúng cái user hỏi ("đảm bảo chúng meaningful") |
 | 6 | Verify bằng `quick_widget.errors() == []` | `scout`, `palette` | `.claude/skills/test-health/contract.json` gọi thẳng đó là *"the retired `quick_widget.errors()` clause"*, đã có clause kế nhiệm | Agent test tự xác nhận bằng một điều kiện không còn được chạy |
@@ -124,3 +124,33 @@ lại thay vì đi đường vòng (đúng yêu cầu của chính §8):
   mất khỏi `master-warrior`. Đã thêm ghi chú sửa. Việc đối chiếu workflow đó với
   `ci-local.ps1` (câu hỏi gốc mà mục 5 tưởng đã đóng) **chưa ai làm** và không
   thuộc phạm vi epic này.
+
+
+## 8. Bài học đắt nhất của epic này — chính nó dính bẫy của nó
+
+`.jules/README.md` §1 đặt luật: *sự kiện nào có thể thay đổi thì viết câu lệnh
+trả lời nó, đừng viết sự kiện.* Rồi §5 của cùng file đó viết một sự kiện:
+
+> *"**None of them exist yet** — no journal has ever existed on any branch
+> reachable from here."*
+
+Đúng lúc gõ. **Sai sau vài giờ**: `PR #132` merge vào `master-warrior` mang theo
+`.jules/bolt.md` với entry thật đầu tiên. Phát hiện khi resolve merge conflict
+của chính PR này.
+
+Đáng ghi lại vì nó chứng minh luật §1 không phải lý thuyết, và vì **cả hai câu
+sai đều theo cùng một khuôn**:
+
+| Prompt cũ nói | Prompt mới (bản đầu) nói | Thực tế |
+| :--- | :--- | :--- |
+| *"journal đã có entry thật, đừng khám phá lại"* | *"chưa file nào tồn tại"* | Lúc này thì có, lúc kia thì không |
+
+Cả hai đều là một khẳng định về trạng thái file, viết vào một file không ai đọc
+lại. Chiều sai không quan trọng — **viết ra khẳng định** mới là lỗi.
+
+Đã sửa: §5 giờ chỉ đưa `ls .jules/*.md` và kể lại đúng hai lần sai này để không
+ai viết câu thứ ba. 7 prompt trỏ về đó thay vì tự khẳng định.
+
+Guard `check_jules_prompt_references.py` **không bắt được** lỗi này — nó kiểm
+đường dẫn có tồn tại, không kiểm một câu có còn đúng. Đó là giới hạn đã ghi ở
+§6 ngay từ đầu, giờ có một ca thật minh hoạ.

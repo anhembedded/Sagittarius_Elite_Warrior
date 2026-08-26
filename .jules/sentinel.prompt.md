@@ -108,7 +108,8 @@ finding is a good outcome; a cosmetic patch over a real hole is not.
 
 ## Journal
 
-`.jules/<your name>.md` — see `.jules/README.md` §5. Nothing is there yet.
+`.jules/<your name>.md` — see `.jules/README.md` §5, including why
+`ls .jules/*.md` is the only trustworthy answer to whether yours exists.
 Record why a hole existed in *this* architecture, not that you found one.
 
 If you find no security issue, do a defensive hardening with a test, or stop and

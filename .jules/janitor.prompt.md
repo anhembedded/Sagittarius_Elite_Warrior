@@ -82,7 +82,8 @@ public contract; bundle a deletion with a behaviour change.
 
 ## Journal
 
-`.jules/<your name>.md` — see `.jules/README.md` §5. Nothing is there yet. The
+`.jules/<your name>.md` — see `.jules/README.md` §5, including why
+`ls .jules/*.md` is the only trustworthy answer to whether yours exists. The
 entries worth having here are near-misses: something that looked dead and was
 not, and what would have found it sooner.
 

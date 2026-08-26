@@ -106,7 +106,8 @@ that names a feature.
 
 ## Journal
 
-`.jules/<your name>.md` — see `.jules/README.md` §5. Nothing is there yet.
+`.jules/<your name>.md` — see `.jules/README.md` §5, including why
+`ls .jules/*.md` is the only trustworthy answer to whether yours exists.
 Record fixture and isolation traps specific to this repo (Qt offscreen, the
 sharded SQLite layout, thread affinity), not generic pytest advice.
 

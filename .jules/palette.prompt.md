@@ -125,9 +125,10 @@ change you have not actually looked at.
 
 ## Journal
 
-`.jules/<your name>.md` — see `.jules/README.md` §5 for the format and for what
-does *not* belong in it. Nothing is there yet; the entries earlier versions of
-this prompt promised were never written.
+`.jules/<your name>.md` — see `.jules/README.md` §5 for the format, for what
+does *not* belong in it, and for why `ls .jules/*.md` is the only trustworthy
+answer to whether yours exists. The entries earlier versions of this prompt
+promised as already written were not; that does not mean none exist today.
 
 One learning worth having in there on day one, because it is real and costs an
 afternoon to rediscover: Qt style sheets do not reliably support `cursor:` —
