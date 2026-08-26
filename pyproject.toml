@@ -89,21 +89,13 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_cached_interaction_hybrid_probe\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_chart_interaction\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_hybrid_opengl_probe\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]chart_migration_benchmark\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]native_backtest_chart_interaction_probe\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]native_chart_camera_probe\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]native_backtest_desktop_e2e\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]database[\\/]repair_data_gap[\\/]handler\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]queries[\\/]audit_database_integrity[\\/]handler\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]queries[\\/]get_historical_klines[\\/]handler\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]backtesting[\\/]paper_exchange\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]indicators[\\/]rsi\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_crossover_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_trend_pullback_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]long_term_trend_zone_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]multi_ema_trend_follower_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]binance[\\/]client\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]binance[\\/]market_metadata_parser\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]models\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]sqlalchemy_repository\\.py$",
 
@@ -115,9 +107,7 @@ exclude = [
     # attribute typos in probe scripts; one dispatch() type mismatch) —
     # frozen as debt the same way, not evidence of a config bug.
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_cached_frame_probe\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]native_chart_interaction_probe\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]shutdown_sync_probe\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]sync[\\/]bulk_sync_market_data[\\/]handler\\.py$",
 
     # Same "surfaced only after exclusion" effect as above, found while
     # fixing `backtest_timeframe_toolbar_e2e.py`'s real BUG-026-class defect
@@ -127,6 +117,17 @@ exclude = [
     # `QCoreApplication`, missing `setQuitOnLastWindowClosed`) — same class
     # already excluded for `shutdown_sync_probe.py` above.
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]backtest_timeframe_toolbar_e2e\\.py$",
+
+    # Retired 2026-08-26 (EPIC-002D): nine entries removed because they had
+    # stopped excluding anything. Five named probe scripts deleted with the
+    # native chart (36f3a9f), so the pattern matched no file at all; four
+    # more -- repair_data_gap/handler.py, paper_exchange.py, indicators/rsi.py
+    # and bulk_sync_market_data/handler.py -- had become type-clean without
+    # anyone striking them off, which is the failure this list is most prone
+    # to: an exclusion nobody re-measures reads as debt forever and quietly
+    # keeps four real files outside the gate. Measured by stripping every
+    # per-file entry and re-running the gate's own invocation: 16 of the 25
+    # still had errors, these 9 did not.
 ]
 
 [[tool.mypy.overrides]]
