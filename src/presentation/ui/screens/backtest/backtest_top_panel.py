@@ -29,7 +29,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar import (
     AppProgressBar,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import StatCard, Tone
+from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    Banner,
+    Severity,
+    StatCard,
+    StyleRole,
+    Tone,
+    apply_role,
+)
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -46,29 +53,36 @@ def _pill_button(object_name: str, min_width: int = 0) -> QPushButton:
     return btn
 
 
-class BackTestTopPanel(QWidget):
+class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     """Port of `BackTestTopPanel.qml`. Sizes itself naturally via its own
     layout (no `implicitHeight` read-back hack needed — that only existed
     to work around `QQuickWidget`'s `SizeRootObjectToView` ignoring QML's
     `implicitHeight`; a plain `QWidget`'s `sizeHint()` already reflects
-    what its layout needs)."""
+    what its layout needs).
+
+    **Deliberately not a `Surface`**, unlike the cards it contains. It
+    paints the app background and draws no border of its own — it is the
+    strip the cards and banners sit *on*, not one of them. Same call as
+    `DevBoardPanel` (`EPIC-007F`)."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
         self._vm = view_model
-        self.setStyleSheet(f"background-color: {Palette.BG};")
+        # Scoped, not a bare property list: unscoped this repaints every
+        # descendant that has no rule of its own (`BUG-008`), which here is
+        # most of the toolbar.
+        self.setStyleSheet(
+            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+        )
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 12, 12, 12)
         outer.setSpacing(12)
 
         self._card = QFrame()
-        self._card.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
-            f"border-radius: 8px;"
-        )
+        apply_role(self._card, StyleRole.SURFACE)
         card_layout = QVBoxLayout(self._card)
         card_layout.setContentsMargins(12, 10, 12, 10)
         card_layout.setSpacing(8)
@@ -294,9 +308,12 @@ class BackTestTopPanel(QWidget):
     def _build_progress_banner(self) -> QFrame:
         banner = QFrame()
         banner.setObjectName("backtestProgressBanner")
+        # The one banner `Banner` deliberately does not cover — its body is
+        # a progress bar and a cancel button, no message and no icon. Scoped
+        # by hand so its border stays on the banner and off the bar inside.
         banner.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.STATE_NAV_BORDER}; "
-            f"border-radius: 6px;"
+            f"QFrame {{ background-color: {Palette.BG_CARD}; "
+            f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; }}"
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
@@ -311,83 +328,49 @@ class BackTestTopPanel(QWidget):
         banner.setVisible(False)
         return banner
 
-    def _build_preview_banner(self) -> QFrame:
-        banner = QFrame()
+    def _build_preview_banner(self) -> Banner:
+        banner = Banner(
+            'Đồ thị xem trước — chưa chạy Backtest. Nhấn "CHẠY BACKTEST" để xem '
+            "kết quả thật.",
+            severity=Severity.INFO,
+        )
         banner.setObjectName("backtestChartPreviewBanner")
-        banner.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.ACCENT}; border-radius: 6px;"
-        )
-        layout = QHBoxLayout(banner)
-        layout.setContentsMargins(12, 4, 12, 4)
-        layout.setSpacing(8)
-        icon_label = QLabel()
-        icon_label.setPixmap(
-            get_icon_loader().get_icon("info", Palette.ACCENT, 14).pixmap(14, 14)
-        )
-        icon_label.setStyleSheet("background: transparent; border: none;")
-        layout.addWidget(icon_label)
-        text = QLabel(
-            'Đồ thị xem trước — chưa chạy Backtest. Nhấn "CHẠY BACKTEST" để xem kết quả thật.'
-        )
-        text.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 11px; font-weight: bold; "
-            f"background: transparent; border: none;"
-        )
-        layout.addWidget(text, 1)
+        # `Banner` takes its icon as a `str` because it has no icon loader to
+        # depend on; this app does, so it sets the pixmap on the slot the
+        # class leaves public for exactly this.
+        self._set_banner_icon(banner, "info", Palette.ACCENT)
         banner.setVisible(False)
-        return banner
+        return self._tighten(banner)
 
-    def _build_stale_banner(self) -> QFrame:
-        banner = QFrame()
+    def _build_stale_banner(self) -> Banner:
+        banner = Banner(severity=Severity.WARN, action_text="Chạy lại ngay")
         banner.setObjectName("backtestStaleWarningBanner")
-        banner.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.WARNING}; "
-            f"border-radius: 6px;"
-        )
-        layout = QHBoxLayout(banner)
-        layout.setContentsMargins(12, 4, 12, 4)
-        layout.setSpacing(8)
-        icon_label = QLabel()
-        icon_label.setPixmap(
-            get_icon_loader()
-            .get_icon("triangle-alert", Palette.WARNING, 14)
-            .pixmap(14, 14)
-        )
-        icon_label.setStyleSheet("background: transparent; border: none;")
-        layout.addWidget(icon_label)
-        self._stale_text = QLabel()
-        self._stale_text.setStyleSheet(
-            f"color: {Palette.WARNING}; font-size: 11px; font-weight: bold; background: transparent; border: none;"
-        )
-        layout.addWidget(self._stale_text, 1)
-        rerun_btn = QPushButton("Chạy lại ngay")
-        rerun_btn.setFixedSize(95, 24)
-        rerun_btn.setStyleSheet(
-            f"background-color: {Palette.WARNING}; color: {Palette.BG}; font-size: 10px; "
-            f"font-weight: bold; border-radius: 4px; border: none;"
-        )
-        rerun_btn.clicked.connect(self._vm.requestRun)
-        layout.addWidget(rerun_btn)
+        self._set_banner_icon(banner, "triangle-alert", Palette.WARNING)
+        banner.action_button.clicked.connect(self._vm.requestRun)
         banner.setVisible(False)
+        return self._tighten(banner)
+
+    def _build_coverage_banner(self) -> Banner:
+        banner = Banner(severity=Severity.WARN)
+        banner.setObjectName("backtestCoverageWarningBanner")
+        banner.setVisible(False)
+        return self._tighten(banner)
+
+    @staticmethod
+    def _tighten(banner: Banner) -> Banner:
+        """`Banner` is a `Panel`, so it inherits Qt's default layout margins.
+        These three sit stacked above a chart and were built at 4px
+        vertically; left at the default they each grow ~10px and push the
+        chart down."""
+        banner.body_layout.setContentsMargins(12, 4, 12, 4)
         return banner
 
-    def _build_coverage_banner(self) -> QFrame:
-        banner = QFrame()
-        banner.setObjectName("backtestCoverageWarningBanner")
-        banner.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.WARNING}; "
-            f"border-radius: 6px;"
+    @staticmethod
+    def _set_banner_icon(banner: Banner, name: str, colour: str) -> None:
+        banner.icon_label.setPixmap(
+            get_icon_loader().get_icon(name, colour, 14).pixmap(14, 14)
         )
-        layout = QHBoxLayout(banner)
-        layout.setContentsMargins(12, 4, 12, 4)
-        self._coverage_text = QLabel()
-        self._coverage_text.setStyleSheet(
-            f"color: {Palette.WARNING}; font-size: 10px; background: transparent; border: none;"
-        )
-        self._coverage_text.setWordWrap(False)
-        layout.addWidget(self._coverage_text, 1)
-        banner.setVisible(False)
-        return banner
+        banner.icon_label.setVisible(True)
 
     # ------------------------------------------------------------------ #
     # Metrics header + stat cards / result box
@@ -632,7 +615,7 @@ class BackTestTopPanel(QWidget):
 
         self._stale_banner.setVisible(bool(vm.isConfigDirty))
         if vm.isConfigDirty:
-            self._stale_text.setText(
+            self._stale_banner.message = (
                 f"Cấu hình đã thay đổi ({vm.configDiffSummary}). "
                 f"Kết quả bên dưới chưa được cập nhật."
             )
@@ -640,7 +623,7 @@ class BackTestTopPanel(QWidget):
         coverage_visible = bool(vm.needsDataSync) and vm.dataCoverageMessage != ""
         self._coverage_banner.setVisible(coverage_visible)
         if coverage_visible:
-            self._coverage_text.setText(vm.dataCoverageMessage)
+            self._coverage_banner.message = vm.dataCoverageMessage
 
     def _sync_stat_cards(self) -> None:
         cards = self._vm.primaryStatCards

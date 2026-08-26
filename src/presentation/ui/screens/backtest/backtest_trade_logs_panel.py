@@ -31,7 +31,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import Tab, TabBar
+from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    StyleRole,
+    Tab,
+    TabBar,
+    apply_role,
+)
 
 from .backtest_widgets import with_alpha
 
@@ -77,9 +82,21 @@ class _FilterTabButton(QPushButton):
         )
 
 
-class _TradeLogRowWidget(QFrame):
+class _TradeLogRowWidget(QFrame):  # base-exempt: excluded from DataRow by design
     """One trade row + its collapsible detail panel — port of
-    `BackTestTradeLogs.qml`'s `ListView` delegate `Column`."""
+    `BackTestTradeLogs.qml`'s `ListView` delegate `Column`.
+
+    **Deliberately not migrated to the engine's `DataRow`.** That widget's
+    own docstring excludes this one by name, and re-reading this class
+    against that reasoning confirms it: the summary is a clickable
+    `QPushButton`, three of its columns stack two differently-styled lines,
+    two cells are recoloured badges, it owns a collapsible detail pane of
+    three further columns, and it emits a toggle signal. Fitting it would
+    need a per-cell widget factory, an expandable-body hook and a click
+    signal on `DataRow` — at which point every part of the base is
+    overridden and the base carries parameters that exist for one caller.
+
+    `DataRow` still covers the other three row shapes in this app."""
 
     toggled = Signal(int)
 
@@ -179,8 +196,12 @@ class _TradeLogRowWidget(QFrame):
 
         self._detail = QFrame()
         self._detail.setObjectName("detailTradeLog")
+        # Scoped by objectName: unscoped, the top border it draws as a
+        # separator would repeat on every one of the three detail columns
+        # inside it.
         self._detail.setStyleSheet(
-            f"background-color: {Palette.BG}; border-top: 1px solid {Palette.STATE_NAV_BORDER};"
+            f"#detailTradeLog {{ background-color: {Palette.BG}; "
+            f"border-top: 1px solid {Palette.STATE_NAV_BORDER}; }}"
         )
         detail_layout = QHBoxLayout(self._detail)
         detail_layout.setContentsMargins(14, 14, 14, 14)
@@ -289,8 +310,11 @@ class _TradeLogRowWidget(QFrame):
         self._detail.setVisible(expanded)
 
 
-class BackTestTradeLogsPanel(QWidget):
-    """Port of `BackTestTradeLogs.qml`."""
+class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
+    """Port of `BackTestTradeLogs.qml`.
+
+    **Not a `Surface`**: it is the bottom region of the screen, holding the
+    tab bar, the table and the log panel. The cards are inside it."""
 
     #: BOT-090's usable-height floor, recomputed in Python instead of read
     #: back from a QML `implicitHeight` property (no QML root exists
@@ -305,7 +329,9 @@ class BackTestTradeLogsPanel(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self._expanded_rows: dict[int, bool] = {}
-        self.setStyleSheet(f"background-color: {Palette.BG};")
+        self.setStyleSheet(
+            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+        )
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 12, 12, 12)
@@ -386,9 +412,7 @@ class BackTestTradeLogsPanel(QWidget):
         layout.addWidget(toolbar)
 
         table_container = QFrame()
-        table_container.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
-        )
+        apply_role(table_container, StyleRole.SURFACE)
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
         table_layout.setSpacing(0)
@@ -425,8 +449,12 @@ class BackTestTradeLogsPanel(QWidget):
     def _build_table_header(self) -> QWidget:
         header = QFrame()
         header.setFixedHeight(34)
+        # Scoped by hand rather than given `TABLE_HEADER`: that role rounds
+        # its corners, and this strip sits flush inside a card that already
+        # rounds them, with a separator line along its bottom edge instead.
         header.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border-bottom: 1px solid {Palette.BORDER};"
+            f"QFrame {{ background-color: {Palette.BG_CARD_HEADER}; "
+            f"border-bottom: 1px solid {Palette.BORDER}; }}"
         )
         row = QHBoxLayout(header)
         row.setContentsMargins(12, 0, 12, 0)

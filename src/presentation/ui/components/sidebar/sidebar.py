@@ -163,9 +163,11 @@ class Sidebar(BaseView):
         super().__init__(parent)
         self.setMinimumWidth(_COLLAPSED_WIDTH)
         self.setMaximumWidth(_MAX_WIDTH)
+        # Scoped: this holds the whole navigation column, so unscoped its
+        # right-hand border repeats down the edge of every nav button.
         self.setStyleSheet(
-            f"background-color: {Palette.BG_SIDEBAR}; "
-            f"border-right: 1px solid {Palette.BORDER};"
+            f"{type(self).__name__} {{ background-color: {Palette.BG_SIDEBAR}; "
+            f"border-right: 1px solid {Palette.BORDER}; }}"
         )
 
         self._sections = tuple(sections)

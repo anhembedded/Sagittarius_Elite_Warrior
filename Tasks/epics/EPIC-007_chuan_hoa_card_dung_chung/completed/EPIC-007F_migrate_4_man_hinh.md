@@ -1,6 +1,6 @@
 # EPIC-007F — Elite: migrate 4 màn hình sang widget dùng chung
 
-**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings 9/13 · Dashboard xong · Backtest: `StatCard` + `TabBar` · guard 17→14 · thang token về app)
+**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** ✅ Xong 2026-08-26 — guard `screens/` về **0** (yêu cầu 1), toàn cây UI 17 → 2 (2 còn lại ở `components/`, ngoài phạm vi yêu cầu 1)
 **Phụ thuộc:** `007D`, `007E`
 
 ---
@@ -369,3 +369,98 @@ không phải một phép thay thế cơ học:
 Kinh nghiệm rút ra từ Dashboard trong chính task này: gỡ cascade `BUG-008` **đổi diện mạo thấy
 rõ** (mất khung quanh mỗi dòng chỉ báo). Làm hai màn còn lại mà không có người xem lại từng ảnh
 thì rủi ro cao hơn nhiều so với giá trị — nên dừng đúng chỗ này và trình bày các quyết định trên.
+
+---
+
+## Data Management + banner — 2026-08-26, đóng task
+
+### Yêu cầu 1 đạt: `screens/` về 0
+
+| Mốc | Guard toàn cây | Việc |
+| :--- | ---: | :--- |
+| Đóng `007E` | 17 | — |
+| Dashboard | 16 | `DevBoardPanel` `base-exempt` |
+| Backtest | 15 → 14 | `MetricCardWidget` → `StatCard`; `DynamicTabBarWidget` → `TabBar` |
+| Backtest + DataMgmt, đợt này | 14 → 7 | 4 widget Backtest `base-exempt`; `_CoverageSegmentWidget` + `TimeRangeCardWidget` `base-exempt`; `ConfirmDialog` xoá, 2 call site sang `ConfirmOverlay` |
+| Bảng status | 7 → 6 | `_StatusRowWidget` → `DataRow` |
+| 2 inspector | 6 → **2** | `_KLineRowWidget`/`_GapRowWidget` → `DataRow`; `KLineInspectorDialog`/`GapInspectorDialog` → `Overlay` |
+
+Hai finding còn lại **đều ở `components/`**, ngoài phạm vi yêu cầu 1 (*"trên
+`src/presentation/ui/screens/`"*): `_CachedFrameOverlay` (mặt vẽ cho frame chart đã cache) và
+`CriticalErrorDialog` (hộp thoại cuối cùng khi app không khởi động được — **không được** phụ
+thuộc vào theme bridge, vì chính nó có thể là thứ vừa hỏng).
+
+### Cái thứ tư và thứ năm cùng họ — và lần này đếm được thành quy luật
+
+`DataRow` **không mang nổi** ba row widget mà chính docstring của nó nói là nó được dựng từ đó.
+Đo, ra **bảy** khác biệt thị giác: hàng bị vẽ khung như card, chữ trong ô mất cỡ và độ đậm, nút
+render dạng tô đặc, màu trạng thái theo bản ghi không có đường truyền vào.
+
+`Banner` thì tô viền theo severity nhưng **không tô chữ bên trong** — QSS của severity scope vào
+panel nên không chạm tới label. Chữ render bằng màu mặc định: xám đậm trên nền đậm, gần như
+không nhìn thấy. Và `Severity` **không có `SUCCESS`**, trong khi docstring của `Banner` liệt kê
+đúng cái audit banner *"success/danger switched at runtime"* nằm trong bốn cái nó bao phủ.
+
+Cộng với `BUG-008`, cỡ chữ thiếu của `StatCard`, và `BUG-012`, thành **năm**. Cùng một nguyên
+nhân, đủ số lần để gọi là quy luật chứ không phải trùng hợp: **widget ship ra khi chưa có
+consumer thật thì khuyết tật nằm chờ màn hình đầu tiên.** Showcase không bắt được vì nó cho mọi
+widget đúng bằng chỗ widget xin — không có `QListView` ép chiều cao, không có bảng 40 hàng, không
+có nhãn dài.
+
+### 7 PR Engine, mỗi cái một khuyết tật đo được
+
+| PR | Sửa gì |
+| :--- | :--- |
+| #199 | `DataRow` thôi làm `Panel`; `TABLE_CELL`/`TABLE_CELL_STRONG`/`GHOST_BUTTON`; `set_cell_tone`/`set_action_tone`; `cell()` |
+| #200 | `action_stretch` — hàng khớp được cột ACTIONS của header |
+| #201 | Bỏ margin mặc định 9px (hàng cần 41px để hiện 23px nội dung → bảng render trắng trơn); `GHOST_BUTTON` khai font-size |
+| #202 | `_token()` raise trên tên sai — `semantic_colour()` hứa `KeyError` từ ngày viết mà **chưa bao giờ raise**: gõ sai sinh `color: None;`, Qt bỏ qua trong im lặng. Kèm `set_cell_colour` |
+| #203 | `Overlay` cấp role cho title/subtitle (đo từ `ModalDialogCard.qml`); `title_label` công khai |
+| #204 | `Banner` tô chữ bên trong |
+| #205 | `Severity.SUCCESS` |
+
+### `BUG-051` — bảng status bị cắt còn 14px suốt từ ngày port
+
+Bắt được **bằng ảnh chụp trước/sau**, không phải bằng test — đúng thứ mục "Bằng chứng phải nộp"
+sinh ra để làm. `setIndexWidget()` không nói cho `QListView` biết widget cao bao nhiêu, nên ô giữ
+chiều cao mặc định của delegate = **một dòng text**. Nhãn 11px vừa khít; 4 nút hành động
+`setFixedHeight(22)` thì bị cắt cụt, **render thành viền rỗng không chữ**.
+
+Không ai thấy vì hai lớp che nhau: bảng thường trống lúc chụp ảnh, và test hỏi *"widget có tồn
+tại không"* chứ không hỏi *"nó có nhìn thấy được không"*. Hồ sơ:
+[`BUG-051`](../../../bug_report/completed/BUG-051_status_row_clipped_to_one_line_of_text.md).
+
+### `BUG-008` lần thứ tư — lần này theo chiều ngược lại
+
+Danh sách gap hiện **nền trắng** sau khi dialog lên `Overlay`. Widget đó **chưa bao giờ tự đặt
+nền**; nó thừa hưởng nền từ chính stylesheet không-scope của dialog cha. Dialog lên `Overlay` là
+có sheet scope đúng cách, và màu thừa hưởng đi theo.
+
+Nghĩa là: gỡ `BUG-008` không chỉ **bỏ** chrome thừa (như bảng chỉ báo Dev Board mất khung), nó
+còn **lộ ra** những chỗ đang sống nhờ cascade sai. Cả hai đều là "widget hiển thị đúng thứ nó
+khai báo"; hướng khác nhau.
+
+### Thay đổi thị giác — ghi lại, không phải bỏ sót
+
+| Chỗ | Khác gì | Vì sao giữ |
+| :--- | :--- | :--- |
+| Header 3 bảng | 10px → 11px + letter-spacing (`SECTION_LABEL`) | Gộp token, cùng loại đã chấp nhận ở Settings/Backtest |
+| Pill `TF` của bảng status | Mất bold, padding ngang khác | `BADGE` không khai font-weight; nó **đã có 2 consumer đang chạy** (`LogPanel`, `TabBar`) — sửa role dùng chung để khớp một call site mới là đúng thứ yêu cầu 3 cấm |
+| DURATION của bảng gap | Giữ nguyên accent | Qua `set_cell_colour("accent")`, không phải QSS tại chỗ |
+| Banner coverage | Thêm bold | 3/4 bản gốc là bold; Engine áp cho cả 4 |
+| Bảng status | **Hàng cao 23px thay vì 14px** | Đây là `BUG-051` được sửa, không phải regression |
+
+### Kiểm tra
+
+- Elite: `1820 passed, 4 skipped, 0 failed` (full suite)
+- Engine: `1304 passed, 8 skipped`, `mypy` sạch 219 file
+- `mypy` Elite: **517** lỗi / 95 file — baseline trước khi làm là 518, không thêm lỗi nào
+- `ruff check` + `ruff format`: sạch cả hai repo
+- Guard: `find_inline_stylesheets` = **0**, `find_bare_qt_base_widgets` trên `screens/` = **0**
+- Ảnh trước/sau: bảng status, 2 inspector dialog, 3 banner Backtest — kèm số pixel diff
+
+### Còn lại, ghi làm ứng viên chứ không phải bỏ sót
+
+`BADGE` và `Card.title` chưa khai font-size/weight — cùng khoảng trống với `StatCard` và
+`Banner`, nhưng **cả hai đã có consumer đang chạy**, nên sửa chúng là đổi thị giác ở chỗ khác
+chứ không phải điền vào chỗ trống. Cần một vòng ảnh trước/sau riêng, không gộp vào task này.

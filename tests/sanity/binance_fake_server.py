@@ -62,11 +62,11 @@ _ROUTES: dict[str, object] = {
 
 
 class _Handler(BaseHTTPRequestHandler):
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture, not
         # a service anyone needs to watch run.
 
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's own name
+    def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         body = _ROUTES.get(path)
         if body is None:

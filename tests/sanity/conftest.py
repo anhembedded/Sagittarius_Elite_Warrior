@@ -101,10 +101,9 @@ def booted_app(qapp):
     from unittest.mock import patch
 
     from binance.client import Client
+    from binance_fake_server import run_binance_fake_server
     from Sagittarius_Elite_Warrior.src.main import create_app
     from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-
-    from binance_fake_server import run_binance_fake_server
 
     config_manager = ConfigManager()
     config_manager.load_json(str(_CONFIG_DIR / "app_config.json"))

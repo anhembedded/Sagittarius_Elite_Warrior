@@ -74,7 +74,16 @@ _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # content being clipped the instant the window opens, before the user ever
 # touches the (now resizable) splitter.
 _WINDOW_SIZE = (1440, 860)
-_CONTENT_BG_STYLE = f"background-color: {Palette.BG}; color: {Palette.TEXT_PRIMARY};"
+#: Scoped to the stack itself. Written as a bare property list it was
+#: `BUG-008` at the largest scope this app has — Qt reads a selector-less
+#: rule as the universal selector, and this widget holds **every screen**,
+#: so `Palette.BG` was repainted onto every label, field and frame in the
+#: app that had no background rule of its own. That is what put a dark
+#: rectangle behind each label in the storage screen's stat tiles.
+_CONTENT_BG_STYLE = (
+    f"QStackedWidget {{ background-color: {Palette.BG}; "
+    f"color: {Palette.TEXT_PRIMARY}; }}"
+)
 
 
 class MainWindow(QMainWindow):
