@@ -46,6 +46,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_r
 #: generous ceiling that still rejects a corrupted blob is the point.
 _MAX_TEXT_LENGTH = 64
 
+#: Longest symbol any exchange lists is well under this; a generous ceiling
+#: that still rejects a corrupted blob is the point, not a precise limit.
+_MAX_SYMBOL_LENGTH = 20
+
 
 @dataclass(frozen=True, slots=True)
 class StateField:
@@ -62,6 +66,15 @@ class StateField:
 
 def _text(value: Any, _view_model: Any) -> bool:
     return isinstance(value, str) and len(value) <= _MAX_TEXT_LENGTH
+
+
+def _symbol_shape(value: Any, _view_model: Any) -> bool:
+    """A plausible exchange symbol: alphanumeric, non-empty, short."""
+    return (
+        isinstance(value, str)
+        and value.strip().isalnum()
+        and len(value.strip()) <= _MAX_SYMBOL_LENGTH
+    )
 
 
 def _flag(value: Any, _view_model: Any) -> bool:
@@ -128,11 +141,29 @@ def _among(
     return check
 
 
-#: Deliberately absent: `selectedSymbol` and `selectedTimeframe`. They are the
-#: only two values in the app where `user_config`'s `DEFAULT_*` keys and a
-#: remembered value would both claim the same field, and settling that needs
-#: `EPIC-010H` — see this task's file for the full reasoning.
+#: `symbol` and `timeframe` were held back from `EPIC-010F` until `EPIC-010H`
+#: settled the three-tier order — they are the only two values in the app where
+#: `user_config`'s `DEFAULT_*` keys and a remembered value both claim the same
+#: field. That order is now
+#:
+#:     ui_state  >  user_config DEFAULT_*  >  module constants
+#:
+#: and `SettingsPresenter._discard_outranked_state()` honours its mandatory
+#: consequence: saving those defaults drops exactly these two remembered keys,
+#: so changing Settings visibly takes effect instead of losing to an older
+#: value.
 BACKTEST_STATE_FIELDS: tuple[StateField, ...] = (
+    StateField(
+        # Shape, not membership — unlike `strategy` above. `symbolOptions` is
+        # filled by `_fetch_symbol_options()` on the thread pool, so at restore
+        # time it is still empty and a membership check would reject every
+        # symbol, every launch. Same conclusion as `EPIC-010D` reached for the
+        # Dev Board, by a different route.
+        "symbol",
+        "selectedSymbol",
+        _symbol_shape,
+    ),
+    StateField("timeframe", "selectedTimeframe", _among("timeframeOptions")),
     StateField(
         # `strategyOptions` entries are `{"key": ..., "name": ...}` dicts
         # (`backtest_presenter.py:471`), not plain strings — comparing a

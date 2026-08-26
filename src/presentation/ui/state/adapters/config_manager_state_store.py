@@ -33,6 +33,7 @@ have a test.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ports.i_state_store import (
     IStateStore,
@@ -95,6 +96,15 @@ class ConfigManagerStateStore(IStateStore):
         result, and whole-file removal is `IStateStoreLocator.reset()`'s job.
         """
         self.write(scope, {})
+
+    def discard_keys(self, scope: StateScope, keys: Iterable[str]) -> None:
+        """Rewrites `scope`'s slice without `keys` (`EPIC-010H`)."""
+        remaining = {
+            key: value
+            for key, value in self.read(scope).items()
+            if key not in set(keys)
+        }
+        self.write(scope, remaining)
 
     def flush(self) -> None:
         """Writes pending slices out. Never raises."""

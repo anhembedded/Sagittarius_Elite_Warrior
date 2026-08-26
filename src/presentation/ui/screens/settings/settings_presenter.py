@@ -3,10 +3,27 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Slot
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
+    find_state_coordinator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import StateScope
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 from .settings_view_model import SettingsViewModel
+
+#: `EPIC-010H` — which remembered keys each screen loses when this screen
+#: saves. Only the values `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` actually
+#: govern; everything else those slices hold is none of Settings' business.
+#: The Dev Board and Database screens are absent on purpose — they read
+#: neither config key today, so Settings does not outrank anything of
+#: theirs (see this task's file).
+_STATE_KEYS_OWNED_BY_SETTINGS: dict[str, tuple[str, ...]] = {
+    "backtest": ("symbol", "timeframe"),
+}
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -55,6 +72,13 @@ class SettingsPresenter(BasePresenter):
 
         self._settings_view_model = SettingsViewModel()
         self._load_from_config()
+
+        # EPIC-010H — this screen owns DEFAULT_SYMBOLS/DEFAULT_INTERVAL, so
+        # saving them has to invalidate the remembered values that outrank
+        # them (see `_discard_outranked_state`).
+        self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
+            container
+        )
 
         # view.set_view_model() now happens AFTER _load_from_config() (order
         # flipped from the QML version, EPIC-005D): SettingsView reads the
@@ -114,7 +138,36 @@ class SettingsPresenter(BasePresenter):
                 view_model.set_status(_SAVED_IN_MEMORY_ONLY_MESSAGE, is_error=True)
                 return
 
+        self._discard_outranked_state()
         view_model.set_status(_SAVED_MESSAGE, is_error=False)
+
+    def _discard_outranked_state(self) -> None:
+        """Forgets the remembered values this save has just overruled.
+
+        @details `EPIC-010H` settles the three-tier order as
+
+            ui_state  >  user_config DEFAULT_*  >  module constants
+
+        which has one mandatory consequence: a remembered value outranks the
+        Settings default, so changing that default must drop the remembered
+        one. Without this, the user edits Settings, presses Save, and nothing
+        appears to happen — the older, higher-priority value keeps winning.
+
+        Scoped to the two keys this screen actually owns. Dropping whole
+        slices instead would take every unrelated remembered value on those
+        screens (leverage, commission, timezone, the script checklist) with
+        it, which is worse than the problem being fixed — and is why
+        `IStateStore` grew `discard_keys()` for this.
+
+        Unconditional rather than compared against the previous value: Save
+        is an explicit act, and "make sure this is not remembered" is
+        idempotent, so re-saving an unchanged field costs one harmless write
+        and needs no before/after bookkeeping to stay correct.
+        """
+        if self._state_coordinator is None:
+            return
+        for scope_key, keys in _STATE_KEYS_OWNED_BY_SETTINGS.items():
+            self._state_coordinator.discard_keys(StateScope(key=scope_key), keys)
 
     @staticmethod
     def _parse_symbols(raw: str) -> list[str]:

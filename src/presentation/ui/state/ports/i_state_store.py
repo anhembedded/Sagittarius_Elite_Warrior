@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
     StateData,
@@ -55,6 +56,22 @@ class IStateStore(ABC):
         @details The verb exists so that "this instance is gone" is something a
         caller can *say*, rather than something that happens to be true because
         the data lived in memory. A no-op on a store that has nothing to drop.
+        """
+        ...
+
+    @abstractmethod
+    def discard_keys(self, scope: StateScope, keys: Iterable[str]) -> None:
+        """Forgets just `keys` within `scope`'s slice, leaving the rest.
+
+        @details `EPIC-010H`. `discard()` drops a whole slice, which is right
+        when an instance is gone but far too blunt for the precedence rule:
+        changing `DEFAULT_SYMBOLS` in Settings must invalidate the remembered
+        symbol, and *only* that — dropping the whole Backtest slice to do it
+        would take leverage, commission and timezone with it, which is worse
+        than the problem it solves.
+
+        Silently ignores a key the slice does not hold; "make sure this is not
+        remembered" is the contract, not "delete an existing key".
         """
         ...
 

@@ -17,6 +17,7 @@ went dirty in that window — not one write per field.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 
 from PySide6.QtCore import QObject, QTimer
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.i_state_contributor import (
@@ -82,6 +83,19 @@ class UiStateCoordinator(QObject):
         debounce window that was already in flight."""
         self._dirty.pop(contributor.state_scope, None)
         self._store.discard(contributor.state_scope)
+
+    def discard_keys(self, scope: StateScope, keys: Iterable[str]) -> None:
+        """Forgets specific remembered values without touching the rest.
+
+        @details `EPIC-010H`'s precedence rule: `ui_state` outranks
+        `user_config`'s `DEFAULT_*`, so changing one of those in Settings has
+        to invalidate the remembered value it now outranks — otherwise the
+        user edits Settings and nothing appears to happen. Scoped to the
+        affected keys, because dropping a whole slice to change one default
+        would discard every unrelated value on that screen.
+        """
+        self._store.discard_keys(scope, keys)
+        self._store.flush()
 
     def flush(self) -> None:
         """Writes every pending contributor now, synchronously.

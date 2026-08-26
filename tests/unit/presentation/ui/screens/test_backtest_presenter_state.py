@@ -245,17 +245,18 @@ def test_one_bad_field_falls_back_alone(view, container, key, bad_value):
         )
 
 
-def test_symbol_and_timeframe_are_deliberately_not_remembered(view, container):
-    """Scope decision, not an oversight: they are the only two values where
-    Settings' DEFAULT_* keys would also claim the field, and settling that
-    precedence is EPIC-010H. See the task file."""
-    keys = {field.key for field in BACKTEST_STATE_FIELDS}
-    props = {field.prop for field in BACKTEST_STATE_FIELDS}
+def test_symbol_and_timeframe_are_remembered_now_that_precedence_is_settled(
+    view, container
+):
+    """Held back from `010F` until `010H` defined the three-tier order and
+    gave Settings a way to invalidate exactly these two keys. See
+    `SettingsPresenter._discard_outranked_state`."""
+    coordinator = _coordinator_with({"symbol": "SOLUSDT", "timeframe": "15m"})
 
-    assert "symbol" not in keys
-    assert "timeframe" not in keys
-    assert "selectedSymbol" not in props
-    assert "selectedTimeframe" not in props
+    presenter = BackTestPresenter(view, _with_coordinator(container, coordinator))
+
+    assert presenter._view_model.selectedSymbol == "SOLUSDT"
+    assert presenter._view_model.selectedTimeframe == "15m"
 
 
 def test_editing_a_field_survives_a_restart(view, container):

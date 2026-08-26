@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ports.i_state_store import (
     IStateStore,
 )
@@ -35,6 +37,9 @@ class NullStateStore(IStateStore):
 
     def discard(self, scope: StateScope) -> None:
         return
+
+    def discard_keys(self, scope: StateScope, keys: Iterable[str]) -> None:
+        """No-op — nothing was remembered to forget."""
 
     def flush(self) -> None:
         return
