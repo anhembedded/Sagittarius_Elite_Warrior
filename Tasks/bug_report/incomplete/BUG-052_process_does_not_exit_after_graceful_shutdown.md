@@ -59,8 +59,13 @@ Chỉ ghi những gì đọc **trực tiếp** được:
    số đó nằm gọn ở một chỗ duy nhất**: giữa `Stopping extension 'BinanceBotModule'...`
    (`25,945`) và `Disposing extension 'BinanceBotModule'...` (`34,655`). Mọi extension khác
    đều xong trong 1–3ms.
-2. `ThreadManagerExtension` `Stopping` → `Disposing` mất **4ms** — tức lúc nó dừng thì đã
-   không còn phải chờ job nào.
+2. `ThreadManagerExtension` `Stopping` → `Disposing` mất **4ms**.
+
+   > ⚠️ **Sửa 2026-08-26:** bản đầu của mục này viết tiếp *"tức lúc nó dừng thì đã không
+   > còn phải chờ job nào"*. **Suy luận đó sai.**
+   > `ThreadManagerExtension.shutdown()` gọi `thread_manager.shutdown(wait=False)`, nên nó
+   > **luôn** trả về ngay, **bất kể** còn job đang chạy hay không. 4ms vì thế không nói được
+   > gì về việc còn job — nó chỉ chứng minh `wait=False` chạy đúng như tên gọi. Xem §5.2.
 3. **Không có dòng nào sau `App stopped.`** — nên log tự nó không nói được ai đang giữ
    tiến trình lại. Cần công cụ ngoài (dump thread) mới thấy.
 4. Trước đó phiên này đã chạy Historical Tick Backtest nạp **2.592.000 tick** và người dùng
