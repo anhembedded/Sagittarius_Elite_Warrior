@@ -12,6 +12,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical
     RunHistoricalTickBacktestCommand,
     RunHistoricalTickBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.handler import (
+    _bar_bounds,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
     RunStaticBacktestCommand,
@@ -376,3 +379,68 @@ def test_progress_callback_rate_is_bounded_regardless_of_tick_count():
     assert len(updates) < 20
     assert updates[0][1:3] == (1, 20_000)
     assert updates[-1][1:3] == (20_000, 20_000)
+
+
+def test_the_containment_check_agrees_with_bar_bounds_on_every_tick():
+    """BOLT-001's invariant, asserted rather than assumed.
+
+    The per-tick loop skips `_bar_bounds()` whenever the tick still falls
+    inside the open bar's half-open `[bar_start, bar_end)` window. That is
+    only sound if the containment answer and the floor answer can never
+    disagree — so this walks a whole bar plus its two boundaries and checks
+    both agree on every single tick, including the two that decide where the
+    bar ends.
+    """
+    interval_seconds = 300
+    origin = datetime(2026, 1, 1, tzinfo=UTC)
+    bar_start, bar_end = _bar_bounds(origin, interval_seconds)
+
+    # One tick per second across the bar, plus one before it and one after.
+    for offset in range(-1, interval_seconds + 2):
+        tick_time = bar_start + timedelta(seconds=offset)
+        inside_window = bar_start <= tick_time < bar_end
+        floors_to_this_bar = _bar_bounds(tick_time, interval_seconds)[0] == bar_start
+
+        assert inside_window == floors_to_this_bar, (
+            f"offset {offset}s: containment said {inside_window}, "
+            f"_bar_bounds said {floors_to_this_bar}"
+        )
+
+
+def test_a_tick_at_exactly_bar_end_starts_a_new_bar_rather_than_joining_the_old(
+    caplog,
+):
+    """The one off-by-one BOLT-001's containment check could hide.
+
+    The fast path asks `bar_start <= tick.open_time < bar_end`. Writing that
+    `<=` instead of `<` folds the first tick of a bar into the previous one —
+    no crash, no exception, just quietly wrong bar contents.
+
+    `test_a_tick_gap_between_bars_is_logged_and_force_commits_the_stale_bar`
+    does not catch it: its resuming tick sits at bar 2 (T+120s), well past
+    the boundary, so both spellings take the same branch. This one puts the
+    resuming tick at **exactly** bar 0's `bar_end`, the only instant where
+    the two spellings disagree.
+
+    Verified by fault injection: flipping the operator to `<=` turns this
+    test red and leaves every other tick test green.
+    """
+    stale_bar = _build_bar_ticks(0, [100.0, 101.0], bar_seconds=60)[:1]
+    resuming_tick = _build_bar_ticks(1, [102.0], bar_seconds=60)
+    assert resuming_tick[0].open_time == stale_bar[0].open_time + timedelta(
+        seconds=60
+    ), (
+        "the resuming tick must land exactly on bar 0's bar_end for this to test anything"
+    )
+
+    handler, _ = _build_handler(stale_bar + resuming_tick)
+
+    with caplog.at_level(logging.WARNING, logger="App.RunHistoricalTickBacktest"):
+        result = handler.execute(_build_command())
+
+    assert isinstance(result, BacktestResult)
+    gap_warnings = [r for r in caplog.records if "tick_gap_forced_commit" in r.message]
+    assert len(gap_warnings) == 1, (
+        "a tick at exactly bar_end must close the stale bar and open a new one, "
+        "not be absorbed into it"
+    )

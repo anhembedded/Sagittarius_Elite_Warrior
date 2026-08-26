@@ -90,10 +90,7 @@ Pick ONE refactoring opportunity that:
 Follow `.agents/rules/commit-rule.md`:
 - **Commit format:** `refactor(<scope>): <concise subject>`
 - **Description:** Detail the code smell addressed, how it was decomposed, and verification results.
-- **Mandatory signature:**
-  ```
-  Co-Authored-By: Antigravity <noreply@google.com>
-  ```
+- **Mandatory signature:** the `Co-Authored-By` trailer defined in `.agents/rules/commit-rule.md`. Read it there and name the assistant that actually authored the commit. Do not copy a trailer into this file — a hardcoded one is how this repo shipped a wrong attribution before (`CLAUDE.md`, "Không chép luật vào đây").
 
 ---
 

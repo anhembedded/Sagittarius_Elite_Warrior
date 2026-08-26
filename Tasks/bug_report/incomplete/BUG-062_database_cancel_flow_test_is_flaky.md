@@ -86,52 +86,68 @@ lần sau thay đổi này mà không tái xuất.
 
 ---
 
-## Đã tái hiện SAU bản vá `b94b7ff` — thêm 2026-08-26 (phiên `EPIC-003E`)
+## Cập nhật 2026-08-26 (lần 2) — bản sửa fixture KHÔNG chặn được flake
 
-Mục trên nói *"chưa tái hiện được cú đỏ"*. **Tái hiện được rồi**, và là **sau**
-khi `_FakeExchangeClient` đã thay `Mock`. Ghi lại vì đây đúng là dữ kiện mục trên
-đang thiếu.
+Sau khi thay `Mock(spec=IExchangeClient)` bằng `_FakeExchangeClient` viết tay,
+test **vẫn đỏ** trong một lần chạy `ci-local.ps1 -Full` ngay sau đó:
 
-Đo trên 5 lượt `pwsh -NoProfile -File scripts/ci-local.ps1 -Full` liên tiếp,
-cùng một máy, trong lúc làm việc **không đụng gì tới `data_management/`**:
+```
+>       qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
+E       pytestqt.exceptions.TimeoutError: waitUntil timed out in 2000 milliseconds
+```
 
-| Lượt | Kết quả test này |
+Điểm quyết định: fixture trong dòng header của lần đỏ này đúng là
+`_FakeExchangeClient`, và **toàn bộ log có 0 lỗi `Mock`**.
+
+**Kết luận rút ra:** lỗi `'Mock' object is not iterable` / `has no len()` là
+**triệu chứng đi kèm, không phải nguyên nhân**. Bản sửa fixture đã đóng đúng
+đường nó bịt — không còn `Mock` thô nào tới được code thật — nhưng cái làm test
+đỏ là **FSM không kịp vào `UIMode.SYNCING` trong 2000ms**, và điều đó vẫn xảy ra.
+
+Giả thuyết mới, chưa kiểm chứng: dưới tải song song (`-n`), tác vụ nền dispatch
+`SyncMarketDataCommand` không được lập lịch kịp trong cửa sổ 2 giây, nên FSM
+chưa chuyển trạng thái khi `waitUntil` hết giờ. Nếu đúng thì đây là **test quá
+chặt về thời gian**, không phải lỗi sản phẩm — nhưng phải đo, không đoán.
+
+Hướng điều tra tiếp:
+
+1. Ghi lại `presenter.fsm.current_state` **thực tế** lúc timeout (hiện tại
+   thông báo chỉ nói "không phải SYNCING", không nói nó đang ở đâu).
+2. Nếu nó đang ở trạng thái trung gian hợp lệ → nới timeout hoặc chờ theo tín
+   hiệu thay vì theo đồng hồ.
+3. Nếu nó ở trạng thái lỗi → có lỗi thật, và cần biết lỗi gì.
+
+**Không nới timeout trước khi biết câu 1** — nới mù là cách biến một bug thật
+thành một test ngủ quên.
+
+### Đo tỉ lệ — thêm từ phiên `EPIC-003E`
+
+Kết luận trên trùng khớp với những gì phiên `EPIC-003E` đo được độc lập. Phần
+bổ sung là **tỉ lệ**, và một quan sát thứ hai:
+
+Trên **5 lượt `ci-local.ps1 -Full` liên tiếp**, cùng máy, từ một cây làm việc
+**không đụng file `data_management/` nào**:
+
+| Lượt | Test này |
 | :-: | :--- |
-| 1 | ❌ đỏ |
+| 1 | ❌ |
 | 2 | ✅ (cây sạch, không có việc đang dở) |
-| 3 | ❌ đỏ — **kèm** một test khác cũng đỏ (`test_ui_state_coordinator::test_marking_again_restarts_the_window`) |
+| 3 | ❌ — **kèm** `test_ui_state_coordinator::test_marking_again_restarts_the_window` cũng đỏ |
 | 4 | ✅ |
-| 5 | ❌ đỏ |
+| 5 | ❌ |
 
-**3/5 lượt đỏ.** Triệu chứng **y hệt** mô tả ở §Hiện tượng:
+**3/5 đỏ.** Chạy riêng: **10/10 xanh** (2 đợt × 5).
 
-```
-qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
-E  pytestqt.exceptions.TimeoutError: waitUntil timed out in 2000 milliseconds
-```
+Quan sát ở lượt 3 củng cố giả thuyết "quá chặt về thời gian": test đỏ **kèm**
+kia có docstring **tự ghi** rằng nó hỏng khi máy tải nặng —
 
-Hai điều bản vá **đã** làm được, đọc từ log lượt đỏ:
+> *"It passed alone and **failed inside the full unit run** ... because on a
+> loaded machine `wait(75)` really can take longer than the 150ms window"*
 
-- Dòng `SyncMarketDataCommand failed: 'Mock' object is not iterable` — có ở mọi
-  lần gặp **trước đây** — **không còn xuất hiện**. Fixture `_FakeExchangeClient`
-  hiện diện trong output (`database_app_context = (..., <_FakeExchangeClient ...>)`).
-- Nên: bản vá **đã bịt đúng lớp lỗi nó nhắm tới**. Cú đỏ còn lại là **nguyên
-  nhân khác**, không phải cái cũ sót lại.
+**Mỗi lượt đỏ một tập test khác nhau** là chữ ký của flake theo tải, không phải
+của regression (regression đỏ cùng một test mọi lượt).
 
-### Hai quan sát thu hẹp được phạm vi
-
-1. **Chạy riêng luôn xanh.** 10/10 lượt chạy đơn lẻ test này đều pass (2 đợt × 5).
-   Chỉ đỏ khi chạy trong suite song song (`-n`), khớp họ `BUG-030`.
-2. **Lượt 3 đỏ kèm một test khác**, và test kia có docstring **tự ghi** rằng nó
-   hỏng khi máy tải nặng:
-   > *"It passed alone and **failed inside the full unit run** ... because on a
-   > loaded machine `wait(75)` really can take longer than the 150ms window"*
-
-   Hai test đỏ **khác nhau giữa các lượt** là chữ ký của **flake theo tải**, không
-   phải của một regression (regression đỏ cùng một test mọi lượt).
-
-**Giả thuyết đề xuất cho lần điều tra sau:** không phải `Mock`, mà là **timeout
-2000ms quá sát** khi worker `xdist` tranh CPU. Cách kiểm rẻ nhất: chạy suite với
-`-n 2` thay vì mặc định và xem tỉ lệ đỏ có tụt không. Nếu có, cái cần sửa là chỗ
-test chờ (`waitUntil` theo điều kiện thay vì theo hạn giờ cứng), không phải
-production code.
+**Cách kiểm rẻ nhất cho bước 1–3 ở trên:** chạy suite với `-n 2` thay vì mặc
+định và so tỉ lệ đỏ. Nếu tỉ lệ tụt, biến số là tranh CPU giữa worker `xdist`,
+và chỗ cần sửa là chỗ test chờ — chờ theo tín hiệu thay vì theo hạn giờ cứng —
+chứ không phải production code.

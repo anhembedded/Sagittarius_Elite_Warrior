@@ -95,10 +95,7 @@ Pick ONE domain model, port interface, or service method that:
 Follow `.agents/rules/commit-rule.md`:
 - **Commit format:** `docs(<scope>): <concise subject>` or `refactor(types): <concise subject>`
 - **Description:** Detail what types/docstrings were added and why.
-- **Mandatory signature:**
-  ```
-  Co-Authored-By: Antigravity <noreply@google.com>
-  ```
+- **Mandatory signature:** the `Co-Authored-By` trailer defined in `.agents/rules/commit-rule.md`. Read it there and name the assistant that actually authored the commit. Do not copy a trailer into this file — a hardcoded one is how this repo shipped a wrong attribution before (`CLAUDE.md`, "Không chép luật vào đây").
 
 ---
 
