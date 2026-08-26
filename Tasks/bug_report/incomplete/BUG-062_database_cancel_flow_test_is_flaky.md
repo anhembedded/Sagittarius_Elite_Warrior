@@ -119,3 +119,35 @@ Hướng điều tra tiếp:
 
 **Không nới timeout trước khi biết câu 1** — nới mù là cách biến một bug thật
 thành một test ngủ quên.
+
+### Đo tỉ lệ — thêm từ phiên `EPIC-003E`
+
+Kết luận trên trùng khớp với những gì phiên `EPIC-003E` đo được độc lập. Phần
+bổ sung là **tỉ lệ**, và một quan sát thứ hai:
+
+Trên **5 lượt `ci-local.ps1 -Full` liên tiếp**, cùng máy, từ một cây làm việc
+**không đụng file `data_management/` nào**:
+
+| Lượt | Test này |
+| :-: | :--- |
+| 1 | ❌ |
+| 2 | ✅ (cây sạch, không có việc đang dở) |
+| 3 | ❌ — **kèm** `test_ui_state_coordinator::test_marking_again_restarts_the_window` cũng đỏ |
+| 4 | ✅ |
+| 5 | ❌ |
+
+**3/5 đỏ.** Chạy riêng: **10/10 xanh** (2 đợt × 5).
+
+Quan sát ở lượt 3 củng cố giả thuyết "quá chặt về thời gian": test đỏ **kèm**
+kia có docstring **tự ghi** rằng nó hỏng khi máy tải nặng —
+
+> *"It passed alone and **failed inside the full unit run** ... because on a
+> loaded machine `wait(75)` really can take longer than the 150ms window"*
+
+**Mỗi lượt đỏ một tập test khác nhau** là chữ ký của flake theo tải, không phải
+của regression (regression đỏ cùng một test mọi lượt).
+
+**Cách kiểm rẻ nhất cho bước 1–3 ở trên:** chạy suite với `-n 2` thay vì mặc
+định và so tỉ lệ đỏ. Nếu tỉ lệ tụt, biến số là tranh CPU giữa worker `xdist`,
+và chỗ cần sửa là chỗ test chờ — chờ theo tín hiệu thay vì theo hạn giờ cứng —
+chứ không phải production code.
