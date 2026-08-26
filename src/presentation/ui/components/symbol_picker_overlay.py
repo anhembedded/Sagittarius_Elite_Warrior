@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtWidgets import QWidget
-from sagittarius_engine.extensions.pyside_mvc.widgets import PickerItem, PickerOverlay
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PickerItem, PickerOverlay
 
 _TITLE = "CHỌN SYMBOL"
 _SEARCH_PLACEHOLDER = "Tìm symbol (vd: BTC)"

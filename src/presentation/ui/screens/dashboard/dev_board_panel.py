@@ -51,7 +51,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.date_range_picker import (
     pick_date_range,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Panel,
     SectionLabel,
     StyledCheckBox,

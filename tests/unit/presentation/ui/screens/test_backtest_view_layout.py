@@ -15,13 +15,13 @@ instead of `qml_item()`/`rootObject()`.
 from unittest.mock import patch
 
 import pytest
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import Tone
 
 
 def _stat_cards(count: int) -> list[dict[str, str]]:

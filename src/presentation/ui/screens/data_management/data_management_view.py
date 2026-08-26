@@ -28,6 +28,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar i
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker_overlay import (
     SymbolPickerOverlay,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
+    Column,
+    ConfirmOverlay,
+    DataRow,
+    RowAction,
+    StyleRole,
+    Tone,
+    WidgetState,
+    apply_role,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
     GapInspectorDialog,
     KLineInspectorDialog,
@@ -39,16 +49,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.datab
     DatabaseStatusTableModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
-from sagittarius_engine.extensions.pyside_mvc.widgets import (
-    Column,
-    ConfirmOverlay,
-    DataRow,
-    RowAction,
-    StyleRole,
-    Tone,
-    WidgetState,
-    apply_role,
-)
 
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel

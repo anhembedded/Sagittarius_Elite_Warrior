@@ -1,6 +1,6 @@
 # EPIC-007 — Chuẩn hoá card dùng chung, đưa hình dạng lên Engine
 
-**Trạng thái:** 🟡 Đang làm (6/7 task con — `007A`–`007F` xong; còn `007G`. Guard bare-base 17 → **2**, và trên `screens/` là **0** — yêu cầu 1 của `007F` đạt)
+**Trạng thái:** 🟡 Đang làm (7/8 task con — `007A`–`007F` và `007H` xong; còn `007G`. Guard bare-base 17 → **2**, và trên `screens/` là **0** — yêu cầu 1 của `007F` đạt)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; giảm chi phí sửa UI về sau
 **Nhánh đề xuất:** `epic/EPIC-007-chuan-hoa-card`
@@ -91,6 +91,7 @@ ghi chú.
 | **[007E](completed/EPIC-007E_elite_components_dung_chung.md)** | Elite: `components/` — `ChartCard(Card)` thay `BaseCard`, `TimeRangeCard`, `SymbolPickerOverlay`; cắt 3 import chéo | Elite | ✅ |
 | **[007F](completed/EPIC-007F_migrate_4_man_hinh.md)** | Elite: migrate 4 màn sang widget mới | Elite | ✅ |
 | **[007G](incomplete/EPIC-007G_tach_file_qua_nguong.md)** | Elite: tách các file vượt ngưỡng | Elite | 🔵 |
+| **[007H](completed/EPIC-007H_kit_ve_elite.md)** | Mang widget kit từ Engine về Elite | Cả hai | ✅ |
 
 `007A`→`007C` phải xong trước `007D`→`007G`: các task Elite cần base class thật để kế thừa,
 không được tự chế QSS inline tạm — đúng bài học `EPIC-005` (8 widget tự viết `setStyleSheet`
@@ -132,6 +133,20 @@ hàng, không nhãn dài, không ai đọc chữ trên banner.
 Năm lần thì không còn là trùng hợp. **Ghi vào đây làm luật cho epic sau: một widget Engine chưa
 có consumer thật ở Elite thì coi như chưa xong, dù test có xanh.** Test của `007B`/`007C` đều
 xanh suốt — chúng assert cấu trúc và chuỗi QSS, không assert *cái nhìn thấy được*.
+
+## 5c. Kết cục của §5b — kit về nơi đo được nó
+
+Quy luật ở §5b (*"một widget Engine chưa có consumer thật ở Elite thì coi như chưa xong"*) có một
+hệ quả mà lúc viết chưa ai nói ra: nếu **chỉ một** app định nghĩa "consumer thật", thì kit không
+phải framework, nó là code của app đó đang ở nhầm repo.
+
+`007H` rút ra kết luận ấy. Kit đã về `src/presentation/ui/kit/`, Engine giữ lại MVC base, từ
+vựng token và kit QML — những thứ **có** consumer thứ hai. Chi tiết và số liệu:
+[`007H`](completed/EPIC-007H_kit_ve_elite.md).
+
+Đáng ghi lại: bản thân việc chuyển chỗ lộ ra **4 lỗ hổng** không ai thấy khi kit còn ở Engine —
+trong đó có một guard chưa từng quét thư mục `overlays/`, và 8 lỗi lint ruff Engine cho qua. Đổi
+chỗ một thứ là một cách kiểm tra nó, và ở đây nó rẻ hơn cách kiểm tra khác.
 
 ## 6. Ngoài phạm vi
 

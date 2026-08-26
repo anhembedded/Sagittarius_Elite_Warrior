@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
-from sagittarius_engine.extensions.pyside_mvc.widgets import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Overlay,
     SelectableCard,
     StatCard,
