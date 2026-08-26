@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 3 |
 | ✅ **Đã sửa / đã đóng** | 52 |
-| 📈 **Tổng** | **54** |
+| 📈 **Tổng** | **55** |
 
 ---
 
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-055](incomplete/BUG-055_coverage_qt_deadlock_hangs_the_full_gate.md)** | Full gate treo/crash worker ở `tests/integration/presentation/ui/` — deadlock giữa `coverage.py` và Qt event loop | 🟡 P2 | 2026-08-26 | **Đã có stack thủ phạm, chưa sửa.** 4/7 lần chạy hỏng, mỗi lần một test khác nhưng luôn trong nhóm đó; chạy riêng thì test nào cũng xanh. `py-spy dump`: main thread chờ `coverage/collector.py:236 lock_data` từ trong `sizeHint()` do `pytest-qt` bơm event. Bỏ `--cov`, cùng `-n 6`: **1803 passed, 0 hỏng**. Mâu thuẫn với lý do gỡ exclusion `BOT-038` ngày 2026-08-25. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky), chỉ trên Windows. **Cập nhật 2026-08-25:** cơ chế đã chứng minh — `engine.dispose()` chỉ đóng connection *checked-in*; một `Session` còn checked-out thì `dispose_all()` **không** đóng, để lại cho GC → đúng điều kiện sinh `ResourceWarning`. Nên bước "cứ thêm `dispose_all()`" là **không đủ**. Linux đo lại bằng bằng chứng dương tính: 0 connection chưa đóng trên cả 6 worker. Đã có `scripts/bug030_connection_leak_probe.py` để chỉ đích danh file:line khi chạy được trên Windows. |
 
