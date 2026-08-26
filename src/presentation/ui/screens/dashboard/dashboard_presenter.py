@@ -66,6 +66,12 @@ _DEFAULT_INTERVAL_STR: str = "1m"
 _SYMBOL_KEY = "symbol"
 _INTERVAL_KEY = "interval"
 _LOOKBACK_DAYS_KEY = "lookback_days"
+#: `EPIC-010G` — the indicator-script checklist. Two keys, not one:
+#: remembering only which scripts are ON would let `set_available()`
+#: re-apply a `default_enabled` over a script the user deliberately turned
+#: off, which is the defect that task exists to close.
+_SCRIPTS_ENABLED_KEY = "scripts_enabled"
+_SCRIPTS_TOUCHED_KEY = "scripts_touched"
 
 #: Dates are persisted as a DURATION, never as absolute timestamps (design
 #: §9.1, risk R2): an absolute window remembered from a month ago would make
@@ -149,6 +155,16 @@ def _is_known_interval(value: object) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _is_key_list(value: object) -> bool:
+    """A remembered list of script keys (`EPIC-010G`).
+
+    @details Only shape is checked here — whether a key still names a
+    registered script is `restore_selection()`'s job, which intersects
+    against the rows that actually exist.
+    """
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
 def _is_sane_lookback(value: object) -> bool:
@@ -457,6 +473,7 @@ class DashboardPresenter(BasePresenter):
         )
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self)
+        self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)
         self._view_model.symbolChanged.connect(self._mark_state_dirty)
         self._view_model.startDateChanged.connect(self._mark_state_dirty)
         self._view_model.endDateChanged.connect(self._mark_state_dirty)
@@ -503,10 +520,13 @@ class DashboardPresenter(BasePresenter):
         return StateScope(key="dashboard")
 
     def capture_state(self) -> StateData:
+        script_model = self._view_model.script_model
         return {
             _SYMBOL_KEY: self._view_model.symbol,
             _INTERVAL_KEY: self._active_interval,
             _LOOKBACK_DAYS_KEY: self._current_lookback_days(),
+            _SCRIPTS_ENABLED_KEY: list(script_model.enabled_keys),
+            _SCRIPTS_TOUCHED_KEY: list(script_model.touched_keys),
         }
 
     def restore_state(self, data: StateData) -> None:
@@ -532,6 +552,14 @@ class DashboardPresenter(BasePresenter):
         lookback_days = data.get(_LOOKBACK_DAYS_KEY)
         if _is_sane_lookback(lookback_days):
             self._apply_lookback_days(lookback_days)
+
+        enabled = data.get(_SCRIPTS_ENABLED_KEY)
+        touched = data.get(_SCRIPTS_TOUCHED_KEY)
+        if _is_key_list(enabled) and _is_key_list(touched):
+            # Both or neither: applying `enabled` without `touched` would
+            # leave every key looking untouched, and the next
+            # `set_available()` would switch the defaults back on.
+            self._view_model.script_model.restore_selection(enabled, touched)
 
     def _mark_state_dirty(self) -> None:
         if self._state_coordinator is not None:

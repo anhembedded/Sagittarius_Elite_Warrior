@@ -106,6 +106,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_sig
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
     BACKTEST_STATE_FIELDS,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
+    SCRIPTS_ENABLED_KEY as _SCRIPTS_ENABLED_KEY,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
+    SCRIPTS_TOUCHED_KEY as _SCRIPTS_TOUCHED_KEY,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
+    is_key_list as _is_key_list,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
     find_state_coordinator,
 )
@@ -2561,9 +2570,19 @@ class BackTestPresenter(BasePresenter):
         return StateScope(key="backtest")
 
     def capture_state(self) -> StateData:
+        script_model = self._view_model.script_model
         return {
-            field.key: getattr(self._view_model, field.prop)
-            for field in BACKTEST_STATE_FIELDS
+            **{
+                field.key: getattr(self._view_model, field.prop)
+                for field in BACKTEST_STATE_FIELDS
+            },
+            # EPIC-010G — the script checklist is a QAbstractListModel, not a
+            # ViewModel property, so it cannot be a row in the table above.
+            # Two keys, not one: remembering only which scripts are ON would
+            # let `set_available()` re-apply a `default_enabled` over a script
+            # the user deliberately turned off.
+            _SCRIPTS_ENABLED_KEY: list(script_model.enabled_keys),
+            _SCRIPTS_TOUCHED_KEY: list(script_model.touched_keys),
         }
 
     def restore_state(self, data: StateData) -> None:
@@ -2585,6 +2604,14 @@ class BackTestPresenter(BasePresenter):
             if field.is_valid(value, self._view_model):
                 setattr(self._view_model, field.prop, value)
 
+        enabled = data.get(_SCRIPTS_ENABLED_KEY)
+        touched = data.get(_SCRIPTS_TOUCHED_KEY)
+        if _is_key_list(enabled) and _is_key_list(touched):
+            # Both or neither: applying `enabled` without `touched` would
+            # leave every key looking untouched, so the next
+            # `set_available()` would switch the defaults straight back on.
+            self._view_model.script_model.restore_selection(enabled, touched)
+
     def _connect_state_tracking(self) -> None:
         """Marks the slice dirty whenever any remembered field changes.
 
@@ -2596,6 +2623,7 @@ class BackTestPresenter(BasePresenter):
         """
         if self._state_coordinator is None:
             return
+        self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)
         for field in BACKTEST_STATE_FIELDS:
             signal = getattr(self._view_model, f"{field.prop}Changed", None)
             if signal is None:

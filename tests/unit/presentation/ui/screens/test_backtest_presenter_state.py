@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_pre
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
     BACKTEST_STATE_FIELDS,
+    SCRIPTS_ENABLED_KEY,
+    SCRIPTS_TOUCHED_KEY,
+    is_key_list,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
@@ -142,11 +145,18 @@ def test_every_declared_field_round_trips(view, container):
 
     captured = presenter.capture_state()
 
-    assert set(captured) == {field.key for field in BACKTEST_STATE_FIELDS}
+    # The two script keys (EPIC-010G) are deliberately outside the table —
+    # the checklist is a QAbstractListModel, not a ViewModel property.
+    assert set(captured) == {field.key for field in BACKTEST_STATE_FIELDS} | {
+        SCRIPTS_ENABLED_KEY,
+        SCRIPTS_TOUCHED_KEY,
+    }
     # Every captured value must survive its own validator — otherwise the
     # screen cannot restore what it just wrote.
     for field in BACKTEST_STATE_FIELDS:
         assert field.is_valid(captured[field.key], presenter._view_model), field.key
+    assert is_key_list(captured[SCRIPTS_ENABLED_KEY])
+    assert is_key_list(captured[SCRIPTS_TOUCHED_KEY])
 
 
 def test_restores_a_whole_remembered_form(view, container):

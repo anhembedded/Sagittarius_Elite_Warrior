@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -116,6 +116,60 @@ class IndicatorScriptListModel(QAbstractListModel):
             self._enabled.discard(key)
         index = self.index(row, 0)
         self.dataChanged.emit(index, index, [self.EnabledRole])
+        self.enabledKeysChanged.emit()
+
+    @property
+    def touched_keys(self) -> list[str]:
+        """Keys the user has toggled by hand at least once (`EPIC-010G`).
+
+        @details Persisted alongside `enabled_keys`, and useless without it.
+        `set_available()` re-applies a script's `default_enabled` to any key
+        **not** in this set, so a session that remembered only which scripts
+        were on would switch a default-on script the user deliberately turned
+        off straight back on at the next launch — the exact defect `EPIC-010G`
+        exists to close. Sorted so the persisted slice is stable and two runs
+        that changed nothing produce byte-identical output.
+        """
+        return sorted(self._user_touched)
+
+    def restore_selection(self, enabled: Iterable[str], touched: Iterable[str]) -> None:
+        """Applies a remembered selection over whatever is currently available.
+
+        @details Deliberately intersected with the rows that actually exist:
+        a script that has since been unregistered must not linger in
+        `_enabled`, which is the same rule `set_available()` enforces and for
+        the same reason — a stale key would otherwise leak into
+        `enabled_keys` forever.
+
+        `touched` is intersected too. Its whole purpose is to suppress a
+        `default_enabled` that would otherwise be re-applied, and a key with
+        no row cannot have a default to suppress.
+
+        Call this **after** `set_available()`: it layers the user's own
+        choices over the defaults that call applied, so running it first would
+        let `set_available()` overwrite them.
+        """
+        available = {row.key for row in self._rows}
+        remembered_touched = set(touched) & available
+        remembered_enabled = set(enabled) & available
+        self._user_touched = remembered_touched
+        # Only keys the user actually touched override what `set_available()`
+        # just decided. Replacing `_enabled` wholesale instead would discard
+        # the default for every key they never touched — including a
+        # `default_enabled` script added in a later release, which would
+        # arrive switched OFF for existing users purely because it did not
+        # exist when the slice was written.
+        for key in remembered_touched:
+            if key in remembered_enabled:
+                self._enabled.add(key)
+            else:
+                self._enabled.discard(key)
+        if self._rows:
+            self.dataChanged.emit(
+                self.index(0, 0),
+                self.index(len(self._rows) - 1, 0),
+                [self.EnabledRole],
+            )
         self.enabledKeysChanged.emit()
 
     @property

@@ -184,3 +184,23 @@ BACKTEST_STATE_FIELDS: tuple[StateField, ...] = (
     ),
     StateField("extended_metrics", "showExtendedMetrics", _flag),
 )
+
+
+# --- EPIC-010G — the indicator-script checklist ----------------------------
+#: Kept out of `BACKTEST_STATE_FIELDS` on purpose: the checklist is a
+#: `QAbstractListModel`, not a ViewModel property, so it has no `prop` to
+#: `getattr` and no `<prop>Changed` notifier of the shape the table assumes.
+#: Forcing it into a row would mean special-casing the row everywhere the
+#: table is iterated, which is worse than two named constants beside it.
+SCRIPTS_ENABLED_KEY = "scripts_enabled"
+SCRIPTS_TOUCHED_KEY = "scripts_touched"
+
+
+def is_key_list(value: object) -> bool:
+    """A remembered list of script keys.
+
+    @details Shape only — whether a key still names a registered script is
+    `IndicatorScriptListModel.restore_selection()`'s job, which intersects
+    against the rows that actually exist.
+    """
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
