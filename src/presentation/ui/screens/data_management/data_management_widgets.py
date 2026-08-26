@@ -49,12 +49,18 @@ def field_style(extra_height: int | None = None) -> str:
     )
 
 
-class TimeRangeCardWidget(QWidget):
+class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
     """Port of the engine's `TimeRangeCard.qml`: a "use custom time range"
     toggle plus two free-text From/To fields (not QDateTimeEdit — the QML
     version never validated format at the widget level either; the
     presenter's `_parse_datetime`/`SyncCoordinator.parse_datetime` is the
-    real validation, unchanged by this migration)."""
+    real validation, unchanged by this migration).
+
+    **Named "Card" but not one**, and deliberately left that way: it is a
+    checkbox stacked over two fields with zero margins and no chrome of its
+    own. The name is inherited from the QML file it ports. Giving it
+    `Panel`'s background and border to match the name would be styling
+    driven by a filename."""
 
     customTimeToggled = Signal(bool)
     fromDateTimeEdited = Signal(str)
@@ -116,72 +122,6 @@ class TimeRangeCardWidget(QWidget):
     def set_to_date_time(self, value: str) -> None:
         if self._to_field.text() != value:
             self._to_field.setText(value)
-
-
-class ConfirmDialog(QDialog):
-    """Port of the Clear/Purge `ModalDialogCard` confirm dialogs: icon-less
-    header (title + subtitle), a message body, Cancel + a danger-styled
-    confirm button. Parameterized rather than duplicated once per dialog —
-    the QML versions were two near-identical copies of the same shape."""
-
-    def __init__(
-        self,
-        title: str,
-        subtitle: str,
-        message: str,
-        confirm_text: str,
-        confirm_object_name: str,
-        on_confirm: Callable[[], None],
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self.setModal(True)
-        self.resize(420, 220)
-        self.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; color: {Palette.TEXT_PRIMARY};"
-        )
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
-        title_label = QLabel(title)
-        title_label.setStyleSheet(
-            f"color: {Palette.DANGER}; font-size: 13px; font-weight: bold;"
-        )
-        layout.addWidget(title_label)
-
-        subtitle_label = QLabel(subtitle)
-        subtitle_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-        layout.addWidget(subtitle_label)
-
-        message_label = QLabel(message)
-        message_label.setWordWrap(True)
-        message_label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 13px;")
-        layout.addWidget(message_label, 1)
-
-        button_row = QHBoxLayout()
-        button_row.setSpacing(10)
-
-        cancel_button = QPushButton("Hủy bỏ")
-        cancel_button.clicked.connect(self.close)
-        button_row.addWidget(cancel_button)
-
-        confirm_button = QPushButton(confirm_text)
-        confirm_button.setObjectName(confirm_object_name)
-        confirm_button.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.DANGER}; color: white; "
-            f"font-weight: bold; border-radius: 6px; min-height: 34px; }}"
-        )
-
-        def _confirm() -> None:
-            self.close()
-            on_confirm()
-
-        confirm_button.clicked.connect(_confirm)
-        button_row.addWidget(confirm_button)
-
-        layout.addLayout(button_row)
 
 
 #: (label, Layout stretch) for the KLine table columns — matches
@@ -651,12 +591,20 @@ class _GapRowWidget(QFrame):
         self._repair_button.setEnabled(enabled)
 
 
-class _CoverageSegmentWidget(QFrame):
+class _CoverageSegmentWidget(QFrame):  # base-exempt: a coloured bar segment
     """One segment of the timeline coverage bar — port of the QML `Repeater`
     inside the coverage `Rectangle`. Width is proportional to `ratio` within
     its host's `resizeEvent`-driven layout (a plain `QHBoxLayout` with
     stretch factors does the same job as QML's `width: parent.width * ratio`,
-    since Qt layouts already distribute width by relative stretch)."""
+    since Qt layouts already distribute width by relative stretch).
+
+    **Deviates from `EPIC-007F` requirement 5, which said to inherit
+    `Panel`.** That instruction predates two things learned during the
+    task: `Panel` applies `SURFACE`, so this segment would inherit a card
+    background, a border and a radius — every one of which it then has to
+    override, because it is a flat translucent block of one domain colour.
+    Inheriting a base only to undo all of it is worse than saying plainly
+    that this is not a surface. Recorded rather than done silently."""
 
     def __init__(self, segment: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)

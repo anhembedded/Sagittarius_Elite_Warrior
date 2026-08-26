@@ -305,6 +305,49 @@ def test_sync_all_gaps_with_no_gaps_does_nothing(
 # ---------------------------------------------------------------------------
 
 
+def test_confirm_overlays_reach_the_view_model_after_it_is_attached(
+    presenter, view_model, mock_thread_mgr
+):
+    """Both destructive confirms must still fire after `set_view_model()`.
+
+    `_build_dialogs()` runs from `__init__`, when `_view_model` is still
+    `None`. Connecting `self._view_model.requestClearData` directly there
+    binds `None` and raises on construction; connecting a bound method of
+    the view that reads `_view_model` at emit time is what makes the wiring
+    survive. This pins the emit-time behaviour, not just construction.
+    """
+    view = presenter.view
+    view_model.selectedSymbol = "BTCUSDT"
+    view_model.selectedInterval = "5m"
+
+    view._clear_dialog.confirm_button.click()
+
+    assert presenter.fsm.current_state == UIMode.CLEARING
+    mock_thread_mgr.submit.assert_called_with(
+        presenter._run_clear_data, "BTCUSDT", "5m"
+    )
+
+    presenter.fsm.transition_to(UIMode.IDLE)
+    view._purge_dialog.confirm_button.click()
+
+    assert presenter.fsm.current_state == UIMode.CLEARING
+    mock_thread_mgr.submit.assert_called_with(presenter._run_purge_all)
+
+
+def test_confirm_overlays_are_safe_before_a_view_model_is_attached(qapp, request):
+    """A view built but never given a view model must not raise on confirm.
+
+    The guard in the slots is not decoration: `DataManagementView()` is
+    constructed bare in several tests and in the dead-screen path, and a
+    stray confirm there used to be an `AttributeError` on `None`.
+    """
+    view = DataManagementView()
+    request.addfinalizer(view.deleteLater)
+
+    view._clear_dialog.confirm_button.click()
+    view._purge_dialog.confirm_button.click()
+
+
 def test_on_clear_data_submits_clear_worker(presenter, view_model, mock_thread_mgr):
     view_model.selectedSymbol = "BTCUSDT"
     view_model.selectedInterval = "5m"

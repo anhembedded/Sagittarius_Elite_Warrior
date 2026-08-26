@@ -46,19 +46,29 @@ def _pill_button(object_name: str, min_width: int = 0) -> QPushButton:
     return btn
 
 
-class BackTestTopPanel(QWidget):
+class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     """Port of `BackTestTopPanel.qml`. Sizes itself naturally via its own
     layout (no `implicitHeight` read-back hack needed — that only existed
     to work around `QQuickWidget`'s `SizeRootObjectToView` ignoring QML's
     `implicitHeight`; a plain `QWidget`'s `sizeHint()` already reflects
-    what its layout needs)."""
+    what its layout needs).
+
+    **Deliberately not a `Surface`**, unlike the cards it contains. It
+    paints the app background and draws no border of its own — it is the
+    strip the cards and banners sit *on*, not one of them. Same call as
+    `DevBoardPanel` (`EPIC-007F`)."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
         self._vm = view_model
-        self.setStyleSheet(f"background-color: {Palette.BG};")
+        # Scoped, not a bare property list: unscoped this repaints every
+        # descendant that has no rule of its own (`BUG-008`), which here is
+        # most of the toolbar.
+        self.setStyleSheet(
+            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+        )
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 12, 12, 12)

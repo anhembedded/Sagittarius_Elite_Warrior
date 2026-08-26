@@ -77,9 +77,21 @@ class _FilterTabButton(QPushButton):
         )
 
 
-class _TradeLogRowWidget(QFrame):
+class _TradeLogRowWidget(QFrame):  # base-exempt: excluded from DataRow by design
     """One trade row + its collapsible detail panel — port of
-    `BackTestTradeLogs.qml`'s `ListView` delegate `Column`."""
+    `BackTestTradeLogs.qml`'s `ListView` delegate `Column`.
+
+    **Deliberately not migrated to the engine's `DataRow`.** That widget's
+    own docstring excludes this one by name, and re-reading this class
+    against that reasoning confirms it: the summary is a clickable
+    `QPushButton`, three of its columns stack two differently-styled lines,
+    two cells are recoloured badges, it owns a collapsible detail pane of
+    three further columns, and it emits a toggle signal. Fitting it would
+    need a per-cell widget factory, an expandable-body hook and a click
+    signal on `DataRow` — at which point every part of the base is
+    overridden and the base carries parameters that exist for one caller.
+
+    `DataRow` still covers the other three row shapes in this app."""
 
     toggled = Signal(int)
 
@@ -289,8 +301,11 @@ class _TradeLogRowWidget(QFrame):
         self._detail.setVisible(expanded)
 
 
-class BackTestTradeLogsPanel(QWidget):
-    """Port of `BackTestTradeLogs.qml`."""
+class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
+    """Port of `BackTestTradeLogs.qml`.
+
+    **Not a `Surface`**: it is the bottom region of the screen, holding the
+    tab bar, the table and the log panel. The cards are inside it."""
 
     #: BOT-090's usable-height floor, recomputed in Python instead of read
     #: back from a QML `implicitHeight` property (no QML root exists

@@ -29,7 +29,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker_over
     SymbolPickerOverlay,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
-    ConfirmDialog,
     GapInspectorDialog,
     KLineInspectorDialog,
     TimeRangeCardWidget,
@@ -39,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.datab
     DatabaseStatusTableModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
+from sagittarius_engine.extensions.pyside_mvc.widgets import ConfirmOverlay
 
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
@@ -789,27 +789,53 @@ class DataManagementView(BaseView):
         return column
 
     def _build_dialogs(self) -> None:
-        self._clear_dialog = ConfirmDialog(
-            title="XÁC NHẬN XÓA DỮ LIỆU",
-            subtitle="Xóa các nến đã lưu trong SQLite shard",
+        """Both destructive confirms, on the engine's `ConfirmOverlay`.
+
+        The app's own `ConfirmDialog` took an `on_confirm` callback and
+        called `close()`, which left `exec()` returning `Rejected` even
+        after the user confirmed — `ConfirmOverlay` calls `accept()`, so
+        the answer is readable the standard Qt way. That rewiring is what
+        its docstring said the migration owed, and it is done here: the
+        callbacks move to `accepted`.
+
+        The slots stay indirect on purpose. `_build_dialogs()` runs from
+        `__init__`, long before `set_view_model()`, so binding
+        `self._view_model.requestClearData` here would bind `None`.
+        """
+        self._clear_dialog = ConfirmOverlay(
+            "XÁC NHẬN XÓA DỮ LIỆU",
+            "Xóa các nến đã lưu trong SQLite shard",
             message="Bạn có chắc chắn muốn xóa toàn bộ nến của symbol/timeframe đã chọn không? "
             "Thao tác này sẽ giải phóng dung lượng đĩa và làm trống bảng klines tương ứng.",
             confirm_text="Xác nhận Xóa",
-            confirm_object_name="btnConfirmClear",
-            on_confirm=lambda: self._view_model.requestClearData(),
+            cancel_text="Hủy bỏ",
+            danger=True,
             parent=self,
         )
-        self._purge_dialog = ConfirmDialog(
-            title="CẢNH BÁO NGUY HIỂM — PURGE VAULT",
-            subtitle="Xóa toàn bộ database SQLite",
+        self._clear_dialog.confirm_button.setObjectName("btnConfirmClear")
+        self._clear_dialog.accepted.connect(self._on_clear_confirmed)
+
+        self._purge_dialog = ConfirmOverlay(
+            "CẢNH BÁO NGUY HIỂM — PURGE VAULT",
+            "Xóa toàn bộ database SQLite",
             message="CẢNH BÁO NGUY HIỂM: Bạn đang chuẩn bị xóa TOÀN BỘ dữ liệu của tất cả các "
             "symbol trong Storage Vault! Hành động này sẽ xóa tất cả các file SQLite shard "
             "(.db) và không thể hoàn tác.",
             confirm_text="XÓA TOÀN BỘ (PURGE)",
-            confirm_object_name="btnConfirmPurge",
-            on_confirm=lambda: self._view_model.requestPurgeAll(),
+            cancel_text="Hủy bỏ",
+            danger=True,
             parent=self,
         )
+        self._purge_dialog.confirm_button.setObjectName("btnConfirmPurge")
+        self._purge_dialog.accepted.connect(self._on_purge_confirmed)
+
+    def _on_clear_confirmed(self) -> None:
+        if self._view_model is not None:
+            self._view_model.requestClearData()
+
+    def _on_purge_confirmed(self) -> None:
+        if self._view_model is not None:
+            self._view_model.requestPurgeAll()
 
     @staticmethod
     def _section_label(text: str) -> QLabel:

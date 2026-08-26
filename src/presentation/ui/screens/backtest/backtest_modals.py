@@ -779,9 +779,13 @@ class _NumericStepLineEdit(QLineEdit):
         event.accept()
 
 
-class _BotParamFieldWidget(QWidget):
+class _BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
     """Port of `BotParamField.qml`: picks a widget purely from
-    `field_data["kind"]`, mirroring exactly what the QML `Loader` did."""
+    `field_data["kind"]`, mirroring exactly what the QML `Loader` did.
+
+    **Not a `Surface`**: it is a caption stacked over one input, with zero
+    margins and no chrome — the same shape as `components/app_progress_bar.py`,
+    which carries the same marker for the same reason."""
 
     def __init__(
         self,
