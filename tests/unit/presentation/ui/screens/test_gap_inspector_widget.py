@@ -114,8 +114,8 @@ def test_inspect_gaps_opens_dialog_and_rows_match_source_data(qapp, database_scr
     assert dialog._coverage_pct_label.text() == "Độ phủ: 92.5%"
     assert dialog._total_missing_label.text() == "Tổng số nến bị thiếu: 150 nến"
     assert len(dialog._row_widgets) == 2
-    assert dialog._row_widgets[0]._repair_button.objectName() == "btnRepairGap_0"
-    assert dialog._row_widgets[1]._repair_button.objectName() == "btnRepairGap_1"
+    assert dialog._row_widgets[0].action_buttons[0].objectName() == "btnRepairGap_0"
+    assert dialog._row_widgets[1].action_buttons[0].objectName() == "btnRepairGap_1"
 
 
 def test_repair_gap_click_emits_the_source_gaps_fetch_window(qapp, database_screen):
@@ -129,7 +129,7 @@ def test_repair_gap_click_emits_the_source_gaps_fetch_window(qapp, database_scre
     view_model.repairGapRequested.connect(
         lambda s, i, start, end: captured.append((s, i, start, end))
     )
-    dialog._row_widgets[1]._repair_button.click()
+    dialog._row_widgets[1].action_buttons[0].click()
     qapp.processEvents()
 
     assert captured == [("BTCUSDT", "1m", "2024-02-01T00:00:00", "2024-02-01T00:30:00")]
@@ -143,13 +143,13 @@ def test_repair_buttons_disabled_outside_idle_mode(qapp, database_screen):
     dialog = view._gap_inspector
 
     assert dialog._btn_repair_all.isEnabled() is True
-    assert dialog._row_widgets[0]._repair_button.isEnabled() is True
+    assert dialog._row_widgets[0].action_buttons[0].isEnabled() is True
 
     view_model.set_ui_mode(UIMode.SYNCING.value)
     qapp.processEvents()
 
     assert dialog._btn_repair_all.isEnabled() is False
-    assert dialog._row_widgets[0]._repair_button.isEnabled() is False
+    assert dialog._row_widgets[0].action_buttons[0].isEnabled() is False
 
 
 def test_zero_gaps_shows_empty_state_and_disables_repair_all(qapp, database_screen):

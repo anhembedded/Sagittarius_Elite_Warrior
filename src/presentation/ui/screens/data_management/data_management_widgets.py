@@ -14,7 +14,6 @@ from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
-    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -22,6 +21,7 @@ from PySide6.QtWidgets import (
     QListView,
     QPushButton,
     QScrollArea,
+    QStyledItemDelegate,
     QVBoxLayout,
     QWidget,
 )
@@ -29,12 +29,45 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    Column,
+    DataRow,
+    Overlay,
+    RowAction,
+    StyleRole,
+    Tone,
+    apply_role,
+)
 
 _FULL_COVERAGE_THRESHOLD = 99.0
 
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
     from .kline_inspector_table_model import KLineInspectorTableModel
+
+
+class RowWidgetDelegate(QStyledItemDelegate):
+    """Sizes a `QListView` item to the widget actually placed in it.
+
+    `setIndexWidget()` does not tell the list how tall its widget is — the
+    item keeps the delegate's default height, which is one line of text.
+    Both of this screen's tables have been clipped to 14px since it was
+    ported: enough for the labels, not for a row's action buttons, which is
+    why those rendered as empty outlines with their text cut off
+    (`BUG-051`).
+
+    Reading the widget's own `sizeHint()` rather than naming a height keeps
+    the two from drifting when a row gains a taller control.
+    """
+
+    def sizeHint(self, option, index):
+        hint = super().sizeHint(option, index)
+        view = self.parent()
+        widget = view.indexWidget(index) if view is not None else None
+        if widget is None:
+            return hint
+        hint.setHeight(max(hint.height(), widget.sizeHint().height()))
+        return hint
 
 
 def field_style(extra_height: int | None = None) -> str:
@@ -124,95 +157,93 @@ class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
             self._to_field.setText(value)
 
 
-#: (label, Layout stretch) for the KLine table columns — matches
-#: KLineInspectorModal.qml's fixed column widths (140/80/80/80/80/105/75/70).
-_KLINE_COLUMNS = [
-    ("Thời gian (UTC)", 20, Qt.AlignmentFlag.AlignLeft),
-    ("Mở (Open)", 11, Qt.AlignmentFlag.AlignRight),
-    ("Cao (High)", 11, Qt.AlignmentFlag.AlignRight),
-    ("Thấp (Low)", 11, Qt.AlignmentFlag.AlignRight),
-    ("Đóng (Close)", 11, Qt.AlignmentFlag.AlignRight),
-    ("Khối lượng (Vol)", 15, Qt.AlignmentFlag.AlignRight),
-    ("Biến động", 11, Qt.AlignmentFlag.AlignRight),
-    ("Số lệnh", 10, Qt.AlignmentFlag.AlignRight),
-]
+#: The KLine table's columns — matches `KLineInspectorModal.qml`'s fixed
+#: widths (140/80/80/80/80/105/75/70). One spec, read by both the heading
+#: strip and every row.
+_KLINE_COLUMNS = (
+    Column("Thời gian (UTC)", 20),
+    Column("Mở (Open)", 11, Qt.AlignmentFlag.AlignRight),
+    Column("Cao (High)", 11, Qt.AlignmentFlag.AlignRight),
+    Column("Thấp (Low)", 11, Qt.AlignmentFlag.AlignRight),
+    Column("Đóng (Close)", 11, Qt.AlignmentFlag.AlignRight),
+    Column("Khối lượng (Vol)", 15, Qt.AlignmentFlag.AlignRight),
+    Column("Biến động", 11, Qt.AlignmentFlag.AlignRight),
+    Column("Số lệnh", 10, Qt.AlignmentFlag.AlignRight),
+)
+
+#: Cell positions within `_KLINE_COLUMNS`, for the ones addressed by name.
+(
+    _TIME_CELL,
+    _OPEN_CELL,
+    _HIGH_CELL,
+    _LOW_CELL,
+    _CLOSE_CELL,
+    _VOLUME_CELL,
+    _CHANGE_CELL,
+    _TRADES_CELL,
+) = range(len(_KLINE_COLUMNS))
 
 _KLINE_PAGE_SIZES = [50, 100, 200, 500]
 
 
-class _KLineRowWidget(QFrame):
-    """One row of the KLine table — a direct port of
-    `KLineInspectorModal.qml`'s `ListView` delegate. Same `setIndexWidget`
-    pattern as `_StatusRowWidget`: `KLineInspectorTableModel` addresses its
-    fields by role (`data(index, role)`), not by `index.column()`, even
-    though `columnCount()` returns 11 — it was built for a QML delegate that
-    reads named roles per row, not a real per-column `QTableView`."""
+class _KLineRowWidget(DataRow):
+    """One row of the KLine table, on the engine's `DataRow`.
+
+    Same `setIndexWidget` pattern as `_StatusRowWidget`, for the same
+    reason: `KLineInspectorTableModel` addresses its fields by role
+    (`data(index, role)`) rather than by `index.column()`, even though
+    `columnCount()` returns 11 — it was built for a QML delegate reading
+    named roles per row, not for a real per-column `QTableView`.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
+        super().__init__(_KLINE_COLUMNS, parent=parent)
         self.setFixedHeight(28)
+        self.layout().setContentsMargins(8, 0, 8, 0)
+        self.layout().setSpacing(4)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 0, 8, 0)
-        layout.setSpacing(4)
+        # Monospace on every cell — a column of prices only lines up if its
+        # digits are the same width. A font is a widget API call, not a
+        # styling decision, which is why `DataRow.cell()` is reachable.
+        for position in range(len(_KLINE_COLUMNS)):
+            font = self.cell(position).font()
+            font.setFamily("monospace")
+            self.cell(position).setFont(font)
 
-        self._labels: list[QLabel] = []
-        for _text, stretch, alignment in _KLINE_COLUMNS:
-            label = QLabel()
-            label.setAlignment(alignment | Qt.AlignmentFlag.AlignVCenter)
-            label.setStyleSheet(
-                f"color: {Palette.TEXT_PRIMARY}; font-size: 11px; font-family: monospace;"
-            )
-            layout.addWidget(label, stretch)
-            self._labels.append(label)
-
-        (
-            self._time_label,
-            self._open_label,
-            self._high_label,
-            self._low_label,
-            self._close_label,
-            self._volume_label,
-            self._change_label,
-            self._trades_label,
-        ) = self._labels
-
-        self._volume_label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 11px; font-family: monospace;"
-        )
-        self._trades_label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 11px; font-family: monospace;"
-        )
+        # Volume and trade count recede: they are context for the four price
+        # columns, not the figures a user is reading the row for.
+        self.set_cell_role(_VOLUME_CELL, StyleRole.CAPTION)
+        self.set_cell_role(_TRADES_CELL, StyleRole.CAPTION)
+        self.set_cell_role(_CLOSE_CELL, StyleRole.TABLE_CELL_STRONG)
 
     def apply_row(self, index: QModelIndex, row_number: int) -> None:
         model = index.model()
         model_roles = _kline_model_class(model)
         is_bullish = bool(model.data(index, model_roles.IsBullishRole))
-        color = Palette.SUCCESS if is_bullish else Palette.DANGER
+        tone = Tone.POSITIVE if is_bullish else Tone.NEGATIVE
 
-        self.setStyleSheet(
-            f"background-color: {Palette.BG_CARD if row_number % 2 == 0 else Palette.BG};"
+        # Zebra striping, scoped to this class so it cannot cascade into the
+        # cells — the unscoped form is a bare property list, which is Qt's
+        # universal selector and overrides a child's own colour (`BUG-008`).
+        stripe = Palette.BG_CARD if row_number % 2 == 0 else Palette.BG
+        self.setStyleSheet(f"{type(self).__name__} {{ background-color: {stripe}; }}")
+
+        self.set_cells(
+            [
+                str(model.data(index, model_roles.FormattedTimeRole) or ""),
+                str(model.data(index, model_roles.OpenRole) or "0"),
+                str(model.data(index, model_roles.HighRole) or "0"),
+                str(model.data(index, model_roles.LowRole) or "0"),
+                str(model.data(index, model_roles.CloseRole) or "0"),
+                str(model.data(index, model_roles.VolumeRole) or "0"),
+                str(model.data(index, model_roles.ChangePctRole) or "0.00%"),
+                str(model.data(index, model_roles.TradesRole) or 0),
+            ]
         )
-        self._time_label.setText(
-            str(model.data(index, model_roles.FormattedTimeRole) or "")
-        )
-        self._open_label.setText(str(model.data(index, model_roles.OpenRole) or "0"))
-        self._high_label.setText(str(model.data(index, model_roles.HighRole) or "0"))
-        self._low_label.setText(str(model.data(index, model_roles.LowRole) or "0"))
-        self._close_label.setText(str(model.data(index, model_roles.CloseRole) or "0"))
-        self._close_label.setStyleSheet(
-            f"color: {color}; font-size: 11px; font-weight: bold; font-family: monospace;"
-        )
-        self._volume_label.setText(
-            str(model.data(index, model_roles.VolumeRole) or "0")
-        )
-        self._change_label.setText(
-            str(model.data(index, model_roles.ChangePctRole) or "0.00%")
-        )
-        self._change_label.setStyleSheet(
-            f"color: {color}; font-size: 11px; font-family: monospace;"
-        )
-        self._trades_label.setText(str(model.data(index, model_roles.TradesRole) or 0))
+        self.set_cell_role(_CLOSE_CELL, StyleRole.TABLE_CELL_STRONG)
+        self.set_cell_tone(_CLOSE_CELL, tone)
+        self.set_cell_role(_CHANGE_CELL, StyleRole.TABLE_CELL)
+        self.set_cell_tone(_CHANGE_CELL, tone)
 
 
 def _kline_model_class(model) -> type[KLineInspectorTableModel]:
@@ -222,31 +253,37 @@ def _kline_model_class(model) -> type[KLineInspectorTableModel]:
     return type(model)
 
 
-class KLineInspectorDialog(QDialog):
+class KLineInspectorDialog(Overlay):
     """Port of `KLineInspectorModal.qml`: jump-to-date + audit controls,
     an audit result banner, the paginated KLine table (`QListView` +
     `setIndexWidget`, same reasoning as `_StatusRowWidget`), and a bottom
     pagination bar with page-size buttons. Stays alive for the view's
     lifetime (like the QML `Popup` it replaces) and wires directly to
-    `DataManagementViewModel` signals rather than being rebuilt per open."""
+    `DataManagementViewModel` signals rather than being rebuilt per open.
+
+    The header and the modal chrome come from `Overlay`; the subtitle it
+    already owns is the one `_sync_header()` rewrites per page. The title
+    is re-roled to `HEADING`: this app gives its data inspectors and its
+    destructive confirms an accent heading, louder than the label
+    `Overlay` applies for the eleven Backtest parameter modals.
+    """
 
     def __init__(
         self, view_model: DataManagementViewModel, parent: QWidget | None = None
     ) -> None:
-        super().__init__(parent)
+        super().__init__("TRA CỨU DỮ LIỆU NẾN (KLINE INSPECTOR)", parent=parent)
         self.setObjectName("klineInspectorModal")
         self._view_model = view_model
-        self.setModal(True)
         self.resize(840, 600)
-        self.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; color: {Palette.TEXT_PRIMARY};"
-        )
+        apply_role(self.title_label, StyleRole.HEADING)
+        # The subtitle is filled by `_sync_header()`, never at construction,
+        # so it starts hidden and must be shown once there is a page to
+        # describe.
+        self._subtitle_label.setVisible(True)
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(16, 16, 16, 16)
+        outer = self.body_layout
         outer.setSpacing(10)
 
-        outer.addLayout(self._build_title_row())
         outer.addLayout(self._build_controls_row())
         outer.addWidget(self._build_audit_banner())
         outer.addWidget(self._build_column_header())
@@ -260,19 +297,6 @@ class KLineInspectorDialog(QDialog):
         self._sync_header()
         self._sync_audit()
         self._rebuild_rows()
-
-    def _build_title_row(self) -> QVBoxLayout:
-        box = QVBoxLayout()
-        box.setSpacing(2)
-        title = QLabel("TRA CỨU DỮ LIỆU NẾN (KLINE INSPECTOR)")
-        title.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 13px; font-weight: bold;"
-        )
-        box.addWidget(title)
-        self._subtitle_label = QLabel()
-        self._subtitle_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-        box.addWidget(self._subtitle_label)
-        return box
 
     def _build_controls_row(self) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -329,19 +353,15 @@ class KLineInspectorDialog(QDialog):
     def _build_column_header(self) -> QFrame:
         header = QFrame()
         header.setFixedHeight(28)
-        header.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
-        )
+        apply_role(header, StyleRole.TABLE_HEADER)
         layout = QHBoxLayout(header)
         layout.setContentsMargins(8, 0, 8, 0)
         layout.setSpacing(4)
-        for text, stretch, alignment in _KLINE_COLUMNS:
-            label = QLabel(text)
-            label.setAlignment(alignment | Qt.AlignmentFlag.AlignVCenter)
-            label.setStyleSheet(
-                f"color: {Palette.MUTED}; font-size: 11px; font-weight: bold;"
-            )
-            layout.addWidget(label, stretch)
+        for spec in _KLINE_COLUMNS:
+            label = QLabel(spec.label)
+            label.setAlignment(spec.alignment | Qt.AlignmentFlag.AlignVCenter)
+            apply_role(label, StyleRole.SECTION_LABEL)
+            layout.addWidget(label, spec.stretch)
         return header
 
     def _build_table(self) -> QWidget:
@@ -357,6 +377,7 @@ class KLineInspectorDialog(QDialog):
         )
         self._kline_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self._kline_list.setUniformItemSizes(True)
+        self._kline_list.setItemDelegate(RowWidgetDelegate(self._kline_list))
         self._kline_list.setModel(self._view_model.klineInspectorModel)
         layout.addWidget(self._kline_list, 1)
 
@@ -514,23 +535,37 @@ class KLineInspectorDialog(QDialog):
         self._sync_header()
 
 
-#: (label, stretch) for the gap table columns — matches GapInspectorModal.qml's
-#: Repeater header (weights 0.6/2.5/2.5/1.2/1.4/1.8).
-_GAP_COLUMNS = [
-    ("#", 6),
-    ("START (FROM)", 25),
-    ("END (TO)", 25),
-    ("DURATION", 12),
-    ("MISSING", 14),
-    ("ACTION", 18),
-]
+#: The gap table's five data columns — matches `GapInspectorModal.qml`'s
+#: Repeater header (weights 0.6/2.5/2.5/1.2/1.4).
+_GAP_COLUMNS = (
+    Column("#", 6),
+    Column("START (FROM)", 25),
+    Column("END (TO)", 25),
+    Column("DURATION", 12),
+    Column("MISSING", 14),
+)
+
+#: The heading's sixth column. Not a `Column` — the row has no cell under
+#: it, only the repair button, which spends this as `action_stretch`.
+_GAP_ACTION_COLUMN = Column("ACTION", 18)
+
+#: Cell positions within `_GAP_COLUMNS`, for the ones addressed by name.
+_GAP_ID_CELL, _GAP_START_CELL, _GAP_END_CELL, _GAP_DURATION_CELL, _GAP_MISSING_CELL = (
+    range(len(_GAP_COLUMNS))
+)
+
+#: The one row action.
+_REPAIR_ACTION = 0
 
 
-class _GapRowWidget(QFrame):
-    """One row of the gap table — direct port of GapInspectorModal.qml's
-    ListView delegate. `gapList` is a plain `QVariantList` (list[dict]), not
-    a Qt model, so rows are rebuilt from Python data directly rather than via
-    `setIndexWidget`."""
+class _GapRowWidget(DataRow):
+    """One row of the gap table, on the engine's `DataRow`.
+
+    `gapList` is a plain `QVariantList` (`list[dict]`), not a Qt model, so
+    these rows are built from Python data directly rather than through
+    `setIndexWidget` — which is why the dialog owning them rebuilds the
+    whole list on every refresh.
+    """
 
     def __init__(
         self,
@@ -539,56 +574,50 @@ class _GapRowWidget(QFrame):
         on_repair: Callable[[dict], None],
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            _GAP_COLUMNS,
+            actions=[RowAction("Vá Gap")],
+            action_stretch=_GAP_ACTION_COLUMN.stretch,
+            parent=parent,
+        )
         self.setFixedHeight(36)
-        self.setStyleSheet(
-            "background-color: transparent;"
-            if index % 2 == 0
-            else f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
+        self.layout().setContentsMargins(8, 0, 8, 0)
+        self.layout().setSpacing(6)
+
+        # Zebra striping, scoped to this class so it cannot cascade into the
+        # cells — an unscoped property list is Qt's universal selector and
+        # overrides a child's own colour (`BUG-008`).
+        if index % 2:
+            self.setStyleSheet(
+                f"{type(self).__name__} {{ background-color: "
+                f"{Palette.BG_CARD_HEADER}; border-radius: 4px; }}"
+            )
+
+        self.set_cell_role(_GAP_ID_CELL, StyleRole.CAPTION)
+        self.set_cell_role(_GAP_DURATION_CELL, StyleRole.TABLE_CELL_STRONG)
+        # Accent marks the duration as the notable field — not a `Tone`,
+        # because "notable" is not a judgement about the value.
+        self.set_cell_colour(_GAP_DURATION_CELL, "accent")
+        self.set_cell_role(_GAP_MISSING_CELL, StyleRole.TABLE_CELL_STRONG)
+        self.set_cell_tone(_GAP_MISSING_CELL, Tone.NEGATIVE)
+
+        self.set_cells(
+            [
+                str(gap.get("gap_id") or (index + 1)),
+                str(gap.get("start_time") or ""),
+                str(gap.get("end_time") or ""),
+                str(gap.get("duration_text") or ""),
+                f"-{gap.get('missing_candles') or 0} nến",
+            ]
         )
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 0, 8, 0)
-        layout.setSpacing(6)
-
-        gap_id_label = QLabel(str(gap.get("gap_id") or (index + 1)))
-        gap_id_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-        layout.addWidget(gap_id_label, 6)
-
-        start_label = QLabel(str(gap.get("start_time") or ""))
-        start_label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 11px;")
-        layout.addWidget(start_label, 25)
-
-        end_label = QLabel(str(gap.get("end_time") or ""))
-        end_label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 11px;")
-        layout.addWidget(end_label, 25)
-
-        duration_label = QLabel(str(gap.get("duration_text") or ""))
-        duration_label.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 11px; font-weight: bold;"
-        )
-        layout.addWidget(duration_label, 12)
-
-        missing_label = QLabel(f"-{gap.get('missing_candles') or 0} nến")
-        missing_label.setStyleSheet(
-            f"color: {Palette.DANGER}; font-size: 11px; font-weight: bold;"
-        )
-        layout.addWidget(missing_label, 14)
-
-        self._repair_button = QPushButton("Vá Gap")
-        self._repair_button.setObjectName(f"btnRepairGap_{index}")
-        self._repair_button.setFixedHeight(24)
-        self._repair_button.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {Palette.ACCENT}; "
-            f"border: 1px solid {Palette.ACCENT}; border-radius: 4px; font-size: 10px; "
-            f"font-weight: bold; }} "
-            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
-        self._repair_button.clicked.connect(lambda: on_repair(gap))
-        layout.addWidget(self._repair_button, 18)
+        repair_button = self.action_buttons[_REPAIR_ACTION]
+        repair_button.setObjectName(f"btnRepairGap_{index}")
+        repair_button.setFixedHeight(24)
+        self.action_triggered.connect(lambda _position: on_repair(gap))
 
     def set_enabled(self, enabled: bool) -> None:
-        self._repair_button.setEnabled(enabled)
+        self.action_buttons[_REPAIR_ACTION].setEnabled(enabled)
 
 
 class _CoverageSegmentWidget(QFrame):  # base-exempt: a coloured bar segment
@@ -620,34 +649,35 @@ class _CoverageSegmentWidget(QFrame):  # base-exempt: a coloured bar segment
         self.setToolTip(tip)
 
 
-class GapInspectorDialog(QDialog):
+class GapInspectorDialog(Overlay):
     """Port of `GapInspectorModal.qml`: timeline coverage bar, a gaps table
     (plain Python list rows, no Qt model — `gapList`/`coverageSegments` are
     `QVariantList` properties, rebuilt wholesale on change same as the QML
     `Repeater` did), and footer Repair-All/Close actions. Stays alive for the
-    view's lifetime, same as `KLineInspectorDialog`."""
+    view's lifetime, same as `KLineInspectorDialog`.
+
+    Its Repair-All/Close row is `Overlay`'s footer, supplied through
+    `_build_buttons()`. That runs from `Overlay.__init__`, before this
+    class's own body — which is fine here because nothing it builds reads
+    `_view_model` until a button is actually pressed.
+    """
 
     def __init__(
         self, view_model: DataManagementViewModel, parent: QWidget | None = None
     ) -> None:
-        super().__init__(parent)
+        super().__init__("CHI TIẾT LỖ HỔNG DỮ LIỆU (GAP INSPECTOR)", parent=parent)
         self.setObjectName("gapInspectorModal")
         self._view_model = view_model
-        self.setModal(True)
         self.resize(680, 520)
-        self.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; color: {Palette.TEXT_PRIMARY};"
-        )
+        apply_role(self.title_label, StyleRole.HEADING)
+        self._subtitle_label.setVisible(True)
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(16, 16, 16, 16)
+        outer = self.body_layout
         outer.setSpacing(12)
 
-        outer.addLayout(self._build_title_row())
         outer.addLayout(self._build_coverage_bar())
         outer.addWidget(self._build_column_header())
         outer.addWidget(self._build_table(), 1)
-        outer.addLayout(self._build_footer())
 
         view_model.gapInspectorChanged.connect(self._sync_header)
         view_model.gapListChanged.connect(self._rebuild_rows)
@@ -657,19 +687,6 @@ class GapInspectorDialog(QDialog):
         self._sync_header()
         self._rebuild_rows()
         self._rebuild_coverage_bar()
-
-    def _build_title_row(self) -> QVBoxLayout:
-        box = QVBoxLayout()
-        box.setSpacing(2)
-        title = QLabel("CHI TIẾT LỖ HỔNG DỮ LIỆU (GAP INSPECTOR)")
-        title.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 13px; font-weight: bold;"
-        )
-        box.addWidget(title)
-        self._subtitle_label = QLabel()
-        self._subtitle_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-        box.addWidget(self._subtitle_label)
-        return box
 
     def _build_coverage_bar(self) -> QVBoxLayout:
         box = QVBoxLayout()
@@ -707,12 +724,10 @@ class GapInspectorDialog(QDialog):
         layout = QHBoxLayout(header)
         layout.setContentsMargins(8, 0, 8, 0)
         layout.setSpacing(6)
-        for text, stretch in _GAP_COLUMNS:
-            label = QLabel(text)
-            label.setStyleSheet(
-                f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold;"
-            )
-            layout.addWidget(label, stretch)
+        for spec in (*_GAP_COLUMNS, _GAP_ACTION_COLUMN):
+            label = QLabel(spec.label)
+            apply_role(label, StyleRole.SECTION_LABEL)
+            layout.addWidget(label, spec.stretch)
         return header
 
     def _build_table(self) -> QWidget:
@@ -732,17 +747,29 @@ class GapInspectorDialog(QDialog):
         self._rows_layout.addWidget(self._empty_label)
         self._rows_layout.addStretch(1)
 
+        # The rows host paints the card colour itself. It used to inherit it
+        # from the dialog's own unscoped stylesheet — which is to say from
+        # `BUG-008` — and lost it the moment the dialog moved onto `Overlay`
+        # and got a properly scoped one, leaving a white panel behind the
+        # rows. Scoped by `objectName` so it reaches this widget only.
+        host.setStyleSheet(f"#gapListView {{ background-color: {Palette.BG_CARD}; }}")
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         # Scoped: unscoped, `border: none` would strip the border from every
         # descendant that does not set one of its own (`BUG-008`), and this
-        # scroll area contains the whole gap-row list.
-        scroll.setStyleSheet("QScrollArea { border: none; }")
+        # scroll area contains the whole gap-row list. The viewport is a
+        # child widget of its own, so it needs naming separately — the
+        # scroll area's own rule does not reach it.
+        scroll.setStyleSheet(
+            f"QScrollArea {{ border: none; }}"
+            f"QScrollArea > QWidget > QWidget {{ background-color: {Palette.BG_CARD}; }}"
+        )
         scroll.setWidget(host)
         self._row_widgets: list[_GapRowWidget] = []
         return scroll
 
-    def _build_footer(self) -> QHBoxLayout:
+    def _build_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
         row.setSpacing(12)
 

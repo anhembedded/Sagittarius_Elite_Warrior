@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListView,
     QPushButton,
-    QStyledItemDelegate,
     QVBoxLayout,
     QWidget,
 )
@@ -32,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker_over
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
     GapInspectorDialog,
     KLineInspectorDialog,
+    RowWidgetDelegate,
     TimeRangeCardWidget,
     field_style,
 )
@@ -136,30 +136,6 @@ def _tint_color(tint: str) -> str:
     return {"success": Palette.SUCCESS, "danger": Palette.DANGER}.get(
         tint, Palette.MUTED
     )
-
-
-class _RowWidgetDelegate(QStyledItemDelegate):
-    """Sizes a `QListView` item to the widget actually placed in it.
-
-    `setIndexWidget()` does not tell the list how tall its widget is — the
-    item keeps the delegate's default height, which for this list is one
-    line of text. Every row here has been clipped to 14px since the screen
-    was ported: enough for the labels, not for the action buttons, which is
-    why they have been rendering as empty outlines with their text cut off
-    (`BUG-051`).
-
-    Reading the widget's own `sizeHint()` rather than naming a height keeps
-    the two from drifting when a row gains a taller control.
-    """
-
-    def sizeHint(self, option, index):
-        hint = super().sizeHint(option, index)
-        view = self.parent()
-        widget = view.indexWidget(index) if view is not None else None
-        if widget is None:
-            return hint
-        hint.setHeight(max(hint.height(), widget.sizeHint().height()))
-        return hint
 
 
 class _StatusRowWidget(DataRow):
@@ -788,7 +764,7 @@ class DataManagementView(BaseView):
         )
         self._status_list.setSelectionMode(QListView.SelectionMode.NoSelection)
         self._status_list.setUniformItemSizes(True)
-        self._status_list.setItemDelegate(_RowWidgetDelegate(self._status_list))
+        self._status_list.setItemDelegate(RowWidgetDelegate(self._status_list))
         table_layout.addWidget(self._status_list, 1)
 
         self._empty_label = QLabel(

@@ -92,7 +92,14 @@ _COLOUR_SOURCES = ("palette.py",)
 #: frame, and it had no vocabulary for table text, outlined row actions or a
 #: per-record status colour. Fourth time in this epic that a widget shipped
 #: without a consumer turned out to be broken.
-_BARE_QT_BASE_CEILING = 6
+#: 6 → 2, and `screens/` is now at **0** — requirement 1 of `007F` met.
+#: `_KLineRowWidget`/`_GapRowWidget` derive `DataRow`, both inspector
+#: dialogs derive `Overlay`. What is left sits in `components/`, outside
+#: what that requirement asked for: `_CachedFrameOverlay` (a paint surface
+#: for a cached chart frame) and `CriticalErrorDialog` (the last-resort box
+#: shown when the app cannot start — it must not depend on a theme bridge
+#: that may be exactly what failed).
+_BARE_QT_BASE_CEILING = 2
 
 
 def test_ui_root_is_where_we_think_it_is() -> None:
