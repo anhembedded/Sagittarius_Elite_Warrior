@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from .chart_render_coordinator import ChartRenderCoordinator
 from .data_sync_coordinator import DataSyncCoordinator
+from .execution_coordinator import ExecutionCoordinator
 from .indicator_coordinator import IndicatorCoordinator
 from .strategy_config_coordinator import StrategyConfigCoordinator
 from .trade_log_coordinator import TradeLogCoordinator
@@ -22,6 +23,7 @@ from .trade_log_coordinator import TradeLogCoordinator
 __all__ = [
     "ChartRenderCoordinator",
     "DataSyncCoordinator",
+    "ExecutionCoordinator",
     "IndicatorCoordinator",
     "StrategyConfigCoordinator",
     "TradeLogCoordinator",

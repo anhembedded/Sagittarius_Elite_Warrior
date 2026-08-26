@@ -19,15 +19,8 @@ from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registr
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
-    RunHistoricalTickBacktestCommand,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
-    RunStaticBacktestCommand,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols.query import (
     ListAvailableSymbolsQuery,
@@ -81,10 +74,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report i
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
-    map_klines,
-    map_volume,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
 )
@@ -125,6 +114,7 @@ from .backtest_view_model import BackTestViewModel
 from .coordinators import (
     ChartRenderCoordinator,
     DataSyncCoordinator,
+    ExecutionCoordinator,
     IndicatorCoordinator,
     StrategyConfigCoordinator,
     TradeLogCoordinator,
@@ -530,6 +520,33 @@ class BackTestPresenter(BasePresenter):
             get_active_preview_id=lambda: self._active_preview_id,
             emit_preview_ready=self._previewDataReadySignal.emit,
             run_preview_worker=self._run_chart_preview,
+        )
+        self._execution = ExecutionCoordinator(
+            view_model=self._view_model,
+            dispatcher=self.dispatcher,
+            script_runner=self._chart_script_runner,
+            get_symbol=lambda: self._symbol,
+            get_chart_klines_fetch_limit=lambda: self._chart_klines_fetch_limit,
+            get_chart_script_keys=lambda: self._chart_script_keys,
+            resolve_action_id=lambda: self._current_action_id(
+                BacktestActionKind.BACKTEST
+            ),
+            log_dev_trace=self._log_dev_trace,
+            probe_coverage=self._probe_data_coverage,
+            emit_coverage_missing=self._backtestCoverageMissingSignal.emit,
+            emit_coverage_ready=self._backtestCoverageReadySignal.emit,
+            emit_progress=self._backtestProgressSignal.emit,
+            emit_failed=self._backtestFailedSignal.emit,
+            emit_cancelled=self._backtestCancelledSignal.emit,
+            emit_empty=self._backtestEmptySignal.emit,
+            emit_succeeded=self._backtestSucceededSignal.emit,
+            emit_chart_data_ready=self._chartDataReadySignal.emit,
+            # Through the presenter's own methods, not bound to the indicator
+            # coordinator: tests replace these on the presenter.
+            emit_strategy_indicator_lines=(
+                lambda *a: self._emit_strategy_indicator_lines(*a)
+            ),
+            emit_strategy_trend_zones=lambda *a: self._emit_strategy_trend_zones(*a),
         )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -1963,10 +1980,7 @@ class BackTestPresenter(BasePresenter):
         )
 
     def _get_execution_mode_from_view_model(self) -> BacktestExecutionMode:
-        try:
-            return BacktestExecutionMode(self._view_model.executionMode)
-        except ValueError:
-            return BacktestExecutionMode.BAR_CLOSE
+        return self._execution.execution_mode_from_view_model()
 
     # ================================================================== #
     # Background method — submitted to IThreadManager.
@@ -1980,163 +1994,18 @@ class BackTestPresenter(BasePresenter):
         cancellation_token: CancellationToken | None = None,
         allow_auto_sync: bool = False,
     ) -> None:
-        resolved_action_id = action_id or self._current_action_id(
-            BacktestActionKind.BACKTEST
-        )
-        if resolved_action_id is None:
-            return
-        self._log_dev_trace(
-            "worker_start",
-            action_id=resolved_action_id,
-            strategy=config.strategy_key,
-            timeframe=config.timeframe.value,
-        )
-        try:
-            if cancellation_token is not None:
-                coverage = self._probe_data_coverage(config)
-                if not coverage.is_fully_covered:
-                    self._backtestCoverageMissingSignal.emit(
-                        resolved_action_id, config, coverage, allow_auto_sync
-                    )
-                    return
-                self._backtestCoverageReadySignal.emit(resolved_action_id, coverage)
-
-            def progress_callback(
-                phase: str, completed: int, total: int, elapsed: float
-            ) -> None:
-                self._backtestProgressSignal.emit(
-                    BacktestProgress(
-                        action_id=resolved_action_id,
-                        phase=phase,
-                        completed_bars=completed,
-                        total_bars=total,
-                        elapsed_seconds=elapsed,
-                    )
-                )
-
-            cancellation_requested = (
-                cancellation_token.is_cancelled if cancellation_token else None
-            )
-            if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-                realtime_command = RunHistoricalTickBacktestCommand(
-                    symbol=self._symbol,
-                    interval=config.timeframe,
-                    tick_resolution=config.tick_resolution,
-                    strategy_key=config.strategy_key,
-                    initial_balance=config.initial_balance,
-                    fee_percent=config.broker_config.commission_value
-                    if config.broker_config.commission_type == CommissionType.PERCENT
-                    else 0.0,
-                    position_sizing=config.position_sizing,
-                    broker_config=config.broker_config,
-                    start_time=config.start_time,
-                    end_time=config.end_time,
-                    strategy_params=config.strategy_params,
-                    cancellation_requested=cancellation_requested,
-                    progress_callback=progress_callback,
-                )
-                self._log_dev_trace(
-                    "worker_dispatch_run_historical_tick_backtest",
-                    symbol=realtime_command.symbol,
-                    timeframe=realtime_command.interval.value,
-                    tick_resolution=realtime_command.tick_resolution.value,
-                )
-                result = self.dispatcher.dispatch(
-                    RunHistoricalTickBacktestCommand, realtime_command
-                )
-            else:
-                static_command = RunStaticBacktestCommand(
-                    symbol=self._symbol,
-                    interval=config.timeframe,
-                    strategy_key=config.strategy_key,
-                    initial_balance=config.initial_balance,
-                    fee_percent=config.broker_config.commission_value
-                    if config.broker_config.commission_type == CommissionType.PERCENT
-                    else 0.0,
-                    position_sizing=config.position_sizing,
-                    broker_config=config.broker_config,
-                    start_time=config.start_time,
-                    end_time=config.end_time,
-                    strategy_params=config.strategy_params,
-                    cancellation_requested=cancellation_requested,
-                    progress_callback=progress_callback,
-                )
-                self._log_dev_trace(
-                    "worker_dispatch_run_static_backtest",
-                    symbol=static_command.symbol,
-                    timeframe=static_command.interval.value,
-                )
-                result = self.dispatcher.dispatch(
-                    RunStaticBacktestCommand, static_command
-                )
-        except Exception as exc:
-            logger.exception(
-                "%s backtest failed",
-                "Realtime"
-                if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
-                else "Static",
-            )
-            self._log_dev_trace("worker_failed", message=str(exc))
-            self._backtestFailedSignal.emit(resolved_action_id, str(exc))
-            return
-
-        if isinstance(result, BacktestCancelled):
-            self._backtestCancelledSignal.emit(resolved_action_id, result)
-            return
-
-        if result is None:
-            self._log_dev_trace("worker_no_data")
-            self._backtestEmptySignal.emit(
-                resolved_action_id,
-                f"Không có dữ liệu lịch sử cho {self._symbol} "
-                f"({self._effective_data_interval(config).value}). "
-                "Hãy sync dữ liệu trước.",
-                config,
-            )
-            return
-
-        if cancellation_token is not None and cancellation_token.is_cancelled():
-            self._backtestCancelledSignal.emit(
-                resolved_action_id,
-                BacktestCancelled("post_dispatch", 0, 0),
-            )
-            return
-
-        self._log_dev_trace(
-            "worker_result_ready",
-            trades=len(result.trades),
-            net_profit_percent=result.metrics.net_profit_percent,
-        )
-        self._fetch_and_emit_chart_data(resolved_action_id, config, result)
-        # Emitted whether or not there are trades — _on_backtest_succeeded
-        # always has a real BacktestResult to build stat cards from; only
-        # "no historical data at all" (result is None, above) has none.
-        self._backtestSucceededSignal.emit(resolved_action_id, result)
+        """Kept with this exact signature: 67 test call sites go through
+        `presenter._run_backtest(...)`, and `_start_backtest_run` submits the
+        bound method to the thread manager."""
+        self._execution.run(config, action_id, cancellation_token, allow_auto_sync)
 
     @staticmethod
     def _execution_mode_label(config: BacktestRunConfig) -> str:
-        """BOT-076 §3.3 — every result must say plainly which of the two
-        parallel engines produced it. They are allowed and expected to
-        disagree on the same data (BOT-076 §5); a result with no label is
-        exactly the "two runs look identical with different meanings" trap
-        that requirement exists to prevent."""
-        if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-            return f"Chế độ: Realtime (tick {config.tick_resolution.value})"
-        return "Chế độ: Static (theo nến đóng)"
+        return ExecutionCoordinator.execution_mode_label(config)
 
     @staticmethod
     def _effective_data_interval(config: BacktestRunConfig) -> TimeFrame:
-        """The kline interval that must actually be synced/covered for this
-        run — BOT-076's realtime handler queries `IMarketDataRepository` at
-        `tick_resolution` (e.g. 1s), never at `config.timeframe` (the
-        strategy/indicator interval, e.g. 5m — BOT-075's own decision was 1s
-        kline as the tick data source, same repository, no new pipeline).
-        Checking/syncing `config.timeframe` coverage for a Realtime run would
-        report "fully covered" while the interval the handler actually reads
-        was never fetched at all."""
-        if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
-            return config.tick_resolution
-        return config.timeframe
+        return ExecutionCoordinator.effective_data_interval(config)
 
     def _probe_data_coverage(self, config: BacktestRunConfig) -> BacktestRangeCoverage:
         return self._data_sync.probe_coverage(config)
@@ -2253,94 +2122,7 @@ class BackTestPresenter(BasePresenter):
     def _fetch_and_emit_chart_data(
         self, action_id: int, config: BacktestRunConfig, result: BacktestResult
     ) -> None:
-        """
-        @brief Separate from the BacktestResult dispatch above — the chart
-        needs the raw candles too, which `RunStaticBacktestCommand` never
-        returns (BOT-056 §1 finding: nothing before this task ever fetched
-        them for this screen). A failure here must not undo the
-        already-reported BacktestResult; it only leaves the chart empty.
-        """
-        if result.committed_bars:
-            # A Realtime run built its own bars by aggregating ticks, so the
-            # exchange's published candles for this interval are a DIFFERENT
-            # series — complete where these have gaps (`tick_gap_forced_commit`)
-            # — and may not exist in storage at all, since a Realtime run only
-            # ever syncs/coverage-checks `tick_resolution`, never `timeframe`.
-            # Drawing published candles beneath markers derived from these
-            # would show a chart disagreeing with the decisions actually made.
-            raw_klines = list(result.committed_bars)
-            self._log_dev_trace(
-                "chart_source_committed_bars",
-                timeframe=config.timeframe.value,
-                bars=len(raw_klines),
-            )
-        else:
-            try:
-                query = GetHistoricalKlinesQuery(
-                    symbol=self._symbol,
-                    interval=config.timeframe.value,
-                    limit=self._chart_klines_fetch_limit,
-                    start_time=config.start_time,
-                    end_time=config.end_time,
-                    # Descending + reversed below (mirrors dashboard_presenter's
-                    # own _run_load_history) so a range with more than
-                    # the fetch limit keeps the MOST RECENT ones —
-                    # ascending order would silently cap at the OLDEST instead.
-                    order_by_desc=True,
-                )
-                self._log_dev_trace(
-                    "chart_query_dispatch",
-                    symbol=self._symbol,
-                    timeframe=config.timeframe.value,
-                    limit=self._chart_klines_fetch_limit,
-                )
-                response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-                raw_klines = list(reversed(getattr(response, "data", response) or []))
-            except Exception as exc:
-                logger.exception("Fetching chart klines failed")
-                self._log_dev_trace("chart_query_failed", message=str(exc))
-                return
-
-        if not raw_klines:
-            self._log_dev_trace("chart_query_empty")
-            return
-
-        if len(raw_klines) >= self._chart_klines_fetch_limit:
-            logger.warning(
-                "Backtest chart truncated to the %d most recent candles by "
-                "%s; older trade markers will have no candles beneath them.",
-                self._chart_klines_fetch_limit,
-                ConfigKeys.BACKTEST_CHART_KLINES_FETCH_LIMIT.value,
-            )
-            self._log_dev_trace(
-                "chart_query_truncated", limit=self._chart_klines_fetch_limit
-            )
-
-        mapped_klines = map_klines(raw_klines)
-        mapped_volume = map_volume(raw_klines)
-        self._log_dev_trace(
-            "chart_query_ready",
-            raw_klines=len(raw_klines),
-            mapped_klines=len(mapped_klines),
-            mapped_volume=len(mapped_volume),
-        )
-        self._chartDataReadySignal.emit(
-            action_id, result, mapped_klines, mapped_volume, raw_klines
-        )
-
-        self._emit_strategy_indicator_lines(action_id, config, raw_klines)
-        self._emit_strategy_trend_zones(action_id, config, raw_klines)
-
-        # BOT-064: user-picked reference scripts — batch feed, same klines
-        # already fetched above, entirely independent of the strategy lines
-        # just emitted (self._chart_script_keys was snapshotted on the main
-        # thread by _start_backtest_run before this background method ran).
-        self._log_dev_trace(
-            "chart_scripts_rebuild", script_keys=self._chart_script_keys
-        )
-        self._chart_script_runner.rebuild(self._chart_script_keys)
-        self._chart_script_runner.feed_all(raw_klines)
-        self._log_dev_trace("chart_scripts_fed", raw_klines=len(raw_klines))
+        self._execution.fetch_and_emit_chart_data(action_id, config, result)
 
     def _emit_strategy_indicator_lines(
         self, action_id: int, config: BacktestRunConfig, raw_klines: list
