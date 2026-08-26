@@ -26,9 +26,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
     BacktestCancelled,
     RunStaticBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
@@ -126,6 +123,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from .backtest_view_model import BackTestViewModel
 from .coordinators import (
+    ChartRenderCoordinator,
     DataSyncCoordinator,
     IndicatorCoordinator,
     StrategyConfigCoordinator,
@@ -502,6 +500,36 @@ class BackTestPresenter(BasePresenter):
             emit_succeeded=self._syncSucceededSignal.emit,
             emit_failed=self._syncFailedSignal.emit,
             emit_cancelled=self._syncCancelledSignal.emit,
+        )
+        self._chart_render = ChartRenderCoordinator(
+            view=self.view,
+            view_model=self._view_model,
+            dispatcher=self.dispatcher,
+            thread_manager=self._thread_manager,
+            logger_=self._logger,
+            get_symbol=lambda: self._symbol,
+            get_active_strategy_lines=lambda: self._active_strategy_lines,
+            set_current_raw_klines=self._set_current_raw_klines,
+            refresh_market_rule_verification=(
+                self._strategy_config.refresh_market_rule_verification
+            ),
+            log_dev_trace=self._log_dev_trace,
+            format_coverage_message=DataSyncCoordinator.format_coverage_message,
+            # Routed through the presenter's own methods, not bound straight
+            # to the indicator coordinator: a test replaces
+            # `presenter._on_ema_toggled` with a Mock and asserts the
+            # mode-change path calls it. Binding early skipped it entirely.
+            set_strategy_lines_visible=lambda visible: self._on_ema_toggled(visible),
+            set_script_overlay_lines_visible=(
+                lambda visible: self._set_script_overlay_lines_visible(visible)
+            ),
+            get_chart_klines_fetch_limit=lambda: self._chart_klines_fetch_limit,
+            get_current_config=self._get_current_config,
+            is_busy=self._is_busy_for_preview,
+            next_preview_id=self._claim_preview_id,
+            get_active_preview_id=lambda: self._active_preview_id,
+            emit_preview_ready=self._previewDataReadySignal.emit,
+            run_preview_worker=self._run_chart_preview,
         )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -1378,57 +1406,19 @@ class BackTestPresenter(BasePresenter):
         volume: list,
         raw_klines: list | None = None,
     ) -> None:
-        if raw_klines is not None:
-            self._current_raw_klines = list(raw_klines)
-            self._refresh_market_rule_verification()
-        self._log_dev_trace(
-            "chart_data_ready",
-            klines=len(klines),
-            volume=len(volume),
-            trades=len(result.trades),
-        )
-        self._logger.log_klines_loaded(len(klines), self._symbol)
-        self.view.on_backtest_data_ready(result, klines, volume)
-        # BUG-032: this is the one place a real BacktestResult chart lands —
-        # clears the preview flag `_on_preview_data_ready` set, so QML stops
-        # showing the "preview" badge once real results are on screen.
-        self._view_model.set_chart_preview_mode(False)
+        self._chart_render.on_data_ready(result, klines, volume, raw_klines)
 
     @Slot(str, str, list, list)
     @safe_ui_action
     def _on_chart_strategy_line(
         self, name: str, color: str, x_data: list, y_data: list, width: int = 2
     ) -> None:
-        """BOT-060: one call per strategy indicator line, emitted once the
-        whole run has been fed (`_fetch_and_emit_chart_data`) — adds the
-        curve on first use, same as `IndicatorScriptRunner.draw()` does for
-        Dev Board scripts, just without needing that class at all (a
-        strategy has no `.line_colors()`/`.compute()` to drive it). `width`
-        (BOT-111) lets a strategy request a different line weight per line,
-        e.g. a thinner entry EMA than trend EMA."""
-        card = self._first_chart_card()
-        if card is None:
-            return
-        if name not in self._active_strategy_lines:
-            card.add_overlay_indicator(name, color, width)
-            self._active_strategy_lines.add(name)
-        card.update_indicator_data(name, x_data, y_data)
+        self._chart_render.on_strategy_line(name, color, x_data, y_data, width)
 
     @Slot(list)
     @safe_ui_action
     def _on_chart_strategy_region(self, spans: list) -> None:
-        """BOT-113: the backtested strategy's own `classify_trend_zone()`
-        output, emitted once per run (`_emit_strategy_trend_zones`) under a
-        fixed key — unlike `_on_chart_script_region` there is only ever one
-        strategy per run, so no key needs to travel through the signal."""
-        card = self._first_chart_card()
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "strategy trend zones",
-            lambda host: host.set_script_regions(_STRATEGY_TREND_ZONE_KEY, spans),
-            drawn_count=len(spans),
-        )
+        self._chart_render.on_strategy_region(spans)
 
     @Slot(str, list, list)
     @safe_ui_action
@@ -1468,48 +1458,14 @@ class BackTestPresenter(BasePresenter):
     def _apply_after_native_fallback(
         self, feature_name: str, draw, *, drawn_count: int
     ) -> None:
-        """Draw `draw` on the live host.
-
-        Named for its now-deleted native-fallback history (BUG-038): a
-        native C++/QML chart host used to raise `NativeUnsupportedFeatureError`
-        for exactly this class of content (script regions/info/markers,
-        equity/BOTH subplot) and this method rebuilt onto the Python host
-        and replayed `draw`. The native host is gone outright — `draw`
-        always succeeds on `PythonBacktestChartHost` — but the call sites
-        (`_on_chart_strategy_region`/`_on_chart_script_region`/etc.) still
-        route through here rather than calling `draw(card)` directly, so
-        the `[chart-region]` logging (`.agents/rules/logging-rule.md`
-        §2/§5: log what was applied, not just what was decided) stays in
-        one place.
-        """
-        card = self._first_chart_card()
-        if card is None:
-            return
-        draw(card)
-        logger.debug(
-            "[chart-region] %s: drew %d item(s) on %s",
-            feature_name,
-            drawn_count,
-            type(card).__name__,
+        self._chart_render.apply_after_native_fallback(
+            feature_name, draw, drawn_count=drawn_count
         )
 
     @Slot(str)
     @safe_ui_action
     def _on_chart_mode_changed(self, mode_value: str) -> None:
-        mode = ChartDisplayMode(mode_value)
-        self._log_dev_trace("chart_mode_changed", mode=mode_value)
-        self.view.set_chart_mode(mode)
-        is_price_scale = mode is not ChartDisplayMode.EQUITY
-        # Entry/exit PRICE markers AND the strategy indicator overlay are
-        # both price-scale — meaningless, and for the overlay actively
-        # harmful (drags the shared main plot's auto-range onto price
-        # values), once the main plot is showing Equity instead of price.
-        # See BacktestChartControls' set_trade_flags_enabled/set_ema_enabled.
-        controls = self.view.chart_controls
-        controls.set_trade_flags_enabled(is_price_scale)
-        controls.set_ema_enabled(is_price_scale)
-        self._on_ema_toggled(is_price_scale and controls.is_ema_checked())
-        self._set_script_overlay_lines_visible(is_price_scale)
+        self._chart_render.on_mode_changed(mode_value)
 
     @Slot(bool)
     @safe_ui_action
@@ -1627,62 +1583,34 @@ class BackTestPresenter(BasePresenter):
             self._on_config_input_changed()
             self._request_chart_preview()
 
-    def _request_chart_preview(self) -> None:
-        """Probe and preview a toolbar range without blocking the Qt thread."""
-        if self.fsm.current_state in (
+    def _set_current_raw_klines(self, klines: list) -> None:
+        self._current_raw_klines = klines
+
+    def _claim_preview_id(self) -> int:
+        """Next preview generation id, and the one now considered current.
+
+        Stays on the presenter because four tests read or write
+        `presenter._active_preview_id` directly.
+        """
+        self._next_preview_id += 1
+        self._active_preview_id = self._next_preview_id
+        return self._active_preview_id
+
+    def _is_busy_for_preview(self) -> bool:
+        """A preview during a run would race the run's own chart writes."""
+        return self.fsm.current_state in (
             BacktestUiState.RUNNING,
             BacktestUiState.CANCELLING,
             BacktestUiState.SYNCING,
-        ):
-            return
-        config = self._get_current_config()
-        if self._view_model.timeRangePreset == TimeRangePreset.CUSTOM.value:
-            if config.start_time is None or config.end_time is None:
-                return
-            if config.start_time >= config.end_time:
-                return
-        self._next_preview_id += 1
-        self._active_preview_id = self._next_preview_id
-        self._thread_manager.submit(
-            self._run_chart_preview,
-            config,
-            self._active_preview_id,
         )
 
+    def _request_chart_preview(self) -> None:
+        self._chart_render.request_preview()
+
     def _run_chart_preview(self, config: BacktestRunConfig, preview_id: int) -> None:
-        """Background preview query; generation ID fences rapid toolbar changes."""
-        now = datetime.now(UTC)
-        try:
-            query = GetHistoricalKlinesQuery(
-                symbol=self._symbol,
-                interval=config.timeframe.value,
-                limit=self._chart_klines_fetch_limit,
-                start_time=config.start_time,
-                end_time=config.end_time or now,
-                order_by_desc=True,
-            )
-            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            raw_klines = list(reversed(list(getattr(response, "data", response) or [])))
-            coverage = self.dispatcher.dispatch(
-                GetBacktestRangeCoverageQuery,
-                GetBacktestRangeCoverageQuery(
-                    symbol=self._symbol,
-                    interval=config.timeframe.value,
-                    start_time=config.start_time,
-                    end_time=config.end_time or now,
-                    now=now,
-                ),
-            )
-            self._previewDataReadySignal.emit(
-                preview_id,
-                coverage,
-                map_klines(raw_klines),
-                map_volume(raw_klines),
-                raw_klines,
-            )
-        except Exception as exc:
-            logger.exception("Fetching Backtest chart preview failed")
-            self._log_dev_trace("preview_query_failed", message=str(exc))
+        """Kept with this signature: three tests call it directly, and
+        `request_preview` submits this bound method to the thread manager."""
+        self._chart_render.run_preview(config, preview_id)
 
     @Slot(int, object, list, list, list)
     @safe_ui_action
@@ -1694,20 +1622,9 @@ class BackTestPresenter(BasePresenter):
         volume: list,
         raw_klines: list | None = None,
     ) -> None:
-        if preview_id != self._active_preview_id:
-            self._log_dev_trace("preview_ignored", preview_id=preview_id)
-            return
-        if raw_klines is not None:
-            self._current_raw_klines = list(raw_klines)
-        self._view_model.set_data_coverage(
-            coverage.is_fully_covered,
-            ""
-            if coverage.is_fully_covered
-            else self._format_coverage_message(coverage),
+        self._chart_render.on_preview_data_ready(
+            preview_id, coverage, klines, volume, raw_klines
         )
-        self._view_model.set_needs_data_sync(not coverage.is_fully_covered)
-        self.view.on_preview_data_ready(klines, volume)
-        self._view_model.set_chart_preview_mode(True)
 
     @Slot()
     @safe_ui_action
