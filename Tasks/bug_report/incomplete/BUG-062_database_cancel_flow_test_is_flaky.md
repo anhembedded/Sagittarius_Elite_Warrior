@@ -83,3 +83,55 @@ Hai giả thuyết đã **bị bác bỏ** trong lúc điều tra, ghi lại đ�
 
 Vẫn để **Open**. Đóng khi tái hiện được, hoặc khi tier integration chạy đủ nhiều
 lần sau thay đổi này mà không tái xuất.
+
+---
+
+## Đã tái hiện SAU bản vá `b94b7ff` — thêm 2026-08-26 (phiên `EPIC-003E`)
+
+Mục trên nói *"chưa tái hiện được cú đỏ"*. **Tái hiện được rồi**, và là **sau**
+khi `_FakeExchangeClient` đã thay `Mock`. Ghi lại vì đây đúng là dữ kiện mục trên
+đang thiếu.
+
+Đo trên 5 lượt `pwsh -NoProfile -File scripts/ci-local.ps1 -Full` liên tiếp,
+cùng một máy, trong lúc làm việc **không đụng gì tới `data_management/`**:
+
+| Lượt | Kết quả test này |
+| :-: | :--- |
+| 1 | ❌ đỏ |
+| 2 | ✅ (cây sạch, không có việc đang dở) |
+| 3 | ❌ đỏ — **kèm** một test khác cũng đỏ (`test_ui_state_coordinator::test_marking_again_restarts_the_window`) |
+| 4 | ✅ |
+| 5 | ❌ đỏ |
+
+**3/5 lượt đỏ.** Triệu chứng **y hệt** mô tả ở §Hiện tượng:
+
+```
+qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
+E  pytestqt.exceptions.TimeoutError: waitUntil timed out in 2000 milliseconds
+```
+
+Hai điều bản vá **đã** làm được, đọc từ log lượt đỏ:
+
+- Dòng `SyncMarketDataCommand failed: 'Mock' object is not iterable` — có ở mọi
+  lần gặp **trước đây** — **không còn xuất hiện**. Fixture `_FakeExchangeClient`
+  hiện diện trong output (`database_app_context = (..., <_FakeExchangeClient ...>)`).
+- Nên: bản vá **đã bịt đúng lớp lỗi nó nhắm tới**. Cú đỏ còn lại là **nguyên
+  nhân khác**, không phải cái cũ sót lại.
+
+### Hai quan sát thu hẹp được phạm vi
+
+1. **Chạy riêng luôn xanh.** 10/10 lượt chạy đơn lẻ test này đều pass (2 đợt × 5).
+   Chỉ đỏ khi chạy trong suite song song (`-n`), khớp họ `BUG-030`.
+2. **Lượt 3 đỏ kèm một test khác**, và test kia có docstring **tự ghi** rằng nó
+   hỏng khi máy tải nặng:
+   > *"It passed alone and **failed inside the full unit run** ... because on a
+   > loaded machine `wait(75)` really can take longer than the 150ms window"*
+
+   Hai test đỏ **khác nhau giữa các lượt** là chữ ký của **flake theo tải**, không
+   phải của một regression (regression đỏ cùng một test mọi lượt).
+
+**Giả thuyết đề xuất cho lần điều tra sau:** không phải `Mock`, mà là **timeout
+2000ms quá sát** khi worker `xdist` tranh CPU. Cách kiểm rẻ nhất: chạy suite với
+`-n 2` thay vì mặc định và xem tỉ lệ đỏ có tụt không. Nếu có, cái cần sửa là chỗ
+test chờ (`waitUntil` theo điều kiện thay vì theo hạn giờ cứng), không phải
+production code.

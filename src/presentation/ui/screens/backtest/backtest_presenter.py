@@ -44,11 +44,6 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
-    MetadataVerificationStatus,
-    OrderIntent,
-    validate_order_intent,
-)
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
@@ -134,7 +129,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_view_model import BackTestViewModel
-from .coordinators import TradeLogCoordinator
+from .coordinators import StrategyConfigCoordinator, TradeLogCoordinator
 from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
@@ -148,11 +143,6 @@ from .logic.backtest_fsm_matrix import (
     BacktestUiState,
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
-from .logic.bot_params_form import (
-    build_bot_params_rows,
-    build_bot_params_schema,
-    parse_bot_params,
-)
 from .logic.chart_canvas_view import ChartDisplayMode
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
@@ -473,6 +463,22 @@ class BackTestPresenter(BasePresenter):
             set_chart_display_timezone=lambda tz: self.view.set_display_timezone(tz),
             ask_export_path=self._ask_trade_log_export_path,
             logger=self._logger,
+        )
+        self._strategy_config = StrategyConfigCoordinator(
+            view_model=self._view_model,
+            strategy_registry=self._strategy_registry,
+            logger=self._logger,
+            get_strategy_params=lambda: self._strategy_params,
+            set_strategy_params=self._set_strategy_params,
+            get_symbol=lambda: self._symbol,
+            # `lambda`, not `self._market_metadata_cache.get`: binding the
+            # method captures the cache object that exists right now, and
+            # tests replace `presenter._market_metadata_cache` after
+            # construction. The bound version read the original cache and
+            # reported UNVERIFIED_MISSING for every symbol.
+            get_market_metadata=lambda symbol: self._market_metadata_cache.get(symbol),
+            get_current_raw_klines=lambda: self._current_raw_klines,
+            notify_config_changed=self._on_config_input_changed,
         )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -1555,19 +1561,17 @@ class BackTestPresenter(BasePresenter):
 
     @Slot()
     @safe_ui_action
+    def _set_strategy_params(self, params: dict[str, Any] | None) -> None:
+        """Write access to `_strategy_params` for `StrategyConfigCoordinator`.
+
+        A method rather than handing the coordinator the presenter: it is the
+        only attribute the coordinator writes, and four tests read
+        `presenter._strategy_params` directly, so it has to stay here.
+        """
+        self._strategy_params = params
+
     def _on_strategy_selection_changed(self) -> None:
-        """A different strategy has an entirely different parameter schema —
-        any values saved for the previous one would either be silently
-        ignored or raise "param nobody declares" against the new one, so
-        they're discarded rather than carried over (BOT-047)."""
-        self._strategy_params = None
-        self._view_model.set_bot_params_error("")
-        self._refresh_bot_params_schema()
-        self._logger.log_strategy_selected(
-            self._view_model.selectedStrategyName,
-            self._view_model.selectedStrategyKey,
-        )
-        self._on_config_input_changed()
+        self._strategy_config.on_strategy_selection_changed()
 
     @Slot()
     @safe_ui_action
@@ -1748,65 +1752,18 @@ class BackTestPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_capital_changed(self) -> None:
-        self._set_capital_validation_message(self._view_model.initialCapitalText)
-        try:
-            capital_val = float(self._view_model.initialCapitalText)
-            self._logger.log_capital_updated(
-                capital_val,
-                self._view_model.selectedCurrency,
-            )
-        except (ValueError, TypeError):
-            pass
-        self._on_config_input_changed()
+        self._strategy_config.on_capital_changed()
 
     @Slot(str)
     @safe_ui_action
     def _on_capital_validation_requested(self, value: str) -> None:
-        self._set_capital_validation_message(value)
+        self._strategy_config.on_capital_validation_requested(value)
 
     def _set_capital_validation_message(self, value: str) -> None:
-        issues = PreBacktestAssertionPipeline.default().validate(
-            PreBacktestInput(value, False, "", "")
-        )
-        self._view_model.set_capital_validation_message(
-            issues[0].message if issues else ""
-        )
-        self._refresh_market_rule_verification()
+        self._strategy_config.set_capital_validation_message(value)
 
     def _refresh_market_rule_verification(self) -> None:
-        """Evaluates whether current symbol and capital comply with exchange order rules (BOT-095E1)."""
-        metadata = self._market_metadata_cache.get(self._symbol)
-        try:
-            capital_val = float(self._view_model.initialCapitalText)
-        except (ValueError, TypeError):
-            capital_val = 0.0
-
-        if metadata is None:
-            self._view_model.set_market_rule_verification(
-                MetadataVerificationStatus.UNVERIFIED_MISSING.value,
-                "Chưa xác minh theo quy tắc sàn (chưa có metadata cho cặp giao dịch).",
-            )
-            return
-
-        if metadata.is_stale():
-            self._view_model.set_market_rule_verification(
-                MetadataVerificationStatus.UNVERIFIED_STALE.value,
-                f"Chưa xác minh theo quy tắc sàn (metadata cũ từ {metadata.fetched_at.strftime('%Y-%m-%d %H:%M:%S UTC')}).",
-            )
-            return
-
-        ref_price = (
-            self._current_raw_klines[-1].close_price
-            if self._current_raw_klines
-            else metadata.price_filter.min_price
-        )
-        qty = capital_val / ref_price if ref_price > 0 else 0.0
-        intent = OrderIntent(symbol=self._symbol, price=ref_price, quantity=qty)
-        result = validate_order_intent(intent, metadata)
-        self._view_model.set_market_rule_verification(
-            result.status.value,
-            result.explanation,
-        )
+        self._strategy_config.refresh_market_rule_verification()
 
     @Slot()
     @safe_ui_action
@@ -1849,96 +1806,20 @@ class BackTestPresenter(BasePresenter):
     @Slot(object)
     @safe_ui_action
     def _on_bot_params_save_requested(self, raw_values: dict) -> None:
-        """ "Lưu & Re-Backtest" (BOT-047): validates the modal's values
-        against the selected strategy's own declarations before accepting
-        anything — an out-of-range/mistyped value must show an inline error
-        and leave the modal open, never silently fall back to a default."""
-        strategy_cls = self._strategy_registry.available().get(
-            self._view_model.selectedStrategyKey
-        )
-        if strategy_cls is None:
-            return
-        try:
-            parsed = parse_bot_params(strategy_cls().inputs, raw_values)
-            strategy_cls(parsed)  # construct-and-discard: the real validator
-        except ValueError as exc:
-            self._view_model.set_bot_params_error(str(exc))
-            return
-
-        self._strategy_params = parsed
-        self._view_model.set_bot_params_error("")
-        self._refresh_bot_params_schema()
-        self._view_model.botParamsSaved.emit()
-        self._logger.log_bot_params_saved(
-            self._view_model.selectedStrategyName,
-            parsed,
-        )
-        self._on_config_input_changed()
-
-        if not self.fsm.can_dispatch(BacktestUiEvent.RUN_REQUESTED):
-            return
-        config = self._build_run_config()
-        if config is None:
-            return
-        previous_state = self.fsm.current_state
-        self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)
-        self._start_backtest_run(config, previous_state)
+        if self._strategy_config.apply_bot_params(raw_values):
+            self._start_run_after_config_save()
 
     @Slot(object)
     @safe_ui_action
     def _on_strategy_properties_save_requested(self, payload: dict) -> None:
-        """ "Lưu & Chạy lại" (BOT-104): handles combined Strategy Inputs and
-        Broker Properties saving from StrategyPropertiesModal.qml."""
-        inputs = payload.get("inputs", {})
-        props = payload.get("properties", {})
+        if self._strategy_config.apply_strategy_properties(payload):
+            self._start_run_after_config_save()
 
-        strategy_cls = self._strategy_registry.available().get(
-            self._view_model.selectedStrategyKey
-        )
-        if strategy_cls is not None and inputs:
-            try:
-                parsed = parse_bot_params(strategy_cls().inputs, inputs)
-                strategy_cls(parsed)
-                self._strategy_params = parsed
-            except ValueError as exc:
-                self._view_model.set_bot_params_error(str(exc))
-                return
-
-        # Apply broker properties to view_model
-        if "initial_capital" in props:
-            self._view_model.initialCapitalText = str(props["initial_capital"])
-        if "currency" in props:
-            self._view_model.selectedCurrency = str(props["currency"])
-        if "order_size_type" in props:
-            self._view_model.orderSizeType = str(props["order_size_type"])
-        if "order_size_text" in props:
-            self._view_model.orderSizeText = str(props["order_size_text"])
-        if "pyramiding" in props:
-            self._view_model.pyramiding = int(props["pyramiding"])
-        if "commission_type" in props:
-            self._view_model.commissionType = str(props["commission_type"])
-        if "commission_text" in props:
-            self._view_model.commissionText = str(props["commission_text"])
-        if "slippage_ticks" in props:
-            self._view_model.slippageTicks = int(props["slippage_ticks"])
-        if "long_leverage" in props:
-            self._view_model.longLeverage = float(props["long_leverage"])
-        if "short_leverage" in props:
-            self._view_model.shortLeverage = float(props["short_leverage"])
-        if "take_profit_enabled" in props:
-            self._view_model.takeProfitPctEnabled = bool(props["take_profit_enabled"])
-        if "take_profit_pct_text" in props:
-            self._view_model.takeProfitPctText = str(props["take_profit_pct_text"])
-
-        self._view_model.set_bot_params_error("")
-        self._refresh_bot_params_schema()
-        self._view_model.botParamsSaved.emit()
-        self._logger.log_bot_params_saved(
-            self._view_model.selectedStrategyName,
-            self._strategy_params or {},
-        )
-        self._on_config_input_changed()
-
+    def _start_run_after_config_save(self) -> None:
+        """The "and now re-run it" tail both save handlers ended with, byte
+        for byte. It stays on the presenter because it owns the FSM, and it
+        is one method now because two copies of a dispatch-then-start
+        sequence is one copy too many."""
         if not self.fsm.can_dispatch(BacktestUiEvent.RUN_REQUESTED):
             return
         config = self._build_run_config()
@@ -1949,16 +1830,7 @@ class BackTestPresenter(BasePresenter):
         self._start_backtest_run(config, previous_state)
 
     def _refresh_bot_params_schema(self) -> None:
-        strategy_cls = self._strategy_registry.available().get(
-            self._view_model.selectedStrategyKey
-        )
-        schema = (
-            build_bot_params_schema(strategy_cls, self._strategy_params)
-            if strategy_cls is not None
-            else []
-        )
-        self._view_model.set_bot_params_schema(schema)
-        self._view_model.set_bot_params_rows(build_bot_params_rows(schema))
+        self._strategy_config.refresh_bot_params_schema()
 
     @Slot()
     @safe_ui_action
