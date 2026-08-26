@@ -103,7 +103,19 @@ def main() -> None:
         sys.exit(1)
 
     app = QApplication.instance() or QApplication(sys.argv)
-    configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
+    # `as_ui_dict()` returns `dict[str, str | float]` since `EPIC-007F` gave
+    # this app its own size tokens; the engine still annotates the parameter
+    # `dict[str, str]`. Runtime is fine — it feeds a `QQmlPropertyMap`, which
+    # takes any value, and production does exactly this on every launch
+    # (`app_bootstrapper.py`, unchecked only because `presentation/` is
+    # excluded from the mypy gate). The narrow annotation is the engine's to
+    # widen; ignored here rather than converting the sizes to strings, which
+    # would change what the UI actually renders.
+    configure_app_qml(
+        Palette.as_ui_dict(),  # type: ignore[arg-type]
+        get_icon_loader(),
+        Palette.as_icon_dict(),
+    )
 
     widget = previews[args.screen]()
     widget.setWindowTitle(f"QML Preview — {args.screen}")
