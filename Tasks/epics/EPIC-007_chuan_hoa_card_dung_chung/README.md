@@ -1,6 +1,6 @@
 # EPIC-007 — Chuẩn hoá card dùng chung, đưa hình dạng lên Engine
 
-**Trạng thái:** 🟡 Đang làm (5/7 task con — `007A`–`007E` xong 2026-08-25; `007F` đang làm — Settings + Dashboard + `StatCard`/`TabBar`, guard bare-base 17→14)
+**Trạng thái:** 🟡 Đang làm (6/7 task con — `007A`–`007F` xong; còn `007G`. Guard bare-base 17 → **2**, và trên `screens/` là **0** — yêu cầu 1 của `007F` đạt)
 **Loại:** Presentation / Kiến trúc UI
 **Ưu tiên:** P2 — không có tác động runtime tức thời; giảm chi phí sửa UI về sau
 **Nhánh đề xuất:** `epic/EPIC-007-chuan-hoa-card`
@@ -89,7 +89,7 @@ ghi chú.
 | **[007C](completed/EPIC-007C_engine_controls_va_showcase.md)** | Engine: `StyledLabel`/`SectionLabel`/`Badge`/`StyledProgressBar` + showcase + coverage guard | Engine | ✅ |
 | **[007D](completed/EPIC-007D_gop_token_mau.md)** | Elite: xoá 18 hằng màu riêng, gộp về `Palette`; sửa docstring sai của Dev Board | Elite | ✅ |
 | **[007E](completed/EPIC-007E_elite_components_dung_chung.md)** | Elite: `components/` — `ChartCard(Card)` thay `BaseCard`, `TimeRangeCard`, `SymbolPickerOverlay`; cắt 3 import chéo | Elite | ✅ |
-| **[007F](incomplete/EPIC-007F_migrate_4_man_hinh.md)** | Elite: migrate 4 màn sang widget mới | Elite | 🔵 |
+| **[007F](completed/EPIC-007F_migrate_4_man_hinh.md)** | Elite: migrate 4 màn sang widget mới | Elite | ✅ |
 | **[007G](incomplete/EPIC-007G_tach_file_qua_nguong.md)** | Elite: tách các file vượt ngưỡng | Elite | 🔵 |
 
 `007A`→`007C` phải xong trước `007D`→`007G`: các task Elite cần base class thật để kế thừa,
@@ -112,6 +112,26 @@ Task Engine (`007A`–`007C`) commit ở repo Engine; task Elite commit ở repo
   viên. Cái sai của 4 stub `ActionCard`/`FormCard`/`StreamCard`/`TableCard` là đoán sai hình
   dạng thứ chưa tồn tại, không phải "mới có 1 consumer". `007A` áp đúng luật này khi để
   multi-select của `IndicatorPickerDialog` ra ngoài `PickerOverlay`.
+
+## 5b. Phát hiện thứ sáu — thêm sau `007F`, và nó là quy luật chứ không phải một ca
+
+`007F` moi ra **năm** khuyết tật cùng một họ, ở năm widget khác nhau:
+
+| # | Widget | Khuyết tật | Ai lẽ ra phải thấy |
+| :-: | :--- | :--- | :--- |
+| 1 | `apply_role()` | QSS không scope, đè lên `transparent` của con (`BUG-008`) | Consumer đầu tiên có widget lồng nhau |
+| 2 | `StatCard` | Số "headline" **không có font rule nào** | Consumer đầu tiên nhìn vào cái card |
+| 3 | `TabBar`/`_TabButton` | `sizeHint()` theo text nó không có → cắt chữ (`BUG-012`) | Consumer đầu tiên có nhãn dài hơn `"First"` |
+| 4 | `DataRow` | Là `Panel` → mỗi hàng một card; không có từ vựng cho chữ trong bảng, nút viền, hay màu theo bản ghi; margin mặc định 9px làm bảng render trắng trơn | Consumer đầu tiên đặt nó vào `QListView` |
+| 5 | `Banner` | Tô viền theo severity nhưng **không tô chữ bên trong**; `Severity` thiếu `SUCCESS` mà docstring đã kể tên | Consumer đầu tiên đọc chữ trên banner |
+
+**Nguyên nhân chung:** widget ship ra khi **chưa có consumer thật**. Showcase không bắt được cái
+nào — nó cho mọi widget đúng bằng chỗ widget xin: không `QListView` ép chiều cao, không bảng 40
+hàng, không nhãn dài, không ai đọc chữ trên banner.
+
+Năm lần thì không còn là trùng hợp. **Ghi vào đây làm luật cho epic sau: một widget Engine chưa
+có consumer thật ở Elite thì coi như chưa xong, dù test có xanh.** Test của `007B`/`007C` đều
+xanh suốt — chúng assert cấu trúc và chuỗi QSS, không assert *cái nhìn thấy được*.
 
 ## 6. Ngoài phạm vi
 
