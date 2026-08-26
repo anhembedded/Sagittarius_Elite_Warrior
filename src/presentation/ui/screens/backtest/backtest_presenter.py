@@ -134,6 +134,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_view_model import BackTestViewModel
+from .coordinators import TradeLogCoordinator
 from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
@@ -171,17 +172,8 @@ from .logic.strategy_indicator_lines import (
 )
 from .logic.strategy_trend_zones import compute_strategy_trend_zones
 from .logic.time_range_preset import TimeRangePreset, resolve_time_range
-from .logic.trade_log_export import export_trades_to_csv
-from .logic.trade_log_filter import (
-    TradeLogFilter,
-    filter_trade_log_rows,
-    search_trade_log_rows,
-)
-from .logic.trade_log_pagination import paginate_trade_log_rows, total_pages
 from .logic.trade_log_row import (
     TradeLogRow,
-    build_trade_log_rows,
-    trade_log_rows_to_qml,
 )
 
 if TYPE_CHECKING:
@@ -470,6 +462,17 @@ class BackTestPresenter(BasePresenter):
             is_dev_mode=self._is_dev_mode,
             emit_signal=self._emit_ui_log,
             max_entries=self._log_max_entries,
+        )
+
+        # Reads `_all_trades` through a lambda rather than being handed the
+        # list: the presenter rebinds it on every run, and three existing
+        # tests assign `presenter._all_trades` directly before calling in.
+        self._trade_log = TradeLogCoordinator(
+            view_model=self._view_model,
+            get_all_trades=lambda: self._all_trades,
+            set_chart_display_timezone=lambda tz: self.view.set_display_timezone(tz),
+            ask_export_path=self._ask_trade_log_export_path,
+            logger=self._logger,
         )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -2094,76 +2097,46 @@ class BackTestPresenter(BasePresenter):
 
     @Slot()
     @safe_ui_action
-    def _on_trade_log_query_changed(self) -> None:
-        self._refresh_trade_log()
+    def _ask_trade_log_export_path(self) -> str:
+        """Where to write the CSV, or "" if the user cancelled.
 
-    @Slot()
-    @safe_ui_action
-    def _on_trade_log_export_requested(self) -> None:
-        if not self._all_trades:
-            return
-        if self._view_model.isConfigDirty:
-            self._logger.info(
-                f"Đang xuất Trade Logs của lần chạy trước ({self._view_model.lastRunSummary})."
-            )
+        Kept on the presenter rather than in `TradeLogCoordinator`: the dialog
+        needs `self.view` as its parent, and a coordinator that opens Qt
+        dialogs cannot be unit-tested without one.
+        """
         path, _selected_filter = QFileDialog.getSaveFileName(
             self.view,
             _EXPORT_DIALOG_TITLE,
             _EXPORT_DEFAULT_FILENAME,
             _EXPORT_FILE_FILTER,
         )
-        if not path:
-            return
-        export_trades_to_csv(self._currently_filtered_trades(), path)
+        return path
+
+    def _on_trade_log_query_changed(self) -> None:
+        self._trade_log.on_query_changed()
+
+    @Slot()
+    @safe_ui_action
+    def _on_trade_log_export_requested(self) -> None:
+        self._trade_log.on_export_requested()
 
     @Slot()
     @safe_ui_action
     def _on_display_timezone_changed(self) -> None:
-        """Propagates display timezone change to the chart and re-renders trade log table without dirtying config."""
-        tz_name = self._view_model.displayTimezone
-        self.view.set_display_timezone(tz_name)
-        self._refresh_trade_log()
+        self._trade_log.on_display_timezone_changed()
 
     # ================================================================== #
     # Main-thread helpers
     # ================================================================== #
 
     def _filtered_and_searched_trade_log_rows(self) -> list[TradeLogRow]:
-        """The rows matching the CURRENT filter tab + search text, in full
-        (not yet paginated) — shared by `_refresh_trade_log` (which then
-        paginates) and CSV export (which doesn't)."""
-        view_model = self._view_model
-        rows = build_trade_log_rows(self._all_trades)
-        filter_ = TradeLogFilter(view_model.tradeLogFilter)
-        filtered = filter_trade_log_rows(rows, filter_)
-        return search_trade_log_rows(filtered, view_model.tradeLogSearchText)
+        return self._trade_log.filtered_and_searched_rows()
 
     def _currently_filtered_trades(self) -> list[Trade]:
-        """The `Trade`s behind whatever's currently filtered/searched into
-        view — CSV export matches what the user is looking at, not
-        necessarily everything a run produced."""
-        matching_indexes = {
-            row.index for row in self._filtered_and_searched_trade_log_rows()
-        }
-        return [
-            trade
-            for position, trade in enumerate(self._all_trades, start=1)
-            if position in matching_indexes
-        ]
+        return self._trade_log.currently_filtered_trades()
 
     def _refresh_trade_log(self) -> None:
-        """Recomputes the Trade Logs table from `self._all_trades` — called
-        after every run (new data) and every filter/search/page change from
-        QML (`tradeLogQueryChanged`)."""
-        matched = self._filtered_and_searched_trade_log_rows()
-        page_rows = paginate_trade_log_rows(
-            matched, self._view_model.tradeLogCurrentPage
-        )
-        self._view_model.set_trade_log_page_state(
-            trade_log_rows_to_qml(page_rows, tz_name=self._view_model.displayTimezone),
-            len(matched),
-            total_pages(len(matched)),
-        )
+        self._trade_log.refresh()
 
     def _build_run_config(self) -> BacktestRunConfig | None:
         """Reads and validates the toolbar fields. Returns `None` (having
