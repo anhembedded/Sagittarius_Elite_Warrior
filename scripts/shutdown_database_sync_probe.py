@@ -113,7 +113,9 @@ def main() -> None:
         # app_bootstrapper.py's own bootstrap sequence, which this probe
         # mirrors). configure_app_qml() used to do this as a side effect of
         # creating the first QML-hosted view; there is no such view anymore.
-        get_theme_bridge(Palette.as_ui_dict())
+        # Same engine-annotation gap as `scripts/preview_qml.py` — see the
+        # comment there. Runtime takes the size tokens fine.
+        get_theme_bridge(Palette.as_ui_dict())  # type: ignore[arg-type]
         window = MainWindow(engine)
         window.switch_screen("data_management")
         presenter = window._router.get_current_presenter()
