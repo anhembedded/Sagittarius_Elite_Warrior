@@ -7,6 +7,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
@@ -24,7 +25,6 @@ _IDLE_STATUS_COLOR = Palette.MUTED
 # _CUSTOM_TIME_FORMAT so a value typed on one screen reads the same on the
 # other.
 _DEFAULT_SYMBOL = "ETHUSDT"
-DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 _DEFAULT_LOOKBACK_DAYS = 7
 
 

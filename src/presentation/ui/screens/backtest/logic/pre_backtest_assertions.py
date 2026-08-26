@@ -8,14 +8,15 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Protocol
 
-_CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
+
 _INVALID_CAPITAL_TEMPLATE = "Vốn ban đầu không hợp lệ: {value!r}"
 _NON_POSITIVE_CAPITAL_MESSAGE = "Vốn ban đầu phải lớn hơn 0."
 _INVALID_CUSTOM_START_MESSAGE = (
-    f"Ngày bắt đầu không hợp lệ — định dạng {_CUSTOM_TIME_FORMAT}."
+    f"Ngày bắt đầu không hợp lệ — định dạng {DATETIME_FORMAT}."
 )
 _INVALID_CUSTOM_END_MESSAGE = (
-    f"Ngày kết thúc không hợp lệ — định dạng {_CUSTOM_TIME_FORMAT}."
+    f"Ngày kết thúc không hợp lệ — định dạng {DATETIME_FORMAT}."
 )
 _INVALID_CUSTOM_RANGE_MESSAGE = "Ngày bắt đầu phải trước ngày kết thúc."
 _TICK_MODE_REQUIRES_BOUNDED_RANGE_MESSAGE = (
@@ -182,6 +183,6 @@ def parse_custom_datetime(raw: str) -> datetime | None:
 
 def _parse_custom_datetime(raw: str) -> datetime | None:
     try:
-        return datetime.strptime(raw.strip(), _CUSTOM_TIME_FORMAT).replace(tzinfo=UTC)
+        return datetime.strptime(raw.strip(), DATETIME_FORMAT).replace(tzinfo=UTC)
     except (AttributeError, ValueError):
         return None

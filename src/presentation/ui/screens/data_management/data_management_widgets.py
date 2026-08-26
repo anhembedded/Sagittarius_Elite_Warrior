@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.date_range_picker import (
+    pick_date_range,
+)
 from sagittarius_engine.extensions.pyside_mvc.widgets import (
     Banner,
     Column,
@@ -128,7 +131,42 @@ class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
         self._to_field.textEdited.connect(self.toDateTimeEdited)
         layout.addWidget(self._to_field)
 
+        # A second way to fill the same two fields, not a replacement for
+        # them: the presenter parses what is typed, and a user who prefers
+        # typing keeps that.
+        pick_row = QHBoxLayout()
+        pick_row.setContentsMargins(0, 0, 0, 0)
+        pick_row.addStretch(1)
+        self._btn_pick_range = QPushButton("Chọn lịch")
+        self._btn_pick_range.setObjectName("btnPickDateRange")
+        self._btn_pick_range.setFixedHeight(22)
+        self._btn_pick_range.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_pick_range.setStyleSheet(
+            f"QPushButton {{ color: {Palette.ACCENT}; background: transparent; "
+            f"border: 0; border-radius: 4px; font-size: 11px; padding: 0 6px; }}"
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
+        )
+        self._btn_pick_range.clicked.connect(self._on_pick_range)
+        pick_row.addWidget(self._btn_pick_range)
+        layout.addLayout(pick_row)
+
         self._apply_enabled_state()
+
+    def _on_pick_range(self) -> None:
+        chosen = pick_date_range(
+            self,
+            start_text=self._from_field.text(),
+            end_text=self._to_field.text(),
+        )
+        if chosen is None:
+            return
+        start, end = chosen
+        self._from_field.setText(start)
+        self._to_field.setText(end)
+        # The same signals typing emits — the view model must not be able to
+        # tell which of the two ways filled the field.
+        self.fromDateTimeEdited.emit(start)
+        self.toDateTimeEdited.emit(end)
 
     def _on_toggled(self, checked: bool) -> None:
         self._apply_enabled_state()
@@ -138,6 +176,7 @@ class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
         fields_enabled = self._toggle.isChecked() and not self._read_only
         self._from_field.setEnabled(fields_enabled)
         self._to_field.setEnabled(fields_enabled)
+        self._btn_pick_range.setEnabled(fields_enabled)
         self._toggle.setEnabled(not self._read_only)
 
     def set_use_custom_time(self, value: bool) -> None:

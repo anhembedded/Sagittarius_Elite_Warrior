@@ -23,7 +23,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed imp
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
+    DATETIME_FORMAT,
+    UIMode,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
     DataManagementActionKind,
     GapCoordinator,
@@ -46,7 +49,6 @@ if TYPE_CHECKING:
     from .data_management_view import DataManagementView
 
 _DATABASE_DIR_CONFIG_KEY = "database.dir"
-_CUSTOM_TIME_FORMAT = "%Y-%m-%d %H:%M"
 _UNKNOWN_STAT = "—"
 _BYTES_PER_MB = 1024 * 1024
 
@@ -469,7 +471,7 @@ class DataManagementPresenter(BasePresenter):
         if self._view_model.useCustomTime:
             if start_time is None:
                 self.ui_error_log_signal.emit(
-                    f"Invalid custom time range — expected format {_CUSTOM_TIME_FORMAT}."
+                    f"Invalid custom time range — expected format {DATETIME_FORMAT}."
                 )
                 return
             if end_time is not None and start_time > end_time:

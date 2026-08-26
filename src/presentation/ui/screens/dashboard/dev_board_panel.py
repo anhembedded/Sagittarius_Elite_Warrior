@@ -29,6 +29,7 @@ against another file to discover is shared.
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -46,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.date_range_picker import (
+    pick_date_range,
 )
 from sagittarius_engine.extensions.pyside_mvc.widgets import (
     Panel,
@@ -239,6 +243,24 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._txt_end_date.textEdited.connect(self._on_end_date_edited)
         layout.addWidget(self._txt_end_date)
 
+        # Same bridge the storage screen uses: the two fields stay typable,
+        # this only adds a calendar that writes into them.
+        pick_row = QHBoxLayout()
+        pick_row.setContentsMargins(0, 0, 0, 0)
+        pick_row.addStretch(1)
+        self._btn_pick_range = QPushButton("Chọn lịch")
+        self._btn_pick_range.setObjectName("btnPickDataRange")
+        self._btn_pick_range.setFixedHeight(22)
+        self._btn_pick_range.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_pick_range.setStyleSheet(
+            f"QPushButton {{ color: {Palette.ACCENT}; background: transparent; "
+            f"border: 0; border-radius: 4px; font-size: 11px; padding: 0 6px; }}"
+            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
+        )
+        self._btn_pick_range.clicked.connect(self._on_pick_range)
+        pick_row.addWidget(self._btn_pick_range)
+        layout.addLayout(pick_row)
+
         layout.addLayout(_section_row("Actions"))
 
         actions_row = QHBoxLayout()
@@ -389,6 +411,20 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
 
     def _on_start_date_edited(self, text: str) -> None:
         self._view_model.startDate = text
+
+    def _on_pick_range(self) -> None:
+        chosen = pick_date_range(
+            self,
+            start_text=self._txt_start_date.text(),
+            end_text=self._txt_end_date.text(),
+        )
+        if chosen is None:
+            return
+        start, end = chosen
+        self._txt_start_date.setText(start)
+        self._txt_end_date.setText(end)
+        self._on_start_date_edited(start)
+        self._on_end_date_edited(end)
 
     def _on_end_date_edited(self, text: str) -> None:
         self._view_model.endDate = text
