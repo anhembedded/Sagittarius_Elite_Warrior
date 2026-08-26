@@ -19,7 +19,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-25 (lần 3)
+> Cập nhật: 2026-08-26
 
 ---
 
@@ -27,9 +27,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :---: |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 3 |
 | ✅ **Đã sửa / đã đóng** | 48 |
-| 📈 **Tổng** | **50** |
+| 📈 **Tổng** | **51** |
 
 ---
 
@@ -37,6 +37,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-051](incomplete/BUG-051_settings_screen_crashes_on_missing_stylerole_members.md)** | Màn hình Settings vỡ hoàn toàn — `StyleRole` không có `HEADING` (và `BODY_LABEL`) | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Route `settings` chết ngay lúc dựng view (`settings_view.py:233`). **2 call site hỏng**, không phải 1 (dòng 233 `HEADING`, dòng 308 `BODY_LABEL`) — sửa mỗi dòng 233 chỉ đẩy lỗi xuống dưới. Phát hiện khi chạy regression của EPIC-010, **không do EPIC-010 gây ra** (`git log -S` truy về `8254df7`, EPIC-007F). |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky), chỉ trên Windows. **Cập nhật 2026-08-25:** cơ chế đã chứng minh — `engine.dispose()` chỉ đóng connection *checked-in*; một `Session` còn checked-out thì `dispose_all()` **không** đóng, để lại cho GC → đúng điều kiện sinh `ResourceWarning`. Nên bước "cứ thêm `dispose_all()`" là **không đủ**. Linux đo lại bằng bằng chứng dương tính: 0 connection chưa đóng trên cả 6 worker. Đã có `scripts/bug030_connection_leak_probe.py` để chỉ đích danh file:line khi chạy được trên Windows. |
 
