@@ -15,7 +15,7 @@
 > | D1 — the port lives in the app | ⛔ **Superseded** — it moves to the Engine (§3) |
 > | D3 — port in `src/presentation/ui/state/` | ⛔ **Superseded** by §3 |
 > | D2 slice-merge, D4 debounce, D5 restore-is-a-request, D6 no-side-effects, D7 schema | ✅ **Kept**, and now generalised by §4 |
-> | 12-failure-mode catalogue | ✅ Kept, **extended to 15** (§6) |
+> | 12-failure-mode catalogue | ✅ Kept, **extended to 16** (§6, plus mode 16 in §5.5.5) |
 >
 > Status tags carry the same meaning as the first document: ✅ **Established**
 > (checked against the tree, cites `file:line`), 🔵 **Proposed**, ❓ **Open**.
@@ -463,10 +463,103 @@ second implementer and no requirement it would serve. The seam is one
 > and rewriting a rule about identity, after ids are already on disk, is exactly
 > what mode #15 punishes.
 
-❓ **Still open, and correctly so:** the *stable* id policy. It cannot be
-designed before an instance owner exists, and it must be decided **before** the
-first multi-instance surface ships, not after — mode #15 is unforgiving once
-state is on disk.
+The *stable* id policy that D9 leaves open is answered by D10 below.
+
+### 5.5 D10 — The stable, across-restart id 🔵 Proposed
+
+The reframe that dissolves it:
+
+> **Identity across a restart cannot be *derived*. It has to be *recorded*.**
+
+Nothing intrinsic about a freshly created instance connects it to a dead one
+from a previous run — the object, its widgets and its memory are all gone. So
+there is no clever id-generation scheme to find. The id does not need to be
+*derivable*; it needs to be **replayable**.
+
+Which means the answer is: **keep the `uuid4`, and persist the roster.**
+
+| Session | What happens |
+| :--- | :--- |
+| **N** | Instance owner creates copies; each gets an opaque `uuid4`. The owner records its **roster** — the ordered list of live ids — and each instance stores its own slice under its uuid |
+| **N+1** | The owner reads its roster, recreates that many instances, and **assigns them the recorded ids**. Each instance then pulls its own slice exactly as any singleton does |
+
+Continuity comes from the roster, not from the id. The id stays opaque, unique,
+and never reused — so mode #15 stays closed.
+
+#### 5.5.1 The roster needs no new machinery 🔵 Proposed
+
+The instance owner is the only thing that knows "I have four of these, in this
+order". So **the roster is simply the instance owner's own state slice** — a
+singleton `PERSISTENT` scope, captured and restored through the same
+`IStateContributor` contract every screen already uses.
+
+```mermaid
+flowchart TD
+    subgraph STORE["state store — one file, one mechanism"]
+        R["slice 'dashboard.host'<br/>SINGLETON, PERSISTENT<br/>instances = [7f3a, 9c1e]<br/>active = 9c1e"]
+        S1["slice 'dashboard#7f3a'<br/>PER-INSTANCE"]
+        S2["slice 'dashboard#9c1e'<br/>PER-INSTANCE"]
+        S3["slice 'dashboard#d004'<br/>PER-INSTANCE"]
+    end
+
+    R -->|references| S1
+    R -->|references| S2
+    R -.->|"NOT referenced<br/>by any roster"| S3
+    S3 --> G["orphan — sweepable"]
+
+    style R fill:#1F4E5C,color:#fff
+    style G fill:#7A5B00,color:#fff
+```
+
+No new subsystem, no registry, no id service. The owner is a contributor like
+any other; its captured value happens to be a list of ids.
+
+#### 5.5.2 Reaping becomes exact, not heuristic 🔵 Proposed
+
+Mode #14 (orphan slices) reopens the moment per-instance state becomes
+`PERSISTENT`. The roster closes it precisely:
+
+> **Rosters are the GC roots. A per-instance slice whose id appears in no roster
+> is garbage.**
+
+That is mark-and-sweep, with no TTL to tune, no "last seen" timestamp to guess
+at, and no heuristic that can be wrong. And the sweep is a pure **store**
+operation — it reads roster slices by naming convention and never needs a live
+object — so lazy construction does not affect it.
+
+#### 5.5.3 One ordering invariant, and it is the whole safety argument 🔵 Proposed
+
+Writes are not atomic (§4.1.3's accepted cost), so a crash can land one slice and
+not another. The two directions are **not** equally safe:
+
+| Crash leaves | Result |
+| :--- | :--- |
+| A roster referencing a slice that was never written | Harmless — D5 already says a missing value falls back to defaults |
+| An instance slice whose roster entry was never written | **Dangerous** — the next sweep sees an unreferenced slice and deletes live state |
+
+> **Invariant: the roster is written before the instance slices it references.**
+> That removes the dangerous direction entirely rather than guarding against it.
+> A test must lock this ordering, per `architecture-rule.md` §7.1.
+
+#### 5.5.4 Alternatives, and why they lose
+
+| Approach | Verdict |
+| :--- | :--- |
+| **Derive the id from content** (hash the tab's symbol) | ⛔ Two instances showing the same symbol collide; and changing the symbol silently makes it "a different instance" that loses its own state |
+| **Derive from position or index** (`tab-0`, `tab-1`) | ⛔ Mode #15 in its purest form — close or reorder one and every later instance inherits a stranger's state. This is the classic version of this bug |
+| **User-named instances** | 🟠 Stable and human-recoverable, but needs UI plus uniqueness enforcement, and most users never name anything. Worth having **later as a separate feature** (named workspaces/presets) layered on top — not as the identity mechanism |
+| **`uuid4` + persisted roster** | ✅ Nothing to derive, no collision possible, reaping is exact, and it reuses the slice mechanism wholesale |
+
+#### 5.5.5 Failure mode 16
+
+| # | Stage | Failure mode | Guard |
+| :-: | :--- | :--- | :--- |
+| 16 | Boundary | **A lost roster orphans everything it owned.** One partial write and N instances' state becomes unreferenced, then swept | §5.5.3's ordering invariant makes the dangerous direction unreachable. Additionally, the sweep must be **conservative** — never run on a boot where the store reported a degraded read (H3), because "everything looks unreferenced" is exactly what a degraded read looks like |
+
+> **This remains deferred.** D10 settles the *policy* so it is no longer a
+> blocker and so nobody has to invent one under time pressure later. It does not
+> authorise building any of it — §7's table is unchanged, and no instance owner
+> exists to build it for.
 
 ---
 
@@ -477,13 +570,14 @@ The first document's 12 stand unchanged. Identity and lifetime add three:
 | # | Stage | Failure mode | Guard |
 | :-: | :--- | :--- | :--- |
 | 13 | Capture | **Instances fight over the shared default.** Every live copy auto-writes the singleton default; the last one to change wins and silently redefines what a *new* copy looks like | A per-instance scope **never** auto-writes the default. Promoting to default is an explicit action only. Locked by a test |
-| 14 | Boundary | **Orphan instance slices.** A crash leaves instance `7`'s persistent slice on disk with nothing that will ever own it again — an unbounded leak | Avoided structurally by §4.2: per-instance state is `SESSION` and never reaches disk. If §7's deferred feature is ever built, it must ship reaping *in the same change* |
+| 14 | Boundary | **Orphan instance slices.** A crash leaves instance `7`'s persistent slice on disk with nothing that will ever own it again — an unbounded leak | Avoided structurally by §4.2 today: per-instance state is `SESSION` and never reaches disk. When §7's deferred feature is built, D10 §5.5.2 closes it exactly — rosters are GC roots, an unreferenced slice is garbage |
 | 15 | Apply | **Identity reuse.** A new instance is handed a dead instance's id, inherits its state, and the user sees a stranger's form | Solved structurally by §5.4: a `uuid4` is never reused, so no new instance can collide with a dead one. **Never derive an id from a position, index, or ordinal** — those are exactly the values that get reused |
 
 Modes 14 and 15 are both closed by *structure* rather than by discipline —
 `SESSION`-only per-instance state means no disk orphans, and `uuid4` means no
 reuse. That is deliberate: a guard that depends on nobody making a mistake is
-not a guard.
+not a guard. Mode 16, added by D10, follows the same rule: rather than guarding
+against a bad write order, §5.5.3 makes the bad order unreachable.
 
 ---
 
@@ -498,7 +592,7 @@ The whole point of §2's asymmetry, made concrete:
 | `InMemoryStateStore` | ✅ (it is the test double anyway) | no app code requests `SESSION` yet |
 | `IStateDefaultsProvider` | ✅ ABC + one link | the chain has one link |
 | Any instance owner — tab host, second window, pane splitter (§1.1) | ❌ nothing | `PresenterManager` stays one-per-route |
-| Restoring a whole multi-instance layout | ❌ nothing | needs `PERSISTENT` + per-instance + an ordered open-set + reaping (mode 14) |
+| Restoring a whole multi-instance layout | ❌ nothing | **policy settled by D10** (§5.5) — uuid + persisted roster, rosters as GC roots. Still needs an instance owner to exist before any of it is built |
 
 > ❓ **Open, and it must stay open.** Restoring a previous session's *layout* —
 > whichever form it took, tabs or windows or panes — is a materially larger
@@ -539,9 +633,12 @@ duration, file location).
    the `SESSION` scope we are actually building, `BasePresenter` self-minting a
    `uuid4` is sufficient and needs **no new Engine API**.
 
-   What remains open is the narrower question it was hiding: **the *stable*
-   (across-restart) id policy**, which only §7's deferred feature needs. It
-   cannot be designed before an instance owner exists (§1.1), and must be
-   settled **before** the first multi-instance surface ships — tabs, a second
-   window, or anything else. Once per-instance state reaches disk, mode 15 stops
-   being recoverable.
+5. ~~**The stable, across-restart id policy.**~~ → **Answered as D10 (§5.5).**
+   Identity across a restart cannot be derived, only recorded — so the `uuid4`
+   stays and the **roster** is persisted, which also turns reaping into exact
+   mark-and-sweep with rosters as GC roots. Settled as *policy* only; §7's table
+   is unchanged and nothing is built.
+
+**No blocking questions remain on identity.** The three from the first design
+(first-pass scope, absolute date vs duration, file location) are still the only
+things waiting on a decision.
