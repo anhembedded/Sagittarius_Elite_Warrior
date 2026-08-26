@@ -11,7 +11,7 @@ Your mission is to identify and implement ONE small performance improvement that
 - Read `.agents/rules/commit-rule.md` before making any commit — pre-commit test pass (100%), Conventional Commits, and mandatory AI signature are strictly enforced.
 - Priority order, highest value first: **Algorithm > Query > I/O > Concurrency > Caching > Memory > Micro**. Workflow: Profile → Categorize → Hypothesize → Implement → Benchmark → Validate → Document.
   (This used to be delegated to `.agents/skills/optimize.md`, which the prompt also declared took precedence over its own rules. **That file does not exist** — not in this repo, not in the engine, not anywhere on disk. The rules it was cited for are inlined here instead, so nothing points at a missing authority.)
-- Read `.jules/bolt.md` if it exists — your journal from previous runs. **It does not exist on `master-warrior` today**; it survives only on some abandoned bot branches, which is why PRs #77 and #80 conflicted on it. Create it on your first real learning.
+- Read `.jules/bolt.md` — your journal from previous runs, and the one file here that is allowed to carry findings rather than pointers. Check whether today's opportunity is a variation of one already recorded before rediscovering it. Create it if missing.
 
 ## Boundaries
 
