@@ -1,7 +1,7 @@
 # EPIC-011 — Đồng bộ 7 skill chạy định kỳ (`.jules/`) với repo hiện tại
 
-**Trạng thái:** 🟡 Đang làm — 7/8 task con xong (26/08). Còn `EPIC-011H`
-(nối guard vào `ci-local.ps1`) vì chưa verify được ở môi trường hiện tại.
+**Trạng thái:** ✅ **Hoàn thành (8/8 task con)** — 2026-08-26. Guard đã sống
+trong `ci-local.ps1 -Full`, verify hai chiều (xanh trên cây sạch, đỏ khi bơm lỗi).
 **Loại:** Agent tooling / chống trôi tài liệu
 **Nguồn:** User yêu cầu trực tiếp — *"update các skill này cho map với project
 hiện tại, cố gắng không hard code"*, kèm làm rõ: *"đây là các skill chạy định
@@ -74,10 +74,9 @@ bản dạng "hiện tại", cấm chép luật.
 | [`EPIC-011E`](completed/EPIC-011E_scout_and_scribe_prompts.md) | `scout.prompt.md` + `scribe.prompt.md` — hợp đồng Sanity mới, neo vào `EPIC-002D` | ✅ Xong |
 | [`EPIC-011F`](completed/EPIC-011F_bolt_prompt_alignment.md) | `bolt.prompt.md` — đưa về cùng khuôn, cắt phần đã nằm ở `README.md` | ✅ Xong |
 | [`EPIC-011G`](completed/EPIC-011G_reference_guard_script.md) | `scripts/check_jules_prompt_references.py` — guard chống trôi | ✅ Xong |
-| [`EPIC-011H`](incomplete/EPIC-011H_wire_guard_into_ci.md) | Nối guard vào `ci-local.ps1 -Full` (hoặc một test unit) | 🔴 Chưa làm |
+| [`EPIC-011H`](completed/EPIC-011H_wire_guard_into_ci.md) | Nối guard vào `ci-local.ps1 -Full` | ✅ Xong |
 
-Thứ tự bắt buộc: `A` trước, vì 6 prompt còn lại link vào nó. `G` sau cùng trong
-nhóm đã xong. `H` độc lập, cần máy chạy được `pwsh` + PySide6 + engine.
+Thứ tự bắt buộc: `A` trước, vì 6 prompt còn lại link vào nó; `G` trước `H`.
 
 ## 5. "Xong" của epic này là gì
 
@@ -87,18 +86,17 @@ nhóm đã xong. `H` độc lập, cần máy chạy được `pwsh` + PySide6 +
 - Mỗi prompt trả lời được câu hỏi *"lần chạy hôm nay lấy việc từ đâu?"* bằng một
   lệnh quét, không bằng một danh sách viết cứng.
 - Cả 7 prompt dùng đúng cổng `ci-local.ps1 -Full` mà `ci-rule.md` §1 quy định.
-- `EPIC-011H` xong thì guard mới thật sự chặn được — trước đó nó vẫn phải chạy
-  tay.
+- Guard chạy trong `ci-local.ps1 -Full` chứ không phải chạy tay (`EPIC-011H`).
 
 ## 6. Giới hạn tự nhận
 
-- **Chưa chạy được `ci-local.ps1` trong phiên tạo epic này**: môi trường không
-  có `pwsh`, không có `.venv`, không có `PySide6`, và repo `sagittarius_engine`
-  không nằm trên đĩa. Toàn bộ thay đổi của `A`–`F` là docs-only nên rơi đúng vào
-  ngoại lệ `ci-rule.md` §1 (*"commits that touch no code file"*). Riêng
-  `EPIC-011G` thêm một file `.py`: đã verify bằng `ruff check`, `ruff format
-  --check` và `mypy` với đúng `pyproject.toml` của repo — ba cổng tĩnh mà file
-  này thật sự đi qua — nhưng **chưa** chạy qua `-Full`.
+- **Cổng đầy đủ đã chạy thật.** Phiên đầu không chạy được (`pwsh`, `.venv`,
+  `PySide6`, engine đều thiếu) và epic từng ghi nhận đó là giới hạn tự nhận.
+  User hỏi thẳng *"bạn có thể cài pwsh"* → dựng môi trường theo đúng
+  `install-rule.md` §2b (tarball PowerShell 7.5.0) + §1 Option 1 (engine từ
+  GitHub) + venv Python 3.12 theo §1b, rồi chạy `ci-local.ps1 -Full`: exit `0`,
+  2287 passed / 4 skipped, Sanity passed, coverage 94.29%, log scan sạch.
+  Giới hạn cũ **không còn**; giữ lại đoạn này để lịch sử không bị thủng.
 - Guard chỉ kiểm tra **đường dẫn**. Một prompt mô tả sai một cơ chế vẫn còn tồn
   tại thì guard không thấy. Đó là lý do §3 lớp 1 và 2 quan trọng hơn lớp 3.
 - Epic này **không** đụng tới lịch chạy của 7 agent (ai gọi, bao lâu một lần) —

@@ -41,18 +41,13 @@ chưa bao giờ tồn tại. Sau `A`–`F`: exit `0`.
 
 ## Verify
 
-Môi trường phiên này **không chạy được `ci-local.ps1 -Full`** (không có `pwsh`,
-không có `.venv`, không có `PySide6`, repo engine không trên đĩa). Đã chạy đúng
-3 cổng tĩnh mà file này thật sự đi qua, với chính config của repo:
+**Đã qua `ci-local.ps1 -Full` thật** (26/08, sau khi dựng được môi trường —
+xem `EPIC-011H`): exit `0`, và file `LOG_FILE:` sạch `FAILED|ERROR|Traceback|
+ResourceWarning` đúng theo `CLAUDE.md` §2.
 
-```bash
-ruff check scripts/check_jules_prompt_references.py           # All checks passed
-ruff format --check scripts/check_jules_prompt_references.py  # already formatted
-mypy --config-file pyproject.toml --namespace-packages \
-     --explicit-package-bases <file>                          # no issues found
-```
-
-Chưa qua `-Full`. Ghi rõ ở đây thay vì tuyên bố xanh — xem `ci-rule.md` §1.
+> *Bản đầu của task này ghi "chưa chạy được `-Full`" vì phiên đó không có
+> `pwsh`/`.venv`/PySide6. Giới hạn đó đã được gỡ ngay trong cùng epic; giữ lại
+> dòng này để không ai đọc lịch sử rồi tưởng cổng chưa từng chạy.*
 
 ## Acceptance
 
