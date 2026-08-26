@@ -69,6 +69,36 @@ number the broken build carried (see
 An environment created before 2026-08-25 must reinstall rather than trust the
 version string.
 
+### Triệu chứng của môi trường Engine cũ (bẫy này đã cắn lần thứ hai)
+
+`BUG-044` là lần đầu; [`BUG-054`](../../Tasks/bug_report/completed/BUG-054_settings_screen_crashes_on_missing_stylerole_members.md)
+và [`BUG-055`](../../Tasks/bug_report/completed/BUG-055_data_row_action_stretch_not_in_installed_engine.md)
+(2026-08-26) là lần thứ hai, và cả hai **ban đầu bị chẩn đoán sai** thành "code
+app tham chiếu API không tồn tại":
+
+```
+AttributeError: type object 'StyleRole' has no attribute 'HEADING'
+TypeError: DataRow.__init__() got an unexpected keyword argument 'action_stretch'
+```
+
+Cả ba API đó **có thật** trong repo Engine. Chỉ là bản cài cũ hơn — và **cả hai
+bản đều báo `2.3.0`**, nên `pip show` không giúp gì.
+
+**Khi một API Engine "không tồn tại", câu hỏi đầu tiên là "bản đang cài có phải
+bản mới nhất không?"**, trước khi kết luận app dùng sai. Kiểm bằng chữ ký thật,
+không bằng version string:
+
+```bash
+.venv/bin/python -c "import inspect; from sagittarius_engine.extensions.pyside_mvc.widgets import DataRow; print(inspect.signature(DataRow.__init__))"
+```
+
+Cũng kiểm **nguồn** cài, không chỉ phiên bản — lần này bản lỗi thời đến từ một
+`file:///...` local checkout (Option 2) đã cũ, chứ không phải từ GitHub:
+
+```bash
+uv pip list --python .venv/bin/python | grep sagittarius
+```
+
 ### Why CI must run *on* the floor, not merely declare it
 
 A developer on 3.13 can use 3.13-only syntax, watch every test pass locally, and

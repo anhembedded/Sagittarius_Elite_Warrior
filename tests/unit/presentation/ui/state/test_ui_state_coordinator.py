@@ -67,40 +67,61 @@ def test_flush_writes_every_dirty_contributor(qapp):
     assert store.read(b.state_scope) == {"value": "ema_pullback"}
 
 
-def test_debounce_coalesces_a_burst_into_one_write(qtbot):
-    """Measured behaviour this relies on: `QTimer.start()` on an active
-    single-shot timer restarts the countdown rather than queuing a second
-    firing — see the module docstring.
+def test_a_burst_of_marks_produces_exactly_one_write(qtbot):
+    """The user-visible half of the debounce: changing the symbol and then the
+    interval is one action in spirit and must cost one write.
 
-    A burst with NO delay between `mark_dirty()` calls cannot tell "restart"
-    apart from "queue, ignore later starts": both produce exactly one write,
-    because the dirty-tracking dict is keyed by scope and capture happens
-    lazily at flush time, reading whatever the contributor's *current* value
-    is — so a queued-but-not-restarted timer firing later still reads the
-    final value. The two behaviours only diverge in *when* the write lands,
-    which only shows up if a mark can land while a window is already running.
-    Real waits between marks (each shorter than the window, their sum longer)
-    make that divergence observable: a queuing timer fires mid-burst and
-    produces a SECOND write once the trailing mark restarts it from
-    inactive, while a genuinely restarting timer produces exactly one.
+    Deterministic by construction, not by timing luck — a `QTimer` can only
+    fire from the event loop, and these three `mark_dirty()` calls are
+    consecutive statements with no chance for it to turn, so no scheduling
+    delay can slip a write in between them.
     """
-    debounce_ms = 150
+    debounce_ms = 120
     store = InMemoryStateStore()
     coordinator = UiStateCoordinator(store, debounce_ms=debounce_ms)
     contributor = _FakeContributor("dashboard", value="BTC")
 
     coordinator.mark_dirty(contributor)
-    qtbot.wait(debounce_ms // 2)
     contributor.value = "ETH"
     coordinator.mark_dirty(contributor)
-    qtbot.wait(debounce_ms // 2)
     contributor.value = "SOL"
-    coordinator.mark_dirty(contributor)  # lands debounce_ms after the first mark
+    coordinator.mark_dirty(contributor)
 
-    qtbot.wait(debounce_ms * 3)  # generously past even a queued-timer's 2nd firing
+    qtbot.wait(debounce_ms * 5)
 
     assert contributor.captured_count == 1
     assert store.read(contributor.state_scope) == {"value": "SOL"}
+
+
+def test_marking_again_restarts_the_window_instead_of_letting_it_run_out(qtbot):
+    """The mechanism the coalescing above rests on: `QTimer.start()` on an
+    already-active single-shot timer restarts the countdown rather than
+    leaving the original deadline in place (design §5.6.6 row 8).
+
+    @par Why this asserts on `remainingTime()` rather than counting writes
+    An earlier version of this test raced the wall clock instead: three marks
+    separated by real `qtbot.wait(debounce_ms // 2)` sleeps, expecting one
+    write. It passed alone and **failed inside the full unit run** (2 writes
+    instead of 1) — because on a loaded machine `wait(75)` really can take
+    longer than the 150ms window, so the timer fired mid-burst and the code
+    was right while the test was wrong.
+
+    Reading the countdown directly removes the race: a restart can only make
+    the remaining time go *up*, and a slow machine only makes `before`
+    smaller, which strengthens the assertion instead of breaking it.
+    """
+    debounce_ms = 2000  # far wider than any plausible scheduling delay
+    coordinator = UiStateCoordinator(InMemoryStateStore(), debounce_ms=debounce_ms)
+    contributor = _FakeContributor("dashboard")
+
+    coordinator.mark_dirty(contributor)
+    qtbot.wait(200)
+    before = coordinator._timer.remainingTime()
+    coordinator.mark_dirty(contributor)
+    after = coordinator._timer.remainingTime()
+
+    assert 0 < before < debounce_ms, "the first window should still be counting down"
+    assert after > before, "the second mark must reset the countdown, not ride it out"
 
 
 def test_discard_cancels_a_pending_write_for_that_contributor(qtbot):
