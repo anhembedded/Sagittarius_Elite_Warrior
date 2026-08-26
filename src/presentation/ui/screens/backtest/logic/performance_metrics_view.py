@@ -6,14 +6,15 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
-)
+from sagittarius_engine.extensions.pyside_mvc.widgets import Tone
 
 _INFINITY_DISPLAY = "∞"  # "∞" — profit_factor is float("inf") with 0 losers
 _LOSING_PROFIT_FACTOR_BADGE = "Rủi ro"
-_NEUTRAL_COLOR = ""  # empty = "let QML fall back to Theme.muted/textPrimary"
+#: A figure with no verdict attached — a raw number in the extended dump,
+#: or a drawdown of exactly zero. `Tone.NEUTRAL` resolves to `textPrimary`,
+#: which is what the old empty-string sentinel meant before the widget layer
+#: could express "no verdict" directly.
+_NEUTRAL = Tone.NEUTRAL
 _WIN_RATE_SUCCESS_THRESHOLD = 50.0
 
 #: BOT-079 — `build_result_warning_text()`'s own dedicated line under the
@@ -43,16 +44,23 @@ _OUT_OF_SAMPLE_DIVERGENCE_NOTE = (
 
 @dataclass(frozen=True)
 class StatCardData:
-    """@brief Everything one `MetricCard.qml` instance needs — computed here
-    so the QML stays a dumb renderer, matching this repo's existing
-    Presenter/ViewModel split."""
+    """@brief Everything one stat card needs, computed here so the widget
+    stays a dumb renderer — this repo's existing Presenter/ViewModel split.
+
+    @details Carries a `Tone`, not a colour. This used to hold
+    `BULL_COLOR`/`BEAR_COLOR` hex strings computed just above, which is the
+    "literal with extra steps" pattern the engine's `Tone` docstring names
+    explicitly: the domain comparison (`net_profit >= 0`) belongs up here,
+    where the domain knowledge is, but only its *answer* should cross into
+    a widget. What green means is the theme's business, not this module's.
+    """
 
     title: str
     value: str
-    value_color: str
+    value_tone: Tone
     suffix: str
     badge_text: str
-    badge_color: str
+    badge_tone: Tone
 
 
 def compute_max_drawdown_amount(equity_curve: list[tuple[datetime, float]]) -> float:
@@ -124,61 +132,64 @@ def build_primary_stat_cards(result: BacktestResult) -> list[StatCardData]:
     total = len(result.trades)
     drawdown_amount = compute_max_drawdown_amount(result.equity_curve)
 
-    profit_color = BULL_COLOR if metrics.net_profit >= 0 else BEAR_COLOR
-    win_rate_color = (
-        BULL_COLOR
+    profit_tone = Tone.POSITIVE if metrics.net_profit >= 0 else Tone.NEGATIVE
+    win_rate_tone = (
+        Tone.POSITIVE
         if metrics.percent_profitable >= _WIN_RATE_SUCCESS_THRESHOLD
-        else BEAR_COLOR
+        else Tone.NEGATIVE
     )
-    profit_factor_color = BULL_COLOR if metrics.profit_factor >= 1 else BEAR_COLOR
+    profit_factor_tone = Tone.POSITIVE if metrics.profit_factor >= 1 else Tone.NEGATIVE
 
     return [
         StatCardData(
             title="Tổng Lãi/Lỗ (Net PnL)",
             value=_signed(metrics.net_profit),
-            value_color=profit_color,
+            value_tone=profit_tone,
             suffix="USD",
             badge_text=f"{_signed(metrics.net_profit_percent)}%",
-            badge_color=profit_color,
+            badge_tone=profit_tone,
         ),
         StatCardData(
             title="Mức sụt giảm tối đa (Max Drawdown)",
             value=f"{drawdown_amount:,.2f}",
-            value_color=BEAR_COLOR if drawdown_amount > 0 else _NEUTRAL_COLOR,
+            value_tone=Tone.NEGATIVE if drawdown_amount > 0 else _NEUTRAL,
             suffix="USD",
             badge_text=f"-{metrics.max_drawdown_percent:.2f}%",
-            badge_color=BEAR_COLOR,
+            badge_tone=Tone.NEGATIVE,
         ),
         StatCardData(
             title="Tỷ lệ thắng (Win Rate)",
             value=f"{metrics.percent_profitable:.2f}%",
-            value_color=win_rate_color,
+            value_tone=win_rate_tone,
             suffix="",
             badge_text=f"({winners}/{total} lệnh)",
-            badge_color=_NEUTRAL_COLOR,
+            badge_tone=_NEUTRAL,
         ),
         StatCardData(
             title="Hệ số lãi (Profit Factor)",
             value=_profit_factor_text(metrics.profit_factor),
-            value_color=profit_factor_color,
+            value_tone=profit_factor_tone,
             suffix="",
             badge_text=_LOSING_PROFIT_FACTOR_BADGE if metrics.profit_factor < 1 else "",
-            badge_color=BEAR_COLOR,
+            badge_tone=Tone.NEGATIVE,
         ),
     ]
 
 
-def stat_cards_to_qml(cards: list[StatCardData]) -> list[dict[str, str]]:
-    """Converts to the plain-dict shape `MetricCard.qml`'s `Repeater` model
-    expects (camelCase keys — QML property names, not Python field names)."""
+def stat_cards_to_qml(cards: list[StatCardData]) -> list[dict[str, str | Tone]]:
+    """Converts to the plain-dict shape the view model carries.
+
+    camelCase keys are a leftover from when a QML `Repeater` read these
+    directly; the QtWidgets panels now read the same keys, so renaming them
+    is a separate change with no benefit here."""
     return [
         {
             "title": card.title,
             "value": card.value,
-            "valueColor": card.value_color,
+            "valueTone": card.value_tone,
             "suffix": card.suffix,
             "badgeText": card.badge_text,
-            "badgeColor": card.badge_color,
+            "badgeTone": card.badge_tone,
         }
         for card in cards
     ]
@@ -193,114 +204,114 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
         StatCardData(
             "Gross Profit",
             f"{metrics.gross_profit:,.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Gross Loss",
             f"{metrics.gross_loss:,.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Avg Trade",
             f"{metrics.avg_trade:,.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Avg Winning Trade",
             f"{metrics.avg_winning_trade:,.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Avg Losing Trade",
             f"{metrics.avg_losing_trade:,.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Largest Winning Trade",
             f"{metrics.largest_winning_trade:,.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Largest Losing Trade",
             f"{metrics.largest_losing_trade:,.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Total Closed Trades",
             str(metrics.total_closed_trades),
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Sharpe Ratio",
             f"{metrics.sharpe_ratio:.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Sortino Ratio",
             f"{metrics.sortino_ratio:.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Calmar Ratio",
             f"{metrics.calmar_ratio:.2f}",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Max Drawdown Duration",
             str(metrics.max_drawdown_duration_bars),
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "bars",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Max Consecutive Wins",
             str(metrics.max_consecutive_wins),
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Max Consecutive Losses",
             str(metrics.max_consecutive_losses),
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
             "",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
         StatCardData(
             "Total Fees Paid",
@@ -308,10 +319,10 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
             # BOT-079: the one card in this "raw data dump" row that DOES
             # get a color — fee dominance is exactly the fact this field
             # exists to surface, so when it's true, don't render it neutral.
-            BEAR_COLOR if metrics.has_high_fee_ratio else _NEUTRAL_COLOR,
+            Tone.NEGATIVE if metrics.has_high_fee_ratio else _NEUTRAL,
             "USD",
             "",
-            _NEUTRAL_COLOR,
+            _NEUTRAL,
         ),
     ]
 
@@ -321,27 +332,27 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
     # the "is this concerning" signal is build_result_warning_text()'s job.
     out_of_sample = result.out_of_sample
     if out_of_sample is not None:
-        divergence_color = (
-            BEAR_COLOR if out_of_sample.has_high_divergence else _NEUTRAL_COLOR
+        divergence_tone = (
+            Tone.NEGATIVE if out_of_sample.has_high_divergence else _NEUTRAL
         )
         cards.append(
             StatCardData(
                 "In-Sample Net Profit",
                 f"{out_of_sample.in_sample.metrics.net_profit_percent:+.2f}",
-                _NEUTRAL_COLOR,
+                _NEUTRAL,
                 "%",
                 "",
-                _NEUTRAL_COLOR,
+                _NEUTRAL,
             )
         )
         cards.append(
             StatCardData(
                 "Out-of-Sample Net Profit",
                 f"{out_of_sample.out_of_sample.metrics.net_profit_percent:+.2f}",
-                divergence_color,
+                divergence_tone,
                 "%",
                 "",
-                _NEUTRAL_COLOR,
+                _NEUTRAL,
             )
         )
 

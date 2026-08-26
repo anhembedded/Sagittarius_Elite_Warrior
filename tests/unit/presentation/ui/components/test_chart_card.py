@@ -598,6 +598,48 @@ def test_chart_card_indicator_refresh_window_slices_to_visible_range(qapp):
     assert len(applied_x) == len(applied_y)
 
 
+def test_add_subplot_indicator_with_a_shared_group_reuses_one_row(qapp):
+    """
+    Regression test for BUG-053 (found investigating BUG-034's "Dev Board
+    live chart: candles missing, Y axis wrong scale"): a multi-line subplot
+    script — MacdFullScript fans MACD into MACD/Signal/Histogram — used to
+    get one brand new subplot ROW per LINE, because
+    ChartPlotLayout.add_subplot() always appends a fresh row and nothing
+    told it two lines belonged to the same script. 3 extra rows (on top of
+    Volume/RSI) squeeze the main candlestick plot down to a sliver of the
+    layout. Passing the same `group` for every line of one script must
+    collapse them onto a single shared row instead.
+    """
+    card = ChartCard("ETHUSDT")
+    rows_before = len(card.plot_layout.sub_plots)
+
+    card.add_subplot_indicator("macd_full:MACD", color="#2980b9", group="macd_full")
+    card.add_subplot_indicator("macd_full:Signal", color="#e67e22", group="macd_full")
+    card.add_subplot_indicator(
+        "macd_full:Histogram", color="#848E9C", group="macd_full"
+    )
+
+    assert len(card.plot_layout.sub_plots) == rows_before + 1
+    plots = card.indicators._plots
+    assert plots["macd_full:MACD"] is plots["macd_full:Signal"]
+    assert plots["macd_full:Signal"] is plots["macd_full:Histogram"]
+
+
+def test_add_subplot_indicator_without_a_group_still_gets_its_own_row(qapp):
+    """A script with only one line (e.g. RSI) — or any caller that never
+    passes `group` (the Backtest screen's Equity subplot) — must keep
+    getting a dedicated row per call, exactly as before this fix."""
+    card = ChartCard("ETHUSDT")
+    rows_before = len(card.plot_layout.sub_plots)
+
+    card.add_subplot_indicator("rsi_14:RSI 14", color="#8e44ad")
+    card.add_subplot_indicator("equity", color="#F0B90B")
+
+    assert len(card.plot_layout.sub_plots) == rows_before + 2
+    plots = card.indicators._plots
+    assert plots["rsi_14:RSI 14"] is not plots["equity"]
+
+
 def test_volume_refresh_skips_set_opts_when_visible_slice_is_unchanged(qapp):
     card = ChartCard("ETHUSDT")
     data = [(1000.0 + i * 60.0, 10.0 + i, True) for i in range(50)]

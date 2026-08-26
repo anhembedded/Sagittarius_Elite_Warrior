@@ -11,10 +11,6 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation i
     OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
@@ -22,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.perfor
     compute_max_drawdown_amount,
     stat_cards_to_qml,
 )
+from sagittarius_engine.extensions.pyside_mvc.widgets import Tone
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
@@ -132,13 +129,13 @@ def test_profitable_run_colors_every_card_bullish():
 
     net_pnl = by_title["Tổng Lãi/Lỗ (Net PnL)"]
     assert net_pnl.value == "+40.00"
-    assert net_pnl.value_color == BULL_COLOR
+    assert net_pnl.value_tone is Tone.POSITIVE
 
     win_rate = by_title["Tỷ lệ thắng (Win Rate)"]
     assert win_rate.badge_text == "(1/2 lệnh)"
 
     profit_factor = by_title["Hệ số lãi (Profit Factor)"]
-    assert profit_factor.value_color == BULL_COLOR
+    assert profit_factor.value_tone is Tone.POSITIVE
     assert profit_factor.badge_text == ""  # not "Rủi ro" — profit_factor >= 1
 
 
@@ -151,9 +148,9 @@ def test_losing_run_colors_net_pnl_and_profit_factor_bearish():
     cards = build_primary_stat_cards(result)
     by_title = {card.title: card for card in cards}
 
-    assert by_title["Tổng Lãi/Lỗ (Net PnL)"].value_color == BEAR_COLOR
+    assert by_title["Tổng Lãi/Lỗ (Net PnL)"].value_tone is Tone.NEGATIVE
     profit_factor = by_title["Hệ số lãi (Profit Factor)"]
-    assert profit_factor.value_color == BEAR_COLOR
+    assert profit_factor.value_tone is Tone.NEGATIVE
     assert profit_factor.badge_text == "Rủi ro"
 
 
@@ -277,7 +274,7 @@ def test_net_pnl_badge_is_always_the_plain_signed_percent():
     )
 
     assert net_pnl.badge_text == "+4.00%"
-    assert net_pnl.badge_color == BULL_COLOR
+    assert net_pnl.badge_tone is Tone.POSITIVE
 
 
 def test_result_warning_text_is_empty_when_neither_flag_fires():
@@ -315,8 +312,8 @@ def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():
         c for c in build_extended_stat_cards(fee_heavy) if c.title == "Total Fees Paid"
     )
 
-    assert healthy_fees.value_color == ""
-    assert fee_heavy_fees.value_color == BEAR_COLOR
+    assert healthy_fees.value_tone is Tone.NEUTRAL
+    assert fee_heavy_fees.value_tone is Tone.NEGATIVE
 
 
 # ---------------------------------------------------------------------------
@@ -382,8 +379,8 @@ def test_out_of_sample_card_turns_bearish_only_when_divergence_is_high():
         if c.title == "Out-of-Sample Net Profit"
     )
 
-    assert healthy_card.value_color == ""
-    assert overfit_card.value_color == BEAR_COLOR
+    assert healthy_card.value_tone is Tone.NEUTRAL
+    assert overfit_card.value_tone is Tone.NEGATIVE
 
 
 def test_result_warning_text_includes_overfitting_note_when_divergence_is_high():
@@ -425,6 +422,6 @@ def test_stat_cards_to_qml_uses_qml_property_names():
 
     assert all(
         set(card.keys())
-        == {"title", "value", "valueColor", "suffix", "badgeText", "badgeColor"}
+        == {"title", "value", "valueTone", "suffix", "badgeText", "badgeTone"}
         for card in qml_cards
     )

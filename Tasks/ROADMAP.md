@@ -83,7 +83,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-004](epics/EPIC-004_static_security_and_quality_analysis/README.md)** | Static security & quality analysis gate (Bandit + magic-number qua Ruff) | 🟡 Đang làm (3/4 task con xong) |
 | **[EPIC-005](epics/EPIC-005_qml_to_qtwidgets_migration/README.md)** | Rút khỏi QML về QtWidgets, **trừ chart** — theo từng màn hình, mỗi bước rollback được | ⏹️ **Bị thay thế bởi `EPIC-006`** — 6/6 task con xong (`005F` do `EPIC-006D/E` làm) |
 | **[EPIC-006](epics/EPIC-006_drop_qml/README.md)** | Bỏ hẳn QML, thuần QtWidgets | ✅ **Hoàn thành (6/6 task con)** — 2026-08-25; Elite hết sạch `.qml`. Kit QML của Engine ở lại (sample app cần) |
-| **[EPIC-007](epics/EPIC-007_chuan_hoa_card_dung_chung/README.md)** | **Chuẩn hoá card dùng chung, đưa hình dạng lên Engine** — gộp ~10 biến thể màu card về 1 token, 6 hình dạng surface lên `pyside_mvc.widgets`, cắt 3 import chéo màn hình | 🔵 Chưa bắt đầu (0/7 task con) |
+| **[EPIC-007](epics/EPIC-007_chuan_hoa_card_dung_chung/README.md)** | **Chuẩn hoá card dùng chung, đưa hình dạng lên Engine** — gộp ~10 biến thể màu card về 1 token, 6 hình dạng surface lên `pyside_mvc.widgets`, cắt 3 import chéo màn hình | 🟡 Đang làm (6/7 — `007A`–`007F` xong; còn `007G`) |
 | **[EPIC-008](epics/EPIC-008_chuan_hoa_luong_event/README.md)** | **Chuẩn hoá luồng sự kiện** — Shared Kernel + port, `BaseEvent` kế thừa được thật, `EventRegistry` + catalog sinh tự động, 3 Feed thay 48 signal cầu nối | ✅ **Hoàn thành (8/8 task con)** — 2026-08-25 |
 | **[EPIC-009](epics/EPIC-009_sanity_tier_redesign/README.md)** | **Thiết kế lại tầng Sanity** — mô hình composition-root (scan chứ không liệt kê), `diagnostic_guard`, tầng out-of-process `--self-check`, fake Binance REST server | ✅ **Hoàn thành (5/6 task con, 1 hoãn)** — 2026-08-25; ADR *Approved* |
 | **[EPIC-010](epics/EPIC-010_ghi_nho_gia_tri_cuoi/README.md)** | **Ghi nhớ giá trị cuối** — ~45 giá trị user đặt mất sạch mỗi lần mở lại app; store riêng `ui_state.json`, slice theo màn, merge khi ghi | 🔵 Chưa bắt đầu (0/8 task con) — thiết kế chờ duyệt |
@@ -94,6 +94,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BUG-053`**: [Script indicator nhiều đường (MACD: MACD/Signal/Histogram) tạo 1 subplot row/đường thay vì 1 row chung — ép main plot xuống ~3/8 chiều cao, đăng ký trùng crosshair. `group` key mới cho `IndicatorScriptRunner`/`IndicatorManager` gộp lại thành 1 row/script](bug_report/completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md)
 - [x] **`BUG-041`**: [App không thoát tiến trình khi đóng trong lúc Storage Vault đang scan DB](bug_report/completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)
 - [x] **`BOT-101`**: [RSI compose 2 instance smoothing tổng quát thay vì tự tính avg_gain/avg_loss](completed/BOT-101_rsi_compose_generalized_smoothing.md)
 - [x] **`BOT-112C`**: [Trực quan hóa Lỗ hổng & Vá Từng Đoạn Dữ liệu](completed/BOT-112C_gap_detection_visualizer_and_selective_repair.md)

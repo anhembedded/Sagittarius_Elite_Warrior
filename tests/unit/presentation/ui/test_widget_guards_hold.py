@@ -39,8 +39,10 @@ from pathlib import Path
 from sagittarius_engine.extensions.pyside_mvc.widgets.guards import (
     find_bare_qt_base_widgets,
     find_inline_stylesheets,
+    find_unscoped_container_stylesheets,
     format_bare_qt_base_findings,
     format_inline_stylesheet_findings,
+    format_unscoped_container_findings,
 )
 
 _UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
@@ -68,7 +70,38 @@ _COLOUR_SOURCES = ("palette.py",)
 #: vùng màn hình vẽ trên nền app (`Palette.BG`), không viền, tức là chỗ các
 #: card *nằm lên*, không phải một card. Kế thừa `Panel` sẽ cho nó `BG_CARD`
 #: cộng một viền, thành card thứ tư bọc quanh ba card kia.
-_BARE_QT_BASE_CEILING = 16
+#:
+#: 16 → 15: `MetricCardWidget` bị xoá hẳn, 2 call site chuyển sang `StatCard`
+#: của Engine. Đi kèm là `StatCardData` bỏ chuỗi hex, mang `Tone` — đúng thứ
+#: `Tone` sinh ra để làm.
+#:
+#: 15 → 14: `DynamicTabBarWidget` (+ `_TabButton` riêng của nó) xoá, dùng
+#: `TabBar` của Engine. Trước đó phải sửa `TabBar` bên Engine: nó là `Panel`
+#: nên vẽ nền card + viền, trong khi thanh tab của app trong suốt — mà chính
+#: `_TabButton` của Engine đã ghi `base-exempt: a tab is a button, not a
+#: surface`, nên một hàng nút cũng không phải surface.
+#: 14 → 7 across one stretch of `007F` on Backtest and Data Management,
+#: recorded here rather than as one unexplained drop:
+#:   · 4 Backtest widgets `base-exempt` — three screen regions painted on
+#:     the app background, one label stacked over a field
+#:   · `_CoverageSegmentWidget` and `TimeRangeCardWidget` `base-exempt` —
+#:     a coloured bar segment and a form group
+#:   · `ConfirmDialog` deleted, both call sites on the engine's
+#:     `ConfirmOverlay`
+#:
+#: 7 → 6: `_StatusRowWidget` now derives `DataRow`. That needed the engine
+#: first (PRs #199/#200): `DataRow` was a `Panel`, so every row drew a card
+#: frame, and it had no vocabulary for table text, outlined row actions or a
+#: per-record status colour. Fourth time in this epic that a widget shipped
+#: without a consumer turned out to be broken.
+#: 6 → 2, and `screens/` is now at **0** — requirement 1 of `007F` met.
+#: `_KLineRowWidget`/`_GapRowWidget` derive `DataRow`, both inspector
+#: dialogs derive `Overlay`. What is left sits in `components/`, outside
+#: what that requirement asked for: `_CachedFrameOverlay` (a paint surface
+#: for a cached chart frame) and `CriticalErrorDialog` (the last-resort box
+#: shown when the app cannot start — it must not depend on a theme bridge
+#: that may be exactly what failed).
+_BARE_QT_BASE_CEILING = 2
 
 
 def test_ui_root_is_where_we_think_it_is() -> None:
@@ -110,4 +143,29 @@ def test_the_ceiling_is_not_stale() -> None:
     assert len(findings) == _BARE_QT_BASE_CEILING, (
         f"tốt — còn {len(findings)}, ít hơn trần {_BARE_QT_BASE_CEILING}. "
         f"Hạ `_BARE_QT_BASE_CEILING` xuống {len(findings)} để khoá lại."
+    )
+
+
+def test_no_container_leaks_its_chrome_onto_its_children() -> None:
+    """Locked at 0 absolutely, like the colour guard — not on a ratchet.
+
+    `BUG-008` has come back five times because nothing ran this check. A
+    property list with no selector is Qt's universal selector: on a widget
+    with children it hands them its border and its background. The worst
+    single instance was `MainWindow`'s `QStackedWidget`, which holds every
+    screen — `Palette.BG` was being repainted onto every label in the app
+    that had no rule of its own, which is what a user finally reported as
+    "too many borders" (`BUG-052`).
+
+    A deliberate exception is `# cascade-exempt: <reason>` on the same line,
+    and that reason goes through review.
+    """
+    findings = find_unscoped_container_stylesheets(_UI_ROOT)
+
+    assert findings == [], (
+        "a widget that owns children is styled with a bare property list, "
+        "which Qt reads as the universal selector.\n"
+        "Scope it — `apply_role()` for a shape the engine already has, or "
+        "`Selector { ... }` for one it does not.\n\n"
+        + format_unscoped_container_findings(findings)
     )

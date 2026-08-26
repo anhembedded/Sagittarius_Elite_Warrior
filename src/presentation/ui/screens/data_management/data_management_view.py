@@ -29,9 +29,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker_over
     SymbolPickerOverlay,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
-    ConfirmDialog,
     GapInspectorDialog,
     KLineInspectorDialog,
+    RowWidgetDelegate,
     TimeRangeCardWidget,
     field_style,
 )
@@ -39,6 +39,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.datab
     DatabaseStatusTableModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
+from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    Column,
+    ConfirmOverlay,
+    DataRow,
+    RowAction,
+    StyleRole,
+    Tone,
+    WidgetState,
+    apply_role,
+)
 
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
@@ -64,15 +74,55 @@ _ACTION_BUTTONS = [
     ("btnClearData", "Clear Selected Local Data", "trash-2", "danger", None),
 ]
 
-_COLUMN_TITLES = [
-    "SYMBOL",
-    "TF",
-    "FIRST RECORD",
-    "LAST RECORD",
-    "TOTAL",
-    "STATUS",
-    "ACTIONS",
-]
+#: The status table's six data columns. One spec, read by both the heading
+#: strip and every row — they were a title list plus a parallel stretch list
+#: kept the same length by hand, which is the drift `Column` exists to end.
+_STATUS_COLUMNS = (
+    Column("SYMBOL", 22),
+    Column("TF", 10, Qt.AlignmentFlag.AlignCenter),
+    Column("FIRST RECORD", 28),
+    Column("LAST RECORD", 28),
+    Column("TOTAL", 18),
+    Column("STATUS", 22),
+)
+
+#: The heading's seventh column. Not a `Column`, because the row has no cell
+#: under it — it is the share of the width the action strip claims, which
+#: `DataRow` takes as `action_stretch`.
+_ACTIONS_COLUMN = Column("ACTIONS", 26)
+
+#: The four row actions, in the order `DataRow.action_triggered` reports.
+#: `Tone` on two of them: a sync reads as positive and a clear as
+#: destructive, and which is which is decided per row action, not per role.
+_STATUS_ACTIONS = (
+    RowAction("KLines"),
+    RowAction("Gaps"),
+    RowAction("Sync"),
+    RowAction("Clear"),
+)
+_ACTION_TONES = {2: Tone.POSITIVE, 3: Tone.NEGATIVE}
+
+#: Which `_STATUS_ACTIONS` position each view-model request sits behind.
+_KLINES_ACTION, _GAPS_ACTION, _SYNC_ACTION, _CLEAR_ACTION = range(4)
+
+#: `objectName` prefixes the e2e tests address the row actions by. Suffixed
+#: per row with symbol and interval.
+_ACTION_OBJECT_NAMES = {
+    _KLINES_ACTION: "btnRowInspectKlines",
+    _GAPS_ACTION: "btnRowInspect",
+    _SYNC_ACTION: "btnRowSync",
+    _CLEAR_ACTION: "btnRowClear",
+}
+
+#: Cell positions within `_STATUS_COLUMNS`, for the ones addressed by name.
+(
+    _SYMBOL_CELL,
+    _INTERVAL_CELL,
+    _FIRST_RECORD_CELL,
+    _LAST_RECORD_CELL,
+    _TOTAL_CELL,
+    _STATUS_CELL,
+) = range(len(_STATUS_COLUMNS))
 
 #: uiMode values under which the sync/action controls stay enabled — matches
 #: DatabaseScreen.qml's per-control `viewModel.uiMode === "IDLE"` checks
@@ -88,103 +138,63 @@ def _tint_color(tint: str) -> str:
     )
 
 
-class _StatusRowWidget(QFrame):
-    """One row of the status table — a direct port of DatabaseScreen.qml's
-    `ListView` delegate. Used via `QListView.setIndexWidget()` rather than a
-    QTableView, because the source model (DatabaseStatusTableModel) is a
-    single-column, multi-role table (its own docstring: "Exposes named roles
-    so QML delegates address fields by role name") — reproducing that as a
-    real N-column QAbstractTableModel would mean changing a model this
-    migration is not supposed to touch. This is the render-layer equivalent
-    of QML's `Repeater`/`delegate` pattern instead."""
+class _StatusRowWidget(DataRow):
+    """One row of the status table, on the engine's `DataRow`.
+
+    Still driven through `QListView.setIndexWidget()` rather than a
+    `TableCard`: the source model (`DatabaseStatusTableModel`) is a
+    single-column, multi-role table — its own docstring says it "exposes
+    named roles so QML delegates address fields by role name" — and turning
+    that into a real N-column `QAbstractTableModel` would change a model
+    this migration is not supposed to touch. `DataRow` replaces the
+    delegate's *rendering*; the list keeps driving it.
+    """
 
     def __init__(
         self,
         view_model: DataManagementViewModel,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            _STATUS_COLUMNS,
+            actions=_STATUS_ACTIONS,
+            action_stretch=_ACTIONS_COLUMN.stretch,
+            parent=parent,
+        )
         self._view_model = view_model
         self._symbol = ""
         self._interval = "1m"
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 0, 8, 0)
-        layout.setSpacing(6)
+        # The 8px inset the heading strip above uses, so cells sit under
+        # their headings. `DataRow` itself draws no padding — the table
+        # around a row owns that, and here the table is a `QListView`.
+        self.layout().setContentsMargins(8, 0, 8, 0)
+        self.layout().setSpacing(6)
 
-        self._symbol_label = self._make_label(
-            2.2, bold=True, color=Palette.TEXT_PRIMARY
+        self.set_cell_role(_SYMBOL_CELL, StyleRole.TABLE_CELL_STRONG)
+        # `SELECTED` is the badge's emphasised form — accent text on an
+        # accent border, which is what this pill has always been. The
+        # unemphasised form is muted, and a timeframe is not a quiet detail
+        # here: it is half of what identifies the row.
+        apply_role(
+            self.cell(_INTERVAL_CELL), StyleRole.BADGE, state=WidgetState.SELECTED
         )
-        layout.addWidget(self._symbol_label, 22)
+        self.set_cell_role(_FIRST_RECORD_CELL, StyleRole.CAPTION)
+        self.set_cell_role(_LAST_RECORD_CELL, StyleRole.CAPTION)
+        self.set_cell_role(_STATUS_CELL, StyleRole.TABLE_CELL_STRONG)
+        for position, tone in _ACTION_TONES.items():
+            self.set_action_tone(position, tone)
 
-        self._interval_badge = QLabel()
-        self._interval_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._interval_badge.setStyleSheet(
-            f"background-color: {Palette.STATE_HOVER_BG}; border: 1px solid {Palette.ACCENT}; "
-            f"border-radius: 4px; color: {Palette.ACCENT}; font-size: 10px; font-weight: bold;"
-        )
-        layout.addWidget(self._interval_badge, 10)
+        self.action_triggered.connect(self._on_action)
 
-        self._first_record_label = self._make_label(2.8, color=Palette.MUTED)
-        layout.addWidget(self._first_record_label, 28)
-
-        self._last_record_label = self._make_label(2.8, color=Palette.MUTED)
-        layout.addWidget(self._last_record_label, 28)
-
-        self._total_label = self._make_label(1.8, color=Palette.TEXT_PRIMARY)
-        layout.addWidget(self._total_label, 18)
-
-        self._status_label = QLabel()
-        self._status_label.setStyleSheet("font-size: 11px; font-weight: bold;")
-        layout.addWidget(self._status_label, 22)
-
-        actions = QHBoxLayout()
-        actions.setSpacing(4)
-        self._kline_button = self._make_action_button("KLines", Palette.ACCENT)
-        self._kline_button.clicked.connect(
-            lambda: view_model.requestInspectKlines(self._symbol, self._interval)
-        )
-        actions.addWidget(self._kline_button)
-
-        self._gaps_button = self._make_action_button("Gaps", Palette.ACCENT)
-        self._gaps_button.clicked.connect(
-            lambda: view_model.requestInspectGaps(self._symbol, self._interval)
-        )
-        actions.addWidget(self._gaps_button)
-
-        self._sync_button = self._make_action_button("Sync", Palette.SUCCESS)
-        self._sync_button.clicked.connect(
-            lambda: view_model.requestSyncRow(self._symbol, self._interval)
-        )
-        actions.addWidget(self._sync_button)
-
-        self._clear_button = self._make_action_button("Clear", Palette.DANGER)
-        self._clear_button.clicked.connect(
-            lambda: view_model.requestClearRow(self._symbol, self._interval)
-        )
-        actions.addWidget(self._clear_button)
-
-        actions_host = QWidget()
-        actions_host.setLayout(actions)
-        layout.addWidget(actions_host, 26)
-
-    @staticmethod
-    def _make_label(_weight: float, color: str, bold: bool = False) -> QLabel:
-        label = QLabel()
-        weight = "bold" if bold else "normal"
-        label.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: {weight};")
-        return label
-
-    @staticmethod
-    def _make_action_button(text: str, color: str) -> QPushButton:
-        button = QPushButton(text)
-        button.setFixedHeight(22)
-        button.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {color}; "
-            f"border: 1px solid {color}; border-radius: 4px; font-size: 10px; }} "
-            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
-        return button
+    def _on_action(self, position: int) -> None:
+        request = {
+            _KLINES_ACTION: self._view_model.requestInspectKlines,
+            _GAPS_ACTION: self._view_model.requestInspectGaps,
+            _SYNC_ACTION: self._view_model.requestSyncRow,
+            _CLEAR_ACTION: self._view_model.requestClearRow,
+        }[position]
+        request(self._symbol, self._interval)
 
     def apply_row(self, index: QModelIndex) -> None:
         # `index.model()` is DatabaseStatusFilterProxy (a plain
@@ -197,43 +207,31 @@ class _StatusRowWidget(QFrame):
         self._interval = model.data(index, model_roles.IntervalRole) or "1m"
         is_healthy = bool(model.data(index, model_roles.IsHealthyRole))
 
-        self._symbol_label.setText(self._symbol)
-        self._interval_badge.setText(self._interval or "1m")
-        self._first_record_label.setText(
-            str(model.data(index, model_roles.FirstRecordRole) or "")
+        self.set_cells(
+            [
+                self._symbol,
+                self._interval,
+                str(model.data(index, model_roles.FirstRecordRole) or ""),
+                str(model.data(index, model_roles.LastRecordRole) or ""),
+                str(model.data(index, model_roles.TotalCandlesRole) or ""),
+                str(model.data(index, model_roles.StatusTextRole) or ""),
+            ]
         )
-        self._last_record_label.setText(
-            str(model.data(index, model_roles.LastRecordRole) or "")
-        )
-        self._total_label.setText(
-            str(model.data(index, model_roles.TotalCandlesRole) or "")
-        )
-
-        status_text = str(model.data(index, model_roles.StatusTextRole) or "")
         self.setObjectName(
             f"statusRow_{self._symbol}_{self._interval}"
         )  # not a public contract, but useful for debugging
-        color = Palette.SUCCESS if is_healthy else Palette.DANGER
-        self._status_label.setStyleSheet(
-            f"color: {color}; font-size: 11px; font-weight: bold;"
-        )
-        self._status_label.setText(status_text)
-        self._gaps_button.setVisible(not is_healthy)
+        self.set_cell_role(_STATUS_CELL, StyleRole.TABLE_CELL_STRONG)
+        self.set_cell_tone(_STATUS_CELL, Tone.POSITIVE if is_healthy else Tone.NEGATIVE)
+        self.set_action_visible(_GAPS_ACTION, not is_healthy)
 
-        self._kline_button.setObjectName(
-            f"btnRowInspectKlines_{self._symbol}_{self._interval}"
-        )
-        self._gaps_button.setObjectName(
-            f"btnRowInspect_{self._symbol}_{self._interval}"
-        )
-        self._sync_button.setObjectName(f"btnRowSync_{self._symbol}_{self._interval}")
-        self._clear_button.setObjectName(f"btnRowClear_{self._symbol}_{self._interval}")
+        for position, name in _ACTION_OBJECT_NAMES.items():
+            self.action_buttons[position].setObjectName(
+                f"{name}_{self._symbol}_{self._interval}"
+            )
 
     def apply_ui_mode(self, idle: bool) -> None:
-        self._kline_button.setEnabled(idle)
-        self._gaps_button.setEnabled(idle)
-        self._sync_button.setEnabled(idle)
-        self._clear_button.setEnabled(idle)
+        for button in self.action_buttons:
+            button.setEnabled(idle)
 
 
 class DataManagementView(BaseView):
@@ -498,7 +496,11 @@ class DataManagementView(BaseView):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 20, 20, 20)
         outer.setSpacing(14)
-        self.setStyleSheet(f"background-color: {Palette.BG};")
+        # Scoped: the screen root holds every widget on it, so an unscoped
+        # property list here is `BUG-008` at the largest scale a screen has.
+        self.setStyleSheet(
+            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+        )
 
         outer.addLayout(self._build_header())
         outer.addLayout(self._build_stat_tiles())
@@ -586,10 +588,13 @@ class DataManagementView(BaseView):
         self, label_text: str, value_label: QLabel, hint_text: str
     ) -> QFrame:
         tile = QFrame()
-        tile.setFixedHeight(74)
-        tile.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
-        )
+        # Minimum, not fixed. At `setFixedHeight(74)` the tile was 5px short
+        # of its own content — 12+12 margins, three labels of 15/23/13, two
+        # gaps of 2 — so the hint line at the bottom rendered cut in half
+        # (`BUG-052`). A floor keeps the tiles matching without capping them
+        # below what they hold.
+        tile.setMinimumHeight(74)
+        apply_role(tile, StyleRole.SURFACE)
         layout = QVBoxLayout(tile)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(2)
@@ -613,9 +618,7 @@ class DataManagementView(BaseView):
     def _build_sync_controls(self) -> QFrame:
         card = QFrame()
         card.setFixedWidth(320)
-        card.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
-        )
+        apply_role(card, StyleRole.SURFACE)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
@@ -713,9 +716,7 @@ class DataManagementView(BaseView):
         column.setSpacing(14)
 
         table_card = QFrame()
-        table_card.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; border-radius: 8px;"
-        )
+        apply_role(table_card, StyleRole.SURFACE)
         table_layout = QVBoxLayout(table_card)
         table_layout.setContentsMargins(12, 12, 12, 12)
         table_layout.setSpacing(8)
@@ -746,20 +747,17 @@ class DataManagementView(BaseView):
 
         column_header = QFrame()
         column_header.setFixedHeight(28)
-        column_header.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border-radius: 4px;"
-        )
+        apply_role(column_header, StyleRole.TABLE_HEADER)
         column_header_layout = QHBoxLayout(column_header)
         column_header_layout.setContentsMargins(8, 0, 8, 0)
         column_header_layout.setSpacing(6)
-        for title_text, stretch in zip(
-            _COLUMN_TITLES, [22, 10, 28, 28, 18, 22, 26], strict=True
-        ):
-            label = QLabel(title_text)
-            label.setStyleSheet(
-                f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold;"
-            )
-            column_header_layout.addWidget(label, stretch)
+        # Same tuple the rows are built from, plus the actions column the
+        # rows spend as `action_stretch` — so a column cannot be renamed,
+        # re-weighted or reordered in one place and not the other.
+        for spec in (*_STATUS_COLUMNS, _ACTIONS_COLUMN):
+            label = QLabel(spec.label)
+            apply_role(label, StyleRole.SECTION_LABEL)
+            column_header_layout.addWidget(label, spec.stretch)
         table_layout.addWidget(column_header)
 
         self._status_list = QListView()
@@ -769,6 +767,7 @@ class DataManagementView(BaseView):
         )
         self._status_list.setSelectionMode(QListView.SelectionMode.NoSelection)
         self._status_list.setUniformItemSizes(True)
+        self._status_list.setItemDelegate(RowWidgetDelegate(self._status_list))
         table_layout.addWidget(self._status_list, 1)
 
         self._empty_label = QLabel(
@@ -789,27 +788,53 @@ class DataManagementView(BaseView):
         return column
 
     def _build_dialogs(self) -> None:
-        self._clear_dialog = ConfirmDialog(
-            title="XÁC NHẬN XÓA DỮ LIỆU",
-            subtitle="Xóa các nến đã lưu trong SQLite shard",
+        """Both destructive confirms, on the engine's `ConfirmOverlay`.
+
+        The app's own `ConfirmDialog` took an `on_confirm` callback and
+        called `close()`, which left `exec()` returning `Rejected` even
+        after the user confirmed — `ConfirmOverlay` calls `accept()`, so
+        the answer is readable the standard Qt way. That rewiring is what
+        its docstring said the migration owed, and it is done here: the
+        callbacks move to `accepted`.
+
+        The slots stay indirect on purpose. `_build_dialogs()` runs from
+        `__init__`, long before `set_view_model()`, so binding
+        `self._view_model.requestClearData` here would bind `None`.
+        """
+        self._clear_dialog = ConfirmOverlay(
+            "XÁC NHẬN XÓA DỮ LIỆU",
+            "Xóa các nến đã lưu trong SQLite shard",
             message="Bạn có chắc chắn muốn xóa toàn bộ nến của symbol/timeframe đã chọn không? "
             "Thao tác này sẽ giải phóng dung lượng đĩa và làm trống bảng klines tương ứng.",
             confirm_text="Xác nhận Xóa",
-            confirm_object_name="btnConfirmClear",
-            on_confirm=lambda: self._view_model.requestClearData(),
+            cancel_text="Hủy bỏ",
+            danger=True,
             parent=self,
         )
-        self._purge_dialog = ConfirmDialog(
-            title="CẢNH BÁO NGUY HIỂM — PURGE VAULT",
-            subtitle="Xóa toàn bộ database SQLite",
+        self._clear_dialog.confirm_button.setObjectName("btnConfirmClear")
+        self._clear_dialog.accepted.connect(self._on_clear_confirmed)
+
+        self._purge_dialog = ConfirmOverlay(
+            "CẢNH BÁO NGUY HIỂM — PURGE VAULT",
+            "Xóa toàn bộ database SQLite",
             message="CẢNH BÁO NGUY HIỂM: Bạn đang chuẩn bị xóa TOÀN BỘ dữ liệu của tất cả các "
             "symbol trong Storage Vault! Hành động này sẽ xóa tất cả các file SQLite shard "
             "(.db) và không thể hoàn tác.",
             confirm_text="XÓA TOÀN BỘ (PURGE)",
-            confirm_object_name="btnConfirmPurge",
-            on_confirm=lambda: self._view_model.requestPurgeAll(),
+            cancel_text="Hủy bỏ",
+            danger=True,
             parent=self,
         )
+        self._purge_dialog.confirm_button.setObjectName("btnConfirmPurge")
+        self._purge_dialog.accepted.connect(self._on_purge_confirmed)
+
+    def _on_clear_confirmed(self) -> None:
+        if self._view_model is not None:
+            self._view_model.requestClearData()
+
+    def _on_purge_confirmed(self) -> None:
+        if self._view_model is not None:
+            self._view_model.requestPurgeAll()
 
     @staticmethod
     def _section_label(text: str) -> QLabel:

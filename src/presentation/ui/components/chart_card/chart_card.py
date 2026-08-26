@@ -547,9 +547,13 @@ class ChartCard(Card):
         self._sync_indicator_window()
 
     def add_subplot_indicator(
-        self, name: str, color: str, height_ratio: int = 1
+        self,
+        name: str,
+        color: str,
+        height_ratio: int = 1,
+        group: str | None = None,
     ) -> None:
-        self.indicators.add_subplot(name, color, height_ratio)
+        self.indicators.add_subplot(name, color, height_ratio, group=group)
         self._sync_indicator_window()
 
     def update_indicator_data(

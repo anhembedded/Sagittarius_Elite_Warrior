@@ -1,4 +1,4 @@
-# BUG-051 — Màn hình Settings vỡ hoàn toàn: `StyleRole` không có `HEADING` (và `BODY_LABEL`)
+# BUG-054 — Màn hình Settings vỡ hoàn toàn: `StyleRole` không có `HEADING` (và `BODY_LABEL`)
 
 **Reported date:** 2026-08-26
 **Severity:** Chưa đánh giá (nhưng màn hình Settings **không dựng được**, tức là route `settings` chết hẳn)

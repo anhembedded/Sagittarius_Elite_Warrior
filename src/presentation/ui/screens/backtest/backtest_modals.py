@@ -36,9 +36,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
-from sagittarius_engine.extensions.pyside_mvc.widgets import Overlay, SelectableCard
-
-from .backtest_widgets import MetricCardWidget
+from sagittarius_engine.extensions.pyside_mvc.widgets import (
+    Overlay,
+    SelectableCard,
+    StatCard,
+    Tone,
+)
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -238,16 +241,17 @@ class ExtendedMetricsDialog(Overlay):
             if widget is not None:
                 widget.deleteLater()
         for index, card_data in enumerate(self._vm.extendedStatCards):
-            card = MetricCardWidget()
+            card = StatCard(card_data.get("title", "").upper())
             card.setObjectName(f"cardExtendedMetric_{index}")
-            card.set_data(
-                title=card_data.get("title", ""),
-                value=card_data.get("value", ""),
-                value_color=Palette.TEXT_PRIMARY,
-                suffix=card_data.get("suffix", ""),
-                badge_text="",
-                badge_color="",
+            # This row is a raw data dump, not a verdict, so the tone the
+            # builder computed is used as-is rather than being forced
+            # neutral here — "Total Fees Paid" is deliberately not neutral
+            # when fees dominate (BOT-079).
+            card.set_value(
+                card_data.get("value", ""),
+                tone=card_data.get("valueTone", Tone.NEUTRAL),
             )
+            card.set_suffix(card_data.get("suffix", ""))
             self._grid.addWidget(card, index // 2, index % 2)
 
 
@@ -775,9 +779,13 @@ class _NumericStepLineEdit(QLineEdit):
         event.accept()
 
 
-class _BotParamFieldWidget(QWidget):
+class _BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
     """Port of `BotParamField.qml`: picks a widget purely from
-    `field_data["kind"]`, mirroring exactly what the QML `Loader` did."""
+    `field_data["kind"]`, mirroring exactly what the QML `Loader` did.
+
+    **Not a `Surface`**: it is a caption stacked over one input, with zero
+    margins and no chrome — the same shape as `components/app_progress_bar.py`,
+    which carries the same marker for the same reason."""
 
     def __init__(
         self,

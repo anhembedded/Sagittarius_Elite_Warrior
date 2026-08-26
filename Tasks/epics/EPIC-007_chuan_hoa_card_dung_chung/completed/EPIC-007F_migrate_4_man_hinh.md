@@ -1,6 +1,6 @@
 # EPIC-007F — Elite: migrate 4 màn hình sang widget dùng chung
 
-**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings 9/13; Dashboard: `SectionLabel` + 3 `Panel`, guard 17→16)
+**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** ✅ Xong 2026-08-26 — guard `screens/` về **0** (yêu cầu 1), toàn cây UI 17 → 2 (2 còn lại ở `components/`, ngoài phạm vi yêu cầu 1)
 **Phụ thuộc:** `007D`, `007E`
 
 ---
@@ -254,7 +254,105 @@ Cả hai scoped thành `QScrollArea { ... }`. Ảnh chụp trước/sau **không
 báo. Không đổi là kết quả đúng ở đây: các `Panel` bên trong đã có QSS scoped riêng từ bước trước
 nên vốn đã miễn nhiễm; sửa này là bịt lỗ hổng cho widget **tương lai** đặt vào scroll area.
 
-## Backtest và Data Management — chưa bắt đầu, và vì sao dừng ở đây
+## Chốt lại ranh giới theme — 2026-08-25, sau câu hỏi của user
+
+User đặt đúng câu hỏi: *"theme chỉ nên ở app thôi, bữa giờ mình làm sai vãi?"*
+
+Đo lại thì khuyết điểm **hẹp hơn** thế. Màu vốn đã đúng — `REQUIRED_COLOUR_TOKENS` cố ý **không
+có default** ở Engine, giá trị đến từ `Palette` của app. Cái sai là **số**: Engine ship default
+cho spacing/radius/typography, `with_token_defaults()` cho app thắng khi trùng key, nhưng
+**app chưa bao giờ cấp cái nào**. Nên thang đo của app do Engine tự phát minh quyết định —
+`radiusLg` 10px, `fontSizeMd` 13px, `fontSizeLg` 16px, trong đó **16px không xuất hiện một lần
+nào** trong `src/presentation/ui`.
+
+**Đó là nguồn duy nhất của mọi thay đổi thị giác ở `007F`.** Card 8→6, field 6→4, nhãn 12→13,
+tiêu đề 14→13 không phải bốn phán đoán riêng lẻ — chỉ là một cái dict thiếu.
+
+Sửa: `Palette` tự cấp thang số, **đo từ chính app** (radius 6px ×29, 4px ×20, 8px ×8; font 11px
+×64, 12px ×20, 13px ×8). Đặt tên theo **bậc mà role thật sự đọc**, không theo "nhỏ/vừa/lớn"
+trừu tượng: `FIELD` đọc `radiusSm` mà field của app là 6px → `radiusSm = 6`. Đảo ngược chỗ này
+chính là thứ đẻ ra hai regression bo góc.
+
+Kiểm bằng assert chứ không bằng mắt (`test_app_owns_its_size_tokens.py`): `SURFACE` 8px,
+`FIELD` 6px, `BODY_LABEL` 12px, `HEADING` 14px, `CAPTION` 11px — đúng giá trị app vẽ tay
+trước `007F`. Mọi regression thị giác của task này **đã đảo ngược**.
+
+Một lỗi của chính task này cũng lộ ra: `HEADING` và `BODY_LABEL` bị ghim chung `fontSizeMd`,
+nên app không thể vừa có nhãn 12px vừa có tiêu đề 14px. Sửa ở Engine (PR #195), `HEADING` đọc
+`fontSizeLg`. Test cũ ghim "hai role dùng chung một token" đã viết lại ghim ngược.
+
+**Ranh giới chốt: Engine sở hữu từ vựng (role nào đọc token nào), app sở hữu nghĩa (token đó
+bằng bao nhiêu px).**
+
+## Backtest bước 1: `MetricCardWidget` → `StatCard`, guard 16 → 15
+
+Nhờ ranh giới trên, câu hỏi "StatCard thiếu icon + hover" hết là tranh luận kiến trúc.
+
+**Engine (PR #196):** thêm `fontSizeXl` (bậc hiển thị — `StatCard` tự gọi giá trị của nó là
+"headline figure" mà **không có font rule nào**, nên số headline render bằng cỡ body; thang
+typography dừng ở `fontSizeLg`, không có bậc nào để đặt tên). Thêm `STAT_VALUE` (cỡ + đậm,
+**cố ý không màu** — màu quyết định theo instance qua `set_value(tone=)`) và `STAT_CARD`
+(hover, viết bằng QSS `:hover` thay cho cặp `enterEvent`/`leaveEvent` của app — một khai báo
+thay vì hai handler phải giữ đồng bộ, và không thể kẹt ở trạng thái hover nếu lỡ mất leave
+event). Tiêu đề nhận styling `SECTION_LABEL`.
+
+**Một thử nghiệm bị hoàn tác, ghi lại vì đáng:** tôi có viết hoa luôn tiêu đề trong `StatCard`,
+rồi bỏ. Nó làm `Card.title` **mất mát** — caller không đọc lại được thứ mình vừa set, và một
+test có sẵn bắt được. Một label tự định nghĩa lại text của chính nó thì được (`SectionLabel`
+làm vậy và ghi rõ lý do); một subclass lặng lẽ đổi vòng round-trip của **property kế thừa** là
+chuyện khác và tệ hơn. Giờ chỉ style, không sửa text; muốn hoa thì call site truyền hoa.
+
+**Elite:** `StatCardData` bỏ chuỗi hex, mang `Tone`. Đây đúng là pattern "literal with extra
+steps" mà docstring của `Tone` nêu đích danh — `BULL_COLOR if net_profit >= 0 else BEAR_COLOR`
+tính ở tầng logic rồi tuồn hex xuống widget. Phép so sánh nghiệp vụ **ở lại** chỗ có tri thức
+nghiệp vụ; chỉ **câu trả lời** của nó đi xuống widget. Xanh nghĩa là gì là việc của theme.
+
+`MetricCardWidget` xoá hẳn, 2 call site chuyển sang `StatCard`. Guard **16 → 15**.
+
+**Hai thứ vẫn không tái hiện, có chủ đích:** icon `info` (không tooltip, không click — thuần
+trang trí; tái hiện nghĩa là mọi `StatCard` ở mọi app mọc thêm một icon không làm gì) và việc
+co cỡ chữ khi giá trị dài quá 10 ký tự (là cải thiện thật, nhưng cần một luật *khi nào* co —
+quyết định layout mà class này không có cơ sở để chốt thay cho một caller). Vẫn nằm ở
+`EPIC-007B` làm ứng viên.
+
+## Backtest bước 2: `DynamicTabBarWidget` → `TabBar`, guard 15 → 14
+
+Bước này phải sửa **hai** thứ ở Engine trước, cả hai đều là khuyết tật `TabBar` chỉ lộ ra khi có
+consumer thật đầu tiên.
+
+**1. `TabBar` là `Panel` — nhưng thanh tab không phải surface (PR #197).** Là `Panel` nên mỗi
+hàng tab tự vẽ nền card + viền + bo góc, trong khi thanh tab của app trong suốt. Lập luận quyết
+định nằm ngay trong chính file đó: `_TabButton` đã mang `base-exempt: a tab is a button, not a
+surface` — vậy **một hàng những nút ấy cũng không phải surface**. Thanh tab là chrome *nằm trên*
+một surface.
+
+Bất đối xứng mới là điều quan trọng: app muốn có khung thì bọc `TabBar` trong một `Panel`; app
+không muốn khung thì **không có cách nào gỡ** khung của một `Panel`.
+
+**2. `BUG-012` — tab tự tính kích thước theo phần text nó không có.** Migrate xong thì
+`DANH SÁCH LỆNH` render thành `DA`, `NHẬT KÝ BACKTEST` thành `NH`. Đo trực tiếp: nút báo
+`QSize(59, 24)` trong khi nội dung của chính nó cần `QSize(195, 34)`.
+
+Nguyên nhân: `_TabButton` là `QPushButton` **không có text và icon riêng** — nội dung là `QLabel`
++ `Badge` nằm trong layout con, mà `QPushButton.sizeHint()` chỉ tính theo text/icon của chính nó,
+không bao giờ nhìn xuống layout con (nút bình thường làm gì có con). Layout vẫn *sắp xếp* đúng,
+nên lỗi biểu hiện thành **cắt chữ** chứ không phải lệch vị trí.
+
+Không ai thấy vì `TabBar` chưa có consumer thật: showcase dựng nó với nhãn `"First"`/`"Second"`
+— đủ ngắn để sai size hint vẫn đọc được. **Cùng một dạng với `BUG-008` và chỗ `StatCard` thiếu
+cỡ chữ: widget ship ra khi chưa có ai dùng, khuyết tật nằm chờ màn hình đầu tiên.** Đây là cái
+thứ ba cùng họ mà chính bài migrate này moi ra.
+
+**Còn một khác biệt thị giác giữ nguyên:** tab đang chọn trước đây đánh dấu bằng **dấu tick nhỏ
+màu accent bên trái**, giờ là **viền accent quanh cả pill**. Cùng thông tin, cách diễn đạt khác —
+cùng loại với thay đổi đã ghi nhận và chấp nhận ở `SECTION_LABEL_TICKED` (tick QSS `border-left`
+thay cho `QFrame` con). Diff pixel 21.739/1.600.000 (1,4%), khu trú đúng hàng tab.
+
+`DynamicTabBarWidget` + `_TabButton` riêng của app xoá hẳn. `backtest_widgets.py` giờ chỉ còn
+`with_alpha()`; docstring của nó đã nói sai (vẫn kể tên `MetricCard` và `DynamicTabBar` đã xoá)
+nên viết lại — đúng loại "docstring nói thứ không tồn tại" mà repo này tính là BUG.
+
+## Data Management và phần còn lại của Backtest — chưa bắt đầu
 
 Hai màn này giữ **15/16** finding guard còn lại và phần lớn `setStyleSheet` (76 + 96). Chúng
 **không** dừng vì hết thời gian mà vì mỗi cái đều cần **một quyết định về hành vi thấy được**,
@@ -271,3 +369,98 @@ không phải một phép thay thế cơ học:
 Kinh nghiệm rút ra từ Dashboard trong chính task này: gỡ cascade `BUG-008` **đổi diện mạo thấy
 rõ** (mất khung quanh mỗi dòng chỉ báo). Làm hai màn còn lại mà không có người xem lại từng ảnh
 thì rủi ro cao hơn nhiều so với giá trị — nên dừng đúng chỗ này và trình bày các quyết định trên.
+
+---
+
+## Data Management + banner — 2026-08-26, đóng task
+
+### Yêu cầu 1 đạt: `screens/` về 0
+
+| Mốc | Guard toàn cây | Việc |
+| :--- | ---: | :--- |
+| Đóng `007E` | 17 | — |
+| Dashboard | 16 | `DevBoardPanel` `base-exempt` |
+| Backtest | 15 → 14 | `MetricCardWidget` → `StatCard`; `DynamicTabBarWidget` → `TabBar` |
+| Backtest + DataMgmt, đợt này | 14 → 7 | 4 widget Backtest `base-exempt`; `_CoverageSegmentWidget` + `TimeRangeCardWidget` `base-exempt`; `ConfirmDialog` xoá, 2 call site sang `ConfirmOverlay` |
+| Bảng status | 7 → 6 | `_StatusRowWidget` → `DataRow` |
+| 2 inspector | 6 → **2** | `_KLineRowWidget`/`_GapRowWidget` → `DataRow`; `KLineInspectorDialog`/`GapInspectorDialog` → `Overlay` |
+
+Hai finding còn lại **đều ở `components/`**, ngoài phạm vi yêu cầu 1 (*"trên
+`src/presentation/ui/screens/`"*): `_CachedFrameOverlay` (mặt vẽ cho frame chart đã cache) và
+`CriticalErrorDialog` (hộp thoại cuối cùng khi app không khởi động được — **không được** phụ
+thuộc vào theme bridge, vì chính nó có thể là thứ vừa hỏng).
+
+### Cái thứ tư và thứ năm cùng họ — và lần này đếm được thành quy luật
+
+`DataRow` **không mang nổi** ba row widget mà chính docstring của nó nói là nó được dựng từ đó.
+Đo, ra **bảy** khác biệt thị giác: hàng bị vẽ khung như card, chữ trong ô mất cỡ và độ đậm, nút
+render dạng tô đặc, màu trạng thái theo bản ghi không có đường truyền vào.
+
+`Banner` thì tô viền theo severity nhưng **không tô chữ bên trong** — QSS của severity scope vào
+panel nên không chạm tới label. Chữ render bằng màu mặc định: xám đậm trên nền đậm, gần như
+không nhìn thấy. Và `Severity` **không có `SUCCESS`**, trong khi docstring của `Banner` liệt kê
+đúng cái audit banner *"success/danger switched at runtime"* nằm trong bốn cái nó bao phủ.
+
+Cộng với `BUG-008`, cỡ chữ thiếu của `StatCard`, và `BUG-012`, thành **năm**. Cùng một nguyên
+nhân, đủ số lần để gọi là quy luật chứ không phải trùng hợp: **widget ship ra khi chưa có
+consumer thật thì khuyết tật nằm chờ màn hình đầu tiên.** Showcase không bắt được vì nó cho mọi
+widget đúng bằng chỗ widget xin — không có `QListView` ép chiều cao, không có bảng 40 hàng, không
+có nhãn dài.
+
+### 7 PR Engine, mỗi cái một khuyết tật đo được
+
+| PR | Sửa gì |
+| :--- | :--- |
+| #199 | `DataRow` thôi làm `Panel`; `TABLE_CELL`/`TABLE_CELL_STRONG`/`GHOST_BUTTON`; `set_cell_tone`/`set_action_tone`; `cell()` |
+| #200 | `action_stretch` — hàng khớp được cột ACTIONS của header |
+| #201 | Bỏ margin mặc định 9px (hàng cần 41px để hiện 23px nội dung → bảng render trắng trơn); `GHOST_BUTTON` khai font-size |
+| #202 | `_token()` raise trên tên sai — `semantic_colour()` hứa `KeyError` từ ngày viết mà **chưa bao giờ raise**: gõ sai sinh `color: None;`, Qt bỏ qua trong im lặng. Kèm `set_cell_colour` |
+| #203 | `Overlay` cấp role cho title/subtitle (đo từ `ModalDialogCard.qml`); `title_label` công khai |
+| #204 | `Banner` tô chữ bên trong |
+| #205 | `Severity.SUCCESS` |
+
+### `BUG-051` — bảng status bị cắt còn 14px suốt từ ngày port
+
+Bắt được **bằng ảnh chụp trước/sau**, không phải bằng test — đúng thứ mục "Bằng chứng phải nộp"
+sinh ra để làm. `setIndexWidget()` không nói cho `QListView` biết widget cao bao nhiêu, nên ô giữ
+chiều cao mặc định của delegate = **một dòng text**. Nhãn 11px vừa khít; 4 nút hành động
+`setFixedHeight(22)` thì bị cắt cụt, **render thành viền rỗng không chữ**.
+
+Không ai thấy vì hai lớp che nhau: bảng thường trống lúc chụp ảnh, và test hỏi *"widget có tồn
+tại không"* chứ không hỏi *"nó có nhìn thấy được không"*. Hồ sơ:
+[`BUG-051`](../../../bug_report/completed/BUG-051_status_row_clipped_to_one_line_of_text.md).
+
+### `BUG-008` lần thứ tư — lần này theo chiều ngược lại
+
+Danh sách gap hiện **nền trắng** sau khi dialog lên `Overlay`. Widget đó **chưa bao giờ tự đặt
+nền**; nó thừa hưởng nền từ chính stylesheet không-scope của dialog cha. Dialog lên `Overlay` là
+có sheet scope đúng cách, và màu thừa hưởng đi theo.
+
+Nghĩa là: gỡ `BUG-008` không chỉ **bỏ** chrome thừa (như bảng chỉ báo Dev Board mất khung), nó
+còn **lộ ra** những chỗ đang sống nhờ cascade sai. Cả hai đều là "widget hiển thị đúng thứ nó
+khai báo"; hướng khác nhau.
+
+### Thay đổi thị giác — ghi lại, không phải bỏ sót
+
+| Chỗ | Khác gì | Vì sao giữ |
+| :--- | :--- | :--- |
+| Header 3 bảng | 10px → 11px + letter-spacing (`SECTION_LABEL`) | Gộp token, cùng loại đã chấp nhận ở Settings/Backtest |
+| Pill `TF` của bảng status | Mất bold, padding ngang khác | `BADGE` không khai font-weight; nó **đã có 2 consumer đang chạy** (`LogPanel`, `TabBar`) — sửa role dùng chung để khớp một call site mới là đúng thứ yêu cầu 3 cấm |
+| DURATION của bảng gap | Giữ nguyên accent | Qua `set_cell_colour("accent")`, không phải QSS tại chỗ |
+| Banner coverage | Thêm bold | 3/4 bản gốc là bold; Engine áp cho cả 4 |
+| Bảng status | **Hàng cao 23px thay vì 14px** | Đây là `BUG-051` được sửa, không phải regression |
+
+### Kiểm tra
+
+- Elite: `1820 passed, 4 skipped, 0 failed` (full suite)
+- Engine: `1304 passed, 8 skipped`, `mypy` sạch 219 file
+- `mypy` Elite: **517** lỗi / 95 file — baseline trước khi làm là 518, không thêm lỗi nào
+- `ruff check` + `ruff format`: sạch cả hai repo
+- Guard: `find_inline_stylesheets` = **0**, `find_bare_qt_base_widgets` trên `screens/` = **0**
+- Ảnh trước/sau: bảng status, 2 inspector dialog, 3 banner Backtest — kèm số pixel diff
+
+### Còn lại, ghi làm ứng viên chứ không phải bỏ sót
+
+`BADGE` và `Card.title` chưa khai font-size/weight — cùng khoảng trống với `StatCard` và
+`Banner`, nhưng **cả hai đã có consumer đang chạy**, nên sửa chúng là đổi thị giác ở chỗ khác
+chứ không phải điền vào chỗ trống. Cần một vòng ảnh trước/sau riêng, không gộp vào task này.

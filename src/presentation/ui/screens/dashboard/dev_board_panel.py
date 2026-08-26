@@ -180,9 +180,11 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
 
         ws_badge = QFrame()
         ws_badge.setFixedHeight(22)
+        # Scoped: unscoped, the pill's own 11px radius and border land on
+        # the status dot and the label it holds.
         ws_badge.setStyleSheet(
-            f"background-color: {Palette.BG_CARD_HEADER}; border: 1px solid {Palette.STATE_NAV_BORDER}; "
-            f"border-radius: 11px;"
+            f"QFrame {{ background-color: {Palette.BG_CARD_HEADER}; "
+            f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 11px; }}"
         )
         badge_row = QHBoxLayout(ws_badge)
         badge_row.setContentsMargins(10, 0, 10, 0)

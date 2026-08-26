@@ -202,7 +202,14 @@ def test_realtime_backtest_with_broker_simulation_integration(caplog):
                 taker_buy_quote_asset_volume=500.0,
             )
         )
-    repo.get_klines.return_value = ticks
+    # BUG-051: RunHistoricalTickBacktestCommandHandler streams via
+    # count_klines()/stream_klines() instead of get_klines() — same
+    # mirroring as the `repo` mock above (BUG-025's fix for
+    # RunStaticBacktestCommandHandler).
+    repo.count_klines.side_effect = lambda **kwargs: (
+        len(ticks) if kwargs.get("limit") is None else min(kwargs["limit"], len(ticks))
+    )
+    repo.stream_klines.side_effect = lambda **kwargs: iter(ticks[: kwargs.get("limit")])
 
     registry = StrategyRegistry()
     registry.register("pyramiding_test", _PyramidingStrategy)
