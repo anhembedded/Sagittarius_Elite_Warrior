@@ -781,6 +781,14 @@ duration, file location).
    mark-and-sweep with rosters as GC roots. Settled as *policy* only; §7's table
    is unchanged and nothing is built.
 
-**No blocking questions remain on identity.** The three from the first design
-(first-pass scope, absolute date vs duration, file location) are still the only
-things waiting on a decision.
+**No blocking questions remain on identity.**
+
+### 9.1 The three product decisions — settled 2026-08-26 🟢 Approved
+
+| Question | Decision | Consequence |
+| :--- | :--- | :--- |
+| **First-pass scope** | Foundation + T1 + everything Qt covers for free — `010A`…`010E`, then stop and run it for real | `010F`/`010G` (T2) wait on that evaluation. `010H` unchanged |
+| **Dev Board dates** | **Duration**, not absolute timestamps — persist `lookback_days`, recompute `now - N days` on restore | Preserves today's behaviour exactly (`dashboard_view_model.py:77-79` already computes `now - 7 days` per construction) and removes risk **R2**: a stale absolute window making Load History fetch an enormous range. Superseded later if the Dev Board gains a preset picker like Backtest's `time_range_preset` + `custom_start/end` |
+| **File location** | `state/ui_state.json` in the repo, `state/` added to `.gitignore` | Consistent with `logs/` (line 147) and `database/` (line 139); greppable, `cat`-able, delete-to-reset. `QStandardPaths` stays the documented future move behind `IStateStoreLocator` — and is **not usable today** regardless: measured, the app sets no `organizationName`, so it returns a bare `/root/.config` |
+
+**The design is closed.** Nothing in `010A`…`010E` is waiting on an answer.
