@@ -324,21 +324,13 @@ classDiagram
         read() empty, write() no-op."
     }
 
-    class IStateStoreLocator {
-        <<abstract>>
+    class StateStoreLocator {
         +path_for(name) Path
         +reset() None
-        note "Owns WHERE and WHEN-DELETED
-        for the persistent store only.
-        Knows nothing about lifetime."
-    }
-
-    class IStateDefaultsProvider {
-        <<abstract>>
-        +defaults_for(scope) Mapping
-        note "One link in the chain of 4.3.
-        THE place a future WorkspaceDefaults
-        or UserPreset plugs in."
+        note "Plain class, not a port — see 5.6.5.
+        Owns WHERE and WHEN-DELETED for the
+        persistent store only. Promote to an
+        ABC when QStandardPaths arrives."
     }
 
     class IStateContributor {
@@ -376,8 +368,7 @@ classDiagram
     IStateStore ..> StateScope
     UiStateCoordinator o-- IStateStore
     UiStateCoordinator ..> IStateContributor
-    UiStateCoordinator o-- IStateDefaultsProvider
-    ConfigManagerStateStore o-- IStateStoreLocator
+    ConfigManagerStateStore o-- StateStoreLocator
     UiStateExtension ..> UiStateCoordinator
 ```
 
@@ -563,6 +554,100 @@ not another. The two directions are **not** equally safe:
 
 ---
 
+## 5.6 What Qt already solves — and the resulting trim ✅ Established
+
+> **Review question:** *"Isn't this too complex? Does Qt have something that
+> helps here?"* Both halves deserved a real answer, so the Qt surface was
+> enumerated by reflection over `PySide6` rather than recalled.
+
+### 5.6.1 The measurement
+
+`saveGeometry`/`restoreGeometry` exist on **`QWidget`**, so every widget in the
+app inherits them. `saveState`/`restoreState`, however, exist on exactly **four**
+classes:
+
+| Class | What its state blob holds |
+| :--- | :--- |
+| `QMainWindow` | dock and toolbar layout |
+| `QSplitter` | splitter sizes |
+| `QHeaderView` | column widths, order, sort |
+| `QFileDialog` | its own sidebar/view state |
+
+Also present: `QSessionManager`, plus `QGuiApplication.sessionId()`,
+`isSessionRestored()`, `commitDataRequest`, `saveStateRequest`.
+
+### 5.6.2 The dividing line
+
+> **Qt persists widget *chrome*. It cannot persist application *values*.**
+
+Qt has no idea what `"ETHUSDT"` means, so nothing in the list above can store the
+selected symbol, the typed capital, or which strategy is chosen. Mapping it onto
+the tiers from the first design:
+
+| Tier item | Qt covers it? |
+| :--- | :--- |
+| Window size / position / maximised | ✅ `saveGeometry` |
+| Splitter sizes (was **T3**) | ✅ `QSplitter.saveState` |
+| Table column widths (was **T3**) | ✅ `QHeaderView.saveState` |
+| Dev Board / Database symbol + interval (**T1**) | ❌ application values |
+| Last route, sidebar collapsed (**T1**) | ❌ |
+| Backtest strategy / capital / commission (**T2**) | ❌ |
+| Chart zoom & pan (**T3**) | ❌ pyqtgraph, not Qt |
+
+**Qt covers most of what was deferred, and none of what was prioritised.** That
+is a useful result in both directions: T3 gets cheaper, T1 does not shrink.
+
+### 5.6.3 Correction — the geometry blob argument was wrong ⛔ Supersedes §4.1.2 point 4
+
+§4.1.2 concluded that hand-storing `x/y/w/h` and validating the rect against
+`QGuiApplication.screens()` was *"more in the spirit of D5"* than Qt's opaque
+`QByteArray`. On re-examination that was **special pleading**: `restoreGeometry()`
+performs its own off-screen and DPI sanity checks, so the hand-rolled version
+buys no extra safety while costing code and getting multi-monitor wrong in ways
+Qt already handles.
+
+> **Revised:** store the `QByteArray` from `saveGeometry()` / `QSplitter.saveState()`
+> as base64 inside the ordinary slice. **Let Qt own what Qt owns.** The cost is
+> honest and small — one opaque field per widget, unreadable in the JSON, and
+> tied to Qt's own format version. D5 still applies to everything Qt does not
+> understand, which is every application value.
+
+### 5.6.4 `QSessionManager` — related, but a different problem
+
+It exists, and it is the right thing to name here so nobody later asks why it was
+skipped. It handles **OS-initiated session end** — the desktop session is closing
+and asks applications to save and declare a restart command. It requires platform
+session-manager support, and it says nothing about identity *within* one
+application.
+
+It does not answer D10, whose case is the ordinary one: the user quit normally
+and reopened the app tomorrow. No session manager is involved in that at all.
+
+### 5.6.5 The complexity answer, and three real cuts 🔵 Proposed
+
+The concern is fair, and the honest response separates two things:
+
+> **The document is complex. The first increment is not.**
+
+Of the 16 failure modes, **13-16 all concern a feature that is not being built**;
+D10 authorises no code at all. What §7 actually builds first is one store, one
+coordinator, and roughly ten lines per screen.
+
+Even so, re-reading §5 against *"is every piece of this earning its place?"*
+found three that are not — cut rather than defended:
+
+| Piece | Verdict |
+| :--- | :--- |
+| `IStateDefaultsProvider` | ⛔ **Cut.** A chain-of-responsibility ABC with exactly one link is the speculative abstraction `architecture-rule.md` §7.2 warns about. The chain in §4.3 is two hardcoded steps until something real needs a third |
+| `IStateStoreLocator` as an ABC | 🟠 **Demoted** to a plain class. It has one implementation; promote it to a port when a second location strategy (`QStandardPaths`) actually arrives |
+| `Lifetime.SESSION` | ✅ **Kept** — but only because `InMemoryStateStore` is the test double regardless, so the member costs nothing. It has no application consumer today, and that is stated rather than hidden |
+
+`StateScope` stays exactly as it is. It is the one piece whose *absence* would be
+expensive later (§2), which is precisely what distinguishes it from the three
+above.
+
+---
+
 ## 6. Failure modes added by this design 🔵 Proposed
 
 The first document's 12 stand unchanged. Identity and lifetime add three:
@@ -590,7 +675,9 @@ The whole point of §2's asymmetry, made concrete:
 | `StateScope` with `instance_id` | ✅ the field exists | every scope passes `None` |
 | `Lifetime` | ✅ both members | only `PERSISTENT` has real consumers |
 | `InMemoryStateStore` | ✅ (it is the test double anyway) | no app code requests `SESSION` yet |
-| `IStateDefaultsProvider` | ✅ ABC + one link | the chain has one link |
+| `IStateDefaultsProvider` | ⛔ **cut** (§5.6.5) | the §4.3 chain is two hardcoded steps until a third is genuinely needed |
+| `StateStoreLocator` | ✅ plain class, **not** a port (§5.6.5) | promote to an ABC when `QStandardPaths` arrives |
+| Qt-owned chrome — geometry, splitters, headers | ✅ store Qt's own blob (§5.6.3) | nothing hand-rolled; this also makes most of **T3 cheap** |
 | Any instance owner — tab host, second window, pane splitter (§1.1) | ❌ nothing | `PresenterManager` stays one-per-route |
 | Restoring a whole multi-instance layout | ❌ nothing | **policy settled by D10** (§5.5) — uuid + persisted roster, rosters as GC roots. Still needs an instance owner to exist before any of it is built |
 
