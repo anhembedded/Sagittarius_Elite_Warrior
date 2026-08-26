@@ -1,6 +1,6 @@
 # EPIC-007F — Elite: migrate 4 màn hình sang widget dùng chung
 
-**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings 9/13 · Dashboard xong · Backtest: `StatCard` · guard 17→15 · thang token về app)
+**Thuộc:** [`EPIC-007`](../README.md) · **Repo:** `Sagittarius_Elite_Warrior` · **Trạng thái:** 🟡 Đang làm (Settings 9/13 · Dashboard xong · Backtest: `StatCard` + `TabBar` · guard 17→14 · thang token về app)
 **Phụ thuộc:** `007D`, `007E`
 
 ---
@@ -314,6 +314,43 @@ trang trí; tái hiện nghĩa là mọi `StatCard` ở mọi app mọc thêm m�
 co cỡ chữ khi giá trị dài quá 10 ký tự (là cải thiện thật, nhưng cần một luật *khi nào* co —
 quyết định layout mà class này không có cơ sở để chốt thay cho một caller). Vẫn nằm ở
 `EPIC-007B` làm ứng viên.
+
+## Backtest bước 2: `DynamicTabBarWidget` → `TabBar`, guard 15 → 14
+
+Bước này phải sửa **hai** thứ ở Engine trước, cả hai đều là khuyết tật `TabBar` chỉ lộ ra khi có
+consumer thật đầu tiên.
+
+**1. `TabBar` là `Panel` — nhưng thanh tab không phải surface (PR #197).** Là `Panel` nên mỗi
+hàng tab tự vẽ nền card + viền + bo góc, trong khi thanh tab của app trong suốt. Lập luận quyết
+định nằm ngay trong chính file đó: `_TabButton` đã mang `base-exempt: a tab is a button, not a
+surface` — vậy **một hàng những nút ấy cũng không phải surface**. Thanh tab là chrome *nằm trên*
+một surface.
+
+Bất đối xứng mới là điều quan trọng: app muốn có khung thì bọc `TabBar` trong một `Panel`; app
+không muốn khung thì **không có cách nào gỡ** khung của một `Panel`.
+
+**2. `BUG-012` — tab tự tính kích thước theo phần text nó không có.** Migrate xong thì
+`DANH SÁCH LỆNH` render thành `DA`, `NHẬT KÝ BACKTEST` thành `NH`. Đo trực tiếp: nút báo
+`QSize(59, 24)` trong khi nội dung của chính nó cần `QSize(195, 34)`.
+
+Nguyên nhân: `_TabButton` là `QPushButton` **không có text và icon riêng** — nội dung là `QLabel`
++ `Badge` nằm trong layout con, mà `QPushButton.sizeHint()` chỉ tính theo text/icon của chính nó,
+không bao giờ nhìn xuống layout con (nút bình thường làm gì có con). Layout vẫn *sắp xếp* đúng,
+nên lỗi biểu hiện thành **cắt chữ** chứ không phải lệch vị trí.
+
+Không ai thấy vì `TabBar` chưa có consumer thật: showcase dựng nó với nhãn `"First"`/`"Second"`
+— đủ ngắn để sai size hint vẫn đọc được. **Cùng một dạng với `BUG-008` và chỗ `StatCard` thiếu
+cỡ chữ: widget ship ra khi chưa có ai dùng, khuyết tật nằm chờ màn hình đầu tiên.** Đây là cái
+thứ ba cùng họ mà chính bài migrate này moi ra.
+
+**Còn một khác biệt thị giác giữ nguyên:** tab đang chọn trước đây đánh dấu bằng **dấu tick nhỏ
+màu accent bên trái**, giờ là **viền accent quanh cả pill**. Cùng thông tin, cách diễn đạt khác —
+cùng loại với thay đổi đã ghi nhận và chấp nhận ở `SECTION_LABEL_TICKED` (tick QSS `border-left`
+thay cho `QFrame` con). Diff pixel 21.739/1.600.000 (1,4%), khu trú đúng hàng tab.
+
+`DynamicTabBarWidget` + `_TabButton` riêng của app xoá hẳn. `backtest_widgets.py` giờ chỉ còn
+`with_alpha()`; docstring của nó đã nói sai (vẫn kể tên `MetricCard` và `DynamicTabBar` đã xoá)
+nên viết lại — đúng loại "docstring nói thứ không tồn tại" mà repo này tính là BUG.
 
 ## Data Management và phần còn lại của Backtest — chưa bắt đầu
 
