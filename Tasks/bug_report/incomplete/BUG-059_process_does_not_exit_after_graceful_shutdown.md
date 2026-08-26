@@ -1,4 +1,4 @@
-# BUG-052 — Thoát app: shutdown chạy hết, log "App stopped." nhưng **tiến trình không return**
+# BUG-059 — Thoát app: shutdown chạy hết, log "App stopped." nhưng **tiến trình không return**
 
 **Reported date:** 2026-08-26
 **Severity:** 🟠 P1 — cơ chế chung đã root-caused và xác nhận thật (§5); **tác vụ cụ thể** gây
@@ -10,6 +10,9 @@ vẫn **Open** vì chưa đóng được đúng lần đã báo cáo.
 
 ---
 
+> **Đổi số 2026-08-26:** hồ sơ này trước mang mã `BUG-052`, trùng với một bug khác đã đóng (`Tasks/bug_report/completed/BUG-052_*.md`) — Bug Board quy định mã phải là số kế tiếp số lớn nhất **ở cả hai thư mục**, và quy định đó đã bị vi phạm. Hồ sơ đang mở đổi thành `BUG-059` (hồ sơ đã đóng giữ mã cũ vì ROADMAP và các commit đã merge tham chiếu). Mọi commit/PR trước ngày này nhắc `BUG-052` **trong ngữ cảnh bug này** là chỉ chính hồ sơ đây.
+
+
 ## 1. Hiện tượng (Symptom)
 
 Người dùng đóng app. Chuỗi shutdown chạy **hết, không lỗi, không exception** — tất cả
@@ -20,7 +23,7 @@ process vẫn treo, không trả về shell.
 Nói cách khác: đây **không phải** shutdown treo giữa chừng — shutdown *thành công*, chỉ có
 interpreter không chịu exit sau đó.
 
-Phiên này là **cùng một phiên** với [`BUG-051`](BUG-051_ui_freeze_during_historical_tick_backtest.md):
+Phiên này là **cùng một phiên** với [`BUG-058`](BUG-058_ui_freeze_during_historical_tick_backtest.md):
 boot `08:15:18`, chạy Historical Tick Backtest (2.592.000 tick) xong lúc `08:24:29`, ngồi
 im ~73 phút, rồi đóng app lúc `09:37:25`.
 

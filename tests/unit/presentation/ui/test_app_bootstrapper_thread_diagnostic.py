@@ -26,12 +26,67 @@ subprocess test here.
 from __future__ import annotations
 
 import threading
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from Sagittarius_Elite_Warrior.src.presentation.ui.app_bootstrapper import (
     _log_surviving_non_daemon_threads,
 )
+
+_ENUMERATE = (
+    "Sagittarius_Elite_Warrior.src.presentation.ui.app_bootstrapper.threading.enumerate"
+)
+
+
+@pytest.fixture
+def only_these_threads():
+    """Narrows `threading.enumerate()` to the threads a test actually owns.
+
+    The function under test reads whole-process state, so an assertion about
+    *absence* — "no survivor, therefore no warning" — is an assertion about
+    every other test in the session. It held only by luck: one leaked
+    `ThreadPoolExecutor` worker elsewhere in the suite (its workers are
+    non-daemon and outlive the test that submitted to them, which is the very
+    hazard this diagnostic exists to report) turned all three
+    absence-asserting tests red at once, in a run whose only change was test
+    ordering. Feeding the enumeration explicitly makes each case describe its
+    own scenario. The main thread is always included, because the real call
+    always sees it and excluding it is part of what these tests check.
+
+    The real, unpatched enumeration is still covered — by the surviving-thread
+    test below, and end-to-end by
+    `tests/integration/presentation/test_shutdown_lingering_thread_diagnostic.py`.
+    """
+
+    def _use(*threads: threading.Thread):
+        return patch(_ENUMERATE, return_value=[threading.main_thread(), *threads])
+
+    return _use
+
+
+@pytest.fixture
+def live_thread():
+    """Factory for real, started, non-daemon threads, all released at teardown.
+
+    They have to be genuinely running: the diagnostic filters on
+    `is_alive()`, so a constructed-but-never-started `Thread` is silently not
+    a survivor and would make a test pass while proving nothing.
+    """
+    release = threading.Event()
+    threads: list[threading.Thread] = []
+
+    def _make(name: str) -> threading.Thread:
+        thread = threading.Thread(target=release.wait, name=name, daemon=False)
+        thread.start()
+        threads.append(thread)
+        return thread
+
+    try:
+        yield _make
+    finally:
+        release.set()
+        for thread in threads:
+            thread.join(timeout=5)
 
 
 @pytest.fixture
@@ -55,6 +110,13 @@ def stuck_worker():
 
 
 def test_logs_a_warning_naming_a_surviving_non_daemon_thread(stuck_worker):
+    """Runs against the real, unpatched `threading.enumerate()`.
+
+    Asserts only that the survivor is named, never how many there are: any
+    other live non-daemon thread in the session is a legitimate survivor this
+    diagnostic is right to report, so a count would be asserting about the
+    rest of the suite rather than about this thread.
+    """
     app_engine = MagicMock()
 
     _log_surviving_non_daemon_threads(app_engine)
@@ -62,31 +124,55 @@ def test_logs_a_warning_naming_a_surviving_non_daemon_thread(stuck_worker):
     app_engine.context.logger.warning.assert_called_once()
     (message,), _ = app_engine.context.logger.warning.call_args
     assert "BUG-052-test-stuck-worker" in message
-    assert "1 non-daemon thread" in message
+    assert "non-daemon thread(s) still alive" in message
 
 
-def test_stays_silent_when_no_non_daemon_thread_survives():
+def test_counts_and_names_every_survivor(only_these_threads, live_thread):
+    first = live_thread("BUG-052-test-first")
+    second = live_thread("BUG-052-test-second")
+
+    app_engine = MagicMock()
+    with only_these_threads(first, second):
+        _log_surviving_non_daemon_threads(app_engine)
+
+    (message,), _ = app_engine.context.logger.warning.call_args
+    assert "2 non-daemon thread(s)" in message
+    assert "BUG-052-test-first" in message
+    assert "BUG-052-test-second" in message
+
+
+def test_stays_silent_when_no_non_daemon_thread_survives(only_these_threads):
     app_engine = MagicMock()
 
-    _log_surviving_non_daemon_threads(app_engine)
+    with only_these_threads():
+        _log_surviving_non_daemon_threads(app_engine)
 
     app_engine.context.logger.warning.assert_not_called()
 
 
-def test_the_calling_main_thread_itself_is_never_flagged():
+def test_the_calling_main_thread_itself_is_never_flagged(
+    only_these_threads, live_thread
+):
     """The main thread is always alive at the point this runs (it's the one
     running this function) — it must never be reported as a survivor, or
-    every real shutdown would false-positive."""
+    every real shutdown would false-positive.
+
+    Paired with one real survivor, so the assertion is that the main thread is
+    filtered out of a warning that was genuinely emitted. On its own it would
+    pass for the wrong reason: no warning at all also contains no name.
+    """
+    other = live_thread("BUG-052-test-other")
+
     app_engine = MagicMock()
+    with only_these_threads(other):
+        _log_surviving_non_daemon_threads(app_engine)
 
-    _log_surviving_non_daemon_threads(app_engine)
-
-    if app_engine.context.logger.warning.called:
-        (message,), _ = app_engine.context.logger.warning.call_args
-        assert threading.main_thread().name not in message
+    (message,), _ = app_engine.context.logger.warning.call_args
+    assert "BUG-052-test-other" in message
+    assert threading.main_thread().name not in message
 
 
-def test_a_daemon_thread_is_never_flagged():
+def test_a_daemon_thread_is_never_flagged(only_these_threads):
     """A daemon thread (e.g. AsyncRuntimeLoop, UIWatchdogMonitorThread — see
     `ui_watchdog.py`) never blocks process exit on its own; only non-daemon
     survivors matter here."""
@@ -98,7 +184,8 @@ def test_a_daemon_thread_is_never_flagged():
     try:
         app_engine = MagicMock()
 
-        _log_surviving_non_daemon_threads(app_engine)
+        with only_these_threads(thread):
+            _log_surviving_non_daemon_threads(app_engine)
 
         app_engine.context.logger.warning.assert_not_called()
     finally:
