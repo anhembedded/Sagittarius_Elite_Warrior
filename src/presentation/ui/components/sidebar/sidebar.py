@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, SignalInstance
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -342,3 +342,31 @@ class Sidebar(BaseView):
         """
         self._view_model.set_active_route(route_name)
         self._sync_active_state()
+
+    # ------------------------------------------------------------------ #
+    # Collapsed state — public surface for EPIC-010 (remembered UI state)
+    # ------------------------------------------------------------------ #
+
+    @property
+    def is_collapsed(self) -> bool:
+        """@brief Whether the sidebar is currently in its collapsed (icon-only) mode."""
+        return bool(self._view_model.isCollapsed)
+
+    def set_collapsed(self, collapsed: bool) -> None:
+        """@brief Sets the collapsed state directly, bypassing the toggle button.
+
+        @details Exists for restoring a remembered value at boot — calling the
+        button's own `toggleCollapsed()` would require knowing the *current*
+        state first, which is exactly what a restore does not have yet.
+        """
+        self._view_model.set_collapsed(collapsed)
+
+    @property
+    def collapsed_changed(self) -> SignalInstance:
+        """@brief The view model's `isCollapsedChanged` signal, re-exposed.
+
+        @details `_view_model` stays private; this is the one signal a caller
+        outside this component legitimately needs — to know when to persist
+        the new state, not to react to sidebar layout internals.
+        """
+        return self._view_model.isCollapsedChanged
