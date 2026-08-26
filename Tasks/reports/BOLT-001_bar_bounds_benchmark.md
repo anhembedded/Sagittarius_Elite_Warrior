@@ -45,3 +45,37 @@ Chi phí nằm ở `datetime`: một `.timestamp()` (đổi múi giờ) cộng h
 Tỉ lệ tiết kiệm phụ thuộc số tick trên mỗi bar: bar 5 phút với tick 1s bỏ được
 299/300 lần gọi. Nếu `tick_resolution == interval` (một tick mỗi bar) thì tối ưu
 này không tiết kiệm gì — và cũng không tốn gì thêm.
+
+---
+
+## Bổ sung 2026-08-26 — profile thật, sau khi bị hỏi "đã làm đúng prompt chưa"
+
+Phần trên là **micro-benchmark**: nó chứng minh code mới nhanh hơn code cũ. Nó
+**không** chứng minh hàm đó đáng tối ưu. Prompt của Bolt yêu cầu PROFILE trước
+(*"Measure first, optimize second. No profiling data, no PR"*) — bước đó tôi đã
+bỏ qua, và chỉ chạy sau khi được hỏi lại.
+
+`cProfile` trên **cả handler**, 120.000 tick, bar 5 phút, cùng tham số cho hai bản:
+
+| | `_bar_bounds` | % tổng vòng chạy |
+| :--- | ---: | ---: |
+| Trước `BOLT-001` | 120.000 lần gọi | **17.37%** |
+| Sau | 400 lần gọi | **0.32%** |
+
+Tái lập: `PYTHONPATH=.. python scripts/bolt001_tick_backtest_profile.py 120000`
+
+Kết luận: tối ưu này **đáng làm thật** — nhưng đó là điều tôi chỉ biết *sau khi*
+đã làm xong và merge. Nếu con số hoá ra là 0.1% thì tôi đã tiêu công review cho
+một thay đổi vô nghĩa, và không có gì trong quy trình lúc đó ngăn được.
+
+## Thứ profile chỉ ra mà micro-benchmark giấu mất
+
+Sau khi `_bar_bounds` biến mất khỏi top, ứng viên lớn nhất lộ ra:
+
+```
+0.394   39.2%   120,000  handler.py:117(to_candle)
+```
+
+`to_candle()` dựng một `MarketData` mới cho **mỗi tick** — 120.000 object cho
+~400 bar thật. Chi phí hot loop ở đây là **cấp phát object**, không phải tính
+toán. Ghi vào `.jules/bolt.md` làm mục tiêu kế tiếp.
