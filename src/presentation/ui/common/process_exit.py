@@ -125,7 +125,25 @@ def exit_process(
         f"forever (BUG-054). Forcing exit with code {exit_code}. Still running:\n"
         f"{describe_threads(threads)}"
     )
-    logging.shutdown()
+    _flush_diagnostics()
+    os._exit(exit_code)
+
+
+def _flush_diagnostics() -> None:
+    """Push the warning above out of every buffer before `os._exit()` skips
+    the `atexit` hooks that would normally do it.
+
+    Deliberately NOT `logging.shutdown()`: that closes every handler process
+    wide, which is correct for a process about to die and actively harmful
+    anywhere else — a test that exercises this path with `os._exit` patched
+    out would tear down logging for everything that runs after it.
+    """
+    for handler in logging.getLogger().handlers:
+        try:
+            handler.flush()
+        except (OSError, ValueError):
+            # A closed or broken handler must not stop the remaining ones from
+            # flushing — the whole point of this pass is getting the warning out.
+            continue
     sys.stdout.flush()
     sys.stderr.flush()
-    os._exit(exit_code)
