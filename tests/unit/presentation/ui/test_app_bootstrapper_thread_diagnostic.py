@@ -191,3 +191,62 @@ def test_a_daemon_thread_is_never_flagged(only_these_threads):
     finally:
         release.set()
         thread.join(timeout=5)
+
+
+def _blocked_in_a_function_with_a_findable_name(release: threading.Event) -> None:
+    """Named so the stack assertion below can look for something specific.
+
+    A test that only asserted "the message got longer" would pass on a stack
+    dump pointing at the wrong thread.
+    """
+    release.wait()
+
+
+def test_the_warning_says_where_each_survivor_is_stuck(only_these_threads):
+    """BUG-059's actual blocker: the diagnostic named the thread but not the
+    task, and a pool assigns one name to every task it ever runs. Without a
+    stack, `'ThreadPoolExecutor-3_0'` narrows the culprit to "something that
+    used the pool" — which is everything.
+    """
+    release = threading.Event()
+    thread = threading.Thread(
+        target=_blocked_in_a_function_with_a_findable_name,
+        args=(release,),
+        name="BUG-059-stack-probe",
+        daemon=False,
+    )
+    thread.start()
+    try:
+        app_engine = MagicMock()
+        with only_these_threads(thread):
+            _log_surviving_non_daemon_threads(app_engine)
+    finally:
+        release.set()
+        thread.join(timeout=5)
+
+    (message,), _ = app_engine.context.logger.warning.call_args
+    assert "BUG-059-stack-probe" in message
+    assert "_blocked_in_a_function_with_a_findable_name" in message, (
+        "the stack must name the function the thread is blocked in, "
+        f"not just the thread — got:\n{message}"
+    )
+
+
+def test_a_thread_with_no_python_frame_is_reported_rather_than_dropped(
+    only_these_threads,
+):
+    """A thread blocked inside a C call has no Python frame. Silently
+    skipping it would lose exactly the survivor most likely to be stuck in a
+    blocking syscall — `run_vacuum`'s SQLite VACUUM being the known example
+    (see the 19-submit-site cancellation audit)."""
+    dead = threading.Thread(target=lambda: None, name="BUG-059-no-frame")
+    dead.start()
+    dead.join(timeout=5)  # finished, so it owns no frame
+
+    app_engine = MagicMock()
+    with patch.object(dead, "is_alive", return_value=True), only_these_threads(dead):
+        _log_surviving_non_daemon_threads(app_engine)
+
+    (message,), _ = app_engine.context.logger.warning.call_args
+    assert "BUG-059-no-frame" in message
+    assert "no Python frame" in message
