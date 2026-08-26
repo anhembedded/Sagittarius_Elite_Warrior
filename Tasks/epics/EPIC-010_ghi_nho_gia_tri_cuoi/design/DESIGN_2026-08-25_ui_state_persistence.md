@@ -2,7 +2,23 @@
 
 **Belongs to:** [`EPIC-010`](../README.md)
 **Date:** 2026-08-25
-**Status:** 🔵 **Proposed** — not approved, not a line of code written.
+**Status:** 🟠 **Partly superseded** — see the box below. Still the authority on
+scope, failure modes 1-12, and decisions D2/D4/D5/D6/D7.
+
+> [!WARNING]
+> **Two decisions in this document have been superseded by
+> [`DESIGN_2026-08-26_engine_state_extension.md`](DESIGN_2026-08-26_engine_state_extension.md).**
+> Read that one alongside this.
+>
+> | Here | There |
+> | :--- | :--- |
+> | **D1** — a second `ConfigManager` behind a port | ✅ unchanged; the probe still governs |
+> | **D1** — the store lives in the app | ⛔ moves to the **Engine** as `UiStateExtension` |
+> | **D3** — port in `src/presentation/ui/state/` | ⛔ moves to `extensions/pyside_mvc` |
+> | Slices keyed by **route name** | ⛔ replaced by `StateScope` (key + instance + lifetime) — a route is not an identity once a screen can have tabs |
+> | 12 failure modes | extended to **15** |
+>
+> Everything else below stands.
 
 > [!IMPORTANT]
 > **Read the status tag, not the prose.** Every claim in this file carries one.

@@ -21,15 +21,20 @@ A repo-wide grep confirms it: **no `QSettings`**, **no
 `saveGeometry`/`restoreGeometry`**, and **no `config.set()`** anywhere in
 `src/presentation/` outside `settings_presenter.py`.
 
-## The design
+## The design — read both, in this order
 
-📄 **[`design/DESIGN_2026-08-25_ui_state_persistence.md`](design/DESIGN_2026-08-25_ui_state_persistence.md)**
+1. 📄 **[`design/DESIGN_2026-08-25_ui_state_persistence.md`](design/DESIGN_2026-08-25_ui_state_persistence.md)**
+   — the problem, the scope, failure modes 1-12, and decisions D2/D4/D5/D6/D7.
+   12 mermaid diagrams. **D1's location and D3 are superseded by (2).**
+2. 📄 **[`design/DESIGN_2026-08-26_engine_state_extension.md`](design/DESIGN_2026-08-26_engine_state_extension.md)**
+   — moves the mechanism into the Engine as `UiStateExtension`, and replaces
+   route-keyed slices with `StateScope` (key + instance + lifetime) so a screen
+   can have tabs. Adds failure modes 13-15 and the build-now / landing-place
+   split.
 
-That document contains: the structural model plus a 12-failure-mode catalogue
-derived from the lifecycle of one persisted value, an evaluation of 7 design
-decisions (each with an options table and the reasoning behind the choice), the
-proposed architecture, and 12 mermaid diagrams (component, class, 2 sequence,
-state machine, ER, 2 flowchart, mindmap, gantt, journey).
+The second document exists because a review found a real hole in the first: it
+keyed every slice by **route name**, which silently assumes one presenter per
+route. Four tabs of the same view would have collapsed into one shared slice.
 
 ### The three decisions that matter most
 
@@ -38,6 +43,7 @@ state machine, ER, 2 flowchart, mindmap, gantt, journey).
 | **D1** | A **separate** `state/ui_state.json`, but backed by a **second `ConfigManager` instance** — not a hand-written store, not `QSettings` | The **file** must be separate because `user_config.json` is git-tracked **and** holds `API_KEY`/`API_SECRET`, and the Sanity tier loads that very file with `writable=True`. But the **mechanism** must not be: keep exactly one paradigm project-wide. A measured probe shows `ConfigManager` already provides slice-merge (D2) and fail-safe corruption handling — the two heaviest parts, free |
 | **D2** | The document is split into **per-screen slices**; each write **merges one slice** and never replaces the whole document | `PresenterManager` is *TRUE LAZY* — a presenter is only built when the user visits that screen. Writing the whole document at shutdown would **wipe out** the slices for screens this session never opened |
 | **D6** | Persist **intent**, never persist **activity** (FSM state, a running stream) | `BOT-062` deliberately disabled autostart because *"opening the Dev Board must not silently start a live connection unless the user has opted in"*. Restoring the FSM into `LIVE` routes around that exact decision through the back door |
+| **D8** | The mechanism lives in the **Engine**; the key carries **identity and lifetime** from day one, but no tab machinery is built | `PresenterManager` holds exactly one presenter instance per route today, so tabs are structurally impossible — building for them now would be speculation. But adding identity to a key *later* is a data migration plus a breaking API change across two repos, while adding it *now* is one optional field. Asymmetric cost, so the shape goes in early and the machinery does not |
 
 ## Sub-tasks (files not created yet — awaiting design approval)
 
