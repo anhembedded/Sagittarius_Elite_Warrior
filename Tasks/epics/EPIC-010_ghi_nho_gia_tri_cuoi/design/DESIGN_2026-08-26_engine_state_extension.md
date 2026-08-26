@@ -37,6 +37,46 @@ Two things arrived after the first design was reviewed, both from the user:
 Point 2 is the more important one, because it breaks an assumption the first
 document never stated out loud.
 
+### 1.1 The general concept is multiplicity, not tabs ✅ Established by review
+
+An earlier draft of this document said "tab container" throughout. That was too
+specific, and the user corrected it: *"if we use tab, we could use the idea …
+think about we could apply that to tab, or just a new window."*
+
+Tabs are one **instance of the problem**, not the problem. The general shape:
+
+> **Multiplicity introduces identity. Whatever introduces the multiplicity owns
+> the identity.**
+
+An *instance owner* is anything that can produce more than one live copy of the
+same state owner at the same time:
+
+| Form of multiplicity | Instance owner |
+| :--- | :--- |
+| Tabs of one screen | the tab widget |
+| A second top-level window | whatever opens windows |
+| Split panes, side-by-side compare | the splitter/pane host |
+| MDI sub-windows | the MDI area |
+| A detached / popped-out panel | whoever detached it |
+
+None of these exist in this app today, and the design must not name any of them
+in its rules. The rule is stated in terms of a **relationship** — *whoever
+constructs an instance owns its identity* — so it holds for all of them and for
+forms nobody has thought of.
+
+**The generalisation immediately paid for itself**, which is why it is recorded
+rather than quietly applied: following "or just a new window" reveals that the
+`shell` slice has *the same defect*. The first design treats window geometry as a
+singleton, so two windows would both write `shell.window_width` and clobber each
+other — the identical failure the tab example exposes for `dashboard`. So
+multiplicity is **not a presenter-only concern**; it applies to any state owner,
+including the shell itself.
+
+**Identity may also nest** — window 2 → tab 3 → panel A. `instance_id` is a
+`str`, which can carry a composed path, so nothing here forecloses that. ❓ Its
+format is therefore deliberately **unconstrained**: no rule in this design may
+assume an id is flat, opaque, or free of separators.
+
 ---
 
 ## 2. The gap: a route is not an identity ✅ Established
@@ -77,7 +117,8 @@ flowchart TD
 
 > **The decision this forces** 🔵 Proposed
 >
-> **Make the *key* carry identity from day one. Do NOT build the tab machinery.**
+> **Make the *key* carry identity from day one. Do NOT build any multiplicity
+> machinery** — no tab host, no second window, no pane splitter.
 >
 > The reasoning is asymmetric, and that asymmetry is the whole argument:
 >
@@ -138,19 +179,25 @@ This is what the first design lacked entirely.
 
 | Axis | Values | Decides |
 | :--- | :--- | :--- |
-| **Identity** | singleton (`instance_id = None`) · per-instance (`instance_id = "tab-3"`) | *Which* slice |
+| **Identity** | singleton (`instance_id = None`) · per-instance (`instance_id = <opaque str>`) | *Which* slice |
 | **Lifetime** | `PERSISTENT` · `SESSION` | *Which store*, and when it dies |
 
 Crossing them gives the four real cases:
 
 | | `PERSISTENT` | `SESSION` |
 | :--- | :--- | :--- |
-| **singleton** | Window geometry, last route, the **default** template for a new tab | A singleton screen's scratch state, dies with the process |
-| **per-instance** | ❓ Reopening the same 4 tabs — **deferred**, see §7 | **Tab 3's own state — "temp"**, dies when tab 3 is disposed |
+| **singleton** | Last route; the **default** template a new instance seeds from; window geometry *while there is one window* (§1.1) | A single-copy screen's scratch state, dies with the process |
+| **per-instance** | ❓ Restoring a whole multi-instance layout — **deferred**, see §7 | **One copy's own state — "temp"**, dies when that copy is disposed |
 
 The user's *"default vs temp"* maps onto this precisely: **default** is the
 persistent singleton slice a new instance seeds from; **temp** is the session
 per-instance slice that dies with the instance.
+
+> ⚠️ **"Singleton" is a statement about today, not a property.** Window geometry
+> is in the singleton column only because the app has one window. The moment a
+> second one can exist it moves to the per-instance row — which is precisely why
+> §2 puts identity in the key now, rather than treating today's singletons as
+> permanent.
 
 ### 4.2 The insight that simplifies everything 🔵 Proposed
 
@@ -191,14 +238,14 @@ can be inserted without touching any consumer:
 
 ```mermaid
 sequenceDiagram
-    participant T as Tab 3 (new)
+    participant T as A new instance
     participant CO as UiStateCoordinator
     participant CH as Defaults chain
     participant S as SESSION store
     participant P as PERSISTENT store
 
     T->>CO: restore_state_for(scope)
-    CO->>S: read(scope with instance_id="tab-3")
+    CO->>S: read(scope with this instance_id)
     alt this tab already lived this session
         S-->>CO: its own temp state
     else brand new tab
@@ -381,7 +428,7 @@ Two different ids were hiding under one question:
 | | Needs | Who can supply it |
 | :--- | :--- | :--- |
 | **SESSION id** (what we build) | unique in this process, never reused | anyone — including the presenter itself |
-| **PERSISTENT id** (deferred, §7) | *stable across restarts*, rebindable, reapable | only whoever owns the tab container — which does not exist |
+| **PERSISTENT id** (deferred, §7) | *stable across restarts*, rebindable, reapable | only the instance owner (§1.1) — and no form of multiplicity exists yet |
 
 So the answer for what we are actually building:
 
@@ -391,8 +438,8 @@ Why this wins, against the alternatives considered:
 
 | Option | Verdict |
 | :--- | :--- |
-| **`PresenterManager` mints it** | ⛔ It is a *router* over a `QStackedWidget` — one visible screen, `navigate_to(name)` is its whole API, one `presenter_instance` per route. Making it multi-instance **is** the tab machinery §2 deferred, and needs a signature change |
-| **New tab-container / instance registry in the Engine** | ⛔ That is the deferred machinery outright |
+| **`PresenterManager` mints it** | ⛔ It is a *router* over a `QStackedWidget` — one visible screen, `navigate_to(name)` is its whole API, one `presenter_instance` per route. Making it multi-instance **is** the machinery §2 deferred, and needs a signature change |
+| **A new instance-owner / registry in the Engine** | ⛔ That is the deferred machinery outright, for whichever form of multiplicity it assumed |
 | **The application mints it** | 🟠 Works, but every app invents its own convention and mode #15 is easy to get wrong. Better as the *override*, not the default |
 | **`BasePresenter` self-mints `uuid4`** | ✅ Unique by construction, **kills mode #15 structurally** (a uuid is never reused, so a new tab can never inherit a dead one's state), matches the Engine's two existing id precedents, and costs one private field |
 
@@ -404,13 +451,22 @@ second implementer and no requirement it would serve. The seam is one
 - `BasePresenter.__init__` sets `self._instance_uid = str(uuid.uuid4())` —
   additive, no signature change, so every existing subclass and
   `PresenterManager`'s `presenter_class(view, container)` call keep working.
-- `state_scope` is a property built from it. A future tab-aware presenter
-  overrides that one property to supply a stable id. That is the §7.1 landing
-  place, at the cost of a property rather than a port.
+- `state_scope` is a property built from it. Whatever instance owner appears
+  first — a tab host, a second window, a pane splitter — overrides that one
+  property to supply a stable id. That is the §7.1 landing place, at the cost of
+  a property rather than a port.
+
+> **Why the rule is stated as a relationship, not as a component.** *Whoever
+> constructs an instance owns its identity* holds for every form of multiplicity
+> in §1.1, including ones nobody has proposed. A rule naming a tab host would
+> have to be rewritten the first time someone opens a second window instead —
+> and rewriting a rule about identity, after ids are already on disk, is exactly
+> what mode #15 punishes.
 
 ❓ **Still open, and correctly so:** the *stable* id policy. It cannot be
-designed without the tab container, and it must be decided **before** the first
-tabbed screen ships, not after — mode #15 is unforgiving once state is on disk.
+designed before an instance owner exists, and it must be decided **before** the
+first multi-instance surface ships, not after — mode #15 is unforgiving once
+state is on disk.
 
 ---
 
@@ -420,9 +476,9 @@ The first document's 12 stand unchanged. Identity and lifetime add three:
 
 | # | Stage | Failure mode | Guard |
 | :-: | :--- | :--- | :--- |
-| 13 | Capture | **Instances fight over the shared default.** Four tabs each auto-write the singleton default; the last one to change wins and silently redefines what a new tab looks like | A per-instance scope **never** auto-writes the default. Promoting to default is an explicit action only. Locked by a test |
-| 14 | Boundary | **Orphan instance slices.** A crash leaves `tab-7`'s persistent slice on disk with nothing that will ever own it again — an unbounded leak | Avoided structurally by §4.2: per-instance state is `SESSION` and never reaches disk. If §7's deferred feature is ever built, it must ship reaping *in the same change* |
-| 15 | Apply | **Identity reuse.** A new tab is assigned `tab-3`, inherits a dead tab-3's state, and the user sees a stranger's form | Solved structurally by §5.4: a `uuid4` is never reused, so no new instance can collide with a dead one. **Never derive an id from tab position or index** |
+| 13 | Capture | **Instances fight over the shared default.** Every live copy auto-writes the singleton default; the last one to change wins and silently redefines what a *new* copy looks like | A per-instance scope **never** auto-writes the default. Promoting to default is an explicit action only. Locked by a test |
+| 14 | Boundary | **Orphan instance slices.** A crash leaves instance `7`'s persistent slice on disk with nothing that will ever own it again — an unbounded leak | Avoided structurally by §4.2: per-instance state is `SESSION` and never reaches disk. If §7's deferred feature is ever built, it must ship reaping *in the same change* |
+| 15 | Apply | **Identity reuse.** A new instance is handed a dead instance's id, inherits its state, and the user sees a stranger's form | Solved structurally by §5.4: a `uuid4` is never reused, so no new instance can collide with a dead one. **Never derive an id from a position, index, or ordinal** — those are exactly the values that get reused |
 
 Modes 14 and 15 are both closed by *structure* rather than by discipline —
 `SESSION`-only per-instance state means no disk orphans, and `uuid4` means no
@@ -441,13 +497,14 @@ The whole point of §2's asymmetry, made concrete:
 | `Lifetime` | ✅ both members | only `PERSISTENT` has real consumers |
 | `InMemoryStateStore` | ✅ (it is the test double anyway) | no app code requests `SESSION` yet |
 | `IStateDefaultsProvider` | ✅ ABC + one link | the chain has one link |
-| Tab manager / multi-instance router | ❌ nothing | `PresenterManager` stays one-per-route |
-| Restoring "the 4 tabs I had open" | ❌ nothing | needs `PERSISTENT` + per-instance + an ordered open-set + reaping (mode 14) |
+| Any instance owner — tab host, second window, pane splitter (§1.1) | ❌ nothing | `PresenterManager` stays one-per-route |
+| Restoring a whole multi-instance layout | ❌ nothing | needs `PERSISTENT` + per-instance + an ordered open-set + reaping (mode 14) |
 
-> ❓ **Open, and it must stay open.** Reopening a previous session's tabs is a
-> materially larger feature than remembering values: it needs stable identity
-> across restarts, an ordered set of open instances, and orphan reaping. It is
-> named here so nobody assumes this design already covers it.
+> ❓ **Open, and it must stay open.** Restoring a previous session's *layout* —
+> whichever form it took, tabs or windows or panes — is a materially larger
+> feature than remembering values: it needs stable identity across restarts, an
+> ordered set of open instances, and orphan reaping. It is named here so nobody
+> assumes this design already covers it.
 
 ---
 
@@ -484,6 +541,7 @@ duration, file location).
 
    What remains open is the narrower question it was hiding: **the *stable*
    (across-restart) id policy**, which only §7's deferred feature needs. It
-   cannot be designed without a tab container, and must be settled **before**
-   the first tabbed screen ships — once per-instance state reaches disk, mode 15
-   stops being recoverable.
+   cannot be designed before an instance owner exists (§1.1), and must be
+   settled **before** the first multi-instance surface ships — tabs, a second
+   window, or anything else. Once per-instance state reaches disk, mode 15 stops
+   being recoverable.
