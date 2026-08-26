@@ -129,3 +129,33 @@ dòng đó** (không thêm dòng mới, không thêm nhiễu):
 2. Chụp lại ảnh **kèm cả vùng subplot**, để xác nhận `-50..100` là trục của plot chính hay
    của subplot RSI/MACD.
 3. Chỉ sau khi có 1 hoặc 2 mới viết regression test — hiện chưa biết đủ để test đúng chỗ.
+
+## 6. Lượt điều tra 2026-08-26 — thêm 1 giả thuyết **được xác nhận thật** (không phải bị loại),
+nhưng **không đóng được bug này**
+
+**Trạng thái: vẫn Open.** Dựng lại đúng chuỗi Dev Board (real `ChartCard`, real
+`IndicatorScriptRunner`, real `dev_showcase`+`rsi_14`+`macd_full`, 2000 nến tổng hợp) headless
+trên Linux (`QT_QPA_PLATFORM=offscreen`, không cần Binance thật) để tự động hoá bước 1–2 ở trên
+mà không cần máy Windows/GUI thật. Kết quả:
+
+- **Y-range của main plot bám đúng theo dữ liệu tổng hợp** (không tái hiện được `-50..100`) — dữ
+  liệu tổng hợp tự nó là random walk không có mean-reversion nên trôi giá hợp lệ, không phải bug.
+  Nghĩa là: hạ tầng auto-range mô tả ở §4 (main plot chỉ nhận đúng item của chính nó) **vẫn đúng**
+  với cấu hình được thử — giả thuyết "range bỏ qua data" (bước 1, gạch 2) **chưa được xác nhận**
+  bằng repro này.
+- Nhưng: phát hiện một defect **thật, khác, đã xác nhận** trong cùng subsystem — `macd_full`
+  (3 line: MACD/Signal/Histogram) tạo **3 subplot row riêng** thay vì 1 row chung, khiến main
+  plot bị ép chỉ còn ~3/8 chiều cao khi bật MACD, và crosshair bị đăng ký trùng. Đã tách hồ sơ
+  riêng: [`BUG-053`](../completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md) —
+  root-caused, regression-tested (red→green), **đã sửa và đóng**.
+- **Vì sao BUG-053 không đóng được BUG-034 này:** repro headless ở trên đã bật đúng tổ hợp script
+  Dev Board đã dùng (dev_showcase + rsi_14 + macd_full) và chạy qua đúng `IndicatorScriptRunner`
+  thật — nếu việc ép main plot xuống 3/8 chiều cao đã đủ để tạo ra đúng triệu chứng "-50..100 +
+  candle rỗng", repro này lẽ ra phải lộ ra dấu hiệu bất thường trong Y-range hoặc x-range. Nó
+  không lộ. Nên khả năng cao nhất: BUG-053 là một defect thật, đáng sửa độc lập, nhưng **không
+  phải** cơ chế duy nhất (có thể không phải cơ chế nào) tạo ra triệu chứng BUG-034 đã báo.
+- **Việc còn thiếu, không đổi so với §5:** vẫn cần ảnh chụp thật + log `--debug` từ một lần tái
+  hiện sống (GUI thật hoặc Binance thật) — headless repro chỉ dựng lại được *cấu trúc* wiring, không
+  dựng lại được bất cứ thứ gì phụ thuộc timing thật (live tick xen giữa `render_historical_data()`
+  và lúc script subplot được tạo, thứ tự Qt event loop, DPR/backend thật). Bước 1–2 ở §5 **vẫn còn
+  nguyên giá trị**, chưa bước nào trong đó được thực hiện bằng phiên này.

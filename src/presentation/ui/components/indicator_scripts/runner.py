@@ -345,7 +345,10 @@ class IndicatorScriptRunner:
             if active.overlay:
                 card.add_overlay_indicator(qualified, color)
             else:
-                card.add_subplot_indicator(qualified, color)
+                # BUG-053 — every line of THIS script shares one subplot
+                # row (e.g. MACD's MACD/Signal/Histogram), tagged by its
+                # registry key so unrelated scripts never share a row.
+                card.add_subplot_indicator(qualified, color, group=key)
             active.registered_lines.add(line_name)
             active.scope.add(
                 qualified, dispose=functools.partial(card.remove_indicator, qualified)

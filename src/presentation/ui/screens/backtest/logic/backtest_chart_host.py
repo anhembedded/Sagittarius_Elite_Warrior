@@ -55,7 +55,11 @@ class IBacktestChartHost(Protocol):
     def add_overlay_indicator(self, name: str, color: str, width: int = 2) -> None: ...
 
     def add_subplot_indicator(
-        self, name: str, color: str, height_ratio: int = 1
+        self,
+        name: str,
+        color: str,
+        height_ratio: int = 1,
+        group: str | None = None,
     ) -> None: ...
 
     def update_indicator_data(
@@ -143,9 +147,13 @@ class PythonBacktestChartHost:
         self._chart_card.add_overlay_indicator(name, color, width)
 
     def add_subplot_indicator(
-        self, name: str, color: str, height_ratio: int = 1
+        self,
+        name: str,
+        color: str,
+        height_ratio: int = 1,
+        group: str | None = None,
     ) -> None:
-        self._chart_card.add_subplot_indicator(name, color, height_ratio)
+        self._chart_card.add_subplot_indicator(name, color, height_ratio, group=group)
 
     def update_indicator_data(
         self, name: str, x_data: list[float], y_data: list[float]
