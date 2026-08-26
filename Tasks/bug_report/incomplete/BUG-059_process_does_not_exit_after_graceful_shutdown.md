@@ -13,6 +13,36 @@ vẫn **Open** vì chưa đóng được đúng lần đã báo cáo.
 > **Đổi số 2026-08-26:** hồ sơ này trước mang mã `BUG-052`, trùng với một bug khác đã đóng (`Tasks/bug_report/completed/BUG-052_*.md`) — Bug Board quy định mã phải là số kế tiếp số lớn nhất **ở cả hai thư mục**, và quy định đó đã bị vi phạm. Hồ sơ đang mở đổi thành `BUG-059` (hồ sơ đã đóng giữ mã cũ vì ROADMAP và các commit đã merge tham chiếu). Mọi commit/PR trước ngày này nhắc `BUG-052` **trong ngữ cảnh bug này** là chỉ chính hồ sơ đây.
 
 
+---
+
+## Cập nhật 2026-08-26 — chẩn đoán giờ nói **thread kẹt ở đâu**, không chỉ tên nó
+
+Bản chẩn đoán thêm sáng nay in ra tên thread sống sót. Nhưng tên đó do pool đặt:
+`'ThreadPoolExecutor-3_0'` là **mọi tác vụ pool ấy từng chạy**, nên nó thu hẹp
+thủ phạm về "một thứ gì đó có dùng pool" — tức là gần như toàn bộ app. Đó đúng
+là câu hỏi hồ sơ này còn để mở ("tác vụ cụ thể vẫn chưa xác định được").
+
+`_log_surviving_non_daemon_threads()` giờ kèm **stack của từng thread sống sót**,
+đọc qua `sys._current_frames()` (không cần dừng thread). Lần tái hiện sau sẽ cho
+ra thẳng dòng code đang chặn, thay vì một cái tên vô danh.
+
+Thread kẹt trong một lời gọi C **không có** frame Python nào. Trường hợp đó được
+**báo cáo rõ**, không bỏ qua — vì nó chính là survivor dễ đang kẹt trong syscall
+nhất, mà `run_vacuum`'s SQLite VACUUM là ví dụ đã biết (xem audit 19 điểm submit).
+
+Hai test mới đi kèm, đã fault-inject để chắc chúng không phải trang trí: gỡ phần
+stack ra thì cả hai đỏ, khôi phục thì xanh.
+
+**Bug vẫn Open** — đây là cải thiện chẩn đoán, **không phải bản sửa**. Vẫn cần
+một lần tái hiện thật để đóng.
+
+### Một nghi ngờ đã kiểm chứng và bác bỏ
+
+Nhìn log thì `Disposing extension 'LoggerExtension'` xảy ra **trước** khi chẩn
+đoán chạy, nên có vẻ cảnh báo sẽ ghi qua một logger đã chết và mất tiêu. Đã kiểm:
+`LoggerExtension.shutdown()` trong engine là **no-op** (`pass`), không gỡ handler
+nào. Logger vẫn ghi bình thường. Không có vấn đề ở đây.
+
 ## 1. Hiện tượng (Symptom)
 
 Người dùng đóng app. Chuỗi shutdown chạy **hết, không lỗi, không exception** — tất cả

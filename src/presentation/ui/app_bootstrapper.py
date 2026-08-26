@@ -274,6 +274,35 @@ def _log_ui_ready(app_engine) -> None:
         print(ready_msg)
 
 
+_STACK_FRAME_LIMIT = 12
+
+
+def _format_thread_stack(thread: threading.Thread) -> str:
+    """The stack a surviving thread is stuck in, not just its name.
+
+    `BUG-059`'s blocker is precisely this gap: the diagnostic already named
+    the survivor, but `'ThreadPoolExecutor-3_0'` does not say what it is
+    *running*, and that report's open question is "which task". A thread
+    name is assigned by the pool, so every task that pool ever ran shares
+    it. The stack is the only thing that distinguishes them.
+
+    `sys._current_frames()` reads other threads' frames without stopping
+    them — the same technique that identified the integration-suite
+    deadlock earlier (there via `faulthandler` on SIGABRT, which is not
+    available here because the process is not wedged yet).
+
+    Deliberately bounded to the innermost `_STACK_FRAME_LIMIT` frames: the
+    blocking call is at the bottom, and an unbounded dump of every worker
+    would bury it. A thread blocked inside a C call has no Python frame at
+    all, which is itself the answer, so it is reported rather than skipped.
+    """
+    frame = sys._current_frames().get(thread.ident or -1)
+    if frame is None:
+        return f"    {thread.name!r}: no Python frame (blocked in a C call?)"
+    body = "".join(traceback.format_stack(frame)[-_STACK_FRAME_LIMIT:]).rstrip()
+    return f"    {thread.name!r} is stuck at:\n{body}"
+
+
 def _log_surviving_non_daemon_threads(app_engine) -> None:
     """BUG-052 — `app_engine.stop()` returning is not the same as the process
     being able to exit. `IThreadManager`'s pool is a `ThreadPoolExecutor`
@@ -313,7 +342,8 @@ def _log_surviving_non_daemon_threads(app_engine) -> None:
     message = (
         f"{len(survivors)} non-daemon thread(s) still alive after engine "
         f"shutdown — the process will hang at exit until they finish "
-        f"(BUG-052 class): {names}"
+        f"(BUG-052 class): {names}\n"
+        + "\n".join(_format_thread_stack(thread) for thread in survivors)
     )
     if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger"):
         app_engine.context.logger.warning(message)
