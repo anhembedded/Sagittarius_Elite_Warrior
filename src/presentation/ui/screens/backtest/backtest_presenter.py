@@ -103,6 +103,28 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
+    BACKTEST_STATE_FIELDS,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
+    SCRIPTS_ENABLED_KEY as _SCRIPTS_ENABLED_KEY,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
+    SCRIPTS_TOUCHED_KEY as _SCRIPTS_TOUCHED_KEY,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
+    is_key_list as _is_key_list,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
+    find_state_coordinator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
+    StateData,
+    StateScope,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -478,6 +500,19 @@ class BackTestPresenter(BasePresenter):
         # contract, and before load_qml() so QML parses against a ready model.
         self._connect_ui_signals()
         self._connect_engine_events()
+
+        # EPIC-010F — restore the remembered form, then start tracking edits.
+        # Before `_refresh_market_rule_verification()` below, which derives its
+        # message from the very fields being restored; and `_mark_state_dirty`
+        # is connected only afterwards, so a restore does not write itself
+        # straight back out as if the user had just typed it.
+        self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
+            container
+        )
+        if self._state_coordinator is not None:
+            self._state_coordinator.restore_into(self)
+        self._connect_state_tracking()
+
         self._trigger_initial_health_check()
         self._refresh_market_rule_verification()
 
@@ -2524,6 +2559,83 @@ class BackTestPresenter(BasePresenter):
             self._syncFailedSignal.emit(resolved_action_id, message)
             return
         self._syncSucceededSignal.emit(resolved_action_id)
+
+    # ================================================================== #
+    # IStateContributor — structural, no base class (EPIC-010F)
+    # ================================================================== #
+
+    @property
+    def state_scope(self) -> StateScope:
+        return StateScope(key="backtest")
+
+    def capture_state(self) -> StateData:
+        script_model = self._view_model.script_model
+        return {
+            **{
+                field.key: getattr(self._view_model, field.prop)
+                for field in BACKTEST_STATE_FIELDS
+            },
+            # EPIC-010G — the script checklist is a QAbstractListModel, not a
+            # ViewModel property, so it cannot be a row in the table above.
+            # Two keys, not one: remembering only which scripts are ON would
+            # let `set_available()` re-apply a `default_enabled` over a script
+            # the user deliberately turned off.
+            _SCRIPTS_ENABLED_KEY: list(script_model.enabled_keys),
+            _SCRIPTS_TOUCHED_KEY: list(script_model.touched_keys),
+        }
+
+    def restore_state(self, data: StateData) -> None:
+        """Applies a remembered form, validating every field on its own.
+
+        @details D5, and boundary rule 4: the coordinator does not know what a
+        valid leverage or commission type is, so the judgement lives here. Each
+        field is applied independently — one corrupt value falls back alone
+        rather than discarding the whole form.
+
+        Writes the **ViewModel**, never a widget: several inputs on this screen
+        are wired straight into handlers, and a restore must not look like the
+        user typing (mode #12). Opening this screen still runs nothing.
+        """
+        for field in BACKTEST_STATE_FIELDS:
+            if field.key not in data:
+                continue
+            value = data[field.key]
+            if field.is_valid(value, self._view_model):
+                setattr(self._view_model, field.prop, value)
+
+        enabled = data.get(_SCRIPTS_ENABLED_KEY)
+        touched = data.get(_SCRIPTS_TOUCHED_KEY)
+        if _is_key_list(enabled) and _is_key_list(touched):
+            # Both or neither: applying `enabled` without `touched` would
+            # leave every key looking untouched, so the next
+            # `set_available()` would switch the defaults straight back on.
+            self._view_model.script_model.restore_selection(enabled, touched)
+
+    def _connect_state_tracking(self) -> None:
+        """Marks the slice dirty whenever any remembered field changes.
+
+        @details Derived from the same declaration `capture_state()` reads
+        rather than nineteen hand-written `connect` lines: Qt's own convention
+        names a property's notifier `<prop>Changed`, which every field here
+        follows. A missing one raises instead of silently dropping that field
+        out of the debounce.
+        """
+        if self._state_coordinator is None:
+            return
+        self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)
+        for field in BACKTEST_STATE_FIELDS:
+            signal = getattr(self._view_model, f"{field.prop}Changed", None)
+            if signal is None:
+                raise AttributeError(
+                    f"{type(self._view_model).__name__} has no "
+                    f"{field.prop}Changed signal; EPIC-010F cannot track "
+                    f"{field.key!r} for persistence"
+                )
+            signal.connect(self._mark_state_dirty)
+
+    def _mark_state_dirty(self) -> None:
+        if self._state_coordinator is not None:
+            self._state_coordinator.mark_dirty(self)
 
     def shutdown(self) -> None:
         """Cancels owned workers before the desktop UI and engine are torn down."""

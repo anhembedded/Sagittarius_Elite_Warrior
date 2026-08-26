@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import traceback
 from dataclasses import dataclass
 
@@ -55,6 +56,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
+    ConfigManagerStateStore,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.repo_state_store_locator import (
+    RepoStateStoreLocator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
@@ -173,7 +183,21 @@ def build() -> AppRuntime:
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow
     # ------------------------------------------------------------------ #
-    window = MainWindow(app_engine)
+    # EPIC-010 — remembered UI state. Constructed here, after QApplication
+    # exists, because UiStateCoordinator owns a QTimer. Nothing else needs a
+    # handle on it: MainWindow.shutdown() flushes it, and teardown() already
+    # calls that, so it stays out of AppRuntime.
+    state_coordinator = UiStateCoordinator(
+        ConfigManagerStateStore(RepoStateStoreLocator())
+    )
+    # Registered so screen presenters can find it: PresenterManager builds
+    # each presenter as `presenter_class(view, container)`, with no seam for
+    # extra constructor arguments, so the container is the only way through.
+    # A presenter must therefore treat it as optional (see
+    # DashboardPresenter) — every test that builds a presenter against a bare
+    # container would otherwise break.
+    app_engine.context.container.singleton(UiStateCoordinator, state_coordinator)
+    window = MainWindow(app_engine, state_coordinator=state_coordinator)
     window.show()
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime
@@ -216,6 +240,7 @@ def teardown(runtime: AppRuntime) -> None:
     runtime.watchdog.stop()
     runtime.sig_timer.stop()
     runtime.app_engine.stop()
+    _log_surviving_non_daemon_threads(runtime.app_engine)
 
 
 def main() -> None:
@@ -247,6 +272,53 @@ def _log_ui_ready(app_engine) -> None:
         app_engine.context.logger.info(ready_msg)
     else:
         print(ready_msg)
+
+
+def _log_surviving_non_daemon_threads(app_engine) -> None:
+    """BUG-052 — `app_engine.stop()` returning is not the same as the process
+    being able to exit. `IThreadManager`'s pool is a `ThreadPoolExecutor`
+    (`sagittarius_engine`'s `ThreadManagerExtension.shutdown()` calls it with
+    `wait=False`, precisely so *this* step never blocks), but CPython
+    registers its own `concurrent.futures.thread._python_exit()` at import
+    time — an atexit hook that unconditionally joins every worker thread ever
+    created by any `ThreadPoolExecutor` in the process, ignoring `wait=`
+    entirely. If one of those threads is still running (a task with no
+    cooperative cancellation, stuck in a blocking call), the interpreter
+    hangs *after* this function returns and after `main()`'s own frame has
+    unwound — with no further log line, ever, since the hang is inside
+    Python's own shutdown machinery, not this application's code. This is
+    the exact mechanism `BUG-041` already root-caused for one specific task
+    (`ScanCoordinator`'s auto-discover); `BUG-052` reproduced the same
+    process-level symptom (`App stopped.` printed, process never returns)
+    from a different, still-unidentified task — its own report's first
+    suggested next step was "capture which thread is still alive", which had
+    no log evidence to work from. This closes that gap generically, for
+    every future occurrence, not just the one already diagnosed.
+
+    The main thread itself is always alive at this point (this function
+    runs on it) and is deliberately excluded — it is not what keeps the
+    process from exiting.
+    """
+    survivors = [
+        thread
+        for thread in threading.enumerate()
+        if thread is not threading.main_thread()
+        and not thread.daemon
+        and thread.is_alive()
+    ]
+    if not survivors:
+        return
+
+    names = ", ".join(f"{thread.name!r}" for thread in survivors)
+    message = (
+        f"{len(survivors)} non-daemon thread(s) still alive after engine "
+        f"shutdown — the process will hang at exit until they finish "
+        f"(BUG-052 class): {names}"
+    )
+    if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger"):
+        app_engine.context.logger.warning(message)
+    else:
+        print(message)
 
 
 def _install_exception_handler(app_engine) -> None:

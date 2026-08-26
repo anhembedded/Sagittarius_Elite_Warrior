@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
@@ -11,7 +11,14 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_INTERVAL,
+    FALLBACK_SYMBOL,
+    default_interval,
+    default_symbol,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
     HealthStatusReport,
@@ -24,12 +31,26 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.
     IndicatorScriptRunner,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
+    find_state_coordinator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
+    StateData,
+    StateScope,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .autostart_controller import AutoStartController
-from .dashboard_view_model import DashboardQmlViewModel
+from .dashboard_view_model import (
+    DATETIME_FORMAT,
+    DEFAULT_LOOKBACK_DAYS,
+    DashboardQmlViewModel,
+)
 from .history_pagination_controller import HistoryPaginationController
 from .stream_lifecycle_controller import StreamLifecycleController
 
@@ -42,8 +63,35 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Constants — no magic values scattered in method bodies
 # ---------------------------------------------------------------------------
-_DEFAULT_SYMBOLS: tuple[str, ...] = ("ETHUSDT",)
-_DEFAULT_INTERVAL_STR: str = "1m"
+#: `EPIC-010H` moved the actual defaults into
+#: `presentation/ui/common/app_defaults.py`, which reads Settings first and
+#: falls back to the same literals these held. Kept as thin aliases so the
+#: names existing comments and tests refer to still resolve, and so there is
+#: exactly one place left where the value itself is written down.
+_DEFAULT_SYMBOLS: tuple[str, ...] = (FALLBACK_SYMBOL,)
+_DEFAULT_INTERVAL_STR: str = FALLBACK_INTERVAL
+
+# --- EPIC-010D — remembered form values ------------------------------------
+#: This slice's flat keys, named so `capture_state()`/`restore_state()` cannot
+#: drift apart.
+_SYMBOL_KEY = "symbol"
+_INTERVAL_KEY = "interval"
+_LOOKBACK_DAYS_KEY = "lookback_days"
+#: `EPIC-010G` — the indicator-script checklist. Two keys, not one:
+#: remembering only which scripts are ON would let `set_available()`
+#: re-apply a `default_enabled` over a script the user deliberately turned
+#: off, which is the defect that task exists to close.
+_SCRIPTS_ENABLED_KEY = "scripts_enabled"
+_SCRIPTS_TOUCHED_KEY = "scripts_touched"
+
+#: Dates are persisted as a DURATION, never as absolute timestamps (design
+#: §9.1, risk R2): an absolute window remembered from a month ago would make
+#: the next Load History silently fetch an enormous range. Recomputing
+#: `now - N days` on restore preserves today's behaviour exactly.
+_MAX_LOOKBACK_DAYS = 3650
+#: Longest symbol Binance lists is well under this; a generous ceiling that
+#: still rejects a corrupted blob is the point, not a precise limit.
+_MAX_SYMBOL_LENGTH = 20
 
 # BOT-034 — how many candles to RENDER is not how many to FETCH: 75 is what
 # the chart shows by default (see ChartCard._DEFAULT_INITIAL_VISIBLE_CANDLES,
@@ -88,6 +136,57 @@ _WS_STATUS_BY_MODE = {
     UIMode.LIVE: ("WS: LIVE", BULL_COLOR),
     UIMode.ERROR: ("WS: ERROR", BEAR_COLOR),
 }
+
+
+def _is_plausible_symbol(value: object) -> bool:
+    """Whether a remembered symbol is worth applying (`EPIC-010D`).
+
+    @details Shape, not membership. The task file's rule reads "only apply if
+    it is still in the symbol options the app knows about", which is right for
+    a closed dropdown — but this screen's combo is `setEditable(True)` and
+    `_DEFAULT_SYMBOLS` holds a single entry, so membership would silently
+    discard any symbol the user legitimately typed and hand them "ETHUSDT"
+    back on every launch. That defeats the point of remembering it. The
+    Database screen (`EPIC-010E`) has a genuinely closed list and gets the
+    membership check there instead.
+    """
+    return (
+        isinstance(value, str)
+        and value.strip().isalnum()
+        and len(value.strip()) <= _MAX_SYMBOL_LENGTH
+    )
+
+
+def _is_known_interval(value: object) -> bool:
+    """Whether a remembered interval is still a real `TimeFrame`."""
+    if not isinstance(value, str):
+        return False
+    try:
+        TimeFrame(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_key_list(value: object) -> bool:
+    """A remembered list of script keys (`EPIC-010G`).
+
+    @details Only shape is checked here — whether a key still names a
+    registered script is `restore_selection()`'s job, which intersects
+    against the rows that actually exist.
+    """
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _is_sane_lookback(value: object) -> bool:
+    """@details `isinstance(True, int)` is `True` in Python, so booleans are
+    excluded explicitly — `{"lookback_days": true}` in a hand-edited file
+    would otherwise be applied as one day."""
+    return (
+        isinstance(value, int)
+        and not isinstance(value, bool)
+        and 1 <= value <= _MAX_LOOKBACK_DAYS
+    )
 
 
 def _tick_to_candle(
@@ -220,6 +319,11 @@ class DashboardPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._view_model = DashboardQmlViewModel()
+        # EPIC-010H, middle tier: seed the form from Settings before the view
+        # builds its widgets — `DevBoardPanel` reads `view_model.symbol` once
+        # while constructing the combo. `restore_state()` later overrides this
+        # with a remembered value if there is one, which is the top tier.
+        self._view_model.symbol = default_symbol(self.config.get_all(), FALLBACK_SYMBOL)
         view.set_view_model(self._view_model)
 
         # Resolve IThreadManager exactly once — stored as an instance attribute.
@@ -286,7 +390,11 @@ class DashboardPresenter(BasePresenter):
         # ChartToolbar.sig_timeframe_changed (see _ensure_chart_cards). An
         # instance attribute rather than the module constant so it can change
         # per-run without a restart.
-        self._active_interval: str = _DEFAULT_INTERVAL_STR
+        # EPIC-010H — Settings' DEFAULT_INTERVAL now reaches this screen too.
+        # It used to read the module constant only, so editing Settings
+        # changed the Backtest screen and silently left this one alone.
+        config_values = self.config.get_all()
+        self._active_interval: str = default_interval(config_values, FALLBACK_INTERVAL)
 
         # BOT-033 Phase 2 — symbol actually used by Load History/Start Live,
         # set from DashboardQmlViewModel.symbol at click time (see
@@ -298,7 +406,7 @@ class DashboardPresenter(BasePresenter):
         # loaded, not the _DEFAULT_SYMBOLS[0] constant — otherwise switching
         # to a different symbol silently stops routing indicator data to the
         # (correctly re-keyed) chart card _ensure_chart_cards just built.
-        self._active_symbol: str = _DEFAULT_SYMBOLS[0]
+        self._active_symbol: str = default_symbol(config_values, FALLBACK_SYMBOL)
 
         # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
         # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD
@@ -370,6 +478,26 @@ class DashboardPresenter(BasePresenter):
         self._connect_engine_events()
         self._trigger_initial_health_check()
 
+        # EPIC-010D — restore the remembered form values, then start tracking
+        # changes. Placed here deliberately: after `_active_interval` and the
+        # ViewModel exist for `restore_state()` to write into, and *before*
+        # the auto-start block below, which (when config-enabled) calls
+        # `_on_start_stream()` immediately and would otherwise stream the
+        # default symbol rather than the remembered one.
+        #
+        # Restoring first and only then connecting `_mark_dirty` keeps the
+        # restore from writing the values straight back out as if the user
+        # had just typed them.
+        self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
+            container
+        )
+        if self._state_coordinator is not None:
+            self._state_coordinator.restore_into(self)
+        self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)
+        self._view_model.symbolChanged.connect(self._mark_state_dirty)
+        self._view_model.startDateChanged.connect(self._mark_state_dirty)
+        self._view_model.endDateChanged.connect(self._mark_state_dirty)
+
         # EPIC-006D: DevBoardPanel.qml is no longer loaded here — view's
         # set_view_model() now builds the QtWidgets DevBoardPanel directly.
         # .qml file kept on disk, unloaded (EPIC-006's rollback convention).
@@ -402,6 +530,98 @@ class DashboardPresenter(BasePresenter):
                 parent=self,
             )
             self._autostart.begin()
+
+    # ================================================================== #
+    # IStateContributor — structural, no base class (EPIC-010D)
+    # ================================================================== #
+
+    @property
+    def state_scope(self) -> StateScope:
+        return StateScope(key="dashboard")
+
+    def capture_state(self) -> StateData:
+        script_model = self._view_model.script_model
+        return {
+            _SYMBOL_KEY: self._view_model.symbol,
+            _INTERVAL_KEY: self._active_interval,
+            _LOOKBACK_DAYS_KEY: self._current_lookback_days(),
+            _SCRIPTS_ENABLED_KEY: list(script_model.enabled_keys),
+            _SCRIPTS_TOUCHED_KEY: list(script_model.touched_keys),
+        }
+
+    def restore_state(self, data: StateData) -> None:
+        """Applies a remembered slice, validating every value on its own.
+
+        @details D5 — a restored value is a request, not a command, and
+        boundary rule 4 puts that judgement here rather than in the
+        coordinator: the framework does not know what a valid symbol is.
+        Each field is validated independently so a symbol that no longer
+        parses does not also throw away a perfectly good interval.
+        """
+        symbol = data.get(_SYMBOL_KEY)
+        if _is_plausible_symbol(symbol):
+            # The ViewModel, never the widget: `cboSymbol.currentTextChanged`
+            # is wired to a handler, and `DevBoardPanel._sync_symbol` applies
+            # this to the combo behind a `QSignalBlocker` (mode #12).
+            self._view_model.symbol = symbol.strip()
+
+        interval = data.get(_INTERVAL_KEY)
+        if _is_known_interval(interval):
+            self._active_interval = interval
+
+        lookback_days = data.get(_LOOKBACK_DAYS_KEY)
+        if _is_sane_lookback(lookback_days):
+            self._apply_lookback_days(lookback_days)
+
+        enabled = data.get(_SCRIPTS_ENABLED_KEY)
+        touched = data.get(_SCRIPTS_TOUCHED_KEY)
+        if _is_key_list(enabled) and _is_key_list(touched):
+            # Both or neither: applying `enabled` without `touched` would
+            # leave every key looking untouched, and the next
+            # `set_available()` would switch the defaults back on.
+            self._view_model.script_model.restore_selection(enabled, touched)
+
+    def _mark_state_dirty(self) -> None:
+        if self._state_coordinator is not None:
+            self._state_coordinator.mark_dirty(self)
+
+    def _current_lookback_days(self) -> int:
+        """The window the form currently describes, as a whole number of days.
+
+        @details Falls back to the module default when the two fields cannot
+        be parsed — they are free-text `QLineEdit`s, so a half-typed date is
+        an ordinary state to be in, not an error worth surfacing.
+        """
+        try:
+            # DATETIME_FORMAT carries no offset, so both parse naive. Tagged
+            # UTC rather than left naive because that is what they actually
+            # are — `_apply_lookback_days()` and the ViewModel's own
+            # constructor both write them from `datetime.now(UTC)`.
+            start = datetime.strptime(
+                self._view_model.startDate, DATETIME_FORMAT
+            ).replace(tzinfo=UTC)
+            end = datetime.strptime(self._view_model.endDate, DATETIME_FORMAT).replace(
+                tzinfo=UTC
+            )
+        except (ValueError, TypeError):
+            return DEFAULT_LOOKBACK_DAYS
+        days = (end - start).days
+        if not 1 <= days <= _MAX_LOOKBACK_DAYS:
+            return DEFAULT_LOOKBACK_DAYS
+        return days
+
+    def _apply_lookback_days(self, days: int) -> None:
+        """Rewrites the date fields as `now - days` .. `now`.
+
+        @details Deliberately recomputed against the current clock rather
+        than restored verbatim — that is the whole point of persisting a
+        duration (see `_MAX_LOOKBACK_DAYS`' comment).
+        """
+        now = datetime.now(UTC)
+        self._view_model.startDate = (now - timedelta(days=days)).strftime(
+            DATETIME_FORMAT
+        )
+        self._view_model.endDate = now.strftime(DATETIME_FORMAT)
 
     def shutdown(self) -> None:
         """Cancels owned workers and autostart controller on desktop shutdown."""
@@ -526,6 +746,12 @@ class DashboardPresenter(BasePresenter):
             # tears down and rebuilds the old ones on every call, so a
             # connection made here would otherwise accumulate on a widget
             # that no longer exists.
+            # EPIC-010D — a fresh ChartToolbar highlights its first button
+            # ("1m") regardless of what interval is actually in force, so a
+            # restored "5m" would fetch at 5m while the header claimed 1m.
+            # Seeded before the connection so this does not re-enter
+            # _on_timeframe_changed.
+            card.toolbar.set_active(self._active_interval)
             card.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
             # BOT-035 — same reasoning: fresh card, fresh connection.
             card.sig_near_left_edge.connect(self._on_near_left_edge)
@@ -623,6 +849,11 @@ class DashboardPresenter(BasePresenter):
         )
         for card in self.active_charts.values():
             card.set_max_visible_x_range(max_candles * bar_seconds)
+
+        # EPIC-010D — the interval lives on this presenter, not the
+        # ViewModel, so there is no *Changed signal to hang the debounce off;
+        # this is the one place a user can change it.
+        self._mark_state_dirty()
 
     @Slot(str)
     @safe_ui_action

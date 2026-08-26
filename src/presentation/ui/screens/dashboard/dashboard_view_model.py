@@ -4,6 +4,9 @@ from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_SYMBOL,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
 )
@@ -21,11 +24,16 @@ _IDLE_STATUS_COLOR = Palette.MUTED
 # DataManagementViewModel's own self-contained defaults; DashboardPresenter
 # reads these back through the same Property, so there is exactly one value
 # in play at runtime even though the "ETHUSDT" literal is duplicated in
-# source. DATETIME_FORMAT matches DataManagementPresenter's
-# _CUSTOM_TIME_FORMAT so a value typed on one screen reads the same on the
-# other.
-_DEFAULT_SYMBOL = "ETHUSDT"
-_DEFAULT_LOOKBACK_DAYS = 7
+# source. The datetime format that comment used to describe now lives in
+# `constants.DATETIME_FORMAT`, imported above — it was the same literal in
+# six places across three screens, and this comment saying one copy
+# "matches" another was the intent to share written beside a duplicate.
+_DEFAULT_SYMBOL = FALLBACK_SYMBOL
+#: Public because `DashboardPresenter` needs the same number to fall back on
+#: when a remembered `lookback_days` is missing or nonsense (`EPIC-010D`).
+#: Shared rather than re-declared — a second copy of "7" is exactly the
+#: duplicated-default problem `EPIC-010H` exists to remove.
+DEFAULT_LOOKBACK_DAYS = 7
 
 
 class DashboardQmlViewModel(BaseQmlViewModel):
@@ -74,7 +82,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
         self._symbol = _DEFAULT_SYMBOL
         now = datetime.now(UTC)
-        self._start_date = (now - timedelta(days=_DEFAULT_LOOKBACK_DAYS)).strftime(
+        self._start_date = (now - timedelta(days=DEFAULT_LOOKBACK_DAYS)).strftime(
             DATETIME_FORMAT
         )
         self._end_date = now.strftime(DATETIME_FORMAT)

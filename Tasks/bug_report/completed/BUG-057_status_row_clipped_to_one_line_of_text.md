@@ -1,4 +1,4 @@
-# BUG-051 — Mọi dòng của bảng Database Status bị cắt còn 14px, nút hành động render thành viền rỗng
+# BUG-057 — Mọi dòng của bảng Database Status bị cắt còn 14px, nút hành động render thành viền rỗng
 
 **Trạng thái:** ✅ Đã sửa — 2026-08-26
 **Phát hiện:** 2026-08-26, trong lúc làm [`EPIC-007F`](../../epics/EPIC-007_chuan_hoa_card_dung_chung/incomplete/EPIC-007F_migrate_4_man_hinh.md) — **không phải user báo**; lộ ra khi chụp ảnh trước/sau theo đúng yêu cầu "bằng chứng phải nộp" của task đó

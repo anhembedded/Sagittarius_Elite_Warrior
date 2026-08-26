@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import perf_counter
@@ -184,15 +185,28 @@ class RunHistoricalTickBacktestCommandHandler(
             start=command.start_time,
             end=command.end_time,
         )
-        ticks = self._repository.get_klines(
+        # BUG-051 — was self._repository.get_klines(): one synchronous call
+        # that materialized the ENTIRE tick range (up to millions of rows for
+        # a wide range/fine tick_resolution) into a single Python list before
+        # the simulation loop could even start. Measured on this exact
+        # SQLAlchemy/PySide6 stack: loading 1.5M rows via get_klines() takes
+        # ~70s and produces real Qt main-thread heartbeat stalls up to ~1.9s
+        # (even though this handler already runs on a background thread —
+        # ThreadManager doesn't protect the UI from a single giant Python
+        # allocation burst); the same 1.5M rows via count_klines()+
+        # stream_klines() below take ~28s with no stall above 0.09s. Mirrors
+        # the exact fix BUG-025 already applied to
+        # RunStaticBacktestCommandHandler — this handler (BOT-076, added
+        # alongside/after BUG-025) never got the same treatment.
+        total_ticks = self._repository.count_klines(
             symbol=command.symbol,
             interval=command.tick_resolution,
             start_time=command.start_time,
             end_time=command.end_time,
             limit=command.limit,
         )
-        self._log_trace("handler_ticks_loaded", count=len(ticks))
-        if not ticks:
+        self._log_trace("handler_ticks_loaded", count=total_ticks)
+        if not total_ticks:
             reason = (
                 f"No {command.tick_resolution.value} tick data found for "
                 f"{command.symbol}. Please run sync first."
@@ -201,7 +215,14 @@ class RunHistoricalTickBacktestCommandHandler(
             self._event_publisher.publish(BacktestFailedEvent(reason=reason))
             return None
 
-        result = self._simulate(ticks, command)
+        ticks = self._repository.stream_klines(
+            symbol=command.symbol,
+            interval=command.tick_resolution,
+            start_time=command.start_time,
+            end_time=command.end_time,
+            limit=command.limit,
+        )
+        result = self._simulate(ticks, total_ticks, command)
         if isinstance(result, BacktestCancelled):
             return result
 
@@ -219,7 +240,10 @@ class RunHistoricalTickBacktestCommandHandler(
         return result
 
     def _simulate(
-        self, ticks: list[MarketData], command: RunHistoricalTickBacktestCommand
+        self,
+        ticks: Iterable[MarketData],
+        total_ticks: int,
+        command: RunHistoricalTickBacktestCommand,
     ) -> BacktestResult | BacktestCancelled:
         engine = build_engine(
             self._strategy_registry,
@@ -244,10 +268,11 @@ class RunHistoricalTickBacktestCommandHandler(
         committed_bars: list[MarketData] = []
         forming: _FormingBar | None = None
         started_at = perf_counter()
-        total_ticks = len(ticks)
         progress_throttle = ProgressThrottle()
+        last_tick: MarketData | None = None
 
         for index, tick in enumerate(ticks, start=1):
+            last_tick = tick
             if command.cancellation_requested and command.cancellation_requested():
                 self._log_trace(
                     "handler_cancelled", processed=index - 1, total=total_ticks
@@ -320,7 +345,17 @@ class RunHistoricalTickBacktestCommandHandler(
                 engine, exchange, equity_curve, committed_bars, forming, command
             )
 
-        last_tick = ticks[-1]
+        if last_tick is None:
+            # count_klines() and stream_klines() are two separate queries
+            # (BUG-025's same reasoning, applied here) — total_ticks > 0 is
+            # guaranteed by execute() before _simulate() is ever called, so
+            # reaching an empty stream anyway is a contract violation, not a
+            # normal "no data" outcome. Fail loudly instead of crashing
+            # inside force_close() on None.
+            raise RuntimeError(
+                f"BUG-051 invariant violated: expected {total_ticks} ticks "
+                "but the stream yielded none."
+            )
         exchange.force_close(last_tick.close_price, last_tick.close_time)
 
         self._log_trace(

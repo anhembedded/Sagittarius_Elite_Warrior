@@ -591,7 +591,7 @@ class DataManagementView(BaseView):
         # Minimum, not fixed. At `setFixedHeight(74)` the tile was 5px short
         # of its own content — 12+12 margins, three labels of 15/23/13, two
         # gaps of 2 — so the hint line at the bottom rendered cut in half
-        # (`BUG-052`). A floor keeps the tiles matching without capping them
+        # (`BUG-058`). A floor keeps the tiles matching without capping them
         # below what they hold.
         tile.setMinimumHeight(74)
         apply_role(tile, StyleRole.SURFACE)

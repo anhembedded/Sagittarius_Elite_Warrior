@@ -97,9 +97,7 @@ def test_a_reversed_pair_is_reseeded_rather_than_shown_backwards(qtbot, monkeypa
     qtbot.addWidget(parent)
     captured = _Captured(monkeypatch, lambda o: None, accepted=False)
 
-    pick_date_range(
-        parent, start_text="2026-08-26 00:00", end_text="2026-08-19 00:00"
-    )
+    pick_date_range(parent, start_text="2026-08-26 00:00", end_text="2026-08-19 00:00")
 
     start, end = captured.overlay.selected_range
     assert start < end
@@ -111,9 +109,7 @@ def test_the_summary_counts_one_minute_candles(qtbot, monkeypatch):
     qtbot.addWidget(parent)
     captured = _Captured(monkeypatch, lambda o: None, accepted=False)
 
-    pick_date_range(
-        parent, start_text="2026-08-19 00:00", end_text="2026-08-26 00:00"
-    )
+    pick_date_range(parent, start_text="2026-08-19 00:00", end_text="2026-08-26 00:00")
 
     assert "10,080 nến 1m" in captured.overlay.summary
 
@@ -127,8 +123,6 @@ def test_an_open_pair_says_so_instead_of_counting(qtbot, monkeypatch):
         accepted=False,
     )
 
-    pick_date_range(
-        parent, start_text="2026-08-19 00:00", end_text="2026-08-26 00:00"
-    )
+    pick_date_range(parent, start_text="2026-08-19 00:00", end_text="2026-08-26 00:00")
 
     assert captured.overlay.summary == "Chọn ngày kết thúc"

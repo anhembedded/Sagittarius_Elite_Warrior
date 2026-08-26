@@ -107,7 +107,13 @@ def _build_handler(
     ticks: list[MarketData], strategy_key: str = "counting", strategy_cls=None
 ) -> tuple[RunHistoricalTickBacktestCommandHandler, Mock]:
     repo = Mock()
-    repo.get_klines.return_value = ticks
+    # BUG-051: the handler streams via count_klines()/stream_klines() instead
+    # of get_klines() — mirrors BUG-025's same fix for
+    # RunStaticBacktestCommandHandler (see the `static_repo` mock below).
+    repo.count_klines.side_effect = lambda **kwargs: (
+        len(ticks) if kwargs.get("limit") is None else min(kwargs["limit"], len(ticks))
+    )
+    repo.stream_klines.side_effect = lambda **kwargs: iter(ticks[: kwargs.get("limit")])
     registry = StrategyRegistry()
     registry.register(strategy_key, strategy_cls or _CountingHoldStrategy)
     event_publisher = Mock()
@@ -242,6 +248,40 @@ def test_one_tick_per_bar_matches_static_exactly():
     assert isinstance(static_result, BacktestResult)
     assert realtime_result.trades == static_result.trades
     assert realtime_result.equity_curve == static_result.equity_curve
+
+
+# ---------------------------------------------------------------------------
+# BUG-051 — must stream, never materialize the full tick range up front
+# ---------------------------------------------------------------------------
+
+
+def test_handler_never_calls_get_klines():
+    """Regression test for BUG-051 (UI froze 5.1s-69.1s during a real
+    Historical Tick Backtest, worst freeze measured DURING the tick-loading
+    phase). Root cause: the handler used to call
+    IMarketDataRepository.get_klines() — one synchronous call that
+    materializes the ENTIRE tick range into a single Python list before the
+    simulation loop can even start. Measured directly against this repo's
+    real SQLAlchemy repository + a real Qt event loop: loading 1.5M rows via
+    get_klines() takes ~70s and produces real main-thread heartbeat stalls
+    up to ~1.9s; the same 1.5M rows via count_klines()+stream_klines() (the
+    fix) take ~28s with no stall above 0.09s — mirrors the fix BUG-025
+    already applied to RunStaticBacktestCommandHandler, which this sibling
+    handler (BOT-076) never received.
+
+    `repo.get_klines` is left as a bare, unconfigured Mock attribute here
+    (not wired to raise) — a plain assert_not_called() below is the direct,
+    positive proof of the contract: this handler's `IMarketDataRepository`
+    dependency must never be asked to materialize the full range."""
+    ticks = _build_bar_ticks(0, [100.0] * 5) + _build_bar_ticks(1, [100.0] * 5)
+    handler, _ = _build_handler(ticks)
+
+    result = handler.execute(_build_command())
+
+    assert isinstance(result, BacktestResult)
+    handler._repository.get_klines.assert_not_called()
+    handler._repository.count_klines.assert_called()
+    handler._repository.stream_klines.assert_called()
 
 
 # ---------------------------------------------------------------------------

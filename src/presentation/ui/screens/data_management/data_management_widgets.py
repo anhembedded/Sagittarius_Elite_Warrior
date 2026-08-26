@@ -59,7 +59,7 @@ class RowWidgetDelegate(QStyledItemDelegate):
     Both of this screen's tables have been clipped to 14px since it was
     ported: enough for the labels, not for a row's action buttons, which is
     why those rendered as empty outlines with their text cut off
-    (`BUG-051`).
+    (`BUG-057`).
 
     Reading the widget's own `sizeHint()` rather than naming a height keeps
     the two from drifting when a row gains a taller control.

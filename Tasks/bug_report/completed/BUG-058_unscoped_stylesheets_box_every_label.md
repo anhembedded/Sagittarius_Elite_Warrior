@@ -1,4 +1,4 @@
-# BUG-052 — Mọi nhãn trong app bị vẽ khung riêng, và chữ trong stat tile bị cắt
+# BUG-058 — Mọi nhãn trong app bị vẽ khung riêng, và chữ trong stat tile bị cắt
 
 **Trạng thái:** ✅ Đã sửa — 2026-08-26
 **Người báo:** user, kèm ảnh chụp màn Storage Vault

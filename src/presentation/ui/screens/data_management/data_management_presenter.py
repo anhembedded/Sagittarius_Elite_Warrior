@@ -17,6 +17,12 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_SYMBOL_OPTIONS,
+    default_interval,
+    default_symbol,
+    default_symbol_options,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
     SyncProgressFeed,
 )
@@ -33,6 +39,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coord
     KLineInspectorCoordinator,
     ScanCoordinator,
     SyncCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
+    find_state_coordinator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
+    StateData,
+    StateScope,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+    UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig
@@ -51,6 +67,12 @@ if TYPE_CHECKING:
 _DATABASE_DIR_CONFIG_KEY = "database.dir"
 _UNKNOWN_STAT = "—"
 _BYTES_PER_MB = 1024 * 1024
+
+# --- EPIC-010E — remembered selection ---------------------------------
+#: This slice's flat keys, named so `capture_state()`/`restore_state()`
+#: cannot drift apart.
+_SYMBOL_KEY = "symbol"
+_INTERVAL_KEY = "interval"
 
 logger = logging.getLogger("App.DataManagement")
 
@@ -112,6 +134,23 @@ class DataManagementPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._view_model = DataManagementViewModel()
+        # EPIC-010H, middle tier: this screen used to ignore Settings entirely,
+        # so editing DEFAULT_SYMBOLS/DEFAULT_INTERVAL changed the Backtest
+        # screen and silently left this one on its own hardcoded list.
+        # `restore_state()` later overrides these with remembered values if
+        # there are any, which is the top tier.
+        config_values = container.resolve(IConfig).get_all()
+        # This screen's own floors, unchanged: its picker has always started on
+        # the first of its five symbols and on the first supported interval.
+        # Sharing a floor across screens would have quietly moved both.
+        options = default_symbol_options(config_values, FALLBACK_SYMBOL_OPTIONS)
+        self._view_model.set_symbol_options(options)
+        self._view_model.selectedSymbol = default_symbol(config_values, options[0])
+        self._view_model.selectedInterval = default_interval(
+            config_values,
+            fallback=self._view_model.intervals[0],
+            allowed=self._view_model.intervals,
+        )
         view.set_view_model(self._view_model)
         self._shutdown_requested = False
         self._cancellation_token: CancellationToken | None = None
@@ -222,6 +261,19 @@ class DataManagementPresenter(BasePresenter):
 
         self._connect_ui_signals()
         self._connect_engine_events()
+
+        # EPIC-010E — restore the remembered selection, then start tracking
+        # changes. Before the auto-discover submit below, and never waiting
+        # on it: opening this screen must not block on a DB scan.
+        # `_mark_state_dirty` is connected only after restoring, so a restore
+        # does not write itself straight back out as a fresh user edit.
+        self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
+            container
+        )
+        if self._state_coordinator is not None:
+            self._state_coordinator.restore_into(self)
+        self._view_model.selectedSymbolChanged.connect(self._mark_state_dirty)
+        self._view_model.selectedIntervalChanged.connect(self._mark_state_dirty)
 
         self._refresh_stats()
         # EPIC-005E: DataManagementView builds its own QtWidgets tree instead of
@@ -377,6 +429,58 @@ class DataManagementPresenter(BasePresenter):
         if self.fsm and self.fsm.current_state is not UIMode.IDLE:
             self.fsm.transition_to(UIMode.IDLE)
         self._refresh_stats()
+
+    # ================================================================== #
+    # IStateContributor — structural, no base class (EPIC-010E)
+    # ================================================================== #
+
+    @property
+    def state_scope(self) -> StateScope:
+        return StateScope(key="data_management")
+
+    def capture_state(self) -> StateData:
+        return {
+            _SYMBOL_KEY: self._view_model.selectedSymbol,
+            _INTERVAL_KEY: self._view_model.selectedInterval,
+        }
+
+    def restore_state(self, data: StateData) -> None:
+        """Applies a remembered selection, validating each value on its own.
+
+        @par Why membership here, where the Dev Board uses shape
+        This screen's symbol combo is a closed list (`symbolOptions`), so
+        "is it still one of the options" is a question that can actually be
+        answered — unlike `EPIC-010D`'s editable combo, where it could only
+        have thrown away symbols the user typed themselves.
+
+        @par The known limitation
+        `_symbol_options` starts as the hardcoded `_DEFAULT_SYMBOLS` and is
+        replaced later, in the background, by DB auto-discovery. Restore runs
+        before that scan finishes and deliberately does not wait for it (the
+        screen must open immediately), so a symbol the user picked from
+        *discovered* options last session — say `DOGEUSDT` — is not in the
+        list yet and falls back to the default.
+
+        Re-applying it once the scan lands would need to know whether the
+        user has since touched the combo themselves; without that, a late
+        write would silently overwrite a deliberate choice. That
+        `_user_touched` flag is `EPIC-010G`'s subject, so this restore stays
+        one-shot rather than inventing half of it here.
+        """
+        symbol = data.get(_SYMBOL_KEY)
+        if isinstance(symbol, str) and symbol in self._view_model.symbolOptions:
+            # The ViewModel, never the widget: `_cbo_symbol.currentTextChanged`
+            # is wired to a handler, and the view already syncs the combo from
+            # `selectedSymbolChanged` (mode #12).
+            self._view_model.selectedSymbol = symbol
+
+        interval = data.get(_INTERVAL_KEY)
+        if isinstance(interval, str) and interval in self._view_model.intervals:
+            self._view_model.selectedInterval = interval
+
+    def _mark_state_dirty(self) -> None:
+        if self._state_coordinator is not None:
+            self._state_coordinator.mark_dirty(self)
 
     def shutdown(self) -> None:
         """Cancels owned background workers before desktop UI and engine teardown."""
