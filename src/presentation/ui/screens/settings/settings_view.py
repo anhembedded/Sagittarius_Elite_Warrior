@@ -21,14 +21,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseView
-from sagittarius_engine.extensions.pyside_mvc.widgets import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Panel,
     StyledButton,
     StyledField,
     StyleRole,
     apply_role,
 )
+from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
     from .settings_view_model import SettingsViewModel

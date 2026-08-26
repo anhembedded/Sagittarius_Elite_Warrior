@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
-from sagittarius_engine.extensions.pyside_mvc.widgets import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     DateRangeOverlay,
     RangePreset,
 )

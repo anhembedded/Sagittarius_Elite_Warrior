@@ -1,7 +1,27 @@
 """
-Guards the Card layering rule from .agents/rules/ui-architecture.md (rule 1):
-every widget that inherits a Card base must live under
-src/presentation/ui/components/ and be named `*_card.py`.
+Guards the Card layering rule: every widget the APP writes on top of a Card
+base must live under src/presentation/ui/components/ and be named
+`*_card.py`.
+
+(The rule was cited here as .agents/rules/ui-architecture.md rule 1. No such
+file is in the repo — the rules directory carries ui-presentation-rule.md,
+which does not state it. This guard is the rule's only surviving statement,
+which is a reason to keep it exact, not a reason to relax it.)
+
+## The kit is exempt, and the exemption is the point
+
+`_KIT_DIR` holds the widget kit, which moved into this repo from the engine
+(see Tasks/epics/EPIC-007F). The kit is where `Card` is DEFINED, so the kit's
+own surfaces — `StatCard`, `TableCard`, `LogPanel` — subclass it by
+construction. "A Card must live in components/" cannot bind the package that
+supplies the base; applied there it would demand the kit dissolve into the
+app layer it exists to sit beneath, which is the opposite of the layering
+this guard protects.
+
+That is a narrowing of scope, not a loosening of the rule: every path the
+guard covered before the kit arrived, it still covers. `test_the_kit_is_not
+_a_hiding_place` below keeps the exemption honest by pinning exactly which
+kit files use it, so a NEW card quietly dropped into the kit still fails.
 
 Pure static analysis (ast) — no PySide6 import, no qapp fixture needed.
 
@@ -27,9 +47,18 @@ from pathlib import Path
 
 _UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
 _COMPONENTS_DIR = _UI_ROOT / "components"
+_KIT_DIR = _UI_ROOT / "kit"
+
+#: The kit files that define a Card subclass, pinned by name. Exempt from the
+#: components/ rule (see the module docstring), but not unexamined: a new card
+#: added to the kit must be added here deliberately, which is the question
+#: "should this be a kit surface or an app component?" asked at the moment it
+#: can still be answered cheaply.
+_KIT_CARD_FILES = frozenset({"log_panel.py", "stat_card.py", "table_card.py"})
 
 #: Every base class that makes its subclass "a Card" for the purposes of the
-#: layering rule. `Card` is the engine's (`pyside_mvc.widgets.surface.Card`);
+#: layering rule. `Card` is the kit's (`presentation.ui.kit.surface.Card`,
+#: formerly the engine's `pyside_mvc.widgets.surface.Card` before EPIC-007F);
 #: `BaseCard` was this app's own duplicate of it, deleted in `EPIC-007E` and
 #: kept here only so an old branch reintroducing it is still caught.
 _CARD_BASES = frozenset({"Card", "BaseCard"})
@@ -72,6 +101,7 @@ def test_card_classes_live_under_components_dir():
         path
         for path in _iter_python_files(_UI_ROOT)
         if _COMPONENTS_DIR not in path.parents
+        and _KIT_DIR not in path.parents
         and _defines_card_class(path.read_text(encoding="utf-8"))
     ]
 
@@ -119,4 +149,28 @@ def test_the_guard_still_finds_something():
         "no class in the UI tree inherits any name in _CARD_BASES "
         f"({sorted(_CARD_BASES)}). Either every Card is gone, or a base was "
         "renamed and this guard is now inspecting nothing."
+    )
+
+
+def test_the_kit_is_not_a_hiding_place():
+    """The kit's exemption from the components/ rule is a statement about
+    where the `Card` base is defined — not a corner of the tree where a card
+    stops being reviewed.
+
+    A card added to the kit fails here until its filename is written into
+    `_KIT_CARD_FILES`. That is a one-line change, and making it is the whole
+    mechanism: it forces the question "is this a kit surface, or an app
+    component that belongs in components/?" to be answered by a person rather
+    than settled by which directory the file happened to land in."""
+    actual = {
+        path.name
+        for path in _iter_python_files(_KIT_DIR)
+        if _defines_card_class(path.read_text(encoding="utf-8"))
+    }
+
+    assert actual == _KIT_CARD_FILES, (
+        "the kit's Card-defining files have changed. Added a kit surface? Add "
+        "its filename to _KIT_CARD_FILES — after checking it really is a kit "
+        "surface and not an app component that belongs under components/. "
+        f"Expected {sorted(_KIT_CARD_FILES)}, found {sorted(actual)}."
     )

@@ -6,7 +6,7 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import Tone
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 
 _INFINITY_DISPLAY = "∞"  # "∞" — profit_factor is float("inf") with 0 losers
 _LOSING_PROFIT_FACTOR_BADGE = "Rủi ro"

@@ -31,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     StyleRole,
     Tab,
     TabBar,

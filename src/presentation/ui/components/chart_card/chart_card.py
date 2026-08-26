@@ -5,7 +5,7 @@ import pyqtgraph as pg
 from PySide6.QtCore import QPointF, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QWidget
-from sagittarius_engine.extensions.pyside_mvc.widgets import Card
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Card
 
 from .cached_frame_interaction import CachedFrameInteractionController
 from .candlestick_item import FastCandlestickItem
