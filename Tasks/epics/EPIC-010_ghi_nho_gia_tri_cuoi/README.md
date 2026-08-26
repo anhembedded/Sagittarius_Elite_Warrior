@@ -66,19 +66,19 @@ engine design doc §9.1): first-pass scope, dates as a **duration**, and
 
 | ID | Name | Repo | Status |
 | :--- | :--- | :---: | :---: |
-| **[`EPIC-010A`](incomplete/EPIC-010A_state_scope_and_store.md)** | `StateScope`, `IStateStore`, the ConfigManager-backed store | Elite | ✅ Done 2026-08-26 |
-| **[`EPIC-010B`](incomplete/EPIC-010B_coordinator_and_contributor.md)** | `UiStateCoordinator`, contributor contract, `UiStateExtension` | Elite | ✅ Done 2026-08-26 |
-| **[`EPIC-010C`](incomplete/EPIC-010C_shell_state.md)** | Shell — geometry, splitters, last route, sidebar | Elite | ✅ Done 2026-08-26 |
-| **[`EPIC-010D`](incomplete/EPIC-010D_dev_board_state.md)** | Dev Board — symbol, interval, lookback duration | Elite | ✅ Done 2026-08-26 |
-| **[`EPIC-010E`](incomplete/EPIC-010E_database_state.md)** | Database — symbol, interval | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010A`](completed/EPIC-010A_state_scope_and_store.md)** | `StateScope`, `IStateStore`, the ConfigManager-backed store | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010B`](completed/EPIC-010B_coordinator_and_contributor.md)** | `UiStateCoordinator`, contributor contract, `UiStateExtension` | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010C`](completed/EPIC-010C_shell_state.md)** | Shell — geometry, splitters, last route, sidebar | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010D`](completed/EPIC-010D_dev_board_state.md)** | Dev Board — symbol, interval, lookback duration | Elite | ✅ Done 2026-08-26 |
+| **[`EPIC-010E`](completed/EPIC-010E_database_state.md)** | Database — symbol, interval | Elite | ✅ Done 2026-08-26 |
 
 ### Held until the first pass has run
 
 | ID | Name | Why it waits |
 | :--- | :--- | :--- |
-| **[`EPIC-010F`](incomplete/EPIC-010F_backtest_state.md)** | Backtest — 19 form values | ✅ **Done 2026-08-26.** 58 Property → 19 giá trị là *ý định*; phần còn lại là output hoặc trạng thái phiên. `selectedSymbol`/`selectedTimeframe` cố ý **không** lưu — chúng là chỗ duy nhất đụng thứ tự ưu tiên 3 tầng, thuộc `010H` |
-| **[`EPIC-010G`](incomplete/EPIC-010G_indicator_scripts.md)** | Indicator scripts + the `_user_touched` flag | ✅ **Done 2026-08-26.** Lưu **2** tập (`enabled` + `touched`) — chỉ nhớ tập bật là không đủ. `restore_selection()` **lớp lên** default chứ không thay thế, để script `default_enabled` mới thêm vẫn tự bật cho user đã có slice |
-| **[`EPIC-010H`](incomplete/EPIC-010H_defaults_precedence.md)** | Thứ tự ưu tiên 3 tầng + dẹp default trùng | ✅ **Xong 2026-08-26** (`discard_keys()` + Settings vô hiệu đúng 2 key nó sở hữu; mở khoá 2 field cuối của `010F`). Nửa hai xong luôn: `app_defaults.py` chia sẻ phần đọc config (không chia sẻ sàn), Dev Board và Database **lần đầu tiên** đọc Settings |
+| **[`EPIC-010F`](completed/EPIC-010F_backtest_state.md)** | Backtest — 19 form values | ✅ **Done 2026-08-26.** 58 Property → 19 giá trị là *ý định*; phần còn lại là output hoặc trạng thái phiên. `selectedSymbol`/`selectedTimeframe` cố ý **không** lưu — chúng là chỗ duy nhất đụng thứ tự ưu tiên 3 tầng, thuộc `010H` |
+| **[`EPIC-010G`](completed/EPIC-010G_indicator_scripts.md)** | Indicator scripts + the `_user_touched` flag | ✅ **Done 2026-08-26.** Lưu **2** tập (`enabled` + `touched`) — chỉ nhớ tập bật là không đủ. `restore_selection()` **lớp lên** default chứ không thay thế, để script `default_enabled` mới thêm vẫn tự bật cho user đã có slice |
+| **[`EPIC-010H`](completed/EPIC-010H_defaults_precedence.md)** | Thứ tự ưu tiên 3 tầng + dẹp default trùng | ✅ **Xong 2026-08-26** (`discard_keys()` + Settings vô hiệu đúng 2 key nó sở hữu; mở khoá 2 field cuối của `010F`). Nửa hai xong luôn: `app_defaults.py` chia sẻ phần đọc config (không chia sẻ sàn), Dev Board và Database **lần đầu tiên** đọc Settings |
 
 > Task files for `010F`–`010H` are not written yet, on purpose. Their shape
 > depends on what the first pass teaches, and writing them now would be the

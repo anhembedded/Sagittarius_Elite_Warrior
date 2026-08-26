@@ -18,7 +18,11 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    default_symbol,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
+    _FALLBACK_SYMBOL,
     BackTestPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
@@ -29,8 +33,28 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
+_BOT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+
+def _resolve_runtime_symbol() -> str:
+    """The symbol the Backtest screen actually opens on, resolved its way.
+
+    A literal here silently stopped matching the screen the moment
+    user_config.json stopped shipping DEFAULT_SYMBOLS: the screen fell
+    through to its own floor, found nothing seeded under that symbol, and
+    went to Binance over the network for candles. Resolving through the
+    presenter's own helper and floor keeps the seeded repository and the
+    screen on one symbol whether or not the config declares the key.
+    """
+    config_manager = ConfigManager()
+    config_manager.load_json(
+        os.path.join(_BOT_ROOT, "src", "config", "user_config.json")
+    )
+    return default_symbol(config_manager.get_all(), _FALLBACK_SYMBOL)
+
+
 _RUNTIME_KLINE_COUNT = 240
-_RUNTIME_SYMBOL = "BTCUSDT"
+_RUNTIME_SYMBOL = _resolve_runtime_symbol()
 _RUNTIME_INTERVAL = "1h"
 _TOOLBAR_TIMEFRAME_INTERVAL = "5m"
 
@@ -181,12 +205,11 @@ def _make_runtime_klines(interval: str = _RUNTIME_INTERVAL) -> list[MarketData]:
 @pytest.fixture
 def booted_backtest_app():
     config_manager = ConfigManager()
-    bot_root = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    )
-    config_manager.load_json(os.path.join(bot_root, "src", "config", "app_config.json"))
     config_manager.load_json(
-        os.path.join(bot_root, "src", "config", "user_config.json")
+        os.path.join(_BOT_ROOT, "src", "config", "app_config.json")
+    )
+    config_manager.load_json(
+        os.path.join(_BOT_ROOT, "src", "config", "user_config.json")
     )
     app = create_app(config_manager)
 

@@ -3,6 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Slot
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_INTERVAL,
+    FALLBACK_SYMBOL_OPTIONS,
+    default_interval,
+    default_symbol_options,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
     find_state_coordinator,
 )
@@ -105,13 +111,20 @@ class SettingsPresenter(BasePresenter):
         """Nothing to subscribe to — Settings has no background/live data."""
 
     def _load_from_config(self) -> None:
+        # Shows what is actually in effect, not the raw config. Once
+        # user_config.json stopped shipping these two keys, reading raw left
+        # this screen blank while every other screen ran happily on its floor
+        # — and this screen is the user's only view of the value. Resolving is
+        # safe precisely because `app_defaults` reads absent and empty the same
+        # way, so declared-vs-undeclared has no behaviour to preserve.
         values = self.config.get_all()
-        symbols = values.get("DEFAULT_SYMBOLS") or []
         self._settings_view_model.load_fields(
             api_key=values.get("API_KEY") or "",
             api_secret=values.get("API_SECRET") or "",
-            default_symbols=f"{_SYMBOL_SEPARATOR} ".join(symbols),
-            default_interval=values.get("DEFAULT_INTERVAL") or "",
+            default_symbols=f"{_SYMBOL_SEPARATOR} ".join(
+                default_symbol_options(values, FALLBACK_SYMBOL_OPTIONS)
+            ),
+            default_interval=default_interval(values, fallback=FALLBACK_INTERVAL),
             default_sync_days=int(values.get("DEFAULT_SYNC_DAYS") or 1),
         )
 

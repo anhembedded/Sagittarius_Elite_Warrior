@@ -27,4 +27,8 @@ def test_all_config_files_loaded():
 
     # Kiểm tra đảm bảo các section cốt lõi đều được merge thành công
     assert "BINANCE_WS_URL" in all_cfg, "Missing basic config from app_config.json"
-    assert "DEFAULT_SYMBOLS" in all_cfg, "Missing basic config from user_config.json"
+    # Chỉ là "user_config.json có được merge vào không" — cố ý KHÔNG khẳng
+    # định gì về default thị trường. DEFAULT_SYMBOLS/DEFAULT_INTERVAL đã bị
+    # gỡ khỏi file ship (EPIC-010H: tầng giữa giờ tuỳ chọn, mỗi màn tự có
+    # sàn riêng), nên dùng chúng làm mốc sẽ đỏ vì lý do sai.
+    assert "DEFAULT_SYNC_DAYS" in all_cfg, "Missing basic config from user_config.json"

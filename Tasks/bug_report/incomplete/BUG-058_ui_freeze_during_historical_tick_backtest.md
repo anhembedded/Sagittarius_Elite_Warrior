@@ -1,4 +1,4 @@
-# BUG-051 — UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest
+# BUG-058 — UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest
 
 **Reported date:** 2026-08-26
 **Severity:** 🟠 P1 (freeze #2, root-caused và sửa) — 2 freeze còn lại (#4/#5, sau
@@ -9,6 +9,9 @@ Freeze #4/#5 (giai đoạn mô phỏng, sau `ticks_loaded`) **vẫn Open** — c
 được xác nhận cho 2 lần đó, xem §6.
 
 ---
+
+> **Đổi số 2026-08-26:** hồ sơ này trước mang mã `BUG-051`, trùng với một bug khác đã đóng (`Tasks/bug_report/completed/BUG-051_*.md`) — Bug Board quy định mã phải là số kế tiếp số lớn nhất **ở cả hai thư mục**, và quy định đó đã bị vi phạm. Hồ sơ đang mở đổi thành `BUG-058` (hồ sơ đã đóng giữ mã cũ vì ROADMAP và các commit đã merge tham chiếu). Mọi commit/PR trước ngày này nhắc `BUG-051` **trong ngữ cảnh bug này** là chỉ chính hồ sơ đây.
+
 
 ## 1. Hiện tượng (Symptom)
 
@@ -78,7 +81,7 @@ Current Main Thread Stack Trace:
 
 Log đầy đủ của phiên (từ boot `08:15:18` tới `08:24:29`) do người báo dán trong hội thoại
 ngày 2026-08-26. **Cùng phiên đó** còn lộ ra một lỗi thứ hai, khác hẳn triệu chứng, đã tách
-hồ sơ riêng: [`BUG-052`](BUG-052_process_does_not_exit_after_graceful_shutdown.md) — shutdown
+hồ sơ riêng: [`BUG-059`](BUG-059_process_does_not_exit_after_graceful_shutdown.md) — shutdown
 chạy hết nhưng tiến trình không thoát.
 
 ## 2. Quan sát thô từ log (chưa phải root cause — **chưa điều tra**)

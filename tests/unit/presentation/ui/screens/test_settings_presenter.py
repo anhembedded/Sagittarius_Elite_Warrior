@@ -26,6 +26,10 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton, QSpinBox
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    FALLBACK_INTERVAL,
+    FALLBACK_SYMBOL_OPTIONS,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
@@ -106,7 +110,16 @@ def test_loads_fields_from_config_on_init(view_model):
 
 
 def test_missing_config_keys_load_safely(qapp, mock_container, mock_config, request):
-    """A fresh install with an empty config must not crash the screen."""
+    """A fresh install with an empty config must not crash the screen.
+
+    The symbol/interval fields show the floor that is actually in effect, not
+    a blank. They used to render empty, which was harmless while every install
+    shipped DEFAULT_SYMBOLS/DEFAULT_INTERVAL in user_config.json and this path
+    was unreachable. Once those keys stopped shipping, the blank became what a
+    fresh install sees — on the one screen whose whole job is to show the
+    current value — while every other screen quietly ran on its own floor.
+    Credentials stay blank: an absent API key has no floor to fall back to.
+    """
     mock_config.get_all.return_value = {}
     view = SettingsView()
     request.addfinalizer(view.deleteLater)
@@ -114,7 +127,9 @@ def test_missing_config_keys_load_safely(qapp, mock_container, mock_config, requ
     view_model = SettingsPresenter(view, mock_container)._settings_view_model
 
     assert view_model.apiKey == ""
-    assert view_model.defaultSymbols == ""
+    assert view_model.apiSecret == ""
+    assert view_model.defaultSymbols == ", ".join(FALLBACK_SYMBOL_OPTIONS)
+    assert view_model.defaultInterval == FALLBACK_INTERVAL
     assert view_model.defaultSyncDays == 1
 
 

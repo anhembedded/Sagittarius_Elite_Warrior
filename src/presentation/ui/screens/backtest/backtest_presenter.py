@@ -76,6 +76,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_meta
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+    default_symbol,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
     HealthStatusReport,
@@ -346,8 +349,10 @@ class BackTestPresenter(BasePresenter):
         # syncs by default — read once at construction, same as
         # SettingsPresenter._load_from_config does for its own fields.
         config_values = self.config.get_all()
-        default_symbols = config_values.get("DEFAULT_SYMBOLS") or []
-        self._symbol: str = default_symbols[0] if default_symbols else _FALLBACK_SYMBOL
+        # EPIC-010H part 2 finished: this screen was the last one still reading
+        # DEFAULT_SYMBOLS by hand. Its own floor is unchanged — only where the
+        # configured value is read and validated is now shared.
+        self._symbol: str = default_symbol(config_values, _FALLBACK_SYMBOL)
         default_interval = config_values.get("DEFAULT_INTERVAL") or ""
 
         # BOT-102: symbol picker. `_symbol_options_cache` avoids re-hitting
