@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import date_range_
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.date_range_picker import (
     pick_date_range,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import DateRangeOverlay
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import DateRangeOverlay
 
 
 class _Captured:

@@ -11,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation i
     OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
@@ -18,7 +19,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.perfor
     compute_max_drawdown_amount,
     stat_cards_to_qml,
 )
-from sagittarius_engine.extensions.pyside_mvc.widgets import Tone
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
