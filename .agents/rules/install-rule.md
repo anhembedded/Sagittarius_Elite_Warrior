@@ -164,10 +164,19 @@ pwsh -NoProfile -File scripts/ci-local.ps1 -Full
 ```
 
 **Đừng tăng `-Workers` để chạy nhanh hơn nếu chưa đo.** Mặc định 6 là
-"benchmark sweet spot" của máy tác giả. Trên một container 4 nhân, `-Workers 12`
-là oversubscribe và **chậm hơn** mặc định — đã gặp: lần chạy 6 worker tới 99%
-trong 178s, lần 12 worker trên cùng máy còn lâu hơn thế. Kiểm `nproc` trước,
-và coi mọi con số thời gian là của riêng từng máy.
+"benchmark sweet spot" của máy tác giả. Đo thật trên một container **4 nhân**:
+
+| `-Workers` | Pha pytest |
+| :-: | :--- |
+| 6 (mặc định) | ~147s |
+| 12 | 150.5s |
+
+Tăng gấp đôi worker trên 4 nhân **không đổi gì** — không nhanh hơn, cũng không
+chậm hơn đáng kể. Số worker vượt số nhân chỉ thêm tranh chấp, không thêm thông
+lượng. Kiểm `nproc` trước, và coi mọi con số thời gian là của riêng từng máy.
+
+Toàn bộ full gate trên máy này: **~2 phút 30** (`ci-local.ps1 -Full`, gồm cả
+lint/format/mypy và tier Sanity chạy song song).
 
 ---
 
