@@ -29,6 +29,14 @@ jobs:
     name: Lint & Test
     runs-on: ubuntu-latest
 
+    # Precautionary, not a fix for anything currently broken: the suite runs
+    # in about 4m40s here. Without this a job that ever does hang runs to
+    # GitHub's 6-hour default before being cancelled, and a cancelled job
+    # leaves nothing to read — logs cannot be downloaded while a job is in
+    # progress (HTTP 404), so the whole run yields no evidence at all. Thirty
+    # minutes is roughly six times the real runtime.
+    timeout-minutes: 30
+
     env:
       # Qt has no display on the runner. Every local gate exports the same
       # thing (scripts/ci-local.ps1), so this only brings CI level with it.
