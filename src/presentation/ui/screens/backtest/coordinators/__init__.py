@@ -13,7 +13,12 @@ never resolves the container or reaches back into the presenter.
 
 from __future__ import annotations
 
+from .indicator_coordinator import IndicatorCoordinator
 from .strategy_config_coordinator import StrategyConfigCoordinator
 from .trade_log_coordinator import TradeLogCoordinator
 
-__all__ = ["StrategyConfigCoordinator", "TradeLogCoordinator"]
+__all__ = [
+    "IndicatorCoordinator",
+    "StrategyConfigCoordinator",
+    "TradeLogCoordinator",
+]

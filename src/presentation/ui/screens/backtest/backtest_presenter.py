@@ -93,7 +93,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_m
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
-    qualified_line_name,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
@@ -129,7 +128,11 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_view_model import BackTestViewModel
-from .coordinators import StrategyConfigCoordinator, TradeLogCoordinator
+from .coordinators import (
+    IndicatorCoordinator,
+    StrategyConfigCoordinator,
+    TradeLogCoordinator,
+)
 from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
@@ -156,11 +159,6 @@ from .logic.pre_backtest_assertions import (
     parse_custom_datetime,
 )
 from .logic.result_formatter import format_result_summary
-from .logic.strategy_indicator_lines import (
-    assign_strategy_line_colors,
-    compute_strategy_indicator_lines,
-)
-from .logic.strategy_trend_zones import compute_strategy_trend_zones
 from .logic.time_range_preset import TimeRangePreset, resolve_time_range
 from .logic.trade_log_row import (
     TradeLogRow,
@@ -479,6 +477,22 @@ class BackTestPresenter(BasePresenter):
             get_market_metadata=lambda symbol: self._market_metadata_cache.get(symbol),
             get_current_raw_klines=lambda: self._current_raw_klines,
             notify_config_changed=self._on_config_input_changed,
+        )
+        self._indicators = IndicatorCoordinator(
+            view_model=self._view_model,
+            strategy_registry=self._strategy_registry,
+            logger=self._logger,
+            script_runner=self._chart_script_runner,
+            get_first_chart_card=self._first_chart_card,
+            get_active_strategy_lines=lambda: self._active_strategy_lines,
+            get_current_raw_klines=lambda: self._current_raw_klines,
+            get_chart_mode=lambda: getattr(
+                self.view, "chart_mode", ChartDisplayMode.OHLC
+            ),
+            apply_after_native_fallback=self._apply_after_native_fallback,
+            emit_strategy_line=self._chartStrategyLineSignal.emit,
+            emit_strategy_region=self._chartStrategyRegionSignal.emit,
+            set_chart_script_keys=self._set_chart_script_keys,
         )
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -958,7 +972,7 @@ class BackTestPresenter(BasePresenter):
         # _fetch_and_emit_chart_data (background thread) will repopulate as
         # it draws the new run's lines; clearing after that started would
         # race and could remove lines the new run just added.
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        card = self._first_chart_card()
         if card is not None:
             for name in self._active_strategy_lines:
                 card.remove_indicator(name)
@@ -1392,7 +1406,7 @@ class BackTestPresenter(BasePresenter):
         strategy has no `.line_colors()`/`.compute()` to drive it). `width`
         (BOT-111) lets a strategy request a different line weight per line,
         e.g. a thinner entry EMA than trend EMA."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        card = self._first_chart_card()
         if card is None:
             return
         if name not in self._active_strategy_lines:
@@ -1407,7 +1421,7 @@ class BackTestPresenter(BasePresenter):
         output, emitted once per run (`_emit_strategy_trend_zones`) under a
         fixed key — unlike `_on_chart_script_region` there is only ever one
         strategy per run, so no key needs to travel through the signal."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        card = self._first_chart_card()
         if card is None:
             return
         self._apply_after_native_fallback(
@@ -1418,73 +1432,38 @@ class BackTestPresenter(BasePresenter):
 
     @Slot(str, list, list)
     @safe_ui_action
+    def _set_chart_script_keys(self, keys: list[str]) -> None:
+        self._chart_script_keys = keys
+
+    def _first_chart_card(self):
+        """The chart card everything draws onto, or None before one exists.
+
+        Was written out inline eleven times. Never cached: the host is
+        rebuilt on every chart-mode change, so a stored card becomes a
+        `deleteLater()`'d C++ object — the shape of BUG-013.
+        """
+        return self.view.chart_cards[0] if self.view.chart_cards else None
+
     def _on_chart_script_line(self, name: str, x_data: list, y_data: list) -> None:
-        """BOT-064: one call per user-picked reference script line, mirrors
-        DashboardPresenter._on_indicator_data — pure delegate to
-        IndicatorScriptRunner.draw(), which registers the overlay/subplot
-        curve on first use and knows the script's own line color."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is not None:
-            self._chart_script_runner.draw(card, name, x_data, y_data)
+        self._indicators.on_script_line(name, x_data, y_data)
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_region(self, key: str, spans: list) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "script regions",
-            lambda host: self._chart_script_runner.draw_region(host, key, spans),
-            drawn_count=len(spans),
-        )
+        self._indicators.on_script_region(key, spans)
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_info(self, key: str, fields: list) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "script info",
-            lambda host: self._chart_script_runner.draw_info(host, key, fields),
-            drawn_count=len(fields),
-        )
+        self._indicators.on_script_info(key, fields)
 
     @Slot(str, list)
     @safe_ui_action
     def _on_chart_script_marker(self, key: str, markers: list) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        self._apply_after_native_fallback(
-            "script markers",
-            lambda host: self._chart_script_runner.draw_markers(host, key, markers),
-            drawn_count=len(markers),
-        )
+        self._indicators.on_script_marker(key, markers)
 
     def _reset_indicator_bookkeeping_after_host_rebuild(self) -> None:
-        """The chart host was just replaced from scratch — nothing on the
-        new one knows about strategy/script indicator lines drawn on the
-        old one, and neither caches the underlying x/y series to replay, so
-        drop the stale bookkeeping rather than let it silently desync
-        (BOT-098F6D bug, 2026-08-18: real run-ui.ps1 session — indicator
-        lines vanished after a chart-mode round-trip, then the next
-        set_indicator_visible() call crashed and was swallowed silently by
-        safe_ui_action). Re-running the backtest already redraws every line
-        from scratch, same as before host rebuilding existed.
-
-        Shared by every rebuild path — `_on_chart_mode_changed()` and
-        `_fallback_to_python_after_unsupported_native_feature()` — because
-        skipping it is not just a cosmetic gap: `IndicatorScriptRunner`'s
-        `ResourceScope` still holds a dispose callback bound to the
-        already-`deleteLater()`'d old host, and the *next* backtest run's
-        `clear_from_chart()` invokes it unconditionally, crashing with a
-        real shiboken "C++ object already deleted" `RuntimeError`
-        (BUG-013, 2026-08-19 — found reachable only through the fallback
-        path, since F6D's own fix here only covered the mode-change path)."""
-        self._active_strategy_lines.clear()
-        self._chart_script_runner.reset_after_host_replaced()
+        self._indicators.reset_bookkeeping_after_host_rebuild()
 
     def _apply_after_native_fallback(
         self, feature_name: str, draw, *, drawn_count: int
@@ -1503,7 +1482,7 @@ class BackTestPresenter(BasePresenter):
         §2/§5: log what was applied, not just what was decided) stays in
         one place.
         """
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
+        card = self._first_chart_card()
         if card is None:
             return
         draw(card)
@@ -1535,29 +1514,10 @@ class BackTestPresenter(BasePresenter):
     @Slot(bool)
     @safe_ui_action
     def _on_ema_toggled(self, visible: bool) -> None:
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        for name in self._active_strategy_lines:
-            card.set_indicator_visible(name, visible)
+        self._indicators.set_strategy_lines_visible(visible)
 
     def _set_script_overlay_lines_visible(self, visible: bool) -> None:
-        """BOT-065: the reference-script counterpart to `_on_ema_toggled` —
-        not the same checkbox/state (a script's line count isn't tied to
-        "Chỉ báo Chiến lược" at all), but the same underlying problem: an
-        overlay script left plotted through Equity-solo mode drags the
-        shared main plot's auto-range onto price values, squashing the
-        equity curve flat. Subplot scripts (RSI/MACD, `overlay=False`)
-        don't share that plot, so they're excluded — nothing to fix for
-        them."""
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-        if card is None:
-            return
-        for key, active in self._chart_script_runner.active.items():
-            if not active.overlay:
-                continue
-            for line_name in active.registered_lines:
-                card.set_indicator_visible(qualified_line_name(key, line_name), visible)
+        self._indicators.set_script_overlay_lines_visible(visible)
 
     @Slot()
     @safe_ui_action
@@ -1768,40 +1728,7 @@ class BackTestPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_indicator_script_selection_changed(self) -> None:
-        """BOT-095F: dynamically adds or removes reference indicator scripts from the chart
-        when toggled in the indicator picker modal, without requiring a full backtest rerun."""
-        enabled_keys = set(self._view_model.script_model.enabled_keys)
-        scripts_str = ", ".join(sorted(enabled_keys)) if enabled_keys else "Không có"
-        self._logger.info(f"Đã cập nhật chỉ báo tham chiếu: {scripts_str}")
-
-        current_active_keys = set(self._chart_script_runner.active.keys())
-        disabled_keys = current_active_keys - enabled_keys
-        newly_enabled_keys = enabled_keys - current_active_keys
-
-        card = self.view.chart_cards[0] if self.view.chart_cards else None
-
-        for key in disabled_keys:
-            if card is not None:
-                self._chart_script_runner.remove_script(key, card)
-            else:
-                self._chart_script_runner.active.pop(key, None)
-
-        if self._current_raw_klines:
-            is_price_scale = (
-                getattr(self.view, "chart_mode", ChartDisplayMode.OHLC)
-                is not ChartDisplayMode.EQUITY
-            )
-            for key in newly_enabled_keys:
-                self._chart_script_runner.add_script(key, self._current_raw_klines)
-                if not is_price_scale:
-                    active = self._chart_script_runner.active.get(key)
-                    if active and active.overlay and card is not None:
-                        for line_name in active.registered_lines:
-                            card.set_indicator_visible(
-                                qualified_line_name(key, line_name), False
-                            )
-
-        self._chart_script_keys = sorted(enabled_keys)
+        self._indicators.on_script_selection_changed()
 
     @Slot(object)
     @safe_ui_action
@@ -2594,55 +2521,9 @@ class BackTestPresenter(BasePresenter):
     def _emit_strategy_indicator_lines(
         self, action_id: int, config: BacktestRunConfig, raw_klines: list
     ) -> None:
-        """
-        @brief BOT-060: draws whatever indicators the backtested strategy
-        itself declares (`build_indicators()`), instead of the fixed
-        `ema_ribbon` script this used to hardcode — so the chart always
-        matches what actually drove that run's Buy/Sell decisions.
-        @details Builds a second, throwaway strategy instance (construct-
-        and-discard, same pattern `BOT-047`'s save-validation uses) purely
-        to replay its indicators over the candles already fetched above —
-        entirely separate from the real `StrategyEngine` run behind
-        `result`, so `strategy_engine.py` stays untouched.
-        """
-        strategy_cls = self._strategy_registry.available().get(config.strategy_key)
-        if strategy_cls is None:
-            return
-        strategy = strategy_cls(config.strategy_params)
-        lines = compute_strategy_indicator_lines(strategy, raw_klines)
-        colors = assign_strategy_line_colors(
-            list(lines.keys()), strategy.chart_line_colors()
-        )
-        widths = strategy.chart_line_widths()
-        for name, (x_data, y_data) in lines.items():
-            self._chartStrategyLineSignal.emit(
-                action_id,
-                name,
-                colors[name],
-                x_data,
-                y_data,
-                widths.get(name, _DEFAULT_STRATEGY_LINE_WIDTH),
-            )
+        self._indicators.emit_strategy_indicator_lines(action_id, config, raw_klines)
 
     def _emit_strategy_trend_zones(
         self, action_id: int, config: BacktestRunConfig, raw_klines: list
     ) -> None:
-        """
-        @brief BOT-113: draws the backtested strategy's own long-term-trend
-        background shading (`classify_trend_zone()`), TradingView's
-        `bgcolor()` pattern.
-        @details A second, separate throwaway strategy instance from
-        `_emit_strategy_indicator_lines()` — that one's indicators are
-        already fully replayed to the end of `raw_klines` by the time this
-        runs, so reusing the same instance here would resume mid-warmup
-        instead of starting fresh. A strategy that never overrides
-        `classify_trend_zone()` (every strategy predating BOT-113) computes
-        an empty span list — one no-op signal emit, no zones drawn, chart
-        looks exactly as it did before this feature existed.
-        """
-        strategy_cls = self._strategy_registry.available().get(config.strategy_key)
-        if strategy_cls is None:
-            return
-        strategy = strategy_cls(config.strategy_params)
-        spans = compute_strategy_trend_zones(strategy, raw_klines)
-        self._chartStrategyRegionSignal.emit(action_id, spans)
+        self._indicators.emit_strategy_trend_zones(action_id, config, raw_klines)
