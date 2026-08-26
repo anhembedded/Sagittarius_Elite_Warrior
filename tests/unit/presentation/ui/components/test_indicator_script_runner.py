@@ -347,6 +347,36 @@ def test_a_non_overlay_script_draws_on_its_own_subplot(runner):
     card.add_overlay_indicator.assert_not_called()
 
 
+def test_a_multi_line_subplot_script_tags_every_line_with_the_same_group(runner):
+    """
+    Regression test for BUG-053: MacdFullScript fans one reading out into
+    three lines (MACD/Signal/Histogram) meant to share a single subplot row
+    (see its own docstring: "on their own subplot row" — singular). draw()
+    used to call add_subplot_indicator() once per NEW line name with no
+    group tag, and ChartPlotLayout.add_subplot() unconditionally creates a
+    brand new row on every call — so a 3-line script ended up with 3 stacked
+    subplot rows instead of 1, squeezing the main candlestick plot and
+    double/triple-registering its crosshair. Tagging every line from the
+    same script with a shared `group=key` is what lets ChartCard's
+    IndicatorManager reuse one row for the whole script (see
+    test_chart_card.py's equivalent row-count regression test for the
+    ChartCard-level half of this).
+    """
+    card = MagicMock()
+    runner.rebuild(["macd_full"])
+    runner.feed_all(make_candle(100.0 + index, index) for index in range(60))
+
+    runner.draw(card, "macd_full:MACD", [1.0], [0.5])
+    runner.draw(card, "macd_full:Signal", [1.0], [0.4])
+    runner.draw(card, "macd_full:Histogram", [1.0], [0.1])
+
+    assert card.add_subplot_indicator.call_count == 3
+    groups = {
+        call.kwargs.get("group") for call in card.add_subplot_indicator.call_args_list
+    }
+    assert groups == {"macd_full"}
+
+
 def test_draw_declines_a_built_in_indicator_curve(runner):
     """Returning False is how the presenter knows to fall through to its own
     built-in indicator handling."""

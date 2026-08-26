@@ -48,6 +48,15 @@ class IndicatorManager:
         self._curves: dict[str, pg.PlotDataItem] = {}
         self._plots: dict[str, pg.PlotItem] = {}
         self._legend_labels: dict[str, pg.LabelItem] = {}
+        #: BUG-053 — a `group` key (e.g. a script's registry key) shares one
+        #: subplot row across every line the group registers, instead of
+        #: `add_subplot()` handing out a brand new row per call. `_group_plots`
+        #: maps group -> its row; `_group_members` tracks which curve names
+        #: are still on that row, so the row is only torn down once the last
+        #: one is removed.
+        self._group_plots: dict[str, pg.PlotItem] = {}
+        self._group_members: dict[str, set[str]] = {}
+        self._curve_group: dict[str, str] = {}
         self._full_data: dict[str, tuple[list[float], list[float]]] = {}
         self._data_revisions: dict[str, int] = {}
         self._last_applied_signatures: dict[str, tuple[int, int, int]] = {}
@@ -83,15 +92,34 @@ class IndicatorManager:
         )
         self._register(name, curve, self._plot_layout.main_plot)
 
-    def add_subplot(self, name: str, color: str, height_ratio: int = 1) -> None:
-        """Adds a separate subplot below the main chart (e.g. RSI, MACD, Volume)."""
-        sub_plot = self._plot_layout.add_subplot(height_ratio=height_ratio)
+    def add_subplot(
+        self, name: str, color: str, height_ratio: int = 1, group: str | None = None
+    ) -> None:
+        """Adds a curve to a separate subplot below the main chart (e.g. RSI,
+        MACD, Volume). Without `group`, every call gets its own brand new
+        row — the pre-existing behavior, still correct for a single-line
+        indicator (RSI) or an unrelated one-off (Backtest's Equity subplot).
+        With `group`, all calls sharing that key are fanned onto the SAME
+        row instead: BUG-053 — a multi-line study like MACD (MACD/Signal/
+        Histogram) is one reading, meant to live on one row, not three."""
+        existing = self._group_plots.get(group) if group is not None else None
+        if existing is not None:
+            sub_plot = existing
+        else:
+            sub_plot = self._plot_layout.add_subplot(height_ratio=height_ratio)
+            if group is not None:
+                self._group_plots[group] = sub_plot
+                self._group_members[group] = set()
+            self._on_new_plot(sub_plot)
+
         curve = sub_plot.plot(
             pen=pg.mkPen(color=color, width=2),
             antialias=_SMOOTH_LINE_ANTIALIAS,
         )
         self._register(name, curve, sub_plot)
-        self._on_new_plot(sub_plot)
+        if group is not None:
+            self._group_members[group].add(name)
+            self._curve_group[name] = group
 
     def _register(self, name: str, curve: pg.PlotDataItem, plot: pg.PlotItem) -> None:
         self._curves[name] = curve
@@ -174,6 +202,21 @@ class IndicatorManager:
         plot.removeItem(curve)
         if plot.legend:
             plot.legend.removeItem(curve)
+
+        # BUG-053 — a grouped row (e.g. MACD's 3 lines) is only torn down
+        # once its LAST member curve is removed; removing one line of a
+        # still-active multi-line script must leave the shared row (and its
+        # other curves) alone.
+        group = self._curve_group.pop(name, None)
+        if group is not None:
+            members = self._group_members.get(group)
+            if members is not None:
+                members.discard(name)
+                if members:
+                    return
+                del self._group_members[group]
+            self._group_plots.pop(group, None)
+
         if plot is not self._plot_layout.main_plot:
             self._on_remove_plot(plot)
             self._plot_layout.remove_subplot(plot)
@@ -186,6 +229,9 @@ class IndicatorManager:
         self._data_revisions.clear()
         self._last_applied_signatures.clear()
         self._script_info.clear()
+        self._group_plots.clear()
+        self._group_members.clear()
+        self._curve_group.clear()
         for layer in self._layers:
             layer.clear_all()
 
