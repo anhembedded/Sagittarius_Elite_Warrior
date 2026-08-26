@@ -1,9 +1,12 @@
 # BUG-052 — Thoát app: shutdown chạy hết, log "App stopped." nhưng **tiến trình không return**
 
 **Reported date:** 2026-08-26
-**Severity:** 🟠 P1 (treo vĩnh viễn, không có tín hiệu nào)
-**Status:** 🟡 **Cơ chế đã xác định 2026-08-26; chưa biết thread cụ thể** —
-đã thêm chẩn đoán để lần tái hiện sau tự chỉ đích danh.
+**Severity:** 🟠 P1 — cơ chế chung đã root-caused và xác nhận thật (§5); **tác vụ cụ thể** gây
+ra đúng lần treo đã báo cáo vẫn **chưa xác định được** — thiếu bằng chứng thread sống của
+đúng phiên đó.
+**Status:** 🟡 Đã sửa MỘT PHẦN, 2026-08-26 — thêm chẩn đoán generic (dump thread non-daemon
+sống sót ngay sau `app_engine.stop()`) để lần tái hiện SAU sẽ tự chỉ đích danh thủ phạm; bug
+vẫn **Open** vì chưa đóng được đúng lần đã báo cáo.
 
 ---
 
@@ -56,8 +59,13 @@ Chỉ ghi những gì đọc **trực tiếp** được:
    số đó nằm gọn ở một chỗ duy nhất**: giữa `Stopping extension 'BinanceBotModule'...`
    (`25,945`) và `Disposing extension 'BinanceBotModule'...` (`34,655`). Mọi extension khác
    đều xong trong 1–3ms.
-2. `ThreadManagerExtension` `Stopping` → `Disposing` mất **4ms** — tức lúc nó dừng thì đã
-   không còn phải chờ job nào.
+2. `ThreadManagerExtension` `Stopping` → `Disposing` mất **4ms**.
+
+   > ⚠️ **Sửa 2026-08-26:** bản đầu của mục này viết tiếp *"tức lúc nó dừng thì đã không
+   > còn phải chờ job nào"*. **Suy luận đó sai.**
+   > `ThreadManagerExtension.shutdown()` gọi `thread_manager.shutdown(wait=False)`, nên nó
+   > **luôn** trả về ngay, **bất kể** còn job đang chạy hay không. 4ms vì thế không nói được
+   > gì về việc còn job — nó chỉ chứng minh `wait=False` chạy đúng như tên gọi. Xem §5.2.
 3. **Không có dòng nào sau `App stopped.`** — nên log tự nó không nói được ai đang giữ
    tiến trình lại. Cần công cụ ngoài (dump thread) mới thấy.
 4. Trước đó phiên này đã chạy Historical Tick Backtest nạp **2.592.000 tick** và người dùng
@@ -103,89 +111,124 @@ Không cần `Ctrl+C` / `kill`.
 
 ---
 
-## 6. Điều tra 2026-08-26 — cơ chế đã chứng minh
+## 5. Điều tra 2026-08-26 — cơ chế chung root-caused & xác nhận thật, **tác vụ cụ thể vẫn
+chưa tìm ra**
 
-### 6.1. ⚠️ Quan sát #2 ở §2 là suy luận **sai** — phải sửa trước khi đi tiếp
+Không có máy/phiên GUI thật trong môi trường agent này để tái hiện sống (đúng giới hạn mục 1
+đã nêu). Thay vào đó, đi theo đúng mục 2–4 bằng cách đọc code + đo trực tiếp từng nghi phạm.
 
-§2 viết: *"`ThreadManagerExtension` `Stopping` → `Disposing` mất **4ms** — tức
-lúc nó dừng thì đã không còn phải chờ job nào."*
+### 5.1 `BinanceBotModule.shutdown()` — đúng chỗ nằm giữa 2 log line #1, nhưng đo ra KHÔNG
+phải nguồn 8,71s (trên storage nhanh)
 
-**Kết luận đó không đứng vững.** `ThreadManagerExtension.shutdown()` gọi
-`thread_manager.shutdown(wait=False)`, nên nó **luôn** trả về ngay, **bất kể**
-còn job đang chạy hay không. 4ms vì thế không chứng minh được điều gì về việc
-còn job hay không — nó chỉ chứng minh `wait=False` hoạt động đúng như tên gọi.
+Lần theo đúng lời gọi: `ExtensionManager.stop_and_dispose()` (`sagittarius_engine`) gọi
+`ext.stop(context)` giữa dòng `Stopping extension 'BinanceBotModule'...` và
+`Disposing extension 'BinanceBotModule'...` — `IExtension.stop()` mặc định gọi
+`self.shutdown(context)`, và `ModuleExtensionAdapter.shutdown()` gọi thẳng
+`BinanceBotModule.shutdown(app)`
+(`src/binance_bot_module.py:304-307`), toàn bộ thân hàm chỉ có:
+```python
+def shutdown(self, app: App) -> None:
+    database_manager = app.container.resolve(DatabaseManager)
+    database_manager.dispose_all()
+```
+Tức đúng "cái gì đang chờ" mà mục 2 hỏi: `SqliteShardManager.dispose_all()` — đóng mọi
+`Engine` SQLite đang mở. Giả thuyết ban đầu: WAL checkpoint tự động lúc đóng connection cuối
+cùng của mỗi shard tốn thời gian với DB lớn (đúng kịch bản phiên này — vừa chạy Historical
+Tick Backtest 2,59 triệu tick).
 
-Đây chính là điểm [`BUG-041`](../completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)
-đã xác lập, và lần này đo lại độc lập vẫn đúng.
-
-### 6.2. Chỉ non-daemon thread mới giữ được tiến trình
-
-Đo trực tiếp (không tin trí nhớ):
+**Đo trực tiếp bằng `DatabaseManager`/`SQLAlchemyMarketDataRepository` thật** (không mock),
+với DB **1,77 GB** (10 triệu dòng, đúng cỡ dữ liệu tick 1 tháng), sau khi mở thêm 8 session
+riêng (mô phỏng pool có nhiều connection tích luỹ qua nhiều lần backtest/query trong phiên):
 
 ```
-workers: [('ThreadPoolExecutor-0_0', 'NON-DAEMON')]
-[main] shutdown(wait=False) returned immediately; main() ending now
-[task] finished
-EXIT=0 after 6s          <-- shutdown trả về ngay, nhưng tiến trình vẫn chờ 6s
+dispose_all() trên DB 1771 MB: 0.001s
 ```
 
-`concurrent.futures.thread` tự đăng ký `_python_exit` qua
-`threading._register_atexit`, và hàm đó **join mọi worker, bất kể `wait=`**.
-Việc join xảy ra **sau khi logging đã dừng**, nên một lần treo ở đó là **im
-lặng theo đúng thiết kế** — khớp chính xác triệu chứng "không còn dòng log nào
-sau `App stopped.`".
+**Không phải nguồn 8,71s** — ít nhất trên storage của môi trường này (nhanh, có thể là
+overlay/tmpfs). Giả thuyết WAL-checkpoint-khi-đóng bị loại trên phần cứng đo được, nhưng
+**không loại được hẳn cho máy chậm hơn** (đĩa quay/mạng) — để ngỏ, không kết luận sai hoàn
+toàn, chỉ là chưa đo được bằng chứng dương tính ở đây.
 
-### 6.3. Tái hiện được trong chính đường shutdown của app
+### 5.2 Cơ chế "process không thoát sau `App stopped.`" — root-caused thật, **trùng khớp
+100% với `BUG-041` đã đóng**
 
-`scripts/bug052_shutdown_thread_probe.py`:
+Đọc `sagittarius_engine/kernel/app.py::App.stop()`: mỗi bước top-level (`extensions`, `task
+manager`, ...) chạy trong **thread riêng có timeout** (`_run_stop_step`, mặc định 10s) —
+nên một bước bị treo THẬT SỰ sẽ bị bỏ qua sau 10s, không giải thích được vụ 8,71s (dưới
+ngưỡng, hoàn tất bình thường, không có dòng lỗi timeout nào trong log). Nhưng
+`ThreadManagerExtension.shutdown()` (`sagittarius_engine`) gọi
+`thread_manager.shutdown(wait=False)` — comment trong chính code: *"wait=False ensures we do
+not block the shutdown sequence (though individual tasks should still implement cancellation
+tokens)"*.
 
-| Chế độ | Kết quả |
-| :--- | :--- |
-| bình thường | 1 thread sống sót, **daemon** (`Sagittarius-TcpLogWorker`) → không chặn exit |
-| `--stuck-task` | `ThreadPoolExecutor-0_0` **NON-DAEMON** còn sống, tiến trình chỉ thoát khi task xong |
+**Xác nhận bằng thực nghiệm tối giản, không phải suy diễn** — CPython's
+`concurrent.futures.thread` tự đăng ký `_python_exit()` qua `threading._register_atexit()`
+lúc import module, **join MỌI worker thread của MỌI `ThreadPoolExecutor` từng tạo trong tiến
+trình, bất kể `wait=` truyền vào `.shutdown()` là gì** — đây chính là cơ chế `BUG-041` đã
+root-cause (trích lại source CPython trong hồ sơ đó). Tái hiện trực tiếp trên Python 3.12.3
+của môi trường này:
 
-Baseline sạch là phần quan trọng: nó chứng minh shutdown của app **không** rò
-thread nói chung, nên thủ phạm là *task*, không phải cơ chế shutdown.
+```python
+executor = ThreadPoolExecutor(max_workers=4)
+executor.submit(lambda: [time.sleep(1) for _ in iter(int, 1)])  # never returns
+executor.shutdown(wait=False, cancel_futures=True)   # <- returns instantly
+print("App stopped.")                                 # <- in ra bình thường
+# process treo VĨNH VIỄN sau dòng này — xác nhận: timeout 8s -> exit code 124
+```
 
-### 6.4. Vẫn chưa biết: **task nào** trong phiên đó
+`timeout 8 python3 ...` → **exit code 124** (bị kill vì không tự thoát) — khớp chính xác
+triệu chứng đã báo cáo: `"App stopped."` in ra, sau đó im lặng, tiến trình sống.
 
-Nói thẳng: **chưa root-cause xong.** Phiên lỗi chạy Historical Tick Backtest
-xong lúc `08:24:29`, rồi treo lúc `09:37` — cách nhau 73 phút, nên task
-backtest **đã kết thúc từ lâu**. `BackTestPresenter` cũng đã có cancellation
-token cho `_run_backtest`/`_run_sync`. Không tái hiện được phiên đó ở đây, nên
-mọi phỏng đoán về thread cụ thể sẽ chỉ là đoán.
+**Đối chứng:** một `ThreadPoolExecutor` với worker đã **idle** (job cũ đã hoàn tất, không bị
+kẹt) qua `shutdown(wait=False)` thì thoát sạch, tức thời (exit code 0) — nên **không phải cứ
+có `ThreadPoolExecutor` là treo**, chỉ treo khi có **task đang thật sự chạy dở, không có
+cách nào tự return**.
 
-Điểm còn hở đã thấy khi rà (chưa xác minh là thủ phạm):
-`BackTestPresenter._fetch_symbol_options` (dòng 1539) submit **không kèm
-cancellation token** nào.
+### 5.3 Vì sao KHÔNG PHẢI Historical Tick Backtest của chính phiên này (khác `BUG-041`)
 
-### 6.5. Đã làm gì
+`BUG-041` xảy ra vì `ScanCoordinator` (Data Management) **không** implement cancellation
+token thật lúc đó. Kiểm tra tương đương cho Backtest: `BackTestPresenter.shutdown()`
+(`backtest_presenter.py:2529`) **đã** hủy cả `_backtest_cancellation_token` và
+`_sync_cancellation_token` — đúng pattern `BUG-041` đặt ra, đã có sẵn từ trước. Và
+`RunHistoricalTickBacktestCommandHandler._simulate()` tự kiểm
+`command.cancellation_requested()` mỗi tick — cooperative cancellation thật, không phải giả.
+Quan trọng hơn: theo log, Historical Tick Backtest của phiên này đã **hoàn tất** lúc `08:24:29`
+(`handler_simulation_complete`), **73 phút trước** khi shutdown bắt đầu — worker thread của
+nó đã trả `Future` xong từ lâu, quay về trạng thái idle trong pool (mục §5.2's "đối chứng":
+idle worker thoát sạch). **Không phải job này giữ tiến trình lại** trong phiên đã báo cáo.
 
-Không "sửa" bằng cách join hay giết thread lúc thoát — làm vậy có thể cắt ngang
-một lệnh ghi DB thật, và [`BUG-041`](../completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)
-đã xác lập hướng đúng là **cancellation theo từng task**.
+### 5.4 Chưa tìm ra: task nào thật sự còn chạy lúc `09:37:25`
 
-Thay vào đó, làm app **tự nói ra** — đúng bước 1 mà §4 yêu cầu.
-`teardown()` giờ kết thúc bằng `_log_threads_that_would_block_exit()`: nó chờ
-tối đa 2s rồi log WARNING kèm **tên thread và stack đang kẹt**, ngay tại thời
-điểm cuối cùng app còn nói được.
+Không đủ bằng chứng để chỉ đích danh — log gốc không có gì trong suốt 73 phút idle (không
+health-check, không job nào được ghi), nên không biết có tác vụ nào khác (health check định
+kỳ, một `GetHistoricalKlinesQuery`/`BulkSyncMarketData`'s `ThreadPoolExecutor` nội bộ kẹt,
+hay một tác vụ khác hoàn toàn) đang chạy đúng lúc đó. Cả 2 giả thuyết cụ thể nhất đã bị loại
+(§5.1 dispose_all() nhanh; §5.3 backtest job đã xong từ lâu) — nghĩa là nếu đúng là cùng lớp
+`BUG-041`, thủ phạm là một task **khác**, chưa xác định.
 
-Lần treo sau sẽ tự chẩn đoán trong **một** lần chạy, thay vì tốn thêm một phiên
-mò mẫm nữa — và dòng log đó là thứ user có thể đính kèm thẳng vào bug report.
+### 5.5 Fix — chẩn đoán generic, không phải fix cho 1 task cụ thể
 
-### 6.6. Test giữ vĩnh viễn
+Vì không xác định được task cụ thể, sửa đúng cái mà §4 mục 1 của hồ sơ này đã yêu cầu: thêm
+`_log_surviving_non_daemon_threads()` trong `app_bootstrapper.py`, gọi ngay sau
+`runtime.app_engine.stop()` trong `teardown()` — dump tên mọi non-daemon thread (trừ main
+thread) còn sống **trước khi** tiến trình có thể treo. Lần tái hiện sống tiếp theo (GUI thật)
+sẽ có dòng log named-thread thay vì im lặng — đóng đúng cái gap "log hiện tại kết thúc trước
+điểm treo nên vô dụng" mà hồ sơ gốc đã ghi.
 
-`tests/integration/presentation/test_shutdown_lingering_thread_diagnostic.py`
-(process-level, đúng tầng §4 chỉ định — không phải unit test):
+Regression test (4 test, đều pass, tests thread thật — không mock `threading`):
+`tests/unit/presentation/ui/test_app_bootstrapper_thread_diagnostic.py`:
+- 1 non-daemon thread thật (Event chưa set) → cảnh báo đúng tên thread, đúng số lượng.
+- Không có survivor → im lặng.
+- Main thread tự nó không bao giờ bị flag nhầm.
+- Daemon thread không bao giờ bị flag (không phải nguồn treo).
 
-1. shutdown bình thường → **không** thread nào có thể chặn exit;
-2. có task sống dai → app **nêu đích danh** thay vì im lặng.
+Đỏ trước fix xác nhận đúng lý do: `ImportError: cannot import name
+'_log_surviving_non_daemon_threads'` (hàm chưa tồn tại), xanh sau khi thêm. Toàn bộ 881 test
+trong `tests/unit/presentation/ui/` pass, không có test nào flaky do thread thật của các test
+khác còn sống sót ảnh hưởng lẫn nhau.
 
-Đã fault-inject (gỡ diagnostic): đúng test #2 đỏ, đúng lý do.
+### 5.6 Việc còn lại — không đổi bản chất so với §4, chỉ còn đúng 1 việc
 
-## 7. Việc còn lại
-
-1. Khi bug tái hiện, **lấy dòng WARNING mới** — nó chỉ thẳng thread và stack.
-2. Từ đó mới quyết cancellation cho đúng task, theo hướng `BUG-041`.
-3. Cân nhắc rà tất cả điểm `thread_manager.submit(...)` xem chỗ nào thiếu
-   cancellation token (đã thấy 1 chỗ ở §6.4).
+Lần treo tiếp theo (GUI thật) sẽ tự in ra tên thread thủ phạm nhờ §5.5 — khi đó tra ngược tên
+đó về đúng call site (giống `BUG-041` đã làm với `ScanCoordinator`) và thêm cancellation token
+đúng chỗ. Không còn cần `faulthandler`/`py-spy` bên ngoài nữa cho lần tới; chỉ cần đọc log.

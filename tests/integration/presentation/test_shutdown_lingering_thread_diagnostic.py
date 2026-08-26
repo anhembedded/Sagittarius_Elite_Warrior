@@ -8,10 +8,20 @@ which joins **regardless** of the `wait=False` the engine passes to
 `shutdown()` (the mechanism `BUG-041` established). That join happens after
 logging has stopped, so the hang is silent by construction.
 
-These run out of process on purpose. `tests/sanity/test_composition_root.py`
-already notes why: `threading.enumerate()` inside pytest is only a proxy for a
-process actually dying, and this bug is precisely about the moment *after*
-everything an in-process test can observe.
+@par Why this exists alongside `tests/unit/.../test_app_bootstrapper_thread_diagnostic.py`
+That suite calls `_log_surviving_non_daemon_threads()` directly with real
+threads, which pins the function's own logic. This one runs the real
+application in a **separate process** — the tier the bug report's §4 step 5
+asks for by name ("process-level probe ... không phải unit test"), and the
+same tier `BUG-041` settled on. The distinction is not pedantic: an
+in-process test cannot observe the moment this bug is about, which is *after*
+everything it can see has finished. `tests/sanity/test_composition_root.py`
+makes the same point — `threading.enumerate()` inside pytest is only a proxy
+for a process actually dying.
+
+It also covers wiring the unit tests cannot: that `teardown()` really calls
+the diagnostic, on the real shutdown path, with a real `ThreadPoolExecutor`
+worker from the app's own `IThreadManager`.
 """
 
 from __future__ import annotations
@@ -31,7 +41,10 @@ _CLEAN_RUN_TIMEOUT_SECONDS = 60
 
 _BLOCKING_VERDICT = "NON-DAEMON thread(s) hold the process open"
 _CLEAN_VERDICT = "no non-daemon survivor"
-_DIAGNOSTIC_LOG = "the process will not exit until they finish (BUG-052)"
+#: The exact wording `teardown()`'s own diagnostic logs — asserted so this
+#: test fails loudly if that line is ever dropped, which is the whole point
+#: of it existing.
+_DIAGNOSTIC_LOG = "the process will hang at exit until they finish (BUG-052 class)"
 
 
 def _run(args: list[str], timeout: int) -> subprocess.CompletedProcess[str]:

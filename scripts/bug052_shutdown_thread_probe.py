@@ -6,6 +6,10 @@ what kept the interpreter alive. This probe runs the real production
 `build()`/`teardown()` pair and then dumps every surviving thread with its
 daemon flag and its current stack — the evidence the log cannot give.
 
+`teardown()` already names survivors itself (`_log_surviving_non_daemon_threads`,
+added for this bug). This probe is what *exercises* that path end to end in a
+real process, and prints the stack the log line does not carry.
+
 Only **non-daemon** threads keep CPython from exiting: the interpreter joins
 them after `main()` returns and blocks for as long as they run. Daemon threads
 are killed outright, so a daemon survivor is noise here, not a suspect. The
