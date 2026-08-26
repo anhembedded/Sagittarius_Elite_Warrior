@@ -206,9 +206,25 @@ Fix ở §5 chỉ chạm giai đoạn **nạp** tick. Freeze #4 (5,3s, `08:24:04
 xảy ra **sau** `handler_ticks_loaded` (`08:23:40`) — tức trong lúc `_simulate()` đang chạy vòng
 lặp per-tick thật (`engine.on_forming_bar_tick`/`on_tick`, 2.592.000 lần). Việc chuyển sang
 stream **có thể** giúp một phần (không còn giữ nguyên list 2,59 triệu tick trong RAM suốt lúc mô
-phỏng, chỉ còn chunk 1000 dòng tại một thời điểm), nhưng **chưa có bằng chứng đo được** cho pha
-này — phiên này không dựng lại được đúng chiến lược `ema_trend_confirm_pullback` thật hay đủ
-2,59 triệu tick thật để đo. Việc còn thiếu, không đổi so với §4 mục 2/3: tái hiện `--debug` trên
-app thật ở đúng range đó, đọc log `[chart-data]`/watchdog quanh mốc `08:24:04`-`08:24:28` để xác
-nhận freeze #4/#5 có tự hết sau fix này hay cần một cơ chế khác (ví dụ: chart re-render sau
-`simulation_complete`, hoặc chính vòng lặp per-tick strategy evaluation).
+phỏng, chỉ còn chunk 1000 dòng tại một thời điểm) — **đã đo thêm sau fix ở §5, kết quả: giúp
+một phần, không hết hẳn.**
+
+Đo lại `_simulate()` thật (qua `handler.execute()`) với 1.500.000 tick tổng hợp, chiến lược thật
+`EmaCrossoverStrategy` (không phải đúng `ema_trend_confirm_pullback` — chiến lược đó cần params/
+setup phức tạp hơn không dựng lại được trong phiên này), cùng cách đo heartbeat 50ms như §5:
+
+| Pha | Thời gian | Gap lớn nhất | Gap >1s | Gap >0.5s |
+| :--- | :---: | :---: | :---: | :---: |
+| Mô phỏng (`_simulate()`, sau fix streaming) | 70,5s | **0,718s** | 0 | 2 |
+
+So với pha nạp tick cũ (`get_klines()`, §5): **0 gap >1s** (so với 4 trước fix) — nhẹ hơn hẳn,
+đúng như dự đoán streaming giúp một phần (không còn giữ 1 list 2,59 triệu tick cố định trong RAM
+suốt lúc mô phỏng). Nhưng **vẫn còn 2 gap >0,5s**, tức pha mô phỏng tự nó có áp lực GIL/alloc
+thật, dù chưa từng chạm ngưỡng watchdog 5s trong phép đo này (0,72s cao nhất, xa dưới ngưỡng).
+**Không giải thích được** mức 5,3s/5,5s freeze #4/#5 báo cáo gốc — chênh lệch quá lớn (0,72s đo
+được vs 5,3s+ báo cáo) để coi là cùng hiện tượng đã đo trúng, dù cùng cơ chế loại (GIL/alloc
+pressure từ vòng lặp per-tick). Khả năng freeze #4/#5 thật nặng hơn vì: (a) `ema_trend_confirm_pullback`
+nặng hơn `EmaCrossoverStrategy` tổng hợp ở đây, (b) có UI thật (chart repaint, DevBoard panel)
+cạnh tranh GIL mà phép đo headless này không có, hoặc (c) một cơ chế khác hẳn (chart re-render
+sau `simulation_complete`) như nghi vấn cũ. Việc còn thiếu, không đổi: tái hiện `--debug` trên
+app thật ở đúng range/chiến lược đó, đọc log quanh mốc `08:24:04`-`08:24:28`.

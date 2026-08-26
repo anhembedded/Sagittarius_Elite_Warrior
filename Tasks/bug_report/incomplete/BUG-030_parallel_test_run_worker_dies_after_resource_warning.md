@@ -227,3 +227,42 @@ Cả ba đều cho ra kết quả trông rất thuyết phục mà hoàn toàn s
 Repo Engine yêu cầu **Python ≥3.14** (dùng cú pháp PEP 758 `except A, B:` không
 ngoặc, 3.13 không parse được). Máy Linux phải dựng venv 3.14 riêng mới chạy được
 bộ test — `python3` mặc định của môi trường CI cloud là 3.11.
+
+---
+
+## Điều tra 2026-08-26 (Linux, môi trường agent không có Windows) — loại trừ thêm 1
+giả thuyết mới, vẫn **chưa** tìm được file:line
+
+Trong lúc sửa `BUG-051` (`RunHistoricalTickBacktestCommandHandler` đổi từ
+`get_klines()` sang `count_klines()`+`stream_klines()`), nảy ra một giả thuyết mới
+đáng kiểm: `stream_klines()` là generator giữ session trong khối `with ... as
+session:`; nếu caller (`_simulate()`) bỏ dở generator giữa chừng — ví dụ nhánh
+`return BacktestCancelled(...)` khi user bấm huỷ — session có bị bỏ lại
+**checked-out** cho tới khi cyclic GC dọn không?
+
+**Đã kiểm bằng thực nghiệm, kết quả: KHÔNG.** Dựng generator thật từ
+`SQLAlchemyMarketDataRepository.stream_klines()`, tiêu thụ dở 3/5000 dòng rồi để
+biến cục bộ ra khỏi phạm vi (mô phỏng đúng hình dạng `_simulate()` return sớm),
+kiểm tra `engine.pool.checkedout()` và một `weakref` trỏ tới generator:
+
+```
+checked out BEFORE: 0
+checked out RIGHT AFTER abandon (before any gc): 0
+generator still alive (refcounting alone did NOT collect it): False   # nghĩa là: ĐÃ bị dọn
+checked out AFTER explicit gc.collect(): 0
+```
+
+CPython's refcounting tự đóng generator (gửi `GeneratorExit` tại điểm `yield`,
+chạy `with`-exit, `session.close()`) **ngay khi hết tham chiếu** — không cần đợi
+cyclic GC — vì bản thân generator/`with`-block ở đây không tạo chu trình tham
+chiếu. `pool.checkedout()` không bao giờ tăng. Giả thuyết "abandon generator giữa
+chừng = rò rỉ" **sai**, loại trừ hẳn — không phải cơ chế của bug này (dù đáng lẽ
+là một nghi phạm hợp lý xét theo §2's cơ chế "session checked-out không được
+đóng").
+
+**Ghi chú khác:** đã grep lại toàn bộ `src/` + `scripts/` cho `get_session(`/
+`get_raw_session(` — **100% call site đã dùng `with ... as session:`** đúng
+pattern, không còn chỗ nào thiếu. Củng cố thêm kết luận cũ của hồ sơ: nếu có rò
+rỉ thật, nó nằm ở **test code** (fixture/test tự dựng session ngoài
+`with`), không phải production code — đúng hướng §5 mục 1 đã vạch, vẫn cần máy
+Windows để chỉ đích danh.
