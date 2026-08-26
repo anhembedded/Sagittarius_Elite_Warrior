@@ -1,6 +1,6 @@
 # EPIC-010E — Database screen: symbol and interval
 
-**Status:** 🔵 Not started
+**Status:** ✅ Done 2026-08-26 — Elite
 **Repo:** **Elite** — design §8 step 3
 **Depends on:** `EPIC-010D` (same shape; do it second so the pattern is proven once)
 

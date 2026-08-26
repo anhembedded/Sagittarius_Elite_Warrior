@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.
     IndicatorScriptRunner,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
+    find_state_coordinator,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
     StateData,
     StateScope,
@@ -449,10 +452,8 @@ class DashboardPresenter(BasePresenter):
         # Restoring first and only then connecting `_mark_dirty` keeps the
         # restore from writing the values straight back out as if the user
         # had just typed them.
-        self._state_coordinator: UiStateCoordinator | None = (
-            container.resolve(UiStateCoordinator)
-            if UiStateCoordinator in container.registrations()
-            else None
+        self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
+            container
         )
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self)
