@@ -77,7 +77,7 @@ engine design doc §9.1): first-pass scope, dates as a **duration**, and
 | ID | Name | Why it waits |
 | :--- | :--- | :--- |
 | **[`EPIC-010F`](incomplete/EPIC-010F_backtest_state.md)** | Backtest — 19 form values | ✅ **Done 2026-08-26.** 58 Property → 19 giá trị là *ý định*; phần còn lại là output hoặc trạng thái phiên. `selectedSymbol`/`selectedTimeframe` cố ý **không** lưu — chúng là chỗ duy nhất đụng thứ tự ưu tiên 3 tầng, thuộc `010H` |
-| `EPIC-010G` | Indicator scripts + the `_user_touched` flag | Same gate; fixes the "a script the user turned off turns itself back on" defect |
+| **[`EPIC-010G`](incomplete/EPIC-010G_indicator_scripts.md)** | Indicator scripts + the `_user_touched` flag | ✅ **Done 2026-08-26.** Lưu **2** tập (`enabled` + `touched`) — chỉ nhớ tập bật là không đủ. `restore_selection()` **lớp lên** default chứ không thay thế, để script `default_enabled` mới thêm vẫn tự bật cho user đã có slice |
 | `EPIC-010H` | Collapse duplicated defaults into one source | Can be deferred, **but the precedence order below must be settled before `010D`** |
 
 > Task files for `010F`–`010H` are not written yet, on purpose. Their shape
