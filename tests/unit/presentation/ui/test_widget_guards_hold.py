@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sagittarius_engine.extensions.pyside_mvc.widgets.guards import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit.guards import (
     find_bare_qt_base_widgets,
     find_inline_stylesheets,
     find_unscoped_container_stylesheets,

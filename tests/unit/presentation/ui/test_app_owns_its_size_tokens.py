@@ -30,8 +30,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import StyleRole, apply_role
 from sagittarius_engine.extensions.pyside_mvc.tokens import get_theme_bridge
-from sagittarius_engine.extensions.pyside_mvc.widgets import StyleRole, apply_role
 
 #: Token số app phải tự cấp. Thiếu một cái là rơi về default của engine —
 #: im lặng, không lỗi, chỉ sai pixel.

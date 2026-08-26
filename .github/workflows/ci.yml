@@ -84,10 +84,13 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Ruff — Lint
-        run: ruff check src tests
+        # `tools` as well as `src`/`tests`: the widget-kit showcase lives
+        # there, and a whole top-level directory outside the lint gate is
+        # how the gate quietly stops covering the repo.
+        run: ruff check src tests tools
 
       - name: Ruff — Format Check
-        run: ruff format --check src tests
+        run: ruff format --check src tests tools
 
       - name: Run Pytest with Coverage
         # Tests import `Sagittarius_Elite_Warrior.src...` — the checkout
