@@ -1,9 +1,9 @@
 # BUG-052 — Thoát app: shutdown chạy hết, log "App stopped." nhưng **tiến trình không return**
 
 **Reported date:** 2026-08-26
-**Severity:** Chưa đánh giá (chưa điều tra)
-**Status:** 🔴 Open — chỉ mới ghi nhận hiện tượng theo yêu cầu người báo,
-**chưa điều tra root cause**.
+**Severity:** 🟠 P1 (treo vĩnh viễn, không có tín hiệu nào)
+**Status:** 🟡 **Cơ chế đã xác định 2026-08-26; chưa biết thread cụ thể** —
+đã thêm chẩn đoán để lần tái hiện sau tự chỉ đích danh.
 
 ---
 
@@ -100,3 +100,92 @@ Không cần `Ctrl+C` / `kill`.
 5. Chỉ viết regression test **sau khi** biết cái gì giữ tiến trình lại. Nếu cuối cùng là
    non-daemon thread, tầng test đúng là process-level probe (đo tiến trình thật sự thoát
    trong N giây) như `BUG-041` đã làm, không phải unit test.
+
+---
+
+## 6. Điều tra 2026-08-26 — cơ chế đã chứng minh
+
+### 6.1. ⚠️ Quan sát #2 ở §2 là suy luận **sai** — phải sửa trước khi đi tiếp
+
+§2 viết: *"`ThreadManagerExtension` `Stopping` → `Disposing` mất **4ms** — tức
+lúc nó dừng thì đã không còn phải chờ job nào."*
+
+**Kết luận đó không đứng vững.** `ThreadManagerExtension.shutdown()` gọi
+`thread_manager.shutdown(wait=False)`, nên nó **luôn** trả về ngay, **bất kể**
+còn job đang chạy hay không. 4ms vì thế không chứng minh được điều gì về việc
+còn job hay không — nó chỉ chứng minh `wait=False` hoạt động đúng như tên gọi.
+
+Đây chính là điểm [`BUG-041`](../completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)
+đã xác lập, và lần này đo lại độc lập vẫn đúng.
+
+### 6.2. Chỉ non-daemon thread mới giữ được tiến trình
+
+Đo trực tiếp (không tin trí nhớ):
+
+```
+workers: [('ThreadPoolExecutor-0_0', 'NON-DAEMON')]
+[main] shutdown(wait=False) returned immediately; main() ending now
+[task] finished
+EXIT=0 after 6s          <-- shutdown trả về ngay, nhưng tiến trình vẫn chờ 6s
+```
+
+`concurrent.futures.thread` tự đăng ký `_python_exit` qua
+`threading._register_atexit`, và hàm đó **join mọi worker, bất kể `wait=`**.
+Việc join xảy ra **sau khi logging đã dừng**, nên một lần treo ở đó là **im
+lặng theo đúng thiết kế** — khớp chính xác triệu chứng "không còn dòng log nào
+sau `App stopped.`".
+
+### 6.3. Tái hiện được trong chính đường shutdown của app
+
+`scripts/bug052_shutdown_thread_probe.py`:
+
+| Chế độ | Kết quả |
+| :--- | :--- |
+| bình thường | 1 thread sống sót, **daemon** (`Sagittarius-TcpLogWorker`) → không chặn exit |
+| `--stuck-task` | `ThreadPoolExecutor-0_0` **NON-DAEMON** còn sống, tiến trình chỉ thoát khi task xong |
+
+Baseline sạch là phần quan trọng: nó chứng minh shutdown của app **không** rò
+thread nói chung, nên thủ phạm là *task*, không phải cơ chế shutdown.
+
+### 6.4. Vẫn chưa biết: **task nào** trong phiên đó
+
+Nói thẳng: **chưa root-cause xong.** Phiên lỗi chạy Historical Tick Backtest
+xong lúc `08:24:29`, rồi treo lúc `09:37` — cách nhau 73 phút, nên task
+backtest **đã kết thúc từ lâu**. `BackTestPresenter` cũng đã có cancellation
+token cho `_run_backtest`/`_run_sync`. Không tái hiện được phiên đó ở đây, nên
+mọi phỏng đoán về thread cụ thể sẽ chỉ là đoán.
+
+Điểm còn hở đã thấy khi rà (chưa xác minh là thủ phạm):
+`BackTestPresenter._fetch_symbol_options` (dòng 1539) submit **không kèm
+cancellation token** nào.
+
+### 6.5. Đã làm gì
+
+Không "sửa" bằng cách join hay giết thread lúc thoát — làm vậy có thể cắt ngang
+một lệnh ghi DB thật, và [`BUG-041`](../completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)
+đã xác lập hướng đúng là **cancellation theo từng task**.
+
+Thay vào đó, làm app **tự nói ra** — đúng bước 1 mà §4 yêu cầu.
+`teardown()` giờ kết thúc bằng `_log_threads_that_would_block_exit()`: nó chờ
+tối đa 2s rồi log WARNING kèm **tên thread và stack đang kẹt**, ngay tại thời
+điểm cuối cùng app còn nói được.
+
+Lần treo sau sẽ tự chẩn đoán trong **một** lần chạy, thay vì tốn thêm một phiên
+mò mẫm nữa — và dòng log đó là thứ user có thể đính kèm thẳng vào bug report.
+
+### 6.6. Test giữ vĩnh viễn
+
+`tests/integration/presentation/test_shutdown_lingering_thread_diagnostic.py`
+(process-level, đúng tầng §4 chỉ định — không phải unit test):
+
+1. shutdown bình thường → **không** thread nào có thể chặn exit;
+2. có task sống dai → app **nêu đích danh** thay vì im lặng.
+
+Đã fault-inject (gỡ diagnostic): đúng test #2 đỏ, đúng lý do.
+
+## 7. Việc còn lại
+
+1. Khi bug tái hiện, **lấy dòng WARNING mới** — nó chỉ thẳng thread và stack.
+2. Từ đó mới quyết cancellation cho đúng task, theo hướng `BUG-041`.
+3. Cân nhắc rà tất cả điểm `thread_manager.submit(...)` xem chỗ nào thiếu
+   cancellation token (đã thấy 1 chỗ ở §6.4).

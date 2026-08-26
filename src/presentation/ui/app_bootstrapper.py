@@ -36,8 +36,10 @@ effects.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
+import threading
 import traceback
 from dataclasses import dataclass
 
@@ -234,11 +236,20 @@ def teardown(runtime: AppRuntime) -> None:
     sanity test) is the only way to prove that class of defect for real: a
     non-daemon thread surviving `teardown()` keeps the *process* alive, which
     `threading.enumerate()` inside pytest can only approximate.
+
+    `BUG-052` added the final step: name any such thread before returning.
+    That bug was a session which shut down completely, logged `App stopped.`,
+    and then never returned while emitting nothing further — the log ended one
+    line before the interesting moment, so it could not say what held the
+    interpreter open.
     """
     runtime.window.shutdown()
     runtime.watchdog.stop()
     runtime.sig_timer.stop()
     runtime.app_engine.stop()
+    # Last thing shutdown does, and the last moment the app can still speak —
+    # see this function's own docstring for why a hang after here is silent.
+    _log_threads_that_would_block_exit()
 
 
 def main() -> None:
@@ -256,6 +267,65 @@ def main() -> None:
     exit_code = runtime.app.exec()
     teardown(runtime)
     sys.exit(exit_code)
+
+
+#: `BUG-052` — how long to let a straggler finish before naming it. Teardown is
+#: synchronous, so a thread still running a moment after it returns is not
+#: "about to finish"; the reported hang never ended at all.
+_LINGERING_THREAD_GRACE_SECONDS = 2.0
+
+
+def _log_threads_that_would_block_exit() -> None:
+    """Names any non-daemon thread still running once teardown is done.
+
+    @details `BUG-052`: a session ended with a clean, complete shutdown --
+    every extension stopped and disposed, `App stopped.` logged -- and then
+    the process simply never returned, with **no further output at all**. The
+    log ended exactly one line before the interesting moment, so it could not
+    say what held the interpreter open.
+
+    Only non-daemon threads can. CPython joins them after `main()` returns
+    (for `ThreadPoolExecutor` workers, via the `_python_exit` hook
+    `concurrent.futures.thread` registers -- which joins **regardless** of the
+    `wait=False` passed to `shutdown()`, the mechanism `BUG-041` established
+    and this bug re-confirmed). That join happens after logging has stopped,
+    which is why a hang there is completely silent.
+
+    So this runs at the last moment the app can still speak. It only reports:
+    joining or killing a straggler here could truncate a real database write,
+    and per-task cancellation -- `BUG-041`'s approach -- is where a fix
+    belongs. The point is that the next occurrence diagnoses itself in one
+    run instead of costing another blind session.
+    """
+    main_thread = threading.main_thread()
+    for thread in threading.enumerate():
+        if thread is not main_thread and not thread.daemon:
+            thread.join(timeout=_LINGERING_THREAD_GRACE_SECONDS)
+
+    blockers = [
+        thread
+        for thread in threading.enumerate()
+        if thread is not main_thread and thread.is_alive() and not thread.daemon
+    ]
+    if not blockers:
+        return
+
+    logger = logging.getLogger("App")
+    logger.warning(
+        "%d non-daemon thread(s) are still running; the process will not exit "
+        "until they finish (BUG-052): %s",
+        len(blockers),
+        ", ".join(thread.name for thread in blockers),
+    )
+    frames = sys._current_frames()
+    for thread in blockers:
+        frame = frames.get(thread.ident or -1)
+        where = (
+            "".join(traceback.format_stack(frame))
+            if frame is not None
+            else "  <no frame available>"
+        )
+        logger.warning("Thread %r is blocking exit at:\n%s", thread.name, where)
 
 
 # ------------------------------------------------------------------ #
