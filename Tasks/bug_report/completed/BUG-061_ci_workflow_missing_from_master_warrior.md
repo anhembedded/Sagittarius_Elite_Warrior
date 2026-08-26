@@ -2,7 +2,7 @@
 
 | Trường | Giá trị |
 | :--- | :--- |
-| **Trạng thái** | ✅ Đã sửa — 2026-08-26 |
+| **Trạng thái** | 🟡 Sửa phần repo xong — còn một chặn ở tầng cấu hình GitHub (§ cuối) |
 | **Mức độ** | Cao (mọi PR merge suốt 16 ngày không có gate nào) |
 | **User báo** | 2026-08-26 — "cai ci cd bi block gi roi, hay fix giup" |
 
@@ -100,10 +100,29 @@ của lần này. Thêm mypy vào CI bây giờ sẽ làm CI đỏ ngay từ com
 `dict[str, str | float]` trong khi hàm nhận nhận `dict[str, str]`. Sửa xong 2
 lỗi đó rồi hãy thêm mypy step — nên là task riêng.
 
-## Chưa kiểm chứng được ở đây
+## Lỗi thứ tư: đã push, vẫn không có run nào
 
-Workflow chỉ chạy thật khi đã push. Ba lỗi trên đều đã xác định từ bằng chứng
-thật (cây git của nhánh, nội dung file, log job của run #48), và toàn bộ suite
-đã chạy xanh tại chỗ bằng đúng lệnh pytest mà workflow gọi — nhưng **bản thân
-GitHub Actions run thì chưa quan sát được**. Run đầu tiên sau khi merge là chỗ
-xác nhận.
+Đã push lên `claude/easy-bug-fix-74i8fu` (PR #114, base `master-warrior`) và
+xác nhận file có thật trên nhánh remote. Sau vài phút:
+
+- `GET /actions/runs` — `total_count` vẫn **49**, không tăng.
+- `GET /pulls/114/status` — `state: pending`, `total_count: 0`, không check nào.
+- `GET /actions/workflows` — **`total_count: 1`**, và workflow duy nhất đó là
+  `Dependency Graph` (`path: dynamic/dependabot/update-graph`) — hệ thống con
+  của Dependabot, **không phải** file trong `.github/workflows/`.
+
+Nên phần sửa trong repo là cần nhưng **chưa đủ**. Hai khả năng, chưa phân biệt
+được từ bên ngoài:
+
+1. **Push do GitHub App token thực hiện không kích hoạt workflow.** GitHub cố
+   ý không tạo workflow run mới cho event sinh ra từ `GITHUB_TOKEN` / một số
+   app token, để tránh đệ quy. Nếu đúng là cái này thì **tự khỏi** — commit
+   merge vào `master-warrior` do người thật bấm sẽ kích hoạt bình thường.
+2. **Actions bị tắt ở mức repository.** Khớp với việc workflow duy nhất còn
+   đăng ký là loại `dynamic` của Dependabot (chạy qua đường khác, không phụ
+   thuộc Actions bật/tắt).
+
+Phân biệt: **merge PR #114 rồi nhìn tab Actions.** Có run xuất hiện → là (1),
+xong. Vẫn trống → là (2), phải vào **Settings → Actions → General** bật
+"Allow all actions and reusable workflows". Việc đó cần quyền admin repo,
+không làm được qua API từ phiên này.
