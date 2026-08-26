@@ -10,6 +10,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
@@ -23,11 +24,11 @@ _IDLE_STATUS_COLOR = Palette.MUTED
 # DataManagementViewModel's own self-contained defaults; DashboardPresenter
 # reads these back through the same Property, so there is exactly one value
 # in play at runtime even though the "ETHUSDT" literal is duplicated in
-# source. DATETIME_FORMAT matches DataManagementPresenter's
-# _CUSTOM_TIME_FORMAT so a value typed on one screen reads the same on the
-# other.
+# source. The datetime format that comment used to describe now lives in
+# `constants.DATETIME_FORMAT`, imported above — it was the same literal in
+# six places across three screens, and this comment saying one copy
+# "matches" another was the intent to share written beside a duplicate.
 _DEFAULT_SYMBOL = FALLBACK_SYMBOL
-DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 #: Public because `DashboardPresenter` needs the same number to fall back on
 #: when a remembered `lookback_days` is missing or nonsense (`EPIC-010D`).
 #: Shared rather than re-declared — a second copy of "7" is exactly the

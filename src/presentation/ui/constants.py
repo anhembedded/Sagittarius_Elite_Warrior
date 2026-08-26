@@ -24,3 +24,12 @@ class UIMode(str, Enum):
 
 #: Default maximum log entries retained in LogListModel before trimming oldest lines.
 DEFAULT_LOG_MAX_ENTRIES: int = 500
+
+
+#: The one datetime format every screen types, parses and prints. Six
+#: copies of this literal existed across three screens — the dashboard's
+#: own comment already said its copy "matches DataManagementPresenter's
+#: `_CUSTOM_TIME_FORMAT` so a value typed on one screen reads the same on
+#: the other", which is the intent to share written down beside a
+#: duplicate of the thing being shared.
+DATETIME_FORMAT: str = "%Y-%m-%d %H:%M"

@@ -11,6 +11,17 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   - `completed/` — bug đã sửa, kèm ảnh chụp/bằng chứng của chính nó.
 - Đặt tên `BUG-XXX_mô_tả.md`, số kế tiếp số lớn nhất đang tồn tại **ở cả hai
   thư mục**.
+- ⚠️ **Đánh số tay đã hỏng một lần ở đây, 2026-08-26.** Hai phiên cùng lấy "số
+  kế tiếp" từ bảng này, và `BUG-051`/`BUG-052` mỗi số được dùng cho **hai**
+  lỗi khác nhau; chỉ lộ ra lúc merge. Hai bug của phiên sau đã đổi thành
+  `BUG-057`/`BUG-058`.
+
+  Repo Engine có test tự động chặn đúng chuyện này
+  (`tests/test_bug_board_is_consistent.py`: không trùng số, mọi file có dòng
+  trên bảng, mọi dòng trỏ tới file có thật, số Open khớp `incomplete/`).
+  **Bảng này chưa có** — port sang cần xử lý 10 file cũ đặt tên `BUG-00X.md`
+  không theo quy ước `BUG-XXX_mô_tả.md`, nên là một task riêng chứ không phải
+  một dòng thêm vào. Cho tới lúc đó: kiểm tay trước khi lấy số.
 - **Khi sửa xong:** `git mv incomplete/BUG-XXX_*.md completed/` (kèm ảnh của
   nó), cập nhật `Status` trong file, rồi chuyển dòng tương ứng ở bảng dưới từ
   mục "Đang mở" sang mục "Đã sửa".
@@ -50,8 +61,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | :--- | :--- | :---: | :---: | :--- |
 | **[BUG-056](completed/BUG-056_integration_and_sanity_tiers_together_abort_the_process.md)** | Bộ test integration abort/segfault giữa chừng, **không test nào FAILED** | 🟡 P2 | 2026-08-26 | Đóng 2026-08-26. **Chẩn đoán đầu sai**: đổ cho `unittest.mock` — thay bằng fake thread-safe thì crash vẫn còn, chỉ dời chỗ. Gốc thật: `qtbot` xoá widget ở teardown của **chính nó** (chạy sau mọi fixture), không ai bơm event loop, nên chúng bị huỷ ở **setup của test kế tiếp** — đúng lúc worker của test mới đang chạy, GC trên worker thread làm destructor shiboken chạy sai thread. Sửa: xả `DeferredDelete` trước khi boot engine mới. 42 passed (trước: segfault), và nhanh hơn 122s vs 179s. |
 | **[BUG-053](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md)** | Script indicator nhiều đường (MACD) tạo 1 subplot row/đường thay vì 1 row chung | 🟠 P1 | 2026-08-26 | Trong chính hồ sơ này (2026-08-26), phát hiện lúc điều tra BUG-034. `IndicatorScriptRunner.draw()`/`IndicatorManager.add_subplot()` thêm tham số `group` để các đường cùng 1 script dùng chung 1 row thay vì mỗi đường 1 row mới. |
-| **[BUG-052](completed/BUG-052_unscoped_stylesheets_box_every_label.md)** | Mọi nhãn trong app bị vẽ khung riêng; chữ trong stat tile bị cắt 5px | 🟠 P1 | 2026-08-26 | **Gốc thật của `BUG-008`**: selector kiểu trong Qt khớp cả lớp con, `QLabel` kế thừa `QFrame` → `.ClassName`. Chỗ rò lớn nhất là `QStackedWidget` chứa mọi màn hình. Chữ bị cắt là lỗi **riêng**: `setFixedHeight(74)` < 79px nội dung. 6 PR Engine + guard khoá 0. |
-| **[BUG-051](completed/BUG-051_status_row_clipped_to_one_line_of_text.md)** | Mọi dòng bảng Database Status bị cắt còn 14px, 4 nút hành động render thành viền rỗng không chữ | 🟡 P2 | 2026-08-26 | `setIndexWidget()` không cấp chiều cao cho ô; delegate mặc định trả về chiều cao **một dòng text**. Sửa bằng delegate đọc `sizeHint()` của chính widget. Lộ ra khi chụp ảnh trước/sau cho `EPIC-007F`, không phải user báo. |
+| **[BUG-058](completed/BUG-058_unscoped_stylesheets_box_every_label.md)** | Mọi nhãn trong app bị vẽ khung riêng; chữ trong stat tile bị cắt 5px | 🟠 P1 | 2026-08-26 | **Gốc thật của `BUG-008`**: selector kiểu trong Qt khớp cả lớp con, `QLabel` kế thừa `QFrame` → `.ClassName`. Chỗ rò lớn nhất là `QStackedWidget` chứa mọi màn hình. Chữ bị cắt là lỗi **riêng**: `setFixedHeight(74)` < 79px nội dung. 6 PR Engine + guard khoá 0. |
+| **[BUG-057](completed/BUG-057_status_row_clipped_to_one_line_of_text.md)** | Mọi dòng bảng Database Status bị cắt còn 14px, 4 nút hành động render thành viền rỗng không chữ | 🟡 P2 | 2026-08-26 | `setIndexWidget()` không cấp chiều cao cho ô; delegate mặc định trả về chiều cao **một dòng text**. Sửa bằng delegate đọc `sizeHint()` của chính widget. Lộ ra khi chụp ảnh trước/sau cho `EPIC-007F`, không phải user báo. |
 | **[BUG-055](completed/BUG-055_data_row_action_stretch_not_in_installed_engine.md)** | Bảng Database vỡ — `DataRow` không nhận `action_stretch` | 🟠 P1 | 2026-08-26 | Đóng 2026-08-26: **cùng nguyên nhân với BUG-054** — Engine trong `.venv` là bản cũ, không phải lỗi code app. Sửa bằng cài lại theo `install-rule.md` Option 1. 11 failed+1 error → **61 passed**. |
 | **[BUG-054](completed/BUG-054_settings_screen_crashes_on_missing_stylerole_members.md)** | Màn Settings vỡ — `StyleRole` không có `HEADING`/`BODY_LABEL` | 🟠 P1 | 2026-08-26 | Đóng 2026-08-26: repo Engine **có đủ** cả 3 API; bản cài cũ hơn. Cả hai bản **đều báo `2.3.0`** nên version string không phân biệt được — đúng bẫy `install-rule.md` §1b đã ghi từ BUG-044. Bản cài đến từ local path, không phải GitHub. |
 | **[BUG-049](completed/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Đóng 2026-08-25: root-caused, không sửa code được. `gc.set_debug(gc.DEBUG_UNCOLLECTABLE)` cho thấy đúng dạng cycle metaobject PySide6/shiboken (`QtCore.Property` + closure + `QMetaObject`/`Shiboken.ObjectType`) — đặc tính binding, không phải do `binance_fake_server.py` tạo ra. D6 chỉ là cái khiến `app.boot()` chạy đủ xa để cycle có sẵn lộ ra (trước đó treo/lỗi mạng thật theo BUG-045). |
