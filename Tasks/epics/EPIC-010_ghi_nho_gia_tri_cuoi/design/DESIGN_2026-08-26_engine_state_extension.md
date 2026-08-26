@@ -350,6 +350,68 @@ The user's *"temp dies when the view is destroyed"* needs an explicit verb.
 registered — so it is the natural place. `discard()` on a `PERSISTENT` scope is
 a legal no-op; only the session store acts on it.
 
+### 5.3 Instance identity — what the Engine has today ✅ Established
+
+Surveyed before designing anything. The Engine has **no instance-id API for
+long-lived UI objects**, and four things that look like one but are not:
+
+| Candidate | Mechanism | Bound to | Stable across restart? | Usable here? |
+| :--- | :--- | :--- | :---: | :--- |
+| `BackgroundTask._id` | `uuid.uuid4()` in `__init__` (`background_task.py:31`) | the task object | ❌ | Not identity for a view, but **the house style to copy** |
+| `BaseEvent.event_id` | `uuid.uuid4()` default_factory (`base_event.py:71`) | the event object | ❌ | Same — style precedent |
+| `ScopeContext` (DI) | `ContextVar`, `with container.create_scope():` | the **execution context** | ❌ | ⛔ **No** — see below |
+| `ResourceScope` | plain object, `add()`/`dispose_all()` | one "run" of a long-lived object | ❌ | ⛔ No id at all — but its *philosophy* backs §5.2 |
+
+> ⛔ **`ScopeContext` is the trap, and its name invites the mistake.** It is
+> `ContextVar`-backed and **block-scoped** — the scope ends when the `with`
+> block ends. A tab lives across thousands of event-loop turns; you cannot hold
+> one open inside a `with`. It also binds to the thread/async context, not to an
+> object, so two tabs on the same thread would share a scope. Structurally wrong,
+> not merely awkward.
+
+`ResourceScope`'s docstring is still worth quoting, because it argues for §5.2's
+`discard()` being a real operation: *"teardown is a property of a data structure
+instead of a convention every new call-site has to remember."*
+
+### 5.4 D9 — Who mints the id 🔵 Proposed
+
+**The requirement collapsed once §4.2 decided per-instance state is `SESSION`.**
+Two different ids were hiding under one question:
+
+| | Needs | Who can supply it |
+| :--- | :--- | :--- |
+| **SESSION id** (what we build) | unique in this process, never reused | anyone — including the presenter itself |
+| **PERSISTENT id** (deferred, §7) | *stable across restarts*, rebindable, reapable | only whoever owns the tab container — which does not exist |
+
+So the answer for what we are actually building:
+
+> **`BasePresenter` mints its own `uuid4` in `__init__`. No new Engine API.**
+
+Why this wins, against the alternatives considered:
+
+| Option | Verdict |
+| :--- | :--- |
+| **`PresenterManager` mints it** | ⛔ It is a *router* over a `QStackedWidget` — one visible screen, `navigate_to(name)` is its whole API, one `presenter_instance` per route. Making it multi-instance **is** the tab machinery §2 deferred, and needs a signature change |
+| **New tab-container / instance registry in the Engine** | ⛔ That is the deferred machinery outright |
+| **The application mints it** | 🟠 Works, but every app invents its own convention and mode #15 is easy to get wrong. Better as the *override*, not the default |
+| **`BasePresenter` self-mints `uuid4`** | ✅ Unique by construction, **kills mode #15 structurally** (a uuid is never reused, so a new tab can never inherit a dead one's state), matches the Engine's two existing id precedents, and costs one private field |
+
+**No new interface here, deliberately.** An `IInstanceIdProvider` ABC would be
+the speculative abstraction `architecture-rule.md` §7.2 warns about — there is no
+second implementer and no requirement it would serve. The seam is one
+**overridable property**, not a port:
+
+- `BasePresenter.__init__` sets `self._instance_uid = str(uuid.uuid4())` —
+  additive, no signature change, so every existing subclass and
+  `PresenterManager`'s `presenter_class(view, container)` call keep working.
+- `state_scope` is a property built from it. A future tab-aware presenter
+  overrides that one property to supply a stable id. That is the §7.1 landing
+  place, at the cost of a property rather than a port.
+
+❓ **Still open, and correctly so:** the *stable* id policy. It cannot be
+designed without the tab container, and it must be decided **before** the first
+tabbed screen ships, not after — mode #15 is unforgiving once state is on disk.
+
 ---
 
 ## 6. Failure modes added by this design 🔵 Proposed
@@ -360,10 +422,12 @@ The first document's 12 stand unchanged. Identity and lifetime add three:
 | :-: | :--- | :--- | :--- |
 | 13 | Capture | **Instances fight over the shared default.** Four tabs each auto-write the singleton default; the last one to change wins and silently redefines what a new tab looks like | A per-instance scope **never** auto-writes the default. Promoting to default is an explicit action only. Locked by a test |
 | 14 | Boundary | **Orphan instance slices.** A crash leaves `tab-7`'s persistent slice on disk with nothing that will ever own it again — an unbounded leak | Avoided structurally by §4.2: per-instance state is `SESSION` and never reaches disk. If §7's deferred feature is ever built, it must ship reaping *in the same change* |
-| 15 | Apply | **Identity reuse.** A new tab is assigned `tab-3`, inherits a dead tab-3's state, and the user sees a stranger's form | Instance ids must be unique for the process lifetime, never a reused index. The Engine must not derive an id from tab position |
+| 15 | Apply | **Identity reuse.** A new tab is assigned `tab-3`, inherits a dead tab-3's state, and the user sees a stranger's form | Solved structurally by §5.4: a `uuid4` is never reused, so no new instance can collide with a dead one. **Never derive an id from tab position or index** |
 
-Mode 15 is the reason instance-id generation belongs to whoever owns the tab
-container, and why the Engine must not quietly invent one from an index.
+Modes 14 and 15 are both closed by *structure* rather than by discipline —
+`SESSION`-only per-instance state means no disk orphans, and `uuid4` means no
+reuse. That is deliberate: a guard that depends on nobody making a mistake is
+not a guard.
 
 ---
 
@@ -409,9 +473,17 @@ are the part §2 proved must not wait.
 ## 9. Questions still open ❓
 
 The three from the first design still stand (first-pass scope, absolute date vs
-duration, file location). This design adds one:
+duration, file location).
 
-4. **Who mints an instance id?** Whoever owns the tab container — which does not
-   exist yet. Until it does, every scope is a singleton and the question is
-   dormant. It must be answered **before** the first tabbed screen ships, not
-   after (mode 15).
+4. ~~**Who mints an instance id?**~~ → **Answered as D9 (§5.4).** The Engine was
+   surveyed: it has no such API, and the three things that resemble one
+   (`ScopeContext`, `ResourceScope`, and the `uuid4` used by `BackgroundTask` /
+   `BaseEvent`) are either structurally unusable or style precedents only. For
+   the `SESSION` scope we are actually building, `BasePresenter` self-minting a
+   `uuid4` is sufficient and needs **no new Engine API**.
+
+   What remains open is the narrower question it was hiding: **the *stable*
+   (across-restart) id policy**, which only §7's deferred feature needs. It
+   cannot be designed without a tab container, and must be settled **before**
+   the first tabbed screen ships — once per-instance state reaches disk, mode 15
+   stops being recoverable.
