@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -361,10 +362,12 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
 
     def _sync_dirty_opacity(self) -> None:
         # Qt Widgets has no CSS `opacity` for arbitrary QFrame content;
-        # QGraphicsOpacityEffect is the real mechanism, applied lazily here
-        # to avoid paying for it on every screen that never goes dirty.
-        from PySide6.QtWidgets import QGraphicsOpacityEffect
-
+        # QGraphicsOpacityEffect is the real mechanism. The *effect object*
+        # is still built lazily, below, so a panel that never goes dirty
+        # never pays for one -- which is what the laziness was ever for. The
+        # import itself is now at the top, where `code-rule.md` requires it:
+        # binding a name out of a module PySide6 has already loaded costs
+        # nothing, so importing it here bought none of that saving.
         effect = self._trades_tab.graphicsEffect()
         if self._vm.isConfigDirty:
             if not isinstance(effect, QGraphicsOpacityEffect):
