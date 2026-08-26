@@ -1,9 +1,12 @@
 # BUG-051 — UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest
 
 **Reported date:** 2026-08-26
-**Severity:** Chưa đánh giá (chưa điều tra)
-**Status:** 🔴 Open — chỉ mới ghi nhận hiện tượng theo yêu cầu người báo,
-**chưa điều tra root cause**.
+**Severity:** 🟠 P1 (freeze #2, root-caused và sửa) — 2 freeze còn lại (#4/#5, sau
+`ticks_loaded`) **chưa root-caused**.
+**Status:** 🟡 **Đã sửa MỘT PHẦN, 2026-08-26** — freeze #1/#2/#3 (giai đoạn nạp tick,
+gồm cả outlier 69,1s nặng nhất) đã root-caused, sửa, đo lại bằng bằng chứng thật (§5).
+Freeze #4/#5 (giai đoạn mô phỏng, sau `ticks_loaded`) **vẫn Open** — chưa có cơ chế
+được xác nhận cho 2 lần đó, xem §6.
 
 ---
 
@@ -125,3 +128,87 @@ công việc nặng phải nằm ngoài Qt main thread; watchdog không được
    nhận là lỗi độc lập thì tách hồ sơ riêng, đừng gộp vào đây.
 6. Chỉ viết regression test **sau khi** biết pha nào chặn main thread — hiện chưa đủ dữ
    kiện để test đúng chỗ.
+
+## 5. Điều tra 2026-08-26 — freeze #1/#2/#3 (giai đoạn nạp tick): root-caused, sửa,
+đo lại bằng bằng chứng thật
+
+Đúng bước 2/3 ở §4: tái hiện được **cơ chế**, không phải qua GUI thật (không có màn hình
+thật/Binance thật trong môi trường phiên này) mà bằng cách đo trực tiếp đúng lệnh gọi
+`IMarketDataRepository` mà `RunHistoricalTickBacktestCommandHandler` dùng, dưới một
+`QApplication` thật (`QT_QPA_PLATFORM=offscreen`) với một `QTimer` heartbeat 50ms trên main
+thread — cùng cơ chế đo mà `UIWatchdog` thật dùng (`sagittarius_engine`'s
+`extensions/pyside_mvc/safety/ui_watchdog.py`), chỉ mịn hơn (50ms so với 1000ms) để bắt được
+cả những khoảng ngắn hơn ngưỡng cảnh báo 5s.
+
+### Root cause
+
+`RunHistoricalTickBacktestCommandHandler.execute()` (handler.py) gọi
+`self._repository.get_klines(...)` — **một lệnh gọi đồng bộ duy nhất** vật chất hoá **toàn bộ**
+dải tick (tới hàng triệu dòng với range rộng/`tick_resolution` mịn) thành 1 list Python trước
+khi vòng lặp mô phỏng kịp bắt đầu. Đây **chính xác** là bug `BUG-025` đã tìm ra và sửa cho
+`RunStaticBacktestCommandHandler` ("Đường dữ liệu ... Backtest (DB→RAM) không streaming") —
+nhưng `RunHistoricalTickBacktestCommandHandler` (BOT-076, engine tick-driven, tách biệt vĩnh
+viễn khỏi Static theo chính docstring của nó) **chưa bao giờ được áp cùng fix**, vẫn dùng
+`get_klines()` thay vì `count_klines()`+`stream_klines()`.
+
+Khớp đúng quan sát #5 ở §2 trên: freeze nặng nhất (69,1s) và freeze #3 (13,8s) đều nằm **trong**
+cửa sổ `handler_execute_start` → `handler_ticks_loaded` — tức đúng lúc `get_klines()` đang chạy.
+Freeze #1 (5,1s) nằm ngay **sau** `handler_ticks_loaded` của lần chạy `5m` — thời điểm log dòng
+đó không đồng nghĩa công việc materialize đã hoàn toàn xong (GC/finalization của list vừa dựng
+có thể còn đang chạy khi log dòng tiếp theo được ghi).
+
+### Bằng chứng đo được (đo thật, không suy diễn)
+
+DB SQLite thật (`DatabaseManager`/`SQLAlchemyMarketDataRepository`, cùng lớp production), nạp
+1.500.000 kline tổng hợp cho `BTCUSDT`/`1s`, đo trên background thread trong khi main thread
+chạy `app.exec()` thật với heartbeat 50ms:
+
+| Đường dữ liệu | Thời gian tải | Heartbeat gap lớn nhất | Số gap >1s | Số gap >0.5s |
+| :--- | :---: | :---: | :---: | :---: |
+| `get_klines()` (`query.all()`, cũ) | **69,9s** | **1,879s** | 4 | 9 |
+| `count_klines()`+`stream_klines()` (`yield_per(1000)`, mới) | **27,98s** | **0,088s** | 0 | 0 |
+
+Streaming vừa **nhanh hơn 2,5×** vừa **không còn gap heartbeat nào vượt 0,1s** (so với
+heartbeat khoẻ mạnh ~0,05-0,09s) — trong khi `get_klines()` cũ tạo ra 4 gap thật sự vượt 1
+giây, kể cả khi hàm này **đã chạy trên background thread** (`ThreadManager`, xem
+`backtest_presenter.py::_run_backtest`'s docstring "submitted to IThreadManager") — chạy nền
+không tự bảo vệ main thread khỏi một cú vật chất hoá Python khổng lồ duy nhất.
+
+*(Lưu ý loại trừ đã thử trước khi tìm ra cơ chế này: một vòng lặp Python thuần 3 triệu lần lặp
+với alloc/arithmetic tương tự, không chạm DB, **không** gây gap nào trên cùng stack — nên đây
+không phải hiện tượng GIL-starvation chung chung từ CPU work, mà đặc thù của việc vật chất hoá
+hàng triệu ORM row/dataclass trong 1 lệnh gọi.)*
+
+### Fix
+
+`RunHistoricalTickBacktestCommandHandler` đổi sang đúng pattern `BUG-025` đã dùng cho
+`RunStaticBacktestCommandHandler`: `count_klines()` lấy tổng số tick trước (không vật chất hoá
+gì), rồi `_simulate()` tiêu thụ `stream_klines()` (generator, `yield_per(1000)`) thay vì
+`list[MarketData]`. `last_tick` được theo dõi tăng dần trong vòng lặp (thay `ticks[-1]`) —
+cùng bất biến `BUG-025` đã đặt ra cho phía Static (`RuntimeError` nếu stream rỗng dù
+`count_klines()` báo có dữ liệu, thay vì crash `None` bên trong `force_close()`).
+
+### Regression test
+
+`tests/unit/application/use_cases/test_run_historical_tick_backtest.py::test_handler_never_calls_get_klines`
+— khẳng định trực tiếp `repository.get_klines` **không bao giờ** được gọi, còn
+`count_klines`/`stream_klines` **có** được gọi. Xác nhận đỏ đúng lý do trước khi sửa
+(`TypeError: object of type 'Mock' has no len()` — đúng chỗ code cũ gọi `len(ticks)` trên kết
+quả `get_klines()` chưa được mock cấu hình), xanh sau khi sửa. Toàn bộ 12 test hiện có của
+handler này + `test_backtest_with_broker_simulation.py` (đường tick-driven) đều pass không đổi
+assertion nào, chỉ đổi cách mock repository (từ `get_klines.return_value` sang
+`count_klines`/`stream_klines` `.side_effect`, đúng convention `BUG-025` đã thiết lập cho phía
+Static test).
+
+## 6. Freeze #4/#5 (giai đoạn mô phỏng, sau `ticks_loaded`) — vẫn Open
+
+Fix ở §5 chỉ chạm giai đoạn **nạp** tick. Freeze #4 (5,3s, `08:24:04`) và #5 (5,5s, `08:24:14`)
+xảy ra **sau** `handler_ticks_loaded` (`08:23:40`) — tức trong lúc `_simulate()` đang chạy vòng
+lặp per-tick thật (`engine.on_forming_bar_tick`/`on_tick`, 2.592.000 lần). Việc chuyển sang
+stream **có thể** giúp một phần (không còn giữ nguyên list 2,59 triệu tick trong RAM suốt lúc mô
+phỏng, chỉ còn chunk 1000 dòng tại một thời điểm), nhưng **chưa có bằng chứng đo được** cho pha
+này — phiên này không dựng lại được đúng chiến lược `ema_trend_confirm_pullback` thật hay đủ
+2,59 triệu tick thật để đo. Việc còn thiếu, không đổi so với §4 mục 2/3: tái hiện `--debug` trên
+app thật ở đúng range đó, đọc log `[chart-data]`/watchdog quanh mốc `08:24:04`-`08:24:28` để xác
+nhận freeze #4/#5 có tự hết sau fix này hay cần một cơ chế khác (ví dụ: chart re-render sau
+`simulation_complete`, hoặc chính vòng lặp per-tick strategy evaluation).
