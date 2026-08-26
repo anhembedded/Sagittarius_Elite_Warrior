@@ -9,20 +9,38 @@ restore/capture logic. Uses this directory's existing `app_engine` fixture
 (a real boot, mocked only at the dispatcher) rather than inventing a second
 one.
 
-@par Why this file has its own `open_window` fixture instead of reusing
-`conftest.py`'s `main_window` fixture
-That fixture has no way to pass `state_coordinator`. But its long docstring
-documents *why* it does more than `MainWindow(app_engine)` + `.close()`: a
-background AutoStartController timer or thread-pool task left running past
-a test's end can fire into already-torn-down Qt widgets — a real, previously
-reproduced crash. `open_window` below re-applies that exact same safety
-sequence (cancel autostart/cancellation token, drain the thread pool, clean
-up chart cards, close + deleteLater + drain the event loop) so this suite
-gets the same guarantee for windows it constructs directly.
+@par Why this file has its own window harness instead of `conftest.py`'s
+`main_window` fixture
+That fixture has no way to pass `state_coordinator`. `_WindowHarness` below
+re-applies its documented teardown sequence (cancel autostart and the
+presenter cancellation tokens, drain background work, clean up chart cards,
+close + deleteLater + drain the event loop) for windows this suite must
+construct itself.
+
+@par Why the harness waits on submitted futures rather than calling
+`IThreadManager.shutdown(wait=True)`
+`conftest.py`'s fixture drains by shutting the pool down, which is fine at
+teardown but fatal here: `test_route_change_and_sidebar_toggle_survive_a_restart`
+opens a *second* window in the same process, and a shut-down
+`ThreadPoolExecutor` rejects every later `submit()`. `IThreadManager` has no
+wait-for-idle verb (only `submit` and `shutdown`), so the harness wraps
+`submit` to record each `Future` and blocks on exactly those.
+
+That draining is not defensive padding — without it this suite **deadlocked**,
+reproducibly, in longer runs. `DataManagementPresenter.shutdown()` cancels
+only cooperatively (it sets a token flag and returns; see its own docstring),
+so a `run_auto_discover` worker from window 1 was still mid-`dispatch` while
+the main thread built window 2's `DataManagementView`. Both threads then
+touched the same `MagicMock` dispatcher, whose child-mock creation mutates
+shared state and is not thread-safe, and the process hung with the main
+thread stuck in GC. The cooperative-only shutdown is pre-existing app
+behaviour, not something `EPIC-010` introduced; this harness is what keeps
+the two windows from overlapping.
 """
 
 from __future__ import annotations
 
+import concurrent.futures
 from pathlib import Path
 
 import pytest
@@ -39,6 +57,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
 )
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+#: A drain that exceeds this is a hang, not slow work — every task these
+#: windows submit runs against a mocked dispatcher and returns in
+#: milliseconds. Bounded so a regression fails loudly instead of hanging the
+#: suite, which is exactly how the deadlock above first presented itself.
+_DRAIN_TIMEOUT_SECONDS = 30.0
+
 
 def _coordinator_over(tmp_path: Path) -> UiStateCoordinator:
     """A real `ConfigManagerStateStore` over a scratch file — not
@@ -50,26 +74,37 @@ def _coordinator_over(tmp_path: Path) -> UiStateCoordinator:
     return UiStateCoordinator(store, debounce_ms=50_000)  # flush() drives writes
 
 
-@pytest.fixture
-def open_window(qtbot, app_engine):
-    """Returns a factory `open_window(coordinator=None) -> MainWindow`.
+class _WindowHarness:
+    """Opens `MainWindow`s and guarantees each one is fully quiet before the
+    next is built (and before the test ends). See the module docstring."""
 
-    Every window it constructs is torn down the same way `conftest.py`'s
-    `main_window` fixture tears down its own window — see the module
-    docstring for why that matters.
-    """
-    windows: list[MainWindow] = []
+    def __init__(self, qtbot, app_engine, monkeypatch) -> None:
+        self._qtbot = qtbot
+        self._app_engine = app_engine
+        self._open_windows: list[MainWindow] = []
+        self._futures: list[concurrent.futures.Future] = []
 
-    def _open(coordinator: UiStateCoordinator | None = None) -> MainWindow:
-        window = MainWindow(app_engine, state_coordinator=coordinator)
-        qtbot.addWidget(window)
-        windows.append(window)
+        thread_manager = app_engine.context.container.resolve(IThreadManager)
+        real_submit = thread_manager.submit
+
+        def recording_submit(task, *args, **kwargs):
+            future = real_submit(task, *args, **kwargs)
+            self._futures.append(future)
+            return future
+
+        monkeypatch.setattr(thread_manager, "submit", recording_submit)
+
+    def open(self, coordinator: UiStateCoordinator | None = None) -> MainWindow:
+        window = MainWindow(self._app_engine, state_coordinator=coordinator)
+        self._qtbot.addWidget(window)
+        self._open_windows.append(window)
         return window
 
-    yield _open
+    def close(self, window: MainWindow) -> None:
+        """Flushes state, cancels every background worker this window owns,
+        then blocks until they have actually returned."""
+        window.shutdown()  # flushes state_coordinator, disposes presenters
 
-    for window in windows:
-        window.shutdown()  # flushes state_coordinator, requests presenter shutdown
         for entry in window._router._registry.values():
             presenter = entry.get("presenter_instance")
             autostart = getattr(presenter, "_autostart", None)
@@ -79,11 +114,15 @@ def open_window(qtbot, app_engine):
             if token is not None:
                 token.cancel()
 
-    thread_manager = app_engine.context.container.resolve(IThreadManager)
-    if thread_manager is not None:
-        thread_manager.shutdown(wait=True)
+        pending = self._futures
+        self._futures = []
+        _, not_done = concurrent.futures.wait(pending, timeout=_DRAIN_TIMEOUT_SECONDS)
+        assert not not_done, (
+            f"{len(not_done)} background task(s) still running "
+            f"{_DRAIN_TIMEOUT_SECONDS}s after shutdown — see this module's "
+            f"docstring, this is the deadlock condition, not slow work"
+        )
 
-    for window in windows:
         for entry in window._router._registry.values():
             view = entry.get("view_instance")
             cards = getattr(view, "chart_cards", None)
@@ -92,38 +131,48 @@ def open_window(qtbot, app_engine):
                     if hasattr(card, "cleanup"):
                         card.cleanup()
                 cards.clear()
+
         window.close()
         window.deleteLater()
+        self._qtbot.wait(100)  # let the DeferredDelete actually be processed
+        self._open_windows.remove(window)
 
-    qtbot.wait(100)
+    def close_all(self) -> None:
+        for window in list(self._open_windows):
+            self.close(window)
 
 
-def test_a_bare_main_window_still_works_with_no_coordinator(open_window):
+@pytest.fixture
+def windows(qtbot, app_engine, monkeypatch):
+    harness = _WindowHarness(qtbot, app_engine, monkeypatch)
+    yield harness
+    harness.close_all()
+
+
+def test_a_bare_main_window_still_works_with_no_coordinator(windows):
     """Backward compatibility: every existing caller that constructs
     `MainWindow(app_engine)` with no `state_coordinator` — several tests, and
     every route in production before `010A`/`010B` are promoted to the
     Engine — must keep working exactly as before."""
-    window = open_window()
+    window = windows.open()
 
     assert window._current_route == "dashboard"
 
 
-def test_restores_route_sidebar_and_geometry_from_a_prior_session(
-    open_window, tmp_path
-):
+def test_restores_route_sidebar_and_geometry_from_a_prior_session(windows, tmp_path):
     coordinator = _coordinator_over(tmp_path)
     coordinator._store.write(
         StateScope(key="shell"),
         {"last_route": "backtest", "sidebar_collapsed": True},
     )
 
-    window = open_window(coordinator)
+    window = windows.open(coordinator)
 
     assert window._current_route == "backtest"
     assert window._sidebar.is_collapsed is True
 
 
-def test_an_unknown_persisted_route_falls_back_to_the_default(open_window, tmp_path):
+def test_an_unknown_persisted_route_falls_back_to_the_default(windows, tmp_path):
     """D5 — a restored value is a request, not a command: a route from an
     older build that got renamed or removed must not be navigated to."""
     coordinator = _coordinator_over(tmp_path)
@@ -131,13 +180,13 @@ def test_an_unknown_persisted_route_falls_back_to_the_default(open_window, tmp_p
         StateScope(key="shell"), {"last_route": "a_screen_that_no_longer_exists"}
     )
 
-    window = open_window(coordinator)
+    window = windows.open(coordinator)
 
     assert window._current_route == "dashboard"
 
 
 def test_restoring_a_non_default_route_never_touches_the_default_screen(
-    open_window, tmp_path
+    windows, tmp_path
 ):
     """Proves the lazy-loading guarantee end to end, not just by reading
     `_current_route`: restoring straight into `"backtest"` must mean
@@ -147,7 +196,7 @@ def test_restoring_a_non_default_route_never_touches_the_default_screen(
     coordinator = _coordinator_over(tmp_path)
     coordinator._store.write(StateScope(key="shell"), {"last_route": "backtest"})
 
-    window = open_window(coordinator)
+    window = windows.open(coordinator)
 
     dashboard_entry = window._router._registry["dashboard"]
     backtest_entry = window._router._registry["backtest"]
@@ -155,27 +204,32 @@ def test_restoring_a_non_default_route_never_touches_the_default_screen(
     assert backtest_entry["presenter_instance"] is not None
 
 
-def test_route_change_and_sidebar_toggle_survive_a_restart(open_window, tmp_path):
-    """The real round trip: change state, flush, reopen with a fresh store
-    instance pointed at the same file — as a real restart would be."""
+def test_route_change_and_sidebar_toggle_survive_a_restart(windows, tmp_path):
+    """The real round trip: change state, close the window completely, then
+    reopen with a fresh store instance pointed at the same file — as a real
+    restart would be.
+
+    `windows.close()` between the two is load-bearing, not tidiness: see the
+    module docstring for the deadlock that skipping it produced.
+    """
     coordinator = _coordinator_over(tmp_path)
-    window = open_window(coordinator)
+    window = windows.open(coordinator)
 
     window.switch_screen("data_management")
     window._sidebar.set_collapsed(True)
     window._sidebar.collapsed_changed.emit()  # what the real toggle button fires
-    window.shutdown()  # flushes now, rather than waiting for open_window's teardown
+    windows.close(window)  # flushes, then waits for every worker to return
 
     reopened_coordinator = _coordinator_over(tmp_path)  # a fresh process, fresh store
-    reopened = open_window(reopened_coordinator)
+    reopened = windows.open(reopened_coordinator)
 
     assert reopened._current_route == "data_management"
     assert reopened._sidebar.is_collapsed is True
 
 
-def test_capture_state_round_trips_through_restore_state(open_window, tmp_path):
+def test_capture_state_round_trips_through_restore_state(windows, tmp_path):
     coordinator = _coordinator_over(tmp_path)
-    window = open_window(coordinator)
+    window = windows.open(coordinator)
     window.switch_screen("backtest")
     captured = window.capture_state()
 
