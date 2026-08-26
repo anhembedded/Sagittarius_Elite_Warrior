@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa / đã đóng** | 48 |
-| 📈 **Tổng** | **52** |
+| ✅ **Đã sửa / đã đóng** | 49 |
+| 📈 **Tổng** | **53** |
 
 ---
 
@@ -37,8 +37,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-052](incomplete/BUG-052_process_does_not_exit_after_graceful_shutdown.md)** | Thoát app: shutdown chạy hết, log `App stopped.` nhưng tiến trình không return | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Shutdown **không** treo giữa chừng — chạy đủ 8,8s rồi log `App stopped.`, sau đó im hẳn mà process vẫn sống. 8,71/8,8s nằm gọn ở `BinanceBotModule.stop()`. Cùng phiên với BUG-051. Cùng lớp với BUG-007/023/041 đã đóng — chưa xác minh có phải regression không. |
-| **[BUG-051](incomplete/BUG-051_ui_freeze_during_historical_tick_backtest.md)** | UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Watchdog bắn 5 lần trong ~4 phút, cả 5 đều nằm trong cửa sổ `RunHistoricalTickBacktestCommand`; 4/5 stack dump dừng ở `app.exec()` nên không truy được frame chặn. |
+| **[BUG-054](incomplete/BUG-054_process_does_not_exit_after_graceful_shutdown.md)** | Thoát app: shutdown chạy hết, log `App stopped.` nhưng tiến trình không return | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Shutdown **không** treo giữa chừng — chạy đủ 8,8s rồi log `App stopped.`, sau đó im hẳn mà process vẫn sống. 8,71/8,8s nằm gọn ở `BinanceBotModule.stop()`. Cùng phiên với BUG-053. Cùng lớp với BUG-007/023/041 đã đóng — chưa xác minh có phải regression không. |
+| **[BUG-053](incomplete/BUG-053_ui_freeze_during_historical_tick_backtest.md)** | UI đơ nhiều lần (5.1s → 69.1s) trong lúc chạy Historical Tick Backtest | Chưa đánh giá | 2026-08-26 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. Watchdog bắn 5 lần trong ~4 phút, cả 5 đều nằm trong cửa sổ `RunHistoricalTickBacktestCommand`; 4/5 stack dump dừng ở `app.exec()` nên không truy được frame chặn. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | Chỉ mới ghi nhận hiện tượng theo yêu cầu, chưa điều tra root cause. OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. |
 | **[BUG-030](incomplete/BUG-030_parallel_test_run_worker_dies_after_resource_warning.md)** | `ci-local.ps1 -Full` (song song `-n 6`) chết giữa chừng sau `ResourceWarning: unclosed database`, không có summary | 🟡 P2 | 2026-08-21 | Tái hiện 2/2 lần **đúng cùng 1 chỗ** (không phải flaky), chỉ trên Windows. **Cập nhật 2026-08-25:** cơ chế đã chứng minh — `engine.dispose()` chỉ đóng connection *checked-in*; một `Session` còn checked-out thì `dispose_all()` **không** đóng, để lại cho GC → đúng điều kiện sinh `ResourceWarning`. Nên bước "cứ thêm `dispose_all()`" là **không đủ**. Linux đo lại bằng bằng chứng dương tính: 0 connection chưa đóng trên cả 6 worker. Đã có `scripts/bug030_connection_leak_probe.py` để chỉ đích danh file:line khi chạy được trên Windows. |
 
@@ -48,6 +48,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-051](completed/BUG-051_status_row_clipped_to_one_line_of_text.md)** | Mọi dòng bảng Database Status bị cắt còn 14px, 4 nút hành động render thành viền rỗng không chữ | 🟡 P2 | 2026-08-26 | `setIndexWidget()` không cấp chiều cao cho ô; delegate mặc định trả về chiều cao **một dòng text**. Sửa bằng delegate đọc `sizeHint()` của chính widget. Lộ ra khi chụp ảnh trước/sau cho `EPIC-007F`, không phải user báo. |
 | **[BUG-049](completed/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Đóng 2026-08-25: root-caused, không sửa code được. `gc.set_debug(gc.DEBUG_UNCOLLECTABLE)` cho thấy đúng dạng cycle metaobject PySide6/shiboken (`QtCore.Property` + closure + `QMetaObject`/`Shiboken.ObjectType`) — đặc tính binding, không phải do `binance_fake_server.py` tạo ra. D6 chỉ là cái khiến `app.boot()` chạy đủ xa để cycle có sẵn lộ ra (trước đó treo/lỗi mạng thật theo BUG-045). |
 | **[BUG-048](completed/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `_handler` kiểm `is_headless_qt_platform()` trước khi gọi `dialog.exec()`. Xác nhận bằng đúng fault injection đã phát hiện bug — exit code 1 dưới 5s thay vì treo. Regression test đỏ-đúng-lý-do trước fix, xanh sau fix. |
 | **[BUG-050](completed/BUG-050_capital_dialog_apply_button_can_never_be_disabled.md)** | `CapitalDialogWidget`'s "Áp dụng" button không bao giờ bị disable, kể cả khi vốn nhập sai | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `__init__` ghi đè nút thật (do `_build_buttons()` tạo trong `super().__init__()`) bằng `self._btn_apply = None` ở cuối `__init__`. Regression test đỏ đúng lý do (`AttributeError: 'NoneType' object has no attribute 'isEnabled'`) trước fix, xanh sau. 0 test coverage trước đó cho cả widget. |

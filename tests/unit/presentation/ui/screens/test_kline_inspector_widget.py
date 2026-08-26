@@ -103,10 +103,11 @@ def test_inspect_klines_opens_dialog_and_first_row_matches_source_data(
 
     index0 = model.index(0, 0)
     row_widget = dialog._kline_list.indexWidget(index0)
-    assert row_widget._time_label.text() == "2024-01-01 00:00:00"
-    assert row_widget._open_label.text() == model.data(index0, model.OpenRole)
-    assert row_widget._close_label.text() == model.data(index0, model.CloseRole)
-    assert row_widget._trades_label.text() == "5"
+    cells = row_widget.cell_texts()
+    assert cells[0] == "2024-01-01 00:00:00"
+    assert cells[1] == model.data(index0, model.OpenRole)
+    assert cells[4] == model.data(index0, model.CloseRole)
+    assert cells[7] == "5"
 
     assert dialog._subtitle_label.text() == "BTCUSDT (1m) • 3 nến • Trang 1/1"
 
@@ -154,4 +155,4 @@ def test_audit_result_updates_banner_text_and_color(qapp, database_screen):
 
     assert dialog._btn_audit.isEnabled() is True
     assert dialog._audit_banner.isVisible() is True
-    assert dialog._audit_summary_label.text() == "2 anomalies found"
+    assert dialog._audit_banner.message == "2 anomalies found"
