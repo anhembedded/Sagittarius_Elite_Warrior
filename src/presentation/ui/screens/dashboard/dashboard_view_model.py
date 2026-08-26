@@ -25,7 +25,11 @@ _IDLE_STATUS_COLOR = Palette.MUTED
 # other.
 _DEFAULT_SYMBOL = "ETHUSDT"
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
-_DEFAULT_LOOKBACK_DAYS = 7
+#: Public because `DashboardPresenter` needs the same number to fall back on
+#: when a remembered `lookback_days` is missing or nonsense (`EPIC-010D`).
+#: Shared rather than re-declared — a second copy of "7" is exactly the
+#: duplicated-default problem `EPIC-010H` exists to remove.
+DEFAULT_LOOKBACK_DAYS = 7
 
 
 class DashboardQmlViewModel(BaseQmlViewModel):
@@ -74,7 +78,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
         self._symbol = _DEFAULT_SYMBOL
         now = datetime.now(UTC)
-        self._start_date = (now - timedelta(days=_DEFAULT_LOOKBACK_DAYS)).strftime(
+        self._start_date = (now - timedelta(days=DEFAULT_LOOKBACK_DAYS)).strftime(
             DATETIME_FORMAT
         )
         self._end_date = now.strftime(DATETIME_FORMAT)

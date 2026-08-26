@@ -146,6 +146,12 @@ Sagittarius_Elite_Warrior/
 # Dev-mode session logs (app_bootstrapper --dev)
 logs/
 
+# EPIC-010 -- remembered UI state (state/ui_state.json). Never committed:
+# it is per-machine memory, not project source. Anchored to the repo root
+# ("/state/", not "state/") -- an unanchored pattern also matches
+# src/presentation/ui/state/, which is source code, not data.
+/state/
+
 # Documentation site builds (MkDocs)
 site/
 Tasks/dashboard.html

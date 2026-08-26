@@ -56,6 +56,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
+    ConfigManagerStateStore,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.repo_state_store_locator import (
+    RepoStateStoreLocator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
@@ -174,7 +183,21 @@ def build() -> AppRuntime:
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow
     # ------------------------------------------------------------------ #
-    window = MainWindow(app_engine)
+    # EPIC-010 — remembered UI state. Constructed here, after QApplication
+    # exists, because UiStateCoordinator owns a QTimer. Nothing else needs a
+    # handle on it: MainWindow.shutdown() flushes it, and teardown() already
+    # calls that, so it stays out of AppRuntime.
+    state_coordinator = UiStateCoordinator(
+        ConfigManagerStateStore(RepoStateStoreLocator())
+    )
+    # Registered so screen presenters can find it: PresenterManager builds
+    # each presenter as `presenter_class(view, container)`, with no seam for
+    # extra constructor arguments, so the container is the only way through.
+    # A presenter must therefore treat it as optional (see
+    # DashboardPresenter) — every test that builds a presenter against a bare
+    # container would otherwise break.
+    app_engine.context.container.singleton(UiStateCoordinator, state_coordinator)
+    window = MainWindow(app_engine, state_coordinator=state_coordinator)
     window.show()
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime

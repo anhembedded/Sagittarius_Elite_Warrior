@@ -222,7 +222,7 @@ flowchart LR
     style P fill:#1F4E5C,color:#fff
 ```
 
-This also answers the user's question — *"does `StateStoreLocator` already have
+This also answers the user's question — *"does the locator already have
 that mechanism?"* — honestly: **no, and it should not.** Deciding *which store*
 is routing, not locating. The locator answers "which file, where, and how do I
 delete it" for the persistent store only. Splitting those two keeps each with one
@@ -330,6 +330,7 @@ classDiagram
         +reset() None
         note "Owns WHERE and WHEN-DELETED
         for the persistent store only.
+        Wraps QStandardPaths — audit row 11.
         Knows nothing about lifetime."
     }
 
@@ -376,8 +377,8 @@ classDiagram
     IStateStore ..> StateScope
     UiStateCoordinator o-- IStateStore
     UiStateCoordinator ..> IStateContributor
-    UiStateCoordinator o-- IStateDefaultsProvider
     ConfigManagerStateStore o-- IStateStoreLocator
+    UiStateCoordinator o-- IStateDefaultsProvider
     UiStateExtension ..> UiStateCoordinator
 ```
 
@@ -563,6 +564,145 @@ not another. The two directions are **not** equally safe:
 
 ---
 
+## 5.6 What Qt already solves — and the resulting trim ✅ Established
+
+> **Review question:** *"Isn't this too complex? Does Qt have something that
+> helps here?"* Both halves deserved a real answer, so the Qt surface was
+> enumerated by reflection over `PySide6` rather than recalled.
+
+### 5.6.1 The measurement
+
+`saveGeometry`/`restoreGeometry` exist on **`QWidget`**, so every widget in the
+app inherits them. `saveState`/`restoreState`, however, exist on exactly **four**
+classes:
+
+| Class | What its state blob holds |
+| :--- | :--- |
+| `QMainWindow` | dock and toolbar layout |
+| `QSplitter` | splitter sizes |
+| `QHeaderView` | column widths, order, sort |
+| `QFileDialog` | its own sidebar/view state |
+
+Also present: `QSessionManager`, plus `QGuiApplication.sessionId()`,
+`isSessionRestored()`, `commitDataRequest`, `saveStateRequest`.
+
+### 5.6.2 The dividing line
+
+> **Qt persists widget *chrome*. It cannot persist application *values*.**
+
+Qt has no idea what `"ETHUSDT"` means, so nothing in the list above can store the
+selected symbol, the typed capital, or which strategy is chosen. Mapping it onto
+the tiers from the first design:
+
+| Tier item | Qt covers it? |
+| :--- | :--- |
+| Window size / position / maximised | ✅ `saveGeometry` |
+| Splitter sizes (was **T3**) | ✅ `QSplitter.saveState` |
+| Table column widths (was **T3**) | ✅ `QHeaderView.saveState` |
+| Dev Board / Database symbol + interval (**T1**) | ❌ application values |
+| Last route, sidebar collapsed (**T1**) | ❌ |
+| Backtest strategy / capital / commission (**T2**) | ❌ |
+| Chart zoom & pan (**T3**) | ❌ pyqtgraph, not Qt |
+
+**Qt covers most of what was deferred, and none of what was prioritised.** That
+is a useful result in both directions: T3 gets cheaper, T1 does not shrink.
+
+### 5.6.3 Correction — the geometry blob argument was wrong ⛔ Supersedes §4.1.2 point 4
+
+§4.1.2 concluded that hand-storing `x/y/w/h` and validating the rect against
+`QGuiApplication.screens()` was *"more in the spirit of D5"* than Qt's opaque
+`QByteArray`. On re-examination that was **special pleading**: `restoreGeometry()`
+performs its own off-screen and DPI sanity checks, so the hand-rolled version
+buys no extra safety while costing code and getting multi-monitor wrong in ways
+Qt already handles.
+
+> **Revised:** store the `QByteArray` from `saveGeometry()` / `QSplitter.saveState()`
+> as base64 inside the ordinary slice. **Let Qt own what Qt owns.** The cost is
+> honest and small — one opaque field per widget, unreadable in the JSON, and
+> tied to Qt's own format version. D5 still applies to everything Qt does not
+> understand, which is every application value.
+
+### 5.6.4 `QSessionManager` — related, but a different problem
+
+It exists, and it is the right thing to name here so nobody later asks why it was
+skipped. It handles **OS-initiated session end** — the desktop session is closing
+and asks applications to save and declare a restart command. It requires platform
+session-manager support, and it says nothing about identity *within* one
+application.
+
+It does not answer D10, whose case is the ordinary one: the user quit normally
+and reopened the app tomorrow. No session manager is involved in that at all.
+
+### 5.6.5 The complexity answer: reuse, don't cut 🔵 Proposed
+
+An earlier revision answered the complexity concern by cutting three
+abstractions. The user rejected that and gave a better rule:
+
+> *"Don't cut them. But show me: wherever a problem already has a library, apply
+> it — don't write code."*
+
+That is the right instinct, and it is a **stronger** answer than cutting, because
+the abstractions were never the weight. The weight is hand-written mechanism.
+So: every abstraction in §5 stays, and §5.6.6 audits each *problem* against what
+already exists.
+
+The complexity concern still gets its honest half:
+
+> **The document is complex. The first increment is not.**
+
+Of the 16 failure modes, **13-16 all concern a feature that is not being built**;
+D10 authorises no code at all.
+
+### 5.6.6 Problem-by-problem reuse audit ✅ Established
+
+Every row measured on this container (PySide6 6.11.1, Python 3.12.3), not
+recalled. **"Write" appears eight times, and six of those are a handful of lines.**
+
+| # | Problem | Already solved by | Verified how |
+| :-: | :--- | :--- | :--- |
+| 1 | Persist JSON, merge one slice, leave others alone | ✅ `ConfigManager.save()` — writes only `_dirty` onto the file's current contents | probe H1/H2 |
+| 2 | Corrupt file must not block boot | ✅ `JsonSource.read()` swallows `JSONDecodeError` → `{}` | probe H3 |
+| 3 | Dirty tracking (which keys changed) | ✅ `ConfigManager._dirty` | source read |
+| 4 | Window size / position / maximised / off-screen / DPI | ✅ `QWidget.saveGeometry()` / `restoreGeometry()` | §5.6.1 |
+| 5 | Splitter sizes | ✅ `QSplitter.saveState()` / `restoreState()` | §5.6.1 |
+| 6 | Table column widths, order, sort | ✅ `QHeaderView.saveState()` / `restoreState()` | §5.6.1 |
+| 7 | Dock / toolbar layout | ✅ `QMainWindow.saveState()` / `restoreState()` | §5.6.1 |
+| 8 | **Debounce** — coalesce a burst of changes into one write | ✅ **`QTimer` natively.** `setSingleShot(True)`, then `start()` on every change *restarts* the countdown | measured: 3 rapid `start()` calls → **1** `timeout` |
+| 9 | **Restore without firing signals** (mode #12) | ✅ **`QSignalBlocker`** | measured: value applied, **0** signals emitted |
+| 10 | Putting a Qt binary blob into JSON | ✅ `QByteArray.toBase64()` / `fromBase64()` | measured: round-trip exact |
+| 11 | Per-user config directory | ✅ `QStandardPaths.AppConfigLocation` — yields `.../Sagittarius/EliteWarrior` once org/app name is set | measured |
+| 12 | Unique, never-reused instance id | ✅ `uuid.uuid4()` (stdlib) — and the Engine's own house style | `BackgroundTask:31`, `BaseEvent:71` |
+| 13 | Immutable value object | ✅ `dataclasses.dataclass(frozen=True)` (stdlib) | — |
+| 14 | Closed set of lifetimes | ✅ `enum.Enum` (stdlib) | — |
+| 15 | Main-thread enforcement | ✅ Engine's `@ui_mutator` / `set_thread_affinity_dev_mode` | `safety/thread_affinity.py:30` |
+| 16 | Atomic write, if ever wanted | ✅ `os.replace()` (stdlib) — not needed now (§4.1.3) | — |
+| 17 | Presenter lifecycle + teardown hook | ✅ `PresenterManager` + `BasePresenter.dispose()` | §3.2 |
+| — | **`StateScope` / `Lifetime` definitions** | ✍️ write — ~20 lines of dataclass + enum | |
+| — | **`IStateStore` + the 3 implementations** | ✍️ write — but `ConfigManagerStateStore` is a thin wrapper over row 1-3; `InMemory` and `Null` are ~10 lines each | |
+| — | **`StateStoreLocator`** | ✍️ write — wraps row 11 plus a `reset()` that deletes the file | |
+| — | **`IStateContributor` + no-op defaults** | ✍️ write — a Protocol and two empty methods | |
+| — | **`UiStateCoordinator`** | ✍️ write — but debounce is row 8, so it is bookkeeping, not timing logic |
+| — | **`IStateDefaultsProvider` + the chain** | ✍️ write — the §4.3 resolution order | |
+| — | **`UiStateExtension`** | ✍️ write — `register`/`boot`/`shutdown` wiring |
+| — | **Per screen: `capture_state` / `restore_state`** | ✍️ write — ~10 lines each, and this is the part **no library can ever supply**, because it is application policy (rule 4) |
+
+**What the audit changes, concretely:**
+
+- **Row 8 removes the piece that sounded hardest.** "Debounce with coalescing"
+  reads like real machinery; it is `setSingleShot(True)` plus calling `start()`
+  again. `UiStateCoordinator` shrinks to bookkeeping.
+- **Row 9 turns mode #12 from a discipline into a mechanism.** D6 said *"restore
+  the ViewModel, not the widget"* partly to dodge signals. With `QSignalBlocker`
+  measured to work, touching a widget is safe when it is genuinely needed —
+  though writing the ViewModel stays preferred, because it also keeps restore
+  testable without a widget tree.
+- **Rows 4-7 + 10 mean nothing is hand-rolled for chrome**, per §5.6.3.
+- **The last row is the floor.** Validation and capture are policy; no library
+  can know whether `"SOLUSDT"` is still tradeable. That is rule 4 restated as a
+  cost estimate.
+
+---
+
 ## 6. Failure modes added by this design 🔵 Proposed
 
 The first document's 12 stand unchanged. Identity and lifetime add three:
@@ -590,7 +730,9 @@ The whole point of §2's asymmetry, made concrete:
 | `StateScope` with `instance_id` | ✅ the field exists | every scope passes `None` |
 | `Lifetime` | ✅ both members | only `PERSISTENT` has real consumers |
 | `InMemoryStateStore` | ✅ (it is the test double anyway) | no app code requests `SESSION` yet |
-| `IStateDefaultsProvider` | ✅ ABC + one link | the chain has one link |
+| `IStateDefaultsProvider` | ✅ ABC + the §4.3 chain | more links (workspace, preset) plug in without touching consumers |
+| `IStateStoreLocator` | ✅ ABC, wrapping `QStandardPaths` (audit row 11) | a second location strategy swaps one class |
+| Qt-owned chrome — geometry, splitters, headers | ✅ store Qt's own blob (§5.6.3) | nothing hand-rolled; this also makes most of **T3 cheap** |
 | Any instance owner — tab host, second window, pane splitter (§1.1) | ❌ nothing | `PresenterManager` stays one-per-route |
 | Restoring a whole multi-instance layout | ❌ nothing | **policy settled by D10** (§5.5) — uuid + persisted roster, rosters as GC roots. Still needs an instance owner to exist before any of it is built |
 
@@ -639,6 +781,14 @@ duration, file location).
    mark-and-sweep with rosters as GC roots. Settled as *policy* only; §7's table
    is unchanged and nothing is built.
 
-**No blocking questions remain on identity.** The three from the first design
-(first-pass scope, absolute date vs duration, file location) are still the only
-things waiting on a decision.
+**No blocking questions remain on identity.**
+
+### 9.1 The three product decisions — settled 2026-08-26 🟢 Approved
+
+| Question | Decision | Consequence |
+| :--- | :--- | :--- |
+| **First-pass scope** | Foundation + T1 + everything Qt covers for free — `010A`…`010E`, then stop and run it for real | `010F`/`010G` (T2) wait on that evaluation. `010H` unchanged |
+| **Dev Board dates** | **Duration**, not absolute timestamps — persist `lookback_days`, recompute `now - N days` on restore | Preserves today's behaviour exactly (`dashboard_view_model.py:77-79` already computes `now - 7 days` per construction) and removes risk **R2**: a stale absolute window making Load History fetch an enormous range. Superseded later if the Dev Board gains a preset picker like Backtest's `time_range_preset` + `custom_start/end` |
+| **File location** | `state/ui_state.json` in the repo, `state/` added to `.gitignore` | Consistent with `logs/` (line 147) and `database/` (line 139); greppable, `cat`-able, delete-to-reset. `QStandardPaths` stays the documented future move behind `IStateStoreLocator` — and is **not usable today** regardless: measured, the app sets no `organizationName`, so it returns a bare `/root/.config` |
+
+**The design is closed.** Nothing in `010A`…`010E` is waiting on an answer.

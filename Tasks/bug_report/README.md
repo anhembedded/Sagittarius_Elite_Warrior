@@ -28,8 +28,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :---: |
 | 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa / đã đóng** | 49 |
-| 📈 **Tổng** | **53** |
+| ✅ **Đã sửa / đã đóng** | 51 |
+| 📈 **Tổng** | **55** |
 
 ---
 
@@ -51,6 +51,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | **[BUG-053](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md)** | Script indicator nhiều đường (MACD) tạo 1 subplot row/đường thay vì 1 row chung | 🟠 P1 | 2026-08-26 | Trong chính hồ sơ này (2026-08-26), phát hiện lúc điều tra BUG-034. `IndicatorScriptRunner.draw()`/`IndicatorManager.add_subplot()` thêm tham số `group` để các đường cùng 1 script dùng chung 1 row thay vì mỗi đường 1 row mới. |
 | **[BUG-052](completed/BUG-052_unscoped_stylesheets_box_every_label.md)** | Mọi nhãn trong app bị vẽ khung riêng; chữ trong stat tile bị cắt 5px | 🟠 P1 | 2026-08-26 | **Gốc thật của `BUG-008`**: selector kiểu trong Qt khớp cả lớp con, `QLabel` kế thừa `QFrame` → `.ClassName`. Chỗ rò lớn nhất là `QStackedWidget` chứa mọi màn hình. Chữ bị cắt là lỗi **riêng**: `setFixedHeight(74)` < 79px nội dung. 6 PR Engine + guard khoá 0. |
 | **[BUG-051](completed/BUG-051_status_row_clipped_to_one_line_of_text.md)** | Mọi dòng bảng Database Status bị cắt còn 14px, 4 nút hành động render thành viền rỗng không chữ | 🟡 P2 | 2026-08-26 | `setIndexWidget()` không cấp chiều cao cho ô; delegate mặc định trả về chiều cao **một dòng text**. Sửa bằng delegate đọc `sizeHint()` của chính widget. Lộ ra khi chụp ảnh trước/sau cho `EPIC-007F`, không phải user báo. |
+| **[BUG-055](completed/BUG-055_data_row_action_stretch_not_in_installed_engine.md)** | Bảng Database vỡ — `DataRow` không nhận `action_stretch` | 🟠 P1 | 2026-08-26 | Đóng 2026-08-26: **cùng nguyên nhân với BUG-054** — Engine trong `.venv` là bản cũ, không phải lỗi code app. Sửa bằng cài lại theo `install-rule.md` Option 1. 11 failed+1 error → **61 passed**. |
+| **[BUG-054](completed/BUG-054_settings_screen_crashes_on_missing_stylerole_members.md)** | Màn Settings vỡ — `StyleRole` không có `HEADING`/`BODY_LABEL` | 🟠 P1 | 2026-08-26 | Đóng 2026-08-26: repo Engine **có đủ** cả 3 API; bản cài cũ hơn. Cả hai bản **đều báo `2.3.0`** nên version string không phân biệt được — đúng bẫy `install-rule.md` §1b đã ghi từ BUG-044. Bản cài đến từ local path, không phải GitHub. |
 | **[BUG-049](completed/BUG-049_sanity_fake_server_thread_leaves_uncollectable_gc_objects.md)** | Fake Binance server's background thread để lại 5 uncollectable GC object lúc interpreter shutdown | 🟢 P3 | 2026-08-25 | Đóng 2026-08-25: root-caused, không sửa code được. `gc.set_debug(gc.DEBUG_UNCOLLECTABLE)` cho thấy đúng dạng cycle metaobject PySide6/shiboken (`QtCore.Property` + closure + `QMetaObject`/`Shiboken.ObjectType`) — đặc tính binding, không phải do `binance_fake_server.py` tạo ra. D6 chỉ là cái khiến `app.boot()` chạy đủ xa để cycle có sẵn lộ ra (trước đó treo/lỗi mạng thật theo BUG-045). |
 | **[BUG-048](completed/BUG-048_uncaught_exception_after_boot_hangs_the_process_via_blocking_modal.md)** | Exception không bắt được sau boot làm treo tiến trình vĩnh viễn qua modal dialog chặn | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `_handler` kiểm `is_headless_qt_platform()` trước khi gọi `dialog.exec()`. Xác nhận bằng đúng fault injection đã phát hiện bug — exit code 1 dưới 5s thay vì treo. Regression test đỏ-đúng-lý-do trước fix, xanh sau fix. |
 | **[BUG-050](completed/BUG-050_capital_dialog_apply_button_can_never_be_disabled.md)** | `CapitalDialogWidget`'s "Áp dụng" button không bao giờ bị disable, kể cả khi vốn nhập sai | 🔴 **P1** | 2026-08-25 | Đóng 2026-08-25: `__init__` ghi đè nút thật (do `_build_buttons()` tạo trong `super().__init__()`) bằng `self._btn_apply = None` ở cuối `__init__`. Regression test đỏ đúng lý do (`AttributeError: 'NoneType' object has no attribute 'isEnabled'`) trước fix, xanh sau. 0 test coverage trước đó cho cả widget. |
