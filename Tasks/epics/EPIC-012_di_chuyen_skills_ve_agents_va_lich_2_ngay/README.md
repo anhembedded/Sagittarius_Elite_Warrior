@@ -135,16 +135,50 @@ account; `github` mà phiên hiện tại đang dùng đến từ cơ chế repo
 CCR, không phải connector cấp account — nên **không có gì để chuyển tiếp**
 cho phiên mới mỗi lần Routine bắn.
 
-**Hệ quả thật:** mỗi phiên do 7 Routine này tạo ra **rất có thể không gọi
-được** `create_pull_request`/`subscribe_pr_activity`/`merge_pull_request` —
-tức bước "mở PR" trong quy trình chuẩn có thể không thực hiện được.
+**Hệ quả (bị đoán quá bi quan lúc PR #140 mới merge, sửa ngay sau đó — xem
+§2.6):** ban đầu ghi là mỗi phiên do Routine tạo ra "rất có thể không gọi
+được" `create_pull_request`. Prompt của cả 7 Routine khi đó được sửa thành
+*thử* mở PR nếu có tool, không thì chỉ push nhánh.
 
-**Đã xử lý bằng cách không giả vờ nó không tồn tại:** prompt của cả 7 Routine
-sửa lại bước 5 thành *thử* mở PR nếu có tool, còn không thì **push nhánh và
-ghi rõ tên nhánh trong tóm tắt cuối** để người dùng hoặc phiên tương tác kế
-tiếp mở PR tay. Không tự chế cách vòng qua giới hạn nền tảng này (ví dụ gọi
-API GitHub thô qua token đoán mò) — đó là quyết định vượt phạm vi việc dời
-thư mục hôm nay.
+### 2.6. Sửa 2026-08-27 (cùng ngày, sau khi user hỏi thẳng): kết luận ở §2.5 sai cơ chế
+
+User phản ứng đúng: *"chạy mà không public PR được thì có ý nghĩa gì nữa"* —
+một agent chạy định kỳ mà chỉ push nhánh rồi bỏ đó, không ai review, không
+khác gì không chạy. Đáng để tìm cách sửa thật thay vì chấp nhận giới hạn.
+
+**Đã kiểm chứng lại bằng hành động thật, không suy đoán lần hai:** gọi
+`add_repo(owner="anhembedded", repo="Sagittarius_Elite_Warrior", access="push")`
+ngay trong phiên này. Kết quả: repo đã gắn sẵn, không cần cấp lại — nhưng quan
+trọng hơn là đọc đúng mô tả của chính tool đó: `access: "push"` kích hoạt
+*"the full repository-access checks"*, một cơ chế cấp quyền theo **tài khoản +
+repo** (giống hệt cơ chế mà chính phiên này đang dùng để gọi
+`create_pull_request` suốt cả buổi) — **hoàn toàn khác** với "connector" kiểu
+Gmail/Slack mà `create_trigger`/`ListConnectors` nói tới ở §2.5. Cảnh báo
+"no MCP connectors" của `create_trigger` là **có thật nhưng lạc đề** — nó nói
+về loại cấp quyền không liên quan tới cách phiên này thật sự có tool GitHub.
+
+**Sửa:** cả 7 prompt Routine đổi bước 1 thành gọi `add_repo` với
+`access: "push"` tường minh (chứ không chỉ "add nếu chưa có" — mặc định của
+`add_repo` là `"read"`, không đủ để mở PR), và bước 5 đổi từ "thử, không thì
+push nhánh thôi" thành lệnh thẳng: commit, push, mở PR, theo dõi tới khi merge
+— vẫn giữ đúng một câu dự phòng cho trường hợp cực hiếm cơ chế này không hoạt
+động như tài liệu tool mô tả.
+
+**Chưa thể xác nhận 100% bằng một lần bắn thật** — không có cách ép Routine
+bắn ngay và chờ nó chạy xong trong phiên này để xem kết quả cuối. Janitor đã
+bắn một lần lúc 04:22 UTC (trước khi sửa) và không tạo branch nào — tức nó
+không tìm ra việc để làm (kết quả hợp lệ theo brief), không phải bằng chứng
+cho cả hai chiều của giả thuyết này.
+
+**Bằng chứng gián tiếp mạnh cho thấy đây là vấn đề đáng sửa thật:** `git branch -r`
+lộ ra **16 nhánh cũ** mang đúng tên các persona này (`bolt-*`, `doctor-*`,
+`sentinel-*`, `jules-*`), từ 2026-08-10 đến 2026-08-21, **không nhánh nào được
+merge** — bằng chứng một fleet tự động thật đã từng chạy trên chính repo này,
+push được nhưng không ai review/merge, đúng thứ `commit-rule.md` §6 ("Stale
+Branches... `jules-*`") được viết ra để xử lý hậu quả. Không dọn các nhánh đó
+trong task này — ngoài phạm vi, không ai yêu cầu — nhưng đáng ghi lại vì nó
+xác nhận: "chạy mà không mở PR được" là chuyện đã thật sự xảy ra và lãng phí
+công ở repo này trước khi epic này tồn tại.
 
 ## 3. Xác nhận (verify)
 
@@ -157,7 +191,7 @@ thư mục hôm nay.
   (`.claude/agents/*.md` với frontmatter `name`/`description`/`tools`) — user
   chỉ định rõ `.agents/Skills`, không phải `.claude/agents/`; đây vẫn là tài
   liệu thuần, không phải cơ chế subagent tự động của Claude Code.
-- **Không** khắc phục giới hạn "phiên bắn ra thiếu tool GitHub" — đó là giới
-  hạn nền tảng, ghi lại trung thực ở §2.5 thay vì tự chế giải pháp.
+- **Không** dọn 16 nhánh cũ của fleet trước đây (phát hiện ở §2.6) — ngoài
+  phạm vi, không ai yêu cầu; chỉ ghi lại làm bằng chứng.
 - **Không** sửa lại nội dung nghiệp vụ của 7 prompt (bãi săn, boundary, process)
   — đó là việc `EPIC-011` đã làm; epic này chỉ dời vị trí.
