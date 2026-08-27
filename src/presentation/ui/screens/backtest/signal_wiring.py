@@ -76,6 +76,9 @@ def connect_ui_signals(presenter) -> None:
     presenter._view_model.strategyPropertiesSaveRequested.connect(
         presenter._on_strategy_properties_save_requested
     )
+    presenter._view_model.strategyPropertiesCommitRequested.connect(
+        presenter._on_strategy_properties_commit_requested
+    )
     presenter._backtestSucceededSignal.connect(
         presenter._on_backtest_succeeded_for_action
     )

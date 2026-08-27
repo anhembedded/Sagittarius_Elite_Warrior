@@ -5,7 +5,7 @@ BUG-064 — before this, "which broker properties exist" was declared
 independently in three places that all had to be kept in sync by hand:
 `StrategyConfigCoordinator._BROKER_PROPERTIES` (applying a saved payload to
 the ViewModel), and two hardcoded blocks inside `StrategyPropertiesDialog`
-(`save_and_rerun()` reading widgets into a payload, `_sync_properties()`
+(`_collect_payload()` reading widgets into a payload, `_sync_properties()`
 writing the ViewModel back into widgets). A property added to one and
 forgotten in another would silently never save, or never show its current
 value — exactly the class of bug this module closes off, by making "key ->

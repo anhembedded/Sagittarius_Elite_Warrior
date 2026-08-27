@@ -164,6 +164,12 @@ class BackTestViewModel(BaseQmlViewModel):
 
     #: Strategy Properties Modal save requested (BOT-104)
     strategyPropertiesSaveRequested = Signal(object)
+    #: BUG-064 — "persist these values" WITHOUT the "and re-run the backtest,
+    #: and close the dialog" tail that `strategyPropertiesSaveRequested`
+    #: carries. Emitted when a field merely loses focus: the user is still
+    #: editing, so dispatching `RUN_REQUESTED` (and moving the FSM out of
+    #: IDLE) on every field they tab past is wrong.
+    strategyPropertiesCommitRequested = Signal(object)
 
     #: Broker Simulation Settings signals (BOT-104)
     orderSizeTypeChanged = Signal()
@@ -1210,6 +1216,14 @@ class BackTestViewModel(BaseQmlViewModel):
         """Called from StrategyPropertiesModal.qml's 'Lưu & Chạy lại' button with both
         strategy inputs and broker properties (BOT-104)."""
         self.strategyPropertiesSaveRequested.emit(dict(from_qml(payload)))
+
+    @Slot("QVariant")
+    def requestStrategyPropertiesCommit(self, payload) -> None:
+        """BUG-064 — same payload shape as `requestStrategyPropertiesSave`,
+        but for a field that merely lost focus while the user keeps editing:
+        persist the values so they are not lost, and stop there. No backtest
+        re-run, no FSM transition, no closing the dialog."""
+        self.strategyPropertiesCommitRequested.emit(dict(from_qml(payload)))
 
     @Slot(str)
     def requestOpenBotParams(self, strategy_name: str = "") -> None:

@@ -125,6 +125,42 @@ class StrategyConfigCoordinator:
 
         Returns True when the caller should start a re-run.
         """
+        if not self._persist_strategy_properties(payload):
+            return False
+        self._finish_save(self._state.strategy_params or {})
+        return True
+
+    def commit_strategy_properties(self, payload: dict) -> bool:
+        """BUG-064 — persist the same payload `apply_strategy_properties()`
+        takes, and stop there: no `botParamsSaved` emission (which closes the
+        dialog), no re-run, no FSM transition.
+
+        This is what a field losing focus means: the user typed a value and
+        moved on, still editing. Treating that as a full "Lưu & Chạy lại"
+        dispatched `RUN_REQUESTED` and moved the screen out of IDLE on every
+        field tabbed past — the user's own words: "chưa save sao lại nhảy
+        state?".
+
+        `_notify_config_changed()` still runs, because dirty-tracking
+        (`_on_config_input_changed`, BOT-095B) must see the new value to mark
+        the pending run stale — that is a label change, not a state machine
+        transition.
+
+        Returns True when the values were accepted, False when validation
+        rejected them (the inline error is set either way).
+        """
+        if not self._persist_strategy_properties(payload):
+            return False
+        self._view_model.set_bot_params_error("")
+        self.refresh_bot_params_schema()
+        self._notify_config_changed()
+        return True
+
+    def _persist_strategy_properties(self, payload: dict) -> bool:
+        """Validation + storage shared by `apply_*` and `commit_*` — the part
+        that is identical between "save and re-run" and "just remember this".
+        Returns False (with the inline error set) when the inputs are invalid.
+        """
         inputs = payload.get("inputs", {})
         props = payload.get("properties", {})
 
@@ -139,7 +175,6 @@ class StrategyConfigCoordinator:
                 return False
 
         self._apply_broker_properties(props)
-        self._finish_save(self._state.strategy_params or {})
         return True
 
     def _apply_broker_properties(self, props: dict) -> None:

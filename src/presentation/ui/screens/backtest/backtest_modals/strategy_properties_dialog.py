@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -73,6 +73,17 @@ def _combo_box_data_binding(widget: QComboBox) -> _WidgetBinding:
     return _WidgetBinding(widget.currentData, write)
 
 
+def _field_names(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The declared field names in `botParamsRows`, in order — the part of the
+    schema that decides whether the Inputs tab's widgets must be rebuilt
+    (BUG-064). Values are deliberately not part of this."""
+    return [
+        str(row.get("field", {}).get("name", ""))
+        for row in rows
+        if row.get("rowType") == "field"
+    ]
+
+
 def _combo_box_text_binding(widget: QComboBox) -> _WidgetBinding:
     """For combos populated via plain `addItems(labels)` — currency — where
     the payload carries the visible label itself."""
@@ -99,16 +110,6 @@ class StrategyPropertiesDialog(Overlay):
         self._vm = view_model
         self._strategy_name = ""
         self._field_widgets: list[_BotParamFieldWidget] = []
-        #: BUG-064 — re-entrancy guard for `save_and_rerun()`. A field's own
-        #: `editingFinished` can fire again, deferred, while the ORIGINAL
-        #: `save_and_rerun()` call is still on the stack: a successful save
-        #: rebuilds `_field_widgets` (`_sync_inputs()`, wired below), and a
-        #: widget that still holds focus at the moment it is torn down can
-        #: emit one more `editingFinished` before Qt actually destroys it.
-        #: Without this flag that would call `save_and_rerun()` a second
-        #: time — harmless in effect (same values, same save) but a
-        #: redundant backtest re-run per edit.
-        self._saving = False
         self.resize(680, 620)
 
         self._tabs = QTabWidget()
@@ -246,7 +247,7 @@ class StrategyPropertiesDialog(Overlay):
     def _build_property_bindings(self) -> dict[str, _WidgetBinding]:
         """One row per `BrokerPropertyField.key` (BUG-064): the single place
         that says which widget backs a given property and how to read/write
-        it, used by both `save_and_rerun()` (widgets -> payload) and
+        it, used by both `_collect_payload()` (widgets -> payload) and
         `_sync_properties()` (ViewModel -> widgets) instead of each hardcoding
         its own `.text()`/`.currentData()`/`.value()`/`.isChecked()` calls."""
         return {
@@ -275,13 +276,15 @@ class StrategyPropertiesDialog(Overlay):
         btn_cancel.setObjectName("btnBotParamsCancel")
         btn_cancel.clicked.connect(self.reject)
         row.addWidget(btn_cancel)
-        btn_save = QPushButton("Lưu & Chạy lại")
+        # BUG-064 — was "Lưu & Chạy lại". Saving no longer starts a backtest,
+        # so the old label promised something the button stopped doing.
+        btn_save = QPushButton("Lưu")
         btn_save.setObjectName("btnBotParamsSave")
         btn_save.setStyleSheet(
             f"background-color: {_ACCENT}; color: {Palette.BG}; font-weight: bold; "
             f"border-radius: 6px; padding: 6px 14px;"
         )
-        btn_save.clicked.connect(self.save_and_rerun)
+        btn_save.clicked.connect(self.save_and_close)
         row.addWidget(btn_save)
         return row
 
@@ -298,6 +301,25 @@ class StrategyPropertiesDialog(Overlay):
         self.raise_()
 
     def _sync_inputs(self) -> None:
+        """Rebuilds the Inputs tab's widgets from the current schema.
+
+        Skips the rebuild entirely when the schema still describes the SAME
+        set of fields (BUG-064). Reason: committing an edit refreshes the
+        schema so the stored values are current, which fires
+        `botParamsRowsChanged` — and blindly rebuilding there would
+        `deleteLater()` the very widget the user is typing in, mid-edit,
+        every time they tab to the next field. Only the field *set* matters
+        for whether widgets must be recreated; values are already correct in
+        the live widgets (the user typed them), so a values-only change has
+        nothing to rebuild. Switching strategies does change the field set,
+        and still rebuilds.
+        """
+        rows = self._vm.botParamsRows
+        if self._field_widgets and _field_names(rows) == [
+            fw.field_name for fw in self._field_widgets
+        ]:
+            return
+
         while self._inputs_layout.count():
             item = self._inputs_layout.takeAt(0)
             widget = item.widget()
@@ -305,7 +327,6 @@ class StrategyPropertiesDialog(Overlay):
                 widget.deleteLater()
         self._field_widgets = []
 
-        rows = self._vm.botParamsRows
         if not rows:
             empty = QLabel("Chiến lược này không có tham số đầu vào nào để cấu hình.")
             empty.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
@@ -326,7 +347,7 @@ class StrategyPropertiesDialog(Overlay):
 
     def _sync_properties(self) -> None:
         """Writes every current ViewModel value into its widget, driven by
-        the same `BROKER_PROPERTY_FIELDS` schema `save_and_rerun()` reads
+        the same `BROKER_PROPERTY_FIELDS` schema `_collect_payload()` reads
         widgets against (BUG-064) — this used to hand-maintain its own combo
         index tables (`{"fixed_cash": 1, ...}`) in parallel with the literal
         `addItem()` order in `_build_properties_tab()`, which is exactly the
@@ -358,72 +379,69 @@ class StrategyPropertiesDialog(Overlay):
         """BUG-064 — one generic pass instead of a one-off connection per
         field: every `QLineEdit` (including `_NumericStepLineEdit`, a
         subclass) under `root` gets its `editingFinished` wired to
-        `_commit_without_closing()`. `editingFinished` fires on Return/Enter
-        AND on losing focus — a bare `QLineEdit` with no connection at all
-        does neither: a typed value lives only on the widget until something
-        reads `.text()`, so it looked silently reverted the next time the
-        dialog reopened and re-populated from the still-unchanged ViewModel.
+        `_commit_edited_values()`. `editingFinished` fires on Return/Enter AND
+        on losing focus — a bare `QLineEdit` with no connection at all does
+        neither: a typed value lives only on the widget until something reads
+        `.text()`, so it looked silently reverted the next time the dialog
+        reopened and re-populated from the still-unchanged ViewModel.
 
-        Deliberately NOT wired straight to `save_and_rerun()` — see that
-        method's docstring for why simply tabbing between fields must not
-        also close the dialog.
+        Deliberately NOT `save_and_close()`: losing focus must not close the
+        backtest or close the dialog. See `_commit_edited_values()`.
 
         Applying this once per tab (here, and again in `_sync_inputs()` after
         every rebuild) means a field added to either tab later is wired for
         free — no new connection to remember to add alongside it.
         """
         for line_edit in root.findChildren(QLineEdit):
-            line_edit.editingFinished.connect(self._commit_without_closing)
+            line_edit.editingFinished.connect(self._commit_edited_values)
 
-    def _commit_without_closing(self) -> None:
-        """BUG-064 follow-up: a user report caught this immediately after the
-        first fix landed — losing focus on ANY field was closing the whole
-        dialog. Cause: `save_and_rerun()`'s success path emits
-        `botParamsSaved`, which `__init__` connects to `self.accept()` so the
-        explicit "Lưu & Chạy lại" button closes the dialog as intended — but
-        that connection has no way to tell "the Save button was clicked" apart
-        from "a field merely lost focus", so every auto-commit closed it too.
-
-        Detaching the connection for the duration of exactly one
-        `save_and_rerun()` call keeps everything else about it identical
-        (values are still committed and validated the same way, the backtest
-        still re-runs with the new value) while confining the actual
-        dialog-closing behavior to the button that is supposed to trigger it.
-        Safe to do synchronously: `botParamsSaved.emit()` happens on this same
-        call stack (same-thread Qt signals are direct/synchronous here), so
-        the reconnect in `finally` cannot race a queued, later emission.
-        """
-        self._vm.botParamsSaved.disconnect(self.accept)
-        try:
-            self.save_and_rerun()
-        finally:
-            self._vm.botParamsSaved.connect(self.accept)
-
-    def save_and_rerun(self) -> None:
-        """Collects every field's current value and saves it — the only
-        place either tab's widgets are read. Reached both by clicking "Lưu &
-        Chạy lại" and by any field losing focus (`_wire_line_edits_to_save_on_focus_lost`).
-
-        Guarded against re-entrancy: a successful save rebuilds the Inputs
-        tab's widgets (`_sync_inputs()`, via `botParamsRowsChanged`), and a
-        field that still holds focus at the moment it's torn down can emit
-        one more deferred `editingFinished` before Qt actually destroys it —
-        without this guard that would call this method a second time.
-        """
-        if self._saving:
-            return
-        self._saving = True
-        try:
-            input_values = {fw.field_name: fw.value() for fw in self._field_widgets}
+    def _collect_payload(self) -> dict:
+        """The current value of every field in both tabs, in the shape the
+        presenter's save/commit handlers expect. The only place either tab's
+        widgets are read."""
+        return {
+            "inputs": {fw.field_name: fw.value() for fw in self._field_widgets},
             # BUG-064 — reads through the same `_property_bindings` table
             # `_sync_properties()` writes through; adding a new broker
             # property is one row in `_build_property_bindings()`, not a
             # hand-written `.text()`/`.value()`/`.isChecked()` call here too.
-            broker_props = {
+            "properties": {
                 key: binding.read() for key, binding in self._property_bindings.items()
-            }
-            self._vm.requestStrategyPropertiesSave(
-                {"inputs": input_values, "properties": broker_props}
-            )
-        finally:
-            self._saving = False
+            },
+        }
+
+    def _commit_edited_values(self) -> None:
+        """Persist what is currently typed, and nothing more — the
+        focus-loss/Enter path.
+
+        BUG-064 went through two wrong versions of this before landing here,
+        both reported by the user within minutes:
+
+        1. Wired straight to the save path: tabbing between fields closed
+           the dialog, because that path emits `botParamsSaved`, which
+           `__init__` connects to `accept()` for the Save button's benefit.
+        2. Wired to a wrapper that merely suppressed the close: the dialog
+           stayed open, but the save still dispatched `RUN_REQUESTED`, so
+           every field tabbed past moved the screen out of IDLE and kicked off
+           a backtest — "chưa save sao lại nhảy state?".
+
+        Both were the same mistake in different clothes: reusing the "save"
+        pipeline for something that is not a save. The commit path is now its
+        own signal end to end (`requestStrategyPropertiesCommit` ->
+        `strategyPropertiesCommitRequested` ->
+        `StrategyConfigCoordinator.commit_strategy_properties`), which
+        validates and stores the values and stops there.
+        """
+        self._vm.requestStrategyPropertiesCommit(self._collect_payload())
+
+    def save_and_close(self) -> None:
+        """The "Lưu" button: persist and close the dialog (the close happens
+        via `botParamsSaved` -> `accept`, so an invalid value leaves it open
+        with the inline error showing).
+
+        BUG-064 — this used to also start a backtest, which is why it was
+        named `save_and_rerun` and labelled "Lưu & Chạy lại". Running is the
+        user's decision, made with the Run button; the config change alone
+        just marks any existing results stale.
+        """
+        self._vm.requestStrategyPropertiesSave(self._collect_payload())

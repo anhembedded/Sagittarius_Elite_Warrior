@@ -1465,8 +1465,18 @@ class BackTestPresenter(BasePresenter):
     @Slot(object)
     @safe_ui_action
     def _on_strategy_properties_save_requested(self, payload: dict) -> None:
-        if self._strategy_config.apply_strategy_properties(payload):
-            self._start_run_after_config_save()
+        """BUG-064 — saving the Strategy Properties dialog persists the values
+        and closes it. It does NOT start a backtest: deciding when to run is
+        the user's, via the Run button. Config changes still mark the existing
+        results stale through dirty-tracking (`_on_config_input_changed`)."""
+        self._strategy_config.apply_strategy_properties(payload)
+
+    @Slot(object)
+    @safe_ui_action
+    def _on_strategy_properties_commit_requested(self, payload: dict) -> None:
+        """BUG-064 — a field losing focus persists its value and nothing else:
+        no run, and unlike the save path, no closing the dialog either."""
+        self._strategy_config.commit_strategy_properties(payload)
 
     def _start_run_after_config_save(self) -> None:
         """The "and now re-run it" tail both save handlers ended with, byte

@@ -134,9 +134,7 @@ def test_view_model_broker_properties_defaults_and_mutation():
     assert vm.takeProfitPctText == "4.0"
 
 
-def test_presenter_strategy_properties_save_updates_config_and_runs(
-    qapp, modal_presenter
-):
+def test_presenter_strategy_properties_save_updates_config(qapp, modal_presenter):
     vm = modal_presenter._view_model
     vm.selectedStrategyKey = "sample_strategy"
     modal_presenter._refresh_bot_params_schema()
@@ -242,7 +240,7 @@ def test_editing_a_strategy_input_field_and_saving_uses_the_typed_value(
 ):
     """Coverage gap this closes: `test_presenter_strategy_properties_save_updates_config_and_runs`
     above only ever calls `vm.requestStrategyPropertiesSave(payload)` with a
-    hand-built payload — it never exercises `save_and_rerun()`'s own read of
+    hand-built payload — it never exercises `_collect_payload()`'s own read of
     the real field widgets. This drives the actual dialog: types into the
     real `_BotParamFieldWidget`'s QLineEdit and clicks the real Save button,
     so a bug in collecting live widget values (as opposed to the coordinator
@@ -275,7 +273,7 @@ def test_editing_a_strategy_input_field_and_saving_uses_the_typed_value(
     save_btn.click()
     qapp.processEvents()
 
-    # save_and_rerun() collects every declared field, not only the one
+    # _collect_payload() collects every declared field, not only the one
     # edited — "slow" keeps its own default (26), untouched.
     assert modal_presenter._strategy_params == {"fast": 99, "slow": 26}
 
@@ -405,6 +403,8 @@ def test_tabbing_away_from_a_field_without_pressing_enter_also_commits_it(
     assert order_size_field is not None
     assert commission_field is not None
 
+    state_before = modal_presenter.fsm.current_state
+
     order_size_field.setFocus()
     qapp.processEvents()
     order_size_field.selectAll()
@@ -417,12 +417,15 @@ def test_tabbing_away_from_a_field_without_pressing_enter_also_commits_it(
     qapp.processEvents()
 
     assert modal_presenter._view_model.orderSizeText == "42"
-    # BUG-064 follow-up, caught by a user immediately after the first fix
-    # landed: save_and_rerun()'s success path emits botParamsSaved, which is
-    # connected to self.accept() so the "Lưu & Chạy lại" BUTTON closes the
-    # dialog — merely losing focus while tabbing between fields must not
-    # trigger that same close.
+    # BUG-064 follow-up #1: the save path's success emits
+    # botParamsSaved, connected to accept() so the "Lưu & Chạy lại" BUTTON
+    # closes the dialog — merely tabbing between fields must not.
     assert dialog.isVisible()
+    # BUG-064 follow-up #2 ("chưa save sao lại nhảy state?"): committing must
+    # not dispatch RUN_REQUESTED. Suppressing only the dialog close still left
+    # every tab-away kicking off a backtest and moving the screen out of its
+    # current state.
+    assert modal_presenter.fsm.current_state == state_before
 
 
 def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
@@ -446,6 +449,8 @@ def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
     fast_field = dialog.findChild(object, "fldBotParam_fast")
     assert fast_field is not None
 
+    state_before = modal_presenter.fsm.current_state
+
     fast_field.setFocus()
     qapp.processEvents()
     fast_field.selectAll()
@@ -460,12 +465,19 @@ def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
     assert dialog.isVisible(), (
         "losing focus on an input field must not close the dialog"
     )
+    assert modal_presenter.fsm.current_state == state_before, (
+        "losing focus must not dispatch RUN_REQUESTED"
+    )
+    # The widget the user was typing in must survive the commit: refreshing
+    # the schema fires botParamsRowsChanged, and rebuilding the tab there
+    # would deleteLater() this very field mid-edit.
+    assert dialog.findChild(object, "fldBotParam_fast") is fast_field
 
 
-def test_clicking_save_still_closes_the_dialog(qapp, modal_presenter):
-    """Counterpart to the two focus-loss tests above: the explicit "Lưu & Chạy
-    lại" button must still close the dialog exactly as before — only the
-    auto-commit-on-blur path was changed to skip that."""
+def test_clicking_save_closes_the_dialog_without_starting_a_run(qapp, modal_presenter):
+    """Counterpart to the two focus-loss tests above: the explicit "Lưu"
+    button closes the dialog, and — BUG-064 — does NOT start a backtest.
+    Running is the user's decision, made with the Run button."""
     view = modal_presenter.view
     view.top_widget._btn_bot_params.click()
     qapp.processEvents()
@@ -473,6 +485,9 @@ def test_clicking_save_still_closes_the_dialog(qapp, modal_presenter):
     dialog = view._modals_host._strategy_properties
     assert dialog is not None
     assert dialog.isVisible()
+    assert dialog.findChild(object, "btnBotParamsSave").text() == "Lưu"
+
+    state_before = modal_presenter.fsm.current_state
 
     save_btn = dialog.findChild(object, "btnBotParamsSave")
     assert save_btn is not None
@@ -480,3 +495,6 @@ def test_clicking_save_still_closes_the_dialog(qapp, modal_presenter):
     qapp.processEvents()
 
     assert not dialog.isVisible()
+    assert modal_presenter.fsm.current_state == state_before, (
+        "saving must not dispatch RUN_REQUESTED"
+    )

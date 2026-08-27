@@ -96,11 +96,10 @@ ngay sau đó (an toàn vì `emit()` chạy đồng bộ cùng call stack, cùng
 lại" vẫn gọi `save_and_rerun()` trực tiếp — hành vi đóng dialog khi bấm nút giữ
 nguyên, không đổi.
 
-**Phạm vi cố ý không đổi:** việc mất focus vẫn kích hoạt chạy lại backtest (không
-chỉ commit im lặng) — đúng tinh thần "xem kết quả cập nhật ngay khi chỉnh tham số"
-mà dialog này vốn hướng tới (mô phỏng theo panel Strategy Properties của
-TradingView). User chỉ báo việc **đóng dialog** là không mong muốn, không báo việc
-chạy lại backtest nhiều lần là vấn đề — nên không tự ý bỏ luôn phần rerun.
+**Sai lầm thứ hai của tôi, ngay trong chính lần sửa này:** tôi tự quyết giữ lại
+phần "mất focus vẫn chạy lại backtest", tự lý giải là "đúng tinh thần TradingView",
+và ghi vào chính hồ sơ này rằng user "không báo việc chạy lại là vấn đề". Đó là
+suy diễn, không phải sự thật — xem mục kế tiếp.
 
 Regression test: `test_tabbing_away_from_a_field_without_pressing_enter_also_commits_it`
 và `test_editing_a_strategy_input_field_and_losing_focus_also_commits_it` được bổ
@@ -109,6 +108,84 @@ bằng `git stash` (thông báo lỗi: `"losing focus on an input field must not
 the dialog"`), xanh lại sau khi khôi phục. Thêm test riêng
 `test_clicking_save_still_closes_the_dialog` để đảm bảo không sửa quá tay — bấm
 nút Save vẫn phải đóng dialog như cũ.
+
+## Regression thứ BA — cùng gốc với thứ hai, tôi vá triệu chứng thay vì vá cơ chế
+
+User báo tiếp, gay gắt và đúng: **"chưa save sao lại nhảy state?"**
+
+Fix ở mục trên chỉ chặn đúng **một** hệ quả (đóng dialog) mà không đụng tới nguyên
+nhân: đường mất-focus vẫn đi qua nguyên vẹn pipeline **"save"**. Cụ thể,
+`strategyPropertiesSaveRequested` → `BackTestPresenter._on_strategy_properties_save_requested`
+→ `_start_run_after_config_save()` → `self.fsm.dispatch(BacktestUiEvent.RUN_REQUESTED)`
++ `_start_backtest_run(...)`. Nên mỗi lần tab qua một ô, màn hình **rời trạng thái
+hiện tại và khởi động luôn một lần chạy backtest**, dù user chưa hề bấm Lưu.
+
+Việc tôi làm ở mục trên (`_commit_without_closing`, tạm ngắt kết nối
+`botParamsSaved → accept`) là đúng loại "hot fix" mà `bug-fix-rule.md` §1 và
+ONBOARDING §12.5.1 cấm: che một triệu chứng của việc dùng sai pipeline, thay vì
+tách pipeline ra.
+
+**Fix thật — tách hẳn hai đường, từ ViewModel xuống Coordinator:**
+
+| | Mất focus / Enter | Nút "Lưu & Chạy lại" |
+| :--- | :--- | :--- |
+| Signal | `strategyPropertiesCommitRequested` (mới) | `strategyPropertiesSaveRequested` |
+| Slot ViewModel | `requestStrategyPropertiesCommit` (mới) | `requestStrategyPropertiesSave` |
+| Presenter | `_on_strategy_properties_commit_requested` (mới) | `_on_strategy_properties_save_requested` |
+| Coordinator | `commit_strategy_properties()` (mới) | `apply_strategy_properties()` |
+| Ghi giá trị | ✅ | ✅ |
+| Emit `botParamsSaved` (→ đóng dialog) | ❌ | ✅ |
+| `RUN_REQUESTED` / chạy lại backtest | ❌ | ✅ |
+| `_notify_config_changed()` (dirty-tracking BOT-095B) | ✅ | ✅ |
+
+Phần validate + lưu giá trị dùng chung `_persist_strategy_properties()` — không
+nhân đôi. `_commit_without_closing()` và cờ `self._saving` đã **xoá hẳn**: cả hai
+chỉ tồn tại để chống đỡ hậu quả của việc dùng nhầm pipeline.
+
+**Sửa kèm — rebuild widget giữa lúc đang gõ:** `commit_strategy_properties()` vẫn
+phải gọi `refresh_bot_params_schema()` (nếu không, mở lại dialog sẽ hiện giá trị cũ
+— đúng triệu chứng gốc của BUG-064). Nhưng việc đó phát `botParamsRowsChanged` →
+`_sync_inputs()` → `deleteLater()` **đúng cái widget user đang gõ**. Sửa tận gốc:
+`_sync_inputs()` giờ **bỏ qua rebuild khi tập tên field không đổi** (helper
+`_field_names()`) — chỉ đổi *giá trị* thì không có gì cần dựng lại, vì widget đang
+sống đã giữ đúng giá trị user vừa gõ; đổi *chiến lược* (khác tập field) thì vẫn
+rebuild như cũ. Đây là điều kiện có nguyên tắc, không phải thêm một lá cờ nữa.
+
+## Quyết định cuối của user — bỏ hẳn "save and run"
+
+Sau khi tách xong 2 đường ở trên, user chốt: **"bỏ event save and run đi"**.
+
+Nút "Lưu & Chạy lại" giờ chỉ còn **lưu + đóng dialog**, không chạy backtest. Việc
+chạy là quyết định của user qua nút Chạy Backtest. Thay đổi cấu hình vẫn đánh dấu
+kết quả cũ là stale qua dirty-tracking (`_on_config_input_changed`, BOT-095B) —
+đó là đổi nhãn, không phải chuyển trạng thái FSM.
+
+- `BackTestPresenter._on_strategy_properties_save_requested` không còn gọi
+  `_start_run_after_config_save()`.
+- `StrategyPropertiesDialog.save_and_rerun()` → đổi tên `save_and_close()`.
+- Nhãn nút: **"Lưu & Chạy lại" → "Lưu"** — để nhãn cũ là nói dối với người dùng về
+  việc nút đó làm gì.
+
+Sau thay đổi này, `apply_strategy_properties()` và `commit_strategy_properties()`
+chỉ còn khác nhau đúng một điểm: đường `apply` emit `botParamsSaved` (→ đóng
+dialog), đường `commit` thì không.
+
+**Còn tồn đọng, chưa đụng tới (báo để user quyết):** `botParamsSaveRequested` /
+`requestBotParamsSave` / `_on_bot_params_save_requested` /
+`_start_run_after_config_save()` vẫn còn trong code và **vẫn chạy backtest**. Đó
+là đường cũ của nút "Lưu & Re-Backtest" bên QML — QML đã bị xoá ở `EPIC-006`, nên
+đường này **không còn emitter thật nào trong `src/`**, chỉ có 5 test gọi trực tiếp
+`view_model.requestBotParamsSave(...)`. Tức là code chết về mặt sản phẩm nhưng
+đang được test giữ sống. Dọn nó cần sửa/xoá cả 5 test đó, nằm ngoài phạm vi user
+yêu cầu ở đây.
+
+Regression test: 2 test focus-loss được bổ sung
+`assert modal_presenter.fsm.current_state == state_before` và
+`assert dialog.findChild(object, "fldBotParam_fast") is fast_field` (widget đang gõ
+phải sống sót qua commit). **A/B xác nhận đỏ đúng lý do**: tạm cho
+`_on_strategy_properties_commit_requested` gọi lại `_start_run_after_config_save()`
+→ 2 test đỏ với đúng thông báo `"losing focus must not dispatch RUN_REQUESTED"`;
+gỡ patch → xanh lại.
 
 ## Regression test
 
