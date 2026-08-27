@@ -61,12 +61,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_track
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_symbol,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
     HealthStatusReport,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
-    SyncProgressFeed,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
@@ -82,18 +78,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
-    BACKTEST_STATE_FIELDS,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
-    SCRIPTS_ENABLED_KEY as _SCRIPTS_ENABLED_KEY,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
-    SCRIPTS_TOUCHED_KEY as _SCRIPTS_TOUCHED_KEY,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_state_fields import (
-    is_key_list as _is_key_list,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
     find_state_coordinator,
@@ -111,14 +95,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_view_model import BackTestViewModel
-from .coordinators import (
-    ChartRenderCoordinator,
-    DataSyncCoordinator,
-    ExecutionCoordinator,
-    IndicatorCoordinator,
-    StrategyConfigCoordinator,
-    TradeLogCoordinator,
-)
+from .coordinators import DataSyncCoordinator, ExecutionCoordinator, build_coordinators
 from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
@@ -132,7 +109,6 @@ from .logic.backtest_fsm_matrix import (
     BacktestUiState,
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
-from .logic.chart_canvas_view import ChartDisplayMode
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
@@ -149,6 +125,14 @@ from .logic.time_range_preset import TimeRangePreset, resolve_time_range
 from .logic.trade_log_row import (
     TradeLogRow,
 )
+from .signal_wiring import (
+    connect_chart_controls,
+    connect_engine_events,
+    connect_state_tracking,
+    connect_ui_signals,
+)
+from .state_persistence import capture as capture_backtest_state
+from .state_persistence import restore as restore_backtest_state
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -438,116 +422,13 @@ class BackTestPresenter(BasePresenter):
             max_entries=self._log_max_entries,
         )
 
-        # Reads `_all_trades` through a lambda rather than being handed the
-        # list: the presenter rebinds it on every run, and three existing
-        # tests assign `presenter._all_trades` directly before calling in.
-        self._trade_log = TradeLogCoordinator(
-            view_model=self._view_model,
-            get_all_trades=lambda: self._all_trades,
-            set_chart_display_timezone=lambda tz: self.view.set_display_timezone(tz),
-            ask_export_path=self._ask_trade_log_export_path,
-            logger=self._logger,
-        )
-        self._strategy_config = StrategyConfigCoordinator(
-            view_model=self._view_model,
-            strategy_registry=self._strategy_registry,
-            logger=self._logger,
-            get_strategy_params=lambda: self._strategy_params,
-            set_strategy_params=self._set_strategy_params,
-            get_symbol=lambda: self._symbol,
-            # `lambda`, not `self._market_metadata_cache.get`: binding the
-            # method captures the cache object that exists right now, and
-            # tests replace `presenter._market_metadata_cache` after
-            # construction. The bound version read the original cache and
-            # reported UNVERIFIED_MISSING for every symbol.
-            get_market_metadata=lambda symbol: self._market_metadata_cache.get(symbol),
-            get_current_raw_klines=lambda: self._current_raw_klines,
-            notify_config_changed=self._on_config_input_changed,
-        )
-        self._indicators = IndicatorCoordinator(
-            view_model=self._view_model,
-            strategy_registry=self._strategy_registry,
-            logger=self._logger,
-            script_runner=self._chart_script_runner,
-            get_first_chart_card=self._first_chart_card,
-            get_active_strategy_lines=lambda: self._active_strategy_lines,
-            get_current_raw_klines=lambda: self._current_raw_klines,
-            get_chart_mode=lambda: getattr(
-                self.view, "chart_mode", ChartDisplayMode.OHLC
-            ),
-            apply_after_native_fallback=self._apply_after_native_fallback,
-            emit_strategy_line=self._chartStrategyLineSignal.emit,
-            emit_strategy_region=self._chartStrategyRegionSignal.emit,
-            set_chart_script_keys=self._set_chart_script_keys,
-        )
-        self._data_sync = DataSyncCoordinator(
-            dispatcher=self.dispatcher,
-            get_symbol=lambda: self._symbol,
-            effective_data_interval=self._effective_data_interval,
-            resolve_action_id=lambda: self._current_action_id(BacktestActionKind.SYNC),
-            log_dev_trace=self._log_dev_trace,
-            emit_progress=self._syncProgressSignal.emit,
-            emit_succeeded=self._syncSucceededSignal.emit,
-            emit_failed=self._syncFailedSignal.emit,
-            emit_cancelled=self._syncCancelledSignal.emit,
-        )
-        self._chart_render = ChartRenderCoordinator(
-            view=self.view,
-            view_model=self._view_model,
-            dispatcher=self.dispatcher,
-            thread_manager=self._thread_manager,
-            logger_=self._logger,
-            get_symbol=lambda: self._symbol,
-            get_active_strategy_lines=lambda: self._active_strategy_lines,
-            set_current_raw_klines=self._set_current_raw_klines,
-            refresh_market_rule_verification=(
-                self._strategy_config.refresh_market_rule_verification
-            ),
-            log_dev_trace=self._log_dev_trace,
-            format_coverage_message=DataSyncCoordinator.format_coverage_message,
-            # Routed through the presenter's own methods, not bound straight
-            # to the indicator coordinator: a test replaces
-            # `presenter._on_ema_toggled` with a Mock and asserts the
-            # mode-change path calls it. Binding early skipped it entirely.
-            set_strategy_lines_visible=lambda visible: self._on_ema_toggled(visible),
-            set_script_overlay_lines_visible=(
-                lambda visible: self._set_script_overlay_lines_visible(visible)
-            ),
-            get_chart_klines_fetch_limit=lambda: self._chart_klines_fetch_limit,
-            get_current_config=self._get_current_config,
-            is_busy=self._is_busy_for_preview,
-            next_preview_id=self._claim_preview_id,
-            get_active_preview_id=lambda: self._active_preview_id,
-            emit_preview_ready=self._previewDataReadySignal.emit,
-            run_preview_worker=self._run_chart_preview,
-        )
-        self._execution = ExecutionCoordinator(
-            view_model=self._view_model,
-            dispatcher=self.dispatcher,
-            script_runner=self._chart_script_runner,
-            get_symbol=lambda: self._symbol,
-            get_chart_klines_fetch_limit=lambda: self._chart_klines_fetch_limit,
-            get_chart_script_keys=lambda: self._chart_script_keys,
-            resolve_action_id=lambda: self._current_action_id(
-                BacktestActionKind.BACKTEST
-            ),
-            log_dev_trace=self._log_dev_trace,
-            probe_coverage=self._probe_data_coverage,
-            emit_coverage_missing=self._backtestCoverageMissingSignal.emit,
-            emit_coverage_ready=self._backtestCoverageReadySignal.emit,
-            emit_progress=self._backtestProgressSignal.emit,
-            emit_failed=self._backtestFailedSignal.emit,
-            emit_cancelled=self._backtestCancelledSignal.emit,
-            emit_empty=self._backtestEmptySignal.emit,
-            emit_succeeded=self._backtestSucceededSignal.emit,
-            emit_chart_data_ready=self._chartDataReadySignal.emit,
-            # Through the presenter's own methods, not bound to the indicator
-            # coordinator: tests replace these on the presenter.
-            emit_strategy_indicator_lines=(
-                lambda *a: self._emit_strategy_indicator_lines(*a)
-            ),
-            emit_strategy_trend_zones=lambda *a: self._emit_strategy_trend_zones(*a),
-        )
+        coordinators = build_coordinators(self)
+        self._trade_log = coordinators.trade_log
+        self._strategy_config = coordinators.strategy_config
+        self._indicators = coordinators.indicators
+        self._data_sync = coordinators.data_sync
+        self._chart_render = coordinators.chart_render
+        self._execution = coordinators.execution
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
@@ -633,96 +514,17 @@ class BackTestPresenter(BasePresenter):
         )
         view.set_chart_host_factory(self.container.resolve(BacktestChartHostFactory))
         view.render_symbol_cards([self._symbol])
-        self._connect_chart_controls()
+        connect_chart_controls(self)
 
     # ================================================================== #
     # BasePresenter contract implementations
     # ================================================================== #
 
     def _connect_ui_signals(self) -> None:
-        self._view_model.runBacktestRequested.connect(self._on_run_backtest)
-        self._view_model.cancelBacktestRequested.connect(self._on_cancel_backtest)
-        self._view_model.syncRequested.connect(self._on_request_sync)
-        self._view_model.selectedStrategyKeyChanged.connect(
-            self._on_strategy_selection_changed
-        )
-        self._view_model.selectedTimeframeChanged.connect(self._on_timeframe_changed)
-        self._view_model.selectedSymbolChanged.connect(
-            self._on_symbol_selection_changed
-        )
-        self._view_model.openSymbolPickerRequested.connect(
-            self._on_symbol_picker_open_requested
-        )
-        self._view_model.executionModeChanged.connect(self._on_execution_mode_changed)
-        self._view_model.timeRangePresetChanged.connect(self._on_time_range_changed)
-        self._view_model.displayTimezoneChanged.connect(
-            self._on_display_timezone_changed
-        )
-        self._view_model.customStartTextChanged.connect(self._on_custom_time_changed)
-        self._view_model.customEndTextChanged.connect(self._on_custom_time_changed)
-        self._view_model.initialCapitalTextChanged.connect(self._on_capital_changed)
-        self._view_model.capitalValidationRequested.connect(
-            self._on_capital_validation_requested
-        )
-        self._view_model.selectedCurrencyChanged.connect(self._on_capital_changed)
-        self._view_model.script_model.enabledKeysChanged.connect(
-            self._on_indicator_script_selection_changed
-        )
-        self._view_model.botParamsSaveRequested.connect(
-            self._on_bot_params_save_requested
-        )
-        self._view_model.strategyPropertiesSaveRequested.connect(
-            self._on_strategy_properties_save_requested
-        )
-        self._backtestSucceededSignal.connect(self._on_backtest_succeeded_for_action)
-        self._backtestEmptySignal.connect(self._on_backtest_empty_for_action)
-        self._backtestFailedSignal.connect(self._on_backtest_failed_for_action)
-        self._backtestCancelledSignal.connect(self._on_backtest_cancelled_for_action)
-        self._backtestProgressSignal.connect(self._on_backtest_progress_for_action)
-        self._backtestCoverageMissingSignal.connect(
-            self._on_backtest_coverage_missing_for_action
-        )
-        self._backtestCoverageReadySignal.connect(
-            self._on_backtest_coverage_ready_for_action
-        )
-        self._chartDataReadySignal.connect(self._on_chart_data_ready_for_action)
-        self._chartStrategyLineSignal.connect(self._on_chart_strategy_line_for_action)
-        self._chartStrategyRegionSignal.connect(
-            self._on_chart_strategy_region_for_action
-        )
-        self._chartScriptLineSignal.connect(self._on_chart_script_line)
-        self._chartScriptRegionSignal.connect(self._on_chart_script_region)
-        self._chartScriptInfoSignal.connect(self._on_chart_script_info)
-        self._chartScriptMarkerSignal.connect(self._on_chart_script_marker)
-        self._syncSucceededSignal.connect(self._on_sync_succeeded_for_action)
-        self._syncFailedSignal.connect(self._on_sync_failed_for_action)
-        self._syncCancelledSignal.connect(self._on_sync_cancelled_for_action)
-        self._syncProgressSignal.connect(self._on_sync_progress_for_action)
-        self._previewDataReadySignal.connect(self._on_preview_data_ready)
-        self._uiLogSignal.connect(self._on_ui_log)
-        self._symbolOptionsReadySignal.connect(self._on_symbol_options_ready)
-        self._symbolOptionsFailedSignal.connect(self._on_symbol_options_failed)
-        self._view_model.tradeLogQueryChanged.connect(self._on_trade_log_query_changed)
-        self._view_model.tradeLogExportRequested.connect(
-            self._on_trade_log_export_requested
-        )
+        connect_ui_signals(self)
 
     def _connect_engine_events(self) -> None:
-        """Subscribe to Engine EventBus events emitted from background handlers (Observer Pattern)."""
-        self.event_bus.on(BacktestCompletedEvent, self._handle_backtest_completed_event)
-        self.event_bus.on(BacktestFailedEvent, self._handle_backtest_failed_event)
-        self.event_bus.on(SignalGeneratedEvent, self._handle_signal_generated_event)
-        # Tiến độ đồng bộ là sự thật của HỆ THỐNG (Data Management cũng cần) →
-        # đi qua SyncProgressFeed. Phần `action_id` bên dưới là sự thật RIÊNG
-        # của màn này nên ở lại đây (`architecture-rule.md` §6).
-        self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
-        self._sync_feed.progressUpdated.connect(self._on_sync_progress)
-        # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này — đi
-        # qua HealthFeed, một nơi nghe nhiều màn hiển thị
-        # (`architecture-rule.md` §6). Bản tự ghép chuỗi cũ ở đây từng **bỏ sót
-        # `Container`** so với Dashboard, đúng hệ quả của việc mỗi màn tự chuẩn hoá.
-        self._health_feed = HealthFeed(self.event_bus, parent=self)
-        self._health_feed.healthUpdated.connect(self._on_health_report)
+        connect_engine_events(self)
 
     def _trigger_initial_health_check(self) -> None:
         """Xin số liệu sức khoẻ tươi ngay khi mở màn.
@@ -794,26 +596,6 @@ class BackTestPresenter(BasePresenter):
             count = self._view_model.log_model.rowCount()
             if not isinstance(count, int) or isinstance(count, bool):
                 break
-
-    def _connect_chart_controls(self) -> None:
-        """`BacktestChartControls` (native, owned by `BackTestView`) only
-        emits signals — same split as the QML ViewModel — so the actual
-        chart-mutation logic (which needs `self._active_strategy_lines`'s
-        state) lives here, not in the View."""
-        controls = self.view.chart_controls
-        if controls is None:
-            return
-        controls.sig_mode_changed.connect(self._on_chart_mode_changed)
-        controls.sig_ema_toggled.connect(self._on_ema_toggled)
-        controls.sig_volume_toggled.connect(self.view.set_volume_visible)
-        controls.sig_trade_flags_toggled.connect(self.view.set_trade_flags_visible)
-
-        chart_cards = self.view.chart_cards
-        if chart_cards:
-            chart_cards[0].connect_timeframe_changed(
-                self._on_chart_toolbar_timeframe_selected
-            )
-            self._sync_chart_toolbar_timeframe()
 
     @Slot(str)
     @safe_ui_action
@@ -1559,7 +1341,7 @@ class BackTestPresenter(BasePresenter):
         # the new one instead.
         self.view.render_symbol_cards([self._symbol])
         self._reset_indicator_bookkeeping_after_host_rebuild()
-        self._connect_chart_controls()
+        connect_chart_controls(self)
         self._emit_ui_log(f"Đã đổi symbol sang {self._symbol}.")
         self._on_config_input_changed()
         self._request_chart_preview()
@@ -2039,69 +1821,13 @@ class BackTestPresenter(BasePresenter):
         return StateScope(key="backtest")
 
     def capture_state(self) -> StateData:
-        script_model = self._view_model.script_model
-        return {
-            **{
-                field.key: getattr(self._view_model, field.prop)
-                for field in BACKTEST_STATE_FIELDS
-            },
-            # EPIC-010G — the script checklist is a QAbstractListModel, not a
-            # ViewModel property, so it cannot be a row in the table above.
-            # Two keys, not one: remembering only which scripts are ON would
-            # let `set_available()` re-apply a `default_enabled` over a script
-            # the user deliberately turned off.
-            _SCRIPTS_ENABLED_KEY: list(script_model.enabled_keys),
-            _SCRIPTS_TOUCHED_KEY: list(script_model.touched_keys),
-        }
+        return capture_backtest_state(self._view_model)
 
     def restore_state(self, data: StateData) -> None:
-        """Applies a remembered form, validating every field on its own.
-
-        @details D5, and boundary rule 4: the coordinator does not know what a
-        valid leverage or commission type is, so the judgement lives here. Each
-        field is applied independently — one corrupt value falls back alone
-        rather than discarding the whole form.
-
-        Writes the **ViewModel**, never a widget: several inputs on this screen
-        are wired straight into handlers, and a restore must not look like the
-        user typing (mode #12). Opening this screen still runs nothing.
-        """
-        for field in BACKTEST_STATE_FIELDS:
-            if field.key not in data:
-                continue
-            value = data[field.key]
-            if field.is_valid(value, self._view_model):
-                setattr(self._view_model, field.prop, value)
-
-        enabled = data.get(_SCRIPTS_ENABLED_KEY)
-        touched = data.get(_SCRIPTS_TOUCHED_KEY)
-        if _is_key_list(enabled) and _is_key_list(touched):
-            # Both or neither: applying `enabled` without `touched` would
-            # leave every key looking untouched, so the next
-            # `set_available()` would switch the defaults straight back on.
-            self._view_model.script_model.restore_selection(enabled, touched)
+        restore_backtest_state(self._view_model, data)
 
     def _connect_state_tracking(self) -> None:
-        """Marks the slice dirty whenever any remembered field changes.
-
-        @details Derived from the same declaration `capture_state()` reads
-        rather than nineteen hand-written `connect` lines: Qt's own convention
-        names a property's notifier `<prop>Changed`, which every field here
-        follows. A missing one raises instead of silently dropping that field
-        out of the debounce.
-        """
-        if self._state_coordinator is None:
-            return
-        self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)
-        for field in BACKTEST_STATE_FIELDS:
-            signal = getattr(self._view_model, f"{field.prop}Changed", None)
-            if signal is None:
-                raise AttributeError(
-                    f"{type(self._view_model).__name__} has no "
-                    f"{field.prop}Changed signal; EPIC-010F cannot track "
-                    f"{field.key!r} for persistence"
-                )
-            signal.connect(self._mark_state_dirty)
+        connect_state_tracking(self)
 
     def _mark_state_dirty(self) -> None:
         if self._state_coordinator is not None:
