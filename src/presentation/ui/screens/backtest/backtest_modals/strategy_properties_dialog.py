@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtWidgets import (
@@ -24,6 +23,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Overlay,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit.widget_value import (
+    connect_value_committed,
+    mark_uses_item_data,
+    read_widget_value,
+    write_widget_value,
+)
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS
 from ._bot_param_field import _BotParamFieldWidget
@@ -33,44 +38,26 @@ if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
 
-@dataclass(frozen=True)
-class _WidgetBinding:
-    """How to read a broker-property widget's current value, and how to
-    write a value back into it — one instance per `BrokerPropertyField.key`
-    (BUG-064). `read`/`write` close over the actual widget, so the binding
-    table itself never needs a widget-type `isinstance` check at call time;
-    that dispatch happens once, in whichever `_*_binding()` factory built it.
-    """
-
-    read: Callable[[], Any]
-    write: Callable[[Any], None]
-
-
-def _line_edit_binding(widget: QLineEdit) -> _WidgetBinding:
-    return _WidgetBinding(widget.text, lambda value: widget.setText(str(value)))
-
-
-def _spin_box_binding(widget: QSpinBox) -> _WidgetBinding:
-    return _WidgetBinding(widget.value, lambda value: widget.setValue(int(value)))
-
-
-def _check_box_binding(widget: QCheckBox) -> _WidgetBinding:
-    return _WidgetBinding(
-        widget.isChecked, lambda value: widget.setChecked(value is True)
-    )
-
-
-def _combo_box_data_binding(widget: QComboBox) -> _WidgetBinding:
-    """For combos populated via `addItem(display_text, data)` — order size
-    type, commission type — where the payload carries the `data`, not the
-    visible label."""
-
-    def write(value: Any) -> None:
-        index = widget.findData(value)
-        if index >= 0:
-            widget.setCurrentIndex(index)
-
-    return _WidgetBinding(widget.currentData, write)
+#: What "Đặt lại mặc định" restores each broker property to, keyed by the same
+#: `BrokerPropertyField.key` everything else uses (BUG-064). A table rather
+#: than twelve `setText`/`setValue`/`setChecked` calls, so a new property gets
+#: its default declared in the one place the rest of it is already declared —
+#: and so Reset can never drift from the widget list the way it silently could
+#: when it named every widget by hand.
+_BROKER_PROPERTY_DEFAULTS: dict[str, Any] = {
+    "initial_capital": "10000",
+    "currency": "USD",
+    "order_size_type": "percent_of_equity",
+    "order_size_text": "100",
+    "pyramiding": 1,
+    "commission_type": "percent",
+    "commission_text": "0.1",
+    "slippage_ticks": 0,
+    "long_leverage": 1,
+    "short_leverage": 1,
+    "take_profit_enabled": False,
+    "take_profit_pct_text": "2.0",
+}
 
 
 def _field_names(rows: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -82,18 +69,6 @@ def _field_names(rows: Sequence[Mapping[str, Any]]) -> list[str]:
         for row in rows
         if row.get("rowType") == "field"
     ]
-
-
-def _combo_box_text_binding(widget: QComboBox) -> _WidgetBinding:
-    """For combos populated via plain `addItems(labels)` — currency — where
-    the payload carries the visible label itself."""
-
-    def write(value: Any) -> None:
-        index = widget.findText(str(value))
-        if index >= 0:
-            widget.setCurrentIndex(index)
-
-    return _WidgetBinding(widget.currentText, write)
 
 
 class StrategyPropertiesDialog(Overlay):
@@ -126,8 +101,8 @@ class StrategyPropertiesDialog(Overlay):
         self._tabs.addTab(inputs_scroll, "Các đầu vào")
 
         self._properties_tab = self._build_properties_tab()
-        self._property_bindings = self._build_property_bindings()
-        self._wire_line_edits_to_save_on_focus_lost(self._properties_tab)
+        self._property_widgets = self._build_property_widgets()
+        self._wire_commit_on_edit(self._property_widgets.values())
         properties_scroll = QScrollArea()
         properties_scroll.setWidgetResizable(True)
         properties_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -172,7 +147,10 @@ class StrategyPropertiesDialog(Overlay):
         layout.addLayout(_section_header("#", "Kích thước lệnh & Pyramiding"))
         row2 = QHBoxLayout()
         row2.setSpacing(12)
-        self._prop_order_size_type = QComboBox()
+        # Marked here, at the addItem(label, data) calls it applies to: this
+        # combo's value is each item's data, not the Vietnamese label Qt's
+        # USER property would otherwise report.
+        self._prop_order_size_type = mark_uses_item_data(QComboBox())
         self._prop_order_size_type.setObjectName("propOrderSizeType")
         self._prop_order_size_type.addItem(
             "% Vốn cổ phần (Equity)", "percent_of_equity"
@@ -192,7 +170,7 @@ class StrategyPropertiesDialog(Overlay):
         layout.addLayout(_section_header("%", "Hoa hồng & Trượt giá"))
         row3 = QHBoxLayout()
         row3.setSpacing(12)
-        self._prop_commission_type = QComboBox()
+        self._prop_commission_type = mark_uses_item_data(QComboBox())
         self._prop_commission_type.setObjectName("propCommissionType")
         self._prop_commission_type.addItem("% Giá trị lệnh", "percent")
         self._prop_commission_type.addItem("USD / Lệnh", "cash_per_order")
@@ -244,25 +222,29 @@ class StrategyPropertiesDialog(Overlay):
         layout.addStretch(1)
         return tab
 
-    def _build_property_bindings(self) -> dict[str, _WidgetBinding]:
-        """One row per `BrokerPropertyField.key` (BUG-064): the single place
-        that says which widget backs a given property and how to read/write
-        it, used by both `_collect_payload()` (widgets -> payload) and
-        `_sync_properties()` (ViewModel -> widgets) instead of each hardcoding
-        its own `.text()`/`.currentData()`/`.value()`/`.isChecked()` calls."""
+    def _build_property_widgets(self) -> dict[str, QWidget]:
+        """Which widget backs each `BrokerPropertyField.key` — and only that
+        (BUG-064).
+
+        There is no read/write logic left here: `kit.widget_value` gets a
+        widget's value out of Qt's own USER property metadata, so this stopped
+        needing five per-widget-type binding constructors. Adding a broker
+        property is one row here plus one in `BROKER_PROPERTY_FIELDS`; nothing
+        has to be taught how to read a spin box.
+        """
         return {
-            "initial_capital": _line_edit_binding(self._prop_initial_capital),
-            "currency": _combo_box_text_binding(self._prop_currency),
-            "order_size_type": _combo_box_data_binding(self._prop_order_size_type),
-            "order_size_text": _line_edit_binding(self._prop_order_size_value),
-            "pyramiding": _spin_box_binding(self._prop_pyramiding),
-            "commission_type": _combo_box_data_binding(self._prop_commission_type),
-            "commission_text": _line_edit_binding(self._prop_commission_value),
-            "slippage_ticks": _spin_box_binding(self._prop_slippage_ticks),
-            "long_leverage": _spin_box_binding(self._prop_long_leverage),
-            "short_leverage": _spin_box_binding(self._prop_short_leverage),
-            "take_profit_enabled": _check_box_binding(self._prop_take_profit_enabled),
-            "take_profit_pct_text": _line_edit_binding(self._prop_take_profit_pct),
+            "initial_capital": self._prop_initial_capital,
+            "currency": self._prop_currency,
+            "order_size_type": self._prop_order_size_type,
+            "order_size_text": self._prop_order_size_value,
+            "pyramiding": self._prop_pyramiding,
+            "commission_type": self._prop_commission_type,
+            "commission_text": self._prop_commission_value,
+            "slippage_ticks": self._prop_slippage_ticks,
+            "long_leverage": self._prop_long_leverage,
+            "short_leverage": self._prop_short_leverage,
+            "take_profit_enabled": self._prop_take_profit_enabled,
+            "take_profit_pct_text": self._prop_take_profit_pct,
         }
 
     def _build_buttons(self) -> QHBoxLayout:
@@ -343,57 +325,52 @@ class StrategyPropertiesDialog(Overlay):
                 field_widget = _BotParamFieldWidget(row.get("field", {}), self._vm)
                 self._inputs_layout.addWidget(field_widget)
                 self._field_widgets.append(field_widget)
-        self._wire_line_edits_to_save_on_focus_lost(self._inputs_tab)
+        self._wire_commit_on_edit(fw.input_widget for fw in self._field_widgets)
 
     def _sync_properties(self) -> None:
-        """Writes every current ViewModel value into its widget, driven by
-        the same `BROKER_PROPERTY_FIELDS` schema `_collect_payload()` reads
-        widgets against (BUG-064) — this used to hand-maintain its own combo
-        index tables (`{"fixed_cash": 1, ...}`) in parallel with the literal
-        `addItem()` order in `_build_properties_tab()`, which is exactly the
-        kind of duplicate-declaration drift this whole schema exists to
-        remove: `_combo_box_data_binding` looks the index up via
-        `findData()` instead of assuming it."""
+        """Writes every current ViewModel value into its widget, driven by the
+        same `BROKER_PROPERTY_FIELDS` schema `_collect_payload()` reads widgets
+        against (BUG-064).
+
+        This used to hand-maintain combo index tables (`{"fixed_cash": 1, ...}`)
+        in parallel with the literal `addItem()` order in
+        `_build_properties_tab()` — exactly the duplicate-declaration drift the
+        schema exists to remove. `write_widget_value()` resolves the item by
+        `findData()` instead of assuming a position.
+        """
         vm = self._vm
         for field in BROKER_PROPERTY_FIELDS:
-            self._property_bindings[field.key].write(getattr(vm, field.vm_attribute))
+            write_widget_value(
+                self._property_widgets[field.key], getattr(vm, field.vm_attribute)
+            )
         self._prop_take_profit_pct.setEnabled(vm.takeProfitPctEnabled)
 
     def reset_all_fields(self) -> None:
         for field_widget in self._field_widgets:
             field_widget.reset_to_default()
-        self._prop_initial_capital.setText("10000")
-        self._prop_currency.setCurrentIndex(0)
-        self._prop_order_size_type.setCurrentIndex(0)
-        self._prop_order_size_value.setText("100")
-        self._prop_pyramiding.setValue(1)
-        self._prop_commission_type.setCurrentIndex(0)
-        self._prop_commission_value.setText("0.1")
-        self._prop_slippage_ticks.setValue(0)
-        self._prop_long_leverage.setValue(1)
-        self._prop_short_leverage.setValue(1)
-        self._prop_take_profit_enabled.setChecked(False)
-        self._prop_take_profit_pct.setText("2.0")
+        for key, value in _BROKER_PROPERTY_DEFAULTS.items():
+            write_widget_value(self._property_widgets[key], value)
 
-    def _wire_line_edits_to_save_on_focus_lost(self, root: QWidget) -> None:
-        """BUG-064 — one generic pass instead of a one-off connection per
-        field: every `QLineEdit` (including `_NumericStepLineEdit`, a
-        subclass) under `root` gets its `editingFinished` wired to
-        `_commit_edited_values()`. `editingFinished` fires on Return/Enter AND
-        on losing focus — a bare `QLineEdit` with no connection at all does
-        neither: a typed value lives only on the widget until something reads
-        `.text()`, so it looked silently reverted the next time the dialog
-        reopened and re-populated from the still-unchanged ViewModel.
+    def _wire_commit_on_edit(self, widgets: Iterable[QWidget]) -> None:
+        """BUG-064 — auto-commit for EVERY kind of input, not just text boxes.
 
-        Deliberately NOT `save_and_close()`: losing focus must not close the
-        backtest or close the dialog. See `_commit_edited_values()`.
+        `connect_value_committed()` (kit) picks the right signal from Qt's own
+        metadata: `editingFinished` for free-text widgets (fires on Enter and
+        on focus loss, never per keystroke), and the USER property's notify
+        signal for widgets where changing the value IS the commit (check
+        boxes, combos).
 
-        Applying this once per tab (here, and again in `_sync_inputs()` after
-        every rebuild) means a field added to either tab later is wired for
-        free — no new connection to remember to add alongside it.
+        The earlier version of this only ever scanned `findChildren(QLineEdit)`,
+        so changing Pyramiding, Slippage, a leverage spin box, the Take Profit
+        check box or either combo was silently dropped unless the user also
+        clicked Save. Driving it from the declared widget list instead of a
+        type-filtered child scan is what closes that gap for good.
+
+        Deliberately NOT `save_and_close()`: losing focus must neither close
+        the dialog nor start a run. See `_commit_edited_values()`.
         """
-        for line_edit in root.findChildren(QLineEdit):
-            line_edit.editingFinished.connect(self._commit_edited_values)
+        for widget in widgets:
+            connect_value_committed(widget, self._commit_edited_values)
 
     def _collect_payload(self) -> dict:
         """The current value of every field in both tabs, in the shape the
@@ -401,12 +378,9 @@ class StrategyPropertiesDialog(Overlay):
         widgets are read."""
         return {
             "inputs": {fw.field_name: fw.value() for fw in self._field_widgets},
-            # BUG-064 — reads through the same `_property_bindings` table
-            # `_sync_properties()` writes through; adding a new broker
-            # property is one row in `_build_property_bindings()`, not a
-            # hand-written `.text()`/`.value()`/`.isChecked()` call here too.
             "properties": {
-                key: binding.read() for key, binding in self._property_bindings.items()
+                key: read_widget_value(widget)
+                for key, widget in self._property_widgets.items()
             },
         }
 

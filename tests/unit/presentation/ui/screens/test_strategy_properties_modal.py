@@ -498,3 +498,71 @@ def test_clicking_save_closes_the_dialog_without_starting_a_run(qapp, modal_pres
     assert modal_presenter.fsm.current_state == state_before, (
         "saving must not dispatch RUN_REQUESTED"
     )
+
+
+def test_non_text_widgets_also_commit_on_change(qapp, modal_presenter):
+    """BUG-064, the gap left by the first round of fixes: auto-commit was
+    wired by scanning `findChildren(QLineEdit)`, so a spin box, a check box
+    or a combo was silently dropped unless the user also clicked Save.
+
+    Driving the wiring from the declared widget list via
+    `kit.widget_value.connect_value_committed()` covers every input kind,
+    each on the signal Qt itself considers a commit for that widget."""
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+    dialog._tabs.setCurrentIndex(1)  # "Đặc tính"
+    qapp.processEvents()
+
+    vm = modal_presenter._view_model
+    assert vm.pyramiding == 1, "sanity: default"
+    assert vm.takeProfitPctEnabled is False, "sanity: default"
+    assert vm.commissionType == "percent", "sanity: default"
+
+    # QSpinBox — no Enter, no focus change, no Save click.
+    dialog.findChild(object, "propPyramiding").setValue(4)
+    qapp.processEvents()
+    assert vm.pyramiding == 4
+
+    # QCheckBox — toggling IS the commit.
+    dialog.findChild(object, "propTakeProfitEnabled").setChecked(True)
+    qapp.processEvents()
+    assert vm.takeProfitPctEnabled is True
+
+    # QComboBox carrying item data — the stored value must be the data
+    # ("cash_per_order"), never the Vietnamese label shown in the list.
+    commission_combo = dialog.findChild(object, "propCommissionType")
+    commission_combo.setCurrentIndex(commission_combo.findData("cash_per_order"))
+    qapp.processEvents()
+    assert vm.commissionType == "cash_per_order"
+
+    assert dialog.isVisible(), "committing must not close the dialog"
+
+
+def test_reset_to_defaults_restores_every_broker_property(qapp, modal_presenter):
+    """Reset is table-driven off the same key list as everything else now, so
+    it cannot silently miss a property the way twelve hand-written setters
+    could."""
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+
+    dialog.findChild(object, "propPyramiding").setValue(7)
+    dialog.findChild(object, "propTakeProfitEnabled").setChecked(True)
+    dialog.findChild(object, "propOrderSizeValue").setText("55")
+    qapp.processEvents()
+
+    dialog.findChild(object, "btnResetBotParams").click()
+    qapp.processEvents()
+
+    assert dialog.findChild(object, "propPyramiding").value() == 1
+    assert dialog.findChild(object, "propTakeProfitEnabled").isChecked() is False
+    assert dialog.findChild(object, "propOrderSizeValue").text() == "100"
+    assert dialog.findChild(object, "propCommissionType").currentData() == "percent"
+    assert dialog.findChild(object, "propCurrency").currentText() == "USD"
