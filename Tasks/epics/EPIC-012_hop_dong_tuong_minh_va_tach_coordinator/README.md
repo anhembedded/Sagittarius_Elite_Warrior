@@ -1,6 +1,6 @@
 # EPIC-012 — Hợp đồng tường minh (cấm duck-typing ngầm) & tách nốt Coordinator
 
-**Trạng thái:** 🟡 Đang làm (1/7 task con xong)
+**Trạng thái:** 🟡 Đang làm (2/7 task con xong)
 **Loại:** Kiến trúc / luật + tái cấu trúc tầng Presentation
 **Nguồn:** User chốt trực tiếp 2026-08-27 — *"updat rule code strickly no
 duck-typed. use abstract or interface class"*, *"ko thay view runtime, cho load
@@ -16,8 +16,8 @@ Việc đó **đúng theo Single Responsibility**, nhưng lúc đo lại kết q
 hai thứ mà bản thân việc tách không sửa được:
 
 1. **Hợp đồng Presenter ↔ View chưa bao giờ được khai báo.** Presenter + 6
-   Coordinator gọi **15 thành viên** của `view` mà không có kiểu nào nói chúng
-   tồn tại. `BasePresenter.__init__(self, view, container)` của Engine để `view`
+   Coordinator + `signal_wiring` gọi **14 thành viên** của `view` mà không có
+   kiểu nào nói chúng tồn tại. `BasePresenter.__init__(self, view, container)` của Engine để `view`
    **không có annotation**. Engine *có* `IView`, nhưng nó khai đúng 1 method
    `bind()` — **không View nào trong cả hai repo implement**, và `src/` của repo
    này tham chiếu `IView` **0 lần**.
@@ -34,21 +34,24 @@ tên (*"Code phải tự nói lên chính nó"*).
 
 ## 2. Số đo, ngày 2026-08-27
 
-### 2.1 Hợp đồng View ngầm — 15 thành viên
+### 2.1 Hợp đồng View ngầm — 14 thành viên
 
 ```bash
-grep -rhoE "(self\.)?_?view\.[a-zA-Z_]+" src/presentation/ui/screens/backtest/ \
-  | sed -E 's/.*view\.//' | sort -u
+grep -rnoE "(self\.)?_?view\.[a-zA-Z_]+" src/presentation/ui/screens/backtest/
 ```
 
-`chart_cards`, `chart_controls`, `render_symbol_cards`, `resize`,
-`set_view_model`, `set_chart_mode`, `set_chart_host_factory`,
-`set_chart_dev_mode`, `set_chart_opengl_enabled`,
-`set_chart_cached_interaction_enabled`, `set_display_timezone`,
-`set_volume_visible`, `set_trade_flags_visible`, `on_preview_data_ready`,
-`on_backtest_data_ready`.
+`chart_cards`, `chart_controls`, `render_symbol_cards`, `set_view_model`,
+`set_chart_mode`, `set_chart_host_factory`, `set_chart_dev_mode`,
+`set_chart_opengl_enabled`, `set_chart_cached_interaction_enabled`,
+`set_display_timezone`, `set_volume_visible`, `set_trade_flags_visible`,
+`on_preview_data_ready`, `on_backtest_data_ready`.
 
 Khai báo hiện có: **0**.
+
+Quét cả thư mục ra **15**; cái thứ 15 là `resize`, đến từ `preview.py` — một
+harness dev tự dựng `BackTestView()`, **không** phải ranh giới Presenter↔View.
+Đưa nó vào port là bắt mọi View tương lai nợ một method không Presenter nào
+gọi — đúng vi phạm Interface Segregation mà epic này đang đi sửa.
 
 ### 2.2 74 tham số constructor, 24 trong đó là accessor state
 
@@ -118,7 +121,7 @@ biến ở đây là *danh tính View*, không phải *widget bên trong nó*.
 | ID | Việc | Trạng thái |
 | :--- | :--- | :---: |
 | [`EPIC-012A`](completed/EPIC-012A_rule_hop_dong_tuong_minh.md) | Viết luật §2.1 vào `architecture-rule.md` + dòng trỏ ở `CLAUDE.md` | ✅ Xong |
-| [`EPIC-012B`](incomplete/EPIC-012B_ibacktestview_contract.md) | Khai `IBacktestView` — 15 thành viên, annotate Presenter + 6 Coordinator | ⬜ Chưa |
+| [`EPIC-012B`](completed/EPIC-012B_ibacktestview_contract.md) | Khai `IBacktestView` — 14 thành viên + 3 port phụ, annotate Presenter/Coordinator, test khoá hai chiều | ✅ Xong |
 | [`EPIC-012C`](incomplete/EPIC-012C_backtest_screen_state.md) | `BacktestScreenState` — gom 24 accessor về 1 tham số, 74 → 56 | ⬜ Chưa |
 | [`EPIC-012D`](incomplete/EPIC-012D_tach_chart_preview_coordinator.md) | Tách `ChartPreviewCoordinator` khỏi `chart_render` (10 dep độc quyền) | ⬜ Chưa |
 | [`EPIC-012E`](incomplete/EPIC-012E_tach_chart_feed_coordinator.md) | Tách `ChartFeedCoordinator` khỏi `execution` (357 → ~250 dòng) | ⬜ Chưa |

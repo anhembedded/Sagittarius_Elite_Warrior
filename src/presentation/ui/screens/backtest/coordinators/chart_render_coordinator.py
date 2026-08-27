@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_m
 
 from ..logic.chart_canvas_view import ChartDisplayMode
 from ..logic.time_range_preset import TimeRangePreset
+from ..ports.i_backtest_view import IBacktestView
 
 logger = logging.getLogger("App.BackTestPresenter")
 
@@ -45,7 +46,7 @@ class ChartRenderCoordinator:
 
     def __init__(
         self,
-        view,
+        view: IBacktestView,
         view_model,
         dispatcher,
         thread_manager,

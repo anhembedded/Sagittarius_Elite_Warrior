@@ -30,7 +30,10 @@ hoá). Đo trước khi viết:
 Cái user thật sự muốn cấm — và cũng là lỗi đo được trong repo — là **hợp đồng
 ngầm**, không phải `Protocol`:
 
-- Presenter + 6 Coordinator gọi **15 thành viên** của `view`, **0 khai báo**.
+- Presenter + 6 Coordinator + `signal_wiring` gọi **14 thành viên** của
+  `view`, **0 khai báo** (`EPIC-012B` đo lại chính xác; quét cả thư mục ra 15,
+  cái thứ 15 là `resize` của `preview.py` — một harness dev, không thuộc ranh
+  giới Presenter↔View).
 - `BasePresenter.__init__(self, view, container)`: `view` **không annotation**.
 - `IView` khai đúng 1 method `bind()` mà **không View nào implement**; `src/`
   tham chiếu `IView` **0 lần**.

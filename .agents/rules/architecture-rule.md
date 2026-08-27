@@ -105,8 +105,8 @@ interface đứng cạnh để trấn an. Khác biệt so với ABC: bỏ sót �
 
 #### Bằng chứng thật, đo 2026-08-27
 
-`backtest_presenter.py` + 6 coordinator gọi **15 thành viên** của `view`:
-`chart_cards`, `chart_controls`, `render_symbol_cards`, `resize`,
+`backtest_presenter.py` + 6 coordinator + `signal_wiring.py` gọi **14 thành
+viên** của `view`: `chart_cards`, `chart_controls`, `render_symbol_cards`,
 `set_view_model`, `set_chart_mode`, `set_chart_host_factory`,
 `set_chart_dev_mode`, `set_chart_opengl_enabled`,
 `set_chart_cached_interaction_enabled`, `set_display_timezone`,
@@ -114,6 +114,10 @@ interface đứng cạnh để trấn an. Khác biệt so với ABC: bỏ sót �
 `on_backtest_data_ready` — **không kiểu nào khai báo chúng.** Engine's
 `BasePresenter.__init__(self, view, container)` để `view` **không có
 annotation**.
+
+(Quét cả thư mục ra **15**; cái thứ 15 là `resize`, và nó đến từ `preview.py` —
+một harness dev tự dựng `BackTestView()`, không phải ranh giới Presenter↔View.
+Đây là lý do bước "xem từng hit đến từ đâu" ở dưới không được bỏ.)
 
 Engine *có* `IView`, nhưng nó khai đúng 1 method `bind()` mà **không View nào
 trong cả hai repo implement**, và `src/` của repo này tham chiếu `IView`
@@ -124,12 +128,24 @@ trôi mà không có gì vỡ ra.
 Lệnh kiểm khi nghi một hợp đồng đang ngầm:
 
 ```bash
-# Consumer đang dùng những gì của `x`?
-grep -rhoE "(self\.)?_?<tên_thuộc_tính>\.[a-zA-Z_]+" src/<thư_mục>/ | sed -E 's/.*\.//' | sort -u
+# Consumer đang dùng những gì của `x`? (bỏ -h để thấy hit nào ở file nào)
+grep -rnoE "(self\.)?_?<tên_thuộc_tính>\.[a-zA-Z_]+" src/<thư_mục>/
 ```
 
-Số dòng nó in ra phải **khớp** với số thành viên trong kiểu đã khai báo. Lệch
-là hợp đồng đã trôi.
+Số thành viên còn lại **sau khi loại các hit không thuộc ranh giới đang xét**
+phải khớp với kiểu đã khai báo. Lệch là hợp đồng đã trôi.
+
+**Tốt hơn `grep` một lần: một test khoá hai chiều.** `grep` là thứ phải nhớ
+chạy; test thì tự chạy. `tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py`
+(`EPIC-012B`) duyệt source bằng `ast` và đỏ ở **cả hai chiều** — thành viên được
+dùng mà chưa khai (hợp đồng lại thành ngầm), **và** thành viên đã khai mà không
+ai dùng (đúng tình trạng của `IView`). Nó còn khoá **số đếm**, vì hai chiều kia
+so *tập hợp* nên xoá 1 thêm 1 sẽ triệt tiêu nhau và vẫn xanh.
+
+Điều này đặc biệt quan trọng ở `presentation/`: tầng đó bị **loại khỏi cổng
+`mypy`** (`pyproject.toml`, `EPIC-002A`), nên một `Protocol` sống ở đây **không
+có bất kỳ cơ chế tĩnh nào** kiểm. Không có test kiểu trên thì nó chỉ là tài
+liệu.
 
 #### View được chọn lúc bootstrap, không thay lúc runtime (user chốt 2026-08-27)
 

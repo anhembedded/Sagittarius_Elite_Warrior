@@ -125,6 +125,7 @@ from .logic.time_range_preset import TimeRangePreset, resolve_time_range
 from .logic.trade_log_row import (
     TradeLogRow,
 )
+from .ports.i_backtest_view import IBacktestView
 from .signal_wiring import (
     connect_chart_controls,
     connect_engine_events,
@@ -224,6 +225,16 @@ class BackTestPresenter(BasePresenter):
     unlike the Dashboard/Database screens there is no progress-event stream
     to subscribe to — one dispatch, one result.
     """
+
+    #: The View this Presenter was constructed with. `BasePresenter` assigns
+    #: `self.view` without an annotation, so without this line the 14-member
+    #: contract below would be invisible to every reader and every tool —
+    #: the implicit duck typing `architecture-rule.md` §2.1 forbids.
+    #:
+    #: Chosen once at bootstrap and never swapped at runtime (§2.1). That
+    #: makes holding this reference safe; it does NOT make the widgets
+    #: *inside* it safe to cache — see `BUG-013`.
+    view: IBacktestView
 
     INITIAL_STATE = BacktestUiState.IDLE
     UI_TRANSITION_MATRIX = BACKTEST_STATE_TRANSITIONS
