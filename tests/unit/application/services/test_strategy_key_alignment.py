@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_st
 from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy import (
     SupportResistanceStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
+    VolumeSpikeFlowStrategy,
+)
 
 
 def _registry() -> StrategyRegistry:
@@ -32,6 +35,7 @@ def _registry() -> StrategyRegistry:
     registry.register("ema_crossover", EmaCrossoverStrategy)
     registry.register("multi_ema_trend_follower", MultiEmaTrendFollowerStrategy)
     registry.register("support_resistance", SupportResistanceStrategy)
+    registry.register("volume_spike_flow", VolumeSpikeFlowStrategy)
     return registry
 
 

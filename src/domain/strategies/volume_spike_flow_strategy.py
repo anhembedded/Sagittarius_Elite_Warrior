@@ -164,7 +164,15 @@ class VolumeSpikeFlowStrategy(BaseStrategy):
         if abs(delta) < self._delta_imbalance:
             return self.hold("volume nổ nhưng mua/bán cân bằng")
 
-        return self._enter(context, delta, baseline)
+        # Read here rather than inside `_enter()` so the key-alignment guard
+        # (test_strategy_key_alignment.py) can see it: that test static-analyses
+        # `decide()` for `context.indicators[...]` reads and compares them
+        # against `build_indicators()`, so a read hidden in a helper would make
+        # this strategy look like it declares an indicator it never uses.
+        # `indicators` is typed as the union of every indicator's reading; this
+        # strategy only ever registers an EMA, which reads float.
+        trend_ema = cast(float, context.indicators[self.TREND_EMA_KEY])
+        return self._enter(context, delta, baseline, trend_ema)
 
     # ------------------------------------------------------------------ #
 
@@ -204,12 +212,13 @@ class VolumeSpikeFlowStrategy(BaseStrategy):
         return (aggressive_buy - aggressive_sell) / candle.volume
 
     def _enter(
-        self, context: StrategyContext, delta: float, baseline: float
+        self,
+        context: StrategyContext,
+        delta: float,
+        baseline: float,
+        trend_ema: float,
     ) -> tuple[SignalAction, str, Mapping[str, Any]]:
         candle = context.candle
-        # `indicators` is typed as the union of every indicator's reading; this
-        # strategy only ever registers an EMA, which reads float.
-        trend_ema = cast(float, context.indicators[self.TREND_EMA_KEY])
 
         go_long = delta > 0.0
         if self._fade_mode:
