@@ -48,6 +48,13 @@ import or Qt environment.
   undetected, because mypy then never resolves the Port's own defining
   module in the same analysis pass (verified empirically, see
   `Tasks/reports/EPIC-002A_mypy_baseline_audit.md` §3);
+- `scripts/check_jules_prompt_references.py` — every repository path the
+  scheduled-agent prompts under `.jules/` name must still resolve (`EPIC-011`).
+  Those prompts drive agents that run unattended, so a reference to a deleted
+  file fails silently: the run completes and reports success. `sentinel.prompt.md`
+  spent months pointing at a rule file with no commit in any branch's history.
+  Needs neither Qt nor the engine, runs in milliseconds, and is verified in both
+  directions (passes clean, fails on an injected broken reference);
 - all primary tests under `tests/`, excluding `tests/sanity/` and the known
   unstable `tests/integration/presentation/ui/` group by default;
 - `tests/sanity/` sequentially in a separate job;

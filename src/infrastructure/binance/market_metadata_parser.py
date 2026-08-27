@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import Enum
+from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
     LotSizeFilter,
@@ -54,7 +55,7 @@ DEFAULT_APPLY_TO_MARKET: bool = True
 
 
 def parse_binance_symbol_metadata(
-    symbol_info: dict,
+    symbol_info: dict[str, Any],
     fetched_at: datetime | None = None,
 ) -> SymbolMarketMetadata:
     """Parses a single symbol info dictionary from Binance API /exchangeInfo.
@@ -81,11 +82,22 @@ def parse_binance_symbol_metadata(
     timestamp = fetched_at or datetime.now(UTC)
 
     filters = symbol_info.get(BinanceMetadataKey.FILTERS.value, [])
-    filter_map = {
-        f.get(BinanceMetadataKey.FILTER_TYPE.value): f
-        for f in filters
-        if isinstance(f, dict)
-    }
+    # Annotated rather than inferred: without it every `filter_map.get()` below
+    # is `Any`, and the one call that omits a default (`NOTIONAL`) widens to
+    # `Any | None` and reaches `float()` unchecked.
+    #
+    # The `filterType` guard is what the annotation then forced into the open: a
+    # filter object arriving without that key used to be stored under a `None`
+    # key. Nothing could ever read it back -- every lookup below passes a real
+    # string -- so dropping it changes no behaviour, it just stops the map from
+    # claiming a filter it cannot serve.
+    filter_map: dict[str, dict[str, Any]] = {}
+    for raw_filter in filters:
+        if not isinstance(raw_filter, dict):
+            continue
+        filter_type = raw_filter.get(BinanceMetadataKey.FILTER_TYPE.value)
+        if isinstance(filter_type, str):
+            filter_map[filter_type] = raw_filter
 
     # Price Filter
     pf_data = filter_map.get(BinanceFilterType.PRICE_FILTER.value, {})

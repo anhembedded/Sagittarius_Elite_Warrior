@@ -40,8 +40,13 @@ move, bản đầy đủ hơn đã tồn tại sẵn ở các file `rules/` tư�
 **Tách rule 2026-08-25:** `rules/code-rule.md` (213 dòng, 9 nhóm quy tắc khác
 abstraction level) đã được tách thành 6 file chuyên biệt — 6 dòng đầu bảng
 trên. Bản thân `code-rule.md` **được giữ làm stub điều hướng, không xoá**: nó
-đang được 7 file `.jules/*.prompt.md` (system prompt của agent tự động) đọc
-như điểm vào bắt buộc, cùng lý do `AGENTS.md` này từng được giữ lại.
+đang được các file trong `.jules/` (system prompt của agent tự động) đọc như
+điểm vào bắt buộc, cùng lý do `AGENTS.md` này từng được giữ lại.
+
+**Sửa 2026-08-26 (`EPIC-011`):** đoạn trên trước đây ghi "7 file
+`.jules/*.prompt.md`". `EPIC-011` đã rút phần chung của 7 prompt ra
+`.jules/README.md`, nên giờ **chỉ file đó** trỏ tới `code-rule.md`. Lý do giữ
+stub không đổi. Đếm bằng `grep -rl code-rule .jules/`.
 
 **Sửa 2026-08-25:** bảng trên trước đây có thêm dòng "Bảo mật →
 `rules/sentinel-rule.md`" — file đó **chưa bao giờ tồn tại** trong
