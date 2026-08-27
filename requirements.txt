@@ -1,4 +1,5 @@
 python-binance
+requests
 sqlalchemy
 pydantic
 pytest

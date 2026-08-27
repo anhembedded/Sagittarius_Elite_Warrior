@@ -97,6 +97,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BUG-063`**: [Đồng bộ dữ liệu 1 giây mất trắng nến đã tải khi Binance trả lời chậm — `python-binance` timeout mặc định 10s không đủ cho hàng trăm request tuần tự của 1 lần sync nhiều ngày, không có retry. Thêm resume từ `close_time + 1ms` + backoff luỹ thừa, nâng timeout lên 30s](bug_report/completed/BUG-063_binance_sync_read_timeout_aborts_whole_sync.md)
 - [x] **`BUG-053`**: [Script indicator nhiều đường (MACD: MACD/Signal/Histogram) tạo 1 subplot row/đường thay vì 1 row chung — ép main plot xuống ~3/8 chiều cao, đăng ký trùng crosshair. `group` key mới cho `IndicatorScriptRunner`/`IndicatorManager` gộp lại thành 1 row/script](bug_report/completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md)
 - [x] **`BUG-041`**: [App không thoát tiến trình khi đóng trong lúc Storage Vault đang scan DB](bug_report/completed/BUG-041_app_shutdown_hangs_on_inflight_thread_pool_task.md)
 - [x] **`BOT-101`**: [RSI compose 2 instance smoothing tổng quát thay vì tự tính avg_gain/avg_loss](completed/BOT-101_rsi_compose_generalized_smoothing.md)

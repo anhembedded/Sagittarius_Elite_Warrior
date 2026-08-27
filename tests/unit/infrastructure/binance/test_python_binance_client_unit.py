@@ -3,13 +3,16 @@ from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
+    _DEFAULT_REQUEST_TIMEOUT_SECONDS,
     _KLINE_STREAM_CHUNK_SIZE,
+    _MAX_TRANSIENT_RETRIES,
     PythonBinanceClient,
 )
 
@@ -63,9 +66,16 @@ def test_no_injected_client_falls_back_to_constructing_the_real_sdk_client(
     mock_client_class,
 ):
     """When no client is injected, the real Client(api_key, api_secret) is built — the
-    existing default behavior every current call site (container wiring) relies on."""
+    existing default behavior every current call site (container wiring) relies on.
+
+    BUG-063: also asserts the longer default read timeout, since python-binance's
+    own 10s default is what turned a single slow page into a full sync failure
+    during a multi-day 1-second-interval sync.
+    """
     PythonBinanceClient(api_key="k", api_secret="s")
-    mock_client_class.assert_called_once_with("k", "s")
+    mock_client_class.assert_called_once_with(
+        "k", "s", requests_params={"timeout": _DEFAULT_REQUEST_TIMEOUT_SECONDS}
+    )
 
 
 def test_get_historical_klines_propagates_underlying_client_errors():
@@ -319,3 +329,132 @@ def test_get_available_symbols_returns_empty_list_when_exchange_info_is_empty():
     client = PythonBinanceClient(client=injected_client)
 
     assert client.get_available_symbols() == []
+
+
+# --------------------------------------------------------------------------- #
+# BUG-063 — a single transient network error (ReadTimeout) during a long
+# multi-page historical sync used to abort the whole request, discarding
+# every kline the current attempt had already fetched. Real trigger: a 7-day
+# 1-second-interval sync needs ~600 sequential Binance requests; python-
+# binance's own generator has no retry, so any one of those 600 timing out
+# killed the entire sync.
+# --------------------------------------------------------------------------- #
+
+
+def _failing_generator(*_args: object, **_kwargs: object):
+    """A `get_historical_klines_generator` stand-in that raises on the first
+    `next()` call — mirrors a page failing before yielding anything."""
+    raise requests.exceptions.ReadTimeout("read timed out")
+    yield  # pragma: no cover - unreachable; makes this a generator function
+
+
+def test_stream_historical_klines_resumes_from_the_last_kline_after_a_transient_network_error(
+    monkeypatch,
+):
+    """The regression case: 2 klines come through, the page after them times
+    out, and the retry must continue from kline 1's close_time — not restart
+    the whole sync from the original start_str (which would silently
+    re-download data already saved) and not lose the 2 klines already
+    fetched (which the old code did, since the exception unwound past the
+    unfinished buffer before it was ever yielded)."""
+    monkeypatch.setattr(
+        "Sagittarius_Elite_Warrior.src.infrastructure.binance.client.time.sleep",
+        lambda _seconds: None,
+    )
+    injected_client = Mock()
+    calls: list[tuple] = []
+
+    def _generator_side_effect(symbol, interval, start_str, end_str):
+        calls.append((symbol, interval, start_str, end_str))
+        if len(calls) == 1:
+
+            def _first_attempt():
+                yield _raw_kline(0)
+                yield _raw_kline(1)
+                raise requests.exceptions.ReadTimeout("read timed out")
+
+            return _first_attempt()
+        return (_raw_kline(i) for i in range(2, 5))
+
+    injected_client.get_historical_klines_generator.side_effect = _generator_side_effect
+
+    client = PythonBinanceClient(client=injected_client)
+
+    chunks = list(
+        client.stream_historical_klines(
+            "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+        )
+    )
+
+    all_klines = [k for chunk in chunks for k in chunk]
+    assert len(all_klines) == 5, "the 2 klines fetched before the timeout were lost"
+    assert len(calls) == 2, "expected exactly one retry attempt"
+    # BUG-022's inclusive-close_time convention: resume 1ms after the last
+    # kline this attempt actually received, not from the original start_str.
+    expected_resume_start = _raw_kline(1)[6] + 1
+    assert calls[1][2] == expected_resume_start
+
+
+def test_stream_historical_klines_gives_up_after_repeated_transient_errors_with_no_progress(
+    monkeypatch,
+):
+    """A connection that never yields a single kline between failures is
+    genuinely down, not flaky — this must surface as an error rather than
+    retry forever or silently return an empty/partial result."""
+    monkeypatch.setattr(
+        "Sagittarius_Elite_Warrior.src.infrastructure.binance.client.time.sleep",
+        lambda _seconds: None,
+    )
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.side_effect = _failing_generator
+
+    client = PythonBinanceClient(client=injected_client)
+
+    with pytest.raises(requests.exceptions.RequestException):
+        list(
+            client.stream_historical_klines(
+                "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+            )
+        )
+
+    # The generator is called once per attempt: the first try plus every retry.
+    assert (
+        injected_client.get_historical_klines_generator.call_count
+        == _MAX_TRANSIENT_RETRIES + 1
+    )
+
+
+def test_stream_historical_klines_cancellation_during_retry_backoff_stops_immediately(
+    monkeypatch,
+):
+    """Cancellation must be honoured while waiting out the backoff delay, not
+    only between pages — otherwise cancelling right after a timeout leaves
+    the user waiting through the retry's own sleep first."""
+    monkeypatch.setattr(
+        "Sagittarius_Elite_Warrior.src.infrastructure.binance.client.time.sleep",
+        lambda _seconds: None,
+    )
+    injected_client = Mock()
+    failure_happened = {"flag": False}
+
+    def _first_attempt(symbol, interval, start_str, end_str):
+        def _gen():
+            yield _raw_kline(0)
+            failure_happened["flag"] = True
+            raise requests.exceptions.ReadTimeout("read timed out")
+
+        return _gen()
+
+    injected_client.get_historical_klines_generator.side_effect = _first_attempt
+
+    client = PythonBinanceClient(client=injected_client)
+
+    with pytest.raises(ExchangeRequestCancelledError):
+        list(
+            client.stream_historical_klines(
+                "BTCUSDT",
+                TimeFrame.ONE_MINUTE,
+                datetime(2023, 1, 1, tzinfo=UTC),
+                cancellation_requested=lambda: failure_happened["flag"],
+            )
+        )

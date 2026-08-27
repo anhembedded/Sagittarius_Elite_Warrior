@@ -1,7 +1,9 @@
 import logging
+import time
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 
+import requests
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     CancellationCheck,
@@ -27,6 +29,30 @@ _EXCHANGE_INFO_SYMBOLS_KEY = "symbols"
 #: with a page boundary already paid for over the network.
 _KLINE_STREAM_CHUNK_SIZE = 1000
 
+#: BUG-063 — python-binance's own default read timeout is 10s. A multi-day
+#: 1-second-interval sync needs hundreds of sequential requests, so at that
+#: default, an ordinary slow response (not an outage) was enough to fail the
+#: whole sync. 30s is still bounded — a genuinely dead connection fails loud
+#: well within human patience — but stops treating an occasional slow page as
+#: fatal.
+_DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
+
+#: BUG-063 — consecutive transient network failures (no kline received
+#: between them) tolerated before `_generate_raw_klines_with_retry` gives up.
+#: Any failure that a retry DOES make progress past resets this counter, so
+#: a flaky-but-working connection can keep going indefinitely; only a
+#: connection that yields nothing across every retry is judged genuinely
+#: down.
+_MAX_TRANSIENT_RETRIES = 3
+
+#: BUG-063 — base delay for the exponential backoff between retry attempts.
+_RETRY_BACKOFF_BASE_SECONDS = 2.0
+
+#: BUG-063 — chunk size for the cancellable backoff sleep, mirroring
+#: `ThreadSafeRateLimiter.acquire()`'s own polling idiom so a cancellation
+#: during backoff is honoured quickly instead of only between pages.
+_CANCELLATION_POLL_INTERVAL_SEC = 0.05
+
 
 class PythonBinanceClient(IExchangeClient):
     """
@@ -46,12 +72,105 @@ class PythonBinanceClient(IExchangeClient):
         constructing the real Client from api_key/api_secret when not provided, so
         existing call sites (and app_bootstrapper's container wiring) are unaffected.
         """
-        self.client = client if client is not None else Client(api_key, api_secret)
+        self.client = (
+            client
+            if client is not None
+            else Client(
+                api_key,
+                api_secret,
+                requests_params={"timeout": _DEFAULT_REQUEST_TIMEOUT_SECONDS},
+            )
+        )
 
     def _format_time(self, time_val: str | datetime | None) -> str | None:
         if isinstance(time_val, datetime):
             return time_val.astimezone(UTC).strftime("%d %b %Y %H:%M:%S")
         return time_val
+
+    def _generate_raw_klines_with_retry(
+        self,
+        symbol: str,
+        interval: str,
+        start_str: str | int | None,
+        end_str: str | None,
+        cancellation_requested: CancellationCheck | None,
+    ) -> Iterator[list]:
+        """
+        @brief Yields raw klines from `get_historical_klines_generator`,
+        resuming past the last kline it actually delivered instead of
+        failing the whole request on one transient network error (BUG-063).
+        @details A multi-day 1-second-interval sync needs hundreds of
+        sequential HTTP calls, and python-binance's own generator has no
+        retry of its own — one `ReadTimeout` among hundreds of pages used to
+        abort everything the current attempt had already fetched, including
+        klines already pulled but not yet handed to the caller.
+
+        Resumes via the last yielded kline's own `close_time + 1ms` (the
+        same inclusive-close_time convention `BUG-022` established
+        elsewhere), never by restarting `start_str` from the original
+        request — a retry must not re-download klines this call already
+        has.
+
+        The retry budget resets on every kline actually yielded: a
+        flaky-but-working connection can keep making forward progress
+        indefinitely (the caller's own cancellation is the only bound on
+        that), while a connection that yields nothing between attempts is
+        judged genuinely down and gives up after `_MAX_TRANSIENT_RETRIES`
+        consecutive failures.
+        """
+        current_start = start_str
+        consecutive_failures = 0
+        while True:
+            self._raise_if_cancelled(cancellation_requested)
+            generator = self.client.get_historical_klines_generator(
+                symbol, interval, current_start, end_str
+            )
+            try:
+                for k in generator:
+                    self._raise_if_cancelled(cancellation_requested)
+                    yield k
+                    current_start = int(k[6]) + 1
+                    consecutive_failures = 0
+                return
+            except ExchangeRequestCancelledError:
+                raise
+            except requests.exceptions.RequestException as exc:
+                consecutive_failures += 1
+                if consecutive_failures > _MAX_TRANSIENT_RETRIES:
+                    logger.error(
+                        f"[{symbol}] Giving up after {_MAX_TRANSIENT_RETRIES} "
+                        f"consecutive transient network errors: {exc}"
+                    )
+                    raise
+                delay = _RETRY_BACKOFF_BASE_SECONDS * (2 ** (consecutive_failures - 1))
+                logger.warning(
+                    f"[{symbol}] Transient network error ({exc}); resuming from "
+                    f"{current_start} in {delay:.0f}s "
+                    f"(attempt {consecutive_failures}/{_MAX_TRANSIENT_RETRIES})"
+                )
+                self._cancellable_sleep(delay, cancellation_requested)
+
+    @staticmethod
+    def _cancellable_sleep(
+        seconds: float, cancellation_requested: CancellationCheck | None
+    ) -> None:
+        """Sleeps in small chunks so a cancellation during retry backoff is
+        honoured within `_CANCELLATION_POLL_INTERVAL_SEC`, mirroring
+        `ThreadSafeRateLimiter.acquire()`'s own polling idiom — otherwise
+        cancelling right after a timeout would leave the caller waiting out
+        the full backoff delay first."""
+        if cancellation_requested is None:
+            time.sleep(seconds)
+            return
+        remaining = seconds
+        while remaining > 0:
+            if cancellation_requested():
+                raise ExchangeRequestCancelledError(
+                    "Historical kline request cancelled"
+                )
+            chunk = min(_CANCELLATION_POLL_INTERVAL_SEC, remaining)
+            time.sleep(chunk)
+            remaining -= chunk
 
     def _fetch_raw_klines(
         self,
@@ -63,13 +182,11 @@ class PythonBinanceClient(IExchangeClient):
         cancellation_requested: CancellationCheck | None,
     ) -> list[list]:
         try:
-            self._raise_if_cancelled(cancellation_requested)
             raw_klines = []
-            generator = self.client.get_historical_klines_generator(
-                symbol, interval, start_str, end_str
+            generator = self._generate_raw_klines_with_retry(
+                symbol, interval, start_str, end_str, cancellation_requested
             )
             for i, k in enumerate(generator):
-                self._raise_if_cancelled(cancellation_requested)
                 raw_klines.append(k)
                 # Binance usually returns up to 1000 klines per request chunk.
                 # We can update the UI roughly every 1000 items to avoid UI blocking while still keeping it smooth.
@@ -125,14 +242,12 @@ class PythonBinanceClient(IExchangeClient):
         cancellation_requested: CancellationCheck | None,
     ) -> Iterator[list[MarketData]]:
         try:
-            self._raise_if_cancelled(cancellation_requested)
-            generator = self.client.get_historical_klines_generator(
-                symbol, interval, start_str, end_str
+            generator = self._generate_raw_klines_with_retry(
+                symbol, interval, start_str, end_str, cancellation_requested
             )
             buffer: list = []
             total_fetched = 0
             for k in generator:
-                self._raise_if_cancelled(cancellation_requested)
                 buffer.append(k)
                 if len(buffer) >= _KLINE_STREAM_CHUNK_SIZE:
                     total_fetched += len(buffer)
