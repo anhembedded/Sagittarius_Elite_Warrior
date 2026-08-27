@@ -71,7 +71,7 @@ hành vi không đổi (test đặc tả pass cả trước lẫn sau, đó là 
 `src/application/use_cases/queries/audit_database_integrity/handler.py` — 7 lỗi,
 tất cả cùng một lỗi lặp lại ở mỗi chỗ dựng `DataAnomalyDTO`. Không sửa được bằng
 một annotation vì có **bảy** chỗ dựng; phải phân rã god method trước rồi mới còn
-một chỗ. Xem [`DOCTOR-001`](../../../backlog/DOCTOR-001_audit_integrity_handler_rule_extraction.md).
+một chỗ. Xem [`DOCTOR-001`](../../../completed/DOCTOR-001_audit_integrity_handler_rule_extraction.md).
 
 Đáng ghi lại như một mẫu: một entry trong danh sách này có thể **không** phải nợ
 kiểu dữ liệu thuần tuý, mà là triệu chứng của một vấn đề cấu trúc. Đo số lỗi
