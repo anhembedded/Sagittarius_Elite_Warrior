@@ -16,6 +16,7 @@ from ..logic.strategy_indicator_lines import (
     compute_strategy_indicator_lines,
 )
 from ..logic.strategy_trend_zones import compute_strategy_trend_zones
+from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 #: Width for a strategy line the strategy itself does not specify.
 _DEFAULT_STRATEGY_LINE_WIDTH = 2
@@ -38,30 +39,26 @@ class IndicatorCoordinator:
     def __init__(
         self,
         view_model,
+        state: IBacktestScreenState,
         strategy_registry,
         logger,
         script_runner: IndicatorScriptRunner,
         get_first_chart_card: Callable[[], Any],
-        get_active_strategy_lines: Callable[[], Any],
-        get_current_raw_klines: Callable[[], list],
         get_chart_mode: Callable[[], ChartDisplayMode],
         apply_after_native_fallback: Callable[..., None],
         emit_strategy_line: Callable[..., None],
         emit_strategy_region: Callable[..., None],
-        set_chart_script_keys: Callable[[list[str]], None],
     ) -> None:
         self._view_model = view_model
+        self._state = state
         self._strategy_registry = strategy_registry
         self._logger = logger
         self._script_runner = script_runner
         self._get_first_chart_card = get_first_chart_card
-        self._get_active_strategy_lines = get_active_strategy_lines
-        self._get_current_raw_klines = get_current_raw_klines
         self._get_chart_mode = get_chart_mode
         self._apply_after_native_fallback = apply_after_native_fallback
         self._emit_strategy_line = emit_strategy_line
         self._emit_strategy_region = emit_strategy_region
-        self._set_chart_script_keys = set_chart_script_keys
 
     # ---------------------------------------------------------------- #
     # Reference-script drawing (one call per script output)
@@ -125,14 +122,14 @@ class IndicatorCoordinator:
         `RuntimeError` (BUG-013, 2026-08-19 — reachable only through the
         fallback path, since F6D's own fix covered only the mode-change one).
         """
-        self._get_active_strategy_lines().clear()
+        self._state.active_strategy_lines.clear()
         self._script_runner.reset_after_host_replaced()
 
     def set_strategy_lines_visible(self, visible: bool) -> None:
         card = self._get_first_chart_card()
         if card is None:
             return
-        for name in self._get_active_strategy_lines():
+        for name in self._state.active_strategy_lines:
             card.set_indicator_visible(name, visible)
 
     def set_script_overlay_lines_visible(self, visible: bool) -> None:
@@ -176,7 +173,7 @@ class IndicatorCoordinator:
             else:
                 self._script_runner.active.pop(key, None)
 
-        raw_klines = self._get_current_raw_klines()
+        raw_klines = self._state.current_raw_klines
         if raw_klines:
             is_price_scale = self._get_chart_mode() is not ChartDisplayMode.EQUITY
             for key in newly_enabled_keys:
@@ -189,7 +186,7 @@ class IndicatorCoordinator:
                                 qualified_line_name(key, line_name), False
                             )
 
-        self._set_chart_script_keys(sorted(enabled_keys))
+        self._state.chart_script_keys = sorted(enabled_keys)
 
     # ---------------------------------------------------------------- #
     # Strategy-declared overlays, replayed off the thread that ran them

@@ -19,11 +19,13 @@ Precedent for the layout: `presentation/ui/state/ports/`.
 from .i_backtest_chart_controls import IBacktestChartControls
 from .i_backtest_chart_host import IBacktestChartHost
 from .i_backtest_chart_host_factory import IBacktestChartHostFactory
+from .i_backtest_screen_state import IBacktestScreenState
 from .i_backtest_view import IBacktestView
 
 __all__ = [
     "IBacktestChartControls",
     "IBacktestChartHost",
     "IBacktestChartHostFactory",
+    "IBacktestScreenState",
     "IBacktestView",
 ]

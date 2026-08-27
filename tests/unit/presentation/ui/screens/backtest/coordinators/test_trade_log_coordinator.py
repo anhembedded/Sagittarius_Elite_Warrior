@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BacktestUiState,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
+    InMemoryScreenState,
+)
 
 
 class _RecordingLogger:
@@ -54,7 +57,7 @@ def _build(trades: list[Trade], export_path: str = "", logger=None):
     pushed: list[str] = []
     coordinator = TradeLogCoordinator(
         view_model=view_model,
-        get_all_trades=lambda: trades,
+        state=InMemoryScreenState(all_trades=trades),
         set_chart_display_timezone=pushed.append,
         ask_export_path=lambda: export_path,
         logger=logger or _RecordingLogger(),
@@ -79,7 +82,7 @@ def test_the_trade_list_is_read_live_not_captured(qtbot) -> None:
     view_model = BackTestViewModel()
     coordinator = TradeLogCoordinator(
         view_model=view_model,
-        get_all_trades=lambda: trades,
+        state=InMemoryScreenState(all_trades=trades),
         set_chart_display_timezone=lambda _tz: None,
         ask_export_path=lambda: "",
         logger=_RecordingLogger(),

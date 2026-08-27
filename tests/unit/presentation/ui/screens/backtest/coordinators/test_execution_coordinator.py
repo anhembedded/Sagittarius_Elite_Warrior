@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
     BacktestExecutionMode,
     BacktestRunConfig,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
+    InMemoryScreenState,
+)
 
 
 class _Token:
@@ -94,9 +97,9 @@ def _build(dispatcher=None, action_id=3, coverage_ok=True):
         script_runner=SimpleNamespace(
             rebuild=lambda _k: None, feed_all=lambda _r: None
         ),
-        get_symbol=lambda: "BTCUSDT",
-        get_chart_klines_fetch_limit=lambda: 500,
-        get_chart_script_keys=list,
+        state=InMemoryScreenState(
+            symbol="BTCUSDT", chart_klines_fetch_limit=500, chart_script_keys=[]
+        ),
         resolve_action_id=lambda: action_id,
         log_dev_trace=lambda *a, **k: None,
         probe_coverage=lambda _c: SimpleNamespace(is_fully_covered=coverage_ok),

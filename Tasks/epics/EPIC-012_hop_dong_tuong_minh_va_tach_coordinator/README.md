@@ -1,6 +1,6 @@
 # EPIC-012 — Hợp đồng tường minh (cấm duck-typing ngầm) & tách nốt Coordinator
 
-**Trạng thái:** 🟡 Đang làm (2/7 task con xong)
+**Trạng thái:** 🟡 Đang làm (3/7 task con xong)
 **Loại:** Kiến trúc / luật + tái cấu trúc tầng Presentation
 **Nguồn:** User chốt trực tiếp 2026-08-27 — *"updat rule code strickly no
 duck-typed. use abstract or interface class"*, *"ko thay view runtime, cho load
@@ -22,10 +22,14 @@ hai thứ mà bản thân việc tách không sửa được:
    `bind()` — **không View nào trong cả hai repo implement**, và `src/` của repo
    này tham chiếu `IView` **0 lần**.
 2. **Constructor phình vì truyền state qua callable.** 6 Coordinator nhận tổng
-   **74 tham số**, trong đó **24 tham số là accessor đọc/ghi state của
+   **74 tham số**, trong đó **17 tham số là accessor đọc/ghi state của
    Presenter** (`get_symbol` xuất hiện ở 4 nơi, `get_current_raw_klines` ở 2,
    `get_active_strategy_lines` ở 2, …). Đây là vi phạm Interface Segregation
    **do cách truyền**, không phải do trách nhiệm sai.
+
+   *(Ước tính ban đầu ghi 24 và dự đoán 74 → 56. `EPIC-012C` đo từng tham số:
+   chỉ 17 là state thật, 7 cái còn lại là giá trị **tính ra** hoặc **hành
+   động** — chi tiết trong task file. Kết quả thật: **74 → 63**.)*
 
 Hai thứ này là **cùng một bệnh**: thứ đi qua ranh giới không có kiểu đại diện,
 nên nó trôi mà không có gì vỡ ra — đúng cơ chế mà
@@ -65,8 +69,8 @@ gọi — đúng vi phạm Interface Segregation mà epic này đang đi sửa.
 | `trade_log_coordinator.py` | 108 | 5 | 1 |
 | **Tổng** | **1443** | **74** | **24** |
 
-Gom 24 accessor đó về **một** value object `BacktestScreenState` (mỗi
-Coordinator nhận đúng 1 tham số `state`) → **74 → 56**.
+Gom 17 accessor state về **một** port `IBacktestScreenState` (mỗi Coordinator
+nhận đúng 1 tham số `state`) → **74 → 63**, và `factory.py` bỏ hẳn 17 lambda.
 
 ### 2.3 Hai Coordinator còn quá ngưỡng ISP
 
@@ -122,7 +126,7 @@ biến ở đây là *danh tính View*, không phải *widget bên trong nó*.
 | :--- | :--- | :---: |
 | [`EPIC-012A`](completed/EPIC-012A_rule_hop_dong_tuong_minh.md) | Viết luật §2.1 vào `architecture-rule.md` + dòng trỏ ở `CLAUDE.md` | ✅ Xong |
 | [`EPIC-012B`](completed/EPIC-012B_ibacktestview_contract.md) | Khai `IBacktestView` — 14 thành viên + 3 port phụ, annotate Presenter/Coordinator, test khoá hai chiều | ✅ Xong |
-| [`EPIC-012C`](incomplete/EPIC-012C_backtest_screen_state.md) | `BacktestScreenState` — gom 24 accessor về 1 tham số, 74 → 56 | ⬜ Chưa |
+| [`EPIC-012C`](completed/EPIC-012C_backtest_screen_state.md) | `IBacktestScreenState` — gom 17 accessor state về 1 tham số, **74 → 63** | ✅ Xong |
 | [`EPIC-012D`](incomplete/EPIC-012D_tach_chart_preview_coordinator.md) | Tách `ChartPreviewCoordinator` khỏi `chart_render` (10 dep độc quyền) | ⬜ Chưa |
 | [`EPIC-012E`](incomplete/EPIC-012E_tach_chart_feed_coordinator.md) | Tách `ChartFeedCoordinator` khỏi `execution` (357 → ~250 dòng) | ⬜ Chưa |
 | [`EPIC-012F`](incomplete/EPIC-012F_view_tu_config_luc_bootstrap.md) | Chọn View từ config lúc bootstrap, có kiểu đại diện | ⬜ Chưa |

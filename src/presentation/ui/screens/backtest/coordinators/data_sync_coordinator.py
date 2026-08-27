@@ -17,6 +17,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
+from ..ports.i_backtest_screen_state import IBacktestScreenState
+
 logger = logging.getLogger("App.BackTestPresenter")
 
 _TRACE_PREFIX = "BACKTEST_TRACE"
@@ -35,7 +37,7 @@ class DataSyncCoordinator:
     def __init__(
         self,
         dispatcher,
-        get_symbol: Callable[[], str],
+        state: IBacktestScreenState,
         effective_data_interval: Callable[[object], object],
         resolve_action_id: Callable[[], int | None],
         log_dev_trace: Callable[..., None],
@@ -45,7 +47,7 @@ class DataSyncCoordinator:
         emit_cancelled: Callable[[int], None],
     ) -> None:
         self._dispatcher = dispatcher
-        self._get_symbol = get_symbol
+        self._state = state
         self._effective_data_interval = effective_data_interval
         self._resolve_action_id = resolve_action_id
         self._log_dev_trace = log_dev_trace
@@ -102,7 +104,7 @@ class DataSyncCoordinator:
     def probe_coverage(self, config) -> BacktestRangeCoverage:
         now = datetime.now(UTC)
         query = GetBacktestRangeCoverageQuery(
-            symbol=self._get_symbol(),
+            symbol=self._state.symbol,
             interval=self._effective_data_interval(config).value,
             start_time=config.start_time,
             end_time=config.end_time or now,
@@ -182,7 +184,7 @@ class DataSyncCoordinator:
     def _dispatch_sync(
         self, config, sync_interval, sync_start, cancellation_token
     ) -> None:
-        symbol = self._get_symbol()
+        symbol = self._state.symbol
         command = SyncMarketDataCommand(
             symbols=[symbol],
             interval=sync_interval,

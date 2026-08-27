@@ -28,6 +28,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from ..backtest_signal_payloads import BacktestProgress
 from ..logic.backtest_fsm_matrix import BacktestExecutionMode, BacktestRunConfig
+from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 logger = logging.getLogger("App.BackTestPresenter")
 
@@ -45,11 +46,9 @@ class ExecutionCoordinator:
     def __init__(
         self,
         view_model,
+        state: IBacktestScreenState,
         dispatcher,
         script_runner,
-        get_symbol: Callable[[], str],
-        get_chart_klines_fetch_limit: Callable[[], int],
-        get_chart_script_keys: Callable[[], list[str]],
         resolve_action_id: Callable[[], int | None],
         log_dev_trace: Callable[..., None],
         probe_coverage: Callable[[BacktestRunConfig], object],
@@ -65,11 +64,9 @@ class ExecutionCoordinator:
         emit_strategy_trend_zones: Callable[..., None],
     ) -> None:
         self._view_model = view_model
+        self._state = state
         self._dispatcher = dispatcher
         self._script_runner = script_runner
-        self._get_symbol = get_symbol
-        self._get_chart_klines_fetch_limit = get_chart_klines_fetch_limit
-        self._get_chart_script_keys = get_chart_script_keys
         self._resolve_action_id = resolve_action_id
         self._log_dev_trace = log_dev_trace
         self._probe_coverage = probe_coverage
@@ -164,7 +161,7 @@ class ExecutionCoordinator:
             self._log_dev_trace("worker_no_data")
             self._emit_empty(
                 resolved_action_id,
-                f"Không có dữ liệu lịch sử cho {self._get_symbol()} "
+                f"Không có dữ liệu lịch sử cho {self._state.symbol} "
                 f"({self.effective_data_interval(config).value}). "
                 "Hãy sync dữ liệu trước.",
                 config,
@@ -222,7 +219,7 @@ class ExecutionCoordinator:
         # side by side — a field added to one and not the other would have
         # been silently missing from that engine.
         shared = {
-            "symbol": self._get_symbol(),
+            "symbol": self._state.symbol,
             "interval": config.timeframe,
             "strategy_key": config.strategy_key,
             "initial_balance": config.initial_balance,
@@ -277,7 +274,7 @@ class ExecutionCoordinator:
             self._log_dev_trace("chart_query_empty")
             return
 
-        limit = self._get_chart_klines_fetch_limit()
+        limit = self._state.chart_klines_fetch_limit
         if len(raw_klines) >= limit:
             logger.warning(
                 "Backtest chart truncated to the %d most recent candles by "
@@ -304,7 +301,7 @@ class ExecutionCoordinator:
         # BOT-064: user-picked reference scripts — batch feed over the same
         # klines, entirely independent of the strategy lines just emitted.
         # The key list was snapshotted on the main thread before this ran.
-        script_keys = self._get_chart_script_keys()
+        script_keys = self._state.chart_script_keys
         self._log_dev_trace("chart_scripts_rebuild", script_keys=script_keys)
         self._script_runner.rebuild(script_keys)
         self._script_runner.feed_all(raw_klines)
@@ -329,8 +326,8 @@ class ExecutionCoordinator:
             )
             return raw_klines
 
-        symbol = self._get_symbol()
-        limit = self._get_chart_klines_fetch_limit()
+        symbol = self._state.symbol
+        limit = self._state.chart_klines_fetch_limit
         try:
             query = GetHistoricalKlinesQuery(
                 symbol=symbol,

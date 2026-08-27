@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_m
 
 from ..logic.chart_canvas_view import ChartDisplayMode
 from ..logic.time_range_preset import TimeRangePreset
+from ..ports.i_backtest_screen_state import IBacktestScreenState
 from ..ports.i_backtest_view import IBacktestView
 
 logger = logging.getLogger("App.BackTestPresenter")
@@ -47,44 +48,36 @@ class ChartRenderCoordinator:
     def __init__(
         self,
         view: IBacktestView,
+        state: IBacktestScreenState,
         view_model,
         dispatcher,
         thread_manager,
         logger_,
-        get_symbol: Callable[[], str],
-        get_active_strategy_lines: Callable[[], Any],
-        set_current_raw_klines: Callable[[list], None],
         refresh_market_rule_verification: Callable[[], None],
         log_dev_trace: Callable[..., None],
         format_coverage_message: Callable[[BacktestRangeCoverage], str],
         set_strategy_lines_visible: Callable[[bool], None],
         set_script_overlay_lines_visible: Callable[[bool], None],
-        get_chart_klines_fetch_limit: Callable[[], int],
         get_current_config: Callable[[], Any],
         is_busy: Callable[[], bool],
         next_preview_id: Callable[[], int],
-        get_active_preview_id: Callable[[], int],
         emit_preview_ready: Callable[..., None],
         run_preview_worker: Callable[..., None],
     ) -> None:
         self._view = view
+        self._state = state
         self._view_model = view_model
         self._dispatcher = dispatcher
         self._thread_manager = thread_manager
         self._logger = logger_
-        self._get_symbol = get_symbol
-        self._get_active_strategy_lines = get_active_strategy_lines
-        self._set_current_raw_klines = set_current_raw_klines
         self._refresh_market_rule_verification = refresh_market_rule_verification
         self._log_dev_trace = log_dev_trace
         self._format_coverage_message = format_coverage_message
         self._set_strategy_lines_visible = set_strategy_lines_visible
         self._set_script_overlay_lines_visible = set_script_overlay_lines_visible
-        self._get_chart_klines_fetch_limit = get_chart_klines_fetch_limit
         self._get_current_config = get_current_config
         self._is_busy = is_busy
         self._next_preview_id = next_preview_id
-        self._get_active_preview_id = get_active_preview_id
         self._emit_preview_ready = emit_preview_ready
         self._run_preview_worker = run_preview_worker
 
@@ -101,7 +94,7 @@ class ChartRenderCoordinator:
         self, result, klines: list, volume: list, raw_klines: list | None = None
     ) -> None:
         if raw_klines is not None:
-            self._set_current_raw_klines(list(raw_klines))
+            self._state.current_raw_klines = list(raw_klines)
             self._refresh_market_rule_verification()
         self._log_dev_trace(
             "chart_data_ready",
@@ -109,7 +102,7 @@ class ChartRenderCoordinator:
             volume=len(volume),
             trades=len(result.trades),
         )
-        self._logger.log_klines_loaded(len(klines), self._get_symbol())
+        self._logger.log_klines_loaded(len(klines), self._state.symbol)
         self._view.on_backtest_data_ready(result, klines, volume)
         # BUG-032: this is the one place a real BacktestResult chart lands —
         # clears the flag `on_preview_data_ready` set, so QML stops showing
@@ -128,7 +121,7 @@ class ChartRenderCoordinator:
         card = self.first_chart_card()
         if card is None:
             return
-        active = self._get_active_strategy_lines()
+        active = self._state.active_strategy_lines
         if name not in active:
             card.add_overlay_indicator(name, color, width)
             active.add(name)
@@ -213,14 +206,14 @@ class ChartRenderCoordinator:
         """Background preview query; the generation id fences rapid toolbar
         changes."""
         now = datetime.now(UTC)
-        symbol = self._get_symbol()
+        symbol = self._state.symbol
         try:
             response = self._dispatcher.dispatch(
                 GetHistoricalKlinesQuery,
                 GetHistoricalKlinesQuery(
                     symbol=symbol,
                     interval=config.timeframe.value,
-                    limit=self._get_chart_klines_fetch_limit(),
+                    limit=self._state.chart_klines_fetch_limit,
                     start_time=config.start_time,
                     end_time=config.end_time or now,
                     order_by_desc=True,
@@ -256,11 +249,11 @@ class ChartRenderCoordinator:
         volume: list,
         raw_klines: list | None = None,
     ) -> None:
-        if preview_id != self._get_active_preview_id():
+        if preview_id != self._state.active_preview_id:
             self._log_dev_trace("preview_ignored", preview_id=preview_id)
             return
         if raw_klines is not None:
-            self._set_current_raw_klines(list(raw_klines))
+            self._state.current_raw_klines = list(raw_klines)
         self._view_model.set_data_coverage(
             coverage.is_fully_covered,
             ""

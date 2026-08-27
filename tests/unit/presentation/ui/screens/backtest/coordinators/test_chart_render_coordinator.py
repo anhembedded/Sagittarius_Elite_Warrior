@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
+    InMemoryScreenState,
+)
 
 
 class _Card:
@@ -83,18 +86,22 @@ def _build(*, card=None, ema_checked=True, active_preview_id=1, busy=False):
     view = _View(card, ema_checked)
     view_model = _ViewModel()
     lines: set[str] = set()
+    state = InMemoryScreenState(
+        symbol="BTCUSDT",
+        active_strategy_lines=lines,
+        chart_klines_fetch_limit=500,
+        active_preview_id=active_preview_id,
+    )
     calls = SimpleNamespace(
-        raw_klines=[], verify=0, strategy_visible=[], overlay_visible=[], previews=[]
+        verify=0, strategy_visible=[], overlay_visible=[], previews=[]
     )
     coordinator = ChartRenderCoordinator(
         view=view,
         view_model=view_model,
+        state=state,
         dispatcher=SimpleNamespace(dispatch=lambda *a: None),
         thread_manager=SimpleNamespace(submit=lambda *a: calls.previews.append(a)),
         logger_=SimpleNamespace(log_klines_loaded=lambda *a: None),
-        get_symbol=lambda: "BTCUSDT",
-        get_active_strategy_lines=lambda: lines,
-        set_current_raw_klines=calls.raw_klines.append,
         refresh_market_rule_verification=lambda: setattr(
             calls, "verify", calls.verify + 1
         ),
@@ -102,18 +109,16 @@ def _build(*, card=None, ema_checked=True, active_preview_id=1, busy=False):
         format_coverage_message=lambda _c: "thiếu dữ liệu",
         set_strategy_lines_visible=calls.strategy_visible.append,
         set_script_overlay_lines_visible=calls.overlay_visible.append,
-        get_chart_klines_fetch_limit=lambda: 500,
         get_current_config=lambda: SimpleNamespace(
             start_time=None, end_time=None, timeframe=SimpleNamespace(value="1m")
         ),
         is_busy=lambda: busy,
         next_preview_id=lambda: 2,
-        get_active_preview_id=lambda: active_preview_id,
         emit_preview_ready=lambda *a: None,
         run_preview_worker=lambda *a: None,
     )
     return SimpleNamespace(
-        c=coordinator, view=view, vm=view_model, lines=lines, calls=calls
+        c=coordinator, view=view, vm=view_model, lines=lines, calls=calls, state=state
     )
 
 
@@ -137,7 +142,7 @@ def test_real_run_data_clears_the_preview_badge() -> None:
     ctx.c.on_data_ready(SimpleNamespace(trades=[]), [1, 2], [3], raw_klines=[9])
 
     assert ctx.vm.preview_mode == [False]
-    assert ctx.calls.raw_klines == [[9]]
+    assert ctx.state.current_raw_klines == [9]
     assert ctx.calls.verify == 1
 
 
