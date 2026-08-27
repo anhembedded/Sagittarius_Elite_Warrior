@@ -89,7 +89,6 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_cached_interaction_hybrid_probe\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_chart_interaction\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_hybrid_opengl_probe\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]queries[\\/]audit_database_integrity[\\/]handler\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]queries[\\/]get_historical_klines[\\/]handler\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_crossover_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_trend_pullback_strategy\\.py$",

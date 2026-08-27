@@ -2,7 +2,7 @@
 
 **Nguồn:** chạy `.jules/doctor.prompt.md`
 **Ưu tiên:** P2 — không sửa lỗi nào; gỡ một god method và **kéo theo 7/21 lỗi `mypy`** của file khỏi danh sách nợ
-**Trạng thái:** 🔴 Chưa làm
+**Trạng thái:** ✅ Hoàn thành 2026-08-27
 **Tầng:** Application (`use_cases/queries/`)
 **Liên quan:** [`EPIC-002D`](../epics/EPIC-002_static_type_checking_in_local_ci/incomplete/EPIC-002D_incremental_strictness_rollout.md) — file này đang nằm trong `[tool.mypy]` exclude
 
@@ -64,14 +64,14 @@ thấy nó sai thì mở bug riêng, **không** sửa lén trong task này.
 
 ## 3. Acceptance
 
-- [ ] `execute()` xuống dưới ~30 dòng, mỗi rule là một đơn vị đọc được độc lập.
-- [ ] `anomaly_type` không còn là string viết cứng rải rác.
-- [ ] **5 test hiện có ở `tests/unit/application/use_cases/queries/test_audit_database_integrity.py`
+- [x] `execute()` xuống dưới ~30 dòng, mỗi rule là một đơn vị đọc được độc lập.
+- [x] `anomaly_type` không còn là string viết cứng rải rác.
+- [x] **5 test hiện có ở `tests/unit/application/use_cases/queries/test_audit_database_integrity.py`
       pass mà KHÔNG sửa dòng nào.** Phải sửa test nghĩa là đã đổi hành vi — dừng lại.
-- [ ] Nếu 7 lỗi `mypy` hết: **gỡ file khỏi `[tool.mypy]` exclude** trong
+- [x] Nếu 7 lỗi `mypy` hết: **gỡ file khỏi `[tool.mypy]` exclude** trong
       `pyproject.toml` (đúng việc `EPIC-002D` §2.4). Nếu còn lỗi khác, ghi rõ
       còn gì, đừng gỡ.
-- [ ] `pwsh -NoProfile -File scripts/ci-local.ps1 -Full` exit `0`, và đã `grep`
+- [x] `pwsh -NoProfile -File scripts/ci-local.ps1 -Full` exit `0`, và đã `grep`
       file `LOG_FILE:` cho `FAILED|ERROR|Traceback|ResourceWarning` (`CLAUDE.md` §2).
 
 ## 4. Ngoài phạm vi
@@ -79,3 +79,44 @@ thấy nó sai thì mở bug riêng, **không** sửa lén trong task này.
 Không đụng `DataAnomalyDTO`/`query.py` (đổi schema DTO là việc khác, có
 consumer ở tầng UI). Không thêm quy tắc kiểm tra mới. Không sửa hành vi
 `continue` ở mục 2.
+
+
+---
+
+## 5. Kết quả
+
+| | Trước | Sau |
+| :--- | ---: | ---: |
+| `execute()` | 123 dòng | **19 dòng** |
+| Hàm dài nhất trong file | 123 | **32** (`_collect_anomalies`) |
+| Lỗi `mypy` của file | 7 | **0** |
+| `anomaly_type` viết cứng | 7 chỗ | **0** — `AnomalyType(StrEnum)` |
+| Test phải sửa | — | **0** |
+
+`execute()` giờ chỉ còn fetch → `_collect_anomalies()` → dựng DTO. Năm quy tắc
+không trạng thái nằm trong bảng `_VALUE_RULES`, thêm quy tắc thứ sáu là thêm một
+hàm và một dòng vào tuple — không phải sửa `execute()`.
+
+Hai quy tắc **cố ý không** vào bảng, vì chúng không cùng hình dạng và giả vờ
+ngược lại sẽ che mất điều đó:
+
+- `_check_non_finite` short-circuit phần còn lại (`continue`).
+- `_check_duplicate_timestamp` cần lịch sử, nên nó sở hữu luôn `set` nó đọc.
+
+Chú thích `continue` trong `_collect_anomalies` ghi thẳng hệ quả đã có từ trước:
+nến non-finite không bao giờ vào `seen_timestamps`. Giữ nguyên, không sửa lén.
+
+**Lý do 7 lỗi `mypy` biến mất:** `raw` trước đây được suy kiểu `dict[str, float]`
+ở mỗi vòng lặp, mà `dict` thì invariant nên không truyền được vào tham số
+`dict[str, float | str]`. Giờ có đúng **một** chỗ dựng nó (`_raw_values()`) với
+alias `RawValues` khai báo tường minh — một annotation thay bảy lỗi. Đó chính là
+lý do task này ghép "gỡ god method" với "trả nợ `mypy`" thành một việc: cái sau
+**chỉ** làm được sau khi có cái trước.
+
+`pyproject.toml`: gỡ file khỏi `[tool.mypy]` exclude. Danh sách nợ per-file
+**15 → 14**.
+
+**Verify:** `ci-local.ps1 -Full` exit `0` — Ruff Lint/Format, Mypy, Jules Prompt
+References, Tests (2349 passed, 4 skipped), Sanity, coverage 94.51%. Đã `grep`
+file `LOG_FILE:` cho `FAILED|ERROR|Traceback|ResourceWarning` (`CLAUDE.md` §2) —
+chỉ khớp nhãn của chính bước log scan.
