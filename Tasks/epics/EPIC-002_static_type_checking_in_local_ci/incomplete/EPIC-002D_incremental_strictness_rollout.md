@@ -66,9 +66,20 @@ dict[str, dict[str, Any]]` làm lộ tiếp một chỗ thứ hai: filter không
 `filterType` bị lưu dưới key `None` — không lookup nào đọc được. Đã guard;
 hành vi không đổi (test đặc tả pass cả trước lẫn sau, đó là bằng chứng).
 
+### +1 nữa qua `DOCTOR-001` (27/08)
+
+`src/application/use_cases/queries/audit_database_integrity/handler.py` — 7 lỗi,
+tất cả cùng một lỗi lặp lại ở mỗi chỗ dựng `DataAnomalyDTO`. Không sửa được bằng
+một annotation vì có **bảy** chỗ dựng; phải phân rã god method trước rồi mới còn
+một chỗ. Xem [`DOCTOR-001`](../../../completed/DOCTOR-001_audit_integrity_handler_rule_extraction.md).
+
+Đáng ghi lại như một mẫu: một entry trong danh sách này có thể **không** phải nợ
+kiểu dữ liệu thuần tuý, mà là triệu chứng của một vấn đề cấu trúc. Đo số lỗi
+không phân biệt được hai loại — phải đọc.
+
 ### Còn lại
 
-**25 → 15 entry per-file.** `src/presentation/` vẫn loại trừ nguyên khối và
+**25 → 14 entry per-file.** `src/presentation/` vẫn loại trừ nguyên khối và
 **không** thuộc lộ trình này: nó bị chi phối bởi một false positive hệ thống
 của PySide6 `@Property`, cần quyết định stub/plugin (§2.3), không phải sửa
 từng file.
