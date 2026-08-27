@@ -74,6 +74,15 @@ class IBacktestView(Protocol):
     #: it only after cards exist.
     chart_controls: IBacktestChartControls | None
 
+    #: Which of price / equity / both the chart is currently showing. Read
+    #: by `IndicatorCoordinator` to decide whether price-scale overlays
+    #: mean anything. Reached through `getattr(view, "chart_mode",
+    #: ChartDisplayMode.OHLC)` until `EPIC-012C` — a capability probe by
+    #: string, which is the `hasattr`/`getattr` form §2.1 forbids and which
+    #: no AST walk over attribute access can see. Declared here so it is a
+    #: contract rather than a guess; the fallback default is gone with it.
+    chart_mode: ChartDisplayMode
+
     # -- Lifecycle --------------------------------------------------- #
 
     def set_view_model(

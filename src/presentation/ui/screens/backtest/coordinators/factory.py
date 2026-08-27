@@ -20,7 +20,6 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from ..logic.backtest_fsm_matrix import BacktestActionKind
-from ..logic.chart_canvas_view import ChartDisplayMode
 from .chart_render_coordinator import ChartRenderCoordinator
 from .data_sync_coordinator import DataSyncCoordinator
 from .execution_coordinator import ExecutionCoordinator
@@ -82,9 +81,11 @@ def build_coordinators(presenter) -> Coordinators:
         get_first_chart_card=presenter._first_chart_card,
         get_active_strategy_lines=lambda: presenter._active_strategy_lines,
         get_current_raw_klines=lambda: presenter._current_raw_klines,
-        get_chart_mode=lambda: getattr(
-            presenter.view, "chart_mode", ChartDisplayMode.OHLC
-        ),
+        # Straight attribute read, not `getattr(..., ChartDisplayMode.OHLC)`:
+        # `IBacktestView` declares `chart_mode`, so the fallback could only
+        # ever hide a View that fails the contract — and probing by string
+        # is invisible to the contract test that would otherwise catch it.
+        get_chart_mode=lambda: presenter.view.chart_mode,
         apply_after_native_fallback=presenter._apply_after_native_fallback,
         emit_strategy_line=presenter._chartStrategyLineSignal.emit,
         emit_strategy_region=presenter._chartStrategyRegionSignal.emit,

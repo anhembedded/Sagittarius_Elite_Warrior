@@ -69,16 +69,45 @@ def _declared_members(protocol: type) -> frozenset[str]:
     ) | frozenset(getattr(protocol, "__annotations__", {}))
 
 
+#: Builtins that reach a member by *string* instead of by attribute syntax.
+#: `EPIC-012C` found `getattr(presenter.view, "chart_mode", <default>)` in
+#: `coordinators/factory.py` — a real member of the contract that plain
+#: attribute-access walking could not see, hidden behind a default that would
+#: have masked any View failing to provide it. `architecture-rule.md` §2.1
+#: names this form explicitly as forbidden capability probing.
+_STRING_PROBES = frozenset({"getattr", "hasattr", "setattr"})
+
+
 class _ViewAttributeCollector(ast.NodeVisitor):
-    """Collects `X.<member>` for every `X` that is a View reference."""
+    """Collects every View member reached, by syntax or by string."""
 
     def __init__(self) -> None:
         self.members: set[str] = set()
+        self.probes: set[str] = set()
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if self._is_view_expression(node.value):
             self.members.add(node.attr)
         self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        probed = self._probed_member(node)
+        if probed is not None:
+            self.members.add(probed)
+            self.probes.add(probed)
+        self.generic_visit(node)
+
+    @classmethod
+    def _probed_member(cls, node: ast.Call) -> str | None:
+        """`getattr(<view>, "name", ...)` -> `"name"`, else `None`."""
+        if not isinstance(node.func, ast.Name) or node.func.id not in _STRING_PROBES:
+            return None
+        if len(node.args) < 2 or not cls._is_view_expression(node.args[0]):
+            return None
+        name = node.args[1]
+        if isinstance(name, ast.Constant) and isinstance(name.value, str):
+            return name.value
+        return None
 
     @staticmethod
     def _is_view_expression(node: ast.expr) -> bool:
@@ -90,13 +119,20 @@ class _ViewAttributeCollector(ast.NodeVisitor):
         return False
 
 
-def _members_used_by_presenter_side() -> frozenset[str]:
-    collected: set[str] = set()
+def _collect() -> tuple[frozenset[str], dict[str, str]]:
+    """Members reached, plus which file string-probed each one."""
+    members: set[str] = set()
+    probes: dict[str, str] = {}
     for path in _PRESENTER_SIDE:
         collector = _ViewAttributeCollector()
         collector.visit(ast.parse(path.read_text(encoding="utf-8")))
-        collected |= collector.members
-    return frozenset(collected)
+        members |= collector.members
+        probes.update(dict.fromkeys(collector.probes, path.name))
+    return frozenset(members), probes
+
+
+def _members_used_by_presenter_side() -> frozenset[str]:
+    return _collect()[0]
 
 
 def test_every_member_the_presenter_side_uses_is_declared() -> None:
@@ -122,15 +158,33 @@ def test_every_declared_member_is_actually_used() -> None:
     )
 
 
-def test_the_contract_is_exactly_fourteen_members() -> None:
+def test_no_view_member_is_reached_by_string() -> None:
+    """`getattr(view, "x", default)` is forbidden even when `x` is declared.
+
+    @details A string probe with a default silently accepts a View that does
+    not satisfy the contract — the failure the port exists to make loud. It is
+    also invisible to attribute-access walking, which is how `chart_mode` sat
+    outside `IBacktestView` while every other member was covered.
+    """
+    _, probes = _collect()
+    assert not probes, (
+        "View members reached by string instead of attribute access: "
+        f"{ {name: where for name, where in sorted(probes.items())} }. "
+        "architecture-rule.md §2.1 forbids capability probing — read the "
+        "attribute directly and let a missing one fail loudly."
+    )
+
+
+def test_the_contract_is_exactly_fifteen_members() -> None:
     """A count, so a two-sided drift cannot cancel itself out.
 
     @details Both tests above compare *sets*, so simultaneously deleting one
     member and adding another would leave them green while the port silently
-    changed shape. `EPIC-012B` measured 14; changing this number is a
-    deliberate act that should show up in a diff.
+    changed shape. `EPIC-012B` measured 14; `EPIC-012C` added `chart_mode`,
+    which had been reached by string. Changing this number is a deliberate act
+    that should show up in a diff.
     """
-    assert len(_declared_members(IBacktestView)) == 14
+    assert len(_declared_members(IBacktestView)) == 15
 
 
 @pytest.mark.usefixtures("qapp")
