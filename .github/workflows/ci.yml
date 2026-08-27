@@ -106,15 +106,30 @@ jobs:
             --namespace-packages --explicit-package-bases \
             Sagittarius_Elite_Warrior/src Sagittarius_Elite_Warrior/scripts
 
+      - name: Jules Prompts - Repository Reference Check
+        # scripts/ci-local.ps1's counterpart step (EPIC-011): the seven agents
+        # under .jules/ run unattended on a schedule, so a prompt pointing at a
+        # file the repo has since deleted fails silently — the run completes
+        # and reports success. This was local-only until now, which meant a
+        # broken .jules/ reference could merge to master-warrior with a green
+        # check. Needs neither Qt nor the engine; runs in milliseconds.
+        run: python3 scripts/check_jules_prompt_references.py
+
       - name: Run Pytest with Coverage
         # Tests import `Sagittarius_Elite_Warrior.src...` — the checkout
         # directory itself as a package — so the PARENT of the checkout must be
         # on the path, not the checkout root. actions/checkout nests the repo as
         # <workspace>/<repo>, and the directory name already matches the package
         # name, so `..` is exactly right.
+        #
+        # `--cov-fail-under=80` matches ci-rule.md's own required threshold and
+        # scripts/ci-local.ps1's `-Full` gate. Without it, a PR that drops
+        # coverage below 80% still gets a green check here — the report would
+        # show the drop, but nothing would fail on it.
         run: |
           PYTHONPATH=.. pytest tests/ \
             --cov=src \
             --cov-report=xml \
             --cov-report=term-missing \
+            --cov-fail-under=80 \
             -q
