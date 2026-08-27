@@ -1,6 +1,6 @@
 # EPIC-012 — Hợp đồng tường minh (cấm duck-typing ngầm) & tách nốt Coordinator
 
-**Trạng thái:** 🟡 Đang làm (6/7 task con xong)
+**Trạng thái:** ✅ **Hoàn thành (7/7 task con)** — 2026-08-27
 **Loại:** Kiến trúc / luật + tái cấu trúc tầng Presentation
 **Nguồn:** User chốt trực tiếp 2026-08-27 — *"updat rule code strickly no
 duck-typed. use abstract or interface class"*, *"ko thay view runtime, cho load
@@ -129,7 +129,7 @@ biến ở đây là *danh tính View*, không phải *widget bên trong nó*.
 | [`EPIC-012C`](completed/EPIC-012C_backtest_screen_state.md) | `IBacktestScreenState` — gom 17 accessor state về 1 tham số, **74 → 63** | ✅ Xong |
 | [`EPIC-012D`](completed/EPIC-012D_tach_chart_preview_coordinator.md) | Tách `ChartPreviewCoordinator` khỏi `chart_render` — **20 → 8 + 12** tham số | ✅ Xong |
 | [`EPIC-012E`](completed/EPIC-012E_tach_chart_feed_coordinator.md) | Tách `ChartFeedCoordinator` khỏi `execution` — **354 → 251 + 154** dòng | ✅ Xong |
-| [`EPIC-012F`](incomplete/EPIC-012F_view_tu_config_luc_bootstrap.md) | Chọn View từ config lúc bootstrap, có kiểu đại diện | ⬜ Chưa |
+| [`EPIC-012F`](completed/EPIC-012F_view_tu_config_luc_bootstrap.md) | Chọn View từ config lúc bootstrap, factory trả về `IBacktestView` | ✅ Xong |
 | [`EPIC-012G`](completed/EPIC-012G_timeframe_fallback_attributeerror.md) | Sửa `TimeFrame.M1` — nhánh fallback tự ném `AttributeError`; hằng có tên + warning + 14 test | ✅ Xong |
 
 Thứ tự bắt buộc: **`B` và `C` trước `D`/`E`** — tách tiếp khi chưa có kiểu đại

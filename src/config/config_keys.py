@@ -40,6 +40,12 @@ class ConfigKeys(str, Enum):
     #: large enough to cover a whole backtested range. A chart shorter than
     #: the run leaves trade markers sitting over empty space.
     BACKTEST_CHART_KLINES_FETCH_LIMIT = "backtest.chart.klines_fetch_limit"
+    #: Which concrete View the Backtest screen is built with, chosen once at
+    #: bootstrap (`EPIC-012F`). A View is never swapped while the app runs —
+    #: the Presenter is not built to survive that — so this is read exactly
+    #: once, when the router registers the screen. Values are the members of
+    #: `screens.backtest.view_factory.BacktestViewKey`.
+    BACKTEST_VIEW = "backtest.view"
 
     # Market Data Hub / KLine Inspector
     KLINE_INSPECTOR_PAGE_SIZE = "kline_inspector.page_size"
