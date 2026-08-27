@@ -4,6 +4,12 @@
 **Trạng thái:** 🔴 Chưa làm — **chưa greenlight code**, chỉ mở khi có quyết định thiết kế.
 **Phụ thuộc:** Không phụ thuộc kỹ thuật task nào, nhưng cố tình tách khỏi `EPIC-003E` — không tự động làm sau khi `E` xong.
 
+> ⚠️ **2026-08-27 — tiền đề của §1/§2 đã chết, xem [`DOCTOR-002`](../../../backlog/DOCTOR-002_epic_003f_blocker_is_dead.md).**
+> Cả 3 câu hỏi thiết kế bên dưới đều là câu hỏi về QML binding. `EPIC-006` đã gỡ
+> sạch QML khỏi app: `find src -name '*.qml' | wc -l` → `0`, và không chỗ nào
+> còn `setContextProperty`/`rootContext`. **Đừng trả lời 3 câu hỏi đó** — đọc
+> `DOCTOR-002` trước, nó là việc đo lại rủi ro thật rồi viết lại brief này.
+
 ---
 
 ## 1. Vì Sao Task Này Bị Chặn Lại, Khác Các Task Coordinator
