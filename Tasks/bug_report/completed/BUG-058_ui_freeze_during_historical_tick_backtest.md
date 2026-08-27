@@ -3,7 +3,7 @@
 **Reported date:** 2026-08-26
 **Severity:** 🟠 P1 (freeze #2, root-caused và sửa) — 2 freeze còn lại (#4/#5, sau
 `ticks_loaded`) **chưa root-caused**.
-**Status:** 🟡 **Đã sửa MỘT PHẦN, 2026-08-26** — freeze #1/#2/#3 (giai đoạn nạp tick,
+**Status:** ⚪ **Đóng 2026-08-26 — không tái hiện được từ môi trường hiện có** (xem cuối file). Trước đó: 🟡 **Đã sửa MỘT PHẦN, 2026-08-26** — freeze #1/#2/#3 (giai đoạn nạp tick,
 gồm cả outlier 69,1s nặng nhất) đã root-caused, sửa, đo lại bằng bằng chứng thật (§5).
 Freeze #4/#5 (giai đoạn mô phỏng, sau `ticks_loaded`) **vẫn Open** — chưa có cơ chế
 được xác nhận cho 2 lần đó, xem §6.
@@ -231,3 +231,38 @@ nặng hơn `EmaCrossoverStrategy` tổng hợp ở đây, (b) có UI thật (ch
 cạnh tranh GIL mà phép đo headless này không có, hoặc (c) một cơ chế khác hẳn (chart re-render
 sau `simulation_complete`) như nghi vấn cũ. Việc còn thiếu, không đổi: tái hiện `--debug` trên
 app thật ở đúng range/chiến lược đó, đọc log quanh mốc `08:24:04`-`08:24:28`.
+
+---
+
+# Đóng 2026-08-26 — freeze #4/#5 không tái hiện được **từ môi trường hiện có**
+
+**Quyết định của chủ repo.** Ghi lý do cho chính xác.
+
+## Phần đã thật sự sửa vẫn còn giá trị
+
+Freeze #1/#2/#3 (giai đoạn nạp tick) đã root-caused **và sửa** — phần đó không
+bị đóng theo diện "không tái hiện", nó đã xong.
+
+## Phần còn lại: freeze #4/#5
+
+Chúng **đã xảy ra thật** — người dùng quan sát trực tiếp, có log. Cái thiếu là
+khả năng dựng lại kịch bản: chạy Historical Tick Backtest **2.592.000 tick**
+trên app GUI thật rồi quan sát UI đơ.
+
+Từ container Linux headless này, tôi chạy được app ở chế độ offscreen nhưng
+**không thao tác được như người dùng** để dựng lại kịch bản đó. Không có cách
+nào tạo ra tín hiệu để điều tra tiếp.
+
+## Đã trang bị sẵn cho lần sau
+
+`BOLT-001` (merged) bỏ `_bar_bounds()` khỏi đường per-tick — đo được **17.37%
+→ 0.32%** thời gian vòng chạy. Nó **không phải** bản sửa cho bug này, nhưng nó
+rút bớt chi phí trong đúng hot loop mà bug này sống.
+
+Mục tiêu kế tiếp đã ghi trong `.jules/bolt.md`: `to_candle()` chiếm **39.2%**,
+dựng 120.000 `MarketData` cho ~400 bar thật.
+
+## Mở lại thế nào
+
+Gặp lại freeze khi chạy tick backtest dài: đính log, nói rõ số tick và thời
+điểm đơ, mở lại. Phần root-cause của #1/#2/#3 ở trên là điểm khởi đầu tốt.

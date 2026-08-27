@@ -4,7 +4,7 @@
 **Severity:** 🟠 P1 — cơ chế chung đã root-caused và xác nhận thật (§5); **tác vụ cụ thể** gây
 ra đúng lần treo đã báo cáo vẫn **chưa xác định được** — thiếu bằng chứng thread sống của
 đúng phiên đó.
-**Status:** 🟡 Đã sửa MỘT PHẦN, 2026-08-26 — thêm chẩn đoán generic (dump thread non-daemon
+**Status:** ⚪ **Đóng 2026-08-26 — không tái hiện được từ môi trường hiện có** (xem cuối file). Trước đó: 🟡 Đã sửa MỘT PHẦN, 2026-08-26 — thêm chẩn đoán generic (dump thread non-daemon
 sống sót ngay sau `app_engine.stop()`) để lần tái hiện SAU sẽ tự chỉ đích danh thủ phạm; bug
 vẫn **Open** vì chưa đóng được đúng lần đã báo cáo.
 
@@ -331,3 +331,46 @@ việc đó vẫn **không** đóng được lỗ hổng.
 Nên đợt này dừng ở **bản đồ chính xác** thay vì vá vội nửa vời: đã biết chỗ nào
 hở, chỗ nào token cứu được, chỗ nào không.
 
+
+---
+
+# Đóng 2026-08-26 — không tái hiện được **từ môi trường hiện có**
+
+**Quyết định của chủ repo.** Ghi lý do cho chính xác, vì hồ sơ này **có bằng
+chứng thật** và không nên bị đọc nhầm thành "không có gì xảy ra".
+
+## Cơ chế đã được root-cause và xác nhận
+
+CPython đăng ký `concurrent.futures.thread._python_exit()` — nó join **mọi**
+worker của **mọi** `ThreadPoolExecutor` trong process, bất kể truyền
+`shutdown(wait=False)`. Một worker còn chạy là interpreter treo **sau** khi
+`main()` đã unwind, **không còn dòng log nào nữa**, vì chỗ treo nằm trong máy
+móc shutdown của chính Python.
+
+Đó không phải giả thuyết. Nó đã xảy ra, có log đầy đủ tới dòng `App stopped.`
+rồi im.
+
+## Cái còn thiếu
+
+**Tác vụ cụ thể** gây ra đúng lần treo đã báo cáo. Cần một lần tái hiện **trên
+app thật**: chạy phiên dài rồi đóng app và xem process có return không. Từ
+container headless này tôi không dựng lại được.
+
+## Chẩn đoán đã sẵn sàng — lần treo sau sẽ tự khai
+
+Điều kiện để đóng bug này lần tới đã được đặt vào code:
+
+- `_log_surviving_non_daemon_threads()` in ra **tên** mọi thread non-daemon còn
+  sống sau `app_engine.stop()`, **kèm stack từng cái** (`sys._current_frames()`,
+  giới hạn 12 frame trong cùng). Tên pool như `ThreadPoolExecutor-3_0` không
+  cho biết nó chạy gì; stack thì có.
+- Thread kẹt trong lời gọi C không có frame Python — trường hợp đó được **báo
+  cáo rõ**, không bỏ qua, vì đó là ứng viên dễ kẹt trong syscall nhất.
+- `scripts/bug060_thread_exit_probe.py` đo được chuyện tương tự cho phiên test,
+  đăng ký qua `threading._register_atexit` để chạy **đúng trước** `_python_exit`.
+
+## Mở lại thế nào
+
+Đóng app mà process không thoát: lấy dòng WARNING `non-daemon thread(s) still
+alive` trong log — nó giờ **kèm stack chỉ thẳng dòng code đang chặn** — đính vào
+đây và mở lại. Đó chính là mẩu bằng chứng hồ sơ này thiếu.
