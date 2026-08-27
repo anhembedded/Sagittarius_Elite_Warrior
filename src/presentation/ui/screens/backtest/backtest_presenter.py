@@ -122,6 +122,7 @@ from .logic.pre_backtest_assertions import (
 )
 from .logic.result_formatter import format_result_summary
 from .logic.time_range_preset import TimeRangePreset, resolve_time_range
+from .logic.timeframe_parsing import timeframe_or_fallback
 from .logic.trade_log_row import (
     TradeLogRow,
 )
@@ -685,11 +686,7 @@ class BackTestPresenter(BasePresenter):
         self._action_tracker.log_stale_callback(callback, action_id, kind)
 
     def _get_current_config(self) -> BacktestRunConfig:
-        timeframe_str = self._view_model.selectedTimeframe
-        try:
-            tf = TimeFrame(timeframe_str)
-        except ValueError:
-            tf = TimeFrame.M1
+        tf = timeframe_or_fallback(self._view_model.selectedTimeframe)
 
         try:
             balance = float(self._view_model.initialCapitalText)
