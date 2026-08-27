@@ -6,6 +6,7 @@ from .long_term_trend_zone_strategy import LongTermTrendZoneStrategy
 from .multi_ema_trend_follower_strategy import MultiEmaTrendFollowerStrategy
 from .strategy_context import IndicatorValue, StrategyContext
 from .support_resistance_strategy import SupportResistanceStrategy
+from .volume_spike_flow_strategy import VolumeSpikeFlowStrategy
 
 __all__ = [
     "TREND_ZONE_DOWN",
@@ -19,4 +20,5 @@ __all__ = [
     "MultiEmaTrendFollowerStrategy",
     "StrategyContext",
     "SupportResistanceStrategy",
+    "VolumeSpikeFlowStrategy",
 ]

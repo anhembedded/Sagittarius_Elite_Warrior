@@ -144,6 +144,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_st
 from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy import (
     SupportResistanceStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
+    VolumeSpikeFlowStrategy,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
@@ -289,6 +292,7 @@ class BinanceBotModule(BaseModule):
             "ema_trend_confirm_pullback", EmaTrendPullbackStrategy
         )
         strategy_registry.register("long_term_trend_zone", LongTermTrendZoneStrategy)
+        strategy_registry.register("volume_spike_flow", VolumeSpikeFlowStrategy)
         app.container.singleton(StrategyRegistry, strategy_registry)
 
     def boot(self, app: App) -> None:
