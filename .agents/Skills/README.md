@@ -1,4 +1,4 @@
-# `.jules/` — the scheduled agents
+# `.agents/Skills/` — the scheduled agents
 
 Seven agents live here. Each runs on its own schedule, unattended, and each run
 is meant to produce **one** small, verified change — or nothing at all.
@@ -23,16 +23,16 @@ instead of restating what is below. Read this first, then your own prompt.
 An agent that runs unattended on a schedule cannot notice that its own briefing
 went stale. It will keep hunting for something the repo deleted months ago, keep
 citing a rule file that does not exist, and keep reporting success. That has
-already happened here — see [`Tasks/epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md`](../Tasks/epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md)
+already happened here — see [`Tasks/epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md`](../../Tasks/epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md)
 for the full list of what had rotted and how.
 
-So, when writing or editing anything in `.jules/`:
+So, when writing or editing anything in `.agents/Skills/`:
 
 > **Verify, don't restate.** If a fact can change, do not write the fact — write
 > the command that answers it. If a rule already exists in `.agents/rules/`,
 > link to it; never copy it.
 
-Concretely, these are **banned** in any `.jules/*.md`:
+Concretely, these are **banned** in any `.agents/Skills/*.md`:
 
 - **Counts** — "839 unit tests", "21 sanity tests", "7 rule files". Every count
   written in this repo's docs has been wrong within weeks. `CLAUDE.md` and
@@ -42,7 +42,7 @@ Concretely, these are **banned** in any `.jules/*.md`:
   original, and this repo has shipped a wrong `Co-Authored-By` trailer exactly
   that way (`CLAUDE.md`, *"Không chép luật vào đây"*).
 - **A named file, symbol, or directory used as proof that a thing exists**,
-  unless you checked in this run. `scripts/check_jules_prompt_references.py`
+  unless you checked in this run. `scripts/check_skill_prompt_references.py`
   enforces this for the paths you write in backticks — run it before you commit
   a prompt edit.
 
@@ -68,9 +68,9 @@ What replaces them: a command whose output is the answer.
   pointer-bump step**. `CLAUDE.md` §3 states this and names it a trap that has
   already cost real time. Confirm in one command: `ls .gitmodules`.
 - **Read before touching anything**, in this order:
-  1. [`CLAUDE.md`](../CLAUDE.md) — the navigation entry point and its four
+  1. [`CLAUDE.md`](../../CLAUDE.md) — the navigation entry point and its four
      "wrong once, costs a session" items.
-  2. [`.agents/ONBOARDING.md`](../.agents/ONBOARDING.md) — process map; §8 is the
+  2. [`.agents/ONBOARDING.md`](../ONBOARDING.md) — process map; §8 is the
      list of traps that have genuinely produced broken code here.
   3. The rule files your change touches. `ls .agents/rules/` is the index —
      `.agents/rules/code-rule.md` is a **navigation stub only**, the content was
@@ -116,12 +116,12 @@ commit code. Prompt/task/`.agents/`-only edits are exempt: see `ci-rule.md` §1
 
 ## 4. Commits
 
-- Read [`.agents/rules/commit-rule.md`](../.agents/rules/commit-rule.md) before
+- Read [`.agents/rules/commit-rule.md`](../rules/commit-rule.md) before
   every commit. Conventional Commits, atomic changes, and pre-commit
   verification are enforced there.
 - The mandatory `Co-Authored-By` trailer is **defined in that file**. Read it
   there and name the assistant that actually authored the commit. Do **not**
-  copy a trailer into any `.jules/` file — a hardcoded one is how this repo
+  copy a trailer into any `.agents/Skills/` file — a hardcoded one is how this repo
   shipped a wrong attribution before.
 - If you were not asked to commit, don't. `commit-rule.md` §0 and `CLAUDE.md`
   make `commit` ask-first and `push` forbidden-by-default.
@@ -130,12 +130,12 @@ commit code. Prompt/task/`.agents/`-only edits are exempt: see `ci-rule.md` §1
 
 ## 5. Journals
 
-Each agent has a journal at `.jules/<agent>.md`.
+Each agent has a journal at `.agents/Skills/<agent>.md`.
 
 **Check whether yours exists — do not assume either way, in either direction.**
 
 ```bash
-ls .jules/*.md          # which journals exist right now
+ls .agents/Skills/*.md          # which journals exist right now
 ```
 
 The history here is the reason that command is the answer and no sentence is.
@@ -214,10 +214,10 @@ and let a human decide whether the agent still has a job.
 ## 8. Before committing an edit to any file in here
 
 ```bash
-python3 scripts/check_jules_prompt_references.py
+python3 scripts/check_skill_prompt_references.py
 ```
 
-It re-reads every backticked repo-relative path in `.jules/*.md` and fails on
+It re-reads every backticked repo-relative path in `.agents/Skills/*.md` and fails on
 any that no longer exists. It is the mechanical half of §1 — it cannot tell you
 that a claim went stale, but it does catch the class of rot that has actually
 shipped here: a prompt pointing at a file that is not there.

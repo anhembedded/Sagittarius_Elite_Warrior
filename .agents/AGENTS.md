@@ -40,20 +40,27 @@ move, bản đầy đủ hơn đã tồn tại sẵn ở các file `rules/` tư�
 **Tách rule 2026-08-25:** `rules/code-rule.md` (213 dòng, 9 nhóm quy tắc khác
 abstraction level) đã được tách thành 6 file chuyên biệt — 6 dòng đầu bảng
 trên. Bản thân `code-rule.md` **được giữ làm stub điều hướng, không xoá**: nó
-đang được các file trong `.jules/` (system prompt của agent tự động) đọc như
-điểm vào bắt buộc, cùng lý do `AGENTS.md` này từng được giữ lại.
+đang được các file trong `.agents/Skills/` (system prompt của agent tự động)
+đọc như điểm vào bắt buộc, cùng lý do `AGENTS.md` này từng được giữ lại.
 
 **Sửa 2026-08-26 (`EPIC-011`):** đoạn trên trước đây ghi "7 file
 `.jules/*.prompt.md`". `EPIC-011` đã rút phần chung của 7 prompt ra
 `.jules/README.md`, nên giờ **chỉ file đó** trỏ tới `code-rule.md`. Lý do giữ
-stub không đổi. Đếm bằng `grep -rl code-rule .jules/`.
+stub không đổi. Đếm bằng `grep -rl code-rule .agents/Skills/`.
+
+**Sửa 2026-08-27 (`EPIC-012`):** `.jules/` không còn tồn tại — cả 7 prompt và
+`README.md` đã dời sang `.agents/Skills/` (đồng thời xoá `.jules/`, thiết lập
+Routine chạy mỗi 2 ngày/agent). Mọi đường dẫn `.jules/...` ở đoạn trên và đoạn
+dưới đã sửa theo vị trí mới. Xem
+[`Tasks/epics/EPIC-012_di_chuyen_skills_ve_agents_va_lich_2_ngay/README.md`](../Tasks/epics/EPIC-012_di_chuyen_skills_ve_agents_va_lich_2_ngay/README.md).
 
 **Sửa 2026-08-25:** bảng trên trước đây có thêm dòng "Bảo mật →
 `rules/sentinel-rule.md`" — file đó **chưa bao giờ tồn tại** trong
 `.agents/rules/` (lúc đó có 7 file rule; sau đợt tách cùng ngày là 13 — luôn
 xác nhận bằng `ls .agents/rules/`).
-Đã xoá dòng link gãy đó. Nội dung bảo mật thật nằm ở `.jules/sentinel.prompt.md`
-(system prompt của agent Sentinel) và `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`.
+Đã xoá dòng link gãy đó. Nội dung bảo mật thật nằm ở
+`.agents/Skills/sentinel.prompt.md` (system prompt của agent Sentinel) và
+`Tasks/epics/EPIC-004_static_security_and_quality_analysis/`.
 
 File này giữ lại (không xoá hẳn) vì `AGENTS.md` là tên file nhiều công cụ
 AI tự động tìm và đọc theo mặc định — mất file này thì công cụ đó không còn

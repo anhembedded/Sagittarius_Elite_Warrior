@@ -21,6 +21,12 @@ chung một file. Đã tách theo đúng quy tắc đó.
 > file là 7 agent đó mất điểm vào. Đây đúng khuôn mẫu đã áp cho
 > [`../AGENTS.md`](../AGENTS.md) khi file đó bị rút nội dung: giữ lại làm
 > stub điều hướng thay vì xoá.
+>
+> **Sửa 2026-08-27 (`EPIC-012`):** 7 file đó đã dời từ `.jules/` sang
+> `.agents/Skills/` (và `.jules/` bị xoá hẳn). Lý do giữ stub này không đổi;
+> vị trí 7 file đọc nó thì đã đổi. Đếm lại bằng `grep -rl code-rule
+> .agents/Skills/`, đừng tin con số "103 lần ở 49 file" — đó là snapshot của
+> ngày tách, không phải hiện tại.
 
 ## Nội dung cũ giờ nằm ở đâu
 

@@ -48,12 +48,13 @@ import or Qt environment.
   undetected, because mypy then never resolves the Port's own defining
   module in the same analysis pass (verified empirically, see
   `Tasks/reports/EPIC-002A_mypy_baseline_audit.md` §3);
-- `scripts/check_jules_prompt_references.py` — every repository path the
-  scheduled-agent prompts under `.jules/` name must still resolve (`EPIC-011`).
-  Those prompts drive agents that run unattended, so a reference to a deleted
-  file fails silently: the run completes and reports success. `sentinel.prompt.md`
-  spent months pointing at a rule file with no commit in any branch's history.
-  Needs neither Qt nor the engine, runs in milliseconds, and is verified in both
+- `scripts/check_skill_prompt_references.py` — every repository path the
+  scheduled-agent prompts under `.agents/Skills/` name must still resolve
+  (`EPIC-011`, moved from `.jules/` and renamed in `EPIC-012`). Those prompts
+  drive agents that run unattended, so a reference to a deleted file fails
+  silently: the run completes and reports success. `sentinel.prompt.md` spent
+  months pointing at a rule file with no commit in any branch's history. Needs
+  neither Qt nor the engine, runs in milliseconds, and is verified in both
   directions (passes clean, fails on an injected broken reference);
 - all primary tests under `tests/`, excluding `tests/sanity/` and the known
   unstable `tests/integration/presentation/ui/` group by default;
@@ -264,7 +265,7 @@ thresholds.
 > | Test primary | song song (`-n 6` mặc định) | tuần tự, một tiến trình |
 > | Sanity | tách job riêng, luôn tuần tự | trộn chung trong `pytest tests/` |
 > | Coverage gate 80% | có | có (từ 2026-08-27) |
-> | Ruff/`mypy`/guard `.jules` | có cả 3 | có cả 3 (từ 2026-08-27) |
+> | Ruff/`mypy`/guard `.agents/Skills` | có cả 3 | có cả 3 (từ 2026-08-27) |
 >
 > Sự khác biệt về song song/tách job là **cố ý chưa đối chiếu lại** — không
 > phải lỗi cần vá ngay, chỉ là chưa ai xác nhận CI có cần chạy y hệt cấu trúc
