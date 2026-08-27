@@ -2,7 +2,7 @@
 
 | Trường | Giá trị |
 | :--- | :--- |
-| **Trạng thái** | 🟡 **Đã bịt lớp lỗi, chưa tái hiện được cú đỏ** — xem §Đã làm và §Chưa chứng minh |
+| **Trạng thái** | ✅ **Đóng 2026-08-26 — root cause tìm ra và đo được** (§Root cause) |
 | **Mức độ** | 🟡 P2 — không ảnh hưởng app đã ship; làm CI đỏ ngẫu nhiên |
 | **Phát hiện** | 2026-08-26, khi chạy tier integration lúc điều tra `BUG-060` |
 | **Liên quan** | **`BUG-030` §"Data point khác từ 2026-08-23" — cùng test, cùng lớp lỗi, cách nhau 3 ngày** |
@@ -151,3 +151,57 @@ của regression (regression đỏ cùng một test mọi lượt).
 định và so tỉ lệ đỏ. Nếu tỉ lệ tụt, biến số là tranh CPU giữa worker `xdist`,
 và chỗ cần sửa là chỗ test chờ — chờ theo tín hiệu thay vì theo hạn giờ cứng —
 chứ không phải production code.
+
+---
+
+# Root cause — tìm ra 2026-08-26, đo được, đã sửa
+
+## Không phải `Mock`. Là một cuộc đua với nguyên nhân cố định.
+
+`SyncMarketDataCommandHandler` lặp lên **`stream_historical_klines`** (BUG-025
+đổi sang stream theo chunk). Fixture đặt độ trễ 0.3s lên **`get_historical_klines`**
+— method đường sync **không bao giờ gọi**. Nên `stream_historical_klines` trả
+`iter(())` rỗng và **toàn bộ sync xong tức thì**.
+
+Đo trực tiếp cửa sổ FSM ở `UIMode.SYNCING`:
+
+| | Cửa sổ SYNCING |
+| :--- | ---: |
+| Trước khi sửa | **3.86 ms** |
+| Sau khi sửa | **287.31 ms** |
+
+`qtbot.waitUntil` poll mỗi **~10 ms**. Một cửa sổ 3.86ms so với nhịp 10ms: test
+**pass khi poll may mắn rơi trúng**, fail khi không. Hiếm nhưng **không ngẫu
+nhiên** — và nặng hơn khi chạy `-n` vì tải làm lịch chạy dịch đi.
+
+Điều đó giải thích trọn vẹn mọi quan sát trước đó: vì sao hiếm, vì sao chạy lại
+thì xanh, vì sao chỉ thấy dưới chạy song song, và vì sao đổi fixture sang
+`_FakeExchangeClient` **không** chặn được nó.
+
+## Lỗi `Mock` chỉ là triệu chứng đi kèm
+
+Hai lần gặp trước (`'Mock' object is not iterable`, `has no len()`) là một khiếm
+khuyết **khác**, có thật, đã đóng bằng `_FakeExchangeClient`. Nhưng lần đỏ sau
+đó có **0 lỗi Mock trong toàn log** mà test vẫn timeout y hệt — đó là bằng chứng
+tách bạch hai chuyện.
+
+## Bản sửa
+
+Đưa độ trễ về đúng method đường sync dùng. Đây là khôi phục **ý định gốc** của
+fixture (tác giả rõ ràng muốn "làm fetch đủ chậm để quan sát được"), không phải
+nới timeout — nới mù là biến bug thật thành test ngủ quên.
+
+Hằng số `_FETCH_DELAY_SECONDS` thay cho số 0.3 rải rác, theo
+`code-quality-rule.md` §4 "No Magic Numbers".
+
+## Kiểm chứng
+
+| Phép thử | Kết quả |
+| :--- | :--- |
+| Chạy file 15 lần liên tiếp | **0 lần đỏ** |
+| Fault injection: dời độ trễ về chỗ cũ | **đúng test ghim đỏ**, 3 test kia xanh |
+| Khôi phục | 4 passed |
+
+Test ghim `test_the_delay_sits_on_the_method_the_sync_path_actually_calls` dùng
+biên độ rộng (>= một nửa độ trễ) — nó canh **độ trễ nằm ở đâu**, không canh
+sleep chính xác bao nhiêu, để bản thân nó không thành một flake mới.

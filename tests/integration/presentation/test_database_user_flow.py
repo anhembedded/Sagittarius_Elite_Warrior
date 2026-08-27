@@ -22,6 +22,11 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+#: How long the fake exchange pretends a fetch takes. Long enough that a
+#: `qtbot.waitUntil` poll (~10ms) cannot step over the busy state, short
+#: enough not to slow the suite noticeably.
+_FETCH_DELAY_SECONDS = 0.3
+
 
 class _FakeExchangeClient:
     """A hand-written `IExchangeClient`, deliberately not a `Mock(spec=...)`.
@@ -57,12 +62,22 @@ class _FakeExchangeClient:
         self.available_symbols = ["BTCUSDT", "ETHUSDT"]
 
     def get_historical_klines(self, *args: object, **kwargs: object) -> list:
-        # The 0.3s the Mock's side_effect slept for: these tests need the
-        # fetch to still be in flight when they assert on the busy state.
-        time.sleep(0.3)
+        time.sleep(_FETCH_DELAY_SECONDS)
         return []
 
     def stream_historical_klines(self, *args: object, **kwargs: object):
+        # BUG-062: the delay belongs HERE, and used to sit only on
+        # `get_historical_klines` above — a method the sync path never calls.
+        # `SyncMarketDataCommandHandler` iterates `stream_historical_klines`
+        # (BUG-025 moved it here to stream chunk-by-chunk), so with an
+        # instant empty iterator the whole sync finished in about 4ms and
+        # `UIMode.SYNCING` was gone before a 10ms poll could see it. Measured
+        # before this line existed: the FSM held SYNCING for 3.86ms.
+        #
+        # Sleeping in the call, not in a generator body: the handler calls
+        # this on a worker thread and the FSM is already SYNCING by then, so
+        # the wait extends exactly the window the tests assert on.
+        time.sleep(_FETCH_DELAY_SECONDS)
         return iter(())
 
     def get_available_symbols(self) -> list[str]:
@@ -179,3 +194,32 @@ def test_streaming_twice_yields_a_fresh_iterator_each_time():
     second = client.stream_historical_klines()
 
     assert first is not second
+
+
+def test_the_delay_sits_on_the_method_the_sync_path_actually_calls():
+    """BUG-062's root cause, pinned so it cannot come back quietly.
+
+    `SyncMarketDataCommandHandler` iterates `stream_historical_klines`. The
+    fake's delay used to sit only on `get_historical_klines`, which that path
+    never calls — so a sync finished in about 4ms and `UIMode.SYNCING` was
+    gone before a `qtbot.waitUntil` poll (~10ms) could observe it. The test
+    above passed whenever a poll happened to land inside that 4ms window and
+    failed when it did not, which reads as flake but is a race with a fixed
+    cause. Measured: 3.86ms before, 287ms after.
+
+    Asserted with a wide margin on purpose — this guards *where* the delay
+    lives, not how precisely the sleep lands, so it must not become a timing
+    flake of its own.
+    """
+    client = _FakeExchangeClient()
+
+    started = time.perf_counter()
+    consumed = list(client.stream_historical_klines())
+    elapsed = time.perf_counter() - started
+
+    assert consumed == [], "the stream stays empty — only its duration changed"
+    assert elapsed >= _FETCH_DELAY_SECONDS / 2, (
+        "stream_historical_klines must be slow enough for the busy state to be "
+        f"observable — took {elapsed * 1000:.1f}ms. If the delay was moved onto "
+        "another method, the sync path no longer waits and BUG-062 is back."
+    )
