@@ -89,6 +89,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-010](epics/EPIC-010_ghi_nho_gia_tri_cuoi/README.md)** | **Ghi nhớ giá trị cuối** — ~45 giá trị user đặt mất sạch mỗi lần mở lại app; store riêng `ui_state.json`, slice theo màn, merge khi ghi | ✅ Xong 2026-08-26 (8/8 task con) — cơ chế đã promote lên Engine (`ui_state` extension) |
 | **[EPIC-011](epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md)** | **Đồng bộ 7 skill chạy định kỳ (`.jules/`) với repo hiện tại** — sai cổng CI ở cả 7 file, một authority chưa bao giờ tồn tại, bãi săn QML đã bị gỡ; `.jules/README.md` giữ phần chung, guard chặn tham chiếu gãy trong `-Full` | ✅ **Hoàn thành (8/8 task con)** — 2026-08-26 |
 | **[EPIC-012](epics/EPIC-012_di_chuyen_skills_ve_agents_va_lich_2_ngay/README.md)** | **Dời `.jules/` sang `.agents/Skills/`, xoá `.jules/`, lịch chạy 2 ngày/agent** — guard đổi tên, 7 Routine bền chạy mỗi 2 ngày/agent | ✅ **Hoàn thành** — 2026-08-27 |
+| **[EPIC-013](epics/EPIC-013_hop_dong_tuong_minh_va_tach_coordinator/README.md)** | **Hợp đồng tường minh & tách nốt Coordinator** — hợp đồng Presenter↔View 15 thành viên chưa bao giờ được khai báo; 74 tham số ctor của 6 Coordinator, 24 là accessor state. Luật §2.1 cấm duck-typing ngầm (ABC mặc định, `Protocol` chỉ khi Shiboken chặn), View chọn lúc bootstrap từ config | ✅ **Hoàn thành (7/7 task con)** — 2026-08-27 |
 
 ---
 

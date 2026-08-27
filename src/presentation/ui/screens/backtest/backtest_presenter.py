@@ -122,9 +122,11 @@ from .logic.pre_backtest_assertions import (
 )
 from .logic.result_formatter import format_result_summary
 from .logic.time_range_preset import TimeRangePreset, resolve_time_range
+from .logic.timeframe_parsing import timeframe_or_fallback
 from .logic.trade_log_row import (
     TradeLogRow,
 )
+from .ports.i_backtest_view import IBacktestView
 from .signal_wiring import (
     connect_chart_controls,
     connect_engine_events,
@@ -224,6 +226,16 @@ class BackTestPresenter(BasePresenter):
     unlike the Dashboard/Database screens there is no progress-event stream
     to subscribe to — one dispatch, one result.
     """
+
+    #: The View this Presenter was constructed with. `BasePresenter` assigns
+    #: `self.view` without an annotation, so without this line the 14-member
+    #: contract below would be invisible to every reader and every tool —
+    #: the implicit duck typing `architecture-rule.md` §2.1 forbids.
+    #:
+    #: Chosen once at bootstrap and never swapped at runtime (§2.1). That
+    #: makes holding this reference safe; it does NOT make the widgets
+    #: *inside* it safe to cache — see `BUG-013`.
+    view: IBacktestView
 
     INITIAL_STATE = BacktestUiState.IDLE
     UI_TRANSITION_MATRIX = BACKTEST_STATE_TRANSITIONS
@@ -428,6 +440,8 @@ class BackTestPresenter(BasePresenter):
         self._indicators = coordinators.indicators
         self._data_sync = coordinators.data_sync
         self._chart_render = coordinators.chart_render
+        self._chart_preview = coordinators.chart_preview
+        self._chart_feed = coordinators.chart_feed
         self._execution = coordinators.execution
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -672,11 +686,7 @@ class BackTestPresenter(BasePresenter):
         self._action_tracker.log_stale_callback(callback, action_id, kind)
 
     def _get_current_config(self) -> BacktestRunConfig:
-        timeframe_str = self._view_model.selectedTimeframe
-        try:
-            tf = TimeFrame(timeframe_str)
-        except ValueError:
-            tf = TimeFrame.M1
+        tf = timeframe_or_fallback(self._view_model.selectedTimeframe)
 
         try:
             balance = float(self._view_model.initialCapitalText)
@@ -1404,12 +1414,12 @@ class BackTestPresenter(BasePresenter):
         )
 
     def _request_chart_preview(self) -> None:
-        self._chart_render.request_preview()
+        self._chart_preview.request_preview()
 
     def _run_chart_preview(self, config: BacktestRunConfig, preview_id: int) -> None:
         """Kept with this signature: three tests call it directly, and
         `request_preview` submits this bound method to the thread manager."""
-        self._chart_render.run_preview(config, preview_id)
+        self._chart_preview.run_preview(config, preview_id)
 
     @Slot(int, object, list, list, list)
     @safe_ui_action
@@ -1421,7 +1431,7 @@ class BackTestPresenter(BasePresenter):
         volume: list,
         raw_klines: list | None = None,
     ) -> None:
-        self._chart_render.on_preview_data_ready(
+        self._chart_preview.on_preview_data_ready(
             preview_id, coverage, klines, volume, raw_klines
         )
 
@@ -1848,7 +1858,7 @@ class BackTestPresenter(BasePresenter):
     def _fetch_and_emit_chart_data(
         self, action_id: int, config: BacktestRunConfig, result: BacktestResult
     ) -> None:
-        self._execution.fetch_and_emit_chart_data(action_id, config, result)
+        self._chart_feed.fetch_and_emit_chart_data(action_id, config, result)
 
     def _emit_strategy_indicator_lines(
         self, action_id: int, config: BacktestRunConfig, raw_klines: list

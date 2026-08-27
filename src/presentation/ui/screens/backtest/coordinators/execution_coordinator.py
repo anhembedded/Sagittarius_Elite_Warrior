@@ -1,4 +1,8 @@
-"""Running a backtest on a worker thread, and feeding its chart data back."""
+"""Running a backtest on a worker thread.
+
+@details Feeding the finished run's data to the chart used to live here too;
+`EPIC-013E` moved it to `chart_feed_coordinator.py`. See that module for why.
+"""
 
 from __future__ import annotations
 
@@ -12,29 +16,21 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
     BacktestCancelled,
     RunStaticBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
-    map_klines,
-    map_volume,
-)
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from ..backtest_signal_payloads import BacktestProgress
 from ..logic.backtest_fsm_matrix import BacktestExecutionMode, BacktestRunConfig
+from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 logger = logging.getLogger("App.BackTestPresenter")
 
 
 class ExecutionCoordinator:
-    """The backtest worker: dispatch the run, then fetch and emit everything
-    the chart needs from it.
+    """The backtest worker: dispatch the run and report how it ended.
 
     Runs entirely off the Qt thread, so it touches neither the FSM nor the
     action tracker. Those, and every `*_for_action` gate that decides whether
@@ -45,11 +41,8 @@ class ExecutionCoordinator:
     def __init__(
         self,
         view_model,
+        state: IBacktestScreenState,
         dispatcher,
-        script_runner,
-        get_symbol: Callable[[], str],
-        get_chart_klines_fetch_limit: Callable[[], int],
-        get_chart_script_keys: Callable[[], list[str]],
         resolve_action_id: Callable[[], int | None],
         log_dev_trace: Callable[..., None],
         probe_coverage: Callable[[BacktestRunConfig], object],
@@ -60,16 +53,11 @@ class ExecutionCoordinator:
         emit_cancelled: Callable[..., None],
         emit_empty: Callable[..., None],
         emit_succeeded: Callable[..., None],
-        emit_chart_data_ready: Callable[..., None],
-        emit_strategy_indicator_lines: Callable[..., None],
-        emit_strategy_trend_zones: Callable[..., None],
+        on_result_ready: Callable[..., None],
     ) -> None:
         self._view_model = view_model
+        self._state = state
         self._dispatcher = dispatcher
-        self._script_runner = script_runner
-        self._get_symbol = get_symbol
-        self._get_chart_klines_fetch_limit = get_chart_klines_fetch_limit
-        self._get_chart_script_keys = get_chart_script_keys
         self._resolve_action_id = resolve_action_id
         self._log_dev_trace = log_dev_trace
         self._probe_coverage = probe_coverage
@@ -80,9 +68,12 @@ class ExecutionCoordinator:
         self._emit_cancelled = emit_cancelled
         self._emit_empty = emit_empty
         self._emit_succeeded = emit_succeeded
-        self._emit_chart_data_ready = emit_chart_data_ready
-        self._emit_strategy_indicator_lines = emit_strategy_indicator_lines
-        self._emit_strategy_trend_zones = emit_strategy_trend_zones
+        #: Announced, not called by name: this coordinator reports that a
+        #: result exists and hands it over. What happens next — today,
+        #: `ChartFeedCoordinator` fetching the candles to draw it on — is
+        #: none of its business, and a failure over there must not undo the
+        #: `BacktestResult` already reported (`EPIC-013E`).
+        self._on_result_ready = on_result_ready
 
     # ---------------------------------------------------------------- #
     # Pure helpers
@@ -164,7 +155,7 @@ class ExecutionCoordinator:
             self._log_dev_trace("worker_no_data")
             self._emit_empty(
                 resolved_action_id,
-                f"Không có dữ liệu lịch sử cho {self._get_symbol()} "
+                f"Không có dữ liệu lịch sử cho {self._state.symbol} "
                 f"({self.effective_data_interval(config).value}). "
                 "Hãy sync dữ liệu trước.",
                 config,
@@ -182,7 +173,7 @@ class ExecutionCoordinator:
             trades=len(result.trades),
             net_profit_percent=result.metrics.net_profit_percent,
         )
-        self.fetch_and_emit_chart_data(resolved_action_id, config, result)
+        self._on_result_ready(resolved_action_id, config, result)
         # Emitted whether or not there are trades — the success handler always
         # has a real BacktestResult to build stat cards from; only "no
         # historical data at all" (result is None, above) has none.
@@ -222,7 +213,7 @@ class ExecutionCoordinator:
         # side by side — a field added to one and not the other would have
         # been silently missing from that engine.
         shared = {
-            "symbol": self._get_symbol(),
+            "symbol": self._state.symbol,
             "interval": config.timeframe,
             "strategy_key": config.strategy_key,
             "initial_balance": config.initial_balance,
@@ -258,100 +249,3 @@ class ExecutionCoordinator:
             timeframe=command.interval.value,
         )
         return self._dispatcher.dispatch(RunStaticBacktestCommand, command)
-
-    # ---------------------------------------------------------------- #
-    # Chart feed
-    # ---------------------------------------------------------------- #
-
-    def fetch_and_emit_chart_data(self, action_id: int, config, result) -> None:
-        """Separate from the BacktestResult dispatch — the chart needs the raw
-        candles too, which `RunStaticBacktestCommand` never returns (BOT-056
-        §1 finding: nothing before that task ever fetched them for this
-        screen). A failure here must not undo the already-reported
-        BacktestResult; it only leaves the chart empty.
-        """
-        raw_klines = self._chart_klines(config, result)
-        if raw_klines is None:
-            return
-        if not raw_klines:
-            self._log_dev_trace("chart_query_empty")
-            return
-
-        limit = self._get_chart_klines_fetch_limit()
-        if len(raw_klines) >= limit:
-            logger.warning(
-                "Backtest chart truncated to the %d most recent candles by "
-                "%s; older trade markers will have no candles beneath them.",
-                limit,
-                ConfigKeys.BACKTEST_CHART_KLINES_FETCH_LIMIT.value,
-            )
-            self._log_dev_trace("chart_query_truncated", limit=limit)
-
-        mapped_klines = map_klines(raw_klines)
-        mapped_volume = map_volume(raw_klines)
-        self._log_dev_trace(
-            "chart_query_ready",
-            raw_klines=len(raw_klines),
-            mapped_klines=len(mapped_klines),
-            mapped_volume=len(mapped_volume),
-        )
-        self._emit_chart_data_ready(
-            action_id, result, mapped_klines, mapped_volume, raw_klines
-        )
-        self._emit_strategy_indicator_lines(action_id, config, raw_klines)
-        self._emit_strategy_trend_zones(action_id, config, raw_klines)
-
-        # BOT-064: user-picked reference scripts — batch feed over the same
-        # klines, entirely independent of the strategy lines just emitted.
-        # The key list was snapshotted on the main thread before this ran.
-        script_keys = self._get_chart_script_keys()
-        self._log_dev_trace("chart_scripts_rebuild", script_keys=script_keys)
-        self._script_runner.rebuild(script_keys)
-        self._script_runner.feed_all(raw_klines)
-        self._log_dev_trace("chart_scripts_fed", raw_klines=len(raw_klines))
-
-    def _chart_klines(self, config, result) -> list | None:
-        """The candles to draw under this run, or None if the query failed."""
-        if result.committed_bars:
-            # A Realtime run built its own bars by aggregating ticks, so the
-            # exchange's published candles for this interval are a DIFFERENT
-            # series — complete where these have gaps
-            # (`tick_gap_forced_commit`) — and may not exist in storage at
-            # all, since a Realtime run only ever syncs/coverage-checks
-            # `tick_resolution`, never `timeframe`. Drawing published candles
-            # beneath markers derived from these would show a chart
-            # disagreeing with the decisions actually made.
-            raw_klines = list(result.committed_bars)
-            self._log_dev_trace(
-                "chart_source_committed_bars",
-                timeframe=config.timeframe.value,
-                bars=len(raw_klines),
-            )
-            return raw_klines
-
-        symbol = self._get_symbol()
-        limit = self._get_chart_klines_fetch_limit()
-        try:
-            query = GetHistoricalKlinesQuery(
-                symbol=symbol,
-                interval=config.timeframe.value,
-                limit=limit,
-                start_time=config.start_time,
-                end_time=config.end_time,
-                # Descending + reversed below so a range with more than the
-                # fetch limit keeps the MOST RECENT candles — ascending order
-                # would silently cap at the OLDEST instead.
-                order_by_desc=True,
-            )
-            self._log_dev_trace(
-                "chart_query_dispatch",
-                symbol=symbol,
-                timeframe=config.timeframe.value,
-                limit=limit,
-            )
-            response = self._dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            return list(reversed(getattr(response, "data", response) or []))
-        except Exception as exc:
-            logger.exception("Fetching chart klines failed")
-            self._log_dev_trace("chart_query_failed", message=str(exc))
-            return None

@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     StrategyConfigCoordinator,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
+    InMemoryScreenState,
+)
 
 
 class _Strategy:
@@ -52,14 +55,18 @@ class _Logger:
         return record
 
 
-class _State:
-    """Stands in for the presenter attributes the coordinator reads/writes."""
+class _State(InMemoryScreenState):
+    """The shared screen state, plus the two things that are NOT screen state.
+
+    @details `metadata` comes from a cache keyed by symbol and `config_changed`
+    counts a notification — neither is a value the screen holds, so neither
+    belongs on `IBacktestScreenState` (`EPIC-013C` §"Only genuine state").
+    They stay here, on the test's own subclass.
+    """
 
     def __init__(self, metadata=None, klines=None) -> None:
-        self.params: dict[str, Any] | None = None
-        self.symbol = "BTCUSDT"
+        super().__init__(symbol="BTCUSDT", current_raw_klines=list(klines or []))
         self.metadata = metadata
-        self.klines = klines or []
         self.config_changed = 0
 
 
@@ -77,11 +84,8 @@ def _build(strategies=None, state=None):
             {"s1": _Strategy} if strategies is None else strategies
         ),
         logger=logger,
-        get_strategy_params=lambda: state.params,
-        set_strategy_params=lambda p: setattr(state, "params", p),
-        get_symbol=lambda: state.symbol,
+        state=state,
         get_market_metadata=lambda _symbol: state.metadata,
-        get_current_raw_klines=lambda: state.klines,
         notify_config_changed=bump,
     )
     view_model.selectedStrategyKey = "s1"
@@ -92,11 +96,11 @@ def test_changing_strategy_discards_the_previous_params(qtbot) -> None:
     """BOT-047: a different strategy has a different schema, so values saved
     for the old one would be ignored or rejected against the new one."""
     coordinator, _vm, state, _logger = _build()
-    state.params = {"period": 20}
+    state.strategy_params = {"period": 20}
 
     coordinator.on_strategy_selection_changed()
 
-    assert state.params is None
+    assert state.strategy_params is None
     assert state.config_changed == 1
 
 
@@ -108,7 +112,7 @@ def test_a_rejected_param_is_not_saved_and_asks_for_no_re_run(qtbot) -> None:
     should_rerun = coordinator.apply_bot_params({"period": "-5"})
 
     assert should_rerun is False
-    assert state.params is None
+    assert state.strategy_params is None
     assert "period" in view_model.botParamsError
 
 
@@ -118,7 +122,7 @@ def test_an_accepted_param_is_saved_and_asks_for_a_re_run(qtbot) -> None:
     should_rerun = coordinator.apply_bot_params({"period": "21"})
 
     assert should_rerun is True
-    assert state.params == {"period": 21}
+    assert state.strategy_params == {"period": 21}
     assert view_model.botParamsError == ""
 
 
@@ -126,7 +130,7 @@ def test_an_unknown_strategy_key_saves_nothing(qtbot) -> None:
     coordinator, _vm, state, _logger = _build(strategies={})
 
     assert coordinator.apply_bot_params({"period": "21"}) is False
-    assert state.params is None
+    assert state.strategy_params is None
 
 
 def test_broker_properties_are_applied_with_their_declared_types(qtbot) -> None:

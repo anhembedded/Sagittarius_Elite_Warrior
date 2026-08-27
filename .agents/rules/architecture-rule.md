@@ -1,6 +1,6 @@
 ---
 name: Architecture Rule
-description: SOLID, Clean Architecture layer boundaries, Ports/Adapters and ABC completeness, CQRS use-case structure, and Abstraction-Level Separation (khác abstraction level thì không chung file, không chung thư mục).
+description: SOLID, Clean Architecture layer boundaries, Ports/Adapters and ABC completeness, hợp đồng phải tường minh (cấm duck-typing ngầm — ABC mặc định, Protocol chỉ khi kế thừa bất khả thi), CQRS use-case structure, và Abstraction-Level Separation (khác abstraction level thì không chung file, không chung thư mục).
 trigger: always_on
 ---
 
@@ -54,6 +54,113 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
      backstop, but do not rely on the tool alone — grep for implementers
      as part of the change itself.
 
+### 2.1 Hợp đồng phải tường minh — cấm duck-typing ngầm (user chốt 2026-08-27)
+
+> **Mọi hợp đồng vượt ranh giới (Presenter ↔ View, consumer ↔ port, module ↔
+> module) PHẢI là một kiểu có tên. Không được để hợp đồng chỉ tồn tại dưới
+> dạng "gọi thử xem có method đó không".**
+
+**Chữ "duck-typing" bị cấm ở đây là *duck-typing ngầm*, KHÔNG phải
+`typing.Protocol`.** Phân biệt này là bắt buộc, vì đọc nhầm sẽ đi phá 18 chỗ
+đang đúng (9 Protocol ở `src/` của repo này, 9 ở Engine):
+
+| | Cấm | Bắt buộc |
+| :--- | :--- | :--- |
+| **Hợp đồng ngầm** | `def __init__(self, view)` không annotation, rồi consumer gọi 15 thành viên của nó; `hasattr()`/`getattr()` để dò khả năng | — |
+| **Hợp đồng tường minh** | — | Một kiểu có tên: `abc.ABC` **hoặc** `typing.Protocol` |
+
+`typing.Protocol` **là** một interface class tường minh: nó có tên, có
+`grep` ra được, `mypy` kiểm được, `@runtime_checkable` thì `isinstance()`
+được. Thứ nó bỏ đi chỉ là **bắt buộc kế thừa** — chứ không phải bỏ hợp đồng.
+
+#### Thứ tự chọn — không được đảo
+
+1. **`abc.ABC` là mặc định.** Implementer `class X(IPort)`, và luật "ABC
+   completeness" ở §2 ngay trên áp dụng đầy đủ.
+2. **`typing.Protocol` (kèm `@runtime_checkable`) chỉ khi kế thừa bất khả thi
+   hoặc bị chính repo này cấm** — và **docstring của Protocol đó PHẢI ghi lý do
+   thuộc nhóm nào dưới đây.** Đúng 3 lý do hợp lệ, cả 3 đều đã có tiền lệ thật:
+   - **(a) Implementer là subclass `QObject`.** PySide6/Shiboken cấm một class
+     kế thừa hai base dẫn xuất từ `QObject`, và `ABCMeta` xung đột metaclass
+     với metaclass của Shiboken — biến nó thành ABC là **không chạy được**,
+     không phải "xấu hơn". Tiền lệ: `kit/style.py` module docstring (lý do
+     `apply_role()` là composition thay vì mixin), `LogModel`, `ITab`,
+     `IStateContributor`, `IBacktestChartHost`.
+   - **(b) §2 "NO Multiple Inheritance" chặn.** Implementer đã có base class
+     riêng của nó (`BasePresenter`, `QMainWindow`, ...) và thêm một base nữa
+     là đúng thứ §2 cấm.
+   - **(c) Implementer là class của bên thứ ba** mà repo này không sửa được.
+3. **Không rơi vào (a)/(b)/(c) → phải là ABC.** "Protocol tiện hơn" không phải
+   lý do.
+
+#### Protocol không phải lối thoát khỏi tính đầy đủ
+
+Một `Protocol` phải mô tả **đúng và đủ** những gì consumer thật sự dùng. Thêm
+một lời gọi mới lên hợp đồng mà không khai báo nó vào Protocol là **quay lại
+đúng duck-typing ngầm mà mục này cấm**, chỉ khác là có một file trông giống
+interface đứng cạnh để trấn an. Khác biệt so với ABC: bỏ sót ở ABC thì
+`TypeError: Can't instantiate abstract class` nổ ngay; bỏ sót ở Protocol thì
+**không có gì nổ cả** cho tới khi `mypy` chạy — nên với Protocol, `mypy`
+(`EPIC-002`) không phải "backstop cơ học" mà là **cơ chế duy nhất**.
+
+#### Bằng chứng thật, đo 2026-08-27
+
+`backtest_presenter.py` + 6 coordinator + `signal_wiring.py` gọi **14 thành
+viên** của `view`: `chart_cards`, `chart_controls`, `render_symbol_cards`,
+`set_view_model`, `set_chart_mode`, `set_chart_host_factory`,
+`set_chart_dev_mode`, `set_chart_opengl_enabled`,
+`set_chart_cached_interaction_enabled`, `set_display_timezone`,
+`set_volume_visible`, `set_trade_flags_visible`, `on_preview_data_ready`,
+`on_backtest_data_ready` — **không kiểu nào khai báo chúng.** Engine's
+`BasePresenter.__init__(self, view, container)` để `view` **không có
+annotation**.
+
+(Quét cả thư mục ra **15**; cái thứ 15 là `resize`, và nó đến từ `preview.py` —
+một harness dev tự dựng `BackTestView()`, không phải ranh giới Presenter↔View.
+Đây là lý do bước "xem từng hit đến từ đâu" ở dưới không được bỏ.)
+
+Engine *có* `IView`, nhưng nó khai đúng 1 method `bind()` mà **không View nào
+trong cả hai repo implement**, và `src/` của repo này tham chiếu `IView`
+**0 lần**. Hợp đồng thật (15 thành viên) và hợp đồng khai báo (1 method chết)
+là hai thứ khác nhau — đó chính xác là cái giá của duck-typing ngầm: hợp đồng
+trôi mà không có gì vỡ ra.
+
+Lệnh kiểm khi nghi một hợp đồng đang ngầm:
+
+```bash
+# Consumer đang dùng những gì của `x`? (bỏ -h để thấy hit nào ở file nào)
+grep -rnoE "(self\.)?_?<tên_thuộc_tính>\.[a-zA-Z_]+" src/<thư_mục>/
+```
+
+Số thành viên còn lại **sau khi loại các hit không thuộc ranh giới đang xét**
+phải khớp với kiểu đã khai báo. Lệch là hợp đồng đã trôi.
+
+**Tốt hơn `grep` một lần: một test khoá hai chiều.** `grep` là thứ phải nhớ
+chạy; test thì tự chạy. `tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py`
+(`EPIC-013B`) duyệt source bằng `ast` và đỏ ở **cả hai chiều** — thành viên được
+dùng mà chưa khai (hợp đồng lại thành ngầm), **và** thành viên đã khai mà không
+ai dùng (đúng tình trạng của `IView`). Nó còn khoá **số đếm**, vì hai chiều kia
+so *tập hợp* nên xoá 1 thêm 1 sẽ triệt tiêu nhau và vẫn xanh.
+
+Điều này đặc biệt quan trọng ở `presentation/`: tầng đó bị **loại khỏi cổng
+`mypy`** (`pyproject.toml`, `EPIC-002A`), nên một `Protocol` sống ở đây **không
+có bất kỳ cơ chế tĩnh nào** kiểm. Không có test kiểu trên thì nó chỉ là tài
+liệu.
+
+#### View được chọn lúc bootstrap, không thay lúc runtime (user chốt 2026-08-27)
+
+Hệ quả trực tiếp của mục này, ghi ra để lần sau không ai thiết kế thừa: một
+Presenter **không** phải chịu được việc bị tráo View giữa chừng. Việc chọn
+View cụ thể nào là **quyết định lúc bootstrap, đọc từ config**, rồi inject
+vào `__init__` — đúng hình dạng `BasePresenter` đang có.
+
+Điều đó **không** làm hợp đồng bớt cần tường minh: lý do khai `IBacktestView`
+là để consumer lập trình vào được và `mypy` kiểm được, chứ không phải để tráo
+runtime. Nhưng nó **cấm** một thứ: coordinator/presenter **không được cache
+`self._view` rồi giả định nó bất biến để tối ưu** — vì `BUG-013` đã cho thấy
+một widget con cached có thể trở thành C++ object đã `deleteLater()` sau khi
+host dựng lại. Bất biến ở đây là *danh tính View*, không phải *các widget bên
+trong nó*.
 ---
 
 ## 3. Clean Architecture Layer Enforcement

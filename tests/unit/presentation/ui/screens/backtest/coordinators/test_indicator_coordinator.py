@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
+    InMemoryScreenState,
+)
 
 
 class _Card:
@@ -61,7 +64,9 @@ def _build(
     fallback_calls: list[tuple[str, int]] = []
     emitted_lines: list[tuple] = []
     emitted_regions: list[tuple] = []
-    script_keys: list[list[str]] = []
+    state = InMemoryScreenState(
+        active_strategy_lines=lines, current_raw_klines=list(klines or [])
+    )
 
     def fallback(label, draw, *, drawn_count):
         fallback_calls.append((label, drawn_count))
@@ -72,17 +77,15 @@ def _build(
     )
     coordinator = IndicatorCoordinator(
         view_model=view_model,
+        state=state,
         strategy_registry=SimpleNamespace(available=dict),
         logger=SimpleNamespace(info=lambda _m: None),
         script_runner=runner,
         get_first_chart_card=lambda: card,
-        get_active_strategy_lines=lambda: lines,
-        get_current_raw_klines=lambda: list(klines or []),
         get_chart_mode=lambda: mode,
         apply_after_native_fallback=fallback,
         emit_strategy_line=lambda *a: emitted_lines.append(a),
         emit_strategy_region=lambda *a: emitted_regions.append(a),
-        set_chart_script_keys=script_keys.append,
     )
     return SimpleNamespace(
         coordinator=coordinator,
@@ -91,7 +94,7 @@ def _build(
         fallback_calls=fallback_calls,
         emitted_lines=emitted_lines,
         emitted_regions=emitted_regions,
-        script_keys=script_keys,
+        state=state,
         card=card,
     )
 
@@ -166,7 +169,7 @@ def test_toggling_a_script_off_removes_it_and_on_adds_it() -> None:
 
     assert runner.removed == ["old"]
     assert runner.added == ["new"]
-    assert ctx.script_keys == [["new"]]
+    assert ctx.state.chart_script_keys == ["new"]
 
 
 def test_a_script_enabled_during_equity_mode_starts_hidden() -> None:

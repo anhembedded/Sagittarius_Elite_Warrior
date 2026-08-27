@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     DataSyncCoordinator,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
+    InMemoryScreenState,
+)
 
 
 class _Token:
@@ -55,7 +58,7 @@ def _build(dispatcher=None, action_id=7):
     events: list[tuple] = []
     coordinator = DataSyncCoordinator(
         dispatcher=dispatcher,
-        get_symbol=lambda: "BTCUSDT",
+        state=InMemoryScreenState(symbol="BTCUSDT"),
         # The real enum, not a stand-in: `SyncMarketDataCommand` is a pydantic
         # model and rejects anything that is not a `TimeFrame`, so a fake made
         # every run_sync test fail as a validation error instead of exercising

@@ -18,6 +18,7 @@ from ..logic.trade_log_row import (
     build_trade_log_rows,
     trade_log_rows_to_qml,
 )
+from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 
 class TradeLogCoordinator:
@@ -40,13 +41,13 @@ class TradeLogCoordinator:
     def __init__(
         self,
         view_model,
-        get_all_trades: Callable[[], list[Trade]],
+        state: IBacktestScreenState,
         set_chart_display_timezone: Callable[[str], None],
         ask_export_path: Callable[[], str],
         logger,
     ) -> None:
         self._view_model = view_model
-        self._get_all_trades = get_all_trades
+        self._state = state
         self._set_chart_display_timezone = set_chart_display_timezone
         self._ask_export_path = ask_export_path
         self._logger = logger
@@ -61,7 +62,7 @@ class TradeLogCoordinator:
         self.refresh()
 
     def on_export_requested(self) -> None:
-        if not self._get_all_trades():
+        if not self._state.all_trades:
             return
         if self._view_model.isConfigDirty:
             self._logger.info(
@@ -77,7 +78,7 @@ class TradeLogCoordinator:
         (not yet paginated) — shared by `refresh` (which then paginates) and
         CSV export (which doesn't)."""
         view_model = self._view_model
-        rows = build_trade_log_rows(self._get_all_trades())
+        rows = build_trade_log_rows(self._state.all_trades)
         filter_ = TradeLogFilter(view_model.tradeLogFilter)
         filtered = filter_trade_log_rows(rows, filter_)
         return search_trade_log_rows(filtered, view_model.tradeLogSearchText)
@@ -89,7 +90,7 @@ class TradeLogCoordinator:
         matching_indexes = {row.index for row in self.filtered_and_searched_rows()}
         return [
             trade
-            for position, trade in enumerate(self._get_all_trades(), start=1)
+            for position, trade in enumerate(self._state.all_trades, start=1)
             if position in matching_indexes
         ]
 

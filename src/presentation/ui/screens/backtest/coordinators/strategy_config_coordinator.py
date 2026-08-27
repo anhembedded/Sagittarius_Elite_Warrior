@@ -21,6 +21,7 @@ from ..logic.pre_backtest_assertions import (
     PreBacktestAssertionPipeline,
     PreBacktestInput,
 )
+from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 #: Capital that failed to parse. Verification still runs on it — a blank or
 #: mistyped box is not a reason to leave the previous verdict on screen.
@@ -45,23 +46,17 @@ class StrategyConfigCoordinator:
     def __init__(
         self,
         view_model,
+        state: IBacktestScreenState,
         strategy_registry,
         logger,
-        get_strategy_params: Callable[[], dict[str, Any] | None],
-        set_strategy_params: Callable[[dict[str, Any] | None], None],
-        get_symbol: Callable[[], str],
         get_market_metadata: Callable[[str], Any],
-        get_current_raw_klines: Callable[[], list],
         notify_config_changed: Callable[[], None],
     ) -> None:
         self._view_model = view_model
+        self._state = state
         self._strategy_registry = strategy_registry
         self._logger = logger
-        self._get_strategy_params = get_strategy_params
-        self._set_strategy_params = set_strategy_params
-        self._get_symbol = get_symbol
         self._get_market_metadata = get_market_metadata
-        self._get_current_raw_klines = get_current_raw_klines
         self._notify_config_changed = notify_config_changed
 
     # ---------------------------------------------------------------- #
@@ -73,7 +68,7 @@ class StrategyConfigCoordinator:
         any values saved for the previous one would either be silently
         ignored or raise "param nobody declares" against the new one, so
         they're discarded rather than carried over (BOT-047)."""
-        self._set_strategy_params(None)
+        self._state.strategy_params = None
         self._view_model.set_bot_params_error("")
         self.refresh_bot_params_schema()
         self._logger.log_strategy_selected(
@@ -85,7 +80,7 @@ class StrategyConfigCoordinator:
     def refresh_bot_params_schema(self) -> None:
         strategy_cls = self._selected_strategy_class()
         schema = (
-            build_bot_params_schema(strategy_cls, self._get_strategy_params())
+            build_bot_params_schema(strategy_cls, self._state.strategy_params)
             if strategy_cls is not None
             else []
         )
@@ -119,7 +114,7 @@ class StrategyConfigCoordinator:
             self._view_model.set_bot_params_error(str(exc))
             return False
 
-        self._set_strategy_params(parsed)
+        self._state.strategy_params = parsed
         self._finish_save(parsed)
         return True
 
@@ -137,13 +132,13 @@ class StrategyConfigCoordinator:
             try:
                 parsed = parse_bot_params(strategy_cls().inputs, inputs)
                 strategy_cls(parsed)
-                self._set_strategy_params(parsed)
+                self._state.strategy_params = parsed
             except ValueError as exc:
                 self._view_model.set_bot_params_error(str(exc))
                 return False
 
         self._apply_broker_properties(props)
-        self._finish_save(self._get_strategy_params() or {})
+        self._finish_save(self._state.strategy_params or {})
         return True
 
     #: Broker property key -> (view model attribute, coercion). Table rather
@@ -211,7 +206,7 @@ class StrategyConfigCoordinator:
     def refresh_market_rule_verification(self) -> None:
         """Evaluates whether current symbol and capital comply with exchange
         order rules (BOT-095E1)."""
-        metadata = self._get_market_metadata(self._get_symbol())
+        metadata = self._get_market_metadata(self._state.symbol)
         try:
             capital_val = float(self._view_model.initialCapitalText)
         except (ValueError, TypeError):
@@ -231,14 +226,14 @@ class StrategyConfigCoordinator:
             )
             return
 
-        raw_klines = self._get_current_raw_klines()
+        raw_klines = self._state.current_raw_klines
         ref_price = (
             raw_klines[-1].close_price
             if raw_klines
             else metadata.price_filter.min_price
         )
         qty = capital_val / ref_price if ref_price > 0 else 0.0
-        intent = OrderIntent(symbol=self._get_symbol(), price=ref_price, quantity=qty)
+        intent = OrderIntent(symbol=self._state.symbol, price=ref_price, quantity=qty)
         result = validate_order_intent(intent, metadata)
         self._view_model.set_market_rule_verification(
             result.status.value,

@@ -33,7 +33,7 @@ chỉ thêm một dòng trỏ.
 | Việc | File |
 | :--- | :--- |
 | Bắt đầu, hoặc tiếp việc đang dở | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) — §12 là "bắt tay vào việc đang dở" |
-| Kiến trúc: tầng, Port/ABC, Shared Kernel, đặt chỗ event, abstraction | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
+| Kiến trúc: tầng, Port/ABC, hợp đồng tường minh (cấm duck-typing ngầm), Shared Kernel, đặt chỗ event, abstraction | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
 | Chất lượng code: typing, magic number, cohesion, lazy import | [`.agents/rules/code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
 | Trước khi tuyên bố "xong" bất cứ thứ gì | [`.agents/rules/ci-rule.md`](.agents/rules/ci-rule.md) |
 | Trước mọi commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |

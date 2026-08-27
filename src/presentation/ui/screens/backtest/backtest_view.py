@@ -8,7 +8,7 @@ from sagittarius_engine.extensions.pyside_mvc import BaseView
 from .backtest_modals import BackTestModalsHost
 from .backtest_top_panel import BackTestTopPanel
 from .backtest_trade_logs_panel import BackTestTradeLogsPanel
-from .logic.backtest_chart_host import BacktestChartHostFactory, IBacktestChartHost
+from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.chart_canvas_view import (
     ChartDisplayMode,
     equity_curve_to_candles,
@@ -16,6 +16,7 @@ from .logic.chart_canvas_view import (
     trade_flag_markers,
 )
 from .logic.chart_controls import BacktestChartControls
+from .ports.i_backtest_chart_host import IBacktestChartHost
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (

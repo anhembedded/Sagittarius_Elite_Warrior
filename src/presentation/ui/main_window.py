@@ -40,8 +40,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
-    BackTestView,
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.view_factory import (
+    build_backtest_view,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
@@ -69,6 +69,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
     UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
+from sagittarius_engine.interfaces.i_config import IConfig
 
 # ---------------------------------------------------------------------------
 # Navigation sections. A NavItem with route=None is a placeholder for a screen
@@ -281,10 +282,15 @@ class MainWindow(QMainWindow):
             SettingsPresenter,
             lambda: SettingsView(),
         )
+        # `build_backtest_view`, not `BackTestView()` (`EPIC-013F`): which
+        # View this install uses is a named choice read from config, and the
+        # factory's return type says what the router may do with it. Read
+        # once, here — a View is never swapped while the app runs.
+        config = self._app.context.container.resolve(IConfig)
         self._router.register(
             "backtest",
             BackTestPresenter,
-            lambda: BackTestView(),
+            lambda: build_backtest_view(config),
         )
 
     def switch_screen(self, route_name: str) -> None:
