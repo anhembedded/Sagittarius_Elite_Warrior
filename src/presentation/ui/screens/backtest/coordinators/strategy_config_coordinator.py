@@ -17,6 +17,7 @@ from ..logic.bot_params_form import (
     build_bot_params_schema,
     parse_bot_params,
 )
+from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS
 from ..logic.pre_backtest_assertions import (
     PreBacktestAssertionPipeline,
     PreBacktestInput,
@@ -141,29 +142,17 @@ class StrategyConfigCoordinator:
         self._finish_save(self._state.strategy_params or {})
         return True
 
-    #: Broker property key -> (view model attribute, coercion). Table rather
-    #: than twelve near-identical `if "x" in props` blocks: a new property is
-    #: a row here, and a typo in one of twelve hand-written branches was the
-    #: kind of thing nothing would have caught.
-    _BROKER_PROPERTIES: tuple[tuple[str, str, Callable[[Any], Any]], ...] = (
-        ("initial_capital", "initialCapitalText", str),
-        ("currency", "selectedCurrency", str),
-        ("order_size_type", "orderSizeType", str),
-        ("order_size_text", "orderSizeText", str),
-        ("pyramiding", "pyramiding", int),
-        ("commission_type", "commissionType", str),
-        ("commission_text", "commissionText", str),
-        ("slippage_ticks", "slippageTicks", int),
-        ("long_leverage", "longLeverage", float),
-        ("short_leverage", "shortLeverage", float),
-        ("take_profit_enabled", "takeProfitPctEnabled", bool),
-        ("take_profit_pct_text", "takeProfitPctText", str),
-    )
-
     def _apply_broker_properties(self, props: dict) -> None:
-        for key, attribute, coerce in self._BROKER_PROPERTIES:
-            if key in props:
-                setattr(self._view_model, attribute, coerce(props[key]))
+        """Table-driven rather than twelve near-identical `if "x" in props`
+        blocks: `BROKER_PROPERTY_FIELDS` (BUG-064) is the single declared
+        source for "which broker properties exist", shared with
+        `StrategyPropertiesDialog` — a new property is a row there, read by
+        both directions, not a branch to remember here separately."""
+        for field in BROKER_PROPERTY_FIELDS:
+            if field.key in props:
+                setattr(
+                    self._view_model, field.vm_attribute, field.coerce(props[field.key])
+                )
 
     def _finish_save(self, saved_params: dict) -> None:
         self._view_model.set_bot_params_error("")

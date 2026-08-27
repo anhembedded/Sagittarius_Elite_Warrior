@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
+    VolumeSpikeFlowStrategy,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
@@ -50,6 +53,7 @@ class _SampleStrategy(BaseStrategy):
 def modal_presenter(qapp, request):
     registry = StrategyRegistry()
     registry.register("sample_strategy", _SampleStrategy)
+    registry.register("volume_spike_flow", VolumeSpikeFlowStrategy)
     container = Mock()
 
     def resolve_mock(interface):
@@ -231,3 +235,219 @@ def test_strategy_properties_modal_content_and_controls(qapp, modal_presenter):
     assert prop_tp_pct is not None
     assert prop_tp_pct.text() == "2.0"
     assert prop_tp_pct.isEnabled() is False
+
+
+def test_editing_a_strategy_input_field_and_saving_uses_the_typed_value(
+    qapp, modal_presenter
+):
+    """Coverage gap this closes: `test_presenter_strategy_properties_save_updates_config_and_runs`
+    above only ever calls `vm.requestStrategyPropertiesSave(payload)` with a
+    hand-built payload — it never exercises `save_and_rerun()`'s own read of
+    the real field widgets. This drives the actual dialog: types into the
+    real `_BotParamFieldWidget`'s QLineEdit and clicks the real Save button,
+    so a bug in collecting live widget values (as opposed to the coordinator
+    plumbing behind them) would actually get caught. Confirms the mechanism
+    is sound: a user report of "changing a strategy parameter has no effect"
+    is therefore NOT this — see the next test for the same check against
+    `VolumeSpikeFlowStrategy` specifically."""
+    vm = modal_presenter._view_model
+    vm.selectedStrategyKey = "sample_strategy"
+    modal_presenter._refresh_bot_params_schema()
+
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+
+    fast_field = dialog.findChild(object, "fldBotParam_fast")
+    assert fast_field is not None
+    assert fast_field.text() == "12", "sanity: dialog opened showing the default"
+
+    fast_field.selectAll()
+    fast_field.insert("99")
+    qapp.processEvents()
+    assert fast_field.text() == "99", "sanity: the widget itself holds the edit"
+
+    save_btn = dialog.findChild(object, "btnBotParamsSave")
+    assert save_btn is not None
+    save_btn.click()
+    qapp.processEvents()
+
+    # save_and_rerun() collects every declared field, not only the one
+    # edited — "slow" keeps its own default (26), untouched.
+    assert modal_presenter._strategy_params == {"fast": 99, "slow": 26}
+
+
+def test_editing_volume_spike_flow_strategy_trailing_stop_and_saving_uses_the_typed_value(
+    qapp, modal_presenter
+):
+    """Same round trip as the test above, against the real
+    `VolumeSpikeFlowStrategy` rather than the flat, groupless `_SampleStrategy`
+    — rules out a bug specific to its grouped fields (BOT-047's groups) or its
+    mix of int/float/bool inputs, which the sample strategy's two plain ints
+    can't exercise."""
+    vm = modal_presenter._view_model
+    vm.selectedStrategyKey = "volume_spike_flow"
+    modal_presenter._refresh_bot_params_schema()
+
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+
+    trailing_field = dialog.findChild(object, "fldBotParam_trailing_stop_pct")
+    assert trailing_field is not None
+    assert trailing_field.text() == "0.5", "sanity: dialog opened showing the default"
+
+    trailing_field.selectAll()
+    trailing_field.insert("5.0")
+    qapp.processEvents()
+    assert trailing_field.text() == "5.0", "sanity: the widget itself holds the edit"
+
+    fade_checkbox = dialog.findChild(object, "fldBotParam_fade_mode")
+    assert fade_checkbox is not None
+    assert fade_checkbox.isChecked() is False, "sanity: default is off"
+    fade_checkbox.click()
+    qapp.processEvents()
+
+    save_btn = dialog.findChild(object, "btnBotParamsSave")
+    assert save_btn is not None
+    save_btn.click()
+    qapp.processEvents()
+
+    saved = modal_presenter._strategy_params
+    assert saved is not None
+    assert saved["trailing_stop_pct"] == 5.0
+    assert saved["fade_mode"] is True
+
+    # And the saved dict actually constructs a strategy with the new values —
+    # not just a dict that looks right but is never consumed correctly.
+    strategy = VolumeSpikeFlowStrategy(saved)
+    assert strategy._trailing_stop_pct == 5.0
+    assert strategy._fade_mode is True
+
+
+def test_pressing_enter_in_order_size_field_commits_the_typed_value(
+    qapp, modal_presenter
+):
+    """BUG-064: user-reported symptom was "I typed a new order size, pressed
+    Enter, and it still reads the old value (100), not what I typed (10)".
+
+    Root cause was `propOrderSizeValue` (a bare QLineEdit, see
+    `_build_properties_tab()`) having no `editingFinished`/`returnPressed`
+    connection at all — Enter did nothing beyond leaving focus in the field.
+    Nothing on the Broker Properties tab reached the ViewModel until the
+    "Lưu & Chạy lại" button was clicked, so typing a value and hitting Enter
+    (the ordinary "submit a form" gesture almost everywhere else) silently
+    did nothing, and the next `open_for_strategy()` re-read the untouched
+    ViewModel and looked like the edit had been reverted.
+
+    Fixed via one general mechanism (`_wire_line_edits_to_save_on_focus_lost`)
+    rather than a one-off connection on this one field: every `QLineEdit` in
+    both tabs now commits on `editingFinished`, which fires on Enter AND on
+    losing focus (see the next test for the pure focus-loss case, no Enter
+    at all).
+    """
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+    dialog._tabs.setCurrentIndex(1)  # "Đặc tính" (Properties) tab
+    qapp.processEvents()
+
+    order_size_field = dialog.findChild(object, "propOrderSizeValue")
+    assert order_size_field is not None
+    assert order_size_field.text() == "100", "sanity: default order size"
+
+    order_size_field.selectAll()
+    order_size_field.insert("10")
+    qapp.processEvents()
+    assert order_size_field.text() == "10", "the widget itself holds the typed value"
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    QTest.keyClick(order_size_field, Qt.Key.Key_Return)
+    qapp.processEvents()
+
+    assert modal_presenter._view_model.orderSizeText == "10"
+
+    # Reopening must show the value that was actually committed, not revert.
+    dialog.open_for_strategy(modal_presenter._view_model.selectedStrategyName)
+    qapp.processEvents()
+    reopened_field = dialog.findChild(object, "propOrderSizeValue")
+    assert reopened_field.text() == "10"
+
+
+def test_tabbing_away_from_a_field_without_pressing_enter_also_commits_it(
+    qapp, modal_presenter
+):
+    """ "lost focus thì update" — the general mechanism must fire on losing
+    focus alone, with no Enter keypress at all, since that's how a user
+    tabbing (or clicking) between fields actually interacts with a form."""
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+    dialog._tabs.setCurrentIndex(1)  # "Đặc tính" (Properties) tab
+    qapp.processEvents()
+
+    order_size_field = dialog.findChild(object, "propOrderSizeValue")
+    commission_field = dialog.findChild(object, "propCommissionValue")
+    assert order_size_field is not None
+    assert commission_field is not None
+
+    order_size_field.setFocus()
+    qapp.processEvents()
+    order_size_field.selectAll()
+    order_size_field.insert("42")
+    qapp.processEvents()
+
+    # Moving focus to a different field — no Enter anywhere — must itself
+    # commit the edited field's value.
+    commission_field.setFocus()
+    qapp.processEvents()
+
+    assert modal_presenter._view_model.orderSizeText == "42"
+
+
+def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
+    qapp, modal_presenter
+):
+    """The same focus-loss mechanism must apply to the "Các đầu vào" tab's
+    dynamically-built fields too, not only the static Properties tab — this
+    is what makes it "một cơ chế chung" rather than a fix scoped to the one
+    field the user happened to hit."""
+    vm = modal_presenter._view_model
+    vm.selectedStrategyKey = "sample_strategy"
+    modal_presenter._refresh_bot_params_schema()
+
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+
+    fast_field = dialog.findChild(object, "fldBotParam_fast")
+    assert fast_field is not None
+
+    fast_field.setFocus()
+    qapp.processEvents()
+    fast_field.selectAll()
+    fast_field.insert("77")
+    qapp.processEvents()
+
+    # Move focus elsewhere without pressing Enter.
+    dialog.findChild(object, "propInitialCapital").setFocus()
+    qapp.processEvents()
+
+    assert modal_presenter._strategy_params == {"fast": 77, "slow": 26}

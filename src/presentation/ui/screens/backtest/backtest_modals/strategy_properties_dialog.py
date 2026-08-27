@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -23,11 +25,64 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Overlay,
 )
 
+from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS
 from ._bot_param_field import _BotParamFieldWidget
 from ._layout import _ACCENT, _field_row, _section_header
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
+
+
+@dataclass(frozen=True)
+class _WidgetBinding:
+    """How to read a broker-property widget's current value, and how to
+    write a value back into it — one instance per `BrokerPropertyField.key`
+    (BUG-064). `read`/`write` close over the actual widget, so the binding
+    table itself never needs a widget-type `isinstance` check at call time;
+    that dispatch happens once, in whichever `_*_binding()` factory built it.
+    """
+
+    read: Callable[[], Any]
+    write: Callable[[Any], None]
+
+
+def _line_edit_binding(widget: QLineEdit) -> _WidgetBinding:
+    return _WidgetBinding(widget.text, lambda value: widget.setText(str(value)))
+
+
+def _spin_box_binding(widget: QSpinBox) -> _WidgetBinding:
+    return _WidgetBinding(widget.value, lambda value: widget.setValue(int(value)))
+
+
+def _check_box_binding(widget: QCheckBox) -> _WidgetBinding:
+    return _WidgetBinding(
+        widget.isChecked, lambda value: widget.setChecked(value is True)
+    )
+
+
+def _combo_box_data_binding(widget: QComboBox) -> _WidgetBinding:
+    """For combos populated via `addItem(display_text, data)` — order size
+    type, commission type — where the payload carries the `data`, not the
+    visible label."""
+
+    def write(value: Any) -> None:
+        index = widget.findData(value)
+        if index >= 0:
+            widget.setCurrentIndex(index)
+
+    return _WidgetBinding(widget.currentData, write)
+
+
+def _combo_box_text_binding(widget: QComboBox) -> _WidgetBinding:
+    """For combos populated via plain `addItems(labels)` — currency — where
+    the payload carries the visible label itself."""
+
+    def write(value: Any) -> None:
+        index = widget.findText(str(value))
+        if index >= 0:
+            widget.setCurrentIndex(index)
+
+    return _WidgetBinding(widget.currentText, write)
 
 
 class StrategyPropertiesDialog(Overlay):
@@ -44,6 +99,16 @@ class StrategyPropertiesDialog(Overlay):
         self._vm = view_model
         self._strategy_name = ""
         self._field_widgets: list[_BotParamFieldWidget] = []
+        #: BUG-064 — re-entrancy guard for `save_and_rerun()`. A field's own
+        #: `editingFinished` can fire again, deferred, while the ORIGINAL
+        #: `save_and_rerun()` call is still on the stack: a successful save
+        #: rebuilds `_field_widgets` (`_sync_inputs()`, wired below), and a
+        #: widget that still holds focus at the moment it is torn down can
+        #: emit one more `editingFinished` before Qt actually destroys it.
+        #: Without this flag that would call `save_and_rerun()` a second
+        #: time — harmless in effect (same values, same save) but a
+        #: redundant backtest re-run per edit.
+        self._saving = False
         self.resize(680, 620)
 
         self._tabs = QTabWidget()
@@ -60,6 +125,8 @@ class StrategyPropertiesDialog(Overlay):
         self._tabs.addTab(inputs_scroll, "Các đầu vào")
 
         self._properties_tab = self._build_properties_tab()
+        self._property_bindings = self._build_property_bindings()
+        self._wire_line_edits_to_save_on_focus_lost(self._properties_tab)
         properties_scroll = QScrollArea()
         properties_scroll.setWidgetResizable(True)
         properties_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -176,6 +243,27 @@ class StrategyPropertiesDialog(Overlay):
         layout.addStretch(1)
         return tab
 
+    def _build_property_bindings(self) -> dict[str, _WidgetBinding]:
+        """One row per `BrokerPropertyField.key` (BUG-064): the single place
+        that says which widget backs a given property and how to read/write
+        it, used by both `save_and_rerun()` (widgets -> payload) and
+        `_sync_properties()` (ViewModel -> widgets) instead of each hardcoding
+        its own `.text()`/`.currentData()`/`.value()`/`.isChecked()` calls."""
+        return {
+            "initial_capital": _line_edit_binding(self._prop_initial_capital),
+            "currency": _combo_box_text_binding(self._prop_currency),
+            "order_size_type": _combo_box_data_binding(self._prop_order_size_type),
+            "order_size_text": _line_edit_binding(self._prop_order_size_value),
+            "pyramiding": _spin_box_binding(self._prop_pyramiding),
+            "commission_type": _combo_box_data_binding(self._prop_commission_type),
+            "commission_text": _line_edit_binding(self._prop_commission_value),
+            "slippage_ticks": _spin_box_binding(self._prop_slippage_ticks),
+            "long_leverage": _spin_box_binding(self._prop_long_leverage),
+            "short_leverage": _spin_box_binding(self._prop_short_leverage),
+            "take_profit_enabled": _check_box_binding(self._prop_take_profit_enabled),
+            "take_profit_pct_text": _line_edit_binding(self._prop_take_profit_pct),
+        }
+
     def _build_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
         btn_reset = QPushButton("Đặt lại mặc định")
@@ -234,27 +322,20 @@ class StrategyPropertiesDialog(Overlay):
                 field_widget = _BotParamFieldWidget(row.get("field", {}), self._vm)
                 self._inputs_layout.addWidget(field_widget)
                 self._field_widgets.append(field_widget)
+        self._wire_line_edits_to_save_on_focus_lost(self._inputs_tab)
 
     def _sync_properties(self) -> None:
+        """Writes every current ViewModel value into its widget, driven by
+        the same `BROKER_PROPERTY_FIELDS` schema `save_and_rerun()` reads
+        widgets against (BUG-064) — this used to hand-maintain its own combo
+        index tables (`{"fixed_cash": 1, ...}`) in parallel with the literal
+        `addItem()` order in `_build_properties_tab()`, which is exactly the
+        kind of duplicate-declaration drift this whole schema exists to
+        remove: `_combo_box_data_binding` looks the index up via
+        `findData()` instead of assuming it."""
         vm = self._vm
-        self._prop_initial_capital.setText(vm.initialCapitalText)
-        idx = self._prop_currency.findText(vm.selectedCurrency)
-        if idx >= 0:
-            self._prop_currency.setCurrentIndex(idx)
-        type_idx = {"fixed_cash": 1, "fixed_contracts": 2}.get(vm.orderSizeType, 0)
-        self._prop_order_size_type.setCurrentIndex(type_idx)
-        self._prop_order_size_value.setText(vm.orderSizeText)
-        self._prop_pyramiding.setValue(vm.pyramiding)
-        commission_idx = {"cash_per_order": 1, "cash_per_contract": 2}.get(
-            vm.commissionType, 0
-        )
-        self._prop_commission_type.setCurrentIndex(commission_idx)
-        self._prop_commission_value.setText(vm.commissionText)
-        self._prop_slippage_ticks.setValue(vm.slippageTicks)
-        self._prop_long_leverage.setValue(int(vm.longLeverage))
-        self._prop_short_leverage.setValue(int(vm.shortLeverage))
-        self._prop_take_profit_enabled.setChecked(vm.takeProfitPctEnabled)
-        self._prop_take_profit_pct.setText(vm.takeProfitPctText)
+        for field in BROKER_PROPERTY_FIELDS:
+            self._property_bindings[field.key].write(getattr(vm, field.vm_attribute))
         self._prop_take_profit_pct.setEnabled(vm.takeProfitPctEnabled)
 
     def reset_all_fields(self) -> None:
@@ -273,22 +354,48 @@ class StrategyPropertiesDialog(Overlay):
         self._prop_take_profit_enabled.setChecked(False)
         self._prop_take_profit_pct.setText("2.0")
 
+    def _wire_line_edits_to_save_on_focus_lost(self, root: QWidget) -> None:
+        """BUG-064 — one generic pass instead of a one-off connection per
+        field: every `QLineEdit` (including `_NumericStepLineEdit`, a
+        subclass) under `root` gets its `editingFinished` wired to
+        `save_and_rerun()`. `editingFinished` fires on Return/Enter AND on
+        losing focus — a bare `QLineEdit` with no connection at all does
+        neither: a typed value lives only on the widget until something
+        reads `.text()`, so it looked silently reverted the next time the
+        dialog reopened and re-populated from the still-unchanged ViewModel.
+
+        Applying this once per tab (here, and again in `_sync_inputs()` after
+        every rebuild) means a field added to either tab later is wired for
+        free — no new connection to remember to add alongside it.
+        """
+        for line_edit in root.findChildren(QLineEdit):
+            line_edit.editingFinished.connect(self.save_and_rerun)
+
     def save_and_rerun(self) -> None:
-        input_values = {fw.field_name: fw.value() for fw in self._field_widgets}
-        broker_props = {
-            "initial_capital": self._prop_initial_capital.text(),
-            "currency": self._prop_currency.currentText(),
-            "order_size_type": self._prop_order_size_type.currentData(),
-            "order_size_text": self._prop_order_size_value.text(),
-            "pyramiding": self._prop_pyramiding.value(),
-            "commission_type": self._prop_commission_type.currentData(),
-            "commission_text": self._prop_commission_value.text(),
-            "slippage_ticks": self._prop_slippage_ticks.value(),
-            "long_leverage": self._prop_long_leverage.value(),
-            "short_leverage": self._prop_short_leverage.value(),
-            "take_profit_enabled": self._prop_take_profit_enabled.isChecked(),
-            "take_profit_pct_text": self._prop_take_profit_pct.text(),
-        }
-        self._vm.requestStrategyPropertiesSave(
-            {"inputs": input_values, "properties": broker_props}
-        )
+        """Collects every field's current value and saves it — the only
+        place either tab's widgets are read. Reached both by clicking "Lưu &
+        Chạy lại" and by any field losing focus (`_wire_line_edits_to_save_on_focus_lost`).
+
+        Guarded against re-entrancy: a successful save rebuilds the Inputs
+        tab's widgets (`_sync_inputs()`, via `botParamsRowsChanged`), and a
+        field that still holds focus at the moment it's torn down can emit
+        one more deferred `editingFinished` before Qt actually destroys it —
+        without this guard that would call this method a second time.
+        """
+        if self._saving:
+            return
+        self._saving = True
+        try:
+            input_values = {fw.field_name: fw.value() for fw in self._field_widgets}
+            # BUG-064 — reads through the same `_property_bindings` table
+            # `_sync_properties()` writes through; adding a new broker
+            # property is one row in `_build_property_bindings()`, not a
+            # hand-written `.text()`/`.value()`/`.isChecked()` call here too.
+            broker_props = {
+                key: binding.read() for key, binding in self._property_bindings.items()
+            }
+            self._vm.requestStrategyPropertiesSave(
+                {"inputs": input_values, "properties": broker_props}
+            )
+        finally:
+            self._saving = False
