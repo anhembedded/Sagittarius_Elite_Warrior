@@ -10,9 +10,16 @@ builds one, and there is only one place to fix.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
+    BacktestExecutionMode,
+    BacktestRunConfig,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.ports import (
     IBacktestScreenState,
 )
@@ -161,3 +168,71 @@ class FakeChartViewModel:
 
     def set_needs_data_sync(self, v):
         self.needs_sync.append(v)
+
+
+# ---------------------------------------------------------------------- #
+# Run-side doubles, shared by the execution and chart-feed coordinator tests.
+#
+# `EPIC-012E` split `ExecutionCoordinator` in two; both halves need the same
+# fake dispatcher, run config and result. Shared here for the same reason as
+# everything else in this file (`architecture-rule.md` §2).
+# ---------------------------------------------------------------------- #
+
+
+class FakeCancellationToken:
+    def __init__(self, cancelled=False) -> None:
+        self._cancelled = cancelled
+
+    def is_cancelled(self) -> bool:
+        return self._cancelled
+
+
+def run_config(mode=BacktestExecutionMode.BAR_CLOSE):
+    """The real `BacktestRunConfig`, not a stand-in: both run commands are
+    pydantic models that validate `position_sizing` and `broker_config`
+    against their real types, so a `SimpleNamespace` turned every test into a
+    validation error instead of exercising its branch."""
+    return BacktestRunConfig(
+        strategy_key="s1",
+        timeframe=TimeFrame.FIVE_MINUTES,
+        initial_balance=1000.0,
+        start_time=None,
+        end_time=None,
+        execution_mode=mode,
+    )
+
+
+def committed_bar():
+    """Enough of a `MarketData` for `map_klines`/`map_volume` to read."""
+    return SimpleNamespace(
+        close_time=datetime(2026, 8, 17, tzinfo=UTC),
+        open_price=1.0,
+        high_price=2.0,
+        low_price=0.5,
+        close_price=1.5,
+        volume=10.0,
+    )
+
+
+def backtest_result(trades=(), committed=()):
+    return SimpleNamespace(
+        trades=list(trades),
+        committed_bars=list(committed),
+        metrics=SimpleNamespace(net_profit_percent=1.0),
+    )
+
+
+class RecordingDispatcher:
+    def __init__(self, result=None, raises=None, coverage=None) -> None:
+        self.result = result
+        self.raises = raises
+        self.coverage = coverage
+        self.commands: list = []
+
+    def dispatch(self, kind, payload):
+        self.commands.append(payload)
+        if self.raises:
+            raise self.raises
+        if "Klines" in kind.__name__:
+            return SimpleNamespace(data=[])
+        return self.result

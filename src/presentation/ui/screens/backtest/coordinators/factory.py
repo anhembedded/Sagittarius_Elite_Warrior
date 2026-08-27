@@ -21,6 +21,7 @@ from typing import NamedTuple
 
 from ..logic.backtest_fsm_matrix import BacktestActionKind
 from ..logic.presenter_screen_state import PresenterBackedScreenState
+from .chart_feed_coordinator import ChartFeedCoordinator
 from .chart_preview_coordinator import ChartPreviewCoordinator
 from .chart_render_coordinator import ChartRenderCoordinator
 from .data_sync_coordinator import DataSyncCoordinator
@@ -40,6 +41,7 @@ class Coordinators(NamedTuple):
     data_sync: DataSyncCoordinator
     chart_render: ChartRenderCoordinator
     chart_preview: ChartPreviewCoordinator
+    chart_feed: ChartFeedCoordinator
     execution: ExecutionCoordinator
 
 
@@ -144,7 +146,6 @@ def build_coordinators(presenter) -> Coordinators:
         view_model=presenter._view_model,
         state=state,
         dispatcher=presenter.dispatcher,
-        script_runner=presenter._chart_script_runner,
         resolve_action_id=lambda: presenter._current_action_id(
             BacktestActionKind.BACKTEST
         ),
@@ -157,6 +158,17 @@ def build_coordinators(presenter) -> Coordinators:
         emit_cancelled=presenter._backtestCancelledSignal.emit,
         emit_empty=presenter._backtestEmptySignal.emit,
         emit_succeeded=presenter._backtestSucceededSignal.emit,
+        # Through the presenter, not bound to `_chart_feed` directly: that
+        # local exists by now, but binding it here would freeze the object
+        # the run hands its result to, and this factory has already been
+        # burned four times by capturing something a test replaces later.
+        on_result_ready=lambda *a: presenter._chart_feed.fetch_and_emit_chart_data(*a),
+    )
+    _chart_feed = ChartFeedCoordinator(
+        state=state,
+        dispatcher=presenter.dispatcher,
+        script_runner=presenter._chart_script_runner,
+        log_dev_trace=presenter._log_dev_trace,
         emit_chart_data_ready=presenter._chartDataReadySignal.emit,
         # Through the presenter's own methods, not bound to the indicator
         # coordinator: tests replace these on the presenter.
@@ -172,5 +184,6 @@ def build_coordinators(presenter) -> Coordinators:
         data_sync=_data_sync,
         chart_render=_chart_render,
         chart_preview=_chart_preview,
+        chart_feed=_chart_feed,
         execution=_execution,
     )

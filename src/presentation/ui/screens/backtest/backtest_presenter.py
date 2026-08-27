@@ -440,6 +440,7 @@ class BackTestPresenter(BasePresenter):
         self._data_sync = coordinators.data_sync
         self._chart_render = coordinators.chart_render
         self._chart_preview = coordinators.chart_preview
+        self._chart_feed = coordinators.chart_feed
         self._execution = coordinators.execution
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
@@ -1860,7 +1861,7 @@ class BackTestPresenter(BasePresenter):
     def _fetch_and_emit_chart_data(
         self, action_id: int, config: BacktestRunConfig, result: BacktestResult
     ) -> None:
-        self._execution.fetch_and_emit_chart_data(action_id, config, result)
+        self._chart_feed.fetch_and_emit_chart_data(action_id, config, result)
 
     def _emit_strategy_indicator_lines(
         self, action_id: int, config: BacktestRunConfig, raw_klines: list
