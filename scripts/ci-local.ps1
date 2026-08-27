@@ -280,23 +280,24 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    # EPIC-011H -- the seven agent prompts under .jules/ are system prompts for
-    # agents that run on a schedule with nobody watching, so a prompt pointing
-    # at a file the repo has since deleted fails silently: the run completes and
-    # reports success. sentinel.prompt.md instructed its agent for months to
-    # scan against a rule file that has no commit in any branch's history.
-    # A checker that only runs when someone remembers to type it is how that
-    # survived, which is why it belongs here beside the other static gates
-    # rather than in a test tier -- it needs neither Qt nor the engine, and
-    # runs in milliseconds.
-    Write-Step "Jules Prompts - Repository Reference Check (.jules/*.md)"
+    # EPIC-011H / EPIC-012 -- the seven agent prompts under .agents/Skills/
+    # (moved there from .jules/ in EPIC-012) are system prompts for agents that
+    # run on a schedule with nobody watching, so a prompt pointing at a file the
+    # repo has since deleted fails silently: the run completes and reports
+    # success. sentinel.prompt.md instructed its agent for months to scan
+    # against a rule file that has no commit in any branch's history. A checker
+    # that only runs when someone remembers to type it is how that survived,
+    # which is why it belongs here beside the other static gates rather than in
+    # a test tier -- it needs neither Qt nor the engine, and runs in
+    # milliseconds.
+    Write-Step "Skill Prompts - Repository Reference Check (.agents/Skills/*.md)"
     Push-Location $botRoot
     try {
-        & $pythonExe (Join-Path $botRoot "scripts/check_jules_prompt_references.py")
-        if ($LASTEXITCODE -ne 0) { $failed += "Jules Prompt References"; Write-Failure "Jules Prompt References" }
-        else { Write-Success "Jules Prompt References" }
+        & $pythonExe (Join-Path $botRoot "scripts/check_skill_prompt_references.py")
+        if ($LASTEXITCODE -ne 0) { $failed += "Skill Prompt References"; Write-Failure "Skill Prompt References" }
+        else { Write-Success "Skill Prompt References" }
     } catch {
-        $failed += "Jules Prompt References"; Write-Failure "Jules Prompt References"
+        $failed += "Skill Prompt References"; Write-Failure "Skill Prompt References"
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 

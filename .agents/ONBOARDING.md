@@ -42,18 +42,24 @@ bookkeeping `ROADMAP.md`).
 `.agents/rules/install-rule.md` là chuyên đề riêng (cài đặt), đọc khi task
 chạm đúng phạm vi đó. `.agents/rules/code-rule.md` giờ **chỉ là stub điều
 hướng** — nội dung thật đã tách ra 6 file ở bảng trên (tách 2026-08-25); file
-stub được giữ lại vì các file trong `.jules/` đang trỏ vào nó.
+stub được giữ lại vì các file trong `.agents/Skills/` đang trỏ vào nó.
 
 > **Sửa 2026-08-26 (`EPIC-011`):** dòng trên trước đây ghi "7
 > `.jules/*.prompt.md` đang trỏ vào nó". Sau `EPIC-011`, phần chung của 7 prompt
 > được rút ra `.jules/README.md` và **chỉ file đó** còn trỏ tới `code-rule.md`.
 > Lý do giữ stub không đổi; số 7 thì đã sai — đếm bằng
-> `grep -rl code-rule .jules/` thay vì tin dòng này.
+> `grep -rl code-rule .agents/Skills/` thay vì tin dòng này.
+
+> **Sửa 2026-08-27 (`EPIC-012`):** `.jules/` đã bị xoá — dời sang
+> `.agents/Skills/` (README + 7 prompt) và thiết lập Routine chạy mỗi 2
+> ngày/agent thay vì phụ thuộc lịch của bất kỳ dịch vụ ngoài nào. Mọi đường dẫn
+> `.jules/...` trong file này đã sửa theo vị trí mới; xem
+> [`Tasks/epics/EPIC-012_di_chuyen_skills_ve_agents_va_lich_2_ngay/README.md`](../Tasks/epics/EPIC-012_di_chuyen_skills_ve_agents_va_lich_2_ngay/README.md).
 
 > **Sửa 2026-08-25:** dòng này trước đây còn nhắc
 > `.agents/rules/sentinel-rule.md` — **file đó không tồn tại** (và cũng không
 > có trong lịch sử `git log`). Quy tắc bảo mật thật sống ở
-> `.jules/sentinel.prompt.md` + `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`,
+> `.agents/Skills/sentinel.prompt.md` + `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`,
 > không phải ở `rules/`.
 
 ---
@@ -410,7 +416,8 @@ hiện 8 chỗ **sai thật**, không phải chỉ lỗi thời câu chữ — t
 
 1. `AGENTS.md` và §1 của file này cùng trỏ tới `.agents/rules/sentinel-rule.md`
    — **file chưa bao giờ tồn tại**. Đã xoá cả 2 link gãy; nội dung bảo mật
-   thật ở `.jules/sentinel.prompt.md` + `Tasks/epics/EPIC-004_.../`.
+   thật ở `.agents/Skills/sentinel.prompt.md` (dời từ `.jules/` — `EPIC-012`,
+   27/08) + `Tasks/epics/EPIC-004_.../`.
 2. §1 ghi "8 file rule", thực tế **7** (`ls .agents/rules/`). Con số này đã
    sai 3 lần liên tiếp (10 → 9 → 8 → thực tế 7) — đừng chép lại, hãy đếm.
 3. `Handover.md` mô tả 2 repo là **superproject/submodule** — sai từ
@@ -432,10 +439,11 @@ hiện 8 chỗ **sai thật**, không phải chỉ lỗi thời câu chữ — t
    > trong phạm vi `EPIC-011`.
 6. `Handover.md` trỏ tới journal `.jules/bolt.md` / `palette.md` /
    `sentinel.md` — **không tồn tại**, `.jules/` lúc đó chỉ có 7 file
-   `*.prompt.md`. *(Vẫn đúng về journal 2026-08-26: chưa file nào tồn tại,
-   `git log --all -- .jules/bolt.md` rỗng. Nhưng `.jules/` giờ có thêm
-   `README.md` — phần context dùng chung do `EPIC-011` tách ra. Đừng chép lại
-   con số; `ls .jules/`.)*
+   `*.prompt.md`. *(Vẫn đúng về journal 2026-08-26 sáng: chưa file nào tồn tại.
+   Sai vài giờ sau cùng ngày đó — Bolt viết entry thật đầu tiên, xem `EPIC-011`
+   §8. Và từ 27/08 `.jules/` **không còn tồn tại** — mọi thứ dời sang
+   `.agents/Skills/` (`EPIC-012`). Đừng chép lại con số nào ở mục này;
+   `ls .agents/Skills/`.)*
 7. `BUG-015`/`BUG-016` bị mô tả là "Windows-only, còn mở, chặn `BOT-098F*`"
    — **cả hai đã đóng** (`bug_report/completed/`): `BUG-015` hoá ra là lỗi
    probe script chứ không phải renderer; `BUG-016` đóng dạng *moot* vì

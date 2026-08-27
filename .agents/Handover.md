@@ -117,7 +117,8 @@ trong `domain/`+`application/` của Elite. Mọi thứ khác đi qua port.
 - **`\bevent_bus\b` không khớp `self._event_bus`** — `_` là word character. Đã trượt một lượt
   vì bẫy này; luôn kiểm lại bằng lượt grep thứ hai sau mỗi lần rename bằng regex.
 - **`trigger: always_on` trong frontmatter `.agents/rules/*.md` không phải Claude Code đọc** —
-  đó là quy ước của 7 file `.jules/*.prompt.md`. Claude Code chỉ tự nạp
+  đó là quy ước của 7 file `.agents/Skills/*.prompt.md` (dời từ `.jules/`,
+  `EPIC-012`, 27/08). Claude Code chỉ tự nạp
   [`CLAUDE.md`](../CLAUDE.md) (thêm 2026-08-25, `0de5403`), và file đó **chỉ điều hướng**.
 
 ## 5. Đã bỏ khỏi file này, và tại sao

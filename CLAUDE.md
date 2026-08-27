@@ -9,9 +9,18 @@ bookkeeping, và §8 liệt kê những cái bẫy **đã thật sự gây ra co
 ## File này chỉ ĐIỀU HƯỚNG — cố ý không chép nội dung
 
 Claude Code tự nạp `CLAUDE.md`; nó **không** tự nạp `.agents/rules/*.md` (trường
-`trigger: always_on` trong frontmatter các file đó là quy ước của bộ công cụ khác trong repo —
-7 file `.jules/*.prompt.md` — không phải của Claude Code). Vì vậy file này tồn tại để Claude có
-điểm vào, đúng vai trò [`.agents/AGENTS.md`](.agents/AGENTS.md) đang đóng cho công cụ khác.
+`trigger: always_on` trong frontmatter các file đó là quy ước riêng của
+[`.agents/Skills/`](.agents/Skills/README.md) — 7 file `*.prompt.md` là system
+prompt cho các agent chạy định kỳ không người trông, không phải cơ chế nạp tự
+động của Claude Code). Vì vậy file này tồn tại để Claude có điểm vào, đúng vai
+trò [`.agents/AGENTS.md`](.agents/AGENTS.md) đang đóng cho các agent đó.
+
+> **Sửa 2026-08-27 (`EPIC-012`):** 7 file này từng nằm ở `Sagittarius_Elite_Warrior/.jules/`
+> (một thư mục tách biệt, quy ước riêng — xem lịch sử ở
+> [`EPIC-011`](Tasks/epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md)). Đã dời hẳn
+> sang `.agents/Skills/`, xoá `.jules/`, và thiết lập Routine chạy mỗi 2
+> ngày/agent thay vì phụ thuộc lịch của một dịch vụ ngoài. Xem
+> [`EPIC-012`](Tasks/epics/EPIC-012_di_chuyen_skills_ve_agents_va_lich_2_ngay/README.md).
 
 **Không chép luật vào đây.** Repo này đã dính bệnh bản-sao-trôi **hai lần**: `AGENTS.md` từng
 gần như là bản sao nguyên văn của `code-rule.md` và trôi độc lập (kèm một lỗi thật: ghi cứng sai

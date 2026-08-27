@@ -106,14 +106,15 @@ jobs:
             --namespace-packages --explicit-package-bases \
             Sagittarius_Elite_Warrior/src Sagittarius_Elite_Warrior/scripts
 
-      - name: Jules Prompts - Repository Reference Check
-        # scripts/ci-local.ps1's counterpart step (EPIC-011): the seven agents
-        # under .jules/ run unattended on a schedule, so a prompt pointing at a
-        # file the repo has since deleted fails silently — the run completes
-        # and reports success. This was local-only until now, which meant a
-        # broken .jules/ reference could merge to master-warrior with a green
-        # check. Needs neither Qt nor the engine; runs in milliseconds.
-        run: python3 scripts/check_jules_prompt_references.py
+      - name: Skill Prompts - Repository Reference Check
+        # scripts/ci-local.ps1's counterpart step (EPIC-011, moved and renamed
+        # in EPIC-012): the seven agents under .agents/Skills/ run unattended
+        # on a schedule, so a prompt pointing at a file the repo has since
+        # deleted fails silently — the run completes and reports success.
+        # This was local-only until EPIC-011H, which meant a broken reference
+        # could merge to master-warrior with a green check. Needs neither Qt
+        # nor the engine; runs in milliseconds.
+        run: python3 scripts/check_skill_prompt_references.py
 
       - name: Run Pytest with Coverage
         # Tests import `Sagittarius_Elite_Warrior.src...` — the checkout
