@@ -1,6 +1,6 @@
 """The Backtest screen's mutable state, as one named contract.
 
-@details `EPIC-012C`. The six coordinators used to receive this state as
+@details `EPIC-013C`. The six coordinators used to receive this state as
 seventeen separate getter/setter callables — `get_symbol` alone appeared in
 four constructors. Each was an unnamed, untyped hole in the coordinator's
 API: nothing said what the callable read, what it could return, or whether

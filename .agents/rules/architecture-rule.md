@@ -137,7 +137,7 @@ phải khớp với kiểu đã khai báo. Lệch là hợp đồng đã trôi.
 
 **Tốt hơn `grep` một lần: một test khoá hai chiều.** `grep` là thứ phải nhớ
 chạy; test thì tự chạy. `tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py`
-(`EPIC-012B`) duyệt source bằng `ast` và đỏ ở **cả hai chiều** — thành viên được
+(`EPIC-013B`) duyệt source bằng `ast` và đỏ ở **cả hai chiều** — thành viên được
 dùng mà chưa khai (hợp đồng lại thành ngầm), **và** thành viên đã khai mà không
 ai dùng (đúng tình trạng của `IView`). Nó còn khoá **số đếm**, vì hai chiều kia
 so *tập hợp* nên xoá 1 thêm 1 sẽ triệt tiêu nhau và vẫn xanh.

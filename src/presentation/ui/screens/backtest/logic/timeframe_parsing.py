@@ -1,6 +1,6 @@
 """Reading a timeframe the user may have left in an unusable state.
 
-@details `EPIC-012G`. Split out of `BackTestPresenter` because the fallback
+@details `EPIC-013G`. Split out of `BackTestPresenter` because the fallback
 here had been broken since `e071c8d` (2026-08-22) and nothing noticed: the
 recovery branch named `TimeFrame.M1`, a member that does not exist, so the
 `except ValueError` handler raised `AttributeError` instead of recovering.

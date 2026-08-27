@@ -1,6 +1,6 @@
 """The one adapter that knows where the Backtest screen's state actually lives.
 
-@details `EPIC-012C`. `IBacktestScreenState` says *what* the screen holds;
+@details `EPIC-013C`. `IBacktestScreenState` says *what* the screen holds;
 this says *where* — today, on `BackTestPresenter`. Keeping that knowledge in
 a single named adapter is the same split `build_coordinators` already makes:
 the factory may know the presenter, the coordinators may not.

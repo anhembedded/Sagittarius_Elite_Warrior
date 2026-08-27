@@ -1,6 +1,6 @@
 """One toolbar preview, from request to what lands on the chart.
 
-@details `EPIC-012D`, split out of `chart_render_coordinator.py`. The two
+@details `EPIC-013D`, split out of `chart_render_coordinator.py`. The two
 have different lifecycles, which is the test `architecture-rule.md` §5.5
 asks: *does changing how the chart draws force you to read or edit how a
 stale preview is discarded?* No. Rendering happens whenever data arrives;

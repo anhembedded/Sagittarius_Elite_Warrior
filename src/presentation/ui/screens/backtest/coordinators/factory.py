@@ -52,7 +52,7 @@ def build_coordinators(presenter) -> Coordinators:
     `StrategyConfigCoordinator.refresh_market_rule_verification`, so that one
     must exist first.
     """
-    # One `IBacktestScreenState` for all six (`EPIC-012C`), replacing the
+    # One `IBacktestScreenState` for all six (`EPIC-013C`), replacing the
     # seventeen getter/setter lambdas this function used to build. It reads
     # the presenter on every access for the same reason those lambdas did:
     # `_all_trades` is rebound on every run, and several tests assign

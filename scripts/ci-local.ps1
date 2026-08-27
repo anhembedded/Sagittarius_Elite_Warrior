@@ -231,10 +231,14 @@ $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
 # Lint
 # ---------------------------------------------------------------------------
 if (-not $SkipLint) {
-    Write-Step "Ruff — Lint Check (ruff check src tests)"
+    # `tools` alongside `src`/`tests`: the widget-kit showcase lives there, and a
+    # whole top-level directory outside the lint gate is how the gate quietly
+    # stops covering the repo. GitHub Actions (.github/workflows/ci.yml) has
+    # lint tools since it was restored; this was the one place still missing it.
+    Write-Step "Ruff — Lint Check (ruff check src tests tools)"
     Push-Location $botRoot
     try {
-        & $ruffExe check src tests
+        & $ruffExe check src tests tools
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Lint"; Write-Failure "Ruff Lint" }
         else { Write-Success "Ruff Lint" }
     } catch {
@@ -242,10 +246,10 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    Write-Step "Ruff — Format Check (ruff format --check src tests)"
+    Write-Step "Ruff — Format Check (ruff format --check src tests tools)"
     Push-Location $botRoot
     try {
-        & $ruffExe format --check src tests
+        & $ruffExe format --check src tests tools
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Format"; Write-Failure "Ruff Format" }
         else { Write-Success "Ruff Format" }
     } catch {
@@ -276,23 +280,24 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    # EPIC-011H -- the seven agent prompts under .jules/ are system prompts for
-    # agents that run on a schedule with nobody watching, so a prompt pointing
-    # at a file the repo has since deleted fails silently: the run completes and
-    # reports success. sentinel.prompt.md instructed its agent for months to
-    # scan against a rule file that has no commit in any branch's history.
-    # A checker that only runs when someone remembers to type it is how that
-    # survived, which is why it belongs here beside the other static gates
-    # rather than in a test tier -- it needs neither Qt nor the engine, and
-    # runs in milliseconds.
-    Write-Step "Jules Prompts - Repository Reference Check (.jules/*.md)"
+    # EPIC-011H / EPIC-012 -- the seven agent prompts under .agents/Skills/
+    # (moved there from .jules/ in EPIC-012) are system prompts for agents that
+    # run on a schedule with nobody watching, so a prompt pointing at a file the
+    # repo has since deleted fails silently: the run completes and reports
+    # success. sentinel.prompt.md instructed its agent for months to scan
+    # against a rule file that has no commit in any branch's history. A checker
+    # that only runs when someone remembers to type it is how that survived,
+    # which is why it belongs here beside the other static gates rather than in
+    # a test tier -- it needs neither Qt nor the engine, and runs in
+    # milliseconds.
+    Write-Step "Skill Prompts - Repository Reference Check (.agents/Skills/*.md)"
     Push-Location $botRoot
     try {
-        & $pythonExe (Join-Path $botRoot "scripts/check_jules_prompt_references.py")
-        if ($LASTEXITCODE -ne 0) { $failed += "Jules Prompt References"; Write-Failure "Jules Prompt References" }
-        else { Write-Success "Jules Prompt References" }
+        & $pythonExe (Join-Path $botRoot "scripts/check_skill_prompt_references.py")
+        if ($LASTEXITCODE -ne 0) { $failed += "Skill Prompt References"; Write-Failure "Skill Prompt References" }
+        else { Write-Success "Skill Prompt References" }
     } catch {
-        $failed += "Jules Prompt References"; Write-Failure "Jules Prompt References"
+        $failed += "Skill Prompt References"; Write-Failure "Skill Prompt References"
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 

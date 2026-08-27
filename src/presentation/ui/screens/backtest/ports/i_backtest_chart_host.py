@@ -1,6 +1,6 @@
 """The chart-host contract the Backtest screen programs against.
 
-@details Moved out of `../logic/backtest_chart_host.py` by `EPIC-012B`:
+@details Moved out of `../logic/backtest_chart_host.py` by `EPIC-013B`:
 that file held the port, its `ChartCard` implementation and the factory in
 one 224-line module, which is exactly the interface-beside-implementation
 shape `architecture-rule.md` §5.1 forbids. Only the port moved — behaviour

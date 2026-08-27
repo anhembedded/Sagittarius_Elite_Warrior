@@ -10,7 +10,7 @@ other ports); it must not import the concrete widget, host or coordinator
 that implements it — that dependency runs the other way. Two members of
 `IBacktestView` needed a port of their own for exactly that reason:
 `chart_controls` and `set_chart_host_factory()` would otherwise have been
-typed `object`, which is the implicit contract `EPIC-012` exists to remove
+typed `object`, which is the implicit contract `EPIC-013` exists to remove
 wearing a type annotation.
 
 Precedent for the layout: `presentation/ui/state/ports/`.

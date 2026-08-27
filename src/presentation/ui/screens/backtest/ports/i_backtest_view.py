@@ -1,6 +1,6 @@
 """What `BackTestPresenter` needs of its View — stated, not implied.
 
-@details `EPIC-012B`. Before this file the contract existed only as
+@details `EPIC-013B`. Before this file the contract existed only as
 scattered attribute access: the presenter, its six coordinators and
 `signal_wiring` reached for 14 members of `view` with no type anywhere
 saying they exist. That is the *implicit* duck typing
@@ -43,7 +43,7 @@ class IBacktestView(Protocol):
     this app references nowhere; inheriting it would force every Backtest
     View to grow a method solely to satisfy an unused interface. Whether
     `IView` should be redefined or dropped is the engine repo's call —
-    see `EPIC-012B`.
+    see `EPIC-013B`.
 
     **What is NOT here, on purpose:** `resize()`. It is called once, by
     `preview.py`, a standalone developer harness that constructs a
@@ -77,7 +77,7 @@ class IBacktestView(Protocol):
     #: Which of price / equity / both the chart is currently showing. Read
     #: by `IndicatorCoordinator` to decide whether price-scale overlays
     #: mean anything. Reached through `getattr(view, "chart_mode",
-    #: ChartDisplayMode.OHLC)` until `EPIC-012C` — a capability probe by
+    #: ChartDisplayMode.OHLC)` until `EPIC-013C` — a capability probe by
     #: string, which is the `hasattr`/`getattr` form §2.1 forbids and which
     #: no AST walk over attribute access can see. Declared here so it is a
     #: contract rather than a guess; the fallback default is gone with it.

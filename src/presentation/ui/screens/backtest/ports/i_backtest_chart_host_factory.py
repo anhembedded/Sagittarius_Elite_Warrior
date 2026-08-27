@@ -1,6 +1,6 @@
 """How the Backtest screen asks for a chart host.
 
-@details `EPIC-012B`. `BackTestPresenter` hands the View a DI-resolved
+@details `EPIC-013B`. `BackTestPresenter` hands the View a DI-resolved
 factory through `IBacktestView.set_chart_host_factory()`; without this port
 that parameter had no type at all, so nothing said what the View was
 allowed to do with the object it received.

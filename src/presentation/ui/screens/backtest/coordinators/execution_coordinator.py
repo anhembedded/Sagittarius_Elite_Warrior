@@ -1,7 +1,7 @@
 """Running a backtest on a worker thread.
 
 @details Feeding the finished run's data to the chart used to live here too;
-`EPIC-012E` moved it to `chart_feed_coordinator.py`. See that module for why.
+`EPIC-013E` moved it to `chart_feed_coordinator.py`. See that module for why.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ class ExecutionCoordinator:
         #: result exists and hands it over. What happens next — today,
         #: `ChartFeedCoordinator` fetching the candles to draw it on — is
         #: none of its business, and a failure over there must not undo the
-        #: `BacktestResult` already reported (`EPIC-012E`).
+        #: `BacktestResult` already reported (`EPIC-013E`).
         self._on_result_ready = on_result_ready
 
     # ---------------------------------------------------------------- #

@@ -1,6 +1,6 @@
 """Getting finished-run data and strategy overlays onto the Backtest chart.
 
-@details The toolbar preview used to live here too; `EPIC-012D` moved it to
+@details The toolbar preview used to live here too; `EPIC-013D` moved it to
 `chart_preview_coordinator.py`. See that module for why.
 """
 

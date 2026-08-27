@@ -1,7 +1,7 @@
 """`ChartPreviewCoordinator` — one toolbar preview, start to finish.
 
 Split from `test_chart_render_coordinator.py` alongside the coordinator
-(`EPIC-012D`). These four tests are about a preview's *lifecycle* — is it
+(`EPIC-013D`). These four tests are about a preview's *lifecycle* — is it
 allowed to start, and is a late result still the current one — which is a
 different question from what the chart draws.
 """

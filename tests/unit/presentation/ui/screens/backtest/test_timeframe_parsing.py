@@ -1,4 +1,4 @@
-"""`EPIC-012G` — the timeframe fallback must recover, not raise.
+"""`EPIC-013G` — the timeframe fallback must recover, not raise.
 
 @details The branch these tests cover was broken from `e071c8d` (2026-08-22)
 until this task: `except ValueError: tf = TimeFrame.M1`, naming an enum member

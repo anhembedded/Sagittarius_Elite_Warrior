@@ -1,0 +1,168 @@
+@startuml 02_to_be_class
+' EPIC-013 — Thiết kế ĐÃ ÁP DỤNG (không phải đề xuất). Mỗi port ghi kèm lý do
+' ABC-hay-Protocol theo .agents/rules/architecture-rule.md §2.1.
+
+title EPIC-013 — ĐÃ LÀM: mọi hợp đồng vượt ranh giới đều là một kiểu có tên
+
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam classAttributeIconSize 0
+skinparam ArrowFontSize 11
+
+legend top left
+  |= Màu |= Ý nghĩa |
+  |<#C8E6C9>| <b>Port MỚI</b> — hợp đồng tường minh |
+  |<#B3E5FC>| Adapter — nơi DUY NHẤT biết state nằm ở đâu |
+  |<#FFF9C4>| Lớp có sẵn, nay được annotate |
+  |<#E1BEE7>| Test khoá hợp đồng (cơ chế thay `mypy`) |
+  |<#ECEFF1>| Qt / Engine |
+endlegend
+
+package "screens/backtest/ports/  — interface, KHÔNG implementation" #E8F5E9 {
+
+  interface IBacktestView <<Protocol>> #C8E6C9 {
+    chart_cards : list[IBacktestChartHost]
+    chart_controls : IBacktestChartControls | None
+    chart_mode : ChartDisplayMode
+    --
+    set_view_model() · render_symbol_cards()
+    set_chart_host_factory() · set_chart_mode()
+    set_chart_dev_mode() · set_chart_opengl_enabled()
+    set_chart_cached_interaction_enabled()
+    set_display_timezone()
+    set_volume_visible() · set_trade_flags_visible()
+    on_preview_data_ready() · on_backtest_data_ready()
+    --
+    <b>15 thành viên — không thừa, không thiếu</b>
+    <color:#2E7D32>Protocol vì §2.1 lý do (a)+(b):</color>
+    <color:#2E7D32>implementer là QWidget; ABCMeta xung đột</color>
+    <color:#2E7D32>metaclass Shiboken, và base thứ 2 vi phạm</color>
+    <color:#2E7D32>"NO Multiple Inheritance" của §2</color>
+  }
+
+  interface IBacktestChartControls <<Protocol>> #C8E6C9 {
+    sig_mode_changed · sig_ema_toggled
+    sig_volume_toggled · sig_trade_flags_toggled
+    set_trade_flags_enabled() · set_ema_enabled()
+    is_ema_checked()
+    --
+    <b>7 thành viên</b> · §2.1 lý do (a)
+    <color:#2E7D32>`is_trade_flags_checked()` CÓ trên widget thật</color>
+    <color:#2E7D32>nhưng KHÔNG khai — không consumer nào dùng (§1 "I")</color>
+  }
+
+  interface IBacktestChartHostFactory <<Protocol>> #C8E6C9 {
+    create(symbol, *, use_opengl, cached_interaction)
+      : IBacktestChartHost
+    --
+    §2.1 lý do (b)
+  }
+
+  interface IBacktestChartHost <<Protocol>> #C8E6C9 {
+    ... 24 thao tác chart ...
+    --
+    <color:#2E7D32>CHUYỂN từ logic/backtest_chart_host.py —</color>
+    <color:#2E7D32>file đó giữ port + impl + factory chung</color>
+    <color:#2E7D32>224 dòng, đúng hình dạng §5.1 cấm</color>
+  }
+
+  abstract class IBacktestScreenState <<ABC>> #C8E6C9 {
+    {abstract} symbol : str
+    {abstract} all_trades : list
+    {abstract} active_strategy_lines
+    {abstract} chart_klines_fetch_limit : int
+    {abstract} active_preview_id : int
+    ..  có setter (chỉ 3 — §1 "I")  ..
+    {abstract} strategy_params
+    {abstract} current_raw_klines
+    {abstract} chart_script_keys
+    --
+    <color:#2E7D32><b>ABC, KHÔNG phải Protocol</b> — §2.1 mặc định:</color>
+    <color:#2E7D32>không có gì chạm Qt nên không rơi vào ngoại lệ nào.</color>
+    <color:#C62828>Đã bắt lỗi thật ngay trong task:</color>
+    <color:#C62828>bản double đầu tiên chỉ có annotation →</color>
+    <color:#C62828>TypeError: Can't instantiate abstract class.</color>
+    <color:#C62828>Protocol sẽ IM LẶNG nhận, và `mypy` không chạy ở tầng này.</color>
+  }
+}
+
+package "screens/backtest/  — implementation" #FFF8E1 {
+  class BackTestView #FFF9C4
+  class BacktestChartControls #FFF9C4
+  class BacktestChartHostFactory #FFF9C4
+  class PythonBacktestChartHost #FFF9C4
+
+  class PresenterBackedScreenState #B3E5FC {
+    __init__(presenter)
+    --
+    <b>MỌI member đọc lúc TRUY CẬP</b>
+    <b>— không chụp lúc __init__</b>
+    <color:#0277BD>Nơi DUY NHẤT biết state nằm trên presenter.</color>
+    <color:#0277BD>Thay 17 lambda rải trong factory.</color>
+  }
+
+  class BackTestPresenter #FFF9C4 {
+    <b>view : IBacktestView</b>
+    --
+    <color:#2E7D32>annotation cấp class — BasePresenter</color>
+    <color:#2E7D32>gán self.view mà không khai kiểu</color>
+  }
+
+  class view_factory <<module>> #FFF9C4 {
+    BacktestViewKey  <<Enum>>
+    DEFAULT_BACKTEST_VIEW_KEY
+    _BUILDERS : dict[Key, () -> IBacktestView]
+    resolve_backtest_view_key(config)
+    build_backtest_view(config) : IBacktestView
+  }
+}
+
+package "tests/ — cơ chế thay cho mypy" #F3E5F5 {
+  class test_backtest_view_contract #E1BEE7 {
+    duyệt source bằng `ast`, đỏ ở CẢ HAI chiều:
+    (1) dùng mà chưa khai → hợp đồng lại thành ngầm
+    (2) khai mà không ai dùng → đúng bệnh của IView
+    (3) khoá SỐ ĐẾM = 15 — vì (1)(2) so *tập hợp*
+        nên xoá 1 thêm 1 sẽ triệt tiêu nhau
+    (4) chặn getattr/hasattr/setattr theo chuỗi
+    (5) isinstance thật cho View/Controls/Factory
+  }
+}
+
+BackTestView             .up.|> IBacktestView
+BacktestChartControls    .up.|> IBacktestChartControls
+BacktestChartHostFactory .up.|> IBacktestChartHostFactory
+PythonBacktestChartHost  .up.|> IBacktestChartHost
+PresenterBackedScreenState -up-|> IBacktestScreenState
+
+IBacktestView --> IBacktestChartControls : chart_controls
+IBacktestView --> IBacktestChartHost : chart_cards
+IBacktestView --> IBacktestChartHostFactory : set_chart_host_factory()
+
+note right of IBacktestView
+  <b>Vì sao `chart_controls` và `set_chart_host_factory()`</b>
+  <b>phải đẻ ra port riêng</b>
+
+  Nếu không, chúng sẽ mang kiểu `object` — tức là
+  **đúng hợp đồng ngầm đội lốt annotation**.
+  Mà `ports/` không được import widget cụ thể
+  (dependency chạy ngược chiều), nên cách duy nhất
+  đúng là khai hợp đồng hẹp cho chúng.
+end note
+
+note bottom of IBacktestView
+  <b>CỐ Ý không kế thừa `IView` của Engine.</b>
+  `IView` khai `bind()` — 0 implementer ở cả hai repo.
+  Kế thừa nó là bắt mọi Backtest View mọc thêm một
+  method chỉ để thoả một interface chưa ai dùng.
+  Định nghĩa lại hay gỡ `IView` là task của repo Engine.
+end note
+
+BackTestPresenter --> IBacktestView
+BackTestPresenter --> IBacktestScreenState
+view_factory ..> IBacktestView : trả về
+test_backtest_view_contract ..> IBacktestView : khoá
+test_backtest_view_contract ..> BackTestView : isinstance
+
+footer Đã áp dụng 2026-08-27 · 5 port · ci-local.ps1 -Full → RESULT: PASS ở mỗi commit
+@enduml

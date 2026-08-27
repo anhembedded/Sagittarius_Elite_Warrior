@@ -1,4 +1,4 @@
-"""`EPIC-012B` — the Presenter↔View contract must stay declared, both ways.
+"""`EPIC-013B` — the Presenter↔View contract must stay declared, both ways.
 
 @details `presentation/` is excluded from the `mypy` gate wholesale
 (`pyproject.toml`, `EPIC-002A`), so a `Protocol` living in this layer has
@@ -70,7 +70,7 @@ def _declared_members(protocol: type) -> frozenset[str]:
 
 
 #: Builtins that reach a member by *string* instead of by attribute syntax.
-#: `EPIC-012C` found `getattr(presenter.view, "chart_mode", <default>)` in
+#: `EPIC-013C` found `getattr(presenter.view, "chart_mode", <default>)` in
 #: `coordinators/factory.py` — a real member of the contract that plain
 #: attribute-access walking could not see, hidden behind a default that would
 #: have masked any View failing to provide it. `architecture-rule.md` §2.1
@@ -180,7 +180,7 @@ def test_the_contract_is_exactly_fifteen_members() -> None:
 
     @details Both tests above compare *sets*, so simultaneously deleting one
     member and adding another would leave them green while the port silently
-    changed shape. `EPIC-012B` measured 14; `EPIC-012C` added `chart_mode`,
+    changed shape. `EPIC-013B` measured 14; `EPIC-013C` added `chart_mode`,
     which had been reached by string. Changing this number is a deliberate act
     that should show up in a diff.
     """

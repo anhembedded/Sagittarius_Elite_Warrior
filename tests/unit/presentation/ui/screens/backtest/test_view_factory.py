@@ -1,4 +1,4 @@
-"""`EPIC-012F` — the Backtest View is a named choice, read once at bootstrap.
+"""`EPIC-013F` — the Backtest View is a named choice, read once at bootstrap.
 
 @details Before this, `main_window.py` registered `lambda: BackTestView()`:
 the choice was a code edit rather than configuration, and the lambda had no

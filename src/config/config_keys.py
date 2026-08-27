@@ -41,7 +41,7 @@ class ConfigKeys(str, Enum):
     #: the run leaves trade markers sitting over empty space.
     BACKTEST_CHART_KLINES_FETCH_LIMIT = "backtest.chart.klines_fetch_limit"
     #: Which concrete View the Backtest screen is built with, chosen once at
-    #: bootstrap (`EPIC-012F`). A View is never swapped while the app runs —
+    #: bootstrap (`EPIC-013F`). A View is never swapped while the app runs —
     #: the Presenter is not built to survive that — so this is read exactly
     #: once, when the router registers the screen. Values are the members of
     #: `screens.backtest.view_factory.BacktestViewKey`.

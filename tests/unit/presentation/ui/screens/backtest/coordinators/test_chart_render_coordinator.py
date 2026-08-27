@@ -1,7 +1,7 @@
 """`ChartRenderCoordinator` — no presenter, no Qt slots, no thread manager.
 
 The toolbar preview moved to `test_chart_preview_coordinator.py` with the
-coordinator itself (`EPIC-012D`); the fake View/card/ViewModel they both use
+coordinator itself (`EPIC-013D`); the fake View/card/ViewModel they both use
 live in `conftest.py`.
 """
 

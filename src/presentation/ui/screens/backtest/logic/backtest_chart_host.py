@@ -1,7 +1,7 @@
 """`ChartCard`-backed implementations of the Backtest chart-host port.
 
 @details The port itself lives in `../ports/i_backtest_chart_host.py`
-(`EPIC-012B`) — this module is one abstraction level below it and holds
+(`EPIC-013B`) — this module is one abstraction level below it and holds
 only concrete things: the `pyqtgraph` host and the factory that builds it.
 """
 

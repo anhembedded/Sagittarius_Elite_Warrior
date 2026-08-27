@@ -1,6 +1,6 @@
 """The chart-toolbar contract the Presenter side programs against.
 
-@details `EPIC-012B`. `BacktestChartControls` is a dumb component — it
+@details `EPIC-013B`. `BacktestChartControls` is a dumb component — it
 emits signals and decides nothing — so the Presenter needs exactly four
 signals and three methods from it. Declaring those seven keeps
 `IBacktestView.chart_controls` from having to be typed `object | None`,

@@ -1,6 +1,6 @@
 """Getting the candles a finished run should be drawn on, and emitting them.
 
-@details `EPIC-012E`, split out of `execution_coordinator.py`. Two different
+@details `EPIC-013E`, split out of `execution_coordinator.py`. Two different
 lifecycles lived in that file: **running a backtest** (dispatch, progress,
 succeeded/failed/cancelled) and **feeding the chart** (fetch raw candles,
 map them, replay reference scripts over them).

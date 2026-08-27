@@ -1,7 +1,7 @@
 """`ChartFeedCoordinator` — what a finished run gets drawn on.
 
 Split from `test_execution_coordinator.py` alongside the coordinator
-(`EPIC-012E`). These tests are about *which candle series* belongs under a
+(`EPIC-013E`). These tests are about *which candle series* belongs under a
 result's markers — a different question from whether the run succeeded.
 """
 

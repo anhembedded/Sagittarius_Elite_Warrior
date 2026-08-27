@@ -282,7 +282,7 @@ class MainWindow(QMainWindow):
             SettingsPresenter,
             lambda: SettingsView(),
         )
-        # `build_backtest_view`, not `BackTestView()` (`EPIC-012F`): which
+        # `build_backtest_view`, not `BackTestView()` (`EPIC-013F`): which
         # View this install uses is a named choice read from config, and the
         # factory's return type says what the router may do with it. Read
         # once, here — a View is never swapped while the app runs.

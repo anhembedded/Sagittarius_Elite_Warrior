@@ -1,6 +1,6 @@
 """A single in-memory `IBacktestScreenState` for every coordinator test.
 
-@details `EPIC-012C`. One shared implementation rather than a hand-rolled
+@details `EPIC-013C`. One shared implementation rather than a hand-rolled
 fake per test module, because `architecture-rule.md` §2 warns about exactly
 that: a double left behind an interface change instantiates fine until the
 moment something runs it. With an ABC there is no "until" — a missing member
@@ -95,7 +95,7 @@ def screen_state() -> InMemoryScreenState:
 # ---------------------------------------------------------------------- #
 # Chart-side doubles, shared by the render and preview coordinator tests.
 #
-# `EPIC-012D` split `ChartRenderCoordinator` in two; both halves talk to the
+# `EPIC-013D` split `ChartRenderCoordinator` in two; both halves talk to the
 # same fake View, toolbar, card and ViewModel. One copy here rather than one
 # per test module, for the reason the state double above is shared: a double
 # duplicated per module falls behind a contract change silently
@@ -173,7 +173,7 @@ class FakeChartViewModel:
 # ---------------------------------------------------------------------- #
 # Run-side doubles, shared by the execution and chart-feed coordinator tests.
 #
-# `EPIC-012E` split `ExecutionCoordinator` in two; both halves need the same
+# `EPIC-013E` split `ExecutionCoordinator` in two; both halves need the same
 # fake dispatcher, run config and result. Shared here for the same reason as
 # everything else in this file (`architecture-rule.md` §2).
 # ---------------------------------------------------------------------- #

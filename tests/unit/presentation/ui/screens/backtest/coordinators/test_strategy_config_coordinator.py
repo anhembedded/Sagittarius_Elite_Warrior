@@ -60,7 +60,7 @@ class _State(InMemoryScreenState):
 
     @details `metadata` comes from a cache keyed by symbol and `config_changed`
     counts a notification — neither is a value the screen holds, so neither
-    belongs on `IBacktestScreenState` (`EPIC-012C` §"Only genuine state").
+    belongs on `IBacktestScreenState` (`EPIC-013C` §"Only genuine state").
     They stay here, on the test's own subclass.
     """
 

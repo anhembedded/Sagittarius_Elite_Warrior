@@ -1,7 +1,7 @@
 """`ExecutionCoordinator` — the worker, with no presenter and no FSM.
 
 Feeding the finished run's data to the chart moved to
-`test_chart_feed_coordinator.py` with the coordinator itself (`EPIC-012E`);
+`test_chart_feed_coordinator.py` with the coordinator itself (`EPIC-013E`);
 the doubles they both use live in `conftest.py`.
 """
 

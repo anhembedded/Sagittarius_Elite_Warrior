@@ -1,6 +1,6 @@
 """Which concrete Backtest View the app builds, decided once at bootstrap.
 
-@details `EPIC-012F`. Two things were implicit here before:
+@details `EPIC-013F`. Two things were implicit here before:
 
 1. **The choice was hardcoded.** `main_window.py` registered
    `lambda: BackTestView()`, so "which View" was a code edit rather than a
