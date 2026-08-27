@@ -120,6 +120,15 @@ nó bất biến — [`BUG-013`](../../bug_report/completed/BUG-013.md) đã cho
 card cached trở thành C++ object đã `deleteLater()` sau khi host dựng lại. Bất
 biến ở đây là *danh tính View*, không phải *widget bên trong nó*.
 
+## 3.3 Sơ đồ
+
+Bốn sơ đồ PlantUML của thiết kế **đã áp dụng** nằm ở
+[`design/`](design/README.md) — hiện trạng, class sau khi sửa, component
+coordinator, và trình tự bootstrap chọn View. Kèm hướng dẫn render (cần
+`graphviz`, không chỉ `plantuml.jar`).
+
+---
+
 ## 4. Task con
 
 | ID | Việc | Trạng thái |

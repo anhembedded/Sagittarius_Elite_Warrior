@@ -1,0 +1,108 @@
+@startuml 03_to_be_component
+' EPIC-012 — Coordinator sau khi tách. Số tham số đo bằng `ast` ngày 2026-08-27.
+
+title EPIC-012 — ĐÃ LÀM: 6 coordinator → 8, tách theo VÒNG ĐỜI
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam ArrowFontSize 11
+
+legend top left
+  |= Ký hiệu |= Ý nghĩa |
+  |<#C8E6C9>| <b>Coordinator MỚI</b> tách ra ở epic này |
+  |<#FFF9C4>| Có sẵn, số tham số giảm |
+  |<#B3E5FC>| Adapter state dùng chung |
+  | <b>(a → b)</b> | tham số ctor trước → sau |
+endlegend
+
+component "BackTestPresenter\n1874 dòng — FSM, Qt slot, action tracker" as P #ECEFF1
+
+component "coordinators/factory.py\nbuild_coordinators(presenter)" as FAC #FFF9C4
+component "PresenterBackedScreenState\n<b>1 object thay 17 lambda</b>" as ST #B3E5FC
+
+package "Chạy backtest" #FFF3E0 {
+  component "ExecutionCoordinator\n(19 → <b>14</b>)  354 → <b>251</b> dòng\ndispatch · progress · succeeded/failed/cancelled" as EX #FFF9C4
+  component "ChartFeedCoordinator\n<b>(7)</b>  <b>154</b> dòng\nlấy nến cho một result đã xong" as CF #C8E6C9
+}
+
+package "Vẽ chart" #E3F2FD {
+  component "ChartRenderCoordinator\n(20 → <b>8</b>)  271 → <b>153</b> dòng\ndữ liệu run · strategy line · trend zone · mode" as CR #FFF9C4
+  component "ChartPreviewCoordinator\n<b>(12)</b>  <b>155</b> dòng\nvòng đời MỘT preview toolbar" as CP #C8E6C9
+}
+
+package "Không đổi trách nhiệm" #F3E5F5 {
+  component "IndicatorCoordinator (12 → <b>10</b>)"      as IND #FFF9C4
+  component "StrategyConfigCoordinator (9 → <b>6</b>)"   as SC  #FFF9C4
+  component "DataSyncCoordinator (9)"                    as DS  #FFF9C4
+  component "TradeLogCoordinator (5)"                    as TL  #FFF9C4
+}
+
+P --> FAC
+FAC --> ST : dựng 1 lần
+FAC --> EX
+FAC --> CF
+FAC --> CR
+FAC --> CP
+FAC --> IND
+FAC --> SC
+FAC --> DS
+FAC --> TL
+
+ST -[#0277BD]-> EX
+ST -[#0277BD]-> CF
+ST -[#0277BD]-> CR
+ST -[#0277BD]-> CP
+ST -[#0277BD]-> IND
+ST -[#0277BD]-> SC
+ST -[#0277BD]-> DS
+ST -[#0277BD]-> TL
+
+EX -[#2E7D32,thickness=2]-> P : <b>on_result_ready(id, config, result)</b>
+P -[#2E7D32,thickness=2]-> CF : presenter._chart_feed\n.fetch_and_emit_chart_data()
+
+note as N_HANDOFF #C8E6C9
+  <b>Vì sao KHÔNG tiêm ChartFeedCoordinator vào ExecutionCoordinator</b>
+
+  Làm vậy là buộc bên chạy run phải biết bên vẽ chart tồn tại.
+  Thay vào đó `run()` chỉ **thông báo**: "có kết quả rồi, đây".
+  Chuyện gì xảy ra tiếp không phải việc của nó.
+
+  Đó cũng là thứ giữ được bất đối xứng bắt buộc:
+  <b>lỗi khi nạp chart KHÔNG được huỷ BacktestResult đã báo.</b>
+
+  factory nối qua `presenter._chart_feed` chứ không bind local —
+  file này đã bị bỏng <b>4 lần</b> vì capture sớm thứ mà test thay sau.
+end note
+N_HANDOFF .. EX
+
+note as N_SPLIT #E3F2FD
+  <b>Ranh giới vẽ theo VÒNG ĐỜI, không theo "dòng nào giống nhau"</b>
+  Câu phân xử §5.5: *"đổi cách chart vẽ có bắt buộc phải đọc/sửa
+  logic huỷ preview cũ không?"* → **không**.
+
+  · Render: xảy ra **bất cứ khi nào** dữ liệu tới
+  · Preview: là một *yêu cầu* đua với yêu cầu khác, **có thể bị vứt**
+  · Execution: chỉ tồn tại **trong lúc** một run đang bay
+  · Feed: chạy **khi không có run nào** — sau khi một run kết thúc
+
+  10/16 tham số của `chart_render` cũ chỉ thuộc nửa preview.
+  Tập dependency độc quyền cỡ đó = một coordinator đang trốn bên trong.
+end note
+N_SPLIT .. CR
+
+note as N_TOTAL #FFF9C4
+  <b>Tổng tham số 74 → 71. Vì sao không giảm mạnh hơn?</b>
+  · `012C` gom state:  74 → 63  (17 accessor → 6 `state`)
+  · `012D` tách preview: 63 → 67  (<b>+4</b>)
+  · `012E` tách feed:    67 → 71  (<b>+4</b>)
+
+  Tách thì `view`/`state`/`view_model`/`log_dev_trace` phải đi vào
+  **cả hai nửa** — đó là **giá phải trả và đúng**.
+  Chỉ tiêu không phải tổng nhỏ nhất, mà là **mỗi lớp chỉ nhận thứ nó dùng**
+  (Interface Segregation, §1 "I"). Xem cột "trước → sau" từng lớp ở trên.
+end note
+N_TOTAL .. FAC
+
+footer Verify từng bước bằng bơm lỗi: tắt hàng rào generation-id → chỉ test preview đỏ · `emit_chart_data_ready` no-op → chỉ test chart đỏ, 8 test execution vẫn xanh
+@enduml
