@@ -3,6 +3,11 @@
 Bốn sơ đồ **đã áp dụng** (không phải đề xuất). Mọi con số trong đó đo bằng
 `ast` trên mã thật ngày 2026-08-27 — cách đếm ghi ở `footer` của từng file.
 
+Mỗi `.puml` có một `.svg` render sẵn nằm cạnh — cùng quy ước với
+[`EPIC-007/design/`](../../EPIC-007_chuan_hoa_card_dung_chung/design/), để đọc
+được mà không cần cài gì. **Sửa `.puml` thì phải render lại `.svg` trong cùng
+commit**, không thì đúng bệnh bản-sao-trôi mà `CLAUDE.md` đã cảnh báo.
+
 | File | Trả lời câu hỏi gì |
 | :--- | :--- |
 | [`01_as_is_class.puml`](01_as_is_class.puml) | **Trước:** hợp đồng ngầm ở đâu, và vì sao `getattr(view, "chart_mode", OHLC)` là dạng tệ nhất của `Any` |
@@ -19,7 +24,7 @@ kia đúng.
 
 ```bash
 sudo apt-get install -y graphviz
-java -jar plantuml.jar -graphvizdot /usr/bin/dot -tpng -o out *.puml
+java -jar plantuml.jar -graphvizdot /usr/bin/dot -tsvg *.puml   # ghi đè .svg cạnh .puml
 
 # Chỉ kiểm cú pháp, không sinh ảnh:
 java -jar plantuml.jar -graphvizdot /usr/bin/dot -checkonly *.puml
