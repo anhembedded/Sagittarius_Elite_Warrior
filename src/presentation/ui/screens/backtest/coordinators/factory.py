@@ -21,6 +21,7 @@ from typing import NamedTuple
 
 from ..logic.backtest_fsm_matrix import BacktestActionKind
 from ..logic.presenter_screen_state import PresenterBackedScreenState
+from .chart_preview_coordinator import ChartPreviewCoordinator
 from .chart_render_coordinator import ChartRenderCoordinator
 from .data_sync_coordinator import DataSyncCoordinator
 from .execution_coordinator import ExecutionCoordinator
@@ -38,6 +39,7 @@ class Coordinators(NamedTuple):
     indicators: IndicatorCoordinator
     data_sync: DataSyncCoordinator
     chart_render: ChartRenderCoordinator
+    chart_preview: ChartPreviewCoordinator
     execution: ExecutionCoordinator
 
 
@@ -107,8 +109,6 @@ def build_coordinators(presenter) -> Coordinators:
         view=presenter.view,
         state=state,
         view_model=presenter._view_model,
-        dispatcher=presenter.dispatcher,
-        thread_manager=presenter._thread_manager,
         logger_=presenter._logger,
         refresh_market_rule_verification=(
             # The local, not `presenter._strategy_config`: that attribute is
@@ -117,7 +117,6 @@ def build_coordinators(presenter) -> Coordinators:
             _strategy_config.refresh_market_rule_verification
         ),
         log_dev_trace=presenter._log_dev_trace,
-        format_coverage_message=DataSyncCoordinator.format_coverage_message,
         # Routed through the presenter's own methods, not bound straight
         # to the indicator coordinator: a test replaces
         # `presenter._on_ema_toggled` with a Mock and asserts the
@@ -126,6 +125,15 @@ def build_coordinators(presenter) -> Coordinators:
         set_script_overlay_lines_visible=(
             lambda visible: presenter._set_script_overlay_lines_visible(visible)
         ),
+    )
+    _chart_preview = ChartPreviewCoordinator(
+        view=presenter.view,
+        state=state,
+        view_model=presenter._view_model,
+        dispatcher=presenter.dispatcher,
+        thread_manager=presenter._thread_manager,
+        log_dev_trace=presenter._log_dev_trace,
+        format_coverage_message=DataSyncCoordinator.format_coverage_message,
         get_current_config=presenter._get_current_config,
         is_busy=presenter._is_busy_for_preview,
         next_preview_id=presenter._claim_preview_id,
@@ -163,5 +171,6 @@ def build_coordinators(presenter) -> Coordinators:
         indicators=_indicators,
         data_sync=_data_sync,
         chart_render=_chart_render,
+        chart_preview=_chart_preview,
         execution=_execution,
     )
