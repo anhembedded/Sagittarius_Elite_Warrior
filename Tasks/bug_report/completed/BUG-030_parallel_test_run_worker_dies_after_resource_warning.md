@@ -6,7 +6,7 @@
 **Severity:** 🟡 P2 — does not affect the shipped app (test-infrastructure
 only), but silently breaks the mandatory local CI gate's "Tests" step under
 its own default parallel settings, with no useful summary to diagnose from.
-**Status:** 🔴 **Open — cơ chế rò rỉ đã được xác định và chứng minh bằng thực
+**Status:** ⚪ **Đóng 2026-08-26 — không tái hiện được từ môi trường hiện có** (xem cuối file). Trước đó: 🔴 Open — cơ chế rò rỉ đã được xác định và chứng minh bằng thực
 nghiệm (2026-08-25, xem §"Điều tra 2026-08-25"); chưa pin được test cụ thể vì
 cần chạy trên Windows. Đã có công cụ sẵn sàng chỉ đích danh file:line khi ai đó
 chạy được trên Windows: `scripts/bug030_connection_leak_probe.py`.**
@@ -273,3 +273,38 @@ pattern, không còn chỗ nào thiếu. Củng cố thêm kết luận cũ củ
 rỉ thật, nó nằm ở **test code** (fixture/test tự dựng session ngoài
 `with`), không phải production code — đúng hướng §5 mục 1 đã vạch, vẫn cần máy
 Windows để chỉ đích danh.
+
+---
+
+# Đóng 2026-08-26 — không tái hiện được **từ môi trường hiện có**
+
+**Quyết định của chủ repo.** Ghi lý do cho chính xác, vì "không tái hiện được"
+ở đây **không** có nghĩa là nó không xảy ra.
+
+## Nó đã tái hiện — hai lần, xác định, trên Windows
+
+Hồ sơ ghi rõ: reproduced **twice, independently, landing at the exact same test
+on the exact same worker both times**, với địa chỉ `sqlite3.Connection` khác
+nhau mỗi lần (chứng minh là hai lần chạy riêng biệt, không phải log trùng).
+Đó là hành vi **xác định**, không phải flaky.
+
+## Vì sao vẫn đóng
+
+Cùng cổng `ci-local.ps1 -Full`, cùng phạm vi, cùng 6 worker, chạy trên Linux:
+**1764 test pass, 0 `ResourceWarning`, không crash**. Không tái hiện.
+
+Kế hoạch bisect trong §"Suggested next steps" **cần một máy Windows để có bất
+kỳ tín hiệu nào** — chạy lại trên Linux chỉ cho ra pass sạch bất kể deselect
+cái gì, vì điều kiện kích hoạt không tồn tại ở đây.
+
+Đây là giới hạn **môi trường**, không phải kết luận rằng bug không có thật.
+
+## Mở lại thế nào
+
+Nếu ai đó chạy `ci-local.ps1 -Full` trên Windows và thấy lại
+`ResourceWarning: unclosed database` kèm worker chết không có summary:
+
+1. Công cụ đã sẵn: `scripts/bug030_connection_leak_probe.py` — chỉ đích danh
+   file:line của kết nối rò.
+2. Đính log vào hồ sơ này và mở lại. Toàn bộ phần loại trừ ứng viên ở trên vẫn
+   còn giá trị, không phải điều tra lại từ đầu.
