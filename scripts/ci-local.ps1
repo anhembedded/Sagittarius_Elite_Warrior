@@ -231,10 +231,14 @@ $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
 # Lint
 # ---------------------------------------------------------------------------
 if (-not $SkipLint) {
-    Write-Step "Ruff — Lint Check (ruff check src tests)"
+    # `tools` alongside `src`/`tests`: the widget-kit showcase lives there, and a
+    # whole top-level directory outside the lint gate is how the gate quietly
+    # stops covering the repo. GitHub Actions (.github/workflows/ci.yml) has
+    # lint tools since it was restored; this was the one place still missing it.
+    Write-Step "Ruff — Lint Check (ruff check src tests tools)"
     Push-Location $botRoot
     try {
-        & $ruffExe check src tests
+        & $ruffExe check src tests tools
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Lint"; Write-Failure "Ruff Lint" }
         else { Write-Success "Ruff Lint" }
     } catch {
@@ -242,10 +246,10 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    Write-Step "Ruff — Format Check (ruff format --check src tests)"
+    Write-Step "Ruff — Format Check (ruff format --check src tests tools)"
     Push-Location $botRoot
     try {
-        & $ruffExe format --check src tests
+        & $ruffExe format --check src tests tools
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Format"; Write-Failure "Ruff Format" }
         else { Write-Success "Ruff Format" }
     } catch {
