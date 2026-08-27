@@ -358,18 +358,46 @@ class StrategyPropertiesDialog(Overlay):
         """BUG-064 — one generic pass instead of a one-off connection per
         field: every `QLineEdit` (including `_NumericStepLineEdit`, a
         subclass) under `root` gets its `editingFinished` wired to
-        `save_and_rerun()`. `editingFinished` fires on Return/Enter AND on
-        losing focus — a bare `QLineEdit` with no connection at all does
-        neither: a typed value lives only on the widget until something
+        `_commit_without_closing()`. `editingFinished` fires on Return/Enter
+        AND on losing focus — a bare `QLineEdit` with no connection at all
+        does neither: a typed value lives only on the widget until something
         reads `.text()`, so it looked silently reverted the next time the
         dialog reopened and re-populated from the still-unchanged ViewModel.
+
+        Deliberately NOT wired straight to `save_and_rerun()` — see that
+        method's docstring for why simply tabbing between fields must not
+        also close the dialog.
 
         Applying this once per tab (here, and again in `_sync_inputs()` after
         every rebuild) means a field added to either tab later is wired for
         free — no new connection to remember to add alongside it.
         """
         for line_edit in root.findChildren(QLineEdit):
-            line_edit.editingFinished.connect(self.save_and_rerun)
+            line_edit.editingFinished.connect(self._commit_without_closing)
+
+    def _commit_without_closing(self) -> None:
+        """BUG-064 follow-up: a user report caught this immediately after the
+        first fix landed — losing focus on ANY field was closing the whole
+        dialog. Cause: `save_and_rerun()`'s success path emits
+        `botParamsSaved`, which `__init__` connects to `self.accept()` so the
+        explicit "Lưu & Chạy lại" button closes the dialog as intended — but
+        that connection has no way to tell "the Save button was clicked" apart
+        from "a field merely lost focus", so every auto-commit closed it too.
+
+        Detaching the connection for the duration of exactly one
+        `save_and_rerun()` call keeps everything else about it identical
+        (values are still committed and validated the same way, the backtest
+        still re-runs with the new value) while confining the actual
+        dialog-closing behavior to the button that is supposed to trigger it.
+        Safe to do synchronously: `botParamsSaved.emit()` happens on this same
+        call stack (same-thread Qt signals are direct/synchronous here), so
+        the reconnect in `finally` cannot race a queued, later emission.
+        """
+        self._vm.botParamsSaved.disconnect(self.accept)
+        try:
+            self.save_and_rerun()
+        finally:
+            self._vm.botParamsSaved.connect(self.accept)
 
     def save_and_rerun(self) -> None:
         """Collects every field's current value and saves it — the only

@@ -417,6 +417,12 @@ def test_tabbing_away_from_a_field_without_pressing_enter_also_commits_it(
     qapp.processEvents()
 
     assert modal_presenter._view_model.orderSizeText == "42"
+    # BUG-064 follow-up, caught by a user immediately after the first fix
+    # landed: save_and_rerun()'s success path emits botParamsSaved, which is
+    # connected to self.accept() so the "Lưu & Chạy lại" BUTTON closes the
+    # dialog — merely losing focus while tabbing between fields must not
+    # trigger that same close.
+    assert dialog.isVisible()
 
 
 def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
@@ -451,3 +457,26 @@ def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
     qapp.processEvents()
 
     assert modal_presenter._strategy_params == {"fast": 77, "slow": 26}
+    assert dialog.isVisible(), (
+        "losing focus on an input field must not close the dialog"
+    )
+
+
+def test_clicking_save_still_closes_the_dialog(qapp, modal_presenter):
+    """Counterpart to the two focus-loss tests above: the explicit "Lưu & Chạy
+    lại" button must still close the dialog exactly as before — only the
+    auto-commit-on-blur path was changed to skip that."""
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+    assert dialog.isVisible()
+
+    save_btn = dialog.findChild(object, "btnBotParamsSave")
+    assert save_btn is not None
+    save_btn.click()
+    qapp.processEvents()
+
+    assert not dialog.isVisible()

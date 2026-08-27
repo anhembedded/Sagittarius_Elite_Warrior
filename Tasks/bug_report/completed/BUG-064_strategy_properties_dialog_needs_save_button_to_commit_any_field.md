@@ -75,6 +75,41 @@ này** — cả hai đã dùng `textEdited` (commit theo từng ký tự gõ), m
 trong khi ở dialog Backtest mỗi lần commit gắn với **chạy lại cả backtest** — dùng
 `textEdited` ở đây sẽ kích backtest chạy lại theo từng ký tự gõ, sai hoàn toàn.
 
+## Regression thứ hai — do chính fix của BUG-064 gây ra, user phát hiện ngay lập tức
+
+Ngay sau khi fix ở trên lên nhánh, user báo tiếp: "lost focus test box, sao lại
+đóng luôn cái dialog vậy?" — mất focus 1 ô bất kỳ làm **đóng luôn cả dialog**, kể
+cả khi chỉ đang tab qua ô khác để tiếp tục chỉnh sửa.
+
+**Root cause:** `save_and_rerun()` (đường duy nhất commit giá trị) khi thành công
+sẽ đi qua `_finish_save()` (coordinator) → emit `botParamsSaved`. Tín hiệu này được
+nối sẵn từ trước (`__init__`): `view_model.botParamsSaved.connect(self.accept)` —
+đúng ý định ban đầu (bấm nút "Lưu & Chạy lại" thì đóng dialog), nhưng nối này
+**không phân biệt được** "bấm nút Save" với "một ô vừa mất focus" — cả 2 đều đi
+qua chung `save_and_rerun()` sau khi tôi nối `editingFinished` vào đó.
+
+**Fix:** thêm `_commit_without_closing()` — wrapper tạm **ngắt** kết nối
+`botParamsSaved → accept` trong đúng thời gian gọi `save_and_rerun()`, rồi nối lại
+ngay sau đó (an toàn vì `emit()` chạy đồng bộ cùng call stack, cùng thread Qt).
+Đổi `_wire_line_edits_to_save_on_focus_lost()` để nối `editingFinished` vào
+`_commit_without_closing()` thay vì thẳng vào `save_and_rerun()`. Nút "Lưu & Chạy
+lại" vẫn gọi `save_and_rerun()` trực tiếp — hành vi đóng dialog khi bấm nút giữ
+nguyên, không đổi.
+
+**Phạm vi cố ý không đổi:** việc mất focus vẫn kích hoạt chạy lại backtest (không
+chỉ commit im lặng) — đúng tinh thần "xem kết quả cập nhật ngay khi chỉnh tham số"
+mà dialog này vốn hướng tới (mô phỏng theo panel Strategy Properties của
+TradingView). User chỉ báo việc **đóng dialog** là không mong muốn, không báo việc
+chạy lại backtest nhiều lần là vấn đề — nên không tự ý bỏ luôn phần rerun.
+
+Regression test: `test_tabbing_away_from_a_field_without_pressing_enter_also_commits_it`
+và `test_editing_a_strategy_input_field_and_losing_focus_also_commits_it` được bổ
+sung `assert dialog.isVisible()` — **xác nhận đỏ đúng lý do** khi tạm gỡ fix này
+bằng `git stash` (thông báo lỗi: `"losing focus on an input field must not close
+the dialog"`), xanh lại sau khi khôi phục. Thêm test riêng
+`test_clicking_save_still_closes_the_dialog` để đảm bảo không sửa quá tay — bấm
+nút Save vẫn phải đóng dialog như cũ.
+
 ## Regression test
 
 `tests/unit/presentation/ui/screens/test_strategy_properties_modal.py` — 6 test mới:
