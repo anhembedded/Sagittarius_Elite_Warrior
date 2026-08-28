@@ -187,6 +187,57 @@ phải sống sót qua commit). **A/B xác nhận đỏ đúng lý do**: tạm c
 → 2 test đỏ với đúng thông báo `"losing focus must not dispatch RUN_REQUESTED"`;
 gỡ patch → xanh lại.
 
+## Vòng cuối — khôi phục Binding, và bug thứ 5 nó lôi ra
+
+User hỏi đúng câu quyết định: *"tui nhớ có cơ chế nào implement luôn tại view mà
+đúng k?"* — có, đó là **property binding của QML**, mà chính dialog này từng dùng
+(docstring của nó ghi rõ: *"Port of `StrategyPropertiesModal.qml`"*). `EPIC-006`
+bỏ QML nên mất luôn binding.
+
+Điểm mấu chốt user chỉ ra: **cả 4 vòng bug ở trên đều cùng một gốc — mất binding.**
+Sync thủ công luôn sinh câu hỏi *"khi nào thì đồng bộ?"*, và mỗi vòng bug là một
+thời điểm không ai nhớ. Binding thì không có "thời điểm" nào để quên.
+
+**Đã khôi phục binding cho QtWidgets, không cần QML.** Kiểm chứng trước khi làm:
+cả 12 property của `BackTestViewModel` đều `writable=True` và có notify signal —
+đủ điều kiện binding 2 chiều.
+
+- **`src/presentation/ui/kit/binding.py` (file mới)** — `PropertyBinding` +
+  `BindingGroup`. Khai `bind(widget, vm, "orderSizeText", coerce)` là 2 chiều tự
+  giữ đúng mãi mãi, dựng trên chính metaobject mà QML dùng.
+- **`_sync_properties()` đã xoá hẳn.** Không còn "nhớ gọi đồng bộ" nữa — tab Đặc
+  tính luôn đúng, kể cả khi VM đổi từ nơi khác.
+- `PropertyBinding` là **QObject parent theo widget**: test đầu tiên phát hiện
+  binding không giữ tham chiếu bị GC và **âm thầm chết** (widget vẫn hiện bình
+  thường, cả 2 chiều đứng im). Parent theo widget để Qt tự quản vòng đời.
+- Guard `_syncing` chống 2 chiều nuôi nhau — không phải "vá re-entrancy", mà là
+  cách một vòng lặp (bản chất của binding) hội tụ sau 1 lượt.
+
+### Bug thứ 5 — nhấn Enter là XOÁ SẠCH cài đặt
+
+Trong lúc áp binding, một test cũ đỏ. Truy ra được nguyên nhân thật, **đo chứ
+không đoán**: `QPushButton` trong `QDialog` mặc định `autoDefault=True`, và nút
+**đầu tiên** thành nút default của dialog — ở đây là **"Đặt lại mặc định"**.
+Đo được: `btnResetBotParams` báo `isDefault=True`, và một phím Return thật kích
+hoạt đúng signal `clicked` của nó.
+
+Nghĩa là: **gõ giá trị rồi nhấn Enter = toàn bộ cài đặt bị reset về mặc định.**
+Bug này có từ trước, không phải do binding gây ra — nó bị `_sync_properties()`
+che một nửa: mở lại dialog thì `_sync_properties()` ghi VM đè ngược lên widget,
+nên giá trị "quay lại" trông như bình thường. Bỏ `_sync_properties()` là nó lộ ra.
+
+Sửa: `setAutoDefault(False)` + `setDefault(False)` cho cả 3 nút. Trong dialog này
+Enter chỉ có một nghĩa — *commit ô đang gõ* — và không thể để phím phản xạ nhất
+gắn với hành động phá hoại nhất.
+
+### Phạm vi cố ý chưa binding: tab "Các đầu vào"
+
+Tham số chiến lược **không** binding được như broker property, vì chúng đi qua
+`parse_bot_params()` — hàm phải có quyền **từ chối** một giá trị ngoài min/max và
+hiện lỗi inline thay vì lưu. Binding không có bước từ chối: nó làm hai thứ bằng
+nhau. Nên tab này giữ đường validate-rồi-lưu qua payload, vẫn dùng
+`connect_value_committed()` nên mọi loại widget đều được commit.
+
 ## Regression test
 
 `tests/unit/presentation/ui/screens/test_strategy_properties_modal.py` — 6 test mới:

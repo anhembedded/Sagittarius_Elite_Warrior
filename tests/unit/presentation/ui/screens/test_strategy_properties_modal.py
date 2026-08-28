@@ -566,3 +566,51 @@ def test_reset_to_defaults_restores_every_broker_property(qapp, modal_presenter)
     assert dialog.findChild(object, "propOrderSizeValue").text() == "100"
     assert dialog.findChild(object, "propCommissionType").currentData() == "percent"
     assert dialog.findChild(object, "propCurrency").currentText() == "USD"
+
+
+def test_pressing_enter_does_not_trigger_the_reset_button(qapp, modal_presenter):
+    """BUG-064, found while binding the Properties tab and initially masked by
+    the old `_sync_properties()` call on reopen.
+
+    A QPushButton inside a QDialog has autoDefault ON, and the FIRST one
+    becomes the dialog's default button — here that was "Đặt lại mặc định".
+    Pressing Enter in any field therefore wiped every setting back to its
+    default, silently, while the value the user had just typed survived only
+    in the ViewModel.
+
+    Enter in this dialog means "commit the field I am typing in", nothing
+    else — measured here by checking no button claims default AND that a real
+    Return keypress leaves a neighbouring field's edited value alone.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    view = modal_presenter.view
+    view.top_widget._btn_bot_params.click()
+    qapp.processEvents()
+
+    dialog = view._modals_host._strategy_properties
+    assert dialog is not None
+    dialog._tabs.setCurrentIndex(1)  # "Đặc tính"
+    qapp.processEvents()
+
+    for name in ("btnResetBotParams", "btnBotParamsCancel", "btnBotParamsSave"):
+        button = dialog.findChild(object, name)
+        assert button.isDefault() is False, f"{name} must not answer Enter"
+        assert button.autoDefault() is False, f"{name} must not answer Enter"
+
+    pyramiding = dialog.findChild(object, "propPyramiding")
+    pyramiding.setValue(6)
+    order_size = dialog.findChild(object, "propOrderSizeValue")
+    order_size.selectAll()
+    order_size.insert("33")
+    qapp.processEvents()
+
+    QTest.keyClick(order_size, Qt.Key.Key_Return)
+    qapp.processEvents()
+
+    # Enter committed the field it was typed in, and touched nothing else.
+    assert order_size.text() == "33"
+    assert modal_presenter._view_model.orderSizeText == "33"
+    assert pyramiding.value() == 6, "Enter must not have reset the other fields"
+    assert modal_presenter._view_model.pyramiding == 6

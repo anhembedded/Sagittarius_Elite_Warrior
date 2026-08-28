@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Overlay,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit.binding import BindingGroup
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit.widget_value import (
     connect_value_committed,
     mark_uses_item_data,
@@ -102,7 +103,7 @@ class StrategyPropertiesDialog(Overlay):
 
         self._properties_tab = self._build_properties_tab()
         self._property_widgets = self._build_property_widgets()
-        self._wire_commit_on_edit(self._property_widgets.values())
+        self._bindings = self._bind_broker_properties()
         properties_scroll = QScrollArea()
         properties_scroll.setWidgetResizable(True)
         properties_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -207,9 +208,6 @@ class StrategyPropertiesDialog(Overlay):
         row5.addWidget(self._prop_take_profit_enabled)
         self._prop_take_profit_pct = QLineEdit()
         self._prop_take_profit_pct.setObjectName("propTakeProfitPct")
-        self._prop_take_profit_enabled.toggled.connect(
-            self._prop_take_profit_pct.setEnabled
-        )
         row5.addLayout(
             _field_row(
                 "% Chốt lời (khớp take_profit_percent của strategy)",
@@ -247,6 +245,37 @@ class StrategyPropertiesDialog(Overlay):
             "take_profit_pct_text": self._prop_take_profit_pct,
         }
 
+    def _bind_broker_properties(self) -> BindingGroup:
+        """Declares each Properties-tab widget and its ViewModel property to
+        BE the same value, in both directions (BUG-064).
+
+        This is the QML binding this dialog was ported away from, rebuilt on
+        QtWidgets: `text: vm.orderSizeText` became one `bind(...)` row. What
+        it replaces is not just shorter code but a whole category of "did
+        somebody remember to sync?" — there is no longer a `_sync_properties()`
+        to call at the right moment, and no payload to collect at the right
+        moment, because neither direction waits for a moment any more.
+
+        The ViewModel is the single source of truth from here on: the widgets
+        follow it, including when it changes from outside this dialog.
+        """
+        bindings = BindingGroup()
+        for field in BROKER_PROPERTY_FIELDS:
+            bindings.bind(
+                self._property_widgets[field.key],
+                self._vm,
+                field.vm_attribute,
+                field.coerce,
+            )
+        # Not a value, so not a binding: the % field is only editable while the
+        # checkbox is on. Kept as a plain signal connection, and seeded once
+        # for the state the ViewModel is already in.
+        self._prop_take_profit_enabled.toggled.connect(
+            self._prop_take_profit_pct.setEnabled
+        )
+        self._prop_take_profit_pct.setEnabled(self._vm.takeProfitPctEnabled)
+        return bindings
+
     def _build_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
         btn_reset = QPushButton("Đặt lại mặc định")
@@ -268,6 +297,21 @@ class StrategyPropertiesDialog(Overlay):
         )
         btn_save.clicked.connect(self.save_and_close)
         row.addWidget(btn_save)
+
+        # BUG-064 — a QPushButton inside a QDialog has autoDefault ON by
+        # default, and the FIRST such button becomes the dialog's default
+        # button. That was "Đặt lại mặc định": pressing Enter in any field
+        # wiped every setting back to its default. Measured, not guessed —
+        # btnResetBotParams reported isDefault=True, and a Return keypress
+        # fired its clicked signal.
+        #
+        # No button here should answer Enter: in this dialog Enter means
+        # "commit the field I am typing in" (that is the whole point of
+        # editingFinished), and destroying the user's settings is the worst
+        # possible thing to bind the most reflexive key to.
+        for button in (btn_reset, btn_cancel, btn_save):
+            button.setAutoDefault(False)
+            button.setDefault(False)
         return row
 
     def open_for_strategy(self, strategy_name: str) -> None:
@@ -278,7 +322,9 @@ class StrategyPropertiesDialog(Overlay):
             else "CÀI ĐẶT CHIẾN LƯỢC"
         )
         self._sync_inputs()
-        self._sync_properties()
+        # No `_sync_properties()` any more: the Properties tab is bound to the
+        # ViewModel (BUG-064), so it is already showing current values —
+        # whether or not anyone thought to refresh it before opening.
         self.show()
         self.raise_()
 
@@ -327,55 +373,39 @@ class StrategyPropertiesDialog(Overlay):
                 self._field_widgets.append(field_widget)
         self._wire_commit_on_edit(fw.input_widget for fw in self._field_widgets)
 
-    def _sync_properties(self) -> None:
-        """Writes every current ViewModel value into its widget, driven by the
-        same `BROKER_PROPERTY_FIELDS` schema `_collect_payload()` reads widgets
-        against (BUG-064).
-
-        This used to hand-maintain combo index tables (`{"fixed_cash": 1, ...}`)
-        in parallel with the literal `addItem()` order in
-        `_build_properties_tab()` — exactly the duplicate-declaration drift the
-        schema exists to remove. `write_widget_value()` resolves the item by
-        `findData()` instead of assuming a position.
-        """
-        vm = self._vm
-        for field in BROKER_PROPERTY_FIELDS:
-            write_widget_value(
-                self._property_widgets[field.key], getattr(vm, field.vm_attribute)
-            )
-        self._prop_take_profit_pct.setEnabled(vm.takeProfitPctEnabled)
-
     def reset_all_fields(self) -> None:
+        """Writes the declared defaults into the widgets. The Properties tab's
+        bindings carry each one straight through to the ViewModel — Reset does
+        not need its own path to storage (BUG-064)."""
         for field_widget in self._field_widgets:
             field_widget.reset_to_default()
         for key, value in _BROKER_PROPERTY_DEFAULTS.items():
             write_widget_value(self._property_widgets[key], value)
 
     def _wire_commit_on_edit(self, widgets: Iterable[QWidget]) -> None:
-        """BUG-064 — auto-commit for EVERY kind of input, not just text boxes.
+        """Auto-commit for the Inputs tab, which is NOT bound (BUG-064).
 
-        `connect_value_committed()` (kit) picks the right signal from Qt's own
-        metadata: `editingFinished` for free-text widgets (fires on Enter and
-        on focus loss, never per keystroke), and the USER property's notify
-        signal for widgets where changing the value IS the commit (check
-        boxes, combos).
+        Strategy parameters cannot simply be bound the way broker properties
+        are: they go through `parse_bot_params()`, which must be able to
+        *reject* a value (out of a declared min/max) and show an inline error
+        rather than store it. A binding has no reject step — it makes two
+        things equal — so these keep the validate-then-store payload path.
 
-        The earlier version of this only ever scanned `findChildren(QLineEdit)`,
-        so changing Pyramiding, Slippage, a leverage spin box, the Take Profit
-        check box or either combo was silently dropped unless the user also
-        clicked Save. Driving it from the declared widget list instead of a
-        type-filtered child scan is what closes that gap for good.
-
-        Deliberately NOT `save_and_close()`: losing focus must neither close
-        the dialog nor start a run. See `_commit_edited_values()`.
+        `connect_value_committed()` (kit) still picks the right signal from
+        Qt's own metadata, so every input kind is covered, not just text
+        boxes.
         """
         for widget in widgets:
             connect_value_committed(widget, self._commit_edited_values)
 
     def _collect_payload(self) -> dict:
-        """The current value of every field in both tabs, in the shape the
-        presenter's save/commit handlers expect. The only place either tab's
-        widgets are read."""
+        """The values the presenter's save/commit handlers expect.
+
+        `properties` is read from the widgets rather than the ViewModel purely
+        so the payload shape stays what the coordinator already validates
+        against; the bindings mean those two agree by construction, since a
+        widget edit has already reached the ViewModel by the time this runs.
+        """
         return {
             "inputs": {fw.field_name: fw.value() for fw in self._field_widgets},
             "properties": {
