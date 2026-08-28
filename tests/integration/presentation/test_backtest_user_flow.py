@@ -8,7 +8,7 @@ from itertools import pairwise
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
@@ -252,7 +252,12 @@ def test_toolbar_popups_open_through_real_signals(backtest_screen, qapp):
     qapp.processEvents()
     capital_dialog = view._modals_host._capital
     assert capital_dialog is not None
-    assert capital_dialog._capital_input.isVisible() is True
+    # EPIC-015 bậc 1: the body is Capital.qml, so the amount field is a QML
+    # item reached through the loaded root rather than a QLineEdit attribute.
+    # Same objectName, so this still names the same field.
+    capital_field = capital_dialog.root_object.findChild(QObject, "txtBacktestCapital")
+    assert capital_field is not None
+    assert capital_field.property("visible") is True
 
     view.top_widget._btn_bot_params.click()
     qapp.processEvents()

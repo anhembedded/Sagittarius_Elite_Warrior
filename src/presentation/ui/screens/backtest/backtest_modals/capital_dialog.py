@@ -1,62 +1,58 @@
-"""Backtest capital settings."""
+"""Backtest capital settings — `EPIC-015` bậc 1 pilot: body is QML."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QDoubleValidator
-from PySide6.QtWidgets import (
-    QComboBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QWidget,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    Overlay,
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml import QmlOverlay
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.Capital.capital_vm import (
+    CapitalVM,
 )
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
+_QML = Path(__file__).resolve().parents[3] / "qml" / "Capital" / "Capital.qml"
 
-class CapitalDialogWidget(Overlay):
+
+class CapitalDialogWidget(QmlOverlay):
+    """
+    @brief Initial capital and currency. Chrome is `Overlay`, body is
+    `Capital.qml`, rules are `CapitalVM`.
+
+    @details `EPIC-015` bậc 1. What used to be here — a `QLineEdit`, a
+    `QComboBox`, a validation `QLabel`, and a `_sync_validation()` keeping
+    the label and the Apply button consistent with each other — is now three
+    bindings in the `.qml` plus a `canApply` property the VM derives. This
+    class is left with wiring only: screen ViewModel ↔ widget ViewModel.
+    """
+
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
-        super().__init__("THIẾT LẬP VỐN BAN ĐẦU", parent=parent)
-        self.setObjectName("capitalDialog")
         self._vm = view_model
+        self._widget_vm = CapitalVM(
+            currencies=view_model.currencyOptions,
+            get_text=lambda: view_model.initialCapitalText,
+            get_currency=lambda: view_model.selectedCurrency,
+        )
+        super().__init__(
+            "THIẾT LẬP VỐN BAN ĐẦU",
+            qml_file=_QML,
+            context={"vm": self._widget_vm},
+            parent=parent,
+        )
+        self.setObjectName("capitalDialog")
         self.resize(360, 190)
 
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        self._capital_input = QLineEdit()
-        self._capital_input.setObjectName("txtBacktestCapital")
-        self._capital_input.setValidator(QDoubleValidator(0.0, 1e15, 8))
-        self._capital_input.setFixedHeight(34)
-        self._capital_input.textChanged.connect(view_model.requestCapitalValidation)
-        row.addWidget(self._capital_input, 1)
-
-        self._currency_combo = QComboBox()
-        self._currency_combo.setObjectName("cboBacktestCurrency")
-        self._currency_combo.setFixedSize(90, 34)
-        self._currency_combo.addItems(view_model.currencyOptions)
-        row.addWidget(self._currency_combo)
-        self.body_layout.addLayout(row)
-
-        self._validation_label = QLabel()
-        self._validation_label.setObjectName("txtCapitalValidationMessage")
-        self._validation_label.setWordWrap(True)
-        self._validation_label.setStyleSheet(
-            f"color: {Palette.DANGER}; font-size: 10px;"
-        )
-        self._validation_label.setVisible(False)
-        self.body_layout.addWidget(self._validation_label)
-
+        # Validation is the presenter's, and it answers asynchronously; the
+        # widget ViewModel only holds the verdict and derives `canApply`.
+        self._widget_vm.validationRequested.connect(view_model.requestCapitalValidation)
         view_model.capitalValidationMessageChanged.connect(self._sync_validation)
+        self._widget_vm.validationChanged.connect(self._sync_apply_enabled)
+        self._widget_vm.applied.connect(self._on_applied)
 
     def _build_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -67,26 +63,25 @@ class CapitalDialogWidget(Overlay):
         row.addWidget(btn_cancel)
         self._btn_apply: QPushButton = QPushButton("Áp dụng")
         self._btn_apply.setObjectName("btnApplyCapital")
-        self._btn_apply.clicked.connect(self._on_apply)
+        self._btn_apply.clicked.connect(self._widget_vm.apply)
         row.addWidget(self._btn_apply)
         return row
 
     def _sync_validation(self) -> None:
-        message = self._vm.capitalValidationMessage
-        self._validation_label.setText(message)
-        self._validation_label.setVisible(bool(message))
-        self._btn_apply.setEnabled(not message)
+        self._widget_vm.setValidationMessage(self._vm.capitalValidationMessage)
+
+    def _sync_apply_enabled(self) -> None:
+        """The Apply button is `Overlay` chrome, so it stays a `QPushButton` —
+        one hand-wired line, against the three the widget version needed."""
+        self._btn_apply.setEnabled(self._widget_vm.canApply)
 
     def open_dialog(self) -> None:
-        self._capital_input.setText(self._vm.initialCapitalText)
-        self._vm.requestCapitalValidation(self._capital_input.text())
-        idx = self._currency_combo.findText(self._vm.selectedCurrency)
-        if idx >= 0:
-            self._currency_combo.setCurrentIndex(idx)
+        self._widget_vm.refresh()
+        self._vm.requestCapitalValidation(self._widget_vm.text)
         self.show()
         self.raise_()
 
-    def _on_apply(self) -> None:
-        self._vm.initialCapitalText = self._capital_input.text()
-        self._vm.selectedCurrency = self._currency_combo.currentText()
+    def _on_applied(self, text: str, currency: str) -> None:
+        self._vm.initialCapitalText = text
+        self._vm.selectedCurrency = currency
         self.accept()

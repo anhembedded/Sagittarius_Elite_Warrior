@@ -1,6 +1,6 @@
 # EPIC-015 — QML từng widget, chart ở lại QtWidgets
 
-**Trạng thái:** 📋 **Đề xuất — chưa bắt đầu.** Không có dòng code nào bị đổi.
+**Trạng thái:** 🟡 **Đang làm** — bậc 0 + bậc 1 xong 2026-08-28 (xem §4b). Bậc 2 trở đi chưa bắt đầu.
 **Ngày:** 2026-08-28
 **Tiền đề:** [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md) §5 phương án **B**
 **Yêu cầu user:**
@@ -89,7 +89,52 @@ Một biểu thức binding thì được; hai dòng JavaScript trở lên nghĩ
 widget rồi. **Đó chính là hình dạng cần** — `filtering.py` gần như thành `symbol_picker_vm.py`
 nguyên vẹn.
 
-### 3.3 Theme không phải làm lại
+### 3.3 Styling — quyết định user 2026-08-28
+
+> *"styling nên remove luôn nhỉ, chưa cần style sớm"*
+
+**Nhận, và nó làm bậc 0 nhỏ hẳn đi.** Không dựng kit QML, không thiết kế lại gì cả, không
+đuổi theo pixel. Nhưng đo xong thì phải tách hai thứ đang bị gộp làm một:
+
+| | |
+| :--- | :--- |
+| ✅ **Không thiết kế style sớm** | Đúng. Không kit, không component style, không token mới. |
+| ❌ **Không có tầng style** | Không làm được, vì ba lý do đo được dưới đây. |
+
+**Lý do 1 — "không style" không phải trung tính, nó là hộp trắng trên nền đen.** Đo thật:
+
+```
+Nền app (Palette.BG):                     #0a0a0c
+Nút QtQuick Controls không style, ở giữa: #f5f5f5
+```
+
+Trong kế hoạch lai, modal QML mở **cạnh** màn QtWidgets đã style đầy đủ. Lệch này lộ ngay
+lập tức, không phải "để sau tính".
+
+**Lý do 2 — trên Windows, style áp sau sẽ im lặng không ăn.** Docstring của
+`engine/runtime/qml_style.py` ghi rõ: style mặc định của Windows **bỏ qua không báo lỗi** mọi
+override `background:`/`contentItem:`, chỉ log một dòng warning rồi vẽ chrome native. Bạn chạy
+Windows. Hoãn styling = hoãn luôn việc phát hiện cái bẫy này tới đúng lúc tệ nhất.
+
+**Lý do 3 — repo này đã dính đúng bệnh đó hai lần.** `EPIC-006B` bị đặt làm **điều kiện tiên
+quyết** của C/D/E chính xác vì `EPIC-005` để lại *"8 widget đều tự viết `setStyleSheet` riêng —
+đúng thứ đang gây lộn xộn"*. Bỏ tầng style không cho ra "không style", nó cho ra **N bản màu
+inline riêng lẻ** phải gỡ sau.
+
+**Cách làm giữ đúng ý bạn mà không dính ba cái trên — và nó gần như miễn phí, vì đã viết sẵn:**
+
+| Việc | Chi phí |
+| :--- | :--- |
+| `ensure_qml_style()` — ghim style "Basic" cho customize được | 1 lệnh gọi, **code đã có ở Engine** |
+| `register_theme(quick_widget)` — gắn `Theme` vào context | 1 lệnh gọi, **code đã có ở Engine** |
+| Dùng token trần: `color: Theme.bgCard` | thay cho `color: "#151823"`, **không phải quyết định thiết kế** |
+
+Cộng một luật từ bậc 0: **không hằng số màu trong `.qml`** — soi gương `guards.py` hiện đã cấm
+hex literal ngoài `style.py`. Rẻ bây giờ, đắt về sau.
+
+Tóm lại: **không có bậc "xây kit QML"**, đúng ý bạn. Chỉ hai lệnh gọi có sẵn và một luật.
+
+### 3.4 Theme không phải làm lại
 
 `app_bootstrapper.py` **đang gọi** `get_theme_bridge(Palette.as_ui_dict())` trong production
 hôm nay. Cầu `Palette` → QML còn sống nguyên. Một nguồn token, hai pipeline đọc.
@@ -100,8 +145,8 @@ hôm nay. Cầu `Palette` → QML còn sống nguyên. Một nguồn token, hai 
 
 | Bậc | Việc | LOC view | Chart? | Vì sao ở đây |
 | :--- | :--- | ---: | :---: | :--- |
-| **0** | **Kit QML tối thiểu** ở `src/presentation/ui/qml/` — chỉ những shape 2 modal đầu cần | mới | — | `EPIC-006B` phải xong trước C/D/E vì cùng lý do: không có base thật thì mỗi màn tự chế style inline. **Chỉ xây cái bậc 1 cần**, không xây suy đoán. |
-| **1** | **2 modal pilot** — `capital_dialog` + `timezone_picker_dialog` (nhỏ nhất, độc lập nhất) | ~200 | ❌ | Cửa sổ riêng ⇒ **zero rủi ro lồng nhau** (phép đo C). Lỗi lộ ngay. Rollback = trả lại 2 file. |
+| **0** ✅ | **Chỉ hạ tầng, không kit** (§3.3): thư mục `src/presentation/ui/qml/`, một `QmlOverlay` host, luật cấm màu literal trong `.qml` | ~100 | — | Thu nhỏ theo quyết định styling của user. Không có component style nào được viết ở bậc này. |
+| **1** ✅ | **2 modal pilot** — `capital_dialog` + `timezone_picker_dialog` (nhỏ nhất, độc lập nhất) | ~200 | ❌ | Cửa sổ riêng ⇒ **zero rủi ro lồng nhau** (phép đo C). Lỗi lộ ngay. Rollback = trả lại 2 file. |
 | **2** | **9 modal Backtest còn lại + 2 modal Data Management** | ~1.550 | ❌ | Cùng hình dạng bậc 1, lặp lại. Đây là chỗ QML trả lãi sớm nhất: modal toàn form + binding. |
 | **3** | **Settings** — cả route thành `QQuickWidget` | 443 | ❌ | Màn nhỏ nhất không chart (phép đo B). Pilot cho "cả route là QML". |
 | **4** | **Data Management** — cả route | 2.452 | ❌ | Không chart, nhưng nặng bảng. Cân nhắc giữ `QListView` + model nếu QML `ListView` không bằng. |
@@ -115,6 +160,57 @@ Chart 4.253 dòng **không bị đụng tới**.
 
 Sau bậc 6, app ở trạng thái ổn định lâu dài: **shell + chart QtWidgets, mọi thứ khác QML.**
 Đó không phải nửa đường — đó là đích.
+
+## 4b. Bậc 0 + bậc 1 — ĐÃ LÀM, và pilot tìm ra 3 thứ
+
+**Trạng thái:** ✅ bậc 0 và bậc 1 xong 2026-08-28. Bậc 2 trở đi chưa bắt đầu.
+
+Đã chuyển: `capital_dialog.py` (form có validate) và `timezone_picker_dialog.py` (danh sách).
+Chọn cặp này vì chúng đo hai hình dạng khác nhau, không phải hai bản sao của một hình dạng.
+
+### Chi phí thật, không ước lượng
+
+| | Widget (trước) | QML + VM (sau) |
+| :--- | ---: | ---: |
+| `capital_dialog.py` | 92 | 88 + `capital_vm.py` 96 + `Capital.qml` 50 |
+| `timezone_picker_dialog.py` | 66 | 60 + `timezone_picker_vm.py` 74 + `TimezonePicker.qml` 44 |
+| Hạ tầng dùng chung (`qml/host.py`) | — | 108, **một lần cho mọi modal sau** |
+| Test | 2 file chạm dialog | **16 test VM (0,6 giây, không GUI)** + 6 smoke + 3 guard |
+
+**Số dòng tăng ~2x, nhưng đó không phải toàn bộ câu chuyện:** phần tăng nằm ở `_vm.py` — nơi
+`mypy`, `ruff` và `pytest` **nhìn thấy được**, và test chạy trong 0,6 giây không cần
+`QApplication`. Phần `.qml` chỉ còn bố cục.
+
+Chứng minh cụ thể ở `Capital`: bản widget cần `textChanged` nối ra, `capitalValidationMessageChanged`
+nối vào, và `_sync_validation()` giữ nhãn lỗi + nút Apply khớp nhau — **ba chỗ để lệch**. Bản QML:
+`text: vm.text`, `visible: vm.validationMessage !== ""`, và `canApply` là property dẫn xuất.
+**`BUG-064` không tái diễn được ở hình dạng này.**
+
+### Ba phát hiện — đây là lý do pilot tồn tại
+
+**1. `findChild` KHÔNG với tới delegate của `Repeater`.**
+`findChild(QObject, "tzItem_UTC")` trả về `None` dù cả 6 delegate tồn tại và đúng tên. Item do
+`Repeater` tạo nhận parent *thị giác* là parent của Repeater, **không phải** parent `QObject` —
+nên đệ quy của `findChild` không thấy. Cách đúng: `column.childItems()` hoặc `repeater.itemAt(i)`.
+
+`findChild` **vẫn đúng** cho item khai báo tĩnh (mọi lookup trong test `Capital` dùng nó). Ghi lại
+ở helper `_rows_of()` trong `test_qml_modal_bodies.py`, một chỗ duy nhất.
+
+Nếu không có pilot, cái này lộ ở bậc 2 khi đã viết xong 11 modal.
+
+**2. Style mặc định phải ghim trước khi nạp QML đầu tiên.**
+`ensure_qml_style()` phải chạy trong `QmlOverlay.__init__`, không chỉ ở bootstrapper — test dựng
+dialog trực tiếp và không bao giờ chạy bootstrapper, nên nếu không có nó, test sẽ xanh trên
+chrome native mà **người dùng không bao giờ thấy**.
+
+**3. QML mang lại tiếng ồn stderr lúc teardown.**
+Huỷ scene QML sinh ra `TypeError: Cannot read property ... of null` khi binding đánh giá lại trên
+context đã chết. Đã thử `closeEvent` xoá source: **đo được là không đổi gì** (16 dòng cả hai
+chiều, vì dialog bị GC chứ không bị close), nên đã **gỡ ra thay vì ship một comment nói sai**.
+
+Đây đúng là thứ `CLAUDE.md` luật #2 sinh ra để cảnh báo — và tôi dính đúng nó trong lúc làm:
+`| tail` cho ra một bức tường đỏ dưới một lần chạy **10/10 pass**. Với QML quay lại, luật
+"`> logfile 2>&1` rồi grep, đừng `| tail`" **không còn là di sản** — nó lại đang có hiệu lực.
 
 ## 5. Cái được và cái phải trả
 

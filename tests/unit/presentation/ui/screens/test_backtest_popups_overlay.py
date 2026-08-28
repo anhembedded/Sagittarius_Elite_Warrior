@@ -15,6 +15,7 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -159,8 +160,12 @@ def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_scr
     assert dialog is not None
     assert dialog.objectName() == "capitalDialog"
     assert dialog.isVisible() is True
-    assert dialog._capital_input.objectName() == "txtBacktestCapital"
-    assert dialog._capital_input.text() != ""
+    # EPIC-015 bậc 1: the body is Capital.qml now, so the amount is read off
+    # the QML TextField instead of a QLineEdit attribute. The objectName is
+    # deliberately unchanged, so this still names the same field.
+    field = dialog.root_object.findChild(QObject, "txtBacktestCapital")
+    assert field is not None
+    assert field.property("text") != ""
 
 
 def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_screen):
@@ -169,7 +174,12 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
     __init__` before this class's own `__init__` body runs any further) with
     a bare `self._btn_apply = None` at the end of `__init__` — so `_sync_
     validation()`'s guard was always False and the button could never be
-    disabled, letting a user submit an invalid capital value."""
+    disabled, letting a user submit an invalid capital value.
+
+    `EPIC-015` bậc 1 moved the body to QML but kept the Apply button in
+    `Overlay`'s chrome, so the same overwrite is still possible and this test
+    still guards it. Only how the amount is typed changed: assigning
+    `_widget_vm.text` is exactly what the QML `onTextEdited` handler does."""
     view, _ = backtest_screen
 
     view.top_widget._btn_capital.click()
@@ -178,7 +188,7 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
     dialog = view._modals_host._capital
     assert dialog._btn_apply.isEnabled() is True
 
-    dialog._capital_input.setText("")
+    dialog._widget_vm.text = ""
     qapp.processEvents()
 
     assert dialog._btn_apply.isEnabled() is False

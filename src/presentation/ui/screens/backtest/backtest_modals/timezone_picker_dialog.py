@@ -1,66 +1,63 @@
-"""Backtest timezone chooser."""
+"""Backtest timezone chooser — `EPIC-015` bậc 1 pilot: body is QML."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import (
-    QFrame,
-    QScrollArea,
-    QVBoxLayout,
-    QWidget,
+from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml import QmlOverlay
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimezonePicker.timezone_picker_vm import (
+    TimezonePickerVM,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    Overlay,
-)
-
-from ._layout import _selectable_list_card
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
+_QML = (
+    Path(__file__).resolve().parents[3]
+    / "qml"
+    / "TimezonePicker"
+    / "TimezonePicker.qml"
+)
 
-class TimezonePickerDialog(Overlay):
+
+class TimezonePickerDialog(QmlOverlay):
+    """
+    @brief Which timezone the UI displays. Chrome is `Overlay`, body is
+    `TimezonePicker.qml`, rules are `TimezonePickerVM`.
+
+    @details `EPIC-015` bậc 1. The hand-rolled rebuild loop — tear every row
+    out of a `QVBoxLayout`, build a `_selectable_list_card` per option, work
+    out `is_selected` inline — is a `Repeater` over `vm.rows` now, and
+    `selected` is computed in the ViewModel where the gate can see it.
+    """
+
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
+        self._vm = view_model
+        self._widget_vm = TimezonePickerVM(
+            get_options=lambda: view_model.displayTimezoneOptions,
+            get_current=lambda: view_model.displayTimezone,
+        )
         super().__init__(
             "CHỌN MÚI GIỜ HIỂN THỊ",
             "Chỉ đổi giờ hiển thị. Dữ liệu và Backtest luôn tính theo UTC.",
+            qml_file=_QML,
+            context={"vm": self._widget_vm},
             parent=parent,
         )
         self.setObjectName("timezonePickerModal")
-        self._vm = view_model
         self.resize(440, 350)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        content = QWidget()
-        self._list_layout = QVBoxLayout(content)
-        self._list_layout.setSpacing(6)
-        scroll.setWidget(content)
-        self.body_layout.addWidget(scroll)
+        self._widget_vm.chosen.connect(self._on_selected)
 
     def showEvent(self, event) -> None:
+        """Re-reads on every open — the current timezone changes between them,
+        and the dialog is built once and reused."""
+        self._widget_vm.refresh()
         super().showEvent(event)
-        self._sync()
 
-    def _sync(self) -> None:
-        while self._list_layout.count():
-            item = self._list_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-        for option in self._vm.displayTimezoneOptions:
-            tz_id = option.get("id", "")
-            is_selected = tz_id == self._vm.displayTimezone
-            btn = _selectable_list_card(
-                f"tzItem_{tz_id}", option.get("label", tz_id), "", is_selected
-            )
-            btn.clicked.connect(lambda _checked=False, t=tz_id: self._on_selected(t))
-            self._list_layout.addWidget(btn)
-
-    def _on_selected(self, tz_id: str) -> None:
-        self._vm.setDisplayTimezone(tz_id)
+    def _on_selected(self, timezone_id: str) -> None:
+        self._vm.setDisplayTimezone(timezone_id)
         self.accept()
