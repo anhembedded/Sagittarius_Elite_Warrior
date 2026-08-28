@@ -55,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
+    SymbolPreferences,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
@@ -197,6 +200,23 @@ def build() -> AppRuntime:
     # DashboardPresenter) — every test that builds a presenter against a bare
     # container would otherwise break.
     app_engine.context.container.singleton(UiStateCoordinator, state_coordinator)
+
+    # EPIC-014 — starred and recently used trading pairs, ONE store shared by
+    # every screen that picks a symbol. Registered rather than owned by a
+    # screen because that is what makes it shared: a star set on Backtest is
+    # the same star Dev Board shows, which is the whole reason favourites are
+    # worth having across a 1,400-entry list.
+    #
+    # Restored before the first screen is built, and marked dirty on every
+    # mutation so the coordinator's debounce writes it — the same two calls
+    # every other contributor makes, just made here because this one has no
+    # presenter of its own.
+    symbol_preferences = SymbolPreferences()
+    state_coordinator.restore_into(symbol_preferences)
+    symbol_preferences.set_on_changed(
+        lambda: state_coordinator.mark_dirty(symbol_preferences)
+    )
+    app_engine.context.container.singleton(SymbolPreferences, symbol_preferences)
     window = MainWindow(app_engine, state_coordinator=state_coordinator)
     window.show()
 

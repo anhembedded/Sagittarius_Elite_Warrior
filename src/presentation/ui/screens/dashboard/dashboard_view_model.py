@@ -62,6 +62,8 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     wsStatusChanged = Signal()
     historyLoadingChanged = Signal()
     symbolChanged = Signal()
+    symbolOptionsChanged = Signal()
+    symbolOptionsRequested = Signal()
     startDateChanged = Signal()
     endDateChanged = Signal()
 
@@ -81,6 +83,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._history_loading = False
 
         self._symbol = _DEFAULT_SYMBOL
+        self._symbol_options: list[str] = []
         now = datetime.now(UTC)
         self._start_date = (now - timedelta(days=DEFAULT_LOOKBACK_DAYS)).strftime(
             DATETIME_FORMAT
@@ -180,6 +183,36 @@ class DashboardQmlViewModel(BaseQmlViewModel):
             self.symbolChanged.emit()
 
     symbol = Property(str, _get_symbol, _set_symbol, notify=symbolChanged)
+
+    # ------------------------------------------------------------------ #
+    # Symbol options (EPIC-014) — the list the shared picker renders.
+    #
+    # Same shape and the same reasons as `BackTestViewModel.symbolOptions`
+    # (BOT-102): starts empty and is filled by the Presenter the first time
+    # the picker is opened, not at screen construction, because it costs an
+    # exchange round trip. An empty list means "not fetched yet" or "fetch
+    # failed" — the picker shows a loading state for either and does not need
+    # to tell them apart.
+    #
+    # Before this, Dev Board had no picker at all: an editable `QComboBox`
+    # seeded with two hardcoded strings, so every other pair had to be typed
+    # from memory, with no validation and no way to see what the exchange
+    # actually lists.
+    # ------------------------------------------------------------------ #
+    def _get_symbol_options(self) -> list[str]:
+        return self._symbol_options
+
+    symbolOptions = Property(
+        "QStringList", _get_symbol_options, notify=symbolOptionsChanged
+    )
+
+    @Slot("QStringList")
+    def set_symbol_options(self, options: list[str]) -> None:
+        """Presenter → ViewModel. Always emits, even for an identical list:
+        the picker re-reads on the signal, and a re-fetch that happened to
+        return the same symbols still means "the load finished"."""
+        self._symbol_options = list(options)
+        self.symbolOptionsChanged.emit()
 
     def _get_start_date(self) -> str:
         return self._start_date

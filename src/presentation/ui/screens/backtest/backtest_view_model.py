@@ -10,11 +10,11 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizingType,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
-    DEFAULT_TIMEFRAMES,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    all_options as all_timeframe_options,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestExecutionMode,
@@ -504,7 +504,17 @@ class BackTestViewModel(BaseQmlViewModel):
 
     @Property("QStringList", constant=True)
     def timeframeOptions(self) -> list[str]:
-        return list(DEFAULT_TIMEFRAMES)
+        """Every timeframe the domain declares, shortest first.
+
+        `EPIC-014`: this used to return `DEFAULT_TIMEFRAMES` — a five-entry
+        tuple that exists to size the *chart toolbar's* pill row. `TimeFrame`
+        has always declared sixteen, and the exchange and database serve all
+        sixteen, so this property was the only thing in the stack that could
+        not reach the other eleven. Derived from the catalogue (and so from
+        `TimeFrame`) rather than re-listed, because a second hand-written
+        list is how the first gap opened.
+        """
+        return [option.code for option in all_timeframe_options()]
 
     def _get_selected_timeframe(self) -> str:
         return self._selected_timeframe

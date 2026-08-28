@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
+    ListAvailableSymbolsQuery,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
@@ -30,6 +34,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
+    SymbolPreferences,
+    find_symbol_preferences,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
     find_state_coordinator,
@@ -53,6 +61,8 @@ from .dashboard_view_model import (
 )
 from .history_pagination_controller import HistoryPaginationController
 from .stream_lifecycle_controller import StreamLifecycleController
+
+logger = logging.getLogger("App.Dashboard")
 
 if TYPE_CHECKING:
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
@@ -302,6 +312,14 @@ class DashboardPresenter(BasePresenter):
     #: exhausted, since nothing ever moves the "near the edge" boundary).
     ui_history_prepend_finished_signal = Signal(str, bool)
 
+    # EPIC-014 — the exchange's tradable pair list, fetched off the Qt main
+    # thread the first time the symbol picker is opened, then delivered back
+    # onto it. Mirrors BackTestPresenter's BOT-102 pair exactly; a failure
+    # gets its own signal so the log line says what went wrong rather than
+    # the picker just staying on "Đang tải".
+    _symbolOptionsReadySignal = Signal(list)
+    _symbolOptionsFailedSignal = Signal(str)
+
     # Indicator name -> full (x, y) series computed so far
     ui_indicator_data_signal = Signal(str, list, list)
 
@@ -329,6 +347,12 @@ class DashboardPresenter(BasePresenter):
         # Resolve IThreadManager exactly once — stored as an instance attribute.
         # No further container.resolve(IThreadManager) calls anywhere else.
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
+
+        # EPIC-014: `None` means "never fetched", which is what makes the
+        # fetch happen once per session rather than on every picker open. An
+        # empty list is a real answer (the query returned nothing) and is
+        # deliberately NOT retried — a distinction a falsy check would lose.
+        self._symbol_options_cache: list[str] | None = None
 
         # Define allowed FSM transitions
         self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
@@ -493,6 +517,14 @@ class DashboardPresenter(BasePresenter):
         )
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self)
+        # EPIC-014 — the shared symbol favourites/recents store, injected
+        # into the panel that owns the picker. Optional exactly like the
+        # coordinator above: a presenter built against a container that does
+        # not know about it keeps an unpersisted store and still works.
+        view.set_symbol_preferences(
+            find_symbol_preferences(container) or SymbolPreferences()
+        )
+
         self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)
         self._view_model.symbolChanged.connect(self._mark_state_dirty)
         self._view_model.startDateChanged.connect(self._mark_state_dirty)
@@ -530,6 +562,46 @@ class DashboardPresenter(BasePresenter):
                 parent=self,
             )
             self._autostart.begin()
+
+    # ================================================================== #
+    # Symbol options (EPIC-014) — same shape as BackTestPresenter's BOT-102
+    # ================================================================== #
+
+    @Slot()
+    @safe_ui_action
+    def _on_symbol_picker_open_requested(self) -> None:
+        """Fetches the exchange's pair list the first time the picker opens.
+
+        @details Not at screen construction: it is a network round trip, and
+        Dev Board is the screen that auto-starts a live stream, so anything
+        added to its construction path delays that. A cache hit means a prior
+        open already populated the ViewModel and this is a no-op.
+        """
+        if self._symbol_options_cache is not None:
+            return
+        self._thread_manager.submit(self._fetch_symbol_options)
+
+    def _fetch_symbol_options(self) -> None:
+        """Runs on a worker thread — hence the signals rather than a direct
+        ViewModel write, which would touch Qt objects off the main thread."""
+        try:
+            symbols = self.dispatcher.dispatch(
+                ListAvailableSymbolsQuery, ListAvailableSymbolsQuery()
+            )
+        except Exception as exc:
+            logger.exception("Failed to fetch available symbols")
+            self._symbolOptionsFailedSignal.emit(str(exc))
+            return
+        self._symbolOptionsReadySignal.emit(symbols)
+
+    @Slot(list)
+    def _on_symbol_options_ready(self, symbols: list[str]) -> None:
+        self._symbol_options_cache = symbols
+        self._view_model.set_symbol_options(symbols)
+
+    @Slot(str)
+    def _on_symbol_options_failed(self, message: str) -> None:
+        self._append_log(f"[ERROR] Không tải được danh sách symbol: {message}")
 
     # ================================================================== #
     # IStateContributor — structural, no base class (EPIC-010D)
@@ -648,6 +720,9 @@ class DashboardPresenter(BasePresenter):
         view_model.loadHistoryRequested.connect(self._on_load_history)
         view_model.startStreamRequested.connect(self._on_start_stream)
         view_model.stopStreamRequested.connect(self._on_stop_stream)
+        view_model.symbolOptionsRequested.connect(self._on_symbol_picker_open_requested)
+        self._symbolOptionsReadySignal.connect(self._on_symbol_options_ready)
+        self._symbolOptionsFailedSignal.connect(self._on_symbol_options_failed)
 
         # Internal signals → view model update slots (all execute on the Qt
         # main thread).

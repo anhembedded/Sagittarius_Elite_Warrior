@@ -70,13 +70,17 @@ def _wait_for_reload_or_restart(qtbot, presenter, action, timeout=3000):
 def test_symbol_dropdown_changes_which_symbol_load_history_fetches(
     qtbot, main_window, navigate, qml_item
 ):
-    """TC-GAP-02: FIXED by BOT-033 Phase 2 — picking "BTCUSDT" from the
-    Symbol dropdown now changes which symbol Load History actually fetches
-    (was hard-coded to ETHUSDT via `_DEFAULT_SYMBOLS` before this task)."""
+    """TC-GAP-02: FIXED by BOT-033 Phase 2 — choosing "BTCUSDT" in the Symbol
+    field now changes which symbol Load History actually fetches (was
+    hard-coded to ETHUSDT via `_DEFAULT_SYMBOLS` before this task).
+
+    EPIC-014 replaced the two-item combo this used to drive with the shared
+    picker, so the choice is made through the picker's own signal — the same
+    path a click on a card takes — rather than by index."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
 
-    view._panel._cbo_symbol.setCurrentIndex(0)  # "BTCUSDT"
+    view._panel._view_model.symbol = "BTCUSDT"
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
         _click_load_history(view, qml_item)
 

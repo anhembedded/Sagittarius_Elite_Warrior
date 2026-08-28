@@ -235,7 +235,11 @@ def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
     assert dialog is not None
     assert dialog.objectName() == "timeframePickerModal"
     assert dialog.isVisible() is True
-    assert dialog._grid.count() == len(presenter._view_model.timeframeOptions)
+    assert len(dialog._cards) == len(presenter._view_model.timeframeOptions)
+    # EPIC-014: the picker used to offer `DEFAULT_TIMEFRAMES` (5 of the
+    # domain's 16). Asserting the real number here, not just "same as the
+    # ViewModel", so a regression back to the toolbar tuple is a failure.
+    assert len(dialog._cards) == 16
 
 
 def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):

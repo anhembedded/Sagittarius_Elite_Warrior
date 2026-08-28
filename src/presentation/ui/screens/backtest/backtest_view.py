@@ -187,6 +187,16 @@ class BackTestView(BaseView):
         """Selects cached-frame pan/zoom for chart cards created from now on."""
         self._chart_cached_interaction_enabled = bool(enabled)
 
+    def set_symbol_preferences(self, preferences) -> None:
+        """EPIC-014: BackTestPresenter injects the container-registered
+        favourites/recents store here, the same seam and the same reason as
+        `set_chart_host_factory` below — BackTestView has no container
+        access. Forwarded to `_modals_host`, which owns the symbol picker;
+        a no-op before `set_view_model()` has built one, and the host keeps
+        its own unpersisted store in that case."""
+        if self._modals_host is not None:
+            self._modals_host.set_symbol_preferences(preferences)
+
     def set_chart_host_factory(self, factory: BacktestChartHostFactory) -> None:
         """BOT-098F6D: BackTestPresenter injects the DI-resolved factory here
         (BackTestView itself has no container access) before the first

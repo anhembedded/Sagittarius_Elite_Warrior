@@ -90,8 +90,8 @@ def test_dashboard_view_model_symbol_and_date_defaults(qapp):
 
 
 def test_dashboard_view_model_symbol_and_dates_are_settable(qapp):
-    """QML's cboSymbol/txtStartDate/txtEndDate write through these
-    properties (see DevBoardPanel.qml's onCurrentTextChanged/onTextEdited)."""
+    """DevBoardPanel's Symbol button and the two date fields write through
+    these properties, and `_sync_symbol`/`_sync_start_date` read them back."""
     view_model = DashboardQmlViewModel()
 
     view_model.symbol = "BTCUSDT"

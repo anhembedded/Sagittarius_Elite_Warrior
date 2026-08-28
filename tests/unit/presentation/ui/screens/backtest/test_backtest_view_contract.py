@@ -175,16 +175,17 @@ def test_no_view_member_is_reached_by_string() -> None:
     )
 
 
-def test_the_contract_is_exactly_fifteen_members() -> None:
+def test_the_contract_is_exactly_sixteen_members() -> None:
     """A count, so a two-sided drift cannot cancel itself out.
 
     @details Both tests above compare *sets*, so simultaneously deleting one
     member and adding another would leave them green while the port silently
     changed shape. `EPIC-013B` measured 14; `EPIC-013C` added `chart_mode`,
-    which had been reached by string. Changing this number is a deliberate act
-    that should show up in a diff.
+    which had been reached by string; `EPIC-014` added
+    `set_symbol_preferences`. Changing this number is a deliberate act that
+    should show up in a diff.
     """
-    assert len(_declared_members(IBacktestView)) == 15
+    assert len(_declared_members(IBacktestView)) == 16
 
 
 @pytest.mark.usefixtures("qapp")

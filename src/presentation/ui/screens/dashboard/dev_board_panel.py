@@ -29,7 +29,7 @@ against another file to discover is shared.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSignalBlocker, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -50,6 +50,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.date_range_picker import (
     pick_date_range,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
+    SymbolPickerOverlay,
+    SymbolPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Panel,
@@ -104,6 +108,13 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
+        self._symbol_picker: SymbolPickerOverlay | None = None
+        # EPIC-014: replaced in production by the container-registered store
+        # (`DashboardPresenter` injects it through `set_symbol_preferences`),
+        # so a pair starred here is starred on Backtest too. Self-constructed
+        # so a bare `DevBoardPanel(vm)` still opens a working picker; it just
+        # remembers nothing past the session.
+        self._symbol_preferences = SymbolPreferences()
         # Scoped, not a bare property list: unscoped this would repaint
         # every descendant that has no rule of its own (`BUG-008`), which
         # here is most of the screen.
@@ -220,7 +231,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         layout.addLayout(_section_row("System Controls"))
 
         layout.addWidget(self._field_row("Market:", self._build_market_combo()))
-        layout.addWidget(self._field_row("Symbol:", self._build_symbol_combo()))
+        layout.addWidget(self._field_row("Symbol:", self._build_symbol_button()))
         layout.addWidget(self._field_row("Strategy:", self._build_strategy_combo()))
 
         layout.addLayout(_section_row("Data Range"))
@@ -326,16 +337,65 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._cbo_market.setStyleSheet(_field_style())
         return self._cbo_market
 
-    def _build_symbol_combo(self) -> QComboBox:
-        self._cbo_symbol = QComboBox()
-        self._cbo_symbol.setObjectName("cboSymbol")
-        self._cbo_symbol.setEditable(True)
-        self._cbo_symbol.addItems(["BTCUSDT", "ETHUSDT"])
-        self._cbo_symbol.setFixedHeight(32)
-        self._cbo_symbol.setStyleSheet(_field_style())
-        self._cbo_symbol.setCurrentText(self._view_model.symbol)
-        self._cbo_symbol.currentTextChanged.connect(self._on_symbol_changed)
-        return self._cbo_symbol
+    def _build_symbol_button(self) -> QPushButton:
+        """The field that opens the shared symbol picker.
+
+        `EPIC-014`: was an editable `QComboBox` seeded with `["BTCUSDT",
+        "ETHUSDT"]`. Two of the exchange's ~1,400 pairs were one click away
+        and every other one had to be typed exactly, from memory, with
+        nothing to validate it — a typo became a symbol the stream would
+        never tick on. A button rather than a populated combo because the
+        list is fetched on demand (it costs an exchange round trip), which is
+        the same reason Backtest opens a dialog rather than filling a combo.
+        """
+        self._btn_symbol = QPushButton(self._view_model.symbol)
+        self._btn_symbol.setObjectName("btnSymbol")
+        self._btn_symbol.setFixedHeight(32)
+        self._btn_symbol.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_symbol.setStyleSheet(_field_style())
+        self._btn_symbol.clicked.connect(self._open_symbol_picker)
+        return self._btn_symbol
+
+    def set_symbol_preferences(self, preferences: SymbolPreferences) -> None:
+        """Swaps in the shared, persisted favourites/recents store.
+
+        @details Injected by `DashboardPresenter` (this panel has no
+        container access), and rebinds an already-built picker so the order
+        of construction and injection cannot matter. Until it is called the
+        panel uses its own store, so a bare `DevBoardPanel(vm)` — every
+        existing test — still opens a working picker.
+        """
+        if preferences is self._symbol_preferences:
+            return
+        if self._symbol_picker is not None:
+            self._symbol_preferences.unbind_picker(
+                self._symbol_picker, self._on_symbol_changed
+            )
+            preferences.bind_picker(self._symbol_picker, self._on_symbol_changed)
+        self._symbol_preferences = preferences
+
+    def _open_symbol_picker(self) -> None:
+        if self._symbol_picker is None:
+            self._symbol_picker = SymbolPickerOverlay(
+                get_symbols=lambda: self._view_model.symbolOptions,
+                get_favourites=lambda: self._symbol_preferences.favourites,
+                get_recents=lambda: self._symbol_preferences.recents,
+                get_current=lambda: self._view_model.symbol,
+                parent=self,
+            )
+            self._symbol_preferences.bind_picker(
+                self._symbol_picker, self._on_symbol_changed
+            )
+            self._view_model.symbolOptionsChanged.connect(self._refresh_symbol_picker)
+        # Emitted before showing, not after: the Presenter fetches on this
+        # signal, and the dialog renders "Đang tải" until the list lands.
+        self._view_model.symbolOptionsRequested.emit()
+        self._symbol_picker.show()
+        self._symbol_picker.raise_()
+
+    def _refresh_symbol_picker(self) -> None:
+        if self._symbol_picker is not None and self._symbol_picker.isVisible():
+            self._symbol_picker.refresh()
 
     def _build_strategy_combo(self) -> QComboBox:
         self._cbo_strategy = QComboBox()
@@ -443,22 +503,21 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
             self._view_model.symbol = text
 
     def _sync_symbol(self) -> None:
-        """ViewModel → combo, the direction the other fields already had.
+        """ViewModel → button label, the direction the other fields have.
 
-        @details The combo used to be seeded once in `_build_symbol_combo()`
-        and never re-read, so anything that set `view_model.symbol` after
+        @details The old combo was seeded once in `_build_symbol_combo()` and
+        never re-read, so anything that set `view_model.symbol` after
         construction left the widget showing a stale value. `EPIC-010D`
         restores a remembered symbol into the ViewModel, which made that gap
         reachable on every launch rather than rarely.
 
-        `QSignalBlocker` because `setCurrentText()` emits
-        `currentTextChanged`, which is wired to `_on_symbol_changed` and would
-        write straight back into the ViewModel — a restore must never look
-        like the user typing (`EPIC-010` design D6/mode #12).
+        `EPIC-014`'s button needs no `QSignalBlocker`: `setText()` emits
+        nothing, so this direction can no longer write back into the
+        ViewModel and look like the user acting (`EPIC-010` design D6/mode
+        #12) — the hazard the blocker existed for is gone with the combo.
         """
-        if self._cbo_symbol.currentText() != self._view_model.symbol:
-            with QSignalBlocker(self._cbo_symbol):
-                self._cbo_symbol.setCurrentText(self._view_model.symbol)
+        if self._btn_symbol.text() != self._view_model.symbol:
+            self._btn_symbol.setText(self._view_model.symbol)
 
     def _sync_price_ticker(self) -> None:
         vm = self._view_model
@@ -489,7 +548,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._btn_start.setEnabled(controls_active)
         self._btn_stop.setEnabled(vm.uiMode == "LIVE")
         self._cbo_market.setEnabled(controls_active)
-        self._cbo_symbol.setEnabled(controls_active)
+        self._btn_symbol.setEnabled(controls_active)
         self._cbo_strategy.setEnabled(controls_active)
         self._txt_start_date.setEnabled(controls_active)
         self._txt_end_date.setEnabled(controls_active)

@@ -15,6 +15,13 @@ and wired directly to `BackTestViewModel`'s `openXRequested` signals.
 
 Split into one file per dialog by `EPIC-007G`. This package re-exports
 every name the single module used to export, so no call site changed.
+
+`EPIC-014` removed two of them outright. `BacktestSymbolPickerDialog` and
+`TimeframePickerDialog` were this screen's private copies of a shape three
+screens render; `components/symbol_picker/` and `components/timeframe_picker/`
+are the shared versions, and `BackTestModalsHost` builds those directly. They
+are deleted rather than kept as thin forwarders: a forwarder is how the two
+copies survived `EPIC-007F`'s first attempt at this.
 """
 
 from __future__ import annotations
@@ -27,14 +34,11 @@ from .modals_host import BackTestModalsHost
 from .order_execution_dialog import OrderExecutionDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
-from .symbol_picker_dialog import BacktestSymbolPickerDialog
 from .time_range_picker_dialog import TimeRangePickerDialog
-from .timeframe_picker_dialog import TimeframePickerDialog
 from .timezone_picker_dialog import TimezonePickerDialog
 
 __all__ = [
     "BackTestModalsHost",
-    "BacktestSymbolPickerDialog",
     "CapitalDialogWidget",
     "ExtendedMetricsDialog",
     "IndicatorPickerDialog",
@@ -43,6 +47,5 @@ __all__ = [
     "StrategyPickerDialog",
     "StrategyPropertiesDialog",
     "TimeRangePickerDialog",
-    "TimeframePickerDialog",
     "TimezonePickerDialog",
 ]

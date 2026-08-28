@@ -60,6 +60,14 @@ class DashboardView(BaseView):
         self._main_splitter.setStretchFactor(1, 1)
         self._main_splitter.setSizes([900, 400])
 
+    def set_symbol_preferences(self, preferences) -> None:
+        """EPIC-014: DashboardPresenter injects the container-registered
+        favourites/recents store here — this view, like BackTestView, has no
+        container access. Forwarded to the panel, which owns the picker; a
+        no-op before `set_view_model()` has built one."""
+        if self._panel is not None:
+            self._panel.set_symbol_preferences(preferences)
+
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter (duck-typed fallback
         branch — this view has no `control_card`) and forwards them to the

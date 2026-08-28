@@ -137,8 +137,8 @@ def test_restores_symbol_interval_and_lookback_from_a_prior_session(view, contai
 def test_restoring_never_fetches_anything(view, container, dispatcher):
     """Mode #12 / D6, and the acceptance criterion this task was written
     around: opening the app pre-fills the form and nothing else. A restore
-    that looked like the user typing would fire
-    `cboSymbol.currentTextChanged` into a handler and start a fetch."""
+    that looked like the user acting would reach a handler and start a
+    fetch."""
     coordinator = _coordinator_with(
         {"symbol": "BTCUSDT", "interval": "15m", "lookback_days": 2}
     )

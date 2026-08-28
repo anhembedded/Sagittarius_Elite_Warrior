@@ -67,11 +67,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report i
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
-    DEFAULT_TIMEFRAMES,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
+    SymbolPreferences,
+    find_symbol_preferences,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    describe as describe_timeframe,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
@@ -446,9 +450,15 @@ class BackTestPresenter(BasePresenter):
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
-        # already defaults to DEFAULT_TIMEFRAMES[0] ("1m") internally, the
-        # fastest timeframe and so the one most likely to have synced data.
-        if default_interval in DEFAULT_TIMEFRAMES:
+        # already defaults to "1m" internally, the fastest timeframe and so
+        # the one most likely to have synced data.
+        #
+        # EPIC-014: checked against the domain's own timeframes, not against
+        # `DEFAULT_TIMEFRAMES` (the chart toolbar's five-pill row). A user
+        # whose DEFAULT_INTERVAL was `4h` had it silently ignored, because
+        # the tuple sizing a toolbar was deciding what a valid config value
+        # was.
+        if describe_timeframe(default_interval) is not None:
             self._view_model.selectedTimeframe = default_interval
         # BOT-102: mirrors the config-derived self._symbol so the picker
         # highlights the right entry even before it's ever been opened.
@@ -525,6 +535,13 @@ class BackTestPresenter(BasePresenter):
                     False,
                 )
             )
+        )
+        # EPIC-014 — the shared symbol favourites/recents store. Optional
+        # exactly like the UiStateCoordinator above: presenters are built
+        # against containers that know nothing about it, so a screen that
+        # gets None keeps its own unpersisted store and still works.
+        view.set_symbol_preferences(
+            find_symbol_preferences(container) or SymbolPreferences()
         )
         view.set_chart_host_factory(self.container.resolve(BacktestChartHostFactory))
         view.render_symbol_cards([self._symbol])

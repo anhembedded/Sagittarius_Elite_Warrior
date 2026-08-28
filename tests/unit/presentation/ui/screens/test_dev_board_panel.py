@@ -107,7 +107,7 @@ def test_controls_disabled_while_live(qapp, panel, view_model):
 
     assert panel._btn_start.isEnabled() is False
     assert panel._btn_stop.isEnabled() is True
-    assert panel._cbo_symbol.isEnabled() is False
+    assert panel._btn_symbol.isEnabled() is False
     assert panel._txt_start_date.isEnabled() is False
 
 
@@ -180,8 +180,51 @@ def test_view_model_date_change_syncs_the_field(qapp, panel, view_model):
     assert panel._txt_start_date.text() == "2024-06-01 00:00"
 
 
-def test_symbol_combo_starts_at_the_view_model_default(qapp, panel, view_model):
-    assert panel._cbo_symbol.currentText() == view_model.symbol
+def test_symbol_button_starts_at_the_view_model_default(qapp, panel, view_model):
+    assert panel._btn_symbol.text() == view_model.symbol
+
+
+def test_symbol_button_follows_the_view_model(qapp, panel, view_model):
+    """EPIC-014 — the direction the old combo silently lacked: it was seeded
+    once and never re-read, so a remembered symbol restored into the
+    ViewModel left the widget showing the default."""
+    view_model.symbol = "ETHBTC"
+    qapp.processEvents()
+
+    assert panel._btn_symbol.text() == "ETHBTC"
+
+
+def test_opening_the_symbol_picker_asks_the_presenter_for_the_list(
+    qapp, panel, view_model
+):
+    """The exchange list costs a round trip, so it is fetched on the first
+    open rather than at screen construction — the picker is what asks."""
+    requested = []
+    view_model.symbolOptionsRequested.connect(lambda: requested.append(True))
+
+    panel._btn_symbol.click()
+    qapp.processEvents()
+
+    assert requested == [True]
+    assert panel._symbol_picker is not None
+    assert panel._symbol_picker.objectName() == "symbolPickerModal"
+    panel._symbol_picker.close()
+
+
+def test_choosing_from_the_picker_writes_through_to_the_view_model(
+    qapp, panel, view_model
+):
+    view_model.set_symbol_options(["BTCUSDT", "ETHBTC"])
+    panel._btn_symbol.click()
+    qapp.processEvents()
+
+    card = next(c for c in panel._symbol_picker._cards if c.entry.symbol == "ETHBTC")
+    card.clicked.emit()
+    qapp.processEvents()
+
+    assert view_model.symbol == "ETHBTC"
+    assert panel._btn_symbol.text() == "ETHBTC"
+    assert panel._symbol_preferences.recents == ("ETHBTC",)
 
 
 def test_log_panel_is_bound_to_the_view_model_log_model(qapp, panel, view_model):

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from ....components.symbol_picker import SymbolPreferences
 from ..backtest_view_model import BackTestViewModel
 from ..logic.chart_canvas_view import ChartDisplayMode
 from .i_backtest_chart_controls import IBacktestChartControls
@@ -29,7 +30,7 @@ DEFAULT_VIEW_MODEL_CONTEXT_NAME = "viewModel"
 @runtime_checkable
 class IBacktestView(Protocol):
     """
-    @brief The Backtest screen's Presenter↔View contract — all 14 members
+    @brief The Backtest screen's Presenter↔View contract — all 16 members
     the Presenter side actually uses, and nothing else.
 
     @details **`Protocol`, not an ABC**, under `architecture-rule.md` §2.1
@@ -95,6 +96,17 @@ class IBacktestView(Protocol):
 
     def render_symbol_cards(self, symbols: list[str]) -> list[IBacktestChartHost]:
         """(Re)builds one chart host per symbol and returns them."""
+        ...
+
+    def set_symbol_preferences(self, preferences: SymbolPreferences) -> None:
+        """Injects the container-registered symbol favourites/recents store.
+
+        @details `EPIC-014`. Same shape and the same reason as
+        `set_chart_host_factory` below: the View self-constructs an
+        unpersisted default so a bare `BackTestView()` works, and the
+        Presenter — which has the container — replaces it with the shared
+        one.
+        """
         ...
 
     # -- Chart host configuration ------------------------------------ #
