@@ -21,6 +21,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    TimeframePickerOverlay,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    all_options as all_timeframe_options,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Panel,
     StyledButton,
@@ -78,6 +84,7 @@ class SettingsView(BaseView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._view_model: SettingsViewModel | None = None
+        self._interval_picker: TimeframePickerOverlay | None = None
         self._build_ui()
 
     def set_view_model(self, view_model: SettingsViewModel) -> None:
@@ -89,16 +96,13 @@ class SettingsView(BaseView):
         self._api_key_field.setText(view_model.apiKey)
         self._api_secret_field.setText(view_model.apiSecret)
         self._default_symbols_field.setText(view_model.defaultSymbols)
-        self._default_interval_field.setText(view_model.defaultInterval)
+        self._btn_default_interval.setText(view_model.defaultInterval)
         self._sync_days_spin.setValue(view_model.defaultSyncDays)
         self._apply_status(view_model.statusMessage, view_model.statusIsError)
 
         self._api_key_field.textEdited.connect(self._on_api_key_edited)
         self._api_secret_field.textEdited.connect(self._on_api_secret_edited)
         self._default_symbols_field.textEdited.connect(self._on_default_symbols_edited)
-        self._default_interval_field.textEdited.connect(
-            self._on_default_interval_edited
-        )
         self._sync_days_spin.valueChanged.connect(self._on_sync_days_changed)
         self._save_button.clicked.connect(view_model.requestSave)
 
@@ -112,7 +116,7 @@ class SettingsView(BaseView):
             lambda: self._default_symbols_field.setText(view_model.defaultSymbols)
         )
         view_model.defaultIntervalChanged.connect(
-            lambda: self._default_interval_field.setText(view_model.defaultInterval)
+            lambda: self._btn_default_interval.setText(view_model.defaultInterval)
         )
         view_model.defaultSyncDaysChanged.connect(
             lambda: self._sync_days_spin.setValue(view_model.defaultSyncDays)
@@ -288,10 +292,7 @@ class SettingsView(BaseView):
         )
         self._default_symbols_field = self._last_field
 
-        row = self._add_field_row(
-            grid, row, "Default Interval:", "txtDefaultInterval", "1m"
-        )
-        self._default_interval_field = self._last_field
+        row = self._add_default_interval_row(grid, row)
 
         self._add_sync_days_row(grid, row)
 
@@ -334,6 +335,42 @@ class SettingsView(BaseView):
         grid.addWidget(field, row, 1)
         self._last_field = field
         return row + 1
+
+    def _add_default_interval_row(self, grid: QGridLayout, row: int) -> int:
+        """`DEFAULT_INTERVAL` as a picker, not a text field.
+
+        @details `EPIC-014`. This was a free-text `StyledField`, and a typo in
+        it failed silently: `BackTestPresenter` checked the value against a
+        list and simply ignored anything not in it, so `"4hr"` — or, until
+        this epic, a perfectly valid `"4h"` — left the app on `1m` with no
+        message anywhere. A field whose only legal values are sixteen known
+        codes has no business being typed.
+        """
+        grid.addWidget(self._field_label("Default Interval:"), row, 0)
+        self._btn_default_interval = StyledButton("", role=StyleRole.SECONDARY_BUTTON)
+        self._btn_default_interval.setObjectName("btnDefaultInterval")
+        self._btn_default_interval.setMinimumHeight(_FIELD_HEIGHT)
+        self._btn_default_interval.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_default_interval.clicked.connect(self._open_default_interval_picker)
+        grid.addWidget(self._btn_default_interval, row, 1)
+        return row + 1
+
+    def _open_default_interval_picker(self) -> None:
+        if self._interval_picker is None:
+            self._interval_picker = TimeframePickerOverlay(
+                get_options=lambda: [option.code for option in all_timeframe_options()],
+                get_current=lambda: (
+                    self._view_model.defaultInterval
+                    if self._view_model is not None
+                    else ""
+                ),
+                parent=self,
+            )
+            self._interval_picker.timeframe_chosen.connect(
+                self._on_default_interval_edited
+            )
+        self._interval_picker.show()
+        self._interval_picker.raise_()
 
     def _add_secret_row(self, grid: QGridLayout, row: int) -> int:
         grid.addWidget(self._field_label("Binance API Secret (Private):"), row, 0)

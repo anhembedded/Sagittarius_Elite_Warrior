@@ -29,6 +29,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed imp
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
+    SymbolPreferences,
+    find_symbol_preferences,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DATETIME_FORMAT,
     UIMode,
@@ -274,6 +278,14 @@ class DataManagementPresenter(BasePresenter):
             self._state_coordinator.restore_into(self)
         self._view_model.selectedSymbolChanged.connect(self._mark_state_dirty)
         self._view_model.selectedIntervalChanged.connect(self._mark_state_dirty)
+
+        # EPIC-014 — the shared symbol favourites/recents store. Optional in
+        # the same way as the coordinator above: a presenter built against a
+        # container that does not know about it keeps the view's own
+        # unpersisted store and still works.
+        view.set_symbol_preferences(
+            find_symbol_preferences(container) or SymbolPreferences()
+        )
 
         self._refresh_stats()
         # EPIC-005E: DataManagementView builds its own QtWidgets tree instead of

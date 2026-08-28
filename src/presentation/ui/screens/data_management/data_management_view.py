@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -29,8 +28,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar import (
     AppProgressBar,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker_overlay import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPickerOverlay,
+    SymbolPreferences,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    TimeframePickerOverlay,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     ConfirmOverlay,
@@ -103,6 +106,11 @@ class DataManagementView(BaseView):
         super().__init__(parent)
         self._view_model: DataManagementViewModel | None = None
         self._symbol_picker: SymbolPickerOverlay | None = None
+        self._timeframe_picker: TimeframePickerOverlay | None = None
+        # EPIC-014: replaced by the container-registered store when the
+        # Presenter injects it, so a pair starred here is starred on Backtest
+        # and Dev Board too. Self-constructed so a bare view still works.
+        self._symbol_preferences = SymbolPreferences()
         self._kline_inspector: KLineInspectorDialog | None = None
         self._gap_inspector: GapInspectorDialog | None = None
         self._build_ui()
@@ -140,13 +148,8 @@ class DataManagementView(BaseView):
         view_model.statusModel.modelReset.connect(self._on_rows_changed)
         view_model.statusModel.dataChanged.connect(self._on_data_changed)
 
-        self._cbo_symbol.addItems(view_model.symbols)
-        self._cbo_symbol.setCurrentText(view_model.selectedSymbol)
-        self._cbo_interval.addItems(view_model.intervals)
-        self._cbo_interval.setCurrentText(view_model.selectedInterval)
-
-        self._cbo_symbol.currentTextChanged.connect(self._on_symbol_text_changed)
-        self._cbo_interval.currentTextChanged.connect(self._on_interval_changed)
+        self._btn_symbol.setText(view_model.selectedSymbol)
+        self._btn_interval.setText(view_model.selectedInterval)
         self._search_field.textEdited.connect(self._on_search_edited)
 
         self._time_range.set_use_custom_time(view_model.useCustomTime)
@@ -169,9 +172,9 @@ class DataManagementView(BaseView):
         view_model.openKlineInspectorRequested.connect(self._open_kline_inspector)
         view_model.openGapInspectorRequested.connect(self._open_gap_inspector)
 
-        view_model.selectedSymbolChanged.connect(self._sync_symbol_combo)
-        view_model.selectedIntervalChanged.connect(self._sync_interval_combo)
-        view_model.symbolOptionsChanged.connect(self._noop)  # picker re-reads live
+        view_model.selectedSymbolChanged.connect(self._sync_symbol_field)
+        view_model.selectedIntervalChanged.connect(self._sync_interval_field)
+        view_model.symbolOptionsChanged.connect(self._refresh_symbol_picker)
         view_model.useCustomTimeChanged.connect(
             lambda: self._time_range.set_use_custom_time(view_model.useCustomTime)
         )
@@ -184,48 +187,78 @@ class DataManagementView(BaseView):
         self._sync_progress()
         self._sync_ui_mode()
 
-    @staticmethod
-    def _noop() -> None:
-        pass
-
     # ------------------------------------------------------------------ #
     # Symbol / interval / search
     # ------------------------------------------------------------------ #
-
-    def _on_symbol_text_changed(self, text: str) -> None:
-        if self._view_model is not None and text.strip():
-            self._view_model.selectedSymbol = text
 
     def _on_interval_changed(self, text: str) -> None:
         if self._view_model is not None and text.strip():
             self._view_model.selectedInterval = text
 
-    def _sync_symbol_combo(self) -> None:
-        if self._cbo_symbol.currentText() != self._view_model.selectedSymbol:
-            self._cbo_symbol.setCurrentText(self._view_model.selectedSymbol)
+    def _sync_symbol_field(self) -> None:
+        if self._btn_symbol.text() != self._view_model.selectedSymbol:
+            self._btn_symbol.setText(self._view_model.selectedSymbol)
 
-    def _sync_interval_combo(self) -> None:
-        if self._cbo_interval.currentText() != self._view_model.selectedInterval:
-            self._cbo_interval.setCurrentText(self._view_model.selectedInterval)
+    def _sync_interval_field(self) -> None:
+        if self._btn_interval.text() != self._view_model.selectedInterval:
+            self._btn_interval.setText(self._view_model.selectedInterval)
 
     def _on_search_edited(self, text: str) -> None:
         if self._view_model is not None:
             self._view_model.searchText = text
+
+    def set_symbol_preferences(self, preferences: SymbolPreferences) -> None:
+        """Swaps in the shared, persisted favourites/recents store — injected
+        by `DataManagementPresenter`, which has the container this view does
+        not. Rebinds an already-built picker so call order cannot matter."""
+        if preferences is self._symbol_preferences:
+            return
+        if self._symbol_picker is not None:
+            self._symbol_preferences.unbind_picker(
+                self._symbol_picker, self._choose_symbol
+            )
+            preferences.bind_picker(self._symbol_picker, self._choose_symbol)
+        self._symbol_preferences = preferences
 
     def _open_symbol_picker(self) -> None:
         if self._view_model is None:
             return
         if self._symbol_picker is None:
             self._symbol_picker = SymbolPickerOverlay(
-                get_options=lambda: self._view_model.symbolOptions,
-                on_symbol_chosen=self._choose_symbol,
+                get_symbols=lambda: self._view_model.symbolOptions,
+                get_favourites=lambda: self._symbol_preferences.favourites,
+                get_recents=lambda: self._symbol_preferences.recents,
+                get_current=lambda: self._view_model.selectedSymbol,
                 parent=self,
             )
-        self._symbol_picker.open()
+            self._symbol_preferences.bind_picker(
+                self._symbol_picker, self._choose_symbol
+            )
+        self._symbol_picker.show()
+        self._symbol_picker.raise_()
+
+    def _refresh_symbol_picker(self) -> None:
+        """The scan populates `symbolOptions` while the dialog may already be
+        open; without this it stays on "Đang tải" until reopened."""
+        if self._symbol_picker is not None and self._symbol_picker.isVisible():
+            self._symbol_picker.refresh()
 
     def _choose_symbol(self, symbol: str) -> None:
         if self._view_model is not None:
             self._view_model.selectedSymbol = symbol
+
+    def _open_timeframe_picker(self) -> None:
+        if self._view_model is None:
+            return
+        if self._timeframe_picker is None:
+            self._timeframe_picker = TimeframePickerOverlay(
+                get_options=lambda: self._view_model.intervals,
+                get_current=lambda: self._view_model.selectedInterval,
+                parent=self,
+            )
+            self._timeframe_picker.timeframe_chosen.connect(self._on_interval_changed)
+        self._timeframe_picker.show()
+        self._timeframe_picker.raise_()
 
     def _open_kline_inspector(self) -> None:
         if self._view_model is None:
@@ -288,9 +321,8 @@ class DataManagementView(BaseView):
         idle = vm.uiMode == _IDLE_MODE
         self._btn_vacuum.setEnabled(idle)
         self._btn_purge.setEnabled(idle)
-        self._cbo_symbol.setEnabled(idle)
-        self._btn_search_symbol.setEnabled(idle)
-        self._cbo_interval.setEnabled(idle)
+        self._btn_symbol.setEnabled(idle)
+        self._btn_interval.setEnabled(idle)
         self._time_range.set_read_only(not idle)
         for object_name, *_rest in _ACTION_BUTTONS:
             self._action_buttons[object_name].setEnabled(idle)
@@ -484,33 +516,39 @@ class DataManagementView(BaseView):
         grid.setVerticalSpacing(8)
         grid.setColumnStretch(1, 1)
 
+        # EPIC-014 — both fields are buttons that open the shared pickers.
+        #
+        # Symbol was an editable `QComboBox` beside a magnifier button, i.e.
+        # two widgets for one choice: the combo let a symbol be typed with
+        # nothing to validate it, and the button next to it opened the picker
+        # that could have validated it. The button *is* the field now, so
+        # there is one way in and it cannot produce an unlisted symbol.
+        #
+        # Timeframe was a closed combo, which was at least correct — it
+        # already offered all sixteen. It becomes a button for the same
+        # reason Backtest's did: one shape for "choose a timeframe" across
+        # every screen, with the unit spelled out on each card.
         grid.addWidget(self._field_label("Symbol:"), 0, 0)
-        symbol_row = QHBoxLayout()
-        self._cbo_symbol = QComboBox()
-        self._cbo_symbol.setObjectName("cboSymbol")
-        self._cbo_symbol.setEditable(True)
-        self._cbo_symbol.setStyleSheet(field_style())
-        symbol_row.addWidget(self._cbo_symbol, 1)
-
-        self._btn_search_symbol = QPushButton()
-        self._btn_search_symbol.setObjectName("btnSearchSymbol")
-        self._btn_search_symbol.setFixedSize(32, 32)
-        self._btn_search_symbol.setIcon(
+        self._btn_symbol = QPushButton()
+        self._btn_symbol.setObjectName("btnSymbol")
+        self._btn_symbol.setFixedHeight(32)
+        self._btn_symbol.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_symbol.setIcon(
             get_icon_loader().get_icon("search", Palette.MUTED, 14)
         )
-        self._btn_search_symbol.setToolTip("Tìm kiếm nhanh trong 1.361+ mã Binance")
-        self._btn_search_symbol.setStyleSheet(field_style())
-        self._btn_search_symbol.clicked.connect(self._open_symbol_picker)
-        symbol_row.addWidget(self._btn_search_symbol)
-        symbol_row_host = QWidget()
-        symbol_row_host.setLayout(symbol_row)
-        grid.addWidget(symbol_row_host, 0, 1)
+        self._btn_symbol.setToolTip("Tìm kiếm nhanh trong 1.361+ mã Binance")
+        self._btn_symbol.setStyleSheet(field_style())
+        self._btn_symbol.clicked.connect(self._open_symbol_picker)
+        grid.addWidget(self._btn_symbol, 0, 1)
 
         grid.addWidget(self._field_label("Timeframe:"), 1, 0)
-        self._cbo_interval = QComboBox()
-        self._cbo_interval.setObjectName("cboInterval")
-        self._cbo_interval.setStyleSheet(field_style())
-        grid.addWidget(self._cbo_interval, 1, 1)
+        self._btn_interval = QPushButton()
+        self._btn_interval.setObjectName("btnInterval")
+        self._btn_interval.setFixedHeight(32)
+        self._btn_interval.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_interval.setStyleSheet(field_style())
+        self._btn_interval.clicked.connect(self._open_timeframe_picker)
+        grid.addWidget(self._btn_interval, 1, 1)
 
         layout.addLayout(grid)
 

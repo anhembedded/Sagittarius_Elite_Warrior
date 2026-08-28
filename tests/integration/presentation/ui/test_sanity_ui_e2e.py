@@ -203,10 +203,13 @@ def test_sanity_settings_screen_save(qtbot, main_window, navigate, qapp):
     assert view is not None
     qapp.processEvents()
 
-    from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton
+    from PySide6.QtWidgets import QLabel, QPushButton
 
-    # Fields populated from IConfig (user_config.json) on load.
-    assert view.findChild(QLineEdit, "txtDefaultInterval").text() != ""
+    # Fields populated from IConfig (user_config.json) on load. EPIC-014 made
+    # Default Interval a picker button rather than a free-text field — its
+    # only legal values are the sixteen the domain declares, and a typo in it
+    # used to be ignored silently.
+    assert view.findChild(QPushButton, "btnDefaultInterval").text() != ""
 
     view.findChild(QPushButton, "btnSaveCredentials").click()
     qapp.processEvents()

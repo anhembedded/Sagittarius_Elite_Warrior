@@ -61,7 +61,9 @@ _COLOUR_SOURCES = ("palette.py",)
 #: mang `base-exempt` vì nó là một cột caption + bar, không phải surface), và
 #: `BaseCard` — bản trùng lặp `Card` của engine, `ChartCard` giờ kế thừa
 #: thẳng engine; và `SymbolPickerDialog`, thay bằng
-#: `components/symbol_picker_overlay.py` trên `PickerOverlay`.
+#: `components/symbol_picker_overlay.py` trên `PickerOverlay` (bản mỏng đó
+#: đã bị `EPIC-014` xoá, thay bằng `components/symbol_picker/` — giữ lại ghi
+#: chú vì nó giải thích con số của mốc đó).
 #:
 #: Ratchet báo đỏ **ba lần** trong task đó, mỗi lần đúng lúc con số giảm mà
 #: trần chưa hạ theo. Đó là việc nó sinh ra để làm — và nó cũng là thứ duy

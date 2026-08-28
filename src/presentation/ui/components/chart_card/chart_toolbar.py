@@ -2,8 +2,28 @@ from collections.abc import Sequence
 
 from PySide6 import QtCore, QtWidgets
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    TimeframePickerOverlay,
+    all_options,
+)
 
+#: The quick-pick pills. Five, because this row lives in a chart header and
+#: sixteen would not fit — that constraint is real and stays.
+#:
+#: `EPIC-014`: what changed is that this tuple no longer *decides what the
+#: user may choose*. It used to be the whole timeframe UI, and it was also
+#: `BackTestViewModel.timeframeOptions` and the validity test for the
+#: `DEFAULT_INTERVAL` config key, so a constant sizing a header row was
+#: silently rejecting eleven timeframes the domain, the exchange and the
+#: database all support. The `…` button below reaches all sixteen.
 DEFAULT_TIMEFRAMES = ("1m", "5m", "15m", "1h", "1d")
+
+#: Label of the button that opens the full picker. Replaced by the active
+#: timeframe's own code whenever that timeframe has no pill of its own —
+#: otherwise choosing `4h` left every pill unselected and the row said
+#: nothing about what was actually being charted.
+_MORE_LABEL = "…"
+_MORE_TOOLTIP = "Chọn khung thời gian khác"
 
 
 class ChartToolbar(QtWidgets.QWidget):
@@ -15,6 +35,10 @@ class ChartToolbar(QtWidgets.QWidget):
     """
 
     sig_timeframe_changed = QtCore.Signal(str)
+
+    #: Widened so the `…` button can show a code like `12h`; the pills stay
+    #: at 40 and keep the row's rhythm.
+    _MORE_BUTTON_WIDTH = 44
 
     def __init__(
         self,
@@ -38,17 +62,63 @@ class ChartToolbar(QtWidgets.QWidget):
             self._buttons[timeframe] = btn
             layout.addWidget(btn)
 
+        self._picker: TimeframePickerOverlay | None = None
+        self._active: str | None = None
+        self._btn_more = QtWidgets.QPushButton(_MORE_LABEL)
+        self._btn_more.setObjectName("btnTimeframeMore")
+        self._btn_more.setCheckable(True)
+        self._btn_more.setMaximumWidth(self._MORE_BUTTON_WIDTH)
+        self._btn_more.setCursor(QtCore.Qt.PointingHandCursor)
+        self._btn_more.setToolTip(_MORE_TOOLTIP)
+        self._btn_more.clicked.connect(self._open_picker)
+        layout.addWidget(self._btn_more)
+
         self.set_active(active or (timeframes[0] if timeframes else None))
 
     def _on_clicked(self, timeframe: str) -> None:
         self.set_active(timeframe)
         self.sig_timeframe_changed.emit(timeframe)
 
+    def _open_picker(self) -> None:
+        """Opens the full timeframe picker.
+
+        @details This is still a dumb component: it opens a chooser for the
+        very thing it already chooses and emits the same signal, so no
+        consumer learns anything new and neither has to duplicate the
+        wiring. Owning the dialog here rather than exposing a
+        `sig_more_requested` is what keeps Backtest and Dev Board from
+        growing two copies of it — which is exactly how the pickers this
+        replaces multiplied in the first place.
+        """
+        if self._picker is None:
+            self._picker = TimeframePickerOverlay(
+                get_options=lambda: [option.code for option in all_options()],
+                get_current=lambda: self._active or "",
+                parent=self,
+            )
+            self._picker.timeframe_chosen.connect(self._on_clicked)
+        self._picker.show()
+        self._picker.raise_()
+
     def set_active(self, timeframe: str | None) -> None:
+        """Highlights `timeframe`, wherever it lives.
+
+        @details A timeframe with no pill of its own is shown *on* the `…`
+        button rather than nowhere. Before `EPIC-014` the row simply had no
+        selection in that case, which was reachable on every launch:
+        `EPIC-010D` restores a remembered interval, and `DEFAULT_INTERVAL`
+        can name any of the sixteen.
+        """
+        self._active = timeframe
         for tf, btn in self._buttons.items():
             active = tf == timeframe
             btn.setChecked(active)
             btn.setStyleSheet(self._button_style(active))
+
+        is_off_pill = timeframe is not None and timeframe not in self._buttons
+        self._btn_more.setText(timeframe if is_off_pill else _MORE_LABEL)
+        self._btn_more.setChecked(is_off_pill)
+        self._btn_more.setStyleSheet(self._button_style(is_off_pill))
 
     @staticmethod
     def _button_style(active: bool) -> str:

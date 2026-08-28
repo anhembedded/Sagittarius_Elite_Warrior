@@ -1,10 +1,10 @@
 # EPIC-014 — Widget chọn Symbol và Timeframe dùng chung
 
-**Trạng thái:** đang làm
+**Trạng thái:** ✅ hoàn thành
 **Bắt đầu:** 2026-08-28
 **Yêu cầu gốc:** *"tạo cho tôi cái widget như này đi, đổi nó thành widget dùng
 chung cho backtest và dev"* + *"ý là tui muốn bạn tạo card, và tạo thêm nhiều
-timeframe"*
+timeframe"* + *"các màn hình, cái nào cùng tính năng thì app dùng luôn cái mới"*
 
 ---
 
@@ -35,9 +35,18 @@ hàng pill trên header của chart**. Một hằng số canh layout đang quy�
 người dùng được chọn khung nào.
 
 Hệ quả đo được, không phải suy đoán:
-`BackTestPresenter` cũng kiểm tra `if default_interval in DEFAULT_TIMEFRAMES`
-— nên một người đặt `DEFAULT_INTERVAL = "4h"` trong config bị **bỏ qua im
-lặng**, vì cái tuple canh toolbar cũng đang định nghĩa "config hợp lệ là gì".
+
+1. `BackTestPresenter` cũng kiểm tra `if default_interval in DEFAULT_TIMEFRAMES`
+   — nên một người đặt `DEFAULT_INTERVAL = "4h"` trong config bị **bỏ qua im
+   lặng**, vì cái tuple canh toolbar cũng đang định nghĩa "config hợp lệ là gì".
+2. `ChartToolbar` — hàng 5 pill nằm trên **mọi** chart card, ở cả Backtest lẫn
+   Dev Board — là bộ chọn timeframe thật, và cũng chỉ có 5. `set_active("4h")`
+   không khớp nút nào, nên **cả 5 pill đều không sáng** và người dùng không có
+   đường quay lại khung đang xem. Trạng thái này chạm được ở **mọi lần khởi
+   động**: `EPIC-010D` khôi phục interval đã nhớ, và `DEFAULT_INTERVAL` đặt
+   được bất kỳ khung nào trong 16.
+3. Settings: `Default Interval` là ô text tự do. Gõ sai → im lặng, theo đúng
+   đường (1).
 
 ---
 
@@ -85,9 +94,21 @@ là phiên bản duy nhất của việc này mà không thể trôi ra lại.
 | Backtest symbol | `BacktestSymbolPickerDialog` (xoá) | `SymbolPickerOverlay` |
 | Backtest timeframe | `TimeframePickerDialog` (xoá), 5 khung | `TimeframePickerOverlay`, 16 khung |
 | Dev Board symbol | `QComboBox` 2 mục nhét cứng | `SymbolPickerOverlay` + `symbolOptions` lấy từ sàn (BOT-102) |
+| Data Management symbol | `QComboBox` sửa được **+** nút kính lúp (2 widget cho 1 lựa chọn) | một nút mở `SymbolPickerOverlay` |
+| Data Management timeframe | `QComboBox` đóng (đã đủ 16) | nút mở `TimeframePickerOverlay` |
+| `ChartToolbar` (Backtest + Dev Board) | 5 pill, hết | 5 pill **+ nút `…`** mở đủ 16; khung ngoài pill hiện ngay trên nút `…` |
+| Settings `Default Interval` | ô text tự do | nút mở `TimeframePickerOverlay` |
 
-Hai dialog cũ **bị xoá hẳn**, không giữ lại làm forwarder — forwarder chính là
-cách hai bản sao sống sót qua lần thử đầu của `EPIC-007F`.
+Ba file cũ **bị xoá hẳn** (`backtest_modals/symbol_picker_dialog.py`,
+`backtest_modals/timeframe_picker_dialog.py`, `components/symbol_picker_overlay.py`),
+không giữ lại làm forwarder — forwarder chính là cách các bản sao sống sót qua
+lần thử đầu của `EPIC-007F`.
+
+`ChartToolbar` tự sở hữu dialog của nó thay vì bắn `sig_more_requested` ra
+ngoài: nó chỉ mở đúng cái nó vốn đã chọn và bắn lại đúng
+`sig_timeframe_changed`, nên **không consumer nào phải sửa** — và không màn
+hình nào mọc thêm một bản sao của đoạn đấu dây đó, đúng thứ đã làm các picker
+nhân lên ngay từ đầu.
 
 `SymbolPreferences` đăng ký singleton trong container ở `app_bootstrapper`, nối
 vào `UiStateCoordinator` (`EPIC-010`) để yêu thích/gần đây sống qua lần khởi
@@ -104,9 +125,11 @@ domain, không hỏi cái tuple canh toolbar.
 
 ## 3. Chưa làm / cố ý để lại
 
-- **Data Management vẫn dùng `components/symbol_picker_overlay.py` (bản mỏng).**
-  Yêu cầu của user nói rõ phạm vi là *"backtest và dev"*. Chuyển màn hình thứ
-  ba là việc tách riêng, không gộp vào đây để giữ diff đọc được.
+- **Settings → `Default Symbols` vẫn là ô text.** Nó là một **danh sách** ngăn
+  bằng dấu phẩy, không phải một lựa chọn đơn — khác tính năng với picker, và
+  gắn picker vào đó còn kéo theo việc màn Settings phải gọi sàn lấy danh sách
+  mã, thứ nó chưa từng làm. Ghi lại ở đây thay vì làm nửa vời.
 - `ChartToolbar.DEFAULT_TIMEFRAMES` **giữ nguyên 5 pill** — đó là hàng pill
-  trên header chart, 16 pill sẽ tràn. Nó không còn kiêm nhiệm việc định nghĩa
-  danh sách chọn nữa, đó mới là chỗ sai.
+  trên header chart, 16 pill sẽ tràn. Ràng buộc đó là thật và giữ nguyên; chỗ
+  sai là nó từng kiêm luôn việc *định nghĩa người dùng được chọn gì*, và nút
+  `…` mới là cái gỡ chỗ đó.
