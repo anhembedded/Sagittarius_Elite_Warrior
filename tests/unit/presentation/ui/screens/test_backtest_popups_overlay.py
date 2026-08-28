@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
+    named_descendants,
+)
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -130,7 +133,15 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
     assert dialog is not None
     assert dialog.objectName() == "extendedMetricsPopup"
     assert dialog.isVisible() is True
-    assert dialog._grid.count() == 2
+    # EPIC-015 §4c: body is StatGrid.qml now; each card is a delegate the
+    # Repeater creates, only reachable through childItems() (see
+    # `_qml_test_support`'s module docstring).
+    cards = [
+        item
+        for item in named_descendants(dialog.root_object)
+        if item.objectName().startswith("statCard_")
+    ]
+    assert len(cards) == 2
 
 
 def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
@@ -147,7 +158,14 @@ def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
     assert dialog is not None
     assert dialog.objectName() == "limitationsPopup"
     assert dialog.isVisible() is True
-    assert dialog._list_layout.count() == 2
+    # EPIC-015 §4c: body is SelectList.qml with selectable=False, so each
+    # limitation is a "bulletItem_" delegate rather than a QLabel.
+    rows = [
+        item
+        for item in named_descendants(dialog.root_object)
+        if item.objectName().startswith("bulletItem_")
+    ]
+    assert len(rows) == 2
 
 
 def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_screen):
@@ -230,7 +248,13 @@ def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
     assert dialog is not None
     assert dialog.objectName() == "strategyPickerModal"
     assert dialog.isVisible() is True
-    assert dialog._list_layout.count() == 1
+    # EPIC-015 §4c: body is the shared SelectList.qml, selectable=True.
+    rows = [
+        item
+        for item in named_descendants(dialog.root_object)
+        if item.objectName().startswith("selectItem_")
+    ]
+    assert len(rows) == 1
 
 
 def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(

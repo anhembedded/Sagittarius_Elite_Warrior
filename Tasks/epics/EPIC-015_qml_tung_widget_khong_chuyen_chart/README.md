@@ -147,7 +147,7 @@ hôm nay. Cầu `Palette` → QML còn sống nguyên. Một nguồn token, hai 
 | :--- | :--- | ---: | :---: | :--- |
 | **0** ✅ | **Chỉ hạ tầng, không kit** (§3.3): thư mục `src/presentation/ui/qml/`, một `QmlOverlay` host, luật cấm màu literal trong `.qml` | ~100 | — | Thu nhỏ theo quyết định styling của user. Không có component style nào được viết ở bậc này. |
 | **1** ✅ | **2 modal pilot** — `capital_dialog` + `timezone_picker_dialog` (nhỏ nhất, độc lập nhất) | ~200 | ❌ | Cửa sổ riêng ⇒ **zero rủi ro lồng nhau** (phép đo C). Lỗi lộ ngay. Rollback = trả lại 2 file. |
-| **2** | **9 modal Backtest còn lại + 2 modal Data Management** | ~1.550 | ❌ | Cùng hình dạng bậc 1, lặp lại. Đây là chỗ QML trả lãi sớm nhất: modal toàn form + binding. |
+| **2** ✅ | **Sửa lại sau phản biện của user (xem §4c): không phải "9 modal", là 3 component dùng chung + 5 modal Backtest ghép vào chúng.** Còn lại `time_range_picker` (ghép A+E, chưa làm) + `strategy_properties_dialog` (451 dòng, riêng — chính là dialog `BUG-064`, chưa làm) + 2 modal Data Management (bảng, chưa quyết) | ~700 | ❌ | Đếm lại theo **hình dạng**, không theo file — xem §4c. |
 | **3** | **Settings** — cả route thành `QQuickWidget` | 443 | ❌ | Màn nhỏ nhất không chart (phép đo B). Pilot cho "cả route là QML". |
 | **4** | **Data Management** — cả route | 2.452 | ❌ | Không chart, nhưng nặng bảng. Cân nhắc giữ `QListView` + model nếu QML `ListView` không bằng. |
 | **5** | **Dev Board** — panel thành `QQuickWidget` cạnh chart | 1.399 | ✅ giữ | Lần đầu chạm pattern A (phép đo A). Màn có chart nhỏ hơn ⇒ làm trước Backtest. |
@@ -160,6 +160,65 @@ Chart 4.253 dòng **không bị đụng tới**.
 
 Sau bậc 6, app ở trạng thái ổn định lâu dài: **shell + chart QtWidgets, mọi thứ khác QML.**
 Đó không phải nửa đường — đó là đích.
+
+## 4c. Bậc 2 — sửa lại sau phản biện của user
+
+> *"92 Widget là do mình k reuse đó, chứ làm gì mà tới 92 loại"*
+
+Đúng. Kế hoạch ban đầu liệt kê 11 modal còn lại như 11 việc, dù chính bậc 1's ghi chú đã nói
+"cùng hình dạng, lặp lại". Đếm lại theo **hình dạng thật**, không theo tên file:
+
+| Hình | Mô tả | Modal dùng | Đã có prototype? |
+| :--- | :--- | :--- | :--- |
+| **A. Chọn 1** | `Repeater`, click → emit → đóng | `timezone_picker` (bậc 1), `strategy_picker`, nửa preset của `time_range_picker` | ✅ |
+| **B. Chỉ đọc** | Cùng `Repeater`/model, bỏ click | `limitations` | = A, cờ `selectable=False` |
+| **C. Lưới thẻ chỉ đọc** | `Grid` 2 cột, không tương tác | `extended_metrics` | ❌ mới |
+| **D. Checkbox multi-select** | Danh sách checkbox độc lập | `indicator_picker` (model sống), `order_execution` (cố định + khoá + loại trừ chéo) | ❌ mới |
+| **E. Form validate** | `capital` (bậc 1) | nửa custom của `time_range_picker`, `strategy_properties` (451 dòng, riêng) | ✅ |
+| **F. Bảng phân trang** | `QTableView`/`QListView` + model | `gap_inspector`, `kline_inspector` (Data Management) | chưa quyết — xem §3 gốc |
+
+**9 modal Backtest thật ra có 4 hình, hai đã prototype ở bậc 1.** Xây 3 component dùng chung
+(`SelectList` gộp A+B, `StatGrid` cho C, `CheckboxList` cho D) là đủ cho 5/9 modal ngay, không
+phải viết 5 lần.
+
+### Đã làm — 3 component + 5 modal
+
+| Component | `.py` + `.qml` | Modal dùng nó |
+| :--- | ---: | :--- |
+| `SelectList` (thay `TimezonePicker` bậc 1, xoá không giữ forwarder) | 85 + 96 | `timezone_picker`, `strategy_picker`, `limitations` |
+| `StatGrid` | 43 + 65 | `extended_metrics` |
+| `CheckboxList` | 59 + 41 | `indicator_picker`, `order_execution` |
+
+**389 dòng component, phục vụ 6 modal** (3 vừa port + `timezone_picker` port lại từ bậc 1).
+Modal riêng (chỉ đấu dây, không còn logic UI) còn lại **~50–90 dòng mỗi cái** — xem
+`strategy_picker_dialog.py`, `limitations_dialog.py` trong repo.
+
+### Bốn phát hiện — hai cái đầu đã ghi ở §4b, hai cái mới lộ ra khi build 3 component:
+
+**3. `Repeater` chỉ nhận đúng MỘT delegate.** `SelectList.qml` ban đầu đặt `Rectangle`
+("selectItem_") và `Row` ("bulletItem_") làm **anh em trực tiếp** trong `Repeater`. Kết quả đo
+được: `selectItem_` **không bao giờ được tạo** — chỉ delegate cuối cùng (`Row`) tồn tại, bất kể
+`selectable` là gì. Không có lỗi biên dịch, không có warning — im lặng hoàn toàn. Sửa bằng cách
+bọc cả hai vào một `Item` cha (một delegate thật cho mỗi index), cả hai `Rectangle`/`Row` thành
+con của `Item` đó.
+
+Đây đúng loại lỗi §3.4 của báo cáo đánh giá cảnh báo — nhưng còn kín hơn cả `findChild`/style vì
+**không văng ra một dòng log nào**. Bắt được nhờ so `find_all_named(..., "selectItem_")` trả về
+`0` thay vì `2` trong test tự viết.
+
+**4. `Repeater { model: vm.rows }` phá huỷ và tạo lại TOÀN BỘ delegate mỗi lần rebuild.**
+Đo bằng cách giữ tham chiếu Python của một `CheckBox` qua hai lần `rowsChanged.emit()` liên tiếp:
+Python id đổi hoàn toàn giữa hai lần, item cũ trở thành vật đã chết. Binding vẫn đúng — **nhưng
+chỉ khi tra cứu lại**. Hệ quả cho toàn bộ test: **không bao giờ giữ tham chiếu delegate qua một
+lần refresh** — `_qml_test_support.find_named()`/`find_all_named()` phải được gọi lại sau mỗi
+`rowsChanged`/`optionsChanged`/`cardsChanged`. Ghi một lần trong docstring của module đó thay vì
+lặp lại ở từng test.
+
+### Một helper dùng chung cho test
+
+`tests/unit/presentation/ui/qml/_qml_test_support.py` — `named_descendants()`/`find_named()`/
+`find_all_named()`, thay `findChild` (không với tới delegate của `Repeater`, phát hiện #1 của
+bậc 1). Trước đây mỗi file test tự viết lại hàm này; gộp một chỗ sau khi thấy nó lặp lần thứ hai.
 
 ## 4b. Bậc 0 + bậc 1 — ĐÃ LÀM, và pilot tìm ra 3 thứ
 

@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_mod
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
+    find_all_named,
+)
 
 
 @pytest.fixture
@@ -29,32 +32,18 @@ def view_model():
     return BackTestViewModel()
 
 
-def _rows_of(dialog):
-    """Repeater delegates are NOT reachable by `findChild`.
-
-    @details Measured while writing this: `findChild(QObject, "tzItem_UTC")`
-    returns `None` even though all six delegates exist and are correctly
-    named. Repeater-created items get the Repeater's parent as their *visual*
-    parent, not as their `QObject` parent, so `findChild`'s recursion never
-    sees them. `childItems()` on the positioner does.
-
-    `findChild` still works for statically declared items — every lookup in
-    the Capital tests below uses it. This helper exists so the distinction is
-    recorded once, in the place a future reader will need it.
-    """
-    column = dialog.root_object.findChild(QObject, "tzList")
-    return [c for c in column.childItems() if c.objectName()]
-
-
 def test_the_timezone_body_renders_one_row_per_option(qapp, view_model):
+    """`EPIC-015` §4c: body is now the shared `SelectList.qml` — see
+    `test_select_list_bodies.py` for that component's own render tests.
+    This one only proves `TimezonePickerDialog` wires the real ViewModel
+    data through it."""
     dialog = TimezonePickerDialog(view_model)
     dialog.resize(440, 350)
     dialog.show()
     qapp.processEvents()
 
-    rows = _rows_of(dialog)
+    rows = find_all_named(dialog.root_object, "selectItem_")
     assert len(rows) == len(view_model.displayTimezoneOptions)
-    assert rows[0].objectName().startswith("tzItem_")
     dialog.close()
 
 
