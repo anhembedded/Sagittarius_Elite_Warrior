@@ -36,9 +36,18 @@ class ChartToolbar(QtWidgets.QWidget):
 
     sig_timeframe_changed = QtCore.Signal(str)
 
-    #: Widened so the `…` button can show a code like `12h`; the pills stay
-    #: at 40 and keep the row's rhythm.
-    _MORE_BUTTON_WIDTH = 44
+    #: Room for the widest thing a pill holds (`15m`) once the padding below
+    #: is applied, and for a code like `12h` on the `…` button.
+    _BUTTON_MAX_WIDTH = 52
+
+    #: A bare `…` is one narrow glyph. Measured on a real `ChartCard`, the
+    #: button laid out at **13x19 px** — a muted sliver that reads as a
+    #: separator, not a control, which is exactly how it was reported: the
+    #: button was there and nobody could see it. The padding below fixes the
+    #: cause for every button in the row; this floor keeps the narrowest
+    #: labels (`…`, `1d`) from still ending up smaller than a comfortable
+    #: target.
+    _BUTTON_MIN_WIDTH = 34
 
     def __init__(
         self,
@@ -56,7 +65,8 @@ class ChartToolbar(QtWidgets.QWidget):
         for timeframe in timeframes:
             btn = QtWidgets.QPushButton(timeframe)
             btn.setCheckable(True)
-            btn.setMaximumWidth(40)
+            btn.setMinimumWidth(self._BUTTON_MIN_WIDTH)
+            btn.setMaximumWidth(self._BUTTON_MAX_WIDTH)
             btn.setCursor(QtCore.Qt.PointingHandCursor)
             btn.clicked.connect(lambda checked, t=timeframe: self._on_clicked(t))
             self._buttons[timeframe] = btn
@@ -67,7 +77,8 @@ class ChartToolbar(QtWidgets.QWidget):
         self._btn_more = QtWidgets.QPushButton(_MORE_LABEL)
         self._btn_more.setObjectName("btnTimeframeMore")
         self._btn_more.setCheckable(True)
-        self._btn_more.setMaximumWidth(self._MORE_BUTTON_WIDTH)
+        self._btn_more.setMinimumWidth(self._BUTTON_MIN_WIDTH)
+        self._btn_more.setMaximumWidth(self._BUTTON_MAX_WIDTH)
         self._btn_more.setCursor(QtCore.Qt.PointingHandCursor)
         self._btn_more.setToolTip(_MORE_TOOLTIP)
         self._btn_more.clicked.connect(self._open_picker)
@@ -90,6 +101,11 @@ class ChartToolbar(QtWidgets.QWidget):
         growing two copies of it — which is exactly how the pickers this
         replaces multiplied in the first place.
         """
+        # `clicked` on a checkable button has already toggled it. What the
+        # row shows as selected is decided by `set_active()`, not by opening
+        # a dialog, so re-assert it: otherwise dismissing the picker left the
+        # `…` button lit alongside the pill that is actually active.
+        self.set_active(self._active)
         if self._picker is None:
             self._picker = TimeframePickerOverlay(
                 get_options=lambda: [option.code for option in all_options()],
@@ -149,7 +165,10 @@ class ChartToolbar(QtWidgets.QWidget):
             f"color: {Palette.ACCENT if active else Palette.MUTED};"
             f"font-size: 11px;"
             f"font-weight: {'bold' if active else 'normal'};"
-            f"padding: 2px 0;"
+            # Horizontal padding, not `0`. With none, each button collapsed
+            # to the width of its own glyphs — `1d` at 16px, `…` at 13px —
+            # so the row read as loose text rather than as buttons.
+            f"padding: 2px 8px;"
             f"}}"
             f"QPushButton:hover {{background-color: {Palette.STATE_HOVER_BG};}}"
         )

@@ -93,3 +93,60 @@ def test_choosing_from_the_picker_emits_the_same_signal_as_a_pill(qapp):
 
     assert emitted == ["3d"]
     assert toolbar._btn_more.text() == "3d"
+
+
+def test_every_button_is_a_visible_click_target(qapp):
+    """Reported as "the … button is missing" — it was not missing, it was
+    **13x19 px**: `_button_style` set `padding: 2px 0`, so each button
+    collapsed to the width of its own glyphs, and a bare ellipsis in muted
+    grey at that size reads as a separator rather than a control.
+
+    Measured, not eyeballed: this asserts the laid-out width, which is what
+    was actually wrong. A test on `setMinimumWidth` alone would have passed
+    against the broken build too, since the collapse came from the padding.
+    """
+    toolbar = ChartToolbar()
+    toolbar.resize(toolbar.sizeHint())
+    toolbar.show()
+    qapp.processEvents()
+
+    assert toolbar._btn_more.width() >= ChartToolbar._BUTTON_MIN_WIDTH
+    for code, button in toolbar._buttons.items():
+        assert button.width() >= ChartToolbar._BUTTON_MIN_WIDTH, code
+    toolbar.close()
+
+
+def test_an_off_pill_code_fits_inside_the_more_button(qapp):
+    """`12h` is the widest thing that button ever shows."""
+    toolbar = ChartToolbar()
+    toolbar.set_active("12h")
+    toolbar.resize(toolbar.sizeHint())
+    toolbar.show()
+    qapp.processEvents()
+
+    assert toolbar._btn_more.text() == "12h"
+    assert toolbar._btn_more.width() <= ChartToolbar._BUTTON_MAX_WIDTH
+    assert toolbar._btn_more.sizeHint().width() <= toolbar._btn_more.width(), (
+        "the code is clipped"
+    )
+    toolbar.close()
+
+
+def test_dismissing_the_picker_leaves_the_row_as_it_was(qapp):
+    """`clicked` on a checkable button toggles it before the slot runs, so
+    opening the dialog and cancelling used to leave `…` lit alongside the
+    pill that was actually active — two things looking selected at once."""
+    toolbar = ChartToolbar()
+    toolbar.set_active("1m")
+    emitted: list[str] = []
+    toolbar.sig_timeframe_changed.connect(emitted.append)
+
+    toolbar._btn_more.click()
+    qapp.processEvents()
+    toolbar._picker.reject()
+    qapp.processEvents()
+
+    assert toolbar._btn_more.isChecked() is False
+    assert toolbar._btn_more.text() == "…"
+    assert toolbar._buttons["1m"].isChecked() is True
+    assert emitted == [], "dismissing chooses nothing"

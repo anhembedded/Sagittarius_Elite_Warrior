@@ -123,6 +123,27 @@ domain, không hỏi cái tuple canh toolbar.
 
 ---
 
+### 2.5 Sửa ngay sau đó: nút `…` "không thấy đâu"
+
+User báo *"thiếu cái nút … rồi"* kèm ảnh mock. Nút **có** được tạo và **có**
+`isVisible() == True` — dựng thật một `ChartCard` offscreen rồi đo, nó nằm ở
+**13×19 px**.
+
+Nguyên nhân: `_button_style()` ghi `padding: 2px 0` — không có padding ngang —
+nên **mọi** nút trong hàng co lại đúng bề rộng chữ của chính nó: `1d` 16px,
+`…` 13px. Một dấu ba chấm màu xám mờ rộng 13px không đọc ra là nút, nó đọc ra
+là dấu phân cách. Sửa ở đúng nguyên nhân (`padding: 2px 8px` cho cả hàng) chứ
+không đặc cách riêng một nút, kèm sàn `_BUTTON_MIN_WIDTH` cho các nhãn hẹp
+nhất. Sau khi sửa: pill 34–43px, `…` 34px, `12h` 42px (trần 52, không bị cắt).
+
+Kèm theo một lỗi thứ hai tìm ra lúc soi lại: `_btn_more` là `setCheckable(True)`,
+mà `clicked` đã toggle nó **trước khi** slot chạy — nên mở picker rồi thoát ra
+để lại nút `…` sáng cùng lúc với pill đang chọn, hai chỗ cùng trông như được
+chọn. `_open_picker` giờ khẳng định lại `set_active(self._active)` ngay đầu.
+
+Test đo **bề rộng sau khi layout**, không phải `setMinimumWidth` — đã A/B: bỏ
+padding ra là test đỏ với `assert 13 >= 34`, đúng con số user nhìn thấy.
+
 ## 3. Chưa làm / cố ý để lại
 
 - **Settings → `Default Symbols` vẫn là ô text.** Nó là một **danh sách** ngăn
