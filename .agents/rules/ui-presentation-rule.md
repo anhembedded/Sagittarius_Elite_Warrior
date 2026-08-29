@@ -28,12 +28,21 @@ tác vụ nền, không phải về trình bày.
 ---
 
 - **QML Standards & Declarative Guidelines (Strict Adherence to `qml-rule.md`):**
-  - **Separation of Logic & UI**: QML files are purely declarative views. Business logic, calculations, domain validations, and state machines reside strictly in Python (`Presenter`, `ViewModel`, `Domain`). UI triggers ViewModel actions via slots/methods.
-  - **Reactive Property Bindings**: Bind QML element properties directly to `viewModel` properties and `Theme` singletons. Never break bindings with imperative assignments inside signal handlers.
-  - **Component Modularization & SRP**: Break down large monolithic QML files (> 300 lines) into focused, reusable components (`ModalDialogCard.qml`, `BotParamField.qml`, `DynamicTabBar.qml`).
+  > **`EPIC-006` → `EPIC-015` (2026-08-24 → 2026-08-28):** QML is no longer the default for a
+  > screen. QtWidgets is the app-wide default; QML is opt-in **per widget** (a modal body, a
+  > panel), always embedded inside a QtWidgets chrome via `QQuickWidget`. The shell and the
+  > chart (`components/chart_card/`) never become QML — see `qml-rule.md` §0 for why. The list
+  > below is a table of contents only; §1–§9 there hold the real rules, including the new
+  > "1 widget = 1 `.qml` + 1 private `_vm.py`" architecture and when to skip that ViewModel
+  > entirely (a widget that only forwards a screen ViewModel's properties 1:1, with no derived
+  > value and no reuse across screens, binds straight to that ViewModel instead of wrapping it).
+  - **Separation of Logic & UI**: QML files are purely declarative views. Business logic, calculations, domain validations, and state machines reside strictly in the widget's own `_vm.py` or the screen's `Presenter`/`ViewModel`/`Domain`. UI triggers actions via slots/methods.
+  - **Reactive Property Bindings**: Bind QML element properties directly to `vm` properties and `Theme` singletons. Never break bindings with imperative assignments inside signal handlers.
+  - **Component Modularization & SRP**: Break down large monolithic QML files (> 300 lines) into focused, reusable components. Current shared shapes: `SelectList.qml`, `CheckboxList.qml`, `StatGrid.qml` (`src/presentation/ui/qml/`).
   - **Declarative `States` and `Transitions`**: For elements with 3+ visual states (e.g., `IDLE`, `HOVER`, `PRESSED`, `DIRTY`, `DISABLED`), prefer declarative `states: [...]` and `transitions: [...]` over complex nested ternary expressions.
   - **Micro-Animations for Feedback**: Use subtle non-intrusive micro-animations (150ms – 250ms) via `Behavior on color / opacity / height` for smooth transitions without blocking the UI thread.
   - **Security & UI Injection Defense**: Always enforce `textFormat: Text.PlainText` on `Text` items rendering dynamic or external data (trade logs, error messages, symbol names) to prevent HTML/RichText UI injection.
+  - **Qt Quick gotchas (measured, not obvious)**: a `Repeater` accepts exactly one delegate — two sibling `Item`s under it silently collapse to the last one; it also destroys and recreates every delegate on any model change, so tests must never hold a delegate reference across a refresh. Full detail in `qml-rule.md` §4.
 - **Dynamic Responsive UI Sizing & Synchronized Table Columns:**
   - Never hardcode rigid fixed pixel dimensions (`width`/`height`) on modals, dialogs, popups, or cards. Use `preferredWidth` and `preferredHeight` dynamically clamped to available overlay boundaries.
   - All scrollable inner containers must declare `ScrollView { clip: true }` and responsive content widths.

@@ -1,137 +1,333 @@
-# 🎨 QML & UI DEVELOPMENT STANDARDS
+---
+name: QML Widget Rule
+description: QML sống lại đúng một chỗ — widget riêng lẻ nhúng qua QQuickWidget, không phải shell hay chart. Kiến trúc 1 widget = 1 thư mục (.qml + _vm.py), khi nào bỏ qua ViewModel riêng, style token bắt buộc từ ngày đầu, và các gotcha Qt Quick đã đo được thật (Repeater 1 delegate, rebuild toàn bộ, findChild không với tới).
+trigger: on_file_change
+patterns:
+  - "**/*.qml"
+  - src/presentation/ui/qml/**/*.py
+---
 
-All UI components and QML files developed for the **Sagittarius Elite Warrior** project MUST strictly adhere to these declarative guidelines, architecture patterns, and design standards.
+# 🎨 QML WIDGET STANDARDS
 
-> **Scope note (2026-08-23, `EPIC-005A`'s ADR — [`DECISION_2026-08-23.md`](../../Tasks/epics/EPIC-005_qml_to_qtwidgets_migration/DECISION_2026-08-23.md)):**
+> **Lịch sử đảo chiều hai lần — đọc trước khi cho rằng bất kỳ dòng nào dưới đây là "mặc định
+> toàn app":**
+>
+> 1. **`BOT-030` → `EPIC-005` (chọn QML làm mặc định).** Lý do duy nhất từng ghi thành văn:
+>    *"AI dịch mockup sang code trực tiếp hơn ở QML."* Callout gốc 2026-08-23 giữ nguyên văn
+>    ngay dưới đây, đánh dấu **ĐÃ HẾT HIỆU LỰC** — không xoá, để biết vì sao đảo lần 1.
+> 2. **`EPIC-006` (2026-08-24, bỏ hẳn QML).** Quyết định user: *"triết lý hiện tại của dự án là
+>    không dùng QML để giảm chi phí phát triển."* QtWidgets trở thành **mặc định cho toàn app**,
+>    kể cả chart (`BUG-039` chứng minh tiền đề "chart phải ở QtQuick vì hiệu năng" sai — bản
+>    QtQuick **chưa từng render một khung hình nào trong production suốt 5 ngày**).
+> 3. **`EPIC-015` (2026-08-28, QML quay lại — đúng MỘT phạm vi hẹp).** User: *"chuyển từ từ từng
+>    widget, không chuyển chart."* Đây là quy tắc hiện hành, thay thế cả hai giai đoạn trên.
+>    Xem [`EPIC-015`](../../Tasks/epics/EPIC-015_qml_tung_widget_khong_chuyen_chart/README.md)
+>    cho lộ trình/tiến độ; **file này chỉ giữ kiến trúc chuẩn — cách xây, không phải xây tới đâu.**
+
+> #### ⚠️ SUPERSEDED — callout gốc 2026-08-23 (`EPIC-005A`'s ADR), giữ nguyên văn
+>
 > QML stays the **default** for any screen that receives new UI directly from a user-supplied
 > mockup — `BOT-030`'s own reason for choosing QML (*"AI translates a mockup to code more
 > directly in QML than QtWidgets"*) was re-checked against git history and found still true
 > and still in active use (15+ mockup-driven tasks since `BOT-030`, most recently in
-> `backtest`/`dashboard`). Do **not** treat this rule as legacy or QML as being phased out.
+> `backtest`/`dashboard`).
 >
-> `EPIC-005` (`Tasks/epics/EPIC-005_qml_to_qtwidgets_migration/`) migrates a narrow,
-> deliberately-chosen slice — form/lookup screens (`SettingsScreen`, parts of
-> `DatabaseScreen`) where QtWidgets' built-in tab-order/sort/accessibility outweighs the
-> mockup-translation cost, because those screens are not where new mockups keep arriving.
-> This rule's QML standards below still govern every screen that epic does not touch,
-> including the chart (`native/chart_renderer/`, permanent QtQuick, never in scope) and
-> `backtest`/`dashboard` (`EPIC-005F`, indefinitely deferred). A screen migrating onto
-> QtWidgets follows `main_window.py`/`Palette` conventions instead — see
-> `EPIC-005D`/`EPIC-005E` for that pattern once they land.
+> `EPIC-005` migrates a narrow, deliberately-chosen slice — form/lookup screens
+> (`SettingsScreen`, parts of `DatabaseScreen`) — because those screens are not where new
+> mockups keep arriving. This rule's QML standards still govern every screen that epic does
+> not touch, including **the chart (`native/chart_renderer/`, permanent QtQuick, never in
+> scope)** and `backtest`/`dashboard` (`EPIC-005F`, indefinitely deferred).
+>
+> **Cả ba khẳng định trên đều sai theo trạng thái hiện tại**, giữ lại đúng nguyên nhân
+> `architecture-rule.md` §7.2 giữ lại luật đã đảo của nó: đọc lịch sử phải biết đã bị thay, không
+> phải đoán. Sai cụ thể: (a) QML không còn là mặc định của bất kỳ màn nào — `EPIC-006`; (b)
+> `native/chart_renderer/` đã bị xoá khỏi cây, và chart giờ **vĩnh viễn QtWidgets** vì ràng buộc
+> lồng nhau (§0), không phải vì "permanent QtQuick"; (c) `backtest`/`dashboard` **đang** nhận
+> QML trở lại theo `EPIC-015`, không còn "indefinitely deferred".
 
 ---
 
-## 1. 🧩 Code Practices & Architecture Separation
+## 0. Ràng buộc gốc — quyết định mọi thứ khác trong file này
 
-### 1.1 Strict Separation of UI and Business Logic
+**QML lồng được vào QtWidgets. Chiều ngược lại Qt không hỗ trợ.** Chart là pyqtgraph
+(`QGraphicsView`, thuần QtWidgets) — nên:
+
+- **Shell** (`main_window.py`, `QStackedWidget`, `Sidebar`) — **QtWidgets vĩnh viễn**.
+- **Chart** (`src/presentation/ui/components/chart_card/`, 4.253 dòng) — **QtWidgets vĩnh
+  viễn**. Không phải vì hiệu năng (tiền đề đó đã sai — xem "Lịch sử đảo chiều" ở đầu file) mà vì ràng buộc
+  lồng nhau: cái gì chứa chart thì phải là QtWidgets.
+- **Mọi thứ khác** — widget riêng lẻ (modal, panel, picker, form field) **có thể** xây bằng QML,
+  nhúng vào bên trong một chrome QtWidgets qua `QQuickWidget`. Đây không phải "QML là mặc
+  định" (đã bị `EPIC-006` bác) cũng không phải "QtWidgets là mặc định" theo nghĩa cấm QML —
+  đây là **quyết định theo từng widget**, dựa trên §2 dưới đây.
+
+Ba pattern lồng nhau đã đo là chạy được thật (`EPIC-015` spike A/B/C):
+
+| Pattern | Ai chứa ai | Ví dụ trong repo |
+| :--- | :--- | :--- |
+| Panel QML cạnh chart | `QVBoxLayout` (widget) chứa cả `QQuickWidget` lẫn `ChartCard` | chưa dùng — dành cho bậc 5/6 |
+| Cả route là QML | `QStackedWidget` chứa một `QQuickWidget` làm cả màn | chưa dùng — dành cho Settings/Data Management |
+| Modal QML | `QDialog`/`Overlay` chứa `QQuickWidget` làm phần thân | `QmlOverlay` (`src/presentation/ui/qml/host.py`) — **đã có, đang dùng** |
+
+---
+
+## 1. Kiến trúc: 1 widget QML = 1 thư mục
+
+```
+src/presentation/ui/qml/
+  host.py                    QmlOverlay — chrome QtWidgets, thân QML
+  <Widget>/
+    <Widget>.qml             chỉ bố cục + binding, KHÔNG logic
+    <widget>_vm.py            toàn bộ state + luật, KHÔNG import QML
+    NOTES.md                  vì sao widget này tồn tại, ai dùng nó
+```
+
+`.qml` và `_vm.py` **nằm cạnh nhau trong cùng thư mục** — Single-Scope Cohesion
+(`code-quality-rule.md` §4): một widget là một thứ, tách shell và state ra hai chỗ xa nhau là
+cách chúng trôi khỏi nhau. Ví dụ đang chạy thật: `SelectList/`, `CheckboxList/`, `StatGrid/`,
+`Capital/`.
+
+### 1.1 ViewModel widget: ai tạo, ai giữ
+
+**Python (màn cha) tạo ViewModel, tiêm vào `.qml` qua context property `vm`.** `.qml` **không
+bao giờ** tự khởi tạo backend của chính nó (không `id: backend` gọi constructor Python bên
+trong file `.qml`) — giữ đúng luật §5.1 "QML thuần khai báo" đã có từ trước, và giữ việc khởi
+tạo/inject nằm ở composition root (màn hình), nơi có thể test bằng mock/callback mà không cần
+dựng QML.
+
+```python
+# Trong dialog/panel Python — composition root
+self._widget_vm = SelectListVM(
+    get_options=lambda: view_model.strategyOptions,   # đọc sống từ VM màn hình
+    get_current=lambda: view_model.selectedStrategyKey,
+)
+super().__init__(..., qml_file=_QML, context={"vm": self._widget_vm})
+```
+
+```qml
+// .qml — chỉ đọc, không tính toán
+Text { text: vm.rows[0].label }
+```
+
+### 1.2 ViewModel widget giữ TOÀN BỘ state và luật
+
+| Tầng | Chứa gì | Test bằng gì |
+| :--- | :--- | :--- |
+| `<Widget>.qml` | Chỉ bố cục, binding, animation | Render smoke test (ít, rẻ) |
+| `<widget>_vm.py` | Lọc, tính `selected`, validate, format | **pytest thuần, `QApplication.instance()` là `None` suốt bài test** |
+
+Đo được thật: 16 test `SelectListVM`/`CheckboxListVM`/`StatGridVM` chạy **0,6 giây, không
+`QApplication`, không QML**. Luật cứng: **không `if`/vòng lặp/tính toán trong `.qml`.** Một
+biểu thức binding thì được (`visible: modelData.subtitle !== ""`); hai dòng JavaScript trở lên
+nghĩa là nó thuộc về `_vm.py`.
+
+### 1.3 Khi nào **KHÔNG** cần ViewModel widget riêng
+
+> User chốt 2026-08-28: *"các UI mà viewmodel không có đóng góp gì thêm, chỉ chuyển đổi 1:1 thì
+> không cần viewmodel."*
+
+Đây **không phải luật mới, độc lập** — nó là áp dụng cụ thể của `architecture-rule.md` §7.2 vào
+đúng trường hợp này: *"Abstraction ở đây không có nghĩa đẻ thêm lớp trung gian cho có."* Một
+ViewModel widget mà toàn thân chỉ là `return self._screen_vm.x` không phải hợp đồng — nó là một
+bản sao thứ hai của state đã có sẵn, và bản sao là đúng hình dạng lỗi `BUG-064` từng gây ra: hai
+chỗ giữ cùng một sự thật, không có gì buộc chúng khớp nhau.
+
+**Cách quyết định — hỏi đúng thứ tự:**
+
+1. **Widget có dùng chung cho ≥1 màn hình khác nhau không** (như `SelectList`/`CheckboxList`/
+   `StatGrid` — Backtest dùng, sau này Data Management cũng dùng được)? → **Luôn có VM riêng**,
+   dựng bằng callback (`get_options`, `get_rows`, ...), bất kể một lần gọi cụ thể trông có
+   "1:1" hay không. Lý do: cái hợp đồng ("đưa cho tôi list đúng hình `{id, label, ...}`") **là**
+   giá trị — nó tách widget khỏi hình dạng ViewModel của bất kỳ màn nào, giữ nó test được và
+   dùng lại được. `StatGridVM` chỉ uppercase title + map `Tone` → tên chuỗi — trông "nhỏ", vẫn
+   giữ, vì nó phục vụ đúng vai trò đó.
+2. **Widget chỉ dành cho đúng một màn** (không định dùng lại)? Hỏi tiếp: `.qml` có cần **giá
+   trị dẫn xuất** không có sẵn trên ViewModel màn đó không (`selected` tính từ so sánh, `canApply`
+   tính từ trạng thái validate, format lại chuỗi, gộp nhiều property thành một)?
+   - **Có** → có VM riêng. Đây chính là `CapitalVM`: `canApply` là dẫn xuất, không phải copy.
+   - **Không, chỉ đọc/ghi thẳng property đã có, không biến đổi gì** → **bỏ VM riêng**, tiêm
+     thẳng ViewModel màn hình vào context property: `context={"vm": view_model}`. `.qml` bind
+     thẳng `vm.someScreenProperty`.
+3. Widget có cần **giấu bớt** bề mặt ViewModel màn hình (màn có 40 property không liên quan,
+   phơi hết ra là rò rỉ đóng gói) không? → có VM riêng, dù không biến đổi gì, để giới hạn API.
+
+Không có widget nào trong `EPIC-015` hiện tại vi phạm chiều ngược (tất cả đều qua được bài kiểm
+tra #1 hoặc #2) — nghĩa là chưa cần dọn gì, quy tắc này áp dụng **từ giờ về sau**.
+
+---
+
+## 2. Khi nào chọn QML cho một widget mới
+
+QML không còn là mặc định của cả màn hình (đã bị `EPIC-006` bác, xem "Lịch sử đảo chiều" ở đầu
+file). Chọn QML cho
+**một widget cụ thể** khi:
+
+- Nó khớp một trong các hình đã có component dùng chung (bảng dưới) — dùng lại, không viết
+  `.qml` mới.
+- Nó là phần của màn đang được `EPIC-015` di chuyển theo lộ trình (xem file epic).
+- Nó nhận mockup ảnh trực tiếp và tốc độ dịch mockup → code đáng giá hơn chi phí hai pipeline
+  style (lý do gốc `BOT-030`, vẫn đúng — xem báo cáo đánh giá
+  [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../Tasks/reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md)).
+
+**Component dùng chung đã có — kiểm tra trước khi viết `.qml` mới:**
+
+| Hình | Component | Dùng khi |
+| :--- | :--- | :--- |
+| Chọn 1 trong danh sách | `SelectList` | `Repeater`, click → emit → đóng |
+| Danh sách chỉ đọc | `SelectList` (`selectable=False`) | cùng model, bỏ click |
+| Lưới thẻ chỉ đọc | `StatGrid` | không tương tác, chỉ hiển thị số |
+| Checkbox multi-select | `CheckboxList` | độc lập từng dòng, luật khoá/loại trừ (nếu có) nằm ở dialog, không ở VM |
+| Form có validate | tự viết theo mẫu `Capital` | field + kết quả validate cần đồng bộ |
+
+---
+
+## 3. Style — bắt buộc từ ngày đầu, kể cả khi "chưa cần thiết kế"
+
+> User 2026-08-28: *"styling nên remove luôn nhỉ, chưa cần style sớm."* Đúng cho phần **thiết
+> kế** (không kit, không token mới, không đuổi pixel). **Sai nếu áp dụng cho việc dùng token —
+> đó không phải styling, đó là baseline đúng.**
+
+Lý do đo được, không suy đoán:
+
+1. **"Không style" là hộp trắng trên nền đen**, không phải trung tính. Đo thật: nút QtQuick
+   Controls mặc định `#f5f5f5` trên nền app `#0a0a0c`.
+2. **Style native của Windows bỏ qua `background:` mà không báo lỗi** — chỉ log warning rồi vẽ
+   chrome mặc định. Hoãn styling nghĩa là hoãn phát hiện bẫy này tới đúng lúc tệ nhất (máy user).
+3. Repo này đã dính đúng bệnh "mỗi widget tự vẽ" hai lần (`EPIC-005` để lại 8 `setStyleSheet`
+   riêng lẻ; `EPIC-006B` phải làm điều kiện tiên quyết chính vì thế).
+
+**Bắt buộc cho mọi `.qml` mới, không có ngoại lệ "để sau":**
+
+- Gọi `ensure_qml_style()` (ghim style `"Basic"`) — làm trong `QmlOverlay.__init__`/host dùng
+  chung, **không chỉ ở app bootstrap**: test dựng dialog trực tiếp, không qua bootstrapper, nếu
+  chỉ ghim ở bootstrap thì test xanh trên chrome native mà người dùng không bao giờ thấy.
+- Mọi màu **phải** là `Theme.<token>` (`register_theme()` gắn context property `Theme`). **Cấm
+  hex literal (`"#..."`) và tên màu literal (trừ `"transparent"`) trong `.qml`** — guard đã có,
+  xem `test_qml_style_discipline.py`; soi gương guard hex-literal phía widget (`kit/guards.py`).
+- Kiểm token tồn tại thật trước khi dùng, đừng đoán tên — `Tone.POSITIVE` map sang
+  `Theme.success`, không phải `Theme.positive` (đo bằng `Palette.as_ui_dict()` trước khi ship,
+  không suy ra từ tên biến Python).
+
+Việc **thiết kế** (spacing scale, animation, elevation) vẫn hoãn được thoải mái — đó đúng là ý
+user. Việc **dùng đúng token thay vì literal** thì không hoãn, vì chi phí sửa sau đắt hơn viết
+đúng ngay từ đầu (một `sed` cho cả app so với dò từng file).
+
+---
+
+## 4. Qt Quick gotcha — đo được thật, không suy đoán
+
+Bốn cái này **không lộ ra bằng lỗi biên dịch hay warning** — `ruff`/`mypy` không đọc `.qml`, và
+Qt Quick tự nó im lặng khi bạn dùng sai. Đây là loại lỗi chỉ-lộ-lúc-chạy mà `qml-rule.md` bản cũ
+(pre-`EPIC-006`) chưa từng gặp phải vì lúc đó `.qml` không có test tự động sâu tới mức này.
+
+### 4.1 `Repeater` chỉ nhận đúng MỘT delegate
+
+Đặt hai `Item` (ví dụ `Rectangle` cho hình chọn được + `Row` cho hình chỉ đọc) làm **anh em trực
+tiếp** bên trong `Repeater` → chỉ cái cuối cùng được tạo, cái kia **không bao giờ instantiate**,
+không lỗi, không warning. Sửa: bọc cả hai vào **một `Item` cha** cho mỗi index, cả hai làm con
+của `Item` đó.
+
+### 4.2 `Repeater { model: <list các dict/QVariantList> }` phá huỷ và tạo lại TOÀN BỘ delegate mỗi lần model đổi
+
+Kể cả khi chỉ một phần tử thay đổi. Đo bằng cách giữ tham chiếu Python của một delegate qua hai
+lần `rowsChanged.emit()` liên tiếp — id đổi hoàn toàn, item cũ là vật đã chết. **Không bao giờ
+giữ tham chiếu delegate qua một lần refresh** — tra cứu lại sau mỗi
+`rowsChanged`/`optionsChanged`/`cardsChanged`. Đây cũng là lý do hiệu năng cho luật model-view ở
+§6.6: một list tĩnh nhỏ dùng `Repeater` được, một list lớn/cập nhật liên tục thì bọc
+`QAbstractListModel` (Python) — nó phát `dataChanged` theo từng dòng thay vì rebuild cả khối.
+
+### 4.3 `findChild` KHÔNG với tới item do `Repeater` tạo
+
+Đã có helper đúng từ trước `EPIC-015` — `tests/conftest.py`'s `qml_item`/`find_qml_item` (đi
+bằng `childItems()`, ghi chú gốc: *"verified empirically while building the QML sidebar"*, tức
+là phát hiện này **đã có từ thời Sidebar QML**, không phải mới). **Dùng fixture đó**, đừng viết
+lại. *(Ghi nhận nợ kỹ thuật: `EPIC-015` tự viết
+`tests/unit/presentation/ui/qml/_qml_test_support.py` làm y hệt việc này vì không tìm trước —
+cần gộp lại, xem việc còn treo cuối file.)* `findChild` vẫn đúng cho item khai báo tĩnh, và cho
+ranh giới `Popup` (tách khỏi `childItems()` theo chiều ngược lại) — không đổi phần đó.
+
+### 4.4 Chữ ký signal QtQuick Controls khác widget tương đương
+
+`TextField.textEdited` **không có tham số**; `QLineEdit.textEdited(str)` (widget) thì có. Giả
+lập signal bằng tay (`QMetaObject.invokeMethod` với sai số tham số) fail **im lặng** hoặc báo
+lỗi khó hiểu. Dùng `QTest.keyClicks`/`QTest.mouseClick` để mô phỏng hành động thật thay vì đoán
+chữ ký signal.
+
+---
+
+## 5. 🧩 Code Practices trong `.qml`
+
+### 5.1 Strict Separation of UI and Business Logic
 - **QML is Purely Declarative View**: QML files must only define visual layout, theme bindings, micro-animations, and user interaction signals.
-- **No Complex Inline JavaScript**: Move all calculations, data transformations, domain validation, and state machines into Python (`Presenter`, `ViewModel`, `Domain`, `Use Cases`). Small view-local helpers (for example focus handling, invoking a ViewModel command, or resetting an already-rendered input) are permitted only when they do not duplicate a business rule, transform a domain schema, or become a second source of state.
-- **One-Way Command Dispatch**: UI triggers actions by invoking ViewModel slots/methods (e.g., `viewModel.requestRun()`, `viewModel.saveSettings()`). The Presenter handles the business logic and updates ViewModel properties.
+- **No Complex Inline JavaScript**: Move all calculations, data transformations, domain validation, and state machines into the widget's `_vm.py` (§1) or the screen's `Presenter`/`ViewModel`/`Domain`. Small view-local helpers (focus handling, invoking a slot, resetting an already-rendered input) are permitted only when they do not duplicate a business rule or become a second source of state.
+- **One-Way Command Dispatch**: UI triggers actions by invoking `vm` slots/methods. The Presenter/coordinator handles the business logic and updates ViewModel properties.
 
-### 1.2 Reactive Property Bindings (Over Manual Assignment)
-- **Automatic Reactivity**: Always bind QML element properties directly to `viewModel` properties or theme singletons (e.g., `text: viewModel.resultText`, `enabled: viewModel.controlsEnabled`, `visible: viewModel.isConfigDirty`).
-- **Never Break Bindings with Imperative Assignments**: Avoid assigning properties imperatively inside signal handlers (e.g., avoid `onClicked: myLabel.text = "Done"`). Update the underlying `viewModel` property from Python instead.
+### 5.2 Reactive Property Bindings (Over Manual Assignment)
+- **Automatic Reactivity**: Always bind QML element properties directly to `vm` properties or `Theme`. Never break bindings with imperative assignments inside signal handlers.
 
-### 1.3 Component Modularization & Single Responsibility (SRP)
-- **Break Down God Components**: Treat 300 lines as a mandatory review threshold, not a blind line-count failure. Break a component when it mixes separate responsibilities, repeats a pattern, or makes its user journey hard to test; do not split cohesive layout markup merely to satisfy a number.
-  - Base cards & dialogs: `ModalDialogCard.qml`, `MetricCard.qml`
-  - Reusable inputs: `BotParamField.qml`, `DynamicTabBar.qml`
-  - Screen sub-panels: `BackTestToolbar.qml`, `TradeLogsTable.qml`, `TradeLogsDetailSection.qml`
-- **Component File Structure**: Reusable components reside in `src/presentation/ui/components/`; screen-specific subcomponents reside directly in their screen folder `src/presentation/ui/screens/<screen_name>/`.
-- **Component Catalog (`EPIC-003D`)**: Every top-level file directly under `src/presentation/ui/components/` (not inside a subsystem folder like `chart_card/`/`sidebar/`) MUST have one line in `src/presentation/ui/components/README.md` — name, one-sentence purpose, and which screens currently use it. This is not optional documentation: a guard test enumerates the real top-level files and fails if any is missing from the catalog, the same enforcement style already used for the `preview.py` convention below. Purpose: a directory listing alone cannot answer "is there already something I can reuse before I build a new one" — that question was reported unanswerable in practice (a progress bar already shared by two screens was invisible until someone grepped real usage). Check the catalog before adding a new component; if something close already exists, extend it instead of duplicating it. Subsystem folders (`chart_card/`, `sidebar/`) get one summary row each, not a per-file breakdown — their own internal organization is not this catalog's job.
+### 5.3 Component Modularization & Single Responsibility (SRP)
+- **Break Down God Components**: Treat 300 lines as a mandatory review threshold, not a blind line-count failure.
+  - Shared widget shapes (current, `EPIC-015`): `SelectList.qml`, `CheckboxList.qml`, `StatGrid.qml`.
+  - Screen-specific bodies: one `.qml` per `QmlOverlay` consumer (`Capital.qml`, ...).
+- **Component File Structure**: shared widgets live in `src/presentation/ui/qml/<Widget>/` (§1); a `.qml` used by exactly one screen's one dialog stays there too — do not create a screen-local `.qml` folder elsewhere.
 
-### 1.4 Consistent Naming Conventions
-- **Descriptive Visual IDs**: Use clear, camelCase IDs reflecting purpose (e.g., `id: backtestStaleWarningBanner`, `id: btnRunBacktest`, `id: tradeLogsTable`).
-- **Unique Testable IDs**: Every interactive element (Button, TextField, ComboBox, Modal) MUST declare a descriptive QML `id` **and** a stable `objectName`. `id` supports readable bindings; `objectName` is the public automation contract for `qml_item()` and desktop E2E. Never use a generated index as the only test identity.
-- **Property & Signal Naming**:
-  - Properties: `camelCase` (e.g., `isConfigDirty`, `selectedTimeframe`, `controlsEnabled`).
-  - Signals: `camelCase` verb phrases (e.g., `runRequested`, `syncClicked`, `modalDismissed`).
+### 5.4 Consistent Naming Conventions
+- **Unique Testable IDs**: Every interactive element MUST declare a stable `objectName` — it is the only thing `qml_item()`/`find_qml_item()` can search on. Never use a generated index as the only test identity.
+- **Property & Signal Naming**: Properties `camelCase` (`isConfigDirty`); signals `camelCase` verb phrases (`runRequested`, `chosen`, `toggled`).
 
 ---
 
-## 2. 🎨 Design Practices & Visual Excellence
+## 6. 🎨 Design Practices & Visual Excellence
 
-### 2.1 Design System & Theme Consistency
-- **Centralized Tokens**: New feature code must use the centralized Theme tokens rather than introducing literal colours, fonts, spacing, or radii. The existing UI exposes a flat API such as `Theme.bg`, `Theme.bgCard`, `Theme.border`, `Theme.textPrimary`, `Theme.accent`, `Theme.success`, `Theme.danger`, and `Theme.muted` -- it does **not** expose `Theme.colors`, `Theme.fonts`, `Theme.spacing`, or `Theme.radii`. Literal fallback values are allowed only inside shared compatibility primitives while the legacy UI is migrated; feature QML must not add new fallbacks or duplicate palette literals.
-- **Always Use ThemeSingleton**: Use the project API above. If a required semantic token (for example `warning`, `buttonHover`, spacing, or radius) does not exist, add it once to the palette/theme bridge or reuse a shared primitive; do not make up a parallel `Theme.colors.*` API in one QML file.
-- **Theme-Tinted Vector Icons**: Use SVG icons loaded via `image://icons/<name>/<token>`. Never use raw emoji or raster bitmaps for UI icons.
+### 6.1 Design System & Theme Consistency
+See §3 above — this is now a hard gate, not a style preference.
 
-### 2.2 Dynamic Responsive UI Sizing (No Rigid Fixed Geometry)
-- **Zero Fixed Dimensions on Containers**: Never hardcode rigid pixel `width` or `height` on modals, dialogs, popups, or cards.
-- **Clamped Dynamic Sizing**: Use `preferredWidth` and `preferredHeight` dynamically clamped to available overlay or viewport boundaries (e.g., `Math.min(parent.width * 0.9, 720)`).
-- **Layout Managers**: Use Qt Quick Layouts (`ColumnLayout`, `RowLayout`, `GridLayout`) with `Layout.fillWidth: true` and `Layout.fillHeight: true`.
-- **Clipped Scrolling**: Ensure all interior scrollable containers declare `ScrollView { clip: true }` with responsive content sizing.
+### 6.2 Dynamic Responsive UI Sizing (No Rigid Fixed Geometry)
+- **Zero Fixed Dimensions on Containers**: Never hardcode rigid pixel `width`/`height` on modals, dialogs, popups, or cards.
+- **Layout Managers**: Use Qt Quick Layouts / `Column`/`Row` with `Layout.fillWidth`/`fillHeight` where applicable.
+- **Clipped Scrolling**: Interior scrollable containers declare `ScrollView { clip: true }`.
 
-### 2.3 Synchronized Table Column Proportions
-- **Single Source of Truth for Columns**: For all data tables and header grids, column widths MUST be declared centrally in a single configuration/mapping.
-- **Synchronized Delegates**: Header delegate and row cell delegates MUST bind directly to the same column width definition to guarantee 100% alignment during window resize and splitter movements.
+### 6.3 Synchronized Table Column Proportions
+For any data table/header grid built in QML, column widths MUST be declared centrally and both header and row delegates bind to the same definition.
 
-### 2.4 Micro-Animations for Feedback & Polish
-- **Subtle Transitions**: Where feedback benefits comprehension, use non-intrusive micro-animations (normally 150ms – 250ms) with `Easing.InOutQuad` or `Easing.OutCubic`:
-  - Hover & Pressed state color fades: `Behavior on color { ColorAnimation { duration: 150 } }`
-  - Border highlight transitions: `Behavior on border.color { ColorAnimation { duration: 150 } }`
-  - Modal backdrop and panel fade/scale: `NumberAnimation on opacity`, `NumberAnimation on scale`
-  - Warning banner drop-down: `NumberAnimation on height` or `NumberAnimation on y`
-- **Never Block User Flow**: Animations must be asynchronous and unobtrusive; never prevent user clicks or lock the UI thread. Do not add decorative animation to high-frequency or render-sensitive surfaces (charts, pan/zoom, large tables) until a benchmark proves it is within the interaction budget.
+### 6.4 Micro-Animations for Feedback & Polish
+Subtle, non-blocking transitions (150–250ms) are welcome once a widget is functionally correct — never before. Do not add decorative animation to render-sensitive surfaces (this rule never applies to the chart, which stays QtWidgets regardless — §0).
+
+### 6.5 Security & UI Injection Defense
+Always declare `textFormat: Text.PlainText` on `Text` items rendering dynamic or external data (trade logs, error messages, symbol names, raw exception text).
+
+### 6.6 High-Performance Model-View Patterns
+A repeated, dynamic collection that can exceed 20 items, update incrementally, or be virtualized MUST be backed by a Python `QAbstractListModel` (e.g. `TradeLogModel`, `IndicatorScriptListModel`, `LogModel`) — it emits `dataChanged` per row instead of the wholesale rebuild §4.2 measures for a `Repeater`-over-list-of-dicts model. A small static list or a one-shot form (`SelectList`/`CheckboxList`/`StatGrid`'s own rows) may use a plain `QVariantList` property only when it is not transforming domain data at scale. Keep `Repeater` delegates lean; instantiate detail sections on-demand via `Loader` or collapsible panels.
 
 ---
 
-## 3. ⚖️ Code + Design Integration & Security
+## 7. 🧪 QML Quality Assurance & Testing
 
-### 3.1 Declarative `States` and `Transitions`
-- **Multi-State Elements**: When an element possesses 3 or more distinct visual states (e.g., `IDLE`, `HOVER`, `PRESSED`, `DIRTY`, `DISABLED`), prefer declarative `states` and `transitions` over nested ternary expressions. Two simple, directly-related visual branches may remain a binding.
-  ```qml
-  states: [
-      State {
-          name: "dirty"
-          when: viewModel.isConfigDirty
-          PropertyChanges { target: btnRun; color: Theme.colors.amber; text: "CẬP NHẬT LẠI" }
-      },
-      State {
-          name: "running"
-          when: !viewModel.controlsEnabled
-          PropertyChanges { target: btnRun; opacity: 0.5; enabled: false }
-      }
-  ]
-  transitions: [
-      Transition {
-          ColorAnimation { properties: "color,border.color"; duration: 180 }
-          NumberAnimation { properties: "opacity"; duration: 180 }
-      }
-  ]
-  ```
-
-### 3.2 High-Performance Model-View Patterns
-- **C++ / Python Model Backing**: A repeated, dynamic collection that can exceed 20 items, update incrementally, or be virtualized MUST be backed by a Python `QAbstractListModel` (for example `TradeLogModel`, `IndicatorScriptListModel`, `LogModel`). A small static list or a one-shot form may use a QML model only when QML is not transforming domain data.
-- **ListView Delegate Optimization**: Keep delegates lean and instantiate detail sections on-demand (via `Loader` or collapsible panels).
-
-### 3.3 Security & UI Injection Defense
-- **Enforce PlainText**: Always declare `textFormat: Text.PlainText` on `Text` items rendering dynamic or external data (trade logs, error messages, symbol names, parameter labels, raw exception text) to prevent HTML/RichText injection.
+- **Sanity Verification**: Every `.qml` file must construct cleanly — no syntax errors, unbound property warnings, or null pointer errors. `QmlOverlay` (`src/presentation/ui/qml/host.py`) already turns a failed load into a raised `RuntimeError` instead of silently rendering a blank box — every widget host must do the same, not render-and-hope.
+- **Widget VM tests need no GUI** (§1.2) — the majority of a widget's test coverage should live here, not in a rendered test.
+- **Render tests are thin, on purpose**: only prove the `.qml` loaded and its bindings point at properties the VM actually has — the render-time class of error `mypy`/`ruff` cannot see. Do not duplicate VM-level logic assertions in a render test.
+- **Reaching into a rendered scene**: use `qml_item(root, "objectName")` (`tests/conftest.py`) for `Repeater` delegates and ordinary visual descendants — see §4.3 for why `findChild` fails there. Qt `Popup` items are the one exception, detached from `childItems()` the other direction — use `overlay_root.findChild(object, "objectName")` for those. Never weaken either kind of test into a Presenter/private-property assertion merely because the item is inconvenient to find.
+- **Never hold a delegate reference across a refresh** (§4.2) — re-look-up after every `rowsChanged`/`optionsChanged`/`cardsChanged`.
+- **Simulate real input, not a guessed signal signature** (§4.4) — `QTest.keyClicks`/`QTest.mouseClick` over hand-invoking a signal.
 
 ---
 
-## 4. 🧪 QML Quality Assurance & Testing
+## 8. 🔍 UI Preview Convention & Live Tooling (BOT-031)
 
-- **Sanity Verification**: Every QML file must construct cleanly without QML syntax errors, unbound property warnings, or null pointer errors during `tests/sanity/`.
-- **Verify Clean Load**:
-  ```python
-  assert quick_widget.errors() == []
-  ```
-- **Test Visual Hierarchy**: Use `qml_item(root, "objectName")` for repeated delegates and ordinary visual descendants rather than querying non-visual QObject trees. Qt `Popup` items are detached from `QQuickItem.childItems()`; for that framework boundary, use `overlay_root.findChild(object, "objectName")` against the real overlay root. Do not weaken either kind of test into a Presenter/private-property assertion merely because the item is inconvenient to find.
+Unchanged by `EPIC-015` — still QtWidgets-first per screen, still enforced:
+
+- **Mandatory `preview.py` per UI Package**: Every screen package in `src/presentation/ui/screens/<screen>/` and reusable component (`src/presentation/ui/components/sidebar/`) MUST have a `preview.py` exposing `build_preview() -> QWidget`.
+- **Preview CLI Runner**: `.\scripts\preview-qml.ps1 <screen_name>` / `--list`. The script name is a historical misnomer (pre-`EPIC-006`) — it now previews QtWidgets screens too, name kept for the same reason a stale filename anywhere else in this repo is kept: renaming costs a diff for zero behaviour change.
+- **Automated Guard Tests**: `tests/unit/presentation/ui/test_preview_fixtures_exist.py`.
 
 ---
 
-## 5. 🔍 UI Preview Convention & Live Tooling (BOT-031)
+## 9. Việc còn treo — ghi lại để không quên, không phải để làm ngay
 
-To preview screens and UI components fast during local UI development without booting the entire Sagittarius Engine or DI container:
-- **Mandatory `preview.py` per UI Package**: Every screen package in `src/presentation/ui/screens/<screen>/` and reusable component (`src/presentation/ui/components/sidebar/`) MUST have a `preview.py` file exposing:
-  ```python
-  def build_preview() -> QWidget:
-      """Constructs view + mock ViewModel + sample data ready for .show()."""
-  ```
-- **Preview CLI Runner**: Use `scripts/preview-qml.ps1` to test screens live:
-  ```powershell
-  .\scripts\preview-qml.ps1 --list
-  .\scripts\preview-qml.ps1 <screen_name>  # e.g., backtest, dashboard, data_management, settings, sidebar
-  ```
-- **Automated Guard Tests**: Enforced automatically via AST and offscreen load verification in `tests/unit/presentation/ui/test_preview_fixtures_exist.py`.
+- `tests/unit/presentation/ui/qml/_qml_test_support.py` (`EPIC-015`) duplicates
+  `tests/conftest.py`'s `qml_item`/`find_qml_item` almost exactly — written without searching
+  for existing infra first. Needs consolidating onto the one canonical helper; not done here
+  because this pass is rule-only (user: "ko code").
+- `QmlOverlay.root_object`'s docstring ("for tests to `findChild` into") is incomplete post-§4.3
+  finding — true for statically-declared items, not for `Repeater` delegates. Small doc fix,
+  same "not this pass" reason.
