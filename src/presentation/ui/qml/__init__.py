@@ -17,6 +17,18 @@ its tests construct **no `QApplication` at all** — measured, see the epic's
 `spike/vm_alone.py`.
 """
 
-from .host import QmlOverlay
-
 __all__ = ["QmlOverlay"]
+
+
+def __getattr__(name: str):
+    """Load the legacy app host only when a caller explicitly asks for it.
+
+    Standalone QML component sets live below this package and must not import
+    the application's QmlOverlay/QtWidgets bridge merely because Python is
+    discovering their colocated tests.
+    """
+    if name == "QmlOverlay":
+        from .host import QmlOverlay
+
+        return QmlOverlay
+    raise AttributeError(name)

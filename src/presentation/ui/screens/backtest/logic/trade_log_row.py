@@ -154,6 +154,11 @@ def trade_log_row_to_qml(
     return {
         "index": str(row.index),
         "positionLabel": f"#{row.index} {_POSITION_LABEL[row.side]}",
+        # Additive for the QML port's LOẠI column badge (`qml/TradeLogTable/`,
+        # 2026-08-29) — `positionLabel` already names the side in Vietnamese
+        # prose, but a badge needs the bare word plus a colour, not a sentence.
+        "sideLabel": row.side.value.upper(),
+        "sideIsLong": row.side is PositionSide.LONG,
         "entryTimeText": _format_datetime(row.entry_time, tz_name=tz_name),
         "exitTimeText": _format_datetime(row.exit_time, tz_name=tz_name),
         "entryPriceText": f"{row.entry_price:,.2f} USD",

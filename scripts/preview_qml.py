@@ -105,6 +105,14 @@ def _ensure_qt_theme_ready() -> None:
     # excluded from the mypy gate). The narrow annotation is the engine's to
     # widen; ignored here rather than converting the sizes to strings, which
     # would change what the UI actually renders.
+    # QML previews customize Controls backgrounds. Native platform styles do
+    # not permit that customization, so pin the preview process to Basic
+    # before any QQuickWidget is constructed.
+    from PySide6.QtQuickControls2 import QQuickStyle
+
+    if QQuickStyle.name() != "Basic":
+        QQuickStyle.setStyle("Basic")
+
     configure_app_qml(
         Palette.as_ui_dict(),  # type: ignore[arg-type]
         get_icon_loader(),

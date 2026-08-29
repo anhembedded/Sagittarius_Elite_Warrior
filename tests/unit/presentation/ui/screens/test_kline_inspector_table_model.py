@@ -6,6 +6,8 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.kline_inspector_table_model import (
     KLineInspectorTableModel,
+    kline_display_row_to_qml,
+    market_data_to_kline_row,
 )
 
 
@@ -89,3 +91,32 @@ def test_kline_inspector_jump_to_date(qapp):
     # Jump to non-existent date
     not_found = model.jump_to_date("2099-12-31")
     assert not_found is False
+
+
+def test_market_data_to_kline_row_matches_what_set_klines_stores():
+    """The QML port's VM calls `market_data_to_kline_row` directly instead
+    of going through the paginated model — this pins down that doing so
+    produces the identical row `set_klines()` would have stored."""
+    candle = _make_candle(5, 100.0, 105.0)
+    model = KLineInspectorTableModel(page_size=50)
+    model.set_klines([candle])
+
+    idx = model.index(0, 0)
+    row = market_data_to_kline_row(candle)
+
+    assert row.formatted_time == model.data(
+        idx, KLineInspectorTableModel.FormattedTimeRole
+    )
+    assert row.close_str == model.data(idx, KLineInspectorTableModel.CloseRole)
+    assert row.is_bullish == model.data(idx, KLineInspectorTableModel.IsBullishRole)
+
+
+def test_kline_display_row_to_qml_uses_the_same_role_names():
+    row = market_data_to_kline_row(_make_candle(0, 100.0, 90.0))
+
+    qml_row = kline_display_row_to_qml(row)
+
+    assert qml_row["formattedTime"] == row.formatted_time
+    assert qml_row["closePrice"] == row.close_str
+    assert qml_row["isBullish"] is False
+    assert qml_row["changePct"] == row.change_pct_str

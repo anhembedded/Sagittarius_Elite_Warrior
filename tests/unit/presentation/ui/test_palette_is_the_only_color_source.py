@@ -40,7 +40,11 @@ _SCAN_ROOT = REPO_ROOT / "src" / "presentation" / "ui"
 #: import Palette — see `chart_card/theme.py`'s own docstring: "this package doesn't
 #: import the app's global Palette (kept portable/standalone)". A deliberate,
 #: documented exception, not the accidental duplication this test hunts for.
-_EXEMPT_DIRS = frozenset({"components/chart_card"})
+#: `qml/SymbolPicker` is the same situation: `symbol_picker_theme.py`'s own
+#: docstring explains it copies Palette's values rather than importing Palette,
+#: to stay a zero-app-dependency component; a dedicated sync test
+#: (`test_symbol_picker_theme_matches_palette.py`) is what catches drift instead.
+_EXEMPT_DIRS = frozenset({"components/chart_card", "qml/SymbolPicker"})
 
 #: This file is the one place allowed to *define* the values palette.py's own dict
 #: methods return, and the test file itself quotes hexes in its docstring/asserts.

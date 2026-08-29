@@ -46,6 +46,18 @@ GROUP_LABELS: dict[TimeframeGroup, str] = {
     TimeframeGroup.DAYS: "NGÀY TRỞ LÊN",
 }
 
+#: Short annotation shown beside each section heading in the QML picker
+#: (`qml/TimeframePicker/`) — context a bare "PHÚT" does not give: which
+#: section is heavy, which is the sane default, which suits a scalper versus
+#: a swing trader. Additive only: `TimeframePickerOverlay` (the QtWidgets
+#: dialog) does not read this, so it does not change what that dialog shows.
+GROUP_CAPTIONS: dict[TimeframeGroup, str] = {
+    TimeframeGroup.SECONDS: "dữ liệu tick — nặng",
+    TimeframeGroup.MINUTES: "mặc định cho scalping",
+    TimeframeGroup.HOURS: "intraday",
+    TimeframeGroup.DAYS: "swing / vị thế dài",
+}
+
 #: Unit suffix → (group, Vietnamese noun). Keyed by the same last character
 #: `TimeFrame.to_seconds()` switches on, so a member this map does not cover
 #: is a member that has no duration either — `test_every_timeframe_is_named`

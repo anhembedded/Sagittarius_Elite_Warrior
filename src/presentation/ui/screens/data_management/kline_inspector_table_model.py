@@ -52,6 +52,56 @@ def _format_volume(val: float) -> str:
     return f"{val:.4f}".rstrip("0").rstrip(".")
 
 
+def market_data_to_kline_row(k: MarketData) -> KLineDisplayRow:
+    """Converts one domain candle to its display row.
+
+    Extracted from `KLineInspectorTableModel.set_klines()`'s loop body
+    (`qml/KlineInspectorTable/`, 2026-08-30) so a second consumer — the QML
+    port, which does not paginate through this model (see that widget's
+    NOTES.md) — can build the same rows without duplicating this
+    conversion. Behaviour is unchanged; `set_klines()` now calls this too.
+    """
+    ts_ms = int(k.open_time.timestamp() * 1000)
+    is_bull = k.close_price >= k.open_price
+    chg = (
+        (k.close_price - k.open_price) / k.open_price * 100 if k.open_price > 0 else 0.0
+    )
+    return KLineDisplayRow(
+        timestamp_ms=ts_ms,
+        formatted_time=k.open_time.strftime("%Y-%m-%d %H:%M:%S"),
+        open_str=_format_price(k.open_price),
+        high_str=_format_price(k.high_price),
+        low_str=_format_price(k.low_price),
+        close_str=_format_price(k.close_price),
+        volume_str=_format_volume(k.volume),
+        quote_volume_str=_format_volume(k.quote_asset_volume),
+        trades=k.number_of_trades,
+        is_bullish=is_bull,
+        change_pct_str=f"{chg:+.2f}%",
+    )
+
+
+def kline_display_row_to_qml(row: KLineDisplayRow) -> dict[str, object]:
+    """Converts to the plain-dict shape a QML `ListView`/`Repeater` model
+    expects — same role names `_ROLE_NAMES` declares, so a QML delegate
+    reading `modelData.<key>` sees the identical field set whichever of the
+    two models (this one, paginated, or the QML port's, virtualized) is
+    behind it."""
+    return {
+        "timestampMs": row.timestamp_ms,
+        "formattedTime": row.formatted_time,
+        "openPrice": row.open_str,
+        "highPrice": row.high_str,
+        "lowPrice": row.low_str,
+        "closePrice": row.close_str,
+        "volume": row.volume_str,
+        "quoteVolume": row.quote_volume_str,
+        "trades": row.trades,
+        "isBullish": row.is_bullish,
+        "changePct": row.change_pct_str,
+    }
+
+
 class KLineInspectorTableModel(QAbstractTableModel):
     """
     @brief Table model for the KLine Data Inspector modal in DataManagementScreen.
@@ -171,35 +221,7 @@ class KLineInspectorTableModel(QAbstractTableModel):
     def set_klines(self, klines: list[MarketData]) -> None:
         """Populates the model from domain MarketData entities."""
         self.beginResetModel()
-        rows: list[KLineDisplayRow] = []
-        for k in klines:
-            ts_ms = int(k.open_time.timestamp() * 1000)
-            fmt_time = k.open_time.strftime("%Y-%m-%d %H:%M:%S")
-            is_bull = k.close_price >= k.open_price
-            chg = (
-                (k.close_price - k.open_price) / k.open_price * 100
-                if k.open_price > 0
-                else 0.0
-            )
-            chg_str = f"{chg:+.2f}%"
-
-            rows.append(
-                KLineDisplayRow(
-                    timestamp_ms=ts_ms,
-                    formatted_time=fmt_time,
-                    open_str=_format_price(k.open_price),
-                    high_str=_format_price(k.high_price),
-                    low_str=_format_price(k.low_price),
-                    close_str=_format_price(k.close_price),
-                    volume_str=_format_volume(k.volume),
-                    quote_volume_str=_format_volume(k.quote_asset_volume),
-                    trades=k.number_of_trades,
-                    is_bullish=is_bull,
-                    change_pct_str=chg_str,
-                )
-            )
-
-        self._all_rows = rows
+        self._all_rows = [market_data_to_kline_row(k) for k in klines]
         self._current_page = 1
         self.endResetModel()
         self.paginationChanged.emit()

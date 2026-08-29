@@ -152,8 +152,14 @@ def test_a_fetch_that_found_more_data_reschedules_a_recheck_after_cooldown(qapp,
     # 2. Fetch finishes, having found more (older) candles. Cooldown starts.
     controller.on_load_more_finished("ETHUSDT", found_more=True)
 
-    # 3. Wait for cooldown to expire
-    qtbot.wait(int(_TINY_COOLDOWN * 1000) + 50)
+    # 3. Wait for cooldown to expire. Margin is generous (not the tighter
+    # +50ms this used to be) because under full-parallel test-suite load
+    # (xdist, several workers contending for CPU) a too-tight margin lets
+    # the QTimer's firing slip past the wait, failing this assertion despite
+    # the controller behaving correctly — a scheduling flake, not a logic
+    # one (confirmed: reproduced only under full parallel runs, never in
+    # isolation).
+    qtbot.wait(int(_TINY_COOLDOWN * 1000) + 400)
 
     # 4. _recheck_edge should have been called automatically by the QTimer
     assert rechecks == ["ETHUSDT"]
@@ -177,6 +183,6 @@ def test_a_fetch_that_found_nothing_does_not_reschedule_a_recheck(qapp, qtbot):
     controller.on_near_left_edge("ETHUSDT", 1000.0)
     controller.on_load_more_finished("ETHUSDT", found_more=False)
 
-    qtbot.wait(int(_TINY_COOLDOWN * 1000) + 50)
+    qtbot.wait(int(_TINY_COOLDOWN * 1000) + 400)
 
     assert rechecks == []

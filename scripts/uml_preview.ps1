@@ -16,20 +16,20 @@
     `src/presentation/ui/qml/<Widget>/`) — this script is for addressing one
     explicitly by path instead.
 
-.PARAMETER Dir
+.PARAMETER WidgetDir
     Path to the directory containing the `preview.py` to load (e.g.
-    `src/presentation/ui/qml/Capital`). Aliased to `-dir` for exact-name matching.
+    `src/presentation/ui/qml/Capital`). Pass it positionally or with
+    `-WidgetDir`; the Python wrapper receives it as `--dir`.
 
 .EXAMPLE
-    .\scripts\uml_preview.ps1 -dir src/presentation/ui/qml/Capital
+    .\scripts\uml_preview.ps1 -WidgetDir src/presentation/ui/qml/Capital
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [Alias("dir")]
-    [string]$Dir,
+    [Parameter(Mandatory = $true, Position = 0)]
+    [string]$WidgetDir,
 
-    [Parameter(ValueFromRemainingArguments = $true)]
+    [Parameter(ValueFromRemainingArguments = $true, Position = 1)]
     [string[]]$ScriptArgs
 )
 
@@ -53,4 +53,4 @@ if (Test-Path (Join-Path $botRoot ".venv")) {
 
 $pythonExe = if ($venvRoot) { Join-Path $venvRoot "Scripts\python.exe" } else { "python" }
 
-& $pythonExe (Join-Path $scriptDir "preview_qml.py") --dir $Dir @ScriptArgs
+& $pythonExe (Join-Path $scriptDir "preview_qml.py") --dir $WidgetDir @ScriptArgs

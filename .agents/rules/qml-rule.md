@@ -69,6 +69,51 @@ Ba pattern lồng nhau đã đo là chạy được thật (`EPIC-015` spike A/B
 | Cả route là QML | `QStackedWidget` chứa một `QQuickWidget` làm cả màn | chưa dùng — dành cho Settings/Data Management |
 | Modal QML | `QDialog`/`Overlay` chứa `QQuickWidget` làm phần thân | `QmlOverlay` (`src/presentation/ui/qml/host.py`) — **đã có, đang dùng** |
 
+### 0.1 Modal QML — hai hình, không phải một
+
+Hàng "Modal QML" ở trên chỉ đúng cho **một** tình huống. Có tình huống thứ hai, và nhầm giữa
+hai cái này là cách một component tự dựng lại thứ Qt đã cho sẵn. Lý do kỹ thuật, đo được từ
+chính Qt chứ không suy đoán: `Popup`/`Dialog` của `QtQuick.Controls` dim/chặn tương tác thông
+qua một `Overlay.overlay` gắn theo **`Window`** chứa nó — một `QQuickWidget` là cửa sổ Qt Quick
+riêng của chính nó, tách khỏi các widget QtWidgets đứng cạnh. Nên `Popup` mở bên trong một
+`QQuickWidget` nhỏ **không thể** che phần QtWidgets xung quanh nó, dù code không hề báo lỗi.
+
+| Host là gì | Cách đúng | Vì sao |
+| :--- | :--- | :--- |
+| Route/màn hình vẫn là QtWidgets (hiện tại: hầu hết màn) | `QmlOverlay` (`QDialog` QtWidgets thật, chứa thân QML) | Chỉ một `QDialog` thật mới dim/chặn được toàn bộ ứng dụng khi phần còn lại là QtWidgets. `.qml` bên trong **chỉ là layout thân** (`Column`/`Grid`/`ScrollView` — xem `SelectList`/`CheckboxList`/`StatGrid`/`Capital`), không tự dựng modal của chính nó. Đây là hình duy nhất 5 component hiện có dùng, và chúng đang đúng — không cần sửa gì.|
+| Route/màn hình đã là toàn bộ QML (bậc 3+ của `EPIC-015`: Settings, Data Management sau khi chuyển) | `Popup`/`Dialog` gốc `QtQuick.Controls` làm root của component modal | Lúc này cả route là một `QQuickWindow` duy nhất, nên `Popup` dim đúng toàn màn. Dùng `Popup`/`Dialog` thay vì tự dựng `Item` + backdrop + bắt phím tay — chúng cho sẵn Escape-to-close, `closePolicy` (đóng khi click ra ngoài), và focus scope; tự viết lại là trùng lặp bề mặt Qt đã viết và test sẵn, thêm bề mặt lỗi phải tự bảo trì (đúng nghĩa "không common" — Popup/Dialog mới là idiom chuẩn của Qt Quick cho modal, không phải một `Item` tự quản `visible`). |
+
+`SymbolPicker.qml` hiện rơi vào ô thứ hai (dùng độc lập, không qua `QmlOverlay` — xem
+`NOTES.md` cùng thư mục) nhưng lại tự dựng `Item` + backdrop + bàn phím tay thay vì
+`Popup`/`Dialog`. Chưa phải lỗi cấp bách — component này chưa nối vào màn hình thật nào, chỉ
+`preview.py` và test dùng nó (xem việc còn treo ở §9) — nhưng khi viết lại, đổi root thành
+`Popup`/`Dialog` là điểm sửa chính.
+
+### 0.2 `src/presentation/ui/qml/` chính thức là nơi dựng QML component — không còn là khu thử nghiệm
+
+Quyết định user 2026-08-29: thư mục này **chính thức**, không phải "vùng pilot của
+`EPIC-015`" nữa. Hệ quả trực tiếp, áp dụng cho mọi lần thêm hoặc sửa bất cứ thứ gì ở đây:
+
+- **Cái gì dùng chung được thì phải dựng dùng chung, không viết bản sao "gần giống".**
+  Trước khi tạo `.qml` mới, tra bảng hình đã có ở §2 và các VM đã có (`SelectList`,
+  `StatGrid`, `CheckboxList`, `TimeRangePicker`, ...). Một hình "gần giống nhưng hơi
+  khác" là tín hiệu để **tổng quát hoá** component có sẵn (thêm cờ, thêm callback) —
+  đúng cách `SelectListVM` đã hấp thụ `TimezonePickerVM` cũ, xoá bản gốc chứ không giữ
+  lại làm forwarder (xem docstring `select_list_vm.py`) — không phải tín hiệu để viết
+  một widget mới song song.
+- **Thêm tính năng vào một widget đã có luôn phải tự hỏi trước: design hiện tại còn
+  đúng, hay tính năng này sắp bị vá vào một chỗ không hợp?** Nếu không hợp, sửa design
+  — đổi hợp đồng VM, đổi cách interface chia read/write, tách lại component — **không
+  hotfix, không giữ nguyên design cũ rồi thêm nhánh đặc biệt (`if is_special_case:`)
+  cho vừa tính năng mới.** Ví dụ đã xảy ra thật: `ISymbolPickerSource` chỉ có `get_*`
+  (read-only) cho tới khi `toggleFavourite()` cần ghi lại — thay vì để VM tự ghi tắt
+  qua signal rồi coi là xong, hợp đồng được sửa thêm `set_favourite()` để đối xứng
+  đọc/ghi (xem lịch sử ở `ISymbolPickerSource`'s docstring).
+- **Ưu tiên áp dụng design pattern đã có trong chính file này** — Port/interface tường
+  minh (`architecture-rule.md`, cấm duck-typing ngầm), VM callback-constructed dùng
+  chung (§1.1), VM giữ toàn bộ state và luật (§1.2), đúng hình modal theo host (§0.1)
+  — hơn là nghĩ ra cách làm riêng cho từng widget.
+
 ---
 
 ## 1. Kiến trúc: 1 widget QML = 1 thư mục
@@ -354,3 +399,8 @@ Unchanged by `EPIC-015` — still QtWidgets-first per screen, still enforced:
 - `QmlOverlay.root_object`'s docstring ("for tests to `findChild` into") is incomplete post-§4.3
   finding — true for statically-declared items, not for `Repeater` delegates. Small doc fix,
   same "not this pass" reason.
+- `SymbolPicker.qml` hand-rolls its own backdrop/modal-card/keyboard handling on a plain `Item`
+  instead of `Popup`/`Dialog` from `QtQuick.Controls` (§0.1) — not yet fixed because the
+  component has no production host to verify against (only `preview.py` and its tests use it).
+  User decision 2026-08-29: write the rule, do not touch the component in this pass — it will be
+  rebuilt against this rule later.

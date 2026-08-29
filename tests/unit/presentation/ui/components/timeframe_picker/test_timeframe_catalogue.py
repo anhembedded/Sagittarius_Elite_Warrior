@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    GROUP_CAPTIONS,
     GROUP_LABELS,
     TimeframeGroup,
     all_options,
@@ -95,3 +96,11 @@ def test_grouping_follows_the_declared_section_order():
     grouped = group_options(all_options())
 
     assert [group for group, _ in grouped] == list(GROUP_LABELS)
+
+
+def test_every_group_has_a_caption():
+    """A group added to `GROUP_LABELS` without one here would render the
+    QML picker's section caption as an empty string with no warning."""
+    assert set(GROUP_CAPTIONS) == set(GROUP_LABELS)
+    for caption in GROUP_CAPTIONS.values():
+        assert caption.strip() != ""

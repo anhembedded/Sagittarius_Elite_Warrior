@@ -82,6 +82,38 @@ def test_trade_log_row_to_qml_labels_a_short_position_distinctly():
     assert qml_row["positionLabel"] == "#7 vị thế bán"
 
 
+def test_trade_log_row_to_qml_exposes_a_bare_side_badge_alongside_the_sentence():
+    """`positionLabel` already names the side in Vietnamese prose; the
+    QML port's LOẠI column needs the bare word plus a colour flag too."""
+    long_row = TradeLogRow(
+        index=1,
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T1,
+        exit_price=110.0,
+        quantity=1.0,
+        pnl=10.0,
+        pnl_percent=10.0,
+        side=PositionSide.LONG,
+    )
+    short_row = TradeLogRow(
+        index=2,
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T1,
+        exit_price=90.0,
+        quantity=1.0,
+        pnl=10.0,
+        pnl_percent=10.0,
+        side=PositionSide.SHORT,
+    )
+
+    assert trade_log_row_to_qml(long_row)["sideLabel"] == "LONG"
+    assert trade_log_row_to_qml(long_row)["sideIsLong"] is True
+    assert trade_log_row_to_qml(short_row)["sideLabel"] == "SHORT"
+    assert trade_log_row_to_qml(short_row)["sideIsLong"] is False
+
+
 def test_build_trade_log_rows_carries_the_trades_side_through():
     long_trade = _make_trade(10.0)
     short_trade = Trade(
