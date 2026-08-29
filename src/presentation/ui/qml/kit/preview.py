@@ -1,6 +1,6 @@
 """Standalone live preview for the shared `qml/kit/` components.
 
-Shows all four side by side (`_StyleGuidePreview.qml`), mirroring the
+Shows all seven side by side (`_StyleGuidePreview.qml`), mirroring the
 design spec image's own layout — a change to any one is visible without
 opening six other widgets to spot-check consistency.
 """

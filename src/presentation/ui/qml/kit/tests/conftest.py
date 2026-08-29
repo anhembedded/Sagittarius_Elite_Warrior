@@ -90,6 +90,14 @@ class FakeTheme(QObject):
         return "#cc3333"  # token-exempt: fake theme double, not a real Palette value
 
     @Property(str, constant=True)
+    def success(self) -> str:
+        return "#66cc99"  # token-exempt: fake theme double, not a real Palette value
+
+    @Property(str, constant=True)
+    def stateIdleBg(self) -> str:
+        return "#1a1a1a"  # token-exempt: fake theme double, not a real Palette value
+
+    @Property(str, constant=True)
     def stateActiveTint(self) -> str:
         return "#33ff9926"  # token-exempt: fake theme double, not a real Palette value
 

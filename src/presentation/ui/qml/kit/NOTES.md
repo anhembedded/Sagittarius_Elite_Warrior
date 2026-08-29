@@ -1,17 +1,74 @@
 # qml/kit — shared QML primitives
 
-Four components from a design-system spec the user provided 2026-08-30:
-`PanelHeader`, `Button`, `LogPanel`, `DialogShell`. Each replaces a pattern
-every widget built so far this session (`SymbolPicker`, `DatabaseStatusTable`,
-`KlineInspectorTable`, ...) was hand-rolling slightly differently — the
-spec's own annotations name the resulting drift ("Was: accent bar on some,
-none on others; three label sizes", "Was: gold fill, green outline, red
-fill and bare text all on one screen").
+Seven components now. The first four came from a design-system spec the user
+provided 2026-08-30: `PanelHeader`, `Button`, `LogPanel`, `DialogShell`. Each
+replaces a pattern every widget built so far this session (`SymbolPicker`,
+`DatabaseStatusTable`, `KlineInspectorTable`, ...) was hand-rolling slightly
+differently — the spec's own annotations name the resulting drift ("Was:
+accent bar on some, none on others; three label sizes", "Was: gold fill,
+green outline, red fill and bare text all on one screen"). `StatusPill` and
+`ProgressBanner` were added the same day from a second spec image (cards
+88/89/10: stat card, sidebar & nav, "trạng thái đang chạy" — the user chose
+to build the running-state/WS-pill card first, since it was the one area
+with **no** shared component anywhere yet; StatCard already exists and
+already scopes P&L colour to just the number, `kit/surfaces/stat_card.py`,
+and Sidebar already is one widget with two modes, `components/sidebar/sidebar.py`
+— both real "redesign an existing widget" work, saved for later).
 
-**Pure QML, no Python VM for any of the four** — `qml-rule.md` §1.3: a
+**Pure QML, no Python VM for any of the six** — `qml-rule.md` §1.3: a
 component with nothing to derive, only properties a caller sets, does not
 get one. `__init__.py` exists only so `tests/` resolves to a unique package
 path, not to re-export anything.
+
+## `StatusPill` / `ProgressBanner` — the real state behind the mockup
+
+`screens/dashboard/dev_board_panel.py`'s WS badge (a bare `QLabel` + a
+colour-square `QLabel`, styled inline, no dedicated class) is **not** dead —
+`dashboard_presenter.py`'s `_WS_STATUS_BY_MODE` genuinely drives it through
+all 4 FSM states (`IDLE`→muted, `LOCKED`→"SYNCING"/accent, `LIVE`→success,
+`ERROR`→danger) as the real stream lifecycle changes. `StatusPill.tone`
+mirrors those same four states (`idle`/`active`/`success`/`danger`) so a
+future host wires it to the same states it already has, not a new vocabulary.
+
+`components/app_progress_bar.py`'s `AppProgressBar` already tracks a real
+percentage every tick (`backtest_top_panel.py` calls
+`set_value(int(vm.backtestProgressPercent))`) but never renders it —
+`setTextVisible` stays off by design, so the number is computed and then
+thrown away. `ProgressBanner`'s `percent` property is that same number,
+finally shown — not a new metric invented for the mockup. `indeterminate`
+covers the one phase that genuinely has no percentage: "Đang hủy an
+toàn..." (`set_indeterminate(True)`, no known duration for a safe cancel).
+
+## `StatCard` — a port of an existing widget, not a new shape
+
+`kit/surfaces/stat_card.py`'s `StatCard` (QtWidgets) already has every slot
+the mockup needs — title/value/suffix/badge/caption — and already scopes
+tone colour to just the value label (`set_value(value, tone=...)`), so the
+spec's own annotation ("Was: colour applied to labels too") does not
+describe this widget; whatever it was comparing against is not in this
+codebase. What the QML port actually changes: a single 22px value size
+(the QtWidgets role already used one fixed size, just not this one), and
+extending tone-scoping to the `caption` line — the mockup's "TỔNG LÃI/LỖ"
+example colours both `"-8,193.54 USD"` and `"-81.94%"` together, since
+together they express one P&L figure; its two non-P&L examples ("Tỷ lệ
+thắng", "Stored klines") leave both lines untouched, which is what a
+caller gets by simply never setting `tone`.
+
+`backtest_top_panel.py`'s real call site (`_sync_stat_cards`,
+`primaryStatCards`) sets `badgeText`/`badgeTone`, never `caption` — so
+today's real backtest cards render a pill for their sub-line, not the
+plain text line the mockup shows. `StatCard.qml` keeps both slots (`caption`
+already existed on the QtWidgets widget for its other two real call sites)
+rather than picking one and dropping a working feature; which slot a
+future host uses for which card is that host's decision, not this
+component's.
+
+Font "tabular figures" (fixed-width digits, so a column of numbers aligns)
+is not implemented — QML's `Text.font` has no documented OpenType-feature
+toggle for it, and no widget in this app has ever needed one before. The
+value renders at a plain 22px instead; revisit only if columns of these
+cards are ever laid out one under another where uneven digit widths would
+visibly misalign.
 
 ## Deliberately a NEW design, not a QML port of `kit/style.py`
 

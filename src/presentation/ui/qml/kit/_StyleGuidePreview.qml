@@ -82,6 +82,88 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 8
         Text {
+            text: "StatCard"
+            textFormat: Text.PlainText
+            color: Theme.muted
+            font.pixelSize: 10
+        }
+        Row {
+            spacing: 10
+            Rectangle {
+                width: 220; height: 90; radius: 8
+                color: Theme.bgCard; border.width: 1; border.color: Theme.border
+                StatCard {
+                    objectName: "previewNetPnlCard"
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    title: "Tổng lãi/lỗ (net pnl)"
+                    value: "-8,193.54 USD"
+                    caption: "-81.94%"
+                    tone: "negative"
+                }
+            }
+            Rectangle {
+                width: 220; height: 90; radius: 8
+                color: Theme.bgCard; border.width: 1; border.color: Theme.border
+                StatCard {
+                    objectName: "previewWinRateCard"
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    title: "Tỷ lệ thắng"
+                    value: "10.33%"
+                    caption: "92/891 lệnh"
+                }
+            }
+        }
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Text {
+            text: "StatusPill"
+            textFormat: Text.PlainText
+            color: Theme.muted
+            font.pixelSize: 10
+        }
+        Row {
+            spacing: 8
+            StatusPill { objectName: "previewIdlePill"; text: "WS: IDLE"; tone: "idle" }
+            StatusPill { objectName: "previewActivePill"; text: "WS: SYNCING"; tone: "active" }
+            StatusPill { objectName: "previewSuccessPill"; text: "WS: LIVE"; tone: "success" }
+            StatusPill { objectName: "previewDangerPill"; text: "WS: ERROR"; tone: "danger" }
+        }
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Text {
+            text: "ProgressBanner"
+            textFormat: Text.PlainText
+            color: Theme.muted
+            font.pixelSize: 10
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 60
+            color: Theme.bgCard
+            border.width: 1
+            border.color: Theme.border
+            radius: 8
+            ProgressBanner {
+                anchors.fill: parent
+                anchors.margins: 12
+                statusText: "Đang chạy backtest…"
+                percent: 62
+            }
+        }
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Text {
             text: "DialogShell"
             textFormat: Text.PlainText
             color: Theme.muted
