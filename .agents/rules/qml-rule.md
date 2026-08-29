@@ -154,6 +154,29 @@ chỗ giữ cùng một sự thật, không có gì buộc chúng khớp nhau.
 Không có widget nào trong `EPIC-015` hiện tại vi phạm chiều ngược (tất cả đều qua được bài kiểm
 tra #1 hoặc #2) — nghĩa là chưa cần dọn gì, quy tắc này áp dụng **từ giờ về sau**.
 
+### 1.4 "Widget" ở đây không phải quy ước riêng của repo — nó là `Component` của Qt
+
+Tài liệu chính thức: [`QML Component type`](https://doc.qt.io/qt-6/qml-qtqml-component.html).
+
+Mỗi file `.qml` **tên viết hoa chữ cái đầu** (`SelectList.qml`, `CheckboxList.qml`, `Capital.qml`)
+tự động là một **Component type** của Qt — engine coi cả file đó là định nghĩa một kiểu UI dùng
+lại được, có thể `import` và khởi tạo nhiều lần. §1's "1 widget = 1 `.qml`" không phải một phát
+minh riêng của app — nó là chọn xếp mỗi Component sẵn có của Qt vào một thư mục riêng cùng
+`_vm.py`/`NOTES.md` của nó (§1 ở trên), chứ không định nghĩa lại khái niệm.
+
+Qt cũng có dạng khai báo **inline**, `Component { ... }`, dùng khi việc khởi tạo phải **trễ/lazy**
+thay vì ngay lập tức — hai chỗ dùng chuẩn là delegate của `ListView`/`Repeater` và
+`sourceComponent` của `Loader`. Đây chính là khái niệm đứng sau hai chỗ đã có trong file này:
+gotcha §4.2 (`Repeater` phá huỷ và tạo lại toàn bộ delegate — vì mỗi delegate *là* một Component
+được instantiate lại) và khuyến nghị "`Loader` để dựng theo yêu cầu" ở §6.6. Ghi tên khái niệm ra
+đây để không ai phải tra lại Qt docs mới nhận ra hai chỗ đó cùng một gốc.
+
+**Một bẫy đặt tên liên quan** (theo tài liệu Qt, không phải đo trong repo này — xem ghi chú đầu
+§4 về ranh giới "đo được" so với suy đoán): tên file `.qml` viết **thường** chữ đầu không được Qt
+đăng ký thành type — nó vẫn load được bằng đường dẫn trực tiếp, nhưng không dùng lại được như một
+Component qua `import`. Mọi `.qml` trong `src/presentation/ui/qml/<Widget>/` đã viết hoa đúng
+(`SelectList.qml`, không phải `selectList.qml`) — giữ nguyên quy ước đó khi thêm widget mới.
+
 ---
 
 ## 2. Khi nào chọn QML cho một widget mới
