@@ -12,7 +12,7 @@ which is a reason to keep it exact, not a reason to relax it.)
 
 `_KIT_DIR` holds the widget kit, which moved into this repo from the engine
 (see Tasks/epics/EPIC-007F). The kit is where `Card` is DEFINED, so the kit's
-own surfaces — `StatCard`, `TableCard`, `LogPanel` — subclass it by
+own surfaces — `TableCard`, `LogPanel` — subclass it by
 construction. "A Card must live in components/" cannot bind the package that
 supplies the base; applied there it would demand the kit dissolve into the
 app layer it exists to sit beneath, which is the opposite of the layering
@@ -54,7 +54,7 @@ _KIT_DIR = _UI_ROOT / "kit"
 #: added to the kit must be added here deliberately, which is the question
 #: "should this be a kit surface or an app component?" asked at the moment it
 #: can still be answered cheaply.
-_KIT_CARD_FILES = frozenset({"log_panel.py", "stat_card.py", "table_card.py"})
+_KIT_CARD_FILES = frozenset({"log_panel.py", "table_card.py"})
 
 #: Every base class that makes its subclass "a Card" for the purposes of the
 #: layering rule. `Card` is the kit's (`presentation.ui.kit.surface.Card`,

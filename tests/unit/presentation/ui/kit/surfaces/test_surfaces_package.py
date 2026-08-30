@@ -15,14 +15,18 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit.guards import (
 
 _PACKAGE_ROOT = Path(surfaces.__file__).parent
 
-#: The six shapes EPIC-007B extracted, plus the value types they are
-#: described with. Listed literally rather than derived from `__all__`, so
-#: this fails if something is dropped from the package as well as if the
-#: re-export is forgotten.
+#: The shapes EPIC-007B extracted, plus the value types they are described
+#: with. Listed literally rather than derived from `__all__`, so this fails
+#: if something is dropped from the package as well as if the re-export is
+#: forgotten.
 #:
 #: `Tone` was here until EPIC-007C and now lives in `widgets.style`: once
 #: `Badge` needed it too, "how does this figure read" stopped being a stat
 #: card's idea and became a styling one.
+#:
+#: `StatCard` removed `EPIC-015` Phase 4: its one real consumer
+#: (`backtest_top_panel.py`) moved to `StatCardRow.qml`'s `Repeater` of
+#: `kit/StatCard.qml`, leaving this QtWidgets version with zero callers.
 _EXPECTED_EXPORTS = (
     "Banner",
     "Column",
@@ -32,7 +36,6 @@ _EXPECTED_EXPORTS = (
     "Pagination",
     "RowAction",
     "Severity",
-    "StatCard",
     "Tab",
     "TabBar",
     "TableCard",
@@ -75,7 +78,6 @@ def test_one_class_per_file():
         "banner",
         "data_row",
         "log_panel",
-        "stat_card",
         "tab_bar",
         "table_card",
     ]

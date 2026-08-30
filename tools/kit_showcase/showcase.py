@@ -35,7 +35,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     SectionLabel,
     SelectableCard,
     Severity,
-    StatCard,
     StyledButton,
     StyledCheckBox,
     StyledField,
@@ -176,11 +175,6 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
         )
 
     def _data(self, column: QVBoxLayout) -> None:
-        stat = StatCard("Net profit", value="1 284.40", suffix="USD")
-        stat.set_value("1 284.40", tone=Tone.POSITIVE)
-        stat.set_badge("+12.3%", tone=Tone.POSITIVE)
-        stat.set_caption("since inception")
-
         row = DataRow(_COLUMNS, actions=[RowAction("Open")])
         row.set_cells(["Alpha", "healthy", "1 204"])
 
@@ -197,7 +191,7 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
 
         log = LogPanel("Log panel")
 
-        self._add(column, "Data shapes", stat, row)
+        self._add(column, "Data shapes", row)
         self._add(column, "Table, tabs and log", table, tabs, log)
 
     def _banners(self, column: QVBoxLayout) -> None:
