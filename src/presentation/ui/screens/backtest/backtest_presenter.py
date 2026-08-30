@@ -94,7 +94,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
     UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
-from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
+from sagittarius_engine.extensions.pyside_mvc.mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 

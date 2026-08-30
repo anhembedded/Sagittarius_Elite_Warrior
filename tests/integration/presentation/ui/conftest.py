@@ -14,8 +14,11 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+
+from tests.conftest import real_screen_registry
 
 # Shared with any test module in this directory that needs a real, unmocked
 # thread pool (e.g. async/race-condition reproductions) — kept in one place
@@ -273,7 +276,8 @@ def main_window(qapp, qtbot, app_engine):
     thread_manager_module.py) since only this test fixture, not the app,
     needs to await widget-teardown safety.
     """
-    window = MainWindow(app_engine)
+    registry = real_screen_registry(app_engine.context.container)
+    window = MainWindow(app_engine, registry, sidebar_factory=Sidebar)
     window.show()
     yield window
     for entry in window._router._registry.values():

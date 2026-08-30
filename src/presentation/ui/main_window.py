@@ -5,62 +5,31 @@
 Single responsibility: assemble the Sidebar, QStackedWidget, and
 PresenterManager, then wire navigation signals between them.
 
-Engine boot, QApplication setup, and theming live in app_bootstrapper.py.
-Screen-specific factory/presenter imports stay at the top level (no local imports).
+`EPIC-016` — this shell knows no concrete screen. It depends on
+`IScreenRegistry` (which screens exist, and how the sidebar is structured)
+and `ISidebar` (how to talk to whatever navigation widget the caller
+supplies) — both injected. Assembling the registry, registering the 4 real
+`*ScreenModule`s, and choosing the concrete `Sidebar` factory all happen in
+`app_bootstrapper.py`, the composition root; adding a 5th screen never
+requires touching this file.
 
-@par EPIC-010C — remembered shell state
-`MainWindow` itself implements `IStateContributor` (structurally — it is a
-`typing.Protocol`, so no base class or import-time coupling is needed) rather
-than delegating to a helper object: window geometry, the active route, and
-the sidebar's collapsed flag are `MainWindow`'s own fields, and
-`code-quality-rule.md`'s Single-Scope Cohesion says a state that is this
-tightly coupled to one object's own lifecycle belongs in that object, not
-split across a second file. Window geometry is persisted as the real
-`QByteArray` `saveGeometry()`/`restoreGeometry()` produce, base64-encoded —
-`restoreGeometry()` already performs its own off-screen and DPI sanity
-checks, so a hand-rolled `x/y/w/h` would buy no extra safety while getting
-multi-monitor wrong in ways Qt already handles (`EPIC-010` design §5.6.3).
-`state_coordinator` is optional and defaults to `None`: this app has no DI
-container wiring for it yet (`010A`/`010B` are Elite-only, not yet promoted
-to the Engine), and every existing caller that constructs a bare
-`MainWindow(app_engine)` — several tests — must keep working unchanged.
+Engine boot, QApplication setup, and theming live in app_bootstrapper.py.
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QByteArray
 from PySide6.QtGui import QCloseEvent, QMoveEvent, QResizeEvent
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
+    ISidebar,
     NavItem,
     NavSection,
-    Sidebar,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
-    BackTestPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.view_factory import (
-    build_backtest_view,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
-    DashboardPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
-    DashboardView,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
-    DataManagementPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
-    DataManagementView,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
-    SettingsPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
-    SettingsView,
-)
+from Sagittarius_Elite_Warrior.src.presentation.ui.registry import IScreenRegistry
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
     StateData,
     StateScope,
@@ -69,30 +38,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
     UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
-from sagittarius_engine.interfaces.i_config import IConfig
-
-# ---------------------------------------------------------------------------
-# Navigation sections. A NavItem with route=None is a placeholder for a screen
-# that doesn't exist yet; those are never navigable regardless of `enabled`
-# (see NavItem.is_navigable). "Backtest Engine" got its real route once
-# BackTestView/BackTestPresenter existed (BOT-022).
-# Adding a new screen: add one entry here and register it in _setup_router().
-# ---------------------------------------------------------------------------
-_NAV_SECTIONS = [
-    NavSection(
-        "NAVIGATION",
-        (
-            NavItem("Dev Board", "dashboard", "layout-dashboard"),
-            NavItem("Database", "data_management", "database"),
-        ),
-    ),
-    NavSection(
-        "QUANT ENGINE",
-        (NavItem("Backtest Engine", "backtest", "bar-chart-2"),),
-    ),
-]
-
-_BOTTOM_ACTIONS = (NavItem("API & Credentials", "settings", "settings"),)
 
 _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # 1200x800 used to be enough, but the Dev Board's right column has grown
@@ -111,32 +56,6 @@ _CONTENT_BG_STYLE = (
     f"color: {Palette.TEXT_PRIMARY}; }}"
 )
 
-_DEFAULT_ROUTE = "dashboard"
-
-
-def _known_routes() -> frozenset[str]:
-    """Every route a persisted `last_route` is allowed to name.
-
-    @details A restored value is a request, not a command (`EPIC-010` design
-    D5): a route from an older build that got renamed or removed must fall
-    back to `_DEFAULT_ROUTE`, never navigate to something that no longer
-    exists. Computed from the same `_NAV_SECTIONS`/`_BOTTOM_ACTIONS` that
-    already are this module's one source of truth for what is navigable —
-    not a second list that could drift from them.
-    """
-    routes: set[str] = set()
-    for section in _NAV_SECTIONS:
-        for item in section.items:
-            if item.is_navigable and item.route:
-                routes.add(item.route)
-    for item in _BOTTOM_ACTIONS:
-        if item.is_navigable and item.route:
-            routes.add(item.route)
-    return frozenset(routes)
-
-
-_KNOWN_ROUTES = _known_routes()
-
 #: This slice's flat keys. Named constants rather than inline literals so
 #: `capture_state()` and `restore_state()` cannot drift from each other.
 _GEOMETRY_KEY = "geometry_b64"
@@ -150,24 +69,45 @@ class MainWindow(QMainWindow):
 
     @details
     Owns only assembly logic:
-    - Creates the Sidebar component and wires sig_navigate → switch_screen.
-    - Creates the PresenterManager (router) and registers all screens.
-    - Routes switch_screen calls from Sidebar to the router and back.
+    - Creates the sidebar via `sidebar_factory` and wires sig_navigate → switch_screen.
+    - Creates the PresenterManager (router) and binds every screen `screen_registry` knows.
+    - Routes switch_screen calls from the sidebar to the router and back.
+
+    @par EPIC-010C — remembered shell state
+    `MainWindow` itself implements `IStateContributor` (structurally — it is a
+    `typing.Protocol`, so no base class or import-time coupling is needed) rather
+    than delegating to a helper object: window geometry, the active route, and
+    the sidebar's collapsed flag are `MainWindow`'s own fields, and
+    `code-quality-rule.md`'s Single-Scope Cohesion says a state that is this
+    tightly coupled to one object's own lifecycle belongs in that object, not
+    split across a second file. Window geometry is persisted as the real
+    `QByteArray` `saveGeometry()`/`restoreGeometry()` produce, base64-encoded —
+    `restoreGeometry()` already performs its own off-screen and DPI sanity
+    checks, so a hand-rolled `x/y/w/h` would buy no extra safety while getting
+    multi-monitor wrong in ways Qt already handles (`EPIC-010` design §5.6.3).
+    `state_coordinator` is optional and defaults to `None`: this app has no DI
+    container wiring for it yet (`010A`/`010B` are Elite-only, not yet promoted
+    to the Engine), and every existing caller that constructs a bare
+    `MainWindow(app_engine, screen_registry, sidebar_factory)` — several tests —
+    must keep working unchanged.
     """
 
     def __init__(
         self,
         app_engine,
+        screen_registry: IScreenRegistry,
+        sidebar_factory: Callable[[Sequence[NavSection], Sequence[NavItem]], ISidebar],
         *,
         state_coordinator: UiStateCoordinator | None = None,
     ) -> None:
         super().__init__()
         self._app = app_engine
+        self._registry = screen_registry
         # Set before any geometry call: `resizeEvent`/`moveEvent` may fire
         # synchronously as a side effect of `resize()`/`restoreGeometry()`
         # below, and both call `_mark_dirty()`, which reads this attribute.
         self._state_coordinator = state_coordinator
-        self._current_route = _DEFAULT_ROUTE
+        self._current_route = screen_registry.get_default_route()
 
         self.setWindowTitle(_WINDOW_TITLE)
         self.resize(*_WINDOW_SIZE)
@@ -179,8 +119,9 @@ class MainWindow(QMainWindow):
         shell_layout.setContentsMargins(0, 0, 0, 0)
         shell_layout.setSpacing(0)
 
-        # ---- Sidebar component -------------------------------------------
-        self._sidebar = Sidebar(sections=_NAV_SECTIONS, bottom_actions=_BOTTOM_ACTIONS)
+        # ---- Sidebar component --------------------------------------------
+        nav_sections, bottom_actions = screen_registry.build_sidebar_navigation()
+        self._sidebar: ISidebar = sidebar_factory(nav_sections, bottom_actions)
         self._sidebar.sig_navigate.connect(self.switch_screen)
         self._sidebar.collapsed_changed.connect(self._mark_dirty)
 
@@ -192,7 +133,8 @@ class MainWindow(QMainWindow):
         shell_layout.addWidget(self._stacked)
 
         # ---- Router setup -----------------------------------------------
-        self._setup_router()
+        self._router = PresenterManager(self._app.context.container, self._stacked)
+        screen_registry.bind_to_router(self._router)
 
         # ---- Restore remembered state, then navigate ----------------------
         # `restore_state()` (below) only VALIDATES and stores the intended
@@ -256,42 +198,27 @@ class MainWindow(QMainWindow):
             self._sidebar.set_collapsed(collapsed)
 
         route = data.get(_ROUTE_KEY)
-        if isinstance(route, str) and route in _KNOWN_ROUTES:
+        if isinstance(route, str) and route in self._known_routes():
             self._current_route = route
+
+    def _known_routes(self) -> frozenset[str]:
+        """Every route a persisted `last_route` is allowed to name.
+
+        @details A restored value is a request, not a command (`EPIC-010`
+        design D5): a route from an older build that got renamed or removed
+        must fall back to the registry's default route, never navigate to
+        something that no longer exists. Computed from `screen_registry`
+        itself — not a second list that could drift from it.
+        """
+        return frozenset(
+            d.route
+            for d in self._registry.get_all()
+            if d.nav is not None and d.nav.is_navigable
+        )
 
     def _mark_dirty(self) -> None:
         if self._state_coordinator is not None:
             self._state_coordinator.mark_dirty(self)
-
-    def _setup_router(self) -> None:
-        """Register all screens with the lazy-loading PresenterManager."""
-        self._router = PresenterManager(self._app.context.container, self._stacked)
-
-        self._router.register(
-            "dashboard",
-            DashboardPresenter,
-            lambda: DashboardView(),
-        )
-        self._router.register(
-            "data_management",
-            DataManagementPresenter,
-            lambda: DataManagementView(),
-        )
-        self._router.register(
-            "settings",
-            SettingsPresenter,
-            lambda: SettingsView(),
-        )
-        # `build_backtest_view`, not `BackTestView()` (`EPIC-013F`): which
-        # View this install uses is a named choice read from config, and the
-        # factory's return type says what the router may do with it. Read
-        # once, here — a View is never swapped while the app runs.
-        config = self._app.context.container.resolve(IConfig)
-        self._router.register(
-            "backtest",
-            BackTestPresenter,
-            lambda: build_backtest_view(config),
-        )
 
     def switch_screen(self, route_name: str) -> None:
         """

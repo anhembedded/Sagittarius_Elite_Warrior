@@ -55,10 +55,24 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
+    BacktestScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
+    DashboardScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.module import (
+    DatabaseScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
+    SettingsScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
 )
@@ -243,7 +257,26 @@ def build() -> AppRuntime:
         lambda: state_coordinator.mark_dirty(symbol_preferences)
     )
     app_engine.context.container.singleton(SymbolPreferences, symbol_preferences)
-    window = MainWindow(app_engine, state_coordinator=state_coordinator)
+
+    # `EPIC-016` — every screen registers itself here, once, instead of
+    # MainWindow importing each concrete View/Presenter. Order does not
+    # matter: ScreenRegistry sorts sections/items by their own declared
+    # sequence, not registration order.
+    screen_registry = ScreenRegistry()
+    for module_cls in (
+        DashboardScreenModule,
+        DatabaseScreenModule,
+        SettingsScreenModule,
+        BacktestScreenModule,
+    ):
+        screen_registry.register_module(module_cls(), app_engine.context.container)
+
+    window = MainWindow(
+        app_engine,
+        screen_registry,
+        sidebar_factory=Sidebar,
+        state_coordinator=state_coordinator,
+    )
     window.show()
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime

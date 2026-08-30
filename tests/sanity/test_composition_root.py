@@ -166,16 +166,19 @@ def test_every_strategy_on_disk_is_registered(booted_app):
 
 
 def _navigable_routes() -> list[str]:
-    """Every route a user can actually reach, read from `main_window.py`'s own
-    module-level navigation constants — not from a list maintained here."""
-    from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import (
-        _BOTTOM_ACTIONS,
-        _NAV_SECTIONS,
-    )
+    """Every route a user can actually reach, read from the real
+    `ScreenRegistry` (`EPIC-016`) — not from a list maintained here.
 
-    items = [item for section in _NAV_SECTIONS for item in section.items]
-    items.extend(_BOTTOM_ACTIONS)
-    return [item.route for item in items if item.route]
+    A throwaway `Mock()` container is enough: nothing here calls
+    `create_view()`/`create_presenter()`, only `build_descriptor()`'s
+    nav-metadata construction, which never touches the container.
+    """
+    from unittest.mock import Mock
+
+    from tests.conftest import real_screen_registry
+
+    registry = real_screen_registry(Mock())
+    return [d.route for d in registry.get_all() if d.has_nav()]
 
 
 def _screen_packages() -> list[str]:
@@ -202,9 +205,13 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
     constructs under `offscreen` *with* the full theme/font/theme-bridge
     bootstrap, which the retired tier never exercised.
     """
+    from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 
-    window = MainWindow(booted_app)
+    from tests.conftest import real_screen_registry
+
+    registry = real_screen_registry(booted_app.context.container)
+    window = MainWindow(booted_app, registry, sidebar_factory=Sidebar)
     try:
         window.switch_screen(route)
         qapp.processEvents()
@@ -224,9 +231,9 @@ def test_every_screen_package_has_a_navigable_route():
 
     No bug has ever exercised this, which is the whole argument for deriving the
     failure list from the structure of the composition root rather than from the
-    bug history: a screen package that was never added to
-    `MainWindow._setup_router()` is unreachable to every other test in the suite,
-    including the one directly above.
+    bug history: a screen package that was never given a `*ScreenModule`
+    registered in `app_bootstrapper.py` (`EPIC-016`) is unreachable to every
+    other test in the suite, including the one directly above.
 
     The scanning technique is already proven in this repo —
     `tests/unit/presentation/ui/test_preview_fixtures_exist.py` walks the same
@@ -239,8 +246,8 @@ def test_every_screen_package_has_a_navigable_route():
 
     assert unrouted == [], (
         f"Screen package(s) on disk that no navigation entry points at, so no "
-        f"user and no test can reach them: {unrouted}. Either register them in "
-        f"main_window.py's _NAV_SECTIONS/_BOTTOM_ACTIONS, or delete them."
+        f"user and no test can reach them: {unrouted}. Either give them a "
+        f"`*ScreenModule` registered in app_bootstrapper.py, or delete them."
     )
 
 
@@ -264,11 +271,15 @@ def test_the_window_shuts_down_within_budget(qapp, booted_app):
     Only the out-of-process layer (ADR D2/D2b) can assert on a real exit code,
     and that is why the ADR splits the tier in two.
     """
+    from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+
+    from tests.conftest import real_screen_registry
 
     before = {t.ident for t in threading.enumerate()}
 
-    window = MainWindow(booted_app)
+    registry = real_screen_registry(booted_app.context.container)
+    window = MainWindow(booted_app, registry, sidebar_factory=Sidebar)
     qapp.processEvents()
 
     started = time.monotonic()
