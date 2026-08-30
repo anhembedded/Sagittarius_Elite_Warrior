@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
@@ -15,6 +17,9 @@ from .database_status_table_model import (
     DatabaseStatusTableModel,
 )
 from .kline_inspector_table_model import KLineInspectorTableModel
+
+if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 #: `EPIC-010H`: the real list now comes from Settings via
 #: `app_defaults.default_symbol_options()`, which the presenter applies
@@ -112,6 +117,11 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._kline_inspector_model = KLineInspectorTableModel(self, page_size=100)
         self._kline_inspector_symbol = ""
         self._kline_inspector_interval = "1m"
+        #: `EPIC-015`: raw candles retained alongside the paginated model —
+        #: `KLineInspectorTableModel.set_klines()` converts-and-discards them,
+        #: but `KlineInspectorVM` (the QML port's read-only table) wants real
+        #: `MarketData` back, not the already-formatted `KLineDisplayRow`s.
+        self._kline_inspector_klines: list[MarketData] = []
         self._audit_running = False
         self._audit_passed = True
         self._audit_anomaly_count = 0
@@ -520,6 +530,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     ) -> None:
         self._kline_inspector_symbol = symbol
         self._kline_inspector_interval = interval
+        self._kline_inspector_klines = list(klines)
         self._kline_inspector_model.set_klines(klines)
         self._audit_running = False
         self._audit_summary_text = ""
@@ -558,3 +569,11 @@ class DataManagementViewModel(BaseQmlViewModel):
     @property
     def kline_inspector_model(self) -> KLineInspectorTableModel:
         return self._kline_inspector_model
+
+    @property
+    def kline_inspector_klines(self) -> list[MarketData]:
+        """The raw candles behind the currently-inspected symbol/interval —
+        `DataManagementKlineInspectorSource`'s read path for
+        `KlineInspectorVM.get_klines`. Not a QML `Property`: nothing in
+        `.qml` reads this directly, only the Python adapter."""
+        return self._kline_inspector_klines

@@ -33,9 +33,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker impo
     SymbolPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    TimeframePickerOverlay,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     describe as describe_timeframe,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
@@ -43,9 +40,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     StyleRole,
     apply_role,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
+    PinnedTimeframes,
+    TimeframePickerDialog,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
     GapInspectorDialog,
-    KLineInspectorDialog,
+    KlineInspectorDialogWidget,
     RowWidgetDelegate,
     TimeRangeCardWidget,
     field_style,
@@ -120,12 +121,15 @@ class DataManagementView(BaseView):
         super().__init__(parent)
         self._view_model: DataManagementViewModel | None = None
         self._symbol_picker: SymbolPickerOverlay | None = None
-        self._timeframe_picker: TimeframePickerOverlay | None = None
+        self._timeframe_picker: TimeframePickerDialog | None = None
+        # EPIC-015 bậc 1: private, non-persisted — see
+        # `timeframe_picker_dialog.py`'s "pinned-set gap" docstring section.
+        self._timeframe_picker_pinned = PinnedTimeframes()
         # EPIC-014: replaced by the container-registered store when the
         # Presenter injects it, so a pair starred here is starred on Backtest
         # and Dev Board too. Self-constructed so a bare view still works.
         self._symbol_preferences = SymbolPreferences()
-        self._kline_inspector: KLineInspectorDialog | None = None
+        self._kline_inspector: KlineInspectorDialogWidget | None = None
         self._gap_inspector: GapInspectorDialog | None = None
         self._build_ui()
 
@@ -269,21 +273,24 @@ class DataManagementView(BaseView):
         if self._view_model is None:
             return
         if self._timeframe_picker is None:
-            self._timeframe_picker = TimeframePickerOverlay(
-                get_options=lambda: self._view_model.intervals,
+            self._timeframe_picker = TimeframePickerDialog(
+                get_codes=lambda: self._view_model.intervals,
                 get_current=lambda: self._view_model.selectedInterval,
+                get_pinned=self._timeframe_picker_pinned.get,
+                set_pinned=self._timeframe_picker_pinned.set,
                 parent=self,
             )
-            self._timeframe_picker.timeframe_chosen.connect(self._on_interval_changed)
-        self._timeframe_picker.show()
-        self._timeframe_picker.raise_()
+            self._timeframe_picker.chosen.connect(self._on_interval_changed)
+        self._timeframe_picker.open_dialog()
 
     def _open_kline_inspector(self) -> None:
         if self._view_model is None:
             return
         if self._kline_inspector is None:
-            self._kline_inspector = KLineInspectorDialog(self._view_model, parent=self)
-        self._kline_inspector.open()
+            self._kline_inspector = KlineInspectorDialogWidget(
+                self._view_model, parent=self
+            )
+        self._kline_inspector.open_dialog()
 
     def _open_gap_inspector(self) -> None:
         if self._view_model is None:
