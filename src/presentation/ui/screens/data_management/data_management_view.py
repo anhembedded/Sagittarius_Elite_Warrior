@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker impo
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     TimeframePickerOverlay,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+    describe as describe_timeframe,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     ConfirmOverlay,
     StyleRole,
@@ -77,6 +80,17 @@ _ACTION_BUTTONS = [
 ]
 
 _IDLE_MODE = "IDLE"
+
+#: `describe()` returns `None` for a code the domain no longer recognises
+#: (a remembered value on disk that has gone stale, same reasoning as
+#: `catalogue.describe`'s own docstring) — this is what the picker's "≈ N
+#: nến" summary falls back to when that happens, not a real timeframe.
+_FALLBACK_TIMEFRAME_SECONDS = 60
+
+
+def _timeframe_seconds_for(code: str) -> int:
+    option = describe_timeframe(code)
+    return option.seconds if option is not None else _FALLBACK_TIMEFRAME_SECONDS
 
 
 def _tint_color(tint: str) -> str:
@@ -155,6 +169,10 @@ class DataManagementView(BaseView):
         self._time_range.set_use_custom_time(view_model.useCustomTime)
         self._time_range.set_from_date_time(view_model.fromDateTime)
         self._time_range.set_to_date_time(view_model.toDateTime)
+        self._time_range.set_timeframe_source(
+            lambda: _timeframe_seconds_for(view_model.selectedInterval),
+            lambda: view_model.selectedInterval,
+        )
         self._time_range.customTimeToggled.connect(self._on_custom_time_toggled)
         self._time_range.fromDateTimeEdited.connect(self._on_from_edited)
         self._time_range.toDateTimeEdited.connect(self._on_to_edited)

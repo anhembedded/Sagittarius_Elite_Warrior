@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -14,11 +16,19 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.date_range_picker import (
-    pick_date_range,
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
+    TimeRangePickerDialog,
 )
 
 from .field_style import field_style
+
+#: Seed for the "≈ N nến" summary before `set_timeframe_source()` is ever
+#: called (a bare `TimeRangeCardWidget()`, as every existing test builds
+#: one) — `DataManagementView.set_view_model()` always calls it with the
+#: screen's real `selectedInterval`, so this constant is a safety default,
+#: not the app's actual behaviour.
+_FALLBACK_TIMEFRAME_SECONDS = 60
+_FALLBACK_TIMEFRAME_LABEL = "1m"
 
 
 class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
@@ -41,6 +51,11 @@ class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._read_only = False
+        self._get_timeframe_seconds: Callable[[], int] = lambda: (
+            _FALLBACK_TIMEFRAME_SECONDS
+        )
+        self._get_timeframe_label: Callable[[], str] = lambda: _FALLBACK_TIMEFRAME_LABEL
+        self._range_dialog: TimeRangePickerDialog | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -86,15 +101,30 @@ class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
 
         self._apply_enabled_state()
 
+    def set_timeframe_source(
+        self, get_seconds: Callable[[], int], get_label: Callable[[], str]
+    ) -> None:
+        """Wires the picker's "≈ N nến" summary to the screen's actual
+        active timeframe. Called once by `DataManagementView.set_view_model()`
+        — this widget holds no ViewModel reference of its own (every other
+        setter here is the same push-down shape), so it cannot read
+        `selectedInterval` itself."""
+        self._get_timeframe_seconds = get_seconds
+        self._get_timeframe_label = get_label
+
     def _on_pick_range(self) -> None:
-        chosen = pick_date_range(
-            self,
-            start_text=self._from_field.text(),
-            end_text=self._to_field.text(),
-        )
-        if chosen is None:
-            return
-        start, end = chosen
+        if self._range_dialog is None:
+            self._range_dialog = TimeRangePickerDialog(
+                get_from_text=lambda: self._from_field.text(),
+                get_to_text=lambda: self._to_field.text(),
+                get_timeframe_seconds=lambda: self._get_timeframe_seconds(),
+                get_timeframe_label=lambda: self._get_timeframe_label(),
+                parent=self,
+            )
+            self._range_dialog.applied.connect(self._on_range_applied)
+        self._range_dialog.open_dialog()
+
+    def _on_range_applied(self, start: str, end: str) -> None:
         self._from_field.setText(start)
         self._to_field.setText(end)
         # The same signals typing emits — the view model must not be able to

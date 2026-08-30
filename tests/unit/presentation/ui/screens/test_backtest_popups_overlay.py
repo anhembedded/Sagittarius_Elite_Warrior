@@ -277,6 +277,12 @@ def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
 
 
 def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):
+    """`EPIC-015`: body is now the standalone `TimeRangePicker.qml` — its
+    preset list is `TimeRangePickerVM`'s own hardcoded set (confirmed
+    label-compatible with `BackTestViewModel.timeRangePresetOptions`, see
+    `qml/TimeRangePicker/time_range_picker_vm.py`), plus a bonus "Hôm nay"
+    entry that dialog never offered — one more row than the ViewModel's own
+    option list, not the same count."""
     view, presenter = backtest_screen
 
     view.top_widget._btn_range.click()
@@ -284,8 +290,11 @@ def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_scr
 
     dialog = view._modals_host._time_range_picker
     assert dialog is not None
-    assert dialog.objectName() == "timeRangePickerModal"
+    assert dialog.objectName() == "backtestTimeRangePickerDialog"
     assert dialog.isVisible() is True
-    assert dialog._list_layout.count() == len(
-        presenter._view_model.timeRangePresetOptions
-    )
+    rows = [
+        item
+        for item in named_descendants(dialog.root_object)
+        if item.objectName().startswith("timeRangePreset_")
+    ]
+    assert len(rows) == len(presenter._view_model.timeRangePresetOptions) + 1

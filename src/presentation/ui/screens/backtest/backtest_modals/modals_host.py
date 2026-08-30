@@ -22,7 +22,7 @@ from .order_execution_dialog import OrderExecutionDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
 from .symbol_picker_dialog import SymbolPickerDialogWidget
-from .time_range_picker_dialog import TimeRangePickerDialog
+from .time_range_picker_dialog import TimeRangePickerDialogWidget
 from .timezone_picker_dialog import TimezonePickerDialog
 
 if TYPE_CHECKING:
@@ -56,7 +56,7 @@ class BackTestModalsHost:
         # `BackTestModalsHost(vm, parent)` — every existing test — still
         # opens a working picker, it just remembers nothing past the session.
         self._symbol_preferences = SymbolPreferences()
-        self._time_range_picker: TimeRangePickerDialog | None = None
+        self._time_range_picker: TimeRangePickerDialogWidget | None = None
         self._timezone_picker: TimezonePickerDialog | None = None
         self._strategy_properties: StrategyPropertiesDialog | None = None
 
@@ -156,9 +156,10 @@ class BackTestModalsHost:
 
     def _open_time_range_picker(self) -> None:
         if self._time_range_picker is None:
-            self._time_range_picker = TimeRangePickerDialog(self._vm, self._parent)
-        self._time_range_picker.show()
-        self._time_range_picker.raise_()
+            self._time_range_picker = TimeRangePickerDialogWidget(
+                self._vm, self._parent
+            )
+        self._time_range_picker.open_dialog()
 
     def _open_timezone_picker(self) -> None:
         if self._timezone_picker is None:

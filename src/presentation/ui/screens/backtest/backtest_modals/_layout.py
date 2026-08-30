@@ -56,40 +56,9 @@ def _section_header(icon_text: str, text: str) -> QHBoxLayout:
     return row
 
 
-def _selectable_list_card(
-    object_name: str, text: str, subtitle: str, is_selected: bool
-) -> SelectableCard:
-    """One row of a single-select picker list (Strategy/TimeRange/Timezone)
-    — a `SelectableCard` (engine, `pyside_mvc.widgets`) rather than a
-    hand-styled `QPushButton`: this "click to choose, accent border when
-    selected" shape repeats across 5 Backtest pickers (this list style plus
-    the grid style `_selectable_grid_card()` below), enough real instances
-    to promote past an app-local escape hatch."""
-    card = SelectableCard()
-    card.setObjectName(object_name)
-    card.selected = is_selected
-    card.body_layout.setContentsMargins(12, 6, 12, 6)
-    card.body_layout.setSpacing(2)
-    title_label = QLabel(text)
-    title_label.setStyleSheet(
-        f"color: {_ACCENT if is_selected else Palette.TEXT_PRIMARY}; font-size: 12px; "
-        f"font-weight: {'bold' if is_selected else 'normal'}; border: none; background: transparent;"
-    )
-    card.body_layout.addWidget(title_label)
-    if subtitle:
-        subtitle_label = QLabel(subtitle)
-        subtitle_label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 10px; border: none; background: transparent;"
-        )
-        card.body_layout.addWidget(subtitle_label)
-    card.setMinimumHeight(46 if subtitle else 40)
-    return card
-
-
 def _selectable_grid_card(text: str, is_selected: bool) -> SelectableCard:
-    """One cell of a grid picker (Timeframe/Symbol) — same `SelectableCard`
-    as `_selectable_list_card()`, centered single-line content instead of
-    a stacked title/subtitle."""
+    """One cell of a grid picker (Timeframe/Symbol): a `SelectableCard`
+    (engine, `pyside_mvc.widgets`) with centered single-line content."""
     card = SelectableCard()
     card.selected = is_selected
     card.setFixedHeight(38)

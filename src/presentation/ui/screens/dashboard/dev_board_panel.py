@@ -48,9 +48,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.date_range_picker import (
-    pick_date_range,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPickerOverlay,
     SymbolPreferences,
@@ -60,8 +57,22 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     SectionLabel,
     StyledCheckBox,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
+    TimeRangePickerDialog,
+)
 
 from .dashboard_view_model import DashboardQmlViewModel
+
+#: `DashboardQmlViewModel` (unlike `DataManagementViewModel`) exposes no
+#: per-timeframe concept this panel can read — `startDate`/`endDate` are the
+#: only range state it carries, and the active interval used by Load
+#: History/Start Live lives on `DashboardPresenter._active_interval`, never
+#: surfaced as a screen ViewModel property. The old `pick_date_range()`
+#: bridge made the same "1m candle" assumption implicitly
+#: (`_MINUTES_PER_DAY` in `components/date_range_picker.py`); this constant
+#: keeps that behaviour, now named and documented instead of silent.
+_FALLBACK_TIMEFRAME_SECONDS = 60
+_FALLBACK_TIMEFRAME_LABEL = "1m"
 
 
 def _field_style() -> str:
@@ -109,6 +120,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         super().__init__(parent)
         self._view_model = view_model
         self._symbol_picker: SymbolPickerOverlay | None = None
+        self._time_range_dialog: TimeRangePickerDialog | None = None
         # EPIC-014: replaced in production by the container-registered store
         # (`DashboardPresenter` injects it through `set_symbol_preferences`),
         # so a pair starred here is starred on Backtest too. Self-constructed
@@ -474,14 +486,18 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._view_model.startDate = text
 
     def _on_pick_range(self) -> None:
-        chosen = pick_date_range(
-            self,
-            start_text=self._txt_start_date.text(),
-            end_text=self._txt_end_date.text(),
-        )
-        if chosen is None:
-            return
-        start, end = chosen
+        if self._time_range_dialog is None:
+            self._time_range_dialog = TimeRangePickerDialog(
+                get_from_text=lambda: self._txt_start_date.text(),
+                get_to_text=lambda: self._txt_end_date.text(),
+                get_timeframe_seconds=lambda: _FALLBACK_TIMEFRAME_SECONDS,
+                get_timeframe_label=lambda: _FALLBACK_TIMEFRAME_LABEL,
+                parent=self,
+            )
+            self._time_range_dialog.applied.connect(self._on_range_applied)
+        self._time_range_dialog.open_dialog()
+
+    def _on_range_applied(self, start: str, end: str) -> None:
         self._txt_start_date.setText(start)
         self._txt_end_date.setText(end)
         self._on_start_date_edited(start)

@@ -232,3 +232,50 @@ def test_log_panel_is_bound_to_the_view_model_log_model(qapp, panel, view_model)
     view_model.log_model.append("test entry")
     qapp.processEvents()
     assert view_model.log_model.rowCount() == 1
+
+
+# ------------------------------------------------------------------ #
+# Time range picker (EPIC-015) — replaces `pick_date_range()`
+# ------------------------------------------------------------------ #
+
+
+def test_opening_the_range_picker_seeds_from_the_current_fields(qapp, panel):
+    panel._txt_start_date.setText("2026-07-01 00:00")
+    panel._txt_end_date.setText("2026-07-08 00:00")
+
+    panel._btn_pick_range.click()
+    qapp.processEvents()
+
+    assert panel._time_range_dialog._widget_vm.fromText == "2026-07-01 00:00"
+    assert panel._time_range_dialog._widget_vm.toText == "2026-07-08 00:00"
+    panel._time_range_dialog.close()
+
+
+def test_the_picker_falls_back_to_a_1m_summary(qapp, panel):
+    """`DashboardQmlViewModel` exposes no per-timeframe concept this panel
+    can read (unlike Data Management's `selectedInterval`) — see the
+    `_FALLBACK_TIMEFRAME_*` constants in `dev_board_panel.py`."""
+    panel._btn_pick_range.click()
+    qapp.processEvents()
+
+    dialog = panel._time_range_dialog
+    assert dialog._widget_vm._get_timeframe_seconds() == 60
+    assert dialog._widget_vm._get_timeframe_label() == "1m"
+    dialog.close()
+
+
+def test_applying_writes_both_fields_and_the_view_model(qapp, panel, view_model):
+    panel._btn_pick_range.click()
+    qapp.processEvents()
+
+    dialog = panel._time_range_dialog
+    dialog._widget_vm.choosePreset("7d")
+    qapp.processEvents()
+    dialog._widget_vm.apply()
+    qapp.processEvents()
+
+    assert view_model.startDate == panel._txt_start_date.text()
+    assert view_model.endDate == panel._txt_end_date.text()
+    assert view_model.startDate != ""
+    assert view_model.endDate != ""
+    assert not dialog.isVisible()

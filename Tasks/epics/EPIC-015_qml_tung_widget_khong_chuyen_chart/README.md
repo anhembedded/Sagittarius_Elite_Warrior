@@ -4,7 +4,8 @@
 chung xong (§4c). **2026-08-29/30: 8 widget/kit mới xây đứng riêng** (chưa nối màn nào —
 xem §4d) theo quyết định "tạo cái mới, còn cái cũ kệ nó". **Wiring vào màn thật bắt đầu
 2026-08-30** theo kế hoạch 4-phase đã duyệt (§4e): `SymbolPicker` → Backtest **xong**;
-`TimeRangePicker`/`TimeframePicker` (modal)/`KlineInspectorTable` → Backtest/Data
+`TimeRangePicker` → Data Management + Dev Board + **Backtest (mở rộng phạm vi, xem §4e)**
+**xong**; `TimeframePicker` (modal)/`KlineInspectorTable` → Backtest/Data
 Management/Dev Board/Settings còn lại của Phase 1.
 **Ngày:** 2026-08-28 (cập nhật 2026-08-30)
 **Tiền đề:** [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md) §5 phương án **B**
@@ -360,7 +361,27 @@ ro** — `qml-rule.md` §0 đã xếp "Panel QML cạnh chart" (bậc 5/6) khác
     tích hợp dựng `SymbolPickerModal`/`SymbolPickerDialogWidget` thật (không mock QML) +
     7 test thuần cho adapter (0 `QApplication`). Data Management và Dev Board's
     `SymbolPickerOverlay` **chưa đụng** — vẫn dùng bản QtWidgets cũ.
-  - ⬜ `TimeRangePicker` → Data Management, Dev Board — chưa làm.
+  - ✅ **`TimeRangePicker` → Data Management + Dev Board + Backtest xong (2026-08-30).**
+    Phạm vi ban đầu (`NOTES.md` cũ) chỉ nêu Data Management + Dev Board; user mở rộng thêm
+    Backtest sau khi được chỉ ra Backtest có `TimeRangePickerDialog` cùng hình (preset-list,
+    không calendar) chưa ai nối vào component chung — xác nhận tương thích nhãn preset trước
+    khi làm (7d/30d/90d/365d/all/custom khớp `TimeRangePickerVM`, cộng "Hôm nay" là bonus chấp
+    nhận được). Host dùng chung `qml/TimeRangePicker/time_range_picker_dialog.py`
+    (`TimeRangePickerDialog(QmlOverlay)`, callback-constructed, không nhận `ISource` Port vì
+    `TimeRangePickerVM` không cần một cái — khác `SymbolPicker`) — cả ba màn constructor trực
+    tiếp, không lặp lại chrome/footer/Apply-enable ba lần. Data Management wiring
+    `selectedInterval` thật (`describe()` từ `components/timeframe_picker/catalogue.py`) qua
+    `TimeRangeCardWidget.set_timeframe_source()`; Dev Board không có khái niệm timeframe nào lộ
+    ra `DashboardQmlViewModel` nên dùng hằng số fallback 60s/"1m" có ghi chú (giống hành vi cũ
+    của `pick_date_range()`, giờ đặt tên thay vì ẩn); Backtest có adapter thuần
+    `BacktestTimeRangeSource` (`backtest_modals/backtest_time_range_source.py`) đọc range hiệu
+    lực qua `resolve_time_range()` và ghi lại kết quả áp dụng thành preset `CUSTOM`. Xoá hẳn
+    `components/date_range_picker.py`/`pick_date_range()` và test của nó — không còn nơi nào
+    gọi sau khi cả ba màn chuyển (`kit/overlays/date_range_overlay.py`'s `DateRangeOverlay`/
+    `RangePreset` giữ nguyên, là primitive dùng chung khác không phụ thuộc bridge này). Test:
+    7 test thuần cho `BacktestTimeRangeSource` (0 `QApplication`) + 9 test QML thật (host chung
+    + composition root Backtest) + test wiring cho Data Management/Dev Board — toàn bộ
+    `tests/unit/` (2624 test) và `tests/sanity/` (24 test) xanh.
   - ⬜ `TimeframePicker` (modal) → Backtest, Dev Board, Settings — chưa làm.
   - ⬜ `KlineInspectorTable` → Data Management — chưa làm.
 - **Phase 2:** `DatabaseStatusTable` (Data Management, không chart) + `ProgressBanner` cho

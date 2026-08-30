@@ -35,7 +35,7 @@ from .order_execution_dialog import OrderExecutionDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
 from .symbol_picker_dialog import SymbolPickerDialogWidget
-from .time_range_picker_dialog import TimeRangePickerDialog
+from .time_range_picker_dialog import TimeRangePickerDialogWidget
 from .timezone_picker_dialog import TimezonePickerDialog
 
 __all__ = [
@@ -48,6 +48,6 @@ __all__ = [
     "StrategyPickerDialog",
     "StrategyPropertiesDialog",
     "SymbolPickerDialogWidget",
-    "TimeRangePickerDialog",
+    "TimeRangePickerDialogWidget",
     "TimezonePickerDialog",
 ]
