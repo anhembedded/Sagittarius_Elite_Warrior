@@ -1,6 +1,6 @@
 # Epic EPIC-016 — Screen Registry Pattern (xoá Hard Design trong `MainWindow`)
 
-**Trạng thái:** 🟡 Đang làm — 0/4 task con xong. Cập nhật 2026-08-30.
+**Trạng thái:** ✅ **Hoàn thành (4/4 task con)** — 2026-08-30. `MainWindow` không còn import bất kỳ màn hình cụ thể nào; thêm màn mới chỉ cần 1 `module.py` + 1 dòng đăng ký ở `app_bootstrapper.py`.
 **Nguồn:** Đề xuất kiến trúc của user, review kiến trúc trong phiên làm việc
 2026-08-30, ratify ở [`DECISION_2026-08-30_screen_registry_pattern.md`](DECISION_2026-08-30_screen_registry_pattern.md).
 **Thiết kế đầy đủ:** [`Docs/SCREEN-REGISTRY-PATTERN/README.md`](../../../Docs/SCREEN-REGISTRY-PATTERN/README.md) (v2.1).
@@ -25,10 +25,10 @@ còn treo lại sau review (§10 của tài liệu thiết kế).
 
 | ID | Tên | Rủi ro | Trạng thái |
 | :--- | :--- | :---: | :---: |
-| **[EPIC-016A](incomplete/EPIC-016A_xac_nhan_voi_engine_that.md)** | Xác nhận `PresenterManager.register()`/`ScreenDescriptor` với `Sagittarius_Engine` thật | 🟡 | 🔴 Chưa bắt đầu — **chặn 016B** (ADR D4) |
-| **[EPIC-016B](incomplete/EPIC-016B_registry_va_4_module.md)** | Dựng `registry/` (contracts + `ScreenRegistry`) + viết 4 `*ScreenModule` cho màn hiện có | 🔴 | 🔴 Chưa bắt đầu — phụ thuộc `016A` |
-| **[EPIC-016C](incomplete/EPIC-016C_main_window_decouple.md)** | Đổi `MainWindow` nhận `IScreenRegistry`/`ISidebar`/`sidebar_factory` qua constructor, xoá hard-code | 🟡 | 🔴 Chưa bắt đầu — phụ thuộc `016B` |
-| **[EPIC-016D](incomplete/EPIC-016D_bootstrapper_wiring.md)** | Cập nhật `app_bootstrapper.py` đăng ký 4 module + wiring `sidebar_factory` | 🟢 | 🔴 Chưa bắt đầu — phụ thuộc `016B`, `016C` |
+| **[EPIC-016A](completed/EPIC-016A_xac_nhan_voi_engine_that.md)** | Xác nhận `PresenterManager.register()`/`ScreenDescriptor` với `Sagittarius_Engine` thật | 🟡 | ✅ Xong 2026-08-30 — chữ ký khớp thiết kế, `ScreenDescriptor` không tồn tại ở engine (đúng là định nghĩa mới ở Elite) |
+| **[EPIC-016B](completed/EPIC-016B_registry_va_4_module.md)** | Dựng `registry/` (contracts + `ScreenRegistry`) + viết 4 `*ScreenModule` cho màn hiện có | 🔴 | ✅ Xong 2026-08-30 — 18 test xanh, đối chiếu byte-for-byte với nav cũ |
+| **[EPIC-016C](completed/EPIC-016C_main_window_decouple.md)** | Đổi `MainWindow` nhận `IScreenRegistry`/`ISidebar`/`sidebar_factory` qua constructor, xoá hard-code | 🟡 | ✅ Xong 2026-08-30 — gộp chung commit với `016D` |
+| **[EPIC-016D](completed/EPIC-016D_bootstrapper_wiring.md)** | Cập nhật `app_bootstrapper.py` đăng ký 4 module + wiring `sidebar_factory` | 🟢 | ✅ Xong 2026-08-30 — sanity 8/8, integration 42/42, 757 test `screens/` |
 
 **Thứ tự phụ thuộc:** `A` chặn `B` (không code registry trước khi biết chữ
 ký engine thật). `B` chặn `C` và `D`. `C` và `D` có thể làm gần như song

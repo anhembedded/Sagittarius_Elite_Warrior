@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
@@ -49,7 +50,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
     AppLogPanel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPickerOverlay,
     SymbolPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
@@ -64,6 +64,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_rang
     TimeRangePickerDialog,
 )
 
+from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog
 from .dashboard_view_model import DashboardQmlViewModel
 
 #: `DashboardQmlViewModel` (unlike `DataManagementViewModel`) exposes no
@@ -73,9 +74,11 @@ from .dashboard_view_model import DashboardQmlViewModel
 #: surfaced as a screen ViewModel property. The old `pick_date_range()`
 #: bridge made the same "1m candle" assumption implicitly
 #: (`_MINUTES_PER_DAY` in `components/date_range_picker.py`); this constant
-#: keeps that behaviour, now named and documented instead of silent.
-_FALLBACK_TIMEFRAME_SECONDS = 60
-_FALLBACK_TIMEFRAME_LABEL = "1m"
+#: keeps that behaviour, now named and documented instead of silent — and
+#: derived from `TimeFrame.ONE_MINUTE` instead of a hand-computed `60` so the
+#: two constants cannot silently drift apart from each other.
+_FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
+_FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
 
 
 def _field_style() -> str:
@@ -122,7 +125,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
-        self._symbol_picker: SymbolPickerOverlay | None = None
+        self._symbol_picker: DashboardSymbolPickerDialog | None = None
         self._time_range_dialog: TimeRangePickerDialog | None = None
         # EPIC-014: replaced in production by the container-registered store
         # (`DashboardPresenter` injects it through `set_symbol_preferences`),
@@ -354,38 +357,27 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         """Swaps in the shared, persisted favourites/recents store.
 
         @details Injected by `DashboardPresenter` (this panel has no
-        container access), and rebinds an already-built picker so the order
+        container access), and forwards to an already-built picker so the order
         of construction and injection cannot matter. Until it is called the
         panel uses its own store, so a bare `DevBoardPanel(vm)` — every
         existing test — still opens a working picker.
         """
         if preferences is self._symbol_preferences:
             return
-        if self._symbol_picker is not None:
-            self._symbol_preferences.unbind_picker(
-                self._symbol_picker, self._on_symbol_changed
-            )
-            preferences.bind_picker(self._symbol_picker, self._on_symbol_changed)
         self._symbol_preferences = preferences
+        if self._symbol_picker is not None:
+            self._symbol_picker.set_preferences(preferences)
 
     def _open_symbol_picker(self) -> None:
         if self._symbol_picker is None:
-            self._symbol_picker = SymbolPickerOverlay(
-                get_symbols=lambda: self._view_model.symbolOptions,
-                get_favourites=lambda: self._symbol_preferences.favourites,
-                get_recents=lambda: self._symbol_preferences.recents,
-                get_current=lambda: self._view_model.symbol,
-                parent=self,
-            )
-            self._symbol_preferences.bind_picker(
-                self._symbol_picker, self._on_symbol_changed
+            self._symbol_picker = DashboardSymbolPickerDialog(
+                self._view_model, self._symbol_preferences, parent=self
             )
             self._view_model.symbolOptionsChanged.connect(self._refresh_symbol_picker)
         # Emitted before showing, not after: the Presenter fetches on this
         # signal, and the dialog renders "Đang tải" until the list lands.
         self._view_model.symbolOptionsRequested.emit()
-        self._symbol_picker.show()
-        self._symbol_picker.raise_()
+        self._symbol_picker.open_dialog()
 
     def _refresh_symbol_picker(self) -> None:
         if self._symbol_picker is not None and self._symbol_picker.isVisible():

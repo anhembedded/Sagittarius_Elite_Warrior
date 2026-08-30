@@ -1,8 +1,8 @@
 # EPIC-016C — Đổi `MainWindow` nhận `IScreenRegistry`/`ISidebar`/`sidebar_factory`
 
 **Thuộc Epic:** [`EPIC-016`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu — phụ thuộc `016B`
-**Phụ thuộc:** [`EPIC-016B`](EPIC-016B_registry_va_4_module.md) (registry + 4 module phải tồn tại trước).
+**Trạng thái:** ✅ Xong 2026-08-30 (gộp chung với `016D`, xem file đó)
+**Phụ thuộc:** [`EPIC-016B`](../completed/EPIC-016B_registry_va_4_module.md) ✅
 
 ---
 

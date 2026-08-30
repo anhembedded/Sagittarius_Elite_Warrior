@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .ports import ISidebar
 from .sidebar import Sidebar
 from .sidebar_view_model import SidebarViewModel
 from .tab_interface import ITab, TabFullPresentation, TabIconPresentation
@@ -16,6 +17,7 @@ from .tabs import (
 __all__ = [
     "ActionTab",
     "DisabledTab",
+    "ISidebar",
     "ITab",
     "NavItem",
     "NavSection",

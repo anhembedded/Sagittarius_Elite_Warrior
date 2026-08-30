@@ -35,9 +35,14 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
 #: The Dev Board's own floor, unchanged from the constant it used to hold.
 FALLBACK_SYMBOL = "ETHUSDT"
-FALLBACK_INTERVAL = "1m"
+#: `.value`, not the bare enum member — `TimeFrame.ONE_MINUTE` does not
+#: render as `"1m"` under `str()`/an f-string the way this constant's callers
+#: (config comparisons, QML property defaults) expect a plain `str` to.
+FALLBACK_INTERVAL = TimeFrame.ONE_MINUTE.value
 
 #: The Database screen's picker offers several symbols rather than one. Its
 #: own floor, also unchanged — note the first entry is `BTCUSDT`, not the Dev

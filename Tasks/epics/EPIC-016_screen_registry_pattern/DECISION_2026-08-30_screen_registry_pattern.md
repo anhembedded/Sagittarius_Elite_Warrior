@@ -4,7 +4,7 @@
 **Ngày:** 2026-08-30
 **Trạng thái:** 🟢 **Approved** — ratify các câu hỏi mở ở
 [`Docs/SCREEN-REGISTRY-PATTERN/README.md`](../../../Docs/SCREEN-REGISTRY-PATTERN/README.md)
-§10. D4 vẫn ❓ Open, chặn `EPIC-016B`.
+§10. D4 đã ✅ Established (2026-08-30, xem `EPIC-016A`) — `EPIC-016B` mở khoá.
 
 > [!IMPORTANT]
 > Đọc cột trạng thái, không đọc văn xuôi.
@@ -68,18 +68,21 @@ trừ lẫn nhau, nếu cần, là quyết định riêng cho lần sau khi số
 thực sự đòi hỏi — không xây trước khi có nhu cầu thật (đúng tinh thần
 "cấm speculative generality" của repo).
 
-### D4 — Xác nhận với `Sagittarius_Engine` thật trước khi code ❓ Open — CHẶN `EPIC-016B`
+### D4 — Xác nhận với `Sagittarius_Engine` thật trước khi code ✅ Established (2026-08-30)
 
 `PresenterManager.register()` được `i_state_contributor.py` ghi chú là
-**cố ý duck-typed**. Chưa xác nhận được (sandbox không có `sagittarius_engine`
-cài sẵn khi viết ADR này):
+**cố ý duck-typed**. Xác nhận bằng cách clone engine thật
+(`anhembedded/sagittarius_engine`, commit `c8b1862`) — xem
+[`EPIC-016A`](completed/EPIC-016A_xac_nhan_voi_engine_that.md):
 
-1. Chữ ký thật của `PresenterManager.register()`/`.navigate_to()`.
-2. `ScreenDescriptor` hay khái niệm tương đương **đã tồn tại ở engine** chưa
-   — nếu có, Elite phải tái dùng, không định nghĩa lại.
+1. `presenter_manager.py:38-54` — `register(name, presenter_class, view_factory)`;
+   lúc lazy-load gọi `view_factory()` (0 tham số) và
+   `presenter_class(view, container)` — khớp chính xác thiết kế gốc.
+2. `ScreenDescriptor` **không tồn tại** ở engine — Elite định nghĩa mới là
+   đúng, không lặp hợp đồng.
+3. Engine pin `2.3.0`, khớp version Elite đang dùng — không cần bump.
 
-`EPIC-016A` là task xác nhận việc này; `EPIC-016B` không được bắt đầu code
-trước khi `EPIC-016A` đóng.
+`EPIC-016B` mở khoá.
 
 ### D5 — Hợp đồng lỗi của `IScreenRegistry` 🔵 Proposed
 

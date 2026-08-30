@@ -44,6 +44,7 @@ import concurrent.futures
 from pathlib import Path
 
 import pytest
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
@@ -56,6 +57,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
     UiStateCoordinator,
 )
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+from tests.conftest import real_screen_registry
 
 #: A drain that exceeds this is a hang, not slow work — every task these
 #: windows submit runs against a mocked dispatcher and returns in
@@ -95,7 +98,13 @@ class _WindowHarness:
         monkeypatch.setattr(thread_manager, "submit", recording_submit)
 
     def open(self, coordinator: UiStateCoordinator | None = None) -> MainWindow:
-        window = MainWindow(self._app_engine, state_coordinator=coordinator)
+        registry = real_screen_registry(self._app_engine.context.container)
+        window = MainWindow(
+            self._app_engine,
+            registry,
+            sidebar_factory=Sidebar,
+            state_coordinator=coordinator,
+        )
         self._qtbot.addWidget(window)
         self._open_windows.append(window)
         return window
@@ -150,10 +159,10 @@ def windows(qtbot, app_engine, monkeypatch):
 
 
 def test_a_bare_main_window_still_works_with_no_coordinator(windows):
-    """Backward compatibility: every existing caller that constructs
-    `MainWindow(app_engine)` with no `state_coordinator` — several tests, and
-    every route in production before `010A`/`010B` are promoted to the
-    Engine — must keep working exactly as before."""
+    """Backward compatibility: every existing caller that omits
+    `state_coordinator` — several tests, and every route in production
+    before `010A`/`010B` are promoted to the Engine — must keep working
+    exactly as before."""
     window = windows.open()
 
     assert window._current_route == "dashboard"

@@ -62,11 +62,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_rang
 dialog = TimeRangePickerDialog(
     get_from_text=lambda: view_model.fromDateTime,
     get_to_text=lambda: view_model.toDateTime,
-    get_timeframe_seconds=lambda: ...,   # real source if the screen has one
+    get_timeframe_seconds=lambda: ...,  # real source if the screen has one
     get_timeframe_label=lambda: ...,
 )
-dialog.applied.connect(...)             # (start_text, end_text)
-dialog.open_dialog()                    # refresh() + show() + raise_()
+dialog.applied.connect(...)  # (start_text, end_text)
+dialog.open_dialog()  # refresh() + show() + raise_()
 ```
 
 `get_timeframe_seconds`/`get_timeframe_label` are what let the summary read

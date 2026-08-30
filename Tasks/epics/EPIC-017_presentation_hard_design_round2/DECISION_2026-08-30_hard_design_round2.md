@@ -39,11 +39,17 @@ chiếu `.agents/rules/architecture-rule.md` và `.agents/rules/code-quality-rul
 
 ## 3. Quyết định từng điểm
 
-### D1 — Đảo ngược sở hữu state-key của Settings 🔵 Proposed → `EPIC-017A`
+### D1 — Đảo ngược sở hữu state-key của Settings ✅ Established (2026-08-30) → `EPIC-017A`
 
-Chấp nhận. Mỗi `*ScreenModule`/Presenter tự khai `bound_config_keys:
-dict[str, ConfigKeys]`; `UiStateCoordinator`/`SettingsPresenter` đọc từ đó
-thay vì dict cứng `_STATE_KEYS_OWNED_BY_SETTINGS`. Giữ nguyên bất nhất
+Chấp nhận và đã làm. **Cơ chế thật khác với dự kiến ban đầu ở đây** (mỗi
+Presenter tự gọi `register_config_binding()` trong `__init__`): `PresenterManager`
+là true lazy router (xem `EPIC-016A`) — đăng ký trong `__init__` chỉ chạy
+khi màn đó đã được mở, nên một màn chưa từng mở sẽ không đăng ký được gì,
+tạo hồi quy (Settings đổi default trước khi mở màn đó lần đầu sẽ không
+discard được, và lần mở đầu tiên phục hồi giá trị cũ đã lỗi thời). Sửa
+bằng cách đăng ký eager, một lần, tại `app_bootstrapper.py` (composition
+root) bằng string thuần — không import class Presenter, giữ nguyên lazy
+loading. Chi tiết: `EPIC-017A`'s "Kết quả" section. Giữ nguyên bất nhất
 `"timeframe"`/`"interval"` **không** phải việc của task này — đó là hệ quả
 của D3 (điểm 3), sửa cùng lúc dễ nhầm 2 việc khác nhau thành 1 PR.
 

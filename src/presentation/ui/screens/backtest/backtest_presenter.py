@@ -98,7 +98,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
     UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
-from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
+from sagittarius_engine.extensions.pyside_mvc.mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -1384,10 +1384,19 @@ class BackTestPresenter(BasePresenter):
             return
         self._thread_manager.submit(self._fetch_symbol_options)
 
-    def _fetch_symbol_options(self) -> None:
+    @Slot()
+    def _on_symbol_picker_refresh_requested(self) -> None:
+        """Forces a refresh of the symbol options directly from the exchange."""
+        self._symbol_options_cache = None
+        self._thread_manager.submit(
+            lambda: self._fetch_symbol_options(force_refresh=True)
+        )
+
+    def _fetch_symbol_options(self, force_refresh: bool = False) -> None:
         try:
             symbols = self.dispatcher.dispatch(
-                ListAvailableSymbolsQuery, ListAvailableSymbolsQuery()
+                ListAvailableSymbolsQuery,
+                ListAvailableSymbolsQuery(force_refresh=force_refresh),
             )
         except Exception as exc:
             logger.exception("Failed to fetch available symbols")

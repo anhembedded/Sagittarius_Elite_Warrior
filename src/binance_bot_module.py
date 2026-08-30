@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service impor
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository import (
+    ISymbolCatalogRepository,
+)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -169,6 +172,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager i
     DatabaseConfig,
     DatabaseManager,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.json_symbol_catalog_repository import (
+    JsonSymbolCatalogRepository,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
@@ -215,6 +221,7 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(DatabaseConfig, DatabaseConfig(db_dir=db_dir))
         app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
+        app.container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
 
