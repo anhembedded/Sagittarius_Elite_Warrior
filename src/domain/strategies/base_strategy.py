@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -11,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.domain.scripting import (
     Series,
     build_input,
 )
+from Sagittarius_Elite_Warrior.src.domain.strategies.i_strategy import IStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     IndicatorValue,
     StrategyContext,
@@ -29,7 +30,7 @@ TREND_ZONE_UP = "up"
 TREND_ZONE_DOWN = "down"
 
 
-class BaseStrategy(ABC):
+class BaseStrategy(IStrategy):
     """
     @brief Base class for concrete IStrategy implementations.
     @details Gathers what every strategy repeats: tracking bar-to-bar history

@@ -29,7 +29,7 @@ pháp đã dùng cho báo cáo Gemini ở `EPIC-019`).
 | # | Finding | Verdict | Quyết định |
 | :-: | :--- | :--- | :--- |
 | C1 | `IStrategy`/`IIndicator` là `Protocol` không có lý do trong 3 lý do được luật cho phép (§2.1); mọi implementer đều kế thừa danh nghĩa (`BaseStrategy(ABC)`, `class EMA(IIndicator[float])`), không nơi nào dùng structural typing thật | ✅ Đúng, vi phạm §2.1 | 🔵 Đổi sang `ABC` — không mất gì (không consumer nào cần structural), đúng mặc định luật |
-| C2 | `IStoppablePosition` cũng là `Protocol` không lý do, nhưng đây là trường hợp duy nhất có dùng structural typing thật (`_OpenPosition` trong `paper_exchange.py` cố ý không lộ dataclass private qua policy boundary) | ⚠️ Đúng vi phạm hình thức, nhưng lý do dùng Protocol có thật | 🔵 Giữ `Protocol`, thêm `@runtime_checkable` + docstring nêu rõ lý do (khớp 1 trong 3 lý do luật cho phép: tránh lộ type private qua ranh giới) |
+| C2 | `IStoppablePosition` cũng là `Protocol` không lý do | ✅ Đúng — verify lúc code: `_OpenPosition` chỉ là `@dataclass` thường, không base class khác, không `QObject`, không third-party, không khớp bất kỳ 1 trong 3 lý do luật cho phép; `paper_exchange.py` đã import từ `order_matching_policy.py` sẵn nên không rủi ro circular import | 🔵 Đổi sang `ABC` giống C1 (sửa lại quyết định ban đầu — xem `018C`'s "Kết quả" để biết chi tiết lệch kế hoạch) |
 | C3 | `paper_exchange.py` 451 dòng, vượt ngưỡng 400 | ⚠️ Đúng vượt ngưỡng, nhưng method count (12) chưa vượt 15, cắt ở đâu cũng tranh cãi được — chính agent khảo sát tự đánh giá "medium confidence" | ❌ **Từ chối tách thêm lần này** — `EPIC-003C` đã tách 3 Policy khỏi file này (2026-08-22), phần còn lại là đúng 1 vòng đời Position (test Single-Scope Cohesion §5.5: đổi A có bắt buộc đọc B — có). Ghi nhận, không mở task tách thêm trừ khi file phình to hơn nữa |
 
 ### `018D` — `src/application/`
@@ -71,8 +71,6 @@ pháp đã dùng cho báo cáo Gemini ở `EPIC-019`).
 
 ## 3. Việc **không** làm ở round này
 
-- `IStoppablePosition` giữ nguyên `Protocol` (đã có lý do chính đáng, chỉ
-  bổ sung `@runtime_checkable` + docstring).
 - `paper_exchange.py` không tách thêm — cắt tiếp không rõ ràng, method
   count chưa vượt ngưỡng.
 - Magic number `100` ở `run_backtest/handler.py` — dead code, không đáng.
