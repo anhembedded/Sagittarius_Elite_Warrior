@@ -9,11 +9,14 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     build_handler_parser,
 )
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.i_cli_command_handler import (
+    ICliCommandHandler,
+)
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 
 
-class SyncCliHandler:
+class SyncCliHandler(ICliCommandHandler):
     @staticmethod
     def handle(arg_str: str, app: App) -> None:
         config = app.container.resolve(IConfig)

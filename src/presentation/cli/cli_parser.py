@@ -1,6 +1,7 @@
 import argparse
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from sagittarius_engine.interfaces.i_config import IConfig
 
 TYPE_MAPPING = {"str": str, "int": int, "float": float, "bool": bool}
@@ -27,7 +28,9 @@ def _add_arguments_to_parser(
 
 
 def _build_command_parser(
-    parser_or_subparser: Any, cmd_name: str, cmd_config: dict[str, Any]
+    parser_or_subparser: argparse.ArgumentParser | argparse._SubParsersAction,
+    cmd_name: str,
+    cmd_config: dict[str, Any],
 ) -> argparse.ArgumentParser:
     if isinstance(parser_or_subparser, argparse._SubParsersAction):
         cmd_parser = parser_or_subparser.add_parser(
@@ -56,7 +59,7 @@ def build_parser(config: IConfig) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Binance Trading Bot CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    cli_commands = config.get("CLI_COMMANDS", {})
+    cli_commands = config.get(ConfigKeys.CLI_COMMANDS.value, {})
     for cmd_name, cmd_config in cli_commands.items():
         _build_command_parser(subparsers, cmd_name, cmd_config)
 
@@ -67,7 +70,7 @@ def build_handler_parser(config: IConfig, command_name: str) -> argparse.Argumen
     """Builds an isolated parser for a specific command (used by interactive handlers)."""
     parser = argparse.ArgumentParser(prog=command_name, exit_on_error=False)
 
-    cli_commands = config.get("CLI_COMMANDS", {})
+    cli_commands = config.get(ConfigKeys.CLI_COMMANDS.value, {})
     if command_name in cli_commands:
         cmd_config = cli_commands[command_name]
         parser.description = cmd_config.get("help", "")

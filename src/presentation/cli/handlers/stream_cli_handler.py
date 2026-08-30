@@ -12,11 +12,14 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     build_handler_parser,
 )
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.i_cli_command_handler import (
+    ICliCommandHandler,
+)
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 
 
-class StreamCliHandler:
+class StreamCliHandler(ICliCommandHandler):
     @staticmethod
     def handle(arg_str: str, app: App) -> None:
         config = app.container.resolve(IConfig)
@@ -52,11 +55,16 @@ class StreamCliHandler:
                 print(f"❌ Validation Error: {e}")
             except ValidationError as e:
                 print(f"❌ Validation Error: {e}")
+            except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
+                print(f"❌ Failed to start stream: {e}")
 
         elif args.action == "stop":
-            cmd = StopLiveStreamCommand()
-            response = app.dispatch(StopLiveStreamCommand, cmd)
-            if response.success:
-                print("✅ Live stream stopped.")
-            else:
-                print(f"❌ Failed to stop stream: {response.message}")
+            try:
+                cmd = StopLiveStreamCommand()
+                response = app.dispatch(StopLiveStreamCommand, cmd)
+                if response.success:
+                    print("✅ Live stream stopped.")
+                else:
+                    print(f"❌ Failed to stop stream: {response.message}")
+            except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
+                print(f"❌ Failed to stop stream: {e}")
