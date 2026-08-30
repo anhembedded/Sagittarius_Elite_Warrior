@@ -31,6 +31,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+    find_timeframe_pin_preferences,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
 )
@@ -533,6 +537,16 @@ class DashboardPresenter(BasePresenter):
         # not know about it keeps an unpersisted store and still works.
         view.set_symbol_preferences(
             find_symbol_preferences(container) or SymbolPreferences()
+        )
+        # Follow-up to `EPIC-015` Phase 4 — the shared, per-symbol pinned-
+        # timeframe store. Optional exactly like the coordinator/symbol
+        # store above: set before `_ensure_chart_cards()` is ever invoked
+        # (it runs later, off the first market tick/health check, via the
+        # `ensure_chart_cards` lambda handed to `StreamLifecycleController`
+        # above), so every ChartCard Dev Board builds — now or on a later
+        # symbol-list rebuild — is scoped against the same store.
+        view.set_timeframe_pin_preferences(
+            find_timeframe_pin_preferences(container) or TimeframePinPreferences()
         )
 
         self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)

@@ -3,6 +3,9 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QScrollArea, QSplitter, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from .backtest_modals import BackTestModalsHost
@@ -50,6 +53,12 @@ class BackTestView(BaseView):
         # DI-resolved instance via set_chart_host_factory() in production
         # (BOT-098F6D) — BackTestView itself has no container access.
         self._chart_host_factory = BacktestChartHostFactory()
+        # Follow-up to `EPIC-015` Phase 4: self-constructed default so a bare
+        # BackTestView() (every existing unit test) still works unpersisted;
+        # BackTestPresenter overrides this with the DI-resolved, shared store
+        # via set_timeframe_pin_preferences() in production — same shape and
+        # reason as `_chart_host_factory` just above.
+        self._timeframe_pin_preferences = TimeframePinPreferences()
         self._last_symbols: list[str] = []
         self.chart_cards: list[IBacktestChartHost] = []
         self._chart_dev_mode = False
@@ -161,6 +170,7 @@ class BackTestView(BaseView):
                 symbol,
                 use_opengl=self._chart_opengl_enabled,
                 cached_interaction=self._chart_cached_interaction_enabled,
+                timeframe_pin_preferences=self._timeframe_pin_preferences,
             )
             host.set_dev_mode(self._chart_dev_mode)
             host.set_display_timezone(self._display_timezone)
@@ -196,6 +206,18 @@ class BackTestView(BaseView):
         its own unpersisted store in that case."""
         if self._modals_host is not None:
             self._modals_host.set_symbol_preferences(preferences)
+
+    def set_timeframe_pin_preferences(
+        self, preferences: TimeframePinPreferences
+    ) -> None:
+        """Follow-up to `EPIC-015` Phase 4: `BackTestPresenter` injects the
+        container-registered, per-symbol pinned-timeframe store here, the
+        same seam and reason as `set_symbol_preferences` above. Stored for
+        `render_symbol_cards()` to hand to every chart host it builds from
+        now on — Backtest has exactly one chart at a time, but a fresh host
+        is built on every symbol change, so the store (not a single host)
+        is what has to outlive that rebuild."""
+        self._timeframe_pin_preferences = preferences
 
     def set_chart_host_factory(self, factory: BacktestChartHostFactory) -> None:
         """BOT-098F6D: BackTestPresenter injects the DI-resolved factory here

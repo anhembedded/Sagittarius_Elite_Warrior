@@ -19,6 +19,7 @@ from .indicator_manager import IndicatorManager
 from .plot_layout import ChartAntialiasMode, ChartPlotLayout
 from .price_line import LastPriceLine
 from .range_update_scheduler import RangeUpdateScheduler
+from .timeframe_pin_preferences import TimeframePinPreferences
 from .viewport_controller import ViewportController
 from .volume_renderer import VolumeItem
 from .zoom_controls import ZoomControls
@@ -69,6 +70,7 @@ class ChartCard(Card):
         antialias_mode: ChartAntialiasMode = ChartAntialiasMode.LAYERED,
         cached_interaction: bool = False,
         lod_enabled: bool = True,
+        timeframe_pin_preferences: TimeframePinPreferences | None = None,
     ):
         super().__init__(title=f"Live Chart: {symbol}", parent=parent)
         self.symbol = symbol
@@ -76,6 +78,13 @@ class ChartCard(Card):
         self._antialias_mode = antialias_mode
         self._cached_interaction_enabled = bool(cached_interaction)
         self._lod_enabled = bool(lod_enabled)
+        # `None` (the default, every existing bare `ChartCard(symbol)`
+        # caller) leaves `ChartToolbar` to fall back to its own in-memory
+        # `PinnedTimeframes` — see that class's constructor docstring.
+        # Backtest's `BacktestChartHostFactory` and Dev Board's
+        # `DashboardView.render_symbol_cards()` are the two callers that
+        # pass the container-registered, persisted store down here.
+        self._timeframe_pin_preferences = timeframe_pin_preferences
         self._raw_history: list[OhlcCandle] = []
         self._live_candle: OhlcCandle | None = None
         self._max_visible_seconds: float | None = None
@@ -133,7 +142,10 @@ class ChartCard(Card):
         self.header_actions.addWidget(widget)
 
     def _setup_layout(self) -> None:
-        self.toolbar = ChartToolbar()
+        self.toolbar = ChartToolbar(
+            symbol=self.symbol,
+            timeframe_pin_preferences=self._timeframe_pin_preferences,
+        )
         self.add_to_header(self.toolbar)
 
         self.plot_layout = ChartPlotLayout(

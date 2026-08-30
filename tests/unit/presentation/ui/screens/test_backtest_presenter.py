@@ -93,6 +93,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     _FALLBACK_SYMBOL,
     BackTestPresenter,
@@ -461,6 +464,71 @@ def presenter(qapp, mock_container, request):
 @pytest.fixture
 def view_model(presenter):
     return presenter._view_model
+
+
+# ---------------------------------------------------------------------------
+# Timeframe pin preferences wiring (EPIC-015 Phase 4 follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_boot_falls_back_to_an_unpersisted_store_when_none_is_registered(
+    presenter,
+):
+    """`mock_container` (every test above using the `presenter` fixture)
+    never registers `TimeframePinPreferences` — `container.registrations()`
+    on a bare `Mock` returns another `Mock`, not a `Mapping`, so
+    `find_timeframe_pin_preferences` must treat that as "nothing
+    registered" and the View must still end up with a working, private
+    store rather than crashing `boot()`."""
+    assert isinstance(
+        presenter.view._timeframe_pin_preferences, TimeframePinPreferences
+    )
+
+
+def test_boot_wires_the_container_registered_store_into_the_view(
+    qapp,
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    strategy_registry,
+    indicator_script_registry,
+    request,
+):
+    """When the container *does* have a registered store — the real
+    `app_bootstrapper.py` shape — `boot()` must hand the View that exact
+    instance, not a fresh fallback, so Backtest's chart reads/writes the
+    same persisted, per-symbol pins Dev Board would."""
+    shared_store = TimeframePinPreferences()
+    container = Mock()
+    container.registrations.return_value = {TimeframePinPreferences: shared_store}
+
+    def resolve_mock(interface):
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IDispatcher:
+            return mock_dispatcher
+        if interface == IConfig:
+            return mock_config
+        if interface == StrategyRegistry:
+            return strategy_registry
+        if interface == IndicatorScriptRegistry:
+            return indicator_script_registry
+        if interface == BacktestChartHostFactory:
+            return BacktestChartHostFactory()
+        if interface == TimeframePinPreferences:
+            return shared_store
+        return Mock()
+
+    container.resolve.side_effect = resolve_mock
+    view = BackTestView()
+    view.resize(1400, 800)
+    view.show()
+    qapp.processEvents()
+    request.addfinalizer(view.deleteLater)
+
+    BackTestPresenter(view, container)
+
+    assert view._timeframe_pin_preferences is shared_store
 
 
 # ---------------------------------------------------------------------------

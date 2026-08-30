@@ -55,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPreferences,
 )
@@ -217,6 +220,21 @@ def build() -> AppRuntime:
         lambda: state_coordinator.mark_dirty(symbol_preferences)
     )
     app_engine.context.container.singleton(SymbolPreferences, symbol_preferences)
+
+    # Follow-up to `EPIC-015` Phase 4 — pinned timeframes per chart, keyed by
+    # symbol, shared by every `ChartToolbar` in the app the same way
+    # `SymbolPreferences` is shared above: Backtest's single chart and each
+    # of Dev Board's per-symbol charts read the same store, scoped by their
+    # own symbol, so a Dev Board rebuild-on-symbol-change recovers the same
+    # pinned set for a symbol it has already seen instead of resetting it.
+    timeframe_pin_preferences = TimeframePinPreferences()
+    state_coordinator.restore_into(timeframe_pin_preferences)
+    timeframe_pin_preferences.set_on_changed(
+        lambda: state_coordinator.mark_dirty(timeframe_pin_preferences)
+    )
+    app_engine.context.container.singleton(
+        TimeframePinPreferences, timeframe_pin_preferences
+    )
     window = MainWindow(app_engine, state_coordinator=state_coordinator)
     window.show()
 

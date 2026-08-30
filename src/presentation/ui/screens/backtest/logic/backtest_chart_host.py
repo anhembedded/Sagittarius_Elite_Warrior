@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
     OhlcCandle,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 
 from ..ports.i_backtest_chart_host import IBacktestChartHost
 
@@ -142,11 +145,13 @@ class BacktestChartHostFactory:
         *,
         use_opengl: bool = False,
         cached_interaction: bool = False,
+        timeframe_pin_preferences: TimeframePinPreferences | None = None,
     ) -> IBacktestChartHost:
         logger.info("Backtest chart host initialized for symbol '%s'.", symbol)
         chart_card = ChartCard(
             symbol,
             use_opengl=use_opengl,
             cached_interaction=cached_interaction,
+            timeframe_pin_preferences=timeframe_pin_preferences,
         )
         return PythonBacktestChartHost(chart_card)

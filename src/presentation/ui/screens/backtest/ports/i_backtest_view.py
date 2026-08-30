@@ -14,6 +14,9 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from ....components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 from ....components.symbol_picker import SymbolPreferences
 from ..backtest_view_model import BackTestViewModel
 from ..logic.chart_canvas_view import ChartDisplayMode
@@ -30,7 +33,7 @@ DEFAULT_VIEW_MODEL_CONTEXT_NAME = "viewModel"
 @runtime_checkable
 class IBacktestView(Protocol):
     """
-    @brief The Backtest screen's Presenter↔View contract — all 16 members
+    @brief The Backtest screen's Presenter↔View contract — all 17 members
     the Presenter side actually uses, and nothing else.
 
     @details **`Protocol`, not an ABC**, under `architecture-rule.md` §2.1
@@ -106,6 +109,21 @@ class IBacktestView(Protocol):
         unpersisted default so a bare `BackTestView()` works, and the
         Presenter — which has the container — replaces it with the shared
         one.
+        """
+        ...
+
+    def set_timeframe_pin_preferences(
+        self, preferences: TimeframePinPreferences
+    ) -> None:
+        """Injects the container-registered, per-symbol pinned-timeframe
+        store.
+
+        @details Follow-up to `EPIC-015` Phase 4. Same shape as
+        `set_symbol_preferences` just above: the View self-constructs an
+        unpersisted default so a bare `BackTestView()` works, and the
+        Presenter replaces it with the shared, persisted one before the
+        first `render_symbol_cards()` call — every chart host built from
+        then on is scoped to its own symbol against this one store.
         """
         ...
 

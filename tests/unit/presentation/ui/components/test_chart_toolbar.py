@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_t
     DEFAULT_TIMEFRAMES,
     ChartToolbar,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 
 
 def _click(quick_widget, root_item, object_name, qapp, qml_item):
@@ -152,6 +155,78 @@ def test_dismissing_the_picker_leaves_the_row_as_it_was(qapp, qml_item):
     assert emitted == [], "dismissing chooses nothing"
     assert toolbar._vm.currentCode == "1m"
     toolbar.close()
+
+
+def test_a_symbol_scoped_store_persists_a_pin_toggle(qapp):
+    """`ChartToolbar` given both `symbol` and `timeframe_pin_preferences`
+    reads/writes through the store instead of its private in-memory
+    fallback — the follow-up decision to `EPIC-015` Phase 4 (persist,
+    scoped per chart symbol)."""
+    store = TimeframePinPreferences()
+    toolbar = ChartToolbar(symbol="BTCUSDT", timeframe_pin_preferences=store)
+
+    toolbar._vm.togglePinned("4h")
+
+    assert "4h" in store.get_pinned("BTCUSDT")
+    toolbar.close()
+
+
+def test_a_rebuilt_toolbar_for_the_same_symbol_recovers_the_same_pinned_set(qapp):
+    """The actual bug Dev Board's rebuild-on-symbol-change behaviour could
+    otherwise reintroduce: `DashboardView.render_symbol_cards()` tears down
+    and reconstructs every `ChartCard`/`ChartToolbar` whenever the symbol
+    list changes, so a `ChartToolbar` Python object is never stable across
+    that rebuild — only the symbol, and the shared store keyed by it, are.
+    """
+    store = TimeframePinPreferences()
+    first = ChartToolbar(symbol="BTCUSDT", timeframe_pin_preferences=store)
+    first._vm.togglePinned("4h")
+    first._vm.togglePinned("1m")  # unpin one of the default seed too
+    first.close()
+
+    # Simulates DashboardView.render_symbol_cards() tearing the old
+    # ChartToolbar down and building a fresh one for the SAME symbol,
+    # against the SAME (app-lifetime) store.
+    rebuilt = ChartToolbar(symbol="BTCUSDT", timeframe_pin_preferences=store)
+
+    rebuilt_codes = {row["code"] for row in rebuilt._vm.pinnedRows}
+    assert "4h" in rebuilt_codes
+    assert "1m" not in rebuilt_codes
+    rebuilt.close()
+
+
+def test_different_symbols_do_not_share_pinned_state_through_one_store(qapp):
+    store = TimeframePinPreferences()
+    btc = ChartToolbar(symbol="BTCUSDT", timeframe_pin_preferences=store)
+    eth = ChartToolbar(symbol="ETHUSDT", timeframe_pin_preferences=store)
+
+    btc._vm.togglePinned("4h")
+
+    assert "4h" in {row["code"] for row in btc._vm.pinnedRows}
+    assert "4h" not in {row["code"] for row in eth._vm.pinnedRows}
+    btc.close()
+    eth.close()
+
+
+def test_no_symbol_or_store_falls_back_to_the_unpersisted_shape(qapp):
+    """A bare `ChartToolbar()` (every test above this point, and any caller
+    with no chart to scope to) must behave exactly as before persistence
+    existed: in-memory only, private to this one instance."""
+    store = TimeframePinPreferences()
+    # Only a store, no symbol -- and only a symbol, no store -- both fail
+    # the "both must be given together" contract and fall back rather than
+    # half-scoping.
+    store_only = ChartToolbar(timeframe_pin_preferences=store)
+    symbol_only = ChartToolbar(symbol="BTCUSDT")
+
+    store_only._vm.togglePinned("4h")
+
+    assert "4h" not in store.get_pinned("BTCUSDT")
+    assert [row["code"] for row in symbol_only._vm.pinnedRows] == list(
+        DEFAULT_TIMEFRAMES
+    )
+    store_only.close()
+    symbol_only.close()
 
 
 def test_a_broken_qml_file_raises_instead_of_rendering_a_blank_box(

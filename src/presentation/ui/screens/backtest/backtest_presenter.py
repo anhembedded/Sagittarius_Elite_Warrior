@@ -67,6 +67,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report i
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+    find_timeframe_pin_preferences,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
 )
@@ -543,6 +547,13 @@ class BackTestPresenter(BasePresenter):
         # gets None keeps its own unpersisted store and still works.
         view.set_symbol_preferences(
             find_symbol_preferences(container) or SymbolPreferences()
+        )
+        # Follow-up to `EPIC-015` Phase 4 — the shared, per-symbol pinned-
+        # timeframe store. Optional exactly like the symbol favourites store
+        # above: set before the first render_symbol_cards() call below so
+        # every chart host it builds is scoped against the shared store.
+        view.set_timeframe_pin_preferences(
+            find_timeframe_pin_preferences(container) or TimeframePinPreferences()
         )
         view.set_chart_host_factory(self.container.resolve(BacktestChartHostFactory))
         view.render_symbol_cards([self._symbol])

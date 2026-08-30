@@ -30,23 +30,22 @@ which this class listens to exactly once.
 
 @par Design decision — pinned-state scope and persistence (qml-rule.md
 §0.2's "make a reasoned call, do not default into it")
-Two questions, answered independently:
+Two questions, both now resolved — the second reverses what this phase
+originally shipped, recorded here rather than silently rewritten
+(`qml-rule.md` §9's convention for a resolved decision):
 
-1. **Shared between which views?** Only between THIS `ChartToolbar`
-   instance's own embedded toolbar and its own picker modal — not across
-   sibling `ChartCard`s on the same screen (Backtest/Dev Board each render
-   one `ChartCard` per symbol, each building its own `ChartToolbar`, each
-   with its own `PinnedTimeframes`). The task this phase inherited frames
-   the requirement as "one `TimeframeVM` per chart" — this reading is the
-   narrower, correctly-scoped one: it closes exactly the gap `NOTES.md`
-   named (two views of one toolbar disagreeing), without deciding a
-   separate, larger question — whether "which timeframes I pin" should be
-   one preference for a whole screen instead of per symbol — that nothing
-   in this rollout's design docs asked for and that has its own real
-   trade-offs (e.g. a Backtest screen comparing a 1m scalp symbol against a
-   1d swing symbol arguably *wants* different pins per card). Left as a
-   named follow-up, not silently decided either way.
-2. **In-memory, or `ui_state`/`IStateContributor`-persisted (the
+1. **Shared between which views?** Only between one chart's own embedded
+   toolbar and its own picker modal — not across sibling `ChartCard`s on the
+   same screen (Backtest/Dev Board each render one `ChartCard` per symbol,
+   each building its own `ChartToolbar`). The original phase framed this as
+   "one `TimeframeVM` per chart" and left open whether "which timeframes I
+   pin" should instead be one preference for a whole screen. **Resolved
+   (follow-up task, `EPIC-015`): per chart, keyed by the chart's own
+   symbol** — a Backtest screen comparing a 1m scalp symbol against a 1d
+   swing symbol wants different pins per card, exactly the trade-off the
+   original docstring flagged as the reason not to default into a shared
+   set.
+2. ~~**In-memory, or `ui_state`/`IStateContributor`-persisted (the
    `SymbolPreferences` pattern)?** In-memory for this pass — resets on
    restart, same as every other `PinnedTimeframes` in this app today
    (Settings/Data Management/Backtest's own modal-only picker, Phase 1).
@@ -66,7 +65,19 @@ Two questions, answered independently:
      (`SymbolPreferences`, `components/symbol_picker/preferences.py`, is
      the existing pattern) — nothing here forecloses adding it later, and
      doing so would not change this class's public surface at all (only
-     what backs `get_pinned`/`set_pinned`).
+     what backs `get_pinned`/`set_pinned`).~~
+   **RESOLVED (follow-up task, `EPIC-015`): persisted.** User decision:
+   persist now, scoped per chart as in (1). `TimeframePinPreferences`
+   (`timeframe_pin_preferences.py`, this package) is the confirmed
+   `IStateContributor` this docstring predicted — same structural pattern
+   as `SymbolPreferences`, but `dict[str, list[str]]` keyed by symbol
+   instead of two flat lists, since "which timeframes I pin" really is a
+   per-chart question. `ChartToolbar`'s own public surface did not change:
+   only what backs `TimeframeVM`'s `get_pinned`/`set_pinned` did, exactly as
+   predicted. A bare `ChartToolbar()` with no store injected still falls
+   back to the in-memory `PinnedTimeframes` this class always used —
+   unpersisted, but otherwise identical to today's behaviour, the same
+   fallback shape `BackTestModalsHost` uses for `SymbolPreferences`.
 """
 
 from __future__ import annotations
@@ -90,17 +101,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe
 )
 from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 
-#: The pills pinned by default, before the user touches the "…" picker's pin
-#: stars. Five, because this row lives in a chart header and sixteen would
-#: not fit — that constraint is real and stays, but it is now a *starting*
-#: pinned set rather than the row's hard ceiling: `TimeframeToolbar.qml`
-#: renders whatever `TimeframeVM.pinnedRows` says, and the picker can pin or
-#: unpin any of the domain's sixteen codes for the rest of the session.
-#:
-#: `EPIC-014`: this tuple used to also be `BackTestViewModel.timeframeOptions`
-#: and the validity test for `DEFAULT_INTERVAL` — that coupling is long gone;
-#: this is only ever read as this widget's own default pinned seed now.
-DEFAULT_TIMEFRAMES = ("1m", "5m", "15m", "1h", "1d")
+#: Re-exported for existing callers/tests (`from ...chart_toolbar import
+#: DEFAULT_TIMEFRAMES`) — the value itself now lives in
+#: `timeframe_pin_preferences.py` since seeding a never-seen symbol is that
+#: module's job, not this constructor's. See that module's docstring for the
+#: `EPIC-014`/duration-fit reasoning behind the five codes chosen.
+from .timeframe_pin_preferences import DEFAULT_TIMEFRAMES, TimeframePinPreferences
 
 _QML_FILE = (
     Path(__file__).resolve().parents[2]
@@ -131,7 +137,17 @@ class ChartToolbar(QQuickWidget):
         timeframes: Sequence[str] = DEFAULT_TIMEFRAMES,
         active: str | None = None,
         parent: QWidget | None = None,
+        *,
+        symbol: str | None = None,
+        timeframe_pin_preferences: TimeframePinPreferences | None = None,
     ) -> None:
+        """@param symbol / timeframe_pin_preferences Scope the pinned set to
+        one chart. Both must be given together — `ChartCard` passes its own
+        `self.symbol` alongside whatever store it was injected (see
+        `ChartCard.__init__`). Either left as `None` (every existing bare
+        `ChartToolbar()` caller: previews, unit tests) falls back to the
+        private, unpersisted `PinnedTimeframes` this class has always used —
+        seeded from `timeframes`, exactly as before persistence existed."""
         super().__init__(parent)
         self.setObjectName("chartToolbar")
         ensure_qml_style()
@@ -148,11 +164,22 @@ class ChartToolbar(QQuickWidget):
         self.setClearColor(Qt.GlobalColor.transparent)
 
         self._active: str | None = active or (timeframes[0] if timeframes else None)
-        # See this module's docstring, design-decision §1/§2: private to
-        # this one `ChartToolbar` instance, in-memory, seeded with the
+        self._symbol = symbol
+        # See this module's docstring, design-decision §1/§2 (RESOLVED):
+        # scoped to this chart's own symbol through the injected store when
+        # both are given; otherwise the same private, in-memory
+        # `PinnedTimeframes` this class always used, seeded with the
         # constructor's own `timeframes` so a fresh chart header is not an
         # empty row plus a lone "…" button.
-        self._pinned = PinnedTimeframes(initial=timeframes)
+        if timeframe_pin_preferences is not None and symbol is not None:
+            self._pin_preferences: TimeframePinPreferences | None = (
+                timeframe_pin_preferences
+            )
+            get_pinned, set_pinned = timeframe_pin_preferences.bound_to(symbol)
+        else:
+            self._pin_preferences = None
+            fallback = PinnedTimeframes(initial=timeframes)
+            get_pinned, set_pinned = fallback.get, fallback.set
         self._picker: TimeframePickerDialog | None = None
 
         # ONE VM for both this embedded toolbar and the picker modal it
@@ -165,8 +192,8 @@ class ChartToolbar(QQuickWidget):
         self._vm = TimeframeVM(
             get_codes=lambda: [option.code for option in all_options()],
             get_current=lambda: self._active or "",
-            get_pinned=self._pinned.get,
-            set_pinned=self._pinned.set,
+            get_pinned=get_pinned,
+            set_pinned=set_pinned,
         )
         self._vm.chosen.connect(self._on_chosen)
         # Populates `pinnedRows`/`groups` before the QML binds to them, so

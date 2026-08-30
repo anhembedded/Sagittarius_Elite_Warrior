@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_la
     ChartAntialiasMode,
     ChartPlotLayout,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 
 
 def test_chart_card_initialization(qapp):
@@ -952,6 +955,42 @@ def test_chart_card_toolbar_emits_timeframe_and_tracks_active_button(qapp):
 
     assert changes == ["15m"]
     assert card.toolbar._vm.currentCode == "15m"
+
+
+def test_chart_card_threads_its_own_symbol_into_its_toolbar(qapp):
+    """Follow-up to `EPIC-015` Phase 4: `ChartToolbar` has no symbol of its
+    own — `ChartCard` is the only thing that knows which symbol a chart
+    shows, so it must be the one passing it down."""
+    card = ChartCard("ETHUSDT")
+
+    assert card.toolbar._symbol == "ETHUSDT"
+
+
+def test_chart_card_forwards_the_injected_pin_store_scoped_to_its_symbol(qapp):
+    store = TimeframePinPreferences()
+    card = ChartCard("BTCUSDT", timeframe_pin_preferences=store)
+
+    card.toolbar._vm.togglePinned("4h")
+
+    assert "4h" in store.get_pinned("BTCUSDT")
+
+
+def test_a_dev_board_style_rebuild_recovers_the_same_pinned_set(qapp):
+    """The regression `DashboardView.render_symbol_cards()` could otherwise
+    reintroduce: it `deleteLater()`s every `ChartCard` and reconstructs a
+    fresh one per symbol whenever Dev Board's symbol list changes. A
+    `ChartCard`/`ChartToolbar` instance is never stable across that
+    rebuild — only the symbol, and the shared store keyed by it, are."""
+    store = TimeframePinPreferences()
+    original = ChartCard("BTCUSDT", timeframe_pin_preferences=store)
+    original.toolbar._vm.togglePinned("4h")
+    original.cleanup()
+
+    # Simulates the teardown-and-reconstruct Dev Board does for an
+    # unchanged symbol still present in a new symbol list.
+    rebuilt = ChartCard("BTCUSDT", timeframe_pin_preferences=store)
+
+    assert "4h" in {row["code"] for row in rebuilt.toolbar._vm.pinnedRows}
 
 
 def test_chart_card_crosshair_mouse_hover(qapp):

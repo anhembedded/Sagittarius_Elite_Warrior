@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from ....components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 from .i_backtest_chart_host import IBacktestChartHost
 
 
@@ -31,6 +34,14 @@ class IBacktestChartHostFactory(Protocol):
         *,
         use_opengl: bool = False,
         cached_interaction: bool = False,
+        timeframe_pin_preferences: TimeframePinPreferences | None = None,
     ) -> IBacktestChartHost:
-        """Returns a fresh host for `symbol`. Never cached, never a singleton."""
+        """Returns a fresh host for `symbol`. Never cached, never a singleton.
+
+        @param timeframe_pin_preferences The container-registered, persisted
+            pinned-timeframe store, scoped to `symbol` by the returned
+            host's `ChartToolbar` — `None` (the default) leaves that
+            toolbar on its own in-memory fallback, same as an unset
+            `ChartCard(symbol)` constructor argument.
+        """
         ...

@@ -63,18 +63,30 @@ class PinnedTimeframes:
     `TimeframeVM`'s `get_pinned`/`set_pinned` (directly, or via
     `TimeframePickerDialog.from_callbacks()`). In-memory and non-persisted:
     pinning a cell visibly toggles its star for the rest of the session and
-    resets on the next app restart — see `chart_toolbar.py`'s module
-    docstring for why `EPIC-015` Phase 4 (the first consumer where the
-    pinned set drives a screen's default visible pills, not just a picker's
-    cosmetic star) still keeps this in-memory rather than moving it onto
-    `ui_state`/`IStateContributor`.
+    resets on the next app restart.
+
+    ~~See `chart_toolbar.py`'s module docstring for why `EPIC-015` Phase 4
+    (the first consumer where the pinned set drives a screen's default
+    visible pills, not just a picker's cosmetic star) still keeps this
+    in-memory rather than moving it onto `ui_state`/`IStateContributor`.~~
+    **RESOLVED (follow-up task, `EPIC-015`): `ChartToolbar` now persists,
+    per chart symbol, through `TimeframePinPreferences`
+    (`components/chart_card/timeframe_pin_preferences.py`) — see
+    `chart_toolbar.py`'s module docstring for the resolved decision. This
+    class is UNCHANGED and kept: it is still the real, in-memory picker
+    state for every other caller of `from_callbacks()`
+    (Settings/Data Management/Backtest's own modal-only picker — none of
+    them drive a persistent chart, so nothing asked for their pins to
+    survive a restart), and it is `ChartToolbar`'s own fallback shape when
+    constructed bare, with no symbol/store injected (every existing test,
+    and any future caller with no chart to scope to).
 
     @param initial Codes considered pinned from construction — empty by
-        default (every `from_callbacks()` caller before Phase 4: a picker
-        with no toolbar has no need for a non-empty starting set). Phase 4
-        passes `ChartToolbar.DEFAULT_TIMEFRAMES` so a freshly-built chart
-        header's pill row starts non-empty instead of pinning nothing and
-        showing only the "…" button.
+        default (every `from_callbacks()` caller: a picker with no toolbar
+        has no need for a non-empty starting set). `ChartToolbar`'s fallback
+        path passes its own `timeframes` constructor argument so a
+        freshly-built chart header's pill row starts non-empty instead of
+        pinning nothing and showing only the "…" button.
     """
 
     def __init__(self, initial: Iterable[str] = ()) -> None:

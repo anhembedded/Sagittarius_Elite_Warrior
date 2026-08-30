@@ -23,10 +23,21 @@
   kiện dừng ở §6 đã qua, không có gì phải rollback.
 
 Kết quả cuối: shell + chart pyqtgraph ở lại QtWidgets vĩnh viễn (đúng ràng buộc §1); mọi
-widget khác trong phạm vi epic này đã chuyển sang QML. Việc còn treo (không chặn epic, xem
-chi tiết ở §9 và trong từng NOTES.md liên quan): `StatGrid.qml`/`AppProgressBar`/`StatCard`
-(QtWidgets) hết người dùng thật nhưng chưa xoá (giữ làm shape dùng chung); pinned-timeframe
-chưa persist qua `ui_state`; `_qml_test_support.py` còn trùng lặp với `tests/conftest.py`.
+widget khác trong phạm vi epic này đã chuyển sang QML.
+
+**Dọn dẹp sau khi đóng epic — cả 3 việc còn treo đã xong (2026-08-30):**
+- ✅ `AppProgressBar`/`StatCard` (QtWidgets) đã xoá hẳn — xác nhận qua grep không còn ai gọi
+  thật. `StatGrid.qml`/`StatGridVM` **giữ nguyên**, khác hai cái trên: nó là shape dùng chung
+  có chủ đích cho modal tương lai, không phải rác — xem `qml-rule.md` §2's bảng component.
+- ✅ `_qml_test_support.py` đã gộp vào `tests/conftest.py` — `find_qml_item` là tên canonical
+  duy nhất, `find_all_named` (prefix match cho hàng `Repeater`) sống cùng nó. 11 file test đã
+  chuyển import.
+- ✅ Pin-timeframe đã persist qua `ui_state`: `TimeframePinPreferences`
+  (`components/chart_card/timeframe_pin_preferences.py`), đúng khuôn `SymbolPreferences`
+  nhưng key theo symbol (`dict[str, list[str]]`) vì Dev Board rebuild lại `ChartCard` mỗi khi
+  đổi danh sách symbol — `ChartToolbar` Python object không ổn định qua lần rebuild đó, symbol
+  thì có. `PinnedTimeframes` (in-memory) giữ lại làm fallback khi không có store/symbol được
+  tiêm vào (preview, test trần).
 **Ngày:** 2026-08-28 (cập nhật 2026-08-30)
 **Tiền đề:** [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md) §5 phương án **B**
 **Yêu cầu user:**

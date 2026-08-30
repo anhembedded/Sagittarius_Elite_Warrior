@@ -20,7 +20,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from datetime import UTC
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
     map_volume,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
@@ -158,6 +161,63 @@ def test_initialization(presenter, view, mock_container):
     assert presenter.view == view
     assert presenter.container == mock_container
     assert presenter.fsm.current_state.name == "IDLE"
+
+
+# ---------------------------------------------------------------------------
+# Timeframe pin preferences wiring (EPIC-015 Phase 4 follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_boot_falls_back_to_an_unpersisted_store_when_none_is_registered(
+    presenter, view
+):
+    """`mock_container` never registers `TimeframePinPreferences` —
+    construction must still leave the View with a working, private store
+    rather than crashing."""
+    assert isinstance(view._timeframe_pin_preferences, TimeframePinPreferences)
+
+
+def test_boot_wires_the_container_registered_store_into_the_view(
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config
+):
+    """When the container *does* have a registered store — the real
+    `app_bootstrapper.py` shape — construction must hand the View that
+    exact instance, so a Dev Board symbol-list rebuild reads/writes the
+    same persisted, per-symbol pins as any other screen."""
+    from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+        IndicatorScriptRegistry,
+    )
+    from sagittarius_engine.interfaces.i_config import IConfig
+    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+    shared_store = TimeframePinPreferences()
+    container = Mock()
+    container.registrations.return_value = {TimeframePinPreferences: shared_store}
+
+    def resolve_side_effect(interface):
+        if interface == IConfig:
+            return mock_config
+        if interface == IDispatcher:
+            return mock_dispatcher
+        if interface == IThreadManager:
+            return mock_thread_mgr
+        if interface == IndicatorScriptRegistry:
+            return IndicatorScriptRegistry()
+        if interface == TimeframePinPreferences:
+            return shared_store
+        return Mock()
+
+    container.resolve.side_effect = resolve_side_effect
+
+    view = DashboardView()
+    view.resize(1200, 800)
+    view.show()
+    qapp.processEvents()
+
+    DashboardPresenter(view, container)
+
+    assert view._timeframe_pin_preferences is shared_store
 
 
 def test_dashboard_presenter_enforces_zoom_limit(presenter):
