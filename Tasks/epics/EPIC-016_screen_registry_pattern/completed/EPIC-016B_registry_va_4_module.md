@@ -1,8 +1,24 @@
 # EPIC-016B — Dựng `registry/` + viết 4 `*ScreenModule` cho màn hiện có
 
 **Thuộc Epic:** [`EPIC-016`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu — phụ thuộc `016A`
-**Phụ thuộc:** [`EPIC-016A`](EPIC-016A_xac_nhan_voi_engine_that.md) (phải đóng trước).
+**Trạng thái:** ✅ Xong 2026-08-30
+**Phụ thuộc:** [`EPIC-016A`](../completed/EPIC-016A_xac_nhan_voi_engine_that.md) ✅
+
+## Kết quả (2026-08-30)
+
+Dựng đầy đủ `registry/` (`models/`, `ports/`, `screen_registry.py`,
+`abstract_screen_module.py`), `ISidebar` (bỏ `select_section()`/
+`set_navigation()` — không caller nào cần, giữ đúng tinh thần chống
+speculative generality), và 4 `*ScreenModule` thật.
+
+**Đối chiếu byte-for-byte** với `main_window.py`'s `_NAV_SECTIONS`/
+`_BOTTOM_ACTIONS` cũ (script tay trước khi viết test cố định): giống hệt —
+cùng thứ tự section, cùng label/route/icon, cùng default route (`dashboard`).
+18 test mới (`ScreenRegistry` behaviour, `ISidebar` contract, tương đương
+nav thật) — tất cả xanh trên venv 3.12 + PySide6 6.11.1 + engine thật.
+
+**Sai khác so với thiết kế gốc:** `select_section()`/`set_navigation()` bị bỏ
+khỏi `ISidebar` — không có trong `Sidebar` thật, không caller nào cần.
 
 ---
 
