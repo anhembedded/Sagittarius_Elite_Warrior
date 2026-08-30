@@ -16,9 +16,8 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-
-from tests.conftest import real_screen_registry
 
 # Shared with any test module in this directory that needs a real, unmocked
 # thread pool (e.g. async/race-condition reproductions) — kept in one place

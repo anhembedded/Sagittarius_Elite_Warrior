@@ -56,9 +56,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import Stat
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
+from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
-from tests.conftest import real_screen_registry
 
 #: A drain that exceeds this is a hang, not slow work — every task these
 #: windows submit runs against a mocked dispatcher and returns in
