@@ -1,7 +1,12 @@
 # EPIC-015 — QML từng widget, chart ở lại QtWidgets
 
-**Trạng thái:** 🟡 **Đang làm** — bậc 0 + bậc 1 xong 2026-08-28 (xem §4b). Bậc 2 trở đi chưa bắt đầu.
-**Ngày:** 2026-08-28
+**Trạng thái:** 🟡 **Đang làm** — bậc 0+1 xong 2026-08-28 (§4b); bậc 2's 3 component dùng
+chung xong (§4c). **2026-08-29/30: 8 widget/kit mới xây đứng riêng** (chưa nối màn nào —
+xem §4d) theo quyết định "tạo cái mới, còn cái cũ kệ nó". **Wiring vào màn thật bắt đầu
+2026-08-30** theo kế hoạch 4-phase đã duyệt (§4e): `SymbolPicker` → Backtest **xong**;
+`TimeRangePicker`/`TimeframePicker` (modal)/`KlineInspectorTable` → Backtest/Data
+Management/Dev Board/Settings còn lại của Phase 1.
+**Ngày:** 2026-08-28 (cập nhật 2026-08-30)
 **Tiền đề:** [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md) §5 phương án **B**
 **Yêu cầu user:**
 > *"thế còn plan chuyển từ từ từng widget, không chuyển chart thì như nào?"*
@@ -308,3 +313,61 @@ chiều, vì dialog bị GC chứ không bị close), nên đã **gỡ ra thay v
 và trỏ tới chart QtQuick "permanent, never in scope" — thứ nay đã bị xoá khỏi cây. Agent nào
 đọc nó hôm nay cũng bị dẫn sai. Phải viết lại theo §1/§3 của epic này **trước** khi có dòng
 `.qml` đầu tiên.
+
+## 4d. 2026-08-29/30 — 8 widget/kit mới xây đứng riêng, chưa nối màn nào
+
+Quyết định user 2026-08-29 lặp lại nhiều lần: *"tạo cái mới, còn cái cũ kệ nó"* — mỗi widget
+dưới đây được xây xong (QML + VM + test riêng, `preview.py` để xem qua
+`scripts/preview-qml.ps1`/`uml_preview.ps1`), nhưng **không widget nào nối vào composition
+root của màn thật** tại thời điểm viết mục này. Widget cũ (QtWidgets) mỗi widget dưới đây định
+thay thế **vẫn đang chạy y nguyên** trong production.
+
+| Widget mới | Thay cho (QtWidgets) | Màn đích |
+| :--- | :--- | :--- |
+| `SymbolPicker` | `components/symbol_picker/overlay.py` | Backtest, Dev Board, Data Mgmt, Settings |
+| `TimeframePicker` (+`TimeframeToolbar`) | `components/timeframe_picker/overlay.py`, `ChartToolbar` | Backtest, Dev Board, Settings |
+| `TimeRangePicker` | `components/date_range_picker.py`/`DateRangeOverlay` | Data Mgmt, Dev Board |
+| `TradeLogTable` | `backtest_trade_logs_panel.py` | Backtest |
+| `MetricsDetailPanel` | `ExtendedMetricsDialog`/`StatGrid` (đang live) | Backtest — cần duyệt ngưỡng Sharpe/Sortino/Calmar tự chế trước khi wiring thật |
+| `DatabaseStatusTable` | `_status_row.py` | Data Management |
+| `KlineInspectorTable` | `kline_inspector_dialog.py` | Data Management |
+| `kit/` (Button, DialogShell, LogPanel, PanelHeader, StatusPill, ProgressBanner, StatCard) | `StyledButton`, `Overlay`, `LogPanel`, `AppProgressBar`, `StatCard` cũ | Nhiều màn — 3 cái (`TimeframeToolbar`, `StatusPill`, `StatCard`/`ProgressBanner` ở Backtest) nằm cạnh chart thật, xem §4e |
+
+Chi tiết per-widget (lý do thiết kế, cái gì mockup có mà pass này chưa xây) nằm ở `NOTES.md`
+của chính thư mục widget đó (`src/presentation/ui/qml/<Widget>/NOTES.md`) — không chép lại ở
+đây để tránh bản sao trôi.
+
+## 4e. 2026-08-30 — Kế hoạch wiring 4-phase (đã duyệt) và tiến độ
+
+Trước khi wiring bất kỳ widget nào ở §4d vào màn thật, design as-is/to-be được trình và duyệt
+(`.agents/ONBOARDING.md` §12.5.3). Phát hiện chính: **8 widget/kit ở §4d không cùng một mức rủi
+ro** — `qml-rule.md` §0 đã xếp "Panel QML cạnh chart" (bậc 5/6) khác hẳn "Modal QML" (bậc 1/2,
+đã chứng minh 6 lần). Thứ tự đã duyệt:
+
+- **Phase 1 (đang làm — rủi ro thấp nhất, toàn bộ là Modal QML độc lập cửa sổ riêng):**
+  `SymbolPicker`, `TimeRangePicker`, `TimeframePicker` (chỉ phần modal lưới, không đụng
+  `TimeframeToolbar`), `KlineInspectorTable`.
+  - ✅ **`SymbolPicker` → Backtest xong (2026-08-30).** `SymbolPicker.qml` tự vẽ `Popup` riêng
+    (không qua `QmlOverlay`) — theo đúng `qml-rule.md` §0.1, một `Popup` trong `QQuickWidget`
+    không tự che được phần QtWidgets xung quanh, nên host mới là
+    `SymbolPickerModal` (`qml/SymbolPicker/symbol_picker_modal_host.py`): một `QDialog` app-modal
+    thật, không có chrome title/footer (vì `.qml` tự vẽ hết), bọc `QQuickWidget`. Adapter
+    `BacktestSymbolPickerSource` (`backtest_modals/backtest_symbol_picker_source.py`) hiện thực
+    `ISymbolPickerSource`, giải quyết lệch hợp đồng `SymbolPreferences.toggle_favourite()` (toggle)
+    so với `set_favourite(symbol, value)` (set) bằng cách chỉ toggle khi trạng thái khác yêu cầu.
+    `ensure_qml_style()` được tách ra `qml/style.py` dùng chung giữa `QmlOverlay` và host mới
+    (hai host cùng cần một cái pin style, không viết lại — `qml-rule.md` §0.2). Test: 6 test
+    tích hợp dựng `SymbolPickerModal`/`SymbolPickerDialogWidget` thật (không mock QML) +
+    7 test thuần cho adapter (0 `QApplication`). Data Management và Dev Board's
+    `SymbolPickerOverlay` **chưa đụng** — vẫn dùng bản QtWidgets cũ.
+  - ⬜ `TimeRangePicker` → Data Management, Dev Board — chưa làm.
+  - ⬜ `TimeframePicker` (modal) → Backtest, Dev Board, Settings — chưa làm.
+  - ⬜ `KlineInspectorTable` → Data Management — chưa làm.
+- **Phase 2:** `DatabaseStatusTable` (Data Management, không chart) + `ProgressBanner` cho
+  `AppProgressBar` ở Data Management (nửa không cạnh chart).
+- **Phase 3 (cần user duyệt ngưỡng trước khi làm):** `MetricsDetailPanel` thay
+  `ExtendedMetricsDialog` — cơ chế wiring an toàn, nhưng 3 ngưỡng verdict (Sharpe/Sortino/Calmar)
+  là tự chế, cần user chốt trước khi vào màn đang live.
+- **Phase 4 (rủi ro cao nhất — pattern "QML cạnh chart" chưa từng chạy trong production, dừng
+  theo điều kiện ở §6 nếu chart giật/rớt khung hình):** `TimeframeToolbar`, `StatusPill`
+  (Dev Board), `StatCard` + `ProgressBanner` ở Backtest top panel — cả bốn nằm cạnh chart thật.

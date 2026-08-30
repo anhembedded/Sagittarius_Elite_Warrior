@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPickerOverlay,
     SymbolPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
@@ -22,6 +21,7 @@ from .limitations_dialog import LimitationsDialog
 from .order_execution_dialog import OrderExecutionDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
+from .symbol_picker_dialog import SymbolPickerDialogWidget
 from .time_range_picker_dialog import TimeRangePickerDialog
 from .timezone_picker_dialog import TimezonePickerDialog
 
@@ -48,7 +48,7 @@ class BackTestModalsHost:
         self._order_execution: OrderExecutionDialog | None = None
         self._strategy_picker: StrategyPickerDialog | None = None
         self._timeframe_picker: TimeframePickerOverlay | None = None
-        self._symbol_picker: SymbolPickerOverlay | None = None
+        self._symbol_picker: SymbolPickerDialogWidget | None = None
         # EPIC-014: replaced in production by the container-registered store
         # (BackTestPresenter injects it through
         # `BackTestView.set_symbol_preferences`), so a star set on Backtest is
@@ -112,16 +112,17 @@ class BackTestModalsHost:
 
         @details Called by `BackTestPresenter` before the picker is first
         opened — the same injection seam `set_chart_host_factory` uses, and
-        for the same reason: `BackTestView` has no container access. Rebinds
-        an already-built picker so the order of the two calls cannot matter.
+        for the same reason: `BackTestView` has no container access. Unlike
+        the old `SymbolPreferences.bind_picker`/`unbind_picker` dance, there
+        is no Qt connection to rebind: `SymbolPickerDialogWidget` only ever
+        reads the store through `BacktestSymbolPickerSource`, so swapping the
+        reference the source holds is the whole update — see
+        `BacktestSymbolPickerSource.set_preferences`.
         """
         if preferences is self._symbol_preferences:
             return
         if self._symbol_picker is not None:
-            self._symbol_preferences.unbind_picker(
-                self._symbol_picker, self._on_symbol_chosen
-            )
-            preferences.bind_picker(self._symbol_picker, self._on_symbol_chosen)
+            self._symbol_picker.set_preferences(preferences)
         self._symbol_preferences = preferences
 
     def _open_timeframe_picker(self) -> None:
@@ -140,25 +141,14 @@ class BackTestModalsHost:
 
     def _open_symbol_picker(self) -> None:
         if self._symbol_picker is None:
-            self._symbol_picker = SymbolPickerOverlay(
-                get_symbols=lambda: self._vm.symbolOptions,
-                get_favourites=lambda: self._symbol_preferences.favourites,
-                get_recents=lambda: self._symbol_preferences.recents,
-                get_current=lambda: self._vm.selectedSymbol,
-                parent=self._parent,
-            )
-            self._symbol_preferences.bind_picker(
-                self._symbol_picker, self._on_symbol_chosen
+            self._symbol_picker = SymbolPickerDialogWidget(
+                self._vm, self._symbol_preferences, self._parent
             )
             # BOT-102: the exchange list arrives after the first open, so the
             # dialog has to be told rather than left showing "Đang tải" until
             # the user closes and reopens it.
             self._vm.symbolOptionsChanged.connect(self._refresh_symbol_picker)
-        self._symbol_picker.show()
-        self._symbol_picker.raise_()
-
-    def _on_symbol_chosen(self, symbol: str) -> None:
-        self._vm.selectedSymbol = symbol
+        self._symbol_picker.open_dialog()
 
     def _refresh_symbol_picker(self) -> None:
         if self._symbol_picker is not None and self._symbol_picker.isVisible():

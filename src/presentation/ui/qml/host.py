@@ -37,26 +37,12 @@ from PySide6.QtWidgets import QWidget
 from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 
 from ..kit import Overlay
+from .style import ensure_qml_style
 
 #: The `Theme` context property every `.qml` in this package reads its
 #: colours from. Set here rather than per file so no `.qml` ever needs a
 #: colour literal — see `EPIC-015` §3.3 and `test_qml_has_no_colour_literals`.
 _THEME_CONTEXT_NAME = "Theme"
-
-
-def _ensure_customizable_style() -> None:
-    """Pins Qt Quick Controls to a style that honours `background:` overrides.
-
-    @details The platform default on Windows is the native style, which
-    **silently ignores** `background:`/`contentItem:` and renders native
-    chrome instead, logging only a warning. Called before any QML loads —
-    including from tests, which never run the app bootstrapper, so a test
-    cannot pass against chrome the user would never see.
-    """
-    from PySide6.QtQuickControls2 import QQuickStyle
-
-    if QQuickStyle.name() != "Basic":
-        QQuickStyle.setStyle("Basic")
 
 
 class QmlOverlay(Overlay):
@@ -78,7 +64,7 @@ class QmlOverlay(Overlay):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(title, subtitle, parent=parent)
-        _ensure_customizable_style()
+        ensure_qml_style()
 
         self._quick = QQuickWidget()
         self._quick.setObjectName("qmlBody")

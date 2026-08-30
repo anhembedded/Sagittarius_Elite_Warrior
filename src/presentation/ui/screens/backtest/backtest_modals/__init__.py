@@ -34,6 +34,7 @@ from .modals_host import BackTestModalsHost
 from .order_execution_dialog import OrderExecutionDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
+from .symbol_picker_dialog import SymbolPickerDialogWidget
 from .time_range_picker_dialog import TimeRangePickerDialog
 from .timezone_picker_dialog import TimezonePickerDialog
 
@@ -46,6 +47,7 @@ __all__ = [
     "OrderExecutionDialog",
     "StrategyPickerDialog",
     "StrategyPropertiesDialog",
+    "SymbolPickerDialogWidget",
     "TimeRangePickerDialog",
     "TimezonePickerDialog",
 ]
