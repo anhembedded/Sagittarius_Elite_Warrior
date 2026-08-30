@@ -10,6 +10,7 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizingType,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
 )
@@ -43,12 +44,16 @@ from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
 )
 
 _DEFAULT_INITIAL_CAPITAL_TEXT = "10000"
-#: Must match dashboard_presenter.py's own _DEFAULT_INTERVAL_STR ("1m") — the
-#: Backtest Screen has no sync button of its own, only what the Dev Board
-#: already synced to the DB. Defaulting to "15m" (the original mockup's
-#: label) meant the very first "Chạy Backtest" click always failed with
-#: "No historical data found" on a fresh sync, since only 1m data exists.
-_DEFAULT_TIMEFRAME = "1m"
+#: Must match dashboard_presenter.py's own default interval — the Backtest
+#: Screen has no sync button of its own, only what the Dev Board already
+#: synced to the DB. Defaulting to "15m" (the original mockup's label) meant
+#: the very first "Chạy Backtest" click always failed with "No historical
+#: data found" on a fresh sync, since only 1m data exists. Both screens read
+#: this from the shared `TimeFrame` enum rather than retyping the literal —
+#: `.value` on purpose: `str(TimeFrame.ONE_MINUTE)`/an f-string of the member
+#: itself renders `"TimeFrame.ONE_MINUTE"`, not `"1m"`; `.value` is the plain
+#: `str` this constant has always held.
+_DEFAULT_TIMEFRAME = TimeFrame.ONE_MINUTE.value
 
 
 class BackTestViewModel(BaseQmlViewModel):

@@ -1,6 +1,6 @@
 # Epic EPIC-017 — Presentation Hard-Design Round 2
 
-**Trạng thái:** 🟡 Đang làm — 0/2 task con xong. Cập nhật 2026-08-30.
+**Trạng thái:** 🟡 Đang làm — 1/2 task con xong (`017B`). Cập nhật 2026-08-30.
 **Nguồn:** Report "6 Hard Design" từ 1 phiên làm việc khác (Windows), verify
 độc lập và ratify ở [`DECISION_2026-08-30_hard_design_round2.md`](DECISION_2026-08-30_hard_design_round2.md).
 
@@ -30,7 +30,7 @@ ADR để biết chi tiết verify từng điểm:
 | ID | Tên | Rủi ro | Trạng thái |
 | :--- | :--- | :---: | :---: |
 | **[EPIC-017A](incomplete/EPIC-017A_settings_state_key_ownership_inversion.md)** | Đảo ngược sở hữu state-key — mỗi màn tự khai `bound_config_keys`, bỏ dict cứng trong `SettingsPresenter` | 🟡 | 🔴 Chưa bắt đầu |
-| **[EPIC-017B](incomplete/EPIC-017B_adopt_timeframe_enum.md)** | Dùng `TimeFrame` Enum có sẵn thay literal `"1m"` ở 4 file presentation | 🟢 | 🔴 Chưa bắt đầu |
+| **[EPIC-017B](completed/EPIC-017B_adopt_timeframe_enum.md)** | Dùng `TimeFrame` Enum có sẵn thay literal `"1m"` ở 5 file presentation | 🟢 | ✅ Xong 2026-08-30 — 487 test xanh |
 
 `A` và `B` độc lập, làm song song được.
 

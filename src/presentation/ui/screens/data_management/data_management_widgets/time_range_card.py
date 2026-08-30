@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
 )
@@ -26,9 +27,10 @@ from .field_style import field_style
 #: called (a bare `TimeRangeCardWidget()`, as every existing test builds
 #: one) — `DataManagementView.set_view_model()` always calls it with the
 #: screen's real `selectedInterval`, so this constant is a safety default,
-#: not the app's actual behaviour.
-_FALLBACK_TIMEFRAME_SECONDS = 60
-_FALLBACK_TIMEFRAME_LABEL = "1m"
+#: not the app's actual behaviour. Derived from `TimeFrame.ONE_MINUTE` rather
+#: than hand-computed, so the seconds/label pair cannot drift apart.
+_FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
+_FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
 
 
 class TimeRangeCardWidget(QWidget):  # base-exempt: a form group, not a card
