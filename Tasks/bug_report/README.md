@@ -37,10 +37,10 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 ## 📊 Tổng quan
 
 | Trạng thái | Số lượng |
-| :--- | :---: |
+| :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 62 |
-| 📈 **Tổng** | **64** |
+| ✅ **Đã sửa / đã đóng** | 63 |
+| 📈 **Tổng** | **65** |
 
 ---
 
@@ -57,6 +57,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-066](completed/BUG-066_dev_board_symbol_picker_freeze_on_large_symbol_list.md)** | Dev Board UI freeze >5s khi mở bộ chọn symbol với 1.358 cặp tiền | 🔴 **P1** | 2026-08-30 | Di chuyển Dev Board sang `SymbolPickerModal` (`SymbolPicker.qml` với virtualized `GridView(reuseItems: true)`). Lưu sẵn 1.358 symbols vào `src/config/tradeable_symbols.json` với `ISymbolCatalogRepository`, mở tức thì 0ms không gọi mạng; thêm nút 🔄 trên QML để refresh theo yêu cầu. |
 | **[BUG-064](completed/BUG-064_strategy_properties_dialog_needs_save_button_to_commit_any_field.md)** | Dialog "Cài đặt Chiến lược" chỉ commit giá trị khi bấm nút Lưu, Enter/mất focus không có tác dụng | 🟡 P2 | 2026-08-27 | `QLineEdit` trong cả 2 tab không nối signal nào — `save_and_rerun()` là đường duy nhất đọc widget. Thêm `_wire_line_edits_to_save_on_focus_lost()` (nối `editingFinished` chung cho mọi ô, bắt cả Enter và mất focus) + guard chống gọi lặp. Tách luôn `BROKER_PROPERTY_FIELDS` (file mới `logic/broker_properties_schema.py`) làm nguồn khai báo DUY NHẤT cho 12 broker property, dùng chung Coordinator/Dialog — trước đó khai trùng ở `_BROKER_PROPERTIES` (coordinator) và rải rác trong `save_and_rerun()`/`_sync_properties()` (dialog), thêm property mới dễ quên 1 trong 3 chỗ. |
 | **[BUG-063](completed/BUG-063_binance_sync_read_timeout_aborts_whole_sync.md)** | Đồng bộ dữ liệu 1 giây mất trắng nến đã tải khi Binance trả lời chậm | 🟡 P2 | 2026-08-27 | `PythonBinanceClient` không có retry/timeout cấu hình được — 1 `ReadTimeout` (mặc định 10s của `python-binance`) trong hàng trăm request tuần tự của 1 lần sync 1s nhiều ngày phá cả buffer chưa kịp lưu. Nâng timeout mặc định lên 30s, thêm `_generate_raw_klines_with_retry()` tự tiếp tục từ `close_time + 1ms` của nến cuối cùng nhận được (không tải lại từ đầu), backoff luỹ thừa tối đa 3 lần lỗi liên tiếp không tiến triển, huỷ được ngay cả giữa lúc chờ backoff. Phát hiện qua log thật user gửi lúc thử `VolumeSpikeFlowStrategy` ở chế độ Historical Tick — bug nằm ở tầng đồng bộ, không liên quan chiến lược. |
 | **[BUG-062](completed/BUG-062_database_cancel_flow_test_is_flaky.md)** | `test_database_cancel_button_cancels_active_sync_flow` đỏ ngẫu nhiên khi chạy song song | 🟡 P2 | 2026-08-26 | **Root cause đo được:** `SyncMarketDataCommandHandler` lặp lên `stream_historical_klines`, nhưng fixture đặt độ trễ 0.3s lên `get_historical_klines` — method đường sync **không bao giờ gọi**. Sync xong tức thì, cửa sổ FSM ở `UIMode.SYNCING` chỉ **3.86ms** trong khi `qtbot.waitUntil` poll mỗi ~10ms → pass khi poll may mắn rơi trúng. Sửa: đưa độ trễ về đúng method đường sync dùng (khôi phục ý định gốc của fixture, **không** nới timeout). Cửa sổ: 3.86ms → **287ms**. Chạy 15 lần liên tiếp: 0 đỏ. Lỗi `'Mock' object is not iterable` gặp trước đó là khiếm khuyết **khác**, đã đóng riêng bằng `_FakeExchangeClient` — lần đỏ sau đó có 0 lỗi Mock mà vẫn timeout y hệt, đó là bằng chứng tách hai chuyện. |

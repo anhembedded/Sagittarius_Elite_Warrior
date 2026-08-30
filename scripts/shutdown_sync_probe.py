@@ -14,9 +14,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from collections.abc import Iterator
 
 from PySide6.QtWidgets import QApplication
-from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
@@ -26,10 +23,26 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
+    BacktestScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
+    DashboardScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.module import (
+    DatabaseScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
+    SettingsScreenModule,
+)
+from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0
@@ -117,7 +130,15 @@ def main() -> None:
         # mirrors). configure_app_qml() used to do this as a side effect of
         # creating the first QML-hosted view; there is no such view anymore.
         get_theme_bridge(Palette.as_ui_dict())
-        window = MainWindow(engine)
+        registry = ScreenRegistry()
+        for module_cls in (
+            DashboardScreenModule,
+            DatabaseScreenModule,
+            SettingsScreenModule,
+            BacktestScreenModule,
+        ):
+            registry.register_module(module_cls(), engine.context.container)
+        window = MainWindow(engine, registry, sidebar_factory=Sidebar)
         window.switch_screen("backtest")
         presenter = window._router.get_current_presenter()
         if not isinstance(presenter, BackTestPresenter):

@@ -47,6 +47,7 @@ Item {
         function chooseFocused() {}
         function choose(symbol) {}
         function toggleFavourite(symbol) {}
+        function requestRefresh() {}
     }
 
     QtObject {
@@ -144,6 +145,22 @@ Item {
                     font.bold: true
                     font.pixelSize: 12
                     font.letterSpacing: 0.8
+                }
+                ToolButton {
+                    objectName: "btnRefreshSymbols"
+                    text: "🔄"
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Cập nhật danh sách từ sàn Binance"
+                    onClicked: root.vm.requestRefresh()
+                    contentItem: Text {
+                        text: parent.text
+                        textFormat: Text.PlainText
+                        color: root.theme.muted
+                        font.pixelSize: 14
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle { color: "transparent" }
                 }
                 ToolButton {
                     objectName: "btnCloseSymbolPicker"

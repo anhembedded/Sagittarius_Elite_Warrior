@@ -77,6 +77,7 @@ class SymbolPickerModal(QDialog):  # base-exempt: SymbolPicker.qml draws its own
     """
 
     symbolChosen = Signal(str)
+    refreshRequested = Signal()
 
     def __init__(
         self,
@@ -142,6 +143,7 @@ class SymbolPickerModal(QDialog):  # base-exempt: SymbolPicker.qml draws its own
         self._root = root
 
         root.symbolChosen.connect(self._on_symbol_chosen)
+        self._widget_vm.refreshRequested.connect(self.refreshRequested)
         # One connection closes this shell for every reason the inner
         # `Popup` can close (chosen, Escape, click-outside, ×) — see the
         # class docstring's "Lifecycle" section for why a second call to

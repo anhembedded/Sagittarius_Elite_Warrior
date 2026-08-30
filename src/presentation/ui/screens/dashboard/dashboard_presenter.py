@@ -608,12 +608,21 @@ class DashboardPresenter(BasePresenter):
             return
         self._thread_manager.submit(self._fetch_symbol_options)
 
-    def _fetch_symbol_options(self) -> None:
+    @Slot()
+    def _on_symbol_picker_refresh_requested(self) -> None:
+        """Forces a refresh of the symbol options directly from the exchange."""
+        self._symbol_options_cache = None
+        self._thread_manager.submit(
+            lambda: self._fetch_symbol_options(force_refresh=True)
+        )
+
+    def _fetch_symbol_options(self, force_refresh: bool = False) -> None:
         """Runs on a worker thread — hence the signals rather than a direct
         ViewModel write, which would touch Qt objects off the main thread."""
         try:
             symbols = self.dispatcher.dispatch(
-                ListAvailableSymbolsQuery, ListAvailableSymbolsQuery()
+                ListAvailableSymbolsQuery,
+                ListAvailableSymbolsQuery(force_refresh=force_refresh),
             )
         except Exception as exc:
             logger.exception("Failed to fetch available symbols")
@@ -748,6 +757,9 @@ class DashboardPresenter(BasePresenter):
         view_model.startStreamRequested.connect(self._on_start_stream)
         view_model.stopStreamRequested.connect(self._on_stop_stream)
         view_model.symbolOptionsRequested.connect(self._on_symbol_picker_open_requested)
+        view_model.symbolOptionsRefreshRequested.connect(
+            self._on_symbol_picker_refresh_requested
+        )
         self._symbolOptionsReadySignal.connect(self._on_symbol_options_ready)
         self._symbolOptionsFailedSignal.connect(self._on_symbol_options_failed)
 

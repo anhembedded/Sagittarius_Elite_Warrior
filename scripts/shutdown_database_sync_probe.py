@@ -13,10 +13,6 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
-from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
@@ -26,11 +22,28 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
+    BacktestScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
+    DashboardScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.module import (
+    DatabaseScreenModule,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
+    SettingsScreenModule,
+)
+from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0
@@ -116,7 +129,15 @@ def main() -> None:
         # Same engine-annotation gap as `scripts/preview_qml.py` — see the
         # comment there. Runtime takes the size tokens fine.
         get_theme_bridge(Palette.as_ui_dict())  # type: ignore[arg-type]
-        window = MainWindow(engine)
+        registry = ScreenRegistry()
+        for module_cls in (
+            DashboardScreenModule,
+            DatabaseScreenModule,
+            SettingsScreenModule,
+            BacktestScreenModule,
+        ):
+            registry.register_module(module_cls(), engine.context.container)
+        window = MainWindow(engine, registry, sidebar_factory=Sidebar)
         window.switch_screen("data_management")
         presenter = window._router.get_current_presenter()
         if not isinstance(presenter, DataManagementPresenter):
