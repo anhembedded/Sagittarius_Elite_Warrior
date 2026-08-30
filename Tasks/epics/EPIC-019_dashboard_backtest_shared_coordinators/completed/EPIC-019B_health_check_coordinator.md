@@ -1,7 +1,7 @@
 # EPIC-019B — `HealthCheckCoordinator` dùng chung Dashboard + Backtest
 
 **Thuộc Epic:** [`EPIC-019`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu
+**Trạng thái:** ✅ Hoàn thành — 2026-08-30
 **Phụ thuộc:** Không.
 **Nguồn:** ADR D2.
 
@@ -50,3 +50,26 @@ Backtest gọi `self._emit_ui_log(..., "info", is_dev=False)`.
 - Log hiển thị ra UI của cả 2 màn giữ nguyên định dạng như trước (test
   hiện có, nếu assert nội dung log, không đổi).
 - Test FSM/health hiện có xanh không đổi assertion.
+
+## Kết quả
+
+- `src/presentation/ui/common/health_check_coordinator.py` (mới) —
+  `HealthCheckCoordinator`, cùng hình dạng `SymbolOptionsCoordinator`
+  (`EPIC-019A`): plain class, `emit_log` là callback tiêm vào constructor.
+- `DashboardPresenter`: xoá đoạn dựng `HealthFeed` + `_on_health_report`
+  cũ trong `_connect_engine_events`, thay bằng khởi tạo
+  `HealthCheckCoordinator`; `_trigger_initial_health_check()` giữ lại như
+  wrapper 1 dòng gọi `coordinator.request_initial_check()` (không đổi call
+  site đang gọi nó).
+- `BackTestPresenter`/`signal_wiring.connect_engine_events`: cùng thay
+  đổi — wiring `HealthFeed` cũ trong hàm free-function `connect_engine_events`
+  đổi thành khởi tạo `HealthCheckCoordinator` với `emit_log=lambda msg:
+  presenter._emit_ui_log(msg, "info", is_dev=False)`, giữ đúng khác biệt
+  log so với Dashboard.
+- `HealthFeed`/`HealthStatusReport` import bị xoá khỏi 2 Presenter (không
+  còn dùng trực tiếp — sống trong Coordinator).
+- Test cập nhật: `tests/unit/presentation/ui/screens/test_system_health_logging.py`
+  — 3 chỗ đọc `presenter._health_feed` đổi thành
+  `presenter._health_check_coordinator._health_feed`.
+- `290 test xanh` (health logging + backtest/dashboard presenter + common
+  coordinators), 0 fail.
