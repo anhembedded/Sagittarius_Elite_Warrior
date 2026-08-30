@@ -1,7 +1,7 @@
 # EPIC-018E — Rà soát Hard Design: `src/infrastructure/`
 
 **Thuộc Epic:** [`EPIC-018`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu (rà soát xong, việc sửa chưa làm)
+**Trạng thái:** ✅ Hoàn thành — 2026-08-30
 **Phụ thuộc:** Không.
 **Nguồn:** [`DECISION_2026-08-30_module_scoped_audits_round2.md`](../DECISION_2026-08-30_module_scoped_audits_round2.md) §2 mục `018E`.
 
@@ -48,3 +48,27 @@
   ADR).
 - Test `tests/unit/infrastructure/` + `tests/integration/infrastructure/`
   xanh không đổi assertion.
+
+## Kết quả
+
+- `kline_row_mapper.py`: `from sqlalchemy.dialects.sqlite import insert`
+  chuyển lên top-level, cùng chỗ `import sqlalchemy as sa`.
+- `client.py:193`: `if (i + 1) % 1000 == 0:` → dùng
+  `_KLINE_STREAM_CHUNK_SIZE` (constant đã có sẵn cùng file, đúng khái niệm
+  "trang request Binance").
+- `binance_websocket_service.py`: thêm `_RECONNECT_DELAY_SECONDS = 5`,
+  dùng thay `asyncio.sleep(5)` + log message. Thêm type annotation cho
+  `bsm: BinanceSocketManager` (đã import top-level từ trước, chỉ thiếu
+  annotation) và `tscm: ReconnectingWebsocket` (đọc source `python-binance`
+  để xác nhận `BinanceSocketManager._get_socket()` — nơi cả
+  `kline_socket()`/`multiplex_socket()` đều gọi tới — trả về đúng type
+  này; `ReconnectingWebsocket.__aenter__` trả `self` nên `tscm` cùng type
+  với biến `socket`). `_create_socket()` cũng thêm return type
+  `-> ReconnectingWebsocket`.
+- `sqlalchemy_repository.py:90` **không đụng** (quyết định từ chối đã ghi
+  ở ADR — nợ `mypy` exclude cũ, không phải regression).
+- `63 test xanh` (`tests/unit/infrastructure/` +
+  `tests/integration/infrastructure/`), 0 fail. `mypy` sạch trên cả 3 file
+  sửa (`kline_row_mapper.py`, `binance_websocket_service.py`); `client.py`
+  giữ nguyên đúng 2 lỗi pre-existing không liên quan (xác nhận qua `git
+  stash` trước/sau, chỉ lệch số dòng).

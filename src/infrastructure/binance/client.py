@@ -188,9 +188,10 @@ class PythonBinanceClient(IExchangeClient):
             )
             for i, k in enumerate(generator):
                 raw_klines.append(k)
-                # Binance usually returns up to 1000 klines per request chunk.
-                # We can update the UI roughly every 1000 items to avoid UI blocking while still keeping it smooth.
-                if (i + 1) % 1000 == 0:
+                # Update the UI roughly once per Binance request page
+                # (_KLINE_STREAM_CHUNK_SIZE) to avoid UI blocking while
+                # still keeping it smooth.
+                if (i + 1) % _KLINE_STREAM_CHUNK_SIZE == 0:
                     logger.debug(f"[{symbol}] Downloaded {i + 1} klines so far...")
                     if progress_callback:
                         progress_callback(i + 1)

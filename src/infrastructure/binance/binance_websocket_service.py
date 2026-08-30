@@ -3,6 +3,7 @@ import logging
 from datetime import UTC, datetime
 
 from binance import AsyncClient, BinanceSocketManager
+from binance.ws.reconnecting_websocket import ReconnectingWebsocket
 from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
@@ -16,6 +17,9 @@ from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManag
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 logger = logging.getLogger("App.LiveStream")
+
+#: Delay before retrying the WebSocket connection after an `OSError`.
+_RECONNECT_DELAY_SECONDS = 5
 
 
 class BinanceWebsocketService(ILiveStreamService):
@@ -121,9 +125,10 @@ class BinanceWebsocketService(ILiveStreamService):
                 except OSError as e:
                     if not token.is_cancelled():
                         logger.error(
-                            f"WebSocket connection error: {e}. Reconnecting in 5s..."
+                            f"WebSocket connection error: {e}. Reconnecting in "
+                            f"{_RECONNECT_DELAY_SECONDS}s..."
                         )
-                        await asyncio.sleep(5)
+                        await asyncio.sleep(_RECONNECT_DELAY_SECONDS)
         except GeneratorExit:
             is_closing = True
             raise
@@ -137,14 +142,17 @@ class BinanceWebsocketService(ILiveStreamService):
 
     @staticmethod
     def _create_socket(
-        bsm, symbols: list[str], streams: list[str], interval: TimeFrame
-    ):
+        bsm: BinanceSocketManager,
+        symbols: list[str],
+        streams: list[str],
+        interval: TimeFrame,
+    ) -> ReconnectingWebsocket:
         """@brief A single symbol uses the plain kline socket; multiple share a multiplex socket."""
         if len(streams) == 1:
             return bsm.kline_socket(symbols[0].upper(), interval=interval.value)
         return bsm.multiplex_socket(streams)
 
-    async def _process_socket_message(self, tscm) -> None:
+    async def _process_socket_message(self, tscm: ReconnectingWebsocket) -> None:
         """@brief Receives one message, unwraps the multiplex envelope, and emits on a kline event."""
         res = await tscm.recv()
         if not res:

@@ -20,6 +20,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.sqlite import insert
+
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
@@ -61,8 +63,6 @@ def parse_db_datetime(value: Any) -> datetime | None:
 
 def build_upsert_stmt() -> Any:
     """Builds the SQLite-dialect ON CONFLICT DO UPDATE statement for `KlineModel`."""
-    from sqlalchemy.dialects.sqlite import insert
-
     stmt = insert(KlineModel)
     return stmt.on_conflict_do_update(
         index_elements=["symbol", "interval", "open_time"],
