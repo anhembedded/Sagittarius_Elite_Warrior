@@ -58,6 +58,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .autostart_controller import AutoStartController
+from .coordinators.indicator_coordinator import IndicatorCoordinator
 from .dashboard_view_model import (
     DATETIME_FORMAT,
     DEFAULT_LOOKBACK_DAYS,
@@ -106,21 +107,6 @@ _MAX_LOOKBACK_DAYS = 3650
 #: Longest symbol Binance lists is well under this; a generous ceiling that
 #: still rejects a corrupted blob is the point, not a precise limit.
 _MAX_SYMBOL_LENGTH = 20
-
-# BOT-034 — how many candles to RENDER is not how many to FETCH: 75 is what
-# the chart shows by default (see ChartCard._DEFAULT_INITIAL_VISIBLE_CANDLES,
-# a separate, zoom-level concept this doesn't replace), but a script's
-# slowest indicator may need far more history than that just to produce its
-# first point. _compute_fetch_limit() reconciles the two.
-_RENDER_WINDOW_CANDLES: int = 75
-#: User-configurable floor (IConfig key), so a fetch is never smaller than
-#: this even with nothing enabled that needs more. Defaults to the render
-#: window itself — no extra padding unless the user asks for one.
-#: Scoped "CHART_CARD_*", not "DEV_BOARD_*" — this governs ChartCard's own
-#: fetch behavior, not anything specific to the Dev Board screen that
-#: happens to host it today.
-_MIN_FETCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_MIN_FETCH_CANDLES"
-_DEFAULT_MIN_FETCH_CANDLES: int = 75
 
 _AUTOSTART_ENABLED_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_ENABLED"
 _DEFAULT_AUTOSTART_ENABLED: bool = False
@@ -465,6 +451,23 @@ class DashboardPresenter(BasePresenter):
         # ViewModel owns the enabled/disabled state (Phase 3) — the Presenter
         # only ever hands it what's available, once, same as logModel.
         self._view_model.script_model.set_available(self._script_registry.available())
+
+        # `EPIC-003G` — which chart card a script's data lands on, and how
+        # many candles a fetch needs to warm every enabled script up.
+        # `get_enabled_script_keys` is a lambda, not the bound method itself,
+        # on purpose: `test_dashboard_presenter.py` monkeypatches
+        # `presenter._enabled_script_keys` on the instance after
+        # construction, and only a late `self._enabled_script_keys()` call
+        # sees that — a captured bound method would keep calling the
+        # original.
+        self._indicator_coordinator = IndicatorCoordinator(
+            script_registry=self._script_registry,
+            script_runner=self._script_runner,
+            config=self.config,
+            get_active_charts=lambda: self.active_charts,
+            get_active_symbol=lambda: self._active_symbol,
+            get_enabled_script_keys=lambda: self._enabled_script_keys(),
+        )
 
         def _get_cancellation_token():
             return self._cancellation_token
@@ -876,33 +879,12 @@ class DashboardPresenter(BasePresenter):
         return self._view_model.script_model.enabled_keys
 
     def _rebuild_scripts(self) -> None:
-        card = self.active_charts.get(self._active_symbol)
-        if card is not None:
-            self._script_runner.clear_from_chart(card)
-        self._script_runner.rebuild(self._enabled_script_keys())
+        self._indicator_coordinator.rebuild_scripts()
 
     def _compute_fetch_limit(self) -> int:
-        """
-        @brief BOT-034 — how many candles to fetch, as opposed to how many to
-        render (_RENDER_WINDOW_CANDLES stays a separate, smaller number).
-        @details max(render window, the slowest enabled script's declared
-        warm-up requirement, a user-configurable floor). Reads
-        `_enabled_script_keys()` fresh (same "read at click time" contract as
-        `_rebuild_scripts`) and looks up each key's class in the registry
-        without instantiating it — `min_warmup_bars` is a class attribute.
-        """
-        slowest = max(
-            (
-                self._script_registry.available()[key].min_warmup_bars
-                for key in self._enabled_script_keys()
-                if key in self._script_registry.available()
-            ),
-            default=0,
-        )
-        floor = self.config.get(
-            _MIN_FETCH_CANDLES_CONFIG_KEY, _DEFAULT_MIN_FETCH_CANDLES, cast=int
-        )
-        return max(_RENDER_WINDOW_CANDLES, slowest, floor)
+        """BOT-034 — how many candles to fetch, as opposed to how many to
+        render. See `IndicatorCoordinator.compute_fetch_limit()` (`EPIC-003G`)."""
+        return self._indicator_coordinator.compute_fetch_limit()
 
     # ================================================================== #
     # Qt Slots — execute on the main thread.
@@ -1043,31 +1025,25 @@ class DashboardPresenter(BasePresenter):
         """Pushes a computed indicator script line onto the chart
         (single-symbol Dev Board — see _DEFAULT_SYMBOLS), registering its
         overlay/subplot curve on first use. Every indicator is a script
-        (BOT-032 Phase 6 — none are hardcoded), so this is a pure delegate."""
-        card = self.active_charts.get(self._active_symbol)
-        if card is not None:
-            self._script_runner.draw(card, name, x_data, y_data)
+        (BOT-032 Phase 6 — none are hardcoded), so this is a pure delegate.
+        Body in `IndicatorCoordinator` (`EPIC-003G`); this stays a `@Slot`
+        because it needs the `QObject`/decorator machinery."""
+        self._indicator_coordinator.on_indicator_data(name, x_data, y_data)
 
     @Slot(str, list)
     def _on_script_region_data(self, key: str, spans: list) -> None:
         """Pushes a script's background-tint spans onto the chart."""
-        card = self.active_charts.get(self._active_symbol)
-        if card is not None:
-            self._script_runner.draw_region(card, key, spans)
+        self._indicator_coordinator.on_script_region_data(key, spans)
 
     @Slot(str, list)
     def _on_script_info_data(self, key: str, fields: list) -> None:
         """Pushes a script's status-panel fields onto the chart."""
-        card = self.active_charts.get(self._active_symbol)
-        if card is not None:
-            self._script_runner.draw_info(card, key, fields)
+        self._indicator_coordinator.on_script_info_data(key, fields)
 
     @Slot(str, list)
     def _on_script_marker_data(self, key: str, markers: list) -> None:
         """Pushes a script's Buy/Sell-style labelled markers onto the chart."""
-        card = self.active_charts.get(self._active_symbol)
-        if card is not None:
-            self._script_runner.draw_markers(card, key, markers)
+        self._indicator_coordinator.on_script_marker_data(key, markers)
 
     # ================================================================== #
     # Engine Event Bridge — called from background threads.
