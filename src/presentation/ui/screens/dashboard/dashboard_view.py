@@ -1,14 +1,17 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QScrollArea, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QScrollArea, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from .dev_board_panel import DevBoardPanel
+
+_TITLE = "Developer Board (Live Testbed)"
+_SUBTITLE = "Kiểm thử chỉ báo & script trên dữ liệu trực tiếp"
 
 
 class DashboardView(BaseView):
@@ -39,13 +42,16 @@ class DashboardView(BaseView):
 
     def _setup_ui(self):
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(20, 20, 20, 20)
-        outer_layout.setSpacing(15)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        outer_layout.addWidget(self._main_splitter, 1)
+        self._shell = PageShell()
+        outer_layout.addWidget(self._shell)
+        # No header actions/console yet — both live on `DevBoardPanel`,
+        # which isn't built until `set_view_model()` (it needs the
+        # ViewModel at construction). Re-set below once it exists.
+        self._shell.set_header(_TITLE, _SUBTITLE)
 
-        # Left column: QScrollArea for dynamic ChartCards.
+        # Main workspace content: QScrollArea for dynamic ChartCards.
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
 
@@ -58,19 +64,20 @@ class DashboardView(BaseView):
         # instead of being squeezed to their minimum size with empty space below.
 
         self.scroll_area.setWidget(self.charts_container)
-        self._main_splitter.addWidget(self.scroll_area)
+        self._shell.set_workspace(self.scroll_area)
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Builds the right-hand DevBoardPanel against `view_model` — the
         panel takes its ViewModel at construction time (no late-binding
         needed, unlike the old QML context-property registration this
-        replaces)."""
+        replaces). Now the `PageShell` rail, not a second `QSplitter` pane
+        this view built by hand — its header widgets and console log move
+        into the shell's own header/console bands."""
         self._view_model = view_model
         self._panel = DevBoardPanel(view_model)
-        self._main_splitter.addWidget(self._panel)
-        self._main_splitter.setStretchFactor(0, 3)  # Charts get more room initially
-        self._main_splitter.setStretchFactor(1, 1)
-        self._main_splitter.setSizes([900, 400])
+        self._shell.set_header(_TITLE, _SUBTITLE, actions=self._panel.header_actions)
+        self._shell.set_workspace(self.scroll_area, rail=self._panel)
+        self._shell.set_console(self._panel.console_widget)
 
     def set_symbol_preferences(self, preferences) -> None:
         """EPIC-014: DashboardPresenter injects the container-registered

@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker i
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     ConfirmOverlay,
+    PageShell,
     StyleRole,
     apply_role,
 )
@@ -391,48 +392,39 @@ class DataManagementView(BaseView):
 
     def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(20, 20, 20, 20)
-        outer.setSpacing(14)
+        outer.setContentsMargins(0, 0, 0, 0)
         # Scoped: the screen root holds every widget on it, so an unscoped
         # property list here is `BUG-008` at the largest scale a screen has.
         self.setStyleSheet(
             f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
         )
 
-        outer.addLayout(self._build_header())
-        outer.addLayout(self._build_stat_tiles())
+        shell = PageShell()
+        outer.addWidget(shell)
+        shell.set_header(
+            "SAGITTARIUS STORAGE VAULT",
+            "Historical Market KLines Multi-Timeframe Database Hub",
+            icon=get_icon_loader().get_icon("database", Palette.ACCENT),
+            actions=self._build_header_actions(),
+        )
 
-        body = QHBoxLayout()
-        body.setSpacing(14)
-        body.addWidget(self._build_sync_controls(), 0)
-        body.addLayout(self._build_status_and_log(), 1)
-        outer.addLayout(body, 1)
+        main = QWidget()
+        main_layout = QVBoxLayout(main)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(14)
+        main_layout.addLayout(self._build_stat_tiles())
+        main_layout.addLayout(self._build_status_column(), 1)
+
+        # `PageShell.set_workspace`'s rail is always the right-hand pane —
+        # this used to be the LEFT column of a plain `QHBoxLayout`, the one
+        # placement the Pattern Library rules out ("rail is always on the
+        # right, never the left").
+        shell.set_workspace(main, rail=self._build_sync_controls())
+        shell.set_console(self._build_log_panel())
 
         self._build_dialogs()
 
-    def _build_header(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.setSpacing(10)
-
-        icon_label = QLabel()
-        icon_label.setPixmap(
-            get_icon_loader().get_icon("database", Palette.ACCENT).pixmap(22, 22)
-        )
-        row.addWidget(icon_label)
-
-        title_box = QVBoxLayout()
-        title_box.setSpacing(0)
-        title = QLabel("SAGITTARIUS STORAGE VAULT")
-        title.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 15px; font-weight: bold;"
-        )
-        subtitle = QLabel("Historical Market KLines Multi-Timeframe Database Hub")
-        subtitle.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-        title_box.addWidget(title)
-        title_box.addWidget(subtitle)
-        row.addLayout(title_box)
-        row.addStretch()
-
+    def _build_header_actions(self) -> list[QPushButton]:
         self._btn_vacuum = QPushButton("Tối ưu hóa Database (Vacuum)")
         self._btn_vacuum.setObjectName("btnVacuum")
         self._btn_vacuum.setIcon(get_icon_loader().get_icon("zap", Palette.ACCENT, 14))
@@ -442,7 +434,6 @@ class DataManagementView(BaseView):
             f"font-size: 11px; font-weight: bold; }} "
             f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
         )
-        row.addWidget(self._btn_vacuum)
 
         self._btn_purge = QPushButton("Xóa toàn bộ Vault (Purge)")
         self._btn_purge.setObjectName("btnPurgeVault")
@@ -455,9 +446,8 @@ class DataManagementView(BaseView):
             f"font-size: 11px; font-weight: bold; }} "
             f"QPushButton:hover {{ background-color: {Palette.BG_CARD_HEADER}; }}"
         )
-        row.addWidget(self._btn_purge)
 
-        return row
+        return [self._btn_vacuum, self._btn_purge]
 
     def _build_stat_tiles(self) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -514,7 +504,6 @@ class DataManagementView(BaseView):
 
     def _build_sync_controls(self) -> QFrame:
         card = QFrame()
-        card.setFixedWidth(320)
         apply_role(card, StyleRole.SURFACE)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(14, 14, 14, 14)
@@ -610,23 +599,25 @@ class DataManagementView(BaseView):
         layout.addStretch()
         return card
 
-    def _build_status_and_log(self) -> QVBoxLayout:
+    def _build_status_column(self) -> QVBoxLayout:
         """The status table itself (`DatabaseStatusPanel`, EPIC-015 Phase 2)
         is NOT built here — `_build_ui()` runs before a real view model
         exists to construct its `DatabaseStatusVM` from. `self._status_column`
         is kept so `set_view_model()` can `insertWidget(0, ..., 1)` the panel
-        into the slot the old `table_card` used to occupy, same position and
-        stretch."""
+        into this (otherwise empty) slot."""
         column = QVBoxLayout()
-        column.setSpacing(14)
         self._status_column = column
+        return column
 
+    def _build_log_panel(self) -> AppLogPanel:
+        """Now `PageShell`'s console band — same full-width placement below
+        the workspace that Dev Board/Backtest already use, instead of being
+        nested inside the status column's own width (its previous spot,
+        inherited from when the rail sat to its left)."""
         self._log_panel = AppLogPanel("SYNC LOG")
         self._log_panel.setObjectName("syncLogPanel")
-        self._log_panel.setFixedHeight(190)
-        column.addWidget(self._log_panel)
-
-        return column
+        self._log_panel.setMinimumHeight(190)
+        return self._log_panel
 
     def _build_dialogs(self) -> None:
         """Both destructive confirms, on the engine's `ConfirmOverlay`.

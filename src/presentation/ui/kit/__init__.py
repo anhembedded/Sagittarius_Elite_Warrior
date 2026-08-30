@@ -52,6 +52,7 @@ from .overlays import (
     PickerOverlay,
     RangePreset,
 )
+from .page_shell import PageShell
 from .style import (
     StyleRole,
     Tone,
@@ -89,6 +90,7 @@ __all__ = [
     "LogModel",
     "LogPanel",
     "Overlay",
+    "PageShell",
     "Pagination",
     "Panel",
     "PickerItem",

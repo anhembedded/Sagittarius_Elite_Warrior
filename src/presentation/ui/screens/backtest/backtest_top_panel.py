@@ -270,10 +270,20 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         run_row.addWidget(self._run_text_label)
         self._btn_run.setLayout(run_row)
         self._btn_run.clicked.connect(self._on_run_clicked)
-        row.addWidget(self._btn_run)
+        # Not added to `row`: `BackTestView` places this in `PageShell`'s
+        # header actions instead — the header's primary action, per the
+        # Pattern Library, not another item in the "which data am I
+        # looking at" context bar this toolbar has become.
 
         scroll.setWidget(row_widget)
         return scroll
+
+    @property
+    def run_button(self) -> QPushButton:
+        """Public accessor for `BackTestView` to place in the page header —
+        `_btn_run` itself stays the private attribute every existing test
+        and this class's own `_sync_run_button` already key off."""
+        return self._btn_run
 
     def _icon_text_button(
         self,
