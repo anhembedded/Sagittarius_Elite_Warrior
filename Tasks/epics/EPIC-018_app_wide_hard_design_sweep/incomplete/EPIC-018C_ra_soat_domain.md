@@ -1,38 +1,51 @@
 # EPIC-018C — Rà soát Hard Design: `src/domain/`
 
 **Thuộc Epic:** [`EPIC-018`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu
+**Trạng thái:** 🔴 Chưa bắt đầu (rà soát xong, việc sửa chưa làm)
 **Phụ thuộc:** Không.
+**Nguồn:** [`DECISION_2026-08-30_module_scoped_audits_round2.md`](../DECISION_2026-08-30_module_scoped_audits_round2.md) §2 mục `018C`.
 
 ---
 
-## Phạm vi
+## Kết quả rà soát
 
-Đúng 1 module — **chỉ** `src/domain/`: `entities/`, `events/`,
-`value_objects/`, `models/`, `indicators/`, `indicator_scripts/`,
-`scripting/`, `strategies/`, `backtesting/`. Không lan sang
-`application/`/`infrastructure`/`presentation` — mỗi module có task riêng
-(xem `EPIC-018` README).
+Đọc hết 58 file `.py` trong `src/domain/`. 3 finding, verify độc lập:
 
-## Đã biết trước (từ đợt khảo sát rộng, cần xác nhận lại kỹ hơn trong task này)
+- **C1** — `IStrategy`/`IIndicator` là `Protocol` không lý do (không khớp 1
+  trong 3 lý do luật cho phép), mọi implementer đều kế thừa danh nghĩa,
+  không consumer nào cần structural typing → đổi sang `ABC`.
+- **C2** — `IStoppablePosition` cũng là `Protocol` không lý do hình thức,
+  nhưng có lý do thật (tránh lộ `_OpenPosition` private qua ranh giới
+  policy) → giữ `Protocol`, thêm `@runtime_checkable` + docstring nêu lý do.
+- **C3** — `paper_exchange.py` 451 dòng, vượt ngưỡng 400 → **từ chối tách
+  thêm** (method count 12 chưa vượt 15, cắt tiếp không rõ ràng, đã tách
+  Policy ở `EPIC-003C` rồi).
 
-- `base_indicator_script.py` (515 dòng/~28 method) — ADR D7 đã **từ chối**
-  tách, đánh giá là DSL cohesive hợp lệ, nhưng chính agent khảo sát tự nhận
-  "độ tin cậy thấp". Task này nên xác nhận lại kỹ hơn (đọc toàn bộ 9 script
-  con kế thừa nó, xem có thực sự dùng hết ~28 method hay một phần đã chết).
+`base_indicator_script.py` (ADR D7 cũ) re-verify lại: đọc cả 9 script con
+kế thừa, xác nhận DSL surface được dùng thật, không API chết — **giữ
+nguyên quyết định từ chối tách**.
 
 ## Việc cần làm
 
-Đọc toàn bộ `src/domain/` tìm Hard Design thật (concrete-phụ-concrete
-không qua port, God File chưa theo dõi, magic number/string không có
-SSOT, duck-typing ngầm). Đối chiếu `.agents/rules/architecture-rule.md`
-trước khi kết luận — domain layer đặc biệt nhạy với "Single-Scope
-Cohesion" (§5.5): nhiều class trông dài nhưng là DSL/aggregate hợp lệ, đừng
-pattern-match bề mặt.
+1. `src/domain/strategies/i_strategy.py`: `IStrategy(Protocol)` →
+   `IStrategy(ABC)`. Kiểm tra `BaseStrategy` đã implement `evaluate()` —
+   không cần đổi gì ở implementer, chỉ đổi base của interface.
+2. `src/domain/indicators/i_indicator.py`: `IIndicator(Protocol[T_co])` →
+   `IIndicator(ABC, Generic[T_co])`. Kiểm tra `EMA`/`MACD`/`RSI`/`WMA`/
+   `SupportResistance` đã kế thừa danh nghĩa — không đổi gì ở chúng.
+3. `src/domain/backtesting/policies/order_matching_policy.py`:
+   `IStoppablePosition` giữ `Protocol`, thêm `@runtime_checkable` +
+   docstring nêu rõ lý do (1 trong 3 lý do luật cho phép: tránh lộ type
+   private `_OpenPosition` qua ranh giới policy, không dùng ABC được vì
+   `_OpenPosition` là dataclass nội bộ của `paper_exchange.py`, không nên
+   import ngược).
 
 ## Tiêu chí xong
 
-- Đọc hết mọi file `.py` trong `src/domain/` (không chỉ file lớn).
-- Mỗi finding: trích `file:line`, mức độ tin cậy, đối chiếu rule cụ thể.
-- Cập nhật ADR `EPIC-018` (hoặc ADR riêng nếu finding đủ lớn) với quyết định
-  từng điểm trước khi sửa bất cứ gì.
+- `IStrategy`/`IIndicator` là `ABC`, mọi implementer hiện có vẫn pass
+  không cần sửa (kế thừa danh nghĩa sẵn có).
+- `IStoppablePosition` có `@runtime_checkable` + docstring lý do.
+- Test hiện có của `strategies/`, `indicators/`, `backtesting/` xanh không
+  đổi assertion.
+- `paper_exchange.py` **không** bị đụng tới trong task này (quyết định từ
+  chối tách đã ghi ở ADR).

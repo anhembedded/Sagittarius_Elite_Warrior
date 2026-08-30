@@ -1,35 +1,65 @@
 # EPIC-018D — Rà soát Hard Design: `src/application/`
 
 **Thuộc Epic:** [`EPIC-018`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu
+**Trạng thái:** 🔴 Chưa bắt đầu (rà soát xong, việc sửa chưa làm)
 **Phụ thuộc:** Không.
+**Nguồn:** [`DECISION_2026-08-30_module_scoped_audits_round2.md`](../DECISION_2026-08-30_module_scoped_audits_round2.md) §2 mục `018D`.
 
 ---
 
-## Phạm vi
+## Kết quả rà soát
 
-Đúng 1 module — **chỉ** `src/application/`: `use_cases/`, `services/`,
-`ports/`, `events/`, `event_handlers/`. Đợt khảo sát rộng chỉ đọc kỹ 2 use
-case (`sync_market_data`, `run_backtest`) — phần lớn `use_cases/` (list
-available symbols, audit database integrity, các query khác) và toàn bộ
-`services/`/`event_handlers/` **chưa được đọc kỹ**.
+Đọc hết 33 file `.py` trong `src/application/`. 4 finding, verify độc lập
+(cross-check thêm bởi audit tích hợp liên module — xem `018G`):
 
-## Đã biết trước (từ đợt khảo sát rộng)
-
-- `AuditDatabaseIntegrityQuery.interval: str = "1m"` — ADR D2, đã lên kế
-  hoạch sửa ở `EPIC-018A` (đừng làm trùng ở đây, chỉ tham chiếu).
-- `RunBacktestCommand` hasattr dead code — ADR D4, **đã sửa** (commit `50fbd0e`).
+- **D-app-1** — `run_historical_tick_backtest/handler.py` 427 dòng, trộn
+  CQRS orchestration + `_FormingBar` (policy gom tick→nến) +
+  `_bar_bounds()` (toán lưới interval) → tách `_FormingBar`/`_bar_bounds`
+  sang `forming_bar.py` cùng thư mục, đúng tiền lệ `EPIC-003C`/`EPIC-018B`.
+- **D-app-2** — 5 Query class còn `interval: str` + convert muộn
+  `TimeFrame(query.interval)` sâu trong `execute()`:
+  `GetDatabaseGapsQuery`, `GetDatabaseStatusQuery`,
+  `GetHistoricalKlinesQuery`, `ScanAllDatabasesQuery.intervals: list[str]`,
+  `GetBacktestRangeCoverageQuery` — đúng hình `EPIC-018A` đã sửa cho
+  `AuditDatabaseIntegrityQuery`, chưa lan sang 5 sibling này.
+- **D-app-3** — `BulkSyncMarketDataCommand.targets: list[tuple[str, str]]`
+  — tuple thô cho khái niệm có tên; `_sync_single_target` trả về
+  `tuple[str, str, bool, str]` vô danh → `SyncTarget` value object.
+- **D-app-4** — magic number `100` (log cadence) ở
+  `run_backtest/handler.py` — **từ chối sửa**, handler này đã xác nhận
+  dead code (ADR D4), sửa không mang lại lợi ích thật.
 
 ## Việc cần làm
 
-Đọc toàn bộ `use_cases/` (mọi command/query, không chỉ 2 cái đã biết),
-`services/`, `ports/` (interface có đúng "hợp đồng tường minh" không —
-port quá rộng/quá hẹp so với consumer thật?), `event_handlers/`. Đối chiếu
-`.agents/rules/architecture-rule.md` §2.1 (duck-typing ngầm) và §5 (God
-File) trước khi kết luận.
+1. **`forming_bar.py`** (mới, cùng thư mục
+   `use_cases/backtest/run_historical_tick_backtest/`): chuyển
+   `_FormingBar` (dataclass + `start()`/`absorb()`/`to_candle()`) và
+   `_bar_bounds()` sang đây. `handler.py` import và gọi, không giữ logic
+   gom-tick tại chỗ.
+2. **5 Query class → `TimeFrame`:**
+   - `GetDatabaseGapsQuery.interval: str` → `TimeFrame`
+   - `GetDatabaseStatusQuery.interval: str` → `TimeFrame`
+   - `GetHistoricalKlinesQuery.interval: str` → `TimeFrame`
+   - `ScanAllDatabasesQuery.intervals: list[str]` → `list[TimeFrame]`
+   - `GetBacktestRangeCoverageQuery.interval: str` → `TimeFrame`
+   Với mỗi Query: đổi field, xoá `TimeFrame(query.interval)` convert muộn
+   trong `handler.py`, dùng `query.interval` (đã là `TimeFrame`) thẳng.
+   Lan xuống mọi call site (presentation/ui, presentation/cli nếu có) —
+   `grep -rn "GetDatabaseGapsQuery(\|GetDatabaseStatusQuery(\|GetHistoricalKlinesQuery(\|ScanAllDatabasesQuery(\|GetBacktestRangeCoverageQuery("`
+   để tìm hết.
+3. **`SyncTarget`** (value object mới, `application/use_cases/sync/bulk_sync_market_data/`
+   hoặc nơi hợp lý): `symbol: str`, `interval: TimeFrame`. Đổi
+   `BulkSyncMarketDataCommand.targets: list[tuple[str, str]]` →
+   `list[SyncTarget]`. Đổi `_sync_single_target`'s tuple trả về vô danh
+   thành dataclass tương ứng (hoặc `SyncTarget` + kết quả riêng) nếu không
+   tốn thêm rủi ro không cần thiết.
 
 ## Tiêu chí xong
 
-- Đọc hết mọi file `.py` trong `src/application/`.
-- Mỗi finding: trích `file:line`, mức độ tin cậy, đối chiếu rule cụ thể.
-- Cập nhật ADR trước khi sửa bất cứ gì.
+- `grep -rn '"1m"\|interval: str' src/application/use_cases/queries/` chỉ
+  còn field không liên quan tới 5 Query đã liệt kê.
+- Test hiện có của các use case trên xanh không đổi assertion giá trị
+  (chỉ đổi cách viết literal → enum, giữ nguyên hành vi observable).
+- `run_historical_tick_backtest/handler.py` xuống dưới 400 dòng.
+- Không đụng `run_backtest/handler.py`'s magic number `100` (quyết định
+  từ chối đã ghi ở ADR).

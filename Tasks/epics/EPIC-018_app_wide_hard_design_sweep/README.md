@@ -1,11 +1,16 @@
 # Epic EPIC-018 — App-Wide Hard Design Sweep
 
-**Trạng thái:** 🟡 Đang làm — 2/6 task xong (`018A`, `018B`; còn 4 task rà
-soát `018C`-`018F`); 3 việc khác đã sửa **trước khi** có task/ADR (xem
-bảng riêng bên dưới, ghi nhận lỗi quy trình). Cập nhật 2026-08-30.
+**Trạng thái:** 🟡 Đang làm — 2/7 task xong (`018A`, `018B`); 4 task rà
+soát `018C`-`018F` + task tích hợp `018G` đã rà soát xong (finding đã
+verify, ghi ở ADR round 2), **việc sửa từng task chưa làm**; 3 việc khác
+đã sửa **trước khi** có task/ADR (xem bảng riêng bên dưới, ghi nhận lỗi
+quy trình). Cập nhật 2026-08-30.
 **Nguồn:** User yêu cầu rà soát tiếp toàn bộ `src/` sau khi `EPIC-016`/
 `EPIC-017`/`EPIC-003G` dọn xong `presentation/ui`. Ratify ở
-[`DECISION_2026-08-30_app_wide_hard_design_sweep.md`](DECISION_2026-08-30_app_wide_hard_design_sweep.md).
+[`DECISION_2026-08-30_app_wide_hard_design_sweep.md`](DECISION_2026-08-30_app_wide_hard_design_sweep.md)
+(round 1) và
+[`DECISION_2026-08-30_module_scoped_audits_round2.md`](DECISION_2026-08-30_module_scoped_audits_round2.md)
+(round 2 — kết quả `018C`-`018G`).
 
 ---
 
@@ -32,10 +37,11 @@ trình lặp lại được, không phải 1 lần làm rồi thôi.
 
 | ID | Phạm vi | Trạng thái |
 | :--- | :--- | :---: |
-| **[EPIC-018C](incomplete/EPIC-018C_ra_soat_domain.md)** | `src/domain/` (entities, events, value_objects, models, indicators, indicator_scripts, scripting, strategies, backtesting) | 🟡 Đã có 1 finding sơ bộ (D7, bị từ chối) từ đợt khảo sát rộng — **chưa có 1 pass riêng, đúng phạm vi module** |
-| **[EPIC-018D](incomplete/EPIC-018D_ra_soat_application.md)** | `src/application/` (use_cases, services, ports, events, event_handlers) | 🟡 Đã có 2 finding sơ bộ (D2, D4) — **chưa có 1 pass riêng** |
-| **[EPIC-018E](incomplete/EPIC-018E_ra_soat_infrastructure.md)** | `src/infrastructure/` (binance, persistence, engine_adapters) | 🟡 Đã có 2 finding sơ bộ (D5, D6) — **chưa có 1 pass riêng** |
-| **[EPIC-018F](incomplete/EPIC-018F_ra_soat_presentation_cli.md)** | `src/presentation/cli/` + `src/config/` + composition root (`src/binance_bot_module.py`, `src/main.py`) | 🟡 Đã có 1 finding sơ bộ (D1, đã sửa) — **chưa có 1 pass riêng** |
+| **[EPIC-018C](incomplete/EPIC-018C_ra_soat_domain.md)** | `src/domain/` (entities, events, value_objects, models, indicators, indicator_scripts, scripting, strategies, backtesting) | 🟡 Rà soát xong, 3 finding — **chưa sửa** |
+| **[EPIC-018D](incomplete/EPIC-018D_ra_soat_application.md)** | `src/application/` (use_cases, services, ports, events, event_handlers) | 🟡 Rà soát xong, 4 finding — **chưa sửa** |
+| **[EPIC-018E](incomplete/EPIC-018E_ra_soat_infrastructure.md)** | `src/infrastructure/` (binance, persistence, engine_adapters) | 🟡 Rà soát xong, 5 finding — **chưa sửa** |
+| **[EPIC-018F](incomplete/EPIC-018F_ra_soat_presentation_cli.md)** | `src/presentation/cli/` + `src/config/` + composition root (`src/binance_bot_module.py`, `src/main.py`) | 🟡 Rà soát xong, 6 finding — **chưa sửa** |
+| **[EPIC-018G](incomplete/EPIC-018G_tich_hop_lien_module.md)** | Tích hợp liên module — layer-dependency, Port/Adapter completeness, composition-root drift, `TimeFrame` qua ranh giới Port | 🟡 Rà soát xong, 1 finding — **chưa sửa** |
 
 `src/presentation/ui/` **không** cần task rà soát mới ở epic này — đã rà
 soát sâu và fix xong ở `EPIC-016`/`EPIC-017`/`EPIC-003G` (3 epic riêng,
