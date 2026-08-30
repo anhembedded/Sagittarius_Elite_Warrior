@@ -22,9 +22,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     get_icon_loader,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    TimeframePickerOverlay,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     all_options as all_timeframe_options,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
@@ -33,6 +30,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     StyledField,
     StyleRole,
     apply_role,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
+    PinnedTimeframes,
+    TimeframePickerDialog,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
@@ -84,7 +85,10 @@ class SettingsView(BaseView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._view_model: SettingsViewModel | None = None
-        self._interval_picker: TimeframePickerOverlay | None = None
+        self._interval_picker: TimeframePickerDialog | None = None
+        # EPIC-015 bậc 1: private, non-persisted — see
+        # `timeframe_picker_dialog.py`'s "pinned-set gap" docstring section.
+        self._interval_picker_pinned = PinnedTimeframes()
         self._build_ui()
 
     def set_view_model(self, view_model: SettingsViewModel) -> None:
@@ -357,20 +361,19 @@ class SettingsView(BaseView):
 
     def _open_default_interval_picker(self) -> None:
         if self._interval_picker is None:
-            self._interval_picker = TimeframePickerOverlay(
-                get_options=lambda: [option.code for option in all_timeframe_options()],
+            self._interval_picker = TimeframePickerDialog(
+                get_codes=lambda: [option.code for option in all_timeframe_options()],
                 get_current=lambda: (
                     self._view_model.defaultInterval
                     if self._view_model is not None
                     else ""
                 ),
+                get_pinned=self._interval_picker_pinned.get,
+                set_pinned=self._interval_picker_pinned.set,
                 parent=self,
             )
-            self._interval_picker.timeframe_chosen.connect(
-                self._on_default_interval_edited
-            )
-        self._interval_picker.show()
-        self._interval_picker.raise_()
+            self._interval_picker.chosen.connect(self._on_default_interval_edited)
+        self._interval_picker.open_dialog()
 
     def _add_secret_row(self, grid: QGridLayout, row: int) -> int:
         grid.addWidget(self._field_label("Binance API Secret (Private):"), row, 0)

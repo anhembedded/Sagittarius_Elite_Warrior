@@ -53,8 +53,7 @@ def test_choosing_a_timeframe_writes_through(qapp, view, view_model):
     view._btn_default_interval.click()
     qapp.processEvents()
 
-    card = next(c for c in view._interval_picker._cards if c.option.code == "4h")
-    card.clicked.emit()
+    view._interval_picker._widget_vm.choose("4h")
     qapp.processEvents()
 
     assert view_model.defaultInterval == "4h"
@@ -67,6 +66,10 @@ def test_every_domain_timeframe_is_a_legal_default(qapp, view):
     view._btn_default_interval.click()
     qapp.processEvents()
 
-    codes = [c.option.code for c in view._interval_picker._cards]
+    codes = [
+        row["code"]
+        for group in view._interval_picker._widget_vm.groups
+        for row in group["rows"]
+    ]
     assert sorted(codes) == sorted(member.value for member in TimeFrame)
     view._interval_picker.close()

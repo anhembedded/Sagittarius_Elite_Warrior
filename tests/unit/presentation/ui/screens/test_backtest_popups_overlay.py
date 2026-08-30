@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
     BacktestChartHostFactory,
 )
 from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
+    find_all_named,
     named_descendants,
 )
 
@@ -260,6 +261,9 @@ def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
 def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
     qapp, backtest_screen
 ):
+    """`EPIC-015` bậc 1: body is now the standalone `TimeframePicker.qml` —
+    its own grouped grid, not the QtWidgets `TimeframeCard` list this
+    replaces."""
     view, presenter = backtest_screen
 
     view.top_widget._btn_timeframe.click()
@@ -267,13 +271,14 @@ def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
 
     dialog = view._modals_host._timeframe_picker
     assert dialog is not None
-    assert dialog.objectName() == "timeframePickerModal"
+    assert dialog.objectName() == "timeframePickerDialog"
     assert dialog.isVisible() is True
-    assert len(dialog._cards) == len(presenter._view_model.timeframeOptions)
+    cards = find_all_named(dialog.root_object, "timeframeCard_")
+    assert len(cards) == len(presenter._view_model.timeframeOptions)
     # EPIC-014: the picker used to offer `DEFAULT_TIMEFRAMES` (5 of the
     # domain's 16). Asserting the real number here, not just "same as the
     # ViewModel", so a regression back to the toolbar tuple is a failure.
-    assert len(dialog._cards) == 16
+    assert len(cards) == 16
 
 
 def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):

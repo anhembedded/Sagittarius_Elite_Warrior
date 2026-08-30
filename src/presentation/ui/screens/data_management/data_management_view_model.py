@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
@@ -10,11 +12,11 @@ from sagittarius_engine.extensions.pyside_mvc import (
     LogListModel,
 )
 
-from .database_status_table_model import (
-    DatabaseStatusFilterProxy,
-    DatabaseStatusTableModel,
-)
+from .database_status_table_model import DatabaseStatusTableModel
 from .kline_inspector_table_model import KLineInspectorTableModel
+
+if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 
 #: `EPIC-010H`: the real list now comes from Settings via
 #: `app_defaults.default_symbol_options()`, which the presenter applies
@@ -29,8 +31,15 @@ class DataManagementViewModel(BaseQmlViewModel):
     @brief QML-facing state for the Database screen (Storage Vault).
 
     @details
-    Owns the table model, its search proxy, and the log model, and turns QML
+    Owns the raw status table model and the log model, and turns QML
     interactions into request signals for DataManagementPresenter.
+
+    `EPIC-015` Phase 2: no longer owns a search filter proxy for the status
+    table — `DatabaseStatusPanel`/`DatabaseStatusVM`
+    (`qml/DatabaseStatusTable/`) owns its own `DatabaseStatusFilterProxy`
+    around `status_model` now, and `statusModel`/`searchText` were removed
+    from here once the `QListView`-based table (their only reader) was
+    replaced.
     """
 
     selectedSymbolChanged = Signal()
@@ -39,7 +48,6 @@ class DataManagementViewModel(BaseQmlViewModel):
 
     useCustomTimeChanged = Signal()
     customRangeChanged = Signal()
-    searchTextChanged = Signal()
     progressChanged = Signal()
     statsChanged = Signal()
 
@@ -80,8 +88,6 @@ class DataManagementViewModel(BaseQmlViewModel):
         super().__init__(parent)
 
         self._status_model = DatabaseStatusTableModel(self)
-        self._status_proxy = DatabaseStatusFilterProxy(self)
-        self._status_proxy.setSourceModel(self._status_model)
         self._log_model = LogListModel(self)
 
         self._selected_symbol = _DEFAULT_SYMBOLS[0]
@@ -91,7 +97,6 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._use_custom_time = False
         self._from_datetime = ""
         self._to_datetime = ""
-        self._search_text = ""
         self._progress_value = 0
         self._progress_maximum = 0
         self._progress_visible = False
@@ -112,6 +117,11 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._kline_inspector_model = KLineInspectorTableModel(self, page_size=100)
         self._kline_inspector_symbol = ""
         self._kline_inspector_interval = "1m"
+        #: `EPIC-015`: raw candles retained alongside the paginated model —
+        #: `KLineInspectorTableModel.set_klines()` converts-and-discards them,
+        #: but `KlineInspectorVM` (the QML port's read-only table) wants real
+        #: `MarketData` back, not the already-formatted `KLineDisplayRow`s.
+        self._kline_inspector_klines: list[MarketData] = []
         self._audit_running = False
         self._audit_passed = True
         self._audit_anomaly_count = 0
@@ -121,11 +131,6 @@ class DataManagementViewModel(BaseQmlViewModel):
     # ------------------------------------------------------------------ #
     # Models
     # ------------------------------------------------------------------ #
-
-    @Property(QObject, constant=True)
-    def statusModel(self) -> QObject:
-        """The SEARCH-FILTERED view of the status table."""
-        return self._status_proxy
 
     @Property(QObject, constant=True)
     def logModel(self) -> QObject:
@@ -224,24 +229,6 @@ class DataManagementViewModel(BaseQmlViewModel):
 
     toDateTime = Property(
         str, _get_to_datetime, _set_to_datetime, notify=customRangeChanged
-    )
-
-    # ------------------------------------------------------------------ #
-    # Search
-    # ------------------------------------------------------------------ #
-
-    def _get_search_text(self) -> str:
-        return self._search_text
-
-    def _set_search_text(self, value: str) -> None:
-        if value == self._search_text:
-            return
-        self._search_text = value
-        self._status_proxy.set_search_text(value)
-        self.searchTextChanged.emit()
-
-    searchText = Property(
-        str, _get_search_text, _set_search_text, notify=searchTextChanged
     )
 
     # ------------------------------------------------------------------ #
@@ -520,6 +507,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     ) -> None:
         self._kline_inspector_symbol = symbol
         self._kline_inspector_interval = interval
+        self._kline_inspector_klines = list(klines)
         self._kline_inspector_model.set_klines(klines)
         self._audit_running = False
         self._audit_summary_text = ""
@@ -558,3 +546,11 @@ class DataManagementViewModel(BaseQmlViewModel):
     @property
     def kline_inspector_model(self) -> KLineInspectorTableModel:
         return self._kline_inspector_model
+
+    @property
+    def kline_inspector_klines(self) -> list[MarketData]:
+        """The raw candles behind the currently-inspected symbol/interval —
+        `DataManagementKlineInspectorSource`'s read path for
+        `KlineInspectorVM.get_klines`. Not a QML `Property`: nothing in
+        `.qml` reads this directly, only the Python adapter."""
+        return self._kline_inspector_klines

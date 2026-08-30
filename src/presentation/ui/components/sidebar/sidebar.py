@@ -48,9 +48,9 @@ class _NavButton(QPushButton):
     identity, active-state left bar, dual expanded/collapsed layouts) is
     specific to this app's navigation chrome, not a generic reusable
     control — reads `Palette` directly, the same escape hatch every other
-    Elite-specific widget (`_StatusRowWidget`, `MetricCard`, ...) already
-    uses for content the engine's generic `StyleRole` vocabulary has no
-    reason to know about.
+    Elite-specific widget (`_TradeLogRowWidget`, `TimeRangeCardWidget`, ...)
+    already uses for content the engine's generic `StyleRole` vocabulary has
+    no reason to know about.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:

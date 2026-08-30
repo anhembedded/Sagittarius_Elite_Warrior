@@ -10,8 +10,9 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPreferences,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    TimeframePickerOverlay,
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
+    PinnedTimeframes,
+    TimeframePickerDialog,
 )
 
 from .capital_dialog import CapitalDialogWidget
@@ -47,7 +48,10 @@ class BackTestModalsHost:
         self._indicator_picker: IndicatorPickerDialog | None = None
         self._order_execution: OrderExecutionDialog | None = None
         self._strategy_picker: StrategyPickerDialog | None = None
-        self._timeframe_picker: TimeframePickerOverlay | None = None
+        self._timeframe_picker: TimeframePickerDialog | None = None
+        # EPIC-015 bậc 1: private, non-persisted — see
+        # `timeframe_picker_dialog.py`'s "pinned-set gap" docstring section.
+        self._timeframe_picker_pinned = PinnedTimeframes()
         self._symbol_picker: SymbolPickerDialogWidget | None = None
         # EPIC-014: replaced in production by the container-registered store
         # (BackTestPresenter injects it through
@@ -127,14 +131,15 @@ class BackTestModalsHost:
 
     def _open_timeframe_picker(self) -> None:
         if self._timeframe_picker is None:
-            self._timeframe_picker = TimeframePickerOverlay(
-                get_options=lambda: self._vm.timeframeOptions,
+            self._timeframe_picker = TimeframePickerDialog(
+                get_codes=lambda: self._vm.timeframeOptions,
                 get_current=lambda: self._vm.selectedTimeframe,
+                get_pinned=self._timeframe_picker_pinned.get,
+                set_pinned=self._timeframe_picker_pinned.set,
                 parent=self._parent,
             )
-            self._timeframe_picker.timeframe_chosen.connect(self._on_timeframe_chosen)
-        self._timeframe_picker.show()
-        self._timeframe_picker.raise_()
+            self._timeframe_picker.chosen.connect(self._on_timeframe_chosen)
+        self._timeframe_picker.open_dialog()
 
     def _on_timeframe_chosen(self, code: str) -> None:
         self._vm.selectedTimeframe = code

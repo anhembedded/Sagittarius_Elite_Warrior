@@ -1,12 +1,14 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../kit"
 
 // Layout and bindings only (EPIC-015 §3.2). Renders `DatabaseStatusVM`'s
-// real production model (`DatabaseStatusTableModel`) — structural pass only:
-// no search box, no wired row actions yet (NOTES.md). Body for a
-// `QmlOverlay`-style host, but this widget is table content rather than a
-// modal — whichever screen embeds it owns its own chrome.
+// real production model (`DatabaseStatusTableModel`, filtered through the
+// VM's own `DatabaseStatusFilterProxy`) — search and row actions are both
+// wired now (EPIC-015 Phase 2, NOTES.md). Body for a `QmlOverlay`-style
+// host, but this widget is table content rather than a modal — whichever
+// screen embeds it owns its own chrome.
 //
 // Header is the shared `kit/PanelHeader` (retrofitted 2026-08-30, see
 // `qml/kit/NOTES.md`) — not a hand-rolled accent bar + label anymore.
@@ -24,6 +26,24 @@ ColumnLayout {
         Layout.fillWidth: true
         title: "Database Status"
         badgeText: vm.rowCount + " shard" + (vm.rowCount === 1 ? "" : "s")
+
+        TextField {
+            id: searchField
+            objectName: "txtDatabaseStatusSearch"
+            width: 180
+            implicitHeight: 26
+            font.pixelSize: 11
+            placeholderText: "Tìm symbol / khung thời gian…"
+            color: Theme.textPrimary
+            selectByMouse: true
+            onTextEdited: vm.setSearchText(text)
+            background: Rectangle {
+                color: Theme.bg
+                border.width: 1
+                border.color: searchField.activeFocus ? Theme.accent : Theme.stateNavBorder
+                radius: 6
+            }
+        }
     }
 
     RowLayout {
@@ -102,12 +122,19 @@ ColumnLayout {
     }
 
     Text {
-        objectName: "lblDatabaseStatusFooter"
+        // Ports the old `_empty_label`'s exact message and trigger
+        // (`model.rowCount() == 0`, the same filtered count `vm.rowCount`
+        // reports here) — so an empty vault and a search with zero matches
+        // both read the same as they did before this widget replaced the
+        // QListView-based table.
+        objectName: "lblDatabaseStatusEmpty"
         Layout.fillWidth: true
         horizontalAlignment: Text.AlignHCenter
-        text: "Scan a symbol to list more shards"
+        wrapMode: Text.WordWrap
+        visible: vm.rowCount === 0
+        text: "Storage Vault trống. Hãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu."
         textFormat: Text.PlainText
         color: Theme.muted
-        font.pixelSize: 10
+        font.pixelSize: 11
     }
 }

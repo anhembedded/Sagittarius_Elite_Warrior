@@ -66,6 +66,10 @@ class _FakeTheme(QObject):
     def stateNavBorder(self) -> str:
         return "#444444"  # token-exempt: fake theme double, not a real Palette value
 
+    @Property(str, constant=True)
+    def bg(self) -> str:
+        return "#0c0c0e"  # token-exempt: fake theme double, not a real Palette value
+
 
 def _load(qapp, vm):
     from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_vm import (
@@ -152,5 +156,116 @@ def test_clicking_sync_requests_the_action_for_the_right_row(qapp, qml_item):
     qapp.processEvents()
 
     assert requests == [("sync", "BTCUSDT", "30m")]
+    quick.close()
+    quick.deleteLater()
+
+
+def test_typing_in_the_search_field_reaches_the_vm_and_filters_rows(qapp, qml_item):
+    """Real keystrokes, not a hand-invoked `textEdited` (qml-rule.md §4.4 —
+    `TextField.textEdited` takes no argument, unlike the widget-side
+    signal, so simulating it by hand is the exact trap that section
+    warns about)."""
+    vm, _model = _vm_with_two_rows()
+    quick, root = _load(qapp, vm)
+
+    field = qml_item(root, "txtDatabaseStatusSearch")
+    field.forceActiveFocus()
+    QTest.keyClicks(quick, "30m")
+    qapp.processEvents()
+
+    assert vm.rowCount == 1
+    assert qml_item(root, "databaseStatusSymbol_BTCUSDT_30m") is not None
+    quick.close()
+    quick.deleteLater()
+
+
+def test_search_field_placeholder_matches_house_style(qapp, qml_item):
+    vm, _model = _vm_with_two_rows()
+    quick, root = _load(qapp, vm)
+
+    field = qml_item(root, "txtDatabaseStatusSearch")
+
+    assert field.property("placeholderText") == "Tìm symbol / khung thời gian…"
+    quick.close()
+    quick.deleteLater()
+
+
+def test_row_count_badge_reflects_an_active_search_filter(qapp, qml_item):
+    vm, _model = _vm_with_two_rows()
+    quick, root = _load(qapp, vm)
+
+    field = qml_item(root, "txtDatabaseStatusSearch")
+    field.forceActiveFocus()
+    QTest.keyClicks(quick, "1s")
+    qapp.processEvents()
+
+    badge = qml_item(root, "panelHeaderBadgeText")
+    assert badge.property("text") == "1 shard"
+    quick.close()
+    quick.deleteLater()
+
+
+def test_empty_state_message_shows_only_when_the_search_matches_nothing(qapp, qml_item):
+    vm, _model = _vm_with_two_rows()
+    quick, root = _load(qapp, vm)
+
+    empty_label = qml_item(root, "lblDatabaseStatusEmpty")
+    assert empty_label.property("visible") is False
+
+    field = qml_item(root, "txtDatabaseStatusSearch")
+    field.forceActiveFocus()
+    QTest.keyClicks(quick, "nonexistent-symbol")
+    qapp.processEvents()
+
+    assert empty_label.property("visible") is True
+    quick.close()
+    quick.deleteLater()
+
+
+def test_actions_disabled_when_vm_reports_not_idle(qapp, qml_item):
+    vm, _model = _vm_with_two_rows()
+    vm.setActionsEnabled(False)
+    quick, root = _load(qapp, vm)
+
+    for name in (
+        "btnDatabaseStatusKlines_BTCUSDT_1s",
+        "btnDatabaseStatusSync_BTCUSDT_1s",
+        "btnDatabaseStatusClear_BTCUSDT_1s",
+    ):
+        assert qml_item(root, name).property("enabled") is False
+    quick.close()
+    quick.deleteLater()
+
+
+def test_actions_re_enabled_when_vm_goes_back_to_idle(qapp, qml_item):
+    vm, _model = _vm_with_two_rows()
+    vm.setActionsEnabled(False)
+    quick, root = _load(qapp, vm)
+
+    vm.setActionsEnabled(True)
+    qapp.processEvents()
+
+    button = qml_item(root, "btnDatabaseStatusSync_BTCUSDT_1s")
+    assert button.property("enabled") is True
+    quick.close()
+    quick.deleteLater()
+
+
+def test_clicking_sync_while_disabled_does_not_request_the_action(qapp, qml_item):
+    """A `Button` with `enabled: false` still exists in the scene, so a
+    click must not need falling through to a Presenter guard — the row
+    itself must refuse it, same as any other disabled Qt control."""
+    vm, _model = _vm_with_two_rows()
+    vm.setActionsEnabled(False)
+    quick, root = _load(qapp, vm)
+    requests: list[tuple[str, str, str]] = []
+    vm.rowActionRequested.connect(lambda a, s, i: requests.append((a, s, i)))
+
+    button = qml_item(root, "btnDatabaseStatusSync_BTCUSDT_1s")
+    point = button.mapToScene(button.boundingRect().center())
+    QTest.mouseClick(quick, Qt.MouseButton.LeftButton, pos=point.toPoint())
+    qapp.processEvents()
+
+    assert requests == []
     quick.close()
     quick.deleteLater()
