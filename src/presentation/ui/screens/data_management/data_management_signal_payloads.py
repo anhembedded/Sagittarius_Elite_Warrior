@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
 
 @dataclass(frozen=True)
 class StatusRowUpdate:
@@ -38,7 +40,7 @@ class StatusRowUpdate:
     last_record: str
     total_candles: str
     status_text: str
-    interval: str = "1m"
+    interval: str = TimeFrame.ONE_MINUTE.value
 
 
 @dataclass(frozen=True)

@@ -12,6 +12,8 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
 #: Statuses that mean "no gaps" — everything else is rendered as a problem.
 #: Mirrors the strings the Presenter forwards from DatabaseStatusDTO.
 HEALTHY_STATUSES = frozenset({"OK", "0 gaps found!"})
@@ -26,7 +28,7 @@ class DatabaseStatusRow:
     last_record: str
     total_candles: str
     status_text: str
-    interval: str = "1m"
+    interval: str = TimeFrame.ONE_MINUTE.value
 
     @property
     def key(self) -> str:
@@ -119,7 +121,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
         last_record: str,
         total_candles: str,
         status_text: str,
-        interval: str = "1m",
+        interval: str = TimeFrame.ONE_MINUTE.value,
     ) -> None:
         """
         @brief Updates the row for this symbol/interval, appending it if it
@@ -183,7 +185,11 @@ class DatabaseStatusTableModel(QAbstractTableModel):
 
     @Slot(int, result=str)
     def intervalAt(self, row: int) -> str:
-        return self._rows[row].interval if 0 <= row < len(self._rows) else "1m"
+        return (
+            self._rows[row].interval
+            if 0 <= row < len(self._rows)
+            else TimeFrame.ONE_MINUTE.value
+        )
 
     def gap_targets(self) -> list[tuple[str, str]]:
         """List of (symbol, interval) tuples whose status indicates missing data."""

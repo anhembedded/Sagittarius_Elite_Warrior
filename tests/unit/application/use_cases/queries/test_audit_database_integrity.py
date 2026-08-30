@@ -48,7 +48,7 @@ def test_audit_clean_data():
 
     handler = AuditDatabaseIntegrityQueryHandler(repo)
     result = handler.execute(
-        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval="1m")
+        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
     )
 
     assert result.is_clean is True
@@ -65,7 +65,7 @@ def test_audit_detects_high_less_than_low():
 
     handler = AuditDatabaseIntegrityQueryHandler(repo)
     result = handler.execute(
-        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval="1m")
+        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
     )
 
     assert result.is_clean is False
@@ -81,7 +81,7 @@ def test_audit_detects_negative_volume():
 
     handler = AuditDatabaseIntegrityQueryHandler(repo)
     result = handler.execute(
-        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval="1m")
+        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
     )
 
     assert result.is_clean is False
@@ -98,7 +98,7 @@ def test_audit_detects_non_finite_values():
 
     handler = AuditDatabaseIntegrityQueryHandler(repo)
     result = handler.execute(
-        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval="1m")
+        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
     )
 
     assert result.is_clean is False
@@ -116,7 +116,7 @@ def test_audit_detects_duplicate_timestamps():
 
     handler = AuditDatabaseIntegrityQueryHandler(repo)
     result = handler.execute(
-        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval="1m")
+        AuditDatabaseIntegrityQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
     )
 
     assert result.is_clean is False
