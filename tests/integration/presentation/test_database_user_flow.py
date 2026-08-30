@@ -126,11 +126,19 @@ def database_app_context(qapp, qtbot, monkeypatch, request):
 def test_database_cancel_button_cancels_active_sync_flow(
     qapp, qtbot, database_app_context
 ):
-    """EPIC-005E: DataManagementView is QtWidgets now (was QmlHostView) —
-    `btnCancelSync` is a real QPushButton (`view._btn_cancel_sync`), not a
-    QML item reached through `qml_item()`/`quick_widget.rootObject()`."""
+    """EPIC-015 Phase 2: the Cancel control is `ProgressBanner.qml`'s own
+    `Button`, embedded inline via `ProgressBannerWidget`
+    (`view._progress_banner`) — there is no `view._btn_cancel_sync`
+    `QPushButton` any more (that was `EPIC-005E`'s QtWidgets-era shape).
+    Reached the same way `test_database_progress_cancel_widget.py`'s unit
+    tests do: `_qml_test_support.find_named` + a real `QTest.mouseClick`."""
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
+        find_named,
+    )
+
     view, presenter, _ = database_app_context
-    cancel_btn = view._btn_cancel_sync
     view_model = presenter._view_model
 
     # Start single sync
@@ -141,11 +149,19 @@ def test_database_cancel_button_cancels_active_sync_flow(
 
     # Wait until in SYNCING state and progress is visible
     qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
-    assert cancel_btn.isVisible() is True
-    assert cancel_btn.isEnabled() is True
+    assert view._progress_container.isVisible() is True
+    cancel_btn = find_named(
+        view._progress_banner.root_object, "progressBannerCancelButton"
+    )
+    assert cancel_btn.property("enabled") is True
 
     # Click Cancel
-    cancel_btn.click()
+    centre = cancel_btn.mapToScene(cancel_btn.boundingRect().center())
+    QTest.mouseClick(
+        view._progress_banner,
+        Qt.MouseButton.LeftButton,
+        pos=QPoint(int(centre.x()), int(centre.y())),
+    )
     qapp.processEvents()
 
     # FSM transitions through CANCELLING then back to IDLE

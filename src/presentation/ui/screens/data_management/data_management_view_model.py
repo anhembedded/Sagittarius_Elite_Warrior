@@ -12,10 +12,7 @@ from sagittarius_engine.extensions.pyside_mvc import (
     LogListModel,
 )
 
-from .database_status_table_model import (
-    DatabaseStatusFilterProxy,
-    DatabaseStatusTableModel,
-)
+from .database_status_table_model import DatabaseStatusTableModel
 from .kline_inspector_table_model import KLineInspectorTableModel
 
 if TYPE_CHECKING:
@@ -34,8 +31,15 @@ class DataManagementViewModel(BaseQmlViewModel):
     @brief QML-facing state for the Database screen (Storage Vault).
 
     @details
-    Owns the table model, its search proxy, and the log model, and turns QML
+    Owns the raw status table model and the log model, and turns QML
     interactions into request signals for DataManagementPresenter.
+
+    `EPIC-015` Phase 2: no longer owns a search filter proxy for the status
+    table — `DatabaseStatusPanel`/`DatabaseStatusVM`
+    (`qml/DatabaseStatusTable/`) owns its own `DatabaseStatusFilterProxy`
+    around `status_model` now, and `statusModel`/`searchText` were removed
+    from here once the `QListView`-based table (their only reader) was
+    replaced.
     """
 
     selectedSymbolChanged = Signal()
@@ -44,7 +48,6 @@ class DataManagementViewModel(BaseQmlViewModel):
 
     useCustomTimeChanged = Signal()
     customRangeChanged = Signal()
-    searchTextChanged = Signal()
     progressChanged = Signal()
     statsChanged = Signal()
 
@@ -85,8 +88,6 @@ class DataManagementViewModel(BaseQmlViewModel):
         super().__init__(parent)
 
         self._status_model = DatabaseStatusTableModel(self)
-        self._status_proxy = DatabaseStatusFilterProxy(self)
-        self._status_proxy.setSourceModel(self._status_model)
         self._log_model = LogListModel(self)
 
         self._selected_symbol = _DEFAULT_SYMBOLS[0]
@@ -96,7 +97,6 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._use_custom_time = False
         self._from_datetime = ""
         self._to_datetime = ""
-        self._search_text = ""
         self._progress_value = 0
         self._progress_maximum = 0
         self._progress_visible = False
@@ -131,11 +131,6 @@ class DataManagementViewModel(BaseQmlViewModel):
     # ------------------------------------------------------------------ #
     # Models
     # ------------------------------------------------------------------ #
-
-    @Property(QObject, constant=True)
-    def statusModel(self) -> QObject:
-        """The SEARCH-FILTERED view of the status table."""
-        return self._status_proxy
 
     @Property(QObject, constant=True)
     def logModel(self) -> QObject:
@@ -234,24 +229,6 @@ class DataManagementViewModel(BaseQmlViewModel):
 
     toDateTime = Property(
         str, _get_to_datetime, _set_to_datetime, notify=customRangeChanged
-    )
-
-    # ------------------------------------------------------------------ #
-    # Search
-    # ------------------------------------------------------------------ #
-
-    def _get_search_text(self) -> str:
-        return self._search_text
-
-    def _set_search_text(self, value: str) -> None:
-        if value == self._search_text:
-            return
-        self._search_text = value
-        self._status_proxy.set_search_text(value)
-        self.searchTextChanged.emit()
-
-    searchText = Property(
-        str, _get_search_text, _set_search_text, notify=searchTextChanged
     )
 
     # ------------------------------------------------------------------ #

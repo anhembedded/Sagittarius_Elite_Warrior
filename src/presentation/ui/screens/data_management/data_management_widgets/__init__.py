@@ -10,16 +10,16 @@ the same names, so no call site changed.
 
 from __future__ import annotations
 
+from .database_status_panel import DatabaseStatusPanel
 from .field_style import field_style
 from .gap_inspector_dialog import GapInspectorDialog
 from .kline_inspector_dialog import KlineInspectorDialogWidget
-from .row_delegate import RowWidgetDelegate
 from .time_range_card import TimeRangeCardWidget
 
 __all__ = [
+    "DatabaseStatusPanel",
     "GapInspectorDialog",
     "KlineInspectorDialogWidget",
-    "RowWidgetDelegate",
     "TimeRangeCardWidget",
     "field_style",
 ]

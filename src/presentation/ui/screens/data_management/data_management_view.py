@@ -6,14 +6,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QListView,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -24,9 +22,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar import (
-    AppProgressBar,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPickerOverlay,
@@ -40,21 +35,21 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     StyleRole,
     apply_role,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
+    ProgressBannerWidget,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
+    DatabaseStatusPanel,
     GapInspectorDialog,
     KlineInspectorDialogWidget,
-    RowWidgetDelegate,
     TimeRangeCardWidget,
     field_style,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
-
-from ._status_columns import _ACTIONS_COLUMN, _STATUS_COLUMNS
-from ._status_row import _StatusRowWidget
 
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
@@ -81,6 +76,23 @@ _ACTION_BUTTONS = [
 ]
 
 _IDLE_MODE = "IDLE"
+_CANCELLING_MODE = "CANCELLING"
+
+#: `ProgressBanner.qml`'s own default (`"Hủy"`) is shorter than what this
+#: screen's `AppProgressBar`-era `QPushButton` said — kept as the explicit
+#: label here so the on-screen wording does not silently change as part of
+#: this retrofit.
+_CANCEL_LABEL = "Hủy Tiến Trình (Cancel)"
+
+#: `ProgressBanner.qml`'s `ColumnLayout` measures to a stable 30px
+#: `implicitHeight` at this card's real inner width (292px = the 320px
+#: `_build_sync_controls` card minus its 14px side margins), unchanged
+#: across every state this screen drives it through (status text set,
+#: `indeterminate`, `cancelling`) — verified empirically rather than
+#: guessed, since `QQuickWidget.sizeHint()` only echoes whatever size it
+#: was last resized to (not the root item's actual `implicitHeight`) and so
+#: cannot be trusted to auto-size this widget inside `QVBoxLayout`.
+_PROGRESS_BANNER_HEIGHT = 32
 
 #: `describe()` returns `None` for a code the domain no longer recognises
 #: (a remembered value on disk that has gone stale, same reasoning as
@@ -111,10 +123,14 @@ class DataManagementView(BaseView):
     rebuilds the render layer, wiring the same view-model signals by hand instead of
     through QML property bindings.
 
-    `statusModel`/`logModel`/`klineInspectorModel` are QML `Property(..., constant=True)`
+    `logModel`/`klineInspectorModel` are QML `Property(..., constant=True)`
     — set once here and never reassigned; their own Qt model signals
     (`dataChanged`/`rowsInserted`/...) drive the `QListView`s directly, same as they
-    drove QML's `ListView`s.
+    drove QML's `ListView`s. The status table itself is `DatabaseStatusPanel`
+    (EPIC-015 Phase 2) — an embedded QML component, not a `QListView`, built
+    lazily in `set_view_model()` the same way `_kline_inspector`/
+    `_gap_inspector`/`_timeframe_picker` are, since `_build_ui()` runs before
+    a real view model exists to construct it from.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -131,6 +147,7 @@ class DataManagementView(BaseView):
         self._symbol_preferences = SymbolPreferences()
         self._kline_inspector: KlineInspectorDialogWidget | None = None
         self._gap_inspector: GapInspectorDialog | None = None
+        self._status_panel: DatabaseStatusPanel | None = None
         self._build_ui()
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
@@ -160,15 +177,13 @@ class DataManagementView(BaseView):
         self._view_model = view_model
 
         self._log_panel.set_log_model(view_model.logModel)
-        self._status_list.setModel(view_model.statusModel)
-        view_model.statusModel.rowsInserted.connect(self._on_rows_changed)
-        view_model.statusModel.rowsRemoved.connect(self._on_rows_changed)
-        view_model.statusModel.modelReset.connect(self._on_rows_changed)
-        view_model.statusModel.dataChanged.connect(self._on_data_changed)
+        if self._status_panel is None:
+            self._status_panel = DatabaseStatusPanel(view_model.status_model)
+            self._status_panel.rowActionRequested.connect(self._on_status_row_action)
+            self._status_column.insertWidget(0, self._status_panel, 1)
 
         self._btn_symbol.setText(view_model.selectedSymbol)
         self._btn_interval.setText(view_model.selectedInterval)
-        self._search_field.textEdited.connect(self._on_search_edited)
 
         self._time_range.set_use_custom_time(view_model.useCustomTime)
         self._time_range.set_from_date_time(view_model.fromDateTime)
@@ -190,7 +205,7 @@ class DataManagementView(BaseView):
                 button.clicked.connect(getattr(view_model, method_name))
         self._action_buttons["btnClearData"].clicked.connect(self._clear_dialog.open)
 
-        self._btn_cancel_sync.clicked.connect(view_model.requestCancel)
+        self._progress_banner.cancelRequested.connect(view_model.requestCancel)
         view_model.openKlineInspectorRequested.connect(self._open_kline_inspector)
         view_model.openGapInspectorRequested.connect(self._open_gap_inspector)
 
@@ -210,7 +225,7 @@ class DataManagementView(BaseView):
         self._sync_ui_mode()
 
     # ------------------------------------------------------------------ #
-    # Symbol / interval / search
+    # Symbol / interval
     # ------------------------------------------------------------------ #
 
     def _on_interval_changed(self, text: str) -> None:
@@ -224,10 +239,6 @@ class DataManagementView(BaseView):
     def _sync_interval_field(self) -> None:
         if self._btn_interval.text() != self._view_model.selectedInterval:
             self._btn_interval.setText(self._view_model.selectedInterval)
-
-    def _on_search_edited(self, text: str) -> None:
-        if self._view_model is not None:
-            self._view_model.searchText = text
 
     def set_symbol_preferences(self, preferences: SymbolPreferences) -> None:
         """Swaps in the shared, persisted favourites/recents store — injected
@@ -326,16 +337,15 @@ class DataManagementView(BaseView):
     def _sync_progress(self) -> None:
         vm = self._view_model
         self._progress_container.setVisible(vm.progressVisible)
-        self._progress_bar.set_status_text(vm.progressText)
-        self._progress_bar.set_indeterminate(vm.progressMaximum == 0)
-        if vm.progressMaximum > 0:
-            self._progress_bar.set_range(0, vm.progressMaximum)
-            self._progress_bar.set_value(vm.progressValue)
-        is_cancelling = vm.uiMode == "CANCELLING"
-        self._btn_cancel_sync.setText(
-            "Đang hủy..." if is_cancelling else "Hủy Tiến Trình (Cancel)"
-        )
-        self._btn_cancel_sync.setEnabled(not is_cancelling)
+        self._progress_banner.set_status_text(vm.progressText)
+        self._progress_banner.set_indeterminate(vm.progressMaximum == 0)
+        # `progressPercent` already computes and clamps value/maximum with a
+        # `progressMaximum <= 0` guard (`DataManagementViewModel`) — reused
+        # rather than re-deriving the same number a second place here.
+        self._progress_banner.set_percent(vm.progressPercent)
+        # `ProgressBanner.qml`'s own Cancel button relabels/disables itself
+        # from `cancelling` — no separate button text/enabled state to set.
+        self._progress_banner.set_cancelling(vm.uiMode == _CANCELLING_MODE)
 
     def _sync_stats(self) -> None:
         self._stat_records_value.setText(self._view_model.storedRecords)
@@ -352,46 +362,27 @@ class DataManagementView(BaseView):
         for object_name, *_rest in _ACTION_BUTTONS:
             self._action_buttons[object_name].setEnabled(idle)
         self._sync_progress()
-        for i in range(
-            self._status_list.model().rowCount() if self._status_list.model() else 0
-        ):
-            widget = self._status_list.indexWidget(
-                self._status_list.model().index(i, 0)
-            )
-            if isinstance(widget, _StatusRowWidget):
-                widget.apply_ui_mode(idle)
+        if self._status_panel is not None:
+            self._status_panel.set_actions_enabled(idle)
 
     # ------------------------------------------------------------------ #
-    # Status table row widgets
+    # Status table row actions
     # ------------------------------------------------------------------ #
 
-    def _on_rows_changed(self, *_args) -> None:
-        model = self._status_list.model()
-        if model is None:
+    def _on_status_row_action(self, action: str, symbol: str, interval: str) -> None:
+        """`DatabaseStatusPanel.rowActionRequested` — the same four calls
+        the old `_status_row.py`'s `_on_action` used to make before it was
+        deleted (EPIC-015 Phase 2)."""
+        if self._view_model is None:
             return
-        self._row_summary_label.setText(
-            f"{model.rowCount()} table"
-            if model.rowCount() == 1
-            else f"{model.rowCount()} tables"
-        )
-        for row in range(model.rowCount()):
-            index = model.index(row, 0)
-            if self._status_list.indexWidget(index) is None:
-                widget = _StatusRowWidget(self._view_model)
-                widget.apply_row(index)
-                widget.apply_ui_mode(self._view_model.uiMode == _IDLE_MODE)
-                self._status_list.setIndexWidget(index, widget)
-        self._empty_label.setVisible(model.rowCount() == 0)
-
-    def _on_data_changed(
-        self, top_left: QModelIndex, bottom_right: QModelIndex, _roles
-    ) -> None:
-        model = self._status_list.model()
-        for row in range(top_left.row(), bottom_right.row() + 1):
-            index = model.index(row, 0)
-            widget = self._status_list.indexWidget(index)
-            if isinstance(widget, _StatusRowWidget):
-                widget.apply_row(index)
+        request = {
+            "klines": self._view_model.requestInspectKlines,
+            "gaps": self._view_model.requestInspectGaps,
+            "sync": self._view_model.requestSyncRow,
+            "clear": self._view_model.requestClearRow,
+        }.get(action)
+        if request is not None:
+            request(symbol, interval)
 
     # ------------------------------------------------------------------ #
     # Layout
@@ -603,18 +594,14 @@ class DataManagementView(BaseView):
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(8)
 
-        self._progress_bar = AppProgressBar()
-        progress_layout.addWidget(self._progress_bar)
-
-        self._btn_cancel_sync = QPushButton("Hủy Tiến Trình (Cancel)")
-        self._btn_cancel_sync.setObjectName("btnCancelSync")
-        self._btn_cancel_sync.setFixedHeight(32)
-        self._btn_cancel_sync.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; color: {Palette.DANGER}; "
-            f"border: 1px solid {Palette.DANGER}; border-radius: 6px; font-weight: bold; }} "
-            f"QPushButton:hover {{ background-color: {Palette.BG_CARD_HEADER}; }}"
-        )
-        progress_layout.addWidget(self._btn_cancel_sync)
+        # EPIC-015 Phase 2: replaces `AppProgressBar` + a standalone Cancel
+        # `QPushButton` — `ProgressBanner.qml` renders the caption, a bar
+        # that actually shows its percent, and has its own Cancel button
+        # built in, so there is nothing left for a sibling widget to add.
+        self._progress_banner = ProgressBannerWidget()
+        self._progress_banner.setFixedHeight(_PROGRESS_BANNER_HEIGHT)
+        self._progress_banner.set_cancel_label(_CANCEL_LABEL)
+        progress_layout.addWidget(self._progress_banner)
 
         layout.addWidget(self._progress_container)
         self._progress_container.setVisible(False)
@@ -623,73 +610,15 @@ class DataManagementView(BaseView):
         return card
 
     def _build_status_and_log(self) -> QVBoxLayout:
+        """The status table itself (`DatabaseStatusPanel`, EPIC-015 Phase 2)
+        is NOT built here — `_build_ui()` runs before a real view model
+        exists to construct its `DatabaseStatusVM` from. `self._status_column`
+        is kept so `set_view_model()` can `insertWidget(0, ..., 1)` the panel
+        into the slot the old `table_card` used to occupy, same position and
+        stretch."""
         column = QVBoxLayout()
         column.setSpacing(14)
-
-        table_card = QFrame()
-        apply_role(table_card, StyleRole.SURFACE)
-        table_layout = QVBoxLayout(table_card)
-        table_layout.setContentsMargins(12, 12, 12, 12)
-        table_layout.setSpacing(8)
-
-        header_row = QHBoxLayout()
-        header_row.setSpacing(8)
-        title = QLabel("DATABASE STATUS")
-        title.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 12px; font-weight: bold;"
-        )
-        header_row.addWidget(title)
-
-        self._row_summary_label = QLabel("0 tables")
-        self._row_summary_label.setObjectName("lblRowSummary")
-        self._row_summary_label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 11px;"
-        )
-        header_row.addWidget(self._row_summary_label)
-        header_row.addStretch()
-
-        self._search_field = QLineEdit()
-        self._search_field.setObjectName("txtSearch")
-        self._search_field.setPlaceholderText("Search symbol / timeframe…")
-        self._search_field.setFixedWidth(180)
-        self._search_field.setStyleSheet(field_style(extra_height=26))
-        header_row.addWidget(self._search_field)
-        table_layout.addLayout(header_row)
-
-        column_header = QFrame()
-        column_header.setFixedHeight(28)
-        apply_role(column_header, StyleRole.TABLE_HEADER)
-        column_header_layout = QHBoxLayout(column_header)
-        column_header_layout.setContentsMargins(8, 0, 8, 0)
-        column_header_layout.setSpacing(6)
-        # Same tuple the rows are built from, plus the actions column the
-        # rows spend as `action_stretch` — so a column cannot be renamed,
-        # re-weighted or reordered in one place and not the other.
-        for spec in (*_STATUS_COLUMNS, _ACTIONS_COLUMN):
-            label = QLabel(spec.label)
-            apply_role(label, StyleRole.SECTION_LABEL)
-            column_header_layout.addWidget(label, spec.stretch)
-        table_layout.addWidget(column_header)
-
-        self._status_list = QListView()
-        self._status_list.setObjectName("statusList")
-        self._status_list.setStyleSheet(
-            f"background-color: transparent; border: none; color: {Palette.TEXT_PRIMARY};"
-        )
-        self._status_list.setSelectionMode(QListView.SelectionMode.NoSelection)
-        self._status_list.setUniformItemSizes(True)
-        self._status_list.setItemDelegate(RowWidgetDelegate(self._status_list))
-        table_layout.addWidget(self._status_list, 1)
-
-        self._empty_label = QLabel(
-            "Storage Vault trống. Hãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu."
-        )
-        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty_label.setWordWrap(True)
-        self._empty_label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 12px;")
-        table_layout.addWidget(self._empty_label)
-
-        column.addWidget(table_card, 1)
+        self._status_column = column
 
         self._log_panel = AppLogPanel("SYNC LOG")
         self._log_panel.setObjectName("syncLogPanel")

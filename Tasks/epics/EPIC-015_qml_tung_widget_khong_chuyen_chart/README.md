@@ -8,7 +8,11 @@ Management + Dev Board + Backtest (mở rộng phạm vi); `TimeframePicker` (mo
 ngay) → Settings + Data Management + Backtest; `KlineInspectorTable` → Data Management.
 `TimeframePickerOverlay` (widget cũ) **chưa xoá được** — `ChartToolbar` (Backtest + Dev
 Board) vẫn dùng nó, đúng phần `TimeframeToolbar` thuộc Phase 4 (QML cạnh chart thật) chưa
-làm. Tiếp theo: Phase 2 (`DatabaseStatusTable`, `ProgressBanner`ở Data Management) →
+làm. **Phase 2 ĐÃ XONG toàn bộ 2026-08-30:** `DatabaseStatusTable` → Data Management (phải
+tự bổ sung thêm search + khoá nút khi busy vào chính component, không chỉ nối dây — màn cũ
+đang có cả hai tính năng chạy thật, bỏ qua sẽ là hồi quy); `ProgressBanner` thay
+`AppProgressBar` + nút Hủy riêng ở Data Management (lần đầu nhúng panel QML thẳng vào
+layout màn hình, không qua `QmlOverlay`, an toàn vì màn này không có chart). Tiếp theo:
 Phase 3 (`MetricsDetailPanel`, cần duyệt ngưỡng) → Phase 4 (cạnh chart, rủi ro cao nhất).
 **Ngày:** 2026-08-28 (cập nhật 2026-08-30)
 **Tiền đề:** [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md) §5 phương án **B**
@@ -408,8 +412,27 @@ ro** — `qml-rule.md` §0 đã xếp "Panel QML cạnh chart" (bậc 5/6) khác
   **Cả 4 mục Phase 1 đã xong** — toàn bộ `tests/unit/` (2647 test) và `tests/sanity/` (24 test)
   xanh sau khi gộp cả hai thay đổi trên, cộng guard `test_widget_guards_hold.py` (bare-Qt-base
   ratchet) không bị chạm vì mọi host mới đều kế thừa `QmlOverlay`.
-- **Phase 2:** `DatabaseStatusTable` (Data Management, không chart) + `ProgressBanner` cho
-  `AppProgressBar` ở Data Management (nửa không cạnh chart).
+- ✅ **Phase 2 — xong 2026-08-30.**
+  - **`DatabaseStatusTable` → Data Management.** Nặng hơn các mục Phase 1 vì phải bổ sung
+    thật vào chính component (không chỉ nối dây): màn cũ đang có ô tìm kiếm và khoá 4 nút
+    hành động (KLines/Gaps/Sync/Clear) khi đang sync, cả hai chạy thật — `DatabaseStatusVM`
+    trước đó chưa có (`NOTES.md` tự ghi "no search box, no wired row actions yet"). Đã thêm
+    `DatabaseStatusFilterProxy` vào bên trong VM (`rowsModel` trả proxy, không phải model
+    thô), `setSearchText`/`actionsEnabled` (Slot/Property), và ô tìm kiếm thật trong
+    `.qml`. Host mới `DatabaseStatusPanel(kit.Panel)` — **lần đầu `QQuickWidget` nhúng thẳng
+    lên `Panel` thay vì qua `QmlOverlay`**, vì bảng này nằm trong layout màn hình, không phải
+    modal (`qml-rule.md` §0's hai hình "Modal QML" đều không áp dụng). Xoá
+    `_status_row.py`/`_status_columns.py`/`row_delegate.py` (chỉ đường render cũ dùng).
+  - **`ProgressBanner` → thay `AppProgressBar` + nút Hủy riêng, Data Management.** Host mới
+    `ProgressBannerWidget(QQuickWidget)` — **lần đầu nhúng panel QML thẳng vào layout màn
+    hình mà không qua bất kỳ chrome nào** (không `Overlay`, không `Panel`), vì
+    `ProgressBanner.qml` tự vẽ mọi thứ kể cả nút Hủy. An toàn vì Data Management không có
+    chart — không đụng bản dùng ở `backtest_top_panel.py` (cạnh chart thật, thuộc Phase 4).
+    Phần trăm đọc thẳng `DataManagementViewModel.progressPercent` (đã thêm sẵn ở Phase 1,
+    tự kẹp 0-100 và chống chia 0) — không tính lại lần hai.
+  - Test: toàn bộ `tests/unit/` (2649 test), `tests/sanity/` (24 test), guard
+    `test_widget_guards_hold.py` (5 test — `Panel`/`QQuickWidget` không phải bare Qt base nên
+    không chạm ratchet), `tests/integration/.../test_database_user_flow.py` (4 test) đều xanh.
 - **Phase 3 (cần user duyệt ngưỡng trước khi làm):** `MetricsDetailPanel` thay
   `ExtendedMetricsDialog` — cơ chế wiring an toàn, nhưng 3 ngưỡng verdict (Sharpe/Sortino/Calmar)
   là tự chế, cần user chốt trước khi vào màn đang live.

@@ -7,8 +7,11 @@ import "../kit"
 // straight off `DatabaseStatusTableModel` (see database_status_vm.py) — this
 // delegate does no lookup of its own.
 //
-// Structural pass only (NOTES.md): every action button emits
-// `vm.requestAction(...)`, which currently has no listener.
+// Every action button emits `vm.requestAction(...)` (wired to the real
+// screen ViewModel at the composition-root level, NOTES.md) and is
+// disabled while `vm.actionsEnabled` is false — mirrors the old
+// `_StatusRowWidget.apply_ui_mode(idle)`, which disabled all four action
+// buttons while a sync was running.
 //
 // Column widths are properties, not literals, so the header row in
 // DatabaseStatusTable.qml and every delegate instance share one definition
@@ -102,6 +105,7 @@ Item {
                 objectName: "btnDatabaseStatusKlines_" + symbol + "_" + interval
                 text: "KLines"
                 role: "secondary"
+                enabled: vm.actionsEnabled
                 onClicked: vm.requestAction("klines", symbol, interval)
             }
             Button {
@@ -109,18 +113,21 @@ Item {
                 text: "Gaps"
                 role: "danger"
                 visible: !isHealthy
+                enabled: vm.actionsEnabled
                 onClicked: vm.requestAction("gaps", symbol, interval)
             }
             Button {
                 objectName: "btnDatabaseStatusSync_" + symbol + "_" + interval
                 text: "Sync"
                 role: "secondary"
+                enabled: vm.actionsEnabled
                 onClicked: vm.requestAction("sync", symbol, interval)
             }
             Button {
                 objectName: "btnDatabaseStatusClear_" + symbol + "_" + interval
                 text: "Clear"
                 role: "danger"
+                enabled: vm.actionsEnabled
                 onClicked: vm.requestAction("clear", symbol, interval)
             }
         }

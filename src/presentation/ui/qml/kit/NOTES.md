@@ -150,3 +150,19 @@ of six consumers ever sets is the "viết bản sao gần giống" shape
 Mirrors the spec image's own layout: each component next to a short label,
 so a change to any of the four is visible without opening six other
 widgets to spot-check consistency.
+
+## `progress_banner_widget.py` — the one host in this package
+
+Every other `.qml` here is reached only through `preview.py` or a modal
+(`QmlOverlay`, `SymbolPickerModal`) — this directory itself stayed "pure
+QML, no Python" per `qml-rule.md` §1.3. `EPIC-015` Phase 2 breaks that for
+exactly one component: `ProgressBanner.qml` is now embedded inline in
+`DataManagementView`'s own `QVBoxLayout` (replacing `AppProgressBar` + a
+standalone Cancel `QPushButton`), and an inline, non-modal embed needs
+*some* Python object to sit in that layout slot — a bare `.qml` file has no
+Qt Widgets identity to add to a layout. `ProgressBannerWidget` is that
+object: a thin `QQuickWidget` subclass, not a ViewModel (it derives
+nothing — every value it sets on the QML root is already computed by
+`DataManagementViewModel`), so it is not the kind of "widget-VM" §1.3
+warns against needing a reason to exist. See its own docstring for why it
+is component-specific rather than a generic inline-QML base.
