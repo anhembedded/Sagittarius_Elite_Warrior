@@ -106,7 +106,7 @@ class DataManagementViewModel(BaseQmlViewModel):
 
         # Gap Inspector State
         self._gap_inspector_symbol = ""
-        self._gap_inspector_interval = "1m"
+        self._gap_inspector_interval = TimeFrame.ONE_MINUTE.value
         self._gap_inspector_total_gaps = 0
         self._gap_inspector_total_missing = 0
         self._gap_inspector_coverage_pct = 100.0
@@ -116,7 +116,7 @@ class DataManagementViewModel(BaseQmlViewModel):
         # KLine Inspector & Audit State (BOT-112B)
         self._kline_inspector_model = KLineInspectorTableModel(self, page_size=100)
         self._kline_inspector_symbol = ""
-        self._kline_inspector_interval = "1m"
+        self._kline_inspector_interval = TimeFrame.ONE_MINUTE.value
         #: `EPIC-015`: raw candles retained alongside the paginated model —
         #: `KLineInspectorTableModel.set_klines()` converts-and-discards them,
         #: but `KlineInspectorVM` (the QML port's read-only table) wants real
@@ -343,15 +343,21 @@ class DataManagementViewModel(BaseQmlViewModel):
         self.vacuumRequested.emit()
 
     @Slot(str, str)
-    def requestSyncRow(self, symbol: str, interval: str = "1m") -> None:
+    def requestSyncRow(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         self.syncRowRequested.emit(symbol, interval)
 
     @Slot(str, str)
-    def requestClearRow(self, symbol: str, interval: str = "1m") -> None:
+    def requestClearRow(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         self.clearRowRequested.emit(symbol, interval)
 
     @Slot(str, str)
-    def requestInspectGaps(self, symbol: str, interval: str = "1m") -> None:
+    def requestInspectGaps(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         self.inspectGapsRequested.emit(symbol, interval)
 
     @Slot(str, str, str, str)
@@ -361,7 +367,9 @@ class DataManagementViewModel(BaseQmlViewModel):
         self.repairGapRequested.emit(symbol, interval, start_time, end_time)
 
     @Slot(str, str)
-    def requestRepairAllGaps(self, symbol: str, interval: str = "1m") -> None:
+    def requestRepairAllGaps(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         self.repairAllGapsRequested.emit(symbol, interval)
 
     # ------------------------------------------------------------------ #
@@ -468,11 +476,15 @@ class DataManagementViewModel(BaseQmlViewModel):
         return self._audit_anomalies
 
     @Slot(str, str)
-    def requestInspectKlines(self, symbol: str, interval: str = "1m") -> None:
+    def requestInspectKlines(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         self.inspectKlinesRequested.emit(symbol, interval)
 
     @Slot(str, str)
-    def requestRunAudit(self, symbol: str, interval: str = "1m") -> None:
+    def requestRunAudit(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         self._audit_running = True
         self.auditResultChanged.emit()
         self.runAuditRequested.emit(symbol, interval)

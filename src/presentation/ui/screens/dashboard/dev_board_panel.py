@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
@@ -73,9 +74,11 @@ from .dashboard_view_model import DashboardQmlViewModel
 #: surfaced as a screen ViewModel property. The old `pick_date_range()`
 #: bridge made the same "1m candle" assumption implicitly
 #: (`_MINUTES_PER_DAY` in `components/date_range_picker.py`); this constant
-#: keeps that behaviour, now named and documented instead of silent.
-_FALLBACK_TIMEFRAME_SECONDS = 60
-_FALLBACK_TIMEFRAME_LABEL = "1m"
+#: keeps that behaviour, now named and documented instead of silent — and
+#: derived from `TimeFrame.ONE_MINUTE` instead of a hand-computed `60` so the
+#: two constants cannot silently drift apart from each other.
+_FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
+_FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
 
 
 def _field_style() -> str:

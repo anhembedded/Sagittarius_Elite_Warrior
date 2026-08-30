@@ -33,6 +33,43 @@ def _configure_app_qml():
     get_theme_bridge(Palette.as_ui_dict())
 
 
+def real_screen_registry(container):
+    """`EPIC-016` — a `ScreenRegistry` with the app's 4 real screens
+    registered against `container`, matching exactly what
+    `app_bootstrapper.py`'s composition root does.
+
+    Plain function, not a fixture: `test_composition_root.py` needs this at
+    collection time (inside `@pytest.mark.parametrize`'s argument list),
+    before pytest fixtures are available to call. `container` may be a real
+    `IContainer` or a `Mock` — nothing here resolves anything from it until
+    a screen module's own `create_view()`/`create_presenter()` runs, which
+    stays lazy exactly like `PresenterManager` itself.
+    """
+    from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
+        BacktestScreenModule,
+    )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
+        DashboardScreenModule,
+    )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.module import (
+        DatabaseScreenModule,
+    )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
+        SettingsScreenModule,
+    )
+
+    registry = ScreenRegistry()
+    for module_cls in (
+        DashboardScreenModule,
+        DatabaseScreenModule,
+        SettingsScreenModule,
+        BacktestScreenModule,
+    ):
+        registry.register_module(module_cls(), container)
+    return registry
+
+
 @pytest.fixture(scope="session")
 def qapp():
     """
