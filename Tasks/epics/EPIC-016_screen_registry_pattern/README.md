@@ -1,6 +1,6 @@
 # Epic EPIC-016 — Screen Registry Pattern (xoá Hard Design trong `MainWindow`)
 
-**Trạng thái:** 🟡 Đang làm — 0/4 task con xong. Cập nhật 2026-08-30.
+**Trạng thái:** 🟡 Đang làm — 1/4 task con xong (`016A`, mở khoá `016B`). Cập nhật 2026-08-30.
 **Nguồn:** Đề xuất kiến trúc của user, review kiến trúc trong phiên làm việc
 2026-08-30, ratify ở [`DECISION_2026-08-30_screen_registry_pattern.md`](DECISION_2026-08-30_screen_registry_pattern.md).
 **Thiết kế đầy đủ:** [`Docs/SCREEN-REGISTRY-PATTERN/README.md`](../../../Docs/SCREEN-REGISTRY-PATTERN/README.md) (v2.1).
@@ -25,8 +25,8 @@ còn treo lại sau review (§10 của tài liệu thiết kế).
 
 | ID | Tên | Rủi ro | Trạng thái |
 | :--- | :--- | :---: | :---: |
-| **[EPIC-016A](incomplete/EPIC-016A_xac_nhan_voi_engine_that.md)** | Xác nhận `PresenterManager.register()`/`ScreenDescriptor` với `Sagittarius_Engine` thật | 🟡 | 🔴 Chưa bắt đầu — **chặn 016B** (ADR D4) |
-| **[EPIC-016B](incomplete/EPIC-016B_registry_va_4_module.md)** | Dựng `registry/` (contracts + `ScreenRegistry`) + viết 4 `*ScreenModule` cho màn hiện có | 🔴 | 🔴 Chưa bắt đầu — phụ thuộc `016A` |
+| **[EPIC-016A](completed/EPIC-016A_xac_nhan_voi_engine_that.md)** | Xác nhận `PresenterManager.register()`/`ScreenDescriptor` với `Sagittarius_Engine` thật | 🟡 | ✅ Xong 2026-08-30 — chữ ký khớp thiết kế, `ScreenDescriptor` không tồn tại ở engine (đúng là định nghĩa mới ở Elite) |
+| **[EPIC-016B](incomplete/EPIC-016B_registry_va_4_module.md)** | Dựng `registry/` (contracts + `ScreenRegistry`) + viết 4 `*ScreenModule` cho màn hiện có | 🔴 | 🔴 Chưa bắt đầu — **mở khoá** |
 | **[EPIC-016C](incomplete/EPIC-016C_main_window_decouple.md)** | Đổi `MainWindow` nhận `IScreenRegistry`/`ISidebar`/`sidebar_factory` qua constructor, xoá hard-code | 🟡 | 🔴 Chưa bắt đầu — phụ thuộc `016B` |
 | **[EPIC-016D](incomplete/EPIC-016D_bootstrapper_wiring.md)** | Cập nhật `app_bootstrapper.py` đăng ký 4 module + wiring `sidebar_factory` | 🟢 | 🔴 Chưa bắt đầu — phụ thuộc `016B`, `016C` |
 
