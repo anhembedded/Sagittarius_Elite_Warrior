@@ -7,6 +7,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     FALLBACK_SYMBOL_OPTIONS,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.qml_property import (
+    notifying_property,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
@@ -158,78 +161,31 @@ class DataManagementViewModel(BaseQmlViewModel):
             self._symbol_options = list(options)
             self.symbolOptionsChanged.emit()
 
-    def _get_selected_symbol(self) -> str:
-        return self._selected_symbol
-
-    def _set_selected_symbol(self, value: str) -> None:
-        val = str(value or "").strip().upper()
-        if val and val != self._selected_symbol:
-            self._selected_symbol = val
-            self.selectedSymbolChanged.emit()
-
-    selectedSymbol = Property(
-        str, _get_selected_symbol, _set_selected_symbol, notify=selectedSymbolChanged
+    selectedSymbol = notifying_property(
+        "_selected_symbol",
+        str,
+        selectedSymbolChanged,
+        normalize=lambda v: str(v or "").strip().upper(),
     )
 
     @Property("QStringList", constant=True)
     def intervals(self) -> list[str]:
         return list(_SUPPORTED_INTERVALS)
 
-    def _get_selected_interval(self) -> str:
-        return self._selected_interval
-
-    def _set_selected_interval(self, value: str) -> None:
-        val = str(value or "").strip()
-        if val and val != self._selected_interval:
-            self._selected_interval = val
-            self.selectedIntervalChanged.emit()
-
-    selectedInterval = Property(
+    selectedInterval = notifying_property(
+        "_selected_interval",
         str,
-        _get_selected_interval,
-        _set_selected_interval,
-        notify=selectedIntervalChanged,
+        selectedIntervalChanged,
+        normalize=lambda v: str(v or "").strip(),
     )
 
     # ------------------------------------------------------------------ #
     # Optional custom time range
     # ------------------------------------------------------------------ #
 
-    def _get_use_custom_time(self) -> bool:
-        return self._use_custom_time
-
-    def _set_use_custom_time(self, value: bool) -> None:
-        if value != self._use_custom_time:
-            self._use_custom_time = value
-            self.useCustomTimeChanged.emit()
-
-    useCustomTime = Property(
-        bool, _get_use_custom_time, _set_use_custom_time, notify=useCustomTimeChanged
-    )
-
-    def _get_from_datetime(self) -> str:
-        return self._from_datetime
-
-    def _set_from_datetime(self, value: str) -> None:
-        if value != self._from_datetime:
-            self._from_datetime = value
-            self.customRangeChanged.emit()
-
-    fromDateTime = Property(
-        str, _get_from_datetime, _set_from_datetime, notify=customRangeChanged
-    )
-
-    def _get_to_datetime(self) -> str:
-        return self._to_datetime
-
-    def _set_to_datetime(self, value: str) -> None:
-        if value != self._to_datetime:
-            self._to_datetime = value
-            self.customRangeChanged.emit()
-
-    toDateTime = Property(
-        str, _get_to_datetime, _set_to_datetime, notify=customRangeChanged
-    )
+    useCustomTime = notifying_property("_use_custom_time", bool, useCustomTimeChanged)
+    fromDateTime = notifying_property("_from_datetime", str, customRangeChanged)
+    toDateTime = notifying_property("_to_datetime", str, customRangeChanged)
 
     # ------------------------------------------------------------------ #
     # Progress

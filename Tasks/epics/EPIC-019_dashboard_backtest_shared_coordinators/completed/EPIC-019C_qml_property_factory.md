@@ -1,7 +1,7 @@
 # EPIC-019C — Factory cho Qt `Property` boilerplate ở ViewModel
 
 **Thuộc Epic:** [`EPIC-019`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu
+**Trạng thái:** ✅ Hoàn thành — 2026-08-30
 **Phụ thuộc:** Không.
 **Nguồn:** ADR D3 (finding tự phát hiện, độc lập với báo cáo Gemini).
 
@@ -60,3 +60,38 @@ tồn tại gần giống hệt ở `backtest_view_model.py:374` và
   `selectedSymbol`, `selectedInterval`, thời điểm signal `*Changed` phát)
   giữ nguyên y hệt.
 - Không đụng tới `BaseQmlViewModel` ở repo `sagittarius_engine`.
+
+## Kết quả
+
+- `src/presentation/ui/common/qml_property.py` (mới) —
+  `notifying_property(attr, prop_type, signal, normalize=None)`. Trả thẳng
+  một `Property` (không phải tuple) — `attr` là tên attribute backing
+  (`"_selected_symbol"`), `prop_type` là `type` Python thuần (`str`/`int`/
+  `bool`) chứ chưa hỗ trợ chuỗi kiểu Qt (`"QStringList"`) — không property
+  nào thử nghiệm cần tới, ghi rõ trong docstring để mở rộng sau nếu cần
+  thay vì tự tạo `# type: ignore` cho case chưa tồn tại.
+- **Lệch khỏi kế hoạch ban đầu (ghi nhận trung thực):** áp dụng cho 5
+  property thay vì 3 property nêu ở "Tiêu chí xong" — `selectedSymbol`,
+  `selectedInterval`, **`useCustomTime`, `fromDateTime`, `toDateTime`**
+  (thêm 3 cái sau vì cùng khuôn "so sánh rồi emit", không có lý do bỏ qua
+  khi đã có factory). **`symbolOptions` không đổi** — khác nhóm: nó là
+  `Property` chỉ đọc (`notify=symbolOptionsChanged`, không setter trong
+  `Property()`) với một `@Slot` riêng (`set_symbol_options`) làm đường ghi
+  — không cùng khuôn get/set-cặp mà factory này giải quyết, ép vào sẽ làm
+  hỏng semantics "so sánh cả list, không chỉ giá trị đơn".
+- `DataManagementViewModel`: 5 cặp `_get_*`/`_set_*` (10 method) + 5 lần
+  gọi `Property(...)` thủ công → 5 dòng gọi `notifying_property(...)`.
+  Hành vi verify bằng tay: set giá trị mới → emit đúng 1 lần; set giá trị
+  giống hệt → không emit; `selectedSymbol`/`selectedInterval` giữ nguyên
+  hành vi "chuỗi rỗng sau normalize bị bỏ qua, không xoá giá trị cũ".
+- Test mới: `tests/unit/presentation/ui/common/test_qml_property.py` (5
+  test — get, set+emit, set-same-no-emit, normalize áp trước so sánh,
+  normalize falsy bị bỏ qua).
+- `118 test xanh` (`data_management/` + `common/` + các test bảng/dialog
+  liên quan KLine Inspector), 0 fail. `mypy` sạch trên
+  `qml_property.py`; so `mypy` trước/sau trên
+  `data_management_view_model.py` — **cùng 6 lỗi** (kiểu `Property("QStringList",
+  ...)` pre-existing, không liên quan tới thay đổi này), chỉ số dòng dịch.
+- **Không lan sang `BackTestViewModel`/`DashboardQmlViewModel`/
+  `SettingsViewModel`** — đúng quyết định "thử nghiệm 1 nơi trước", để
+  ngỏ cho lần rà soát sau quyết có lan tiếp hay không.
