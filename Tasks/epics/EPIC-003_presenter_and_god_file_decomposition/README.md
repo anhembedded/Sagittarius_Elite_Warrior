@@ -1,6 +1,6 @@
 # Epic EPIC-003 — Phân rã Presenter/File quá tải (God Object/God File Decomposition)
 
-**Trạng thái:** 🟡 Đang làm — 4/6 xong, **1 huỷ** (`003D`); `003F` đã mở khoá 27/08 (thiết kế xong, chưa code). Cập nhật 2026-08-27.
+**Trạng thái:** 🟡 Đang làm — 4/7 xong, **1 huỷ** (`003D`); `003F` đã mở khoá 27/08 (thiết kế xong, chưa code); `003G` mới mở 30/08 (`dashboard_presenter.py` chưa từng qua Coordinator Pattern, phát hiện khi verify report bên ngoài — xem `EPIC-017`). Cập nhật 2026-08-30.
 **Nguồn:** [`PRO-001`](../../proposal/PRO-001.md) (Coordinator Pattern cho Presenter),
 [`PRO-002`](../../proposal/PRO-002.md) (khảo sát toàn bộ file quá tải trong `src/`) —
 2 đề xuất do một phiên làm việc khác viết, được đối chiếu lại với quy tắc đã
@@ -92,6 +92,7 @@ dòng.
 | **[EPIC-003D](cancelled/EPIC-003D_qml_component_split.md)** | Dọn 9 file misplaced (Phase 1) + tách 3 file QML lớn (Phase 2) + danh mục `components/README.md` có test enforce (Phase 3) | 🟢 | ❌ **HUỶ 2026-08-25** — Phase 1+2 hết đối tượng (`EPIC-006F` xoá sạch `.qml`); Phase 3 gộp vào `EPIC-007G` |
 | **[EPIC-003E](completed/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | ✅ Xong 2026-08-26 — 6 coordinator, 2.803 → 2.135 dòng |
 | **[EPIC-003F](incomplete/EPIC-003F_backtest_viewmodel_composite_design_review.md)** | `BackTestViewModel` → Composite ViewModel — **vòng thiết kế trước**, chưa code | 🔴 | 🟡 **Đã mở khoá 27/08** — lý do chặn cũ (binding QML) chết theo `EPIC-006`; đo lại rủi ro thật, chốt hướng facade. Task con triển khai chưa mở. Xem [`DOCTOR-002`](../../completed/DOCTOR-002_epic_003f_blocker_is_dead.md) |
+| **[EPIC-003G](incomplete/EPIC-003G_dashboard_presenter_coordinator.md)** | `DashboardPresenter` → Coordinator Pattern — 1.144 dòng, chưa từng qua Coordinator Pattern (0 file `coordinators/`) | 🟡 | 🔴 **Chưa bắt đầu** — mở 30/08, phát hiện khi verify report "Hard Design" bên ngoài (xem [`EPIC-017`](../EPIC-017_presentation_hard_design_round2/README.md)) |
 
 > ### ❌ `EPIC-003D` đã huỷ (2026-08-25, user duyệt)
 >
@@ -106,4 +107,6 @@ hoàn toàn, làm bất kỳ lúc nào, song song được với các task khác
 bởi `A` **và** `B` (pilot phải chứng minh pattern đúng trước khi áp dụng lên
 file rủi ro cao nhất). `F` không phụ thuộc kỹ thuật vào task nào, nhưng cố
 tình tách riêng khỏi `E` vì bản chất rủi ro khác hẳn (xem §3) — không tự
-động làm sau `E` mà không có quyết định riêng.
+động làm sau `E` mà không có quyết định riêng. `G` chặn bởi `A` (cùng lý do
+với `B`/`E` — tracker dùng chung phải có trước), nhưng độc lập với `B`/`E`/`F`
+— màn hình khác nhau, làm song song được.
