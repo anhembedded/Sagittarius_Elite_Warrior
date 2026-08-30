@@ -36,12 +36,7 @@ class GetDatabaseGapsQueryHandler(
         if not query.symbol:
             raise ValueError("Symbol cannot be empty")
 
-        try:
-            interval_vo = TimeFrame(query.interval)
-        except ValueError as e:
-            raise ValueError(f"Invalid interval: {query.interval}") from e
-
-        status = self.repository.get_database_status(query.symbol, interval_vo)
+        status = self.repository.get_database_status(query.symbol, query.interval)
         if (
             status.total_candles == 0
             or status.first_record is None
@@ -49,7 +44,7 @@ class GetDatabaseGapsQueryHandler(
         ):
             return GetDatabaseGapsResult(
                 symbol=query.symbol,
-                interval=query.interval,
+                interval=query.interval.value,
                 gaps=[],
                 total_missing_candles=0,
                 total_gaps=0,
@@ -57,7 +52,7 @@ class GetDatabaseGapsQueryHandler(
                 coverage_segments=[],
             )
 
-        gaps: list[DataGap] = self.repository.get_gaps(query.symbol, interval_vo)
+        gaps: list[DataGap] = self.repository.get_gaps(query.symbol, query.interval)
         gap_dtos: list[DataGapDTO] = []
         total_missing = 0
 
@@ -75,7 +70,7 @@ class GetDatabaseGapsQueryHandler(
                 DataGapDTO(
                     gap_id=idx,
                     symbol=query.symbol,
-                    interval=query.interval,
+                    interval=query.interval.value,
                     start_time=gap.start_time.strftime("%Y-%m-%d %H:%M:%S"),
                     end_time=gap.end_time.strftime("%Y-%m-%d %H:%M:%S"),
                     fetch_start_time=gap.fetch_start_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -90,7 +85,7 @@ class GetDatabaseGapsQueryHandler(
             first_record=status.first_record,
             last_record=status.last_record,
             gaps=gaps,
-            interval=interval_vo,
+            interval=query.interval,
         )
 
         total_expected = status.total_candles + total_missing
@@ -102,7 +97,7 @@ class GetDatabaseGapsQueryHandler(
 
         return GetDatabaseGapsResult(
             symbol=query.symbol,
-            interval=query.interval,
+            interval=query.interval.value,
             gaps=gap_dtos,
             total_missing_candles=total_missing,
             total_gaps=len(gaps),

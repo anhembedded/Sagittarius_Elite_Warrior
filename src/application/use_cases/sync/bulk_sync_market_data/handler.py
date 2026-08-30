@@ -20,10 +20,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 from .command import BulkSyncMarketDataCommand, CancellationCheck
 from .progress_reporter import BulkSyncProgressReporter
+from .sync_target import SyncTarget
 
 #: Default delay between concurrent target dispatches in milliseconds.
 DEFAULT_RATE_LIMIT_DELAY_MS: int = 500
@@ -118,12 +118,12 @@ class BulkSyncMarketDataCommandHandler(
 
     def _sync_single_target(
         self,
-        symbol: str,
-        interval: str,
+        target: SyncTarget,
         rate_limiter: ThreadSafeRateLimiter,
         cancellation_requested: CancellationCheck | None = None,
     ) -> tuple[str, str, bool, str]:
         """Dispatches a single sync command with rate limiting and catches any execution errors."""
+        symbol, interval = target.symbol, target.interval.value
         if cancellation_requested and cancellation_requested():
             return symbol, interval, False, "Cancelled"
         rate_limiter.acquire(cancellation_requested=cancellation_requested)
@@ -132,7 +132,7 @@ class BulkSyncMarketDataCommandHandler(
         try:
             sync_cmd = SyncMarketDataCommand(
                 symbols=[symbol],
-                interval=TimeFrame(interval),
+                interval=target.interval,
                 start_time=None,
                 end_time=None,
                 cancellation_requested=cancellation_requested,
@@ -145,7 +145,7 @@ class BulkSyncMarketDataCommandHandler(
 
     def _run_bulk_sync(
         self,
-        targets: list[tuple[str, str]],
+        targets: list[SyncTarget],
         rate_limiter: ThreadSafeRateLimiter,
         reporter: BulkSyncProgressReporter,
         cancellation_requested: CancellationCheck | None = None,
@@ -157,12 +157,11 @@ class BulkSyncMarketDataCommandHandler(
             futures = [
                 executor.submit(
                     self._sync_single_target,
-                    symbol,
-                    interval,
+                    target,
                     rate_limiter,
                     cancellation_requested,
                 )
-                for symbol, interval in targets
+                for target in targets
             ]
 
             for future in concurrent.futures.as_completed(futures):

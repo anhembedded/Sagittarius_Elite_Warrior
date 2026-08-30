@@ -12,8 +12,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical
     RunHistoricalTickBacktestCommand,
     RunHistoricalTickBacktestCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.handler import (
-    _bar_bounds,
+from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.forming_bar import (
+    bar_bounds,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
@@ -384,7 +384,7 @@ def test_progress_callback_rate_is_bounded_regardless_of_tick_count():
 def test_the_containment_check_agrees_with_bar_bounds_on_every_tick():
     """BOLT-001's invariant, asserted rather than assumed.
 
-    The per-tick loop skips `_bar_bounds()` whenever the tick still falls
+    The per-tick loop skips `bar_bounds()` whenever the tick still falls
     inside the open bar's half-open `[bar_start, bar_end)` window. That is
     only sound if the containment answer and the floor answer can never
     disagree — so this walks a whole bar plus its two boundaries and checks
@@ -393,17 +393,17 @@ def test_the_containment_check_agrees_with_bar_bounds_on_every_tick():
     """
     interval_seconds = 300
     origin = datetime(2026, 1, 1, tzinfo=UTC)
-    bar_start, bar_end = _bar_bounds(origin, interval_seconds)
+    bar_start, bar_end = bar_bounds(origin, interval_seconds)
 
     # One tick per second across the bar, plus one before it and one after.
     for offset in range(-1, interval_seconds + 2):
         tick_time = bar_start + timedelta(seconds=offset)
         inside_window = bar_start <= tick_time < bar_end
-        floors_to_this_bar = _bar_bounds(tick_time, interval_seconds)[0] == bar_start
+        floors_to_this_bar = bar_bounds(tick_time, interval_seconds)[0] == bar_start
 
         assert inside_window == floors_to_this_bar, (
             f"offset {offset}s: containment said {inside_window}, "
-            f"_bar_bounds said {floors_to_this_bar}"
+            f"bar_bounds said {floors_to_this_bar}"
         )
 
 

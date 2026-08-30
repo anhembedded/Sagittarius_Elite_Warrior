@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
 
 @dataclass(frozen=True)
 class GetDatabaseStatusQuery:
@@ -8,4 +10,4 @@ class GetDatabaseStatusQuery:
     """
 
     symbol: str
-    interval: str
+    interval: TimeFrame

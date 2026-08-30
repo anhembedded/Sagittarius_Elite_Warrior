@@ -55,7 +55,7 @@ class KLineInspectorCoordinator:
         try:
             query = GetHistoricalKlinesQuery(
                 symbol=symbol,
-                interval=interval,
+                interval=TimeFrame(interval),
                 limit=10000,
                 order_by_desc=False,
             )

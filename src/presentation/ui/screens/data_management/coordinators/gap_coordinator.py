@@ -85,7 +85,7 @@ class GapCoordinator:
             self._get_current_fsm_state(),
         )
         try:
-            query = GetDatabaseGapsQuery(symbol=symbol, interval=interval)
+            query = GetDatabaseGapsQuery(symbol=symbol, interval=TimeFrame(interval))
             result: GetDatabaseGapsResult = self._dispatcher.dispatch(
                 GetDatabaseGapsQuery, query
             )
@@ -218,7 +218,7 @@ class GapCoordinator:
             self._get_current_fsm_state(),
         )
         try:
-            query = GetDatabaseGapsQuery(symbol=symbol, interval=interval)
+            query = GetDatabaseGapsQuery(symbol=symbol, interval=TimeFrame(interval))
             result: GetDatabaseGapsResult = self._dispatcher.dispatch(
                 GetDatabaseGapsQuery, query
             )

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
 
 @dataclass(frozen=True)
 class DataGapDTO:
@@ -55,4 +57,4 @@ class GetDatabaseGapsQuery:
     """
 
     symbol: str
-    interval: str
+    interval: TimeFrame

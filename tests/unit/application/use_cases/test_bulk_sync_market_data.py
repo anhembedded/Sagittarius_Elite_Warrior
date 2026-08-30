@@ -10,10 +10,14 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_d
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.handler import (
     BulkSyncMarketDataCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.sync_target import (
+    SyncTarget,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 class _NetworkError(Exception):
@@ -69,7 +73,10 @@ def test_bulk_sync_success(
         100 if key == ConfigKeys.BINANCE_RATE_LIMIT_DELAY_MS.value else default
     )
 
-    targets = [("BTCUSDT", "1m"), ("ETHUSDT", "5m")]
+    targets = [
+        SyncTarget(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE),
+        SyncTarget(symbol="ETHUSDT", interval=TimeFrame.FIVE_MINUTES),
+    ]
     cmd = BulkSyncMarketDataCommand(targets=targets)
 
     handler.execute(cmd)
@@ -120,7 +127,10 @@ def test_bulk_sync_success(
 def test_bulk_sync_error_handling(
     mock_sleep, handler, mock_event_publisher, mock_dispatcher
 ):
-    targets = [("BTCUSDT", "1m"), ("ETHUSDT", "5m")]
+    targets = [
+        SyncTarget(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE),
+        SyncTarget(symbol="ETHUSDT", interval=TimeFrame.FIVE_MINUTES),
+    ]
     cmd = BulkSyncMarketDataCommand(targets=targets)
 
     # Simulate an error on one of the syncs
@@ -157,7 +167,10 @@ def test_bulk_sync_error_handling(
 def test_bulk_sync_cancellation_stops_dispatching(
     handler, mock_event_publisher, mock_dispatcher
 ):
-    targets = [("BTCUSDT", "1m"), ("ETHUSDT", "5m")]
+    targets = [
+        SyncTarget(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE),
+        SyncTarget(symbol="ETHUSDT", interval=TimeFrame.FIVE_MINUTES),
+    ]
     cmd = BulkSyncMarketDataCommand(
         targets=targets,
         cancellation_requested=lambda: True,

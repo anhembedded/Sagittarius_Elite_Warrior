@@ -333,7 +333,7 @@ class StreamLifecycleController:
 
             query = GetHistoricalKlinesQuery(
                 symbol=symbols,
-                interval=interval_str,
+                interval=TimeFrame(interval_str),
                 limit=limit,
                 start_time=start_time,
                 end_time=end_time,
@@ -385,7 +385,7 @@ class StreamLifecycleController:
             end_time = datetime.fromtimestamp(before_timestamp, tz=UTC)
             query = GetHistoricalKlinesQuery(
                 symbol=symbol,
-                interval=interval_str,
+                interval=TimeFrame(interval_str),
                 limit=limit,
                 end_time=end_time,
                 order_by_desc=True,

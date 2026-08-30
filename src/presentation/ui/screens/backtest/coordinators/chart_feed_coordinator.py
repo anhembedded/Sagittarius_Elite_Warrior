@@ -131,7 +131,7 @@ class ChartFeedCoordinator:
         try:
             query = GetHistoricalKlinesQuery(
                 symbol=symbol,
-                interval=config.timeframe.value,
+                interval=config.timeframe,
                 limit=limit,
                 start_time=config.start_time,
                 end_time=config.end_time,

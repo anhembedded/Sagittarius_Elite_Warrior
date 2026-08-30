@@ -102,7 +102,7 @@ class ChartPreviewCoordinator:
                 GetHistoricalKlinesQuery,
                 GetHistoricalKlinesQuery(
                     symbol=symbol,
-                    interval=config.timeframe.value,
+                    interval=config.timeframe,
                     limit=self._state.chart_klines_fetch_limit,
                     start_time=config.start_time,
                     end_time=config.end_time or now,
@@ -114,7 +114,7 @@ class ChartPreviewCoordinator:
                 GetBacktestRangeCoverageQuery,
                 GetBacktestRangeCoverageQuery(
                     symbol=symbol,
-                    interval=config.timeframe.value,
+                    interval=config.timeframe,
                     start_time=config.start_time,
                     end_time=config.end_time or now,
                     now=now,

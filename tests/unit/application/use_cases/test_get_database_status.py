@@ -36,7 +36,7 @@ def test_get_database_status_success(handler, mock_repo):
         gaps=0,
     )
 
-    query = GetDatabaseStatusQuery(symbol="BTCUSDT", interval="1m")
+    query = GetDatabaseStatusQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
     result = handler.execute(query)
 
     assert isinstance(result, DatabaseStatusDTO)
@@ -59,7 +59,7 @@ def test_get_database_status_with_gaps(handler, mock_repo):
         gaps=4,
     )
 
-    query = GetDatabaseStatusQuery(symbol="ETHUSDT", interval="5m")
+    query = GetDatabaseStatusQuery(symbol="ETHUSDT", interval=TimeFrame.FIVE_MINUTES)
     result = handler.execute(query)
 
     assert result.status_text == "4 gaps found!"
@@ -68,16 +68,14 @@ def test_get_database_status_with_gaps(handler, mock_repo):
 
 
 def test_get_database_status_invalid_interval(handler, mock_repo):
-    query = GetDatabaseStatusQuery(symbol="BTCUSDT", interval="invalid")
-
-    with pytest.raises(ValueError, match="Invalid interval: invalid"):
-        handler.execute(query)
+    with pytest.raises(ValueError):
+        TimeFrame("invalid")
 
     mock_repo.get_database_status.assert_not_called()
 
 
 def test_get_database_status_invalid_symbol(handler, mock_repo):
-    query = GetDatabaseStatusQuery(symbol="", interval="1m")
+    query = GetDatabaseStatusQuery(symbol="", interval=TimeFrame.ONE_MINUTE)
 
     with pytest.raises(ValueError, match="Invalid symbol"):
         handler.execute(query)
