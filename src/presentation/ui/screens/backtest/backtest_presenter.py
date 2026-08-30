@@ -58,8 +58,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_track
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_symbol,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
-    HealthStatusReport,
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
+    HealthCheckCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
@@ -575,18 +575,7 @@ class BackTestPresenter(BasePresenter):
         connect_engine_events(self)
 
     def _trigger_initial_health_check(self) -> None:
-        """Xin số liệu sức khoẻ tươi ngay khi mở màn.
-
-        Trước `EPIC-008G` hàm này resolve `HealthCheckQuery` rồi **tự dựng một
-        `HealthUpdatedEvent`** gọi thẳng handler của chính mình — cách vá cho việc
-        `HealthExtension.boot()` chỉ phát đúng một lần lúc `app.boot()`, trước khi
-        presenter (lazy) kịp tồn tại. `EPIC-008E` thay bằng cặp request/response thật.
-        """
-        self._health_feed.request_refresh()
-
-    def _on_health_report(self, report: HealthStatusReport) -> None:
-        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
-        self._emit_ui_log(report.to_log_line(), "info", is_dev=False)
+        self._health_check_coordinator.request_initial_check()
 
     def _handle_backtest_completed_event(self, event: BacktestCompletedEvent) -> None:
         result = getattr(event, "result", None)

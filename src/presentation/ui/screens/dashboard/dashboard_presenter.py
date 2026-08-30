@@ -20,9 +20,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_interval,
     default_symbol,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
-    HealthStatusReport,
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
+    HealthCheckCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
@@ -768,24 +767,17 @@ class DashboardPresenter(BasePresenter):
         # đi qua HealthFeed — một nơi nghe, nhiều màn hiển thị
         # (`architecture-rule.md` §6). Trước đây màn này tự `event_bus.on(...)`
         # rồi tự ghép chuỗi, và Backtest cũng vậy: 2 định dạng khác nhau cho
-        # cùng một dữ liệu, bản của Backtest còn mất hẳn `Container`.
-        self._health_feed = HealthFeed(self.event_bus, parent=self)
-        self._health_feed.healthUpdated.connect(self._on_health_report)
+        # cùng một dữ liệu, bản của Backtest còn mất hẳn `Container`. Wiring
+        # đó (dựng `HealthFeed`, connect, hỏi lúc mở màn) lại trùng lặp giữa
+        # 2 Presenter — `HealthCheckCoordinator` (`EPIC-019B`) dùng chung.
+        self._health_check_coordinator = HealthCheckCoordinator(
+            event_bus=self.event_bus,
+            emit_log=self.ui_log_signal.emit,
+            parent=self,
+        )
 
     def _trigger_initial_health_check(self) -> None:
-        """Xin số liệu sức khoẻ tươi ngay khi mở màn.
-
-        Trước `EPIC-008G` hàm này resolve `HealthCheckQuery` rồi **tự dựng một
-        `HealthUpdatedEvent`** để gọi thẳng handler của chính mình — cách vá cho
-        việc `HealthExtension.boot()` chỉ phát đúng một lần lúc `app.boot()`,
-        trước khi presenter (lazy) kịp tồn tại. `EPIC-008E` thay bằng cặp
-        request/response thật, nên giờ chỉ cần hỏi.
-        """
-        self._health_feed.request_refresh()
-
-    def _on_health_report(self, report: HealthStatusReport) -> None:
-        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
-        self.ui_log_signal.emit(report.to_log_line())
+        self._health_check_coordinator.request_initial_check()
 
     # ================================================================== #
     # FSM Hooks

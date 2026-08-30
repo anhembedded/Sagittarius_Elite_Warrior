@@ -114,7 +114,7 @@ def test_dashboard_asks_for_health_instead_of_running_the_query_itself(
     assert any(isinstance(event, HealthCheckRequested) for event in published), (
         "opening the screen must publish HealthCheckRequested"
     )
-    assert presenter._health_feed is not None
+    assert presenter._health_check_coordinator._health_feed is not None
 
 
 def test_dashboard_handles_health_updated_event(qapp, health_mock_container):
@@ -136,7 +136,7 @@ def test_dashboard_handles_health_updated_event(qapp, health_mock_container):
             },
         }
     )
-    presenter._health_feed._on_health_updated(degraded_event)
+    presenter._health_check_coordinator._health_feed._on_health_updated(degraded_event)
 
     assert len(presenter._view_model.log_model.entries) == initial_log_count + 1
     latest_entry = presenter._view_model.log_model.entries[-1]
@@ -220,7 +220,7 @@ def test_backtest_initializes_and_handles_health_updated_event(
 
     # Opening the screen asks; it no longer runs the query itself.
     assert mock_health_query.execute.call_count == 0
-    presenter._health_feed._on_health_updated(
+    presenter._health_check_coordinator._health_feed._on_health_updated(
         HealthUpdatedEvent(
             {"status": "healthy", "components": {"database": "ok", "event_bus": "ok"}}
         )
