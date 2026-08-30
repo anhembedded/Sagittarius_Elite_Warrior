@@ -7,15 +7,22 @@ param(
     # everything -Dev does, plus drops the log threshold to TRACE (one
     # level below DEBUG) and writes to logs/debug-<timestamp>.log instead.
     # See .agents/rules/logging-rule.md §6-7. Usage: run-ui.ps1 -Debug
-    [switch]$Debug
+    [switch]$Debug,
+    # Option 2 per .agents/rules/install-rule.md: opt-in to develop/debug
+    # Sagittarius Engine locally from sibling checkout instead of official GitHub.
+    # Usage: run-ui.ps1 -LocalEngine
+    [switch]$LocalEngine
 )
 
-# Also accept the literal GNU-style "--dev"/"--debug" forms some users may type.
+# Also accept the literal GNU-style "--dev"/"--debug"/"--local-engine" forms some users may type.
 if ($args -contains "--dev") {
     $Dev = $true
 }
 if ($args -contains "--debug") {
     $Debug = $true
+}
+if ($args -contains "--local-engine" -or $args -contains "-LocalEngine") {
+    $LocalEngine = $true
 }
 
 $ErrorActionPreference = "Stop"
@@ -27,15 +34,18 @@ $ProjectRoot = Split-Path -Parent $BotRoot
 $isWindowsPlatform = ($env:OS -eq "Windows_NT") -or ($PSVersionTable.PSEdition -eq "Desktop") -or ($IsWindows -eq $true)
 $PathSeparator = if ($isWindowsPlatform) { ";" } else { ":" }
 
-# The engine is a sibling repository in the local workspace, not a child of
-# the application repository. Keep the application root on PYTHONPATH for
-# package imports, and add the engine repository root when that checkout is
-# available. A separately installed engine remains the fallback for clones
-# that do not have the sibling checkout.
+# Sibling engine checkout handling per .agents/rules/install-rule.md:
+# Default (Option 1): Engine is loaded from the virtual environment (installed from GitHub).
+# Option 2 (Development & Debugging): Sibling checkout is only added to PYTHONPATH if -LocalEngine is specified.
 $PythonPathEntries = @($ProjectRoot)
 $EngineRoot = Join-Path $ProjectRoot "Sagittarius_Engine"
-if (Test-Path (Join-Path $EngineRoot "sagittarius_engine")) {
-    $PythonPathEntries += $EngineRoot
+if ($LocalEngine) {
+    if (Test-Path (Join-Path $EngineRoot "sagittarius_engine")) {
+        $PythonPathEntries += $EngineRoot
+        Write-Host "Using local Sagittarius Engine checkout from $EngineRoot (-LocalEngine)..." -ForegroundColor Yellow
+    } else {
+        Write-Warning "Local engine checkout requested (-LocalEngine), but '$EngineRoot' was not found."
+    }
 }
 $env:PYTHONPATH = $PythonPathEntries -join $PathSeparator
 
@@ -101,11 +111,15 @@ if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
     & $VenvPython -m pip install -r (Join-Path $BotRoot "requirements.txt")
 }
 
-if (Test-Path (Join-Path $EngineRoot "pyproject.toml")) {
-    Write-Host "Installing Sagittarius Engine from the local sibling checkout..." -ForegroundColor Cyan
-    & $VenvPython -m pip install -e $EngineRoot
+if ($LocalEngine) {
+    if (Test-Path (Join-Path $EngineRoot "pyproject.toml")) {
+        Write-Host "Installing Sagittarius Engine from the local sibling checkout (-LocalEngine)..." -ForegroundColor Cyan
+        & $VenvPython -m pip install -e $EngineRoot
+    } else {
+        throw "Local engine checkout (-LocalEngine) requested, but pyproject.toml not found at $EngineRoot"
+    }
 } else {
-    Write-Host "Installing Sagittarius Engine from GitHub..." -ForegroundColor Cyan
+    Write-Host "Installing Sagittarius Engine from GitHub (Option 1 per install-rule.md)..." -ForegroundColor Cyan
     & $VenvPython -m pip install "git+https://github.com/anhembedded/Sagittarius_Engine.git"
 }
 
