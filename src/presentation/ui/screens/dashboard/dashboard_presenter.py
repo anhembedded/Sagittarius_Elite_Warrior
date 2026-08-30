@@ -8,9 +8,6 @@ from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
-    ListAvailableSymbolsQuery,
-)
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
@@ -26,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
     HealthStatusReport,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
+    SymbolOptionsCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
@@ -348,11 +348,17 @@ class DashboardPresenter(BasePresenter):
         # No further container.resolve(IThreadManager) calls anywhere else.
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
 
-        # EPIC-014: `None` means "never fetched", which is what makes the
-        # fetch happen once per session rather than on every picker open. An
-        # empty list is a real answer (the query returned nothing) and is
-        # deliberately NOT retried — a distinction a falsy check would lose.
-        self._symbol_options_cache: list[str] | None = None
+        # EPIC-019A: shared with BackTestPresenter — `None` means "never
+        # fetched", which is what makes the fetch happen once per session
+        # rather than on every picker open. An empty list is a real answer
+        # (the query returned nothing) and is deliberately NOT retried — a
+        # distinction a falsy check would lose.
+        self._symbol_options_coordinator = SymbolOptionsCoordinator(
+            dispatcher=self.dispatcher,
+            thread_manager=self._thread_manager,
+            emit_ready=self._symbolOptionsReadySignal.emit,
+            emit_failed=self._symbolOptionsFailedSignal.emit,
+        )
 
         # Define allowed FSM transitions
         self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
@@ -604,26 +610,11 @@ class DashboardPresenter(BasePresenter):
         added to its construction path delays that. A cache hit means a prior
         open already populated the ViewModel and this is a no-op.
         """
-        if self._symbol_options_cache is not None:
-            return
-        self._thread_manager.submit(self._fetch_symbol_options)
-
-    def _fetch_symbol_options(self) -> None:
-        """Runs on a worker thread — hence the signals rather than a direct
-        ViewModel write, which would touch Qt objects off the main thread."""
-        try:
-            symbols = self.dispatcher.dispatch(
-                ListAvailableSymbolsQuery, ListAvailableSymbolsQuery()
-            )
-        except Exception as exc:
-            logger.exception("Failed to fetch available symbols")
-            self._symbolOptionsFailedSignal.emit(str(exc))
-            return
-        self._symbolOptionsReadySignal.emit(symbols)
+        self._symbol_options_coordinator.request_open()
 
     @Slot(list)
     def _on_symbol_options_ready(self, symbols: list[str]) -> None:
-        self._symbol_options_cache = symbols
+        self._symbol_options_coordinator.on_options_ready(symbols)
         self._view_model.set_symbol_options(symbols)
 
     @Slot(str)

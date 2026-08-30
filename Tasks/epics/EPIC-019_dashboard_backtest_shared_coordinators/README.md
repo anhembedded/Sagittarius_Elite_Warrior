@@ -1,6 +1,6 @@
 # Epic EPIC-019 — Dashboard/Backtest: gộp logic Presenter trùng lặp thành Coordinator dùng chung
 
-**Trạng thái:** 🔴 Chưa bắt đầu — 0/3 task con.
+**Trạng thái:** 🟡 Đang làm — 1/3 task con (`019A` xong).
 **Nguồn:** Báo cáo ngoài (Gemini) claim "màn hình có tính năng chung, không
 có lớp cha chung" — verify độc lập, 2/7 claim đúng + 1 finding tự phát
 hiện. Ratify ở
@@ -30,7 +30,7 @@ kia đã sửa.
 
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
-| **[EPIC-019A](incomplete/EPIC-019A_symbol_options_coordinator.md)** | `SymbolOptionsCoordinator` dùng chung Dashboard + Backtest (D1) | 🔴 Chưa bắt đầu |
+| **[EPIC-019A](completed/EPIC-019A_symbol_options_coordinator.md)** | `SymbolOptionsCoordinator` dùng chung Dashboard + Backtest (D1) | ✅ Hoàn thành |
 | **[EPIC-019B](incomplete/EPIC-019B_health_check_coordinator.md)** | `HealthCheckCoordinator` dùng chung Dashboard + Backtest (D2) | 🔴 Chưa bắt đầu |
 | **[EPIC-019C](incomplete/EPIC-019C_qml_property_factory.md)** | Factory cho Qt `Property` boilerplate — thử nghiệm trên `DataManagementViewModel` (D3) | 🔴 Chưa bắt đầu |
 
