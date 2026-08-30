@@ -38,9 +38,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 6 |
 | ✅ **Đã sửa / đã đóng** | 63 |
-| 📈 **Tổng** | **65** |
+| 📈 **Tổng** | **69** |
 
 ---
 
@@ -48,8 +48,12 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-067](incomplete/BUG-067_dashboard_sync_market_data_ignores_cancellation_hangs_shutdown.md)** | Dashboard Live Stream sync bỏ qua cancellation, thread kẹt làm treo tiến trình khi tắt app | 🔴 **P1** | 2026-08-30 | Khi tắt app trong lúc sync data đang chạy ngầm (`0GTRY` 1s), worker thread không nhận cancellation token, kẹt ở `time.sleep(1)` của Binance API client, kích hoạt cảnh báo vi phạm `BUG-052` class và làm treo tiến trình lúc thoát. |
+| **[BUG-068](incomplete/BUG-068_cross_thread_qbasictimer_start_in_gap_inspection.md)** | QBasicTimer::start: Timers cannot be started from another thread trong quá trình kiểm tra Database Gaps | 🟠 **P2** | 2026-08-30 | Khi chạy `GetDatabaseGapsQuery` trên worker thread của `ThreadManager`, xuất hiện 4 cảnh báo Qt timer vi phạm thread affinity. Biến thể của lớp lỗi `BUG-031`. |
+| **[BUG-069](incomplete/BUG-069_database_status_table_qml_typeerror_null_vm_on_teardown.md)** | DatabaseStatusTable QML quăng hàng loạt TypeError khi ViewModel bị huỷ lúc thoát app | 🟡 **P3** | 2026-08-30 | QML binding truy cập trực tiếp `vm.rowCount`, `vm.rowsModel`, `vm.actionsEnabled` mà không có null-safe check, phát sinh 20+ TypeError khi Python giải phóng ViewModel trước QML items. |
+| **[BUG-070](incomplete/BUG-070_symbol_picker_popup_keys_attached_property_warning.md)** | SymbolPicker QML cảnh báo "Could not attach Keys property to: Popup ... is not an Item" | ⚪ **P4** | 2026-08-30 | `Keys.onPressed` được gắn trực tiếp trên thẻ `Popup` (vốn là `QtObject`, không phải `Item`) trong `SymbolPicker.qml`. |
 | **[BUG-065](incomplete/BUG-065_state_coordinator_test_crashes_a_worker_under_full_parallel_load.md)** | `test_a_burst_of_marks_produces_exactly_one_write` chết một worker khi chạy `ci-local.ps1 -Full` | Chưa đánh giá | 2026-08-30 | Worker `node down` (crash thật, không phải assertion sai) — tái hiện 2/3 lần chạy full CI, 5/5 sạch khi chạy đơn lẻ. File không bị đụng trong phiên này. Rất có thể cùng cơ chế `BUG-056` (deferred-delete Qt object của test trước bị huỷ sai thread giữa lúc `qtbot.wait()` của test sau đang bơm event loop) tái hiện ở một chỗ fix của BUG-056 không phủ tới — xem hồ sơ để biết bằng chứng đầy đủ. |
-| **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. **Cập nhật 2026-08-26:** headless repro (cùng tổ hợp script Dev Board thật) không tái hiện được `-50..100`, nhưng lộ ra 1 defect thật khác cùng subsystem, đã tách và đóng riêng ở [`BUG-053`](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md) — không đóng được bug này, vẫn cần ảnh/log tái hiện sống. |
+| **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. **Cập nhật 2026-08-30:** log phiên live xác nhận bằng chứng sống trên symbol `0GTRY` (giá thực 7.6..8.2 nhưng `y-range [-71.3690, 46.1465]` và `autorange=[False, 1.0]`), khiến nến bị co dẹp biến mất. |
 
 ---
 
