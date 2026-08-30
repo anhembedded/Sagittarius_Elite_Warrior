@@ -56,6 +56,7 @@ class UiStateCoordinator(QObject):
         super().__init__(parent)
         self._store = store
         self._dirty: dict[StateScope, IStateContributor] = {}
+        self._config_bindings: dict[str, list[tuple[StateScope, tuple[str, ...]]]] = {}
 
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -83,6 +84,44 @@ class UiStateCoordinator(QObject):
         debounce window that was already in flight."""
         self._dirty.pop(contributor.state_scope, None)
         self._store.discard(contributor.state_scope)
+
+    def register_config_binding(
+        self, scope: StateScope, config_key: str, state_keys: Iterable[str]
+    ) -> None:
+        """A contributor declares which of its own remembered fields a
+        `IConfig` key outranks (`EPIC-010H`'s `ui_state > user_config`
+        precedence).
+
+        @details `EPIC-017A` — inverts who owns this knowledge. Before this,
+        `SettingsPresenter` held one hardcoded map of every screen's scope
+        key and field names; a new screen that started reading
+        `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` had to be added there by someone
+        editing Settings, not by the screen itself. Now each contributor
+        registers its own binding, next to where it already calls
+        `restore_into()` — the same "the screen declares itself" shape as
+        `state_scope`/`capture_state()`/`restore_state()`.
+
+        Additive only: calling this twice for the same `(scope, config_key)`
+        keeps both registrations (both get discarded — harmless, since
+        `discard_keys()` is idempotent), it does not overwrite the first one.
+        """
+        self._config_bindings.setdefault(config_key, []).append(
+            (scope, tuple(state_keys))
+        )
+
+    def discard_for_config_key(self, config_key: str) -> None:
+        """Discards every remembered field bound to `config_key` via
+        `register_config_binding()`.
+
+        @details The Settings-side half of `EPIC-017A`'s inversion: Settings
+        calls this once per `IConfig` key it just saved, instead of knowing
+        which screens/fields that key outranks. A `config_key` nothing
+        registered against is a silent no-op — not every `IConfig` key
+        outranks remembered state, and Settings should not need a separate
+        allowlist to know which ones do.
+        """
+        for scope, keys in self._config_bindings.get(config_key, ()):
+            self.discard_keys(scope, keys)
 
     def discard_keys(self, scope: StateScope, keys: Iterable[str]) -> None:
         """Forgets specific remembered values without touching the rest.

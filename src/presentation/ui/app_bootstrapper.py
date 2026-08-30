@@ -65,6 +65,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.repo_state_store_locator import (
     RepoStateStoreLocator,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import StateScope
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
@@ -200,6 +201,31 @@ def build() -> AppRuntime:
     # DashboardPresenter) — every test that builds a presenter against a bare
     # container would otherwise break.
     app_engine.context.container.singleton(UiStateCoordinator, state_coordinator)
+
+    # EPIC-017A — which screens' remembered fields Settings' DEFAULT_SYMBOLS/
+    # DEFAULT_INTERVAL outrank (EPIC-010H's ui_state > user_config
+    # precedence). Registered here, eagerly, rather than inside each
+    # presenter's own __init__: PresenterManager is a *true* lazy router (see
+    # its own docstring — "zero RAM allocation for screens until navigated
+    # to"), so a binding registered only when a presenter is first
+    # constructed would silently miss a screen the user has never opened yet
+    # — the exact stale-restore bug this registration exists to prevent.
+    # Plain strings on purpose: this is the composition root, the one place
+    # already allowed to know every screen's route (see MainWindow's own
+    # router setup) — importing each screen's heavy presenter module just to
+    # read its scope/field names would defeat the lazy loading above for no
+    # benefit, since nothing here needs the class itself.
+    for scope_key, config_key, state_keys in (
+        ("backtest", "DEFAULT_SYMBOLS", ("symbol",)),
+        ("backtest", "DEFAULT_INTERVAL", ("timeframe",)),
+        ("dashboard", "DEFAULT_SYMBOLS", ("symbol",)),
+        ("dashboard", "DEFAULT_INTERVAL", ("interval",)),
+        ("data_management", "DEFAULT_SYMBOLS", ("symbol",)),
+        ("data_management", "DEFAULT_INTERVAL", ("interval",)),
+    ):
+        state_coordinator.register_config_binding(
+            StateScope(key=scope_key), config_key, state_keys
+        )
 
     # EPIC-014 — starred and recently used trading pairs, ONE store shared by
     # every screen that picks a symbol. Registered rather than owned by a

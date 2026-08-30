@@ -73,7 +73,14 @@ def store():
 
 @pytest.fixture
 def coordinator(store):
-    return UiStateCoordinator(store, debounce_ms=50_000)
+    c = UiStateCoordinator(store, debounce_ms=50_000)
+    # `EPIC-017A` — production registers this eagerly in app_bootstrapper.py
+    # (composition root), not inside SettingsPresenter or BackTestPresenter
+    # anymore; this fixture stands in for that registration so the test still
+    # exercises the real discard path SettingsPresenter._on_save() drives.
+    c.register_config_binding(_BACKTEST, "DEFAULT_SYMBOLS", ("symbol",))
+    c.register_config_binding(_BACKTEST, "DEFAULT_INTERVAL", ("timeframe",))
+    return c
 
 
 @pytest.fixture

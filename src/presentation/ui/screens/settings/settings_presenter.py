@@ -12,7 +12,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
     find_state_coordinator,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import StateScope
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
@@ -21,21 +20,15 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 
 from .settings_view_model import SettingsViewModel
 
-#: `EPIC-010H` — which remembered keys each screen loses when this screen
-#: saves. Only the values `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL` actually
-#: govern; everything else those slices hold (leverage, commission, the
-#: script checklist, the lookback window) is none of Settings' business.
-#:
-#: The Dev Board and Database screens joined this map in the same change that
-#: made them read those config keys at all. Before that they ignored Settings
-#: entirely, so Settings outranked nothing of theirs and invalidating their
-#: remembered values would have been wrong — it would have discarded a real
-#: user choice in favour of a default that screen never consulted.
-_STATE_KEYS_OWNED_BY_SETTINGS: dict[str, tuple[str, ...]] = {
-    "backtest": ("symbol", "timeframe"),
-    "dashboard": ("symbol", "interval"),
-    "data_management": ("symbol", "interval"),
-}
+#: `EPIC-010H`'s precedence rule (`ui_state > user_config DEFAULT_*`) means
+#: saving one of these two config keys must invalidate whatever remembered
+#: field it now outranks. Which screen, and which field — `EPIC-017A`
+#: inverted: each screen registers its own binding via
+#: `UiStateCoordinator.register_config_binding()` (next to its own
+#: `restore_into()` call), instead of Settings holding a hardcoded map of
+#: every screen's scope key and field names. This screen only needs to know
+#: which of *its own* fields govern others, not who they are.
+_CONFIG_KEYS_THAT_OUTRANK_REMEMBERED_STATE = ("DEFAULT_SYMBOLS", "DEFAULT_INTERVAL")
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -172,11 +165,14 @@ class SettingsPresenter(BasePresenter):
         one. Without this, the user edits Settings, presses Save, and nothing
         appears to happen — the older, higher-priority value keeps winning.
 
-        Scoped to the two keys this screen actually owns. Dropping whole
-        slices instead would take every unrelated remembered value on those
-        screens (leverage, commission, timezone, the script checklist) with
-        it, which is worse than the problem being fixed — and is why
-        `IStateStore` grew `discard_keys()` for this.
+        `EPIC-017A` — this screen no longer knows which other screens or
+        fields that implies; it discards by *config key*, and each screen's
+        own `register_config_binding()` call (made once, near its
+        `restore_into()`) is what resolves that into scope + field names.
+        Dropping whole slices instead would take every unrelated remembered
+        value on those screens (leverage, commission, timezone, the script
+        checklist) with it, which is why the binding is scoped to fields, not
+        screens — unchanged from before the inversion.
 
         Unconditional rather than compared against the previous value: Save
         is an explicit act, and "make sure this is not remembered" is
@@ -185,8 +181,8 @@ class SettingsPresenter(BasePresenter):
         """
         if self._state_coordinator is None:
             return
-        for scope_key, keys in _STATE_KEYS_OWNED_BY_SETTINGS.items():
-            self._state_coordinator.discard_keys(StateScope(key=scope_key), keys)
+        for config_key in _CONFIG_KEYS_THAT_OUTRANK_REMEMBERED_STATE:
+            self._state_coordinator.discard_for_config_key(config_key)
 
     @staticmethod
     def _parse_symbols(raw: str) -> list[str]:
