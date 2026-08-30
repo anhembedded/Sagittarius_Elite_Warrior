@@ -1,27 +1,32 @@
 # EPIC-015 — QML từng widget, chart ở lại QtWidgets
 
-**Trạng thái:** 🟡 **Đang làm** — bậc 0+1 xong 2026-08-28 (§4b); bậc 2's 3 component dùng
-chung xong (§4c). **2026-08-29/30: 8 widget/kit mới xây đứng riêng** (chưa nối màn nào —
-xem §4d) theo quyết định "tạo cái mới, còn cái cũ kệ nó". **Phase 1 (wiring vào màn thật)
-ĐÃ XONG toàn bộ 2026-08-30** (§4e): `SymbolPicker` → Backtest; `TimeRangePicker` → Data
-Management + Dev Board + Backtest (mở rộng phạm vi); `TimeframePicker` (modal, chọn-đóng
-ngay) → Settings + Data Management + Backtest; `KlineInspectorTable` → Data Management.
-`TimeframePickerOverlay` (widget cũ) **chưa xoá được** — `ChartToolbar` (Backtest + Dev
-Board) vẫn dùng nó, đúng phần `TimeframeToolbar` thuộc Phase 4 (QML cạnh chart thật) chưa
-làm. **Phase 2 ĐÃ XONG toàn bộ 2026-08-30:** `DatabaseStatusTable` → Data Management (phải
-tự bổ sung thêm search + khoá nút khi busy vào chính component, không chỉ nối dây — màn cũ
-đang có cả hai tính năng chạy thật, bỏ qua sẽ là hồi quy); `ProgressBanner` thay
-`AppProgressBar` + nút Hủy riêng ở Data Management (lần đầu nhúng panel QML thẳng vào
-layout màn hình, không qua `QmlOverlay`, an toàn vì màn này không có chart). **Phase 3 ĐÃ
-XONG 2026-08-30:** `MetricsDetailPanel` → Backtest, thay `ExtendedMetricsDialog`/`StatGrid`
-(ba ngưỡng verdict tự chế Sharpe/Sortino/Calmar/chuỗi-thua đã được user duyệt nguyên trạng,
-xem `qml/MetricsDetailPanel/NOTES.md`). **Phase 4 — code + test tự động ĐÃ XONG 2026-08-30,
-CHƯA xác minh bằng mắt (§6's điều kiện dừng):** `TimeframeToolbar` thay `ChartToolbar`
-(dùng chung Backtest + Dev Board, `TimeframePickerOverlay` đã xoá); `StatusPill` → huy hiệu
-WS Dev Board; `StatCard` (Repeater) + `ProgressBanner` → panel trên Backtest. Toàn bộ
-`tests/unit`/`sanity`/`integration` xanh, nhưng **không agent nào chạy được app thật** (sandbox
-headless) — user phải tự mở Backtest và Dev Board, xác nhận chart không giật/không rớt khung
-hình trước khi coi phase này là xong theo đúng nghĩa §6.
+**Trạng thái:** ✅ **Hoàn thành toàn bộ 4 phase — 2026-08-30.** Lộ trình đầy đủ:
+
+- **Bậc 0+1** (2026-08-28, §4b): hạ tầng `QmlOverlay` + 2 modal pilot (`Capital`, `TimezonePicker`).
+- **Bậc 2** (2026-08-28, §4c): đếm lại theo hình dạng, xây 3 component dùng chung
+  (`SelectList`, `StatGrid`, `CheckboxList`), gộp 5 modal Backtest.
+- **2026-08-29/30** (§4d): 8 widget/kit mới xây đứng riêng, chưa nối màn nào (quyết định
+  "tạo cái mới, còn cái cũ kệ nó").
+- **Phase 1** (2026-08-30, §4e): `SymbolPicker` → Backtest; `TimeRangePicker` → Data
+  Management + Dev Board + Backtest; `TimeframePicker` (modal) → Settings + Data Management
+  + Backtest; `KlineInspectorTable` → Data Management.
+- **Phase 2** (2026-08-30): `DatabaseStatusTable` → Data Management (phải tự bổ sung search +
+  khoá nút khi busy vào chính component — màn cũ đang chạy cả hai thật, bỏ qua sẽ là hồi
+  quy); `ProgressBanner` thay `AppProgressBar` + nút Hủy riêng ở Data Management.
+- **Phase 3** (2026-08-30): `MetricsDetailPanel` → Backtest, thay `ExtendedMetricsDialog`/
+  `StatGrid` (ba ngưỡng verdict tự chế Sharpe/Sortino/Calmar/chuỗi-thua, user duyệt nguyên
+  trạng — xem `qml/MetricsDetailPanel/NOTES.md`).
+- **Phase 4** (2026-08-30): `TimeframeToolbar` thay `ChartToolbar` (dùng chung Backtest +
+  Dev Board, `TimeframePickerOverlay` đã xoá); `StatusPill` → huy hiệu WS Dev Board;
+  `StatCard` (Repeater) + `ProgressBanner` → panel trên Backtest — cả bốn nằm cạnh chart
+  thật. **User xác nhận bằng mắt 2026-08-30: chart không giật, không rớt khung hình** — điều
+  kiện dừng ở §6 đã qua, không có gì phải rollback.
+
+Kết quả cuối: shell + chart pyqtgraph ở lại QtWidgets vĩnh viễn (đúng ràng buộc §1); mọi
+widget khác trong phạm vi epic này đã chuyển sang QML. Việc còn treo (không chặn epic, xem
+chi tiết ở §9 và trong từng NOTES.md liên quan): `StatGrid.qml`/`AppProgressBar`/`StatCard`
+(QtWidgets) hết người dùng thật nhưng chưa xoá (giữ làm shape dùng chung); pinned-timeframe
+chưa persist qua `ui_state`; `_qml_test_support.py` còn trùng lặp với `tests/conftest.py`.
 **Ngày:** 2026-08-28 (cập nhật 2026-08-30)
 **Tiền đề:** [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md) §5 phương án **B**
 **Yêu cầu user:**
