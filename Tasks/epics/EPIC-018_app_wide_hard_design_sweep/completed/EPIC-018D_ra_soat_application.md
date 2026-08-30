@@ -1,7 +1,7 @@
 # EPIC-018D — Rà soát Hard Design: `src/application/`
 
 **Thuộc Epic:** [`EPIC-018`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu (rà soát xong, việc sửa chưa làm)
+**Trạng thái:** ✅ Hoàn thành — 2026-08-30
 **Phụ thuộc:** Không.
 **Nguồn:** [`DECISION_2026-08-30_module_scoped_audits_round2.md`](../DECISION_2026-08-30_module_scoped_audits_round2.md) §2 mục `018D`.
 
@@ -63,3 +63,42 @@
 - `run_historical_tick_backtest/handler.py` xuống dưới 400 dòng.
 - Không đụng `run_backtest/handler.py`'s magic number `100` (quyết định
   từ chối đã ghi ở ADR).
+
+## Kết quả
+
+- `forming_bar.py` (mới, 113 dòng) — `FormingBar`, `bar_bounds()`,
+  `CLOSE_TIME_IS_INCLUSIVE_BY` (đổi tên bỏ dấu `_` — module riêng, public
+  API của module đó, đúng tiền lệ `kline_row_mapper.py`).
+  `run_historical_tick_backtest/handler.py`: 427 → 329 dòng.
+- **Lệch khỏi kế hoạch ban đầu (ghi nhận trung thực):**
+  `ScanAllDatabasesQuery.intervals` **không đổi** sang `list[TimeFrame]`
+  như ADR/task gốc định làm. Phát hiện lúc code: đây là `list`, không phải
+  1 giá trị đơn như 4 Query kia — test
+  `test_invalid_interval_is_skipped_gracefully` xác nhận hành vi "bỏ qua
+  từng phần tử interval sai, không phá cả batch" là **có chủ đích**. Ép
+  validate cả list lúc dựng Query sẽ biến hành vi partial-degradation
+  thành all-or-nothing — không phải "fail fast tốt hơn", mà là hành vi
+  khác hẳn cho 1 trường hợp dùng thật khác hẳn. Giữ nguyên `list[str]` +
+  per-item try/except trong `_scan_single`.
+- 4 Query còn lại (`GetDatabaseStatusQuery`, `GetHistoricalKlinesQuery`,
+  `GetDatabaseGapsQuery`, `GetBacktestRangeCoverageQuery`) đổi
+  `interval: str` → `TimeFrame`, xoá convert muộn trong `execute()`. 7 call
+  site ở `presentation/ui/` (chart_feed_coordinator, chart_preview_coordinator
+  x2, data_sync_coordinator, kline_inspector_coordinator,
+  stream_lifecycle_controller x2, gap_coordinator x2, scan_coordinator) đổi
+  sang truyền `TimeFrame` thẳng (khi nguồn đã là `TimeFrame`) hoặc
+  `TimeFrame(interval_str)` tại đúng chỗ construct Query (fail-fast, trong
+  cùng `try` block hiện có).
+- `SyncTarget` (mới) — `symbol: str`, `interval: TimeFrame`.
+  `BulkSyncMarketDataCommand.targets: list[SyncTarget]` (pydantic
+  `BaseModel` chấp nhận plain dataclass field tự nhiên, verify thực
+  nghiệm). `_sync_single_target`'s tuple trả về giữ nguyên vô danh
+  (`tuple[str, str, bool, str]`) — không đổi, vì đây là kết quả nội bộ
+  cho `reporter.report_target()` cần `str` để hiển thị, không phải input
+  contract công khai như `targets`.
+- `448 test xanh, 4 skip` (toàn bộ `tests/unit/application/` +
+  `tests/unit/presentation/ui/screens/data_management/` +
+  `tests/unit/presentation/ui/screens/backtest/` +
+  `test_dashboard_presenter.py` + `tests/integration/`), 0 fail. `mypy`
+  sạch trên mọi file liên quan; `data_sync_coordinator.py` giảm từ 2 lỗi
+  pre-existing xuống 1 (tác dụng phụ tích cực, không phải mục tiêu).
