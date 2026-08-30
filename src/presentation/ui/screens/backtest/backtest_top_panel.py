@@ -562,6 +562,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         vm.needsDataSyncChanged.connect(self._sync_banners)
         vm.configDiffSummaryChanged.connect(self._sync_banners)
         vm.statCardsChanged.connect(self._sync_stat_cards)
+        vm.statCardsChanged.connect(self._sync_metrics_header)
         vm.resultWarningTextChanged.connect(self._sync_metrics_header)
         vm.resultChanged.connect(self._sync_result_box)
         vm.needsDataSyncChanged.connect(self._sync_result_box)

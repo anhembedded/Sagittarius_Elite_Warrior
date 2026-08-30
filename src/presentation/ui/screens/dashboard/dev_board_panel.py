@@ -194,7 +194,6 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         title_row.addWidget(tick)
         title_label = QLabel("Developer Board (Live Testbed)")
         title_label.setObjectName("lblHeaderTitle")
-        title_label.setFixedWidth(170)
         title_label.setStyleSheet(
             f"color: {Palette.TEXT_PRIMARY}; font-size: 13px; font-weight: bold;"
         )
