@@ -1,7 +1,7 @@
 # EPIC-018B — `sqlalchemy_repository.py`: tách mapping/query-building
 
 **Thuộc Epic:** [`EPIC-018`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu
+**Trạng thái:** ✅ Hoàn thành — 2026-08-30
 **Phụ thuộc:** Không.
 **Nguồn:** ADR D5 (tách file) + D6 (sửa docstring gây hiểu lầm, gộp vào task này vì cùng file).
 
@@ -43,3 +43,33 @@ batch size `yield_per()` của SQLAlchemy) tình cờ cùng giá trị 1000.
   assertion.
 - Docstring `_KLINE_STREAM_CHUNK_SIZE` không còn gợi ý sai về việc dùng
   chung constant.
+
+## Kết quả
+
+- `src/infrastructure/persistence/kline_row_mapper.py` (mới, 174 dòng) —
+  7 hàm module-level thuần (không class, đúng tiền lệ `backtest_range_coverage.py`
+  đã được chính file này import sẵn): `to_market_data_entity`,
+  `parse_db_datetime`, `build_upsert_stmt`, `build_status_query`,
+  `map_status_result`, `build_range_coverage_query`, `build_gaps_query`.
+- **Lan rộng hơn kế hoạch ban đầu (ghi nhận trung thực):** task chỉ liệt kê
+  5 hàm; tách thêm 2 hàm build-query nữa
+  (`build_range_coverage_query`/`build_gaps_query`, trước đây là SQL thô
+  viết thẳng trong `get_range_coverage`/`get_gaps`) vì để lại sẽ vi phạm
+  đúng tiêu chí "class repository chỉ còn orchestration, không tự build
+  SQL thô" mà task này đặt ra — không có lý do giữ 2/4 raw-SQL query trong
+  class trong khi 2 cái kia đã chuyển đi.
+- `sqlalchemy_repository.py`: 478 → **355 dòng** (dưới ngưỡng 400).
+  `get_database_status`/`get_range_coverage`/`get_gaps` giờ chỉ gọi
+  `build_*_query()` + `map_status_result()`/`parse_db_datetime()`, không
+  tự build SQL hay tự parse datetime.
+- `_KLINE_STREAM_CHUNK_SIZE` docstring viết lại rõ: 2 tunable độc lập
+  (Binance REST page size ở `client.py` vs SQLAlchemy `yield_per()` batch
+  size ở đây), trỏ thẳng tới ADR D6 — không đổi giá trị, không gộp hằng số.
+- Test cập nhật: `test_sqlalchemy_repository_helpers.py` — 3 test đọc
+  `SQLAlchemyMarketDataRepository._to_market_data_entity`/`_parse_db_datetime`
+  đổi sang import thẳng `to_market_data_entity`/`parse_db_datetime` từ
+  `kline_row_mapper`. `_group_by_symbol` giữ nguyên trên class (không thuộc
+  nhóm mapping/query-building — nó gom domain entity cho vòng lặp upsert).
+- `32 test xanh` (unit + integration persistence), 0 fail, cùng 6 warning
+  SQLAlchemy `DeprecationWarning` pre-existing (không liên quan thay đổi
+  này). `mypy` sạch trên cả 2 file.

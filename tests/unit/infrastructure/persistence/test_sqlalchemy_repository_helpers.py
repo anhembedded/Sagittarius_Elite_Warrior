@@ -4,12 +4,21 @@ SQLAlchemyMarketDataRepository (BOT-013 SRP refactor): grouping, param mapping,
 entity mapping, and datetime normalization. The DB-backed behavior (upsert,
 chunking, gap detection) stays covered by
 tests/integration/infrastructure/persistence/test_sqlalchemy_repository.py.
+
+`EPIC-018B` moved entity mapping and datetime normalization out to
+`kline_row_mapper.py` as plain functions — `_group_by_symbol` stays a
+repository method (it groups domain entities for the upsert loop, not
+mapping/query-building) so its test still reads through the class.
 """
 
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.kline_row_mapper import (
+    parse_db_datetime,
+    to_market_data_entity,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
@@ -58,7 +67,7 @@ def test_to_market_data_entity_maps_row_and_adds_utc_tzinfo():
     row.taker_buy_base_asset_volume = 5.0
     row.taker_buy_quote_asset_volume = 7.5
 
-    entity = SQLAlchemyMarketDataRepository._to_market_data_entity(row)
+    entity = to_market_data_entity(row)
 
     assert entity.symbol == "ETHUSDT"
     assert entity.open_time == datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
@@ -81,14 +90,14 @@ def test_to_market_data_entity_handles_none_timestamps():
     row.taker_buy_base_asset_volume = 1.0
     row.taker_buy_quote_asset_volume = 1.0
 
-    entity = SQLAlchemyMarketDataRepository._to_market_data_entity(row)
+    entity = to_market_data_entity(row)
 
     assert entity.open_time is None
     assert entity.close_time is None
 
 
 def test_parse_db_datetime_handles_none_datetime_and_iso_string():
-    parse = SQLAlchemyMarketDataRepository._parse_db_datetime
+    parse = parse_db_datetime
 
     assert parse(None) is None
     assert parse("") is None

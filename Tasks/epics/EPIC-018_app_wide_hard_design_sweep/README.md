@@ -1,7 +1,7 @@
 # Epic EPIC-018 — App-Wide Hard Design Sweep
 
-**Trạng thái:** 🟡 Đang làm — 1/6 task xong (`018A`; còn `018B` sửa + 4 task
-rà soát `018C`-`018F`); 3 việc khác đã sửa **trước khi** có task/ADR (xem
+**Trạng thái:** 🟡 Đang làm — 2/6 task xong (`018A`, `018B`; còn 4 task rà
+soát `018C`-`018F`); 3 việc khác đã sửa **trước khi** có task/ADR (xem
 bảng riêng bên dưới, ghi nhận lỗi quy trình). Cập nhật 2026-08-30.
 **Nguồn:** User yêu cầu rà soát tiếp toàn bộ `src/` sau khi `EPIC-016`/
 `EPIC-017`/`EPIC-003G` dọn xong `presentation/ui`. Ratify ở
@@ -46,7 +46,7 @@ nhiều vòng verify độc lập với test thật).
 | ID | Tên | Trạng thái |
 | :--- | :--- | :---: |
 | **[EPIC-018A](completed/EPIC-018A_data_management_timeframe_enum.md)** | Data Management: hoàn thiện chuyển `"1m"` → `TimeFrame` (D2) | ✅ Hoàn thành |
-| **[EPIC-018B](incomplete/EPIC-018B_sqlalchemy_repository_split.md)** | `sqlalchemy_repository.py`: tách mapping/query-building (D5) + sửa docstring gây hiểu lầm (D6) | 🔴 Chưa bắt đầu |
+| **[EPIC-018B](completed/EPIC-018B_sqlalchemy_repository_split.md)** | `sqlalchemy_repository.py`: tách mapping/query-building (D5) + sửa docstring gây hiểu lầm (D6) | ✅ Hoàn thành |
 
 ### Đã sửa trước khi có task/ADR (ghi nhận, không lặp lại quy trình này)
 
