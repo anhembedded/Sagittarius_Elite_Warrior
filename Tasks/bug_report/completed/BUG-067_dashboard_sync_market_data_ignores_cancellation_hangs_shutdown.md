@@ -2,7 +2,7 @@
 
 **Reported date:** 2026-08-30  
 **Severity:** 🔴 **P1**  
-**Status:** 🔴 Open — chỉ ghi nhận hiện tượng và log bằng chứng theo yêu cầu.
+**Status:** ✅ Fixed 2026-08-30 (root-caused / reproduced / regression-tested / verified)
 
 ---
 
@@ -44,23 +44,37 @@ Khi người dùng khởi động Live Stream trên Dev Board (ví dụ cặp `0
     time.sleep(1)
 ```
 
-## 2. Ghi nhận sơ bộ (Initial Observation)
+---
 
-- Trong `src/presentation/ui/screens/dashboard/stream_lifecycle_controller.py`:
-  - Hàm `_run_sync_and_start` nhận `token: CancellationToken`.
-  - Nhưng tại dòng 432:
-    ```python
-    sync_cmd = SyncMarketDataCommand(
-        symbols=symbols,
-        interval=interval,
-        start_time=start_time,
-        end_time=end_time,
-    )
-    ```
-    Hàm `_sync_market_data` hoàn toàn **không truyền `cancellation_requested=token.is_cancelled`** vào command.
-- Khi lệnh dừng hoặc shutdown kích hoạt, `SyncMarketDataCommand` tiếp tục chạy ngầm mà không hay biết cancellation, kẹt trong `time.sleep(1)` của Binance API client.
+## 2. Nguyên nhân gốc rễ (Root Cause)
 
-## 3. Suggested next steps
+1. Trong [`stream_lifecycle_controller.py`](file:///c:/Users/hoang/Documents/Gemini/Sagittarius-Elite-Warrior/src/presentation/ui/screens/dashboard/stream_lifecycle_controller.py#L462):
+   - Hàm `_run_sync_and_start` nhận `token: CancellationToken`.
+   - Nhưng hàm `_sync_market_data` hoàn toàn **không truyền `cancellation_requested=token.is_cancelled`** vào `SyncMarketDataCommand`.
+   - Vì thế khi người dùng tắt stream hoặc tắt app, `token.cancel()` được gọi nhưng `SyncMarketDataCommandHandler` và `PythonBinanceClient` không hề nhận được tín hiệu hủy, tiếp tục lặp vô hạn tải dữ liệu qua network.
+2. `StreamLifecycleController` không có cơ chế `shutdown()` để giải phóng `ExclusiveAction` và kích hoạt hủy token khi ứng dụng tắt.
+3. `PythonBinanceClient` không có phương thức `close()` để ngắt các kết nối socket đang chờ đọc (`requests.Session`) khi engine shutdown.
 
-1. Truyền `cancellation_requested=token.is_cancelled` vào `SyncMarketDataCommand` trong `stream_lifecycle_controller.py`.
-2. Viết unit/regression test xác nhận cancellation token ngắt ngay vòng lặp sync.
+---
+
+## 3. Cách khắc phục (Fix)
+
+1. **Truyền cancellation callback:**
+   - Cập nhật `_sync_market_data` nhận `cancellation_requested: CancellationCheck | None = None` và truyền vào `SyncMarketDataCommand`.
+   - Trong `_run_sync_and_start`: truyền `cancellation_requested=token.is_cancelled`.
+2. **Triệu hồi shutdown trên StreamLifecycleController:**
+   - Bổ sung `StreamLifecycleController.shutdown()` hủy token và giải phóng slot hành động.
+   - Gọi `self._stream_controller.shutdown()` bên trong [`DashboardPresenter.shutdown()`](file:///c:/Users/hoang/Documents/Gemini/Sagittarius-Elite-Warrior/src/presentation/ui/screens/dashboard/dashboard_presenter.py#L734).
+3. **Đóng session mạng khi Engine tắt:**
+   - Thêm phương thức `close()` trên [`PythonBinanceClient`](file:///c:/Users/hoang/Documents/Gemini/Sagittarius-Elite-Warrior/src/infrastructure/binance/client.py) để đóng `requests.Session`.
+   - Gọi `exchange_client.close()` trong [`BinanceBotModule.shutdown()`](file:///c:/Users/hoang/Documents/Gemini/Sagittarius-Elite-Warrior/src/binance_bot_module.py#L315).
+
+---
+
+## 4. Kiểm thử hồi quy (Regression Test)
+
+Đã viết test kiểm tra tự động tại:
+[`tests/unit/presentation/ui/screens/dashboard/test_stream_lifecycle_cancellation.py`](file:///c:/Users/hoang/Documents/Gemini/Sagittarius-Elite-Warrior/tests/unit/presentation/ui/screens/dashboard/test_stream_lifecycle_cancellation.py)
+- `test_stream_lifecycle_controller_passes_cancellation_to_sync_command`: PASSED ✅
+- `test_stream_lifecycle_controller_shutdown_cancels_token_and_actions`: PASSED ✅
+- `test_python_binance_client_close_closes_session`: PASSED ✅

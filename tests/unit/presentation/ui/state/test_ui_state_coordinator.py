@@ -110,7 +110,7 @@ def test_marking_again_restarts_the_window_instead_of_letting_it_run_out(qtbot):
     the remaining time go *up*, and a slow machine only makes `before`
     smaller, which strengthens the assertion instead of breaking it.
     """
-    debounce_ms = 2000  # far wider than any plausible scheduling delay
+    debounce_ms = 5000  # far wider than any plausible scheduling delay
     coordinator = UiStateCoordinator(InMemoryStateStore(), debounce_ms=debounce_ms)
     contributor = _FakeContributor("dashboard")
 

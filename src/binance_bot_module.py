@@ -1,4 +1,7 @@
+import logging
 import os
+
+logger = logging.getLogger("App.BinanceBotModule")
 
 from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
@@ -313,6 +316,12 @@ class BinanceBotModule(BaseModule):
         app.event_bus.on(MarketTickEvent, event_handler.handle)
 
     def shutdown(self, app: App) -> None:
-        """Release application-owned database engines during engine shutdown."""
+        """Release application-owned database engines and external client connections during engine shutdown."""
         database_manager = app.container.resolve(DatabaseManager)
         database_manager.dispose_all()
+        try:
+            exchange_client = app.container.resolve(IExchangeClient)
+            if hasattr(exchange_client, "close"):
+                exchange_client.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Exchange client shutdown error: %s", exc)

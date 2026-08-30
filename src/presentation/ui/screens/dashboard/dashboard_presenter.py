@@ -738,6 +738,8 @@ class DashboardPresenter(BasePresenter):
         self._shutdown_requested = True
         if self._cancellation_token is not None:
             self._cancellation_token.cancel()
+        if hasattr(self, "_stream_controller") and self._stream_controller is not None:
+            self._stream_controller.shutdown()
         if hasattr(self, "_autostart") and self._autostart is not None:
             self._autostart.shutdown()
         if (

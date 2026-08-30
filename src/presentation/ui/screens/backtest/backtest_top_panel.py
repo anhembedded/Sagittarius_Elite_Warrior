@@ -60,12 +60,10 @@ if TYPE_CHECKING:
 #: has no natural size of its own, unlike the `AppProgressBar` it replaces.
 _PROGRESS_BANNER_HEIGHT = 32
 
-#: `StatCardRow.qml`'s `implicitHeight` measured 44px for a realistic
-#: 4-card `primaryStatCards` row (title line + value/badge row, each with a
-#: real badge string) — checked directly with `QQuickWidget` in a throwaway
-#: script, not guessed from the `.qml`'s pixel sizes by hand. 52 leaves a
-#: small margin rather than clipping at the exact boundary.
-_STAT_CARD_ROW_HEIGHT = 52
+#: `StatCardRow.qml` cards have container styling (background, border,
+#: rounded corners, and padding) with title, value, and subtitle/badge.
+#: 82px accommodates all lines comfortably without vertical clipping.
+_STAT_CARD_ROW_HEIGHT = 82
 
 
 def _clamp_percent(value: float) -> float:
@@ -146,6 +144,8 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
 
         self._stat_cards_row = self._build_stat_cards_row()
         card_layout.addWidget(self._stat_cards_row)
+        self._result_warning_label = self._build_result_warning_label()
+        card_layout.addWidget(self._result_warning_label)
         self._result_box = self._build_result_box()
         card_layout.addWidget(self._result_box)
 
@@ -164,6 +164,15 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         scroll.setFixedHeight(52)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setStyleSheet(
+            f"QScrollArea {{ background: transparent; border: none; }}"
+            f"QScrollArea > QWidget > QWidget {{ background: transparent; }}"
+            f"QScrollBar:horizontal {{ height: 4px; background: transparent; border: none; margin: 0; }}"
+            f"QScrollBar::handle:horizontal {{ background: {Palette.BORDER}; border-radius: 2px; }}"
+            f"QScrollBar::handle:horizontal:hover {{ background: {Palette.STATE_NAV_BORDER}; }}"
+            f"QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; height: 0px; background: none; border: none; }}"
+        )
+        scroll.viewport().setStyleSheet("background: transparent;")
 
         row_widget = QWidget()
         row = QHBoxLayout(row_widget)
@@ -200,7 +209,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         row.addWidget(self._btn_range)
 
         self._btn_timezone = self._icon_text_button(
-            "btnBacktestTimezone", "clock", Palette.ACCENT
+            "btnBacktestTimezone", "clock", Palette.ACCENT, min_width=130
         )
         self._btn_timezone.setToolTip(
             "Chỉ đổi giờ hiển thị. Dữ liệu và Backtest luôn tính theo UTC."
@@ -209,14 +218,14 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         row.addWidget(self._btn_timezone)
 
         self._btn_capital = self._icon_text_button(
-            "btnBacktestCapital", "dollar-sign", Palette.SUCCESS
+            "btnBacktestCapital", "dollar-sign", Palette.SUCCESS, min_width=110
         )
         self._btn_capital.clicked.connect(
             lambda: self._vm.requestOpenCapital(*self._popup_pos(self._btn_capital))
         )
         row.addWidget(self._btn_capital)
 
-        self._btn_order_exec = _pill_button("btnBacktestOrderExecution")
+        self._btn_order_exec = _pill_button("btnBacktestOrderExecution", min_width=95)
         self._btn_order_exec.setStyleSheet(self._field_button_style())
         self._btn_order_exec.setLayout(
             self._icon_label_row("briefcase", Palette.ACCENT, "Tập lệnh")
@@ -228,7 +237,9 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         )
         row.addWidget(self._btn_order_exec)
 
-        self._btn_indicator_picker = _pill_button("btnBacktestIndicatorPicker")
+        self._btn_indicator_picker = _pill_button(
+            "btnBacktestIndicatorPicker", min_width=90
+        )
         self._btn_indicator_picker.setStyleSheet(self._field_button_style())
         self._btn_indicator_picker.setLayout(
             self._icon_label_row("sliders", Palette.ACCENT, "Chỉ báo")
@@ -242,7 +253,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
 
         row.addStretch(1)
 
-        self._btn_bot_params = _pill_button("btnBacktestBotParams")
+        self._btn_bot_params = _pill_button("btnBacktestBotParams", min_width=175)
         self._btn_bot_params.setStyleSheet(
             f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; "
             f"border: 1px solid {Palette.STATE_NAV_BORDER}; "
@@ -471,44 +482,41 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         title_row.addWidget(self._btn_limitations)
         row.addLayout(title_row)
 
-        self._result_warning_label = QLabel()
-        self._result_warning_label.setObjectName("lblResultWarning")
-        self._result_warning_label.setStyleSheet(
-            f"color: {Palette.DANGER}; font-size: 11px; font-weight: bold; "
-            f"background: transparent; border: none;"
-        )
-        self._result_warning_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        row.addWidget(self._result_warning_label, 1)
+        row.addStretch(1)
 
-        self._btn_expand_metrics = QPushButton()
+        self._btn_expand_metrics = QPushButton("Mở rộng")
         self._btn_expand_metrics.setObjectName("lnkExpandMetrics")
-        self._btn_expand_metrics.setFlat(True)
         self._btn_expand_metrics.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_expand_metrics.setFixedHeight(26)
         self._btn_expand_metrics.setStyleSheet(
-            "QPushButton { background: transparent; border: none; }"
+            f"QPushButton {{"
+            f"  background-color: {Palette.BG_CARD};"
+            f"  border: 1px solid {Palette.BORDER};"
+            f"  border-radius: 6px;"
+            f"  padding: 2px 14px;"
+            f"  color: {Palette.TEXT_PRIMARY};"
+            f"  font-size: 11px;"
+            f"  font-weight: 500;"
+            f"}}"
+            f"QPushButton:hover {{"
+            f"  background-color: {Palette.STATE_HOVER_BG};"
+            f"  border-color: {Palette.STATE_NAV_BORDER};"
+            f"}}"
         )
-        expand_layout = QHBoxLayout()
-        expand_layout.setContentsMargins(0, 0, 0, 0)
-        expand_layout.setSpacing(4)
-        expand_text = QLabel("Mở rộng chỉ số chi tiết")
-        expand_text.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 11px; font-weight: bold; "
-            f"background: transparent; border: none;"
-        )
-        expand_layout.addWidget(expand_text)
-        chevron = QLabel()
-        chevron.setPixmap(
-            get_icon_loader()
-            .get_icon("chevron-down", Palette.ACCENT, 12)
-            .pixmap(12, 12)
-        )
-        chevron.setStyleSheet("background: transparent; border: none;")
-        expand_layout.addWidget(chevron)
-        self._btn_expand_metrics.setLayout(expand_layout)
         self._btn_expand_metrics.clicked.connect(self._vm.requestOpenExtendedMetrics)
         row.addWidget(self._btn_expand_metrics)
 
         return row_widget
+
+    def _build_result_warning_label(self) -> QLabel:
+        label = QLabel()
+        label.setObjectName("lblResultWarning")
+        label.setStyleSheet(
+            f"color: {Palette.WARNING}; font-size: 11px; font-weight: normal; "
+            f"background: transparent; border: none; padding-top: 2px;"
+        )
+        label.setWordWrap(True)
+        return label
 
     def _build_stat_cards_row(self) -> StatCardRowWidget:
         # EPIC-015 Phase 4: `StatCardRow.qml` (a `Repeater` of `StatCard.qml`
@@ -709,7 +717,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._metrics_header.setVisible(has_cards)
         text = self._vm.resultWarningText
         self._result_warning_label.setText(text)
-        self._result_warning_label.setVisible(bool(text))
+        self._result_warning_label.setVisible(has_cards and bool(text))
 
     def _sync_result_box(self) -> None:
         vm = self._vm

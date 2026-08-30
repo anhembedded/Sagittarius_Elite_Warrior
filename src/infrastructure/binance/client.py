@@ -342,3 +342,15 @@ class PythonBinanceClient(IExchangeClient):
         }
         tradeable.discard("")
         return sorted(tradeable)
+
+    def close(self) -> None:
+        """Close the underlying requests.Session to unblock any pending network read.
+
+        Helps prevent BUG-052/BUG-067 thread pool worker hangs during application shutdown.
+        """
+        session = getattr(self.client, "session", None)
+        if session is not None:
+            try:
+                session.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Error closing binance requests session: %s", exc)

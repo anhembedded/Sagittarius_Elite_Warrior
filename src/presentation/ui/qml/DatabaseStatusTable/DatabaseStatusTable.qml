@@ -25,7 +25,7 @@ ColumnLayout {
     PanelHeader {
         Layout.fillWidth: true
         title: "Database Status"
-        badgeText: vm.rowCount + " shard" + (vm.rowCount === 1 ? "" : "s")
+        badgeText: (vm ? vm.rowCount : 0) + " shard" + ((vm && vm.rowCount === 1) ? "" : "s")
 
         TextField {
             id: searchField
@@ -36,7 +36,7 @@ ColumnLayout {
             placeholderText: "Tìm symbol / khung thời gian…"
             color: Theme.textPrimary
             selectByMouse: true
-            onTextEdited: vm.setSearchText(text)
+            onTextEdited: if (vm) vm.setSearchText(text)
             background: Rectangle {
                 color: Theme.bg
                 border.width: 1
@@ -111,7 +111,7 @@ ColumnLayout {
         Layout.fillHeight: true
         clip: true
         spacing: 2
-        model: vm.rowsModel
+        model: vm ? vm.rowsModel : null
         delegate: DatabaseStatusRow {
             width: rowsView.width
             symbolWidth: root.symbolColumnWidth
@@ -131,7 +131,7 @@ ColumnLayout {
         Layout.fillWidth: true
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
-        visible: vm.rowCount === 0
+        visible: vm ? vm.rowCount === 0 : false
         text: "Storage Vault trống. Hãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu."
         textFormat: Text.PlainText
         color: Theme.muted

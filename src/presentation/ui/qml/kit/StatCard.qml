@@ -2,26 +2,17 @@ import QtQuick
 import QtQuick.Layouts
 
 // Shared stat/KPI card — kicker, one headline value, optional unit and
-// badge, one caption line. Design spec 2026-08-30: "Kicker, value at 22px
-// tabular, unit, one line of context. Colour only on the number, and only
-// for P&L. Was: value sizes 20-26px, colour applied to labels too."
-//
-// A QML port of `kit/surfaces/stat_card.py`'s `StatCard`, not a new shape —
-// that widget already has title/value/suffix/badge/caption slots and
-// already scopes tone colour to just the value label (`set_value(value,
-// tone=...)`), so the spec's complaint ("colour applied to labels too")
-// was never true of this widget; it is true of whatever the spec's author
-// was comparing it against. What the port actually fixes: `STAT_VALUE`'s
-// font size is one fixed role-level constant already, but this makes 22px
-// (not a value the QtWidgets role happens to use) the one QML call sites
-// share, and extends tone-scoping to the caption line too — the mockup's
-// own "TỔNG LÃI/LỖ" example colours both "-8,193.54 USD" and "-81.94%"
-// together, since together they express one P&L figure, while its two
-// non-P&L cards leave both lines untouched.
-ColumnLayout {
+// badge, one caption line. Design spec: card background, border, radius,
+// kicker at top, value with unit, and subtitle/badge on the third line.
+Rectangle {
     id: root
     objectName: "statCard"
-    spacing: 6
+    color: (typeof Theme !== "undefined" && Theme && Theme.bgCard) ? Theme.bgCard : "transparent"
+    border.width: 1
+    border.color: (typeof Theme !== "undefined" && Theme && Theme.border) ? Theme.border : "transparent"
+    radius: (typeof Theme !== "undefined" && Theme && Theme.radiusSm) ? Theme.radiusSm : 6
+    implicitHeight: 82
+    implicitWidth: 160
 
     property string title: ""
     property string value: ""
@@ -29,7 +20,7 @@ ColumnLayout {
     property string caption: ""
     property string badgeText: ""
     //: "neutral" | "positive" | "negative" — colours `value` and, only
-    //: when not "neutral", `caption` too. Never `title`/`suffix`/the badge.
+    //: when not "neutral", `caption` too. Never `title`/`suffix`.
     property string tone: "neutral"
     //: "neutral" | "positive" | "negative", independent of `tone` — a
     //: badge can carry its own semantic (e.g. a duration warning) unrelated
@@ -47,67 +38,86 @@ ColumnLayout {
         return Theme.textPrimary;
     }
 
-    Text {
-        objectName: "statCardTitle"
-        text: root.title.toUpperCase()
-        textFormat: Text.PlainText
-        color: Theme.muted
-        font.pixelSize: 10
-        font.bold: true
-        font.letterSpacing: 0.6
-    }
-
-    RowLayout {
-        spacing: 6
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 10
+        spacing: 3
 
         Text {
-            objectName: "statCardValue"
-            text: root.value
-            textFormat: Text.PlainText
-            color: root._valueColor
-            font.pixelSize: 22
-            font.bold: true
-        }
-
-        Text {
-            objectName: "statCardSuffix"
-            visible: root.suffix !== ""
-            text: root.suffix
+            objectName: "statCardTitle"
+            Layout.fillWidth: true
+            text: root.title.toUpperCase()
             textFormat: Text.PlainText
             color: Theme.muted
-            font.pixelSize: 11
+            font.pixelSize: 10
+            font.bold: true
+            font.letterSpacing: 0.6
+            elide: Text.ElideRight
         }
 
-        Rectangle {
-            objectName: "statCardBadge"
-            visible: root.badgeText !== ""
-            radius: 4
-            color: "transparent"
-            border.width: 1
-            border.color: root._badgeColor
-            implicitWidth: badgeLabel.implicitWidth + 12
-            implicitHeight: 18
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
 
             Text {
-                id: badgeLabel
-                objectName: "statCardBadgeText"
-                anchors.centerIn: parent
-                text: root.badgeText
+                objectName: "statCardValue"
+                text: root.value
                 textFormat: Text.PlainText
-                color: root._badgeColor
-                font.pixelSize: 9
+                color: root._valueColor
+                font.pixelSize: 20
+                font.bold: true
             }
+
+            Text {
+                objectName: "statCardSuffix"
+                visible: root.suffix !== ""
+                text: root.suffix
+                textFormat: Text.PlainText
+                color: Theme.muted
+                font.pixelSize: 11
+            }
+
+            Item { Layout.fillWidth: true }
         }
 
-        Item { Layout.fillWidth: true }
-    }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            visible: root.caption !== "" || root.badgeText !== ""
 
-    Text {
-        objectName: "statCardCaption"
-        visible: root.caption !== ""
-        text: root.caption
-        textFormat: Text.PlainText
-        color: root.tone === "neutral" ? Theme.muted : root._valueColor
-        font.pixelSize: 11
+            Rectangle {
+                id: badgeContainer
+                objectName: "statCardBadge"
+                visible: root.badgeText !== ""
+                color: "transparent"
+                radius: 4
+                border.width: 0
+                border.color: root._badgeColor
+                implicitWidth: badgeLabel.implicitWidth
+                implicitHeight: badgeLabel.implicitHeight
+
+                Text {
+                    id: badgeLabel
+                    objectName: "statCardBadgeText"
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.badgeText
+                    textFormat: Text.PlainText
+                    color: root._badgeColor
+                    font.pixelSize: 11
+                }
+            }
+
+            Text {
+                objectName: "statCardCaption"
+                visible: root.caption !== ""
+                text: root.caption
+                textFormat: Text.PlainText
+                color: root.tone === "neutral" ? Theme.muted : root._valueColor
+                font.pixelSize: 11
+                elide: Text.ElideRight
+            }
+
+            Item { Layout.fillWidth: true }
+        }
     }
 }
