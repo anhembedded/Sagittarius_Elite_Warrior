@@ -1,7 +1,7 @@
 # EPIC-018G — Rà soát tích hợp liên module
 
 **Thuộc Epic:** [`EPIC-018`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu (rà soát xong, việc sửa chưa làm)
+**Trạng thái:** ✅ Hoàn thành — 2026-08-30
 **Phụ thuộc:** Không.
 **Nguồn:** User yêu cầu 2026-08-30 ("có task check integration giữa các
 module"), thêm vào sau 4 audit module-scoped `018C`-`018F`. Ratify ở
@@ -60,3 +60,21 @@ presentation`, và 2 composition root (`src/binance_bot_module.py`/
 - Test `tests/.../start_live_stream*`, `tests/.../binance_websocket_service*`
   xanh không đổi assertion hành vi (chỉ đổi kiểu tham số).
 - Không có finding mới nào khác cần xử lý ở mục 1-4 (đã xác nhận sạch).
+
+## Kết quả
+
+- `i_live_stream_service.py`: `start_stream(symbols, interval_str: str)` →
+  `start_stream(symbols, interval: TimeFrame)`.
+- `start_live_stream/handler.py`: bỏ `.value` khi gọi
+  `self._stream_service.start_stream(request.symbols, request.interval)`.
+- `binance_websocket_service.py`: `start_stream()` nhận `interval: TimeFrame`
+  thẳng, xoá dòng `TimeFrame(interval_str)` dựng lại bên trong — bỏ đúng
+  round-trip VO→str→VO đã nêu trong finding.
+- Test cập nhật: `test_binance_websocket_service.py` — 2 lời gọi
+  `start_stream(["BTCUSDT"], "1m")` đổi sang
+  `start_stream(["BTCUSDT"], TimeFrame.ONE_MINUTE)`.
+- `105 test xanh` (`test_binance_websocket_service.py` +
+  `tests/unit/application/use_cases/`), thêm 9 test integration
+  (`test_dashboard_live_stream.py`, `test_dashboard_integration.py`,
+  `test_autostart_controller.py`) xanh không đổi assertion, 0 fail. `mypy`
+  sạch trên cả 3 file sửa.

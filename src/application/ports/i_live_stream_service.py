@@ -11,6 +11,8 @@ construction and names the missing method.
 
 from abc import ABC, abstractmethod
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
 
 class ILiveStreamService(ABC):
     """
@@ -18,7 +20,7 @@ class ILiveStreamService(ABC):
     """
 
     @abstractmethod
-    def start_stream(self, symbols: list[str], interval_str: str) -> bool:
+    def start_stream(self, symbols: list[str], interval: TimeFrame) -> bool:
         """
         @brief Starts the live data stream.
         @return True if started successfully, False if already running or failed.

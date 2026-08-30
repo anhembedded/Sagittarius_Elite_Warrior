@@ -1,8 +1,6 @@
 # Epic EPIC-018 — App-Wide Hard Design Sweep
 
-**Trạng thái:** 🟡 Đang làm — 6/7 task xong (`018A`-`018F`); task tích
-hợp `018G` đã rà soát xong (finding đã verify, ghi ở ADR round 2),
-**việc sửa chưa làm**; 3 việc khác
+**Trạng thái:** ✅ Hoàn thành cả 7/7 task con (`018A`-`018G`); 3 việc khác
 đã sửa **trước khi** có task/ADR (xem bảng riêng bên dưới, ghi nhận lỗi
 quy trình). Cập nhật 2026-08-30.
 **Nguồn:** User yêu cầu rà soát tiếp toàn bộ `src/` sau khi `EPIC-016`/
@@ -41,7 +39,7 @@ trình lặp lại được, không phải 1 lần làm rồi thôi.
 | **[EPIC-018D](completed/EPIC-018D_ra_soat_application.md)** | `src/application/` (use_cases, services, ports, events, event_handlers) | ✅ Hoàn thành |
 | **[EPIC-018E](completed/EPIC-018E_ra_soat_infrastructure.md)** | `src/infrastructure/` (binance, persistence, engine_adapters) | ✅ Hoàn thành |
 | **[EPIC-018F](completed/EPIC-018F_ra_soat_presentation_cli.md)** | `src/presentation/cli/` + `src/config/` + composition root (`src/binance_bot_module.py`, `src/main.py`) | ✅ Hoàn thành |
-| **[EPIC-018G](incomplete/EPIC-018G_tich_hop_lien_module.md)** | Tích hợp liên module — layer-dependency, Port/Adapter completeness, composition-root drift, `TimeFrame` qua ranh giới Port | 🟡 Rà soát xong, 1 finding — **chưa sửa** |
+| **[EPIC-018G](completed/EPIC-018G_tich_hop_lien_module.md)** | Tích hợp liên module — layer-dependency, Port/Adapter completeness, composition-root drift, `TimeFrame` qua ranh giới Port | ✅ Hoàn thành |
 
 `src/presentation/ui/` **không** cần task rà soát mới ở epic này — đã rà
 soát sâu và fix xong ở `EPIC-016`/`EPIC-017`/`EPIC-003G` (3 epic riêng,

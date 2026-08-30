@@ -36,7 +36,7 @@ class BinanceWebsocketService(ILiveStreamService):
 
     # -- ILiveStreamService ----------------------------------------------------
 
-    def start_stream(self, symbols: list[str], interval_str: str) -> bool:
+    def start_stream(self, symbols: list[str], interval: TimeFrame) -> bool:
         """
         @brief Spawns the WebSocket stream as a background task via ITaskManager.
         @return True if started, False if already running.
@@ -45,7 +45,6 @@ class BinanceWebsocketService(ILiveStreamService):
             logger.warning("Stream is already running. Stop it first.")
             return False
 
-        interval = TimeFrame(interval_str)
         self._token = CancellationToken()
 
         logger.info(
