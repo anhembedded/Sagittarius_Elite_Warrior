@@ -81,6 +81,27 @@ def find_qml_item(root_item, object_name: str):
     return None
 
 
+def find_all_named(root_item, prefix: str):
+    """
+    @brief Finds every descendant of `root_item` whose `objectName` starts
+    with `prefix`, searching the visual tree — for a `Repeater`'s rows, which
+    all share one prefix (e.g. `selectItem_0`, `selectItem_1`, ...).
+    @returns A list of matching items, in tree order, possibly empty.
+
+    Always re-call this after any signal that can trigger a `Repeater` model
+    rebuild (`rowsChanged`/`optionsChanged`/`cardsChanged`) rather than
+    reusing items from a previous call — a `QVariantList` model rebuilds its
+    delegates wholesale on every change (measured: the Python id of a
+    `CheckBox` before and after a `rowsChanged` differ), so an item held
+    across a refresh is a reference to a destroyed `QQuickItem`.
+    """
+    return [
+        child
+        for child in walk_qml_items(root_item)
+        if child.objectName() and child.objectName().startswith(prefix)
+    ]
+
+
 @pytest.fixture
 def qml_item():
     """

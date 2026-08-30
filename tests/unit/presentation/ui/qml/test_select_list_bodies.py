@@ -12,10 +12,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml import QmlOverlay
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.SelectList.select_list_vm import (
     SelectListVM,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_all_named,
-    find_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_all_named, find_qml_item
 
 _QML = (
     Path(__file__).resolve().parents[5]
@@ -63,7 +60,7 @@ def test_clicking_a_selectable_row_emits_its_id(qapp):
 
     chosen: list[str] = []
     vm.chosen.connect(chosen.append)
-    item = find_named(dialog.root_object, "selectItem_a")
+    item = find_qml_item(dialog.root_object, "selectItem_a")
     centre = item.mapToScene(item.boundingRect().center())
     QTest.mouseClick(
         dialog._quick,
@@ -86,8 +83,8 @@ def test_a_readonly_list_renders_bullets_not_cards(qapp):
     dialog = _dialog(vm)
     qapp.processEvents()
 
-    bullet = find_named(dialog.root_object, "bulletItem_0")
-    card = find_named(dialog.root_object, "selectItem_0")
+    bullet = find_qml_item(dialog.root_object, "bulletItem_0")
+    card = find_qml_item(dialog.root_object, "selectItem_0")
     assert bullet.property("visible") is True
     assert card.property("visible") is False
     dialog.close()

@@ -21,10 +21,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.CheckboxList.checkbox_lis
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.StatGrid.stat_grid_vm import (
     StatGridVM,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_all_named,
-    find_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_all_named, find_qml_item
 
 _QML_ROOT = Path(__file__).resolve().parents[5] / "src" / "presentation" / "ui" / "qml"
 _STAT_GRID_QML = _QML_ROOT / "StatGrid" / "StatGrid.qml"
@@ -86,8 +83,8 @@ def test_a_checkbox_is_rendered_per_row_with_its_state(qapp):
     dialog = _dialog(_CHECKBOX_LIST_QML, vm)
     qapp.processEvents()
 
-    a = find_named(dialog.root_object, "chk_a")
-    b = find_named(dialog.root_object, "chk_b")
+    a = find_qml_item(dialog.root_object, "chk_a")
+    b = find_qml_item(dialog.root_object, "chk_b")
     assert a.property("checked") is True
     assert b.property("enabled") is False
     dialog.close()
@@ -101,7 +98,7 @@ def test_toggling_a_row_emits_its_key_and_new_state(qapp):
 
     seen: list[tuple[str, bool]] = []
     vm.toggled.connect(lambda key, checked: seen.append((key, checked)))
-    box = find_named(dialog.root_object, "chk_a")
+    box = find_qml_item(dialog.root_object, "chk_a")
     box.setProperty("checked", True)
     QMetaObject.invokeMethod(box, "toggled", Qt.ConnectionType.DirectConnection)
     qapp.processEvents()
@@ -118,7 +115,7 @@ def test_a_locked_row_cannot_be_toggled_by_a_real_click(qapp):
     dialog = _dialog(_CHECKBOX_LIST_QML, vm)
     qapp.processEvents()
 
-    box = find_named(dialog.root_object, "chk_a")
+    box = find_qml_item(dialog.root_object, "chk_a")
     assert box.property("enabled") is False
     dialog.close()
 
@@ -129,7 +126,7 @@ def test_reopening_re_renders_the_current_rows(qapp):
     vm.refresh()
     dialog = _dialog(_CHECKBOX_LIST_QML, vm)
     qapp.processEvents()
-    assert find_named(dialog.root_object, "chk_a").property("checked") is False
+    assert find_qml_item(dialog.root_object, "chk_a").property("checked") is False
 
     live_rows[0]["checked"] = True
     vm.refresh()
@@ -137,5 +134,5 @@ def test_reopening_re_renders_the_current_rows(qapp):
 
     # A fresh lookup, by design — the Repeater rebuilds delegates wholesale
     # on every model change (measured in EPIC-015 §4c finding 4).
-    assert find_named(dialog.root_object, "chk_a").property("checked") is True
+    assert find_qml_item(dialog.root_object, "chk_a").property("checked") is True
     dialog.close()

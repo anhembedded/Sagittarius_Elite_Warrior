@@ -12,10 +12,7 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.market_type import Marke
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.market_picker import (
     MarketPickerDialog,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_all_named,
-    find_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_all_named, find_qml_item
 
 
 class _Source:
@@ -62,7 +59,7 @@ def test_choosing_emits_the_market_id_and_closes(qapp):
     chosen: list[str] = []
     dialog.chosen.connect(chosen.append)
 
-    item = find_named(dialog.root_object, "selectItem_futures_coin_m")
+    item = find_qml_item(dialog.root_object, "selectItem_futures_coin_m")
     centre = item.mapToScene(item.boundingRect().center())
     QTest.mouseClick(
         dialog._quick,

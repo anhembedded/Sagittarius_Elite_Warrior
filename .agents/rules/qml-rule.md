@@ -309,10 +309,13 @@ giữ tham chiếu delegate qua một lần refresh** — tra cứu lại sau m�
 Đã có helper đúng từ trước `EPIC-015` — `tests/conftest.py`'s `qml_item`/`find_qml_item` (đi
 bằng `childItems()`, ghi chú gốc: *"verified empirically while building the QML sidebar"*, tức
 là phát hiện này **đã có từ thời Sidebar QML**, không phải mới). **Dùng fixture đó**, đừng viết
-lại. *(Ghi nhận nợ kỹ thuật: `EPIC-015` tự viết
-`tests/unit/presentation/ui/qml/_qml_test_support.py` làm y hệt việc này vì không tìm trước —
-cần gộp lại, xem việc còn treo cuối file.)* `findChild` vẫn đúng cho item khai báo tĩnh, và cho
-ranh giới `Popup` (tách khỏi `childItems()` theo chiều ngược lại) — không đổi phần đó.
+lại. *(Nợ kỹ thuật đã dọn 2026-08-30: `EPIC-015` từng tự viết
+`tests/unit/presentation/ui/qml/_qml_test_support.py` làm y hệt việc này vì không tìm trước.
+File đó đã bị xoá — `find_qml_item` là tên canonical duy nhất, và `find_all_named` (prefix match
+cho hàng của `Repeater`) giờ sống cùng nó trong `tests/conftest.py`; mọi call site đã chuyển
+sang import từ đó. Xem việc còn treo cuối file, mục đã đánh dấu DONE.)* `findChild` vẫn đúng cho
+item khai báo tĩnh, và cho ranh giới `Popup` (tách khỏi `childItems()` theo chiều ngược lại) —
+không đổi phần đó.
 
 ### 4.4 Chữ ký signal QtQuick Controls khác widget tương đương
 
@@ -392,10 +395,16 @@ Unchanged by `EPIC-015` — still QtWidgets-first per screen, still enforced:
 
 ## 9. Việc còn treo — ghi lại để không quên, không phải để làm ngay
 
-- `tests/unit/presentation/ui/qml/_qml_test_support.py` (`EPIC-015`) duplicates
+- ~~`tests/unit/presentation/ui/qml/_qml_test_support.py` (`EPIC-015`) duplicates
   `tests/conftest.py`'s `qml_item`/`find_qml_item` almost exactly — written without searching
   for existing infra first. Needs consolidating onto the one canonical helper; not done here
-  because this pass is rule-only (user: "ko code").
+  because this pass is rule-only (user: "ko code").~~ **DONE (2026-08-30).** File deleted.
+  `find_qml_item` is the one canonical name (kept — it also backs the `qml_item` fixture's many
+  existing callers); `find_all_named` (prefix match for a `Repeater`'s rows) moved into
+  `tests/conftest.py` alongside it. `named_descendants` had no direct consumer that needed
+  "named only, no prefix" — every real call site was already prefix-filtering, so it was fully
+  absorbed into `find_all_named` rather than getting a second name in `conftest.py`. All 11
+  consumer files now import both from `tests/conftest.py`.
 - `QmlOverlay.root_object`'s docstring ("for tests to `findChild` into") is incomplete post-§4.3
   finding — true for statically-declared items, not for `Repeater` delegates. Small doc fix,
   same "not this pass" reason.

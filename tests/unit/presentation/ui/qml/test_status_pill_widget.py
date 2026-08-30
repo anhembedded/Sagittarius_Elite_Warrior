@@ -27,9 +27,7 @@ from PySide6.QtQuickWidgets import QQuickWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.status_pill_widget import (
     StatusPillWidget,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 
 def _widget(qapp) -> StatusPillWidget:
@@ -56,7 +54,7 @@ def test_set_text_reaches_the_qml_root_and_label(qapp):
 
     root = widget.root_object
     assert root.property("text") == "WS: LIVE"
-    label = find_named(root, "statusPillLabel")
+    label = find_qml_item(root, "statusPillLabel")
     assert label.property("text") == "WS: LIVE"
     widget.close()
 
@@ -78,6 +76,6 @@ def test_set_show_dot_reaches_the_dot_visibility(qapp):
     widget.set_show_dot(False)
     qapp.processEvents()
 
-    dot = find_named(widget.root_object, "statusPillDot")
+    dot = find_qml_item(widget.root_object, "statusPillDot")
     assert dot.property("visible") is False
     widget.close()

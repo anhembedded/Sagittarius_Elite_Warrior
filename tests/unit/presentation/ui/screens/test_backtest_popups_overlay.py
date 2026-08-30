@@ -39,10 +39,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extend
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     StatCardData,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_all_named,
-    named_descendants,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -173,11 +170,7 @@ def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
     assert dialog.isVisible() is True
     # EPIC-015 §4c: body is SelectList.qml with selectable=False, so each
     # limitation is a "bulletItem_" delegate rather than a QLabel.
-    rows = [
-        item
-        for item in named_descendants(dialog.root_object)
-        if item.objectName().startswith("bulletItem_")
-    ]
+    rows = find_all_named(dialog.root_object, "bulletItem_")
     assert len(rows) == 2
 
 
@@ -262,11 +255,7 @@ def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
     assert dialog.objectName() == "strategyPickerModal"
     assert dialog.isVisible() is True
     # EPIC-015 §4c: body is the shared SelectList.qml, selectable=True.
-    rows = [
-        item
-        for item in named_descendants(dialog.root_object)
-        if item.objectName().startswith("selectItem_")
-    ]
+    rows = find_all_named(dialog.root_object, "selectItem_")
     assert len(rows) == 1
 
 
@@ -309,9 +298,5 @@ def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_scr
     assert dialog is not None
     assert dialog.objectName() == "backtestTimeRangePickerDialog"
     assert dialog.isVisible() is True
-    rows = [
-        item
-        for item in named_descendants(dialog.root_object)
-        if item.objectName().startswith("timeRangePreset_")
-    ]
+    rows = find_all_named(dialog.root_object, "timeRangePreset_")
     assert len(rows) == len(presenter._view_model.timeRangePresetOptions) + 1

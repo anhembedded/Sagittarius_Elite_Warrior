@@ -28,10 +28,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets.kline_inspector_dialog import (
     KlineInspectorDialogWidget,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_all_named,
-    find_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_all_named, find_qml_item
 
 _BASE = datetime(2026, 7, 25, 13, 46, tzinfo=UTC)
 
@@ -83,7 +80,7 @@ def test_the_subtitle_reads_the_real_symbol_interval_and_count(qapp, dialog):
     dialog.open_dialog()
     qapp.processEvents()
 
-    subtitle = find_named(dialog.root_object, "lblKlineInspectorSubtitle")
+    subtitle = find_qml_item(dialog.root_object, "lblKlineInspectorSubtitle")
     assert subtitle is not None
     assert subtitle.property("text") == "BTCUSDT (1m)  •  2 nến"
 
@@ -98,7 +95,7 @@ def test_a_later_inspection_replaces_the_table_contents(qapp, dialog, view_model
 
     rows = find_all_named(dialog.root_object, "klineClose_")
     assert len(rows) == 1
-    subtitle = find_named(dialog.root_object, "lblKlineInspectorSubtitle")
+    subtitle = find_qml_item(dialog.root_object, "lblKlineInspectorSubtitle")
     assert subtitle.property("text") == "ETHUSDT (5m)  •  1 nến"
 
 
@@ -129,7 +126,7 @@ def test_an_empty_shard_shows_the_empty_label(qapp, view_model):
     dialog.open_dialog()
     qapp.processEvents()
 
-    empty_label = find_named(dialog.root_object, "lblKlineInspectorEmpty")
+    empty_label = find_qml_item(dialog.root_object, "lblKlineInspectorEmpty")
     assert empty_label is not None
     assert empty_label.property("visible") is True
     dialog.close()

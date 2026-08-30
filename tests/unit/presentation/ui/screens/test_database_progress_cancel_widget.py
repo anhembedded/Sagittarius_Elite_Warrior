@@ -2,7 +2,7 @@
 replaced by `ProgressBanner.qml`, embedded inline via `ProgressBannerWidget`
 (`view._progress_banner`) — there is no `view._btn_cancel_sync` `QPushButton`
 any more; the Cancel control is now a QML `Button` reached through
-`view._progress_banner.root_object` (see `_qml_test_support.find_named`,
+`view._progress_banner.root_object` (see `conftest.find_qml_item`,
 same helper `test_select_list_bodies.py` and friends already use).
 
 Renamed from `test_database_progress_cancel_qml.py` at `EPIC-005E` when this
@@ -25,9 +25,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -71,7 +69,9 @@ def database_screen(qapp, request):
 
 
 def _cancel_button(view: DataManagementView):
-    return find_named(view._progress_banner.root_object, "progressBannerCancelButton")
+    return find_qml_item(
+        view._progress_banner.root_object, "progressBannerCancelButton"
+    )
 
 
 def _click(view: DataManagementView, qapp) -> None:
@@ -105,7 +105,7 @@ def test_database_cancel_button_visibility_and_interaction(qapp, database_screen
     assert view._progress_container.isVisible() is True
     cancel_btn = _cancel_button(view)
     assert cancel_btn.property("enabled") is True
-    label = find_named(cancel_btn, "buttonLabel")
+    label = find_qml_item(cancel_btn, "buttonLabel")
     assert "Hủy" in label.property("text")
 
     # 3. Clicking cancel emits cancelRequested and transitions to CANCELLING
@@ -126,7 +126,7 @@ def test_database_cancel_button_visibility_and_interaction(qapp, database_screen
     qapp.processEvents()
     cancel_btn = _cancel_button(view)
     assert cancel_btn.property("enabled") is False
-    label = find_named(cancel_btn, "buttonLabel")
+    label = find_qml_item(cancel_btn, "buttonLabel")
     assert label.property("text") == "Đang hủy..."
 
 

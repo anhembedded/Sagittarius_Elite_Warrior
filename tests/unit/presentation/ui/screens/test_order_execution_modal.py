@@ -31,7 +31,7 @@ than cosmetic:
    `dialog.root_object`'s scene graph, not of the `QDialog` itself — a plain
    `findChild` on the dialog silently finds nothing.
 2. `Repeater`-created items are unreachable by `findChild` even through
-   `root_object` (see `_qml_test_support`'s docstring), and they are
+   `root_object` (see `conftest.find_qml_item`'s docstring), and they are
    destroyed and recreated wholesale on every model rebuild — so every
    checkbox lookup below is a *fresh* one, taken after the state change it
    is checking, never a Python reference held across a refresh.
@@ -60,9 +60,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -138,7 +136,7 @@ def _open_order_execution_modal(qapp, view):
 
 def _checkbox(dialog, index: int):
     """A fresh lookup, by design — see this module's docstring point 2."""
-    return find_named(dialog.root_object, f"chk_{index}")
+    return find_qml_item(dialog.root_object, f"chk_{index}")
 
 
 def _click(checkbox, checked: bool) -> None:

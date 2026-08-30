@@ -22,9 +22,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_mod
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
-from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-    find_all_named,
-)
+from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
 
 
 @pytest.fixture

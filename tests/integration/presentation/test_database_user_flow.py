@@ -131,12 +131,10 @@ def test_database_cancel_button_cancels_active_sync_flow(
     (`view._progress_banner`) — there is no `view._btn_cancel_sync`
     `QPushButton` any more (that was `EPIC-005E`'s QtWidgets-era shape).
     Reached the same way `test_database_progress_cancel_widget.py`'s unit
-    tests do: `_qml_test_support.find_named` + a real `QTest.mouseClick`."""
+    tests do: `conftest.find_qml_item` + a real `QTest.mouseClick`."""
     from PySide6.QtCore import QPoint, Qt
     from PySide6.QtTest import QTest
-    from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
-        find_named,
-    )
+    from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
     view, presenter, _ = database_app_context
     view_model = presenter._view_model
@@ -150,7 +148,7 @@ def test_database_cancel_button_cancels_active_sync_flow(
     # Wait until in SYNCING state and progress is visible
     qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
     assert view._progress_container.isVisible() is True
-    cancel_btn = find_named(
+    cancel_btn = find_qml_item(
         view._progress_banner.root_object, "progressBannerCancelButton"
     )
     assert cancel_btn.property("enabled") is True
