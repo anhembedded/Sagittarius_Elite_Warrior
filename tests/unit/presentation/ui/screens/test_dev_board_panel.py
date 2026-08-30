@@ -14,6 +14,9 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
+    _WS_STATUS_BY_MODE,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
 )
@@ -46,12 +49,35 @@ def test_price_ticker_reflects_the_view_model(qapp, panel, view_model):
 
 
 def test_ws_status_reflects_the_view_model(qapp, panel, view_model):
-    view_model.set_ws_status("WS: LIVE", "#0ECB81")
+    """`EPIC-015` Phase 4 — the WS badge is now `StatusPillWidget`
+    (`StatusPill.qml` embedded inline), driven by plain setters rather than
+    an inline stylesheet. Tone, not the raw `wsStatusColor` hex string, is
+    what reaches the QML root — see `dev_board_panel.py`'s
+    `_sync_ws_status()` docstring."""
+    view_model.set_ws_status("WS: LIVE", "#0ECB81", "success")
     qapp.processEvents()
 
-    assert panel._ws_status_label.text() == "WS: LIVE"
-    assert "#0ECB81" in panel._ws_status_label.styleSheet()
-    assert "#0ECB81" in panel._ws_dot.styleSheet()
+    root = panel._ws_status_pill.root_object
+    assert root.property("text") == "WS: LIVE"
+    assert root.property("tone") == "success"
+
+
+@pytest.mark.parametrize("mode", list(_WS_STATUS_BY_MODE.keys()))
+def test_ws_status_pill_reflects_every_ui_mode_row(qapp, panel, view_model, mode):
+    """Screen-level wiring test (`qml-rule.md` §7): `_sync_ws_status()` must
+    drive `StatusPillWidget` with the exact text/tone
+    `dashboard_presenter.py`'s `_WS_STATUS_BY_MODE` declares for every
+    `UIMode`, not just the one state the older test above happened to pick.
+    Reads the same dict the Presenter reads rather than a second hardcoded
+    copy of the four rows, so this cannot drift from the real mapping.
+    """
+    text, _color, tone = _WS_STATUS_BY_MODE[mode]
+    view_model.set_ws_status(text, _color, tone)
+    qapp.processEvents()
+
+    root = panel._ws_status_pill.root_object
+    assert root.property("text") == text
+    assert root.property("tone") == tone
 
 
 def test_indicator_checkboxes_match_the_script_model(qapp, panel, view_model):

@@ -49,8 +49,7 @@ GROUP_LABELS: dict[TimeframeGroup, str] = {
 #: Short annotation shown beside each section heading in the QML picker
 #: (`qml/TimeframePicker/`) — context a bare "PHÚT" does not give: which
 #: section is heavy, which is the sane default, which suits a scalper versus
-#: a swing trader. Additive only: `TimeframePickerOverlay` (the QtWidgets
-#: dialog) does not read this, so it does not change what that dialog shows.
+#: a swing trader.
 GROUP_CAPTIONS: dict[TimeframeGroup, str] = {
     TimeframeGroup.SECONDS: "dữ liệu tick — nặng",
     TimeframeGroup.MINUTES: "mặc định cho scalping",

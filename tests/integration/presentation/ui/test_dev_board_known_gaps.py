@@ -17,6 +17,17 @@ QWidgets.
 """
 
 from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
+
+
+def _click_toolbar_pill(toolbar, code, qml_item):
+    """Real QML click on one of `ChartToolbar`'s `TimeframeToolbar.qml`
+    pills (`EPIC-015` Phase 4 — was a QtWidgets `QPushButton`, so this
+    replaces `qtbot.mouseClick(toolbar._buttons[code], ...)`)."""
+    pill = qml_item(toolbar.root_object, f"timeframePill_{code}")
+    assert pill is not None, code
+    point = pill.mapToScene(pill.boundingRect().center())
+    QTest.mouseClick(toolbar, Qt.MouseButton.LeftButton, pos=point.toPoint())
 
 
 def _open_dashboard(navigate):
@@ -126,9 +137,8 @@ def test_chart_toolbar_timeframe_click_triggers_a_reload(
     assert presenter._active_interval == "1m"
     card = view.chart_cards[0]
 
-    btn_5m = card.toolbar._buttons["5m"]
     _wait_for_reload_or_restart(
-        qtbot, presenter, lambda: qtbot.mouseClick(btn_5m, Qt.LeftButton)
+        qtbot, presenter, lambda: _click_toolbar_pill(card.toolbar, "5m", qml_item)
     )
 
     assert presenter._active_interval == "5m"
@@ -149,7 +159,7 @@ def test_reclicking_the_same_timeframe_does_not_reload(
 
     reloaded = []
     presenter.ui_history_reloaded_signal.connect(lambda *a: reloaded.append(1))
-    qtbot.mouseClick(card.toolbar._buttons["1m"], Qt.LeftButton)
+    _click_toolbar_pill(card.toolbar, "1m", qml_item)
     qtbot.wait(100)
 
     assert reloaded == []

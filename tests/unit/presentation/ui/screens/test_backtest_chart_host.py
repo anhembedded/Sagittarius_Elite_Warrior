@@ -85,7 +85,34 @@ def test_host_timeframe_operations_go_through_the_toolbar(qapp, request):
     assert received == ["5m"]
 
     host.set_active_timeframe("15m")
-    assert card.toolbar._buttons["15m"].isChecked() is True
+    assert card.toolbar._vm.currentCode == "15m"
+
+
+def test_the_toolbars_more_button_opens_the_full_picker_on_a_real_backtest_card(
+    qapp, request
+):
+    """`EPIC-015` Phase 4 screen-level check for Backtest: through the same
+    `IBacktestChartHost`-wrapped `ChartCard` production code builds, opening
+    the "…" picker and choosing a card still reaches
+    `connect_timeframe_changed`'s subscriber — not just `ChartToolbar` in
+    isolation (`test_chart_toolbar.py` already covers that thoroughly)."""
+    card = ChartCard("BTCUSDT")
+    request.addfinalizer(card.deleteLater)
+    host = PythonBacktestChartHost(card)
+    received: list[str] = []
+    host.connect_timeframe_changed(received.append)
+
+    card.toolbar._open_picker()
+    qapp.processEvents()
+    picker = card.toolbar._picker
+    assert picker is not None
+    assert picker._widget_vm is card.toolbar._vm
+
+    picker._widget_vm.choose("3d")
+    qapp.processEvents()
+
+    assert received == ["3d"]
+    assert not picker.isVisible()
 
 
 def test_factory_creates_a_distinct_host_per_call(qapp, request):

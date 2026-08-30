@@ -111,6 +111,40 @@ def test_toggle_pinned_adds_removes_and_writes_through_to_the_host():
     assert vm.pinnedRows == []
 
 
+def test_set_current_updates_the_highlight_without_emitting():
+    """`ChartToolbar.set_active()`'s contract: sync the highlight, do not
+    trigger the same handler that called it in the first place."""
+    vm, _ = _vm()
+    chosen: list[str] = []
+    vm.chosen.connect(chosen.append)
+
+    vm.set_current("15m")
+
+    assert vm.currentCode == "15m"
+    assert chosen == []
+    assert next(row for row in vm.pinnedRows if row["code"] == "15m")["current"] is True
+
+
+def test_set_current_accepts_a_code_outside_the_offered_set():
+    """Unlike `choose()`, no membership gate — matches the old widget's
+    behaviour of still reporting a stale/unlisted config value rather than
+    silently keeping the previous one."""
+    vm, _ = _vm(codes=["1m", "1h"])
+
+    vm.set_current("4h")
+
+    assert vm.currentCode == "4h"
+    assert all(row["current"] is False for row in vm.pinnedRows)
+
+
+def test_set_current_with_none_reports_an_empty_current_code():
+    vm, _ = _vm()
+
+    vm.set_current(None)
+
+    assert vm.currentCode == ""
+
+
 def test_toggle_pinned_ignores_an_unoffered_code():
     vm, state = _vm(codes=["1m"], pinned=())
 

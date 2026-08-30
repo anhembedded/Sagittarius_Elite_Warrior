@@ -27,9 +27,9 @@ copies survived `EPIC-007F`'s first attempt at this.
 from __future__ import annotations
 
 from .capital_dialog import CapitalDialogWidget
-from .extended_metrics_dialog import ExtendedMetricsDialog
 from .indicator_picker_dialog import IndicatorPickerDialog
 from .limitations_dialog import LimitationsDialog
+from .metrics_detail_dialog import MetricsDetailDialogWidget
 from .modals_host import BackTestModalsHost
 from .order_execution_dialog import OrderExecutionDialog
 from .strategy_picker_dialog import StrategyPickerDialog
@@ -41,9 +41,9 @@ from .timezone_picker_dialog import TimezonePickerDialog
 __all__ = [
     "BackTestModalsHost",
     "CapitalDialogWidget",
-    "ExtendedMetricsDialog",
     "IndicatorPickerDialog",
     "LimitationsDialog",
+    "MetricsDetailDialogWidget",
     "OrderExecutionDialog",
     "StrategyPickerDialog",
     "StrategyPropertiesDialog",

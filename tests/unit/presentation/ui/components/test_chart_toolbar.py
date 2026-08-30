@@ -1,8 +1,18 @@
-"""Tests for `ChartToolbar` — the five quick pills plus the full picker.
+"""Tests for `ChartToolbar` — the embedded `TimeframeToolbar.qml` pill row
+plus the shared-`TimeframeVM` full picker it opens.
 
-`EPIC-014`: this row is a real timeframe selector on both screens that show a
-chart, and its five pills were the only way to change one. A timeframe outside
-them left every pill unselected and the user with no way back to it.
+`EPIC-015` Phase 4: this widget went from QtWidgets buttons to a
+`QQuickWidget` embedding `TimeframeToolbar.qml`, so most of what the old
+test file asserted through `toolbar._buttons`/`toolbar._btn_more` no longer
+applies — `TimeframeToolbar.qml`'s own render/interaction behaviour already
+has thin coverage with no host at all
+(`qml/TimeframePicker/tests/test_timeframe_qml.py`), and `TimeframeVM`'s
+rules have full no-GUI coverage
+(`qml/TimeframePicker/tests/test_timeframe_vm.py`). What only a test
+building the real `ChartToolbar` can prove is this class's own wiring: the
+default pinned seed, `set_active()`'s silent-highlight contract, and —
+the one hard requirement this phase inherited — that the embedded toolbar
+and the picker it opens on "…" share exactly one `TimeframeVM`, not two.
 """
 
 from __future__ import annotations
@@ -11,142 +21,147 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
     ChartToolbar,
 )
 
 
-def test_the_quick_pills_stay_five(qapp):
-    """The row lives in a chart header; sixteen pills would not fit. That
-    constraint is real and the `…` button is what resolves it."""
+def _click(quick_widget, root_item, object_name, qapp, qml_item):
+    """@param quick_widget The actual `QQuickWidget` to click on — `Qtest`
+    needs coordinates in *that* widget's own space, which is where
+    `item.mapToScene()` already puts them (its Quick window is exactly this
+    widget). For `ChartToolbar` this is the toolbar itself; for
+    `TimeframePickerDialog` (a `QDialog` chrome around its own embedded
+    `QQuickWidget`) it is `picker._quick`, not `picker`.
+    """
+    item = qml_item(root_item, object_name)
+    assert item is not None, object_name
+    point = item.mapToScene(item.boundingRect().center())
+    QTest.mouseClick(quick_widget, Qt.MouseButton.LeftButton, pos=point.toPoint())
+    qapp.processEvents()
+
+
+def test_the_default_pinned_set_seeds_five_pills(qapp):
     toolbar = ChartToolbar()
 
-    assert len(toolbar._buttons) == len(DEFAULT_TIMEFRAMES) == 5
+    assert [row["code"] for row in toolbar._vm.pinnedRows] == list(DEFAULT_TIMEFRAMES)
+    toolbar.close()
 
 
-def test_clicking_a_pill_selects_it_and_emits(qapp):
+def test_clicking_a_pill_selects_it_and_emits(qapp, qml_item):
     toolbar = ChartToolbar()
+    toolbar.show()
+    qapp.processEvents()
     emitted: list[str] = []
     toolbar.sig_timeframe_changed.connect(emitted.append)
 
-    toolbar._buttons["1h"].click()
-    qapp.processEvents()
+    _click(toolbar, toolbar.root_object, "timeframePill_1h", qapp, qml_item)
 
     assert emitted == ["1h"]
-    assert toolbar._buttons["1h"].isChecked() is True
-    assert toolbar._btn_more.isChecked() is False
+    assert toolbar._vm.currentCode == "1h"
+    toolbar.close()
 
 
-def test_a_timeframe_with_no_pill_is_shown_on_the_more_button(qapp):
-    """Reachable on every launch: EPIC-010D restores a remembered interval
-    and DEFAULT_INTERVAL can name any of the sixteen. Before this the row
-    simply showed no selection at all."""
+def test_set_active_highlights_without_emitting(qapp):
+    """`EPIC-010D`'s restored-interval seed, and a Presenter's own
+    echo-back — neither may re-trigger `sig_timeframe_changed`."""
     toolbar = ChartToolbar()
+    emitted: list[str] = []
+    toolbar.sig_timeframe_changed.connect(emitted.append)
 
     toolbar.set_active("4h")
 
-    assert toolbar._btn_more.text() == "4h"
-    assert toolbar._btn_more.isChecked() is True
-    assert not any(btn.isChecked() for btn in toolbar._buttons.values())
+    assert emitted == []
+    assert toolbar._vm.currentCode == "4h"
+    toolbar.close()
 
 
-def test_returning_to_a_pill_clears_the_more_button(qapp):
+def test_the_more_button_opens_the_full_picker_sharing_this_toolbars_vm(qapp, qml_item):
     toolbar = ChartToolbar()
-    toolbar.set_active("12h")
-    assert toolbar._btn_more.text() == "12h"
-
-    toolbar.set_active("5m")
-
-    assert toolbar._btn_more.text() == "…"
-    assert toolbar._btn_more.isChecked() is False
-    assert toolbar._buttons["5m"].isChecked() is True
-
-
-def test_the_more_button_opens_a_picker_over_every_domain_timeframe(qapp):
-    toolbar = ChartToolbar()
-
-    toolbar._btn_more.click()
+    toolbar.show()
     qapp.processEvents()
+
+    _click(toolbar, toolbar.root_object, "btnTimeframeMore", qapp, qml_item)
 
     picker = toolbar._picker
     assert picker is not None
-    codes = [card.option.code for card in picker._cards]
-    assert sorted(codes) == sorted(member.value for member in TimeFrame)
+    assert picker.isVisible() is True
+    # The one hard requirement this phase inherited (NOTES.md's flagged
+    # gap): the picker reads/writes the SAME TimeframeVM the toolbar's own
+    # pills do, not a second one built from the same callbacks.
+    assert picker._widget_vm is toolbar._vm
     picker.close()
+    toolbar.close()
 
 
-def test_choosing_from_the_picker_emits_the_same_signal_as_a_pill(qapp):
+def test_choosing_from_the_picker_emits_the_same_signal_as_a_pill(qapp, qml_item):
     """The consumer wiring does not change: Backtest and Dev Board still
-    connect only `sig_timeframe_changed`, which is why neither had to grow a
-    copy of this dialog."""
+    connect only `sig_timeframe_changed`, whichever view the user chose
+    from."""
     toolbar = ChartToolbar()
+    toolbar.show()
+    qapp.processEvents()
     emitted: list[str] = []
     toolbar.sig_timeframe_changed.connect(emitted.append)
 
-    toolbar._btn_more.click()
-    qapp.processEvents()
-    card = next(c for c in toolbar._picker._cards if c.option.code == "3d")
-    card.clicked.emit()
-    qapp.processEvents()
+    _click(toolbar, toolbar.root_object, "btnTimeframeMore", qapp, qml_item)
+    picker = toolbar._picker
+    _click(picker._quick, picker.root_object, "timeframeCard_3d", qapp, qml_item)
 
     assert emitted == ["3d"]
-    assert toolbar._btn_more.text() == "3d"
-
-
-def test_every_button_is_a_visible_click_target(qapp):
-    """Reported as "the … button is missing" — it was not missing, it was
-    **13x19 px**: `_button_style` set `padding: 2px 0`, so each button
-    collapsed to the width of its own glyphs, and a bare ellipsis in muted
-    grey at that size reads as a separator rather than a control.
-
-    Measured, not eyeballed: this asserts the laid-out width, which is what
-    was actually wrong. A test on `setMinimumWidth` alone would have passed
-    against the broken build too, since the collapse came from the padding.
-    """
-    toolbar = ChartToolbar()
-    toolbar.resize(toolbar.sizeHint())
-    toolbar.show()
-    qapp.processEvents()
-
-    assert toolbar._btn_more.width() >= ChartToolbar._BUTTON_MIN_WIDTH
-    for code, button in toolbar._buttons.items():
-        assert button.width() >= ChartToolbar._BUTTON_MIN_WIDTH, code
+    assert toolbar._vm.currentCode == "3d"
+    assert picker.isVisible() is False, "choosing a card closes the picker"
     toolbar.close()
 
 
-def test_an_off_pill_code_fits_inside_the_more_button(qapp):
-    """`12h` is the widest thing that button ever shows."""
+def test_pinning_from_the_picker_updates_the_toolbars_own_pills(qapp, qml_item):
+    """Proves the shared instance end to end, through real QML interaction
+    on both sides (a star click in the picker, a pill appearing in the
+    toolbar) — not just an identity check on the Python objects."""
     toolbar = ChartToolbar()
-    toolbar.set_active("12h")
-    toolbar.resize(toolbar.sizeHint())
     toolbar.show()
     qapp.processEvents()
 
-    assert toolbar._btn_more.text() == "12h"
-    assert toolbar._btn_more.width() <= ChartToolbar._BUTTON_MAX_WIDTH
-    assert toolbar._btn_more.sizeHint().width() <= toolbar._btn_more.width(), (
-        "the code is clipped"
-    )
+    _click(toolbar, toolbar.root_object, "btnTimeframeMore", qapp, qml_item)
+    picker = toolbar._picker
+
+    assert qml_item(toolbar.root_object, "timeframePill_4h") is None
+    _click(picker._quick, picker.root_object, "timeframeStar_4h", qapp, qml_item)
+
+    assert qml_item(toolbar.root_object, "timeframePill_4h") is not None
+    picker.close()
     toolbar.close()
 
 
-def test_dismissing_the_picker_leaves_the_row_as_it_was(qapp):
-    """`clicked` on a checkable button toggles it before the slot runs, so
-    opening the dialog and cancelling used to leave `…` lit alongside the
-    pill that was actually active — two things looking selected at once."""
+def test_dismissing_the_picker_leaves_the_row_as_it_was(qapp, qml_item):
     toolbar = ChartToolbar()
     toolbar.set_active("1m")
+    toolbar.show()
+    qapp.processEvents()
     emitted: list[str] = []
     toolbar.sig_timeframe_changed.connect(emitted.append)
 
-    toolbar._btn_more.click()
-    qapp.processEvents()
+    _click(toolbar, toolbar.root_object, "btnTimeframeMore", qapp, qml_item)
     toolbar._picker.reject()
     qapp.processEvents()
 
-    assert toolbar._btn_more.isChecked() is False
-    assert toolbar._btn_more.text() == "…"
-    assert toolbar._buttons["1m"].isChecked() is True
     assert emitted == [], "dismissing chooses nothing"
+    assert toolbar._vm.currentCode == "1m"
+    toolbar.close()
+
+
+def test_a_broken_qml_file_raises_instead_of_rendering_a_blank_box(
+    qapp, tmp_path, monkeypatch
+):
+    import Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar as toolbar_module
+
+    broken = tmp_path / "Broken.qml"
+    broken.write_text("import QtQuick\nItem { this is not qml }\n")
+    monkeypatch.setattr(toolbar_module, "_QML_FILE", broken)
+
+    with pytest.raises(RuntimeError, match="QML failed to load"):
+        toolbar_module.ChartToolbar()

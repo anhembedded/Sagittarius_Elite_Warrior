@@ -10,7 +10,7 @@ Reuses `components/timeframe_picker/catalogue.py` for the domain-derived
 grouping/labels rather than re-deriving them — the whole reason that module
 takes no Qt import is so something else (this VM) can read it too, and a
 timeframe added to the domain's `TimeFrame` enum lands here with no second
-edit, same as it already does for `TimeframePickerOverlay`.
+edit.
 """
 
 from __future__ import annotations
@@ -89,8 +89,8 @@ class TimeframeVM(QObject):
 
     @Property(bool, notify=stateChanged)
     def hasWarning(self) -> bool:
-        """Whether any offered option is sub-minute — same condition
-        `TimeframePickerOverlay._HIGH_RESOLUTION_WARNING` gates on."""
+        """Whether any offered option is sub-minute — the same condition
+        that warns in `TimeframePicker.qml`'s footer."""
         return self._has_warning
 
     # ------------------------------------------------------------------ #
@@ -100,10 +100,31 @@ class TimeframeVM(QObject):
     def refresh(self) -> None:
         """Re-reads codes/current/pinned from the host and rebuilds both
         views. Public for a screen whose option list changes at runtime —
-        same reason `TimeframePickerOverlay.refresh()` is public."""
+        same reason `TimeframePickerOverlay.refresh()` (its QtWidgets
+        predecessor, now deleted — `EPIC-015` Phase 4) used to be public."""
         self._options = options_for(list(self._get_codes()))
         self._current = self._get_current()
         self._pinned = {str(code) for code in self._get_pinned()}
+        self._recompute()
+
+    def set_current(self, code: str | None) -> None:
+        """Sets the active code without emitting `chosen` — for a caller
+        that already knows the new interval (it fired elsewhere) and only
+        needs this widget's own highlight to catch up.
+
+        @details `ChartToolbar.set_active()`'s contract, preserved from the
+        QtWidgets original it now hosts (`EPIC-010D`'s restored interval on
+        startup, and the echo-back a Presenter does after its own change
+        already emitted through some other path) — `choose()` cannot be
+        reused here because it always emits `chosen`, which would feed
+        straight back into the same handler that called `set_active()` in
+        the first place. Unlike `choose()`, does not require membership in
+        the offered codes: a genuinely unlisted value (a stale config
+        entry) still updates `currentCode` faithfully rather than being
+        silently dropped, matching the old widget's behaviour — it will
+        simply not highlight any pill, since none matches.
+        """
+        self._current = code or ""
         self._recompute()
 
     @Slot(str)

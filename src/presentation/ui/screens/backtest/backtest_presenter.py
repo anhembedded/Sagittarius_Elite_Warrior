@@ -113,6 +113,7 @@ from .logic.backtest_fsm_matrix import (
     BacktestUiState,
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
+from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
 from .logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
@@ -1153,9 +1154,20 @@ class BackTestPresenter(BasePresenter):
         self._last_no_data_config = None
         self._last_no_data_coverage = None
         self._view_model.set_needs_data_sync(False)
+        extended_cards = build_extended_stat_cards(result)
         self._view_model.set_stat_cards(
             stat_cards_to_qml(build_primary_stat_cards(result)),
-            stat_cards_to_qml(build_extended_stat_cards(result)),
+            stat_cards_to_qml(extended_cards),
+        )
+        self._view_model.set_extended_metrics_snapshot(
+            ExtendedMetricsSnapshot(
+                cards=extended_cards,
+                gross_profit=result.metrics.gross_profit,
+                gross_loss=result.metrics.gross_loss,
+                profit_factor=result.metrics.profit_factor,
+                total_closed_trades=result.metrics.total_closed_trades,
+                fee_rate_percent=self._fee_rate_percent_for_last_run(),
+            )
         )
         self._view_model.set_result_warning_text(build_result_warning_text(result))
         self._view_model.set_limitations(build_backtest_limitations(result))
@@ -1185,6 +1197,39 @@ class BackTestPresenter(BasePresenter):
         if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED):
             self.fsm.dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED)
 
+    def _fee_rate_percent_for_last_run(self) -> float:
+        """The commission actually applied to the run that just finished —
+        not `_get_current_config()` (used a few lines up only for the dirty-
+        tracking summary label, and its `broker_config` is always the
+        untouched `BrokerSimulationConfig()` default, never the toolbar's
+        real Order Execution values).
+
+        `self._active_action.config` is `_build_run_config()`'s own output
+        (see `_on_run_backtest`/`_start_backtest_run`) — the exact
+        `BacktestRunConfig`, real `broker_config` included, that was
+        submitted for this action. `_finish_action` (called by
+        `_on_backtest_succeeded_for_action` right after this method returns)
+        only records an outcome; it does not clear `_active_action`, so it is
+        still the current action's context here.
+
+        Same `commission_value if PERCENT else 0.0` `execution_coordinator.py`
+        already computes for the run's own `fee_percent` — no field on
+        `BacktestMetrics`/`BacktestRunConfig` is named "fee rate percent"
+        directly (grepped `src/domain`, `src/application`, `src/presentation`
+        — nothing), so this mirrors the one place that already turns a
+        `BrokerSimulationConfig` into that shape rather than inventing a new
+        one. Falls back to `0.0` only if no action was ever tracked (should
+        not happen on a real succeeded-run path, but a Backtest tested via
+        `_on_backtest_succeeded` alone with no prior `_start_backtest_run`
+        call — e.g. a unit test calling it directly — must not raise)."""
+        action = self._active_action
+        if action is None:
+            return 0.0
+        broker_config = action.config.broker_config
+        if broker_config.commission_type != CommissionType.PERCENT:
+            return 0.0
+        return broker_config.commission_value
+
     @Slot(str, object)
     @safe_ui_action
     def _on_backtest_empty(self, message: str, config: BacktestRunConfig) -> None:
@@ -1199,6 +1244,7 @@ class BackTestPresenter(BasePresenter):
         self._last_no_data_coverage = None
         self._view_model.set_needs_data_sync(True)
         self._view_model.set_stat_cards([], [])
+        self._view_model.set_extended_metrics_snapshot(None)
         self._view_model.set_result_warning_text("")
         self._view_model.set_limitations([])
         self._view_model.set_result(message, is_error=False)
@@ -1214,6 +1260,7 @@ class BackTestPresenter(BasePresenter):
     def _on_backtest_failed(self, message: str) -> None:
         self._log_dev_trace("run_failed", message=message)
         self._view_model.set_stat_cards([], [])
+        self._view_model.set_extended_metrics_snapshot(None)
         self._view_model.set_result_warning_text("")
         self._view_model.set_limitations([])
         self._view_model.set_result(f"Lỗi: {message}", is_error=True)

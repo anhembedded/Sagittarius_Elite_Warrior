@@ -59,19 +59,26 @@ Choosing a card closes the dialog immediately — `TimeframePickerCard.qml`'s
 separate Apply step — so the host supplies no footer buttons, the same shape
 `TimezonePickerDialog` already uses on top of `SelectList.qml`.
 
-**`TimeframePickerOverlay` (QtWidgets) is not deleted.** `ChartToolbar`
-(`components/chart_card/chart_toolbar.py`) — the chart-header pill row that
-`TimeframeToolbar.qml` is eventually meant to replace — still opens it for
-its own "…" (more) button, on both Backtest's and Dev Board's live charts.
-That migration is exactly the higher-risk `TimeframeToolbar.qml` phase this
-NOTES.md file already called out as separate and later; it was left alone,
-not folded into this task.
+**`TimeframePickerOverlay` (QtWidgets) is deleted** — `EPIC-015` Phase 4:
+once `ChartToolbar` (`components/chart_card/chart_toolbar.py`) switched its
+own "…" button to opening `TimeframePickerDialog` instead (sharing its
+toolbar's `TimeframeVM`, see the section below), it was the last live
+consumer (`grep -rn TimeframePickerOverlay src/ tests/` found none left).
+`components/timeframe_picker/overlay.py`, its `TimeframeCard` delegate, and
+their test file are gone; `components/timeframe_picker/` is catalogue data
+only now (`catalogue.py`).
 
-### The pinned-set gap (known, accepted — not a persistence feature)
+### The pinned-set gap for the three `from_callbacks()` screens (known,
+accepted — not a persistence feature)
 
-`TimeframeVM.get_pinned`/`set_pinned` back each grid cell's pin star, a
-feature that exists to feed `TimeframeToolbar.qml`'s pill row — the
-out-of-scope sibling widget above. None of the three screens now wiring
+`TimeframeVM.get_pinned`/`set_pinned` back each grid cell's pin star. For
+Settings/Data Management/Backtest's own modal-only picker (below), pinning
+is cosmetic — nothing on those screens reads the pinned set except the
+picker's own star, so a plain in-memory `PinnedTimeframes` per screen is
+enough and stays that way. `ChartToolbar`'s own `PinnedTimeframes` (Phase 4,
+see the section above) is a separate instance with a real consumer — its
+own embedded toolbar pill row — and is documented in `chart_toolbar.py`
+itself, not here. None of the three screens now wiring
 `TimeframePickerDialog` have any persisted "pinned timeframes" concept
 (checked `SettingsViewModel`, `DataManagementViewModel`, `BackTestViewModel`
 directly — none hides one). Each screen's composition root backs both
@@ -79,36 +86,57 @@ callbacks with its own `PinnedTimeframes` (`timeframe_picker_dialog.py`): a
 private, in-memory, non-persisted `set[str]`. Pinning a cell visibly toggles
 the star for the rest of the session and resets the next time that screen
 rebuilds its lazily-cached dialog instance (app restart, mainly) — not built
-to survive that, on purpose, until `TimeframeToolbar.qml`'s own wiring phase
-gives pinning a real, persisted consumer worth building state for.
+to survive that, on purpose. `TimeframeToolbar.qml`'s own wiring phase
+(below) did give pinning a real consumer, and made a deliberate call to
+still keep it in-memory rather than adding persistence in the same pass —
+see that section for the reasoning.
 
-## `TimeframeToolbar.qml` — still not wired into a screen
+## `TimeframeToolbar.qml` — wired into Backtest + Dev Board, `EPIC-015` Phase 4
 
-Nothing in `screens/` constructs `TimeframeVM` for the toolbar pill row yet.
-`ChartToolbar` (QtWidgets) keeps running unchanged for Backtest and Dev
-Board — same "tạo cái mới, còn cái cũ kệ nó" default as `TimeRangePicker`
-before its own wiring phase. A future host wires `TimeframeVM` the same way
-`capital_dialog.py` wires `CapitalVM`: construct it with callbacks
-reading/writing the screen's own pinned-timeframes state — and this is where
-that state needs a real home, since two per-screen `PinnedTimeframes`
-instances (one behind the picker, one behind the toolbar) would defeat the
-one-`TimeframeVM`-two-views design this file's opening section describes —
-pass it as the `vm` context property to a `TimeframeToolbar.qml`-hosting
-`QQuickWidget` and, separately, to the *same* `TimeframePickerDialog` already
-built here, opened on `TimeframeToolbar`'s `moreRequested()`.
+`components/chart_card/chart_toolbar.py`'s `ChartToolbar` is the host: a
+bare `QQuickWidget` embedding `TimeframeToolbar.qml` inline in `ChartCard`'s
+header (same "panel beside chart" shape `qml-rule.md` §0 names, not inside
+it), replacing the QtWidgets pill row + `TimeframePickerOverlay` it used to
+open for "…". One construction site (`ChartCard._setup_layout()`) covers
+both Backtest and Dev Board, since both build their chart area from
+`ChartCard` — no second host was written.
+
+The gap this section used to flag — two per-screen `PinnedTimeframes`
+instances defeating the one-`TimeframeVM`-two-views design — is closed:
+`ChartToolbar` builds exactly one `TimeframeVM` and hands it to both
+`TimeframeToolbar.qml` (this widget's own context property) and to
+`TimeframePickerDialog(vm)` (the constructor Phase 4 added for exactly this;
+see `timeframe_picker_dialog.py`'s docstring) when the "…" button opens it.
+Pinning a code from the picker updates the same `pinnedRows` the toolbar
+reads — no second refresh, no drift.
+
+`PinnedTimeframes` stays in-memory (not `ui_state`/`IStateContributor`
+-persisted) and scoped to one `ChartToolbar` instance (not shared across
+sibling `ChartCard`s on the same screen) — see `chart_toolbar.py`'s module
+docstring for the full reasoning; short version: closing the one required
+gap (shared, not doubled) does not require also solving persistence or
+cross-symbol sharing, and this is `qml-rule.md` §6's highest-risk phase, not
+the place to add a second, unrelated risk surface.
+
+`TimeframeVM.set_current(code)` (added alongside this wiring) is what backs
+`ChartToolbar.set_active()` — the old widget's contract of updating the
+highlight without emitting a change signal, which `choose()` cannot do
+since it always emits `chosen`.
 
 ## `preview.py`, colocated `tests/` — same reasons as `TimeRangePicker`
 
-No screen host exists yet for `TimeframeToolbar.qml` (the picker has three
-now, see above), so `preview.py` is still the only way to see the toolbar
-pill row render at all, and the only way to see both `.qml` files sharing
-one live `TimeframeVM` at once
+`ChartToolbar` is now a real screen host for `TimeframeToolbar.qml` (see
+above), but `preview.py` is still the only place both `.qml` files render
+stacked against the SAME live `TimeframeVM` with nothing else on screen
 (`.\scripts\uml_preview.ps1 src/presentation/ui/qml/TimeframePicker` or
-`.\scripts\preview-qml.ps1 TimeframePicker`) — it builds both widgets
-stacked, so pinning a card in the picker and watching the toolbar's pills
-update is visible in one window (the three real screen hosts each use their
-own, unshared `PinnedTimeframes` — see above — so this side-by-side view is
-`preview.py`-only, not reproducible from any real screen today). Tests are
+`.\scripts\preview-qml.ps1 TimeframePicker`) — useful for iterating on the
+pair without a full `ChartCard`/chart around them. On a real screen, pinning
+a code from `ChartToolbar`'s own picker and watching its own toolbar pills
+update is exactly this preview's behaviour, live in the app; the three
+`from_callbacks()` screens (Settings/Data Management/Backtest's own
+modal-only picker) each still use their own, unshared `PinnedTimeframes` —
+see above — so only `ChartToolbar`'s pair actually shares one instance
+outside this preview. Tests are
 colocated rather than in the central `tests/unit/presentation/ui/qml/` tree
 `Capital`/`SelectList` use, for the same reason `TimeRangePicker`'s are:
 importing `catalogue.py` already goes through `components/__init__.py`

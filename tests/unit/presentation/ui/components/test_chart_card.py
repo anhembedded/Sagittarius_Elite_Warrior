@@ -938,16 +938,20 @@ def test_chart_card_chart_type_switch_heikin_ashi(qapp):
 
 
 def test_chart_card_toolbar_emits_timeframe_and_tracks_active_button(qapp):
+    """`EPIC-015` Phase 4: `ChartToolbar` is QML-hosted now
+    (`TimeframeToolbar.qml`) — driven through its `TimeframeVM`
+    (`_vm.choose()`, the same call a real pill click makes) rather than a
+    QtWidgets `QPushButton`, but the public signal this test cares about
+    (`sig_timeframe_changed`) is unchanged."""
     card = ChartCard("BTCUSDT")
 
     changes = []
     card.toolbar.sig_timeframe_changed.connect(changes.append)
 
-    card.toolbar._buttons["15m"].click()
+    card.toolbar._vm.choose("15m")
 
     assert changes == ["15m"]
-    assert card.toolbar._buttons["15m"].isChecked() is True
-    assert card.toolbar._buttons["1m"].isChecked() is False
+    assert card.toolbar._vm.currentCode == "15m"
 
 
 def test_chart_card_crosshair_mouse_hover(qapp):

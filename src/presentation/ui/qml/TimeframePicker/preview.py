@@ -2,9 +2,9 @@
 
 Builds both `.qml` files — the compact `TimeframeToolbar` and the full
 `TimeframePicker` grid — sharing one `TimeframeVM`, stacked in one window.
-Neither widget has a host screen yet (see NOTES.md), so pinning a card in
-the picker and watching the toolbar's pills update live, in the same
-window, is otherwise not observable at all.
+`ChartToolbar` (`components/chart_card/chart_toolbar.py`) is a real host for
+this same pair now, but only inside a full `ChartCard`/chart — this preview
+is still the fastest way to iterate on the pair alone (see NOTES.md).
 """
 
 from __future__ import annotations

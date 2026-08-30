@@ -5,6 +5,18 @@ indicator pickers + bot-params + run button), progress/preview/stale/
 coverage banners, and the performance stat-cards row — everything above
 the chart. Behaviour-preserving port: every `objectName` from the QML
 carries over unchanged (tests/presenter both key off them).
+
+`EPIC-015` Phase 4 replaced two pieces of that QtWidgets port with QML
+embeds sitting directly beside this screen's chart — `ProgressBannerWidget`
+(`qml/kit/`) for the run/sync progress banner, `StatCardRowWidget`
+(`qml/StatCardRow/`) for the primary performance stat-cards row. Their
+QtWidgets predecessors' `objectName`s (`btnCancelBacktestProgress`, the
+per-card `cardMetric_N` as a `QWidget`) do not carry over as widget
+attributes — the cancel button and each stat card now live inside a QML
+scene, reached by `objectName` through `qml_item()`
+(`tests/conftest.py`), same as every other `Repeater`/QML-scene lookup in
+this rollout. `backtestProgressBanner` (the outer `QFrame`) and the four
+`_sync_*`/`_build_*` method names are unchanged.
 """
 
 from __future__ import annotations
@@ -26,20 +38,53 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_progress_bar import (
-    AppProgressBar,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Banner,
     Severity,
-    StatCard,
     StyleRole,
-    Tone,
     apply_role,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
+    ProgressBannerWidget,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.StatCardRow.stat_card_row_widget import (
+    StatCardRowWidget,
 )
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
+
+#: Same fixed height Data Management's Phase 2 embed uses for the same
+#: `ProgressBanner.qml` content (`data_management_view.py`'s
+#: `_PROGRESS_BANNER_HEIGHT`) — a `QQuickWidget` with `SizeRootObjectToView`
+#: has no natural size of its own, unlike the `AppProgressBar` it replaces.
+_PROGRESS_BANNER_HEIGHT = 32
+
+#: `StatCardRow.qml`'s `implicitHeight` measured 44px for a realistic
+#: 4-card `primaryStatCards` row (title line + value/badge row, each with a
+#: real badge string) — checked directly with `QQuickWidget` in a throwaway
+#: script, not guessed from the `.qml`'s pixel sizes by hand. 52 leaves a
+#: small margin rather than clipping at the exact boundary.
+_STAT_CARD_ROW_HEIGHT = 52
+
+
+def _clamp_percent(value: float) -> float:
+    """@brief `BackTestViewModel.backtestProgressPercent`/`syncProgressPercent`
+    to the 0..100 range `ProgressBanner.qml` expects.
+
+    @details Unlike `DataManagementViewModel.progressPercent` (clamped at
+    the property getter itself), these two properties store whatever
+    `set_backtest_progress()`/`set_sync_progress()` were last called with,
+    with no clamp of their own. Every real caller today already clamps
+    before calling (`backtest_presenter.py`'s
+    `_on_backtest_progress_for_action`/`_on_sync_progress_for_action` both
+    do `min(100.0, max(0.0, ...))`), so this is a defensive backstop, not a
+    fix for an observed bug: `ProgressBanner.qml`'s bar *width* already
+    clamps its own fraction (`Math.max(0, Math.min(1, root.percent / 100))`),
+    but its percent *text* (`Math.round(root.percent) + "%"`) does not — an
+    unclamped value would show e.g. "150%" text beside a visually full bar.
+    """
+    return min(100.0, max(0.0, value))
 
 
 def _pill_button(object_name: str, min_width: int = 0) -> QPushButton:
@@ -308,23 +353,26 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     def _build_progress_banner(self) -> QFrame:
         banner = QFrame()
         banner.setObjectName("backtestProgressBanner")
-        # The one banner `Banner` deliberately does not cover — its body is
-        # a progress bar and a cancel button, no message and no icon. Scoped
-        # by hand so its border stays on the banner and off the bar inside.
+        # EPIC-015 Phase 4: `ProgressBannerWidget` (QML) replaces
+        # `AppProgressBar` + a standalone Cancel `QPushButton` — the same
+        # swap Data Management's Phase 2 already made
+        # (`data_management_view.py`). This bordered `QFrame` is kept as-is,
+        # unlike Data Management's own plain container: this banner sits
+        # *inside* an already-SURFACE-styled `self._card`, so it still needs
+        # its own nested background/border to read as a distinct strip, same
+        # as before the swap.
         banner.setStyleSheet(
             f"QFrame {{ background-color: {Palette.BG_CARD}; "
             f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; }}"
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
-        layout.setSpacing(10)
-        self._progress_bar = AppProgressBar()
-        layout.addWidget(self._progress_bar, 1)
-        self._btn_cancel_progress = QPushButton("Hủy")
-        self._btn_cancel_progress.setObjectName("btnCancelBacktestProgress")
-        self._btn_cancel_progress.setFixedSize(76, 26)
-        self._btn_cancel_progress.clicked.connect(self._vm.requestCancelBacktest)
-        layout.addWidget(self._btn_cancel_progress)
+        self._progress_banner_widget = ProgressBannerWidget()
+        self._progress_banner_widget.setFixedHeight(_PROGRESS_BANNER_HEIGHT)
+        self._progress_banner_widget.cancelRequested.connect(
+            self._vm.requestCancelBacktest
+        )
+        layout.addWidget(self._progress_banner_widget, 1)
         banner.setVisible(False)
         return banner
 
@@ -452,11 +500,15 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
 
         return row_widget
 
-    def _build_stat_cards_row(self) -> QWidget:
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+    def _build_stat_cards_row(self) -> StatCardRowWidget:
+        # EPIC-015 Phase 4: `StatCardRow.qml` (a `Repeater` of `StatCard.qml`
+        # delegates) replaces per-run construction/teardown of the
+        # QtWidgets `StatCard` (`kit/surfaces/stat_card.py`). Callback-
+        # constructed (`qml-rule.md` §1.1) — this widget reads
+        # `primaryStatCards` live, `_sync_stat_cards()` below only tells it
+        # *when* to re-pull that list, not what is in it.
+        widget = StatCardRowWidget(lambda: self._vm.primaryStatCards)
+        widget.setFixedHeight(_STAT_CARD_ROW_HEIGHT)
         return widget
 
     def _build_result_box(self) -> QWidget:
@@ -595,21 +647,23 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         running_like = mode in ("RUNNING", "CANCELLING", "SYNCING")
         self._progress_banner.setVisible(running_like)
         if running_like:
-            if mode == "CANCELLING":
-                self._progress_bar.set_status_text("Đang hủy an toàn...")
-                self._progress_bar.set_indeterminate(True)
+            cancelling = mode == "CANCELLING"
+            self._progress_banner_widget.set_cancelling(cancelling)
+            if cancelling:
+                self._progress_banner_widget.set_status_text("Đang hủy an toàn...")
+                self._progress_banner_widget.set_indeterminate(True)
             elif mode == "SYNCING":
-                self._progress_bar.set_status_text(vm.syncProgressText)
-                self._progress_bar.set_range(0, 100)
-                self._progress_bar.set_value(int(vm.syncProgressPercent))
+                self._progress_banner_widget.set_indeterminate(False)
+                self._progress_banner_widget.set_status_text(vm.syncProgressText)
+                self._progress_banner_widget.set_percent(
+                    _clamp_percent(vm.syncProgressPercent)
+                )
             else:
-                self._progress_bar.set_status_text(vm.backtestProgressText)
-                self._progress_bar.set_range(0, 100)
-                self._progress_bar.set_value(int(vm.backtestProgressPercent))
-            self._btn_cancel_progress.setEnabled(mode != "CANCELLING")
-            self._btn_cancel_progress.setText(
-                "Đang hủy..." if mode == "CANCELLING" else "Hủy"
-            )
+                self._progress_banner_widget.set_indeterminate(False)
+                self._progress_banner_widget.set_status_text(vm.backtestProgressText)
+                self._progress_banner_widget.set_percent(
+                    _clamp_percent(vm.backtestProgressPercent)
+                )
 
         self._preview_banner.setVisible(bool(vm.isChartPreview))
 
@@ -626,36 +680,18 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._coverage_banner.message = vm.dataCoverageMessage
 
     def _sync_stat_cards(self) -> None:
-        cards = self._vm.primaryStatCards
-        layout = self._stat_cards_row.layout()
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-
-        has_cards = bool(cards)
+        has_cards = bool(self._vm.primaryStatCards)
         self._stat_cards_row.setVisible(has_cards)
         self._result_box.setVisible(not has_cards)
-        if not has_cards:
-            return
-
-        for index, card_data in enumerate(cards):
-            # Title uppercased here, not by the widget: `StatCard` styles its
-            # title but never rewrites it, so that `Card.title` still reads
-            # back what was set.
-            card = StatCard(card_data.get("title", "").upper())
-            card.setObjectName(f"cardMetric_{index}")
-            card.set_value(
-                card_data.get("value", ""),
-                tone=card_data.get("valueTone", Tone.NEUTRAL),
-            )
-            card.set_suffix(card_data.get("suffix", ""))
-            card.set_badge(
-                card_data.get("badgeText", ""),
-                tone=card_data.get("badgeTone", Tone.NEUTRAL),
-            )
-            layout.addWidget(card)
+        if has_cards:
+            # `StatCardRow.qml`'s `Repeater` reads `vm.cards` off
+            # `StatCardRowVM`, not `BackTestViewModel.primaryStatCards`
+            # directly — `refresh()` is the one call that re-pulls and
+            # re-converts it (`qml-rule.md` §4.2: safe to call every time,
+            # since a full delegate rebuild is what a `Repeater` over a
+            # list-of-dicts model always does on any change, not something
+            # this call triggers additionally).
+            self._stat_cards_row.refresh()
 
     def _sync_metrics_header(self) -> None:
         has_cards = bool(self._vm.primaryStatCards)

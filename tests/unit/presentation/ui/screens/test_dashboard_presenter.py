@@ -201,6 +201,32 @@ def test_dashboard_presenter_enforces_zoom_limit(presenter):
     )
 
 
+def test_the_toolbars_more_button_opens_the_full_picker_on_a_real_dev_board_card(
+    presenter, qapp
+):
+    """`EPIC-015` Phase 4 screen-level check for Dev Board: through the same
+    real `ChartCard` `_ensure_chart_cards()` builds and wires
+    `sig_timeframe_changed` to `_on_timeframe_changed` on, opening the "…"
+    picker and choosing a card still reaches the presenter — not just
+    `ChartToolbar` in isolation (`test_chart_toolbar.py` covers that
+    thoroughly already)."""
+    presenter._stream_controller = MagicMock()
+    cards = presenter._ensure_chart_cards(["BTCUSDT"])
+    card = cards[0]
+
+    card.toolbar._open_picker()
+    qapp.processEvents()
+    picker = card.toolbar._picker
+    assert picker is not None
+    assert picker._widget_vm is card.toolbar._vm
+
+    picker._widget_vm.choose("3d")
+    qapp.processEvents()
+
+    presenter._stream_controller._on_timeframe_changed.assert_called_once_with("3d")
+    assert not picker.isVisible()
+
+
 # ---------------------------------------------------------------------------
 # _on_load_history — must NOT block the main thread
 # ---------------------------------------------------------------------------
@@ -1032,6 +1058,41 @@ def test_ws_status_badge_reflects_fsm_state(presenter):
     presenter.fsm.transition_to(UIMode.LOCKED)
 
     assert presenter._view_model.wsStatusText == "WS: SYNCING"
+
+
+def test_ws_status_badge_tone_matches_every_ui_mode(presenter):
+    """`EPIC-015` Phase 4 — `StatusPill.qml`'s semantic tone
+    (`"idle"|"active"|"success"|"danger"`) must be derived from `UIMode`,
+    not reverse-engineered from a colour string (`dashboard_presenter.py`'s
+    `_WS_STATUS_BY_MODE` comment). Pins the exact mapping the task
+    requires: IDLE->idle, LOCKED->active ("SYNCING"), LIVE->success,
+    ERROR->danger.
+
+    ERROR is asserted via the emitted signal sequence, not the value left
+    behind after `transition_to()` returns: `_on_fsm_error` (an existing
+    hook, predating this task) auto-recovers ERROR->IDLE synchronously,
+    inside the same reentrant-lock call (`BaseStateMachine` uses
+    `threading.RLock`) — the global callback that paints the badge fires
+    again for that inner ERROR->IDLE transition before the outer call
+    returns, so by then the badge has already settled back to idle. That
+    behaviour is not this task's concern; only that "danger" was really
+    reached in between is.
+    """
+    vm = presenter._view_model
+    seen_tones: list[str] = []
+    vm.wsStatusChanged.connect(lambda: seen_tones.append(vm.wsStatusTone))
+
+    assert vm.wsStatusTone == "idle"  # construction-time default (IDLE)
+
+    presenter.fsm.transition_to(UIMode.LOCKED)
+    assert vm.wsStatusTone == "active"
+
+    presenter.fsm.transition_to(UIMode.LIVE)
+    assert vm.wsStatusTone == "success"
+
+    presenter.fsm.transition_to(UIMode.ERROR)
+    assert "danger" in seen_tones
+    assert vm.wsStatusTone == "idle"
 
 
 # ---------------------------------------------------------------------------

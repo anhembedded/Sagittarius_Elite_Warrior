@@ -1368,14 +1368,17 @@ def test_chart_toolbar_timeframe_click_updates_backtest_data_contract(
 ):
     """BUG-008: chart-header timeframe buttons must request new chart data.
 
-    This intentionally clicks the visible QtWidgets control instead of calling
-    the presenter slot.  A highlighted button without a new ViewModel
-    timeframe/preview is a user-visible no-op, not a successful interaction.
+    `EPIC-015` Phase 4: `ChartToolbar` is QML-hosted now
+    (`TimeframeToolbar.qml`) — this intentionally drives it through its
+    `TimeframeVM` (`_vm.choose()`, the same call a real pill click makes)
+    rather than a QtWidgets `QPushButton`, keeping the original intent: a
+    highlighted pill without a new ViewModel timeframe/preview is a
+    user-visible no-op, not a successful interaction.
     """
     mock_thread_mgr.reset_mock()
     toolbar = presenter.view.chart_cards[0].chart_card.toolbar
 
-    toolbar._buttons["5m"].click()
+    toolbar._vm.choose("5m")
 
     assert view_model.selectedTimeframe == "5m"
     worker, config, preview_id = mock_thread_mgr.submit.call_args.args
@@ -1390,8 +1393,7 @@ def test_qml_timeframe_selection_keeps_chart_toolbar_in_sync(presenter, view_mod
 
     view_model.selectedTimeframe = "15m"
 
-    assert toolbar._buttons["15m"].isChecked() is True
-    assert toolbar._buttons["1m"].isChecked() is False
+    assert toolbar._vm.currentCode == "15m"
 
 
 def test_preview_result_updates_coverage_and_chart_but_stale_result_is_fenced(
@@ -1867,7 +1869,7 @@ def test_qml_sync_button_retries_from_error_when_data_is_still_missing(
 
 
 def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
-    presenter, view_model, qapp, mock_dispatcher
+    presenter, view_model, qapp, mock_dispatcher, qml_item
 ):
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
@@ -1877,9 +1879,9 @@ def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
     presenter._run_backtest(config)
     qapp.processEvents()
 
-    card = presenter.view.top_widget._stat_cards_row.layout().itemAt(0).widget()
+    top_widget = presenter.view.top_widget
+    card = qml_item(top_widget._stat_cards_row.root_object, "cardMetric_0")
     assert card is not None
-    assert card.objectName() == "cardMetric_0"
 
 
 def test_qml_documents_load_without_errors(presenter, qapp):

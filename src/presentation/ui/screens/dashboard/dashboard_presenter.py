@@ -138,13 +138,23 @@ _DEFAULT_AUTOSTART_FALLBACK_SECONDS: float = 2.0
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
 _DEFAULT_LOAD_MORE_BATCH_CANDLES: int = 75
 
-# WS status badge (top bar) text/color per FSM state — presentational only,
-# derived from the state DashboardPresenter already tracks.
+# WS status badge (top bar) text/color/tone per FSM state — presentational
+# only, derived from the state DashboardPresenter already tracks.
+#
+# `tone` (third element) is `StatusPill.qml`'s semantic vocabulary
+# ("idle"|"active"|"success"|"danger" — see that file's own docstring).
+# `EPIC-015` Phase 4 added it here, as a third element of the SAME dict,
+# rather than a second `UIMode -> tone` switch: the tone for a mode is a
+# property of that mode's row, not an independent fact that could drift
+# out of sync with its text/colour. Do NOT derive `tone` from `color`
+# (a Palette hex string, or `BULL_COLOR`/`BEAR_COLOR`) — that would break
+# silently if any of those values ever changed, since a colour string
+# carries no semantic meaning `StatusPill.qml` could read back out of it.
 _WS_STATUS_BY_MODE = {
-    UIMode.IDLE: ("WS: IDLE", Palette.MUTED),
-    UIMode.LOCKED: ("WS: SYNCING", Palette.ACCENT),
-    UIMode.LIVE: ("WS: LIVE", BULL_COLOR),
-    UIMode.ERROR: ("WS: ERROR", BEAR_COLOR),
+    UIMode.IDLE: ("WS: IDLE", Palette.MUTED, "idle"),
+    UIMode.LOCKED: ("WS: SYNCING", Palette.ACCENT, "active"),
+    UIMode.LIVE: ("WS: LIVE", BULL_COLOR, "success"),
+    UIMode.ERROR: ("WS: ERROR", BEAR_COLOR, "danger"),
 }
 
 
@@ -781,8 +791,10 @@ class DashboardPresenter(BasePresenter):
         self._apply_ws_status_badge(new_state)
 
     def _apply_ws_status_badge(self, mode) -> None:
-        text, color = _WS_STATUS_BY_MODE.get(mode, _WS_STATUS_BY_MODE[UIMode.IDLE])
-        self._view_model.set_ws_status(text, color)
+        text, color, tone = _WS_STATUS_BY_MODE.get(
+            mode, _WS_STATUS_BY_MODE[UIMode.IDLE]
+        )
+        self._view_model.set_ws_status(text, color, tone)
 
     # ================================================================== #
     # UI Helpers

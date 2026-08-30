@@ -86,8 +86,9 @@ class SettingsView(BaseView):
         super().__init__(parent)
         self._view_model: SettingsViewModel | None = None
         self._interval_picker: TimeframePickerDialog | None = None
-        # EPIC-015 bậc 1: private, non-persisted — see
-        # `timeframe_picker_dialog.py`'s "pinned-set gap" docstring section.
+        # EPIC-015 bậc 1: private, non-persisted — this picker is its own
+        # only consumer — see `timeframe_picker_dialog.py`'s
+        # `PinnedTimeframes` docstring.
         self._interval_picker_pinned = PinnedTimeframes()
         self._build_ui()
 
@@ -361,7 +362,7 @@ class SettingsView(BaseView):
 
     def _open_default_interval_picker(self) -> None:
         if self._interval_picker is None:
-            self._interval_picker = TimeframePickerDialog(
+            self._interval_picker = TimeframePickerDialog.from_callbacks(
                 get_codes=lambda: [option.code for option in all_timeframe_options()],
                 get_current=lambda: (
                     self._view_model.defaultInterval

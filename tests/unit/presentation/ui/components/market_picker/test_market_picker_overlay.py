@@ -77,7 +77,8 @@ def test_choosing_emits_the_market_id_and_closes(qapp):
 
 def test_reopening_rereads_the_current_choice(qapp):
     """The dialog is built once and reused, so nothing may be captured at
-    construction — same contract `TimeframePickerOverlay` documents."""
+    construction — same contract `TimeframePickerDialog.open_dialog()`
+    documents."""
     source = _Source(current=MarketType.SPOT.value)
     dialog = source.build(qapp)
     assert _row(dialog, "spot")["selected"] is True

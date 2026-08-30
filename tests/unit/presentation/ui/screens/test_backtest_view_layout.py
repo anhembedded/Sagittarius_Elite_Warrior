@@ -73,7 +73,7 @@ def view(qapp, request):
     return v, vm
 
 
-def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp):
+def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp, qml_item):
     v, vm = view
     assert v.top_widget._stat_cards_row.isVisible() is False
     assert v.top_widget._result_box.isVisible() is True
@@ -83,8 +83,8 @@ def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp):
 
     assert v.top_widget._stat_cards_row.isVisible() is True
     assert v.top_widget._result_box.isVisible() is False
-    card = v.top_widget._stat_cards_row.layout().itemAt(0).widget()
-    assert card.objectName() == "cardMetric_0"
+    card = qml_item(v.top_widget._stat_cards_row.root_object, "cardMetric_0")
+    assert card is not None
 
 
 def test_top_panel_result_warning_line_does_not_affect_stat_cards_visibility(

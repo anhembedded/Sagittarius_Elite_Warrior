@@ -1,174 +1,240 @@
-from collections.abc import Sequence
+"""`ChartToolbar` — a chart header's compact timeframe pill row, plus the
+full picker it opens. Embedded (not modal) in `ChartCard`'s header via
+`ChartCard.add_to_header` — shared by both Backtest's and Dev Board's chart
+headers, since both build their chart area from `ChartCard`.
 
-from PySide6 import QtCore, QtWidgets
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+`EPIC-015` Phase 4: replaces the QtWidgets pill row (fixed
+`DEFAULT_TIMEFRAMES` buttons + `TimeframePickerOverlay` for "…") with
+`TimeframeToolbar.qml` (embedded here, a bare `QQuickWidget`, same shape
+`StatusPillWidget`/`ProgressBannerWidget` already proved for a panel
+embedded directly beside — not inside — a live chart) and
+`TimeframePickerDialog` (`QmlOverlay`-hosted, unchanged from Phase 1, opened
+modally on the "…" button). Public surface is unchanged
+(`sig_timeframe_changed`, `set_active()`) so `ChartCard._setup_layout()`,
+`backtest_chart_host.py`'s `PythonBacktestChartHost`, and
+`dashboard_presenter.py` need no changes at all — they still read
+`card.toolbar.sig_timeframe_changed` / call `card.toolbar.set_active(...)`.
+
+@par The one hard requirement: one `TimeframeVM`, not two
+`qml/TimeframePicker/NOTES.md` flags this widget by name as the reason
+`TimeframeVM` exists as ONE class shared by two `.qml` files: the toolbar's
+pinned pills and the picker's pin stars must agree, instantly, without a
+second refresh. This class builds exactly one `TimeframeVM` at construction
+and hands the SAME instance to both `TimeframeToolbar.qml` (via this
+widget's own `rootContext()`) and to the `TimeframePickerDialog` it lazily
+opens (`TimeframePickerDialog(vm)`, the constructor `EPIC-015` Phase 4 added
+specifically for this — see that module's docstring). Toggling a pin from
+the full picker updates the SAME `pinnedRows` the embedded toolbar reads;
+choosing a card there or a pill here both go through the same `vm.chosen`,
+which this class listens to exactly once.
+
+@par Design decision — pinned-state scope and persistence (qml-rule.md
+§0.2's "make a reasoned call, do not default into it")
+Two questions, answered independently:
+
+1. **Shared between which views?** Only between THIS `ChartToolbar`
+   instance's own embedded toolbar and its own picker modal — not across
+   sibling `ChartCard`s on the same screen (Backtest/Dev Board each render
+   one `ChartCard` per symbol, each building its own `ChartToolbar`, each
+   with its own `PinnedTimeframes`). The task this phase inherited frames
+   the requirement as "one `TimeframeVM` per chart" — this reading is the
+   narrower, correctly-scoped one: it closes exactly the gap `NOTES.md`
+   named (two views of one toolbar disagreeing), without deciding a
+   separate, larger question — whether "which timeframes I pin" should be
+   one preference for a whole screen instead of per symbol — that nothing
+   in this rollout's design docs asked for and that has its own real
+   trade-offs (e.g. a Backtest screen comparing a 1m scalp symbol against a
+   1d swing symbol arguably *wants* different pins per card). Left as a
+   named follow-up, not silently decided either way.
+2. **In-memory, or `ui_state`/`IStateContributor`-persisted (the
+   `SymbolPreferences` pattern)?** In-memory for this pass — resets on
+   restart, same as every other `PinnedTimeframes` in this app today
+   (Settings/Data Management/Backtest's own modal-only picker, Phase 1).
+   Reasoning:
+   - The one gap this phase is required to close is "shared, not doubled"
+     (above) — an in-memory shared object fully closes it. Persistence is
+     an independent enhancement, not a blocker for it.
+   - This is `qml-rule.md` §6's highest-risk phase: the first `QQuickWidget`
+     ever built as a panel beside this app's LIVE pyqtgraph chart in
+     production. Wiring a brand-new `IStateContributor` (a second,
+     unrelated risk surface — a new debounced write path through
+     `UiStateCoordinator`) into the same change compounds risk instead of
+     isolating it, exactly what the epic's own stop-condition section asks
+     this phase to avoid.
+   - Not silently dropped: if pinned timeframes should survive a restart,
+     `ui_state`/`IStateContributor` is the confirmed right mechanism
+     (`SymbolPreferences`, `components/symbol_picker/preferences.py`, is
+     the existing pattern) — nothing here forecloses adding it later, and
+     doing so would not change this class's public surface at all (only
+     what backs `get_pinned`/`set_pinned`).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from pathlib import Path
+
+from PySide6.QtCore import QObject, Qt, QUrl, Signal
+from PySide6.QtQuickWidgets import QQuickWidget
+from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    TimeframePickerOverlay,
     all_options,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.style import ensure_qml_style
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
+    PinnedTimeframes,
+    TimeframePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
+    TimeframeVM,
+)
+from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 
-#: The quick-pick pills. Five, because this row lives in a chart header and
-#: sixteen would not fit — that constraint is real and stays.
+#: The pills pinned by default, before the user touches the "…" picker's pin
+#: stars. Five, because this row lives in a chart header and sixteen would
+#: not fit — that constraint is real and stays, but it is now a *starting*
+#: pinned set rather than the row's hard ceiling: `TimeframeToolbar.qml`
+#: renders whatever `TimeframeVM.pinnedRows` says, and the picker can pin or
+#: unpin any of the domain's sixteen codes for the rest of the session.
 #:
-#: `EPIC-014`: what changed is that this tuple no longer *decides what the
-#: user may choose*. It used to be the whole timeframe UI, and it was also
-#: `BackTestViewModel.timeframeOptions` and the validity test for the
-#: `DEFAULT_INTERVAL` config key, so a constant sizing a header row was
-#: silently rejecting eleven timeframes the domain, the exchange and the
-#: database all support. The `…` button below reaches all sixteen.
+#: `EPIC-014`: this tuple used to also be `BackTestViewModel.timeframeOptions`
+#: and the validity test for `DEFAULT_INTERVAL` — that coupling is long gone;
+#: this is only ever read as this widget's own default pinned seed now.
 DEFAULT_TIMEFRAMES = ("1m", "5m", "15m", "1h", "1d")
 
-#: Label of the button that opens the full picker. Replaced by the active
-#: timeframe's own code whenever that timeframe has no pill of its own —
-#: otherwise choosing `4h` left every pill unselected and the row said
-#: nothing about what was actually being charted.
-_MORE_LABEL = "…"
-_MORE_TOOLTIP = "Chọn khung thời gian khác"
+_QML_FILE = (
+    Path(__file__).resolve().parents[2]
+    / "qml"
+    / "TimeframePicker"
+    / "TimeframeToolbar.qml"
+)
 
 
-class ChartToolbar(QtWidgets.QWidget):
+class ChartToolbar(QQuickWidget):
     """
-    @brief Row of timeframe-selector buttons meant for a Card header (`ChartCard.add_to_header`).
-    @details Dumb component (Rule 1: no business logic, no engine/presenter knowledge) — emits
-    sig_timeframe_changed(interval) on click and highlights the active button. Does not fetch
-    or re-render any data itself.
+    @brief Compact timeframe pill row for a `ChartCard` header, plus the
+    full picker its "…" affordance opens.
+
+    @details Public surface unchanged from the QtWidgets original it
+    replaces: emits `sig_timeframe_changed(interval)` when a pill (here or
+    in the full picker) is chosen, and `set_active()` lets an external
+    caller (`EPIC-010D`'s restored interval, a Presenter's own change
+    already handled elsewhere) sync the highlight without re-triggering the
+    signal. Still a dumb component (Rule 1): decides nothing about what an
+    interval change means, only reports it.
     """
 
-    sig_timeframe_changed = QtCore.Signal(str)
-
-    #: Room for the widest thing a pill holds (`15m`) once the padding below
-    #: is applied, and for a code like `12h` on the `…` button.
-    _BUTTON_MAX_WIDTH = 52
-
-    #: A bare `…` is one narrow glyph. Measured on a real `ChartCard`, the
-    #: button laid out at **13x19 px** — a muted sliver that reads as a
-    #: separator, not a control, which is exactly how it was reported: the
-    #: button was there and nobody could see it. The padding below fixes the
-    #: cause for every button in the row; this floor keeps the narrowest
-    #: labels (`…`, `1d`) from still ending up smaller than a comfortable
-    #: target.
-    _BUTTON_MIN_WIDTH = 34
+    sig_timeframe_changed = Signal(str)
 
     def __init__(
         self,
         timeframes: Sequence[str] = DEFAULT_TIMEFRAMES,
         active: str | None = None,
-        parent: QtWidgets.QWidget | None = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._buttons: dict[str, QtWidgets.QPushButton] = {}
+        self.setObjectName("chartToolbar")
+        ensure_qml_style()
+        # A compact row must hug its pills' natural width, not stretch to
+        # fill whatever space `ChartCard`'s header row leaves — the opposite
+        # need from every fill-the-panel host in this app
+        # (`DatabaseStatusPanel`/`ProgressBannerWidget`/`StatusPillWidget`
+        # all use `SizeRootObjectToView`). Set explicitly rather than relied
+        # on as Qt's default, so the choice reads as deliberate here too.
+        self.setResizeMode(QQuickWidget.ResizeMode.SizeViewToRootObject)
+        # Transparent so `ChartCard`'s own header background shows behind
+        # the QML pills — same reasoning every other host in this app
+        # documents for its own `QQuickWidget`.
+        self.setClearColor(Qt.GlobalColor.transparent)
 
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        self._active: str | None = active or (timeframes[0] if timeframes else None)
+        # See this module's docstring, design-decision §1/§2: private to
+        # this one `ChartToolbar` instance, in-memory, seeded with the
+        # constructor's own `timeframes` so a fresh chart header is not an
+        # empty row plus a lone "…" button.
+        self._pinned = PinnedTimeframes(initial=timeframes)
+        self._picker: TimeframePickerDialog | None = None
 
-        for timeframe in timeframes:
-            btn = QtWidgets.QPushButton(timeframe)
-            btn.setCheckable(True)
-            btn.setMinimumWidth(self._BUTTON_MIN_WIDTH)
-            btn.setMaximumWidth(self._BUTTON_MAX_WIDTH)
-            btn.setCursor(QtCore.Qt.PointingHandCursor)
-            btn.clicked.connect(lambda checked, t=timeframe: self._on_clicked(t))
-            self._buttons[timeframe] = btn
-            layout.addWidget(btn)
+        # ONE VM for both this embedded toolbar and the picker modal it
+        # opens — see this module's docstring, "the one hard requirement".
+        # `get_codes` offers every domain timeframe (matches the old
+        # `ChartToolbar._open_picker()`'s `get_options=lambda: [option.code
+        # for option in all_options()]`), not just the pinned/default
+        # subset — pinning and choosing both reach codes outside
+        # `DEFAULT_TIMEFRAMES`.
+        self._vm = TimeframeVM(
+            get_codes=lambda: [option.code for option in all_options()],
+            get_current=lambda: self._active or "",
+            get_pinned=self._pinned.get,
+            set_pinned=self._pinned.set,
+        )
+        self._vm.chosen.connect(self._on_chosen)
+        # Populates `pinnedRows`/`groups` before the QML binds to them, so
+        # the very first rendered frame already shows the seeded pills
+        # instead of an empty row that fills in a moment later — avoiding
+        # exactly the kind of chart-adjacent flicker `qml-rule.md` §6 warns
+        # this phase to watch for.
+        self._vm.refresh()
 
-        self._picker: TimeframePickerOverlay | None = None
-        self._active: str | None = None
-        self._btn_more = QtWidgets.QPushButton(_MORE_LABEL)
-        self._btn_more.setObjectName("btnTimeframeMore")
-        self._btn_more.setCheckable(True)
-        self._btn_more.setMinimumWidth(self._BUTTON_MIN_WIDTH)
-        self._btn_more.setMaximumWidth(self._BUTTON_MAX_WIDTH)
-        self._btn_more.setCursor(QtCore.Qt.PointingHandCursor)
-        self._btn_more.setToolTip(_MORE_TOOLTIP)
-        self._btn_more.clicked.connect(self._open_picker)
-        layout.addWidget(self._btn_more)
+        # A QML context property is a borrowed pointer; held on `self` so
+        # `Theme` stays alive for as long as this scene can read it (same
+        # note as every other host in this app).
+        self._theme = get_theme_bridge()
+        root_context = self.rootContext()
+        root_context.setContextProperty("Theme", self._theme)
+        root_context.setContextProperty("vm", self._vm)
 
-        self.set_active(active or (timeframes[0] if timeframes else None))
-
-    def _on_clicked(self, timeframe: str) -> None:
-        self.set_active(timeframe)
-        self.sig_timeframe_changed.emit(timeframe)
-
-    def _open_picker(self) -> None:
-        """Opens the full timeframe picker.
-
-        @details This is still a dumb component: it opens a chooser for the
-        very thing it already chooses and emits the same signal, so no
-        consumer learns anything new and neither has to duplicate the
-        wiring. Owning the dialog here rather than exposing a
-        `sig_more_requested` is what keeps Backtest and Dev Board from
-        growing two copies of it — which is exactly how the pickers this
-        replaces multiplied in the first place.
-        """
-        # `clicked` on a checkable button has already toggled it. What the
-        # row shows as selected is decided by `set_active()`, not by opening
-        # a dialog, so re-assert it: otherwise dismissing the picker left the
-        # `…` button lit alongside the pill that is actually active.
-        self.set_active(self._active)
-        if self._picker is None:
-            self._picker = TimeframePickerOverlay(
-                get_options=lambda: [option.code for option in all_options()],
-                get_current=lambda: self._active or "",
-                parent=self,
+        self.setSource(QUrl.fromLocalFile(str(_QML_FILE)))
+        if self.status() is not QQuickWidget.Status.Ready:
+            raise RuntimeError(
+                f"QML failed to load: {_QML_FILE}\n"
+                + "\n".join(error.toString() for error in self.errors())
             )
-            self._picker.timeframe_chosen.connect(self._on_clicked)
-        self._picker.show()
-        self._picker.raise_()
+        root = self.rootObject()
+        if root is None:  # pragma: no cover - status check above already raises
+            raise RuntimeError("ChartToolbar QML root object is missing")
+        self._root = root
+        root.moreRequested.connect(self._open_picker)
+
+    @property
+    def root_object(self) -> QObject:
+        """The loaded QML root, for tests to reach in by `objectName`."""
+        return self._root
+
+    def _on_chosen(self, code: str) -> None:
+        """`vm.chosen` fires from either view — a pill clicked here, or a
+        card chosen in the picker modal — so connecting once here, rather
+        than also connecting to `self._picker.chosen`, is what keeps a
+        picker choice from re-emitting `sig_timeframe_changed` twice."""
+        self._active = code
+        self.sig_timeframe_changed.emit(code)
 
     def set_active(self, timeframe: str | None) -> None:
-        """Highlights `timeframe`, wherever it lives.
+        """Highlights `timeframe` without emitting `sig_timeframe_changed`.
 
-        @details A timeframe with no pill of its own is shown *on* the `…`
-        button rather than nowhere. Before `EPIC-014` the row simply had no
-        selection in that case, which was reachable on every launch:
-        `EPIC-010D` restores a remembered interval, and `DEFAULT_INTERVAL`
-        can name any of the sixteen.
+        @details For a caller that already knows the new interval and only
+        needs this row's own highlight to catch up — `EPIC-010D`'s restored
+        interval on launch, or a Presenter's echo-back after its own change
+        already fired through some other path. Delegates to
+        `TimeframeVM.set_current()`, which exists for exactly this
+        (`choose()` cannot be reused here: it always emits `chosen`, which
+        would loop straight back into `_on_chosen`).
         """
         self._active = timeframe
-        for tf, btn in self._buttons.items():
-            active = tf == timeframe
-            btn.setChecked(active)
-            btn.setStyleSheet(self._button_style(active))
+        self._vm.set_current(timeframe)
 
-        is_off_pill = timeframe is not None and timeframe not in self._buttons
-        self._btn_more.setText(timeframe if is_off_pill else _MORE_LABEL)
-        self._btn_more.setChecked(is_off_pill)
-        self._btn_more.setStyleSheet(self._button_style(is_off_pill))
+    def _open_picker(self) -> None:
+        """Opens the full timeframe picker, sharing this toolbar's own
+        `TimeframeVM` rather than building a second one.
 
-    @staticmethod
-    def _button_style(active: bool) -> str:
+        @details Still a dumb component (Rule 1): it opens a chooser for the
+        very thing it already chooses and emits the same signal through the
+        one `vm.chosen` connection above, so no consumer learns anything new
+        and neither has to duplicate the wiring. Owning the dialog here
+        rather than exposing a `moreRequested`-passthrough signal is what
+        keeps Backtest and Dev Board from growing two copies of it — same
+        reasoning the QtWidgets original documented for `TimeframePickerOverlay`.
         """
-        @brief The pill chrome for one timeframe button.
-
-        @details Written here rather than inherited from the app's global
-        `qdarktheme` sheet, which is where these buttons used to get their
-        look. That worked only while no ancestor had a stylesheet of its own.
-        `EPIC-007E` moved `ChartCard` onto the engine's `Card`, whose
-        `apply_role()` writes **unscoped** QSS — properties with no selector,
-        which Qt cascades into every descendant — and the buttons lost their
-        borders to it.
-
-        The cascade is the engine's defect, filed as `BUG-008` there. This is
-        not a workaround for it: a toolbar that only looks right when nothing
-        above it is styled was already relying on an accident. Owning its own
-        appearance is what it should have done from the start, and it stays
-        correct after `BUG-008` is fixed.
-        """
-        return (
-            f"QPushButton {{"
-            f"background-color: "
-            f"{Palette.STATE_ACTIVE_TINT if active else Palette.STATE_IDLE_BG};"
-            f"border: 1px solid "
-            f"{Palette.ACCENT if active else Palette.STATE_NAV_BORDER};"
-            f"border-radius: 4px;"
-            f"color: {Palette.ACCENT if active else Palette.MUTED};"
-            f"font-size: 11px;"
-            f"font-weight: {'bold' if active else 'normal'};"
-            # Horizontal padding, not `0`. With none, each button collapsed
-            # to the width of its own glyphs — `1d` at 16px, `…` at 13px —
-            # so the row read as loose text rather than as buttons.
-            f"padding: 2px 8px;"
-            f"}}"
-            f"QPushButton:hover {{background-color: {Palette.STATE_HOVER_BG};}}"
-        )
+        if self._picker is None:
+            self._picker = TimeframePickerDialog(self._vm, parent=self)
+        self._picker.open_dialog()

@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
@@ -31,6 +32,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
+    ExtendedMetricsSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
+    StatCardData,
 )
 from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.qml._qml_test_support import (
     find_all_named,
@@ -118,12 +125,19 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
     qapp, backtest_screen
 ):
     view, presenter = backtest_screen
-    presenter._view_model.set_stat_cards(
-        [],
-        [
-            {"title": "Card 1", "value": "100", "suffix": ""},
-            {"title": "Card 2", "value": "200", "suffix": ""},
-        ],
+    _neutral = Tone.NEUTRAL
+    presenter._view_model.set_extended_metrics_snapshot(
+        ExtendedMetricsSnapshot(
+            cards=(
+                StatCardData("Gross Profit", "100.00", _neutral, "USD", "", _neutral),
+                StatCardData("Gross Loss", "-50.00", _neutral, "USD", "", _neutral),
+            ),
+            gross_profit=100.0,
+            gross_loss=-50.0,
+            profit_factor=2.0,
+            total_closed_trades=10,
+            fee_rate_percent=0.1,
+        )
     )
     qapp.processEvents()
 
@@ -132,17 +146,15 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
 
     dialog = view._modals_host._extended_metrics
     assert dialog is not None
-    assert dialog.objectName() == "extendedMetricsPopup"
+    assert dialog.objectName() == "backtestMetricsDetailDialog"
     assert dialog.isVisible() is True
-    # EPIC-015 §4c: body is StatGrid.qml now; each card is a delegate the
-    # Repeater creates, only reachable through childItems() (see
-    # `_qml_test_support`'s module docstring).
-    cards = [
-        item
-        for item in named_descendants(dialog.root_object)
-        if item.objectName().startswith("statCard_")
-    ]
-    assert len(cards) == 2
+    # EPIC-015 Phase 3: body is MetricsDetailPanel.qml/MetricsDetailVM now;
+    # `MetricsDetailCard.qml`'s delegate carries no per-row objectName
+    # (see the `.qml` — nothing distinguishes one card's Rectangle from
+    # another in the widget tree), so the real assertion is on the VM's own
+    # grouped data, the same source the `.qml`'s Repeaters bind to.
+    group = next(g for g in dialog._widget_vm.groups if g["label"] == "LÃI & LỖ")
+    assert {row["title"] for row in group["rows"]} == {"GROSS PROFIT", "GROSS LOSS"}
 
 
 def test_limitations_popup_opens_with_each_limitation_as_its_own_label(

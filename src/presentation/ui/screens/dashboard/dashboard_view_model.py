@@ -18,6 +18,9 @@ from sagittarius_engine.extensions.pyside_mvc import (
 
 _IDLE_STATUS_TEXT = "WS: IDLE"
 _IDLE_STATUS_COLOR = Palette.MUTED
+#: `StatusPill.qml`'s semantic vocabulary — see that file's own docstring
+#: and `dashboard_presenter.py`'s `_WS_STATUS_BY_MODE` for the full mapping.
+_IDLE_STATUS_TONE = "idle"
 
 # BOT-033 Phase 2 — Symbol/Start date/End date defaults. Self-contained here
 # (not imported from dashboard_presenter.py's _DEFAULT_SYMBOLS) to match
@@ -80,6 +83,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._price_ticker_color = _IDLE_STATUS_COLOR
         self._ws_status_text = _IDLE_STATUS_TEXT
         self._ws_status_color = _IDLE_STATUS_COLOR
+        self._ws_status_tone = _IDLE_STATUS_TONE
         self._history_loading = False
 
         self._symbol = _DEFAULT_SYMBOL
@@ -149,10 +153,23 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
     wsStatusColor = Property(str, _get_ws_status_color, notify=wsStatusChanged)
 
-    @Slot(str, str)
-    def set_ws_status(self, text: str, color: str) -> None:
+    def _get_ws_status_tone(self) -> str:
+        return self._ws_status_tone
+
+    #: `StatusPill.qml`'s semantic tone ("idle"|"active"|"success"|"danger"),
+    #: set alongside text/color by the same `set_ws_status()` call — never
+    #: derived from `wsStatusColor` by a reader, which is exactly the
+    #: fragile reverse-engineering `dashboard_presenter.py`'s
+    #: `_WS_STATUS_BY_MODE` comment warns against.
+    wsStatusTone = Property(str, _get_ws_status_tone, notify=wsStatusChanged)
+
+    @Slot(str, str, str)
+    def set_ws_status(
+        self, text: str, color: str, tone: str = _IDLE_STATUS_TONE
+    ) -> None:
         self._ws_status_text = text
         self._ws_status_color = color
+        self._ws_status_tone = tone
         self.wsStatusChanged.emit()
 
     def _get_history_loading(self) -> bool:

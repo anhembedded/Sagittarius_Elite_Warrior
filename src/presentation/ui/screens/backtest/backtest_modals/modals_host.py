@@ -16,9 +16,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe
 )
 
 from .capital_dialog import CapitalDialogWidget
-from .extended_metrics_dialog import ExtendedMetricsDialog
 from .indicator_picker_dialog import IndicatorPickerDialog
 from .limitations_dialog import LimitationsDialog
+from .metrics_detail_dialog import MetricsDetailDialogWidget
 from .order_execution_dialog import OrderExecutionDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
@@ -43,14 +43,16 @@ class BackTestModalsHost:
         self._vm = view_model
         self._parent = parent
         self._capital: CapitalDialogWidget | None = None
-        self._extended_metrics: ExtendedMetricsDialog | None = None
+        self._extended_metrics: MetricsDetailDialogWidget | None = None
         self._limitations: LimitationsDialog | None = None
         self._indicator_picker: IndicatorPickerDialog | None = None
         self._order_execution: OrderExecutionDialog | None = None
         self._strategy_picker: StrategyPickerDialog | None = None
         self._timeframe_picker: TimeframePickerDialog | None = None
-        # EPIC-015 bậc 1: private, non-persisted — see
-        # `timeframe_picker_dialog.py`'s "pinned-set gap" docstring section.
+        # EPIC-015 bậc 1: private, non-persisted — this picker is its own
+        # only consumer (unlike `ChartToolbar`'s own `PinnedTimeframes`,
+        # shared with its embedded toolbar pill row) — see
+        # `timeframe_picker_dialog.py`'s `PinnedTimeframes` docstring.
         self._timeframe_picker_pinned = PinnedTimeframes()
         self._symbol_picker: SymbolPickerDialogWidget | None = None
         # EPIC-014: replaced in production by the container-registered store
@@ -83,9 +85,8 @@ class BackTestModalsHost:
 
     def _open_extended_metrics(self) -> None:
         if self._extended_metrics is None:
-            self._extended_metrics = ExtendedMetricsDialog(self._vm, self._parent)
-        self._extended_metrics.show()
-        self._extended_metrics.raise_()
+            self._extended_metrics = MetricsDetailDialogWidget(self._vm, self._parent)
+        self._extended_metrics.open_dialog()
 
     def _open_limitations(self) -> None:
         if self._limitations is None:
@@ -131,7 +132,7 @@ class BackTestModalsHost:
 
     def _open_timeframe_picker(self) -> None:
         if self._timeframe_picker is None:
-            self._timeframe_picker = TimeframePickerDialog(
+            self._timeframe_picker = TimeframePickerDialog.from_callbacks(
                 get_codes=lambda: self._vm.timeframeOptions,
                 get_current=lambda: self._vm.selectedTimeframe,
                 get_pinned=self._timeframe_picker_pinned.get,

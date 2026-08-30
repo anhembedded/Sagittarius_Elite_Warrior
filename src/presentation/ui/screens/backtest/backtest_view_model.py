@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.bot_params_form import (
     step_numeric_param_value,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
+    ExtendedMetricsSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
 )
@@ -244,6 +247,12 @@ class BackTestViewModel(BaseQmlViewModel):
         self._data_coverage_message = ""
         self._primary_stat_cards: list[dict[str, str]] = []
         self._extended_stat_cards: list[dict[str, str]] = []
+        #: EPIC-015 Phase 3 — `MetricsDetailDialogWidget`'s composition root
+        #: reads this directly (plain Python, not a QML `Property`: no
+        #: `.qml` file needs it). `None` until the first run succeeds, same
+        #: "no result yet" convention `_extended_stat_cards` uses via an
+        #: empty list — see `extended_metrics_snapshot()`.
+        self._extended_metrics_snapshot: ExtendedMetricsSnapshot | None = None
         self._result_warning_text = ""
         self._limitations: list[str] = []
         self._show_extended_metrics = False
@@ -994,6 +1003,34 @@ class BackTestViewModel(BaseQmlViewModel):
         self._primary_stat_cards = primary
         self._extended_stat_cards = extended
         self.statCardsChanged.emit()
+
+    def extended_metrics_snapshot(self) -> ExtendedMetricsSnapshot | None:
+        """Plain Python accessor (no QML `Property`) for
+        `MetricsDetailDialogWidget`'s composition root — see the field's own
+        docstring in `__init__` and `ExtendedMetricsSnapshot`'s module
+        docstring for why this is a separate retention from
+        `extendedStatCards` rather than the same list re-read."""
+        return self._extended_metrics_snapshot
+
+    @Slot(object)
+    def set_extended_metrics_snapshot(
+        self, snapshot: ExtendedMetricsSnapshot | None
+    ) -> None:
+        """Set by `BackTestPresenter` right alongside `set_stat_cards(...)`.
+        `None` clears it (no result yet / last run failed or returned no
+        data) — same convention `set_stat_cards([], [])` already uses for
+        the QML-facing lists.
+
+        `@Slot(object)` even though no `.qml` ever calls this (no QML
+        `Property` reads it back either — see `extended_metrics_snapshot()`):
+        every other `set_*` mutator on this class carries `@Slot`, and
+        `test_bug031_cross_thread_timer.py::test_backtest_view_model_set_ui_mode_has_slot_decorator`
+        (`unprotected_mutators()`, EPIC covering `BUG-031`) flags any
+        `set_*`/`append*`/`clear*`/`hide_*` method with neither `@Slot` nor
+        `@ui_mutator` — `object` is PySide6's accept-any-Python-value slot
+        type, which is what an `ExtendedMetricsSnapshot | None` argument
+        needs (it is not a Qt-registrable type on its own)."""
+        self._extended_metrics_snapshot = snapshot
 
     def _get_result_warning_text(self) -> str:
         return self._result_warning_text

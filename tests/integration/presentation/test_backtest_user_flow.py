@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import QObject, Qt
+from PySide6.QtTest import QTest
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
@@ -310,7 +311,7 @@ def test_run_button_completes_real_backtest_and_chart_render(backtest_screen, qt
 
 
 def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
-    backtest_screen, qtbot
+    backtest_screen, qtbot, qml_item
 ):
     """BUG-008 business regression: a chart-header click changes the chart data.
 
@@ -318,24 +319,33 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
     asserting that the 5m button becomes highlighted would reproduce the old
     false-positive test; the accepted result is 5m-spaced candles rendered by
     the visible Backtest ChartCard.
+
+    `EPIC-015` Phase 4: `ChartToolbar` is QML-hosted now
+    (`TimeframeToolbar.qml`), so "click the 5m button" is a real click on
+    its rendered pill rather than `QPushButton.click()`.
     """
     presenter, view = backtest_screen
     chart = view.chart_cards[0].chart_card
-    five_minute_button = chart.toolbar._buttons[_TOOLBAR_TIMEFRAME_INTERVAL]
+    toolbar = chart.toolbar
+    pill = qml_item(toolbar.root_object, f"timeframePill_{_TOOLBAR_TIMEFRAME_INTERVAL}")
+    assert pill is not None
+    point = pill.mapToScene(pill.boundingRect().center())
 
     with qtbot.waitSignal(view.chartPreviewRendered, timeout=5000):
-        qtbot.mouseClick(five_minute_button, Qt.MouseButton.LeftButton)
+        QTest.mouseClick(toolbar, Qt.MouseButton.LeftButton, pos=point.toPoint())
 
     assert presenter._view_model.selectedTimeframe == _TOOLBAR_TIMEFRAME_INTERVAL
     assert len(chart._raw_history) == _RUNTIME_KLINE_COUNT
-    assert five_minute_button.isChecked() is True
+    assert toolbar._vm.currentCode == _TOOLBAR_TIMEFRAME_INTERVAL
     assert chart._raw_history[1][0] - chart._raw_history[0][0] == 300.0
     assert view._last_klines == chart._raw_history
 
 
 def test_progress_banner_cancel_button_cancels_active_backtest_flow(
-    backtest_screen, qtbot
+    backtest_screen, qtbot, qml_item
 ):
+    from PySide6.QtCore import QPoint
+
     presenter, view = backtest_screen
     view_model = presenter._view_model
     view_model.selectedTimeframe = _RUNTIME_INTERVAL
@@ -346,16 +356,26 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
     # Trigger backtest run via toolbar button
     view.top_widget._btn_run.click()
 
-    # Progress banner and its cancel button are visible in cancellable state
-    cancel_btn = view.top_widget._btn_cancel_progress
-    assert cancel_btn is not None
+    # `EPIC-015` Phase 4: the Cancel button lives inside
+    # `ProgressBannerWidget`'s QML scene (`kit/ProgressBanner.qml`), reached
+    # by `objectName` like every other `Repeater`/QML-scene lookup in this
+    # rollout — not a direct `QPushButton` attribute anymore.
+    progress_widget = view.top_widget._progress_banner_widget
+    assert progress_widget is not None
 
     # If the backtest is still running or syncing, clicking cancel on the progress banner must cooperatively cancel it
     if presenter.fsm.current_state in (
         BacktestUiState.RUNNING,
         BacktestUiState.SYNCING,
     ):
-        cancel_btn.click()
+        cancel_btn = qml_item(progress_widget.root_object, "progressBannerCancelButton")
+        assert cancel_btn is not None
+        centre = cancel_btn.mapToScene(cancel_btn.boundingRect().center())
+        qtbot.mouseClick(
+            progress_widget,
+            Qt.MouseButton.LeftButton,
+            pos=QPoint(int(centre.x()), int(centre.y())),
+        )
 
     qtbot.waitUntil(
         lambda: (

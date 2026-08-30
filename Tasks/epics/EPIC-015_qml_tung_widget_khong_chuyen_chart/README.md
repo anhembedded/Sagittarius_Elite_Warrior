@@ -12,8 +12,16 @@ làm. **Phase 2 ĐÃ XONG toàn bộ 2026-08-30:** `DatabaseStatusTable` → Dat
 tự bổ sung thêm search + khoá nút khi busy vào chính component, không chỉ nối dây — màn cũ
 đang có cả hai tính năng chạy thật, bỏ qua sẽ là hồi quy); `ProgressBanner` thay
 `AppProgressBar` + nút Hủy riêng ở Data Management (lần đầu nhúng panel QML thẳng vào
-layout màn hình, không qua `QmlOverlay`, an toàn vì màn này không có chart). Tiếp theo:
-Phase 3 (`MetricsDetailPanel`, cần duyệt ngưỡng) → Phase 4 (cạnh chart, rủi ro cao nhất).
+layout màn hình, không qua `QmlOverlay`, an toàn vì màn này không có chart). **Phase 3 ĐÃ
+XONG 2026-08-30:** `MetricsDetailPanel` → Backtest, thay `ExtendedMetricsDialog`/`StatGrid`
+(ba ngưỡng verdict tự chế Sharpe/Sortino/Calmar/chuỗi-thua đã được user duyệt nguyên trạng,
+xem `qml/MetricsDetailPanel/NOTES.md`). **Phase 4 — code + test tự động ĐÃ XONG 2026-08-30,
+CHƯA xác minh bằng mắt (§6's điều kiện dừng):** `TimeframeToolbar` thay `ChartToolbar`
+(dùng chung Backtest + Dev Board, `TimeframePickerOverlay` đã xoá); `StatusPill` → huy hiệu
+WS Dev Board; `StatCard` (Repeater) + `ProgressBanner` → panel trên Backtest. Toàn bộ
+`tests/unit`/`sanity`/`integration` xanh, nhưng **không agent nào chạy được app thật** (sandbox
+headless) — user phải tự mở Backtest và Dev Board, xác nhận chart không giật/không rớt khung
+hình trước khi coi phase này là xong theo đúng nghĩa §6.
 **Ngày:** 2026-08-28 (cập nhật 2026-08-30)
 **Tiền đề:** [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md) §5 phương án **B**
 **Yêu cầu user:**
@@ -433,9 +441,69 @@ ro** — `qml-rule.md` §0 đã xếp "Panel QML cạnh chart" (bậc 5/6) khác
   - Test: toàn bộ `tests/unit/` (2649 test), `tests/sanity/` (24 test), guard
     `test_widget_guards_hold.py` (5 test — `Panel`/`QQuickWidget` không phải bare Qt base nên
     không chạm ratchet), `tests/integration/.../test_database_user_flow.py` (4 test) đều xanh.
-- **Phase 3 (cần user duyệt ngưỡng trước khi làm):** `MetricsDetailPanel` thay
-  `ExtendedMetricsDialog` — cơ chế wiring an toàn, nhưng 3 ngưỡng verdict (Sharpe/Sortino/Calmar)
-  là tự chế, cần user chốt trước khi vào màn đang live.
+- ✅ **Phase 3 — xong 2026-08-30.** `MetricsDetailPanel` → Backtest, thay
+  `ExtendedMetricsDialog`/`StatGrid`. Ba ngưỡng verdict tự chế (Sharpe/Sortino "Rất kém/Trung
+  bình/Tốt/Xuất sắc", Calmar "Âm/Yếu/Khá/Mạnh", chuỗi-thua-liên-tiếp-≥10 "Cảnh báo") đã được
+  user duyệt shipping nguyên trạng — không đổi, không hỏi lại (`qml/MetricsDetailPanel/NOTES.md`).
+  - **Host shape:** `MetricsDetailPanel.qml`'s root là `kit/DialogShell` (tự vẽ header + footer,
+    nhưng KHÔNG phải `Popup`/`Dialog` — không tự dim/block gì cả) — hình đối lập với
+    `SymbolPicker.qml` (có `Popup` nhưng `Popup` không dim được ra ngoài `QQuickWidget`). Cả hai
+    cần cùng một loại vỏ: `MetricsDetailModal(QDialog)`
+    (`qml/MetricsDetailPanel/metrics_detail_modal_host.py`) — app-modal thật, không chrome
+    `Overlay` (đã có `DialogShell` vẽ rồi), `# base-exempt` theo đúng lý do
+    `SymbolPickerModal` đã dùng. Đơn giản hơn `SymbolPickerModal` ở một điểm: không có `Popup`
+    con nào để đua tín hiệu đóng — một kết nối `vm.closeRequested -> self.close` là đủ.
+  - **Data plumbing (điều tra thật, không đoán):** `BackTestViewModel.extendedStatCards` là
+    `list[dict]` đã dict-hoá cho QML — không đủ cho `MetricsDetailVM` (cần `StatCardData` thật
+    + vài số `BacktestMetrics` thô). Thêm `ExtendedMetricsSnapshot`
+    (`logic/extended_metrics_snapshot.py`, kiểu có tên qua ranh giới Presenter→ViewModel theo
+    `architecture-rule.md` §2.1) — `BackTestPresenter._on_backtest_succeeded` giữ lại 1 lần
+    ngay cạnh `set_stat_cards(...)`. 6/7 giá trị đọc thẳng từ `result.metrics`/snapshot;
+    `get_timeframe_seconds` đọc sống `selectedTimeframe` hiện tại (không snapshot) qua
+    `describe_timeframe()`, đúng pattern `BacktestTimeRangeSource` đã dùng.
+    `get_fee_rate_percent` **không** có field tên sẵn ở đâu cả (grep hết
+    `src/domain`/`src/application`/`src/presentation` — không có) — lấy từ
+    `self._active_action.config.broker_config` (config THẬT của lần chạy vừa xong, đọc qua
+    `ActionOwnershipTracker`, KHÔNG phải `_get_current_config()` vốn luôn trả
+    `BrokerSimulationConfig()` mặc định), theo đúng công thức `execution_coordinator.py` đã
+    dùng cho `fee_percent` của chính lần chạy đó (`commission_value if PERCENT else 0.0`).
+  - **"Copy tất cả":** signal có sẵn nhưng chưa ai nghe — nối vào `MetricsDetailModal`, dump
+    toàn bộ `vm.groups` + 4 dòng tóm tắt thành text phẳng rồi
+    `QGuiApplication.clipboard().setText(...)`, cùng pattern
+    `LogListModel.copyAllToClipboard()` (Engine) đã dùng, không bịa định dạng mới.
+  - **`StatGrid.qml`/`StatGridVM` không bị xoá** — `ExtendedMetricsDialog` là consumer runtime
+    duy nhất và giờ đã mất, nhưng `StatGrid` vẫn còn 2 file test riêng
+    (`test_stat_grid_and_checkbox_list_bodies.py`, `test_stat_grid_vm.py`) và vẫn được
+    `qml-rule.md`/`ui-presentation-rule.md` liệt kê là shape dùng chung — để nguyên, không xoá
+    hạ tầng tái sử dụng được chỉ vì mất 1 consumer, đúng khuyến nghị "an toàn mặc định" của
+    chính task này.
+  - Test: 7 test adapter thuần (`BacktestMetricsDetailSource`, 0 `QApplication`) + 4 test host
+    QML thật generic (`MetricsDetailModal` — load, đóng, copy-clipboard thật, broken-QML raises)
+    + 5 test wiring màn thật (`MetricsDetailDialogWidget` đọc `BackTestViewModel` thật) + cập
+    nhật `test_backtest_popups_overlay.py`'s extended-metrics case cho VM/objectName mới.
+    Một phát hiện thật khi đi qua: `set_extended_metrics_snapshot` (setter Python thuần mới)
+    thiếu `@Slot` làm `test_bug031_cross_thread_timer.py`'s `unprotected_mutators()` guard đỏ —
+    thêm `@Slot(object)` cho khớp quy ước 100% các `set_*` khác trên `BackTestViewModel`.
 - **Phase 4 (rủi ro cao nhất — pattern "QML cạnh chart" chưa từng chạy trong production, dừng
   theo điều kiện ở §6 nếu chart giật/rớt khung hình):** `TimeframeToolbar`, `StatusPill`
   (Dev Board), `StatCard` + `ProgressBanner` ở Backtest top panel — cả bốn nằm cạnh chart thật.
+  - ✅ **`TimeframeToolbar` → `ChartToolbar` (Backtest + Dev Board), code xong.**
+    `components/chart_card/chart_toolbar.py`'s `ChartToolbar` (unchanged public API:
+    `sig_timeframe_changed`, `set_active()`) is now a bare `QQuickWidget` embedding
+    `TimeframeToolbar.qml`, plus a lazily-opened `TimeframePickerDialog` for "…" — ONE
+    `TimeframeVM` per `ChartToolbar` instance, shared by both (`timeframe_picker_dialog.py`
+    gained a `vm`-accepting constructor plus a `from_callbacks()` classmethod for the three
+    pre-existing modal-only callers, which needed no behaviour change). Pinned set stays
+    in-memory, scoped to one `ChartToolbar` (not shared across sibling `ChartCard`s on a
+    screen, not `ui_state`-persisted) — see `chart_toolbar.py`'s module docstring for the
+    full reasoning. `TimeframePickerOverlay` (QtWidgets) and its `TimeframeCard` delegate
+    are deleted — `ChartToolbar` was the last consumer (Data Management/Backtest's own
+    modal picker/Settings already moved to `TimeframePickerDialog` in Phase 1).
+    **Verification caveat, stated plainly:** this session ran headless
+    (`QT_QPA_PLATFORM=offscreen`) and could not observe actual chart rendering — a human
+    must confirm no flicker/no-render/FPS drop on Backtest's and Dev Board's real charts
+    before this is considered done per §6's stop condition. Full `tests/unit`/`tests/sanity`
+    run and reasoning are recorded in this task's own session report (not duplicated here).
+    Other Phase 4 items (`StatusPill`, `StatCard`/`ProgressBanner`) and Phase 3
+    (`MetricsDetailPanel`) show as uncommitted, in-progress changes elsewhere in this working
+    tree at the time of this edit — not audited or updated here, out of this task's scope.

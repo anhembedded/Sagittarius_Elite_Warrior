@@ -7,8 +7,10 @@ full coverage with no `QApplication` at all
 all (`qml/TimeframePicker/tests/test_timeframe_qml.py`). What only a test
 building the real `TimeframePickerDialog` can prove is this app's own
 wiring: choosing a card emits `chosen` and closes the dialog with no
-separate Apply step, `PinnedTimeframes` round-trips through the VM, and a
-broken `.qml` fails loudly instead of rendering a blank box.
+separate Apply step, `PinnedTimeframes` round-trips through the VM, a
+broken `.qml` fails loudly instead of rendering a blank box, and (`EPIC-015`
+Phase 4) the dialog can be built directly around an existing `TimeframeVM`
+so it shares state with a sibling `ChartToolbar` instead of building its own.
 """
 
 from __future__ import annotations
@@ -21,6 +23,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
+    TimeframeVM,
 )
 
 
@@ -46,7 +51,7 @@ def pinned():
 
 @pytest.fixture
 def dialog(qapp, seed, pinned):
-    built = TimeframePickerDialog(
+    built = TimeframePickerDialog.from_callbacks(
         get_codes=lambda: seed.codes,
         get_current=lambda: seed.current,
         get_pinned=pinned.get,
@@ -128,12 +133,35 @@ def test_a_broken_qml_file_raises_instead_of_rendering_a_blank_box(
     monkeypatch.setattr(host_module, "_QML", broken)
 
     with pytest.raises(RuntimeError, match="QML failed to load"):
-        host_module.TimeframePickerDialog(
+        host_module.TimeframePickerDialog.from_callbacks(
             get_codes=lambda: ["1m"],
             get_current=lambda: "1m",
             get_pinned=list,
             set_pinned=lambda code, pin: None,
         )
+
+
+def test_built_around_an_existing_vm_shares_it_verbatim(qapp, seed, pinned):
+    """`EPIC-015` Phase 4: `ChartToolbar` builds one `TimeframeVM` for its
+    embedded `TimeframeToolbar.qml` and must open this exact dialog on the
+    same instance — not a second one wired to the same callbacks, which
+    would be two independently-refreshed copies of the pinned set."""
+    vm = TimeframeVM(
+        get_codes=lambda: seed.codes,
+        get_current=lambda: seed.current,
+        get_pinned=pinned.get,
+        set_pinned=pinned.set,
+    )
+    vm.refresh()
+    built = TimeframePickerDialog(vm)
+    try:
+        assert built._widget_vm is vm
+
+        vm.togglePinned("1h")
+
+        assert pinned.get() == ["1h"]
+    finally:
+        built.close()
 
 
 class TestPinnedTimeframes:
@@ -142,6 +170,14 @@ class TestPinnedTimeframes:
 
     def test_starts_empty(self) -> None:
         assert PinnedTimeframes().get() == []
+
+    def test_seeds_from_an_initial_iterable(self) -> None:
+        """`EPIC-015` Phase 4: `ChartToolbar` seeds this with
+        `DEFAULT_TIMEFRAMES` so a freshly-built chart header's pill row is
+        not empty on first render."""
+        store = PinnedTimeframes(initial=("1h", "1m", "1h"))
+
+        assert store.get() == ["1h", "1m"]
 
     def test_set_true_pins_and_set_false_unpins(self) -> None:
         store = PinnedTimeframes()

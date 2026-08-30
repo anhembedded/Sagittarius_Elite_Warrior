@@ -3,8 +3,8 @@
 Body is the shared `SelectList.qml`; options come from `MARKET_OPTIONS`
 (`catalogue.py`), not from a screen ViewModel — every screen offers the
 same three markets, so there is nothing for a screen to narrow (unlike
-`TimeframePickerOverlay`, which takes `get_options` for exactly that
-reason).
+`qml/TimeframePicker/timeframe_vm.py`'s `TimeframeVM`, which takes
+`get_codes` for exactly that reason).
 
 Callback-constructed rather than hardwired to one screen's ViewModel
 (unlike `StrategyPickerDialog`, which takes `BackTestViewModel` directly)
@@ -61,7 +61,7 @@ class MarketPickerDialog(QmlOverlay):
     def showEvent(self, event) -> None:
         """Re-reads the current choice on every open — a screen's selected
         market can change between opens, same reasoning
-        `TimeframePickerOverlay.showEvent` documents."""
+        `TimeframePickerDialog.open_dialog()` documents."""
         self._widget_vm.refresh()
         super().showEvent(event)
 

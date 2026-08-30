@@ -138,8 +138,9 @@ class DataManagementView(BaseView):
         self._view_model: DataManagementViewModel | None = None
         self._symbol_picker: SymbolPickerOverlay | None = None
         self._timeframe_picker: TimeframePickerDialog | None = None
-        # EPIC-015 bậc 1: private, non-persisted — see
-        # `timeframe_picker_dialog.py`'s "pinned-set gap" docstring section.
+        # EPIC-015 bậc 1: private, non-persisted — this picker is its own
+        # only consumer — see `timeframe_picker_dialog.py`'s
+        # `PinnedTimeframes` docstring.
         self._timeframe_picker_pinned = PinnedTimeframes()
         # EPIC-014: replaced by the container-registered store when the
         # Presenter injects it, so a pair starred here is starred on Backtest
@@ -284,7 +285,7 @@ class DataManagementView(BaseView):
         if self._view_model is None:
             return
         if self._timeframe_picker is None:
-            self._timeframe_picker = TimeframePickerDialog(
+            self._timeframe_picker = TimeframePickerDialog.from_callbacks(
                 get_codes=lambda: self._view_model.intervals,
                 get_current=lambda: self._view_model.selectedInterval,
                 get_pinned=self._timeframe_picker_pinned.get,

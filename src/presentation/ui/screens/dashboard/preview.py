@@ -19,6 +19,7 @@ def build_preview() -> QWidget:
     view_model.set_ws_status(
         "WS: LIVE",
         "#26a69a",  # token-exempt: bull colour, matches chart_card/theme.py
+        "success",
     )
     view_model.log_model.append("Prepared 1 charts.")
     view_model.log_model.append(

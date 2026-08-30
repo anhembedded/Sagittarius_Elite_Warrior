@@ -151,7 +151,7 @@ Mirrors the spec image's own layout: each component next to a short label,
 so a change to any of the four is visible without opening six other
 widgets to spot-check consistency.
 
-## `progress_banner_widget.py` — the one host in this package
+## `progress_banner_widget.py` — the first inline host in this package
 
 Every other `.qml` here is reached only through `preview.py` or a modal
 (`QmlOverlay`, `SymbolPickerModal`) — this directory itself stayed "pure
@@ -166,3 +166,27 @@ nothing — every value it sets on the QML root is already computed by
 `DataManagementViewModel`), so it is not the kind of "widget-VM" §1.3
 warns against needing a reason to exist. See its own docstring for why it
 is component-specific rather than a generic inline-QML base.
+
+## `status_pill_widget.py` — Phase 4, the first `kit/` embed beside the live chart
+
+`StatusPillWidget` replaces `screens/dashboard/dev_board_panel.py`'s bare
+`QLabel` + colour-square `QFrame` WS badge (the state this file's own
+"`StatusPill` / `ProgressBanner`" section above already described as real,
+4-state-driven, just not reusable) with `StatusPill.qml` embedded inline
+in `DevBoardPanel`'s header row — same non-modal, no-`QmlOverlay` shape as
+`ProgressBannerWidget`, and the same two plain setters
+(`set_text`/`set_tone`) `_sync_ws_status()` already called on the old
+widgets. The tone (`"idle"|"active"|"success"|"danger"`) is derived from
+`UIMode`, not from `wsStatusColor`'s raw hex string — `dashboard_presenter.py`'s
+`_WS_STATUS_BY_MODE` now carries a third tuple element per mode instead of
+a second switch statement, and `DashboardQmlViewModel.wsStatusTone` exposes
+it alongside `wsStatusText`/`wsStatusColor`.
+
+**This is the highest-risk widget built under `EPIC-015` to date** — it is
+the first `kit/` component embedded in the same top-level window as the
+live pyqtgraph chart (`qml-rule.md` §0's "Panel QML cạnh chart" row, only
+previously *measured* in a spike, never shipped). See the epic's own §6
+stop condition (chart flicker/no-render/FPS drop) — this was built and
+fully unit-tested in a headless (`QT_QPA_PLATFORM=offscreen`) sandbox that
+cannot observe chart rendering quality at all; a human must verify the
+real running app before this counts as done.

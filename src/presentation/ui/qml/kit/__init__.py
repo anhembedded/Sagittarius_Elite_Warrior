@@ -5,9 +5,11 @@ a component with nothing to derive, just properties a caller sets, does
 not get one). This file exists only so `tests/` resolves to a unique
 package path (EPIC-015 §1 — one widget, one directory).
 
-One exception: `progress_banner_widget.py`'s `ProgressBannerWidget` is a
-thin `QQuickWidget` *host*, not a ViewModel — it exists because
-`ProgressBanner.qml` is embedded inline (no modal, no `QmlOverlay`) into
-`DataManagementView`'s own layout, and an inline embed needs a Python
-object to occupy that layout slot. See `NOTES.md`'s own section on it.
+Two exceptions: `progress_banner_widget.py`'s `ProgressBannerWidget` and
+`status_pill_widget.py`'s `StatusPillWidget` are thin `QQuickWidget`
+*hosts*, not ViewModels — each exists because its `.qml` is embedded
+inline (no modal, no `QmlOverlay`) into a screen's own layout
+(`DataManagementView` and `DevBoardPanel` respectively), and an inline
+embed needs a Python object to occupy that layout slot. See `NOTES.md`'s
+own section on each.
 """

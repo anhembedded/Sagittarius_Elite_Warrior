@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     SectionLabel,
     StyledCheckBox,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.status_pill_widget import (
+    StatusPillWidget,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
     TimeRangePickerDialog,
 )
@@ -204,24 +207,15 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._price_ticker_label.setObjectName("lblPriceTicker")
         row.addWidget(self._price_ticker_label)
 
-        ws_badge = QFrame()
-        ws_badge.setFixedHeight(22)
-        # Scoped: unscoped, the pill's own 11px radius and border land on
-        # the status dot and the label it holds.
-        ws_badge.setStyleSheet(
-            f"QFrame {{ background-color: {Palette.BG_CARD_HEADER}; "
-            f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 11px; }}"
-        )
-        badge_row = QHBoxLayout(ws_badge)
-        badge_row.setContentsMargins(10, 0, 10, 0)
-        badge_row.setSpacing(6)
-        self._ws_dot = QFrame()
-        self._ws_dot.setFixedSize(6, 6)
-        badge_row.addWidget(self._ws_dot)
-        self._ws_status_label = QLabel()
-        self._ws_status_label.setObjectName("lblWsStatus")
-        badge_row.addWidget(self._ws_status_label)
-        row.addWidget(ws_badge)
+        # EPIC-015 Phase 4 — was a bare QLabel + colour-square QFrame, styled
+        # inline via `_sync_ws_status()`. Now `StatusPill.qml` embedded
+        # inline (no modal, no `QmlOverlay` — see `StatusPillWidget`'s own
+        # docstring): the pill draws its own rounded background/border/dot
+        # from `Theme` tokens, so nothing here styles it.
+        self._ws_status_pill = StatusPillWidget()
+        self._ws_status_pill.setObjectName("wsStatusPill")
+        self._ws_status_pill.setFixedHeight(22)
+        row.addWidget(self._ws_status_pill)
 
         self._btn_reload = QPushButton()
         self._btn_reload.setObjectName("btnReload")
@@ -543,14 +537,14 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         )
 
     def _sync_ws_status(self) -> None:
+        """`vm.wsStatusColor` (a raw hex string) is not read here at all —
+        `StatusPill.qml` resolves its own colours from `Theme` given only
+        the semantic `tone`, which `vm.wsStatusTone` already carries (set
+        alongside text/color by the same `set_ws_status()` call, see
+        `dashboard_view_model.py`)."""
         vm = self._view_model
-        self._ws_status_label.setText(vm.wsStatusText)
-        self._ws_status_label.setStyleSheet(
-            f"color: {vm.wsStatusColor}; font-size: 10px; font-weight: bold;"
-        )
-        self._ws_dot.setStyleSheet(
-            f"background-color: {vm.wsStatusColor}; border-radius: 3px;"
-        )
+        self._ws_status_pill.set_text(vm.wsStatusText)
+        self._ws_status_pill.set_tone(vm.wsStatusTone)
 
     def _sync_controls_active(self) -> None:
         vm = self._view_model
