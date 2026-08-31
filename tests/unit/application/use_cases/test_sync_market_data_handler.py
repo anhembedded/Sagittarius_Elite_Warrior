@@ -5,6 +5,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
 )
+from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
+    InFlightSyncGuard,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
@@ -29,8 +32,15 @@ def mock_event_bus():
 
 
 @pytest.fixture
-def handler(mock_exchange_client, mock_repo, mock_event_bus):
-    return SyncMarketDataCommandHandler(mock_exchange_client, mock_repo, mock_event_bus)
+def in_flight_guard():
+    return InFlightSyncGuard()
+
+
+@pytest.fixture
+def handler(mock_exchange_client, mock_repo, mock_event_bus, in_flight_guard):
+    return SyncMarketDataCommandHandler(
+        mock_exchange_client, mock_repo, mock_event_bus, in_flight_guard
+    )
 
 
 def test_sync_empty_db(handler, mock_exchange_client, mock_repo):
@@ -112,6 +122,53 @@ def test_sync_no_new_data(handler, mock_exchange_client, mock_repo):
 
     # Assert save_klines is NOT called because there's no new data
     mock_repo.save_klines.assert_not_called()
+
+
+def test_sync_skips_a_symbol_already_in_flight_elsewhere(
+    handler, mock_exchange_client, mock_repo, in_flight_guard, caplog
+):
+    """BOT-121: this is the one choke point every screen's sync dispatch
+    goes through (Backtest's DataSyncCoordinator, Data Management's
+    SyncCoordinator, and BulkSyncMarketDataCommandHandler dispatching per
+    target) — a symbol+interval already reserved elsewhere (simulated here
+    by acquiring it directly, standing in for a concurrent dispatch from
+    the other screen) must not be fetched from the exchange a second time."""
+    assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
+
+    command = SyncMarketDataCommand(symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE)
+    with caplog.at_level("INFO", logger="App.SyncMarketData"):
+        handler.execute(command)
+
+    mock_exchange_client.stream_historical_klines.assert_not_called()
+    mock_repo.save_klines.assert_not_called()
+    assert any("already in flight" in r.getMessage() for r in caplog.records), (
+        caplog.records
+    )
+
+
+def test_sync_releases_the_in_flight_key_so_a_later_call_can_acquire_it_again(
+    handler, mock_exchange_client, mock_repo, in_flight_guard
+):
+    mock_repo.get_latest_kline_time.return_value = None
+    mock_exchange_client.stream_historical_klines.return_value = iter([])
+
+    command = SyncMarketDataCommand(symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE)
+    handler.execute(command)
+
+    assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
+
+
+def test_sync_releases_the_in_flight_key_even_when_the_exchange_raises(
+    handler, mock_exchange_client, mock_repo, in_flight_guard
+):
+    mock_repo.get_latest_kline_time.return_value = None
+    mock_exchange_client.stream_historical_klines.side_effect = Exception("API Error")
+
+    command = SyncMarketDataCommand(symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE)
+    with pytest.raises(Exception, match="API Error"):
+        handler.execute(command)
+
+    assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
 
 
 def test_sync_multiple_symbols(handler, mock_exchange_client, mock_repo):

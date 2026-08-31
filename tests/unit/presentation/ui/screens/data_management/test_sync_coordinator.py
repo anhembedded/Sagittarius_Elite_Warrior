@@ -106,6 +106,44 @@ def test_sync_coordinator_bulk_sync_success(sync_fixture):
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
 
+def test_sync_coordinator_single_sync_progress_matches_while_dispatch_is_in_flight(
+    sync_fixture,
+):
+    """BOT-121: `_active_targets` is only set for the duration of the real
+    dispatch — simulate a `SingleSyncProgressEvent` arriving while it's
+    genuinely in flight, matching production timing, instead of calling
+    `publish_single_sync_progress()` after `run_single_sync()` already
+    cleared it."""
+    coordinator, _, dispatcher, _, signals = sync_fixture
+    dispatcher.dispatch.side_effect = lambda kind, payload: (
+        coordinator.publish_single_sync_progress(
+            SyncProgressReport(symbol="BTCUSDT", interval="1h", current=50, total=100)
+        )
+    )
+
+    coordinator.run_single_sync("BTCUSDT", "1h", None, None)
+
+    signals["ui_single_sync_progress"].assert_called_once()
+
+
+def test_sync_coordinator_progress_for_a_target_it_did_not_start_is_dropped(
+    sync_fixture,
+):
+    """`SyncProgressFeed` broadcasts every `SingleSyncProgressEvent` to both
+    screens — a report for a symbol/interval Backtest is syncing, not this
+    coordinator's own target, must not reach the UI signal."""
+    coordinator, _, dispatcher, _, signals = sync_fixture
+    dispatcher.dispatch.side_effect = lambda kind, payload: (
+        coordinator.publish_single_sync_progress(
+            SyncProgressReport(symbol="ETHUSDT", interval="1h", current=50, total=100)
+        )
+    )
+
+    coordinator.run_single_sync("BTCUSDT", "1h", None, None)
+
+    signals["ui_single_sync_progress"].assert_not_called()
+
+
 def test_sync_coordinator_progress_event_handlers(sync_fixture):
     coordinator, _, _, _, signals = sync_fixture
 
@@ -113,6 +151,12 @@ def test_sync_coordinator_progress_event_handlers(sync_fixture):
     # to the bus and formats the string itself. `SyncProgressFeed` normalises
     # once and the presenter hands the report over, so the message has a single
     # source (`SyncProgressReport.to_message()`).
+    # BOT-121: `publish_single_sync_progress()` only forwards a report that
+    # matches a target `run_single_sync()`/`run_bulk_sync()` is actually
+    # waiting on — stand in for that in-flight state directly, since
+    # `run_single_sync()` (see the dedicated tests below) clears it the
+    # instant its own synchronous dispatch returns.
+    coordinator._active_targets = {("BTCUSDT", "1h")}
     coordinator.publish_single_sync_progress(
         SyncProgressReport(symbol="BTCUSDT", interval="1h", current=50, total=100)
     )

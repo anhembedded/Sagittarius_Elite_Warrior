@@ -68,6 +68,13 @@ class SyncCoordinator:
         self._is_shutdown_requested = is_shutdown_requested
 
         self._cancellation_token: CancellationToken | None = None
+        # BOT-121: which (symbol, interval) targets THIS coordinator is
+        # currently waiting on — a set because bulk sync runs multiple
+        # targets concurrently. `SyncProgressFeed` broadcasts every
+        # SingleSyncProgressEvent to both this screen and Backtest's, so
+        # without this a Backtest sync running at the same time would move
+        # this screen's progress log using its numbers.
+        self._active_targets: set[tuple[str, str]] = set()
 
     @property
     def cancellation_token(self) -> CancellationToken | None:
@@ -98,6 +105,7 @@ class SyncCoordinator:
             },
             self._get_current_fsm_state(),
         )
+        self._active_targets = {(symbol, interval)}
         try:
             cmd = SyncMarketDataCommand(
                 symbols=[symbol],
@@ -133,6 +141,7 @@ class SyncCoordinator:
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None
+            self._active_targets = set()
             self._ui_unlock_signal()
 
     def run_bulk_sync(
@@ -147,6 +156,7 @@ class SyncCoordinator:
             {"targets": targets},
             self._get_current_fsm_state(),
         )
+        self._active_targets = set(targets)
         try:
             cmd = BulkSyncMarketDataCommand(
                 targets=[
@@ -178,6 +188,7 @@ class SyncCoordinator:
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None
+            self._active_targets = set()
             self._ui_unlock_signal()
 
     def handle_bulk_sync_progress(self, event: BulkSyncProgressEvent) -> None:
@@ -205,7 +216,15 @@ class SyncCoordinator:
         Trước `EPIC-008G` hàm này nhận thẳng `SingleSyncProgressEvent` từ bus và
         **tự ghép chuỗi** — nơi duy nhất trong app có câu chữ tiến độ, nên màn
         thứ hai muốn hiển thị sẽ phải ghép bản riêng. Câu chữ giờ nằm ở
-        `SyncProgressReport.to_message()`."""
+        `SyncProgressReport.to_message()`.
+
+        BOT-121: `report` may belong to a sync Backtest started, not one of
+        this screen's own — `SyncProgressFeed` fans every
+        `SingleSyncProgressEvent` out to both screens. Only apply it if it
+        matches a target THIS coordinator's `run_single_sync()`/
+        `run_bulk_sync()` is actually waiting on."""
+        if (report.symbol, report.interval) not in self._active_targets:
+            return
         self._ui_single_sync_progress_signal(
             report.current, report.total, True, report.to_message()
         )

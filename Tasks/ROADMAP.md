@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 113 | 65.3% |
+| 🟢 **Completed** | 119 | 66.9% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 54 | 31.2% |
-| ❌ **Cancelled** | 6 | 3.5% |
-| 📈 **Tổng số Task** | **173** | **100%** |
+| 🔴 **Backlog** | 53 | 29.8% |
+| ❌ **Cancelled** | 6 | 3.4% |
+| 📈 **Tổng số Task** | **178** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -104,6 +104,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BOT-121`**: [Backtest và Data Management sync — user báo cảm giác "2 cơ chế không đồng bộ". Rà ra: đã dùng chung 1 use case (`SyncMarketDataCommand`) nhưng 2 coordinator độc lập cùng nghe 1 `SingleSyncProgressEvent` không lọc theo symbol/interval (progress màn này nhảy theo số của màn kia), và không có exclusivity chéo màn (2 màn có thể cùng gọi Binance cho cùng symbol+interval). `ExclusiveAction` (`BOT-069`) không dùng thẳng được — nó chỉ giữ 1 slot/instance, sẽ serialize luôn cả bulk sync đa-target cố ý chạy song song. `InFlightSyncGuard` mới (registry theo key, khác key không loại nhau) gắn ở `SyncMarketDataCommandHandler` — chỗ duy nhất mọi đường dispatch đi qua](completed/BOT-121_backtest_data_management_sync_cross_talk_and_race.md)
 - [x] **`BUG-064`**: [Dialog "Cài đặt Chiến lược" chỉ commit giá trị khi bấm nút Lưu — Enter/mất focus không có tác dụng, gõ giá trị mới trông như bị revert. Thêm cơ chế `editingFinished` chung cho mọi ô, và tách `BROKER_PROPERTY_FIELDS` làm nguồn khai báo broker-property duy nhất (trước khai trùng 3 nơi)](bug_report/completed/BUG-064_strategy_properties_dialog_needs_save_button_to_commit_any_field.md)
 - [x] **`BUG-063`**: [Đồng bộ dữ liệu 1 giây mất trắng nến đã tải khi Binance trả lời chậm — `python-binance` timeout mặc định 10s không đủ cho hàng trăm request tuần tự của 1 lần sync nhiều ngày, không có retry. Thêm resume từ `close_time + 1ms` + backoff luỹ thừa, nâng timeout lên 30s](bug_report/completed/BUG-063_binance_sync_read_timeout_aborts_whole_sync.md)
 - [x] **`BUG-053`**: [Script indicator nhiều đường (MACD: MACD/Signal/Histogram) tạo 1 subplot row/đường thay vì 1 row chung — ép main plot xuống ~3/8 chiều cao, đăng ký trùng crosshair. `group` key mới cho `IndicatorScriptRunner`/`IndicatorManager` gộp lại thành 1 row/script](bug_report/completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md)

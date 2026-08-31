@@ -55,6 +55,12 @@ class DataSyncCoordinator:
         self._emit_succeeded = emit_succeeded
         self._emit_failed = emit_failed
         self._emit_cancelled = emit_cancelled
+        # BOT-121: which (symbol, interval) THIS coordinator's dispatch is
+        # currently waiting on — `SyncProgressFeed` broadcasts every
+        # SingleSyncProgressEvent to both this screen and Data Management's,
+        # so without this a Data Management sync running at the same time
+        # would move this screen's progress bar using its numbers.
+        self._active_sync: tuple[str, str] | None = None
 
     # ---------------------------------------------------------------- #
     # Pure helpers
@@ -113,7 +119,17 @@ class DataSyncCoordinator:
         return self._dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
 
     def on_progress(self, report) -> None:
-        """Already on the main thread — `BaseFeed` wraps `QtEventBridge`."""
+        """Already on the main thread — `BaseFeed` wraps `QtEventBridge`.
+
+        BOT-121: `report` may belong to a sync Data Management started, not
+        this one — `SyncProgressFeed` fans every `SingleSyncProgressEvent`
+        out to both screens. Only apply it if it matches the (symbol,
+        interval) THIS coordinator is actually waiting on.
+        """
+        if self._active_sync is None:
+            return
+        if (report.symbol, report.interval) != self._active_sync:
+            return
         action_id = self._resolve_action_id()
         if action_id is not None:
             self._emit_progress(action_id, report.current, report.total)
@@ -146,6 +162,7 @@ class DataSyncCoordinator:
             start=sync_start,
             end=config.end_time,
         )
+        self._active_sync = (self._state.symbol, sync_interval.value)
         try:
             self._dispatch_sync(config, sync_interval, sync_start, cancellation_token)
         except Exception as exc:
@@ -153,6 +170,8 @@ class DataSyncCoordinator:
             self._log_dev_trace("sync_worker_failed", message=str(exc))
             self._emit_failed(resolved_action_id, str(exc))
             return
+        finally:
+            self._active_sync = None
 
         if cancellation_token is not None and cancellation_token.is_cancelled():
             self._log_dev_trace("sync_worker_cancelled", action_id=resolved_action_id)

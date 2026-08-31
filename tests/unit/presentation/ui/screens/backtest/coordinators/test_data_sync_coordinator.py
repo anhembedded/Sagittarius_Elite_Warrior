@@ -39,14 +39,21 @@ def _config(start=None, end=None):
 
 
 class _Dispatcher:
-    def __init__(self, coverage=None, raises=None) -> None:
+    def __init__(self, coverage=None, raises=None, on_sync_dispatch=None) -> None:
         self.coverage = coverage or _coverage()
         self.raises = raises
+        # BOT-121: `_active_sync` is only set for the duration of the real
+        # `_dispatch_sync()` call — this hook fires from inside `dispatch()`
+        # to let a test simulate a `SingleSyncProgressEvent` arriving while
+        # the sync is genuinely in flight, matching production timing.
+        self.on_sync_dispatch = on_sync_dispatch
         self.dispatched: list = []
 
     def dispatch(self, kind, payload):
         self.dispatched.append((kind.__name__, payload))
         if "Sync" in kind.__name__:
+            if self.on_sync_dispatch:
+                self.on_sync_dispatch()
             if self.raises:
                 raise self.raises
             return None
@@ -163,11 +170,29 @@ def test_nothing_runs_without_an_action_to_attribute_it_to() -> None:
 
 
 def test_progress_is_reported_against_the_current_action() -> None:
-    coordinator, _dispatcher, events = _build()
+    coordinator, dispatcher, events = _build()
+    dispatcher.on_sync_dispatch = lambda: coordinator.on_progress(
+        SimpleNamespace(symbol="BTCUSDT", interval="1m", current=3, total=10)
+    )
 
-    coordinator.on_progress(SimpleNamespace(current=3, total=10))
+    coordinator.run_sync(_config())
 
-    assert events == [("progress", 7, 3, 10)]
+    assert ("progress", 7, 3, 10) in events
+
+
+def test_progress_for_a_different_symbol_or_interval_is_dropped() -> None:
+    """BOT-121: `SyncProgressFeed` broadcasts every `SingleSyncProgressEvent`
+    to both Backtest and Data Management — a report from a sync the OTHER
+    screen started (different symbol, or same symbol but a different
+    interval) must not move this screen's progress bar."""
+    coordinator, dispatcher, events = _build()
+    dispatcher.on_sync_dispatch = lambda: coordinator.on_progress(
+        SimpleNamespace(symbol="ETHUSDT", interval="1m", current=3, total=10)
+    )
+
+    coordinator.run_sync(_config())
+
+    assert not any(name == "progress" for name, *_ in events)
 
 
 def test_progress_without_an_action_is_dropped() -> None:
