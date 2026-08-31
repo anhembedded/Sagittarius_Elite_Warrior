@@ -39,8 +39,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa / đã đóng** | 65 |
-| 📈 **Tổng** | **69** |
+| ✅ **Đã sửa / đã đóng** | 66 |
+| 📈 **Tổng** | **70** |
 
 ---
 
@@ -59,6 +59,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-071](completed/BUG-071_checkbox_list_stat_grid_root_width_parent_typeerror.md)** | CheckboxList/StatGrid QML quăng `TypeError: Cannot read property 'width' of null` mỗi lần mở dialog | 🟡 **P3** | 2026-08-31 | Xoá `width: parent.width` khỏi root item của `CheckboxList.qml` và `StatGrid.qml` — cả hai luôn được nạp làm root object của `QQuickWidget` (`SizeRootObjectToView`), thứ không bao giờ gán `parent` QML cho root, nên binding luôn đọc `null`. |
 | **[BUG-067](completed/BUG-067_dashboard_sync_market_data_ignores_cancellation_hangs_shutdown.md)** | Dashboard Live Stream sync bỏ qua cancellation, thread kẹt làm treo tiến trình khi tắt app | 🔴 **P1** | 2026-08-30 | Truyền `cancellation_requested=token.is_cancelled` vào `SyncMarketDataCommand` trong `stream_lifecycle_controller.py`. Thêm `shutdown()` giải phóng `ExclusiveAction` và cancel token; thêm `close()` trên `PythonBinanceClient` để ngắt socket `requests.Session` khi engine shutdown (`BinanceBotModule.shutdown`). |
 | **[BUG-069](completed/BUG-069_database_status_table_qml_typeerror_null_vm_on_teardown.md)** | DatabaseStatusTable QML quăng hàng loạt TypeError khi ViewModel bị huỷ lúc thoát app | 🟡 **P3** | 2026-08-30 | Thêm null-safe guard `(vm ? vm.rowCount : 0)`, `(vm ? vm.rowsModel : null)` và `Boolean(vm && vm.actionsEnabled)` trong `DatabaseStatusTable.qml` và `DatabaseStatusRow.qml`, triệt tiêu toàn bộ TypeError khi giải phóng ViewModel. |
 | **[BUG-066](completed/BUG-066_dev_board_symbol_picker_freeze_on_large_symbol_list.md)** | Dev Board UI freeze >5s khi mở bộ chọn symbol với 1.358 cặp tiền | 🔴 **P1** | 2026-08-30 | Di chuyển Dev Board sang `SymbolPickerModal` (`SymbolPicker.qml` với virtualized `GridView(reuseItems: true)`). Lưu sẵn 1.358 symbols vào `src/config/tradeable_symbols.json` với `ISymbolCatalogRepository`, mở tức thì 0ms không gọi mạng; thêm nút 🔄 trên QML để refresh theo yêu cầu. |
