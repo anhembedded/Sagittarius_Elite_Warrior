@@ -1,4 +1,4 @@
-# BUG-071 — `log.viewer.enabled: true` mặc định làm rò một thread TCP nền qua suốt phiên test
+# BUG-074 — `log.viewer.enabled: true` mặc định làm rò một thread TCP nền qua suốt phiên test
 
 **Reported date:** 2026-08-31
 **Severity:** 🟡 P2 (không sai kết quả test, nhưng là 1 trong nhiều thread nền
@@ -98,6 +98,6 @@ sửa.
 - `pytest tests/unit/test_bug071_log_viewer_disabled_by_default.py -v`: 2
   passed.
 - `pytest tests/ -q` (toàn suite, tuần tự, không `-n`, khớp đúng lệnh CI thật)
-  — sau khi sửa cả `BUG-071` và `BUG-065`: không còn thread
+  — sau khi sửa cả `BUG-074` và `BUG-065`: không còn thread
   `Sagittarius-TcpLogWorker` nào trong faulthandler dump của bất kỳ crash nào
   khác trong phiên (không còn crash nào để dump nữa — xem `BUG-065`).

@@ -1,4 +1,4 @@
-"""Regression test for `BUG-071`.
+"""Regression test for `BUG-074`.
 
 `app_config.json` used to ship `"log.viewer.enabled": true` — a developer
 convenience that streams every log line to a companion `Sagittarius_LogViewer`
@@ -26,7 +26,7 @@ because collection order is fixed, so the same amount of accumulated
 background-thread activity always lands on the same `qtbot.waitUntil()` call.
 
 This does not unit-test the crash itself (that needs the real multi-thousand-
-test accumulation `BUG-071`'s report reproduces) — it guards the concrete,
+test accumulation `BUG-074`'s report reproduces) — it guards the concrete,
 fast-to-check mechanism: the real default config must never enable a
 background network handler that outlives every test that boots it.
 """
@@ -44,7 +44,9 @@ _TCP_LOG_WORKER_THREAD_NAME = "Sagittarius-TcpLogWorker"
 
 def _real_app_config() -> ConfigManager:
     config_manager = ConfigManager()
-    app_json = PathUtils.get_relative_path(__file__, "..", "..", "src", "config", "app_config.json")
+    app_json = PathUtils.get_relative_path(
+        __file__, "..", "..", "src", "config", "app_config.json"
+    )
     config_manager.load_json(app_json)
     return config_manager
 
@@ -56,7 +58,7 @@ def test_the_real_app_config_does_not_enable_the_tcp_log_viewer():
     assert config_manager.get("log.viewer.enabled", False) is False, (
         "src/config/app_config.json enables the TCP LogViewer by default — "
         "every create_app() call then leaks a 'Sagittarius-TcpLogWorker' "
-        "background thread that outlives the test that started it (BUG-071). "
+        "background thread that outlives the test that started it (BUG-074). "
         "Enable it per-developer in user_config.json instead, never in the "
         "shipped default."
     )
@@ -81,7 +83,7 @@ def test_a_std_logger_built_from_the_real_app_config_spawns_no_tcp_worker_thread
         assert leaked == [], (
             f"StdLogger spawned {leaked} from the real app_config.json — this "
             "thread has no scheduled shutdown and will keep running for the "
-            "rest of the pytest process, which is BUG-071's root cause."
+            "rest of the pytest process, which is BUG-074's root cause."
         )
     finally:
         # StdLogger has no public teardown of its own — it relies on the NEXT

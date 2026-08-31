@@ -196,7 +196,7 @@ lỗi *khác* thật) — đây là crash **đơn luồng**, thuần Python/Qt/s
 (Lúc điều tra CÓ tìm ra 1 lớp lỗi *khác*, có thật: `App.boot()` trong
 `tests/integration/`/`tests/sanity/` rò 1 thread `Sagittarius-TcpLogWorker`
 sống tới hết tiến trình do `app_config.json`'s `log.viewer.enabled: true` —
-xem [`BUG-071`](../completed/BUG-071_log_viewer_enabled_by_default_leaks_tcp_worker_thread.md),
+xem [`BUG-074`](../completed/BUG-074_log_viewer_enabled_by_default_leaks_tcp_worker_thread.md),
 sửa riêng. Đã xác nhận **không phải nguyên nhân chính**: crash này tái hiện y
 hệt khi chạy CHỈ `tests/unit/` một mình — không App nào được boot, không
 thread đó tồn tại.)
@@ -308,5 +308,5 @@ task này.
 
 `pytest tests/ -q` (đúng lệnh `.github/workflows/ci.yml`'s "Run Pytest with
 Coverage" — tuần tự, không `-n`, cả `unit`+`integration`+`sanity` 1 tiến
-trình) sau khi áp cả fix này và `BUG-071`: xem log đính kèm trong commit —
+trình) sau khi áp cả fix này và `BUG-074`: xem log đính kèm trong commit —
 không còn `Fatal Python error`/`Segmentation fault`/`Aborted` nào.

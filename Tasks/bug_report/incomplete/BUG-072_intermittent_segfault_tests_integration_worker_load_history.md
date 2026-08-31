@@ -7,7 +7,7 @@ tiến trình CI
 **Status:** 🔴 Mở — có bằng chứng thật, có giả thuyết mạnh (cùng lớp `BUG-056`),
 chưa root-caused/chưa sửa — không tái hiện được đơn lẻ để bisect như `BUG-065`
 **Found by:** verify cuối của [`BUG-065`](completed/BUG-065_state_coordinator_test_crashes_a_worker_under_full_parallel_load.md)
-— chạy lại `pytest tests/ -q` sau khi `BUG-065`/`BUG-071` đã sửa, để xác nhận
+— chạy lại `pytest tests/ -q` sau khi `BUG-065`/`BUG-074` đã sửa, để xác nhận
 CI thật sạch hoàn toàn, thì bắt được **1 crash khác**, ở vị trí và cơ chế
 khác hẳn.
 
@@ -19,7 +19,7 @@ khác hẳn.
 QT_QPA_PLATFORM=offscreen PYTHONPATH=.. python -X faulthandler -m pytest tests/ -q
 ```
 
-1/4 lần chạy full suite gần đây (sau khi đã sửa `BUG-065`/`BUG-071`) crash
+1/4 lần chạy full suite gần đây (sau khi đã sửa `BUG-065`/`BUG-074`) crash
 `Segmentation fault` rất sớm — ~2% tiến độ, trong `tests/integration/`.
 Faulthandler dump:
 
@@ -121,6 +121,6 @@ cha) mới đủ để trúng đúng cửa sổ race — giống hệt kết lu�
 
 ## Không thuộc phạm vi
 
-Không liên quan gì tới `BUG-065`/`BUG-071` (đã sửa, đã verify riêng, đóng
+Không liên quan gì tới `BUG-065`/`BUG-074` (đã sửa, đã verify riêng, đóng
 độc lập) — bug này lộ ra **sau khi** 2 bug kia đã sửa, trong lúc verify cuối
 cùng bằng `pytest tests/ -q` lặp lại.
