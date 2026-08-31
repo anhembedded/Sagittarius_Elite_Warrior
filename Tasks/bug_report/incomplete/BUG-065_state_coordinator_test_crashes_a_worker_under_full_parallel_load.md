@@ -110,3 +110,55 @@ sau (khi có thời gian) không phải tái hiện lại từ đầu.
 3. Không chọn hướng "giảm lại `-n` để né crash" — che giấu triệu chứng, và
    `ci-local.ps1 -Full` là cổng bắt buộc trước mọi commit nên không thể âm
    thầm đổi song song hoá của nó.
+
+## Cập nhật 2026-08-30 (phiên khác) — tái hiện được KHÔNG CẦN `-n`, KHÔNG CẦN Windows
+
+Trong lúc verify một loạt thay đổi không liên quan (`EPIC-018`/`EPIC-019`),
+phiên làm việc thử chạy `pytest tests/unit/ -q` **tuần tự, một tiến trình
+duy nhất, không `-n`**, trên Linux (`QT_QPA_PLATFORM=offscreen`) để đối
+chiếu trước/sau — và bắt được **đúng cùng cơ chế crash này**, không phải
+một lỗi khác trông giống:
+
+```
+Fatal Python error: Aborted
+
+Current thread 0x00007fd1f6ed8080 (most recent call first):
+  File ".../pytestqt/qt_compat.py", line 160 in exec
+  File ".../pytestqt/wait_signal.py", line 58 in wait
+  File ".../pytestqt/qtbot.py", line 503 in wait
+  File "tests/unit/presentation/ui/screens/test_history_pagination_controller.py",
+    line 162 in test_a_fetch_that_found_more_data_reschedules_a_recheck_after_cooldown
+  ...
+```
+
+3 frame trên cùng (`qt_compat.py:160`, `wait_signal.py:58`, `qtbot.py:503`)
+**khớp chính xác** với traceback Windows đã ghi ở trên — cùng cơ chế, khác
+test, khác OS, khác cách chạy:
+
+| | Bản ghi gốc (trên) | Bản ghi này |
+| :--- | :--- | :--- |
+| OS | Windows | Linux (`QT_QPA_PLATFORM=offscreen`) |
+| Cách chạy | `ci-local.ps1 -Full` (`-n 6`) | `pytest tests/unit/ -q` tuần tự, **không `-n`** |
+| Test crash | `test_ui_state_coordinator.py::test_a_burst_of_marks_produces_exactly_one_write` | `test_history_pagination_controller.py::test_a_fetch_...recheck_after_cooldown` |
+| Tái hiện lại | 2/3 lần | Tái hiện ở **mọi lần chạy `tests/unit/` tuần tự** thử (kể cả trên commit `459ed0a`, trước cả `EPIC-016`/`017`/`018`/`019` — xác nhận không phải regression của bất kỳ epic nào gần đây) |
+| Điểm crash trong suite | ~72% (`gw5`) | Đổi chỗ tuỳ file nào có mặt/bị loại — từng thấy ở ~70%, ~63%, ~60% |
+
+**Ý nghĩa cho giả thuyết ở trên:** việc tái hiện được **không cần `-n`**
+loại bỏ hẳn "cross-process worker" khỏi nghi vấn — đây không phải lỗi
+riêng của `pytest-xdist`, mà là race thật trong **một tiến trình đơn**
+giữa hàng đợi `DeferredDelete` chưa xả và `qtbot.wait()`/`waitUntil()` của
+test kế tiếp bơm event loop — đúng cơ chế `BUG-056` đã mô tả, chỉ khác chỗ
+lộ ra. Điểm crash "đổi chỗ tuỳ file nào có mặt" (không cố định vào 1 test)
+cũng khớp: bất kỳ `qtbot.wait()` đủ dài, sau khi đã tích đủ QObject chưa
+huỷ từ các test trước, đều có thể là nơi crash trồi lên — không phải thuộc
+tính riêng của `test_a_burst_of_marks_produces_exactly_one_write`.
+
+**Tái hiện đơn giản hơn giả thuyết gốc:** không cần Windows, không cần
+`-n 6`, không cần file/test cụ thể nào — chỉ cần `pytest tests/unit/ -q`
+chạy đủ lâu trên máy nào cũng vậy. Đây có thể là đường tái hiện dễ điều
+tra hơn (không có độ phức tạp cross-process của `xdist` xen vào) cho ai
+tiếp tục việc "Hướng điều tra gợi ý" ở trên.
+
+Không điều tra tiếp trong phiên này — nằm ngoài phạm vi việc đang làm
+(`EPIC-018`/`EPIC-019`), chỉ ghi lại bằng chứng đúng tinh thần mục "Vì sao
+chưa sửa ngay" ở trên.
