@@ -38,9 +38,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 3 |
+| 🔴 **Đang mở** | 4 |
 | ✅ **Đã sửa / đã đóng** | 67 |
-| 📈 **Tổng** | **71** |
+| 📈 **Tổng** | **72** |
 
 ---
 
@@ -48,6 +48,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-072](incomplete/BUG-072_intermittent_segfault_tests_integration_worker_load_history.md)** | Segfault không ổn định trong `tests/integration/`, worker thread mid-`_run_load_history` | Chưa đánh giá | 2026-08-31 | Lộ ra khi verify cuối `BUG-065`/`BUG-071`: 1/4 lần chạy `pytest tests/ -q` crash sớm trong `tests/integration/`, main thread bơm event loop lúc setup trong khi 1 `ThreadPoolExecutor` worker đang chạy giữa chừng `DashboardPresenter`'s autostart (`_run_load_history`) — đúng lớp lỗi `BUG-056` đã root-cause, nhưng fix của bug đó không phủ hết đường này. Có thể là tái xuất hiện của `BOT-038` (đã đóng, "không tái hiện được" 2026-08-25) qua cơ chế mới, không cần QML. Không tái hiện được khi chạy `tests/integration/` một mình — chưa bisect được. |
 | **[BUG-068](incomplete/BUG-068_cross_thread_qbasictimer_start_in_gap_inspection.md)** | QBasicTimer::start: Timers cannot be started from another thread trong quá trình kiểm tra Database Gaps | 🟠 **P2** | 2026-08-30 | Khi chạy `GetDatabaseGapsQuery` trên worker thread của `ThreadManager`, xuất hiện 4 cảnh báo Qt timer vi phạm thread affinity. Biến thể của lớp lỗi `BUG-031`. |
 | **[BUG-070](incomplete/BUG-070_symbol_picker_popup_keys_attached_property_warning.md)** | SymbolPicker QML cảnh báo "Could not attach Keys property to: Popup ... is not an Item" | ⚪ **P4** | 2026-08-30 | `Keys.onPressed` được gắn trực tiếp trên thẻ `Popup` (vốn là `QtObject`, không phải `Item`) trong `SymbolPicker.qml`. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. **Cập nhật 2026-08-26:** headless repro (cùng tổ hợp script Dev Board thật) không tái hiện được `-50..100`, nhưng lộ ra 1 defect thật khác cùng subsystem, đã tách và đóng riêng ở [`BUG-053`](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md) — không đóng được bug này, vẫn cần ảnh/log tái hiện sống. **Cập nhật 2026-08-30:** log phiên live xác nhận bằng chứng sống trên symbol `0GTRY` (giá thực 7.6..8.2 nhưng `y-range [-71.3690, 46.1465]` và `autorange=[False, 1.0]`), khiến nến bị co dẹp biến mất. |
