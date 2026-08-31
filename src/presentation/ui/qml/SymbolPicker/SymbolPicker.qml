@@ -123,11 +123,23 @@ Item {
             radius: 8
         }
 
-        Keys.onPressed: function(event) {
-            if (root.handleNavigation(event.key)) event.accepted = true
-        }
-
         contentItem: ColumnLayout {
+            // BUG-070: `Keys` is only valid on a `QQuickItem` — `Popup`
+            // itself derives from `QQuickPopup` (a plain `QObject`), not
+            // `Item`, so attaching it there (as this used to) makes Qt Quick
+            // print "Could not attach Keys property to: ... is not an Item"
+            // every time the popup opens. `contentItem` IS an `Item`
+            // (`ColumnLayout` extends it), and unhandled key events bubble
+            // up the visual parent chain the same way, so this is a
+            // same-behavior move, not a functional change: `searchField`'s
+            // own `Keys.onPressed` below still fires first since it holds
+            // active focus (`onOpened: searchField.forceActiveFocus()`);
+            // this stays as the fallback for anything else in the popup
+            // that doesn't handle Up/Down/Enter itself.
+            Keys.onPressed: function(event) {
+                if (root.handleNavigation(event.key)) event.accepted = true
+            }
+
             width: pickerPopup.availableWidth
             height: pickerPopup.availableHeight
             spacing: 10

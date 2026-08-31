@@ -60,6 +60,27 @@ def _popup_root(popup):
     return popup.property("contentItem")
 
 
+def test_opening_the_popup_does_not_warn_that_keys_cannot_attach_to_it(qapp, qml_item):
+    """BUG-070: `Keys.onPressed` used to sit directly on `pickerPopup` (a
+    `Popup`, not a `QQuickItem`), which made Qt Quick print "Could not
+    attach Keys property to: ... is not an Item" on every open. Moved to
+    `contentItem` (a real `Item`); this proves the warning is gone."""
+    from PySide6.QtCore import qInstallMessageHandler
+
+    messages: list[str] = []
+    previous_handler = qInstallMessageHandler(
+        lambda mode, ctx, msg: messages.append(msg)
+    )
+    try:
+        quick, _popup, _vm = _load(qapp)
+    finally:
+        qInstallMessageHandler(previous_handler)
+
+    assert not any("Could not attach Keys property" in m for m in messages), messages
+    quick.close()
+    quick.deleteLater()
+
+
 def test_component_loads_without_qml_overlay_or_app_bootstrap(qapp, qml_item):
     quick, popup, _vm = _load(qapp)
 
