@@ -9,8 +9,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.qml_property import (
 
 
 class _Widget(QObject):
-    xChanged = Signal()
-    symbolChanged = Signal()
+    xChanged = Signal()  # noqa: N815 - Qt property-change signal naming
+    symbolChanged = Signal()  # noqa: N815 - Qt property-change signal naming
 
     def __init__(self) -> None:
         super().__init__()

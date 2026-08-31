@@ -527,7 +527,9 @@ class DataManagementPresenter(BasePresenter):
     @safe_ui_action
     def _on_check_status(self) -> None:
         symbol = self._view_model.selectedSymbol.strip()
-        interval = self._view_model.selectedInterval.strip() or TimeFrame.ONE_MINUTE.value
+        interval = (
+            self._view_model.selectedInterval.strip() or TimeFrame.ONE_MINUTE.value
+        )
 
         self.ui_log_signal.emit(
             f"Checking database status for {symbol} ({interval})..."
@@ -597,8 +599,10 @@ class DataManagementPresenter(BasePresenter):
                 )
                 return
 
-        target_interval = interval if interval else (
-            self._view_model.selectedInterval or TimeFrame.ONE_MINUTE.value
+        target_interval = (
+            interval
+            if interval
+            else (self._view_model.selectedInterval or TimeFrame.ONE_MINUTE.value)
         )
         self.ui_log_signal.emit(
             f"Starting sync from Binance for {symbol} ({target_interval})..."

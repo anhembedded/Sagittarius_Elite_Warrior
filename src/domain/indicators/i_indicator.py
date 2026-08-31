@@ -1,10 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
-
-T_co = TypeVar("T_co", covariant=True)
 
 
-class IIndicator(ABC, Generic[T_co]):
+class IIndicator[T_co](ABC):
     """
     @brief Contract for a stateful, streaming technical indicator.
     @details Implementations hold their own state between calls so the exact

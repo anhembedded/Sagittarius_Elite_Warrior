@@ -20,13 +20,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.sqlite import insert
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.models import KlineModel
+from sqlalchemy.dialects.sqlite import insert
 
 
 def to_market_data_entity(row: KlineModel) -> MarketData:

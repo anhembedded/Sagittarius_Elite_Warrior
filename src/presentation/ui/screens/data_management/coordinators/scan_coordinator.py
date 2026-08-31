@@ -185,9 +185,7 @@ class ScanCoordinator:
             self._get_current_fsm_state(),
         )
         try:
-            query = GetDatabaseStatusQuery(
-                symbol=symbol, interval=TimeFrame(interval)
-            )
+            query = GetDatabaseStatusQuery(symbol=symbol, interval=TimeFrame(interval))
             response = self._dispatcher.dispatch(GetDatabaseStatusQuery, query)
             status: DatabaseStatusDTO | None = (
                 getattr(response, "data", response) if response else None
