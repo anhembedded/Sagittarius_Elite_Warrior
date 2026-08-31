@@ -53,9 +53,7 @@ class FormingBar:
     taker_buy_quote_asset_volume: float
 
     @staticmethod
-    def start(
-        bar_start: datetime, bar_end: datetime, tick: MarketData
-    ) -> "FormingBar":
+    def start(bar_start: datetime, bar_end: datetime, tick: MarketData) -> FormingBar:
         return FormingBar(
             bar_start=bar_start,
             bar_end=bar_end,

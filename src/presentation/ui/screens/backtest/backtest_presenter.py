@@ -58,9 +58,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_track
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_symbol,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
-    HealthCheckCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
 )

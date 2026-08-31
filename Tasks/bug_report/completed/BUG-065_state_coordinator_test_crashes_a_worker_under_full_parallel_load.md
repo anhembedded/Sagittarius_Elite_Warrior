@@ -1,9 +1,13 @@
 # BUG-065 — `test_a_burst_of_marks_produces_exactly_one_write` chết một worker khi chạy `ci-local.ps1 -Full`
 
 **Reported date:** 2026-08-30
-**Severity:** Chưa đánh giá — không sai kết quả test, nhưng làm cổng CI bắt buộc không đáng tin (giống lớp lỗi `BUG-056`)
-**Status:** 🔴 Mở — chưa root-caused, chỉ có bằng chứng + một giả thuyết
-**Found by:** chạy `.\scripts\ci-local.ps1 -Full` lặp lại trong lúc làm EPIC-015 (không do EPIC-015 gây ra)
+**Severity:** 🔴 P1 — làm CI thật (`Sagittarius Elite Warrior CI`, job "Lint &
+Test", step "Run Pytest with Coverage") crash native trên `master-warrior`,
+xác nhận trên ít nhất 3 commit độc lập
+**Status:** ✅ Đã sửa 2026-08-31 — root-caused, reproduced (bisected xuống
+đúng 1 test), regression-tested (fix áp trực tiếp lên tái hiện tối giản đó),
+verified trên toàn `tests/` (khớp đúng lệnh CI thật)
+**Found by:** chạy `.\scripts\ci-local.ps1 -Full` lặp lại trong lúc làm EPIC-015 (không do EPIC-015 gây ra); root-caused trong 1 phiên sau khi CI thật báo crash liên tục ở `test_history_pagination_controller.py`
 
 ---
 
@@ -162,3 +166,147 @@ tiếp tục việc "Hướng điều tra gợi ý" ở trên.
 Không điều tra tiếp trong phiên này — nằm ngoài phạm vi việc đang làm
 (`EPIC-018`/`EPIC-019`), chỉ ghi lại bằng chứng đúng tinh thần mục "Vì sao
 chưa sửa ngay" ở trên.
+
+## Cập nhật 2026-08-31 — root-caused, fixed, verified
+
+CI thật (`master-warrior`) báo crash liên tục ở đúng cơ chế này — 3 commit độc
+lập, luôn cùng 1 test:
+`test_history_pagination_controller.py::test_a_fetch_that_found_more_data_reschedules_a_recheck_after_cooldown`,
+luôn ở `qtbot.waitUntil()` dòng 157, `Segmentation fault` 1 lần và
+`Fatal Python error: Aborted` 1 lần khác — 2 loại native fault khác nhau tại
+cùng 1 chỗ, dấu hiệu kinh điển của memory corruption.
+
+### Chẩn đoán gốc ở trên **sai một phần quan trọng**: không phải race giữa 2 luồng
+
+Faulthandler dump lúc crash thật (`pytest -X faulthandler`) chỉ có **đúng 1
+thread** — `Current thread`, không có `Thread 0x...` nào khác:
+
+```
+Current thread 0x00007fa6a44fe080 (most recent call first):
+  File ".../pytestqt/qt_compat.py", line 160 in exec
+  File ".../pytestqt/wait_signal.py", line 58 in wait
+  File ".../pytestqt/qtbot.py", line 503 in wait
+  File ".../pytestqt/qtbot.py", line 600 in waitUntil
+  File "tests/unit/presentation/ui/screens/test_history_pagination_controller.py", line 157 in test_a_fetch_that_found_more_data_reschedules_a_recheck_after_cooldown
+```
+
+Loại hẳn giả thuyết "cross-thread GC race" (dù đúng cơ chế `BUG-056` ở 1 lớp
+lỗi *khác* thật) — đây là crash **đơn luồng**, thuần Python/Qt/shiboken.
+
+(Lúc điều tra CÓ tìm ra 1 lớp lỗi *khác*, có thật: `App.boot()` trong
+`tests/integration/`/`tests/sanity/` rò 1 thread `Sagittarius-TcpLogWorker`
+sống tới hết tiến trình do `app_config.json`'s `log.viewer.enabled: true` —
+xem [`BUG-074`](../completed/BUG-074_log_viewer_enabled_by_default_leaks_tcp_worker_thread.md),
+sửa riêng. Đã xác nhận **không phải nguyên nhân chính**: crash này tái hiện y
+hệt khi chạy CHỈ `tests/unit/` một mình — không App nào được boot, không
+thread đó tồn tại.)
+
+### Bisection: tìm chính xác 1 test là "giọt nước tràn ly"
+
+`pytest tests/unit/ -q --collect-only` lấy đúng thứ tự 2.806 test ID.
+Bisect nhị phân bằng `pytest -q <id1> <id2> ... <idN>` (giữ nguyên thứ tự
+collection thật, không phải thứ tự truyền trên dòng lệnh — pytest tự sắp lại
+theo cây file):
+
+| N test đầu + test đích | Kết quả |
+| :---: | :--- |
+| 500 | pass |
+| 625 | pass |
+| 688 | pass |
+| 691 | pass |
+| **692** | **pass** |
+| **693** | **crash** (`Fatal Python error: Aborted`, đúng vị trí) |
+| 695, 703, 719, 750, 1000 | crash |
+
+Dòng 693 (test thứ 693 khi chèn NGAY TRƯỚC test đích) là:
+```
+tests/unit/presentation/ui/components/symbol_picker/test_symbol_picker_overlay.py::test_a_filter_matching_nothing_says_so_instead_of_going_blank
+```
+
+**Thực nghiệm quyết định:** thêm 1 fixture `autouse` tạm ở `tests/conftest.py`
+gọi `gc.collect()` (+ `sendPostedEvents`/`processEvents()`) sau **MỖI** test —
+crash **vẫn xảy ra**, đúng test 693, nhưng lần này traceback trỏ THẲNG vào
+dòng `gc.collect()` trong chính fixture đó. Nghĩa là: không phải "backlog từ
+nhiều test khác nhau tích luỹ", mà chính đối tượng do test 693 tạo ra, khi bị
+finalize (dù bởi ngưỡng tự động của CPython hay gọi `gc.collect()` tường
+minh), crash.
+
+### Root cause thật
+
+`SymbolPickerOverlay` (`src/presentation/ui/components/symbol_picker/
+overlay.py`) là 1 `QWidget` **top-level không có Qt parent**. Mọi test trong
+`test_symbol_picker_overlay.py` (trước khi sửa) chỉ gọi `dialog.close()` rồi
+để biến cục bộ hết phạm vi — không `qtbot.addWidget()`, không
+`deleteLater()` tường minh nào.
+
+`overlay.py::_fill_grid()` nối `card.clicked.connect(lambda symbol=...:
+self._choose(symbol))` — 1 lambda **đóng lại `self`** (chính `dialog`) —
+cho mỗi `SymbolCard` con. `SymbolCard._build_star()`
+(`symbol_card.py`) làm y hệt: `star.clicked.connect(lambda: self.
+favourite_toggled.emit(...))`. Kết quả: `dialog` (qua `self._cards`/cây
+widget C++) tham chiếu tới card → card giữ kết nối tới lambda → lambda tham
+chiếu ngược `dialog`. Một **chu trình tham chiếu Python thật** — refcounting
+đơn thuần không bao giờ giải phóng được, chỉ garbage collector CHU TRÌNH mới
+phá được.
+
+`dialog` không có Qt parent, nên không có gì kích hoạt việc Qt tự dọn cascade
+(destructor C++ của `~QWidget()`) cho tới khi Python's cyclic GC — chạy vào
+lúc **không xác định trước** — phá vỡ chu trình và gọi `tp_dealloc` lên
+`dialog`. Thứ tự finalize bên trong 1 chu trình mà GC chọn là **không xác
+định** (tuỳ ý), trong khi Qt's C++ parent-child ownership giả định 1 thứ tự
+rất cụ thể (cha xoá trước, cascade xuống con). Chọn sai thứ tự đó — ví dụ
+Python `tp_dealloc` 1 `SymbolCard` con TRƯỚC khi C++ destructor của `dialog`
+kịp cascade-xoá đúng con đó, hoặc ngược lại — là chính xác điều kiện double
+delete/dangling access gây `Aborted`/`Segmentation fault` tuỳ theo ASLR/heap
+layout của từng lần chạy (giải thích 2 loại native fault khác nhau tại cùng
+1 vị trí Python).
+
+Vì sao luôn rơi đúng test `test_history_pagination_controller.py`: thứ tự
+collection của `tests/unit/` cố định cho cùng 1 trạng thái code, nên "test
+đầu tiên có `qtbot.wait()`/`waitUntil()` đủ dài để CPython's ngưỡng gen-0 tự
+kích hoạt GC ngay sau khi đám `SymbolPickerOverlay` mồ côi ở trên đã tích đủ"
+luôn rơi vào cùng 1 chỗ — không phải thuộc tính riêng của
+`HistoryPaginationController`, nó chỉ tình cờ là nạn nhân đứng gần nhất.
+
+### Fix
+
+`tests/unit/presentation/ui/components/symbol_picker/test_symbol_picker_overlay.py`:
+`_Source.build()` giờ nhận thêm `qtbot` và gọi `qtbot.addWidget(dialog)` ngay
+sau khi dựng — mọi test trong file đổi từ `build(qapp)` sang
+`build(qapp, qtbot)`. `qtbot.addWidget()` khiến pytest-qt tự gọi `close()` +
+`deleteLater()` cho dialog ở TEARDOWN của chính test đó
+(`pytestqt/qtbot.py::_close_widgets`), rồi bơm `processEvents()` ngay sau —
+đường xoá THẬT của Qt chạy xong, xác định, tại 1 thời điểm biết trước, thay
+vì để dialog làm rác mồ côi cho garbage collector chu trình vấp phải sau này,
+giữa lúc 1 test khác không liên quan đang bơm event loop.
+
+### Regression test — bằng đúng tái hiện tối giản đã bisect được
+
+Không viết được 1 pytest assertion in-process cho lỗi này (triệu chứng LÀ
+chính tiến trình chết — không còn gì để báo kết quả). Thử 1 probe subprocess
+độc lập (dựng lặp lại `SymbolPickerOverlay` không `qtbot`, ép `gc.collect()`)
+— **không tái hiện được** ở quy mô nhỏ (72 dialog), chứng tỏ cơ chế cần trạng
+thái heap tích luỹ thật từ nhiều test khác nhau, không chỉ riêng widget này
+lặp lại — nên bị bỏ, tránh 1 "regression test" cho cảm giác an toàn giả.
+
+Bằng chứng thật, đáng tin: chính 693 test ID đã bisect được, chạy y hệt
+(`pytest -q <693 id đầu, đúng thứ tự collection> <test đích>`):
+
+| | Trước fix | Sau fix |
+| :--- | :--- | :--- |
+| 693 test bisect được + test đích | **`Fatal Python error: Aborted`** | **694 passed** |
+| `pytest tests/unit/ -q` (toàn bộ, tuần tự) | **`Fatal Python error: Aborted`**, mọi lần chạy | **2805 passed, 1 failed** (flake thời gian không liên quan, xem dưới), **0 crash** |
+| `pytest tests/ -q` (toàn suite, khớp đúng lệnh CI thật) | **crash**, ~71% tiến độ | xem "Xác minh cuối" |
+
+1 failure còn lại sau fix (`test_ui_state_coordinator.py::
+test_marking_again_restarts_the_window_instead_of_letting_it_run_out`,
+`assert 5010 < 5000`) là flake nhạy tải máy đã tự tài liệu trong chính
+docstring của nó — không liên quan gì tới cơ chế crash này, không sửa trong
+task này.
+
+### Xác minh cuối
+
+`pytest tests/ -q` (đúng lệnh `.github/workflows/ci.yml`'s "Run Pytest with
+Coverage" — tuần tự, không `-n`, cả `unit`+`integration`+`sanity` 1 tiến
+trình) sau khi áp cả fix này và `BUG-074`: xem log đính kèm trong commit —
+không còn `Fatal Python error`/`Segmentation fault`/`Aborted` nào.
