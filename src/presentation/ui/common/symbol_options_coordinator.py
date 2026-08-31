@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("App.SymbolOptions")
 
 
 class SymbolOptionsCoordinator:
