@@ -35,6 +35,28 @@ def _dialog(qml_file, widget_vm):
     return dialog
 
 
+def _construction_qml_messages(qapp, qml_file, widget_vm):
+    """Every Qt/QML message emitted while `_dialog()` constructs and shows,
+    captured with a message handler the way `tests/sanity/conftest.py`'s
+    `diagnostic_guard` does. Scoped to construction only (handler is removed
+    before `dialog.close()`) so it can't pick up the already-known,
+    already-accepted teardown noise `host.py`'s module docstring documents —
+    that noise is a separate, measured-unfixable defect, not this one.
+    """
+    from PySide6.QtCore import qInstallMessageHandler
+
+    messages: list[str] = []
+    previous_handler = qInstallMessageHandler(
+        lambda mode, ctx, msg: messages.append(msg)
+    )
+    try:
+        dialog = _dialog(qml_file, widget_vm)
+        qapp.processEvents()
+    finally:
+        qInstallMessageHandler(previous_handler)
+    return dialog, messages
+
+
 # -- StatGrid ---------------------------------------------------------------- #
 
 
@@ -66,6 +88,20 @@ def test_reopening_re_renders_the_current_cards(qapp):
     qapp.processEvents()
 
     assert len(find_all_named(dialog.root_object, "statCard_")) == 2
+    dialog.close()
+
+
+def test_stat_grid_construction_does_not_throw_on_the_root_items_width_binding(qapp):
+    """BUG-071: `StatGrid.qml`'s root `Grid` bound `width: parent.width`, but
+    every consumer loads this file as a `QmlOverlay`'s `QQuickWidget` root
+    object — `SizeRootObjectToView` sizes that root directly and never gives
+    it a QML `parent`, so the binding read `parent.width` off `null` on
+    every single open, not just at teardown."""
+    vm = StatGridVM(get_cards=lambda: [{"title": "a", "value": "1"}])
+    vm.refresh()
+    dialog, messages = _construction_qml_messages(qapp, _STAT_GRID_QML, vm)
+
+    assert not any("TypeError" in m for m in messages), messages
     dialog.close()
 
 
@@ -135,4 +171,19 @@ def test_reopening_re_renders_the_current_rows(qapp):
     # A fresh lookup, by design — the Repeater rebuilds delegates wholesale
     # on every model change (measured in EPIC-015 §4c finding 4).
     assert find_qml_item(dialog.root_object, "chk_a").property("checked") is True
+    dialog.close()
+
+
+def test_checkbox_list_construction_does_not_throw_on_the_root_items_width_binding(
+    qapp,
+):
+    """BUG-071: same root cause as `StatGrid.qml`'s regression test above —
+    `CheckboxList.qml`'s root `Column` bound `width: parent.width`, and this
+    file is likewise always loaded as a `QmlOverlay`'s `QQuickWidget` root
+    object, which never has a QML `parent`."""
+    vm = CheckboxListVM(get_rows=lambda: [{"key": "a", "label": "A", "checked": False}])
+    vm.refresh()
+    dialog, messages = _construction_qml_messages(qapp, _CHECKBOX_LIST_QML, vm)
+
+    assert not any("TypeError" in m for m in messages), messages
     dialog.close()
