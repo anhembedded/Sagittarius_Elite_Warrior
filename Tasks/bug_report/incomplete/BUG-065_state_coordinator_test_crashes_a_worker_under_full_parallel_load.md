@@ -2,7 +2,10 @@
 
 **Reported date:** 2026-08-30
 **Severity:** Chưa đánh giá — không sai kết quả test, nhưng làm cổng CI bắt buộc không đáng tin (giống lớp lỗi `BUG-056`)
-**Status:** 🔴 Mở — chưa root-caused, chỉ có bằng chứng + một giả thuyết
+**Status:** 🔴 Mở — chưa root-caused. 2026-08-31: đã thử hướng sửa gợi ý (fixture
+xả `DeferredDelete` kiểu `BUG-056`, xem cập nhật cuối file) — **không sửa được,
+làm race lộ ra sớm và đáng tin cậy hơn**, đã revert. Loại trừ được leaked
+`threading.Thread` Python; nghi vấn còn lại là `QThread`/thread nội bộ Qt.
 **Found by:** chạy `.\scripts\ci-local.ps1 -Full` lặp lại trong lúc làm EPIC-015 (không do EPIC-015 gây ra)
 
 ---
@@ -162,3 +165,53 @@ tiếp tục việc "Hướng điều tra gợi ý" ở trên.
 Không điều tra tiếp trong phiên này — nằm ngoài phạm vi việc đang làm
 (`EPIC-018`/`EPIC-019`), chỉ ghi lại bằng chứng đúng tinh thần mục "Vì sao
 chưa sửa ngay" ở trên.
+
+## Cập nhật 2026-08-31 — đã THỬ hướng sửa gợi ý, và nó làm tình hình TỆ HƠN
+
+Thử đúng hướng "Hướng điều tra gợi ý" §1 ở trên: thêm `tests/unit/conftest.py`
+với 1 fixture `autouse=True` xả `app.sendPostedEvents(None,
+QEvent.Type.DeferredDelete)` + `app.processEvents()` trước mỗi test, y hệt
+công thức `BUG-056` đã dùng cho `app_engine`.
+
+**Kết quả đo được (Linux, `pytest tests/unit/ -q`, offscreen, tuần tự — cùng
+cách tái hiện đã xác nhận ở phiên trước):**
+
+| | Không có fixture | Có fixture |
+| :--- | :--- | :--- |
+| Điểm crash (tính theo dấu `.` in ra trước khi abort) | ~700+ dấu chấm (~40% suite) | **~58 dấu chấm** (~3% suite) — sớm hơn hẳn |
+| Vị trí crash | Bên trong `qtbot.wait()`/`waitUntil()` của 1 test cụ thể | **Bên trong chính fixture mới**, ngay dòng `app.sendPostedEvents(...)` — chưa kịp tới `processEvents()` |
+| Tái hiện lại | Không phải lần nào cũng crash | **Crash gần như mọi lần chạy** |
+
+Tức là: fixture mới **không sửa** race — nó làm race lộ ra **sớm hơn và đáng
+tin cậy hơn nhiều**, vì giờ MỌI test đều bơm event loop ngay từ đầu setup
+thay vì chỉ những test có gọi `qtbot.wait()` đủ dài mới tình cờ trúng đúng
+lúc rủi ro. Đây là bằng chứng **xác nhận cơ chế đúng** (drain hàng đợi
+`DeferredDelete` đúng là nơi crash xảy ra — crash literally nằm TRONG lệnh
+`sendPostedEvents`), nhưng đồng thời **bác bỏ giả định nền tảng của hướng
+sửa `BUG-056`**: `app_engine` an toàn khi drain vì fixture đó tự đảm bảo
+"pool của engine trước đã shutdown, engine mới chưa khởi động — không worker
+nào đang chạy" tại đúng thời điểm drain. `tests/unit/` **không có đảm bảo
+đó** — không gì buộc mọi test phải join sạch mọi thread nền trước khi test
+kế tiếp bắt đầu.
+
+**Đã loại trừ một giả thuyết:** thêm chẩn đoán `threading.enumerate()` ngay
+trước `sendPostedEvents` — **chỉ thấy `MainThread`**, không có
+`threading.Thread` Python nào khác sống sót lúc crash. Vậy đây **không phải**
+lớp lỗi "leaked `ThreadPoolExecutor` worker" kiểu `BUG-052`/`BUG-060` (những
+lỗi đó để lại `threading.Thread` Python thấy được). Nghi vấn còn lại: một
+`QThread`/thread nội bộ của Qt (không đăng ký với module `threading` của
+Python — ví dụ luồng nền của `AsyncRuntime` nào đó nếu có test thật boot
+`create_app()` mà không tắt sạch, hoặc chính cơ chế GC/refcount của
+shiboken) — **chưa xác nhận được cụ thể là thread nào**.
+
+**Đã revert fixture thử nghiệm** — không có gì để ship, nó làm CI kém tin
+cậy hơn bản gốc, không hơn. `tests/unit/conftest.py` KHÔNG được tạo.
+
+**Kết luận cho ai làm tiếp:** đây không phải "thêm 1 fixture xả hàng đợi" là
+xong như hướng gợi ý ban đầu tưởng. Cần xác định chính xác nguồn thread/QThread
+nào còn sống ở thời điểm crash (không thấy qua `threading.enumerate()` — cần
+công cụ khác, có thể `sys._current_frames()` kết hợp kiểm tra native thread
+id, hoặc build Qt debug để bắt breakpoint C++ ngay tại
+`QObject::~QObject`/`QCoreApplicationPrivate::sendPostedEvents` lúc abort),
+rồi mới quyết được có sửa được ở tầng Python hay cần join/shutdown thread đó
+tường minh ở nguồn.
