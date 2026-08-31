@@ -180,7 +180,47 @@ lint/format/mypy và tier Sanity chạy song song).
 
 ---
 
-## 3. Mandatory Rules for AI Agents & Automated Tools
+## 3. Environment setup is the agent's job — install what verification needs
+
+**Added 2026-08-31 (user request).** Reporting "cannot verify — missing X"
+without first trying to install X is stopping one command early, not hitting
+a wall. Missing tooling, a missing system library, or a dependency the
+project **already declares** but this environment simply hasn't installed
+yet is something to install, not a reason to skip the gate:
+
+- System packages the app's own GUI stack needs to boot under
+  `QT_QPA_PLATFORM=offscreen` (Qt's EGL/GL/font/D-Bus loaders) — install with
+  `apt-get update && apt-get install -y <package>`. On one clean container
+  this took `libegl1` (which pulled in `libegl-mesa0`), `libgl1`,
+  `libxkbcommon0`, `libfontconfig1`, `libdbus-1-3`; the exact list can drift
+  with the base image, so let the actual `ImportError` /
+  `cannot open shared object file` name the missing `.so` rather than
+  trusting this list.
+- `pwsh` itself — §2b above.
+- `sagittarius_engine` — §1/§2 above. It is a genuinely separate repo, but
+  still something to `pip install`, not a reason to stop.
+- Any package already pinned in `requirements.txt` / `pyproject.toml` that
+  simply isn't installed yet in *this* environment
+  (`pip install PySide6==<pinned version>`, matching the pin).
+
+This is **not** the same permission as adding a new dependency to the
+project. Installing an already-declared or environment-only tool into the
+current sandbox is setup; editing `requirements.txt` / `pyproject.toml` to
+add something the project has never depended on is a design decision and
+still requires asking first (`.agents/Skills/README.md` §6,
+`architecture-rule.md`). The test: does the install change a manifest file
+committed to the repo? If yes, ask first. If it only changes what's present
+on disk in this environment, install it and move on.
+
+Only report "cannot verify" once an install attempt itself fails for a
+reason outside your control — no network, a registry/proxy blocking the
+package, or missing credentials/access to a private repo you were never
+given. Say plainly which install failed and why, rather than working around
+the gap by skipping the gate.
+
+---
+
+## 4. Mandatory Rules for AI Agents & Automated Tools
 
 1. **Never Attempt Plain PyPI Install for Engine:**
    - Always install via GitHub repository URL or local editable path as defined above.

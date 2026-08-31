@@ -107,10 +107,14 @@ claiming anything is green. Under offscreen Qt, harmless `TypeError` noise is
 flushed to stderr *after* pytest's summary line, so `| tail` shows you the noise
 instead of the result. Always redirect (`> file 2>&1`), never pipe to `tail`.
 
-**If you cannot run the gate** — no PowerShell, no virtualenv, no engine
-installed — then you have not verified anything. Say so plainly and do not
-commit code. Prompt/task/`.agents/`-only edits are exempt: see `ci-rule.md` §1
-*"Exception — commits that touch no code file"*.
+**Missing `pwsh`, a virtualenv, the engine, or a system library is not a
+reason to skip the gate** — install it
+([`install-rule.md`](../rules/install-rule.md) §3) and run the gate for real.
+Only once an install itself fails for a reason outside your control (no
+network, no registry access, no credential you were given) have you actually
+hit a wall — say so plainly and do not commit code. Prompt/task/`.agents/`-only
+edits are exempt: see `ci-rule.md` §1 *"Exception — commits that touch no code
+file"*.
 
 ---
 
