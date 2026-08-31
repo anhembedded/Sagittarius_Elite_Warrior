@@ -21,7 +21,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
+    HealthCheckCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
     SyncProgressFeed,
 )
@@ -143,9 +145,14 @@ def connect_engine_events(presenter) -> None:
     # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này — đi
     # qua HealthFeed, một nơi nghe nhiều màn hiển thị
     # (`architecture-rule.md` §6). Bản tự ghép chuỗi cũ ở đây từng **bỏ sót
-    # `Container`** so với Dashboard, đúng hệ quả của việc mỗi màn tự chuẩn hoá.
-    presenter._health_feed = HealthFeed(presenter.event_bus, parent=presenter)
-    presenter._health_feed.healthUpdated.connect(presenter._on_health_report)
+    # `Container`** so với Dashboard, đúng hệ quả của việc mỗi màn tự chuẩn
+    # hoá. Wiring này lại trùng lặp giữa 2 Presenter — `HealthCheckCoordinator`
+    # (`EPIC-019B`) dùng chung.
+    presenter._health_check_coordinator = HealthCheckCoordinator(
+        event_bus=presenter.event_bus,
+        emit_log=lambda msg: presenter._emit_ui_log(msg, "info", is_dev=False),
+        parent=presenter,
+    )
 
 
 def connect_chart_controls(presenter) -> None:

@@ -7,6 +7,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
     GetHistoricalKlinesQuery,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -42,7 +43,9 @@ class KLineInspectorCoordinator:
         self._ui_audit_result_signal = ui_audit_result_signal
         self._get_current_fsm_state = get_current_fsm_state
 
-    def run_inspect_klines(self, symbol: str, interval: str = "1m") -> None:
+    def run_inspect_klines(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         """Background worker: queries historical klines and delivers to UI."""
         action = self._tracker.begin_action(
             DataManagementActionKind.INSPECT_KLINES,
@@ -52,7 +55,7 @@ class KLineInspectorCoordinator:
         try:
             query = GetHistoricalKlinesQuery(
                 symbol=symbol,
-                interval=interval,
+                interval=TimeFrame(interval),
                 limit=10000,
                 order_by_desc=False,
             )
@@ -73,7 +76,9 @@ class KLineInspectorCoordinator:
             self._ui_error_log_signal(f"Failed to inspect klines: {exc}")
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
 
-    def run_audit(self, symbol: str, interval: str = "1m") -> None:
+    def run_audit(
+        self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
+    ) -> None:
         """Background worker: runs integrity audit on the selected shard."""
         action = self._tracker.begin_action(
             DataManagementActionKind.RUN_AUDIT,
@@ -81,7 +86,9 @@ class KLineInspectorCoordinator:
             self._get_current_fsm_state(),
         )
         try:
-            query = AuditDatabaseIntegrityQuery(symbol=symbol, interval=interval)
+            query = AuditDatabaseIntegrityQuery(
+                symbol=symbol, interval=TimeFrame(interval)
+            )
             result: DatabaseAuditResultDTO = self._dispatcher.dispatch(
                 AuditDatabaseIntegrityQuery, query
             )

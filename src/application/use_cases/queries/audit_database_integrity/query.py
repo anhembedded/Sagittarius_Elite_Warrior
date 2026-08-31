@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
 
 @dataclass(frozen=True)
 class DataAnomalyDTO:
@@ -37,4 +39,4 @@ class AuditDatabaseIntegrityQuery:
     """
 
     symbol: str
-    interval: str = "1m"
+    interval: TimeFrame = TimeFrame.ONE_MINUTE

@@ -22,4 +22,8 @@ def execute_sync(app: App, args):
     )
 
     # Dispatch to Application Layer
-    app.dispatch(SyncMarketDataCommand, command)
+    try:
+        app.dispatch(SyncMarketDataCommand, command)
+    except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
+        print(f"❌ Sync failed: {e}")
+        sys.exit(1)

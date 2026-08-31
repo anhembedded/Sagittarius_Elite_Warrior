@@ -18,6 +18,11 @@ class ConfigKeys(str, Enum):
     LOG_VIEWER_PORT = "log.viewer.port"
     LOG_VIEWER_MODULE = "log.viewer.module"
 
+    # Interactive shell (`presentation/cli/interactive_shell.py`) — the
+    # command routing table (`{cmd_name: {"help": ..., ...}}`) that drives
+    # both `default()`'s dispatch and `do_help()`'s listing.
+    CLI_COMMANDS = "CLI_COMMANDS"
+
     # UI Appearance
     UI_FONT_FAMILY = "ui.font.family"
     UI_FONT_SIZE = "ui.font.size"

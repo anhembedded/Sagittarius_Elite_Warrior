@@ -9,11 +9,14 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFra
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     build_handler_parser,
 )
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.i_cli_command_handler import (
+    ICliCommandHandler,
+)
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
 
 
-class SyncCliHandler:
+class SyncCliHandler(ICliCommandHandler):
     @staticmethod
     def handle(arg_str: str, app: App) -> None:
         config = app.container.resolve(IConfig)
@@ -36,14 +39,17 @@ class SyncCliHandler:
                 days_back_if_empty=args.days,
             )
             print(f"🔄 Syncing historical data for {symbols}...")
-            response = app.dispatch(SyncMarketDataCommand, cmd)
-            if response is None or getattr(response, "success", True):
-                print("✅ Sync complete.")
-            else:
-                print(
-                    f"❌ Sync failed: {getattr(response, 'message', 'Unknown error')}"
-                )
+            # SyncMarketDataCommandHandler.execute() -> None on success; a
+            # real sync failure (network, DB) raises rather than returning a
+            # success=False result — the same contract
+            # BulkSyncMarketDataCommandHandler already relies on for this
+            # exact command (see its own dispatch() call). No response
+            # object to read a `.success` off of, unlike Start/Stop Stream.
+            app.dispatch(SyncMarketDataCommand, cmd)
+            print("✅ Sync complete.")
         except ValueError as e:
             print(f"❌ Validation Error: {e}")
         except ValidationError as e:
             print(f"❌ Validation Error: {e}")
+        except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
+            print(f"❌ Sync failed: {e}")

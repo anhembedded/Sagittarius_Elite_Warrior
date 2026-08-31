@@ -97,6 +97,13 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]binance[\\/]client\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]models\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]sqlalchemy_repository\\.py$",
+    # `kline_row_mapper.py` (`EPIC-018B`) inherited this same `Column[T]`-vs-`T`
+    # debt verbatim when `to_market_data_entity()` was split out of
+    # `sqlalchemy_repository.py` above — same root cause (SQLAlchemy ORM
+    # attribute typing), just relocated. Merge-time discovery (`master-warrior`
+    # merge, 2026-08-31): the split had silently dropped this file out of gate
+    # coverage since nothing re-added it here.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]kline_row_mapper\\.py$",
 
     # Surfaced only AFTER the exclusions above were applied — not part of the
     # original 45-file/251-error combined baseline scan (EPIC-002A), but

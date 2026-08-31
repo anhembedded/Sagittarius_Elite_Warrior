@@ -21,7 +21,7 @@ def test_get_historical_klines_handler_success():
     start_dt = datetime(2023, 1, 1, tzinfo=UTC)
     query = GetHistoricalKlinesQuery(
         symbol="BTCUSDT",
-        interval="1h",
+        interval=TimeFrame.ONE_HOUR,
         start_time=start_dt,
         limit=100,
         order_by_desc=True,
@@ -43,13 +43,8 @@ def test_get_historical_klines_handler_success():
 
 
 def test_get_historical_klines_handler_invalid_interval():
-    repo_mock = Mock()
-    handler = GetHistoricalKlinesQueryHandler(repo_mock)
-
-    query = GetHistoricalKlinesQuery(symbol="BTCUSDT", interval="invalid_interval")
-
-    with pytest.raises(ValueError, match="Invalid interval: invalid_interval"):
-        handler.execute(query)
+    with pytest.raises(ValueError):
+        TimeFrame("invalid_interval")
 
 
 def test_get_historical_klines_handler_batch_success():
@@ -71,7 +66,7 @@ def test_get_historical_klines_handler_batch_success():
 
     query = GetHistoricalKlinesQuery(
         symbol=["BTCUSDT", "ETHUSDT"],
-        interval="1h",
+        interval=TimeFrame.ONE_HOUR,
         limit=50,
     )
 

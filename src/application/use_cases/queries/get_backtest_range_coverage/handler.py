@@ -9,7 +9,6 @@ from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage 
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage.query import (
     GetBacktestRangeCoverageQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 class GetBacktestRangeCoverageQueryHandler(
@@ -19,7 +18,7 @@ class GetBacktestRangeCoverageQueryHandler(
         self._repository = repository
 
     def execute(self, query: GetBacktestRangeCoverageQuery) -> BacktestRangeCoverage:
-        interval = TimeFrame(query.interval)
+        interval = query.interval
         snapshot = self._repository.get_range_coverage(
             query.symbol,
             interval,

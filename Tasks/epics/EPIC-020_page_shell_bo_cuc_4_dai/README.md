@@ -1,4 +1,9 @@
-# EPIC-018 — `PageShell`: bố cục 4 dải dùng chung cho mọi màn hình
+# EPIC-020 — `PageShell`: bố cục 4 dải dùng chung cho mọi màn hình
+
+> **Ghi chú đổi số (merge `master-warrior`↔`claude/screen-registry-pattern-v2-viq2eq`):** epic
+> này được tạo với ID `EPIC-018` ở một phiên khác, trùng với `EPIC-018_app_wide_hard_design_sweep`
+> đã tồn tại và được tham chiếu rộng ở phiên này. Đổi thành `EPIC-020` (số kế tiếp còn trống)
+> khi merge hai nhánh; không đổi nội dung.
 
 **Trạng thái:** ✅ **Hoàn thành — 2026-08-30.** Cả 4 màn hình (Dev Board, Backtest,
 Database, Settings) đã chuyển sang `PageShell`, verify bằng build app thật (offscreen,

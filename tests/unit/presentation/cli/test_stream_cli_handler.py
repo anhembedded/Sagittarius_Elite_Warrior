@@ -88,6 +88,31 @@ def test_stream_cli_handler_stop_success(capsys):
     assert "✅ Live stream stopped" in captured.out
 
 
+def test_stream_cli_handler_start_dispatch_raises(capsys):
+    """A real dispatch failure (network, DB) raises out of dispatch()
+    rather than returning a success=False result — same class of bug as
+    `sync_cli_handler.py`'s `test_sync_cli_handler_failure`."""
+    app = Mock(spec=App)
+    app.container.resolve.return_value = _get_mock_config()
+    app.dispatch.side_effect = ConnectionError("Network error")
+
+    StreamCliHandler.handle("start --symbols BTCUSDT --interval 1m", app)
+
+    captured = capsys.readouterr()
+    assert "❌ Failed to start stream: Network error" in captured.out
+
+
+def test_stream_cli_handler_stop_dispatch_raises(capsys):
+    app = Mock(spec=App)
+    app.container.resolve.return_value = _get_mock_config()
+    app.dispatch.side_effect = ConnectionError("Network error")
+
+    StreamCliHandler.handle("stop", app)
+
+    captured = capsys.readouterr()
+    assert "❌ Failed to stop stream: Network error" in captured.out
+
+
 def test_stream_cli_handler_stop_failure(capsys):
     app = Mock(spec=App)
     app.container.resolve.return_value = _get_mock_config()

@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.margin_risk_polic
     MarginRiskPolicy,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.order_matching_policy import (
+    IStoppablePosition,
     OrderMatchingPolicy,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
@@ -48,7 +49,7 @@ _EXIT_LOG_LABEL: dict[PositionSide, str] = {
 
 
 @dataclass
-class _OpenPosition:
+class _OpenPosition(IStoppablePosition):
     quantity: float
     entry_price: float
     entry_time: datetime

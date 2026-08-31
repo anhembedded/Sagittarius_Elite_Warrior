@@ -22,7 +22,9 @@ def test_get_database_gaps_empty_database():
     )
     handler = GetDatabaseGapsQueryHandler(repo)
 
-    result = handler.execute(GetDatabaseGapsQuery(symbol="BTCUSDT", interval="1m"))
+    result = handler.execute(
+        GetDatabaseGapsQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
+    )
 
     assert result.total_gaps == 0
     assert result.total_missing_candles == 0
@@ -51,7 +53,9 @@ def test_get_database_gaps_with_detected_gaps():
     ]
     handler = GetDatabaseGapsQueryHandler(repo)
 
-    result = handler.execute(GetDatabaseGapsQuery(symbol="BTCUSDT", interval="1m"))
+    result = handler.execute(
+        GetDatabaseGapsQuery(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE)
+    )
 
     assert result.total_gaps == 1
     assert result.total_missing_candles == 120
@@ -66,7 +70,9 @@ def test_get_database_gaps_invalid_symbol_or_interval_raises():
     handler = GetDatabaseGapsQueryHandler(repo)
 
     with pytest.raises(ValueError, match="Symbol cannot be empty"):
-        handler.execute(GetDatabaseGapsQuery(symbol="", interval="1m"))
+        handler.execute(
+            GetDatabaseGapsQuery(symbol="", interval=TimeFrame.ONE_MINUTE)
+        )
 
-    with pytest.raises(ValueError, match="Invalid interval"):
-        handler.execute(GetDatabaseGapsQuery(symbol="BTCUSDT", interval="999x"))
+    with pytest.raises(ValueError):
+        TimeFrame("999x")

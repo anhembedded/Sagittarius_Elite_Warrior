@@ -7,6 +7,9 @@ from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.sync_target import (
+    SyncTarget,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
@@ -146,7 +149,10 @@ class SyncCoordinator:
         )
         try:
             cmd = BulkSyncMarketDataCommand(
-                targets=targets,
+                targets=[
+                    SyncTarget(symbol=symbol, interval=TimeFrame(interval))
+                    for symbol, interval in targets
+                ],
                 cancellation_requested=(
                     token_to_use.is_cancelled if token_to_use else None
                 ),

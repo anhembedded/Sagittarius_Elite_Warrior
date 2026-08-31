@@ -2,6 +2,13 @@ import cmd
 import logging
 import shlex
 
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
+    build_handler_parser,
+)
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.i_cli_command_handler import (
+    ICliCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.stream_cli_handler import (
     StreamCliHandler,
 )
@@ -35,7 +42,10 @@ class InteractiveShell(cmd.Cmd, IHostedService):
 
         # Hardcode the routing map to handlers.
         # (A true registry would inject this, but this is a simple implementation)
-        self.handlers = {"sync": SyncCliHandler, "stream": StreamCliHandler}
+        self.handlers: dict[str, type[ICliCommandHandler]] = {
+            "sync": SyncCliHandler,
+            "stream": StreamCliHandler,
+        }
 
     def start(self, context: IEngineContext) -> None:
         self.task = context.tasks.spawn(self._run_loop, name="InteractiveShell")
@@ -64,7 +74,7 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         args = shlex.split(line)
         cmd_name = args[0]
 
-        cli_commands = self.config.get("CLI_COMMANDS", {})
+        cli_commands = self.config.get(ConfigKeys.CLI_COMMANDS.value, {})
 
         if cmd_name in cli_commands and cmd_name in self.handlers:
             handler = self.handlers[cmd_name]
@@ -74,7 +84,7 @@ class InteractiveShell(cmd.Cmd, IHostedService):
 
     def do_help(self, arg: str) -> None:
         """Dynamically builds help texts from configuration."""
-        cli_commands = self.config.get("CLI_COMMANDS", {})
+        cli_commands = self.config.get(ConfigKeys.CLI_COMMANDS.value, {})
 
         if not arg:
             print("\nDocumented commands (type help <topic>):")
@@ -88,10 +98,6 @@ class InteractiveShell(cmd.Cmd, IHostedService):
             return
 
         if arg in cli_commands:
-            from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
-                build_handler_parser,
-            )
-
             parser = build_handler_parser(self.config, arg)
             parser.print_help()
         elif arg in ("exit", "quit"):

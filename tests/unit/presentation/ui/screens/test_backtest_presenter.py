@@ -565,13 +565,15 @@ def test_opening_symbol_picker_fetches_options_from_the_exchange(
 ):
     presenter._on_symbol_picker_open_requested()
 
-    mock_thread_mgr.submit.assert_called_once_with(presenter._fetch_symbol_options)
+    mock_thread_mgr.submit.assert_called_once_with(
+        presenter._symbol_options_coordinator._fetch
+    )
 
 
 def test_opening_symbol_picker_again_does_not_refetch_when_already_cached(
     presenter, mock_thread_mgr
 ):
-    presenter._symbol_options_cache = ["BTCUSDT", "ETHUSDT"]
+    presenter._symbol_options_coordinator.on_options_ready(["BTCUSDT", "ETHUSDT"])
 
     presenter._on_symbol_picker_open_requested()
 
@@ -583,12 +585,11 @@ def test_fetch_symbol_options_dispatches_query_and_populates_the_view_model(
 ):
     mock_dispatcher.dispatch.return_value = ["BTCUSDT", "ETHUSDT"]
 
-    presenter._fetch_symbol_options()
+    presenter._symbol_options_coordinator._fetch()
 
     handler_class, query = mock_dispatcher.dispatch.call_args[0]
     assert handler_class is ListAvailableSymbolsQuery
     assert isinstance(query, ListAvailableSymbolsQuery)
-    assert presenter._symbol_options_cache == ["BTCUSDT", "ETHUSDT"]
     assert view_model.symbolOptions == ["BTCUSDT", "ETHUSDT"]
 
 
@@ -597,9 +598,9 @@ def test_fetch_symbol_options_failure_does_not_cache_and_logs_without_crashing(
 ):
     mock_dispatcher.dispatch.side_effect = RuntimeError("exchange unreachable")
 
-    presenter._fetch_symbol_options()
+    presenter._symbol_options_coordinator._fetch()
 
-    assert presenter._symbol_options_cache is None
+    assert presenter._symbol_options_coordinator._symbol_options_cache is None
     assert view_model.symbolOptions == []
     assert "exchange unreachable" in view_model.log_model._entries[-1].message
 

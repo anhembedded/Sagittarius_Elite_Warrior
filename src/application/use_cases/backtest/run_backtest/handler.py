@@ -65,11 +65,14 @@ class RunBacktestCommandHandler(ICommandHandler[RunBacktestCommand, None]):
         """
         @brief Fetches historical klines for the simulation.
         """
+        # `RunBacktestCommand` has no start_time/end_time field — a fixed
+        # window is not part of this command's contract, so the simulation
+        # always replays the most recent `limit` candles.
         klines = self.repo.get_klines(
             symbol=command.symbol,
             interval=command.interval,
-            start_time=command.start_time if hasattr(command, "start_time") else None,
-            end_time=command.end_time if hasattr(command, "end_time") else None,
+            start_time=None,
+            end_time=None,
             limit=command.limit,
         )
 

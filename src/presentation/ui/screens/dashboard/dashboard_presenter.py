@@ -8,9 +8,6 @@ from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
-    ListAvailableSymbolsQuery,
-)
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
@@ -23,9 +20,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_interval,
     default_symbol,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
-    HealthStatusReport,
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
+    HealthCheckCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
+    SymbolOptionsCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
@@ -348,11 +347,17 @@ class DashboardPresenter(BasePresenter):
         # No further container.resolve(IThreadManager) calls anywhere else.
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
 
-        # EPIC-014: `None` means "never fetched", which is what makes the
-        # fetch happen once per session rather than on every picker open. An
-        # empty list is a real answer (the query returned nothing) and is
-        # deliberately NOT retried — a distinction a falsy check would lose.
-        self._symbol_options_cache: list[str] | None = None
+        # EPIC-019A: shared with BackTestPresenter — `None` means "never
+        # fetched", which is what makes the fetch happen once per session
+        # rather than on every picker open. An empty list is a real answer
+        # (the query returned nothing) and is deliberately NOT retried — a
+        # distinction a falsy check would lose.
+        self._symbol_options_coordinator = SymbolOptionsCoordinator(
+            dispatcher=self.dispatcher,
+            thread_manager=self._thread_manager,
+            emit_ready=self._symbolOptionsReadySignal.emit,
+            emit_failed=self._symbolOptionsFailedSignal.emit,
+        )
 
         # Define allowed FSM transitions
         self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
@@ -604,35 +609,18 @@ class DashboardPresenter(BasePresenter):
         added to its construction path delays that. A cache hit means a prior
         open already populated the ViewModel and this is a no-op.
         """
-        if self._symbol_options_cache is not None:
-            return
-        self._thread_manager.submit(self._fetch_symbol_options)
+        self._symbol_options_coordinator.request_open()
 
     @Slot()
     def _on_symbol_picker_refresh_requested(self) -> None:
-        """Forces a refresh of the symbol options directly from the exchange."""
-        self._symbol_options_cache = None
-        self._thread_manager.submit(
-            lambda: self._fetch_symbol_options(force_refresh=True)
-        )
-
-    def _fetch_symbol_options(self, force_refresh: bool = False) -> None:
-        """Runs on a worker thread — hence the signals rather than a direct
-        ViewModel write, which would touch Qt objects off the main thread."""
-        try:
-            symbols = self.dispatcher.dispatch(
-                ListAvailableSymbolsQuery,
-                ListAvailableSymbolsQuery(force_refresh=force_refresh),
-            )
-        except Exception as exc:
-            logger.exception("Failed to fetch available symbols")
-            self._symbolOptionsFailedSignal.emit(str(exc))
-            return
-        self._symbolOptionsReadySignal.emit(symbols)
+        """Forces a refresh of the symbol options directly from the exchange
+        (`BUG-066`'s manual 🔄, bypassing both the coordinator's and
+        `ISymbolCatalogRepository`'s cache)."""
+        self._symbol_options_coordinator.request_refresh()
 
     @Slot(list)
     def _on_symbol_options_ready(self, symbols: list[str]) -> None:
-        self._symbol_options_cache = symbols
+        self._symbol_options_coordinator.on_options_ready(symbols)
         self._view_model.set_symbol_options(symbols)
 
     @Slot(str)
@@ -791,24 +779,17 @@ class DashboardPresenter(BasePresenter):
         # đi qua HealthFeed — một nơi nghe, nhiều màn hiển thị
         # (`architecture-rule.md` §6). Trước đây màn này tự `event_bus.on(...)`
         # rồi tự ghép chuỗi, và Backtest cũng vậy: 2 định dạng khác nhau cho
-        # cùng một dữ liệu, bản của Backtest còn mất hẳn `Container`.
-        self._health_feed = HealthFeed(self.event_bus, parent=self)
-        self._health_feed.healthUpdated.connect(self._on_health_report)
+        # cùng một dữ liệu, bản của Backtest còn mất hẳn `Container`. Wiring
+        # đó (dựng `HealthFeed`, connect, hỏi lúc mở màn) lại trùng lặp giữa
+        # 2 Presenter — `HealthCheckCoordinator` (`EPIC-019B`) dùng chung.
+        self._health_check_coordinator = HealthCheckCoordinator(
+            event_bus=self.event_bus,
+            emit_log=self.ui_log_signal.emit,
+            parent=self,
+        )
 
     def _trigger_initial_health_check(self) -> None:
-        """Xin số liệu sức khoẻ tươi ngay khi mở màn.
-
-        Trước `EPIC-008G` hàm này resolve `HealthCheckQuery` rồi **tự dựng một
-        `HealthUpdatedEvent`** để gọi thẳng handler của chính mình — cách vá cho
-        việc `HealthExtension.boot()` chỉ phát đúng một lần lúc `app.boot()`,
-        trước khi presenter (lazy) kịp tồn tại. `EPIC-008E` thay bằng cặp
-        request/response thật, nên giờ chỉ cần hỏi.
-        """
-        self._health_feed.request_refresh()
-
-    def _on_health_report(self, report: HealthStatusReport) -> None:
-        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
-        self.ui_log_signal.emit(report.to_log_line())
+        self._health_check_coordinator.request_initial_check()
 
     # ================================================================== #
     # FSM Hooks

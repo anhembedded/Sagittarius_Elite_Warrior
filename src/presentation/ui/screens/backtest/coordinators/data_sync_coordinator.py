@@ -105,7 +105,7 @@ class DataSyncCoordinator:
         now = datetime.now(UTC)
         query = GetBacktestRangeCoverageQuery(
             symbol=self._state.symbol,
-            interval=self._effective_data_interval(config).value,
+            interval=self._effective_data_interval(config),
             start_time=config.start_time,
             end_time=config.end_time or now,
             now=now,

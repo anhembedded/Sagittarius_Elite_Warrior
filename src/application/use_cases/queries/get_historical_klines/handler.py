@@ -38,26 +38,20 @@ class GetHistoricalKlinesQueryHandler(
         self._log_trace(
             "query_execute_start",
             symbol=query.symbol,
-            timeframe=query.interval,
+            timeframe=query.interval.value,
             limit=query.limit,
             start=query.start_time,
             end=query.end_time,
             order_by_desc=query.order_by_desc,
         )
         logger.debug(
-            f"Handling GetHistoricalKlinesQuery for {query.symbol} at {query.interval} (limit={query.limit})"
+            f"Handling GetHistoricalKlinesQuery for {query.symbol} at {query.interval.value} (limit={query.limit})"
         )
 
-        try:
-            interval_vo = TimeFrame(query.interval)
-        except ValueError as e:
-            logger.error(f"Invalid interval provided to query: {query.interval}")
-            raise ValueError(f"Invalid interval: {query.interval}") from e
-
         if isinstance(query.symbol, list):
-            return self._execute_multi(query, interval_vo)
+            return self._execute_multi(query, query.interval)
 
-        return self._execute_single(query, interval_vo)
+        return self._execute_single(query, query.interval)
 
     def _execute_multi(
         self, query: GetHistoricalKlinesQuery, interval_vo: TimeFrame

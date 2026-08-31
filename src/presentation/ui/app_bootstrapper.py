@@ -298,12 +298,7 @@ def build() -> AppRuntime:
     window.show()
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime
-    engine_logger = (
-        app_engine.context.logger
-        if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger")
-        else None
-    )
-    watchdog = UIWatchdog(logger=engine_logger)
+    watchdog = UIWatchdog(logger=app_engine.context.logger)
     watchdog.start()
 
     # Schedule readiness confirmation on the first event loop tick
@@ -362,13 +357,10 @@ def main() -> None:
 # ------------------------------------------------------------------ #
 
 
-def _log_ui_ready(app_engine) -> None:
+def _log_ui_ready(app_engine: App) -> None:
     """Log readiness confirmation when the main window is rendered and event loop is active."""
     ready_msg = "UI Layer Ready — MainWindow rendered and Qt event loop active."
-    if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger"):
-        app_engine.context.logger.info(ready_msg)
-    else:
-        print(ready_msg)
+    app_engine.context.logger.info(ready_msg)
 
 
 _STACK_FRAME_LIMIT = 12
@@ -400,7 +392,7 @@ def _format_thread_stack(thread: threading.Thread) -> str:
     return f"    {thread.name!r} is stuck at:\n{body}"
 
 
-def _log_surviving_non_daemon_threads(app_engine) -> None:
+def _log_surviving_non_daemon_threads(app_engine: App) -> None:
     """BUG-052 — `app_engine.stop()` returning is not the same as the process
     being able to exit. `IThreadManager`'s pool is a `ThreadPoolExecutor`
     (`sagittarius_engine`'s `ThreadManagerExtension.shutdown()` calls it with
@@ -442,13 +434,10 @@ def _log_surviving_non_daemon_threads(app_engine) -> None:
         f"(BUG-052 class): {names}\n"
         + "\n".join(_format_thread_stack(thread) for thread in survivors)
     )
-    if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger"):
-        app_engine.context.logger.warning(message)
-    else:
-        print(message)
+    app_engine.context.logger.warning(message)
 
 
-def _install_exception_handler(app_engine) -> None:
+def _install_exception_handler(app_engine: App) -> None:
     """Install a global Qt exception handler that logs and shows a resizable dialog.
 
     `BUG-048`: showing the dialog used to be unconditional. `QDialog.exec()`
@@ -465,12 +454,7 @@ def _install_exception_handler(app_engine) -> None:
     def _handler(exc_type, exc_value, exc_tb) -> None:
         tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
 
-        if hasattr(app_engine, "context") and hasattr(app_engine.context, "logger"):
-            app_engine.context.logger.error(
-                f"Uncaught UI Exception: {exc_value}\n{tb_str}"
-            )
-        else:
-            print(f"Uncaught UI Exception:\n{tb_str}")
+        app_engine.context.logger.error(f"Uncaught UI Exception: {exc_value}\n{tb_str}")
 
         if is_headless_qt_platform():
             # No human is there to see or dismiss a dialog — the log line

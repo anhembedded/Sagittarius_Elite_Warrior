@@ -22,9 +22,6 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols.query import (
-    ListAvailableSymbolsQuery,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
@@ -61,8 +58,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_track
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_symbol,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
-    HealthStatusReport,
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
+    HealthCheckCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
+    SymbolOptionsCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
@@ -325,13 +325,6 @@ class BackTestPresenter(BasePresenter):
         self._symbol: str = default_symbol(config_values, _FALLBACK_SYMBOL)
         default_interval = config_values.get("DEFAULT_INTERVAL") or ""
 
-        # BOT-102: symbol picker. `_symbol_options_cache` avoids re-hitting
-        # the exchange every time the modal is reopened in the same session
-        # (the tradeable symbol set does not change meaningfully within one
-        # run of the app) — None means "never fetched", distinct from an
-        # empty list which would mean "fetched, exchange returned nothing".
-        self._symbol_options_cache: list[str] | None = None
-
         # BOT-059: set only by _on_backtest_empty (a real "no historical
         # data" result), cleared by any successful run or successful sync —
         # the single source of truth for whether "Đồng bộ ngay" is offered.
@@ -376,6 +369,18 @@ class BackTestPresenter(BasePresenter):
 
         self._strategy_registry: StrategyRegistry = container.resolve(StrategyRegistry)
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
+
+        # BOT-102 / EPIC-019A: shared with DashboardPresenter. `None` means
+        # "never fetched", distinct from an empty list which would mean
+        # "fetched, exchange returned nothing" — the tradeable symbol set
+        # does not change meaningfully within one run of the app, so a hit
+        # is never retried.
+        self._symbol_options_coordinator = SymbolOptionsCoordinator(
+            dispatcher=self.dispatcher,
+            thread_manager=self._thread_manager,
+            emit_ready=self._symbolOptionsReadySignal.emit,
+            emit_failed=self._symbolOptionsFailedSignal.emit,
+        )
         # BOT-060: names of the currently-drawn strategy indicator lines
         # (added to as `_on_chart_strategy_line` registers each one on the
         # chart) — read by `_on_ema_toggled`/`_start_backtest_run` so both
@@ -570,18 +575,7 @@ class BackTestPresenter(BasePresenter):
         connect_engine_events(self)
 
     def _trigger_initial_health_check(self) -> None:
-        """Xin số liệu sức khoẻ tươi ngay khi mở màn.
-
-        Trước `EPIC-008G` hàm này resolve `HealthCheckQuery` rồi **tự dựng một
-        `HealthUpdatedEvent`** gọi thẳng handler của chính mình — cách vá cho việc
-        `HealthExtension.boot()` chỉ phát đúng một lần lúc `app.boot()`, trước khi
-        presenter (lazy) kịp tồn tại. `EPIC-008E` thay bằng cặp request/response thật.
-        """
-        self._health_feed.request_refresh()
-
-    def _on_health_report(self, report: HealthStatusReport) -> None:
-        """Đã ở main thread — `BaseFeed` bọc `QtEventBridge` sẵn."""
-        self._emit_ui_log(report.to_log_line(), "info", is_dev=False)
+        self._health_check_coordinator.request_initial_check()
 
     def _handle_backtest_completed_event(self, event: BacktestCompletedEvent) -> None:
         result = getattr(event, "result", None)
@@ -1380,33 +1374,18 @@ class BackTestPresenter(BasePresenter):
         first time the picker is opened in this session; a cache hit means
         the modal already has `symbolOptions` populated from a prior open
         and this is a no-op."""
-        if self._symbol_options_cache is not None:
-            return
-        self._thread_manager.submit(self._fetch_symbol_options)
+        self._symbol_options_coordinator.request_open()
 
     @Slot()
     def _on_symbol_picker_refresh_requested(self) -> None:
-        """Forces a refresh of the symbol options directly from the exchange."""
-        self._symbol_options_cache = None
-        self._thread_manager.submit(
-            lambda: self._fetch_symbol_options(force_refresh=True)
-        )
-
-    def _fetch_symbol_options(self, force_refresh: bool = False) -> None:
-        try:
-            symbols = self.dispatcher.dispatch(
-                ListAvailableSymbolsQuery,
-                ListAvailableSymbolsQuery(force_refresh=force_refresh),
-            )
-        except Exception as exc:
-            logger.exception("Failed to fetch available symbols")
-            self._symbolOptionsFailedSignal.emit(str(exc))
-            return
-        self._symbolOptionsReadySignal.emit(symbols)
+        """Forces a refresh of the symbol options directly from the exchange
+        (`BUG-066`'s manual 🔄, bypassing both the coordinator's and
+        `ISymbolCatalogRepository`'s cache)."""
+        self._symbol_options_coordinator.request_refresh()
 
     @Slot(list)
     def _on_symbol_options_ready(self, symbols: list[str]) -> None:
-        self._symbol_options_cache = symbols
+        self._symbol_options_coordinator.on_options_ready(symbols)
         self._view_model.set_symbol_options(symbols)
 
     @Slot(str)

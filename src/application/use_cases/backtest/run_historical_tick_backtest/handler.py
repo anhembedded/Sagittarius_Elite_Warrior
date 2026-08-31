@@ -1,7 +1,6 @@
 import logging
 from collections.abc import Iterable
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import perf_counter
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
@@ -41,108 +40,11 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 )
 
 from .command import RunHistoricalTickBacktestCommand
+from .forming_bar import CLOSE_TIME_IS_INCLUSIVE_BY, FormingBar, bar_bounds
 
 logger = logging.getLogger("App.RunHistoricalTickBacktest")
 _TRACE_PREFIX = "REALTIME_BACKTEST_TRACE"
 _PHASE = "realtime"
-
-#: BUG-022 — a kline's `close_time` is the LAST INSTANT it covers, not the
-#: exclusive end of its interval: Binance publishes `next_open - 1ms` (the
-#: stored 1s data pairs `open=12:14:59.000` with `close=12:14:59.999`, never
-#: `12:15:00.000`). So a tick reaches a bar's end when
-#: `close_time + 1ms >= bar_end`, and comparing `close_time >= bar_end`
-#: directly is never true for real data — which silently sent the closing
-#: tick of EVERY bar down the "missing data" path, evaluating it once
-#: provisionally and again on commit with identical state. This is the
-#: exchange's own millisecond granularity, not a tolerance: a feed that
-#: instead reports `close_time == bar_end` also satisfies the comparison,
-#: so both conventions close their bars on the correct tick.
-_CLOSE_TIME_IS_INCLUSIVE_BY = timedelta(milliseconds=1)
-
-
-@dataclass
-class _FormingBar:
-    """Running OHLCV aggregation of every tick seen so far inside the bar
-    currently forming — never committed to the strategy's Series/indicator
-    history until the bar boundary is crossed (BOT-042C)."""
-
-    bar_start: datetime
-    bar_end: datetime
-    #: BUG-022 — the last absorbed tick's own `close_time`, NOT `bar_end`.
-    #: A published kline's `close_time` is the last instant it covers
-    #: (`bar_end - 1ms`), so using `bar_end` made every aggregated bar sit
-    #: 1ms later than the identical kline Static reads, breaking BOT-076
-    #: §3.4's "1 tick per bar must match Static bit-for-bit" cross-check.
-    last_tick_close_time: datetime
-    open_price: float
-    high_price: float
-    low_price: float
-    close_price: float
-    volume: float
-    quote_asset_volume: float
-    number_of_trades: int
-    taker_buy_base_asset_volume: float
-    taker_buy_quote_asset_volume: float
-
-    @staticmethod
-    def start(
-        bar_start: datetime, bar_end: datetime, tick: MarketData
-    ) -> "_FormingBar":
-        return _FormingBar(
-            bar_start=bar_start,
-            bar_end=bar_end,
-            last_tick_close_time=tick.close_time,
-            open_price=tick.open_price,
-            high_price=tick.high_price,
-            low_price=tick.low_price,
-            close_price=tick.close_price,
-            volume=tick.volume,
-            quote_asset_volume=tick.quote_asset_volume,
-            number_of_trades=tick.number_of_trades,
-            taker_buy_base_asset_volume=tick.taker_buy_base_asset_volume,
-            taker_buy_quote_asset_volume=tick.taker_buy_quote_asset_volume,
-        )
-
-    def absorb(self, tick: MarketData) -> None:
-        self.last_tick_close_time = tick.close_time
-        self.high_price = max(self.high_price, tick.high_price)
-        self.low_price = min(self.low_price, tick.low_price)
-        self.close_price = tick.close_price
-        self.volume += tick.volume
-        self.quote_asset_volume += tick.quote_asset_volume
-        self.number_of_trades += tick.number_of_trades
-        self.taker_buy_base_asset_volume += tick.taker_buy_base_asset_volume
-        self.taker_buy_quote_asset_volume += tick.taker_buy_quote_asset_volume
-
-    def to_candle(self, symbol: str, interval: str, *, is_closed: bool) -> MarketData:
-        return MarketData(
-            symbol=symbol,
-            interval=interval,
-            open_time=self.bar_start,
-            open_price=self.open_price,
-            high_price=self.high_price,
-            low_price=self.low_price,
-            close_price=self.close_price,
-            volume=self.volume,
-            close_time=self.last_tick_close_time,
-            quote_asset_volume=self.quote_asset_volume,
-            number_of_trades=self.number_of_trades,
-            taker_buy_base_asset_volume=self.taker_buy_base_asset_volume,
-            taker_buy_quote_asset_volume=self.taker_buy_quote_asset_volume,
-            is_closed=is_closed,
-        )
-
-
-def _bar_bounds(
-    tick_open_time: datetime, interval_seconds: int
-) -> tuple[datetime, datetime]:
-    """Floors `tick_open_time` to the interval boundary it falls inside,
-    returning (bar_start, bar_end) — e.g. a 1s tick at 09:00:23 with
-    interval=60s falls inside the [09:00:00, 09:01:00) bar."""
-    epoch_seconds = tick_open_time.timestamp()
-    bar_start_seconds = epoch_seconds - (epoch_seconds % interval_seconds)
-    bar_start = datetime.fromtimestamp(bar_start_seconds, tz=tick_open_time.tzinfo)
-    return bar_start, bar_start + timedelta(seconds=interval_seconds)
 
 
 class RunHistoricalTickBacktestCommandHandler(
@@ -266,7 +168,7 @@ class RunHistoricalTickBacktestCommandHandler(
         #: `interval` — those are complete, these are aggregated from only
         #: the ticks that existed, so the two are not interchangeable.
         committed_bars: list[MarketData] = []
-        forming: _FormingBar | None = None
+        forming: FormingBar | None = None
         started_at = perf_counter()
         progress_throttle = ProgressThrottle()
         last_tick: MarketData | None = None
@@ -281,7 +183,7 @@ class RunHistoricalTickBacktestCommandHandler(
                     phase=_PHASE, processed_bars=index - 1, total_bars=total_ticks
                 )
 
-            # BOLT-001: `_bar_bounds()` costs a `.timestamp()` plus two
+            # BOLT-001: `bar_bounds()` costs a `.timestamp()` plus two
             # `datetime` constructions, and it ran on every tick — but its
             # answer only changes when the bar does. At 1s ticks in a 5m bar
             # that is 299 of every 300 calls recomputing the value the
@@ -290,7 +192,7 @@ class RunHistoricalTickBacktestCommandHandler(
             # answers the same question without building anything.
             #
             # Exact, not approximate: `forming.bar_start` came from
-            # `_bar_bounds()` itself, so it already sits on the interval
+            # `bar_bounds()` itself, so it already sits on the interval
             # grid, and `bar_end` is `bar_start + interval_seconds`. Flooring
             # any instant inside that half-open window therefore returns
             # exactly `forming.bar_start` — the branch below cannot see a
@@ -306,7 +208,7 @@ class RunHistoricalTickBacktestCommandHandler(
                 forming.absorb(tick)
                 bar_end = forming.bar_end
             else:
-                bar_start, bar_end = _bar_bounds(tick.open_time, interval_seconds)
+                bar_start, bar_end = bar_bounds(tick.open_time, interval_seconds)
                 # A previous forming bar should always have been closed by
                 # its own last tick below — this only guards a gap in the
                 # tick stream (missing data), never the normal path.
@@ -325,7 +227,7 @@ class RunHistoricalTickBacktestCommandHandler(
                         forming,
                         command,
                     )
-                forming = _FormingBar.start(bar_start, bar_end, tick)
+                forming = FormingBar.start(bar_start, bar_end, tick)
 
             # A tick whose own close reaches the bar boundary IS the bar
             # closing — evaluating it as "provisional" too would re-run the
@@ -333,7 +235,7 @@ class RunHistoricalTickBacktestCommandHandler(
             # strategy.evaluate() a second time right after committing it,
             # firing every real signal twice. So it gets committed only;
             # every other tick in the bar is provisional only (BOT-042D).
-            if tick.close_time + _CLOSE_TIME_IS_INCLUSIVE_BY >= bar_end:
+            if tick.close_time + CLOSE_TIME_IS_INCLUSIVE_BY >= bar_end:
                 self._commit_bar(
                     engine, exchange, equity_curve, committed_bars, forming, command
                 )
@@ -399,7 +301,7 @@ class RunHistoricalTickBacktestCommandHandler(
         exchange: PaperExchange,
         equity_curve: list[tuple[datetime, float]],
         committed_bars: list[MarketData],
-        forming: _FormingBar,
+        forming: FormingBar,
         command: RunHistoricalTickBacktestCommand,
     ) -> None:
         """Closes exactly one bar: commits the indicator/Series state

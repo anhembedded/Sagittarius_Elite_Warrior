@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
@@ -129,15 +130,15 @@ def main() -> None:
         # Same engine-annotation gap as `scripts/preview_qml.py` — see the
         # comment there. Runtime takes the size tokens fine.
         get_theme_bridge(Palette.as_ui_dict())  # type: ignore[arg-type]
-        registry = ScreenRegistry()
+        screen_registry = ScreenRegistry()
         for module_cls in (
             DashboardScreenModule,
             DatabaseScreenModule,
             SettingsScreenModule,
             BacktestScreenModule,
         ):
-            registry.register_module(module_cls(), engine.context.container)
-        window = MainWindow(engine, registry, sidebar_factory=Sidebar)
+            screen_registry.register_module(module_cls(), engine.context.container)
+        window = MainWindow(engine, screen_registry, sidebar_factory=Sidebar)
         window.switch_screen("data_management")
         presenter = window._router.get_current_presenter()
         if not isinstance(presenter, DataManagementPresenter):

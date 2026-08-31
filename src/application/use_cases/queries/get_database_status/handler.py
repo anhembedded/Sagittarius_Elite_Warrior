@@ -10,7 +10,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_st
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 logger = logging.getLogger("App.QueryHandler")
 
@@ -30,19 +29,15 @@ class GetDatabaseStatusQueryHandler(
 
     def execute(self, query: GetDatabaseStatusQuery) -> DatabaseStatusDTO:
         logger.debug(
-            f"Handling GetDatabaseStatusQuery for {query.symbol} at {query.interval}"
+            f"Handling GetDatabaseStatusQuery for {query.symbol} at {query.interval.value}"
         )
 
         if not query.symbol:
             raise ValueError("Invalid symbol")
 
-        try:
-            interval_vo = TimeFrame(query.interval)
-        except ValueError as e:
-            logger.error(f"Invalid interval provided to query: {query.interval}")
-            raise ValueError(f"Invalid interval: {query.interval}") from e
-
         snapshot = self.repository.get_database_status(
-            symbol=query.symbol, interval=interval_vo
+            symbol=query.symbol, interval=query.interval
         )
-        return DatabaseStatusDTO.from_snapshot(query.symbol, query.interval, snapshot)
+        return DatabaseStatusDTO.from_snapshot(
+            query.symbol, query.interval.value, snapshot
+        )

@@ -18,6 +18,26 @@ Quy tắc chất lượng code thuần tuý (magic number, nested loop, lazy imp
 typing, immutability) **không** nằm ở đây — xem
 [`code-quality-rule.md`](code-quality-rule.md).
 
+> [!IMPORTANT]
+> **Phương châm quyết định khi kiến trúc khó/mơ hồ (user chốt 2026-08-30).**
+> Nhiều hướng đều có lý, không có "đúng tuyệt đối" → quyết theo **best
+> design/design pattern đã được kiểm chứng**. **Không ngại redesign** một
+> phần đã có nếu thiết kế hiện tại là **hard design** (cứng, chắp vá, khó mở
+> rộng) — "đang chạy được" không phải lý do giữ nguyên. Khi phân vân giữa
+> nhiều lựa chọn: **tham chiếu cách các dự án lớn, đã được cộng đồng kiểm
+> chứng, đang làm** — ưu tiên pattern có tên, có tiền lệ rộng, hơn tự sáng
+> chế một hình dạng mới không ai kiểm chứng.
+>
+> Agent **tự quyết** theo phương châm này cho các quyết định thiết kế —
+> không hỏi lại user cho từng lựa chọn nhỏ. Chỉ hỏi khi đánh đổi thật sự
+> lớn, không đảo ngược được, hoặc vượt khỏi phạm vi thuần thiết kế (xem
+> `CLAUDE.md`'s "Executing actions with care" — push, xoá, force, v.v. vẫn
+> hỏi như cũ, phương châm này **không** nới nhóm đó).
+>
+> Phương châm này quyết **hướng nào đúng**, không đổi **quy trình làm sao**:
+> vẫn phải task + ADR trước khi code (xem `.agents/ONBOARDING.md`), vẫn qua
+> đúng cổng CI (`ci-rule.md`) và commit (`commit-rule.md`) như cũ.
+
 ---
 
 ## 1. SOLID Principles

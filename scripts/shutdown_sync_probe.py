@@ -130,15 +130,15 @@ def main() -> None:
         # mirrors). configure_app_qml() used to do this as a side effect of
         # creating the first QML-hosted view; there is no such view anymore.
         get_theme_bridge(Palette.as_ui_dict())
-        registry = ScreenRegistry()
+        screen_registry = ScreenRegistry()
         for module_cls in (
             DashboardScreenModule,
             DatabaseScreenModule,
             SettingsScreenModule,
             BacktestScreenModule,
         ):
-            registry.register_module(module_cls(), engine.context.container)
-        window = MainWindow(engine, registry, sidebar_factory=Sidebar)
+            screen_registry.register_module(module_cls(), engine.context.container)
+        window = MainWindow(engine, screen_registry, sidebar_factory=Sidebar)
         window.switch_screen("backtest")
         presenter = window._router.get_current_presenter()
         if not isinstance(presenter, BackTestPresenter):

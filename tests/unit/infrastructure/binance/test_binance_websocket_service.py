@@ -14,7 +14,7 @@ def test_start_stream_success():
     task_manager.spawn.return_value = Mock()
 
     with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
-        result = service.start_stream(["BTCUSDT"], "1m")
+        result = service.start_stream(["BTCUSDT"], TimeFrame.ONE_MINUTE)
 
     assert result is True
     assert service._task_handle is task_manager.spawn.return_value
@@ -35,7 +35,7 @@ def test_start_stream_already_running():
     with patch(
         "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.logger"
     ) as mock_logger:
-        result = service.start_stream(["BTCUSDT"], "1m")
+        result = service.start_stream(["BTCUSDT"], TimeFrame.ONE_MINUTE)
 
     assert result is False
     assert task_manager.spawn.call_count == 0

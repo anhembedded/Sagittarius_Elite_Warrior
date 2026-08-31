@@ -14,7 +14,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_
     DatabaseAuditResultDTO,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 class AnomalyType(StrEnum):
@@ -161,11 +160,10 @@ class AuditDatabaseIntegrityQueryHandler(
         self._repository = repository
 
     def execute(self, query: AuditDatabaseIntegrityQuery) -> DatabaseAuditResultDTO:
-        interval_vo = TimeFrame(query.interval)
         # Fetch all candles ordered chronologically
         klines = self._repository.get_klines(
             symbol=query.symbol,
-            interval=interval_vo,
+            interval=query.interval,
             limit=None,
             order_by_desc=False,
         )
@@ -173,7 +171,7 @@ class AuditDatabaseIntegrityQueryHandler(
 
         return DatabaseAuditResultDTO(
             symbol=query.symbol,
-            interval=query.interval,
+            interval=query.interval.value,
             total_checked=len(klines),
             is_clean=len(anomalies) == 0,
             anomaly_count=len(anomalies),

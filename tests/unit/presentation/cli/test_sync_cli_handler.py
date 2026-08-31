@@ -28,10 +28,9 @@ def _get_mock_config():
 def test_sync_cli_handler_success(capsys):
     app = Mock(spec=App)
     app.container.resolve.return_value = _get_mock_config()
-
-    mock_response = Mock()
-    mock_response.success = True
-    app.dispatch.return_value = mock_response
+    # SyncMarketDataCommandHandler.execute() returns None on success — no
+    # response object with a `.success` field (unlike Start/Stop Stream).
+    app.dispatch.return_value = None
 
     SyncCliHandler.handle("--symbols ETHUSDT,BTCUSDT --interval 1m --days 2", app)
 
@@ -47,13 +46,12 @@ def test_sync_cli_handler_success(capsys):
 
 
 def test_sync_cli_handler_failure(capsys):
+    """A real sync failure (network, DB) raises out of dispatch() rather
+    than returning a success=False result — see
+    BulkSyncMarketDataCommandHandler's own handling of this same command."""
     app = Mock(spec=App)
     app.container.resolve.return_value = _get_mock_config()
-
-    mock_response = Mock()
-    mock_response.success = False
-    mock_response.message = "Network error"
-    app.dispatch.return_value = mock_response
+    app.dispatch.side_effect = ConnectionError("Network error")
 
     SyncCliHandler.handle("--symbols BTCUSDT", app)
 

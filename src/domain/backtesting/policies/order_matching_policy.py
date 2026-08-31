@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Protocol, TypeVar
+from typing import TypeVar
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
@@ -9,16 +10,26 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
 )
 
 
-class IStoppablePosition(Protocol):
-    """Protocol for positions evaluated in intrabar stop/target checks."""
+class IStoppablePosition(ABC):
+    """Contract for positions evaluated in intrabar stop/target checks.
+
+    `ABC`, not `Protocol` (`architecture-rule.md` §2.1 default): the sole
+    implementer, `_OpenPosition` (`paper_exchange.py`), is a plain
+    `@dataclass` with no competing base class and no `QObject`/third-party
+    constraint — none of the 3 reasons that justify `Protocol` apply, so
+    nominal inheritance costs nothing here.
+    """
 
     @property
+    @abstractmethod
     def side(self) -> PositionSide: ...
 
     @property
+    @abstractmethod
     def stop_loss_price(self) -> float | None: ...
 
     @property
+    @abstractmethod
     def take_profit_price(self) -> float | None: ...
 
 

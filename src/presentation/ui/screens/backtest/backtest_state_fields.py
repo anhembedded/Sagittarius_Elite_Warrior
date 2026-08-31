@@ -155,10 +155,10 @@ def _among(
 BACKTEST_STATE_FIELDS: tuple[StateField, ...] = (
     StateField(
         # Shape, not membership — unlike `strategy` above. `symbolOptions` is
-        # filled by `_fetch_symbol_options()` on the thread pool, so at restore
-        # time it is still empty and a membership check would reject every
-        # symbol, every launch. Same conclusion as `EPIC-010D` reached for the
-        # Dev Board, by a different route.
+        # filled by `SymbolOptionsCoordinator` on the thread pool (`EPIC-019A`),
+        # so at restore time it is still empty and a membership check would
+        # reject every symbol, every launch. Same conclusion as `EPIC-010D`
+        # reached for the Dev Board, by a different route.
         "symbol",
         "selectedSymbol",
         _symbol_shape,
