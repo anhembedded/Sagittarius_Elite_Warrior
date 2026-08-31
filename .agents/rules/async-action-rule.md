@@ -1,91 +1,91 @@
 ---
 name: Async Action Ownership Rule
-description: Sở hữu action, chặn stale callback, cancellation hợp tác cho mọi tác vụ nền do người dùng khởi tạo, và Coordinator Pattern khi một controller quá tải.
+description: Action ownership, stale-callback fencing, cooperative cancellation for every user-initiated background action, and the Coordinator pattern for an overloaded controller.
 trigger: on_demand
 ---
 
 # ASYNC ACTION OWNERSHIP & CANCELLATION
 
-Đọc file này khi: sửa controller/presenter, submit việc lên thread/task pool,
-xử lý cancellation token, viết callback nhận kết quả từ worker nền, hoặc tách
-một controller quá tải.
+Read this file when: editing a controller/presenter, submitting work to a
+thread/task pool, handling a cancellation token, writing a callback that
+receives a background worker's result, or splitting an overloaded controller.
 
-Đây là mảng sinh ra nhiều bug thật nhất trong các dự án có UI — đọc hết trước
-khi sửa, đừng đọc lướt.
+This is the area that has produced the most real bugs in UI-bearing projects —
+read it fully before editing, don't skim.
 
 ---
 
 ## 1. Action ownership & cancellation
 
-- **Mọi tác vụ nền do người dùng khởi tạo** có thể làm đổi trạng thái vòng đời
-  của UI (chạy, sync, load, render) PHẢI có một **action context bất biến**:
-  `action_id`/generation duy nhất, loại action, snapshot input bất biến, thời
-  điểm bắt đầu, và kết cục cuối cùng tường minh.
-- **Signal của worker và callback hoàn tất PHẢI mang theo danh tính action.**
-  Trước khi đổi state, đổi dữ liệu hiển thị, hay khởi động một action tiếp
-  theo, phía nhận PHẢI verify action đó **còn đang active**. Callback cũ
-  (stale) thì **bỏ qua và ghi log** — không bao giờ được ghi đè lên ý định mới
-  hơn của người dùng.
-- **Cancellation phải hợp tác và idempotent.** Một action đã huỷ **không được
-  phép** phát ra trạng thái thành công/thất bại sau đó, và chuyển trạng thái
-  cuối của nó phải khôi phục đúng trạng thái trước-action, chứ không mù quáng
-  ép về `IDLE`.
-- **Use case chạy dài PHẢI kiểm cancellation ở mọi pha tính toán**, kể cả pha
-  validate/chia dữ liệu. Sự kiện tiến độ phải được **throttle hoặc gộp** trước
-  khi tới UI thread.
+- **Every user-initiated background action** that can change UI lifecycle state
+  (a run, a sync, a load, a render) MUST have an **immutable action context**: a
+  unique `action_id`/generation, the action kind, an immutable input snapshot,
+  the start time, and an explicit terminal outcome.
+- **Worker signals and completion callbacks MUST carry the action identity.**
+  Before changing state, changing displayed data, or starting a follow-up
+  action, the receiver MUST verify the action is **still active**. A stale
+  callback is **ignored and logged** — it must never overwrite the user's newer
+  intent.
+- **Cancellation must be cooperative and idempotent.** A cancelled action may
+  **not** publish success/failure state afterwards, and its final transition
+  must restore the appropriate pre-action state rather than blindly forcing
+  `IDLE`.
+- **Long-running use cases MUST check cancellation in every computational
+  pass**, including validation/splitting passes. Progress events must be
+  **throttled or coalesced** before reaching the UI thread.
 
 ---
 
-## 2. Coordinator Pattern cho một controller quá tải
+## 2. The Coordinator pattern for an overloaded controller
 
-Khi logic tác vụ nền của một controller vượt quá một file, tách **theo lát
-feature** thành một class:
+When a controller's background-action logic outgrows one file, split it **by
+feature slice** into a class that is:
 
-- **do controller sở hữu, inject qua constructor** (thread manager,
-  dispatcher, và đúng những signal nó xử lý) — **không** phải thứ tự resolve
-  container của chính nó, không tự đăng ký vào DI, không tự khám phá được từ
-  bên ngoài;
-- đây là một nhóm **riêng biệt** so với `logic/`/`helpers/` thuần hàm: helper
-  là hàm thuần / biến đổi không state, còn Coordinator **được phép giữ state**
-  và tự submit việc nền.
+- **owned by the controller and constructor-injected** (thread manager,
+  dispatcher, and exactly the signals it handles) — **not** something that
+  resolves its own container, registers itself with DI, or is independently
+  discoverable;
+- a **distinct category** from pure `logic/`/`helpers/` modules: helpers are
+  pure functions / stateless transforms, whereas a Coordinator **may hold
+  state** and submit its own background work.
 
-**Một Coordinator KHÔNG ĐƯỢC sở hữu state machine riêng hay sổ sách
-action-ownership/cancellation riêng** (`action_id`/generation, chặn stale,
-hợp đồng huỷ hợp tác ở §1). Sổ sách đó có **đúng một** chủ sở hữu — controller
-(hoặc **một** tracker dùng chung do controller sở hữu và phát cho mọi
-Coordinator) — không bao giờ được implement lại ở từng Coordinator.
+**A Coordinator MUST NOT own its own state machine or its own
+action-ownership/cancellation bookkeeping** (`action_id`/generation, stale
+fencing, the cooperative-cancellation contract in §1). That bookkeeping has
+**exactly one** owner — the controller (or **one** shared tracker the
+controller owns and hands to every Coordinator) — never reimplemented per
+Coordinator.
 
-Tách một controller thành nhiều Coordinator mà mỗi cái giữ bộ đếm action-id
-riêng chính là vi phạm **Single-Scope Cohesion**
-([`code-quality-rule.md`](code-quality-rule.md)): một vòng đời bị xé thành
-nhiều nguồn sự thật có thể lặng lẽ mâu thuẫn nhau.
+Splitting a controller into Coordinators that each keep their own action-id
+counter is exactly the **Single-Scope Cohesion** violation described in
+[`code-quality-rule.md`](code-quality-rule.md): one lifecycle fragmented into
+several sources of truth that can silently disagree.
 
-**Trước khi tách** một controller đã có sẵn cỗ máy action-ownership riêng:
-**rút cỗ máy đó ra thành một tracker dùng chung, tái sử dụng được, trước** —
-đừng nhân bản nó sang các file Coordinator mới.
+**Before splitting** a controller that already has bespoke action-ownership
+machinery: **extract that machinery into one shared, reusable tracker first** —
+do not duplicate it across the new Coordinator files.
 
-Controller sở hữu màn hình vẫn giữ FSM, giữ việc nối dây signal UI và signal
-hệ thống, và giữ tiếng nói cuối cùng về state hiển thị. Coordinator **làm
-việc và báo cáo lại qua nó** — không trở thành các mini-controller song song
-với ý kiến riêng về UI mode.
+The controller that owns a screen's Coordinators keeps the FSM, keeps the UI
+and system signal wiring, and keeps final say over visible state. Coordinators
+**do the work and report back through it** — they do not become parallel
+mini-controllers with their own opinions about UI mode.
 
 ---
 
-## 3. FSM và decorator nuốt exception — hai cái bẫy đi cùng nhau
+## 3. FSMs and exception-swallowing decorators — two traps that travel together
 
-- **Đừng chuyển state machine sang đúng state nó đang đứng.** Ma trận chuyển
-  trạng thái thường không khai cạnh tự thân, nên lời gọi đó **ném lỗi**.
-- **Hệ quả nguy hiểm hơn nằm ở decorator bắt lỗi** (`@safe_ui_action` hoặc
-  tương đương) mà nhiều codebase bọc quanh handler UI: app **không chết**,
-  nhưng handler **chết giữa chừng** — mọi dòng phía sau lời gọi đó **không bao
-  giờ chạy**, và không có gì nổi lên bề mặt.
+- **Don't transition a state machine into the state it is already in.** A
+  transition matrix usually declares no self-edge, so that call **throws**.
+- **The more dangerous consequence is in the catching decorator**
+  (`@safe_ui_action` or its equivalent) that many codebases wrap around UI
+  handlers: the app **does not crash**, but the handler **dies mid-way** —
+  every line after that call **never runs**, and nothing surfaces.
 
-Hai luật rút ra:
+Two rules follow:
 
-1. **Không đặt việc quan trọng (refresh dữ liệu, phát tín hiệu hoàn tất) SAU
-   một lời gọi có thể ném lỗi** trong một handler được bọc bởi decorator nuốt
-   exception.
-2. **Một worker nền chưa từng khoá UI thì không được phát tín hiệu mở khoá.**
-   Tín hiệu mở khoá không tương ứng với một lần khoá là một chuyển trạng thái
-   không hợp lệ đang chờ xảy ra.
-
+1. **Never put important work (refreshing data, emitting a completion signal)
+   AFTER a call that can throw** inside a handler wrapped by an
+   exception-swallowing decorator.
+2. **A background worker that never locked the UI must not emit an unlock
+   signal.** An unlock with no matching lock is an invalid transition waiting to
+   happen.

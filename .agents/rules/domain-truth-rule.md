@@ -1,6 +1,6 @@
 ---
 name: Domain Truthfulness Rule
-description: Hệ thống không được nói dối về thứ nó thật sự đã làm — validate thật, snapshot bất biến, không gộp ngữ nghĩa nghiệp vụ, UI không hứa thứ backend chưa làm được, benchmark có phương pháp.
+description: The system may not lie about what it actually did — real validation, immutable snapshots, no collapsed business semantics, no UI promising what the backend can't do, benchmarks with a method.
 trigger: on_file_change
 patterns:
   - <SRC_DIR>/domain/**
@@ -9,84 +9,84 @@ patterns:
 
 # TRUTHFUL DATA, VALIDATION & SNAPSHOT SEMANTICS
 
-Nguyên tắc xuyên suốt: **hệ thống không được nói dối về thứ nó thật sự đã
-làm.** Một con số hợp lệ về mặt kiểu dữ liệu vẫn có thể là lời nói dối về
-nghiệp vụ — và tuỳ domain, đó có thể là tiền thật, hồ sơ y tế thật, hay quyết
-định thật của người dùng.
+The principle running through all of this: **the system may not lie about what
+it actually did.** A number that is valid as a data type can still be a lie
+about the business — and depending on the domain that may be real money, a real
+medical record, or a real decision a user made.
 
 ---
 
-## 1. Validate phải chứng minh được điều nó khẳng định
+## 1. Validation must prove what it claims
 
-- Một kiểm tra "đã đủ dữ liệu trong khoảng X" PHẢI verify **khoảng trống bên
-  trong**, dùng đúng bước/nhịp của dữ liệu và biên đã chuẩn hoá. Min/max hoặc
-  tổng số dòng **không** chứng minh được độ phủ.
-- Ràng buộc do hệ thống ngoài quy định (hạn mức, kích thước tối thiểu, bước
-  giá trị, quota) PHẢI lấy từ metadata của chính đối tượng đang xét, đã cache.
-  **Không bao giờ hard-code một ràng buộc "phổ quát"**, và không lấy đại lượng
-  này thay cho đại lượng khác chỉ vì chúng cùng đơn vị.
+- A check of the form "we have enough data across range X" MUST verify
+  **internal gaps**, using the data's own cadence and normalised boundaries.
+  Min/max values or a total row count **do not** prove coverage.
+- Constraints imposed by an external system (limits, minimum sizes, step sizes,
+  quotas) MUST come from that entity's own cached metadata. **Never hard-code a
+  "universal" constraint**, and never substitute one quantity for another just
+  because they share a unit.
 
-## 2. Snapshot phải bất biến và tự mô tả
+## 2. Snapshots must be immutable and self-describing
 
-Snapshot lịch sử/cache hiển thị cho người dùng PHẢI:
+A historical/cached snapshot shown to a user MUST be:
 
-- **bất biến** — không giữ tham chiếu tới model còn mutate được;
-- **có chặn bộ nhớ**;
-- **đủ provenance để mô tả kết quả một cách trung thực**: cấu hình đã dùng,
-  cửa sổ dữ liệu / watermark, phiên bản + tham số của thuật toán, mô hình chi
-  phí, chế độ chạy.
+- **immutable** — holding no reference to a still-mutable model;
+- **memory-bounded**;
+- **carrying enough provenance to describe the result honestly**: the
+  configuration used, the data window / watermark, the algorithm's version and
+  parameters, the cost model, the execution mode.
 
-Thiếu provenance thì hai kết quả trông giống hệt nhau có thể đến từ hai cấu
-hình khác nhau, và không ai phát hiện được.
+Without provenance, two results that look identical can come from two different
+configurations, and nobody can tell.
 
-## 3. Không gộp ngữ nghĩa nghiệp vụ
+## 3. Don't collapse business semantics
 
-Các sự kiện domain **khác nhau** phải được mô hình hoá và test **riêng**.
-Không để một nhãn mơ hồ lặng lẽ đại diện cho nhiều hơn một sự thật.
+**Distinct** domain facts must be modelled and tested **separately**. Never let
+one ambiguous label silently stand for more than one truth.
 
-Ví dụ (thay theo domain của bạn): tín hiệu của thuật toán, ý định thao tác,
-kết quả thực thi, mở một vị thế, đóng một vị thế — là **năm** sự thật khác
-nhau. Trong một hệ chỉ hỗ trợ một chiều, thao tác "ra" là **đóng** cái đang
-có, **không** phải mở chiều ngược lại.
+Example (adapt to your domain): an algorithm's signal, an intended operation, an
+execution result, opening a position and closing one are **five** different
+facts. In a system that supports only one direction, the "out" operation is a
+**close** of what exists — **not** an opening in the opposite direction.
 
-## 4. Business contract trước implementation contract
+## 4. Business contract before implementation contract
 
-Test phải **trước hết** diễn đạt lời hứa nghiệp vụ quan sát được, rồi mới
-verify implementation. Một suite xanh chỉ chứng minh các lời gọi nội bộ, cấu
-trúc dữ liệu hiện có, hay một hợp đồng engine **cố tình hạn chế**, thì **không
-phải** bằng chứng rằng hành vi người dùng thấy là đúng.
+Tests must **first** express the observable business promise, then verify the
+implementation. A green suite that only proves private calls, existing data
+structures, or an **intentionally limited** engine contract is **not** evidence
+that the user-facing behaviour is correct.
 
-Với mọi hành trình quan trọng, viết acceptance xác định (deterministic) cho:
-input kỳ vọng, các chuyển trạng thái, kết quả, và **thứ hiển thị ra** (bảng,
-biểu đồ, thông báo).
+For every critical journey, write deterministic acceptance coverage for: the
+expected inputs, the state transitions, the outcome, and **what is displayed**
+(table, chart, message).
 
-## 5. UI phải trung thực
+## 5. The UI must be truthful
 
-Mọi nhãn, icon, marker, bộ lọc, chỉ số, và empty state PHẢI mô tả **thứ đã
-thật sự xảy ra** và **thứ hệ thống hỗ trợ ở hiện tại**.
+Every label, icon, marker, filter, metric and empty state MUST describe **what
+actually happened** and **what the system supports right now**.
 
-- Hai sự thật khác nhau phải có biểu diễn khác nhau (§3).
-- **Không** trình bày một khả năng đang lên kế hoạch hoặc chưa hỗ trợ như thể
-  đã có: ẩn nó, disable nó, hoặc ghi rõ là chưa khả dụng.
-- Test **ngữ nghĩa hiển thị**, không chỉ test payload bên dưới.
+- Two different truths must have different representations (§3).
+- **Do not** present a planned or unsupported capability as available: hide it,
+  disable it, or explicitly label it unavailable.
+- Test the **displayed semantics**, not only the underlying payload.
 
-## 6. Không hứa hiệu năng khi chưa đo
+## 6. Don't promise performance you haven't measured
 
-- Không bao giờ tuyên bố độ trễ "tức thì" hay cố định mà không có fixture
-  benchmark tái lập được. Nêu rõ workload, trạng thái cache, phương pháp đo.
-  ETA hiển thị phải nói rõ là **ước lượng**.
-- **Phương pháp benchmark khi so sánh hai implementation:** cùng payload
-  nguồn bất biến, cùng chuỗi thao tác/viewport, cùng cách chờ hoàn tất, và
-  cùng cách lấy kết quả cuối. Ghi lại median/p95, môi trường, backend thật,
-  ngữ nghĩa hiển thị, và cảnh báo bắt được.
-- **Hiệu năng và tính đúng là hai bằng chứng riêng biệt.** Không bao giờ cải
-  thiện một con số benchmark bằng cách bỏ bớt dữ liệu, nhãn, hay bước kiểm
-  tra kết quả cuối.
+- Never claim instantaneous or fixed latency without a reproducible benchmark
+  fixture. State the workload, the cache condition, the measurement method. A
+  displayed ETA must be labelled an **estimate**.
+- **Benchmark methodology when comparing two implementations:** the same
+  immutable source payload, the same interaction/viewport sequence, the same way
+  of waiting for completion, and the same way of capturing the final result.
+  Record median/p95, the environment, the real backend, the display semantics,
+  and captured warnings.
+- **Performance and correctness are separate proofs.** Never improve a benchmark
+  number by dropping data, labels, or the final correctness check.
 
-## 7. Counterintuitive Story Check
+## 7. Counterintuitive story check
 
-Khi một câu chuyện người dùng, nhãn, giá trị mặc định, hay tiêu chí nghiệm thu
-**có thể mâu thuẫn hợp lý** với mô hình tư duy của người dùng, **dừng lại và
-báo cáo** hành vi quan sát được, bằng chứng, và đánh đổi — trước khi chốt
-thiết kế. Không tự bịa ra một ý định ẩn của người dùng; mã hoá ngữ nghĩa đã
-chọn một cách trung thực vào chữ trên UI và vào acceptance test.
+When a user story, label, default, or acceptance criterion can **reasonably
+conflict** with a user's mental model, **stop and report** the observable
+behaviour, the evidence, and the trade-off — before finalising the design.
+Don't invent a hidden user intent; encode the chosen semantics truthfully in the
+UI copy and in acceptance tests.

@@ -1,127 +1,132 @@
 ---
 name: Onboarding
-description: Entry point cho mọi AI agent làm việc trên repo này — bản đồ tài liệu, vòng đời task/bug, lệnh verification thật, bookkeeping, quyền hạn, và các bẫy đã thật sự gây ra code lỗi.
+description: Entry point for any AI agent working on this repository — document map, task/bug lifecycle, real verification commands, bookkeeping, permissions, and the traps that have actually produced broken code.
 trigger: always_on
 ---
 
-# ONBOARDING — đọc file này TRƯỚC KHI viết dòng code đầu tiên
+# ONBOARDING — read this BEFORE writing the first line of code
 
-Bộ `.agents/` này có nhiều file rule — **đừng nạp hết**. Mỗi file có `trigger`
-riêng; đọc đúng cái việc bạn đang làm cần.
+This `.agents/` set has several rule files — **don't load them all**. Each has
+its own `trigger`; read the one the work in front of you needs.
 
-Vấn đề của một agent mới không phải là thiếu luật. Là **không biết có những
-file đó, đọc theo thứ tự nào, và quy trình thật sự chạy ra sao**. File này là
-bản đồ đó. Nó không lặp lại nội dung rule; nó nói *khi nào* đọc rule nào, và
-mô tả những phần quy trình không được viết ở đâu khác.
+A new agent's problem is not a shortage of rules. It is **not knowing those
+files exist, in what order to read them, and how the process actually runs**.
+This file is that map. It does not repeat rule content; it says *when* to read
+*which* rule, and describes the parts of the process written down nowhere else.
 
 ---
 
-## 1. Bản đồ tài liệu — đọc theo thứ tự này
+## 1. Document map — read in this order
 
-| Thứ tự | File | Khi nào |
+| Order | File | When |
 | :--- | :--- | :--- |
-| 1 | `.agents/ONBOARDING.md` (file này) | Luôn luôn, đầu tiên |
-| 2 | `.agents/Handover.md` | **Ngay sau file này** — phiên trước dừng ở đâu, quyết định nào đừng suy luận lại |
-| 3 | `.agents/AGENTS.md` | Chỉ để điều hướng — bảng chủ đề → file rule |
+| 1 | `.agents/ONBOARDING.md` (this file) | Always, first |
+| 2 | `.agents/Handover.md` | **Immediately after this one** — where the last session stopped, which decisions not to re-derive |
+| 3 | `.agents/AGENTS.md` | Navigation only — topic → rule file |
 
-Rồi mở **đúng 1-2 file** trong `rules/` theo việc đang làm — không nạp cả bộ:
+Then open **exactly one or two** files under `rules/`, matching the work — not
+the whole set:
 
-| Đang làm gì | Đọc |
+| Doing what | Read |
 | :--- | :--- |
-| Sửa code bất kỳ | `code-quality-rule.md` |
-| Đụng kiến trúc: interface, tầng, tách file | `architecture-rule.md` |
-| Phân vân signal nội bộ hay event bus | `event-rule.md` |
-| Hoãn một việc, hoặc chấp nhận một đánh đổi | `design-intent-rule.md` |
-| Sắp nói "xong" | `ci-rule.md` |
-| Sắp commit | `commit-rule.md` |
-| User báo bug (**bắt buộc**) | `bug-fix-rule.md` |
-| Thêm/sửa log | `logging-rule.md` |
-| Viết test | `testing-rule.md` |
-| Tác vụ nền do user khởi tạo | `async-action-rule.md` |
-| Logic nghiệp vụ | `domain-truth-rule.md` |
-| Tầng presentation | `ui-rule.md` |
-| Thiếu công cụ để verify | `environment-rule.md` |
-| Cần biết hệ thống đang ở đâu | `<TASKS_DIR>` |
+| Changing any code | `code-quality-rule.md` |
+| Anything architectural: interfaces, layers, splitting files | `architecture-rule.md` |
+| Unsure between an internal signal and the event bus | `event-rule.md` |
+| Deferring work, or accepting a trade-off | `design-intent-rule.md` |
+| About to say "done" | `ci-rule.md` |
+| About to commit | `commit-rule.md` |
+| A bug was reported (**mandatory**) | `bug-fix-rule.md` |
+| Adding or changing logs | `logging-rule.md` |
+| Writing tests | `testing-rule.md` |
+| User-initiated background work | `async-action-rule.md` |
+| Business logic | `domain-truth-rule.md` |
+| Presentation layer | `ui-rule.md` |
+| Missing tooling to verify | `environment-rule.md` |
+| Where the system currently stands | `<TASKS_DIR>` |
 
-**Đừng tin con số nào viết trong tài liệu** (số file rule, số test, số lỗi
-lint). Chúng trôi nhanh hơn mọi thứ khác. Ở repo gốc của bộ rule này, câu "có
-N file rule" đã sai **ba lần liên tiếp** (10 → 9 → 8, thực tế 7). Đếm bằng
-lệnh: `ls .agents/rules/`.
+**Don't trust any number written in documentation** (rule-file counts, test
+counts, lint-error counts). They drift faster than anything else. In the
+repository this rule set came from, the sentence "there are N rule files" was
+**wrong three times in a row** (10 → 9 → 8, actually 7). Count with a command:
+`ls .agents/rules/`.
 
 ---
 
-## 2. Vòng đời một TASK (tính năng mới)
+## 2. Lifecycle of a TASK (new feature)
 
-1. **Task file trước, code sau.** Mọi task có file trong `<TASKS_DIR>` theo
-   mẫu `<TASK_ID>-XXX_mo_ta_ngan.md` (số kế tiếp số lớn nhất đang tồn tại).
-   User yêu cầu một tính năng chưa có task → tạo file task trước.
-   Việc lớn thì tách task con `<TASK_ID>-XXXA`, `-XXXB`… và phải có bảng liệt
-   kê task con kèm **thứ tự thực hiện** (xếp theo rủi ro tăng dần, ghi rõ cái
-   nào chặn cái nào).
-2. **Nội dung task file**, tối thiểu: bối cảnh & vấn đề **thật** (không phải
-   mô tả chung chung), thiết kế + **lý do** cho mọi quyết định không hiển
-   nhiên, thay đổi theo từng file, cách kiểm thử.
-3. **Việc tái cấu trúc: trình design trước khi implement.** Sơ đồ class +
-   component, as-is và to-be, chỉ rõ cái gì dùng chung / cái gì riêng. Duyệt
-   xong mới viết code.
-4. **Code + test.** Tầng test nào là đúng: `rules/ci-rule.md` §6.
-5. **Hoàn thành:** chuyển task file sang thư mục `completed/`
-   (`git mv`, đừng copy-rồi-xoá — mất lịch sử), đổi trạng thái thành
-   `✅ Hoàn thành (YYYY-MM-DD)`, và thêm mục **"Ghi chú triển khai"**: bug
-   thật đã phát hiện trong lúc làm, quyết định thiết kế, số test. Phần này là
-   giá trị lớn nhất của task file với người đọc sau — đừng viết cho có.
+1. **Task file first, code second.** Every task has a file under `<TASKS_DIR>`
+   named `<TASK_ID>-XXX_short_description.md` (next number after the highest
+   existing one). If the user asks for a feature with no task → write the task
+   file first. Large work splits into sub-tasks `<TASK_ID>-XXXA`, `-XXXB`… and
+   must carry a sub-task table with an **execution order** (sorted by
+   increasing risk, stating explicitly what blocks what).
+2. **Task file contents**, at minimum: the **real** context and problem (not a
+   generic description), the design plus the **reasoning** behind every
+   non-obvious decision, per-file changes, and how it will be verified.
+3. **Refactoring work: present the design before implementing.** Class and
+   component diagrams, as-is and to-be, stating what is shared and what is
+   local. Approved first, coded second.
+4. **Code + tests.** Which test level is the right one: `rules/ci-rule.md` §4.
+5. **Completion:** move the task file into `completed/` (`git mv`, never
+   copy-then-delete — that loses history), change its status to
+   `✅ Done (YYYY-MM-DD)`, and add an **"Implementation notes"** section: real
+   bugs found while doing it, design decisions, test counts. That section is
+   the task file's greatest value to whoever reads it later — don't write it
+   for the sake of writing it.
 6. **Bookkeeping:** §4.
 
-Một task lớn **không** chuyển sang `completed/` cho tới khi *tất cả* task con
-xong; trong lúc đó cập nhật trạng thái tại chỗ (`1/3 xong`).
+A large task does **not** move to `completed/` until *every* sub-task is done;
+until then update its status in place (`1/3 done`).
 
-**Trạng thái ghi trong task file có thể cũ hơn code.** Trước khi tin "task này
-chưa làm", kiểm bằng chính code (`grep`, chạy test). Chuyện task đã được làm
-xong bởi một việc khác — hoặc đã **hết đối tượng** để làm — xảy ra thường
-xuyên hơn bạn nghĩ.
-
----
-
-## 3. Vòng đời một BUG
-
-`rules/bug-fix-rule.md` là nguồn chuẩn — đọc nguyên văn. Ba điểm bị vi phạm
-nhiều nhất:
-
-- **Viết regression test TRƯỚC khi sửa, và chạy nó để xác nhận nó FAIL đúng
-  lý do.** Test viết sau khi sửa không chứng minh được gì. Test fail vì lý do
-  khác (import sai, thiếu fixture) cũng không chứng minh được gì.
-- **Chọn đúng tầng test.** Nếu chỗ crash nằm trong hàm mà test double của bạn
-  thay thế, test đó *không thể* tái hiện bug — một mock không chạy thân hàm
-  thật. Chuyện "tái hiện" bằng `Mock(spec=...)` rồi thấy nó pass ngay cả khi
-  chưa sửa gì đã xảy ra hai lần liên tiếp trong một bug thật.
-- **Bug report bắt buộc**, có: Symptom (bằng chứng thật — traceback/log/ảnh,
-  không diễn giải lại), Root cause (cơ chế thật kèm `file:line`), Fix,
-  Regression test. Lập xong thì thêm dòng vào bảng bug đang mở — đó là chỗ
-  duy nhất thấy được bug nào chưa sửa.
-
-Nếu user dán log/ảnh vào chat, **đọc chúng bằng công cụ thật** trước khi đưa
-ra giả thuyết. Một chi tiết trong ảnh thường chỉ thẳng vào nguyên nhân: một ô
-số liệu đúng nằm cạnh một ô sai đã khoanh vùng ngay lỗi nằm ở hàm tổng hợp
-chứ không phải ở tầng đọc dữ liệu.
+**The status written in a task file can be older than the code.** Before
+believing "this task hasn't been done", check the code itself (`grep`, run the
+tests). A task already completed by other work — or one that has **run out of
+subject matter** — happens more often than you'd think.
 
 ---
 
-## 4. Bookkeeping — phần hay bị làm ẩu nhất
+## 3. Lifecycle of a BUG
 
-Mỗi task/bug hoàn thành phải cập nhật **cả ba** chỗ:
+`rules/bug-fix-rule.md` is the source of truth — read it verbatim. The three
+most-violated points:
 
-1. **Thêm dòng vào đầu mục "đã xong"** (mới nhất trước). Dòng đó phải tóm tắt
-   được root cause / quyết định thiết kế, không phải chỉ nhắc lại tên task.
-2. **Tính lại bảng số lượng bằng lệnh, không đếm tay:**
+- **Write the regression test BEFORE the fix, and run it to confirm it FAILS
+  for the right reason.** A test written after the fix proves nothing. A test
+  failing for an unrelated reason (bad import, missing fixture) proves nothing
+  either.
+- **Pick the right test level.** If the crash lives inside a method your test
+  double replaces, that test *cannot* reproduce the bug — a mock never runs the
+  real body. A real bug was once "reproduced" with `Mock(spec=...)` and passed
+  twice in a row with no fix applied at all.
+- **A bug report is mandatory**, containing: Symptom (real evidence —
+  traceback/log/screenshot, not a paraphrase), Root cause (the actual mechanism
+  with `file:line`), Fix, Regression test. Once filed, add a row to the open-bug
+  table — that is the only place an unfixed bug is visible.
+
+If the user pastes a log or a screenshot into chat, **open it with a real
+tool** before forming a hypothesis. One detail in an image often points
+straight at the cause: a correct figure sitting next to a wrong one immediately
+localised a defect to the aggregation function rather than the data-loading
+layer.
+
+---
+
+## 4. Bookkeeping — the part most often done sloppily
+
+Every completed task/bug must update **all three** places:
+
+1. **Add a line at the top of the "done" section** (newest first). That line
+   must summarise the root cause / design decision, not merely restate the
+   task's name.
+2. **Recompute the count table with a command, never by hand:**
    ```bash
    for d in completed in_progress backlog cancelled; do
      printf "%s %s\n" "$d" "$(ls <TASKS_DIR>/$d/*.md 2>/dev/null | wc -l)"
    done
    ```
-3. **Cập nhật dòng trạng thái tại chỗ** trong bảng tổng quan, kèm ngày cập
-   nhật.
+3. **Update the status line in place** in the overview table, with the date.
 
-Sau khi thêm file có link chéo, **kiểm link không gãy**:
+After adding a file with cross-links, **check for broken links**:
 
 ```bash
 grep -oh "](\.\{1,2\}/[^)]*\.md)" <file>.md | tr -d '](' | sed 's/)$//' \
@@ -130,116 +135,127 @@ grep -oh "](\.\{1,2\}/[^)]*\.md)" <file>.md | tr -d '](' | sed 's/)$//' \
 
 ---
 
-## 5. Chạy verification THẬT
+## 5. Running the REAL verification
 
-Lệnh gate đầy đủ và cách xử lý khi đỏ: `rules/ci-rule.md`. Ở đây chỉ hai điều
-mà agent hay làm sai **trước khi kịp đọc file đó**:
+The full gate command and how to handle red: `rules/ci-rule.md`. Here are only
+the two things agents get wrong **before they get around to reading it**:
 
-### 5.1 Không tin console — ghi ra file rồi grep
+### 5.1 Don't trust the console — write to a file, then grep
 
 ```bash
 <CI_CMD> > /tmp/ci.log 2>&1
 grep -nE "FAILED|ERROR|Traceback|WARNING" /tmp/ci.log
 ```
 
-**Luôn `> logfile 2>&1`, đừng `| tail`.** Hai lý do, lý do thứ hai nặng hơn:
+**Always `> logfile 2>&1`, never `| tail`.** Two reasons; the second is the
+heavier one:
 
-- Nhiều framework (nhất là GUI ở chế độ headless) xả lỗi **vô hại** ra stderr
-  *sau* dòng tổng kết của test runner, nên `tail` cho bạn xem nhầm đống nhiễu
-  đó và tưởng test hỏng.
-- Nghiêm trọng hơn: `| tail -N` hoặc terminal bị cắt xén có thể làm **mất
-  hẳn** đúng dòng lỗi thật. Bằng chứng thật: một agent chạy test thô suốt
-  nhiều phiên và không bao giờ chạy cổng đầy đủ; lần đầu chạy đủ **và
-  redirect toàn bộ ra file**, hai bug thật lộ ra cùng lúc — một lỗi script chỉ
-  xảy ra trên phiên bản shell cũ, và một worker chết giữa chừng sau
-  `ResourceWarning: unclosed database`, tái hiện 2/2 lần chứ không hề flaky.
-  Cả hai chỉ lộ ra vì có file log đầy đủ để đọc lại.
+- Many frameworks (GUI stacks in headless mode especially) dump **harmless**
+  errors to stderr *after* the test runner's summary line, so `tail` shows you
+  that noise and you conclude the tests broke.
+- Worse: `| tail -N`, or a truncating terminal, can **lose the actual failing
+  line entirely**. Real evidence: an agent ran bare tests for several sessions
+  and never ran the full gate; the first time it did **and redirected
+  everything to a file**, two real bugs surfaced at once — a script error that
+  only occurred on an older shell version, and a worker dying mid-run after
+  `ResourceWarning: unclosed database`, reproducing 2 out of 2 times rather
+  than being flaky. Both surfaced only because there was a complete log file to
+  read back.
 
-Áp cho **mọi** lệnh verification, kể cả chính lệnh gate. Mục này nói về việc
-**bạn** gõ một lệnh bằng tay; việc **script gate phải tự** ghi log và tự quét
-nó là một luật riêng — `rules/ci-rule.md` §5.
+This applies to **every** verification command, the gate itself included. This
+section is about **you** typing a command by hand; the requirement that the
+**gate script itself** capture and scan its log is a separate rule —
+`rules/ci-rule.md` §5.
 
-### 5.2 Chỉ sửa lint trong file bạn đang sửa
+### 5.2 Only fix lint in the files you are already changing
 
-Repo luôn có sẵn vài lỗi lint từ phiên khác không do bạn gây ra. Dọn dẹp file
-vô can làm diff bug-fix lẫn thay đổi không liên quan và không ai review nổi.
-Muốn dọn toàn repo thì làm một commit `style:` riêng, sau khi hỏi user.
+A repository always carries a few lint errors from other sessions that you did
+not cause. Cleaning up unrelated files makes a bug-fix diff carry unrelated
+changes and nobody can review it. To clean the whole repo, make a separate
+`style:` commit — after asking the user.
 
 ---
 
-## 6. Quyền hạn — cái gì được tự làm, cái gì phải hỏi
+## 6. Permissions — what to do freely, what to ask about
 
-| Hành động | Quy tắc |
+| Action | Rule |
 | :--- | :--- |
-| Đọc, phân tích, chạy test | Tự do |
-| Sửa code trong phạm vi user yêu cầu | Tự do |
-| Quyết định thiết kế trong phạm vi đó | Tự do — xem `architecture-rule.md`, phương châm quyết định |
-| Cài công cụ/thư viện **đã khai báo** vào môi trường hiện tại | Tự do — `environment-rule.md` |
-| Thêm dependency **mới** vào manifest | **Hỏi trước** |
-| `git commit` | **Hỏi trước.** Không bao giờ commit tự phát |
-| `git push` | **Chỉ khi user yêu cầu rõ ràng**; mỗi repo là một lần xác nhận riêng |
-| Sửa file ngoài phạm vi task | Không, trừ khi user yêu cầu |
-| Xoá/ghi đè file của user | Đọc nội dung trước, hỏi trước |
+| Read, analyse, run tests | Free |
+| Change code within the scope the user asked for | Free |
+| Design decisions inside that scope | Free — see `architecture-rule.md`, decision doctrine |
+| Install an **already-declared** tool/library into this environment | Free — `environment-rule.md` |
+| Add a **new** dependency to a manifest | **Ask first** |
+| `git commit` | **Ask first.** Never commit spontaneously |
+| `git push` | **Only when the user explicitly asks**; each repository is its own confirmation |
+| Change files outside the task's scope | No, unless the user asks |
+| Delete or overwrite the user's files | Read the contents first, then ask |
 
-### Phản biện là bắt buộc, không phải tuỳ chọn
+### Pushback is mandatory, not optional
 
-- Agent **phải** phản biện yêu cầu của user nếu nó tạo ra mâu thuẫn, vi phạm
-  ranh giới tầng, hay phá nguyên tắc đã chốt. Nói ra vấn đề gốc và đề xuất
-  phương án sạch — không im lặng làm theo.
-- Nhưng nếu user đã nghe và vẫn giữ nguyên yêu cầu thì **làm đầy đủ theo họ**,
-  không làm nửa vời để chứng minh mình đúng.
+- The agent **must** challenge a user request that introduces a contradiction,
+  violates a layer boundary, or breaks an established principle. State the
+  underlying problem and propose a clean alternative — do not silently comply.
+- But if the user has heard it and still wants the request as stated, **do it
+  fully as asked** — don't do it half-heartedly to prove a point.
 
 ---
 
-## 7. Chín cái bẫy đã thật sự tạo ra code lỗi
+## 7. Nine traps that have actually produced broken code
 
-Tất cả đều đã xảy ra thật, không phải giả định. **Mỗi cái có đúng một chủ sở
-hữu** trong `rules/` — mô tả đầy đủ và bằng chứng nằm ở đó, không chép lại ở
-đây. Bảng này chỉ để bạn nhận ra mình đang đứng trước cái bẫy nào.
+All of these really happened; none is hypothetical. **Each has exactly one
+owner** under `rules/` — the full description and its evidence live there and
+are not copied here. This table exists so you recognise which trap you are
+standing in front of.
 
-| # | Bẫy | Luật sở hữu nó |
+| # | Trap | Rule that owns it |
 | :-: | :--- | :--- |
-| 1 | Tự tính giá trị kỳ vọng của test bằng đầu thay vì chạy code thật | `testing-rule.md` §4 |
-| 2 | So sánh float bằng `==` / `if value:` | `testing-rule.md` §6 |
-| 3 | Assert số lượng bằng hằng số cứng (`len(x) == 9`) | `testing-rule.md` §6 |
-| 4 | Assert full-object equality trên output serialize | `testing-rule.md` §6 |
-| 5 | Thêm field vào kiểu dùng chung mà không đặt default | `code-quality-rule.md` §7 |
-| 6 | Đổi công thức dùng chung mà không rẽ nhánh giữ hành vi cũ | `code-quality-rule.md` §7 |
-| 7 | Chuyển FSM sang đúng state nó đang đứng; và việc quan trọng đặt sau một lời gọi có thể ném lỗi trong handler nuốt exception | `async-action-rule.md` §3 |
-| 8 | Thêm log vào một vòng lặp nóng | `logging-rule.md` §4 |
-| 9 | Thêm method vào interface rồi chỉ cập nhật implementer "chính" | `architecture-rule.md` §2 |
+| 1 | Computing a test's expected value in your head instead of running the real code | `testing-rule.md` §4 |
+| 2 | Comparing floats with `==` / `if value:` | `testing-rule.md` §6 |
+| 3 | Asserting counts against a hard-coded constant (`len(x) == 9`) | `testing-rule.md` §6 |
+| 4 | Asserting full-object equality on serialised output | `testing-rule.md` §6 |
+| 5 | Adding a field to a shared type without a default value | `code-quality-rule.md` §7 |
+| 6 | Changing a shared formula without branching to preserve old behaviour | `code-quality-rule.md` §7 |
+| 7 | Transitioning an FSM into the state it is already in; and putting important work after a call that can throw inside an exception-swallowing handler | `async-action-rule.md` §3 |
+| 8 | Adding logging inside a hot loop | `logging-rule.md` §4 |
+| 9 | Adding a method to an interface and updating only the "main" implementer | `architecture-rule.md` §2 |
 
-Hai cái không có chủ sở hữu ở `rules/` vì chúng là **thói quen làm việc**, không
-phải luật về code — nên chúng ở đây:
+Two have no owner under `rules/` because they are **working habits**, not rules
+about code — so they live here:
 
-- **Đọc bằng chứng bằng công cụ thật.** User dán log/ảnh vào chat thì mở chúng
-  ra đọc trước khi đưa giả thuyết (§3).
-- **A/B trước khi nhận lỗi về mình** khi gate đỏ ở chỗ bạn không đụng (§10.4).
-
-## 8. Ngôn ngữ
-
-- **Trao đổi với user, task file, bug report, tài liệu:** `<DOC_LANG>`.
-- **Code, tên biến, docstring, comment, commit subject:** tiếng Anh.
-- **Chuỗi hiển thị trên UI:** `<UI_LANG>` — đúng thuật ngữ domain đã chốt.
+- **Read evidence with a real tool.** When the user pastes a log or an image,
+  open and read it before forming a hypothesis (§3).
+- **A/B before blaming yourself** when the gate goes red somewhere you never
+  touched (§10.4).
 
 ---
 
-## 9. Báo cáo với user — mức project lead, không phải mức implementation
+## 8. Language
 
-- Khi báo tiến độ, trạng thái, tóm tắt điều tra hay kết quả test **trong hội
-  thoại**, viết như đang báo cáo cho một **project lead**: kết luận, trạng
-  thái, quyết định cần user ra, rủi ro/blocker. **Không** đi vào chi tiết
-  implementation (tên hàm, dòng code, tên biến) trừ khi user hỏi thẳng vào đó,
-  hoặc chi tiết đó **quyết định trực tiếp** hành động tiếp theo.
-- **Không áp dụng cho tài liệu lưu trữ lâu dài.** Task file, bug report, báo
-  cáo vẫn phải đầy đủ root cause / `file:line` / bằng chứng. Quy tắc này chỉ
-  áp cho câu trả lời trong hội thoại.
+- **Conversation with the user, task files, bug reports, documentation:**
+  `<DOC_LANG>`.
+- **Code, identifiers, docstrings, comments, commit subjects:** English.
+- **User-visible UI strings:** `<UI_LANG>` — using the domain terminology
+  already agreed on.
 
 ---
 
-## 10. Bắt tay vào việc đang dở
+## 9. Reporting to the user — project-lead level, not implementation level
 
-### 10.1 Ba lệnh đầu tiên, lần nào cũng vậy
+- When reporting progress, status, an investigation summary, or test results
+  **in conversation**, write as if reporting to a **project lead**:
+  conclusion, current status, decisions the user needs to make, risks and
+  blockers. **Do not** descend into implementation detail (function names, line
+  numbers, variable names) unless the user asks directly, or that detail
+  **directly determines** the next action.
+- **This does not apply to durable documents.** Task files, bug reports and
+  written reports still need the full root cause / `file:line` / evidence. This
+  rule governs conversational answers only.
+
+---
+
+## 10. Picking up work in progress
+
+### 10.1 The first three commands, every time
 
 ```bash
 git status
@@ -247,56 +263,59 @@ git log --oneline -10
 cat .agents/Handover.md
 ```
 
-**Việc thường bị để lại chưa commit giữa các phiên** — theo đúng §6, agent
-không tự commit. Nên `git status` không phải thủ tục: bảng task trông như chưa
-ai đụng **cộng với** cây làm việc bẩn nghĩa là việc **đã làm rồi**, chỉ chưa
-được ghi lại. Đọc diff trước khi kết luận một task còn nguyên.
+**Work is routinely left uncommitted between sessions** — per §6, the agent
+does not commit on its own. So `git status` is not a formality: a task board
+that looks untouched **plus** a dirty working tree means the work **is already
+done**, just unrecorded. Read the diff before concluding a task is untouched.
 
-### 10.2 Trạng thái sống ở `Handover.md`, không ở đây
+### 10.2 State lives in `Handover.md`, not here
 
-File này cố ý **không** liệt kê việc nào đang chạy. Bản trước của nó (ở repo
-gốc) có bảng đó và bảng sai chỉ sau vài giờ. Trạng thái sống ở đúng một chỗ:
-[`Handover.md`](Handover.md), file được **thay mới** mỗi phiên.
+This file deliberately does **not** list what is currently in flight. Its
+previous version (in the original repository) had that table and the table was
+wrong within hours. State lives in exactly one place:
+[`Handover.md`](Handover.md), which is **replaced** every session.
 
-### 10.3 Đọc quyết định trước khi làm
+### 10.3 Read the decisions before you start
 
-**Bắt buộc: đọc tài liệu quyết định (ADR / `DECISION_*.md`) của việc đang làm
-trước khi động vào task con nào.** Nó ghi lại những quyết định đã tranh luận
-xong với user — trong đó có những quyết định **đảo ngược** phương án trước đó.
-Tự suy luận lại sẽ tốn một phiên và thường ra kết quả khác.
+**Mandatory: read the decision record (ADR / `DECISION_*.md`) for the work in
+hand before touching any sub-task.** It captures decisions already argued
+through with the user — including ones that **reverse** an earlier approach.
+Re-deriving them costs a session and usually lands somewhere different.
 
-### 10.4 Trước khi kết luận một lỗi là do mình gây ra, A/B nó
+### 10.4 Before concluding a failure is yours, A/B it
 
-Cổng CI có thể báo đỏ những test **không liên quan** tới thay đổi của bạn
-(test phụ thuộc thứ tự collection, công cụ thiếu trên `PATH`, môi trường).
+The CI gate can go red on tests **unrelated** to your change (collection-order
+dependence, a tool missing from `PATH`, the environment).
 
 ```bash
-git stash push -u   # chạy gate → ghi kết quả
-git stash pop       # chạy lại → so sánh
+git stash push -u   # run the gate → record the result
+git stash pop       # run it again → compare
 ```
 
-Mất hai phút, và đó là khác biệt giữa một regression thật với một giờ đuổi
-theo môi trường.
+Two minutes, and it is the difference between a real regression and an hour
+chasing the environment.
 
 ---
 
-## 11. Checklist trước khi nói "xong"
+## 11. Checklist before saying "done"
 
-Không phải bản tóm tắt của các rule — là thứ tự **kiểm** lại. Mỗi dòng trỏ về
-nơi định nghĩa nó; nghi ngờ dòng nào thì mở file đó, đừng suy đoán.
+Not a summary of the rules — a **verification order**. Each line points at
+where it is defined; if a line looks doubtful, open that file rather than
+guessing.
 
-- [ ] Gate đầy đủ `<CI_CMD>` exit `0` — **lint + format + type check + test +
-      coverage**, không phải chỉ test (`ci-rule.md` §1)
-- [ ] Đã **ghi log ra file và quét** nó; mọi hit WARNING/ERROR/CRITICAL đều đã
-      được phân loại là defect thật hoặc điều kiện kỳ vọng có lý do
-      (`ci-rule.md` §5)
-- [ ] Bằng chứng test nằm ở **đúng tầng** — và nếu là mảnh chưa nối vào app
-      thật thì đừng khai là E2E (`ci-rule.md` §4)
-- [ ] Nếu là bug: regression test đã **đỏ trước, xanh sau**, và ở lại vĩnh viễn
-      (`bug-fix-rule.md` §3-4)
-- [ ] Nếu đổi interface: đã `grep` implementer ở **cả** `<SRC_DIR>`,
-      `scripts/`, `<TEST_DIR>` (`architecture-rule.md` §2)
-- [ ] Nếu hoãn một việc hoặc chấp nhận một đánh đổi: đã có **type hoặc test**
-      đại diện, không chỉ một đoạn văn (`design-intent-rule.md`)
-- [ ] Bookkeeping đã cập nhật **cả ba chỗ**, số đếm tính bằng lệnh (§4)
-- [ ] Không commit/push nếu user chưa yêu cầu (§6)
+- [ ] Full gate `<CI_CMD>` exits `0` — **lint + format + type check + tests +
+      coverage**, not tests alone (`ci-rule.md` §1)
+- [ ] The run was **captured to a log file and scanned**; every
+      WARNING/ERROR/CRITICAL hit is classified as a real defect or a justified
+      expected condition (`ci-rule.md` §5)
+- [ ] Test evidence sits at the **right level** — and a piece not yet wired
+      into the real app is not claimed as E2E (`ci-rule.md` §4)
+- [ ] If it's a bug: the regression test went **red before, green after**, and
+      stays permanently (`bug-fix-rule.md` §3-4)
+- [ ] If an interface changed: implementers were `grep`ed across **all of**
+      `<SRC_DIR>`, `scripts/`, `<TEST_DIR>` (`architecture-rule.md` §2)
+- [ ] If something was deferred or traded away: a **type or a test** stands for
+      it, not just a paragraph (`design-intent-rule.md`)
+- [ ] Bookkeeping updated in **all three** places, counts computed by command
+      (§4)
+- [ ] No commit/push unless the user asked (§6)

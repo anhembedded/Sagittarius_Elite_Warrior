@@ -1,35 +1,36 @@
 ---
 name: Agents Navigation
-description: Stub điều hướng — chủ đề nào đọc file rule nào. Cố ý không chứa nội dung luật.
+description: Navigation stub — which rule file covers which topic. Deliberately holds no rules of its own.
 trigger: always_on
 ---
 
-# Development Guidelines — file này chỉ ĐIỀU HƯỚNG
+# Development Guidelines — this file only NAVIGATES
 
-> **Agent mới bắt đầu ở đây:** đọc [`ONBOARDING.md`](ONBOARDING.md) trước file
-> này. Nó là bản đồ quy trình; file này chỉ là mục lục theo chủ đề.
+> **New agent starts here:** read [`ONBOARDING.md`](ONBOARDING.md) before this
+> file. That one is the process map; this one is just an index by topic.
 
-**Không chép luật vào file này.** Đây là chỗ dễ sinh bản sao trôi nhất: một
-agent thấy tiện, chép vài mục "cho gọn", vài tuần sau bản chép và bản gốc mâu
-thuẫn nhau và không ai biết bản nào đang được đọc. Cần thêm luật → sửa file
-rule gốc, ở đây chỉ thêm một dòng trỏ.
+**Do not copy rules into this file.** This is where drifted copies are born:
+an agent finds it convenient, copies a few sections "for readability", and
+weeks later the copy and the original contradict each other with nobody
+knowing which one is being read. Need a new rule → edit the rule file it
+belongs to; here you add one line pointing at it.
 
-## Chủ đề → file
+## Topic → file
 
-| Chủ đề | Đọc ở |
+| Topic | Read |
 | :--- | :--- |
-| SOLID, tầng kiến trúc, Port/interface, hợp đồng tường minh, use case, tách file theo abstraction level, đặt chỗ event | [`rules/architecture-rule.md`](rules/architecture-rule.md) |
-| Typing, readability, immutability, magic number, God object, lazy import, cohesion | [`rules/code-quality-rule.md`](rules/code-quality-rule.md) |
-| Signal nội bộ hay Event Bus — ai sở hữu sự thật này | [`rules/event-rule.md`](rules/event-rule.md) |
-| Hoãn một việc / chấp nhận một đánh đổi → phải có type hoặc test đại diện | [`rules/design-intent-rule.md`](rules/design-intent-rule.md) |
-| Sở hữu tác vụ nền, stale callback, cancellation, Coordinator | [`rules/async-action-rule.md`](rules/async-action-rule.md) |
-| Dữ liệu trung thực, ngữ nghĩa nghiệp vụ, snapshot, benchmark | [`rules/domain-truth-rule.md`](rules/domain-truth-rule.md) |
-| Tầng presentation: view thuần khai báo, responsive, icon, injection defense, preview | [`rules/ui-rule.md`](rules/ui-rule.md) |
-| Cách **viết** test | [`rules/testing-rule.md`](rules/testing-rule.md) |
-| Cách **chạy** cổng CI, 4 tầng test, xử lý khi đỏ | [`rules/ci-rule.md`](rules/ci-rule.md) |
-| Trước mọi commit | [`rules/commit-rule.md`](rules/commit-rule.md) |
-| User báo bug (**bắt buộc**) | [`rules/bug-fix-rule.md`](rules/bug-fix-rule.md) |
-| Thêm/sửa log | [`rules/logging-rule.md`](rules/logging-rule.md) |
-| Thiếu công cụ/thư viện để chạy verification | [`rules/environment-rule.md`](rules/environment-rule.md) |
-| Quy trình, quyền hạn, bookkeeping, các bẫy đã gây lỗi thật | [`ONBOARDING.md`](ONBOARDING.md) |
-| Phiên trước dừng ở đâu | [`Handover.md`](Handover.md) |
+| SOLID, layer boundaries, ports/interfaces, explicit contracts, use cases, splitting by abstraction level | [`rules/architecture-rule.md`](rules/architecture-rule.md) |
+| Internal signal or event bus — who owns this truth | [`rules/event-rule.md`](rules/event-rule.md) |
+| Deferring work / accepting a trade-off → needs a type or a test standing for it | [`rules/design-intent-rule.md`](rules/design-intent-rule.md) |
+| Typing, readability, immutability, magic numbers, God objects, lazy imports, cohesion | [`rules/code-quality-rule.md`](rules/code-quality-rule.md) |
+| Background-action ownership, stale callbacks, cancellation, Coordinators | [`rules/async-action-rule.md`](rules/async-action-rule.md) |
+| Truthful data, business semantics, snapshots, benchmarks | [`rules/domain-truth-rule.md`](rules/domain-truth-rule.md) |
+| Presentation layer: declarative views, responsive sizing, icons, injection defense, previews | [`rules/ui-rule.md`](rules/ui-rule.md) |
+| How to **write** a test | [`rules/testing-rule.md`](rules/testing-rule.md) |
+| How to **run** the CI gate, the four test levels, handling red | [`rules/ci-rule.md`](rules/ci-rule.md) |
+| Before every commit | [`rules/commit-rule.md`](rules/commit-rule.md) |
+| A bug was reported (**mandatory**) | [`rules/bug-fix-rule.md`](rules/bug-fix-rule.md) |
+| Adding or changing logs | [`rules/logging-rule.md`](rules/logging-rule.md) |
+| Missing tooling or a library needed to verify | [`rules/environment-rule.md`](rules/environment-rule.md) |
+| Process, permissions, bookkeeping, the traps that produced real defects | [`ONBOARDING.md`](ONBOARDING.md) |
+| Where the last session stopped | [`Handover.md`](Handover.md) |

@@ -1,182 +1,181 @@
 ---
 name: Logging Rule
-description: Đặt log ở đâu để một bug report tự chỉ ra root cause của chính nó, và giữ log đọc được.
+description: Where to place logs so a bug report identifies its own root cause, and how to keep them readable.
 trigger: always_on
 ---
 
 # LOGGING RULES
 
-Thước đo của logging **không phải** nó ghi được bao nhiêu. Là: **một vòng
-"tái hiện rồi gửi log" có đủ để định vị root cause hay không.** Nếu người đọc
-phải đoán, hoặc phải xin người báo lỗi chạy lại với nhiều log hơn, thì logging
-đã thất bại — bất kể nó sinh ra bao nhiêu dòng.
+The measure of logging is **not** how much it writes. It is **whether a single
+reproduce-and-send-the-log cycle is enough to locate a root cause.** If the
+reader has to guess, or has to ask the reporter to run it again with more
+logging, the logging failed — regardless of how many lines it produced.
 
-> **Bằng chứng thật:** ba vòng "tái hiện rồi gửi log" bị tiêu phí cho một lỗi
-> hiển thị, vì log **không nói gì** về backend nào đang chạy, lớp tương tác có
-> đang bật không, và cái gì thật sự đã được vẽ ra.
+> **Real evidence:** three reproduce-and-send-the-log rounds were burned on a
+> rendering defect, because the logs **said nothing** about which backend was
+> live, whether the interaction overlay was engaged, or what was actually
+> painted.
 
 ---
 
-## 1. Mọi logger PHẢI nằm dưới một namespace gốc
+## 1. Every logger MUST live under one root namespace
 
-Handler (console/file/viewer) được gắn vào **một** logger gốc
-`<LOG_NAMESPACE>`, và logger gốc của hệ thống thì **không** gắn gì.
+Handlers (console/file/viewer) are attached to a single root logger
+`<LOG_NAMESPACE>`, and the system root logger has nothing attached.
 
 ```python
-logger = logging.getLogger("<LOG_NAMESPACE>.ChartCard")   # đúng
-logger = logging.getLogger(__name__)                      # IM LẶNG dưới WARNING
+logger = logging.getLogger("<LOG_NAMESPACE>.ChartCard")   # correct
+logger = logging.getLogger(__name__)                      # SILENT below WARNING
 ```
 
-Một logger nằm ngoài cây đó **không có handler nào trong toàn bộ chuỗi**:
-`info()` và `debug()` phát ra **không gì cả**, và chỉ cơ chế dự phòng cuối
-cùng của thư viện mới hiện WARNING trở lên, không định dạng.
+A logger outside that tree has **no handler anywhere in its chain**: `info()`
+and `debug()` emit **nothing at all**, and only the library's last-resort
+fallback shows WARNING and above, unformatted.
 
-**Đây là kiểu im lặng do thiết kế — code trông đúng và lời gọi vẫn thành
-công.** Phải có **guard test** khoá luật này; ngoại lệ duy nhất là gọi
-`getLogger(name)` thuần tuý để `addHandler`/`removeHandler` lên một logger của
-người khác.
-
----
-
-## 2. Log **quyết định**, không chỉ log kết quả
-
-Log **mọi nhánh** nơi hệ thống **chọn** giữa các implementation, **fallback**,
-hay **suy giảm lặng lẽ** — kèm **lý do**. Người đọc phải biết được đường code
-nào đã chạy mà không cần đọc code.
-
-- Backend/adapter/host nào được chọn, **cái gì đã được yêu cầu**, và vì sao hai
-  cái đó khác nhau (`backend 'python' (requested: 'auto')`, kèm lý do
-  fallback).
-- Cơ chế tuỳ chọn nào đang bật cho phiên này (cache, overlay, tăng tốc phần
-  cứng) — **và log cả trường hợp TẮT**. "Không có dòng nào" không phải bằng
-  chứng của "đang tắt"; nó không phân biệt được với "logging hỏng".
-- **Cái gì thật sự đang có hiệu lực** so với cái gì đã được cấu hình. Ý định
-  trong cấu hình không phải bằng chứng về trạng thái runtime.
+**This is silence by construction — the code looks right and the call
+succeeds.** A **guard test** must lock this rule; the only exemption is calling
+`getLogger(name)` purely to `addHandler`/`removeHandler` on someone else's
+logger.
 
 ---
 
-## 3. Dòng môi trường một lần là bắt buộc với code phụ thuộc máy chủ
+## 2. Log the **decision**, not just the outcome
 
-Một defect tái hiện trên máy người báo lỗi mà không tái hiện trên máy dev là
-**chuyện thường**, không phải ngoại lệ. Mọi component có hành vi phụ thuộc máy
-đang chạy PHẢI log **một lần, lúc khởi tạo**: backend thật đang dùng, lý do
-fallback nếu có, tỷ lệ pixel của thiết bị, nền tảng, và kích thước/hình học
-liên quan.
+Log **every branch** where the system **chose** between implementations, **fell
+back**, or **silently degraded** — with the reason. A reader must be able to
+tell which code path ran without reading the code.
 
----
-
-## 4. Tóm tắt theo thao tác, không bao giờ theo từng event
-
-Một cú kéo chuột phát ra hàng trăm event. Log mỗi event ở mức INFO làm báo cáo
-không đọc nổi và tự đánh bại chính nó. Hãy log:
-
-- **một dòng khi tương tác bắt đầu**, mang theo hình học và ngưỡng nó sẽ dùng;
-- **một dòng cho mỗi chuyển biến có ý nghĩa** bên trong (render lại, fallback,
-  huỷ);
-- **một dòng tóm tắt khi kết thúc**, mang theo số đếm, giá trị tệ nhất đo
-  được, và trạng thái cuối.
-
-> **Log không miễn phí — đây là chi phí, không phải chỉ là nhiễu.** Nếu có
-> handler đẩy log về UI thread (log viewer, status bar), **mỗi dòng** chạy trọn
-> một chu kỳ cập nhật model xuyên thread. Bằng chứng thật: log ở mức INFO cho
-> **mỗi** thao tác khớp lệnh → **5.028 dòng trong 2 giây** → UI đơ cứng, đơ
-> **tuyến tính theo số thao tác**. Handler bắt ở logger **gốc**, nên việc dòng
-> log đó nằm ở màn hình nào **không quan trọng**. Trong một vòng lặp chạy nhiều
-> lần (mỗi bản ghi, mỗi bước, mỗi tick): hạ mức log, hoặc gộp/throttle trước
-> khi log.
-
-Đặt **con số người đọc hành động được** vào dòng tóm tắt: kích thước theo pixel
-**cũng như** theo phần trăm, thời gian đã trôi qua, và một giá trị cách ngưỡng
-của nó bao xa. *(Báo cáo chỉ bằng `%` đã che một dải trắng 333px sau con số
-"15%".)*
+- Which backend/adapter/host was selected, **what was requested**, and why they
+  differ (`backend 'python' (requested: 'auto')`, plus the fallback reason).
+- Which optional mechanism is engaged this session (cache, overlay, hardware
+  acceleration) — **and log the DISABLED case too**. "No line" is not evidence
+  of "off"; it is indistinguishable from broken logging.
+- **What is actually in effect** versus what was configured. Configured intent
+  is not evidence of runtime state.
 
 ---
 
-## 5. Log trạng thái đủ để LOẠI một tầng ra khỏi diện nghi
+## 3. One-shot environment lines are mandatory for host-dependent code
 
-Đo nhiều tầng cùng lúc, không chỉ tầng đang nghi. Với **mỗi** tầng, log thứ mà
-người đọc cần để **minh oan** cho nó: nó được yêu cầu làm gì, nó thật sự đã áp
-dụng gì, và cái gì **còn đang chờ**.
-
-Công việc bị **hoãn hoặc gộp** PHẢI báo cáo là nó **đã được áp dụng hay chưa**
-— một khung hình chụp lúc một cập nhật đang chờ sẽ hiển thị dữ liệu mới cạnh
-lớp phủ cũ, và **không gì khác trong log** cho thấy điều đó.
+A defect that reproduces on the reporter's machine and not the developer's is
+**the normal case**, not the exception. Any component whose behaviour depends on
+the host MUST log, **once, at construction**: the real backend in use, any
+fallback reason, the device pixel ratio, the platform, and the relevant
+geometry.
 
 ---
 
-## 6. Sáu mức, theo thứ tự — chọn mức hẹp nhất còn vừa
+## 4. Summarise per operation, never per event
+
+A drag emits hundreds of events. Logging each at INFO makes the report
+unreadable and is self-defeating. Log:
+
+- **one line when the interaction begins**, carrying the geometry and thresholds
+  it will operate under;
+- **one line per significant transition** inside it (a re-render, a fallback, a
+  cancellation);
+- **one summary line when it ends**, carrying counts, worst-case measurements
+  and the final state.
+
+> **Logging is not free — this is cost, not just noise.** If a handler pushes
+> logs to the UI thread (a log viewer, a status bar), **every line** runs a full
+> cross-thread model-update cycle. Real evidence: INFO logging on **every** fill
+> → **5,028 lines in 2 seconds** → the UI froze solid, degrading **linearly with
+> the number of operations**. The handler catches at the **root** logger, so
+> which screen the line came from **does not matter**. Inside a loop that runs
+> many times (per record, per step, per tick): lower the level, or
+> coalesce/throttle before logging.
+
+Put **numbers a reader can act on** in the summary: sizes in pixels **as well
+as** percentages, elapsed milliseconds, and how far a value sat from its
+threshold. *(Percentage-only reporting hid a 333px blank band behind "15%".)*
+
+---
+
+## 5. Log the state that lets a layer be ruled OUT
+
+Instrument several layers at once, not only the suspected one. For **each**
+layer, log what a reader needs to **exonerate** it: what it was asked to do,
+what it actually applied, and what is **still pending**.
+
+Deferred or coalesced work MUST report **whether it has been applied yet** — a
+frame captured while an update is pending shows new data next to a stale
+overlay, and **nothing else in the log** would reveal that.
+
+---
+
+## 6. Six levels, in order — pick the narrowest one that fits
 
 `TRACE < DEBUG < INFO < WARNING < ERROR < CRITICAL`
 
-- **`TRACE`** — chi tiết quá dày cả với một phiên dev bình thường: mỗi frame,
-  mỗi pixel, mỗi tick. Dành riêng cho đúng những hot path mà §4 đã cấm log
-  theo từng event. *Nếu bạn ngần ngại để một dòng log bật suốt một phiên chẩn
-  đoán vì lượng của nó, thì nó là `TRACE`, không phải `DEBUG`.*
-- **`DEBUG`** — chi tiết theo từng event như §4 mô tả: chẩn đoán bình thường,
-  an toàn để bật suốt một lần tái hiện.
-- **`INFO`** — quyết định, môi trường, tóm tắt theo thao tác (§2-3).
-- **`WARNING`** — một đường chạy **suy giảm nhưng đã phục hồi** (fallback đã
-  bật, retry đã thành công).
-- **`ERROR`** — một thao tác thất bại nhưng tiến trình vẫn lành lặn.
-- **`CRITICAL`** — chính tiến trình đã hỏng (khởi động thất bại không phục hồi
-  được, một trạng thái hỏng mà không gì phía sau tin được). Hiếm theo thiết
-  kế; đừng dùng cho một exception đã bắt được mà `ERROR` đã bao.
+- **`TRACE`** — detail too high-frequency even for a normal developer session:
+  per frame, per pixel, per tick. Reserved for exactly the hot paths §4 forbids
+  logging per event. *If you'd hesitate to leave a line on for a whole
+  diagnostic session because of its volume, it's `TRACE`, not `DEBUG`.*
+- **`DEBUG`** — the per-event detail §4 describes: normal diagnostics, safe to
+  leave on for a whole reproduction.
+- **`INFO`** — decisions, environment, per-operation summaries (§2-3).
+- **`WARNING`** — a **degraded but recovered** path (a fallback engaged, a retry
+  succeeded).
+- **`ERROR`** — an operation failed but the process is still sound.
+- **`CRITICAL`** — the process itself is compromised (unrecoverable startup
+  failure, corrupted state nothing downstream can trust). Rare by design; don't
+  use it for an ordinary caught exception that `ERROR` already covers.
 
-Ngưỡng là **một** key cấu hình duy nhất; lời gọi dưới ngưỡng bị bỏ **lặng
-lẽ**, bất kể gọi bằng method nào.
+The threshold is a **single** configuration key; a call below it is dropped
+**silently**, regardless of which method was called.
 
 ---
 
-## 7. Phiên của người phát triển tự động có nhiều log hơn
+## 7. Developer runs get more logging, automatically
 
-| Cờ | Ngưỡng | File |
+| Flag | Threshold | File |
 | :--- | :--- | :--- |
 | `--dev` | `DEBUG` | `logs/dev-<timestamp>.log` |
 | `--debug` | `TRACE` | `logs/debug-<timestamp>.log` |
 
-Cả hai ghi **toàn bộ phiên** ra file có dấu thời gian. `--debug` **bao hàm**
-`--dev` — nó chỉ verbose hơn, không phải một chế độ khác.
+Both write the **whole session** to a timestamped file. `--debug` **implies**
+`--dev` — it is strictly more verbose, not a separate mode.
 
-**Không bao giờ bắt người dùng sửa file cấu hình để lấy được thông tin chẩn
-đoán**, và **không bao giờ** dựa vào việc người báo lỗi chép tay scrollback của
-terminal — chi tiết mất đúng ở chỗ nó quan trọng. **Xin FILE log.**
+**Never require a configuration edit to obtain diagnostics**, and **never** rely
+on the reporter copying terminal scrollback by hand — detail is lost exactly
+where it matters. **Ask for the log FILE.**
 
 ---
 
-## 8. Tiền tố log bằng một tag ổn định, và giữ format lọc được
+## 8. Prefix log lines with a stable tag, and keep the format filterable
 
-Dùng một tag subsystem trong ngoặc vuông làm token đầu tiên — `[chart-env]`,
-`[chart-data]`, `[cached-frame]` — hoặc một kiểu `KEY=value` nhất quán. Người
-báo lỗi dán cả phiên; người đọc cần **đúng một** lệnh lọc để cô lập một
-subsystem.
+Use a bracketed subsystem tag as the first token — `[chart-env]`,
+`[chart-data]`, `[cached-frame]` — or a consistent `KEY=value` style. A reporter
+pastes a whole session; the reader needs **exactly one** filter command to
+isolate a subsystem.
 
-Formatter phải **cố định trường**, ví dụ:
+The formatter must be **fixed-field**, e.g.:
 
 ```
 %(asctime)s - %(name)s - %(levelname)s - %(message)s
 ```
 
-— chính là để một file log đã lưu lọc được **hai chiều** mà không phải động
-vào app:
+— specifically so a saved log file can be filtered **two ways** without touching
+the app:
 
-- **theo mức:** `grep -E '\- (WARNING|ERROR|CRITICAL) \-' session.log` — vì
-  trường mức được bao bởi ` - ` ở cả hai phía, cách này không bao giờ vô tình
-  khớp một tên mức xuất hiện **bên trong** một message;
-- **theo subsystem:** `grep '\[chart-data\]' session.log` — kết hợp cả hai để
-  cô lập output verbose của đúng một subsystem.
+- **by level:** `grep -E '\- (WARNING|ERROR|CRITICAL) \-' session.log` — because
+  the level field is delimited by ` - ` on both sides, this never accidentally
+  matches a level name appearing **inside** a message;
+- **by subsystem:** `grep '\[chart-data\]' session.log` — combine both to
+  isolate one subsystem's verbose output.
 
-**Không đổi thứ tự trường hay ký tự phân tách** mà không kiểm xem có filter/
-regex nào đang phụ thuộc vào nó (trong tài liệu task, trong script, hay trong
-chính các bước tái hiện của một bug report). Cổng CI ở
-[`ci-rule.md`](ci-rule.md) §5 **quét log bằng đúng matcher này** — đổi format
-là làm hỏng cổng đó một cách lặng lẽ.
+**Don't change the field order or separator** without checking whether a filter
+or regex depends on it (in a task document, a script, or a bug report's own
+reproduction steps). The CI gate in [`ci-rule.md`](ci-rule.md) §5 **scans logs
+with exactly this matcher** — changing the format breaks that gate silently.
 
 ---
 
-## 9. Một dòng chẩn đoán chưa ai thấy phát ra thì coi như không tồn tại
+## 9. A diagnostic nobody has seen emit does not exist
 
-Sau khi thêm log, **chạy đường code đó và xác nhận các dòng thật sự xuất
-hiện**, qua **cấu hình logging THẬT** — không phải qua một cấu hình mặc định
-nhanh trong script nháp, vốn gắn một handler gốc mà app thật không bao giờ có.
+After adding logging, **run the path and confirm the lines actually appear**,
+through the **REAL** logging configuration — not through a quick default setup
+in a scratch script, which attaches a root handler the real app never has.
 
-Một vòng debug trọn vẹn đã bị mất vì instrumentation **không thể phát ra**.
+An entire debugging round was lost to instrumentation that **could not emit**.

@@ -1,20 +1,23 @@
 #!/bin/sh
-# Guard cho chính bộ .agents/ — chạy được ở mọi dự án, không phụ thuộc ngôn ngữ.
+# Guard for the .agents/ set itself — runs in any project, language-agnostic.
 #
 #   sh .agents/check-agents-docs.sh
 #
-# Kiểm 2 thứ, cả 2 đều là lớp lỗi đã xảy ra thật:
-#   1. Link .md gãy — một prompt từng trỏ vào file rule chưa bao giờ tồn tại
-#      và chạy hàng tháng, vì agent chạy không người trông vẫn báo thành công.
-#   2. Placeholder chưa thay — bộ rule copy sang dự án mới mà quên điền.
+# Checks two things, both of which are failure classes that really happened:
+#   1. Broken .md links — a prompt once pointed at a rule file that had never
+#      existed and ran for months, because an unattended agent still reports
+#      success.
+#   2. Unreplaced placeholders — the rule set copied into a new project with
+#      the blanks left unfilled.
 #
-# Nối nó vào cổng CI của dự án (xem rules/ci-rule.md §1). Exit != 0 là có lỗi.
+# Wire it into the project's CI gate (see rules/ci-rule.md section 1).
+# A non-zero exit means something is wrong.
 
 set -eu
 DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 rc=0
 
-echo "== 1. Link .md gãy trong $DIR =="
+echo "== 1. Broken .md links in $DIR =="
 found_link=0
 for f in $(find "$DIR" -name '*.md'); do
   d=$(dirname "$f")
@@ -27,10 +30,10 @@ if [ -s /tmp/_agents_links.$$ ]; then cat /tmp/_agents_links.$$; found_link=1; e
 rm -f /tmp/_agents_links.$$
 [ "$found_link" -eq 0 ] || rc=1
 
-echo "== 2. Placeholder chưa thay =="
-# README.md là bảng tra cứu, luôn tự khớp — loại ra.
+echo "== 2. Unreplaced placeholders =="
+# README.md is the lookup table itself and always self-matches — exclude it.
 if grep -rn --exclude=README.md --exclude="$(basename "$0")" '<[A-Z_]\{2,\}>' "$DIR"; then
-  echo "  ^ thay hết theo bảng ở .agents/README.md §2 rồi chạy lại."
+  echo "  ^ replace them per the table in .agents/README.md section 2, then re-run."
   rc=1
 else
   echo "  ok"

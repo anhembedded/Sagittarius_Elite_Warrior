@@ -1,6 +1,6 @@
 ---
 name: UI Presentation Rule
-description: Tầng presentation — view thuần khai báo, binding phản ứng, responsive sizing, single source of truth cho layout dùng chung, injection defense, icon, và quy ước preview.
+description: Presentation layer — declarative views, reactive bindings, responsive sizing, a single source of truth for shared layout, injection defense, icons, and the preview convention.
 trigger: on_file_change
 patterns:
   - <SRC_DIR>/presentation/**
@@ -8,105 +8,105 @@ patterns:
 
 # UI & PRESENTATION RULES
 
-Coordinator Pattern và mọi thứ về tác vụ nền **không** nằm ở đây — xem
-[`async-action-rule.md`](async-action-rule.md): đó là luật về sở hữu tác vụ,
-không phải về trình bày.
+The Coordinator pattern and everything about background work is **not** here —
+see [`async-action-rule.md`](async-action-rule.md): that is a rule about action
+ownership, not about presentation.
 
 ---
 
-## 1. Tách logic khỏi UI — tuyệt đối
+## 1. Separate logic from UI, absolutely
 
-- **View là thuần khai báo.** File view (template/markup/QML/JSX) chỉ định
-  nghĩa bố cục, binding theo theme, micro-animation, và signal tương tác.
-- **Không nhúng logic phức tạp trong view.** Tính toán, biến đổi dữ liệu,
-  validate domain, state machine đều thuộc ViewModel / Presenter / Domain.
-  Helper cục bộ của view (xử lý focus, gọi một slot, reset một input đã render)
-  chỉ được phép khi nó **không** nhân bản một luật nghiệp vụ và **không** trở
-  thành nguồn state thứ hai.
-- **Điều phối một chiều:** UI kích hoạt hành động bằng cách gọi method của
-  ViewModel; Presenter xử lý nghiệp vụ rồi cập nhật property của ViewModel.
+- **Views are purely declarative.** A view file (template/markup/QML/JSX) only
+  defines layout, theme bindings, micro-animations, and interaction signals.
+- **No complex logic inside the view.** Calculations, data transformations,
+  domain validation and state machines belong in the ViewModel / Presenter /
+  Domain. View-local helpers (focus handling, invoking a slot, resetting an
+  already-rendered input) are permitted only when they **don't** duplicate a
+  business rule and **don't** become a second source of state.
+- **One-way command dispatch:** the UI triggers actions by calling ViewModel
+  methods; the Presenter handles the logic and updates ViewModel properties.
 
-## 2. Binding phản ứng, không gán tay
+## 2. Reactive bindings, not manual assignment
 
-Bind thẳng property của phần tử UI vào property của ViewModel và vào theme.
-**Không bao giờ phá binding bằng phép gán mệnh lệnh trong signal handler** —
-đó là cách một giá trị lặng lẽ tách khỏi nguồn sự thật của nó.
+Bind UI element properties directly to ViewModel properties and to the theme.
+**Never break a binding with an imperative assignment inside a signal
+handler** — that is how a value silently detaches from its source of truth.
 
-## 3. Chia nhỏ component
+## 3. Break components down
 
-- Coi **300 dòng** là ngưỡng review bắt buộc cho một file view, không phải một
-  con số máy móc để fail.
-- **Cái gì dùng chung được thì phải dựng dùng chung**, không viết bản sao "gần
-  giống". Component dùng chung sống ở thư mục dùng chung; component chỉ một
-  màn hình dùng thì ở ngay màn hình đó (xem "không chung thư mục",
+- Treat **300 lines** as a mandatory review threshold for a view file, not as a
+  mechanical failure count.
+- **Anything shareable must be built as shared**, not as a "nearly identical"
+  copy. Shared components live in the shared directory; a component used by a
+  single screen lives with that screen (see "not in the same directory",
   [`architecture-rule.md`](architecture-rule.md) §5).
-- **Thêm tính năng vào một widget đã có thì luôn tự hỏi trước:** design hiện
-  tại còn chịu được không, hay đây là lúc phải redesign?
+- **Adding a feature to an existing widget always starts with the question:**
+  does the current design still hold, or is this the moment to redesign?
 
-## 4. Đặt tên & khả năng test
+## 4. Naming & testability
 
-- **Mọi phần tử tương tác PHẢI có một định danh ổn định** (`objectName`,
-  `data-testid`…). Đó thường là thứ **duy nhất** test tích hợp/E2E bám vào
-  được. **Không bao giờ** dùng chỉ số sinh tự động làm định danh test duy
-  nhất.
-- Quy ước tên property và signal nhất quán trong toàn repo; signal đặt tên
-  theo **cụm động từ** mô tả việc đã xảy ra (`runRequested`, `chosen`).
+- **Every interactive element MUST have a stable identifier** (`objectName`,
+  `data-testid`…). It is usually the **only** thing integration/E2E tests can
+  target. **Never** use a generated index as the only test identity.
+- Keep property and signal naming consistent across the repository; name signals
+  as **verb phrases** describing what happened (`runRequested`, `chosen`).
 
-## 5. Responsive — không có kích thước cứng
+## 5. Responsive — no rigid dimensions
 
-- **Không hard-code `width`/`height` cứng** cho modal, dialog, popup, card.
-  Dùng kích thước ưu tiên, clamp theo biên khả dụng.
-- Dùng layout manager của framework thay vì đặt toạ độ tay.
-- Container cuộn bên trong phải khai báo **clip** và chiều rộng nội dung
-  responsive.
+- **Never hard-code fixed `width`/`height`** on modals, dialogs, popups or
+  cards. Use preferred sizes clamped to the available bounds.
+- Use the framework's layout managers instead of manual coordinates.
+- Inner scrollable containers must declare **clipping** and responsive content
+  widths.
 
-## 6. Bảng/grid: độ rộng cột là single source of truth
+## 6. Tables/grids: column widths are a single source of truth
 
-Với mọi bảng có header, độ rộng cột PHẢI được khai báo **tập trung một chỗ**
-và bind vào **cả** header lẫn delegate của dòng — đó là cách duy nhất bảo đảm
-căn cột khớp 100% khi resize cửa sổ hay kéo splitter.
+For every table with a header, column widths MUST be declared **centrally** and
+bound to **both** the header and the row delegate — that is the only way to
+guarantee alignment stays exact through window resizes and splitter drags.
 
 ## 7. Injection defense
 
-Luôn ép chế độ **plain text** cho mọi phần tử hiển thị dữ liệu động hoặc đến
-từ bên ngoài (log, thông báo lỗi, tên do người dùng nhập, dữ liệu từ API).
-Bất kỳ chỗ nào render rich text/HTML từ dữ liệu không kiểm soát là một lỗ
-injection UI.
+Always force **plain-text** rendering for any element displaying dynamic or
+externally sourced data (logs, error messages, user-entered names, API data).
+Anywhere rich text/HTML is rendered from uncontrolled data is a UI injection
+hole.
 
-## 8. Icon & theme
+## 8. Icons & theming
 
-- Icon là **vector chuẩn hoá** trong một thư mục asset, không phải emoji thô.
-- Render icon qua **một** cơ chế tô màu theo theme tập trung, để đổi theme
-  không phải sửa từng chỗ dùng.
+- Icons are **standardised vectors** in an asset directory, not raw emoji.
+- Render icons through **one** centralised theme-tinting mechanism, so changing
+  the theme doesn't mean editing every usage.
 
-## 9. Micro-animation
+## 9. Micro-animations
 
-Chuyển cảnh mượt bằng animation ngắn (150–250ms) trên màu/opacity/kích thước.
-Không bao giờ chặn UI thread để chạy animation.
+Smooth transitions with short animations (150-250ms) on colour/opacity/size.
+Never block the UI thread to run one.
 
-## 10. Quy ước preview — bắt buộc cho mọi package UI
+## 10. The preview convention — mandatory for every UI package
 
-Mỗi package UI (mỗi màn hình, mỗi component dùng chung) PHẢI có một điểm vào
-preview độc lập (`preview.py` với `build_preview()`, story, hoặc tương đương)
-để render nhanh **không cần boot toàn bộ ứng dụng**.
+Every UI package (each screen, each shared component) MUST have a standalone
+preview entry point (`preview.py` exposing `build_preview()`, a story, or the
+equivalent) for fast rendering **without booting the whole application**.
 
-Kèm theo:
-- một cách chạy preview bằng một lệnh, có `--list` để biết có những target nào;
-- một **guard test** kiểm mọi package UI đều có preview — nếu không, quy ước
-  này sẽ mục ruỗng trong vài tuần.
+Along with:
+- a one-command way to run a preview, with a `--list` of available targets;
+- a **guard test** verifying every UI package has one — without it, this
+  convention rots within weeks.
 
-## 11. Test UI
+## 11. UI tests
 
-- **Test ViewModel không cần GUI** — phần lớn coverage của một widget nên nằm
-  ở đây, không nằm trong test render.
-- **Test render mỏng, có chủ đích:** chỉ chứng minh view **load được** và các
-  binding trỏ vào property mà ViewModel thật sự có — đúng lớp lỗi mà linter và
-  type checker không thấy. Đừng nhân bản assert logic của ViewModel vào đó.
-- **Không bao giờ giữ tham chiếu tới một delegate/child qua một lần refresh.**
-  Nhiều framework huỷ và tạo lại toàn bộ delegate khi model đổi — tra cứu lại
-  sau mỗi lần refresh.
-- **Mô phỏng input thật** (API test input của framework) thay vì tự gọi tay
-  một signal với chữ ký đoán mò.
-- **Load lỗi phải ném lỗi, không render hộp trắng.** Host của mỗi view phải
-  biến một lần load thất bại thành exception rõ ràng — "render-and-hope" biến
-  một lỗi cú pháp thành một màn hình trống không ai điều tra.
+- **ViewModel tests need no GUI** — most of a widget's coverage belongs here,
+  not in a rendered test.
+- **Render tests are deliberately thin:** they prove only that the view **loads**
+  and that its bindings point at properties the ViewModel actually has — exactly
+  the class of error linters and type checkers cannot see. Don't duplicate
+  ViewModel-level assertions there.
+- **Never hold a reference to a delegate/child across a refresh.** Many
+  frameworks destroy and recreate every delegate when the model changes — look
+  it up again after each refresh.
+- **Simulate real input** (the framework's test-input API) rather than invoking
+  a signal by hand with a guessed signature.
+- **A failed load must raise, not render an empty box.** Every view host must
+  turn a failed load into an explicit exception — render-and-hope turns a syntax
+  error into a blank screen nobody investigates.

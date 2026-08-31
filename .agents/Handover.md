@@ -1,46 +1,46 @@
-# Handover — phiên gần nhất, và việc phải làm tiếp
+# Handover — the last session, and what comes next
 
 > [!IMPORTANT]
-> **File này được THAY MỚI mỗi phiên, không phải nối thêm.** Nó là chỗ duy
-> nhất giữ *trạng thái*. Mọi thứ lâu bền (luật, quy trình) thuộc `rules/` và
-> `ONBOARDING.md` — đừng viết vào đây, nó sẽ bị ghi đè.
+> **This file is REPLACED every session, not appended to.** It is the only
+> place that holds *state*. Anything durable (rules, process) belongs in
+> `rules/` and `ONBOARDING.md` — don't write it here, it will be overwritten.
 >
-> Con số và trạng thái trong file này **hết hạn rất nhanh**. Trước khi tin bất
-> cứ dòng nào: chạy `git status`, mở bảng task thật, chạy test thật.
+> Numbers and statuses in this file **go stale fast**. Before trusting any
+> line: run `git status`, open the real task board, run the real tests.
 
-*(Template — xoá phần hướng dẫn trong ngoặc khi ghi thật.)*
+*(Template — delete the parenthesised guidance when you fill it in.)*
 
 ---
 
-## 1. Việc tiếp theo
+## 1. Next up
 
-*(Đúng một việc, cụ thể tới mức bắt tay vào làm được ngay: mã task, file cần
-mở, điều kiện hoàn thành. Không phải danh sách ước nguyện.)*
+*(Exactly one thing, concrete enough to start immediately: task ID, files to
+open, what "done" means. Not a wish list.)*
 
-### Việc khác đang mở, nếu việc trên bị chặn
+### Other open work, if the above is blocked
 
-| Việc | Ghi chú |
+| Item | Note |
 | :--- | :--- |
 | | |
 
 ---
 
-## 2. Phiên vừa rồi đã làm gì
+## 2. What the last session did
 
-*(Kết quả, không phải nhật ký thao tác. Cái gì đã commit, cái gì còn nằm
-trong cây làm việc chưa commit — phần sau quan trọng hơn phần trước.)*
-
----
-
-## 3. Quyết định đắt tiền — đừng suy luận lại từ đầu
-
-*(Những quyết định đã tranh luận xong với user, kèm **lý do**. Đây là phần có
-giá trị nhất của file. Thiếu nó, phiên sau sẽ tốn cả buổi để đi tới cùng một
-kết luận — hoặc tệ hơn, tới một kết luận khác.)*
+*(Outcomes, not a keystroke log. What got committed, and what is still sitting
+uncommitted in the working tree — the second half matters more than the first.)*
 
 ---
 
-## 4. Bẫy phát hiện trong phiên này, chưa nằm ở file rule nào
+## 3. Expensive decisions — do not re-derive these
 
-*(Nếu một cái bẫy ở đây tái xuất hiện lần thứ hai, đừng ghi lại vào đây —
-chuyển nó vào đúng file `rules/` và xoá khỏi mục này.)*
+*(Decisions already argued through with the user, **with their reasons**. This
+is the most valuable part of the file. Without it the next session burns hours
+reaching the same conclusion — or worse, a different one.)*
+
+---
+
+## 4. Traps found this session that no rule file covers yet
+
+*(If a trap here shows up a second time, don't log it here again — move it into
+the right file under `rules/` and delete it from this section.)*

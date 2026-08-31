@@ -1,6 +1,6 @@
 ---
 name: Environment Rule
-description: Dựng môi trường là việc của agent — ranh giới giữa "cài thứ đã khai báo" (tự làm) và "thêm dependency mới" (phải hỏi).
+description: Setting up the environment is the agent's job — the boundary between installing something already declared (do it) and adding a new dependency (ask first).
 trigger: always_on
 ---
 
@@ -8,88 +8,89 @@ trigger: always_on
 
 ---
 
-## 1. Dựng môi trường là việc của agent
+## 1. Setting up the environment is the agent's job
 
-Báo *"không verify được — thiếu X"* mà **chưa thử cài X** là dừng sớm một
-lệnh, không phải đụng tường.
+Reporting *"cannot verify — X is missing"* **without trying to install X** is
+stopping one command early, not hitting a wall.
 
-Thiếu công cụ, thiếu thư viện hệ thống, hay thiếu một dependency mà dự án
-**đã khai báo** nhưng môi trường này chưa cài — đó là thứ để **cài**, không
-phải lý do để bỏ qua cổng verification:
+Missing tooling, a missing system library, or a dependency the project
+**already declares** but this environment hasn't installed yet — that is
+something to **install**, not a reason to skip the verification gate:
 
-- **Gói hệ thống** mà stack của app cần để boot (thư viện đồ hoạ, font, D-Bus
-  khi chạy GUI ở chế độ headless). Đừng tin một danh sách chép sẵn — để chính
-  thông báo lỗi (`cannot open shared object file`) gọi tên thư viện thiếu.
-- **Runtime/shell** mà script gate cần.
-- **Thư viện nội bộ / repo anh em** mà dự án phụ thuộc.
-- **Bất kỳ gói nào đã được ghim trong manifest** mà môi trường *này* chưa cài
-  — cài **đúng phiên bản đã ghim**.
+- **System packages** the app's stack needs to boot (graphics libraries, fonts,
+  D-Bus when running a GUI headless). Don't trust a copied list — let the actual
+  error (`cannot open shared object file`) name the missing library.
+- **A runtime/shell** the gate script needs.
+- **An internal library / sibling repository** the project depends on.
+- **Any package already pinned in a manifest** that this environment simply
+  hasn't installed — install **the pinned version**.
 
 ---
 
-## 2. Ranh giới: cài ≠ thêm dependency
+## 2. The boundary: installing ≠ adding a dependency
 
-Đây **không phải** quyền thêm một dependency mới vào dự án.
+This is **not** permission to add a new dependency to the project.
 
-> **Phép thử duy nhất: việc cài đó có làm đổi một file manifest được commit
-> vào repo không?**
+> **The single test: does the install change a manifest file committed to the
+> repository?**
 >
-> - **Có** → đó là một quyết định thiết kế. **Hỏi trước.**
-> - **Không** (chỉ đổi thứ đang có trên đĩa của môi trường này) → **cài và đi
->   tiếp.**
+> - **Yes** → it's a design decision. **Ask first.**
+> - **No** (it only changes what exists on disk in this environment) →
+>   **install it and move on.**
 
 ---
 
-## 3. Chỉ báo "không verify được" khi chính lần cài đã thất bại
+## 3. Only report "cannot verify" once the install itself failed
 
-Và thất bại vì lý do **ngoài tầm kiểm soát của bạn**: không có mạng, registry/
-proxy chặn gói, hoặc thiếu credential/quyền truy cập một repo riêng mà bạn
-chưa từng được cấp.
+And failed for a reason **outside your control**: no network, a registry/proxy
+blocking the package, or missing credentials/access to a private repository you
+were never given.
 
-Nói thẳng **lần cài nào đã fail và vì sao**, thay vì đi vòng qua khoảng trống
-đó bằng cách bỏ qua cổng verification.
-
----
-
-## 4. Phiên bản runtime: chạy CI **trên** mức sàn, không chỉ khai báo nó
-
-Nếu dự án khai một phiên bản tối thiểu, hãy tạo môi trường và **chạy CI đúng
-trên phiên bản đó** — kể cả khi phiên bản mới hơn cũng chạy được.
-
-> **Vì sao:** một người phát triển trên phiên bản mới hơn có thể dùng cú pháp
-> chỉ có ở phiên bản đó, thấy mọi test xanh trên máy mình, và để lại lời khai
-> "hỗ trợ từ phiên bản N" **sai một cách lặng lẽ** — chỉ vỡ với người cài trên
-> đúng mức sàn. Đây cùng hình dạng với một bug thật: một gói đã publish
-> **không import được** trong khi CI của chính nó báo xanh.
-
-Nếu không chạy CI trên mức sàn được, hãy có **một guard test** đọc mức sàn từ
-manifest và **parse lại toàn bộ mã nguồn first-party ở phiên bản đó**. Nó bắt
-được lỗi cú pháp, nhưng **không** bắt được API thư viện chuẩn chỉ có ở phiên
-bản mới — chạy CI trên mức sàn mới bao được cả hai.
-
-Nâng mức sàn phải là một hành động **có chủ đích**: sửa manifest, và guard đi
-theo tự động.
+Say plainly **which install failed and why**, rather than routing around the gap
+by skipping the verification gate.
 
 ---
 
-## 5. Khi một API "không tồn tại", câu hỏi ĐẦU TIÊN là "bản đang cài có mới nhất không?"
+## 4. Runtime version: run CI **on** the floor, don't merely declare it
 
-Trước khi kết luận code của app tham chiếu sai:
+If the project declares a minimum version, create the environment and **run CI
+on exactly that version** — even when a newer one also works.
 
-> **Bằng chứng thật:** ba lỗi kiểu `AttributeError: type object 'X' has no
-> attribute 'Y'` và `TypeError: __init__() got an unexpected keyword argument`
-> **đều bị chẩn đoán sai** thành "app dùng API không tồn tại". Cả ba API đó
-> **có thật** trong repo thư viện. Bản cài chỉ đơn giản là cũ hơn — **và cả
-> hai bản đều báo cùng một số phiên bản**, nên lệnh xem version không giúp gì.
+> **Why:** a developer on a newer version can use syntax only that version has,
+> watch every test pass locally, and leave the "supported from version N" claim
+> **silently false** — breaking only for whoever installs on the floor. This is
+> the same shape as a real bug where a published package **could not be
+> imported** while its own CI reported green.
 
-Kiểm bằng **chữ ký thật**, không bằng chuỗi phiên bản:
+If running CI on the floor isn't possible, add **a guard test** that reads the
+floor from the manifest and **re-parses every first-party module at that
+version**. It catches syntax, but **not** standard-library APIs that only exist
+in newer versions — running CI on the floor covers both.
+
+Raising the floor must be a **deliberate** act: change the manifest, and the
+guard follows automatically.
+
+---
+
+## 5. When an API "doesn't exist", the FIRST question is "is the installed build current?"
+
+Before concluding the app references it wrongly:
+
+> **Real evidence:** three errors of the form `AttributeError: type object 'X'
+> has no attribute 'Y'` and `TypeError: __init__() got an unexpected keyword
+> argument` were **all misdiagnosed** as "the app uses a non-existent API". All
+> three APIs **really existed** in the library's repository. The installed build
+> was simply older — **and both builds reported the same version number**, so
+> checking the version told you nothing.
+
+Check by **real signature**, not by a version string:
 
 ```bash
 <python> -c "import inspect; from <pkg> import <Thing>; print(inspect.signature(<Thing>.__init__))"
 ```
 
-Và kiểm cả **nguồn** cài, không chỉ phiên bản — một bản lỗi thời thường đến từ
-một checkout cục bộ cũ (`file:///...`) chứ không phải từ registry:
+And check the install **source**, not just the version — an outdated build often
+comes from a stale local checkout (`file:///...`) rather than from the registry:
 
 ```bash
 <pip> list | grep <pkg>

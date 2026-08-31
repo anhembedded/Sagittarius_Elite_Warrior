@@ -1,58 +1,62 @@
-# CLAUDE.md — điểm vào cho Claude Code
+# CLAUDE.md — entry point for Claude Code
 
-**Đọc [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) trước khi viết dòng code đầu tiên.**
-Nó là bản đồ quy trình: vòng đời task/bug, lệnh verification thật, bookkeeping, quyền hạn,
-và §7 liệt kê những cái bẫy **đã thật sự gây ra code lỗi**.
+**Read [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) before writing the first
+line of code.** It is the process map: task/bug lifecycle, the real verification
+commands, bookkeeping, permissions, and §7 lists the traps that have **actually
+produced broken code**.
 
 ---
 
-## File này chỉ ĐIỀU HƯỚNG — cố ý không chép nội dung
+## This file only NAVIGATES — deliberately holds no rules
 
-Claude Code tự nạp `CLAUDE.md`; nó **không** tự nạp `.agents/rules/*.md` (trường
-`trigger:` trong frontmatter các file đó là quy ước riêng của bộ rule, không phải cơ chế
-nạp tự động của Claude Code). Vì vậy file này tồn tại để Claude có điểm vào.
+Claude Code loads `CLAUDE.md` automatically; it does **not** load
+`.agents/rules/*.md` on its own (the `trigger:` field in those files is this
+rule set's own convention, not a Claude Code loading mechanism). That is why
+this file exists: to give Claude an entry point.
 
-**Không chép luật vào đây.** Bản sao rule luôn trôi khỏi bản gốc: sửa một nơi, quên nơi
-kia, rồi bản sai vẫn được đọc. Cần thêm luật thì **sửa file rule gốc**, ở đây chỉ thêm
-một dòng trỏ.
+**Do not copy rules in here.** A copy always drifts from the original: edit one
+place, forget the other, and the wrong version still gets read. To add a rule,
+edit the rule file it belongs to; here you add one line pointing at it.
 
-## Cần gì đọc ở đâu
+## Where to read what
 
-| Việc | File |
+| Task | File |
 | :--- | :--- |
-| Bắt đầu, hoặc tiếp việc đang dở | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) — §10 là "bắt tay vào việc đang dở" |
-| Phiên trước dừng ở đâu | [`.agents/Handover.md`](.agents/Handover.md) |
-| Tìm luật theo chủ đề | [`.agents/AGENTS.md`](.agents/AGENTS.md) |
-| Kiến trúc: tầng, interface, hợp đồng tường minh, tách theo abstraction level, đặt chỗ event | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
-| Signal nội bộ hay Event Bus | [`.agents/rules/event-rule.md`](.agents/rules/event-rule.md) |
-| Hoãn một việc / chấp nhận đánh đổi → phải có type hoặc test đại diện | [`.agents/rules/design-intent-rule.md`](.agents/rules/design-intent-rule.md) |
-| Chất lượng code: typing, magic number, cohesion, lazy import | [`.agents/rules/code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
-| Trước khi tuyên bố "xong" bất cứ thứ gì | [`.agents/rules/ci-rule.md`](.agents/rules/ci-rule.md) |
-| Trước mọi commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |
-| User báo bug (**bắt buộc**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
-| Thêm/sửa log | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
-| Viết test | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |
-| Tác vụ nền do user khởi tạo | [`.agents/rules/async-action-rule.md`](.agents/rules/async-action-rule.md) |
-| Tầng presentation | [`.agents/rules/ui-rule.md`](.agents/rules/ui-rule.md) |
-| Logic nghiệp vụ, dữ liệu trung thực | [`.agents/rules/domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
-| Thiếu công cụ để chạy verification | [`.agents/rules/environment-rule.md`](.agents/rules/environment-rule.md) |
-| Cách dùng lại bộ rule này ở dự án khác | [`.agents/README.md`](.agents/README.md) |
+| Starting, or picking up work in progress | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) — §10 is "picking up work in progress" |
+| Where the last session stopped | [`.agents/Handover.md`](.agents/Handover.md) |
+| Looking up a rule by topic | [`.agents/AGENTS.md`](.agents/AGENTS.md) |
+| Architecture: layers, interfaces, explicit contracts, splitting by abstraction level | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
+| Internal signal or event bus | [`.agents/rules/event-rule.md`](.agents/rules/event-rule.md) |
+| Deferring work / accepting a trade-off → needs a type or a test standing for it | [`.agents/rules/design-intent-rule.md`](.agents/rules/design-intent-rule.md) |
+| Code quality: typing, magic numbers, cohesion, lazy imports | [`.agents/rules/code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
+| Before claiming anything is done | [`.agents/rules/ci-rule.md`](.agents/rules/ci-rule.md) |
+| Before every commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |
+| A bug was reported (**mandatory**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
+| Adding or changing logs | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
+| Writing tests | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |
+| User-initiated background work | [`.agents/rules/async-action-rule.md`](.agents/rules/async-action-rule.md) |
+| Presentation layer | [`.agents/rules/ui-rule.md`](.agents/rules/ui-rule.md) |
+| Business logic, truthful data | [`.agents/rules/domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
+| Missing tooling to run verification | [`.agents/rules/environment-rule.md`](.agents/rules/environment-rule.md) |
+| Reusing this rule set in another project | [`.agents/README.md`](.agents/README.md) |
 
 ---
 
-## Ba thứ sai một lần là mất cả buổi
+## Three things that cost half a day if you get them wrong once
 
-Chỉ giữ ở đây những cái mà agent có thể phá **trước khi kịp đọc rule**. Mọi thứ khác: xem
-bảng trên.
+Only what an agent can break **before it gets around to reading the rules**.
+Everything else: see the table above.
 
-1. **Không `git push` nếu user không yêu cầu rõ ràng.** `commit` là mặc định-hỏi; `push`
-   là mặc định-cấm.
+1. **Never `git push` unless the user explicitly asks.** `commit` is
+   ask-by-default; `push` is forbidden-by-default.
 
-2. **Không tin console — đọc file log.** Một lần chạy có thể exit `0` trong khi ghi
-   WARNING/ERROR mô tả một đường chạy đã hỏng lặng lẽ. Luôn `> logfile 2>&1` rồi `grep`,
-   đừng `| tail` — `tail` vừa cho bạn xem nhầm nhiễu ở cuối, vừa có thể **cắt mất** đúng
-   dòng lỗi thật.
+2. **Don't trust the console — read the log file.** A run can exit `0` while
+   logging WARNING/ERROR describing a silently broken path. Always
+   `> logfile 2>&1` then `grep`, never `| tail` — `tail` both shows you
+   irrelevant trailing noise and can **cut off** the line that actually
+   matters.
 
-3. **Việc thường bị để lại chưa commit giữa các phiên.** Bảng task trông như chưa ai đụng
-   **cộng với** cây làm việc bẩn nghĩa là việc **đã làm rồi**, chỉ chưa ghi lại. Chạy
-   `git status` và đọc diff trước khi kết luận một task còn nguyên.
+3. **Work is routinely left uncommitted between sessions.** A task board that
+   looks untouched **plus** a dirty working tree means the work **is already
+   done**, just unrecorded. Run `git status` and read the diff before concluding
+   a task is untouched.

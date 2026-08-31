@@ -1,225 +1,232 @@
 ---
 name: Architecture Rule
-description: SOLID, ranh giới tầng, Port/interface và tính đầy đủ của implementer, hợp đồng phải tường minh (cấm duck-typing ngầm), use case, Abstraction-Level Separation, đặt chỗ event, và luật "cái gì hoãn lại thì phải có type đại diện".
+description: SOLID, layer boundaries, ports/interfaces and implementer completeness, explicit contracts (no implicit duck-typing), use cases, and abstraction-level separation.
 trigger: always_on
 ---
 
 # ARCHITECTURE RULES
 
-Đọc file này khi: thiết kế/tái cấu trúc, thêm hoặc đổi một interface, thêm một
-use case, quyết định một thứ nên nằm ở file/thư mục nào, hoặc khi tách một
-file/lớp đã quá ngưỡng.
+Read this file when: designing or restructuring, adding or changing an
+interface, adding a use case, deciding which file or directory something
+belongs in, or splitting a file/class that has crossed a threshold.
 
-Quy tắc chất lượng code thuần tuý (magic number, nested loop, typing,
-immutability) **không** nằm ở đây — xem
-[`code-quality-rule.md`](code-quality-rule.md).
+Pure code-quality rules (magic numbers, nested loops, typing, immutability) are
+**not** here — see [`code-quality-rule.md`](code-quality-rule.md).
 
 > [!IMPORTANT]
-> **Phương châm quyết định khi kiến trúc khó hoặc mơ hồ.**
-> Nhiều hướng đều có lý, không có "đúng tuyệt đối" → quyết theo **design
-> pattern đã được kiểm chứng**. **Không ngại redesign** một phần đã có nếu
-> thiết kế hiện tại là *hard design* (cứng, chắp vá, khó mở rộng) — "đang chạy
-> được" không phải lý do giữ nguyên. Khi phân vân: **tham chiếu cách các dự án
-> lớn, đã được cộng đồng kiểm chứng, đang làm** — ưu tiên pattern có tên, có
-> tiền lệ rộng, hơn tự sáng chế một hình dạng mới không ai kiểm chứng.
+> **Decision doctrine when the architecture is hard or ambiguous.**
+> Several directions are defensible and none is absolutely right → decide by
+> **proven design patterns**. **Don't be afraid to redesign** an existing part
+> if the current shape is a *hard design* (rigid, patched, hard to extend) —
+> "it currently works" is not a reason to keep it. When torn: **look at what
+> large, community-proven projects do** — prefer a pattern with a name and wide
+> precedent over inventing a new shape nobody has validated.
 >
-> Agent **tự quyết** theo phương châm này cho các quyết định thiết kế — không
-> hỏi lại user cho từng lựa chọn nhỏ. Chỉ hỏi khi đánh đổi thật sự lớn, không
-> đảo ngược được, hoặc vượt khỏi phạm vi thuần thiết kế (`push`, xoá, ghi đè —
-> xem `../ONBOARDING.md` §6; phương châm này **không** nới nhóm đó).
+> The agent **decides these itself** — do not ask the user about every small
+> design choice. Ask only when the trade-off is genuinely large, irreversible,
+> or outside pure design (`push`, delete, overwrite — see `../ONBOARDING.md`
+> §6; this doctrine does **not** loosen that group).
 >
-> Nó quyết **hướng nào đúng**, không đổi **quy trình làm sao**: vẫn task +
-> design/ADR trước khi code, vẫn qua đúng cổng CI và commit như cũ.
+> It decides **which direction is right**, not **how the process runs**: task
+> and design/ADR still come before code, and the CI and commit gates still
+> apply unchanged.
 
 ---
 
 ## 1. SOLID
 
-Áp dụng ở nơi nó làm code rõ hơn / dễ test hơn; đừng ép abstraction lên một
-mẩu code nhỏ, gần như chắc chắn không đổi, chỉ để tick vào ô.
+Apply it where it makes the code clearer or more testable; don't force an
+abstraction onto a small piece that is nearly certain never to change just to
+tick a box.
 
-- **S — Single Responsibility:** một class/module có **một** lý do để thay đổi.
-  Tách theo trách nhiệm thành file riêng thay vì chất logic không liên quan
-  vào cùng một chỗ.
-- **O — Open/Closed:** ưu tiên mở rộng bằng class/strategy mới hơn là sửa
-  logic đã được test; đặt điểm mở rộng sau một interface.
-- **L — Liskov:** subclass phải chạy được ở mọi nơi base type của nó được kỳ
-  vọng — không ném "chưa implement" ở method kế thừa, không thu hẹp input,
-  không làm yếu bảo đảm mà base type đã hứa.
-- **I — Interface Segregation:** interface hẹp và đúng vai; đừng bắt
-  implementer thoả mãn method nó không dùng.
-- **D — Dependency Inversion:** module cấp cao phụ thuộc abstraction, không
-  phụ thuộc implementation cụ thể.
+- **S — Single Responsibility:** one class/module, **one** reason to change.
+  Split by responsibility into separate files instead of piling unrelated logic
+  into one place.
+- **O — Open/Closed:** prefer extending via a new class/strategy over editing
+  already-tested logic; put the extension point behind an interface.
+- **L — Liskov:** a subclass must work anywhere its base type is expected — no
+  "not implemented" throws on inherited methods, no narrowing of accepted
+  input, no weakening of a guarantee the base type promised.
+- **I — Interface Segregation:** keep interfaces narrow and role-specific;
+  don't make an implementer satisfy methods it has no use for.
+- **D — Dependency Inversion:** high-level modules depend on abstractions, not
+  on concrete implementations.
 
 ---
 
 ## 2. Abstraction & decoupling
 
-- Định nghĩa abstraction tường minh cho repository, service, và mọi client ra
-  ngoài hệ thống.
-- Ưu tiên **Dependency Injection** hơn là khởi tạo cứng bên trong logic
-  nghiệp vụ.
-- **Không đa kế thừa.** Dùng composition; làm phẳng interface khi cần, để
-  tránh thứ tự phân giải method phức tạp.
-- **Mọi implementer của một interface phải luôn đầy đủ, ở mọi nơi.** Khi một
-  interface có thêm method, **mọi** class implement nó phải được cập nhật
-  trong **cùng một thay đổi** — không chỉ implementation chính ở production.
-  `grep` implementer ở `<SRC_DIR>`, `scripts/`, **và** `<TEST_DIR>`.
+- Define explicit abstractions for repositories, services, and every client
+  that reaches outside the system.
+- Prefer **dependency injection** over hard-coded construction inside business
+  logic.
+- **No multiple inheritance.** Use composition; flatten interfaces where
+  needed, to avoid complex method resolution order.
+- **Every implementer of an interface must stay complete, everywhere.** When an
+  interface gains a method, **every** class implementing it must be updated in
+  **the same change** — not just the main production implementation. `grep` for
+  implementers across `<SRC_DIR>`, `scripts/`, **and** `<TEST_DIR>`.
 
-  > **Bằng chứng thật:** một test double / script probe bị bỏ quên sau khi
-  > interface đổi vẫn khởi tạo được cho tới đúng lúc có ai chạy nó, rồi nổ
-  > `TypeError: Can't instantiate abstract class`. Lần thứ hai lọt là vì phạm
-  > vi `grep` bỏ sót `scripts/`. **Linter không bắt được lớp lỗi này** —
-  > verify tính đầy đủ của implementer xuyên file là việc của type checker.
-  > Nhưng đừng chỉ dựa vào tool: `grep` vẫn phải làm như một phần của chính
-  > thay đổi đó.
+  > **Real evidence:** a test double / probe script left behind after an
+  > interface change still constructed fine until the exact moment someone ran
+  > it, then failed with `TypeError: Can't instantiate abstract class`. The
+  > second occurrence slipped through because the `grep` scope omitted
+  > `scripts/`. **A linter cannot catch this class of defect** — verifying
+  > implementer completeness across files is a type checker's job. But don't
+  > rely on the tool alone: the `grep` is part of making the change.
 
-### 2.1 Hợp đồng phải tường minh — cấm duck-typing ngầm
+### 2.1 Contracts must be explicit — no implicit duck-typing
 
-> **Mọi hợp đồng vượt ranh giới (module ↔ module, consumer ↔ port, view ↔
-> controller) PHẢI là một kiểu có tên. Không được để hợp đồng chỉ tồn tại
-> dưới dạng "gọi thử xem có method đó không".**
+> **Every contract that crosses a boundary (module ↔ module, consumer ↔ port,
+> view ↔ controller) MUST be a named type. A contract may never exist only as
+> "call it and see whether the method is there".**
 
-| | Cấm | Bắt buộc |
+| | Forbidden | Required |
 | :--- | :--- | :--- |
-| **Hợp đồng ngầm** | Tham số không annotation rồi consumer gọi 15 thành viên của nó; dò khả năng bằng `hasattr`/`getattr`/`in` | — |
-| **Hợp đồng tường minh** | — | Một kiểu có tên: interface class **hoặc** structural type (Protocol / `interface` / trait) |
+| **Implicit contract** | An unannotated parameter whose consumer then calls 15 of its members; capability probing via `hasattr`/`getattr`/`in` | — |
+| **Explicit contract** | — | A named type: an interface class **or** a structural type (Protocol / `interface` / trait) |
 
-**Structural type có tên KHÔNG phải là duck-typing ngầm.** Nó có tên, `grep`
-ra được, type checker kiểm được. Thứ nó bỏ đi chỉ là **bắt buộc kế thừa** —
-không phải bỏ hợp đồng.
+**A named structural type is NOT implicit duck-typing.** It has a name, it is
+greppable, a type checker can verify it. The only thing it drops is **required
+inheritance** — not the contract.
 
-#### Thứ tự chọn — không được đảo
+#### Selection order — not to be inverted
 
-1. **Interface class kế thừa (ABC / `implements`) là mặc định**, và luật "tính
-   đầy đủ của implementer" ở §2 áp dụng đầy đủ.
-2. **Structural type chỉ khi kế thừa bất khả thi hoặc bị chính repo này cấm**
-   — và docstring của nó **PHẢI ghi rõ lý do** thuộc nhóm nào:
-   - **(a)** Kế thừa gây xung đột metaclass / framework cấm (nhiều framework
-     UI không cho một class kế thừa hai base của framework).
-   - **(b)** §2 "không đa kế thừa" chặn: implementer đã có base class riêng.
-   - **(c)** Implementer là class của bên thứ ba mà repo này không sửa được.
-3. **Không rơi vào (a)/(b)/(c) → phải là interface class.** "Tiện hơn" không
-   phải lý do.
+1. **An inherited interface class (ABC / `implements`) is the default**, and
+   the "implementer completeness" rule in §2 applies in full.
+2. **A structural type only when inheritance is impossible or forbidden by this
+   repository** — and its docstring **MUST state which reason applies**:
+   - **(a)** Inheritance causes a metaclass conflict or the framework forbids it
+     (many UI frameworks disallow a class inheriting from two framework bases).
+   - **(b)** §2's "no multiple inheritance" blocks it: the implementer already
+     has its own base class.
+   - **(c)** The implementer is a third-party class this repository cannot edit.
+3. **Not (a)/(b)/(c) → it must be an interface class.** "More convenient" is
+   not a reason.
 
-#### Structural type không phải lối thoát khỏi tính đầy đủ
+#### A structural type is not an escape from completeness
 
-Nó phải mô tả **đúng và đủ** những gì consumer thật sự dùng. Thêm một lời gọi
-mới lên hợp đồng mà không khai báo vào type là **quay lại đúng duck-typing
-ngầm**, chỉ khác là có một file trông giống interface đứng cạnh để trấn an.
+It must describe **exactly and completely** what the consumer actually uses.
+Adding a new call to the contract without declaring it on the type is **a
+return to the implicit duck-typing this section forbids**, only now with a file
+that looks like an interface standing next to it for reassurance.
 
-Khác biệt về cách vỡ: bỏ sót ở interface kế thừa thì **nổ ngay lúc khởi tạo**;
-bỏ sót ở structural type thì **không có gì nổ cả** cho tới khi type checker
-chạy — nên với structural type, type checker không phải "lưới an toàn" mà là
-**cơ chế duy nhất**. Ở tầng nào bị **loại khỏi phạm vi type check** (rất hay
-gặp với tầng UI), một structural type sống ở đó **không có bất kỳ cơ chế tĩnh
-nào** kiểm — nó chỉ là tài liệu.
+The difference is how they break: an omission on an inherited interface
+**fails at construction**; an omission on a structural type **breaks nothing at
+all** until the type checker runs — so for structural types the type checker is
+not a "safety net", it is **the only mechanism**. In any layer **excluded from
+type checking** (very common for the UI layer), a structural type living there
+has **no static verification whatsoever** — it is documentation.
 
-#### Lệnh kiểm khi nghi một hợp đồng đang ngầm
+#### Command to check when a contract looks implicit
 
 ```bash
-# Consumer đang dùng những gì của `x`? (bỏ -h để thấy hit nào ở file nào)
-grep -rnoE "(self\.)?_?<ten_thuoc_tinh>\.[a-zA-Z_]+" <SRC_DIR>/<thu_muc>/
+# What is the consumer actually using off `x`? (drop -h to see which file each hit is in)
+grep -rnoE "(self\.)?_?<attribute_name>\.[a-zA-Z_]+" <SRC_DIR>/<directory>/
 ```
 
-Số thành viên còn lại **sau khi loại các hit không thuộc ranh giới đang xét**
-phải khớp với kiểu đã khai báo. Lệch là hợp đồng đã trôi. (Bước "xem từng hit
-đến từ đâu" không được bỏ: ở một lần đo thật, hit thứ 15 đến từ một harness
-dev tự dựng object, không thuộc ranh giới đang xét.)
+The remaining member count **after discarding hits that don't belong to the
+boundary under review** must match the declared type. A mismatch means the
+contract has drifted. (Don't skip the "see where each hit comes from" step: in
+one real measurement, the 15th hit came from a developer harness constructing
+the object itself, outside the boundary being examined.)
 
-**Tốt hơn `grep` một lần: một test khoá hai chiều.** `grep` là thứ phải nhớ
-chạy; test thì tự chạy. Test đó duyệt source và đỏ ở **cả hai chiều**: thành
-viên được dùng mà chưa khai (hợp đồng lại thành ngầm), **và** thành viên đã
-khai mà không ai dùng (hợp đồng chết). Nó còn phải khoá **số đếm** — hai chiều
-kia so *tập hợp*, nên xoá 1 thêm 1 sẽ triệt tiêu nhau và vẫn xanh.
+**Better than a one-off `grep`: a test that locks both directions.** A `grep`
+is something you must remember to run; a test runs itself. That test walks the
+source and goes red **both ways**: a member used but not declared (the contract
+has gone implicit again), **and** a member declared but used by nobody (a dead
+contract). It must also lock the **count** — the two directions compare *sets*,
+so removing one and adding one cancels out and stays green.
 
-> **Bằng chứng thật:** một hợp đồng giữa hai lớp có **14 thành viên** được gọi
-> thật, **không kiểu nào khai báo chúng**. Trong khi đó interface *chính thức*
-> tồn tại trong codebase khai đúng 1 method mà **không implementer nào**
-> implement và **không ai** tham chiếu. Hợp đồng thật và hợp đồng khai báo là
-> hai thứ khác nhau — đó chính xác là cái giá của duck-typing ngầm: hợp đồng
-> trôi mà không có gì vỡ ra.
+> **Real evidence:** a contract between two layers had **14 members** genuinely
+> in use and **no type declaring any of them**. Meanwhile the *official*
+> interface in the codebase declared exactly one method that **no implementer**
+> implemented and **nobody** referenced. The real contract and the declared
+> contract were two different things — precisely the cost of implicit
+> duck-typing: the contract drifts and nothing breaks.
 
 ---
 
-## 3. Ranh giới tầng
+## 3. Layer boundaries
 
-- Tôn trọng nghiêm ngặt hướng phụ thuộc: **Domain** (thuần) → **Application**
-  (use case / port) → **Interface Adapters** (CLI/UI, presenter) →
-  **Infrastructure** (DB/API/framework). Phụ thuộc chỉ đi **vào trong**.
-- Không bao giờ để mối bận tâm hạ tầng (ORM, HTTP client, base class của
-  framework) rò vào Domain hoặc Application.
-- Ưu tiên dựng base layer dùng lại được hơn là nhân bản implementation.
+- Respect the dependency direction strictly: **Domain** (pure) → **Application**
+  (use cases / ports) → **Interface Adapters** (CLI/UI, presenters) →
+  **Infrastructure** (DB/API/frameworks). Dependencies point **inward** only.
+- Never let infrastructure concerns (an ORM, an HTTP client, a framework base
+  class) leak into Domain or Application.
+- Prefer building reusable base layers over duplicating implementations.
 
-### 3.1 Shared Kernel — nếu có, phải đúng vài ký hiệu, được ghi thành luật, và có test khoá
+### 3.1 A Shared Kernel, if any, is a few symbols, written into law, with a test locking it
 
-Khi hai repo/module phải dùng chung vài kiểu (một marker type, một base
-event), đó là **Shared Kernel** theo nghĩa DDD: một vùng nhỏ, **có tên, được
-ghi thành luật, hai bên cùng sở hữu** — không phải "ngoại lệ cho tiện".
+When two repositories/modules must share a few types (a marker type, a base
+event), that is a **Shared Kernel** in the DDD sense: a small region, **named,
+written down as a rule, jointly owned** — not "an exception for convenience".
 
-- Liệt kê **đúng và đủ** các ký hiệu được phép, bằng danh sách, không bằng
-  prefix.
-- **Mọi thứ khác phải đi qua port**, adapter bọc nó sống ở tầng hạ tầng.
-- **Phải có test khoá allow-list đó**, cộng một test riêng chặn việc nới
-  allow-list thành prefix (nới thành prefix là cả thư viện lọt lại vào domain
-  mà không test nào biết). Kiểm tay:
+- List the permitted symbols **exactly and exhaustively**, as a list, never as
+  a prefix.
+- **Everything else goes through a port**, with the adapter wrapping it living
+  in the infrastructure layer.
+- **A test must lock that allow-list**, plus a separate test forbidding its
+  widening into a prefix (a prefix lets the whole library back into the domain
+  with no test noticing). Manual check:
   ```bash
-  grep -rn "<ten_thu_vien>" <SRC_DIR>/domain <SRC_DIR>/application
+  grep -rn "<library_name>" <SRC_DIR>/domain <SRC_DIR>/application
   ```
-- Thêm bất kỳ import nào khác vào 2 tầng đó là **sai**, kể cả khi "chỉ dùng 1
-  method" — đó chính là lý do các port kia tồn tại.
+- Any other import into those two layers is **wrong**, even "we only use one
+  method from it" — that is exactly why those ports exist.
 
 ---
 
-## 4. Cấu trúc Use Case
+## 4. Use case structure
 
-- Mỗi use case ở thư mục riêng của nó.
-- Định nghĩa Command/Response tách khỏi logic Handler (`command.py` +
-  `handler.py` hoặc tương đương), export sạch qua entry point của package.
-- Không import interface đặc thù của framework vào tầng Application — dùng
-  interface thuần của chính tầng đó.
-
----
-
-## 5. Abstraction-Level Separation
-
-**Chia nhỏ là mặc định. Càng nhiều file càng tốt; gộp phải có lý do, tách thì
-không cần xin phép.**
-
-1. **Không chung file:** hai thứ **khác abstraction level** MUST NOT nằm cùng
-   một file. Một interface và một implementation của nó; một base class và các
-   subclass; một policy trừu tượng và cách nó đọc đĩa — mỗi thứ một file.
-2. **Không chung thư mục:** các file **khác abstraction level** MUST NOT nằm
-   chung một `dir`. Thư mục là một **tầng**, không phải một cái sọt:
-   `interfaces/` không chứa implementation, thư mục nguyên thuỷ dùng chung
-   không chứa widget riêng của một màn hình, `domain/` không chứa adapter hạ
-   tầng. Thư mục đang trộn hai tầng thì **tách thư mục con theo tầng**, đừng
-   đổi tên file cho gọn.
-3. **Đối trọng duy nhất là Single-Scope Cohesion**
-   ([`code-quality-rule.md`](code-quality-rule.md)), và nó **chỉ** thắng khi
-   các định nghĩa mô tả **cùng một vòng đời**. "Cùng feature", "cùng màn
-   hình", "hay dùng chung lúc" **không phải** cùng abstraction level và
-   **không** đủ để gộp.
-4. **Ngưỡng buộc phải tách:** một file **>400 dòng** hoặc một lớp **>15
-   phương thức công khai**. Chạm ngưỡng là tách, không thương lượng.
-5. **Phân xử nhanh khi lưỡng lự:** *"Đổi thứ A có bắt buộc phải đọc/sửa thứ B
-   không?"* Có → cùng vòng đời, được chung file. Không → khác tầng, tách ra.
-
-> **Bằng chứng thật:** một file 1.156 dòng vô tình trở thành thư viện widget
-> chung của cả app vì trộn nguyên thuỷ dùng chung với widget riêng của một màn
-> hình — 3 file ở 2 màn khác phải import chéo vào nó.
+- Every use case lives in its own directory.
+- The command/response definition is separated from the handler logic
+  (`command.py` + `handler.py`, or the equivalent), exported cleanly from the
+  package entry point.
+- Never import framework-specific interfaces into the Application layer — use
+  that layer's own pure interfaces.
 
 ---
 
+## 5. Abstraction-level separation
+
+**Splitting is the default. More files is better; merging needs a reason,
+splitting needs no permission.**
+
+1. **Not in the same file:** two things at **different abstraction levels** MUST
+   NOT live in one file. An interface and one of its implementations; a base
+   class and its subclasses; an abstract policy and how it reads from disk —
+   each gets its own file.
+2. **Not in the same directory:** files at **different abstraction levels** MUST
+   NOT share a `dir`. A directory is a **layer**, not a bucket: `interfaces/`
+   holds no implementations, a shared-primitives directory holds no
+   screen-specific widget, `domain/` holds no infrastructure adapter. A
+   directory mixing two layers gets **split into sub-directories by layer** —
+   don't just rename files to look tidier.
+3. **The only counterweight is Single-Scope Cohesion**
+   ([`code-quality-rule.md`](code-quality-rule.md)), and it wins **only** when
+   the definitions describe **the same lifecycle**. "Same feature", "same
+   screen", "usually used together" are **not** the same abstraction level and
+   are **not** enough to merge.
+4. **Mandatory split thresholds:** a file **>400 lines** or a class with **>15
+   public methods**. Hitting the threshold means splitting — not negotiable.
+5. **Quick arbitration:** *"Does changing A force me to read or edit B?"* Yes →
+   same lifecycle, may share a file. No → different layer, split.
+
+> **Real evidence:** a 1,156-line file accidentally became the whole app's
+> shared widget library because it mixed shared primitives with one screen's own
+> widgets — 3 files across 2 other screens had to import into it.
+
 ---
 
-## 6. Hai chủ đề đã tách ra file riêng
+## 6. Two topics that moved into their own files
 
-Chúng khác abstraction level với phần trên (đây là luật về **cấu trúc tĩnh**;
-hai file kia là luật về **luồng thông tin** và về **cách mã hoá ý định**) — nên
-theo đúng §5 của chính file này, chúng không ở chung file:
+They sit at a different abstraction level from everything above (this file is
+about **static structure**; those two are about **information flow** and about
+**encoding intent**) — so per §5 of this very file, they don't share a file
+with it:
 
-| Câu hỏi | Đọc ở |
+| Question | Read |
 | :--- | :--- |
-| Sự thật này đi bằng signal nội bộ hay Event Bus? | [`event-rule.md`](event-rule.md) |
-| Thứ tôi hoãn lại / cái giá tôi chấp nhận trả phải xuất hiện trong code thế nào? | [`design-intent-rule.md`](design-intent-rule.md) |
+| Does this truth travel by internal signal or over the event bus? | [`event-rule.md`](event-rule.md) |
+| How must deferred work / an accepted trade-off show up in the code? | [`design-intent-rule.md`](design-intent-rule.md) |

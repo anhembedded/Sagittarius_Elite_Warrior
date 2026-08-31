@@ -1,236 +1,239 @@
 ---
 name: Local CI Execution Rule
-description: Lệnh verification bắt buộc, các tầng test, và cách xử lý khi gate đỏ.
+description: The mandatory verification command, the test levels, and how to handle a red gate.
 trigger: always_on
 ---
 
 # CI Rule & Run Guide
 
-**Phải có đúng MỘT lệnh là nguồn chân lý cho verification cục bộ.** Nếu repo
-chưa có, tạo nó trước khi làm gì khác — một script tự tìm môi trường ảo, dựng
-đúng biến môi trường, và chạy đủ các bước dưới.
+**There must be exactly ONE command that is the source of truth for local
+verification.** If the repository has none, create it before doing anything
+else — a script that locates the virtual environment, sets up the required
+environment, and runs every step below.
 
 ```bash
 <CI_CMD>
 ```
 
-**Đừng thay một lần chạy gate bắt buộc bằng lệnh test thô.** Lệnh thô có thể
-không boot dự án trong đúng môi trường import/runtime mà script dựng, và
-thường bỏ mất bước quét log ở cuối.
+**Never substitute a bare test command for a required gate run.** A bare
+command may not boot the project in the same import/runtime environment the
+script sets up, and usually skips the log-scanning step at the end.
 
 ---
 
-## 1. Cổng bắt buộc — trước khi handoff, commit, merge, hay tuyên bố "xong"
+## 1. The mandatory gate — before handoff, commit, merge, or claiming "done"
 
-`<CI_CMD>` phải chạy **tất cả**:
+`<CI_CMD>` must run **all** of:
 
-- **lint + format ở chế độ chỉ đọc** (`<LINT_CMD>`);
-- **type check tĩnh** (`<TYPECHECK_CMD>`) trên `<SRC_DIR>` **và** `scripts/`
-  **trong cùng một lần gọi** — chạy riêng lẻ có thể để lọt lỗi "implementer
-  không đầy đủ" vì type checker khi đó không phân giải module định nghĩa
-  interface trong cùng một pass;
-- **toàn bộ test chính** (`<TEST_DIR>`);
-- **tier boot/sanity chạy tuần tự** trong một job riêng;
-- **coverage** với ngưỡng đã chốt;
-- **guard test cho chính tài liệu agent**, nếu repo có agent chạy tự động —
-  mọi đường dẫn mà prompt của chúng nhắc tới phải còn resolve được. Agent chạy
-  không người trông thì một link gãy **fail lặng lẽ**: run vẫn kết thúc và vẫn
-  báo thành công.
+- **lint + format in read-only mode** (`<LINT_CMD>`);
+- **static type checking** (`<TYPECHECK_CMD>`) over `<SRC_DIR>` **and**
+  `scripts/` **in a single invocation** — checking them separately can let an
+  "incomplete implementer" error through, because the type checker then never
+  resolves the interface's defining module in the same pass;
+- **all primary tests** (`<TEST_DIR>`);
+- **the boot/sanity tier, sequentially**, in a separate job;
+- **coverage**, at the agreed threshold;
+- **a guard test for the agent documentation itself**, if the repository runs
+  automated agents — every repository path their prompts name must still
+  resolve. For an unattended agent a broken link **fails silently**: the run
+  completes and reports success.
 
-Gate phải exit `0`. **Test pass nhưng lint/format/coverage/sanity đỏ là một
-lần verify THẤT BẠI**, không phải một lần handoff thành công.
+The gate must exit `0`. **Tests passing while lint, format, coverage or sanity
+is red is a FAILED verification**, not a successful handoff.
 
-Nếu type checker được gate ở một **baseline** thay vì ở zero (danh sách file
-nợ cũ), thì: file **không** nằm trong danh sách phải sạch tuyệt đối, và danh
-sách chỉ được **ngắn đi**, không bao giờ dài ra.
+If the type checker is gated at a **baseline** rather than at zero (a list of
+legacy dirty files), then: any file **not** on that list must be clean, and the
+list may only ever get **shorter**.
 
-### Ngoại lệ — commit không đụng file code nào
+### Exception — commits that touch no code file
 
-Một commit mà diff **không** chạm file nào trong `<SRC_DIR>`, `<TEST_DIR>`,
-`scripts/`, và không chạm file nào ảnh hưởng build/dependency/runtime
-(manifest, lockfile, file cấu hình build) thì **không cần** chạy gate — không
-có thay đổi code nào để test verify. Ví dụ: commit chỉ đụng tài liệu, task
-file, `.agents/`.
+A commit whose diff touches **no** file under `<SRC_DIR>`, `<TEST_DIR>`,
+`scripts/`, and no file affecting build/dependency/runtime behaviour
+(manifests, lockfiles, build configuration) does **not** require the gate —
+there is no code change for a test to verify. This covers, for example, a
+commit limited to documentation, task files, or `.agents/`.
 
-Chạm **một** file có khả năng ảnh hưởng build/runtime/lint/type/test là vẫn
-phải chạy đủ gate. Ngoại lệ này **không** áp dụng vì "phần lớn diff là docs";
-nó chỉ áp dụng khi **không phần nào** của diff là code.
+Touching **one** file able to affect build, runtime, lint, type checking or
+tests still requires the full gate. This exception does **not** apply because
+"most of the diff is docs"; it applies only when **none** of the diff is code.
 
 ---
 
-## 2. Chế độ chẩn đoán — không bao giờ đủ để thay gate
+## 2. Diagnostic modes — never sufficient on their own
 
-| Mục đích | Ví dụ | Thay được gate? |
+| Purpose | Example | Replaces the gate? |
 | :--- | :--- | :---: |
-| Feedback nhanh | chỉ chạy unit | **Không** |
-| Chẩn đoán boot/DI | chỉ chạy sanity | **Không** |
-| Tái hiện lỗi do song song | gate với 1 worker | **Không** |
-| Chẩn đoán riêng test | gate, bỏ lint | **Không** |
-| Chẩn đoán riêng static | gate, bỏ test | **Không** |
+| Fast feedback | unit tests only | **No** |
+| Diagnosing boot/DI | sanity only | **No** |
+| Reproducing a parallelism issue | gate with 1 worker | **No** |
+| Diagnosing tests alone | gate, skipping lint | **No** |
+| Diagnosing static checks alone | gate, skipping tests | **No** |
 
-Mọi cờ "skip" là **công cụ chẩn đoán**. Chúng MUST NOT được dùng để né một
-gate đang đỏ, để biện minh cho một commit, hay để đánh dấu task hoàn thành.
+Every "skip" flag is a **diagnostic tool**. They MUST NOT be used to bypass a
+failing required gate, to justify a commit, or to mark a task complete.
 
-**Đừng tăng số worker để chạy nhanh hơn khi chưa đo.** Đo thật trên một máy 4
-nhân: 6 worker → ~147s; 12 worker → ~150s. Gấp đôi worker **không đổi gì** —
-worker vượt số nhân chỉ thêm tranh chấp. Kiểm `nproc` trước, và coi mọi con số
-thời gian là của riêng từng máy.
-
----
-
-## 3. Xử lý khi đỏ
-
-1. **Đọc bước fail ĐẦU TIÊN và giữ lại output của nó.**
-2. **Sửa root cause.** Không làm yếu assertion, không skip test, không hạ
-   ngưỡng coverage, không thêm ignore rộng chỉ để gate xanh.
-3. **Format là hành động tường minh của người phát triển, không phải của CI.**
-   CI phải **read-only**: dùng chế độ `--check`, không bao giờ để CI tự sửa
-   file. Một test runner làm đổi file không liên quan không phải một cổng chất
-   lượng chấp nhận được. Chạy lệnh fix bằng tay, **review từng diff** (nhất là
-   ở file không liên quan), rồi chạy lại gate.
-4. **Không commit khi gate đỏ.** Nếu là một blocker ngoại cảnh đã xác định,
-   báo cáo bằng chứng và **giữ nguyên** coverage bắt buộc, thay vì tuyên bố
-   một thành công chưa verify.
-5. **Định kỳ verify lại mọi ngoại lệ kiểu "known flaky/crashy".** Ở repo gốc,
-   một thư mục test bị loại khỏi CI hơn một năm vì "flaky đã biết"; khi cuối
-   cùng có người đo lại (7 lần chạy, cả tuần tự lẫn song song) thì **không tái
-   hiện được lần nào** — nguyên nhân gốc đã bị xoá khỏi codebase từ lâu. Một
-   ngoại lệ đứng mãi là chỗ một regression thật ẩn mình.
+**Don't raise the worker count for speed without measuring.** Measured on a
+real 4-core machine: 6 workers → ~147s; 12 workers → ~150s. Doubling the
+workers **changed nothing** — workers beyond core count only add contention.
+Check `nproc` first, and treat every timing number as specific to one machine.
 
 ---
 
-## 4. Bốn tầng test
+## 3. Handling a red gate
 
-Mỗi tính năng được verify qua đúng bốn tầng. **Mỗi tầng chỉ chứng minh hợp
-đồng của chính nó**; tầng cao hơn không bao giờ thay thế coverage xác định của
-tầng thấp hơn.
+1. **Read the FIRST failing step and preserve its output.**
+2. **Fix the root cause.** Don't weaken assertions, skip tests, lower the
+   coverage threshold, or add a broad ignore just to make the gate green.
+3. **Formatting is an explicit developer action, not a CI action.** CI must be
+   **read-only**: use `--check` modes, never let CI rewrite files. A test runner
+   that changes unrelated files is not an acceptable quality gate. Run the fix
+   command by hand, **review every diff** (especially in unrelated files), then
+   re-run the gate.
+4. **Don't commit while the gate is red.** If it is an established external
+   blocker, report the evidence and **keep** the required coverage, rather than
+   declaring an unverified success.
+5. **Periodically re-verify every "known flaky/crashy" exclusion.** In the
+   original repository a test directory sat excluded from CI for over a year as
+   "known flaky"; when someone finally measured it again (7 runs, sequential and
+   parallel) it **did not reproduce once** — the underlying cause had been
+   deleted from the codebase long before. A standing exclusion is where a real
+   regression hides.
 
-1. **Unit** — hàm thuần, hợp đồng dữ liệu, invariant, hành vi xác định của một
-   component. Không boot app/DI container thật, không network, không chờ theo
-   thời gian. *(Dựng trực tiếp một widget/component rời vẫn tính là Unit,
-   miễn là không boot app thật.)*
-2. **Integration** — hành trình người dùng/ứng dụng **xác định**, qua các
-   collaborator **thật**, với ranh giới ngoài được seed/fake **cục bộ**. Nó
-   chứng minh **luồng**, không phải một lời gọi private hay một kỳ vọng trên
-   mock. Không bao giờ phụ thuộc dịch vụ ngoài thật.
-3. **Sanity** — boot **thật**, nối dây DI thật, dựng view/controller thật.
-   Không thao tác người dùng, không dispatch nền. Nó chứng minh **sức khoẻ
-   composition**: app lắp ráp, resolve, và tắt **trong im lặng**.
-4. **E2E** — một hành trình nhìn thấy được, qua **ứng dụng thật đang chạy**,
-   khởi động từ entry point thật, với input thật của người dùng và output thật.
-   Opt-in / chạy nightly, nhưng là **bằng chứng bắt buộc** cho thay đổi ở code
-   render/tương tác và cho mọi defect GUI/runtime được báo.
+---
 
-**Component probe — không phải một tầng test, và không phải E2E.** Một script
-dựng trực tiếp một mảnh rời (render thật, input thật) **không** đi qua entry
-point hay wiring production — ví dụ chứng minh một widget chưa được tích hợp
-đã chạy được. Nó là bằng chứng cục bộ hợp lệ cho **một mảnh chưa ai với tới
-được từ app thật**. Nó **không** thay thế E2E: **ngay khi** tính năng đó trở
-nên với tới được từ app thật, E2E trở thành bằng chứng bắt buộc. Probe xanh
-chứng minh mảnh đó chạy trong cô lập; nó **không** chứng minh app chạy.
+## 4. The four test levels
 
-Một smoke check với dịch vụ ngoài là kiểm tra vận hành opt-in, **không** phải
-tầng test thứ năm và không bao giờ là yêu cầu CI thường.
+Every feature is verified across exactly four levels. **Each level proves only
+its own contract**; a higher level never replaces a lower level's deterministic
+coverage.
 
-### 4.1 Vì sao đúng bốn tầng này — đọc theo V-model
+1. **Unit** — pure functions, data contracts, invariants, deterministic
+   component behaviour. No real app/DI boot, no network, no timing waits.
+   *(Constructing a widget/component directly still counts as Unit, as long as
+   it doesn't boot the real app.)*
+2. **Integration** — a **deterministic** user/application journey across
+   **real** collaborators, with outer boundaries seeded or faked **locally**. It
+   proves the **flow**, not a private call or a mock expectation. Never depends
+   on a real external service.
+3. **Sanity** — a **real** boot, real DI wiring, real view/controller
+   construction. No user actions, no background dispatch. It proves
+   **composition health**: the app assembles, resolves, and shuts down **in
+   silence**.
+4. **E2E** — a visible journey through the **real running application**,
+   started from its real entry point, with real user input and real output.
+   Opt-in / nightly, but **mandatory evidence** for changes to
+   rendering/interaction code and for any reported GUI or runtime defect.
 
-Mỗi tier verify đúng cái artifact mà giai đoạn phát triển tương ứng sinh ra —
-cùng ý tưởng ánh xạ tầng-với-tầng của V-model, **nhưng không** lấy phần tuần
-tự kiểu thác nước của nó. Dự án ship tăng dần, nên bản đồ này đọc **theo từng
-feature, tại thời điểm thật**, đối chiếu với việc feature đó đã được dựng tới
-đâu — không phải lập kế hoạch trước cho cả hệ thống:
+**A component probe is not a test level, and is not E2E.** A script that
+constructs one isolated piece directly (real rendering, real input) **without**
+going through the entry point or production wiring — proving, say, that a
+not-yet-integrated widget works. It is legitimate local evidence for **a piece
+nothing in the real app can reach yet**. It does **not** substitute for E2E:
+**the moment** that feature becomes reachable from the real app, E2E becomes
+required evidence. A green probe proves the piece works in isolation; it does
+**not** prove the app works.
 
-| Giai đoạn phát triển | Tầng test |
+An external-service smoke check is an opt-in operational check, **not** a fifth
+test level and never a normal CI requirement.
+
+### 4.1 Why these four, in this order — a V-model reading
+
+Each tier verifies exactly the artifact its matching development stage
+produces — the same level-to-level mapping idea as the classic V-model,
+**without** its waterfall sequencing. The project ships incrementally, so the
+mapping is read **per feature, live**, against how far that feature has
+actually been built — not planned up front for the whole system:
+
+| Development stage | Test level |
 | :--- | :--- |
-| Implement một module/hàm | **Unit** |
-| Nối dây các collaborator trong một feature | **Integration** |
-| Boot/composition toàn app | **Sanity** |
-| Một mảnh đã dựng nhưng app thật chưa với tới | **Component probe** |
-| Feature đã nối vào app thật đang chạy | **E2E** |
+| Implementing a module/function | **Unit** |
+| Wiring collaborators within a feature | **Integration** |
+| Whole-app boot/composition | **Sanity** |
+| A piece built but not yet reachable from the real app | **Component probe** |
+| A feature actually wired into the real running app | **E2E** |
 
-Luật thực dụng rút ra: **test đúng tới mức feature đã thật sự được tích hợp,
-không bao giờ đi trước nó.**
+The practical rule this yields: **test exactly as far as a feature has actually
+been integrated, never ahead of it.**
 
-### 4.2 Sanity phải scale bằng 0
+### 4.2 Sanity must scale at zero
 
-- **Thêm một feature/màn hình thì thêm ZERO test vào tier sanity.** Mọi
-  assertion ở đây phải **quét một nguồn sự thật thật** (mọi use case đã đăng
-  ký, mọi route điều hướng được, mọi package màn hình trên đĩa) — không bao
-  giờ là một test viết tay cho từng feature. Nếu một màn hình mới cần một test
-  sanity mới thì các test sanity hiện có đã được viết sai.
-- **Một lần boot thật cho cả session**, không phải mỗi test một lần.
-- **Im lặng chính là assertion:** một guard autouse phải fail khi có bất kỳ
-  message nào của framework, bất kỳ log record nào từ WARNING trở lên, hay bất
-  kỳ `warning` nào phát ra trong boot/construct/shutdown. Exit code xanh
-  **không** đủ.
-- **Thay thế duy nhất được phép là ranh giới network, vẽ ở tầng CẤU HÌNH,
-  không bao giờ ở một code path** — trỏ client thật vào một fake server cục
-  bộ; **không bao giờ** tự viết một class thay thế cho một port. Chính hình
-  dạng đó đã sinh ra hai bug thật (implementer giả bị bỏ quên sau khi
-  interface đổi).
-- **Không assertion nào ở tier này được nhắc tới một sự thật nghiệp vụ** —
-  cái đó thuộc Integration.
-- Có một lớp **chạy ngoài tiến trình** (khởi động entry point thật như một
-  subprocess thật) — đó là tier duy nhất chứng minh được process **thật sự
-  thoát**, chứ không chỉ chứng minh hàm teardown trả về.
+- **Adding a feature/screen adds ZERO new tests to the sanity tier.** Every
+  assertion here must **scan a real source of truth** (every registered use
+  case, every navigable route, every screen package on disk) — never a
+  hand-written per-feature test. If a new screen needs a new sanity test, the
+  existing sanity tests were written wrong.
+- **One real boot for the whole session**, not one per test.
+- **Silence is the assertion:** an autouse guard must fail on any framework
+  message, any log record at WARNING or above, or any warning raised during
+  boot/construct/shutdown. A green exit code is **not** enough.
+- **The only permitted substitution is the network boundary, drawn at
+  CONFIGURATION, never at a code path** — point the real client at a local fake
+  server; **never** hand-write a stand-in for a port. That exact shape produced
+  two real bugs (a fake implementer left behind after an interface change).
+- **No assertion at this tier may name a business fact** — that belongs to
+  Integration.
+- There is an **out-of-process** layer (launching the real entry point as a real
+  subprocess) — the only tier that can prove the process **actually exits**,
+  rather than proving a teardown function returned.
 
 ---
 
-## 5. Bắt buộc: ghi log ra file rồi QUÉT nó
+## 5. Mandatory: capture the log to a file, then SCAN it
 
-**Exit code xanh không phải bằng chứng đủ rằng một lần chạy là sạch.**
+**A green exit code is not sufficient evidence that a run was clean.**
 
-Script gate phải **ghi lại toàn bộ mỗi lần chạy ra file log**, rồi tự quét file
-đó tìm các mức có vấn đề (`WARNING`, `ERROR`, `CRITICAL` — xem
-[`logging-rule.md`](logging-rule.md)) bằng đúng matcher mà file đó công bố, và
-**fail run nếu tìm thấy**. Làm việc này **trong script**, không phải bằng tay
-mỗi lần.
+The gate script must **capture every run to a log file**, then scan that file
+itself for the problem levels (`WARNING`, `ERROR`, `CRITICAL` — see
+[`logging-rule.md`](logging-rule.md)) using that file's own documented matcher,
+and **fail the run if any are found**. Do this **in the script**, not by hand
+each time.
 
 ```bash
 <CI_CMD> > /tmp/ci.log 2>&1
 grep -nE '\- (WARNING|ERROR|CRITICAL) \-' /tmp/ci.log
 ```
 
-**Mọi hit đều PHẢI được điều tra và báo cáo** — không bao giờ được lặng lẽ
-chấp nhận vì "test vẫn pass", và không bao giờ được bỏ qua bằng cờ
-"cho-phép-warning" chỉ để có build xanh. Báo cáo từng hit là một trong hai:
+**Every hit MUST be investigated and reported** — never silently accepted
+because "the tests still passed", and never bypassed with an
+allow-warnings flag just to get a green build. Report each one as either:
 
-- **(a) một defect thật** — khi đó đi theo
-  [`bug-fix-rule.md`](bug-fix-rule.md) đầy đủ; hoặc
-- **(b) một điều kiện kỳ vọng đã hiểu và biện minh được**, nêu rõ lý do.
+- **(a) a real defect** — which then follows
+  [`bug-fix-rule.md`](bug-fix-rule.md) in full; or
+- **(b) an understood, explicitly justified expected condition**, naming the
+  reason.
 
-*"Nó có sẵn từ trước khi tôi sửa"* là lý do để **kiểm xem đó có phải một bug
-đang mở đã biết hay không**, không phải lý do để bỏ qua.
+*"It was already there before my change"* is a reason to **check whether it is a
+known open bug**, not a reason to skip it.
 
-> **Vì sao có luật này:** một lần chạy có thể exit `0` trong khi ghi log một
-> đường chạy đã **suy giảm lặng lẽ** — ví dụ thật: một vòng lặp ghi WARNING ở
-> **mỗi bước của mỗi lần chạy** vì một điều kiện so sánh không bao giờ khớp
-> giá trị thật (mỗi bước bị xử lý hai lần), và một truy vấn trả về `rows=0`
-> tạo ra một biểu đồ trắng — **không chỗ nào fail cả**.
-
----
-
-## 6. Tier benchmark
-
-Benchmark là **chẩn đoán, không phải gate**. Báo cáo của nó là bằng chứng cục
-bộ để ước lượng, phát hiện regression, và ra quyết định release — **không phải**
-ngưỡng dùng chung trong CI.
+> **Why this rule exists:** a run can exit `0` while logging a **silently
+> degraded** path — real examples: a loop logging a WARNING on **every step of
+> every run** because a comparison never matched real values (so every step was
+> evaluated twice), and a query returning `rows=0` that produced a blank chart —
+> with **nothing failing anywhere**.
 
 ---
 
-## 7. Gate cục bộ và CI trên máy chủ không phải bản sao của nhau
+## 6. The benchmark tier
 
-Nếu repo có **cả hai**, hãy biết trước khác biệt trước khi coi một trong hai
-là đủ:
+Benchmarks are **diagnostics, not a gate**. Their reports are local evidence
+for sizing, regression detection and release judgement — **not** shared CI
+thresholds.
 
-| | Gate cục bộ | CI trên máy chủ |
+---
+
+## 7. The local gate and server CI are not copies of each other
+
+If the repository has **both**, know the differences before treating either as
+sufficient:
+
+| | Local gate | Server CI |
 | :--- | :--- | :--- |
-| Test chính | thường song song | thường tuần tự |
-| Sanity | job riêng, tuần tự | có thể trộn chung |
+| Primary tests | usually parallel | usually sequential |
+| Sanity | separate job, sequential | may be mixed in |
 | Coverage / lint / type check | ? | ? |
 
-**Điền bảng này bằng cách đọc cả hai file cấu hình, không phải bằng trí nhớ.**
-Ở repo gốc, một dòng trong chính file rule này từng khẳng định "dự án không có
-CI trên máy chủ" — sai, workflow tồn tại và đang chạy. Xác nhận bằng
-`ls .github/workflows/` (hoặc tương đương), đừng tin tài liệu. Và **đừng giả
-định một bên bao trùm bên kia.**
+**Fill this table by reading both configuration files, not from memory.** In
+the original repository, a line in this very rule file once asserted "this
+project has no server CI" — false; the workflow existed and was running.
+Confirm with `ls .github/workflows/` (or the equivalent), don't trust the
+documentation. And **never assume one gate subsumes the other.**

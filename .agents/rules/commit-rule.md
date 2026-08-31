@@ -1,123 +1,123 @@
 ---
 name: Commit Rule
-description: Không commit khi chưa được yêu cầu, verify trước commit, Conventional Commits, chữ ký AI đúng danh tính, commit nguyên tử.
+description: Never commit unasked, verify before committing, Conventional Commits, a correctly attributed AI signature, atomic commits.
 trigger: always_on
 ---
 
-# Git Commit Guidelines cho AI Agent
+# Git Commit Guidelines for AI Agents
 
-Mọi AI assistant làm việc trên repo này PHẢI tuân thủ nghiêm ngặt, không ngoại
-lệ.
-
----
-
-## 0. Không bao giờ commit khi user chưa yêu cầu
-
-- **KHÔNG tự ý `git commit`.** Luôn chờ user cho phép tường minh trước khi ghi
-  thay đổi vào version control.
-- **`git push` là mặc định-CẤM** — chỉ khi user yêu cầu rõ ràng, và mỗi repo
-  là một lần xác nhận riêng.
+Every AI assistant working on this repository MUST follow these rules strictly,
+without exception.
 
 ---
 
-## 1. Bắt buộc verify trước commit
+## 0. Never commit unless the user asked
 
-- **Không bao giờ commit code hỏng, chưa test, hay đang fail.**
-- Trước mỗi `git commit`, agent PHẢI chạy `<CI_CMD>` và bảo đảm:
-  - **toàn bộ test pass**, zero failure, zero error;
-  - **zero warning của chính dự án** — không rò tài nguyên, không coroutine bị
-    bỏ quên, không kết nối chưa đóng;
-  - lint/format/type check/coverage đều xanh.
-- **Ngoại lệ:** commit không đụng file code nào — xem
-  [`ci-rule.md`](ci-rule.md) §1 để biết ranh giới chính xác.
+- **Do NOT `git commit` on your own initiative.** Always wait for explicit
+  permission before writing changes into version control.
+- **`git push` is forbidden by default** — only on an explicit user request,
+  and each repository is its own separate confirmation.
 
 ---
 
-## 2. Định dạng commit message (Conventional Commits)
+## 1. Mandatory pre-commit verification
+
+- **Never commit broken, untested, or failing code.**
+- Before every `git commit`, the agent MUST run `<CI_CMD>` and ensure:
+  - **all tests pass**, zero failures, zero errors;
+  - **zero first-party warnings** — no resource leaks, no dangling unawaited
+    coroutines, no unclosed connections;
+  - lint, format, type check and coverage are all green.
+- **Exception:** a commit touching no code file — see
+  [`ci-rule.md`](ci-rule.md) §1 for the exact boundary.
+
+---
+
+## 2. Commit message format (Conventional Commits)
 
 ```
-<type>(<scope>): <chủ đề ngắn, thì hiện tại, thể mệnh lệnh>
+<type>(<scope>): <concise subject, present tense, imperative>
 
-<thân tuỳ chọn: bối cảnh, lý do, thay đổi cụ thể>
+<optional body: context, rationale, specific changes>
 
-- <module>: chi tiết thay đổi
-- <tests>: test mới / coverage mới
+- <module>: details of the change
+- <tests>: new tests / new coverage
 
-Co-Authored-By: <tên và danh tính AI thật sự tạo ra commit này>
+Co-Authored-By: <name and identity of the AI that actually authored this commit>
 ```
 
-### Type được dùng
+### Allowed types
 
-| Type | Dùng khi |
+| Type | Use when |
 | :--- | :--- |
-| `feat` | Tính năng mới / khả năng mới người dùng thấy được |
-| `fix` | Sửa bug — **phải** nhắc root cause hoặc mã bug |
-| `refactor` | Đổi cấu trúc, không thêm tính năng, không sửa bug |
-| `perf` | Cải thiện hiệu năng |
-| `test` | Chỉ thêm/sửa test |
-| `ci` | Script CI, test runner, môi trường |
-| `docs` | Chỉ tài liệu |
-| `style` | Chỉ format/lint, không đổi hành vi |
-| `chore` | Bảo trì, cấu hình, dependency |
+| `feat` | New feature or user-facing capability |
+| `fix` | Bug fix — **must** reference the root cause or bug ID |
+| `refactor` | Structural change: no new feature, no bug fix |
+| `perf` | Performance improvement |
+| `test` | Tests only |
+| `ci` | CI scripts, test runners, environments |
+| `docs` | Documentation only |
+| `style` | Formatting/lint only, no behaviour change |
+| `chore` | Maintenance, configuration, dependencies |
 
-**Scope** là một danh sách ngắn, chốt theo repo (`<SCOPES>`).
+**Scope** is a short, project-agreed list (`<SCOPES>`).
 
 ---
 
-## 3. Chữ ký AI bắt buộc — đúng danh tính
+## 3. The mandatory AI signature — correctly attributed
 
-Mọi commit do AI tạo ra PHẢI có trailer ở **cuối cùng** message, ghi đúng
-assistant thật sự tạo ra nó:
+Every commit authored by an AI MUST carry a trailer as the **very last** lines,
+naming the assistant that actually produced it:
 
 ```
 Co-Authored-By: <Assistant Name> <noreply@assistant-provider.example>
 ```
 
-**Không bao giờ hard-code tên một công cụ khác, và không bao giờ dùng
-placeholder.** Gán nhầm quyền tác giả cho một công cụ không tạo ra commit là
-**không chấp nhận được**, kể cả để "nhất quán với lịch sử commit cũ".
+**Never hard-code another tool's name, and never use a placeholder.**
+Misattributing authorship to a tool that did not generate the commit is **not
+acceptable**, not even for consistency with older commit history.
 
-> **Bằng chứng thật:** ở repo gốc, một file hướng dẫn từng hard-code trailer
-> của một công cụ AI **khác** — vi phạm thẳng chính file này — và tồn tại đủ
-> lâu để đi vào lịch sử commit. Không ai phát hiện vì nó nằm trong một **bản
-> sao trôi** của rule chứ không phải trong bản gốc.
+> **Real evidence:** in the original repository, a guidance file hard-coded the
+> trailer of a **different** AI tool — directly violating this very rule — and
+> survived long enough to reach the commit history. Nobody noticed, because it
+> lived in a **drifted copy** of the rule rather than in the original.
 
-*(Để một dòng trống trước trailer.)*
+*(Leave a blank line before the trailer.)*
 
 ---
 
-## 4. Commit nguyên tử & sạch
+## 4. Atomic, clean commits
 
-- **Một thay đổi logic một commit.** Không gộp tính năng, refactor lớn, và
-  sửa bug vào một commit khổng lồ.
-- **Không bao giờ commit:**
-  - file rác/tạm, script test dùng một lần, thư mục scratch;
-  - log debug còn sót, code chết đã comment, mock tạm;
-  - môi trường ảo, file database, artifact build.
-- **Không lazy import**, **không magic number** trong code được commit — xem
+- **One logical change per commit.** Don't bundle a feature, a large refactor
+  and a bug fix into one enormous commit.
+- **Never commit:**
+  - scratch/temporary files, one-off test scripts, scratch directories;
+  - leftover debug logging, commented-out dead code, temporary mocks;
+  - virtual environments, database files, build artifacts.
+- **No lazy imports**, **no magic numbers** in committed code — see
   [`code-quality-rule.md`](code-quality-rule.md).
 
 ---
 
-## 5. Commit sửa bug
+## 5. Bug-fix commits
 
-Quy trình đầy đủ ở [`bug-fix-rule.md`](bug-fix-rule.md). Hai điều bắt buộc ở
-mức commit:
+The full workflow is in [`bug-fix-rule.md`](bug-fix-rule.md). Two things are
+mandatory at commit level:
 
-- Commit sửa bug **PHẢI chứa regression test** — không bao giờ sửa mà không
-  kèm test, không bao giờ tách test ra một commit sau.
-- **Nêu rõ root cause trong thân commit:** cái gì gây ra bug, và vì sao bản sửa
-  này giải quyết nó một cách sạch sẽ.
+- A bug-fix commit **MUST contain the regression test** — never fix without it,
+  never split the test into a later commit.
+- **State the root cause in the commit body:** what caused the bug, and why this
+  fix resolves it cleanly.
 
 ---
 
-## 6. Nhánh cũ & giải quyết conflict
+## 6. Stale branches & conflict resolution
 
-Trước khi resolve/merge một nhánh (nhất là nhánh do tự động sinh ra):
+Before resolving or merging a branch (especially an automatically generated
+one):
 
-1. **Kiểm giá trị:** thay đổi của nhánh còn liên quan không, hay đã được merge
-   rồi? Bỏ qua nhánh cũ, trùng, hoặc 0 giá trị.
-2. **Resolve cẩn thận:** không tái nhập lại pattern lỗi thời hay dòng trùng lặp
-   theo marker conflict.
-3. **Verify:** luôn chạy `<CI_CMD>` **trên trạng thái đã merge** trước khi
-   push.
+1. **Value check:** is the branch's change still relevant, or already merged?
+   Discard stale, duplicate or zero-value branches.
+2. **Resolve carefully:** don't reintroduce outdated patterns or duplicated
+   lines while following conflict markers.
+3. **Verify:** always run `<CI_CMD>` **on the merged state** before pushing.

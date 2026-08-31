@@ -1,68 +1,69 @@
 ---
 name: Design Intent Rule
-description: Cái gì hoãn lại hoặc là một cái giá đã chấp nhận trả thì phải có type/test đại diện trong code — không được chỉ nằm trong tài liệu; và class là một hợp đồng, không phải một cục code.
+description: Deferred work and accepted trade-offs must exist in the code as a type or a test — never in documentation alone; and a class is a contract, not a lump of implementation.
 trigger: always_on
 ---
 
-# CODE PHẢI TỰ NÓI LÊN CHÍNH NÓ
+# CODE MUST SPEAK FOR ITSELF
 
-> **Nếu một thứ sẽ được phát triển sau, hoặc là một cái giá đã chấp nhận trả,
-> thì trong code phải có một interface / kiểu dữ liệu / test đại diện cho nó.
-> Không được để nó chỉ nằm trong tài liệu.**
+> **If something is to be built later, or is a price you have deliberately
+> accepted, the code must contain an interface / type / test standing for it.
+> It may not live only in documentation.**
 
-Lý do: tài liệu là thứ agent phải **đi tìm mới thấy**; kiểu dữ liệu là thứ
-**đập vào mắt khi đọc code**. Một quyết định chỉ ghi trong `.agents/` hoặc
-trong task file thì lần sau người khác sẽ làm sai — không phải vì họ ẩu, mà vì
-code không hề gợi ý gì cả.
+The reason: documentation is something an agent must **go looking for**; a type
+is something that **hits them in the face while reading the code**. A decision
+recorded only in `.agents/` or in a task file will be violated next time — not
+out of carelessness, but because the code gave no hint at all.
 
-> **Bằng chứng thật:** một task đặt chỉ tiêu "xoá 48 signal cầu nối" ([`event-rule.md`](event-rule.md) §3).
-> Người viết nó **có đủ** rule trong tay. Vẫn đặt sai, vì chỗ khai báo signal
-> trong code **không nói một chữ nào** về việc chúng là cầu nối thread và xoá
-> đi thì hỏng gì. Luật đúng mà code câm thì luật vô dụng.
+> **Real evidence:** a task set the target "delete 48 bridge signals"
+> ([`event-rule.md`](event-rule.md) §3). Whoever wrote it **had all the rules
+> available**. They still got it wrong, because the place those signals were
+> declared **said nothing** about being thread bridges or about what breaks if
+> they go. A correct rule with mute code is a useless rule.
 
-## 1 Hai dạng, hai cách thể hiện
+## 1. Two shapes, two ways of expressing them
 
-| Dạng | Bắt buộc phải có trong code |
+| Shape | What the code must contain |
 | :--- | :--- |
-| **Sẽ phát triển sau** (điểm mở rộng đã biết) | Một **type/interface/base class** đóng vai điểm hạ cánh, kèm docstring ghi công thức mở rộng. Agent sau `grep` ra được và bắt chước được |
-| **Cái giá đã chấp nhận trả** (đánh đổi có chủ đích) | Một **test khoá hành vi hiện tại** + docstring nói rõ mất gì, vì sao chấp nhận, điều kiện khôi phục. Không phải chỉ một dòng ghi chú |
+| **To be built later** (a known extension point) | A **type/interface/base class** acting as the landing site, with a docstring stating the extension recipe. The next agent can `grep` for it and imitate it |
+| **A price deliberately accepted** (an intentional trade-off) | A **test locking the current behaviour**, plus a docstring stating what was lost, why it was accepted, and under what conditions it would be restored. Not merely a note |
 
-> **Bằng chứng thật (đánh đổi):** một thay đổi phải bỏ tính bất biến của mấy
-> kiểu dữ liệu để kế thừa được base class dùng chung. Cách xử lý đúng: **không
-> xoá test bất biến — đổi nó thành test khoá hành vi mới**, kèm lý do và điều
-> kiện khôi phục. Mất mát nằm trong test suite, không nằm trong một dòng ghi
-> chú ai cũng lướt qua.
+> **Real evidence (trade-off):** a change had to drop immutability on several
+> types in order to inherit a shared base class. The correct handling: **don't
+> delete the immutability test — turn it into a test locking the new
+> behaviour**, with the reason and the restoration condition. The loss lives in
+> the test suite, not in a note everyone scrolls past.
 
-## 2 Luôn khuyến khích abstraction — class là một **hợp đồng**
+## 2. Always favour abstraction — a class is a **contract**
 
-Khi viết một class, **đánh giá khả năng mở rộng và API của nó trước**, rồi mới
-viết thân. Mặc định là **có abstraction**: class phải là một **hợp đồng** với
-các class khác, không phải một khối implementation mà nơi khác phải biết ruột
-gan mới dùng được.
+When writing a class, **evaluate its extensibility and its API first**, then
+write the body. The default is **to have an abstraction**: a class must be a
+**contract** with other classes, not a block of implementation whose innards
+callers must know to use it.
 
-Khi thêm một class mới, hỏi theo thứ tự:
+When adding a new class, ask in this order:
 
-1. **Ai sẽ gọi nó, và họ cần thấy gì?** Đó chính là API — thiết kế trước,
-   không phải rút ra sau khi đã viết xong thân hàm.
-2. **Chỗ nào có khả năng mở rộng?** (đổi backend, đổi nguồn dữ liệu, thêm biến
-   thể). Chỗ đó phải là một interface, để người sau thay được mà không phải
-   sửa consumer.
-3. **Consumer có buộc phải biết chi tiết bên trong không?** Có → hợp đồng chưa
-   đủ, siết lại.
+1. **Who will call it, and what do they need to see?** That is the API — design
+   it first, don't extract it after the body is written.
+2. **Where is extension likely?** (swapping a backend, a data source, adding a
+   variant). That point must be an interface, so the next person can replace it
+   without editing consumers.
+3. **Must the consumer know internal details?** If so the contract is
+   insufficient — tighten it.
 
-Abstraction ở đây **không** có nghĩa "đẻ thêm lớp trung gian cho có". Nó có
-nghĩa: **bề mặt công khai của class phải là thứ người khác lập trình vào
-được**.
+Abstraction here does **not** mean "add an intermediate layer for its own sake".
+It means: **a class's public surface must be something other people can program
+against**.
 
-> **Bài học ngược, vẫn còn giá trị:** 4 stub class từng được sinh ra từ suy
-> đoán, 0 instance thật. Chúng sai **không** phải vì thiếu abstraction, mà vì
-> **đoán sai hình dạng** của thứ chưa tồn tại. Khuyến khích abstraction là
-> khuyến khích **thiết kế API cho cái đang viết**, không phải khuyến khích
-> đoán trước cái chưa ai cần.
+> **The counter-lesson, still valid:** 4 stub classes were once generated from
+> speculation, with 0 real instances. They were wrong **not** for lacking
+> abstraction, but for **guessing the shape** of something that did not yet
+> exist. Favouring abstraction means **designing the API of what you are
+> writing**, not guessing at what nobody needs yet.
 
-## 3 Không được lách bằng docstring
+## 3. No escaping via docstrings
 
-Docstring/comment là **bổ sung**, không phải thay thế. Comment giải thích *vì
-sao*; type và test mới là thứ **buộc** người sau đi đúng đường, và là thứ **vỡ
-ra** khi thực tế đổi. Một quyết định chỉ sống trong prose thì không có gì phát
-hiện khi nó hết đúng.
+Docstrings and comments are **additive**, not a substitute. A comment explains
+*why*; a type and a test are what **force** the next person down the right path,
+and what **breaks** when reality changes. A decision that lives only in prose
+has nothing to detect it when it stops being true.

@@ -1,6 +1,6 @@
 ---
 name: Code Quality Rule
-description: Typing, readability, immutability/pure function, và các quy tắc chất lượng cứng — no magic number, no nested loop, no God object, no lazy import, Single-Scope Cohesion.
+description: Typing, readability, immutability/pure functions, and the hard quality rules — no magic numbers, no nested loops, no God objects, no lazy imports, Single-Scope Cohesion.
 trigger: on_file_change
 patterns:
   - <SRC_DIR>/**
@@ -9,111 +9,114 @@ patterns:
 
 # CODE QUALITY RULES
 
-Áp cho mọi file mã nguồn trong `<SRC_DIR>` và `scripts/`.
+Applies to every source file under `<SRC_DIR>` and `scripts/`.
 
-Quyết định **kiến trúc** (interface nằm đâu, file nào thuộc tầng nào, tách file
-theo abstraction level) không nằm ở đây — xem
+**Architectural** decisions (where an interface lives, which layer a file
+belongs to, splitting by abstraction level) are not here — see
 [`architecture-rule.md`](architecture-rule.md).
 
 ---
 
-## 1. Typing chặt
+## 1. Strong typing
 
-- Annotation tường minh cho **mọi** chữ ký hàm: tham số, giá trị trả về, thuộc
-  tính của class.
-- **Tránh tuyệt đối kiểu "bất kỳ"** (`Any`, `object`, `any`, `interface{}`).
-  Cần linh hoạt thì dùng union, optional, generic, type variable.
-- Dùng **kiểu có cấu trúc** (dataclass/struct/record, ưu tiên bất biến; hoặc
-  model có validate) thay cho dict/map thô và tuple vô danh. Mô hình hoá dữ
-  liệu bằng value object và enum thay vì primitive rời rạc.
+- Explicit annotations on **every** signature: parameters, return values, class
+  attributes.
+- **Avoid "any" types absolutely** (`Any`, `object`, `any`, `interface{}`).
+  Where flexibility is needed use unions, optionals, generics, type variables.
+- Use **structured types** (dataclass/struct/record, immutable where possible;
+  or a validating model) instead of raw dicts/maps and anonymous tuples. Model
+  data with value objects and enums rather than loose primitives.
 
-## 2. Readability hơn brevity
+## 2. Readability over brevity
 
-- Theo style guide của ngôn ngữ. Ưu tiên code tường minh, tự giải thích, hơn
-  one-liner ngắn.
-- **Không** dùng comprehension lồng nhau phức tạp hay lambda nhiều dòng khi một
-  vòng lặp rõ ràng hoặc một hàm phụ có tên dễ đọc hơn. Không dùng lambda cho
-  callback không tầm thường.
-- Hàm nhỏ, tập trung, một mục đích. Tên biến tường minh, mô tả được.
+- Follow the language's style guide. Prefer explicit, self-documenting code
+  over a short one-liner.
+- Do **not** use complex nested comprehensions or multi-line lambdas where a
+  clear loop or a named helper reads better. No lambdas for non-trivial
+  callbacks.
+- Keep functions small, focused, single-purpose. Use descriptive names.
 
-## 3. Immutability & pure function
+## 3. Immutability & pure functions
 
-- Hướng tới hàm thuần: chỉ phụ thuộc tham số truyền vào, trả về giá trị xác
-  định.
-- **Không bao giờ mutate tham số truyền vào tại chỗ.** Trả về instance mới
-  hoặc bản copy đã sửa.
-- **Tuyệt đối tránh mutable default argument** (kinh điển:
+- Aim for pure functions: depending only on their arguments, returning
+  deterministic values.
+- **Never mutate a passed argument in place.** Return a new instance or a
+  modified copy.
+- **Strictly avoid mutable default arguments** (the classic
   `def f(items=[]):`).
-- Cô lập side effect (I/O, DB, network) vào đúng class adapter/boundary.
+- Isolate side effects (I/O, DB, network) inside dedicated adapter/boundary
+  classes.
 
-## 4. Bốn luật cứng
+## 4. Four hard rules
 
-- **No magic number & named constant.** Không dùng số hay chuỗi thô trong
-  code. Khai báo tập trung thành hằng số có tên hoặc key cấu hình. Tham số của
-  thuật toán/chiến lược phải khai báo qua schema tham số, không rải rác.
-- **No nested loop.** Tránh lồng sâu vòng lặp. Rút logic bên trong thành hàm
-  phụ để giảm độ phức tạp chu trình và tăng khả năng test.
-- **No God object.** Không tạo class/module khổng lồ biết quá nhiều hoặc làm
-  quá nhiều. Uỷ quyền (parse CLI, bootstrap, xử lý event) sang module riêng.
-- **Abstract low-level logic.** Không viết thao tác hệ điều hành / hệ file
-  chi tiết thẳng trong tầng application hay composition root. Rút ra utility.
+- **No magic numbers, use named constants.** No raw numbers or strings in code.
+  Declare them centrally as named constants or configuration keys. Algorithm and
+  strategy parameters must be declared through a parameter schema, not scattered.
+- **No nested loops.** Avoid deeply nested loops. Extract the inner logic into a
+  helper to reduce cyclomatic complexity and improve testability.
+- **No God objects.** No huge class/module that knows or does too much. Delegate
+  (CLI parsing, bootstrapping, event handling) into dedicated modules.
+- **Abstract low-level logic.** Don't write detailed OS/filesystem operations
+  directly in the application or composition-root layers. Extract them into
+  utilities.
 
-## 5. No function-local / lazy import
+## 5. No function-local / lazy imports
 
-**Mọi** import phải khai ở đầu file. Không đặt import bên trong hàm, method,
-callback, test case, hay scope lồng nhau. (Ngoại lệ duy nhất: guard chỉ dành
-cho type checker, vẫn đặt ở top level.)
+**Every** import is declared at the top of the file. No imports inside
+functions, methods, callbacks, test cases, or nested scopes. (The only
+exception: a type-checker-only guard, still at top level.)
 
-Lazy import che giấu phụ thuộc vòng thay vì sửa nó, và làm chi phí import
-xuất hiện ngẫu nhiên giữa runtime.
+Lazy imports hide a circular dependency instead of fixing it, and make import
+cost appear at random points during runtime.
 
 ## 6. Single-Scope Cohesion & colocation
 
-Các thành phần **gắn chặt** cùng mô tả **một** vòng đời, một state machine,
-hay một cấu hình feature PHẢI ở cùng một file/scope — ví dụ điển hình: enum
-State + enum Event + ma trận chuyển trạng thái + ánh xạ UI mode của **cùng
-một** FSM.
+Tightly coupled components describing **one** lifecycle, one state machine, or
+one feature configuration MUST live in the same file/scope — the canonical
+example: the State enum + Event enum + transition matrix + UI-mode mapping of
+**the same** FSM.
 
-**Không** rải các định nghĩa gắn chặt ra nhiều file, khiến việc hiểu hay sửa
-một vòng đời phải nhảy qua 4-5 module rời rạc. Enum, schema, bảng chuyển
-trạng thái, hằng số thuộc **một** khái niệm phải sống cùng nhau như một
-single source of truth.
+Do **not** fragment tightly coupled definitions across files, so that
+understanding or changing a single lifecycle requires jumping through 4-5
+distant modules. Enums, schemas, transition tables and constants belonging to
+**one** concept must live together as a single source of truth.
 
-> **Đối trọng trực tiếp: Abstraction-Level Separation**
-> ([`architecture-rule.md`](architecture-rule.md) §5) — "khác abstraction
-> level thì không chung file, không chung thư mục", cộng ngưỡng buộc tách
-> **>400 dòng/file** và **>15 method công khai/lớp**. Đọc **cả hai** khi lưỡng
-> lự. Phân xử nhanh: *đổi A có bắt buộc phải sửa B không?* Có → chung file;
-> không → tách.
-
----
-
-## 7. Đổi một thứ DÙNG CHUNG: rẽ nhánh bảo toàn hành vi cũ
-
-Hai lớp lỗi này chỉ xuất hiện khi sửa thứ đã có nhiều nơi dùng — và cả hai đều
-làm vỡ code **không liên quan** tới thay đổi của bạn.
-
-- **Thêm field vào một kiểu dữ liệu dùng chung (nhất là kiểu bất biến) thì
-  field mới LUÔN phải có giá trị mặc định.** Một kiểu dùng chung thường có hàng
-  trăm chỗ dựng trực tiếp trong test; thiếu default là vỡ toàn bộ chúng cùng
-  lúc, dù không có gì sai về mặt nghiệp vụ.
-- **Đổi một công thức/luật dùng chung thì giữ NGUYÊN SI nhánh cũ cho trường
-  hợp cũ**, chỉ dùng công thức mới khi thật sự rơi vào trường hợp mới.
-
-  > **Bằng chứng thật:** một thay đổi thêm hệ số nhân vào một phép tính; công
-  > thức cũ **sai hoàn toàn** khi hệ số khác 1, nhưng vẫn đúng cho mọi dữ liệu
-  > cũ. Cách xử lý đúng là rẽ nhánh theo hệ số — **bằng chứng là 47 test cũ
-  > pass mà không sửa một dòng nào.** Nếu bản sửa của bạn phải đi sửa test cũ,
-  > hãy dừng lại và hỏi: mình đang sửa một bug, hay đang đổi hành vi đã hứa?
+> **Its direct counterweight: abstraction-level separation**
+> ([`architecture-rule.md`](architecture-rule.md) §5) — "different abstraction
+> levels don't share a file or a directory", plus the mandatory split
+> thresholds of **>400 lines per file** and **>15 public methods per class**.
+> Read **both** when torn. Quick arbitration: *does changing A force me to edit
+> B?* Yes → same file; no → split.
 
 ---
 
-## Phụ lục — ví dụ theo stack *(thay theo ngôn ngữ của bạn)*
+## 7. Changing something SHARED: branch to preserve old behaviour
 
-| Luật | Python | TypeScript |
+These two failure classes only appear when editing something with many existing
+callers — and both break code **unrelated** to your change.
+
+- **Adding a field to a shared type (especially an immutable one) means the new
+  field ALWAYS needs a default value.** A shared type typically has hundreds of
+  direct construction sites in tests; a missing default breaks all of them at
+  once, with nothing actually wrong at the business level.
+- **Changing a shared formula or rule means keeping the old branch VERBATIM for
+  the old case**, and using the new formula only when genuinely in the new case.
+
+  > **Real evidence:** a change added a multiplier to a calculation; the old
+  > formula was **completely wrong** whenever the multiplier differed from 1,
+  > yet remained correct for all existing data. The correct handling was to
+  > branch on the multiplier — **the proof being that 47 existing tests passed
+  > without a single line changed.** If your fix requires editing old tests,
+  > stop and ask: am I fixing a bug, or changing behaviour that was promised?
+
+---
+
+## Appendix — examples per stack *(swap for your language)*
+
+| Rule | Python | TypeScript |
 | :--- | :--- | :--- |
-| Kiểu có cấu trúc | `@dataclass(frozen=True)`, Pydantic model | `interface` / `type`, `readonly`, zod schema |
-| Tránh kiểu "bất kỳ" | cấm `Any`; dùng `Union`/`Optional`/`TypeVar` | `noImplicitAny`, cấm `any`; dùng generic, union |
-| Bất biến | `frozen=True`, `tuple`, `MappingProxyType` | `readonly`, `as const`, `Object.freeze` |
-| Guard cho type checker | `if TYPE_CHECKING:` | `import type { ... }` |
-| Lint/format read-only | `ruff check` / `ruff format --check` | `eslint` / `prettier --check` |
+| Structured types | `@dataclass(frozen=True)`, Pydantic models | `interface` / `type`, `readonly`, zod schemas |
+| Avoiding "any" | ban `Any`; use `Union`/`Optional`/`TypeVar` | `noImplicitAny`, ban `any`; use generics, unions |
+| Immutability | `frozen=True`, `tuple`, `MappingProxyType` | `readonly`, `as const`, `Object.freeze` |
+| Type-checker-only guard | `if TYPE_CHECKING:` | `import type { ... }` |
+| Read-only lint/format | `ruff check` / `ruff format --check` | `eslint` / `prettier --check` |
