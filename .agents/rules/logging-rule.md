@@ -76,6 +76,15 @@ không đọc nổi và tự đánh bại chính nó. Hãy log:
 - **một dòng tóm tắt khi kết thúc**, mang theo số đếm, giá trị tệ nhất đo
   được, và trạng thái cuối.
 
+> **Log không miễn phí — đây là chi phí, không phải chỉ là nhiễu.** Nếu có
+> handler đẩy log về UI thread (log viewer, status bar), **mỗi dòng** chạy trọn
+> một chu kỳ cập nhật model xuyên thread. Bằng chứng thật: log ở mức INFO cho
+> **mỗi** thao tác khớp lệnh → **5.028 dòng trong 2 giây** → UI đơ cứng, đơ
+> **tuyến tính theo số thao tác**. Handler bắt ở logger **gốc**, nên việc dòng
+> log đó nằm ở màn hình nào **không quan trọng**. Trong một vòng lặp chạy nhiều
+> lần (mỗi bản ghi, mỗi bước, mỗi tick): hạ mức log, hoặc gộp/throttle trước
+> khi log.
+
 Đặt **con số người đọc hành động được** vào dòng tóm tắt: kích thước theo pixel
 **cũng như** theo phần trăm, thời gian đã trôi qua, và một giá trị cách ngưỡng
 của nó bao xa. *(Báo cáo chỉ bằng `%` đã che một dải trắng 333px sau con số

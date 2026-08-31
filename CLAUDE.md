@@ -24,6 +24,8 @@ một dòng trỏ.
 | Phiên trước dừng ở đâu | [`.agents/Handover.md`](.agents/Handover.md) |
 | Tìm luật theo chủ đề | [`.agents/AGENTS.md`](.agents/AGENTS.md) |
 | Kiến trúc: tầng, interface, hợp đồng tường minh, tách theo abstraction level, đặt chỗ event | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
+| Signal nội bộ hay Event Bus | [`.agents/rules/event-rule.md`](.agents/rules/event-rule.md) |
+| Hoãn một việc / chấp nhận đánh đổi → phải có type hoặc test đại diện | [`.agents/rules/design-intent-rule.md`](.agents/rules/design-intent-rule.md) |
 | Chất lượng code: typing, magic number, cohesion, lazy import | [`.agents/rules/code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
 | Trước khi tuyên bố "xong" bất cứ thứ gì | [`.agents/rules/ci-rule.md`](.agents/rules/ci-rule.md) |
 | Trước mọi commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |

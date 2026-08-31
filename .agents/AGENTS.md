@@ -20,6 +20,8 @@ rule gốc, ở đây chỉ thêm một dòng trỏ.
 | :--- | :--- |
 | SOLID, tầng kiến trúc, Port/interface, hợp đồng tường minh, use case, tách file theo abstraction level, đặt chỗ event | [`rules/architecture-rule.md`](rules/architecture-rule.md) |
 | Typing, readability, immutability, magic number, God object, lazy import, cohesion | [`rules/code-quality-rule.md`](rules/code-quality-rule.md) |
+| Signal nội bộ hay Event Bus — ai sở hữu sự thật này | [`rules/event-rule.md`](rules/event-rule.md) |
+| Hoãn một việc / chấp nhận một đánh đổi → phải có type hoặc test đại diện | [`rules/design-intent-rule.md`](rules/design-intent-rule.md) |
 | Sở hữu tác vụ nền, stale callback, cancellation, Coordinator | [`rules/async-action-rule.md`](rules/async-action-rule.md) |
 | Dữ liệu trung thực, ngữ nghĩa nghiệp vụ, snapshot, benchmark | [`rules/domain-truth-rule.md`](rules/domain-truth-rule.md) |
 | Tầng presentation: view thuần khai báo, responsive, icon, injection defense, preview | [`rules/ui-rule.md`](rules/ui-rule.md) |

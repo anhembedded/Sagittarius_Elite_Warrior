@@ -23,18 +23,25 @@ mô tả những phần quy trình không được viết ở đâu khác.
 | 1 | `.agents/ONBOARDING.md` (file này) | Luôn luôn, đầu tiên |
 | 2 | `.agents/Handover.md` | **Ngay sau file này** — phiên trước dừng ở đâu, quyết định nào đừng suy luận lại |
 | 3 | `.agents/AGENTS.md` | Chỉ để điều hướng — bảng chủ đề → file rule |
-| 4 | `rules/code-quality-rule.md` | Mọi thay đổi code trong `<SRC_DIR>` |
-| 5 | `rules/architecture-rule.md` | Khi đụng kiến trúc: interface/Port, tầng, tách file |
-| 6 | `rules/ci-rule.md` | Trước khi tuyên bố "xong" bất cứ thứ gì |
-| 7 | `rules/commit-rule.md` | Trước mọi commit |
-| 8 | `rules/bug-fix-rule.md` | **Bắt buộc** khi user báo bug |
-| 9 | `rules/logging-rule.md` | Khi thêm/sửa log, và trong mọi bug fix |
-| 10 | `rules/testing-rule.md` | Khi viết test (cách *chạy* ở `ci-rule.md`) |
-| 11 | `rules/async-action-rule.md` | Khi có tác vụ nền do user khởi tạo |
-| 12 | `rules/domain-truth-rule.md` | Khi đụng logic nghiệp vụ |
-| 13 | `rules/ui-rule.md` | Khi đụng tầng presentation |
-| — | `rules/environment-rule.md` | Khi thiếu công cụ để chạy verification |
-| — | `<TASKS_DIR>` | Hệ thống đang ở đâu, task nào tồn tại, bug nào đang mở |
+
+Rồi mở **đúng 1-2 file** trong `rules/` theo việc đang làm — không nạp cả bộ:
+
+| Đang làm gì | Đọc |
+| :--- | :--- |
+| Sửa code bất kỳ | `code-quality-rule.md` |
+| Đụng kiến trúc: interface, tầng, tách file | `architecture-rule.md` |
+| Phân vân signal nội bộ hay event bus | `event-rule.md` |
+| Hoãn một việc, hoặc chấp nhận một đánh đổi | `design-intent-rule.md` |
+| Sắp nói "xong" | `ci-rule.md` |
+| Sắp commit | `commit-rule.md` |
+| User báo bug (**bắt buộc**) | `bug-fix-rule.md` |
+| Thêm/sửa log | `logging-rule.md` |
+| Viết test | `testing-rule.md` |
+| Tác vụ nền do user khởi tạo | `async-action-rule.md` |
+| Logic nghiệp vụ | `domain-truth-rule.md` |
+| Tầng presentation | `ui-rule.md` |
+| Thiếu công cụ để verify | `environment-rule.md` |
+| Cần biết hệ thống đang ở đâu | `<TASKS_DIR>` |
 
 **Đừng tin con số nào viết trong tài liệu** (số file rule, số test, số lỗi
 lint). Chúng trôi nhanh hơn mọi thứ khác. Ở repo gốc của bộ rule này, câu "có
@@ -148,7 +155,9 @@ grep -nE "FAILED|ERROR|Traceback|WARNING" /tmp/ci.log
   `ResourceWarning: unclosed database`, tái hiện 2/2 lần chứ không hề flaky.
   Cả hai chỉ lộ ra vì có file log đầy đủ để đọc lại.
 
-Áp cho **mọi** lệnh verification, kể cả chính lệnh gate.
+Áp cho **mọi** lệnh verification, kể cả chính lệnh gate. Mục này nói về việc
+**bạn** gõ một lệnh bằng tay; việc **script gate phải tự** ghi log và tự quét
+nó là một luật riêng — `rules/ci-rule.md` §5.
 
 ### 5.2 Chỉ sửa lint trong file bạn đang sửa
 
@@ -184,44 +193,28 @@ Muốn dọn toàn repo thì làm một commit `style:` riêng, sau khi hỏi us
 
 ## 7. Chín cái bẫy đã thật sự tạo ra code lỗi
 
-Tất cả đều đã xảy ra thật, không phải giả định.
+Tất cả đều đã xảy ra thật, không phải giả định. **Mỗi cái có đúng một chủ sở
+hữu** trong `rules/` — mô tả đầy đủ và bằng chứng nằm ở đó, không chép lại ở
+đây. Bảng này chỉ để bạn nhận ra mình đang đứng trước cái bẫy nào.
 
-1. **Tự tính giá trị kỳ vọng của test bằng đầu thay vì chạy code thật.** Một
-   chuỗi số hằng số *về mặt toán học* vẫn khiến hàm độ lệch chuẩn trả ~1e-16
-   chứ không phải `0.0` — đủ để một tỷ số phái sinh bung ra 10¹⁵. Chạy code
-   thật rồi mới chốt số kỳ vọng.
-2. **So sánh float bằng `== 0` hoặc `if value:`.** Dùng so sánh có dung sai.
-   Xem bẫy 1 để biết hậu quả.
-3. **Assert số lượng bằng hằng số cứng** (`len(items) == 9`). Task sau thêm 1
-   phần tử là test vỡ dù không có gì sai. Assert theo *thứ có ý nghĩa* (có
-   mặt / không có mặt, thứ tự tương đối), không theo số đếm.
-4. **Assert bằng full-dict equality** trên output serialize. Một phiên khác
-   thêm field hợp lệ là test vỡ. Assert đúng subset mà test thật sự quan tâm.
-5. **Thêm field vào struct/dataclass đã đóng băng mà không đặt default.** Kiểu
-   dữ liệu dùng chung có hàng trăm call site dựng trực tiếp trong test. Field
-   mới **luôn** phải có giá trị mặc định.
-6. **Đổi công thức dùng chung mà không rẽ nhánh bảo toàn hành vi cũ.** Cách
-   xử lý đúng: giữ **nguyên si** nhánh cũ cho trường hợp cũ, chỉ dùng công
-   thức mới khi thật sự rơi vào trường hợp mới — bằng chứng là toàn bộ test cũ
-   pass mà không sửa một dòng nào.
-7. **Chuyển state machine sang đúng state nó đang đứng.** Ma trận FSM thường
-   không có cạnh tự thân nên sẽ ném lỗi; nếu decorator bắt lỗi nuốt nó thì app
-   không chết nhưng handler **chết giữa chừng** — mọi dòng phía sau không
-   chạy. Hệ quả chung: **đừng đặt việc quan trọng sau một lời gọi có thể ném
-   lỗi** trong một handler có decorator nuốt exception.
-8. **Thêm log vào một vòng lặp nóng.** Log **không** miễn phí: nếu có handler
-   đẩy log về UI thread, mỗi dòng chạy trọn một chu kỳ cập nhật model. Một lần
-   thật: log mỗi giao dịch khớp → 5.028 dòng trong 2 giây → UI đơ cứng, đơ
-   tuyến tính theo số giao dịch. Trong vòng lặp chạy nhiều lần thì hạ mức log,
-   hoặc gộp/throttle trước khi log.
-9. **Thêm method mới vào một interface rồi chỉ cập nhật implementer "chính".**
-   Linter không bắt được — kiểm một class có implement đủ interface không là
-   việc của type checker. Một script probe bị bỏ quên đã crash ngay lúc khởi
-   tạo khi interface đổi. Khi đổi một interface, `grep` implementer ở **cả
-   `<SRC_DIR>`, `scripts/`, VÀ `<TEST_DIR>`** — bỏ sót `scripts/` chính là
-   lỗi đã để lọt một defect y hệt lần thứ hai.
+| # | Bẫy | Luật sở hữu nó |
+| :-: | :--- | :--- |
+| 1 | Tự tính giá trị kỳ vọng của test bằng đầu thay vì chạy code thật | `testing-rule.md` §4 |
+| 2 | So sánh float bằng `==` / `if value:` | `testing-rule.md` §6 |
+| 3 | Assert số lượng bằng hằng số cứng (`len(x) == 9`) | `testing-rule.md` §6 |
+| 4 | Assert full-object equality trên output serialize | `testing-rule.md` §6 |
+| 5 | Thêm field vào kiểu dùng chung mà không đặt default | `code-quality-rule.md` §7 |
+| 6 | Đổi công thức dùng chung mà không rẽ nhánh giữ hành vi cũ | `code-quality-rule.md` §7 |
+| 7 | Chuyển FSM sang đúng state nó đang đứng; và việc quan trọng đặt sau một lời gọi có thể ném lỗi trong handler nuốt exception | `async-action-rule.md` §3 |
+| 8 | Thêm log vào một vòng lặp nóng | `logging-rule.md` §4 |
+| 9 | Thêm method vào interface rồi chỉ cập nhật implementer "chính" | `architecture-rule.md` §2 |
 
----
+Hai cái không có chủ sở hữu ở `rules/` vì chúng là **thói quen làm việc**, không
+phải luật về code — nên chúng ở đây:
+
+- **Đọc bằng chứng bằng công cụ thật.** User dán log/ảnh vào chat thì mở chúng
+  ra đọc trước khi đưa giả thuyết (§3).
+- **A/B trước khi nhận lỗi về mình** khi gate đỏ ở chỗ bạn không đụng (§10.4).
 
 ## 8. Ngôn ngữ
 
@@ -284,3 +277,26 @@ git stash pop       # chạy lại → so sánh
 
 Mất hai phút, và đó là khác biệt giữa một regression thật với một giờ đuổi
 theo môi trường.
+
+---
+
+## 11. Checklist trước khi nói "xong"
+
+Không phải bản tóm tắt của các rule — là thứ tự **kiểm** lại. Mỗi dòng trỏ về
+nơi định nghĩa nó; nghi ngờ dòng nào thì mở file đó, đừng suy đoán.
+
+- [ ] Gate đầy đủ `<CI_CMD>` exit `0` — **lint + format + type check + test +
+      coverage**, không phải chỉ test (`ci-rule.md` §1)
+- [ ] Đã **ghi log ra file và quét** nó; mọi hit WARNING/ERROR/CRITICAL đều đã
+      được phân loại là defect thật hoặc điều kiện kỳ vọng có lý do
+      (`ci-rule.md` §5)
+- [ ] Bằng chứng test nằm ở **đúng tầng** — và nếu là mảnh chưa nối vào app
+      thật thì đừng khai là E2E (`ci-rule.md` §4)
+- [ ] Nếu là bug: regression test đã **đỏ trước, xanh sau**, và ở lại vĩnh viễn
+      (`bug-fix-rule.md` §3-4)
+- [ ] Nếu đổi interface: đã `grep` implementer ở **cả** `<SRC_DIR>`,
+      `scripts/`, `<TEST_DIR>` (`architecture-rule.md` §2)
+- [ ] Nếu hoãn một việc hoặc chấp nhận một đánh đổi: đã có **type hoặc test**
+      đại diện, không chỉ một đoạn văn (`design-intent-rule.md`)
+- [ ] Bookkeeping đã cập nhật **cả ba chỗ**, số đếm tính bằng lệnh (§4)
+- [ ] Không commit/push nếu user chưa yêu cầu (§6)

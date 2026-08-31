@@ -68,3 +68,24 @@ Controller sở hữu màn hình vẫn giữ FSM, giữ việc nối dây signal
 hệ thống, và giữ tiếng nói cuối cùng về state hiển thị. Coordinator **làm
 việc và báo cáo lại qua nó** — không trở thành các mini-controller song song
 với ý kiến riêng về UI mode.
+
+---
+
+## 3. FSM và decorator nuốt exception — hai cái bẫy đi cùng nhau
+
+- **Đừng chuyển state machine sang đúng state nó đang đứng.** Ma trận chuyển
+  trạng thái thường không khai cạnh tự thân, nên lời gọi đó **ném lỗi**.
+- **Hệ quả nguy hiểm hơn nằm ở decorator bắt lỗi** (`@safe_ui_action` hoặc
+  tương đương) mà nhiều codebase bọc quanh handler UI: app **không chết**,
+  nhưng handler **chết giữa chừng** — mọi dòng phía sau lời gọi đó **không bao
+  giờ chạy**, và không có gì nổi lên bề mặt.
+
+Hai luật rút ra:
+
+1. **Không đặt việc quan trọng (refresh dữ liệu, phát tín hiệu hoàn tất) SAU
+   một lời gọi có thể ném lỗi** trong một handler được bọc bởi decorator nuốt
+   exception.
+2. **Một worker nền chưa từng khoá UI thì không được phát tín hiệu mở khoá.**
+   Tín hiệu mở khoá không tương ứng với một lần khoá là một chuyển trạng thái
+   không hợp lệ đang chờ xảy ra.
+

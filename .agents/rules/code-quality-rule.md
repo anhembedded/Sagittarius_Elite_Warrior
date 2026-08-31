@@ -88,6 +88,26 @@ single source of truth.
 
 ---
 
+## 7. Đổi một thứ DÙNG CHUNG: rẽ nhánh bảo toàn hành vi cũ
+
+Hai lớp lỗi này chỉ xuất hiện khi sửa thứ đã có nhiều nơi dùng — và cả hai đều
+làm vỡ code **không liên quan** tới thay đổi của bạn.
+
+- **Thêm field vào một kiểu dữ liệu dùng chung (nhất là kiểu bất biến) thì
+  field mới LUÔN phải có giá trị mặc định.** Một kiểu dùng chung thường có hàng
+  trăm chỗ dựng trực tiếp trong test; thiếu default là vỡ toàn bộ chúng cùng
+  lúc, dù không có gì sai về mặt nghiệp vụ.
+- **Đổi một công thức/luật dùng chung thì giữ NGUYÊN SI nhánh cũ cho trường
+  hợp cũ**, chỉ dùng công thức mới khi thật sự rơi vào trường hợp mới.
+
+  > **Bằng chứng thật:** một thay đổi thêm hệ số nhân vào một phép tính; công
+  > thức cũ **sai hoàn toàn** khi hệ số khác 1, nhưng vẫn đúng cho mọi dữ liệu
+  > cũ. Cách xử lý đúng là rẽ nhánh theo hệ số — **bằng chứng là 47 test cũ
+  > pass mà không sửa một dòng nào.** Nếu bản sửa của bạn phải đi sửa test cũ,
+  > hãy dừng lại và hỏi: mình đang sửa một bug, hay đang đổi hành vi đã hứa?
+
+---
+
 ## Phụ lục — ví dụ theo stack *(thay theo ngôn ngữ của bạn)*
 
 | Luật | Python | TypeScript |

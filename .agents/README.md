@@ -17,6 +17,8 @@ trung lập; phần *cơ chế* thì giữ nguyên.
 | [`AGENTS.md`](AGENTS.md) | Stub điều hướng: chủ đề → file rule | Khi cần tìm luật theo chủ đề |
 | [`Handover.md`](Handover.md) | Trạng thái phiên gần nhất — file **thay mới mỗi phiên** | Ngay sau `ONBOARDING.md` |
 | [`rules/architecture-rule.md`](rules/architecture-rule.md) | SOLID, tầng, Port/interface, hợp đồng tường minh, tách theo abstraction level, đặt chỗ event | Khi đụng kiến trúc |
+| [`rules/event-rule.md`](rules/event-rule.md) | Signal nội bộ hay Event Bus — quyết theo quyền sở hữu sự thật, không theo số đếm | Khi thêm một luồng thông báo |
+| [`rules/design-intent-rule.md`](rules/design-intent-rule.md) | Cái gì hoãn lại hoặc đánh đổi thì phải có type/test đại diện; class là hợp đồng | Khi hoãn việc hoặc chấp nhận đánh đổi |
 | [`rules/code-quality-rule.md`](rules/code-quality-rule.md) | Typing, readability, immutability, magic number, God object, cohesion | Mọi thay đổi code |
 | [`rules/testing-rule.md`](rules/testing-rule.md) | *Cách viết* test cho đúng | Khi viết test |
 | [`rules/ci-rule.md`](rules/ci-rule.md) | *Cách chạy* cổng verification, 4 tầng test, xử lý khi đỏ | Trước khi tuyên bố "xong" |
@@ -27,6 +29,7 @@ trung lập; phần *cơ chế* thì giữ nguyên.
 | [`rules/ui-rule.md`](rules/ui-rule.md) | Tầng presentation: view thuần khai báo, responsive, injection defense | Khi đụng UI |
 | [`rules/domain-truth-rule.md`](rules/domain-truth-rule.md) | Hệ thống không được nói dối về thứ nó đã làm | Khi đụng domain/nghiệp vụ |
 | [`rules/environment-rule.md`](rules/environment-rule.md) | Dựng môi trường là việc của agent; ranh giới cài đặt vs thêm dependency | Khi thiếu công cụ để verify |
+| [`check-agents-docs.sh`](check-agents-docs.sh) | Guard: link `.md` gãy + placeholder chưa thay | Sau khi adopt, và trong CI |
 
 Xoá thẳng file nào dự án không cần (không có UI → xoá `ui-rule.md` và
 `async-action-rule.md`). **Xoá thì phải xoá cả dòng trỏ tới nó** ở
@@ -37,8 +40,14 @@ lặng lẽ nhất: agent đọc không thấy file, tự bịa ra luật.
 
 ## 2. Placeholder phải thay trước khi dùng
 
-`grep -rn --exclude=README.md '<[A-Z_]\+>' .agents/` liệt kê hết chỗ còn phải
-thay (bảng dưới đây luôn tự khớp, nên loại nó ra). Không còn hit nào là xong.
+```sh
+sh .agents/check-agents-docs.sh
+```
+
+Nó liệt kê hết chỗ còn phải thay (bảng dưới đây luôn tự khớp nên bị loại ra) và
+kiểm luôn link `.md` gãy. **Trên bản template chưa điền, nó FAIL — đúng như
+thiết kế.** Xanh là adopt xong; lúc đó nối nó vào cổng CI của dự án
+([`rules/ci-rule.md`](rules/ci-rule.md) §1) để bộ rule không mục ruỗng về sau.
 
 | Placeholder | Nghĩa | Ví dụ |
 | :--- | :--- | :--- |
@@ -83,6 +92,6 @@ Kinh nghiệm thật từ repo gốc, giữ lại vì nó sẽ lặp lại ở r
   bao giờ tồn tại và chạy hàng tháng mà không ai biết, vì agent chạy không
   người trông vẫn báo thành công. Nếu repo có agent tự động: thêm một test
   duyệt mọi đường dẫn xuất hiện trong `.agents/` và đỏ khi có link gãy.
-- **Luật chỉ sống trong prose.** Xem `architecture-rule.md` §7: cái gì hoãn
+- **Luật chỉ sống trong prose.** Xem `design-intent-rule.md`: cái gì hoãn
   lại hoặc đánh đổi thì phải có **type hoặc test** đại diện, không chỉ một
   đoạn văn.

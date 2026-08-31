@@ -211,112 +211,15 @@ không cần xin phép.**
 
 ---
 
-## 6. Đặt chỗ event — signal nội bộ hay Event Bus?
-
-Câu hỏi **không phải** "signal hay bus". Câu hỏi đúng là: **ai sở hữu sự thật
-này?**
-
-> **Sự thật riêng của MỘT màn/module** → signal/callback nội bộ.
-> **Sự thật của HỆ THỐNG, hoặc ≥2 nơi cần** → Event Bus + đúng **một**
-> subscriber chuẩn hoá.
-
-### 6.1 Tách hai vấn đề đang hay bị gộp
-
-| | Vấn đề | Cơ chế đúng |
-| :-: | :--- | :--- |
-| **A** | Đưa dữ liệu từ thread/context nền về main thread **an toàn** | Cơ chế queued signal / marshalling của framework — **đúng theo thiết kế** |
-| **B** | **Ai được biết về ai**; một sự thật bị xử lý lặp ở nhiều nơi | Bus + đúng 1 subscriber chuẩn hoá, nhiều nơi *hiển thị* |
-
-Cơ chế ở (A) **không** phải nợ kỹ thuật, không phải workaround, và **không**
-phải thứ cần xoá. Thấy một signal bắc cầu worker → main thread thì đó là code
-**đúng**, đừng "dọn" nó. Xoá nó là đẩy cập nhật UI sang thread nền — đúng lớp
-lỗi mà cơ chế đó sinh ra để tránh.
-
-### 6.2 Phân loại — hỏi đúng một câu
-
-*"Nếu module khác cũng muốn biết chuyện này, nó có vô lý không?"*
-
-- **Vô lý** → sự thật riêng tư (`load xong`, `stream của tôi start được`).
-  Dùng signal nội bộ. Đẩy lên bus là **rò rỉ**: mọi nơi đều có thể nghe, bề
-  mặt coupling phình ra, và nhìn code không còn biết ai phụ thuộc ai.
-- **Hợp lý** → sự thật hệ thống (`health đổi`, `task nền chết`, `tiến độ
-  sync`, `log`). Lên bus, **đúng một** nơi nghe và chuẩn hoá.
-
-### 6.3 Thăng cấp khi consumer thứ hai xuất hiện THẬT — không thăng trước
-
-- **Thăng cấp muộn thì rẻ:** worker vốn đã emit *một cái gì đó*; đổi chỗ nó
-  emit tới là sửa cục bộ.
-- **Đẩy hết lên bus trước thì đắt và gần như không lùi được** — sau đó không
-  ai dám xoá subscriber nào vì không biết còn ai đang nghe.
-
-> **Bằng chứng thật:** đếm trên 3 module — **48 signal, 46 cái có đúng 1 nơi
-> nghe**; cái duy nhất fan-out đúng là sự thật hệ thống. Code đã tự phân loại
-> đúng từ trước, chỉ chưa ai đặt tên cho quy tắc. Một task từng đặt chỉ tiêu
-> "xoá 48 signal cầu nối" vì gộp nhầm (A) vào (B); đo thật thì **47/48 tồn tại
-> vì (A)**, xoá được ≈1. **Đừng đặt chỉ tiêu theo số đếm.** Sai ranh giới thì
-> con số chỉ dẫn tới việc phá code đúng.
-
 ---
 
-## 7. Code phải tự nói lên chính nó
+## 6. Hai chủ đề đã tách ra file riêng
 
-> **Nếu một thứ sẽ được phát triển sau, hoặc là một cái giá đã chấp nhận trả,
-> thì trong code phải có một interface / kiểu dữ liệu / test đại diện cho nó.
-> Không được để nó chỉ nằm trong tài liệu.**
+Chúng khác abstraction level với phần trên (đây là luật về **cấu trúc tĩnh**;
+hai file kia là luật về **luồng thông tin** và về **cách mã hoá ý định**) — nên
+theo đúng §5 của chính file này, chúng không ở chung file:
 
-Lý do: tài liệu là thứ agent phải **đi tìm mới thấy**; kiểu dữ liệu là thứ
-**đập vào mắt khi đọc code**. Một quyết định chỉ ghi trong `.agents/` hoặc
-trong task file thì lần sau người khác sẽ làm sai — không phải vì họ ẩu, mà vì
-code không hề gợi ý gì cả.
-
-> **Bằng chứng thật:** một task đặt chỉ tiêu "xoá 48 signal cầu nối" (§6.4).
-> Người viết nó **có đủ** rule trong tay. Vẫn đặt sai, vì chỗ khai báo signal
-> trong code **không nói một chữ nào** về việc chúng là cầu nối thread và xoá
-> đi thì hỏng gì. Luật đúng mà code câm thì luật vô dụng.
-
-### 7.1 Hai dạng, hai cách thể hiện
-
-| Dạng | Bắt buộc phải có trong code |
+| Câu hỏi | Đọc ở |
 | :--- | :--- |
-| **Sẽ phát triển sau** (điểm mở rộng đã biết) | Một **type/interface/base class** đóng vai điểm hạ cánh, kèm docstring ghi công thức mở rộng. Agent sau `grep` ra được và bắt chước được |
-| **Cái giá đã chấp nhận trả** (đánh đổi có chủ đích) | Một **test khoá hành vi hiện tại** + docstring nói rõ mất gì, vì sao chấp nhận, điều kiện khôi phục. Không phải chỉ một dòng ghi chú |
-
-> **Bằng chứng thật (đánh đổi):** một thay đổi phải bỏ tính bất biến của mấy
-> kiểu dữ liệu để kế thừa được base class dùng chung. Cách xử lý đúng: **không
-> xoá test bất biến — đổi nó thành test khoá hành vi mới**, kèm lý do và điều
-> kiện khôi phục. Mất mát nằm trong test suite, không nằm trong một dòng ghi
-> chú ai cũng lướt qua.
-
-### 7.2 Luôn khuyến khích abstraction — class là một **hợp đồng**
-
-Khi viết một class, **đánh giá khả năng mở rộng và API của nó trước**, rồi mới
-viết thân. Mặc định là **có abstraction**: class phải là một **hợp đồng** với
-các class khác, không phải một khối implementation mà nơi khác phải biết ruột
-gan mới dùng được.
-
-Khi thêm một class mới, hỏi theo thứ tự:
-
-1. **Ai sẽ gọi nó, và họ cần thấy gì?** Đó chính là API — thiết kế trước,
-   không phải rút ra sau khi đã viết xong thân hàm.
-2. **Chỗ nào có khả năng mở rộng?** (đổi backend, đổi nguồn dữ liệu, thêm biến
-   thể). Chỗ đó phải là một interface, để người sau thay được mà không phải
-   sửa consumer.
-3. **Consumer có buộc phải biết chi tiết bên trong không?** Có → hợp đồng chưa
-   đủ, siết lại.
-
-Abstraction ở đây **không** có nghĩa "đẻ thêm lớp trung gian cho có". Nó có
-nghĩa: **bề mặt công khai của class phải là thứ người khác lập trình vào
-được**.
-
-> **Bài học ngược, vẫn còn giá trị:** 4 stub class từng được sinh ra từ suy
-> đoán, 0 instance thật. Chúng sai **không** phải vì thiếu abstraction, mà vì
-> **đoán sai hình dạng** của thứ chưa tồn tại. Khuyến khích abstraction là
-> khuyến khích **thiết kế API cho cái đang viết**, không phải khuyến khích
-> đoán trước cái chưa ai cần.
-
-### 7.3 Không được lách bằng docstring
-
-Docstring/comment là **bổ sung**, không phải thay thế. Comment giải thích *vì
-sao*; type và test mới là thứ **buộc** người sau đi đúng đường, và là thứ **vỡ
-ra** khi thực tế đổi. Một quyết định chỉ sống trong prose thì không có gì phát
-hiện khi nó hết đúng.
+| Sự thật này đi bằng signal nội bộ hay Event Bus? | [`event-rule.md`](event-rule.md) |
+| Thứ tôi hoãn lại / cái giá tôi chấp nhận trả phải xuất hiện trong code thế nào? | [`design-intent-rule.md`](design-intent-rule.md) |
