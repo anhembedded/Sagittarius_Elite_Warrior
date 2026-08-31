@@ -1,128 +1,126 @@
 ---
 name: Bug Fix Rule
-description: Mandatory workflow for diagnosing and fixing a reported bug — root cause first, log evidence for both reproduction and fix, regression test before the fix, correct test tier, permanent test, documented report.
+description: Quy trình bắt buộc khi chẩn đoán và sửa một bug được báo — root cause trước, bằng chứng log cho cả tái hiện lẫn bản sửa, regression test trước khi sửa, đúng tầng test, giữ test vĩnh viễn, có bug report.
 trigger: always_on
 ---
 
 # BUG FIX WORKFLOW
 
-This file owns the whole bug-fix workflow. `code-rule.md` and
-`commit-rule.md` used to each carry one fragment of it — moved here so
-there is a single source of truth instead of two partial copies drifting
-apart.
+File này sở hữu **toàn bộ** quy trình sửa bug. Đừng để một mảnh của nó nằm rải
+rác ở file rule khác — hai bản sao từng phần sẽ trôi khỏi nhau.
 
-## 1. Diagnose the root cause first — never guess
+---
 
-- Read the actual failure evidence (traceback, log, screenshot) and the
-  real source it points at before writing a single line of fix code.
-  "Plausible hypothesis" is not "root cause" — trace the exact call chain
-  the error came from.
-- State the root cause explicitly before touching the fix: what causes the
-  bug, and why the planned fix resolves it cleanly without crossing
-  architectural layer boundaries.
+## 1. Chẩn đoán root cause trước — không bao giờ đoán
 
-## 2. Prove the reproduction and the fix with log evidence
+- **Đọc bằng chứng thất bại thật** (traceback, log, ảnh chụp màn hình) và
+  **nguồn thật mà nó chỉ tới** trước khi viết một dòng code sửa. "Giả thuyết
+  hợp lý" **không phải** "root cause" — truy đúng chuỗi lời gọi mà lỗi đi qua.
+- **Nêu root cause tường minh trước khi sửa:** cái gì gây ra bug, và vì sao
+  bản sửa dự định giải quyết nó sạch sẽ mà không vượt ranh giới tầng kiến
+  trúc.
+- **Sửa cơ chế, không hot fix.** Cùng một lỗi lặp ở nhiều nơi mà chỉ sửa đúng
+  chỗ được báo là **không chấp nhận được**. Và **sửa mà không giải thích được
+  vì sao triệu chứng biến mất thì không tính là sửa.**
 
-- When static reading isn't conclusive, add **temporary** debug logging at
-  each layer the failure could plausibly cross — input, business logic,
-  render/adapter boundary — not just at the one layer you already suspect.
-  Multiple layers let the log itself show exactly where the actual
-  behavior diverges from the expected one, instead of you guessing which
-  layer is at fault. `BUG-009`'s three concurrent layers
-  (`[chart-env]`/`[chart-data]`/`[cached-frame]`) is the worked example.
-- Reproduce with that logging in place and capture the output as the real
-  evidence for the root cause in step 1 — not a paraphrase of what you
-  expect it to say.
-- After applying the fix, reproduce again and check the *same* log for
-  **positive proof the new mechanism actually ran** — e.g. "dropped 2
-  stale indicator lines after rebuild" — not merely the absence of the old
-  crash/symptom. Absence-of-symptom is weak evidence: the bug could be
-  gone for an unrelated reason (a different code path, a timing accident)
-  while the actual fix mechanism never fired.
-- **Decide explicitly whether to keep or discard each piece of temporary
-  logging — do not reflexively delete all of it, and do not reflexively
-  keep all of it either:**
-  - **Keep and promote to permanent** logging that describes general
-    system behavior useful for diagnosing *future*, not-yet-known bugs in
-    the same area (`[chart-env]`'s render-backend/DPR dump is exactly this
-    — it outlived the bug it was written for). A kept log MUST be moved to
-    a proper, permanent home per `.agents/rules/logging-rule.md` — correct
-    `"App.*"` logger namespace, correct level (`INFO` for a one-shot
-    meaningful event, `DEBUG` for high-frequency per-event detail) — never
-    left as a raw `print()` or an ad hoc logger that emits nothing (this
-    was itself `BUG-009`'s second root cause: a logger outside the `"App"`
-    tree has no handler and silently drops everything at `INFO`).
-  - **Discard** logging that only proves one specific hypothesis about
-    this one specific bug (a printed `x`, `y` pair to confirm a guess) and
-    has no diagnostic value once the bug is closed.
-  - **Weigh placement before keeping anything in a hot path** (a per-frame
-    render loop, a tight pixel/geometry computation). A log line that's
-    fine once per gesture can be real noise or overhead at 60 times a
-    second — prefer a coarser granularity (per-gesture, per-action) at
-    `DEBUG`. If per-frame/per-call detail is genuinely needed, log it at
-    `TRACE` instead (`.agents/rules/logging-rule.md` §6-7) — it only emits
-    under `--debug`, not a normal `--dev` session, so it never has to be
-    discarded just because it's expensive.
+---
 
-## 3. Write a regression test first, and confirm it actually fails
+## 2. Chứng minh tái hiện VÀ bản sửa bằng bằng chứng log
 
-- Before fixing the code, write a test that reproduces the reported
-  failure condition, then **run it and confirm it fails for the right
-  reason** — not just that it exists. A test that passes before the fix
-  proves nothing and must not be trusted as a reproduction.
-- **Pick the correct test tier for where the crash actually lives.** If the
-  failure is inside a method that a mock/test-double stands in for in your
-  first attempt, that attempt cannot reproduce it — a `Mock` never executes
-  the real method body. This is not hypothetical: `BUG-013` (2026-08-19)
-  was first "reproduced" with `Mock(spec=NativeBacktestChartHost)`, which
-  silently passed with no fix applied at all, twice, before the mistake was
-  caught and the test was rewritten at the Sanity tier against a real
-  native host. See `.agents/rules/ci-rule.md` §6 for the four-level test
-  contract this decision maps onto.
-- Only after the test is confirmed red, apply the fix, then confirm the
-  same test goes green — and confirm the log evidence from step 2 alongside
-  it, not the test in isolation.
+- Khi đọc code tĩnh chưa đủ kết luận, thêm log **tạm thời** ở **từng tầng mà
+  lỗi có thể đi qua** — input, logic nghiệp vụ, ranh giới adapter/render —
+  không chỉ ở tầng bạn đang nghi. Nhiều tầng cùng lúc để **chính log chỉ ra
+  chỗ hành vi thật lệch khỏi hành vi kỳ vọng**, thay vì bạn đoán tầng nào có
+  lỗi.
+- **Tái hiện với log đó tại chỗ** và giữ output làm bằng chứng thật cho root
+  cause ở bước 1 — không phải một câu diễn giải lại điều bạn *nghĩ* nó sẽ nói.
+- **Sau khi sửa, tái hiện lại và đọc CÙNG log đó để tìm bằng chứng DƯƠNG rằng
+  cơ chế mới thật sự đã chạy** — ví dụ "đã loại 2 dòng chỉ báo cũ sau khi dựng
+  lại" — chứ **không** chỉ là sự **vắng mặt** của triệu chứng cũ. Vắng mặt là
+  bằng chứng yếu: bug có thể biến mất vì một lý do không liên quan (một nhánh
+  code khác, một tình cờ về thời điểm) trong khi cơ chế sửa **chưa hề chạy**.
 
-## 4. Keep the regression test permanently
+### Quyết định tường minh: giữ hay bỏ từng mẩu log tạm
 
-- The regression test is the executable record of the reported failure.
-  It MUST NOT be deleted, skipped, weakened, or rewritten into something
-  that no longer reaches the original failure path, unless explicitly
-  replaced by stronger coverage of that exact same path.
+Không phản xạ xoá hết, cũng không phản xạ giữ hết.
 
-## 5. Commit content
+- **GIỮ và thăng cấp thành log vĩnh viễn** những dòng mô tả **hành vi chung**
+  của hệ thống, hữu ích để chẩn đoán các bug **tương lai chưa biết** ở cùng
+  khu vực. Log được giữ PHẢI được chuyển về đúng chỗ theo
+  [`logging-rule.md`](logging-rule.md) — đúng namespace logger, đúng mức —
+  **không bao giờ** để lại dạng `print()` thô hay một logger ad-hoc không phát
+  ra gì. *(Chính điều này từng là **root cause thứ hai** của một bug thật: một
+  logger nằm ngoài cây namespace của app không có handler nào và **lặng lẽ
+  nuốt** mọi thứ dưới WARNING.)*
+- **BỎ** những dòng chỉ chứng minh **một** giả thuyết về **một** bug cụ thể
+  (in ra cặp `x, y` để xác nhận một phỏng đoán) và hết giá trị chẩn đoán khi
+  bug đóng.
+- **Cân nhắc vị trí trước khi giữ bất cứ gì trong hot path** (vòng render mỗi
+  frame, tính toán chặt). Một dòng log ổn ở mức "mỗi thao tác" có thể là nhiễu
+  thật hoặc gánh nặng thật ở 60 lần/giây — hạ độ mịn (mỗi thao tác, mỗi hành
+  động) và hạ mức log. Nếu thật sự cần chi tiết mỗi frame, dùng mức verbose
+  nhất (chỉ phát khi bật cờ debug) để không phải xoá nó chỉ vì nó đắt.
 
-- The commit that fixes a bug MUST include the regression test from step 3
-  — never fix without it, never commit the test as a separate later commit.
-- State the root cause clearly in the commit body: what caused the bug, and
-  why the fix resolves it cleanly.
-- `fix:` commit type per `.agents/rules/commit-rule.md` — reference the
-  root cause or issue ID (`BOT-xxx`/`BUG-xxx`).
+---
 
-## 6. Document it as a bug report
+## 3. Viết regression test TRƯỚC, và xác nhận nó thật sự fail
 
-Every bug worth this workflow gets a file in
-`Tasks/bug_report/incomplete/BUG-XXX_description.md` (next number after the
-highest existing one across *both* subdirectories), following the structure
-established across `BUG-006` onward:
+- **Trước khi sửa code**, viết test tái hiện đúng điều kiện thất bại được báo,
+  rồi **chạy nó và xác nhận nó fail ĐÚNG LÝ DO** — không chỉ xác nhận là nó
+  tồn tại. Một test pass **trước** khi sửa thì không chứng minh gì và không
+  được tin là bản tái hiện.
+- **Chọn đúng tầng test cho nơi lỗi thật sự sống.** Nếu chỗ crash nằm trong
+  một method mà mock/test-double của bạn thay thế, lần thử đó **không thể**
+  tái hiện nó — một mock **không bao giờ chạy thân hàm thật**.
 
-- **Header:** Reported date, Severity, Status (`Open`, or `✅ Fixed <date>`
-  with how — root-caused / reproduced / regression-tested / verified).
-- **Symptom:** what was observed, with real evidence (traceback, log,
-  screenshot) — not a paraphrase.
-- **Root cause:** the actual mechanism, from step 1, with file/line
-  references.
-- **Fix:** what changed and why it's sufficient.
-- **Regression test:** which file, and confirmation it failed before / passes
-  after.
+  > **Bằng chứng thật:** một bug được "tái hiện" bằng `Mock(spec=<host thật>)`
+  > và **pass hai lần liên tiếp trong khi chưa hề có bản sửa nào**, trước khi
+  > sai lầm bị phát hiện và test được viết lại ở tầng cao hơn, đối diện với
+  > object thật.
 
-If the report is filed before the fix (bug found but not yet worked), it's
-fine to leave `Status: Open` with a `Suggested next steps` section instead
-of a fix — do not guess at a root cause you have not verified just to fill
-the section in.
+- Chỉ **sau khi** test đã đỏ đúng lý do thì mới áp dụng bản sửa, rồi xác nhận
+  chính test đó xanh — **và** xác nhận bằng chứng log ở bước 2 song song với
+  nó, không phải test đứng một mình.
 
-Once the fix lands, `git mv` the report (and any screenshots it embeds) from
-`incomplete/` to `Tasks/bug_report/completed/`, update its `Status` line, and
-move its row in [`Tasks/bug_report/README.md`](../../Tasks/bug_report/README.md)
-— the Bug Board — from the open table to the fixed one. The board is the only
-place an *open* bug is visible; `ROADMAP.md` only ever lists fixed ones.
+---
+
+## 4. Giữ regression test vĩnh viễn
+
+Regression test là **bản ghi thực thi được** của lỗi đã được báo. Nó MUST NOT
+bị xoá, skip, làm yếu, hay viết lại thành thứ không còn chạm tới đường lỗi
+gốc — trừ khi được thay bằng coverage **mạnh hơn** cho **đúng đường đó**.
+
+---
+
+## 5. Nội dung commit
+
+- Commit sửa bug **PHẢI chứa** regression test ở bước 3 — không bao giờ sửa mà
+  không kèm test, không bao giờ commit test thành một commit riêng sau đó.
+- **Nêu rõ root cause trong thân commit.**
+- Dùng type `fix:` theo [`commit-rule.md`](commit-rule.md), có nhắc root cause
+  hoặc mã bug.
+
+---
+
+## 6. Lập bug report
+
+Mọi bug đáng đi qua quy trình này đều có một file report (mã kế tiếp mã lớn
+nhất đang tồn tại, tính trên **cả** thư mục đang mở lẫn đã đóng):
+
+- **Header:** ngày báo cáo, mức nghiêm trọng, trạng thái (`Open`, hoặc
+  `✅ Fixed <ngày>` kèm cách xử lý: đã root-cause / đã tái hiện / đã có
+  regression test / đã verify).
+- **Symptom:** quan sát được gì, **kèm bằng chứng thật** (traceback, log,
+  ảnh) — không phải diễn giải lại.
+- **Root cause:** cơ chế thật, kèm tham chiếu `file:line`.
+- **Fix:** đã đổi gì và vì sao thế là đủ.
+- **Regression test:** file nào, và xác nhận nó fail trước / pass sau.
+
+Nếu report được lập **trước** khi sửa (bug đã tìm ra nhưng chưa ai làm), để
+`Status: Open` với một mục **"Đề xuất bước tiếp theo"** — **đừng đoán một root
+cause chưa verify chỉ để lấp đầy mục đó.**
+
+Khi bản sửa đã xong: `git mv` report (và mọi ảnh nó nhúng) sang thư mục đã
+đóng, cập nhật dòng `Status`, và **chuyển dòng của nó trong bảng bug** từ
+bảng đang mở sang bảng đã sửa. Bảng bug là **nơi duy nhất** thấy được một bug
+**đang mở**.

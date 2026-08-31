@@ -1,163 +1,173 @@
 ---
-name: Logging Rules
-description: Where to place logs so a bug report identifies its own root cause, and how to keep them readable.
+name: Logging Rule
+description: Đặt log ở đâu để một bug report tự chỉ ra root cause của chính nó, và giữ log đọc được.
 trigger: always_on
 ---
 
 # LOGGING RULES
 
-The measure of this project's logging is not how much it writes. It is
-whether a single reproduce-and-send-log cycle is enough to locate a root
-cause. If a reader has to guess, or ask the reporter to run it again with
-more logging, the logging failed — regardless of how many lines it produced.
+Thước đo của logging **không phải** nó ghi được bao nhiêu. Là: **một vòng
+"tái hiện rồi gửi log" có đủ để định vị root cause hay không.** Nếu người đọc
+phải đoán, hoặc phải xin người báo lỗi chạy lại với nhiều log hơn, thì logging
+đã thất bại — bất kể nó sinh ra bao nhiêu dòng.
 
-`BUG-009` is the worked example these rules come from: three
-reproduce-and-send-log rounds were spent on a chart defect because the logs
-said nothing about which chart backend was live, whether the interaction
-overlay was engaged, or what was actually painted. The full case study is
-[`Tasks/reports/BUG-009_logging_and_test_gap_case_study.md`](../../Tasks/reports/BUG-009_logging_and_test_gap_case_study.md).
+> **Bằng chứng thật:** ba vòng "tái hiện rồi gửi log" bị tiêu phí cho một lỗi
+> hiển thị, vì log **không nói gì** về backend nào đang chạy, lớp tương tác có
+> đang bật không, và cái gì thật sự đã được vẽ ra.
 
 ---
 
-## 1. Every logger MUST live under the `"App."` namespace
+## 1. Mọi logger PHẢI nằm dưới một namespace gốc
 
-`StdLogger` attaches its console/file/viewer handlers to the `"App"` logger
-and sets `propagate = False`. Nothing is attached to the root logger.
+Handler (console/file/viewer) được gắn vào **một** logger gốc
+`<LOG_NAMESPACE>`, và logger gốc của hệ thống thì **không** gắn gì.
 
 ```python
-logger = logging.getLogger("App.ChartCard")      # correct
-logger = logging.getLogger(__name__)             # SILENT below WARNING
+logger = logging.getLogger("<LOG_NAMESPACE>.ChartCard")   # đúng
+logger = logging.getLogger(__name__)                      # IM LẶNG dưới WARNING
 ```
 
-A `__name__`-based logger has no handler anywhere in its chain: `info()` and
-`debug()` emit **nothing at all**, and only Python's last-resort fallback
-shows WARNING and above, unformatted. This is silent by construction — the
-code looks right and the call succeeds. Enforced by
-`tests/unit/test_logging_namespace_guard.py`; the only exemption is calling
-`getLogger(name)` purely to `addHandler`/`removeHandler` on a logger owned by
-someone else.
+Một logger nằm ngoài cây đó **không có handler nào trong toàn bộ chuỗi**:
+`info()` và `debug()` phát ra **không gì cả**, và chỉ cơ chế dự phòng cuối
+cùng của thư viện mới hiện WARNING trở lên, không định dạng.
 
-## 2. Log the decision, not just the outcome
+**Đây là kiểu im lặng do thiết kế — code trông đúng và lời gọi vẫn thành
+công.** Phải có **guard test** khoá luật này; ngoại lệ duy nhất là gọi
+`getLogger(name)` thuần tuý để `addHandler`/`removeHandler` lên một logger của
+người khác.
 
-Log every branch where the app *chose* between implementations, fell back, or
-silently degraded — with the reason. A reader must be able to tell which code
-path ran without reading the code.
+---
 
-- Which backend/adapter/host was selected, what was requested, and why they
-  differ (`backend 'python' (requested: 'auto')`, plus the fallback reason).
-- Which optional mechanism is engaged for this session (cache, overlay,
-  OpenGL, LOD) — and log the **disabled** case too. "No line" is not evidence
-  of "off"; it is indistinguishable from broken logging.
-- What is actually in effect versus what was configured: real render backend,
-  real DPR, real platform. Configured intent is not evidence of runtime state.
+## 2. Log **quyết định**, không chỉ log kết quả
 
-## 3. One-shot environment lines are mandatory for UI and rendering code
+Log **mọi nhánh** nơi hệ thống **chọn** giữa các implementation, **fallback**,
+hay **suy giảm lặng lẽ** — kèm **lý do**. Người đọc phải biết được đường code
+nào đã chạy mà không cần đọc code.
 
-A defect that reproduces on the reporter's machine and not the developer's is
-the normal case, not the exception. Any component whose behaviour depends on
-the host MUST log, once, at construction: the real backend in use, any
-fallback reason, device pixel ratio, Qt platform, and the relevant widget or
-screen geometry. `ChartCard._log_environment` (`[chart-env]`) is the
-reference implementation.
+- Backend/adapter/host nào được chọn, **cái gì đã được yêu cầu**, và vì sao hai
+  cái đó khác nhau (`backend 'python' (requested: 'auto')`, kèm lý do
+  fallback).
+- Cơ chế tuỳ chọn nào đang bật cho phiên này (cache, overlay, tăng tốc phần
+  cứng) — **và log cả trường hợp TẮT**. "Không có dòng nào" không phải bằng
+  chứng của "đang tắt"; nó không phân biệt được với "logging hỏng".
+- **Cái gì thật sự đang có hiệu lực** so với cái gì đã được cấu hình. Ý định
+  trong cấu hình không phải bằng chứng về trạng thái runtime.
 
-## 4. Summarise per gesture or per operation — never per event
+---
 
-A drag emits hundreds of mouse-move events. Per-event logging at INFO makes
-the report unreadable and is self-defeating. Log:
+## 3. Dòng môi trường một lần là bắt buộc với code phụ thuộc máy chủ
 
-- one line when an interaction begins, carrying the geometry and thresholds
-  it will operate under;
-- one line per *significant transition* inside it (a re-render, a fallback, a
-  cancellation);
-- one summary line when it ends, carrying counts, worst-case measurements and
-  the final state.
+Một defect tái hiện trên máy người báo lỗi mà không tái hiện trên máy dev là
+**chuyện thường**, không phải ngoại lệ. Mọi component có hành vi phụ thuộc máy
+đang chạy PHẢI log **một lần, lúc khởi tạo**: backend thật đang dùng, lý do
+fallback nếu có, tỷ lệ pixel của thiết bị, nền tảng, và kích thước/hình học
+liên quan.
 
-Put numbers a reader can act on in the summary — sizes in pixels as well as
-percentages, elapsed milliseconds, and how far a value sat from its
-threshold. `%`-only reporting hid a 333px blank band behind "15%".
+---
 
-## 5. Log the state that would let a layer be ruled OUT
+## 4. Tóm tắt theo thao tác, không bao giờ theo từng event
 
-Instrument several layers at once, not only the suspected one. For each
-layer, log what a reader needs to exonerate it: what it was asked to do, what
-it actually applied, and what is still pending. Deferred or coalesced work
-MUST report whether it had been applied yet — a frame captured while a
-coalesced range update is pending shows candles at the new range and
-indicators at the old one, and nothing else in the log would reveal that.
+Một cú kéo chuột phát ra hàng trăm event. Log mỗi event ở mức INFO làm báo cáo
+không đọc nổi và tự đánh bại chính nó. Hãy log:
 
-## 6. Six levels, in order — pick the narrowest one that fits
+- **một dòng khi tương tác bắt đầu**, mang theo hình học và ngưỡng nó sẽ dùng;
+- **một dòng cho mỗi chuyển biến có ý nghĩa** bên trong (render lại, fallback,
+  huỷ);
+- **một dòng tóm tắt khi kết thúc**, mang theo số đếm, giá trị tệ nhất đo
+  được, và trạng thái cuối.
 
-`TRACE(5) < DEBUG(10) < INFO(20) < WARNING(30) < ERROR(40) < CRITICAL(50)`.
-`TRACE` is not a standard Python `logging` level; `sagittarius_engine`'s
-`StdLogger`/`LoggerConfig` register it (`ILogger.trace()`/`.critical()` exist
-alongside the four you'd expect). Threshold is a single `log.level` config
-key — a call below it is silently dropped, regardless of which method was
-called.
+Đặt **con số người đọc hành động được** vào dòng tóm tắt: kích thước theo pixel
+**cũng như** theo phần trăm, thời gian đã trôi qua, và một giá trị cách ngưỡng
+của nó bao xa. *(Báo cáo chỉ bằng `%` đã che một dải trắng 333px sau con số
+"15%".)*
 
-- **`TRACE`** — detail too high-frequency even for a normal `--dev` session:
-  per-frame, per-pixel, per-tick. Reserve it for exactly the hot paths rule 4
-  already says never to log per-event at `INFO`. If you'd hesitate to leave
-  a log line on for an entire `--dev` diagnostic session because of the
-  volume, it's `TRACE`, not `DEBUG`.
-- **`DEBUG`** — the per-event detail rule 4 describes: normal dev-session
-  diagnostics, safe to run for a whole reproduction without drowning it.
-- **`INFO`** — decisions, environment, per-operation summaries (rules 2-3).
-- **`WARNING`** — a degraded-but-recovered path (fallback engaged, retry
-  succeeded).
-- **`ERROR`** — an operation failed but the process is still sound.
-- **`CRITICAL`** — the process itself is compromised (unrecoverable startup
-  failure, a corrupted state nothing downstream can trust). Rare by design;
-  don't use it for an ordinary caught exception `ERROR` already covers.
+---
 
-## 7. Developer runs get more logging, automatically — `--dev` vs `--debug`
+## 5. Log trạng thái đủ để LOẠI một tầng ra khỏi diện nghi
 
-Both flags write the whole session to a timestamped file under `logs/` and
-set `DEV_MODE`; they differ only in threshold and file prefix:
+Đo nhiều tầng cùng lúc, không chỉ tầng đang nghi. Với **mỗi** tầng, log thứ mà
+người đọc cần để **minh oan** cho nó: nó được yêu cầu làm gì, nó thật sự đã áp
+dụng gì, và cái gì **còn đang chờ**.
 
-| Flag | `log.level` | File |
-| --- | --- | --- |
+Công việc bị **hoãn hoặc gộp** PHẢI báo cáo là nó **đã được áp dụng hay chưa**
+— một khung hình chụp lúc một cập nhật đang chờ sẽ hiển thị dữ liệu mới cạnh
+lớp phủ cũ, và **không gì khác trong log** cho thấy điều đó.
+
+---
+
+## 6. Sáu mức, theo thứ tự — chọn mức hẹp nhất còn vừa
+
+`TRACE < DEBUG < INFO < WARNING < ERROR < CRITICAL`
+
+- **`TRACE`** — chi tiết quá dày cả với một phiên dev bình thường: mỗi frame,
+  mỗi pixel, mỗi tick. Dành riêng cho đúng những hot path mà §4 đã cấm log
+  theo từng event. *Nếu bạn ngần ngại để một dòng log bật suốt một phiên chẩn
+  đoán vì lượng của nó, thì nó là `TRACE`, không phải `DEBUG`.*
+- **`DEBUG`** — chi tiết theo từng event như §4 mô tả: chẩn đoán bình thường,
+  an toàn để bật suốt một lần tái hiện.
+- **`INFO`** — quyết định, môi trường, tóm tắt theo thao tác (§2-3).
+- **`WARNING`** — một đường chạy **suy giảm nhưng đã phục hồi** (fallback đã
+  bật, retry đã thành công).
+- **`ERROR`** — một thao tác thất bại nhưng tiến trình vẫn lành lặn.
+- **`CRITICAL`** — chính tiến trình đã hỏng (khởi động thất bại không phục hồi
+  được, một trạng thái hỏng mà không gì phía sau tin được). Hiếm theo thiết
+  kế; đừng dùng cho một exception đã bắt được mà `ERROR` đã bao.
+
+Ngưỡng là **một** key cấu hình duy nhất; lời gọi dưới ngưỡng bị bỏ **lặng
+lẽ**, bất kể gọi bằng method nào.
+
+---
+
+## 7. Phiên của người phát triển tự động có nhiều log hơn
+
+| Cờ | Ngưỡng | File |
+| :--- | :--- | :--- |
 | `--dev` | `DEBUG` | `logs/dev-<timestamp>.log` |
 | `--debug` | `TRACE` | `logs/debug-<timestamp>.log` |
 
-`--debug` **implies** `--dev` — it is strictly more verbose, not a separate
-mode; there is no flag that gets `DEV_MODE` without at least `DEBUG`. Never
-require a config edit to obtain diagnostics, and never rely on the reporter
-copying console scrollback by hand — detail is lost exactly where it
-matters. Ask for the log **file**. The resolution itself
-(`sagittarius_engine.infrastructure.logging.dev_verbosity.resolve_dev_verbosity`)
-is generic engine behavior any app on this engine gets for free; an app's own
-bootstrapper only decides what else `--dev`/`--debug` additionally turns on
-(this app: `ConfigKeys.DEV_MODE`, enabling button-click auto-logging).
+Cả hai ghi **toàn bộ phiên** ra file có dấu thời gian. `--debug` **bao hàm**
+`--dev` — nó chỉ verbose hơn, không phải một chế độ khác.
 
-## 8. Prefix log lines with a stable, greppable tag — and keep the format filterable
+**Không bao giờ bắt người dùng sửa file cấu hình để lấy được thông tin chẩn
+đoán**, và **không bao giờ** dựa vào việc người báo lỗi chép tay scrollback của
+terminal — chi tiết mất đúng ở chỗ nó quan trọng. **Xin FILE log.**
 
-Use a bracketed subsystem tag as the first token — `[chart-env]`,
-`[chart-data]`, `[cached-frame]` — or the existing `KEY=value` trace style
-(`BACKTEST_TRACE action=...`). A reporter pastes a whole session; the reader
-needs one `Select-String` to isolate a subsystem.
+---
 
-`StdLogger`'s formatter is fixed-field —
-`%(asctime)s - %(name)s - %(levelname)s - %(message)s` — specifically so a
-saved log file can be filtered two ways without touching the app:
+## 8. Tiền tố log bằng một tag ổn định, và giữ format lọc được
 
-- **By level:** `Select-String "- (WARNING|ERROR|CRITICAL) -" session.log`
-  (PowerShell) or `grep -E '\- (WARNING|ERROR|CRITICAL) \-' session.log`
-  (POSIX) — the `levelname` field is fixed-width-delimited by ` - ` on both
-  sides, so this never accidentally matches a level name appearing inside a
-  message.
-- **By subsystem tag:** `Select-String "\[chart-data\]" session.log` /
-  `grep '\[chart-data\]'` — combine with the level filter
-  (`grep -E '\- (DEBUG|TRACE) \-' session.log | grep '\[cached-frame\]'`) to
-  isolate one subsystem's high-verbosity output from a `--debug` session
-  without reading the rest.
+Dùng một tag subsystem trong ngoặc vuông làm token đầu tiên — `[chart-env]`,
+`[chart-data]`, `[cached-frame]` — hoặc một kiểu `KEY=value` nhất quán. Người
+báo lỗi dán cả phiên; người đọc cần **đúng một** lệnh lọc để cô lập một
+subsystem.
 
-Do not change the formatter's field order or separator without checking
-whether an existing filter/regex (in a task doc, a script, or a bug report's
-own reproduction steps) depends on it.
+Formatter phải **cố định trường**, ví dụ:
 
-## 9. A diagnostic that has never been seen to emit does not exist
+```
+%(asctime)s - %(name)s - %(levelname)s - %(message)s
+```
 
-After adding logging, run the path and confirm the lines actually appear
-through the **real** logging configuration — not `logging.basicConfig` in a
-scratch script, which attaches a root handler the real app never has. An
-entire debugging round was lost to instrumentation that could not emit.
+— chính là để một file log đã lưu lọc được **hai chiều** mà không phải động
+vào app:
+
+- **theo mức:** `grep -E '\- (WARNING|ERROR|CRITICAL) \-' session.log` — vì
+  trường mức được bao bởi ` - ` ở cả hai phía, cách này không bao giờ vô tình
+  khớp một tên mức xuất hiện **bên trong** một message;
+- **theo subsystem:** `grep '\[chart-data\]' session.log` — kết hợp cả hai để
+  cô lập output verbose của đúng một subsystem.
+
+**Không đổi thứ tự trường hay ký tự phân tách** mà không kiểm xem có filter/
+regex nào đang phụ thuộc vào nó (trong tài liệu task, trong script, hay trong
+chính các bước tái hiện của một bug report). Cổng CI ở
+[`ci-rule.md`](ci-rule.md) §5 **quét log bằng đúng matcher này** — đổi format
+là làm hỏng cổng đó một cách lặng lẽ.
+
+---
+
+## 9. Một dòng chẩn đoán chưa ai thấy phát ra thì coi như không tồn tại
+
+Sau khi thêm log, **chạy đường code đó và xác nhận các dòng thật sự xuất
+hiện**, qua **cấu hình logging THẬT** — không phải qua một cấu hình mặc định
+nhanh trong script nháp, vốn gắn một handler gốc mà app thật không bao giờ có.
+
+Một vòng debug trọn vẹn đã bị mất vì instrumentation **không thể phát ra**.
