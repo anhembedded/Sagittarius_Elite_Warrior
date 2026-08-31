@@ -39,8 +39,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa / đã đóng** | 66 |
-| 📈 **Tổng** | **70** |
+| ✅ **Đã sửa / đã đóng** | 67 |
+| 📈 **Tổng** | **71** |
 
 ---
 
@@ -59,6 +59,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-075](completed/BUG-075_sanity_tier_unclosed_asyncio_event_loop_from_python_binance.md)** | `tests/sanity/` fail ngẫu nhiên trên bystander test vì `ResourceWarning: unclosed event loop` | 🟡 P2 | 2026-08-31 | `python-binance`'s `helpers.py::get_loop()` tạo `asyncio.new_event_loop()` khi thread hiện tại chưa có loop và không bao giờ đóng nó — cùng cơ chế với `DeprecationWarning` đã allowlist sẵn ("There is no current event loop"), chỉ khác 2 triệu chứng khác nhau của cùng 1 root cause. GC thu hồi loop mồ côi này vào thời điểm không xác định, rơi trúng bất kỳ sanity test nào đang chạy lúc đó (`test_circular_imports.py` — chỉ `ast.parse()`, không liên quan gì). Không sửa được trong app/engine (nội bộ thư viện thứ 3) — thêm allowlist entry `"unclosed event loop"` kèm lý do bằng văn bản, đúng hợp đồng file đã có sẵn. |
 | **[BUG-071](completed/BUG-071_checkbox_list_stat_grid_root_width_parent_typeerror.md)** | CheckboxList/StatGrid QML quăng `TypeError: Cannot read property 'width' of null` mỗi lần mở dialog | 🟡 **P3** | 2026-08-31 | Xoá `width: parent.width` khỏi root item của `CheckboxList.qml` và `StatGrid.qml` — cả hai luôn được nạp làm root object của `QQuickWidget` (`SizeRootObjectToView`), thứ không bao giờ gán `parent` QML cho root, nên binding luôn đọc `null`. |
 | **[BUG-067](completed/BUG-067_dashboard_sync_market_data_ignores_cancellation_hangs_shutdown.md)** | Dashboard Live Stream sync bỏ qua cancellation, thread kẹt làm treo tiến trình khi tắt app | 🔴 **P1** | 2026-08-30 | Truyền `cancellation_requested=token.is_cancelled` vào `SyncMarketDataCommand` trong `stream_lifecycle_controller.py`. Thêm `shutdown()` giải phóng `ExclusiveAction` và cancel token; thêm `close()` trên `PythonBinanceClient` để ngắt socket `requests.Session` khi engine shutdown (`BinanceBotModule.shutdown`). |
 | **[BUG-069](completed/BUG-069_database_status_table_qml_typeerror_null_vm_on_teardown.md)** | DatabaseStatusTable QML quăng hàng loạt TypeError khi ViewModel bị huỷ lúc thoát app | 🟡 **P3** | 2026-08-30 | Thêm null-safe guard `(vm ? vm.rowCount : 0)`, `(vm ? vm.rowsModel : null)` và `Boolean(vm && vm.actionsEnabled)` trong `DatabaseStatusTable.qml` và `DatabaseStatusRow.qml`, triệt tiêu toàn bộ TypeError khi giải phóng ViewModel. |
