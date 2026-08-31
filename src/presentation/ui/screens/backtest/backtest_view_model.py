@@ -202,6 +202,7 @@ class BackTestViewModel(BaseQmlViewModel):
     openOrderExecutionRequested = Signal(float, float)
     openStrategyPickerRequested = Signal()
     openSymbolPickerRequested = Signal()
+    refreshSymbolOptionsRequested = Signal()
     openTimeframePickerRequested = Signal()
     openTimeRangePickerRequested = Signal()
     openTimezonePickerRequested = Signal()

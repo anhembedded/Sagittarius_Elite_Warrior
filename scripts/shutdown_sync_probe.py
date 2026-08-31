@@ -14,9 +14,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from collections.abc import Iterator
 
 from PySide6.QtWidgets import QApplication
-from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
@@ -44,6 +41,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.modul
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,
 )
+from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0
@@ -138,7 +137,7 @@ def main() -> None:
             SettingsScreenModule,
             BacktestScreenModule,
         ):
-            screen_registry.register_module(module_cls(), engine.container)
+            screen_registry.register_module(module_cls(), engine.context.container)
         window = MainWindow(engine, screen_registry, sidebar_factory=Sidebar)
         window.switch_screen("backtest")
         presenter = window._router.get_current_presenter()

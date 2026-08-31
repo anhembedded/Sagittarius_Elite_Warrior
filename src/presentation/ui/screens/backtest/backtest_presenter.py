@@ -1376,6 +1376,13 @@ class BackTestPresenter(BasePresenter):
         and this is a no-op."""
         self._symbol_options_coordinator.request_open()
 
+    @Slot()
+    def _on_symbol_picker_refresh_requested(self) -> None:
+        """Forces a refresh of the symbol options directly from the exchange
+        (`BUG-066`'s manual 🔄, bypassing both the coordinator's and
+        `ISymbolCatalogRepository`'s cache)."""
+        self._symbol_options_coordinator.request_refresh()
+
     @Slot(list)
     def _on_symbol_options_ready(self, symbols: list[str]) -> None:
         self._symbol_options_coordinator.on_options_ready(symbols)

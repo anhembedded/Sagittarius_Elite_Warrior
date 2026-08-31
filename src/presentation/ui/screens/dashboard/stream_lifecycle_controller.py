@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream
     StopLiveStreamCommand,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+    CancellationCheck,
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
@@ -314,6 +315,12 @@ class StreamLifecycleController:
             self._get_cancellation_token(),
         )
 
+    def shutdown(self) -> None:
+        """Cancels active stream operations and releases action slots on shutdown."""
+        slot = self._stream_actions.held_slot()
+        if slot is not None:
+            self._stream_actions.finish(slot.key)
+
     # ================================================================== #
     # Asynchronous Background Workers
     # ================================================================== #
@@ -425,8 +432,9 @@ class StreamLifecycleController:
         self,
         symbols: list[str],
         interval: TimeFrame,
-        start_time: datetime | None,
-        end_time: datetime | None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        cancellation_requested: CancellationCheck | None = None,
     ) -> None:
         self._emit_log("Syncing missing data from Binance...")
         sync_cmd = SyncMarketDataCommand(
@@ -434,6 +442,7 @@ class StreamLifecycleController:
             interval=interval,
             start_time=start_time,
             end_time=end_time,
+            cancellation_requested=cancellation_requested,
         )
         self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
@@ -459,7 +468,13 @@ class StreamLifecycleController:
         end_time: datetime | None = None,
     ) -> None:
         try:
-            self._sync_market_data(symbols, interval, start_time, end_time)
+            self._sync_market_data(
+                symbols,
+                interval,
+                start_time,
+                end_time,
+                cancellation_requested=token.is_cancelled,
+            )
 
             if token.is_cancelled() or not symbols:
                 return

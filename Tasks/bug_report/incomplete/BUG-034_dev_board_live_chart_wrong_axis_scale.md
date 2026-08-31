@@ -159,3 +159,18 @@ mà không cần máy Windows/GUI thật. Kết quả:
   dựng lại được bất cứ thứ gì phụ thuộc timing thật (live tick xen giữa `render_historical_data()`
   và lúc script subplot được tạo, thứ tự Qt event loop, DPR/backend thật). Bước 1–2 ở §5 **vẫn còn
   nguyên giá trị**, chưa bước nào trong đó được thực hiện bằng phiên này.
+
+## 7. Lượt ghi nhận hiện tượng sống 2026-08-30 — log thực tế tái hiện đúng y-range bất thường
+
+Trong phiên chạy live ngày 2026-08-30 trên Dev Board với symbol `0GTRY` (khung `1m`), log hệ thống ghi nhận bằng chứng sống:
+
+```text
+2026-08-30 17:32:18,341 - App.ChartCard - INFO - [chart-data] ChartCard(0GTRY): loaded 2000 candles spanning [1787965920.0, 1788085860.0] | price [7.6760, 8.1730] | initial view x-range [1788081290.0, 1788081490.0] | y-range [-71.3690, 46.1465] | autorange=[False, 1.0] | chart type=candlestick
+```
+
+**Đối chiếu với các giả thuyết ở §5:**
+- `price [7.6760, 8.1730]`: dữ liệu nến thực tế có giá quanh 7.6..8.2.
+- Nhưng `y-range` bị gán dải âm/dương cực rộng: **`[-71.3690, 46.1465]`**.
+- Dải giá thực (chiều cao ~0.5) chiếm chưa tới 0.5% dải trục Y (chiều cao ~117.5), giải thích vì sao nến biến mất hoặc bị ép thành đường thẳng phẳng lì trên màn hình.
+- Ngoài ra `autorange=[False, 1.0]` thay vì `[False, True]` — giá trị `1.0` bất thường ở vị trí boolean auto-range Y là đầu mối quan trọng cho lượt điều tra tiếp theo.
+

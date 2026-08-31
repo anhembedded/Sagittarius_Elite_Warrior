@@ -106,20 +106,20 @@ class HistoryPaginationController(QObject):
         existing = self._recheck_timers.pop(symbol, None)
         if existing is not None:
             existing.stop()
+            existing.deleteLater()
 
         if not found_more or self._recheck_edge is None:
             return
 
         timer = QTimer(self)
         timer.setSingleShot(True)
-        # functools.partial, not a lambda closure — an explicit, inspectable
-        # binding of `symbol` to the zero-arg `timeout` signal rather than a
-        # throwaway closure.
-        timer.timeout.connect(partial(self._on_cooldown_finished, symbol))
+        slot = partial(self._on_cooldown_finished, symbol)
+        timer.timeout.connect(slot)
+        timer._slot = slot  # Retain strong reference to prevent premature GC
         timer.start(int(self._cooldown_seconds * 1000))
         self._recheck_timers[symbol] = timer
 
     def _on_cooldown_finished(self, symbol: str) -> None:
         """Called automatically when a symbol's cooldown window expires."""
-        self._recheck_timers.pop(symbol, None)
-        self._recheck_edge(symbol)
+        if self._recheck_edge is not None:
+            self._recheck_edge(symbol)

@@ -16,6 +16,7 @@ class AbstractSymbolPickerVM(QObject):
     symbolChosen = Signal(str)
     favouriteToggled = Signal(str)
     favouriteChanged = Signal(str, bool)
+    refreshRequested = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         if type(self) is AbstractSymbolPickerVM:
@@ -38,3 +39,8 @@ class AbstractSymbolPickerVM(QObject):
     def toggleFavourite(self, symbol: str) -> None:
         """Toggle local state and emit a host-facing favourite command."""
         raise NotImplementedError
+
+    @Slot()
+    def requestRefresh(self) -> None:
+        """Request host/presenter to fetch fresh symbols from the exchange."""
+        self.refreshRequested.emit()

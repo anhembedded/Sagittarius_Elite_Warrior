@@ -87,6 +87,24 @@ def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp, qml
     assert card is not None
 
 
+def test_metrics_header_and_expand_button_appear_when_a_run_completes(view, qapp):
+    """A completed run with no out-of-sample warning never touches
+    resultWarningText — `_sync_metrics_header` must still run off
+    `statCardsChanged` alone, or `_metrics_header` (title bar + the "Mở
+    rộng chỉ số chi tiết" button opening `MetricsDetailModal`) stays
+    permanently hidden even though the stat cards row right below it is
+    visible. Reproduces a real user report: the Expand section was
+    nowhere to be found after running a backtest."""
+    v, vm = view
+    assert v.top_widget._metrics_header.isVisible() is False
+
+    vm.set_stat_cards(_stat_cards(4), [])
+    qapp.processEvents()
+
+    assert v.top_widget._metrics_header.isVisible() is True
+    assert v.top_widget._btn_expand_metrics.isVisible() is True
+
+
 def test_top_panel_result_warning_line_does_not_affect_stat_cards_visibility(
     view, qapp
 ):

@@ -105,30 +105,30 @@ Item {
                 objectName: "btnDatabaseStatusKlines_" + symbol + "_" + interval
                 text: "KLines"
                 role: "secondary"
-                enabled: vm.actionsEnabled
-                onClicked: vm.requestAction("klines", symbol, interval)
+                enabled: Boolean(vm && vm.actionsEnabled)
+                onClicked: if (vm) vm.requestAction("klines", symbol, interval)
             }
             Button {
                 objectName: "btnDatabaseStatusGaps_" + symbol + "_" + interval
                 text: "Gaps"
                 role: "danger"
                 visible: !isHealthy
-                enabled: vm.actionsEnabled
-                onClicked: vm.requestAction("gaps", symbol, interval)
+                enabled: Boolean(vm && vm.actionsEnabled)
+                onClicked: if (vm) vm.requestAction("gaps", symbol, interval)
             }
             Button {
                 objectName: "btnDatabaseStatusSync_" + symbol + "_" + interval
                 text: "Sync"
                 role: "secondary"
-                enabled: vm.actionsEnabled
-                onClicked: vm.requestAction("sync", symbol, interval)
+                enabled: Boolean(vm && vm.actionsEnabled)
+                onClicked: if (vm) vm.requestAction("sync", symbol, interval)
             }
             Button {
                 objectName: "btnDatabaseStatusClear_" + symbol + "_" + interval
                 text: "Clear"
                 role: "danger"
-                enabled: vm.actionsEnabled
-                onClicked: vm.requestAction("clear", symbol, interval)
+                enabled: Boolean(vm && vm.actionsEnabled)
+                onClicked: if (vm) vm.requestAction("clear", symbol, interval)
             }
         }
     }

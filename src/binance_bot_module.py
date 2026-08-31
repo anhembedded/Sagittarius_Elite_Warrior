@@ -1,4 +1,7 @@
+import logging
 import os
+
+logger = logging.getLogger("App.BinanceBotModule")
 
 from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
@@ -20,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service impor
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository import (
+    ISymbolCatalogRepository,
 )
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -169,6 +175,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager i
     DatabaseConfig,
     DatabaseManager,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.json_symbol_catalog_repository import (
+    JsonSymbolCatalogRepository,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
@@ -215,6 +224,7 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(DatabaseConfig, DatabaseConfig(db_dir=db_dir))
         app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
+        app.container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
         app.container.singleton(IExchangeClient, PythonBinanceClient)
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
 
@@ -306,6 +316,12 @@ class BinanceBotModule(BaseModule):
         app.event_bus.on(MarketTickEvent, event_handler.handle)
 
     def shutdown(self, app: App) -> None:
-        """Release application-owned database engines during engine shutdown."""
+        """Release application-owned database engines and external client connections during engine shutdown."""
         database_manager = app.container.resolve(DatabaseManager)
         database_manager.dispose_all()
+        try:
+            exchange_client = app.container.resolve(IExchangeClient)
+            if hasattr(exchange_client, "close"):
+                exchange_client.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Exchange client shutdown error: %s", exc)

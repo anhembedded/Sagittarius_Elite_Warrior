@@ -50,6 +50,25 @@ def test_opening_the_dialog_loads_and_shows_the_popup(qapp, view_model):
     dialog.close()
 
 
+def test_refresh_button_emits_refresh_requested(qapp, view_model):
+    preferences = SymbolPreferences()
+    dialog = SymbolPickerDialogWidget(view_model, preferences)
+    dialog.open_dialog()
+    qapp.processEvents()
+
+    requested = []
+    view_model.refreshSymbolOptionsRequested.connect(lambda: requested.append(True))
+
+    btn = dialog.root_object.findChild(QObject, "btnRefreshSymbols")
+    assert btn is not None
+
+    dialog._widget_vm.requestRefresh()
+    qapp.processEvents()
+
+    assert requested == [True]
+    dialog.close()
+
+
 def test_choosing_a_symbol_writes_through_and_records_recently_used(qapp, view_model):
     preferences = SymbolPreferences()
     dialog = SymbolPickerDialogWidget(view_model, preferences)

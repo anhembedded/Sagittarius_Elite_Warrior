@@ -47,6 +47,9 @@ def connect_ui_signals(presenter) -> None:
     presenter._view_model.openSymbolPickerRequested.connect(
         presenter._on_symbol_picker_open_requested
     )
+    presenter._view_model.refreshSymbolOptionsRequested.connect(
+        presenter._on_symbol_picker_refresh_requested
+    )
     presenter._view_model.executionModeChanged.connect(
         presenter._on_execution_mode_changed
     )

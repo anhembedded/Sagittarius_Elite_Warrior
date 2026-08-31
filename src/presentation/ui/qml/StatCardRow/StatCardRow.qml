@@ -29,6 +29,8 @@ RowLayout {
 
         StatCard {
             objectName: "cardMetric_" + index
+            Layout.fillWidth: true
+            Layout.fillHeight: true
             title: modelData.title
             value: modelData.value
             suffix: modelData.suffix

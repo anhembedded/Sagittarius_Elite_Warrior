@@ -611,6 +611,13 @@ class DashboardPresenter(BasePresenter):
         """
         self._symbol_options_coordinator.request_open()
 
+    @Slot()
+    def _on_symbol_picker_refresh_requested(self) -> None:
+        """Forces a refresh of the symbol options directly from the exchange
+        (`BUG-066`'s manual 🔄, bypassing both the coordinator's and
+        `ISymbolCatalogRepository`'s cache)."""
+        self._symbol_options_coordinator.request_refresh()
+
     @Slot(list)
     def _on_symbol_options_ready(self, symbols: list[str]) -> None:
         self._symbol_options_coordinator.on_options_ready(symbols)
@@ -719,6 +726,8 @@ class DashboardPresenter(BasePresenter):
         self._shutdown_requested = True
         if self._cancellation_token is not None:
             self._cancellation_token.cancel()
+        if hasattr(self, "_stream_controller") and self._stream_controller is not None:
+            self._stream_controller.shutdown()
         if hasattr(self, "_autostart") and self._autostart is not None:
             self._autostart.shutdown()
         if (
@@ -738,6 +747,9 @@ class DashboardPresenter(BasePresenter):
         view_model.startStreamRequested.connect(self._on_start_stream)
         view_model.stopStreamRequested.connect(self._on_stop_stream)
         view_model.symbolOptionsRequested.connect(self._on_symbol_picker_open_requested)
+        view_model.symbolOptionsRefreshRequested.connect(
+            self._on_symbol_picker_refresh_requested
+        )
         self._symbolOptionsReadySignal.connect(self._on_symbol_options_ready)
         self._symbolOptionsFailedSignal.connect(self._on_symbol_options_failed)
 

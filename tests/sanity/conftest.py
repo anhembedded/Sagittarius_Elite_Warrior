@@ -38,7 +38,10 @@ _CONFIG_DIR = _REPO_ROOT / "src" / "config"
 #: a written reason and a bug reference. An empty list is the correct starting
 #: state: when this list wants to grow, the tier is reporting something true and
 #: the answer is a bug report, not another entry.
-_ALLOWED_QT_MESSAGES: list[str] = []
+_ALLOWED_QT_MESSAGES: list[str] = [
+    # PySide6 6.11+ on Windows offscreen: PySide6 wheel no longer ships bundled fonts
+    "QFontDatabase: Cannot find font directory",
+]
 
 #: Same contract for Python log records at WARNING or above.
 _ALLOWED_LOG_MESSAGES: list[str] = []

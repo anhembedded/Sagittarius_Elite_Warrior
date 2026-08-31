@@ -244,13 +244,34 @@ def test_choosing_from_the_picker_writes_through_to_the_view_model(
     panel._btn_symbol.click()
     qapp.processEvents()
 
-    card = next(c for c in panel._symbol_picker._cards if c.entry.symbol == "ETHBTC")
-    card.clicked.emit()
+    panel._symbol_picker._widget_vm.choose("ETHBTC")
     qapp.processEvents()
 
     assert view_model.symbol == "ETHBTC"
     assert panel._btn_symbol.text() == "ETHBTC"
     assert panel._symbol_preferences.recents == ("ETHBTC",)
+    panel._symbol_picker.close()
+
+
+def test_symbol_picker_handles_large_symbol_list_without_freezing(
+    qapp, panel, view_model
+):
+    """BUG-066: 1,358 Binance symbols must not freeze the UI or instantiate
+    thousands of QtWidgets SymbolCards. SymbolPicker.qml virtualizes items."""
+    large_list = [f"SYM{i}USDT" for i in range(1358)]
+    view_model.set_symbol_options(large_list)
+
+    import time
+
+    start = time.perf_counter()
+    panel._btn_symbol.click()
+    qapp.processEvents()
+    elapsed = time.perf_counter() - start
+
+    assert panel._symbol_picker is not None
+    # Must open in well under 1 second (previously froze for >5.0s)
+    assert elapsed < 1.0
+    panel._symbol_picker.close()
 
 
 def test_log_panel_is_bound_to_the_view_model_log_model(qapp, panel, view_model):

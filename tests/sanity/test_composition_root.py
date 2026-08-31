@@ -175,7 +175,7 @@ def _navigable_routes() -> list[str]:
     """
     from unittest.mock import Mock
 
-    from tests.conftest import real_screen_registry
+    from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     registry = real_screen_registry(Mock())
     return [d.route for d in registry.get_all() if d.has_nav()]
@@ -207,8 +207,7 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
     """
     from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-
-    from tests.conftest import real_screen_registry
+    from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     registry = real_screen_registry(booted_app.context.container)
     window = MainWindow(booted_app, registry, sidebar_factory=Sidebar)
@@ -273,8 +272,7 @@ def test_the_window_shuts_down_within_budget(qapp, booted_app):
     """
     from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-
-    from tests.conftest import real_screen_registry
+    from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     before = {t.ident for t in threading.enumerate()}
 

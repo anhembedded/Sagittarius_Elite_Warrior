@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     DateRangeOverlay,
     DateTimeField,
     LogPanel,
+    PageShell,
     Pagination,
     Panel,
     PickerItem,
@@ -112,6 +113,7 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
             self._data,
             self._banners,
             self._overlays,
+            self._page_shell,
         ):
             build(column)
         column.addStretch(1)
@@ -237,6 +239,19 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
             overlay.setWindowFlags(Qt.WindowType.Widget)
             overlay.setModal(False)
         self._add(column, "Overlays", confirm, picker, date_range)
+
+    def _page_shell(self, column: QVBoxLayout) -> None:
+        shell = PageShell()
+        shell.setMinimumSize(420, 260)
+        shell.set_header(
+            "Page shell",
+            "Header + optional context bar + workspace/rail + optional console",
+            actions=StyledButton("Action"),
+        )
+        shell.set_context_bar(SectionLabel("Context bar"))
+        shell.set_workspace(Panel(), rail=Panel())
+        shell.set_console(LogPanel("Console"))
+        self._add(column, "Page shell", shell)
 
 
 def showcased_types() -> set[str]:

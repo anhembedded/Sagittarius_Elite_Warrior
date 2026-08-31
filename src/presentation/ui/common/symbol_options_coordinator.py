@@ -50,12 +50,20 @@ class SymbolOptionsCoordinator:
             return
         self._thread_manager.submit(self._fetch)
 
-    def _fetch(self) -> None:
+    def request_refresh(self) -> None:
+        """Forces a refetch straight from the exchange, bypassing both this
+        coordinator's cache and `ISymbolCatalogRepository`'s local one (the
+        manual 🔄 in the picker, `BUG-066`)."""
+        self._symbol_options_cache = None
+        self._thread_manager.submit(lambda: self._fetch(force_refresh=True))
+
+    def _fetch(self, force_refresh: bool = False) -> None:
         """Runs on a worker thread — hence reporting through callables that
         forward to Qt signals, rather than writing a ViewModel directly."""
         try:
             symbols = self._dispatcher.dispatch(
-                ListAvailableSymbolsQuery, ListAvailableSymbolsQuery()
+                ListAvailableSymbolsQuery,
+                ListAvailableSymbolsQuery(force_refresh=force_refresh),
             )
         except Exception as exc:  # noqa: BLE001 - worker boundary, report don't crash
             logger.exception("Failed to fetch available symbols")

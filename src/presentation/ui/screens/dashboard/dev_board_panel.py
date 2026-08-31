@@ -50,7 +50,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
     AppLogPanel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPickerOverlay,
     SymbolPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
@@ -65,6 +64,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_rang
     TimeRangePickerDialog,
 )
 
+from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog
 from .dashboard_view_model import DashboardQmlViewModel
 
 #: `DashboardQmlViewModel` (unlike `DataManagementViewModel`) exposes no
@@ -125,7 +125,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
-        self._symbol_picker: SymbolPickerOverlay | None = None
+        self._symbol_picker: DashboardSymbolPickerDialog | None = None
         self._time_range_dialog: TimeRangePickerDialog | None = None
         # EPIC-014: replaced in production by the container-registered store
         # (`DashboardPresenter` injects it through `set_symbol_preferences`),
@@ -144,7 +144,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         outer.setContentsMargins(14, 14, 14, 14)
         outer.setSpacing(12)
 
-        outer.addWidget(self._build_header())
+        self._build_header_widgets()
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -166,7 +166,9 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._log_panel.setObjectName("monitorLogPanel")
         self._log_panel.setMinimumHeight(160)
         self._log_panel.set_log_model(view_model.log_model)
-        outer.addWidget(self._log_panel)
+        # Not added to `outer` — `DashboardView` places this in `PageShell`'s
+        # console band instead (`console_widget` below), the same full-width
+        # placement every other screen's log uses.
 
         self._wire_view_model()
         self._sync_price_ticker()
@@ -177,38 +179,15 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
     # Layout
     # ------------------------------------------------------------------ #
 
-    def _build_header(self) -> Panel:
-        bar = Panel()
-        bar.setFixedHeight(44)
-        # `Panel` already owns its own layout (`body_layout`), so content
-        # goes *into* it rather than a second layout being installed on the
-        # widget — Qt refuses the latter and leaves the content unparented.
-        bar.body_layout.setContentsMargins(0, 0, 0, 0)
-        row = QHBoxLayout()
-        row.setContentsMargins(12, 0, 12, 0)
-        row.setSpacing(10)
-        bar.body_layout.addLayout(row)
-
-        title_row = QHBoxLayout()
-        title_row.setSpacing(6)
-        tick = QFrame()
-        tick.setFixedSize(3, 14)
-        tick.setStyleSheet(f"background-color: {Palette.ACCENT}; border-radius: 2px;")
-        title_row.addWidget(tick)
-        title_label = QLabel("Developer Board (Live Testbed)")
-        title_label.setObjectName("lblHeaderTitle")
-        title_label.setFixedWidth(170)
-        title_label.setStyleSheet(
-            f"color: {Palette.TEXT_PRIMARY}; font-size: 13px; font-weight: bold;"
-        )
-        title_row.addWidget(title_label)
-        row.addLayout(title_row)
-
-        row.addStretch(1)
-
+    def _build_header_widgets(self) -> None:
+        """The price ticker, WS status pill, and Reload button — no title,
+        no wrapping row/`Panel` of their own. This panel is the *rail* now,
+        not the page header: the title text is `DashboardView`'s to own
+        (`header_actions`/`console_widget` below are what it collects into
+        `PageShell`'s header/console bands), the same split every other
+        screen's View/content-panel pair already uses."""
         self._price_ticker_label = QLabel()
         self._price_ticker_label.setObjectName("lblPriceTicker")
-        row.addWidget(self._price_ticker_label)
 
         # EPIC-015 Phase 4 — was a bare QLabel + colour-square QFrame, styled
         # inline via `_sync_ws_status()`. Now `StatusPill.qml` embedded
@@ -218,7 +197,6 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._ws_status_pill = StatusPillWidget()
         self._ws_status_pill.setObjectName("wsStatusPill")
         self._ws_status_pill.setFixedHeight(22)
-        row.addWidget(self._ws_status_pill)
 
         self._btn_reload = QPushButton()
         self._btn_reload.setObjectName("btnReload")
@@ -227,9 +205,19 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         )
         self._btn_reload.setFixedHeight(26)
         self._btn_reload.clicked.connect(self._view_model.requestLoadHistory)
-        row.addWidget(self._btn_reload)
 
-        return bar
+    @property
+    def header_actions(self) -> list[QWidget]:
+        """Public accessor for `DashboardView` to place in the page header —
+        mirrors `BackTestTopPanel.run_button`'s reason for existing: the
+        private attributes stay what every existing test keys off."""
+        return [self._price_ticker_label, self._ws_status_pill, self._btn_reload]
+
+    @property
+    def console_widget(self) -> AppLogPanel:
+        """Public accessor for `DashboardView` to place in `PageShell`'s
+        console band."""
+        return self._log_panel
 
     def _build_system_controls(self) -> Panel:
         card = Panel()
@@ -369,38 +357,27 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         """Swaps in the shared, persisted favourites/recents store.
 
         @details Injected by `DashboardPresenter` (this panel has no
-        container access), and rebinds an already-built picker so the order
+        container access), and forwards to an already-built picker so the order
         of construction and injection cannot matter. Until it is called the
         panel uses its own store, so a bare `DevBoardPanel(vm)` — every
         existing test — still opens a working picker.
         """
         if preferences is self._symbol_preferences:
             return
-        if self._symbol_picker is not None:
-            self._symbol_preferences.unbind_picker(
-                self._symbol_picker, self._on_symbol_changed
-            )
-            preferences.bind_picker(self._symbol_picker, self._on_symbol_changed)
         self._symbol_preferences = preferences
+        if self._symbol_picker is not None:
+            self._symbol_picker.set_preferences(preferences)
 
     def _open_symbol_picker(self) -> None:
         if self._symbol_picker is None:
-            self._symbol_picker = SymbolPickerOverlay(
-                get_symbols=lambda: self._view_model.symbolOptions,
-                get_favourites=lambda: self._symbol_preferences.favourites,
-                get_recents=lambda: self._symbol_preferences.recents,
-                get_current=lambda: self._view_model.symbol,
-                parent=self,
-            )
-            self._symbol_preferences.bind_picker(
-                self._symbol_picker, self._on_symbol_changed
+            self._symbol_picker = DashboardSymbolPickerDialog(
+                self._view_model, self._symbol_preferences, parent=self
             )
             self._view_model.symbolOptionsChanged.connect(self._refresh_symbol_picker)
         # Emitted before showing, not after: the Presenter fetches on this
         # signal, and the dialog renders "Đang tải" until the list lands.
         self._view_model.symbolOptionsRequested.emit()
-        self._symbol_picker.show()
-        self._symbol_picker.raise_()
+        self._symbol_picker.open_dialog()
 
     def _refresh_symbol_picker(self) -> None:
         if self._symbol_picker is not None and self._symbol_picker.isVisible():

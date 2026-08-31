@@ -55,6 +55,10 @@ class SymbolPickerDialogWidget(SymbolPickerModal):
         super().__init__(self._widget_vm, parent=parent)
 
         self.symbolChosen.connect(self._on_symbol_chosen)
+        self.refreshRequested.connect(self._on_refresh_requested)
+
+    def _on_refresh_requested(self) -> None:
+        self._vm.refreshSymbolOptionsRequested.emit()
 
     def set_preferences(self, preferences: SymbolPreferences) -> None:
         """`BackTestModalsHost.set_symbol_preferences`'s seam — forwarded to

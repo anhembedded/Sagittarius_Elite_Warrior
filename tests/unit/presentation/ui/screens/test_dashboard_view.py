@@ -45,13 +45,15 @@ def test_dashboard_view_hybrid_layout_hosts_chart_scroll_area_and_dev_board_pane
 def test_dashboard_view_header_title(qapp):
     """The Dev Board header clearly labels itself as a developer testbed,
     distinct from the app's end-user dashboard (BOT-014) — rendered by
-    DevBoardPanel (QtWidgets since EPIC-006D)."""
+    `PageShell`'s header band (the page title moved out of `DevBoardPanel`
+    and into `DashboardView`'s shell, the same place every other screen's
+    title lives)."""
     view = DashboardView()
     view.resize(1200, 800)
     view.set_view_model(DashboardQmlViewModel())
     qapp.processEvents()
 
-    header = view._panel.findChild(QLabel, "lblHeaderTitle")
+    header = view.findChild(QLabel, "pageShellTitle")
     assert header is not None
     assert header.text() == "Developer Board (Live Testbed)"
 

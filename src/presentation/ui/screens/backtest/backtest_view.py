@@ -6,6 +6,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from .backtest_modals import BackTestModalsHost
@@ -83,13 +84,22 @@ class BackTestView(BaseView):
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.setSpacing(0)
 
+        self._shell = PageShell()
+        outer_layout.addWidget(self._shell)
+        # No "Run" action yet — `BackTestTopPanel` (and its `run_button`)
+        # is not built until `set_view_model()`, which calls this again
+        # with the real button once it exists.
+        self._shell.set_header(
+            "Backtest Engine", "Kiểm thử chiến lược trên dữ liệu lịch sử"
+        )
+
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        outer_layout.addWidget(self.scroll_area)
+        self._shell.set_workspace(self.scroll_area)
 
         self.scroll_content = QWidget()
         self._scroll_content_layout = QVBoxLayout(self.scroll_content)
@@ -129,6 +139,11 @@ class BackTestView(BaseView):
         self._view_model = view_model
         self.top_widget = BackTestTopPanel(view_model)
         self._scroll_content_layout.insertWidget(0, self.top_widget)
+        self._shell.set_header(
+            "Backtest Engine",
+            "Kiểm thử chiến lược trên dữ liệu lịch sử",
+            actions=self.top_widget.run_button,
+        )
 
         self.bottom_widget = BackTestTradeLogsPanel(view_model)
         self.bottom_widget.setMinimumHeight(

@@ -67,6 +67,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     symbolChanged = Signal()
     symbolOptionsChanged = Signal()
     symbolOptionsRequested = Signal()
+    symbolOptionsRefreshRequested = Signal()
     startDateChanged = Signal()
     endDateChanged = Signal()
 

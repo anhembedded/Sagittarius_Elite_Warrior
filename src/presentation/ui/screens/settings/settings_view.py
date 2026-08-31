@@ -25,7 +25,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker i
     all_options as all_timeframe_options,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    Panel,
+    PageShell,
     StyledButton,
     StyledField,
     StyleRole,
@@ -170,8 +170,9 @@ class SettingsView(BaseView):
         )
 
     # ------------------------------------------------------------------ #
-    # Layout — mirrors SettingsScreen.qml's structure (kept on disk,
-    # unloaded) field-for-field, so this migration changes nothing visible.
+    # Layout — a `PageShell` like every other screen: header band, no
+    # context bar/rail/console (this screen has nothing for any of them),
+    # main workspace = the credentials form.
     # ------------------------------------------------------------------ #
 
     def _build_ui(self) -> None:
@@ -185,69 +186,27 @@ class SettingsView(BaseView):
             f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
         )
 
+        shell = PageShell()
+        outer.addWidget(shell)
+        shell.set_header(
+            "SAGITTARIUS API KEYS VAULT",
+            "HMAC SHA256 API Key & Secret Management",
+            icon=get_icon_loader().get_icon("settings", Palette.ACCENT),
+            actions=self._build_save_button(),
+        )
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        outer.addWidget(scroll)
-
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.addWidget(self._build_body())
         scroll.setWidget(content)
 
-        # A bare Panel, not Card: this screen's header (icon, two-line
-        # title/subtitle, its own BG_CARD_HEADER band) is materially richer
-        # than Card's built-in title-label + header_actions row, so it stays
-        # hand-built and goes into Panel's plain body_layout rather than
-        # fighting Card's own header slot for a second one (EPIC-007F).
-        card = Panel()
-        content_layout.addWidget(card)
-        card.body_layout.setContentsMargins(0, 0, 0, 0)
-        card.body_layout.setSpacing(0)
+        shell.set_workspace(scroll)
 
-        card.body_layout.addWidget(self._build_header())
-        card.body_layout.addWidget(self._build_body())
-
-    def _build_header(self) -> QWidget:
-        header = QFrame()
-        header.setObjectName("settingsCardHeader")
-        header.setFixedHeight(56)
-        # Scoped by objectName rather than left bare, for the same reason as
-        # the screen background above: unscoped, this band's colour and
-        # border would cascade onto the icon, title, subtitle and Save
-        # button it contains. Kept hand-written rather than given a
-        # `StyleRole` — a card header band with its own top-corner radii is
-        # one screen's shape today, and the engine's `Card` header is a
-        # different one (a title label plus an actions row).
-        header.setStyleSheet(
-            f"#settingsCardHeader {{"
-            f"background-color: {Palette.BG_CARD_HEADER};"
-            f"border-top-left-radius: 8px; border-top-right-radius: 8px;"
-            f"border-bottom: 1px solid {Palette.BORDER};"
-            f"}}"
-        )
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(15, 0, 15, 0)
-        layout.setSpacing(10)
-
-        icon_label = QLabel()
-        icon_label.setPixmap(
-            get_icon_loader().get_icon("settings", Palette.ACCENT).pixmap(20, 20)
-        )
-        layout.addWidget(icon_label)
-
-        title_box = QVBoxLayout()
-        title_box.setSpacing(0)
-        title = QLabel("SAGITTARIUS API KEYS VAULT")
-        apply_role(title, StyleRole.HEADING)
-        subtitle = QLabel("HMAC SHA256 API Key & Secret Management")
-        apply_role(subtitle, StyleRole.CAPTION)
-        title_box.addWidget(title)
-        title_box.addWidget(subtitle)
-        layout.addLayout(title_box)
-
-        layout.addStretch()
-
+    def _build_save_button(self) -> QPushButton:
         self._save_button = StyledButton(
             "Save Credentials", role=StyleRole.PRIMARY_BUTTON
         )
@@ -261,9 +220,7 @@ class SettingsView(BaseView):
         _save_font = self._save_button.font()
         _save_font.setBold(True)
         self._save_button.setFont(_save_font)
-        layout.addWidget(self._save_button)
-
-        return header
+        return self._save_button
 
     def _build_body(self) -> QWidget:
         body = QWidget()

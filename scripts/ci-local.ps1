@@ -365,7 +365,7 @@ if (-not $SkipTests) {
         $sanityJob = Start-Job -ScriptBlock {
             param($executionRoot, $pytestBin, $target, $logFile, $rootDir, $repoDir, $pathSep)
             Set-Location $executionRoot
-            $env:PYTHONPATH     = "$executionRoot$pathSep$repoDir"
+            $env:PYTHONPATH     = "$rootDir$pathSep$executionRoot$pathSep$repoDir"
             $env:QT_QPA_PLATFORM = "offscreen"
             $output = & $pytestBin $target -v --rootdir=$rootDir 2>&1
             $output | Out-File -FilePath $logFile -Encoding utf8
