@@ -30,7 +30,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-08-30
+> Cập nhật: 2026-08-31
 
 ---
 
@@ -39,8 +39,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa / đã đóng** | 66 |
-| 📈 **Tổng** | **70** |
+| ✅ **Đã sửa / đã đóng** | 69 |
+| 📈 **Tổng** | **73** |
 
 ---
 
@@ -48,9 +48,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-072](incomplete/BUG-072_intermittent_segfault_tests_integration_worker_load_history.md)** | Segfault không ổn định trong `tests/integration/`, worker thread mid-`_run_load_history` | Chưa đánh giá | 2026-08-31 | Lộ ra khi verify cuối `BUG-065`/`BUG-074`: 1/4 lần chạy `pytest tests/ -q` crash sớm trong `tests/integration/`, main thread bơm event loop lúc setup trong khi 1 `ThreadPoolExecutor` worker đang chạy giữa chừng `DashboardPresenter`'s autostart (`_run_load_history`) — đúng lớp lỗi `BUG-056` đã root-cause, nhưng fix của bug đó không phủ hết đường này. Có thể là tái xuất hiện của `BOT-038` (đã đóng, "không tái hiện được" 2026-08-25) qua cơ chế mới, không cần QML. Không tái hiện được khi chạy `tests/integration/` một mình — chưa bisect được. |
 | **[BUG-068](incomplete/BUG-068_cross_thread_qbasictimer_start_in_gap_inspection.md)** | QBasicTimer::start: Timers cannot be started from another thread trong quá trình kiểm tra Database Gaps | 🟠 **P2** | 2026-08-30 | Khi chạy `GetDatabaseGapsQuery` trên worker thread của `ThreadManager`, xuất hiện 4 cảnh báo Qt timer vi phạm thread affinity. Biến thể của lớp lỗi `BUG-031`. |
 | **[BUG-070](incomplete/BUG-070_symbol_picker_popup_keys_attached_property_warning.md)** | SymbolPicker QML cảnh báo "Could not attach Keys property to: Popup ... is not an Item" | ⚪ **P4** | 2026-08-30 | `Keys.onPressed` được gắn trực tiếp trên thẻ `Popup` (vốn là `QtObject`, không phải `Item`) trong `SymbolPicker.qml`. |
-| **[BUG-065](incomplete/BUG-065_state_coordinator_test_crashes_a_worker_under_full_parallel_load.md)** | `test_a_burst_of_marks_produces_exactly_one_write` chết một worker khi chạy `ci-local.ps1 -Full` | Chưa đánh giá | 2026-08-30 | Worker `node down` (crash thật, không phải assertion sai) — tái hiện 2/3 lần chạy full CI, 5/5 sạch khi chạy đơn lẻ. File không bị đụng trong phiên này. Rất có thể cùng cơ chế `BUG-056` (deferred-delete Qt object của test trước bị huỷ sai thread giữa lúc `qtbot.wait()` của test sau đang bơm event loop) tái hiện ở một chỗ fix của BUG-056 không phủ tới — xem hồ sơ để biết bằng chứng đầy đủ. **Cập nhật (phiên khác):** cùng traceback (`qt_compat.py:160`/`wait_signal.py:58`/`qtbot.py:503`) tái hiện được trên Linux, chạy `pytest tests/unit/ -q` **tuần tự, không cần `-n`**, ở test khác (`test_history_pagination_controller.py`), kể cả trên commit cũ trước `EPIC-016`-`019` — loại hẳn "cross-process xdist" khỏi nghi vấn, xác nhận đây là race trong 1 tiến trình đơn, không phải regression gần đây. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. **Cập nhật 2026-08-26:** headless repro (cùng tổ hợp script Dev Board thật) không tái hiện được `-50..100`, nhưng lộ ra 1 defect thật khác cùng subsystem, đã tách và đóng riêng ở [`BUG-053`](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md) — không đóng được bug này, vẫn cần ảnh/log tái hiện sống. **Cập nhật 2026-08-30:** log phiên live xác nhận bằng chứng sống trên symbol `0GTRY` (giá thực 7.6..8.2 nhưng `y-range [-71.3690, 46.1465]` và `autorange=[False, 1.0]`), khiến nến bị co dẹp biến mất. |
 
 ---
@@ -59,6 +59,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-073](completed/BUG-073_backtest_preview_unbounded_tick_coverage_hangs_shutdown.md)** | Backtest chart-preview probe bắn `GetBacktestRangeCoverageQuery` không giới hạn ở tick mode, treo tiến trình lúc thoát app | 🟠 **P1** | 2026-08-31 | `ChartPreviewCoordinator.request_preview()` bắn tự động lúc mở màn Backtest, trước khi toolbar's time-range preset ổn định — nếu execution mode đã là `HISTORICAL_TICK` lúc đó, dispatch `GetBacktestRangeCoverageQuery(start_time=None, interval=1s)`, đúng hazard `TickModeRequiresBoundedRangeRule` đã biết (scan window-function không giới hạn) nhưng rule đó chỉ gác nút "Run Backtest", không gác đường preview này. Log dev-mode thật cho thấy 1 worker kẹt ~19s, vẫn chạy 2s SAU khi "App stopped." đã log. Sửa: `request_preview()` áp đúng điều kiện của rule đó (tick mode + start_time=None) để bỏ qua, không dispatch. |
+| **[BUG-065](completed/BUG-065_state_coordinator_test_crashes_a_worker_under_full_parallel_load.md)** | CI thật crash native (`Segmentation fault`/`Fatal Python error: Aborted`) luôn tại `test_history_pagination_controller.py`, cùng cơ chế đã thấy ở `test_ui_state_coordinator.py` | 🔴 **P1** | 2026-08-30 | Bisect nhị phân bằng `pytest -q <id...>` xuống đúng 1 test (693/2806) chứng minh đây là crash **đơn luồng** (loại giả thuyết race 2 luồng ban đầu): `SymbolPickerOverlay` (widget top-level, không có Qt parent) có card nối `clicked`/`favourite_toggled` tới lambda đóng lại `self` — 1 chu trình tham chiếu Python chỉ cyclic GC phá được, và thứ tự finalize GC chọn (tuỳ ý) đụng độ với thứ tự Qt C++ parent-child mong đợi. `test_symbol_picker_overlay.py` đổi sang `qtbot.addWidget(dialog)` cho mọi dialog, buộc `close()`+`deleteLater()` chạy đúng lúc, xác định, thay vì để cyclic GC vấp phải sau này. |
+| **[BUG-074](completed/BUG-074_log_viewer_enabled_by_default_leaks_tcp_worker_thread.md)** | `app_config.json`'s `log.viewer.enabled: true` rò 1 thread TCP nền (`Sagittarius-TcpLogWorker`) sống suốt phần còn lại của phiên CI đơn-tiến-trình | 🟡 P2 | 2026-08-31 | Đổi default về `false` (khớp default an toàn của chính `LoggerConfig` engine). Phát hiện phụ trong lúc điều tra `BUG-065`, xác nhận không phải nguyên nhân chính của crash đó. |
 | **[BUG-071](completed/BUG-071_checkbox_list_stat_grid_root_width_parent_typeerror.md)** | CheckboxList/StatGrid QML quăng `TypeError: Cannot read property 'width' of null` mỗi lần mở dialog | 🟡 **P3** | 2026-08-31 | Xoá `width: parent.width` khỏi root item của `CheckboxList.qml` và `StatGrid.qml` — cả hai luôn được nạp làm root object của `QQuickWidget` (`SizeRootObjectToView`), thứ không bao giờ gán `parent` QML cho root, nên binding luôn đọc `null`. |
 | **[BUG-067](completed/BUG-067_dashboard_sync_market_data_ignores_cancellation_hangs_shutdown.md)** | Dashboard Live Stream sync bỏ qua cancellation, thread kẹt làm treo tiến trình khi tắt app | 🔴 **P1** | 2026-08-30 | Truyền `cancellation_requested=token.is_cancelled` vào `SyncMarketDataCommand` trong `stream_lifecycle_controller.py`. Thêm `shutdown()` giải phóng `ExclusiveAction` và cancel token; thêm `close()` trên `PythonBinanceClient` để ngắt socket `requests.Session` khi engine shutdown (`BinanceBotModule.shutdown`). |
 | **[BUG-069](completed/BUG-069_database_status_table_qml_typeerror_null_vm_on_teardown.md)** | DatabaseStatusTable QML quăng hàng loạt TypeError khi ViewModel bị huỷ lúc thoát app | 🟡 **P3** | 2026-08-30 | Thêm null-safe guard `(vm ? vm.rowCount : 0)`, `(vm ? vm.rowsModel : null)` và `Boolean(vm && vm.actionsEnabled)` trong `DatabaseStatusTable.qml` và `DatabaseStatusRow.qml`, triệt tiêu toàn bộ TypeError khi giải phóng ViewModel. |
