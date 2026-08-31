@@ -39,8 +39,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa / đã đóng** | 67 |
-| 📈 **Tổng** | **72** |
+| ✅ **Đã sửa / đã đóng** | 68 |
+| 📈 **Tổng** | **73** |
 
 ---
 
@@ -59,6 +59,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-073](completed/BUG-073_backtest_preview_unbounded_tick_coverage_hangs_shutdown.md)** | Backtest chart-preview probe bắn `GetBacktestRangeCoverageQuery` không giới hạn ở tick mode, treo tiến trình lúc thoát app | 🟠 **P1** | 2026-08-31 | `ChartPreviewCoordinator.request_preview()` bắn tự động lúc mở màn Backtest, trước khi toolbar's time-range preset ổn định — nếu execution mode đã là `HISTORICAL_TICK` lúc đó, dispatch `GetBacktestRangeCoverageQuery(start_time=None, interval=1s)`, đúng hazard `TickModeRequiresBoundedRangeRule` đã biết (scan window-function không giới hạn) nhưng rule đó chỉ gác nút "Run Backtest", không gác đường preview này. Log dev-mode thật cho thấy 1 worker kẹt ~19s, vẫn chạy 2s SAU khi "App stopped." đã log. Sửa: `request_preview()` áp đúng điều kiện của rule đó (tick mode + start_time=None) để bỏ qua, không dispatch. |
 | **[BUG-065](completed/BUG-065_state_coordinator_test_crashes_a_worker_under_full_parallel_load.md)** | CI thật crash native (`Segmentation fault`/`Fatal Python error: Aborted`) luôn tại `test_history_pagination_controller.py`, cùng cơ chế đã thấy ở `test_ui_state_coordinator.py` | 🔴 **P1** | 2026-08-30 | Bisect nhị phân bằng `pytest -q <id...>` xuống đúng 1 test (693/2806) chứng minh đây là crash **đơn luồng** (loại giả thuyết race 2 luồng ban đầu): `SymbolPickerOverlay` (widget top-level, không có Qt parent) có card nối `clicked`/`favourite_toggled` tới lambda đóng lại `self` — 1 chu trình tham chiếu Python chỉ cyclic GC phá được, và thứ tự finalize GC chọn (tuỳ ý) đụng độ với thứ tự Qt C++ parent-child mong đợi. `test_symbol_picker_overlay.py` đổi sang `qtbot.addWidget(dialog)` cho mọi dialog, buộc `close()`+`deleteLater()` chạy đúng lúc, xác định, thay vì để cyclic GC vấp phải sau này. |
 | **[BUG-071](completed/BUG-071_log_viewer_enabled_by_default_leaks_tcp_worker_thread.md)** | `app_config.json`'s `log.viewer.enabled: true` rò 1 thread TCP nền (`Sagittarius-TcpLogWorker`) sống suốt phần còn lại của phiên CI đơn-tiến-trình | 🟡 P2 | 2026-08-31 | Đổi default về `false` (khớp default an toàn của chính `LoggerConfig` engine). Phát hiện phụ trong lúc điều tra `BUG-065`, xác nhận không phải nguyên nhân chính của crash đó. |
 | **[BUG-067](completed/BUG-067_dashboard_sync_market_data_ignores_cancellation_hangs_shutdown.md)** | Dashboard Live Stream sync bỏ qua cancellation, thread kẹt làm treo tiến trình khi tắt app | 🔴 **P1** | 2026-08-30 | Truyền `cancellation_requested=token.is_cancelled` vào `SyncMarketDataCommand` trong `stream_lifecycle_controller.py`. Thêm `shutdown()` giải phóng `ExclusiveAction` và cancel token; thêm `close()` trên `PythonBinanceClient` để ngắt socket `requests.Session` khi engine shutdown (`BinanceBotModule.shutdown`). |
