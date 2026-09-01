@@ -93,7 +93,7 @@ def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
     dispatcher.dispatch.side_effect = [
         ["BTCUSDT", "ETHUSDT"],  # ListAvailableSymbolsQuery
         [status_dto],  # ScanAllDatabasesQuery
-        PruneEmptyShardsResult(removed_symbols=[], scanned_count=0),  # BUG-077
+        PruneEmptyShardsResult(removed_symbols=[], scanned_count=0),  # BUG-078
     ]
 
     coordinator.run_auto_discover()
@@ -118,7 +118,7 @@ def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
 def test_scan_coordinator_auto_discover_dispatches_prune_and_reports_removals(
     scan_fixture,
 ):
-    """BUG-077 — auto-discover must dispatch PruneEmptyShardsCommand as its last
+    """BUG-078 — auto-discover must dispatch PruneEmptyShardsCommand as its last
     step and surface a log line when it actually removed something."""
     coordinator, dispatcher, _, tracker, signals = scan_fixture
 

@@ -184,7 +184,7 @@ class ScanCoordinator:
 
     def _prune_empty_shards(self, token: CancellationToken) -> None:
         """
-        @brief Removes shards left behind with 0 klines (BUG-077).
+        @brief Removes shards left behind with 0 klines (BUG-078).
         @details A pure read used to create a shard file as a side effect
         (`get_session()`'s create-on-first-use), so a symbol that was only ever
         checked — never actually synced — could leave a permanent empty `.db`

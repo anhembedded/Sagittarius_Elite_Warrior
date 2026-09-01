@@ -22,7 +22,7 @@ def handler(mock_repo):
 
 
 def test_removes_only_shards_with_zero_klines(handler, mock_repo):
-    """BUG-077: a shard that holds even one kline (in any interval) must never
+    """BUG-078: a shard that holds even one kline (in any interval) must never
     be removed — only symbols where has_any_klines() is False are candidates."""
     mock_repo.list_available_shards.return_value = ["BTCUSDT", "PHANTOM1", "PHANTOM2"]
     mock_repo.has_any_klines.side_effect = lambda symbol: symbol == "BTCUSDT"

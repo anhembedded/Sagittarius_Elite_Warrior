@@ -63,7 +63,7 @@ class DatabaseManager:
         """
         @brief Checks whether a symbol already has a database file on disk, without
         creating one.
-        @details BUG-077 — a pure status/read check must be able to answer "no data"
+        @details BUG-078 — a pure status/read check must be able to answer "no data"
         for a symbol without triggering `get_session()`'s create-on-first-use side
         effect. Callers that only ever want to read must check this first and skip
         `get_session()` entirely when it's False.

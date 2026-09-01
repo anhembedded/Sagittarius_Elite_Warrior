@@ -85,7 +85,7 @@ def test_gap_detected_sets_correct_status_text(handler, mock_repo):
 
 
 def test_one_repository_call_per_symbol_not_per_pair(handler, mock_repo):
-    """BUG-077: a symbol's intervals must be fetched over ONE call (one shard
+    """BUG-078: a symbol's intervals must be fetched over ONE call (one shard
     session), not one call per (symbol, interval) pair — the whole point of the
     redesign that replaced the 8100-connection boot-time scan."""
     snapshot = DatabaseStatusSnapshot(

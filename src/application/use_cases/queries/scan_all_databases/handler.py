@@ -64,7 +64,7 @@ class ScanAllDatabasesQueryHandler(
         if not symbols or not intervals:
             return results
 
-        # BUG-077: one task per symbol, not per (symbol, interval) pair — a shard
+        # BUG-078: one task per symbol, not per (symbol, interval) pair — a shard
         # holds every interval of that symbol in one SQLite file, so scanning it
         # opens a single connection instead of `len(intervals)` of them.
         def _scan(symbol: str) -> list[DatabaseStatusDTO]:

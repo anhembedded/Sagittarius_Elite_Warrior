@@ -376,7 +376,7 @@ def test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live(repo)
 
 
 # --------------------------------------------------------------------- #
-# BUG-077: pure reads must never create a phantom shard file.
+# BUG-078: pure reads must never create a phantom shard file.
 # --------------------------------------------------------------------- #
 
 
@@ -400,7 +400,7 @@ def test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live(repo)
     ],
 )
 def test_read_on_symbol_without_shard_creates_no_shard_file(repo, call):
-    """BUG-077 — a pure status/read check for a symbol never written must not
+    """BUG-078 — a pure status/read check for a symbol never written must not
     create a `.db` file on disk. `DatabaseManager.get_session()` creates a
     shard on first use, so any read method calling it unconditionally would
     silently pollute the Storage Vault. Every read method must consult
@@ -411,7 +411,7 @@ def test_read_on_symbol_without_shard_creates_no_shard_file(repo, call):
 
 def test_write_still_creates_a_shard_normally(repo):
     """The has_shard() guard must only gate reads — save_klines() must still
-    create the shard on first write, same as before BUG-077."""
+    create the shard on first write, same as before BUG-078."""
     dt = datetime(2024, 1, 1, tzinfo=UTC)
     repo.save_klines([create_mock_kline("BTCUSDT", dt)])
     assert repo.list_available_shards() == ["BTCUSDT"]
@@ -429,7 +429,7 @@ def test_has_any_klines_true_for_data_in_any_interval(repo):
 
 
 def test_get_database_status_for_intervals_matches_per_interval_calls(repo):
-    """BUG-077 — the batched status call must return exactly the same
+    """BUG-078 — the batched status call must return exactly the same
     per-interval snapshots as calling get_database_status() individually,
     just over one shard session instead of one per interval."""
     dt = datetime(2024, 1, 1, tzinfo=UTC)

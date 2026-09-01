@@ -126,7 +126,7 @@ class IMarketDataRepository(ABC):
     ) -> dict[str, DatabaseStatusSnapshot]:
         """
         @brief Gets database status for every interval of one symbol in a single call.
-        @details BUG-077 — lets a caller scanning many intervals of the same symbol
+        @details BUG-078 — lets a caller scanning many intervals of the same symbol
         (e.g. `ScanAllDatabasesQueryHandler`) do it over one underlying connection
         instead of one per interval, since a symbol's intervals all live in the same
         shard. Keyed by `TimeFrame.value`.
@@ -182,7 +182,7 @@ class IMarketDataRepository(ABC):
     def has_any_klines(self, symbol: str) -> bool:
         """
         @brief Whether a symbol's shard holds at least one kline, in any interval.
-        @details BUG-077 — deliberately interval-agnostic (unlike `get_database_status`),
+        @details BUG-078 — deliberately interval-agnostic (unlike `get_database_status`),
         so a caller deciding whether a shard is safe to delete never misjudges "empty"
         against only a curated interval subset (e.g. the default 6 shown in the UI) while
         the shard actually holds data at some other interval.

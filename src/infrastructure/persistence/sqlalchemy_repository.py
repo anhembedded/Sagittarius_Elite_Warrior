@@ -251,7 +251,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
     ) -> dict[str, DatabaseStatusSnapshot]:
         """
         @brief Status for every interval of one symbol, opened over a single session.
-        @details BUG-077 — `klines` is a single table per shard keyed on
+        @details BUG-078 — `klines` is a single table per shard keyed on
         `(symbol, interval, open_time)`; all intervals of one symbol already live in
         the same SQLite file. Querying interval-by-interval on a fresh
         `get_session()` each time (the shape `ScanAllDatabasesQueryHandler` used to

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 class PruneEmptyShardsCommand:
     """
     @brief Command to remove every storage shard that holds zero klines.
-    @details BUG-077 — a shard is created as a side effect of a read (fixed
+    @details BUG-078 — a shard is created as a side effect of a read (fixed
     separately), so the vault can accumulate empty `.db` files for symbols that
     were only ever checked, never actually synced. This command is the explicit,
     opt-in remediation: it never touches a shard that has at least one kline in

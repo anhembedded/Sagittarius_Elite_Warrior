@@ -1,4 +1,4 @@
-# BUG-077 — Đọc dữ liệu (không ghi) tự tạo shard rỗng, làm auto-discover quét 79 giây lúc boot
+# BUG-078 — Đọc dữ liệu (không ghi) tự tạo shard rỗng, làm auto-discover quét 79 giây lúc boot
 
 **Reported date:** 2026-09-01
 **Severity:** Trung bình — không mất dữ liệu, không crash, nhưng làm màn Data

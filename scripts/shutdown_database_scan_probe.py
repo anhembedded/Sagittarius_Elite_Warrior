@@ -38,7 +38,7 @@ def main() -> None:
     def slow_status_for_intervals(
         _symbol: str, intervals: list[TimeFrame], *_args, **_kwargs
     ) -> dict[str, DatabaseStatusSnapshot]:
-        # BUG-077: the handler now opens one call per symbol (covering every
+        # BUG-078: the handler now opens one call per symbol (covering every
         # requested interval), not one call per (symbol, interval) pair —
         # matches the real ScanAllDatabasesQueryHandler shape.
         scan_started.set()
