@@ -45,6 +45,10 @@ Trước khi code bố cục: [`design/PROMPT_thiet_ke_man_giao_dich.md`](../des
 Dừng khẩn cấp thất bại một phần). Nó mang sẵn đúng palette, font, và luật 4 dải của `PageShell`
 lấy từ code thật.
 
+> **Đã có mockup (2026-09-01).** User đã dựng xong bản thiết kế và sẽ cung cấp khi bắt tay vào
+> task này. **Hỏi user trước, đừng tự sinh lại bằng prompt trên** — prompt đó giờ chỉ còn là bản
+> ghi các ràng buộc đã đặt ra, không phải bước cần chạy lại.
+
 Mockup là **đầu vào**, không phải hợp đồng: widget vẫn lấy từ `kit/` và `qml/` đã có, không dựng
 widget mới chỉ vì mockup vẽ khác. Đối chiếu mockup với ảnh chụp app thật **sau** khi dựng xong —
 đúng cách `EPIC-020` phát hiện được 4 lỗi bố cục.
