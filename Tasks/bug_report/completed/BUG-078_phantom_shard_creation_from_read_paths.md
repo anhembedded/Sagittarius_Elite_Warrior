@@ -6,7 +6,8 @@ Management (màn nạp đầu tiên lúc mở app) không phản hồi ~79 giây
 auto-discover chạy
 **Fixed date:** 2026-09-01
 **Status:** ✅ Fixed — root-caused, regression-tested, cổng CI thật đã chạy
-xanh (xem §4/§6)
+xanh (xem §4/§5). Báo cáo ban đầu dùng số `BUG-077`, đổi thành `BUG-078` sau
+khi merge — xem §8.
 **Found by:** User dán log dev-mode thật, hỏi vì sao boot có đoạn quét dài
 
 ---
@@ -114,7 +115,7 @@ tương tác user, và **không thể mất dữ liệu thật** vì điều ki�
   cho lúc điều tra): mở 1 session cho 3 interval thay vì 3, và 0 session cho
   đọc trên symbol chưa từng ghi — cả hai đúng như thiết kế.
 
-## 6. Verify bằng cổng CI thật, không phải shim
+## 5. Verify bằng cổng CI thật, không phải shim
 
 Bản đầu của hồ sơ này chỉ chạy được test suite qua shim tự dựng cho
 `sagittarius_engine` (không cài được trong sandbox lúc đó). Sau khi user yêu
@@ -161,7 +162,7 @@ suite trên baseline sạch (2838 passed, 0 failed) → `git stash pop` → ch�
 lại với thay đổi của bug này (2848 passed, 0 failed) — đúng quy trình
 ONBOARDING §12.6 yêu cầu trước khi kết luận lỗi do mình gây ra.
 
-## 7. Phát hiện phụ: `.gitignore` nuốt nhầm 2 thư mục source thật
+## 6. Phát hiện phụ: `.gitignore` nuốt nhầm 2 thư mục source thật
 
 Dòng `database/` (không có `/` đầu, tại `.gitignore`) khớp thư mục tên
 `database` ở **bất kỳ độ sâu nào**, không chỉ thư mục dữ liệu SQLite runtime
@@ -174,7 +175,7 @@ khi dòng ignore đó xuất hiện — file MỚI thêm vào 2 thư mục này 
 status` mà không có cảnh báo nào. Đã xoá dòng `database/` không neo, giữ
 lại `/database/` (đã neo gốc repo, đúng phạm vi dự định ban đầu).
 
-## 8. Việc còn lại / rủi ro đã biết
+## 7. Việc còn lại / rủi ro đã biết
 
 - Cổng CI chạy trong phiên này dùng `pytest` trực tiếp (đọc thẳng từng bước
   từ `ci-local.ps1`, chạy bằng tay vì môi trường agent không có `pwsh`), **không
@@ -186,3 +187,29 @@ lại `/database/` (đã neo gốc repo, đúng phạm vi dự định ban đầ
   (`pytestmark = pytest.mark.skipif(not os.environ.get("SEW_CAPTURE_SCREENSHOTS"), ...)`):
   test opt-in, chỉ chạy khi đặt biến môi trường đó để chụp ảnh thật, không
   phải lỗi và không liên quan gì tới thay đổi của bug này.
+
+## 8. Đổi số từ `BUG-077` — trùng số với 2 bug khác merge cùng lúc
+
+Hồ sơ này được viết ban đầu dưới số `BUG-077`, commit lên nhánh riêng, PR
+riêng. Trong lúc PR đó đang chờ merge, **2 bug khác** cũng chọn đúng số
+`BUG-077` (không liên quan gì tới nhau, không liên quan bug này) và đã merge
+vào `master-warrior` trước:
+
+- `BUG-077_choppy_trend_zone_flips_render_as_striped_black_band.md` —
+  "Long Term Trend Zone" render nền xu hướng thành dải sọc gần đen.
+- `BUG-077_ui_state_coordinator_coarse_timer_remaining_time_flake.md` —
+  đúng test flaky (`test_marking_again_restarts_the_window...`) mà §5 ở trên
+  đã A/B loại trừ khỏi phạm vi bug này. Bug report đó root-cause thật (Qt
+  `CoarseTimer` làm tròn deadline) và đã sửa (`setTimerType(PreciseTimer)`)
+  — xác nhận thêm rằng phán đoán "flake môi trường, không liên quan" ở §5
+  đúng, chỉ là nó có tên và người sửa riêng.
+
+Theo đúng tiền lệ đã ghi trong [`Bug Board`](../README.md) (va chạm
+`BUG-051`/`BUG-052`, 2026-08-26: "Hai bug của phiên sau đã đổi thành
+`BUG-057`/`BUG-058`"): số đã merge trước giữ nguyên, số merge sau đổi. Bug
+này đổi từ `BUG-077` → `BUG-078` — số kế tiếp thật sau khi kiểm lại
+`Tasks/bug_report/{incomplete,completed}/` trên `master-warrior` tại thời
+điểm merge (`ab8f6a8`). File đổi tên bằng `git mv`, mọi tham chiếu
+`BUG-077` trong code (docstring, comment, log message) và test đổi theo
+bằng `sed`, xác nhận lại `grep -rn "BUG-077"` trên toàn bộ diff trả về rỗng
+trước khi push.

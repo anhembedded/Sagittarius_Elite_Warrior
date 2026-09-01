@@ -2386,6 +2386,32 @@ def test_successful_run_honors_a_strategys_own_chart_line_widths(
     assert widths == {"ema_fast": 1, "ema_slow": 2}
 
 
+def _make_trend_zone_klines(closes: list[float]) -> list[MarketData]:
+    """Same shape as `_make_klines()`, but with an explicit close sequence —
+    `compute_strategy_trend_zones()`'s `_MIN_ZONE_BARS` floor (BUG-077)
+    needs at least 3 consecutive bars per zone, which `_make_klines()`'s
+    single-unit ramp can never produce against `_TrendZoneStrategy`'s fixed
+    103.0 threshold (only bar 0 ever lands below it)."""
+    return [
+        MarketData(
+            symbol="ETHUSDT",
+            interval="1m",
+            open_time=_T0,
+            open_price=close,
+            high_price=close + 5.0,
+            low_price=close - 5.0,
+            close_price=close,
+            volume=10.0,
+            close_time=_T0,
+            quote_asset_volume=0.0,
+            number_of_trades=1,
+            taker_buy_base_asset_volume=0.0,
+            taker_buy_quote_asset_volume=0.0,
+        )
+        for close in closes
+    ]
+
+
 def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
     presenter, view_model, mock_dispatcher
 ):
@@ -2398,17 +2424,21 @@ def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
     card.set_script_regions = Mock()
+    # 3 bars below the 103.0 threshold then 3 at/above it — each zone clears
+    # `_MIN_ZONE_BARS` (BUG-077) so both are actually drawn, not dropped.
     # _fetch_and_emit_chart_data reverses the query response back to
     # chronological order (Binance's own newest-first convention) before
     # replaying it — the stub must hand it descending so this order-sensitive
     # assertion sees the same chronological sequence a real run would.
+    klines = _make_trend_zone_klines([90.0, 90.0, 90.0, 110.0, 110.0, 110.0])
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=list(reversed(_make_klines()))
+        _make_result(with_trades=True), klines=list(reversed(klines))
     )
 
     presenter._run_backtest(config)
 
-    # Chronological closes 102/103/104 -> DOWN, UP, UP (merged into 2 spans).
+    # Chronological closes 90/90/90/110/110/110 -> DOWN x3, UP x3 (merged
+    # into 2 spans, each clearing the minimum-bar floor).
     card.set_script_regions.assert_called_once()
     key, spans = card.set_script_regions.call_args.args
     assert key == "strategy_trend_zone"

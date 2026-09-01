@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, Qt, QTimer
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.i_state_contributor import (
     IStateContributor,
 )
@@ -60,6 +60,19 @@ class UiStateCoordinator(QObject):
 
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
+        # BOT-124 — Qt's default `Qt.TimerType.CoarseTimer` is explicitly
+        # allowed to round a timer's real deadline UP by ~5% (Qt docs:
+        # "try to keep accuracy within 5% of the desired interval") to let
+        # the OS coalesce wakeups. `remainingTime()` reflects that rounded
+        # deadline, not `debounce_ms` — reproduced under CPU load: right
+        # after `start()`, `remainingTime()` read as high as 5250 for a
+        # requested 5000ms interval, and `test_marking_again_restarts_...`'s
+        # `assert before < debounce_ms` failed (`5036 < 5000`) even after a
+        # real 200ms `qtbot.wait()`. `PreciseTimer` drops the coalescing —
+        # this is a short UI debounce (hundreds of ms to a few seconds), not
+        # a long-lived background poll where coarse batching would matter
+        # for battery/wakeup cost.
+        self._timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._timer.setInterval(debounce_ms)
         self._timer.timeout.connect(self._write_dirty_contributors)
 
