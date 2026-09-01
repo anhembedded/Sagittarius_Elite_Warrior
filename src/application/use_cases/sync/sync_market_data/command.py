@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import Callable
 from datetime import datetime
 
@@ -24,6 +25,16 @@ class SyncMarketDataCommand(BaseModel):
         exclude=True,
         description="Optional cooperative cancellation check owned by the caller.",
     )
+    # BOT-122: identifies WHICH caller's request this is, echoed on every
+    # SingleSyncProgressEvent the handler publishes for it — see that event's
+    # own docstring for why this exists (Backtest and Data Management both
+    # listen to the same event and cannot tell each other's progress apart
+    # by symbol/interval alone, since two different actions can legitimately
+    # target the same one). Auto-generated so a caller that has no reason to
+    # correlate (tests, the CLI) never has to think about it; a coordinator
+    # that DOES need to recognize its own progress later sets this
+    # explicitly and keeps the value to compare against.
+    correlation_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
 
     @field_validator("symbols")
     @classmethod

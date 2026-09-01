@@ -28,6 +28,11 @@ class SyncProgressReport:
     interval: str
     current: int
     total: int
+    #: BOT-122: copied from `SingleSyncProgressEvent.correlation_id` —
+    #: which screen's request this progress belongs to. Consumers filter on
+    #: this, not on `symbol`/`interval` (two different actions can target
+    #: the same one).
+    correlation_id: str = ""
 
     @property
     def is_complete(self) -> bool:

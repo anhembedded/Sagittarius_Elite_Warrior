@@ -76,6 +76,7 @@ class BulkSyncMarketDataCommandHandler(
             rate_limiter=rate_limiter,
             reporter=reporter,
             cancellation_requested=command.cancellation_requested,
+            correlation_id=command.correlation_id,
         )
 
         self.logger.info("Bulk sync completed.")
@@ -121,6 +122,7 @@ class BulkSyncMarketDataCommandHandler(
         target: SyncTarget,
         rate_limiter: ThreadSafeRateLimiter,
         cancellation_requested: CancellationCheck | None = None,
+        correlation_id: str = "",
     ) -> tuple[str, str, bool, str]:
         """Dispatches a single sync command with rate limiting and catches any execution errors."""
         symbol, interval = target.symbol, target.interval.value
@@ -136,6 +138,9 @@ class BulkSyncMarketDataCommandHandler(
                 start_time=None,
                 end_time=None,
                 cancellation_requested=cancellation_requested,
+                # BOT-122: every target in this batch reports progress under
+                # the SAME id — the batch is one action, not N.
+                correlation_id=correlation_id,
             )
             self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
             return symbol, interval, False, ""
@@ -149,6 +154,7 @@ class BulkSyncMarketDataCommandHandler(
         rate_limiter: ThreadSafeRateLimiter,
         reporter: BulkSyncProgressReporter,
         cancellation_requested: CancellationCheck | None = None,
+        correlation_id: str = "",
     ) -> None:
         """Runs the thread pool execution and reports completion events via reporter."""
         max_workers = self._calculate_max_workers(len(targets))
@@ -160,6 +166,7 @@ class BulkSyncMarketDataCommandHandler(
                     target,
                     rate_limiter,
                     cancellation_requested,
+                    correlation_id,
                 )
                 for target in targets
             ]

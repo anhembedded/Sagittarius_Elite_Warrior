@@ -109,15 +109,22 @@ def test_sync_coordinator_bulk_sync_success(sync_fixture):
 def test_sync_coordinator_single_sync_progress_matches_while_dispatch_is_in_flight(
     sync_fixture,
 ):
-    """BOT-121: `_active_targets` is only set for the duration of the real
-    dispatch — simulate a `SingleSyncProgressEvent` arriving while it's
+    """BOT-122: `_active_correlation_id` is only set for the duration of the
+    real dispatch — simulate a `SingleSyncProgressEvent` arriving while it's
     genuinely in flight, matching production timing, instead of calling
     `publish_single_sync_progress()` after `run_single_sync()` already
-    cleared it."""
+    cleared it. `payload` is the real dispatched `SyncMarketDataCommand`, so
+    its `correlation_id` is the one the coordinator is actually waiting on."""
     coordinator, _, dispatcher, _, signals = sync_fixture
     dispatcher.dispatch.side_effect = lambda kind, payload: (
         coordinator.publish_single_sync_progress(
-            SyncProgressReport(symbol="BTCUSDT", interval="1h", current=50, total=100)
+            SyncProgressReport(
+                symbol="BTCUSDT",
+                interval="1h",
+                current=50,
+                total=100,
+                correlation_id=payload.correlation_id,
+            )
         )
     )
 
@@ -126,16 +133,25 @@ def test_sync_coordinator_single_sync_progress_matches_while_dispatch_is_in_flig
     signals["ui_single_sync_progress"].assert_called_once()
 
 
-def test_sync_coordinator_progress_for_a_target_it_did_not_start_is_dropped(
+def test_sync_coordinator_progress_with_a_different_correlation_id_is_dropped(
     sync_fixture,
 ):
-    """`SyncProgressFeed` broadcasts every `SingleSyncProgressEvent` to both
-    screens — a report for a symbol/interval Backtest is syncing, not this
-    coordinator's own target, must not reach the UI signal."""
+    """BOT-122: `SyncProgressFeed` broadcasts every `SingleSyncProgressEvent`
+    to both screens — a report from an action THIS coordinator did not
+    start must not reach the UI signal, even when its symbol/interval
+    happen to match (two different actions can legitimately target the
+    same symbol+interval — `correlation_id` is what actually distinguishes
+    them, not business data)."""
     coordinator, _, dispatcher, _, signals = sync_fixture
     dispatcher.dispatch.side_effect = lambda kind, payload: (
         coordinator.publish_single_sync_progress(
-            SyncProgressReport(symbol="ETHUSDT", interval="1h", current=50, total=100)
+            SyncProgressReport(
+                symbol="BTCUSDT",
+                interval="1h",
+                current=50,
+                total=100,
+                correlation_id="some-other-screens-request",
+            )
         )
     )
 
@@ -151,14 +167,20 @@ def test_sync_coordinator_progress_event_handlers(sync_fixture):
     # to the bus and formats the string itself. `SyncProgressFeed` normalises
     # once and the presenter hands the report over, so the message has a single
     # source (`SyncProgressReport.to_message()`).
-    # BOT-121: `publish_single_sync_progress()` only forwards a report that
-    # matches a target `run_single_sync()`/`run_bulk_sync()` is actually
-    # waiting on — stand in for that in-flight state directly, since
-    # `run_single_sync()` (see the dedicated tests below) clears it the
-    # instant its own synchronous dispatch returns.
-    coordinator._active_targets = {("BTCUSDT", "1h")}
+    # BOT-122: `publish_single_sync_progress()` only forwards a report whose
+    # `correlation_id` matches the action `run_single_sync()`/
+    # `run_bulk_sync()` is actually waiting on — stand in for that in-flight
+    # state directly, since `run_single_sync()` (see the dedicated tests
+    # below) clears it the instant its own synchronous dispatch returns.
+    coordinator._active_correlation_id = "this-screens-request"
     coordinator.publish_single_sync_progress(
-        SyncProgressReport(symbol="BTCUSDT", interval="1h", current=50, total=100)
+        SyncProgressReport(
+            symbol="BTCUSDT",
+            interval="1h",
+            current=50,
+            total=100,
+            correlation_id="this-screens-request",
+        )
     )
     signals["ui_single_sync_progress"].assert_called_once()
     _current, _total, _active, message = signals[

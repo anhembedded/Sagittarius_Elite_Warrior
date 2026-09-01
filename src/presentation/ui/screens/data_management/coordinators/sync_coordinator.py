@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -68,13 +69,17 @@ class SyncCoordinator:
         self._is_shutdown_requested = is_shutdown_requested
 
         self._cancellation_token: CancellationToken | None = None
-        # BOT-121: which (symbol, interval) targets THIS coordinator is
-        # currently waiting on — a set because bulk sync runs multiple
-        # targets concurrently. `SyncProgressFeed` broadcasts every
-        # SingleSyncProgressEvent to both this screen and Backtest's, so
-        # without this a Backtest sync running at the same time would move
-        # this screen's progress log using its numbers.
-        self._active_targets: set[tuple[str, str]] = set()
+        # BOT-122 (was a set of (symbol, interval) targets under BOT-121 — a
+        # business-key coincidence, not an identity: two different actions
+        # can legitimately target the same symbol+interval): the
+        # correlation_id THIS coordinator generated for its own in-flight
+        # dispatch — one id whether it's a single sync or a whole bulk batch,
+        # since every target of one bulk sync shares its batch's id (see
+        # `run_bulk_sync`). `SyncProgressFeed` broadcasts every
+        # SingleSyncProgressEvent to both this screen and Backtest's; without
+        # this a Backtest sync running at the same time would move this
+        # screen's progress log using its numbers.
+        self._active_correlation_id: str | None = None
 
     @property
     def cancellation_token(self) -> CancellationToken | None:
@@ -105,7 +110,7 @@ class SyncCoordinator:
             },
             self._get_current_fsm_state(),
         )
-        self._active_targets = {(symbol, interval)}
+        self._active_correlation_id = uuid.uuid4().hex
         try:
             cmd = SyncMarketDataCommand(
                 symbols=[symbol],
@@ -115,6 +120,7 @@ class SyncCoordinator:
                 cancellation_requested=(
                     token_to_use.is_cancelled if token_to_use else None
                 ),
+                correlation_id=self._active_correlation_id,
             )
             self._dispatcher.dispatch(SyncMarketDataCommand, cmd)
             if not self._tracker.is_current_pending(
@@ -141,7 +147,7 @@ class SyncCoordinator:
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None
-            self._active_targets = set()
+            self._active_correlation_id = None
             self._ui_unlock_signal()
 
     def run_bulk_sync(
@@ -156,7 +162,7 @@ class SyncCoordinator:
             {"targets": targets},
             self._get_current_fsm_state(),
         )
-        self._active_targets = set(targets)
+        self._active_correlation_id = uuid.uuid4().hex
         try:
             cmd = BulkSyncMarketDataCommand(
                 targets=[
@@ -166,6 +172,7 @@ class SyncCoordinator:
                 cancellation_requested=(
                     token_to_use.is_cancelled if token_to_use else None
                 ),
+                correlation_id=self._active_correlation_id,
             )
             self._dispatcher.dispatch(BulkSyncMarketDataCommand, cmd)
             if not self._tracker.is_current_pending(
@@ -188,7 +195,7 @@ class SyncCoordinator:
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None
-            self._active_targets = set()
+            self._active_correlation_id = None
             self._ui_unlock_signal()
 
     def handle_bulk_sync_progress(self, event: BulkSyncProgressEvent) -> None:
@@ -218,12 +225,15 @@ class SyncCoordinator:
         thứ hai muốn hiển thị sẽ phải ghép bản riêng. Câu chữ giờ nằm ở
         `SyncProgressReport.to_message()`.
 
-        BOT-121: `report` may belong to a sync Backtest started, not one of
+        BOT-122: `report` may belong to a sync Backtest started, not one of
         this screen's own — `SyncProgressFeed` fans every
-        `SingleSyncProgressEvent` out to both screens. Only apply it if it
-        matches a target THIS coordinator's `run_single_sync()`/
-        `run_bulk_sync()` is actually waiting on."""
-        if (report.symbol, report.interval) not in self._active_targets:
+        `SingleSyncProgressEvent` out to both screens. Only apply it if its
+        `correlation_id` matches the one THIS coordinator's own
+        `run_single_sync()`/`run_bulk_sync()` is actually waiting on."""
+        if (
+            self._active_correlation_id is None
+            or report.correlation_id != self._active_correlation_id
+        ):
             return
         self._ui_single_sync_progress_signal(
             report.current, report.total, True, report.to_message()

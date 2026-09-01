@@ -90,6 +90,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                     interval=command.interval.value,
                     current=current,
                     total=total_count,
+                    correlation_id=command.correlation_id,
                 )
             )
 

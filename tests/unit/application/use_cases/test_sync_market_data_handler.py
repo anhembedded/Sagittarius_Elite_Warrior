@@ -124,6 +124,35 @@ def test_sync_no_new_data(handler, mock_exchange_client, mock_repo):
     mock_repo.save_klines.assert_not_called()
 
 
+def test_sync_progress_events_carry_the_commands_correlation_id(
+    handler, mock_exchange_client, mock_repo, mock_event_bus
+):
+    """BOT-122: `SyncMarketDataCommandHandler` is the one choke point every
+    screen's sync dispatch passes through — the `correlation_id` a
+    coordinator sets on its `SyncMarketDataCommand` must reach every
+    `SingleSyncProgressEvent` this handler publishes for it verbatim, since
+    that is the only thing letting the coordinator recognize the progress
+    as its own once it comes back through `SyncProgressFeed`."""
+    mock_repo.get_latest_kline_time.return_value = None
+    chunk = [Mock(spec=MarketData)]
+
+    def _stream(symbol, interval, start, end, progress_cb, cancellation_requested):
+        progress_cb(len(chunk))
+        yield chunk
+
+    mock_exchange_client.stream_historical_klines.side_effect = _stream
+
+    command = SyncMarketDataCommand(
+        symbols=["BTCUSDT"],
+        interval=TimeFrame.ONE_MINUTE,
+        correlation_id="caller-issued-id",
+    )
+    handler.execute(command)
+
+    published = mock_event_bus.publish.call_args[0][0]
+    assert published.correlation_id == "caller-issued-id"
+
+
 def test_sync_skips_a_symbol_already_in_flight_elsewhere(
     handler, mock_exchange_client, mock_repo, in_flight_guard, caplog
 ):
