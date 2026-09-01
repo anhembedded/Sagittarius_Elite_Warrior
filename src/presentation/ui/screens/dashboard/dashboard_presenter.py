@@ -375,6 +375,19 @@ class DashboardPresenter(BasePresenter):
         self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
         self.fsm.add_transition(UIMode.LOCKED, UIMode.LIVE)
         self.fsm.add_transition(UIMode.LOCKED, UIMode.ERROR)
+        # BOT-123 — Stop (and the progress banner's Cancel) is now reachable
+        # from LOCKED, not just LIVE: _on_stop_stream()'s unconditional
+        # fsm.transition_to(UIMode.IDLE) needs this edge to actually succeed.
+        # Without it, the very first Stop/Cancel click during a sync raised
+        # InvalidStateTransitionError; the except-branch fallback to ERROR
+        # happened to be valid from LOCKED and ERROR auto-recovers to IDLE
+        # (_on_fsm_error below), so the screen didn't stay stuck — but every
+        # cancel flashed a false "Error while stopping" log line and the WS
+        # badge briefly read ERROR for nothing that actually failed. A
+        # second cancel landing after that detour (already IDLE) had no such
+        # detour and raised for real — see
+        # test_stop_stream_is_a_no_op_once_already_idle.
+        self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
         self.fsm.add_transition(UIMode.ERROR, UIMode.IDLE)
         self.fsm.add_transition(UIMode.LIVE, UIMode.IDLE)
         self.fsm.add_transition(UIMode.LIVE, UIMode.ERROR)

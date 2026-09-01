@@ -293,6 +293,16 @@ class StreamLifecycleController:
         self.fsm.transition_to(UIMode.ERROR)
 
     def _on_stop_stream(self) -> None:
+        # BOT-123 — the progress banner's own Cancel button has no FSM-based
+        # enablement (unlike the top-level Stop button): it stays visible
+        # for as long as `DashboardQmlViewModel.progressVisible` is true,
+        # which lags the FSM's own (synchronous) return to IDLE by however
+        # long the background worker takes to notice cancellation and hit
+        # its `finally` (see _run_sync_and_start). A second click landing in
+        # that window would otherwise attempt an IDLE -> IDLE transition,
+        # which the matrix does not declare either — nothing left to stop.
+        if self.fsm.current_state == UIMode.IDLE:
+            return
         self._view_model.log_model.append("Stopping Live Stream...")
         token = self._get_cancellation_token()
         token.cancel()

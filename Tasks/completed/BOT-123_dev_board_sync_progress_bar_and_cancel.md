@@ -66,7 +66,39 @@ StreamLifecycleController._sync_market_data() sinh correlation_id (uuid4)
 - Không đổi `PageShell` — layout chung đã đúng, vấn đề chỉ là Dev Board chưa dùng
   `ProgressBannerWidget` bên trong nó.
 
-## 4. Kiểm thử
+## 4. Rà soát sau khi ship — 1 lỗi thật, đã fix cùng ngày
+
+User yêu cầu rà soát lại code vừa xong xem có gì risk. Tự rà bằng cách đọc kỹ FSM
+(`DashboardPresenter.__init__`'s `add_transition` matrix) đối chiếu với thay đổi vừa làm ở
+mục 2, phát hiện: bật Stop/Cancel lúc `LOCKED` là **đúng** yêu cầu, nhưng
+`_on_stop_stream()` gọi thẳng `fsm.transition_to(UIMode.IDLE)` — và **`LOCKED -> IDLE` chưa
+từng được khai báo** trong ma trận transition (comment tại
+`test_stop_stream_cancels_the_current_token_and_issues_a_fresh_one` đã ghi rõ lý do: "Real
+callers only reach Stop once already LIVE", đúng invariant `BOT-066` để lại — trước đây Stop
+CHỈ bật ở `LIVE` nên `LOCKED -> IDLE` chưa từng cần).
+
+Verify bằng test thật (`BaseStateMachine` thật, không mock): lần bấm Cancel đầu tiên lúc
+`LOCKED` → `transition_to(IDLE)` raise `InvalidStateTransitionError` → rơi vào nhánh
+`except`, ghi log sai "Error while stopping..." dù không có gì lỗi, rồi gọi
+`transition_to(ERROR)` — **may mắn hợp lệ** từ `LOCKED` (`LOCKED -> ERROR` đã khai từ trước),
+và `on_enter(ERROR)` tự động hồi phục về `IDLE` (`_on_fsm_error`) — nên màn hình **không** kẹt
+hẳn, nhưng mỗi lần Cancel đều nhấp nháy sai badge "WS: ERROR" và log sai. Lần bấm Cancel **thứ
+2** (khi FSM đã về `IDLE`, ví dụ do progress bar còn hiện — nút Cancel của nó không khoá theo
+`uiMode` như nút Stop, chỉ theo `progressVisible`, mà việc ẩn bar lại chạy bất đồng bộ ở
+`finally` của thread nền) thì không còn đường vòng nào hợp lệ: `IDLE -> IDLE` và `IDLE ->
+ERROR` đều không khai — raise thật, `safe_ui_action` chỉ chặn ở production, dev.mode thì
+re-raise thành crash thật.
+
+**Fix:** thêm `self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)`, và thêm guard đầu
+`StreamLifecycleController._on_stop_stream()`: `if self.fsm.current_state == UIMode.IDLE:
+return` — chặn đúng ca bấm Cancel lần 2 trong khoảng hở giữa lúc FSM đã về IDLE và lúc bar mới
+kịp ẩn.
+
+Test đỏ→xanh: `test_stop_stream_from_locked_returns_to_idle_instead_of_raising`,
+`test_stop_stream_is_a_no_op_once_already_idle` (`test_dashboard_presenter.py`) — cả 2 verify
+đỏ thật trước khi sửa (dùng `BaseStateMachine` thật, không mock FSM).
+
+## 5. Kiểm thử
 
 - `test_dev_board_panel.py`: `test_stop_stays_enabled_while_locked_...` (test đỏ xác nhận: trước
   fix, `LOCKED` giữ Stop `disabled`), `test_progress_banner_reflects_the_view_model`,
