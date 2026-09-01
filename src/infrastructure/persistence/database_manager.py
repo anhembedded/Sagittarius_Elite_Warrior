@@ -59,6 +59,17 @@ class DatabaseManager:
         """
         return self._shards.list_shards()
 
+    def has_shard(self, symbol: str) -> bool:
+        """
+        @brief Checks whether a symbol already has a database file on disk, without
+        creating one.
+        @details BUG-078 — a pure status/read check must be able to answer "no data"
+        for a symbol without triggering `get_session()`'s create-on-first-use side
+        effect. Callers that only ever want to read must check this first and skip
+        `get_session()` entirely when it's False.
+        """
+        return symbol in self._shards.names()
+
     def remove_shard(self, symbol: str) -> bool:
         """
         @brief Closes connections and removes the SQLite database files for a specific symbol.

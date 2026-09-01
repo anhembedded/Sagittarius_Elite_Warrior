@@ -30,7 +30,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-09-01 (BUG-077)
+> Cập nhật: 2026-09-01 (BUG-078, đã đóng — CI thật xanh; đổi số từ BUG-077 vì
+> trùng với 2 bug khác đã merge trong lúc phiên này đang làm — xem
+> `BUG-078`'s hồ sơ §8)
 
 ---
 
@@ -39,8 +41,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 74 |
-| 📈 **Tổng** | **76** |
+| ✅ **Đã sửa / đã đóng** | 76 |
+| 📈 **Tổng** | **78** |
 
 ---
 
@@ -57,6 +59,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-078](completed/BUG-078_phantom_shard_creation_from_read_paths.md)** | Đọc dữ liệu (không ghi) tự tạo shard rỗng qua `get_session()`'s create-on-first-use, làm auto-discover quét 1350×6 = 8100 kết nối (~79s) lúc boot dù chỉ 9 bảng có dữ liệu thật | 🟡 P2 | 2026-09-01 | Root cause: `SyncMarketDataCommandHandler._determine_start_time()` gọi `get_latest_kline_time()` cho mọi symbol trước khi sync thật, để lại shard rỗng vĩnh viễn cho symbol chưa từng có dữ liệu. Fix 3 phần: (a) `DatabaseManager.has_shard()` chặn mọi method đọc tạo shard, (b) scan đổi đơn vị từ (symbol,interval) sang symbol — 1 session/symbol thay vì 1/cặp (đo được: 3 interval mở đúng 1 session thay vì 3), (c) `PruneEmptyShardsCommand` tự dọn shard rỗng (0 nến ở **mọi** interval, không chỉ 6 mặc định) mỗi lần auto-discover chạy. Cổng CI thật đã chạy xanh: ruff/mypy sạch, sanity 24/24, main (unit+integration) 2945/2945 pass, coverage 95%. Bắt được 1 regression thật khi chạy CI (`shutdown_database_scan_probe.py` mock tên method port cũ) và đã sửa; 1 lần đỏ khác (`test_ui_state_coordinator.py`) đã A/B bằng `git stash` xác nhận là flake môi trường có sẵn (đúng vậy — root cause thật đã được sửa riêng ở `BUG-077` phía dưới, merge vào lúc phiên này đang chạy). Phát hiện phụ: `.gitignore` có dòng `database/` không neo, nuốt nhầm 2 thư mục source — đã sửa. Đổi số từ `BUG-077` gốc vì trùng với 2 bug khác merge cùng lúc — xem §8 hồ sơ. |
 | **[BUG-070](completed/BUG-070_symbol_picker_popup_keys_attached_property_warning.md)** | SymbolPicker QML cảnh báo "Could not attach Keys property to: Popup ... is not an Item" | ⚪ **P4** | 2026-08-30 | Di chuyển `Keys.onPressed` từ `pickerPopup` (một `Popup`, không phải `Item`) sang `contentItem: ColumnLayout` (một `Item` thật) trong `SymbolPicker.qml` — cùng hành vi, chỉ khác chỗ đặt. |
 | **[BUG-077](completed/BUG-077_ui_state_coordinator_coarse_timer_remaining_time_flake.md)** | `test_marking_again_restarts_the_window...` đỏ ngẫu nhiên dưới tải máy (`ci-local.ps1 -Full`, `-n 6`) | 🟡 P2 | 2026-09-01 | `UiStateCoordinator`'s debounce `QTimer` dùng mặc định `Qt.TimerType.CoarseTimer` — được phép làm tròn deadline lên tới ~5%, nên `remainingTime()` đọc được có thể vượt `debounce_ms` yêu cầu dù đã chờ đủ thời gian thật (khớp đúng `assert 5059 < 5000`/`5036 < 5000` quan sát được). Tái hiện tại chỗ bằng tải CPU giả (~65%/14 lần); sửa bằng `setTimerType(Qt.TimerType.PreciseTimer)` — 0/20 lần đỏ dưới cùng tải sau fix. |
 | **[BUG-076](completed/BUG-076_database_status_table_timestamp_overlap.md)** | Cột FIRST RECORD/LAST RECORD trên Database Status Table chồng chéo chữ, không đọc được | 🟡 P2 | 2026-09-01 | `database_status_table_model.py` lưu `first_record`/`last_record` bằng `str(datetime)` (~32 ký tự, có microseconds+tz) nhưng `DatabaseStatusRow.qml`'s 2 `Text` hiển thị chúng không có `elide` — tràn thẳng đè lên cột bên cạnh. Sửa: thêm `elide: Text.ElideRight` + `Layout.minimumWidth: 0` (bắt buộc đi cùng `elide` trong `RowLayout`, nếu không minimum width mặc định lấy từ độ rộng chuỗi chưa cắt). Ảnh chụp user gửi kèm còn nghi 1 chỗ chồng chéo thứ 2 ở progress bar — đã điều tra và **loại trừ** bằng regression test (pass ngay cả khi chưa sửa), không sửa theo giả thuyết chưa xác minh. |

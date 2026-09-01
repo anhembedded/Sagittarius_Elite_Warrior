@@ -7,6 +7,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_d
     ClearMarketDataCommand,
     ClearMarketDataResult,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_shards import (
+    PruneEmptyShardsCommand,
+    PruneEmptyShardsResult,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
@@ -89,6 +93,7 @@ def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
     dispatcher.dispatch.side_effect = [
         ["BTCUSDT", "ETHUSDT"],  # ListAvailableSymbolsQuery
         [status_dto],  # ScanAllDatabasesQuery
+        PruneEmptyShardsResult(removed_symbols=[], scanned_count=0),  # BUG-078
     ]
 
     coordinator.run_auto_discover()
@@ -108,6 +113,49 @@ def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
     )
     signals["ui_stats_refresh"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+
+
+def test_scan_coordinator_auto_discover_dispatches_prune_and_reports_removals(
+    scan_fixture,
+):
+    """BUG-078 — auto-discover must dispatch PruneEmptyShardsCommand as its last
+    step and surface a log line when it actually removed something."""
+    coordinator, dispatcher, _, tracker, signals = scan_fixture
+
+    dispatcher.dispatch.side_effect = [
+        [],  # ListAvailableSymbolsQuery
+        [],  # ScanAllDatabasesQuery
+        PruneEmptyShardsResult(
+            removed_symbols=["PHANTOM1", "PHANTOM2"], scanned_count=5
+        ),
+    ]
+
+    coordinator.run_auto_discover()
+
+    assert dispatcher.dispatch.call_count == 3
+    prune_call = dispatcher.dispatch.call_args_list[2]
+    assert prune_call.args[0] is PruneEmptyShardsCommand
+    assert any(
+        "2 shard" in str(call.args[0]) for call in signals["ui_log"].call_args_list
+    )
+    assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+
+
+def test_scan_coordinator_auto_discover_survives_prune_failure(scan_fixture):
+    """A broken prune pass must not fail the whole auto-discover action — it's
+    a hygiene pass, not the reason the user opened Data Management."""
+    coordinator, dispatcher, _, tracker, signals = scan_fixture
+
+    dispatcher.dispatch.side_effect = [
+        [],  # ListAvailableSymbolsQuery
+        [],  # ScanAllDatabasesQuery
+        Exception("disk unavailable"),  # PruneEmptyShardsCommand
+    ]
+
+    coordinator.run_auto_discover()
+
+    assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+    signals["ui_stats_refresh"].assert_called_once()
 
 
 def test_scan_coordinator_check_status_success(scan_fixture):

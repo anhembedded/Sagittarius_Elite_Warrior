@@ -9,6 +9,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_d
     ClearMarketDataCommand,
     ClearMarketDataResult,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_shards import (
+    PruneEmptyShardsCommand,
+    PruneEmptyShardsResult,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
@@ -168,6 +172,7 @@ class ScanCoordinator:
                 self._ui_log_signal(
                     "Storage Vault trống (chưa có cơ sở dữ liệu cục bộ). Hãy chọn cặp giao dịch và nhấn Sync để tải dữ liệu."
                 )
+            self._prune_empty_shards(token)
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: log without crashing
             logger.error(f"[storage-vault] Auto-discovery error: {exc}")
@@ -176,6 +181,33 @@ class ScanCoordinator:
         finally:
             self._release_cancellation_token(token)
             self._ui_stats_refresh_signal()
+
+    def _prune_empty_shards(self, token: CancellationToken) -> None:
+        """
+        @brief Removes shards left behind with 0 klines (BUG-078).
+        @details A pure read used to create a shard file as a side effect
+        (`get_session()`'s create-on-first-use), so a symbol that was only ever
+        checked — never actually synced — could leave a permanent empty `.db`
+        file. That side effect is fixed at the source now, but existing installs
+        may already carry stray empty shards; auto-discover self-heals them here,
+        every time it runs, since it's already paying for a full vault scan.
+        Never touches a shard that holds even one kline in any interval
+        (`IMarketDataRepository.has_any_klines`) — data loss is not possible.
+        """
+        try:
+            result: PruneEmptyShardsResult = self._dispatcher.dispatch(
+                PruneEmptyShardsCommand,
+                PruneEmptyShardsCommand(cancellation_requested=token.is_cancelled),
+            )
+        except Exception as exc:  # noqa: BLE001 - boundary: hygiene pass must not fail auto-discover
+            logger.error(f"[storage-vault] Empty-shard prune failed: {exc}")
+            return
+
+        if result.removed_symbols:
+            self._ui_log_signal(
+                f"Đã dọn {len(result.removed_symbols)} shard rỗng "
+                "(0 nến, tạo ra do lần kiểm tra dữ liệu trước đây)."
+            )
 
     def run_check_status(self, symbol: str, interval: str) -> None:
         """Background worker: dispatches GetDatabaseStatusQuery."""

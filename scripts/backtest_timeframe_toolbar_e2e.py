@@ -131,6 +131,9 @@ class _SeededMarketDataRepository(IMarketDataRepository):
     def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
         return []
 
+    def has_any_klines(self, symbol: str) -> bool:
+        return any(kline.symbol == symbol for kline in self._klines)
+
     def get_database_status(
         self, symbol: str, interval: TimeFrame
     ) -> DatabaseStatusSnapshot:
@@ -141,6 +144,14 @@ class _SeededMarketDataRepository(IMarketDataRepository):
             total_candles=len(rows),
             gaps=0,
         )
+
+    def get_database_status_for_intervals(
+        self, symbol: str, intervals: list[TimeFrame]
+    ) -> dict[str, DatabaseStatusSnapshot]:
+        return {
+            interval.value: self.get_database_status(symbol, interval)
+            for interval in intervals
+        }
 
     def get_range_coverage(
         self,
