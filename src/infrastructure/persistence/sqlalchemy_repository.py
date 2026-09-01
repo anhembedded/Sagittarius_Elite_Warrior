@@ -120,6 +120,8 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
     def get_latest_kline_time(
         self, symbol: str, interval: TimeFrame
     ) -> datetime | None:
+        if not self.db_manager.has_shard(symbol):
+            return None
         with self.db_manager.get_session(symbol) as session:
             latest = (
                 session.query(sa.func.max(KlineModel.open_time))
@@ -139,6 +141,8 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         limit: int | None = None,
         order_by_desc: bool = False,
     ) -> list[MarketData]:
+        if not self.db_manager.has_shard(symbol):
+            return []
         with self.db_manager.get_session(symbol) as session:
             query = session.query(KlineModel).filter_by(
                 symbol=symbol, interval=interval.value
@@ -167,6 +171,8 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         end_time: datetime | None = None,
         limit: int | None = None,
     ) -> int:
+        if not self.db_manager.has_shard(symbol):
+            return 0
         with self.db_manager.get_session(symbol) as session:
             query = session.query(KlineModel).filter_by(
                 symbol=symbol, interval=interval.value
@@ -191,6 +197,8 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         limit: int | None = None,
         order_by_desc: bool = False,
     ) -> Iterator[MarketData]:
+        if not self.db_manager.has_shard(symbol):
+            return
         with self.db_manager.get_session(symbol) as session:
             query = session.query(KlineModel).filter_by(
                 symbol=symbol, interval=interval.value
@@ -220,20 +228,58 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         """
         @brief Retrieves status and gap count using SQLite Window Functions.
         """
-        expected_seconds = interval.to_seconds()
-        query = build_status_query()
+        if not self.db_manager.has_shard(symbol):
+            return DatabaseStatusSnapshot(
+                first_record=None, last_record=None, total_candles=0, gaps=0
+            )
 
+        query = build_status_query()
         with self.db_manager.get_session(symbol) as session:
             result = session.execute(
                 query,
                 {
                     "symbol": symbol,
                     "interval": interval.value,
-                    "expected_seconds": expected_seconds,
+                    "expected_seconds": interval.to_seconds(),
                 },
             ).fetchone()
 
             return map_status_result(result)
+
+    def get_database_status_for_intervals(
+        self, symbol: str, intervals: list[TimeFrame]
+    ) -> dict[str, DatabaseStatusSnapshot]:
+        """
+        @brief Status for every interval of one symbol, opened over a single session.
+        @details BUG-077 — `klines` is a single table per shard keyed on
+        `(symbol, interval, open_time)`; all intervals of one symbol already live in
+        the same SQLite file. Querying interval-by-interval on a fresh
+        `get_session()` each time (the shape `ScanAllDatabasesQueryHandler` used to
+        use) opens one SQLite connection per (symbol, interval) pair for no reason —
+        connection setup, not the query itself, dominates the cost on a large scan.
+        Opening the shard once and looping intervals inside it cuts connection count
+        6x for the default interval set.
+        """
+        empty = DatabaseStatusSnapshot(
+            first_record=None, last_record=None, total_candles=0, gaps=0
+        )
+        if not self.db_manager.has_shard(symbol):
+            return {interval.value: empty for interval in intervals}
+
+        query = build_status_query()
+        results: dict[str, DatabaseStatusSnapshot] = {}
+        with self.db_manager.get_session(symbol) as session:
+            for interval in intervals:
+                result = session.execute(
+                    query,
+                    {
+                        "symbol": symbol,
+                        "interval": interval.value,
+                        "expected_seconds": interval.to_seconds(),
+                    },
+                ).fetchone()
+                results[interval.value] = map_status_result(result)
+        return results
 
     def get_range_coverage(
         self,
@@ -244,6 +290,9 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         now: datetime,
     ) -> RangeCoverageSnapshot:
         """Run the range probe entirely in SQLite and return six scalars."""
+        if not self.db_manager.has_shard(symbol):
+            return RangeCoverageSnapshot(None, None, 0, 0, None, 0)
+
         interval_seconds = interval.to_seconds()
         closed_end = floor_open_time(
             min(as_utc(end_time), as_utc(now)), interval_seconds
@@ -326,6 +375,9 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         """
         @brief Retrieves all gaps in historical market data for a symbol/interval.
         """
+        if not self.db_manager.has_shard(symbol):
+            return []
+
         expected_seconds = interval.to_seconds()
         query = build_gaps_query()
         with self.db_manager.get_session(symbol) as session:
@@ -353,3 +405,13 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                         )
                     )
             return gaps
+
+    def has_any_klines(self, symbol: str) -> bool:
+        """
+        @brief Whether a symbol's shard holds at least one kline, in any interval.
+        """
+        if not self.db_manager.has_shard(symbol):
+            return False
+        with self.db_manager.get_session(symbol) as session:
+            row = session.query(KlineModel.symbol).filter_by(symbol=symbol).first()
+            return row is not None

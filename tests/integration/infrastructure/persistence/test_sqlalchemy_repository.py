@@ -373,3 +373,85 @@ def test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live(repo)
     # yield_per buffering, which is an implementation detail, not a contract.
     assert peak_live_beyond_baseline < total_rows // 2
     assert final_live == 0
+
+
+# --------------------------------------------------------------------- #
+# BUG-077: pure reads must never create a phantom shard file.
+# --------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda repo: repo.get_database_status("GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: repo.get_latest_kline_time("GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: repo.get_klines("GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: repo.count_klines("GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: list(repo.stream_klines("GHOST", TimeFrame.ONE_MINUTE)),
+        lambda repo: repo.get_gaps("GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: repo.has_any_klines("GHOST"),
+        lambda repo: repo.get_range_coverage(
+            "GHOST",
+            TimeFrame.ONE_MINUTE,
+            None,
+            datetime(2024, 1, 1, tzinfo=UTC),
+            datetime(2024, 1, 1, tzinfo=UTC),
+        ),
+    ],
+)
+def test_read_on_symbol_without_shard_creates_no_shard_file(repo, call):
+    """BUG-077 — a pure status/read check for a symbol never written must not
+    create a `.db` file on disk. `DatabaseManager.get_session()` creates a
+    shard on first use, so any read method calling it unconditionally would
+    silently pollute the Storage Vault. Every read method must consult
+    `has_shard()` first and short-circuit before touching disk."""
+    call(repo)
+    assert repo.list_available_shards() == []
+
+
+def test_write_still_creates_a_shard_normally(repo):
+    """The has_shard() guard must only gate reads — save_klines() must still
+    create the shard on first write, same as before BUG-077."""
+    dt = datetime(2024, 1, 1, tzinfo=UTC)
+    repo.save_klines([create_mock_kline("BTCUSDT", dt)])
+    assert repo.list_available_shards() == ["BTCUSDT"]
+
+
+def test_has_any_klines_true_for_data_in_any_interval(repo):
+    dt = datetime(2024, 1, 1, tzinfo=UTC)
+    kline = create_mock_kline("BTCUSDT", dt)
+    object.__setattr__(kline, "interval", TimeFrame.FOUR_HOURS.value)
+    repo.save_klines([kline])
+
+    # Even though 4h isn't in the app's curated default scan intervals, the
+    # shard is NOT empty — has_any_klines() must say so.
+    assert repo.has_any_klines("BTCUSDT") is True
+
+
+def test_get_database_status_for_intervals_matches_per_interval_calls(repo):
+    """BUG-077 — the batched status call must return exactly the same
+    per-interval snapshots as calling get_database_status() individually,
+    just over one shard session instead of one per interval."""
+    dt = datetime(2024, 1, 1, tzinfo=UTC)
+    repo.save_klines(
+        [
+            create_mock_kline("BTCUSDT", dt),
+            create_mock_kline("BTCUSDT", dt + timedelta(minutes=1)),
+        ]
+    )
+
+    intervals = [TimeFrame.ONE_MINUTE, TimeFrame.ONE_HOUR]
+    batched = repo.get_database_status_for_intervals("BTCUSDT", intervals)
+
+    for interval in intervals:
+        individual = repo.get_database_status("BTCUSDT", interval)
+        assert batched[interval.value] == individual
+
+
+def test_get_database_status_for_intervals_on_ghost_symbol_returns_all_empty(repo):
+    intervals = [TimeFrame.ONE_MINUTE, TimeFrame.FIVE_MINUTES, TimeFrame.ONE_DAY]
+    result = repo.get_database_status_for_intervals("GHOST", intervals)
+
+    assert set(result.keys()) == {iv.value for iv in intervals}
+    assert all(snapshot.total_candles == 0 for snapshot in result.values())
+    assert repo.list_available_shards() == []

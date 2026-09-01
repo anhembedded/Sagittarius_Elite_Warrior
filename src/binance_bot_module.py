@@ -59,6 +59,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_d
     ClearMarketDataCommand,
     ClearMarketDataCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_shards import (
+    PruneEmptyShardsCommand,
+    PruneEmptyShardsCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
     RepairDataGapCommand,
     RepairDataGapCommandHandler,
@@ -269,6 +273,7 @@ class BinanceBotModule(BaseModule):
         )
         app.container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
         app.container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)
+        app.container.bind(PruneEmptyShardsCommand, PruneEmptyShardsCommandHandler)
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""

@@ -30,7 +30,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-09-01 (BUG-076)
+> Cập nhật: 2026-09-01 (BUG-077, đã đóng — CI thật xanh)
 
 ---
 
@@ -39,8 +39,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 73 |
-| 📈 **Tổng** | **75** |
+| ✅ **Đã sửa / đã đóng** | 74 |
+| 📈 **Tổng** | **76** |
 
 ---
 
@@ -57,6 +57,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-077](completed/BUG-077_phantom_shard_creation_from_read_paths.md)** | Đọc dữ liệu (không ghi) tự tạo shard rỗng qua `get_session()`'s create-on-first-use, làm auto-discover quét 1350×6 = 8100 kết nối (~79s) lúc boot dù chỉ 9 bảng có dữ liệu thật | 🟡 P2 | 2026-09-01 | Root cause: `SyncMarketDataCommandHandler._determine_start_time()` gọi `get_latest_kline_time()` cho mọi symbol trước khi sync thật, để lại shard rỗng vĩnh viễn cho symbol chưa từng có dữ liệu. Fix 3 phần: (a) `DatabaseManager.has_shard()` chặn mọi method đọc tạo shard, (b) scan đổi đơn vị từ (symbol,interval) sang symbol — 1 session/symbol thay vì 1/cặp (đo được: 3 interval mở đúng 1 session thay vì 3), (c) `PruneEmptyShardsCommand` tự dọn shard rỗng (0 nến ở **mọi** interval, không chỉ 6 mặc định) mỗi lần auto-discover chạy. Cổng CI thật đã chạy xanh: ruff/mypy sạch, sanity 24/24, main (unit+integration) 2945/2945 pass, coverage 95%. Bắt được 1 regression thật khi chạy CI (`shutdown_database_scan_probe.py` mock tên method port cũ) và đã sửa; 1 lần đỏ khác (`test_ui_state_coordinator.py`) đã A/B bằng `git stash` xác nhận là flake môi trường có sẵn, không liên quan. Phát hiện phụ: `.gitignore` có dòng `database/` không neo, nuốt nhầm 2 thư mục source — đã sửa. |
 | **[BUG-070](completed/BUG-070_symbol_picker_popup_keys_attached_property_warning.md)** | SymbolPicker QML cảnh báo "Could not attach Keys property to: Popup ... is not an Item" | ⚪ **P4** | 2026-08-30 | Di chuyển `Keys.onPressed` từ `pickerPopup` (một `Popup`, không phải `Item`) sang `contentItem: ColumnLayout` (một `Item` thật) trong `SymbolPicker.qml` — cùng hành vi, chỉ khác chỗ đặt. |
 | **[BUG-076](completed/BUG-076_database_status_table_timestamp_overlap.md)** | Cột FIRST RECORD/LAST RECORD trên Database Status Table chồng chéo chữ, không đọc được | 🟡 P2 | 2026-09-01 | `database_status_table_model.py` lưu `first_record`/`last_record` bằng `str(datetime)` (~32 ký tự, có microseconds+tz) nhưng `DatabaseStatusRow.qml`'s 2 `Text` hiển thị chúng không có `elide` — tràn thẳng đè lên cột bên cạnh. Sửa: thêm `elide: Text.ElideRight` + `Layout.minimumWidth: 0` (bắt buộc đi cùng `elide` trong `RowLayout`, nếu không minimum width mặc định lấy từ độ rộng chuỗi chưa cắt). Ảnh chụp user gửi kèm còn nghi 1 chỗ chồng chéo thứ 2 ở progress bar — đã điều tra và **loại trừ** bằng regression test (pass ngay cả khi chưa sửa), không sửa theo giả thuyết chưa xác minh. |
 | **[BUG-072](completed/BUG-072_intermittent_segfault_tests_integration_worker_load_history.md)** | Segfault không ổn định trong `tests/integration/`, worker thread mid-`_run_load_history` | 🔴 **P1** | 2026-08-31 | `ChartPreviewCoordinator.run_preview()` emit `coverage` chưa unwrap qua `_previewDataReadySignal = Signal(int, object, list, list, list)` — trong test suite, `mock_dispatch` bọc mọi query (kể cả `GetBacktestRangeCoverageQuery`) trong `_FakeResponse`, và dòng `coverage` (khác `raw_klines` 2 dòng trên) thiếu unwrap `.data`, khiến `_FakeResponse` (không metatype Qt nào biết) bay thẳng qua signal cross-thread — khớp đúng dòng `_pythonToCppCopy: Cannot copy-convert ... (_FakeResponse) to C++` log trước lúc crash. Sửa: áp cùng `getattr(response, "data", response)` cho `coverage`, và `mock_dispatch` trả `BacktestRangeCoverage` thật thay vì rơi vào nhánh `else: response.data = []`. |

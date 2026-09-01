@@ -19,9 +19,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databa
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     ScanAllDatabasesQuery,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
-_PAIR_COUNT = 2_000
-_PAIR_DELAY_SECONDS = 0.05
+_SYMBOL_COUNT = 2_000
+_SYMBOL_DELAY_SECONDS = 0.05
 _START_TIMEOUT_SECONDS = 3.0
 _FINISH_TIMEOUT_SECONDS = 3.0
 _SUCCESS_MARKER = "SHUTDOWN_DATABASE_SCAN_PROBE_OK"
@@ -34,21 +35,27 @@ def main() -> None:
     scan_started = Event()
     repository = Mock()
 
-    def slow_status(*_args, **_kwargs) -> DatabaseStatusSnapshot:
+    def slow_status_for_intervals(
+        _symbol: str, intervals: list[TimeFrame], *_args, **_kwargs
+    ) -> dict[str, DatabaseStatusSnapshot]:
+        # BUG-077: the handler now opens one call per symbol (covering every
+        # requested interval), not one call per (symbol, interval) pair —
+        # matches the real ScanAllDatabasesQueryHandler shape.
         scan_started.set()
-        sleep(_PAIR_DELAY_SECONDS)
-        return DatabaseStatusSnapshot(
+        sleep(_SYMBOL_DELAY_SECONDS)
+        empty = DatabaseStatusSnapshot(
             first_record=None,
             last_record=None,
             total_candles=0,
             gaps=0,
         )
+        return {interval.value: empty for interval in intervals}
 
-    repository.get_database_status.side_effect = slow_status
+    repository.get_database_status_for_intervals.side_effect = slow_status_for_intervals
     handler = ScanAllDatabasesQueryHandler(repository)
     cancellation = CancellationToken()
     query = ScanAllDatabasesQuery(
-        symbols=[f"SYMBOL_{index}" for index in range(_PAIR_COUNT)],
+        symbols=[f"SYMBOL_{index}" for index in range(_SYMBOL_COUNT)],
         intervals=["1m"],
         cancellation_requested=cancellation.is_cancelled,
     )
