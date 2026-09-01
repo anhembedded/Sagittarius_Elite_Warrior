@@ -11,7 +11,6 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 #: Statuses that mean "no gaps" — everything else is rendered as a problem.

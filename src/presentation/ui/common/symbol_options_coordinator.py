@@ -65,7 +65,7 @@ class SymbolOptionsCoordinator:
                 ListAvailableSymbolsQuery,
                 ListAvailableSymbolsQuery(force_refresh=force_refresh),
             )
-        except Exception as exc:  # noqa: BLE001 - worker boundary, report don't crash
+        except Exception as exc:
             logger.exception("Failed to fetch available symbols")
             self._emit_failed(str(exc))
             return

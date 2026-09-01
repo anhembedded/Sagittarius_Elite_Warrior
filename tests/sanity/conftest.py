@@ -46,8 +46,8 @@ _ALLOWED_QT_MESSAGES: list[str] = [
 #: Same contract for Python log records at WARNING or above.
 _ALLOWED_LOG_MESSAGES: list[str] = []
 
-#: Same contract for `warnings.warn(...)`. One entry, sourced to the exact
-#: line: `python-binance`'s `helpers.py:96` calls `asyncio.get_event_loop()`
+#: Same contract for `warnings.warn(...)`. Sourced to the exact line:
+#: `python-binance`'s `helpers.py:96` calls `asyncio.get_event_loop()`
 #: unconditionally inside `Client.__init__` — every one of this tier's 17 use
 #: cases that resolves a `PythonBinanceClient` triggers it, verified by
 #: isolating a plain `Client()` construction with no app code involved. This
@@ -55,7 +55,20 @@ _ALLOWED_LOG_MESSAGES: list[str] = []
 #: loop()` outside a running loop, deprecated since Python 3.10), already
 #: allowlisted the same way in `pyproject.toml`'s `filterwarnings` for the
 #: rest of the suite — not a defect this tier's own code introduced.
-_ALLOWED_WARNING_SUBSTRINGS: tuple[str, ...] = ("There is no current event loop",)
+#:
+#: `BUG-075` — the same `get_loop()` helper falls back to
+#: `asyncio.new_event_loop()` and never closes it when no loop already
+#: exists on the current thread. `asyncio.BaseEventLoop.__del__` warns
+#: `ResourceWarning: unclosed event loop` whenever the garbage collector
+#: eventually reclaims that orphaned loop — not deterministic to any one
+#: test, only to whichever one happens to be running when collection fires
+#: (reproduced twice in CI, caught on `test_circular_imports.py`, which does
+#: nothing but `ast.parse()` a file — an innocent bystander, same pattern
+#: `BUG-030` already root-caused for an unrelated leaked resource).
+_ALLOWED_WARNING_SUBSTRINGS: tuple[str, ...] = (
+    "There is no current event loop",
+    "unclosed event loop",
+)
 
 
 @pytest.fixture(scope="session")

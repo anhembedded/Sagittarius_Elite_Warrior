@@ -70,9 +70,7 @@ def test_get_database_gaps_invalid_symbol_or_interval_raises():
     handler = GetDatabaseGapsQueryHandler(repo)
 
     with pytest.raises(ValueError, match="Symbol cannot be empty"):
-        handler.execute(
-            GetDatabaseGapsQuery(symbol="", interval=TimeFrame.ONE_MINUTE)
-        )
+        handler.execute(GetDatabaseGapsQuery(symbol="", interval=TimeFrame.ONE_MINUTE))
 
     with pytest.raises(ValueError):
         TimeFrame("999x")

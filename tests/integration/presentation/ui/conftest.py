@@ -9,6 +9,12 @@ from PySide6.QtWidgets import QApplication
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
+from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
+    BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
+    GetBacktestRangeCoverageQuery,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
@@ -187,6 +193,23 @@ def app_engine(request, monkeypatch, tmp_path):
                 }
             else:
                 response.data = build_mock_klines(command_obj.symbol)
+        elif command_type is GetBacktestRangeCoverageQuery:
+            # A bare `_FakeResponse` (or a `.data = []` list) reaching
+            # `ChartPreviewCoordinator.run_preview()` as `coverage` is exactly
+            # the shape mismatch `BUG-072` root-caused: production expects a
+            # `BacktestRangeCoverage`, and anything else sent cross-thread
+            # through `_previewDataReadySignal`'s loosely-typed `object`
+            # argument risked a native crash when Qt tried to marshal it.
+            response.data = BacktestRangeCoverage(
+                is_fully_covered=True,
+                first_open_time=None,
+                last_open_time=None,
+                expected_candles=MOCK_KLINE_COUNT,
+                actual_candles=MOCK_KLINE_COUNT,
+                duplicate_candles=0,
+                missing_open_times=(),
+                has_unclosed_candle=False,
+            )
         else:
             response.data = []
         return response

@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_m
     map_volume,
 )
 
+from ..logic.backtest_fsm_matrix import BacktestExecutionMode
 from ..logic.time_range_preset import TimeRangePreset
 from ..ports.i_backtest_screen_state import IBacktestScreenState
 from ..ports.i_backtest_view import IBacktestView
@@ -89,6 +90,23 @@ class ChartPreviewCoordinator:
                 return
             if config.start_time >= config.end_time:
                 return
+        if (
+            config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
+            and config.start_time is None
+        ):
+            # Same hazard `TickModeRequiresBoundedRangeRule`
+            # (logic/pre_backtest_assertions.py) already refuses on the Run
+            # button: an unbounded start_time makes
+            # GetBacktestRangeCoverageQuery's SQL scan every row ever synced
+            # for this symbol/interval with no lower bound, and tick mode's
+            # interval is fine-grained (BOT-075's 1s default) — a real
+            # session got a ThreadPoolExecutor worker stuck in that scan for
+            # ~19s, still running 2s after `App.stop()` had already logged
+            # "App stopped.", blocking process exit. That rule only guards
+            # the Run button; this fires automatically on every toolbar
+            # change (including a transient state before the time-range
+            # preset has resolved to a bounded value) and was never covered.
+            return
         preview_id = self._next_preview_id()
         self._thread_manager.submit(self._run_preview_worker, config, preview_id)
 
@@ -110,7 +128,7 @@ class ChartPreviewCoordinator:
                 ),
             )
             raw_klines = list(reversed(list(getattr(response, "data", response) or [])))
-            coverage = self._dispatcher.dispatch(
+            coverage_response = self._dispatcher.dispatch(
                 GetBacktestRangeCoverageQuery,
                 GetBacktestRangeCoverageQuery(
                     symbol=symbol,
@@ -120,6 +138,14 @@ class ChartPreviewCoordinator:
                     now=now,
                 ),
             )
+            # BUG-072 — same "tolerate a test double's `.data` envelope"
+            # unwrap as `raw_klines` above. Without it, a test's mocked
+            # dispatcher returning a plain response object (not a real
+            # `BacktestRangeCoverage`) sailed straight into
+            # `_previewDataReadySignal`'s loosely-typed `object` argument and
+            # crashed the interpreter marshaling it across the worker/main
+            # thread queue.
+            coverage = getattr(coverage_response, "data", coverage_response)
             self._emit_preview_ready(
                 preview_id,
                 coverage,

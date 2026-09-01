@@ -13,6 +13,9 @@ from types import SimpleNamespace
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     ChartPreviewCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
+    BacktestExecutionMode,
+)
 from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
     FakeBacktestView,
     FakeChartCard,
@@ -21,26 +24,37 @@ from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coord
 )
 
 
-def _build(*, card=None, active_preview_id=1, busy=False):
+def _build(
+    *,
+    card=None,
+    active_preview_id=1,
+    busy=False,
+    start_time=None,
+    execution_mode=BacktestExecutionMode.BAR_CLOSE,
+    dispatcher=None,
+):
     """Returns the coordinator plus everything a test asserts against."""
     view = FakeBacktestView(card)
     view_model = FakeChartViewModel()
     state = InMemoryScreenState(symbol="BTCUSDT", active_preview_id=active_preview_id)
-    calls = SimpleNamespace(previews=[])
+    calls = SimpleNamespace(previews=[], emitted=[])
     coordinator = ChartPreviewCoordinator(
         view=view,
         state=state,
         view_model=view_model,
-        dispatcher=SimpleNamespace(dispatch=lambda *a: None),
+        dispatcher=dispatcher or SimpleNamespace(dispatch=lambda *a: None),
         thread_manager=SimpleNamespace(submit=lambda *a: calls.previews.append(a)),
         log_dev_trace=lambda *a, **k: None,
         format_coverage_message=lambda _c: "thiếu dữ liệu",
         get_current_config=lambda: SimpleNamespace(
-            start_time=None, end_time=None, timeframe=SimpleNamespace(value="1m")
+            start_time=start_time,
+            end_time=None,
+            timeframe=SimpleNamespace(value="1m"),
+            execution_mode=execution_mode,
         ),
         is_busy=lambda: busy,
         next_preview_id=lambda: 2,
-        emit_preview_ready=lambda *a: None,
+        emit_preview_ready=lambda *a: calls.emitted.append(a),
         run_preview_worker=lambda *a: None,
     )
     return SimpleNamespace(
@@ -91,3 +105,90 @@ def test_no_preview_is_requested_while_a_run_is_in_flight() -> None:
     ctx.c.request_preview()
 
     assert ctx.calls.previews == []
+
+
+def test_no_preview_is_requested_for_an_unbounded_range_in_tick_mode() -> None:
+    """Regression guard, real-session bug report (2026-08-31 dev-mode log).
+
+    `TickModeRequiresBoundedRangeRule` (`logic/pre_backtest_assertions.py`)
+    already refuses to let the user click "Run Backtest" with tick mode +
+    an unbounded range, because `GetBacktestRangeCoverageQuery`'s SQL is a
+    window-function scan with no lower bound at 1-second granularity — the
+    exact hazard that rule's own docstring names. That rule only guards the
+    Run button; `ChartPreviewCoordinator.request_preview()` fires
+    automatically on every symbol/timeframe/time-range change and was never
+    covered, so a transient toolbar state (execution mode already switched
+    to HISTORICAL_TICK, time-range preset not yet resolved to a bounded
+    value) could still submit that exact query.
+
+    Reproduced live: a `ThreadPoolExecutor` worker was still stuck inside
+    `sqlalchemy_repository.py::get_range_coverage`'s `session.execute()`,
+    ~19 seconds after being submitted and ~2 seconds after `App.stop()` had
+    already logged "App stopped." — the process could not exit until it
+    finally finished. `request_preview()` must never submit a preview
+    worker for this combination at all.
+    """
+    ctx = _build(
+        card=FakeChartCard(),
+        start_time=None,
+        execution_mode=BacktestExecutionMode.HISTORICAL_TICK,
+    )
+
+    ctx.c.request_preview()
+
+    assert ctx.calls.previews == []
+
+
+def test_an_unbounded_range_in_bar_close_mode_still_previews() -> None:
+    """The guard mirrors `TickModeRequiresBoundedRangeRule`'s exact scope —
+    tick mode only, not "any unbounded range". `BAR_CLOSE` runs at coarser
+    timeframes where the same unbounded window-function scan stays cheap
+    (BOT-075's own validated boundary), so the "Toàn bộ lịch sử" preset must
+    keep previewing there."""
+    ctx = _build(
+        card=FakeChartCard(),
+        start_time=None,
+        execution_mode=BacktestExecutionMode.BAR_CLOSE,
+    )
+
+    ctx.c.request_preview()
+
+    assert len(ctx.calls.previews) == 1
+
+
+def test_run_preview_unwraps_a_test_doubles_response_envelope() -> None:
+    """`BUG-072` — a real crash, not a style nit.
+
+    `Sagittarius_Elite_Warrior/tests/integration/.../conftest.py`'s mocked
+    dispatcher (and any other stand-in shaped like it) wraps a query's result
+    in a response envelope with a `.data` attribute; the real production
+    dispatcher returns `GetBacktestRangeCoverageQueryHandler`'s
+    `BacktestRangeCoverage` unwrapped. `run_preview()` must apply the same
+    `getattr(response, "data", response)` unwrap to the coverage response
+    that it already applies to `raw_klines` two lines above — skipping it
+    let an arbitrary test-double object reach `_previewDataReadySignal`
+    (`Signal(int, object, list, list, list)`), which crashed the interpreter
+    marshaling it across the worker/main thread queue instead of ever
+    reaching a Python assertion.
+    """
+    inner_coverage = SimpleNamespace(is_fully_covered=True)
+
+    def dispatch(kind, _payload):
+        if "Klines" in kind.__name__:
+            return SimpleNamespace(data=[])
+        # The response envelope a test double wraps its result in — the
+        # exact shape that must never reach the signal unwrapped.
+        return SimpleNamespace(data=inner_coverage)
+
+    ctx = _build(dispatcher=SimpleNamespace(dispatch=dispatch))
+
+    ctx.c.run_preview(
+        SimpleNamespace(
+            timeframe=SimpleNamespace(value="1m"), start_time=None, end_time=None
+        ),
+        preview_id=7,
+    )
+
+    assert len(ctx.calls.emitted) == 1
+    emitted_coverage = ctx.calls.emitted[0][1]
+    assert emitted_coverage is inner_coverage
