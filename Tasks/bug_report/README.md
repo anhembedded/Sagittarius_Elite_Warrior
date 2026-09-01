@@ -30,7 +30,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-09-01
+> Cập nhật: 2026-09-01 (BUG-076)
 
 ---
 
@@ -39,8 +39,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa / đã đóng** | 71 |
-| 📈 **Tổng** | **74** |
+| ✅ **Đã sửa / đã đóng** | 72 |
+| 📈 **Tổng** | **75** |
 
 ---
 
@@ -58,6 +58,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-076](completed/BUG-076_database_status_table_timestamp_overlap.md)** | Cột FIRST RECORD/LAST RECORD trên Database Status Table chồng chéo chữ, không đọc được | 🟡 P2 | 2026-09-01 | `database_status_table_model.py` lưu `first_record`/`last_record` bằng `str(datetime)` (~32 ký tự, có microseconds+tz) nhưng `DatabaseStatusRow.qml`'s 2 `Text` hiển thị chúng không có `elide` — tràn thẳng đè lên cột bên cạnh. Sửa: thêm `elide: Text.ElideRight` + `Layout.minimumWidth: 0` (bắt buộc đi cùng `elide` trong `RowLayout`, nếu không minimum width mặc định lấy từ độ rộng chuỗi chưa cắt). Ảnh chụp user gửi kèm còn nghi 1 chỗ chồng chéo thứ 2 ở progress bar — đã điều tra và **loại trừ** bằng regression test (pass ngay cả khi chưa sửa), không sửa theo giả thuyết chưa xác minh. |
 | **[BUG-072](completed/BUG-072_intermittent_segfault_tests_integration_worker_load_history.md)** | Segfault không ổn định trong `tests/integration/`, worker thread mid-`_run_load_history` | 🔴 **P1** | 2026-08-31 | `ChartPreviewCoordinator.run_preview()` emit `coverage` chưa unwrap qua `_previewDataReadySignal = Signal(int, object, list, list, list)` — trong test suite, `mock_dispatch` bọc mọi query (kể cả `GetBacktestRangeCoverageQuery`) trong `_FakeResponse`, và dòng `coverage` (khác `raw_klines` 2 dòng trên) thiếu unwrap `.data`, khiến `_FakeResponse` (không metatype Qt nào biết) bay thẳng qua signal cross-thread — khớp đúng dòng `_pythonToCppCopy: Cannot copy-convert ... (_FakeResponse) to C++` log trước lúc crash. Sửa: áp cùng `getattr(response, "data", response)` cho `coverage`, và `mock_dispatch` trả `BacktestRangeCoverage` thật thay vì rơi vào nhánh `else: response.data = []`. |
 | **[BUG-075](completed/BUG-075_sanity_tier_unclosed_asyncio_event_loop_from_python_binance.md)** | `tests/sanity/` fail ngẫu nhiên trên bystander test vì `ResourceWarning: unclosed event loop` | 🟡 P2 | 2026-08-31 | `python-binance`'s `helpers.py::get_loop()` tạo `asyncio.new_event_loop()` khi thread hiện tại chưa có loop và không bao giờ đóng nó — cùng cơ chế với `DeprecationWarning` đã allowlist sẵn ("There is no current event loop"), chỉ khác 2 triệu chứng khác nhau của cùng 1 root cause. GC thu hồi loop mồ côi này vào thời điểm không xác định, rơi trúng bất kỳ sanity test nào đang chạy lúc đó (`test_circular_imports.py` — chỉ `ast.parse()`, không liên quan gì). Không sửa được trong app/engine (nội bộ thư viện thứ 3) — thêm allowlist entry `"unclosed event loop"` kèm lý do bằng văn bản, đúng hợp đồng file đã có sẵn. |
 | **[BUG-073](completed/BUG-073_backtest_preview_unbounded_tick_coverage_hangs_shutdown.md)** | Backtest chart-preview probe bắn `GetBacktestRangeCoverageQuery` không giới hạn ở tick mode, treo tiến trình lúc thoát app | 🟠 **P1** | 2026-08-31 | `ChartPreviewCoordinator.request_preview()` bắn tự động lúc mở màn Backtest, trước khi toolbar's time-range preset ổn định — nếu execution mode đã là `HISTORICAL_TICK` lúc đó, dispatch `GetBacktestRangeCoverageQuery(start_time=None, interval=1s)`, đúng hazard `TickModeRequiresBoundedRangeRule` đã biết (scan window-function không giới hạn) nhưng rule đó chỉ gác nút "Run Backtest", không gác đường preview này. Log dev-mode thật cho thấy 1 worker kẹt ~19s, vẫn chạy 2s SAU khi "App stopped." đã log. Sửa: `request_preview()` áp đúng điều kiện của rule đó (tick mode + start_time=None) để bỏ qua, không dispatch. |

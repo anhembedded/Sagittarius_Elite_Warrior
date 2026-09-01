@@ -63,17 +63,30 @@ Item {
         }
 
         Text {
+            objectName: "databaseStatusFirstRecord_" + symbol + "_" + interval
             Layout.fillWidth: true
+            // `Layout.minimumWidth: 0` is required alongside `elide` — a
+            // fillWidth Text's minimum width otherwise defaults to its
+            // *un-elided* implicitWidth (the full string's natural width),
+            // so RowLayout could never actually shrink this column below
+            // the length of a full ISO datetime, and it overflowed into the
+            // `lastRecord` column next to it (BUG-076: the two strings
+            // rendered on top of each other).
+            Layout.minimumWidth: 0
             text: firstRecord
             textFormat: Text.PlainText
+            elide: Text.ElideRight
             color: Theme.muted
             font.pixelSize: 11
         }
 
         Text {
+            objectName: "databaseStatusLastRecord_" + symbol + "_" + interval
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             text: lastRecord
             textFormat: Text.PlainText
+            elide: Text.ElideRight
             color: Theme.muted
             font.pixelSize: 11
         }

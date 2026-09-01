@@ -269,3 +269,46 @@ def test_clicking_sync_while_disabled_does_not_request_the_action(qapp, qml_item
     assert requests == []
     quick.close()
     quick.deleteLater()
+
+
+def test_a_full_iso_timestamp_does_not_overflow_into_the_next_column(qapp, qml_item):
+    """`BUG-076` — real user screenshot: `str(datetime)` (what
+    `DatabaseStatusTableModel.upsert_row` actually stores, e.g.
+    "2026-07-22 13:24:51.198461+00:00") is far wider than the fillWidth
+    slot `firstRecord`/`lastRecord` get once the fixed-width `symbol`/`tf`/
+    `status`/`actions` columns claim their share. Without `elide` *and*
+    `Layout.minimumWidth: 0` (elide alone does not shrink a fillWidth
+    item's layout-minimum, which QtQuick Layouts otherwise takes from the
+    un-elided implicitWidth), RowLayout could not shrink `firstRecord`
+    below its full un-truncated width, so it visually overflowed and
+    overlapped the `lastRecord` text sitting right next to it."""
+    from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_vm import (
+        DatabaseStatusVM,
+    )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
+        DatabaseStatusTableModel,
+    )
+
+    model = DatabaseStatusTableModel()
+    model.upsert_row(
+        symbol="BTCUSDT",
+        first_record="2026-07-22 13:24:51.198461+00:00",
+        last_record="2026-08-26 19:46:12.063700+00:00",
+        total_candles="1,440",
+        status_text="OK",
+        interval="1m",
+    )
+    vm = DatabaseStatusVM(model)
+    quick, root = _load(qapp, vm)
+
+    first = qml_item(root, "databaseStatusFirstRecord_BTCUSDT_1m")
+    last = qml_item(root, "databaseStatusLastRecord_BTCUSDT_1m")
+
+    # The layout actually shrank the column below the full string's
+    # natural width (the exact thing missing `Layout.minimumWidth: 0`
+    # prevented) ...
+    assert first.property("width") < first.property("implicitWidth")
+    # ... so the two columns no longer occupy overlapping horizontal space.
+    assert first.property("x") + first.property("width") <= last.property("x")
+    quick.close()
+    quick.deleteLater()
