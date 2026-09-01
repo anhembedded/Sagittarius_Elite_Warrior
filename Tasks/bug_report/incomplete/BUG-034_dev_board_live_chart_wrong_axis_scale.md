@@ -1,9 +1,13 @@
 # BUG-034 — Dev Board Live Chart: giá nến không hiển thị, trục Y bị auto-range sai thang đo
 
 **Reported date:** 2026-08-23
-**Severity:** Chưa đánh giá (chưa điều tra)
-**Status:** 🔴 Open — chỉ mới ghi nhận hiện tượng, **chưa điều tra root cause** (theo yêu cầu
-người báo).
+**Severity:** Chưa đánh giá
+**Status:** 🔴 Open — 4 lượt điều tra (2026-08-23, 08-26, 08-30, 08-31), root cause vẫn chưa xác
+nhận được. Đã loại trừ 7 giả thuyết (indicator overlay sai thang, `DevIndicatorScript` vẽ RSI/MACD
+lên plot giá, subplot rò dữ liệu, kline map sai thang, `autorange=[False, 1.0]` là bug, trend-zone
+shading, marker Buy/Sell/Overbought) — 3 giả thuyết cuối loại trừ bằng đối chiếu source
+`pyqtgraph` thật, không suy đoán. Cần tái hiện sống (Windows/GUI thật hoặc Binance thật) để đi
+tiếp — headless repro với dữ liệu tổng hợp không tái hiện được.
 
 ---
 
@@ -174,3 +178,76 @@ Trong phiên chạy live ngày 2026-08-30 trên Dev Board với symbol `0GTRY` (
 - Dải giá thực (chiều cao ~0.5) chiếm chưa tới 0.5% dải trục Y (chiều cao ~117.5), giải thích vì sao nến biến mất hoặc bị ép thành đường thẳng phẳng lì trên màn hình.
 - Ngoài ra `autorange=[False, 1.0]` thay vì `[False, True]` — giá trị `1.0` bất thường ở vị trí boolean auto-range Y là đầu mối quan trọng cho lượt điều tra tiếp theo.
 
+## 8. Lượt điều tra 2026-08-31 — 3 giả thuyết mới bị loại trừ bằng đối chiếu source pyqtgraph thật
+
+**Trạng thái: vẫn Open.** Không có máy Windows/GUI thật hay Binance thật trong môi trường phiên
+này để tái hiện sống — không đoán fix khi chưa có bằng chứng, chỉ thu hẹp thêm không gian nghi
+vấn bằng cách đọc thẳng source `pyqtgraph` (cài `pyqtgraph` thật trong venv, đọc
+`ViewBox.py`/`LinearRegionItem.py`, không suy đoán từ trí nhớ).
+
+### 8.1. `autorange=[False, 1.0]` (đầu mối §7) — KHÔNG phải bug, đóng hẳn thread này
+
+Đọc `pyqtgraph/graphicsItems/ViewBox/ViewBox.py::enableAutoRange()`:
+
+```python
+if enable is True:
+    enable = 1.0
+```
+
+`ViewBox.autoRangeEnabled()` trả thẳng `self.state['autoRange'][:]` — nên `[False, 1.0]` **chính
+là** cách pyqtgraph tự biểu diễn `[False, True]` nội bộ, xảy ra với **MỌI** chart, MỌI symbol, bất
+kể có bug hay không. Đầu mối này ở §7 (đánh dấu "quan trọng cho lượt điều tra tiếp theo") là
+**đường cụt** — Y auto-range vẫn đang **bật** ở lần tái hiện đó, không phải bị tắt/hỏng. Câu hỏi
+thật vẫn là: auto-range **bật** nhưng tính ra dải sai — tại sao.
+
+### 8.2. `RegionLayer` (trend-zone shading, `self.shade()`) — loại trừ, có bằng chứng
+
+`region_layer.py:87` gọi `self._plot.addItem(item)` **không** có `ignoreBounds=True` — trông đáng
+ngờ thoạt nhìn. Nhưng đọc `LinearRegionItem.dataBounds(axis)`:
+
+```python
+def dataBounds(self, axis, frac=1.0, orthoRange=None):
+    if axis == self._orientation_axis[self.orientation]:
+        return self.getRegion()
+    else:
+        return None
+```
+
+`orientation` mặc định là `'vertical'` (đúng cách `_create_item` khởi tạo, không truyền
+`orientation`) → trục tương ứng là X, nên `dataBounds(1)` (trục Y) trả `None` — `ViewBox` loại nó
+khỏi phép tính auto-range Y bất kể có bao nhiêu span. **Không phải nguồn gây lỗi.**
+
+### 8.3. `MarkerLayer` (Buy/Sell/Overbought/Strong) — loại trừ, có bằng chứng
+
+`TriangleMarkerItem` (`marker_layer.py:22`) kế thừa `QGraphicsPathItem` (Qt thuần), **không**
+implement `dataBounds`. Đọc `ViewBox.childrenBounds()`:
+
+```python
+if hasattr(item, 'dataBounds') and item.dataBounds is not None:
+    ...
+```
+
+Item không có `dataBounds` bị loại thẳng khỏi vòng lặp tính bounds — dù `configure()` gọi
+`setPos(x, y)` với `y` là giá trị marker thật (`fast`/`close`/`high_price`), vị trí đó **không
+bao giờ** được `ViewBox` đọc để auto-range. **Không phải nguồn gây lỗi**, kể cả nếu `y` từng là
+giá trị sai.
+
+### 8.4. Còn lại — thu hẹp về đúng các `PlotDataItem` giá thật
+
+Sau §8.2/8.3, danh sách item CÓ tham gia auto-range Y chỉ còn: nến (candlestick), volume bar,
+và các đường overlay từ `self.plot()` (EMA 12/26, WMA 20, "Widening band" = `close +
+session_range`). Cả 4 đều đã đọc code ở §4 lượt trước và xác nhận chỉ dùng giá trị thang giá
+thật — không tìm thêm được nghi vấn tĩnh mới ở đây. `"Widening band"` là biểu thức duy nhất có
+phép cộng (`close + session_range`) thay vì gán thẳng 1 field — nếu `session_range` từng là
+`NaN`/`inf` (ví dụ `high_price`/`low_price` bất thường từ 1 tick lỗi) sẽ tạo giá trị bất
+thường, nhưng **chưa có bằng chứng** `high_price`/`low_price` từng sai — cần log giá trị nến thô
+tại đúng bar gây lỗi để xác nhận, không đoán.
+
+### 8.5. Vì sao vẫn chưa đóng được
+
+Không có môi trường Windows/GUI thật hoặc kết nối Binance thật trong phiên này để tái hiện sống
+theo đúng "Suggested next steps" §5 (chụp `--debug` log lúc lỗi xảy ra thật). Headless repro với
+dữ liệu tổng hợp (§6) đã chứng minh không tái hiện được — nghi vấn còn lại phụ thuộc timing live
+tick thật hoặc hình dạng dữ liệu của 1 symbol/tick cụ thể (`0GTRY` ở §7), không dựng lại được
+bằng dữ liệu giả lập ngẫu nhiên. Việc cần làm tiếp không đổi so với §5 bước 1–2 — chưa bước nào
+làm được vì thiếu môi trường, không phải vì thiếu hướng đi.

@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinat
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
+    SyncProgressFeed,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -298,6 +301,15 @@ class DashboardPresenter(BasePresenter):
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
+    # BOT-123 — Start Live's sync-from-Binance phase, forwarded straight to
+    # DashboardQmlViewModel.set_progress's own (int, int, bool, str) Slot
+    # overload (same shape/connect pattern as DataManagementPresenter's
+    # ui_single_sync_progress_signal). StreamLifecycleController.on_sync_progress
+    # is the only thing that calls this — see that method's docstring for the
+    # correlation_id filtering that makes cross-screen sync-progress fan-out
+    # (BOT-121/BOT-122) safe here too.
+    ui_sync_progress_signal = Signal(int, int, bool, str)
+
     # BOT-035 — load-more-on-scroll. Separate from ui_history_reloaded_signal/
     # ui_history_load_finished_signal on purpose: "prepend older data" and
     # "replace all data" are different operations on ChartCard (see
@@ -363,6 +375,19 @@ class DashboardPresenter(BasePresenter):
         self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
         self.fsm.add_transition(UIMode.LOCKED, UIMode.LIVE)
         self.fsm.add_transition(UIMode.LOCKED, UIMode.ERROR)
+        # BOT-123 — Stop (and the progress banner's Cancel) is now reachable
+        # from LOCKED, not just LIVE: _on_stop_stream()'s unconditional
+        # fsm.transition_to(UIMode.IDLE) needs this edge to actually succeed.
+        # Without it, the very first Stop/Cancel click during a sync raised
+        # InvalidStateTransitionError; the except-branch fallback to ERROR
+        # happened to be valid from LOCKED and ERROR auto-recovers to IDLE
+        # (_on_fsm_error below), so the screen didn't stay stuck — but every
+        # cancel flashed a false "Error while stopping" log line and the WS
+        # badge briefly read ERROR for nothing that actually failed. A
+        # second cancel landing after that detour (already IDLE) had no such
+        # detour and raised for real — see
+        # test_stop_stream_is_a_no_op_once_already_idle.
+        self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
         self.fsm.add_transition(UIMode.ERROR, UIMode.IDLE)
         self.fsm.add_transition(UIMode.LIVE, UIMode.IDLE)
         self.fsm.add_transition(UIMode.LIVE, UIMode.ERROR)
@@ -513,6 +538,7 @@ class DashboardPresenter(BasePresenter):
             emit_stream_success=self.ui_stream_success_signal.emit,
             emit_stream_failed=self.ui_stream_failed_signal.emit,
             emit_log=self.ui_log_signal.emit,
+            emit_sync_progress=self.ui_sync_progress_signal.emit,
         )
 
         self._run_load_history = self._stream_controller._run_load_history
@@ -767,6 +793,7 @@ class DashboardPresenter(BasePresenter):
         )
         self.ui_stream_success_signal.connect(self._on_stream_start_success)
         self.ui_stream_failed_signal.connect(self._on_stream_start_failed)
+        self.ui_sync_progress_signal.connect(view_model.set_progress)
         self.ui_indicator_data_signal.connect(self._on_indicator_data)
         self.ui_script_region_signal.connect(self._on_script_region_data)
         self.ui_script_info_signal.connect(self._on_script_info_data)
@@ -787,9 +814,23 @@ class DashboardPresenter(BasePresenter):
             emit_log=self.ui_log_signal.emit,
             parent=self,
         )
+        # Tiến độ đồng bộ là sự thật của HỆ THỐNG (Backtest, Data Management
+        # cũng hiển thị) → đi qua SyncProgressFeed, một nơi chuẩn hoá + ghép
+        # chuỗi (`architecture-rule.md` §6), thay vì màn này tự
+        # `event_bus.on(SingleSyncProgressEvent, ...)` và tự ghép câu chữ lần
+        # thứ ba (BOT-123).
+        self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
+        self._sync_feed.progressUpdated.connect(self._on_sync_progress)
 
     def _trigger_initial_health_check(self) -> None:
         self._health_check_coordinator.request_initial_check()
+
+    def _on_sync_progress(self, report) -> None:
+        """`SyncProgressFeed.progressUpdated` handler — already on the main
+        thread. Delegates the correlation_id filtering to
+        `StreamLifecycleController.on_sync_progress` (BOT-123), which owns
+        the id this screen's own in-flight sync is using."""
+        self._stream_controller.on_sync_progress(report)
 
     # ================================================================== #
     # FSM Hooks

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
@@ -55,6 +56,15 @@ class DataSyncCoordinator:
         self._emit_succeeded = emit_succeeded
         self._emit_failed = emit_failed
         self._emit_cancelled = emit_cancelled
+        # BOT-122 (was (symbol, interval) matching under BOT-121 — a
+        # business-key coincidence, not an identity: two different actions
+        # can legitimately target the same symbol+interval): the
+        # correlation_id THIS coordinator generated for its own in-flight
+        # dispatch. `SyncProgressFeed` broadcasts every SingleSyncProgressEvent
+        # to both this screen and Data Management's; without this a sync
+        # running on the other screen would move this progress bar using its
+        # numbers.
+        self._active_correlation_id: str | None = None
 
     # ---------------------------------------------------------------- #
     # Pure helpers
@@ -113,7 +123,17 @@ class DataSyncCoordinator:
         return self._dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
 
     def on_progress(self, report) -> None:
-        """Already on the main thread — `BaseFeed` wraps `QtEventBridge`."""
+        """Already on the main thread — `BaseFeed` wraps `QtEventBridge`.
+
+        BOT-122: `report` may belong to a sync Data Management started, not
+        this one — `SyncProgressFeed` fans every `SingleSyncProgressEvent`
+        out to both screens. Only apply it if its `correlation_id` matches
+        the one THIS coordinator's own in-flight dispatch is using.
+        """
+        if self._active_correlation_id is None:
+            return
+        if report.correlation_id != self._active_correlation_id:
+            return
         action_id = self._resolve_action_id()
         if action_id is not None:
             self._emit_progress(action_id, report.current, report.total)
@@ -146,13 +166,22 @@ class DataSyncCoordinator:
             start=sync_start,
             end=config.end_time,
         )
+        self._active_correlation_id = uuid.uuid4().hex
         try:
-            self._dispatch_sync(config, sync_interval, sync_start, cancellation_token)
+            self._dispatch_sync(
+                config,
+                sync_interval,
+                sync_start,
+                cancellation_token,
+                self._active_correlation_id,
+            )
         except Exception as exc:
             logger.exception("Market data sync failed")
             self._log_dev_trace("sync_worker_failed", message=str(exc))
             self._emit_failed(resolved_action_id, str(exc))
             return
+        finally:
+            self._active_correlation_id = None
 
         if cancellation_token is not None and cancellation_token.is_cancelled():
             self._log_dev_trace("sync_worker_cancelled", action_id=resolved_action_id)
@@ -182,7 +211,7 @@ class DataSyncCoordinator:
         self._emit_succeeded(resolved_action_id)
 
     def _dispatch_sync(
-        self, config, sync_interval, sync_start, cancellation_token
+        self, config, sync_interval, sync_start, cancellation_token, correlation_id
     ) -> None:
         symbol = self._state.symbol
         command = SyncMarketDataCommand(
@@ -200,6 +229,7 @@ class DataSyncCoordinator:
             cancellation_requested=(
                 cancellation_token.is_cancelled if cancellation_token else None
             ),
+            correlation_id=correlation_id,
         )
         self._log_dev_trace(
             "sync_dispatch", symbol=symbol, timeframe=sync_interval.value

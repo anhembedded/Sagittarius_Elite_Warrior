@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
 from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
+from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
+    InFlightSyncGuard,
+)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -246,6 +249,11 @@ class BinanceBotModule(BaseModule):
     def _register_state_singletons(self, app: App) -> None:
         """Registers long-lived application state singletons."""
         app.container.singleton(BacktestState, BacktestState)
+        # BOT-121: must be a singleton, not bind() (transient) — every
+        # SyncMarketDataCommandHandler resolve needs the SAME registry so a
+        # sync started from Backtest and one started from Data Management see
+        # each other's in-flight (symbol, interval) keys.
+        app.container.singleton(InFlightSyncGuard, InFlightSyncGuard)
 
     def _register_use_cases(self, app: App) -> None:
         """Binds CQRS commands to their respective use case command handlers."""

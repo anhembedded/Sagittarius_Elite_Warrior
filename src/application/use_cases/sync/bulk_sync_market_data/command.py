@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import Callable
 
 from pydantic import BaseModel, Field
@@ -18,3 +19,9 @@ class BulkSyncMarketDataCommand(BaseModel):
         exclude=True,
         description="Optional cooperative cancellation check owned by the caller.",
     )
+    # BOT-122: every per-target SyncMarketDataCommand this batch dispatches
+    # (BulkSyncMarketDataCommandHandler._sync_single_target) carries THIS
+    # same id — one bulk sync is one action from the caller's point of view,
+    # whichever of its targets happens to be reporting progress right now.
+    # See SyncMarketDataCommand.correlation_id for the full rationale.
+    correlation_id: str = Field(default_factory=lambda: uuid.uuid4().hex)

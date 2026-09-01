@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
+    InFlightSyncGuard,
+)
 
 from .command import SyncMarketDataCommand
 
@@ -29,10 +32,12 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         exchange_client: IExchangeClient,
         repo: IMarketDataRepository,
         event_publisher: IEventPublisher,
+        in_flight_guard: InFlightSyncGuard,
     ) -> None:
         self.exchange_client = exchange_client
         self.repo = repo
         self.event_publisher = event_publisher
+        self.in_flight_guard = in_flight_guard
         self.logger = logging.getLogger("App.SyncMarketData")
 
     def execute(self, command: SyncMarketDataCommand) -> None:
@@ -50,6 +55,26 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
             self._sync_single_symbol(symbol, command)
 
     def _sync_single_symbol(self, symbol: str, command: SyncMarketDataCommand) -> None:
+        interval_key = command.interval.value
+        # BOT-121: the single choke point every screen's sync dispatch passes
+        # through (Backtest, Data Management single sync, Data Management
+        # bulk sync via BulkSyncMarketDataCommandHandler dispatching per
+        # target) — reserving here means two screens can never fetch the
+        # same symbol+interval from the exchange concurrently.
+        if not self.in_flight_guard.try_acquire(symbol, interval_key):
+            self.logger.info(
+                f"[{symbol}] Sync already in flight for {interval_key} "
+                "elsewhere — skipping this request."
+            )
+            return
+        try:
+            self._sync_single_symbol_locked(symbol, command)
+        finally:
+            self.in_flight_guard.release(symbol, interval_key)
+
+    def _sync_single_symbol_locked(
+        self, symbol: str, command: SyncMarketDataCommand
+    ) -> None:
         start_time = self._determine_start_time(symbol, command)
         total_klines = self._estimate_total_klines(start_time, command)
 
@@ -65,6 +90,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                     interval=command.interval.value,
                     current=current,
                     total=total_count,
+                    correlation_id=command.correlation_id,
                 )
             )
 

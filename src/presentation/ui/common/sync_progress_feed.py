@@ -13,6 +13,16 @@ theo sẽ ghép bản thứ hai; đó đúng là cách `HealthUpdatedEvent` đi 
 Feed chuẩn hoá một lần thành `SyncProgressReport`. Phần **riêng của từng màn**
 (tương quan `action_id`) ở lại presenter — nó là sự thật riêng của màn đó, đúng
 ranh giới `architecture-rule.md` §6.
+
+`BOT-122`: `SyncProgressReport.correlation_id` đi thẳng qua, không đụng vào —
+đây là chỗ **duy nhất** không được phép "chuẩn hoá" nó thành gì khác, vì mỗi
+consumer so sánh giá trị này với `correlation_id` của chính action nó đang
+theo dõi. Bất kỳ event nào sau này bị fan-out cho ≥2 màn (đúng lúc cần thăng
+cấp lên `BaseFeed` theo công thức ở `base_feed.py`) đều nên mang theo
+`correlation_id` do nơi phát request tự sinh, và Feed chuẩn hoá nó qua y hệt
+kiểu này — đừng lọc theo khoá nghiệp vụ (symbol/interval/...) như bản trước
+`BOT-122` đã làm: hai action khác nhau có thể trùng khoá nghiệp vụ, không bao
+giờ trùng `correlation_id`.
 """
 
 from __future__ import annotations
@@ -47,5 +57,6 @@ class SyncProgressFeed(BaseFeed):
                 interval=str(getattr(event, "interval", "")),
                 current=int(getattr(event, "current", 0) or 0),
                 total=int(getattr(event, "total", 0) or 0),
+                correlation_id=str(getattr(event, "correlation_id", "")),
             )
         )

@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 113 | 65.3% |
+| 🟢 **Completed** | 121 | 67.2% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 54 | 31.2% |
-| ❌ **Cancelled** | 6 | 3.5% |
-| 📈 **Tổng số Task** | **173** | **100%** |
+| 🔴 **Backlog** | 53 | 29.4% |
+| ❌ **Cancelled** | 6 | 3.3% |
+| 📈 **Tổng số Task** | **180** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -104,6 +104,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BOT-123`**: [Dev Board thiếu progress bar cho pha `SyncMarketDataCommand` của Start Live (đối chiếu mockup, kèm log thật: đổi timeframe lúc Live khiến `LOCKED` kéo dài ~9.8s không hiển thị gì), và nút Stop không bật được đúng lúc đang sync (`uiMode == "LIVE"` bỏ sót `LOCKED`). Nối `ProgressBannerWidget`/`SyncProgressFeed`/`correlation_id` (khuôn `BOT-121`/`BOT-122`) vào Dev Board — màn sync thứ 3 dùng lại đúng cơ chế, không tạo layout mới](completed/BOT-123_dev_board_sync_progress_bar_and_cancel.md)
+- [x] **`BOT-122`**: [Nối tiếp `BOT-121` — user chỉ ra lọc theo `(symbol, interval)` chỉ là trùng hợp dữ liệu nghiệp vụ, không phải định danh thật (2 action khác nhau có thể nhắm cùng 1 symbol+interval). Thay bằng `correlation_id` sinh tại nơi phát request, xuyên suốt `SyncMarketDataCommand`/`BulkSyncMarketDataCommand` → `SingleSyncProgressEvent` → `SyncProgressReport` → coordinator so sánh — 1 bulk sync giờ dùng đúng 1 id cho cả batch thay vì `set[(symbol,interval)]`](completed/BOT-122_sync_progress_correlation_id.md)
+- [x] **`BOT-121`**: [Backtest và Data Management sync — user báo cảm giác "2 cơ chế không đồng bộ". Rà ra: đã dùng chung 1 use case (`SyncMarketDataCommand`) nhưng 2 coordinator độc lập cùng nghe 1 `SingleSyncProgressEvent` không lọc theo symbol/interval (progress màn này nhảy theo số của màn kia), và không có exclusivity chéo màn (2 màn có thể cùng gọi Binance cho cùng symbol+interval). `ExclusiveAction` (`BOT-069`) không dùng thẳng được — nó chỉ giữ 1 slot/instance, sẽ serialize luôn cả bulk sync đa-target cố ý chạy song song. `InFlightSyncGuard` mới (registry theo key, khác key không loại nhau) gắn ở `SyncMarketDataCommandHandler` — chỗ duy nhất mọi đường dispatch đi qua](completed/BOT-121_backtest_data_management_sync_cross_talk_and_race.md)
 - [x] **`BUG-076`**: [Cột FIRST RECORD/LAST RECORD trên Database Status Table chồng chéo chữ — `database_status_table_model.py` lưu timestamp bằng `str(datetime)` (~32 ký tự) nhưng `DatabaseStatusRow.qml`'s `Text` hiển thị chúng không có `elide`, tràn thẳng đè lên cột bên cạnh. Sửa: thêm `elide: Text.ElideRight` + `Layout.minimumWidth: 0` (bắt buộc đi cùng `elide` trong `RowLayout`, nếu không minimum width mặc định vẫn lấy từ độ rộng chuỗi chưa cắt)](bug_report/completed/BUG-076_database_status_table_timestamp_overlap.md)
 - [x] **`BUG-072`**: [Segfault không ổn định trong `tests/integration/` (1/4 lần chạy `pytest tests/ -q`) — `ChartPreviewCoordinator.run_preview()` emit `coverage` chưa unwrap `.data` qua `_previewDataReadySignal`'s loosely-typed `Signal(object)`, để `tests/integration/presentation/ui/conftest.py`'s `_FakeResponse` (không metatype Qt nào biết) bay thẳng qua signal cross-thread, khớp đúng log `_pythonToCppCopy: Cannot copy-convert ... (_FakeResponse) to C++` ngay trước crash. Sửa: áp cùng unwrap `getattr(response, "data", response)` đã dùng cho `raw_klines`, và `mock_dispatch` trả `BacktestRangeCoverage` thật cho query này thay vì rơi vào nhánh `else`](bug_report/completed/BUG-072_intermittent_segfault_tests_integration_worker_load_history.md)
 - [x] **`BUG-075`**: [`tests/sanity/` fail ngẫu nhiên trên bystander test vì `ResourceWarning: unclosed event loop` — `python-binance`'s `get_loop()` tạo event loop mới khi cần và không bao giờ đóng, GC thu hồi vào thời điểm không xác định. Allowlist entry kèm lý do bằng văn bản, không sửa được trong app/engine (thư viện thứ 3)](bug_report/completed/BUG-075_sanity_tier_unclosed_asyncio_event_loop_from_python_binance.md)

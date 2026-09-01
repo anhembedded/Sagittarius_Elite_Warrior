@@ -164,6 +164,31 @@ def test_bulk_sync_error_handling(
     assert eth_event.has_error is False
 
 
+@patch("time.sleep")
+def test_bulk_sync_dispatches_every_target_under_the_batchs_own_correlation_id(
+    mock_sleep, handler, mock_dispatcher
+):
+    """BOT-122: one bulk sync is one action from the caller's point of
+    view — every per-target `SyncMarketDataCommand` this handler dispatches
+    must carry the SAME `correlation_id` as the `BulkSyncMarketDataCommand`
+    itself, not each other's, and not a freshly generated one, so the
+    coordinator that started the whole batch recognizes every target's
+    progress as its own."""
+    targets = [
+        SyncTarget(symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE),
+        SyncTarget(symbol="ETHUSDT", interval=TimeFrame.FIVE_MINUTES),
+    ]
+    cmd = BulkSyncMarketDataCommand(targets=targets, correlation_id="the-batch-id")
+
+    handler.execute(cmd)
+
+    dispatched_commands = [
+        call[0][1] for call in mock_dispatcher.dispatch.call_args_list
+    ]
+    assert len(dispatched_commands) == 2
+    assert all(c.correlation_id == "the-batch-id" for c in dispatched_commands)
+
+
 def test_bulk_sync_cancellation_stops_dispatching(
     handler, mock_event_publisher, mock_dispatcher
 ):

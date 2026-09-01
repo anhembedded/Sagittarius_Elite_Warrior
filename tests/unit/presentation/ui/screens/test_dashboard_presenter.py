@@ -689,6 +689,46 @@ def test_stop_stream_cancels_the_current_token_and_issues_a_fresh_one(presenter)
     assert not presenter._cancellation_token.is_cancelled()
 
 
+def test_stop_stream_from_locked_returns_to_idle_instead_of_raising(presenter):
+    """BOT-123: Stop (and the progress banner's Cancel, which fires the same
+    request) is now enabled while `LOCKED` — a sync in progress — not just
+    `LIVE`, specifically so a user can cancel it. The comment on the test
+    above already documented that `_on_stop_stream()`'s unconditional
+    `fsm.transition_to(UIMode.IDLE)` is only valid from `LIVE`; `LOCKED` was
+    never added to the transition matrix because nothing could reach Stop
+    from `LOCKED` before this task. Without `LOCKED -> IDLE` declared, the
+    very first legitimate click during a sync raises
+    `InvalidStateTransitionError` (caught by `safe_ui_action` in production,
+    but re-raised under dev.mode), and — worse — the transition never
+    happens, so `uiMode` stays stuck at `LOCKED` with every Dev Board control
+    disabled until the app is restarted, even though the sync's
+    cancellation token really was cancelled."""
+    presenter.fsm.transition_to(UIMode.LOCKED)
+
+    presenter._on_stop_stream()
+
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+
+def test_stop_stream_is_a_no_op_once_already_idle(presenter):
+    """Defends the fix above from its own edge case: the progress banner's
+    Cancel button has no FSM-based enablement (unlike the top-level Stop
+    button) — it stays visible/clickable for as long as
+    `DashboardQmlViewModel.progressVisible` is true, which lags behind the
+    FSM's own return to `IDLE` (set synchronously here, but the background
+    worker's `finally` that hides the bar runs later, asynchronously). A
+    second click landing in that window must not attempt an
+    `IDLE -> IDLE` self-transition, which the matrix does not declare
+    either."""
+    presenter.fsm.transition_to(UIMode.LOCKED)
+    presenter._on_stop_stream()
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+    presenter._on_stop_stream()
+
+    assert presenter.fsm.current_state == UIMode.IDLE
+
+
 # ---------------------------------------------------------------------------
 # _on_timeframe_changed (BOT-033) — ChartToolbar.sig_timeframe_changed handler
 # ---------------------------------------------------------------------------

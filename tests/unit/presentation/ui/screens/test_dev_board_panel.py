@@ -11,6 +11,8 @@ from __future__ import annotations
 import os
 
 import pytest
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtTest import QTest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -23,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_v
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_panel import (
     DevBoardPanel,
 )
+from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 
 @pytest.fixture
@@ -145,6 +148,23 @@ def test_controls_disabled_while_locked(qapp, panel, view_model):
     assert panel._btn_load_history.isEnabled() is False
 
 
+def test_stop_stays_enabled_while_locked_so_a_sync_in_progress_can_be_cancelled(
+    qapp, panel, view_model
+):
+    """BOT-123: Start Live spends its first phase (`SyncMarketDataCommand`
+    fetching missing candles from Binance) in `LOCKED`, before the websocket
+    ever opens — reported live against a run where that phase alone took
+    almost 10 seconds. Stop used to only be enabled in `LIVE`
+    (`vm.uiMode == "LIVE"`), so a user watching a long LOCKED sync had no way
+    to cancel it short of killing the app — the same cancellation
+    `StreamLifecycleController._on_stop_stream` already wires through to the
+    sync's `cancellation_requested` check either way."""
+    view_model.set_ui_mode("LOCKED")
+    qapp.processEvents()
+
+    assert panel._btn_stop.isEnabled() is True
+
+
 def test_controls_re_enable_back_to_idle(qapp, panel, view_model):
     view_model.set_ui_mode("LIVE")
     qapp.processEvents()
@@ -218,6 +238,63 @@ def test_symbol_button_follows_the_view_model(qapp, panel, view_model):
     qapp.processEvents()
 
     assert panel._btn_symbol.text() == "ETHBTC"
+
+
+# ---------------------------------------------------------------------- #
+# Progress banner (BOT-123) — Start Live's sync-from-Binance phase used to
+# show no progress at all. Same `ProgressBannerWidget` component/wiring
+# shape as `test_database_progress_cancel_widget.py`'s own tests.
+# ---------------------------------------------------------------------- #
+
+
+def test_progress_banner_hidden_until_a_sync_is_visible(qapp, panel, view_model):
+    assert panel._progress_banner.isVisible() is False
+
+
+def test_progress_banner_reflects_the_view_model(qapp, panel, view_model):
+    view_model.set_progress(25, 100, True, "Đang đồng bộ ETHUSDT 5m (25/100 nến)")
+    qapp.processEvents()
+
+    assert panel._progress_banner.isVisible() is True
+    root = panel._progress_banner.root_object
+    assert root.property("statusText") == "Đang đồng bộ ETHUSDT 5m (25/100 nến)"
+    assert root.property("percent") == pytest.approx(25.0)
+
+    view_model.hide_progress()
+    qapp.processEvents()
+    assert panel._progress_banner.isVisible() is False
+
+
+def _progress_cancel_button(panel: DevBoardPanel):
+    return find_qml_item(
+        panel._progress_banner.root_object, "progressBannerCancelButton"
+    )
+
+
+def test_clicking_the_progress_banners_cancel_button_requests_stop(
+    qapp, panel, view_model
+):
+    """The banner's own Cancel control is how a user stops a sync running
+    in `LOCKED` (see `test_stop_stays_enabled_while_locked_...` above for
+    why `LOCKED` needed a way to cancel at all) — it must drive the exact
+    same `stopStreamRequested` request the top-level Stop button does, not a
+    second, separate cancellation path."""
+    view_model.set_progress(0, 0, True, "Đang đồng bộ dữ liệu từ Binance...")
+    qapp.processEvents()
+
+    stopped = []
+    view_model.stopStreamRequested.connect(lambda: stopped.append(True))
+
+    button = _progress_cancel_button(panel)
+    centre = button.mapToScene(button.boundingRect().center())
+    QTest.mouseClick(
+        panel._progress_banner,
+        Qt.MouseButton.LeftButton,
+        pos=QPoint(int(centre.x()), int(centre.y())),
+    )
+    qapp.processEvents()
+
+    assert stopped == [True]
 
 
 def test_opening_the_symbol_picker_asks_the_presenter_for_the_list(
