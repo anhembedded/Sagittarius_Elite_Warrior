@@ -26,7 +26,7 @@ _ZONE_COLORS = {
     TREND_ZONE_DOWN: BEAR_COLOR,
 }
 
-#: BUG-078 — a ranging market oscillating around the trend EMA flips
+#: BUG-079 — a ranging market oscillating around the trend EMA flips
 #: `classify_trend_zone()` on nearly every bar. Without a floor, each 1-bar
 #: (sometimes zero-width) flip still became its own `LinearRegionItem`, and
 #: a run of alternating red/green 1-bar-wide regions renders as a dense,
@@ -54,7 +54,7 @@ def compute_strategy_trend_zones(
     trend run. A strategy that never overrides `classify_trend_zone()`
     (returns `None` for every bar) produces an empty list — no zones drawn,
     zero behavior change for every strategy predating BOT-113. A run
-    shorter than `_MIN_ZONE_BARS` bars is dropped entirely (BUG-078) rather
+    shorter than `_MIN_ZONE_BARS` bars is dropped entirely (BUG-079) rather
     than drawn — see that constant's own comment.
     """
     indicators = strategy.build_indicators()

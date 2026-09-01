@@ -136,7 +136,13 @@ tempCodeRunnerFile.py
 .ruff_cache/
 
 # Custom Database for Sagittarius_Elite_Warrior
-database/
+# BUG-077: was unanchored `database/` (no leading slash), which git matches
+# against a directory named "database" at ANY depth — it was silently
+# swallowing src/application/use_cases/database/ and
+# tests/unit/application/use_cases/database/ (real, tracked source
+# directories) into "ignored" status. `/database/` below already anchors the
+# rule to the repo-root runtime SQLite data directory, which is the only
+# thing this was ever meant to ignore.
 /database/
 *.db
 *.db-shm
