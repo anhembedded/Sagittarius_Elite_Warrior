@@ -988,3 +988,235 @@ def test_leverage_margin_is_clamped_to_available_balance_preserving_the_ratio():
     trade = exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
     # margin=1000, notional capped at 1000*5x=5000 (not the requested 10000).
     assert trade.quantity == pytest.approx(50.0)
+
+
+# ================= BOT-105A: Break-Even Stop, Trailing Stop & Partial TP =================
+
+
+def test_breakeven_moves_stop_to_entry_at_exact_threshold_then_closes_flat():
+    # Entry 100, qty=10 (1000/100, fee=0). Bar 1's high (102) puts peak
+    # profit at exactly 2.0% -> breakeven arms, stop moves to entry (100).
+    # That same bar's low (101) doesn't reach 100, so it stays open. Bar 2
+    # pulls back through 100 -> closes at entry, pnl ~= 0 (minus fees, 0 here).
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, breakeven_trigger_pct=2.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    t2 = datetime(2024, 1, 1, 1, 0, tzinfo=UTC)
+    trades = exchange.check_intrabar_stops(high=102.0, low=101.0, time=t2)
+    assert trades == []
+    assert exchange.is_in_position is True
+
+    t3 = datetime(2024, 1, 1, 2, 0, tzinfo=UTC)
+    trades = exchange.check_intrabar_stops(high=101.0, low=99.0, time=t3)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_price == pytest.approx(100.0)
+    assert trade.exit_reason is ExitReason.BREAK_EVEN_STOP
+    assert trade.pnl == pytest.approx(0.0)
+    assert exchange.is_in_position is False
+
+
+def test_breakeven_does_not_arm_below_the_configured_threshold():
+    # Peak profit stays at 1.9% (below the 2.0% trigger) -> breakeven never
+    # arms, so no stop exists at all (stop_loss_pct itself isn't
+    # configured) -- even a catastrophic drop afterward must NOT close.
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, breakeven_trigger_pct=2.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    t2 = datetime(2024, 1, 1, 1, 0, tzinfo=UTC)
+    trades = exchange.check_intrabar_stops(high=101.9, low=101.0, time=t2)
+    assert trades == []
+
+    t3 = datetime(2024, 1, 1, 2, 0, tzinfo=UTC)
+    trades = exchange.check_intrabar_stops(high=101.9, low=50.0, time=t3)
+
+    assert trades == []
+    assert exchange.is_in_position is True
+
+
+def test_trailing_stop_ratchets_up_with_the_peak_and_exits_at_the_trailed_price():
+    # Entry 100, qty=10. activation=2%, offset=1% behind the peak.
+    # Bar1: peak->103 (profit 3%) arms trailing at 103*0.99=101.97; bar's
+    # low (102) doesn't reach it. Bar2: peak->105, stop ratchets up to
+    # 105*0.99=103.95; low (104) still doesn't reach it. Bar3: peak stays
+    # 105 (this bar's high, 104, is lower), stop stays 103.95, and this
+    # bar's low (103) pulls back through it -> exits at 103.95, the
+    # TRAILED price, not the bar's raw low (103).
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, trailing_activation_pct=2.0, trailing_offset_pct=1.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    t2 = datetime(2024, 1, 1, 1, 0, tzinfo=UTC)
+    assert exchange.check_intrabar_stops(high=103.0, low=102.0, time=t2) == []
+    t3 = datetime(2024, 1, 1, 2, 0, tzinfo=UTC)
+    assert exchange.check_intrabar_stops(high=105.0, low=104.0, time=t3) == []
+
+    t4 = datetime(2024, 1, 1, 3, 0, tzinfo=UTC)
+    trades = exchange.check_intrabar_stops(high=104.0, low=103.0, time=t4)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_price == pytest.approx(103.95)
+    assert trade.exit_reason is ExitReason.TRAILING_STOP
+    assert trade.pnl == pytest.approx(39.5)  # 10 qty * (103.95 - 100)
+    assert exchange.is_in_position is False
+
+
+def test_trailing_stop_ratchets_down_for_a_short_and_exits_at_the_trailed_price():
+    # Mirrors the LONG trailing test with signs flipped: peak is the
+    # LOWEST price seen, the trailed stop sits ABOVE it, and a bounce back
+    # UP through the trailed stop exits at that trailed price, not the
+    # bar's raw high.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, trailing_activation_pct=2.0, trailing_offset_pct=1.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # Bar1: peak(low)->97 (profit 3%) arms trailing at 97*1.01=97.97;
+    # bar's high (97.5) doesn't reach it.
+    t2 = datetime(2024, 1, 1, 1, 0, tzinfo=UTC)
+    assert exchange.check_intrabar_stops(high=97.5, low=97.0, time=t2) == []
+    # Bar2: peak(low)->95, stop ratchets down to 95*1.01=95.95; high (95.5)
+    # still doesn't reach it.
+    t3 = datetime(2024, 1, 1, 2, 0, tzinfo=UTC)
+    assert exchange.check_intrabar_stops(high=95.5, low=95.0, time=t3) == []
+
+    # Bar3: peak(low) stays 95, stop stays 95.95, and this bar's high (96)
+    # bounces back through it -> exits at 95.95, not the raw high (96).
+    t4 = datetime(2024, 1, 1, 3, 0, tzinfo=UTC)
+    trades = exchange.check_intrabar_stops(high=96.0, low=95.0, time=t4)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_price == pytest.approx(95.95)
+    assert trade.exit_reason is ExitReason.TRAILING_STOP
+    assert trade.pnl == pytest.approx(40.5)  # 10 qty * (100 - 95.95)
+    assert exchange.is_in_position is False
+
+
+def test_partial_take_profit_scales_out_in_two_levels_summing_to_full_size():
+    # Entry 100, qty=10 (1000/100, fee=0). tp_levels: 50% at +2% (102),
+    # 50% at +4% (104) -- fractions are of the ORIGINAL size, not
+    # whatever's left. Bar1 crosses only the first level; bar2 crosses the
+    # second and fully scales out.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, tp_levels=((2.0, 0.5), (4.0, 0.5))
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.is_in_position is True
+
+    t2 = datetime(2024, 1, 1, 1, 0, tzinfo=UTC)
+    trades_1 = exchange.check_intrabar_stops(high=103.0, low=101.0, time=t2)
+
+    assert len(trades_1) == 1
+    first = trades_1[0]
+    assert first.quantity == pytest.approx(5.0)
+    assert first.exit_price == pytest.approx(102.0)
+    assert first.exit_reason is ExitReason.PARTIAL_TAKE_PROFIT
+    assert first.pnl == pytest.approx(10.0)  # 5 * (102 - 100)
+    assert exchange.is_in_position is True  # 5 qty still open
+
+    t3 = datetime(2024, 1, 1, 2, 0, tzinfo=UTC)
+    trades_2 = exchange.check_intrabar_stops(high=105.0, low=103.0, time=t3)
+
+    assert len(trades_2) == 1
+    second = trades_2[0]
+    assert second.quantity == pytest.approx(5.0)
+    assert second.exit_price == pytest.approx(104.0)
+    assert second.exit_reason is ExitReason.PARTIAL_TAKE_PROFIT
+    assert second.pnl == pytest.approx(20.0)  # 5 * (104 - 100)
+    assert exchange.is_in_position is False  # fully scaled out
+
+    # Financial invariant (BOT-105A): the two slices sum back to the
+    # original position size, and the account balance reconciles exactly
+    # against the sum of both realized pnls.
+    assert first.quantity + second.quantity == pytest.approx(10.0)
+    assert exchange.balance == pytest.approx(1_000.0 + first.pnl + second.pnl)
+
+
+def test_a_bar_that_crosses_both_the_stop_and_a_tp_level_closes_fully_at_the_stop():
+    # SL-wins-ties (BOT-041 §3) extended to scaling positions: when a
+    # single bar's range reaches both the stop and a configured tp_levels
+    # price, the stop wins and the position closes fully -- no partial
+    # take-profit fill for that bar.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, stop_loss_pct=1.0, tp_levels=((2.0, 0.5), (4.0, 0.5))
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # SL = 99 (1% below entry); TP levels at 102 and 104. This bar's range
+    # (98..105) reaches all three.
+    t2 = datetime(2024, 1, 1, 1, 0, tzinfo=UTC)
+    trades = exchange.check_intrabar_stops(high=105.0, low=98.0, time=t2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_reason is ExitReason.STOP_LOSS
+    assert trade.exit_price == pytest.approx(99.0)
+    assert trade.quantity == pytest.approx(10.0)  # the whole position, not a slice
+    assert exchange.is_in_position is False
+
+
+def test_broker_simulation_config_rejects_non_positive_breakeven_trigger_pct():
+    with pytest.raises(ValueError, match="breakeven_trigger_pct"):
+        BrokerSimulationConfig(breakeven_trigger_pct=0.0)
+
+
+def test_broker_simulation_config_rejects_trailing_activation_without_offset():
+    with pytest.raises(ValueError, match="must be set together"):
+        BrokerSimulationConfig(trailing_activation_pct=2.0)
+
+
+def test_broker_simulation_config_rejects_trailing_offset_without_activation():
+    with pytest.raises(ValueError, match="must be set together"):
+        BrokerSimulationConfig(trailing_offset_pct=1.0)
+
+
+def test_broker_simulation_config_rejects_non_positive_trailing_activation_pct():
+    with pytest.raises(ValueError, match="trailing_activation_pct"):
+        BrokerSimulationConfig(trailing_activation_pct=0.0, trailing_offset_pct=1.0)
+
+
+def test_broker_simulation_config_rejects_out_of_range_trailing_offset_pct():
+    with pytest.raises(ValueError, match="trailing_offset_pct"):
+        BrokerSimulationConfig(trailing_activation_pct=2.0, trailing_offset_pct=100.0)
+
+
+def test_broker_simulation_config_rejects_empty_tp_levels():
+    with pytest.raises(ValueError, match="tp_levels"):
+        BrokerSimulationConfig(tp_levels=())
+
+
+def test_broker_simulation_config_rejects_non_positive_tp_level_profit_pct():
+    with pytest.raises(ValueError, match="profit_pct"):
+        BrokerSimulationConfig(tp_levels=((0.0, 0.5),))
+
+
+def test_broker_simulation_config_rejects_out_of_range_tp_level_size_fraction():
+    with pytest.raises(ValueError, match="size_fraction"):
+        BrokerSimulationConfig(tp_levels=((2.0, 1.5),))
+
+
+def test_broker_simulation_config_rejects_tp_levels_summing_above_one():
+    with pytest.raises(ValueError, match="sum"):
+        BrokerSimulationConfig(tp_levels=((2.0, 0.7), (4.0, 0.7)))
