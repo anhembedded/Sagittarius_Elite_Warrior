@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🔴 Chưa bắt đầu (0/11 task con)
+- **Trạng thái:** 🔴 Chưa bắt đầu (0/12 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
@@ -59,6 +59,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 
 | # | Task | Repo | Chặn bởi | Trạng thái |
 | :-: | :--- | :---: | :--- | :---: |
+| **L** | [Đảo chiều phụ thuộc `qml/ → screens/` — điều kiện cần để màn Giao dịch dùng lại widget](incomplete/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) | Elite | — (song song được) | 🔴 |
 | **A** | [Khái niệm môi trường sàn: `MarketDataVenue`/`TradingVenue` + client factory, cắt config chết](incomplete/EPIC-021A_khai_niem_moi_truong_san_va_client_factory.md) | Elite | — | 🔴 |
 | **B** | [Credentials: env-var trước, secret rời khỏi file git-tracked](incomplete/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) | Elite | A | 🔴 |
 | **C** | [Metadata Futures vào production + policy làm tròn khối lượng/giá](incomplete/EPIC-021C_metadata_futures_va_policy_lam_tron.md) | Elite | A | 🔴 |
@@ -73,7 +74,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 
 **Không nhảy cóc.** `A` chặn tất cả vì mọi task sau đều cần biết "đang nói chuyện với sàn nào".
 `C` chặn `E` vì không có `stepSize` thì `Order` không thể có khối lượng hợp lệ để mà mô hình hoá.
-`J` có thể chạy song song với `G`–`I` sau khi `F` xong.
+`J` có thể chạy song song với `G`–`I` sau khi `F` xong. `L` không phụ thuộc task nào trong epic — làm song song bất cứ lúc nào, miễn xong **trước** `I`.
 
 Không có task nào thuộc repo **Engine** — toàn bộ cơ chế cần thiết (port, adapter, event bus,
 Feed, task manager) đã tồn tại.
@@ -125,6 +126,7 @@ Hai phát hiện #3 và #4 ở §1 là **phát biểu sai sự thật của code
 
 - [`BUG-078`](../../bug_report/incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md) — đóng bởi `EPIC-021B`
 - [`BUG-079`](../../bug_report/incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md) — đóng bởi `EPIC-021A`
+- [`BUG-080`](../../bug_report/incomplete/BUG-080_shared_qml_widget_library_depends_on_screen_modules.md) — thư viện widget dùng chung phụ thuộc ngược vào màn hình; đóng bởi `EPIC-021L`
 
 ## 8. Rủi ro đã biết
 
