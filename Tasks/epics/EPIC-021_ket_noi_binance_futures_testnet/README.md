@@ -17,8 +17,8 @@ danh tính**. Sáu phát hiện dưới đây đều verify được bằng lệ
 | :-: | :--- | :--- |
 | **1** | DI dựng exchange client **không tham số** → luôn mainnet, luôn ẩn danh | [`binance_bot_module.py:231`](../../../src/binance_bot_module.py) `singleton(IExchangeClient, PythonBinanceClient)`, và ctor mặc định `Client(api_key="", api_secret="")` |
 | **2** | Websocket cũng vậy | [`binance_websocket_service.py:110`](../../../src/infrastructure/binance/binance_websocket_service.py) `await AsyncClient.create()` |
-| **3** | **API key user nhập ở Settings không bao giờ tới client** — UI nói dối | [`settings_presenter.py:139-140`](../../../src/presentation/ui/screens/settings/settings_presenter.py) ghi `API_KEY`/`API_SECRET` vào config; `grep` toàn `src/` không nơi nào đọc ra để dựng client → [`BUG-078`](../../bug_report/incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md) |
-| **4** | `BINANCE_REST_URL`/`BINANCE_WS_URL` là **config chết** | Khai ở [`config_keys.py:11-12`](../../../src/config/config_keys.py) + `app_config.json`, 0 nơi đọc trong `src/` → [`BUG-079`](../../bug_report/incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md) |
+| **3** | **API key user nhập ở Settings không bao giờ tới client** — UI nói dối | [`settings_presenter.py:139-140`](../../../src/presentation/ui/screens/settings/settings_presenter.py) ghi `API_KEY`/`API_SECRET` vào config; `grep` toàn `src/` không nơi nào đọc ra để dựng client → [`BUG-080`](../../bug_report/incomplete/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md) |
+| **4** | `BINANCE_REST_URL`/`BINANCE_WS_URL` là **config chết** | Khai ở [`config_keys.py:11-12`](../../../src/config/config_keys.py) + `app_config.json`, 0 nơi đọc trong `src/` → [`BUG-081`](../../bug_report/incomplete/BUG-081_binance_endpoint_config_keys_are_dead.md) |
 | **5** | Không có port giao dịch nào | [`i_exchange_client.py`](../../../src/application/ports/i_exchange_client.py) có đúng 3 method market-data |
 | **6** | Metadata sàn (stepSize/tickSize/minNotional) **có parser nhưng production không gọi** | `parse_binance_symbol_metadata` ([`market_metadata_parser.py:57`](../../../src/infrastructure/binance/market_metadata_parser.py)) chỉ được `tests/unit/.../test_market_metadata_parser.py` gọi |
 
@@ -86,7 +86,7 @@ Không task nào của epic này kết thúc bằng "code xong, test xanh". Mỗ
 
 | Task | Gõ cái gì | Thấy cái gì |
 | :-: | :--- | :--- |
-| **A** | `scripts/epic021a_venue_probe.py` | 2 dòng URL **khác nhau** cho 2 venue + ping OK — bằng chứng config thật sự điều khiển endpoint (`BUG-079`) |
+| **A** | `scripts/epic021a_venue_probe.py` | 2 dòng URL **khác nhau** cho 2 venue + ping OK — bằng chứng config thật sự điều khiển endpoint (`BUG-081`) |
 | **B** | `scripts/epic021b_credentials_probe.py` | Nguồn credentials đang thắng, key đã che, 4 đường rò rỉ đều sạch. Chạy được cả khi chưa có key |
 | **C** | `scripts/epic021c_metadata_probe.py --qty 0.0137` | Policy làm tròn quyết định gì: `0.0137 → 0.013`, notional đủ/không đủ — **trước** khi có lệnh nào |
 | **D** | `main.py exchange-status` | **Số dư USDT testnet thật của anh**, lệch đồng hồ, position mode. Lần chạm sàn đầu tiên |
@@ -124,9 +124,9 @@ liệt kê từng màn.
 Hai phát hiện #3 và #4 ở §1 là **phát biểu sai sự thật của code với người dùng và với chính agent
 đọc nó** — theo luật repo, đó là BUG, không phải "tiện tay dọn trong lúc làm feature":
 
-- [`BUG-078`](../../bug_report/incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md) — đóng bởi `EPIC-021B`
-- [`BUG-079`](../../bug_report/incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md) — đóng bởi `EPIC-021A`
-- [`BUG-080`](../../bug_report/incomplete/BUG-080_shared_qml_widget_library_depends_on_screen_modules.md) — thư viện widget dùng chung phụ thuộc ngược vào màn hình; đóng bởi `EPIC-021L`
+- [`BUG-080`](../../bug_report/incomplete/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md) — đóng bởi `EPIC-021B`
+- [`BUG-081`](../../bug_report/incomplete/BUG-081_binance_endpoint_config_keys_are_dead.md) — đóng bởi `EPIC-021A`
+- [`BUG-082`](../../bug_report/incomplete/BUG-082_shared_qml_widget_library_depends_on_screen_modules.md) — thư viện widget dùng chung phụ thuộc ngược vào màn hình; đóng bởi `EPIC-021L`
 
 ## 8. Rủi ro đã biết
 

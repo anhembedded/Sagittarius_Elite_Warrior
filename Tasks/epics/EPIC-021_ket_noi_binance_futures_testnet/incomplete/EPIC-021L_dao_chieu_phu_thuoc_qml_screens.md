@@ -3,7 +3,7 @@
 - **Trạng thái:** 🔴 Chưa bắt đầu
 - **Repo:** Elite
 - **Chặn bởi:** — (độc lập với `021A`–`021H`, làm song song được) · **Chặn:** `EPIC-021I`
-- **Đóng bug:** [`BUG-080`](../../../bug_report/incomplete/BUG-080_shared_qml_widget_library_depends_on_screen_modules.md)
+- **Đóng bug:** [`BUG-082`](../../../bug_report/incomplete/BUG-082_shared_qml_widget_library_depends_on_screen_modules.md)
 
 ---
 
@@ -23,7 +23,7 @@ sẽ kéo theo `screens/backtest/` vào màn Giao dịch, vì ViewModel của ch
 > **không** thuộc task này. `021L` chỉ đảo chiều phụ thuộc — sau nó, widget vẫn chưa nối, nhưng đã
 > **nối được** mà không kéo theo màn nào.
 
-Đó là `BUG-080`: thư viện widget dùng chung phụ thuộc ngược vào màn hình cụ thể, ngược đúng luật mà
+Đó là `BUG-082`: thư viện widget dùng chung phụ thuộc ngược vào màn hình cụ thể, ngược đúng luật mà
 `qml/StatCardRow/stat_card_row_widget.py:25` phát biểu bằng văn bản. 4 file production + 5 hit ở
 `preview`/`tests`.
 
@@ -109,7 +109,7 @@ assert thì task này đã làm quá phạm vi — dừng lại.
 
 ## 4. Kiểm thử
 
-- **Guard (regression cho `BUG-080`):** hai chiều — sạch sau khi dời, **và** đỏ khi chèn lại một
+- **Guard (regression cho `BUG-082`):** hai chiều — sạch sau khi dời, **và** đỏ khi chèn lại một
   import vi phạm. Chạy trước khi dời để xác nhận nó đỏ với đúng 9 hit hiện có.
 - **Không sửa assert nào:** diff của thư mục `tests/` chỉ được chứa dòng `import`. Đây là điều kiện
   dừng, không phải mong muốn.

@@ -1,4 +1,4 @@
-# BUG-079 — `BINANCE_REST_URL`/`BINANCE_WS_URL` là config chết: sửa chúng không đổi được gì
+# BUG-081 — `BINANCE_REST_URL`/`BINANCE_WS_URL` là config chết: sửa chúng không đổi được gì
 
 - **Trạng thái:** 🔴 Đang mở
 - **Mức độ:** 🟡 P3 (chưa gây lỗi runtime; gây hiểu sai nghiêm trọng cho người cấu hình)

@@ -26,7 +26,7 @@ database "user_config.json\n(git-tracked)" as UCFG
 
 SP --> UCFG : ghi API_KEY / API_SECRET
 note right of UCFG
-  **BUG-078** — không ai đọc ra.
+  **BUG-080** — không ai đọc ra.
   Key không bao giờ tới client.
 end note
 
@@ -51,7 +51,7 @@ note as N1
   **Không tồn tại:** ITradingClient, Order,
   LivePosition, ExecuteOrderCommand,
   User Data Stream, Emergency Stop.
-  **Config chết:** BINANCE_REST_URL / BINANCE_WS_URL (BUG-079)
+  **Config chết:** BINANCE_REST_URL / BINANCE_WS_URL (BUG-081)
 end note
 
 @enduml

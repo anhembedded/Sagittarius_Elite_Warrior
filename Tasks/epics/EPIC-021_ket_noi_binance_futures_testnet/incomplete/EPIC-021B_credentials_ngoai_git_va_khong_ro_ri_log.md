@@ -3,7 +3,7 @@
 - **Trạng thái:** 🔴 Chưa bắt đầu
 - **Repo:** Elite
 - **Chặn bởi:** `EPIC-021A`
-- **Đóng bug:** [`BUG-078`](../../../bug_report/incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md)
+- **Đóng bug:** [`BUG-080`](../../../bug_report/incomplete/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md)
 
 ---
 
@@ -13,7 +13,7 @@ Màn Settings có ô nhập API Key/Secret, có che ký tự (`setEchoMode(Passw
 [`settings_view.py:345`](../../../../src/presentation/ui/screens/settings/settings_view.py)), và
 lưu chúng khi bấm Lưu ([`settings_presenter.py:139-140`](../../../../src/presentation/ui/screens/settings/settings_presenter.py)).
 **Không nơi nào đọc chúng ra để dựng client.** Giao diện đang hứa một khả năng mà hệ thống không
-có — đó là `BUG-078`, và nó phải được đóng *trước* khi có bất kỳ đường đặt lệnh nào, vì task sau
+có — đó là `BUG-080`, và nó phải được đóng *trước* khi có bất kỳ đường đặt lệnh nào, vì task sau
 sẽ tin rằng "nhập key ở Settings là đủ".
 
 Vấn đề thứ hai, độc lập và nặng hơn: chỗ lưu là `src/config/user_config.json`, **file
@@ -91,7 +91,7 @@ một traceback không ai lường trước.
   exception chứa object này trong traceback cũng không. Mutation-verify: bỏ override `__repr__`
   → test phải đỏ.
 - **Unit:** market-data client ở `MAINNET_PUBLIC` được dựng **không** kèm key.
-- **Regression `BUG-078`:** viết **trước** khi sửa — dựng app với credentials giả, xác nhận
+- **Regression `BUG-080`:** viết **trước** khi sửa — dựng app với credentials giả, xác nhận
   trading client thật sự nhận đúng key đó. Phải đỏ trên code hiện tại vì hôm nay không có đường
   nào để key đi qua.
 - **Guard:** `grep` toàn repo không còn nơi nào ghi secret vào file git-tracked.

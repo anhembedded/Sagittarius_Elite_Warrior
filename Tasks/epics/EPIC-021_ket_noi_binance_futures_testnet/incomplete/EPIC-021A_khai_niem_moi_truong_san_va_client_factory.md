@@ -3,7 +3,7 @@
 - **Trạng thái:** 🔴 Chưa bắt đầu
 - **Repo:** Elite
 - **Chặn:** mọi task còn lại của `EPIC-021`
-- **Đóng bug:** [`BUG-079`](../../../bug_report/incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md)
+- **Đóng bug:** [`BUG-081`](../../../bug_report/incomplete/BUG-081_binance_endpoint_config_keys_are_dead.md)
 
 ---
 
@@ -18,7 +18,7 @@ không có đường nào đổi được từ ngoài. Websocket giống hệt: 
 
 Hai key `BINANCE_REST_URL`/`BINANCE_WS_URL` **trông như** đang cấu hình việc đó
 ([`config_keys.py:11-12`](../../../../src/config/config_keys.py), `app_config.json`) nhưng không
-nơi nào trong `src/` đọc chúng — đó là `BUG-079`, và nó nguy hiểm đúng theo kiểu tài liệu sai:
+nơi nào trong `src/` đọc chúng — đó là `BUG-081`, và nó nguy hiểm đúng theo kiểu tài liệu sai:
 một người sửa `app_config.json` thành testnet sẽ tin là mình đã đổi, trong khi request vẫn bay
 lên mainnet.
 
@@ -94,7 +94,7 @@ fake server qua chính factory. Fake server **giữ nguyên** — nó vẫn là 
   monkey-patch — đây là bằng chứng cơ chế mới thay được cơ chế cũ, không phải chỉ "test vẫn pass".
 - **Guard (`ast`):** không file nào ngoài `exchange_session_factory.py` gọi `Client(`/`AsyncClient.create(`.
   Verify hai chiều: pass sạch, và đỏ khi cố tình chèn một lời gọi vào file khác.
-- **Regression cho `BUG-079`:** một test khẳng định không còn key nào trong `app_config.json` mà
+- **Regression cho `BUG-081`:** một test khẳng định không còn key nào trong `app_config.json` mà
   `src/` không đọc — chặn cả lớp lỗi, không chỉ hai key này.
 
 ## 5. Mốc chạy được
@@ -113,6 +113,6 @@ TRADING      DISABLED         (không dựng client)
 TRADING      FUTURES_TESTNET  https://testnet.binancefuture.com/fapi  testnet=True   ping OK  188ms
 ```
 
-Đây chính là thứ `BUG-079` khiến không ai kiểm được hôm nay: hai dòng URL **khác nhau** là bằng
+Đây chính là thứ `BUG-081` khiến không ai kiểm được hôm nay: hai dòng URL **khác nhau** là bằng
 chứng cấu hình thật sự điều khiển endpoint. Kèm theo: `python src/main.py --self-check` (tầng
 out-of-process của `EPIC-009`) phải vẫn thoát 0.

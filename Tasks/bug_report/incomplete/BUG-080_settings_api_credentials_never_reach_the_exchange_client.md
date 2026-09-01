@@ -1,4 +1,4 @@
-# BUG-078 — API Key/Secret nhập ở màn Settings không bao giờ tới exchange client
+# BUG-080 — API Key/Secret nhập ở màn Settings không bao giờ tới exchange client
 
 - **Trạng thái:** 🔴 Đang mở
 - **Mức độ:** 🟠 P2 (chặn `EPIC-021`; chưa gây hại hôm nay vì app chưa cần xác thực)

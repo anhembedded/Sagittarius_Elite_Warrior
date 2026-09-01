@@ -1,4 +1,4 @@
-# BUG-080 — Thư viện widget dùng chung `ui/qml/` phụ thuộc ngược vào `ui/screens/`
+# BUG-082 — Thư viện widget dùng chung `ui/qml/` phụ thuộc ngược vào `ui/screens/`
 
 - **Trạng thái:** 🔴 Chưa sửa
 - **Mức độ:** 🟡 **P3** — chưa gây triệu chứng cho người dùng; là lỗi cấu trúc sẽ tính tiền vào màn hình thứ ba
