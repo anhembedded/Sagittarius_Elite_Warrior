@@ -1,0 +1,92 @@
+@startuml 03_to_be_component
+title EPIC-021 — TO-BE: hai venue độc lập, hai client, một đường đi lệnh có rào
+
+skinparam componentStyle rectangle
+
+package "Presentation" {
+  [EnvironmentBanner\n(PageShell header)] as BAN
+  [OrderBookPanel] as OBP
+  [SettingsPresenter] as SP
+  [OrderFeed] as FEED
+}
+
+package "Application" {
+  [LiveTradingCoordinator] as LTC
+  [ExecuteOrderCommandHandler] as EOH
+  [EmergencyStopHandler] as ESH
+  [GetExchangeConnectionStatus] as CONN
+  [MarketTickEventHandler] as MTH
+  [StrategyEngine] as SE
+  interface IExchangeClient as IEC
+  interface ITradingClient as ITC
+  interface ITradingAccountReader as ITAR
+  interface IUserDataStream as IUDS
+  interface IExchangeSessionFactory as ISF
+  interface IExchangeCredentialsProvider as ICP
+}
+
+package "Domain" {
+  [TradingLimitPolicy] as TLP
+  [OrderQuantityRoundingPolicy] as OQR
+  [Order / LivePosition / OrderStatus] as OM
+}
+
+package "Infrastructure" {
+  [ExchangeSessionFactory] as ESF
+  [PythonBinanceClient] as PBC
+  [FuturesTradingClient] as FTC
+  [FuturesUserDataStream] as FUDS
+  [EnvFirstCredentialsProvider] as ECP
+}
+
+cloud "api.binance.com\nMAINNET — chỉ ĐỌC, ẩn danh" as MAIN
+cloud "testnet.binancefuture.com\nFUTURES TESTNET — có ký" as TNET
+folder "env vars / secrets.local.json\n(ngoài git)" as SEC
+
+ISF <|.. ESF
+ICP <|.. ECP
+ECP --> SEC
+ESF --> ICP
+
+ESF --> PBC : dựng theo MarketDataVenue
+ESF --> FTC : dựng theo TradingVenue\n(luôn testnet=True)
+ESF --> FUDS
+
+IEC <|.. PBC
+ITC <|.. FTC
+ITAR <|.. FTC
+IUDS <|.. FUDS
+
+PBC --> MAIN
+FTC --> TNET
+FUDS --> TNET : ORDER_TRADE_UPDATE\nACCOUNT_UPDATE
+
+MTH --> SE : on_tick(candle)
+SE ..> LTC : SignalGeneratedEvent (bus)
+LTC --> TLP : 4 hạn mức
+LTC --> OQR : làm tròn theo step/tick
+LTC ..> EOH : ExecuteOrderCommand
+EOH --> ITC
+EOH ..> OM
+
+FUDS ..> FEED : OrderFilled / PositionChanged (bus)
+FEED --> OBP
+FEED --> [Chart trade markers] as CHM
+
+SP --> CONN
+CONN --> ITAR
+ESH --> ITC : 1) tắt  2) huỷ lệnh  3) đóng vị thế
+BAN ..> [VenueAlignment]
+
+note as N1
+  **Rào an toàn:** TradingVenue chỉ có
+  DISABLED | FUTURES_TESTNET.
+  Không có member MAINNET để chọn.
+end note
+
+note as N2
+  Giá hiển thị (MAINNET) ≠ giá khớp (TESTNET).
+  VenueAlignment buộc banner nói ra điều đó.
+end note
+
+@enduml

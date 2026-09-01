@@ -1,0 +1,136 @@
+@startuml 04_to_be_class
+title EPIC-021 — TO-BE: từ vựng cho lệnh SỐNG, và hai port tách biệt
+
+package "domain.value_objects" {
+  enum MarketDataVenue {
+    MAINNET_PUBLIC
+    FUTURES_TESTNET
+  }
+  enum TradingVenue {
+    DISABLED
+    FUTURES_TESTNET
+  }
+  note bottom of TradingVenue
+    **Không có MAINNET.** Bật giao dịch
+    tiền thật phải mở đúng file này —
+    và khi đó buộc phải đọc ADR §3.
+  end note
+  enum VenueAlignment {
+    ALIGNED
+    DATA_MAINNET_ORDERS_TESTNET
+    TRADING_DISABLED
+  }
+  class ExchangeCredentials <<frozen>> {
+    api_key, api_secret
+    +__repr__() : che secret
+    +__str__()  : che secret
+  }
+}
+
+package "domain.trading" {
+  class Order <<frozen>> {
+    client_order_id: ClientOrderId
+    symbol, side, position_side
+    type: OrderType
+    quantity: Decimal
+    price: Decimal | None
+    time_in_force: TimeInForce | None
+  }
+  enum OrderStatus {
+    NEW
+    PARTIALLY_FILLED
+    FILLED
+    CANCELED
+    REJECTED
+    EXPIRED
+  }
+  enum OrderRejectionReason {
+    INSUFFICIENT_MARGIN
+    LOT_SIZE
+    MIN_NOTIONAL
+    PRICE_FILTER
+    REDUCE_ONLY_REJECTED
+    RATE_LIMIT
+    UNKNOWN
+  }
+  class LivePosition {
+    symbol, side, quantity
+    entry_price, unrealized_pnl
+    liquidation_price  <<đọc từ sàn, KHÔNG tự tính>>
+  }
+  class ClientOrderId <<frozen>> {
+    +generate(prefix) : ClientOrderId
+  }
+  note right of ClientOrderId
+    App tự sinh. Nếu để python-binance
+    sinh, app không biết trước id của
+    lệnh mình gửi → mất kết nối là mất
+    khả năng hỏi lại sàn.
+  end note
+}
+
+package "domain.trading.policies" {
+  class TradingLimitPolicy {
+    +max_orders_per_session
+    +max_notional_per_order
+    +one_position_per_symbol
+    +min_interval_between_orders
+  }
+  class OrderQuantityRoundingPolicy {
+    +round_quantity_down(qty, step) : Decimal
+    +round_price_to_tick(px, tick, side) : Decimal
+    +is_notional_sufficient(...) : bool
+  }
+}
+
+package "application.ports" {
+  interface IExchangeClient <<đã có>> {
+    +get_historical_klines(...)
+    +get_available_symbols()
+  }
+  interface ITradingClient <<mới>> {
+    +place_order(order, mode) : OrderAck
+    +cancel_order(...)
+    +cancel_all_orders(symbol)
+    +get_open_orders(symbol)
+    +get_positions()
+  }
+  note bottom of ITradingClient
+    Port **riêng**, không mở rộng
+    IExchangeClient: hai kết nối khác
+    nhau, một cần key một không
+    (Interface Segregation, ADR §2.1).
+  end note
+  interface ITradingAccountReader <<mới>> {
+    +read_status() : ExchangeConnectionStatus
+  }
+  interface IUserDataStream <<mới>>
+  interface IExchangeSessionFactory <<mới>> {
+    +create_market_data_client()
+    +create_trading_client()
+  }
+}
+
+package "domain.events" {
+  class OrderFilledEvent
+  class OrderRejectedEvent
+  class OrderSubmittedEvent
+  class PositionChangedEvent
+}
+note right of OrderFilledEvent
+  Kế thừa BaseEvent (Shared Kernel).
+  Đây là event mà BOT-009's Trade
+  Markers Manager đã chờ từ lâu.
+end note
+
+Order --> OrderStatus
+Order --> ClientOrderId
+ITradingClient ..> Order
+ITradingClient ..> LivePosition
+TradingLimitPolicy ..> Order
+OrderQuantityRoundingPolicy ..> Order
+IExchangeSessionFactory ..> MarketDataVenue
+IExchangeSessionFactory ..> TradingVenue
+IExchangeSessionFactory ..> ExchangeCredentials
+
+@enduml

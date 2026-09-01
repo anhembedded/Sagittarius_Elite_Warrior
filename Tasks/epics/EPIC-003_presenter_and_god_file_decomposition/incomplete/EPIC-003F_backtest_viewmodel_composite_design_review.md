@@ -33,6 +33,7 @@ là câu hỏi về việc đổi một API mà nhiều nơi đang gọi. Xem §
 ## 2. Rủi ro thật hôm nay — đo lại 27/08, không suy đoán
 
 `BackTestViewModel`: **1.368 dòng, 64 `@Property`, 68 `Signal`.**
+*(Đo lại 2026-09-01: **1.435 dòng** — con số trên đã trôi, dùng lệnh đếm thật, xem `003F1` §1.)*
 
 | Đo | Số |
 | :--- | ---: |
@@ -111,5 +112,8 @@ mới, đắt hơn, cho một rủi ro mà C vốn đã loại bỏ.
 
 - [x] Đo lại rủi ro thật (§2).
 - [x] Chốt hướng và điều kiện (§4).
-- [ ] Mở task con `EPIC-003F1` — facade + sub-ViewModel đầu tiên, theo §4.1.
-      **Chưa làm; cần user duyệt phạm vi trước.**
+- [x] Mở task con [`EPIC-003F1`](EPIC-003F1_trade_log_sub_view_model_facade.md) — facade +
+      sub-ViewModel đầu tiên, theo §4.1. **User duyệt phạm vi 2026-09-01.**
+      Lát cắt đầu: **trade log** (6 property / 6 signal / 56 điểm đọc) — không phải nhóm nhỏ nhất,
+      mà là nhóm cohesive nhất và đã có đường nối sẵn ở 3 tầng khác (coordinator, widget VM, module
+      logic thuần). Xem `003F1` §2 để biết vì sao nhóm "UI lặt vặt" (38 điểm đọc) bị loại dù nhỏ hơn.

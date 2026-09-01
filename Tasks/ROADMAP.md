@@ -68,6 +68,14 @@ Sagittarius_Elite_Warrior/Tasks/
 > ✅ **Cập nhật (14/08)**: `BOT-079`/`BOT-080`/`BOT-081` — toàn bộ Epic `BOT-078` — đã
 > xong. Chưa tự ý coi `BOT-008` là đã mở khoá — đó là quyết định của user, không tự suy ra
 > từ việc code xong.
+>
+> ✅ **Cập nhật (2026-09-01)**: lập [Epic `EPIC-021`](epics/EPIC-021_ket_noi_binance_futures_testnet/README.md)
+> — kết nối **USD-M Futures Testnet** và dựng đường đi lệnh thật. Điều này **không** mở khoá
+> `BOT-008`: `TradingVenue` cố ý **không có member `MAINNET`**, nên giao dịch tiền thật vẫn là
+> một epic riêng chưa được duyệt (xem [ADR](epics/EPIC-021_ket_noi_binance_futures_testnet/DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md) §3).
+> Khảo sát để lập epic này mở thêm 2 bug: [`BUG-080`](bug_report/incomplete/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md)
+> (key nhập ở Settings không bao giờ tới client) và [`BUG-081`](bug_report/incomplete/BUG-081_binance_endpoint_config_keys_are_dead.md)
+> (2 key endpoint là config chết).
 
 ---
 
@@ -79,7 +87,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | :--- | :--- | :---: |
 | **[EPIC-001](epics/EPIC-001_ema_trend_pullback_tradingview_cross_reference/README.md)** | Đối chiếu `EmaTrendPullbackStrategy` với TradingView thật | 🟡 Đang làm (1/2 task con xong) |
 | **[EPIC-002](epics/EPIC-002_static_type_checking_in_local_ci/README.md)** | Kiểm tra kiểu tĩnh (`mypy`) trong CI cục bộ | 🟡 Đang làm (4/5 task con xong) |
-| **[EPIC-003](epics/EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (5/7 xong, 1 huỷ — `003D`; còn `003F`) |
+| **[EPIC-003](epics/EPIC-003_presenter_and_god_file_decomposition/README.md)** | Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML) | 🟡 Đang làm (5/8 xong, 1 huỷ — `003D`; `003F1` mở 01/09, lát cắt trade log) |
 | **[EPIC-004](epics/EPIC-004_static_security_and_quality_analysis/README.md)** | Static security & quality analysis gate (Bandit + magic-number qua Ruff) | 🟡 Đang làm (3/4 task con xong) |
 | **[EPIC-005](epics/EPIC-005_qml_to_qtwidgets_migration/README.md)** | Rút khỏi QML về QtWidgets, **trừ chart** — theo từng màn hình, mỗi bước rollback được | ⏹️ **Bị thay thế bởi `EPIC-006`** — 6/6 task con xong (`005F` do `EPIC-006D/E` làm) |
 | **[EPIC-006](epics/EPIC-006_drop_qml/README.md)** | Bỏ hẳn QML, thuần QtWidgets | ✅ **Hoàn thành (6/6 task con)** — 2026-08-25; Elite hết sạch `.qml`. Kit QML của Engine ở lại (sample app cần) |
@@ -97,6 +105,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-018](epics/EPIC-018_app_wide_hard_design_sweep/README.md)** | **App-Wide Hard Design Sweep** — rà soát ngoài `presentation/ui` (application/domain/infrastructure/cli). 3 việc đã sửa trước khi có task/ADR (lỗi quy trình, user chỉ ra giữa chừng): `sync_cli_handler.py` dead-code failure branch, `app_bootstrapper.py` hasattr dead branch x4, `RunBacktestCommand` hasattr dead code. Từ epic này: mỗi task rà soát chỉ đúng 1 module (`018C`-`018F`), cộng lại phủ hết `src/` | ✅ **Hoàn thành (7/7 task con)** — 2026-08-30 |
 | **[EPIC-019](epics/EPIC-019_dashboard_backtest_shared_coordinators/README.md)** | **Dashboard/Backtest: gộp logic Presenter trùng lặp thành Coordinator** — báo cáo ngoài (Gemini) claim thiếu lớp cha chung, verify độc lập: 4/7 claim sai/bịa, 2/7 đúng (`SymbolOptionsCoordinator`, `HealthCheckCoordinator`) + 1 finding tự phát hiện (Property boilerplate ở ViewModel) | ✅ **Hoàn thành (3/3 task con)** — 2026-08-30 |
 | **[EPIC-020](epics/EPIC-020_page_shell_bo_cuc_4_dai/README.md)** | **`PageShell` — bố cục 4 dải dùng chung** — user đối chiếu mockup vs app thật: nút "Mở rộng" Backtest ẩn vĩnh viễn (thiếu 1 signal connection), tiêu đề Dev Board bị cắt (fixed-width), Database rail bên trái sai luật, Backtest/Dev Board thiếu đầu trang riêng. `PageShell` (header/context-bar/workspace+rail-luôn-phải/console) áp cho cả 4 màn. *(Đổi số từ `EPIC-018` khi merge nhánh — trùng ID với `EPIC-018_app_wide_hard_design_sweep`.)* | ✅ **Hoàn thành** — 2026-08-30; verify bằng build app thật offscreen + chụp ảnh so sánh |
+| **[EPIC-021](epics/EPIC-021_ket_noi_binance_futures_testnet/README.md)** | **Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật** — app hiện **không có khái niệm môi trường sàn**: DI dựng `PythonBinanceClient` không tham số (`binance_bot_module.py:231`) nên luôn mainnet ẩn danh, key user nhập ở Settings không bao giờ tới client (`BUG-080`), 2 key endpoint trong config là config chết (`BUG-081`), và parser metadata (step/tick/minNotional) chỉ được `tests/` gọi. Chọn **Futures** thay vì Spot vì mô hình khớp lệnh của repo đã là futures (SHORT + leverage trong `PaperExchange`); Settings có **2 lựa chọn độc lập** (nguồn dữ liệu vs nơi đặt lệnh); `TradingVenue` **không có member MAINNET** — rào an toàn bằng type, không bằng cấu hình | 🔴 Chưa bắt đầu (0/12 task con — thêm màn hình **Giao dịch** mới; 4 mốc đầu chạy headless bằng CLI) |
 
 ---
 
