@@ -31,17 +31,18 @@ def _build(
     busy=False,
     start_time=None,
     execution_mode=BacktestExecutionMode.BAR_CLOSE,
+    dispatcher=None,
 ):
     """Returns the coordinator plus everything a test asserts against."""
     view = FakeBacktestView(card)
     view_model = FakeChartViewModel()
     state = InMemoryScreenState(symbol="BTCUSDT", active_preview_id=active_preview_id)
-    calls = SimpleNamespace(previews=[])
+    calls = SimpleNamespace(previews=[], emitted=[])
     coordinator = ChartPreviewCoordinator(
         view=view,
         state=state,
         view_model=view_model,
-        dispatcher=SimpleNamespace(dispatch=lambda *a: None),
+        dispatcher=dispatcher or SimpleNamespace(dispatch=lambda *a: None),
         thread_manager=SimpleNamespace(submit=lambda *a: calls.previews.append(a)),
         log_dev_trace=lambda *a, **k: None,
         format_coverage_message=lambda _c: "thiếu dữ liệu",
@@ -53,7 +54,7 @@ def _build(
         ),
         is_busy=lambda: busy,
         next_preview_id=lambda: 2,
-        emit_preview_ready=lambda *a: None,
+        emit_preview_ready=lambda *a: calls.emitted.append(a),
         run_preview_worker=lambda *a: None,
     )
     return SimpleNamespace(
@@ -153,3 +154,41 @@ def test_an_unbounded_range_in_bar_close_mode_still_previews() -> None:
     ctx.c.request_preview()
 
     assert len(ctx.calls.previews) == 1
+
+
+def test_run_preview_unwraps_a_test_doubles_response_envelope() -> None:
+    """`BUG-072` — a real crash, not a style nit.
+
+    `Sagittarius_Elite_Warrior/tests/integration/.../conftest.py`'s mocked
+    dispatcher (and any other stand-in shaped like it) wraps a query's result
+    in a response envelope with a `.data` attribute; the real production
+    dispatcher returns `GetBacktestRangeCoverageQueryHandler`'s
+    `BacktestRangeCoverage` unwrapped. `run_preview()` must apply the same
+    `getattr(response, "data", response)` unwrap to the coverage response
+    that it already applies to `raw_klines` two lines above — skipping it
+    let an arbitrary test-double object reach `_previewDataReadySignal`
+    (`Signal(int, object, list, list, list)`), which crashed the interpreter
+    marshaling it across the worker/main thread queue instead of ever
+    reaching a Python assertion.
+    """
+    inner_coverage = SimpleNamespace(is_fully_covered=True)
+
+    def dispatch(kind, _payload):
+        if "Klines" in kind.__name__:
+            return SimpleNamespace(data=[])
+        # The response envelope a test double wraps its result in — the
+        # exact shape that must never reach the signal unwrapped.
+        return SimpleNamespace(data=inner_coverage)
+
+    ctx = _build(dispatcher=SimpleNamespace(dispatch=dispatch))
+
+    ctx.c.run_preview(
+        SimpleNamespace(
+            timeframe=SimpleNamespace(value="1m"), start_time=None, end_time=None
+        ),
+        preview_id=7,
+    )
+
+    assert len(ctx.calls.emitted) == 1
+    emitted_coverage = ctx.calls.emitted[0][1]
+    assert emitted_coverage is inner_coverage
