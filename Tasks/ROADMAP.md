@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 120 | 67.0% |
+| 🟢 **Completed** | 121 | 67.2% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 53 | 29.6% |
-| ❌ **Cancelled** | 6 | 3.4% |
-| 📈 **Tổng số Task** | **179** | **100%** |
+| 🔴 **Backlog** | 53 | 29.4% |
+| ❌ **Cancelled** | 6 | 3.3% |
+| 📈 **Tổng số Task** | **180** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -104,6 +104,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BOT-123`**: [Dev Board thiếu progress bar cho pha `SyncMarketDataCommand` của Start Live (đối chiếu mockup, kèm log thật: đổi timeframe lúc Live khiến `LOCKED` kéo dài ~9.8s không hiển thị gì), và nút Stop không bật được đúng lúc đang sync (`uiMode == "LIVE"` bỏ sót `LOCKED`). Nối `ProgressBannerWidget`/`SyncProgressFeed`/`correlation_id` (khuôn `BOT-121`/`BOT-122`) vào Dev Board — màn sync thứ 3 dùng lại đúng cơ chế, không tạo layout mới](completed/BOT-123_dev_board_sync_progress_bar_and_cancel.md)
 - [x] **`BOT-122`**: [Nối tiếp `BOT-121` — user chỉ ra lọc theo `(symbol, interval)` chỉ là trùng hợp dữ liệu nghiệp vụ, không phải định danh thật (2 action khác nhau có thể nhắm cùng 1 symbol+interval). Thay bằng `correlation_id` sinh tại nơi phát request, xuyên suốt `SyncMarketDataCommand`/`BulkSyncMarketDataCommand` → `SingleSyncProgressEvent` → `SyncProgressReport` → coordinator so sánh — 1 bulk sync giờ dùng đúng 1 id cho cả batch thay vì `set[(symbol,interval)]`](completed/BOT-122_sync_progress_correlation_id.md)
 - [x] **`BOT-121`**: [Backtest và Data Management sync — user báo cảm giác "2 cơ chế không đồng bộ". Rà ra: đã dùng chung 1 use case (`SyncMarketDataCommand`) nhưng 2 coordinator độc lập cùng nghe 1 `SingleSyncProgressEvent` không lọc theo symbol/interval (progress màn này nhảy theo số của màn kia), và không có exclusivity chéo màn (2 màn có thể cùng gọi Binance cho cùng symbol+interval). `ExclusiveAction` (`BOT-069`) không dùng thẳng được — nó chỉ giữ 1 slot/instance, sẽ serialize luôn cả bulk sync đa-target cố ý chạy song song. `InFlightSyncGuard` mới (registry theo key, khác key không loại nhau) gắn ở `SyncMarketDataCommandHandler` — chỗ duy nhất mọi đường dispatch đi qua](completed/BOT-121_backtest_data_management_sync_cross_talk_and_race.md)
 - [x] **`BUG-064`**: [Dialog "Cài đặt Chiến lược" chỉ commit giá trị khi bấm nút Lưu — Enter/mất focus không có tác dụng, gõ giá trị mới trông như bị revert. Thêm cơ chế `editingFinished` chung cho mọi ô, và tách `BROKER_PROPERTY_FIELDS` làm nguồn khai báo broker-property duy nhất (trước khai trùng 3 nơi)](bug_report/completed/BUG-064_strategy_properties_dialog_needs_save_button_to_commit_any_field.md)

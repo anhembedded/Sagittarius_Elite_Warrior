@@ -16,6 +16,7 @@ Threading contract:
 from __future__ import annotations
 
 import re
+import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -45,6 +46,9 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 from .dashboard_view_model import DATETIME_FORMAT
 
 if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+        SyncProgressReport,
+    )
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -103,6 +107,7 @@ class StreamLifecycleController:
         emit_stream_success: Callable[[str], None],
         emit_stream_failed: Callable[[str], None],
         emit_log: Callable[[str], None],
+        emit_sync_progress: Callable[[int, int, bool, str], None],
     ) -> None:
         self._thread_manager = thread_manager
         # BOT-069 — replaces the hand-rolled historyLoading-flag +
@@ -134,6 +139,19 @@ class StreamLifecycleController:
         self._emit_stream_success = emit_stream_success
         self._emit_stream_failed = emit_stream_failed
         self._emit_log = emit_log
+        self._emit_sync_progress = emit_sync_progress
+
+        # BOT-123 — the `correlation_id` of THIS controller's own in-flight
+        # `SyncMarketDataCommand`, set (worker thread) at the top of
+        # `_sync_market_data` and read (main thread, via `on_sync_progress`)
+        # whenever `SyncProgressFeed` delivers a report. Same cross-thread
+        # read/write as `DataSyncCoordinator`/`SyncCoordinator`
+        # (`BOT-121`/`BOT-122`) — `SyncProgressFeed` fans every
+        # `SingleSyncProgressEvent` out to every screen that has one, so a
+        # sync Backtest or Data Management started at the same time would
+        # otherwise move this bar with its own numbers. `None` means no sync
+        # is in flight from this screen right now.
+        self._active_sync_correlation_id: str | None = None
 
     # ================================================================== #
     # Main-Thread Slot Handlers
@@ -290,6 +308,24 @@ class StreamLifecycleController:
             )
             self.fsm.transition_to(UIMode.ERROR)
 
+    def on_sync_progress(self, report: SyncProgressReport) -> None:
+        """`SyncProgressFeed.progressUpdated` handler — already on the main
+        thread (`BaseFeed` wraps `QtEventBridge`).
+
+        BOT-123: `report` may belong to a sync Backtest or Data Management
+        started, not this screen's own — `SyncProgressFeed` fans every
+        `SingleSyncProgressEvent` out to every screen that has one. Only
+        apply it if its `correlation_id` matches the one THIS controller's
+        own in-flight dispatch is using (see `_active_sync_correlation_id`).
+        """
+        if self._active_sync_correlation_id is None:
+            return
+        if report.correlation_id != self._active_sync_correlation_id:
+            return
+        self._emit_sync_progress(
+            report.current, report.total, True, report.to_message()
+        )
+
     def _on_timeframe_changed(self, timeframe: str) -> None:
         if timeframe == self._get_active_interval():
             return
@@ -437,12 +473,21 @@ class StreamLifecycleController:
         cancellation_requested: CancellationCheck | None = None,
     ) -> None:
         self._emit_log("Syncing missing data from Binance...")
+        # BOT-123 — generated here (not passed in), so it always matches the
+        # dispatch it labels. Set before dispatching: `SyncMarketDataCommandHandler`
+        # publishes its first `SingleSyncProgressEvent` from inside
+        # `dispatcher.dispatch()` below, and `on_sync_progress` (main thread)
+        # must already see the id it belongs to.
+        correlation_id = uuid.uuid4().hex
+        self._active_sync_correlation_id = correlation_id
+        self._emit_sync_progress(0, 0, True, "Đang đồng bộ dữ liệu từ Binance...")
         sync_cmd = SyncMarketDataCommand(
             symbols=symbols,
             interval=interval,
             start_time=start_time,
             end_time=end_time,
             cancellation_requested=cancellation_requested,
+            correlation_id=correlation_id,
         )
         self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
@@ -491,3 +536,11 @@ class StreamLifecycleController:
 
         except Exception as exc:  # noqa: BLE001
             self._emit_stream_failed(f"System error: {exc}")
+        finally:
+            # BOT-123 — whatever the outcome (succeeded, cancelled, or
+            # raised), the sync this progress bar was tracking is over: stop
+            # matching further reports and hide it. Without this a cancelled
+            # or failed sync would leave the bar frozen at its last percent
+            # forever, since nothing else ever calls hide_progress().
+            self._active_sync_correlation_id = None
+            self._emit_sync_progress(0, 0, False, "")

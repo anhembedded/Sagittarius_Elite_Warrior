@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     SectionLabel,
     StyledCheckBox,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
+    ProgressBannerWidget,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.status_pill_widget import (
     StatusPillWidget,
 )
@@ -79,6 +82,11 @@ from .dashboard_view_model import DashboardQmlViewModel
 #: two constants cannot silently drift apart from each other.
 _FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
 _FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
+
+#: Same value `BackTestTopPanel`/`DataManagementView` use for their own
+#: `ProgressBannerWidget` — one size for "a long task, a percent, a Cancel"
+#: everywhere it appears (BOT-123).
+_PROGRESS_BANNER_HEIGHT = 32
 
 
 def _field_style() -> str:
@@ -174,6 +182,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._sync_price_ticker()
         self._sync_ws_status()
         self._sync_controls_active()
+        self._sync_progress()
 
     # ------------------------------------------------------------------ #
     # Layout
@@ -297,7 +306,26 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         actions_row.addWidget(self._btn_stop, 1)
 
         layout.addLayout(actions_row)
+
+        # BOT-123 — Start Live's `SyncMarketDataCommand` phase (fetching
+        # missing candles from Binance before the websocket opens) used to
+        # give no feedback at all: the log line "Syncing missing data from
+        # Binance..." was the only sign anything was happening, for however
+        # long that fetch took, with no way to cancel it short of killing
+        # the app. Same `ProgressBannerWidget` Backtest/Data Management
+        # already use, in the same spot relative to their own sync trigger.
+        self._progress_banner = self._build_progress_banner()
+        layout.addWidget(self._progress_banner)
+
         return card
+
+    def _build_progress_banner(self) -> ProgressBannerWidget:
+        banner = ProgressBannerWidget()
+        banner.setObjectName("devBoardProgressBanner")
+        banner.setFixedHeight(_PROGRESS_BANNER_HEIGHT)
+        banner.setVisible(False)
+        banner.cancelRequested.connect(self._view_model.requestStopStream)
+        return banner
 
     def _build_indicators(self) -> Panel:
         card = Panel()
@@ -452,6 +480,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         vm.wsStatusChanged.connect(self._sync_ws_status)
         vm.historyLoadingChanged.connect(self._sync_controls_active)
         vm.uiModeChanged.connect(self._sync_controls_active)
+        vm.progressChanged.connect(self._sync_progress)
         vm.startDateChanged.connect(self._sync_start_date)
         vm.endDateChanged.connect(self._sync_end_date)
         vm.symbolChanged.connect(self._sync_symbol)
@@ -536,9 +565,27 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         )
         self._btn_load_history.setEnabled(controls_active)
         self._btn_start.setEnabled(controls_active)
-        self._btn_stop.setEnabled(vm.uiMode == "LIVE")
+        # BOT-123 (was `vm.uiMode == "LIVE"` only): Start Live spends its
+        # first several seconds — sometimes much longer, see the sync log
+        # this was reported against — in LOCKED, syncing from Binance before
+        # the websocket ever opens. Stop is how the user cancels that sync
+        # (StreamLifecycleController._on_stop_stream cancels the same
+        # CancellationToken the sync's cancellation_requested reads); leaving
+        # it disabled through the one phase a user would most want to cancel
+        # left LOCKED syncs with no way to stop short of killing the app.
+        self._btn_stop.setEnabled(vm.uiMode in ("LIVE", "LOCKED"))
         self._cbo_market.setEnabled(controls_active)
         self._btn_symbol.setEnabled(controls_active)
         self._cbo_strategy.setEnabled(controls_active)
         self._txt_start_date.setEnabled(controls_active)
         self._txt_end_date.setEnabled(controls_active)
+
+    def _sync_progress(self) -> None:
+        vm = self._view_model
+        self._progress_banner.setVisible(vm.progressVisible)
+        self._progress_banner.set_status_text(vm.progressText)
+        self._progress_banner.set_indeterminate(vm.progressMaximum == 0)
+        # `progressPercent` already computes and clamps value/maximum with a
+        # `progressMaximum <= 0` guard (`DashboardQmlViewModel`) — reused
+        # rather than re-deriving the same number here.
+        self._progress_banner.set_percent(vm.progressPercent)

@@ -64,6 +64,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     priceTickerChanged = Signal()
     wsStatusChanged = Signal()
     historyLoadingChanged = Signal()
+    progressChanged = Signal()
     symbolChanged = Signal()
     symbolOptionsChanged = Signal()
     symbolOptionsRequested = Signal()
@@ -86,6 +87,19 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._ws_status_color = _IDLE_STATUS_COLOR
         self._ws_status_tone = _IDLE_STATUS_TONE
         self._history_loading = False
+
+        # BOT-123 — Start Live's `SyncMarketDataCommand` phase (fetching
+        # missing candles from Binance before the websocket opens) used to
+        # run with no visible feedback at all: same gap `ProgressBanner.qml`
+        # already closed for Backtest/Data Management (see that file's own
+        # docstring), just never wired up on this screen. Same property
+        # shape as `DataManagementViewModel`'s progress block on purpose —
+        # one shape for "a long task, a percent, a Cancel" everywhere it
+        # appears.
+        self._progress_value = 0
+        self._progress_maximum = 0
+        self._progress_visible = False
+        self._progress_text = ""
 
         self._symbol = _DEFAULT_SYMBOL
         self._symbol_options: list[str] = []
@@ -184,6 +198,56 @@ class DashboardQmlViewModel(BaseQmlViewModel):
             return
         self._history_loading = value
         self.historyLoadingChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Sync progress (BOT-123) — the `SyncMarketDataCommand` phase inside
+    # Start Live, read by `ProgressBannerWidget` via `DevBoardPanel`.
+    # Mirrors `DataManagementViewModel`'s progress block exactly.
+    # ------------------------------------------------------------------ #
+    def _get_progress_value(self) -> int:
+        return self._progress_value
+
+    progressValue = Property(int, _get_progress_value, notify=progressChanged)
+
+    def _get_progress_maximum(self) -> int:
+        return self._progress_maximum
+
+    progressMaximum = Property(int, _get_progress_maximum, notify=progressChanged)
+
+    def _get_progress_visible(self) -> bool:
+        return self._progress_visible
+
+    progressVisible = Property(bool, _get_progress_visible, notify=progressChanged)
+
+    def _get_progress_text(self) -> str:
+        return self._progress_text
+
+    progressText = Property(str, _get_progress_text, notify=progressChanged)
+
+    def _get_progress_percent(self) -> float:
+        if self._progress_maximum <= 0:
+            return 0.0
+        return min(
+            100.0, max(0.0, (self._progress_value / self._progress_maximum) * 100.0)
+        )
+
+    progressPercent = Property(float, _get_progress_percent, notify=progressChanged)
+
+    @Slot(int, int, bool)
+    @Slot(int, int, bool, str)
+    def set_progress(
+        self, value: int, maximum: int, visible: bool, text: str = ""
+    ) -> None:
+        self._progress_value = value
+        self._progress_maximum = maximum
+        self._progress_visible = visible
+        if text:
+            self._progress_text = text
+        self.progressChanged.emit()
+
+    @Slot()
+    def hide_progress(self) -> None:
+        self.set_progress(0, 0, False, "")
 
     # ------------------------------------------------------------------ #
     # Symbol / Start date / End date (BOT-033 Phase 2) — read fresh by the
