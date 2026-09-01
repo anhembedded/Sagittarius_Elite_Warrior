@@ -38,6 +38,17 @@ thống, phải thấy ở mọi màn — thuộc header của `PageShell` (`EPI
 Và Settings **giữ nguyên vai trò**: credentials + chọn venue + nút Kiểm tra kết nối (`EPIC-021D`).
 Đó là cấu hình, không phải vận hành. Hai thứ khác nhịp sử dụng: cấu hình một lần, vận hành liên tục.
 
+## 1.2 Prompt thiết kế
+
+Trước khi code bố cục: [`design/PROMPT_thiet_ke_man_giao_dich.md`](../design/PROMPT_thiet_ke_man_giao_dich.md)
+— prompt tự chứa để nhờ một AI thiết kế dựng mockup 3 trạng thái (giao dịch tắt / đang chạy /
+Dừng khẩn cấp thất bại một phần). Nó mang sẵn đúng palette, font, và luật 4 dải của `PageShell`
+lấy từ code thật.
+
+Mockup là **đầu vào**, không phải hợp đồng: widget vẫn lấy từ `kit/` và `qml/` đã có, không dựng
+widget mới chỉ vì mockup vẽ khác. Đối chiếu mockup với ảnh chụp app thật **sau** khi dựng xong —
+đúng cách `EPIC-020` phát hiện được 4 lỗi bố cục.
+
 ## 2. Thiết kế + lý do
 
 ### 2.1 Đăng ký màn — đúng khuôn `EPIC-016`, không phát minh gì
