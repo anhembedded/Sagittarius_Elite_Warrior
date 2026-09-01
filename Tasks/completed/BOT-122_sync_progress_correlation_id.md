@@ -2,6 +2,9 @@
 
 **Trạng thái:** ✅ Hoàn thành (2026-08-31)
 
+**Tài liệu thiết kế đầy đủ (sequence diagram, class diagram, hướng dẫn áp dụng cho event mới):**
+[`Docs/Diagrams/event_correlation_id_design.md`](../../Docs/Diagrams/event_correlation_id_design.md)
+
 ## 1. Bối cảnh & vấn đề thật
 
 User: *"progress bar đang không follow đúng progress mà nó nên tracking, nếu có nhiều chỗ

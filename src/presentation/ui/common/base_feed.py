@@ -26,6 +26,19 @@ event nghĩa là logic xử lý bị nhân bản đúng bằng số màn —
 `SingleSyncProgressEvent` có **2** handler độc lập. Feed tồn tại để chuẩn hoá
 đúng **một lần**.
 
+@par `BOT-121`/`BOT-122`: nhiều màn nghe cùng 1 Feed cần phân biệt event của
+ai
+Một event bị fan-out cho ≥2 màn không tự động nghĩa là mọi màn đều muốn xử lý
+MỌI instance của nó — `SingleSyncProgressEvent` do Backtest gây ra không phải
+tiến độ của Data Management, và ngược lại. Đừng lọc bằng dữ liệu nghiệp vụ của
+event (symbol/interval/id bản ghi/...) — hai action khác nhau có thể trùng
+khoá đó. Command/Query sinh ra action phải mang một `correlation_id` (sinh tại
+nơi request bắt đầu), Handler copy nó vào mọi event liên quan, Feed chuyển
+tiếp nguyên xi (không "chuẩn hoá" nó thành gì khác), và mỗi consumer tự giữ
+`correlation_id` của chính nó để so sánh. Xem
+`Docs/Diagrams/event_correlation_id_design.md` để biết luồng đầy đủ và cách
+áp dụng cho event mới.
+
 @par Khi nào KHÔNG viết Feed
 Sự thật chỉ một màn quan tâm (`history của tôi load xong`, `stream của tôi
 start được`) thì **giữ Qt signal nội bộ**. Đẩy nó lên bus là rò rỉ: mọi màn đều
