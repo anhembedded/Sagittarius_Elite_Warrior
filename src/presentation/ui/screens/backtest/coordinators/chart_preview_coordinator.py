@@ -128,7 +128,7 @@ class ChartPreviewCoordinator:
                 ),
             )
             raw_klines = list(reversed(list(getattr(response, "data", response) or [])))
-            coverage = self._dispatcher.dispatch(
+            coverage_response = self._dispatcher.dispatch(
                 GetBacktestRangeCoverageQuery,
                 GetBacktestRangeCoverageQuery(
                     symbol=symbol,
@@ -138,6 +138,14 @@ class ChartPreviewCoordinator:
                     now=now,
                 ),
             )
+            # BUG-072 — same "tolerate a test double's `.data` envelope"
+            # unwrap as `raw_klines` above. Without it, a test's mocked
+            # dispatcher returning a plain response object (not a real
+            # `BacktestRangeCoverage`) sailed straight into
+            # `_previewDataReadySignal`'s loosely-typed `object` argument and
+            # crashed the interpreter marshaling it across the worker/main
+            # thread queue.
+            coverage = getattr(coverage_response, "data", coverage_response)
             self._emit_preview_ready(
                 preview_id,
                 coverage,
