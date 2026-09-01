@@ -8,8 +8,12 @@ class ConfigKeys(str, Enum):
 
     BINANCE_RATE_LIMIT_DELAY_MS = "binance.rate_limit_delay_ms"
     DATABASE_DIR = "database.dir"
-    BINANCE_WS_URL = "BINANCE_WS_URL"
-    BINANCE_REST_URL = "BINANCE_REST_URL"
+    #: `EPIC-021A` — replaces the dead `BINANCE_REST_URL`/`BINANCE_WS_URL`
+    #: (`BUG-081`: declared, read nowhere, editing them changed nothing).
+    #: Endpoint resolution is a function of this venue, computed by
+    #: `binance_endpoints.py`, not a second config key to keep in sync.
+    #: Values are `MarketDataVenue` members.
+    EXCHANGE_MARKET_DATA_VENUE = "exchange.market_data_venue"
     LOG_FORMAT = "LOG_FORMAT"
     LOG_LEVEL = "log.level"
     LOG_CONSOLE_ENABLED = "log.console.enabled"

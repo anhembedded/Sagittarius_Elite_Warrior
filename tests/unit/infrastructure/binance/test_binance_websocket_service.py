@@ -285,7 +285,7 @@ async def test_websocket_auto_reconnect():
     mock_bsm = Mock()
     mock_bsm.kline_socket.return_value = mock_socket
 
-    async def mock_create():
+    async def mock_create(**_kwargs):
         return Mock()
 
     async def mock_close_connection():

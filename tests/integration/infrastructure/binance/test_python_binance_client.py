@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
-from unittest.mock import patch
+from unittest.mock import Mock
 
 import pytest
+from binance.enums import HistoricalKlinesType
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
     PythonBinanceClient,
@@ -10,32 +11,30 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
 
 @pytest.fixture
 def client():
-    # Patch the actual binance Client so we don't make real HTTP requests during testing
-    with patch(
-        "Sagittarius_Elite_Warrior.src.infrastructure.binance.client.Client"
-    ) as mock_client_class:
-        # Mock instance of the Client
-        mock_instance = mock_client_class.return_value
+    # EPIC-021A: PythonBinanceClient no longer constructs the SDK client
+    # itself (ExchangeSessionFactory is the one place allowed to) — inject a
+    # mock session directly instead of patching Client() construction.
+    mock_instance = Mock()
 
-        # Fake Binance API response in the documented twelve-column order.
-        mock_instance.get_historical_klines_generator.return_value = [
-            [
-                1672531200000,
-                "16500.0",
-                "16600.0",
-                "16400.0",
-                "16550.0",
-                "100.5",
-                1672534799999,
-                "1660000.0",
-                5000,
-                "50.0",
-                "825000.0",
-                "0",
-            ]
+    # Fake Binance API response in the documented twelve-column order.
+    mock_instance.get_historical_klines_generator.return_value = [
+        [
+            1672531200000,
+            "16500.0",
+            "16600.0",
+            "16400.0",
+            "16550.0",
+            "100.5",
+            1672534799999,
+            "1660000.0",
+            5000,
+            "50.0",
+            "825000.0",
+            "0",
         ]
+    ]
 
-        yield PythonBinanceClient(api_key="", api_secret="")
+    yield PythonBinanceClient(client=mock_instance)
 
 
 def test_get_historical_klines_parsing(client):
@@ -74,5 +73,9 @@ def test_get_historical_klines_arguments(client):
     # Check what the mocked underlying client received
     underlying_mock = client.client
     underlying_mock.get_historical_klines_generator.assert_called_once_with(
-        "ETHUSDT", "1m", "01 Jan 2023 12:00:00", None
+        "ETHUSDT",
+        "1m",
+        "01 Jan 2023 12:00:00",
+        None,
+        klines_type=HistoricalKlinesType.SPOT,
     )

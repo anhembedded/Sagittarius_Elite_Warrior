@@ -129,7 +129,7 @@ def booted_app(qapp):
 
     real_client_api_url = Client.API_URL
     with (
-        run_binance_fake_server() as fake_url,
+        run_binance_fake_server() as fake_urls,
         patch(
             "Sagittarius_Elite_Warrior.src.infrastructure.binance."
             "binance_websocket_service.AsyncClient"
@@ -144,7 +144,10 @@ def booted_app(qapp):
         # this fixture's scope picks it up, restored in `finally` so no other
         # test module (or a human reading `Client.API_URL` mid-session) is
         # left thinking real network access is disabled process-wide.
-        Client.API_URL = fake_url
+        # `EPIC-021A`: only the spot URL — this tier's default config venue
+        # is `MarketDataVenue.MAINNET_PUBLIC` (`app_config.json`), which
+        # never resolves a futures-shaped call in the first place.
+        Client.API_URL = fake_urls.spot
         try:
             app.boot()
             yield app

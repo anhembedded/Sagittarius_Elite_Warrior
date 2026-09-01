@@ -1,7 +1,6 @@
 {
     "database.dir": "Sagittarius_Elite_Warrior/database",
-    "BINANCE_WS_URL": "wss://stream.binance.com:9443",
-    "BINANCE_REST_URL": "https://api.binance.com",
+    "exchange.market_data_venue": "mainnet_public",
     "LOG_FORMAT": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "log.level": "INFO",
     "log.console.enabled": true,

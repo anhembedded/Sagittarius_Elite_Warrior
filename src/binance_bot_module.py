@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
+    IExchangeSessionFactory,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
@@ -160,11 +163,17 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
     VolumeSpikeFlowStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+    MarketDataVenue,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
+    resolve_market_data_venue,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
-    PythonBinanceClient,
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
+    ExchangeSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
@@ -232,7 +241,21 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
-        app.container.singleton(IExchangeClient, PythonBinanceClient)
+        # EPIC-021A: market_data_venue is registered as its own singleton so
+        # BinanceWebsocketService's constructor (which needs it for the
+        # testnet flag) picks up the real configured value via auto-wiring —
+        # not its own default fallback, which would silently pin every
+        # install to MAINNET_PUBLIC regardless of config.
+        market_data_venue = resolve_market_data_venue(config)
+        app.container.singleton(MarketDataVenue, market_data_venue)
+        session_factory = ExchangeSessionFactory(market_data_venue)
+        app.container.singleton(IExchangeSessionFactory, session_factory)
+        # Lazy — Client()'s own constructor pings the network (BUG-045), so
+        # this must only run when something actually resolves IExchangeClient,
+        # not unconditionally on every app boot.
+        app.container.singleton(
+            IExchangeClient, lambda _c: session_factory.create_market_data_client()
+        )
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
 
         # EPIC-008F: the Application layer talks to the engine only through

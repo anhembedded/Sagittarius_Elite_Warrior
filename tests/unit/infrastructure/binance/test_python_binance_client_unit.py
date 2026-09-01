@@ -1,16 +1,16 @@
 import gc
 from datetime import UTC, datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 import requests
+from binance.enums import HistoricalKlinesType
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
-    _DEFAULT_REQUEST_TIMEOUT_SECONDS,
     _KLINE_STREAM_CHUNK_SIZE,
     _MAX_TRANSIENT_RETRIES,
     PythonBinanceClient,
@@ -61,21 +61,22 @@ def test_injected_client_is_used_directly_without_patching_the_sdk():
     injected_client.get_historical_klines_generator.assert_called_once()
 
 
-@patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.client.Client")
-def test_no_injected_client_falls_back_to_constructing_the_real_sdk_client(
-    mock_client_class,
-):
-    """When no client is injected, the real Client(api_key, api_secret) is built — the
-    existing default behavior every current call site (container wiring) relies on.
+def test_default_market_data_venue_uses_spot_klines_type():
+    """`EPIC-021A`: `PythonBinanceClient` no longer constructs its own SDK
+    client (`ExchangeSessionFactory` is the one place allowed to) — this
+    replaces the old fallback-construction test. Default `market_data_venue`
+    (`MAINNET_PUBLIC`) must still resolve to `HistoricalKlinesType.SPOT`,
+    keeping every existing call site's behavior unchanged."""
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = []
 
-    BUG-063: also asserts the longer default read timeout, since python-binance's
-    own 10s default is what turned a single slow page into a full sync failure
-    during a multi-day 1-second-interval sync.
-    """
-    PythonBinanceClient(api_key="k", api_secret="s")
-    mock_client_class.assert_called_once_with(
-        "k", "s", requests_params={"timeout": _DEFAULT_REQUEST_TIMEOUT_SECONDS}
+    client = PythonBinanceClient(client=injected_client)
+
+    client.get_historical_klines(
+        "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
     )
+    _, kwargs = injected_client.get_historical_klines_generator.call_args
+    assert kwargs["klines_type"] == HistoricalKlinesType.SPOT
 
 
 def test_get_historical_klines_propagates_underlying_client_errors():
@@ -96,10 +97,8 @@ def test_get_historical_klines_propagates_underlying_client_errors():
         assert "API rate limit" in str(exc)
 
 
-@patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.client.Client")
-def test_python_binance_client_with_end_str(mock_client_class):
-    mock_binance_client_instance = Mock()
-    mock_client_class.return_value = mock_binance_client_instance
+def test_python_binance_client_with_end_str():
+    injected_client = Mock()
 
     # Simulate the generator returning one kline
     mock_kline = [
@@ -116,11 +115,9 @@ def test_python_binance_client_with_end_str(mock_client_class):
         "52500.0",
         "0",
     ]
-    mock_binance_client_instance.get_historical_klines_generator.return_value = [
-        mock_kline
-    ]
+    injected_client.get_historical_klines_generator.return_value = [mock_kline]
 
-    client = PythonBinanceClient()
+    client = PythonBinanceClient(client=injected_client)
 
     start_dt = datetime(2023, 1, 1, tzinfo=UTC)
     end_dt = datetime(2023, 1, 2, tzinfo=UTC)
@@ -130,30 +127,28 @@ def test_python_binance_client_with_end_str(mock_client_class):
     )
 
     # Assert the generator was called with formatted strings
-    mock_binance_client_instance.get_historical_klines_generator.assert_called_once_with(
-        "BTCUSDT", "1m", "01 Jan 2023 00:00:00", "02 Jan 2023 00:00:00"
-    )
+    args, kwargs = injected_client.get_historical_klines_generator.call_args
+    assert args == ("BTCUSDT", "1m", "01 Jan 2023 00:00:00", "02 Jan 2023 00:00:00")
+    assert kwargs["klines_type"] == HistoricalKlinesType.SPOT
 
     assert len(klines) == 1
     assert klines[0].symbol == "BTCUSDT"
     assert klines[0].open_price == 100.0
 
 
-@patch("Sagittarius_Elite_Warrior.src.infrastructure.binance.client.Client")
-def test_python_binance_client_without_end_str(mock_client_class):
-    mock_binance_client_instance = Mock()
-    mock_client_class.return_value = mock_binance_client_instance
-    mock_binance_client_instance.get_historical_klines_generator.return_value = []
+def test_python_binance_client_without_end_str():
+    injected_client = Mock()
+    injected_client.get_historical_klines_generator.return_value = []
 
-    client = PythonBinanceClient()
+    client = PythonBinanceClient(client=injected_client)
     start_dt = datetime(2023, 1, 1, tzinfo=UTC)
 
     client.get_historical_klines("ETHUSDT", TimeFrame.ONE_HOUR, start_dt)
 
     # end_str defaults to None
-    mock_binance_client_instance.get_historical_klines_generator.assert_called_once_with(
-        "ETHUSDT", "1h", "01 Jan 2023 00:00:00", None
-    )
+    args, kwargs = injected_client.get_historical_klines_generator.call_args
+    assert args == ("ETHUSDT", "1h", "01 Jan 2023 00:00:00", None)
+    assert kwargs["klines_type"] == HistoricalKlinesType.SPOT
 
 
 def test_historical_kline_iteration_stops_cooperatively_when_cancelled():
@@ -364,7 +359,7 @@ def test_stream_historical_klines_resumes_from_the_last_kline_after_a_transient_
     injected_client = Mock()
     calls: list[tuple] = []
 
-    def _generator_side_effect(symbol, interval, start_str, end_str):
+    def _generator_side_effect(symbol, interval, start_str, end_str, **_kwargs):
         calls.append((symbol, interval, start_str, end_str))
         if len(calls) == 1:
 
@@ -437,7 +432,7 @@ def test_stream_historical_klines_cancellation_during_retry_backoff_stops_immedi
     injected_client = Mock()
     failure_happened = {"flag": False}
 
-    def _first_attempt(symbol, interval, start_str, end_str):
+    def _first_attempt(symbol, interval, start_str, end_str, **_kwargs):
         def _gen():
             yield _raw_kline(0)
             failure_happened["flag"] = True

@@ -11,7 +11,7 @@ behavior — and that is exactly the shape that produced `BUG-026` and
 real interface. Here, only the base URL moves; every line of the real
 adapter stack still runs.
 
-Only the three REST operations this application actually calls are served —
+Only the REST operations this application actually calls are served —
 verified against `src/infrastructure/binance/client.py`, not assumed:
 
     GET /api/v3/ping           Client()'s own constructor calls this
@@ -23,6 +23,10 @@ verified against `src/infrastructure/binance/client.py`, not assumed:
     GET /api/v3/exchangeInfo   PythonBinanceClient.get_available_symbols()
     GET /api/v3/klines         PythonBinanceClient's kline fetch paths
                                  (paginated by get_historical_klines_generator)
+    GET /fapi/v1/ping          same as above, but `python-binance`'s FUTURES
+    GET /fapi/v1/exchangeInfo   family — hit when `MarketDataVenue.
+    GET /fapi/v1/klines         FUTURES_TESTNET` selects `klines_type=
+                                 HistoricalKlinesType.FUTURES` (`EPIC-021A`).
 
 Any other path returns 404 rather than a plausible-looking empty success —
 an unexpected call should be loud, not silently swallowed.
@@ -38,11 +42,26 @@ import json
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 #: A tiny, fixed exchange-info payload — enough shape for
 #: `get_available_symbols()` to parse successfully, not a realistic catalog.
 _EXCHANGE_INFO = {
+    "timezone": "UTC",
+    "serverTime": 0,
+    "symbols": [
+        {"symbol": "BTCUSDT", "status": "TRADING"},
+        {"symbol": "ETHUSDT", "status": "TRADING"},
+    ],
+}
+
+#: Futures `/fapi/v1/exchangeInfo` payload has a genuinely different shape
+#: from spot's (`quantityPrecision`/`pricePrecision` instead of spot's filter
+#: set) — real futures metadata parsing is `EPIC-021C`'s job, not this
+#: fixture's; this exists only so `get_available_symbols()`-shaped resolution
+#: has *something* valid to parse if ever pointed at the futures route.
+_FUTURES_EXCHANGE_INFO = {
     "timezone": "UTC",
     "serverTime": 0,
     "symbols": [
@@ -58,6 +77,9 @@ _ROUTES: dict[str, object] = {
     # data — an empty page terminates get_historical_klines_generator's
     # pagination immediately instead of looping.
     "/api/v3/klines": [],
+    "/fapi/v1/ping": {},
+    "/fapi/v1/exchangeInfo": _FUTURES_EXCHANGE_INFO,
+    "/fapi/v1/klines": [],
 }
 
 
@@ -83,19 +105,30 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
+@dataclass(frozen=True)
+class FakeServerUrls:
+    """Base URLs for the two `python-binance` API families this fixture
+    serves — both already in the shape `Client.API_URL`/`Client.
+    FUTURES_TESTNET_URL` expect (no `{}` placeholders, so `str.format()`
+    downstream is a no-op)."""
+
+    spot: str
+    futures: str
+
+
 @contextmanager
-def run_binance_fake_server() -> Iterator[str]:
-    """Starts the server on an OS-assigned free port, yields its base URL
-    (already in the `.../api` shape `python-binance`'s `Client.API_URL`
-    expects — no `{}` placeholders, so `str.format()` on it downstream is a
-    no-op), stops it on exit.
-    """
+def run_binance_fake_server() -> Iterator[FakeServerUrls]:
+    """Starts the server on an OS-assigned free port, yields its spot and
+    futures base URLs, stops it on exit."""
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
         host, port = server.server_address[0], server.server_address[1]
-        yield f"http://{host}:{port}/api"
+        yield FakeServerUrls(
+            spot=f"http://{host}:{port}/api",
+            futures=f"http://{host}:{port}/fapi",
+        )
     finally:
         server.shutdown()
         server.server_close()

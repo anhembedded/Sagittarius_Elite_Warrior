@@ -1,10 +1,11 @@
 # BUG-081 — `BINANCE_REST_URL`/`BINANCE_WS_URL` là config chết: sửa chúng không đổi được gì
 
-- **Trạng thái:** 🔴 Đang mở
+- **Trạng thái:** ✅ Đã sửa
 - **Mức độ:** 🟡 P3 (chưa gây lỗi runtime; gây hiểu sai nghiêm trọng cho người cấu hình)
 - **Ngày báo:** 2026-09-01
+- **Ngày sửa:** 2026-09-01
 - **Phát hiện khi:** khảo sát code để lập [`EPIC-021`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/README.md)
-- **Sẽ đóng bởi:** [`EPIC-021A`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021A_khai_niem_moi_truong_san_va_client_factory.md)
+- **Đóng bởi:** [`EPIC-021A`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021A_khai_niem_moi_truong_san_va_client_factory.md)
 
 ---
 
@@ -73,3 +74,51 @@ factory đó.
   định mỗi key đều có ít nhất một nơi đọc trong `src/`. Hôm nay repo có **2** key chết; test này
   làm chúng không thể tích tụ thêm trong im lặng. Verify hai chiều: pass sạch sau khi xoá, và đỏ
   khi cố tình thêm một key không ai đọc.
+
+## 5. Đã sửa như thế nào (`EPIC-021A`)
+
+Fix đúng như §3 mô tả: xoá `BINANCE_REST_URL`/`BINANCE_WS_URL` khỏi `ConfigKeys` và
+`app_config.json`, thay bằng `EXCHANGE_MARKET_DATA_VENUE` — đọc thật bởi
+`resolve_market_data_venue()` (`binance_endpoints.py`), gọi từ composition root
+(`binance_bot_module.py`) để dựng `ExchangeSessionFactory`, factory này là nơi **duy nhất**
+được phép gọi `binance.client.Client(...)` (khoá bằng AST guard, xem dưới).
+
+**Không giữ được "mỗi key một nơi đọc, verify tự động" như §4 dự tính ban đầu.** Khảo sát lại
+`app_config.json` lúc viết test cho thấy các key `log.*` được đọc như chuỗi literal truyền
+thẳng vào tầng config của engine (`app_bootstrapper.py`: `"log.level": verbosity.log_level`),
+không qua `ConfigKeys.X` attribute access — một scanner "grep tên attribute" sẽ báo sai (false
+positive) cho toàn bộ nhóm `log.*`. Quyết định: bỏ scanner tổng quát, giữ test hẹp hơn nhưng
+đúng — khẳng định 2 key chết đã biến mất VÀ key thay thế thật sự được gọi từ composition root
+qua đúng chuỗi hàm, không phải chỉ có mặt trong file. Lý do đầy đủ nằm ở docstring của chính
+test file.
+
+**Regression test thật** (viết trước fix, xác nhận fail đúng lý do — 2 key cũ vẫn còn — trước
+khi sửa, theo `bug-fix-rule.md`):
+`tests/unit/config/test_binance_endpoint_config_keys_are_dead.py` — 3 test, khẳng định (1) 2 key
+chết không còn trong `ConfigKeys` enum, (2) không còn trong `app_config.json`, (3)
+`resolve_market_data_venue`/`ConfigKeys.EXCHANGE_MARKET_DATA_VENUE` thật sự được gọi từ
+`binance_bot_module.py`/`binance_endpoints.py`.
+
+**Test bổ sung khoá lại cơ chế** (không chỉ khoá 2 key chết mà khoá cả cách chúng được thay
+thế đúng, tránh tái diễn):
+- `tests/unit/infrastructure/binance/test_binance_endpoints.py` — `resolve_testnet_flag`,
+  `klines_type_for`, `resolve_market_data_venue` (thành công/fallback/cảnh báo giá trị lạ).
+- `tests/unit/infrastructure/binance/test_only_the_session_factory_constructs_binance_client.py`
+  — AST guard: quét `src/`+`scripts/` cho `Client(...)`, khẳng định chỉ
+  `exchange_session_factory.py` có shape này; kèm test mutation tự-verify guard bắt được vi phạm
+  thật.
+- `tests/integration/infrastructure/binance/test_exchange_session_factory_against_fake_server.py`
+  — round-trip HTTP thật (local, không qua mạng) cho cả hai venue.
+
+**Bằng chứng verify cuối cùng** (`ruff check`, `ruff format`, `mypy src scripts` một lệnh,
+pytest full suite + sanity — đúng cổng `ci-local.ps1 -Full` yêu cầu):
+
+```
+ruff check   → 3 lỗi, cả 3 đều pre-existing ở 2 file scripts/ chưa từng đụng tới
+ruff format  → 842 files already formatted
+mypy         → Success: no issues found in 169 source files
+pytest       → 1 failed (pre-existing, không liên quan), 2966 passed, 4 skipped
+sanity       → 24 passed
+```
+
+Không có regression mới so với baseline.

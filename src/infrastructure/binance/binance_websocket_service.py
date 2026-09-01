@@ -11,7 +11,13 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
+    resolve_testnet_flag,
+)
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -28,9 +34,15 @@ class BinanceWebsocketService(ILiveStreamService):
     @details Manages a live Binance Kline WebSocket stream using the injected ITaskManager.
     """
 
-    def __init__(self, event_bus: IEventBus, task_manager: ITaskManager) -> None:
+    def __init__(
+        self,
+        event_bus: IEventBus,
+        task_manager: ITaskManager,
+        market_data_venue: MarketDataVenue = MarketDataVenue.MAINNET_PUBLIC,
+    ) -> None:
         self._event_bus = event_bus
         self._task_manager = task_manager
+        self._market_data_venue = market_data_venue
         self._task_handle: ITaskHandle | None = None
         self._token: CancellationToken | None = None
 
@@ -107,7 +119,9 @@ class BinanceWebsocketService(ILiveStreamService):
         is_closing = False
         client = None
         try:
-            client = await AsyncClient.create()
+            client = await AsyncClient.create(
+                testnet=resolve_testnet_flag(self._market_data_venue)
+            )
             bsm = BinanceSocketManager(client)
             streams = [f"{symbol.lower()}@kline_{interval.value}" for symbol in symbols]
 
