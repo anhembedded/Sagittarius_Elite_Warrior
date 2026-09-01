@@ -104,3 +104,30 @@ task này đứng riêng: nó không thể làm hỏng gì.
 - **Unit:** mọi event kế thừa `BaseEvent` và vào được catalog của Engine.
 - **Guard:** grep implementer của `ITradingClient` ở `src/`+`scripts/`+`tests/`; `mypy` chạy
   `src`+`scripts` chung một lệnh (`ci-rule.md` §1).
+
+## 5. Mốc chạy được
+
+Task này cố ý không chạm mạng, nên mốc của nó là **xem domain quyết định gì** trước khi có adapter:
+
+```bash
+PYTHONPATH=. python Sagittarius_Elite_Warrior/src/main.py order-preview \
+  --symbol BTCUSDT --side BUY --qty 0.0137 --type MARKET
+```
+
+```text
+Order đã chuẩn hoá
+  client_order_id : SEW-a91f4c72e0b8
+  symbol/side     : BTCUSDT / BUY   position_side=BOTH (One-way)
+  type/quantity   : MARKET / 0.013  (làm tròn xuống từ 0.0137, step 0.001)
+  notional ước tính: 832.00 USDT     ≥ minNotional 100 ✔
+Trạng thái: SẴN SÀNG GỬI  (chưa gửi — task này không có đường ra mạng)
+```
+
+Và một ca bị từ chối, để thấy lỗi có tên chứ không phải mã số:
+
+```text
+Trạng thái: TỪ CHỐI  MIN_NOTIONAL — 64.00 USDT < 100.00 USDT
+```
+
+`--json` xuất ra đúng object domain để so bằng mắt với payload mà `EPIC-021F` sẽ dựng. Hai bước
+tách nhau chính là để khi payload sai, anh biết ngay sai ở domain hay ở mapper.

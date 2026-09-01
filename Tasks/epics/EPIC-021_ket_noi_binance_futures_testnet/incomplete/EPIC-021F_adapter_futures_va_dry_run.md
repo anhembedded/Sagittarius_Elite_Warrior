@@ -89,3 +89,31 @@ Mã chưa nhận diện được ánh xạ `UNKNOWN` **kèm nguyên văn** để
   đặt lệnh nào**.
 - **Guard:** không call site nào ngoài `EPIC-021G` được truyền `OrderSubmissionMode.LIVE` cho tới
   khi task đó làm; khoá bằng test `ast`, gỡ trong chính `021G`.
+
+## 5. Mốc chạy được
+
+**Mốc quan trọng nhất của cả epic:** chứng minh chữ ký, quyền của key và payload đều đúng —
+**mà không có lệnh nào được tạo.**
+
+```bash
+PYTHONPATH=. python Sagittarius_Elite_Warrior/src/main.py order-dry-run \
+  --symbol BTCUSDT --side BUY --qty 0.002 --type MARKET
+```
+
+```text
+POST https://testnet.binancefuture.com/fapi/v1/order/test
+payload: symbol=BTCUSDT side=BUY type=MARKET quantity=0.002
+         newClientOrderId=SEW-a91f4c72e0b8  (app tự sinh, không để thư viện sinh)
+
+Sàn CHẤP NHẬN payload.  ✔  Không có lệnh nào được tạo.
+```
+
+Ca lỗi in ra lý do đã dịch sang domain, kèm nguyên văn của sàn để còn tra được:
+
+```text
+Sàn TỪ CHỐI: LOT_SIZE
+  nguyên văn: APIError(code=-1013): Quantity less than or equal to zero.
+```
+
+Sau task này, `grep -rn "OrderSubmissionMode.LIVE" src/` phải cho **0 call site** — đó là nội dung
+guard ở §4, và cũng là cách anh tự kiểm rằng chưa có gì khớp được.

@@ -89,3 +89,33 @@ xoá** Qt queued signal nào đang bắc cầu thread — `Handover.md` §3 và 
 - **Testnet tier (opt-in):** đặt một lệnh thật → nhận `ORDER_TRADE_UPDATE` trong thời gian giới
   hạn, và trạng thái cuối là `FILLED`. Chờ bằng điều kiện có tên, **không** bằng `sleep`
   (`testing-rule.md` §2).
+
+## 5. Mốc chạy được
+
+Mốc này quan sát được rõ nhất bằng **hai terminal**:
+
+```bash
+# Terminal 1 — nghe sàn nói
+PYTHONPATH=. python Sagittarius_Elite_Warrior/scripts/epic021h_user_stream_probe.py --seconds 120
+```
+
+```bash
+# Terminal 2 — làm một việc gì đó
+PYTHONPATH=. python Sagittarius_Elite_Warrior/src/main.py trade-once --symbol BTCUSDT --live ...
+```
+
+Terminal 1 in ra vòng đời thật, do **sàn** kể lại chứ không phải app tự kể:
+
+```text
+14:35:02  ORDER_TRADE_UPDATE  SEW-a91f4c72e0b8  NEW              qty 0.002  filled 0.000
+14:35:02  ORDER_TRADE_UPDATE  SEW-a91f4c72e0b8  PARTIALLY_FILLED qty 0.002  filled 0.001 @ 64,105.10
+14:35:02  ORDER_TRADE_UPDATE  SEW-a91f4c72e0b8  FILLED           qty 0.002  filled 0.002 @ 64,105.35
+14:35:02  ACCOUNT_UPDATE      BTCUSDT  pos 0.002  entry 64,105.35  uPnL -0.02
+14:52:31  listenKey keepalive OK (còn hạn 59 phút)
+```
+
+Dòng `PARTIALLY_FILLED` là thứ **backtest chưa bao giờ có** — trong mô phỏng mọi lệnh khớp trọn
+vẹn tức thì. Nhìn thấy nó chảy qua chính là bằng chứng rằng nguồn sự thật đã đúng (ADR §4).
+
+Mốc phụ, quan trọng không kém: mở app với giao dịch **tắt** → probe không nhận gì, và
+`tests/sanity` vẫn im lặng tuyệt đối. Một stream tự mở khi chưa ai bật là bug.

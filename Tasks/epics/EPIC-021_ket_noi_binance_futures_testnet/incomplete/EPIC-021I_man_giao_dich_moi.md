@@ -1,0 +1,140 @@
+# EPIC-021I — Màn hình **Giao dịch** mới (sổ lệnh, vị thế, công tắc)
+
+- **Trạng thái:** 🔴 Chưa bắt đầu
+- **Repo:** Elite
+- **Chặn bởi:** `EPIC-021H` · **Chặn:** `EPIC-021K`
+
+---
+
+## 1. Bối cảnh & vấn đề thật
+
+Từ `EPIC-021D` đến `EPIC-021H`, mọi thứ chạy được bằng CLI headless. Đó là chủ ý — nhưng nó dừng
+đúng ở chỗ một người vận hành cần **nhìn liên tục**: lệnh nào đang chờ, vị thế nào đang mở, PnL
+chưa thực hiện bao nhiêu, giá thanh lý ở đâu. Không ai chạy `exchange-status` mỗi 10 giây.
+
+### 1.1 Vì sao là màn **mới**, không nhét vào Dev Board
+
+Câu hỏi này đáng trả lời tường minh vì "thêm màn hình" thường là phản xạ sai. Ở đây có bốn lý do
+cụ thể của repo này:
+
+1. **Dev Board là màn *dev*, theo đúng định nghĩa của chính nó.** `BOT-014` lập ra nó để
+   *"Dashboard mặc định chỉ hiện 1 chart `ETHUSDT`, để tập trung test/debug thay vì phân tán"*.
+   Giao dịch thật không phải mối quan tâm debug.
+2. **`EPIC-003` vẫn đang mở vì Presenter quá tải** ("Phân rã Presenter/File quá tải"). Nhồi sổ
+   lệnh + vị thế + công tắc + reconciliation vào `DashboardPresenter` là đi thẳng vào vấn đề mà
+   một epic đang mở tồn tại để sửa.
+3. **Chi phí thêm màn đã gần bằng 0 từ `EPIC-016`.** Screen Registry Pattern khiến một màn mới =
+   một `AbstractScreenModule` con (route/title/icon/location/sequence + 2 factory method) **+ đúng
+   một dòng** trong danh sách ở `app_bootstrapper.py:285-288`. `MainWindow` **không đổi một dòng
+   nào** — đó chính là điều `EPIC-016` được làm ra để đạt được.
+4. **Tầng Sanity không phát sinh test nào.** `testing-rule.md` §1: *"Adding a feature/screen adds
+   zero new tests to `tests/sanity/`"* — mọi assertion ở tier đó **quét** nguồn sự thật (mọi use
+   case đã đăng ký, mọi route điều hướng được, mọi package màn hình trên đĩa) chứ không liệt kê
+   tay. Màn mới tự động được phủ.
+
+Ngược lại, thứ **không** được tách ra màn riêng: **banner môi trường**. Nó là trạng thái toàn hệ
+thống, phải thấy ở mọi màn — thuộc header của `PageShell` (`EPIC-021K`).
+
+Và Settings **giữ nguyên vai trò**: credentials + chọn venue + nút Kiểm tra kết nối (`EPIC-021D`).
+Đó là cấu hình, không phải vận hành. Hai thứ khác nhịp sử dụng: cấu hình một lần, vận hành liên tục.
+
+## 2. Thiết kế + lý do
+
+### 2.1 Đăng ký màn — đúng khuôn `EPIC-016`, không phát minh gì
+
+```python
+# src/presentation/ui/screens/trading/module.py
+class TradingScreenModule(AbstractScreenModule):
+    route = "trading"
+    title = "Giao dịch"
+    icon = "candlestick-chart"        # bộ Lucide đã có (BOT-016)
+    location = NavLocation.MAIN
+    item_sequence = 25                # sau Dev Board, trước Backtest
+```
+
+Cộng một dòng trong danh sách module ở `app_bootstrapper.py`. Hết.
+
+### 2.2 Bố cục — `PageShell` 4 dải, không tự dựng layout
+
+`EPIC-020` đã chốt hình dạng và áp cho cả 4 màn hiện có. Màn thứ 5 dùng lại:
+
+| Dải | Nội dung |
+| :--- | :--- |
+| **Header** | Tiêu đề màn + (banner môi trường cắm vào ở `EPIC-021K`) |
+| **Context bar** | Chọn symbol (`SymbolPicker` dùng chung — `EPIC-014`), công tắc **Bật giao dịch**, trạng thái kết nối rút gọn |
+| **Workspace** | Bảng **Vị thế đang mở** (trên) + bảng **Lệnh đang chờ** (dưới) |
+| **Rail phải** | Thẻ tài khoản: số dư USDT, margin đã dùng, PnL chưa thực hiện, số lệnh đã đặt trong phiên / hạn mức |
+| **Console** | Nhật ký lệnh của riêng màn này |
+
+### 2.3 Widget QML + ViewModel test được không cần GUI
+
+Đúng khuôn `EPIC-015` đã đo và chốt: widget ở thư mục riêng, ViewModel test riêng. Dùng lại hình
+dạng bảng của `DatabaseStatusTable`/`KlineInspectorTable`, **kèm bài học `BUG-076`**: mọi cột chuỗi
+dài (thời gian, `client_order_id`) phải có `elide: Text.ElideRight` **và** `Layout.minimumWidth: 0`
+— thiếu cái thứ hai thì `elide` vô hiệu trong `RowLayout`.
+
+### 2.4 Dữ liệu **chỉ** đến từ `OrderFeed`
+
+Màn này không nghe bus trực tiếp, không tự gọi `ITradingClient`. `EPIC-021H` đã dựng đúng một
+subscriber chuẩn hoá; màn hình là nơi *hiển thị*, theo `architecture-rule.md` §6.
+
+Hệ quả kiểm chứng được: mở màn với giao dịch tắt → bảng rỗng, **không** phát request nào.
+
+### 2.5 Công tắc "Bật giao dịch" là hành động có hệ quả, không phải một checkbox
+
+Bật → chạy reconciliation của `EPIC-021G` (đọc vị thế/lệnh thật) **trước khi** cho phép lệnh đầu
+tiên; nếu sàn có vị thế mà app không biết → hiện ra và **từ chối bật**, để user quyết định. Trạng
+thái công tắc **không** được nhớ qua lần khởi động (ngoại lệ có chủ đích với `EPIC-010` — mở app
+lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
+
+## 3. Thay đổi theo từng file
+
+| File | Việc |
+| :--- | :--- |
+| `.../ui/screens/trading/module.py` | **Mới** — `TradingScreenModule` |
+| `.../ui/screens/trading/trading_view.py` | **Mới** — dựng `PageShell` 4 dải |
+| `.../ui/screens/trading/trading_presenter.py` | **Mới** — nối `OrderFeed`, công tắc, reconciliation |
+| `.../ui/screens/trading/i_trading_view.py` | **Mới** — hợp đồng Presenter↔View **tường minh** (§2.1 `architecture-rule.md`), kèm test hai chiều theo khuôn `EPIC-013B` |
+| `.../ui/screens/trading/view_models/` | **Mới** — ViewModel cho 2 bảng + thẻ tài khoản |
+| `.../ui/screens/trading/qml/` | **Mới** — `PositionsTable.qml`, `OpenOrdersTable.qml`, `AccountCard.qml` |
+| `src/presentation/ui/app_bootstrapper.py` | **+1 dòng** trong danh sách screen module |
+
+## 4. Kiểm thử
+
+- **Unit (ViewModel):** 2 bảng render đúng từ dữ liệu `OrderFeed`; bảng rỗng khi chưa có gì (không
+  phải crash, không phải hàng giả).
+- **Unit (hợp đồng):** test `ast` hai chiều cho `ITradingView` — thành viên dùng mà chưa khai
+  **và** khai mà không ai dùng đều đỏ, có khoá cả số đếm (`EPIC-013B`).
+- **Unit:** bật công tắc khi reconciliation thấy vị thế lạ → công tắc **không** bật lên.
+- **Integration:** `OrderFilledEvent` qua `OrderFeed` → dòng xuất hiện đúng ở bảng vị thế.
+- **Sanity:** màn mới được tier quét tự động phát hiện; boot im lặng (`diagnostic_guard`), **0 test
+  sanity mới được viết** — nếu phải viết thì test sanity cũ đã sai thiết kế.
+
+## 5. Mốc chạy được
+
+Chạy app thật và mở màn mới:
+
+```bash
+pwsh -NoProfile -File scripts/run-ui.ps1
+# hoặc headless để chụp ảnh: QT_QPA_PLATFORM=offscreen + script E2E khuôn
+# scripts/backtest_timeframe_toolbar_e2e.py
+```
+
+Nhìn thấy được, với một vị thế đặt sẵn bằng `trade-once --live` từ `EPIC-021G`:
+
+```text
+Sidebar: [Dev Board] [Giao dịch] ← mới  [Backtest] [Database] … [Settings]
+
+Giao dịch                              Bật giao dịch: [ TẮT ]   Kết nối: ✔ FUTURES_TESTNET
+─────────────────────────────────────────────────────────────────────────────
+VỊ THẾ ĐANG MỞ                                        │ TÀI KHOẢN
+ BTCUSDT  LONG  0.002  entry 64,105.35  uPnL -0.02    │  USDT khả dụng  14,871.6
+                       liq 32,140.00                  │  Margin đã dùng    128.2
+LỆNH ĐANG CHỜ                                         │  PnL chưa TH       -0.02
+ (không có)                                           │  Lệnh phiên này    1 / 20
+```
+
+Ba thứ chứng minh mốc này **thật sự chạy**, không phải khung rỗng: số liệu khớp với
+`exchange-status` của `EPIC-021D`; bảng cập nhật **ngay** khi `trade-once --live` chạy ở terminal
+khác (qua `OrderFeed`, không phải poll); và mở màn với giao dịch tắt thì **không** có request nào
+rời máy.

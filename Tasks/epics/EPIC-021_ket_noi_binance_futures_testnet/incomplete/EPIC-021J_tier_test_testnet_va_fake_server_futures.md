@@ -116,3 +116,32 @@ khi ai đó tình cờ có biến môi trường đó trong shell.
   đếm test collect, không bằng đọc script).
 - **Skip đúng lý do:** thiếu biến môi trường → skip; có biến nhưng thiếu key → skip với thông báo
   khác. Hai lý do khác nhau phải phân biệt được, nếu không người chạy sẽ không biết mình thiếu gì.
+
+## 5. Mốc chạy được
+
+```bash
+# Cổng thường — PHẢI không chạy file nào trong tests/testnet/
+pwsh -NoProfile -File scripts/ci-local.ps1 -Full   > /tmp/full.log 2>&1
+grep -E "^[0-9]+ (passed|failed)|failed,|testnet" /tmp/full.log
+
+# Tier mới, chạy có chủ đích, cần key thật
+SEW_TESTNET_TESTS=1 pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly > /tmp/tnet.log 2>&1
+```
+
+```text
+tests/testnet/test_connection.py::test_account_is_reachable            PASSED
+tests/testnet/test_order_lifecycle.py::test_dry_run_is_accepted        PASSED
+tests/testnet/test_order_lifecycle.py::test_market_order_fills_and_closes PASSED
+3 passed in 11.42s
+```
+
+Và khi thiếu điều kiện, phải **skip với lý do đọc được**, không phải đỏ:
+
+```text
+SKIPPED [1] thiếu SEW_TESTNET_TESTS=1 — tier này không chạy trong CI thường
+SKIPPED [2] có SEW_TESTNET_TESTS=1 nhưng không tìm thấy credentials Futures Testnet
+```
+
+Hai lý do skip khác nhau là cố ý: gộp làm một thì người chạy không biết mình đang thiếu **cái gì**.
+
+Ghi log ra file rồi `grep`, không `| tail` — `ONBOARDING.md` §5.

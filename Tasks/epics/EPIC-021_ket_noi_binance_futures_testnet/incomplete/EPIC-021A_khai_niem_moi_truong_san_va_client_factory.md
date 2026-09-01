@@ -96,3 +96,23 @@ fake server qua chính factory. Fake server **giữ nguyên** — nó vẫn là 
   Verify hai chiều: pass sạch, và đỏ khi cố tình chèn một lời gọi vào file khác.
 - **Regression cho `BUG-079`:** một test khẳng định không còn key nào trong `app_config.json` mà
   `src/` không đọc — chặn cả lớp lỗi, không chỉ hai key này.
+
+## 5. Mốc chạy được
+
+`scripts/epic021a_venue_probe.py` — in ra endpoint thật mà factory dựng cho **từng** venue, rồi
+`ping` mỗi cái. Chạy được **không cần key**:
+
+```bash
+PYTHONPATH=. python Sagittarius_Elite_Warrior/scripts/epic021a_venue_probe.py
+```
+
+```text
+MARKET_DATA  MAINNET_PUBLIC   https://api.binance.com/api             testnet=False  ping OK   42ms
+MARKET_DATA  FUTURES_TESTNET  https://testnet.binancefuture.com/fapi  testnet=True   ping OK  191ms
+TRADING      DISABLED         (không dựng client)
+TRADING      FUTURES_TESTNET  https://testnet.binancefuture.com/fapi  testnet=True   ping OK  188ms
+```
+
+Đây chính là thứ `BUG-079` khiến không ai kiểm được hôm nay: hai dòng URL **khác nhau** là bằng
+chứng cấu hình thật sự điều khiển endpoint. Kèm theo: `python src/main.py --self-check` (tầng
+out-of-process của `EPIC-009`) phải vẫn thoát 0.

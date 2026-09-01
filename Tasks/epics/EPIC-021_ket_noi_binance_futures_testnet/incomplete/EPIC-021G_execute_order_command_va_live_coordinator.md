@@ -98,3 +98,40 @@ nến, mỗi symbol — dùng `logger.debug()`, và chỉ log `INFO` cho sự ki
   thay vì Spot tồn tại để phục vụ (ADR §1) — không kiểm thì lựa chọn đó không có bằng chứng.
 - **Testnet tier (opt-in):** một lệnh MARKET khối lượng tối thiểu, khớp thật, rồi đóng lại. Đây là
   lần đầu tiên trong epic có lệnh khớp.
+
+## 5. Mốc chạy được
+
+**Lệnh khớp thật đầu tiên — và nó chạy headless, chưa cần đụng tới UI.**
+
+```bash
+# Mặc định là DRY-RUN. Phải gõ --live mới có lệnh thật.
+PYTHONPATH=. python Sagittarius_Elite_Warrior/src/main.py trade-once \
+  --symbol BTCUSDT --interval 5m --strategy ema_trend_pullback
+```
+
+```text
+Nến gần nhất : 2026-09-01 14:35 UTC  close=64,102.30
+Chiến lược   : ema_trend_pullback → SIGNAL BUY (ema_fast cắt lên trong xu hướng tăng)
+Hạn mức      : lệnh 1/20 phiên ✔   notional 128.20 ≤ 500 ✔   vị thế BTCUSDT: chưa có ✔
+                khoảng cách lệnh trước: n/a ✔
+Chế độ       : DRY-RUN → dừng ở đây. Thêm --live để đặt thật.
+```
+
+Với `--live`:
+
+```text
+Chế độ       : LIVE
+Đã gửi       : SEW-a91f4c72e0b8   → NEW
+Trạng thái   : FILLED  0.002 @ 64,105.10   phí 0.0026 USDT
+```
+
+`trade-once` chạy **đúng một vòng rồi thoát** — không phải một daemon. Đó là lựa chọn có chủ đích
+cho mốc này: một vòng thì quan sát được trọn vẹn, và một bug trong vòng lặp không thể bắn hàng
+trăm lệnh trong lúc anh còn đang đọc output.
+
+Ca chạm hạn mức cũng phải nhìn thấy được, vì đó là thứ bảo vệ anh:
+
+```text
+Hạn mức      : ✘ CHẶN — đã có vị thế BTCUSDT đang mở (one_position_per_symbol)
+Không gửi lệnh nào.
+```

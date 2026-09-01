@@ -89,3 +89,24 @@ limit riêng.
   thiếu filter → không ném, trả giá trị mặc định có tên.
 - **Integration:** provider đọc qua fake server (`EPIC-021J` mở rộng) → cache hit lần hai không
   phát request thứ hai.
+
+## 5. Mốc chạy được
+
+`scripts/epic021c_metadata_probe.py` — kéo metadata thật rồi **cho xem policy làm tròn quyết định
+gì**, đây mới là thứ đáng nhìn (bảng filter thô thì đọc trên web Binance cũng có):
+
+```bash
+PYTHONPATH=. python Sagittarius_Elite_Warrior/scripts/epic021c_metadata_probe.py \
+  --symbol BTCUSDT --price 64000 --qty 0.0137 --qty 0.0011
+```
+
+```text
+BTCUSDT  stepSize=0.001  tickSize=0.10  minNotional=100  qtyPrec=3  maxLeverage=125
+  qty 0.0137 → 0.013   notional 832.00 USDT  ≥ 100  → HỢP LỆ
+  qty 0.0011 → 0.001   notional  64.00 USDT  <  100 → TỪ CHỐI (MIN_NOTIONAL)
+```
+
+Chạy được với `--offline` trỏ fake server (`EPIC-021J`) để không cần mạng.
+
+Giá trị thật của mốc này: `-1013` là mã lỗi mà bot sẽ đâm vào nếu policy sai, và nó xuất hiện
+**sau khi** đã gửi lệnh. Ở đây anh thấy quyết định làm tròn **trước** khi có bất kỳ lệnh nào.

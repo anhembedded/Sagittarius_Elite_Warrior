@@ -95,3 +95,25 @@ một traceback không ai lường trước.
   trading client thật sự nhận đúng key đó. Phải đỏ trên code hiện tại vì hôm nay không có đường
   nào để key đi qua.
 - **Guard:** `grep` toàn repo không còn nơi nào ghi secret vào file git-tracked.
+
+## 5. Mốc chạy được
+
+`scripts/epic021b_credentials_probe.py` — in ra **nguồn** credentials đang thắng và key đã che.
+Chạy được cả khi chưa có key (đó cũng là một kết quả hợp lệ):
+
+```bash
+PYTHONPATH=. python Sagittarius_Elite_Warrior/scripts/epic021b_credentials_probe.py
+```
+
+```text
+Nguồn: ENV (BINANCE_FUTURES_TESTNET_API_KEY)
+Key:    Bx7f…9dQ2      Secret: (đã nạp, không hiển thị)
+repr(ExchangeCredentials) → ExchangeCredentials(api_key='Bx7f…9dQ2', api_secret='***')
+Kiểm rò rỉ: repr ✔  str ✔  traceback ✔  f-string ✔
+```
+
+Khi chưa cấu hình gì: in `Nguồn: NONE` kèm hướng dẫn lấy key ở `testnet.binancefuture.com`, và
+thoát 0 — chưa có key không phải lỗi ở mốc này.
+
+Dòng "Kiểm rò rỉ" là bản chạy tay của chính test khoá ở §4: nó cố tình đưa object vào 4 đường mà
+secret hay rò ra, và in kết quả từng đường.

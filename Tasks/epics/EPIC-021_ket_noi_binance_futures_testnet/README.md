@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🔴 Chưa bắt đầu (0/10 task con)
+- **Trạng thái:** 🔴 Chưa bắt đầu (0/11 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
@@ -67,7 +67,8 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 | **F** | [Adapter `BinanceFuturesTradingClient` + dry-run qua `/fapi/v1/order/test`](incomplete/EPIC-021F_adapter_futures_va_dry_run.md) | Elite | D, E | 🔴 |
 | **G** | [`ExecuteOrderCommand` + `LiveTradingCoordinator` — lệnh thật đầu tiên, kèm hạn mức](incomplete/EPIC-021G_execute_order_command_va_live_coordinator.md) | Elite | F | 🔴 |
 | **H** | [User Data Stream: sự thật về lệnh đến từ sàn + `OrderFeed`](incomplete/EPIC-021H_user_data_stream_va_order_feed.md) | Elite | G | 🔴 |
-| **I** | [UI: banner môi trường, sổ lệnh/vị thế, Emergency Stop](incomplete/EPIC-021I_ui_banner_so_lenh_va_emergency_stop.md) | Elite | H | 🔴 |
+| **I** | [**Màn hình Giao dịch mới** — sổ lệnh, vị thế, công tắc bật giao dịch](incomplete/EPIC-021I_man_giao_dich_moi.md) | Elite | H | 🔴 |
+| **K** | [Banner môi trường toàn cục + Emergency Stop + trade marker trên chart](incomplete/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) | Elite | I | 🔴 |
 | **J** | [Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures](incomplete/EPIC-021J_tier_test_testnet_va_fake_server_futures.md) | Elite | F | 🔴 |
 
 **Không nhảy cóc.** `A` chặn tất cả vì mọi task sau đều cần biết "đang nói chuyện với sàn nào".
@@ -77,7 +78,47 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 Không có task nào thuộc repo **Engine** — toàn bộ cơ chế cần thiết (port, adapter, event bus,
 Feed, task manager) đã tồn tại.
 
-## 5. Bug đi kèm phải mở trước khi sửa
+## 5. Mốc chạy được — mỗi task giao một thứ bấm/gõ được
+
+Không task nào của epic này kết thúc bằng "code xong, test xanh". Mỗi task giao **một lệnh chạy
+được và một thứ nhìn thấy được**. Chi tiết output mẫu nằm ở §5 của từng task file.
+
+| Task | Gõ cái gì | Thấy cái gì |
+| :-: | :--- | :--- |
+| **A** | `scripts/epic021a_venue_probe.py` | 2 dòng URL **khác nhau** cho 2 venue + ping OK — bằng chứng config thật sự điều khiển endpoint (`BUG-079`) |
+| **B** | `scripts/epic021b_credentials_probe.py` | Nguồn credentials đang thắng, key đã che, 4 đường rò rỉ đều sạch. Chạy được cả khi chưa có key |
+| **C** | `scripts/epic021c_metadata_probe.py --qty 0.0137` | Policy làm tròn quyết định gì: `0.0137 → 0.013`, notional đủ/không đủ — **trước** khi có lệnh nào |
+| **D** | `main.py exchange-status` | **Số dư USDT testnet thật của anh**, lệch đồng hồ, position mode. Lần chạm sàn đầu tiên |
+| **E** | `main.py order-preview` | `Order` domain đã chuẩn hoá + `client_order_id`, hoặc lý do từ chối có tên (`MIN_NOTIONAL`) |
+| **F** | `main.py order-dry-run` | *"Sàn CHẤP NHẬN payload. Không có lệnh nào được tạo."* — chữ ký + quyền + payload đúng, 0 lệnh khớp |
+| **G** | `main.py trade-once --live` | **Lệnh khớp thật đầu tiên**, headless. Không `--live` thì dừng ở dry-run |
+| **H** | `scripts/epic021h_user_stream_probe.py` (2 terminal) | Vòng đời `NEW → PARTIALLY_FILLED → FILLED` do **sàn** kể lại |
+| **I** | `scripts/run-ui.ps1` → màn **Giao dịch** | Bảng vị thế/lệnh cập nhật ngay khi `trade-once` chạy ở terminal khác |
+| **K** | Bấm **Dừng khẩn cấp** | 3 bước với dấu ✔/✘ từng bước, rồi `exchange-status` xác nhận `Vị thế đang mở: 0` |
+| **J** | `ci-local.ps1 -TestnetOnly` | 3 test chạm sàn thật xanh; `-Full` **không** chạm file nào trong `tests/testnet/` |
+
+Bốn task đầu (**A–D**) chạy được **hoàn toàn headless**, không cần GUI — đúng ràng buộc dual-mode
+mà `README.md` của repo đặt ra từ đầu (chạy được trên VPS không màn hình). Giao diện chỉ vào cuộc
+ở **I**/**K**, khi đã có thứ thật để hiển thị.
+
+## 6. Màn hình: thêm đúng **một** màn mới
+
+Câu hỏi "có cần thêm màn không" được trả lời tường minh ở [`EPIC-021I`](incomplete/EPIC-021I_man_giao_dich_moi.md) §1.1.
+Tóm tắt quyết định:
+
+| | Quyết định |
+| :--- | :--- |
+| **Màn Giao dịch** (mới) | ✅ Thêm. Vận hành liên tục (sổ lệnh, vị thế, công tắc) — không nhét vào Dev Board, vì Dev Board theo `BOT-014` là màn *debug*, và `EPIC-003` đang mở **vì** Presenter quá tải |
+| **Banner môi trường** | ❌ Không phải màn. Là header của `PageShell` → tự có ở **cả 5** màn (`EPIC-021K`) |
+| **Settings** | ❌ Không thêm màn. Giữ nguyên vai trò: credentials + chọn venue + Kiểm tra kết nối (`EPIC-021D`) |
+| **Chart** | ❌ Không thêm màn. Chỉ nối `OrderFilledEvent` vào Trade Markers mà `BOT-009` đã để dở |
+
+Chi phí một màn mới ở repo này gần bằng 0 kể từ `EPIC-016`: một `AbstractScreenModule` con **+ một
+dòng** trong `app_bootstrapper.py:285-288`; `MainWindow` không đổi dòng nào. Tầng Sanity cũng
+**không phát sinh test mới** — `testing-rule.md` §1 quy định tier đó quét nguồn sự thật chứ không
+liệt kê từng màn.
+
+## 7. Bug đi kèm phải mở trước khi sửa
 
 Hai phát hiện #3 và #4 ở §1 là **phát biểu sai sự thật của code với người dùng và với chính agent
 đọc nó** — theo luật repo, đó là BUG, không phải "tiện tay dọn trong lúc làm feature":
@@ -85,7 +126,7 @@ Hai phát hiện #3 và #4 ở §1 là **phát biểu sai sự thật của code
 - [`BUG-078`](../../bug_report/incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md) — đóng bởi `EPIC-021B`
 - [`BUG-079`](../../bug_report/incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md) — đóng bởi `EPIC-021A`
 
-## 6. Rủi ro đã biết
+## 8. Rủi ro đã biết
 
 | Rủi ro | Xử lý |
 | :--- | :--- |

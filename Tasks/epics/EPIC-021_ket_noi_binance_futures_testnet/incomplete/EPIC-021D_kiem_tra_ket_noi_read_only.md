@@ -90,3 +90,34 @@ position mode). Ba cái này đủ để phân loại cả 5 `ConnectionFailureK
   `usdt_balance is not None`. Đây là **bằng chứng vận hành**, không phải cổng CI (ADR §5).
 - **Async UI (`async-ui-action-rule.md`):** nút không khoá UI, huỷ được, và không phát tín hiệu
   unlock nếu chưa từng khoá (bẫy 7 ở `ONBOARDING.md` §8 — `BUG-018`).
+
+## 5. Mốc chạy được
+
+**Đây là mốc đầu tiên chạm sàn thật, và là mốc đầu tiên anh nhìn thấy tiền testnet của mình.**
+Hai đường, cùng một query:
+
+```bash
+# Headless (VPS, không cần GUI) — command mới trong cli_commands.json + 1 handler
+PYTHONPATH=. python Sagittarius_Elite_Warrior/src/main.py exchange-status
+```
+
+```text
+Venue:            FUTURES_TESTNET          Kết nối: ✔
+Lệch đồng hồ:     +134 ms                  (recvWindow 5000 ms → an toàn)
+Position mode:    ONE_WAY ✔                Margin type: CROSSED
+Số dư USDT:       15,000.00                Vị thế đang mở: 0
+```
+
+Và cùng thông tin đó trên nút **Kiểm tra kết nối** ở màn Settings.
+
+Thêm CLI command ở repo này là **1 entry JSON + 1 handler + 1 dòng registry** — khuôn đã có sẵn
+(`src/config/cli_commands.json`, `presentation/cli/handlers/`, `interactive_shell.py:46-47`),
+không phải hạ tầng mới.
+
+Ba nhóm lỗi ở §1 phải hiện ra **thành ba câu khác nhau**, không phải một dòng "connection failed":
+
+```text
+Venue: FUTURES_TESTNET   Kết nối: ✘  KEY_EXPIRED
+→ Key testnet đã hết hạn hoặc bị reset. Lấy key mới tại testnet.binancefuture.com.
+  (Lưu ý: key Spot Testnet và key mainnet KHÔNG dùng được ở đây.)
+```
