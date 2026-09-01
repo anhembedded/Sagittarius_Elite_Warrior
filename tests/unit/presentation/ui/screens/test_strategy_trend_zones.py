@@ -104,7 +104,7 @@ def test_empty_klines_produces_no_zones():
 def test_zones_merge_consecutive_same_direction_bars_and_split_on_direction_change():
     # EMA(2) hand-verified (python -c with the real EMA class): seed =
     # mean(10, 20) = 15 at bar[1]. Each zone below runs 3-4 bars so it
-    # clears `_MIN_ZONE_BARS` and is actually drawn (BUG-077 — a zone
+    # clears `_MIN_ZONE_BARS` and is actually drawn (BUG-078 — a zone
     # shorter than that is dropped; see the dedicated tests below).
     # bar[1..4]: close=20, ema settles upward from 15 -> 19.81, always
     #            close > ema -> UP (one merged 4-bar span)
@@ -158,7 +158,7 @@ def test_warmup_bar_before_any_indicator_reading_draws_no_zone():
 
 
 def test_a_zone_shorter_than_the_minimum_bar_count_produces_no_span():
-    """`BUG-077` — real user screenshot: a ranging market flips
+    """`BUG-078` — real user screenshot: a ranging market flips
     `classify_trend_zone()` on nearly every bar, and every one of those
     1-2-bar flips used to become its own `LinearRegionItem`. A run of
     alternating red/green 1-bar-wide regions renders as a dense, near-

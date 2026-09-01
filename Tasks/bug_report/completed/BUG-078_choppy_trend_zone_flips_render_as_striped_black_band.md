@@ -1,4 +1,4 @@
-# BUG-077 — Trend-zone shading trong thị trường sideways render thành dải sọc gần đen, đè lên nến
+# BUG-078 — Trend-zone shading trong thị trường sideways render thành dải sọc gần đen, đè lên nến
 
 **Reported date:** 2026-09-01, user gửi 2 screenshot ứng dụng thật (Backtest,
 chiến lược **"Long Term Trend Zone"**, ETHUSDT 4h) — mô tả "mũi tên long
