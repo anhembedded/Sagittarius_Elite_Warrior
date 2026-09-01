@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
     IExchangeSessionFactory,
 )
@@ -175,6 +178,12 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_serv
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
+    SecretsFileSource,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
 )
@@ -204,6 +213,7 @@ from sagittarius_engine import App
 from sagittarius_engine.base import BaseModule
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
+from sagittarius_engine.utils.path_utils import PathUtils
 
 _DEFAULT_DB_DIR_NAME: str = "database"
 
@@ -257,6 +267,17 @@ class BinanceBotModule(BaseModule):
             IExchangeClient, lambda _c: session_factory.create_market_data_client()
         )
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
+
+        # EPIC-021B: `secrets.local.json` lives next to `user_config.json`
+        # (gitignored, unlike it) — same relative-path idiom `main.py` uses
+        # for the config files themselves.
+        secrets_file_path = PathUtils.get_relative_path(
+            __file__, "config", "secrets.local.json"
+        )
+        credentials_provider = EnvFirstCredentialsProvider(
+            SecretsFileSource(secrets_file_path)
+        )
+        app.container.singleton(IExchangeCredentialsProvider, credentials_provider)
 
         # EPIC-008F: the Application layer talks to the engine only through
         # these three ports; the adapters are the only place naming IEventBus,

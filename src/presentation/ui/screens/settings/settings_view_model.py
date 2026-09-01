@@ -27,6 +27,7 @@ class SettingsViewModel(BaseQmlViewModel):
     defaultIntervalChanged = Signal()
     defaultSyncDaysChanged = Signal()
     statusChanged = Signal()
+    credentialsSourceChanged = Signal()
 
     #: Emitted when the user clicks Save. The Presenter reads the current
     #: field values off this view model rather than receiving them as
@@ -42,6 +43,8 @@ class SettingsViewModel(BaseQmlViewModel):
         self._default_sync_days = 1
         self._status_message = ""
         self._status_is_error = False
+        self._credentials_source_label = ""
+        self._credentials_locked = False
 
     # ------------------------------------------------------------------ #
     # Editable fields (two-way bound from QML)
@@ -125,6 +128,35 @@ class SettingsViewModel(BaseQmlViewModel):
         self._status_message = message
         self._status_is_error = is_error
         self.statusChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Credentials source (written from Python only, `EPIC-021B`)
+    # ------------------------------------------------------------------ #
+
+    def _get_credentials_source_label(self) -> str:
+        return self._credentials_source_label
+
+    credentialsSourceLabel = Property(
+        str, _get_credentials_source_label, notify=credentialsSourceChanged
+    )
+
+    def _get_credentials_locked(self) -> bool:
+        return self._credentials_locked
+
+    credentialsLocked = Property(
+        bool, _get_credentials_locked, notify=credentialsSourceChanged
+    )
+
+    @Slot(str, bool)
+    def set_credentials_source(self, label: str, locked: bool) -> None:
+        """@param label Human-readable name of the source currently in
+        effect (e.g. "biến môi trường", "file cục bộ", "chưa cấu hình").
+        @param locked True when an environment variable is what is in
+        effect — editing the field here would silently be ignored, so the
+        View disables it and shows `label` instead."""
+        self._credentials_source_label = label
+        self._credentials_locked = locked
+        self.credentialsSourceChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Bulk load (from IConfig, via the Presenter)

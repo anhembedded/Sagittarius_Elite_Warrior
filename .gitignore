@@ -158,6 +158,14 @@ logs/
 # src/presentation/ui/state/, which is source code, not data.
 /state/
 
+# EPIC-021B -- exchange API key/secret fallback file (SecretsFileSource).
+# Never committed, unlike user_config.json which stays git-tracked but no
+# longer holds credentials (BUG-080). Full path, not a bare filename -- an
+# unanchored "secrets.local.json" would also be correct here (the name is
+# specific enough not to collide with anything else), but the full path
+# makes the one file this ignores unambiguous to a reader.
+src/config/secrets.local.json
+
 # Documentation site builds (MkDocs)
 site/
 Tasks/dashboard.html

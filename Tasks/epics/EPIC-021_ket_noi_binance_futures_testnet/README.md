@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🟡 Đang làm (1/12 task con)
+- **Trạng thái:** 🟡 Đang làm (2/12 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
@@ -61,7 +61,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 | :-: | :--- | :---: | :--- | :---: |
 | **L** | [Đảo chiều phụ thuộc `qml/ → screens/` — điều kiện cần để màn Giao dịch dùng lại widget](incomplete/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) | Elite | — (song song được) | 🔴 |
 | **A** | [Khái niệm môi trường sàn: `MarketDataVenue`/`TradingVenue` + client factory, cắt config chết](completed/EPIC-021A_khai_niem_moi_truong_san_va_client_factory.md) | Elite | — | ✅ (đóng `BUG-081`) |
-| **B** | [Credentials: env-var trước, secret rời khỏi file git-tracked](incomplete/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) | Elite | A | 🔴 |
+| **B** | [Credentials: env-var trước, secret rời khỏi file git-tracked](completed/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) | Elite | A | ✅ (đóng 1/2 `BUG-080`) |
 | **C** | [Metadata Futures vào production + policy làm tròn khối lượng/giá](incomplete/EPIC-021C_metadata_futures_va_policy_lam_tron.md) | Elite | A | 🔴 |
 | **D** | [Kiểm tra kết nối read-only — lần chạm sàn thật đầu tiên](incomplete/EPIC-021D_kiem_tra_ket_noi_read_only.md) | Elite | A, B | 🔴 |
 | **E** | [Domain model lệnh sống + port `ITradingClient` (không chạm mạng)](incomplete/EPIC-021E_domain_model_lenh_song_va_port_trading.md) | Elite | C | 🔴 |
@@ -124,7 +124,7 @@ liệt kê từng màn.
 Hai phát hiện #3 và #4 ở §1 là **phát biểu sai sự thật của code với người dùng và với chính agent
 đọc nó** — theo luật repo, đó là BUG, không phải "tiện tay dọn trong lúc làm feature":
 
-- [`BUG-080`](../../bug_report/incomplete/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md) — đóng bởi `EPIC-021B`
+- [`BUG-080`](../../bug_report/incomplete/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md) — 1/2 đóng bởi `EPIC-021B` (lưu trữ an toàn), nửa còn lại (client thật sự ký) đóng bởi `021D`/`021F`
 - [`BUG-081`](../../bug_report/completed/BUG-081_binance_endpoint_config_keys_are_dead.md) — đóng bởi `EPIC-021A`
 - [`BUG-082`](../../bug_report/incomplete/BUG-082_shared_qml_widget_library_depends_on_screen_modules.md) — thư viện widget dùng chung phụ thuộc ngược vào màn hình; đóng bởi `EPIC-021L`
 

@@ -104,6 +104,9 @@ class SettingsView(BaseView):
         self._btn_default_interval.setText(view_model.defaultInterval)
         self._sync_days_spin.setValue(view_model.defaultSyncDays)
         self._apply_status(view_model.statusMessage, view_model.statusIsError)
+        self._apply_credentials_source(
+            view_model.credentialsSourceLabel, view_model.credentialsLocked
+        )
 
         self._api_key_field.textEdited.connect(self._on_api_key_edited)
         self._api_secret_field.textEdited.connect(self._on_api_secret_edited)
@@ -131,6 +134,11 @@ class SettingsView(BaseView):
                 view_model.statusMessage, view_model.statusIsError
             )
         )
+        view_model.credentialsSourceChanged.connect(
+            lambda: self._apply_credentials_source(
+                view_model.credentialsSourceLabel, view_model.credentialsLocked
+            )
+        )
 
     # ------------------------------------------------------------------ #
     # Widget <-> ViewModel edit handlers (the "UI edits, Python holds" half)
@@ -155,6 +163,16 @@ class SettingsView(BaseView):
         self._status_label.setText(message)
         color = Palette.DANGER if is_error else Palette.SUCCESS
         self._status_label.setStyleSheet(f"color: {color};")
+
+    def _apply_credentials_source(self, label: str, locked: bool) -> None:
+        """`EPIC-021B` §2.3 — when an environment variable is what is in
+        effect, the fields are locked: an edit there would be silently
+        ignored by `IExchangeCredentialsProvider.resolve()`, so offering it
+        as editable would be the exact "UI promises something the system
+        doesn't do" shape `BUG-080` was filed for in the first place."""
+        self._credentials_source_label.setText(label)
+        self._api_key_field.setReadOnly(locked)
+        self._api_secret_field.setReadOnly(locked)
 
     def _toggle_secret_reveal(self, checked: bool) -> None:
         self._api_secret_field.setEchoMode(
@@ -230,7 +248,8 @@ class SettingsView(BaseView):
 
         warning = QLabel(
             "Thay đổi được ghi xuống user_config.json ngay khi lưu. "
-            "Riêng API Key/Secret cần khởi động lại app để có hiệu lực."
+            "Riêng API Key/Secret ghi vào secrets.local.json (không nằm trong "
+            "git) và cần khởi động lại app để có hiệu lực."
         )
         warning.setObjectName("lblRestartWarning")
         warning.setWordWrap(True)
@@ -248,6 +267,15 @@ class SettingsView(BaseView):
         self._api_key_field = self._last_field
 
         row = self._add_secret_row(grid, row)
+
+        self._credentials_source_label = QLabel()
+        self._credentials_source_label.setObjectName("lblCredentialsSource")
+        self._credentials_source_label.setWordWrap(True)
+        self._credentials_source_label.setStyleSheet(
+            f"color: {Palette.MUTED}; font-size: 11px;"
+        )
+        grid.addWidget(self._credentials_source_label, row, 0, 1, 2)
+        row += 1
 
         row = self._add_field_row(
             grid, row, "Default Symbols:", "txtDefaultSymbols", "BTCUSDT, ETHUSDT"

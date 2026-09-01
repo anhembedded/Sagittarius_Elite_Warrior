@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Slot
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
+    CredentialsSource,
+    IExchangeCredentialsProvider,
+    ResolvedCredentials,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     FALLBACK_INTERVAL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -38,13 +43,25 @@ if TYPE_CHECKING:
 _SYMBOL_SEPARATOR = ","
 
 _SAVED_MESSAGE = (
-    "Đã lưu vào user_config.json. API Key/Secret cần khởi động lại app để có hiệu lực."
+    "Đã lưu. Default Symbols/Interval/Sync Days vào user_config.json, "
+    "API Key/Secret (nếu có sửa) vào secrets.local.json. Cả hai cần khởi "
+    "động lại app để có hiệu lực."
 )
 _SAVED_IN_MEMORY_ONLY_MESSAGE = (
     "Đã áp dụng cho phiên chạy hiện tại, nhưng KHÔNG ghi được xuống "
     "user_config.json — thay đổi sẽ mất khi khởi động lại app."
 )
 _EMPTY_SYMBOLS_MESSAGE = "Default Symbols không được để trống."
+
+#: `EPIC-021B` §2.3 — human-readable label per `CredentialsSource`, and
+#: whether the field must be locked (an edit that would silently be
+#: ignored, because an environment variable always wins, must not be
+#: offered as if it would do something).
+_CREDENTIALS_SOURCE_LABELS: dict[CredentialsSource, str] = {
+    CredentialsSource.ENV: "Đang dùng key từ biến môi trường",
+    CredentialsSource.FILE: "Đang dùng key từ secrets.local.json",
+    CredentialsSource.NONE: "Chưa cấu hình API key/secret",
+}
 
 
 class SettingsPresenter(BasePresenter):
@@ -74,6 +91,10 @@ class SettingsPresenter(BasePresenter):
 
     def __init__(self, view: SettingsView, container: IContainer) -> None:
         super().__init__(view, container)
+
+        self._credentials_provider: IExchangeCredentialsProvider = container.resolve(
+            IExchangeCredentialsProvider
+        )
 
         self._settings_view_model = SettingsViewModel()
         self._load_from_config()
@@ -111,24 +132,36 @@ class SettingsPresenter(BasePresenter):
         # safe precisely because `app_defaults` reads absent and empty the same
         # way, so declared-vs-undeclared has no behaviour to preserve.
         values = self.config.get_all()
+        resolution = self._credentials_provider.resolve()
+        credentials = resolution.credentials
         self._settings_view_model.load_fields(
-            api_key=values.get("API_KEY") or "",
-            api_secret=values.get("API_SECRET") or "",
+            api_key=credentials.api_key if credentials else "",
+            api_secret=credentials.api_secret if credentials else "",
             default_symbols=f"{_SYMBOL_SEPARATOR} ".join(
                 default_symbol_options(values, FALLBACK_SYMBOL_OPTIONS)
             ),
             default_interval=default_interval(values, fallback=FALLBACK_INTERVAL),
             default_sync_days=int(values.get("DEFAULT_SYNC_DAYS") or 1),
         )
+        self._apply_credentials_status(resolution)
 
     @Slot()
     @safe_ui_action
     def _on_save(self) -> None:
         """
-        Validates, then writes every field via IConfig.set(). Symbols are
-        checked before any set() call so a rejected save never applies
-        partially. Sync days needs no check here — the QML SpinBox's `from: 1`
-        already constrains it to a positive value.
+        Validates, then writes every field. Symbols are checked before any
+        write so a rejected save never applies partially. Sync days needs no
+        check here — the QML SpinBox's `from: 1` already constrains it to a
+        positive value.
+
+        API Key/Secret are the one field pair that does NOT go through
+        `IConfig.set()` (`EPIC-021B`, closes `BUG-080`'s second, independent
+        problem: `user_config.json` is git-tracked, so it must never hold a
+        secret). They go to `IExchangeCredentialsProvider.save_to_file()` —
+        the gitignored `secrets.local.json` — and only when an environment
+        variable is not already winning; a write while `ENV` is in effect
+        would be silently ignored by `resolve()`, so it is skipped rather
+        than performed and then not shown.
         """
         view_model = self._settings_view_model
         symbols = self._parse_symbols(view_model.defaultSymbols)
@@ -136,8 +169,17 @@ class SettingsPresenter(BasePresenter):
             view_model.set_status(_EMPTY_SYMBOLS_MESSAGE, is_error=True)
             return
 
-        self.config.set("API_KEY", view_model.apiKey)
-        self.config.set("API_SECRET", view_model.apiSecret)
+        if not view_model.credentialsLocked:
+            try:
+                self._credentials_provider.save_to_file(
+                    view_model.apiKey, view_model.apiSecret
+                )
+            except OSError as exc:
+                self.logger.error(
+                    f"SettingsPresenter: secrets.local.json write failed: {exc}"
+                )
+                view_model.set_status(_SAVED_IN_MEMORY_ONLY_MESSAGE, is_error=True)
+                return
         self.config.set("DEFAULT_SYMBOLS", symbols)
         self.config.set("DEFAULT_INTERVAL", view_model.defaultInterval.strip())
         self.config.set("DEFAULT_SYNC_DAYS", view_model.defaultSyncDays)
@@ -151,7 +193,21 @@ class SettingsPresenter(BasePresenter):
                 return
 
         self._discard_outranked_state()
+        self._refresh_credentials_status()
         view_model.set_status(_SAVED_MESSAGE, is_error=False)
+
+    def _refresh_credentials_status(self) -> None:
+        """Re-resolves after a save — a first-time write to
+        `secrets.local.json` flips the source from `NONE` to `FILE`, and the
+        status label/lock must reflect that immediately, not just after the
+        next app restart."""
+        self._apply_credentials_status(self._credentials_provider.resolve())
+
+    def _apply_credentials_status(self, resolution: ResolvedCredentials) -> None:
+        self._settings_view_model.set_credentials_source(
+            _CREDENTIALS_SOURCE_LABELS[resolution.source],
+            locked=resolution.source is CredentialsSource.ENV,
+        )
 
     def _discard_outranked_state(self) -> None:
         """Forgets the remembered values this save has just overruled.

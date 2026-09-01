@@ -1,10 +1,12 @@
 # BUG-080 — API Key/Secret nhập ở màn Settings không bao giờ tới exchange client
 
-- **Trạng thái:** 🔴 Đang mở
-- **Mức độ:** 🟠 P2 (chặn `EPIC-021`; chưa gây hại hôm nay vì app chưa cần xác thực)
+- **Trạng thái:** 🟡 Đang mở — 1/2 phần đã sửa (xem §6)
+- **Mức độ:** 🟡 P3 (hạ từ P2 — nửa nguy hiểm nhất, secret rơi vào file git-tracked, đã sửa;
+  phần còn lại là "chưa có gì để dùng key" chứ không còn là "nói dối")
 - **Ngày báo:** 2026-09-01
 - **Phát hiện khi:** khảo sát code để lập [`EPIC-021`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/README.md)
-- **Sẽ đóng bởi:** [`EPIC-021B`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md)
+- **Đã sửa 1 phần bởi:** [`EPIC-021B`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) (§6)
+- **Sẽ đóng hẳn bởi:** `EPIC-021D`/`021F` (client có key thật sự ký request)
 
 ---
 
@@ -85,3 +87,30 @@ Viết **trước** khi sửa, và phải xác nhận đỏ đúng lý do (khôn
   client.
 - Test thứ hai, khác lớp: `grep`-guard khẳng định không nơi nào ghi secret vào file git-tracked.
   Test đầu chặn *bug này*; test sau chặn *lớp lỗi*.
+
+## 6. Đã sửa 1 phần thế nào (`EPIC-021B`, 2026-09-01) — và vì sao chỉ 1 phần
+
+**Sửa xong, thật sự đóng:** §3 — nơi lưu không còn là file git-tracked. `API_KEY`/`API_SECRET`
+xoá khỏi `user_config.json`; `IExchangeCredentialsProvider` + `EnvFirstCredentialsProvider` +
+`SecretsFileSource` ghi vào `secrets.local.json` (gitignored). Thứ tự ưu tiên env > file > rỗng.
+`ExchangeCredentials` che secret trong `__repr__`/`__str__`/`f-string`/traceback. Settings hiện
+đúng nguồn credentials đang thắng (`credentialsSourceLabel`) và **khoá ô nhập** khi biến môi
+trường đang thắng — không còn cho user gõ một giá trị sẽ bị lờ đi trong im lặng.
+
+**Chưa sửa xong, và lý do là kiến trúc chứ không phải thiếu thời gian:** §5's bản kế hoạch gốc
+giả định `021B` xong thì có "trading client thật sự mang key" để test round-trip. Khi code thật,
+phát hiện: credentials **theo `TradingVenue`**, không theo `MarketDataVenue` — trong tổ hợp
+được khuyến khích ở ADR §2.2 (data = `MAINNET_PUBLIC`, trading = `FUTURES_TESTNET`), client có
+key phải là một instance **hoàn toàn tách biệt** khỏi market-data client, độc lập với
+`MarketDataVenue` đang chọn gì. Dựng instance đó là chính xác việc `EPIC-021A` đã cố tình cắt
+ra khỏi phạm vi của mình (`create_trading_client()`, xem note tại `EPIC-021A` §2.2) — không có
+`TradingVenue` resolution, không có config key `EXCHANGE_TRADING_VENUE`, và (đúng nhất) không có
+gì thật sự tiêu thụ một client như vậy tồn tại trước `021D`. Dựng nó bây giờ, không ai gọi, sẽ
+là chính lớp lỗi `BUG-081` vừa sửa — cấu hình/plumbing có mặt nhưng không ai đọc.
+
+**Kết luận:** bug này còn đúng theo đúng nghĩa hẹp nhất của triệu chứng gốc — "không có request
+nào của app từng được ký" **vẫn đúng** sau `021B`. Cái đã đổi là: (a) nửa nguy hiểm hơn (secret
+git-tracked) đã hết, và (b) đường đi của key giờ thật, được test, chỉ còn thiếu đầu nhận. Hạ mức
+độ P2→P3 vì phần còn lại không còn là "UI nói dối" — Settings giờ trung thực về việc key đi đâu,
+chỉ là chưa có gì tiêu thụ nó. Đóng hẳn khi `EPIC-021D` (kiểm tra kết nối, cần gọi API đã ký lần
+đầu tiên) hoặc `021F` (adapter trading thật) dựng được client mang key này và ký thành công.
