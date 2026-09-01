@@ -1,4 +1,4 @@
-# BUG-077 — Trend-zone shading trong thị trường sideways render thành dải sọc gần đen, đè lên nến
+# BUG-079 — Trend-zone shading trong thị trường sideways render thành dải sọc gần đen, đè lên nến
 
 **Reported date:** 2026-09-01, user gửi 2 screenshot ứng dụng thật (Backtest,
 chiến lược **"Long Term Trend Zone"**, ETHUSDT 4h) — mô tả "mũi tên long
@@ -8,6 +8,12 @@ short khó nhìn quá, vị trí chưa hợp lý"
 **Status:** ✅ Fixed 2026-09-01 — root-caused bằng cách tái hiện qua đúng
 code path production (không đoán), regression-tested
 **Found by:** user báo qua ảnh chụp màn hình ứng dụng thật đang chạy
+**Đổi số:** `BUG-077` (gốc) → `BUG-078` (đổi 2026-09-01, trùng với
+`BUG-077_ui_state_coordinator_coarse_timer_remaining_time_flake.md` merge từ
+phiên khác) → `BUG-079` (đổi lần 2, cùng ngày, trùng tiếp với
+`BUG-078_phantom_shard_creation_from_read_paths.md` merge trong lúc PR đổi
+số lần 1 còn đang mở review — cùng tiền lệ "PR merge sau thì đổi số" đã ghi
+ở đầu `Tasks/bug_report/README.md`)
 
 ---
 

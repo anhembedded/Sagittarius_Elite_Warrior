@@ -2388,7 +2388,7 @@ def test_successful_run_honors_a_strategys_own_chart_line_widths(
 
 def _make_trend_zone_klines(closes: list[float]) -> list[MarketData]:
     """Same shape as `_make_klines()`, but with an explicit close sequence —
-    `compute_strategy_trend_zones()`'s `_MIN_ZONE_BARS` floor (BUG-077)
+    `compute_strategy_trend_zones()`'s `_MIN_ZONE_BARS` floor (BUG-079)
     needs at least 3 consecutive bars per zone, which `_make_klines()`'s
     single-unit ramp can never produce against `_TrendZoneStrategy`'s fixed
     103.0 threshold (only bar 0 ever lands below it)."""
@@ -2425,7 +2425,7 @@ def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
     card = presenter.view.chart_cards[0]
     card.set_script_regions = Mock()
     # 3 bars below the 103.0 threshold then 3 at/above it — each zone clears
-    # `_MIN_ZONE_BARS` (BUG-077) so both are actually drawn, not dropped.
+    # `_MIN_ZONE_BARS` (BUG-079) so both are actually drawn, not dropped.
     # _fetch_and_emit_chart_data reverses the query response back to
     # chronological order (Binance's own newest-first convention) before
     # replaying it — the stub must hand it descending so this order-sensitive
