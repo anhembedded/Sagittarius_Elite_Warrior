@@ -1,0 +1,52 @@
+@startuml 02_as_is_class
+title EPIC-021 — AS-IS: từ vựng hiện có chỉ mô tả giao dịch ĐÃ ĐÓNG
+
+interface IExchangeClient {
+  +get_historical_klines(...)
+  +stream_historical_klines(...)
+  +get_available_symbols()
+}
+note right: 3 method, toàn market-data.\nKhông có gì về lệnh.
+
+class PythonBinanceClient implements IExchangeClient {
+  -client: binance.Client
+  +__init__(api_key="", api_secret="", client=None)
+}
+
+class PaperExchange {
+  -_positions: dict
+  +process_signal(...)
+}
+class "_OpenPosition" as OP <<private dataclass>> {
+  quantity, entry_price, side, leverage
+  stop_loss_price, take_profit_price
+}
+PaperExchange *-- OP
+note bottom of OP
+  Vị thế đang mở **chỉ tồn tại** ở đây,
+  private, chỉ dùng cho mô phỏng.
+end note
+
+class Trade <<frozen>> {
+  entry_time, exit_time
+  entry_price, exit_price
+  pnl, exit_reason
+}
+note bottom of Trade
+  Là **kết quả backtest** — một giao dịch
+  đã đóng. Không mô tả được lệnh đang
+  chờ khớp / khớp một phần / bị từ chối.
+end note
+
+class SymbolMarketMetadata {
+  step_size, tick_size, min_notional
+}
+class "parse_binance_symbol_metadata()" as PARSE <<function>>
+PARSE ..> SymbolMarketMetadata
+note right of PARSE
+  Chỉ **tests/** gọi. Production chưa
+  bao giờ dùng — nhưng đặt lệnh thật
+  bắt buộc phải làm tròn theo step_size.
+end note
+
+@enduml

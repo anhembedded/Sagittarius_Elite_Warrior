@@ -30,7 +30,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-09-01 (BUG-077)
+> Cập nhật: 2026-09-01 (BUG-078, BUG-079 — mở khi khảo sát cho `EPIC-021`)
 
 ---
 
@@ -38,9 +38,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 4 |
 | ✅ **Đã sửa / đã đóng** | 74 |
-| 📈 **Tổng** | **76** |
+| 📈 **Tổng** | **78** |
 
 ---
 
@@ -48,6 +48,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-078](incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md)** | API Key/Secret nhập ở màn Settings không bao giờ tới exchange client | 🟠 **P2** | 2026-09-01 | UI hứa một khả năng hệ thống không có: Settings ghi `API_KEY`/`API_SECRET` xuống config (`settings_presenter.py:139-140`) nhưng không nơi nào đọc ra — DI dựng `PythonBinanceClient` không tham số (`binance_bot_module.py:231`) nên client luôn là `Client("", "")` ẩn danh. Chưa gây triệu chứng vì cả 3 endpoint app dùng hôm nay đều public. Kèm vấn đề thứ hai: chỗ lưu là `user_config.json` **git-tracked**. Đóng bởi `EPIC-021B`. |
+| **[BUG-079](incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md)** | `BINANCE_REST_URL`/`BINANCE_WS_URL` là config chết — sửa chúng không đổi được gì | 🟡 **P3** | 2026-09-01 | Hai key khai ở `config_keys.py:11-12` + `app_config.json`, `grep` toàn `src/` cho 0 nơi đọc. Endpoint thật đến từ hằng số nội bộ của `python-binance`. Bằng chứng phụ: tầng sanity phải monkey-patch `Client.API_URL` (`tests/sanity/conftest.py:147`) vì không có đường cấu hình hợp lệ. Đóng bởi `EPIC-021A`. |
 | **[BUG-068](incomplete/BUG-068_cross_thread_qbasictimer_start_in_gap_inspection.md)** | QBasicTimer::start: Timers cannot be started from another thread trong quá trình kiểm tra Database Gaps | 🟠 **P2** | 2026-08-30 | Khi chạy `GetDatabaseGapsQuery` trên worker thread của `ThreadManager`, xuất hiện 4 cảnh báo Qt timer vi phạm thread affinity. Biến thể của lớp lỗi `BUG-031`. **Cập nhật 2026-08-31:** tái hiện sống thật (app boot thật, DB seed gap thật) trên `offscreen` cho 0 cảnh báo — đã loại trừ query handler, `Dispatcher.dispatch()`, `SignalLogHandler`, và toàn bộ đường `ui_gap_inspector_signal` → `GapInspectorDialog`. Nghi thuộc lớp lỗi chỉ tồn tại trên nền tảng có cửa sổ thật (threaded render loop của Qt Quick, `offscreen` luôn rơi về basic loop) — cần tái hiện trên Windows thật để đi tiếp. |
 | **[BUG-034](incomplete/BUG-034_dev_board_live_chart_wrong_axis_scale.md)** | Dev Board Live Chart: nến không hiển thị, trục Y auto-range sai thang đo | Chưa đánh giá | 2026-08-23 | OHLC/EMA readout đúng vùng giá ~2400 nhưng trục Y hiện `-50..100`. **Cập nhật 2026-08-26:** headless repro (cùng tổ hợp script Dev Board thật) không tái hiện được `-50..100`, nhưng lộ ra 1 defect thật khác cùng subsystem, đã tách và đóng riêng ở [`BUG-053`](completed/BUG-053_multi_line_subplot_script_gets_one_row_per_line.md) — không đóng được bug này, vẫn cần ảnh/log tái hiện sống. **Cập nhật 2026-08-30:** log phiên live xác nhận bằng chứng sống trên symbol `0GTRY` (giá thực 7.6..8.2 nhưng `y-range [-71.3690, 46.1465]` và `autorange=[False, 1.0]`), khiến nến bị co dẹp biến mất. **Cập nhật 2026-08-31:** đối chiếu source `pyqtgraph` thật — `autorange=[False, 1.0]` là cách nội bộ pyqtgraph biểu diễn `[False, True]` (`enableAutoRange`: `if enable is True: enable = 1.0`), không phải bug; loại trừ thêm trend-zone shading (`LinearRegionItem.dataBounds` trả `None` cho trục Y) và marker Buy/Sell/Overbought (`TriangleMarkerItem` không có `dataBounds`, bị `ViewBox` loại khỏi auto-range) — cả hai có bằng chứng từ source, không suy đoán. Vẫn cần tái hiện sống trên Windows/Binance thật để đi tiếp. |
 

@@ -1,0 +1,97 @@
+# EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
+
+- **Trạng thái:** 🔴 Chưa bắt đầu (0/10 task con)
+- **Ngày lập:** 2026-09-01
+- **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
+- **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
+
+---
+
+## 1. Vấn đề thật — đo trên code, không phải mô tả chung chung
+
+Bot **chưa từng đặt một lệnh nào**, và khoảng cách tới chỗ đặt được không nằm ở "viết hàm
+`create_order`". Nó nằm ở việc **app không có khái niệm môi trường sàn, cũng không có khái niệm
+danh tính**. Sáu phát hiện dưới đây đều verify được bằng lệnh, không phải suy đoán:
+
+| # | Phát hiện | Bằng chứng |
+| :-: | :--- | :--- |
+| **1** | DI dựng exchange client **không tham số** → luôn mainnet, luôn ẩn danh | [`binance_bot_module.py:231`](../../../src/binance_bot_module.py) `singleton(IExchangeClient, PythonBinanceClient)`, và ctor mặc định `Client(api_key="", api_secret="")` |
+| **2** | Websocket cũng vậy | [`binance_websocket_service.py:110`](../../../src/infrastructure/binance/binance_websocket_service.py) `await AsyncClient.create()` |
+| **3** | **API key user nhập ở Settings không bao giờ tới client** — UI nói dối | [`settings_presenter.py:139-140`](../../../src/presentation/ui/screens/settings/settings_presenter.py) ghi `API_KEY`/`API_SECRET` vào config; `grep` toàn `src/` không nơi nào đọc ra để dựng client → [`BUG-078`](../../bug_report/incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md) |
+| **4** | `BINANCE_REST_URL`/`BINANCE_WS_URL` là **config chết** | Khai ở [`config_keys.py:11-12`](../../../src/config/config_keys.py) + `app_config.json`, 0 nơi đọc trong `src/` → [`BUG-079`](../../bug_report/incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md) |
+| **5** | Không có port giao dịch nào | [`i_exchange_client.py`](../../../src/application/ports/i_exchange_client.py) có đúng 3 method market-data |
+| **6** | Metadata sàn (stepSize/tickSize/minNotional) **có parser nhưng production không gọi** | `parse_binance_symbol_metadata` ([`market_metadata_parser.py:57`](../../../src/infrastructure/binance/market_metadata_parser.py)) chỉ được `tests/unit/.../test_market_metadata_parser.py` gọi |
+
+Phát hiện 6 là cái nguy hiểm nhất về mặt "tưởng đã có": đặt lệnh futures **bắt buộc** làm tròn
+khối lượng theo `stepSize` và kiểm `minNotional`, nếu không sàn trả `-1013`. Hạ tầng cho việc đó
+đã tồn tại từ `BOT-095E1` — entity, parser, cache — và **chưa bao giờ được nối vào production**.
+
+## 2. Cái đã có và tái dùng được — đừng viết lại
+
+| Cần gì | Đã có sẵn |
+| :--- | :--- |
+| Sinh tín hiệu Buy/Sell/Short/Cover từ nến | [`StrategyEngine.on_tick()`](../../../src/application/services/strategy_engine.py) + `SignalGeneratedEvent` |
+| Mô hình khớp lệnh, phí, slippage, margin, đòn bẩy | [`PaperExchange`](../../../src/domain/backtesting/paper_exchange.py) + 3 policy thuần domain |
+| Chỗ hạ cánh cho tick live | [`MarketTickEventHandler`](../../../src/application/event_handlers/market_data/market_tick_event_handler.py) — hiện chỉ `logger.info()` |
+| Metadata symbol | `SymbolMarketMetadata` + `ISymbolMarketMetadataCache` + parser |
+| Test không chạm mạng | [`tests/sanity/binance_fake_server.py`](../../../tests/sanity/binance_fake_server.py) — server thật nói giao thức Binance |
+| Đường event chuẩn hoá | `BaseEvent` + Feed pattern (`EPIC-008`) |
+| Marker giao dịch trên chart | `BOT-009`'s Trade Markers Manager — **đang chờ đúng `OrderFilledEvent` mà epic này sinh ra** |
+
+## 3. Mục tiêu
+
+Kết thúc epic, một người dùng phải làm được đúng chuỗi này:
+
+1. Nhập key Futures Testnet (qua biến môi trường, hoặc ô nhập ghi ra file **ngoài git**).
+2. Bấm **Kiểm tra kết nối** → thấy số dư USDT testnet, position mode, margin type, độ lệch đồng hồ.
+3. Chọn nguồn dữ liệu và nơi đặt lệnh **độc lập** trong Settings (ADR §2).
+4. Bật giao dịch (mặc định **tắt**), chạy một chiến lược long-only hoặc có short, và thấy:
+   lệnh được gửi → sàn xác nhận qua User Data Stream → vị thế hiện trên bảng → marker hiện trên chart.
+5. Bấm **Emergency Stop** → mọi lệnh chờ bị huỷ, vị thế được đóng, giao dịch tắt.
+
+**Ngoài phạm vi, cố ý:** giao dịch mainnet (ADR §3), COIN-M, Options, funding rate, mô hình
+thanh lý (ADR §6).
+
+## 4. Thứ tự thực hiện — xếp theo rủi ro tăng dần
+
+Pha A không có bất kỳ đường đặt lệnh nào tồn tại trong code. Cuối pha A, thứ nguy hiểm nhất mà
+app có thể làm là **đọc** số dư tài khoản testnet.
+
+| # | Task | Repo | Chặn bởi | Trạng thái |
+| :-: | :--- | :---: | :--- | :---: |
+| **A** | [Khái niệm môi trường sàn: `MarketDataVenue`/`TradingVenue` + client factory, cắt config chết](incomplete/EPIC-021A_khai_niem_moi_truong_san_va_client_factory.md) | Elite | — | 🔴 |
+| **B** | [Credentials: env-var trước, secret rời khỏi file git-tracked](incomplete/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) | Elite | A | 🔴 |
+| **C** | [Metadata Futures vào production + policy làm tròn khối lượng/giá](incomplete/EPIC-021C_metadata_futures_va_policy_lam_tron.md) | Elite | A | 🔴 |
+| **D** | [Kiểm tra kết nối read-only — lần chạm sàn thật đầu tiên](incomplete/EPIC-021D_kiem_tra_ket_noi_read_only.md) | Elite | A, B | 🔴 |
+| **E** | [Domain model lệnh sống + port `ITradingClient` (không chạm mạng)](incomplete/EPIC-021E_domain_model_lenh_song_va_port_trading.md) | Elite | C | 🔴 |
+| **F** | [Adapter `BinanceFuturesTradingClient` + dry-run qua `/fapi/v1/order/test`](incomplete/EPIC-021F_adapter_futures_va_dry_run.md) | Elite | D, E | 🔴 |
+| **G** | [`ExecuteOrderCommand` + `LiveTradingCoordinator` — lệnh thật đầu tiên, kèm hạn mức](incomplete/EPIC-021G_execute_order_command_va_live_coordinator.md) | Elite | F | 🔴 |
+| **H** | [User Data Stream: sự thật về lệnh đến từ sàn + `OrderFeed`](incomplete/EPIC-021H_user_data_stream_va_order_feed.md) | Elite | G | 🔴 |
+| **I** | [UI: banner môi trường, sổ lệnh/vị thế, Emergency Stop](incomplete/EPIC-021I_ui_banner_so_lenh_va_emergency_stop.md) | Elite | H | 🔴 |
+| **J** | [Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures](incomplete/EPIC-021J_tier_test_testnet_va_fake_server_futures.md) | Elite | F | 🔴 |
+
+**Không nhảy cóc.** `A` chặn tất cả vì mọi task sau đều cần biết "đang nói chuyện với sàn nào".
+`C` chặn `E` vì không có `stepSize` thì `Order` không thể có khối lượng hợp lệ để mà mô hình hoá.
+`J` có thể chạy song song với `G`–`I` sau khi `F` xong.
+
+Không có task nào thuộc repo **Engine** — toàn bộ cơ chế cần thiết (port, adapter, event bus,
+Feed, task manager) đã tồn tại.
+
+## 5. Bug đi kèm phải mở trước khi sửa
+
+Hai phát hiện #3 và #4 ở §1 là **phát biểu sai sự thật của code với người dùng và với chính agent
+đọc nó** — theo luật repo, đó là BUG, không phải "tiện tay dọn trong lúc làm feature":
+
+- [`BUG-078`](../../bug_report/incomplete/BUG-078_settings_api_credentials_never_reach_the_exchange_client.md) — đóng bởi `EPIC-021B`
+- [`BUG-079`](../../bug_report/incomplete/BUG-079_binance_endpoint_config_keys_are_dead.md) — đóng bởi `EPIC-021A`
+
+## 6. Rủi ro đã biết
+
+| Rủi ro | Xử lý |
+| :--- | :--- |
+| Key testnet bị reset định kỳ → 401 trông như lỗi cấu hình | `EPIC-021D` phân biệt tường minh 3 nhóm lỗi: chưa cấu hình / sai chữ ký / key hết hạn |
+| Giá testnet lệch giá mainnet mà chart đang hiển thị | Cảnh báo thường trực khi hai venue lệch nhau (ADR §2.2), và `VenueAlignment` là một type, không phải một dòng chữ |
+| Tài khoản testnet bị đổi bởi tác nhân khác (web, phiên app khác) | Reconciliation lúc khởi động + User Data Stream là nguồn sự thật (ADR §4) |
+| Một vòng lặp tín hiệu lỗi bắn hàng trăm lệnh | Hạn mức cứng trong `EPIC-021G`: số lệnh/phiên, notional tối đa, 1 vị thế/symbol, kill switch |
+| `logger.info()` mỗi lệnh làm đơ UI | Đã có tiền lệ thật `BUG-042` (838 trade → 5.028 dòng log → UI đơ). Đường log lệnh phải `DEBUG` hoặc throttle ngay từ `EPIC-021G` |
+| Hedge mode bật sẵn trên tài khoản testnet → mọi giả định One-way sai | `EPIC-021D` **từ chối tường minh** khi phát hiện Hedge mode, không chạy tiếp |

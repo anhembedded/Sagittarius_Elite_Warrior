@@ -1,0 +1,57 @@
+@startuml 01_as_is_component
+title EPIC-021 — AS-IS: không có khái niệm môi trường, không có đường đi lệnh
+
+skinparam componentStyle rectangle
+
+package "Presentation" {
+  [SettingsPresenter] as SP
+  [Dev Board / Backtest / Data Management] as SCR
+}
+
+package "Application" {
+  [MarketTickEventHandler] as MTH
+  [StrategyEngine] as SE
+  [SyncMarketDataCommandHandler] as SYNC
+  interface IExchangeClient as IEC
+  interface ILiveStreamService as ILS
+}
+
+package "Infrastructure" {
+  [PythonBinanceClient] as PBC
+  [BinanceWebsocketService] as BWS
+}
+
+cloud "api.binance.com\n(MAINNET, ẩn danh)" as MAINNET
+database "user_config.json\n(git-tracked)" as UCFG
+
+SP --> UCFG : ghi API_KEY / API_SECRET
+note right of UCFG
+  **BUG-078** — không ai đọc ra.
+  Key không bao giờ tới client.
+end note
+
+SYNC ..> IEC
+IEC <|.. PBC
+ILS <|.. BWS
+PBC --> MAINNET : Client("", "")\n**không tham số, luôn mainnet**
+BWS --> MAINNET : AsyncClient.create()
+
+SCR ..> SYNC
+
+MTH --> MTH : logger.info(...)
+note bottom of MTH
+  Điểm cuối của luồng live hôm nay.
+  "Here we will later invoke domain logic"
+  — StrategyEngine chưa từng chạy ở đây.
+end note
+
+SE ..> [RunBacktest handler] : chỉ backtest gọi on_tick()
+
+note as N1
+  **Không tồn tại:** ITradingClient, Order,
+  LivePosition, ExecuteOrderCommand,
+  User Data Stream, Emergency Stop.
+  **Config chết:** BINANCE_REST_URL / BINANCE_WS_URL (BUG-079)
+end note
+
+@enduml
