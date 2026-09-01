@@ -9,10 +9,19 @@
 
 ## 1. Bối cảnh & vấn đề thật
 
-`EPIC-021I` dựng màn Giao dịch với hai bảng: vị thế đang mở và lệnh đang chờ. Widget bảng đã có sẵn
-và đã được thiết kế để dùng chung — `qml/TradeLogTable/` (`EPIC-015` Phase 3). Nhưng dùng lại nó
-hôm nay sẽ kéo theo `screens/backtest/` vào màn Giao dịch, vì ViewModel của chính widget đó import
+`EPIC-021I` dựng màn Giao dịch với hai bảng: vị thế đang mở và lệnh đang chờ. Widget bảng đã có
+sẵn và được thiết kế để dùng chung — `qml/TradeLogTable/` (`EPIC-015`). Nhưng dùng lại nó hôm nay
+sẽ kéo theo `screens/backtest/` vào màn Giao dịch, vì ViewModel của chính widget đó import
 `screens.backtest.logic.trade_log_row` và `trade_log_filter`.
+
+> **Đo lại 2026-09-01 — widget này chưa nối vào màn nào.** Không file nào trong `screens/` dựng
+> `TradeLogTable`; màn Backtest vẫn chạy panel QtWidgets cũ (`backtest_view.py:148`
+> → `BackTestTradeLogsPanel`, 392 dòng). `qml/TradeLogTable/NOTES.md` nói rõ đây là chủ ý
+> (*"dựng khung trước, đủ tính năng sau"*) và nêu đúng điều kiện còn thiếu để nối được:
+> *"`BackTestViewModel` needs an unpaginated 'all filtered rows' source, not today's per-page one"*.
+> Điều kiện đó là việc của [`EPIC-003F1`](../../EPIC-003_presenter_and_god_file_decomposition/incomplete/EPIC-003F1_trade_log_sub_view_model_facade.md),
+> **không** thuộc task này. `021L` chỉ đảo chiều phụ thuộc — sau nó, widget vẫn chưa nối, nhưng đã
+> **nối được** mà không kéo theo màn nào.
 
 Đó là `BUG-080`: thư viện widget dùng chung phụ thuộc ngược vào màn hình cụ thể, ngược đúng luật mà
 `qml/StatCardRow/stat_card_row_widget.py:25` phát biểu bằng văn bản. 4 file production + 5 hit ở

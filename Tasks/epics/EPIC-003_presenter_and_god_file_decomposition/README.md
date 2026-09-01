@@ -1,6 +1,6 @@
 # Epic EPIC-003 — Phân rã Presenter/File quá tải (God Object/God File Decomposition)
 
-**Trạng thái:** 🟡 Đang làm — 5/7 xong, **1 huỷ** (`003D`); `003F` đã mở khoá 27/08 (thiết kế xong, chưa code) là task còn lại duy nhất. `003G` xong 30/08. Cập nhật 2026-08-30.
+**Trạng thái:** 🟡 Đang làm — 5/8 xong, **1 huỷ** (`003D`). `003F` (vòng thiết kế) đã chốt hướng C; task con triển khai đầu tiên [`EPIC-003F1`](incomplete/EPIC-003F1_trade_log_sub_view_model_facade.md) đã mở 2026-09-01 với lát cắt **trade log**. Cập nhật 2026-09-01.
 **Nguồn:** [`PRO-001`](../../proposal/PRO-001.md) (Coordinator Pattern cho Presenter),
 [`PRO-002`](../../proposal/PRO-002.md) (khảo sát toàn bộ file quá tải trong `src/`) —
 2 đề xuất do một phiên làm việc khác viết, được đối chiếu lại với quy tắc đã
@@ -92,6 +92,7 @@ dòng.
 | **[EPIC-003D](cancelled/EPIC-003D_qml_component_split.md)** | Dọn 9 file misplaced (Phase 1) + tách 3 file QML lớn (Phase 2) + danh mục `components/README.md` có test enforce (Phase 3) | 🟢 | ❌ **HUỶ 2026-08-25** — Phase 1+2 hết đối tượng (`EPIC-006F` xoá sạch `.qml`); Phase 3 gộp vào `EPIC-007G` |
 | **[EPIC-003E](completed/EPIC-003E_backtest_presenter_coordinator.md)** | `BacktestPresenter` → Coordinator Pattern | 🔴 | ✅ Xong 2026-08-26 — 6 coordinator, 2.803 → 2.135 dòng |
 | **[EPIC-003F](incomplete/EPIC-003F_backtest_viewmodel_composite_design_review.md)** | `BackTestViewModel` → Composite ViewModel — **vòng thiết kế trước**, chưa code | 🔴 | 🟡 **Đã mở khoá 27/08** — lý do chặn cũ (binding QML) chết theo `EPIC-006`; đo lại rủi ro thật, chốt hướng facade. Task con triển khai chưa mở. Xem [`DOCTOR-002`](../../completed/DOCTOR-002_epic_003f_blocker_is_dead.md) |
+| **[EPIC-003F1](incomplete/EPIC-003F1_trade_log_sub_view_model_facade.md)** | Lát cắt đầu tiên của `003F`: `TradeLogViewModel` + facade chuyển tiếp (6 property / 6 signal) | 🟡 | 🔴 Chưa bắt đầu — phạm vi chốt 2026-09-01 |
 | **[EPIC-003G](completed/EPIC-003G_dashboard_presenter_coordinator.md)** | `DashboardPresenter` → trích `IndicatorCoordinator` (fetch-limit + script dispatch) | 🟢 | ✅ Xong 2026-08-30 — 1.158→1.134 dòng, 13 test coordinator riêng, 787 test tổng xanh |
 
 > ### ❌ `EPIC-003D` đã huỷ (2026-08-25, user duyệt)
