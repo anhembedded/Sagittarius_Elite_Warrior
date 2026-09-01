@@ -30,7 +30,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
 
-> Cập nhật: 2026-09-01 (BUG-076)
+> Cập nhật: 2026-09-01 (BUG-077)
 
 ---
 
@@ -39,8 +39,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 73 |
-| 📈 **Tổng** | **75** |
+| ✅ **Đã sửa / đã đóng** | 74 |
+| 📈 **Tổng** | **76** |
 
 ---
 
@@ -58,6 +58,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
 | **[BUG-070](completed/BUG-070_symbol_picker_popup_keys_attached_property_warning.md)** | SymbolPicker QML cảnh báo "Could not attach Keys property to: Popup ... is not an Item" | ⚪ **P4** | 2026-08-30 | Di chuyển `Keys.onPressed` từ `pickerPopup` (một `Popup`, không phải `Item`) sang `contentItem: ColumnLayout` (một `Item` thật) trong `SymbolPicker.qml` — cùng hành vi, chỉ khác chỗ đặt. |
+| **[BUG-077](completed/BUG-077_ui_state_coordinator_coarse_timer_remaining_time_flake.md)** | `test_marking_again_restarts_the_window...` đỏ ngẫu nhiên dưới tải máy (`ci-local.ps1 -Full`, `-n 6`) | 🟡 P2 | 2026-09-01 | `UiStateCoordinator`'s debounce `QTimer` dùng mặc định `Qt.TimerType.CoarseTimer` — được phép làm tròn deadline lên tới ~5%, nên `remainingTime()` đọc được có thể vượt `debounce_ms` yêu cầu dù đã chờ đủ thời gian thật (khớp đúng `assert 5059 < 5000`/`5036 < 5000` quan sát được). Tái hiện tại chỗ bằng tải CPU giả (~65%/14 lần); sửa bằng `setTimerType(Qt.TimerType.PreciseTimer)` — 0/20 lần đỏ dưới cùng tải sau fix. |
 | **[BUG-076](completed/BUG-076_database_status_table_timestamp_overlap.md)** | Cột FIRST RECORD/LAST RECORD trên Database Status Table chồng chéo chữ, không đọc được | 🟡 P2 | 2026-09-01 | `database_status_table_model.py` lưu `first_record`/`last_record` bằng `str(datetime)` (~32 ký tự, có microseconds+tz) nhưng `DatabaseStatusRow.qml`'s 2 `Text` hiển thị chúng không có `elide` — tràn thẳng đè lên cột bên cạnh. Sửa: thêm `elide: Text.ElideRight` + `Layout.minimumWidth: 0` (bắt buộc đi cùng `elide` trong `RowLayout`, nếu không minimum width mặc định lấy từ độ rộng chuỗi chưa cắt). Ảnh chụp user gửi kèm còn nghi 1 chỗ chồng chéo thứ 2 ở progress bar — đã điều tra và **loại trừ** bằng regression test (pass ngay cả khi chưa sửa), không sửa theo giả thuyết chưa xác minh. |
 | **[BUG-072](completed/BUG-072_intermittent_segfault_tests_integration_worker_load_history.md)** | Segfault không ổn định trong `tests/integration/`, worker thread mid-`_run_load_history` | 🔴 **P1** | 2026-08-31 | `ChartPreviewCoordinator.run_preview()` emit `coverage` chưa unwrap qua `_previewDataReadySignal = Signal(int, object, list, list, list)` — trong test suite, `mock_dispatch` bọc mọi query (kể cả `GetBacktestRangeCoverageQuery`) trong `_FakeResponse`, và dòng `coverage` (khác `raw_klines` 2 dòng trên) thiếu unwrap `.data`, khiến `_FakeResponse` (không metatype Qt nào biết) bay thẳng qua signal cross-thread — khớp đúng dòng `_pythonToCppCopy: Cannot copy-convert ... (_FakeResponse) to C++` log trước lúc crash. Sửa: áp cùng `getattr(response, "data", response)` cho `coverage`, và `mock_dispatch` trả `BacktestRangeCoverage` thật thay vì rơi vào nhánh `else: response.data = []`. |
 | **[BUG-075](completed/BUG-075_sanity_tier_unclosed_asyncio_event_loop_from_python_binance.md)** | `tests/sanity/` fail ngẫu nhiên trên bystander test vì `ResourceWarning: unclosed event loop` | 🟡 P2 | 2026-08-31 | `python-binance`'s `helpers.py::get_loop()` tạo `asyncio.new_event_loop()` khi thread hiện tại chưa có loop và không bao giờ đóng nó — cùng cơ chế với `DeprecationWarning` đã allowlist sẵn ("There is no current event loop"), chỉ khác 2 triệu chứng khác nhau của cùng 1 root cause. GC thu hồi loop mồ côi này vào thời điểm không xác định, rơi trúng bất kỳ sanity test nào đang chạy lúc đó (`test_circular_imports.py` — chỉ `ast.parse()`, không liên quan gì). Không sửa được trong app/engine (nội bộ thư viện thứ 3) — thêm allowlist entry `"unclosed event loop"` kèm lý do bằng văn bản, đúng hợp đồng file đã có sẵn. |
