@@ -26,6 +26,16 @@ _ZONE_COLORS = {
     TREND_ZONE_DOWN: BEAR_COLOR,
 }
 
+#: BUG-077 — a ranging market oscillating around the trend EMA flips
+#: `classify_trend_zone()` on nearly every bar. Without a floor, each 1-bar
+#: (sometimes zero-width) flip still became its own `LinearRegionItem`, and
+#: a run of alternating red/green 1-bar-wide regions renders as a dense,
+#: near-opaque striped band that hides the candles under it — the opposite
+#: of the "subtle tint" `_ZONE_OPACITY` intends, and meaningless besides:
+#: one bar isn't a "long-term trend". Below this many consecutive bars, a
+#: zone is dropped rather than drawn.
+_MIN_ZONE_BARS = 3
+
 
 def compute_strategy_trend_zones(
     strategy: BaseStrategy, klines: Iterable[MarketData]
@@ -43,13 +53,16 @@ def compute_strategy_trend_zones(
     per bar would be needlessly many overlapping regions across a long
     trend run. A strategy that never overrides `classify_trend_zone()`
     (returns `None` for every bar) produces an empty list — no zones drawn,
-    zero behavior change for every strategy predating BOT-113.
+    zero behavior change for every strategy predating BOT-113. A run
+    shorter than `_MIN_ZONE_BARS` bars is dropped entirely (BUG-077) rather
+    than drawn — see that constant's own comment.
     """
     indicators = strategy.build_indicators()
     spans: list[tuple[float, float, str, float]] = []
     open_zone: str | None = None
     open_start = 0.0
     open_end = 0.0
+    open_bar_count = 0
     for candle in klines:
         values: dict[str, Any] = {}
         for name, indicator in indicators.items():
@@ -65,15 +78,22 @@ def compute_strategy_trend_zones(
         timestamp = candle.close_time.timestamp()
         if zone is not None and zone == open_zone:
             open_end = timestamp
+            open_bar_count += 1
             continue
 
-        if open_zone is not None:
+        if open_zone is not None and open_bar_count >= _MIN_ZONE_BARS:
             spans.append((open_start, open_end, _ZONE_COLORS[open_zone], _ZONE_OPACITY))
         if zone is not None:
-            open_zone, open_start, open_end = zone, timestamp, timestamp
+            open_zone, open_start, open_end, open_bar_count = (
+                zone,
+                timestamp,
+                timestamp,
+                1,
+            )
         else:
             open_zone = None
+            open_bar_count = 0
 
-    if open_zone is not None:
+    if open_zone is not None and open_bar_count >= _MIN_ZONE_BARS:
         spans.append((open_start, open_end, _ZONE_COLORS[open_zone], _ZONE_OPACITY))
     return spans
