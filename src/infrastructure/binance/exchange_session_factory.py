@@ -50,3 +50,25 @@ class ExchangeSessionFactory(IExchangeSessionFactory):
         return PythonBinanceClient(
             client=session, market_data_venue=self._market_data_venue
         )
+
+    def create_futures_metadata_client(self) -> Client:
+        """@brief A raw `python-binance` `Client`, always pointed at Futures
+        Testnet, for reading `/fapi/v1/exchangeInfo` (`EPIC-021C`).
+        @details Deliberately ignores `self._market_data_venue` — futures
+        order metadata (`stepSize`/`tickSize`/`minNotional`) must always
+        come from the same exchange an order will actually be sent to, which
+        this epic never varies: `TradingVenue` has no `MAINNET` member (ADR
+        §3), so `FUTURES_TESTNET` is the only futures venue that exists,
+        independent of whatever the user's *chart data* venue is set to.
+        No key attached, same reasoning as `create_market_data_client()`'s
+        `MAINNET_PUBLIC` case — `exchangeInfo` is a public endpoint.
+        Returns the raw SDK type rather than an `IExchangeClient`: this
+        method is consumed only by other infrastructure code
+        (`FuturesMetadataProvider`), never by `application/`, so there is no
+        port to leak through (`architecture-rule.md` §3 concerns
+        `application/ports/`, not infra-to-infra calls).
+        """
+        return Client(
+            requests_params={"timeout": _DEFAULT_REQUEST_TIMEOUT_SECONDS},
+            testnet=True,
+        )

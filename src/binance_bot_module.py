@@ -24,11 +24,17 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_prov
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
     IExchangeSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_futures_symbol_metadata_cache import (
+    IFuturesSymbolMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
+    IMarketMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
@@ -178,6 +184,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_serv
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
+    FuturesMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,
 )
@@ -199,6 +208,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.live_stream_ad
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
+    InMemoryFuturesSymbolMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.json_symbol_catalog_repository import (
     JsonSymbolCatalogRepository,
@@ -267,6 +279,20 @@ class BinanceBotModule(BaseModule):
             IExchangeClient, lambda _c: session_factory.create_market_data_client()
         )
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
+
+        # EPIC-021C: registered against the concrete ExchangeSessionFactory,
+        # not IExchangeSessionFactory — create_futures_metadata_client() is
+        # deliberately not part of that port (see its own docstring), so
+        # FuturesMetadataProvider needs the concrete type.
+        app.container.singleton(
+            IFuturesSymbolMetadataCache, InMemoryFuturesSymbolMetadataCache
+        )
+        app.container.singleton(
+            IMarketMetadataProvider,
+            lambda c: FuturesMetadataProvider(
+                session_factory, c.resolve(IFuturesSymbolMetadataCache)
+            ),
+        )
 
         # EPIC-021B: `secrets.local.json` lives next to `user_config.json`
         # (gitignored, unlike it) — same relative-path idiom `main.py` uses

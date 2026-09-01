@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🟡 Đang làm (2/12 task con)
+- **Trạng thái:** 🟡 Đang làm (3/12 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
@@ -62,7 +62,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 | **L** | [Đảo chiều phụ thuộc `qml/ → screens/` — điều kiện cần để màn Giao dịch dùng lại widget](incomplete/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) | Elite | — (song song được) | 🔴 |
 | **A** | [Khái niệm môi trường sàn: `MarketDataVenue`/`TradingVenue` + client factory, cắt config chết](completed/EPIC-021A_khai_niem_moi_truong_san_va_client_factory.md) | Elite | — | ✅ (đóng `BUG-081`) |
 | **B** | [Credentials: env-var trước, secret rời khỏi file git-tracked](completed/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) | Elite | A | ✅ (đóng 1/2 `BUG-080`) |
-| **C** | [Metadata Futures vào production + policy làm tròn khối lượng/giá](incomplete/EPIC-021C_metadata_futures_va_policy_lam_tron.md) | Elite | A | 🔴 |
+| **C** | [Metadata Futures vào production + policy làm tròn khối lượng/giá](completed/EPIC-021C_metadata_futures_va_policy_lam_tron.md) | Elite | A | ✅ |
 | **D** | [Kiểm tra kết nối read-only — lần chạm sàn thật đầu tiên](incomplete/EPIC-021D_kiem_tra_ket_noi_read_only.md) | Elite | A, B | 🔴 |
 | **E** | [Domain model lệnh sống + port `ITradingClient` (không chạm mạng)](incomplete/EPIC-021E_domain_model_lenh_song_va_port_trading.md) | Elite | C | 🔴 |
 | **F** | [Adapter `BinanceFuturesTradingClient` + dry-run qua `/fapi/v1/order/test`](incomplete/EPIC-021F_adapter_futures_va_dry_run.md) | Elite | D, E | 🔴 |
