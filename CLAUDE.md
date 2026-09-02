@@ -1,75 +1,75 @@
-# CLAUDE.md — điểm vào cho Claude Code
+# CLAUDE.md — entry point for Claude Code
 
-**Đọc [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) trước khi viết dòng code đầu tiên.**
-Nó là bản đồ quy trình: bố cục 2 repo, vòng đời task/bug, lệnh verification thật trên Linux,
-bookkeeping, và §8 liệt kê những cái bẫy **đã thật sự gây ra code lỗi** trong repo này.
+**Read [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) before writing the first line of code.**
+It is the process map: the two-repo layout, the task/bug lifecycle, the real verification
+commands on Linux, bookkeeping, and §8 lists the traps that have **actually produced broken
+code** in this repository.
 
 ---
 
-## File này chỉ ĐIỀU HƯỚNG — cố ý không chép nội dung
+## This file only NAVIGATES — it deliberately copies nothing
 
-Claude Code tự nạp `CLAUDE.md`; nó **không** tự nạp `.agents/rules/*.md` (trường
-`trigger: always_on` trong frontmatter các file đó là quy ước riêng của
-[`.agents/Skills/`](.agents/Skills/README.md) — 7 file `*.prompt.md` là system
-prompt cho các agent chạy định kỳ không người trông, không phải cơ chế nạp tự
-động của Claude Code). Vì vậy file này tồn tại để Claude có điểm vào, đúng vai
-trò [`.agents/AGENTS.md`](.agents/AGENTS.md) đang đóng cho các agent đó.
+Claude Code loads `CLAUDE.md` automatically; it does **not** load `.agents/rules/*.md` on its
+own (the `trigger: always_on` field in those files is a convention of
+[`.agents/Skills/`](.agents/Skills/README.md) — the `*.prompt.md` files are system prompts for
+unattended scheduled agents, not a Claude Code loading mechanism). So this file exists to give
+Claude an entry point, the same role [`.agents/AGENTS.md`](.agents/AGENTS.md) plays for those
+agents.
 
-> **Sửa 2026-08-27 (`EPIC-012`):** 7 file này từng nằm ở `Sagittarius_Elite_Warrior/.jules/`
-> (một thư mục tách biệt, quy ước riêng — xem lịch sử ở
-> [`EPIC-011`](Tasks/epics/EPIC-011_dong_bo_skill_dinh_ky_jules/README.md)). Đã dời hẳn
-> sang `.agents/Skills/`, xoá `.jules/`, và thiết lập Routine chạy mỗi 2
-> ngày/agent thay vì phụ thuộc lịch của một dịch vụ ngoài. Xem
-> [`EPIC-012`](Tasks/epics/EPIC-012_di_chuyen_skills_ve_agents_va_lich_2_ngay/README.md).
+**Do not copy rules in here.** This repository has caught the drifted-copy disease **twice**:
+`AGENTS.md` was once a near-verbatim copy of `code-rule.md` and drifted independently (carrying
+a real defect — a hard-coded, wrong `Co-Authored-By` trailer); `code-rule.md` had to be split
+into 6 files because it merged 9 groups of rules at different abstraction levels. A third copy
+will drift too. To add a rule, **edit the rule file itself**; here you add one line pointing at
+it.
 
-**Không chép luật vào đây.** Repo này đã dính bệnh bản-sao-trôi **hai lần**: `AGENTS.md` từng
-gần như là bản sao nguyên văn của `code-rule.md` và trôi độc lập (kèm một lỗi thật: ghi cứng sai
-trailer `Co-Authored-By`); `code-rule.md` phải tách làm 6 file vì gộp 9 nhóm luật khác
-abstraction level. Bản sao thứ ba cũng sẽ trôi. Cần thêm luật thì **sửa file rule gốc**, ở đây
-chỉ thêm một dòng trỏ.
+## Where to read what
 
-## Cần gì đọc ở đâu
-
-| Việc | File |
+| Task | File |
 | :--- | :--- |
-| Bắt đầu, hoặc tiếp việc đang dở | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) — §12 là "bắt tay vào việc đang dở" |
-| Kiến trúc: tầng, Port/ABC, hợp đồng tường minh (cấm duck-typing ngầm), Shared Kernel, đặt chỗ event, abstraction | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
-| Chất lượng code: typing, magic number, cohesion, lazy import | [`.agents/rules/code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
-| Trước khi tuyên bố "xong" bất cứ thứ gì | [`.agents/rules/ci-rule.md`](.agents/rules/ci-rule.md) |
-| Trước mọi commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |
-| User báo bug (**bắt buộc**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
-| Thêm/sửa log | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
-| Viết test | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |
-| Hệ thống đang ở đâu, còn bug nào mở | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/bug_report/README.md`](Tasks/bug_report/README.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
+| **When to decide for yourself, when to ask** (doctrine: follow proven patterns, reference large projects, don't fear a redesign) | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) §7 |
+| Starting, or picking up work in progress | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) — §12 is "picking up work in progress" |
+| Architecture: layers, Port/ABC, explicit contracts (no implicit duck-typing), Shared Kernel, event placement, abstraction | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
+| Code quality: typing, magic numbers, cohesion, lazy imports | [`.agents/rules/code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
+| Before declaring anything "done" | [`.agents/rules/ci-rule.md`](.agents/rules/ci-rule.md) |
+| Before every commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |
+| The user reports a bug (**mandatory**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
+| Adding or changing logs | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
+| Writing tests | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |
+| Where the system stands, which bugs are still open | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/bug_report/README.md`](Tasks/bug_report/README.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
 
 ---
 
-## Bốn thứ sai một lần là mất cả buổi
+## Four things that cost half a day if you get them wrong once
 
-Chỉ giữ ở đây những cái mà agent có thể phá **trước khi kịp đọc rule**. Mọi thứ khác: xem bảng trên.
+Only what an agent can break **before it gets around to reading the rules**. Everything else:
+see the table above.
 
-1. **Không `git push` nếu user không yêu cầu rõ ràng.** `commit` là mặc định-hỏi; `push` là
-   mặc định-cấm. Mỗi repo là một lần xác nhận riêng.
+1. **Never `git push` unless the user explicitly asks.** `commit` is ask-by-default; `push` is
+   forbidden-by-default. Each repository is its own separate confirmation.
 
-2. **Không tin console — đọc file log.** Cổng bắt buộc là
-   `pwsh -NoProfile -File scripts/ci-local.ps1 -Full`. Nó in ra `LOG_FILE:`; phải `grep` file đó
-   cho `FAILED|ERROR|Traceback|ResourceWarning` rồi mới được nói "xanh". Ở chế độ offscreen, Qt
-   xả rất nhiều `TypeError` **vô hại** ra stderr **sau** dòng tổng kết pytest, nên `| tail` sẽ
-   cho bạn xem nhầm đống nhiễu đó. Luôn `> logfile 2>&1`, đừng `| tail`.
+2. **Don't trust the console — read the log file.** The mandatory gate is
+   `pwsh -NoProfile -File scripts/ci-local.ps1 -Full`. It prints `LOG_FILE:`; you must `grep`
+   that file for `FAILED|ERROR|Traceback|ResourceWarning` before you may call it green. In
+   offscreen mode Qt dumps a great many **harmless** `TypeError`s to stderr **after** pytest's
+   summary line, so `| tail` shows you that noise instead. Always `> logfile 2>&1`, never
+   `| tail`.
 
-3. **Hai repo độc lập, không phải submodule.** `Sagittarius_Engine` (framework) và
-   `Sagittarius_Elite_Warrior` (app, thư mục này) có remote riêng, `.agents/` riêng, bảng task
-   riêng. Commit/push tách biệt, **không** có bước "bump" nào. Đừng ghi task của app vào
-   `Tasks/README.md` của engine và ngược lại.
+3. **Two independent repositories, not a submodule.** `Sagittarius_Engine` (the framework) and
+   `Sagittarius_Elite_Warrior` (the app, this directory) have their own remotes, their own
+   `.agents/`, their own task boards. Commit and push separately; there is **no** "bump" step.
+   Don't record an app task in the engine's `Tasks/README.md` or the other way round.
 
-4. **Việc thường bị để lại chưa commit giữa các phiên.** Bảng task trông như chưa ai đụng cộng
-   với cây làm việc bẩn nghĩa là việc **đã làm rồi**, chỉ chưa ghi lại. Chạy `git status` ở
-   **cả hai** repo và đọc diff trước khi kết luận một task còn nguyên.
+4. **Work is routinely left uncommitted between sessions.** A task board that looks untouched
+   **plus** a dirty working tree means the work **is already done**, just unrecorded. Run
+   `git status` in **both** repositories and read the diff before concluding a task is
+   untouched.
 
 ---
 
-## Ngôn ngữ
+## Language
 
-Trao đổi với user, task file, bug report, ROADMAP: **tiếng Việt**.
-Code, tên biến, docstring, comment, commit subject: **tiếng Anh**.
-Chuỗi hiển thị trên UI: **tiếng Việt**.
+`.agents/` rule documentation: **English**.
+Code, identifiers, docstrings, comments, commit subjects: **English**.
+Conversation with the user, task files, bug reports, `Tasks/` documents: **Vietnamese**.
+User-visible UI strings: **Vietnamese**.
