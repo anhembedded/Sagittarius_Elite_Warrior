@@ -1,11 +1,12 @@
 # EPIC-021I — Màn hình **Giao dịch** mới (sổ lệnh, vị thế, công tắc)
 
-- **Trạng thái:** 🔴 Chưa bắt đầu. Hai câu hỏi mở trước đây đã **chốt** theo
-  [`ONBOARDING.md`](../../../../.agents/ONBOARDING.md) §7 (agent tự quyết khi không rơi vào 3 nhóm
-  phải hỏi): cột `THỜI GIAN` dùng **giờ của sàn** (§3.1); bảng vị thế/lệnh chờ dựng trên một
-  `DataTable` **dùng chung** trích ở [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) (§3.2.2).
+- **Trạng thái:** 🟡 **Mock đã duyệt (2026-09-02, §3.4)** — 3/4 mục đạt (control, số liệu,
+  hành động); 5 trạng thái ở §2 của prompt vòng 3 chưa có bản vẽ riêng, quyết định tổng quát hoá
+  từ pattern đã có trong chính mock (§3.4) thay vì mở vòng thứ 4. Đang chờ
+  [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) — component bảng
+  dùng chung — trước khi dựng 2 bảng của màn này.
 - **Repo:** Elite
-- **Chặn bởi:** `EPIC-021H` · [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) (component bảng dùng chung, §3.2.2) · **Chặn:** `EPIC-021K`
+- **Chặn bởi:** `EPIC-021H` ✅ · `BOT-124` (đang làm) · **Chặn:** `EPIC-021K`
 
 ---
 
@@ -382,6 +383,40 @@ Cả hai **đã mở hồ sơ riêng**, không lẫn vào task dựng màn:
 [`BUG-084`](../../../bug_report/incomplete/BUG-084_live_sizing_hardcode_chan_moi_lenh.md) (sizing)
 và [`BUG-085`](../../../bug_report/incomplete/BUG-085_live_tick_khong_loc_theo_interval.md)
 (không lọc interval).
+
+### 3.4 Review mock vòng 3 (2026-09-02) — 3/4 mục đạt, 1 mục chưa gửi
+
+Đối chiếu trực tiếp với danh sách trong
+[`PROMPT_vong3_control_va_trang_thai_thieu.md`](../design/PROMPT_vong3_control_va_trang_thai_thieu.md).
+
+**§1 (4 control) — đạt cả 4.** Chiến lược, tham số (badge `2 ô` báo số lượng động), khung thời
+gian, và sizing đều có mặt ở dải "CẤU HÌNH BOT". Vượt cả yêu cầu ở hai chỗ: notional/lệnh hiện
+kèm `✓ dưới hạn mức 500` ngay tại chỗ cấu hình — đúng ràng buộc §1.1 *"phải thấy trước khi bật,
+không phải sau tín hiệu đầu tiên"*; và câu hỏi thiết kế mở ở cuối §1 (đổi cấu hình được lúc đang
+chạy không) đã có lập trường rõ: khoá `🔒` toàn dải khi giao dịch BẬT, mở lại khi TẮT — đúng
+hướng an toàn hơn.
+
+**§4 (6 chỗ sửa số liệu) — đạt cả 6**, đáng chú ý nhất là điểm cuối cùng: câu giải thích bịa lý
+do *"không đủ để đóng vị thế 128.21 USDT"* đã được thay bằng *"Sàn trả mã -2019; app không suy
+đoán nguyên nhân"* — đúng cách xử lý một lỗi sàn thật (`OrderRejectionReason`), không tự chế
+thêm ý nghĩa. `walletBalance` đổi nhãn thành "Số dư ví", tách khỏi "margin"; giá trị vị thế
+128.21 giờ nhất quán giữa rail và thẻ vị thế; timestamp còn 3 chữ số (mili-giây).
+
+**§3 (3 hành động) — đạt cả 3.** Nút Huỷ trên từng lệnh chờ, nút Đóng trên từng vị thế, cột
+`ĐÃ KHỚP` cho lệnh khớp một phần.
+
+**§2 (5 trạng thái) — chưa có trong bản gửi.** Bốn khung nhận được (A/B/C/D) là đúng bốn khung
+cũ, chỉ bổ sung control + sửa số liệu — không có khung nào cho: đang đối soát, từ chối bật, lệnh
+bị hạn mức chặn, kết nối chưa sẵn sàng, chưa có API key.
+
+**Quyết định: không mở vòng mock thứ 4 chỉ vì thiếu §2.** Theo `ONBOARDING.md` §7 — khi một
+pattern đã có tiền lệ đã kiểm chứng ngay trong chính bộ mock này, dùng lại nó thay vì hỏi thêm.
+Trạng thái C ("DỪNG KHẨN CẤP — THẤT BẠI MỘT PHẦN") đã tự vẽ đúng hình dạng cần cho 5 trạng thái
+còn thiếu: một khối callout viền trái đậm màu, tiêu đề trạng thái, danh sách bước kèm ✓/✗, và
+hành động khắc phục. Dải banner D cũng đã cho 3 mẫu banner phân biệt bằng ký hiệu + nhãn chữ,
+không chỉ màu. Cả hai hình đó tổng quát hoá thẳng sang 5 trạng thái ở §2 mà không cần thiết kế
+mới — việc còn lại là nội dung (14 lý do đã có tên trong code, không phải hình dạng mới), nên để
+lại cho lúc code, không mở thêm vòng mock.
 
 ## 4. Kiểm thử
 
