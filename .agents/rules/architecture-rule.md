@@ -1,21 +1,22 @@
 ---
 name: Architecture Rule
-description: SOLID, Clean Architecture layer boundaries, Ports/Adapters and ABC completeness, hợp đồng phải tường minh (cấm duck-typing ngầm — ABC mặc định, Protocol chỉ khi kế thừa bất khả thi), CQRS use-case structure, và Abstraction-Level Separation (khác abstraction level thì không chung file, không chung thư mục).
+description: SOLID, Clean Architecture layer boundaries, Ports/Adapters and ABC completeness, contracts must be explicit (no implicit duck-typing — ABC by default, Protocol only when inheritance is impossible), CQRS use-case structure, and Abstraction-Level Separation (different abstraction levels never share a file or a directory).
 trigger: always_on
 ---
 
 # ARCHITECTURE RULES
 
-Đọc khi: thiết kế/tái cấu trúc kiến trúc, thêm/đổi một Port (`abc.ABC` / `Protocol`), thêm Use Case, quyết định một thứ nằm ở file/thư mục nào, hoặc tách một file/lớp đã quá ngưỡng. Chất lượng code thuần tuý (magic number, nested loop, lazy import, typing, immutability) ở [`code-quality-rule.md`](code-quality-rule.md) — đối trọng của §5 là **Single-Scope Cohesion** trong file đó.
+Read this when: designing/refactoring architecture, adding or changing a Port (`abc.ABC` / `Protocol`), adding a Use Case, deciding which file/directory something belongs in, or splitting a file/class that has crossed a threshold. Pure code quality (magic numbers, nested loops, lazy imports, typing, immutability) lives in [`code-quality-rule.md`](code-quality-rule.md) — the counterweight to §5 is **Single-Scope Cohesion** in that file.
 
 > [!IMPORTANT]
-> **Phương châm quyết định khi kiến trúc khó/mơ hồ đã chuyển sang
-> [`../ONBOARDING.md`](../ONBOARDING.md) §7** ("Tự quyết là mặc định") —
-> 2026-09-02. Lý do: nó là luật về **quyền tự quyết**, áp cho mọi quyết định
-> kỹ thuật chứ không riêng kiến trúc, và nằm ở đây thì **không file điều hướng
-> nào trỏ tới nó** nên trên thực tế không ai đọc. Tóm tắt: quyết theo pattern
-> đã được kiểm chứng, tham chiếu dự án lớn, không ngại redesign *hard design*,
-> tự quyết mà không hỏi từng lựa chọn nhỏ — trừ 3 nhóm nêu ở đó.
+> **The decision doctrine for hard/ambiguous architecture has moved to
+> [`../ONBOARDING.md`](../ONBOARDING.md) §7** ("Deciding for yourself is the default") —
+> 2026-09-02. Reason: it is a rule about **autonomy**, it applies to every
+> technical decision and not just architectural ones, and sitting here meant
+> **no navigation file pointed at it**, so in practice nobody read it. Summary:
+> decide by proven patterns, reference large projects, don't shy away from
+> redesigning a *hard design*, decide without asking about every small choice —
+> except for the 3 categories listed there.
 
 ---
 
@@ -37,38 +38,38 @@ Follow SOLID wherever it's practical — apply it to improve clarity/testability
 - Adhere strictly to the Dependency Inversion Principle (DIP). High-level business logic must depend on abstractions, not concrete implementations.
 - Prefer Dependency Injection (DI) over hardcoded class instantiations inside domain logic.
 - **NO Multiple Inheritance:** Strictly avoid multiple inheritance. Use composition over inheritance, and flatten interfaces where necessary to avoid complex method resolution orders (MRO).
-- **Every `abc.ABC` implementer must stay complete, everywhere.** Port (`IExchangeClient`, `IMarketDataRepository`, ...) thêm `@abstractmethod` thì **mọi** implementer phải sửa trong cùng thay đổi — grep `src/`, `scripts/` **và** `tests/`. Test double / probe script bị bỏ lại vẫn import được, chỉ nổ đúng lúc ai đó chạy nó: `TypeError: Can't instantiate abstract class` (`BUG-026`: fake exchange client của một shutdown-probe script tụt lại sau một Port change; instance thứ hai, `scripts/backtest_timeframe_toolbar_e2e.py`, chỉ bị bắt bởi static audit của `EPIC-002A`). `ruff` không bắt được — việc này là của type checker; `mypy` (`EPIC-002`) là backstop cơ học, nhưng **vẫn phải tự grep implementer**, đừng phó mặc tool.
+- **Every `abc.ABC` implementer must stay complete, everywhere.** When a Port (`IExchangeClient`, `IMarketDataRepository`, ...) gains an `@abstractmethod`, **every** implementer must be fixed in the same change — grep `src/`, `scripts/` **and** `tests/`. A test double or probe script left behind still imports fine and only blows up when someone actually runs it: `TypeError: Can't instantiate abstract class` (`BUG-026`: the fake exchange client of a shutdown-probe script fell behind a Port change; the second instance, `scripts/backtest_timeframe_toolbar_e2e.py`, was only caught by the static audit in `EPIC-002A`). `ruff` cannot catch this — it is the type checker's job; `mypy` (`EPIC-002`) is the mechanical backstop, but you **still have to grep the implementers yourself**, don't leave it to the tool.
 
-### 2.1 Hợp đồng phải tường minh — cấm duck-typing ngầm
+### 2.1 Contracts must be explicit — no implicit duck-typing
 
-> **Mọi hợp đồng vượt ranh giới (Presenter ↔ View, consumer ↔ port, module ↔ module) PHẢI là một
-> kiểu có tên. Không được để hợp đồng chỉ tồn tại dưới dạng "gọi thử xem có method đó không".**
+> **Every contract that crosses a boundary (Presenter ↔ View, consumer ↔ port, module ↔ module) MUST be a
+> named type. A contract must never exist only as "call it and see whether the method is there".**
 
-**Cấm:** hợp đồng ngầm — `def __init__(self, view)` không annotation rồi consumer gọi 15 thành viên của nó; `hasattr()`/`getattr()` để dò khả năng. **Bắt buộc:** một kiểu có tên (`abc.ABC` **hoặc** `typing.Protocol`).
+**Forbidden:** implicit contracts — `def __init__(self, view)` with no annotation, then the consumer calls 15 of its members; `hasattr()`/`getattr()` to probe for capabilities. **Required:** a named type (`abc.ABC` **or** `typing.Protocol`).
 
-Thứ bị cấm là *duck-typing ngầm*, **KHÔNG phải `typing.Protocol`** (đọc nhầm là đi phá 18 Protocol đang đúng: 9 ở `src/`, 9 ở Engine). `Protocol` **là** interface tường minh: có tên, `grep` ra được, `mypy` kiểm được, `@runtime_checkable` thì `isinstance()` được — nó chỉ bỏ **bắt buộc kế thừa**, không bỏ hợp đồng.
+What is forbidden is *implicit duck-typing*, **NOT `typing.Protocol`** (misreading this means tearing down 18 perfectly correct Protocols: 9 in `src/`, 9 in the Engine). `Protocol` **is** an explicit interface: it has a name, you can `grep` it, `mypy` can check it, and with `@runtime_checkable` you can `isinstance()` it — it only drops the **inheritance requirement**, not the contract.
 
-**Thứ tự chọn — không được đảo:**
+**Order of choice — must not be reversed:**
 
-1. **`abc.ABC` là mặc định.** Implementer `class X(IPort)`; luật ABC completeness ở §2 áp dụng đầy đủ.
-2. **`typing.Protocol` (kèm `@runtime_checkable`) chỉ khi kế thừa bất khả thi hoặc bị chính repo này cấm** — và **docstring PHẢI ghi nó thuộc lý do nào**. Đúng 3 lý do hợp lệ, cả 3 đều có tiền lệ thật:
-   - **(a) Implementer là subclass `QObject`.** PySide6/Shiboken cấm kế thừa 2 base dẫn xuất từ `QObject`, `ABCMeta` lại xung đột metaclass với Shiboken — ABC là **không chạy được**, không phải "xấu hơn". Tiền lệ: `kit/style.py`, `LogModel`, `ITab`, `IStateContributor`, `IBacktestChartHost`.
-   - **(b) §2 "NO Multiple Inheritance" chặn** — implementer đã có base riêng (`BasePresenter`, `QMainWindow`, ...).
-   - **(c) Implementer là class bên thứ ba** repo này không sửa được.
-3. **Không rơi vào (a)/(b)/(c) → phải là ABC.** "Protocol tiện hơn" không phải lý do.
+1. **`abc.ABC` is the default.** Implementers are `class X(IPort)`; the ABC completeness rule in §2 applies in full.
+2. **`typing.Protocol` (with `@runtime_checkable`) only when inheritance is impossible or forbidden by this very repo** — and **the docstring MUST state which reason applies**. Exactly 3 reasons are valid, and all 3 have real precedent:
+   - **(a) The implementer is a `QObject` subclass.** PySide6/Shiboken forbids inheriting from 2 bases derived from `QObject`, and `ABCMeta` has a metaclass conflict with Shiboken — an ABC **will not run**, it is not merely "worse". Precedent: `kit/style.py`, `LogModel`, `ITab`, `IStateContributor`, `IBacktestChartHost`.
+   - **(b) §2 "NO Multiple Inheritance" blocks it** — the implementer already has its own base (`BasePresenter`, `QMainWindow`, ...).
+   - **(c) The implementer is a third-party class** this repo cannot modify.
+3. **Not (a)/(b)/(c) → it must be an ABC.** "Protocol is more convenient" is not a reason.
 
-**Protocol không phải lối thoát khỏi tính đầy đủ.** Protocol phải mô tả đúng và đủ những gì consumer thật sự dùng; thêm lời gọi mới mà không khai vào Protocol là quay lại đúng duck-typing ngầm. Bỏ sót ở ABC thì `TypeError` nổ ngay; bỏ sót ở Protocol thì **không gì nổ** cho tới khi `mypy` chạy — nên với Protocol, `mypy` (`EPIC-002`) không phải backstop mà là **cơ chế duy nhất**.
+**Protocol is not an escape hatch from completeness.** A Protocol must describe exactly and fully what the consumer actually uses; adding a new call without declaring it on the Protocol is going straight back to implicit duck-typing. An omission on an ABC blows up immediately with `TypeError`; an omission on a Protocol makes **nothing** blow up until `mypy` runs — so for Protocols, `mypy` (`EPIC-002`) is not a backstop but the **only** mechanism.
 
-**Bằng chứng thật (đo 2026-08-27):** `backtest_presenter.py` + 6 coordinator + `signal_wiring.py` gọi **14 thành viên** của `view` mà **không kiểu nào khai** (`BasePresenter.__init__(self, view, container)` của Engine để `view` không annotation). Quét cả thư mục ra 15 — cái thứ 15 đến từ harness dev `preview.py`, không thuộc ranh giới Presenter↔View, nên bước "xem từng hit đến từ đâu" không được bỏ. Engine *có* `IView` nhưng nó khai đúng 1 method `bind()` không View nào implement, và `src/` tham chiếu `IView` **0 lần**: hợp đồng thật ≠ hợp đồng khai.
+**Real evidence (measured 2026-08-27):** `backtest_presenter.py` + 6 coordinators + `signal_wiring.py` call **14 members** of `view` that **no type declares** (the Engine's `BasePresenter.__init__(self, view, container)` leaves `view` unannotated). Scanning the whole directory yields 15 — the 15th comes from the dev harness `preview.py`, which is not part of the Presenter↔View boundary, so the "check where each hit comes from" step cannot be skipped. The Engine *does* have `IView`, but it declares exactly 1 method, `bind()`, that no View implements, and `src/` references `IView` **0 times**: the real contract ≠ the declared contract.
 
 ```bash
-# Consumer đang dùng những gì của `x`? (bỏ -h để thấy hit nào ở file nào)
-grep -rnoE "(self\.)?_?<tên_thuộc_tính>\.[a-zA-Z_]+" src/<thư_mục>/
+# What is the consumer actually using off `x`? (drop -h to see which file each hit is in)
+grep -rnoE "(self\.)?_?<attribute_name>\.[a-zA-Z_]+" src/<directory>/
 ```
 
-Số thành viên còn lại **sau khi loại các hit không thuộc ranh giới đang xét** phải khớp kiểu đã khai; lệch là hợp đồng đã trôi. **Tốt hơn `grep` một lần: một test khoá hai chiều** — `tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py` (`EPIC-013B`) duyệt source bằng `ast`, đỏ khi dùng mà chưa khai **và** khi khai mà không ai dùng (tình trạng `IView`), đồng thời khoá **số đếm** (so tập hợp thì xoá 1 thêm 1 triệt tiêu nhau mà vẫn xanh). Bắt buộc ở `presentation/`: tầng đó bị **loại khỏi cổng `mypy`** (`pyproject.toml`, `EPIC-002A`), nên Protocol ở đây không có cơ chế tĩnh nào kiểm — không test thì chỉ là tài liệu.
+The number of members remaining **after excluding hits outside the boundary under review** must match the declared type; a mismatch means the contract has drifted. **Better than a one-off `grep`: a test that locks both directions** — `tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py` (`EPIC-013B`) walks the source with `ast` and goes red both when something is used but not declared **and** when something is declared but nobody uses it (the `IView` situation), while also locking the **count** (comparing sets alone lets one deletion and one addition cancel out and still stay green). Mandatory in `presentation/`: that layer is **excluded from the `mypy` gate** (`pyproject.toml`, `EPIC-002A`), so a Protocol here has no static mechanism checking it — without the test it is just documentation.
 
-**View chọn lúc bootstrap, không thay lúc runtime.** Presenter **không** phải chịu được việc bị tráo View giữa chừng: chọn View nào là quyết định lúc bootstrap, đọc từ config, inject vào `__init__`. Hợp đồng vẫn phải tường minh (khai `IBacktestView` để consumer lập trình vào được và `mypy` kiểm được), nhưng **cấm** coordinator/presenter cache `self._view` rồi giả định bất biến để tối ưu — `BUG-013`: một widget con cached có thể là C++ object đã `deleteLater()` sau khi host dựng lại. Bất biến ở đây là *danh tính View*, không phải *các widget bên trong nó*.
+**The View is chosen at bootstrap, not swapped at runtime.** A Presenter does **not** have to survive having its View swapped mid-flight: which View is used is a bootstrap-time decision, read from config and injected into `__init__`. The contract must still be explicit (declare `IBacktestView` so consumers can program against it and `mypy` can check it), but a coordinator/presenter **must not** cache `self._view` and then assume immutability as an optimization — `BUG-013`: a cached child widget may be a C++ object already `deleteLater()`d after the host rebuilt it. What is immutable here is the *View's identity*, not the *widgets inside it*.
 
 ---
 
@@ -77,17 +78,17 @@ Số thành viên còn lại **sau khi loại các hit không thuộc ranh giớ
 - Always strictly respect the 4 Layers: **Domain** (Pure) $\rightarrow$ **Application** (Use Cases/Ports) $\rightarrow$ **Interface Adapters** (CLI/UI Presenters) $\rightarrow$ **Infrastructure** (DB/API/Frameworks).
 - Never leak Infrastructure concerns (like `sagittarius_engine` base classes, SQLAlchemy, or API clients) into the Domain or Application layers.
 - Prioritize building reusable abstraction base layers (base cards, base dialogs, base presenters/view models) over concrete duplication.
-- **Shared Kernel — đúng 2 ký hiệu, không hơn** (`EPIC-008`'s ADR §4.1): `src/domain/` và `src/application/` chỉ được import **duy nhất** `sagittarius_engine.domain.i_domain_event.IDomainEvent` và `sagittarius_engine.domain.base_event.BaseEvent`.
+- **Shared Kernel — exactly 2 symbols, no more** (`EPIC-008`'s ADR §4.1): `src/domain/` and `src/application/` may import **only** `sagittarius_engine.domain.i_domain_event.IDomainEvent` and `sagittarius_engine.domain.base_event.BaseEvent`.
 
-  **Lý do:** mọi domain event phải kế thừa `BaseEvent` để engine dựng được registry/catalog và tool audit (event nào tồn tại, ai nghe, chạy bao lâu); copy `BaseEvent` sang Elite sẽ tạo hai cây kế thừa không nhận ra nhau — đúng thứ registry sinh ra để tránh. Đây là **Shared Kernel** theo nghĩa DDD: vùng nhỏ, có tên, ghi thành luật, hai bên cùng sở hữu.
+  **Reason:** every domain event must inherit `BaseEvent` so the engine can build its registry/catalog and audit tooling (which events exist, who listens, how long they run); copying `BaseEvent` into Elite would create two inheritance trees that cannot recognize each other — precisely what the registry exists to prevent. This is a **Shared Kernel** in the DDD sense: small, named, written down as a rule, jointly owned by both sides.
 
-  **Mọi thứ khác của engine PHẢI qua port** trong `src/application/ports/`, adapter bọc nó ở `src/infrastructure/engine_adapters/`. `EPIC-008F` đã dựng 3 port: `IEventPublisher` (thay `IEventBus`), `IConfigReader` (thay `IConfig`), `ICommandDispatcher` (thay `IDispatcher`). **Tầng Presentation không bị ràng buộc này** — được biết engine trực tiếp (`BasePresenter`, `QtEventBridge`, `IEventBus.on/off`); chiều **nghe** event chỉ xảy ra ở đó, `IEventPublisher` cố ý chỉ có chiều **phát**.
+  **Everything else from the engine MUST go through a port** in `src/application/ports/`, with an adapter wrapping it in `src/infrastructure/engine_adapters/`. `EPIC-008F` built 3 ports: `IEventPublisher` (replacing `IEventBus`), `IConfigReader` (replacing `IConfig`), `ICommandDispatcher` (replacing `IDispatcher`). **The Presentation layer is not bound by this** — it may know the engine directly (`BasePresenter`, `QtEventBridge`, `IEventBus.on/off`); the **listening** direction only happens there, and `IEventPublisher` deliberately only has the **publishing** direction.
 
-  **Có test khoá:** `tests/unit/domain/test_indicator_script_conventions.py` giữ allow-list đúng 2 đường dẫn module trên, cộng 1 test chặn việc nới allow-list thành prefix (nới thành prefix là cả engine lọt lại vào domain mà không test nào biết). Kiểm tay:
+  **There is a locking test:** `tests/unit/domain/test_indicator_script_conventions.py` keeps an allow-list of exactly the 2 module paths above, plus 1 test that blocks widening the allow-list into a prefix (widening it to a prefix lets the whole engine back into the domain with no test noticing). Manual check:
   ```bash
   grep -rn "sagittarius_engine" src/domain src/application --include=*.py
   ```
-  Thêm import engine nào khác vào 2 tầng đó là **sai**, kể cả "chỉ dùng 1 method" — đúng lý do `IConfigReader`/`ICommandDispatcher` tồn tại.
+  Adding any other engine import into those 2 layers is **wrong**, even "we only use 1 method" — that is exactly why `IConfigReader`/`ICommandDispatcher` exist.
 
 ---
 
@@ -101,79 +102,79 @@ Số thành viên còn lại **sau khi loại các hit không thuộc ranh giớ
 
 ## 5. Abstraction-Level Separation
 
-Chia nhỏ là mặc định: **càng nhiều file càng tốt**; gộp phải có lý do, tách thì không cần xin phép.
+Splitting is the default: **the more files the better**; merging needs a reason, splitting needs no permission.
 
-1. **Không chung file:** hai thứ **khác abstraction level** MUST NOT nằm cùng một file. Một interface/Port và implementation của nó; một base class và các subclass; một policy trừu tượng và cách nó đọc đĩa — mỗi thứ một file.
-2. **Không chung thư mục:** các file **khác abstraction level** MUST NOT chung một `dir`. Thư mục là một tầng, không phải cái sọt: `interfaces/` không chứa implementation, `widgets/` (nguyên thuỷ dùng chung) không chứa màn hình cụ thể, `domain/` không chứa adapter hạ tầng. Thư mục đang trộn hai tầng thì tách thư mục con theo tầng, đừng đổi tên file cho gọn.
-3. **Đối trọng duy nhất là Single-Scope Cohesion** ([`code-quality-rule.md`](code-quality-rule.md)), và nó chỉ thắng khi các định nghĩa mô tả **cùng một vòng đời** (enum + ma trận của cùng 1 FSM; `StyleRole` + `_build_qss()`). "Cùng feature", "cùng màn hình", "hay dùng chung lúc" **không** đủ để gộp.
-4. **Ngưỡng buộc phải tách** (`EPIC-007` §3.4, áp cho mọi code mới): file **>400 dòng** hoặc lớp **>15 phương thức công khai**. Chạm ngưỡng là tách, không thương lượng.
-5. **Phân xử nhanh:** *"Đổi thứ A có bắt buộc phải đọc/sửa thứ B không?"* Có → cùng vòng đời, chung file được. Không → khác tầng, tách. Chứng cứ: `data_management_widgets.py` (**1.156 dòng**) vô tình thành thư viện widget chung của cả app vì trộn nguyên thuỷ dùng chung với widget riêng của 1 màn — 3 file ở 2 màn khác phải import chéo vào nó (`EPIC-007` §1).
+1. **Never in the same file:** two things at **different abstraction levels** MUST NOT live in one file. An interface/Port and its implementation; a base class and its subclasses; an abstract policy and how it reads the disk — one file each.
+2. **Never in the same directory:** files at **different abstraction levels** MUST NOT share a `dir`. A directory is a layer, not a bin: `interfaces/` holds no implementations, `widgets/` (shared primitives) holds no concrete screens, `domain/` holds no infrastructure adapters. A directory that is mixing two layers must be split into subdirectories by layer — don't just rename files to tidy up.
+3. **The only counterweight is Single-Scope Cohesion** ([`code-quality-rule.md`](code-quality-rule.md)), and it only wins when the definitions describe **the same lifecycle** (the enum + matrix of the same FSM; `StyleRole` + `_build_qss()`). "Same feature", "same screen", "often used together" are **not** enough to merge.
+4. **Thresholds that force a split** (`EPIC-007` §3.4, applies to all new code): a file **>400 lines** or a class **>15 public methods**. Hitting the threshold means splitting, non-negotiable.
+5. **Quick arbitration:** *"Does changing A force you to read/change B?"* Yes → same lifecycle, one file is fine. No → different layers, split. Evidence: `data_management_widgets.py` (**1.156 lines**) accidentally became the whole app's shared widget library because it mixed shared primitives with widgets specific to a single screen — 3 files across 2 other screens had to import across into it (`EPIC-007` §1).
 
 ---
 
-## 6. Event Placement — Qt signal hay Event Bus?
+## 6. Event Placement — Qt signal or Event Bus?
 
-Câu hỏi không phải "signal hay bus", cũng không phải "signal cầu nối là nợ kỹ thuật", mà là: **ai sở hữu sự thật này?**
+The question is not "signal or bus", nor "bridging signals are technical debt", but: **who owns this truth?**
 
-> **Sự thật riêng của MỘT màn** → Qt signal nội bộ.
-> **Sự thật của HỆ THỐNG, hoặc ≥2 màn cần** → Event Bus + đúng **một** Feed chuẩn hoá.
+> **A truth private to ONE screen** → internal Qt signal.
+> **A truth of the SYSTEM, or needed by ≥2 screens** → Event Bus + exactly **one** normalizing Feed.
 
-### 6.1 Tách hai vấn đề đang hay bị gộp
+### 6.1 Separate the two problems that keep getting conflated
 
-| | Vấn đề | Cơ chế đúng |
+| | Problem | Correct mechanism |
 | :-: | :--- | :--- |
-| **A** | Đưa dữ liệu từ thread nền về main thread **an toàn** | Qt queued signal **hoặc** `QtEventBridge` — cả hai đều đúng |
-| **B** | **Ai được biết về ai**; một sự thật bị xử lý lặp ở mấy nơi | Bus + đúng 1 subscriber chuẩn hoá (Feed), nhiều nơi *hiển thị* |
+| **A** | Getting data from a background thread to the main thread **safely** | Qt queued signal **or** `QtEventBridge` — both are correct |
+| **B** | **Who is allowed to know about whom**; one truth handled redundantly in several places | Bus + exactly 1 normalizing subscriber (Feed), many places *displaying* it |
 
-**Qt queued signal chính là cơ chế Qt thiết kế ra cho (A)** — không phải nợ kỹ thuật, không phải workaround. Signal bắc cầu worker → main thread là code **đúng**, đừng "dọn" nó. `QtEventBridge` chỉ thay được signal phát ra **từ handler của event bus**; worker nền không đi qua bus thì bridge không giúp gì — xoá signal của nó là đẩy cập nhật UI sang worker thread, đúng lớp lỗi [`BUG-031`](../../Tasks/bug_report/completed/BUG-031_cross_thread_timer_start_hangs_ui_during_backtest.md).
+**A Qt queued signal is exactly the mechanism Qt designed for (A)** — not technical debt, not a workaround. A signal bridging worker → main thread is **correct** code, don't "clean it up". `QtEventBridge` can only replace signals emitted **from an event bus handler**; a background worker that never goes through the bus gains nothing from the bridge — deleting its signal pushes UI updates onto the worker thread, exactly the class of bug in [`BUG-031`](../../Tasks/bug_report/completed/BUG-031_cross_thread_timer_start_hangs_ui_during_backtest.md).
 
-### 6.2 Phân loại — hỏi đúng một câu
+### 6.2 Classification — ask exactly one question
 
-*"Nếu màn khác cũng muốn biết chuyện này, nó có vô lý không?"*
+*"If another screen also wanted to know this, would that be absurd?"*
 
-- **Vô lý** → sự thật riêng tư (`history load xong`, `stream của tôi start được`, `indicator của tôi tính xong`): Qt signal nội bộ trong presenter/controller. Đẩy lên bus là **rò rỉ** — mọi màn đều nghe được, bề mặt coupling phình ra.
-- **Hợp lý** → sự thật hệ thống (`health đổi`, `task nền chết`, `sync tiến độ`, `log`): lên bus, **đúng một** Feed nghe và chuẩn hoá, nhiều màn *hiển thị*.
+- **Absurd** → a private truth (`history finished loading`, `my stream started`, `my indicator finished computing`): internal Qt signal inside the presenter/controller. Pushing it onto the bus is a **leak** — every screen can hear it and the coupling surface balloons.
+- **Reasonable** → a system truth (`health changed`, `background task died`, `sync progress`, `log`): onto the bus, with **exactly one** Feed listening and normalizing, and many screens *displaying*.
 
-### 6.3 Thăng cấp khi consumer thứ hai xuất hiện THẬT — không thăng trước
+### 6.3 Promote when a second consumer actually appears — never before
 
-Luật về **định tuyến**, không phải về việc có tạo abstraction hay không (xem §7). Thăng cấp muộn thì rẻ (worker vốn đã emit *một cái gì đó*; đổi chỗ nó emit tới là sửa cục bộ); đẩy hết lên bus trước thì đắt và gần như không lùi được — sau đó không ai dám xoá subscriber nào vì không biết còn ai đang nghe.
+This is a rule about **routing**, not about whether to create an abstraction (see §7). Promoting late is cheap (the worker already emits *something*; changing where it emits to is a local edit); pushing everything onto the bus up front is expensive and nearly irreversible — afterwards nobody dares delete a subscriber because nobody knows who is still listening.
 
-### 6.4 Bằng chứng thật (đo 2026-08-25, `EPIC-008G`)
+### 6.4 Real evidence (measured 2026-08-25, `EPIC-008G`)
 
-Đếm trên 3 presenter: **48 signal, 46 cái có đúng 1 nơi nghe.** Cái duy nhất fan-out là `ui_log_signal` (2 nơi) — đúng là sự thật hệ thống, tức đúng thứ *nên* thành Feed; code đã tự phân loại đúng từ trước. `EPIC-008G` §2 đặt chỉ tiêu "xoá 48 signal cầu nối" vì gộp nhầm (A) vào (B); đo thật thì **47/48 tồn tại vì (A)**, xoá được ≈1. **Đừng đặt chỉ tiêu theo số đếm signal** — sai ranh giới thì con số chỉ dẫn tới việc phá code đúng.
+Counted across 3 presenters: **48 signals, 46 of them with exactly one listener.** The only fan-out is `ui_log_signal` (2 listeners) — which genuinely is a system truth, i.e. exactly the thing that *should* become a Feed; the code had already classified itself correctly. `EPIC-008G` §2 set the target "delete 48 bridging signals" because it conflated (A) with (B); measured for real, **47 of the 48 exist because of (A)**, and about 1 could be deleted. **Don't set targets by signal count** — with the wrong boundary, the number only leads you to break correct code.
 
 ---
 
-## 7. Code phải tự nói lên chính nó — cái gì hoãn lại hoặc đánh đổi thì phải có Interface
+## 7. Code must speak for itself — anything deferred or traded away needs an Interface
 
-> **Nếu một thứ sẽ được phát triển sau, hoặc là một cái giá đã chấp nhận trả, thì trong code
-> phải có một Interface / kiểu dữ liệu / test đại diện cho nó. Không được để nó chỉ nằm trong
-> tài liệu.**
+> **If something will be built later, or is a price you have knowingly accepted, then the code
+> must contain an Interface / type / test that represents it. It must not live only in
+> documentation.**
 
-Tài liệu là thứ agent phải đi tìm mới thấy; kiểu dữ liệu đập vào mắt khi đọc code. Bằng chứng: `EPIC-008G` §2 đặt sai chỉ tiêu "xoá 48 signal cầu nối" dù người viết **có đủ** rule trong tay — vì chỗ khai báo signal không nói gì về việc chúng là cầu nối thread. Luật đúng mà code câm thì luật vô dụng.
+Documentation is something an agent has to go looking for; a type hits you in the face while reading the code. Evidence: `EPIC-008G` §2 set the wrong target "delete 48 bridging signals" even though its author **had** the rules at hand — because the place where the signals are declared said nothing about them being thread bridges. A correct rule with mute code is a useless rule.
 
-### 7.1 Hai dạng, hai cách thể hiện
+### 7.1 Two forms, two ways of expressing them
 
-| Dạng | Bắt buộc phải có trong code |
+| Form | What the code must contain |
 | :--- | :--- |
-| **Sẽ phát triển sau** (điểm mở rộng đã biết, giai đoạn sau đã chốt) | Một **type/ABC/base class** đóng vai điểm hạ cánh, kèm docstring ghi công thức mở rộng. Agent sau `grep` ra được, và bắt chước được. |
-| **Cái giá đã chấp nhận trả** (đánh đổi có chủ đích) | Một **test khoá hành vi hiện tại** + docstring nói rõ mất gì, vì sao chấp nhận. Không phải chỉ một dòng ghi chú. |
+| **Will be built later** (a known extension point, a later phase already agreed) | A **type/ABC/base class** acting as the landing spot, with a docstring giving the extension recipe. A later agent can `grep` it and imitate it. |
+| **A price knowingly paid** (a deliberate trade-off) | A **test locking the current behavior** + a docstring stating what was given up and why it is acceptable. Not just a one-line note. |
 
-- **Đánh đổi:** `EPIC-008F` bỏ `frozen=True` của 4 domain event để kế thừa được `BaseEvent` — không xoá test bất biến mà **đổi nó thành test khoá hành vi mới** (`test_signal_generated_event_is_no_longer_frozen`) kèm lý do và điều kiện khôi phục.
-- **Điểm mở rộng:** `SystemErrorFeed` là Feed đầu tiên, `HealthFeed`/`SyncProgressFeed` đã chốt là sẽ có → phải có `BaseFeed` làm hợp đồng, để việc thăng cấp một sự thật riêng tư lên bus (§6.3) có **chỗ hạ cánh có tên**.
+- **Trade-off:** `EPIC-008F` dropped `frozen=True` on 4 domain events so they could inherit `BaseEvent` — instead of deleting the immutability test it **turned it into a test locking the new behavior** (`test_signal_generated_event_is_no_longer_frozen`) with the reason and the conditions for restoring it.
+- **Extension point:** `SystemErrorFeed` is the first Feed, `HealthFeed`/`SyncProgressFeed` are already agreed to be coming → there must be a `BaseFeed` as the contract, so that promoting a private truth onto the bus (§6.3) has a **named landing spot**.
 
-### 7.2 Luôn khuyến khích abstraction — class là một **hợp đồng**, không phải một cục code
+### 7.2 Always favor abstraction — a class is a **contract**, not a lump of code
 
-> Khi viết một class, **đánh giá khả năng mở rộng và API của nó trước**, rồi mới viết thân.
-> Mặc định là **có abstraction**: class phải là một **hợp đồng** với các class khác, không phải
-> một khối implementation mà nơi khác phải biết ruột gan mới dùng được.
+> When writing a class, **evaluate its extensibility and its API first**, then write the body.
+> The default is **to have an abstraction**: a class must be a **contract** with other classes, not
+> an implementation block whose guts other places have to know to use it.
 
-Khi thêm class mới, hỏi theo thứ tự: (1) **ai sẽ gọi nó, họ cần thấy gì?** — đó là API, thiết kế trước chứ không rút ra sau; (2) **chỗ nào có khả năng mở rộng?** (đổi backend, đổi nguồn dữ liệu, thêm biến thể) — chỗ đó phải là `abc.ABC` / Port để người sau thay được mà không phải sửa consumer; (3) **consumer có buộc phải biết chi tiết bên trong không?** — có thì hợp đồng chưa đủ, siết lại.
+When adding a new class, ask in order: (1) **who will call it, and what do they need to see?** — that is the API, designed up front rather than extracted afterwards; (2) **where is extension likely?** (swapping the backend, swapping the data source, adding a variant) — that spot must be an `abc.ABC` / Port so a later person can replace it without touching consumers; (3) **is the consumer forced to know internal details?** — if so the contract is not yet good enough, tighten it.
 
-Abstraction ở đây **không** phải "đẻ thêm lớp trung gian cho có": nó là **bề mặt công khai của class phải lập trình vào được**, và điểm nào biết trước sẽ thay đổi thì có kiểu trừu tượng đại diện.
+Abstraction here is **not** "spawn another middle layer for its own sake": it is that **a class's public surface must be programmable against**, and that any point known to be changeable has an abstract type representing it.
 
-> ⚠️ Ngưỡng cũ *"chỉ tạo abstraction khi có ≥2 nhu cầu thật"* (`EPIC-006`'s ADR §4) **đã bị bỏ 2026-08-25**; `EPIC-006`'s ADR và `EPIC-007`'s design vẫn viện dẫn nó, đọc chúng phải biết là đã hết hiệu lực. Bài học còn giá trị: 4 stub card (`ActionCard`/`FormCard`/`StreamCard`/`TableCard`) sai không phải vì thiếu abstraction mà vì **đoán sai hình dạng** của thứ chưa tồn tại — khuyến khích abstraction là thiết kế API cho cái đang viết, không phải đoán trước cái chưa ai cần.
+> ⚠️ The old threshold *"only create an abstraction once there are ≥2 real needs"* (`EPIC-006`'s ADR §4) **was dropped on 2026-08-25**; `EPIC-006`'s ADR and `EPIC-007`'s design still cite it, so read them knowing it is no longer in force. The lesson that still holds: the 4 stub cards (`ActionCard`/`FormCard`/`StreamCard`/`TableCard`) were wrong not for lacking abstraction but for **guessing the wrong shape** of something that did not exist yet — favoring abstraction means designing the API of what you are writing now, not guessing at what nobody needs yet.
 
-### 7.3 Không được lách bằng docstring
+### 7.3 No wriggling out via docstrings
 
-Docstring/comment là **bổ sung**, không phải thay thế. Comment giải thích *vì sao*; type và test mới là thứ **buộc** người sau đi đúng đường, và là thứ **vỡ ra** khi thực tế đổi. Quyết định chỉ sống trong prose thì không có gì phát hiện khi nó hết đúng — đúng cơ chế đã khiến `.agents/context/` mục ruỗng suốt 3 tuần (`EPIC-002`).
+Docstrings/comments are a **supplement**, not a substitute. A comment explains *why*; types and tests are what **force** the next person down the right path, and what **breaks** when reality changes. A decision that lives only in prose has nothing to detect when it stops being true — the very mechanism that let `.agents/context/` rot for 3 weeks (`EPIC-002`).
