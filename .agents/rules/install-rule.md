@@ -70,12 +70,13 @@ For [Sagittarius_Elite_Warrior](https://github.com/anhembedded/Sagittarius_Elite
 **Windows (PowerShell):** `.\scripts\run.ps1` / `.\scripts\run-ui.ps1`;
 **Verification:** `.\scripts\ci-local.ps1 -Full`.
 
-### 2b. Trên Linux: phải cài PowerShell trước, nếu không cổng bắt buộc không chạy được
+### 2b. On Linux: install PowerShell first, or the mandatory gate cannot run
 
-`ci-rule.md` §1 gọi `scripts/ci-local.ps1` là **nguồn chân lý duy nhất** cho verification,
-và nó là file `.ps1`. Máy Linux sạch không có `pwsh` nên cổng bắt buộc **không chạy được**;
-chạy tay từng lệnh **không tương đương** — mất bước quét log cuối cùng và phần chạy Sanity
-song song. Dùng tarball (không cần khoá GPG hay apt source, chỉ một thư mục + một symlink):
+`ci-rule.md` §1 makes `scripts/ci-local.ps1` the **single source of truth** for verification,
+and it is a `.ps1` file. A clean Linux machine has no `pwsh`, so the mandatory gate **cannot
+run**; running each command by hand is **not equivalent** — you lose the final log-scan step
+and the parallel Sanity run. Use the tarball (no GPG key or apt source needed, just one
+directory plus one symlink):
 
 ```bash
 V=7.5.0
@@ -89,9 +90,9 @@ pwsh --version        # PowerShell 7.5.0
 pwsh -NoProfile -File scripts/ci-local.ps1 -Full
 ```
 
-**Đừng tăng `-Workers` nếu chưa đo:** trên container 4 nhân, 6 (mặc định) và 12 worker cho
-thời gian pytest như nhau (~147s vs 150.5s) — worker vượt số nhân chỉ thêm tranh chấp. Kiểm
-`nproc` trước; mọi con số thời gian là của riêng từng máy.
+**Do not raise `-Workers` without measuring:** on a 4-core container, 6 (the default) and 12
+workers gave the same pytest time (~147s vs 150.5s) — workers beyond the core count only add
+contention. Check `nproc` first; every timing figure is specific to the machine it came from.
 
 ## 3. Environment setup is the agent's job — install what verification needs
 

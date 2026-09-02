@@ -1,6 +1,6 @@
 ---
 name: Domain Truthfulness Rule
-description: Dữ liệu trung thực — coverage thật, exchange filter thật, snapshot bất biến, không gộp ngữ nghĩa giao dịch, UI không hứa thứ engine chưa làm được, benchmark có phương pháp.
+description: Truthful data — real coverage, real exchange filters, immutable snapshots, no collapsing of trading semantics, a UI that never promises what the engine cannot yet do, benchmarks with a stated methodology.
 trigger: on_file_change
 patterns:
   - src/domain/**/*.py
@@ -9,9 +9,9 @@ patterns:
 
 # TRUTHFUL DATA, VALIDATION & SNAPSHOT SEMANTICS
 
-Nguyên tắc xuyên suốt: **hệ thống không được nói dối về thứ nó thật sự đã làm.**
-Một con số hợp lệ về mặt kiểu dữ liệu vẫn có thể là lời nói dối về nghiệp vụ —
-và trong một bot giao dịch, đó là tiền thật.
+The principle running through all of this: **the system must not lie about what it actually
+did.** A number that is valid as a data type can still be a lie about the business — and in a
+trading bot, that is real money.
 
 ---
 
