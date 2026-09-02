@@ -9,10 +9,6 @@ patterns:
 
 # PYTHON CODE QUALITY RULES
 
-> **Nguồn (2026-08-25):** nội dung dưới đây được **chuyển nguyên văn** từ
-> `code-rule.md` khi file đó được tách theo abstraction level. Không có quy tắc
-> nào bị đổi nghĩa, thêm hay bớt trong lần tách này — chỉ đổi chỗ ở.
-
 Áp cho mọi file Python trong `src/` và `scripts/`.
 
 Quyết định **kiến trúc** (Port nằm đâu, file nào thuộc tầng nào, tách file
@@ -59,8 +55,7 @@ theo abstraction level) không nằm ở đây — xem
    - **No Function-Local / Lazy Imports (Tuyệt đối không dùng Local Import):** All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8. Never place `import ...` inside functions, methods, slots, test cases, or nested scopes (the only exception is `if TYPE_CHECKING:` guards at top level).
    - **Single-Scope Cohesion & Colocation (Gom chung các thành phần liên quan vào cùng 1 Scope / Single Source of Truth):** Tightly coupled components that define the same domain lifecycle, state machine, or feature configuration MUST be co-located within the same single file or module scope (e.g., FSM State Enum + FSM Event Enum + Transition Matrix + UI Mode mappings in a single `*_fsm_matrix.py`). Do NOT fragment tightly coupled definitions across multiple scattered files where understanding or modifying a single feature lifecycle requires jumping across 4-5 distant modules. Related enums, schemas, transition tables, and constants belonging to a single concept must reside together as a single source of truth.
 
-> **Abstraction-Level Separation** — quy tắc "khác abstraction level thì không
-> chung file, không chung thư mục", cùng ngưỡng buộc tách >400 dòng/file và
-> >15 method công khai/lớp — đã chuyển sang
-> [`architecture-rule.md`](architecture-rule.md) §5. Nó là đối trọng trực tiếp
-> của Single-Scope Cohesion ngay trên, nên đọc cả hai khi lưỡng lự.
+> **Đối trọng của Single-Scope Cohesion là Abstraction-Level Separation**
+> ("khác abstraction level thì không chung file, không chung thư mục", cùng
+> ngưỡng buộc tách >400 dòng/file và >15 method công khai/lớp) —
+> [`architecture-rule.md`](architecture-rule.md) §5. Lưỡng lự thì đọc cả hai.
