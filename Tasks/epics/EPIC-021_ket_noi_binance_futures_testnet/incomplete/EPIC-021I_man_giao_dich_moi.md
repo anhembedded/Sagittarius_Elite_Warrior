@@ -375,6 +375,9 @@ mock:
   > ~2 500 USDT. Không có log `INFO` nào nói "bị chặn vì notional", chỉ `result.blocked_by`.
 - `MarketTickEventHandler` không lọc `interval` là lỗ hổng thật, độc lập với UI.
 
+Prompt vòng 3 cho AI thiết kế, gom 4 control + 5 trạng thái + 6 chỗ sửa số liệu:
+[`design/PROMPT_vong3_control_va_trang_thai_thieu.md`](../design/PROMPT_vong3_control_va_trang_thai_thieu.md).
+
 Cả hai **đã mở hồ sơ riêng**, không lẫn vào task dựng màn:
 [`BUG-084`](../../../bug_report/incomplete/BUG-084_live_sizing_hardcode_chan_moi_lenh.md) (sizing)
 và [`BUG-085`](../../../bug_report/incomplete/BUG-085_live_tick_khong_loc_theo_interval.md)
