@@ -66,6 +66,26 @@ regression test phải viết **trước** khi sửa và phải xác nhận fail
 - **External service smoke:** An explicitly requested, credential-free smoke
   check is operational evidence, not a fifth test level and never a normal CI
   gate or replacement for deterministic coverage.
+- **`tests/testnet/` (`EPIC-021J`) là bằng chứng vận hành, không phải tầng
+  test thứ năm.** Nó chạm sàn Futures Testnet thật bằng credentials thật —
+  giá trị của nó là chứng minh app **thật sự** đặt/huỷ được một lệnh trên
+  hạ tầng Binance thật, thứ không tầng nào trong 4 tầng ở trên chứng minh
+  được (Sanity/Integration đều chạm `binance_fake_server.py`, không chạm
+  sàn). Chính vì thế nó **không thể** thay thế bất kỳ tầng nào ở trên —
+  testnet trôi giá, độ trễ mạng, và rate limit khiến nó vốn dĩ không
+  deterministic, ngược hẳn với thứ 4 tầng kia tồn tại để đảm bảo. Luật áp
+  dụng:
+  - **Opt-in kép, không phải một.** `ci-rule.md` §3a: `-Full` loại nó ra
+    bằng `--ignore` bất kể biến môi trường nào đang bật; tier tự nó còn
+    gate lần hai qua `SEW_TESTNET_TESTS=1` **và** credentials thật.
+  - **Assert bất biến, không assert số liệu.** Giá/số dư testnet trôi theo
+    thời gian thực; assert `FILLED`, vị thế đóng về 0, không assert một
+    con số cụ thể.
+  - **Dọn dẹp trong `finally`, luôn luôn.** Một lệnh/vị thế bỏ lại làm hỏng
+    lần chạy sau — không có "chạy lại rồi dọn tay".
+  - **Chờ bằng điều kiện có tên** (trạng thái lệnh/vị thế đọc lại từ sàn),
+    **không** bằng `sleep` cố định — cùng luật §2 dưới đây, áp dụng cho cả
+    tier chạm mạng thật này.
 
 ---
 

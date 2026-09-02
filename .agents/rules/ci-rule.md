@@ -89,10 +89,37 @@ only when *none* of the diff is code.
 | Use fewer/more workers | `.\scripts\ci-local.ps1 -Full -Workers 4` | Full gate with the requested primary-test worker count | No |
 | Diagnose tests only | `.\scripts\ci-local.ps1 -Full -SkipLint` | Full test/coverage tier without static checks | No |
 | Diagnose static checks only | `.\scripts\ci-local.ps1 -Full -SkipTests` | Ruff checks without tests | No |
+| Real Binance Futures Testnet (`EPIC-021J`) | `$env:SEW_TESTNET_TESTS=1; .\scripts\ci-local.ps1 -TestnetOnly` | `tests/testnet/` only, sequential, no lint/format or coverage gate | No |
 
-`-SkipLint`, `-SkipTests`, `-UnitOnly`, and `-SanityOnly` are diagnostic tools.
-They MUST NOT be used to bypass a failing required gate, justify a commit, or
-mark a task complete.
+`-SkipLint`, `-SkipTests`, `-UnitOnly`, `-SanityOnly`, and `-TestnetOnly` are
+diagnostic tools. They MUST NOT be used to bypass a failing required gate,
+justify a commit, or mark a task complete.
+
+`-TestnetOnly` is not a fifth mandatory tier — see §3a. `-Full` (and every
+other mode) excludes `tests/testnet/` via `--ignore`, never runs it, and
+never will: it touches the real exchange with real credentials, which a CI
+gate that runs on every commit must never depend on.
+
+### 3a. `tests/testnet/` — real-exchange evidence, not a fifth test tier
+
+Opt-in only, gated twice: `-Full`'s own `--ignore` (never runs it, any mode)
+**and** the tier's own `conftest.py` fixture (`SEW_TESTNET_TESTS=1` *and*
+resolvable Futures Testnet credentials, checked separately so a missing-one
+run skips with a reason naming which). One gate already failed once in this
+repo's history (a conditional-skip-only tier ran for real the moment someone
+had the right environment variable set by accident) — two independent layers
+is the fix, not belt-and-suspenders decoration.
+
+Run it only with intent, never as part of a routine gate:
+
+```powershell
+$env:SEW_TESTNET_TESTS = "1"
+.\scripts\ci-local.ps1 -TestnetOnly
+```
+
+Missing either gate condition skips with a distinct, readable reason —
+`testing-rule.md`'s own testnet-tier section covers what this tier is
+allowed to assert and why it stays this small.
 
 ## 3. Qt integration directory — re-verified 2026-08-25, runs by default again
 

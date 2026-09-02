@@ -1,6 +1,6 @@
 # EPIC-021J — Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures
 
-- **Trạng thái:** 🔴 Chưa bắt đầu
+- **Trạng thái:** ✅ Hoàn thành (2026-09-02)
 - **Repo:** Elite
 - **Chặn bởi:** `EPIC-021F` (chạy song song được với `G`–`I`)
 
@@ -145,3 +145,83 @@ SKIPPED [2] có SEW_TESTNET_TESTS=1 nhưng không tìm thấy credentials Future
 Hai lý do skip khác nhau là cố ý: gộp làm một thì người chạy không biết mình đang thiếu **cái gì**.
 
 Ghi log ra file rồi `grep`, không `| tail` — `ONBOARDING.md` §5.
+
+## 6. Ghi chú triển khai
+
+### 6.1 `/fapi/v3/positionRisk`, không phải `/fapi/v2` — đọc adapter, không đoán
+
+Task's §2.1 liệt `GET /fapi/v2/positionRisk`. Đọc thẳng `python-binance`'s `client.py`
+(`futures_position_information()` → `self._request_futures_api("get", "positionRisk", True, 3,
+...)`) cho thấy adapter thật của app đang gọi **version 3**, không phải 2 — `FuturesTradingClient.
+get_positions()` (`EPIC-021G`) đi qua đúng hàm này. Route được viết đúng theo adapter thật
+(`/fapi/v3/positionRisk`), không theo bản nháp của task file. Ghi rõ trong docstring
+`futures_routes.py` để không ai đọc lại nghĩ đây là lỗi gõ nhầm.
+
+### 6.2 State: chỉ vòng đời lệnh, cố ý không mô phỏng khớp lệnh/vị thế
+
+Đúng §2.1's chủ đích: `OrderBookState` chỉ theo dõi *đặt → mở → huỷ*. `GET /fapi/v3/positionRisk`
+luôn trả `[]` cố định — đặt lệnh **không** tạo ra vị thế trong fake server này. Test riêng
+(`test_positions_are_always_flat_no_matching_engine`) khẳng định tường minh đây là chủ ý, không
+phải thiếu sót: một fake mô phỏng cả matching engine sẽ tự nó có bug cần bảo trì.
+
+### 6.3 Tách file: 5 module thay vì 4 — thêm `__init__.py`
+
+Bảng §3 liệt 4 file trong `fake_exchange/`. Vì `tests/sanity/` **không** có `__init__.py` (không
+phải package thật, mọi nơi import nó qua `sys.path.insert` + import phẳng), gói con `fake_exchange/`
+cần `__init__.py` riêng để `import fake_exchange.server` resolve được — nếu không mỗi lần import sẽ
+`ModuleNotFoundError`. `binance_fake_server.py` giờ chỉ còn 33 dòng, một shim tái xuất, giữ nguyên
+chữ ký cho 4 call site sẵn có (`tests/sanity/conftest.py` + 3 test integration + 1 probe script) —
+không call site nào phải sửa.
+
+### 6.4 Guard hai chiều thật, không chỉ đọc code
+
+`tests/unit/fake_exchange/test_futures_routes_http.py` gọi thẳng HTTP (`requests`, bỏ qua
+`python-binance`) để chứng minh: mọi route mới trả đúng shape, path lạ vẫn 404 (`test_unknown_path_
+404s_on_every_verb`), và huỷ một lệnh không tồn tại trả đúng shape lỗi thật của Binance
+(`{"code": -2011, "msg": "Unknown order sent."}`, status 400). `tests/unit/fake_exchange/
+test_order_book_state.py` kiểm state thuần, không HTTP. Thêm một test integration mới
+(`test_futures_trading_client_order_lifecycle_against_fake_server.py`) đóng một lỗ hổng coverage có
+sẵn từ trước task này: `FuturesTradingClient.place_order()`'s nhánh `OrderSubmissionMode.LIVE`
+(`else: client.futures_create_order(**params)`) **chưa từng** được test ở đâu trong repo — guard AST
+`OrderSubmissionMode.LIVE` chỉ quét `src/`+`scripts/`, không quét `tests/`, nên test này hợp lệ và
+an toàn (không chạm mạng thật, chỉ chạm fake server).
+
+### 6.5 `tests/testnet/` viết được, verify được cơ chế gate — không verify được bằng chạy thật
+
+Sandbox này chặn toàn bộ egress `*.binance.*`, nên `test_account_is_reachable`/`test_dry_run_is_
+accepted`/`test_market_order_fills_and_closes` **không thể** chạy thật ở đây — như mọi lần chạm
+mạng thật trước đó trong epic này (`BUG-080`, `EPIC-021D`). Đã verify được phần cơ chế: cả hai
+lý do skip (thiếu biến môi trường / có biến nhưng thiếu credentials) tạo đúng thông báo phân biệt
+được, khớp chữ y hệt mốc §5 của task; `--collect-only` xác nhận `ci-local.ps1 -Full`'s args
+(`--ignore=.../tests/sanity --ignore=.../tests/testnet`) loại `tests/testnet/` hoàn toàn (0 test
+collect được), trong khi target trực tiếp `tests/testnet` vẫn thấy đúng 3 test — đúng yêu cầu §4
+"khẳng định bằng đếm test collect, không bằng đọc script". `test_market_order_fills_and_closes`
+chờ bằng poll `get_positions()` (điều kiện có tên, bounded, không `sleep` mù) thay vì tự dựng
+`FuturesUserDataStream` async bên trong một test đồng bộ — một thu hẹp phạm vi có chủ đích so với
+câu chữ "trạng thái lệnh từ User Data Stream" của §4: `get_positions()` REST vẫn là cùng nguồn sự
+thật (`ADR §4`) mà stream cuối cùng cũng đọc lại, và dựng đúng vòng đời async/thread bên trong
+pytest chỉ để chờ cùng một sự thật đó là rủi ro không cần thiết cho lợi ích tương đương.
+
+### 6.6 `ci-local.ps1` không tự chạy được ở đây — sửa mù chữ, verify bằng `--collect-only`
+
+Sandbox này không có `pwsh`. Không thể tự chạy `ci-local.ps1 -TestnetOnly` hay `-Full` để xác nhận
+trực tiếp; đã đọc kỹ toàn bộ script trước khi sửa (không đoán cấu trúc), thêm `-TestnetOnly` theo
+đúng khuôn `-SanityOnly` đã có, và verify logic bằng cách tái tạo chính xác lệnh `pytest` mà mỗi
+nhánh của script gọi (cùng `--ignore` list, cùng target) rồi chạy trực tiếp — kết quả khớp §6.5.
+
+### 6.7 Kết quả kiểm thử
+
+- Fake server tách file: 31/31 test sẵn có (sanity + integration đang dùng fake server) vẫn xanh
+  sau khi tách — bằng chứng tách không đổi hành vi.
+- Test mới: `test_order_book_state.py` 8/8, `test_futures_routes_http.py` 7/7,
+  `test_futures_trading_client_order_lifecycle_against_fake_server.py` 3/3 — 18/18.
+- Ruff (`src tests scripts tools`): 0 lỗi ngoài 3 lỗi baseline đã biết (không đụng — một lần vô ý
+  chạy `ruff --fix` quét cả `scripts/` đã tự sửa 2 file baseline, phát hiện qua `git status` và
+  `git checkout --` khôi phục ngay trước khi verify tiếp).
+- `ruff format --check`: sạch.
+- Mypy (từ `/home/user`): 0 lỗi, 231 file — không đổi vì task này không chạm `src/`.
+- `tests/sanity`: 24/24, không đổi.
+- Full suite (`tests` trừ `sanity`+`testnet`, `-n 4`, offscreen): 3312 passed, 4 skipped, 1 failed —
+  thất bại duy nhất vẫn là `test_pan_preview_moves_only_the_data_region_not_the_axes`, đã xác nhận
+  không liên quan qua nhiều task trước; 4 skip đã đối chiếu là pre-existing, không phát sinh từ
+  task này (`tests/testnet` bị `--ignore` hoàn toàn, không góp phần vào số skip đó).

@@ -40,6 +40,16 @@
 .PARAMETER IncludeFlakyUi
     No-op as of 2026-08-25 (BOT-038 re-verified, does not reproduce): tests/integration/presentation/ui/ now runs by default in every mode. Kept only so existing invocations of this flag do not error.
 
+.PARAMETER TestnetOnly
+    Run ONLY tests/testnet (EPIC-021J) — the one tier that touches the real
+    Binance Futures Testnet with real credentials. Implies -SkipLint. No
+    coverage gate. Every OTHER mode (including -Full) excludes tests/testnet
+    entirely via --ignore, not merely via the tier's own opt-in skip gate —
+    two independent layers, since a tier gated by only a conditional skip
+    once ran for real the moment someone happened to have the environment
+    variable set (EPIC-021J §2.3). Set SEW_TESTNET_TESTS=1 yourself before
+    invoking this switch; the script does not set it for you.
+
 .EXAMPLE
     .\scripts\ci-local.ps1                  # Full: lint + parallel tests (default)
     .\scripts\ci-local.ps1 -UnitOnly        # Unit (6 workers) + sanity (concurrent)
@@ -47,6 +57,7 @@
     .\scripts\ci-local.ps1 -Workers 4       # Full with 4 workers
     .\scripts\ci-local.ps1 -SkipLint        # Full, skip lint
     .\scripts\ci-local.ps1 -IncludeFlakyUi  # No-op flag, kept for compatibility -- see PARAMETER IncludeFlakyUi
+    $env:SEW_TESTNET_TESTS=1; .\scripts\ci-local.ps1 -TestnetOnly  # Real testnet, opt-in
 #>
 [CmdletBinding()]
 param(
@@ -55,6 +66,7 @@ param(
     [switch]$SanityOnly,
     [switch]$UnitOnly,
     [switch]$Full,
+    [switch]$TestnetOnly,
     [int]$Workers = 6,   # Default: 6 workers (benchmark sweet spot for this machine)
     [switch]$IncludeFlakyUi,
     # code-rule.md §4 "CI/CD MUST capture a log file, then scan it for problem
@@ -185,6 +197,7 @@ $mypyExe   = if ($venvBinDir) { Join-Path $venvBinDir "mypy$exeSuffix" } else { 
 # ---------------------------------------------------------------------------
 $unitTarget  = "Sagittarius_Elite_Warrior/tests/unit"
 $sanityTarget = "Sagittarius_Elite_Warrior/tests/sanity"
+$testnetTarget = "Sagittarius_Elite_Warrior/tests/testnet"
 $useCoverage = $true
 $enforceCoverageGate = $true
 
@@ -193,6 +206,10 @@ if ($SanityOnly) {
     $enforceCoverageGate = $false
     $SkipLint = $true
 } elseif ($UnitOnly) {
+    $useCoverage = $false
+    $enforceCoverageGate = $false
+    $SkipLint = $true
+} elseif ($TestnetOnly) {
     $useCoverage = $false
     $enforceCoverageGate = $false
     $SkipLint = $true
@@ -342,6 +359,25 @@ if (-not $SkipTests) {
             Write-Host $_.Exception.Message -ForegroundColor Yellow
         } finally { Pop-Location }
 
+    } elseif ($TestnetOnly) {
+        # ----------------------------------------------------------------
+        # Testnet-only mode: sequential, real network, real credentials.
+        # EPIC-021J §2.3 — the tier's own conftest.py fixture still skips
+        # (with a readable reason) if SEW_TESTNET_TESTS or credentials are
+        # missing; this branch only chooses the target, it never sets the
+        # environment variable itself.
+        # ----------------------------------------------------------------
+        Write-Step "Testnet Tests (sequential — real Binance Futures Testnet)"
+        Push-Location $testExecutionRoot
+        try {
+            & $pytestExe $testnetTarget -v 2>&1 | Tee-Object -FilePath $runLogFile
+            if ($LASTEXITCODE -ne 0) { $failed += "Testnet"; Write-Failure "Testnet" }
+            else { Write-Success "Testnet" }
+        } catch {
+            $failed += "Testnet"; Write-Failure "Testnet"
+            Write-Host $_.Exception.Message -ForegroundColor Yellow
+        } finally { Pop-Location }
+
     } else {
         # ----------------------------------------------------------------
         # Unit / Full mode:
@@ -380,6 +416,14 @@ if (-not $SkipTests) {
 
             # Exclude sanity from main parallel run (sanity runs in background job)
             $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/sanity"
+
+            # EPIC-021J §2.3 — tests/testnet touches the real Binance Futures
+            # Testnet with real credentials; it must NEVER run as part of
+            # -Full/-UnitOnly, only via the dedicated -TestnetOnly switch
+            # above. This --ignore is the SECOND of the tier's two gates
+            # (the first is tests/testnet/conftest.py's own opt-in skip) —
+            # deliberately redundant with it, not a replacement for it.
+            $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/testnet"
 
             # BOT-038's exclusion is REMOVED as of 2026-08-25 -- see BOT-038's own
             # task file and Tasks/epics/EPIC-009_sanity_tier_redesign/ for the

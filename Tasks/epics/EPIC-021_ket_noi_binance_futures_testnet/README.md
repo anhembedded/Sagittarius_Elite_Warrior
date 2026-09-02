@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🟡 Đang làm (9/12 task con)
+- **Trạng thái:** 🟡 Đang làm (10/12 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
@@ -70,7 +70,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 | **H** | [User Data Stream: sự thật về lệnh đến từ sàn + `OrderFeed`](completed/EPIC-021H_user_data_stream_va_order_feed.md) | Elite | G | ✅ |
 | **I** | [**Màn hình Giao dịch mới** — sổ lệnh, vị thế, công tắc bật giao dịch](incomplete/EPIC-021I_man_giao_dich_moi.md) | Elite | H | 🔴 |
 | **K** | [Banner môi trường toàn cục + Emergency Stop + trade marker trên chart](incomplete/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) | Elite | I | 🔴 |
-| **J** | [Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures](incomplete/EPIC-021J_tier_test_testnet_va_fake_server_futures.md) | Elite | F | 🔴 |
+| **J** | [Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures](completed/EPIC-021J_tier_test_testnet_va_fake_server_futures.md) | Elite | F | ✅ |
 
 **Không nhảy cóc.** `A` chặn tất cả vì mọi task sau đều cần biết "đang nói chuyện với sàn nào".
 `C` chặn `E` vì không có `stepSize` thì `Order` không thể có khối lượng hợp lệ để mà mô hình hoá.
