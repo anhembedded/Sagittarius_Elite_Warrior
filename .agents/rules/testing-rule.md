@@ -1,19 +1,20 @@
 ---
 name: Testing Rule
-description: Cách viết test cho đúng — mỗi tầng chứng minh gì, async không dùng sleep, invariant tài chính, Boundary Value Analysis + mutation-verify, business acceptance cho tính năng giao dịch.
+description: How to write tests correctly — what each level proves, async without sleeps, financial invariants, Boundary Value Analysis + mutation-verify, business acceptance for trading features.
 trigger: on_demand
 ---
 
-# TESTING RULES — cách VIẾT test
+# TESTING RULES — how to WRITE tests
 
-**Phân vai:** [`ci-rule.md`](ci-rule.md) giữ *lệnh chạy* CI, hợp đồng 4 tầng
-test, và cách xử lý khi gate đỏ; file này giữ *cách viết* một test cho đúng.
-Sửa bug thì [`bug-fix-rule.md`](bug-fix-rule.md) là nguồn chuẩn — regression
-test phải viết **trước** khi sửa và phải xác nhận fail đúng lý do.
+**Division of roles:** [`ci-rule.md`](ci-rule.md) holds the CI *run commands*,
+the four-level test contract, and what to do when the gate is red; this file
+holds *how to write* a test. For bug fixes, [`bug-fix-rule.md`](bug-fix-rule.md)
+is the authority — the regression test must be written **before** the fix and
+must be confirmed failing for the right reason.
 
 ---
 
-## 1. Mỗi tầng test chứng minh gì
+## 1. What each test level proves
 
 - **Four required test levels:** Every feature defines its proof across the
   four levels in `.agents/rules/ci-rule.md` — Unit, Integration, Sanity and
@@ -61,7 +62,7 @@ test phải viết **trước** khi sửa và phải xác nhận fail đúng lý
 
 ---
 
-## 2. Viết test cho đúng
+## 2. Writing tests correctly
 
 - **Deterministic Async & UI Testing:** Never use timing sleeps to synchronize a test. Wait for a named completion signal, FSM state, terminal event, or bounded `qtbot.waitUntil(...)` condition. Give every QML control that is a critical user action a stable `objectName` so integration/E2E tests can target it.
 - **Financial & Backtest Invariants:** Add deterministic property/invariant tests for financial code: reject `NaN`/infinite values, keep fees non-negative, keep equity/trade/metrics internally consistent, and require identical outputs for identical input data/configuration. Every new execution mode, fee model or simulation pass must extend these invariants.

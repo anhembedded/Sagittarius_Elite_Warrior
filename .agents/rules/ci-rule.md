@@ -179,18 +179,18 @@ detection and release judgment, never shared-CI thresholds.
 `ci-local.ps1 -Full` is the only local handoff evidence, but **not** the only CI:
 `.github/workflows/ci.yml` also exists and runs on every push/PR to `master-warrior` (deleted from
 this branch once, then restored; see the comment at the top of that file) — confirm with
-`ls .github/workflows/`. Hai gate **không** phải bản sao của nhau — biết trước sự khác biệt trước
-khi coi một trong hai là đủ:
+`ls .github/workflows/`. The two gates are **not** copies of each other — know the differences
+before treating either one as sufficient:
 
 | | `ci-local.ps1 -Full` | `.github/workflows/ci.yml` |
 | :--- | :--- | :--- |
-| Test primary | song song (`-n 6` mặc định) | tuần tự, một tiến trình |
-| Sanity | tách job riêng, luôn tuần tự | trộn chung trong `pytest tests/` |
-| Coverage gate 80% | có | có (từ 2026-08-27) |
-| Ruff/`mypy`/guard `.agents/Skills` | có cả 3 | có cả 3 (từ 2026-08-27) |
+| Primary tests | parallel (`-n 6` by default) | sequential, single process |
+| Sanity | separate job, always sequential | mixed into `pytest tests/` |
+| 80% coverage gate | yes | yes (since 2026-08-27) |
+| Ruff/`mypy`/`.agents/Skills` guard | all 3 | all 3 (since 2026-08-27) |
 
-Khác biệt về song song/tách job là **cố ý chưa đối chiếu lại**, không phải lỗi cần vá ngay. Đừng
-giả định một bên bao trùm bên kia.
+The parallelism/job-separation difference is **deliberately not reconciled yet**, not a defect to
+patch immediately. Do not assume either side subsumes the other.
 
 ## 8. Static quality, read-only gate, and the mandatory log scan
 
