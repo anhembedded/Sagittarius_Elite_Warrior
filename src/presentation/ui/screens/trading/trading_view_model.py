@@ -30,6 +30,8 @@ class TradingViewModel(BaseQmlViewModel):
     symbolChangeRequested = Signal(str)
     #: Emitted when the user clicks the "Bật/Tắt giao dịch" header button.
     toggleRequested = Signal()
+    #: Emitted when the user clicks "DỪNG KHẨN CẤP" (`EPIC-021K`).
+    emergencyStopRequested = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -98,6 +100,11 @@ class TradingViewModel(BaseQmlViewModel):
     def requestToggle(self) -> None:
         """Called from the View's header toggle button."""
         self.toggleRequested.emit()
+
+    @Slot()
+    def requestEmergencyStop(self) -> None:
+        """Called from the View's "DỪNG KHẨN CẤP" button (`EPIC-021K`)."""
+        self.emergencyStopRequested.emit()
 
     def _get_status_message(self) -> str:
         return self._status_message

@@ -1403,3 +1403,63 @@ def test_presenter_shutdown_cancels_cancellation_token_and_shuts_down_autostart(
     token.cancel.assert_called_once()
     autostart.shutdown.assert_called_once()
     assert presenter._shutdown_requested is True
+
+
+# ---------------------------------------------------------------------------
+# `EPIC-021K` §2.3/§4 — OrderFeed -> live-fill chart markers. Dev Board is
+# multi-symbol, so (unlike Trading's single `_active_symbol`) any open chart
+# card should get its own fill drawn, and a fill for a symbol with no open
+# card has nowhere to go.
+# ---------------------------------------------------------------------------
+
+
+def _fill_event(symbol="ETHUSDT", order_time=None):
+    from decimal import Decimal
+
+    from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
+        OrderFilledEvent,
+    )
+    from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import (
+        ClientOrderId,
+    )
+    from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
+    from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+
+    order = Order(
+        client_order_id=ClientOrderId("SEW-a91f4c72e0b8"),
+        symbol=symbol,
+        side=OrderSide.BUY,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("0.05"),
+        order_time=order_time,
+    )
+    return OrderFilledEvent(
+        order=order, fill_price=Decimal("64000.00"), fill_quantity=Decimal("0.05")
+    )
+
+
+def test_order_filled_draws_a_marker_on_that_symbols_open_chart(presenter):
+    from datetime import UTC, datetime
+
+    from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+        order_filled_marker,
+    )
+
+    mock_card = MagicMock()
+    presenter.active_charts = {"ETHUSDT": mock_card}
+    event = _fill_event("ETHUSDT", order_time=datetime(2026, 9, 2, 12, 0, tzinfo=UTC))
+
+    presenter._on_order_filled(event)
+
+    mock_card.set_script_markers.assert_called_once_with(
+        "live_fills", [order_filled_marker(event)]
+    )
+
+
+def test_order_filled_for_a_symbol_with_no_open_chart_is_a_no_op(presenter):
+    presenter.active_charts = {}
+
+    presenter._on_order_filled(_fill_event("ETHUSDT"))  # must not raise
+
+    assert presenter._fill_markers_by_symbol == {}

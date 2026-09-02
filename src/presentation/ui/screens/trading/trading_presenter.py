@@ -9,6 +9,10 @@ from Sagittarius_Elite_Warrior.src.application.services.trading_session_state im
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disable_trading import (
     DisableTradingCommand,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop import (
+    EmergencyStopCommand,
+    EmergencyStopResult,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
     EnableTradingBlockReason,
     EnableTradingCommand,
@@ -37,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed impor
     MarketTickFeed,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+    order_filled_marker,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (
     build_open_order_row,
 )
@@ -73,6 +80,17 @@ _BLOCK_REASON_MESSAGES: dict[EnableTradingBlockReason, str] = {
     ),
 }
 _UNKNOWN_BLOCK_REASON_MESSAGE = "Không thể bật giao dịch."
+
+#: `ActionOwnershipTracker`'s `TKind` for the Emergency Stop button —
+#: shares `_toggle_tracker` (a single active action) with the toggle on
+#: purpose: an in-flight Enable/Disable click superseded by Emergency Stop
+#: is exactly the case `begin_action()` already invalidates.
+_EMERGENCY_STOP_ACTION = "emergency_stop"
+
+#: `MarkerLayer.set_markers()`'s key for this screen's own live-fill
+#: markers (`EPIC-021K` §2.3) — one key, replaced wholesale on every fill
+#: for the currently displayed symbol.
+_FILL_MARKERS_KEY = "live_fills"
 
 #: Terminal `OrderStatus` values — an order in one of these no longer
 #: belongs in the Open Orders table (mirrors `order_status.py`'s own
@@ -132,6 +150,8 @@ class TradingPresenter(BasePresenter):
     enableTradingCompleted = Signal(tuple)
     #: `(action_id, error_message | None)`.
     disableTradingCompleted = Signal(tuple)
+    #: `(action_id, EmergencyStopResult | None, error_message | None)`.
+    emergencyStopCompleted = Signal(tuple)
 
     def __init__(self, view: TradingView, container: IContainer) -> None:
         super().__init__(view, container)
@@ -168,6 +188,11 @@ class TradingPresenter(BasePresenter):
         )
         self._positions: dict[str, LivePosition] = {}
         self._open_orders: dict[str, Order] = {}
+        #: `EPIC-021K` §2.3 — accumulated live-fill markers, kept per symbol
+        #: (not just the active one) so switching back to a symbol later
+        #: this session recovers what was already drawn on it, the same
+        #: reasoning `TimeframePinPreferences` keeps a store per symbol.
+        self._fill_markers_by_symbol: dict[str, list] = {}
 
         self._cancellation_token = CancellationToken()
         self._shutdown_requested = False
@@ -207,6 +232,9 @@ class TradingPresenter(BasePresenter):
     def _connect_ui_signals(self) -> None:
         self._view_model.symbolChangeRequested.connect(self._on_symbol_change_requested)
         self._view_model.toggleRequested.connect(self._on_toggle_requested)
+        self._view_model.emergencyStopRequested.connect(
+            self._on_emergency_stop_requested
+        )
 
         self.ui_chart_update_signal.connect(self._on_ui_chart_update)
         self.uiHistoryReadySignal.connect(self._on_history_ready)
@@ -216,6 +244,7 @@ class TradingPresenter(BasePresenter):
         self.uiLogSignal.connect(self._append_log)
         self.enableTradingCompleted.connect(self._on_enable_trading_completed)
         self.disableTradingCompleted.connect(self._on_disable_trading_completed)
+        self.emergencyStopCompleted.connect(self._on_emergency_stop_completed)
 
     def _connect_engine_events(self) -> None:
         # `MarketTickEvent` goes through `MarketTickFeed` — one place hears
@@ -251,6 +280,7 @@ class TradingPresenter(BasePresenter):
         self._active_symbol = symbol
         self._view_model.symbol = symbol
         self.view.chart.set_symbol_title(symbol)
+        self._render_fill_markers()
         self._restart_chart()
 
     @Slot(str)
@@ -425,6 +455,80 @@ class TradingPresenter(BasePresenter):
         self._view_model.set_status("Đã tắt giao dịch.", False)
 
     # ================================================================== #
+    # Emergency Stop (`EPIC-021K` §2.2) — deliberately NOT `@safe_ui_action`
+    # (that decorator swallows exceptions; this button's whole point is
+    # that a failure must be seen, never silently dropped mid-flow —
+    # ONBOARDING.md §8, bẫy 8). The manual `try/except` below reports every
+    # failure through the ViewModel instead, the same "worker boundary"
+    # idiom `_run_enable`/`_run_disable` already use for their own
+    # background halves.
+    # ================================================================== #
+
+    @Slot()
+    def _on_emergency_stop_requested(self) -> None:
+        try:
+            action = self._toggle_tracker.begin_action(
+                _EMERGENCY_STOP_ACTION, None, None
+            )
+            self._view_model.set_status("Đang dừng khẩn cấp...", False)
+            self._thread_manager.submit(self._run_emergency_stop, action.action_id)
+        except Exception as exc:  # noqa: BLE001 - deliberately not @safe_ui_action, see this section's own docstring
+            self._view_model.set_status(f"Lỗi khi dừng khẩn cấp: {exc}", True)
+
+    def _run_emergency_stop(self, action_id: int) -> None:
+        try:
+            result = self.dispatcher.dispatch(
+                EmergencyStopCommand, EmergencyStopCommand()
+            )
+            self.emergencyStopCompleted.emit((action_id, result, None))
+        except Exception as exc:  # noqa: BLE001 - worker boundary
+            self.emergencyStopCompleted.emit((action_id, None, str(exc)))
+
+    @Slot(tuple)
+    def _on_emergency_stop_completed(self, payload: tuple) -> None:
+        action_id, result, error = payload
+        if not self._toggle_tracker.is_current_pending(
+            action_id, _EMERGENCY_STOP_ACTION
+        ):
+            self._toggle_tracker.log_stale_callback(
+                "emergency_stop", action_id, _EMERGENCY_STOP_ACTION
+            )
+            return
+
+        if error is not None or result is None:
+            self._toggle_tracker.finish_action(action_id, ActionOutcome.FAILED)
+            self._view_model.set_trading_state(self._session_state.enabled, False)
+            self._view_model.set_status(f"Lỗi khi dừng khẩn cấp: {error}", True)
+            self._append_log(f"[ERROR] Dừng khẩn cấp thất bại: {error}")
+            return
+
+        self._toggle_tracker.finish_action(
+            action_id,
+            ActionOutcome.SUCCEEDED if result.fully_succeeded else ActionOutcome.FAILED,
+        )
+        self._view_model.set_trading_state(self._session_state.enabled, False)
+        self._log_emergency_stop_result(result)
+        if result.fully_succeeded:
+            self._view_model.set_status("Đã dừng khẩn cấp.", False)
+        else:
+            self._view_model.set_status(
+                "DỪNG KHẨN CẤP — THẤT BẠI MỘT PHẦN. Xem nhật ký.", True
+            )
+
+    def _log_emergency_stop_result(self, result: EmergencyStopResult) -> None:
+        self._append_log("DỪNG KHẨN CẤP")
+        for index, (label, step) in enumerate(
+            (
+                ("Tắt giao dịch", result.trading_disabled),
+                ("Huỷ lệnh chờ", result.orders_cancelled),
+                ("Đóng vị thế", result.positions_closed),
+            ),
+            start=1,
+        ):
+            mark = "✔" if step.succeeded else "✘"
+            self._append_log(f"  {index}. {label} ... {mark} {step.detail}")
+
+    # ================================================================== #
     # Positions/Open Orders tables — seeded above, kept live here.
     # ================================================================== #
 
@@ -436,6 +540,7 @@ class TradingPresenter(BasePresenter):
             self._open_orders[order.client_order_id] = order
         self._render_open_orders()
         self._refresh_session_stats()
+        self._record_fill_marker(event)
 
     def _on_position_changed(self, event: PositionChangedEvent) -> None:
         self._positions[event.position.symbol] = event.position
@@ -455,4 +560,23 @@ class TradingPresenter(BasePresenter):
         self._view_model.set_session_stats(
             self._session_state.orders_sent_this_session,
             len(self._session_state.known_open_symbols),
+        )
+
+    # ================================================================== #
+    # Live fill markers (`EPIC-021K` §2.3) — chart-only, per symbol; never
+    # shown for a symbol other than whatever `view.chart` currently displays.
+    # ================================================================== #
+
+    def _record_fill_marker(self, event: OrderFilledEvent) -> None:
+        symbol = event.order.symbol
+        self._fill_markers_by_symbol.setdefault(symbol, []).append(
+            order_filled_marker(event)
+        )
+        if symbol == self._active_symbol:
+            self._render_fill_markers()
+
+    def _render_fill_markers(self) -> None:
+        self.view.chart.set_script_markers(
+            _FILL_MARKERS_KEY,
+            self._fill_markers_by_symbol.get(self._active_symbol, []),
         )

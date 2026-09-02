@@ -159,6 +159,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disable_trading
     DisableTradingCommand,
     DisableTradingCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop import (
+    EmergencyStopCommand,
+    EmergencyStopCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
     EnableTradingCommand,
     EnableTradingCommandHandler,
@@ -484,6 +488,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(EnableTradingCommand, EnableTradingCommandHandler)
         app.container.bind(DisableTradingCommand, DisableTradingCommandHandler)
         app.container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
+        app.container.bind(EmergencyStopCommand, EmergencyStopCommandHandler)
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""

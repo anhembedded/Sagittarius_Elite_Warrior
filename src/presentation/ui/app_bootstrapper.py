@@ -47,6 +47,13 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.domain.value_objects.venue_alignment import (
+    compute_venue_alignment,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
+    resolve_market_data_venue,
+    resolve_trading_venue,
+)
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
@@ -58,10 +65,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.environment_banner import (
+    EnvironmentBanner,
+    venue_alignment_banner_content,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPreferences,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
@@ -203,6 +215,22 @@ def build() -> AppRuntime:
     # directly instead of as a side effect of configure_app_qml() (which no
     # longer needs calling here).
     get_theme_bridge(Palette.as_ui_dict())
+
+    # EPIC-021K — the global "which venue am I in" banner. Computed once,
+    # here, from the same config `binance_bot_module.py` itself reads
+    # (`resolve_market_data_venue`/`resolve_trading_venue`) — neither has a
+    # Settings UI control, so this is safe to compute once at boot rather
+    # than wiring a reactive ViewModel for a value that cannot change
+    # mid-session. `PageShell.set_environment_banner_factory` is the *one*
+    # place this reaches every screen — see that classmethod's own
+    # docstring for why no screen's own View needs to call anything.
+    banner_content = venue_alignment_banner_content(
+        compute_venue_alignment(
+            resolve_market_data_venue(config_manager),
+            resolve_trading_venue(config_manager),
+        )
+    )
+    PageShell.set_environment_banner_factory(lambda: EnvironmentBanner(banner_content))
 
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow

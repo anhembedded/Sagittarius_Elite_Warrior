@@ -79,7 +79,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 | **G** | [`ExecuteOrderCommand` + `LiveTradingCoordinator` — lệnh thật đầu tiên, kèm hạn mức](completed/EPIC-021G_execute_order_command_va_live_coordinator.md) | Elite | F | ✅ |
 | **H** | [User Data Stream: sự thật về lệnh đến từ sàn + `OrderFeed`](completed/EPIC-021H_user_data_stream_va_order_feed.md) | Elite | G | ✅ |
 | **I** | [**Màn hình Giao dịch mới** — sổ lệnh, vị thế, công tắc bật giao dịch](completed/EPIC-021I_man_giao_dich_moi.md) | Elite | H | ✅ (mở `BUG-086`) |
-| **K** | [Banner môi trường toàn cục + Emergency Stop + trade marker trên chart](incomplete/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) | Elite | I | 🔴 |
+| **K** | [Banner môi trường toàn cục + Emergency Stop + trade marker trên chart](completed/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) | Elite | I | ✅ |
 | **J** | [Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures](completed/EPIC-021J_tier_test_testnet_va_fake_server_futures.md) | Elite | F | ✅ |
 | **M** | [Chart vốn (equity) realtime](incomplete/EPIC-021M_chart_von_realtime.md) | Elite | I | 🔴 |
 

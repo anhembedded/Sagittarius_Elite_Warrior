@@ -12,6 +12,9 @@ from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
+    OrderFilledEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
@@ -25,6 +28,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinat
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed import (
     MarketTickFeed,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+    order_filled_marker,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
@@ -132,6 +139,10 @@ _DEFAULT_AUTOSTART_FALLBACK_SECONDS: float = 2.0
 #: whatever scripts happen to be enabled.
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
 _DEFAULT_LOAD_MORE_BATCH_CANDLES: int = 75
+
+#: `EPIC-021K` §2.3/§3 — live-fill trade markers, same key `TradingPresenter`
+#: uses (separate `MarkerLayer` per `ChartCard`, so no collision between screens).
+_FILL_MARKERS_KEY = "live_fills"
 
 # WS status badge (top bar) text/color/tone per FSM state — presentational
 # only, derived from the state DashboardPresenter already tracks.
@@ -433,6 +444,12 @@ class DashboardPresenter(BasePresenter):
         # on every Load History/Start Live, so a stale interval's klines
         # never leak into a later one.
         self._raw_klines_by_symbol: dict[str, list] = {}
+
+        # `EPIC-021K` §2.3 — live-fill trade markers per symbol, keyed the
+        # same way `_raw_klines_by_symbol` is (Dev Board is multi-symbol,
+        # unlike Trading's single `_active_symbol`; every symbol with an
+        # open chart card gets its own marker series drawn live).
+        self._fill_markers_by_symbol: dict[str, list] = {}
 
         # BOT-035 — one collaborator per Dev Board screen, same lifetime
         # pattern as AutoStartController: constructed once here, torn down
@@ -831,6 +848,13 @@ class DashboardPresenter(BasePresenter):
         # thứ ba (BOT-123).
         self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
         self._sync_feed.progressUpdated.connect(self._on_sync_progress)
+        # `EPIC-021K` §2.3/§3 — live order fills as chart markers. Dev Board
+        # never displayed order/position data before this; `OrderFeed`
+        # already exists for `TradingPresenter` (`EPIC-021H`), so this is a
+        # second consumer of the same one-place-subscribes Feed, not a new
+        # subscription shape.
+        self._order_feed = OrderFeed(self.event_bus, parent=self)
+        self._order_feed.orderFilled.connect(self._on_order_filled)
 
     def _trigger_initial_health_check(self) -> None:
         self._health_check_coordinator.request_initial_check()
@@ -841,6 +865,23 @@ class DashboardPresenter(BasePresenter):
         `StreamLifecycleController.on_sync_progress` (BOT-123), which owns
         the id this screen's own in-flight sync is using."""
         self._stream_controller.on_sync_progress(report)
+
+    def _on_order_filled(self, event: OrderFilledEvent) -> None:
+        """`OrderFeed.orderFilled` handler — already on the main thread.
+
+        @details Only draws a marker when a chart card for that symbol is
+        currently open (`active_charts`); a fill on a symbol Dev Board isn't
+        showing has nowhere to draw and is silently dropped, same as
+        `TradingPresenter._record_fill_marker`'s `symbol == self._active_symbol`
+        guard for its single chart.
+        """
+        symbol = event.order.symbol
+        card = self.active_charts.get(symbol)
+        if card is None:
+            return
+        markers = self._fill_markers_by_symbol.setdefault(symbol, [])
+        markers.append(order_filled_marker(event))
+        card.set_script_markers(_FILL_MARKERS_KEY, markers)
 
     # ================================================================== #
     # FSM Hooks

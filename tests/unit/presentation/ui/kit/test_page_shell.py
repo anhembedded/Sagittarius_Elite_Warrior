@@ -1,10 +1,23 @@
-"""Tests for `kit.page_shell.PageShell` — the four-band screen scaffold
-(header, optional context bar, workspace+rail, optional console)."""
+"""Tests for `kit.page_shell.PageShell` — the five-band screen scaffold
+(header, optional environment banner, optional context bar, workspace+rail,
+optional console)."""
 
 from __future__ import annotations
 
+import pytest
 from PySide6.QtWidgets import QLabel, QPushButton, QSplitter
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
+
+
+@pytest.fixture(autouse=True)
+def _reset_environment_banner_factory():
+    """`PageShell._environment_banner_factory` is process-wide class state
+    (`EPIC-021K` — deliberately, so no screen can forget to wire it, see
+    the classmethod's own docstring) — reset it around every test in this
+    file so one test's factory can never leak into the next."""
+    PageShell.set_environment_banner_factory(None)
+    yield
+    PageShell.set_environment_banner_factory(None)
 
 
 def test_header_shows_title_and_hides_subtitle_when_empty(qtbot):
@@ -117,3 +130,63 @@ def test_set_workspace_again_replaces_the_previous_pair(qtbot):
     splitter = shell._workspace_container.findChild(QSplitter)
     assert splitter.count() == 1
     assert splitter.widget(0) is new_main
+
+
+# ---------------------------------------------------------------------------
+# Environment banner (`EPIC-021K`) — no per-screen setter; a class-level
+# factory registered once by the composition root, applied automatically by
+# every `PageShell` built afterward.
+# ---------------------------------------------------------------------------
+
+
+def test_banner_band_is_hidden_when_no_factory_is_registered(qtbot):
+    shell = PageShell()
+    qtbot.addWidget(shell)
+    shell.show()
+
+    assert shell._banner_container.isVisible() is False
+
+
+def test_banner_band_shows_the_registered_factorys_widget(qtbot):
+    PageShell.set_environment_banner_factory(lambda: QLabel("⚠ testnet"))
+
+    shell = PageShell()
+    qtbot.addWidget(shell)
+    shell.show()
+
+    assert shell._banner_container.isVisible() is True
+    label = shell._banner_container.findChild(QLabel)
+    assert label is not None
+    assert label.text() == "⚠ testnet"
+
+
+def test_each_shell_gets_its_own_widget_instance_from_the_factory(qtbot):
+    """A `QWidget` cannot have two parents — the factory must be called
+    once per `PageShell`, not once total."""
+    built = []
+
+    def factory():
+        widget = QLabel("banner")
+        built.append(widget)
+        return widget
+
+    PageShell.set_environment_banner_factory(factory)
+
+    first = PageShell()
+    second = PageShell()
+    qtbot.addWidget(first)
+    qtbot.addWidget(second)
+
+    assert len(built) == 2
+    assert built[0] is not built[1]
+
+
+def test_registering_none_stops_new_shells_from_showing_a_banner(qtbot):
+    PageShell.set_environment_banner_factory(lambda: QLabel("banner"))
+    PageShell.set_environment_banner_factory(None)
+
+    shell = PageShell()
+    qtbot.addWidget(shell)
+    shell.show()
+
+    assert shell._banner_container.isVisible() is False

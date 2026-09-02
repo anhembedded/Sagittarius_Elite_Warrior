@@ -83,7 +83,7 @@ def _position(symbol="BTCUSDT") -> LivePosition:
     )
 
 
-def _order(symbol="BTCUSDT", status=OrderStatus.NEW) -> Order:
+def _order(symbol="BTCUSDT", status=OrderStatus.NEW, order_time=None) -> Order:
     return Order(
         client_order_id=ClientOrderId("SEW-a91f4c72e0b8"),
         symbol=symbol,
@@ -92,6 +92,7 @@ def _order(symbol="BTCUSDT", status=OrderStatus.NEW) -> Order:
         quantity=Decimal("0.5"),
         status=status,
         price=Decimal("64000.00"),
+        order_time=order_time,
     )
 
 
@@ -354,3 +355,48 @@ def test_position_changed_updates_the_positions_table(presenter, view):
     presenter._on_position_changed(PositionChangedEvent(position=position))
 
     view.set_positions.assert_called_once_with([build_position_row(position)])
+
+
+# ---------------------------------------------------------------------------
+# OrderFeed -> live-fill chart markers (`EPIC-021K` §2.3/§4 — "Integration:
+# OrderFilledEvent -> marker đúng vị trí thời gian/giá trên chart")
+# ---------------------------------------------------------------------------
+
+
+def test_order_filled_renders_a_fill_marker_on_the_active_symbols_chart(
+    presenter, view
+):
+    from datetime import UTC, datetime
+
+    from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+        order_filled_marker,
+    )
+
+    event = OrderFilledEvent(
+        order=_order(
+            symbol="BTCUSDT", order_time=datetime(2026, 9, 2, 12, 0, tzinfo=UTC)
+        ),
+        fill_price=Decimal("64000.00"),
+        fill_quantity=Decimal("0.5"),
+    )
+    assert presenter._active_symbol == "BTCUSDT"
+
+    presenter._on_order_filled(event)
+
+    view.chart.set_script_markers.assert_called_once_with(
+        "live_fills", [order_filled_marker(event)]
+    )
+
+
+def test_order_filled_for_a_different_symbol_does_not_touch_the_chart(presenter, view):
+    event = OrderFilledEvent(
+        order=_order(symbol="ETHUSDT"),
+        fill_price=Decimal("3000.00"),
+        fill_quantity=Decimal(1),
+    )
+    assert presenter._active_symbol != "ETHUSDT"
+
+    presenter._on_order_filled(event)
+
+    view.chart.set_script_markers.assert_not_called()
+    assert presenter._fill_markers_by_symbol["ETHUSDT"] != []

@@ -58,7 +58,8 @@ class TradingView(BaseView):
     like every other screen in this app.
 
     @details Header carries the Enable/Disable toggle; context bar carries
-    the chart's symbol picker and the current status line; workspace is
+    the chart's symbol picker, the current status line, and the
+    "DỪNG KHẨN CẤP" Emergency Stop button (`EPIC-021K`); workspace is
     the live chart above the Positions/Open Orders tables; rail is a
     small session-stats card; console is the standard `AppLogPanel`.
 
@@ -96,6 +97,7 @@ class TradingView(BaseView):
 
         self._symbol_combo.currentTextChanged.connect(view_model.requestSymbolChange)
         self._toggle_button.clicked.connect(view_model.requestToggle)
+        self._emergency_stop_button.clicked.connect(view_model.requestEmergencyStop)
 
         view_model.symbolOptionsChanged.connect(
             lambda: self._apply_symbol_options(view_model.symbolOptions)
@@ -228,6 +230,14 @@ class TradingView(BaseView):
         self._status_label.setObjectName("lblTradingStatus")
         self._status_label.setWordWrap(True)
         row.addWidget(self._status_label, 1)
+
+        self._emergency_stop_button = StyledButton(
+            "DỪNG KHẨN CẤP", role=StyleRole.DANGER_BUTTON
+        )
+        self._emergency_stop_button.setObjectName("btnEmergencyStop")
+        self._emergency_stop_button.setFixedHeight(32)
+        self._emergency_stop_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        row.addWidget(self._emergency_stop_button)
 
         return bar
 

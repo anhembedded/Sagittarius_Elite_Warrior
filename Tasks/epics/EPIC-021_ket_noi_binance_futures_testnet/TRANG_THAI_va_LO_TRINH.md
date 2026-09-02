@@ -7,27 +7,27 @@
 
 ## 1. Một đoạn tóm tắt
 
-**11/13 task EPIC xong, cộng `BOT-124`. Màn hình Giao dịch (`EPIC-021I`) đã dựng xong và chạy
-được — bảng đường đặt lệnh giờ có UI thật, không chỉ CLI.**
+**12/13 task EPIC xong, cộng `BOT-124`. Màn hình Giao dịch (`EPIC-021I`) và banner môi trường +
+Emergency Stop + trade marker (`EPIC-021K`) đã dựng xong và chạy được.**
 
-> **Cập nhật 2026-09-02 (sau khi build `EPIC-021I`):** dòng tóm tắt/Kanban/Gantt bên dưới vẽ
-> trạng thái **trước** khi `I` xong — chưa vẽ lại toàn bộ sơ đồ, chỉ sửa số liệu ở bảng này cho
-> đúng sự thật. `EPIC-021I`'s "kết quả xây dựng" đầy đủ nằm ở
-> [`completed/EPIC-021I_man_giao_dich_moi.md`](completed/EPIC-021I_man_giao_dich_moi.md) §6.
+> **Cập nhật 2026-09-02 (sau khi build `EPIC-021K`):** dòng Kanban/Gantt bên dưới vẽ trạng thái
+> **trước** khi `K` xong — chưa vẽ lại toàn bộ sơ đồ, chỉ sửa số liệu ở bảng này cho đúng sự thật.
+> `EPIC-021K`'s "kết quả xây dựng" đầy đủ nằm ở
+> [`completed/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md`](completed/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) §6.
 
 Phần **nguy hiểm** (ký request, gửi lệnh thật, nghe sàn báo lệnh khớp, 3 rào an toàn + 4 hạn
-mức) đã xong từ trước. `EPIC-021I` đóng nốt phần **nhìn thấy được**: một màn hình mới (sổ lệnh,
-vị thế, công tắc bật/tắt giao dịch, chart trực tiếp). Còn lại `K` (banner môi trường + Emergency
-Stop + trade marker) và `M` (chart vốn realtime), cả hai giờ chặn bởi `I` đã xong, không còn gì
-ngăn bắt đầu.
+mức) đã xong từ trước. `EPIC-021I` đóng phần **nhìn thấy được**: một màn hình mới (sổ lệnh, vị
+thế, công tắc bật/tắt giao dịch, chart trực tiếp). `EPIC-021K` đóng nốt phần **xuyên suốt cả 5
+màn**: biết mình đang ở môi trường nào, một nút dừng khẩn cấp thật, và lệnh khớp hiện lên chart.
+Còn lại `M` (chart vốn realtime), đã hết chặn bởi `I`, không còn gì ngăn bắt đầu.
 
 | | |
 | :--- | :--- |
-| **Xong** | 11 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) · mở `BUG-086` |
-| **Còn lại** | 2 task EPIC — `K`/`M`, không còn gì chặn |
-| **Đường găng** | `EPIC-021K`/`EPIC-021M` (song song được, cả hai đã hết chặn) |
+| **Xong** | 12 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) · mở `BUG-086` |
+| **Còn lại** | 1 task EPIC — `M`, không còn gì chặn |
+| **Đường găng** | `EPIC-021M` (đã hết chặn) |
 | **Chặn ngoài code** | Không còn |
-| **Cổng bắt buộc** | ✅ PASS — xem `EPIC-021I` §6.5 cho lần chạy gần nhất |
+| **Cổng bắt buộc** | ✅ PASS — xem `EPIC-021K` §6.3 cho lần chạy gần nhất |
 
 ---
 
@@ -40,7 +40,7 @@ flowchart TB
   classDef blocked fill:#3d1f1f,stroke:#c96a6a,color:#fadada,rx:5,ry:5
   classDef waiting fill:#1f2c3d,stroke:#5a8ac9,color:#dae7fa,rx:5,ry:5
 
-  subgraph DONE["✅ XONG (11)"]
+  subgraph DONE["✅ XONG (13)"]
     direction TB
     L["L · Đảo chiều qml→screens<br/><i>đóng BUG-082</i>"]
     A["A · Venue + client factory<br/><i>đóng BUG-081</i>"]
@@ -51,19 +51,15 @@ flowchart TB
     F["F · Adapter Futures + dry-run"]
     G["G · ExecuteOrder + hạn mức<br/><i>lệnh thật đầu tiên</i>"]
     H["H · User Data Stream + OrderFeed"]
+    I["I · Màn hình Giao dịch<br/><i>mở BUG-086</i>"]
     J["J · Tier testnet + fake server"]
+    K["K · Banner + Emergency Stop + marker"]
     T124["BOT-124 · Trích DataTable dùng chung<br/><i>420→253 dòng, 0 assert sửa</i>"]
   end
 
   subgraph READY["🟢 SẴN SÀNG BẮT ĐẦU (1)"]
     direction TB
-    I["I · Màn hình Giao dịch<br/><i>hết chặn — mock duyệt + DataTable xong</i>"]
-  end
-
-  subgraph BLOCKED["🔴 ĐANG BỊ CHẶN (2)"]
-    direction TB
-    K["K · Banner + Emergency Stop + marker<br/><i>chặn bởi I</i>"]
-    M["M · Chart vốn realtime<br/><i>chặn bởi I</i>"]
+    M["M · Chart vốn realtime<br/><i>hết chặn</i>"]
   end
 
   subgraph WAIT["⏸️ CHỜ NGOÀI CODE (0)"]
@@ -71,9 +67,8 @@ flowchart TB
     MOCK["Mockup — đã duyệt 2026-09-02<br/><i>xong</i>"]
   end
 
-  class L,A,B,C,D,E,F,G,H,J,T124 done
-  class I ready
-  class K,M blocked
+  class L,A,B,C,D,E,F,G,H,I,J,K,T124 done
+  class M ready
   class MOCK done
 ```
 
@@ -81,12 +76,11 @@ flowchart TB
 
 ## 3. Đồ thị phụ thuộc — đường găng đỏ
 
-Không phải mọi thứ còn lại đều nối tiếp nhau. `K` và `M` **song song được** sau khi `I` xong.
+Chỉ còn `M`, đã hết chặn kể từ khi `I` xong.
 
 ```mermaid
 flowchart LR
   classDef done fill:#0f3d2e,stroke:#2f9e6e,color:#d7f5e6
-  classDef todo fill:#3d1f1f,stroke:#c96a6a,color:#fadada
   classDef ready fill:#3d3410,stroke:#c9a227,color:#fdf3d0
 
   A["A"] --> B["B"] --> D["D"]
@@ -100,11 +94,10 @@ flowchart LR
   I --> K["K"]
   I --> M["M"]
 
-  class A,B,C,D,E,F,G,H,J,L,T124 done
-  class I ready
-  class K,M todo
+  class A,B,C,D,E,F,G,H,J,L,T124,K done
+  class M ready
 
-  linkStyle 9,10 stroke:#c96a6a,stroke-width:3px
+  linkStyle 14 stroke:#c9a227,stroke-width:3px
 ```
 
 `J` là nhánh cụt có chủ ý — nó là **hạ tầng kiểm thử**, không chặn ai. `L` cũng vậy, chỉ chặn `I`.
@@ -224,13 +217,16 @@ pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly
 
 ## 7. Nước đi tiếp theo
 
-`EPIC-021I` (màn Giao dịch) đã xong 2026-09-02 — xem §6 file của chính nó cho danh sách file thật
-và phạm vi đã cắt. Cột `THỜI GIAN` của bảng Lệnh chờ dùng giờ của sàn (`Order.order_time`), đúng
-quyết định đã chốt; bảng dựng trên `DataTable` dùng chung (`BOT-124`).
+`EPIC-021I` (màn Giao dịch) và `EPIC-021K` (banner + Emergency Stop + trade marker) đã xong
+2026-09-02 — xem §6 của mỗi file cho danh sách file thật và phạm vi đã cắt. Cột `THỜI GIAN` của
+bảng Lệnh chờ dùng giờ của sàn (`Order.order_time`), đúng quyết định đã chốt; bảng dựng trên
+`DataTable` dùng chung (`BOT-124`); Dev Board và màn Giao dịch giờ đều vẽ marker lệnh khớp trên
+chart, qua `OrderFeed`.
 
 | # | Việc | Vì sao | Chặn bởi |
 | :-: | :--- | :--- | :--- |
-| 1 | `K` và `M` **song song** | Cả hai chỉ chặn bởi `I`, giờ đã xong. `M` còn cần đọc `"B"` (số dư) trong `ACCOUNT_UPDATE` — hiện đang bị vứt đi | — hết chặn |
+| 1 | `M` — chart vốn realtime | Chỉ chặn bởi `I`, giờ đã xong. Cần đọc `"B"` (số dư) trong `ACCOUNT_UPDATE` — hiện đang bị vứt đi | — hết chặn |
 
-`BUG-086` (mở khi build `I`) không chặn `K`/`M` — chỉ ảnh hưởng độ tươi của bảng Vị thế trên màn
-Giao dịch, không liên quan banner/Emergency Stop/chart vốn.
+`BUG-086` (mở khi build `I`) không chặn `M` — chỉ ảnh hưởng độ tươi của bảng Vị thế trên màn Giao
+dịch, không liên quan chart vốn. `EPIC-021K`'s phạm vi đã cắt (script E2E thủ công cho Mốc 2, fake-
+server integration test riêng cho Emergency Stop) không chặn `M` — xem `EPIC-021K` §6.2 cho lý do.

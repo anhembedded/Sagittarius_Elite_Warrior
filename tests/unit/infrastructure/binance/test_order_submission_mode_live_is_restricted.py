@@ -1,8 +1,10 @@
-"""`EPIC-021F`/`EPIC-021G` — `OrderSubmissionMode.LIVE` may only ever be
-referenced as a real expression (not a docstring/comment mention) from
-`ExecuteOrderCommandHandler` — the one place in this app allowed to
-construct `FuturesTradingClient` with `LIVE` (`EPIC-021G` §2.1: no
-shortcut from anywhere else down to a real order).
+"""`EPIC-021F`/`EPIC-021G`/`EPIC-021K` — `OrderSubmissionMode.LIVE` may only
+ever be referenced as a real expression (not a docstring/comment mention)
+from `ExecuteOrderCommandHandler` or `EmergencyStopCommandHandler` — the
+only two places in this app allowed to construct `FuturesTradingClient`
+with `LIVE` (`EPIC-021G` §2.1: no shortcut from anywhere else down to a
+real order; `EPIC-021K` §2.2 lifts the same restriction for exactly one
+more file — an emergency close/cancel needs the same real client).
 
 @details Scans by `ast` for an `Attribute` node
 (`OrderSubmissionMode.LIVE` used as a value — a constructor argument, a
@@ -13,8 +15,8 @@ Mirrors `test_only_the_session_factory_constructs_binance_client.py`'s
 shape (`EPIC-021A`).
 
 Originally a total ban (`EPIC-021F`, when nothing had a legitimate reason
-to submit a real order yet) — `EPIC-021G` is the task that lifts it for
-exactly one file, per its own task file §3.
+to submit a real order yet) — `EPIC-021G` is the task that lifted it for
+the first file, per its own task file §3; `EPIC-021K` is the second.
 """
 
 from __future__ import annotations
@@ -24,14 +26,21 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SCANNED_DIRS = (_REPO_ROOT / "src", _REPO_ROOT / "scripts")
-_ALLOWED_FILE = (
+_ALLOWED_FILES = (
     _REPO_ROOT
     / "src"
     / "application"
     / "use_cases"
     / "trading"
     / "execute_order"
-    / "handler.py"
+    / "handler.py",
+    _REPO_ROOT
+    / "src"
+    / "application"
+    / "use_cases"
+    / "trading"
+    / "emergency_stop"
+    / "handler.py",
 )
 
 
@@ -55,11 +64,12 @@ def _files_referencing_live_mode() -> list[Path]:
     return hits
 
 
-def test_only_execute_order_handler_uses_live_submission_mode() -> None:
+def test_only_the_two_allowlisted_handlers_use_live_submission_mode() -> None:
     hits = _files_referencing_live_mode()
-    assert hits == [_ALLOWED_FILE], (
-        f"OrderSubmissionMode.LIVE referenced outside ExecuteOrderCommandHandler: "
-        f"{[str(p.relative_to(_REPO_ROOT)) for p in hits if p != _ALLOWED_FILE]}"
+    assert hits == sorted(_ALLOWED_FILES), (
+        "OrderSubmissionMode.LIVE referenced outside ExecuteOrderCommandHandler/"
+        "EmergencyStopCommandHandler: "
+        f"{[str(p.relative_to(_REPO_ROOT)) for p in hits if p not in _ALLOWED_FILES]}"
     )
 
 
