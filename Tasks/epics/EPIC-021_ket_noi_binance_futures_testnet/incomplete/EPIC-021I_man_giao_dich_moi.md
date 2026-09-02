@@ -48,6 +48,10 @@ lấy từ code thật.
 > **Đã có mockup (2026-09-01).** User đã dựng xong bản thiết kế và sẽ cung cấp khi bắt tay vào
 > task này. **Hỏi user trước, đừng tự sinh lại bằng prompt trên** — prompt đó giờ chỉ còn là bản
 > ghi các ràng buộc đã đặt ra, không phải bước cần chạy lại.
+>
+> **Cập nhật 2026-09-02 — review mockup trạng thái A:** thiếu chart giá realtime và chart vốn.
+> Prompt yêu cầu vẽ bổ sung: [`PROMPT_cap_nhat_mock_them_chart.md`](../design/PROMPT_cap_nhat_mock_them_chart.md).
+> Chart giá vào task này (§2.2b); chart vốn tách sang [`EPIC-021M`](EPIC-021M_chart_von_realtime.md).
 
 Mockup là **đầu vào**, không phải hợp đồng: widget vẫn lấy từ `kit/` và `qml/` đã có, không dựng
 widget mới chỉ vì mockup vẽ khác. Đối chiếu mockup với ảnh chụp app thật **sau** khi dựng xong —
@@ -149,10 +153,22 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 | **Vị thế** | ✅ Mọi cột map được. `HƯỚNG` = dấu của `position_amt`, `KHỐI LƯỢNG` = `abs(position_amt)` — **suy ra**, không phải field lưu sẵn |
 | **Lệnh chờ** | ⚠️ Cột `THỜI GIAN` **không có nguồn**. `Order` không có field thời gian, và `map_futures_order_payload_to_order()` không đọc `time`/`updateTime` của Binance |
 
-`THỜI GIAN` cần một quyết định, không phải một dòng render: hoặc (a) thêm field vào `Order` + map
-từ payload sàn, hoặc (b) chỉ ghi thời điểm hiển thị lúc gửi lệnh ở tầng presentation. Chọn (a) nếu
-muốn thời gian **của sàn**; chọn (b) nếu chỉ cần đối chiếu với nhật ký bên dưới. Phải chốt trước
-khi dựng `OpenOrdersTable`.
+**Chốt: dùng thời gian của sàn** — thêm field vào `Order`, map từ `time`/`updateTime` của payload.
+
+Lý do chọn (a) thay vì đóng dấu thời gian ở tầng presentation lúc gửi:
+
+- ADR §4 đã đặt nguyên tắc "sự thật đến từ sàn". Một cột thời gian do app tự đóng dấu sẽ **lệch**
+  với thời gian sàn ghi nhận, và lệch bao nhiêu thì không ai biết — đúng loại nửa-sự-thật mà epic
+  này tồn tại để loại bỏ.
+- `LivePosition` **đã có** `updated_at` lấy từ `updateTime` của sàn. Để `Order` không có gì tương
+  đương là bất đối xứng vô cớ giữa hai entity cạnh nhau.
+- Khi đối chiếu một lệnh với nhật ký hoặc với lịch sử trên web Binance, thứ khớp được là **thời
+  gian sàn**, không phải giờ máy người dùng.
+
+Chi phí: thêm một field `Optional` vào `Order` (frozen dataclass) + một dòng trong
+`map_futures_order_payload_to_order`. Field phải là **optional**: `Order` được app dựng **trước
+khi** gửi, lúc đó sàn chưa cấp thời gian nào — cùng lý do `LivePosition.updated_at` có nhánh
+fallback.
 
 ## 4. Kiểm thử
 
