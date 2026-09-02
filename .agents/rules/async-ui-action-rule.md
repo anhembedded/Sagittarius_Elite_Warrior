@@ -6,14 +6,10 @@ trigger: on_demand
 
 # ASYNC UI ACTION OWNERSHIP & CANCELLATION
 
-Đọc file này khi: sửa Presenter, submit việc lên `IThreadManager`, xử lý
-`CancellationToken`, viết slot nhận kết quả từ worker nền, hoặc tách một
-Presenter quá tải thành Coordinator.
-
-Đây là mảng đã sinh ra nhiều bug thật nhất trong repo (`BUG-018`, `BUG-023`,
-`BUG-031`, `BUG-033`, `BUG-041`) — đọc hết trước khi sửa, đừng đọc lướt.
-
----
+Đọc khi: sửa Presenter, submit việc lên `IThreadManager`, xử lý `CancellationToken`, viết slot
+nhận kết quả từ worker nền, hoặc tách một Presenter quá tải thành Coordinator. Đây là mảng đã sinh
+ra nhiều bug thật nhất trong repo (`BUG-018`, `BUG-023`, `BUG-031`, `BUG-033`, `BUG-041`) — đọc hết
+trước khi sửa, đừng đọc lướt.
 
 ## 1. Action Ownership & Cancellation
 
@@ -22,11 +18,7 @@ Presenter quá tải thành Coordinator.
 - Cancellation MUST be cooperative and idempotent. A cancelled action may not later publish success/failure UI state, and its final transition must restore the appropriate pre-action lifecycle state rather than blindly forcing `IDLE`.
 - Long-running use cases MUST propagate cancellation checks through every computational pass, including validation/split passes. Progress events must be throttled or coalesced before reaching the UI thread.
 
----
-
-## 2. Coordinator Pattern cho một Presenter quá tải
-
-Áp dụng khi một Presenter quá tải (`PRO-001`/`PRO-002`, `EPIC-003`):
+## 2. Coordinator Pattern cho một Presenter quá tải (`PRO-001`/`PRO-002`, `EPIC-003`)
 
 - When a Presenter's background-action logic outgrows one file, split it by feature slice into `<name>/coordinators/<feature>_coordinator.py` — a Presenter-owned, constructor-injected class (`thread_manager`, `dispatcher`, and the specific `view_model` signals it handles), never something that resolves its own container or is independently discoverable/DI-registered. This is a distinct, sanctioned category from plain `logic/`/`helpers/` modules — those stay pure functions/stateless transforms; a Coordinator may hold state and submit its own background work.
 - **A Coordinator MUST NOT own independent FSM state or its own action-ownership/cancellation bookkeeping** (the `action_id`/generation, stale-callback fencing, and cooperative-cancellation contract in §1). That bookkeeping has exactly one owner — the Presenter (or a single shared tracker the Presenter owns and hands to every Coordinator) — never reimplemented per-Coordinator. Coordinators that each keep their own action-id counter are the same "Single-Scope Cohesion" violation as scattering one FSM's Enum/matrix across files: one lifecycle fragmented into several sources of truth that can silently disagree. Before splitting a Presenter that already has bespoke action-ownership machinery (e.g. `BacktestPresenter`'s `_next_action_id`/`_active_action`/`BacktestActionKind`), extract that machinery into one shared, reusable tracker first — do not duplicate it across the new Coordinator files.

@@ -9,14 +9,10 @@ patterns:
 
 # UI & PRESENTATION LAYER RULES
 
-**Phân vai với [`qml-rule.md`](qml-rule.md):** file đó là nguồn chuẩn đầy đủ cho
-mọi thứ *bên trong* file `.qml`. File này giữ **tầng presentation nói chung** —
-bố cục thư mục Python, quy ước preview, thuật ngữ, tài sản icon — cộng một mục
-lục ngắn các tiêu chuẩn QML. Mục đầu dưới đây là **chỉ mục**, không phải bản
-sao. Coordinator Pattern nằm ở
-[`async-ui-action-rule.md`](async-ui-action-rule.md).
-
----
+**Phân vai với [`qml-rule.md`](qml-rule.md):** file đó là nguồn chuẩn đầy đủ cho mọi thứ *bên
+trong* file `.qml`. File này giữ **tầng presentation nói chung** — bố cục thư mục Python, quy ước
+preview, thuật ngữ, tài sản icon — cộng một **chỉ mục** (không phải bản sao) các tiêu chuẩn QML.
+Coordinator Pattern nằm ở [`async-ui-action-rule.md`](async-ui-action-rule.md).
 
 - **QML Standards & Declarative Guidelines (Strict Adherence to `qml-rule.md`):**
   > QtWidgets is the app-wide default; QML is opt-in **per widget** (a modal body, a panel),
