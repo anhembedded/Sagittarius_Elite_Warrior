@@ -7,23 +7,27 @@
 
 ## 1. Một đoạn tóm tắt
 
-**10/13 task EPIC xong, cộng `BOT-124`. Toàn bộ đường đặt lệnh đã chạy được — nhưng chạy bằng CLI, chưa có gì trên UI.**
+**11/13 task EPIC xong, cộng `BOT-124`. Màn hình Giao dịch (`EPIC-021I`) đã dựng xong và chạy
+được — bảng đường đặt lệnh giờ có UI thật, không chỉ CLI.**
 
-Nói cách khác: phần **nguy hiểm** (ký request, gửi lệnh thật, nghe sàn báo lệnh khớp, 3 rào an
-toàn + 4 hạn mức) **đã xong và đã có bằng chứng chạy thật**. Phần **còn lại** là làm cho nó
-*nhìn thấy được* — một màn hình mới, một banner, hai cái chart.
+> **Cập nhật 2026-09-02 (sau khi build `EPIC-021I`):** dòng tóm tắt/Kanban/Gantt bên dưới vẽ
+> trạng thái **trước** khi `I` xong — chưa vẽ lại toàn bộ sơ đồ, chỉ sửa số liệu ở bảng này cho
+> đúng sự thật. `EPIC-021I`'s "kết quả xây dựng" đầy đủ nằm ở
+> [`completed/EPIC-021I_man_giao_dich_moi.md`](completed/EPIC-021I_man_giao_dich_moi.md) §6.
 
-Nếu anh thấy mất phương hướng, gần như chắc chắn vì lý do này: 6 lệnh CLI chạy được nhưng mở app
-lên thì **không thấy gì khác** so với tuần trước. Đó không phải thiếu sót — thứ tự này là cố ý
-(`README.md` §4: xếp theo rủi ro tăng dần, làm phần nguy hiểm trước khi có UI để bấm nhầm).
+Phần **nguy hiểm** (ký request, gửi lệnh thật, nghe sàn báo lệnh khớp, 3 rào an toàn + 4 hạn
+mức) đã xong từ trước. `EPIC-021I` đóng nốt phần **nhìn thấy được**: một màn hình mới (sổ lệnh,
+vị thế, công tắc bật/tắt giao dịch, chart trực tiếp). Còn lại `K` (banner môi trường + Emergency
+Stop + trade marker) và `M` (chart vốn realtime), cả hai giờ chặn bởi `I` đã xong, không còn gì
+ngăn bắt đầu.
 
 | | |
 | :--- | :--- |
-| **Xong** | 10 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) |
-| **Còn lại** | 3 task EPIC — `I` sẵn sàng bắt đầu, `K`/`M` chặn bởi `I` |
-| **Đường găng** | `EPIC-021I` → (`EPIC-021K`, `EPIC-021M`) |
-| **Chặn ngoài code** | Không còn — mock đã duyệt (`EPIC-021I` §3.4) |
-| **Cổng bắt buộc** | ✅ PASS — 3325 passed / 0 failed |
+| **Xong** | 11 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) · mở `BUG-086` |
+| **Còn lại** | 2 task EPIC — `K`/`M`, không còn gì chặn |
+| **Đường găng** | `EPIC-021K`/`EPIC-021M` (song song được, cả hai đã hết chặn) |
+| **Chặn ngoài code** | Không còn |
+| **Cổng bắt buộc** | ✅ PASS — xem `EPIC-021I` §6.5 cho lần chạy gần nhất |
 
 ---
 
@@ -218,15 +222,15 @@ pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly
 
 ---
 
-## 7. Hai nước đi tiếp theo
+## 7. Nước đi tiếp theo
 
-| # | Việc | Vì sao trước | Chặn bởi |
+`EPIC-021I` (màn Giao dịch) đã xong 2026-09-02 — xem §6 file của chính nó cho danh sách file thật
+và phạm vi đã cắt. Cột `THỜI GIAN` của bảng Lệnh chờ dùng giờ của sàn (`Order.order_time`), đúng
+quyết định đã chốt; bảng dựng trên `DataTable` dùng chung (`BOT-124`).
+
+| # | Việc | Vì sao | Chặn bởi |
 | :-: | :--- | :--- | :--- |
-| 1 | [`EPIC-021I`](incomplete/EPIC-021I_man_giao_dich_moi.md) — màn Giao dịch | Là thứ duy nhất biến 6 lệnh CLI thành một màn nhìn được. Chặn cả `K` lẫn `M`. Mock đã duyệt, `DataTable` dùng chung đã có ([`BOT-124`](../../completed/BOT-124_trich_datatable_dung_chung_cho_qml.md), xong 02/09) | — hết chặn |
-| 2 | `K` và `M` **song song** | Chỉ cần `I`. `M` còn cần đọc `"B"` (số dư) trong `ACCOUNT_UPDATE` — hiện đang bị vứt đi | `I` |
+| 1 | `K` và `M` **song song** | Cả hai chỉ chặn bởi `I`, giờ đã xong. `M` còn cần đọc `"B"` (số dư) trong `ACCOUNT_UPDATE` — hiện đang bị vứt đi | — hết chặn |
 
-Hai quyết định từng treo chờ đã chốt theo `ONBOARDING.md` §7 (agent tự quyết khi không rơi vào 3
-nhóm phải hỏi) — cột `THỜI GIAN` dùng giờ của sàn; bảng dựng trên `DataTable` dùng chung
-(`BOT-124`, đã xong). Mock vòng 3 cũng đã duyệt (`EPIC-021I` §3.4) — 4 control + số liệu + hành
-động đủ cả; 5 trạng thái ở §2 tổng quát hoá từ pattern có sẵn, không mở vòng mock thứ 4.
-Anh vẫn lật lại được, nhưng chúng **không còn chặn** ai nữa.
+`BUG-086` (mở khi build `I`) không chặn `K`/`M` — chỉ ảnh hưởng độ tươi của bảng Vị thế trên màn
+Giao dịch, không liên quan banner/Emergency Stop/chart vốn.

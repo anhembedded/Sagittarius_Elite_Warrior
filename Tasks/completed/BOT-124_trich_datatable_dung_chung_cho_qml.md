@@ -2,7 +2,7 @@
 
 - **Trạng thái:** ✅ **Hoàn thành (2026-09-02)**
 - **Repo:** Elite
-- **Chặn:** [`EPIC-021I`](../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021I_man_giao_dich_moi.md) §3.2.2 — hết chặn, `EPIC-021I` dựng 2 bảng mới trên `DataTable` này
+- **Chặn:** [`EPIC-021I`](../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021I_man_giao_dich_moi.md) §3.2.2 — hết chặn, `EPIC-021I` dựng 2 bảng mới trên `DataTable` này
 
 ---
 

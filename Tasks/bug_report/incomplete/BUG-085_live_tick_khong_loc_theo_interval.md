@@ -60,5 +60,5 @@ cấu hình live strategy — tức đúng lúc `EPIC-021I` cho phép chọn chi
 3. **Regression test viết trước**, unit thuần, không cần mạng: nạp xen kẽ `1m` và `5m` cùng
    symbol vào handler → engine chỉ được nhận đúng các nến `1m`. Test này phải **đỏ** trước khi
    sửa.
-4. UI chọn khung thời gian: [`EPIC-021I`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021I_man_giao_dich_moi.md)
+4. UI chọn khung thời gian: [`EPIC-021I`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021I_man_giao_dich_moi.md)
    §3.3 điểm 4. `TimeframePicker` dùng chung đã tồn tại (`EPIC-015` Phase 1) — không phải viết mới.

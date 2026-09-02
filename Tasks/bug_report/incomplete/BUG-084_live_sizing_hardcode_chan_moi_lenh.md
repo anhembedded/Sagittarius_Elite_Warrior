@@ -3,7 +3,7 @@
 **Reported date:** 2026-09-02
 **Severity:** 🟠 **P2** — không crash, không log `ERROR`. Bot chỉ **im lặng không giao dịch**.
 **Status:** 🔴 Open — root cause **đã xác nhận bằng chạy thật** (§3), hướng sửa gắn với
-[`EPIC-021I`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021I_man_giao_dich_moi.md) §3.3 điểm 1.
+[`EPIC-021I`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021I_man_giao_dich_moi.md) §3.3 điểm 1.
 
 ---
 
@@ -60,7 +60,7 @@ vận hành, hai trường hợp đó **trông giống hệt nhau**: màn hình 
 1. **Không sửa bằng cách nới hạn mức.** 500 USDT/lệnh là con số an toàn user đã chốt
    (`EPIC-021G` §2.2); nó không phải thứ bị sai ở đây.
 2. **Sizing phải thành control thật**, đúng như `EPIC-021G` §6.7 đã dự liệu (*"control UI thật
-   thuộc `EPIC-021I`"*) — xem [`EPIC-021I`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021I_man_giao_dich_moi.md)
+   thuộc `EPIC-021I`"*) — xem [`EPIC-021I`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021I_man_giao_dich_moi.md)
    §3.3 điểm 1. Trước khi có UI, tối thiểu là 2 config key (`trading.live_sizing_percent`,
    `trading.live_leverage`) để không phải sửa code mới đổi được.
 3. **Lý do bị chặn phải nhìn thấy được** — `EPIC-021I` §3.3 điểm 12. Một lệnh bị hạn mức chặn là

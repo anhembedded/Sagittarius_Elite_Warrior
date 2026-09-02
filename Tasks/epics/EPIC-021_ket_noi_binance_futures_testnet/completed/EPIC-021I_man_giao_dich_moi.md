@@ -1,11 +1,9 @@
 # EPIC-021I — Màn hình **Giao dịch** mới (sổ lệnh, vị thế, công tắc)
 
-- **Trạng thái:** 🟢 **Sẵn sàng bắt đầu (2026-09-02)** — mock đã duyệt (§3.4: 3/4 mục đạt;
-  5 trạng thái ở §2 prompt vòng 3 tổng quát hoá từ pattern có sẵn trong mock, không cần vòng mock
-  thứ 4). [`BOT-124`](../../../completed/BOT-124_trich_datatable_dung_chung_cho_qml.md) đã xong —
-  `DataTable.qml` dùng chung sẵn sàng cho 2 bảng của màn này. Không còn gì chặn code.
+- **Trạng thái:** ✅ **Đã xong (2026-09-02)** — xem §6 "Kết quả xây dựng" cho danh sách file thật,
+  phạm vi đã cắt có chủ đích, và 1 bug (`BUG-086`) phát hiện khi build.
 - **Repo:** Elite
-- **Chặn bởi:** `EPIC-021H` ✅ · `BOT-124` ✅ · **Chặn:** `EPIC-021K`
+- **Chặn bởi:** `EPIC-021H` ✅ · `BOT-124` ✅ · **Mở khoá:** `EPIC-021K`
 
 ---
 
