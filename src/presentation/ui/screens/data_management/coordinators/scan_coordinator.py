@@ -106,7 +106,21 @@ class ScanCoordinator:
     def run_auto_discover(
         self, cancellation_token: CancellationToken | None = None
     ) -> None:
-        """Background worker: Scans all existing SQLite shards on disk and populates the table."""
+        """Background worker: populates the symbol picker and reports what
+        already exists on disk, without opening a single shard's database
+        session.
+
+        BOT-120 — this used to also dispatch `ScanAllDatabasesQuery` and
+        `PruneEmptyShardsCommand` here, opening one SQLite session per shard
+        on disk (up to the full vault) on every screen open — exactly the
+        same work the "Scan All Shards & Timeframes" button does on demand.
+        On an install still carrying pre-`BUG-078` stray empty shards this
+        took ~27s before the user touched anything. Reading the vault's
+        actual contents is now an explicit action (`run_scan_all`); this
+        method only lists shard *names* — `IMarketDataRepository.
+        list_available_shards()` is a directory listing, not a database
+        open — so it stays free to run automatically.
+        """
         token = cancellation_token or self.create_cancellation_token()
         action = self._tracker.begin_action(
             DataManagementActionKind.AUTO_DISCOVER,
@@ -127,15 +141,6 @@ class ScanCoordinator:
                     f"Exchange symbols not available at auto-discover: {err}"
                 )
 
-            query = ScanAllDatabasesQuery(
-                symbols=[],
-                intervals=[],
-                cancellation_requested=token.is_cancelled,
-            )
-            results: list[DatabaseStatusDTO] = self._dispatcher.dispatch(
-                ScanAllDatabasesQuery, query
-            )
-
             if not self._tracker.is_current_pending(
                 action.action_id, DataManagementActionKind.AUTO_DISCOVER
             ):
@@ -146,24 +151,16 @@ class ScanCoordinator:
                 )
                 return
 
-            for item in results:
-                self._ui_status_table_signal(
-                    StatusRowUpdate(
-                        symbol=item.symbol,
-                        first_record=item.first_record,
-                        last_record=item.last_record,
-                        total_candles=item.total_candles,
-                        status_text=item.status_text,
-                        interval=item.interval,
-                    )
-                )
-
-            if results:
+            local_shard_count = len(self._market_data_repo.list_available_shards())
+            if local_shard_count:
                 logger.info(
-                    f"[storage-vault] Auto-discovered {len(results)} active database tables."
+                    f"[storage-vault] {local_shard_count} local shard(s) on disk, "
+                    "not yet scanned this session."
                 )
                 self._ui_log_signal(
-                    f"Auto-discovered {len(results)} active database tables."
+                    f"Storage Vault: {local_shard_count} tệp dữ liệu cục bộ trên đĩa, "
+                    "chưa quét trong phiên này. Nhấn 'Scan All Shards & Timeframes' "
+                    "để tải trạng thái."
                 )
             else:
                 logger.info(
@@ -172,7 +169,6 @@ class ScanCoordinator:
                 self._ui_log_signal(
                     "Storage Vault trống (chưa có cơ sở dữ liệu cục bộ). Hãy chọn cặp giao dịch và nhấn Sync để tải dữ liệu."
                 )
-            self._prune_empty_shards(token)
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: log without crashing
             logger.error(f"[storage-vault] Auto-discovery error: {exc}")
@@ -189,8 +185,10 @@ class ScanCoordinator:
         (`get_session()`'s create-on-first-use), so a symbol that was only ever
         checked — never actually synced — could leave a permanent empty `.db`
         file. That side effect is fixed at the source now, but existing installs
-        may already carry stray empty shards; auto-discover self-heals them here,
-        every time it runs, since it's already paying for a full vault scan.
+        may already carry stray empty shards; a full scan self-heals them here,
+        every time one runs, since it's already paying for a full vault scan
+        (BOT-120 — moved from auto-discover into `run_scan_all`, the explicit
+        action, so opening every shard's session only happens on request).
         Never touches a shard that holds even one kline in any interval
         (`IMarketDataRepository.has_any_klines`) — data loss is not possible.
         """
@@ -262,7 +260,12 @@ class ScanCoordinator:
         intervals: list[str],
         cancellation_token: CancellationToken | None = None,
     ) -> None:
-        """Background worker: dispatches ScanAllDatabasesQuery."""
+        """Background worker: dispatches ScanAllDatabasesQuery, then prunes any
+        empty shards it turned up.
+
+        BOT-120 — this is now the only place that opens a database session per
+        shard; it runs on the explicit "Scan All Shards & Timeframes" action,
+        never automatically on screen open (see `run_auto_discover`)."""
         token = cancellation_token or self.create_cancellation_token()
         action = self._tracker.begin_action(
             DataManagementActionKind.SCAN_ALL,
@@ -313,6 +316,7 @@ class ScanCoordinator:
                 self._ui_log_signal(
                     "Full scan complete. No database tables found in Storage Vault."
                 )
+            self._prune_empty_shards(token)
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
             self._ui_error_log_signal(f"Error scanning databases: {exc}")
