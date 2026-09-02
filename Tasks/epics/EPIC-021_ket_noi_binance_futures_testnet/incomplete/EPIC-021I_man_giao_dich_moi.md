@@ -153,9 +153,21 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 | **Vị thế** | ✅ Mọi cột map được. `HƯỚNG` = dấu của `position_amt`, `KHỐI LƯỢNG` = `abs(position_amt)` — **suy ra**, không phải field lưu sẵn |
 | **Lệnh chờ** | ⚠️ Cột `THỜI GIAN` **không có nguồn**. `Order` không có field thời gian, và `map_futures_order_payload_to_order()` không đọc `time`/`updateTime` của Binance |
 
-**Chốt: dùng thời gian của sàn** — thêm field vào `Order`, map từ `time`/`updateTime` của payload.
+> ⛔ **CHƯA CHỐT — chờ user quyết định.** Bản trước của file này ghi "Chốt: dùng thời gian của
+> sàn". Đó là **agent tự quyết**, không phải quyết định của user, và vi phạm
+> [`domain-truth-rule.md`](../../../../.agents/rules/domain-truth-rule.md)'s *Counterintuitive
+> Story Check* ("stop and report … **before finalizing the design**. Do not invent a hidden user
+> intent"). Đã hoàn tác 2026-09-02. Phần dưới là **đề xuất kèm bằng chứng**, không phải kết luận.
 
-Lý do chọn (a) thay vì đóng dấu thời gian ở tầng presentation lúc gửi:
+**Hai phương án, phải chốt trước khi dựng `OpenOrdersTable`:**
+
+| | (a) Thời gian của **sàn** | (b) Đóng dấu ở **presentation** lúc gửi |
+| :--- | :--- | :--- |
+| Nguồn | `time`/`updateTime` trong payload Binance | `datetime.now()` của máy chạy app |
+| Chi phí | Thêm 1 field `Optional` vào `Order` (frozen dataclass) + 1 dòng trong `map_futures_order_payload_to_order` | Không đụng domain |
+| Đối chiếu với lịch sử trên web Binance | Khớp | **Không khớp** (lệch bao nhiêu không ai biết) |
+
+**Đề xuất của agent: (a)**, vì ba bằng chứng sau — nhưng **user quyết**:
 
 - ADR §4 đã đặt nguyên tắc "sự thật đến từ sàn". Một cột thời gian do app tự đóng dấu sẽ **lệch**
   với thời gian sàn ghi nhận, và lệch bao nhiêu thì không ai biết — đúng loại nửa-sự-thật mà epic
@@ -165,10 +177,8 @@ Lý do chọn (a) thay vì đóng dấu thời gian ở tầng presentation lúc
 - Khi đối chiếu một lệnh với nhật ký hoặc với lịch sử trên web Binance, thứ khớp được là **thời
   gian sàn**, không phải giờ máy người dùng.
 
-Chi phí: thêm một field `Optional` vào `Order` (frozen dataclass) + một dòng trong
-`map_futures_order_payload_to_order`. Field phải là **optional**: `Order` được app dựng **trước
-khi** gửi, lúc đó sàn chưa cấp thời gian nào — cùng lý do `LivePosition.updated_at` có nhánh
-fallback.
+Nếu chọn (a): field **bắt buộc là `Optional`** — `Order` được app dựng **trước khi** gửi, lúc đó
+sàn chưa cấp thời gian nào (cùng lý do `LivePosition.updated_at` có nhánh fallback).
 
 ## 4. Kiểm thử
 
