@@ -46,6 +46,7 @@ def scan_fixture():
     thread_manager = Mock()
     tracker = ActionOwnershipTracker[DataManagementActionKind, object, UIMode]()
     market_data_repo = Mock()
+    market_data_repo.list_available_shards.return_value = []
 
     signals = {
         "ui_log": Mock(),
@@ -56,6 +57,7 @@ def scan_fixture():
         "ui_stats_refresh": Mock(),
         "ui_unlock": Mock(),
         "ui_symbol_options": Mock(),
+        "ui_known_shard_count": Mock(),
         "transition_fsm": Mock(return_value=True),
         "get_fsm_state": Mock(return_value=UIMode.IDLE),
     }
@@ -74,6 +76,7 @@ def scan_fixture():
         ui_stats_refresh_signal=signals["ui_stats_refresh"],
         ui_unlock_signal=signals["ui_unlock"],
         ui_symbol_options_signal=signals["ui_symbol_options"],
+        ui_known_shard_count_signal=signals["ui_known_shard_count"],
         transition_fsm=signals["transition_fsm"],
         get_current_fsm_state=signals["get_fsm_state"],
     )
@@ -106,6 +109,10 @@ def test_scan_coordinator_auto_discover_never_opens_a_shard_session(scan_fixture
         "1 tệp dữ liệu cục bộ" in str(call.args[0])
         for call in signals["ui_log"].call_args_list
     )
+    # Regression: the empty-state placeholder cannot tell "genuinely empty
+    # vault" apart from "vault has data, not scanned yet" from rowCount alone
+    # (both are 0) — it needs this count reported separately, every time.
+    signals["ui_known_shard_count"].assert_called_once_with(1)
     signals["ui_stats_refresh"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
@@ -124,6 +131,7 @@ def test_scan_coordinator_auto_discover_reports_an_empty_vault_truthfully(
     assert any(
         "trống" in str(call.args[0]) for call in signals["ui_log"].call_args_list
     )
+    signals["ui_known_shard_count"].assert_called_once_with(0)
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
 
@@ -186,6 +194,25 @@ def test_scan_coordinator_scan_all_dispatches_prune_and_reports_removals(
         "2 shard" in str(call.args[0]) for call in signals["ui_log"].call_args_list
     )
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+
+
+def test_scan_coordinator_scan_all_refreshes_known_shard_count_after_prune(
+    scan_fixture,
+):
+    """Regression: a scan that finds nothing and prunes every stray shard it
+    turned up must not leave the empty-state placeholder still quoting a
+    stale pre-prune count — refresh it from a fresh listing afterwards."""
+    coordinator, dispatcher, market_data_repo, _tracker, signals = scan_fixture
+    market_data_repo.list_available_shards.return_value = []  # post-prune
+
+    dispatcher.dispatch.side_effect = [
+        [],  # ScanAllDatabasesQuery
+        PruneEmptyShardsResult(removed_symbols=["PHANTOM1"], scanned_count=1),
+    ]
+
+    coordinator.run_scan_all([], ["1m"])
+
+    signals["ui_known_shard_count"].assert_called_once_with(0)
 
 
 def test_scan_coordinator_scan_all_survives_prune_failure(scan_fixture):

@@ -52,11 +52,13 @@ ColumnLayout {
         }
     }
 
-    // Ports the old `_empty_label`'s exact message and trigger
-    // (`model.rowCount() == 0`, the same filtered count `vm.rowCount`
-    // reports here) — so an empty vault and a search with zero matches
-    // both read the same as they did before this widget replaced the
-    // QListView-based table.
+    // Ports the old `_empty_label`'s trigger (`model.rowCount() == 0`, the
+    // same filtered count `vm.rowCount` reports here) — a search with zero
+    // matches still reads this way. BOT-120 follow-up (BUG-087): an
+    // unfiltered empty table no longer means "vault has nothing" — the
+    // vault may hold shards nobody has scanned into a row this session —
+    // so `emptyText` branches on `knownShardCount`, the one fact this
+    // widget has that `rowCount` cannot provide.
     DataTable {
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -74,7 +76,11 @@ ColumnLayout {
         ]
         rowsModel: vm ? vm.rowsModel : null
         isEmpty: vm ? vm.rowCount === 0 : false
-        emptyText: "Storage Vault trống. Hãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu."
+        emptyText: (vm && vm.knownShardCount > 0)
+            ? ("Storage Vault có " + vm.knownShardCount + " tệp dữ liệu cục bộ trên đĩa, "
+               + "chưa quét trong phiên này. Nhấn 'Scan All Shards & Timeframes' hoặc "
+               + "chọn Symbol & Timeframe rồi nhấn 'Sync' để xem chi tiết.")
+            : "Storage Vault trống. Hãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu."
         rowDelegate: Component {
             DatabaseStatusRow {
                 width: ListView.view.width

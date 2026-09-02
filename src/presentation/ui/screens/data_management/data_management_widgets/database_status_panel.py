@@ -94,6 +94,9 @@ class DatabaseStatusPanel(Panel):
     def set_actions_enabled(self, enabled: bool) -> None:
         self._vm.setActionsEnabled(enabled)
 
+    def set_known_shard_count(self, count: int) -> None:
+        self._vm.setKnownShardCount(count)
+
     @property
     def root_object(self) -> QObject:
         """The loaded QML root, for tests to `findChild`/`qml_item` into by
