@@ -9,10 +9,6 @@ patterns:
 
 # TRUTHFUL DATA, VALIDATION & SNAPSHOT SEMANTICS
 
-> **Nguồn (2026-08-25):** nội dung dưới đây được **chuyển nguyên văn** từ
-> `code-rule.md` khi file đó được tách theo abstraction level. Không có quy tắc
-> nào bị đổi nghĩa, thêm hay bớt trong lần tách này — chỉ đổi chỗ ở.
-
 Nguyên tắc xuyên suốt: **hệ thống không được nói dối về thứ nó thật sự đã làm.**
 Một con số hợp lệ về mặt kiểu dữ liệu vẫn có thể là lời nói dối về nghiệp vụ —
 và trong một bot giao dịch, đó là tiền thật.
