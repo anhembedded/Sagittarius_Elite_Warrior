@@ -23,6 +23,9 @@ from unittest.mock import MagicMock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
@@ -87,7 +90,14 @@ def session_state():
 
 
 @pytest.fixture
-def container(mock_config, mock_dispatcher, mock_thread_manager, session_state):
+def equity_recorder():
+    return EquityCurveRecorder()
+
+
+@pytest.fixture
+def container(
+    mock_config, mock_dispatcher, mock_thread_manager, session_state, equity_recorder
+):
     c = MagicMock()
 
     def resolve(interface):
@@ -99,6 +109,8 @@ def container(mock_config, mock_dispatcher, mock_thread_manager, session_state):
             return mock_thread_manager
         if interface is TradingSessionState:
             return session_state
+        if interface is EquityCurveRecorder:
+            return equity_recorder
         return MagicMock()
 
     c.resolve.side_effect = resolve

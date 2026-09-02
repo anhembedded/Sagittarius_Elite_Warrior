@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
 from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
     InFlightSyncGuard,
 )
@@ -387,6 +390,12 @@ class BinanceBotModule(BaseModule):
         # regardless of trading being enabled. Nothing calls `.start()` on
         # it except that handler's own successful-enable path — the app
         # never opens this stream merely by booting.
+        # `EPIC-021M` — registered here, not lazily inside the lambda below,
+        # so the Trading screen's equity chart can resolve the *same*
+        # instance regardless of whether the stream has started yet (both
+        # sides read/write through one shared singleton).
+        app.container.singleton(EquityCurveRecorder, EquityCurveRecorder())
+
         app.container.singleton(
             IUserDataStream,
             lambda c: FuturesUserDataStream(
@@ -396,6 +405,7 @@ class BinanceBotModule(BaseModule):
                 credentials_provider,
                 c.resolve(IMarketMetadataProvider),
                 c.resolve(TradingSessionState),
+                c.resolve(EquityCurveRecorder),
             ),
         )
 

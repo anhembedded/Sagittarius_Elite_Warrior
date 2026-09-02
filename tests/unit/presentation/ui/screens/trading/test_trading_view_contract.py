@@ -145,9 +145,9 @@ def test_no_view_member_is_reached_by_string() -> None:
     )
 
 
-def test_the_contract_is_exactly_four_members() -> None:
+def test_the_contract_is_exactly_five_members() -> None:
     """A count, so a two-sided drift cannot cancel itself out."""
-    assert len(_declared_members(ITradingView)) == 4
+    assert len(_declared_members(ITradingView)) == 5
 
 
 @pytest.mark.usefixtures("qapp")

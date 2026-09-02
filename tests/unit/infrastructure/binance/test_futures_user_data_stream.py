@@ -18,8 +18,14 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_prov
     CredentialsSource,
     ResolvedCredentials,
 )
+from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
+    EquitySampledEvent,
 )
 from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
     OrderFilledEvent,
@@ -60,8 +66,12 @@ def _order_trade_update(**overrides: object) -> dict:
     return {"e": "ORDER_TRADE_UPDATE", "o": o}
 
 
-def _account_update(positions: list[dict]) -> dict:
-    return {"e": "ACCOUNT_UPDATE", "a": {"m": "ORDER", "B": [], "P": positions}}
+def _account_update(positions: list[dict], balances: list[dict] | None = None) -> dict:
+    return {
+        "e": "ACCOUNT_UPDATE",
+        "E": 1564745798939,
+        "a": {"m": "ORDER", "B": balances or [], "P": positions},
+    }
 
 
 def _live_position(symbol: str = "BTCUSDT") -> LivePosition:
@@ -80,6 +90,7 @@ def _live_position(symbol: str = "BTCUSDT") -> LivePosition:
 
 def _stream(
     trading_client: Mock | None = None,
+    equity_recorder: EquityCurveRecorder | None = None,
 ) -> tuple[FuturesUserDataStream, MemoryEventBus]:
     event_bus = MemoryEventBus()
     session_state = TradingSessionState()
@@ -90,6 +101,7 @@ def _stream(
         Mock(),
         Mock(),
         session_state,
+        equity_recorder if equity_recorder is not None else EquityCurveRecorder(),
     )
     # The real socket loop sets this up itself in `_run_stream`, right
     # after resolving credentials — tests exercise `_handle_message`
@@ -176,6 +188,48 @@ def test_unrecognized_event_type_is_ignored() -> None:
     assert seen == []
 
 
+def test_account_update_with_a_balance_records_and_publishes_one_equity_sample() -> (
+    None
+):
+    """`EPIC-021M` §2.1 — recorder and event bus stay in sync: exactly one
+    sample lands in both, from the same message."""
+    recorder = EquityCurveRecorder()
+    stream, event_bus = _stream(
+        trading_client=Mock(get_positions=Mock(return_value=[])),
+        equity_recorder=recorder,
+    )
+    seen: list = []
+    event_bus.on(EquitySampledEvent, seen.append)
+
+    stream._handle_message(
+        _account_update(
+            [{"s": "BTCUSDT", "pa": "0", "up": "0"}],
+            balances=[{"a": "USDT", "wb": "1000.00", "cw": "1000.00"}],
+        )
+    )
+
+    assert len(seen) == 1
+    assert recorder.samples == [seen[0].sample]
+    assert seen[0].sample.wallet_balance == Decimal("1000.00")
+
+
+def test_account_update_with_no_balance_records_nothing() -> None:
+    """No `'B'` entry -> no sample, not a garbage zero one (`EPIC-021M`
+    §4)."""
+    recorder = EquityCurveRecorder()
+    stream, event_bus = _stream(
+        trading_client=Mock(get_positions=Mock(return_value=[])),
+        equity_recorder=recorder,
+    )
+    seen: list = []
+    event_bus.on(EquitySampledEvent, seen.append)
+
+    stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0.002"}]))
+
+    assert seen == []
+    assert recorder.samples == []
+
+
 async def test_run_stream_with_no_credentials_returns_without_crashing() -> None:
     """`FuturesUserDataStream` must stay safely constructible with no
     credentials configured (same reasoning as `FuturesTradingClient.
@@ -194,6 +248,7 @@ async def test_run_stream_with_no_credentials_returns_without_crashing() -> None
         credentials_provider,
         Mock(),
         TradingSessionState(),
+        EquityCurveRecorder(),
     )
     # Would raise/hang if it tried to construct an AsyncClient with no keys.
     await stream._run_stream(CancellationToken())

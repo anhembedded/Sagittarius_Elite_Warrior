@@ -7,27 +7,27 @@
 
 ## 1. Một đoạn tóm tắt
 
-**12/13 task EPIC xong, cộng `BOT-124`. Màn hình Giao dịch (`EPIC-021I`) và banner môi trường +
-Emergency Stop + trade marker (`EPIC-021K`) đã dựng xong và chạy được.**
+**13/13 task EPIC xong, cộng `BOT-124`. Toàn bộ epic đã dựng xong.**
 
-> **Cập nhật 2026-09-02 (sau khi build `EPIC-021K`):** dòng Kanban/Gantt bên dưới vẽ trạng thái
-> **trước** khi `K` xong — chưa vẽ lại toàn bộ sơ đồ, chỉ sửa số liệu ở bảng này cho đúng sự thật.
-> `EPIC-021K`'s "kết quả xây dựng" đầy đủ nằm ở
-> [`completed/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md`](completed/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) §6.
+> **Cập nhật 2026-09-02 (sau khi build `EPIC-021M`):** dòng Kanban/Gantt bên dưới vẽ trạng thái
+> **trước** khi `M` xong — chưa vẽ lại toàn bộ sơ đồ, chỉ sửa số liệu ở bảng này cho đúng sự thật.
+> `EPIC-021M`'s "kết quả xây dựng" đầy đủ nằm ở
+> [`completed/EPIC-021M_chart_von_realtime.md`](completed/EPIC-021M_chart_von_realtime.md) §6.
 
 Phần **nguy hiểm** (ký request, gửi lệnh thật, nghe sàn báo lệnh khớp, 3 rào an toàn + 4 hạn
 mức) đã xong từ trước. `EPIC-021I` đóng phần **nhìn thấy được**: một màn hình mới (sổ lệnh, vị
-thế, công tắc bật/tắt giao dịch, chart trực tiếp). `EPIC-021K` đóng nốt phần **xuyên suốt cả 5
+thế, công tắc bật/tắt giao dịch, chart trực tiếp). `EPIC-021K` đóng phần **xuyên suốt cả 5
 màn**: biết mình đang ở môi trường nào, một nút dừng khẩn cấp thật, và lệnh khớp hiện lên chart.
-Còn lại `M` (chart vốn realtime), đã hết chặn bởi `I`, không còn gì ngăn bắt đầu.
+`EPIC-021M` đóng nốt phần cuối: đường vốn (equity) realtime trên chính màn Giao dịch, lấy mẫu
+trực tiếp từ `ACCOUNT_UPDATE` — không request thêm, không bịa điểm.
 
 | | |
 | :--- | :--- |
-| **Xong** | 12 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) · mở `BUG-086` |
-| **Còn lại** | 1 task EPIC — `M`, không còn gì chặn |
-| **Đường găng** | `EPIC-021M` (đã hết chặn) |
+| **Xong** | 13 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) · mở `BUG-086` |
+| **Còn lại** | 0 task EPIC — epic đã xong |
+| **Đường găng** | — |
 | **Chặn ngoài code** | Không còn |
-| **Cổng bắt buộc** | ✅ PASS — xem `EPIC-021K` §6.3 cho lần chạy gần nhất |
+| **Cổng bắt buộc** | ✅ PASS — xem `EPIC-021M` §6.4 cho lần chạy gần nhất |
 
 ---
 
@@ -40,7 +40,7 @@ flowchart TB
   classDef blocked fill:#3d1f1f,stroke:#c96a6a,color:#fadada,rx:5,ry:5
   classDef waiting fill:#1f2c3d,stroke:#5a8ac9,color:#dae7fa,rx:5,ry:5
 
-  subgraph DONE["✅ XONG (13)"]
+  subgraph DONE["✅ XONG (14)"]
     direction TB
     L["L · Đảo chiều qml→screens<br/><i>đóng BUG-082</i>"]
     A["A · Venue + client factory<br/><i>đóng BUG-081</i>"]
@@ -54,12 +54,8 @@ flowchart TB
     I["I · Màn hình Giao dịch<br/><i>mở BUG-086</i>"]
     J["J · Tier testnet + fake server"]
     K["K · Banner + Emergency Stop + marker"]
+    M["M · Chart vốn realtime"]
     T124["BOT-124 · Trích DataTable dùng chung<br/><i>420→253 dòng, 0 assert sửa</i>"]
-  end
-
-  subgraph READY["🟢 SẴN SÀNG BẮT ĐẦU (1)"]
-    direction TB
-    M["M · Chart vốn realtime<br/><i>hết chặn</i>"]
   end
 
   subgraph WAIT["⏸️ CHỜ NGOÀI CODE (0)"]
@@ -67,8 +63,7 @@ flowchart TB
     MOCK["Mockup — đã duyệt 2026-09-02<br/><i>xong</i>"]
   end
 
-  class L,A,B,C,D,E,F,G,H,I,J,K,T124 done
-  class M ready
+  class L,A,B,C,D,E,F,G,H,I,J,K,M,T124 done
   class MOCK done
 ```
 
@@ -76,12 +71,11 @@ flowchart TB
 
 ## 3. Đồ thị phụ thuộc — đường găng đỏ
 
-Chỉ còn `M`, đã hết chặn kể từ khi `I` xong.
+Toàn bộ epic đã xong — không còn task nào đang chờ.
 
 ```mermaid
 flowchart LR
   classDef done fill:#0f3d2e,stroke:#2f9e6e,color:#d7f5e6
-  classDef ready fill:#3d3410,stroke:#c9a227,color:#fdf3d0
 
   A["A"] --> B["B"] --> D["D"]
   A --> C["C"] --> E["E"] --> F["F"]
@@ -94,10 +88,7 @@ flowchart LR
   I --> K["K"]
   I --> M["M"]
 
-  class A,B,C,D,E,F,G,H,J,L,T124,K done
-  class M ready
-
-  linkStyle 14 stroke:#c9a227,stroke-width:3px
+  class A,B,C,D,E,F,G,H,J,L,T124,K,M done
 ```
 
 `J` là nhánh cụt có chủ ý — nó là **hạ tầng kiểm thử**, không chặn ai. `L` cũng vậy, chỉ chặn `I`.
@@ -154,6 +145,11 @@ nhịp độ: **code nhanh hơn việc kiểm chứng code**.
 ---
 
 ## 5. Gantt — phần còn lại (ước lượng, không phải cam kết)
+
+> ✅ **Đã xong thật, cả `I`/`K`/`M` — cùng ngày 2026-09-02.** Ước lượng dưới đây tính bằng **ngày**
+> (`I` 5 ngày, `K` 3 ngày, `M` 2 ngày); thực tế cả ba xong trong cùng một phiên làm việc, tính bằng
+> **giờ**. Giữ nguyên không xoá — cùng lý do §4 giữ nguyên Gantt thật: một ước lượng sai nói lên
+> điều thật về cách ước lượng task UI trong repo này, không phải thứ để xoá đi cho gọn.
 
 > ⚠️ **Đây là ước lượng, không có dữ liệu thật để dựa vào.** Cơ sở duy nhất: `EPIC-020` (`PageShell`,
 > quy mô tương đương `I`). `BOT-124` — quy mô từng dùng làm cơ sở ước lượng — đã **xong thật**
@@ -217,16 +213,20 @@ pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly
 
 ## 7. Nước đi tiếp theo
 
-`EPIC-021I` (màn Giao dịch) và `EPIC-021K` (banner + Emergency Stop + trade marker) đã xong
-2026-09-02 — xem §6 của mỗi file cho danh sách file thật và phạm vi đã cắt. Cột `THỜI GIAN` của
-bảng Lệnh chờ dùng giờ của sàn (`Order.order_time`), đúng quyết định đã chốt; bảng dựng trên
-`DataTable` dùng chung (`BOT-124`); Dev Board và màn Giao dịch giờ đều vẽ marker lệnh khớp trên
-chart, qua `OrderFeed`.
+**Cả 13 task con + `BOT-124` đã xong — epic này không còn task nào để làm.** `EPIC-021I` (màn Giao
+dịch), `EPIC-021K` (banner + Emergency Stop + trade marker), và `EPIC-021M` (chart vốn realtime)
+đều xong 2026-09-02 — xem §6 của mỗi file cho danh sách file thật và phạm vi đã cắt. Cột `THỜI GIAN`
+của bảng Lệnh chờ dùng giờ của sàn (`Order.order_time`); bảng dựng trên `DataTable` dùng chung
+(`BOT-124`); Dev Board và màn Giao dịch đều vẽ marker lệnh khớp trên chart qua `OrderFeed`; màn
+Giao dịch giờ có thêm chart vốn realtime, lấy mẫu từ `ACCOUNT_UPDATE` qua `EquityFeed`.
 
-| # | Việc | Vì sao | Chặn bởi |
-| :-: | :--- | :--- | :--- |
-| 1 | `M` — chart vốn realtime | Chỉ chặn bởi `I`, giờ đã xong. Cần đọc `"B"` (số dư) trong `ACCOUNT_UPDATE` — hiện đang bị vứt đi | — hết chặn |
+Việc còn lại không phải code:
 
-`BUG-086` (mở khi build `I`) không chặn `M` — chỉ ảnh hưởng độ tươi của bảng Vị thế trên màn Giao
-dịch, không liên quan chart vốn. `EPIC-021K`'s phạm vi đã cắt (script E2E thủ công cho Mốc 2, fake-
-server integration test riêng cho Emergency Stop) không chặn `M` — xem `EPIC-021K` §6.2 cho lý do.
+- `BUG-086` (mở khi build `I`) vẫn mở — `PositionChangedEvent` không phát khi vị thế đóng về 0,
+  chỉ ảnh hưởng độ tươi của bảng Vị thế trên màn Giao dịch. Không chặn bất cứ epic con nào, để dành
+  cho một lượt sửa riêng.
+- Phạm vi đã cắt có chủ đích ở `K` (script E2E thủ công cho Mốc 2, fake-server integration test
+  riêng cho Emergency Stop — `EPIC-021K` §6.2) và `M` (rail chưa hiển thị số dư USDT — `EPIC-021M`
+  §6.3) đều là việc để dành, không phải lỗ hổng chặn ai.
+- **Mốc chạy được thật** (không phải test) cần credentials testnet thật và một máy có mạng ra
+  ngoài — sandbox này không có, xem mỗi task file's §5 cho lệnh chính xác.

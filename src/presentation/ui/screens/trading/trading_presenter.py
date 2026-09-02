@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
@@ -16,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop 
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
     EnableTradingBlockReason,
     EnableTradingCommand,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
+    EquitySampledEvent,
 )
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
@@ -37,6 +43,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_symbol,
     default_symbol_options,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_feed import EquityFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed import (
     MarketTickFeed,
 )
@@ -56,6 +63,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from ...common.action_ownership_tracker import ActionOutcome, ActionOwnershipTracker
 from .coordinators.chart_coordinator import ChartCoordinator
+from .equity_chart_adapter import equity_sample_to_candle, equity_samples_to_candles
 from .trading_view_model import TradingViewModel
 
 if TYPE_CHECKING:
@@ -123,6 +131,10 @@ class TradingPresenter(BasePresenter):
        seeded from `EnableTradingResult` on a successful enable and kept
        live via `OrderFeed` (`OrderFilledEvent`/`PositionChangedEvent`),
        the sanctioned single subscriber per `architecture-rule.md` §6.
+    4. The equity chart (`EPIC-021M`) — seeded on construction from
+       `EquityCurveRecorder`'s backlog (a DI singleton that outlives this
+       screen), then appended to live via `EquityFeed`
+       (`EquitySampledEvent`), the same single-subscriber shape as #3.
 
     **Known gap, not fixed here** (see `EPIC-021I`'s own task write-up):
     `futures_user_data_stream.py::_handle_account_update()` does not
@@ -160,6 +172,9 @@ class TradingPresenter(BasePresenter):
         self._session_state: TradingSessionState = container.resolve(
             TradingSessionState
         )
+        self._equity_recorder: EquityCurveRecorder = container.resolve(
+            EquityCurveRecorder
+        )
 
         config_values = self.config.get_all()
         self._active_symbol = default_symbol(config_values, FALLBACK_SYMBOL)
@@ -181,6 +196,13 @@ class TradingPresenter(BasePresenter):
         self.view.chart.toolbar.set_active(self._active_interval)
         self.view.chart.toolbar.sig_timeframe_changed.connect(
             self._on_timeframe_changed
+        )
+        # `EPIC-021M` — the recorder outlives this screen (a DI singleton
+        # written by `FuturesUserDataStream` regardless of whether Trading
+        # is even open), so a re-navigation back to this screen recovers
+        # the full backlog immediately rather than starting the chart empty.
+        self.view.equity_chart.render_historical_data(
+            equity_samples_to_candles(self._equity_recorder.samples)
         )
 
         self._toggle_tracker: ActionOwnershipTracker[str, None, None] = (
@@ -261,6 +283,10 @@ class TradingPresenter(BasePresenter):
         self._order_feed = OrderFeed(self.event_bus, parent=self)
         self._order_feed.orderFilled.connect(self._on_order_filled)
         self._order_feed.positionChanged.connect(self._on_position_changed)
+        # `EPIC-021M` — one subscriber, this Presenter, same reasoning as
+        # `OrderFeed` above (see `equity_feed.py`'s own docstring).
+        self._equity_feed = EquityFeed(self.event_bus, parent=self)
+        self._equity_feed.equitySampled.connect(self._on_equity_sampled)
 
     @Slot(str)
     def _append_log(self, message: str) -> None:
@@ -579,4 +605,16 @@ class TradingPresenter(BasePresenter):
         self.view.chart.set_script_markers(
             _FILL_MARKERS_KEY,
             self._fill_markers_by_symbol.get(self._active_symbol, []),
+        )
+
+    # ================================================================== #
+    # Live equity chart (`EPIC-021M`) — one point per `ACCOUNT_UPDATE` that
+    # carries a balance, account-wide (no per-symbol filtering, unlike the
+    # fill markers above).
+    # ================================================================== #
+
+    def _on_equity_sampled(self, event: EquitySampledEvent) -> None:
+        """`EquityFeed.equitySampled` handler — already on the main thread."""
+        self.view.equity_chart.append_closed_candle(
+            *equity_sample_to_candle(event.sample)
         )

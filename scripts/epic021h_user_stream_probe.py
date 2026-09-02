@@ -37,6 +37,9 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryE
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 from sagittarius_engine.utils.path_utils import PathUtils
 
+from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
@@ -115,6 +118,7 @@ async def _run(seconds: float) -> None:
         credentials_provider,
         metadata_provider,
         TradingSessionState(),
+        EquityCurveRecorder(),
     )
 
     print(f"Listening for {seconds:.0f}s — Ctrl+C to stop early.")

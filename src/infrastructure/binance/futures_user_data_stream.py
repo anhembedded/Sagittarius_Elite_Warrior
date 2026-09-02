@@ -47,11 +47,17 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
 from Sagittarius_Elite_Warrior.src.application.services.position_state_reconciler import (
     reconcile_position_state,
 )
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
+    EquitySampledEvent,
 )
 from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
     OrderFilledEvent,
@@ -72,6 +78,7 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.user_data_event_parser
     ACCOUNT_UPDATE,
     ORDER_TRADE_UPDATE,
     account_update_changed_symbols,
+    account_update_equity_sample,
     fill_details,
     is_fill_execution,
     parse_order_trade_update,
@@ -104,6 +111,7 @@ class FuturesUserDataStream(IUserDataStream):
         credentials_provider: IExchangeCredentialsProvider,
         metadata_provider: IMarketMetadataProvider,
         session_state: TradingSessionState,
+        equity_recorder: EquityCurveRecorder,
     ) -> None:
         self._event_bus = event_bus
         self._task_manager = task_manager
@@ -111,6 +119,7 @@ class FuturesUserDataStream(IUserDataStream):
         self._credentials_provider = credentials_provider
         self._metadata_provider = metadata_provider
         self._session_state = session_state
+        self._equity_recorder = equity_recorder
         self._trading_client: ITradingClient | None = None
         self._task_handle: ITaskHandle | None = None
         self._token: CancellationToken | None = None
@@ -241,6 +250,20 @@ class FuturesUserDataStream(IUserDataStream):
             # loop never calls this until construction above has run.
             logger.error("ACCOUNT_UPDATE received before the stream was ready.")
             return
+
+        # `EPIC-021M` §2.1 — sampled from the same stream message, no extra
+        # request. `None` when this update carries no balance entry for the
+        # quote asset (e.g. a position-only update) — nothing to record.
+        equity_sample = account_update_equity_sample(payload)
+        if equity_sample is not None:
+            self._equity_recorder.record(equity_sample)
+            self._event_bus.emit(EquitySampledEvent(sample=equity_sample))
+            logger.info(
+                "ACCOUNT_UPDATE  equity  wallet %s  uPnL %s  total %s",
+                equity_sample.wallet_balance,
+                equity_sample.unrealized_pnl,
+                equity_sample.total,
+            )
 
         for symbol in account_update_changed_symbols(payload):
             positions = self._trading_client.get_positions(symbol)

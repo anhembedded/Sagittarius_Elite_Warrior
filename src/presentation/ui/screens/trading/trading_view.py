@@ -51,6 +51,10 @@ _TOGGLE_ON_TEXT = "Tắt giao dịch"
 _TOGGLE_OFF_TEXT = "Bật giao dịch"
 _TOGGLE_BUSY_TEXT = "Đang xử lý..."
 
+#: `EPIC-021M` — the equity chart's `ChartCard(symbol=...)` title; not a
+#: real trading symbol, just what `Card`'s header shows.
+_EQUITY_CHART_TITLE = "Vốn"
+
 
 class TradingView(BaseView):
     """
@@ -60,8 +64,9 @@ class TradingView(BaseView):
     @details Header carries the Enable/Disable toggle; context bar carries
     the chart's symbol picker, the current status line, and the
     "DỪNG KHẨN CẤP" Emergency Stop button (`EPIC-021K`); workspace is
-    the live chart above the Positions/Open Orders tables; rail is a
-    small session-stats card; console is the standard `AppLogPanel`.
+    the live price chart, the Positions/Open Orders tables, and the live
+    equity chart (`EPIC-021M`), stacked top to bottom; rail is a small
+    session-stats card; console is the standard `AppLogPanel`.
 
     Wiring mirrors `SettingsView`'s hand-rolled two-way binding: this
     screen has no QML host for its own top-level layout (only the two
@@ -75,7 +80,23 @@ class TradingView(BaseView):
         super().__init__(parent)
         self._view_model: TradingViewModel | None = None
         self.chart = ChartCard(FALLBACK_SYMBOL)
+        self.equity_chart = self._build_equity_chart()
         self._build_ui()
+
+    def _build_equity_chart(self) -> ChartCard:
+        """`EPIC-021M` §3 — a dedicated `ChartCard`, not a second mode on
+        `self.chart`: equity is account-level, not per-symbol, and the
+        two vary independently (switching the price chart's symbol must
+        never touch this one). The candle toolbar (timeframe picker) and
+        volume pane are meaningless for a series with no OHLC/volume of
+        its own — hidden rather than removed, so this stays a plain,
+        unmodified `ChartCard` (`EPIC-021M` §2.4's "dùng ChartCard").
+        """
+        card = ChartCard(_EQUITY_CHART_TITLE)
+        card.set_chart_type("line")
+        card.set_volume_visible(False)
+        card.toolbar.setVisible(False)
+        return card
 
     def set_view_model(
         self,
@@ -261,6 +282,7 @@ class TradingView(BaseView):
         tables_layout.addWidget(self._open_orders_panel, 1)
 
         layout.addWidget(tables_row, 1)
+        layout.addWidget(self.equity_chart, 1)
         return workspace
 
     def _build_rail(self) -> QWidget:

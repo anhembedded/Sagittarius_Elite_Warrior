@@ -5,6 +5,7 @@ response shape `futures_order_payload_mapper.py` parses."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -14,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.domain.trading.time_in_force import TimeInFor
 from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.user_data_event_parser import (
     account_update_changed_symbols,
+    account_update_equity_sample,
     fill_details,
     is_fill_execution,
     parse_order_trade_update,
@@ -159,3 +161,76 @@ class TestAccountUpdateChangedSymbols:
             "a": {"m": "ORDER", "B": [], "P": []},
         }
         assert account_update_changed_symbols(payload) == []
+
+
+class TestAccountUpdateEquitySample:
+    """`EPIC-021M` §2.1/§4."""
+
+    def test_reads_wallet_balance_and_sums_unrealized_pnl_across_positions(
+        self,
+    ) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1564745798939,
+            "E": 1564745798939,
+            "a": {
+                "m": "ORDER",
+                "B": [{"a": "USDT", "wb": "122624.12", "cw": "100.12"}],
+                "P": [
+                    {"s": "BTCUSDT", "pa": "0.002", "up": "-0.02"},
+                    {"s": "ETHUSDT", "pa": "1.5", "up": "3.75"},
+                ],
+            },
+        }
+
+        sample = account_update_equity_sample(payload)
+
+        assert sample is not None
+        assert sample.captured_at == datetime.fromtimestamp(1564745798.939, tz=UTC)
+        assert sample.wallet_balance == Decimal("122624.12")
+        assert sample.unrealized_pnl == Decimal("3.73")
+
+    def test_ignores_balances_for_assets_other_than_the_quote_asset(self) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1,
+            "E": 1,
+            "a": {
+                "m": "ORDER",
+                "B": [
+                    {"a": "BUSD", "wb": "999.00", "cw": "999.00"},
+                    {"a": "USDT", "wb": "500.00", "cw": "500.00"},
+                ],
+                "P": [],
+            },
+        }
+
+        sample = account_update_equity_sample(payload)
+
+        assert sample is not None
+        assert sample.wallet_balance == Decimal("500.00")
+
+    def test_no_matching_balance_entry_returns_none_not_a_garbage_sample(
+        self,
+    ) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1,
+            "E": 1,
+            "a": {"m": "ORDER", "B": [], "P": []},
+        }
+
+        assert account_update_equity_sample(payload) is None
+
+    def test_no_positions_section_still_yields_a_sample_with_zero_pnl(self) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1,
+            "E": 1,
+            "a": {"m": "ORDER", "B": [{"a": "USDT", "wb": "100.00", "cw": "100.00"}]},
+        }
+
+        sample = account_update_equity_sample(payload)
+
+        assert sample is not None
+        assert sample.unrealized_pnl == Decimal(0)

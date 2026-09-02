@@ -39,7 +39,7 @@ DEFAULT_VIEW_MODEL_CONTEXT_NAME = "viewModel"
 
 @runtime_checkable
 class ITradingView(Protocol):
-    """@brief The Trading screen's Presenter<->View contract — 4 members."""
+    """@brief The Trading screen's Presenter<->View contract — 5 members."""
 
     #: The single live chart this screen shows. `TradingPresenter` renders
     #: historical candles and live ticks onto it directly, on the main
@@ -49,6 +49,14 @@ class ITradingView(Protocol):
     #: port, only the attribute that reaches them. `ChartCoordinator`
     #: (the background worker) never touches `view` at all.
     chart: ChartCard
+
+    #: The live equity chart (`EPIC-021M`) — a second, independent
+    #: `ChartCard`; account-level, not per-symbol, so it never resets
+    #: when `chart`'s symbol changes. Fed the same way: `render_historical_data`
+    #: (construction-time backlog seed) / `append_closed_candle` (one point
+    #: per `EquitySampledEvent`), both from `TradingPresenter`'s own
+    #: main-thread-marshaled slots.
+    equity_chart: ChartCard
 
     def set_view_model(
         self,

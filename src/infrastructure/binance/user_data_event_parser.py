@@ -18,6 +18,7 @@ from decimal import Decimal
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
+from Sagittarius_Elite_Warrior.src.domain.trading.equity_sample import EquitySample
 from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
 from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus
 from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
@@ -33,6 +34,11 @@ ACCOUNT_UPDATE = "ACCOUNT_UPDATE"
 #: actual trade/fill, not merely a status transition (e.g. a plain `NEW`
 #: acknowledgement carries `x="NEW"`, not `"TRADE"`).
 _TRADE_EXECUTION_TYPE = "TRADE"
+
+#: The asset this app ever trades in — the only entry
+#: `account_update_equity_sample` reads out of a potentially multi-asset
+#: `"a"."B"` array (`EPIC-021M` §2.2).
+_QUOTE_ASSET = "USDT"
 
 
 def _decimal_or_none(raw: Any) -> Decimal | None:
@@ -101,3 +107,33 @@ def account_update_changed_symbols(payload: dict[str, Any]) -> list[str]:
     source of truth, not a partial streamed hint).
     """
     return [position["s"] for position in payload.get("a", {}).get("P", [])]
+
+
+def account_update_equity_sample(payload: dict[str, Any]) -> EquitySample | None:
+    """@brief `(wallet_balance, unrealized_pnl)` for `_QUOTE_ASSET`, from
+    one `ACCOUNT_UPDATE` — `None` when the payload carries no balance
+    entry for it (`EPIC-021M` §4: "không có 'B' -> không crash, không
+    sinh mẫu rác").
+
+    @details `unrealized_pnl` is the sum of every position's `"up"` in
+    `"a"."P"` — plain aggregation of what the payload already reports, not
+    `EquitySample.total`'s domain calculation (`wallet_balance +
+    unrealized_pnl`), which stays in the domain layer per `EPIC-021M`
+    §2.2. `captured_at` is the stream's own event time (`"E"`, ms),
+    matching `parse_order_trade_update`'s use of the exchange's own
+    timestamps over local wall-clock time.
+    """
+    balances = payload.get("a", {}).get("B", [])
+    balance = next((b for b in balances if b.get("a") == _QUOTE_ASSET), None)
+    if balance is None:
+        return None
+
+    positions = payload.get("a", {}).get("P", [])
+    unrealized_pnl = sum(
+        (Decimal(str(position["up"])) for position in positions), Decimal(0)
+    )
+    return EquitySample(
+        captured_at=datetime.fromtimestamp(payload["E"] / 1000, tz=UTC),
+        wallet_balance=Decimal(str(balance["wb"])),
+        unrealized_pnl=unrealized_pnl,
+    )
