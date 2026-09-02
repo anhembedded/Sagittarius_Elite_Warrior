@@ -1,6 +1,7 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🟡 Đang làm (10/13 task con)
+- **Trạng thái:** 🟡 Đang làm (10/13 task con) — xem
+  [`TRANG_THAI_va_LO_TRINH.md`](TRANG_THAI_va_LO_TRINH.md) cho Kanban, đồ thị phụ thuộc và Gantt
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be (**bản vẽ kế hoạch**, xem cảnh báo dưới)
