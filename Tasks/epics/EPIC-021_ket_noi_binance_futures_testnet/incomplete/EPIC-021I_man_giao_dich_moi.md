@@ -1,12 +1,11 @@
 # EPIC-021I — Màn hình **Giao dịch** mới (sổ lệnh, vị thế, công tắc)
 
-- **Trạng thái:** 🟡 **Mock đã duyệt (2026-09-02, §3.4)** — 3/4 mục đạt (control, số liệu,
-  hành động); 5 trạng thái ở §2 của prompt vòng 3 chưa có bản vẽ riêng, quyết định tổng quát hoá
-  từ pattern đã có trong chính mock (§3.4) thay vì mở vòng thứ 4. Đang chờ
-  [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) — component bảng
-  dùng chung — trước khi dựng 2 bảng của màn này.
+- **Trạng thái:** 🟢 **Sẵn sàng bắt đầu (2026-09-02)** — mock đã duyệt (§3.4: 3/4 mục đạt;
+  5 trạng thái ở §2 prompt vòng 3 tổng quát hoá từ pattern có sẵn trong mock, không cần vòng mock
+  thứ 4). [`BOT-124`](../../../completed/BOT-124_trich_datatable_dung_chung_cho_qml.md) đã xong —
+  `DataTable.qml` dùng chung sẵn sàng cho 2 bảng của màn này. Không còn gì chặn code.
 - **Repo:** Elite
-- **Chặn bởi:** `EPIC-021H` ✅ · `BOT-124` (đang làm) · **Chặn:** `EPIC-021K`
+- **Chặn bởi:** `EPIC-021H` ✅ · `BOT-124` ✅ · **Chặn:** `EPIC-021K`
 
 ---
 
@@ -157,7 +156,7 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 | `.../ui/screens/trading/i_trading_view.py` | **Mới** — hợp đồng Presenter↔View **tường minh** (§2.1 `architecture-rule.md`), kèm test hai chiều theo khuôn `EPIC-013B` |
 | `.../ui/screens/trading/preview.py` | **Mới** — `build_preview() -> QWidget`, **bắt buộc**, guard test chặn nếu thiếu (§3.2.4) |
 | `.../ui/screens/trading/coordinators/chart_coordinator.py` | **Mới** — nối `ChartCard` + đường chỉ báo chiến lược, theo khuôn `screens/dashboard/coordinators/indicator_coordinator.py` (§2.2b). **Không** giữ `action_id`/huỷ tác vụ của riêng nó (§3.2.3) |
-| `src/presentation/ui/qml/DataTable/` | **Chặn bởi [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md)** — bảng vị thế/lệnh chờ dựng **trên** component dùng chung đó, ở thư viện dùng chung, **không** ở `screens/trading/qml/` (§3.2.2) |
+| `src/presentation/ui/qml/DataTable/` | **Đã có** ([`BOT-124`](../../../completed/BOT-124_trich_datatable_dung_chung_cho_qml.md)) — bảng vị thế/lệnh chờ dựng **trên** component dùng chung đó, ở thư viện dùng chung, **không** ở `screens/trading/qml/` (§3.2.2) |
 | `src/presentation/ui/app_bootstrapper.py` | **+1 dòng** trong danh sách screen module |
 
 ### 3.1 Hai lỗ hổng dữ liệu phát hiện khi đọc mockup (2026-09-02)
@@ -252,7 +251,7 @@ khác `objectName`, kiểu delegate, tên property bề rộng cột, và câu c
 Viết thêm `PositionsTable.qml` + `OpenOrdersTable.qml` sẽ thành bản sao thứ **4** và **5** của
 đúng khung đó. §0.2 nói rõ đây là lúc phải tổng quát hoá.
 
-**✅ CHỐT: hướng A — trích một `DataTable` dùng chung, làm ở [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) trước, `EPIC-021I` tiêu thụ nó.**
+**✅ CHỐT: hướng A — trích một `DataTable` dùng chung, làm ở [`BOT-124`](../../../completed/BOT-124_trich_datatable_dung_chung_cho_qml.md) trước, `EPIC-021I` tiêu thụ nó.**
 
 | Hướng | Được | Mất |
 | :--- | :--- | :--- |

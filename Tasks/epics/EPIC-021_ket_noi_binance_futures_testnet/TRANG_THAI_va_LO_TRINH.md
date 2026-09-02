@@ -7,7 +7,7 @@
 
 ## 1. Một đoạn tóm tắt
 
-**10/13 task xong. Toàn bộ đường đặt lệnh đã chạy được — nhưng chạy bằng CLI, chưa có gì trên UI.**
+**10/13 task EPIC xong, cộng `BOT-124`. Toàn bộ đường đặt lệnh đã chạy được — nhưng chạy bằng CLI, chưa có gì trên UI.**
 
 Nói cách khác: phần **nguy hiểm** (ký request, gửi lệnh thật, nghe sàn báo lệnh khớp, 3 rào an
 toàn + 4 hạn mức) **đã xong và đã có bằng chứng chạy thật**. Phần **còn lại** là làm cho nó
@@ -19,11 +19,11 @@ lên thì **không thấy gì khác** so với tuần trước. Đó không ph�
 
 | | |
 | :--- | :--- |
-| **Xong** | 10 task · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) |
-| **Còn lại** | 3 task EPIC + 1 task nền (`BOT-124`) |
-| **Đường găng** | `BOT-124` → `EPIC-021I` → (`EPIC-021K`, `EPIC-021M`) |
-| **Chặn ngoài code** | Mockup bản có chart + trạng thái B/C (đang chờ anh) |
-| **Cổng bắt buộc** | ✅ PASS — 3320 passed / 0 failed |
+| **Xong** | 10 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) |
+| **Còn lại** | 3 task EPIC — `I` sẵn sàng bắt đầu, `K`/`M` chặn bởi `I` |
+| **Đường găng** | `EPIC-021I` → (`EPIC-021K`, `EPIC-021M`) |
+| **Chặn ngoài code** | Không còn — mock đã duyệt (`EPIC-021I` §3.4) |
+| **Cổng bắt buộc** | ✅ PASS — 3325 passed / 0 failed |
 
 ---
 
@@ -36,7 +36,7 @@ flowchart TB
   classDef blocked fill:#3d1f1f,stroke:#c96a6a,color:#fadada,rx:5,ry:5
   classDef waiting fill:#1f2c3d,stroke:#5a8ac9,color:#dae7fa,rx:5,ry:5
 
-  subgraph DONE["✅ XONG (10)"]
+  subgraph DONE["✅ XONG (11)"]
     direction TB
     L["L · Đảo chiều qml→screens<br/><i>đóng BUG-082</i>"]
     A["A · Venue + client factory<br/><i>đóng BUG-081</i>"]
@@ -48,29 +48,29 @@ flowchart TB
     G["G · ExecuteOrder + hạn mức<br/><i>lệnh thật đầu tiên</i>"]
     H["H · User Data Stream + OrderFeed"]
     J["J · Tier testnet + fake server"]
+    T124["BOT-124 · Trích DataTable dùng chung<br/><i>420→253 dòng, 0 assert sửa</i>"]
   end
 
-  subgraph READY["🟡 LÀM ĐƯỢC NGAY (1)"]
+  subgraph READY["🟢 SẴN SÀNG BẮT ĐẦU (1)"]
     direction TB
-    T124["BOT-124 · Trích DataTable dùng chung<br/><i>không phụ thuộc gì</i>"]
+    I["I · Màn hình Giao dịch<br/><i>hết chặn — mock duyệt + DataTable xong</i>"]
   end
 
-  subgraph BLOCKED["🔴 ĐANG BỊ CHẶN (3)"]
+  subgraph BLOCKED["🔴 ĐANG BỊ CHẶN (2)"]
     direction TB
-    I["I · Màn hình Giao dịch<br/><i>chặn bởi BOT-124</i>"]
     K["K · Banner + Emergency Stop + marker<br/><i>chặn bởi I</i>"]
     M["M · Chart vốn realtime<br/><i>chặn bởi I</i>"]
   end
 
-  subgraph WAIT["⏸️ CHỜ NGOÀI CODE (1)"]
+  subgraph WAIT["⏸️ CHỜ NGOÀI CODE (0)"]
     direction TB
-    MOCK["Mockup bản có chart<br/>+ trạng thái B và C<br/><i>chờ anh</i>"]
+    MOCK["Mockup — đã duyệt 2026-09-02<br/><i>xong</i>"]
   end
 
-  class L,A,B,C,D,E,F,G,H,J done
-  class T124 ready
-  class I,K,M blocked
-  class MOCK waiting
+  class L,A,B,C,D,E,F,G,H,J,T124 done
+  class I ready
+  class K,M blocked
+  class MOCK done
 ```
 
 ---
@@ -96,11 +96,11 @@ flowchart LR
   I --> K["K"]
   I --> M["M"]
 
-  class A,B,C,D,E,F,G,H,J,L done
-  class T124 ready
-  class I,K,M todo
+  class A,B,C,D,E,F,G,H,J,L,T124 done
+  class I ready
+  class K,M todo
 
-  linkStyle 7,8,9,10 stroke:#c96a6a,stroke-width:3px
+  linkStyle 9,10 stroke:#c96a6a,stroke-width:3px
 ```
 
 `J` là nhánh cụt có chủ ý — nó là **hạ tầng kiểm thử**, không chặn ai. `L` cũng vậy, chỉ chặn `I`.
@@ -144,6 +144,9 @@ gantt
   Kế hoạch I và M có chart          :done, pi, 2026-09-02 07:00, 50m
   BUG-083 · mở hồ sơ và sửa         :done, bug, 2026-09-02 08:20, 54m
   Test nhận thu G còn thiếu         :done, gt, 2026-09-02 08:40, 10m
+
+  section Nền UI
+  BOT-124 · Trích DataTable dùng chung :done, t124, 2026-09-02 11:00, 60m
 ```
 
 **Điều đáng chú ý trong biểu đồ này:** khối "Tài liệu và vá" chiếm gần **một phần ba** thời gian
@@ -156,9 +159,11 @@ nhịp độ: **code nhanh hơn việc kiểm chứng code**.
 ## 5. Gantt — phần còn lại (ước lượng, không phải cam kết)
 
 > ⚠️ **Đây là ước lượng, không có dữ liệu thật để dựa vào.** Cơ sở duy nhất: `EPIC-020` (`PageShell`,
-> quy mô tương đương `I`) và `EPIC-015` Phase 1-4 (quy mô tương đương `BOT-124`). Task UI trong
-> repo này **luôn** lâu hơn task backend cùng "kích cỡ" vì phải qua guard `preview.py`, test VM
-> không cần GUI, và đối chiếu mockup.
+> quy mô tương đương `I`). `BOT-124` — quy mô từng dùng làm cơ sở ước lượng — đã **xong thật**
+> trong ~1 tiếng (§4), nhanh hơn nhiều so với ước lượng ban đầu; giữ nguyên độ dè dặt cho `I` vì
+> nó lớn hơn hẳn (màn mới hoàn chỉnh, không phải một component). Task UI trong repo này **luôn**
+> lâu hơn task backend cùng "kích cỡ" vì phải qua guard `preview.py`, test VM không cần GUI, và
+> đối chiếu mockup.
 
 ```mermaid
 gantt
@@ -167,12 +172,8 @@ gantt
   axisFormat %d/%m
   todayMarker off
 
-  section Nền UI
-  BOT-124 · Trích DataTable dùng chung   :active, t124, 2026-09-02, 2d
-  Chuyển 3 bảng cũ sang dùng nó          :t124b, after t124, 1d
-
   section Màn Giao dịch
-  I · Khung màn + PageShell + preview    :crit, i1, after t124b, 1d
+  I · Khung màn + PageShell + preview    :crit, i1, 2026-09-02, 1d
   I · 2 bảng dựng trên DataTable         :crit, i2, after i1, 1d
   I · Chart realtime + chỉ báo           :crit, i3, after i2, 2d
   I · Công tắc + reconciliation          :crit, i4, after i3, 1d
@@ -217,18 +218,15 @@ pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly
 
 ---
 
-## 7. Ba nước đi tiếp theo
+## 7. Hai nước đi tiếp theo
 
 | # | Việc | Vì sao trước | Chặn bởi |
 | :-: | :--- | :--- | :--- |
-| 1 | [`BOT-124`](../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) — trích `DataTable` dùng chung | `I` cần 2 bảng. Repo đã có **3** bản sao của cùng một khung bảng; viết tiếp là bản sao thứ 4-5. `qml-rule.md` §0.2 bắt tổng quát hoá | — |
-| 2 | [`EPIC-021I`](incomplete/EPIC-021I_man_giao_dich_moi.md) — màn Giao dịch | Là thứ duy nhất biến 6 lệnh CLI thành một màn nhìn được. Chặn cả `K` lẫn `M` | `BOT-124` · mockup |
-| 3 | `K` và `M` **song song** | Chỉ cần `I`. `M` còn cần đọc `"B"` (số dư) trong `ACCOUNT_UPDATE` — hiện đang bị vứt đi | `I` |
+| 1 | [`EPIC-021I`](incomplete/EPIC-021I_man_giao_dich_moi.md) — màn Giao dịch | Là thứ duy nhất biến 6 lệnh CLI thành một màn nhìn được. Chặn cả `K` lẫn `M`. Mock đã duyệt, `DataTable` dùng chung đã có ([`BOT-124`](../../completed/BOT-124_trich_datatable_dung_chung_cho_qml.md), xong 02/09) | — hết chặn |
+| 2 | `K` và `M` **song song** | Chỉ cần `I`. `M` còn cần đọc `"B"` (số dư) trong `ACCOUNT_UPDATE` — hiện đang bị vứt đi | `I` |
 
-**Việc của anh, không phải của agent:** mockup bản có chart + trạng thái B (đang chạy, có vị thế)
-và C (Emergency Stop thất bại một phần). Prompt đã soạn sẵn:
-[`design/PROMPT_cap_nhat_mock_them_chart.md`](design/PROMPT_cap_nhat_mock_them_chart.md).
-
-Hai quyết định từng treo chờ anh **đã chốt** theo `ONBOARDING.md` §7 (agent tự quyết khi không rơi
-vào 3 nhóm phải hỏi) — cột `THỜI GIAN` dùng giờ của sàn; bảng dựng trên `DataTable` dùng chung.
+Hai quyết định từng treo chờ đã chốt theo `ONBOARDING.md` §7 (agent tự quyết khi không rơi vào 3
+nhóm phải hỏi) — cột `THỜI GIAN` dùng giờ của sàn; bảng dựng trên `DataTable` dùng chung
+(`BOT-124`, đã xong). Mock vòng 3 cũng đã duyệt (`EPIC-021I` §3.4) — 4 control + số liệu + hành
+động đủ cả; 5 trạng thái ở §2 tổng quát hoá từ pattern có sẵn, không mở vòng mock thứ 4.
 Anh vẫn lật lại được, nhưng chúng **không còn chặn** ai nữa.

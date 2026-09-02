@@ -1,8 +1,8 @@
 # BOT-124 — Trích `DataTable` dùng chung cho `ui/qml/`, gộp 3 bản sao đang có
 
-- **Trạng thái:** 🔴 Chưa bắt đầu
+- **Trạng thái:** ✅ **Hoàn thành (2026-09-02)**
 - **Repo:** Elite
-- **Chặn:** [`EPIC-021I`](../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021I_man_giao_dich_moi.md) §3.2.2
+- **Chặn:** [`EPIC-021I`](../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021I_man_giao_dich_moi.md) §3.2.2 — hết chặn, `EPIC-021I` dựng 2 bảng mới trên `DataTable` này
 
 ---
 
@@ -93,3 +93,68 @@ Nhét cả ba vào một component là đổi ba bản sao lấy một component
 
 3 bảng cũ dùng `DataTable`, tổng số dòng `.qml` giảm thật (đo trước/sau, ghi vào task), 0 assert
 bị sửa, cổng bắt buộc xanh — rồi `EPIC-021I` dựng 2 bảng mới mà không thêm bản sao nào.
+
+
+---
+
+## 8. Kết quả (2026-09-02)
+
+### 8.1 Lệch so với thiết kế đề xuất ở §4 — bỏ `data_table_vm.py`
+
+§4 giả định `DataTable.qml` + `data_table_vm.py`. Khi thiết kế thật, `DataTable` hoá ra
+**không có gì để dẫn xuất** — `columns`/`rowsModel`/`rowDelegate`/`isEmpty`/`emptyText` đều là
+property truyền thẳng, không tính toán, không lọc, không validate. `qml-rule.md` §1.3 nói đúng
+trường hợp này: *"một widget mà toàn thân chỉ là copy state, không có gì để dẫn xuất, không được
+viết VM"* — và repo **đã có tiền lệ thật** cho đúng hình dạng này: `qml/kit/` (7 component,
+`PanelHeader`/`Button`/`StatCard`/...), *"Pure QML, no Python VM for any of the six"*.
+`DataTable` đi theo đúng khuôn đó: `__init__.py` chỉ để `tests/` có package riêng, không có
+`_vm.py`. Quyết định tại chỗ theo `ONBOARDING.md` §7 (tiền lệ đã kiểm chứng ngay trong repo),
+không hỏi lại.
+
+### 8.2 `width: rowsView.width` → `width: ListView.view.width`
+
+Ba bảng gốc định vị delegate bằng cách tham chiếu thẳng `id` của `ListView` cùng file
+(`delegate: TradeLogRow { width: rowsView.width }`). Sau khi `ListView` chuyển vào bên trong
+`DataTable.qml`, `id: rowsView` không còn nằm trong phạm vi nhìn thấy được của file gọi (nơi
+`rowDelegate: Component { ... }` được viết). Thay bằng `ListView.view.width` — attached property
+Qt Quick gắn cho **mọi** delegate bất kể `Component` được viết ở file nào, vì việc gắn xảy ra lúc
+khởi tạo (do `ListView` tạo ra), không phải theo phạm vi từ vựng. Không phải hack — đây là idiom
+đúng hơn bản gốc. `TradeLogRow.qml`/`KlineInspectorRow.qml`/`DatabaseStatusRow.qml` **không sửa
+một dòng nào**.
+
+### 8.3 Kiểm chứng "0 assert bị sửa" — đo, không suy đoán
+
+`git stash`-diff `--collect-only` trên đúng target cổng bắt buộc quét (`Sagittarius_Elite_Warrior/tests`):
+**0** test ID thêm/bớt/đổi tên. Số dòng passed chênh +5 chỉ vì
+`tests/unit/test_logging_namespace_guard.py` tham số hoá theo **từng file** trong `src/`, và 5
+file `.py` mới của `DataTable` (không file nào gọi `logging.getLogger()`) tự động cộng vào —
+không phải hành vi mới.
+
+| Bộ test | Trước | Sau |
+| :--- | :---: | :---: |
+| `qml/TradeLogTable/tests/` | 17/17 | 17/17, **0 assert sửa** |
+| `qml/KlineInspectorTable/tests/` | 8/8 | 8/8, **0 assert sửa** |
+| `qml/DatabaseStatusTable/tests/` (gồm regression `BUG-076`) | 23/23 | 23/23, **0 assert sửa** |
+| `tests/unit/presentation/ui/qml/` (mọi guard) | xanh | xanh |
+| `tests/unit/presentation/ui/screens/` (2 màn nhúng thật) | 819 xanh | 819 xanh |
+| `DataTable` (mới) | — | 9/9 |
+
+### 8.4 Dòng `.qml` — đo trước/sau
+
+| File | Trước | Sau |
+| :--- | ---: | ---: |
+| `TradeLogTable.qml` | 141 | 91 |
+| `KlineInspectorTable.qml` | 139 | 74 |
+| `DatabaseStatusTable.qml` | 140 | 88 |
+| **3 wrapper, tổng** | **420** | **253** |
+| + `DataTable.qml` (mới, dùng chung) | — | 127 |
+| **Tổng cả 4 file** | **420** | **380** |
+
+Giảm thật kể cả tính gộp cả component dùng chung; bảng thứ 6 sau này chỉ còn tốn cột + delegate,
+không tốn lại phần khung.
+
+### 8.5 Cổng bắt buộc
+
+`pwsh -NoProfile -File scripts/ci-local.ps1 -Full` → `RESULT: PASS`, `FAILED_STEPS: none`,
+quét `LOG_FILE` sạch (không khớp `FAILED|ERROR|Traceback|ResourceWarning` thật — khớp duy nhất
+là tên tham số hoá `[ERROR]` của một test không liên quan, đã xác nhận từ trước).
