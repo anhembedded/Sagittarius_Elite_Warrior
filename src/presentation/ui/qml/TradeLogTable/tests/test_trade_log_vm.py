@@ -11,11 +11,11 @@ from datetime import UTC, datetime, timedelta
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+    TradeLogRow,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_vm import (
     TradeLogVM,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
-    TradeLogRow,
 )
 
 _T0 = datetime(2026, 7, 23, 16, 59, tzinfo=UTC)

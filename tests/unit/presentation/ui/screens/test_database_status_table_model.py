@@ -11,7 +11,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QModelIndex
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_table_model import (
     DatabaseStatusTableModel,
 )
 

@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     all_options as all_timeframe_options,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
+    TradeLogFilter,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestExecutionMode,
     BacktestUiState,
@@ -29,9 +32,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extend
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
-    TradeLogFilter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,

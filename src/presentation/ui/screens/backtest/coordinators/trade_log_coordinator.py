@@ -5,19 +5,19 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
-
-from ..logic.trade_log_export import export_trades_to_csv
-from ..logic.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
     TradeLogFilter,
     filter_trade_log_rows,
     search_trade_log_rows,
 )
-from ..logic.trade_log_pagination import paginate_trade_log_rows, total_pages
-from ..logic.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
     TradeLogRow,
     build_trade_log_rows,
     trade_log_rows_to_qml,
 )
+
+from ..logic.trade_log_export import export_trades_to_csv
+from ..logic.trade_log_pagination import paginate_trade_log_rows, total_pages
 from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 

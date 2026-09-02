@@ -10,13 +10,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qml_property import (
     notifying_property,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_table_model import (
+    DatabaseStatusTableModel,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.KlineInspectorTable.kline_inspector_table_model import (
+    KLineInspectorTableModel,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
 )
-
-from .database_status_table_model import DatabaseStatusTableModel
-from .kline_inspector_table_model import KLineInspectorTableModel
 
 if TYPE_CHECKING:
     from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import math
 
-from .trade_log_row import TradeLogRow
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+    TradeLogRow,
+)
 
 #: 44 trades in the mockup, "hàng nghìn" (thousands) called out as realistic
 #: in BOT-057 §3 — a fixed page size keeps each QML render cheap regardless

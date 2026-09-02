@@ -1,10 +1,10 @@
 # BUG-082 — Thư viện widget dùng chung `ui/qml/` phụ thuộc ngược vào `ui/screens/`
 
-- **Trạng thái:** 🔴 Chưa sửa
+- **Trạng thái:** ✅ Đã sửa (2026-09-02)
 - **Mức độ:** 🟡 **P3** — chưa gây triệu chứng cho người dùng; là lỗi cấu trúc sẽ tính tiền vào màn hình thứ ba
 - **Ngày báo:** 2026-09-01
 - **Phát hiện khi:** khảo sát khả năng tái dùng màn Backtest cho màn Giao dịch (`EPIC-021I`)
-- **Đóng bởi:** [`EPIC-021L`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md)
+- **Đóng bởi:** [`EPIC-021L`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md)
 
 ---
 
@@ -76,7 +76,7 @@ gì tới backtest — một import mà không ai đọc code màn Giao dịch g
 Đảo chiều, không cắt: dời 5 module về đúng thư mục widget sở hữu chúng, để chiều phụ thuộc thành
 `screens/ → qml/` — đúng chiều mà `stat_card_row_widget.py` gọi là *"the one direction this rollout
 uses throughout"*. Chi tiết thiết kế, chỗ đến của từng file, và phương án bị bác bỏ: xem
-[`EPIC-021L`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md).
+[`EPIC-021L`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md).
 
 ## 5. Regression test
 

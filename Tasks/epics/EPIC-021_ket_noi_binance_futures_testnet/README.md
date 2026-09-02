@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🟡 Đang làm (8/12 task con)
+- **Trạng thái:** 🟡 Đang làm (9/12 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
@@ -59,7 +59,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 
 | # | Task | Repo | Chặn bởi | Trạng thái |
 | :-: | :--- | :---: | :--- | :---: |
-| **L** | [Đảo chiều phụ thuộc `qml/ → screens/` — điều kiện cần để màn Giao dịch dùng lại widget](incomplete/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) | Elite | — (song song được) | 🔴 |
+| **L** | [Đảo chiều phụ thuộc `qml/ → screens/` — điều kiện cần để màn Giao dịch dùng lại widget](completed/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) | Elite | — (song song được) | ✅ (đóng `BUG-082`) |
 | **A** | [Khái niệm môi trường sàn: `MarketDataVenue`/`TradingVenue` + client factory, cắt config chết](completed/EPIC-021A_khai_niem_moi_truong_san_va_client_factory.md) | Elite | — | ✅ (đóng `BUG-081`) |
 | **B** | [Credentials: env-var trước, secret rời khỏi file git-tracked](completed/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) | Elite | A | ✅ (đóng 1/2 `BUG-080`) |
 | **C** | [Metadata Futures vào production + policy làm tròn khối lượng/giá](completed/EPIC-021C_metadata_futures_va_policy_lam_tron.md) | Elite | A | ✅ |
@@ -97,6 +97,7 @@ Không task nào của epic này kết thúc bằng "code xong, test xanh". Mỗ
 | **I** | `scripts/run-ui.ps1` → màn **Giao dịch** | Bảng vị thế/lệnh cập nhật ngay khi `trade-once` chạy ở terminal khác |
 | **K** | Bấm **Dừng khẩn cấp** | 3 bước với dấu ✔/✘ từng bước, rồi `exchange-status` xác nhận `Vị thế đang mở: 0` |
 | **J** | `ci-local.ps1 -TestnetOnly` | 3 test chạm sàn thật xanh; `-Full` **không** chạm file nào trong `tests/testnet/` |
+| **L** | `python src/presentation/ui/qml/TradeLogTable/preview.py` | Widget bảng lệnh dựng độc lập, **0** import `screens.backtest` — guard `ast` xanh sau khi đỏ đúng 11 file trước đó |
 
 Bốn task đầu (**A–D**) chạy được **hoàn toàn headless**, không cần GUI — đúng ràng buộc dual-mode
 mà `README.md` của repo đặt ra từ đầu (chạy được trên VPS không màn hình). Giao diện chỉ vào cuộc
@@ -126,7 +127,7 @@ Hai phát hiện #3 và #4 ở §1 là **phát biểu sai sự thật của code
 
 - [`BUG-080`](../../bug_report/completed/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md) — đóng: `EPIC-021B` (lưu trữ an toàn) + `EPIC-021D` (client thật sự ký request)
 - [`BUG-081`](../../bug_report/completed/BUG-081_binance_endpoint_config_keys_are_dead.md) — đóng bởi `EPIC-021A`
-- [`BUG-082`](../../bug_report/incomplete/BUG-082_shared_qml_widget_library_depends_on_screen_modules.md) — thư viện widget dùng chung phụ thuộc ngược vào màn hình; đóng bởi `EPIC-021L`
+- [`BUG-082`](../../bug_report/completed/BUG-082_shared_qml_widget_library_depends_on_screen_modules.md) — thư viện widget dùng chung phụ thuộc ngược vào màn hình; đóng bởi `EPIC-021L`
 
 ## 8. Rủi ro đã biết
 

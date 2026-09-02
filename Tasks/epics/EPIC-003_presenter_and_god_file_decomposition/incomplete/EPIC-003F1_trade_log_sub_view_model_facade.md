@@ -3,7 +3,7 @@
 **Thuộc Epic:** [`EPIC-003`](../README.md)
 **Trạng thái:** 🔴 Chưa bắt đầu — phạm vi đã chốt 2026-09-01
 **Phụ thuộc:** hướng C đã duyệt ở [`EPIC-003F`](EPIC-003F_backtest_viewmodel_composite_design_review.md) §4.
-Không phụ thuộc kỹ thuật task nào. **Liên quan:** [`EPIC-021L`](../../EPIC-021_ket_noi_binance_futures_testnet/incomplete/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) — làm trước sẽ gọn hơn (xem §2.4), nhưng không chặn.
+Không phụ thuộc kỹ thuật task nào. **Liên quan:** [`EPIC-021L`](../../EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) — đã xong, xem §2.4 cho quan hệ giữa hai task.
 
 ---
 

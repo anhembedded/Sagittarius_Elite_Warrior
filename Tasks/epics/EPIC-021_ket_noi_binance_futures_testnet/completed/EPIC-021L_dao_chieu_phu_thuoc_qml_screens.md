@@ -1,6 +1,6 @@
 # EPIC-021L — Đảo chiều phụ thuộc `qml/ → screens/`, để màn Giao dịch dùng lại được widget
 
-- **Trạng thái:** 🔴 Chưa bắt đầu
+- **Trạng thái:** ✅ Hoàn thành (2026-09-02)
 - **Repo:** Elite
 - **Chặn bởi:** — (độc lập với `021A`–`021H`, làm song song được) · **Chặn:** `EPIC-021I`
 - **Đóng bug:** [`BUG-082`](../../../bug_report/incomplete/BUG-082_shared_qml_widget_library_depends_on_screen_modules.md)
@@ -153,3 +153,83 @@ PYTHONPATH=. QT_QPA_PLATFORM=offscreen \
 Mốc 3 là mốc thật sự đáng nhìn: `preview.py` của widget chạy độc lập, không import màn nào — nghĩa
 là `EPIC-021I` cắm nó vào màn Giao dịch được, và người đọc code màn đó sẽ không gặp một dòng
 `import screens.backtest` mà không ai giải thích nổi.
+
+## 6. Ghi chú triển khai
+
+### 6.1 Guard viết trước, xác nhận đỏ, rồi mới dời — đúng thứ tự §2.3 yêu cầu
+
+`tests/unit/presentation/ui/qml/test_qml_library_does_not_import_screens.py` quét `ast` cho
+`ImportFrom`/`Import` mà module path chứa `presentation.ui.screens`. Chạy trước khi dời: đỏ với
+**11 file** (không phải 9 — task's ước tính đếm theo *dòng* import, guard này đếm theo *file*; hai
+module có 2 dòng import vi phạm trong cùng file — `trade_log_vm.py` nhập cả `trade_log_row` lẫn
+`trade_log_filter`). Cùng tập hợp thật: `TradeLogTable/{trade_log_vm,preview}.py` +
+`tests/test_trade_log_vm.py`, `MetricsDetailPanel/{metrics_detail_vm,preview}.py` +
+`tests/test_metrics_detail_vm.py`, `DatabaseStatusTable/{database_status_vm,preview}.py` +
+`tests/{test_database_status_vm,test_database_status_qml}.py`, `KlineInspectorTable/
+kline_inspector_vm.py`. Sau khi dời + sửa import: guard xanh (0 hit), và
+`test_guard_actually_detects_a_violation` (mutation-verify) xác nhận scanner bắt đúng shape vi
+phạm thật và bỏ qua docstring chỉ nhắc tên gói.
+
+### 6.2 Quy ước import: `preview.py`/file test cạnh nó dùng absolute, VM/logic dùng relative
+
+Đọc code có sẵn trước khi sửa cho thấy hai quy ước khác nhau đã tồn tại song song trong `qml/`:
+`*_vm.py`/`*_table_model.py` dùng relative (`.trade_log_row`) cho sibling cùng thư mục;
+`preview.py` và file test cạnh nó (`tests/test_*.py` trong cùng widget) luôn dùng absolute
+(`Sagittarius_Elite_Warrior.src...qml.TradeLogTable.trade_log_vm`) kể cả cho sibling. Task's §3 nói
+"import tương đối trong cùng thư mục" cho `trade_log_vm.py`/`preview.py` — áp dụng đúng nghĩa đen
+sẽ phá quy ước đã có của `preview.py`. Giữ nguyên quy ước hiện có của từng loại file thay vì áp một
+kiểu cho tất cả: `trade_log_vm.py`/`metrics_detail_vm.py`/`database_status_vm.py`/
+`kline_inspector_vm.py` chuyển sang relative; mọi `preview.py` và test cạnh nó giữ absolute, chỉ
+đổi path đích.
+
+### 6.3 `trade_log_pagination.py` không nằm trong 5 module dời, nhưng vẫn phải sửa import
+
+Không có trong bảng §2.1, nhưng `import .trade_log_row` (relative, cùng thư mục `logic/` cũ) —
+sau khi `trade_log_row.py` dời đi, import này vỡ nếu không sửa. Đổi sang absolute trỏ tới
+`qml/TradeLogTable/trade_log_row.py`, không dời file này (nó thật sự thuộc về backtest — comment
+riêng trong `trade_log_vm.py` giải thích tại sao QML không cần phân trang mà `logic/
+trade_log_pagination.py` vẫn tồn tại cho panel QtWidgets cũ).
+
+### 6.4 27 điểm import thật, không phải ~26 — và 2 điểm docstring không phải import
+
+Đếm lại bằng `grep` cho từng module thay vì gộp: 27 dòng `from`/`import` thật cần sửa (5 file nội
+bộ module tự tham chiếu lẫn nhau không tính, vì không đổi — `trade_log_filter.py`'s `.trade_log_row`
+relative vẫn đúng sau khi dời vì cả hai ở chung thư mục mới). Hai chỗ khác chỉ là **tên file trong
+docstring**, không phải import thật — `stat_card_row_vm.py`'s comment giải thích nguồn gốc
+`stat_cards_to_qml()`, và `stat_card_row_widget.py`'s luật "một chiều" — cả hai sửa theo cho khỏi
+trôi (`CLAUDE.md` cảnh báo đúng bệnh này), dù không nằm trong bảng §3 gốc.
+
+### 6.5 Không sửa assert nào — đúng điều kiện dừng của §2.5
+
+`git diff` từng file test bị đụng: 100% là dòng `import` (kiểm bằng `git diff | grep '^[+-][^+-]'`
+rồi đọc lại từng file) — không một `assert` nào đổi. Diff dài nhất (14 dòng, `test_truthful_
+backtest_markers_and_logs.py`) vẫn chỉ là 2 khối import bị isort xếp lại chỗ khác, không phải nội
+dung mới.
+
+### 6.6 Mốc 3 (`preview.py` chạy standalone) không chạy được nguyên văn trong sandbox này —
+### lý do có sẵn từ trước, không phải lỗi do dời file
+
+Lệnh `python .../TradeLogTable/preview.py` trong task's §5 crash với
+`get_theme_bridge() has no palette yet` — nhưng đây là đặc tính **có sẵn từ trước** của mọi
+`preview.py` dùng pattern `quick.rootContext().setContextProperty("Theme", get_theme_bridge())`
+(kiểm tra chéo với `qml/kit/preview.py` — cùng pattern, cùng phụ thuộc một palette đã được set từ
+nơi khác, thường là `create_quick_widget()` hoặc app thật). `build_preview()` không đổi gì trong
+khối này — chỉ đổi 1 dòng import ở đầu file. Bằng chứng thật cho mốc 3 (không import `screens`)
+là guard `ast` ở §6.1 và `grep -rn "screens\." src/presentation/ui/qml/ | grep import` (rỗng, trừ
+chính dòng docstring của `stat_card_row_widget.py` nhắc tên file guard — false positive của grep
+theo văn bản, không phải import), không phải chạy được script trong sandbox mạng/GUI hạn chế này.
+
+### 6.7 Kết quả kiểm thử
+
+- Guard: đỏ 11 file trước khi dời (bằng chứng bắt được `BUG-082` thật), xanh sau khi dời + sửa
+  import, mutation-verify xanh.
+- `tests/sanity/test_circular_imports.py` + toàn bộ `tests/unit/presentation/ui/qml/` +
+  `tests/unit/presentation/ui/screens/`: 922/922 xanh.
+- Ruff (`src tests scripts tools`): 0 lỗi ngoài 3 lỗi baseline đã biết (không đụng).
+- `ruff format --check`: sạch.
+- Mypy (từ `/home/user`): 0 lỗi, 231 file — lưu ý `presentation/` bị loại khỏi phạm vi mypy
+  (`pyproject.toml`), nên guard `ast` + test suite là nguồn xác nhận thật cho thay đổi này, không
+  phải mypy.
+- `tests/unit` đầy đủ (`-n 4`, offscreen): 3192 passed, 1 failed — thất bại duy nhất vẫn là
+  `test_pan_preview_moves_only_the_data_region_not_the_axes`, đã xác nhận không liên quan qua
+  nhiều task trước.

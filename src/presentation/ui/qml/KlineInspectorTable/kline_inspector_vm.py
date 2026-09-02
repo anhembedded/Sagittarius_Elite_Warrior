@@ -21,7 +21,8 @@ from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Property, QObject, Signal
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.kline_inspector_table_model import (
+
+from .kline_inspector_table_model import (
     kline_display_row_to_qml,
     market_data_to_kline_row,
 )

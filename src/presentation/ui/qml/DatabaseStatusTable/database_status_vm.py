@@ -17,7 +17,8 @@ not half of it split across the widget and its host).
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
+
+from .database_status_table_model import (
     DatabaseStatusFilterProxy,
     DatabaseStatusTableModel,
 )

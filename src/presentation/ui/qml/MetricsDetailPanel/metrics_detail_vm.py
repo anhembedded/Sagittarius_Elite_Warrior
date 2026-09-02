@@ -19,9 +19,8 @@ from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
-    StatCardData,
-)
+
+from .performance_metrics_view import StatCardData
 
 #: Which of the mockup's 4 sections each existing extended-stat card title
 #: belongs to. A card whose title is not listed here (Total Fees Paid,

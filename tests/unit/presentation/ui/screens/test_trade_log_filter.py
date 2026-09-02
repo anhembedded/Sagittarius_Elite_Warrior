@@ -3,12 +3,12 @@ from datetime import UTC, datetime
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
     TradeLogFilter,
     filter_trade_log_rows,
     search_trade_log_rows,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
     TradeLogRow,
 )
 

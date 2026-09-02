@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_table_model import (
+    DatabaseStatusTableModel,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_vm import (
     DatabaseStatusVM,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
-    DatabaseStatusTableModel,
 )
 
 

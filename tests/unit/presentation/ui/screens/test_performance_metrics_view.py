@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation i
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
     build_result_warning_text,

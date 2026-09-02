@@ -14,6 +14,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
+    TradeLogFilter,
+    filter_trade_log_rows,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+    build_trade_log_rows,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     _LONG_ENTRY_LABEL,
     _LONG_EXIT_LABEL,
@@ -21,13 +28,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_
     _SHORT_EXIT_LABEL,
     TradeMarkerType,
     trade_flag_markers,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
-    TradeLogFilter,
-    filter_trade_log_rows,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
-    build_trade_log_rows,
 )
 
 _T0 = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
