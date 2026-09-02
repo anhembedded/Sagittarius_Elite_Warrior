@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
+    ITradingClient,
+)
 from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
     InFlightSyncGuard,
 )
@@ -69,6 +72,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest import (
     StopBacktestCommand,
     StopBacktestCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order import (
+    SubmitOrderCommand,
+    SubmitOrderCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
     ClearMarketDataCommand,
@@ -183,11 +190,18 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
     VolumeSpikeFlowStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
+    OrderSubmissionMode,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
     MarketDataVenue,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
     resolve_market_data_venue,
+    resolve_trading_venue,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
@@ -200,6 +214,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_account_reader
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client import (
+    FuturesTradingClient,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,
@@ -327,6 +344,24 @@ class BinanceBotModule(BaseModule):
             FuturesAccountReader(session_factory, credentials_provider),
         )
 
+        # EPIC-021F: unlike ITradingAccountReader (read-only, always safe),
+        # ITradingClient can place/cancel a real order — registered only
+        # when trading is explicitly turned on, so resolving this port
+        # anywhere trading is DISABLED fails loudly (DependencyResolutionError)
+        # instead of silently handing back a client nobody asked to enable.
+        trading_venue = resolve_trading_venue(config)
+        app.container.singleton(TradingVenue, trading_venue)
+        if trading_venue is not TradingVenue.DISABLED:
+            app.container.singleton(
+                ITradingClient,
+                lambda c: FuturesTradingClient(
+                    session_factory,
+                    credentials_provider,
+                    c.resolve(IMarketMetadataProvider),
+                    OrderSubmissionMode.VALIDATE_ONLY,
+                ),
+            )
+
         # EPIC-008F: the Application layer talks to the engine only through
         # these three ports; the adapters are the only place naming IEventBus,
         # IConfig or IDispatcher.
@@ -366,6 +401,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
         app.container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)
         app.container.bind(PruneEmptyShardsCommand, PruneEmptyShardsCommandHandler)
+        app.container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""

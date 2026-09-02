@@ -14,6 +14,12 @@ class ConfigKeys(str, Enum):
     #: `binance_endpoints.py`, not a second config key to keep in sync.
     #: Values are `MarketDataVenue` members.
     EXCHANGE_MARKET_DATA_VENUE = "exchange.market_data_venue"
+    #: `EPIC-021F` — separate from `EXCHANGE_MARKET_DATA_VENUE` on purpose
+    #: (ADR §2): where chart data comes from and where an order would be
+    #: sent are independent choices. Defaults to `TradingVenue.DISABLED` —
+    #: trading is opt-in, never on by config omission. Values are
+    #: `TradingVenue` members.
+    EXCHANGE_TRADING_VENUE = "exchange.trading_venue"
     LOG_FORMAT = "LOG_FORMAT"
     LOG_LEVEL = "log.level"
     LOG_CONSOLE_ENABLED = "log.console.enabled"

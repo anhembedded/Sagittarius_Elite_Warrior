@@ -1,6 +1,7 @@
 {
     "database.dir": "Sagittarius_Elite_Warrior/database",
     "exchange.market_data_venue": "mainnet_public",
+    "exchange.trading_venue": "disabled",
     "LOG_FORMAT": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "log.level": "INFO",
     "log.console.enabled": true,

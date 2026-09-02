@@ -1,5 +1,6 @@
 """Venue -> `python-binance` `testnet` flag, and `klines_type` for kline calls
-(`EPIC-021A`)."""
+(`EPIC-021A`); also where the configured `TradingVenue` is resolved
+(`EPIC-021F`)."""
 
 from __future__ import annotations
 
@@ -10,11 +11,17 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
     MarketDataVenue,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 
 logger = logging.getLogger("App.ExchangeClient")
 
 _DEFAULT_MARKET_DATA_VENUE = MarketDataVenue.MAINNET_PUBLIC
+#: Trading is opt-in — an unset/unusable config value must never silently
+#: enable order submission (ADR §3).
+_DEFAULT_TRADING_VENUE = TradingVenue.DISABLED
 
 #: `python-binance`'s `Client(testnet=...)` is one flag that redirects every
 #: API family's host at once (`base_client.py`'s `_create_api_uri`/
@@ -66,3 +73,26 @@ def resolve_market_data_venue(config: IConfig) -> MarketDataVenue:
             [venue.value for venue in MarketDataVenue],
         )
         return _DEFAULT_MARKET_DATA_VENUE
+
+
+def resolve_trading_venue(config: IConfig) -> TradingVenue:
+    """The configured `TradingVenue`, or `DISABLED` if missing/unusable.
+
+    @details Same shape as `resolve_market_data_venue` — warns instead of
+    failing boot on a bad value, but defaults to the *safe* member
+    (`DISABLED`), never to `FUTURES_TESTNET`: a typo in config must never
+    silently turn trading on.
+    """
+    raw = config.get(
+        ConfigKeys.EXCHANGE_TRADING_VENUE.value, _DEFAULT_TRADING_VENUE.value
+    )
+    try:
+        return TradingVenue(raw)
+    except ValueError:
+        logger.warning(
+            "Trading venue %r is not known; using %r. Known venues: %s.",
+            raw,
+            _DEFAULT_TRADING_VENUE.value,
+            [venue.value for venue in TradingVenue],
+        )
+        return _DEFAULT_TRADING_VENUE

@@ -50,7 +50,16 @@ _SHUTDOWN_BUDGET_SECONDS = 10.0
 #: Use-case classes that legitimately resolve to nothing — abstract bases, DTOs
 #: that are never dispatched. Every entry needs a written reason. Expected to be
 #: populated once, from the first real run, and then to stay still.
-_NOT_DISPATCHED: set[str] = set()
+_NOT_DISPATCHED: set[str] = {
+    # `EPIC-021F`: `ITradingClient` is registered only when `TradingVenue !=
+    # DISABLED` (ADR §3 — trading is opt-in, never on by config omission).
+    # This fixture boots with production's own default config, where it is
+    # `DISABLED`, so `SubmitOrderCommand` genuinely cannot resolve here — not
+    # because it is never dispatched (`order-dry-run` dispatches it for
+    # real), but because this specific boot has trading turned off, same as
+    # any real install until someone opts in.
+    "SubmitOrderCommand",
+}
 
 
 def _import_all_under(relative_dir: str):
