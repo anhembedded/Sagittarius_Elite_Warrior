@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 121 | 67.2% |
-| 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 53 | 29.4% |
+| 🟢 **Completed** | 122 | 67.4% |
+| 🟡 **In Progress** | 0 | 0.0% |
+| 🔴 **Backlog** | 53 | 29.3% |
 | ❌ **Cancelled** | 6 | 3.3% |
-| 📈 **Tổng số Task** | **180** | **100%** |
+| 📈 **Tổng số Task** | **181** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -113,6 +113,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BOT-120`**: [Mở màn hình Data Management âm thầm quét toàn bộ Storage Vault (~27s theo log thật) — `DataManagementPresenter.__init__` tự submit `run_auto_discover()`, dispatch `ScanAllDatabasesQuery(symbols=[])` fallback sang `list_available_shards()` (1350 file `.db` trên đĩa, 1348 là rác tồn từ trước `BUG-078`), mở 1 session SQLite/shard, rồi `PruneEmptyShardsCommand` mở thêm 1350 session nữa để dọn — đúng việc nút "Scan All Shards & Timeframes" đã có sẵn để làm theo yêu cầu tường minh. Sửa: `run_auto_discover` giờ chỉ liệt kê tên shard (`list_available_shards()` là glob thư mục thuần tuý, xác nhận qua source engine — không mở session nào) + đổ symbol picker; phần quét+dọn chuyển hẳn vào `run_scan_all`, chỉ chạy khi bấm nút; nút đó đổi nguồn symbol từ toàn bộ ~1358 sàn sang đúng shard trên đĩa](completed/BOT-120_lazy_storage_vault_scan_on_open.md)
 - [x] **`BUG-078`**: [Đọc dữ liệu (không ghi) tự tạo shard rỗng qua `DatabaseManager.get_session()`'s create-on-first-use — `SyncMarketDataCommandHandler._determine_start_time()` gọi `get_latest_kline_time()` cho mọi symbol trước khi sync thật, để lại shard rỗng vĩnh viễn cho symbol chưa từng có dữ liệu (1350 shard trên đĩa, 9 có nến thật), làm auto-discover boot quét 1350×6=8100 kết nối SQLite (~79s). Sửa 3 phần: `has_shard()` chặn đọc tạo shard, scan đổi đơn vị từ (symbol,interval) sang symbol (1 session/symbol, đo được 6x ít kết nối hơn), `PruneEmptyShardsCommand` tự dọn shard rỗng (0 nến ở mọi interval) mỗi lần auto-discover chạy. Cổng CI thật (ruff/mypy/sanity/unit+integration+coverage) đã chạy xanh — bắt được 1 regression thật (`shutdown_database_scan_probe.py` mock tên method port cũ) và đã sửa. Đổi số từ `BUG-077` gốc vì trùng với 2 bug khác merge cùng lúc phiên này đang chạy](bug_report/completed/BUG-078_phantom_shard_creation_from_read_paths.md)
 - [x] **`BOT-123`**: [Dev Board thiếu progress bar cho pha `SyncMarketDataCommand` của Start Live (đối chiếu mockup, kèm log thật: đổi timeframe lúc Live khiến `LOCKED` kéo dài ~9.8s không hiển thị gì), và nút Stop không bật được đúng lúc đang sync (`uiMode == "LIVE"` bỏ sót `LOCKED`). Nối `ProgressBannerWidget`/`SyncProgressFeed`/`correlation_id` (khuôn `BOT-121`/`BOT-122`) vào Dev Board — màn sync thứ 3 dùng lại đúng cơ chế, không tạo layout mới](completed/BOT-123_dev_board_sync_progress_bar_and_cancel.md)
 - [x] **`BOT-122`**: [Nối tiếp `BOT-121` — user chỉ ra lọc theo `(symbol, interval)` chỉ là trùng hợp dữ liệu nghiệp vụ, không phải định danh thật (2 action khác nhau có thể nhắm cùng 1 symbol+interval). Thay bằng `correlation_id` sinh tại nơi phát request, xuyên suốt `SyncMarketDataCommand`/`BulkSyncMarketDataCommand` → `SingleSyncProgressEvent` → `SyncProgressReport` → coordinator so sánh — 1 bulk sync giờ dùng đúng 1 id cho cả batch thay vì `set[(symbol,interval)]`](completed/BOT-122_sync_progress_correlation_id.md)

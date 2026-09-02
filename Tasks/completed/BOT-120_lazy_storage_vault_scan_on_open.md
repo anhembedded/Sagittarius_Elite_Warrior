@@ -3,7 +3,7 @@
 - **ID**: `BOT-120`
 - **Type**: Perf / Architecture (behavior change)
 - **Module**: `presentation/ui/screens/data_management` (`ScanCoordinator`, `DataManagementPresenter`)
-- **Status**: `🟡 Code + test xong, chờ user duyệt/commit`
+- **Status**: `✅ Hoàn thành (2026-09-02)` — PR #159, merged vào `master-warrior` (`0ac6340`)
 
 ---
 
