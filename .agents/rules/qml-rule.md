@@ -1,6 +1,6 @@
 ---
 name: QML Widget Rule
-description: QML sống lại đúng một chỗ — widget riêng lẻ nhúng qua QQuickWidget, không phải shell hay chart. Kiến trúc 1 widget = 1 thư mục (.qml + _vm.py), khi nào bỏ qua ViewModel riêng, style token bắt buộc từ ngày đầu, và các gotcha Qt Quick đã đo được thật (Repeater 1 delegate, rebuild toàn bộ, findChild không với tới).
+description: QML lives in exactly one place — individual widgets embedded via QQuickWidget, not the shell and not the chart. The 1 widget = 1 directory (.qml + _vm.py) architecture, when to skip a dedicated ViewModel, style tokens mandatory from day one, and the Qt Quick gotchas actually measured here (Repeater takes 1 delegate, full rebuild, findChild cannot reach).
 trigger: on_file_change
 patterns:
   - "**/*.qml"
@@ -9,209 +9,228 @@ patterns:
 
 # 🎨 QML WIDGET STANDARDS
 
-File này chỉ giữ **kiến trúc chuẩn — cách xây, không phải xây tới đâu**; lộ trình/tiến độ ở
+This file holds only the **standard architecture — how to build, not how far the build has
+got**; the roadmap/progress lives in
 [`EPIC-015`](../../Tasks/epics/EPIC-015_qml_tung_widget_khong_chuyen_chart/README.md).
 
-## 0. Ràng buộc gốc — quyết định mọi thứ khác trong file này
+## 0. The root constraint — it decides everything else in this file
 
-**QML lồng được vào QtWidgets. Chiều ngược lại Qt không hỗ trợ.** Chart là pyqtgraph
-(`QGraphicsView`, thuần QtWidgets) — nên:
+**QML can be nested inside QtWidgets. Qt does not support the reverse.** The chart is pyqtgraph
+(`QGraphicsView`, pure QtWidgets) — therefore:
 
-- **Shell** (`main_window.py`, `QStackedWidget`, `Sidebar`) — **QtWidgets vĩnh viễn**.
-- **Chart** (`src/presentation/ui/components/chart_card/`) — **QtWidgets vĩnh viễn**, vì ràng
-  buộc lồng nhau: cái gì chứa chart thì phải là QtWidgets (không phải vì hiệu năng).
-- **Mọi thứ khác** — widget riêng lẻ (modal, panel, picker, form field) **có thể** xây bằng QML,
-  nhúng vào trong một chrome QtWidgets qua `QQuickWidget`.
+- **Shell** (`main_window.py`, `QStackedWidget`, `Sidebar`) — **QtWidgets forever**.
+- **Chart** (`src/presentation/ui/components/chart_card/`) — **QtWidgets forever**, because of the
+  nesting constraint: whatever contains the chart must be QtWidgets (not for performance reasons).
+- **Everything else** — an individual widget (modal, panel, picker, form field) **may** be built in
+  QML and embedded inside a QtWidgets chrome via `QQuickWidget`.
 
-QtWidgets là mặc định toàn app; QML **opt-in theo từng widget**, quyết định theo §2. Ba pattern
-lồng nhau đã đo là chạy được thật (`EPIC-015` spike A/B/C):
+QtWidgets is the app-wide default; QML is **opt-in per widget**, decided per §2. Three nesting
+patterns have been measured to actually work (`EPIC-015` spikes A/B/C):
 
-| Pattern | Ai chứa ai | Ví dụ trong repo |
+| Pattern | Who contains whom | Example in this repo |
 | :--- | :--- | :--- |
-| Panel QML cạnh chart | `QVBoxLayout` (widget) chứa cả `QQuickWidget` lẫn `ChartCard` | chưa dùng |
-| Cả route là QML | `QStackedWidget` chứa một `QQuickWidget` làm cả màn | chưa dùng — Settings/Data Management |
-| Modal QML | `QDialog`/`Overlay` chứa `QQuickWidget` làm phần thân | `QmlOverlay` (`src/presentation/ui/qml/host.py`) — đang dùng |
+| QML panel next to the chart | `QVBoxLayout` (widget) holds both a `QQuickWidget` and a `ChartCard` | not used yet |
+| A whole route in QML | `QStackedWidget` holds one `QQuickWidget` as the entire screen | not used yet — Settings/Data Management |
+| QML modal | `QDialog`/`Overlay` holds a `QQuickWidget` as its body | `QmlOverlay` (`src/presentation/ui/qml/host.py`) — in use |
 
-### 0.1 Modal QML — hai hình, không phải một
+### 0.1 QML modals — two shapes, not one
 
-Lý do kỹ thuật (đo từ chính Qt): `Popup`/`Dialog` của `QtQuick.Controls` dim/chặn tương tác qua
-`Overlay.overlay` gắn theo **`Window`** chứa nó, mà một `QQuickWidget` là cửa sổ Qt Quick riêng
-tách khỏi các widget QtWidgets đứng cạnh — nên `Popup` mở trong một `QQuickWidget` nhỏ **không thể**
-che phần QtWidgets xung quanh, mà không hề báo lỗi.
+The technical reason (measured from Qt itself): `QtQuick.Controls`' `Popup`/`Dialog` dims and
+blocks interaction through the `Overlay.overlay` attached to the **`Window`** that contains it, and
+a `QQuickWidget` is its own Qt Quick window, separate from the QtWidgets widgets sitting next to
+it — so a `Popup` opened inside a small `QQuickWidget` **cannot** cover the surrounding QtWidgets,
+and reports no error at all.
 
-| Host là gì | Cách đúng | Vì sao |
+| What the host is | The right approach | Why |
 | :--- | :--- | :--- |
-| Route/màn hình vẫn là QtWidgets (hầu hết màn hiện nay) | `QmlOverlay` (`QDialog` QtWidgets thật, chứa thân QML) | Chỉ một `QDialog` thật mới dim/chặn được toàn app khi phần còn lại là QtWidgets. `.qml` bên trong **chỉ là layout thân** (`Column`/`Grid`/`ScrollView` — xem `SelectList`/`CheckboxList`/`StatGrid`/`Capital`), không tự dựng modal của chính nó. |
-| Route/màn hình đã là toàn bộ QML | `Popup`/`Dialog` gốc `QtQuick.Controls` làm root của component modal | Cả route là một `QQuickWindow` duy nhất nên `Popup` dim đúng toàn màn. Dùng `Popup`/`Dialog` thay vì tự dựng `Item` + backdrop + bắt phím tay — chúng cho sẵn Escape-to-close, `closePolicy`, focus scope; tự viết lại là trùng lặp bề mặt Qt đã test sẵn. |
+| The route/screen is still QtWidgets (most screens today) | `QmlOverlay` (a real QtWidgets `QDialog` holding a QML body) | Only a real `QDialog` can dim and block the whole app while the rest is QtWidgets. The `.qml` inside is **only the body layout** (`Column`/`Grid`/`ScrollView` — see `SelectList`/`CheckboxList`/`StatGrid`/`Capital`); it does not build a modal of its own. |
+| The route/screen is already entirely QML | A native `QtQuick.Controls` `Popup`/`Dialog` as the root of the modal component | The whole route is a single `QQuickWindow`, so the `Popup` dims the full screen correctly. Use `Popup`/`Dialog` instead of hand-rolling `Item` + backdrop + manual key handling — they give you Escape-to-close, `closePolicy` and a focus scope for free; rewriting that duplicates an already-tested Qt surface. |
 
-`SymbolPicker.qml` rơi vào ô thứ hai nhưng tự dựng `Item` + backdrop + bàn phím tay — §9.
+`SymbolPicker.qml` falls into the second row but hand-rolls `Item` + backdrop + keyboard — §9.
 
-### 0.2 `src/presentation/ui/qml/` là nơi chính thức dựng QML component
+### 0.2 `src/presentation/ui/qml/` is the official place to build QML components
 
-- **Dùng chung được thì phải dựng dùng chung, không viết bản sao "gần giống".** Trước khi tạo
-  `.qml` mới, tra bảng hình ở §2 và các VM đã có (`SelectList`, `StatGrid`, `CheckboxList`,
-  `TimeRangePicker`, ...). Hình "gần giống nhưng hơi khác" là tín hiệu **tổng quát hoá** component
-  có sẵn (thêm cờ, thêm callback) — như `SelectListVM` hấp thụ `TimezonePickerVM`, xoá bản gốc chứ
-  không giữ làm forwarder — không phải tín hiệu viết widget mới song song.
-- **Thêm tính năng vào widget đã có: hỏi trước design hiện tại còn đúng không.** Nếu không hợp,
-  sửa design (đổi hợp đồng VM, đổi cách interface chia read/write, tách lại component) — **không
-  hotfix, không giữ design cũ rồi thêm nhánh `if is_special_case:`**. Ví dụ: `ISymbolPickerSource`
-  chỉ có `get_*` cho tới khi `toggleFavourite()` cần ghi; hợp đồng được thêm `set_favourite()` để
-  đối xứng đọc/ghi.
-- **Ưu tiên design pattern đã có trong file này** — Port/interface tường minh
-  (`architecture-rule.md`, cấm duck-typing ngầm), VM callback-constructed (§1.1), VM giữ toàn bộ
-  state và luật (§1.2), đúng hình modal theo host (§0.1) — hơn là cách riêng cho từng widget.
+- **If it can be shared, build it shared — do not write a "nearly identical" copy.** Before
+  creating a new `.qml`, check the shape table in §2 and the VMs that already exist (`SelectList`,
+  `StatGrid`, `CheckboxList`, `TimeRangePicker`, ...). A shape that is "almost the same but a bit
+  different" is a signal to **generalise** an existing component (add a flag, add a callback) —
+  the way `SelectListVM` absorbed `TimezonePickerVM` and the original was deleted rather than kept
+  as a forwarder — not a signal to write a new widget in parallel.
+- **Adding a feature to an existing widget: first ask whether the current design still holds.** If
+  it does not, change the design (change the VM contract, change how the interface splits
+  read/write, re-split the component) — **no hotfix, and no keeping the old design and bolting on
+  an `if is_special_case:` branch**. Example: `ISymbolPickerSource` had only `get_*` until
+  `toggleFavourite()` needed to write; the contract gained `set_favourite()` so read and write are
+  symmetric.
+- **Prefer the design patterns already in this file** — explicit Port/interface
+  (`architecture-rule.md`, implicit duck-typing forbidden), callback-constructed VMs (§1.1), VMs
+  holding all state and rules (§1.2), the modal shape that matches the host (§0.1) — over a
+  bespoke approach per widget.
 
-## 1. Kiến trúc: 1 widget QML = 1 thư mục
+## 1. Architecture: 1 QML widget = 1 directory
 
 ```
 src/presentation/ui/qml/
-  host.py                  QmlOverlay — chrome QtWidgets, thân QML
+  host.py                  QmlOverlay — QtWidgets chrome, QML body
   <Widget>/
-    <Widget>.qml           chỉ bố cục + binding, KHÔNG logic
-    <widget>_vm.py         toàn bộ state + luật, KHÔNG import QML
-    NOTES.md               vì sao widget này tồn tại, ai dùng nó
+    <Widget>.qml           layout + bindings only, NO logic
+    <widget>_vm.py         all state + rules, NO QML imports
+    NOTES.md               why this widget exists, who uses it
 ```
 
-`.qml` và `_vm.py` **nằm cạnh nhau cùng thư mục** — Single-Scope Cohesion (`code-quality-rule.md`
-§4): tách shell và state ra hai chỗ xa nhau là cách chúng trôi khỏi nhau. Ví dụ đang chạy:
-`SelectList/`, `CheckboxList/`, `StatGrid/`, `Capital/`.
+`.qml` and `_vm.py` **sit side by side in the same directory** — Single-Scope Cohesion
+(`code-quality-rule.md` §4): splitting the shell and the state into two distant places is exactly
+how they drift apart. Live examples: `SelectList/`, `CheckboxList/`, `StatGrid/`, `Capital/`.
 
-### 1.1 ViewModel widget: ai tạo, ai giữ
+### 1.1 Widget ViewModel: who creates it, who holds it
 
-**Python (màn cha) tạo ViewModel, tiêm vào `.qml` qua context property `vm`.** `.qml` **không bao
-giờ** tự khởi tạo backend của chính nó (§5.1) — khởi tạo/inject nằm ở composition root, nơi test
-được bằng mock/callback mà không cần dựng QML.
+**Python (the parent screen) creates the ViewModel and injects it into the `.qml` via the `vm`
+context property.** A `.qml` file **never** instantiates its own backend (§5.1) —
+construction/injection belongs in the composition root, where it is testable with mocks/callbacks
+without standing up QML.
 
 ```python
-# dialog/panel Python — composition root; callback đọc sống từ VM màn hình
+# dialog/panel Python — composition root; callbacks read live from the screen VM
 self._widget_vm = SelectListVM(get_options=lambda: view_model.strategyOptions,
                                get_current=lambda: view_model.selectedStrategyKey)
 super().__init__(..., qml_file=_QML, context={"vm": self._widget_vm})
-# .qml chỉ đọc, không tính toán:   Text { text: vm.rows[0].label }
+# .qml only reads, never computes:   Text { text: vm.rows[0].label }
 ```
 
-### 1.2 ViewModel widget giữ TOÀN BỘ state và luật
+### 1.2 The widget ViewModel holds ALL state and rules
 
-| Tầng | Chứa gì | Test bằng gì |
+| Layer | Contains | Tested with |
 | :--- | :--- | :--- |
-| `<Widget>.qml` | Chỉ bố cục, binding, animation | Render smoke test (ít, rẻ) |
-| `<widget>_vm.py` | Lọc, tính `selected`, validate, format | **pytest thuần, `QApplication.instance()` là `None` suốt bài test** |
+| `<Widget>.qml` | Layout, bindings, animation only | Render smoke test (few, cheap) |
+| `<widget>_vm.py` | Filtering, computing `selected`, validation, formatting | **Plain pytest, with `QApplication.instance()` being `None` throughout the test** |
 
-Đo được thật: 16 test `SelectListVM`/`CheckboxListVM`/`StatGridVM` chạy **0,6 giây, không
-`QApplication`, không QML**. Luật cứng: **không `if`/vòng lặp/tính toán trong `.qml`** — một biểu
-thức binding thì được (`visible: modelData.subtitle !== ""`), hai dòng JavaScript trở lên là thuộc
-về `_vm.py`.
+Actually measured: 16 `SelectListVM`/`CheckboxListVM`/`StatGridVM` tests run in **0.6 seconds, with
+no `QApplication` and no QML**. Hard rule: **no `if`/loops/computation in `.qml`** — a single
+binding expression is fine (`visible: modelData.subtitle !== ""`), two or more lines of JavaScript
+belong in `_vm.py`.
 
-### 1.3 Khi nào **KHÔNG** cần ViewModel widget riêng
+### 1.3 When a dedicated widget ViewModel is **NOT** needed
 
-> User chốt 2026-08-28: *"các UI mà viewmodel không có đóng góp gì thêm, chỉ chuyển đổi 1:1 thì
-> không cần viewmodel."*
+> User decision 2026-08-28: *"for UIs where the viewmodel adds nothing, just a 1:1 forward, no
+> viewmodel is needed."*
 
-Áp dụng của `architecture-rule.md` §7.2 (*"Abstraction không có nghĩa đẻ thêm lớp trung gian cho
-có"*): VM widget toàn thân chỉ `return self._screen_vm.x` không phải hợp đồng — nó là bản sao thứ
-hai của state đã có, đúng hình dạng lỗi `BUG-064`: hai chỗ giữ cùng một sự thật, không gì buộc
-chúng khớp nhau. **Hỏi đúng thứ tự:**
+This applies `architecture-rule.md` §7.2 (*"Abstraction does not mean spawning an extra
+intermediate layer for its own sake"*): a widget VM whose entire body is `return
+self._screen_vm.x` is not a contract — it is a second copy of state that already exists, exactly
+the shape of the `BUG-064` defect: two places holding the same truth, with nothing forcing them to
+match. **Ask in this order:**
 
-1. **Dùng chung cho ≥1 màn khác nhau?** (`SelectList`/`CheckboxList`/`StatGrid`) → **luôn có VM
-   riêng**, dựng bằng callback (`get_options`, `get_rows`, ...), bất kể một lần gọi cụ thể trông
-   "1:1" hay không: cái hợp đồng ("đưa list đúng hình `{id, label, ...}`") **là** giá trị — nó tách
-   widget khỏi ViewModel của mọi màn. `StatGridVM` chỉ uppercase title + map `Tone` → chuỗi, vẫn giữ.
-2. **Chỉ cho đúng một màn?** `.qml` có cần **giá trị dẫn xuất** không có sẵn trên ViewModel màn đó
-   (`selected` tính từ so sánh, `canApply` tính từ validate, format chuỗi, gộp property)?
-   **Có** → có VM riêng (`CapitalVM`: `canApply` là dẫn xuất, không phải copy). **Không, chỉ
-   đọc/ghi thẳng property đã có** → **bỏ VM riêng**, tiêm thẳng ViewModel màn hình
-   (`context={"vm": view_model}`), `.qml` bind thẳng `vm.someScreenProperty`.
-3. Cần **giấu bớt** bề mặt ViewModel màn hình (màn 40 property không liên quan, phơi hết là rò rỉ
-   đóng gói)? → có VM riêng dù không biến đổi gì, để giới hạn API.
+1. **Shared across ≥1 different screens?** (`SelectList`/`CheckboxList`/`StatGrid`) → **always give
+   it its own VM**, constructed with callbacks (`get_options`, `get_rows`, ...), regardless of
+   whether one specific call site looks "1:1": the contract ("hand me a list in the shape
+   `{id, label, ...}`") **is** the value — it decouples the widget from every screen's ViewModel.
+   `StatGridVM` only uppercases the title and maps `Tone` → string, and is still kept.
+2. **Used by exactly one screen?** Does the `.qml` need a **derived value** that is not already on
+   that screen's ViewModel (`selected` computed from a comparison, `canApply` computed from
+   validation, string formatting, merged properties)? **Yes** → give it its own VM (`CapitalVM`:
+   `canApply` is derived, not a copy). **No, it only reads/writes existing properties directly** →
+   **drop the dedicated VM**, inject the screen ViewModel straight in
+   (`context={"vm": view_model}`) and let the `.qml` bind directly to `vm.someScreenProperty`.
+3. Do you need to **hide part of** the screen ViewModel's surface (a screen with 40 unrelated
+   properties — exposing all of them leaks encapsulation)? → give it its own VM even if it
+   transforms nothing, purely to bound the API.
 
-Không widget nào hiện tại vi phạm — quy tắc áp dụng **từ giờ về sau**.
+No current widget violates this — the rule applies **from now on**.
 
-### 1.4 "Widget" ở đây là `Component` của Qt
+### 1.4 "Widget" here means a Qt `Component`
 
-[`QML Component type`](https://doc.qt.io/qt-6/qml-qtqml-component.html): file `.qml` **tên viết hoa
-chữ cái đầu** tự động là Component type dùng lại được qua `import`; tên viết **thường** không được
-Qt đăng ký thành type (load bằng đường dẫn trực tiếp thì được, `import` thì không) — **giữ quy ước
-viết hoa**. Dạng inline `Component { ... }` là khởi tạo trễ/lazy (delegate `Repeater`/`ListView`,
-`sourceComponent` của `Loader`) — gốc chung của §4.2 và khuyến nghị `Loader` ở §6.6.
+[`QML Component type`](https://doc.qt.io/qt-6/qml-qtqml-component.html): a `.qml` file whose name
+is **capitalised** automatically becomes a reusable Component type via `import`; a **lowercase**
+name is not registered as a type by Qt (loading it by direct path works, `import` does not) —
+**keep the capitalisation convention**. The inline `Component { ... }` form is lazy/deferred
+instantiation (`Repeater`/`ListView` delegates, a `Loader`'s `sourceComponent`) — the common root
+of §4.2 and the `Loader` recommendation in §6.6.
 
-## 2. Khi nào chọn QML cho một widget mới
+## 2. When to choose QML for a new widget
 
-QML không phải mặc định của cả màn hình. Chọn QML cho **một widget cụ thể** khi: nó khớp một hình
-đã có component dùng chung (bảng dưới — dùng lại, không viết `.qml` mới); nó thuộc màn đang được
-`EPIC-015` di chuyển; hoặc nó nhận mockup ảnh trực tiếp và tốc độ dịch mockup → code đáng giá hơn
-chi phí hai pipeline style (lý do gốc `BOT-030`, vẫn đúng — xem
+QML is not the default for a whole screen. Choose QML for **one specific widget** when: it matches
+a shape that already has a shared component (table below — reuse it, do not write a new `.qml`); it
+belongs to a screen `EPIC-015` is currently migrating; or it is handed an image mockup directly and
+the speed of translating mockup → code outweighs the cost of two styling pipelines (the original
+`BOT-030` rationale, still valid — see
 [`ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md`](../../Tasks/reports/ASSESSMENT_2026-08-28_qtwidgets_sang_qml.md)).
 
-**Component dùng chung đã có — kiểm tra trước khi viết `.qml` mới:**
+**Existing shared components — check these before writing a new `.qml`:**
 
-| Hình | Component | Dùng khi |
+| Shape | Component | Use when |
 | :--- | :--- | :--- |
-| Chọn 1 trong danh sách | `SelectList` | `Repeater`, click → emit → đóng |
-| Danh sách chỉ đọc | `SelectList` (`selectable=False`) | cùng model, bỏ click |
-| Lưới thẻ chỉ đọc | `StatGrid` | không tương tác, chỉ hiển thị số |
-| Checkbox multi-select | `CheckboxList` | độc lập từng dòng, luật khoá/loại trừ (nếu có) nằm ở dialog, không ở VM |
-| Form có validate | tự viết theo mẫu `Capital` | field + kết quả validate cần đồng bộ |
+| Pick one from a list | `SelectList` | `Repeater`, click → emit → close |
+| Read-only list | `SelectList` (`selectable=False`) | same model, click removed |
+| Read-only card grid | `StatGrid` | non-interactive, numbers only |
+| Multi-select checkboxes | `CheckboxList` | rows independent; any locking/exclusion rules live in the dialog, not the VM |
+| Form with validation | hand-written, following `Capital` | fields and validation results must stay in sync |
 
-## 3. Style — bắt buộc từ ngày đầu, kể cả khi "chưa cần thiết kế"
+## 3. Style — mandatory from day one, even when "no design is needed yet"
 
-> User 2026-08-28: *"styling nên remove luôn nhỉ, chưa cần style sớm."* Đúng cho phần **thiết kế**
-> (không kit, không token mới, không đuổi pixel). **Sai nếu áp dụng cho việc dùng token — đó không
-> phải styling, đó là baseline đúng.**
+> User 2026-08-28: *"we should drop styling, no need to style this early."* Correct for the
+> **design** part (no kit, no new tokens, no pixel-chasing). **Wrong if applied to using tokens —
+> that is not styling, that is the correct baseline.**
 
-Lý do đo được: (1) **"không style" là hộp trắng trên nền đen** — nút QtQuick Controls mặc định
-`#f5f5f5` trên nền app `#0a0a0c`; (2) **style native của Windows bỏ qua `background:` mà không báo
-lỗi**, chỉ log warning rồi vẽ chrome mặc định, nên hoãn styling là hoãn phát hiện bẫy tới lúc tệ
-nhất (máy user); (3) repo đã dính bệnh "mỗi widget tự vẽ" hai lần (`EPIC-005` để lại 8
-`setStyleSheet` riêng lẻ; `EPIC-006B` phải dọn). **Bắt buộc cho mọi `.qml` mới, không "để sau":**
+The measured reasons: (1) **"no style" means a white box on a black background** — a default
+QtQuick Controls button is `#f5f5f5` on the app's `#0a0a0c` background; (2) **the native Windows
+style ignores `background:` without reporting an error**, it only logs a warning and then draws
+the default chrome, so deferring styling defers discovering the trap until the worst possible
+moment (the user's machine); (3) this repo has caught the "every widget paints itself" disease
+twice already (`EPIC-005` left 8 separate `setStyleSheet` calls; `EPIC-006B` had to clean them up).
+**Mandatory for every new `.qml`, no "later":**
 
-- Gọi `ensure_qml_style()` (ghim style `"Basic"`) trong `QmlOverlay.__init__`/host dùng chung,
-  **không chỉ ở app bootstrap**: test dựng dialog trực tiếp không qua bootstrapper, nếu chỉ ghim ở
-  bootstrap thì test xanh trên chrome native mà người dùng không bao giờ thấy.
-- Mọi màu **phải** là `Theme.<token>` (`register_theme()` gắn context property `Theme`). **Cấm hex
-  literal (`"#..."`) và tên màu literal (trừ `"transparent"`) trong `.qml`** — guard đã có, xem
-  `test_qml_style_discipline.py`; soi gương guard hex-literal phía widget (`kit/guards.py`).
-- Kiểm token tồn tại thật trước khi dùng, đừng đoán tên — `Tone.POSITIVE` map sang `Theme.success`,
-  không phải `Theme.positive` (đo bằng `Palette.as_ui_dict()` trước khi ship).
+- Call `ensure_qml_style()` (pinning the `"Basic"` style) inside `QmlOverlay.__init__`/the shared
+  host, **not only at app bootstrap**: tests construct dialogs directly without going through the
+  bootstrapper, so pinning only at bootstrap makes tests pass on native chrome that users never see.
+- Every colour **must** be a `Theme.<token>` (`register_theme()` installs the `Theme` context
+  property). **Hex literals (`"#..."`) and literal colour names (except `"transparent"`) are
+  forbidden in `.qml`** — the guard already exists, see `test_qml_style_discipline.py`; it mirrors
+  the widget-side hex-literal guard (`kit/guards.py`).
+- Verify a token actually exists before using it, do not guess the name — `Tone.POSITIVE` maps to
+  `Theme.success`, not `Theme.positive` (check with `Palette.as_ui_dict()` before shipping).
 
-Việc **thiết kế** (spacing scale, animation, elevation) vẫn hoãn được; việc **dùng token thay vì
-literal** thì không, vì sửa sau đắt hơn (một `sed` cho cả app so với dò từng file).
+**Design** work (spacing scale, animation, elevation) can still be deferred; **using tokens instead
+of literals** cannot, because fixing it later is more expensive (one `sed` across the app versus
+combing through every file).
 
-## 4. Qt Quick gotcha — đo được thật, không suy đoán
+## 4. Qt Quick gotchas — actually measured, not speculation
 
-Bốn cái này **không lộ ra bằng lỗi biên dịch hay warning** — `ruff`/`mypy` không đọc `.qml`, Qt
-Quick im lặng khi bạn dùng sai.
+These four **do not surface as compile errors or warnings** — `ruff`/`mypy` do not read `.qml`, and
+Qt Quick stays silent when you use it wrong.
 
-### 4.1 `Repeater` chỉ nhận đúng MỘT delegate
+### 4.1 A `Repeater` accepts exactly ONE delegate
 
-Đặt hai `Item` (ví dụ `Rectangle` cho hình chọn được + `Row` cho hình chỉ đọc) làm **anh em trực
-tiếp** trong `Repeater` → chỉ cái cuối cùng được tạo, cái kia **không bao giờ instantiate**, không
-lỗi, không warning. Sửa: bọc cả hai vào **một `Item` cha** cho mỗi index.
+Putting two `Item`s (e.g. a `Rectangle` for the selectable shape plus a `Row` for the read-only
+shape) as **direct siblings** inside a `Repeater` → only the last one is created, the other is
+**never instantiated**, with no error and no warning. Fix: wrap both in **a single parent `Item`**
+per index.
 
-### 4.2 `Repeater { model: <list dict/QVariantList> }` phá huỷ và tạo lại TOÀN BỘ delegate mỗi lần model đổi
+### 4.2 `Repeater { model: <list of dicts/QVariantList> }` destroys and recreates EVERY delegate on every model change
 
-Kể cả khi chỉ một phần tử đổi. Đo bằng cách giữ tham chiếu Python của một delegate qua hai lần
-`rowsChanged.emit()` liên tiếp — id đổi hoàn toàn, item cũ là vật đã chết. **Không bao giờ giữ
-tham chiếu delegate qua một lần refresh**; tra cứu lại sau mỗi
-`rowsChanged`/`optionsChanged`/`cardsChanged`. Đây cũng là lý do hiệu năng của luật model-view §6.6:
-list tĩnh nhỏ dùng `Repeater` được, list lớn/cập nhật liên tục thì bọc `QAbstractListModel` (Python)
-— nó phát `dataChanged` theo từng dòng thay vì rebuild cả khối.
+Even when only one element changed. Measured by holding a Python reference to one delegate across
+two consecutive `rowsChanged.emit()` calls — the id changes entirely, and the old item is a dead
+object. **Never hold a delegate reference across a refresh**; look it up again after every
+`rowsChanged`/`optionsChanged`/`cardsChanged`. This is also the performance rationale behind the
+model-view rule in §6.6: a small static list can use a `Repeater`, but a large or continuously
+updating list must be wrapped in a `QAbstractListModel` (Python) — that one emits `dataChanged` per
+row instead of rebuilding the whole block.
 
-### 4.3 `findChild` KHÔNG với tới item do `Repeater` tạo
+### 4.3 `findChild` CANNOT reach items created by a `Repeater`
 
-Dùng `qml_item`/`find_qml_item` trong `tests/conftest.py` (đi bằng `childItems()`; ghi chú gốc:
-*"verified empirically while building the QML sidebar"*), đừng viết lại — `find_qml_item` là tên
-canonical duy nhất, `find_all_named` (prefix match cho hàng của `Repeater`) sống cùng nó ở đó.
-`findChild` vẫn đúng cho item khai báo tĩnh và cho ranh giới `Popup` (tách khỏi `childItems()`
-theo chiều ngược lại).
+Use `qml_item`/`find_qml_item` from `tests/conftest.py` (they walk `childItems()`; original note:
+*"verified empirically while building the QML sidebar"*), and do not rewrite them —
+`find_qml_item` is the one canonical name, and `find_all_named` (prefix matching for `Repeater`
+rows) lives alongside it there. `findChild` is still correct for statically declared items and for
+the `Popup` boundary (which is detached from `childItems()` in the other direction).
 
-### 4.4 Chữ ký signal QtQuick Controls khác widget tương đương
+### 4.4 QtQuick Controls signal signatures differ from the equivalent widget
 
-`TextField.textEdited` **không có tham số**; `QLineEdit.textEdited(str)` (widget) thì có. Giả lập
-signal bằng tay (`QMetaObject.invokeMethod` với sai số tham số) fail **im lặng** hoặc báo lỗi khó
-hiểu. Dùng `QTest.keyClicks`/`QTest.mouseClick` để mô phỏng hành động thật thay vì đoán chữ ký.
+`TextField.textEdited` **takes no parameters**; `QLineEdit.textEdited(str)` (the widget) does.
+Faking a signal by hand (`QMetaObject.invokeMethod` with the wrong parameter count) fails
+**silently** or raises a baffling error. Use `QTest.keyClicks`/`QTest.mouseClick` to simulate the
+real action instead of guessing the signature.
 
-## 5. 🧩 Code Practices trong `.qml`
+## 5. 🧩 Code Practices in `.qml`
 
 - **5.1 Strict separation of UI and business logic.** QML files define only visual layout, theme bindings, micro-animations, and user-interaction signals. Move all calculations, data transformations, domain validation, and state machines into the widget's `_vm.py` (§1) or the screen's `Presenter`/`ViewModel`/`Domain`; small view-local helpers (focus handling, invoking a slot, resetting an already-rendered input) are permitted only when they do not duplicate a business rule or become a second source of state. UI triggers actions by invoking `vm` slots/methods — one-way command dispatch; the Presenter/coordinator runs the logic and updates ViewModel properties.
 - **5.2 Reactive bindings over manual assignment.** Always bind QML element properties directly to `vm` properties or `Theme`. Never break bindings with imperative assignments inside signal handlers.
@@ -242,11 +261,13 @@ hiểu. Dùng `QTest.keyClicks`/`QTest.mouseClick` để mô phỏng hành độ
 - Run: `.\scripts\preview-qml.ps1 <screen_name>` / `--list` — it previews QtWidgets screens too, despite the name.
 - Guard test: `tests/unit/presentation/ui/test_preview_fixtures_exist.py`.
 
-## 9. Việc còn treo
+## 9. Open items
 
-Chưa có nơi tracking riêng cho hai việc này; giữ ở đây tới khi vào một task/epic thật:
+There is no dedicated tracking place for these two yet; keep them here until they land in a real
+task/epic:
 
-- `QmlOverlay.root_object`'s docstring ("for tests to `findChild` into") chỉ đúng cho item tĩnh,
-  không đúng cho delegate của `Repeater` (§4.3) — sửa doc nhỏ.
-- `SymbolPicker.qml` tự dựng backdrop/modal-card/keyboard trên `Item` thay vì `Popup`/`Dialog`
-  (§0.1) — chưa sửa vì chưa có host production để kiểm chứng; sẽ dựng lại theo luật này sau.
+- `QmlOverlay.root_object`'s docstring ("for tests to `findChild` into") is only true for static
+  items, not for `Repeater` delegates (§4.3) — a small doc fix.
+- `SymbolPicker.qml` hand-rolls the backdrop/modal card/keyboard handling on an `Item` instead of
+  using `Popup`/`Dialog` (§0.1) — not fixed yet because there is no production host to verify
+  against; it will be rebuilt to this rule later.

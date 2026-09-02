@@ -1,6 +1,6 @@
 ---
 name: UI Presentation Layer Rule
-description: Quy tắc tầng presentation — bố cục MVP trio, responsive sizing, icon theme-tinted, thuật ngữ domain, và quy ước preview.py bắt buộc cho mọi UI package.
+description: Presentation-layer rules — MVP trio directory layout, responsive sizing, theme-tinted icons, domain terminology, and the preview.py convention required for every UI package.
 trigger: on_file_change
 patterns:
   - "**/*.qml"
@@ -9,10 +9,11 @@ patterns:
 
 # UI & PRESENTATION LAYER RULES
 
-**Phân vai với [`qml-rule.md`](qml-rule.md):** file đó là nguồn chuẩn đầy đủ cho mọi thứ *bên
-trong* file `.qml`. File này giữ **tầng presentation nói chung** — bố cục thư mục Python, quy ước
-preview, thuật ngữ, tài sản icon — cộng một **chỉ mục** (không phải bản sao) các tiêu chuẩn QML.
-Coordinator Pattern nằm ở [`async-ui-action-rule.md`](async-ui-action-rule.md).
+**Division of labour with [`qml-rule.md`](qml-rule.md):** that file is the complete, authoritative
+source for everything *inside* a `.qml` file. This file covers **the presentation layer in
+general** — Python directory layout, the preview convention, terminology, icon assets — plus an
+**index** (not a copy) of the QML standards. The Coordinator Pattern lives in
+[`async-ui-action-rule.md`](async-ui-action-rule.md).
 
 - **QML Standards & Declarative Guidelines (Strict Adherence to `qml-rule.md`):**
   > QtWidgets is the app-wide default; QML is opt-in **per widget** (a modal body, a panel),
