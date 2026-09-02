@@ -222,6 +222,6 @@ nhánh của script gọi (cùng `--ignore` list, cùng target) rồi chạy tr�
 - Mypy (từ `/home/user`): 0 lỗi, 231 file — không đổi vì task này không chạm `src/`.
 - `tests/sanity`: 24/24, không đổi.
 - Full suite (`tests` trừ `sanity`+`testnet`, `-n 4`, offscreen): 3312 passed, 4 skipped, 1 failed —
-  thất bại duy nhất vẫn là `test_pan_preview_moves_only_the_data_region_not_the_axes`, đã xác nhận
-  không liên quan qua nhiều task trước; 4 skip đã đối chiếu là pre-existing, không phát sinh từ
-  task này (`tests/testnet` bị `--ignore` hoàn toàn, không góp phần vào số skip đó).
+  `test_pan_preview_moves_only_the_data_region_not_the_axes`, đã root-cause và sửa ở [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md);
+  4 skip đã đối chiếu là pre-existing, không phát sinh từ task này (`tests/testnet` bị `--ignore`
+  hoàn toàn, không góp phần vào số skip đó).

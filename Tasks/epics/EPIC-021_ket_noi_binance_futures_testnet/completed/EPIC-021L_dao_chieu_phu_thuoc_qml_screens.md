@@ -230,6 +230,5 @@ theo văn bản, không phải import), không phải chạy được script tro
 - Mypy (từ `/home/user`): 0 lỗi, 231 file — lưu ý `presentation/` bị loại khỏi phạm vi mypy
   (`pyproject.toml`), nên guard `ast` + test suite là nguồn xác nhận thật cho thay đổi này, không
   phải mypy.
-- `tests/unit` đầy đủ (`-n 4`, offscreen): 3192 passed, 1 failed — thất bại duy nhất vẫn là
-  `test_pan_preview_moves_only_the_data_region_not_the_axes`, đã xác nhận không liên quan qua
-  nhiều task trước.
+- `tests/unit` đầy đủ (`-n 4`, offscreen): 3192 passed, 1 failed —
+  `test_pan_preview_moves_only_the_data_region_not_the_axes`, đã root-cause và sửa ở [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md).

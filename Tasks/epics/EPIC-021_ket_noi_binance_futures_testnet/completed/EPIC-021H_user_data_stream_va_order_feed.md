@@ -200,6 +200,7 @@ CLI command "enable-trading" chưa tồn tại. Không phải phạm vi của ta
 - Mypy (chạy từ `/home/user`, `--namespace-packages --explicit-package-bases`): 0 lỗi,
   231 file nguồn (gồm `scripts/epic021h_user_stream_probe.py`).
 - `tests/sanity`: 24/24.
-- `tests/unit` đầy đủ (`-n 4`, offscreen): 3190 passed, 1 failed — thất bại duy nhất là
-  `test_pan_preview_moves_only_the_data_region_not_the_axes` (chart pan pixel-rendering),
-  đã xác nhận không liên quan qua các task E/F/G trước đó.
+- `tests/unit` đầy đủ (`-n 4`, offscreen): 3190 passed, 1 failed —
+  `test_pan_preview_moves_only_the_data_region_not_the_axes`. Đã root-cause và sửa ở [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md).
+  Trước đó dòng này ghi "đã xác nhận không liên quan qua các task E/F/G trước đó" — một chuỗi
+  task cùng dẫn chiếu lẫn nhau không phải bằng chứng, đó là cách cả 10 file cùng bỏ qua nó.

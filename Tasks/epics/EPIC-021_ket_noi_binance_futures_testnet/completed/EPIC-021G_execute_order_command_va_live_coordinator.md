@@ -236,7 +236,7 @@ tới từ `EPIC-021H`, thay vì bịa số liệu chưa có thật.
   `TradingVenue` mặc định DISABLED (xem §6.3), không cần thêm vào `_NOT_DISPATCHED`.
 - Unit (`-n 4`): 3160 passed, 1 failed —
   `test_pan_preview_moves_only_the_data_region_not_the_axes`. Đã root-cause và mở hồ sơ riêng ở
-  [`BUG-083`](../../../bug_report/incomplete/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md)
+  [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md)
   (lỗi test, không phải lỗi sản phẩm; đỏ từ PR #140, 2026-08-27). Trước đó dòng này chỉ ghi "không
   liên quan" — 10/13 file task của epic đều ghi vậy, và đó chính là cách một cổng bắt buộc mất tác
   dụng.

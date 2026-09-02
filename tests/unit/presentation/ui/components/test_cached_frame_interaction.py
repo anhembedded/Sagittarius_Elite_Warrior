@@ -276,12 +276,14 @@ def test_pan_preview_moves_only_the_data_region_not_the_axes(qapp):
     before_image = viewport.grab().toImage()
     before_axis = _axis_strip_signature(before_image, axis_strip_width)
 
-    # Deliberately shorter than _PAN_REANCHOR_VIEWPORT_RATIO of the plot
-    # width, so this stays a test of the pure cached-pixmap transform and
-    # never trips the mid-drag re-render (covered separately below).
+    # `_SHORT_PAN_PIXELS`, not a literal: at this card size the re-anchor
+    # threshold is min(1121.5 * _PAN_REANCHOR_VIEWPORT_RATIO, 96.0) =
+    # 56.1px, so the 100.0 this used to drag tripped the mid-drag re-render
+    # and left the assertions below measuring a re-rendered frame instead
+    # of the pure cached-pixmap transform this test is about (BUG-083).
     start = QPointF(canvas.mapFromScene(view_rect.center()))
     assert controller.begin_pan(start) is True
-    controller.update_pan(start + QPointF(100.0, 0.0))
+    controller.update_pan(start + QPointF(_SHORT_PAN_PIXELS, 0.0))
     qapp.processEvents()
 
     during_image = viewport.grab().toImage()
@@ -323,7 +325,7 @@ def test_pan_preview_moves_only_the_data_region_not_the_axes(qapp):
     )
     assert time_axis_during != time_axis_before
 
-    controller.commit_pan(start + QPointF(100.0, 0.0))
+    controller.commit_pan(start + QPointF(_SHORT_PAN_PIXELS, 0.0))
     card.cleanup()
 
 

@@ -188,8 +188,8 @@ câu trả lời tốt nhất có thể cho "lệnh nào bị ảnh hưởng".
 - Mypy (`src`+`scripts`, một lệnh, từ thư mục superproject): `Success: no issues found in 213
   source files`.
 - Sanity: 24 passed (đã tự tay xác nhận `SubmitOrderCommand` không làm nó đỏ, xem §6.2).
-- Unit (`-n 4`): 3084 passed, 1 failed — cùng lỗi trước-đã-biết,
-  `test_pan_preview_moves_only_the_data_region_not_the_axes` (chart pan/pixel, không liên quan).
+- Unit (`-n 4`): 3084 passed, 1 failed —
+  `test_pan_preview_moves_only_the_data_region_not_the_axes`. Đã root-cause và sửa ở [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md).
 - Guard: `test_order_submission_mode_live_is_not_used_yet.py` xanh; `test_only_the_session_factory_
   constructs_binance_client.py` (`EPIC-021A`) vẫn xanh (không có `Client()` mới ngoài
   `ExchangeSessionFactory`); `grep -rln "class.*ITradingClient" src/` cho đúng 1 implementer

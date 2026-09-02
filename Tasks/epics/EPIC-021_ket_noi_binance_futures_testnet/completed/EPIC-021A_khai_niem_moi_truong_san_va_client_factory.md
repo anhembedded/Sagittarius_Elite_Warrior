@@ -244,6 +244,9 @@ mypy (config đúng ci-local.ps1: --config-file pyproject.toml --namespace-packa
       --explicit-package-bases, src+scripts một lệnh) → Success: no issues found in 170 source files
 pytest tests/sanity                    → 24 passed
 pytest tests/unit + tests/integration  → 1 failed, 2966 passed, 4 skipped, coverage 95% —
-                                          thất bại duy nhất pre-existing, không liên quan
-                                          (test_pan_preview_moves_only_the_data_region_not_the_axes)
+                                          test_pan_preview_moves_only_the_data_region_not_the_axes
+                                          (đã root-cause + sửa ở BUG-083, xem ghi chú cuối mục)
 ```
+
+> **Ghi chú 2026-09-02:** một test đỏ ở trên từng được ghi là *"pre-existing, không liên quan"*. Nó **là** lỗi thật — của chính test đó, không phải của sản phẩm — và 10/13 file task của epic này cùng ghi như vậy, khiến cổng bắt buộc đỏ suốt từ 2026-08-27 mà không ai phân biệt được đỏ-mới với đỏ-cũ. Root cause + fix: [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md).
+

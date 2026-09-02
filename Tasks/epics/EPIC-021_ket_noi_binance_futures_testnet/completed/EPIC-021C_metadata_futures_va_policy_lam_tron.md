@@ -187,7 +187,11 @@ ruff check src tests scripts tools    → 3 lỗi, cả 3 pre-existing (scripts/
 ruff format --check src tests scripts tools → 869 files already formatted
 mypy (src+scripts, một lệnh) → Success: no issues found in 184 source files
 pytest tests/sanity                    → 24 passed
-pytest tests/unit + tests/integration  → 1 failed (pre-existing, không liên quan:
-                                          test_pan_preview_moves_only_the_data_region_not_the_axes),
+pytest tests/unit + tests/integration  → 1 failed
+                                          (test_pan_preview_moves_only_the_data_region_not_the_axes
+                                          — đã root-cause + sửa ở BUG-083, xem ghi chú cuối mục),
                                           3039 passed, 4 skipped, coverage 95%
 ```
+
+> **Ghi chú 2026-09-02:** một test đỏ ở trên từng được ghi là *"pre-existing, không liên quan"*. Nó **là** lỗi thật — của chính test đó, không phải của sản phẩm — và 10/13 file task của epic này cùng ghi như vậy, khiến cổng bắt buộc đỏ suốt từ 2026-08-27 mà không ai phân biệt được đỏ-mới với đỏ-cũ. Root cause + fix: [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md).
+

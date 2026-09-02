@@ -197,9 +197,9 @@ nếu tách thành hai field độc lập.
   `/home/user`, không phải từ `Sagittarius_Elite_Warrior/`): `Success: no issues found in 205
   source files`.
 - Sanity: 24 passed.
-- Unit (`-n 4`): 3040 passed, 1 failed — `test_pan_preview_moves_only_the_data_region_not_the_axes`
-  (chart pan/pixel test ở `presentation/ui/components/`, không liên quan gì tới `domain/trading/`
-  hay CLI mới; xác nhận lại bằng chạy riêng lẻ, cùng thất bại đã ghi nhận ở `EPIC-021D`).
+- Unit (`-n 4`): 3040 passed, 1 failed — `test_pan_preview_moves_only_the_data_region_not_the_axes`.
+  Đúng là không liên quan tới `domain/trading/`, nhưng câu "không liên quan" **không** phải kết
+  luận đủ: nó là lỗi test thật, đã root-cause và sửa ở [`BUG-083`](../../../bug_report/completed/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md).
 - Guard: `grep -rln "ITradingClient" src scripts tests` → chỉ khớp docstring/comment, chưa có
   implementer thật nào (đúng như kỳ vọng — đó là việc của `EPIC-021F`).
 - Chạy thật `main.py order-preview` (xem §6.3) và một ca `--qty notanumber` để xác nhận thoát êm

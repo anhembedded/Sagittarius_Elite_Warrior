@@ -3,7 +3,8 @@
 **Reported date:** 2026-09-02
 **Severity:** 🟠 **P2** — không phải lỗi sản phẩm, nhưng làm **cổng bắt buộc**
 (`scripts/ci-local.ps1 -Full`) đỏ vĩnh viễn, và **10 file task đã bắt đầu coi nó là bình thường**.
-**Status:** 🔴 Open — root cause **đã xác nhận bằng đo đạc** (§3), hướng sửa đã chốt (§5), chưa sửa.
+**Status:** ✅ **Fixed 2026-09-02** — root-caused bằng đo đạc (§3) · tái hiện + đột biến xác nhận
+(§4, §7) · cổng bắt buộc xanh hoàn toàn lần đầu kể từ 2026-08-27 (§7).
 
 ---
 
@@ -124,16 +125,66 @@ nghĩa và các test anh em đang dùng.
   `test_long_drag_does_not_expose_a_large_blank_band` — nên không có nhánh nào mất coverage.
 - Không assertion nào bị xoá hay nới; chỉ đổi tham số đầu vào về đúng miền hợp lệ.
 
-**Cân nhắc thêm (không bắt buộc, đề xuất để user quyết):** §3.2 cho thấy cách lấy mẫu một-hàng-
-ngang là mong manh — nó sẽ tiếp tục cho âm tính giả nếu chiều cao trục hay font nhãn đổi. Có thể
-đổi sang lấy mẫu toàn dải trục. Đây là **cải thiện chất lượng test**, không cần thiết để đóng bug
-này, và làm nó chung một commit sẽ trộn hai thay đổi khác bản chất.
+## 6. Fix
 
-## 6. Việc phải làm khi sửa
+Hai literal `100.0` (dòng 284 `update_pan`, dòng 326 `commit_pan`) → `_SHORT_PAN_PIXELS`, kèm
+comment ghi thẳng con số ngưỡng đo được thay vì câu "deliberately shorter than…" vốn đã sai:
 
-1. Viết/chạy regression: xác nhận test đỏ **đúng vì lý do §3.1** trước khi sửa (đã làm, §4).
-2. Đổi 2 literal → `_SHORT_PAN_PIXELS`.
-3. Chạy **cổng thật** `pwsh -NoProfile -File scripts/ci-local.ps1 -Full`, quét `LOG_FILE:` —
-   phải xanh hoàn toàn, không còn "1 failed".
-4. Cập nhật 10 file task `EPIC-021A/B/C/D/E/F/G/H/J/L`: thay câu *"không liên quan"* bằng con
-   trỏ tới hồ sơ này. Để nguyên là giữ lại cái cớ cho lần sau.
+```python
+# `_SHORT_PAN_PIXELS`, not a literal: at this card size the re-anchor
+# threshold is min(1121.5 * _PAN_REANCHOR_VIEWPORT_RATIO, 96.0) =
+# 56.1px, so the 100.0 this used to drag tripped the mid-drag re-render
+# and left the assertions below measuring a re-rendered frame instead
+# of the pure cached-pixmap transform this test is about (BUG-083).
+controller.update_pan(start + QPointF(_SHORT_PAN_PIXELS, 0.0))
+```
+
+Không sửa một dòng code sản phẩm nào — §3 đã chứng minh sản phẩm đúng ở cả hai nhánh.
+
+## 7. Regression test — chứng minh **không** làm yếu, không phải khẳng định suông
+
+`bug-fix-rule.md` §4 cấm sửa test thành thứ *"no longer reaches the original failure path"*.
+Đường lỗi gốc của `BUG-009` là *"pan transform áp lên cả khung viewport thay vì chỉ vùng dữ
+liệu"*. Đo bằng đột biến: gieo lại đúng lỗi đó vào code sản phẩm (bỏ cả hai `setClipRect` trong
+`_paint_transformed_region`) rồi chạy test **đã sửa**:
+
+```text
+E  AssertionError: the price axis moved with the drag — the pan transform is being
+   applied to the whole cached viewport frame instead of only the plot's data region
+   test_cached_frame_interaction.py:293
+1 failed          # đột biến gieo vào
+1 passed          # code khôi phục
+```
+
+Đỏ đúng assertion của `BUG-009`. Nên bản 40px **vẫn tới** đường lỗi gốc — thực ra tới *tốt hơn*
+bản 100px, vì ở 100px re-anchor cắt ngang preview và test không còn chạm đường đó nữa.
+
+Hành vi re-anchor vẫn được phủ riêng bởi
+`test_reanchoring_mid_drag_lands_on_the_same_range_as_one_continuous_pan` và
+`test_long_drag_does_not_expose_a_large_blank_band` — không nhánh nào mất coverage.
+
+**Cổng bắt buộc, lần đầu xanh hoàn toàn kể từ 2026-08-27:**
+
+```text
+pwsh -NoProfile -File scripts/ci-local.ps1 -Full
+  ✅ Ruff Lint · ✅ Ruff Format · ✅ Mypy · ✅ Skill Prompt References · ✅ Sanity · ✅ Tests
+  3317 passed, 4 skipped, 0 failed  (190,05s)
+  ✅ Run log — no WARNING/ERROR/CRITICAL log records
+RESULT: PASS   FAILED_STEPS: none
+LOG_FILE: logs/ci-local-20260902-091105.log
+```
+
+Đã quét `LOG_FILE` theo đúng `CLAUDE.md` §2 (`FAILED|ERROR|Traceback|ResourceWarning`): 0 khớp
+thật — khớp duy nhất là **tên** một test có tham số `[ERROR]`
+(`test_ws_status_pill_reflects_every_ui_mode_row[ERROR]`), không phải một thất bại.
+
+## 8. Ghi chú còn lại
+
+10 file task `EPIC-021A/B/C/D/E/F/G/H/J/L` từng ghi *"1 test đỏ có sẵn, không liên quan"* đã được
+trỏ về hồ sơ này. Đó không phải dọn dẹp hình thức: câu đó chính là cơ chế làm một cổng bắt buộc
+mất tác dụng, và để nguyên là giữ lại cái cớ cho lần sau.
+
+**Cải thiện chưa làm, có chủ ý:** §3.2 cho thấy cách lấy mẫu một-hàng-ngang là mong manh — nó sẽ
+tiếp tục cho âm tính giả nếu chiều cao trục hay font nhãn đổi. Đổi sang lấy mẫu toàn dải trục là
+**cải thiện chất lượng test**, không cần thiết để đóng bug này, và trộn vào cùng commit sẽ gộp hai
+thay đổi khác bản chất.
