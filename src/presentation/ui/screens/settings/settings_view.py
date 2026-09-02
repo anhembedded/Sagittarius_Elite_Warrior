@@ -104,12 +104,21 @@ class SettingsView(BaseView):
         self._btn_default_interval.setText(view_model.defaultInterval)
         self._sync_days_spin.setValue(view_model.defaultSyncDays)
         self._apply_status(view_model.statusMessage, view_model.statusIsError)
+        self._apply_credentials_source(
+            view_model.credentialsSourceLabel, view_model.credentialsLocked
+        )
+        self._apply_connection_check(
+            view_model.connectionChecking,
+            view_model.connectionResultText,
+            view_model.connectionResultIsError,
+        )
 
         self._api_key_field.textEdited.connect(self._on_api_key_edited)
         self._api_secret_field.textEdited.connect(self._on_api_secret_edited)
         self._default_symbols_field.textEdited.connect(self._on_default_symbols_edited)
         self._sync_days_spin.valueChanged.connect(self._on_sync_days_changed)
         self._save_button.clicked.connect(view_model.requestSave)
+        self._check_connection_button.clicked.connect(view_model.requestCheckConnection)
 
         view_model.apiKeyChanged.connect(
             lambda: self._api_key_field.setText(view_model.apiKey)
@@ -129,6 +138,18 @@ class SettingsView(BaseView):
         view_model.statusChanged.connect(
             lambda: self._apply_status(
                 view_model.statusMessage, view_model.statusIsError
+            )
+        )
+        view_model.credentialsSourceChanged.connect(
+            lambda: self._apply_credentials_source(
+                view_model.credentialsSourceLabel, view_model.credentialsLocked
+            )
+        )
+        view_model.connectionCheckChanged.connect(
+            lambda: self._apply_connection_check(
+                view_model.connectionChecking,
+                view_model.connectionResultText,
+                view_model.connectionResultIsError,
             )
         )
 
@@ -155,6 +176,31 @@ class SettingsView(BaseView):
         self._status_label.setText(message)
         color = Palette.DANGER if is_error else Palette.SUCCESS
         self._status_label.setStyleSheet(f"color: {color};")
+
+    def _apply_credentials_source(self, label: str, locked: bool) -> None:
+        """`EPIC-021B` §2.3 — when an environment variable is what is in
+        effect, the fields are locked: an edit there would be silently
+        ignored by `IExchangeCredentialsProvider.resolve()`, so offering it
+        as editable would be the exact "UI promises something the system
+        doesn't do" shape `BUG-080` was filed for in the first place."""
+        self._credentials_source_label.setText(label)
+        self._api_key_field.setReadOnly(locked)
+        self._api_secret_field.setReadOnly(locked)
+
+    def _apply_connection_check(
+        self, checking: bool, result_text: str, result_is_error: bool
+    ) -> None:
+        """`EPIC-021D` — disables the button while a check is in flight
+        (this screen has no FSM to route through; the button's own enabled
+        state is lock enough for a single, fast, non-cancellable action)
+        and renders the last result, if any."""
+        self._check_connection_button.setEnabled(not checking)
+        self._check_connection_button.setText(
+            "Đang kiểm tra..." if checking else "Kiểm tra kết nối"
+        )
+        self._connection_result_label.setText(result_text)
+        color = Palette.DANGER if result_is_error else Palette.SUCCESS
+        self._connection_result_label.setStyleSheet(f"color: {color}; font-size: 11px;")
 
     def _toggle_secret_reveal(self, checked: bool) -> None:
         self._api_secret_field.setEchoMode(
@@ -230,7 +276,8 @@ class SettingsView(BaseView):
 
         warning = QLabel(
             "Thay đổi được ghi xuống user_config.json ngay khi lưu. "
-            "Riêng API Key/Secret cần khởi động lại app để có hiệu lực."
+            "Riêng API Key/Secret ghi vào secrets.local.json (không nằm trong "
+            "git) và cần khởi động lại app để có hiệu lực."
         )
         warning.setObjectName("lblRestartWarning")
         warning.setWordWrap(True)
@@ -248,6 +295,31 @@ class SettingsView(BaseView):
         self._api_key_field = self._last_field
 
         row = self._add_secret_row(grid, row)
+
+        self._credentials_source_label = QLabel()
+        self._credentials_source_label.setObjectName("lblCredentialsSource")
+        self._credentials_source_label.setWordWrap(True)
+        self._credentials_source_label.setStyleSheet(
+            f"color: {Palette.MUTED}; font-size: 11px;"
+        )
+        grid.addWidget(self._credentials_source_label, row, 0, 1, 2)
+        row += 1
+
+        self._check_connection_button = StyledButton(
+            "Kiểm tra kết nối", role=StyleRole.SECONDARY_BUTTON
+        )
+        self._check_connection_button.setObjectName("btnCheckConnection")
+        self._check_connection_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        grid.addWidget(self._check_connection_button, row, 0, 1, 2)
+        row += 1
+
+        self._connection_result_label = QLabel()
+        self._connection_result_label.setObjectName("lblConnectionResult")
+        self._connection_result_label.setWordWrap(True)
+        self._connection_result_label.setFont(QFont(_FIELD_FONT_FAMILY))
+        self._connection_result_label.setStyleSheet("font-size: 11px;")
+        grid.addWidget(self._connection_result_label, row, 0, 1, 2)
+        row += 1
 
         row = self._add_field_row(
             grid, row, "Default Symbols:", "txtDefaultSymbols", "BTCUSDT, ETHUSDT"

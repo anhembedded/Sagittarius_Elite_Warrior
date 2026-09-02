@@ -28,14 +28,9 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
-    TradeLogFilter,
-    filter_trade_log_rows,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
-    TradeLogRow,
-    trade_log_rows_to_qml,
-)
+
+from .trade_log_filter import TradeLogFilter, filter_trade_log_rows
+from .trade_log_row import TradeLogRow, trade_log_rows_to_qml
 
 #: Same five tabs, same order and labels, as `_FILTER_TABS` in
 #: `backtest_trade_logs_panel.py` — this is the one place their Vietnamese

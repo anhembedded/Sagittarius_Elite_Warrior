@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view_model import (
     SettingsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_view_model import (
+    TradingViewModel,
+)
 from sagittarius_engine.extensions.pyside_mvc import unprotected_mutators
 
 #: Every `BaseQmlViewModel` subclass this app ships. A screen missing from
@@ -39,6 +42,7 @@ _ALL_VIEW_MODELS = [
     DashboardQmlViewModel,
     DataManagementViewModel,
     SettingsViewModel,
+    TradingViewModel,
 ]
 
 

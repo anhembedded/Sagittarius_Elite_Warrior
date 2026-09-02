@@ -13,7 +13,13 @@ def _add_arguments_to_parser(
     for arg in args_list:
         kwargs = {}
 
-        if "type" in arg:
+        if "action" in arg:
+            # e.g. "store_true" for a boolean flag (`--json`, EPIC-021E) —
+            # mutually exclusive with `type` in argparse itself, so this
+            # branch skips the type-mapping below entirely rather than
+            # letting a stray "type" key in the JSON produce a TypeError.
+            kwargs["action"] = arg["action"]
+        elif "type" in arg:
             kwargs["type"] = TYPE_MAPPING.get(arg["type"], str)
         if "required" in arg:
             kwargs["required"] = arg["required"]

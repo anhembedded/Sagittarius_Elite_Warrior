@@ -4,15 +4,15 @@ from datetime import UTC, datetime
 
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+    build_trade_log_rows,
+    trade_log_rows_to_qml,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
-    build_trade_log_rows,
-    trade_log_rows_to_qml,
 )
 
 

@@ -8,14 +8,14 @@ with `QApplication.instance()` staying `None`.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
+    StatCardData,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_modals.backtest_metrics_detail_source import (
     BacktestMetricsDetailSource,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
-    StatCardData,
 )
 
 _NEUTRAL = Tone.NEUTRAL

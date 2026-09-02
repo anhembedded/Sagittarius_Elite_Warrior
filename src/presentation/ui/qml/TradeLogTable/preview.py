@@ -17,11 +17,11 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+    TradeLogRow,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_vm import (
     TradeLogVM,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
-    TradeLogRow,
 )
 from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 

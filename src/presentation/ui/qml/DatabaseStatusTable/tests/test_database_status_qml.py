@@ -282,11 +282,11 @@ def test_a_full_iso_timestamp_does_not_overflow_into_the_next_column(qapp, qml_i
     un-elided implicitWidth), RowLayout could not shrink `firstRecord`
     below its full un-truncated width, so it visually overflowed and
     overlapped the `lastRecord` text sitting right next to it."""
+    from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_table_model import (
+        DatabaseStatusTableModel,
+    )
     from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_vm import (
         DatabaseStatusVM,
-    )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
-        DatabaseStatusTableModel,
     )
 
     model = DatabaseStatusTableModel()

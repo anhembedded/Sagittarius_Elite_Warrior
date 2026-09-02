@@ -102,7 +102,9 @@ PYTHONPATH=. QT_QPA_PLATFORM=offscreen \
 PYTHONPATH=. QT_QPA_PLATFORM=offscreen \
   Sagittarius_Elite_Warrior/.venv/bin/python -m pytest Sagittarius_Elite_Warrior/tests/sanity/ -q
 
-# Lint (read-only, never let CI --fix on its own)
+# Lint (read-only, never let CI --fix on its own). This one command already covers EPIC-004's
+# security/quality rules (S/PLR2004/B/SIM/ERA/N, ci-rule.md §1) too — they're enabled repo-wide via
+# pyproject.toml's [tool.ruff.lint] extend-select, not a second tool/invocation.
 Sagittarius_Elite_Warrior/.venv/bin/python -m ruff check  <file...>
 Sagittarius_Elite_Warrior/.venv/bin/python -m ruff format --check <file...>
 

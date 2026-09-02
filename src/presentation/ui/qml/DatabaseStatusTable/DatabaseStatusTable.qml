@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../kit"
+import "../DataTable"
 
 // Layout and bindings only (EPIC-015 §3.2). Renders `DatabaseStatusVM`'s
 // real production model (`DatabaseStatusTableModel`, filtered through the
@@ -12,6 +13,11 @@ import "../kit"
 //
 // Header is the shared `kit/PanelHeader` (retrofitted 2026-08-30, see
 // `qml/kit/NOTES.md`) — not a hand-rolled accent bar + label anymore.
+//
+// Column headers + row-list + empty-state skeleton is `DataTable`
+// (`BOT-124`) — the `PanelHeader`/search field above it and the per-row
+// action buttons (in `DatabaseStatusRow.qml`) stay here (BOT-124 §5: what
+// doesn't generalize).
 ColumnLayout {
     id: root
     objectName: "databaseStatusBody"
@@ -46,95 +52,37 @@ ColumnLayout {
         }
     }
 
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Text {
-            Layout.preferredWidth: root.symbolColumnWidth
-            text: "SYMBOL"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.8
-        }
-        Text {
-            Layout.preferredWidth: root.tfColumnWidth
-            text: "TF"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.8
-        }
-        Text {
-            Layout.fillWidth: true
-            text: "FIRST RECORD"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.8
-        }
-        Text {
-            Layout.fillWidth: true
-            text: "LAST RECORD"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.8
-        }
-        Text {
-            Layout.preferredWidth: root.statusColumnWidth
-            horizontalAlignment: Text.AlignRight
-            text: "TOTAL STATUS"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.8
-        }
-        Text {
-            Layout.preferredWidth: root.actionsColumnWidth
-            horizontalAlignment: Text.AlignRight
-            text: "ACTIONS"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.8
-        }
-    }
-
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
-
-    ListView {
-        id: rowsView
-        objectName: "databaseStatusRows"
+    // Ports the old `_empty_label`'s exact message and trigger
+    // (`model.rowCount() == 0`, the same filtered count `vm.rowCount`
+    // reports here) — so an empty vault and a search with zero matches
+    // both read the same as they did before this widget replaced the
+    // QListView-based table.
+    DataTable {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        clip: true
-        spacing: 2
-        model: vm ? vm.rowsModel : null
-        delegate: DatabaseStatusRow {
-            width: rowsView.width
-            symbolWidth: root.symbolColumnWidth
-            tfWidth: root.tfColumnWidth
-            statusWidth: root.statusColumnWidth
-            actionsWidth: root.actionsColumnWidth
+        listObjectName: "databaseStatusRows"
+        emptyObjectName: "lblDatabaseStatusEmpty"
+        headerLetterSpacing: 0.8
+        rowSpacing: 2
+        columns: [
+            { key: "symbol", label: "SYMBOL", width: root.symbolColumnWidth },
+            { key: "tf", label: "TF", width: root.tfColumnWidth },
+            { key: "firstRecord", label: "FIRST RECORD", fillWidth: true },
+            { key: "lastRecord", label: "LAST RECORD", fillWidth: true },
+            { key: "status", label: "TOTAL STATUS", width: root.statusColumnWidth, align: "right" },
+            { key: "actions", label: "ACTIONS", width: root.actionsColumnWidth, align: "right" },
+        ]
+        rowsModel: vm ? vm.rowsModel : null
+        isEmpty: vm ? vm.rowCount === 0 : false
+        emptyText: "Storage Vault trống. Hãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu."
+        rowDelegate: Component {
+            DatabaseStatusRow {
+                width: ListView.view.width
+                symbolWidth: root.symbolColumnWidth
+                tfWidth: root.tfColumnWidth
+                statusWidth: root.statusColumnWidth
+                actionsWidth: root.actionsColumnWidth
+            }
         }
-    }
-
-    Text {
-        // Ports the old `_empty_label`'s exact message and trigger
-        // (`model.rowCount() == 0`, the same filtered count `vm.rowCount`
-        // reports here) — so an empty vault and a search with zero matches
-        // both read the same as they did before this widget replaced the
-        // QListView-based table.
-        objectName: "lblDatabaseStatusEmpty"
-        Layout.fillWidth: true
-        horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.WordWrap
-        visible: vm ? vm.rowCount === 0 : false
-        text: "Storage Vault trống. Hãy chọn Symbol & Timeframe và nhấn 'Sync' để tải dữ liệu."
-        textFormat: Text.PlainText
-        color: Theme.muted
-        font.pixelSize: 11
     }
 }

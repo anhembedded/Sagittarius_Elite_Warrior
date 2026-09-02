@@ -27,11 +27,16 @@ class SettingsViewModel(BaseQmlViewModel):
     defaultIntervalChanged = Signal()
     defaultSyncDaysChanged = Signal()
     statusChanged = Signal()
+    credentialsSourceChanged = Signal()
+    connectionCheckChanged = Signal()
 
     #: Emitted when the user clicks Save. The Presenter reads the current
     #: field values off this view model rather than receiving them as
     #: arguments, so adding a field never changes this signal's signature.
     saveRequested = Signal()
+
+    #: `EPIC-021D` — emitted when the user clicks "Kiểm tra kết nối".
+    checkConnectionRequested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -42,6 +47,11 @@ class SettingsViewModel(BaseQmlViewModel):
         self._default_sync_days = 1
         self._status_message = ""
         self._status_is_error = False
+        self._credentials_source_label = ""
+        self._credentials_locked = False
+        self._connection_checking = False
+        self._connection_result_text = ""
+        self._connection_result_is_error = False
 
     # ------------------------------------------------------------------ #
     # Editable fields (two-way bound from QML)
@@ -125,6 +135,77 @@ class SettingsViewModel(BaseQmlViewModel):
         self._status_message = message
         self._status_is_error = is_error
         self.statusChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Credentials source (written from Python only, `EPIC-021B`)
+    # ------------------------------------------------------------------ #
+
+    def _get_credentials_source_label(self) -> str:
+        return self._credentials_source_label
+
+    credentialsSourceLabel = Property(
+        str, _get_credentials_source_label, notify=credentialsSourceChanged
+    )
+
+    def _get_credentials_locked(self) -> bool:
+        return self._credentials_locked
+
+    credentialsLocked = Property(
+        bool, _get_credentials_locked, notify=credentialsSourceChanged
+    )
+
+    @Slot(str, bool)
+    def set_credentials_source(self, label: str, locked: bool) -> None:
+        """@param label Human-readable name of the source currently in
+        effect (e.g. "biến môi trường", "file cục bộ", "chưa cấu hình").
+        @param locked True when an environment variable is what is in
+        effect — editing the field here would silently be ignored, so the
+        View disables it and shows `label` instead."""
+        self._credentials_source_label = label
+        self._credentials_locked = locked
+        self.credentialsSourceChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Connection check (`EPIC-021D`, written from Python only)
+    # ------------------------------------------------------------------ #
+
+    def _get_connection_checking(self) -> bool:
+        return self._connection_checking
+
+    connectionChecking = Property(
+        bool, _get_connection_checking, notify=connectionCheckChanged
+    )
+
+    def _get_connection_result_text(self) -> str:
+        return self._connection_result_text
+
+    connectionResultText = Property(
+        str, _get_connection_result_text, notify=connectionCheckChanged
+    )
+
+    def _get_connection_result_is_error(self) -> bool:
+        return self._connection_result_is_error
+
+    connectionResultIsError = Property(
+        bool, _get_connection_result_is_error, notify=connectionCheckChanged
+    )
+
+    @Slot(bool)
+    def set_connection_checking(self, checking: bool) -> None:
+        self._connection_checking = checking
+        self.connectionCheckChanged.emit()
+
+    @Slot(str, bool)
+    def set_connection_result(self, text: str, is_error: bool) -> None:
+        self._connection_checking = False
+        self._connection_result_text = text
+        self._connection_result_is_error = is_error
+        self.connectionCheckChanged.emit()
+
+    @Slot()
+    def requestCheckConnection(self) -> None:
+        """Called from QML/the widget's "Kiểm tra kết nối" button."""
+        self.checkConnectionRequested.emit()
 
     # ------------------------------------------------------------------ #
     # Bulk load (from IConfig, via the Presenter)

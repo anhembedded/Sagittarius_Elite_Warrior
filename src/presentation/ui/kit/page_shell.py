@@ -1,6 +1,6 @@
-"""`PageShell` — the four-band page scaffold every screen in the App tab is
-built from: header, optional context bar, workspace (with an optional
-right-hand rail), optional console.
+"""`PageShell` — the five-band page scaffold every screen in the App tab is
+built from: header, optional global environment banner, optional context
+bar, workspace (with an optional right-hand rail), optional console.
 
 @details
 Before this existed, each screen (`DashboardView`, `BackTestView`,
@@ -22,12 +22,14 @@ A band with nothing to show is not left as empty space — `set_context_bar`
 and `set_console` fully hide their band when passed `None`, so a screen
 that has no console (Settings) does not carry a blank strip an
 Indicators-panel-shaped complaint would call "hiển thị thiếu" for the
-wrong reason.
+wrong reason. The banner band follows the same rule for the same reason,
+via `set_environment_banner_factory` (`EPIC-021K`) rather than a per-call
+setter — see that classmethod's own docstring.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
@@ -55,6 +57,28 @@ class PageShell(QWidget):  # base-exempt: pure layout composite, no chrome of it
     order it likes; each setter can be called again later to replace a
     band's content."""
 
+    #: `EPIC-021K` — the global "which venue am I in" banner, set once by
+    #: the composition root (`app_bootstrapper.build()`), never here: this
+    #: package stays domain-agnostic (module docstring — "knows no
+    #: consuming application, screen, or domain concept"), so it holds a
+    #: bare widget factory, never `VenueAlignment` itself. Every `PageShell`
+    #: built *after* the factory is set calls it once for its own banner
+    #: instance — a `QWidget` cannot be shared across 5 parents, so each
+    #: screen gets its own widget, all rendering the same fixed content.
+    #: `None` (the default) means no screen shows a banner, e.g. every
+    #: existing `PageShell()` construction in this package's own tests.
+    _environment_banner_factory: Callable[[], QWidget] | None = None
+
+    @classmethod
+    def set_environment_banner_factory(
+        cls, factory: Callable[[], QWidget] | None
+    ) -> None:
+        """@brief Registers (or clears, with `None`) the factory every
+        `PageShell` built from now on uses for its banner band. Called
+        exactly once, from the composition root — see this attribute's own
+        docstring for why it lives here and not per-screen."""
+        cls._environment_banner_factory = factory
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
@@ -63,6 +87,13 @@ class PageShell(QWidget):  # base-exempt: pure layout composite, no chrome of it
         outer.setSpacing(12)
 
         outer.addWidget(self._build_header_row())
+
+        self._banner_container, banner_layout = self._build_slot_container()
+        outer.addWidget(self._banner_container)
+        if PageShell._environment_banner_factory is not None:
+            banner_layout.addWidget(PageShell._environment_banner_factory())
+        else:
+            self._banner_container.setVisible(False)
 
         self._context_bar_container, self._context_bar_layout = (
             self._build_slot_container()

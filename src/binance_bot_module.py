@@ -1,5 +1,7 @@
 import logging
 import os
+from datetime import timedelta
+from decimal import Decimal
 
 logger = logging.getLogger("App.BinanceBotModule")
 
@@ -18,14 +20,38 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
+    IExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_futures_symbol_metadata_cache import (
+    IFuturesSymbolMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
     IMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
+    IMarketMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
+    ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
+    ITradingClient,
+)
+from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
+    IUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    EquityCurveRecorder,
 )
 from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
     InFlightSyncGuard,
@@ -33,8 +59,17 @@ from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard imp
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.services.live_trading_coordinator import (
+    LiveTradingCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.application.services.strategy_factory import (
+    build_engine,
+)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
+    TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
@@ -54,6 +89,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest import (
     StopBacktestCommand,
     StopBacktestCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order import (
+    SubmitOrderCommand,
+    SubmitOrderCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
     ClearMarketDataCommand,
@@ -83,6 +122,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_st
     GetDatabaseStatusQuery,
     GetDatabaseStatusQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
+    GetExchangeConnectionStatusQuery,
+    GetExchangeConnectionStatusQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
     GetHistoricalKlinesQuery,
     GetHistoricalKlinesQueryHandler,
@@ -90,6 +133,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
     ListAvailableSymbolsQuery,
     ListAvailableSymbolsQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order import (
+    PreviewOrderQuery,
+    PreviewOrderQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
     ScanAllDatabasesQuery,
@@ -110,6 +157,22 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_d
 from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disable_trading import (
+    DisableTradingCommand,
+    DisableTradingCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop import (
+    EmergencyStopCommand,
+    EmergencyStopCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
+    EnableTradingCommand,
+    EnableTradingCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order import (
+    ExecuteOrderCommand,
+    ExecuteOrderCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
@@ -160,11 +223,46 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
     VolumeSpikeFlowStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
+    OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
+    TradingLimitPolicy,
+    TradingLimits,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+    MarketDataVenue,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
+    resolve_market_data_venue,
+    resolve_trading_venue,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
-    PythonBinanceClient,
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
+    ExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_account_reader import (
+    FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
+    FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client import (
+    FuturesTradingClient,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_user_data_stream import (
+    FuturesUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
+    SecretsFileSource,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
@@ -182,6 +280,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager i
     DatabaseConfig,
     DatabaseManager,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
+    InMemoryFuturesSymbolMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.json_symbol_catalog_repository import (
     JsonSymbolCatalogRepository,
 )
@@ -195,6 +296,7 @@ from sagittarius_engine import App
 from sagittarius_engine.base import BaseModule
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
+from sagittarius_engine.utils.path_utils import PathUtils
 
 _DEFAULT_DB_DIR_NAME: str = "database"
 
@@ -232,8 +334,123 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(DatabaseManager, DatabaseManager)
         app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
         app.container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
-        app.container.singleton(IExchangeClient, PythonBinanceClient)
+        # EPIC-021A: market_data_venue is registered as its own singleton so
+        # BinanceWebsocketService's constructor (which needs it for the
+        # testnet flag) picks up the real configured value via auto-wiring —
+        # not its own default fallback, which would silently pin every
+        # install to MAINNET_PUBLIC regardless of config.
+        market_data_venue = resolve_market_data_venue(config)
+        app.container.singleton(MarketDataVenue, market_data_venue)
+        session_factory = ExchangeSessionFactory(market_data_venue)
+        app.container.singleton(IExchangeSessionFactory, session_factory)
+        # Lazy — Client()'s own constructor pings the network (BUG-045), so
+        # this must only run when something actually resolves IExchangeClient,
+        # not unconditionally on every app boot.
+        app.container.singleton(
+            IExchangeClient, lambda _c: session_factory.create_market_data_client()
+        )
         app.container.singleton(ILiveStreamService, BinanceWebsocketService)
+
+        # EPIC-021C: registered against the concrete ExchangeSessionFactory,
+        # not IExchangeSessionFactory — create_futures_metadata_client() is
+        # deliberately not part of that port (see its own docstring), so
+        # FuturesMetadataProvider needs the concrete type.
+        app.container.singleton(
+            IFuturesSymbolMetadataCache, InMemoryFuturesSymbolMetadataCache
+        )
+        app.container.singleton(
+            IMarketMetadataProvider,
+            lambda c: FuturesMetadataProvider(
+                session_factory, c.resolve(IFuturesSymbolMetadataCache)
+            ),
+        )
+
+        # EPIC-021B: `secrets.local.json` lives next to `user_config.json`
+        # (gitignored, unlike it) — same relative-path idiom `main.py` uses
+        # for the config files themselves.
+        secrets_file_path = PathUtils.get_relative_path(
+            __file__, "config", "secrets.local.json"
+        )
+        credentials_provider = EnvFirstCredentialsProvider(
+            SecretsFileSource(secrets_file_path)
+        )
+        app.container.singleton(IExchangeCredentialsProvider, credentials_provider)
+
+        # EPIC-021D: read-only, does not require TradingVenue to be
+        # "enabled" anywhere — see FuturesAccountReader's own docstring for
+        # why this check works off credentials alone.
+        app.container.singleton(
+            ITradingAccountReader,
+            FuturesAccountReader(session_factory, credentials_provider),
+        )
+
+        # EPIC-021H: read-only like ITradingAccountReader — registered
+        # unconditionally (not gated on TradingVenue, unlike ITradingClient
+        # just below) so EnableTradingCommandHandler stays constructible
+        # regardless of trading being enabled. Nothing calls `.start()` on
+        # it except that handler's own successful-enable path — the app
+        # never opens this stream merely by booting.
+        # `EPIC-021M` — registered here, not lazily inside the lambda below,
+        # so the Trading screen's equity chart can resolve the *same*
+        # instance regardless of whether the stream has started yet (both
+        # sides read/write through one shared singleton).
+        app.container.singleton(EquityCurveRecorder, EquityCurveRecorder())
+
+        app.container.singleton(
+            IUserDataStream,
+            lambda c: FuturesUserDataStream(
+                app.event_bus,
+                c.resolve(ITaskManager),
+                session_factory,
+                credentials_provider,
+                c.resolve(IMarketMetadataProvider),
+                c.resolve(TradingSessionState),
+                c.resolve(EquityCurveRecorder),
+            ),
+        )
+
+        # EPIC-021F: unlike ITradingAccountReader (read-only, always safe),
+        # ITradingClient can place/cancel a real order — registered only
+        # when trading is explicitly turned on, so resolving this port
+        # anywhere trading is DISABLED fails loudly (DependencyResolutionError)
+        # instead of silently handing back a client nobody asked to enable.
+        trading_venue = resolve_trading_venue(config)
+        app.container.singleton(TradingVenue, trading_venue)
+        if trading_venue is not TradingVenue.DISABLED:
+            app.container.singleton(
+                ITradingClient,
+                lambda c: FuturesTradingClient(
+                    session_factory,
+                    credentials_provider,
+                    c.resolve(IMarketMetadataProvider),
+                    OrderSubmissionMode.VALIDATE_ONLY,
+                ),
+            )
+
+        # EPIC-021G: the four trading limits, all on by default — see
+        # TradingLimitPolicy's own docstring for why there is no "disable
+        # this one" toggle, only these numeric thresholds.
+        trading_limits = TradingLimits(
+            max_orders_per_session=int(
+                config.get(ConfigKeys.TRADING_MAX_ORDERS_PER_SESSION.value, 20)
+            ),
+            max_notional_per_order=Decimal(
+                str(
+                    config.get(
+                        ConfigKeys.TRADING_MAX_NOTIONAL_PER_ORDER_USDT.value, 500
+                    )
+                )
+            ),
+            max_positions_per_symbol=int(
+                config.get(ConfigKeys.TRADING_MAX_POSITIONS_PER_SYMBOL.value, 1)
+            ),
+            min_order_interval=timedelta(
+                seconds=int(
+                    config.get(ConfigKeys.TRADING_MIN_ORDER_INTERVAL_SECONDS.value, 60)
+                )
+            ),
+        )
+        app.container.singleton(TradingLimitPolicy, TradingLimitPolicy(trading_limits))
 
         # EPIC-008F: the Application layer talks to the engine only through
         # these three ports; the adapters are the only place naming IEventBus,
@@ -258,6 +475,9 @@ class BinanceBotModule(BaseModule):
         # sync started from Backtest and one started from Data Management see
         # each other's in-flight (symbol, interval) keys.
         app.container.singleton(InFlightSyncGuard, InFlightSyncGuard)
+        # EPIC-021G: one per app process — never persisted, never seeded
+        # from config on boot (see the class's own docstring for why).
+        app.container.singleton(TradingSessionState, TradingSessionState)
 
     def _register_use_cases(self, app: App) -> None:
         """Binds CQRS commands to their respective use case command handlers."""
@@ -274,6 +494,11 @@ class BinanceBotModule(BaseModule):
         app.container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
         app.container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)
         app.container.bind(PruneEmptyShardsCommand, PruneEmptyShardsCommandHandler)
+        app.container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
+        app.container.bind(EnableTradingCommand, EnableTradingCommandHandler)
+        app.container.bind(DisableTradingCommand, DisableTradingCommandHandler)
+        app.container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
+        app.container.bind(EmergencyStopCommand, EmergencyStopCommandHandler)
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""
@@ -288,6 +513,10 @@ class BinanceBotModule(BaseModule):
         )
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
         app.container.bind(ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler)
+        app.container.bind(
+            GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQueryHandler
+        )
+        app.container.bind(PreviewOrderQuery, PreviewOrderQueryHandler)
 
     def _register_indicator_scripts(self, app: App) -> None:
         """Registers all domain indicator scripts into IndicatorScriptRegistry."""
@@ -324,8 +553,36 @@ class BinanceBotModule(BaseModule):
         adapter = app.container.resolve(LiveStreamEngineAdapter)
         app.context.hosted_services.register(adapter)
 
+        # EPIC-021G: a `StrategyEngine`/`LiveTradingCoordinator` pair is
+        # only built when a live symbol AND a live strategy are both
+        # configured — an empty `TRADING_LIVE_STRATEGY_KEY` (the default)
+        # means "no live strategy configured", and `MarketTickEventHandler`
+        # stays the inert logger it has always been.
+        config: IConfig = app.container.resolve(IConfig)
+        live_symbol = str(config.get(ConfigKeys.TRADING_LIVE_SYMBOL.value, ""))
+        live_strategy_key = str(
+            config.get(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, "")
+        )
+
+        strategy_engine = None
+        live_trading_coordinator = None
+        if live_symbol and live_strategy_key:
+            strategy_engine = build_engine(
+                app.container.resolve(StrategyRegistry),
+                live_strategy_key,
+                app.container.resolve(IEventPublisher),
+            )
+            live_trading_coordinator = LiveTradingCoordinator(
+                live_symbol,
+                app.container.resolve(ICommandDispatcher),
+                app.container.resolve(ITradingAccountReader),
+                app.container.resolve(IMarketMetadataProvider),
+            )
+
         # Initialize Event Handlers and subscribe to the Event Bus
-        event_handler = MarketTickEventHandler()
+        event_handler = MarketTickEventHandler(
+            live_symbol, strategy_engine, live_trading_coordinator
+        )
         app.event_bus.on(MarketTickEvent, event_handler.handle)
 
     def shutdown(self, app: App) -> None:
@@ -338,3 +595,11 @@ class BinanceBotModule(BaseModule):
                 exchange_client.close()
         except Exception as exc:  # noqa: BLE001
             logger.debug("Exchange client shutdown error: %s", exc)
+        try:
+            # EPIC-021H: harmless no-op if trading was never enabled this
+            # session (`IUserDataStream.stop()` returns `False`, does not
+            # raise) — still worth calling unconditionally so a session
+            # that *did* enable trading always tears its stream down.
+            app.container.resolve(IUserDataStream).stop()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("User data stream shutdown error: %s", exc)

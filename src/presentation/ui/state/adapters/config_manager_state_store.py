@@ -14,8 +14,10 @@ Measured — `scripts/ui_state_store_feasibility_probe.py` — a second
       truncated file degrades to defaults instead of blocking boot.
 
 @par Why not the same file as `user_config.json`
-It is git-tracked and holds `API_KEY`/`API_SECRET`, and the Sanity tier loads
-it with `writable=True`. More fundamentally, a *preference* is declared by the
+It is git-tracked (credentials moved out to the gitignored
+`secrets.local.json` in `EPIC-021B` — see `SecretsFileSource` — precisely
+because this file must never hold a secret), and the Sanity tier loads it
+with `writable=True`. More fundamentally, a *preference* is declared by the
 user and must be honoured verbatim, while a remembered value is a side effect
 of using the application and must be discardable in silence. Opposite failure
 policies do not belong in one file.

@@ -24,7 +24,9 @@ a `get_cards` callback rather than a `BackTestViewModel` reference, so this
 widget stays testable and reusable without importing anything from
 `screens/backtest/` (`qml/` must not depend on `screens/` — the reverse
 dependency `backtest_top_panel.py` already has is the one direction this
-rollout uses throughout).
+rollout uses throughout, enforced since `EPIC-021L`/`BUG-082` by
+`test_qml_library_does_not_import_screens.py`, not merely a convention
+stated here).
 """
 
 from __future__ import annotations

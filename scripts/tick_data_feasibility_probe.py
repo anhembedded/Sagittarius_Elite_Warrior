@@ -27,10 +27,6 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
 
-from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
-    EngineEventPublisher,
-)
-
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -43,9 +39,15 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
-    PythonBinanceClient,
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
+    ExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
+    EngineEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
     DatabaseConfig,
@@ -75,7 +77,9 @@ def main() -> None:
     start = end - timedelta(days=7)
     print(f"Window: {start.isoformat()} -> {end.isoformat()} ({SYMBOL})")
 
-    client = PythonBinanceClient()
+    client = ExchangeSessionFactory(
+        MarketDataVenue.MAINNET_PUBLIC
+    ).create_market_data_client()
     db_manager = DatabaseManager(DatabaseConfig(db_dir=DB_DIR))
     repo = SQLAlchemyMarketDataRepository(db_manager)
 

@@ -20,6 +20,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
+    SecretsFileSource,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
@@ -48,12 +57,16 @@ _REMEMBERED = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _no_env_credentials(monkeypatch):
+    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_KEY", raising=False)
+    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_SECRET", raising=False)
+
+
 @pytest.fixture
 def config():
     c = Mock()
     c.get_all.return_value = {
-        "API_KEY": "k",
-        "API_SECRET": "s",
         "DEFAULT_SYMBOLS": ["BTCUSDT"],
         "DEFAULT_INTERVAL": "1m",
         "DEFAULT_SYNC_DAYS": 30,
@@ -62,6 +75,16 @@ def config():
         True if key == DEV_MODE_CONFIG_KEY else default
     )
     return c
+
+
+@pytest.fixture
+def credentials_provider(tmp_path):
+    """Not this file's concern (that's `env_first_credentials_provider`'s own
+    unit tests) — just present, real, and harmless, so `SettingsPresenter`'s
+    constructor has something valid to resolve."""
+    return EnvFirstCredentialsProvider(
+        SecretsFileSource(str(tmp_path / "secrets.local.json"))
+    )
 
 
 @pytest.fixture
@@ -84,13 +107,15 @@ def coordinator(store):
 
 
 @pytest.fixture
-def container(config, coordinator):
+def container(config, coordinator, credentials_provider):
     c = Mock()
     c.resolve.side_effect = lambda interface: (
         config
         if interface is IConfig
         else coordinator
         if interface is UiStateCoordinator
+        else credentials_provider
+        if interface is IExchangeCredentialsProvider
         else Mock()
     )
     c.registrations.return_value = {UiStateCoordinator: object()}
@@ -141,13 +166,19 @@ def test_a_rejected_save_changes_nothing(qapp, container, store, request):
     assert store.read(_BACKTEST) == _REMEMBERED
 
 
-def test_saving_without_a_coordinator_still_works(qapp, config, request):
+def test_saving_without_a_coordinator_still_works(
+    qapp, config, credentials_provider, request
+):
     """Every existing test builds this presenter against a container that
     knows nothing about persistence, and production did too before the
     coordinator was wired."""
     container = Mock()
     container.resolve.side_effect = lambda interface: (
-        config if interface is IConfig else Mock()
+        config
+        if interface is IConfig
+        else credentials_provider
+        if interface is IExchangeCredentialsProvider
+        else Mock()
     )
     container.registrations.return_value = {}
     view = SettingsView()

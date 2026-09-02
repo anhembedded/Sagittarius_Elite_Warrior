@@ -59,6 +59,22 @@ must be confirmed failing for the right reason.
 - **External service smoke:** An explicitly requested, credential-free smoke
   check is operational evidence, not a fifth test level and never a normal CI
   gate or replacement for deterministic coverage.
+- **`tests/testnet/` (`EPIC-021J`) is operational evidence, not a fifth test level.** It touches
+  the real Futures Testnet with real credentials, and its whole value is proving the app can
+  **actually** place and cancel an order on Binance's own infrastructure — something none of the
+  four levels above proves, since Sanity and Integration both talk to `binance_fake_server.py`,
+  never the exchange. That is also exactly why it can replace none of them: testnet price drift,
+  network latency and rate limits make it inherently non-deterministic, the opposite of what the
+  four levels exist to guarantee. Rules:
+  - **Opt-in twice, not once.** `ci-rule.md` §3a: `-Full` excludes it via `--ignore` regardless of
+    any environment variable, and the tier gates itself again on `SEW_TESTNET_TESTS=1` **and**
+    real credentials.
+  - **Assert invariants, never figures.** Testnet prices and balances move in real time — assert
+    `FILLED`, or a position closing back to zero; never a specific number.
+  - **Clean up in `finally`, always.** An order or position left behind corrupts the next run;
+    there is no "re-run and tidy by hand".
+  - **Wait on a named condition** (order/position state read back from the exchange), never a
+    fixed `sleep` — the same rule as §2 below, and it applies to this real-network tier too.
 
 ---
 

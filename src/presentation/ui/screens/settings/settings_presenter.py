@@ -2,7 +2,25 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
+    CredentialsSource,
+    IExchangeCredentialsProvider,
+    ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
+    GetExchangeConnectionStatusQuery,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+    ExchangeConnectionStatus,
+)
+from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
+    format_exchange_connection_status,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
+    ActionOutcome,
+    ActionOwnershipTracker,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     FALLBACK_INTERVAL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -17,8 +35,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .settings_view_model import SettingsViewModel
+
+#: `ActionOwnershipTracker`'s `TKind` — a single action kind exists on this
+#: screen today, so a bare string is enough (`async-ui-action-rule.md`
+#: doesn't require an enum, only that ownership/fencing exist at all).
+_CHECK_CONNECTION_ACTION = "check_connection"
 
 #: `EPIC-010H`'s precedence rule (`ui_state > user_config DEFAULT_*`) means
 #: saving one of these two config keys must invalidate whatever remembered
@@ -38,13 +62,25 @@ if TYPE_CHECKING:
 _SYMBOL_SEPARATOR = ","
 
 _SAVED_MESSAGE = (
-    "Đã lưu vào user_config.json. API Key/Secret cần khởi động lại app để có hiệu lực."
+    "Đã lưu. Default Symbols/Interval/Sync Days vào user_config.json, "
+    "API Key/Secret (nếu có sửa) vào secrets.local.json. Cả hai cần khởi "
+    "động lại app để có hiệu lực."
 )
 _SAVED_IN_MEMORY_ONLY_MESSAGE = (
     "Đã áp dụng cho phiên chạy hiện tại, nhưng KHÔNG ghi được xuống "
     "user_config.json — thay đổi sẽ mất khi khởi động lại app."
 )
 _EMPTY_SYMBOLS_MESSAGE = "Default Symbols không được để trống."
+
+#: `EPIC-021B` §2.3 — human-readable label per `CredentialsSource`, and
+#: whether the field must be locked (an edit that would silently be
+#: ignored, because an environment variable always wins, must not be
+#: offered as if it would do something).
+_CREDENTIALS_SOURCE_LABELS: dict[CredentialsSource, str] = {
+    CredentialsSource.ENV: "Đang dùng key từ biến môi trường",
+    CredentialsSource.FILE: "Đang dùng key từ secrets.local.json",
+    CredentialsSource.NONE: "Chưa cấu hình API key/secret",
+}
 
 
 class SettingsPresenter(BasePresenter):
@@ -72,8 +108,22 @@ class SettingsPresenter(BasePresenter):
     against.
     """
 
+    #: `EPIC-021D` — emitted (from any thread; Qt marshals it to this
+    #: QObject's own thread) with `(action_id, ExchangeConnectionStatus |
+    #: None, error_message | None)` when a background connection check
+    #: finishes.
+    connectionCheckCompleted = Signal(tuple)
+
     def __init__(self, view: SettingsView, container: IContainer) -> None:
         super().__init__(view, container)
+
+        self._credentials_provider: IExchangeCredentialsProvider = container.resolve(
+            IExchangeCredentialsProvider
+        )
+        self._thread_manager: IThreadManager = container.resolve(IThreadManager)
+        self._connection_check_tracker: ActionOwnershipTracker[str, None, None] = (
+            ActionOwnershipTracker()
+        )
 
         self._settings_view_model = SettingsViewModel()
         self._load_from_config()
@@ -99,6 +149,10 @@ class SettingsPresenter(BasePresenter):
 
     def _connect_ui_signals(self) -> None:
         self._settings_view_model.saveRequested.connect(self._on_save)
+        self._settings_view_model.checkConnectionRequested.connect(
+            self._on_check_connection_requested
+        )
+        self.connectionCheckCompleted.connect(self._on_connection_check_completed)
 
     def _connect_engine_events(self) -> None:
         """Nothing to subscribe to — Settings has no background/live data."""
@@ -111,24 +165,36 @@ class SettingsPresenter(BasePresenter):
         # safe precisely because `app_defaults` reads absent and empty the same
         # way, so declared-vs-undeclared has no behaviour to preserve.
         values = self.config.get_all()
+        resolution = self._credentials_provider.resolve()
+        credentials = resolution.credentials
         self._settings_view_model.load_fields(
-            api_key=values.get("API_KEY") or "",
-            api_secret=values.get("API_SECRET") or "",
+            api_key=credentials.api_key if credentials else "",
+            api_secret=credentials.api_secret if credentials else "",
             default_symbols=f"{_SYMBOL_SEPARATOR} ".join(
                 default_symbol_options(values, FALLBACK_SYMBOL_OPTIONS)
             ),
             default_interval=default_interval(values, fallback=FALLBACK_INTERVAL),
             default_sync_days=int(values.get("DEFAULT_SYNC_DAYS") or 1),
         )
+        self._apply_credentials_status(resolution)
 
     @Slot()
     @safe_ui_action
     def _on_save(self) -> None:
         """
-        Validates, then writes every field via IConfig.set(). Symbols are
-        checked before any set() call so a rejected save never applies
-        partially. Sync days needs no check here — the QML SpinBox's `from: 1`
-        already constrains it to a positive value.
+        Validates, then writes every field. Symbols are checked before any
+        write so a rejected save never applies partially. Sync days needs no
+        check here — the QML SpinBox's `from: 1` already constrains it to a
+        positive value.
+
+        API Key/Secret are the one field pair that does NOT go through
+        `IConfig.set()` (`EPIC-021B`, closes `BUG-080`'s second, independent
+        problem: `user_config.json` is git-tracked, so it must never hold a
+        secret). They go to `IExchangeCredentialsProvider.save_to_file()` —
+        the gitignored `secrets.local.json` — and only when an environment
+        variable is not already winning; a write while `ENV` is in effect
+        would be silently ignored by `resolve()`, so it is skipped rather
+        than performed and then not shown.
         """
         view_model = self._settings_view_model
         symbols = self._parse_symbols(view_model.defaultSymbols)
@@ -136,8 +202,17 @@ class SettingsPresenter(BasePresenter):
             view_model.set_status(_EMPTY_SYMBOLS_MESSAGE, is_error=True)
             return
 
-        self.config.set("API_KEY", view_model.apiKey)
-        self.config.set("API_SECRET", view_model.apiSecret)
+        if not view_model.credentialsLocked:
+            try:
+                self._credentials_provider.save_to_file(
+                    view_model.apiKey, view_model.apiSecret
+                )
+            except OSError as exc:
+                self.logger.error(
+                    f"SettingsPresenter: secrets.local.json write failed: {exc}"
+                )
+                view_model.set_status(_SAVED_IN_MEMORY_ONLY_MESSAGE, is_error=True)
+                return
         self.config.set("DEFAULT_SYMBOLS", symbols)
         self.config.set("DEFAULT_INTERVAL", view_model.defaultInterval.strip())
         self.config.set("DEFAULT_SYNC_DAYS", view_model.defaultSyncDays)
@@ -151,7 +226,79 @@ class SettingsPresenter(BasePresenter):
                 return
 
         self._discard_outranked_state()
+        self._refresh_credentials_status()
         view_model.set_status(_SAVED_MESSAGE, is_error=False)
+
+    def _refresh_credentials_status(self) -> None:
+        """Re-resolves after a save — a first-time write to
+        `secrets.local.json` flips the source from `NONE` to `FILE`, and the
+        status label/lock must reflect that immediately, not just after the
+        next app restart."""
+        self._apply_credentials_status(self._credentials_provider.resolve())
+
+    def _apply_credentials_status(self, resolution: ResolvedCredentials) -> None:
+        self._settings_view_model.set_credentials_source(
+            _CREDENTIALS_SOURCE_LABELS[resolution.source],
+            locked=resolution.source is CredentialsSource.ENV,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Connection check (`EPIC-021D`) — the screen's one background action.
+    # Async ownership per `async-ui-action-rule.md`: an immutable action_id
+    # from `ActionOwnershipTracker`, verified still-current before any
+    # ViewModel mutation, so a stale callback from a superseded click can
+    # never overwrite a newer one.
+    # ------------------------------------------------------------------ #
+
+    @Slot()
+    @safe_ui_action
+    def _on_check_connection_requested(self) -> None:
+        action = self._connection_check_tracker.begin_action(
+            _CHECK_CONNECTION_ACTION, None, None
+        )
+        self._settings_view_model.set_connection_checking(True)
+        self._thread_manager.submit(self._run_check_connection, action.action_id)
+
+    def _run_check_connection(self, action_id: int) -> None:
+        """Runs on a background thread (`IThreadManager`'s pool) — must
+        never touch the ViewModel/widgets directly (Qt thread affinity,
+        `BUG-031`'s class of defect). Reports back only through
+        `connectionCheckCompleted.emit()`, which Qt marshals safely onto
+        this Presenter's own thread regardless of which thread emits it.
+        """
+        try:
+            status: ExchangeConnectionStatus = self.dispatcher.dispatch(
+                GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQuery()
+            )
+            self.connectionCheckCompleted.emit((action_id, status, None))
+        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
+            self.connectionCheckCompleted.emit((action_id, None, str(exc)))
+
+    def _on_connection_check_completed(self, payload: tuple) -> None:
+        action_id, status, error = payload
+        if not self._connection_check_tracker.is_current_pending(
+            action_id, _CHECK_CONNECTION_ACTION
+        ):
+            self._connection_check_tracker.log_stale_callback(
+                "check_connection", action_id, _CHECK_CONNECTION_ACTION
+            )
+            return
+
+        if status is not None:
+            self._connection_check_tracker.finish_action(
+                action_id, ActionOutcome.SUCCEEDED
+            )
+            self._settings_view_model.set_connection_result(
+                format_exchange_connection_status(status),
+                is_error=status.failure is not None,
+            )
+        else:
+            self._connection_check_tracker.finish_action(
+                action_id, ActionOutcome.FAILED
+            )
+            self._settings_view_model.set_connection_result(
+                f"Lỗi kiểm tra kết nối: {error}", is_error=True
+            )
 
     def _discard_outranked_state(self) -> None:
         """Forgets the remembered values this save has just overruled.

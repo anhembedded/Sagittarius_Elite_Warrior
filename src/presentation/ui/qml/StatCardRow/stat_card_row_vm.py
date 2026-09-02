@@ -7,7 +7,7 @@ read a Python `Tone` enum member directly.
 `BackTestViewModel.primaryStatCards` still carries raw `Tone.NEUTRAL`/
 `POSITIVE`/`NEGATIVE` objects under the `valueTone`/`badgeTone` keys — the
 same shape `stat_cards_to_qml()`
-(`screens/backtest/logic/performance_metrics_view.py`) produces for the
+(`qml/MetricsDetailPanel/performance_metrics_view.py`) produces for the
 QtWidgets `StatCard.set_value(..., tone=...)`/`set_badge(..., tone=...)`
 calls this widget replaces. QML reads plain data, not a Python `Enum`, so
 each card's tone is converted to the lowercase name `StatCard.qml`'s own

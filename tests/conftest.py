@@ -34,7 +34,7 @@ def _configure_app_qml():
 
 
 def real_screen_registry(container):
-    """`EPIC-016` — a `ScreenRegistry` with the app's 4 real screens
+    """`EPIC-016` — a `ScreenRegistry` with the app's real screens
     registered against `container`, matching exactly what
     `app_bootstrapper.py`'s composition root does.
 
@@ -58,10 +58,14 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
         SettingsScreenModule,
     )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.module import (
+        TradingScreenModule,
+    )
 
     registry = ScreenRegistry()
     for module_cls in (
         DashboardScreenModule,
+        TradingScreenModule,
         DatabaseScreenModule,
         SettingsScreenModule,
         BacktestScreenModule,

@@ -28,7 +28,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.style import ensure_qml_s
 from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 
 if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
+    from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_table_model import (
         DatabaseStatusTableModel,
     )
 

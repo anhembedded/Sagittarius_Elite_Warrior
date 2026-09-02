@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.kline_inspector_table_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.KlineInspectorTable.kline_inspector_table_model import (
     KLineInspectorTableModel,
     kline_display_row_to_qml,
     market_data_to_kline_row,

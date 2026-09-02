@@ -1,11 +1,16 @@
 import QtQuick
 import QtQuick.Layouts
+import "../DataTable"
 
 // Layout and bindings only (EPIC-015 §3.2). Renders `TradeLogVM`'s rows —
 // structural pass only: no search box, no export, no pagination (replaced
 // by ListView virtualization), no row-expand/column-sort yet (NOTES.md).
 // Column headers repeat `backtest_trade_logs_panel.py`'s `_HEADERS` text
 // verbatim — same table, not a redesign of its wording.
+//
+// Header + row-list + empty-state skeleton is `DataTable` (`BOT-124`) —
+// only the filter-tab row above it, the column widths/labels, and the row
+// delegate stay here (BOT-124 §5: what doesn't generalize).
 ColumnLayout {
     id: root
     objectName: "tradeLogBody"
@@ -15,6 +20,10 @@ ColumnLayout {
     readonly property int sideColumnWidth: 90
     readonly property int priceColumnWidth: 190
     readonly property int sizeColumnWidth: 130
+    //: `TradeLogRow.qml:112` already hardcodes this same `70` rather than
+    //: reading a shared property (pre-existing, unrelated to this
+    //: extraction) — kept as a literal here too, to match it exactly.
+    readonly property int returnColumnWidth: 70
 
     Row {
         objectName: "tradeLogFilterTabs"
@@ -51,91 +60,32 @@ ColumnLayout {
         }
     }
 
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Text {
-            Layout.preferredWidth: root.timeColumnWidth
-            text: "STT / THỜI GIAN"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.5
-        }
-        Text {
-            Layout.preferredWidth: root.sideColumnWidth
-            text: "LOẠI"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.5
-        }
-        Text {
-            Layout.preferredWidth: root.priceColumnWidth
-            text: "GIÁ VÀO  ➔  GIÁ THOÁT"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.5
-        }
-        Text {
-            Layout.preferredWidth: root.sizeColumnWidth
-            horizontalAlignment: Text.AlignRight
-            text: "QUY MÔ / KHỐI LƯỢNG"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.5
-        }
-        Text {
-            Layout.fillWidth: true
-            horizontalAlignment: Text.AlignRight
-            text: "LÃI / LỖ RÒNG"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.5
-        }
-        Text {
-            Layout.preferredWidth: 70
-            horizontalAlignment: Text.AlignRight
-            text: "RETURN"
-            textFormat: Text.PlainText
-            color: Theme.muted
-            font.pixelSize: 10
-            font.letterSpacing: 0.5
-        }
-    }
-
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
-
-    ListView {
-        id: rowsView
-        objectName: "tradeLogRows"
+    DataTable {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        clip: true
+        listObjectName: "tradeLogRows"
+        emptyObjectName: "lblTradeLogEmpty"
+        headerLetterSpacing: 0.5
         reuseItems: true
-        model: vm.rows
-        delegate: TradeLogRow {
-            width: rowsView.width
-            timeWidth: root.timeColumnWidth
-            sideWidth: root.sideColumnWidth
-            priceWidth: root.priceColumnWidth
-            sizeWidth: root.sizeColumnWidth
+        columns: [
+            { key: "time", label: "STT / THỜI GIAN", width: root.timeColumnWidth },
+            { key: "side", label: "LOẠI", width: root.sideColumnWidth },
+            { key: "price", label: "GIÁ VÀO  ➔  GIÁ THOÁT", width: root.priceColumnWidth },
+            { key: "size", label: "QUY MÔ / KHỐI LƯỢNG", width: root.sizeColumnWidth, align: "right" },
+            { key: "pnl", label: "LÃI / LỖ RÒNG", fillWidth: true, align: "right" },
+            { key: "return", label: "RETURN", width: root.returnColumnWidth, align: "right" },
+        ]
+        rowsModel: vm.rows
+        isEmpty: vm.rows.length === 0
+        emptyText: "Chưa có dữ liệu lệnh giao dịch"
+        rowDelegate: Component {
+            TradeLogRow {
+                width: ListView.view.width
+                timeWidth: root.timeColumnWidth
+                sideWidth: root.sideColumnWidth
+                priceWidth: root.priceColumnWidth
+                sizeWidth: root.sizeColumnWidth
+            }
         }
-    }
-
-    Text {
-        objectName: "lblTradeLogEmpty"
-        Layout.fillWidth: true
-        Layout.topMargin: 12
-        visible: vm.rows.length === 0
-        horizontalAlignment: Text.AlignHCenter
-        text: "Chưa có dữ liệu lệnh giao dịch"
-        textFormat: Text.PlainText
-        color: Theme.muted
-        font.pixelSize: 11
     }
 }

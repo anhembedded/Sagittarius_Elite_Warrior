@@ -30,8 +30,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extend
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
-    TradeLogFilter,
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.view_models.trade_log_view_model import (
+    TradeLogViewModel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
@@ -264,12 +264,17 @@ class BackTestViewModel(BaseQmlViewModel):
         self._show_extended_metrics = False
         self._needs_data_sync = False
         self._is_chart_preview = False
-        self._trade_log_rows: list[dict[str, str]] = []
-        self._trade_log_total_count = 0
-        self._trade_log_total_pages = 1
-        self._trade_log_filter = TradeLogFilter.ALL.value
-        self._trade_log_search_text = ""
-        self._trade_log_current_page = 1
+        # `EPIC-003F1` — trade-log state lives in `TradeLogViewModel` now;
+        # this facade forwards, it owns none of it directly. Each sub-VM
+        # signal connects straight to the facade signal of the same shape
+        # (`EPIC-003F1` §3.2 — no manual re-`emit()`, which would double-fire).
+        self._trade_log = TradeLogViewModel(parent=self)
+        self._trade_log.rowsChanged.connect(self.tradeLogRowsChanged)
+        self._trade_log.filterChanged.connect(self.tradeLogFilterChanged)
+        self._trade_log.searchTextChanged.connect(self.tradeLogSearchTextChanged)
+        self._trade_log.currentPageChanged.connect(self.tradeLogCurrentPageChanged)
+        self._trade_log.queryChanged.connect(self.tradeLogQueryChanged)
+        self._trade_log.exportRequested.connect(self.tradeLogExportRequested)
         self._bot_params_schema: list[dict] = []
         self._bot_params_rows: list[dict[str, object]] = []
         self._bot_params_error = ""
@@ -1118,11 +1123,12 @@ class BackTestViewModel(BaseQmlViewModel):
             self.isChartPreviewChanged.emit()
 
     # ------------------------------------------------------------------ #
-    # Trade Logs table (BOT-057 §2.1)
+    # Trade Logs table (BOT-057 §2.1) — forwarded to `TradeLogViewModel`
+    # (`EPIC-003F1`); this facade owns no trade-log state directly.
     # ------------------------------------------------------------------ #
 
     def _get_trade_log_rows(self) -> list[dict[str, str]]:
-        return self._trade_log_rows
+        return self._trade_log.rows
 
     #: Already-formatted display rows for the CURRENT page only — the
     #: Presenter owns filtering/searching/pagination over the full trade
@@ -1132,7 +1138,7 @@ class BackTestViewModel(BaseQmlViewModel):
     )
 
     def _get_trade_log_total_count(self) -> int:
-        return self._trade_log_total_count
+        return self._trade_log.totalCount
 
     #: Row count AFTER filter/search, BEFORE pagination — the "44 Lệnh"
     #: badge counts what matches the current filter, not the page size.
@@ -1141,7 +1147,7 @@ class BackTestViewModel(BaseQmlViewModel):
     )
 
     def _get_trade_log_total_pages(self) -> int:
-        return self._trade_log_total_pages
+        return self._trade_log.totalPages
 
     tradeLogTotalPages = Property(
         int, _get_trade_log_total_pages, notify=tradeLogRowsChanged
@@ -1157,40 +1163,28 @@ class BackTestViewModel(BaseQmlViewModel):
         """Public bulk-write, called by the Presenter after every
         filter/search/page/run change — same convention as
         `set_stat_cards`."""
-        self._trade_log_rows = rows
-        self._trade_log_total_count = total_count
-        self._trade_log_total_pages = total_pages
-        self.tradeLogRowsChanged.emit()
+        self._trade_log.set_page_state(rows, total_count, total_pages)
 
     def _get_trade_log_filter(self) -> str:
-        return self._trade_log_filter
+        return self._trade_log.filter
 
     def _set_trade_log_filter(self, value: str) -> None:
-        if value != self._trade_log_filter:
-            self._trade_log_filter = value
-            self._trade_log_current_page = 1
-            self.tradeLogFilterChanged.emit()
-            self.tradeLogCurrentPageChanged.emit()
-            self.tradeLogQueryChanged.emit()
+        self._trade_log.filter = value
 
     #: One of TradeLogFilter's values — QML's tab row writes this directly
     #: (no dedicated Slot needed, same pattern as `selectedTimeframe`).
     #: Resets to page 1 on change: a filter narrowing the result set could
-    #: otherwise leave the view stuck on a now out-of-range page.
+    #: otherwise leave the view stuck on a now out-of-range page (behavior
+    #: lives in `TradeLogViewModel.filter`'s own setter).
     tradeLogFilter = Property(
         str, _get_trade_log_filter, _set_trade_log_filter, notify=tradeLogFilterChanged
     )
 
     def _get_trade_log_search_text(self) -> str:
-        return self._trade_log_search_text
+        return self._trade_log.searchText
 
     def _set_trade_log_search_text(self, value: str) -> None:
-        if value != self._trade_log_search_text:
-            self._trade_log_search_text = value
-            self._trade_log_current_page = 1
-            self.tradeLogSearchTextChanged.emit()
-            self.tradeLogCurrentPageChanged.emit()
-            self.tradeLogQueryChanged.emit()
+        self._trade_log.searchText = value
 
     tradeLogSearchText = Property(
         str,
@@ -1200,13 +1194,10 @@ class BackTestViewModel(BaseQmlViewModel):
     )
 
     def _get_trade_log_current_page(self) -> int:
-        return self._trade_log_current_page
+        return self._trade_log.currentPage
 
     def _set_trade_log_current_page(self, value: int) -> None:
-        if value != self._trade_log_current_page:
-            self._trade_log_current_page = value
-            self.tradeLogCurrentPageChanged.emit()
-            self.tradeLogQueryChanged.emit()
+        self._trade_log.currentPage = value
 
     #: QML's Prev/Next buttons write this directly (e.g.
     #: `viewModel.tradeLogCurrentPage = viewModel.tradeLogCurrentPage - 1`) —
@@ -1246,7 +1237,7 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot()
     def requestTradeLogExport(self) -> None:
         """Called from QML's "Export" button."""
-        self.tradeLogExportRequested.emit()
+        self._trade_log.request_export()
 
     @Slot("QVariant")
     def requestBotParamsSave(self, values) -> None:

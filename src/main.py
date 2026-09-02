@@ -4,13 +4,25 @@ from contextlib import suppress
 
 from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
+from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
+    execute_exchange_status,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
     InteractiveShell,
+)
+from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_cmd import (
+    execute_order_dry_run,
+)
+from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_cmd import (
+    execute_order_preview,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
     execute_stream,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
+from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
+    execute_trade_once,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     AssetValidatorExtension,
 )
@@ -121,6 +133,18 @@ def _run_headless_mode(app: App, args: argparse.Namespace) -> None:
         app.stop()
     elif args.command == "stream":
         execute_stream(app, args)
+        app.stop()
+    elif args.command == "exchange-status":
+        execute_exchange_status(app)
+        app.stop()
+    elif args.command == "order-preview":
+        execute_order_preview(app, args)
+        app.stop()
+    elif args.command == "order-dry-run":
+        execute_order_dry_run(app, args)
+        app.stop()
+    elif args.command == "trade-once":
+        execute_trade_once(app, args)
         app.stop()
 
 

@@ -12,11 +12,11 @@ from pathlib import Path
 from PySide6.QtCore import QUrl
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_table_model import (
+    DatabaseStatusTableModel,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_vm import (
     DatabaseStatusVM,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
-    DatabaseStatusTableModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 

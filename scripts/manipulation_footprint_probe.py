@@ -82,6 +82,13 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+    MarketDataVenue,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
+    ExchangeSessionFactory,
+)
 
 # --------------------------------------------------------------------------- #
 # Tunables. Every one of these is a knob that can overfit a result, which is
@@ -728,13 +735,11 @@ def load_from_db(symbol: str, days: int) -> list[MarketData]:
 
 
 def load_from_binance(symbol: str, days: int) -> list[MarketData]:
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-    from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
-        PythonBinanceClient,
-    )
-
     end = datetime.now(UTC).replace(microsecond=0)
-    return PythonBinanceClient().get_historical_klines(
+    client = ExchangeSessionFactory(
+        MarketDataVenue.MAINNET_PUBLIC
+    ).create_market_data_client()
+    return client.get_historical_klines(
         symbol, TimeFrame.ONE_SECOND, end - timedelta(days=days), end
     )
 

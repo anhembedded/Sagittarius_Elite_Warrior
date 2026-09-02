@@ -81,6 +81,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker i
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
+    build_extended_stat_cards,
+    build_primary_stat_cards,
+    build_result_warning_text,
+    stat_cards_to_qml,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+    TradeLogRow,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,
 )
@@ -115,12 +124,6 @@ from .logic.backtest_fsm_matrix import (
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
-from .logic.performance_metrics_view import (
-    build_extended_stat_cards,
-    build_primary_stat_cards,
-    build_result_warning_text,
-    stat_cards_to_qml,
-)
 from .logic.pre_backtest_assertions import (
     PreBacktestAssertionPipeline,
     PreBacktestInput,
@@ -129,9 +132,6 @@ from .logic.pre_backtest_assertions import (
 from .logic.result_formatter import format_result_summary
 from .logic.time_range_preset import TimeRangePreset, resolve_time_range
 from .logic.timeframe_parsing import timeframe_or_fallback
-from .logic.trade_log_row import (
-    TradeLogRow,
-)
 from .ports.i_backtest_view import IBacktestView
 from .signal_wiring import (
     connect_chart_controls,

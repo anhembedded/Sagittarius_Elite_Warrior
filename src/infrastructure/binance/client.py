@@ -11,7 +11,13 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
+    klines_type_for,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.market_metadata_parser import (
     DEFAULT_STATUS,
     BinanceMetadataKey,
@@ -28,14 +34,6 @@ _EXCHANGE_INFO_SYMBOLS_KEY = "symbols"
 #: Binance's own per-request page size, so a chunk boundary always lines up
 #: with a page boundary already paid for over the network.
 _KLINE_STREAM_CHUNK_SIZE = 1000
-
-#: BUG-063 — python-binance's own default read timeout is 10s. A multi-day
-#: 1-second-interval sync needs hundreds of sequential requests, so at that
-#: default, an ordinary slow response (not an outage) was enough to fail the
-#: whole sync. 30s is still bounded — a genuinely dead connection fails loud
-#: well within human patience — but stops treating an occasional slow page as
-#: fatal.
-_DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
 
 #: BUG-063 — consecutive transient network failures (no kline received
 #: between them) tolerated before `_generate_raw_klines_with_retry` gives up.
@@ -61,26 +59,20 @@ class PythonBinanceClient(IExchangeClient):
 
     def __init__(
         self,
-        api_key: str = "",
-        api_secret: str = "",
-        client: Client | None = None,
+        client: Client,
+        market_data_venue: MarketDataVenue = MarketDataVenue.MAINNET_PUBLIC,
     ) -> None:
         """
-        @param client Optional pre-built binance.client.Client (or a test double). Lets
-        callers (and unit tests) inject a client directly instead of this class always
-        constructing the concrete SDK client itself — Dependency Inversion. Defaults to
-        constructing the real Client from api_key/api_secret when not provided, so
-        existing call sites (and app_bootstrapper's container wiring) are unaffected.
+        @param client A pre-built `binance.client.Client` (or a test double). `EPIC-021A`:
+        this class never constructs the SDK client itself — `ExchangeSessionFactory` is the
+        one place in the app allowed to call `Client(...)`, so the venue's endpoint and
+        credentials are already baked into `client` by the time it gets here.
+        @param market_data_venue Only affects which `klines_type` kline calls use
+        (`binance_endpoints.klines_type_for`) — exchange-info/symbol-catalog calls stay
+        spot-shaped regardless (`EPIC-021A` §2.2b; futures metadata is `EPIC-021C`'s job).
         """
-        self.client = (
-            client
-            if client is not None
-            else Client(
-                api_key,
-                api_secret,
-                requests_params={"timeout": _DEFAULT_REQUEST_TIMEOUT_SECONDS},
-            )
-        )
+        self.client = client
+        self._klines_type = klines_type_for(market_data_venue)
 
     def _format_time(self, time_val: str | datetime | None) -> str | None:
         if isinstance(time_val, datetime):
@@ -123,7 +115,11 @@ class PythonBinanceClient(IExchangeClient):
         while True:
             self._raise_if_cancelled(cancellation_requested)
             generator = self.client.get_historical_klines_generator(
-                symbol, interval, current_start, end_str
+                symbol,
+                interval,
+                current_start,
+                end_str,
+                klines_type=self._klines_type,
             )
             try:
                 for k in generator:
