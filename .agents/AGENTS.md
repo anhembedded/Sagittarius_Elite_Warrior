@@ -24,6 +24,7 @@ move, bản đầy đủ hơn đã tồn tại sẵn ở các file `rules/` tư�
 
 | Chủ đề | Đọc ở |
 | :--- | :--- |
+| **Phương châm quyết định / khi nào được tự quyết, khi nào phải hỏi** | [`ONBOARDING.md`](ONBOARDING.md) §7 |
 | SOLID, Clean Architecture, Port/ABC, CQRS, Abstraction-Level Separation | [`rules/architecture-rule.md`](rules/architecture-rule.md) |
 | Typing, immutability, magic number, God object, lazy import, Single-Scope Cohesion | [`rules/code-quality-rule.md`](rules/code-quality-rule.md) |
 | Async UI action ownership, cancellation, Coordinator Pattern | [`rules/async-ui-action-rule.md`](rules/async-ui-action-rule.md) |
