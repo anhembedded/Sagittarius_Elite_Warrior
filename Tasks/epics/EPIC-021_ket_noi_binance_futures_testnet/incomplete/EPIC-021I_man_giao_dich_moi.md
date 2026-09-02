@@ -315,6 +315,71 @@ and QML files **flat** at the top level of the screen's folder. Group only helpe
 Đã kiểm cả 4 màn hiện có: **không** màn nào có thư mục `view_models/`. Thư mục con duy nhất đang
 được dùng rộng rãi là `coordinators/` — đúng thứ `async-ui-action-rule.md` §2 cho phép riêng.
 
+### 3.3 Review mockup A/B/C (2026-09-02) — 18 điểm, đối chiếu với model dữ liệu thật
+
+Mock 3 trạng thái + dải banner. **Cái làm đúng, ghi trước vì nó là ràng buộc khó nhất:** tách
+giá MAINNET / giá khớp TESTNET được xử lý ở **bốn** chỗ độc lập (badge cạnh tiêu đề chart, nhãn
+`TRỤC GIÁ: MAINNET`, đường `GIÁ KHỚP TESTNET` kẻ ngang, và câu giải thích dưới chart nói rõ lệch
+bao nhiêu USDT). Đúng yêu cầu §2.2b. Bốn hạn mức đều hiện. Trạng thái rỗng nói *"chưa có gì xảy
+ra"* chứ không giống hỏng.
+
+Dưới đây là cái thiếu, xếp theo mức chặn.
+
+#### A. Thiếu control — mock ngầm giả định chúng tồn tại
+
+| # | Thiếu | Bằng chứng |
+| :-: | :--- | :--- |
+| **1** | **Khối lượng vào lệnh (position sizing)** | **Nặng nhất.** Cấu hình đang ship **không đặt nổi một lệnh nào**. `_LIVE_SIZING = PERCENT_OF_EQUITY 20%`, `_LIVE_LEVERAGE = 1.0` hard-code trong `live_trading_coordinator.py:67-68`. Chạy thật với đúng số dư mock vẽ: `14 871.60 × 20% @ 64 105.35` → `0.046 BTC` = **2 948.85 USDT** > hạn mức **500** ⇒ **mọi lệnh bị chặn**. Mock vẽ `0.002 BTC` = 128.21 USDT ≈ **0.86%** vốn — không phải 20%. Tức mock đã giả định có control này |
+| **2** | **Chọn chiến lược** *(user phát hiện)* | `trading.live_strategy_key` mặc định **rỗng** ⇒ `binance_bot_module.py:539` không dựng `StrategyEngine`, `MarketTickEventHandler` đứng im. 6 chiến lược đã đăng ký. Mock ghi `ema_cross(9,21)`; key thật là **`ema_crossover`** |
+| **3** | **Tham số chiến lược** | Mock ghi `(9,21)`. Default thật trong `ema_crossover_strategy.py:16-17` là **12/26**. `fast_period`/`slow_period` là `input_int` — sửa được, nhưng không có chỗ nào để sửa |
+| **4** | **Khung thời gian** | Header ghi `1m` nhưng **không có config key nào** cho interval, và `MarketTickEventHandler.handle()` **chỉ lọc `md.symbol`, không lọc `md.interval`**. Stream chạy đồng thời 1m và 5m cùng symbol ⇒ cả hai đổ vào **một** `StrategyEngine` ⇒ hỏng state chỉ báo — đúng nguy cơ docstring của chính class đó cảnh báo, nhưng nó chỉ cảnh báo cho *symbol* |
+
+Bốn cái này cùng một gốc: `EPIC-021G` §6.7 đã ghi *"control UI thật thuộc `EPIC-021I`"*. Mock là
+chỗ đáng ra phải trả món nợ đó.
+
+#### B. Vẽ ô không có nguồn dữ liệu, hoặc nhãn sai nguồn
+
+| # | Ô trong mock | Sự thật trong code |
+| :-: | :--- | :--- |
+| **5** | *"Số dư USDT **khả dụng** 14 871.60"* | `futures_account_reader.py:71` đọc **`walletBalance`**, không phải `availableBalance`. Hai số **khác nhau** ngay khi có margin — và trạng thái B vẫn hiện 14 871.60 *cùng lúc* với margin 128.20, tức nó đang là wallet, không phải khả dụng |
+| **6** | *"Margin đang dùng"* | **Không có nguồn.** `ExchangeConnectionStatus` không có field này. Mock còn **tự mâu thuẫn**: rail ghi `128.20`, thẻ vị thế ngay dưới ghi `Margin 25.64` — `128.20` là **notional**, không phải margin |
+| **7** | *"PnL chưa thực hiện"* ở rail | Không có field cấp tài khoản. Cộng từ `LivePosition.unrealized_pnl` được, nhưng phải gọi đúng tên là **tổng của các vị thế đang mở** |
+| **8** | *"Mở lúc 14:35:02"* | `LivePosition` chỉ có `updated_at` = **lần đổi gần nhất**. `/fapi/v3/positionRisk` **không trả về thời điểm mở vị thế** |
+| **9** | `THỜI GIAN` = `14:35:03.412881` | 6 chữ số = **microsecond**. Binance trả **millisecond**. Đây là dấu vết `datetime.now()` cục bộ — trái quyết định đã chốt ở §3.1 (dùng giờ của sàn) |
+| **10** | Trạng thái C: số dư `12.40` | Rơi từ `14 871.60` xuống `12.40` mà margin chỉ 25.64 — không giải thích được. Câu *"Không đủ để đóng vị thế 128.21 USDT"* cũng sai cơ chế: lệnh đóng là `reduceOnly`, **không** cần thêm margin bằng notional |
+
+#### C. Thiếu trạng thái
+
+| # | Trạng thái | Vì sao bắt buộc |
+| :-: | :--- | :--- |
+| **11** | **Đang đối soát** + **từ chối bật** | §2.5 bắt buộc: bật → chạy reconciliation **trước** lệnh đầu; sàn có vị thế app không biết → **từ chối bật**. Toggle trong mock chỉ có 2 trạng thái. Theo `async-ui-action-rule.md` §2 đây là tác vụ nền do user khởi tạo ⇒ phải có kết cục nhìn thấy được |
+| **12** | **Lệnh bị hạn mức chặn** | Cả hệ thống an toàn **không có hình nào**. CLI in `✘ CHẶN — one_position_per_symbol`; trên UI chỉ còn một dòng log trôi qua. Đây là thứ đang bảo vệ người dùng — nó xứng đáng một trạng thái hạng nhất |
+| **13** | **Mất kết nối / chưa sẵn sàng** | Rào an toàn thứ **3** (`CONNECTION_NOT_READY`). Dải banner D có 3 trạng thái, không cái nào cho việc này |
+| **14** | **Chưa cấu hình API key** | Sidebar có mục *"API & Credentials"*, không có trạng thái rỗng tương ứng ở màn này |
+| **15** | **Lệnh bị sàn từ chối** | `binance_error_translator.py` đã dịch 5 mã (`-2019`, `-4164`, `-2022`, `-1003`, `-1013`). Chỉ trạng thái C có lỗi, và chỉ cho Dừng khẩn cấp |
+
+#### D. Thiếu hành động — cơ chế đã có sẵn ở port
+
+| # | Hành động | Đã có |
+| :-: | :--- | :--- |
+| **16** | **Huỷ 1 lệnh chờ** | `ITradingClient.cancel_order(symbol, client_order_id)` — bảng lệnh chờ không có nút nào |
+| **17** | **Đóng 1 vị thế bằng tay** | Chỉ có Dừng khẩn cấp (tất-cả-hoặc-không). Người vận hành nhìn thấy một vị thế xấu **không làm gì được** ngoài giật cầu dao |
+| **18** | **`PARTIALLY_FILLED`** | Cột `GIÁ TRẠNG THÁI` gộp giá + trạng thái. Trạng thái này cần **khớp/tổng**; footer B có ghi *"0 khớp một phần"* nên mock có biết, nhưng bảng chưa có chỗ hiển thị |
+
+#### Hệ quả cho kế hoạch
+
+Điểm **1** và **4** không phải góp ý thẩm mỹ — chúng là **defect trong code hiện tại**, lộ ra nhờ
+mock:
+
+- Sizing 20%/1x hard-code khiến bot **im lặng không đặt lệnh** trên mọi tài khoản có số dư
+  > ~2 500 USDT. Không có log `INFO` nào nói "bị chặn vì notional", chỉ `result.blocked_by`.
+- `MarketTickEventHandler` không lọc `interval` là lỗ hổng thật, độc lập với UI.
+
+Cả hai **đã mở hồ sơ riêng**, không lẫn vào task dựng màn:
+[`BUG-084`](../../../bug_report/incomplete/BUG-084_live_sizing_hardcode_chan_moi_lenh.md) (sizing)
+và [`BUG-085`](../../../bug_report/incomplete/BUG-085_live_tick_khong_loc_theo_interval.md)
+(không lọc interval).
+
 ## 4. Kiểm thử
 
 - **Unit (ViewModel):** 2 bảng render đúng từ dữ liệu `OrderFeed`; bảng rỗng khi chưa có gì (không
