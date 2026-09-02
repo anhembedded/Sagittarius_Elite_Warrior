@@ -70,7 +70,7 @@ Phần này là ràng buộc cứng: mockup vẽ cột nào thì code phải l�
 | Vùng | Có thật | Ghi chú |
 | :--- | :--- | :--- |
 | Bảng vị thế | symbol, hướng, khối lượng, giá vào, giá đánh dấu, PnL chưa thực hiện, đòn bẩy, giá thanh lý | ✅ mockup hiện tại **khớp hết** |
-| Bảng lệnh chờ | thời gian, symbol, loại, hướng, khối lượng, giá/trạng thái, ID lệnh | ✅ cột `THỜI GIAN` đã chốt dùng **giờ của sàn** |
+| Bảng lệnh chờ | thời gian, symbol, loại, hướng, khối lượng, giá/trạng thái, ID lệnh | ✅ dữ liệu có thật. ⚠️ Cột `THỜI GIAN` **chưa chốt** lấy giờ của sàn hay giờ đóng dấu lúc nhận (`EPIC-021I` §3.1) — không ảnh hưởng bố cục, chỉ ảnh hưởng nhãn/chú thích nếu anh định ghi rõ nguồn giờ |
 | Rail tài khoản | số dư USDT, margin đã dùng, PnL chưa thực hiện, số lệnh/hạn mức, chế độ vị thế, kiểu margin | ✅ khớp |
 | Chart giá | nến + đường chỉ báo của chiến lược | ✅ có sẵn |
 | Chart vốn | (thời điểm, vốn) | ⏳ `EPIC-021M` |

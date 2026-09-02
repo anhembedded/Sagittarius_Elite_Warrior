@@ -1,6 +1,8 @@
 # EPIC-021I — Màn hình **Giao dịch** mới (sổ lệnh, vị thế, công tắc)
 
-- **Trạng thái:** 🔴 Chưa bắt đầu
+- **Trạng thái:** 🔴 Chưa bắt đầu — **2 quyết định đang chờ user**, không được tự chốt:
+  1. Cột `THỜI GIAN` của bảng lệnh chờ: giờ của sàn hay giờ đóng dấu ở tầng presentation (§3.1).
+  2. Bảng vị thế/lệnh chờ: tổng quát hoá component bảng đã có, hay viết bản sao thứ 4/5 (§3.2.2).
 - **Repo:** Elite
 - **Chặn bởi:** `EPIC-021H` · **Chặn:** `EPIC-021K`
 
@@ -112,10 +114,17 @@ với Dev Board/Backtest) — **không** phải từ testnet. Đây chính là c
 
 ### 2.3 Widget QML + ViewModel test được không cần GUI
 
-Đúng khuôn `EPIC-015` đã đo và chốt: widget ở thư mục riêng, ViewModel test riêng. Dùng lại hình
-dạng bảng của `DatabaseStatusTable`/`KlineInspectorTable`, **kèm bài học `BUG-076`**: mọi cột chuỗi
-dài (thời gian, `client_order_id`) phải có `elide: Text.ElideRight` **và** `Layout.minimumWidth: 0`
-— thiếu cái thứ hai thì `elide` vô hiệu trong `RowLayout`.
+Đúng khuôn `EPIC-015` đã đo và chốt: widget ở thư mục riêng, ViewModel test riêng.
+
+> **Sửa 2026-09-02:** câu gốc ở đây viết *"dùng lại **hình dạng** bảng của
+> `DatabaseStatusTable`/`KlineInspectorTable`"* — mà "dùng lại hình dạng" chính là viết bản sao
+> gần giống, đúng thứ `qml-rule.md` §0.2 cấm. Xem §3.2.2:
+> repo đã có **3** bản sao của cùng một khung bảng; chọn tổng quát hoá hay viết tiếp bản sao thứ
+> 4/5 là quyết định chưa chốt, chờ user.
+
+**Bài học `BUG-076` giữ nguyên** dù chọn hướng nào: mọi cột chuỗi dài (thời gian,
+`client_order_id`) phải có `elide: Text.ElideRight` **và** `Layout.minimumWidth: 0` — thiếu cái
+thứ hai thì `elide` vô hiệu trong `RowLayout`.
 
 ### 2.4 Dữ liệu **chỉ** đến từ `OrderFeed`
 
@@ -133,15 +142,20 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 
 ## 3. Thay đổi theo từng file
 
+> **Sửa 2026-09-02 sau khi đối chiếu 3 file luật UI — xem §3.2 cho từng chỗ và bằng chứng.**
+> Bảng dưới đây **đã** là bản đã sửa; bảng cũ (có `view_models/`, `qml/` riêng của màn, hai
+> `.qml` bảng mới) vi phạm 3 luật và được giữ nguyên văn trong §3.2 để biết đã sửa cái gì.
+
 | File | Việc |
 | :--- | :--- |
 | `.../ui/screens/trading/module.py` | **Mới** — `TradingScreenModule` |
-| `.../ui/screens/trading/trading_view.py` | **Mới** — dựng `PageShell` 4 dải |
-| `.../ui/screens/trading/trading_presenter.py` | **Mới** — nối `OrderFeed`, công tắc, reconciliation |
+| `.../ui/screens/trading/trading_view.py` | **Mới** — dựng `PageShell` 4 dải (QtWidgets — bắt buộc, xem §3.2.1) |
+| `.../ui/screens/trading/trading_presenter.py` | **Mới** — nối `OrderFeed`, công tắc, reconciliation; **giữ toàn bộ** action-ownership/cancellation (§3.2.3) |
+| `.../ui/screens/trading/trading_view_model.py` | **Mới** — ViewModel của màn, **phẳng ở gốc thư mục** (MVP trio) |
 | `.../ui/screens/trading/i_trading_view.py` | **Mới** — hợp đồng Presenter↔View **tường minh** (§2.1 `architecture-rule.md`), kèm test hai chiều theo khuôn `EPIC-013B` |
-| `.../ui/screens/trading/view_models/` | **Mới** — ViewModel cho 2 bảng + thẻ tài khoản |
-| `.../ui/screens/trading/qml/` | **Mới** — `PositionsTable.qml`, `OpenOrdersTable.qml`, `AccountCard.qml` |
-| `.../ui/screens/trading/coordinators/chart_coordinator.py` | **Mới** — nối `ChartCard` + đường chỉ báo chiến lược, theo khuôn `screens/dashboard/coordinators/indicator_coordinator.py` (§2.2b) |
+| `.../ui/screens/trading/preview.py` | **Mới** — `build_preview() -> QWidget`, **bắt buộc**, guard test chặn nếu thiếu (§3.2.4) |
+| `.../ui/screens/trading/coordinators/chart_coordinator.py` | **Mới** — nối `ChartCard` + đường chỉ báo chiến lược, theo khuôn `screens/dashboard/coordinators/indicator_coordinator.py` (§2.2b). **Không** giữ `action_id`/huỷ tác vụ của riêng nó (§3.2.3) |
+| `src/presentation/ui/qml/…` (bảng vị thế / lệnh chờ) | **Quyết định chưa chốt** — tổng quát hoá bảng đã có hay viết mới, xem §3.2.2. Dù chọn hướng nào cũng nằm ở thư viện dùng chung, **không** ở `screens/trading/qml/` |
 | `src/presentation/ui/app_bootstrapper.py` | **+1 dòng** trong danh sách screen module |
 
 ### 3.1 Hai lỗ hổng dữ liệu phát hiện khi đọc mockup (2026-09-02)
@@ -180,6 +194,106 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 Nếu chọn (a): field **bắt buộc là `Optional`** — `Order` được app dựng **trước khi** gửi, lúc đó
 sàn chưa cấp thời gian nào (cùng lý do `LivePosition.updated_at` có nhánh fallback).
 
+### 3.2 Đối chiếu với luật UI (2026-09-02) — 4 chỗ kế hoạch cũ sai
+
+Kế hoạch này viết trước khi đọc hết `.agents/rules/`. Đối chiếu lại với `qml-rule.md`,
+`async-ui-action-rule.md`, `ui-presentation-rule.md` thì bảng file cũ sai 4 chỗ. Bảng cũ nguyên
+văn, để so:
+
+```text
+| .../ui/screens/trading/view_models/                    | ViewModel cho 2 bảng + thẻ tài khoản          |
+| .../ui/screens/trading/qml/                            | PositionsTable.qml, OpenOrdersTable.qml,      |
+|                                                        | AccountCard.qml                               |
+| .../ui/screens/trading/coordinators/chart_coordinator.py | nối ChartCard + đường chỉ báo chiến lược    |
+```
+
+#### 3.2.1 Container của màn **phải** là QtWidgets — ràng buộc, không phải sở thích
+
+`qml-rule.md` §0: *"QML lồng được vào QtWidgets. Chiều ngược lại Qt không hỗ trợ"*, nên
+*"cái gì chứa chart thì phải là QtWidgets"* — chart là pyqtgraph (`QGraphicsView`, thuần
+QtWidgets), và §2.2b vừa quyết định đặt chart realtime vào dải Workspace của màn này.
+
+Đã kiểm: `PageShell` (`src/presentation/ui/kit/page_shell.py:51`) là `class PageShell(QWidget)` —
+QtWidgets thật. Nên §2.2 đã đúng sẵn; ghi ra đây để lần sau không ai "hiện đại hoá" màn này thành
+một `QQuickWidget` toàn phần rồi phát hiện chart không lồng vào được. Hình "cả route là QML" ở
+bảng §0 của `qml-rule` **không** áp dụng được cho màn có chart.
+
+#### 3.2.2 Hai `.qml` bảng mới — vi phạm §0.2, và repo đã có 3 bản sao gần giống
+
+`qml-rule.md` §0.2: *"Cái gì dùng chung được thì phải dựng dùng chung, không viết bản sao 'gần
+giống'. […] Một hình 'gần giống nhưng hơi khác' là tín hiệu để **tổng quát hoá** component có
+sẵn"*.
+
+Đo thật, không suy đoán — 3 bảng đã có trong `src/presentation/ui/qml/`:
+
+| Widget | `.qml` bảng | Row delegate |
+| :--- | ---: | ---: |
+| `TradeLogTable` | 141 dòng | 245 dòng |
+| `KlineInspectorTable` | 139 dòng | 112 dòng |
+| `DatabaseStatusTable` | 140 dòng | 148 dòng |
+
+Cả ba cùng một khung: root `ColumnLayout` → `readonly property int <x>ColumnWidth` → `PanelHeader`
+→ `RowLayout` nhãn cột → `Rectangle` kẻ ngang → `ListView` → `Text` trạng thái rỗng. Phần đuôi
+gần như giống từng ký tự — `TradeLogTable.qml:111-141` và `KlineInspectorTable.qml:109-139` chỉ
+khác `objectName`, kiểu delegate, tên property bề rộng cột, và câu chữ dòng rỗng.
+
+Viết thêm `PositionsTable.qml` + `OpenOrdersTable.qml` sẽ thành bản sao thứ **4** và **5** của
+đúng khung đó. §0.2 nói rõ đây là lúc phải tổng quát hoá.
+
+**Chưa chốt — cần user quyết**, vì hai hướng khác nhau về phạm vi chứ không về đúng/sai:
+
+| Hướng | Được | Mất |
+| :--- | :--- | :--- |
+| **A.** Trích một `DataTable` dùng chung (header + cột + `ListView` + trạng thái rỗng), 3 bảng cũ chuyển sang dùng, 2 bảng mới dùng luôn | Xoá ~3 bản sao; bảng thứ 6 sau này gần như miễn phí | Đụng 3 widget đang chạy thật ⇒ **task riêng**, không làm kèm ở đây; rủi ro hồi quy UI |
+| **B.** Viết 2 bảng mới theo đúng khung cũ, ghi nợ kỹ thuật, tổng quát hoá sau | `EPIC-021I` không bị chặn | Bản sao 4 và 5; càng nhiều bản sao thì việc trích xuất sau càng đắt — đúng cơ chế đã sinh ra `BUG-082` |
+
+⛔ **CHƯA CHỐT — chờ user quyết định.** Không tự chọn: theo `domain-truth-rule.md` (Counterintuitive
+Story Check) và `ONBOARDING.md` §7, mở một task tái cấu trúc chạm 3 widget đang chạy là quyết định
+phạm vi của user, không phải mặc định của agent.
+
+**Đã chốt được, độc lập với A/B:** chỗ đặt. `qml-rule.md` §0.2 (quyết định user 2026-08-29) đặt
+`src/presentation/ui/qml/` là **nơi chính thức** dựng QML component. `screens/trading/qml/` sẽ là
+nhà thứ hai cho QML — đúng kiểu phân mảnh mà `EPIC-021L`/`BUG-082` vừa dọn xong.
+
+**`AccountCard.qml` thì bỏ hẳn.** Rail tài khoản là 4-6 ô số chỉ đọc, không tương tác — đúng ô
+*"Lưới thẻ chỉ đọc → `StatGrid`"* trong bảng component dùng chung ở `qml-rule.md` §2 (`StatCardRow`
+cũng đã có). Viết một `.qml` mới cho hình đã có component là đúng điều §2 bảo kiểm tra trước.
+
+#### 3.2.3 `chart_coordinator.py` — được phép tồn tại, nhưng không được giữ sổ `action_id`
+
+`async-ui-action-rule.md` §2 cho phép đúng hình này (`<name>/coordinators/<feature>_coordinator.py`,
+Presenter sở hữu, tiêm qua constructor), nhưng kèm một cấm rõ ràng:
+
+> *"**A Coordinator MUST NOT own independent FSM state or its own action-ownership/cancellation
+> bookkeeping** […] That bookkeeping has exactly one owner — the Presenter […] never reimplemented
+> per-Coordinator."*
+
+Việc nạp nến + tính chỉ báo là tác vụ nền do người dùng khởi tạo (đổi symbol, đổi khung thời
+gian), nên nó **có** `action_id`/chống callback cũ. Chủ sở hữu là `TradingPresenter`;
+`chart_coordinator` làm việc rồi báo ngược lại qua Presenter. §2 cũng nói trước cái bẫy: *"Splitting
+a Presenter into Coordinators that each keep their own action-id counter"* là cùng một lỗi
+Single-Scope Cohesion với việc rải một FSM ra nhiều file.
+
+#### 3.2.4 Thiếu `preview.py` — có guard test, sẽ đỏ ngay
+
+`ui-presentation-rule.md`: *"Every UI package […] MUST maintain a `preview.py` declaring
+`build_preview() -> QWidget`"*, khoá bằng
+`tests/unit/presentation/ui/test_preview_fixtures_exist.py`. Guard đó quét **mọi** thư mục con của
+`src/presentation/ui/screens/`, nên `trading/` không có `preview.py` sẽ làm gate đỏ ngay lần đầu
+thêm màn. Cả 4 màn hiện có đều có file này.
+
+Guard không chỉ kiểm tồn tại: nó **chạy** `build_preview()` ở chế độ offscreen và bắt cả lỗi cú
+pháp/runtime của QML. Nên `preview.py` là việc phải làm cùng lúc với view, không phải dọn dẹp sau.
+
+#### 3.2.5 Bố cục thư mục — MVP trio nằm **phẳng**, không có `view_models/`
+
+`ui-presentation-rule.md`: *"keep `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`,
+and QML files **flat** at the top level of the screen's folder. Group only helper modules into
+`<name>/logic/` or `<name>/helpers/` when size warrants it."*
+
+Đã kiểm cả 4 màn hiện có: **không** màn nào có thư mục `view_models/`. Thư mục con duy nhất đang
+được dùng rộng rãi là `coordinators/` — đúng thứ `async-ui-action-rule.md` §2 cho phép riêng.
+
 ## 4. Kiểm thử
 
 - **Unit (ViewModel):** 2 bảng render đúng từ dữ liệu `OrderFeed`; bảng rỗng khi chưa có gì (không
@@ -190,6 +304,11 @@ sàn chưa cấp thời gian nào (cùng lý do `LivePosition.updated_at` có nh
 - **Integration:** `OrderFilledEvent` qua `OrderFeed` → dòng xuất hiện đúng ở bảng vị thế.
 - **Sanity:** màn mới được tier quét tự động phát hiện; boot im lặng (`diagnostic_guard`), **0 test
   sanity mới được viết** — nếu phải viết thì test sanity cũ đã sai thiết kế.
+- **Guard đã có sẵn, không phải viết mới — chỉ phải làm cho nó xanh:**
+  `tests/unit/presentation/ui/test_preview_fixtures_exist.py` (mỗi màn có `preview.py`, và
+  `build_preview()` chạy sạch ở offscreen, bắt cả lỗi QML — §3.2.4) và
+  `tests/unit/presentation/ui/qml/test_qml_library_does_not_import_screens.py` (`EPIC-021L` —
+  `qml/` không được import ngược `screens/`; liên quan trực tiếp tới lựa chọn A ở §3.2.2).
 
 ## 5. Mốc chạy được
 
