@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
 from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
     InteractiveShell,
 )
+from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_cmd import (
+    execute_order_preview,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
     execute_stream,
 )
@@ -127,6 +130,9 @@ def _run_headless_mode(app: App, args: argparse.Namespace) -> None:
         app.stop()
     elif args.command == "exchange-status":
         execute_exchange_status(app)
+        app.stop()
+    elif args.command == "order-preview":
+        execute_order_preview(app, args)
         app.stop()
 
 

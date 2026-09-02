@@ -110,6 +110,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_
     ListAvailableSymbolsQuery,
     ListAvailableSymbolsQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order import (
+    PreviewOrderQuery,
+    PreviewOrderQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
     ScanAllDatabasesQuery,
     ScanAllDatabasesQueryHandler,
@@ -379,6 +383,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(
             GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQueryHandler
         )
+        app.container.bind(PreviewOrderQuery, PreviewOrderQueryHandler)
 
     def _register_indicator_scripts(self, app: App) -> None:
         """Registers all domain indicator scripts into IndicatorScriptRegistry."""

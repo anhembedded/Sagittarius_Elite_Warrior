@@ -1,6 +1,6 @@
 # EPIC-021E — Domain model lệnh sống + port `ITradingClient` (không chạm mạng)
 
-- **Trạng thái:** 🔴 Chưa bắt đầu
+- **Trạng thái:** ✅ Hoàn thành (2026-09-02)
 - **Repo:** Elite
 - **Chặn bởi:** `EPIC-021C` · **Chặn:** `EPIC-021F`
 
@@ -131,3 +131,76 @@ Trạng thái: TỪ CHỐI  MIN_NOTIONAL — 64.00 USDT < 100.00 USDT
 
 `--json` xuất ra đúng object domain để so bằng mắt với payload mà `EPIC-021F` sẽ dựng. Hai bước
 tách nhau chính là để khi payload sai, anh biết ngay sai ở domain hay ở mapper.
+
+## 6. Ghi chú triển khai
+
+### 6.1 §3 tự nhận sai — mốc chạy được buộc phải sửa file đang chạy
+
+§3 viết "Toàn bộ là file mới... Không sửa file nào đang chạy". Sai ngay từ chính §5 của task này:
+một `main.py order-preview` thật cần đăng ký lệnh CLI, và pattern đăng ký lệnh CLI đã thiết lập
+từ `EPIC-021D` luôn đụng đúng 3 file có sẵn: `src/main.py` (thêm `elif`), `src/config/
+cli_commands.json` (thêm entry), và `src/binance_bot_module.py` (bind Query→Handler vào DI
+container). Đã sửa cả ba, cộng thêm `src/presentation/cli/cli_parser.py` (thêm hỗ trợ
+`"action": "store_true"` cho cờ `--json` — JSON config trước đó chỉ có `type`/`required`/
+`default`/`help`/`choices`, chưa hỗ trợ cờ boolean thuần). Đây là lần thứ năm liên tiếp
+(`EPIC-021A`→`E`) tài liệu kế hoạch viết trước khi code đánh giá thấp diện sửa đổi thật của mốc
+chạy được — mẫu hình đã quá rõ để ghi lại một lần nữa ở đây thay vì lặp lại chi tiết.
+
+### 6.2 `--price` là cờ bắt buộc, không có trong lệnh mẫu của §5
+
+Lệnh mẫu ở §5 không có `--price`, nhưng dòng "notional ước tính: 832.00 USDT" chỉ tính được nếu
+có giá tham chiếu — 0.013 × 64000 = 832.00. Task này (và domain nó viết) tường minh "không chạm
+mạng một dòng nào", nên không có đường lấy giá thị trường trực tiếp; việc đó thuộc luồng thực thi
+thật của `EPIC-021F`. Quyết định: `--price` là cờ **bắt buộc**, người gọi tự cung cấp giá tham
+chiếu. Với `OrderType.LIMIT` giá này đồng thời là giá đặt lệnh; với các loại khác chỉ dùng để ước
+tính notional.
+
+### 6.3 Phát hiện thật khi chạy CLI thật (không phải chỉ test có mock): `IMarketMetadataProvider` không có hợp đồng "never raises"
+
+Chạy thật `main.py order-preview --symbol BTCUSDT --side BUY --qty 0.0137 --type MARKET --price
+64000` trong sandbox này (mọi domain `*.binance.*` bị chặn egress) cho log:
+
+```
+App - ERROR - PreviewOrderQuery failed: HTTPSConnectionPool(host='testnet.binance.vision',
+port=443): Max retries exceeded with url: /api/v3/ping (Caused by ProxyError(...))
+Không lấy được luật giao dịch (exchange rules) cho BTCUSDT — kiểm tra kết nối mạng rồi thử lại.
+```
+
+Đúng như thiết kế — không crash — nhưng đáng ghi lại: khác `ITradingAccountReader` (`EPIC-021D`,
+hợp đồng "không bao giờ raise"), `IMarketMetadataProvider.get_or_fetch()`/`refresh()`
+(`EPIC-021C`) **không** hứa điều đó, và `FuturesMetadataProvider.refresh()` thật sự không có
+`try/except` nào quanh việc dựng `Client(...)` (tự ping Spot Testnet lúc khởi tạo, cùng cơ chế
+`BUG-045`/`EPIC-021D` §4 đã nêu) hay quanh `futures_exchange_info()`. Không phải lỗi vỡ hợp đồng
+— cache trống + không mạng vẫn nên "raise" theo đúng chữ ký hàm hiện tại — nhưng đây là lần đầu có
+call site (`execute_order_preview`) gọi thẳng cổng này mà không qua một adapter đã tự nuốt lỗi.
+Vì vậy CLI này bọc *toàn bộ* `app.dispatch(PreviewOrderQuery, ...)` trong một `try/except
+(BinanceAPIException, BinanceRequestException, RequestException)`, không chỉ bọc lệnh gọi cụ thể
+— cùng bài học construction-time-ping đã rút ra ở `EPIC-021D` §4, áp dụng lại ở một port khác.
+Không tạo `BUG-xxx` mới: không hợp đồng nào bị vi phạm, và điểm gọi duy nhất (đúng file này) đã xử
+lý đúng ngay từ đầu — nhưng ghi lại ở đây để `EPIC-021F` (người tiếp theo gọi cổng này cho luồng
+thực thi thật) biết trước, không phải tự tìm lại bằng chạy thật lần nữa.
+
+### 6.4 `PositionSide` (LONG/SHORT, `BOT-050`) được tái dùng cho `LivePosition`, không tạo type mới
+
+Task liệt kê 6 file mới dưới `domain/trading/`, không có file `position_side.py` riêng — và
+`domain/value_objects/position_side.py` (LONG/SHORT) đã tồn tại sẵn từ backtest (`BOT-050`).
+`LivePosition.side` là **property tính từ dấu của `position_amt`** (số có dấu sàn trả về), không
+phải field lưu riêng — tránh đúng lớp lỗi "hai bản sao của cùng một sự thật có thể lệch nhau" mà
+`position_side` (param gửi lên sàn, luôn `BOTH` ở One-way) với `side` (hướng vị thế thật) dễ nhầm
+nếu tách thành hai field độc lập.
+
+### 6.5 Kết quả kiểm thử cuối
+
+- Ruff (`src tests scripts tools`): sạch — 3 lỗi baseline có sẵn ở `scripts/shutdown_*_probe.py`
+  (không đụng tới, xác nhận bằng `git status` rỗng trên 2 file đó).
+- Mypy (`src`+`scripts`, một lệnh, đúng cách gọi `ONBOARDING.md` §5 — chạy từ thư mục superproject
+  `/home/user`, không phải từ `Sagittarius_Elite_Warrior/`): `Success: no issues found in 205
+  source files`.
+- Sanity: 24 passed.
+- Unit (`-n 4`): 3040 passed, 1 failed — `test_pan_preview_moves_only_the_data_region_not_the_axes`
+  (chart pan/pixel test ở `presentation/ui/components/`, không liên quan gì tới `domain/trading/`
+  hay CLI mới; xác nhận lại bằng chạy riêng lẻ, cùng thất bại đã ghi nhận ở `EPIC-021D`).
+- Guard: `grep -rln "ITradingClient" src scripts tests` → chỉ khớp docstring/comment, chưa có
+  implementer thật nào (đúng như kỳ vọng — đó là việc của `EPIC-021F`).
+- Chạy thật `main.py order-preview` (xem §6.3) và một ca `--qty notanumber` để xác nhận thoát êm
+  thay vì crash khi tham số không phải số.

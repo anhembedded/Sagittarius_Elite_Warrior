@@ -55,6 +55,48 @@
     },
     "exchange-status": {
       "help": "Check Futures Testnet connection: signature, clock skew, balance, position mode"
+    },
+    "order-preview": {
+      "help": "Preview a normalized live order (rounding + minNotional check) without sending it",
+      "args": [
+        {
+          "name": "--symbol",
+          "type": "str",
+          "required": true,
+          "help": "Futures symbol, e.g. BTCUSDT"
+        },
+        {
+          "name": "--side",
+          "type": "str",
+          "required": true,
+          "help": "Order side",
+          "choices": ["BUY", "SELL"]
+        },
+        {
+          "name": "--qty",
+          "type": "str",
+          "required": true,
+          "help": "Requested quantity (decimal string, e.g. 0.0137)"
+        },
+        {
+          "name": "--type",
+          "type": "str",
+          "default": "MARKET",
+          "help": "Order type",
+          "choices": ["MARKET", "LIMIT", "STOP_MARKET", "TAKE_PROFIT_MARKET"]
+        },
+        {
+          "name": "--price",
+          "type": "str",
+          "required": true,
+          "help": "Reference price for the notional estimate (decimal string) — required: this task has no live mark-price network path"
+        },
+        {
+          "name": "--json",
+          "action": "store_true",
+          "help": "Print the normalized domain Order as JSON instead of the text report"
+        }
+      ]
     }
   }
 }
