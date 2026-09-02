@@ -3,7 +3,16 @@
 - **Trạng thái:** 🟡 Đang làm (10/12 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
-- **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
+- **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be (**bản vẽ kế hoạch**, xem cảnh báo dưới)
+- **📘 Chuyển giao kiến thức (người mới đọc file này trước):**
+  [`KNOWLEDGE_TRANSFER_tu_0_den_hero.md`](KNOWLEDGE_TRANSFER_tu_0_den_hero.md) — testnet là gì,
+  giao thức REST/WebSocket, component nào làm gì, đường đi một lệnh, 4 mốc CLI để bắt đầu dev.
+  10 diagram PlantUML **as-built**, đã render kiểm chứng.
+
+> ⚠️ `design/03_to_be_component.puml` vẽ `StrategyEngine → LiveTradingCoordinator` qua **event
+> bus**. Đó là bản vẽ **trước khi code**; khi triển khai `EPIC-021G` phát hiện đường đó là lỗ
+> hổng an toàn thật (backtest có thể bắn lệnh thật) và đã đổi sang lời gọi trực tiếp. Kiến trúc
+> **as-built** nằm ở tài liệu chuyển giao kiến thức bên trên.
 
 ---
 
