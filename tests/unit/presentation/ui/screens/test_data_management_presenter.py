@@ -20,6 +20,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
     ClearMarketDataResult,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_shards import (
+    PruneEmptyShardsCommand,
+    PruneEmptyShardsResult,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
@@ -51,10 +55,25 @@ def mock_dispatcher():
 
 
 @pytest.fixture
-def mock_container(mock_thread_mgr, mock_dispatcher):
+def mock_market_data_repo():
+    """BOT-120 — `run_auto_discover` now calls `list_available_shards()`
+    directly (a cheap directory listing, no session open); it must return a
+    real list here so `len(...)` doesn't blow up against a bare `Mock()`.
+    Individual tests override `.list_available_shards.return_value` to
+    exercise a specific shard count."""
+    repo = Mock()
+    repo.list_available_shards.return_value = []
+    return repo
+
+
+@pytest.fixture
+def mock_container(mock_thread_mgr, mock_dispatcher, mock_market_data_repo):
     container = Mock()
 
     def resolve_mock(interface):
+        from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
+            IMarketDataRepository,
+        )
         from sagittarius_engine.extensions.pyside_mvc.base_view import (
             DEV_MODE_CONFIG_KEY,
         )
@@ -66,6 +85,8 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
             return mock_thread_mgr
         if interface == IDispatcher:
             return mock_dispatcher
+        if interface == IMarketDataRepository:
+            return mock_market_data_repo
         if interface == IConfig:
             mock_config = Mock()
             mock_config.get_all.return_value = {}
@@ -182,13 +203,15 @@ def test_on_check_all_status_submits_background_task(
         mock_thread_mgr.submit.call_args.args
     )
     assert method == presenter._run_scan_all
-    assert symbols == list(view_model.symbols)
+    # BOT-120: an empty symbol list makes the handler fall back to shards
+    # actually on disk instead of the full exchange symbol catalogue.
+    assert symbols == []
     assert intervals == list(view_model.intervals)
     assert isinstance(cancellation_token, CancellationToken)
 
 
 def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
-    mock_dispatcher.dispatch.return_value = []
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
     presenter.fsm.transition_to(UIMode.SCANNING)
 
     presenter._run_scan_all(["BTCUSDT"], ["1m", "5m"])
@@ -200,26 +223,28 @@ def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
 
 
 def test_run_scan_all_fills_the_table_model(presenter, view_model, mock_dispatcher):
-    mock_dispatcher.dispatch.return_value = [
-        DatabaseStatusDTO(
-            symbol="BTCUSDT",
-            interval="1m",
-            first_record="2024-01-01",
-            last_record="2024-01-02",
-            total_candles="1440",
-            gaps="0",
-            status_text="OK",
-        ),
-        DatabaseStatusDTO(
-            symbol="ETHUSDT",
-            interval="15m",
-            first_record="2024-01-01",
-            last_record="2024-01-02",
-            total_candles="1200",
-            gaps="3",
-            status_text="3 gaps found!",
-        ),
-    ]
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
+        [
+            DatabaseStatusDTO(
+                symbol="BTCUSDT",
+                interval="1m",
+                first_record="2024-01-01",
+                last_record="2024-01-02",
+                total_candles="1440",
+                gaps="0",
+                status_text="OK",
+            ),
+            DatabaseStatusDTO(
+                symbol="ETHUSDT",
+                interval="15m",
+                first_record="2024-01-01",
+                last_record="2024-01-02",
+                total_candles="1200",
+                gaps="3",
+                status_text="3 gaps found!",
+            ),
+        ]
+    )
     presenter.fsm.transition_to(UIMode.SCANNING)
 
     presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m", "15m"])
@@ -428,10 +453,12 @@ def test_on_vacuum_submits_vacuum_worker(presenter, view_model, mock_thread_mgr)
 def test_stored_records_tile_sums_scanned_totals(
     presenter, view_model, mock_dispatcher
 ):
-    mock_dispatcher.dispatch.return_value = [
-        DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "1440", "0", "OK"),
-        DatabaseStatusDTO("ETHUSDT", "15m", "a", "b", "1,200", "0", "OK"),
-    ]
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
+        [
+            DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "1440", "0", "OK"),
+            DatabaseStatusDTO("ETHUSDT", "15m", "a", "b", "1,200", "0", "OK"),
+        ]
+    )
     presenter.fsm.transition_to(UIMode.SCANNING)
     presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m", "15m"])
 
@@ -463,39 +490,47 @@ def test_dead_screen_does_not_break_app_wide_logging(qapp, mock_container, reque
 
 
 def _dispatch_by_query_type(scan_results):
-    """Auto-discovery dispatches two different queries; a single
-    `return_value` would hand the DTO list to the symbol-options path too."""
+    """`run_scan_all` now dispatches ScanAllDatabasesQuery then
+    PruneEmptyShardsCommand (BOT-120 — moved here from auto-discover); a
+    single `return_value` would hand the DTO list to both, and
+    `result.removed_symbols` would blow up against a bare list."""
 
     def _dispatch(query_type, _query):
         if query_type is ScanAllDatabasesQuery:
             return scan_results
+        if query_type is PruneEmptyShardsCommand:
+            return PruneEmptyShardsResult(removed_symbols=[], scanned_count=0)
         return ["BTCUSDT", "ETHUSDT"]
 
     return _dispatch
 
 
-def test_startup_auto_discovery_refreshes_the_stat_tiles(
+def test_startup_auto_discovery_stays_cheap_and_refreshes_the_stat_tiles(
     presenter, view_model, mock_dispatcher
 ):
     """Regression (BUG-018): auto-discovery runs from __init__ while the FSM
     is still IDLE, but its `finally` block used to emit the *unlock* signal —
     `_unlock_ui` then called `transition_to(IDLE)` from IDLE, which the
     transition matrix rejects. The raised `InvalidStateTransitionError` aborted
-    the slot before `_refresh_stats()`, so "Stored KLines Records" stayed "—"
-    forever even though the table below it had just been filled with rows."""
-    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
-        [
-            DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "1440", "0", "OK"),
-            DatabaseStatusDTO("ETHUSDT", "15m", "a", "b", "1,200", "0", "OK"),
-        ]
-    )
+    the slot before `_refresh_stats()` ran at all. That stats-refresh signal is
+    still emitted unconditionally in `finally`, so this must still not raise.
+
+    BOT-120: auto-discovery no longer scans or fills the table on its own —
+    it only lists symbol names and reports the local shard count, so it never
+    opens a shard's database session. The table stays empty and "Stored
+    KLines Records" honestly stays unknown until the user explicitly scans."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
     assert presenter.fsm.current_state == UIMode.IDLE
 
     presenter._run_auto_discover()
 
-    assert view_model.status_model.rowCount() == 2
-    assert view_model.storedRecords == "2,640"
+    assert view_model.status_model.rowCount() == 0
+    assert view_model.storedRecords == "—"
     assert presenter.fsm.current_state == UIMode.IDLE
+    assert not any(
+        call.args[0] is ScanAllDatabasesQuery or call.args[0] is PruneEmptyShardsCommand
+        for call in mock_dispatcher.dispatch.call_args_list
+    )
 
 
 def test_startup_auto_discovery_does_not_unlock_a_sync_started_meanwhile(

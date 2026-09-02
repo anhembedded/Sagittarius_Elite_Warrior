@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_sh
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
+    ListAvailableSymbolsQuery,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
     DatabaseStatusDTO,
 )
@@ -78,7 +81,53 @@ def scan_fixture():
     return coordinator, dispatcher, market_data_repo, tracker, signals
 
 
-def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
+def test_scan_coordinator_auto_discover_never_opens_a_shard_session(scan_fixture):
+    """BOT-120 — screen-open auto-discover must stay a directory listing: only
+    ListAvailableSymbolsQuery (cached, cheap) plus a call to
+    `list_available_shards()`. It must never dispatch ScanAllDatabasesQuery or
+    PruneEmptyShardsCommand — those open one SQLite session per shard and are
+    now explicit-action-only (see run_scan_all)."""
+    coordinator, dispatcher, market_data_repo, tracker, signals = scan_fixture
+
+    dispatcher.dispatch.return_value = [
+        "BTCUSDT",
+        "ETHUSDT",
+    ]  # ListAvailableSymbolsQuery
+    market_data_repo.list_available_shards.return_value = ["BTCUSDT"]
+
+    coordinator.run_auto_discover()
+
+    dispatcher.dispatch.assert_called_once()
+    assert dispatcher.dispatch.call_args.args[0] is ListAvailableSymbolsQuery
+    market_data_repo.list_available_shards.assert_called_once()
+    signals["ui_symbol_options"].assert_called_once_with(["BTCUSDT", "ETHUSDT"])
+    signals["ui_status_table"].assert_not_called()
+    assert any(
+        "1 tệp dữ liệu cục bộ" in str(call.args[0])
+        for call in signals["ui_log"].call_args_list
+    )
+    signals["ui_stats_refresh"].assert_called_once()
+    assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+
+
+def test_scan_coordinator_auto_discover_reports_an_empty_vault_truthfully(
+    scan_fixture,
+):
+    coordinator, dispatcher, market_data_repo, tracker, signals = scan_fixture
+
+    dispatcher.dispatch.return_value = []  # ListAvailableSymbolsQuery
+    market_data_repo.list_available_shards.return_value = []
+
+    coordinator.run_auto_discover()
+
+    signals["ui_symbol_options"].assert_not_called()
+    assert any(
+        "trống" in str(call.args[0]) for call in signals["ui_log"].call_args_list
+    )
+    assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+
+
+def test_scan_coordinator_scan_all_populates_table(scan_fixture):
     coordinator, dispatcher, _, tracker, signals = scan_fixture
 
     status_dto = DatabaseStatusDTO(
@@ -91,14 +140,12 @@ def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
         status_text="OK",
     )
     dispatcher.dispatch.side_effect = [
-        ["BTCUSDT", "ETHUSDT"],  # ListAvailableSymbolsQuery
         [status_dto],  # ScanAllDatabasesQuery
         PruneEmptyShardsResult(removed_symbols=[], scanned_count=0),  # BUG-078
     ]
 
-    coordinator.run_auto_discover()
+    coordinator.run_scan_all(["BTCUSDT"], ["15m"])
 
-    signals["ui_symbol_options"].assert_called_once_with(["BTCUSDT", "ETHUSDT"])
     # EPIC-008G §3: signal mang `StatusRowUpdate` thay vì 6 chuỗi vị trí, nên
     # assert theo TÊN trường — hoán nhầm 2 cột giờ làm test đỏ chứ không lọt.
     signals["ui_status_table"].assert_called_once_with(
@@ -111,29 +158,29 @@ def test_scan_coordinator_auto_discover_populates_table(scan_fixture):
             interval="15m",
         )
     )
-    signals["ui_stats_refresh"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
 
-def test_scan_coordinator_auto_discover_dispatches_prune_and_reports_removals(
+def test_scan_coordinator_scan_all_dispatches_prune_and_reports_removals(
     scan_fixture,
 ):
-    """BUG-078 — auto-discover must dispatch PruneEmptyShardsCommand as its last
-    step and surface a log line when it actually removed something."""
+    """BUG-078 / BOT-120 — the explicit full scan must dispatch
+    PruneEmptyShardsCommand as its last step and surface a log line when it
+    actually removed something. This used to be auto-discover's job; it moved
+    here so opening every shard's session is always an explicit user action."""
     coordinator, dispatcher, _, tracker, signals = scan_fixture
 
     dispatcher.dispatch.side_effect = [
-        [],  # ListAvailableSymbolsQuery
         [],  # ScanAllDatabasesQuery
         PruneEmptyShardsResult(
             removed_symbols=["PHANTOM1", "PHANTOM2"], scanned_count=5
         ),
     ]
 
-    coordinator.run_auto_discover()
+    coordinator.run_scan_all([], ["1m"])
 
-    assert dispatcher.dispatch.call_count == 3
-    prune_call = dispatcher.dispatch.call_args_list[2]
+    assert dispatcher.dispatch.call_count == 2
+    prune_call = dispatcher.dispatch.call_args_list[1]
     assert prune_call.args[0] is PruneEmptyShardsCommand
     assert any(
         "2 shard" in str(call.args[0]) for call in signals["ui_log"].call_args_list
@@ -141,21 +188,19 @@ def test_scan_coordinator_auto_discover_dispatches_prune_and_reports_removals(
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
 
-def test_scan_coordinator_auto_discover_survives_prune_failure(scan_fixture):
-    """A broken prune pass must not fail the whole auto-discover action — it's
-    a hygiene pass, not the reason the user opened Data Management."""
-    coordinator, dispatcher, _, tracker, signals = scan_fixture
+def test_scan_coordinator_scan_all_survives_prune_failure(scan_fixture):
+    """A broken prune pass must not fail the whole scan-all action — it's a
+    hygiene pass, not the reason the user clicked Scan All."""
+    coordinator, dispatcher, _, tracker, _signals = scan_fixture
 
     dispatcher.dispatch.side_effect = [
-        [],  # ListAvailableSymbolsQuery
         [],  # ScanAllDatabasesQuery
         Exception("disk unavailable"),  # PruneEmptyShardsCommand
     ]
 
-    coordinator.run_auto_discover()
+    coordinator.run_scan_all([], ["1m"])
 
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
-    signals["ui_stats_refresh"].assert_called_once()
 
 
 def test_scan_coordinator_check_status_success(scan_fixture):

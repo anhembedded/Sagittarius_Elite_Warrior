@@ -545,14 +545,22 @@ class DataManagementPresenter(BasePresenter):
             return
 
         self.ui_clear_table_signal.emit()
-        self.ui_log_signal.emit("Scanning DB status for ALL symbols & intervals...")
+        self.ui_log_signal.emit(
+            "Scanning DB status for ALL local shards & timeframes..."
+        )
         if self.fsm:
             self.fsm.transition_to(UIMode.SCANNING)
 
         scan_token = self._scan_coordinator.create_cancellation_token()
+        # BOT-120: an empty symbol list makes ScanAllDatabasesQueryHandler fall
+        # back to IMarketDataRepository.list_available_shards() — the shards
+        # actually on disk — instead of every exchange symbol (most of which
+        # never have a shard). Intervals stay the full explicit list; an empty
+        # list there would instead fall back to the handler's own narrower
+        # default set, silently dropping timeframes this button used to cover.
         self._thread_manager.submit(
             self._run_scan_all,
-            list(self._view_model.symbols),
+            [],
             list(self._view_model.intervals),
             scan_token,
         )
