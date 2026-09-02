@@ -52,6 +52,9 @@
           }
         }
       }
+    },
+    "exchange-status": {
+      "help": "Check Futures Testnet connection: signature, clock skew, balance, position mode"
     }
   }
 }

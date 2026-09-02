@@ -27,6 +27,14 @@ verified against `src/infrastructure/binance/client.py`, not assumed:
     GET /fapi/v1/exchangeInfo   family — hit when `MarketDataVenue.
     GET /fapi/v1/klines         FUTURES_TESTNET` selects `klines_type=
                                  HistoricalKlinesType.FUTURES` (`EPIC-021A`).
+    GET /fapi/v1/time          FuturesAccountReader.check_connection()'s
+    GET /fapi/v2/account        clock-skew/balance/position read
+    GET /fapi/v1/positionSide/dual  (`EPIC-021D`) — all three signed calls,
+                                 but this fixture never validates the
+                                 signature (see `test_futures_account_
+                                 reader_against_fake_server.py`'s own
+                                 docstring for what that does and doesn't
+                                 prove).
 
 Any other path returns 404 rather than a plausible-looking empty success —
 an unexpected call should be loud, not silently swallowed.
@@ -111,6 +119,15 @@ _FUTURES_EXCHANGE_INFO = {
     ],
 }
 
+#: `EPIC-021D` — a minimal, always-One-way, always-funded account snapshot.
+#: `futures_account()` hits `/fapi/v2/account` (version 2, not 1 — verified
+#: from `python-binance`'s own `_request_futures_api("get", "account", True,
+#: 2, ...)` call, not assumed).
+_FUTURES_ACCOUNT = {
+    "assets": [{"asset": "USDT", "walletBalance": "15000.00000000"}],
+    "positions": [],
+}
+
 _ROUTES: dict[str, object] = {
     "/api/v3/ping": {},
     "/api/v3/exchangeInfo": _EXCHANGE_INFO,
@@ -121,6 +138,9 @@ _ROUTES: dict[str, object] = {
     "/fapi/v1/ping": {},
     "/fapi/v1/exchangeInfo": _FUTURES_EXCHANGE_INFO,
     "/fapi/v1/klines": [],
+    "/fapi/v1/time": {"serverTime": 0},
+    "/fapi/v2/account": _FUTURES_ACCOUNT,
+    "/fapi/v1/positionSide/dual": {"dualSidePosition": False},
 }
 
 

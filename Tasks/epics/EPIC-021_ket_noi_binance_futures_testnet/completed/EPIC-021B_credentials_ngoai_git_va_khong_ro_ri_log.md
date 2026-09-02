@@ -3,7 +3,7 @@
 - **Trạng thái:** ✅ Xong
 - **Repo:** Elite
 - **Chặn bởi:** `EPIC-021A`
-- **Đóng 1/2 bug:** [`BUG-080`](../../../bug_report/incomplete/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md) — nửa còn lại đóng ở `021D`/`021F`, xem §2.4
+- **Đóng 1/2 bug:** [`BUG-080`](../../../bug_report/completed/BUG-080_settings_api_credentials_never_reach_the_exchange_client.md) — nửa còn lại đóng ở `021D`, xem §2.4
 
 ---
 

@@ -12,6 +12,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
     IExchangeSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
+    ExchangeCredentials,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
     MarketDataVenue,
 )
@@ -69,6 +72,23 @@ class ExchangeSessionFactory(IExchangeSessionFactory):
         `application/ports/`, not infra-to-infra calls).
         """
         return Client(
+            requests_params={"timeout": _DEFAULT_REQUEST_TIMEOUT_SECONDS},
+            testnet=True,
+        )
+
+    def create_trading_client(self, credentials: ExchangeCredentials) -> Client:
+        """@brief A raw `python-binance` `Client`, always Futures Testnet,
+        signing with `credentials` (`EPIC-021D`).
+        @details The one client instance in the app allowed to sign a
+        request (ADR §2.1). Always `testnet=True`: `TradingVenue` has no
+        `MAINNET` member (ADR §3), so this is never ambiguous. Raw `Client`
+        for the same reason as `create_futures_metadata_client()` — this is
+        consumed only by other infrastructure (`FuturesAccountReader`
+        today; `EPIC-021F`'s trading adapter next), never `application/`.
+        """
+        return Client(
+            api_key=credentials.api_key,
+            api_secret=credentials.api_secret,
             requests_params={"timeout": _DEFAULT_REQUEST_TIMEOUT_SECONDS},
             testnet=True,
         )

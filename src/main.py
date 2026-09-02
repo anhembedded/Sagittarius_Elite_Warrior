@@ -4,6 +4,9 @@ from contextlib import suppress
 
 from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
+from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
+    execute_exchange_status,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
     InteractiveShell,
 )
@@ -121,6 +124,9 @@ def _run_headless_mode(app: App, args: argparse.Namespace) -> None:
         app.stop()
     elif args.command == "stream":
         execute_stream(app, args)
+        app.stop()
+    elif args.command == "exchange-status":
+        execute_exchange_status(app)
         app.stop()
 
 

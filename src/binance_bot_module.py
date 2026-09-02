@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider 
 from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
+    ITradingAccountReader,
+)
 from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
     InFlightSyncGuard,
 )
@@ -94,6 +97,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_ga
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status import (
     GetDatabaseStatusQuery,
     GetDatabaseStatusQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
+    GetExchangeConnectionStatusQuery,
+    GetExchangeConnectionStatusQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
     GetHistoricalKlinesQuery,
@@ -183,6 +190,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_serv
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_account_reader import (
+    FuturesAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -305,6 +315,14 @@ class BinanceBotModule(BaseModule):
         )
         app.container.singleton(IExchangeCredentialsProvider, credentials_provider)
 
+        # EPIC-021D: read-only, does not require TradingVenue to be
+        # "enabled" anywhere — see FuturesAccountReader's own docstring for
+        # why this check works off credentials alone.
+        app.container.singleton(
+            ITradingAccountReader,
+            FuturesAccountReader(session_factory, credentials_provider),
+        )
+
         # EPIC-008F: the Application layer talks to the engine only through
         # these three ports; the adapters are the only place naming IEventBus,
         # IConfig or IDispatcher.
@@ -358,6 +376,9 @@ class BinanceBotModule(BaseModule):
         )
         app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
         app.container.bind(ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler)
+        app.container.bind(
+            GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQueryHandler
+        )
 
     def _register_indicator_scripts(self, app: App) -> None:
         """Registers all domain indicator scripts into IndicatorScriptRegistry."""

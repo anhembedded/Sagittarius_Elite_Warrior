@@ -1,12 +1,11 @@
 # BUG-080 — API Key/Secret nhập ở màn Settings không bao giờ tới exchange client
 
-- **Trạng thái:** 🟡 Đang mở — 1/2 phần đã sửa (xem §6)
-- **Mức độ:** 🟡 P3 (hạ từ P2 — nửa nguy hiểm nhất, secret rơi vào file git-tracked, đã sửa;
-  phần còn lại là "chưa có gì để dùng key" chứ không còn là "nói dối")
+- **Trạng thái:** ✅ Đã sửa
+- **Mức độ:** 🟡 P3 (hạ từ P2 khi `EPIC-021B` sửa nửa nguy hiểm nhất; đóng hẳn ở `EPIC-021D`)
 - **Ngày báo:** 2026-09-01
+- **Ngày sửa hẳn:** 2026-09-01
 - **Phát hiện khi:** khảo sát code để lập [`EPIC-021`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/README.md)
-- **Đã sửa 1 phần bởi:** [`EPIC-021B`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) (§6)
-- **Sẽ đóng hẳn bởi:** `EPIC-021D`/`021F` (client có key thật sự ký request)
+- **Sửa 1/2 bởi:** [`EPIC-021B`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021B_credentials_ngoai_git_va_khong_ro_ri_log.md) (§6) — **đóng hẳn bởi:** [`EPIC-021D`](../../epics/EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021D_kiem_tra_ket_noi_read_only.md) (§7)
 
 ---
 
@@ -108,9 +107,27 @@ ra khỏi phạm vi của mình (`create_trading_client()`, xem note tại `EPIC
 gì thật sự tiêu thụ một client như vậy tồn tại trước `021D`. Dựng nó bây giờ, không ai gọi, sẽ
 là chính lớp lỗi `BUG-081` vừa sửa — cấu hình/plumbing có mặt nhưng không ai đọc.
 
-**Kết luận:** bug này còn đúng theo đúng nghĩa hẹp nhất của triệu chứng gốc — "không có request
-nào của app từng được ký" **vẫn đúng** sau `021B`. Cái đã đổi là: (a) nửa nguy hiểm hơn (secret
-git-tracked) đã hết, và (b) đường đi của key giờ thật, được test, chỉ còn thiếu đầu nhận. Hạ mức
-độ P2→P3 vì phần còn lại không còn là "UI nói dối" — Settings giờ trung thực về việc key đi đâu,
-chỉ là chưa có gì tiêu thụ nó. Đóng hẳn khi `EPIC-021D` (kiểm tra kết nối, cần gọi API đã ký lần
-đầu tiên) hoặc `021F` (adapter trading thật) dựng được client mang key này và ký thành công.
+**Kết luận (tại thời điểm `021B`):** bug này còn đúng theo đúng nghĩa hẹp nhất của triệu chứng
+gốc — "không có request nào của app từng được ký" **vẫn đúng** sau `021B`. Cái đã đổi là: (a) nửa
+nguy hiểm hơn (secret git-tracked) đã hết, và (b) đường đi của key giờ thật, được test, chỉ còn
+thiếu đầu nhận. Hạ mức độ P2→P3 vì phần còn lại không còn là "UI nói dối" — Settings giờ trung
+thực về việc key đi đâu, chỉ là chưa có gì tiêu thụ nó.
+
+## 7. Đóng hẳn thế nào (`EPIC-021D`, 2026-09-01)
+
+`ExchangeSessionFactory.create_trading_client(credentials)` (mới) dựng `Client(api_key=...,
+api_secret=..., testnet=True)` — client **có key**, luôn Futures Testnet. `FuturesAccountReader`
+(mới, `ITradingAccountReader`) dùng client đó để gọi 4 endpoint đã ký:
+`futures_ping`/`futures_time`/`futures_account`/`futures_get_position_mode`. Nút **Kiểm tra kết
+nối** ở Settings và lệnh `main.py exchange-status` đều đi qua đúng đường này qua
+`GetExchangeConnectionStatusQuery`.
+
+**Bằng chứng key thật sự đi tới sàn** (không chỉ "đường tồn tại"): chạy `exchange-status` thật
+với key giả đặt qua biến môi trường trong phiên dev remote này — request thật sự được gửi (và bị
+egress-block của tầng chính sách chặn ở tầng mạng, phân loại đúng thành `NETWORK`, không phải
+"never attempted"). Round-trip HTTP thật (không qua mạng, qua
+`tests/sanity/binance_fake_server.py`) trong `test_futures_account_reader_against_fake_server.py`
+chứng minh toàn bộ chuỗi ký + gửi + parse chạy đúng.
+
+Triệu chứng gốc — "UI hứa key sẽ được dùng, nhưng không request nào từng được ký" — không còn
+đúng. Đóng.

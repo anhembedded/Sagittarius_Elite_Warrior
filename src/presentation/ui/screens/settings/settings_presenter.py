@@ -2,11 +2,24 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
     CredentialsSource,
     IExchangeCredentialsProvider,
     ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
+    GetExchangeConnectionStatusQuery,
+)
+from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+    ExchangeConnectionStatus,
+)
+from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
+    format_exchange_connection_status,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
+    ActionOutcome,
+    ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     FALLBACK_INTERVAL,
@@ -22,8 +35,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .settings_view_model import SettingsViewModel
+
+#: `ActionOwnershipTracker`'s `TKind` — a single action kind exists on this
+#: screen today, so a bare string is enough (`async-ui-action-rule.md`
+#: doesn't require an enum, only that ownership/fencing exist at all).
+_CHECK_CONNECTION_ACTION = "check_connection"
 
 #: `EPIC-010H`'s precedence rule (`ui_state > user_config DEFAULT_*`) means
 #: saving one of these two config keys must invalidate whatever remembered
@@ -89,11 +108,21 @@ class SettingsPresenter(BasePresenter):
     against.
     """
 
+    #: `EPIC-021D` — emitted (from any thread; Qt marshals it to this
+    #: QObject's own thread) with `(action_id, ExchangeConnectionStatus |
+    #: None, error_message | None)` when a background connection check
+    #: finishes.
+    connectionCheckCompleted = Signal(tuple)
+
     def __init__(self, view: SettingsView, container: IContainer) -> None:
         super().__init__(view, container)
 
         self._credentials_provider: IExchangeCredentialsProvider = container.resolve(
             IExchangeCredentialsProvider
+        )
+        self._thread_manager: IThreadManager = container.resolve(IThreadManager)
+        self._connection_check_tracker: ActionOwnershipTracker[str, None, None] = (
+            ActionOwnershipTracker()
         )
 
         self._settings_view_model = SettingsViewModel()
@@ -120,6 +149,10 @@ class SettingsPresenter(BasePresenter):
 
     def _connect_ui_signals(self) -> None:
         self._settings_view_model.saveRequested.connect(self._on_save)
+        self._settings_view_model.checkConnectionRequested.connect(
+            self._on_check_connection_requested
+        )
+        self.connectionCheckCompleted.connect(self._on_connection_check_completed)
 
     def _connect_engine_events(self) -> None:
         """Nothing to subscribe to — Settings has no background/live data."""
@@ -208,6 +241,64 @@ class SettingsPresenter(BasePresenter):
             _CREDENTIALS_SOURCE_LABELS[resolution.source],
             locked=resolution.source is CredentialsSource.ENV,
         )
+
+    # ------------------------------------------------------------------ #
+    # Connection check (`EPIC-021D`) — the screen's one background action.
+    # Async ownership per `async-ui-action-rule.md`: an immutable action_id
+    # from `ActionOwnershipTracker`, verified still-current before any
+    # ViewModel mutation, so a stale callback from a superseded click can
+    # never overwrite a newer one.
+    # ------------------------------------------------------------------ #
+
+    @Slot()
+    @safe_ui_action
+    def _on_check_connection_requested(self) -> None:
+        action = self._connection_check_tracker.begin_action(
+            _CHECK_CONNECTION_ACTION, None, None
+        )
+        self._settings_view_model.set_connection_checking(True)
+        self._thread_manager.submit(self._run_check_connection, action.action_id)
+
+    def _run_check_connection(self, action_id: int) -> None:
+        """Runs on a background thread (`IThreadManager`'s pool) — must
+        never touch the ViewModel/widgets directly (Qt thread affinity,
+        `BUG-031`'s class of defect). Reports back only through
+        `connectionCheckCompleted.emit()`, which Qt marshals safely onto
+        this Presenter's own thread regardless of which thread emits it.
+        """
+        try:
+            status: ExchangeConnectionStatus = self.dispatcher.dispatch(
+                GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQuery()
+            )
+            self.connectionCheckCompleted.emit((action_id, status, None))
+        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
+            self.connectionCheckCompleted.emit((action_id, None, str(exc)))
+
+    def _on_connection_check_completed(self, payload: tuple) -> None:
+        action_id, status, error = payload
+        if not self._connection_check_tracker.is_current_pending(
+            action_id, _CHECK_CONNECTION_ACTION
+        ):
+            self._connection_check_tracker.log_stale_callback(
+                "check_connection", action_id, _CHECK_CONNECTION_ACTION
+            )
+            return
+
+        if status is not None:
+            self._connection_check_tracker.finish_action(
+                action_id, ActionOutcome.SUCCEEDED
+            )
+            self._settings_view_model.set_connection_result(
+                format_exchange_connection_status(status),
+                is_error=status.failure is not None,
+            )
+        else:
+            self._connection_check_tracker.finish_action(
+                action_id, ActionOutcome.FAILED
+            )
+            self._settings_view_model.set_connection_result(
+                f"Lỗi kiểm tra kết nối: {error}", is_error=True
+            )
 
     def _discard_outranked_state(self) -> None:
         """Forgets the remembered values this save has just overruled.

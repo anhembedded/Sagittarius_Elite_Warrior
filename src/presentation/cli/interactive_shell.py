@@ -6,6 +6,9 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     build_handler_parser,
 )
+from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.exchange_status_cli_handler import (
+    ExchangeStatusCliHandler,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.i_cli_command_handler import (
     ICliCommandHandler,
 )
@@ -45,6 +48,7 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         self.handlers: dict[str, type[ICliCommandHandler]] = {
             "sync": SyncCliHandler,
             "stream": StreamCliHandler,
+            "exchange-status": ExchangeStatusCliHandler,
         }
 
     def start(self, context: IEngineContext) -> None:
