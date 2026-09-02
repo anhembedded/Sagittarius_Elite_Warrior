@@ -18,6 +18,7 @@ half-updated order.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
@@ -51,3 +52,9 @@ class Order:
     stop_price: Decimal | None = None
     time_in_force: TimeInForce | None = None
     reduce_only: bool = False
+    #: The exchange's own account of when this order was last updated
+    #: (`updateTime`/`"T"` on the wire) — `None` only for an `Order` this
+    #: app has built locally and not yet sent (`EPIC-021I` §3.1: the
+    #: exchange's time, never a locally-stamped `datetime.now()`, so it
+    #: matches Binance's own order history exactly).
+    order_time: datetime | None = None

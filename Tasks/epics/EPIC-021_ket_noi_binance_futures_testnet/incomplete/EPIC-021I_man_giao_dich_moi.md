@@ -461,3 +461,109 @@ Ba thứ chứng minh mốc này **thật sự chạy**, không phải khung r�
 `exchange-status` của `EPIC-021D`; bảng cập nhật **ngay** khi `trade-once --live` chạy ở terminal
 khác (qua `OrderFeed`, không phải poll); và mở màn với giao dịch tắt thì **không** có request nào
 rời máy.
+
+## 6. Kết quả xây dựng (2026-09-02)
+
+Đã dựng xong khung màn, theo đúng bảng §3 (đã sửa) — mọi corner-case ở §3.2.1-3.2.5 đều được tuân
+thủ (QtWidgets container, `DataTable` dùng chung ở `qml/`, `chart_coordinator.py` không giữ
+`action_id` riêng, `preview.py` có kèm ngay, MVP trio phẳng). File thực tế đã ship:
+
+| File | Việc |
+| :--- | :--- |
+| `src/application/use_cases/trading/disable_trading/{command,handler,__init__}.py` | **Mới** — tiền đề còn thiếu: `TradingSessionState.disable()` tồn tại nhưng chưa có command/handler nào gọi tới, nên chiều TẮT của công tắc không thể build được cho tới khi vá lỗ này |
+| `.../ui/screens/trading/{module,trading_view,trading_presenter,trading_view_model,i_trading_view,preview}.py` | **Mới** — đúng bảng §3 |
+| `.../ui/screens/trading/coordinators/chart_coordinator.py` | **Mới** — nạp nến qua `SyncMarketDataCommand`→`GetHistoricalKlinesQuery`, mở `StartLiveStreamCommand`; không chạm `view` (chạy trên thread nền) — mọi cập nhật chart đi qua `TradingPresenter`'s Qt signal, giữ đúng ranh giới `BUG-031` |
+| `.../ui/screens/trading/trading_widgets/{positions_panel,open_orders_panel}.py` | **Mới** — nhúng `PositionsTable.qml`/`OpenOrdersTable.qml` kiểu `DatabaseStatusPanel` (`QQuickWidget` trực tiếp trên `kit.Panel`, không qua `QmlOverlay`) |
+| `src/presentation/ui/qml/PositionsTable/`, `.../OpenOrdersTable/` | **Mới** — dựng trên `DataTable` dùng chung (`BOT-124`), ở đúng `qml/`, không ở `screens/trading/qml/` (§3.2.2) |
+| `src/presentation/ui/common/market_tick_feed.py` | **Mới, phát sinh khi build** — xem §6.1 |
+| `src/presentation/ui/app_bootstrapper.py` | +1 dòng đăng ký `TradingScreenModule` |
+| `src/presentation/ui/screens/dashboard/dashboard_presenter.py` | Đổi sang nghe `MarketTickEvent` qua `MarketTickFeed` thay vì `event_bus.on()` trực tiếp — xem §6.1 |
+| `src/domain/trading/order.py` + 2 mapper (`futures_order_payload_mapper.py`, `user_data_event_parser.py`) | Thêm `Order.order_time: datetime \| None` — đúng quyết định đã chốt ở §3.1 (thời gian sàn, không phải giờ máy), đọc `updateTime`/`"T"` |
+
+### 6.1 Phát sinh khi build: `MarketTickFeed`
+
+`test_one_event_is_not_subscribed_by_two_presenters` (guard đã có sẵn, `EPIC-008G`) đỏ ngay khi
+`TradingPresenter` tự `event_bus.on(MarketTickEvent, ...)` — `DashboardPresenter` đã làm đúng vậy
+từ trước, và guard tồn tại chính xác để bắt sự trùng lặp này. Sửa theo đúng khuôn `HealthFeed`/
+`SyncProgressFeed`/`OrderFeed`: trích `MarketTickFeed` (`presentation/ui/common/`), cả hai
+Presenter connect vào `marketTick` signal của nó thay vì tự đăng ký. `_handle_market_tick` ở cả
+hai màn không đổi hành vi (vẫn chỉ emit signal, không chạm widget) — chỉ đổi từ "được event bus
+gọi trên thread nền" sang "được `QtEventBridge` marshal sẵn về main thread trước khi gọi", vốn dĩ
+an toàn hơn, không kém. Xác nhận không hồi quy: 104/104 test Dashboard (unit + integration, kể cả
+`test_sanity_ui_e2e.py`'s round-trip `event_bus.emit()` → `qtbot.waitSignal`) xanh sau khi đổi.
+
+### 6.2 Phạm vi đã cắt có chủ đích (ghi lại, không phải quên)
+
+- **Overlay đường chỉ báo chiến lược lên chart.** Không có cầu nối nào giữa 6 `Strategy` class
+  (tín hiệu giao dịch) và hệ `IndicatorScript` (vẽ chart) — hai hệ song song, không liên quan.
+  Dựng cầu nối là một subsystem mới, ngoài phạm vi lượt build này.
+- **Nút "Huỷ lệnh"/"Đóng vị thế" thủ công.** Không có `CancelOrderCommand`/`ClosePositionCommand`
+  nào tồn tại (chỉ có `execute_order`/`enable_trading`/`disable_trading`).
+- **4 control cấu hình ở mock vòng 3** (chọn chiến lược/tham số/khung thời gian giao dịch/sizing)
+  — chưa có cơ chế backend nào để nối vào; đúng nhóm `BUG-084`/`BUG-085` đã lộ ra khi review mock,
+  chưa sửa.
+- **Symbol picker rút gọn thành `QComboBox` đọc `DEFAULT_SYMBOLS`**, không phải overlay
+  `SymbolPicker` đầy đủ (yêu thích/gần đây). Chỉ điều khiển symbol hiển thị trên chart — không
+  liên quan tới `EnableTradingCommand` (toàn tài khoản, không tham số symbol).
+- **Rail tài khoản chỉ có 2 số phiên** (lệnh đã gửi, số symbol đang mở — đọc thẳng từ
+  `TradingSessionState`), dựng bằng `QLabel` thường, **không** dùng `StatGrid.qml` như §3.2.2 đã
+  chốt. Không sai luật §0.2 (không viết `.qml` mới), nhưng lệch khỏi lựa chọn đã ghi — để dành cho
+  một lượt sửa nhỏ sau, không phải quên. Số dư USDT/margin đã dùng **không** hiển thị: không có
+  event nào qua `OrderFeed` mang số dư ví, và tự gọi `ITradingClient` để lấy nó vi phạm thẳng
+  ràng buộc §2.4 ("OrderFeed-only, không tự gọi khi giao dịch tắt/đang chạy").
+- **Cột "ĐÃ KHỚP" (khối lượng đã khớp một phần)** trên bảng Lệnh chờ — `Order` không có field
+  khối lượng đã khớp, chỉ có `quantity` (tổng).
+- **5 trạng thái UI phong phú ở §2** (đang đối soát/từ chối bật/hạn mức chặn/kết nối chưa sẵn
+  sàng/chưa có key) — nhánh từ chối bật **có** hoạt động (dòng trạng thái đỏ + lý do, đọc
+  `EnableTradingResult.block_reason`), nhưng chưa dựng thành khối callout viền trái như mock trạng
+  thái C — rút gọn thành một dòng chữ cho lượt này.
+- **Không có state persistence** (nhớ symbol/khung thời gian giữa các phiên, kiểu `EPIC-010`) cho
+  màn này.
+
+### 6.3 Lỗ hổng phát hiện khi build, không sửa trong lượt này
+
+[`BUG-086`](../../../bug_report/incomplete/BUG-086_position_changed_event_khong_ban_khi_dong_vi_the.md)
+— `_handle_account_update()` không publish `PositionChangedEvent` khi vị thế đóng về 0, chỉ log.
+Bảng "Vị thế đang mở" có thể hiển thị một vị thế đã đóng thật cho tới lần `EnableTradingCommand`
+kế tiếp đối soát lại.
+
+### 6.4 Giới hạn kiến trúc chia sẻ, không phải bug mới
+
+`ILiveStreamService` là **một** stream toàn tiến trình (`start_stream(symbols, interval)` không
+có tham số định danh người gọi, `stop_stream()` không tham số). Dev Board và màn Giao dịch mở
+cùng lúc, cả hai đổi symbol/khung thời gian độc lập, sẽ giành nhau **cùng một** luồng dữ liệu —
+màn nào gọi `StartLiveStreamCommand` sau cùng quyết định symbol nào chảy vào **cả hai** chart.
+Đây là ràng buộc kiến trúc có từ trước (Dev Board tự nó cũng không bao giờ dừng stream trừ khi
+người dùng bấm Stop), không phải hồi quy do lượt build này — ghi lại vì `chart_coordinator.py`
+mới sẽ chạm đúng chỗ này. Dựng multiplexing per-screen là việc ngoài phạm vi epic này.
+
+### 6.5 Kiểm thử
+
+- **Contract (`ast` hai chiều):** `test_trading_view_contract.py` — 4 thành viên, khớp đúng bảng
+  ở §4.
+- **ViewModel:** `test_trading_view_model.py` (9 test) + `PositionsTable`/`OpenOrdersTable`'s
+  `test_*_vm.py`/`test_*_qml.py` (2 × ~9-11 test) — 2 bảng render đúng từ dữ liệu, rỗng khi chưa
+  có gì.
+- **Toggle + reconciliation:** `test_trading_presenter_toggle.py` — bật khi tắt/tắt khi bật gửi
+  đúng command nền; bật thành công nạp bảng lệnh chờ, đúng chỗ; **bật khi reconciliation thấy vị
+  thế lạ → công tắc không bật lên** (đúng yêu cầu §4); kết quả trễ (stale callback) của một click
+  cũ bị bỏ qua đúng `ActionOwnershipTracker`.
+- **OrderFeed → 2 bảng:** cùng file — `OrderFilledEvent` (trạng thái còn sống thêm dòng, trạng
+  thái cuối cùng gỡ dòng), `PositionChangedEvent` (cập nhật bảng vị thế).
+- **`disable_trading`:** 3 test riêng (tắt khi đang bật, tắt khi đã tắt vẫn gọi `stop()`, không
+  xoá `known_open_symbols`).
+- **Guard đã có sẵn, giờ xanh:** `test_preview_fixtures_exist.py` (2 test),
+  `test_one_event_is_not_subscribed_by_two_presenters`.
+- **Sanity:** không viết test sanity **mới** nào (đúng thiết kế §1 điểm 4) — nhưng 2 danh sách tay
+  ở tầng sanity **phải cập nhật** để màn mới không rơi vào mù (đúng đúng lý do 2 guard đó tồn
+  tại): `tests/conftest.py::real_screen_registry()` (danh sách screen module dùng riêng cho sanity,
+  tách khỏi `app_bootstrapper.py`, phải tự tay giữ đồng bộ) và
+  `tests/sanity/test_view_model_thread_affinity_sanity.py::_ALL_VIEW_MODELS` (mọi
+  `BaseQmlViewModel` con phải có mặt). Thiếu cái đầu làm `test_every_screen_package_has_a_navigable_route`
+  đỏ; thiếu cái sau (cộng `TradingViewModel.set_symbol_options` chưa có `@Slot`) làm
+  `test_every_view_model_subclass_in_this_app_is_covered_by_this_list` đỏ. Cả hai bắt được đúng
+  lúc chạy `pytest tests/sanity` trực tiếp — không phải suy đoán.
+- Toàn bộ `ruff check`/`ruff format --check` sạch; cổng CI bắt buộc
+  (`pwsh -NoProfile -File scripts/ci-local.ps1 -Full`) chạy xanh sau lượt sửa 5 lỗi thật
+  (`MarketTickFeed` extraction, import tuyệt đối cho `preview.py` — xem `scripts/preview_qml.py`'s
+  docstring, 2 danh sách sanity tay ở trên, và format/lint 2 lượt fix tự động).

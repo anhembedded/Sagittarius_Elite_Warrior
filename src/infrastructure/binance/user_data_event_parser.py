@@ -13,6 +13,7 @@ payload shapes.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -48,6 +49,7 @@ def parse_order_trade_update(payload: dict[str, Any]) -> Order:
     (`EPIC-021H` §2.4)."""
     o = payload["o"]
     time_in_force_raw = o.get("f")
+    order_time_raw = o.get("T")
     return Order(
         client_order_id=ClientOrderId(o["c"]),
         symbol=o["s"],
@@ -59,6 +61,11 @@ def parse_order_trade_update(payload: dict[str, Any]) -> Order:
         stop_price=_decimal_or_none(o.get("sp")),
         time_in_force=(TimeInForce(time_in_force_raw) if time_in_force_raw else None),
         reduce_only=bool(o.get("R", False)),
+        order_time=(
+            datetime.fromtimestamp(order_time_raw / 1000, tz=UTC)
+            if order_time_raw
+            else None
+        ),
     )
 
 

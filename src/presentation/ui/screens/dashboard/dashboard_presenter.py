@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
     HealthCheckCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed import (
+    MarketTickFeed,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
 )
@@ -801,7 +804,14 @@ class DashboardPresenter(BasePresenter):
 
     def _connect_engine_events(self) -> None:
         """Đăng ký lắng nghe sự kiện từ Engine EventBus."""
-        self.event_bus.on(MarketTickEvent, self._handle_market_tick)
+        # `MarketTickEvent` giờ đi qua `MarketTickFeed` — một nơi nghe, nhiều
+        # màn hiển thị (`architecture-rule.md` §6), cùng lý do `HealthFeed`/
+        # `SyncProgressFeed` bên dưới tồn tại. Trước đây màn này tự
+        # `event_bus.on(MarketTickEvent, ...)`, và `EPIC-021I`'s Trading màn
+        # cũng tự làm y hệt — đúng lớp trùng lặp `test_event_flow_guards.py`
+        # bắt được (`EPIC-008G`'s `HealthUpdatedEvent` defect, tái diễn).
+        self._market_tick_feed = MarketTickFeed(self.event_bus, parent=self)
+        self._market_tick_feed.marketTick.connect(self._handle_market_tick)
         # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này, nên nó
         # đi qua HealthFeed — một nơi nghe, nhiều màn hiển thị
         # (`architecture-rule.md` §6). Trước đây màn này tự `event_bus.on(...)`
@@ -1082,15 +1092,16 @@ class DashboardPresenter(BasePresenter):
         self._indicator_coordinator.on_script_marker_data(key, markers)
 
     # ================================================================== #
-    # Engine Event Bridge — called from background threads.
-    # MUST NOT touch Qt widgets/models here. Use signals only.
+    # Engine Event Bridge — reached via `MarketTickFeed`, already marshaled
+    # onto the main Qt thread by its `QtEventBridge` (`BaseFeed`'s own
+    # contract). Kept emitting signals only, not touching widgets directly,
+    # so this method's own behaviour is unchanged either way.
     # ================================================================== #
 
     def _handle_market_tick(self, event: MarketTickEvent) -> None:
-        """
-        @warning Called by EventBus from a background thread.
-        Never touch UI widgets/models here — emit signals only.
-        """
+        """Delegates to `ui_chart_update_signal` rather than touching
+        `active_charts`/`ChartCard` directly — keeps one path for both a
+        same-thread (here) and a cross-thread emitter to update the chart."""
         md = event.market_data
         symbol = md.symbol
         is_closed = md.is_closed

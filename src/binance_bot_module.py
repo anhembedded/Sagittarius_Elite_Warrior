@@ -155,6 +155,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data i
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disable_trading import (
+    DisableTradingCommand,
+    DisableTradingCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
     EnableTradingCommand,
     EnableTradingCommandHandler,
@@ -478,6 +482,7 @@ class BinanceBotModule(BaseModule):
         app.container.bind(PruneEmptyShardsCommand, PruneEmptyShardsCommandHandler)
         app.container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
         app.container.bind(EnableTradingCommand, EnableTradingCommandHandler)
+        app.container.bind(DisableTradingCommand, DisableTradingCommandHandler)
         app.container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
 
     def _register_queries(self, app: App) -> None:

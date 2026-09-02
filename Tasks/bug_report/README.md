@@ -42,9 +42,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 4 |
+| 🔴 **Đang mở** | 5 |
 | ✅ **Đã sửa / đã đóng** | 80 |
-| 📈 **Tổng** | **84** |
+| 📈 **Tổng** | **85** |
 
 ---
 
@@ -52,6 +52,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-086](incomplete/BUG-086_position_changed_event_khong_ban_khi_dong_vi_the.md)** | `PositionChangedEvent` không bắn khi một vị thế đóng về flat — bảng Vị thế trên màn Giao dịch có thể "sống" sau khi vị thế đã chết | 🟠 **P2** | 2026-09-02 | `futures_user_data_stream.py::_handle_account_update()` — nhánh vị thế đóng về 0 (`get_positions()` rỗng) chỉ `logger.info(...)`, không publish `PositionChangedEvent`; nhánh còn lại (vị thế vẫn mở) publish đầy đủ. `OrderFeed.positionChanged` chỉ re-emit đúng những gì bus phát ra, nên `TradingPresenter` (`EPIC-021I`) không bao giờ được báo khi một vị thế đóng — bảng "Vị thế đang mở" tiếp tục hiển thị PnL/giá đứng yên tại lần cập nhật cuối cho tới `EnableTradingCommand` (đối soát toàn bộ) kế tiếp. Phát hiện khi dựng `EPIC-021I`'s Positions table, đọc thẳng `_handle_account_update()`. Chưa nổ trước đó vì `EPIC-021H` tự nó không có UI nào vẽ `LivePosition` liên tục. |
 | **[BUG-084](incomplete/BUG-084_live_sizing_hardcode_chan_moi_lenh.md)** | Sizing hard-code 20%/1x khiến bot **không đặt nổi một lệnh nào** trên tài khoản có số dư thật | 🟠 **P2** | 2026-09-02 | Không crash, không log `ERROR` — bot chỉ **im lặng không giao dịch**. `live_trading_coordinator.py:67-68` hard-code `PERCENT_OF_EQUITY 20%` + leverage `1.0`; đặt cạnh hạn mức 500 USDT/lệnh thì cửa sổ dùng được chỉ còn ~**500–2 500 USDT** số dư. Đo thật bằng chính `calculate_live_order_quantity()` @ 64 105.35: số dư **14 871.60** (đúng số mockup vẽ) → 0.046 BTC = **2 948.85 USDT** → chặn; số dư mặc định testnet 15 000 → y hệt. Nửa thứ hai của bug: lý do bị chặn chỉ nằm ở một dòng `INFO`, nên *"không có tín hiệu"* và *"có tín hiệu nhưng bị chặn"* trông giống hệt nhau trên màn hình. Phát hiện khi review mockup `EPIC-021I` §3.3 điểm 1. Sửa: sizing thành control thật (`EPIC-021G` §6.7 đã dự liệu) + hiện lý do chặn. |
 | **[BUG-085](incomplete/BUG-085_live_tick_khong_loc_theo_interval.md)** | Đường live không lọc theo khung thời gian — hai interval cùng symbol làm hỏng state chỉ báo | 🟠 **P2** | 2026-09-02 | `MarketTickEventHandler.handle()` lọc **duy nhất** `md.symbol`; `MarketData.interval` tồn tại nhưng bị bỏ qua, và `ConfigKeys` không có key nào cho khung thời gian của đường live. Hai dòng nến khác khung cùng symbol sẽ đổ vào **một** `StrategyEngine`, mà mỗi chỉ báo trong đó giữ state tăng dần theo nến (`BOT-042B/C`) ⇒ EMA nạp xen kẽ 1m và 5m không phải EMA của khung nào — tín hiệu sai dẫn thẳng tới lệnh thật. Docstring của chính class đó đã cảnh báo đúng cơ chế này **cho symbol** và không chặn cho interval. Chưa nổ vì `live_strategy_key` mặc định rỗng — sống dậy đúng lúc `EPIC-021I` cho chọn chiến lược. Phát hiện khi review mockup, §3.3 điểm 4. |
 | **[BUG-068](incomplete/BUG-068_cross_thread_qbasictimer_start_in_gap_inspection.md)** | QBasicTimer::start: Timers cannot be started from another thread trong quá trình kiểm tra Database Gaps | 🟠 **P2** | 2026-08-30 | Khi chạy `GetDatabaseGapsQuery` trên worker thread của `ThreadManager`, xuất hiện 4 cảnh báo Qt timer vi phạm thread affinity. Biến thể của lớp lỗi `BUG-031`. **Cập nhật 2026-08-31:** tái hiện sống thật (app boot thật, DB seed gap thật) trên `offscreen` cho 0 cảnh báo — đã loại trừ query handler, `Dispatcher.dispatch()`, `SignalLogHandler`, và toàn bộ đường `ui_gap_inspector_signal` → `GapInspectorDialog`. Nghi thuộc lớp lỗi chỉ tồn tại trên nền tảng có cửa sổ thật (threaded render loop của Qt Quick, `offscreen` luôn rơi về basic loop) — cần tái hiện trên Windows thật để đi tiếp. |

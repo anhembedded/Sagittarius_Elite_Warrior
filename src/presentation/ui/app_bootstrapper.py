@@ -76,6 +76,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.modul
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.module import (
+    TradingScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
 )
@@ -283,6 +286,7 @@ def build() -> AppRuntime:
     screen_registry = ScreenRegistry()
     for module_cls in (
         DashboardScreenModule,
+        TradingScreenModule,
         DatabaseScreenModule,
         SettingsScreenModule,
         BacktestScreenModule,

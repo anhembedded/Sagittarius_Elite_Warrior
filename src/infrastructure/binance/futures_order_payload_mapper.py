@@ -115,6 +115,16 @@ def _decimal_or_none(raw: Any) -> Decimal | None:
     return value if value != 0 else None
 
 
+def _order_time_or_none(payload: dict[str, Any]) -> datetime | None:
+    """`updateTime` (last change) over `time` (creation) — `EPIC-021I` §3.1
+    wants "when did this order last change", the same fact `LivePosition.
+    updated_at` already reports for a position. Falls back to `time` only
+    when `updateTime` is absent (some REST responses omit it); `None` when
+    neither is present rather than fabricating "now"."""
+    raw = payload.get("updateTime") or payload.get("time")
+    return datetime.fromtimestamp(raw / 1000, tz=UTC) if raw else None
+
+
 def map_futures_order_payload_to_order(payload: dict[str, Any]) -> Order:
     """@brief The reverse direction: one order object from a Binance
     Futures REST response (`place`/`cancel`/`get_open_orders`) back into a
@@ -137,6 +147,7 @@ def map_futures_order_payload_to_order(payload: dict[str, Any]) -> Order:
         stop_price=_decimal_or_none(payload.get("stopPrice")),
         time_in_force=(TimeInForce(time_in_force_raw) if time_in_force_raw else None),
         reduce_only=bool(payload.get("reduceOnly", False)),
+        order_time=_order_time_or_none(payload),
     )
 
 
