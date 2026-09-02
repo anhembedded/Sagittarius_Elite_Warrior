@@ -129,6 +129,11 @@ class DataManagementPresenter(BasePresenter):
     ui_stats_refresh_signal = Signal()
     ui_sync_complete_signal = Signal()
     ui_symbol_options_signal = Signal(list)
+    #: BOT-120 follow-up — shards `list_available_shards()` found on disk at
+    #: the last auto-discover/scan-all, independent of `rowCount` (shards
+    #: actually scanned into a row). Lets the empty-state message tell
+    #: "nothing here" apart from "something here, not scanned yet".
+    ui_known_shard_count_signal = Signal(int)
     #: Mang một `GapInspectorPayload` — trước là 7 tham số vị trí, có 2 `int`
     #: liền nhau và 2 `list` liền nhau (xem `data_management_signal_payloads.py`).
     ui_gap_inspector_signal = Signal(object)
@@ -221,6 +226,7 @@ class DataManagementPresenter(BasePresenter):
             ui_stats_refresh_signal=self.ui_stats_refresh_signal.emit,
             ui_unlock_signal=self.ui_unlock_signal.emit,
             ui_symbol_options_signal=self.ui_symbol_options_signal.emit,
+            ui_known_shard_count_signal=self.ui_known_shard_count_signal.emit,
             transition_fsm=self._transition_fsm_safe,
             get_current_fsm_state=self._get_fsm_state,
         )
@@ -371,6 +377,7 @@ class DataManagementPresenter(BasePresenter):
         self.ui_stats_refresh_signal.connect(self._on_stats_refresh_requested)
         self.ui_sync_complete_signal.connect(self._on_sync_complete)
         self.ui_symbol_options_signal.connect(view_model.set_symbol_options)
+        self.ui_known_shard_count_signal.connect(view_model.set_known_shard_count)
         self.ui_gap_inspector_signal.connect(self._on_gap_inspector_payload)
         self.ui_kline_inspector_signal.connect(view_model.set_kline_inspector_data)
         self.ui_audit_result_signal.connect(view_model.set_audit_result)

@@ -51,6 +51,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     selectedSymbolChanged = Signal()
     selectedIntervalChanged = Signal()
     symbolOptionsChanged = Signal()
+    knownShardCountChanged = Signal()
 
     useCustomTimeChanged = Signal()
     customRangeChanged = Signal()
@@ -99,6 +100,7 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._selected_symbol = _DEFAULT_SYMBOLS[0]
         self._selected_interval = _SUPPORTED_INTERVALS[0]
         self._symbol_options: list[str] = list(_DEFAULT_SYMBOLS)
+        self._known_shard_count = 0
 
         self._use_custom_time = False
         self._from_datetime = ""
@@ -163,6 +165,20 @@ class DataManagementViewModel(BaseQmlViewModel):
         if options != self._symbol_options:
             self._symbol_options = list(options)
             self.symbolOptionsChanged.emit()
+
+    @Property(int, notify=knownShardCountChanged)
+    def knownShardCount(self) -> int:
+        """Shards `list_available_shards()` found on disk at the last
+        auto-discover/scan-all (BOT-120 follow-up) — independent of how many
+        have actually been scanned into `status_model`'s rows this session."""
+        return self._known_shard_count
+
+    @Slot(int)
+    def set_known_shard_count(self, count: int) -> None:
+        if count == self._known_shard_count:
+            return
+        self._known_shard_count = count
+        self.knownShardCountChanged.emit()
 
     selectedSymbol = notifying_property(
         "_selected_symbol",

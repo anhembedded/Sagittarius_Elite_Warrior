@@ -183,6 +183,9 @@ class DataManagementView(BaseView):
             self._status_panel = DatabaseStatusPanel(view_model.status_model)
             self._status_panel.rowActionRequested.connect(self._on_status_row_action)
             self._status_column.insertWidget(0, self._status_panel, 1)
+        view_model.knownShardCountChanged.connect(
+            lambda: self._status_panel.set_known_shard_count(view_model.knownShardCount)
+        )
 
         self._btn_symbol.setText(view_model.selectedSymbol)
         self._btn_interval.setText(view_model.selectedInterval)

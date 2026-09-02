@@ -63,6 +63,7 @@ class ScanCoordinator:
         ui_stats_refresh_signal: Callable[[], None],
         ui_unlock_signal: Callable[[], None],
         ui_symbol_options_signal: Callable[[list[str]], None],
+        ui_known_shard_count_signal: Callable[[int], None],
         transition_fsm: Callable[[UIMode], bool],
         get_current_fsm_state: Callable[[], UIMode],
     ) -> None:
@@ -80,6 +81,7 @@ class ScanCoordinator:
         self._ui_stats_refresh_signal = ui_stats_refresh_signal
         self._ui_unlock_signal = ui_unlock_signal
         self._ui_symbol_options_signal = ui_symbol_options_signal
+        self._ui_known_shard_count_signal = ui_known_shard_count_signal
         self._transition_fsm = transition_fsm
         self._get_current_fsm_state = get_current_fsm_state
         self._cancellation_lock = Lock()
@@ -152,6 +154,7 @@ class ScanCoordinator:
                 return
 
             local_shard_count = len(self._market_data_repo.list_available_shards())
+            self._ui_known_shard_count_signal(local_shard_count)
             if local_shard_count:
                 logger.info(
                     f"[storage-vault] {local_shard_count} local shard(s) on disk, "
@@ -317,6 +320,12 @@ class ScanCoordinator:
                     "Full scan complete. No database tables found in Storage Vault."
                 )
             self._prune_empty_shards(token)
+            # Refresh after pruning, not before: a scan that found nothing
+            # and then pruned every candidate must not leave the placeholder
+            # still quoting the pre-prune count.
+            self._ui_known_shard_count_signal(
+                len(self._market_data_repo.list_available_shards())
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
             self._ui_error_log_signal(f"Error scanning databases: {exc}")

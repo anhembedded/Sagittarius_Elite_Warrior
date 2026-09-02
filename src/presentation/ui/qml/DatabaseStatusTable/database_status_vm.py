@@ -27,6 +27,7 @@ from .database_status_table_model import (
 class DatabaseStatusVM(QObject):
     rowCountChanged = Signal()
     actionsEnabledChanged = Signal()
+    knownShardCountChanged = Signal()
     rowActionRequested = Signal(str, str, str)  # action, symbol, interval
 
     def __init__(
@@ -39,6 +40,13 @@ class DatabaseStatusVM(QObject):
         self._proxy = DatabaseStatusFilterProxy(self)
         self._proxy.setSourceModel(model)
         self._actions_enabled = True
+        # BOT-120 follow-up: how many shards `list_available_shards()` found
+        # on disk at the last auto-discover/scan-all, regardless of whether
+        # any have been scanned into a row yet. `rowCount` alone cannot tell
+        # "genuinely empty vault" apart from "vault has data, not scanned
+        # this session" — both read as 0 — so the empty-state message needs
+        # this second, independent fact to stay truthful.
+        self._known_shard_count = 0
         # The proxy's own row count (what QML and the badge actually show)
         # changes whenever the source model does — `set_search_text()`
         # re-filtering is handled separately in `setSearchText()` below,
@@ -73,6 +81,20 @@ class DatabaseStatusVM(QObject):
         self._proxy.set_search_text(text)
         if self._proxy.rowCount() != before:
             self.rowCountChanged.emit()
+
+    @Property(int, notify=knownShardCountChanged)
+    def knownShardCount(self) -> int:
+        """Shards found on disk at the last auto-discover/scan-all — not
+        necessarily the same as `rowCount`, which only counts shards actually
+        scanned into a row this session."""
+        return self._known_shard_count
+
+    @Slot(int)
+    def setKnownShardCount(self, count: int) -> None:
+        if count == self._known_shard_count:
+            return
+        self._known_shard_count = count
+        self.knownShardCountChanged.emit()
 
     @Property(bool, notify=actionsEnabledChanged)
     def actionsEnabled(self) -> bool:

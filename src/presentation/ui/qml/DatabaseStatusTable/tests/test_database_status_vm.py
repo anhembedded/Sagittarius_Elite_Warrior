@@ -165,3 +165,53 @@ def test_set_actions_enabled_is_a_no_op_when_unchanged():
     vm.setActionsEnabled(False)
 
     assert len(changed) == 0
+
+
+# --------------------------------------------------------------------------- #
+# Known shard count (BUG-087 — BOT-120 follow-up)
+#
+# Once auto-discover stopped scanning the vault on screen open (BOT-120),
+# `rowCount == 0` could mean two different things — a genuinely empty vault,
+# or a vault with real local data nobody has scanned into a row yet — and the
+# empty-state placeholder could no longer tell them apart. These tests pin
+# the one new fact that lets it, independent of `rowCount`.
+# --------------------------------------------------------------------------- #
+
+
+def test_known_shard_count_defaults_to_zero():
+    vm = DatabaseStatusVM(DatabaseStatusTableModel())
+
+    assert vm.knownShardCount == 0
+
+
+def test_setting_known_shard_count_notifies():
+    vm = DatabaseStatusVM(DatabaseStatusTableModel())
+    changed = []
+    vm.knownShardCountChanged.connect(lambda: changed.append(vm.knownShardCount))
+
+    vm.setKnownShardCount(2)
+
+    assert vm.knownShardCount == 2
+    assert changed == [2]
+
+
+def test_setting_the_same_known_shard_count_does_not_renotify():
+    vm = DatabaseStatusVM(DatabaseStatusTableModel())
+    vm.setKnownShardCount(2)
+    changed = []
+    vm.knownShardCountChanged.connect(lambda: changed.append(vm.knownShardCount))
+
+    vm.setKnownShardCount(2)
+
+    assert changed == []
+
+
+def test_known_shard_count_is_independent_of_row_count():
+    """The two facts must stay separately settable — collapsing them back
+    into one number is exactly the regression this VM exists to prevent."""
+    vm = DatabaseStatusVM(_seeded_model())
+
+    vm.setKnownShardCount(2)
+
+    assert vm.rowCount == 1
+    assert vm.knownShardCount == 2

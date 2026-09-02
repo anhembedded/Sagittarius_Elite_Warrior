@@ -533,6 +533,24 @@ def test_startup_auto_discovery_stays_cheap_and_refreshes_the_stat_tiles(
     )
 
 
+def test_startup_auto_discovery_reports_known_shard_count_truthfully(
+    presenter, view_model, mock_dispatcher, mock_market_data_repo
+):
+    """Regression: the table stays empty until the user scans (BOT-120), so
+    `rowCount == 0` can no longer distinguish "genuinely empty vault" from
+    "vault has 2 shards, nobody has scanned them this session" — both used
+    to read identically as the same placeholder message. The view model must
+    carry the local shard count as its own fact, separate from `rowCount`,
+    for the empty-state message to stay truthful."""
+    mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
+    mock_market_data_repo.list_available_shards.return_value = ["BTCUSDT", "ETHUSDT"]
+
+    presenter._run_auto_discover()
+
+    assert view_model.status_model.rowCount() == 0
+    assert view_model.knownShardCount == 2
+
+
 def test_startup_auto_discovery_does_not_unlock_a_sync_started_meanwhile(
     presenter, view_model, mock_dispatcher
 ):
