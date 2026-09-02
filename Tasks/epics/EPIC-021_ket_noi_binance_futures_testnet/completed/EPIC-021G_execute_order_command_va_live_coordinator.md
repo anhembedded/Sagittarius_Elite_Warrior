@@ -234,8 +234,12 @@ tới từ `EPIC-021H`, thay vì bịa số liệu chưa có thật.
   `ICommandDispatcher.dispatch()`'s kiểu trả về `object`.
 - Sanity: 24/24 — xác nhận cả `ExecuteOrderCommand` lẫn `EnableTradingCommand` tự dựng được dù
   `TradingVenue` mặc định DISABLED (xem §6.3), không cần thêm vào `_NOT_DISPATCHED`.
-- Unit (`-n 4`): 3160 passed, 1 failed — cùng lỗi trước-đã-biết,
-  `test_pan_preview_moves_only_the_data_region_not_the_axes` (chart pan/pixel, không liên quan).
+- Unit (`-n 4`): 3160 passed, 1 failed —
+  `test_pan_preview_moves_only_the_data_region_not_the_axes`. Đã root-cause và mở hồ sơ riêng ở
+  [`BUG-083`](../../../bug_report/incomplete/BUG-083_pan_preview_test_drags_past_its_own_reanchor_boundary.md)
+  (lỗi test, không phải lỗi sản phẩm; đỏ từ PR #140, 2026-08-27). Trước đó dòng này chỉ ghi "không
+  liên quan" — 10/13 file task của epic đều ghi vậy, và đó chính là cách một cổng bắt buộc mất tác
+  dụng.
 - Guard: `test_order_submission_mode_live_is_restricted.py` xanh (đúng 1 file được phép);
   `test_only_the_session_factory_constructs_binance_client.py` (`EPIC-021A`) vẫn xanh;
   `grep -rln "class.*(ITradingClient)" src/` cho đúng 1 implementer.
@@ -247,3 +251,55 @@ tới từ `EPIC-021H`, thay vì bịa số liệu chưa có thật.
   ema_trend_confirm_pullback` trong sandbox (không có dữ liệu nến local) → thoát êm với thông báo
   "chạy `sync` trước", không traceback; `--strategy` sai tên → argparse tự chặn với danh sách hợp
   lệ, không traceback.
+
+### 6.11 Hai bài kiểm thử §4 còn thiếu — bổ sung 2026-09-02
+
+§4 liệt kê 5 nhóm test; §6.10 chỉ chứng minh được 3 nhóm đầu. Hai nhóm sau **chưa từng được viết**
+(tier testnet là opt-in, nằm ngoài phạm vi này):
+
+- **Integration (fake server):** *"một `SignalGeneratedEvent` → đúng **một** lệnh gửi đi; hai tín
+  hiệu liên tiếp trong khoảng chặn → lệnh thứ hai bị chặn, có lý do ghi nhận được"*.
+- **Business acceptance:** *"tín hiệu SHORT phải sinh lệnh SELL kèm `positionSide` đúng, không
+  phải một lệnh đóng LONG"*.
+
+`test_live_trading_coordinator.py` (unit, có sẵn) **không** phủ được hai cái này: nó dừng ở
+`dispatcher.dispatch` và chỉ chứng minh coordinator *yêu cầu* đúng command. Mọi tầng còn có thể
+đảo ngược hướng lệnh đều nằm sau lời gọi đó — `PreviewOrderQueryHandler` làm tròn,
+`map_order_to_futures_params`, và phần form-encode của `python-binance`. §4 nói về **request mà
+Binance nhận được**, nên assertion phải đọc request Binance nhận được.
+
+Bổ sung: `tests/integration/application/test_live_trading_pipeline_against_fake_server.py` — 4
+test, chạy trọn chuỗi sizing → làm tròn → map params → HTTP thật → sổ lệnh của fixture, rồi đọc
+lại `GET /fapi/v1/openOrders` bằng `urllib` **thẳng**, không qua adapter của app (hỏi chính code
+đang bị kiểm để biết nó gửi gì là lập luận vòng tròn).
+
+| Đột biến gieo vào code thật | Test chết |
+| :--- | :--- |
+| `SignalAction.SHORT` → `reduce_only=True` | `..._short_signal_opens_a_short_...` |
+| `_ONE_WAY_POSITION_SIDE = "BOTH"` → `"LONG"` | 2 test acceptance (SHORT + SELL) |
+| Vô hiệu hoá cả `MAX_POSITIONS_PER_SYMBOL` lẫn `MIN_ORDER_INTERVAL` | `..._second_signal_inside_the_window_...` (lệnh thứ 2 ra tới sàn thật) |
+| `quantity = 0` trong coordinator (không gửi gì) | cả 4 |
+
+Ba ghi chú về sự thật quan sát được, ghi lại vì đều dễ bị viết trại thành thứ khác:
+
+1. **Lý do chặn lệnh thứ hai không phải cái §4 ngụ ý.** Cả `MAX_POSITIONS_PER_SYMBOL` lẫn
+   `MIN_ORDER_INTERVAL` đều fail, và handler báo cái **đầu tiên** trong bốn —
+   `MAX_POSITIONS_PER_SYMBOL`. Không phải lỗi: `record_order_sent()` đánh dấu symbol là "coi như
+   đang mở" ngay khi gửi, trước mọi xác nhận khớp (docstring của chính nó). Test assert **cả hai**
+   check đều fail, nên đổi một trong hai limit sau này không thể âm thầm để lệnh thứ hai lọt.
+2. **`ITradingAccountReader` bị stub, không chạy qua fixture.** Tài khoản giả cố định 15.000 USDT;
+   sizing 20%/1x của task này sẽ cho notional ~2.944 USDT, vượt hạn mức 500 → *mọi* test ở đây sẽ
+   dừng ở limit trước khi chạm hành vi cần kiểm. Reader thật đã có round-trip riêng ở
+   `test_futures_account_reader_against_fake_server.py`.
+3. **Giới hạn của fixture, đã đo chứ không suy đoán.** Sổ lệnh của fixture khoá theo
+   `newClientOrderId`, nên gửi **cùng một** `Order` hai lần bị gộp thành một và test đếm vẫn xanh.
+   Hình thái đó không xảy ra qua pipeline này (`generate_client_order_id()` sinh id mới mỗi lượt)
+   và Binance thật từ chối id trùng. Dạy fixture cách từ chối đó đòi **đoán một mã lỗi repo chưa
+   verify từ source**, nên ghi lại giới hạn thay vì che nó đi. Hai lệnh **khác nhau** ra tới sàn
+   thì vẫn bắt được.
+
+**Cổng bắt buộc sau khi bổ sung:** `pwsh -NoProfile -File scripts/ci-local.ps1 -Full` —
+Ruff lint ✅ · Ruff format (940 file) ✅ · Mypy (231 file) ✅ · Skill refs ✅ · Sanity ✅ ·
+`1 failed, 3316 passed, 4 skipped` (3312 → 3316, đúng 4 test mới; 1 đỏ duy nhất là `BUG-083`) ·
+quét log bắt buộc **sạch** ("no WARNING/ERROR/CRITICAL log records",
+`logs/ci-local-20260902-084228.log`).
