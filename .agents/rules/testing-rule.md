@@ -1,26 +1,20 @@
 ---
 name: Testing Rule
-description: Cách viết test cho đúng — mỗi tầng chứng minh gì, async không dùng sleep, invariant tài chính, Boundary Value Analysis + mutation-verify, business acceptance cho tính năng giao dịch.
+description: How to write tests correctly — what each level proves, async without sleeps, financial invariants, Boundary Value Analysis + mutation-verify, business acceptance for trading features.
 trigger: on_demand
 ---
 
-# TESTING RULES — cách VIẾT test
+# TESTING RULES — how to WRITE tests
 
-> **Nguồn (2026-08-25):** nội dung dưới đây được **chuyển nguyên văn** từ
-> `code-rule.md` khi file đó được tách theo abstraction level. Không có quy tắc
-> nào bị đổi nghĩa, thêm hay bớt trong lần tách này — chỉ đổi chỗ ở.
-
-**Phân vai với [`ci-rule.md`](ci-rule.md):** `ci-rule.md` giữ *lệnh chạy* CI,
-hợp đồng 4 tầng test, và cách xử lý khi gate đỏ. File này giữ *cách viết* một
-test cho đúng. Cần biết chạy cái gì → `ci-rule.md`; cần biết viết cái gì →
-file này.
-
-Sửa bug thì [`bug-fix-rule.md`](bug-fix-rule.md) là nguồn chuẩn — nó quy định
-regression test phải viết **trước** khi sửa và phải xác nhận fail đúng lý do.
+**Division of roles:** [`ci-rule.md`](ci-rule.md) holds the CI *run commands*,
+the four-level test contract, and what to do when the gate is red; this file
+holds *how to write* a test. For bug fixes, [`bug-fix-rule.md`](bug-fix-rule.md)
+is the authority — the regression test must be written **before** the fix and
+must be confirmed failing for the right reason.
 
 ---
 
-## 1. Mỗi tầng test chứng minh gì
+## 1. What each test level proves
 
 - **Four required test levels:** Every feature defines its proof across the
   four levels in `.agents/rules/ci-rule.md` — Unit, Integration, Sanity and
@@ -28,9 +22,9 @@ regression test phải viết **trước** khi sửa và phải xác nhận fail
   relevant level already proves the exact new behavior; name that evidence in
   the task/report.
 - **Sanity:** Proves the real composition root exists and assembles in
-  silence — model, decisions and the full failure-mode catalogue live in
+  silence — model, decisions and full failure-mode catalogue in
   [`Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md`](../../Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md).
-  Rules that follow directly from it:
+  Rules that follow from it:
   - **Adding a feature/screen adds zero new tests to `tests/sanity/`.** Every
     assertion scans a real source of truth (every registered use case, every
     navigable route, every screen package on disk) — never a hand-written
@@ -41,35 +35,34 @@ regression test phải viết **trước** khi sửa và phải xác nhận fail
   - `diagnostic_guard` (autouse) fails on any Qt message, Python log record
     at WARNING+, or `warnings.warn(...)` during boot/construct/shutdown —
     silence is the assertion, not just a green exit code. `quick_widget.
-    errors() == []` is retired: the app has had zero QML since `EPIC-006`.
+    errors() == []` is retired: zero QML since `EPIC-006`.
   - The only permitted substitution is the network boundary, drawn at
     configuration, never at a code path: point the real client at a local
     fake server (`tests/sanity/binance_fake_server.py`), never hand-write a
-    substitute for a port like `IExchangeClient` — that shape is what
-    produced `BUG-026`/`BUG-027`.
+    substitute for a port like `IExchangeClient` — that shape produced
+    `BUG-026`/`BUG-027`.
   - No assertion may name a business fact (a strategy, a screen's content) —
     that belongs to Integration.
   - The OUT-of-process layer (`--self-check`,
     `tests/sanity/test_self_check_process.py`) launches the real entry point
-    as a real subprocess — the only tier that can prove the process actually
+    as a real subprocess — the only tier that proves the process actually
     exits, not just that `teardown()` returned inside pytest's own process.
 - **Integration:** Put deterministic user/application journeys in
   `tests/integration/`: drive named QML/Qt input, wait on terminal
-  signal/state, and assert the observable result using local seeded/fake
+  signal/state, assert the observable result using local seeded/fake
   boundaries. Never depend on a public exchange or live account.
 - **Desktop E2E:** A reported GUI/runtime defect or native rendering change
   requires a retained opt-in Windows desktop E2E harness: start the actual app,
   seed deterministic local data, use real `QTest`/`qtbot` input, wait for the
-  visible terminal state, and capture clean Qt messages/stderr. This level is
-  local/nightly when necessary, but it is not optional evidence for native
-  interaction work.
+  visible terminal state, capture clean Qt messages/stderr. Local/nightly when
+  necessary, but not optional evidence for native interaction work.
 - **External service smoke:** An explicitly requested, credential-free smoke
   check is operational evidence, not a fifth test level and never a normal CI
   gate or replacement for deterministic coverage.
 
 ---
 
-## 2. Viết test cho đúng
+## 2. Writing tests correctly
 
 - **Deterministic Async & UI Testing:** Never use timing sleeps to synchronize a test. Wait for a named completion signal, FSM state, terminal event, or bounded `qtbot.waitUntil(...)` condition. Give every QML control that is a critical user action a stable `objectName` so integration/E2E tests can target it.
 - **Financial & Backtest Invariants:** Add deterministic property/invariant tests for financial code: reject `NaN`/infinite values, keep fees non-negative, keep equity/trade/metrics internally consistent, and require identical outputs for identical input data/configuration. Every new execution mode, fee model or simulation pass must extend these invariants.
