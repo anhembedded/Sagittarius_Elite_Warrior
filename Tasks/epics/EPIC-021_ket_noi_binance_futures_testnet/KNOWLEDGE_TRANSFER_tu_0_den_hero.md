@@ -1,138 +1,135 @@
-# Từ 0 đến Hero — Giao dịch Binance Futures Testnet trong Sagittarius Elite Warrior
+# Binance Futures Testnet — Engineering Guide
 
-> **Đối tượng:** tech lead / dev chưa từng làm việc với sàn crypto, cần hiểu **toàn bộ** tính năng
-> giao dịch testnet của app này: sàn hoạt động ra sao, app nói chuyện với nó bằng giao thức gì,
-> component nào chịu trách nhiệm gì, một lệnh đi qua những đâu, và bắt đầu dev từ lệnh nào.
+> **Audience:** engineers joining the live trading feature with no prior crypto-exchange background.
+> **Source:** written from the code itself. Where a task file or a planning diagram contradicts the
+> code, this guide follows the **code** and says so.
+> **Date:** 2026-09-02 · **Epic status:** 10 of 12 sub-tasks complete (`EPIC-021I`, `EPIC-021K` remain).
 >
-> **Nguồn:** viết từ **code thật** đang có trong repo (đã đọc lại từng file khi soạn, không viết
-> theo trí nhớ hay theo task file — chỗ nào task file khác code, tài liệu này lấy **code**).
->
-> **Ngày:** 2026-09-02 · **Trạng thái epic:** 10/12 task con xong (còn `EPIC-021I`, `EPIC-021K`).
+> **Language note:** this file is in English by explicit request, unlike the rest of `Tasks/`
+> (`CLAUDE.md` sets Vietnamese as the default for task documents).
 
----
-
-## 0. Đọc theo thứ tự nào
-
-| Bạn muốn biết | Đọc phần |
+| Question | Section |
 | :--- | :--- |
-| Testnet là cái gì, khác mainnet chỗ nào | **I** |
-| App gửi HTTP/WebSocket kiểu gì tới sàn | **II** |
-| File nào giữ trách nhiệm nào | **III** |
-| Một lệnh đi từ nến đến khớp như thế nào | **IV** |
-| Vì sao thiết kế nhiều rào chắn thế | **V** |
-| Tôi muốn chạy thử ngay bây giờ | **VI** |
-| Còn thiếu gì để xong epic | **VII** |
+| What is testnet, how does it differ from mainnet? | 1 |
+| How does the app talk to the exchange? | 2 |
+| Which component owns what? | 3 |
+| How does a candle become a filled order? | 4 |
+| Why so many safety layers? | 5 |
+| How do I run this today? | 6 |
+| What is still missing? | 7 |
 
-Tài liệu gốc bắt buộc đọc kèm: [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
-(ADR — **vì sao** chọn như vậy) và [`README.md`](README.md) (bảng 12 task con + trạng thái).
+Required companion reading: [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
+(the ADR — **why** these decisions were made) and [`README.md`](README.md) (task breakdown and status).
 
 ---
 
-# PHẦN I — NỀN TẢNG: Binance Futures Testnet là gì
+# 1. What Futures Testnet is
 
-## 1.1 Testnet là bản sao của sàn thật, chạy bằng tiền giả
+## 1.1 A parallel exchange running on play money
 
-Binance vận hành **hai hệ thống tách biệt hoàn toàn**:
+Binance operates two fully separate systems:
 
 | | Mainnet | Futures Testnet |
 | :--- | :--- | :--- |
-| Host REST | `https://fapi.binance.com/fapi` | `https://testnet.binancefuture.com/fapi` |
-| Host WebSocket | `wss://fstream.binance.com/` | `wss://fstream.binancefuture.com/` |
-| Tài khoản | tài khoản Binance thật của bạn | tài khoản **riêng**, đăng ký ở `testnet.binancefuture.com` |
-| API key | key thật | key **riêng, không dùng chéo được** |
-| Tiền | thật | USDT giả, sàn tự cấp |
-| Giá | thị trường thật | sổ lệnh riêng của testnet — **trôi lệch giá thật** |
-| Độ bền dữ liệu | vĩnh viễn | **bị reset định kỳ** (mất key, mất vị thế, mất lịch sử) |
+| REST host | `https://fapi.binance.com/fapi` | `https://testnet.binancefuture.com/fapi` |
+| WebSocket host | `wss://fstream.binance.com/` | `wss://fstream.binancefuture.com/` |
+| Account | your real Binance account | a **separate** account, registered at `testnet.binancefuture.com` |
+| API keys | real keys | **separate keys — not interchangeable** |
+| Funds | real | fake USDT, granted by the exchange |
+| Prices | real market | testnet's own order book — **drifts from real prices** |
+| Data durability | permanent | **periodically reset** (keys, positions and history are wiped) |
 
-Ba hệ quả thực tế cho dev:
+Three practical consequences:
 
-1. **Key mainnet dùng cho testnet sẽ trả `-2015`** (`KEY_EXPIRED` trong app này) — không phải
-   "key hết hạn" theo nghĩa đen, mà là "key này không hợp lệ ở hệ thống này". Đây là lỗi phổ biến
-   số một khi mới bắt đầu.
-2. **Testnet reset ⇒ 401/`-2015` đột ngột** dù hôm qua vẫn chạy. Không phải bug của app.
-   `EPIC-021D` phân biệt tường minh 6 nhóm lỗi (§2.2 bên dưới) đúng vì lý do này.
-3. **Giá testnet ≠ giá mainnet.** App này lấy **dữ liệu chart từ mainnet** (công khai, không cần
-   key, dữ liệu sạch) nhưng **đặt lệnh trên testnet** — nên giá bạn nhìn thấy không phải giá bạn
-   khớp. Đó là một quyết định có chủ đích (ADR §2), và `EPIC-021K` sẽ dựng banner cảnh báo
-   thường trực về nó.
+1. **A mainnet key used against testnet returns `-2015`** (mapped to `KEY_EXPIRED` in this app).
+   The key is not expired in the literal sense; it is simply invalid on this system. This is the
+   single most common first-day mistake.
+2. **A testnet reset produces sudden `-2015` failures** on a setup that worked yesterday. This is
+   not an application bug. `EPIC-021D` classifies six distinct failure kinds precisely for this
+   reason (§2.2).
+3. **Testnet prices differ from mainnet prices.** This app reads **chart data from mainnet**
+   (public, no key required, clean history) but **places orders on testnet**. The price you see is
+   therefore not the price you fill at. This is deliberate (ADR §2); `EPIC-021K` will add a
+   permanent warning banner for it.
 
-## 1.2 Vì sao **USD-M Futures**, không phải Spot
+## 1.2 Why USD-M Futures rather than Spot
 
-Quyết định của ADR §1, có lý do kỹ thuật cứng chứ không phải sở thích:
+ADR §1 records a technical rationale, not a preference:
 
-- Mô hình khớp lệnh mô phỏng của repo (`PaperExchange`) **đã là mô hình futures từ lâu**:
-  có `PositionSide.SHORT`, `long_leverage`/`short_leverage`, `MarginRiskPolicy` tính margin.
-- `SignalAction` đã có `SHORT`/`COVER`, và `EmaTrendPullbackStrategy` **đang thật sự phát tín
-  hiệu SHORT**.
-- Spot **không short được** ⇒ một nửa hành vi backtest đã kiểm chứng sẽ không có đường ra sàn.
-  Backtest và live sẽ nói hai ngôn ngữ khác nhau — đúng loại lệch mà `StrategyEngine` được thiết
-  kế để không bao giờ xảy ra.
+- The repository's simulated matching model (`PaperExchange`) has been a **futures** model for a
+  long time: `PositionSide.SHORT`, `long_leverage`/`short_leverage`, and a `MarginRiskPolicy` that
+  computes margin.
+- `SignalAction` already contains `SHORT`/`COVER`, and `EmaTrendPullbackStrategy` genuinely emits
+  SHORT signals.
+- **Spot cannot short.** Choosing Spot would leave half of the validated backtest behaviour with no
+  path to the exchange — precisely the backtest/live divergence `StrategyEngine` was designed to
+  prevent.
 
-**Cái giá đã chấp nhận:** futures kéo theo position mode, margin type, leverage, funding rate,
-và khả năng bị **thanh lý**. Epic xử lý 3 cái đầu tường minh; funding rate và mô hình thanh lý
-được ghi nhận **chưa làm** (ADR §6) — xem Phần VII.
+**Accepted cost:** futures introduce position mode, margin type, per-symbol leverage, funding rate
+and liquidation risk. The epic handles the first three explicitly. Funding rate and liquidation
+modelling are recorded as **not implemented** (ADR §6, see §7).
 
-**COIN-M và Options nằm ngoài phạm vi** — `python-binance` có endpoint cho chúng, nhưng "thư viện
-có hàm" không phải lý do để hỗ trợ.
+COIN-M and Options are out of scope. `python-binance` exposes endpoints for both; the existence of
+a library method is not a reason to support a product.
 
-## 1.3 Từ vựng bắt buộc (5 khái niệm, thiếu cái nào cũng đọc code không hiểu)
+## 1.3 Five concepts you must know to read the code
 
-| Khái niệm | Nghĩa | Vì sao app quan tâm |
+| Concept | Meaning | Why the app cares |
 | :--- | :--- | :--- |
-| **Position mode** | `One-way` (một symbol = một vị thế, LONG hoặc SHORT) vs `Hedge` (giữ đồng thời cả hai chiều) | Toàn bộ epic **giả định One-way**. Phát hiện Hedge ⇒ **từ chối chạy tiếp**, không chạy nửa vời (`HEDGE_MODE_UNSUPPORTED`) |
-| **Margin type** | `Cross` (dùng chung số dư toàn tài khoản) vs `Isolated` (khoá margin riêng từng vị thế) | Chỉ **đọc và hiển thị**; app chưa tự đổi |
-| **Leverage** | đòn bẩy theo từng symbol (vd 10x) | Đường live hiện hardcode `1.0` — nút chỉnh thuộc `EPIC-021I` |
-| **Liquidation price** | giá mà tại đó sàn tự đóng vị thế do hết margin | Đọc từ sàn và hiển thị (`LivePosition.liquidation_price`); **app không tự mô hình hoá** |
-| **Filters** | ràng buộc mỗi symbol: `stepSize` (bội số khối lượng), `tickSize` (bội số giá), `minNotional` (giá trị tối thiểu 1 lệnh) | Sai bất kỳ cái nào ⇒ sàn trả `-1013`. App làm tròn **trước khi gửi** (`EPIC-021C`) |
+| **Position mode** | `One-way` (one position per symbol, long or short) vs `Hedge` (both directions simultaneously) | The epic **assumes One-way throughout**. Detecting Hedge **refuses to proceed** rather than degrading (`HEDGE_MODE_UNSUPPORTED`) |
+| **Margin type** | `Cross` (shared account balance) vs `Isolated` (margin locked per position) | Read and displayed only; the app does not change it |
+| **Leverage** | per-symbol multiplier | The live path currently hardcodes `1.0`; a control belongs to `EPIC-021I` |
+| **Liquidation price** | price at which the exchange force-closes the position | Read from the exchange and displayed (`LivePosition.liquidation_price`); **not modelled locally** |
+| **Filters** | per-symbol constraints: `stepSize` (quantity increment), `tickSize` (price increment), `minNotional` (minimum order value) | Violating any of them returns `-1013`. The app rounds **before sending** (`EPIC-021C`) |
 
-Ví dụ filters thật của `BTCUSDT` trên testnet: `stepSize=0.001`, `tickSize=0.10`,
-`minNotional=100`. Nghĩa là: khối lượng phải là bội của `0.001`; giá phải là bội của `0.10`; và
-`khối lượng × giá ≥ 100 USDT`. Gửi `0.0137 BTC` sẽ bị từ chối — phải làm tròn **xuống** `0.013`.
+Real BTCUSDT testnet filters: `stepSize=0.001`, `tickSize=0.10`, `minNotional=100`. Quantity must
+be a multiple of `0.001`, price a multiple of `0.10`, and `quantity × price ≥ 100 USDT`. An order
+of `0.0137 BTC` is rejected; it must be rounded **down** to `0.013`.
 
-## 1.4 Bản đồ tổng thể: hai venue, ba giao thức
+## 1.4 Venue map
 
 ```plantuml
 @startuml KT01_venue_map
-title Sagittarius Elite Warrior — hai venue độc lập, ba giao thức
+title Two independent venues, three protocols
 
 skinparam componentStyle rectangle
 skinparam defaultTextAlignment center
 
 package "Sagittarius Elite Warrior" as APP {
-  [PythonBinanceClient\n(dữ liệu thị trường)] as PBC
-  [BinanceWebsocketService\n(kline realtime)] as WSS
-  [FuturesTradingClient\n(đặt / huỷ lệnh)] as FTC
-  [FuturesAccountReader\n(kiểm tra kết nối)] as FAR
-  [FuturesUserDataStream\n(sự thật về lệnh)] as FUDS
+  [PythonBinanceClient\n(market data)] as PBC
+  [BinanceWebsocketService\n(realtime klines)] as WSS
+  [FuturesTradingClient\n(place / cancel orders)] as FTC
+  [FuturesAccountReader\n(connection check)] as FAR
+  [FuturesUserDataStream\n(exchange truth)] as FUDS
 }
 
-cloud "MAINNET — công khai, ẩn danh\napi.binance.com/api\nfapi.binance.com/fapi" as MAIN
-cloud "FUTURES TESTNET — có ký (HMAC)\ntestnet.binancefuture.com/fapi" as TREST
+cloud "MAINNET — public, anonymous\napi.binance.com/api\nfapi.binance.com/fapi" as MAIN
+cloud "FUTURES TESTNET — signed (HMAC)\ntestnet.binancefuture.com/fapi" as TREST
 cloud "FUTURES TESTNET — WebSocket\nfstream.binancefuture.com" as TWS
 
-PBC --> MAIN : REST GET\nklines, exchangeInfo\n**không cần key**
-WSS --> MAIN : WebSocket\nkline stream\n**không cần key**
+PBC --> MAIN : REST GET\nklines, exchangeInfo\n**no key required**
+WSS --> MAIN : WebSocket\nkline stream\n**no key required**
 
-FAR --> TREST : REST GET **có ký**\nping/time/account/positionSide
-FTC --> TREST : REST POST/DELETE **có ký**\norder, order/test, openOrders
-FUDS --> TWS : WebSocket **có listenKey**\nORDER_TRADE_UPDATE\nACCOUNT_UPDATE
+FAR --> TREST : REST GET **signed**\nping / time / account / positionSide
+FTC --> TREST : REST POST/DELETE **signed**\norder, order/test, openOrders
+FUDS --> TWS : WebSocket **with listenKey**\nORDER_TRADE_UPDATE\nACCOUNT_UPDATE
 
 note bottom of MAIN
-  Giá **hiển thị** đến từ đây.
-  Dữ liệu sạch, không cần tài khoản.
+  **Displayed** prices come from here.
+  Clean data, no account needed.
 end note
 
 note bottom of TREST
-  Lệnh **thật sự khớp** ở đây.
-  Giá ở đây ≠ giá bên trái.
+  Orders **actually fill** here.
+  These prices differ from the left.
 end note
 
 note as N1
-  **Hai lựa chọn ĐỘC LẬP trong config:**
+  **Two INDEPENDENT config settings:**
   exchange.market_data_venue = mainnet_public
   exchange.trading_venue     = disabled | futures_testnet
 
-  Không có một cờ "testnet" chung. Cố ý (ADR §2).
+  There is no single "testnet" flag. Deliberate (ADR §2).
 end note
 
 @enduml
@@ -140,35 +137,36 @@ end note
 
 ---
 
-# PHẦN II — GIAO THỨC: app nói chuyện với sàn thế nào
+# 2. Protocols
 
-App **không tự viết HTTP client**. Nó dùng thư viện `python-binance`, và chỉ một file duy nhất
-được phép khởi tạo `binance.client.Client` — `ExchangeSessionFactory`, khoá bằng một test AST
-quét toàn `src/`+`scripts/`. Nhưng bạn vẫn phải hiểu giao thức bên dưới để đọc log và debug.
+The app does not implement an HTTP client. It uses `python-binance`, and exactly one file is
+permitted to construct `binance.client.Client` — `ExchangeSessionFactory`, enforced by an AST test
+that scans all of `src/` and `scripts/`. You still need the protocol details to read logs and debug.
 
-## 2.1 REST: hai loại request
+## 2.1 REST: two request classes
 
-| Loại | Cần key? | Ví dụ | Ai gọi trong app |
+| Class | Key required | Examples | Caller |
 | :--- | :---: | :--- | :--- |
-| **Public** | Không | `GET /fapi/v1/klines`, `GET /fapi/v1/exchangeInfo`, `GET /fapi/v1/ping` | `PythonBinanceClient`, `FuturesMetadataProvider` |
-| **Signed** | **Có** | `POST /fapi/v1/order`, `GET /fapi/v2/account`, `GET /fapi/v3/positionRisk` | `FuturesTradingClient`, `FuturesAccountReader` |
+| **Public** | No | `GET /fapi/v1/klines`, `/exchangeInfo`, `/ping` | `PythonBinanceClient`, `FuturesMetadataProvider` |
+| **Signed** | **Yes** | `POST /fapi/v1/order`, `GET /fapi/v2/account`, `/fapi/v3/positionRisk` | `FuturesTradingClient`, `FuturesAccountReader` |
 
-Request **signed** phải mang thêm 3 thứ, và `python-binance` tự làm cả 3:
+A signed request carries three additional elements, all handled by `python-binance`:
 
-1. Header `X-MBX-APIKEY: <api_key>`
-2. Tham số `timestamp` (millis) và `recvWindow` (mặc định 5000ms) — sàn từ chối nếu
-   `timestamp` lệch quá `recvWindow` so với giờ server ⇒ lỗi `-1021` (`CLOCK_SKEW`).
-3. Tham số `signature` = **HMAC-SHA256** của toàn bộ query string / form body, ký bằng
-   `api_secret`. Sai ⇒ `-1022` (`BAD_SIGNATURE`).
+1. Header `X-MBX-APIKEY: <api_key>`.
+2. Parameters `timestamp` (milliseconds) and `recvWindow` (default 5000 ms). The exchange rejects
+   the request if `timestamp` deviates from server time by more than `recvWindow` → `-1021`
+   (`CLOCK_SKEW`).
+3. Parameter `signature` — **HMAC-SHA256** over the full query string or form body, keyed with
+   `api_secret`. A mismatch returns `-1022` (`BAD_SIGNATURE`).
 
-> **Chi tiết dễ vấp:** `python-binance` gửi tham số của `GET` qua **query string**, nhưng của
-> `POST`/`PUT`/`DELETE` qua **form body** (`application/x-www-form-urlencoded`) — không phải
-> JSON. Fake server của repo (`tests/sanity/fake_exchange/server.py`) parse đúng theo hai cách
-> đó, vì thế nó mới chạy được với client thật không sửa dòng nào.
+> **Detail that catches people out:** `python-binance` sends `GET` parameters as a **query string**,
+> but `POST`/`PUT`/`DELETE` parameters as a **form body** (`application/x-www-form-urlencoded`) —
+> not JSON. The repository's fake server (`tests/sanity/fake_exchange/server.py`) parses both forms
+> for exactly this reason, which is why the real client runs against it unmodified.
 
 ```plantuml
 @startuml KT02_signed_request
-title Một REST request CÓ KÝ — ví dụ đặt lệnh thật
+title A signed REST request — placing a live order
 
 autonumber
 participant "FuturesTradingClient" as FTC
@@ -178,54 +176,54 @@ participant "Futures Testnet\ntestnet.binancefuture.com" as EX
 
 FTC -> FTC : _resolve_client()
 FTC -> ESF : create_trading_client(credentials)
-note right: chỉ file này được gọi Client(...)\n(khoá bằng test AST)
+note right: the only file allowed to call Client(...)\n(enforced by an AST test)
 ESF -> PB : Client(api_key, api_secret, testnet=True)
 PB -> EX : GET /fapi/v1/ping
 note right of PB
-  Client() **tự ping khi khởi tạo**.
-  Đây chính là nguyên nhân BUG-045:
-  resolve DI container là đã chạm mạng.
+  Client() **pings on construction**.
+  This is the root of BUG-045: resolving
+  the DI container reached the network.
 end note
 EX --> PB : 200 {}
 
 FTC -> FTC : map_order_to_futures_params(order, metadata)
 note left
-  Kiểm tra **tại chỗ**, trước khi ra mạng:
-  quantity chia hết stepSize?
-  price chia hết tickSize?
-  Không ⇒ InvalidOrderForSubmissionError
-  (không bao giờ tự làm tròn ngầm)
+  Validated **locally**, before any network call:
+  is quantity a multiple of stepSize?
+  is price a multiple of tickSize?
+  If not -> InvalidOrderForSubmissionError
+  (never silently rounds on your behalf)
 end note
 
 FTC -> PB : futures_create_order(**params)
 PB -> PB : timestamp = now_ms()\nsignature = HMAC_SHA256(body, api_secret)
 PB -> EX : POST /fapi/v1/order\nHeader: X-MBX-APIKEY\nBody: symbol=BTCUSDT&side=BUY&type=MARKET\n&quantity=0.002&newClientOrderId=SEW-a91f4c72e0b8\n&positionSide=BOTH&timestamp=...&signature=...
 
-alt Sàn chấp nhận
+alt Accepted
   EX --> PB : 200 {orderId, status:"NEW", ...}
   PB --> FTC : dict
-  FTC --> FTC : trả về `order` **nguyên vẹn**
+  FTC --> FTC : returns `order` **unchanged**
   note right
-    Cố ý KHÔNG parse response thành trạng thái mới.
-    Sự thật về vòng đời lệnh đến từ User Data Stream
-    (ADR §4), không từ response này.
+    Deliberately does NOT parse the response into
+    a new status. Order lifecycle truth comes from
+    the User Data Stream (ADR §4), not from here.
   end note
-else Sàn từ chối
+else Rejected
   EX --> PB : 400 {"code": -2019, "msg": "Margin is insufficient."}
   PB -> PB : raise BinanceAPIException
   PB --> FTC : BinanceAPIException
   FTC -> FTC : translate_binance_error(exc)
   note right
-    Mã số của sàn -> lý do CÓ TÊN:
+    Exchange code -> **named** reason:
     -2019 -> INSUFFICIENT_MARGIN
-    -4164 -> MIN_NOTIONAL (mã riêng của futures)
+    -4164 -> MIN_NOTIONAL (futures-specific)
     -2022 -> REDUCE_ONLY_REJECTED
     -1003 -> RATE_LIMIT
     -1013 -> LOT_SIZE | PRICE_FILTER | MIN_NOTIONAL
-             (phải đọc thêm **message text** để phân biệt —
-              Binance dùng chung một mã cho cả ba)
-    -1021 -> **cố ý** rơi về UNKNOWN: là lệch đồng hồ,
-             không phải lỗi nội dung lệnh
+             (message text disambiguates — Binance
+              shares one code across all three)
+    -1021 -> **deliberately** falls through to UNKNOWN:
+             clock skew is not an order-content problem
   end note
   FTC --> FTC : raise OrderRejectedByExchangeError(reason)
 end
@@ -233,31 +231,33 @@ end
 @enduml
 ```
 
-## 2.2 WebSocket 1 — kline công khai (đã có từ trước epic này)
+## 2.2 WebSocket 1 — public klines
 
-`BinanceWebsocketService` mở stream nến realtime từ **mainnet**, không cần key. Hỏng cái này
-chỉ làm **chart đứng**. Đây là lý do nó là một file riêng, không gộp với stream dưới đây.
+`BinanceWebsocketService` streams realtime candles from **mainnet** without a key. Losing it only
+freezes the chart. That difference in failure consequence is why it stays a separate file from the
+stream below.
 
-## 2.3 WebSocket 2 — **User Data Stream** (trái tim của `EPIC-021H`)
+## 2.3 WebSocket 2 — User Data Stream
 
-Đây là kênh sàn **chủ động kể lại** chuyện gì xảy ra với tiền của bạn. Hai loại message:
+This is the channel through which the exchange **reports what happened to your money**. Two message
+types matter:
 
-| Message | Khi nào | App làm gì |
+| Message | Emitted when | App response |
 | :--- | :--- | :--- |
-| `ORDER_TRADE_UPDATE` | mỗi lần trạng thái lệnh đổi: `NEW` → `PARTIALLY_FILLED` → `FILLED`, hoặc `CANCELED`/`EXPIRED` | Parse thành `Order`; nếu là **khớp thật** (`x == "TRADE"`) thì phát `OrderFilledEvent` |
-| `ACCOUNT_UPDATE` | mỗi lần số dư / vị thế đổi | Đọc lại vị thế **thật** qua REST rồi phát `PositionChangedEvent` + đối chiếu state |
+| `ORDER_TRADE_UPDATE` | order status changes: `NEW` → `PARTIALLY_FILLED` → `FILLED`, or `CANCELED`/`EXPIRED` | Parse into an `Order`; if it is a real execution (`x == "TRADE"`), publish `OrderFilledEvent` |
+| `ACCOUNT_UPDATE` | balance or position changes | Re-read the authoritative position over REST, publish `PositionChangedEvent`, reconcile local state |
 
-**Vì sao cần nó, response của lệnh chưa đủ?** Vì response `POST /fapi/v1/order` chỉ nói *"sàn đã
-nhận"*. Một lệnh MARKET có thể khớp **nhiều mức giá**, khớp **một phần**, bị huỷ sau đó vì thiếu
-margin, hoặc vị thế bị đổi bởi **tác nhân khác** (bạn bấm tay trên web, một phiên app khác).
-`PARTIALLY_FILLED` là thứ **backtest chưa bao giờ có** — trong mô phỏng mọi lệnh khớp trọn vẹn
-tức thì.
+**Why the order response is not sufficient:** `POST /fapi/v1/order` only confirms *"the exchange
+accepted the request"*. A MARKET order may fill across **several price levels**, fill **partially**,
+be cancelled later for insufficient margin, or the position may be changed by **another actor**
+(a manual trade on the web UI, a second app instance). `PARTIALLY_FILLED` is a state **backtesting
+never produces** — in simulation every order fills completely and instantly.
 
-**listenKey** là vé vào cửa của stream này:
+The `listenKey` is the stream's access token:
 
 ```plantuml
 @startuml KT03_listenkey
-title Vòng đời listenKey — uỷ quyền cho python-binance, KHÔNG tự viết
+title listenKey lifecycle — delegated to python-binance, not reimplemented
 
 autonumber
 participant "FuturesUserDataStream\n(app)" as APP
@@ -266,81 +266,81 @@ participant "KeepAliveWebsocket\n(python-binance)" as KAW
 participant "Futures Testnet" as EX
 
 APP -> APP : credentials_provider.resolve()
-alt không có key
+alt no credentials
   APP -> APP : log ERROR, return
-  note right: KHÔNG raise — .start() chỉ hỏng khi\ntask nền chạy, không hỏng lúc dựng DI
+  note right: does NOT raise — .start() fails only when the\nbackground task runs, never at DI construction time
 end alt
 
 APP -> BSM : futures_user_socket()
-BSM -> KAW : tạo socket có keepalive
+BSM -> KAW : create keepalive socket
 KAW -> EX : POST /fapi/v1/listenKey
 EX --> KAW : {"listenKey": "abc123..."}
 KAW -> EX : WS connect wss://fstream.binancefuture.com/ws/abc123...
 
-loop mỗi khi có message
+loop per message
   EX --> KAW : ORDER_TRADE_UPDATE / ACCOUNT_UPDATE
   KAW --> APP : payload dict
   APP -> APP : _handle_message(payload)
 end
 
-loop định kỳ (KeepAliveWebsocket tự làm)
+loop periodically (handled by KeepAliveWebsocket)
   KAW -> EX : POST /fapi/v1/listenKey
   note right
-    Endpoint này là **create-or-extend**:
-    - key còn hạn -> trả LẠI CHÍNH key đó
-    - key đã hết  -> trả key MỚI
-    Thư viện tự reconnect bằng key mới khi nó đổi.
+    This endpoint is **create-or-extend**:
+    - key still valid -> returns THE SAME key
+    - key expired     -> returns a NEW key
+    The library reconnects with the new key when it changes.
   end note
   EX --> KAW : {"listenKey": ...}
 end
 
 note over APP, KAW
-  **Quyết định triển khai (`EPIC-021H` §6.1):** app KHÔNG tự viết bộ định thời
-  keepalive. Đã đọc thẳng source `binance/ws/keepalive_websocket.py` để xác nhận
-  thư viện làm đúng yêu cầu "gia hạn định kỳ, tái tạo khi mất kết nối".
-  Tự viết lại = một bản triển khai thứ hai không ai review.
+  **Implementation decision (`EPIC-021H` §6.1):** the app does not write its own
+  keepalive timer. `binance/ws/keepalive_websocket.py` was read directly to confirm
+  the library already satisfies the requirement ("renew periodically, recreate on
+  reconnect"). Reimplementing it would create a second, unreviewed implementation.
 end note
 
 @enduml
 ```
 
-> **Rủi ro nếu làm sai (và vì sao phải hiểu):** reconnect bằng listenKey đã hết hạn sẽ **nối
-> được nhưng không nhận được gì** — dạng hỏng im lặng tệ nhất. App tưởng mình đang theo dõi
-> lệnh, thực ra đang mù.
+> **Failure mode worth understanding:** reconnecting with an expired listenKey **succeeds at the
+> socket level but delivers nothing** — the worst class of silent failure. The app believes it is
+> tracking orders while it is actually blind.
 
-## 2.4 Toàn bộ endpoint app này thật sự gọi
+## 2.4 Every endpoint the app calls
 
-Đây là danh sách **đã verify bằng cách đọc source `python-binance`**, không phải chép từ docs
-Binance (docs không phải lúc nào cũng khớp version thư viện đang cài):
+Verified by reading the installed `python-binance` source, not copied from Binance documentation
+(published docs do not always match a given library version's paths and versions):
 
-| Method | Path | Hàm `python-binance` | Ai gọi |
+| Method | Path | `python-binance` call | Caller |
 | :--- | :--- | :--- | :--- |
-| GET | `/fapi/v1/ping` | ctor `Client()` | mọi client (tự ping khi dựng) |
-| GET | `/fapi/v1/time` | `futures_time()` | `FuturesAccountReader` (lệch đồng hồ) |
+| GET | `/fapi/v1/ping` | `Client()` constructor | every client (pings on construction) |
+| GET | `/fapi/v1/time` | `futures_time()` | `FuturesAccountReader` (clock skew) |
 | GET | `/fapi/v1/exchangeInfo` | `futures_exchange_info()` | `FuturesMetadataProvider` (filters) |
-| GET | `/fapi/v1/klines` | kline generator | dữ liệu nến |
-| GET | `/fapi/v2/account` | `futures_account()` — **v2** | số dư USDT |
-| GET | `/fapi/v1/positionSide/dual` | `futures_get_position_mode()` | phát hiện Hedge mode |
+| GET | `/fapi/v1/klines` | kline generator | candle data |
+| GET | `/fapi/v2/account` | `futures_account()` — **v2** | USDT balance |
+| GET | `/fapi/v1/positionSide/dual` | `futures_get_position_mode()` | Hedge-mode detection |
 | GET | `/fapi/v3/positionRisk` | `futures_position_information()` — **v3** | `get_positions()` |
 | GET | `/fapi/v1/openOrders` | `futures_get_open_orders()` | `get_open_orders()` |
 | POST | `/fapi/v1/order/test` | `futures_create_test_order()` | **dry-run** (`VALIDATE_ONLY`) |
-| POST | `/fapi/v1/order` | `futures_create_order()` | **lệnh thật** (`LIVE`) |
-| DELETE | `/fapi/v1/order` | `futures_cancel_order()` | huỷ 1 lệnh |
-| DELETE | `/fapi/v1/allOpenOrders` | `futures_cancel_all_open_orders()` | huỷ tất cả |
+| POST | `/fapi/v1/order` | `futures_create_order()` | **live order** (`LIVE`) |
+| DELETE | `/fapi/v1/order` | `futures_cancel_order()` | cancel one |
+| DELETE | `/fapi/v1/allOpenOrders` | `futures_cancel_all_open_orders()` | cancel all |
 | POST/PUT | `/fapi/v1/listenKey` | `futures_stream_get_listen_key()` / `_keepalive()` | User Data Stream |
 
-> ⚠️ Chú ý hai số version dễ sai: `account` là **v2**, `positionRisk` là **v3**. Bản nháp thiết
-> kế của task ghi `positionRisk` là v2 — **sai**; code lấy theo `client.py` thật.
+> Two version numbers are easy to get wrong: `account` is **v2**, `positionRisk` is **v3**. The task
+> draft specified v2 for `positionRisk` — that was **incorrect**; the code follows `client.py`.
 
 ---
 
-# PHẦN III — KIẾN TRÚC: component nào làm gì
+# 3. Architecture
 
-## 3.1 Bản đồ component (AS-BUILT, không phải bản vẽ kế hoạch)
+## 3.1 As-built component map
 
 ```plantuml
 @startuml KT04_as_built_component
-title EPIC-021 — kiến trúc NHƯ ĐÃ DỰNG (2026-09-02): chiều phụ thuộc
+title EPIC-021 — AS-BUILT (2026-09-02): dependency direction
 
 skinparam componentStyle rectangle
 skinparam linetype ortho
@@ -348,18 +348,18 @@ skinparam nodesep 12
 skinparam ranksep 28
 
 package "1. PRESENTATION" #F5F5F5 {
-  [main.py CLI\n4 mốc: exchange-status / order-preview\norder-dry-run / trade-once] as CLI
-  [OrderFeed  (Feed thứ 4)] as FEED
-  [Màn Giao dịch — **EPIC-021I CHƯA LÀM**] as SCREEN #FFCDD2
+  [main.py CLI\n4 milestones: exchange-status / order-preview\norder-dry-run / trade-once] as CLI
+  [OrderFeed  (4th Feed)] as FEED
+  [Trading screen — **EPIC-021I NOT BUILT**] as SCREEN #FFCDD2
 }
 
 package "2. APPLICATION" #EEF5FF {
   [MarketTickEventHandler] as MTH
   [LiveTradingCoordinator] as LTC
   [EnableTradingCommandHandler] as ETH
-  [ExecuteOrderCommandHandler\n**nơi DUY NHẤT dựng LIVE**] as EOH
+  [ExecuteOrderCommandHandler\n**only place that builds LIVE**] as EOH
   [PreviewOrderQueryHandler] as POH
-  [TradingSessionState  (RAM)] as TSS
+  [TradingSessionState  (in memory)] as TSS
   [position_state_reconciler] as PSR
 }
 
@@ -369,16 +369,16 @@ package "  PORTS (application/ports)" #E1F5FE {
   interface IUserDataStream as IUDS
 }
 
-package "3. DOMAIN — không import SDK nào" #E8F5E9 {
+package "3. DOMAIN — imports no SDK" #E8F5E9 {
   [Order / OrderStatus / ClientOrderId\nLivePosition] as OM
-  [TradingLimitPolicy\n4 hạn mức] as TLP
+  [TradingLimitPolicy\n4 limits] as TLP
   [OrderQuantityRoundingPolicy\nstep / tick / minNotional] as OQR
   [TradingVenue\nDISABLED | FUTURES_TESTNET] as TV
-  [4 event\nOrderSubmitted / OrderFilled\nOrderRejected / PositionChanged] as EVT
+  [4 events\nOrderSubmitted / OrderFilled\nOrderRejected / PositionChanged] as EVT
 }
 
 package "4. INFRASTRUCTURE" #FFF8E1 {
-  [ExchangeSessionFactory\n**nơi DUY NHẤT dựng Client()**] as ESF
+  [ExchangeSessionFactory\n**only place that builds Client()**] as ESF
   [FuturesTradingClient] as FTC
   [FuturesAccountReader] as FAR
   [FuturesUserDataStream] as FUDS
@@ -386,32 +386,27 @@ package "4. INFRASTRUCTURE" #FFF8E1 {
 }
 
 cloud "Futures Testnet" as EX
-folder "env / secrets.local.json\nNGOÀI git" as SEC
+folder "env / secrets.local.json\nOUTSIDE git" as SEC
 
-' --- luồng chính: từ nến tới lệnh ---
-MTH -down-> LTC : **gọi trực tiếp**\nhandle(signal)
+MTH -down-> LTC : **direct call**\nhandle(signal)
 LTC -down-> EOH : ExecuteOrderCommand
 EOH -down-> POH
 EOH -right-> TSS
 CLI -down-> EOH
 ETH -right-> TSS
 
-' --- application dùng domain ---
 EOH -down-> TLP
 POH -down-> OQR
 EOH -down-> TV
 
-' --- application chỉ biết PORT, không biết adapter ---
 EOH ..> ITC
 ETH ..> ITAR
 ETH ..> IUDS
 
-' --- infrastructure implement port (mũi tên NGƯỢC lên) ---
 ITC <|.. FTC
 ITAR <|.. FAR
 IUDS <|.. FUDS
 
-' --- infrastructure ra ngoài ---
 ESF -down-> FTC
 ESF -down-> FAR
 ECP -down-> SEC
@@ -424,59 +419,59 @@ EVT ..> FEED
 FEED ..> SCREEN
 
 note as N1 #FFCDD2
-  **Diagram này khác bản vẽ kế hoạch — cố ý.**
-  `design/03_to_be_component.puml` vẽ
-  StrategyEngine --> LiveTradingCoordinator qua **event bus**.
-  Triển khai `EPIC-021G` phát hiện đó là lỗ hổng an toàn thật (§5.4)
-  và đổi sang **lời gọi trực tiếp**.
-  Bản vẽ kế hoạch giữ làm lịch sử; **code mới là sự thật**.
+  **This diagram differs from the planning diagram — deliberately.**
+  `design/03_to_be_component.puml` routes
+  StrategyEngine --> LiveTradingCoordinator through the **event bus**.
+  Implementing `EPIC-021G` exposed that as a real safety hole (§5.4),
+  and it was replaced with a **direct call**.
+  The planning diagram is kept as history; **the code is authoritative**.
 end note
 
 note as N2 #E8F5E9
-  **Luật chiều phụ thuộc:**
+  **Dependency rule:**
   Presentation -> Application -> Domain
-  Infrastructure -> (implement) Ports của Application
-  **Domain không phụ thuộc ai.** Không import
-  `binance`, không import Qt.
+  Infrastructure -> implements Application's Ports
+  **Domain depends on nothing.** It imports neither
+  `binance` nor Qt.
 end note
 
 @enduml
 ```
 
-## 3.2 Bốn Port, và vì sao `ITradingClient` tách khỏi `IExchangeClient`
+## 3.2 Four ports, and why trading is separate from market data
 
-| Port | Trách nhiệm | Ai implement |
+| Port | Responsibility | Implementation |
 | :--- | :--- | :--- |
-| `IExchangeClient` | **chỉ đọc** dữ liệu thị trường (kline, danh sách symbol) | `PythonBinanceClient` |
-| `ITradingAccountReader` | **chỉ đọc** trạng thái tài khoản (số dư, position mode, lệch giờ) — **không bao giờ raise**, luôn trả `ExchangeConnectionStatus` có tên lỗi | `FuturesAccountReader` |
-| `ITradingClient` | **ghi**: đặt / huỷ lệnh, đọc vị thế & lệnh mở | `FuturesTradingClient` |
-| `IUserDataStream` | mở/đóng kênh sự thật từ sàn | `FuturesUserDataStream` |
+| `IExchangeClient` | **read-only** market data (klines, symbol list) | `PythonBinanceClient` |
+| `ITradingAccountReader` | **read-only** account state (balance, position mode, clock skew). **Never raises**; always returns an `ExchangeConnectionStatus` with a named failure | `FuturesAccountReader` |
+| `ITradingClient` | **writes**: place/cancel orders, read positions and open orders | `FuturesTradingClient` |
+| `IUserDataStream` | open/close the exchange-truth channel | `FuturesUserDataStream` |
 
-> **Vì sao không nhét `place_order` vào `IExchangeClient` cho gọn?** Vì hai thứ có **hậu quả
-> khi hỏng** hoàn toàn khác nhau: hỏng đọc kline = chart đứng; hỏng đặt lệnh = mất tiền. Trộn
-> chúng nghĩa là mọi consumer chỉ cần đọc chart cũng **cầm trong tay** khả năng đặt lệnh. Đây là
-> áp dụng trực tiếp `architecture-rule.md` §5.5: *"đổi cái này có bắt buộc phải sửa cái kia
-> không?"* — không.
+> **Why not add `place_order` to `IExchangeClient`?** Because the two have completely different
+> failure consequences: a broken kline read freezes a chart; a broken order path loses money.
+> Merging them would hand **order-placing capability** to every consumer that only needs chart data.
+> This is `architecture-rule.md` §5.5 applied directly: *"does changing one force a change to the
+> other?"* — no.
 
-Một chi tiết DI quan trọng, đã suýt gây crash 3 lần trong epic:
+**A DI constraint that caused three near-crashes during the epic:**
 
-> `ITradingClient` chỉ được **đăng ký có điều kiện** (khi `TradingVenue != DISABLED`).
-> Vì thế `EnableTradingCommandHandler`, `ExecuteOrderCommandHandler` và `FuturesUserDataStream`
-> **không** phụ thuộc nó trực tiếp — chúng nhận `session_factory` + `credentials_provider` +
-> `metadata_provider` (luôn có) và **tự dựng** `FuturesTradingClient` bên trong. Nếu không,
-> chúng sẽ không **dựng được** khi trading tắt — mà chính chúng là nơi phải báo cáo
-> "trading đang tắt". Ngược lại `IUserDataStream` đăng ký **vô điều kiện** (chỉ đọc, cùng nhóm
-> rủi ro với `ITradingAccountReader`).
+`ITradingClient` is registered **conditionally** (only when `TradingVenue != DISABLED`). Therefore
+`EnableTradingCommandHandler`, `ExecuteOrderCommandHandler` and `FuturesUserDataStream` do **not**
+depend on it directly. They take `session_factory`, `credentials_provider` and `metadata_provider`
+(always available) and **construct** `FuturesTradingClient` internally. Otherwise they would not be
+**constructible** while trading is disabled — yet they are exactly the components that must report
+"trading is disabled". By contrast, `IUserDataStream` is registered **unconditionally**: it is
+read-only, in the same risk class as `ITradingAccountReader`.
 
 ---
 
-# PHẦN IV — ĐƯỜNG ĐI CỦA MỘT LỆNH
+# 4. The order path
 
-## 4.1 Từ một cây nến đến một lệnh khớp thật
+## 4.1 From candle to filled order
 
 ```plantuml
 @startuml KT05_order_path
-title Đường đi đầy đủ của một lệnh live
+title Full path of a live order
 
 autonumber
 participant "MarketTickEventHandler" as MTH
@@ -494,157 +489,158 @@ participant "OrderFeed -> UI" as UI
 MTH -> SE : on_tick(candle)
 SE --> MTH : Signal | None
 note right of MTH
-  **KHÔNG qua event bus.**
-  Gọi thẳng — xem §5.4.
+  **Not routed through the event bus.**
+  Called directly — see §5.4.
 end note
 
 MTH -> LTC : handle(signal)
 LTC -> LTC : signal.symbol == live_symbol?
-LTC -> LTC : tính quantity\n(% equity, làm tròn theo stepSize)
+LTC -> LTC : size the order\n(% of equity, rounded to stepSize)
 LTC -> EOH : dispatch(ExecuteOrderCommand(live=True))
 
-group **3 CỔNG AN TOÀN** (chặn là dừng ngay)
+group **3 SAFETY GATES** (any block stops here)
   EOH -> EOH : 1. TradingVenue == FUTURES_TESTNET?
   EOH -> TSS : 2. session_state.enabled?
   EOH -> EOH : 3. check_connection() reachable + One-way?
 end
 
 EOH -> POH : preview(order_request)
-POH --> EOH : Order đã chuẩn hoá\n+ client_order_id "SEW-..."\n+ estimated_notional
+POH --> EOH : normalized Order\n+ client_order_id "SEW-..."\n+ estimated_notional
 
-group **4 HẠN MỨC** (luôn đánh giá cả 4, chặn theo cái đầu tiên hỏng)
+group **4 LIMITS** (all four evaluated; first failure blocks)
   EOH -> TLP : evaluate(context)
   TLP --> EOH : (orders/session, notional, positions/symbol, interval)
 end
 
 alt live == False (dry-run)
-  EOH --> LTC : kết quả preview, **không gửi gì**
+  EOH --> LTC : preview result, **nothing sent**
 else live == True
   EOH -> FTC : place_order(order)   [OrderSubmissionMode.**LIVE**]
   note right of EOH
-    **Nơi DUY NHẤT** trong toàn app
-    được phép dựng LIVE (khoá bằng test AST)
+    The **only** place in the application
+    permitted to build LIVE (AST-enforced)
   end note
-  FTC -> EX : POST /fapi/v1/order (có ký)
+  FTC -> EX : POST /fapi/v1/order (signed)
   EX --> FTC : 200 {orderId, status:"NEW"}
-  FTC --> EOH : order (nguyên vẹn)
+  FTC --> EOH : order (unchanged)
   EOH -> TSS : record_order_sent(symbol, now)
   note right of TSS
-    Ghi nhận **lạc quan**: đánh dấu symbol
-    là "đang mở" NGAY khi gửi, trước khi
-    biết có khớp không. Thà chặn nhầm lệnh
-    thứ hai còn hơn để lọt.
+    Recorded **optimistically**: the symbol is marked
+    open the moment the order is sent, before any fill
+    confirmation. Over-blocking a second order is safer
+    than letting one through.
   end note
 end
 
-... vài trăm ms sau, sàn chủ động kể lại ...
+... a few hundred ms later, the exchange reports back ...
 
 EX -> FUDS : ORDER_TRADE_UPDATE (x=TRADE, X=PARTIALLY_FILLED)
 FUDS -> UI : **OrderFilledEvent**(order, fill_price, fill_qty)
 EX -> FUDS : ACCOUNT_UPDATE
-FUDS -> EX : GET /fapi/v3/positionRisk (đọc lại sự thật)
+FUDS -> EX : GET /fapi/v3/positionRisk (re-read the truth)
 EX --> FUDS : [position]
 FUDS -> TSS : reconcile_position_state()
 note right of TSS
-  Sàn thắng. Lệch với niềm tin nội bộ
-  -> log WARNING, không im lặng ghi đè.
+  The exchange wins. A disagreement with local
+  belief is logged at WARNING, never overwritten
+  silently.
 end note
 FUDS -> UI : **PositionChangedEvent**(position)
 
 @enduml
 ```
 
-## 4.2 Phễu an toàn: 3 cổng + 4 hạn mức
+## 4.2 The safety funnel
 
 ```plantuml
 @startuml KT06_safety_funnel
-title Phễu an toàn — một lệnh phải qua 7 chốt
+title Safety funnel — seven checkpoints before a real order
 
 start
 :ExecuteOrderCommand(live=True);
 
-if (TradingVenue == FUTURES_TESTNET?) then (không)
+if (TradingVenue == FUTURES_TESTNET?) then (no)
   #FFCDD2:BLOCKED\nTRADING_VENUE_DISABLED;
   stop
 endif
 
-if (TradingSessionState.enabled?) then (không)
+if (TradingSessionState.enabled?) then (no)
   #FFCDD2:BLOCKED\nTRADING_SWITCH_OFF;
   stop
 endif
 
-if (Kết nối OK + One-way mode?) then (không)
+if (Connection OK + One-way mode?) then (no)
   #FFCDD2:BLOCKED\nCONNECTION_NOT_READY;
   stop
 endif
 
-:PreviewOrderQueryHandler\nlàm tròn theo stepSize/tickSize\ntính estimated_notional;
+:PreviewOrderQueryHandler\nround to stepSize / tickSize\ncompute estimated_notional;
 
-if (Đã gửi < 20 lệnh trong phiên?) then (không)
+if (Fewer than 20 orders sent this session?) then (no)
   #FFE0B2:BLOCKED\nMAX_ORDERS_PER_SESSION;
   stop
 endif
 
-if (notional <= 500 USDT?) then (không)
+if (notional <= 500 USDT?) then (no)
   #FFE0B2:BLOCKED\nMAX_NOTIONAL_PER_ORDER;
   stop
 endif
 
-if (Symbol này đang có < 1 vị thế?) then (không)
+if (Fewer than 1 open position on this symbol?) then (no)
   #FFE0B2:BLOCKED\nMAX_POSITIONS_PER_SYMBOL;
   stop
 endif
 
-if (Đã >= 60s từ lệnh trước cùng symbol?) then (không)
+if (>= 60s since the last order on this symbol?) then (no)
   #FFE0B2:BLOCKED\nMIN_ORDER_INTERVAL;
   stop
 endif
 
-#C8E6C9:POST /fapi/v1/order\n**LỆNH THẬT**;
+#C8E6C9:POST /fapi/v1/order\n**REAL ORDER**;
 :record_order_sent();
 stop
 
 note right
-  **3 cổng đỏ** = trạng thái hệ thống (bật/tắt/kết nối).
-  **4 hạn mức cam** = chống vòng lặp tín hiệu lỗi
-  bắn hàng trăm lệnh. Giá trị lấy từ config:
+  **3 red gates** = system state (venue / switch / connection).
+  **4 amber limits** = protection against a faulty signal loop
+  firing hundreds of orders. Values come from config:
     trading.max_orders_per_session      = 20
     trading.max_notional_per_order_usdt = 500
     trading.max_positions_per_symbol    = 1
     trading.min_order_interval_seconds  = 60
-  **Không có công tắc tắt riêng từng hạn mức** —
-  chỉ chỉnh được ngưỡng số.
+  **No limit can be individually disabled** —
+  only its numeric threshold is configurable.
 end note
 
 @enduml
 ```
 
-**Chi tiết Boundary Value Analysis đã cân nhắc kỹ** (đọc `trading_limit_policy.py`):
+Boundary semantics are deliberate (`trading_limit_policy.py`):
 
-| Hạn mức | Toán tử | Nghĩa tại biên |
+| Limit | Operator | Behaviour at the boundary |
 | :--- | :---: | :--- |
-| `max_orders_per_session` | `<` | Đã gửi đúng 20 ⇒ **chặn** lệnh 21 |
-| `max_notional_per_order` | `<=` | notional đúng bằng 500 ⇒ **cho qua** |
-| `max_positions_per_symbol` | `<` | đang có đúng 1 vị thế ⇒ **chặn** lệnh mới |
-| `min_order_interval` | `>=` | đúng 60s từ lệnh trước ⇒ **cho qua**; chưa từng gửi ⇒ luôn qua |
+| `max_orders_per_session` | `<` | Exactly 20 sent → order 21 is **blocked** |
+| `max_notional_per_order` | `<=` | notional exactly 500 → **allowed** |
+| `max_positions_per_symbol` | `<` | exactly 1 open position → new order **blocked** |
+| `min_order_interval` | `>=` | exactly 60 s since the last order → **allowed**; no prior order → always allowed |
 
-## 4.3 Vòng đời một `Order`
+## 4.3 Order lifecycle
 
 ```plantuml
 @startuml KT07_order_lifecycle
-title OrderStatus — vòng đời, với ma trận chuyển hợp lệ
+title OrderStatus — lifecycle and valid transitions
 
-[*] --> NEW : app dựng Order\n(client_order_id = "SEW-" + 12 hex)
+[*] --> NEW : app constructs the Order\n(client_order_id = "SEW-" + 12 hex)
 
-NEW --> PARTIALLY_FILLED : ORDER_TRADE_UPDATE\nx=TRADE, khớp một phần
-NEW --> FILLED : khớp trọn ngay (MARKET thường thế)
+NEW --> PARTIALLY_FILLED : ORDER_TRADE_UPDATE\nx=TRADE, partial fill
+NEW --> FILLED : fills completely (typical for MARKET)
 NEW --> CANCELED : DELETE /fapi/v1/order
-NEW --> REJECTED : sàn từ chối (filters, margin)
-NEW --> EXPIRED : hết hạn theo timeInForce
+NEW --> REJECTED : exchange refuses (filters, margin)
+NEW --> EXPIRED : expired per timeInForce
 
-PARTIALLY_FILLED --> FILLED : khớp nốt
-PARTIALLY_FILLED --> CANCELED : huỷ phần còn lại
-PARTIALLY_FILLED --> EXPIRED : hết hạn phần còn lại
+PARTIALLY_FILLED --> FILLED : remainder fills
+PARTIALLY_FILLED --> CANCELED : remainder cancelled
+PARTIALLY_FILLED --> EXPIRED : remainder expires
 
 FILLED --> [*]
 CANCELED --> [*]
@@ -652,55 +648,56 @@ REJECTED --> [*]
 EXPIRED --> [*]
 
 note right of PARTIALLY_FILLED
-  Trạng thái **backtest chưa bao giờ có**.
-  Trong PaperExchange mọi lệnh khớp trọn vẹn
-  tức thì. Đây là lý do User Data Stream
-  tồn tại (ADR §4).
+  A state **backtesting never produces**.
+  In PaperExchange every order fills
+  completely and instantly. This is why
+  the User Data Stream exists (ADR §4).
 end note
 
 note left of NEW
-  `Order` là **frozen dataclass**.
-  Đổi trạng thái = tạo Order MỚI qua
-  dataclasses.replace, không sửa tại chỗ —
-  không ai quan sát được trạng thái nửa vời.
+  `Order` is a **frozen dataclass**.
+  A status change creates a NEW Order via
+  dataclasses.replace — never mutated in place,
+  so no half-updated order is observable.
 
-  `NEW` cũng là mặc định **trước khi gửi**:
-  order là NEW ngay khi app dựng nó, sàn chỉ
-  xác nhận hoặc đẩy tiếp, không bao giờ tự gán.
+  `NEW` is also the **pre-send** default: an order
+  is NEW the moment the app builds it. The exchange
+  only confirms or advances it, never assigns it.
 end note
 
 @enduml
 ```
 
-Ma trận này được **thực thi bằng hàm** `is_valid_transition(current, target)`, không phải quy
-ước ai cũng phải nhớ. Hai chi tiết dễ bỏ sót:
+The matrix is enforced by `is_valid_transition(current, target)`, not by convention. Two details:
 
-- **4 trạng thái kết thúc không có đích hợp lệ nào — kể cả chính nó.** Quan sát lại một trạng
-  thái kết thúc không đổi là chuyện idempotency của caller, không phải một "transition".
-- **Không có `PARTIALLY_FILLED → PARTIALLY_FILLED`.** Khớp thêm một phần nữa không đi qua hàm
-  này; nó là một `OrderFilledEvent` mới mang `fill_price`/`fill_quantity` của **lần khớp đó**
-  (đọc từ `"L"`/`"l"` trong payload, **không** phải tổng luỹ kế `"ap"`/`"z"`).
+- **The four terminal states have no valid target — including themselves.** Re-observing an
+  unchanged terminal status is the caller's idempotency concern, not a transition.
+- **There is no `PARTIALLY_FILLED → PARTIALLY_FILLED`.** A further partial fill does not pass
+  through this function; it is a new `OrderFilledEvent` carrying that fill's own
+  `fill_price`/`fill_quantity`, read from `"L"`/`"l"` in the payload — **not** the running totals
+  `"ap"`/`"z"`.
 
-## 4.4 `VALIDATE_ONLY` vs `LIVE` — một tham số constructor, không phải cờ mỗi lần gọi
+## 4.4 `VALIDATE_ONLY` vs `LIVE`
 
 ```
-OrderSubmissionMode.VALIDATE_ONLY  ->  POST /fapi/v1/order/test   (sàn kiểm, KHÔNG tạo lệnh)
-OrderSubmissionMode.LIVE           ->  POST /fapi/v1/order        (lệnh THẬT)
+OrderSubmissionMode.VALIDATE_ONLY  ->  POST /fapi/v1/order/test   (validated, NO order created)
+OrderSubmissionMode.LIVE           ->  POST /fapi/v1/order        (REAL order)
 ```
 
-Đây là **tham số constructor** của `FuturesTradingClient`, cố ý không phải tham số mỗi lần gọi:
-một instance chỉ phục vụ đúng một chế độ suốt đời nó. Không thể "lỡ tay truyền nhầm cờ" ở một
-call site nào đó.
+This is a **constructor parameter** of `FuturesTradingClient`, deliberately not a per-call flag: one
+instance serves exactly one mode for its lifetime, so no call site can pass the wrong flag by
+mistake.
 
-`/fapi/v1/order/test` xác thực **đầy đủ**: chữ ký, quyền của key, và toàn bộ payload (filters,
-minNotional) — nhưng không bao giờ đưa vào matching engine. Đó là lý do `order-dry-run` là mốc
-kiểm tra **cực kỳ giá trị**: nó chứng minh mọi thứ đúng, trừ việc mất tiền.
+`/fapi/v1/order/test` validates **everything** — signature, key permissions, and the full payload
+against the symbol's filters — but never reaches the matching engine. That is what makes
+`order-dry-run` such a valuable checkpoint: it proves the entire path is correct except for
+committing funds.
 
 ---
 
-# PHẦN V — AN TOÀN: vì sao thiết kế như vậy
+# 5. Safety design
 
-## 5.1 `TradingVenue` **không có** member `MAINNET`
+## 5.1 `TradingVenue` has no `MAINNET` member
 
 ```python
 class TradingVenue(str, Enum):
@@ -708,45 +705,46 @@ class TradingVenue(str, Enum):
     FUTURES_TESTNET = "futures_testnet"
 ```
 
-Không phải "mainnet bị tắt bằng config" — mà là **không tồn tại như một lựa chọn trong kiểu dữ
-liệu**. Muốn giao dịch mainnet phải sửa code + review, không phải sửa một dòng JSON. Rào an toàn
-bằng **type**, không bằng cấu hình (ADR §3).
+Mainnet trading is not "disabled by configuration" — it **does not exist as a value in the type**.
+Enabling it requires a code change and review, not a JSON edit. The guard is the **type system**,
+not configuration (ADR §3).
 
-Config sai/thiếu ⇒ mặc định `DISABLED`, **có log WARNING**, không bao giờ mặc định về testnet.
+An invalid or missing config value resolves to `DISABLED` with a WARNING log — never to
+`FUTURES_TESTNET`.
 
-## 5.2 Công tắc giao dịch **luôn bắt đầu TẮT**, mỗi phiên
+## 5.2 The trading switch always starts OFF
 
-`TradingSessionState` là singleton trong RAM, **cố ý không đọc** giá trị đã lưu của
-`trading.enabled` lúc boot. Đây là **ngoại lệ có chủ đích duy nhất** với quy ước "nhớ thứ user
-đặt lần trước" của `EPIC-010`:
+`TradingSessionState` is an in-memory singleton that deliberately **does not read** the persisted
+`trading.enabled` value at boot. This is the one intentional exception to `EPIC-010`'s "remember the
+user's last setting" convention:
 
-> Mở app lên không bao giờ được ở trạng thái sẵn sàng bắn lệnh.
+> Starting the application must never leave it ready to send orders.
 
-## 5.3 Reconciliation: bật giao dịch là một **hành động có hệ quả**
+## 5.3 Enabling trading is a consequential action
 
-`EnableTradingCommand` không phải cái checkbox. Khi bật:
+`EnableTradingCommand` is not a checkbox. On enable:
 
-1. Đọc **toàn tài khoản** (`get_positions()` / `get_open_orders()` **không truyền symbol**).
-2. Nếu sàn đang có **bất kỳ vị thế nào** ⇒ **từ chối bật**, trả về danh sách vị thế đó.
-   App **không bao giờ** tự nhận (auto-adopt) hay tự đóng vị thế nó không mở.
-3. Chỉ khi tài khoản sạch mới `enable()` và `IUserDataStream.start()`.
+1. Read the **entire account** (`get_positions()` / `get_open_orders()` with **no symbol filter**).
+2. If the exchange reports **any** open position, **refuse to enable** and return that list. The app
+   never adopts or closes a position it did not open.
+3. Only on a flat account does it call `enable()` and `IUserDataStream.start()`.
 
-## 5.4 Bẫy thật đã tránh: **backtest suýt bắn được lệnh thật**
+## 5.4 A real hazard that was caught: backtests could have placed live orders
 
-Đây là phát hiện an toàn nghiêm trọng nhất của cả epic, đáng để mọi dev trong team biết.
+This is the most serious safety finding of the epic, and worth knowing across the team.
 
 ```plantuml
 @startuml KT08_backtest_hazard
-title Lỗ hổng đã phát hiện và sửa trong EPIC-021G
+title The hole found and closed during EPIC-021G
 
 skinparam componentStyle rectangle
 
-package "THIẾT KẾ BAN ĐẦU (nguy hiểm)" #FFEBEE {
+package "ORIGINAL DESIGN (unsafe)" #FFEBEE {
   [StrategyEngine\n(live)] as SE1
   [StrategyEngine\n(BACKTEST)] as SE2
-  queue "IEventPublisher\n**BUS TOÀN CỤC DÙNG CHUNG**" as BUS
+  queue "IEventPublisher\n**SHARED GLOBAL BUS**" as BUS
   [LiveTradingCoordinator\n.on(SignalGeneratedEvent)] as LTC1
-  cloud "LỆNH THẬT" as EX1
+  cloud "REAL ORDER" as EX1
 
   SE1 --> BUS : SignalGeneratedEvent
   SE2 --> BUS : SignalGeneratedEvent
@@ -754,114 +752,113 @@ package "THIẾT KẾ BAN ĐẦU (nguy hiểm)" #FFEBEE {
   LTC1 --> EX1
 }
 
-package "ĐÃ SỬA (as-built)" #E8F5E9 {
+package "AS BUILT (fixed)" #E8F5E9 {
   [MarketTickEventHandler] as MTH
   [StrategyEngine\n(live)] as SE3
   [StrategyEngine\n(BACKTEST)] as SE4
-  queue "IEventPublisher\n(vẫn dùng chung)" as BUS2
+  queue "IEventPublisher\n(still shared)" as BUS2
   [LiveTradingCoordinator] as LTC2
-  cloud "LỆNH THẬT" as EX2
+  cloud "REAL ORDER" as EX2
 
   MTH --> SE3 : on_tick(candle)
-  SE3 --> MTH : **return Signal**
-  MTH --> LTC2 : **handle(signal)** — gọi trực tiếp
+  SE3 --> MTH : **returns Signal**
+  MTH --> LTC2 : **handle(signal)** — direct call
   LTC2 --> EX2
-  SE3 ..> BUS2 : (vẫn phát event, cho log/UI)
-  SE4 ..> BUS2 : (backtest phát event)
-  BUS2 ..> LTC2 #red : **KHÔNG CÒN ĐƯỜNG NÀY**
+  SE3 ..> BUS2 : (still publishes, for logs/UI)
+  SE4 ..> BUS2 : (backtest publishes)
+  BUS2 ..> LTC2 #red : **PATH REMOVED**
 }
 
 note bottom of BUS
   `RunHistoricalTickBacktestCommandHandler`
-  dùng **cùng** IEventPublisher singleton.
-  => Chạy một backtest sẽ bắn SignalGeneratedEvent
-  vào đúng coordinator đang cầm quyền đặt lệnh thật.
-  Chỉ còn 3 cổng an toàn chắn — mà một phiên
-  vừa bật trading hợp lệ sẽ **qua cả 3**.
+  uses the **same** IEventPublisher singleton.
+  => Running a backtest would emit SignalGeneratedEvent
+  into the coordinator that can place real orders.
+  Only the 3 safety gates stood in the way — and a
+  session with trading legitimately enabled **passes all three**.
 end note
 
 @enduml
 ```
 
-Cách sửa: `StrategyEngine.on_tick()` **vốn đã return** `Signal` cho caller. `MarketTickEventHandler`
-gọi thẳng `LiveTradingCoordinator.handle(signal)` với giá trị đó, **không đụng bus**. Không code
-path nào của backtest chạm tới class này nữa.
+The fix: `StrategyEngine.on_tick()` **already returns** the `Signal` to its caller.
+`MarketTickEventHandler` passes that value directly to `LiveTradingCoordinator.handle(signal)`,
+never touching the bus. No backtest code path can now reach this class.
 
-Ghi chú: phát hiện này **không** đến từ một test đỏ — nó đến từ việc đọc kỹ code khởi tạo của
-`RunHistoricalTickBacktestCommandHandler` trước khi nối dây. Bài học: với đường đi tiền thật,
-đọc chéo call graph trước khi tin vào bản vẽ.
+Note that this was **not** found by a failing test. It was found by reading
+`RunHistoricalTickBacktestCommandHandler`'s construction code before wiring things together. The
+lesson: for money-handling paths, trace the call graph yourself rather than trusting the diagram.
 
-## 5.5 Guard tự động — luật được **thực thi**, không phải quy ước truyền miệng
+## 5.5 Automated guards
 
-| Guard | Cấm gì | File |
+| Guard | Prohibits | File |
 | :--- | :--- | :--- |
-| AST scan | Chỉ `ExecuteOrderCommandHandler` được viết `OrderSubmissionMode.LIVE` | `tests/unit/infrastructure/binance/test_order_submission_mode_live_is_restricted.py` |
-| AST scan | Chỉ `ExchangeSessionFactory` được gọi `binance.client.Client(...)` | `test_only_the_session_factory_constructs_binance_client.py` |
-| AST scan | `ui/qml/` không được import `ui/screens/` (`EPIC-021L`, đóng `BUG-082`) | `test_qml_library_does_not_import_screens.py` |
+| AST scan | Anything but `ExecuteOrderCommandHandler` referencing `OrderSubmissionMode.LIVE` | `test_order_submission_mode_live_is_restricted.py` |
+| AST scan | Anything but `ExchangeSessionFactory` calling `binance.client.Client(...)` | `test_only_the_session_factory_constructs_binance_client.py` |
+| AST scan | `ui/qml/` importing `ui/screens/` (`EPIC-021L`, closes `BUG-082`) | `test_qml_library_does_not_import_screens.py` |
 
-Cả 3 đều quét **node AST**, không quét text — nên docstring **giải thích** luật không tự vi phạm
-luật đó. Cả 3 đều có test "mutation-verify" chứng minh guard thật sự bắt được vi phạm.
+All three scan **AST nodes**, not text — so a docstring that *explains* the rule does not violate it.
+All three carry a mutation-verification test proving the guard actually fires on a violation.
 
-## 5.6 Secret không bao giờ vào git
+## 5.6 Secrets never enter git
 
-Thứ tự ưu tiên (`EnvFirstCredentialsProvider`): **biến môi trường** → `secrets.local.json`
-(đã `.gitignore`) → không có. `ExchangeCredentials` được thiết kế để `repr()`/`str()`/f-string/
-traceback **đều không rò** secret — có test kiểm cả 4 đường.
+Resolution order (`EnvFirstCredentialsProvider`): **environment variables** → `secrets.local.json`
+(gitignored) → none. `ExchangeCredentials` is designed so that `repr()`, `str()`, f-strings and
+tracebacks **all** redact the secret, with a test covering each of the four paths.
 
 ---
 
-# PHẦN VI — BẮT ĐẦU DEV: 30 phút đầu tiên
+# 6. Getting started
 
-## 6.1 Lấy key Futures Testnet
+## 6.1 Obtain testnet keys
 
-1. Vào `https://testnet.binancefuture.com`, đăng nhập (tài khoản **riêng**, không phải tài khoản
-   Binance thật).
-2. Vào mục API Key ⇒ lấy `API Key` + `API Secret`.
-3. Sàn tự cấp USDT giả (thường ~15.000).
-4. Kiểm tra **position mode phải là One-way** (mục Preference). Hedge mode ⇒ app từ chối chạy.
+1. Register at `https://testnet.binancefuture.com` (a **separate** account from your real Binance one).
+2. Create an API key pair.
+3. The exchange grants fake USDT automatically (typically ~15,000).
+4. Verify **position mode is One-way** in Preferences. Hedge mode causes the app to refuse to run.
 
-## 6.2 Cấu hình
+## 6.2 Configure
 
-**Cách 1 — biến môi trường (khuyên dùng, không để secret lên đĩa):**
+**Option 1 — environment variables (preferred; nothing written to disk):**
 
 ```bash
 export BINANCE_FUTURES_TESTNET_API_KEY="..."
 export BINANCE_FUTURES_TESTNET_API_SECRET="..."
 ```
 
-**Cách 2 — file (đã gitignore):** `src/config/secrets.local.json`
+**Option 2 — file (gitignored):** `src/config/secrets.local.json`
 
-Rồi bật venue giao dịch trong `src/config/user_config.json`:
+Then enable the trading venue in `src/config/user_config.json`:
 
 ```json
 { "exchange": { "trading_venue": "futures_testnet" } }
 ```
 
-Kiểm tra cấu hình đang thắng ở nguồn nào (chạy được cả khi **chưa** có key):
+Check which source currently wins (works even with no key configured):
 
 ```bash
 PYTHONPATH=. .venv/bin/python Sagittarius_Elite_Warrior/scripts/epic021b_credentials_probe.py
 ```
 
-## 6.3 Bốn mốc CLI — chạy **đúng thứ tự này**, mỗi mốc nguy hiểm hơn mốc trước
+## 6.3 The four CLI milestones — run them in this order
 
 ```plantuml
 @startuml KT09_cli_ladder
-title Thang leo 4 mốc CLI — rủi ro tăng dần
+title Four CLI milestones — increasing risk
 
 skinparam defaultTextAlignment center
 
 rectangle "1. exchange-status" #E3F2FD {
-  card "Chạm sàn lần đầu.\n**Chỉ ĐỌC.**\nThấy: số dư USDT thật,\nlệch đồng hồ, position mode." as A
+  card "First contact with the exchange.\n**Read-only.**\nShows: real USDT balance,\nclock skew, position mode." as A
 }
 rectangle "2. order-preview" #E8F5E9 {
-  card "**KHÔNG chạm mạng để đặt lệnh.**\nThấy: Order đã chuẩn hoá,\nclient_order_id, hoặc lý do\ntừ chối có tên (MIN_NOTIONAL)." as B
+  card "**No network call to place anything.**\nShows: the normalized Order,\nits client_order_id, or a named\nrejection reason (MIN_NOTIONAL)." as B
 }
 rectangle "3. order-dry-run" #FFF9C4 {
-  card "POST /fapi/v1/order/**test**\nSàn kiểm chữ ký + quyền + payload.\n**0 lệnh được tạo.**" as C
+  card "POST /fapi/v1/order/**test**\nExchange validates signature,\npermissions and payload.\n**Zero orders created.**" as C
 }
 rectangle "4. trade-once --live" #FFCDD2 {
-  card "POST /fapi/v1/order\n**LỆNH THẬT ĐẦU TIÊN.**\nBỏ --live thì dừng ở dry-run." as D
+  card "POST /fapi/v1/order\n**FIRST REAL ORDER.**\nWithout --live it stops at dry-run." as D
 }
 
 A -down-> B
@@ -885,37 +882,38 @@ end note
 @enduml
 ```
 
-> ⚠️ **`trade-once` hiện KHÔNG tự gọi `EnableTradingCommand`.** Nó đi thẳng vào
-> `ExecuteOrderCommand`, mà cổng an toàn số 2 đòi `session_state.enabled == True`. Hiện chưa có
-> CLI nào bật công tắc đó — nó sẽ đến cùng **màn Giao dịch (`EPIC-021I`)**. Đây là một khoảng
-> trống đã biết, ghi trong `EPIC-021H` §6.6, không phải bug.
+> ⚠️ **`trade-once` does not currently call `EnableTradingCommand`.** It dispatches
+> `ExecuteOrderCommand` directly, and safety gate 2 requires `session_state.enabled == True`. No CLI
+> command turns that switch on yet — that arrives with the **Trading screen (`EPIC-021I`)**. This is
+> a known gap recorded in `EPIC-021H` §6.6, not a bug. Running `--live` today will always block at
+> `TRADING_SWITCH_OFF`.
 
-Quan sát sàn kể lại vòng đời lệnh, ở terminal thứ hai:
+Watch the exchange report order lifecycle in a second terminal:
 
 ```bash
 PYTHONPATH=. .venv/bin/python \
   Sagittarius_Elite_Warrior/scripts/epic021h_user_stream_probe.py --seconds 120
 ```
 
-## 6.4 Chạy test — 4 tier, biết tier nào chứng minh cái gì
+## 6.4 Test tiers — know what each one proves
 
 ```plantuml
 @startuml KT10_test_tiers
-title Bốn tier test — cái nào chạm mạng thật?
+title Four test tiers — which one touches the real exchange?
 
 skinparam componentStyle rectangle
 
 rectangle "**Unit**\ntests/unit/" #E8F5E9 {
-  card "Logic thuần, 0 mạng.\nTrading limits, mapper, parser,\nAST guards, OrderBookState.\n~3.200 test" as U
+  card "Pure logic, no network.\nTrading limits, mappers, parsers,\nAST guards, OrderBookState.\n~3,200 tests" as U
 }
 rectangle "**Integration**\ntests/integration/" #E3F2FD {
-  card "Chạm **fake server nội bộ**\n(tests/sanity/fake_exchange/).\nClient python-binance THẬT chạy,\nchỉ base URL bị đổi." as I
+  card "Runs against the **local fake server**\n(tests/sanity/fake_exchange/).\nThe REAL python-binance client runs;\nonly the base URL changes." as I
 }
 rectangle "**Sanity**\ntests/sanity/" #FFF9C4 {
-  card "Boot app thật, DI thật.\n**Im lặng là assertion**:\n0 Qt message, 0 log WARNING+.\n24 test" as S
+  card "Boots the real app and DI graph.\n**Silence is the assertion**:\nzero Qt messages, zero WARNING+ logs.\n24 tests" as S
 }
 rectangle "**Testnet**\ntests/testnet/" #FFCDD2 {
-  card "**CHẠM SÀN THẬT, KEY THẬT.**\nopt-in, 2 lớp cổng.\n3 test" as T
+  card "**REAL EXCHANGE, REAL KEYS.**\nOpt-in, two gates.\n3 tests" as T
 }
 
 U -[hidden]right-> I
@@ -923,124 +921,133 @@ I -[hidden]right-> S
 S -[hidden]right-> T
 
 note bottom of T
-  **Hai lớp cổng, cố ý dư thừa:**
-  1. ci-local.ps1 --ignore tier này ở MỌI mode (kể cả -Full)
-  2. conftest.py đòi SEW_TESTNET_TESTS=1 **VÀ** có credentials
+  **Two gates, deliberately redundant:**
+  1. ci-local.ps1 --ignores this tier in EVERY mode (including -Full)
+  2. conftest.py requires SEW_TESTNET_TESTS=1 **AND** resolvable credentials
 
-  Một lớp đã từng không đủ: tier chỉ dựa vào skip điều kiện
-  sẽ chạy thật ngay khi ai đó tình cờ có biến môi trường đó.
+  One gate proved insufficient before: a tier relying only on a
+  conditional skip runs for real as soon as someone happens to
+  have that environment variable set.
 end note
 
 note bottom of I
-  **Không hand-write double cho port.**
-  Đó là hình dạng đã sinh ra BUG-026/BUG-027:
-  bản triển khai viết tay lặng lẽ trôi khỏi interface.
-  Thay thế chỉ ở **ranh giới mạng, tại cấu hình**.
+  **No hand-written port doubles.**
+  That shape produced BUG-026/BUG-027: a hand-written
+  implementation silently drifting from its interface.
+  Substitution happens only at the **network boundary,
+  through configuration**.
 end note
 
 @enduml
 ```
 
-Lệnh chạy (cổng đầy đủ, **không** chạm sàn thật):
+Full gate (never touches the real exchange):
 
 ```powershell
 .\scripts\ci-local.ps1 -Full
 ```
 
-Chạy tier testnet **có chủ đích**:
+Testnet tier, run intentionally:
 
 ```powershell
 $env:SEW_TESTNET_TESTS = "1"
 .\scripts\ci-local.ps1 -TestnetOnly
 ```
 
-Thiếu điều kiện ⇒ **skip với lý do phân biệt được**, không đỏ:
+Missing either condition **skips with a distinguishable reason** rather than failing:
 
 ```text
 SKIPPED [1] thiếu SEW_TESTNET_TESTS=1 — tier này không chạy trong CI thường
 SKIPPED [1] có SEW_TESTNET_TESTS=1 nhưng không tìm thấy credentials Futures Testnet
 ```
 
-> **Luật đọc kết quả CI (`ONBOARDING.md` §5):** `ci-local.ps1` in ra `LOG_FILE:`. Phải `grep`
-> file đó cho `FAILED|ERROR|Traceback|ResourceWarning` rồi mới được nói "xanh". Ở chế độ
-> offscreen, Qt xả nhiều `TypeError` **vô hại** ra stderr **sau** dòng tổng kết pytest — `| tail`
-> sẽ cho bạn xem nhầm đống nhiễu đó.
+(Verbatim output; the skip messages in `conftest.py` are Vietnamese. They read: *"SEW_TESTNET_TESTS=1
+is missing — this tier does not run in normal CI"* and *"SEW_TESTNET_TESTS=1 is set but no Futures
+Testnet credentials were found"*. Distinguishing the two is deliberate: merged into one message, you
+would not know **which** precondition you are missing.)
+
+> **Reading CI results (`ONBOARDING.md` §5):** `ci-local.ps1` prints `LOG_FILE:`. You must `grep`
+> that file for `FAILED|ERROR|Traceback|ResourceWarning` before declaring the run green. Under
+> offscreen rendering, Qt emits many **harmless** `TypeError` lines to stderr **after** pytest's
+> summary, so piping through `tail` shows you that noise instead of the real result.
 
 ---
 
-# PHẦN VII — CÒN LẠI GÌ
+# 7. What remains
 
-## 7.1 Hai task con chưa xong
+## 7.1 Two open sub-tasks
 
-| Task | Nội dung | Chặn bởi |
+| Task | Scope | Blocked by |
 | :--- | :--- | :--- |
-| **`EPIC-021I`** | **Màn hình Giao dịch mới**: bảng vị thế, bảng lệnh chờ, công tắc bật giao dịch, thẻ tài khoản | Đang chờ **mockup** từ user (task file yêu cầu hỏi trước, không tự sinh lại) |
-| **`EPIC-021K`** | Banner môi trường toàn cục + **Emergency Stop** + trade marker trên chart | `EPIC-021I` |
+| **`EPIC-021I`** | **Trading screen**: positions table, open-orders table, trading switch, account card | Waiting on the mockup (the task file requires asking rather than regenerating one) |
+| **`EPIC-021K`** | Global environment banner, **Emergency Stop**, chart trade markers | `EPIC-021I` |
 
-`EPIC-021I` cũng là nơi sẽ có CLI/UI để gọi `EnableTradingCommand` — mắt xích còn thiếu ở §6.3.
+`EPIC-021I` also delivers the entry point for `EnableTradingCommand` — the missing link described in
+§6.3.
 
-## 7.2 Đã ghi nhận là **chưa mô hình hoá** (cố ý, ADR §6)
+## 7.2 Explicitly not modelled (ADR §6)
 
-- **Funding rate** — futures perpetual tính phí funding mỗi 8h. App chưa tính.
-- **Mô hình thanh lý** — app **đọc và hiển thị** `liquidationPrice` từ sàn nhưng không tự tính,
-  không cảnh báo khi giá tiến gần.
-- **Đổi leverage / margin type từ app** — chỉ đọc.
-- **Multi-symbol live** — `StrategyEngine` giữ state chỉ số có thể thay đổi (EMA...); nạp nến
-  hai symbol vào một engine sẽ **làm hỏng state**. Muốn đa symbol phải một engine mỗi symbol.
+- **Funding rate** — perpetual futures charge funding every 8 hours. Not computed.
+- **Liquidation modelling** — the app **reads and displays** `liquidationPrice` from the exchange but
+  does not compute it or warn as price approaches it.
+- **Changing leverage or margin type from the app** — read-only.
+- **Multi-symbol live trading** — `StrategyEngine` holds mutable incremental indicator state (EMA and
+  similar). Feeding it candles from two symbols **corrupts that state**. Multi-symbol requires one
+  engine per symbol.
 
 ---
 
-# PHỤ LỤC A — Bản đồ file
+# Appendix A — File map
 
-| Tầng | File | Trách nhiệm |
+| Layer | File | Responsibility |
 | :--- | :--- | :--- |
 | Domain | `domain/trading/order.py` | `Order` frozen dataclass |
-| | `domain/trading/order_status.py` | `OrderStatus` + ma trận chuyển hợp lệ |
-| | `domain/trading/client_order_id.py` | sinh `SEW-` + 12 hex (≤36 ký tự) |
+| | `domain/trading/order_status.py` | `OrderStatus` + transition matrix |
+| | `domain/trading/client_order_id.py` | generates `SEW-` + 12 hex (≤36 chars) |
 | | `domain/trading/live_position.py` | `LivePosition`, `LiquidationPrice` |
 | | `domain/trading/order_submission_mode.py` | `VALIDATE_ONLY` \| `LIVE` |
-| | `domain/trading/order_rejection_reason.py` | 7 lý do từ chối có tên |
-| | `domain/trading/policies/trading_limit_policy.py` | 4 hạn mức |
+| | `domain/trading/order_rejection_reason.py` | 7 named rejection reasons |
+| | `domain/trading/policies/trading_limit_policy.py` | the 4 limits |
 | | `domain/value_objects/trading_venue.py` | `DISABLED` \| `FUTURES_TESTNET` |
-| | `domain/value_objects/exchange_connection_status.py` | 6 `ConnectionFailureKind` |
-| | `domain/events/order_*.py`, `position_changed_event.py` | 4 event |
-| Application | `application/ports/i_trading_client.py` | port ghi |
-| | `application/ports/i_trading_account_reader.py` | port đọc tài khoản |
-| | `application/ports/i_user_data_stream.py` | port stream |
-| | `application/services/trading_session_state.py` | state RAM, luôn khởi đầu tắt |
+| | `domain/value_objects/exchange_connection_status.py` | 6 `ConnectionFailureKind` values |
+| | `domain/events/order_*.py`, `position_changed_event.py` | 4 events |
+| Application | `application/ports/i_trading_client.py` | write port |
+| | `application/ports/i_trading_account_reader.py` | account read port |
+| | `application/ports/i_user_data_stream.py` | stream port |
+| | `application/services/trading_session_state.py` | in-memory state, always starts off |
 | | `application/services/live_trading_coordinator.py` | Signal → ExecuteOrderCommand |
-| | `application/services/position_state_reconciler.py` | sàn thắng, lệch thì WARNING |
-| | `application/use_cases/trading/enable_trading/` | bật + reconcile |
-| | `application/use_cases/trading/execute_order/` | 3 cổng + 4 hạn mức + LIVE |
-| | `application/event_handlers/.../market_tick_event_handler.py` | gọi thẳng coordinator |
-| Infrastructure | `infrastructure/binance/exchange_session_factory.py` | **nơi duy nhất** dựng `Client()` |
-| | `infrastructure/binance/futures_trading_client.py` | đặt/huỷ/đọc lệnh & vị thế |
+| | `application/services/position_state_reconciler.py` | exchange wins; disagreement logged WARNING |
+| | `application/use_cases/trading/enable_trading/` | enable + reconcile |
+| | `application/use_cases/trading/execute_order/` | 3 gates + 4 limits + LIVE submission |
+| | `application/event_handlers/.../market_tick_event_handler.py` | direct call to the coordinator |
+| Infrastructure | `infrastructure/binance/exchange_session_factory.py` | **only** place that builds `Client()` |
+| | `infrastructure/binance/futures_trading_client.py` | place/cancel orders, read positions |
 | | `infrastructure/binance/futures_account_reader.py` | `check_connection()` |
 | | `infrastructure/binance/futures_user_data_stream.py` | User Data Stream |
-| | `infrastructure/binance/futures_order_payload_mapper.py` | domain ↔ payload Binance |
-| | `infrastructure/binance/binance_error_translator.py` | mã lỗi → lý do có tên |
-| | `infrastructure/binance/user_data_event_parser.py` | parse message stream |
+| | `infrastructure/binance/futures_order_payload_mapper.py` | domain ↔ Binance payload |
+| | `infrastructure/binance/binance_error_translator.py` | error code → named reason |
+| | `infrastructure/binance/user_data_event_parser.py` | stream message parsing |
 | | `infrastructure/credentials/env_first_credentials_provider.py` | env → file → none |
-| Presentation | `presentation/ui/common/order_feed.py` | Feed thứ 4 |
-| | `presentation/cli/{order_preview,order_dry_run,trade_once}_cmd.py` | 4 mốc CLI |
-| Test | `tests/sanity/fake_exchange/` | fake server nói giao thức Binance |
-| | `tests/testnet/` | tier opt-in chạm sàn thật |
-| Script | `scripts/epic021{a,b,c}_*_probe.py`, `epic021h_user_stream_probe.py` | 4 probe quan sát |
+| Presentation | `presentation/ui/common/order_feed.py` | the 4th Feed |
+| | `presentation/cli/{order_preview,order_dry_run,trade_once}_cmd.py` | the CLI milestones |
+| Test | `tests/sanity/fake_exchange/` | fake server speaking Binance's protocol |
+| | `tests/testnet/` | opt-in tier against the real exchange |
+| Script | `scripts/epic021{a,b,c}_*_probe.py`, `epic021h_user_stream_probe.py` | 4 observation probes |
 
 ---
 
-# PHỤ LỤC B — Render các diagram
+# Appendix B — Rendering the diagrams
 
-Mọi diagram trong tài liệu này là mã PlantUML trong khối ` ```plantuml `. **Cả 10 diagram đã được
-render thật khi soạn tài liệu này** (PlantUML 1.2024.7 + Graphviz 2.43) — không có lỗi cú pháp.
+Every diagram is PlantUML source in a ` ```plantuml ` block. **All ten were rendered while writing
+this guide** (PlantUML 1.2024.7 + Graphviz 2.43); none contain syntax errors.
 
-- **VS Code**: extension *PlantUML* (jebbs) → `Alt+D`.
-- **Online**: dán vào `https://www.plantuml.com/plantuml`.
-- **CLI** — trích toàn bộ 10 diagram từ chính file này rồi render một lượt:
+- **VS Code:** the *PlantUML* extension (jebbs) → `Alt+D`.
+- **Online:** paste into `https://www.plantuml.com/plantuml`.
+- **CLI** — extract all ten from this file and render them at once:
 
   ```bash
-  # cần: java + graphviz (apt-get install -y graphviz)
-  #      plantuml.jar tải từ github.com/plantuml/plantuml/releases
+  # requires: java + graphviz (apt-get install -y graphviz)
+  #           plantuml.jar from github.com/plantuml/plantuml/releases
   mkdir -p /tmp/kt && cd /tmp/kt
   python3 - <<'PY'
   import re, pathlib
@@ -1053,28 +1060,14 @@ render thật khi soạn tài liệu này** (PlantUML 1.2024.7 + Graphviz 2.43) 
   java -jar plantuml.jar -tpng -nometadata *.puml
   ```
 
-> **Graphviz là bắt buộc** cho diagram dạng component/state (KT01, KT04, KT07, KT08, KT09, KT10).
-> Thiếu nó, PlantUML vẫn tạo file PNG nhưng bên trong là **thông báo lỗi**, không phải diagram —
-> một cái bẫy im lặng đáng biết. Diagram dạng sequence/activity (KT02, KT03, KT05, KT06) không
-> cần Graphviz.
+> **Graphviz is mandatory** for the component and state diagrams (KT01, KT04, KT07, KT08, KT09,
+> KT10). Without it PlantUML still produces PNG files, but they contain an **error message** rather
+> than a diagram — a silent trap worth knowing. Sequence and activity diagrams (KT02, KT03, KT05,
+> KT06) do not need it.
 >
-> Muốn chỉ kiểm cú pháp mà không render: `java -jar plantuml.jar -checkonly *.puml`
-> (không in gì = không có lỗi).
+> Syntax check without rendering: `java -jar plantuml.jar -checkonly *.puml` (no output means no
+> errors).
 
-Diagram **kế hoạch** của epic (as-is/to-be, vẽ trước khi code) nằm riêng ở
-[`design/*.puml`](design/). **Lưu ý:** `03_to_be_component.puml` vẽ đường
-`StrategyEngine → LiveTradingCoordinator` qua event bus — bản vẽ đó là **lịch sử kế hoạch**, đã
-bị thay đổi khi triển khai vì lý do an toàn ở §5.4. Diagram trong tài liệu này là **as-built**.
-
----
-
-## Ba câu hỏi kiểm tra bạn đã "hero" chưa
-
-1. *Vì sao app đọc chart từ mainnet nhưng đặt lệnh ở testnet, và điều đó gây rủi ro gì?*
-   → §1.1 + ADR §2. Rủi ro: giá nhìn thấy ≠ giá khớp; `EPIC-021K` phải dựng banner nói ra.
-2. *Response của `POST /fapi/v1/order` trả `status: "NEW"` — vì sao app không dùng nó làm trạng
-   thái lệnh?*
-   → §2.3 + ADR §4. Vì response chỉ nói "đã nhận"; sự thật (khớp một phần, huỷ sau, bị tác nhân
-   khác đổi) chỉ đến từ User Data Stream.
-3. *Chạy một backtest có thể đặt lệnh thật không?*
-   → §5.4. **Trước đây thiết kế cho phép**; đã sửa bằng lời gọi trực tiếp thay vì event bus.
+> **Note on `design/*.puml`:** those are the **planning** diagrams, drawn before implementation.
+> `03_to_be_component.puml` in particular routes signals through the event bus — the hazard
+> described in §5.4. The diagrams in this guide are **as-built**.

@@ -4,7 +4,7 @@
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be (**bản vẽ kế hoạch**, xem cảnh báo dưới)
-- **📘 Chuyển giao kiến thức (người mới đọc file này trước):**
+- **📘 Chuyển giao kiến thức (người mới đọc file này trước) — viết bằng tiếng Anh theo yêu cầu:**
   [`KNOWLEDGE_TRANSFER_tu_0_den_hero.md`](KNOWLEDGE_TRANSFER_tu_0_den_hero.md) — testnet là gì,
   giao thức REST/WebSocket, component nào làm gì, đường đi một lệnh, 4 mốc CLI để bắt đầu dev.
   10 diagram PlantUML **as-built**, đã render kiểm chứng.
