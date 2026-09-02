@@ -1,115 +1,123 @@
 ---
+name: Commit Rule
+description: Never commit unasked, verify before committing, Conventional Commits, a correctly attributed AI signature, atomic commits.
 trigger: always_on
 ---
 
 # Git Commit Guidelines for AI Agents
 
-All AI assistants working on this repository MUST strictly follow these commit rules without exception.
+Every AI assistant working on this repository MUST follow these rules strictly,
+without exception.
 
 ---
 
-## 0. Không bao giờ commit khi user chưa yêu cầu
+## 0. Never commit unless the user asked
 
-> **Chuyển về đây 2026-08-25** (nguyên văn từ `code-rule.md` §6 "Git Commits &
-> Version Control", khi file đó được tách). Đây là file một agent mở ngay
-> trước khi commit, nên luật này phải nằm ở đây chứ không chỉ ở bảng quyền hạn
-> trong `ONBOARDING.md` §7.
-
-- **DO NOT commit code changes (e.g., using `git commit`) autonomously unless the user explicitly requests you to do so. Always wait for explicit permission before saving changes to version control.**
-- When committing upon user request, strictly follow `.agents/rules/commit-rule.md` (Conventional Commits, pre-commit test verification, atomic changes, and the mandatory `Co-Authored-By` trailer — naming the AI assistant that actually authored the commit, never a fixed placeholder; misattributing to a different tool is not acceptable per `commit-rule.md`).
+- **Do NOT `git commit` on your own initiative.** Always wait for explicit
+  permission before writing changes into version control.
+- **`git push` is forbidden by default** — only on an explicit user request,
+  and each repository is its own separate confirmation.
 
 ---
 
-## 1. Mandatory Pre-Commit Verification (Bắt buộc chạy Test trước khi Commit)
+## 1. Mandatory pre-commit verification
 
 - **Never commit broken, untested, or failing code.**
-- Before executing any `git commit`, the AI agent MUST run the test suite and ensure:
-  - All **Unit Tests** pass: `100% passed`
-  - All **Sanity Tests** (`tests/sanity/`) pass: `100% passed`
-  - **Zero Failures & Zero Errors**: No tests may fail or raise unhandled exceptions.
-  - **Zero First-Party Warnings**: No unclosed SQLite connections (`ResourceWarning`), dangling unawaited coroutines (`RuntimeWarning`), or resource leaks.
-- Required full verification command:
-  ```powershell
-  .\scripts\ci-local.ps1 -Full
-  ```
-- **Exception:** a commit touching no code file (docs/task/`.agents/`-only —
-  see `.agents/rules/ci-rule.md` §1 "Exception — commits that touch no code
-  file" for the exact boundary) does not require this verification step.
+- Before every `git commit`, the agent MUST run `<CI_CMD>` and ensure:
+  - **all tests pass**, zero failures, zero errors;
+  - **zero first-party warnings** — no resource leaks, no dangling unawaited
+    coroutines, no unclosed connections;
+  - lint, format, type check and coverage are all green.
+- **Exception:** a commit touching no code file — see
+  [`ci-rule.md`](ci-rule.md) §1 for the exact boundary.
 
 ---
 
-## 2. Commit Message Structure & Format (Conventional Commits)
-
-Commit messages must follow the **Conventional Commits** standard:
+## 2. Commit message format (Conventional Commits)
 
 ```
-<type>(<scope>): <concise subject in present/imperative tense>
+<type>(<scope>): <concise subject, present tense, imperative>
 
-<optional detailed body explaining context, rationale, and specific changes>
+<optional body: context, rationale, specific changes>
 
-- <component/module>: details of change
-- <tests>: details of new tests / sanity coverage
+- <module>: details of the change
+- <tests>: new tests / new coverage
 
-Co-Authored-By: <AI assistant name and identity that generated this commit>
+Co-Authored-By: <name and identity of the AI that actually authored this commit>
 ```
 
-### Allowed Types:
-- `feat`: New feature or user-facing capability
-- `fix`: Bug fix (must reference root cause or issue ID e.g., BOT-xxx)
-- `refactor`: Code change that neither fixes a bug nor adds a feature (improves structure/SRP)
-- `perf`: Performance improvement (optimizations, concurrency, batching)
-- `test`: Adding or correcting tests only (unit, integration, sanity)
-- `ci`: Changes to CI scripts, test runners, virtual environment setups
-- `docs`: Documentation updates only
-- `chore`: Maintenance tasks, config tweaks, dependency updates
+### Allowed types
 
-### Common Scopes:
-`ui`, `backtest`, `dashboard`, `data-management`, `settings`, `domain`, `infra`, `binance`, `sync`, `engine`, `tests`, `ci`.
+| Type | Use when |
+| :--- | :--- |
+| `feat` | New feature or user-facing capability |
+| `fix` | Bug fix — **must** reference the root cause or bug ID |
+| `refactor` | Structural change: no new feature, no bug fix |
+| `perf` | Performance improvement |
+| `test` | Tests only |
+| `ci` | CI scripts, test runners, environments |
+| `docs` | Documentation only |
+| `style` | Formatting/lint only, no behaviour change |
+| `chore` | Maintenance, configuration, dependencies |
+
+**Scope** is a short, project-agreed list (`<SCOPES>`).
 
 ---
 
-## 3. Mandatory AI Signature (Chữ ký bắt buộc)
+## 3. The mandatory AI signature — correctly attributed
 
-Every commit authored or generated by an AI assistant MUST contain a trailer line at the very end
-of the commit message identifying the actual assistant and identity that generated it — never a
-different tool's name, and never a placeholder:
+Every commit authored by an AI MUST carry a trailer as the **very last** lines,
+naming the assistant that actually produced it:
 
 ```
 Co-Authored-By: <Assistant Name> <noreply@assistant-provider.example>
 ```
 
-For example, a commit generated by Claude Code should read
-`Co-Authored-By: Claude <noreply@anthropic.com>`, not the name of a different AI tool. Misattributing
-authorship to a tool that did not generate the commit is not acceptable, even for consistency with
-older commit history.
+**Never hard-code another tool's name, and never use a placeholder.**
+Misattributing authorship to a tool that did not generate the commit is **not
+acceptable**, not even for consistency with older commit history.
 
-*(Leave an empty line before this signature trailer).*
+> **Real evidence:** in the original repository, a guidance file hard-coded the
+> trailer of a **different** AI tool — directly violating this very rule — and
+> survived long enough to reach the commit history. Nobody noticed, because it
+> lived in a **drifted copy** of the rule rather than in the original.
 
----
-
-## 4. Atomic Commits & Clean Code Integrity (Commit nguyên tử & Sạch)
-
-- **One Logical Change per Commit**: Do not bundle unrelated features, large refactors, and bug fixes into a single massive commit.
-- **Never Commit Temporary Files**:
-  - Do not stage or commit scratch files (`scratch/`, `.tempmediaStorage/`, temporary test scripts).
-  - Do not commit leftover `print()` debug logs, commented-out dead code, or temporary mocks.
-  - Do not commit virtual environments (`.venv`, `.venv_alias`) or database files (`*.db`, `database/`).
-- **No Function-Local / Lazy Imports**: Ensure all committed Python code places imports strictly at the top of the file adhering to PEP 8.
-- **No Hardcoding / Magic Numbers**: Ensure all new numerical constants, timeouts, sizes, or styling values are declared as named constants or centralized config keys.
+*(Leave a blank line before the trailer.)*
 
 ---
 
-## 5. Bug Fix Commits
+## 4. Atomic, clean commits
 
-Full workflow (root cause first, regression test before the fix, kept
-permanently, commit content) moved to
-`.agents/rules/bug-fix-rule.md` — follow it in full for any `fix:` commit.
+- **One logical change per commit.** Don't bundle a feature, a large refactor
+  and a bug fix into one enormous commit.
+- **Never commit:**
+  - scratch/temporary files, one-off test scripts, scratch directories;
+  - leftover debug logging, commented-out dead code, temporary mocks;
+  - virtual environments, database files, build artifacts.
+- **No lazy imports**, **no magic numbers** in committed code — see
+  [`code-quality-rule.md`](code-quality-rule.md).
 
 ---
 
-## 6. Stale Branches & Merge Conflict Rule (Quy tắc Resolve Conflict)
+## 5. Bug-fix commits
 
-- Before resolving and merging PRs or automated branches (e.g., `jules-*`):
-  1. **Value Check**: Verify if the branch's proposed change is still relevant or has already been merged into `master-warrior`. Discard/skip stale, duplicate, or 0-value changes.
-  2. **Conflict Resolution**: Carefully resolve conflict markers without re-introducing outdated patterns or duplicate lines.
-  3. **Verification**: Always execute the full test suite (`.\scripts\ci-local.ps1 -Full`) on the resolved merge state before pushing to remote.
+The full workflow is in [`bug-fix-rule.md`](bug-fix-rule.md). Two things are
+mandatory at commit level:
+
+- A bug-fix commit **MUST contain the regression test** — never fix without it,
+  never split the test into a later commit.
+- **State the root cause in the commit body:** what caused the bug, and why this
+  fix resolves it cleanly.
+
+---
+
+## 6. Stale branches & conflict resolution
+
+Before resolving or merging a branch (especially an automatically generated
+one):
+
+1. **Value check:** is the branch's change still relevant, or already merged?
+   Discard stale, duplicate or zero-value branches.
+2. **Resolve carefully:** don't reintroduce outdated patterns or duplicated
+   lines while following conflict markers.
+3. **Verify:** always run `<CI_CMD>` **on the merged state** before pushing.
