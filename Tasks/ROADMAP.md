@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 121 | 67.2% |
+| 🟢 **Completed** | 121 | 66.9% |
 | 🟡 **In Progress** | 0 | 0% |
-| 🔴 **Backlog** | 53 | 29.4% |
+| 🔴 **Backlog** | 54 | 29.7% |
 | ❌ **Cancelled** | 6 | 3.3% |
-| 📈 **Tổng số Task** | **180** | **100%** |
+| 📈 **Tổng số Task** | **181** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -247,6 +247,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
+| **P2** | **[BOT-124](backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md)** | **Trích `DataTable` dùng chung cho `ui/qml/`, gộp 3 bản sao đang có** | 🟡 **`M (Standard)`** | — | `TradeLogTable` (141 dòng), `KlineInspectorTable` (139), `DatabaseStatusTable` (140) là ba bản dựng lại của **cùng một khung** — phần đuôi `ListView` + trạng thái rỗng gần như giống từng ký tự. `EPIC-021I` cần thêm 2 bảng nữa; viết theo khung cũ là bản sao thứ 4 và 5. `qml-rule.md` §0.2 đã quyết sẵn hướng (*"tín hiệu để tổng quát hoá component có sẵn"*, tiền lệ `SelectListVM` hấp thụ `TimezonePickerVM` rồi xoá bản gốc). Tách riêng khỏi `EPIC-021I` vì chạm 3 widget đang chạy trên 3 màn — trộn vào thì một hồi quy UI không phân biệt được do đâu. Tiêu chí xong: 3 bảng cũ dùng component mới, **0 assert bị sửa**, cổng bắt buộc xanh. |
 | ~~P1~~ **Hoãn có chủ đích** | **[BOT-008](backlog/BOT-008_live_trading_strategy_execution.md)** | **Live Trading Strategy Execution** | 🔴 **`L (Thinking)`** | `BOT-001` ✅, `BOT-005` ✅ | Tính toán chỉ báo (RSI, EMA, MACD) từ Live Stream & phát tín hiệu đặt lệnh qua Binance API. Mọi phụ thuộc kỹ thuật đã xong — `BOT-078` (out-of-sample) **đã xong** (14/08) nhưng **chưa tự động mở khoá**: cần quyết định tường minh của user, không suy ra từ việc code xong, vì `PythonBinanceClient` nối thẳng mainnet thật, không có testnet. Xem ghi chú định hướng ở đầu file. |
 | **P1** | **[Nhóm Engine Hardening](reports/engine_defect_class_analysis.md)** *(`BOT-066`…`BOT-071`)* | **6 cơ chế engine chặn 6 lớp lỗi tái phát** | 🟡 **`M`** / 🔴 **`L`** | — | Sinh ra từ rà soát toàn bộ lịch sử bug: gom thành 6 **lớp lỗi** rồi hỏi "cơ chế nào khiến cả lớp đó không xảy ra được nữa". Xem bảng chi tiết bên dưới. 📄 [Phân tích Lớp Lỗi Engine](reports/engine_defect_class_analysis.md). |
 | **P1** | **[Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md)** | **Backtest UI Signals, FSM & Parameter Lifecycle** | 🔴 **`L (Thinking)`** | `BOT-088` ✅, `BOT-059` ✅ | Hoàn thiện máy trạng thái FSM (`BacktestUiState` mở rộng: `CONFIG_DIRTY`, `CANCELLING`, `COMPLETED`), Dirty Tracking loại bỏ kết quả Stale khi đổi Timeframe/Strategy/Vốn/Ngày, nút Hủy tác vụ nền `CancellationToken`, kiểm tra nến sẵn sàng khi đổi Timeframe, và Real-time validation. Xem bảng chi tiết bên dưới. 📄 [Đặc tả Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md). |

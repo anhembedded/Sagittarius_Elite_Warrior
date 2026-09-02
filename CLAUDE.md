@@ -16,6 +16,11 @@ unattended scheduled agents, not a Claude Code loading mechanism). So this file 
 Claude an entry point, the same role [`.agents/AGENTS.md`](.agents/AGENTS.md) plays for those
 agents.
 
+**Every file in `.agents/rules/` gets a row in the table below — an unlisted rule is an unread
+rule.** This is not hypothetical: on 2026-09-02 an agent read the 7 rules this table listed,
+treated that as the complete set, and shipped work violating 3 of the 6 it never saw. The table
+now covers all 13. When you add a rule file, add its row in the same commit.
+
 **Do not copy rules in here.** This repository has caught the drifted-copy disease **twice**:
 `AGENTS.md` was once a near-verbatim copy of `code-rule.md` and drifted independently (carrying
 a real defect — a hard-coded, wrong `Co-Authored-By` trailer); `code-rule.md` had to be split
@@ -36,6 +41,12 @@ it.
 | The user reports a bug (**mandatory**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
 | Adding or changing logs | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
 | Writing tests | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |
+| Building or changing any UI: screen layout, `preview.py`, icons, table columns | [`.agents/rules/ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
+| Any `.qml` file, or deciding QML vs QtWidgets for a widget (shell and chart are QtWidgets, permanently) | [`.agents/rules/qml-rule.md`](.agents/rules/qml-rule.md) |
+| A background task started from the UI: action ownership, cancellation, splitting a Presenter into Coordinators | [`.agents/rules/async-ui-action-rule.md`](.agents/rules/async-ui-action-rule.md) |
+| Anything in `src/domain/**` or `src/application/**`: truthful data, no collapsed trading semantics, a UI that promises only what the engine delivers | [`.agents/rules/domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
+| Setting up the environment, or a tool is missing (install it — do not report "cannot verify") | [`.agents/rules/install-rule.md`](.agents/rules/install-rule.md) |
+| (Historical entry point, navigation only — the content lives in the 6 files above) | [`.agents/rules/code-rule.md`](.agents/rules/code-rule.md) |
 | Where the system stands, which bugs are still open | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/bug_report/README.md`](Tasks/bug_report/README.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
 
 ---

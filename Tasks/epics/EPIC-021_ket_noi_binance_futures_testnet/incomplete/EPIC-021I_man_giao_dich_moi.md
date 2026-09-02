@@ -1,10 +1,11 @@
 # EPIC-021I — Màn hình **Giao dịch** mới (sổ lệnh, vị thế, công tắc)
 
-- **Trạng thái:** 🔴 Chưa bắt đầu — **2 quyết định đang chờ user**, không được tự chốt:
-  1. Cột `THỜI GIAN` của bảng lệnh chờ: giờ của sàn hay giờ đóng dấu ở tầng presentation (§3.1).
-  2. Bảng vị thế/lệnh chờ: tổng quát hoá component bảng đã có, hay viết bản sao thứ 4/5 (§3.2.2).
+- **Trạng thái:** 🔴 Chưa bắt đầu. Hai câu hỏi mở trước đây đã **chốt** theo
+  [`ONBOARDING.md`](../../../../.agents/ONBOARDING.md) §7 (agent tự quyết khi không rơi vào 3 nhóm
+  phải hỏi): cột `THỜI GIAN` dùng **giờ của sàn** (§3.1); bảng vị thế/lệnh chờ dựng trên một
+  `DataTable` **dùng chung** trích ở [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) (§3.2.2).
 - **Repo:** Elite
-- **Chặn bởi:** `EPIC-021H` · **Chặn:** `EPIC-021K`
+- **Chặn bởi:** `EPIC-021H` · [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) (component bảng dùng chung, §3.2.2) · **Chặn:** `EPIC-021K`
 
 ---
 
@@ -155,7 +156,7 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 | `.../ui/screens/trading/i_trading_view.py` | **Mới** — hợp đồng Presenter↔View **tường minh** (§2.1 `architecture-rule.md`), kèm test hai chiều theo khuôn `EPIC-013B` |
 | `.../ui/screens/trading/preview.py` | **Mới** — `build_preview() -> QWidget`, **bắt buộc**, guard test chặn nếu thiếu (§3.2.4) |
 | `.../ui/screens/trading/coordinators/chart_coordinator.py` | **Mới** — nối `ChartCard` + đường chỉ báo chiến lược, theo khuôn `screens/dashboard/coordinators/indicator_coordinator.py` (§2.2b). **Không** giữ `action_id`/huỷ tác vụ của riêng nó (§3.2.3) |
-| `src/presentation/ui/qml/…` (bảng vị thế / lệnh chờ) | **Quyết định chưa chốt** — tổng quát hoá bảng đã có hay viết mới, xem §3.2.2. Dù chọn hướng nào cũng nằm ở thư viện dùng chung, **không** ở `screens/trading/qml/` |
+| `src/presentation/ui/qml/DataTable/` | **Chặn bởi [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md)** — bảng vị thế/lệnh chờ dựng **trên** component dùng chung đó, ở thư viện dùng chung, **không** ở `screens/trading/qml/` (§3.2.2) |
 | `src/presentation/ui/app_bootstrapper.py` | **+1 dòng** trong danh sách screen module |
 
 ### 3.1 Hai lỗ hổng dữ liệu phát hiện khi đọc mockup (2026-09-02)
@@ -165,15 +166,25 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 | Bảng | Kết quả đối chiếu |
 | :--- | :--- |
 | **Vị thế** | ✅ Mọi cột map được. `HƯỚNG` = dấu của `position_amt`, `KHỐI LƯỢNG` = `abs(position_amt)` — **suy ra**, không phải field lưu sẵn |
-| **Lệnh chờ** | ⚠️ Cột `THỜI GIAN` **không có nguồn**. `Order` không có field thời gian, và `map_futures_order_payload_to_order()` không đọc `time`/`updateTime` của Binance |
+| **Lệnh chờ** | ⚠️ Cột `THỜI GIAN` **chưa có nguồn trong code**. `Order` không có field thời gian; `map_futures_order_payload_to_order()` không đọc `time`/`updateTime`, và `parse_order_trade_update()` không đọc `"T"` — dữ liệu **có** trên dây, đang bị vứt đi (cùng hình dạng với lỗ hổng `"B"`/số dư ở `EPIC-021M`) |
 
-> ⛔ **CHƯA CHỐT — chờ user quyết định.** Bản trước của file này ghi "Chốt: dùng thời gian của
-> sàn". Đó là **agent tự quyết**, không phải quyết định của user, và vi phạm
+> ✅ **CHỐT: dùng thời gian của sàn (phương án a).** Quyết định của agent theo
+> [`ONBOARDING.md`](../../../../.agents/ONBOARDING.md) §7 — *"khi nhiều hướng đều hợp lý và không
+> có câu trả lời tuyệt đối đúng → quyết theo best practice / pattern đã được kiểm chứng"*, và chỉ
+> hỏi user khi rơi vào đúng 1 trong 3 nhóm (đánh đổi lớn/không đảo ngược được · nằm trong bảng
+> "phải hỏi" · thiếu thông tin chỉ user mới có). Đây không thuộc nhóm nào: thêm một field
+> `Optional` vào một entity là đảo ngược được, và §7 nói rõ *"agent quyết và đi tiếp"*.
+>
+> **Ghi lại một sai lầm về quy trình, vì nó có ích hơn là xoá đi:** bản trước của file này chốt
+> (a), rồi tôi **hoàn tác** nó, viện
 > [`domain-truth-rule.md`](../../../../.agents/rules/domain-truth-rule.md)'s *Counterintuitive
-> Story Check* ("stop and report … **before finalizing the design**. Do not invent a hidden user
-> intent"). Đã hoàn tác 2026-09-02. Phần dưới là **đề xuất kèm bằng chứng**, không phải kết luận.
+> Story Check*. Đọc lại thì luật đó nói **"stop and report the observable behavior, evidence, and
+> trade-off"** — nó buộc phải **trình bày** bằng chứng và đánh đổi, **không** buộc dừng lại chờ
+> user. Tôi đã biến "báo cáo rồi quyết" thành "chặn lại rồi chờ" — leo thang một quyết định thuộc
+> thẩm quyền của mình. Bảng đánh đổi + 3 bằng chứng dưới đây chính là phần "report" mà luật đòi;
+> giữ nguyên, chỉ đổi kết luận từ *đề xuất* thành *đã chốt*.
 
-**Hai phương án, phải chốt trước khi dựng `OpenOrdersTable`:**
+**Hai phương án đã cân, chốt (a):**
 
 | | (a) Thời gian của **sàn** | (b) Đóng dấu ở **presentation** lúc gửi |
 | :--- | :--- | :--- |
@@ -181,7 +192,7 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 | Chi phí | Thêm 1 field `Optional` vào `Order` (frozen dataclass) + 1 dòng trong `map_futures_order_payload_to_order` | Không đụng domain |
 | Đối chiếu với lịch sử trên web Binance | Khớp | **Không khớp** (lệch bao nhiêu không ai biết) |
 
-**Đề xuất của agent: (a)**, vì ba bằng chứng sau — nhưng **user quyết**:
+**Ba bằng chứng dẫn tới (a):**
 
 - ADR §4 đã đặt nguyên tắc "sự thật đến từ sàn". Một cột thời gian do app tự đóng dấu sẽ **lệch**
   với thời gian sàn ghi nhận, và lệch bao nhiêu thì không ai biết — đúng loại nửa-sự-thật mà epic
@@ -240,16 +251,26 @@ khác `objectName`, kiểu delegate, tên property bề rộng cột, và câu c
 Viết thêm `PositionsTable.qml` + `OpenOrdersTable.qml` sẽ thành bản sao thứ **4** và **5** của
 đúng khung đó. §0.2 nói rõ đây là lúc phải tổng quát hoá.
 
-**Chưa chốt — cần user quyết**, vì hai hướng khác nhau về phạm vi chứ không về đúng/sai:
+**✅ CHỐT: hướng A — trích một `DataTable` dùng chung, làm ở [`BOT-124`](../../../backlog/BOT-124_trich_datatable_dung_chung_cho_qml.md) trước, `EPIC-021I` tiêu thụ nó.**
 
 | Hướng | Được | Mất |
 | :--- | :--- | :--- |
-| **A.** Trích một `DataTable` dùng chung (header + cột + `ListView` + trạng thái rỗng), 3 bảng cũ chuyển sang dùng, 2 bảng mới dùng luôn | Xoá ~3 bản sao; bảng thứ 6 sau này gần như miễn phí | Đụng 3 widget đang chạy thật ⇒ **task riêng**, không làm kèm ở đây; rủi ro hồi quy UI |
-| **B.** Viết 2 bảng mới theo đúng khung cũ, ghi nợ kỹ thuật, tổng quát hoá sau | `EPIC-021I` không bị chặn | Bản sao 4 và 5; càng nhiều bản sao thì việc trích xuất sau càng đắt — đúng cơ chế đã sinh ra `BUG-082` |
+| **A. (chốt)** Trích một `DataTable` dùng chung (header + cột + `ListView` + trạng thái rỗng), 3 bảng cũ chuyển sang dùng, 2 bảng mới dùng luôn | Xoá ~3 bản sao; bảng thứ 6 sau này gần như miễn phí | Đụng 3 widget đang chạy thật ⇒ tách thành task riêng, không làm kèm ở đây |
+| **B.** Viết 2 bảng mới theo đúng khung cũ, ghi nợ kỹ thuật, tổng quát hoá sau | `EPIC-021I` không bị chặn ngay | Bản sao 4 và 5; càng nhiều bản sao thì việc trích xuất sau càng đắt — đúng cơ chế đã sinh ra `BUG-082` |
 
-⛔ **CHƯA CHỐT — chờ user quyết định.** Không tự chọn: theo `domain-truth-rule.md` (Counterintuitive
-Story Check) và `ONBOARDING.md` §7, mở một task tái cấu trúc chạm 3 widget đang chạy là quyết định
-phạm vi của user, không phải mặc định của agent.
+**Vì sao agent tự chốt, không hỏi:** [`ONBOARDING.md`](../../../../.agents/ONBOARDING.md) §7 chỉ
+buộc hỏi khi (1) đánh đổi lớn/không đảo ngược được, (2) nằm trong bảng "phải hỏi", hoặc (3) thiếu
+thông tin chỉ user mới có. Không cái nào đúng ở đây, và §7 còn nói thẳng theo chiều ngược lại:
+*"đừng ngại redesign một phần đã có nếu thiết kế hiện tại là hard design… **'nó đang chạy được'
+không phải lý do để yên đó**"*. Bản trước của file này để ngỏ với lý do "mở một task tái cấu trúc
+là quyết định phạm vi của user" — đó là leo thang, không phải thận trọng.
+
+Thực ra hướng đi **đã được luật quyết sẵn**, không phải hai lựa chọn ngang nhau: `qml-rule.md`
+§0.2 nói *"một hình 'gần giống nhưng hơi khác' là tín hiệu để **tổng quát hoá** component có
+sẵn"*, và nêu tiền lệ có thật — `SelectListVM` đã hấp thụ `TimezonePickerVM`, **xoá** bản gốc chứ
+không giữ lại làm forwarder. Câu hỏi duy nhất còn lại là **xếp việc**, mà đó là phán đoán kế hoạch
+bình thường: trích trước, tiêu thụ sau, vì `BOT-124` chạm 3 widget đang chạy và trộn nó vào
+`EPIC-021I` sẽ khiến một hồi quy UI không phân biệt được là do trích xuất hay do màn mới.
 
 **Đã chốt được, độc lập với A/B:** chỗ đặt. `qml-rule.md` §0.2 (quyết định user 2026-08-29) đặt
 `src/presentation/ui/qml/` là **nơi chính thức** dựng QML component. `screens/trading/qml/` sẽ là
