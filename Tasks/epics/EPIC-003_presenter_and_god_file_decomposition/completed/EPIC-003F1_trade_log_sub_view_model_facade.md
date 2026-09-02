@@ -1,7 +1,7 @@
 # EPIC-003F1 — Lát cắt đầu tiên: `TradeLogViewModel` + facade chuyển tiếp
 
 **Thuộc Epic:** [`EPIC-003`](../README.md)
-**Trạng thái:** 🔴 Chưa bắt đầu — phạm vi đã chốt 2026-09-01
+**Trạng thái:** ✅ **Hoàn thành (2026-09-02)** — xem §8 "Kết quả xây dựng".
 **Phụ thuộc:** hướng C đã duyệt ở [`EPIC-003F`](EPIC-003F_backtest_viewmodel_composite_design_review.md) §4.
 Không phụ thuộc kỹ thuật task nào. **Liên quan:** [`EPIC-021L`](../../EPIC-021_ket_noi_binance_futures_testnet/completed/EPIC-021L_dao_chieu_phu_thuoc_qml_screens.md) — đã xong, xem §2.4 cho quan hệ giữa hai task.
 
@@ -187,3 +187,60 @@ xử lý cuối, và có thể kết luận là **không tách** — bốn thu�
 facade là đúng, không phải là việc còn dở.
 
 Gỡ facade là task cuối cùng của `EPIC-003F`, chỉ mở khi cả 344 điểm đọc đã dời hết (`003F` §4.3).
+
+## 8. Kết quả xây dựng (2026-09-02)
+
+Đúng khuôn §3, không lệch: facade trước, không big-bang, không nối widget QML, không bỏ pagination.
+
+| File | Việc |
+| :--- | :--- |
+| `.../backtest/view_models/__init__.py` | **Mới** — chỗ hạ cánh cho 5 lát sau, đúng §4 |
+| `.../backtest/view_models/trade_log_view_model.py` | **Mới** — `TradeLogViewModel(QObject)`, 6 signal + 6 thuộc tính, mang theo logic filter/search/page-reset nguyên vẹn từ `BackTestViewModel` |
+| `.../backtest/backtest_view_model.py` | Dựng sub-VM trong `__init__`, connect thẳng 6 signal (không `emit()` thủ công — §3.2), 6 property đổi thành forward `self._trade_log.<x>`; xoá 6 field state cũ + import `TradeLogFilter` không còn dùng |
+| `tests/.../backtest/view_models/test_trade_log_view_model.py` | **Mới** — 8 test, thẳng vào sub-VM, không qua facade |
+| `tests/.../backtest/test_backtest_view_model_trade_log_facade.py` | **Mới** — 7 test chứng minh forwarding đúng, kèm mutation-verify đã làm thật (xem dưới) |
+
+### 8.1 Quyết định thiết kế lệch khỏi §3.1's snippet minh hoạ, có chủ đích
+
+`§3.1` minh hoạ `TradeLogViewModel`'s thuộc tính bằng PySide `Property(list, ...)` — bản build thật
+dùng `@property` Python trần cho `rows`/`totalCount`/`totalPages`/`filter`/`searchText`/
+`currentPage`. Lý do: không gì bên ngoài `BackTestViewModel` từng chạm `_trade_log` — QML không
+bao giờ thấy sub-VM này, chỉ thấy facade — nên bọc PySide `Property` (kèm type marker `"QVariantList"`
+cho QML marshal) ở tầng trong là nghi lễ không ai đọc. 6 `Signal` vẫn là `Signal` PySide thật (bắt
+buộc, để connect thẳng sang signal của facade — §3.2 yêu cầu).
+
+`unprotected_mutators()`'s guard cross-thread (`test_view_model_thread_affinity_sanity.py`) chỉ quét
+subclass của `BaseQmlViewModel` trong `_ALL_VIEW_MODELS` — `TradeLogViewModel(QObject)` không phải
+subclass đó, không lọt vào danh sách, và **đúng là không cần**: không nơi nào ngoài
+`BackTestViewModel` giữ tham chiếu tới nó, nên mọi mutation vào nó đã được gác bởi `@Slot` của chính
+facade rồi (`set_trade_log_page_state`/`requestTradeLogExport` — 2 entry point duy nhất từ ngoài).
+
+### 8.2 Mutation-verify đã làm thật (`testing-rule.md` §2)
+
+Thêm tạm `self.tradeLogRowsChanged.emit()` thủ công cạnh
+`self._trade_log.set_page_state(...)` trong `set_trade_log_page_state()` → chạy
+`test_set_trade_log_page_state_fires_the_facade_signal_exactly_once` → đỏ đúng như kỳ vọng
+(`assert 2 == 1`, `len(seen) == [1, 1]`) → revert nguyên văn, không giữ lại bản đảo.
+
+### 8.3 Bằng chứng "facade sai thì dừng lại" không xảy ra
+
+`git diff --stat tests/` rỗng tuyệt đối trước khi thêm 2 file test mới — không một dòng test hiện
+có bị sửa. Xác nhận bằng grep trước khi code: mọi call site (`backtest_trade_logs_panel.py`,
+`trade_log_coordinator.py`, `signal_wiring.py`, và toàn bộ `tests/`) chỉ chạm `tradeLog*` qua facade
+(`self._vm.tradeLogFilter`, `presenter._view_model.tradeLogRows`, …), chưa từng chạm state riêng —
+đúng tiền đề khiến bước facade khả thi mà không sửa một dòng gọi nào.
+
+### 8.4 Con số
+
+`backtest_view_model.py`: 1.435 → **1.426 dòng** (giảm, đúng yêu cầu Mốc 3 — dù không giảm nhiều vì
+phần lớn dòng là docstring/decorator giữ nguyên, chỉ thân hàm đổi từ đọc/ghi field riêng sang gọi
+qua `self._trade_log`). `trade_log_view_model.py`: 139 dòng — dựng độc lập, test được một mình,
+không cần khởi tạo `BackTestViewModel` 1.426 dòng, đúng toàn bộ lý do `EPIC-003` tồn tại.
+
+### 8.5 Kiểm thử
+
+- Cổng CI bắt buộc (`pwsh -NoProfile -File scripts/ci-local.ps1 -Full`) chạy xanh — xem log lần chạy
+  gần nhất trong lịch sử commit.
+- Toàn bộ 131 test hiện có dưới `tests/unit/presentation/ui/screens/backtest/` xanh không sửa dòng
+  nào, cộng 304 test trải rộng backtest presenter/coordinator/layout/timezone/integration/sanity
+  liên quan trade log — không một test nào cần sửa.
