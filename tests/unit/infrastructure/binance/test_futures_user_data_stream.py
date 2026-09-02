@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    PositionClosedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
     LiquidationPrice,
     LivePosition,
@@ -151,7 +154,7 @@ def test_account_update_publishes_position_changed_event() -> None:
     assert seen[0].position is position
 
 
-def test_account_update_going_flat_does_not_publish_but_still_reconciles() -> None:
+def test_account_update_going_flat_does_not_publish_position_changed() -> None:
     """No `LivePosition` to construct when the exchange reports flat — see
     the parser's own docstring for why this is never fabricated."""
     stream, event_bus = _stream(Mock(get_positions=Mock(return_value=[])))
@@ -162,6 +165,33 @@ def test_account_update_going_flat_does_not_publish_but_still_reconciles() -> No
 
     assert seen == []
     assert stream._session_state.open_position_count("BTCUSDT") == 0
+
+
+def test_account_update_going_flat_publishes_position_closed() -> None:
+    """`BUG-086` regression — closing to flat is a real change, not
+    silence; a dedicated event must fire (real `MemoryEventBus`, no
+    mocked `IEventBus`, no network)."""
+    stream, event_bus = _stream(Mock(get_positions=Mock(return_value=[])))
+    seen: list = []
+    event_bus.on(PositionClosedEvent, seen.append)
+
+    stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0", "ep": "0"}]))
+
+    assert len(seen) == 1
+    assert seen[0].symbol == "BTCUSDT"
+
+
+def test_account_update_still_open_does_not_publish_position_closed() -> None:
+    position = _live_position()
+    stream, event_bus = _stream(Mock(get_positions=Mock(return_value=[position])))
+    seen: list = []
+    event_bus.on(PositionClosedEvent, seen.append)
+
+    stream._handle_message(
+        _account_update([{"s": "BTCUSDT", "pa": "0.002", "ep": "64105.35"}])
+    )
+
+    assert seen == []
 
 
 def test_account_update_before_stream_ready_does_not_crash() -> None:

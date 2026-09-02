@@ -9,10 +9,11 @@ này), và log đều quan tâm khi một lệnh khớp hoặc một vị thế 
 tư cạnh `SyncProgressFeed`/`HealthFeed`/`SystemErrorFeed` — không tạo hình
 dạng thứ năm.
 
-Phát lại nguyên vẹn `OrderFilledEvent`/`PositionChangedEvent` (không
-chuẩn hoá thành DTO riêng): cả hai đã là kiểu miền ổn định, có tên rõ
-ràng (`EPIC-021E`) — khác `HealthUpdatedEvent`'s payload thô cần chuẩn
-hoá, ở đây không có gì để chuẩn hoá thêm mà không mất thông tin.
+Phát lại nguyên vẹn `OrderFilledEvent`/`PositionChangedEvent`/
+`PositionClosedEvent` (không chuẩn hoá thành DTO riêng): cả ba đã là kiểu
+miền ổn định, có tên rõ ràng (`EPIC-021E`/`BUG-086`) — khác
+`HealthUpdatedEvent`'s payload thô cần chuẩn hoá, ở đây không có gì để
+chuẩn hoá thêm mà không mất thông tin.
 """
 
 from __future__ import annotations
@@ -26,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    PositionClosedEvent,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
 
 
@@ -36,13 +40,19 @@ class OrderFeed(BaseFeed):
     orderFilled = Signal(object)
     #: Mang một `PositionChangedEvent`.
     positionChanged = Signal(object)
+    #: Mang một `PositionClosedEvent` (`BUG-086`).
+    positionClosed = Signal(object)
 
     def _subscribe(self) -> None:
         self._events.on(OrderFilledEvent, self._on_order_filled)
         self._events.on(PositionChangedEvent, self._on_position_changed)
+        self._events.on(PositionClosedEvent, self._on_position_closed)
 
     def _on_order_filled(self, event: Any) -> None:
         self.orderFilled.emit(event)
 
     def _on_position_changed(self, event: Any) -> None:
         self.positionChanged.emit(event)
+
+    def _on_position_closed(self, event: Any) -> None:
+        self.positionClosed.emit(event)

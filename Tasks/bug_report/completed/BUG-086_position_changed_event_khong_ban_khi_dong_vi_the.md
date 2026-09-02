@@ -3,7 +3,7 @@
 **Reported date:** 2026-09-02
 **Severity:** 🟠 **P2** — không crash, không mất tiền, nhưng UI **nói sai sự thật** đúng lúc
 người vận hành cần tin nó nhất (đang có giao dịch thật chạy).
-**Status:** 🔴 Open — root cause đọc được thẳng từ code (§2), chưa có repro sống.
+**Status:** ✅ **Đã đóng (2026-09-02)** — xem §5.
 
 ---
 
@@ -57,3 +57,29 @@ Trước đó gap này tồn tại nhưng vô hình.
    §2.4 (không tự gọi `ITradingClient` khi giao dịch tắt/đang chạy). Cách giảm nhẹ duy nhất hiện
    có là bật lại giao dịch (tắt rồi bật `EnableTradingCommand` đối soát lại toàn bộ tài khoản) —
    không phải một fix, chỉ là lối thoát thủ công cho tới khi bug này đóng.
+
+## 5. Đóng thế nào (2026-09-02)
+
+Đi đúng nhánh 2 của §4.1: `PositionClosedEvent` riêng (`domain/events/position_closed_event.py`),
+không tái dùng `PositionChangedEvent` với `position_amt=0` — `LivePosition`'s docstring nói thẳng
+"Zero never appears here", nên fabricate một VO vi phạm invariant đã ghi rõ của chính nó là sai
+hướng hơn thêm một event.
+
+- `_handle_account_update()`'s nhánh "position closed" giờ `emit(PositionClosedEvent(symbol=symbol))`
+  cạnh dòng log đã có sẵn.
+- `OrderFeed` thêm signal `positionClosed` thứ ba — cùng khuôn `orderFilled`/`positionChanged`, vẫn
+  đúng phạm vi "sự thật lệnh/vị thế" đã ghi trong docstring của chính nó (không phải hình dạng Feed
+  thứ năm).
+- `TradingPresenter._on_position_closed()` (mới) — `self._positions.pop(symbol, None)` rồi
+  `_render_positions()`. `pop(..., None)` chứ không index thẳng: event này bắn cho **mọi** symbol
+  về flat, kể cả symbol bảng chưa từng có (không có `PositionChangedEvent` nào trước đó trong
+  phiên).
+
+**Regression test đúng như §4.2 yêu cầu** — `test_account_update_going_flat_publishes_position_closed`
+(`test_futures_user_data_stream.py`): giả `get_positions()` trả về rỗng → đúng một
+`PositionClosedEvent` bắn ra, qua `MemoryEventBus` thật, không mock `IEventBus`, không cần mạng.
+Cộng `test_position_closed_removes_it_from_the_positions_table`
+(`test_trading_presenter_toggle.py`) chứng minh bảng UI thật sự gỡ đúng dòng.
+
+Triệu chứng gốc — bảng "Vị thế đang mở" sống sót sau khi vị thế đã đóng thật trên sàn — không còn
+đúng. Đóng.

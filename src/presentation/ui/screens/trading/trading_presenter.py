@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    PositionClosedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
 from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
 from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus
@@ -283,6 +286,10 @@ class TradingPresenter(BasePresenter):
         self._order_feed = OrderFeed(self.event_bus, parent=self)
         self._order_feed.orderFilled.connect(self._on_order_filled)
         self._order_feed.positionChanged.connect(self._on_position_changed)
+        # `BUG-086` — a closed position never reached this table before;
+        # without this, "Vị thế đang mở" could keep showing a position the
+        # exchange had already closed until the next full reconciliation.
+        self._order_feed.positionClosed.connect(self._on_position_closed)
         # `EPIC-021M` — one subscriber, this Presenter, same reasoning as
         # `OrderFeed` above (see `equity_feed.py`'s own docstring).
         self._equity_feed = EquityFeed(self.event_bus, parent=self)
@@ -570,6 +577,14 @@ class TradingPresenter(BasePresenter):
 
     def _on_position_changed(self, event: PositionChangedEvent) -> None:
         self._positions[event.position.symbol] = event.position
+        self._render_positions()
+
+    def _on_position_closed(self, event: PositionClosedEvent) -> None:
+        """`BUG-086` — removes a position the exchange reports as flat.
+        `dict.pop(..., None)` rather than indexing: this event fires for
+        every symbol going flat, including one this table never held (no
+        prior `PositionChangedEvent` for it this session)."""
+        self._positions.pop(event.symbol, None)
         self._render_positions()
 
     def _render_positions(self) -> None:

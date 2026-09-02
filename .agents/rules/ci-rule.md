@@ -24,7 +24,17 @@ cd Sagittarius_Elite_Warrior
 
 `-Full` runs:
 
-- `ruff check src tests` and `ruff format --check src tests` (both read-only);
+- `ruff check src tests` and `ruff format --check src tests` (both read-only). `ruff check` is not
+  style-only: `EPIC-004` extended `[tool.ruff.lint] extend-select` in `pyproject.toml` with `S`
+  (Bandit-equivalent security rules — hardcoded secrets, unsafe `subprocess`), `PLR2004` (magic
+  number), `B` (bug pattern), `SIM` (code smell), `ERA` (dead code), and `N` (naming) — the closest
+  Python equivalent to a MISRA-style safety/quality layer, since `mypy` alone only catches type
+  errors. Gated at a measured baseline the same way mypy is: baseline audit first
+  (`Tasks/reports/EPIC-004A_ruff_security_quality_baseline_audit.md` — ~48 real findings out of
+  4491 raw hits, ~99% system noise), then wired in as a hard gate with the real findings fixed
+  (`EPIC-004D`). Every per-file-ignore this required lives in `pyproject.toml` itself
+  (`[tool.ruff.lint.per-file-ignores]`), each with an inline comment naming the reason (e.g.
+  `assert` in tests, Qt override methods forced into camelCase) — never a bare suppression;
 - `mypy` over `src` **and** `scripts` **in one invocation** (`EPIC-002`). Checked separately, mypy
   never resolves a Port's own defining module in the same pass, so an ABC-completeness error goes
   undetected — that is `BUG-026`, a class implementing a Port silently falling behind an interface

@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    PositionClosedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
 from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
 from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
@@ -367,6 +370,23 @@ def test_position_changed_updates_the_positions_table(presenter, view):
     presenter._on_position_changed(PositionChangedEvent(position=position))
 
     view.set_positions.assert_called_once_with([build_position_row(position)])
+
+
+def test_position_closed_removes_it_from_the_positions_table(presenter, view):
+    """`BUG-086` regression."""
+    position = _position()
+    presenter._on_position_changed(PositionChangedEvent(position=position))
+    view.set_positions.reset_mock()
+
+    presenter._on_position_closed(PositionClosedEvent(symbol=position.symbol))
+
+    view.set_positions.assert_called_once_with([])
+
+
+def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view):
+    presenter._on_position_closed(PositionClosedEvent(symbol="ETHUSDT"))
+
+    view.set_positions.assert_called_once_with([])
 
 
 # ---------------------------------------------------------------------------

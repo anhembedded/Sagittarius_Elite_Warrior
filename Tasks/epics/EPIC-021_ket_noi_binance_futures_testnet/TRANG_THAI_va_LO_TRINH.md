@@ -23,7 +23,7 @@ trực tiếp từ `ACCOUNT_UPDATE` — không request thêm, không bịa đi�
 
 | | |
 | :--- | :--- |
-| **Xong** | 13 task EPIC + `BOT-124` · 4 bug đóng (`BUG-080`/`081`/`082`/`083`) · mở `BUG-086` |
+| **Xong** | 13 task EPIC + `BOT-124` · 5 bug đóng (`BUG-080`/`081`/`082`/`083`/`086`) |
 | **Còn lại** | 0 task EPIC — epic đã xong |
 | **Đường găng** | — |
 | **Chặn ngoài code** | Không còn |
@@ -51,7 +51,7 @@ flowchart TB
     F["F · Adapter Futures + dry-run"]
     G["G · ExecuteOrder + hạn mức<br/><i>lệnh thật đầu tiên</i>"]
     H["H · User Data Stream + OrderFeed"]
-    I["I · Màn hình Giao dịch<br/><i>mở BUG-086</i>"]
+    I["I · Màn hình Giao dịch"]
     J["J · Tier testnet + fake server"]
     K["K · Banner + Emergency Stop + marker"]
     M["M · Chart vốn realtime"]
@@ -222,9 +222,12 @@ Giao dịch giờ có thêm chart vốn realtime, lấy mẫu từ `ACCOUNT_UPDA
 
 Việc còn lại không phải code:
 
-- `BUG-086` (mở khi build `I`) vẫn mở — `PositionChangedEvent` không phát khi vị thế đóng về 0,
-  chỉ ảnh hưởng độ tươi của bảng Vị thế trên màn Giao dịch. Không chặn bất cứ epic con nào, để dành
-  cho một lượt sửa riêng.
+- `BUG-086` (mở khi build `I`) **đã đóng cùng ngày** — `_handle_account_update()`'s nhánh vị thế
+  đóng về 0 giờ phát `PositionClosedEvent` riêng (không tái dùng `PositionChangedEvent` với
+  `position_amt=0` giả — vi phạm invariant `LivePosition`'s docstring đã ghi rõ), `OrderFeed` thêm
+  signal `positionClosed`, `TradingPresenter` gỡ đúng dòng khỏi bảng. Xem
+  [`bug_report/completed/BUG-086_...md`](../../bug_report/completed/BUG-086_position_changed_event_khong_ban_khi_dong_vi_the.md)
+  §5.
 - Phạm vi đã cắt có chủ đích ở `K` (script E2E thủ công cho Mốc 2, fake-server integration test
   riêng cho Emergency Stop — `EPIC-021K` §6.2) và `M` (rail chưa hiển thị số dư USDT — `EPIC-021M`
   §6.3) đều là việc để dành, không phải lỗ hổng chặn ai.

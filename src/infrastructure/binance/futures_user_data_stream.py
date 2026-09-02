@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    PositionClosedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
     OrderSubmissionMode,
 )
@@ -280,4 +283,10 @@ class FuturesUserDataStream(IUserDataStream):
                     positions[0].unrealized_pnl,
                 )
             else:
+                # `BUG-086` — a closed position is a real change too, not
+                # merely absence of one; `PositionChangedEvent` cannot
+                # carry it (no `LivePosition` to construct — its own
+                # docstring forbids `position_amt == 0`), so this is a
+                # dedicated event.
+                self._event_bus.emit(PositionClosedEvent(symbol=symbol))
                 logger.info("ACCOUNT_UPDATE  %s  position closed", symbol)

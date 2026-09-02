@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    PositionClosedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
 from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
     LiquidationPrice,
@@ -86,12 +89,26 @@ def test_position_changed_event_reaches_every_listener(qapp):
     assert seen[0] is event
 
 
-def test_stop_unsubscribes_both(qapp):
+def test_position_closed_event_reaches_every_listener(qapp):
+    bus, feed = _feed(qapp)
+    seen: list = []
+    feed.positionClosed.connect(seen.append)
+
+    event = PositionClosedEvent(symbol="BTCUSDT")
+    bus.emit(event)
+
+    assert len(seen) == 1
+    assert seen[0] is event
+
+
+def test_stop_unsubscribes_all_three(qapp):
     bus, feed = _feed(qapp)
     filled: list = []
     changed: list = []
+    closed: list = []
     feed.orderFilled.connect(filled.append)
     feed.positionChanged.connect(changed.append)
+    feed.positionClosed.connect(closed.append)
 
     feed.stop()
     bus.emit(
@@ -102,6 +119,8 @@ def test_stop_unsubscribes_both(qapp):
         )
     )
     bus.emit(PositionChangedEvent(position=_position()))
+    bus.emit(PositionClosedEvent(symbol="BTCUSDT"))
 
     assert filled == []
     assert changed == []
+    assert closed == []
