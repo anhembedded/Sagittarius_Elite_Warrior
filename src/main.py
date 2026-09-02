@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
     execute_stream,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
+from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
+    execute_trade_once,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     AssetValidatorExtension,
 )
@@ -139,6 +142,9 @@ def _run_headless_mode(app: App, args: argparse.Namespace) -> None:
         app.stop()
     elif args.command == "order-dry-run":
         execute_order_dry_run(app, args)
+        app.stop()
+    elif args.command == "trade-once":
+        execute_trade_once(app, args)
         app.stop()
 
 

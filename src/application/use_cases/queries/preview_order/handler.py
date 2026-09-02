@@ -63,6 +63,7 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
             order_type=query.order_type,
             quantity=rounded_quantity,
             price=rounded_price if query.order_type is OrderType.LIMIT else None,
+            reduce_only=query.reduce_only,
         )
 
         return OrderPreview(

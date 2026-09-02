@@ -67,3 +67,32 @@ class ConfigKeys(str, Enum):
 
     # Developer mode — enables extra UI instrumentation (e.g. click logging)
     DEV_MODE = "dev.mode"
+
+    # `EPIC-021G` — live trading. `TRADING_ENABLED`'s saved value is
+    # intentionally NEVER read into `TradingSessionState` at boot (see that
+    # class's own docstring) — it exists here only so the safe default is
+    # documented in `app_config.json`, the same reason
+    # `EXCHANGE_TRADING_VENUE` got one (`EPIC-021F`).
+    TRADING_ENABLED = "trading.enabled"
+    #: Blocks a live order once this many have been sent this session —
+    #: the one limit that stops a runaway signal loop outright.
+    TRADING_MAX_ORDERS_PER_SESSION = "trading.max_orders_per_session"
+    #: Blocks a single order whose notional exceeds this many USDT.
+    TRADING_MAX_NOTIONAL_PER_ORDER_USDT = "trading.max_notional_per_order_usdt"
+    #: Blocks a new order on a symbol that already has this many open
+    #: positions — 1 enforces the One-way-mode assumption (ADR §6).
+    TRADING_MAX_POSITIONS_PER_SYMBOL = "trading.max_positions_per_symbol"
+    #: Blocks a second order on the same symbol sent sooner than this many
+    #: seconds after the previous one — the same class of problem
+    #: `_MIN_ZONE_BARS` (`BUG-077`) already exists to prevent.
+    TRADING_MIN_ORDER_INTERVAL_SECONDS = "trading.min_order_interval_seconds"
+    #: The one symbol `MarketTickEventHandler`'s live strategy path reacts
+    #: to — every tick for any other symbol is ignored (`EPIC-021G` §6.x:
+    #: mixing candles from two symbols through one `StrategyEngine`'s
+    #: indicators would corrupt their state). Multi-symbol live trading is
+    #: `EPIC-021I`'s screen, not this task's scope.
+    TRADING_LIVE_SYMBOL = "trading.live_symbol"
+    #: Which `StrategyRegistry` key the live tick path evaluates. Empty
+    #: string (the default) means "no live strategy configured" —
+    #: `MarketTickEventHandler` then stays the inert logger it always was.
+    TRADING_LIVE_STRATEGY_KEY = "trading.live_strategy_key"

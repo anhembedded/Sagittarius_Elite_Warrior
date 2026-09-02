@@ -1,5 +1,7 @@
 import logging
 import os
+from datetime import timedelta
+from decimal import Decimal
 
 logger = logging.getLogger("App.BinanceBotModule")
 
@@ -51,8 +53,17 @@ from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard imp
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
+from Sagittarius_Elite_Warrior.src.application.services.live_trading_coordinator import (
+    LiveTradingCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.application.services.strategy_factory import (
+    build_engine,
+)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
+    TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
@@ -141,6 +152,14 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data i
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
+    EnableTradingCommand,
+    EnableTradingCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order import (
+    ExecuteOrderCommand,
+    ExecuteOrderCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
@@ -192,6 +211,10 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy 
 )
 from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
     OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
+    TradingLimitPolicy,
+    TradingLimits,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
     MarketDataVenue,
@@ -362,6 +385,31 @@ class BinanceBotModule(BaseModule):
                 ),
             )
 
+        # EPIC-021G: the four trading limits, all on by default — see
+        # TradingLimitPolicy's own docstring for why there is no "disable
+        # this one" toggle, only these numeric thresholds.
+        trading_limits = TradingLimits(
+            max_orders_per_session=int(
+                config.get(ConfigKeys.TRADING_MAX_ORDERS_PER_SESSION.value, 20)
+            ),
+            max_notional_per_order=Decimal(
+                str(
+                    config.get(
+                        ConfigKeys.TRADING_MAX_NOTIONAL_PER_ORDER_USDT.value, 500
+                    )
+                )
+            ),
+            max_positions_per_symbol=int(
+                config.get(ConfigKeys.TRADING_MAX_POSITIONS_PER_SYMBOL.value, 1)
+            ),
+            min_order_interval=timedelta(
+                seconds=int(
+                    config.get(ConfigKeys.TRADING_MIN_ORDER_INTERVAL_SECONDS.value, 60)
+                )
+            ),
+        )
+        app.container.singleton(TradingLimitPolicy, TradingLimitPolicy(trading_limits))
+
         # EPIC-008F: the Application layer talks to the engine only through
         # these three ports; the adapters are the only place naming IEventBus,
         # IConfig or IDispatcher.
@@ -385,6 +433,9 @@ class BinanceBotModule(BaseModule):
         # sync started from Backtest and one started from Data Management see
         # each other's in-flight (symbol, interval) keys.
         app.container.singleton(InFlightSyncGuard, InFlightSyncGuard)
+        # EPIC-021G: one per app process — never persisted, never seeded
+        # from config on boot (see the class's own docstring for why).
+        app.container.singleton(TradingSessionState, TradingSessionState)
 
     def _register_use_cases(self, app: App) -> None:
         """Binds CQRS commands to their respective use case command handlers."""
@@ -402,6 +453,8 @@ class BinanceBotModule(BaseModule):
         app.container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)
         app.container.bind(PruneEmptyShardsCommand, PruneEmptyShardsCommandHandler)
         app.container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
+        app.container.bind(EnableTradingCommand, EnableTradingCommandHandler)
+        app.container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""
@@ -456,8 +509,36 @@ class BinanceBotModule(BaseModule):
         adapter = app.container.resolve(LiveStreamEngineAdapter)
         app.context.hosted_services.register(adapter)
 
+        # EPIC-021G: a `StrategyEngine`/`LiveTradingCoordinator` pair is
+        # only built when a live symbol AND a live strategy are both
+        # configured — an empty `TRADING_LIVE_STRATEGY_KEY` (the default)
+        # means "no live strategy configured", and `MarketTickEventHandler`
+        # stays the inert logger it has always been.
+        config: IConfig = app.container.resolve(IConfig)
+        live_symbol = str(config.get(ConfigKeys.TRADING_LIVE_SYMBOL.value, ""))
+        live_strategy_key = str(
+            config.get(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, "")
+        )
+
+        strategy_engine = None
+        live_trading_coordinator = None
+        if live_symbol and live_strategy_key:
+            strategy_engine = build_engine(
+                app.container.resolve(StrategyRegistry),
+                live_strategy_key,
+                app.container.resolve(IEventPublisher),
+            )
+            live_trading_coordinator = LiveTradingCoordinator(
+                live_symbol,
+                app.container.resolve(ICommandDispatcher),
+                app.container.resolve(ITradingAccountReader),
+                app.container.resolve(IMarketMetadataProvider),
+            )
+
         # Initialize Event Handlers and subscribe to the Event Bus
-        event_handler = MarketTickEventHandler()
+        event_handler = MarketTickEventHandler(
+            live_symbol, strategy_engine, live_trading_coordinator
+        )
         app.event_bus.on(MarketTickEvent, event_handler.handle)
 
     def shutdown(self, app: App) -> None:

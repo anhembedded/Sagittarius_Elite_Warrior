@@ -134,6 +134,43 @@
           "help": "Reference price for the notional estimate (decimal string) — required: this task has no live mark-price network path"
         }
       ]
+    },
+    "trade-once": {
+      "help": "Run one strategy evaluation and, if actionable, attempt one order through the full safety pipeline. DRY-RUN unless --live is passed. Not a daemon — runs one round and exits",
+      "args": [
+        {
+          "name": "--symbol",
+          "type": "str",
+          "required": true,
+          "help": "Futures symbol, e.g. BTCUSDT"
+        },
+        {
+          "name": "--interval",
+          "type": "str",
+          "required": true,
+          "help": "Timeframe interval",
+          "choices": ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M"]
+        },
+        {
+          "name": "--strategy",
+          "type": "str",
+          "required": true,
+          "help": "Registered strategy key",
+          "choices": [
+            "ema_crossover",
+            "multi_ema_trend_follower",
+            "support_resistance",
+            "ema_trend_confirm_pullback",
+            "long_term_trend_zone",
+            "volume_spike_flow"
+          ]
+        },
+        {
+          "name": "--live",
+          "action": "store_true",
+          "help": "Actually submit the order (POST /fapi/v1/order). Without this flag, stops after showing the decision — no order-submission network call at all"
+        }
+      ]
     }
   }
 }

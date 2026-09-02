@@ -53,12 +53,18 @@ class ITradingClient(ABC):
         """
 
     @abstractmethod
-    def get_open_orders(self, symbol: str) -> list[Order]:
-        """@brief Lists every currently-open order on `symbol`."""
+    def get_open_orders(self, symbol: str | None = None) -> list[Order]:
+        """@brief Lists every currently-open order on `symbol`, or on
+        every symbol at once when `symbol` is omitted — `EPIC-021G`'s
+        session-enable reconciliation needs the whole account, not one
+        symbol at a time (ADR §4)."""
 
     @abstractmethod
-    def get_positions(self, symbol: str) -> list[LivePosition]:
-        """@brief Lists every open position on `symbol`.
+    def get_positions(self, symbol: str | None = None) -> list[LivePosition]:
+        """@brief Lists every open position on `symbol`, or on every
+        symbol at once when `symbol` is omitted (same reconciliation need
+        as `get_open_orders`).
         @return Empty if the account is flat on `symbol`. One-way mode
-        (assumed throughout this epic) means at most one element.
+        (assumed throughout this epic) means at most one element per
+        symbol.
         """

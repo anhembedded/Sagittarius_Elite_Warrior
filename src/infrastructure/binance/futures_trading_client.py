@@ -8,7 +8,7 @@ flag. `EPIC-021F` only ever wires `VALIDATE_ONLY` (`POST
 payload in full, but never queues the order for matching. Nothing in this
 repo is allowed to construct this adapter with `OrderSubmissionMode.LIVE`
 until `EPIC-021G` — guarded by
-`tests/unit/infrastructure/binance/test_order_submission_mode_live_is_not_used_yet.py`.
+`tests/unit/infrastructure/binance/test_order_submission_mode_live_is_restricted.py`.
 
 Only `BinanceAPIException` (a response the exchange actually sent back,
 carrying a code) is translated into a named `OrderRejectedByExchangeError`
@@ -131,18 +131,20 @@ class FuturesTradingClient(ITradingClient):
             _raise_rejection(exc)
         return orders
 
-    def get_open_orders(self, symbol: str) -> list[Order]:
+    def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         client = self._resolve_client()
+        request_kwargs = {"symbol": symbol} if symbol else {}
         try:
-            payloads = client.futures_get_open_orders(symbol=symbol)
+            payloads = client.futures_get_open_orders(**request_kwargs)
         except BinanceAPIException as exc:
             _raise_rejection(exc)
         return [map_futures_order_payload_to_order(payload) for payload in payloads]
 
-    def get_positions(self, symbol: str) -> list[LivePosition]:
+    def get_positions(self, symbol: str | None = None) -> list[LivePosition]:
         client = self._resolve_client()
+        request_kwargs = {"symbol": symbol} if symbol else {}
         try:
-            payloads = client.futures_position_information(symbol=symbol)
+            payloads = client.futures_position_information(**request_kwargs)
         except BinanceAPIException as exc:
             _raise_rejection(exc)
         return [
