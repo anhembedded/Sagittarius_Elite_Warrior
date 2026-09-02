@@ -77,9 +77,34 @@ Cộng một dòng trong danh sách module ở `app_bootstrapper.py`. Hết.
 | :--- | :--- |
 | **Header** | Tiêu đề màn + (banner môi trường cắm vào ở `EPIC-021K`) |
 | **Context bar** | Chọn symbol (`SymbolPicker` dùng chung — `EPIC-014`), công tắc **Bật giao dịch**, trạng thái kết nối rút gọn |
-| **Workspace** | Bảng **Vị thế đang mở** (trên) + bảng **Lệnh đang chờ** (dưới) |
+| **Workspace** | **Chart realtime** (trên — §2.2b) + bảng **Vị thế đang mở** + bảng **Lệnh đang chờ** |
 | **Rail phải** | Thẻ tài khoản: số dư USDT, margin đã dùng, PnL chưa thực hiện, số lệnh đã đặt trong phiên / hạn mức |
 | **Console** | Nhật ký lệnh của riêng màn này |
+
+### 2.2b Chart realtime — theo khuôn Dev Board, **không** kéo `screens/backtest/` vào
+
+> **Bổ sung 2026-09-02 (user review mockup).** Mockup trạng thái A không có chart. User yêu cầu
+> thêm **chart realtime kèm chiến lược**. Chart **vốn (equity)** tách sang [`EPIC-021M`](EPIC-021M_chart_von_realtime.md).
+
+Đã đo trước khi quyết định, không suy đoán:
+
+| Câu hỏi | Đo được gì |
+| :--- | :--- |
+| `ChartCard` có phụ thuộc màn nào không? | **Không.** `components/chart_card/` không import `screens/` — dùng lại trực tiếp được |
+| Có tiền lệ chart realtime nào chưa? | **Có.** Dev Board (`screens/dashboard/dashboard_view.py:135`) dựng thẳng `ChartCard`, và **không** import `screens/backtest/` (chỉ một docstring nhắc tên, không phải import) |
+| Dùng lại `chart_canvas_view.py` của backtest được không? | **Không, và không nên.** `trade_flag_markers(result: BacktestResult)` nhận thẳng `BacktestResult`; `equity_curve_to_*` nhận equity curve của backtest. Chúng gắn với kiểu dữ liệu backtest, không phải "chart logic dùng chung" |
+
+**Kết luận:** đi theo khuôn Dev Board — `ChartCard` + một `indicator_coordinator` riêng của màn Giao
+dịch. **Không** cần trích xuất module nào ra khỏi `screens/backtest/`, nên **không** tái tạo chiều
+phụ thuộc mà `EPIC-021L` vừa đảo xong (`BUG-082`). Nếu về sau thấy cần dùng chung thật, đó là một
+task trích xuất riêng, không phải việc làm kèm ở đây.
+
+**Nguồn dữ liệu chart:** nến đến từ `MarketDataVenue.MAINNET_PUBLIC` (đường đã có sẵn, dùng chung
+với Dev Board/Backtest) — **không** phải từ testnet. Đây chính là chỗ giá hiển thị ≠ giá khớp mà
+`EPIC-021K`'s banner phải nói ra (ADR §2.2).
+
+**Ngoài phạm vi task này:** marker Buy/Sell của **lệnh thật** vẽ lên chart — thuộc `EPIC-021K`
+("trade marker trên chart"), vì nó tiêu thụ `OrderFilledEvent` chứ không phải nến.
 
 ### 2.3 Widget QML + ViewModel test được không cần GUI
 
@@ -112,7 +137,22 @@ lên không bao giờ tự ở trạng thái sẵn sàng đặt lệnh).
 | `.../ui/screens/trading/i_trading_view.py` | **Mới** — hợp đồng Presenter↔View **tường minh** (§2.1 `architecture-rule.md`), kèm test hai chiều theo khuôn `EPIC-013B` |
 | `.../ui/screens/trading/view_models/` | **Mới** — ViewModel cho 2 bảng + thẻ tài khoản |
 | `.../ui/screens/trading/qml/` | **Mới** — `PositionsTable.qml`, `OpenOrdersTable.qml`, `AccountCard.qml` |
+| `.../ui/screens/trading/coordinators/chart_coordinator.py` | **Mới** — nối `ChartCard` + đường chỉ báo chiến lược, theo khuôn `screens/dashboard/coordinators/indicator_coordinator.py` (§2.2b) |
 | `src/presentation/ui/app_bootstrapper.py` | **+1 dòng** trong danh sách screen module |
+
+### 3.1 Hai lỗ hổng dữ liệu phát hiện khi đọc mockup (2026-09-02)
+
+Đối chiếu từng cột của mockup với domain model thật:
+
+| Bảng | Kết quả đối chiếu |
+| :--- | :--- |
+| **Vị thế** | ✅ Mọi cột map được. `HƯỚNG` = dấu của `position_amt`, `KHỐI LƯỢNG` = `abs(position_amt)` — **suy ra**, không phải field lưu sẵn |
+| **Lệnh chờ** | ⚠️ Cột `THỜI GIAN` **không có nguồn**. `Order` không có field thời gian, và `map_futures_order_payload_to_order()` không đọc `time`/`updateTime` của Binance |
+
+`THỜI GIAN` cần một quyết định, không phải một dòng render: hoặc (a) thêm field vào `Order` + map
+từ payload sàn, hoặc (b) chỉ ghi thời điểm hiển thị lúc gửi lệnh ở tầng presentation. Chọn (a) nếu
+muốn thời gian **của sàn**; chọn (b) nếu chỉ cần đối chiếu với nhật ký bên dưới. Phải chốt trước
+khi dựng `OpenOrdersTable`.
 
 ## 4. Kiểm thử
 

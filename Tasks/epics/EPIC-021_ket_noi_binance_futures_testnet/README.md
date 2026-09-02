@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🟡 Đang làm (10/12 task con)
+- **Trạng thái:** 🟡 Đang làm (10/13 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be (**bản vẽ kế hoạch**, xem cảnh báo dưới)
@@ -80,6 +80,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 | **I** | [**Màn hình Giao dịch mới** — sổ lệnh, vị thế, công tắc bật giao dịch](incomplete/EPIC-021I_man_giao_dich_moi.md) | Elite | H | 🔴 |
 | **K** | [Banner môi trường toàn cục + Emergency Stop + trade marker trên chart](incomplete/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) | Elite | I | 🔴 |
 | **J** | [Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures](completed/EPIC-021J_tier_test_testnet_va_fake_server_futures.md) | Elite | F | ✅ |
+| **M** | [Chart vốn (equity) realtime](incomplete/EPIC-021M_chart_von_realtime.md) | Elite | I | 🔴 |
 
 **Không nhảy cóc.** `A` chặn tất cả vì mọi task sau đều cần biết "đang nói chuyện với sàn nào".
 `C` chặn `E` vì không có `stepSize` thì `Order` không thể có khối lượng hợp lệ để mà mô hình hoá.
@@ -107,6 +108,7 @@ Không task nào của epic này kết thúc bằng "code xong, test xanh". Mỗ
 | **K** | Bấm **Dừng khẩn cấp** | 3 bước với dấu ✔/✘ từng bước, rồi `exchange-status` xác nhận `Vị thế đang mở: 0` |
 | **J** | `ci-local.ps1 -TestnetOnly` | 3 test chạm sàn thật xanh; `-Full` **không** chạm file nào trong `tests/testnet/` |
 | **L** | `python src/presentation/ui/qml/TradeLogTable/preview.py` | Widget bảng lệnh dựng độc lập, **0** import `screens.backtest` — guard `ast` xanh sau khi đỏ đúng 11 file trước đó |
+| **M** | `trade-once --live` ở terminal khác, màn Giao dịch đang mở | Đường vốn nhích **một bước** đúng lúc lệnh khớp; đứng yên thì không sinh điểm mới |
 
 Bốn task đầu (**A–D**) chạy được **hoàn toàn headless**, không cần GUI — đúng ràng buộc dual-mode
 mà `README.md` của repo đặt ra từ đầu (chạy được trên VPS không màn hình). Giao diện chỉ vào cuộc
