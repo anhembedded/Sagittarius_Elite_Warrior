@@ -61,7 +61,7 @@ def _handler(
     status: ExchangeConnectionStatus | None = None,
     position_payloads: list[dict] | None = None,
     open_order_payloads: list[dict] | None = None,
-) -> tuple[EnableTradingCommandHandler, TradingSessionState]:
+) -> tuple[EnableTradingCommandHandler, TradingSessionState, Mock]:
     account_reader = Mock()
     account_reader.check_connection.return_value = status or _ready_status()
 
@@ -76,6 +76,7 @@ def _handler(
     )
     metadata_provider = Mock()
     session_state = TradingSessionState()
+    user_data_stream = Mock()
 
     return (
         EnableTradingCommandHandler(
@@ -85,29 +86,35 @@ def _handler(
             credentials_provider,
             metadata_provider,
             session_state,
+            user_data_stream,
         ),
         session_state,
+        user_data_stream,
     )
 
 
 def test_enables_when_account_is_flat() -> None:
-    handler, session_state = _handler()
+    handler, session_state, user_data_stream = _handler()
 
     result = handler.execute(EnableTradingCommand())
 
     assert result.enabled is True
     assert result.block_reason is None
     assert session_state.enabled is True
+    user_data_stream.start.assert_called_once()
 
 
 def test_blocked_when_trading_venue_disabled() -> None:
-    handler, session_state = _handler(trading_venue=TradingVenue.DISABLED)
+    handler, session_state, user_data_stream = _handler(
+        trading_venue=TradingVenue.DISABLED
+    )
 
     result = handler.execute(EnableTradingCommand())
 
     assert result.enabled is False
     assert result.block_reason is EnableTradingBlockReason.TRADING_VENUE_DISABLED
     assert session_state.enabled is False
+    user_data_stream.start.assert_not_called()
 
 
 def test_blocked_when_connection_not_reachable() -> None:
@@ -121,12 +128,13 @@ def test_blocked_when_connection_not_reachable() -> None:
         margin_type=None,
         open_position_count=None,
     )
-    handler, session_state = _handler(status=unreachable)
+    handler, session_state, user_data_stream = _handler(status=unreachable)
 
     result = handler.execute(EnableTradingCommand())
 
     assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
     assert session_state.enabled is False
+    user_data_stream.start.assert_not_called()
 
 
 def test_blocked_when_hedge_mode() -> None:
@@ -140,18 +148,21 @@ def test_blocked_when_hedge_mode() -> None:
         margin_type=None,
         open_position_count=0,
     )
-    handler, session_state = _handler(status=hedge_mode)
+    handler, session_state, user_data_stream = _handler(status=hedge_mode)
 
     result = handler.execute(EnableTradingCommand())
 
     assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
     assert session_state.enabled is False
+    user_data_stream.start.assert_not_called()
 
 
 def test_refuses_and_does_not_enable_when_unexpected_position_exists() -> None:
     """`EPIC-021G` §2.4: an existing position the app has no record of
     refuses the enable — it is never auto-adopted, never auto-closed."""
-    handler, session_state = _handler(position_payloads=[_position_payload()])
+    handler, session_state, user_data_stream = _handler(
+        position_payloads=[_position_payload()]
+    )
 
     result = handler.execute(EnableTradingCommand())
 
@@ -160,3 +171,4 @@ def test_refuses_and_does_not_enable_when_unexpected_position_exists() -> None:
     assert len(result.reconciled_positions) == 1
     assert result.reconciled_positions[0].symbol == "BTCUSDT"
     assert session_state.enabled is False
+    user_data_stream.start.assert_not_called()

@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider 
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
+    IUserDataStream,
+)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
@@ -57,6 +60,11 @@ class EnableTradingCommandHandler(
     (`binance_bot_module.py`), and this handler must still be
     *constructible* (to report `TRADING_VENUE_DISABLED` itself) when it
     is not.
+
+    Starts `IUserDataStream` on a successful enable (`EPIC-021H` §3) —
+    the exchange's own account of what happens to an order only starts
+    flowing once trading is actually turned on, never merely because the
+    app booted.
     """
 
     def __init__(
@@ -67,6 +75,7 @@ class EnableTradingCommandHandler(
         credentials_provider: IExchangeCredentialsProvider,
         metadata_provider: IMarketMetadataProvider,
         session_state: TradingSessionState,
+        user_data_stream: IUserDataStream,
     ) -> None:
         self._trading_venue = trading_venue
         self._account_reader = account_reader
@@ -74,6 +83,7 @@ class EnableTradingCommandHandler(
         self._credentials_provider = credentials_provider
         self._metadata_provider = metadata_provider
         self._session_state = session_state
+        self._user_data_stream = user_data_stream
 
     def execute(self, command: EnableTradingCommand) -> EnableTradingResult:
         logger.debug("Handling EnableTradingCommand")
@@ -102,6 +112,7 @@ class EnableTradingCommandHandler(
             )
 
         self._session_state.enable({position.symbol for position in positions})
+        self._user_data_stream.start()
         logger.info(
             "Trading enabled for this session (%d open orders reconciled).",
             len(open_orders),

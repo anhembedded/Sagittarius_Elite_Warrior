@@ -1,0 +1,161 @@
+"""`EPIC-021H` — parses Binance Futures User Data Stream payloads. Fixtures
+below match Binance's own documented `ORDER_TRADE_UPDATE`/`ACCOUNT_UPDATE`
+shapes (short single-letter keys nested under `"o"`/`"a"`), not the REST
+response shape `futures_order_payload_mapper.py` parses."""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+import pytest
+from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus
+from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.domain.trading.time_in_force import TimeInForce
+from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.user_data_event_parser import (
+    account_update_changed_symbols,
+    fill_details,
+    is_fill_execution,
+    parse_order_trade_update,
+)
+
+
+def _order_trade_update(**overrides: object) -> dict:
+    o = {
+        "s": "BTCUSDT",
+        "c": "SEW-a91f4c72e0b8",
+        "S": "BUY",
+        "o": "MARKET",
+        "f": "GTC",
+        "q": "0.002",
+        "p": "0",
+        "ap": "64105.10",
+        "sp": "0",
+        "x": "TRADE",
+        "X": "PARTIALLY_FILLED",
+        "i": 8886774,
+        "l": "0.001",
+        "z": "0.001",
+        "L": "64105.10",
+        "N": "USDT",
+        "n": "0.0013",
+        "T": 1591274595163,
+        "t": 1234,
+        "rp": "0",
+    }
+    o.update(overrides)
+    return {"e": "ORDER_TRADE_UPDATE", "T": 1591274595163, "E": 1591274595163, "o": o}
+
+
+class TestParseOrderTradeUpdate:
+    def test_parses_a_partial_fill(self) -> None:
+        """The exact case backtest never produces (`EPIC-021H` §5's own
+        worked example) — the whole reason this task exists."""
+        order = parse_order_trade_update(_order_trade_update())
+
+        assert str(order.client_order_id) == "SEW-a91f4c72e0b8"
+        assert order.symbol == "BTCUSDT"
+        assert order.side is OrderSide.BUY
+        assert order.order_type is OrderType.MARKET
+        assert order.status is OrderStatus.PARTIALLY_FILLED
+        assert order.quantity == Decimal("0.002")
+
+    def test_parses_a_full_fill(self) -> None:
+        order = parse_order_trade_update(
+            _order_trade_update(X="FILLED", z="0.002", l="0.001")
+        )
+        assert order.status is OrderStatus.FILLED
+
+    def test_parses_a_new_acknowledgement(self) -> None:
+        order = parse_order_trade_update(
+            _order_trade_update(X="NEW", x="NEW", z="0", l="0")
+        )
+        assert order.status is OrderStatus.NEW
+
+    def test_limit_order_carries_price_and_time_in_force(self) -> None:
+        order = parse_order_trade_update(
+            _order_trade_update(o="LIMIT", p="64000.00", f="GTC")
+        )
+        assert order.order_type is OrderType.LIMIT
+        assert order.price == Decimal("64000.00")
+        assert order.time_in_force is TimeInForce.GTC
+
+    def test_market_order_has_no_price(self) -> None:
+        order = parse_order_trade_update(_order_trade_update())
+        assert order.price is None
+
+
+class TestIsFillExecution:
+    def test_trade_execution_type_is_a_fill(self) -> None:
+        assert is_fill_execution(_order_trade_update(x="TRADE"))
+
+    def test_new_execution_type_is_not_a_fill(self) -> None:
+        assert not is_fill_execution(_order_trade_update(x="NEW"))
+
+    def test_canceled_execution_type_is_not_a_fill(self) -> None:
+        assert not is_fill_execution(_order_trade_update(x="CANCELED"))
+
+
+class TestFillDetails:
+    def test_returns_last_fill_price_and_quantity_not_running_totals(self) -> None:
+        """`"L"`/`"l"` (this fill) must be read, not `"ap"`/`"z"` (running
+        average price / accumulated quantity) — using the wrong pair would
+        silently report the order's cumulative fill as if it were this
+        one event's fill."""
+        price, quantity = fill_details(
+            _order_trade_update(L="64105.10", l="0.001", ap="64100.00", z="0.0015")
+        )
+        assert price == Decimal("64105.10")
+        assert quantity == Decimal("0.001")
+
+    def test_raises_on_a_non_fill_payload_missing_fill_fields(self) -> None:
+        payload = _order_trade_update(x="NEW")
+        del payload["o"]["L"]
+        del payload["o"]["l"]
+        with pytest.raises(KeyError):
+            fill_details(payload)
+
+
+class TestAccountUpdateChangedSymbols:
+    def test_returns_every_symbol_including_one_that_went_flat(self) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1564745798939,
+            "E": 1564745798939,
+            "a": {
+                "m": "ORDER",
+                "B": [{"a": "USDT", "wb": "122624.12", "cw": "100.12"}],
+                "P": [
+                    {
+                        "s": "BTCUSDT",
+                        "pa": "0.002",
+                        "ep": "64105.35",
+                        "cr": "0",
+                        "up": "-0.02",
+                        "mt": "cross",
+                        "iw": "0",
+                        "ps": "BOTH",
+                    },
+                    {
+                        "s": "ETHUSDT",
+                        "pa": "0",
+                        "ep": "0",
+                        "cr": "0",
+                        "up": "0",
+                        "mt": "cross",
+                        "iw": "0",
+                        "ps": "BOTH",
+                    },
+                ],
+            },
+        }
+        assert account_update_changed_symbols(payload) == ["BTCUSDT", "ETHUSDT"]
+
+    def test_no_position_section_returns_empty_list(self) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1,
+            "E": 1,
+            "a": {"m": "ORDER", "B": [], "P": []},
+        }
+        assert account_update_changed_symbols(payload) == []

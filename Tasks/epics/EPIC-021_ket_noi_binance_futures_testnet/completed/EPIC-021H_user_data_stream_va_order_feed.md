@@ -1,6 +1,6 @@
 # EPIC-021H — User Data Stream: sự thật về lệnh đến từ sàn + `OrderFeed`
 
-- **Trạng thái:** 🔴 Chưa bắt đầu
+- **Trạng thái:** ✅ Hoàn thành (2026-09-02)
 - **Repo:** Elite
 - **Chặn bởi:** `EPIC-021G` · **Chặn:** `EPIC-021I`
 
@@ -119,3 +119,87 @@ vẹn tức thì. Nhìn thấy nó chảy qua chính là bằng chứng rằng n
 
 Mốc phụ, quan trọng không kém: mở app với giao dịch **tắt** → probe không nhận gì, và
 `tests/sanity` vẫn im lặng tuyệt đối. Một stream tự mở khi chưa ai bật là bug.
+
+## 6. Ghi chú triển khai
+
+### 6.1 `listenKey` keepalive: ủy quyền cho `python-binance`, không viết lại
+
+§2.2 yêu cầu gia hạn định kỳ + tái tạo khi mất kết nối, có log `INFO` khi tái tạo.
+Đọc thẳng mã nguồn `python-binance`'s `BinanceSocketManager.futures_user_socket()` →
+`KeepAliveWebsocket` (`binance/ws/keepalive_websocket.py`) cho thấy nó đã tự làm đúng
+việc này: `_keepalive_socket()` gọi lại `futures_stream_get_listen_key()` theo chu kỳ —
+đây là API "create-or-extend" của chính Binance, trả về cùng key nếu còn hạn, key mới
+nếu đã hết — và tự reconnect bằng key mới khi key đổi. `FuturesUserDataStream` dùng thẳng
+entry point công khai `bsm.futures_user_socket()` thay vì tự viết một bộ định thời
+riêng cạnh các hàm `AsyncClient` private (`_get_futures_socket`, `futures_stream_keepalive`)
+— viết lại logic thư viện đã làm đúng chỉ tạo ra một bản triển khai thứ hai không ai
+review. Đây là một thu hẹp phạm vi có chủ đích so với câu chữ của §2.2, không phải một
+thiếu sót.
+
+### 6.2 `FuturesUserDataStream` không phụ thuộc `ITradingClient` trực tiếp
+
+Cùng lý do đã áp dụng cho `EnableTradingCommandHandler`/`ExecuteOrderCommandHandler`
+(`EPIC-021G`): `ITradingClient` chỉ được đăng ký khi `TradingVenue != DISABLED`
+(`binance_bot_module.py`). Nếu constructor nhận thẳng `ITradingClient`, class này —
+và do đó `EnableTradingCommandHandler` một khi phụ thuộc `IUserDataStream` — sẽ chỉ
+constructible khi trading đã bật, phá lại đúng bất biến DI đã sửa ở G. Thay vào đó,
+`FuturesUserDataStream` nhận `session_factory`/`credentials_provider`/`metadata_provider`
+thô và tự dựng `FuturesTradingClient(..., VALIDATE_ONLY)` bên trong `_run_stream()`,
+sau khi đã resolve credentials ở đó (trả về êm nếu không có key, không throw).
+
+### 6.3 `IUserDataStream` đăng ký vô điều kiện
+
+Không giống `ITradingClient`, `IUserDataStream` đăng ký singleton trong DI **không
+điều kiện** — cùng nhóm rủi ro với `ITradingAccountReader` (chỉ đọc). Không có gì tự
+gọi `.start()` ngoài nhánh bật-thành-công của `EnableTradingCommandHandler`, nên "app
+boot với giao dịch tắt → không stream nào mở" đúng theo cấu trúc, không cần thêm guard.
+
+### 6.4 `account_update_changed_symbols()` cố ý bao gồm symbol vừa về flat
+
+Một vị thế vừa đóng (`positionAmt=0`) tự nó là một thay đổi thật, không phải noise cần
+lọc bỏ. `_handle_account_update` không cố dựng `LivePosition` từ payload `ACCOUNT_UPDATE`
+(thiếu `markPrice`/`leverage`/`liquidationPrice`) — luôn fetch lại qua
+`ITradingClient.get_positions(symbol)` (REST), khớp đúng nguyên tắc "sàn là nguồn sự
+thật" ở độ chi tiết cao hơn payload stream cung cấp.
+
+### 6.5 §3 nói đổi `live_trading_coordinator.py` — thực tế không cần
+
+Bảng file ở §3 liệt `live_trading_coordinator.py` là nơi "state lệnh/vị thế cập nhật từ
+stream, không từ response". Đọc lại `TradingSessionState` (đã viết từ G) thì
+`known_open_symbols` không do `LiveTradingCoordinator` sở hữu — nó được set lạc quan bởi
+`record_order_sent()` (gọi từ `ExecuteOrderCommandHandler`) và **sửa lại theo sự thật của
+sàn** bởi hàm mới `position_state_reconciler.reconcile_position_state()`, gọi từ
+`FuturesUserDataStream._handle_account_update()` mỗi khi có `ACCOUNT_UPDATE`. Đúng yêu
+cầu của §3, chỉ khác nơi đặt — không có gì trong `live_trading_coordinator.py` cần sửa,
+nên file đó không nằm trong diff của task này.
+
+### 6.6 Mốc chạy được: thêm `scripts/epic021h_user_stream_probe.py`
+
+§3 không liệt kê file này, nhưng §5 mô tả nó là cách quan sát mốc (hai terminal). Không
+gọi qua `ITaskManager.spawn()` (cần `App` context đầy đủ: async runtime, recorder,
+container) — thay vào đó `await` thẳng `FuturesUserDataStream._run_stream()`, bọc trong
+`asyncio.wait_for(..., timeout=seconds)`, đúng coroutine mà `.start()` lẽ ra sẽ giao cho
+task manager. Đã smoke-test tại chỗ (không cấu hình credentials) — thoát êm với log lỗi
+`"No exchange credentials configured"`, không crash. Không thể chạy full milestone
+(nhận `ORDER_TRADE_UPDATE`/`ACCOUNT_UPDATE` thật) trong sandbox này vì mọi egress tới
+`*.binance.*` bị chặn theo chính sách — cần máy có mạng thật + credentials testnet.
+
+Cũng phát hiện: hiện chưa có CLI command nào gọi `EnableTradingCommand` (`main.py
+trade-once` gọi thẳng `ExecuteOrderCommand`, bỏ qua bước bật trading) — nghĩa là mốc §5
+đúng nghĩa đen (bật trading rồi mới trade-once) cần `EPIC-021I`'s Trading screen hoặc một
+CLI command "enable-trading" chưa tồn tại. Không phải phạm vi của task này; ghi lại để
+`EPIC-021I` không bất ngờ.
+
+### 6.7 Kết quả kiểm thử
+
+- Unit mới: parser 12/12, reconciler 3/3, stream routing 7/7, `OrderFeed` 3/3,
+  `enable_trading` (cập nhật) 5/5 — 30/30.
+- Ruff (`src tests scripts tools`): 0 lỗi ngoài 3 lỗi baseline đã biết ở
+  `scripts/shutdown_database_sync_probe.py`/`scripts/shutdown_sync_probe.py` (không đụng).
+- `ruff format --check`: sạch.
+- Mypy (chạy từ `/home/user`, `--namespace-packages --explicit-package-bases`): 0 lỗi,
+  231 file nguồn (gồm `scripts/epic021h_user_stream_probe.py`).
+- `tests/sanity`: 24/24.
+- `tests/unit` đầy đủ (`-n 4`, offscreen): 3190 passed, 1 failed — thất bại duy nhất là
+  `test_pan_preview_moves_only_the_data_region_not_the_axes` (chart pan pixel-rendering),
+  đã xác nhận không liên quan qua các task E/F/G trước đó.

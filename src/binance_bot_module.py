@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader im
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
     ITradingClient,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
+    IUserDataStream,
+)
 from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
     InFlightSyncGuard,
 )
@@ -241,6 +244,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provi
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client import (
     FuturesTradingClient,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_user_data_stream import (
+    FuturesUserDataStream,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,
 )
@@ -365,6 +371,24 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(
             ITradingAccountReader,
             FuturesAccountReader(session_factory, credentials_provider),
+        )
+
+        # EPIC-021H: read-only like ITradingAccountReader — registered
+        # unconditionally (not gated on TradingVenue, unlike ITradingClient
+        # just below) so EnableTradingCommandHandler stays constructible
+        # regardless of trading being enabled. Nothing calls `.start()` on
+        # it except that handler's own successful-enable path — the app
+        # never opens this stream merely by booting.
+        app.container.singleton(
+            IUserDataStream,
+            lambda c: FuturesUserDataStream(
+                app.event_bus,
+                c.resolve(ITaskManager),
+                session_factory,
+                credentials_provider,
+                c.resolve(IMarketMetadataProvider),
+                c.resolve(TradingSessionState),
+            ),
         )
 
         # EPIC-021F: unlike ITradingAccountReader (read-only, always safe),
@@ -551,3 +575,11 @@ class BinanceBotModule(BaseModule):
                 exchange_client.close()
         except Exception as exc:  # noqa: BLE001
             logger.debug("Exchange client shutdown error: %s", exc)
+        try:
+            # EPIC-021H: harmless no-op if trading was never enabled this
+            # session (`IUserDataStream.stop()` returns `False`, does not
+            # raise) — still worth calling unconditionally so a session
+            # that *did* enable trading always tears its stream down.
+            app.container.resolve(IUserDataStream).stop()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("User data stream shutdown error: %s", exc)

@@ -1,6 +1,6 @@
 # EPIC-021 — Kết nối Binance USD-M Futures Testnet & đường đi lệnh thật
 
-- **Trạng thái:** 🟡 Đang làm (7/12 task con)
+- **Trạng thái:** 🟡 Đang làm (8/12 task con)
 - **Ngày lập:** 2026-09-01
 - **ADR bắt buộc đọc trước:** [`DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`](DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 - **Sơ đồ:** [`design/`](design/) — 2 as-is, 2 to-be
@@ -67,7 +67,7 @@ app có thể làm là **đọc** số dư tài khoản testnet.
 | **E** | [Domain model lệnh sống + port `ITradingClient` (không chạm mạng)](completed/EPIC-021E_domain_model_lenh_song_va_port_trading.md) | Elite | C | ✅ |
 | **F** | [Adapter `BinanceFuturesTradingClient` + dry-run qua `/fapi/v1/order/test`](completed/EPIC-021F_adapter_futures_va_dry_run.md) | Elite | D, E | ✅ |
 | **G** | [`ExecuteOrderCommand` + `LiveTradingCoordinator` — lệnh thật đầu tiên, kèm hạn mức](completed/EPIC-021G_execute_order_command_va_live_coordinator.md) | Elite | F | ✅ |
-| **H** | [User Data Stream: sự thật về lệnh đến từ sàn + `OrderFeed`](incomplete/EPIC-021H_user_data_stream_va_order_feed.md) | Elite | G | 🔴 |
+| **H** | [User Data Stream: sự thật về lệnh đến từ sàn + `OrderFeed`](completed/EPIC-021H_user_data_stream_va_order_feed.md) | Elite | G | ✅ |
 | **I** | [**Màn hình Giao dịch mới** — sổ lệnh, vị thế, công tắc bật giao dịch](incomplete/EPIC-021I_man_giao_dich_moi.md) | Elite | H | 🔴 |
 | **K** | [Banner môi trường toàn cục + Emergency Stop + trade marker trên chart](incomplete/EPIC-021K_banner_toan_cuc_emergency_stop_va_trade_marker.md) | Elite | I | 🔴 |
 | **J** | [Tier `tests/testnet/` opt-in + fake server phục vụ endpoint futures](incomplete/EPIC-021J_tier_test_testnet_va_fake_server_futures.md) | Elite | F | 🔴 |
