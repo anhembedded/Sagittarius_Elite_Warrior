@@ -30,13 +30,16 @@ from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus
 from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.trading.time_in_force import TimeInForce
 from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
     MarginType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.order_enum_parsing import (
+    order_status_or_unknown,
+    order_type_or_unknown,
+    time_in_force_or_none,
+)
 
 #: `positionSide` Binance's API expects when the account is One-way mode —
 #: never anything else in this epic (ADR §6, `EPIC-021D`).
@@ -133,19 +136,24 @@ def map_futures_order_payload_to_order(payload: dict[str, Any]) -> Order:
     for order types that don't use them, not as an absent field — treated
     as `None` here, matching how `Order` itself represents "not
     applicable" rather than "zero".
+    @raise KeyError A required field is missing — a genuinely malformed
+    payload, not merely an unrecognized `type`/`status` value
+    (`order_enum_parsing.py` handles that case without raising, `BUG-091`
+    — the whole-account reconciliation this feeds, `EnableTradingCommand`'s
+    `get_open_orders()`, must not lose an order just because it wasn't
+    placed by this app).
     """
-    order_type = OrderType[payload["type"]]
-    time_in_force_raw = payload.get("timeInForce")
+    order_type = order_type_or_unknown(payload["type"])
     return Order(
         client_order_id=ClientOrderId(payload["clientOrderId"]),
         symbol=payload["symbol"],
         side=OrderSide[payload["side"]],
         order_type=order_type,
         quantity=Decimal(str(payload["origQty"])),
-        status=OrderStatus[payload["status"]],
+        status=order_status_or_unknown(payload["status"]),
         price=_decimal_or_none(payload.get("price")),
         stop_price=_decimal_or_none(payload.get("stopPrice")),
-        time_in_force=(TimeInForce(time_in_force_raw) if time_in_force_raw else None),
+        time_in_force=time_in_force_or_none(payload.get("timeInForce")),
         reduce_only=bool(payload.get("reduceOnly", False)),
         order_time=_order_time_or_none(payload),
     )

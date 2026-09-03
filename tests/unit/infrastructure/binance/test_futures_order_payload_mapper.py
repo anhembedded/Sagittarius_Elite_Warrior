@@ -160,6 +160,35 @@ class TestReverseOrderMapping:
         assert order.status is OrderStatus.PARTIALLY_FILLED
         assert order.reduce_only is True
 
+    def test_an_unrecognized_type_and_status_fall_back_to_unknown_not_a_raise(
+        self,
+    ) -> None:
+        """`BUG-091` — the same risk `test_user_data_event_parser.py`
+        guards for the websocket shape, here for the REST reconciliation
+        shape `EnableTradingCommand.get_open_orders()` feeds: an order
+        this app didn't place itself (a manually-placed testnet order)
+        must not vanish from reconciliation just because its `type`/
+        `status` isn't one of this app's own narrow set."""
+        payload = {
+            "symbol": "BTCUSDT",
+            "side": "BUY",
+            "type": "TRAILING_STOP_MARKET",
+            "origQty": "0.002",
+            "status": "EXPIRED_IN_MATCH",
+            "clientOrderId": "manually-placed-1",
+            "price": "0",
+            "stopPrice": "0",
+            "timeInForce": "GTX",
+            "reduceOnly": False,
+        }
+        order = map_futures_order_payload_to_order(payload)
+
+        assert order.order_type is OrderType.UNKNOWN
+        assert order.status is OrderStatus.UNKNOWN
+        assert order.time_in_force is None
+        assert str(order.client_order_id) == "manually-placed-1"
+        assert order.quantity == Decimal("0.002")
+
 
 class TestPositionMapping:
     def test_maps_a_long_position(self) -> None:

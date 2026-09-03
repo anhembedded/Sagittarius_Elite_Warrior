@@ -123,7 +123,14 @@ async def _run(seconds: float) -> None:
 
     print(f"Listening for {seconds:.0f}s — Ctrl+C to stop early.")
     try:
-        await asyncio.wait_for(stream._run_stream(CancellationToken()), timeout=seconds)
+        # `BUG-094` — `_run_stream()` only processes messages while its own
+        # `generation` argument still matches `stream._generation`; this
+        # probe bypasses `start()` (which is what normally bumps it), so it
+        # must pass the instance's current value directly, not a literal.
+        await asyncio.wait_for(
+            stream._run_stream(CancellationToken(), generation=stream._generation),
+            timeout=seconds,
+        )
     except TimeoutError:
         print(f"Done — listened for {seconds:.0f}s.")
 

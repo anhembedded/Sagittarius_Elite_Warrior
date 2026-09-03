@@ -30,6 +30,14 @@ class OrderStatus(str, Enum):
     CANCELED = "canceled"
     REJECTED = "rejected"
     EXPIRED = "expired"
+    #: `BUG-091` — the honest answer for a Binance status this app's
+    #: parsers (`user_data_event_parser.py`, `futures_order_payload_
+    #: mapper.py`) don't have a narrower name for, e.g. `EXPIRED_IN_MATCH`
+    #: on an order this app did not itself construct (a manually-placed
+    #: testnet order the account-wide user data stream still reports).
+    #: Same "named catch-all, never a raised/lost update" idiom
+    #: `OrderRejectionReason.UNKNOWN` already established in this app.
+    UNKNOWN = "unknown"
 
 
 #: `FILLED`/`CANCELED`/`REJECTED`/`EXPIRED` are terminal — empty target sets.
@@ -52,6 +60,20 @@ _VALID_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
     OrderStatus.CANCELED: frozenset(),
     OrderStatus.REJECTED: frozenset(),
     OrderStatus.EXPIRED: frozenset(),
+    #: Not terminal — the opposite of the four above: an `UNKNOWN` status
+    #: means this app couldn't name what the exchange reported, not that
+    #: the order is actually done. A later update carrying a real status
+    #: must always be accepted as a correction.
+    OrderStatus.UNKNOWN: frozenset(
+        {
+            OrderStatus.NEW,
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+            OrderStatus.CANCELED,
+            OrderStatus.REJECTED,
+            OrderStatus.EXPIRED,
+        }
+    ),
 }
 
 

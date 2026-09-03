@@ -18,3 +18,10 @@ class OrderType(str, Enum):
     LIMIT = "limit"
     STOP_MARKET = "stop_market"
     TAKE_PROFIT_MARKET = "take_profit_market"
+    #: `BUG-091` — the honest answer for a Binance order type this app's
+    #: own construction never sends (`LIQUIDATION`, `TRAILING_STOP_MARKET`,
+    #: ...) but the account-wide user data stream can still report for an
+    #: order this app did not place itself. Same catch-all idiom
+    #: `OrderStatus.UNKNOWN` uses, for the same reason: a parser must
+    #: never lose an update just because it can't name every field on it.
+    UNKNOWN = "unknown"
