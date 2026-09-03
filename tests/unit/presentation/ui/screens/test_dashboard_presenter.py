@@ -601,9 +601,16 @@ def test_on_start_stream_submits_the_parsed_date_range(presenter, mock_thread_mg
     assert submit_args[7] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
 
 
-def test_run_sync_and_start_passes_the_date_range_to_the_sync_command(
+def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync_command(
     presenter, mock_dispatcher
 ):
+    """`BUG-106`: the Data Range picker's start/end must bound only what
+    `_run_load_history` shows on the chart (a cheap local DB read) — never
+    what `SyncMarketDataCommand` fetches from the exchange. A wide picked
+    range (here 1 day, but the reported case was a 7-day default combined
+    with a `1s` default interval) handed straight to the sync command made
+    it fetch every candle across the whole range instead of just the delta
+    since the latest locally known one."""
     from datetime import datetime
 
     from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
@@ -632,8 +639,43 @@ def test_run_sync_and_start_passes_the_date_range_to_the_sync_command(
         if call[0][0] is SyncMarketDataCommand
     )
     sync_cmd = sync_call[0][1]
-    assert sync_cmd.start_time == start
-    assert sync_cmd.end_time == end
+    assert sync_cmd.start_time is None
+    assert sync_cmd.end_time is None
+
+
+def test_run_sync_and_start_still_loads_history_for_the_picked_date_range(
+    presenter, mock_dispatcher
+):
+    """The other half of `BUG-106`'s fix: `_run_load_history` (the chart's
+    local-DB read) must keep honouring the picked range exactly as before —
+    only the network sync step changed."""
+    from datetime import datetime
+
+    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+
+    mock_dispatcher.dispatch.return_value = []
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 2, tzinfo=UTC)
+    presenter.fsm.transition_to(UIMode.LOCKED)
+
+    presenter._run_sync_and_start(
+        ["BTCUSDT"],
+        TimeFrame("1m"),
+        "1m",
+        5000,
+        presenter._cancellation_token,
+        start,
+        end,
+    )
+
+    history_call = next(
+        call
+        for call in mock_dispatcher.dispatch.call_args_list
+        if call[0][0] is GetHistoricalKlinesQuery
+    )
+    history_query = history_call[0][1]
+    assert history_query.start_time == start
+    assert history_query.end_time == end
 
 
 # ---------------------------------------------------------------------------

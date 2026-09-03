@@ -523,11 +523,26 @@ class StreamLifecycleController:
         end_time: datetime | None = None,
     ) -> None:
         try:
+            # BUG-106 — never forward the Data Range picker's start/end into
+            # the network sync step here. That range is meant to bound what
+            # `_run_load_history` below shows on the chart (a cheap local DB
+            # read); handing the SAME wide range to `SyncMarketDataCommand`
+            # makes it fetch every candle across it from the exchange. A
+            # user with a fine-grained default interval (`1s`) and this
+            # screen's own 7-day default lookback synced 604,800 candles —
+            # visibly stuck mid-sync for minutes — just to click "Start
+            # Live". Passing `None` here instead lets
+            # `SyncMarketDataCommandHandler._determine_start_time()` do what
+            # it already exists to do: sync only the delta since the latest
+            # locally known candle (falling back to `days_back_if_empty`
+            # only when this symbol has no local data at all) — "make sure
+            # recent data exists" bounded and cheap, not "backfill whatever
+            # range happens to be sitting in an unrelated form field."
             self._sync_market_data(
                 symbols,
                 interval,
-                start_time,
-                end_time,
+                None,
+                None,
                 cancellation_requested=token.is_cancelled,
             )
 
