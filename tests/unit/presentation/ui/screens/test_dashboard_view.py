@@ -38,8 +38,20 @@ def test_dashboard_view_hybrid_layout_hosts_chart_scroll_area_and_dev_board_pane
     splitters = view.findChildren(QSplitter)
     assert len(splitters) == 1
     splitter = splitters[0]
-    assert view.scroll_area in [splitter.widget(i) for i in range(splitter.count())]
-    assert view._panel in [splitter.widget(i) for i in range(splitter.count())]
+    panes = [splitter.widget(i) for i in range(splitter.count())]
+    # `view.scroll_area` is already its own `QScrollArea` (built by this
+    # view itself, well before `PageShell.set_workspace()` existed) so it
+    # lands in the splitter unwrapped; `view._panel` is a raw `DevBoardPanel`
+    # and gets `PageShell`'s own scroll-wrap treatment (`page_shell.py`'s
+    # `set_workspace()` — every rail/main pane not already a `QScrollArea`
+    # is wrapped so its natural content height is never squeezed).
+    assert view.scroll_area in panes
+    wrapped_panel_panes = [
+        pane
+        for pane in panes
+        if isinstance(pane, QScrollArea) and pane.widget() is view._panel
+    ]
+    assert len(wrapped_panel_panes) == 1
 
 
 def test_dashboard_view_header_title(qapp):

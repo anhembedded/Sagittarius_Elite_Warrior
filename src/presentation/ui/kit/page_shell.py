@@ -25,17 +25,27 @@ Indicators-panel-shaped complaint would call "hiển thị thiếu" for the
 wrong reason. The banner band follows the same rule for the same reason,
 via `set_environment_banner_factory` (`EPIC-021K`) rather than a per-call
 setter — see that classmethod's own docstring.
+
+`set_workspace()` scroll-wraps its own `main`/`rail` panes (see its own
+docstring) — the fix for the recurring "a panel's content is taller than
+the space it got squeezed into, so its widgets overlap or get clipped"
+class of bug (Trading's Sync Controls rail, before this). Backtest and
+Settings already hand-rolled this per screen; it is a shell-level concern
+now, not something each new screen re-solves.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLayout,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -210,20 +220,57 @@ class PageShell(QWidget):  # base-exempt: pure layout composite, no chrome of it
     # ------------------------------------------------------------------ #
 
     def set_workspace(self, main: QWidget, rail: QWidget | None = None) -> None:
+        """@details Both `main` and `rail` are wrapped in a vertical-only,
+        borderless `QScrollArea` unless the caller already passed one —
+        the Backtest/Settings/Dashboard pattern (each hand-rolled its own
+        `QScrollArea` before this existed) generalized here so a screen's
+        natural content height is never squeezed by whatever the viewport
+        happens to be, instead of every new screen re-discovering that
+        need on its own. See `_scrollable()`."""
         splitter = self._workspace_splitter
         while splitter.count():
-            # Detaches the pane, it does not destroy it: `setParent(None)`
-            # on the real widget the caller passed in (not a disposable
-            # wrapper), which the caller's own Python reference keeps alive.
             pane = splitter.widget(0)
             if pane is not None:
+                if isinstance(pane, QScrollArea) and getattr(
+                    pane, "_page_shell_auto_wrap", False
+                ):
+                    # A wrapper this method created itself (below) — pull its
+                    # real content out first so it survives, the same
+                    # concern the pane-level `setParent(None)` below already
+                    # solves one level up: an orphaned, unreferenced
+                    # QScrollArea is garbage collected immediately, and Qt
+                    # cascades that deletion to its still-parented child.
+                    # `takeWidget()` is Qt's own contract for exactly this —
+                    # detaches without deleting.
+                    pane.takeWidget()
+                # Detaches the pane, it does not destroy it: `setParent(None)`
+                # on the real widget/wrapper (not disposed here), which the
+                # caller's own Python reference keeps alive.
                 pane.setParent(None)
 
-        splitter.addWidget(main)
+        splitter.addWidget(self._scrollable(main))
         if rail is not None:
-            splitter.addWidget(rail)
+            splitter.addWidget(self._scrollable(rail))
             main_width = max(self.width() - _RAIL_INITIAL_WIDTH, _RAIL_INITIAL_WIDTH)
             splitter.setSizes([main_width, _RAIL_INITIAL_WIDTH])
+
+    @staticmethod
+    def _scrollable(widget: QWidget) -> QWidget:
+        """Wraps `widget` in a vertical-only `QScrollArea` so its natural
+        content height is never squeezed by the viewport — passed through
+        unchanged if the caller already manages its own `QScrollArea`
+        (Backtest/Settings/Dashboard), never double-wrapped."""
+        if isinstance(widget, QScrollArea):
+            return widget
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(widget)
+        # Marks this as a wrapper `set_workspace()` itself created, so a
+        # later call detaching it knows to `takeWidget()` first — see there.
+        scroll._page_shell_auto_wrap = True  # type: ignore[attr-defined]
+        return scroll
 
     # ------------------------------------------------------------------ #
     # Console — optional. The log/append component, same shape (usually

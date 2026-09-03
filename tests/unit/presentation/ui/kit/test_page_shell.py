@@ -5,7 +5,7 @@ optional console)."""
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QLabel, QPushButton, QSplitter
+from PySide6.QtWidgets import QLabel, QPushButton, QScrollArea, QSplitter
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
 
 
@@ -97,7 +97,9 @@ def test_workspace_with_no_rail_is_a_single_pane(qtbot):
     splitter = shell._workspace_container.findChild(QSplitter)
     assert splitter is not None
     assert splitter.count() == 1
-    assert splitter.widget(0) is main
+    pane = splitter.widget(0)
+    assert isinstance(pane, QScrollArea)
+    assert pane.widget() is main
 
 
 def test_workspace_rail_always_lands_on_the_right(qtbot):
@@ -114,8 +116,9 @@ def test_workspace_rail_always_lands_on_the_right(qtbot):
 
     splitter = shell._workspace_container.findChild(QSplitter)
     assert splitter.count() == 2
-    assert splitter.widget(0) is main
-    assert splitter.widget(1) is rail
+    left, right = splitter.widget(0), splitter.widget(1)
+    assert isinstance(left, QScrollArea) and left.widget() is main
+    assert isinstance(right, QScrollArea) and right.widget() is rail
 
 
 def test_set_workspace_again_replaces_the_previous_pair(qtbot):
@@ -129,7 +132,48 @@ def test_set_workspace_again_replaces_the_previous_pair(qtbot):
 
     splitter = shell._workspace_container.findChild(QSplitter)
     assert splitter.count() == 1
-    assert splitter.widget(0) is new_main
+    pane = splitter.widget(0)
+    assert isinstance(pane, QScrollArea)
+    assert pane.widget() is new_main
+
+
+def test_set_workspace_again_does_not_destroy_a_widget_the_caller_still_holds(qtbot):
+    """`BUG-`-class regression: `set_workspace()` auto-wraps a raw `main`/
+    `rail` in a `QScrollArea` it creates and owns. Calling it again must
+    detach that wrapper's *content* first (`QScrollArea.takeWidget()`)
+    before discarding the wrapper — an orphaned, unreferenced `QScrollArea`
+    is garbage collected immediately, and Qt cascades that deletion to
+    whatever widget was still parented inside it. A caller-supplied
+    `QScrollArea` (Backtest/Settings/Dashboard's own) must never have its
+    content pulled out this way — only a wrapper this method itself
+    created."""
+    shell = PageShell()
+    qtbot.addWidget(shell)
+    shell.show()
+
+    kept_alive = QLabel("still needed by the caller")
+    shell.set_workspace(kept_alive)
+    shell.set_workspace(QLabel("second main"))
+
+    # Would raise RuntimeError ("wrapped C/C++ object ... has been deleted")
+    # if the first call's auto-wrapper had cascaded its deletion onto this
+    # widget instead of detaching it cleanly.
+    assert kept_alive.text() == "still needed by the caller"
+
+
+def test_a_caller_supplied_scroll_area_is_never_double_wrapped(qtbot):
+    shell = PageShell()
+    qtbot.addWidget(shell)
+    shell.show()
+
+    own_scroll = QScrollArea()
+    content = QLabel("backtest-style pre-wrapped content")
+    own_scroll.setWidget(content)
+    shell.set_workspace(own_scroll)
+
+    splitter = shell._workspace_container.findChild(QSplitter)
+    assert splitter.widget(0) is own_scroll
+    assert own_scroll.widget() is content
 
 
 # ---------------------------------------------------------------------------
