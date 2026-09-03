@@ -32,8 +32,8 @@ ColumnLayout {
             { key: "price", label: "GIÁ", width: root.priceColumnWidth, align: "right" },
             { key: "status", label: "TRẠNG THÁI", fillWidth: true, align: "right" },
         ]
-        rowsModel: vm.rows
-        isEmpty: vm.rows.length === 0
+        rowsModel: vm ? vm.rows : null
+        isEmpty: vm ? vm.rows.length === 0 : false
         emptyText: "Không có lệnh đang chờ khớp"
         rowDelegate: Component {
             OpenOrderRow {

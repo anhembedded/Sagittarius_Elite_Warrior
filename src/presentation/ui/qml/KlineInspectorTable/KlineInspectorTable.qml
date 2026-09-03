@@ -36,7 +36,7 @@ ColumnLayout {
     Text {
         objectName: "lblKlineInspectorSubtitle"
         Layout.fillWidth: true
-        text: vm.symbol + " (" + vm.interval + ")  •  " + vm.rowCount + " nến"
+        text: vm ? (vm.symbol + " (" + vm.interval + ")  •  " + vm.rowCount + " nến") : ""
         textFormat: Text.PlainText
         color: Theme.muted
         font.pixelSize: 10
@@ -58,8 +58,8 @@ ColumnLayout {
             { key: "change", label: "Biến động", width: root.changeColumnWidth, align: "right" },
             { key: "trades", label: "Số lệnh", fillWidth: true, align: "right" },
         ]
-        rowsModel: vm.rows
-        isEmpty: vm.rows.length === 0
+        rowsModel: vm ? vm.rows : null
+        isEmpty: vm ? vm.rows.length === 0 : false
         emptyText: "Không có dữ liệu nến nào trong cơ sở dữ liệu."
         rowDelegate: Component {
             KlineInspectorRow {

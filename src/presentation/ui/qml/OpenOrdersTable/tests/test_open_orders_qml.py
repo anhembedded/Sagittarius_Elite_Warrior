@@ -98,3 +98,32 @@ def test_empty_state_shows_when_no_orders(qapp, qml_item) -> None:
     assert empty_label.property("visible") is True
     quick.close()
     quick.deleteLater()
+
+
+def test_the_vm_becoming_null_after_load_does_not_throw(qapp) -> None:
+    """Same defect as `PositionsTable`'s own test (real shutdown log
+    evidence): `OpenOrdersPanel`'s `OpenOrdersVM` is a `QObject` parented
+    to the panel — during app/screen teardown it can be destroyed before
+    the `QQuickWidget`'s QML engine is, at which point Qt Quick sets the
+    `vm` context property to `null` and every live binding referencing it
+    re-evaluates. `rowsModel: vm.rows`/`isEmpty: vm.rows.length === 0`
+    threw `TypeError: Cannot read property 'rows' of null` for both."""
+    from PySide6.QtCore import qInstallMessageHandler
+
+    vm = OpenOrdersVM()
+    vm.set_rows([build_open_order_row(_order("BTCUSDT"))])
+    quick, _root, _ = _load(qapp, vm)
+
+    messages: list[str] = []
+    previous_handler = qInstallMessageHandler(
+        lambda mode, ctx, msg: messages.append(msg)
+    )
+    try:
+        quick.rootContext().setContextProperty("vm", None)
+        qapp.processEvents()
+    finally:
+        qInstallMessageHandler(previous_handler)
+
+    assert not any("TypeError" in m for m in messages), messages
+    quick.close()
+    quick.deleteLater()

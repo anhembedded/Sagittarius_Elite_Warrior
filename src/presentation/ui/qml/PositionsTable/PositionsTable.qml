@@ -35,8 +35,8 @@ ColumnLayout {
             { key: "leverage", label: "ĐÒN BẨY", width: root.leverageColumnWidth, align: "right" },
             { key: "liquidation", label: "GIÁ THANH LÝ", width: root.liquidationColumnWidth, align: "right" },
         ]
-        rowsModel: vm.rows
-        isEmpty: vm.rows.length === 0
+        rowsModel: vm ? vm.rows : null
+        isEmpty: vm ? vm.rows.length === 0 : false
         emptyText: "Không có vị thế đang mở"
         rowDelegate: Component {
             PositionRow {

@@ -31,7 +31,7 @@ ColumnLayout {
         spacing: 4
 
         Repeater {
-            model: vm.filterTabs
+            model: vm ? vm.filterTabs : []
             Rectangle {
                 objectName: "tabTradeLogFilter_" + modelData.id
                 implicitWidth: tabLabel.implicitWidth + 20
@@ -54,7 +54,7 @@ ColumnLayout {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: vm.chooseFilter(modelData.id)
+                    onClicked: if (vm) vm.chooseFilter(modelData.id)
                 }
             }
         }
@@ -75,8 +75,8 @@ ColumnLayout {
             { key: "pnl", label: "LÃI / LỖ RÒNG", fillWidth: true, align: "right" },
             { key: "return", label: "RETURN", width: root.returnColumnWidth, align: "right" },
         ]
-        rowsModel: vm.rows
-        isEmpty: vm.rows.length === 0
+        rowsModel: vm ? vm.rows : null
+        isEmpty: vm ? vm.rows.length === 0 : false
         emptyText: "Chưa có dữ liệu lệnh giao dịch"
         rowDelegate: Component {
             TradeLogRow {

@@ -104,3 +104,31 @@ def test_empty_candle_list_shows_the_empty_label(qapp, qml_item):
     assert empty_label.property("visible") is True
     quick.close()
     quick.deleteLater()
+
+
+def test_the_vm_becoming_null_after_load_does_not_throw(qapp):
+    """Same defect class as `PositionsTable`/`OpenOrdersTable`'s own tests
+    (real shutdown log evidence there): `KlineInspectorDialogWidget`'s
+    `KlineInspectorVM` is a `QObject` that can be destroyed before its
+    `QQuickWidget`'s QML engine is, at which point Qt Quick sets the `vm`
+    context property to `null` and every live binding referencing it
+    re-evaluates — the subtitle text, `rowsModel`, and `isEmpty` all read
+    `vm.*` with no null guard."""
+    from PySide6.QtCore import qInstallMessageHandler
+
+    vm = _vm()
+    quick, _root = _load(qapp, vm)
+
+    messages: list[str] = []
+    previous_handler = qInstallMessageHandler(
+        lambda mode, ctx, msg: messages.append(msg)
+    )
+    try:
+        quick.rootContext().setContextProperty("vm", None)
+        qapp.processEvents()
+    finally:
+        qInstallMessageHandler(previous_handler)
+
+    assert not any("TypeError" in m for m in messages), messages
+    quick.close()
+    quick.deleteLater()

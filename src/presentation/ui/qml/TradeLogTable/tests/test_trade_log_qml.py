@@ -160,3 +160,33 @@ def test_clicking_an_expanded_row_again_collapses_it(qapp, qml_item):
     assert qml_item(root, "tradeLogExpand_1").property("visible") is False
     quick.close()
     quick.deleteLater()
+
+
+def test_the_vm_becoming_null_after_load_does_not_throw(qapp):
+    """Same defect class as `PositionsTable`/`OpenOrdersTable`/
+    `KlineInspectorTable`'s own tests (real shutdown log evidence for the
+    first two): whatever eventually hosts `TradeLogTable.qml` in
+    production, its `TradeLogVM` is a `QObject` that can be destroyed
+    before its `QQuickWidget`'s QML engine is, at which point Qt Quick
+    sets the `vm` context property to `null` and every live binding
+    referencing it re-evaluates — the filter tabs' `model`, the tab
+    click handler, `rowsModel`, and `isEmpty` all read `vm.*` with no
+    null guard."""
+    from PySide6.QtCore import qInstallMessageHandler
+
+    vm = _vm()
+    quick, _root, _ = _load(qapp, vm)
+
+    messages: list[str] = []
+    previous_handler = qInstallMessageHandler(
+        lambda mode, ctx, msg: messages.append(msg)
+    )
+    try:
+        quick.rootContext().setContextProperty("vm", None)
+        qapp.processEvents()
+    finally:
+        qInstallMessageHandler(previous_handler)
+
+    assert not any("TypeError" in m for m in messages), messages
+    quick.close()
+    quick.deleteLater()
