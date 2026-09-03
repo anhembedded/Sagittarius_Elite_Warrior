@@ -5,7 +5,7 @@ from PySide6 import QtCore, QtGui
 
 from . import theme
 from .chart_lod import build_ohlc_lod_pyramid, lod_slice_indices, select_lod_level
-from .viewport_windowing import visible_slice_indices
+from .viewport_windowing import DEFAULT_VISIBLE_PADDING_WIDTHS, visible_slice_indices
 
 
 class FastCandlestickItem(pg.GraphicsObject):
@@ -28,8 +28,11 @@ class FastCandlestickItem(pg.GraphicsObject):
     """
 
     # Extra margin (in candle-widths) drawn beyond the visible X range so
-    # candles don't visibly pop in/out right at the viewport edge.
-    _VISIBLE_PADDING_WIDTHS = 2.0
+    # candles don't visibly pop in/out right at the viewport edge. Shared
+    # with `VolumeItem` via `viewport_windowing.DEFAULT_VISIBLE_PADDING_
+    # WIDTHS` — see that constant's own docstring for why this used to be
+    # two separately-declared copies of the same value.
+    _VISIBLE_PADDING_WIDTHS = DEFAULT_VISIBLE_PADDING_WIDTHS
 
     def __init__(self, data=None, *, lod_enabled: bool = True):
         pg.GraphicsObject.__init__(self)
@@ -361,8 +364,23 @@ class FastCandlestickItem(pg.GraphicsObject):
                 # slice in O(log N) first. Furthermore, we cache the result
                 # by window indices (lo, hi) to prevent re-scanning the visible
                 # slice continuously on sub-pixel/same-candle pan boundaries.
+                #
+                # Padded the same way `_visible_render_slice()` pads its own
+                # lookup (`candle_width * _VISIBLE_PADDING_WIDTHS`) — without
+                # it, this slice goes empty at a *narrower* zoom level than
+                # candles actually stop rendering (an un-padded window can
+                # fall entirely between two candle timestamps while a padded
+                # one still brackets the nearest one). An empty slice here
+                # falls through to the full-history fallback below, and once
+                # that happens every further zoom-in is an even narrower
+                # (still-empty) window — the Y range freezes at the full
+                # history's bounds and never recovers, while the candles
+                # themselves (and the volume subplot, on its own independent,
+                # already-padded slice) keep responding — a real, reported,
+                # reproduced mismatch, not a hypothetical.
+                padding = self.candle_width * self._VISIBLE_PADDING_WIDTHS
                 lo, hi = visible_slice_indices(
-                    self.history_data, min_x, max_x, key=lambda row: row[0]
+                    self.history_data, min_x, max_x, padding, key=lambda row: row[0]
                 )
 
                 # Use cache if valid

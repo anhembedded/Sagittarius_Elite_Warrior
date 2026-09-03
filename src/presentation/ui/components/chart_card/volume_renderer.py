@@ -7,13 +7,18 @@ from .chart_lod import (
     lod_slice_indices,
     select_lod_level,
 )
-from .viewport_windowing import visible_slice_indices
+from .viewport_windowing import (
+    DEFAULT_VISIBLE_PADDING_WIDTHS,
+    visible_slice_indices,
+)
 
 _DEFAULT_BAR_WIDTH = 13.33
 # Extra margin (in bar-widths) applied beyond the visible X range so bars
-# don't visibly pop in/out right at the viewport edge — mirrors
-# FastCandlestickItem._VISIBLE_PADDING_WIDTHS.
-_VISIBLE_PADDING_WIDTHS = 2.0
+# don't visibly pop in/out right at the viewport edge. Shared with
+# `FastCandlestickItem` via `DEFAULT_VISIBLE_PADDING_WIDTHS` — see that
+# constant's own docstring for why this used to be two separately-declared
+# copies of the same value.
+_VISIBLE_PADDING_WIDTHS = DEFAULT_VISIBLE_PADDING_WIDTHS
 
 
 class VolumeItem:

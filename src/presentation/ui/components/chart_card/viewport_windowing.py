@@ -25,6 +25,29 @@ same way, with no per-indicator perf work needed.
 import bisect
 from collections.abc import Callable, Sequence
 
+#: Shared visible-window padding margin, in units of each renderer's own
+#: "item width" (candle width, bar width, ...) — how far beyond the exact
+#: visible X range a renderer still includes items, so nothing visibly
+#: pops in/out right at the viewport edge while panning/zooming.
+#:
+#: Single source of truth on purpose: `FastCandlestickItem` and
+#: `VolumeItem` each used to keep their own copy of this same value
+#: (`volume_renderer.py`'s literally said "mirrors
+#: FastCandlestickItem._VISIBLE_PADDING_WIDTHS" in a comment) — a real
+#: defect, not a style nit: `FastCandlestickItem.dataBounds()`'s own
+#: visible-slice lookup for Y auto-ranging forgot to apply its copy at
+#: all, which the *render* path did apply, so at extreme zoom the Y-bounds
+#: lookup could go empty (falling back to full-history bounds and
+#: freezing) at a narrower zoom level than the candles themselves stopped
+#: rendering — while the volume subplot's own already-padded lookup kept
+#: responding, producing a visible mismatch between the two. Importing
+#: this one constant everywhere instead of re-declaring it doesn't
+#: prevent a future *usage* site from forgetting to apply it (as
+#: `dataBounds()` did), but it does mean every renderer's own "how far
+#: beyond visible do I go" tuning is one edit, not several ones that can
+#: silently drift apart.
+DEFAULT_VISIBLE_PADDING_WIDTHS = 2.0
+
 
 def visible_slice_indices(
     sorted_values: Sequence,
