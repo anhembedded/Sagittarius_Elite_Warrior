@@ -1,4 +1,4 @@
-# BUG-104 — Zoom vào rất sâu: trục Y của nến (candle) đứng hình trong khi volume vẫn tự co giãn, gây lệch tỉ lệ giữa 2 khu vực chart
+# BUG-105 — Zoom vào rất sâu: trục Y của nến (candle) đứng hình trong khi volume vẫn tự co giãn, gây lệch tỉ lệ giữa 2 khu vực chart
 
 **Reported date:** 2026-09-03
 **Severity:** 🟡 **P3** — không mất dữ liệu, không crash; chart vẫn hiển thị được nhưng trục Y nến
