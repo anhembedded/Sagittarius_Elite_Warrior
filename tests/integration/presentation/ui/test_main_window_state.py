@@ -1,5 +1,7 @@
-"""`EPIC-010C` — `MainWindow` remembers geometry, the last route, and the
-sidebar's collapsed state across a restart.
+"""`EPIC-010C` — `MainWindow` remembers geometry and the sidebar's collapsed
+state across a restart. It deliberately does NOT remember the active route
+(`BUG-104`) — every boot always lands on the registered default screen; see
+`main_window.py`'s own `BUG-104` docstring note for why.
 
 Lives in `integration/`, not `unit/`: constructing a real `MainWindow` always
 navigates to a real screen (`switch_screen()` runs unconditionally at the end
@@ -167,7 +169,10 @@ def test_a_bare_main_window_still_works_with_no_coordinator(windows):
     assert window._current_route == "dashboard"
 
 
-def test_restores_route_sidebar_and_geometry_from_a_prior_session(windows, tmp_path):
+def test_restores_sidebar_and_geometry_but_never_the_route(windows, tmp_path):
+    """`BUG-104`: a stored `last_route` from a prior session (even one still
+    valid today) must never become the boot screen — only geometry and the
+    sidebar's collapsed flag are cosmetic enough to restore verbatim."""
     coordinator = _coordinator_over(tmp_path)
     coordinator._store.write(
         StateScope(key="shell"),
@@ -176,46 +181,41 @@ def test_restores_route_sidebar_and_geometry_from_a_prior_session(windows, tmp_p
 
     window = windows.open(coordinator)
 
-    assert window._current_route == "backtest"
+    assert window._current_route == "dashboard"
     assert window._sidebar.is_collapsed is True
 
 
-def test_an_unknown_persisted_route_falls_back_to_the_default(windows, tmp_path):
-    """D5 — a restored value is a request, not a command: a route from an
-    older build that got renamed or removed must not be navigated to."""
-    coordinator = _coordinator_over(tmp_path)
-    coordinator._store.write(
-        StateScope(key="shell"), {"last_route": "a_screen_that_no_longer_exists"}
-    )
-
-    window = windows.open(coordinator)
-
-    assert window._current_route == "dashboard"
-
-
-def test_restoring_a_non_default_route_never_touches_the_default_screen(
+def test_boot_never_constructs_a_non_default_screen_even_with_a_stored_route(
     windows, tmp_path
 ):
     """Proves the lazy-loading guarantee end to end, not just by reading
-    `_current_route`: restoring straight into `"backtest"` must mean
-    `PresenterManager` never constructs the Dev Board presenter at all —
-    it stays lazily un-built exactly as it would for a route nobody ever
-    visited."""
+    `_current_route`: a stored `last_route` of `"trading"` must not make
+    `PresenterManager` construct `TradingPresenter` at boot — it stays
+    lazily un-built exactly as it would for a route nobody ever visited.
+    This is the literal reported shape of `BUG-104`: `TradingPresenter.
+    __init__` unconditionally starts a real `SyncMarketDataCommand`/
+    `StartLiveStreamCommand` sequence (`EPIC-021I` — no separate Start
+    step, by that screen's own documented design), so merely *constructing*
+    it is the observable harm — a prior session leaving `"trading"` stored
+    must never cause that construction to happen at boot."""
     coordinator = _coordinator_over(tmp_path)
-    coordinator._store.write(StateScope(key="shell"), {"last_route": "backtest"})
+    coordinator._store.write(StateScope(key="shell"), {"last_route": "trading"})
 
     window = windows.open(coordinator)
 
     dashboard_entry = window._router._registry["dashboard"]
-    backtest_entry = window._router._registry["backtest"]
-    assert dashboard_entry["presenter_instance"] is None
-    assert backtest_entry["presenter_instance"] is not None
+    trading_entry = window._router._registry["trading"]
+    assert dashboard_entry["presenter_instance"] is not None
+    assert trading_entry["presenter_instance"] is None
 
 
-def test_route_change_and_sidebar_toggle_survive_a_restart(windows, tmp_path):
+def test_sidebar_toggle_survives_a_restart_but_the_route_resets_to_default(
+    windows, tmp_path
+):
     """The real round trip: change state, close the window completely, then
     reopen with a fresh store instance pointed at the same file — as a real
-    restart would be.
+    restart would be. `BUG-104`: unlike the sidebar's collapsed flag, the
+    route a user last navigated to must NOT come back on the next launch.
 
     `windows.close()` between the two is load-bearing, not tidiness: see the
     module docstring for the deadlock that skipping it produced.
@@ -231,16 +231,18 @@ def test_route_change_and_sidebar_toggle_survive_a_restart(windows, tmp_path):
     reopened_coordinator = _coordinator_over(tmp_path)  # a fresh process, fresh store
     reopened = windows.open(reopened_coordinator)
 
-    assert reopened._current_route == "data_management"
+    assert reopened._current_route == "dashboard"
     assert reopened._sidebar.is_collapsed is True
 
 
-def test_capture_state_round_trips_through_restore_state(windows, tmp_path):
+def test_capture_state_never_includes_the_route(windows, tmp_path):
+    """`BUG-104`: the route is deliberately not part of this slice at all —
+    not merely restored-and-ignored, never captured in the first place."""
     coordinator = _coordinator_over(tmp_path)
     window = windows.open(coordinator)
     window.switch_screen("backtest")
     captured = window.capture_state()
 
-    assert captured["last_route"] == "backtest"
+    assert "last_route" not in captured
     assert isinstance(captured["geometry_b64"], str) and captured["geometry_b64"]
     assert captured["sidebar_collapsed"] is window._sidebar.is_collapsed

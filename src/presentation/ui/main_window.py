@@ -59,7 +59,6 @@ _CONTENT_BG_STYLE = (
 #: This slice's flat keys. Named constants rather than inline literals so
 #: `capture_state()` and `restore_state()` cannot drift from each other.
 _GEOMETRY_KEY = "geometry_b64"
-_ROUTE_KEY = "last_route"
 _SIDEBAR_COLLAPSED_KEY = "sidebar_collapsed"
 
 
@@ -76,12 +75,12 @@ class MainWindow(QMainWindow):
     @par EPIC-010C — remembered shell state
     `MainWindow` itself implements `IStateContributor` (structurally — it is a
     `typing.Protocol`, so no base class or import-time coupling is needed) rather
-    than delegating to a helper object: window geometry, the active route, and
-    the sidebar's collapsed flag are `MainWindow`'s own fields, and
-    `code-quality-rule.md`'s Single-Scope Cohesion says a state that is this
-    tightly coupled to one object's own lifecycle belongs in that object, not
-    split across a second file. Window geometry is persisted as the real
-    `QByteArray` `saveGeometry()`/`restoreGeometry()` produce, base64-encoded —
+    than delegating to a helper object: window geometry and the sidebar's
+    collapsed flag are `MainWindow`'s own fields, and `code-quality-rule.md`'s
+    Single-Scope Cohesion says a state that is this tightly coupled to one
+    object's own lifecycle belongs in that object, not split across a second
+    file. Window geometry is persisted as the real `QByteArray`
+    `saveGeometry()`/`restoreGeometry()` produce, base64-encoded —
     `restoreGeometry()` already performs its own off-screen and DPI sanity
     checks, so a hand-rolled `x/y/w/h` would buy no extra safety while getting
     multi-monitor wrong in ways Qt already handles (`EPIC-010` design §5.6.3).
@@ -90,6 +89,18 @@ class MainWindow(QMainWindow):
     to the Engine), and every existing caller that constructs a bare
     `MainWindow(app_engine, screen_registry, sidebar_factory)` — several tests —
     must keep working unchanged.
+
+    @par BUG-104 — the active route is deliberately NOT remembered
+    `EPIC-010C` originally also persisted `last_route` and navigated straight
+    into it on boot. That silently combined with screens whose own design is
+    "being open means live" (`TradingPresenter` — `EPIC-021I`: opening it
+    unconditionally dispatches `SyncMarketDataCommand`/`StartLiveStreamCommand`,
+    no separate Start step, by its own documented intent) to make **launching
+    the app** — no click, no user action at all — start a real network stream
+    whenever the user's previous session had happened to end on that screen.
+    Every boot must land on the registered default route, full stop; a
+    screen's own "open = go live" behaviour then only ever fires from an
+    actual user click on the sidebar.
     """
 
     def __init__(
@@ -102,7 +113,6 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self._app = app_engine
-        self._registry = screen_registry
         # Set before any geometry call: `resizeEvent`/`moveEvent` may fire
         # synchronously as a side effect of `resize()`/`restoreGeometry()`
         # below, and both call `_mark_dirty()`, which reads this attribute.
@@ -137,10 +147,11 @@ class MainWindow(QMainWindow):
         screen_registry.bind_to_router(self._router)
 
         # ---- Restore remembered state, then navigate ----------------------
-        # `restore_state()` (below) only VALIDATES and stores the intended
-        # route into `self._current_route` — it does not navigate itself, so
-        # there is exactly one call to `switch_screen()` on boot regardless
-        # of whether anything was restored.
+        # `restore_state()` (below) applies geometry/sidebar only — never the
+        # route (`BUG-104`) — so `self._current_route` is still exactly
+        # `get_default_route()` set above, and this is always the one and
+        # only `switch_screen()` call on boot, always into the default
+        # screen, regardless of what the previous session had open.
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self)
         self.switch_screen(self._current_route)
@@ -181,13 +192,15 @@ class MainWindow(QMainWindow):
         geometry_b64 = bytes(self.saveGeometry().toBase64().data()).decode("ascii")
         return {
             _GEOMETRY_KEY: geometry_b64,
-            _ROUTE_KEY: self._current_route,
             _SIDEBAR_COLLAPSED_KEY: self._sidebar.is_collapsed,
         }
 
     def restore_state(self, data: StateData) -> None:
-        """Applies a previously captured slice. See the class docstring for
-        why this only validates and stores — it does not navigate."""
+        """Applies a previously captured slice. See the class docstring's
+        `BUG-104` note for why the active route is deliberately never
+        restored here — geometry and the sidebar's collapsed flag are pure
+        cosmetics with no side effect from being applied; which screen boots
+        active is not."""
         geometry_b64 = data.get(_GEOMETRY_KEY)
         if isinstance(geometry_b64, str) and geometry_b64:
             blob = QByteArray.fromBase64(geometry_b64.encode("ascii"))
@@ -196,25 +209,6 @@ class MainWindow(QMainWindow):
         collapsed = data.get(_SIDEBAR_COLLAPSED_KEY)
         if isinstance(collapsed, bool):
             self._sidebar.set_collapsed(collapsed)
-
-        route = data.get(_ROUTE_KEY)
-        if isinstance(route, str) and route in self._known_routes():
-            self._current_route = route
-
-    def _known_routes(self) -> frozenset[str]:
-        """Every route a persisted `last_route` is allowed to name.
-
-        @details A restored value is a request, not a command (`EPIC-010`
-        design D5): a route from an older build that got renamed or removed
-        must fall back to the registry's default route, never navigate to
-        something that no longer exists. Computed from `screen_registry`
-        itself — not a second list that could drift from it.
-        """
-        return frozenset(
-            d.route
-            for d in self._registry.get_all()
-            if d.nav is not None and d.nav.is_navigable
-        )
 
     def _mark_dirty(self) -> None:
         if self._state_coordinator is not None:
