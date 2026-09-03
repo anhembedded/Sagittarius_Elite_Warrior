@@ -348,6 +348,21 @@ class BackTestPresenter(BasePresenter):
         self._shutdown_requested = False
         self._next_preview_id = 0
         self._active_preview_id = 0
+        # BUG-101 — `_connect_ui_signals()` wires `selectedSymbolChanged`/
+        # `selectedTimeframeChanged`/`timeRangePresetChanged`/
+        # `customStart|EndTextChanged` straight to handlers that call
+        # `_request_chart_preview()`, and that wiring must exist before the
+        # user can ever trigger a preview by hand. `restore_into()` below
+        # applies a remembered form through those same ViewModel setters, so
+        # without this flag a remembered symbol/timeframe/time-range fires
+        # the exact same signals a user editing them would — restoring the
+        # Backtest screen's last session ran a live chart-preview query
+        # (`GetHistoricalKlinesQuery`/`GetBacktestRangeCoverageQuery`, up to
+        # 200,000 rows) the instant the app booted, with no user action at
+        # all. `state_persistence.restore()`'s own docstring already
+        # promises "opening the screen still runs nothing" — this flag is
+        # what makes that promise actually hold.
+        self._restoring_state = False
 
         # BOT-057: the single source of truth the Trade Logs table's
         # filter/search/pagination all read from — the ViewModel only ever
@@ -504,7 +519,11 @@ class BackTestPresenter(BasePresenter):
             container
         )
         if self._state_coordinator is not None:
-            self._state_coordinator.restore_into(self)
+            self._restoring_state = True
+            try:
+                self._state_coordinator.restore_into(self)
+            finally:
+                self._restoring_state = False
         self._connect_state_tracking()
 
         self._trigger_initial_health_check()
@@ -1474,6 +1493,13 @@ class BackTestPresenter(BasePresenter):
         )
 
     def _request_chart_preview(self) -> None:
+        """BUG-101: a remembered form applies through the same ViewModel
+        setters a user edit would use, and those setters' `Changed` signals
+        are wired straight to this method (see `__init__`'s
+        `_restoring_state` comment) — restoring must never look like a user
+        editing the form, so this is a no-op while a restore is in flight."""
+        if self._restoring_state:
+            return
         self._chart_preview.request_preview()
 
     def _run_chart_preview(self, config: BacktestRunConfig, preview_id: int) -> None:

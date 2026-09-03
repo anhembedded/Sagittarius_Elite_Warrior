@@ -259,6 +259,33 @@ def test_symbol_and_timeframe_are_remembered_now_that_precedence_is_settled(
     assert presenter._view_model.selectedTimeframe == "15m"
 
 
+def test_restoring_symbol_and_timeframe_does_not_run_a_live_chart_preview(
+    view, container
+):
+    """`BUG-101`: `selectedSymbolChanged`/`selectedTimeframeChanged` are
+    wired to handlers that call `_request_chart_preview()`, which submits a
+    live `GetHistoricalKlinesQuery`/`GetBacktestRangeCoverageQuery` job to
+    `IThreadManager` — up to 200,000 rows in the reported case. Restoring a
+    remembered symbol/timeframe applies through those same ViewModel
+    setters a user edit would use, so without a restore guard this ran a
+    real query the instant the app booted, before any user action.
+    `test_restoring_never_runs_anything` above only proves the *dispatcher*
+    stays untouched for fields (capital/pyramiding) that were never wired to
+    a preview in the first place — it does not exercise this path."""
+    thread_manager = container.resolve(IThreadManager)
+    coordinator = _coordinator_with({"symbol": "SOLUSDT", "timeframe": "15m"})
+
+    presenter = BackTestPresenter(view, _with_coordinator(container, coordinator))
+
+    assert presenter._view_model.selectedSymbol == "SOLUSDT"
+    assert presenter._view_model.selectedTimeframe == "15m"
+    thread_manager.submit.assert_not_called()
+
+    # The guard must not leak past restore: a real, later edit still works.
+    presenter._view_model.selectedTimeframe = "1h"
+    thread_manager.submit.assert_called_once()
+
+
 def test_editing_a_field_survives_a_restart(view, container):
     store = InMemoryStateStore()
     coordinator = UiStateCoordinator(store, debounce_ms=50_000)
