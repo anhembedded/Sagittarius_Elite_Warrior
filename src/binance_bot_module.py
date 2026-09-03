@@ -567,6 +567,12 @@ class BinanceBotModule(BaseModule):
             config.get(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, "")
         )
         live_interval = str(config.get(ConfigKeys.TRADING_LIVE_INTERVAL.value, ""))
+        # `BUG-084` — real config-backed controls, not a hardcoded 20%/1x
+        # inside `LiveTradingCoordinator` itself.
+        live_sizing_percent = float(
+            config.get(ConfigKeys.TRADING_LIVE_SIZING_PERCENT.value, 20.0)
+        )
+        live_leverage = float(config.get(ConfigKeys.TRADING_LIVE_LEVERAGE.value, 1.0))
 
         strategy_engine = None
         live_trading_coordinator = None
@@ -581,6 +587,9 @@ class BinanceBotModule(BaseModule):
                 app.container.resolve(ICommandDispatcher),
                 app.container.resolve(ITradingAccountReader),
                 app.container.resolve(IMarketMetadataProvider),
+                app.container.resolve(IEventPublisher),
+                live_sizing_percent,
+                live_leverage,
             )
 
         # Initialize Event Handlers and subscribe to the Event Bus

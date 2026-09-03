@@ -21,6 +21,9 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal
+from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+    LiveOrderBlockedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -42,11 +45,14 @@ class OrderFeed(BaseFeed):
     positionChanged = Signal(object)
     #: Mang một `PositionClosedEvent` (`BUG-086`).
     positionClosed = Signal(object)
+    #: Mang một `LiveOrderBlockedEvent` (`BUG-084`).
+    orderBlocked = Signal(object)
 
     def _subscribe(self) -> None:
         self._events.on(OrderFilledEvent, self._on_order_filled)
         self._events.on(PositionChangedEvent, self._on_position_changed)
         self._events.on(PositionClosedEvent, self._on_position_closed)
+        self._events.on(LiveOrderBlockedEvent, self._on_order_blocked)
 
     def _on_order_filled(self, event: Any) -> None:
         self.orderFilled.emit(event)
@@ -56,3 +62,6 @@ class OrderFeed(BaseFeed):
 
     def _on_position_closed(self, event: Any) -> None:
         self.positionClosed.emit(event)
+
+    def _on_order_blocked(self, event: Any) -> None:
+        self.orderBlocked.emit(event)

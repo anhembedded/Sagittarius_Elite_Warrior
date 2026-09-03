@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading 
     EnableTradingCommand,
     EnableTradingResult,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+    LiveOrderBlockedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -387,6 +390,23 @@ def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view):
     presenter._on_position_closed(PositionClosedEvent(symbol="ETHUSDT"))
 
     view.set_positions.assert_called_once_with([])
+
+
+def test_order_blocked_appears_in_the_screens_own_log_panel(presenter):
+    """`BUG-084` — before this fix, a signal-driven order blocked by sizing
+    or a trading limit was a log-file-only fact; nothing distinguished
+    "no signal fired" from "a signal fired but got blocked" on the Trading
+    screen itself."""
+    presenter._on_order_blocked(
+        LiveOrderBlockedEvent(symbol="BTCUSDT", reason="max_notional_per_order")
+    )
+
+    log_model = presenter._view_model.log_model
+    assert log_model.rowCount() == 1
+    entry = log_model._entries[0]
+    assert entry.level == "info"
+    assert "BTCUSDT" in entry.message
+    assert "max_notional_per_order" in entry.message
 
 
 # ---------------------------------------------------------------------------

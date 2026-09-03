@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading 
 from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
     EquitySampledEvent,
 )
+from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+    LiveOrderBlockedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -312,6 +315,10 @@ class TradingPresenter(BasePresenter):
         # without this, "Vị thế đang mở" could keep showing a position the
         # exchange had already closed until the next full reconciliation.
         self._order_feed.positionClosed.connect(self._on_position_closed)
+        # `BUG-084` — otherwise a signal-driven order blocked by sizing or a
+        # trading limit is invisible: no table changes, no exception, just
+        # a screen that sits still whether or not the strategy ever fired.
+        self._order_feed.orderBlocked.connect(self._on_order_blocked)
         # `EPIC-021M` — one subscriber, this Presenter, same reasoning as
         # `OrderFeed` above (see `equity_feed.py`'s own docstring).
         self._equity_feed = EquityFeed(self.event_bus, parent=self)
@@ -661,6 +668,18 @@ class TradingPresenter(BasePresenter):
         prior `PositionChangedEvent` for it this session)."""
         self._positions.pop(event.symbol, None)
         self._render_positions()
+
+    def _on_order_blocked(self, event: LiveOrderBlockedEvent) -> None:
+        """`BUG-084` — the one place a blocked signal-driven order becomes
+        visible on the Trading screen itself, not just in a log file an
+        operator isn't watching. `level="info"` on purpose: a blocked
+        order is a one-time-meaningful event (`EPIC-021G` §2.5's own
+        criterion for INFO), not an application error — `LogListModel`
+        only defines `info`/`error`/`success` icons, and `error` here
+        would misrepresent a safety gate doing its job as a malfunction."""
+        self._view_model.log_model.append(
+            f"Lệnh live bị chặn ({event.symbol}): {event.reason}", level="info"
+        )
 
     def _render_positions(self) -> None:
         self.view.set_positions(

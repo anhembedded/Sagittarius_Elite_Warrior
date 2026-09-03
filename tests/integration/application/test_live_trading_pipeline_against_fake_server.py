@@ -39,7 +39,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
@@ -190,7 +190,13 @@ def _build_pipeline() -> _Pipeline:
     )
     dispatcher = _RecordingDispatcher(handler)
     coordinator = LiveTradingCoordinator(
-        _SYMBOL, dispatcher, account_reader, metadata_provider
+        _SYMBOL,
+        dispatcher,
+        account_reader,
+        metadata_provider,
+        Mock(),
+        20.0,
+        1.0,
     )
     return _Pipeline(coordinator, dispatcher, session_state)
 

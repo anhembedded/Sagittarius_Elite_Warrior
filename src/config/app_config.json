@@ -19,5 +19,7 @@
     "trading.min_order_interval_seconds": 60,
     "trading.live_symbol": "BTCUSDT",
     "trading.live_strategy_key": "",
-    "trading.live_interval": ""
+    "trading.live_interval": "",
+    "trading.live_sizing_percent": 20.0,
+    "trading.live_leverage": 1.0
 }

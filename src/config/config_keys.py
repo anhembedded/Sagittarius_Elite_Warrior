@@ -105,3 +105,13 @@ class ConfigKeys(str, Enum):
     #: NOT default to some guessed interval, since a wrong guess is a wrong
     #: strategy. `EPIC-021I`'s `TimeframePicker` sets this.
     TRADING_LIVE_INTERVAL = "trading.live_interval"
+    #: `BUG-084` — was a hardcoded `20.0` inside `LiveTradingCoordinator`,
+    #: paired with `TRADING_MAX_NOTIONAL_PER_ORDER_USDT`'s 500 USDT cap,
+    #: left a usable-balance window of roughly 500-2,500 USDT with no
+    #: account outside it able to place a single order (including Futures
+    #: Testnet's own 15,000 USDT default balance) — and no visible reason
+    #: why. A percentage of current equity, same semantics as
+    #: `PositionSizingType.PERCENT_OF_EQUITY`.
+    TRADING_LIVE_SIZING_PERCENT = "trading.live_sizing_percent"
+    #: `BUG-084` — was a hardcoded `1.0` alongside `TRADING_LIVE_SIZING_PERCENT`.
+    TRADING_LIVE_LEVERAGE = "trading.live_leverage"

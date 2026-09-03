@@ -30,6 +30,9 @@ from typing import cast
 from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -44,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.c
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
     ExecuteOrderResult,
+)
+from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+    LiveOrderBlockedEvent,
 )
 from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
     OrderRejectedByExchangeError,
@@ -62,13 +68,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 
 logger = logging.getLogger("App.LiveTradingCoordinator")
-
-#: Sizing/leverage for the live path. Hardcoded rather than configurable
-#: yet — a real "position sizing" control belongs on `EPIC-021I`'s Trading
-#: screen; this task's scope is the safety pipeline the sizing feeds into,
-#: not that control surface.
-_LIVE_SIZING = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=20.0)
-_LIVE_LEVERAGE = 1.0
 
 
 class LiveTradingCoordinator:
@@ -90,11 +89,27 @@ class LiveTradingCoordinator:
         dispatcher: ICommandDispatcher,
         account_reader: ITradingAccountReader,
         metadata_provider: IMarketMetadataProvider,
+        event_publisher: IEventPublisher,
+        sizing_percent: float,
+        leverage: float,
     ) -> None:
         self._live_symbol = live_symbol
         self._dispatcher = dispatcher
         self._account_reader = account_reader
         self._metadata_provider = metadata_provider
+        self._event_publisher = event_publisher
+        #: `BUG-084` — real config-backed controls
+        #: (`ConfigKeys.TRADING_LIVE_SIZING_PERCENT`/`TRADING_LIVE_LEVERAGE`),
+        #: not the hardcoded 20%/1x this class shipped with. That fixed
+        #: combination, next to `trading.max_notional_per_order_usdt`'s
+        #: 500 USDT cap, left a usable-balance window of roughly
+        #: 500-2,500 USDT — outside it (including Futures Testnet's own
+        #: 15,000 USDT default balance), no order the strategy ever
+        #: proposed could clear the cap, and nothing said why.
+        self._sizing = PositionSizing(
+            type=PositionSizingType.PERCENT_OF_EQUITY, value=sizing_percent
+        )
+        self._leverage = leverage
 
     def handle(self, signal: Signal) -> None:
         if signal.symbol != self._live_symbol:
@@ -120,14 +135,25 @@ class LiveTradingCoordinator:
         intent = order_intent_for(signal.action)
         reference_price = Decimal(str(signal.price))
         quantity = calculate_live_order_quantity(
-            sizing=_LIVE_SIZING,
+            sizing=self._sizing,
             available_balance=status.usdt_balance,
             reference_price=reference_price,
-            leverage=_LIVE_LEVERAGE,
+            leverage=self._leverage,
             step_size=metadata.step_size,
         )
         if quantity <= 0:
-            logger.debug("Computed live order quantity was zero — nothing to send.")
+            reason = (
+                f"Computed live order quantity was zero for balance "
+                f"{status.usdt_balance} at {self._sizing.value}% sizing — nothing to send."
+            )
+            logger.info(reason)
+            # `BUG-084` — this used to be a `logger.debug()` line, functionally
+            # invisible: an operator watching the Trading screen had no way
+            # to tell "no signal fired" from "a signal fired but sizing
+            # produced nothing to send".
+            self._event_publisher.publish(
+                LiveOrderBlockedEvent(symbol=signal.symbol, reason=reason)
+            )
             return
 
         command = ExecuteOrderCommand(
@@ -173,6 +199,15 @@ class LiveTradingCoordinator:
             return
         if result.blocked:
             logger.info("Live order blocked: %s", result.blocked_by)
+            # `BUG-084` — a blocked order used to be a log line only; the
+            # Trading screen had no way to show why the strategy's signal
+            # never became an order. Reaches `OrderFeed.orderBlocked` ->
+            # `TradingPresenter`'s own log panel.
+            self._event_publisher.publish(
+                LiveOrderBlockedEvent(
+                    symbol=signal.symbol, reason=str(result.blocked_by)
+                )
+            )
         else:
             logger.info(
                 "Live order submitted for %s: %s", signal.symbol, signal.action.value

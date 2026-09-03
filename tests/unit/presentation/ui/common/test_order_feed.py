@@ -9,6 +9,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+    LiveOrderBlockedEvent,
+)
 from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -101,14 +104,31 @@ def test_position_closed_event_reaches_every_listener(qapp):
     assert seen[0] is event
 
 
-def test_stop_unsubscribes_all_three(qapp):
+def test_live_order_blocked_event_reaches_every_listener(qapp):
+    """`BUG-084` — a signal-driven live order blocked by sizing or a
+    trading limit must reach the Trading screen through this same Feed,
+    not stay a log-only fact."""
+    bus, feed = _feed(qapp)
+    seen: list = []
+    feed.orderBlocked.connect(seen.append)
+
+    event = LiveOrderBlockedEvent(symbol="BTCUSDT", reason="max_notional_per_order")
+    bus.emit(event)
+
+    assert len(seen) == 1
+    assert seen[0] is event
+
+
+def test_stop_unsubscribes_all_four(qapp):
     bus, feed = _feed(qapp)
     filled: list = []
     changed: list = []
     closed: list = []
+    blocked: list = []
     feed.orderFilled.connect(filled.append)
     feed.positionChanged.connect(changed.append)
     feed.positionClosed.connect(closed.append)
+    feed.orderBlocked.connect(blocked.append)
 
     feed.stop()
     bus.emit(
@@ -120,7 +140,9 @@ def test_stop_unsubscribes_all_three(qapp):
     )
     bus.emit(PositionChangedEvent(position=_position()))
     bus.emit(PositionClosedEvent(symbol="BTCUSDT"))
+    bus.emit(LiveOrderBlockedEvent(symbol="BTCUSDT", reason="max_notional_per_order"))
 
     assert filled == []
     assert changed == []
     assert closed == []
+    assert blocked == []
