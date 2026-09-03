@@ -43,8 +43,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 97 |
-| 📈 **Tổng** | **99** |
+| ✅ **Đã sửa / đã đóng** | 98 |
+| 📈 **Tổng** | **100** |
 
 ---
 
@@ -61,6 +61,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-101](completed/BUG-101_backtest_restore_runs_a_live_chart_preview_on_boot.md)** | Restore form Backtest lúc app boot chạy thẳng một chart-preview query thật (200,000 dòng `1s`, ~7.5s) trước khi user chạm vào gì | 🟠 P2 | 2026-09-03 | `state_persistence.py::restore()` tự hứa "opening the screen still runs nothing" nhưng `BackTestPresenter._connect_ui_signals()` nối `selectedSymbolChanged`/`selectedTimeframeChanged`/`timeRangePresetChanged`/`customStart|EndTextChanged` tới các handler gọi `_request_chart_preview()` **trước** khi `restore_into()` chạy — restore một form nhớ từ phiên trước áp qua đúng những setter đó, y hệt user gõ tay, bắn thẳng `GetHistoricalKlinesQuery`/`GetBacktestRangeCoverageQuery` thật. `main_window.py` (route/geometry/sidebar), `dashboard_presenter.py`, `data_management_presenter.py` đã xác minh restore đúng (không chạm). Sửa: cờ `self._restoring_state` quanh `restore_into()`, chặn tại 1 điểm hội tụ duy nhất `_request_chart_preview()` — giá trị form vẫn restore đầy đủ, chỉ hành động mạng bị chặn trong lúc restore. 1 regression test mới xác nhận đỏ đúng lý do (`submit` gọi 2 lần) trước khi sửa; 314/314 test Backtest xanh sau. |
 | **[BUG-084](completed/BUG-084_live_sizing_hardcode_chan_moi_lenh.md)** | Sizing hard-code 20%/1x khiến bot **không đặt nổi một lệnh nào** trên tài khoản có số dư thật | 🟠 P2 | 2026-09-02 | `live_trading_coordinator.py` hard-code `PERCENT_OF_EQUITY 20%` + leverage `1.0`; đặt cạnh hạn mức 500 USDT/lệnh thì cửa sổ dùng được chỉ còn ~500–2 500 USDT số dư — số dư mặc định testnet 15 000 nằm ngoài. Sửa: 2 `ConfigKeys` mới (`trading.live_sizing_percent`/`trading.live_leverage`, mặc định giữ nguyên 20.0/1.0) làm sizing thành control thật, đọc ở `binance_bot_module.py::boot()`. Nửa thứ hai — lý do bị chặn chỉ nằm ở một dòng log, không nơi nào trên màn hình phân biệt được "không có tín hiệu" với "có tín hiệu nhưng bị chặn" — sửa bằng domain event mới `LiveOrderBlockedEvent`, publish qua `IEventPublisher`, `OrderFeed` thêm signal thứ tư `orderBlocked`, `TradingPresenter` ghi vào `log_model` của chính màn Giao dịch ở mức `info`. 8 test mới (2 unit files + `OrderFeed` + `TradingPresenter`). |
 | **[BUG-100](completed/BUG-100_equity_chart_seed_before_subscribe_misses_sample.md)** | Biểu đồ equity đọc seed trước khi subscribe `EquityFeed` — mẫu ghi đúng lúc đó bị mất | 🟡 P2 | 2026-09-03 | `TradingPresenter.__init__` đọc `render_historical_data(...)` **trước** khi subscribe `EquityFeed` — một sample ghi vào `EquityCurveRecorder` đúng giữa hai điểm đó không nằm trong snapshot lẫn live subscription, mất tới lần mở màn kế tiếp. Đổi thứ tự: subscribe trước, đọc seed sau — an toàn hơn hướng ngược lại vì rủi ro còn lại (duplicate nếu đảo hướng) đã có sẵn guard dedup theo timestamp ở `ChartCard.append_closed_candle()`, còn rủi ro "miss" thì không tự chữa được. |
 | **[BUG-099](completed/BUG-099_error_translator_missing_realistic_codes.md)** | 5 mã lỗi Binance thực tế (rate limit, precision, quantity, vượt vị thế theo đòn bẩy, percent-price filter) rơi vào `UNKNOWN` thay vì được phân loại | 🟡 P2 | 2026-09-03 | Thêm `-1015`/`-1111`/`-4003`/`-2027`/`-4131` vào `_UNAMBIGUOUS_CODE_TO_REASON` của `binance_error_translator.py`, theo tài liệu mã lỗi Futures API. 5 test case parametrize mới. |
