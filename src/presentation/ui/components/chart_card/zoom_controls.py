@@ -27,6 +27,30 @@ class ZoomControls(QtCore.QObject):
     _GAP = 4
     _ZOOM_IN_FACTOR = 0.85
     _ZOOM_OUT_FACTOR = 1.0 / 0.85
+    #: `ChartPlotLayout` reserves row 0 for the crosshair readout
+    #: (`crosshair_label`), a single line of text whose *row height* is
+    #: fixed regardless of canvas size (only its *width* grows with the
+    #: hovered point's text) — measured identically at canvas heights
+    #: 173px and 700px: `main_plot`'s own viewbox starts at y=41 either
+    #: way. Anchoring the button cluster's top there instead of the
+    #: original y=12 clears row 0 unconditionally (not just for the one
+    #: canvas size a bug report happened to show), landing the cluster on
+    #: the candlestick plot area itself — floating over plotted data is
+    #: the normal, accepted trade-off this kind of control makes
+    #: everywhere; the bug was specifically overlapping *text*.
+    _TOP_CLEARANCE = 40
+    #: Below this canvas height, the 6-button cluster is hidden entirely
+    #: rather than positioned — measured on the Trading screen's equity
+    #: mini-chart (~173px tall): even anchored below `_TOP_CLEARANCE`,
+    #: `main_plot`'s own viewbox is only ~49px tall there, nowhere near
+    #: this cluster's 104px, and the next content down (the volume
+    #: subplot + its own X-axis) starts immediately after — there is no
+    #: 104px span left anywhere free of either plotted axis text or the
+    #: candlesticks squeezed to illegibility behind the buttons. Wheel/
+    #: right-drag zoom (this class's own docstring: "complements ... does
+    #: not replace") stays fully available either way, so hiding costs no
+    #: functionality.
+    _MIN_CANVAS_HEIGHT_FOR_CONTROLS = 220
 
     def __init__(self, plot: pg.PlotItem, canvas: QtWidgets.QWidget) -> None:
         super().__init__()
@@ -96,26 +120,17 @@ class ZoomControls(QtCore.QObject):
             (self._v_in_btn, self._v_out_btn),
             (self._box_btn, self._reset_btn),
         )
-        # Anchored to the bottom-left, not the top-left: `ChartPlotLayout`
-        # always reserves row 0 for the crosshair readout
-        # (`crosshair_label`, right-justified — grows leftward, unbounded,
-        # with whatever the hovered point's text needs), which top-left
-        # placement collided with for any string long enough to reach past
-        # this cluster's own width (measured: a realistic crosshair string
-        # reaches from x=9 out to x=528, while the buttons sat at
-        # x=12-80/y=12-116 — squarely inside it). Anchoring from
-        # `self._canvas.height()` instead keeps the cluster in the
-        # bottom-left, a vertical band row 0's label never reaches
-        # regardless of how long that text gets, and — since `_reposition()`
-        # already re-runs on every canvas resize — it stays correct as the
-        # canvas grows or shrinks, including the equity mini-chart's much
-        # shorter viewport.
-        cluster_height = len(rows) * self._BUTTON_SIZE + (len(rows) - 1) * self._GAP
-        y_start = max(
-            self._MARGIN, self._canvas.height() - self._MARGIN - cluster_height
-        )
+        all_buttons = [btn for row in rows for btn in row]
+
+        if self._canvas.height() < self._MIN_CANVAS_HEIGHT_FOR_CONTROLS:
+            for btn in all_buttons:
+                btn.hide()
+            return
+        for btn in all_buttons:
+            btn.show()
+
         for row_idx, (left_btn, right_btn) in enumerate(rows):
-            y = y_start + row_idx * (self._BUTTON_SIZE + self._GAP)
+            y = self._TOP_CLEARANCE + row_idx * (self._BUTTON_SIZE + self._GAP)
             left_btn.move(self._MARGIN, y)
             right_btn.move(self._MARGIN + self._BUTTON_SIZE + self._GAP, y)
             left_btn.raise_()

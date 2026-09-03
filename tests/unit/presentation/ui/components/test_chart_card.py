@@ -871,20 +871,50 @@ def test_chart_card_zoom_controls_box_zoom_toggle(qapp):
     assert vb.state["mouseMode"] == pg.ViewBox.PanMode
 
 
-def test_zoom_controls_do_not_overlap_the_crosshair_readout(qapp):
-    """UI-overlap fix: `ZoomControls` used to anchor its 6-button cluster
-    to the canvas's top-left corner via `.move()`, the exact same corner
-    `ChartPlotLayout`'s `crosshair_label` occupies (row 0, right-justified
-    — its rendered width grows leftward, unbounded, with whatever text the
-    hovered point needs). Measured directly on a short chart (the Trading
-    screen's equity mini-chart is ~170px tall): a realistic crosshair
-    string ("Time: ... | Value: ...") rendered a label spanning x=9..528,
-    y=9..35 — squarely on top of the button cluster's old x=12..80,
-    y=12..116 box. Anchoring the cluster to the bottom-left instead (this
-    fix) keeps it in a vertical band row 0's label never reaches,
-    regardless of how long that text gets."""
+_ZOOM_CONTROLS_BUTTON_NAMES = (
+    "_h_in_btn",
+    "_h_out_btn",
+    "_v_in_btn",
+    "_v_out_btn",
+    "_box_btn",
+    "_reset_btn",
+)
+
+
+def test_zoom_controls_are_hidden_on_a_canvas_too_short_to_fit_them_anywhere(qapp):
+    """UI-overlap fix: on the Trading screen's equity mini-chart (~170px
+    tall), `ChartPlotLayout`'s row-0 crosshair label, the main plot, and
+    the volume subplot + its own X-axis together leave no 104px-tall span
+    anywhere free of text — measured directly, not assumed (every
+    candidate corner was checked). Rather than pick a corner that still
+    collides with something, `ZoomControls` hides its whole cluster below
+    `_MIN_CANVAS_HEIGHT_FOR_CONTROLS`; wheel/right-drag zoom stays
+    available regardless (this class's own docstring)."""
     card = ChartCard("ETHUSDT")
-    card.resize(1400, 220)
+    card.resize(1400, 220)  # -> ~173px canvas, the real reported size
+    card.show()
+    for _ in range(3):
+        QApplication.processEvents()
+
+    for name in _ZOOM_CONTROLS_BUTTON_NAMES:
+        assert getattr(card.zoom_controls, name).isVisible() is False, name
+
+
+def test_zoom_controls_do_not_overlap_the_crosshair_label_or_the_bottom_axis(qapp):
+    """On a chart tall enough to show the cluster, it must not land on
+    either text region: `crosshair_label` (row 0, right-justified — its
+    rendered width grows leftward, unbounded, with whatever text the
+    hovered point needs) or the bottom-most plot's own X-axis (date
+    labels). An earlier attempt anchored the cluster to the bottom-left
+    instead of clearing row 0 — that traded the label collision for an
+    axis collision, because the volume subplot (and its axis) grows
+    proportionally with canvas height rather than staying a fixed-size
+    strip near the bottom, the same way `crosshair_label`'s row does.
+    `_TOP_CLEARANCE` anchors below row 0 instead, landing on the
+    candlestick plot area (floating over plotted data, not text — the
+    normal trade-off this kind of control makes)."""
+    card = ChartCard("ETHUSDT")
+    card.resize(1400, 700)  # -> comfortably above _MIN_CANVAS_HEIGHT_FOR_CONTROLS
     card.show()
     for _ in range(3):
         QApplication.processEvents()
@@ -893,23 +923,26 @@ def test_zoom_controls_do_not_overlap_the_crosshair_readout(qapp):
     label.setText(
         "<span style='color:#888;'>Time: 2026-09-03 02:16:12 | Value: 133.3801</span>"
     )
+    axis = card.plot_layout.plots[-1].getAxis("bottom")
     for _ in range(3):
         QApplication.processEvents()
 
-    scene_rect = label.mapRectToScene(label.boundingRect())
-    label_rect = card.plot_layout.widget.mapFromScene(scene_rect).boundingRect()
+    label_rect = card.plot_layout.widget.mapFromScene(
+        label.mapRectToScene(label.boundingRect())
+    ).boundingRect()
+    axis_rect = card.plot_layout.widget.mapFromScene(
+        axis.mapRectToScene(axis.boundingRect())
+    ).boundingRect()
 
-    for name in (
-        "_h_in_btn",
-        "_h_out_btn",
-        "_v_in_btn",
-        "_v_out_btn",
-        "_box_btn",
-        "_reset_btn",
-    ):
-        button_geometry = getattr(card.zoom_controls, name).geometry()
+    for name in _ZOOM_CONTROLS_BUTTON_NAMES:
+        button = getattr(card.zoom_controls, name)
+        assert button.isVisible() is True, name
+        button_geometry = button.geometry()
         assert not label_rect.intersects(button_geometry), (
             f"{name} at {button_geometry} overlaps the crosshair label at {label_rect}"
+        )
+        assert not axis_rect.intersects(button_geometry), (
+            f"{name} at {button_geometry} overlaps the bottom axis at {axis_rect}"
         )
 
 
