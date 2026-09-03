@@ -14,8 +14,10 @@ from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.domain.trading.time_in_force import TimeInForce
 from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.user_data_event_parser import (
+    account_update_captured_at,
     account_update_changed_symbols,
-    account_update_equity_sample,
+    account_update_position_pnls,
+    account_update_wallet_balance,
     fill_details,
     is_fill_execution,
     parse_order_trade_update,
@@ -85,6 +87,30 @@ class TestParseOrderTradeUpdate:
     def test_market_order_has_no_price(self) -> None:
         order = parse_order_trade_update(_order_trade_update())
         assert order.price is None
+
+    def test_an_unrecognized_status_falls_back_to_unknown_not_a_raise(self) -> None:
+        """`BUG-091` — before this fix, an exchange status this app's
+        deliberately-narrow `OrderStatus` has no member for (e.g. an
+        exchange-internal status on an order this app did not place
+        itself) raised `KeyError` and the whole `ORDER_TRADE_UPDATE` was
+        dropped — the order stayed stuck at whatever stale status this app
+        last knew, forever."""
+        order = parse_order_trade_update(_order_trade_update(X="EXPIRED_IN_MATCH"))
+        assert order.status is OrderStatus.UNKNOWN
+        # Every other field still parses — only the unrecognized one falls
+        # back, nothing else is lost.
+        assert str(order.client_order_id) == "SEW-a91f4c72e0b8"
+        assert order.quantity == Decimal("0.002")
+
+    def test_an_unrecognized_order_type_falls_back_to_unknown_not_a_raise(self) -> None:
+        order = parse_order_trade_update(_order_trade_update(o="TRAILING_STOP_MARKET"))
+        assert order.order_type is OrderType.UNKNOWN
+
+    def test_an_unrecognized_time_in_force_falls_back_to_none_not_a_raise(
+        self,
+    ) -> None:
+        order = parse_order_trade_update(_order_trade_update(f="GTX"))
+        assert order.time_in_force is None
 
 
 class TestIsFillExecution:
@@ -163,12 +189,14 @@ class TestAccountUpdateChangedSymbols:
         assert account_update_changed_symbols(payload) == []
 
 
-class TestAccountUpdateEquitySample:
-    """`EPIC-021M` §2.1/§4."""
+class TestAccountUpdatePositionPnls:
+    """`EPIC-021M` §2.1, `BUG-092`."""
 
-    def test_reads_wallet_balance_and_sums_unrealized_pnl_across_positions(
-        self,
-    ) -> None:
+    def test_reads_unrealized_pnl_per_symbol_for_this_event_only(self) -> None:
+        """`BUG-092` — this function must return only what *this* message
+        reports, not a full-account snapshot: `FuturesUserDataStream` is
+        the one responsible for folding it into a running total across
+        events (`test_futures_user_data_stream.py` covers that)."""
         payload = {
             "e": "ACCOUNT_UPDATE",
             "T": 1564745798939,
@@ -183,12 +211,32 @@ class TestAccountUpdateEquitySample:
             },
         }
 
-        sample = account_update_equity_sample(payload)
+        assert account_update_position_pnls(payload) == {
+            "BTCUSDT": Decimal("-0.02"),
+            "ETHUSDT": Decimal("3.75"),
+        }
 
-        assert sample is not None
-        assert sample.captured_at == datetime.fromtimestamp(1564745798.939, tz=UTC)
-        assert sample.wallet_balance == Decimal("122624.12")
-        assert sample.unrealized_pnl == Decimal("3.73")
+    def test_no_positions_section_returns_an_empty_dict(self) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1,
+            "E": 1,
+            "a": {"m": "ORDER", "B": [{"a": "USDT", "wb": "100.00", "cw": "100.00"}]},
+        }
+
+        assert account_update_position_pnls(payload) == {}
+
+
+class TestAccountUpdateWalletBalance:
+    def test_reads_the_quote_asset_balance(self) -> None:
+        payload = {
+            "e": "ACCOUNT_UPDATE",
+            "T": 1,
+            "E": 1,
+            "a": {"m": "ORDER", "B": [{"a": "USDT", "wb": "500.00", "cw": "500.00"}]},
+        }
+
+        assert account_update_wallet_balance(payload) == Decimal("500.00")
 
     def test_ignores_balances_for_assets_other_than_the_quote_asset(self) -> None:
         payload = {
@@ -205,14 +253,9 @@ class TestAccountUpdateEquitySample:
             },
         }
 
-        sample = account_update_equity_sample(payload)
+        assert account_update_wallet_balance(payload) == Decimal("500.00")
 
-        assert sample is not None
-        assert sample.wallet_balance == Decimal("500.00")
-
-    def test_no_matching_balance_entry_returns_none_not_a_garbage_sample(
-        self,
-    ) -> None:
+    def test_no_matching_balance_entry_returns_none_not_a_garbage_zero(self) -> None:
         payload = {
             "e": "ACCOUNT_UPDATE",
             "T": 1,
@@ -220,17 +263,13 @@ class TestAccountUpdateEquitySample:
             "a": {"m": "ORDER", "B": [], "P": []},
         }
 
-        assert account_update_equity_sample(payload) is None
+        assert account_update_wallet_balance(payload) is None
 
-    def test_no_positions_section_still_yields_a_sample_with_zero_pnl(self) -> None:
-        payload = {
-            "e": "ACCOUNT_UPDATE",
-            "T": 1,
-            "E": 1,
-            "a": {"m": "ORDER", "B": [{"a": "USDT", "wb": "100.00", "cw": "100.00"}]},
-        }
 
-        sample = account_update_equity_sample(payload)
+class TestAccountUpdateCapturedAt:
+    def test_reads_the_streams_own_event_time(self) -> None:
+        payload = {"e": "ACCOUNT_UPDATE", "T": 1, "E": 1564745798939, "a": {}}
 
-        assert sample is not None
-        assert sample.unrealized_pnl == Decimal(0)
+        assert account_update_captured_at(payload) == datetime.fromtimestamp(
+            1564745798.939, tz=UTC
+        )

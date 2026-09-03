@@ -20,18 +20,21 @@ def reconcile_position_state(
 ) -> None:
     """@brief Corrects `session_state.known_open_symbols` for `symbol` to
     match `has_position` (what the exchange just reported), logging
-    `WARNING` only when this app's prior belief disagreed."""
-    was_known_open = symbol in session_state.known_open_symbols
-    if was_known_open != has_position:
+    `WARNING` only when this app's prior belief disagreed.
+
+    @details `BUG-088` — the actual mutation is `session_state`'s own
+    lock-guarded `reconcile_position()`: this function runs on
+    `FuturesUserDataStream`'s websocket thread, a third, genuinely
+    concurrent writer alongside the `ExecuteOrderCommand`/
+    `EnableTradingCommand`/`EmergencyStopCommand` pool workers, so it must
+    never touch `known_open_symbols` directly.
+    """
+    disagreed = session_state.reconcile_position(symbol, has_position=has_position)
+    if disagreed:
         logger.warning(
             "Position state mismatch for %s: app believed %s, exchange "
             "reports %s — exchange wins.",
             symbol,
-            "open" if was_known_open else "flat",
+            "flat" if has_position else "open",
             "open" if has_position else "flat",
         )
-
-    if has_position:
-        session_state.known_open_symbols.add(symbol)
-    else:
-        session_state.known_open_symbols.discard(symbol)

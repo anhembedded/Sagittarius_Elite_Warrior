@@ -34,6 +34,13 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
     -4164: OrderRejectionReason.MIN_NOTIONAL,  # Futures-specific: "Order's notional must be no smaller than X."
     -2022: OrderRejectionReason.REDUCE_ONLY_REJECTED,  # "ReduceOnly Order is rejected."
     -1003: OrderRejectionReason.RATE_LIMIT,  # "Too many requests."
+    # `BUG-099` — four more codes a live order can realistically hit,
+    # previously falling through to `UNKNOWN`:
+    -1015: OrderRejectionReason.RATE_LIMIT,  # "Too many new orders."
+    -1111: OrderRejectionReason.LOT_SIZE,  # "Precision is over the maximum defined for this asset."
+    -4003: OrderRejectionReason.LOT_SIZE,  # "Quantity less than or equal to zero."
+    -2027: OrderRejectionReason.INSUFFICIENT_MARGIN,  # "Exceeded the maximum allowable position at current leverage."
+    -4131: OrderRejectionReason.PRICE_FILTER,  # "The counterparty's best price does not meet the PERCENT_PRICE filter limit."
 }
 
 #: `-1013` is Binance's one generic "filter failure" code, shared by

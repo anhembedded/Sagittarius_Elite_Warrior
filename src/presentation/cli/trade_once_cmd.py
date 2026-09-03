@@ -7,6 +7,8 @@ round and exits; it is not a daemon (`EPIC-021G` §5)."""
 import argparse
 from decimal import Decimal
 
+from binance.exceptions import BinanceAPIException, BinanceRequestException
+from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
     IEventPublisher,
 )
@@ -35,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.r
     ExecuteOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+)
 from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.position_sizing_bridge import (
     calculate_live_order_quantity,
@@ -50,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_order_payload_mapper import (
+    InvalidOrderForSubmissionError,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_formatter import (
     format_candle_and_signal,
     format_limit_checks,
@@ -144,7 +152,22 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         ),
         live=args.live,
     )
-    result: ExecuteOrderResult = app.dispatch(ExecuteOrderCommand, command)
+    # `BUG-090` — a live order the app's own `notional_check` gate didn't
+    # catch (e.g. a margin/precision/rate-limit rejection, which is real
+    # exchange state this app cannot pre-check) must print a friendly
+    # message like `order-dry-run` already does, not crash with a raw
+    # traceback — a rejection is an expected, named outcome, not a bug.
+    try:
+        result: ExecuteOrderResult = app.dispatch(ExecuteOrderCommand, command)
+    except OrderRejectedByExchangeError as exc:
+        print(f"Sàn từ chối lệnh: {exc}")
+        return
+    except InvalidOrderForSubmissionError as exc:
+        print(f"Order chưa hợp lệ để gửi: {exc}")
+        return
+    except (BinanceAPIException, BinanceRequestException, RequestException):
+        print("Không gửi được lệnh tới sàn — kiểm tra kết nối mạng rồi thử lại.")
+        return
 
     if result.limit_context is not None:
         limits_policy = app.container.resolve(TradingLimitPolicy)

@@ -18,6 +18,8 @@ code, not just in a comment.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -34,6 +36,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop 
     EmergencyStopResult,
     EmergencyStopStepResult,
 )
+from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
+from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+    MarginType,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     TradingPresenter,
 )
@@ -45,8 +51,27 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 _SUCCESS = EmergencyStopStepResult(succeeded=True, detail="OK")
 
 
+def _position(symbol: str = "BTCUSDT") -> LivePosition:
+    return LivePosition(
+        symbol=symbol,
+        position_amt=Decimal("0.002"),
+        entry_price=Decimal("64105.35"),
+        mark_price=Decimal("64105.35"),
+        unrealized_pnl=Decimal("-0.02"),
+        leverage=10,
+        margin_type=MarginType.CROSSED,
+        liquidation_price=None,
+        updated_at=datetime(2026, 8, 27, tzinfo=UTC),
+    )
+
+
 def _result(
-    *, orders_ok: bool = True, positions_ok: bool = True
+    *,
+    orders_ok: bool = True,
+    positions_ok: bool = True,
+    final_positions: tuple[LivePosition, ...] = (),
+    final_open_orders: tuple = (),
+    final_state_confirmed: bool = False,
 ) -> EmergencyStopResult:
     return EmergencyStopResult(
         trading_disabled=_SUCCESS,
@@ -58,6 +83,9 @@ def _result(
             if positions_ok
             else EmergencyStopStepResult(False, "Margin is insufficient")
         ),
+        final_positions=final_positions,
+        final_open_orders=final_open_orders,
+        final_state_confirmed=final_state_confirmed,
     )
 
 
@@ -150,7 +178,7 @@ def test_the_worker_dispatches_the_command(presenter, mock_dispatcher):
 def test_full_success_turns_trading_off_and_reports_success(presenter, mock_dispatcher):
     mock_dispatcher.dispatch.return_value = _result()
     presenter._view_model.emergencyStopRequested.emit()
-    action_id = presenter._toggle_tracker.active_action.action_id
+    action_id = presenter._emergency_stop_tracker.active_action.action_id
 
     presenter._run_emergency_stop(action_id)
 
@@ -160,10 +188,57 @@ def test_full_success_turns_trading_off_and_reports_success(presenter, mock_disp
     assert "Đã dừng khẩn cấp" in presenter._view_model.statusMessage
 
 
+def test_a_confirmed_final_state_replaces_the_stale_positions_and_open_orders(
+    presenter, mock_dispatcher
+):
+    """`BUG-093` — before this fix, `_positions`/`_open_orders` were never
+    touched by `_on_emergency_stop_completed`: the user-data stream this
+    screen otherwise relies on is already stopped by Emergency Stop's own
+    step 1, so nothing else would ever correct them. A confirmed final
+    read must overwrite whatever was there before, even down to empty
+    (the fully-successful case: everything closed)."""
+    presenter._positions = {"ETHUSDT": _position("ETHUSDT")}  # stale, pre-stop state
+    mock_dispatcher.dispatch.return_value = _result(
+        final_positions=(), final_open_orders=(), final_state_confirmed=True
+    )
+    presenter._view_model.emergencyStopRequested.emit()
+    action_id = presenter._emergency_stop_tracker.active_action.action_id
+
+    presenter._run_emergency_stop(action_id)
+
+    assert presenter._positions == {}
+    assert presenter._open_orders == {}
+    presenter.view.set_positions.assert_called_with([])
+    presenter.view.set_open_orders.assert_called_with([])
+
+
+def test_an_unconfirmed_final_state_leaves_stale_tables_but_warns(
+    presenter, mock_dispatcher
+):
+    """`BUG-093` — when even the confirmation read fails, showing an
+    empty table would claim "confirmed flat" for an account this app
+    could not actually verify; showing the pre-stop data unchanged is
+    honest about what is and isn't known, as long as it's paired with a
+    visible warning (never silent staleness)."""
+    stale_positions = {"ETHUSDT": _position("ETHUSDT")}
+    presenter._positions = dict(stale_positions)
+    mock_dispatcher.dispatch.return_value = _result(final_state_confirmed=False)
+    presenter._view_model.emergencyStopRequested.emit()
+    action_id = presenter._emergency_stop_tracker.active_action.action_id
+
+    presenter._run_emergency_stop(action_id)
+
+    assert presenter._positions == stale_positions
+    assert any(
+        "Không thể xác nhận trạng thái" in entry.message
+        for entry in presenter._view_model.log_model.entries
+    )
+
+
 def test_partial_failure_is_reported_as_failure_not_success(presenter, mock_dispatcher):
     mock_dispatcher.dispatch.return_value = _result(positions_ok=False)
     presenter._view_model.emergencyStopRequested.emit()
-    action_id = presenter._toggle_tracker.active_action.action_id
+    action_id = presenter._emergency_stop_tracker.active_action.action_id
 
     presenter._run_emergency_stop(action_id)
 
@@ -180,7 +255,7 @@ def test_an_exception_from_the_dispatcher_is_reported_not_raised(
 ):
     mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
     presenter._view_model.emergencyStopRequested.emit()
-    action_id = presenter._toggle_tracker.active_action.action_id
+    action_id = presenter._emergency_stop_tracker.active_action.action_id
 
     presenter._run_emergency_stop(action_id)  # must not raise
 
@@ -188,13 +263,21 @@ def test_an_exception_from_the_dispatcher_is_reported_not_raised(
     assert "boom" in presenter._view_model.statusMessage
 
 
-def test_a_stale_result_from_a_superseded_click_is_discarded(
+def test_a_stale_result_from_a_superseded_emergency_stop_action_is_discarded(
     presenter, mock_dispatcher
 ):
+    """`BUG-089` narrowed what can supersede an in-flight Emergency Stop
+    action to another action on its *own* tracker — a toggle click can no
+    longer do it (see `test_a_toggle_click_while_emergency_stop_is_pending_
+    is_refused_not_superseding_it` below). The tracker's own stale-id
+    fencing still has to work, so it's driven directly here rather than
+    through a click path the presenter itself now blocks."""
     presenter._view_model.emergencyStopRequested.emit()
-    stale_action_id = presenter._toggle_tracker.active_action.action_id
+    stale_action_id = presenter._emergency_stop_tracker.active_action.action_id
 
-    presenter._view_model.toggleRequested.emit()  # supersedes it
+    presenter._emergency_stop_tracker.begin_action(
+        "emergency_stop", None, None
+    )  # a second action superseding the first, bypassing the UI debounce
 
     mock_dispatcher.dispatch.return_value = _result()
     presenter._run_emergency_stop(stale_action_id)  # arrives late
@@ -202,12 +285,53 @@ def test_a_stale_result_from_a_superseded_click_is_discarded(
     assert presenter._view_model.statusMessage != "Đã dừng khẩn cấp."
 
 
+def test_a_toggle_click_while_emergency_stop_is_pending_is_refused_not_superseding_it(
+    presenter, mock_dispatcher, mock_thread_manager
+):
+    """`BUG-089` — before this fix, `_toggle_tracker` was shared with
+    Emergency Stop, so this exact click sequence fenced Emergency Stop's
+    own in-flight action as stale and its real result (including a
+    partial-failure warning) was silently dropped by
+    `_on_emergency_stop_completed`'s ownership check."""
+    presenter._view_model.emergencyStopRequested.emit()
+    action_id = presenter._emergency_stop_tracker.active_action.action_id
+    mock_thread_manager.submit.reset_mock()
+
+    presenter._view_model.toggleRequested.emit()  # must not supersede it
+
+    mock_thread_manager.submit.assert_not_called()  # no enable/disable worker submitted
+    assert presenter._view_model.toggleBusy is True  # button stayed disabled
+
+    mock_dispatcher.dispatch.return_value = _result()
+    presenter._run_emergency_stop(action_id)  # the original action, still current
+
+    assert presenter._view_model.statusIsError is False
+    assert "Đã dừng khẩn cấp" in presenter._view_model.statusMessage
+
+
+def test_a_second_emergency_stop_click_while_one_is_pending_is_refused(
+    presenter, mock_thread_manager
+):
+    """`BUG-089` debounce — the button itself is never disabled, so a
+    double-click (or an impatient second press) must not submit a second,
+    independent `EmergencyStopCommand` racing the first one's own
+    cancel/close calls against the live exchange."""
+    presenter._view_model.emergencyStopRequested.emit()
+    mock_thread_manager.submit.reset_mock()
+
+    presenter._view_model.emergencyStopRequested.emit()
+
+    mock_thread_manager.submit.assert_not_called()
+
+
 def test_a_synchronous_failure_is_reported_not_swallowed(presenter, mock_dispatcher):
     """The task's own §2.2: this slot must NOT be `@safe_ui_action` — an
     exception raised before the worker is even submitted (here, forced by
     making `begin_action` itself blow up) has to reach `statusMessage` via
     this method's own `except Exception`, not vanish silently."""
-    presenter._toggle_tracker.begin_action = MagicMock(side_effect=RuntimeError("boom"))
+    presenter._emergency_stop_tracker.begin_action = MagicMock(
+        side_effect=RuntimeError("boom")
+    )
 
     presenter._view_model.emergencyStopRequested.emit()  # must not raise
 

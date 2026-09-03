@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import stat
+import sys
+
+import pytest
 from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
     SecretsFileSource,
 )
@@ -57,3 +61,21 @@ def test_a_file_with_an_empty_field_reads_as_none(tmp_path):
     source = SecretsFileSource(str(path))
 
     assert source.read() is None
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX permission bits don't map the same way on Windows",
+)
+def test_write_hardens_the_file_to_owner_only(tmp_path):
+    """`BUG-097` — a plain `open(..., 'w')` leaves the file at the process
+    umask's default, typically world-readable; on a shared machine (a VPS,
+    this repo's own deploy target) any other local user could read the
+    API key/secret straight off disk."""
+    path = tmp_path / "secrets.local.json"
+    source = SecretsFileSource(str(path))
+
+    source.write("key-1", "secret-1")
+
+    mode = stat.S_IMODE(path.stat().st_mode)
+    assert mode == 0o600

@@ -91,6 +91,12 @@ class EnableTradingCommandHandler(
         if self._trading_venue is not TradingVenue.FUTURES_TESTNET:
             return self._blocked(EnableTradingBlockReason.TRADING_VENUE_DISABLED)
 
+        # `BUG-088` — read *before* the two network round-trips below, not
+        # after: `enable()` only applies if nothing else (a concurrent
+        # Emergency Stop, most importantly) mutated `_session_state` while
+        # this reconciliation was in flight.
+        generation_before_reconciliation = self._session_state.generation
+
         status = self._account_reader.check_connection()
         if not status.reachable or status.failure is not None:
             return self._blocked(EnableTradingBlockReason.CONNECTION_NOT_READY)
@@ -111,7 +117,29 @@ class EnableTradingCommandHandler(
                 reconciled_open_orders=open_orders,
             )
 
-        self._session_state.enable({position.symbol for position in positions})
+        # `positions` is provably empty here (the `if positions:` branch
+        # above already returned otherwise) — `set()`, not
+        # `{p.symbol for p in positions}`, which read as if it seeded from
+        # real data while always producing the same empty set.
+        applied = self._session_state.enable(
+            set(),
+            expected_generation=generation_before_reconciliation,
+        )
+        if not applied:
+            logger.warning(
+                "EnableTradingCommand superseded — session state changed "
+                "while reconciling (e.g. a concurrent Emergency Stop). "
+                "Not enabling trading."
+            )
+            return EnableTradingResult(
+                enabled=False,
+                block_reason=(
+                    EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE
+                ),
+                reconciled_positions=positions,
+                reconciled_open_orders=open_orders,
+            )
+
         self._user_data_stream.start()
         logger.info(
             "Trading enabled for this session (%d open orders reconciled).",

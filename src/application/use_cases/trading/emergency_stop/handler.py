@@ -50,6 +50,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop.
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import (
     generate_client_order_id,
 )
+from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
 from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
 from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
     OrderSubmissionMode,
@@ -120,9 +121,17 @@ class EmergencyStopCommandHandler(
         )
         orders_cancelled = self._cancel_all_orders(trading_client)
         positions_closed = self._close_all_positions(trading_client)
+        final_positions, final_open_orders, final_state_confirmed = (
+            self._read_final_state(trading_client)
+        )
 
         result = EmergencyStopResult(
-            trading_disabled, orders_cancelled, positions_closed
+            trading_disabled,
+            orders_cancelled,
+            positions_closed,
+            final_positions,
+            final_open_orders,
+            final_state_confirmed,
         )
         if result.fully_succeeded:
             logger.warning(
@@ -199,3 +208,27 @@ class EmergencyStopCommandHandler(
                     f"{position.symbol}: {exc}. Còn {remaining} vị thế chưa đóng.",
                 )
         return EmergencyStopStepResult(True, f"Đã đóng {closed_count} vị thế.")
+
+    def _read_final_state(
+        self, trading_client: ITradingClient
+    ) -> tuple[tuple[LivePosition, ...], tuple[Order, ...], bool]:
+        """@brief `BUG-093` — a best-effort read of the account's true
+        state after the three steps above, regardless of their own
+        outcome: `TradingPresenter` seeded its Positions/Open Orders
+        tables before this command ran and has no other way to learn what
+        actually happened — the user-data stream this screen otherwise
+        relies on was already stopped in step 1.
+        @return `(positions, open_orders, confirmed)` — `confirmed` is
+        `False` only when this read itself failed; a caller must then
+        treat the account's true state as unknown, never as "confirmed
+        empty" from the accompanying empty tuples.
+        """
+        try:
+            return (
+                tuple(trading_client.get_positions()),
+                tuple(trading_client.get_open_orders()),
+                True,
+            )
+        except Exception as exc:  # noqa: BLE001 - best-effort, report via the bool
+            logger.error("Could not confirm final account state: %s", exc)
+            return (), (), False

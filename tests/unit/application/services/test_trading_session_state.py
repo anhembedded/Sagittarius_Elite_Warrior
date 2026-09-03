@@ -55,3 +55,61 @@ def test_time_since_last_order_reflects_the_recorded_time() -> None:
 
     later = first + timedelta(seconds=90)
     assert state.time_since_last_order("BTCUSDT", later) == timedelta(seconds=90)
+
+
+def test_generation_advances_on_every_state_change() -> None:
+    """`BUG-088` — `enable()`'s `expected_generation` guard is only
+    meaningful if every mutation bumps it: `disable()`, `record_order_sent()`
+    and `reconcile_position()` too, not just `enable()` itself."""
+    state = TradingSessionState()
+    start = state.generation
+
+    state.enable(set())
+    assert state.generation == start + 1
+
+    state.disable()
+    assert state.generation == start + 2
+
+    state.record_order_sent("BTCUSDT", datetime(2026, 8, 27, tzinfo=UTC))
+    assert state.generation == start + 3
+
+    state.reconcile_position("ETHUSDT", has_position=True)
+    assert state.generation == start + 4
+
+
+def test_enable_with_a_stale_expected_generation_does_not_apply() -> None:
+    state = TradingSessionState()
+    stale = state.generation
+    state.disable()  # bumps the generation past `stale`
+
+    applied = state.enable({"BTCUSDT"}, expected_generation=stale)
+
+    assert applied is False
+    assert state.enabled is False
+    assert state.known_open_symbols == set()
+
+
+def test_enable_with_the_current_expected_generation_applies() -> None:
+    state = TradingSessionState()
+    current = state.generation
+
+    applied = state.enable({"BTCUSDT"}, expected_generation=current)
+
+    assert applied is True
+    assert state.enabled is True
+    assert state.known_open_symbols == {"BTCUSDT"}
+
+
+def test_reconcile_position_reports_disagreement_and_updates_membership() -> None:
+    state = TradingSessionState()
+
+    disagreed_on_open = state.reconcile_position("BTCUSDT", has_position=True)
+    assert disagreed_on_open is True
+    assert state.open_position_count("BTCUSDT") == 1
+
+    agreed = state.reconcile_position("BTCUSDT", has_position=True)
+    assert agreed is False
+
+    disagreed_on_close = state.reconcile_position("BTCUSDT", has_position=False)
+    assert disagreed_on_close is True
+    assert state.open_position_count("BTCUSDT") == 0

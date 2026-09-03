@@ -24,6 +24,13 @@ class EnableTradingBlockReason(str, Enum):
     #: of — refused outright rather than silently adopted or auto-closed
     #: (`EPIC-021G` §2.4, ADR §4). The user decides what to do next.
     UNEXPECTED_POSITIONS = "unexpected_positions"
+    #: `BUG-088` — something else (a `disable()`, another `enable()`, an
+    #: order, a reconciliation) mutated `TradingSessionState` while this
+    #: command's own reconciliation network calls were in flight, most
+    #: often an Emergency Stop that ran mid-reconciliation. Refused rather
+    #: than applied — silently turning trading back on right after an
+    #: Emergency Stop would defeat the whole point of that button.
+    SUPERSEDED_BY_CONCURRENT_STATE_CHANGE = "superseded_by_concurrent_state_change"
 
 
 @dataclass(frozen=True)

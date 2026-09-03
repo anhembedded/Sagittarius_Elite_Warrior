@@ -158,7 +158,18 @@ class TestOrdering:
         handler = _handler(session_state=session_state, raw_client=raw_client)
         handler.execute(EmergencyStopCommand())
 
-        assert call_order == ["disable_trading", "cancel_orders", "close_positions"]
+        # `BUG-093`'s own final-state confirmation read reuses the same
+        # two raw calls (`futures_position_information`/
+        # `futures_get_open_orders`, in that order — `_read_final_state`
+        # calls `get_positions()` before `get_open_orders()`) one more
+        # time each, after the three steps — hence the trailing repeat.
+        assert call_order == [
+            "disable_trading",
+            "cancel_orders",
+            "close_positions",
+            "close_positions",
+            "cancel_orders",
+        ]
 
     def test_a_step_failing_does_not_stop_the_next_step_from_being_attempted(
         self,
@@ -171,8 +182,11 @@ class TestOrdering:
         result = handler.execute(EmergencyStopCommand())
 
         assert result.trading_disabled.succeeded is False
-        raw_client.futures_get_open_orders.assert_called_once()
-        raw_client.futures_position_information.assert_called_once()
+        # Called twice each: once by the step itself (2/3), once more by
+        # `_read_final_state`'s own confirmation read (`BUG-093`) — step 1
+        # failing must not skip either.
+        assert raw_client.futures_get_open_orders.call_count == 2
+        assert raw_client.futures_position_information.call_count == 2
 
 
 class TestDisableTrading:
@@ -323,3 +337,56 @@ class TestFullySucceeded:
         result = handler.execute(EmergencyStopCommand())
 
         assert result.fully_succeeded is True
+
+
+class TestFinalState:
+    """`BUG-093` — `TradingPresenter` has no other way to learn the
+    account's true post-stop state: the user-data stream is already
+    stopped by step 1, so nothing will emit further events for whatever
+    steps 2-3 did."""
+
+    def test_confirmed_final_state_reflects_the_post_stop_snapshot(self) -> None:
+        raw_client = _quiet_raw_client()
+        # `_cancel_all_orders`/`_close_all_positions` both read "empty" —
+        # nothing to cancel/close — but the *final* read (after both
+        # steps) reports one order and one position still present, e.g. a
+        # position opened by a concurrent process the instant after this
+        # command's own steps ran. `Mock(side_effect=...)` isn't needed:
+        # a fixed `.return_value` already answers every call the same way,
+        # so this also proves the final read is a real, separate call.
+        raw_client.futures_get_open_orders.return_value = [_open_order_payload()]
+        raw_client.futures_position_information.return_value = [_position_payload()]
+        handler = _handler(raw_client=raw_client)
+
+        result = handler.execute(EmergencyStopCommand())
+
+        assert result.final_state_confirmed is True
+        assert len(result.final_positions) == 1
+        assert result.final_positions[0].symbol == "BTCUSDT"
+        assert len(result.final_open_orders) == 1
+        assert result.final_open_orders[0].symbol == "BTCUSDT"
+
+    def test_a_failed_final_read_reports_unconfirmed_not_a_false_empty(self) -> None:
+        """The dangerous failure mode this guards: reporting `()` for
+        `final_positions` must never be confused with "confirmed the
+        account is flat" when the read itself never actually completed."""
+        raw_client = _quiet_raw_client()
+        # `_close_all_positions` (step 3) already called
+        # `futures_position_information` once (quietly, returning `[]`) —
+        # the *second* call is `_read_final_state`'s own, which is made to
+        # fail here.
+        raw_client.futures_position_information.side_effect = [
+            [],
+            RuntimeError("network lost"),
+        ]
+        handler = _handler(raw_client=raw_client)
+
+        result = handler.execute(EmergencyStopCommand())
+
+        assert result.final_state_confirmed is False
+        assert result.final_positions == ()
+        assert result.final_open_orders == ()
+        # The 3 steps' own outcomes are unaffected — this read happens
+        # strictly after them and must not retroactively fail a step that
+        # already succeeded.
+        assert result.positions_closed.succeeded is True
