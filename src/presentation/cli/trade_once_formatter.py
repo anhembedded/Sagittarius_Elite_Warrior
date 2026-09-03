@@ -6,6 +6,7 @@ DRY-RUN/LIVE outcome."""
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
+    ExecuteOrderNotionalRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
@@ -101,6 +102,21 @@ def format_result(result: ExecuteOrderResult, live_requested: bool) -> str:
         reason = _VIOLATION_TEXT.get(result.blocked_by, result.blocked_by.value)
         return (
             f"Hạn mức      : ✘ CHẶN — {reason} ({result.blocked_by.value})\n"
+            "Không gửi lệnh nào."
+        )
+
+    if result.blocked_by is ExecuteOrderNotionalRejection.MIN_NOTIONAL:
+        # `BUG-090` — `result.preview` is populated (normalization already
+        # ran), so this must be checked before the fall-through DRY-RUN/LIVE
+        # branches below, or a rejected order would print as if it went
+        # through.
+        preview = result.preview
+        if preview is None:  # pragma: no cover - handler always populates it
+            return "Trạng thái   : ✘ TỪ CHỐI MIN_NOTIONAL\nKhông gửi lệnh nào."
+        return (
+            f"Trạng thái   : ✘ TỪ CHỐI MIN_NOTIONAL — "
+            f"{preview.estimated_notional:,.2f} USDT < "
+            f"{preview.min_notional:,.2f} USDT\n"
             "Không gửi lệnh nào."
         )
 

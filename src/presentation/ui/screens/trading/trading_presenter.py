@@ -93,9 +93,13 @@ _BLOCK_REASON_MESSAGES: dict[EnableTradingBlockReason, str] = {
 _UNKNOWN_BLOCK_REASON_MESSAGE = "Không thể bật giao dịch."
 
 #: `ActionOwnershipTracker`'s `TKind` for the Emergency Stop button —
-#: shares `_toggle_tracker` (a single active action) with the toggle on
-#: purpose: an in-flight Enable/Disable click superseded by Emergency Stop
-#: is exactly the case `begin_action()` already invalidates.
+#: tracked on its own `_emergency_stop_tracker` (`BUG-089`), never shared
+#: with `_toggle_tracker`: `ActionOwnershipTracker` holds exactly one
+#: active action regardless of kind, so sharing one instance meant a
+#: toggle click landing while Emergency Stop was still in flight silently
+#: fenced Emergency Stop's own result as stale — the failure this button's
+#: whole design is built to never allow (see the Emergency Stop section
+#: below).
 _EMERGENCY_STOP_ACTION = "emergency_stop"
 
 #: `MarkerLayer.set_markers()`'s key for this screen's own live-fill
@@ -139,15 +143,19 @@ class TradingPresenter(BasePresenter):
        screen), then appended to live via `EquityFeed`
        (`EquitySampledEvent`), the same single-subscriber shape as #3.
 
-    **Known gap, not fixed here** (see `EPIC-021I`'s own task write-up):
-    `futures_user_data_stream.py::_handle_account_update()` does not
-    publish a `PositionChangedEvent` when a position closes to flat —
-    only when it changes to a still-open state. This screen's Positions
-    table can therefore go stale (show a position that has actually
-    closed) until the next successful `EnableTradingCommand`
-    re-reconciles it. Fixing the publisher is out of scope for this
-    build; documented as a follow-up, not worked around with a new
-    polling mechanism this screen has no mandate to add.
+    A position closing to flat is handled by `_on_position_closed`
+    (`BUG-086`, `positionClosed` connected in `_connect_engine_events`) —
+    `futures_user_data_stream.py` publishes a dedicated `PositionClosedEvent`
+    for it, since `PositionChangedEvent` cannot represent "no position"
+    (`LivePosition`'s own invariant forbids `position_amt == 0`).
+
+    Emergency Stop is the one path that event can never correct: it stops
+    the user-data stream in its own step 1, before steps 2-3 cancel/close
+    anything, so nothing will emit further events for whatever those steps
+    do. `_on_emergency_stop_completed` refreshes `_positions`/
+    `_open_orders` itself from `EmergencyStopResult.final_positions`/
+    `final_open_orders` — a best-effort read the handler takes after all
+    three steps, regardless of their own outcome (`BUG-093`).
     """
 
     #: Live tick -> chart, main-thread-safe (`(symbol, close_ts, o, h, l,
@@ -200,15 +208,13 @@ class TradingPresenter(BasePresenter):
         self.view.chart.toolbar.sig_timeframe_changed.connect(
             self._on_timeframe_changed
         )
-        # `EPIC-021M` — the recorder outlives this screen (a DI singleton
-        # written by `FuturesUserDataStream` regardless of whether Trading
-        # is even open), so a re-navigation back to this screen recovers
-        # the full backlog immediately rather than starting the chart empty.
-        self.view.equity_chart.render_historical_data(
-            equity_samples_to_candles(self._equity_recorder.samples)
-        )
 
         self._toggle_tracker: ActionOwnershipTracker[str, None, None] = (
+            ActionOwnershipTracker()
+        )
+        #: `BUG-089` — deliberately a *separate* tracker instance from
+        #: `_toggle_tracker`, see `_EMERGENCY_STOP_ACTION`'s own comment.
+        self._emergency_stop_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
         self._positions: dict[str, LivePosition] = {}
@@ -233,6 +239,22 @@ class TradingPresenter(BasePresenter):
 
         self._connect_ui_signals()
         self._connect_engine_events()
+
+        # `EPIC-021M`/`BUG-100` — the recorder outlives this screen (a DI
+        # singleton written by `FuturesUserDataStream` regardless of
+        # whether Trading is even open), so a re-navigation back to this
+        # screen recovers the full backlog immediately rather than
+        # starting the chart empty. Read *after* `_connect_engine_events()`
+        # has already subscribed `_equity_feed`, not before: a live sample
+        # recorded in between subscribing and reading is otherwise missed
+        # entirely (subscribed-after-read order) rather than merely
+        # double-counted — and a double-count from the reverse ordering is
+        # itself already harmless, since `ChartCard.append_closed_candle()`
+        # replaces the last point in place when its timestamp matches
+        # rather than appending a second one.
+        self.view.equity_chart.render_historical_data(
+            equity_samples_to_candles(self._equity_recorder.samples)
+        )
 
         self._chart_coordinator.start(
             self._active_symbol, self._active_interval, self._cancellation_token
@@ -403,6 +425,18 @@ class TradingPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_toggle_requested(self) -> None:
+        # `BUG-089` — the toggle button is already disabled by `busy=True`
+        # while Emergency Stop runs (see that section below), but this is
+        # the real guard: a click that slips through anyway (a queued Qt
+        # event delivered just before the button actually disables) must
+        # not begin a new toggle action and, via the shared session state,
+        # race the Emergency Stop already in flight.
+        if self._emergency_stop_tracker.active_outcome is ActionOutcome.PENDING:
+            self._view_model.set_status(
+                "Đang dừng khẩn cấp — vui lòng đợi xong trước khi bật/tắt giao dịch.",
+                True,
+            )
+            return
         action = self._toggle_tracker.begin_action(_TOGGLE_ACTION, None, None)
         currently_enabled = self._session_state.enabled
         self._view_model.set_trading_state(currently_enabled, True)
@@ -500,12 +534,28 @@ class TradingPresenter(BasePresenter):
     @Slot()
     def _on_emergency_stop_requested(self) -> None:
         try:
-            action = self._toggle_tracker.begin_action(
+            # `BUG-089` debounce — the Emergency Stop button is
+            # deliberately never disabled (it must always be clickable),
+            # so a second click while one is still in flight is only
+            # caught here: without this, it would submit a second,
+            # independent `EmergencyStopCommand` against the live exchange
+            # racing the first one's own cancel/close calls.
+            if self._emergency_stop_tracker.active_outcome is ActionOutcome.PENDING:
+                self._view_model.set_status(
+                    "Đang dừng khẩn cấp — yêu cầu đã được gửi, vui lòng đợi.", False
+                )
+                return
+            action = self._emergency_stop_tracker.begin_action(
                 _EMERGENCY_STOP_ACTION, None, None
             )
+            # Disables the toggle button for the duration (`_apply_trading_
+            # state`) — Enable/Disable must not race Emergency Stop's own
+            # `disable()`/`place_order()` calls.
+            self._view_model.set_trading_state(self._session_state.enabled, True)
             self._view_model.set_status("Đang dừng khẩn cấp...", False)
             self._thread_manager.submit(self._run_emergency_stop, action.action_id)
         except Exception as exc:  # noqa: BLE001 - deliberately not @safe_ui_action, see this section's own docstring
+            self._view_model.set_trading_state(self._session_state.enabled, False)
             self._view_model.set_status(f"Lỗi khi dừng khẩn cấp: {exc}", True)
 
     def _run_emergency_stop(self, action_id: int) -> None:
@@ -520,33 +570,58 @@ class TradingPresenter(BasePresenter):
     @Slot(tuple)
     def _on_emergency_stop_completed(self, payload: tuple) -> None:
         action_id, result, error = payload
-        if not self._toggle_tracker.is_current_pending(
+        if not self._emergency_stop_tracker.is_current_pending(
             action_id, _EMERGENCY_STOP_ACTION
         ):
-            self._toggle_tracker.log_stale_callback(
+            self._emergency_stop_tracker.log_stale_callback(
                 "emergency_stop", action_id, _EMERGENCY_STOP_ACTION
             )
             return
 
         if error is not None or result is None:
-            self._toggle_tracker.finish_action(action_id, ActionOutcome.FAILED)
+            self._emergency_stop_tracker.finish_action(action_id, ActionOutcome.FAILED)
             self._view_model.set_trading_state(self._session_state.enabled, False)
             self._view_model.set_status(f"Lỗi khi dừng khẩn cấp: {error}", True)
             self._append_log(f"[ERROR] Dừng khẩn cấp thất bại: {error}")
             return
 
-        self._toggle_tracker.finish_action(
+        self._emergency_stop_tracker.finish_action(
             action_id,
             ActionOutcome.SUCCEEDED if result.fully_succeeded else ActionOutcome.FAILED,
         )
         self._view_model.set_trading_state(self._session_state.enabled, False)
         self._log_emergency_stop_result(result)
+        self._apply_emergency_stop_final_state(result)
         if result.fully_succeeded:
             self._view_model.set_status("Đã dừng khẩn cấp.", False)
         else:
             self._view_model.set_status(
                 "DỪNG KHẨN CẤP — THẤT BẠI MỘT PHẦN. Xem nhật ký.", True
             )
+
+    def _apply_emergency_stop_final_state(self, result: EmergencyStopResult) -> None:
+        """`BUG-093` — the user-data stream is already stopped by
+        Emergency Stop's own step 1, so `_on_order_filled`/
+        `_on_position_changed`/`_on_position_closed` will never fire for
+        whatever steps 2-3 actually did. Without this, the Positions/Open
+        Orders tables keep showing whatever they held right before the
+        button was pressed — stale, and on a full success, actively wrong
+        (still "open" for a position that is now flat)."""
+        if not result.final_state_confirmed:
+            self._append_log(
+                "[WARNING] Không thể xác nhận trạng thái tài khoản sau khi dừng "
+                "khẩn cấp — bảng vị thế/lệnh chờ bên dưới có thể không còn đúng. "
+                "Chạy `exchange-status` để kiểm tra trực tiếp."
+            )
+            return
+        self._positions = {
+            position.symbol: position for position in result.final_positions
+        }
+        self._open_orders = {
+            order.client_order_id: order for order in result.final_open_orders
+        }
+        self._render_positions()
+        self._render_open_orders()
 
     def _log_emergency_stop_result(self, result: EmergencyStopResult) -> None:
         self._append_log("DỪNG KHẨN CẤP")

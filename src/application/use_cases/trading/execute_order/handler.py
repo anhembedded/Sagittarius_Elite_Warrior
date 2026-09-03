@@ -29,8 +29,12 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.c
     ExecuteOrderCommand,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
+    ExecuteOrderNotionalRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
+)
+from Sagittarius_Elite_Warrior.src.domain.policies.order_quantity_rounding_policy import (
+    NotionalCheck,
 )
 from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
     OrderSubmissionMode,
@@ -87,6 +91,15 @@ class ExecuteOrderCommandHandler(
             return ExecuteOrderResult(gate, None, (), None)
 
         preview = self._preview_handler.execute(command.order_request)
+
+        # `BUG-090` — refuse before the four session limits, and well
+        # before any network call, rather than letting an order this
+        # app's own normalization already knows is too small round-trip
+        # to the exchange for a `-4164` rejection.
+        if preview.notional_check is NotionalCheck.INSUFFICIENT:
+            return ExecuteOrderResult(
+                ExecuteOrderNotionalRejection.MIN_NOTIONAL, preview, (), None
+            )
 
         symbol = command.order_request.symbol
         now = datetime.now(UTC)

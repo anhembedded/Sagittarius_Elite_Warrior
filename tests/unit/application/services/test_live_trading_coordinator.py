@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import Mock
@@ -15,6 +16,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.r
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
     FuturesSymbolMetadata,
+)
+from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
     ExchangeConnectionStatus,
@@ -141,6 +146,39 @@ def test_no_known_balance_skips_dispatch() -> None:
     coordinator.handle(_signal())
 
     dispatcher.dispatch.assert_not_called()
+
+
+def test_exchange_rejection_is_logged_not_raised(caplog) -> None:
+    """`BUG-090` — a live order the app's own `notional_check` gate didn't
+    catch (margin, rate limit, ...) still reaches the exchange and can come
+    back as `OrderRejectedByExchangeError`. Before this fix, nothing in
+    this coordinator or its caller (`MarketTickEventHandler.handle()`, no
+    `except` of its own) caught it, so one rejected order would crash tick
+    processing for the rest of the session."""
+    dispatcher = Mock()
+    dispatcher.dispatch.side_effect = OrderRejectedByExchangeError(
+        OrderRejectionReason.INSUFFICIENT_MARGIN, "Margin is insufficient"
+    )
+    coordinator = _coordinator(dispatcher)
+
+    with caplog.at_level(logging.WARNING):
+        coordinator.handle(_signal())  # must not raise
+
+    assert any("rejected" in record.message.lower() for record in caplog.records)
+
+
+def test_a_network_failure_during_dispatch_is_logged_not_raised(caplog) -> None:
+    """Same worker-boundary reasoning as the rejection case above, for an
+    unexpected/network-level failure — this coordinator has no engine
+    exception-swallowing wrapper the way UI worker methods do."""
+    dispatcher = Mock()
+    dispatcher.dispatch.side_effect = ConnectionError("boom")
+    coordinator = _coordinator(dispatcher)
+
+    with caplog.at_level(logging.ERROR):
+        coordinator.handle(_signal())  # must not raise
+
+    assert any("boom" in record.message for record in caplog.records)
 
 
 def test_unknown_symbol_metadata_skips_dispatch() -> None:

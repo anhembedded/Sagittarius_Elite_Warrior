@@ -45,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.c
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
     ExecuteOrderResult,
 )
+from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+)
 from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.position_sizing_bridge import (
     calculate_live_order_quantity,
@@ -146,10 +149,28 @@ class LiveTradingCoordinator:
         # bare `result: ExecuteOrderResult = ...` fails mypy here where it
         # silently wouldn't there. `cast` documents the trust explicitly
         # rather than annotating past it.
-        result = cast(
-            ExecuteOrderResult,
-            self._dispatcher.dispatch(ExecuteOrderCommand, command),
-        )
+        # `BUG-090` — an exchange rejection (margin, rate limit, a
+        # notional/precision edge `preview.notional_check` didn't catch)
+        # is expected, named domain state, not a bug: it must not escape
+        # to `MarketTickEventHandler.handle()`, which has no `except` of
+        # its own and would otherwise let one rejected order take down
+        # tick processing for the rest of the session.
+        try:
+            result = cast(
+                ExecuteOrderResult,
+                self._dispatcher.dispatch(ExecuteOrderCommand, command),
+            )
+        except OrderRejectedByExchangeError as exc:
+            logger.warning("Live order rejected by exchange: %s", exc)
+            return
+        except Exception as exc:  # noqa: BLE001 - worker boundary: a network/exchange
+            # failure below `ITradingClient` must not propagate through this
+            # application-layer coordinator (`architecture-rule.md` §3 bars
+            # importing infra-specific exception types like
+            # `BinanceRequestException` here to narrow this further) and
+            # crash the rest of this session's tick processing.
+            logger.error("Live order attempt failed — network/exchange error: %s", exc)
+            return
         if result.blocked:
             logger.info("Live order blocked: %s", result.blocked_by)
         else:

@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_prese
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 
@@ -84,8 +85,18 @@ def equity_recorder():
 
 
 @pytest.fixture
+def mock_event_bus():
+    return MagicMock()
+
+
+@pytest.fixture
 def container(
-    mock_config, mock_dispatcher, mock_thread_manager, session_state, equity_recorder
+    mock_config,
+    mock_dispatcher,
+    mock_thread_manager,
+    session_state,
+    equity_recorder,
+    mock_event_bus,
 ):
     c = MagicMock()
 
@@ -100,6 +111,8 @@ def container(
             return session_state
         if interface is EquityCurveRecorder:
             return equity_recorder
+        if interface is IEventBus:
+            return mock_event_bus
         return MagicMock()
 
     c.resolve.side_effect = resolve
@@ -129,6 +142,34 @@ def test_construction_seeds_the_full_backlog_from_the_recorder(
 
     view.equity_chart.render_historical_data.assert_called_once_with(
         equity_samples_to_candles([_sample(0), _sample(1)])
+    )
+
+
+def test_a_sample_recorded_right_at_subscribe_time_is_not_missed(
+    qapp, view, container, equity_recorder, mock_event_bus
+):
+    """`BUG-100` — before this fix, the chart's seed read happened
+    *before* `_connect_engine_events()` subscribed `EquityFeed`. A sample
+    recorded strictly between those two points was in neither the seed
+    snapshot (recorded after it was read) nor caught by the live
+    subscription (which didn't exist yet) — silently missed until the
+    next screen re-open. Simulated here by having the mocked event bus's
+    own `.on()` registration — the exact moment `EquityFeed` subscribes —
+    record a new sample as a side effect, standing in for a real
+    `ACCOUNT_UPDATE` landing on the websocket thread at that instant."""
+    equity_recorder.record(_sample(0))
+    late_sample = _sample(1)
+
+    def on_subscribe(event_type, _callback):
+        if event_type is EquitySampledEvent:
+            equity_recorder.record(late_sample)
+
+    mock_event_bus.on.side_effect = on_subscribe
+
+    TradingPresenter(view, container)
+
+    view.equity_chart.render_historical_data.assert_called_once_with(
+        equity_samples_to_candles([_sample(0), late_sample])
     )
 
 

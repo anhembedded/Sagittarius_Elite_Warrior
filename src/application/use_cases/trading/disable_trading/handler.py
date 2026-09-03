@@ -16,9 +16,11 @@ logger = logging.getLogger("App.CommandHandler")
 
 class DisableTradingCommandHandler(ICommandHandler[DisableTradingCommand, None]):
     """
-    @brief Handler for `DisableTradingCommand` — the one place
-    `TradingSessionState.disable()` is ever called (`EPIC-021I`), symmetric
-    with `EnableTradingCommandHandler`.
+    @brief Handler for `DisableTradingCommand` — the ordinary, user-facing
+    path to `TradingSessionState.disable()` (`EPIC-021I`), symmetric with
+    `EnableTradingCommandHandler`. `EmergencyStopCommandHandler` also calls
+    `disable()` directly, inline, as its own step 1 — see that handler's
+    own docstring for why it does not dispatch this command instead.
 
     @details Never gated on `TradingVenue` or connection readiness, unlike
     enabling — turning trading off must always be possible, including as

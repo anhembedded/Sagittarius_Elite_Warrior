@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.h
     ExecuteOrderCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
+    ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
@@ -243,6 +244,34 @@ class TestTradingLimits:
 
         assert result.blocked_by is None
         assert result.submitted_order is None
+        assert state.orders_sent_this_session == 0
+
+
+class TestNotionalRejection:
+    def test_blocked_by_min_notional_before_any_network_order_call(self) -> None:
+        """`BUG-090` — `EPIC-021`'s own §1 finding 6: the rounding/notional
+        policy existed since `BOT-095E1` and was never wired into the live
+        order path, so an order sized under `minNotional` used to sail
+        through every check here and get rejected by the exchange itself.
+        BTCUSDT's `min_notional` is 100 (`_metadata_provider()`); this
+        order's notional is 0.001 * 50 = 0.05."""
+        raw_client = Mock()
+        handler, state = _handler(raw_client=raw_client)
+
+        result = handler.execute(
+            ExecuteOrderCommand(
+                order_request=_order_request(
+                    quantity=Decimal("0.001"), reference_price=Decimal(50)
+                ),
+                live=True,
+            )
+        )
+
+        assert result.blocked_by is ExecuteOrderNotionalRejection.MIN_NOTIONAL
+        assert result.preview is not None
+        assert result.limit_checks == ()
+        assert result.submitted_order is None
+        raw_client.futures_create_order.assert_not_called()
         assert state.orders_sent_this_session == 0
 
 

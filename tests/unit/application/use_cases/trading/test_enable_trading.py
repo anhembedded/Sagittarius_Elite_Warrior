@@ -61,7 +61,7 @@ def _handler(
     status: ExchangeConnectionStatus | None = None,
     position_payloads: list[dict] | None = None,
     open_order_payloads: list[dict] | None = None,
-) -> tuple[EnableTradingCommandHandler, TradingSessionState, Mock]:
+) -> tuple[EnableTradingCommandHandler, TradingSessionState, Mock, Mock]:
     account_reader = Mock()
     account_reader.check_connection.return_value = status or _ready_status()
 
@@ -90,11 +90,12 @@ def _handler(
         ),
         session_state,
         user_data_stream,
+        account_reader,
     )
 
 
 def test_enables_when_account_is_flat() -> None:
-    handler, session_state, user_data_stream = _handler()
+    handler, session_state, user_data_stream, _account_reader = _handler()
 
     result = handler.execute(EnableTradingCommand())
 
@@ -105,7 +106,7 @@ def test_enables_when_account_is_flat() -> None:
 
 
 def test_blocked_when_trading_venue_disabled() -> None:
-    handler, session_state, user_data_stream = _handler(
+    handler, session_state, user_data_stream, _account_reader = _handler(
         trading_venue=TradingVenue.DISABLED
     )
 
@@ -128,7 +129,9 @@ def test_blocked_when_connection_not_reachable() -> None:
         margin_type=None,
         open_position_count=None,
     )
-    handler, session_state, user_data_stream = _handler(status=unreachable)
+    handler, session_state, user_data_stream, _account_reader = _handler(
+        status=unreachable
+    )
 
     result = handler.execute(EnableTradingCommand())
 
@@ -148,7 +151,9 @@ def test_blocked_when_hedge_mode() -> None:
         margin_type=None,
         open_position_count=0,
     )
-    handler, session_state, user_data_stream = _handler(status=hedge_mode)
+    handler, session_state, user_data_stream, _account_reader = _handler(
+        status=hedge_mode
+    )
 
     result = handler.execute(EnableTradingCommand())
 
@@ -157,10 +162,40 @@ def test_blocked_when_hedge_mode() -> None:
     user_data_stream.start.assert_not_called()
 
 
+def test_a_concurrent_emergency_stop_during_reconciliation_is_not_overridden() -> None:
+    """`BUG-088` — `EnableTradingCommand` does two network round-trips
+    (`check_connection()`, `get_positions()`/`get_open_orders()`) before it
+    ever calls `session_state.enable()`. If an Emergency Stop's `disable()`
+    lands on another thread while that reconciliation is still in flight,
+    a blind `enable()` afterward would silently turn trading back on right
+    after the user asked for everything to stop. Simulated deterministically
+    here by having the connection check itself trigger the concurrent
+    `disable()` — no real threads needed."""
+    handler, session_state, user_data_stream, account_reader = _handler()
+
+    def _check_connection_then_concurrent_emergency_stop() -> ExchangeConnectionStatus:
+        session_state.disable()  # the "Emergency Stop that ran meanwhile"
+        return _ready_status()
+
+    account_reader.check_connection.side_effect = (
+        _check_connection_then_concurrent_emergency_stop
+    )
+
+    result = handler.execute(EnableTradingCommand())
+
+    assert result.enabled is False
+    assert (
+        result.block_reason
+        is EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE
+    )
+    assert session_state.enabled is False
+    user_data_stream.start.assert_not_called()
+
+
 def test_refuses_and_does_not_enable_when_unexpected_position_exists() -> None:
     """`EPIC-021G` §2.4: an existing position the app has no record of
     refuses the enable — it is never auto-adopted, never auto-closed."""
-    handler, session_state, user_data_stream = _handler(
+    handler, session_state, user_data_stream, _account_reader = _handler(
         position_payloads=[_position_payload()]
     )
 

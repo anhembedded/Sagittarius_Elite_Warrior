@@ -14,6 +14,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
+from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
+
 
 @dataclass(frozen=True)
 class EmergencyStopStepResult:
@@ -30,11 +33,23 @@ class EmergencyStopStepResult:
 class EmergencyStopResult:
     """The three steps, in the order they were attempted — see
     `EmergencyStopCommandHandler.execute()` for why that order is not
-    incidental."""
+    incidental.
+
+    @details `BUG-093` — `final_positions`/`final_open_orders` are a
+    best-effort read of the account's *true* state, taken after the three
+    steps above regardless of their own outcome: the user-data stream is
+    already stopped by step 1, so nothing will otherwise correct a UI that
+    seeded its tables before this command ran. `final_state_confirmed` is
+    `False` only when that read itself failed (a caller must not treat
+    empty `final_positions`/`final_open_orders` as "confirmed flat" in
+    that case — it means "unknown", not "zero")."""
 
     trading_disabled: EmergencyStopStepResult
     orders_cancelled: EmergencyStopStepResult
     positions_closed: EmergencyStopStepResult
+    final_positions: tuple[LivePosition, ...] = ()
+    final_open_orders: tuple[Order, ...] = ()
+    final_state_confirmed: bool = False
 
     @property
     def fully_succeeded(self) -> bool:

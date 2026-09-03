@@ -26,17 +26,40 @@ class ExecuteOrderSafetyGate(str, Enum):
     CONNECTION_NOT_READY = "connection_not_ready"
 
 
+class ExecuteOrderNotionalRejection(str, Enum):
+    """@brief `BUG-090` — the order's notional (after step-size rounding)
+    doesn't clear the exchange's own `minNotional` filter. Distinct from
+    `TradingLimitViolation`: the four session limits are configurable
+    safety policy this app chooses to enforce; this is Binance's own hard
+    requirement, computed once already by `PreviewOrderQueryHandler`
+    (`OrderPreview.notional_check`) — checked here so the app refuses
+    before a network round-trip instead of relying on the exchange's own
+    `-4164` rejection every time (`EPIC-021`'s own §1 finding 6: the
+    parser/policy for this existed since `BOT-095E1` and was never wired
+    into the live order path)."""
+
+    MIN_NOTIONAL = "min_notional"
+
+
 @dataclass(frozen=True)
 class ExecuteOrderResult:
-    """@details `blocked_by` is a safety gate, a trading-limit violation,
-    or `None` (nothing blocked it). `preview`/`limit_checks` are populated
-    as far as evaluation got — a safety-gate block never reaches order
-    normalization, so both stay empty/`None` in that case, matching
-    `EPIC-021G` §5's own worked examples (a limit-check block shows every
-    check; a safety-gate block shows none of them).
+    """@details `blocked_by` is a safety gate, a notional rejection, a
+    trading-limit violation, or `None` (nothing blocked it). `preview`/
+    `limit_checks` are populated as far as evaluation got — a safety-gate
+    block never reaches order normalization, so both stay empty/`None` in
+    that case, matching `EPIC-021G` §5's own worked examples (a limit-check
+    block shows every check; a safety-gate block shows none of them). A
+    `MIN_NOTIONAL` block has a `preview` (normalization already ran to
+    compute it) but an empty `limit_checks` — the four session limits were
+    never reached.
     """
 
-    blocked_by: ExecuteOrderSafetyGate | TradingLimitViolation | None
+    blocked_by: (
+        ExecuteOrderSafetyGate
+        | ExecuteOrderNotionalRejection
+        | TradingLimitViolation
+        | None
+    )
     preview: OrderPreview | None
     limit_checks: tuple[TradingLimitCheck, ...]
     submitted_order: Order | None
