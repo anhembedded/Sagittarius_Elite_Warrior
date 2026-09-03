@@ -96,3 +96,12 @@ class ConfigKeys(str, Enum):
     #: string (the default) means "no live strategy configured" —
     #: `MarketTickEventHandler` then stays the inert logger it always was.
     TRADING_LIVE_STRATEGY_KEY = "trading.live_strategy_key"
+    #: The one `TimeFrame` `MarketTickEventHandler`'s live strategy path
+    #: reacts to — every tick for any other interval is ignored, the same
+    #: reason `TRADING_LIVE_SYMBOL` filters by symbol (`BUG-085`: mixing
+    #: candles from two intervals through one `StrategyEngine`'s indicators
+    #: would corrupt their state exactly like mixing symbols does). Empty
+    #: string (the default) means "no live interval configured" — it must
+    #: NOT default to some guessed interval, since a wrong guess is a wrong
+    #: strategy. `EPIC-021I`'s `TimeframePicker` sets this.
+    TRADING_LIVE_INTERVAL = "trading.live_interval"

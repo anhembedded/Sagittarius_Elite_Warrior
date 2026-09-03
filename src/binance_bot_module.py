@@ -554,19 +554,23 @@ class BinanceBotModule(BaseModule):
         app.context.hosted_services.register(adapter)
 
         # EPIC-021G: a `StrategyEngine`/`LiveTradingCoordinator` pair is
-        # only built when a live symbol AND a live strategy are both
-        # configured — an empty `TRADING_LIVE_STRATEGY_KEY` (the default)
-        # means "no live strategy configured", and `MarketTickEventHandler`
-        # stays the inert logger it has always been.
+        # only built when a live symbol, a live strategy, AND a live
+        # interval (`BUG-085`) are all configured — an empty
+        # `TRADING_LIVE_STRATEGY_KEY`/`TRADING_LIVE_INTERVAL` (the default)
+        # means "no live strategy/interval configured", and
+        # `MarketTickEventHandler` stays the inert logger it has always
+        # been. A missing interval must never default to a guessed one —
+        # a wrong guess is a wrong strategy.
         config: IConfig = app.container.resolve(IConfig)
         live_symbol = str(config.get(ConfigKeys.TRADING_LIVE_SYMBOL.value, ""))
         live_strategy_key = str(
             config.get(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, "")
         )
+        live_interval = str(config.get(ConfigKeys.TRADING_LIVE_INTERVAL.value, ""))
 
         strategy_engine = None
         live_trading_coordinator = None
-        if live_symbol and live_strategy_key:
+        if live_symbol and live_strategy_key and live_interval:
             strategy_engine = build_engine(
                 app.container.resolve(StrategyRegistry),
                 live_strategy_key,
@@ -581,7 +585,7 @@ class BinanceBotModule(BaseModule):
 
         # Initialize Event Handlers and subscribe to the Event Bus
         event_handler = MarketTickEventHandler(
-            live_symbol, strategy_engine, live_trading_coordinator
+            live_symbol, live_interval, strategy_engine, live_trading_coordinator
         )
         app.event_bus.on(MarketTickEvent, event_handler.handle)
 
