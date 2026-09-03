@@ -6,8 +6,13 @@ cache-hit/miss logic, not a re-implementation of it."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
+    FuturesSymbolMetadata,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
 )
@@ -87,6 +92,32 @@ def test_refresh_always_hits_the_network_even_on_a_warm_cache():
     provider.refresh()
 
     session_factory.create_futures_metadata_client.assert_called_once()
+
+
+def test_a_stale_cache_hit_forces_a_real_refresh():
+    """`BUG-098` — `FuturesSymbolMetadata.is_stale()` existed since
+    `BOT-095E1` and was never called in production: once cached, a
+    symbol's `stepSize`/`tickSize`/`minNotional` were trusted for the rest
+    of the process, even after Binance changes an exchange filter
+    server-side."""
+    provider, session_factory, cache = _provider()
+    stale = FuturesSymbolMetadata(
+        symbol="BTCUSDT",
+        status="TRADING",
+        step_size=Decimal("0.001"),
+        tick_size=Decimal("0.10"),
+        min_notional=Decimal(100),
+        quantity_precision=3,
+        price_precision=2,
+        fetched_at=datetime.now(UTC) - timedelta(hours=25),
+    )
+    cache.put(stale)
+
+    metadata = provider.get_or_fetch("BTCUSDT")
+
+    session_factory.create_futures_metadata_client.assert_called_once()
+    assert metadata is not None
+    assert metadata.fetched_at > stale.fetched_at
 
 
 def test_refresh_replaces_stale_cached_data():

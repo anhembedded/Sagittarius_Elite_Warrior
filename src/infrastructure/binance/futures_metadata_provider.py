@@ -42,7 +42,13 @@ class FuturesMetadataProvider(IMarketMetadataProvider):
 
     def get_or_fetch(self, symbol: str) -> FuturesSymbolMetadata | None:
         cached = self._cache.get(symbol)
-        if cached is not None:
+        # `BUG-098` — `FuturesSymbolMetadata.is_stale()` existed since
+        # `BOT-095E1` and was never called anywhere in production: once a
+        # symbol was cached, its `stepSize`/`tickSize`/`minNotional` were
+        # trusted for the rest of the process, even after Binance changes
+        # an exchange filter server-side. A 24h-old entry now forces a
+        # real refresh instead of being trusted forever.
+        if cached is not None and not cached.is_stale():
             return cached
         self.refresh()
         return self._cache.get(symbol)

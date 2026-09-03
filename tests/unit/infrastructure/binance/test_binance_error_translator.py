@@ -39,6 +39,29 @@ def _exception(code: int, message: str) -> BinanceAPIException:
             OrderRejectionReason.REDUCE_ONLY_REJECTED,
         ),
         (-1003, "Too many requests.", OrderRejectionReason.RATE_LIMIT),
+        # `BUG-099` — four more realistic live-order codes, previously
+        # falling through to `UNKNOWN`.
+        (-1015, "Too many new orders.", OrderRejectionReason.RATE_LIMIT),
+        (
+            -1111,
+            "Precision is over the maximum defined for this asset.",
+            OrderRejectionReason.LOT_SIZE,
+        ),
+        (
+            -4003,
+            "Quantity less than or equal to zero.",
+            OrderRejectionReason.LOT_SIZE,
+        ),
+        (
+            -2027,
+            "Exceeded the maximum allowable position at current leverage.",
+            OrderRejectionReason.INSUFFICIENT_MARGIN,
+        ),
+        (
+            -4131,
+            "The counterparty's best price does not meet the PERCENT_PRICE filter limit.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
     ],
 )
 def test_real_binance_codes_map_to_the_expected_reason(

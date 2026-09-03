@@ -49,11 +49,29 @@ class SecretsFileSource:
         return api_key, api_secret
 
     def write(self, api_key: str, api_secret: str) -> None:
-        """@brief Overwrites the file with exactly this key/secret pair."""
+        """@brief Overwrites the file with exactly this key/secret pair.
+        @details `BUG-097` — chmod'd to owner-only (`0o600`) right after
+        writing: `open(..., "w")` alone leaves the file at the process
+        umask's default, typically world-readable, so any other local
+        user on a shared machine (a VPS, exactly this repo's own deploy
+        target per `README.md`) could read the key/secret straight off
+        disk. `.gitignore` already keeps it out of the repo (`EPIC-021B`)
+        — file-system exposure is the same category of leak, just not the
+        one that epic checked for. A no-op on Windows (permission bits
+        don't map the same way there), never raises either way.
+        """
         directory = os.path.dirname(self._filepath)
         if directory:
             os.makedirs(directory, exist_ok=True)
         with open(self._filepath, "w", encoding="utf-8") as f:
             json.dump(
                 {_API_KEY_FIELD: api_key, _API_SECRET_FIELD: api_secret}, f, indent=2
+            )
+        try:
+            os.chmod(self._filepath, 0o600)
+        except OSError as exc:
+            logger.warning(
+                "Không đặt được quyền truy cập chỉ-chủ-sở-hữu cho %s: %s",
+                self._filepath,
+                exc,
             )
