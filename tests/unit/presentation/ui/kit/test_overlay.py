@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Overlay,
@@ -59,6 +60,21 @@ def test_subclass_constructs_as_a_qdialog(qtbot):
     assert isinstance(overlay, QDialog)
     assert overlay.isModal() is True
     assert overlay.styleSheet() != ""
+
+
+def test_the_surface_background_is_actually_paintable(qtbot):
+    """`BUG-102`: `Overlay` is a bare `QDialog` (not a `QFrame`, unlike
+    `Surface`/`Panel`/`Card`), so its `StyleRole.SURFACE` stylesheet never
+    painted without this attribute — Qt's own style sheet reference: a
+    plain `QWidget` subclass "needs to set the Qt::WA_StyledBackground
+    attribute for the style sheet to have an effect". A `QmlOverlay`
+    subclass's QML body relies on exactly this background showing through
+    its own transparent clear colour (`host.py`); without it the whole
+    dialog rendered see-through to whatever sat behind it."""
+    overlay = _ConfirmOverlay("Confirm delete")
+    qtbot.addWidget(overlay)
+
+    assert overlay.testAttribute(Qt.WidgetAttribute.WA_StyledBackground) is True
 
 
 def test_title_and_subtitle_properties(qtbot):

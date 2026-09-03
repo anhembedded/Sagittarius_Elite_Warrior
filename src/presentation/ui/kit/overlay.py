@@ -6,6 +6,7 @@ Its own single-inheritance chain from `QDialog`, independent of
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from .style import StyleRole, apply_role
@@ -34,6 +35,18 @@ class Overlay(QDialog):
             )
         super().__init__(parent)
         self.setModal(True)
+        # `apply_role()` scopes its QSS to `.<ClassName>` and sets it via
+        # `setStyleSheet()` directly on `self`. That only paints for a
+        # `QFrame` subclass (`Surface`/`Panel`/`Card` all are one) — `Overlay`
+        # is a bare `QDialog`, and per Qt's own style sheet reference, a
+        # plain `QWidget` subclass "needs to set the Qt::WA_StyledBackground
+        # attribute for the style sheet to have an effect". Without it, this
+        # SURFACE background never actually paints, and a `QmlOverlay`
+        # subclass's `QQuickWidget` body (transparent clear colour by
+        # design — see `host.py` — relying on exactly this background
+        # showing through) had no opaque surface to show through TO: the
+        # whole dialog rendered see-through to whatever sat behind it.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         apply_role(self, StyleRole.SURFACE)
 
         outer = QVBoxLayout(self)
