@@ -871,6 +871,48 @@ def test_chart_card_zoom_controls_box_zoom_toggle(qapp):
     assert vb.state["mouseMode"] == pg.ViewBox.PanMode
 
 
+def test_zoom_controls_do_not_overlap_the_crosshair_readout(qapp):
+    """UI-overlap fix: `ZoomControls` used to anchor its 6-button cluster
+    to the canvas's top-left corner via `.move()`, the exact same corner
+    `ChartPlotLayout`'s `crosshair_label` occupies (row 0, right-justified
+    — its rendered width grows leftward, unbounded, with whatever text the
+    hovered point needs). Measured directly on a short chart (the Trading
+    screen's equity mini-chart is ~170px tall): a realistic crosshair
+    string ("Time: ... | Value: ...") rendered a label spanning x=9..528,
+    y=9..35 — squarely on top of the button cluster's old x=12..80,
+    y=12..116 box. Anchoring the cluster to the bottom-left instead (this
+    fix) keeps it in a vertical band row 0's label never reaches,
+    regardless of how long that text gets."""
+    card = ChartCard("ETHUSDT")
+    card.resize(1400, 220)
+    card.show()
+    for _ in range(3):
+        QApplication.processEvents()
+
+    label = card.plot_layout.crosshair_label
+    label.setText(
+        "<span style='color:#888;'>Time: 2026-09-03 02:16:12 | Value: 133.3801</span>"
+    )
+    for _ in range(3):
+        QApplication.processEvents()
+
+    scene_rect = label.mapRectToScene(label.boundingRect())
+    label_rect = card.plot_layout.widget.mapFromScene(scene_rect).boundingRect()
+
+    for name in (
+        "_h_in_btn",
+        "_h_out_btn",
+        "_v_in_btn",
+        "_v_out_btn",
+        "_box_btn",
+        "_reset_btn",
+    ):
+        button_geometry = getattr(card.zoom_controls, name).geometry()
+        assert not label_rect.intersects(button_geometry), (
+            f"{name} at {button_geometry} overlaps the crosshair label at {label_rect}"
+        )
+
+
 def test_chart_card_viewport_follow_and_jump_to_live(qapp):
     """
     Test that a user-driven pan/zoom (sigRangeChangedManually) stops auto-follow and

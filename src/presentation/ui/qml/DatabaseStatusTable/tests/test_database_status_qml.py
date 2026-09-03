@@ -312,3 +312,47 @@ def test_a_full_iso_timestamp_does_not_overflow_into_the_next_column(qapp, qml_i
     assert first.property("x") + first.property("width") <= last.property("x")
     quick.close()
     quick.deleteLater()
+
+
+def test_the_header_row_also_elides_first_record_and_last_record(qapp, qml_item):
+    """Same defect as `test_a_full_iso_timestamp_does_not_overflow_into_the_
+    next_column` above, one layer up: `BUG-076`'s fix (`elide` +
+    `Layout.minimumWidth: 0`) landed on `DatabaseStatusRow.qml`'s *data*
+    cells, but the *header* row is a shared component (`DataTable.qml`,
+    used by every `qml/` table, not just this one) that never got the same
+    treatment.
+
+    @par Why this asserts on `contentWidth`, not `width`
+    Measured directly (not assumed): `RowLayout` shrinks a `fillWidth`
+    `Text`'s layout box (`width`) below its `implicitWidth` regardless of
+    `elide` — that part was never the bug. What `elide`'s absence actually
+    breaks is `contentWidth` (the painted glyphs' own extent): without it,
+    `contentWidth` stays pinned to the label's full un-truncated size no
+    matter how far `width` shrinks, so the rendered text still overflows
+    past its own box into whatever sits to its right — measured at 61px
+    `width` for "FIRST RECORD", `contentWidth` stayed 77px (un-elided) vs.
+    shrinking to 55px (elided) — the 16px difference is exactly the visual
+    overlap into "LAST RECORD" a screenshot caught."""
+    from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_vm import (
+        DatabaseStatusVM,
+    )
+
+    vm = DatabaseStatusVM(_seeded_model())
+    quick, root = _load(qapp, vm)
+    # `_load()`'s default 900px leaves ~130px per fillWidth header column —
+    # plenty for a short label like "FIRST RECORD" (77px). 760px narrows
+    # that to ~61px, forcing a real shrink (measured above) while still
+    # short of the point both columns degenerate to 0px, which would no
+    # longer discriminate the fixed state from the broken one.
+    quick.resize(760, 260)
+    qapp.processEvents()
+
+    first_header = qml_item(root, "dataTableHeaderCell_firstRecord")
+    last_header = qml_item(root, "dataTableHeaderCell_lastRecord")
+
+    assert first_header.property("contentWidth") <= first_header.property("width")
+    assert first_header.property("x") + first_header.property(
+        "contentWidth"
+    ) <= last_header.property("x")
+    quick.close()
+    quick.deleteLater()

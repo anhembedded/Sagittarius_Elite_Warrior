@@ -96,8 +96,26 @@ class ZoomControls(QtCore.QObject):
             (self._v_in_btn, self._v_out_btn),
             (self._box_btn, self._reset_btn),
         )
+        # Anchored to the bottom-left, not the top-left: `ChartPlotLayout`
+        # always reserves row 0 for the crosshair readout
+        # (`crosshair_label`, right-justified — grows leftward, unbounded,
+        # with whatever the hovered point's text needs), which top-left
+        # placement collided with for any string long enough to reach past
+        # this cluster's own width (measured: a realistic crosshair string
+        # reaches from x=9 out to x=528, while the buttons sat at
+        # x=12-80/y=12-116 — squarely inside it). Anchoring from
+        # `self._canvas.height()` instead keeps the cluster in the
+        # bottom-left, a vertical band row 0's label never reaches
+        # regardless of how long that text gets, and — since `_reposition()`
+        # already re-runs on every canvas resize — it stays correct as the
+        # canvas grows or shrinks, including the equity mini-chart's much
+        # shorter viewport.
+        cluster_height = len(rows) * self._BUTTON_SIZE + (len(rows) - 1) * self._GAP
+        y_start = max(
+            self._MARGIN, self._canvas.height() - self._MARGIN - cluster_height
+        )
         for row_idx, (left_btn, right_btn) in enumerate(rows):
-            y = self._MARGIN + row_idx * (self._BUTTON_SIZE + self._GAP)
+            y = y_start + row_idx * (self._BUTTON_SIZE + self._GAP)
             left_btn.move(self._MARGIN, y)
             right_btn.move(self._MARGIN + self._BUTTON_SIZE + self._GAP, y)
             left_btn.raise_()

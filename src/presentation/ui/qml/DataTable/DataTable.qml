@@ -88,6 +88,20 @@ ColumnLayout {
                 objectName: "dataTableHeaderCell_" + (modelData.key !== undefined ? modelData.key : index)
                 Layout.preferredWidth: modelData.width !== undefined ? modelData.width : -1
                 Layout.fillWidth: !!modelData.fillWidth
+                // Same fix as `DatabaseStatusRow.qml`'s row delegate (BUG-076):
+                // without `elide`, a `fillWidth` `Text` still shrinks its own
+                // layout box (`width`) when space runs out, but the painted
+                // glyphs are NOT clipped to that box — `contentWidth` stays
+                // at the label's full un-truncated size regardless, so the
+                // text visibly overflows into whatever sits to its right
+                // (measured: "FIRST RECORD"'s box shrank to 61px, but its
+                // un-elided `contentWidth` stayed 77px, overflowing 16px
+                // into "LAST RECORD"'s column). `elide` truncates the
+                // rendering to fit; `Layout.minimumWidth: 0` is `RowLayout`'s
+                // own contract for allowing that box to shrink below the
+                // un-elided implicit width in the first place.
+                Layout.minimumWidth: 0
+                elide: Text.ElideRight
                 horizontalAlignment: modelData.align === "right" ? Text.AlignRight : Text.AlignLeft
                 text: modelData.label
                 textFormat: Text.PlainText
