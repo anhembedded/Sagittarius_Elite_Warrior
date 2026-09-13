@@ -24,7 +24,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCANNED_DIRS = (_REPO_ROOT / "src", _REPO_ROOT / "scripts")
 _ALLOWED_FILES = (
     _REPO_ROOT

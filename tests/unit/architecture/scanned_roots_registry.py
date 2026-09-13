@@ -1,6 +1,10 @@
 """The registry of path-scanning guards and the directories each one scans.
 
-Data only — read by `test_scanned_roots_are_not_empty.py`. Paths are relative
+Data only — read by `test_scanned_roots_are_not_empty.py`. This registry is how
+HLD §9.3 rule 4 ("every guard that scans a path gains an assertion that the scan
+found at least one file") is satisfied: once, centrally, for every guard, instead
+of a copy of the same assertion in twenty files. A guard may still keep its own
+root check where it already had one. Paths are relative
 to the repository root. Register the directories a guard *scans*, not the
 repository root it derives them from: scanning the repository root is never
 empty and proves nothing. When `EPIC-025` moves a tree, the guard is
@@ -20,11 +24,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     # --- legacy presentation guards -----------------------------------------
     (
-        "tests/unit/presentation/ui/test_screen_layer_structure.py",
+        "tests/unit/architecture/test_screen_layer_structure.py",
         (("src/presentation/ui", "*.py"),),
     ),
     (
-        "tests/unit/presentation/ui/test_card_layer_structure.py",
+        "tests/unit/architecture/test_card_layer_structure.py",
         (("src/presentation/ui", "*.py"),),
     ),
     (
@@ -32,7 +36,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src/presentation/ui", "*.py"),),
     ),
     (
-        "tests/unit/presentation/ui/test_no_cross_screen_imports.py",
+        "tests/unit/architecture/test_no_cross_screen_imports.py",
         (("src/presentation/ui/screens", "*.py"),),
     ),
     (
@@ -47,7 +51,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src/presentation/ui", "*.py"),),
     ),
     (
-        "tests/unit/presentation/ui/qml/test_qml_library_does_not_import_screens.py",
+        "tests/unit/architecture/test_qml_library_does_not_import_screens.py",
         (("src/presentation/ui/qml", "*.py"),),
     ),
     (
@@ -55,7 +59,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src/presentation/ui/qml", "*.qml"),),
     ),
     (
-        "tests/unit/presentation/ui/qml/test_quick_widget_only_in_embed.py",
+        "tests/unit/architecture/test_quick_widget_only_in_embed.py",
         (("src/presentation/ui", "*.py"),),
     ),
     (
@@ -77,7 +81,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ("tests/unit/presentation/test_enum_labels.py", (("src/presentation", "*.py"),)),
     # --- application / domain / infrastructure ------------------------------
     (
-        "tests/unit/application/test_application_layer_structure.py",
+        "tests/unit/architecture/test_application_layer_structure.py",
         (("src/application", "*.py"),),
     ),
     (
@@ -85,11 +89,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src/domain/indicator_scripts", "*.py"), ("src/domain", "*.py")),
     ),
     (
-        "tests/unit/infrastructure/binance/test_only_the_session_factory_constructs_binance_client.py",
+        "tests/unit/architecture/test_only_the_session_factory_constructs_binance_client.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
     (
-        "tests/unit/infrastructure/binance/test_order_submission_mode_live_is_restricted.py",
+        "tests/unit/architecture/test_order_submission_mode_live_is_restricted.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
     # --- whole-tree guards --------------------------------------------------
