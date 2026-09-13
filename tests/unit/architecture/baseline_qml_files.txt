@@ -1,0 +1,38 @@
+# .qml files AS FOUND at the start of EPIC-025 Phase 0 (2026-09-13). Read by
+# tests/unit/architecture/test_no_new_qml.py. Shrink-only: delete a line when the
+# file is deleted; never add one (ADR D20).
+src/presentation/ui/qml/Capital/Capital.qml
+src/presentation/ui/qml/CheckboxList/CheckboxList.qml
+src/presentation/ui/qml/DataTable/DataTable.qml
+src/presentation/ui/qml/DataTable/_DataTablePreview.qml
+src/presentation/ui/qml/DatabaseStatusTable/DatabaseStatusRow.qml
+src/presentation/ui/qml/DatabaseStatusTable/DatabaseStatusTable.qml
+src/presentation/ui/qml/KlineInspectorTable/KlineInspectorRow.qml
+src/presentation/ui/qml/KlineInspectorTable/KlineInspectorTable.qml
+src/presentation/ui/qml/MetricsDetailPanel/MetricsDetailCard.qml
+src/presentation/ui/qml/MetricsDetailPanel/MetricsDetailPanel.qml
+src/presentation/ui/qml/OpenOrdersTable/OpenOrderRow.qml
+src/presentation/ui/qml/OpenOrdersTable/OpenOrdersTable.qml
+src/presentation/ui/qml/PositionsTable/PositionRow.qml
+src/presentation/ui/qml/PositionsTable/PositionsTable.qml
+src/presentation/ui/qml/SelectList/SelectList.qml
+src/presentation/ui/qml/StatCardRow/StatCardRow.qml
+src/presentation/ui/qml/StatGrid/StatGrid.qml
+src/presentation/ui/qml/SymbolPicker/SymbolPicker.qml
+src/presentation/ui/qml/SymbolPicker/SymbolPickerCard.qml
+src/presentation/ui/qml/SymbolPicker/SymbolPickerTab.qml
+src/presentation/ui/qml/TimeRangePicker/TimeRangePicker.qml
+src/presentation/ui/qml/TimeRangePicker/TimeRangePickerMonth.qml
+src/presentation/ui/qml/TimeframePicker/TimeframePicker.qml
+src/presentation/ui/qml/TimeframePicker/TimeframePickerCard.qml
+src/presentation/ui/qml/TimeframePicker/TimeframeToolbar.qml
+src/presentation/ui/qml/TradeLogTable/TradeLogRow.qml
+src/presentation/ui/qml/TradeLogTable/TradeLogTable.qml
+src/presentation/ui/qml/kit/Button.qml
+src/presentation/ui/qml/kit/DialogShell.qml
+src/presentation/ui/qml/kit/LogPanel.qml
+src/presentation/ui/qml/kit/PanelHeader.qml
+src/presentation/ui/qml/kit/ProgressBanner.qml
+src/presentation/ui/qml/kit/StatCard.qml
+src/presentation/ui/qml/kit/StatusPill.qml
+src/presentation/ui/qml/kit/_StyleGuidePreview.qml

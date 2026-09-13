@@ -75,3 +75,4 @@ gantt
 | 2026-09-13 | s2, s3, s4 | Rounds 2–3, D17–D19, executor skill merged (PRs #197–#205) |
 | 2026-09-13 | — | ADR D20–D22 (QtWidgets only, OS theme, panels and dialogs): Phase 0/1/3 bars re-cut |
 | 2026-09-13 | s5, p01 | User approved the spec; Phase 0 started with PR 0.1 |
+| 2026-09-13 | p01 | PR 0.1 built locally: 3 guards in `tests/unit/architecture/`, allowlist (10 pairs), QML baseline (35), golden master (13 trades), 3948 → 4059 tests collected; self-review split the guards into one file per abstraction level (architecture-rule §5); waiting for the user's review before push |

@@ -49,6 +49,29 @@ commands `sync` and `stream`. Also in this phase (ADR D21): remove `qdarktheme` 
 app renders in the OS theme from Phase 0 on. `support/binance_gateway` is extracted in the same phase because
 `market_data` needs it.
 
+## 1.1 Baselines measured in PR 0.1 (2026-09-13)
+
+Every number below was produced by a script or a test in this repository, on the tree as it stood
+before any Phase 0 code moved. The guards that hold them fail when the number grows; each phase
+records the new value in its own pull request (HLD §6.2).
+
+| Metric | Source | Value as found |
+| :--- | :--- | :--- |
+| Duplicated member names, `dashboard` ↔ `trading` | `tools/measure_duplicate_members.py` | **59** (also: backtest+dashboard 22, dashboard+data_management 10, backtest+data_management 4, settings+trading 4, data_management+trading 1; 131 names live in more than one screen package) |
+| Boundary allowlist entries | `tests/unit/architecture/allowlist_module_boundaries.txt` | **10** pairs (5 `application → infrastructure`, all `futures_trading_client`; 5 `presentation → infrastructure`) |
+| Screens importing `infrastructure/` | the same allowlist | **2** (`backtest_presenter`, `settings_presenter`) |
+| `.qml` files under `src/` | `tests/unit/architecture/baseline_qml_files.txt` | **35** |
+| Path-scanning guards registered with a non-empty root | `tests/unit/architecture/test_scanned_roots_are_not_empty.py` | **30** guard files, 37 scanned roots |
+| Backtest golden master | `tests/integration/golden/backtest_golden_master.json` | 600 hourly bars, `ema_crossover` 12/26, 13 trades (9 in-sample, 3 out-of-sample), final balance 9211.71 from 10000 |
+| Tests collected (`pytest --collect-only -q`, everything but `tests/testnet`) | the gate's own invocation | **3948** before PR 0.1 (26 of them sanity); **4059** after it — the 111 added are the safety net itself (108 architecture guard cases, 3 golden-master tests). Every later phase reports its delta against 4059 |
+| `presentation/ui/common/` | `ls` | 25 files |
+| `binance_bot_module.py` | `wc -l` | 750 lines |
+
+The golden master's dataset is a seeded random walk (seed `20260913`) with a weak sine drift and
+±1.5 % per-bar noise, chosen so the 12/26 crossover whipsaws enough to produce losing trades and a
+real drawdown, not only a trend ride. It is a *regression* fixture, not a benchmark: its point is
+that Phase 3 reproduces these exact numbers, whatever they are.
+
 ## 2. Done when
 
 - The app runs exactly as before; Data Management goes through the registry; CLI `sync` and
