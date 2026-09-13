@@ -37,8 +37,8 @@ Do not work from memory of a previous run; the documents change between runs.
    [`architecture-rule.md`](../rules/architecture-rule.md) (§2.1 ports, §5 one abstraction per
    file, §6 event placement, §7.2.1 seam versus variant),
    [`async-ui-action-rule.md`](../rules/async-ui-action-rule.md) (a Coordinator is owned by its
-   Presenter, never DI-discovered), [`qml-rule.md`](../rules/qml-rule.md) §0 (shell and chart are
-   QtWidgets; QML files stay where they are), [`testing-rule.md`](../rules/testing-rule.md),
+   Presenter, never DI-discovered), [`ui-presentation-rule.md`](../rules/ui-presentation-rule.md) ("Desktop UX principles":
+   QtWidgets only, OS theme, panels and dialogs — `qml-rule.md` is retired), [`testing-rule.md`](../rules/testing-rule.md),
    [`ci-rule.md`](../rules/ci-rule.md), [`commit-rule.md`](../rules/commit-rule.md).
 
 Confirm the shape of the tree before assuming it:
@@ -61,7 +61,8 @@ Each row is a rule that lives elsewhere; the command is how you know it still ho
 | The boundary allowlist only shrinks | HLD §6.1, D11 | `wc -l tests/unit/architecture/allowlist_module_boundaries.txt` before and after; one entry per `(importing_module, imported_module)`, no line numbers |
 | No Coordinator, Presenter or widget is in the DI container | ADR D12; SDD "Ownership" | `grep -rn "Coordinator\|Presenter" src --include=*.py \| grep -n "singleton(\|bind("` returns nothing |
 | `register()` never resolves; `contribute()` never calls a factory and never imports a widget module | SDD "register() versus boot()" | the declaration guard, once written; until then read every `register()` and `contribute()` you touch |
-| A card contributed to two surfaces is two instances sharing one feed | SDD-03 | a unit test that builds the same factory twice and asserts distinct Presenters |
+| A panel contributed to two surfaces is two instances sharing one feed | SDD-03 | a unit test that builds the same factory twice and asserts distinct Presenters |
+| No new QML; no stylesheet, palette or theme library (ADR D20, D21) | HLD §11 | `find src -name '*.qml' \| wc -l` does not grow; `grep -rn "setStyleSheet\|qdarktheme" src` returns nothing new |
 | Every port implementation is thread-safe; nothing under `modules/*/application` touches Qt | SDD "Threading contract"; HLD §6.1 | the Qt-free guard; `grep -rln PySide6 src/modules/*/application src/modules/*/domain src/core` returns nothing at runtime import (TYPE_CHECKING blocks excepted) |
 | No library substitutes a planned mechanism | ADR §5, HLD §7 | `git diff requirements.txt pyproject.toml` is empty unless the task file says otherwise |
 | Every new Engine API the app calls is declared | `BOT-133` | `src/infrastructure/engine_adapters/engine_capabilities.py` has a row for it |

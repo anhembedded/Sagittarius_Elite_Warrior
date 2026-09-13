@@ -44,3 +44,54 @@ general** — Python directory layout, the preview convention, terminology, icon
 - **UI Preview Convention & Live Tooling (BOT-031):**
   - Every UI package (`src/presentation/ui/screens/<name>/` and `src/presentation/ui/components/sidebar/`) MUST maintain a `preview.py` declaring `build_preview() -> QWidget` for standalone rendering without full engine boot.
   - Run via `.\scripts\preview-qml.ps1 <screen>` or `--list`. Enforced by guard test `tests/unit/presentation/ui/test_preview_fixtures_exist.py`.
+
+
+---
+
+## Desktop UX principles — the user's decision of 2026-09-13 (ADR D20–D22)
+
+The user set these seven principles for every screen, panel and dialog; they are quoted verbatim
+and then made concrete for Qt. The rendering rules that follow from them (QtWidgets only, the OS
+theme, panels and dialogs instead of cards, the mapping of every place onto a `QMainWindow` part)
+live in `Docs/HLD/11_desktop_workbench.md`; this section is the principle, that one is the design.
+
+> *Tính quen thuộc (Familiarity)* — "Người dùng desktop đã quen với các pattern UI truyền thống:
+> menu bar, toolbar, status bar, dialog. Hãy tận dụng những thành phần này thay vì cố gắng 'tái phát
+> minh bánh xe'." → Use `QMainWindow`, `QMenuBar`, `QToolBar`, `QStatusBar`, `QDialog`,
+> `QDockWidget`. Never a hand-drawn substitute for one of them.
+>
+> *Tính nhất quán (Consistency)* — "Giao diện phải đồng bộ về màu sắc, font, spacing. Các hành động
+> tương tự phải có cùng cách thực hiện (ví dụ: Ctrl+S luôn là Save). Giữ trải nghiệm đồng nhất giữa
+> các module." → The OS theme gives colour, font and spacing; one `QAction` per user action carries
+> its shortcut, menu entry and toolbar button; standard shortcuts (`QKeySequence.StandardKey`) are
+> never rebound.
+>
+> *Tính hiệu quả (Efficiency)* — "Desktop app thường phục vụ người dùng chuyên nghiệp → thao tác
+> nhanh, shortcut rõ ràng. Ưu tiên bàn phím và chuột, tránh thao tác thừa. Tối ưu layout để giảm số
+> lần click." → Every action reachable by keyboard; the Order dialog on F9; no action more than two
+> clicks from its mode; dock layouts the user arranges once and the app remembers.
+>
+> *Tính minh bạch (Clarity)* — "Tránh hiệu ứng rườm rà, tập trung vào hiển thị thông tin rõ ràng. Các
+> dialog phải giải thích được hành động, không gây mơ hồ. Feedback ngay lập tức khi người dùng thao
+> tác (ví dụ: loading indicator, status message)." → No animation for its own sake; every dialog
+> title names the action and its body names the consequence; every operation longer than a
+> heartbeat shows progress in the status bar or the panel.
+>
+> *Tính kiểm soát (User Control)* — "Người dùng desktop thường muốn kiểm soát chi tiết: cho phép
+> undo/redo, tùy chỉnh setting. Không ép buộc hành vi, luôn có nút 'Cancel' hoặc 'Close'." → Every
+> dialog has Cancel; long operations are cancellable; reversible edits go through `QUndoStack`;
+> settings are in one Settings dialog with Apply and Cancel; layouts are resettable.
+>
+> *Tính bền vững (Robustness)* — "Desktop app cần ổn định, không crash bất ngờ. Xử lý lỗi bằng thông
+> báo rõ ràng, không 'đóng băng' UI. Giữ backward compatibility khi có update." → The UI thread
+> never blocks (`async-ui-action-rule.md`); an error is a message that names what failed and what
+> to do; saved perspectives and settings are keyed by app version and migrate or reset, never crash.
+>
+> *Tính mở rộng (Scalability)* — "Thiết kế widget theo hướng modular, dễ tái sử dụng. Cho phép mở
+> rộng tính năng mà không phá vỡ UX hiện tại." → A module contributes panels and dialogs through the
+> registry (`Docs/HLD/04_surfaces_and_contribution_points.md`); adding a panel never changes another
+> panel or the shell.
+
+**Theme (ADR D21):** no stylesheet, no palette, no tokens, no `qdarktheme`. Colour only where it
+carries meaning, through `QPalette` roles or a per-widget property. **QML (ADR D20):** none; a guard
+fails on any new `.qml` file. `qml-rule.md` is kept for history only.

@@ -43,7 +43,7 @@ class ScreenContribution <<frozen dataclass>> {
 class Surface {
   +surface_id : String
   +accepts : Place [1..*]
-  +build(registry, container) : PageShell
+  +build(registry, container) : QMainWindow  <<surface host, HLD §11>>
 }
 
 class Module <<BoundedContextModule>> {
@@ -69,10 +69,12 @@ note bottom of Place
   form of the BOT-128 lesson: two tables lost four of seven columns because a
   screen hand-sized them.
 
-  **Deliberately absent from this enumeration:** a free-form docking area (a
-  module never asks for one, even if the Engine adopts docking in Phase 5) and
-  the sidebar (navigation is derived from SCREEN contributions; nothing else
-  goes there). Adding a literal is an **HLD change**, not a module change.
+  Since ADR D22 the places are rendered by QMainWindow parts (HLD §11.2):
+  HEADER/CONTEXT_BAR = toolbars, RAIL/CONSOLE/DEV_PROBE = dock areas of
+  panels, WORKSPACE = central widget, MODAL = QDialog, STATUS_TILE = status
+  bar, SETTINGS_SECTION = a Settings-dialog page. A module still never asks
+  for a position: `order` is the initial dock order, then the user's saved
+  perspective wins. The sidebar is derived from SCREEN contributions. Adding a literal is an **HLD change**, not a module change.
   The canonical definition of each literal lives once, in
   `Docs/VOCABULARY/README.md` §2 — the specification of this enumeration.
 end note

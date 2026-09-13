@@ -41,8 +41,9 @@ it.
 | The user reports a bug (**mandatory**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
 | Adding or changing logs | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
 | Writing tests | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |
-| Building or changing any UI: screen layout, `preview.py`, icons, table columns | [`.agents/rules/ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
-| Any `.qml` file, or deciding QML vs QtWidgets for a widget (shell and chart are QtWidgets, permanently) | [`.agents/rules/qml-rule.md`](.agents/rules/qml-rule.md) |
+| Building or changing any UI: MVP layout, `preview.py`, icons, table columns | [`.agents/rules/ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
+| Any UI: the seven desktop UX principles, QtWidgets only, the OS theme, panels and dialogs (ADR D20–D22) | [`.agents/rules/ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) "Desktop UX principles" · [`Docs/HLD/11_desktop_workbench.md`](Docs/HLD/11_desktop_workbench.md) |
+| Reading QML that still exists until `EPIC-025` Phase 4 deletes it (historical rule, **retired 2026-09-13**) | [`.agents/rules/qml-rule.md`](.agents/rules/qml-rule.md) |
 | A background task started from the UI: action ownership, cancellation, splitting a Presenter into Coordinators | [`.agents/rules/async-ui-action-rule.md`](.agents/rules/async-ui-action-rule.md) |
 | Anything in `src/domain/**` or `src/application/**`: truthful data, no collapsed trading semantics, a UI that promises only what the engine delivers | [`.agents/rules/domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
 | Setting up the environment, or a tool is missing (install it — do not report "cannot verify") | [`.agents/rules/install-rule.md`](.agents/rules/install-rule.md) |

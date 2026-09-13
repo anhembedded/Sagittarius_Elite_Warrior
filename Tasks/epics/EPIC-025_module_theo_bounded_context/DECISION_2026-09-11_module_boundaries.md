@@ -399,3 +399,39 @@ HLD §10 is the proposal. What it decides, if approved:
 What "yes" commits to: Phase 0 writes the first contract suite and fake (for `market_data`'s five
 ports) and the declaration guard; every later module follows the checklist; the review of each
 phase reads §10.5, not the test count.
+
+---
+
+## 8. UI toolkit and theme, 2026-09-13 🟢 User decisions
+
+### D20 — QtWidgets only; no QML anywhere; supersedes D6
+
+Verbatim: *"Giờ xây lại các module ko dùng QML nữa, dùng Qt widget, triết lý thiết kế UX UI đúng như
+1 desktop app"* ("Now rebuild the modules without QML, with Qt Widgets, with the UX/UI design
+philosophy of a real desktop app"), followed by the seven principles (recorded in full in
+`ui-presentation-rule.md`), and *"1. xác nhận"* confirming the three reasons in HLD §11.1. This is
+the third toolkit change in the repository's history; the reasons are recorded so it is the last:
+the desktop conventions are native to QtWidgets and absent from the app today (one file uses any of
+them), QML islands each carry a `QQmlEngine` and produced `BUG-115`, and the Engine's QML kit is
+unused by this app. `qml-rule.md` becomes historical; a guard forbids new `.qml` files.
+
+### D21 — The OS default theme; the token and theme layer is retired
+
+Verbatim: *"Bỏ tất cả các này (token màu/spacing/typography giữ nguyên, chỉ đổi lớp render), tụi nó
+đang rất tệ, chỉ cần dùng default theme của OS là được, sau này design màu theme tính sau"* ("Drop
+all of that — keeping the colour/spacing/typography tokens and only changing the render layer —
+they are very bad; just use the OS default theme; a designed colour theme is for later"). No
+stylesheet, palette, token set or `qdarktheme`; colour only where it carries meaning. The Engine's
+tokens are not consumed by this app; whether the Engine grows a QtWidgets kit is deferred.
+
+### D22 — Panels and dialogs replace cards; the workbench is `QMainWindow` with modes and perspectives
+
+Verbatim: *"các card cũ cũng rất là tệ, có thể bạn nên thiết kế lại các card luôn, hoặc theo module
+thì có thể sẽ không cần card luôn, bạn tự đánh giá dự án khác mà cân nhắc"* ("the old cards are
+also very bad; redesign them, or per module you may not need cards at all — judge by other
+projects"). Judged by precedent (HLD §11.2): MetaTrader 5 and IBKR TWS are dock-panel workbenches
+with order entry in a dialog; Qt Creator has modes and saved perspectives. Decision: the **card is
+retired**; a module contributes **panels** (`QDockWidget` content) and **dialogs** (`QDialog`); a
+surface is a nested `QMainWindow` with a per-user perspective; the manual order is the Order dialog
+(F9, Dev Board only per D15). `2. Gộp`: the rebuild is folded into `EPIC-025` phase by phase, not a
+separate epic. The descriptor and registry of the SDD are unchanged; only the surface host changes.

@@ -9,6 +9,14 @@ patterns:
 
 # 🎨 QML WIDGET STANDARDS
 
+> **RETIRED 2026-09-13 — ADR D20 (`Tasks/epics/EPIC-025_module_theo_bounded_context/DECISION_2026-09-11_module_boundaries.md` §8).**
+> The application no longer uses QML: every module's UI is QtWidgets, the theme is the OS default,
+> and a guard forbids new `.qml` files (`Docs/HLD/11_desktop_workbench.md`). This file is kept for
+> history and for reading the QML that still exists until Phase 4 of `EPIC-025` deletes it; nothing
+> in it is a rule for new code. The rules for new UI are `ui-presentation-rule.md` ("Desktop UX
+> principles") and HLD §11.
+
+
 This file holds only the **standard architecture — how to build, not how far the build has
 got**; the roadmap/progress lives in
 [`EPIC-015`](../../Tasks/epics/EPIC-015_qml_tung_widget_khong_chuyen_chart/README.md).

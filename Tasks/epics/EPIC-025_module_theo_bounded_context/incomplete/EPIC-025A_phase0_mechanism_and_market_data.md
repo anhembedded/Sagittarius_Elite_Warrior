@@ -42,8 +42,11 @@ shards, gaps, coverage, `MarketDataVenue`), `application/` (the `sync/` and `dat
 the klines query, the market stream), `contracts/` (`IHistoricalKlines`, `ISymbolCatalog`,
 `IMarketStream`, `IMarketDataSync`, `IRangeCoverage`, DTOs, the events `MarketTickEvent` and
 `SingleSyncProgressEvent`), `adapters/` (`persistence/`, `binance/market/`), `ui/` (the Data
-Management screen and its Python widget wrappers; the `.qml` files **stay** under `qml/`), the CLI
-commands `sync` and `stream`. `support/binance_gateway` is extracted in the same phase because
+Management mode rebuilt as QtWidgets — HLD §11: its four QML widgets become a `QTableView` panel,
+a kline-inspector dialog, a time-range dialog and a timeframe picker; no `.qml`), the CLI
+commands `sync` and `stream`. Also in this phase (ADR D21): remove `qdarktheme` from
+`requirements.txt`, delete `seed_app_theme()` and `kit/style.py`, retire the palette guard; the
+app renders in the OS theme from Phase 0 on. `support/binance_gateway` is extracted in the same phase because
 `market_data` needs it.
 
 ## 2. Done when

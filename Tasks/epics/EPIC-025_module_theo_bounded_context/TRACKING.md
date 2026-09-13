@@ -29,7 +29,7 @@ gantt
     PR 0.2 core/ shell/ mechanism              :         p02, after r01, 3d
     User check 0.2 (app opens as before)       :crit,    r02, after p02, 1d
     PR 0.3 support/binance_gateway             :         p03, after r02, 1d
-    PR 0.4 modules/market_data + contract suites :       p04, after p03, 4d
+    PR 0.4 modules/market_data + contract suites + Data Management in QtWidgets : p04, after p03, 6d
     User check 0.4 (Data Management, CLI sync) :crit,    r04, after p04, 1d
     PR 0.5 skeleton walks with N=2             :         p05, after r04, 1d
     Phase 0 measured, Phases 1–5 re-estimated  :milestone, m0, after p05, 0d
@@ -42,8 +42,8 @@ gantt
 
     section Phase 1 — trading + surfaces (EPIC-025B)
     Welcome surface, dev.mode gate, restart    :         p1a, after m0, 3d
-    modules/trading, lease, cards              :         p1b, after p1a, 6d
-    Trading + Dev Board become surfaces, 59→0  :         p1c, after p1b, 4d
+    modules/trading, lease, panels, Order dialog :       p1b, after p1a, 7d
+    Trading + Dev Board become QMainWindow modes, 59→0 : p1c, after p1b, 5d
     User runs Testnet (orders, cancel, PnL)    :crit,    r1, after p1c, 2d
     Phase 1 closed                             :milestone, m1, after r1, 0d
 
@@ -53,12 +53,12 @@ gantt
     Phase 2 closed                             :milestone, m2, after r2, 0d
 
     section Phase 3 — backtesting (EPIC-025D)
-    modules/backtesting, ACL, golden master holds : p3, after m2, 5d
+    modules/backtesting, 11 modals → QDialog, golden master : p3, after m2, 8d
     Phase 3 closed                             :milestone, m3, after p3, 0d
 
     section Phase 4 — support/*, ui/common dissolved (EPIC-025E)
-    charting, indicators, ui_kit; settings surface : p4, after m3, 5d
-    ADR D6 (per-module QML) revisited          :crit,    r4, after p4, 1d
+    charting, indicators, ui_kit; Settings dialog; qml/ deleted : p4, after m3, 5d
+    User review: designed theme? (D21 deferred)  :crit,    r4, after p4, 1d
     Phase 4 closed                             :milestone, m4, after r4, 0d
 
     section Phase 5 — Engine navigation (EPIC-025F)
@@ -73,3 +73,4 @@ gantt
 | :--- | :--- | :--- |
 | 2026-09-11 | s1 | Round 1 merged (PR #196) |
 | 2026-09-13 | s2, s3, s4 | Rounds 2–3, D17–D19, executor skill merged (PRs #197–#205) |
+| 2026-09-13 | — | ADR D20–D22 (QtWidgets only, OS theme, panels and dialogs): Phase 0/1/3 bars re-cut |

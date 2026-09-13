@@ -97,7 +97,7 @@ package "core/contracts (app, lift-ready)" #LightYellow {
   IContributionRegistry o-- ContributionDescriptor
   IContributionRegistry o-- ScreenContribution
   interface IPlaceHost {
-    + slot(place : Place) : QLayout  <<implemented by ui_kit.PageShell>>
+    + slot(place : Place) : QLayout  <<implemented by ui_kit.SurfaceHost (QMainWindow)>>
   }
   BoundedContextModule ..> IContributionRegistry : contribute()
   BoundedContextModule ..> QtEventBridge : subscribe()

@@ -44,6 +44,7 @@ with measurements from this codebase, why it fits.
 8. [The Engine track: what the Engine gets, when, and by what criterion a piece moves there](08_engine_track.md)
 9. [What happens to the tests: move, rewrite, delete, retarget — per phase, with the safety net](09_test_migration.md)
 10. [The test philosophy for the module architecture: what each layer proves, and how — contract suites and verified fakes](10_test_strategy.md)
+11. [The desktop workbench: QtWidgets only, the OS theme, panels and dialogs instead of cards — how the places are rendered](11_desktop_workbench.md)
 
 ## Diagrams (PlantUML sources; syntax-checked)
 
