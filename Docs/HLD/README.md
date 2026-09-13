@@ -42,6 +42,7 @@ with measurements from this codebase, why it fits.
 6. [Enforcement and migration: three guards, the allowlist ratchet, six phases](06_enforcement_and_migration.md)
 7. [Build or buy: what already exists for each thing we plan to build (survey 2026-09-12)](07_build_vs_buy.md)
 8. [The Engine track: what the Engine gets, when, and by what criterion a piece moves there](08_engine_track.md)
+9. [What happens to the tests: move, rewrite, delete, retarget — per phase, with the safety net](09_test_migration.md)
 
 ## Diagrams (PlantUML sources; syntax-checked)
 

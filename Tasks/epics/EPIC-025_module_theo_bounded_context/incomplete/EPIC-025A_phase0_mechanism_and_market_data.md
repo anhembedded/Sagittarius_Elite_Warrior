@@ -29,6 +29,10 @@
 7. Commit `tools/measure_duplicate_members.py` (the 59-duplicates script over old and new trees) and
    `tests/unit/architecture/allowlist_module_boundaries.txt` (10 `(importing, imported)` pairs, no
    line numbers); move the five existing guards into `tests/unit/architecture/`.
+9. **Tests (HLD §9, ADR D18):** retarget every path-scanning guard to the new paths with a
+   non-emptiness assertion, gather the architecture guards under `tests/unit/architecture/`,
+   capture the backtest golden master, record the collected-test count as the baseline; move the
+   `market_data` tests by `git mv` with bodies unchanged.
 8. **Make the skeleton walk with N = 2:** move one existing consumer onto a `market_data` port —
    `screens/trading/coordinators/chart_coordinator.py:145` calls `IMarketDataSync` instead of
    dispatching `SyncMarketDataCommand` — so a real cross-boundary port call exists in Phase 0.
