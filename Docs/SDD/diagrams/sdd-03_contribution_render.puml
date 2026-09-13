@@ -1,19 +1,19 @@
 @startuml sdd-03_contribution_render
-title SDD-03 — A surface renders contributions (UML **sequence diagram**)\nOne factory contributed to two surfaces yields two independent cards — each with its own Presenter and Coordinator — sharing only the module's feed.
+title SDD-03 — A surface renders contributions (UML **sequence diagram**)\nOne factory contributed to two surfaces yields two independent panels — each with its own Presenter and Coordinator — sharing only the module's feed.
 autonumber
 participant "TradingModule" as TM
 participant "ContributionRegistry" as Reg
 participant "Surface(trading)" as ST
 participant "Surface(dev_board)" as SD
-participant "PageShell" as PS
-participant "make_positions_card\n(lazy factory in modules/trading/ui)" as F
-participant "PositionsCard #1\nView + Presenter + own Coordinator" as C1
-participant "PositionsCard #2\nView + Presenter + own Coordinator" as C2
+participant "SurfaceHost (QMainWindow)" as PS
+participant "make_positions_panel\n(lazy factory in modules/trading/ui)" as F
+participant "PositionsPanel #1\nView + Presenter + own Coordinator" as C1
+participant "PositionsPanel #2\nView + Presenter + own Coordinator" as C2
 participant "OrderFeed / PositionRefreshService\n(trading application singletons)" as Feed
 
 == contribute (once, at boot; no widget module imported) ==
-TM -> Reg : add(Descriptor(contributor="trading", surface="trading", place=RAIL, order=10, factory=make_positions_card))
-TM -> Reg : add(Descriptor(contributor="trading", surface="dev_board", place=RAIL, order=10, factory=make_positions_card))
+TM -> Reg : add(Descriptor(contributor="trading", surface="trading", place=RAIL, order=10, factory=make_positions_panel))
+TM -> Reg : add(Descriptor(contributor="trading", surface="dev_board", place=RAIL, order=10, factory=make_positions_panel))
 note over TM, Reg : one factory, two places (§4.6 rule 2): one CLASS, two INSTANCES
 
 == navigate to trading (first time — surfaces are built once and kept) ==
@@ -25,13 +25,13 @@ loop each descriptor
   C1 -> Feed : subscribe via the Presenter's own QtEventBridge
   ST -> PS : rail.add(view, size_hint)
 end
-note right of PS : geometry decided by the place:\nrail width fixed, cards stack, size_hint → min height
+note right of PS : geometry decided by the place:\nrail width fixed, panels stack, size_hint → min height
 
 == navigate to dev_board (dev.mode only) ==
 SD -> Reg : for_place("dev_board", RAIL)
 SD -> F : factory(container)
-F -> C2 : a second, independent card
-C2 -> Feed : subscribe — both cards update from the SAME feed, through SEPARATE presenters
+F -> C2 : a second, independent panel
+C2 -> Feed : subscribe — both panels update from the SAME feed, through SEPARATE presenters
 SD -> Reg : for_place("dev_board", DEV_PROBE)
 SD -> PS : probes.add(exchange_api_tester)
 note over C1, C2 : No Coordinator, Presenter or widget is ever in the DI container\n(ADR D12, async-ui-action-rule §2). Shared truth = feeds and events.

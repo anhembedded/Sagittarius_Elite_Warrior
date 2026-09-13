@@ -6,6 +6,9 @@
   *how*, at the level of classes, sequences and states, for the code Phase 0 (`EPIC-025A`) writes.
   It answers open question O1 (contribution-point schema) concretely.
 - **Reading order:** HLD §3 and §4.6 first; then the diagrams below in number order.
+- **Toolkit (ADR D20–D22, HLD §11):** QtWidgets only, OS theme; a factory returns a `QWidget` that a
+  surface host (`QMainWindow`) places as a dock panel, toolbar, status-bar tile, central widget or
+  dialog. `PageShell` and `QuickSurface` are retired; wherever this document says *panel*, read *panel*.
 - **Rendering:** any PlantUML renderer; the sources were syntax-checked with PlantUML 1.2026.8.
 
 ## Diagrams
@@ -16,7 +19,7 @@
 | SDD-01b | [`diagrams/sdd-01b_module_contract_members.puml`](diagrams/sdd-01b_module_contract_members.puml) | **Class diagram**, detail — every field and signature: `BoundedContextModule`, `IContributionRegistry`, `ContributionDescriptor`, `ScreenContribution`, `Place`, `SizeHint`, and the shell's `ModuleList`, `ContributionRegistry`, `Surface`, `DoubleClaimCheck` |
 | SDD-02a | [`diagrams/sdd-02a_boot_phases.puml`](diagrams/sdd-02a_boot_phases.puml) | **Sequence diagram**, high view — the seven steps of the boot procedure, and why they are in that order |
 | SDD-02b | [`diagrams/sdd-02b_boot_sequence.puml`](diagrams/sdd-02b_boot_sequence.puml) | **Sequence diagram**, detail — boot call by call: config read once, `QApplication` before `boot()`, `register()` with no `resolve()`, the double-claim check, `contribute()` / `subscribe()`, the `dev.mode` gate, the first surface |
-| SDD-03 | [`diagrams/sdd-03_contribution_render.puml`](diagrams/sdd-03_contribution_render.puml) | **Sequence diagram** — how a surface renders a place; one factory contributed to two surfaces yields two independent card instances (each with its own Presenter and Coordinator), sharing only the module's feed |
+| SDD-03 | [`diagrams/sdd-03_contribution_render.puml`](diagrams/sdd-03_contribution_render.puml) | **Sequence diagram** — how a surface renders a place; one factory contributed to two surfaces yields two independent panel instances (each with its own Presenter and Coordinator), sharing only the module's feed |
 | SDD-04a | [`diagrams/sdd-04a_order_path.puml`](diagrams/sdd-04a_order_path.puml) | **Sequence diagram**, high view — a tick becoming an order in six messages, and the one guard on the path |
 | SDD-04b | [`diagrams/sdd-04b_order_flow_sequence.puml`](diagrams/sdd-04b_order_flow_sequence.puml) | **Sequence diagram**, detail — the same path call by call across `market_data → strategy → trading → gateway → exchange → trading feed → surfaces`, and the symbol lease refusing a manual order |
 | SDD-05 | [`diagrams/sdd-05_dev_mode_state.puml`](diagrams/sdd-05_dev_mode_state.puml) | **State machine diagram** — `dev.mode` read once at boot; the Welcome switch writes `user_config.json`; restart applies it (ADR D14) |
@@ -71,13 +74,13 @@ unchanged; its factory returns `(View, Presenter)`.
 **Who may contribute.** Only a `BoundedContextModule` (through `contribute()`) and the shell
 (directly, for `welcome`, `settings` and its own screens). A **support package never contributes**:
 the module that needs a support widget contributes it under its own `contributor_id` — `trading`
-contributes the chart card it wants on the trading workspace, `market_data` contributes the
+contributes the chart panel it wants on the trading workspace, `market_data` contributes the
 indicator checklist it wants on Dev Board. So `contributor_id` keeps one meaning and the two-way
 module-list guard stays exact.
 
 **Lazy factories.** `factory` is a plain function defined in the module's `ui/` package whose
 **body** imports the widget module; `contribute()` therefore imports no Qt widget code. Guard: after
-every module's `contribute()` has run, no module under `modules/*/ui/widgets/` is present in
+every module's `contribute()` has run, no module under `modules/*/ui/panels/` is present in
 `sys.modules`. This keeps `PresenterManager`'s laziness (`abstract_screen_module.py:22-30`), which
 the app relies on so that boot does not load every screen's dependency tree.
 
@@ -92,7 +95,7 @@ the app relies on so that boot does not load every screen's dependency tree.
    `(surface_id, place, contributor_id, factory.__qualname__)`; registering it twice raises.
 3. A contribution to a surface that is **declared but gated off for this run** (`dev_board` when
    `dev.mode` is false) is **dropped with one log line**, whatever its place. That is the normal
-   user run: the twelve mirrored cards, the manual-order card, the checklist and the probes are all
+   user run: the twelve mirrored panels, the manual-order panel, the checklist and the probes are all
    dropped together, and the app boots.
 4. `factory` is never invoked during `contribute()`; a guard runs every module's `contribute()`
    against a registry that raises on any factory call.
@@ -100,11 +103,11 @@ the app relies on so that boot does not load every screen's dependency tree.
    list order is observable at contribute time. That is why the list, not the Engine's sort, is the
    source of truth (boot step 3).
 
-### Ownership of a contributed card — no Coordinator in DI (ADR D12, `async-ui-action-rule` §2)
+### Ownership of a contributed panel — no Coordinator in DI (ADR D12, `async-ui-action-rule` §2)
 
-A factory returns a **card**: a `View` and its `Presenter`, built together. The Presenter constructs
+A factory returns a **panel**: a `View` and its `Presenter`, built together. The Presenter constructs
 and owns its Coordinators (constructor injection, as today at `trading_presenter.py:274`) and its
-own `ActionOwnershipTracker`. A card contributed to two surfaces is therefore **two independent
+own `ActionOwnershipTracker`. A panel contributed to two surfaces is therefore **two independent
 instances** — exactly today's behaviour, where `TradingPresenter` and `DashboardPresenter` each
 construct a `LiveOrderBookCoordinator`. What is shared is **truth, not objects**: the module's feed
 (one `OrderFeed`, one `PositionRefreshService`, both application-level singletons) and the events
@@ -116,9 +119,9 @@ on the bus. No Coordinator, Presenter or widget is ever registered in the contai
 - A surface is built **once**, on first navigation, and kept: `PresenterManager` caches the view and
   presenter per route (`presenter_manager.py:71-79`). Factories therefore run once per surface per
   process. Navigating away hides, it does not destroy.
-- Module-level subscriptions (`subscribe(bridge)`) live for the process. A card's Presenter owns a
+- Module-level subscriptions (`subscribe(bridge)`) live for the process. A panel's Presenter owns a
   `QtEventBridge` of its own and calls `off_all()` in `dispose()`, as `BasePresenter` does today.
-- On shutdown, `MainWindow` disposes surfaces in reverse creation order; a card whose action is in
+- On shutdown, `MainWindow` disposes surfaces in reverse creation order; a panel whose action is in
   flight records `ActionOutcome.INVALIDATED` through its tracker before its bridge is torn down.
 
 ### Threading contract for ports

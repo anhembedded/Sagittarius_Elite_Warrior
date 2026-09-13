@@ -10,7 +10,8 @@
 ## 1. What to do
 
 1. `modules/backtesting/`: `domain/backtesting` (`PaperExchange`, `_OpenPosition` — **not** merged
-   with `LivePosition`, HLD §1 C3), `use_cases/backtest`, the backtest screen.
+   with `LivePosition`, HLD §1 C3), `use_cases/backtest`, the backtest mode — its eleven QML modals
+   rebuilt as `QDialog`s and its panels as docks (HLD §11).
 2. Fix the existing layer violation at `backtest_presenter.py:43` (an import of
    `infrastructure/persistence`) by going through `market_data.contracts`.
 3. Build the Anticorruption Layer: `backtesting/adapters/` translates `PaperExchange` state into

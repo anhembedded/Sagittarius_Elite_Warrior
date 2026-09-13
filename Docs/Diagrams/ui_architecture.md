@@ -1,5 +1,9 @@
 # UI Architecture & Design Philosophy (post-BOT-030)
 
+> **Superseded 2026-09-13.** The application is moving to QtWidgets only with the OS theme (ADR
+> D20–D22); the current design is `Docs/HLD/11_desktop_workbench.md` and HLD §4. This file
+> describes the QML era and is kept for history.
+
 This documents the desktop UI as it stands after `BOT-030` (full QML
 migration). It complements [`architecture.md`](architecture.md), which
 covers the CQRS/Event-Driven engine — this file is presentation-layer only.

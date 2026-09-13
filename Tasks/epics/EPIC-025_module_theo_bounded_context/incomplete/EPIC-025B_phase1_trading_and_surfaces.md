@@ -19,15 +19,18 @@
    `PositionChangedEvent`, `PositionClosedEvent`, `EquitySampledEvent` (names unchanged — a rename
    is not a pure refactor) plus the new `TradingSessionChangedEvent`; `contracts/errors/` with
    `SymbolAlreadyLeased`.
-3. Contributed widgets: the positions table, the open orders table, the manual order card, the
-   session controls (enable / disable / emergency stop), account and equity, and the chart card it
-   wants on the trading workspace — **one** factory each, returning a card (View + Presenter that
-   owns its Coordinators), under `modules/trading/ui/`. Two surfaces → two instances; no
+3. Contributed widgets (HLD §11, QtWidgets, OS theme): the positions and open-orders **panels**
+   (`QTableView` on the existing view models), the session **status tile** and the Enable /
+   Disable / Emergency-stop **actions** (one `QAction` each, on the toolbar), the equity **panel**,
+   the **Order dialog** (F9; Dev Board only per D15), and the chart as the trading **central
+   widget** — **one** factory each, returning a panel (View + Presenter that owns its
+   Coordinators), under `modules/trading/ui/{panels,dialogs}/`. Two surfaces → two instances; no
    Coordinator in DI (ADR D12). `ITradingSession` gains the symbol lease under the existing lock. `trading` keeps only the
    exchange's part of sizing — lot/tick rounding and `TradingLimitPolicy` — and its import of
    `MarginRiskPolicy` stays on the allowlist until Phase 2 (ADR D17).
-4. `screens/trading` and `screens/dashboard` become `surfaces/trading/` and `surfaces/dev_board/`:
-   layout plus widget registration by contribution only, **zero business logic**. Dev Board is
+4. `screens/trading` and `screens/dashboard` become the **modes** `surfaces/trading/` and
+   `surfaces/dev_board/`: each a nested `QMainWindow` with dock areas, toolbars and a status bar,
+   a perspective saved per user, widget registration by contribution only, **zero business logic**. Dev Board is
    gated by `dev.mode` and hosts `dev_probe`s; the first probe is trading's "Exchange API tester",
    which calls the real adapter.
 5. The 9 items in `ui/common/` used only by these two screens move into `modules/trading` (the

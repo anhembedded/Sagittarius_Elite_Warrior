@@ -37,12 +37,12 @@ loop modules
   Main -> Mod : subscribe(bridge)
 end
 alt dev.mode == false
-  Main -> Main : dev_board declared but GATED OFF; every contribution to it\n(cards, probes, screen) dropped with one log line — the app still boots
+  Main -> Main : dev_board declared but GATED OFF; every contribution to it\n(panels, probes, screen) dropped with one log line — the app still boots
 end
 Main -> Qt : MainWindow(registry.screens(), sidebar)
 Qt -> Surf : build(registry, DI) for default route "welcome"
 Surf -> Reg : for_place("welcome", HEADER | WORKSPACE | ...)
 Surf -> Surf : factory(DI) for each descriptor, in `order`
-Surf --> Qt : PageShell
+Surf --> Qt : SurfaceHost (QMainWindow)
 Qt -> Qt : show()
 @enduml

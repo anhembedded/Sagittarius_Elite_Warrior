@@ -76,11 +76,11 @@ package "surface_id = dev_board   {gated by dev.mode}" <<shell-owned>> #LightGra
     order = 20
     title = "market · symbol · date range · load history · start / stop live"
   }
-  object "manualOrderCard : ContributionDescriptor" as d2 #LightGreen {
+  object "orderDialog : ContributionDescriptor" as d2 #LightGreen {
     contributor_id = "trading"
-    place = RAIL
-    order = 70
-    title = "manual order (Dev Board only — ADR D15)"
+    place = MODAL
+    order = 10
+    title = "Order… (F9) — Dev Board only, ADR D15"
   }
   object "indicatorChecklist : ContributionDescriptor" as d3 #LightBlue {
     contributor_id = "market_data"

@@ -1,5 +1,10 @@
 # §4 — Surfaces and contribution points
 
+> **Rendering superseded by §11 (2026-09-13, ADR D20–D22):** the places, surfaces and the
+> contribution mechanism below stand; where this section says `PageShell`, *panel* or QML, read
+> `QMainWindow`, *panel* (a `QDockWidget`) or *dialog*, native OS theme, no QML. §11 has the
+> mapping table.
+
 - **Diagrams (component, PlantUML) — high view first, detail second:**
   [`hld-03a_place_vocabulary.puml`](diagrams/hld-03a_place_vocabulary.puml) — the vocabulary of
   places a module may ask for, the one descriptor shape they share, and the two things that are
@@ -18,8 +23,8 @@
 Trading (`screens/trading`) and Dev Board (`screens/dashboard`) build **one** set of business
 behaviour twice. Fifty-nine method and member names are duplicated between them; both use the
 same `PositionsPanel` and `OpenOrdersPanel`; the equity chart is built with the same recipe (a
-comment says so: *"same construction recipe"*); the strategy card has the same eight object names
-in both; the session card and last-signal card docstrings say *"mirrors"*. `DashboardPresenter` is
+comment says so: *"same construction recipe"*); the strategy panel has the same eight object names
+in both; the session panel and last-signal panel docstrings say *"mirrors"*. `DashboardPresenter` is
 2,008 lines long, `TradingPresenter` 973.
 
 The user's decision (ADR D4) is that Trading is the real use-case screen and Dev Board is the
@@ -39,7 +44,7 @@ that lives inside the widgets that modules own.
 | Surface | Slots | Gate | Default route |
 | :--- | :--- | :--- | :--- |
 | `welcome` 🔵 (ADR D13) | `HEADER` (environment banner, developer-mode switch — ADR D14) · `WORKSPACE` (app name and version, **Start**) | always | ✅ **default**; Start navigates to `trading` |
-| `trading` | `HEADER` (+ `STATUS_TILE`) · `CONTEXT_BAR` · `WORKSPACE` (chart) · `RAIL` (cards) · `CONSOLE` · `MODAL` | always | no (reached from Welcome) |
+| `trading` | `HEADER` (+ `STATUS_TILE`) · `CONTEXT_BAR` · `WORKSPACE` (chart) · `RAIL` (panels) · `CONSOLE` · `MODAL` | always | no (reached from Welcome) |
 | `dev_board` | the same as `trading` plus `DEV_PROBE`; the system controls (market, symbol, date range, load, start/stop) are a `HEADER` contribution by `market_data` at `order = 20` — not a place of their own | **`dev.mode` at boot** (ADR D14; today it is **not gated** — measured, `dev.mode` is read by the asset validator, the log filter, and the chart FPS overlay on the backtest screen (`backtest_view.py:204`), so the restart in D14 changes that overlay too — declared) | no (today it is `is_default=True`) |
 | `settings` | `SETTINGS_SECTION` (one per module, by `order`) | always | no |
 
@@ -66,7 +71,7 @@ geometry"*.
 | Kind | Descriptor (draft) | Contributed by | Rendered by | Replaces today |
 | :--- | :--- | :--- | :--- | :--- |
 | `screen` | `route, title, icon, section_key, sequences, is_default, factory(container) -> (View, Presenter)` | every module | the shell (`ScreenRegistry` ✅ from `EPIC-016` — kept until Phase 5) | the hard-coded tuple of 5 modules at `app_bootstrapper.py:322` |
-| `surface_widget` | `surface_id, slot, order, factory(container) -> QWidget, owner_module` | market_data, trading, strategy, charting, indicators | a surface | two Presenters building their own cards |
+| `surface_widget` | `surface_id, slot, order, factory(container) -> QWidget, owner_module` | market_data, trading, strategy, charting, indicators | a surface | two Presenters building their own panels |
 | `settings_section` | `title, order, factory(container) -> QWidget` (a form bound to the **module's own** config keys) | trading (venue, credentials check, limits), market_data (venue, default symbols / interval / sync days), ui_kit (theme) | the `settings` surface | a single `SettingsView` grid that knows every config key |
 | `dev_probe` 🔵 | `title, module_id, factory(container) -> QWidget` | any module with an exchange API it does not yet understand | the `dev_board.probes` slot, only under `dev.mode` | **nothing** (measured: the app has no probe or raw-endpoint UI at all) |
 | `cli_command` | `name, build_parser(sub), execute(app, args)` | market_data (`sync`, `stream`), trading (`exchange-status`, `order-preview`, `order-dry-run`), strategy (`trade-once`) | `shell/cli` | the if/elif chain at `main.py:139-156` plus `cli_commands.json` |
@@ -102,12 +107,12 @@ The same table as a picture: [`hld-05b_trading_devboard_slots.puml`](diagrams/hl
 
 | Widget | Owning module | Trading | Dev Board |
 | :--- | :--- | :-: | :-: |
-| Chart card (one symbol) / chart list (n symbols) | `charting` (host) + `market_data` (feed) | 1 | n |
+| Chart panel (one symbol) / chart list (n symbols) | `charting` (host) + `market_data` (feed) | 1 | n |
 | Positions table, open orders table (with cancel-one-order) | `trading` | ✅ | ✅ |
-| Manual order card | `trading` | ❌ (user decision 2026-09-13, ADR D15: Dev Board only; adding `trading.rail` later is one line in `contribute()`, and the card depends only on trading's own ports so that line is all it takes) | ✅ |
-| Session card, Enable/Disable, Emergency stop, websocket pill | `trading` | ✅ | ✅ |
+| Manual order panel | `trading` | ❌ (user decision 2026-09-13, ADR D15: Dev Board only; adding `trading.rail` later is one line in `contribute()`, and the panel depends only on trading's own ports so that line is all it takes) | ✅ |
+| Session panel, Enable/Disable, Emergency stop, websocket pill | `trading` | ✅ | ✅ |
 | Equity chart | `trading` (adapter) + `charting` | ✅ | ✅ |
-| Strategy card, last-signal card, parameters dialog | `strategy` | ✅ | ✅ |
+| Strategy panel, last-signal panel, parameters dialog | `strategy` | ✅ | ✅ |
 | Strategy overlay on the chart | `strategy` | ✅ | 🔵 |
 | Indicator script checklist | `indicators` | — | ✅ |
 | System controls (market / symbol / date range / load / start / stop), symbol picker | `market_data` | a reduced context bar | ✅ |
@@ -133,7 +138,7 @@ place. The list is deliberately short, and adding a place is an HLD change, not 
 
 In one sentence each, so this section reads on its own: `SCREEN` is a navigation entry; inside a
 page, `HEADER` holds page-wide actions and status tiles, `CONTEXT_BAR` the current symbol and
-connection, `WORKSPACE` the one big thing, `RAIL` the column of cards, `CONSOLE` the log, `MODAL` a
+connection, `WORKSPACE` the one big thing, `RAIL` the column of panels, `CONSOLE` the log, `MODAL` a
 dialog the page opens; `SETTINGS_SECTION`, `STATUS_TILE` and `DEV_PROBE` are the three places
 outside the page shell. Two things are **not** places, on purpose: a free-form docking area (a
 module never asks for it, even if the Engine adopts docking in Phase 5) and "the sidebar"
@@ -150,15 +155,15 @@ the module's UI footprint.
    the result), Data Management (sync, inspect, repair). A hypothetical `journal` module (review
    past trades) would answer yes.
 2. **Does the module produce or consume something the trader needs while trading?** If yes, it
-   contributes **cards into `trading.rail`** (and, by the mirror rule below, `dev_board.rail`);
+   contributes **panels into `trading.rail`** (and, by the mirror rule below, `dev_board.rail`);
    only `market_data` and `charting` may contribute to `workspace`, because a workspace holds one
-   thing. Examples: `trading` (positions, orders, session), `strategy` (the strategy card, the last
-   signal). A hypothetical `risk` module (exposure limits) would answer yes with one card.
+   thing. Examples: `trading` (positions, orders, session), `strategy` (the strategy panel, the last
+   signal). A hypothetical `risk` module (exposure limits) would answer yes with one panel.
 3. **Is the rest configuration or diagnostics?** Then `settings.section`, `status_tile`, and
    `dev_board.probes` respectively. Every module with configuration keys answers yes to the first.
 
 A module may answer yes to several: Backtest has its own screen **and** a status tile. **When in
-doubt, start on Dev Board.** A card that is not yet proven goes to `dev_board.rail` first (gated by
+doubt, start on Dev Board.** A panel that is not yet proven goes to `dev_board.rail` first (gated by
 `dev.mode`) and is promoted to `trading.rail` when the user wants it there — a one-line change in
 `contribute()`. This is what "Dev Board is for testing and discovery" (ADR D4) means in practice.
 
@@ -171,7 +176,7 @@ doubt, start on Dev Board.** A card that is not yet proven goes to `dev_board.ra
    geometry".
 2. **One widget, many places.** The same factory may be contributed to several surfaces; a module
    never builds a "Trading version" and a "Dev Board version" of a widget. Trading and Dev Board
-   therefore **mirror by default**: a `trading.rail` card is also a `dev_board.rail` card unless the
+   therefore **mirror by default**: a `trading.rail` panel is also a `dev_board.rail` panel unless the
    module says otherwise. The reverse is not true — Dev Board holds things Trading does not.
 3. **Every screen is a surface.** A module's own screen is a `PageShell` like any other, and the
    owner declares which of its slots accept contributions from other modules
@@ -182,16 +187,16 @@ doubt, start on Dev Board.** A card that is not yet proven goes to `dev_board.ra
    the *UI map* — a table of surface × place × module — and fails on a widget that is contributed
    nowhere or a place that does not exist.
 5. **The shell renders; modules never reach into another module's widgets.** Coordination between
-   two cards on the same rail happens through events and ports (§2.5, §3.4), never through the
+   two panels on the same rail happens through events and ports (§2.5, §3.4), never through the
    surface handing one widget a reference to another.
 
 ### 4.6.4 The existing modules, checked against the rule
 
-| Module | Q1 own screen | Q2 trading cards | Q3 config / diagnostics | Matches today? |
+| Module | Q1 own screen | Q2 trading panels | Q3 config / diagnostics | Matches today? |
 | :--- | :--- | :--- | :--- | :--- |
 | `market_data` | ✅ Data Management | context bar (symbol), Dev Board system controls (`HEADER`, order 20), the indicator checklist it wants on Dev Board (support packages never contribute — the needing module does) | settings section (venue, defaults); status tile (ticker) | ✅ |
 | `trading` | ❌ — Trading is a **surface**, not the module's screen | positions, orders, manual order, session, equity | settings section (venue, limits, credentials check); status tile (websocket); probe | ✅ once Trading is a surface (Phase 1) |
-| `strategy` | ❌ | strategy card, last signal; modal (parameters) | — | ✅ |
+| `strategy` | ❌ | strategy panel, last signal; modal (parameters) | — | ✅ |
 | `backtesting` | ✅ Backtest | ❌ (its run-progress tile goes on **its own** screen's header, not Trading's) | status tile on its own screen | ✅ |
 | `indicators` (support) | — | never contributes; `market_data` contributes the checklist | — | ✅ |
 | `charting` (support) | — | never contributes; the module that wants a chart contributes it (`trading` on the trading workspace, `market_data` on Dev Board) | — | ✅ |

@@ -34,7 +34,7 @@ class BacktestScreen <<owned by backtesting>> #Wheat {
 }
 class DataManagementScreen <<owned by market_data>> #Wheat
 
-class PageShell {
+class SurfaceHost <<nested QMainWindow, HLD §11>> {
   +slot(place : Place) : Container
 }
 
@@ -47,7 +47,7 @@ MainWindow *-- "1" Sidebar
 MainWindow *-- "1" QStackedWidget
 MainWindow *-- "1" ModalHost
 QStackedWidget *-- "1..*" Surface
-Surface *-- "1" PageShell
+Surface *-- "1" SurfaceHost
 
 Surface <|-- WelcomeSurface
 Surface <|-- TradingSurface
@@ -57,11 +57,11 @@ Surface <|-- BacktestScreen
 Surface <|-- DataManagementScreen
 
 Sidebar ..> IContributionRegistry : <<use>>\nscreens()
-PageShell ..> IContributionRegistry : <<use>>\nfor_place(surface_id, place)\nfor each slot it owns
-PageShell ..> ModalHost : <<use>>\nopens
+SurfaceHost ..> IContributionRegistry : <<use>>\nfor_place(surface_id, place)\nfor each slot it owns
+SurfaceHost ..> ModalHost : <<use>>\nopens
 
-note right of PageShell
-  **A page never invents layout (§4.6).** Every slot a `PageShell` owns is a
+note right of SurfaceHost
+  **A page never invents layout (§4.6).** Every slot a `SurfaceHost` (a nested `QMainWindow`) owns is a
   literal of the `Place` enumeration (HLD-03a); a module can only ask for
   "my widget in `<surface_id>`.`<place>`", and the slot resolves the geometry.
 end note

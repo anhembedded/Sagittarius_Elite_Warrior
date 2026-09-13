@@ -32,10 +32,12 @@
    a `dev_probe` contribution point for exploring unclear exchange APIs.
 2. **A module is an Engine `IExtension`** plus two UI hooks (`contribute`, `subscribe`). No new `IModule`.
 3. **The shell stays QtWidgets, with an explicit module list in `shell/`** and no auto-discovery.
-4. **A Walking Skeleton inside a Strangler Fig**: `market_data` is migrated together with the
+4. **QtWidgets only, the OS theme, panels and dialogs instead of cards** (ADR D20–D22, HLD §11) —
+   the UI of each module is rebuilt in the phase that migrates it; no separate UI epic.
+5. **A Walking Skeleton inside a Strangler Fig**: `market_data` is migrated together with the
    mechanism in Phase 0; `trading` follows immediately, because that is where the 59 duplicates and
    the real bugs are.
-5. **The Engine receives mechanism, the application keeps policy**; every new Engine API becomes a
+6. **The Engine receives mechanism, the application keeps policy**; every new Engine API becomes a
    line in `engine_capabilities.py`.
 
 ## 2. Goals — measurable
@@ -81,4 +83,4 @@ Each lift = one Engine PR (`b` bump) + one app PR (delete the copy, add the
   first-party, so no public semantic versioning of contracts).
 - No one-database-per-module — the SQLite store stays shared; each module owns a **schema namespace**.
 - No change to `EPIC-016`'s `ScreenRegistry` / `AbstractScreenModule` before Phase 5.
-- Per-module QML: deferred (ADR D6).
+- A designed colour theme: deferred (ADR D21) — the OS theme until then.

@@ -1,5 +1,5 @@
 @startuml hld-05b_trading_devboard_slots
-title HLD-05b — Trading and Dev Board, widget by widget (UML **object diagram**)\nEach box is a widget instance in a slot of that surface's PageShell; the link between two of them means **one factory, two surfaces**.\nColour = owning module: green trading · gold strategy · blue market_data · white support.
+title HLD-05b — Trading and Dev Board, widget by widget (UML **object diagram**)\nEach box is a widget instance in a place of that surface's QMainWindow host (panels are QDockWidgets — HLD §11); the link between two of them means **one factory, two surfaces**.\nColour = owning module: green trading · gold strategy · blue market_data · white support.
 skinparam objectAttributeIconSize 0
 skinparam wrapWidth 170
 
@@ -28,19 +28,19 @@ package "tradingSurface : TradingSurface" <<shell-owned, 0 business logic>> #Lig
     place = RAIL
     order = 20
   }
-  object "sessionCard : Card" as a8 #LightGreen {
+  object "sessionCard : Panel" as a8 #LightGreen {
     place = RAIL
     order = 30
   }
-  object "equityChart : Card" as a9 #LightGreen {
+  object "equityChart : Panel" as a9 #LightGreen {
     place = RAIL
     order = 40
   }
-  object "strategyCard : Card" as a10 #Gold {
+  object "strategyCard : Panel" as a10 #Gold {
     place = RAIL
     order = 50
   }
-  object "lastSignal : Card" as a11 #Gold {
+  object "lastSignal : Panel" as a11 #Gold {
     place = RAIL
     order = 60
   }
@@ -75,28 +75,28 @@ package "devBoardSurface : DevBoardSurface" <<shell-owned, {dev.mode}>> #LightGr
     place = RAIL
     order = 20
   }
-  object "sessionCard : Card" as b8 #LightGreen {
+  object "sessionCard : Panel" as b8 #LightGreen {
     place = RAIL
     order = 30
   }
-  object "equityChart : Card" as b9 #LightGreen {
+  object "equityChart : Panel" as b9 #LightGreen {
     place = RAIL
     order = 40
   }
-  object "strategyCard : Card" as b10 #Gold {
+  object "strategyCard : Panel" as b10 #Gold {
     place = RAIL
     order = 50
   }
-  object "lastSignal : Card" as b11 #Gold {
+  object "lastSignal : Panel" as b11 #Gold {
     place = RAIL
     order = 60
   }
-  object "manualOrderCard : Card" as b12 #LightGreen {
+  object "orderDialog : Dialog (F9)" as b12 #LightGreen {
     place = RAIL
     order = 70
     {Dev Board only — ADR D15}
   }
-  object "indicatorChecklist : Card" as b13 #White {
+  object "indicatorChecklist : Panel" as b13 #White {
     place = RAIL
     order = 80
   }
@@ -123,7 +123,7 @@ note bottom of b12
   **The mirror rule (§4.6.3 rule 2).** Every linked pair above is one
   `factory` value registered against two `surface_id` values — the widget is
   **not coded twice**: 59 duplicated names become 0. The four unlinked
-  instances (`systemControls`, `manualOrderCard`, `indicatorChecklist`,
+  instances (`systemControls`, `orderDialog`, `indicatorChecklist`,
   `exchangeApiTester`) are what Dev Board holds and Trading does not; the
   reverse never happens.
 end note
