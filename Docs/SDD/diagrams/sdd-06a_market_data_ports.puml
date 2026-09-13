@@ -1,0 +1,47 @@
+@startuml sdd-06a_market_data_ports
+title SDD-06a — modules/market_data/contracts, HIGH VIEW (UML **class diagram**)\nThe five ports the Walking Skeleton publishes, and which context requires each. Signatures, DTOs and implementations are SDD-06b.
+skinparam classAttributeIconSize 0
+hide members
+hide circle
+
+package "modules::market_data::contracts" #LightGreen {
+  interface IHistoricalKlines
+  interface ISymbolCatalog
+  interface IMarketDataSync
+  interface IMarketStream
+  interface IRangeCoverage
+}
+
+package "consumers" #LightYellow {
+  class backtesting <<Supporting>>
+  class trading <<Supporting>>
+  class strategy <<Core Domain>>
+}
+
+IHistoricalKlines -[hidden]down- ISymbolCatalog
+ISymbolCatalog -[hidden]down- IMarketDataSync
+IMarketDataSync -[hidden]down- IMarketStream
+IMarketStream -[hidden]down- IRangeCoverage
+
+backtesting ..> IHistoricalKlines : <<use>>
+backtesting ..> IMarketDataSync : <<use>>
+backtesting ..> IRangeCoverage : <<use>>
+trading ..> IHistoricalKlines : <<use>>
+trading ..> IMarketStream : <<use>>
+trading ..> IMarketDataSync : <<use>>
+strategy ..> IHistoricalKlines : <<use>>
+
+note right of ISymbolCatalog
+  `ISymbolCatalog` has no cross-module consumer yet: it serves
+  market_data's own Data Management screen and the Dev Board's
+  system controls. It is published because those two surfaces
+  reach it through the same registered port as anyone else.
+end note
+
+note bottom of IRangeCoverage
+  This package **is** the module's public surface: nothing outside
+  `modules::market_data` may import anything else from it. Two signals
+  cross the boundary alongside these ports — `MarketTickEvent` and
+  `SingleSyncProgressEvent` — and they are drawn in SDD-06b.
+end note
+@enduml

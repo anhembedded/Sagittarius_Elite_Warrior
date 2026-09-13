@@ -1,0 +1,53 @@
+@startuml hld-02a_module_layers
+title HLD-02a — Inside one module, HIGH VIEW (UML **package diagram**)\nDependencies are UML package dependencies; the red one carries a UML constraint {forbidden} and is what the guard fails on.\nWhat each package contains, and what it may reach outside the module, is HLD-02b.
+skinparam packageStyle rectangle
+skinparam wrapWidth 210
+
+package "modules::<module_id>" <<Bounded Context>> {
+  package contracts <<Public>> #LightGreen {
+  }
+  package ui <<Presentation>> #White {
+  }
+  package adapters <<Infrastructure>> #White {
+  }
+  package application <<Use Cases>> #White {
+  }
+  package domain <<Enterprise Rules>> #White {
+  }
+  class "module.py" as ModulePy <<BoundedContextModule>> {
+    +register(context)
+    +boot(context)
+    +contribute(registry)
+    +subscribe(bridge)
+  }
+}
+
+ui ..> application : <<access>>
+adapters ..> application : <<access>>
+application ..> domain : <<access>>
+application ..> contracts : <<import>>
+ModulePy ..> ui : <<access>>
+ModulePy ..> adapters : <<access>>
+ModulePy ..> application : <<access>>
+ModulePy ..> domain : <<access>>
+ui .[#Red].> adapters : <<access>>\n**{forbidden}**
+
+note right of ui
+  **{forbidden}: ui never imports adapters.** A presenter asks the
+  application layer, which resolves a port; it never reaches for the
+  exchange client itself. Two violations exist today —
+  `backtest_presenter.py:43` and `settings_presenter.py:21` — and are
+  fixed when those modules migrate.
+end note
+
+note bottom of ModulePy
+  `module.py` is the only classifier in the module that depends on all
+  four layers; it is the module's single point of assembly.
+end note
+
+note bottom of contracts
+  Any dependency not drawn here is forbidden. The guard (architecture-rule §3,
+  generalised in Phase 0 to `modules/*/{domain,application,adapters,ui}`)
+  fails the build on one.
+end note
+@enduml

@@ -1,5 +1,5 @@
-@startuml sdd-06_market_data_contracts
-title SDD-06 — modules/market_data/contracts (the Walking Skeleton's public surface)
+@startuml sdd-06b_market_data_contracts
+title SDD-06b — modules/market_data/contracts, DETAIL (UML **class diagram**)\nEvery signature, DTO, signal and implementing service of the Walking Skeleton's public surface.\nThe five ports and their consumers alone are SDD-06a.
 skinparam classAttributeIconSize 0
 hide empty members
 
@@ -35,6 +35,10 @@ package "modules/market_data/contracts" #LightGreen {
   class SyncProgress <<frozen>>
   class MarketTickEvent <<BaseEvent>>
   class SingleSyncProgressEvent <<BaseEvent>>
+  IHistoricalKlines -[hidden]down- ISymbolCatalog
+  ISymbolCatalog -[hidden]down- IMarketDataSync
+  IMarketDataSync -[hidden]down- IMarketStream
+  IMarketStream -[hidden]down- IRangeCoverage
   IHistoricalKlines ..> MarketData
   IRangeCoverage ..> RangeCoverageSnapshot
   SingleSyncProgressEvent ..> SyncProgress
@@ -46,6 +50,10 @@ package "modules/market_data/application (implements)" #White {
   class MarketDataSyncService
   class MarketStreamService
   class RangeCoverageService
+  HistoricalKlinesService -[hidden]down- SymbolCatalogService
+  SymbolCatalogService -[hidden]down- MarketDataSyncService
+  MarketDataSyncService -[hidden]down- MarketStreamService
+  MarketStreamService -[hidden]down- RangeCoverageService
   IHistoricalKlines <|.. HistoricalKlinesService
   ISymbolCatalog <|.. SymbolCatalogService
   IMarketDataSync <|.. MarketDataSyncService

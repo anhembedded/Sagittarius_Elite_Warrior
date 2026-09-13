@@ -1,5 +1,5 @@
 @startuml sdd-05_dev_mode_state
-title SDD-05 — dev.mode: read once at boot; the Welcome switch changes the next run
+title SDD-05 — dev.mode (UML **state machine diagram**)\nRead once at boot; the Welcome switch writes user_config.json and the next run applies it (ADR D14).
 [*] --> Booting
 Booting --> UserMode : dev.mode == false\n(app_config default, user_config, or no --dev)
 Booting --> DevMode : dev.mode == true\n(--dev wins for this run, else user_config)

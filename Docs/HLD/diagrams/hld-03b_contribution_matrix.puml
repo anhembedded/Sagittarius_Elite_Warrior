@@ -1,0 +1,205 @@
+@startuml hld-03b_contribution_matrix
+title HLD-03b — Every contribution in the application, DETAIL (UML **object diagram**)\nEach box is an *instance specification* of `ContributionDescriptor` (HLD-03a) with its slot values —\nthat is, one entry a module creates in `contribute()`. Colour = the module that owns it.
+skinparam objectAttributeIconSize 0
+skinparam wrapWidth 200
+
+package "surface_id = trading" <<shell-owned>> #LightGray {
+  object "tradingControls : ContributionDescriptor" as t1 #LightGreen {
+    module_id = "trading"
+    place = HEADER
+    order = 10
+    title = "Enable / Disable · Emergency stop"
+  }
+  object "websocketPill : ContributionDescriptor" as t2 #LightGreen {
+    module_id = "trading"
+    place = STATUS_TILE
+    order = 10
+  }
+  object "priceTicker : ContributionDescriptor" as t3 #LightBlue {
+    module_id = "market_data"
+    place = STATUS_TILE
+    order = 20
+  }
+  object "backtestProgress : ContributionDescriptor" as t4 #Wheat {
+    module_id = "backtesting"
+    place = STATUS_TILE
+    order = 30
+  }
+  object "symbolPicker : ContributionDescriptor" as t5 #LightBlue {
+    module_id = "market_data"
+    place = CONTEXT_BAR
+    order = 10
+  }
+  object "chartCard : ContributionDescriptor" as t6 #White {
+    module_id = "charting"
+    place = WORKSPACE
+    order = 10
+  }
+  object "positionsTable : ContributionDescriptor" as t7 #LightGreen {
+    module_id = "trading"
+    place = RAIL
+    order = 10
+  }
+  object "openOrders : ContributionDescriptor" as t8 #LightGreen {
+    module_id = "trading"
+    place = RAIL
+    order = 20
+  }
+  object "sessionCard : ContributionDescriptor" as t9 #LightGreen {
+    module_id = "trading"
+    place = RAIL
+    order = 30
+  }
+  object "equityChart : ContributionDescriptor" as t10 #LightGreen {
+    module_id = "trading"
+    place = RAIL
+    order = 40
+  }
+  object "strategyCard : ContributionDescriptor" as t11 #Gold {
+    module_id = "strategy"
+    place = RAIL
+    order = 50
+  }
+  object "lastSignal : ContributionDescriptor" as t12 #Gold {
+    module_id = "strategy"
+    place = RAIL
+    order = 60
+  }
+  object "appLog : ContributionDescriptor" as t13 #White {
+    module_id = "ui_kit"
+    place = CONSOLE
+    order = 10
+  }
+}
+
+package "surface_id = dev_board   {gated by dev.mode}" <<shell-owned>> #LightGray {
+  object "systemControls : ContributionDescriptor" as d1 #LightBlue {
+    module_id = "market_data"
+    place = HEADER
+    order = 20
+    title = "market · symbol · date range · load history · start / stop live"
+  }
+  object "manualOrderCard : ContributionDescriptor" as d2 #LightGreen {
+    module_id = "trading"
+    place = RAIL
+    order = 70
+    title = "manual order (Dev Board only — ADR D15)"
+  }
+  object "indicatorChecklist : ContributionDescriptor" as d3 #White {
+    module_id = "indicators"
+    place = RAIL
+    order = 80
+  }
+  object "exchangeApiTester : ContributionDescriptor" as d4 #LightGreen {
+    module_id = "trading"
+    place = DEV_PROBE
+    order = 10
+  }
+  object "mirrored : ContributionDescriptor [12]" as d5 #WhiteSmoke {
+    the twelve instances above,
+    re-registered with
+    surface_id = "dev_board"
+  }
+}
+
+package "surface_id = settings" <<shell-owned>> #LightGray {
+  object "marketDataSection : ContributionDescriptor" as s1 #LightBlue {
+    module_id = "market_data"
+    place = SETTINGS_SECTION
+    order = 10
+    title = "venue · defaults"
+  }
+  object "tradingSection : ContributionDescriptor" as s2 #LightGreen {
+    module_id = "trading"
+    place = SETTINGS_SECTION
+    order = 20
+    title = "venue · limits · credentials check"
+  }
+}
+
+package "surface_id = backtest   {accepts = RAIL, MODAL}" <<owned by backtesting>> #Wheat {
+  object "backtestScreen : ScreenContribution" as b1 #Wheat {
+    module_id = "backtesting"
+    route = "/backtest"
+  }
+  object "strategyParameters : ContributionDescriptor" as b2 #Gold {
+    module_id = "strategy"
+    place = MODAL
+    order = 10
+  }
+  object "syncProgress : ContributionDescriptor" as b3 #LightBlue {
+    module_id = "market_data"
+    place = RAIL
+    order = 10
+  }
+}
+
+package "surface_id = data_management" <<owned by market_data>> #Wheat {
+  object "dataManagementScreen : ScreenContribution" as m1 #LightBlue {
+    module_id = "market_data"
+    route = "/data"
+  }
+}
+
+package "surface_id = welcome   {default route, ADR D13}" <<shell-owned>> #LightGray {
+  object "welcomeScreen : ScreenContribution" as w1 #WhiteSmoke {
+    module_id = "shell"
+    is_default = true
+    note = "no module contributes here"
+  }
+}
+
+t7 .. d5
+t11 .. d5
+
+' layout only (no UML meaning): fold each package into columns and stack the packages,
+' so the diagram is a readable grid rather than one very wide band
+t1 -[hidden]down- t2
+t2 -[hidden]down- t3
+t3 -[hidden]down- t4
+t5 -[hidden]down- t6
+t6 -[hidden]down- t7
+t7 -[hidden]down- t8
+t9 -[hidden]down- t10
+t10 -[hidden]down- t11
+t11 -[hidden]down- t12
+t12 -[hidden]down- t13
+d1 -[hidden]down- d2
+d2 -[hidden]down- d3
+d4 -[hidden]down- d5
+s1 -[hidden]down- s2
+b1 -[hidden]down- b2
+b2 -[hidden]down- b3
+t4 -[hidden]down- d1
+d3 -[hidden]down- s1
+s2 -[hidden]down- b1
+b3 -[hidden]down- m1
+m1 -[hidden]down- w1
+
+note right of d5
+  **The mirror rule (§4.6.3 rule 2).** A `trading` rail card is also a `dev_board`
+  rail card unless the module says otherwise: the **same** `factory` value appears
+  in two instances that differ only in `surface_id`. There is never a "Trading
+  version" and a "Dev Board version" of a widget. The reverse is not true — Dev
+  Board additionally holds what Trading does not.
+
+  **When in doubt, start on Dev Board:** an unproven card is created with
+  `surface_id = "dev_board"` first, and promoted by changing that one slot value.
+  That is what ADR D4 means in practice.
+end note
+
+note bottom of b2
+  **Every screen is a surface (§4.6.3 rule 3).** Because `backtest` declares
+  `accepts = {RAIL, MODAL}`, `strategy` and `market_data` can place instances on it
+  **without `backtesting` importing either module**.
+end note
+
+note bottom of w1
+  `welcome` and `settings` belong to the **shell**, not to a module: they are
+  surfaces about the application itself.
+
+  A guard renders the *UI map* — the set of these instances keyed by
+  (surface_id, place) — and fails on a factory contributed nowhere, or on a
+  `place` literal that does not exist.
+end note
+@enduml

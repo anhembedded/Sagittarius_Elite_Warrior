@@ -1,0 +1,113 @@
+@startuml hld-01b_module_dependencies
+title HLD-01b — Module dependencies, DETAIL (UML **component diagram** with provided and required interfaces)\nA lollipop (—O) is an interface the component **provides**; a dashed «use» arrow is one it **requires**.\nA module's `contracts` sub-package is exactly its set of provided interfaces. The package-level picture is HLD-01a.
+skinparam wrapWidth 170
+skinparam componentStyle uml2
+
+component market_data <<Supporting>> #LightGreen
+component strategy <<Core Domain>> #Gold
+component trading <<Supporting>> #LightGreen
+component backtesting <<Supporting>> #LightGreen
+component charting <<Generic>> #White
+component indicators <<Generic>> #White
+component binance_gateway <<Generic>> #White
+
+package "market_data.contracts" <<provided>> {
+  interface IHistoricalKlines
+  interface IMarketStream
+  interface IMarketDataSync
+  interface IRangeCoverage
+}
+package "trading.contracts" <<provided>> {
+  interface IOrderSubmission
+  interface ITradingSession
+  interface IAccountSnapshot
+}
+package "strategy.contracts" <<provided>> {
+  interface IStrategyCatalog
+  interface IStrategyEngineFactory
+}
+package "support.contracts" <<provided>> {
+  interface IChartHost
+  interface IIndicatorCatalog
+  interface ITradingSessionFactory
+}
+
+market_data -down- IHistoricalKlines
+market_data -down- IMarketStream
+market_data -down- IMarketDataSync
+market_data -down- IRangeCoverage
+
+trading -down- IOrderSubmission
+trading -down- ITradingSession
+trading -down- IAccountSnapshot
+
+strategy -down- IStrategyCatalog
+strategy -down- IStrategyEngineFactory
+
+charting -up- IChartHost
+indicators -up- IIndicatorCatalog
+binance_gateway -up- ITradingSessionFactory
+
+strategy ..> IHistoricalKlines : <<use>>
+strategy ..> IMarketStream : <<use>>
+strategy ..> IOrderSubmission : <<use>>
+strategy ..> ITradingSession : <<use>>
+strategy ..> IAccountSnapshot : <<use>>
+strategy ..> IChartHost : <<use>>
+strategy ..> IIndicatorCatalog : <<use>>
+
+trading ..> IHistoricalKlines : <<use>>
+trading ..> IMarketStream : <<use>>
+trading ..> IMarketDataSync : <<use>>
+trading ..> IChartHost : <<use>>
+trading ..> ITradingSessionFactory : <<use>>
+
+backtesting ..> IHistoricalKlines : <<use>>
+backtesting ..> IMarketDataSync : <<use>>
+backtesting ..> IRangeCoverage : <<use>>
+backtesting ..> IStrategyCatalog : <<use>>
+backtesting ..> IStrategyEngineFactory : <<use>>
+backtesting ..> IChartHost : <<use>>
+backtesting ..> IIndicatorCatalog : <<use>>
+
+market_data ..> ITradingSessionFactory : <<use>>
+
+note right of market_data
+  **Open Host Service + Published Language.** market_data publishes one
+  set of interfaces for all three downstream contexts, spoken in `core.vo`
+  (MarketData, TimeFrame) plus the signal MarketTickEvent.
+end note
+
+note left of strategy
+  **Customer/Supplier, twice over.** trading supplies strategy
+  (IOrderSubmission, ITradingSession, IAccountSnapshot) and strategy
+  supplies backtesting (IStrategyCatalog, IStrategyEngineFactory).
+  In both pairs the supplier does not know its customer exists —
+  **trading never requires anything strategy provides**, which is
+  what keeps the two acyclic. The cycle is broken by a trading-owned
+  concept: the symbol lease, ITradingSession.claim_symbol.
+end note
+
+note bottom of binance_gateway
+  **Anticorruption Layer.** binance_gateway is the only component
+  permitted to construct `binance.client.Client` (an existing guard
+  test). market_data and trading each wrap their own half of the SDK
+  in their own `adapters` — REST klines and the market websocket on
+  one side, futures REST and the user-data websocket on the other.
+end note
+
+note bottom of charting
+  **Conformist.** A component draws through IChartHost using charting's
+  own MarkerPoint / RegionSpan / InfoField types, with no translation
+  layer of its own.
+end note
+
+note bottom of backtesting
+  **Anticorruption Layer inside backtesting.** strategy owns its
+  StrategyContext (candles plus the current position, as a neutral value
+  object); backtesting translates PaperExchange into it, and trading
+  builds the same context from LivePosition. Today three strategies still
+  import `domain/backtesting` — the wrong direction — and that is the
+  dependency this ACL removes.
+end note
+@enduml

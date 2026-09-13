@@ -1,5 +1,5 @@
-@startuml sdd-04_order_flow_across_modules
-title SDD-04 — One tick becomes one order: the cross-module path and the symbol lease
+@startuml sdd-04b_order_flow_sequence
+title SDD-04b — One tick becomes one order, DETAIL (UML **sequence diagram**)\nThe cross-module path call by call, and the symbol lease refusing a manual order.\nThe same path in six messages is SDD-04a — read that first.
 autonumber
 participant "market_data\n(market websocket)" as MD
 participant "Event bus" as Bus

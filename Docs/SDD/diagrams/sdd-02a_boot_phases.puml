@@ -1,0 +1,39 @@
+@startuml sdd-02a_boot_phases
+title SDD-02a — Boot, HIGH VIEW (UML **sequence diagram**)\nThe seven steps of the shell's boot procedure (Phase 0).\nEach step's exact calls, loops and guards are SDD-02b.
+autonumber
+skinparam maxMessageSize 300
+participant "shell\n(the composition root)" as Main
+participant "Engine\n(App · ExtensionManager · IContainer)" as Eng
+participant "every BoundedContextModule\n(in MODULES order)" as Mod
+participant "ContributionRegistry\n+ MainWindow" as UI
+
+== 1-2 · before anything is registered ==
+Main -> Main : read configuration once —\ndev.mode is captured for the whole run (--dev wins)
+Main -> UI : construct QApplication\n<<the Engine's proven ordering: before boot()>>
+
+== 3-4 · registration, then the check ==
+Main -> Eng : app.use(module) for each entry of MODULES,\nin **the list's own topological order**
+Eng -> Mod : register(context) — declare ports in DI\n<<no resolve(), no I/O, no Qt>>
+Main -> Eng : DoubleClaimCheck over container.registrations()
+note right of Main : at most one module may register a given port;\notherwise fail **before** boot()
+
+== 5 · boot ==
+Main -> Eng : app.boot()
+Eng -> Mod : boot(context) — resolve() allowed,\nhosted services and scheduler jobs start here
+
+== 6 · the UI footprint is declared ==
+Main -> Mod : contribute(registry), then subscribe(bridge), in list order
+Mod -> UI : descriptors only — a factory is **never called** here
+
+== 7 · the first surface ==
+Main -> UI : MainWindow(registry.screens()); default route "welcome"
+UI -> UI : the surface asks for_place(...) and builds each widget, in `order`
+
+note over Main, UI
+  **Why this order and not another.** Registration is separated from boot so that the
+  double-claim check can run while nothing has started yet; contribute() comes after boot
+  so a factory may resolve what boot() registered; and QApplication exists before boot()
+  because the Engine already proved that ordering. The dev.mode gate is evaluated once,
+  in step 1, so no module is loaded or unloaded later — there is no hot reload (ADR D14).
+end note
+@enduml

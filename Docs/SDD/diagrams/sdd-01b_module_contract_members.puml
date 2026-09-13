@@ -1,5 +1,5 @@
-@startuml sdd-01_module_contract_classes
-title SDD-01 — Module contract and contribution registry (class diagram, Phase 0 scope)
+@startuml sdd-01b_module_contract_members
+title SDD-01b — Module contract and contribution registry, DETAIL (UML **class diagram**)\nEvery field and signature of the Phase 0 classes.\nWho owns what, and the three seams, is SDD-01a — read that first.
 skinparam classAttributeIconSize 0
 hide empty members
 

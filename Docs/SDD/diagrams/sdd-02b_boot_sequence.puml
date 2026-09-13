@@ -1,5 +1,5 @@
-@startuml sdd-02_boot_sequence
-title SDD-02 — Boot: from main() to the first surface (Phase 0)
+@startuml sdd-02b_boot_sequence
+title SDD-02b — Boot, DETAIL (UML **sequence diagram**)\nFrom main() to the first surface, call by call (Phase 0).\nThe seven steps this expands are SDD-02a — read that first.
 autonumber
 participant "main / shell" as Main
 participant "App (Engine)" as App

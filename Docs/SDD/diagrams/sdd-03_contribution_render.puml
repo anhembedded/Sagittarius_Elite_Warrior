@@ -1,5 +1,5 @@
 @startuml sdd-03_contribution_render
-title SDD-03 — A surface renders contributions; the same widget appears on two surfaces
+title SDD-03 — A surface renders contributions (UML **sequence diagram**)\nOne factory contributed to two surfaces yields two widgets sharing one trading-owned coordinator.
 autonumber
 participant "TradingModule" as TM
 participant "ContributionRegistry" as Reg

@@ -1,14 +1,17 @@
 # §4 — Surfaces and contribution points
 
-- **Diagrams (component, PlantUML):**
+- **Diagrams (component, PlantUML) — high view first, detail second:**
+  [`hld-03a_place_vocabulary.puml`](diagrams/hld-03a_place_vocabulary.puml) — the vocabulary of
+  places a module may ask for, the one descriptor shape they share, and the two things that are
+  deliberately *not* places (§4.6.1);
+  [`hld-03b_contribution_matrix.puml`](diagrams/hld-03b_contribution_matrix.puml) — what each
+  surface receives, place by place, coloured by the module that owns the widget (§4.6.2, §4.6.4);
   [`hld-05a_window_containment.puml`](diagrams/hld-05a_window_containment.puml) — what contains
   what: `MainWindow` ⊃ Sidebar + `QStackedWidget` ⊃ surfaces and module-owned screens ⊃ `PageShell`
   slots, plus the registry that feeds every slot;
   [`hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml) — Trading
   and Dev Board slot by slot, each widget coloured by its owning module, dotted lines joining the
-  widgets that are the same factory on both surfaces;
-  [`hld-03_workbench_places.puml`](diagrams/hld-03_workbench_places.puml) — the vocabulary of
-  places (§4.6).
+  widgets that are the same factory on both surfaces.
 
 ## 4.1 The problem, measured
 

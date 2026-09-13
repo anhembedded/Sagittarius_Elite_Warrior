@@ -1,5 +1,11 @@
 # §2 — Context map
 
+- **Diagrams (component, PlantUML) — high view first, detail second:**
+  [`hld-01a_layer_map.puml`](diagrams/hld-01a_layer_map.puml) — the five layers and the
+  direction of every dependency;
+  [`hld-01b_module_dependencies.puml`](diagrams/hld-01b_module_dependencies.puml) — every module
+  pair, the ports that cross it, and the integration pattern of §2.3.
+
 ## 2.1 The map
 
 ```

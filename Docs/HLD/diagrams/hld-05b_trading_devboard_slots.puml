@@ -1,80 +1,137 @@
 @startuml hld-05b_trading_devboard_slots
-title HLD-05b — Trading and Dev Board, slot by slot: which module owns each widget\nGreen = trading · Gold = strategy · Blue = market_data · White = support · dotted line = the SAME factory in both surfaces
-skinparam componentStyle rectangle
-skinparam wrapWidth 160
-skinparam defaultTextAlignment center
-left to right direction
+title HLD-05b — Trading and Dev Board, widget by widget (UML **object diagram**)\nEach box is a widget instance in a slot of that surface's PageShell; the link between two of them means **one factory, two surfaces**.\nColour = owning module: green trading · gold strategy · blue market_data · white support.
+skinparam objectAttributeIconSize 0
+skinparam wrapWidth 170
 
-component "Surface: trading  (shell-owned, 0 business logic)" as ST #LightGray {
-  component "header" as STH #WhiteSmoke {
-    component "Enable / Disable\nEmergency stop" as STH1 #LightGreen
-    component "status_tile:\nwebsocket pill" as STH2 #LightGreen
-    component "status_tile:\nprice ticker" as STH3 #LightBlue
+package "tradingSurface : TradingSurface" <<shell-owned, 0 business logic>> #LightGray {
+  object "enableDisable : ActionGroup" as a1 #LightGreen {
+    place = HEADER
   }
-  component "context_bar" as STC #WhiteSmoke {
-    component "symbol picker\nconnection" as STC1 #LightBlue
+  object "websocketPill : StatusTile" as a2 #LightGreen {
+    place = STATUS_TILE
   }
-  component "workspace" as STW #WhiteSmoke {
-    component "ChartCard (1 symbol)\nhost: charting · feed: market_data" as STW1 #White
+  object "priceTicker : StatusTile" as a3 #LightBlue {
+    place = STATUS_TILE
   }
-  component "rail  (by order)" as STR #WhiteSmoke {
-    component "10 positions table" as STR1 #LightGreen
-    component "20 open orders\n(+ cancel one)" as STR2 #LightGreen
-    component "30 session card" as STR3 #LightGreen
-    component "40 equity chart" as STR4 #LightGreen
-    component "50 strategy card" as STR5 #Gold
-    component "60 last signal" as STR6 #Gold
+  object "symbolPicker : ContextBar" as a4 #LightBlue {
+    place = CONTEXT_BAR
   }
-  component "console" as STL #WhiteSmoke {
-    component "AppLogPanel (ui_kit)" as STL1 #White
+  object "chartCard : ChartCard" as a5 #White {
+    place = WORKSPACE
+    symbols = 1
+  }
+  object "positionsTable : DataTable" as a6 #LightGreen {
+    place = RAIL
+    order = 10
+  }
+  object "openOrders : DataTable" as a7 #LightGreen {
+    place = RAIL
+    order = 20
+  }
+  object "sessionCard : Card" as a8 #LightGreen {
+    place = RAIL
+    order = 30
+  }
+  object "equityChart : Card" as a9 #LightGreen {
+    place = RAIL
+    order = 40
+  }
+  object "strategyCard : Card" as a10 #Gold {
+    place = RAIL
+    order = 50
+  }
+  object "lastSignal : Card" as a11 #Gold {
+    place = RAIL
+    order = 60
+  }
+  object "appLog : AppLogPanel" as a12 #White {
+    place = CONSOLE
   }
 }
 
-component "Surface: dev_board  (shell-owned, only when dev.mode)" as SD #LightGray {
-  component "header" as SDH #WhiteSmoke {
-    component "Enable / Disable\nEmergency stop" as SDH1 #LightGreen
-    component "status_tile:\nwebsocket pill" as SDH2 #LightGreen
-    component "status_tile:\nprice ticker" as SDH3 #LightBlue
+package "devBoardSurface : DevBoardSurface" <<shell-owned, {dev.mode}>> #LightGray {
+  object "enableDisable : ActionGroup" as b1 #LightGreen {
+    place = HEADER
   }
-  component "system_controls" as SDS #WhiteSmoke {
-    component "market · symbol · date range\nload history · start / stop live" as SDS1 #LightBlue
+  object "websocketPill : StatusTile" as b2 #LightGreen {
+    place = STATUS_TILE
   }
-  component "workspace" as SDW #WhiteSmoke {
-    component "ChartCard × n symbols" as SDW1 #White
+  object "priceTicker : StatusTile" as b3 #LightBlue {
+    place = STATUS_TILE
   }
-  component "rail  (by order)" as SDR #WhiteSmoke {
-    component "10 positions table" as SDR1 #LightGreen
-    component "20 open orders" as SDR2 #LightGreen
-    component "30 session card" as SDR3 #LightGreen
-    component "40 equity chart" as SDR4 #LightGreen
-    component "50 strategy card" as SDR5 #Gold
-    component "60 last signal" as SDR6 #Gold
-    component "70 manual order card\n(Dev Board ONLY — D15)" as SDR7 #LightGreen
-    component "80 indicator script checklist" as SDR8 #White
+  object "systemControls : ControlBar" as b4 #LightBlue {
+    place = HEADER
+    contents = "market · symbol · date range · load history · start / stop live"
   }
-  component "probes  (dev_probe)" as SDX #WhiteSmoke {
-    component "Exchange API tester" as SDX1 #LightGreen
+  object "chartCards : ChartCard [*]" as b5 #White {
+    place = WORKSPACE
+    symbols = "n"
   }
-  component "console" as SDL #WhiteSmoke {
-    component "AppLogPanel (ui_kit)" as SDL1 #White
+  object "positionsTable : DataTable" as b6 #LightGreen {
+    place = RAIL
+    order = 10
+  }
+  object "openOrders : DataTable" as b7 #LightGreen {
+    place = RAIL
+    order = 20
+  }
+  object "sessionCard : Card" as b8 #LightGreen {
+    place = RAIL
+    order = 30
+  }
+  object "equityChart : Card" as b9 #LightGreen {
+    place = RAIL
+    order = 40
+  }
+  object "strategyCard : Card" as b10 #Gold {
+    place = RAIL
+    order = 50
+  }
+  object "lastSignal : Card" as b11 #Gold {
+    place = RAIL
+    order = 60
+  }
+  object "manualOrderCard : Card" as b12 #LightGreen {
+    place = RAIL
+    order = 70
+    {Dev Board only — ADR D15}
+  }
+  object "indicatorChecklist : Card" as b13 #White {
+    place = RAIL
+    order = 80
+  }
+  object "exchangeApiTester : Probe" as b14 #LightGreen {
+    place = DEV_PROBE
+  }
+  object "appLog : AppLogPanel" as b15 #White {
+    place = CONSOLE
   }
 }
 
-STH1 .. SDH1
-STH2 .. SDH2
-STH3 .. SDH3
-STW1 .. SDW1
-STR1 .. SDR1
-STR2 .. SDR2
-STR3 .. SDR3
-STR4 .. SDR4
-STR5 .. SDR5
-STR6 .. SDR6
+a1 .. b1 : same factory
+a2 .. b2 : same factory
+a3 .. b3 : same factory
+a5 .. b5 : same factory
+a6 .. b6 : same factory
+a7 .. b7 : same factory
+a8 .. b8 : same factory
+a9 .. b9 : same factory
+a10 .. b10 : same factory
+a11 .. b11 : same factory
 
-note bottom of SD
-  Mirror rule (§4.6.3 rule 2): a trading.rail card is also a dev_board.rail card
-  unless the module says otherwise. Dev Board additionally holds what Trading does not
-  (system controls, the manual order card, the checklist, the probes).
-  Nothing here is coded twice: 59 duplicated names → 0.
+note bottom of b12
+  **The mirror rule (§4.6.3 rule 2).** Every linked pair above is one
+  `factory` value registered against two `surface_id` values — the widget is
+  **not coded twice**: 59 duplicated names become 0. The four unlinked
+  instances (`systemControls`, `manualOrderCard`, `indicatorChecklist`,
+  `exchangeApiTester`) are what Dev Board holds and Trading does not; the
+  reverse never happens.
+end note
+
+note bottom of a12
+  Both surfaces carry zero business logic of their own. All behaviour lives
+  inside the widgets the modules own, and two widgets on the same rail
+  coordinate through events and ports — never through the surface handing one
+  a reference to another (§4.6.3 rule 5).
 end note
 @enduml

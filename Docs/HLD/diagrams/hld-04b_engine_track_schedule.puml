@@ -1,0 +1,103 @@
+@startuml hld-04b_engine_track_schedule
+title HLD-04b — The Engine track, DETAIL (UML **package diagram**)\nEvery element, where it is built, and the «trace» that lifts it into the Engine at step E0–E3 (§8.4).\nThe three zones and the lift precondition are HLD-04a.
+skinparam packageStyle rectangle
+skinparam wrapWidth 210
+skinparam classAttributeIconSize 0
+hide circle
+
+package "sagittarius_engine as it stands today" <<Framework 2.4.0>> #WhiteSmoke {
+  class IExtension <<interface>>
+  class ExtensionDescriptor
+  class ExtensionManager
+  class IContainer <<interface>>
+  class IEventBus <<interface>>
+  class QtEventBridge
+  class IDispatcher <<interface>>
+  class Scheduler
+  class HostedServiceManager
+  class PresenterManager
+  class create_quick_widget <<function>>
+}
+
+package "application :: lift-ready staging area  (Phase 0–1)" <<harvest zone>> #LightYellow {
+  class BoundedContextModule <<abstract>>
+  class IContributionRegistry <<interface>>
+  class ContributionDescriptor <<frozen dataclass>>
+  class Place <<enumeration>>
+  class SizeHint <<enumeration>>
+  class Surface
+  class NavigationPolicy
+}
+
+package "sagittarius_engine :: extensions::workbench  (target)" <<lifted>> #LightGreen {
+  class WorkbenchModule <<abstract>> {
+    **E1** — after app Phase 1
+    (two surfaces, two modules exist)
+  }
+  class ContributionRegistry {
+    **E1**
+  }
+  class RegionHost {
+    **E2** — after app Phase 2
+    (strategy contributes into backtest)
+  }
+  class NavigationService {
+    **E3** — app Phase 5
+    USER_INTENT vs RESTORE · can_leave
+  }
+  class ScheduledJobCancel <<operation>> {
+    **E0** — now, independent of the app
+  }
+  class QuickWidgetImportPaths <<operation>> {
+    **E3** — when ADR D6 reopens
+  }
+}
+
+package "application :: policy" <<never moves>> #LightGray {
+  class ModuleList
+  class SurfaceCatalog
+  class DevModeGate
+  class BinanceGateway
+}
+
+IExtension <|-- BoundedContextModule
+BoundedContextModule ..> QtEventBridge : <<use>>
+IContributionRegistry ..> IContainer : <<use>>
+Surface ..> PresenterManager : <<use>>
+NavigationPolicy ..> PresenterManager : <<use>>
+
+BoundedContextModule ..> WorkbenchModule : <<trace>> E1
+IContributionRegistry ..> ContributionRegistry : <<trace>> E1
+ContributionDescriptor ..> ContributionRegistry : <<trace>> E1
+Place ..> ContributionRegistry : <<trace>> E1
+SizeHint ..> ContributionRegistry : <<trace>> E1
+Surface ..> RegionHost : <<trace>> E2
+NavigationPolicy ..> NavigationService : <<trace>> E3
+Scheduler ..> ScheduledJobCancel : <<trace>> E0
+create_quick_widget ..> QuickWidgetImportPaths : <<trace>> E3
+
+ModuleList ..> BoundedContextModule : <<use>>
+SurfaceCatalog ..> Surface : <<use>>
+
+note bottom of BoundedContextModule
+  **Three constraints that make each «trace» cheap, enforced from Phase 0 (§8.2):**
+  1. no import from `modules`, `support` or the rest of `shell` — the Engine and
+     the standard library only (`core` already carries this guard);
+  2. Engine package layout — `core/contracts/contribution.py` is written as the future
+     `sagittarius_engine/extensions/workbench/contribution.py`;
+  3. the application subclasses a lift-bound type only through the intended seam —
+     a module subclasses `BoundedContextModule`, and nothing else touches its internals.
+end note
+
+note right of NavigationService
+  §5.3 said `contribute` / `subscribe` stay in the application "until a second
+  application needs them". Under the harvest rule the second *surface* in this
+  application is already enough evidence, so they lift at **E1**.
+  §5.3 is superseded by §8.3.
+end note
+
+note bottom of DevModeGate
+  These four never carry a «trace». The Engine must not learn *which* surfaces
+  this application has — only *how* a surface is contributed to.
+end note
+@enduml

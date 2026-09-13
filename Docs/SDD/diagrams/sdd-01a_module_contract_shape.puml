@@ -1,0 +1,64 @@
+@startuml sdd-01a_module_contract_shape
+title SDD-01a — Module contract and contribution registry, HIGH VIEW (UML **class diagram**)\nWho owns what, and the three seams (Phase 0).\nMembers are deliberately hidden. Every field and signature is in SDD-01b.
+skinparam classAttributeIconSize 0
+hide members
+hide circle
+
+package "sagittarius_engine (existing — mechanism)" #WhiteSmoke {
+  abstract class "IExtension<TContext>" as IExt
+  interface IContainer
+  class QtEventBridge
+}
+
+package "core/contracts (app, lift-ready — the contract)" #LightYellow {
+  abstract class BoundedContextModule
+  interface IContributionRegistry
+  class ContributionDescriptor <<frozen dataclass>>
+  class ScreenContribution <<frozen dataclass>>
+}
+
+package "shell (app policy — the composition root)" #LightGray {
+  class ModuleList
+  class ContributionRegistry
+  class Surface
+  class DoubleClaimCheck
+}
+
+package "modules/market_data (the Walking Skeleton)" #LightGreen {
+  class MarketDataModule
+}
+
+IExt <|-- BoundedContextModule : **seam 1** — a module\nIS an Engine extension
+BoundedContextModule <|-- MarketDataModule
+BoundedContextModule ..> IContributionRegistry : **seam 2** — contribute():\nthe module's whole UI footprint
+BoundedContextModule ..> QtEventBridge : **seam 3** — subscribe()
+BoundedContextModule ..> IContainer : register(): singleton / bind only
+
+IContributionRegistry <|.. ContributionRegistry
+IContributionRegistry o-- ContributionDescriptor
+IContributionRegistry o-- ScreenContribution
+ModuleList ..> BoundedContextModule : the explicit,\ntopologically ordered list
+Surface ..> IContributionRegistry : for_place()
+DoubleClaimCheck ..> IContainer : one module per port,\nchecked before boot()
+
+note right of BoundedContextModule
+  **The whole contract a module author implements.**
+  Nothing else in the app subclasses a lift-bound type —
+  that is what keeps the Engine lift to a git mv
+  (HLD §8.2 rule 3).
+end note
+
+note bottom of ContributionRegistry
+  **core/contracts declares; the shell implements.**
+  The interface is lift-ready (it imports the Engine and the
+  standard library only); the concrete registry, the surface
+  list and the module list are app policy and stay (HLD §5.3).
+end note
+
+note bottom of ContributionDescriptor
+  **One descriptor shape for every place-kind** — the answer to
+  open question O1. ScreenContribution is the single exception,
+  because navigation metadata already exists in ScreenRegistry
+  and is reused unchanged.
+end note
+@enduml

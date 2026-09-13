@@ -1,0 +1,67 @@
+@startuml hld-04a_engine_track_zones
+title HLD-04a — The Engine track, HIGH VIEW (UML **package diagram**)\n«trace» is the UML Standard Profile abstraction: here it marks code that **moves** from the application into the Engine.\nWhich element moves at which step is HLD-04b.
+skinparam packageStyle rectangle
+skinparam wrapWidth 230
+
+package "sagittarius_engine" <<Framework — mechanism>> #WhiteSmoke {
+  package "engine::di · bus · dispatcher" as EngCore {
+  }
+  package "engine::scheduler · hosted" as EngSched {
+  }
+  package "engine::pyside_mvc" as EngUi {
+  }
+}
+
+package "application :: lift-ready staging area" <<harvest zone>> #LightYellow {
+  package "core::contracts" as StageContracts {
+  }
+  package "shell::workbench · shell::navigation" as StageShell {
+  }
+}
+
+package "application :: policy" <<never moves>> #LightGray {
+  package "shell::modules · shell::surfaces" as PolicyShell {
+  }
+}
+
+StageContracts ..> EngCore : <<import>>
+StageShell ..> EngUi : <<import>>
+StageShell ..> EngSched : <<import>>
+PolicyShell ..> StageContracts : <<import>>
+PolicyShell ..> StageShell : <<import>>
+StageContracts ..> "sagittarius_engine" : <<trace>>\n**lift**
+StageShell ..> "sagittarius_engine" : <<trace>>\n**lift**
+
+note right of StageContracts
+  **{no import from modules, support, or the rest of shell}** — the Engine and
+  the standard library only, and written in the Engine's own package layout, so
+  the lift is `git mv` plus an import rewrite and never a redesign.
+end note
+
+note bottom of StageShell
+  **Harvested Framework, not designed-first (§8.1).** Engine-first would choose
+  the abstractions with the *least* information, and a wrong abstraction with
+  live consumers is far more expensive to correct than duplicated code — the
+  Engine's own `EPIC-001D` says exactly that about itself. So: build it in the
+  application, prove it on two surfaces and two modules, then lift. This is how
+  Rails was extracted from Basecamp.
+end note
+
+note bottom of "application :: lift-ready staging area"
+  **The «trace» precondition — all three, checked, written into the lifting task (§8.3):**
+  1. the guard confirms zero imports from `modules`, `support` or the rest of `shell`;
+  2. the element is used by **≥ 2 surfaces or ≥ 2 modules** of this application —
+     one consumer is not evidence that the API is general;
+  3. its public API has been **stable for one whole phase** — no signature change
+     in the last phase's pull request.
+  Every lift is one Engine pull request (a `b` bump, one `### Added` entry) plus one
+  application pull request (delete the copy, add the `RequiredEngineCapability` line — BOT-133).
+end note
+
+note right of PolicyShell
+  **Never moves:** which modules exist, which surfaces exist, which contribution
+  kinds exist, the `dev.mode` gate, the Binance gateway. The Engine learns the
+  *mechanism* of contributions; the application keeps *which* surfaces and kinds
+  there are.
+end note
+@enduml

@@ -1,0 +1,64 @@
+@startuml hld-01a_layer_map
+title HLD-01a — Layer map, HIGH VIEW (UML **package diagram**)\nDependencies are UML package dependencies: «import» = public import, «access» = private import (UML 2.5 §12.2).\nWhich module depends on which, through which interface, is HLD-01b.
+skinparam packageStyle rectangle
+skinparam wrapWidth 200
+
+package shell <<Composition Root>> #LightGray {
+}
+package modules <<Bounded Contexts>> #Gold {
+}
+package support <<Generic Subdomains>> #White {
+}
+package core <<Application Kernel>> #LightGray {
+  package "core.contracts" <<Contracts>>
+  package "core.vo" <<Published Language>>
+}
+package sagittarius_engine <<Framework>> #WhiteSmoke {
+}
+
+shell ..> modules : <<access>>
+shell ..> "core.contracts" : <<import>>
+shell ..> sagittarius_engine : <<import>>
+modules ..> modules : <<access>>
+modules ..> support : <<import>>
+modules ..> "core.contracts" : <<import>>
+modules ..> "core.vo" : <<import>>
+support ..> "core.vo" : <<import>>
+"core.contracts" ..> sagittarius_engine : <<import>>
+
+note right of modules
+  **modules** — one nested package per bounded context:
+  strategy <<Core Domain>>, market_data <<Supporting>>,
+  trading <<Supporting>>, backtesting <<Supporting>>.
+  The «access» dependency on itself is the module-to-module
+  rule: a module may reach another module's `contracts`
+  sub-package and nothing else. It is acyclic — HLD-01b
+  draws each edge of it.
+end note
+
+note bottom of shell
+  **shell** is Martin's *Main* component: the only package that
+  names every module (`modules.py`, explicit and topologically
+  ordered), owns `surfaces/` and assembles the CLI parser.
+end note
+
+note bottom of support
+  **support** — binance_gateway (the only constructor of
+  `binance.client.Client`), charting, indicators, ui_kit.
+  No business language, so in principle buyable.
+end note
+
+note bottom of "core.vo"
+  `core.vo` is a **Published Language**, not a Shared Kernel:
+  the Shared Kernel is exactly two Engine types, IDomainEvent
+  and BaseEvent, and a test locks that definition. A type enters
+  `core.vo` only with ≥ 2 consumers in ≥ 2 modules.
+end note
+
+note top of sagittarius_engine
+  No dependency points back up: `core` never imports `modules`
+  or `support`, the Engine never imports the application, and no
+  module imports `shell`. The guard `test_module_boundaries.py`
+  (§6) enforces exactly the dependencies drawn here.
+end note
+@enduml

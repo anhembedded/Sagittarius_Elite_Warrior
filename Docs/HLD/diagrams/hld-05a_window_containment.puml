@@ -1,52 +1,79 @@
 @startuml hld-05a_window_containment
-title HLD-05a — Containment: MainWindow ⊃ Sidebar + QStackedWidget ⊃ surfaces/screens ⊃ PageShell slots\nGrey = shell-owned · Wheat = module-owned screen · every slot is a `Place` a module may contribute to
-skinparam componentStyle rectangle
-skinparam wrapWidth 190
-skinparam defaultTextAlignment center
-skinparam linetype ortho
+title HLD-05a — Window containment, HIGH VIEW (UML **class diagram**)\nA filled diamond is UML composition: the part has no life outside its whole.\nWhich widget instance sits in which slot is HLD-05b.
+skinparam classAttributeIconSize 0
+hide circle
+hide empty members
 
-component "shell/ContributionRegistry\n(surface_id, place) → descriptors" as REG #LightGray
-
-component "MainWindow  (QtWidgets, shell)" as WIN #LightGray {
-  component "Sidebar\nentries = registry.screens()\nnothing else is contributed here" as SIDE #LightGray
-  component "QStackedWidget  (PresenterManager, one page at a time)" as STACK #LightGray {
-    component "welcome  ← default route" as SW #LightGray {
-      component "PageShell: workspace" as SWP #WhiteSmoke
-    }
-    component "trading" as ST #LightGray {
-      component "PageShell: header · context_bar · workspace · rail · console" as STP #WhiteSmoke
-    }
-    component "dev_board  ← only when dev.mode at boot" as SD #LightGray {
-      component "PageShell: header · system_controls · workspace · rail · probes · console" as SDP #WhiteSmoke
-    }
-    component "settings" as SS #LightGray {
-      component "sections  (one per module, by order)" as SSP #WhiteSmoke
-    }
-    component "backtest  (owned by backtesting)\naccepts = rail, modal" as SB #Wheat {
-      component "PageShell: its own widgets + accepted slots" as SBP #WhiteSmoke
-    }
-    component "data_management  (owned by market_data)" as SDM #Wheat {
-      component "PageShell: its own widgets" as SDMP #WhiteSmoke
-    }
-  }
-  component "modal  (overlay host)\nopened/closed by the current page" as MOD #LightGray
+class MainWindow <<shell>> #LightGray
+class Sidebar <<shell>> #LightGray {
+  entries derived from
+  registry.screens()
+}
+class QStackedWidget <<shell>> #LightGray {
+  one page visible at a time
+  (PresenterManager)
+}
+class ModalHost <<shell>> #LightGray {
+  opened and closed
+  by the current page
 }
 
-SW -[hidden]down- ST
-ST -[hidden]down- SD
-SD -[hidden]down- SS
-SS -[hidden]down- SB
-SB -[hidden]down- SDM
-SIDE -[hidden]right- STACK
+abstract class Surface {
+  +surface_id : String
+  +accepts : Place [1..*]
+}
 
-REG ..> SIDE : screens()
-REG ..> STACK : for_place(surface_id, place)\nfor every slot of the page being built
-STP ..> MOD : opens
-SBP ..> MOD : opens
+class WelcomeSurface <<shell-owned>> #LightGray
+class TradingSurface <<shell-owned>> #LightGray
+class DevBoardSurface <<shell-owned>> #LightGray {
+  {gated by dev.mode at boot}
+}
+class SettingsSurface <<shell-owned>> #LightGray
+class BacktestScreen <<owned by backtesting>> #Wheat {
+  accepts = {RAIL, MODAL}
+}
+class DataManagementScreen <<owned by market_data>> #Wheat
 
-note right of WIN
-  Rule of §4.6: a page never invents layout.
-  Every slot above is a Place; a module can
-  only ask "put my widget in <surface>.<place>".
+class PageShell {
+  +slot(place : Place) : Container
+}
+
+interface IContributionRegistry {
+  +screens() : ScreenContribution [*]
+  +for_place(surface_id, place) : ContributionDescriptor [*]
+}
+
+MainWindow *-- "1" Sidebar
+MainWindow *-- "1" QStackedWidget
+MainWindow *-- "1" ModalHost
+QStackedWidget *-- "1..*" Surface
+Surface *-- "1" PageShell
+
+Surface <|-- WelcomeSurface
+Surface <|-- TradingSurface
+Surface <|-- DevBoardSurface
+Surface <|-- SettingsSurface
+Surface <|-- BacktestScreen
+Surface <|-- DataManagementScreen
+
+Sidebar ..> IContributionRegistry : <<use>>\nscreens()
+PageShell ..> IContributionRegistry : <<use>>\nfor_place(surface_id, place)\nfor each slot it owns
+PageShell ..> ModalHost : <<use>>\nopens
+
+note right of PageShell
+  **A page never invents layout (§4.6).** Every slot a `PageShell` owns is a
+  literal of the `Place` enumeration (HLD-03a); a module can only ask for
+  "my widget in `<surface_id>`.`<place>`", and the slot resolves the geometry.
+end note
+
+note bottom of Sidebar
+  The sidebar is **not** a `Place`: it is derived entirely from `SCREEN`
+  contributions, and nothing else may be contributed into it.
+end note
+
+note bottom of BacktestScreen
+  A module-owned screen is an ordinary `Surface` subclass. It differs only in who
+  declares it and in the value of `accepts` — which is how `strategy` places a
+  modal on `BacktestScreen` without `backtesting` importing `strategy`.
 end note
 @enduml

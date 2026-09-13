@@ -1,0 +1,37 @@
+@startuml sdd-04a_order_path
+title SDD-04a — One tick becomes one order, HIGH VIEW (UML **sequence diagram**)\nSix messages, one guard. Every call, parameter and alternative is SDD-04b.
+autonumber
+skinparam maxMessageSize 260
+
+participant "market_data" as MD
+participant "strategy" as ST
+participant "trading" as TR
+participant "binance_gateway" as GW
+participant "Binance Futures" as BN <<external>>
+participant "surfaces" as UI
+
+MD ->> ST : MarketTickEvent
+note right of MD : asynchronous — over the event bus;\nstrategy subscribed in subscribe()
+ST -> TR : execute(intent : OrderIntent)
+note right of ST : synchronous, typed port call\n(IOrderSubmission)
+TR -> GW : create_trading_client()
+GW -> BN : POST /fapi/v1/order
+BN ->> TR : ORDER_TRADE_UPDATE\n(user-data stream)
+TR ->> UI : OrderFilledEvent, PositionChangedEvent
+note right of TR : asynchronous — over the event bus,\nthrough trading's feed
+
+note over ST, TR
+  **The one guard on this path — the symbol lease.**
+  On arm, strategy calls ITradingSession.claim_symbol(symbol, owner_id = "strategy").
+  execute() then refuses any intent whose owner_id differs from the lease owner of its
+  symbol, with OrderRejectionReason.SYMBOL_LEASED — which is how a manual order from the
+  Dev Board on the same symbol is blocked (EPIC-024B §4.1.2's hard block).
+end note
+
+note over MD, UI
+  **Notice the direction of the synchronous call.** strategy depends on trading, never
+  the reverse: trading records a lease for an opaque owner_id and **does not know that
+  strategy exists**. That is what keeps the two contexts acyclic (HLD §2.3).
+  A surface never waits on the exchange — messages 1 and 6 cross the bus.
+end note
+@enduml

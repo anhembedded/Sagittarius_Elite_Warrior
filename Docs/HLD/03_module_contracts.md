@@ -1,5 +1,11 @@
 # §3 — Module contracts
 
+- **Diagrams (component, PlantUML) — high view first, detail second:**
+  [`hld-02a_module_layers.puml`](diagrams/hld-02a_module_layers.puml) — the dependency rule
+  between the five directories inside a module, the forbidden `ui → adapters` edge included;
+  [`hld-02b_module_internals.puml`](diagrams/hld-02b_module_internals.puml) — what each
+  directory holds and what it may import from outside the module.
+
 ## 3.1 `BoundedContextModule` — built on the Engine's `IExtension` ✅/🔵
 
 The Engine already has what a module contract needs (measured 2026-09-11,

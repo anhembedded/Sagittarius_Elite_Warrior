@@ -1,0 +1,115 @@
+@startuml hld-02b_module_internals
+title HLD-02b — Inside one module, DETAIL (UML **package diagram**)\nEach layer's contents and the packages it may reach outside the module. The bare layer rule is HLD-02a.
+skinparam packageStyle rectangle
+skinparam wrapWidth 220
+
+package "modules::<module_id>" <<Bounded Context>> {
+
+  package contracts <<Public>> #LightGreen {
+    package "contracts::ports" <<Interfaces>> {
+      interface "I*" as IPort <<ABC>> {
+        synchronous, typed request/response
+        one ABC per file
+      }
+    }
+    package "contracts::dto" {
+      class "*Snapshot" as DTO <<frozen dataclass>> {
+        flat; never an entity
+      }
+    }
+    package "contracts::events" {
+      class "*Event" as Evt <<BaseEvent>> {
+        cross-module events only
+      }
+    }
+  }
+
+  package domain <<Enterprise Rules>> {
+    class Entity
+    class "value object" as VO <<frozen>>
+    class Policy
+  }
+
+  package application <<Use Cases>> {
+    class "CommandHandler / QueryHandler" as UseCase
+    class Service
+    class "Feed (normaliser)" as Feed
+  }
+
+  package adapters <<Infrastructure>> {
+    class ExchangeAdapter
+    class PersistenceAdapter
+    class EngineAdapter
+  }
+
+  package ui <<Presentation>> {
+    class Presenter
+    class ViewModel
+    class Coordinator
+    package "ui::widgets" {
+      class "*Panel / *VM" as Widget <<Python wrapper>>
+    }
+    package "ui::cli" {
+      class Command <<cli_command>>
+    }
+    package "ui::dev_probes" {
+      class Probe <<dev_probe>>
+    }
+  }
+}
+
+package "outside the module" <<external>> #LightGray {
+  package "core::vo" <<Published Language>> {
+  }
+  package "core::contracts" {
+  }
+  package "another module::contracts" as OtherContracts {
+  }
+  package "support::*::contracts" as SupportContracts {
+  }
+  package "support::ui_kit" as UiKit {
+  }
+  package "support::charting" as Charting {
+  }
+  package "src::presentation::ui::qml" as Qml <<stays here (ADR D6)>> {
+  }
+}
+
+application ..> domain : <<access>>
+application ..> contracts : <<import>>
+application ..> OtherContracts : <<import>>
+application ..> "core::vo" : <<import>>
+application ..> "core::contracts" : <<import>>
+adapters ..> application : <<access>>
+adapters ..> SupportContracts : <<import>>
+ui ..> application : <<access>>
+ui ..> UiKit : <<import>>
+ui ..> Charting : <<import>>
+"ui::widgets" ..> Qml : <<use>>\nQuickSurface loads
+domain ..> "core::vo" : <<import>>
+
+note bottom of IPort
+  **Never in `contracts`:** entities or aggregates, the Command/Query classes of
+  internal use cases, Coordinators, and anything importing `adapters` or PySide6 —
+  the `QWidget` in a widget factory being the single exception. A widget factory is
+  registered through a §4 contribution, never declared inside `contracts`.
+end note
+
+note right of domain
+  `domain` imports `core::vo` and the two Shared-Kernel types only.
+  No PySide6, and no other Engine symbol.
+end note
+
+note bottom of Qml
+  Tests mirror this layout by tier (ADR D7): `tests/unit/modules/<id>/…`,
+  `tests/integration/modules/<id>/…`; the architecture guards live in
+  `tests/unit/architecture/`.
+end note
+
+note right of OtherContracts
+  **Why an ABC port rather than dispatching the other module's Query class:**
+  (a) it is typed, which ends `cast(object)` on every dispatch result;
+  (b) `resolve(IPort)` with no supplier fails fast at boot;
+  (c) a module's own Commands and Queries stay internal and free to change.
+end note
+@enduml

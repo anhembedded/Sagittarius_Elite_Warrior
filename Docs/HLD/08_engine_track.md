@@ -4,7 +4,10 @@
   gì với engine nhỉ?"* ("why does the plan not say what will be done with the Engine?"). §5 gave the
   *split*; this section gives the *plan*: the order of work on the Engine side, and the rule that
   decides when a piece of code moves from the application into the Engine.
-- **Diagram:** [`diagrams/hld-04_engine_track.puml`](diagrams/hld-04_engine_track.puml).
+- **Diagrams:** [`diagrams/hld-04a_engine_track_zones.puml`](diagrams/hld-04a_engine_track_zones.puml)
+  — the high view: three zones, one direction of travel, and the lift criterion (§8.1–8.3);
+  [`diagrams/hld-04b_engine_track_schedule.puml`](diagrams/hld-04b_engine_track_schedule.puml)
+  — the detail: every piece, where it is built, where it lifts, and at which step E0–E3 (§8.4).
 
 ## 8.1 The pattern: a harvested framework, not a designed-first one
 

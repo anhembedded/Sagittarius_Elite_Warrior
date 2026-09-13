@@ -1,0 +1,86 @@
+@startuml hld-03a_place_vocabulary
+title HLD-03a — The place vocabulary, HIGH VIEW (UML **class diagram**)\nThe shell owns this vocabulary; a module chooses a literal of `Place`, it never invents layout.\nWhich module contributes which instance, and where, is HLD-03b.
+skinparam classAttributeIconSize 0
+hide circle
+
+enum Place <<enumeration>> {
+  SCREEN
+  HEADER
+  CONTEXT_BAR
+  WORKSPACE
+  RAIL
+  CONSOLE
+  MODAL
+  SETTINGS_SECTION
+  STATUS_TILE
+  DEV_PROBE
+}
+
+enum SizeHint <<enumeration>> {
+  COMPACT
+  REGULAR
+  TALL
+}
+
+class ContributionDescriptor <<frozen dataclass>> {
+  +module_id : String
+  +surface_id : String
+  +place : Place
+  +order : Integer
+  +size_hint : SizeHint
+  +title : String
+  +factory : Callable<IContainer, QWidget>
+}
+
+class ScreenContribution <<frozen dataclass>> {
+  +route : String
+  +title : String
+  +icon : String
+  +section_key : String
+  +factory : Callable<IContainer, View+Presenter>
+}
+
+class Surface {
+  +surface_id : String
+  +accepts : Place [1..*]
+  +build(registry, container) : PageShell
+}
+
+class Module <<BoundedContextModule>> {
+  +contribute(registry) : void
+}
+
+ContributionDescriptor --> Place
+ContributionDescriptor --> SizeHint
+Surface "1" o-- "0..*" ContributionDescriptor : renders >
+Module "1" ..> "0..*" ContributionDescriptor : <<create>>\nin contribute()
+Module "1" ..> "0..*" ScreenContribution : <<create>>
+
+note right of ContributionDescriptor
+  **One descriptor shape for every place-kind** — this is the answer to open
+  question O1. `ScreenContribution` is the single exception, because navigation
+  metadata already exists in `ScreenRegistry` and is reused unchanged.
+end note
+
+note bottom of Place
+  **{geometry belongs to the place, content to the module}**
+  A module never sets a width, a height or a position — it supplies `place`,
+  `order` and a size *hint*, and the place resolves them. This is the general
+  form of the BOT-128 lesson: two tables lost four of seven columns because a
+  screen hand-sized them.
+
+  **Deliberately absent from this enumeration:** a free-form docking area (a
+  module never asks for one, even if the Engine adopts docking in Phase 5) and
+  the sidebar (navigation is derived from SCREEN contributions; nothing else
+  goes there). Adding a literal is an **HLD change**, not a module change.
+  The canonical definition of each literal lives once, in
+  `Docs/VOCABULARY/README.md` §2 — the specification of this enumeration.
+end note
+
+note bottom of Surface
+  **{place ∈ surface.accepts}** — a module-owned screen declares which of its
+  slots accept foreign contributions, e.g. `accepts = {RAIL, MODAL}`; the
+  registry rejects any descriptor that violates this constraint at
+  `contribute()` time, not at render time.
+end note
+@enduml

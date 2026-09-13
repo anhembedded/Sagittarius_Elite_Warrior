@@ -47,13 +47,31 @@ with measurements from this codebase, why it fits.
 
 | # | File | Shows |
 | :-: | :--- | :--- |
-| HLD-01 | [`diagrams/hld-01_context_map.puml`](diagrams/hld-01_context_map.puml) | The context map: modules, support packages, `core/`, `shell/`, the Engine, and every allowed dependency (§2) |
-| HLD-02 | [`diagrams/hld-02_inside_a_module.puml`](diagrams/hld-02_inside_a_module.puml) | The layers inside one module and the allowed imports (§3.2) |
-| HLD-03 | [`diagrams/hld-03_workbench_places.puml`](diagrams/hld-03_workbench_places.puml) | The workbench: places, surfaces and which module contributes where (§4.6) |
-| HLD-04 | [`diagrams/hld-04_engine_track.puml`](diagrams/hld-04_engine_track.puml) | What lives in the app, what lifts to the Engine, and when (§8) |
-| HLD-05a | [`diagrams/hld-05a_window_containment.puml`](diagrams/hld-05a_window_containment.puml) | Containment: window ⊃ sidebar + stacked widget ⊃ surfaces/screens ⊃ `PageShell` slots (§4) |
-| HLD-05b | [`diagrams/hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml) | Trading and Dev Board slot by slot, widgets coloured by owning module; same-factory links (§4.5) |
+| HLD-01a | [`diagrams/hld-01a_layer_map.puml`](diagrams/hld-01a_layer_map.puml) | **Package diagram**, high view — the five layers and every `«import»` / `«access»` dependency between them (§2) |
+| HLD-01b | [`diagrams/hld-01b_module_dependencies.puml`](diagrams/hld-01b_module_dependencies.puml) | **Component diagram**, detail — each module's provided interfaces (lollipops) and the `«use»` dependency of every consumer, annotated with Evans' pattern per pair (§2.3) |
+| HLD-02a | [`diagrams/hld-02a_module_layers.puml`](diagrams/hld-02a_module_layers.puml) | **Package diagram**, high view — the dependency rule between a module's five packages, with the `{forbidden}` constraint on `ui → adapters` (§3.2) |
+| HLD-02b | [`diagrams/hld-02b_module_internals.puml`](diagrams/hld-02b_module_internals.puml) | **Package diagram**, detail — each layer's contents and the outside packages it may import (§3.2, §3.3) |
+| HLD-03a | [`diagrams/hld-03a_place_vocabulary.puml`](diagrams/hld-03a_place_vocabulary.puml) | **Class diagram**, high view — the `Place` and `SizeHint` enumerations, `ContributionDescriptor`, `Surface`, and the constraints binding them (§4.6.1) |
+| HLD-03b | [`diagrams/hld-03b_contribution_matrix.puml`](diagrams/hld-03b_contribution_matrix.puml) | **Object diagram**, detail — every contribution in the application as an instance specification with its slot values, grouped by `surface_id` (§4.6.2, §4.6.4) |
+| HLD-04a | [`diagrams/hld-04a_engine_track_zones.puml`](diagrams/hld-04a_engine_track_zones.puml) | **Package diagram**, high view — the Engine, the lift-ready staging area and the policy that never moves, joined by `«trace»` (§8.1–8.3) |
+| HLD-04b | [`diagrams/hld-04b_engine_track_schedule.puml`](diagrams/hld-04b_engine_track_schedule.puml) | **Package diagram**, detail — every element and the `«trace»` that lifts it, tagged with its step E0–E3 (§8.4) |
+| HLD-05a | [`diagrams/hld-05a_window_containment.puml`](diagrams/hld-05a_window_containment.puml) | **Class diagram**, high view — `MainWindow` and its parts by composition, the `Surface` hierarchy, and the registry each part consults (§4) |
+| HLD-05b | [`diagrams/hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml) | **Object diagram**, detail — Trading and Dev Board widget by widget, coloured by owning module, with a link on every same-factory pair (§4.5) |
 | as-is / to-be | [`../../Tasks/proposal/PRO-004_assets/`](../../Tasks/proposal/PRO-004_assets/) | The measured current structure and the target structure (from `PRO-004`) |
+
+Each numbered diagram comes in two views: **`a` is the high view** — the shape of the thing, small
+enough to hold in your head — and **`b` is the detail view**, which answers "and concretely, which
+one?" for the same subject. Read `a` first; open `b` only when you need the names. A diagram that
+tried to be both was unreadable, which is why the pair exists.
+
+**Every diagram is a named UML diagram kind, drawn in that kind's own notation** — package,
+component, class or object — and its title says which. That is not decoration: it fixes what each
+symbol means, so a reader can check the picture against UML rather than against a private
+convention of this repository. A dashed open arrow is a UML dependency and carries a keyword
+(`«import»`, `«access»`, `«use»`, `«trace»`); a filled diamond is composition; a hollow triangle is
+generalisation; a lollipop is a provided interface and a socket a required one; braces mark a UML
+constraint, as in `{forbidden}` and `{gated by dev.mode}`. Free-form boxes with prose inside them
+are **not** used — explanation belongs in a note, which is itself a UML element.
 
 The class, sequence and state diagrams of the Phase 0 design are in the
 [SDD](../SDD/README.md).
