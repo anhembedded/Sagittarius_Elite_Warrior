@@ -12,6 +12,7 @@ is meant to produce **one** small, verified change — or nothing at all.
 | `scout.prompt.md` | Scout 🧪 | one untested branch, now tested |
 | `scribe.prompt.md` | Scribe 📝 | one typing / documentation gap closed |
 | `sentinel.prompt.md` | Sentinel 🛡️ | one security or robustness fix |
+| `epic-025.prompt.md` | EPIC-025 executor 🧱 | **on demand, not scheduled** — one verified step of the module-split epic, by whichever AI the user hands it to |
 
 This file is the **shared half** of all seven prompts. Each prompt links here
 instead of restating what is below. Read this first, then your own prompt.
@@ -75,8 +76,10 @@ What replaces them: a command whose output is the answer.
   3. The rule files your change touches. `ls .agents/rules/` is the index —
      `.agents/rules/code-rule.md` is a **navigation stub only**, the content was
      split out; follow its links rather than reading it as law.
-- **Language convention** (`CLAUDE.md`): task files, bug reports, `ROADMAP.md`
-  and anything you write for the user are **Vietnamese**; code, identifiers,
+- **Language convention** (`CLAUDE.md`, changed 2026-09-12): every `.md`
+  document — task files, bug reports, `ROADMAP.md`, `Docs/` — is **English** in
+  the register of a self-study technical book (`.agents/ONBOARDING.md` §10);
+  conversation with the user follows the user's language; code, identifiers,
   docstrings, comments and commit subjects are **English**; user-visible UI
   strings and log messages are **English**.
 
