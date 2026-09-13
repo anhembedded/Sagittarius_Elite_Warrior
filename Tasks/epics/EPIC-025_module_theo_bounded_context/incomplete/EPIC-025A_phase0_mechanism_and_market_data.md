@@ -67,6 +67,29 @@ records the new value in its own pull request (HLD §6.2).
 | `presentation/ui/common/` | `ls` | 25 files |
 | `binance_bot_module.py` | `wc -l` | 750 lines |
 
+### The two PR 0.1 review questions, settled by the decision doctrine
+
+The executor put two questions to the user: should any of the ten allowlist pairs be fixed earlier
+than the phase that owns it, and should the golden master use captured Binance klines instead of a
+generated series. The user's reply (2026-09-13: *"có rule ra quyết định mà, bạn check mà ra quyết
+định đi"* — "there is a decision rule; check it and decide") was the correct correction: neither
+question belongs to the three groups `ONBOARDING.md` §7 reserves for asking. They are settled here.
+
+1. **The allowlist stays exactly as found.** Which phase removes which pair is already fixed by
+   HLD §6.3 and the ADR: the five `futures_trading_client` imports go when `modules/trading` owns
+   the client behind `ITradingSession` (Phase 1), the payload mapper and the endpoint table when
+   `support/binance_gateway` exists (Phases 0–1), the metadata cache with `modules/backtesting`
+   (Phase 3). Fixing one early would put application code into a pull request whose own definition
+   is "no app code", and would spend the Phase 1 risk budget in Phase 0 (HLD §6.4). Sequencing that
+   the design already records is not a business question.
+2. **The golden master keeps its generated dataset.** This is a characterisation test (Feathers,
+   *Working Effectively with Legacy Code*; the golden-master/approval pattern as ApprovalTests
+   implements it), and that pattern wants a self-contained deterministic input committed beside the
+   recorded output. Captured exchange data would add an external dependency, a licence question and
+   a larger fixture while proving nothing extra: the test asserts that Phase 3 **reproduces** the
+   result, not that the result is realistic. Acceptance against real market data already has a tier
+   of its own — `tests/testnet` — and `testing-rule.md` §1 forbids moving a test between tiers.
+
 The golden master's dataset is a seeded random walk (seed `20260913`) with a weak sine drift and
 ±1.5 % per-bar noise, chosen so the 12/26 crossover whipsaws enough to produce losing trades and a
 real drawdown, not only a trend ride. It is a *regression* fixture, not a benchmark: its point is
