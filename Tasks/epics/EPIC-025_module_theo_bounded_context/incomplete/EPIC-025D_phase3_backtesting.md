@@ -16,7 +16,7 @@
 3. Build the Anticorruption Layer: `backtesting/adapters/` translates `PaperExchange` state into
    `strategy.contracts.StrategyContext`. (Round-3 correction: `strategy_context.py` does **not**
    import backtesting today; the wrong-direction import is `trading → backtesting` and is handled
-   under ADR O4 before Phase 1.) If O4 is option C, `backtesting` consumes `strategy.contracts.ISizingPolicy`.
+   under ADR O4 before Phase 1.) `backtesting` sizes paper fills through `strategy.contracts.ISizingPolicy` (ADR D17), so backtest and live sizes are one number by construction.
 4. Delete the dead use cases `RunBacktestCommand`, `StopBacktestCommand` and `BacktestState`
    (bound in the composition root, dispatched by nobody). Fill and marker overlays go through
    `IChartHost`.

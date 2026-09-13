@@ -20,8 +20,9 @@
    calls `ITradingSession.claim_symbol` on arm and `release_symbol` on disarm; `arm_strategy` still
    reads the session's enabled state. **Seam for two strategies on two symbols (ADR §7 item 15):**
    `LiveStrategySession` is keyed by symbol internally even while only one entry exists, so the
-   second entry later is a local change. If ADR O4 is decided as option C, `position_sizing_bridge`
-   and `MarginRiskPolicy` move here behind `ISizingPolicy`. Signal overlays on
+   second entry later is a local change. **ADR D17:** `position_sizing_bridge` and `MarginRiskPolicy` move here behind
+   `strategy/contracts/ISizingPolicy`; `LiveTradingCoordinator` puts the computed quantity on the
+   `OrderIntent`; the boundary-allowlist entry for `trading → backtesting` is removed in this phase. Signal overlays on
    the chart go through `IChartHost` (HLD §4).
 4. Contributed widgets: the strategy card (one implementation shared by Trading and Dev Board), the
    last-signal card, the parameters dialog.
