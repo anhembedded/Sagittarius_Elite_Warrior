@@ -84,7 +84,9 @@ Work in this order and do not skip a line. Each line is either done or written d
    finding: note it, do not fix it here.
 6. **Move the tests with the code**, tier unchanged (ADR D7), under the four categories of HLD §9
    (move / rewrite from an assertion inventory / delete only with the subject / retarget guards
-   with a non-emptiness assertion). The sanity tier gains **zero** tests. No `skip` or `xfail`.
+   with a non-emptiness assertion). New tests follow HLD §10: one proof per layer, a verified fake
+   and a contract suite per public port, no `Mock` of a foreign port. The sanity tier gains **zero**
+   tests. No `skip` or `xfail`.
 7. **Run the gate** exactly as `ci-rule.md` says, redirecting to a log file, and grep the log file
    — never the console:
    ```bash
