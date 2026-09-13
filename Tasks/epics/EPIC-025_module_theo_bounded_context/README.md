@@ -14,6 +14,8 @@
 - **North star:** [`Docs/HLD/`](../../../Docs/HLD/README.md) — the official High-Level Design. This
   epic only summarises the decisions and divides the work into phases; it **does not repeat** the
   analysis or the evidence. Every sub-task reads the HLD and the ADR first.
+- **Tracking (Gantt):** [`TRACKING.md`](TRACKING.md) — one bar per pull request and review, updated in the
+  pull request that closes a bar.
 - **How to execute a step (any AI):** [`.agents/Skills/epic-025.prompt.md`](../../../.agents/Skills/epic-025.prompt.md)
   — reading order, invariants with check commands, the per-step checklist, when and how to ask.
 - **Absorbs:** [`EPIC-024C`](../EPIC-024_modularize_trading_core_va_giao_dich_thu_cong/cancelled/EPIC-024C_modularize_trading_core.md)
