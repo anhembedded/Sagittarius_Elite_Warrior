@@ -23,7 +23,9 @@
    session controls (enable / disable / emergency stop), account and equity, and the chart card it
    wants on the trading workspace — **one** factory each, returning a card (View + Presenter that
    owns its Coordinators), under `modules/trading/ui/`. Two surfaces → two instances; no
-   Coordinator in DI (ADR D12). `ITradingSession` gains the symbol lease under the existing lock.
+   Coordinator in DI (ADR D12). `ITradingSession` gains the symbol lease under the existing lock. `trading` keeps only the
+   exchange's part of sizing — lot/tick rounding and `TradingLimitPolicy` — and its import of
+   `MarginRiskPolicy` stays on the allowlist until Phase 2 (ADR D17).
 4. `screens/trading` and `screens/dashboard` become `surfaces/trading/` and `surfaces/dev_board/`:
    layout plus widget registration by contribution only, **zero business logic**. Dev Board is
    gated by `dev.mode` and hosts `dev_probe`s; the first probe is trading's "Exchange API tester",

@@ -5,7 +5,7 @@
 **Date:** 2026-09-11
 **Status:** 🟢 **Approved — rounds 1 and 2**; **round 3 applied 2026-09-13** after an independent
 design review ([`Tasks/reports/EPIC-025_design_review.md`](../../reports/EPIC-025_design_review.md)),
-see §7. Open: O2 (Engine API, Phase 5) and **O4** (the `trading → backtesting` import, before Phase 1).
+see §7. O4 decided as **D17** (2026-09-13). Open: O2 (Engine API, Phase 5) only.
 
 > [!IMPORTANT]
 > Read the status column, not the prose (the convention of `EPIC-016`'s ADR).
@@ -329,7 +329,25 @@ depends on no business module. Promoting `PositionSizing` to `core/vo` does not 
 
 Option C is the recommendation under the doctrine (named pattern: the caller owns the decision,
 the executor validates). It changes **which module owns** a rule, not what the rule computes, so
-D12 holds. Awaiting the user's decision; Phase 0 is not blocked by it.
+D12 holds.
+
+### D17 — Position sizing belongs to `strategy` (O4 = option C) 🟢 User decision
+
+Verbatim: *"Số 3, cũng hợp ý tôi."* ("Number 3 — that matches my thinking too."), 2026-09-13.
+
+- `strategy/contracts/i_sizing_policy.py::ISizingPolicy` computes the order quantity from the
+  account snapshot, the strategy's sizing percent and leverage, and the margin-risk rule.
+  `MarginRiskPolicy` and `position_sizing_bridge` move from `domain/backtesting` and
+  `domain/trading` into `modules/strategy/domain/` in Phase 2; the formula is unchanged.
+- `strategy` computes the quantity and puts it on the `OrderIntent`. `trading` does only the
+  exchange's part: rounding to the symbol's lot and tick filters and enforcing
+  `TradingLimitPolicy`. `backtesting` calls the same `ISizingPolicy`, so backtest and live sizes
+  are one number by construction.
+- Until Phase 2 the existing import stays on the boundary allowlist as one entry
+  (`domain.trading.policies.position_sizing_bridge → domain.backtesting.policies.margin_risk_policy`);
+  Phase 1 does not touch it, Phase 2 removes it.
+- What the user gains: changing how size is computed (ATR-based, Kelly, …) is one change in the
+  strategy module, and backtest and live change together.
 
 ### Addenda to D13 and D14 (round 3)
 

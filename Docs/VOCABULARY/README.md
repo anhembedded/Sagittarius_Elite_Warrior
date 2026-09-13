@@ -119,6 +119,7 @@ difference is the reason the contexts exist (HLD §1.2).
 | **Arm** / **Disarm** | Attaching a strategy with a configuration to a symbol so that ticks produce orders; and detaching it. Arming claims the symbol lease. | `application/` |
 | **Strategy context** (`StrategyContext`) | What a strategy is allowed to see: candles plus the current position expressed neutrally. Provided by `trading` (live) and `backtesting` (simulated). | `contracts/` |
 | **Strategy engine** | The object that feeds candles to a strategy and emits `SignalGeneratedEvent`; built by `IStrategyEngineFactory`. | `application/` |
+| **Sizing policy** (`ISizingPolicy`) | The rule that turns account balance, the strategy's sizing percent and leverage, and the margin-risk limit into an order quantity. Owned by `strategy` (ADR D17): "how much to bet" is a strategy decision; `trading` only rounds to the exchange's filters and enforces `TradingLimitPolicy`; `backtesting` uses the same rule. | `contracts/i_sizing_policy.py` |
 
 ### `backtesting`
 

@@ -17,7 +17,7 @@
    │ market_data  │ ───────────────────────▶ │  strategy    │ ────────────────────▶ │   trading    │
    │ (Supporting) │    MarketTickEvent       │  (CORE)      │   ITradingSession     │ (Supporting) │
    └──────────────┘                          └──────────────┘   .claim_symbol()     └──────────────┘
-          │  IHistoricalKlines                      ▲  IStrategyCatalog                     │
+          │  IHistoricalKlines                      ▲  IStrategyCatalog · ISizingPolicy     │
           │  IMarketDataSync · IRangeCoverage       │  IStrategyEngineFactory                │ (depends on no
           ▼                                         │                                        │  business module)
    ┌──────────────┐ ────────────────────────────────┘
@@ -58,8 +58,8 @@ reader what to expect at the boundary before opening the code.
 | :--- | :--- | :--- |
 | `market_data` → `strategy`, `trading`, `backtesting` | **Open Host Service + Published Language** | `IHistoricalKlines`, `IMarketStream`, `IMarketDataSync`, `IRangeCoverage`; the shared language is `core/vo` (`MarketData`, `TimeFrame`) and `MarketTickEvent` |
 | `trading` → `strategy` | **Customer/Supplier** — `trading` supplies, `strategy` consumes | `IOrderSubmission`, `ITradingSession`, `IAccountSnapshot`. `trading` **does not know** that `strategy` exists |
-| `strategy` → `backtesting` | **Customer/Supplier** — `strategy` supplies | `IStrategyCatalog`, `IStrategyEngineFactory`. `backtesting` **runs** strategies; a strategy does not know it is being backtested |
-| `backtesting` ⇄ `PaperExchange` versus `StrategyContext` | **Anticorruption Layer** inside `backtesting` | `strategy` defines its own `StrategyContext` (candles plus the current position as a neutral value object); `backtesting/adapters/` translates `PaperExchange` into it; `trading` provides one from `LivePosition`. (Round-3 correction: the earlier claim that `strategy_context.py` imports `domain/backtesting` was **false** — measured, nothing under `domain/strategies/` does. The real wrong-direction import is **`trading → backtesting`**: `domain/trading/policies/position_sizing_bridge.py:21` imports `MarginRiskPolicy` from `domain/backtesting/policies/`. That is a dependency §2.1 forbids, drawn on no diagram; its resolution is open question **O4** in the ADR and must be decided before Phase 1.) |
+| `strategy` → `backtesting` | **Customer/Supplier** — `strategy` supplies | `IStrategyCatalog`, `IStrategyEngineFactory`, `ISizingPolicy` (ADR D17). `backtesting` **runs** strategies and sizes with the same rule; a strategy does not know it is being backtested |
+| `backtesting` ⇄ `PaperExchange` versus `StrategyContext` | **Anticorruption Layer** inside `backtesting` | `strategy` defines its own `StrategyContext` (candles plus the current position as a neutral value object); `backtesting/adapters/` translates `PaperExchange` into it; `trading` provides one from `LivePosition`. (Round-3 correction: the earlier claim that `strategy_context.py` imports `domain/backtesting` was **false** — measured, nothing under `domain/strategies/` does. The real wrong-direction import is **`trading → backtesting`**: `domain/trading/policies/position_sizing_bridge.py:21` imports `MarginRiskPolicy` from `domain/backtesting/policies/`. That is a dependency §2.1 forbids, drawn on no diagram. **Decided — ADR D17:** sizing belongs to `strategy`; `MarginRiskPolicy` and the bridge move there in Phase 2 behind `ISizingPolicy`, which both `trading`'s callers and `backtesting` consume.) |
 | `support/binance_gateway` → `market_data`, `trading` | **Anticorruption Layer**, shared, for the SDK | Only the gateway may construct `binance.client.Client` (an existing guard test). Each context wraps **its own** part of the SDK in its own `adapters/`: `market_data/adapters/binance/` (REST klines, market websocket), `trading/adapters/binance/` (futures REST, user-data websocket) |
 | `support/charting` ← every module with a chart | **Conformist** (the downstream accepts the upstream's model) | A module draws through `IChartHost` and charting's `MarkerPoint` / `RegionSpan` / `InfoField` types, without translation |
 
@@ -84,7 +84,7 @@ business logic, so promoting it later is a move plus an import rewrite, never a 
 | `MarketDataVenue`, `TradingVenue` | every layer plus the composition root | ❌ → `support/binance_gateway/contracts` (round 3): both are **closed Binance-specific enums** (`{MAINNET_PUBLIC, FUTURES_TESTNET}`, `{DISABLED, FUTURES_TESTNET}`), so a second exchange would edit the Published Language. Every module may import a support package's contracts, so nothing loses access |
 | `Currency`, `MarketType` | domain and presentation | ✅ |
 | `MarketData` (the OHLCV candle, `domain/entities/market_data.py`) | market_data, backtesting, strategy, indicators, charting | ✅ — renaming it `Candle` is a **candidate** for later; a rename storm is not a pure refactor |
-| `PositionSizing`, `PositionSizingType` | backtesting, trading (`position_sizing_bridge`), strategy | ✅ |
+| `PositionSizing`, `PositionSizingType` | backtesting, trading (`position_sizing_bridge`), strategy | ✅ (the value type stays neutral; the *rule* that uses it, `MarginRiskPolicy`, belongs to `strategy` — ADR D17) |
 | `ExchangeCredentials`, `VenueAlignment` | kernel and settings | ❌ → `support/binance_gateway/contracts`, with the venues |
 | `SignalAction`, `Signal`, `LiveStrategyConfig` | strategy only (plus trading through the bridge) | ❌ → `strategy/contracts` |
 | `BrokerSimulationConfig`, `CommissionType` | backtesting only | ❌ → `backtesting/domain` |
