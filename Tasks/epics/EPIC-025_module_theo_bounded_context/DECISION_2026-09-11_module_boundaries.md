@@ -357,3 +357,23 @@ Verbatim: *"Số 3, cũng hợp ý tôi."* ("Number 3 — that matches my thinki
 - **D14:** the restart keeps `sys.argv[0]` and strips `--dev` / `--debug` when developer mode is
   switched off; `dev.mode` is read once by one shared `ConfigManager`, which makes headless `--dev`
   effective — a declared behaviour change.
+
+### D18 — The tests: move by default, rewrite only where the subject disappears, delete only with the subject, retarget every guard 🔵 Proposed (awaiting the user)
+
+Raised by the user on 2026-09-13 (*"mình chưa cần nhắc test sẽ viết lại, xóa bỏ như nào, hãy đề
+xuất"*). HLD §9 is the proposal; the decision it asks for:
+
+- **Tests travel with the code** (`git mv` + import rewrite, body unchanged); a test whose body
+  must change is a rewrite and is reported as one.
+- **Rewrite only** the Trading and Dev Board screen tests (13 unit files, 7 integration files),
+  from an assertion inventory written first; one card, one test module; the surface's test asserts
+  layout only. The count goes down because duplicated behaviour had duplicated tests.
+- **Delete only** with the subject, each with the sentence "behaviour exists nowhere else" (5 files).
+- **Retarget** every path-scanning guard in Phase 0 with a non-emptiness assertion, so a moved
+  directory fails the guard rather than silencing it.
+- **Safety net**: a backtest golden master captured in Phase 0 and held through Phase 3; the
+  collected-test count recorded per phase with the delta explained; no `skip`/`xfail` added.
+
+What "yes" commits to: Phase 0 grows by the guard retargeting and the golden master (both small),
+and Phase 1's pull request will show a **net decrease** in test count that the inventory justifies
+line by line.

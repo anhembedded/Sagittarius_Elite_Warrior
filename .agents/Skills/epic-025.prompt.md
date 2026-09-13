@@ -82,7 +82,9 @@ Work in this order and do not skip a line. Each line is either done or written d
    (`tools/measure_duplicate_members.py` once Phase 0 has committed it) and write the numbers down.
 5. **Change the code.** Only files inside the step. A file you must touch outside the step is a
    finding: note it, do not fix it here.
-6. **Move the tests with the code**, tier unchanged (ADR D7). The sanity tier gains **zero** tests.
+6. **Move the tests with the code**, tier unchanged (ADR D7), under the four categories of HLD §9
+   (move / rewrite from an assertion inventory / delete only with the subject / retarget guards
+   with a non-emptiness assertion). The sanity tier gains **zero** tests. No `skip` or `xfail`.
 7. **Run the gate** exactly as `ci-rule.md` says, redirecting to a log file, and grep the log file
    — never the console:
    ```bash
