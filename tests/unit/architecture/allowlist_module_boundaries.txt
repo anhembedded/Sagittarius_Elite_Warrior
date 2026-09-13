@@ -1,0 +1,24 @@
+# Boundary violations AS FOUND at the start of EPIC-025 Phase 0 (2026-09-13).
+# Read by tests/unit/architecture/test_module_boundaries.py.
+#
+# One line per (importing_module, imported_module) pair, no line numbers, so an
+# unrelated edit never churns this file. The guard fails on any pair NOT listed
+# here (a new violation) and on any pair listed here that no longer exists (the
+# fix landed - delete the line in the same commit). This list only shrinks.
+#
+# application -> infrastructure: the five handlers EPIC-021 allowed to build
+# FuturesTradingClient with OrderSubmissionMode.LIVE. Removed by EPIC-025B
+# (modules/trading owns the client behind ITradingSession).
+application.use_cases.queries.get_open_positions.handler -> infrastructure.binance.futures_trading_client
+application.use_cases.trading.cancel_order.handler -> infrastructure.binance.futures_trading_client
+application.use_cases.trading.emergency_stop.handler -> infrastructure.binance.futures_trading_client
+application.use_cases.trading.enable_trading.handler -> infrastructure.binance.futures_trading_client
+application.use_cases.trading.execute_order.handler -> infrastructure.binance.futures_trading_client
+# presentation -> infrastructure. The CLI payload mapper and the endpoint table
+# move behind support/binance_gateway contracts (EPIC-025A / 025B); the metadata
+# cache moves behind a market_data contract (EPIC-025D).
+presentation.cli.order_dry_run_cmd -> infrastructure.binance.futures_order_payload_mapper
+presentation.cli.trade_once_cmd -> infrastructure.binance.futures_order_payload_mapper
+presentation.ui.app_bootstrapper -> infrastructure.binance.binance_endpoints
+presentation.ui.screens.backtest.backtest_presenter -> infrastructure.persistence.symbol_market_metadata_cache
+presentation.ui.screens.settings.settings_presenter -> infrastructure.binance.binance_endpoints
