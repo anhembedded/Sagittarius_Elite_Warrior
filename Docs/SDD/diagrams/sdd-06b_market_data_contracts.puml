@@ -25,9 +25,12 @@ package "modules/market_data/contracts" #LightGreen {
     + cancel(handle : SyncHandle)
   }
   interface IMarketStream {
-    + start(symbol, timeframe, owner_id : str)
-    + stop(owner_id : str)
+    + start(symbol, timeframe, owner_id : str) : StreamHandle
+    + stop(handle : StreamHandle)
+    + stop_all(owner_id : str)
   }
+  class SyncHandle <<frozen, wraps CancellationToken>>
+  class StreamHandle <<frozen>>
   interface IRangeCoverage {
     + coverage(symbol, timeframe, start, end) : RangeCoverageSnapshot
   }
@@ -75,7 +78,10 @@ package "consumers (other modules)" #LightYellow {
   ST ..> MarketTickEvent
 }
 note bottom of IMarketStream
-  owner_id: the same lease idea as trading's symbol lease —
+  owner_id is a NAMESPACE (today's StartLiveStreamCommand.owner:
+  "replaces the owner's previous subscriptions, never another owner's"),
+  not an exclusive lease: two owners may stream the same symbol, and one
+  owner may hold several streams (Dev Board shows n charts).
   BOT-126/BUG-085 (two screens fighting over one stream) cannot recur.
 end note
 @enduml

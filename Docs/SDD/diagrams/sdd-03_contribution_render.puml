@@ -1,33 +1,38 @@
 @startuml sdd-03_contribution_render
-title SDD-03 — A surface renders contributions (UML **sequence diagram**)\nOne factory contributed to two surfaces yields two widgets sharing one trading-owned coordinator.
+title SDD-03 — A surface renders contributions (UML **sequence diagram**)\nOne factory contributed to two surfaces yields two independent cards — each with its own Presenter and Coordinator — sharing only the module's feed.
 autonumber
 participant "TradingModule" as TM
 participant "ContributionRegistry" as Reg
 participant "Surface(trading)" as ST
 participant "Surface(dev_board)" as SD
 participant "PageShell" as PS
-participant "PositionsPanel\n(factory → widget)" as PP
-participant "LiveOrderBookCoordinator\n(trading-owned, one instance)" as LOB
+participant "make_positions_card\n(lazy factory in modules/trading/ui)" as F
+participant "PositionsCard #1\nView + Presenter + own Coordinator" as C1
+participant "PositionsCard #2\nView + Presenter + own Coordinator" as C2
+participant "OrderFeed / PositionRefreshService\n(trading application singletons)" as Feed
 
-== contribute (once, at boot) ==
-TM -> Reg : add(Descriptor(surface="trading", place=RAIL, order=10, factory=make_positions_panel))
-TM -> Reg : add(Descriptor(surface="dev_board", place=RAIL, order=10, factory=make_positions_panel))
-note over TM, Reg : one factory, two places (§4.6 rule 2)
+== contribute (once, at boot; no widget module imported) ==
+TM -> Reg : add(Descriptor(contributor="trading", surface="trading", place=RAIL, order=10, factory=make_positions_card))
+TM -> Reg : add(Descriptor(contributor="trading", surface="dev_board", place=RAIL, order=10, factory=make_positions_card))
+note over TM, Reg : one factory, two places (§4.6 rule 2): one CLASS, two INSTANCES
 
-== navigate to trading ==
+== navigate to trading (first time — surfaces are built once and kept) ==
 ST -> Reg : for_place("trading", RAIL)
-Reg --> ST : (positions@10, open_orders@20, session@30, strategy_card@40 …)
-loop descriptors sorted by order
-  ST -> PP : factory(container)
-  PP -> LOB : resolve(LiveOrderBookCoordinator)  <<singleton owned by trading>>
-  ST -> PS : rail.add(widget, size_hint)
+Reg --> ST : stable sort by (order, contributor_id, factory.__qualname__)
+loop each descriptor
+  ST -> F : factory(container)   <<main thread only>>
+  F -> C1 : construct View, Presenter(view, container)\nPresenter builds LiveOrderBookCoordinator + ActionOwnershipTracker
+  C1 -> Feed : subscribe via the Presenter's own QtEventBridge
+  ST -> PS : rail.add(view, size_hint)
 end
 note right of PS : geometry decided by the place:\nrail width fixed, cards stack, size_hint → min height
 
 == navigate to dev_board (dev.mode only) ==
 SD -> Reg : for_place("dev_board", RAIL)
-SD -> PP : factory(container)  <<second instance, same class>>
-PP -> LOB : resolve(...)  <<same coordinator; both panels update from one feed>>
+SD -> F : factory(container)
+F -> C2 : a second, independent card
+C2 -> Feed : subscribe — both cards update from the SAME feed, through SEPARATE presenters
 SD -> Reg : for_place("dev_board", DEV_PROBE)
 SD -> PS : probes.add(exchange_api_tester)
+note over C1, C2 : No Coordinator, Presenter or widget is ever in the DI container\n(ADR D12, async-ui-action-rule §2). Shared truth = feeds and events.
 @enduml

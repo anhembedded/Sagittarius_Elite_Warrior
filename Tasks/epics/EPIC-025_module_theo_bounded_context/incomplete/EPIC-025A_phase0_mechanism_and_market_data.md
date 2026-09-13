@@ -1,6 +1,6 @@
 # EPIC-025A — Phase 0: the module mechanism plus `modules/market_data` (Walking Skeleton)
 
-- **Status:** 🔴 Backlog — **blocked by ❓ O1** (ADR §3: the schema of each contribution-point kind)
+- **Status:** 🔴 Backlog — O1 closed by the SDD (round 3); ready once the user approves SDD-01b and the ADR §7 dispositions
 - **Repository:** Elite
 - **Blocks:** B, C, D, E
 - **Read first:** HLD §1–§3 (cut criteria, context map, the contracts of `market_data`), §4
@@ -21,7 +21,17 @@
    **= as found**, shrink-only), `test_module_domain_is_qt_free.py`, `test_module_declarations.py`
    (the two-way check of the module list against `modules/` on disk).
 5. Remove the hard-coded tuple of five screen modules in `app_bootstrapper.py`; the shell takes
-   them from `screen` contributions.
+   them from `screen` contributions — the four still-legacy screens through `LegacyScreenAdapter`
+   (SDD, boot step 6).
+6. `core/contracts`: `IPlaceHost` (implemented by `ui_kit.PageShell`), `IConfigWriter` (adapter over
+   `ConfigManager` in `shell/`), `errors.py::ContributionError`; one shared `ConfigManager` for the
+   GUI and headless paths (declared behaviour change: headless `--dev` starts working).
+7. Commit `tools/measure_duplicate_members.py` (the 59-duplicates script over old and new trees) and
+   `tests/unit/architecture/allowlist_module_boundaries.txt` (10 `(importing, imported)` pairs, no
+   line numbers); move the five existing guards into `tests/unit/architecture/`.
+8. **Make the skeleton walk with N = 2:** move one existing consumer onto a `market_data` port —
+   `screens/trading/coordinators/chart_coordinator.py:145` calls `IMarketDataSync` instead of
+   dispatching `SyncMarketDataCommand` — so a real cross-boundary port call exists in Phase 0.
 
 **The Walking Skeleton — `modules/market_data/`** (HLD §3.2): `domain/` (Kline, the symbol catalog,
 shards, gaps, coverage, `MarketDataVenue`), `application/` (the `sync/` and `database/` use cases,

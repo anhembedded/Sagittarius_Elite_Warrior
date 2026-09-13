@@ -24,6 +24,7 @@ modules ..> support : <<import>>
 modules ..> "core.contracts" : <<import>>
 modules ..> "core.vo" : <<import>>
 support ..> "core.vo" : <<import>>
+support ..> "core.contracts" : <<import>> (IPlaceHost only)
 "core.contracts" ..> sagittarius_engine : <<import>>
 
 note right of modules

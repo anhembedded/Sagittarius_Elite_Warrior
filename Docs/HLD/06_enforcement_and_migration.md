@@ -10,9 +10,9 @@ documentation). They live in `tests/unit/architecture/`.
 
 | Guard | Rule | Allowlist |
 | :--- | :--- | :--- |
-| `test_module_boundaries.py` | `modules/X/**` may import only: `modules/X/**`, `modules/Y/contracts/**`, `support/*/contracts/**` (plus `support/ui_kit/**` and `support/charting/**` from `ui/`), `core/**`, the Engine, the standard library and third parties. `core/**` imports nothing from `modules/*` or `support/*`. `support/*` imports nothing from `modules/*`. `shell/**` may import every `contracts/` and every `module.py` | **Ratchet**: `allowlist_module_boundaries.txt` records the violations as they stand in Phase 0; the test fails on any violation **outside** the allowlist **and** on any allowlist line that no longer corresponds to a violation (shrinking is mandatory) |
-| `test_module_domain_is_qt_free.py` | no `PySide6` and no `sagittarius_engine.extensions.pyside_mvc` under `modules/*/{domain,application}`, `core/**`, `support/indicators/**` | none |
-| `test_module_declarations.py` | (a) every package under `modules/` appears in `shell/modules.py` and vice versa; (b) declared `dependencies` equal the set of modules whose `contracts/` are actually imported (surplus and shortfall both fail); (c) `register()` does not call `resolve()` (spying container); (d) no abstract type is claimed by two modules (`registrations()`) | none |
+| `test_module_boundaries.py` | `modules/X/**` may import only: `modules/X/**`, `modules/Y/contracts/**`, `support/*/contracts/**` (plus `support/ui_kit/**` and `support/charting/**` from `ui/`), `core/**`, the Engine, the standard library and third parties. `core/**` imports nothing from `modules/*` or `support/*` at runtime (`TYPE_CHECKING` blocks are ignored by every guard). `support/*` imports nothing from `modules/*`; it **may** import `core/contracts` (`ui_kit.PageShell` implements `IPlaceHost`). `shell/**` may import every `contracts/` and every `module.py`. **Strangler period (Phases 0–4):** the legacy tree `src/{domain,application,infrastructure,presentation}` may import `modules/*/contracts/**`, `core/**` and `support/**`; `modules/**` never imports the legacy tree except through the allowlist during its own phase | **Ratchet**: `allowlist_module_boundaries.txt` records the violations as they stand in Phase 0, one entry per `(importing_module, imported_module)` pair with **no line number** (ArchUnit's frozen-rule identity), so unrelated edits do not churn it; the test fails on any pair **outside** the allowlist **and** on any listed pair that no longer exists (shrinking is mandatory) |
+| `test_module_domain_is_qt_free.py` | no runtime import of `PySide6` or `sagittarius_engine.extensions.pyside_mvc` under `modules/*/{domain,application}`, `core/**`, `support/indicators/**`; `TYPE_CHECKING` blocks ignored (that is how `core/contracts` names `QWidget` and `QtEventBridge`) | none |
+| `test_module_declarations.py` | (a) every package under `modules/` appears in `shell/modules.py` and vice versa; (b) declared `dependencies` equal the set of modules whose `contracts/` are actually imported (surplus and shortfall both fail); (c) `register()` does not call `resolve()` (spying container); (d) no abstract type is claimed by two modules (`registrations()`); (e) `contribute()` calls no factory and imports no module under `modules/*/ui/widgets/` (`sys.modules` snapshot); (f) the UI map has no factory contributed to an unknown surface or place | none |
 
 The existing layer guard (`architecture-rule` §3) is generalised in Phase 0, in the same pull
 request, to the paths `modules/*/{domain, application, adapters, ui}`.
@@ -29,6 +29,7 @@ route, every screen package on disk"; surfaces and the `screen` contributions fi
 | `presentation/ui/common/` | `ls` | 25 files | 16 | 13 | 12 | **deleted** |
 | `binance_bot_module.py` | `wc -l` | < 750 | < 400 | < 250 | < 150 | **deleted** |
 | Screens importing `infrastructure/` | the guard | 2 | 2 | 2 | 1 | **0** |
+| Boundary allowlist entries (`(importing, imported)` pairs) | the guard | **10** (12 symbols, 10 statements, 10 files) | fewer | fewer | fewer | **0** |
 
 ## 6.3 Migration — Strangler Fig, with the Walking Skeleton first (ADR D5)
 
@@ -47,16 +48,17 @@ heavy pieces are moved.
 | 5 | `EPIC-025F` | Engine `EPIC-001D` / `TASK-043`; `ScreenRegistry` → `NavigationService`; the conformance suite | ✅ |
 
 Constraints in every phase: one pull request; `ci-local.ps1 -Full` green (grep the log file);
-**no change in business behaviour** (the two declared exceptions: the default route and the
-`dev.mode` gate, §4.2); the regression tests for `BUG-112 / 116 / 117` stay green; the user runs
+**no change in business behaviour** (the declared exceptions: the default route, the `dev.mode` gate
+including the backtest FPS overlay, and one shared `ConfigManager` so that headless `--dev`
+starts working — §4.2 and the SDD); the regression tests for `BUG-112 / 116 / 117` stay green; the user runs
 Testnet after Phases 1 and 2.
 
 ## 6.4 Risks
 
 | Risk | Level | Handling |
 | :--- | :-: | :--- |
-| `TradingSessionState` is mutable and touched by 3 Presenters, 3 handlers and the websocket thread | 🔴 | Phase 1: `trading` owns it; the outside sees only `TradingSessionSnapshot` and `TradingSessionChangedEvent`; `settings_presenter.py:143` stops reading it directly |
-| ~3,900 tests mirror the old layout | 🟠 | moved phase by phase, in the same pull request as the code; tiers unchanged |
+| `TradingSessionState` is mutable and touched by 3 Presenters plus `trading_view_model.py`, **7** handlers (execute, enable, disable, cancel, emergency stop, arm, disarm), 4 services, the websocket thread and the composition root — about 20 source files (re-measured in round 3; the first estimate was half of that) | 🔴 | Phase 1: `trading` owns it; the outside sees only `TradingSessionSnapshot` and `TradingSessionChangedEvent`; `settings_presenter.py:143` stops reading it directly; the symbol lease lives under its existing lock |
+| 3,020 test functions in 393 files mirror the old layout (re-counted in round 3) | 🟠 | moved phase by phase, in the same pull request as the code; tiers unchanged |
 | `binance_bot_module.py` reborn as a god file in `shell/` | 🟠 | each module does its own `register()`; `shell/modules.py` is only a **list**; guard (a) |
 | A new Engine API missing from the installed build | 🟡 | `engine_capabilities.py` (`BOT-133`) |
 | The scheduler cannot cancel a job | 🟡 | `PositionRefreshService` already no-ops while the session is disabled; recorded for the Engine |

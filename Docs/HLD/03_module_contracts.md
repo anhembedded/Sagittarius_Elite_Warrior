@@ -96,7 +96,12 @@ which touches market_data, strategy and trading, belongs to `strategy`: it is "r
 once", and it uses the other two modules' contracts.
 
 **Tests.** By tier, as today (ADR D7): `tests/unit/modules/<id>/…`, `tests/integration/modules/<id>/…`;
-the architecture guards live in `tests/unit/architecture/`.
+the architecture guards are the one declared exception to mirroring and live together in
+`tests/unit/architecture/` (the five existing guards move there in Phase 0).
+
+**Persistence.** A module owns its own store under `adapters/persistence/` (its own SQLite
+schema namespace, its own migrations); nothing is shared between modules, and a new module with
+state — a `journal`, say — adds its own store there. This is what makes such a module a local change.
 
 ## 3.3 The four kinds of thing in `contracts/` — and the kinds that must not be there
 
@@ -105,6 +110,7 @@ the architecture guards live in `tests/unit/architecture/`.
 | **Port** (an ABC named `I*`) | synchronous, typed request/response; the owning module implements it in `application/` and registers it in DI during `register()` | `IHistoricalKlines.load(symbol, timeframe, start, end) -> tuple[MarketData, ...]` | another module, via `resolve(IHistoricalKlines)` |
 | **DTO** | a flat frozen snapshot; **not** an entity | `PositionSnapshot`, `RangeCoverageSnapshot` | returned from ports; carried by events |
 | **Event** | a `BaseEvent`, fire-and-forget, many listeners | `OrderFilledEvent` | the bus (`IEventPublisher`); listened to through `QtEventBridge` |
+| **Error** (`contracts/errors/`) | an exception a port raises across the boundary — part of the port's contract | `SymbolAlreadyLeased`, `OrderRejectionReason` | the caller of the port |
 | **Widget factory** (only through a §4 contribution, never inside `contracts/`) | `Callable[[IContainer], QWidget]` | the positions table | a surface |
 
 **Never in `contracts/`:** entities or aggregates, the Command/Query classes of internal use cases,
@@ -119,6 +125,12 @@ literature — and `architecture-rule` §2.1's demand for explicit contracts). T
 DI, instead of failing at runtime twenty minutes in; (c) a module's Command and Query classes become
 **internal**, so they can change freely without breaking anyone. Inside a module, its own UI keeps
 dispatching its own Commands and Queries through `ICommandDispatcher`, exactly as today.
+
+**A port implementation may be the existing handler itself.** `GetHistoricalKlinesQueryHandler`
+implements `IHistoricalKlines` directly (the class gains the ABC as a base and a typed method that
+calls its own `execute`); no pass-through object, no extra file per port. The typed seam is kept and
+zero layers are added — the alternative, a dozen one-method delegating classes, is the accidental
+complexity D2 exists to avoid.
 
 ## 3.4 Each module's contracts — round 1
 
@@ -162,9 +174,15 @@ manual order to be hard-blocked while a strategy is armed on the **same symbol**
 exists (sending orders), so that would be a **cycle**. The resolution uses a concept that belongs to
 **trading**: a *symbol lease*. `ITradingSession.claim_symbol(symbol, owner_id)` and
 `release_symbol(symbol, owner_id)`; `trading` refuses manual orders on a claimed symbol **without
-knowing who claimed it**; `strategy` claims on arm and releases on disarm. This has the same shape
-as the existing `ActionOwnershipTracker`. It also generalises: a second automated caller (another
-bot, copy-trading) uses the same mechanism without a change to `trading`.
+knowing who claimed it**; `strategy` claims on arm and releases on disarm. It is an **exclusive lease that refuses** — the opposite of
+`ActionOwnershipTracker`, which *supersedes* (`action_superseded`, `ActionOutcome.INVALIDATED`):
+copying that shape would let a manual order silently revoke an armed strategy. The holder is not
+exposed on the public port; the lease table lives under `TradingSessionState`'s existing lock and
+claim-then-execute is one critical section (the order path runs on the websocket thread — SDD,
+"Threading contract"). It **adds to** the existing rules rather than replacing them: `arm_strategy`
+still reads the session's enabled flag, a legal `strategy → trading` call. It also generalises: a
+second automated caller (another bot, copy-trading) uses the same mechanism without a change to
+`trading`.
 
 ### `strategy` (CORE — the Supplier of `backtesting`, a Customer of `trading` and `market_data`)
 
@@ -214,4 +232,4 @@ bot, copy-trading) uses the same mechanism without a change to `trading`.
 | `kit/`, `qml/kit`, `qml/DataTable`, `components/{sidebar,environment_banner,market_picker}`, `ui/common/{action_ownership_tracker,app_defaults,base_feed,sync_progress_*,health_*}` | `support/ui_kit` | 4 |
 | `value_objects/*` per §2.4; `application/ports/{i_command_dispatcher,i_event_publisher,i_config_reader}` | `core/` | 0 |
 | `binance_bot_module.py`, `main.py::create_app`, the 5-module tuple in `app_bootstrapper.py`, `cli_parser`, `interactive_shell` | `shell/` | 0 → shrinks each phase, deleted in 4 |
-| **Dead — delete** (measured: zero references): `services/{rate_limiter,strategy_factory,position_state_reconciler}`, `events/{OrderSubmitted,OrderRejected}`, `RunBacktestCommand` + `BacktestState` + `StopBacktestCommand`, `qml/StatGrid`, `ui/common/{system_error_feed,system_error_report}` | — | the phase of the module that contains it |
+| **Dead — delete** (re-measured in round 3; the first list was wrong for four of seven): only `events/{OrderSubmitted,OrderRejected}` and `qml/StatGrid` have zero references. `RunBacktestCommand` + `BacktestState` + `StopBacktestCommand` are bound and tested but **dispatched by nobody** — delete with their tests in Phase 3. **Live, do not delete:** `services/rate_limiter` (`bulk_sync_market_data/handler.py:16`, `binance/client.py` → `market_data`, Phase 0), `services/position_state_reconciler` (`futures_user_data_stream.py:6` → `trading`, Phase 1), `services/strategy_factory` (`live_strategy_session.py`, `live_strategy_factory.py` → `strategy`, Phase 2), `ui/common/system_error_feed` (imported by `order_feed.py` → `trading`, Phase 1) | — | the phase of the module that contains it |

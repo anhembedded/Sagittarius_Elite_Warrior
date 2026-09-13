@@ -38,10 +38,10 @@ that lives inside the widgets that modules own.
 
 | Surface | Slots | Gate | Default route |
 | :--- | :--- | :--- | :--- |
-| `welcome` 🔵 (ADR D13) | app name and version · environment banner · **Start** · developer-mode switch (ADR D14) | always | ✅ **default**; Start navigates to `trading` |
-| `trading` | `header` · `context_bar` · `workspace` (chart) · `rail` (cards) · `console` | always | no (reached from Welcome) |
-| `dev_board` | `header` · `system_controls` · `workspace` (several charts) · `rail` · `probes` 🔵 · `console` | **`dev.mode` at boot** (ADR D14; today it is **not gated** — measured, `dev.mode` is read only by the asset validator, the log filter and the FPS overlay) | no (today it is `is_default=True`) |
-| `settings` | `sections` | always | no |
+| `welcome` 🔵 (ADR D13) | `HEADER` (environment banner, developer-mode switch — ADR D14) · `WORKSPACE` (app name and version, **Start**) | always | ✅ **default**; Start navigates to `trading` |
+| `trading` | `HEADER` (+ `STATUS_TILE`) · `CONTEXT_BAR` · `WORKSPACE` (chart) · `RAIL` (cards) · `CONSOLE` · `MODAL` | always | no (reached from Welcome) |
+| `dev_board` | the same as `trading` plus `DEV_PROBE`; the system controls (market, symbol, date range, load, start/stop) are a `HEADER` contribution by `market_data` at `order = 20` — not a place of their own | **`dev.mode` at boot** (ADR D14; today it is **not gated** — measured, `dev.mode` is read by the asset validator, the log filter, and the chart FPS overlay on the backtest screen (`backtest_view.py:204`), so the restart in D14 changes that overlay too — declared) | no (today it is `is_default=True`) |
+| `settings` | `SETTINGS_SECTION` (one per module, by `order`) | always | no |
 
 ⚠️ These are changes in **user-visible behaviour**, not pure refactoring, decided by the user on
 2026-09-13 (ADR D13, D14): the app opens on a Welcome screen; Dev Board and every API probe exist
@@ -189,12 +189,12 @@ doubt, start on Dev Board.** A card that is not yet proven goes to `dev_board.ra
 
 | Module | Q1 own screen | Q2 trading cards | Q3 config / diagnostics | Matches today? |
 | :--- | :--- | :--- | :--- | :--- |
-| `market_data` | ✅ Data Management | context bar (symbol), Dev Board system controls | settings section (venue, defaults); status tile (ticker) | ✅ |
+| `market_data` | ✅ Data Management | context bar (symbol), Dev Board system controls (`HEADER`, order 20), the indicator checklist it wants on Dev Board (support packages never contribute — the needing module does) | settings section (venue, defaults); status tile (ticker) | ✅ |
 | `trading` | ❌ — Trading is a **surface**, not the module's screen | positions, orders, manual order, session, equity | settings section (venue, limits, credentials check); status tile (websocket); probe | ✅ once Trading is a surface (Phase 1) |
 | `strategy` | ❌ | strategy card, last signal; modal (parameters) | — | ✅ |
-| `backtesting` | ✅ Backtest | ❌ | status tile (run in progress) | ✅ |
-| `indicators` (support) | ❌ | Dev Board checklist card | — | ✅ |
-| `charting` (support) | ❌ | `workspace` of Trading, Dev Board, Backtest | — | ✅ |
+| `backtesting` | ✅ Backtest | ❌ (its run-progress tile goes on **its own** screen's header, not Trading's) | status tile on its own screen | ✅ |
+| `indicators` (support) | — | never contributes; `market_data` contributes the checklist | — | ✅ |
+| `charting` (support) | — | never contributes; the module that wants a chart contributes it (`trading` on the trading workspace, `market_data` on Dev Board) | — | ✅ |
 | *shell* (not a module): `welcome`, `settings` | — | — | — | the rule's own test: surfaces about the application itself belong to the shell, exactly as `welcome` does (ADR D13) |
 
 The check exposes the one place the current code disagrees with the rule: the Trading screen is
