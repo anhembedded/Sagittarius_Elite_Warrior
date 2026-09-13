@@ -3,9 +3,9 @@
 **Epic:** [`EPIC-025`](README.md)
 **Source:** [`PRO-004`](../../proposal/PRO-004.md) · The official design: [`Docs/HLD/`](../../../Docs/HLD/README.md)
 **Date:** 2026-09-11
-**Status:** 🟢 **Approved — round 1** (decided directly by the user across the sessions of
-2026-09-10 and 2026-09-11). Round 2 (contribution-point detail and the concrete Engine API) still
-has the three open questions in §3.
+**Status:** 🟢 **Approved — rounds 1 and 2**; **round 3 applied 2026-09-13** after an independent
+design review ([`Tasks/reports/EPIC-025_design_review.md`](../../reports/EPIC-025_design_review.md)),
+see §7. Open: O2 (Engine API, Phase 5) and **O4** (the `trading → backtesting` import, before Phase 1).
 
 > [!IMPORTANT]
 > Read the status column, not the prose (the convention of `EPIC-016`'s ADR).
@@ -276,3 +276,66 @@ Raised by the user on 2026-09-13 (*"plan sao tui chưa thấy nói tới sẽ l�
 The SDD for Phase 0 ([`Docs/SDD/`](../../../Docs/SDD/README.md)) fixes the descriptor shape (one
 `ContributionDescriptor` for every place, `ScreenContribution` as the sole exception) and the
 registry validation rules — this closes ❓ O1 pending the user's review.
+
+---
+
+## 7. Round 3 — disposition of the independent design review (2026-09-13)
+
+The user asked a second AI to review the spec against the prompt in the session log; its report is
+[`Tasks/reports/EPIC-025_design_review.md`](../../reports/EPIC-025_design_review.md). Every code
+claim in it was re-verified here before acting (the `grep`s are in the session). **Verdict on the
+review: high quality** — the measurements it repeats hold exactly, and of its seventeen ranked
+findings sixteen are correct as stated; the one partial miss is 7.3's framing (see O4). The
+dispositions:
+
+| # | Finding | Disposition | Where |
+| :-: | :--- | :--- | :--- |
+| 1 | SDD-03 made a Coordinator DI-discovered (breaks `async-ui-action-rule` §2, D12; changed behaviour) | **Accepted.** A factory returns a card = View + Presenter; the Presenter owns its Coordinators and its `ActionOwnershipTracker`; two surfaces = two instances (today's behaviour); shared truth is the feed, never an object. The review's alternative (`SurfaceSession`) was not taken — the existing Presenter-owns rule already answers it | SDD "Ownership", SDD-03 |
+| 2 | `dev.mode=false` could not boot: non-probe `dev_board` contributions raised | **Accepted.** Rule 3 now drops every contribution to a declared-but-gated surface; an *unknown* surface id still raises (typo protection) | SDD rules 1, 3; SDD-02b |
+| 3 | `core/contracts` failed its own Qt-free guard (`QWidget`, `QtEventBridge`) | **Accepted.** `TYPE_CHECKING`-only imports; every guard ignores `TYPE_CHECKING` blocks | SDD descriptor; HLD §6.1 |
+| 4 | `shell/workbench` could not import `PageShell` and stay lift-ready | **Accepted.** `IPlaceHost` ABC in `core/contracts`; `ui_kit.PageShell` implements it; `support → core.contracts` edge added; lift criterion 1 reworded | HLD §8.2, §8.3, hld-01a, SDD-01b |
+| 5 | Support packages and the shell contributed UI without a hook or a `module_id` | **Accepted.** Support packages never contribute; the module that wants the widget contributes it; the shell contributes its own surfaces under `contributor_id="shell"`; `module_id` keeps one meaning | SDD descriptor; hld-03b; HLD §4.6.4 |
+| 6 | "Dead, zero references" wrong for `rate_limiter`, `position_state_reconciler`, `strategy_factory` (+ `system_error_feed`) | **Accepted.** Re-measured; the delete list now names only the two order events and `StatGrid`; the rest are live with owners | HLD §3.5 |
+| 7 | The cited `strategy_context → backtesting` import does not exist; the real cycle is `trading → backtesting` at `position_sizing_bridge.py:21` | **Accepted; decision pending — O4 below** | HLD §2.3 |
+| 8 | No threading contract for ports while the order path runs on the websocket thread | **Accepted.** Threading contract per kind; lease under the session lock; claim-then-execute atomic | SDD "Threading contract" |
+| 9 | "59 → 0" satisfiable by `git mv`; script not in the repo | **Accepted.** `tools/measure_duplicate_members.py` committed in Phase 0 over old and new trees; baseline recorded | SDD "Measured baselines"; EPIC-025A |
+| 10 | Global integer `order` with fail-fast collision; two uniqueness keys | **Accepted with a different fix.** `order` is a sort key with a stable tie-break `(order, contributor_id, factory.__qualname__)`; uniqueness key is the descriptor identity. VS Code's `group@order` strings were considered and not adopted (ints are enough once collisions are tolerated) | SDD rule 2 |
+| 11 | `contribute()` must not import widget modules | **Accepted.** Lazy factory bodies; guard (e) on `sys.modules`. The review's `factory_ref` (module path string) was not adopted — it loses typing for a property the lazy rule already gives | SDD "Lazy factories"; HLD §6.1 |
+| 12 | `--dev` survives the restart; `sys.argv[1:]` drops the script path | **Accepted.** Restart keeps `argv[0]`, strips `--dev`/`--debug` when turning developer mode off | SDD "dev.mode and restart"; SDD-05 |
+| 13 | No guard rule for the legacy tree during the strangler period | **Accepted.** Legacy may import `modules/*/contracts`, `core`, `support`; `modules/**` never imports legacy except through the allowlist during its own phase | HLD §6.1 |
+| 14 | No bridge from `AbstractScreenModule` into the registry in Phase 0 | **Accepted.** `LegacyScreenAdapter` wraps each remaining screen module into a `ScreenContribution`; deleted in Phase 4 | SDD boot step 6; SDD-01b |
+| 15 | Second venue not local (`MarketDataVenue`/`TradingVenue` in `core/vo`); two strategies not local (single-slot `LiveStrategySession`) | **Accepted.** Venues (and `ExchangeCredentials`, `VenueAlignment`) move to `support/binance_gateway/contracts`; `LiveStrategySession` keyed by symbol from Phase 2 with `symbol` on `ArmedStrategySnapshot` and the arm/disarm events — a seam, not a variant | HLD §2.4; EPIC-025C |
+| 16 | "Owner id" named three mechanisms; the lease's cited precedent had inverted semantics | **Accepted.** Three vocabulary rows (fencing / stream namespace / exclusive lease); the `ActionOwnershipTracker` comparison deleted; `lease_owner` removed from the public port | VOCABULARY §1; HLD §3.4; SDD |
+| 17 | Minor: `system_controls`/`welcome` slot drift, `backtesting` tile on Trading, §5.3 residue, `ScreenContribution` fields, event names in tasks, `dev.mode` readers in backtest, file and test counts, `IConfigWriter`, `SyncHandle`/`StreamHandle`, errors in `contracts/`, `accepts` per surface, profile scope for login, persistence for a new module | **All accepted** | HLD §3.2, §3.3, §4.2, §4.6.4, §5.3, §6.2, §6.4; SDD; EPIC-025B/C/D; D13/D14 addenda below |
+
+Two review suggestions were **accepted in the plan rather than the spec**: B/5 — Phase 0
+additionally moves one existing consumer (`chart_coordinator.py:145`, `IMarketDataSync`) onto a
+`market_data` port so the skeleton crosses a real boundary with N = 2 (EPIC-025A); and B/1 — the
+sentence in HLD §2.2 that Core means "the reason", not "the largest".
+
+### ❓ O4 — the `trading → backtesting` import at `position_sizing_bridge.py:21` (blocks Phase 1)
+
+`domain/trading/policies/position_sizing_bridge.py` imports `MarginRiskPolicy` from
+`domain/backtesting/policies/` — deliberate under `EPIC-021G` ("reuse backtesting's own sizing
+rather than invent a second model"), and a dependency the context map (§2.1) forbids: `trading`
+depends on no business module. Promoting `PositionSizing` to `core/vo` does not solve it, because
+`MarginRiskPolicy` is behaviour and `core/` holds none.
+
+| Option | Consequence |
+| :--- | :--- |
+| A. Duplicate `MarginRiskPolicy` into `trading/domain` | Two copies of one rule that must stay identical; the drift disease this repository has caught twice |
+| B. A `support/risk` package holding sizing and margin mathematics | Puts business rules in a support package, which HLD §1 C6 and `VOCABULARY` forbid |
+| **C. Sizing belongs to `strategy`** (recommended) | Position size is *how much to bet* — a strategy decision, and `LiveStrategyConfig` already carries sizing percent and leverage. `strategy/contracts` publishes `ISizingPolicy`; `strategy` computes the quantity and puts it on the `OrderIntent`; `trading` only rounds against exchange filters and enforces `TradingLimitPolicy`; `backtesting` calls the same port. `position_sizing_bridge` moves to `strategy`. Removes the cycle, keeps `trading` free of business modules, and puts the rule where its language lives |
+
+Option C is the recommendation under the doctrine (named pattern: the caller owns the decision,
+the executor validates). It changes **which module owns** a rule, not what the rule computes, so
+D12 holds. Awaiting the user's decision; Phase 0 is not blocked by it.
+
+### Addenda to D13 and D14 (round 3)
+
+- **D13:** a real login later implies a *profile*; `user_config.json` and the persisted `ui_state`
+  are process-global today, and scoping them to an identity is **out of scope** here and would be
+  a new decision. The `StartRequested` intent stays the only seam.
+- **D14:** the restart keeps `sys.argv[0]` and strips `--dev` / `--debug` when developer mode is
+  switched off; `dev.mode` is read once by one shared `ConfigManager`, which makes headless `--dev`
+  effective — a declared behaviour change.

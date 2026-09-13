@@ -4,7 +4,7 @@
 - **Repository:** Elite
 - **Blocked by:** C · **Blocks:** E
 - **Read first:** HLD §3.4; ADR D12. This is the **largest phase by line count** (the backtest
-  screen is 12,309 lines in 60 files) but the **least entangled**: it depends only on
+  screen is 12,309 lines in 74 files) but the **least entangled**: it depends only on
   `market_data.contracts` and `strategy.contracts`.
 
 ## 1. What to do
@@ -14,8 +14,9 @@
 2. Fix the existing layer violation at `backtest_presenter.py:43` (an import of
    `infrastructure/persistence`) by going through `market_data.contracts`.
 3. Build the Anticorruption Layer: `backtesting/adapters/` translates `PaperExchange` state into
-   `strategy.contracts.StrategyContext`, reversing today's wrong-direction imports in
-   `strategy_context.py`.
+   `strategy.contracts.StrategyContext`. (Round-3 correction: `strategy_context.py` does **not**
+   import backtesting today; the wrong-direction import is `trading → backtesting` and is handled
+   under ADR O4 before Phase 1.) If O4 is option C, `backtesting` consumes `strategy.contracts.ISizingPolicy`.
 4. Delete the dead use cases `RunBacktestCommand`, `StopBacktestCommand` and `BacktestState`
    (bound in the composition root, dispatched by nobody). Fill and marker overlays go through
    `IChartHost`.

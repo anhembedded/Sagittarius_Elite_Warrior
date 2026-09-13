@@ -44,7 +44,7 @@ Every new API becomes one `RequiredEngineCapability` line in the application's
 ## 5.3 What is **not** pushed to the Engine
 
 - The contribution kinds (`dev_probe`, `settings_section`, …): application policy.
-- The two hooks `contribute` / `subscribe` on `BoundedContextModule`: they stay in the application
-  until a second application needs the identical shape (`architecture-rule` §6.3 — promote when the
-  second consumer appears).
+- ~~The two hooks `contribute` / `subscribe` on `BoundedContextModule`: they stay in the application
+  until a second application needs the identical shape.~~ **Superseded by §8.3** (the harvest rule):
+  they lift at E1, once two modules of this application use them.
 - The Binance gateway and credentials: application.

@@ -38,7 +38,7 @@ package "core/contracts (app, lift-ready)" #LightYellow {
     + {abstract} boot(context)
     + shutdown(context)
     + contribute(registry : IContributionRegistry)
-    + subscribe(bridge : QtEventBridge)
+    + subscribe(bridge : QtEventBridge)  <<TYPE_CHECKING-only import>>
   }
   enum Place {
     SCREEN
@@ -58,22 +58,32 @@ package "core/contracts (app, lift-ready)" #LightYellow {
     TALL
   }
   class ContributionDescriptor <<frozen dataclass>> {
-    + module_id : str
+    + contributor_id : str  <<a module_id, or "shell">>
     + surface_id : str
     + place : Place
-    + order : int
+    + order : int  <<sort key, collisions allowed>>
     + size_hint : SizeHint
-    + title : str
-    + factory : Callable[[IContainer], QWidget]
+    + factory : Callable[[IContainer], QWidget]  <<TYPE_CHECKING-only import; lazy body>>
+    + title : str | None = None
   }
   class ScreenContribution <<frozen dataclass>> {
+    + contributor_id : str
     + route : str
     + title : str
     + icon : str
     + section_key : str
-    + sequences
+    + section_sequence : int
+    + item_sequence : int
+    + location : NavLocation
+    + is_default : bool
+    + is_navigable : bool
     + factory : Callable[[IContainer], tuple[View, Presenter]]
   }
+  interface IConfigWriter {
+    + set(key : str, value : object)
+    + save()
+  }
+  class ContributionError <<exception, contracts/errors>>
   interface IContributionRegistry {
     + add(descriptor : ContributionDescriptor)
     + add_screen(screen : ScreenContribution)
@@ -86,6 +96,9 @@ package "core/contracts (app, lift-ready)" #LightYellow {
   ContributionDescriptor --> SizeHint
   IContributionRegistry o-- ContributionDescriptor
   IContributionRegistry o-- ScreenContribution
+  interface IPlaceHost {
+    + slot(place : Place) : QLayout  <<implemented by ui_kit.PageShell>>
+  }
   BoundedContextModule ..> IContributionRegistry : contribute()
   BoundedContextModule ..> QtEventBridge : subscribe()
   BoundedContextModule ..> IContainer : register(): singleton/bind only
@@ -102,8 +115,16 @@ package "shell (app policy)" #LightGray {
   class Surface {
     + surface_id : str
     + accepts : frozenset[Place]
-    + build(registry, container) : PageShell
+    + gated : bool  <<dev_board: dev.mode at boot>>
+    + build(registry, container) : IPlaceHost
   }
+  class LegacyScreenAdapter {
+    + wrap(module : AbstractScreenModule) : ScreenContribution  <<strangler period only>>
+  }
+  class ConfigWriterAdapter {
+    + over ConfigManager  <<implements IConfigWriter>>
+  }
+  IConfigWriter <|.. ConfigWriterAdapter
   class DoubleClaimCheck {
     + run(container.registrations(), modules) : None  <<raises before boot>>
   }

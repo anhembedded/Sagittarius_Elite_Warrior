@@ -10,7 +10,7 @@ state UserMode {
   Welcome_U : switch "Developer mode" OFF → ON
   Welcome_U --> RestartPending_U : toggle writes user_config.json\n(dev.mode = true)
   RestartPending_U : banner "takes effect after restart"
-  RestartPending_U : [Restart now] → QProcess.startDetached(argv); quit
+  RestartPending_U : [Restart now] → QProcess.startDetached(sys.executable,\n[sys.argv[0], *argv_without_dev_flags]); quit
 }
 
 state DevMode {
@@ -21,7 +21,7 @@ state DevMode {
 }
 
 RestartPending_U --> [*] : quit; new process boots → DevMode
-RestartPending_D --> [*] : quit; new process boots → UserMode
+RestartPending_D --> [*] : quit; --dev/--debug stripped from argv;\nnew process boots → UserMode
 note bottom of DevMode
   No hot reload: modules and surfaces are
   registered only at boot (ADR D14, "out of scope: hot reload").

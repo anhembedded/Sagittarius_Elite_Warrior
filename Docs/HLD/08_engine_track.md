@@ -27,8 +27,11 @@ code: harvesting is the named pattern for growing a framework out of an applicat
 Everything that will move to the Engine is written in the app under `core/contracts/` and
 `shell/workbench/`, and obeys three constraints from Phase 0, enforced by the guards in §6.1:
 
-1. **No import from `modules/`, `support/` or the rest of `shell/`.** It may import only the Engine
-   and the standard library. (`core/` already has this guard.)
+1. **No import from `modules/`, `support/` or the rest of `shell/`.** It may import only the Engine,
+   the standard library, and the named ABCs of `core/contracts` (`IPlaceHost`, `IContributionRegistry`)
+   — never a concrete widget. The region host the surface runtime renders into is reached through
+   `IPlaceHost`; today's `PageShell` (app `ui_kit`) implements it, and the Engine's own region host
+   will at E2. (`core/` already has this guard.)
 2. **Engine package layout.** `core/contracts/contribution.py` is written as the future
    `sagittarius_engine/extensions/workbench/contribution.py`; the lift is `git mv` plus an import
    rewrite, never a redesign.
@@ -39,12 +42,14 @@ Everything that will move to the Engine is written in the app under `core/contra
 
 A piece moves from the app to the Engine when:
 
-1. the guard confirms it imports nothing application-specific (§8.2 rule 1);
-2. it is used by **at least two surfaces or two modules** of this application — one consumer is
-   not evidence that the API is general (`architecture-rule.md` §6.3's spirit, applied to the
-   Engine boundary);
-3. its public API has been **stable for one whole phase** — no signature change in the last
-   phase's pull request.
+1. the guard confirms it imports nothing outside the Engine, the standard library and the named
+   `core/contracts` ABCs (§8.2 rule 1);
+2. it is used by **at least two modules** of this application — one consumer is not evidence that
+   the API is general (`architecture-rule.md` §6.3's spirit, applied to the Engine boundary).
+   "Two surfaces" does **not** count: the mirror rule makes every rail card appear on two surfaces
+   by default, so that would be evidence of the mirror rule, not of generality;
+3. its public API has been **stable for one whole phase**, measured as: no change to the signatures
+   enumerated in the lifting task's API table between the start and the end of that phase.
 
 Every lift is one Engine pull request (a `b` bump under the Engine's `release.md`, one `### Added`
 entry) plus one app pull request (delete the copy, add the `RequiredEngineCapability` line,

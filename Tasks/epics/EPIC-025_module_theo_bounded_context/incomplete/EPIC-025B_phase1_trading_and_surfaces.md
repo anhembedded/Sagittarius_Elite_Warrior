@@ -15,11 +15,15 @@
    `PositionRefreshService` (`BUG-117`) — `trading` **owns** the positions read model.
 2. `contracts/`: `IOrderSubmission`, `ITradingSession` (including `claim_symbol` /
    `release_symbol`), `IAccountSnapshot`; the DTOs `PositionSnapshot`, `OpenOrderSnapshot`,
-   `TradingSessionSnapshot`, `AccountSnapshot`; the events `OrderFilled`, `PositionChanged`,
-   `PositionClosed`, `EquitySampled`, `TradingSessionChanged`.
+   `TradingSessionSnapshot`, `AccountSnapshot`; the existing events `OrderFilledEvent`,
+   `PositionChangedEvent`, `PositionClosedEvent`, `EquitySampledEvent` (names unchanged — a rename
+   is not a pure refactor) plus the new `TradingSessionChangedEvent`; `contracts/errors/` with
+   `SymbolAlreadyLeased`.
 3. Contributed widgets: the positions table, the open orders table, the manual order card, the
-   session controls (enable / disable / emergency stop), account and equity — **one** of each, with
-   its Python wrapper under `modules/trading/ui/`.
+   session controls (enable / disable / emergency stop), account and equity, and the chart card it
+   wants on the trading workspace — **one** factory each, returning a card (View + Presenter that
+   owns its Coordinators), under `modules/trading/ui/`. Two surfaces → two instances; no
+   Coordinator in DI (ADR D12). `ITradingSession` gains the symbol lease under the existing lock.
 4. `screens/trading` and `screens/dashboard` become `surfaces/trading/` and `surfaces/dev_board/`:
    layout plus widget registration by contribution only, **zero business logic**. Dev Board is
    gated by `dev.mode` and hosts `dev_probe`s; the first probe is trading's "Exchange API tester",
