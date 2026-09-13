@@ -45,7 +45,7 @@ completeness test is what forces someone to notice they need to make it.
 import ast
 from pathlib import Path
 
-_UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
+_UI_ROOT = Path(__file__).resolve().parents[3] / "src" / "presentation" / "ui"
 _COMPONENTS_DIR = _UI_ROOT / "components"
 _KIT_DIR = _UI_ROOT / "kit"
 

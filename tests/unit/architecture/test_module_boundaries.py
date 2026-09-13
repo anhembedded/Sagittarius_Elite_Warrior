@@ -34,14 +34,23 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.allowlist impo
     Violation,
     read_allowlist,
 )
+from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.imports import (
+    imported_modules,
+)
 from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.scan import (
     find_violations,
+    module_name,
     scanned_files,
+)
+from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.zones import (
+    LEGACY_ZONES,
+    zone_of,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
 _ALLOWLIST_FILE = Path(__file__).with_name("allowlist_module_boundaries.txt")
+_SHELL_LEGACY_FILE = Path(__file__).with_name("baseline_shell_legacy_imports.txt")
 
 #: Zones that must exist for this guard to be scanning the tree it thinks it is.
 _ZONES_THAT_MUST_EXIST = ("domain", "application", "presentation", "infrastructure")
@@ -90,3 +99,41 @@ def test_the_allowlist_has_not_gone_stale() -> None:
 def test_the_allowlist_has_no_duplicate_entries() -> None:
     entries = read_allowlist(_ALLOWLIST_FILE)
     assert len(entries) == len(set(entries)), "duplicate lines in the allowlist"
+
+
+# --- the shell's own permission, kept finite ------------------------------
+
+
+def _shell_imports_of_the_legacy_tree() -> list[Violation]:
+    """Every legacy module the shell imports. Allowed by `rules.py` because the
+    shell is *Main*; recorded here so the permission cannot quietly spread."""
+    found: list[Violation] = []
+    for py_file in scanned_files(_SRC_ROOT):
+        importing, is_package = module_name(_SRC_ROOT, py_file)
+        if zone_of(importing) != "shell":
+            continue
+        source = py_file.read_text(encoding="utf-8")
+        for imported in imported_modules(importing, source, is_package=is_package):
+            if zone_of(imported) in LEGACY_ZONES:
+                found.append(Violation(importing, imported))
+    return sorted(set(found))
+
+
+def test_the_shell_imports_no_new_part_of_the_legacy_tree() -> None:
+    recorded = set(read_allowlist(_SHELL_LEGACY_FILE))
+    added = [v for v in _shell_imports_of_the_legacy_tree() if v not in recorded]
+    assert added == [], (
+        "the shell reaches into the legacy tree somewhere new. Main may wire what\n"
+        "exists, but this list does not grow: put the code behind a core/ contract,\n"
+        "or wire it from shell/composition_root.py, which is the composition root.\n\n"
+        + _render(added)
+    )
+
+
+def test_the_shell_legacy_baseline_has_not_gone_stale() -> None:
+    actual = set(_shell_imports_of_the_legacy_tree())
+    gone = sorted(set(read_allowlist(_SHELL_LEGACY_FILE)) - actual)
+    assert gone == [], (
+        "these shell imports of the legacy tree are gone — delete their lines:\n"
+        + _render(gone)
+    )

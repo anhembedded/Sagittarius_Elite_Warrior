@@ -53,7 +53,7 @@ patterns have been measured to actually work (`EPIC-015` spikes A/B/C):
 (`BOT-133`). Every host — modal body, inline panel, compact toolbar — builds a
 `QuickSurface(qml_file, surface=StyleRole.X, context={...}, size_policy=...)`, or subclasses it
 when the widget *is* the scene (`ProgressBannerWidget`, `StatusPillWidget`, `StatCardRowWidget`,
-`ChartToolbar`). `tests/unit/presentation/ui/qml/test_quick_widget_only_in_embed.py` fails the
+`ChartToolbar`). `tests/unit/architecture/test_quick_widget_only_in_embed.py` fails the
 build on a `QQuickWidget()`, a `setClearColor(`, or a second theme-seeding call anywhere else —
 reading the syntax tree, so documenting these APIs stays allowed while *using* them elsewhere does
 not. Each failure names the API to use instead.

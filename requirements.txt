@@ -8,7 +8,6 @@ pytest-cov
 ruff
 PySide6==6.11.1
 pyqtgraph
-pyqtdarktheme
 pytest-qt
 pytest-xdist
 flake8

@@ -34,7 +34,7 @@ import re
 from pathlib import Path
 
 _SCREENS_ROOT = (
-    Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui" / "screens"
+    Path(__file__).resolve().parents[3] / "src" / "presentation" / "ui" / "screens"
 )
 
 _SCREEN_IMPORT_RE = re.compile(r"presentation\.ui\.screens\.([a-z_]+)")
@@ -82,7 +82,7 @@ def _cross_screen_imports() -> list[tuple[str, int, str, str, str]]:
 
 
 def test_screens_root_is_where_we_think_it_is() -> None:
-    """`parents[4]` là đường dẫn tính tay. Sai một bậc thì test dưới quét thư
+    """`parents[3]` là đường dẫn tính tay. Sai một bậc thì test dưới quét thư
     mục rỗng và xanh vì không tìm thấy gì — đúng kiểu cổng giả."""
     assert _SCREENS_ROOT.is_dir(), f"không thấy cây screens ở {_SCREENS_ROOT}"
     assert len([p for p in _SCREENS_ROOT.iterdir() if p.is_dir()]) >= 4

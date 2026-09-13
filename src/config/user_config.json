@@ -10,7 +10,5 @@
         "FiraCode Nerd Font",
         "MesloLGS NF",
         "Consolas"
-    ],
-    "ui.theme.accent_color": "#F3BA2F",
-    "ui.theme.replace_color": "rgba(138.000, 180.000, 247.000, 1.000)"
+    ]
 }

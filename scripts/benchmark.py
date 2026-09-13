@@ -158,7 +158,9 @@ def main():
     print("\n[CURRENT] Runner emits a redraw signal per candle for EACH indicator:")
     print(f"- Processing time : {current_time:.4f} sec")
     print(f"- Draw calls (emit) : {current_metrics.emit_count:,}")
-    print(f"- Garbage copied through RAM: {current_metrics.total_data_copied:,} elements")
+    print(
+        f"- Garbage copied through RAM: {current_metrics.total_data_copied:,} elements"
+    )
 
     batch_time, batch_metrics = run_batch_approach(candles, registry, scripts_to_run)
     print("\n[PROPOSED] Batching logic before drawing:")
