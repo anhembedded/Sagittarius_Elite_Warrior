@@ -358,7 +358,7 @@ Verbatim: *"Số 3, cũng hợp ý tôi."* ("Number 3 — that matches my thinki
   switched off; `dev.mode` is read once by one shared `ConfigManager`, which makes headless `--dev`
   effective — a declared behaviour change.
 
-### D18 — The tests: move by default, rewrite only where the subject disappears, delete only with the subject, retarget every guard 🔵 Proposed (awaiting the user)
+### D18 — The tests: move by default, rewrite only where the subject disappears, delete only with the subject, retarget every guard 🟢 User decision (2026-09-13: *"merge đi nào"* — "go ahead and merge", after the proposal was explained with its consequences)
 
 Raised by the user on 2026-09-13 (*"mình chưa cần nhắc test sẽ viết lại, xóa bỏ như nào, hãy đề
 xuất"*). HLD §9 is the proposal; the decision it asks for:
@@ -378,7 +378,7 @@ What "yes" commits to: Phase 0 grows by the guard retargeting and the golden mas
 and Phase 1's pull request will show a **net decrease** in test count that the inventory justifies
 line by line.
 
-### D19 — Test philosophy for the module architecture: test the hexagon through its ports; verified fakes and contract suites; one proof per layer 🔵 Proposed (awaiting the user)
+### D19 — Test philosophy for the module architecture: test the hexagon through its ports; verified fakes and contract suites; one proof per layer 🟢 User decision (2026-09-13, same approval as D18; Hypothesis approved for `domain/` arithmetic only — the dependency is added in the Phase 0 code pull request, which is asked for like any code change)
 
 Raised by the user on 2026-09-13 (*"xem lại triết lý test case, test layer, module hay như nào"*).
 HLD §10 is the proposal. What it decides, if approved:

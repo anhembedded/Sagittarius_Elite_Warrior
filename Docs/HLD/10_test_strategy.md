@@ -1,6 +1,6 @@
 # §10 — The test philosophy for the module architecture: what each layer proves, and how
 
-- **Status:** 🔵 Proposed 2026-09-13 (ADR D19), in answer to the user: *"xem lại triết lý test
+- **Status:** 🟢 Approved 2026-09-13 (ADR D19), in answer to the user: *"xem lại triết lý test
   case, test layer, module hay như nào… các layer nào"* ("revisit the test philosophy — test cases,
   test layers, how modules are tested, which layers"). §9 says what happens to the *existing* tests
   during the migration; this section says what the suite **is** once the architecture exists.
@@ -106,7 +106,7 @@ A module is done when all of these exist and are green — this list is the revi
 
 | Candidate | What it would replace | Verdict asked of the user |
 | :--- | :--- | :--- |
-| **Hypothesis** (property-based testing, MIT) for `domain/` arithmetic: sizing, lot rounding, PnL, fee, margin | hand-enumerated boundary cases that miss the one that matters | 🔵 propose to **adopt for domain math only**; it is a test dependency, not a mechanism the design builds, so ADR §5 ("no library substitutes a planned mechanism") does not apply. The existing BVA rule stays; Hypothesis generates the values BVA names |
+| **Hypothesis** (property-based testing, MIT) for `domain/` arithmetic: sizing, lot rounding, PnL, fee, margin | hand-enumerated boundary cases that miss the one that matters | 🟢 **adopted for domain math only** (user, 2026-09-13; the dependency lands with the Phase 0 code PR); it is a test dependency, not a mechanism the design builds, so ADR §5 ("no library substitutes a planned mechanism") does not apply. The existing BVA rule stays; Hypothesis generates the values BVA names |
 | **pytest-benchmark** for the chart and backtest hot paths | ad-hoc timing scripts under `scripts/benchmarking/` | ❌ not now; `Bolt`'s scripts exist and the epic is not about performance |
 | **approvaltests** for the golden master | a hand-rolled file compare | ❌ not needed; a stored trade log and `filecmp` is enough |
 

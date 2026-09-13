@@ -1,6 +1,6 @@
 # §9 — What happens to the tests: move, rewrite, delete, retarget
 
-- **Status:** 🔵 Proposed 2026-09-13 (ADR D18), in answer to the user: *"mình chưa cần nhắc test sẽ
+- **Status:** 🟢 Approved 2026-09-13 (ADR D18), in answer to the user: *"mình chưa cần nhắc test sẽ
   viết lại, xóa bỏ như nào"* ("we have not yet said how the tests will be rewritten or removed").
   Numbers below were measured on `master-warrior` at `85230368`; the scripts to re-measure are
   in §9.6.
