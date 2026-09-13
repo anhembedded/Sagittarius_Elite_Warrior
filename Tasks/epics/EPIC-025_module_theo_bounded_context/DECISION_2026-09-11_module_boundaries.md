@@ -377,3 +377,25 @@ xuất"*). HLD §9 is the proposal; the decision it asks for:
 What "yes" commits to: Phase 0 grows by the guard retargeting and the golden master (both small),
 and Phase 1's pull request will show a **net decrease** in test count that the inventory justifies
 line by line.
+
+### D19 — Test philosophy for the module architecture: test the hexagon through its ports; verified fakes and contract suites; one proof per layer 🔵 Proposed (awaiting the user)
+
+Raised by the user on 2026-09-13 (*"xem lại triết lý test case, test layer, module hay như nào"*).
+HLD §10 is the proposal. What it decides, if approved:
+
+- Every public port ships a **fake** under `contracts/testing/` and a **contract suite** that the
+  fake (unit) and the real implementation (integration) both pass; consumers test against the
+  verified fake and never `Mock` a foreign port. This is the general form of the `BUG-026`/`BUG-027`
+  lesson.
+- **One proof per layer** (HLD §10.2): pure tests for `domain/`; ports driven with fakes for
+  `application/`; the fake server and a temp database for `adapters/`; Qt-free presenter tests plus
+  one `qtbot` smoke per card; layout-only tests for surfaces; one publisher/Feed test per
+  cross-module event; one journey test per context-map pair; the guards for structure; the sanity
+  tier unchanged; Testnet and the user for real behaviour.
+- A module's **definition of done** is the checklist in HLD §10.5.
+- **Hypothesis** is proposed as a test dependency for domain arithmetic only (HLD §10.6) — a test
+  tool, not a mechanism, so ADR §5 does not forbid it; the user decides.
+
+What "yes" commits to: Phase 0 writes the first contract suite and fake (for `market_data`'s five
+ports) and the declaration guard; every later module follows the checklist; the review of each
+phase reads §10.5, not the test count.

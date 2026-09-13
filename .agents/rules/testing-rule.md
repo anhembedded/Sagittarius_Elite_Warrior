@@ -16,6 +16,11 @@ must be confirmed failing for the right reason.
 
 ## 1. What each test level proves
 
+> For the module architecture of `EPIC-025`, the map from **architecture layer** (domain,
+> contracts, application, adapters, card, surface, shell) to the proof each needs — including
+> contract suites and verified fakes for ports — is `Docs/HLD/10_test_strategy.md`. It refines this
+> section; it does not replace the four levels below.
+
 - **Four required test levels:** Every feature defines its proof across the
   four levels in `.agents/rules/ci-rule.md` — Unit, Integration, Sanity and
   Desktop E2E. A change may add no new test only when an existing test at the
