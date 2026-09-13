@@ -92,6 +92,11 @@ live in `Docs/HLD/11_desktop_workbench.md`; this section is the principle, that 
 > registry (`Docs/HLD/04_surfaces_and_contribution_points.md`); adding a panel never changes another
 > panel or the shell.
 
-**Theme (ADR D21):** no stylesheet, no palette, no tokens, no `qdarktheme`. Colour only where it
+**Theme (ADR D21, executed per D21a):** no stylesheet, no palette, no tokens, no theme
+distribution. `qdarktheme` and the global sheet are gone since `EPIC-025` PR 0.2 and
+`tests/unit/architecture/test_no_global_stylesheet.py` keeps them gone; the per-widget styling
+left inside the not-yet-rebuilt screens is a shrink-only ratchet
+(`tests/unit/architecture/test_app_styling_only_shrinks.py`), so **new** code adds none of it and
+existing code only loses it. Colour only where it
 carries meaning, through `QPalette` roles or a per-widget property. **QML (ADR D20):** none; a guard
 fails on any new `.qml` file. `qml-rule.md` is kept for history only.

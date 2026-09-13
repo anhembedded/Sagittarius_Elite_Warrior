@@ -12,12 +12,18 @@ class Palette:
     `configure_app_qml()` in app_bootstrapper.py) — so QtWidgets and QML
     never hardcode the same hex value in two places independently.
 
-    Widgets get their look from `qdarktheme` (`app_bootstrapper.py:_apply_theme`), whose
-    only accent override reads `Palette.ACCENT` — not a second hardcoded copy. There used
-    to be a `qss/style.qss` claimed here as the one place still copying hex by hand; it
-    was actually dead since the BOT-030 QML migration (nothing in `src/` loaded it —
-    confirmed via `git log`/grep before removal, EPIC-005B) and has been deleted rather
-    than kept "just in case", to stop a future reader trusting a comment over the code.
+    Widgets no longer get a global look from a third-party theme: `ADR D21`
+    removed `qdarktheme`, so standard controls render in the platform's own
+    theme and this palette only feeds what the app still styles itself — the
+    QML `Theme.*` bindings (35 files, until `EPIC-025` Phase 4) and the QSS
+    `apply_role()` builds in `kit/style.py`. Both shrink to zero as each phase
+    rebuilds its screens in plain QtWidgets, and this class is deleted with
+    the last of them. There used to be a `qss/style.qss` claimed here as the
+    one place still copying hex by hand; it was actually dead since the
+    BOT-030 QML migration (nothing in `src/` loaded it — confirmed via
+    `git log`/grep before removal, EPIC-005B) and has been deleted rather
+    than kept "just in case", to stop a future reader trusting a comment over
+    the code.
     """
 
     BG = "#0a0a0c"

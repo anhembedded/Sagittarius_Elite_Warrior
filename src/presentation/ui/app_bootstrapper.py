@@ -42,7 +42,6 @@ import threading
 import traceback
 from dataclasses import dataclass
 
-import qdarktheme
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
@@ -55,9 +54,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints impo
     resolve_trading_venue,
 )
 from Sagittarius_Elite_Warrior.src.main import create_app
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
     is_headless_qt_platform,
 )
@@ -212,7 +208,10 @@ def build() -> AppRuntime:
     _install_exception_handler(app_engine)
     sig_timer = setup_qt_signal_handling(app)
     _apply_font(app, config_manager)
-    _apply_theme(app, config_manager)
+    # ADR D21: the app applies no stylesheet, palette or third-party theme of
+    # its own; standard controls render in the platform's theme. Colour is used
+    # only where it carries meaning, per widget. `qdarktheme`'s global dark
+    # sheet used to be applied here.
     # EPIC-006F removed `configure_app_qml()` here ("no QML left in this
     # app"); EPIC-015 brought QML back as embedded widgets and nobody
     # restored it — so for a year every host re-wired `Theme` by hand and
@@ -523,24 +522,6 @@ def _apply_font(app: QApplication, config: IConfig) -> None:
     font.setStyleHint(QFont.Monospace)
     font.insertSubstitutions(family, fallbacks)
     app.setFont(font)
-
-
-def _apply_theme(app: QApplication, config: IConfig) -> None:
-    """Apply qdarktheme, replacing the default accent color with the one from config.
-
-    @details The fallback below reads `Palette.ACCENT` rather than repeating the hex
-    literal — EPIC-005B found this was the only place the app still hardcoded its own
-    copy of the accent color outside `Palette`, once `qss/style.qss` (dead, unloaded
-    since the BOT-030 QML migration) was confirmed orphaned and removed.
-    """
-    accent = config.get(ConfigKeys.UI_THEME_ACCENT_COLOR, Palette.ACCENT)
-    replace = config.get(
-        ConfigKeys.UI_THEME_REPLACE_COLOR,
-        "rgba(138.000, 180.000, 247.000, 1.000)",
-    )
-
-    raw = qdarktheme.load_stylesheet("dark")
-    app.setStyleSheet(raw.replace(replace, accent))
 
 
 if __name__ == "__main__":

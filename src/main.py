@@ -77,11 +77,7 @@ def create_app(config_manager: ConfigManager) -> App:
     app = App(container, event_bus)
 
     # Load Framework Extensions
-    app.use(
-        DependencyValidatorExtension(
-            ["PySide6", "pyqtgraph", "qdarktheme", "sqlalchemy"]
-        )
-    )
+    app.use(DependencyValidatorExtension(["PySide6", "pyqtgraph", "sqlalchemy"]))
     # Presence first (above), then capability: the engine can be installed and
     # still predate an API this app's source calls, which is the failure
     # `pip show` cannot see and that has misled this project four times —

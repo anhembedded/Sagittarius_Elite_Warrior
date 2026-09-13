@@ -44,9 +44,13 @@ the klines query, the market stream), `contracts/` (`IHistoricalKlines`, `ISymbo
 `SingleSyncProgressEvent`), `adapters/` (`persistence/`, `binance/market/`), `ui/` (the Data
 Management mode rebuilt as QtWidgets — HLD §11: its four QML widgets become a `QTableView` panel,
 a kline-inspector dialog, a time-range dialog and a timeframe picker; no `.qml`), the CLI
-commands `sync` and `stream`. Also in this phase (ADR D21): remove `qdarktheme` from
-`requirements.txt`, delete `seed_app_theme()` and `kit/style.py`, retire the palette guard; the
-app renders in the OS theme from Phase 0 on. `support/binance_gateway` is extracted in the same phase because
+commands `sync` and `stream`. Also in this phase (ADR D21 as executed by **D21a**): remove
+`qdarktheme` from `requirements.txt` and delete `_apply_theme()` with its two `ui.theme.*` keys, so
+every standard control renders in the OS theme from Phase 0 on. `Palette`, `seed_app_theme()` and
+`kit/style.py` are **not** deleted here — the 35 surviving `.qml` files need
+`configure_app_qml()` (`BOT-132`) and `kit/style.py` has 52 call sites across the screens that
+Phases 1–4 rebuild; they go in Phase 4 with their last consumer, and the remainder shrinks under
+`tools/measure_app_styling.py` + `test_app_styling_only_shrinks.py`. `support/binance_gateway` is extracted in the same phase because
 `market_data` needs it.
 
 ## 1.1 Baselines measured in PR 0.1 (2026-09-13)
@@ -61,6 +65,7 @@ records the new value in its own pull request (HLD §6.2).
 | Boundary allowlist entries | `tests/unit/architecture/allowlist_module_boundaries.txt` | **10** pairs (5 `application → infrastructure`, all `futures_trading_client`; 5 `presentation → infrastructure`) |
 | Screens importing `infrastructure/` | the same allowlist | **2** (`backtest_presenter`, `settings_presenter`) |
 | `.qml` files under `src/` | `tests/unit/architecture/baseline_qml_files.txt` | **35** |
+| App-level styling left by hand (PR 0.2) | `tools/measure_app_styling.py`, held by `baseline_app_styling.json` | **52** `apply_role()` calls in 26 files · **151** `setStyleSheet()` calls in 22 files · **33** files importing `Palette` · **229** `Theme.*` bindings in 35 `.qml` files |
 | Path-scanning guards registered with a non-empty root | `tests/unit/architecture/test_scanned_roots_are_not_empty.py` | **30** guard files, 37 scanned roots |
 | Backtest golden master | `tests/integration/golden/backtest_golden_master.json` | 600 hourly bars, `ema_crossover` 12/26, 13 trades (9 in-sample, 3 out-of-sample), final balance 9211.71 from 10000 |
 | Tests collected (`pytest --collect-only -q`, everything but `tests/testnet`) | the gate's own invocation | **3948** before PR 0.1 (26 of them sanity); **4059** after it — the 111 added are the safety net itself (108 architecture guard cases, 3 golden-master tests). Every later phase reports its delta against 4059 |
