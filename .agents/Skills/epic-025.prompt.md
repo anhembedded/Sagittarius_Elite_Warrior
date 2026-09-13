@@ -101,7 +101,9 @@ Work in this order and do not skip a line. Each line is either done or written d
     `.puml` under `Docs/HLD/diagrams/` or `Docs/SDD/diagrams/` changes in the same PR. Check every
     diagram you touched: `java -jar plantuml.jar -checkonly <file>` (any PlantUML ≥ 1.2026 will do).
 11. **Bookkeeping.** The task file's status and its "done when" list; `Tasks/ROADMAP.md`;
-    `Tasks/epics/README.md` — `ONBOARDING.md` §6 says exactly which lines.
+    `Tasks/epics/README.md` — `ONBOARDING.md` §6 says exactly which lines; and the Gantt in
+    `Tasks/epics/EPIC-025_module_theo_bounded_context/TRACKING.md` (move the bar to `done`, re-date
+    the following bars if the estimate moved, add a status-log row).
 12. **Report** in the format of §6 below.
 
 ### Phase 0 in particular
