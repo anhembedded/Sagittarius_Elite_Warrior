@@ -1,7 +1,7 @@
 # EPIC-025 — Split the application into bounded-context modules on the Engine's `IExtension` microkernel
 
-- **Status:** 🔴 Backlog — spec round 1 completed 2026-09-11; **no sub-task starts** until question
-  ❓ O1 in the [ADR](DECISION_2026-09-11_module_boundaries.md) §3 is answered (round 2).
+- **Status:** 🟡 **Phase 0 in progress** since 2026-09-13 (spec approved by the user after three
+  rounds and an independent review; ADR D1–D22).
 - **Repositories:** Elite (Phases 0–4) · Engine (Phase 5, tracked as `TASK-043` there, referencing
   `EPIC-001D`).
 - **Origin:** [`PRO-004`](../../proposal/PRO-004.md) — the user (2026-09-10): *"hiện tại chúng ta
@@ -58,12 +58,22 @@ most effective bug channel — it must not be lost). No change in business behav
 
 | # | Task | Blocked by | Status |
 | :-: | :--- | :--- | :---: |
-| **A** | [Phase 0 — mechanism plus `modules/market_data` (Walking Skeleton)](incomplete/EPIC-025A_phase0_mechanism_and_market_data.md) | ❓ O1 (round 2) | 🔴 |
+| **A** | [Phase 0 — mechanism plus `modules/market_data` (Walking Skeleton)](incomplete/EPIC-025A_phase0_mechanism_and_market_data.md) | — | 🟡 PR 0.1 |
 | **B** | [Phase 1 — `modules/trading`; Trading and Dev Board become surfaces](incomplete/EPIC-025B_phase1_trading_and_surfaces.md) | A | 🔴 |
 | **C** | [Phase 2 — `modules/strategy` (Core domain)](incomplete/EPIC-025C_phase2_strategy.md) | B | 🔴 |
 | **D** | [Phase 3 — `modules/backtesting`](incomplete/EPIC-025D_phase3_backtesting.md) | C | 🔴 |
 | **E** | [Phase 4 — `support/*`; dissolve `ui/common/`](incomplete/EPIC-025E_phase4_support_and_dissolve_common.md) | D | 🔴 |
 | **F** | [Phase 5 — Engine `EPIC-001D`: `NavigationService`, regions, screen lifecycle](incomplete/EPIC-025F_phase5_engine_navigation.md) | E · the Engine-side task | 🔴 |
+
+## 3.2 Phase 0 as pull requests
+
+| PR | Content | The user checks |
+| :-: | :--- | :--- |
+| 0.1 | safety net first, no app code: the duplicate-members script and its baseline, the boundary allowlist as found, the backtest golden master, the collected-test count, non-emptiness on every path-scanning guard, the no-new-QML ratchet | the allowlist entries; the golden-master dataset |
+| 0.2 | the mechanism: `core/`, `shell/`, `BoundedContextModule`, registry, `DoubleClaimCheck`, `LegacyScreenAdapter`, one `ConfigManager`, the `dev.mode` gate; theme layer removed (OS theme) | the app opens as before, now in the OS theme |
+| 0.3 | `support/binance_gateway` | — |
+| 0.4 | `modules/market_data` with contract suites and verified fakes; Data Management rebuilt in QtWidgets; CLI `sync`/`stream` | Data Management: sync a symbol; CLI `sync` |
+| 0.5 | the skeleton walks with N = 2 (`chart_coordinator` → `IMarketDataSync`) | Trading chart still loads history |
 
 ## 3.1 Engine milestones (HLD §8 — the harvest)
 

@@ -3,7 +3,8 @@
 **Epic:** [`EPIC-025`](README.md)
 **Source:** [`PRO-004`](../../proposal/PRO-004.md) · The official design: [`Docs/HLD/`](../../../Docs/HLD/README.md)
 **Date:** 2026-09-11
-**Status:** 🟢 **Approved — rounds 1 and 2**; **round 3 applied 2026-09-13** after an independent
+**Status:** 🟢 **Approved — rounds 1–3 and the user's review (2026-09-13: *"ok, update doc và bắt
+đầu làm"*); Phase 0 started.** Round 3 was applied after an independent
 design review ([`Tasks/reports/EPIC-025_design_review.md`](../../reports/EPIC-025_design_review.md)),
 see §7. O4 decided as **D17** (2026-09-13). Open: O2 (Engine API, Phase 5) only.
 

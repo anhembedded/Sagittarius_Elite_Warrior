@@ -77,6 +77,13 @@ see the table above.
    under `src/`, `tests/`, `scripts/`, configuration or dependencies, the default rule above
    applies again in full — a mixed commit is a code commit.
 
+   **Standing exception — `EPIC-025` code, local commits only (user decision 2026-09-13: *"ok,
+   update doc và bắt đầu làm"* after the proposal "commit local freely once the gate is green;
+   push and merge wait for an OK per pull request").** While executing `EPIC-025`, code may be
+   committed **locally** on the work branch without asking, **after** the gate has been run and its
+   log file grepped; every `git push` of code and every merge still waits for the user's OK on that
+   pull request. The exception ends with the epic.
+
 2. **Don't trust the console — read the log file.** The mandatory gate is
    `pwsh -NoProfile -File scripts/ci-local.ps1 -Full`. It prints `LOG_FILE:`; you must `grep`
    that file for `FAILED|ERROR|Traceback|ResourceWarning` before you may call it green. In

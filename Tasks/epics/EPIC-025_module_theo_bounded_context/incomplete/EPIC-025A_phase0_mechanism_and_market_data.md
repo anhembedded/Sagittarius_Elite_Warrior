@@ -1,6 +1,6 @@
 # EPIC-025A — Phase 0: the module mechanism plus `modules/market_data` (Walking Skeleton)
 
-- **Status:** 🔴 Backlog — O1 closed by the SDD (round 3); ready once the user approves SDD-01b and the ADR §7 dispositions
+- **Status:** 🟡 In progress since 2026-09-13 — PR 0.1 (baselines and guards) first; the PR plan is in the epic README §3.2
 - **Repository:** Elite
 - **Blocks:** B, C, D, E
 - **Read first:** HLD §1–§3 (cut criteria, context map, the contracts of `market_data`), §4
