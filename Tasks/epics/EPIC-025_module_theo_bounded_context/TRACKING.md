@@ -21,10 +21,10 @@ gantt
     Round 2 — doctrine, workbench rule, SDD     :done,    s2, 2026-09-12, 2026-09-13
     Independent review + round 3               :done,    s3, 2026-09-13, 1d
     D17 sizing, D18/D19 tests, executor skill  :done,    s4, 2026-09-13, 1d
-    User review of the spec                    :crit, active, s5, 2026-09-14, 2d
+    User review of the spec                    :crit, done, s5, 2026-09-13, 1d
 
     section Phase 0 — mechanism + market_data (EPIC-025A)
-    PR 0.1 baselines and guards                :         p01, after s5, 2d
+    PR 0.1 baselines and guards                :active,  p01, 2026-09-13, 2d
     User review 0.1 (allowlist, golden master) :crit,    r01, after p01, 1d
     PR 0.2 core/ shell/ mechanism              :         p02, after r01, 3d
     User check 0.2 (app opens as before)       :crit,    r02, after p02, 1d
@@ -74,3 +74,4 @@ gantt
 | 2026-09-11 | s1 | Round 1 merged (PR #196) |
 | 2026-09-13 | s2, s3, s4 | Rounds 2–3, D17–D19, executor skill merged (PRs #197–#205) |
 | 2026-09-13 | — | ADR D20–D22 (QtWidgets only, OS theme, panels and dialogs): Phase 0/1/3 bars re-cut |
+| 2026-09-13 | s5, p01 | User approved the spec; Phase 0 started with PR 0.1 |
