@@ -10,10 +10,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import (
+    NavLocation,
+    NavMetadata,
+)
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
 from sagittarius_engine.interfaces.i_container import IContainer
 
-from .models.nav_metadata import NavLocation, NavMetadata
 from .models.screen_descriptor import ScreenDescriptor
 
 

@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Sequence
 
+from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import (
+    NavLocation,
+    NavMetadata,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     NavItem,
     NavSection,
@@ -13,7 +17,6 @@ from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 from sagittarius_engine.interfaces.i_container import IContainer
 
 from .abstract_screen_module import AbstractScreenModule
-from .models.nav_metadata import NavLocation, NavMetadata
 from .models.screen_descriptor import ScreenDescriptor
 from .models.section_descriptor import SectionDescriptor
 from .ports.i_screen_registry import IScreenRegistry
@@ -28,6 +31,12 @@ class ScreenRegistry(IScreenRegistry):
         self._default_route: str | None = None
 
     def register(self, descriptor: ScreenDescriptor) -> None:
+        """`EPIC-025`: section reconciliation happens here, not in
+        `register_module()`. A screen that arrives as a **contribution**
+        (`shell/screen_wiring.py`) comes in as a descriptor with no module
+        behind it, and it needs its sidebar section exactly as much as a legacy
+        `AbstractScreenModule` does — leaving the reconciliation one level up
+        meant the sidebar silently lost every section for such a screen."""
         if descriptor.route in self._descriptors:
             raise ValueError(
                 f"Route '{descriptor.route}' already exists in ScreenRegistry!"
@@ -40,15 +49,14 @@ class ScreenRegistry(IScreenRegistry):
                 )
             self._default_route = descriptor.route
         self._descriptors[descriptor.route] = descriptor
+        nav = descriptor.nav
+        if nav is not None and nav.location == NavLocation.TOP_SECTION:
+            self._reconcile_section(nav.section_key, nav.section_sequence)
 
     def register_module(
         self, module: AbstractScreenModule, container: IContainer
     ) -> None:
-        descriptor = module.build_descriptor(container)
-        self.register(descriptor)
-        nav = descriptor.nav
-        if nav is not None and nav.location == NavLocation.TOP_SECTION:
-            self._reconcile_section(nav.section_key, nav.section_sequence)
+        self.register(module.build_descriptor(container))
 
     def register_section(self, section: SectionDescriptor) -> None:
         """Explicit call — the single source of truth for this section's

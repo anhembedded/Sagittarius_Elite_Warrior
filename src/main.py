@@ -1,11 +1,6 @@
 import argparse
 import sys
-from contextlib import suppress
 
-from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
-from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capability_validator_extension import (
-    EngineCapabilityValidatorExtension,
-)
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
     execute_exchange_status,
@@ -26,92 +21,23 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
     execute_trade_once,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    AssetValidatorExtension,
+from Sagittarius_Elite_Warrior.src.shell.app_config import (
+    dev_mode_banner,
+    load_app_config,
 )
+from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from sagittarius_engine import App
-from sagittarius_engine.extensions.dependency_validator import (
-    DependencyValidatorExtension,
-)
-from sagittarius_engine.extensions.health.health_module import HealthExtension
-from sagittarius_engine.extensions.logger.logger_module import LoggerExtension
-from sagittarius_engine.extensions.thread_manager.thread_manager_module import (
-    ThreadManagerExtension,
-)
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
-from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.infrastructure.logging.std_logger import StdLogger
-from sagittarius_engine.interfaces.i_config import IConfig
-from sagittarius_engine.interfaces.i_container import IContainer
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
-from sagittarius_engine.middleware.pydantic_validation_middleware import (
-    PydanticValidationMiddleware,
-)
-from sagittarius_engine.utils.path_utils import PathUtils
-
-
-def create_app(config_manager: ConfigManager) -> App:
-    container = StdLibContainer()
-
-    # EPIC-008G §4 — bus nhận logger tường minh, không để `None`.
-    #
-    # `EPIC-008C` đã khiến bus không-logger vẫn báo được lỗi handler (nó tự lùi
-    # về `FallbackLogger` dùng `logging` chuẩn), nên đây KHÔNG phải sửa lỗi mất
-    # log. Cái nó mua: lỗi handler đi qua **đúng `ILogger` của app** — cùng
-    # formatter, cùng file log mà `ci-local.ps1`'s "Run Log Scan" đọc — thay vì
-    # rơi vào `logging` chuẩn ngoài file đó.
-    #
-    # Dựng `StdLogger` ở đây, trước `App`, là có chủ đích: bus tồn tại trước khi
-    # `LoggerExtension` chạy `register()`. Lát nữa extension sẽ dựng một
-    # `StdLogger` nữa cho DI — không nhân đôi log, vì **cả hai bọc cùng một**
-    # `logging.getLogger("App")`; lần dựng sau chỉ dọn rồi gắn lại đúng bộ
-    # handler theo cùng config.
-    event_bus = MemoryEventBus(StdLogger(config_manager))
-
-    # Register core ports
-    container.singleton(IContainer, container)
-    container.singleton(IEventBus, event_bus)
-    container.singleton(IConfig, config_manager)
-
-    app = App(container, event_bus)
-
-    # Load Framework Extensions
-    app.use(DependencyValidatorExtension(["PySide6", "pyqtgraph", "sqlalchemy"]))
-    # Presence first (above), then capability: the engine can be installed and
-    # still predate an API this app's source calls, which is the failure
-    # `pip show` cannot see and that has misled this project four times —
-    # see `engine_capabilities.py` for the list and BOT-133.
-    app.use(EngineCapabilityValidatorExtension())
-    app.use(AssetValidatorExtension())
-
-    app.use(LoggerExtension())
-    app.use(ThreadManagerExtension())
-
-    # Load Domain Module (Registers Repositories & UseCases)
-    app.use(BinanceBotModule())
-
-    # Load Health Check Diagnostic Extension after domain modules
-    app.use(HealthExtension())
-
-    # Register Global Validation Middleware
-    app.use_middleware(PydanticValidationMiddleware(container))
-
-    return app
 
 
 def _load_configuration() -> ConfigManager:
-    config_manager = ConfigManager()
-    app_json = PathUtils.get_relative_path(__file__, "config", "app_config.json")
-    user_json = PathUtils.get_relative_path(__file__, "config", "user_config.json")
-    cli_json = PathUtils.get_relative_path(__file__, "config", "cli_commands.json")
-
-    config_manager.load_json(app_json)
-    config_manager.load_json(user_json, writable=True)
-
-    with suppress(FileNotFoundError):
-        config_manager.load_json(cli_json)
-
+    """The shell's loader, so the headless path reads exactly what the GUI
+    reads — including `--dev` / `--debug`, which used to be parsed only by the
+    GUI bootstrapper (Phase 0's one declared behaviour change)."""
+    config_manager, dev_mode = load_app_config(sys.argv)
+    banner = dev_mode_banner(dev_mode)
+    if banner is not None:
+        print(banner)
     return config_manager
 
 

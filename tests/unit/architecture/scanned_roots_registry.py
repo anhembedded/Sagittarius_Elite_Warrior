@@ -19,6 +19,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
     ("tests/unit/architecture/test_no_new_qml.py", (("src", "*.qml"),)),
     (
+        "tests/unit/architecture/test_module_domain_is_qt_free.py",
+        (("src/core", "*.py"),),
+    ),
+    ("tests/unit/architecture/test_module_declarations.py", (("src/shell", "*.py"),)),
+    (
         "tests/unit/architecture/test_no_global_stylesheet.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
