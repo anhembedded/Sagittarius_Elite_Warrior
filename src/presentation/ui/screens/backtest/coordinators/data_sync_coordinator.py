@@ -152,7 +152,7 @@ class DataSyncCoordinator:
         cancellation_token: CancellationToken | None = None,
         coverage: BacktestRangeCoverage | None = None,
     ) -> None:
-        """Background worker: dispatches `SyncMarketDataCommand` for the
+        """Background worker: asks `IMarketDataSync` for the
         symbol/timeframe/range that just came back "no data" — mirrors
         `DataManagementPresenter._run_single_sync`, minus the progress-bar
         events that screen needs and this one doesn't (one sync, one outcome,
@@ -171,7 +171,7 @@ class DataSyncCoordinator:
         )
         self._active_correlation_id = uuid.uuid4().hex
         try:
-            self._dispatch_sync(
+            self._ask_for_the_sync(
                 config,
                 sync_interval,
                 sync_start,
@@ -213,7 +213,7 @@ class DataSyncCoordinator:
             return
         self._emit_succeeded(resolved_action_id)
 
-    def _dispatch_sync(
+    def _ask_for_the_sync(
         self, config, sync_interval, sync_start, cancellation_token, correlation_id
     ) -> None:
         symbol = self._state.symbol

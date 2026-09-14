@@ -88,8 +88,9 @@ def _build(dispatcher=None, action_id=7, sync=None):
         dispatcher=dispatcher,
         market_data_sync=sync,
         state=InMemoryScreenState(symbol="BTCUSDT"),
-        # The real enum, not a stand-in: `SyncMarketDataCommand` is a pydantic
-        # model and rejects anything that is not a `TimeFrame`, so a fake made
+        # The real enum, not a stand-in: the coordinator reads `.value` and
+        # `.to_seconds()` off it, and the real sync path's pydantic command
+        # rejects anything that is not a `TimeFrame`, so a fake made
         # every run_sync test fail as a validation error instead of exercising
         # the branch it was written for.
         effective_data_interval=lambda _c: TimeFrame.ONE_MINUTE,

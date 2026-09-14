@@ -101,7 +101,13 @@ class SyncCoordinator:
         end_time: datetime | None,
         cancellation_token: CancellationToken | None = None,
     ) -> None:
-        """Background worker: dispatches SyncMarketDataCommand for a single target."""
+        """Background worker: asks `IMarketDataSync` to sync one target.
+
+        `EPIC-025` PR 0.5 — it no longer builds `SyncMarketDataCommand`: that
+        is market_data's internal, and this screen now names only the port.
+        The bulk path below still dispatches, because `BulkSyncMarketDataCommand`
+        has no published port yet (Phase 1).
+        """
         token_to_use = cancellation_token or self._cancellation_token
         action = self._tracker.begin_action(
             DataManagementActionKind.SYNC_SINGLE,

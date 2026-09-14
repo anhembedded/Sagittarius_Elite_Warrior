@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
@@ -32,37 +33,37 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coord
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 
-class _ReportingSync(FakeMarketDataSync):
-    """A sync that publishes a progress report from inside `sync()`.
+class _Sync(FakeMarketDataSync):
+    """The port's verified fake, plus the one hook this screen's tests need.
 
-    Production timing, and the only way to reach it: `_active_correlation_id`
-    lives only for the duration of the call, so a report published after
-    `run_single_sync()` returns tests nothing. A local subclass rather than a
-    hook on `FakeMarketDataSync` — one consumer needs this, and a fake grows a
-    callback surface it cannot verify the moment it starts guessing.
+    `on_sync` fires from *inside* `sync()`, which is the only moment
+    `_active_correlation_id` is set: a report published after
+    `run_single_sync()` returns proves nothing, because the coordinator has
+    already cleared the id it was matching against (`BOT-122`). Same shape as
+    `_Sync` in `test_data_sync_coordinator.py` — the other screen with the
+    same in-flight problem — and a hook on a local subclass rather than on
+    `FakeMarketDataSync` itself, because a fake that grows a callback surface
+    grows one nothing verifies (`BUG-120`).
     """
 
-    def __init__(self, coordinator, *, use_the_requests_id: bool) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self._coordinator = coordinator
-        self._use_the_requests_id = use_the_requests_id
+        self.on_sync: Callable[[MarketDataSyncRequest], None] | None = None
 
     def sync(self, request: MarketDataSyncRequest) -> None:
         super().sync(request)
-        correlation_id = (
-            self.requests[-1].correlation_id
-            if self._use_the_requests_id
-            else "some-other-screens-request"
-        )
-        self._coordinator.publish_single_sync_progress(
-            SyncProgressReport(
-                symbol="BTCUSDT",
-                interval="1h",
-                current=50,
-                total=100,
-                correlation_id=correlation_id,
-            )
-        )
+        if self.on_sync:
+            self.on_sync(self.requests[-1])
+
+
+def _report(correlation_id: str) -> SyncProgressReport:
+    return SyncProgressReport(
+        symbol="BTCUSDT",
+        interval="1h",
+        current=50,
+        total=100,
+        correlation_id=correlation_id,
+    )
 
 
 @pytest.fixture
@@ -75,7 +76,7 @@ def sync_fixture():
     view_model.toDateTime = ""
 
     dispatcher = Mock()
-    market_data_sync = FakeMarketDataSync()
+    market_data_sync = _Sync()
     thread_manager = Mock()
     tracker = ActionOwnershipTracker[DataManagementActionKind, object, UIMode]()
 
@@ -115,7 +116,8 @@ def test_sync_coordinator_single_sync_success(sync_fixture):
     coordinator.run_single_sync("BTCUSDT", "1h", None, None)
 
     assert sync.was_asked_for("BTCUSDT", TimeFrame.ONE_HOUR)
-    dispatcher.dispatch.assert_not_called(), "a single sync goes through the port"
+    # A single sync goes through the port, so the dispatcher sees nothing.
+    dispatcher.dispatch.assert_not_called()
     signals["ui_sync_complete"].assert_called_once()
     signals["ui_unlock"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
@@ -145,18 +147,19 @@ def test_sync_coordinator_bulk_sync_success(sync_fixture):
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
 
-def test_sync_coordinator_single_sync_progress_matches_while_dispatch_is_in_flight(
+def test_sync_coordinator_single_sync_progress_matches_while_the_sync_is_in_flight(
     sync_fixture,
 ):
     """BOT-122: `_active_correlation_id` is only set for the duration of the
-    real dispatch — simulate a `SingleSyncProgressEvent` arriving while it's
-    genuinely in flight, matching production timing, instead of calling
-    `publish_single_sync_progress()` after `run_single_sync()` already
-    cleared it. The request the coordinator handed the port carries the
-    `correlation_id` it is actually waiting on."""
-    coordinator, _, _dispatcher, _, signals, _sync = sync_fixture
-    reporting_sync = _ReportingSync(coordinator, use_the_requests_id=True)
-    coordinator._market_data_sync = reporting_sync
+    `IMarketDataSync.sync()` call — simulate a `SingleSyncProgressEvent`
+    arriving while it's genuinely in flight, matching production timing,
+    instead of calling `publish_single_sync_progress()` after
+    `run_single_sync()` already cleared it. The request the coordinator handed
+    the port carries the `correlation_id` it is actually waiting on."""
+    coordinator, _, _dispatcher, _, signals, sync = sync_fixture
+    sync.on_sync = lambda request: coordinator.publish_single_sync_progress(
+        _report(request.correlation_id)
+    )
 
     coordinator.run_single_sync("BTCUSDT", "1h", None, None)
 
@@ -172,10 +175,11 @@ def test_sync_coordinator_progress_with_a_different_correlation_id_is_dropped(
     happen to match (two different actions can legitimately target the
     same symbol+interval — `correlation_id` is what actually distinguishes
     them, not business data)."""
-    coordinator, _, _dispatcher, _, signals, _sync = sync_fixture
-    coordinator._market_data_sync = _ReportingSync(
-        coordinator, use_the_requests_id=False
+    coordinator, _, _dispatcher, _, signals, sync = sync_fixture
+    sync.on_sync = lambda _request: coordinator.publish_single_sync_progress(
+        _report("some-other-screens-request")
     )
+
     coordinator.run_single_sync("BTCUSDT", "1h", None, None)
 
     signals["ui_single_sync_progress"].assert_not_called()
@@ -192,7 +196,7 @@ def test_sync_coordinator_progress_event_handlers(sync_fixture):
     # `correlation_id` matches the action `run_single_sync()`/
     # `run_bulk_sync()` is actually waiting on — stand in for that in-flight
     # state directly, since `run_single_sync()` (see the dedicated tests
-    # below) clears it the instant its own synchronous dispatch returns.
+    # below) clears it the instant its own synchronous `sync()` call returns.
     coordinator._active_correlation_id = "this-screens-request"
     coordinator.publish_single_sync_progress(
         SyncProgressReport(
