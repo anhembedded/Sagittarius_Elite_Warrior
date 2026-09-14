@@ -3,9 +3,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.models.data_gap import DataGap
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 @dataclass(frozen=True)

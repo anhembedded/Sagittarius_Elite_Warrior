@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Property, QObject, Signal
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
 from .kline_inspector_table_model import (
     kline_display_row_to_qml,

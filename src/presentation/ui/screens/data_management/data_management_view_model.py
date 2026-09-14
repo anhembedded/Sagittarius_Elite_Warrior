@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     FALLBACK_SYMBOL_OPTIONS,
 )
@@ -22,7 +22,7 @@ from sagittarius_engine.extensions.pyside_mvc import (
 )
 
 if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+    from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
 #: `EPIC-010H`: the real list now comes from Settings via
 #: `app_defaults.default_symbol_options()`, which the presenter applies

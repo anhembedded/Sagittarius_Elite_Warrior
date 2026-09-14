@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
 #: BOT-080 — chosen by the user over 80/20 or a user-entered ratio (the
 #: latter would let someone dial the split until the numbers look good,

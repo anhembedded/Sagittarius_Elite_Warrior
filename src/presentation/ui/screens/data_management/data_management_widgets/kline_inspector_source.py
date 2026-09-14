@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+    from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
     from ..data_management_view_model import DataManagementViewModel
 

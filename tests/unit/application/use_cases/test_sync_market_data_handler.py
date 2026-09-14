@@ -12,8 +12,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data i
     SyncMarketDataCommand,
     SyncMarketDataCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 @pytest.fixture

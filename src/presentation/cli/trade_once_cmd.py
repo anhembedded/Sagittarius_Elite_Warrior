@@ -36,7 +36,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.c
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
     ExecuteOrderResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
     OrderRejectedByExchangeError,
 )
@@ -54,7 +55,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizing,
     PositionSizingType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_order_payload_mapper import (
     InvalidOrderForSubmissionError,
 )

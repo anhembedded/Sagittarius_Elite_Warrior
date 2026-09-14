@@ -10,7 +10,7 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
 _LARGE_PRICE_THRESHOLD = 100.0
 _THOUSAND = 1_000.0

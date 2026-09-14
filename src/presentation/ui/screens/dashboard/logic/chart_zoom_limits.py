@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 #: Candles visible at maximum zoom-out. Beyond this the card stops being a
 #: chart and starts being a smear, and the pan cost stops being bounded.

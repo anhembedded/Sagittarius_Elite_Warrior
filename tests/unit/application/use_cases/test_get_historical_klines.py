@@ -8,7 +8,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 def test_get_historical_klines_handler_success():

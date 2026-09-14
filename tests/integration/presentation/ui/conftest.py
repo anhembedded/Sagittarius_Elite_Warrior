@@ -46,7 +46,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order i
     ExecuteOrderCommand,
     ExecuteOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )

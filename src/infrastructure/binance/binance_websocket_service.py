@@ -9,11 +9,11 @@ from binance.ws.reconnecting_websocket import ReconnectingWebsocket
 from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
     ILiveStreamService,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
     MarketTickEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_testnet_flag,
 )

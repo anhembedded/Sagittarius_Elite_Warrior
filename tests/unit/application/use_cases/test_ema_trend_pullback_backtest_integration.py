@@ -16,15 +16,15 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
     RunStaticBacktestCommand,
     RunStaticBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_indicator_lines import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,

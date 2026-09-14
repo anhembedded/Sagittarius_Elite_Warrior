@@ -10,8 +10,8 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.market_metadata_parser import (
     DEFAULT_STATUS,
     BinanceMetadataKey,

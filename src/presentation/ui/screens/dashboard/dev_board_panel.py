@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.manual_order_intent import (
     ManualOrderDirection,
@@ -52,7 +53,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
     MIN_LEVERAGE,
     MIN_SIZING_PERCENT,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,

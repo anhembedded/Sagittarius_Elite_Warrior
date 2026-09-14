@@ -81,8 +81,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
@@ -712,7 +712,7 @@ def report_to_dict(report: ProbeReport) -> dict[str, object]:
 
 
 def load_from_db(symbol: str, days: int) -> list[MarketData]:
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
     from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
         DatabaseConfig,
         DatabaseManager,

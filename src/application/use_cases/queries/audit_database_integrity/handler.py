@@ -13,7 +13,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_
     DataAnomalyDTO,
     DatabaseAuditResultDTO,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
 
 class AnomalyType(StrEnum):

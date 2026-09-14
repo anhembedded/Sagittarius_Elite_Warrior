@@ -11,7 +11,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databa
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 logger = logging.getLogger("App.QueryHandler")
 

@@ -17,7 +17,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 class _NetworkError(Exception):

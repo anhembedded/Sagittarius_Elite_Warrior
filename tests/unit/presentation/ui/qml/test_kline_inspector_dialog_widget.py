@@ -21,7 +21,7 @@ from datetime import UTC, datetime, timedelta
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
     DataManagementViewModel,
 )

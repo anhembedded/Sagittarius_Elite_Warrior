@@ -23,7 +23,7 @@ another owner's.
 
 from abc import ABC, abstractmethod
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 class ILiveStreamService(ABC):

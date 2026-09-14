@@ -9,7 +9,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream
     StopLiveStreamCommand,
 )
 from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer

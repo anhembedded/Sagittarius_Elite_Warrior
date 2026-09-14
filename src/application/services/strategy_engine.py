@@ -3,7 +3,7 @@ from types import MappingProxyType
 from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
     IEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )

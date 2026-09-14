@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
 #: BUG-022 — a kline's `close_time` is the LAST INSTANT it covers, not the
 #: exclusive end of its interval: Binance publishes `next_open - 1ms` (the

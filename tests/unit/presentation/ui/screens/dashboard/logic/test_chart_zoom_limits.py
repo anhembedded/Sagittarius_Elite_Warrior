@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.logic.chart_zoom_limits import (
     DEFAULT_MAX_ZOOM_OUT_CANDLES,
     max_visible_x_range,

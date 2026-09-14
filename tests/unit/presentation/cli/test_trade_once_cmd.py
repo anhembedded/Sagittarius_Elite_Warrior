@@ -29,10 +29,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.command import (
     ExecuteOrderCommand,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
     FuturesSymbolMetadata,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,

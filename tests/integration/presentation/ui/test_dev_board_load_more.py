@@ -27,7 +27,7 @@ from datetime import UTC, datetime, timedelta
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
 MOCK_KLINE_COUNT = 5
 _BASE_TIME = datetime(2024, 1, 1, tzinfo=UTC)

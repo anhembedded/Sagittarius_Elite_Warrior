@@ -6,7 +6,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_strea
     StartLiveStreamCommand,
     StartLiveStreamResponse,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import (
     TimeFrame,
 )
 

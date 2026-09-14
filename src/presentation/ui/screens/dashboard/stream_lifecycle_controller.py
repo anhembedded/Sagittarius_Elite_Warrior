@@ -34,7 +34,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
     CancellationCheck,
     SyncMarketDataCommand,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
     map_volume,

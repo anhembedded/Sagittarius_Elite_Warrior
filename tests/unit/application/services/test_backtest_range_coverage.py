@@ -7,8 +7,8 @@ from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage 
     build_backtest_range_coverage,
     evaluate_backtest_range_coverage,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 def _candle(open_time: datetime, *, close_time: datetime | None = None) -> MarketData:

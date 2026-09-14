@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 class RunBacktestCommand(BaseModel):

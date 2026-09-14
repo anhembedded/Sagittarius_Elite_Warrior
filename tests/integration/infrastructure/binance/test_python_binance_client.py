@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from binance.enums import HistoricalKlinesType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
     PythonBinanceClient,
 )

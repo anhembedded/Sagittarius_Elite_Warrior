@@ -12,6 +12,7 @@ that could never match a tick.
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     MAX_LEVERAGE,
     MAX_SIZING_PERCENT,
@@ -20,7 +21,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
     SUPPORTED_LIVE_INTERVALS,
     LiveStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 def _config(**overrides) -> LiveStrategyConfig:

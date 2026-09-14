@@ -7,7 +7,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,

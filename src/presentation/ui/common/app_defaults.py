@@ -35,7 +35,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 #: The Dev Board's own floor, unchanged from the constant it used to hold.
 FALLBACK_SYMBOL = "ETHUSDT"

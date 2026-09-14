@@ -15,9 +15,9 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.models.data_gap import DataGap
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 _NOT_USED = "not used by the static backtest"
 

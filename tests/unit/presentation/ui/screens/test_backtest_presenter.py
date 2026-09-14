@@ -54,6 +54,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.c
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
     BacktestMetrics,
 )
@@ -63,7 +65,6 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
     OutOfSampleValidation,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
     LotSizeFilter,
     MetadataVerificationStatus,
@@ -81,7 +82,6 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
     BaseStrategy,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
 )

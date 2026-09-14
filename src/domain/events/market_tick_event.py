@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from sagittarius_engine.domain.base_event import BaseEvent
 
 

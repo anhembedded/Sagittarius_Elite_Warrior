@@ -4,7 +4,7 @@ import time
 from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from sagittarius_engine import App
 
 

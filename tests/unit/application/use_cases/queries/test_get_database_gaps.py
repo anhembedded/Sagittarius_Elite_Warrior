@@ -11,8 +11,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_ga
     GetDatabaseGapsQuery,
     GetDatabaseGapsQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.models.data_gap import DataGap
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 
 def test_get_database_gaps_empty_database():

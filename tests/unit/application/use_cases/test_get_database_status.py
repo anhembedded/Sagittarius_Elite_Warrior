@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_st
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 @pytest.fixture

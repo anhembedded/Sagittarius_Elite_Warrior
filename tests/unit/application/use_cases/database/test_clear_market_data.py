@@ -6,7 +6,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_d
     ClearMarketDataCommand,
     ClearMarketDataCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 def test_clear_market_data_for_specific_symbol_and_interval():

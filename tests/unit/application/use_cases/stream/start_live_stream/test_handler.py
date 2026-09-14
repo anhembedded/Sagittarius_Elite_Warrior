@@ -6,7 +6,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_strea
 from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.handler import (
     StartLiveStreamCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 def test_execute_forwards_owner_symbols_and_interval_to_subscribe():

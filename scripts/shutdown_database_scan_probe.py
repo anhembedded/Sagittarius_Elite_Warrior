@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databa
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
     ScanAllDatabasesQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 _SYMBOL_COUNT = 2_000
 _SYMBOL_DELAY_SECONDS = 0.05

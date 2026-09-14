@@ -14,7 +14,7 @@ mapping/query-building) so its test still reads through the class.
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.kline_row_mapper import (
     parse_db_datetime,
     to_market_data_entity,

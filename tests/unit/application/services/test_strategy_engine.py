@@ -6,7 +6,8 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
@@ -21,7 +22,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 RSI_OVERSOLD_THRESHOLD = 30.0
 RSI_OVERBOUGHT_THRESHOLD = 70.0

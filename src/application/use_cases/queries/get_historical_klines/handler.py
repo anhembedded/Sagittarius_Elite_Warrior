@@ -8,8 +8,8 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository im
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 logger = logging.getLogger("App.QueryHandler")
 _TRACE_PREFIX = "BACKTEST_TRACE"

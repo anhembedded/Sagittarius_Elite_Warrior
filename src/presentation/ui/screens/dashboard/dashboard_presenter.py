@@ -48,7 +48,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order i
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
     ExecuteOrderResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
     EquitySampledEvent,
 )
@@ -76,7 +77,6 @@ from Sagittarius_Elite_Warrior.src.domain.trading.policies.manual_order_intent i
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
