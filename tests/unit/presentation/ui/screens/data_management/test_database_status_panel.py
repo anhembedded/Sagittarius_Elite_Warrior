@@ -125,6 +125,34 @@ def test_searching_narrows_both_the_table_and_the_count(panel, model):
     assert panel._count_label.text() == "1 shard"
 
 
+def test_typing_in_the_search_box_filters_the_table(panel, model):
+    """Drives the widget, not `set_search_text()`. Those are two different
+    code paths: the programmatic one calls the proxy itself, while typing
+    reaches it only through `QLineEdit.textEdited`. Deleting that connection
+    left the other 22 tests in this file green — this is the one that fails.
+    """
+    _upsert(model, symbol="BTCUSDT")
+    _upsert(model, symbol="ETHUSDT")
+
+    panel._search.setText("eth")
+    panel._search.textEdited.emit("eth")
+
+    assert panel.visible_row_count() == 1
+    assert panel._count_label.text() == "1 shard"
+
+
+def test_clearing_the_search_box_brings_every_shard_back(panel, model):
+    _upsert(model, symbol="BTCUSDT")
+    _upsert(model, symbol="ETHUSDT")
+    panel._search.setText("eth")
+    panel._search.textEdited.emit("eth")
+
+    panel._search.clear()
+    panel._search.textEdited.emit("")
+
+    assert panel.visible_row_count() == 2
+
+
 def test_a_search_matching_nothing_shows_the_empty_state(panel, model):
     _upsert(model, symbol="BTCUSDT")
 
