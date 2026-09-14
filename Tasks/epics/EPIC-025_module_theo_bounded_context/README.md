@@ -58,7 +58,7 @@ most effective bug channel — it must not be lost). No change in business behav
 
 | # | Task | Blocked by | Status |
 | :-: | :--- | :--- | :---: |
-| **A** | [Phase 0 — mechanism plus `modules/market_data` (Walking Skeleton)](incomplete/EPIC-025A_phase0_mechanism_and_market_data.md) | — | 🟡 PR 0.3 |
+| **A** | [Phase 0 — mechanism plus `modules/market_data` (Walking Skeleton)](incomplete/EPIC-025A_phase0_mechanism_and_market_data.md) | — | 🟢 code complete (7 PRs merged, last #214); awaiting the user's app run |
 | **B** | [Phase 1 — `modules/trading`; Trading and Dev Board become surfaces](incomplete/EPIC-025B_phase1_trading_and_surfaces.md) | A | 🔴 |
 | **C** | [Phase 2 — `modules/strategy` (Core domain)](incomplete/EPIC-025C_phase2_strategy.md) | B | 🔴 |
 | **D** | [Phase 3 — `modules/backtesting`](incomplete/EPIC-025D_phase3_backtesting.md) | C | 🔴 |

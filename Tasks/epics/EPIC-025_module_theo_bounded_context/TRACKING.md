@@ -29,11 +29,12 @@ gantt
     PR 0.2 core/ shell/ mechanism              :done,    p02, 2026-09-13, 1d
     User check 0.2 (app opens as before)       :crit, done, r02, 2026-09-14, 1d
     PR 0.3 support/binance_gateway             :done,    p03, 2026-09-14, 1d
-    PR 0.4a modules/market_data behind its UI    :active,  p04a, 2026-09-14, 4d
-    PR 0.4b Data Management in QtWidgets        :         p04b, after p04a, 3d
-    User check 0.4 (Data Management, CLI sync) :crit,    r04, after p04, 1d
-    PR 0.5 skeleton walks with N=2             :         p05, after r04, 1d
-    Phase 0 measured, Phases 1–5 re-estimated  :milestone, m0, after p05, 0d
+    PR 0.4a modules/market_data behind its UI    :done,    p04a, 2026-09-14, 1d
+    PR 0.4a-2 CLI inverted, 0.4a-3 contracts    :done,    p04a2, 2026-09-14, 1d
+    PR 0.4b-1 Data Management in QtWidgets      :done,    p04b, 2026-09-14, 1d
+    PR 0.5 skeleton walks, N=4 not 2 (#214)     :done,    p05, 2026-09-14, 1d
+    User check 0.x (app runs: 3 screens + CLI)  :crit,    r0x, 2026-09-14, 1d
+    Phase 0 measured, Phases 1–5 re-estimated  :milestone, m0, after r0x, 0d
 
     section Engine track
     E0 ScheduledJob.cancel()                   :         e0, after s5, 1d
