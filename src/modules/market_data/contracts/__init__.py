@@ -12,7 +12,7 @@ without a single edit outside the module.
 
 | Kind | Members | Who implements it |
 | :--- | :--- | :--- |
-| **Ports** — what a consumer needs *someone* to do | `IMarketDataRepository`, `ISymbolCatalogRepository`, `IExchangeClient`, `IExchangeSessionFactory`, `ILiveStreamService`, `ISymbolMarketMetadataCache` | the adapters in `modules/market_data/adapters/`, bound in `module.py` |
+| **Ports** — what a consumer needs *someone* to do | `IMarketDataSync` (the one **published** port so far, PR 0.5 — four screens depend on it); internal to the module: `IMarketDataRepository`, `ISymbolCatalogRepository`, `IExchangeClient`, `IExchangeSessionFactory`, `ILiveStreamService`, `ISymbolMarketMetadataCache` | the adapters in `modules/market_data/adapters/` and `application/sync/`, bound in `composition/` |
 | **Answers** — the shapes a query hands back | `BacktestRangeCoverage`, `DatabaseStatusSnapshot`, `RangeCoverageSnapshot`, `SymbolMarketMetadata` | nobody: they are values |
 | **Events** — what this context announces (`events/`) | `MarketTickEvent`, the sync and bulk-sync events | published by the adapters and handlers |
 | **Failures** — what a consumer must be able to catch by name | `ExchangeRequestCancelledError` | raised by the adapters |
@@ -76,6 +76,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    CancellationCheck,
+    IMarketDataSync,
+    MarketDataSyncRequest,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
@@ -96,15 +101,18 @@ __all__ = [
     "MAX_REPORTED_MISSING_OPENS",
     "BacktestRangeCoverage",
     "BulkSyncProgressEvent",
+    "CancellationCheck",
     "DatabaseStatusSnapshot",
     "ExchangeRequestCancelledError",
     "IExchangeClient",
     "IExchangeSessionFactory",
     "ILiveStreamService",
     "IMarketDataRepository",
+    "IMarketDataSync",
     "ISymbolCatalogRepository",
     "ISymbolMarketMetadataCache",
     "LotSizeFilter",
+    "MarketDataSyncRequest",
     "MarketTickEvent",
     "MetadataVerificationStatus",
     "NotionalFilter",
