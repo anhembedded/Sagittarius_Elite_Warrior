@@ -28,7 +28,7 @@ gantt
     User review 0.1 (allowlist, golden master) :crit, done, r01, 2026-09-13, 1d
     PR 0.2 core/ shell/ mechanism              :done,    p02, 2026-09-13, 1d
     User check 0.2 (app opens as before)       :crit, done, r02, 2026-09-14, 1d
-    PR 0.3 support/binance_gateway             :         p03, after r02, 1d
+    PR 0.3 support/binance_gateway             :active,  p03, 2026-09-14, 1d
     PR 0.4 modules/market_data + contract suites + Data Management in QtWidgets : p04, after p03, 6d
     User check 0.4 (Data Management, CLI sync) :crit,    r04, after p04, 1d
     PR 0.5 skeleton walks with N=2             :         p05, after r04, 1d
@@ -79,3 +79,4 @@ gantt
 | 2026-09-13 | r01 | Review 0.1: the user pointed at the decision doctrine (§7) instead of answering; both questions settled by it in `EPIC-025A` §1.1 — allowlist as found, dataset stays generated. The pull request itself still waits for the user's push OK |
 | 2026-09-13 | p02 | PR 0.2 built locally: theme layer's global sheet removed (ADR D21a), `core/` + `shell/` with the contribution mechanism, one ConfigManager, the five legacy screens as contributions, two new architecture guards; gate green, 4 153 tests |
 | 2026-09-14 | r02 | PR 0.2 merged (PR #210) into master-warrior; work branch fast-forwarded. Phase 0 mechanism is in main; next is PR 0.3 (support/binance_gateway) |
+| 2026-09-14 | p03 | PR 0.3 (PR #211): `support/binance_gateway` extracted — 9 modules and 6 tests moved; boundary allowlist 10 → 8 pairs, the epic's first retired entries; `exchange_session_factory` and `binance_error_translator` deferred with reasons (EPIC-025A §1.3) |
