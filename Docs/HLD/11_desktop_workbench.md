@@ -83,15 +83,33 @@ Which former widgets become what:
 | Data Management tables, time-range and timeframe pickers | panels and dialogs | `market_data/ui/` |
 | Welcome | a mode with a central widget only: name, version, Start, developer-mode switch | shell |
 
-## 11.4 Theme: the OS default, nothing else
+## 11.4 Theme: the OS default, nothing else — reached as a ratchet
 
-The app applies **no** stylesheet, palette, token set or third-party theme: `qdarktheme` is removed
-from `requirements.txt`, `seed_app_theme()` and `kit/style.py` are deleted, the palette guard
-`test_palette_is_the_only_color_source.py` is retired. Widgets look like the platform's widgets
-(Windows, macOS, a Linux desktop) — that is the familiarity principle. A colour is used only where
-it carries meaning (profit / loss, connection state), through `QPalette` roles or a per-widget
-property, never a global stylesheet. A designed theme is a later decision, explicitly deferred by
-the user (*"sau này design màu theme tính sau"*).
+The target is unchanged: the app applies **no** stylesheet, palette, token set or third-party
+theme. Widgets look like the platform's widgets (Windows, macOS, a Linux desktop) — that is the
+familiarity principle. A colour is used only where it carries meaning (profit / loss, connection
+state), through `QPalette` roles or a per-widget property, never a global stylesheet. A designed
+theme is a later decision, explicitly deferred by the user (*"sau này design màu theme tính sau"*).
+
+**How it is reached** (revised 2026-09-13 while executing PR 0.2; the earlier text said
+`seed_app_theme()` and `kit/style.py` are deleted in Phase 0, which is not possible — see below).
+
+| Step | Phase | What happens |
+| :--- | :-: | :--- |
+| The global sheet goes | **0** (PR 0.2) | `qdarktheme` is removed from `requirements.txt` and from the dependency preflight; `app_bootstrapper._apply_theme()` is deleted with the two `ui.theme.*` config keys it read. Standard controls — menus, dialogs, scrollbars, combo popups, tooltips — render in the platform's theme from this point on. `test_no_global_stylesheet.py` forbids any theme distribution and any `setStyleSheet` on the application, for good |
+| Per-widget styling shrinks | 0 → 4 | every phase rebuilds its screens as plain QtWidgets panels and takes its styling with it. `tools/measure_app_styling.py` counts what is left and `test_app_styling_only_shrinks.py` holds the ground: the four numbers may only fall, and a phase that lowers one must lower the baseline in the same commit |
+| The colour source goes | **4** | `Palette`, `kit/style.py`, `seed_app_theme()` and the palette guard are deleted together with the last `.qml` file and the last `kit/` widget, when nothing reads them |
+
+**Why the middle row exists.** Two facts measured on the tree in PR 0.2 make a Phase 0 deletion
+impossible rather than merely expensive. First, the Engine's `create_quick_widget()` **raises**
+without `configure_app_qml()` (`BOT-132`), and `configure_app_qml()` is fed by `Palette`; the 35
+surviving `.qml` files carry 229 `Theme.*` bindings, so deleting the palette in Phase 0 would stop
+Trading, Dev Board and Backtest from opening at all. Second, `kit/style.py` is called from 52
+`apply_role()` sites across 26 files, beside 151 direct `setStyleSheet()` calls in 22 files;
+deleting it in Phase 0 means restyling every screen that Phases 1–4 are going to rebuild anyway —
+Phase 4's work done in Phase 0, against the Strangler Fig rule that the application keeps running
+at every step (§6.3). The ratchet reaches the same end state, in the order the migration already
+follows, and makes each phase's share visible as a number.
 
 ## 11.5 Rules that follow, enforced
 

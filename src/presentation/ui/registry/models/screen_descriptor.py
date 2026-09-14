@@ -15,10 +15,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import NavMetadata
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
 from sagittarius_engine.interfaces.i_container import IContainer
-
-from .nav_metadata import NavMetadata
 
 
 @dataclass(frozen=True, slots=True)

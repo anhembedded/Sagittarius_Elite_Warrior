@@ -17,7 +17,7 @@ widget viewmodel sẽ được test riêng"*:
 when the widget *is* the scene. Never construct a `QQuickWidget` here: a
 scene must clear to the token of the `StyleRole` it sits on, or it renders
 black on X11 and see-through on Wayland while every headless test stays green
-(`BUG-115`). `tests/unit/presentation/ui/qml/test_quick_widget_only_in_embed.py`
+(`BUG-115`). `tests/unit/architecture/test_quick_widget_only_in_embed.py`
 fails the build on a second way of doing it.
 
 The split is load-bearing, not cosmetic. Everything that can be wrong lives

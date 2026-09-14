@@ -42,7 +42,6 @@ import threading
 import traceback
 from dataclasses import dataclass
 
-import qdarktheme
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
@@ -55,9 +54,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints impo
     resolve_trading_venue,
 )
 from Sagittarius_Elite_Warrior.src.main import create_app
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
     is_headless_qt_platform,
 )
@@ -77,22 +73,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker impo
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
-    BacktestScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
-    DashboardScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.module import (
-    DatabaseScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
-    SettingsScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.module import (
-    TradingScreenModule,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
 )
@@ -106,14 +86,21 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator im
 from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
     seed_app_theme,
 )
+from Sagittarius_Elite_Warrior.src.shell.app_config import (
+    dev_mode_banner,
+    load_app_config,
+)
+from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
+    ContributionRegistry,
+)
+from Sagittarius_Elite_Warrior.src.shell.screen_wiring import (
+    build_screen_registry,
+    contribute_legacy_screens,
+)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
     setup_qt_signal_handling,
-)
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine.infrastructure.logging.dev_verbosity import (
-    resolve_dev_verbosity,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 
@@ -122,22 +109,9 @@ from sagittarius_engine.interfaces.i_config import IConfig
 #: docstring for what this is and — just as importantly — what it is not.
 _SELF_CHECK_FLAG = "--self-check"
 
-# ---------------------------------------------------------------------------
-# Config file paths — resolved relative to this file's location
-# ---------------------------------------------------------------------------
-_CONFIG_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config"
-)
-_APP_CONFIG = os.path.join(_CONFIG_DIR, "app_config.json")
-_USER_CONFIG = os.path.join(_CONFIG_DIR, "user_config.json")
-
-
-#: Kept out of the repo root so a dev session never dirties `git status`;
-#: `logs/` is git-ignored.
-_LOG_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-    "logs",
-)
+# The config file paths and the log directory moved to `shell/app_config.py`
+# with the loader that reads them (`EPIC-025` PR 0.2), so the GUI and the
+# headless path cannot drift apart again.
 
 
 @dataclass
@@ -175,28 +149,16 @@ def build() -> AppRuntime:
     # ------------------------------------------------------------------ #
     # 1. Boot the Sagittarius Engine
     # ------------------------------------------------------------------ #
-    config_manager = ConfigManager()
-    config_manager.load_json(_APP_CONFIG)
-    config_manager.load_json(_USER_CONFIG, writable=True)
-
-    # The --dev/--debug -> log level/file mapping is generic engine behavior
-    # (see sagittarius_engine.infrastructure.logging.dev_verbosity); what
-    # else dev/debug mode turns on here is this app's own concern —
-    # ConfigKeys.DEV_MODE (button-click auto-logging, per BaseView).
-    verbosity = resolve_dev_verbosity(sys.argv, _LOG_DIR)
-    if verbosity is not None:
-        config_manager.load_dict(
-            {
-                ConfigKeys.DEV_MODE.value: True,
-                "log.level": verbosity.log_level,
-                "log.file": verbosity.log_file,
-            }
-        )
-        print(
-            f"{'Debug' if verbosity.is_debug else 'Dev'} mode enabled — log "
-            f"level {verbosity.log_level}, full session written to "
-            f"{verbosity.log_file} (attach this file to bug reports)."
-        )
+    # `EPIC-025` — one loader for both entry points (`shell/app_config.py`).
+    # The --dev/--debug -> log level/file mapping is generic engine behaviour
+    # (`sagittarius_engine.infrastructure.logging.dev_verbosity`); what else
+    # developer mode turns on is this app's own concern (ConfigKeys.DEV_MODE:
+    # button-click auto-logging, per BaseView) and the value is decided once,
+    # here, for the whole run — `shell/dev_mode.py` says why.
+    config_manager, dev_mode = load_app_config(sys.argv)
+    banner = dev_mode_banner(dev_mode)
+    if banner is not None:
+        print(banner)
 
     app_engine = create_app(config_manager)
     app_engine.boot()
@@ -212,7 +174,10 @@ def build() -> AppRuntime:
     _install_exception_handler(app_engine)
     sig_timer = setup_qt_signal_handling(app)
     _apply_font(app, config_manager)
-    _apply_theme(app, config_manager)
+    # ADR D21: the app applies no stylesheet, palette or third-party theme of
+    # its own; standard controls render in the platform's theme. Colour is used
+    # only where it carries meaning, per widget. `qdarktheme`'s global dark
+    # sheet used to be applied here.
     # EPIC-006F removed `configure_app_qml()` here ("no QML left in this
     # app"); EPIC-015 brought QML back as embedded widgets and nobody
     # restored it — so for a year every host re-wired `Theme` by hand and
@@ -315,19 +280,17 @@ def build() -> AppRuntime:
         TimeframePinPreferences, timeframe_pin_preferences
     )
 
-    # `EPIC-016` — every screen registers itself here, once, instead of
-    # MainWindow importing each concrete View/Presenter. Order does not
-    # matter: ScreenRegistry sorts sections/items by their own declared
-    # sequence, not registration order.
-    screen_registry = ScreenRegistry()
-    for module_cls in (
-        DashboardScreenModule,
-        TradingScreenModule,
-        DatabaseScreenModule,
-        SettingsScreenModule,
-        BacktestScreenModule,
-    ):
-        screen_registry.register_module(module_cls(), app_engine.context.container)
+    # `EPIC-016` — every screen registers itself, once, instead of MainWindow
+    # importing each concrete View/Presenter. `EPIC-025` PR 0.2 takes the list
+    # of screens out of this entry point: the shell owns what the app is made
+    # of (`shell/legacy_screens.py` today, `shell/modules.py` for real
+    # modules), every screen arrives as a `ScreenContribution`, and the same
+    # registry will carry a bounded context's screens unchanged. Order still
+    # does not matter here: ScreenRegistry sorts sections and items by their
+    # own declared sequence.
+    contributions = ContributionRegistry(dev_mode=dev_mode.is_enabled)
+    contribute_legacy_screens(contributions, app_engine.context.container)
+    screen_registry = build_screen_registry(contributions)
 
     window = MainWindow(
         app_engine,
@@ -523,24 +486,6 @@ def _apply_font(app: QApplication, config: IConfig) -> None:
     font.setStyleHint(QFont.Monospace)
     font.insertSubstitutions(family, fallbacks)
     app.setFont(font)
-
-
-def _apply_theme(app: QApplication, config: IConfig) -> None:
-    """Apply qdarktheme, replacing the default accent color with the one from config.
-
-    @details The fallback below reads `Palette.ACCENT` rather than repeating the hex
-    literal — EPIC-005B found this was the only place the app still hardcoded its own
-    copy of the accent color outside `Palette`, once `qss/style.qss` (dead, unloaded
-    since the BOT-030 QML migration) was confirmed orphaned and removed.
-    """
-    accent = config.get(ConfigKeys.UI_THEME_ACCENT_COLOR, Palette.ACCENT)
-    replace = config.get(
-        ConfigKeys.UI_THEME_REPLACE_COLOR,
-        "rgba(138.000, 180.000, 247.000, 1.000)",
-    )
-
-    raw = qdarktheme.load_stylesheet("dark")
-    app.setStyleSheet(raw.replace(replace, accent))
 
 
 if __name__ == "__main__":

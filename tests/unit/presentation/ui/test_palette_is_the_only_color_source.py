@@ -5,14 +5,20 @@ the BOT-030 QML migration — nothing in `src/` loaded it) has been removed.
 Without this, the next "add a QtWidgets screen" (EPIC-005D onward) could reintroduce
 exactly the duplication this task just closed: a second hardcoded copy of an accent color
 living outside `Palette`, discovered only by accident.
+
+`EPIC-025` PR 0.2 (ADR D21) deleted `app_bootstrapper._apply_theme` together with
+`qdarktheme`, so the behavioural half of this file went with its subject
+(`HLD` §9.3 category 3: "subject deleted; behaviour exists nowhere else" — no
+code applies a global stylesheet any more, and
+`tests/unit/architecture/test_no_global_stylesheet.py` is what keeps it that
+way). The static scan below stays: `Palette` still feeds the QML `Theme.*`
+bindings and `kit/style.py` until Phase 4 deletes both, and a second copy of one
+of its hex values would be the same bug as before.
 """
 
 import re
 from pathlib import Path
-from unittest.mock import MagicMock
 
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.presentation.ui.app_bootstrapper import _apply_theme
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -57,8 +63,8 @@ _EXEMPT_FILES = frozenset(
 
 
 def test_no_second_hardcoded_copy_of_a_palette_color_exists_in_presentation_ui():
-    """The exact class of bug EPIC-005B found: `_apply_theme`'s old fallback
-    `config.get(ConfigKeys.UI_THEME_ACCENT_COLOR, "#F3BA2F")` duplicated
+    """The exact class of bug EPIC-005B found: the theme application's old
+    fallback `config.get("ui.theme.accent_color", "#F3BA2F")` duplicated
     `Palette.ACCENT`'s value as an independent literal. Any `.py` file under
     `presentation/ui/` (outside the exemptions above) that contains a hex literal
     matching one of Palette's own values is either that same duplication again, or a
@@ -86,20 +92,3 @@ def test_no_second_hardcoded_copy_of_a_palette_color_exists_in_presentation_ui()
         "Palette's own values -- import Palette instead of re-typing the hex:\n"
         + "\n".join(offenders)
     )
-
-
-def test_apply_theme_falls_back_to_palette_accent_not_a_second_literal():
-    """Behavioral proof, not just static: with no config override present,
-    _apply_theme must ask qdarktheme for exactly Palette.ACCENT."""
-    config = MagicMock()
-    config.get.side_effect = lambda key, default=None, **kw: default
-
-    app = MagicMock()
-    _apply_theme(app, config)
-
-    accent_call = next(
-        call
-        for call in config.get.call_args_list
-        if call.args[0] == ConfigKeys.UI_THEME_ACCENT_COLOR
-    )
-    assert accent_call.args[1] == Palette.ACCENT

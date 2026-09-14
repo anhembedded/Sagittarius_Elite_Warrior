@@ -8,7 +8,7 @@ flag. `EPIC-021F` only ever wires `VALIDATE_ONLY` (`POST
 payload in full, but never queues the order for matching. Nothing in this
 repo is allowed to construct this adapter with `OrderSubmissionMode.LIVE`
 until `EPIC-021G` — guarded by
-`tests/unit/infrastructure/binance/test_order_submission_mode_live_is_restricted.py`.
+`tests/unit/architecture/test_order_submission_mode_live_is_restricted.py`.
 
 Only `BinanceAPIException` (a response the exchange actually sent back,
 carrying a code) is translated into a named `OrderRejectedByExchangeError`

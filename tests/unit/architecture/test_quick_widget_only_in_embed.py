@@ -31,7 +31,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-_UI_ROOT = Path(__file__).resolve().parents[5] / "src" / "presentation" / "ui"
+_UI_ROOT = Path(__file__).resolve().parents[3] / "src" / "presentation" / "ui"
 _EMBED_DIR = _UI_ROOT / "qml" / "embed"
 
 #: The file that *is* the theme-seeding mechanism, so the only one allowed to

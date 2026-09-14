@@ -1,4 +1,8 @@
-from .nav_metadata import NavLocation, NavMetadata
+from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import (
+    NavLocation,
+    NavMetadata,
+)
+
 from .screen_descriptor import ScreenDescriptor
 from .section_descriptor import SectionDescriptor
 

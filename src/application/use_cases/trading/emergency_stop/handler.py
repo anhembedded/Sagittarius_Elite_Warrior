@@ -2,7 +2,7 @@
 app allows to construct `FuturesTradingClient` with
 `OrderSubmissionMode.LIVE` (see `ExecuteOrderCommandHandler`'s own
 docstring for the first, and
-`tests/unit/infrastructure/binance/test_order_submission_mode_live_is_restricted.py`
+`tests/unit/architecture/test_order_submission_mode_live_is_restricted.py`
 for the guard listing both by name).
 
 @details Does **not** go through `ExecuteOrderCommand`/`DisableTradingCommand`

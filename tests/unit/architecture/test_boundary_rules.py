@@ -66,6 +66,23 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         ("support.ui_kit.page_shell", "modules.trading.contracts.i_session", False),
         ("shell.modules", "modules.trading.module", True),
         ("shell.modules", "modules.trading.application.x", False),
+        # --- config/ is vocabulary: everyone reads it, it reads nobody -------
+        ("domain.trading.order", "config.config_keys", True),
+        ("shell.dev_mode", "config.config_keys", True),
+        ("modules.trading.application.x", "config.config_keys", True),
+        ("config.config_keys", "domain.trading.order", False),
+        # --- only an entry point may call into the shell ---------------------
+        ("presentation.ui.app_bootstrapper", "shell.app_config", True),
+        (
+            "presentation.ui.screens.trading.trading_presenter",
+            "shell.app_config",
+            False,
+        ),
+        ("application.use_cases.x.handler", "shell.modules", False),
+        # --- the shell is Main: during the strangler period it wires the old
+        #     tree too, and the baseline file keeps that finite ---------------
+        ("shell.legacy_screens", "presentation.ui.registry", True),
+        ("shell.screen_wiring", "presentation.ui.registry", True),
         # --- outside the tree: never a violation ----------------------------
         ("domain.trading.order", "sagittarius_engine.domain.base_event", True),
         ("domain.trading.order", "PySide6.QtCore", True),

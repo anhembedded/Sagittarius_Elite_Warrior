@@ -425,6 +425,24 @@ they are very bad; just use the OS default theme; a designed colour theme is for
 stylesheet, palette, token set or `qdarktheme`; colour only where it carries meaning. The Engine's
 tokens are not consumed by this app; whether the Engine grows a QtWidgets kit is deferred.
 
+**D21a — how D21 is executed: one deletion now, the rest as a ratchet** (decided 2026-09-13 while
+executing PR 0.2, under the decision doctrine of `ONBOARDING.md` §7; the end state of D21 is
+unchanged and not up for revision). The phrase "the token and theme layer is retired **in Phase
+0**" turned out to be unexecutable as written, for two measured reasons:
+
+- the Engine's `create_quick_widget()` raises without `configure_app_qml()` (`BOT-132`), which is
+  fed by `Palette`; the 35 `.qml` files that live until Phase 4 carry 229 `Theme.*` bindings, so
+  deleting the palette in Phase 0 stops three screens from opening;
+- `kit/style.py` has 52 `apply_role()` call sites in 26 files, beside 151 direct `setStyleSheet()`
+  calls in 22 files. Removing them in Phase 0 is restyling every screen that Phases 1–4 rebuild
+  anyway — Phase 4's work moved into Phase 0, against D5's Strangler Fig rule.
+
+So Phase 0 deletes the **global** theme (`qdarktheme`, `_apply_theme`, the two `ui.theme.*` keys):
+every standard control renders in the OS theme immediately, which is the visible half of what the
+user asked for. The per-widget remainder becomes a shrink-only ratchet
+(`tools/measure_app_styling.py` + `test_app_styling_only_shrinks.py`), and the colour source itself
+is deleted in Phase 4 with its last consumer. HLD §11.4 carries the table.
+
 ### D22 — Panels and dialogs replace cards; the workbench is `QMainWindow` with modes and perspectives
 
 Verbatim: *"các card cũ cũng rất là tệ, có thể bạn nên thiết kế lại các card luôn, hoặc theo module

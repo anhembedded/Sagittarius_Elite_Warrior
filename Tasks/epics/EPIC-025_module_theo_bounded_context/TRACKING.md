@@ -24,9 +24,9 @@ gantt
     User review of the spec                    :crit, done, s5, 2026-09-13, 1d
 
     section Phase 0 — mechanism + market_data (EPIC-025A)
-    PR 0.1 baselines and guards                :active,  p01, 2026-09-13, 2d
-    User review 0.1 (allowlist, golden master) :crit,    r01, after p01, 1d
-    PR 0.2 core/ shell/ mechanism              :         p02, after r01, 3d
+    PR 0.1 baselines and guards                :done,    p01, 2026-09-13, 1d
+    User review 0.1 (allowlist, golden master) :crit, done, r01, 2026-09-13, 1d
+    PR 0.2 core/ shell/ mechanism              :active,  p02, 2026-09-13, 2d
     User check 0.2 (app opens as before)       :crit,    r02, after p02, 1d
     PR 0.3 support/binance_gateway             :         p03, after r02, 1d
     PR 0.4 modules/market_data + contract suites + Data Management in QtWidgets : p04, after p03, 6d
@@ -77,3 +77,4 @@ gantt
 | 2026-09-13 | s5, p01 | User approved the spec; Phase 0 started with PR 0.1 |
 | 2026-09-13 | p01 | PR 0.1 built locally: 3 guards in `tests/unit/architecture/`, allowlist (10 pairs), QML baseline (35), golden master (13 trades), 3948 → 4059 tests collected; self-review split the guards into one file per abstraction level (architecture-rule §5); waiting for the user's review before push |
 | 2026-09-13 | r01 | Review 0.1: the user pointed at the decision doctrine (§7) instead of answering; both questions settled by it in `EPIC-025A` §1.1 — allowlist as found, dataset stays generated. The pull request itself still waits for the user's push OK |
+| 2026-09-13 | p02 | PR 0.2 built locally: theme layer's global sheet removed (ADR D21a), `core/` + `shell/` with the contribution mechanism, one ConfigManager, the five legacy screens as contributions, two new architecture guards; gate green, 4 153 tests |

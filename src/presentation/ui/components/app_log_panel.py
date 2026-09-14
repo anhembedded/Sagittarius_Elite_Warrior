@@ -86,7 +86,7 @@ class AppLogPanel(LogPanel):
     Backtest and Dev Board screens reached across screen boundaries to import
     it. Nobody decided that; it was just where the widget happened to be
     written first, and each reuse tightened a coupling that no filename
-    admitted to. `tests/unit/presentation/ui/test_no_cross_screen_imports.py`
+    admitted to. `tests/unit/architecture/test_no_cross_screen_imports.py`
     now fails if it starts again.
     """
 

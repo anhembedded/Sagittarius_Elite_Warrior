@@ -18,7 +18,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _QML_DIR = _REPO_ROOT / "src" / "presentation" / "ui" / "qml"
 _FORBIDDEN_SUBSTRING = "presentation.ui.screens"
 

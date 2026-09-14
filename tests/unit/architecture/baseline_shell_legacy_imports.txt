@@ -1,0 +1,29 @@
+# The shell's imports of the legacy tree, as they stand (EPIC-025 PR 0.2).
+# Read by tests/unit/architecture/test_module_boundaries.py.
+#
+# The shell is Clean Architecture's Main component, so wiring whatever exists is
+# its job, not a violation: during the strangler period that includes the five
+# screens it carries as contributions until their bounded context claims them.
+# Recorded here so the permission is visible and finite. Shrink-only in both
+# directions: a new line fails, and a line whose import is gone must be deleted
+# in the same commit. The file is empty when Phase 4 deletes the legacy tree.
+#
+# shell/composition_root.py is not listed: it is a composition-root file and the
+# boundary scan skips it entirely, beside main.py, app_bootstrapper.py and
+# binance_bot_module.py.
+#
+# Which phase removes which line:
+#   legacy_screens -> screens.dashboard/trading   Phase 1 (modules/trading)
+#   legacy_screens -> screens.data_management     Phase 0 PR 0.4 (modules/market_data)
+#   legacy_screens -> screens.backtest           Phase 3 (modules/backtesting)
+#   legacy_screens -> screens.settings           Phase 4 (settings becomes a surface)
+#   *_adapter/wiring/legacy_screens -> registry   Phase 5 (ScreenRegistry -> NavigationService)
+shell.legacy_screen_adapter -> presentation.ui.registry
+shell.legacy_screen_adapter -> presentation.ui.registry.models
+shell.legacy_screens -> presentation.ui.registry
+shell.legacy_screens -> presentation.ui.screens.backtest.module
+shell.legacy_screens -> presentation.ui.screens.dashboard.module
+shell.legacy_screens -> presentation.ui.screens.data_management.module
+shell.legacy_screens -> presentation.ui.screens.settings.module
+shell.legacy_screens -> presentation.ui.screens.trading.module
+shell.screen_wiring -> presentation.ui.registry

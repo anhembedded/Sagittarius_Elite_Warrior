@@ -37,8 +37,6 @@ class ConfigKeys(str, Enum):
     UI_FONT_FAMILY = "ui.font.family"
     UI_FONT_SIZE = "ui.font.size"
     UI_FONT_FALLBACKS = "ui.font.fallbacks"
-    UI_THEME_ACCENT_COLOR = "ui.theme.accent_color"
-    UI_THEME_REPLACE_COLOR = "ui.theme.replace_color"
 
     # Chart Configuration
     CHART_CARD_MAX_ZOOM_OUT_CANDLES = "CHART_CARD_MAX_ZOOM_OUT_CANDLES"

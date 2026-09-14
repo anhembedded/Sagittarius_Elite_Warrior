@@ -10,7 +10,7 @@ Pure static analysis (ast) — no PySide6 import, no qapp fixture needed.
 import ast
 from pathlib import Path
 
-_UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
+_UI_ROOT = Path(__file__).resolve().parents[3] / "src" / "presentation" / "ui"
 _SCREENS_DIR = _UI_ROOT / "screens"
 
 

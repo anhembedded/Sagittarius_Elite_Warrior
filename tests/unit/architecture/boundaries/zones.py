@@ -1,16 +1,21 @@
 """Which *zone* of the source tree a module belongs to (HLD §3, §6.1).
 
 A zone is the unit the boundary rules reason about: one of the four legacy
-layers, `config`, or a package of the new tree (`core`, `shell`,
+layers, the configuration vocabulary, or a package of the new tree (`core`, `shell`,
 `support/<name>`, `modules/<name>`). Module names are dotted and relative to
 `src/`, e.g. `application.ports.i_cqrs`.
 """
 
 from __future__ import annotations
 
-LEGACY_ZONES = frozenset(
-    {"domain", "application", "presentation", "infrastructure", "config"}
-)
+LEGACY_ZONES = frozenset({"domain", "application", "presentation", "infrastructure"})
+
+#: `src/config/` is not a layer: one `str`-valued enum of key names plus the JSON
+#: files it names. Every zone may import it and it imports nothing, so it is part
+#: of the kernel's vocabulary rather than a dependency anyone has to justify. It
+#: keeps a zone name of its own so the rule that it imports nothing stays
+#: checkable.
+CONFIG_ZONE = "config"
 
 _SINGLE_PACKAGE_ZONES = frozenset({"core", "shell"})
 _FAMILY_ZONES = frozenset({"support", "modules"})
@@ -24,7 +29,7 @@ def zone_of(module: str) -> str | None:
     Engine, the standard library, the composition root."""
     parts = module.split(".")
     top = parts[0]
-    if top in LEGACY_ZONES or top in _SINGLE_PACKAGE_ZONES:
+    if top == CONFIG_ZONE or top in LEGACY_ZONES or top in _SINGLE_PACKAGE_ZONES:
         return top
     if top in _FAMILY_ZONES and len(parts) > 1:
         return f"{top}/{parts[1]}"
