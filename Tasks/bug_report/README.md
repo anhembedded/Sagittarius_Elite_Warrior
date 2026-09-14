@@ -58,9 +58,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 1 |
-| ✅ **Đã sửa / đã đóng** | 114 |
-| 📈 **Tổng** | **115** |
+| 🔴 **Đang mở** | 2 |
+| ✅ **Đã sửa / đã đóng** | 115 |
+| 📈 **Tổng** | **117** |
 
 ---
 
@@ -68,6 +68,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo |
 | :--- | :--- | :---: | :---: |
+| **[BUG-119](incomplete/BUG-119_the_gate_stalls_deterministically_at_3993_tests.md)** | `ci-local.ps1 -Full` đứng ở 96% và không bao giờ xong — **tất định**: ba lần chạy đều dừng sau đúng 3993 test, hai log giống nhau đến từng byte. `py-spy` cho thấy controller chờ queue (`xdist/dsession.py:154`) trong khi **cả 4 worker đều idle** trong `execnet.serve()`; ~170 test không bao giờ được giao. Đã loại trừ: OOM, đĩa, worker crash, test cụ thể, tranh tài nguyên, và cả leak `BUG-118`. Chưa root-cause | 🔴 P1 | 2026-09-14 |
 | **[BUG-110](incomplete/BUG-110_chart_range_warning_tai_xuat_hien_sau_khi_BUG-034_da_sua.md)** | Cảnh báo `[chart-range]` (nến bị ép dẹp) tái xuất hiện trên màn Giao dịch (ETHUSDT), sau khi `BUG-034` đã sửa — log không nêu tên item thủ phạm nào khác ngoài nến, nên gần như chắc chắn là cơ chế khác, chưa root-cause | 🟡 P3 | 2026-09-09 |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
