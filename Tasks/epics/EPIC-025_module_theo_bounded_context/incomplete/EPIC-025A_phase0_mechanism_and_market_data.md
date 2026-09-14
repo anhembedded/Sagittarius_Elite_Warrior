@@ -192,6 +192,22 @@ as *Main*, and even that is recorded in a shrink-only baseline).
 Both deferrals are recorded in the HLD §3.5 mapping table as their own rows, with the phase that
 finishes them, so the next reader sees the plan and not a gap.
 
+## 1.4 PR 0.4 is split in two (decided 2026-09-14)
+
+The plan had one pull request carrying both the module extraction and the QtWidgets rebuild of Data
+Management. Those are two different kinds of risk — a move that must change no behaviour, and a UI
+rewrite that changes what the user sees — and bundling them means a red gate cannot tell you which
+half broke. `architecture-rule.md` §5's bias applies to pull requests as much as to files:
+splitting needs no permission.
+
+| | Content | Risk it carries |
+| :-- | :--- | :--- |
+| **0.4a** | the module: `domain/`, `application/`, `contracts/`, `adapters/`, registration in `shell/modules.py`, CLI `sync` / `stream`, contract suites and verified fakes. Data Management keeps its current widgets and consumes the module through its contracts | a pure move — every existing test must still pass, unchanged |
+| **0.4b** | Data Management rebuilt as QtWidgets panels and dialogs; four `.qml` files deleted | the first visible UI change of the epic; the QML baseline drops by four |
+
+The user's Phase 0 checkpoint ("Data Management: sync a symbol") lands on **0.4b**, with the CLI
+check on 0.4a.
+
 ## 2. Done when
 
 - The app runs exactly as before; Data Management goes through the registry; CLI `sync` and

@@ -28,8 +28,9 @@ gantt
     User review 0.1 (allowlist, golden master) :crit, done, r01, 2026-09-13, 1d
     PR 0.2 core/ shell/ mechanism              :done,    p02, 2026-09-13, 1d
     User check 0.2 (app opens as before)       :crit, done, r02, 2026-09-14, 1d
-    PR 0.3 support/binance_gateway             :active,  p03, 2026-09-14, 1d
-    PR 0.4 modules/market_data + contract suites + Data Management in QtWidgets : p04, after p03, 6d
+    PR 0.3 support/binance_gateway             :done,    p03, 2026-09-14, 1d
+    PR 0.4a modules/market_data behind its UI    :active,  p04a, 2026-09-14, 4d
+    PR 0.4b Data Management in QtWidgets        :         p04b, after p04a, 3d
     User check 0.4 (Data Management, CLI sync) :crit,    r04, after p04, 1d
     PR 0.5 skeleton walks with N=2             :         p05, after r04, 1d
     Phase 0 measured, Phases 1–5 re-estimated  :milestone, m0, after p05, 0d
@@ -80,3 +81,4 @@ gantt
 | 2026-09-13 | p02 | PR 0.2 built locally: theme layer's global sheet removed (ADR D21a), `core/` + `shell/` with the contribution mechanism, one ConfigManager, the five legacy screens as contributions, two new architecture guards; gate green, 4 153 tests |
 | 2026-09-14 | r02 | PR 0.2 merged (PR #210) into master-warrior; work branch fast-forwarded. Phase 0 mechanism is in main; next is PR 0.3 (support/binance_gateway) |
 | 2026-09-14 | p03 | PR 0.3 (PR #211): `support/binance_gateway` extracted — 9 modules and 6 tests moved; boundary allowlist 10 → 8 pairs, the epic's first retired entries; `exchange_session_factory` and `binance_error_translator` deferred with reasons (EPIC-025A §1.3) |
+| 2026-09-14 | p03, p04 | PR 0.3 merged (PR #211); `src/src`, a dangling symlink committed by accident in `8dc9b3ef`, deleted (PR #212). PR 0.4 split into 0.4a (the module, behind the existing UI) and 0.4b (Data Management in QtWidgets) — two different kinds of risk, EPIC-025A §1.4; 0.4a started |
