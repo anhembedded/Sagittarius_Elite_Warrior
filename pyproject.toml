@@ -51,6 +51,37 @@ filterwarnings = [
 
 asyncio_mode = "auto"
 
+# ---------------------------------------------------------------------------
+# Per-test timeout (`BUG-119`, 2026-09-14)
+#
+# A failing test is visible; a **hanging** test is not, and that asymmetry cost
+# an afternoon. `execute_stream()` ends in `while True: time.sleep(1)` by design
+# (a blocking foreground CLI). `EPIC-025` PR 0.4a-2 moved dispatch behind a port,
+# the test's mock stopped intercepting the call the code makes, a permissive
+# `Mock` passed the `success` guard, and one test entered that loop forever. Its
+# xdist worker then never reported, the controller waited for it, and the gate
+# stopped at 96% — three runs in a row, no test reported `FAILED`, no traceback,
+# no exit code. It took `py-spy` on the live processes and a comparison of log
+# byte counts to find a 15-line mistake.
+#
+# With this, the same hang is an ordinary failure naming the test.
+#
+# 60s is chosen against measurement, not taste. The slowest legitimate test in
+# the suite is 22.93s (`test_a_task_outliving_shutdown_is_named_rather_than_
+# hanging_silently`, which deliberately waits on a lingering thread); the next
+# slowest is 5.18s. 60s is ~2.6x the outlier, so it has real headroom on a loaded
+# machine, while still turning a hang into a failure within a minute instead of
+# never. Raise it only with a fresh `--durations` measurement pasted into the
+# commit; a test that legitimately needs longer should carry its own
+# `@pytest.mark.timeout(...)` rather than push this global up for everyone.
+#
+# `method` is left at pytest-timeout's platform default (`signal` on Unix), which
+# interrupts only the offending test and gives a traceback at the line that hung
+# — verified against this exact hang, not assumed. Its known limit is code that
+# blocks without releasing the GIL, where `thread` would be needed; that trade
+# (killing the whole run) is not worth making until such a hang actually appears.
+timeout = 60
+
 [tool.ruff.lint]
 # EPIC-004 — security and maintainability rules enabled incrementally from
 # the baseline audit (Tasks/reports/EPIC-004A_ruff_security_quality_baseline_audit.md).
