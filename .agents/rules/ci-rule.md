@@ -13,6 +13,34 @@ run — it may not boot the project under the same import or Qt environment.
 
 ## 1. Required verification
 
+### Run the 1-second checks first — always, before the 4-minute one
+
+```powershell
+.\scripts\ci-local.ps1 -SkipTests   # Ruff lint + Ruff format + Mypy + skill refs
+```
+
+**Measured 2026-09-14: this takes 1 second.** It runs the *same* four static steps
+the full gate runs, with the same configuration — so anything it catches, the full
+gate would have caught four minutes later.
+
+This is not a style preference, it is a lesson with a receipt. On 2026-09-14 the
+full gate was run 23 times in one session and blocked 5 times. Every block was a
+real defect and none was a false alarm — but **two of the five were Mypy-only**
+(`EPIC-025` PR 0.4a: five baseline entries still keyed to pre-move paths, exposing
+21 pre-existing SQLAlchemy errors; PR 0.4a-3: a `sum(1 for ...)` resolving to the
+wrong overload). Both were catchable in one second, and both were instead
+discovered after a four-minute test run. That is ~8 minutes spent learning what a
+2-second habit would have said, plus the cost of losing the thread while waiting.
+
+Do not substitute a bare `ruff`/`mypy` invocation for it. `mypy` run by hand over
+`src` and `scripts` separately, or without the script's `MYPYPATH`, fails on a
+duplicate `__main__` module and resolves imports differently — the script exists
+because the environment matters (§"Never substitute a bare `pytest.exe`" applies
+to the type checker too).
+
+Green here does **not** replace the full gate; it only means the full gate will not
+fail on lint or typing.
+
 ### Full gate — required before handoff, commit, merge, or claiming completion
 
 Run from the bot root (`Sagittarius_Elite_Warrior/`), not the parent workspace:
@@ -70,16 +98,31 @@ one file able to affect build, runtime, lint, type check or test behavior brings
 | Reproduce a parallel issue | `.\scripts\ci-local.ps1 -Full -Workers 1` | Full gate with deterministic single-worker primary tests | No |
 | Use fewer/more workers | `.\scripts\ci-local.ps1 -Full -Workers 4` | Full gate with the requested primary-test worker count | No |
 | Diagnose tests only | `.\scripts\ci-local.ps1 -Full -SkipLint` | Full test/coverage tier without static checks | No |
-| Diagnose static checks only | `.\scripts\ci-local.ps1 -Full -SkipTests` | Ruff checks without tests | No |
+| Static checks only — **run this first, every time** (§1) | `.\scripts\ci-local.ps1 -SkipTests` | Ruff lint + Ruff format + Mypy + skill refs, no tests. 1 second. Not a substitute for the gate | No |
 | Real Binance Futures Testnet (`EPIC-021J`) | `$env:SEW_TESTNET_TESTS=1; .\scripts\ci-local.ps1 -TestnetOnly` | `tests/testnet/` only, sequential, no lint/format or coverage gate | No |
 
 `-SkipLint`, `-SkipTests`, `-UnitOnly`, `-SanityOnly` and `-TestnetOnly` are diagnostic tools.
 They MUST NOT be used to bypass a failing required gate, justify a commit, or mark a task complete.
 
-**A run that looks hung, not merely slow, on a box with fewer than 6 real cores** — most workers'
-CPU time frozen for minutes while only one or two still tick up — is very likely `-n` oversubscribing
-past actual core count, not a real deadlock in the code under test: several xdist workers end up
-CPU-starved rather than making forward progress. `$Workers`' default (`min(logical processor
+**A run that looks hung has two causes, and they are told apart by `py-spy`, not by guessing.**
+
+*Cause 1 — a test in an infinite loop* (`BUG-119`, 2026-09-14). One test never returns, so its
+worker never reports, the xdist controller waits for it forever, and the other workers drain their
+queues and go idle. It looks exactly like a deadlock and it is not: it is one ordinary bug. Tells:
+the run stops at the **same test count every time** (three runs stopped at 3993, two logs
+byte-identical in size), and `py-spy dump --pid <worker>` shows one worker inside application code
+while the rest sit in `execnet.serve()`. `pytest-timeout` (§1) now turns this into a normal failure
+naming the test and the line, so it should not recur silently — but read the dump before concluding.
+
+*Cause 2 — `-n` oversubscribing past actual core count* on a box with fewer than 6 real cores: most
+workers' CPU time frozen for minutes while only one or two still tick up. Several xdist workers end
+up CPU-starved rather than making forward progress, and no worker is stuck in application code.
+
+**Two traps when diagnosing either.** `ps`'s `%CPU` is an average over each process's whole
+lifetime, not an instantaneous reading — during a stall it shows idle workers at 40-95%, which reads
+as "busy" and is wrong. And **dump every worker**: on 2026-09-14 only the two with the largest
+resident memory were dumped, the result was stated as if all four, and the hanging worker was one of
+the two skipped — which is how `BUG-119` was first filed with the wrong root cause. `$Workers`' default (`min(logical processor
 count, 6)`) already avoids this on a smaller machine; it only resurfaces if `-Workers` is passed
 explicitly above the real core count. Confirm before killing anything: `ps aux` (Linux) / Task
 Manager (Windows) — worker CPU time genuinely frozen across two checks a few seconds apart, not

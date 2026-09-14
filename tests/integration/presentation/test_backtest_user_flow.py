@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime, timedelta
-from itertools import pairwise
 from unittest.mock import patch
 
 import pytest
@@ -14,10 +13,10 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
-    DatabaseStatusSnapshot,
-    DataGap,
     IMarketDataRepository,
-    RangeCoverageSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
+    FakeMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_symbol,
@@ -60,135 +59,13 @@ _RUNTIME_INTERVAL = "1h"
 _TOOLBAR_TIMEFRAME_INTERVAL = "5m"
 
 
-class _InMemoryMarketDataRepository(IMarketDataRepository):
-    def __init__(self, klines: list[MarketData]) -> None:
-        self._klines = list(klines)
-
-    def save_klines(self, klines: list[MarketData]) -> None:
-        self._klines = list(klines)
-
-    def get_latest_kline_time(
-        self, symbol: str, interval: TimeFrame
-    ) -> datetime | None:
-        matching_klines = self.get_klines(symbol, interval)
-        return matching_klines[-1].open_time if matching_klines else None
-
-    def get_klines(
-        self,
-        symbol: str,
-        interval: TimeFrame,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        limit: int | None = None,
-        order_by_desc: bool = False,
-    ) -> list[MarketData]:
-        rows = [
-            kline
-            for kline in self._klines
-            if kline.symbol == symbol and kline.interval == interval.value
-        ]
-        if start_time is not None:
-            rows = [kline for kline in rows if kline.open_time >= start_time]
-        if end_time is not None:
-            rows = [kline for kline in rows if kline.open_time <= end_time]
-        rows.sort(key=lambda kline: kline.open_time, reverse=order_by_desc)
-        return rows[:limit] if limit is not None else rows
-
-    def count_klines(
-        self,
-        symbol: str,
-        interval: TimeFrame,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        limit: int | None = None,
-    ) -> int:
-        return len(self.get_klines(symbol, interval, start_time, end_time, limit))
-
-    def stream_klines(
-        self,
-        symbol: str,
-        interval: TimeFrame,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        offset: int | None = None,
-        limit: int | None = None,
-        order_by_desc: bool = False,
-    ):
-        rows = self.get_klines(
-            symbol, interval, start_time, end_time, None, order_by_desc
-        )
-        if offset is not None:
-            rows = rows[offset:]
-        if limit is not None:
-            rows = rows[:limit]
-        yield from rows
-
-    def get_database_status(
-        self, symbol: str, interval: TimeFrame
-    ) -> DatabaseStatusSnapshot:
-        rows = self.get_klines(symbol, interval)
-        return DatabaseStatusSnapshot(
-            first_record=rows[0].open_time if rows else None,
-            last_record=rows[-1].open_time if rows else None,
-            total_candles=len(rows),
-            gaps=0,
-        )
-
-    def get_database_status_for_intervals(
-        self, symbol: str, intervals: list[TimeFrame]
-    ) -> dict[str, DatabaseStatusSnapshot]:
-        return {
-            interval.value: self.get_database_status(symbol, interval)
-            for interval in intervals
-        }
-
-    def get_range_coverage(
-        self,
-        symbol: str,
-        interval: TimeFrame,
-        start_time: datetime | None,
-        end_time: datetime,
-        now: datetime,
-    ) -> RangeCoverageSnapshot:
-        rows = self.get_klines(symbol, interval, start_time, end_time)
-        rows = [row for row in rows if row.open_time < end_time]
-        first_gap_after = next(
-            (
-                previous.open_time
-                for previous, current in pairwise(rows)
-                if (current.open_time - previous.open_time).total_seconds()
-                > interval.to_seconds()
-            ),
-            None,
-        )
-        return RangeCoverageSnapshot(
-            first_record=rows[0].open_time if rows else None,
-            last_record=rows[-1].open_time if rows else None,
-            total_candles=len(rows),
-            distinct_candles=len({row.open_time for row in rows}),
-            first_gap_after=first_gap_after,
-            unclosed_candles=sum(
-                bool(row.close_time and row.close_time > now) for row in rows
-            ),
-        )
-
-    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
-        return 0
-
-    def purge_all(self) -> int:
-        return 0
-
-    def list_available_shards(self) -> list[str]:
-        return [_RUNTIME_SYMBOL]
-
-    def vacuum(self, symbol: str | None = None) -> None:
-        pass
-
-    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
-        return []
-
-    def has_any_klines(self, symbol: str) -> bool:
-        return any(kline.symbol == symbol for kline in self._klines)
+# `EPIC-025` PR 0.4a-3: this file used to carry its own 130-line
+# `_InMemoryMarketDataRepository` — the third hand-rolled copy of one idea, and
+# the exact duplication a verified fake exists to end. It now uses
+# `FakeMarketDataRepository`, which ships with the port and passes the same
+# contract suite `SQLAlchemyMarketDataRepository` passes, so a divergence
+# between what this test assumes and what the real repository does now fails a
+# test instead of going unnoticed.
 
 
 def _make_runtime_klines(interval: str = _RUNTIME_INTERVAL) -> list[MarketData]:
@@ -242,7 +119,7 @@ def booted_backtest_app():
 def backtest_screen(qapp, qtbot, booted_backtest_app):
     booted_backtest_app.context.container.singleton(
         IMarketDataRepository,
-        _InMemoryMarketDataRepository(
+        FakeMarketDataRepository(
             _make_runtime_klines() + _make_runtime_klines(_TOOLBAR_TIMEFRAME_INTERVAL)
         ),
     )
