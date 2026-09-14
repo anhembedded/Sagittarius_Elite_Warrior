@@ -1,6 +1,6 @@
 """Embeds `OpenOrdersTable.qml` inline in a screen's workspace.
 
-@details Same shape as `PositionsPanel`/`DatabaseStatusPanel`.
+@details Same shape as `PositionsPanel`.
 
 `EPIC-023A` moved this out of `screens/trading/trading_widgets/` into this
 already-shared `qml/OpenOrdersTable/` directory — see `positions_panel.py`'s
@@ -30,9 +30,9 @@ _QML = Path(__file__).resolve().parent / "OpenOrdersTable.qml"
 class OpenOrdersPanel(Panel):
     """The Open Orders table, embedded (not modal)."""
 
-    #: `EPIC-024B` §0 — re-exposes `OpenOrdersVM.cancelRequested`, same
-    #: shape `DatabaseStatusPanel.rowActionRequested` re-exposes for its
-    #: own per-row buttons.
+    #: `EPIC-024B` §0 — re-exposes `OpenOrdersVM.cancelRequested`: a row
+    #: action a panel forwards to whichever screen hosts it, identified by
+    #: the row it was pressed on.
     cancelRequested = Signal(str, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -58,6 +58,5 @@ class OpenOrdersPanel(Panel):
     @property
     def root_object(self) -> QObject:
         """The loaded QML root, for tests to `findChild`/`qml_item` into by
-        `objectName` — same contract `DatabaseStatusPanel.root_object`
-        documents."""
+        `objectName` — the same contract every `qml/` panel exposes."""
         return self._surface.root_object

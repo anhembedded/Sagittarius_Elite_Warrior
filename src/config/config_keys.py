@@ -61,7 +61,6 @@ class ConfigKeys(str, Enum):
     BACKTEST_VIEW = "backtest.view"
 
     # Market Data Hub / KLine Inspector
-    KLINE_INSPECTOR_PAGE_SIZE = "kline_inspector.page_size"
 
     # Developer mode — enables extra UI instrumentation (e.g. click logging)
     DEV_MODE = "dev.mode"

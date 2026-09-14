@@ -22,6 +22,19 @@ lý do ấy đi qua review.
 số tăng, và test sẽ **báo đỏ khi bạn làm nó giảm** mà quên hạ trần theo, nên
 trần không thể phình ra rồi nằm đó mãi.
 
+## The bare-base ratchet now points against a newer rule (2026-09-14)
+
+`find_bare_qt_base_widgets` was written under `EPIC-007E`/`007F`, whose rule was
+"inherit the engine kit's `Card`/`Panel`/`Overlay`". ADR D20–D22 reversed that
+for anything built from `EPIC-025` on: a dialog is a `QDialog`, a panel is a
+plain container holding a `QTableView`, and the kit's bases paint exactly the
+card chrome ADR D21 removed. So a **new** desktop widget deriving `QWidget` or
+`QDialog` is correct, and the honest answer to this guard is
+`# base-exempt: <reason naming the ADR>` — not a raised ceiling, which would
+also let an old-style widget back in. PR 0.4b added the first two
+(`DatabaseStatusPanel`, `KlineInspectorDialog`). The guard still earns its keep:
+it makes every one of those a deliberate, reviewed line.
+
 ## Bẫy đã thật sự xảy ra, đừng lặp lại
 
 `ruff format` và marker `token-exempt` đánh nhau: marker phải nằm **cùng dòng**

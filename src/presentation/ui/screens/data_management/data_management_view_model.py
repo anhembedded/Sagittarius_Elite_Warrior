@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
@@ -10,19 +8,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qml_property import (
     notifying_property,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.DatabaseStatusTable.database_status_table_model import (
-    DatabaseStatusTableModel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.KlineInspectorTable.kline_inspector_table_model import (
-    KLineInspectorTableModel,
-)
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,
 )
 
-if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from .database_status_table_model import DatabaseStatusTableModel
+from .kline_inspector_table_model import KLineInspectorTableModel
 
 #: `EPIC-010H`: the real list now comes from Settings via
 #: `app_defaults.default_symbol_options()`, which the presenter applies
@@ -37,15 +29,15 @@ class DataManagementViewModel(BaseQmlViewModel):
     @brief QML-facing state for the Database screen (Storage Vault).
 
     @details
-    Owns the raw status table model and the log model, and turns QML
-    interactions into request signals for DataManagementPresenter.
+    Owns the raw status table model, the candle-inspector table model and
+    the log model, and turns UI interactions into request signals for
+    DataManagementPresenter.
 
-    `EPIC-015` Phase 2: no longer owns a search filter proxy for the status
-    table — `DatabaseStatusPanel`/`DatabaseStatusVM`
-    (`qml/DatabaseStatusTable/`) owns its own `DatabaseStatusFilterProxy`
-    around `status_model` now, and `statusModel`/`searchText` were removed
-    from here once the `QListView`-based table (their only reader) was
-    replaced.
+    It does not own a search filter proxy for the status table:
+    `DatabaseStatusPanel` owns its own `DatabaseStatusFilterProxy` around
+    `status_model` (`EPIC-015` Phase 2, unchanged by the QtWidgets rebuild
+    in `EPIC-025` PR 0.4b), and `statusModel`/`searchText` were removed from
+    here when the table that read them was replaced.
     """
 
     selectedSymbolChanged = Signal()
@@ -122,14 +114,9 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._coverage_segments: list[dict] = []
 
         # KLine Inspector & Audit State (BOT-112B)
-        self._kline_inspector_model = KLineInspectorTableModel(self, page_size=100)
+        self._kline_inspector_model = KLineInspectorTableModel(self)
         self._kline_inspector_symbol = ""
         self._kline_inspector_interval = TimeFrame.ONE_MINUTE.value
-        #: `EPIC-015`: raw candles retained alongside the paginated model —
-        #: `KLineInspectorTableModel.set_klines()` converts-and-discards them,
-        #: but `KlineInspectorVM` (the QML port's read-only table) wants real
-        #: `MarketData` back, not the already-formatted `KLineDisplayRow`s.
-        self._kline_inspector_klines: list[MarketData] = []
         self._audit_running = False
         self._audit_passed = True
         self._audit_anomaly_count = 0
@@ -418,18 +405,6 @@ class DataManagementViewModel(BaseQmlViewModel):
     def klineInspectorTotalRecords(self) -> int:
         return self._kline_inspector_model.total_records
 
-    @Property(int, notify=klineInspectorChanged)
-    def klineInspectorCurrentPage(self) -> int:
-        return self._kline_inspector_model.current_page
-
-    @Property(int, notify=klineInspectorChanged)
-    def klineInspectorTotalPages(self) -> int:
-        return self._kline_inspector_model.total_pages
-
-    @Property(int, notify=klineInspectorChanged)
-    def klineInspectorPageSize(self) -> int:
-        return self._kline_inspector_model.page_size
-
     @Property(bool, notify=auditResultChanged)
     def auditRunning(self) -> bool:
         return self._audit_running
@@ -468,23 +443,6 @@ class DataManagementViewModel(BaseQmlViewModel):
     def requestCancel(self) -> None:
         self.cancelRequested.emit()
 
-    @Slot(int)
-    def requestKlinePage(self, page: int) -> None:
-        self._kline_inspector_model.set_page(page)
-        self.klineInspectorChanged.emit()
-
-    @Slot(int)
-    def requestKlinePageSize(self, page_size: int) -> None:
-        self._kline_inspector_model.set_page_size(page_size)
-        self.klineInspectorChanged.emit()
-
-    @Slot(str, result=bool)
-    def requestKlineJumpToDate(self, date_query: str) -> bool:
-        found = self._kline_inspector_model.jump_to_date(date_query)
-        if found:
-            self.klineInspectorChanged.emit()
-        return found
-
     @Slot(str, str, list)
     def set_kline_inspector_data(
         self,
@@ -494,7 +452,6 @@ class DataManagementViewModel(BaseQmlViewModel):
     ) -> None:
         self._kline_inspector_symbol = symbol
         self._kline_inspector_interval = interval
-        self._kline_inspector_klines = list(klines)
         self._kline_inspector_model.set_klines(klines)
         self._audit_running = False
         self._audit_summary_text = ""
@@ -533,11 +490,3 @@ class DataManagementViewModel(BaseQmlViewModel):
     @property
     def kline_inspector_model(self) -> KLineInspectorTableModel:
         return self._kline_inspector_model
-
-    @property
-    def kline_inspector_klines(self) -> list[MarketData]:
-        """The raw candles behind the currently-inspected symbol/interval —
-        `DataManagementKlineInspectorSource`'s read path for
-        `KlineInspectorVM.get_klines`. Not a QML `Property`: nothing in
-        `.qml` reads this directly, only the Python adapter."""
-        return self._kline_inspector_klines

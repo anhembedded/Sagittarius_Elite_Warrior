@@ -73,7 +73,7 @@ most effective bug channel — it must not be lost). No change in business behav
 | 0.2 | the mechanism: `core/`, `shell/`, `BoundedContextModule`, registry, `DoubleClaimCheck`, `LegacyScreenAdapter`, one `ConfigManager`, the `dev.mode` gate; theme layer removed (OS theme) | the app opens as before, now in the OS theme |
 | 0.3 | `support/binance_gateway` | — |
 | 0.4a | `modules/market_data` end to end **behind its existing UI**: domain, application, contracts, adapters, the module registered in `shell/modules.py`, CLI `sync` / `stream`, contract suites and verified fakes. The Data Management screen keeps its current QML widgets and now consumes the module's contracts | CLI `sync` still syncs a symbol |
-| 0.4b | Data Management rebuilt as QtWidgets (HLD §11): a `QTableView` panel, a kline-inspector dialog, a time-range dialog, a timeframe picker; four `.qml` files deleted | Data Management: sync a symbol, inspect klines |
+| 0.4b | Data Management rebuilt as QtWidgets (HLD §11): a `QTableView` panel with four `QAction`s and a kline-inspector `QDialog`; four `.qml` files deleted (**not** the time-range and timeframe pickers — those are shared with four other screens, EPIC-025A §1.7). Then the screen moves into `modules/market_data/ui/` and is contributed through `ScreenContribution` | Data Management: sync a symbol, inspect klines |
 | 0.5 | the skeleton walks with N = 2 (`chart_coordinator` → `IMarketDataSync`) | Trading chart still loads history |
 
 ## 3.1 Engine milestones (HLD §8 — the harvest)

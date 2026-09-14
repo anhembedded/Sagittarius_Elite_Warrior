@@ -42,8 +42,10 @@ shards, gaps, coverage, `MarketDataVenue`), `application/` (the `sync/` and `dat
 the klines query, the market stream), `contracts/` (`IHistoricalKlines`, `ISymbolCatalog`,
 `IMarketStream`, `IMarketDataSync`, `IRangeCoverage`, DTOs, the events `MarketTickEvent` and
 `SingleSyncProgressEvent`), `adapters/` (`persistence/`, `binance/market/`), `ui/` (the Data
-Management mode rebuilt as QtWidgets — HLD §11: its four QML widgets become a `QTableView` panel,
-a kline-inspector dialog, a time-range dialog and a timeframe picker; no `.qml`), the CLI
+Management mode rebuilt as QtWidgets — HLD §11: its four sole-owned QML files become a `QTableView`
+panel and a kline-inspector `QDialog`; no `.qml`. **This sentence used to name a time-range dialog
+and a timeframe picker instead — see §1.7: those two widgets are shared with four other screens and
+cannot be rebuilt from inside a Data Management pull request**), the CLI
 commands `sync` and `stream`. Also in this phase (ADR D21 as executed by **D21a**): remove
 `qdarktheme` from `requirements.txt` and delete `_apply_theme()` with its two `ui.theme.*` keys, so
 every standard control renders in the OS theme from Phase 0 on. `Palette`, `seed_app_theme()` and
@@ -203,7 +205,8 @@ splitting needs no permission.
 | | Content | Risk it carries |
 | :-- | :--- | :--- |
 | **0.4a** | the module: `domain/`, `application/`, `contracts/`, `adapters/`, registration in `shell/modules.py`, CLI `sync` / `stream`, contract suites and verified fakes. Data Management keeps its current widgets and consumes the module through its contracts | a pure move — every existing test must still pass, unchanged |
-| **0.4b** | Data Management rebuilt as QtWidgets panels and dialogs; four `.qml` files deleted | the first visible UI change of the epic; the QML baseline drops by four |
+| **0.4b-1** | the two QML islands inside Data Management rebuilt as a `QTableView` panel and a `QDialog`; four `.qml` files deleted | the first visible UI change of the epic; the QML baseline drops by four |
+| **0.4b-2** | the screen moves to `modules/market_data/ui/` and is contributed through `ScreenContribution`; its eight allowlist entries retire | the shell stops naming a screen it no longer owns |
 
 The user's Phase 0 checkpoint ("Data Management: sync a symbol") lands on **0.4b**, with the CLI
 check on 0.4a.
@@ -383,6 +386,132 @@ does, inside the handler. Parsing moving out did not make the handlers validatio
 The full gate (`scripts/ci-local.ps1 -Full`), with its log grepped for
 `FAILED|ERROR|Traceback|ResourceWarning` — the console is not evidence, because Qt's offscreen mode
 dumps harmless `TypeError`s after pytest's summary line.
+
+## 1.7 What PR 0.4b-1 shipped: the last QML left Data Management (2026-09-14)
+
+Data Management holds no `.qml` file any more. Its two QML islands — the shard status table and
+the candle-lookup modal — are a `QTableView` with four `QAction`s and a `QDialog`, and the four
+`.qml` files behind them are deleted (ADR D20). The screen around them was already QtWidgets
+(`EPIC-005E`), so this pull request is the two islands and nothing else; moving the screen into
+`modules/market_data/ui/` is 0.4b-2.
+
+### The spec named the wrong four files, and the inventory said so before any code moved
+
+§1 of this document says Data Management's *"four QML widgets become a `QTableView` panel, a
+kline-inspector dialog, a time-range dialog and a timeframe picker"*. The count is right and the
+list is wrong. `TimeframePicker/*` and `TimeRangePicker/*` are **shared** — Backtest, Dashboard,
+Settings, the chart card and the market picker all load them — so rebuilding them here would have
+rebuilt four other screens' widgets from inside a Data Management pull request. The four files
+that are sole-owned by this screen, and therefore the four that went, are:
+
+| Deleted | Lines | Replaced by |
+| :--- | :-: | :--- |
+| `qml/DatabaseStatusTable/DatabaseStatusTable.qml` | 94 | `data_management_widgets/database_status_panel.py` |
+| `qml/DatabaseStatusTable/DatabaseStatusRow.qml` | 148 | the model's six columns, rendered by `QTableView` |
+| `qml/KlineInspectorTable/KlineInspectorTable.qml` | 74 | `data_management_widgets/kline_inspector_dialog.py` |
+| `qml/KlineInspectorTable/KlineInspectorRow.qml` | 112 | the model's eight columns, rendered by `QTableView` |
+
+The two shared pickers stay until their last consumer is rebuilt — the same ratchet logic ADR D21a
+applies to `Palette` and `kit/style.py`, and the reason the QML baseline is a shrink-only list
+rather than a deadline.
+
+### The row buttons became actions, which is the rule and not a preference
+
+```
+BEFORE (QML)                                  AFTER (QtWidgets)
+DatabaseStatusTable.qml                       DatabaseStatusPanel
+  PanelHeader + TextField (search)              QLabel + QLineEdit (search)
+  DataTable                                     QToolBar: 4 QActions
+    ListView                                    QTableView (6 columns, sortable)
+      DatabaseStatusRow  x N                      + the same 4 QActions as its
+        4 Buttons each  <- 4N controls              context menu  <- 4 controls
+```
+
+`QAction` had **zero** occurrences in `src/` before this pull request; these four are the app's
+first. That is the Consistency principle made literal ("one `QAction` per user action, carrying its
+shortcut, its menu entry and its toolbar button"), and it is why the buttons could not simply be
+moved into cells: a control per row is the shape QML forces, not the shape the desktop has.
+
+Three consequences worth naming, because each is a behaviour change a reviewer should look for:
+
+- **an action now acts on the selected row**, so the panel has a selection model where the QML
+  table had none. A regression test pins that the action follows the selection rather than the row
+  order.
+- **`Inspect gaps` greys out instead of disappearing** on a healthy shard (`visible: !isHealthy`
+  before). An action that vanishes teaches the reader nothing.
+- **`Clear` asks first.** The QML row fired `clear` straight at the Presenter on one click; a
+  destructive action must confirm and name its consequence (`Docs/HLD/11_desktop_workbench.md`
+  §11.5). The confirmation is injectable, so the tests drive it without a modal.
+
+### Two models that were `QAbstractTableModel` in name only
+
+Both tables already had a real Qt model — and both declared `columnCount() == 1` and served custom
+QML roles, because a `ListView` delegate drew the columns itself. A `QTableView` asks for
+`DisplayRole` per `(row, column)` plus `headerData()`, neither of which existed. So the columns
+moved out of the deleted delegates and into the models, which is where the sorting came from too:
+`SORT_ROLE` carries the comparable value behind each cell, because `"1,234"` sorts before `"9"` as
+text and `"15m"` before `"1h"` before `"1m"`. The first version of that returned a
+`(healthy, text)` tuple and the sort silently did nothing — a `QVariant` Qt cannot order — which is
+recorded in the model rather than quietly fixed.
+
+### What was deleted because nothing read it
+
+`KLineInspectorTableModel` paginated in memory: `set_page`, `set_page_size`, `jump_to_date`,
+`total_pages`, four view-model properties, three view-model slots, a `ConfigKeys` entry and the
+Presenter block that read it. None of it had reached a widget since `EPIC-015` removed pagination
+from the QML port, so the page size in a user's config file has had no effect for weeks. Deleting
+it changes nothing the user can see; keeping it would have meant a `QTableView` bound to a model
+that hides 99% of its rows.
+
+### Numbers
+
+| Measure | Before 0.4b-1 | After | Target |
+| :--- | :-: | :-: | :-: |
+| `.qml` files in the app | 35 | **31** | -> 0 (Phase 4) |
+| `Theme.*` bindings inside `.qml` | 229 | **204** | -> 0 |
+| `.qml` files under `screens/data_management/`'s ownership | 4 | **0** | 0 |
+| `QAction` declarations in `src/` | 0 | **4** | grows with every rebuilt screen |
+| Bare-Qt-base findings | 2 | **2** (+2 `base-exempt`) | see the note below |
+| Lines, this pull request | — | **+2021 / -3149** | net -1128 |
+| New tree -> legacy tree imports | 0 | **0** | 0 |
+| Allowlist entries | 38 | **38** | -> 0 (0.4b-2 retires 8) |
+
+### One guard pointed the other way, and was answered rather than raised
+
+`tests/unit/presentation/ui/test_widget_guards_hold.py` locks the number of classes deriving a bare
+`QWidget`/`QDialog` at 2, because `EPIC-007E`/`007F`'s rule was "inherit the kit's
+`Card`/`Panel`/`Overlay`". ADR D20–D22 reversed that for new desktop widgets: a dialog **is** a
+`QDialog`, and the kit's bases paint the card chrome ADR D21 removed. Both new classes therefore
+carry `# base-exempt: <reason>` — the guard's own escape hatch — and the ceiling stays at 2, so an
+old-style widget still cannot slip back in. The reversal is written into that file's docstring;
+raising the number instead would have hidden it.
+
+The colour guard was answered the same way, by **not** adding a colour: the candle table's
+bullish/bearish cells read `chart_card/theme.py`'s existing `BULL_COLOR`/`BEAR_COLOR`, already
+documented there as "not chrome — a candle body is green because it closed up". One constant, two
+widgets; the alternative was a second hex literal for the same idea, which this repository has been
+bitten by often enough.
+
+### Two questions for the user, both about what the app offers rather than how it is built
+
+Neither is a consequence of this rebuild; both were found by the inventory that preceded it, and
+both are the user's call under `ONBOARDING.md` §7 because they change what the app promises:
+
+1. **The integrity audit is live and unreachable.** `AuditDatabaseIntegrityQuery` is bound, handled
+   and tested, `DataManagementViewModel` exposes `requestRunAudit` and five audit properties, and
+   the Presenter runs it — but no widget has a button for it. Expose it as a fifth `QAction`, or
+   record it as deliberately deferred?
+2. **Jump-to-date in the candle table is gone with the pagination.** The old `jump_to_date()`
+   answered "which page holds 2024-05-01"; with a virtualized table the useful version is "scroll
+   to and select that candle", which is a new feature, not a migrated one.
+
+### Verification
+
+The full gate (`scripts/ci-local.ps1 -Full`), with its log grepped for
+`FAILED|ERROR|Traceback|ResourceWarning`. The first run of it was **red on four tests** — the two
+widget guards above, the colour guard, and one test asserting the deleted modal's `objectName` —
+and all four were real: two rule conflicts to resolve explicitly, one invented colour, one stale
+name.
 
 ## 2. Done when
 

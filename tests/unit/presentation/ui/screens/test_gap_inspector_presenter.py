@@ -192,4 +192,4 @@ def test_database_screen_constructs_both_inspector_modals_with_the_right_object_
     assert view._gap_inspector is not None
     assert view._gap_inspector.objectName() == "gapInspectorModal"
     assert view._kline_inspector is not None
-    assert view._kline_inspector.objectName() == "klineInspectorModal"
+    assert view._kline_inspector.objectName() == "klineInspectorDialog"

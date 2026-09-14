@@ -46,7 +46,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
     DatabaseStatusPanel,
     GapInspectorDialog,
-    KlineInspectorDialogWidget,
+    KlineInspectorDialog,
     TimeRangeCardWidget,
     field_style,
 )
@@ -124,14 +124,17 @@ class DataManagementView(BaseView):
     rebuilds the render layer, wiring the same view-model signals by hand instead of
     through QML property bindings.
 
-    `logModel`/`klineInspectorModel` are QML `Property(..., constant=True)`
-    — set once here and never reassigned; their own Qt model signals
-    (`dataChanged`/`rowsInserted`/...) drive the `QListView`s directly, same as they
-    drove QML's `ListView`s. The status table itself is `DatabaseStatusPanel`
-    (EPIC-015 Phase 2) — an embedded QML component, not a `QListView`, built
-    lazily in `set_view_model()` the same way `_kline_inspector`/
-    `_gap_inspector`/`_timeframe_picker` are, since `_build_ui()` runs before
-    a real view model exists to construct it from.
+    `EPIC-025` PR 0.4b removed the last QML from this screen: the status
+    table is `DatabaseStatusPanel` (a `QTableView` and four `QAction`s) and
+    the candle lookup is `KlineInspectorDialog` (a `QDialog`), both
+    QtWidgets, so nothing here loads a `.qml` file any more (ADR D20).
+
+    `logModel` and the two table models are set once and never reassigned;
+    their own Qt model signals (`dataChanged`/`rowsInserted`/...) drive the
+    views directly. The status panel is built lazily in `set_view_model()`
+    the same way `_kline_inspector`/`_gap_inspector`/`_timeframe_picker`
+    are, since `_build_ui()` runs before a real view model exists to
+    construct it from.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -147,7 +150,7 @@ class DataManagementView(BaseView):
         # Presenter injects it, so a pair starred here is starred on Backtest
         # and Dev Board too. Self-constructed so a bare view still works.
         self._symbol_preferences = SymbolPreferences()
-        self._kline_inspector: KlineInspectorDialogWidget | None = None
+        self._kline_inspector: KlineInspectorDialog | None = None
         self._gap_inspector: GapInspectorDialog | None = None
         self._status_panel: DatabaseStatusPanel | None = None
         self._build_ui()
@@ -303,9 +306,7 @@ class DataManagementView(BaseView):
         if self._view_model is None:
             return
         if self._kline_inspector is None:
-            self._kline_inspector = KlineInspectorDialogWidget(
-                self._view_model, parent=self
-            )
+            self._kline_inspector = KlineInspectorDialog(self._view_model, parent=self)
         self._kline_inspector.open_dialog()
 
     def _open_gap_inspector(self) -> None:
@@ -603,11 +604,11 @@ class DataManagementView(BaseView):
         return card
 
     def _build_status_column(self) -> QVBoxLayout:
-        """The status table itself (`DatabaseStatusPanel`, EPIC-015 Phase 2)
-        is NOT built here — `_build_ui()` runs before a real view model
-        exists to construct its `DatabaseStatusVM` from. `self._status_column`
-        is kept so `set_view_model()` can `insertWidget(0, ..., 1)` the panel
-        into this (otherwise empty) slot."""
+        """The status table itself (`DatabaseStatusPanel`) is NOT built
+        here — `_build_ui()` runs before a real view model exists to
+        construct it from its `status_model`. `self._status_column` is kept
+        so `set_view_model()` can `insertWidget(0, ..., 1)` the panel into
+        this (otherwise empty) slot."""
         column = QVBoxLayout()
         self._status_column = column
         return column

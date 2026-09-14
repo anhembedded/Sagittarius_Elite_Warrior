@@ -1,5 +1,11 @@
 # qml/kit — shared QML primitives
 
+> **`DatabaseStatusTable` and `KlineInspectorTable` no longer exist**
+> (`EPIC-025` PR 0.4b, 2026-09-14): both were rebuilt as `QTableView`s under
+> `screens/data_management/` and their `.qml` files deleted (ADR D20). They are
+> still named below because this file records what each primitive was extracted
+> from; the retrofits described for them are history, not current wiring.
+
 Seven components now. The first four came from a design-system spec the user
 provided 2026-08-30: `PanelHeader`, `Button`, `LogPanel`, `DialogShell`. Each
 replaces a pattern every widget built so far this session (`SymbolPicker`,
