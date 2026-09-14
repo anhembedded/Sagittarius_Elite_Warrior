@@ -1,11 +1,16 @@
 """Guard: every `.agents/rules/*.md` is listed by both navigation files.
 
-Claude Code loads `CLAUDE.md` automatically and loads nothing else — the
-`trigger: always_on` front-matter field in the rule files is a convention of
-`.agents/Skills/`, not a loading mechanism. So the table in `CLAUDE.md` is
+Claude Code loads `CLAUDE.md` automatically; it never loads `.agents/rules/*.md`
+— the `trigger: always_on` front-matter field in the rule files is a convention
+of `.agents/Skills/`, not a loading mechanism. So the table in `CLAUDE.md` is
 not a convenience index: it is the *only* thing that tells an agent a rule
-file exists. `.agents/AGENTS.md` plays the same role for the scheduled
-agents.
+file exists. `.agents/AGENTS.md` plays the same role for the scheduled agents.
+
+The one partial exception is the `trigger: on_file_change` rules, which have a
+thin pointer under `.claude/rules/` so Claude loads them on reading a matching
+source file (`test_claude_rule_pointers_match_agents_rules.py` keeps the two in
+step). A pointer routes to a rule; it never announces that the rule exists to
+someone who has not opened a matching file, so it replaces no row below.
 
 An unlisted rule is an unread rule, and this has already cost real defects.
 On 2026-09-02 the `CLAUDE.md` table listed 7 of the 13 rule files. An agent

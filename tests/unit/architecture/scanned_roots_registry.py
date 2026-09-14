@@ -131,6 +131,10 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/test_rule_navigation_is_complete.py",
         ((".agents/rules", "*-rule.md"),),
     ),
+    (
+        "tests/unit/architecture/test_claude_rule_pointers_match_agents_rules.py",
+        ((".agents/rules", "*-rule.md"), (".claude/rules", "*.md")),
+    ),
     ("tests/unit/test_task_board_is_consistent.py", (("Tasks", "*.md"),)),
     # --- sanity ---------------------------------------------------------------
     (
