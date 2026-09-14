@@ -76,6 +76,53 @@ most effective bug channel — it must not be lost). No change in business behav
 | 0.4b | Data Management rebuilt as QtWidgets (HLD §11): a `QTableView` panel with four `QAction`s and a kline-inspector `QDialog`; four `.qml` files deleted (**not** the time-range and timeframe pickers — those are shared with four other screens, EPIC-025A §1.7). The screen itself stays in the legacy tree until Phase 4: moving it needs `support/ui_kit`/`support/charting`, or it costs 35 imports pointing back at the legacy tree (EPIC-025A §1.8) | Data Management: sync a symbol, inspect klines |
 | 0.5 | ✅ the skeleton walks: `IMarketDataSync` published with a frozen request DTO, a verified fake and an 11-guarantee contract suite; **four** consumers moved onto it, not the two this row planned — `chart_coordinator`, `stream_lifecycle_controller`, `data_sync_coordinator`, `sync_coordinator` — because all four were building the same command (allowlist 38 → 34). `BUG-120` fell out on the way: the fake's own query helper was verified by nothing | Trading chart still loads history; Dev Board Start Live still syncs |
 
+## 3.3 Phase 1 as pull requests (cut 2026-09-14, after Phase 0's measurements)
+
+`TRACKING.md` says the Phase 1+ bars are re-cut once Phase 0's numbers are in. They are, and the
+answer is that Phase 1 cannot be one pull request either: `EPIC-025B` itself calls it **the
+highest-risk phase of the epic**, and the measurements say why.
+
+| Measured 2026-09-14 | Value |
+| :--- | :--- |
+| Member names duplicated `screens/trading` ↔ `screens/dashboard` | **59** (Phase 1's own "done when": → 0) |
+| `screens/dashboard` | 15 files, **5,013 lines** — becomes a surface with *zero* business logic |
+| `screens/trading` | 9 files, 2,467 lines — same |
+| `domain/trading` + `use_cases/trading` + `infrastructure/binance` | 50 files, **3,693 lines** to move |
+| Allowlist entries Phase 1 retires | **23 of 34** (see the split below) |
+
+**The cut follows PR 0.5's shape, because that shape is now proven rather than argued:** publish
+the port, move every consumer onto it, leave the code where it is; move the code in a later pull
+request. 0.5 retired four allowlist entries with all four consumers still sitting in the legacy
+tree, which is the property that makes each step independently shippable with the app running.
+
+| PR | Content | Retires | Risk |
+| :-: | :--- | :-: | :--- |
+| **1.1** | `IHistoricalKlines` + `IMarketStream` — the two ports `EPIC-025A` §1 assigns here. Same template as 0.5, and it removes `chart_coordinator._load_history`'s `getattr(response, "data", response)` probing (`architecture-rule` §2.1's forbidden shape) on the way. `interactive_shell.py` moves into `shell/`, retiring the two CLI lines | 12 | low — one module, four consumers, the template exists |
+| **1.2** | `ISymbolCatalog` + `IRangeCoverage`, completing HLD §3.4's published set for `market_data`; `exchange_session_factory`'s two adapter lines go with them | 6 | low |
+| **1.3** | `modules/trading` **behind its existing UI**: `IOrderSubmission`, `ITradingSession` (with the symbol lease), `IAccountSnapshot`; `domain/trading`, `use_cases/trading` (less arm/disarm) and the trading side of `infrastructure/binance` move in. Also closes the two screens-importing-`infrastructure/**` layer violations | 5 | **high** — `TradingSessionState` is mutable state shared by three Presenters, three handlers and the websocket thread |
+| **1.4** | Trading and Dev Board become the surfaces `surfaces/trading/` and `surfaces/dev_board/`: nested `QMainWindow`, contributed panels / dialogs / actions, perspective per user. **This is where 59 → 0 happens**, and where the 9 `ui/common` items used only by these two screens move | 0 | **high** — the largest UI change in the epic |
+| **1.5** | The **Welcome** surface (ADR D13, D14) as the default route, the `dev.mode` toggle with Restart, and the first `dev_probe` (trading's Exchange API tester) | 0 | medium |
+
+Why the ports come before the module and the module before the surfaces: each pull request then
+has exactly one reason to fail. 1.1 and 1.2 are `market_data` work that cannot break trading; 1.3
+moves trading code behind ports its consumers already use, so a regression is in the move and
+nowhere else; only then do the screens change shape, with every dependency already a contract.
+
+### The eleven entries Phase 1 does **not** retire
+
+Data Management's eleven lines reach `market_data`'s database maintenance, gaps, scan, audit and
+bulk sync. `EPIC-025A` §1.8 re-keyed eight of them to Phase 1 on the reasoning that *a port call
+retires the entry wherever the file lives* — true mechanically, and wrong here, because HLD §3.4
+marks every one of those operations **Internal**: its selection rule is that a port is public when
+it has a consumer in **another module**, and theirs is the Data Management screen, which §1.8
+sends into `modules/market_data/ui/` in Phase 4. Publishing seven ports to serve a consumer that
+is about to move inside the module would publish internals to satisfy a counter.
+
+**Decided:** they are re-keyed to **Phase 4**, retired by the screen move, which is where §1.8 was
+already sending the screen. The allowlist file carries the reason. This keeps HLD §3.4's
+public/internal split intact and leaves Phase 4's own "done when" — *the guard allowlist is
+empty* (`EPIC-025E` §2) — as the only place that number is claimed.
+
 ## 3.1 Engine milestones (HLD §8 — the harvest)
 
 | Step | Trigger | Content | Tracked in the Engine repository as |

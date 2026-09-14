@@ -646,8 +646,16 @@ was visible by reading the code; each needed breaking the line and running.
   ~60 files into `modules/market_data/` and thereby turned every legacy screen's *same-tree* import
   of a market_data command into a *visible, counted* violation: 10 → 41. The honest reading is the
   one the allowlist file's own header now carries: 41 → 38 (PR 0.4a-2) → **34** (PR 0.5), shrink-only
-  from the peak, with each remaining line keyed to the phase that retires it. Phase 1's target of an
-  **empty** allowlist is unchanged and is the number that matters.
+  from the peak, with each remaining line keyed to the phase that retires it. **Correction, same
+  day:** an earlier draft of this paragraph said Phase 1's target is an empty allowlist. It is not,
+  and no document ever said so — README §2's **empty** is the *end of the epic*, `EPIC-025E` §2
+  makes it Phase 4's own "done when", and `EPIC-025B` sets no allowlist target at all. The invented
+  target mattered because it made §1.8's deferral look like a contradiction it never was: §1.8
+  defers the **file move** to Phase 4 while keeping the eight `data_management.*` entries keyed to
+  **Phase 1**, and says why in one sentence — *a port call replaces the dispatch, which retires the
+  entry wherever the file happens to live.* Retiring an entry and moving a file are different acts
+  with different phases, which is exactly what PR 0.5 demonstrated: four entries retired with every
+  consumer still sitting in the legacy tree.
 - **"`ci-local.ps1 -Full` is green (the log file grepped, not the console)"** — ✅ `RESULT: PASS`,
   4360 passed, 4 skipped, coverage 95.12%, both greps clean; GitHub `Lint & Test` green on
   `e0c91be9`.
